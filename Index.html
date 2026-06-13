@@ -537,6 +537,14 @@ const SEED_DATA = [
 const STORAGE_KEY = 'ofipapel_registros_v1';
 
 // ═══════════════════════════════════════════════════════
+// ESTADO — declarado aquí para evitar TDZ antes de loadData()
+// ═══════════════════════════════════════════════════════
+const USERS = { rober:'ofipapel2026', admin:'ofipapel2026', david:'ofipapel2026', monica:'ofipapel2026' };
+let currentUser = null;
+let registros = [...SEED_DATA];
+let charts = {};
+
+// ═══════════════════════════════════════════════════════
 // SUPABASE — base de datos en la nube (sincronización real)
 // ═══════════════════════════════════════════════════════
 const SUPA_URL = 'https://agjmciudnnginqybnogh.supabase.co';
@@ -674,14 +682,6 @@ const DEUDA_DATA = [
   { nombre:'Préstamo IGIC · BBVA (2440)', tipo:'alerta', nominal:44281, pendiente:44281, cuota:14760.19, vto:'07/05/2025', banco:'BBVA', pct:100, detalle:'⚠ VENCIDO — Revisar con BBVA urgente' },
   { nombre:'Préstamo Renta 2023 · BBVA (Luis)', tipo:'', nominal:27100, pendiente:11453, cuota:2318.72, vto:'31/07/2025', banco:'BBVA', pct:58, detalle:'IRPF / Patrimonio · Capital 2.263€ + Interés 56€' },
 ];
-
-// ═══════════════════════════════════════════════════════
-// ESTADO
-// ═══════════════════════════════════════════════════════
-const USERS = { rober:'ofipapel2026', admin:'ofipapel2026', david:'ofipapel2026', monica:'ofipapel2026' };
-let currentUser = null;
-let registros = [...SEED_DATA];
-let charts = {};
 
 // ═══════════════════════════════════════════════════════
 // LOGIN
