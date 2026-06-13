@@ -311,7 +311,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
   .sidebar{width:64px;}
   .sidebar-name,.nav-item span:not(.ni),.sidebar-footer .sidebar-user,.sidebar-footer .btn-logout,.nav-section{display:none;}
   .sidebar-logo{justify-content:center;padding:8px 0 !important;}
-  .sidebar-logo img{height:40px;width:40px;object-fit:contain;}
+  .sidebar-logo img{height:40px !important;width:40px !important;object-fit:contain;}
   .main-content{margin-left:64px;}
   .nav-item{justify-content:center;padding:12px;}
   .chart-row,.chart-row-2{grid-template-columns:1fr;}
@@ -324,6 +324,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
   .kpi-val{font-size:15px;white-space:nowrap;overflow:hidden;}
   .kpi-val.big{font-size:16px;}
   .topbar-date{display:none;}
+  .saldo-hero{font-size:28px !important;white-space:nowrap;}
 }
 </style>
 </head>
@@ -359,7 +360,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v2.6</div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v2.7</div>
   </div>
 </div>
 
@@ -916,7 +917,7 @@ function renderDashboard(){
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
         <div>
           <div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.55);margin-bottom:6px;">💰 TOTAL CONSOLIDADO — Saldo Actual</div>
-          <div style="font-size:48px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#8DC41E;line-height:1;letter-spacing:-1px;">${fmt(total(last))}</div>
+          <div class="saldo-hero" style="font-size:48px;font-weight:800;font-family:'IBM Plex Mono',monospace;color:#8DC41E;line-height:1;letter-spacing:-1px;">${fmt(total(last))}</div>
           <div style="font-size:13px;margin-top:8px;color:rgba(255,255,255,0.7);">
             ${deltaTotal>=0
               ? '<span style=\'color:#8DC41E;font-weight:600;\'>▲ +'+fmt(Math.abs(deltaTotal))+'</span> vs día anterior &nbsp;·&nbsp; <span style=\'color:#8DC41E;\'>▲ +'+fmt(Math.abs(total(last)-total(first)))+'</span> en el período'
