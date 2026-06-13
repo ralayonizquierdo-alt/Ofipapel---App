@@ -3,46 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ofipapel — Preview del nuevo diseño</title>
+<title>Ofipapel — Preview nuevo diseño</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-/* ====================================================
-   TOKENS
-   ==================================================== */
+/* ── TOKENS ─────────────────────────────────────────── */
 :root {
-  --primary:      #33B540;
-  --primary-dark: #1D7A22;
-  --primary-light:#E8F7EA;
-  --lime:         #AECC30;
-  --blue:         #4299C4;
-  --cta:          #F5A623;
-  --cta-dark:     #D4861A;
-  --dark:         #1C1C1C;
-  --dark-80:      #3A3A3A;
-  --gray-100:     #F7FBF7;
-  --gray-200:     #E8F0E8;
-  --gray-400:     #A8BBA8;
-  --gray-500:     #6B806B;
-  --white:        #FFFFFF;
-  --font-h: 'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-b: 'Inter', system-ui, sans-serif;
-  --r-sm: 6px; --r-md: 10px; --r-lg: 16px; --r-xl: 24px; --r-full: 9999px;
-  --sh-sm: 0 2px 8px rgba(0,0,0,.08);
-  --sh-md: 0 4px 16px rgba(0,0,0,.11);
-  --sh-lg: 0 8px 32px rgba(0,0,0,.13);
-  --sh-xl: 0 16px 48px rgba(0,0,0,.16);
+  --primary:#33B540; --primary-dark:#1D7A22; --primary-light:#E8F7EA;
+  --lime:#AECC30; --blue:#4299C4; --cta:#F5A623; --cta-dark:#D4861A;
+  --dark:#1C1C1C; --dark-80:#3A3A3A; --gray-100:#F7FBF7; --gray-200:#E8F0E8;
+  --gray-400:#A8BBA8; --gray-500:#6B806B; --white:#fff;
+  --fh:'Plus Jakarta Sans',system-ui,sans-serif; --fb:'Inter',system-ui,sans-serif;
+  --rn:8px; --rm:12px; --rl:16px; --rx:24px; --rf:9999px;
+  --sh-sm:0 2px 8px rgba(0,0,0,.08); --sh-md:0 4px 16px rgba(0,0,0,.11);
+  --sh-lg:0 8px 32px rgba(0,0,0,.14); --sh-xl:0 16px 48px rgba(0,0,0,.18);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{font-family:var(--font-b);font-size:16px;line-height:1.6;color:var(--dark);background:var(--gray-100);-webkit-font-smoothing:antialiased}
+body{font-family:var(--fb);font-size:16px;line-height:1.6;color:var(--dark);background:var(--gray-100);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 img{max-width:100%;height:auto;display:block}
 a{color:var(--primary);text-decoration:none}
 ul{list-style:none}
 .container{width:100%;max-width:1280px;margin-inline:auto;padding-inline:clamp(1rem,4vw,2rem)}
-h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var(--dark)}
-.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:var(--r-sm);font-size:1rem;font-weight:600;font-family:var(--font-b);line-height:1;transition:all .15s;cursor:pointer;white-space:nowrap;border:2px solid transparent}
+h1,h2,h3,h4{font-family:var(--fh);font-weight:800;line-height:1.15;color:var(--dark)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:var(--rn);font-size:1rem;font-weight:600;font-family:var(--fb);line-height:1;transition:all .15s;cursor:pointer;white-space:nowrap;border:2px solid transparent}
 .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
 .btn-primary:hover{background:var(--primary-dark);border-color:var(--primary-dark);transform:translateY(-1px);box-shadow:var(--sh-md)}
 .btn-cta{background:var(--cta);color:#fff;border-color:var(--cta)}
@@ -55,421 +40,530 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
 .btn-lg{padding:16px 32px;font-size:1.125rem}
 
 /* preview badge */
-.preview-badge{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;font-size:12px;font-weight:700;padding:6px 16px;border-radius:var(--r-full);z-index:9999;letter-spacing:.05em;backdrop-filter:blur(8px)}
+.preview-badge{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;font-size:12px;font-weight:700;padding:6px 16px;border-radius:var(--rf);z-index:9999;letter-spacing:.05em;backdrop-filter:blur(8px);pointer-events:none}
 
-/* ====================================================
-   TOP BAR
-   ==================================================== */
+/* ── TOP BAR ─────────────────────────────────────────── */
 .top-bar{background:var(--primary-dark);color:rgba(255,255,255,.88);height:40px;font-size:.75rem;font-weight:500}
 .top-bar-inner{display:flex;align-items:center;justify-content:space-between;height:100%;gap:16px}
 .tb-left{display:flex;align-items:center;gap:20px}
 .tb-item{display:flex;align-items:center;gap:6px}
-.tb-shipping{color:var(--lime)}
+.tb-shipping{color:var(--lime);font-weight:700}
 .tb-right{display:flex;align-items:center;gap:16px}
-.tb-phone,.tb-link{color:rgba(255,255,255,.9);display:flex;align-items:center;gap:4px;transition:color .15s}
+.tb-phone,.tb-link{color:rgba(255,255,255,.9);display:flex;align-items:center;gap:5px;transition:color .15s}
 .tb-phone:hover,.tb-link:hover{color:var(--lime)}
 
-/* ====================================================
-   HEADER
-   ==================================================== */
-.site-header{background:#fff;height:72px;box-shadow:var(--sh-sm);position:sticky;top:0;z-index:100}
-.header-inner{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:24px;height:72px}
-.logo-text{font-family:var(--font-h);font-size:1.75rem;font-weight:800;color:var(--primary);letter-spacing:-.04em}
-.logo-sub{font-size:.65rem;color:var(--gray-500);letter-spacing:.04em;display:block;margin-top:-4px}
-.search-wrap{max-width:560px}
-.search-box{display:flex;align-items:center;background:var(--gray-100);border:1.5px solid var(--gray-200);border-radius:var(--r-full);overflow:hidden;transition:border-color .15s,box-shadow .15s}
-.search-box:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(51,181,64,.12)}
-.search-input{flex:1;padding:10px 20px;background:transparent;border:none;outline:none;font-size:1rem;color:var(--dark)}
+/* ── HEADER ─────────────────────────────────────────── */
+.site-header{background:#fff;height:76px;box-shadow:var(--sh-sm);position:sticky;top:0;z-index:500;transition:box-shadow .2s}
+.site-header.scrolled{box-shadow:var(--sh-md)}
+.header-inner{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:24px;height:76px}
+.logo-wrap img{height:52px;width:auto}
+.search-wrap{position:relative}
+.search-box{display:flex;align-items:center;background:var(--gray-100);border:2px solid var(--gray-200);border-radius:var(--rf);overflow:hidden;transition:border-color .2s,box-shadow .2s}
+.search-box:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(51,181,64,.15)}
+.search-input{flex:1;padding:10px 20px;background:transparent;border:none;outline:none;font-size:.9375rem;color:var(--dark);font-family:var(--fb)}
 .search-input::placeholder{color:var(--gray-400)}
-.search-btn{padding:8px 16px;color:var(--primary);display:flex;align-items:center;justify-content:center;border-left:1.5px solid var(--gray-200);background:transparent;border-radius:0;cursor:pointer;transition:all .15s}
-.search-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
-.header-actions{display:flex;align-items:center;gap:4px}
-.h-action{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 12px;color:var(--dark-80);border-radius:var(--r-sm);transition:all .15s;font-size:.75rem;font-weight:500;cursor:pointer;position:relative}
+.search-btn{padding:8px 18px;color:var(--gray-500);display:flex;align-items:center;justify-content:center;background:transparent;border:none;cursor:pointer;transition:all .15s}
+.search-btn:hover{color:var(--primary)}
+.header-actions{display:flex;align-items:center;gap:2px}
+.h-action{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 12px;color:var(--dark-80);border-radius:var(--rn);transition:all .15s;font-size:.7rem;font-weight:600;cursor:pointer;position:relative;user-select:none}
 .h-action:hover{color:var(--primary);background:var(--primary-light)}
-.cart-badge{position:absolute;top:2px;right:8px;background:var(--cta);color:#fff;font-size:10px;font-weight:700;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.h-action svg{width:22px;height:22px}
+.cart-badge{position:absolute;top:2px;right:6px;background:var(--cta);color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1}
+.ham-btn{display:none;flex-direction:column;gap:5px;padding:10px;cursor:pointer;background:transparent;border:none;color:var(--dark)}
+.ham-btn span{display:block;width:22px;height:2px;background:currentColor;border-radius:2px;transition:all .25s}
+.ham-btn.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.ham-btn.open span:nth-child(2){opacity:0;transform:scaleX(0)}
+.ham-btn.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
 
-/* ====================================================
-   MEGAMENÚ
-   ==================================================== */
-.main-nav{background:var(--primary);border-top:1px solid rgba(255,255,255,.1)}
-.nav-menu{display:flex;align-items:stretch;gap:0}
-.nav-menu li{position:relative}
-.nav-menu > li > a{display:flex;align-items:center;gap:4px;padding:12px 18px;color:rgba(255,255,255,.92);font-size:.8125rem;font-weight:600;letter-spacing:.02em;white-space:nowrap;transition:background .15s;height:48px}
-.nav-menu > li > a:hover,.nav-menu > li.active > a{background:rgba(0,0,0,.2);color:#fff}
-.nav-menu .submenu{display:none;position:absolute;top:100%;left:0;min-width:220px;background:#fff;border-radius:0 0 var(--r-md) var(--r-md);box-shadow:var(--sh-lg);border-top:3px solid var(--primary);list-style:none;padding:8px 0;z-index:200}
-.nav-menu li:hover .submenu{display:block}
-.nav-menu .submenu a{display:block;padding:8px 20px;color:var(--dark);font-size:.875rem;font-weight:500;transition:all .15s}
-.nav-menu .submenu a:hover{color:var(--primary);background:var(--primary-light);padding-left:24px}
+/* ── MEGAMENÚ ─────────────────────────────────────────── */
+.main-nav{background:var(--primary);border-top:1px solid rgba(255,255,255,.12);position:relative;z-index:400}
+.nav-menu{display:flex;align-items:stretch}
+.nav-menu > li{position:relative}
+.nav-menu > li > a{display:flex;align-items:center;gap:5px;padding:0 18px;color:rgba(255,255,255,.92);font-size:.8rem;font-weight:600;letter-spacing:.02em;white-space:nowrap;height:46px;transition:background .15s}
+.nav-menu > li > a:hover,.nav-menu > li.is-open > a{background:rgba(0,0,0,.22);color:#fff}
+.nav-menu > li.active > a{background:rgba(0,0,0,.18);color:#fff}
+.nav-menu > li > a .chev{transition:transform .2s;font-size:10px;opacity:.7}
+.nav-menu > li.is-open > a .chev{transform:rotate(180deg)}
+.nav-menu .offers-link{color:var(--lime) !important;font-weight:800}
+.submenu{display:none;position:absolute;top:calc(100% + 2px);left:0;min-width:240px;background:#fff;border-radius:0 var(--rn) var(--rn) var(--rn);box-shadow:var(--sh-xl);border-top:3px solid var(--primary);list-style:none;padding:8px 0;z-index:600;animation:fadeDown .15s ease}
+.submenu.mega{min-width:560px;display:none;grid-template-columns:1fr 1fr;gap:0;padding:20px}
+.submenu.mega.is-open{display:grid}
+.submenu.is-open:not(.mega){display:block}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.submenu li a{display:flex;align-items:center;gap:8px;padding:8px 20px;color:var(--dark);font-size:.875rem;font-weight:500;transition:all .15s}
+.submenu li a:hover{color:var(--primary);background:var(--primary-light);padding-left:24px}
+.sub-col-title{font-size:.7rem;font-weight:800;color:var(--gray-500);text-transform:uppercase;letter-spacing:.07em;padding:4px 20px 10px;border-bottom:1px solid var(--gray-200);margin-bottom:4px}
+.nav-spacer{flex:1}
 
-/* ====================================================
-   HERO SLIDER
-   ==================================================== */
-.hero{position:relative;min-height:520px;background:linear-gradient(135deg,var(--primary-dark) 0%,#2a9e35 100%);display:flex;align-items:center;overflow:hidden}
-.hero-bg{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.6) 0%,rgba(0,0,0,.2) 55%,transparent 100%)}
-.hero-content{position:relative;z-index:1;max-width:620px;padding:64px 0}
-.hero-tag{display:inline-block;background:var(--lime);color:var(--dark);font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:4px 12px;border-radius:var(--r-full);margin-bottom:16px}
-.hero-title{font-size:clamp(2rem,5vw,3.25rem);font-weight:800;color:#fff;line-height:1.1;margin-bottom:16px}
-.hero-sub{font-size:1.125rem;color:rgba(255,255,255,.85);line-height:1.6;margin-bottom:32px;max-width:480px}
+/* mobile nav overlay */
+.mobile-nav{display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.5)}
+.mobile-nav.open{display:block}
+.mobile-panel{position:fixed;top:0;left:-100%;width:min(320px,90vw);height:100%;background:#fff;box-shadow:var(--sh-xl);overflow-y:auto;transition:left .3s cubic-bezier(.4,0,.2,1)}
+.mobile-nav.open .mobile-panel{left:0}
+.mp-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--gray-200)}
+.mp-header img{height:40px}
+.mp-close{width:36px;height:36px;border-radius:50%;background:var(--gray-100);display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;color:var(--dark-80)}
+.mp-items{padding:12px 0}
+.mp-item{display:flex;align-items:center;justify-content:space-between;padding:13px 20px;font-size:.9375rem;font-weight:600;color:var(--dark);border-bottom:1px solid var(--gray-200);cursor:pointer}
+.mp-item:hover{color:var(--primary);background:var(--primary-light)}
+.mp-sub{display:none;background:var(--gray-100)}
+.mp-sub.open{display:block}
+.mp-sub a{display:block;padding:10px 20px 10px 36px;font-size:.875rem;color:var(--dark-80);border-bottom:1px solid var(--gray-200)}
+.mp-sub a:hover{color:var(--primary)}
+
+/* ── HERO SLIDER ─────────────────────────────────────────── */
+.hero{position:relative;height:540px;overflow:hidden;background:var(--primary-dark)}
+.hero-slide{position:absolute;inset:0;display:flex;align-items:center;opacity:0;transition:opacity .7s ease;background-size:cover;background-position:center}
+.hero-slide.active{opacity:1;z-index:1}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.72) 0%,rgba(0,0,0,.35) 55%,rgba(0,0,0,.1) 100%)}
+.hero-content{position:relative;z-index:2;max-width:620px;padding:0}
+.hero-tag{display:inline-block;background:var(--lime);color:var(--dark);font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:4px 12px;border-radius:var(--rf);margin-bottom:14px}
+.hero-title{font-size:clamp(2rem,4.5vw,3.25rem);font-weight:800;color:#fff;line-height:1.1;margin-bottom:14px;text-shadow:0 2px 12px rgba(0,0,0,.3)}
+.hero-sub{font-size:1.0625rem;color:rgba(255,255,255,.88);line-height:1.65;margin-bottom:28px;max-width:500px}
 .hero-ctas{display:flex;gap:12px;flex-wrap:wrap}
-.hero-dots{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:5}
-.hero-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.4);cursor:pointer;transition:all .2s}
-.hero-dot.active{background:#fff;width:24px;border-radius:4px}
-.hero-decor{position:absolute;right:-40px;top:50%;transform:translateY(-50%);width:560px;height:560px;background:rgba(255,255,255,.04);border-radius:50%;pointer-events:none}
-.hero-decor2{position:absolute;right:120px;top:50%;transform:translateY(-50%);width:360px;height:360px;background:rgba(255,255,255,.04);border-radius:50%;pointer-events:none}
-.hero-slide-info{position:absolute;bottom:60px;right:48px;background:rgba(255,255,255,.12);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.2);border-radius:var(--r-lg);padding:16px 20px;max-width:280px;display:flex;align-items:center;gap:12px}
-.hero-slide-info-icon{width:44px;height:44px;background:var(--lime);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--dark)}
-.hero-slide-info-text strong{display:block;font-size:.9rem;font-weight:700;color:#fff}
-.hero-slide-info-text span{font-size:.75rem;color:rgba(255,255,255,.75)}
+/* prev/next arrows */
+.hero-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;backdrop-filter:blur(4px)}
+.hero-arrow:hover{background:rgba(255,255,255,.32)}
+.hero-prev{left:20px}
+.hero-next{right:20px}
+/* dots */
+.hero-dots{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:3}
+.hero-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.4);cursor:pointer;transition:all .25s;border:none;padding:0}
+.hero-dot.active{background:#fff;width:26px;border-radius:4px}
+/* floating card */
+.hero-float{position:absolute;bottom:40px;right:48px;z-index:3;background:rgba(255,255,255,.12);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.25);border-radius:var(--rl);padding:14px 18px;max-width:260px;display:flex;align-items:center;gap:12px}
+.hero-float-icon{width:42px;height:42px;background:var(--lime);border-radius:var(--rn);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--dark)}
+.hero-float-text strong{display:block;font-size:.875rem;font-weight:700;color:#fff;line-height:1.3}
+.hero-float-text span{font-size:.75rem;color:rgba(255,255,255,.75)}
 
-/* ====================================================
-   TRUST BAR
-   ==================================================== */
-.trust-bar{background:#fff;border-bottom:1px solid var(--gray-200);padding:20px 0}
-.trust-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
-.trust-item{display:flex;align-items:center;gap:12px}
-.trust-icon{width:40px;height:40px;background:var(--primary-light);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;color:var(--primary);flex-shrink:0}
-.trust-icon svg{width:20px;height:20px}
-.trust-text strong{display:block;font-size:.8125rem;font-weight:600;color:var(--dark);line-height:1.2}
-.trust-text span{font-size:.7rem;color:var(--gray-500);line-height:1.3}
+/* ── TRUST BAR ─────────────────────────────────────────── */
+.trust-bar{background:#fff;border-bottom:2px solid var(--gray-200);padding:18px 0}
+.trust-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.trust-item{display:flex;align-items:center;gap:10px;padding:4px 0}
+.trust-icon{width:38px;height:38px;background:var(--primary-light);border-radius:var(--rn);display:flex;align-items:center;justify-content:center;color:var(--primary);flex-shrink:0}
+.trust-icon svg{width:18px;height:18px}
+.trust-text strong{display:block;font-size:.8rem;font-weight:700;color:var(--dark);line-height:1.25}
+.trust-text span{font-size:.7rem;color:var(--gray-500)}
 
-/* ====================================================
-   SECTION HEADERS
-   ==================================================== */
-.section{padding:64px 0}
-.section-sm{padding:40px 0}
-.section-header{margin-bottom:40px}
+/* ── SECTIONS ─────────────────────────────────────────── */
+.section{padding:60px 0}
+.section-sm{padding:44px 0}
+.section-header{margin-bottom:36px}
 .section-header.flex{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:16px}
-.section-title{font-size:1.875rem;font-weight:800;position:relative}
-.section-title::after{content:'';display:block;width:48px;height:4px;background:var(--primary);border-radius:var(--r-full);margin-top:12px}
-.section-title.center::after{margin-inline:auto}
-.section-sub{margin-top:12px;font-size:1.1rem;color:var(--gray-500)}
+.section-title{font-size:1.875rem;font-weight:800}
+.section-title::after{content:'';display:block;width:44px;height:4px;background:var(--primary);border-radius:var(--rf);margin-top:10px}
+.section-sub{margin-top:10px;font-size:1rem;color:var(--gray-500)}
 
-/* ====================================================
-   CATEGORY GRID
-   ==================================================== */
+/* ── CATEGORY GRID ─────────────────────────────────────────── */
 .cat-section{background:#fff}
-.cat-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:12px;margin-bottom:32px}
-.cat-card{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 8px;background:var(--gray-100);border:1.5px solid var(--gray-200);border-radius:var(--r-lg);cursor:pointer;transition:all .2s;text-align:center}
+.cat-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:10px;margin-bottom:28px}
+.cat-card{display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 6px;background:var(--gray-100);border:1.5px solid var(--gray-200);border-radius:var(--rl);cursor:pointer;transition:all .2s;text-align:center;text-decoration:none}
 .cat-card:hover{border-color:var(--primary);background:var(--primary-light);transform:translateY(-3px);box-shadow:var(--sh-md)}
-.cat-icon{width:52px;height:52px;background:#fff;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;color:var(--primary);transition:all .2s}
-.cat-icon svg{width:26px;height:26px}
+.cat-icon{width:50px;height:50px;background:#fff;border-radius:var(--rn);display:flex;align-items:center;justify-content:center;color:var(--primary);transition:all .2s;box-shadow:var(--sh-sm)}
+.cat-icon svg{width:24px;height:24px}
 .cat-card:hover .cat-icon{background:var(--primary);color:#fff}
-.cat-name{font-size:.72rem;font-weight:600;color:var(--dark);line-height:1.3}
-.cat-count{font-size:.65rem;color:var(--gray-400)}
+.cat-name{font-size:.7rem;font-weight:700;color:var(--dark);line-height:1.3}
+.cat-count{font-size:.62rem;color:var(--gray-400)}
 .cat-cta{text-align:center}
 
-/* ====================================================
-   PRODUCTS GRID
-   ==================================================== */
+/* ── PRODUCTS ─────────────────────────────────────────── */
 .products-section{background:var(--gray-100)}
 .products-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
-.product-card{background:#fff;border:1.5px solid var(--gray-200);border-radius:var(--r-lg);overflow:hidden;transition:all .2s;display:flex;flex-direction:column}
+.product-card{background:#fff;border:1.5px solid var(--gray-200);border-radius:var(--rl);overflow:hidden;transition:all .2s;display:flex;flex-direction:column}
 .product-card:hover{box-shadow:var(--sh-lg);transform:translateY(-4px)}
 .p-img-wrap{position:relative;aspect-ratio:1;background:var(--gray-100);overflow:hidden}
-.p-img{width:100%;height:100%;object-fit:contain;padding:24px;transition:transform .4s}
-.product-card:hover .p-img{transform:scale(1.06)}
-.p-badge{position:absolute;top:12px;left:12px;background:var(--cta);color:#fff;font-size:.65rem;font-weight:800;padding:2px 8px;border-radius:var(--r-full);letter-spacing:.05em;text-transform:uppercase}
+.p-img{width:100%;height:100%;object-fit:cover;transition:transform .45s}
+.product-card:hover .p-img{transform:scale(1.07)}
+.p-badge{position:absolute;top:10px;left:10px;background:var(--cta);color:#fff;font-size:.62rem;font-weight:800;padding:3px 9px;border-radius:var(--rf);letter-spacing:.05em;text-transform:uppercase;z-index:1}
 .p-badge.new{background:var(--blue)}
-.p-overlay{position:absolute;inset:0;background:rgba(0,0,0,.42);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;opacity:0;transition:opacity .2s}
+.p-overlay{position:absolute;inset:0;background:rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;z-index:2}
 .product-card:hover .p-overlay{opacity:1}
-.p-body{padding:16px;display:flex;flex-direction:column;gap:6px;flex:1}
-.p-cat{font-size:.7rem;color:var(--primary);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.p-body{padding:14px 16px;display:flex;flex-direction:column;gap:5px;flex:1}
+.p-cat{font-size:.68rem;color:var(--primary);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
 .p-name{font-size:.875rem;font-weight:600;color:var(--dark);line-height:1.4}
 .p-name a{color:inherit}
 .p-name a:hover{color:var(--primary)}
-.p-price{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--primary);margin-top:auto}
-.p-price-old{text-decoration:line-through;color:var(--gray-400);font-weight:400;font-size:.9rem}
-.p-stars{display:flex;align-items:center;gap:2px}
-.p-add{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;background:var(--primary);color:#fff;border:none;border-radius:var(--r-sm);font-size:.875rem;font-weight:600;cursor:pointer;transition:background .15s;margin-top:8px;font-family:var(--font-b)}
+.p-stars{display:flex;align-items:center;gap:2px;margin:2px 0}
+.p-price{display:flex;align-items:center;gap:8px;font-weight:800;color:var(--primary);font-size:1.0625rem;margin-top:auto}
+.p-price-old{text-decoration:line-through;color:var(--gray-400);font-weight:400;font-size:.875rem}
+.p-add{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;background:var(--primary);color:#fff;border:none;border-radius:var(--rn);font-size:.875rem;font-weight:600;cursor:pointer;transition:background .15s;margin-top:8px;font-family:var(--fb)}
 .p-add:hover{background:var(--primary-dark)}
 
-/* Placeholder product images (colored SVG) */
-.p-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
-.p-placeholder svg{width:80px;height:80px;opacity:.35}
-
-/* ====================================================
-   PROMO BANNERS
-   ==================================================== */
+/* ── PROMO BANNERS ─────────────────────────────────────────── */
 .promo-section{background:var(--gray-100)}
 .promo-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-.promo-card{position:relative;border-radius:var(--r-xl);overflow:hidden;min-height:220px;display:flex;align-items:stretch;transition:all .3s;cursor:pointer}
+.promo-card{position:relative;border-radius:var(--rx);overflow:hidden;min-height:240px;display:flex;align-items:stretch;transition:all .3s;cursor:pointer;background-size:cover;background-position:center}
 .promo-card:hover{transform:translateY(-4px);box-shadow:var(--sh-xl)}
-.promo-green{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 100%)}
-.promo-lime{background:linear-gradient(135deg,#5A8A00 0%,var(--lime) 100%)}
-.promo-blue{background:linear-gradient(135deg,#1A5A8A 0%,var(--blue) 100%)}
-.promo-body{position:relative;z-index:1;padding:32px 32px;display:flex;flex-direction:column;justify-content:center;gap:8px;flex:1}
-.promo-label{font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.65)}
-.promo-lime .promo-label{color:rgba(0,0,0,.55)}
-.promo-title{font-size:1.5rem;font-weight:800;color:#fff;line-height:1.15}
+.promo-overlay{position:absolute;inset:0}
+.promo-green .promo-overlay{background:linear-gradient(135deg,rgba(29,122,34,.92) 0%,rgba(51,181,64,.75) 100%)}
+.promo-lime .promo-overlay{background:linear-gradient(135deg,rgba(90,138,0,.9) 0%,rgba(174,204,48,.75) 100%)}
+.promo-body{position:relative;z-index:1;padding:36px 36px;display:flex;flex-direction:column;justify-content:center;gap:8px;flex:1}
+.promo-label{font-size:.65rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.7)}
+.promo-lime .promo-label{color:rgba(0,0,0,.5)}
+.promo-title{font-size:1.625rem;font-weight:800;color:#fff;line-height:1.15}
 .promo-lime .promo-title{color:var(--dark)}
-.promo-text{font-size:.875rem;color:rgba(255,255,255,.8);line-height:1.5;max-width:280px}
+.promo-text{font-size:.875rem;color:rgba(255,255,255,.85);max-width:280px;line-height:1.55}
 .promo-lime .promo-text{color:rgba(0,0,0,.6)}
-.promo-link{display:inline-flex;align-items:center;gap:8px;margin-top:8px;font-size:.875rem;font-weight:700;color:#fff;text-decoration:underline;text-underline-offset:3px}
-.promo-lime .promo-link{color:var(--dark)}
-.promo-deco{position:absolute;right:0;bottom:0;opacity:.15;pointer-events:none}
-.promo-deco svg{width:140px;height:140px}
+.promo-link{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:.875rem;font-weight:700;color:#fff;border-bottom:2px solid rgba(255,255,255,.4);padding-bottom:2px;transition:border-color .15s;width:fit-content}
+.promo-lime .promo-link{color:var(--dark);border-bottom-color:rgba(0,0,0,.3)}
+.promo-link:hover{border-bottom-color:currentColor}
 
-/* ====================================================
-   CATALOGS
-   ==================================================== */
+/* ── CATALOGS ─────────────────────────────────────────── */
 .catalogs-section{background:#fff}
 .catalogs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
-.catalog-card{background:#fff;border:1.5px solid var(--gray-200);border-radius:var(--r-lg);overflow:hidden;transition:all .2s;display:flex;flex-direction:column;cursor:pointer}
+.catalog-card{background:#fff;border:1.5px solid var(--gray-200);border-radius:var(--rl);overflow:hidden;transition:all .2s;display:flex;flex-direction:column}
 .catalog-card:hover{box-shadow:var(--sh-lg);transform:translateY(-4px)}
-.cat-cover{aspect-ratio:2/3;position:relative;overflow:hidden}
-.cat-cover-inner{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;padding:24px}
+.cat-cover{aspect-ratio:2/3;position:relative;overflow:hidden;background-size:cover;background-position:center}
 .cat-cover-overlay{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
 .catalog-card:hover .cat-cover-overlay{opacity:1}
-.cat-info{padding:16px;display:flex;flex-direction:column;gap:8px;flex:1}
-.cat-year{display:inline-block;background:var(--primary-light);color:var(--primary-dark);font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:var(--r-full)}
-.cat-title{font-size:1rem;font-weight:700;color:var(--dark)}
+.cat-cover-inner{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:20px;position:relative;z-index:1}
+.cat-info{padding:16px;display:flex;flex-direction:column;gap:7px;flex:1}
+.cat-year{display:inline-block;background:var(--primary-light);color:var(--primary-dark);font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:var(--rf);width:fit-content}
+.cat-title{font-size:.9375rem;font-weight:700;color:var(--dark)}
 .cat-desc{font-size:.8rem;color:var(--gray-500);line-height:1.5}
-.cat-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}
+.cat-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:8px}
+.cover-bg-1{background:linear-gradient(160deg,var(--primary-dark),#2db53a)}
+.cover-bg-2{background:linear-gradient(160deg,#0D4A7A,var(--blue))}
+.cover-bg-3{background:linear-gradient(160deg,#5A8A00,var(--lime))}
+.cover-bg-4{background:linear-gradient(160deg,#7A2D00,#D4861A)}
 
-/* Catalog cover colors */
-.cover-1{background:linear-gradient(135deg,var(--primary-dark),var(--primary))}
-.cover-2{background:linear-gradient(135deg,#0D4A7A,var(--blue))}
-.cover-3{background:linear-gradient(135deg,#5A8A00,var(--lime))}
-.cover-4{background:linear-gradient(135deg,#7A2D00,#D4861A)}
-
-/* ====================================================
-   STORE CTA
-   ==================================================== */
-.store-cta{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 100%);padding:64px 0}
-.store-cta-inner{display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap}
-.store-cta-title{font-size:2.25rem;font-weight:800;color:#fff;margin-bottom:8px}
-.store-cta-sub{color:rgba(255,255,255,.82);font-size:1.1rem;margin-bottom:16px;max-width:500px}
+/* ── STORE CTA ─────────────────────────────────────────── */
+.store-cta{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 60%,#4dc454 100%);padding:60px 0;position:relative;overflow:hidden}
+.store-cta::before{content:'';position:absolute;right:-80px;top:-80px;width:400px;height:400px;border-radius:50%;background:rgba(255,255,255,.05)}
+.store-cta-inner{display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap;position:relative}
+.store-cta-title{font-size:2.125rem;font-weight:800;color:#fff;margin-bottom:8px}
+.store-cta-sub{color:rgba(255,255,255,.82);font-size:1rem;margin-bottom:14px;max-width:520px}
 .store-cta-hours{display:flex;align-items:center;gap:8px;color:var(--lime);font-size:.875rem;font-weight:600}
 .store-cta-actions{display:flex;gap:12px;flex-shrink:0;flex-wrap:wrap}
 
-/* ====================================================
-   FOOTER
-   ==================================================== */
-.footer-top{background:var(--primary-dark);padding:32px 0}
+/* ── FOOTER ─────────────────────────────────────────── */
+.footer-top{background:var(--primary-dark);padding:28px 0}
 .footer-trust{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
 .ft-item{display:flex;align-items:center;gap:12px}
-.ft-icon{width:44px;height:44px;background:rgba(255,255,255,.1);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;color:var(--lime);flex-shrink:0}
-.ft-icon svg{width:22px;height:22px}
-.ft-item strong{display:block;font-size:.8125rem;font-weight:600;color:#fff;line-height:1.2}
-.ft-item span{display:block;font-size:.7rem;color:rgba(255,255,255,.6)}
-.footer-main{background:#1C1C1C;padding:48px 0}
-.footer-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1.2fr;gap:32px}
-.footer-logo-text{font-family:var(--font-h);font-size:1.75rem;font-weight:800;color:#fff;letter-spacing:-.04em}
-.footer-about{margin-top:16px;font-size:.875rem;color:rgba(255,255,255,.55);line-height:1.6;max-width:280px}
-.footer-social{display:flex;gap:8px;margin-top:20px}
-.footer-social a{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.7);transition:all .15s}
+.ft-icon{width:42px;height:42px;background:rgba(255,255,255,.1);border-radius:var(--rn);display:flex;align-items:center;justify-content:center;color:var(--lime);flex-shrink:0}
+.ft-icon svg{width:20px;height:20px}
+.ft-item strong{display:block;font-size:.8rem;font-weight:600;color:#fff}
+.ft-item span{display:block;font-size:.68rem;color:rgba(255,255,255,.55)}
+.footer-main{background:#1A1A1A;padding:52px 0}
+.footer-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr 1.2fr;gap:36px}
+.footer-logo img{height:48px;filter:brightness(10);opacity:.9}
+.footer-about{margin-top:14px;font-size:.875rem;color:rgba(255,255,255,.5);line-height:1.6;max-width:280px}
+.footer-social{display:flex;gap:8px;margin-top:18px}
+.footer-social a{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.65);transition:all .15s}
 .footer-social a:hover{background:var(--primary);color:#fff}
-.footer-col-title{font-size:.75rem;font-weight:800;color:#fff;letter-spacing:.07em;text-transform:uppercase;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.08)}
-.footer-links{display:flex;flex-direction:column;gap:8px}
-.footer-links a{font-size:.875rem;color:rgba(255,255,255,.6);transition:all .15s}
+.footer-col-title{font-size:.7rem;font-weight:800;color:#fff;letter-spacing:.07em;text-transform:uppercase;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08)}
+.footer-links{display:flex;flex-direction:column;gap:7px}
+.footer-links a{font-size:.875rem;color:rgba(255,255,255,.55);transition:all .15s}
 .footer-links a:hover{color:var(--lime);padding-left:4px}
-.footer-contact-item{display:flex;align-items:flex-start;gap:8px;font-size:.875rem;color:rgba(255,255,255,.6);margin-bottom:12px}
-.footer-contact-item svg{flex-shrink:0;margin-top:2px;color:var(--primary)}
-.footer-contact-item a{color:rgba(255,255,255,.8)}
+.footer-contact-item{display:flex;align-items:flex-start;gap:8px;font-size:.875rem;color:rgba(255,255,255,.55);margin-bottom:12px;line-height:1.5}
+.footer-contact-item svg{flex-shrink:0;margin-top:3px;color:var(--primary)}
+.footer-contact-item a{color:rgba(255,255,255,.75)}
 .footer-contact-item a:hover{color:var(--lime)}
-.footer-bottom{background:#141414;padding:20px 0;border-top:1px solid rgba(255,255,255,.06)}
+.footer-bottom{background:#111;padding:18px 0;border-top:1px solid rgba(255,255,255,.05)}
 .footer-bottom-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.footer-copy{font-size:.75rem;color:rgba(255,255,255,.4)}
+.footer-copy{font-size:.75rem;color:rgba(255,255,255,.35)}
 .footer-legal{display:flex;gap:16px}
-.footer-legal a{font-size:.75rem;color:rgba(255,255,255,.4)}
+.footer-legal a{font-size:.75rem;color:rgba(255,255,255,.35)}
 .footer-legal a:hover{color:#fff}
 
-/* ====================================================
-   SECTION DIVIDERS
-   ==================================================== */
-.section-divider{width:100%;height:1px;background:var(--gray-200)}
+/* ── BACK TO TOP ─────────────────────────────────────────── */
+.back-top{position:fixed;bottom:24px;right:24px;width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--sh-md);z-index:900;transition:all .2s;border:none;opacity:0;pointer-events:none}
+.back-top.show{opacity:1;pointer-events:auto}
+.back-top:hover{background:var(--primary-dark);transform:translateY(-2px)}
 
-/* ====================================================
-   RESPONSIVE
-   ==================================================== */
+/* ── RESPONSIVE ─────────────────────────────────────────── */
 @media(max-width:1200px){
   .cat-grid{grid-template-columns:repeat(6,1fr)}
   .cat-grid .cat-card:nth-child(n+7){display:none}
   .footer-trust{grid-template-columns:repeat(2,1fr)}
+  .footer-grid{grid-template-columns:1fr 1fr}
 }
 @media(max-width:900px){
   .products-grid{grid-template-columns:repeat(3,1fr)}
   .catalogs-grid{grid-template-columns:repeat(3,1fr)}
-  .footer-grid{grid-template-columns:1fr 1fr}
+  .catalogs-grid .catalog-card:last-child{display:none}
+  .main-nav,.top-bar{display:none}
+  .ham-btn{display:flex}
+  .hero{height:420px}
+  .hero-float{display:none}
 }
 @media(max-width:640px){
-  .hero{min-height:380px}
-  .hero-content{padding:48px 0}
-  .trust-grid{grid-template-columns:1fr 1fr}
-  .trust-item:nth-child(n+4){display:none}
-  .cat-grid{grid-template-columns:repeat(4,1fr)}
+  .hero{height:360px}
+  .hero-title{font-size:1.75rem}
+  .trust-grid{grid-template-columns:repeat(2,1fr)}
+  .trust-item:nth-child(n+5){display:none}
+  .cat-grid{grid-template-columns:repeat(3,1fr)}
   .products-grid{grid-template-columns:repeat(2,1fr)}
   .promo-grid{grid-template-columns:1fr}
   .catalogs-grid{grid-template-columns:repeat(2,1fr)}
   .footer-grid{grid-template-columns:1fr}
+  .footer-grid>div:nth-child(n+3){display:none}
   .store-cta-inner{flex-direction:column;align-items:flex-start}
-  .hero-slide-info{display:none}
-  .tb-left .tb-item:last-child{display:none}
+  .header-inner{grid-template-columns:auto auto}
+  .search-wrap{display:none}
+  .tb-left .tb-item:first-child{display:none}
+}
+@media(max-width:420px){
+  .products-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
 <body>
 
-<div class="preview-badge">🎨 PREVIEW — Nuevo diseño Ofipapel 2025</div>
+<div class="preview-badge">Vista previa — Nuevo diseño Ofipapel 2025</div>
 
-<!-- ═══════════════════════════════════════════════════════
-     TOP BAR
-     ═══════════════════════════════════════════════════════ -->
+<!-- TOP BAR -->
 <div class="top-bar">
   <div class="container">
     <div class="top-bar-inner">
       <div class="tb-left">
         <span class="tb-item">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Lun–Vie 9:00–14:00 / 16:00–19:30 · Sáb 9:00–14:00
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Lun–Vie 9:00–14:00 / 16:00–19:30 &nbsp;·&nbsp; Sáb 9:00–14:00
         </span>
         <span class="tb-item tb-shipping">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-          ✓ Envío gratuito en pedidos +50€
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          ✓ Envío gratuito en pedidos &gt;50€
         </span>
       </div>
       <div class="tb-right">
         <a class="tb-phone" href="#">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13 19.79 19.79 0 0 1 1.61 4.38 2 2 0 0 1 3.58 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l1.97-1.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13 19.79 19.79 0 0 1 1.61 4.38 2 2 0 0 1 3.58 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l1.97-1.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
           +34 922 79 49 19
         </a>
         <a class="tb-link" href="#">Iniciar sesión</a>
+        <a class="tb-link" href="#">Registrarse</a>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════
-     HEADER
-     ═══════════════════════════════════════════════════════ -->
-<header class="site-header">
+<!-- HEADER -->
+<header class="site-header" id="site-header">
   <div class="container">
     <div class="header-inner">
-      <!-- Logo -->
-      <div>
-        <a href="#" style="text-decoration:none">
-          <span class="logo-text">OFIPAPEL</span>
-          <span class="logo-sub">SUMINISTROS DE OFICINA</span>
-        </a>
-      </div>
-      <!-- Search -->
+      <a href="#" class="logo-wrap">
+        <img src="data:image/png;base64,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" alt="Ofipapel — Suministros de Oficina">
+      </a>
       <div class="search-wrap">
         <div class="search-box">
           <input class="search-input" type="text" placeholder="¿Qué estás buscando? Papel, sillas, archivadores...">
-          <button class="search-btn">
+          <button class="search-btn" type="button">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </button>
         </div>
       </div>
-      <!-- Actions -->
       <div class="header-actions">
         <div class="h-action">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           <span>Mi cuenta</span>
         </div>
-        <div class="h-action" style="position:relative">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-          <span class="cart-badge">3</span>
+        <div class="h-action" id="cart-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          <span class="cart-badge" id="cart-count">3</span>
           <span>Carrito</span>
         </div>
+        <button class="ham-btn" id="ham-btn" aria-label="Abrir menú" type="button">
+          <span></span><span></span><span></span>
+        </button>
       </div>
     </div>
   </div>
 </header>
 
-<!-- ═══════════════════════════════════════════════════════
-     MEGAMENÚ
-     ═══════════════════════════════════════════════════════ -->
-<nav class="main-nav">
+<!-- MEGAMENÚ DESKTOP -->
+<nav class="main-nav" id="main-nav" aria-label="Menú principal">
   <div class="container">
-    <ul class="nav-menu">
+    <ul class="nav-menu" id="nav-menu">
       <li class="active"><a href="#">Inicio</a></li>
-      <li>
-        <a href="#">Archivo y Clasificación ▾</a>
+      <li class="has-sub">
+        <a href="#">Archivo y Clasificación <span class="chev">▾</span></a>
         <ul class="submenu">
           <li><a href="#">Carpetas y archivadores</a></li>
           <li><a href="#">Cajas de archivo</a></li>
           <li><a href="#">Fundas y sobres</a></li>
-          <li><a href="#">Separadores</a></li>
+          <li><a href="#">Separadores y índices</a></li>
+          <li><a href="#">Bandejas y organizadores</a></li>
         </ul>
       </li>
-      <li>
-        <a href="#">Papel y Etiquetas ▾</a>
+      <li class="has-sub">
+        <a href="#">Papel y Etiquetas <span class="chev">▾</span></a>
         <ul class="submenu">
-          <li><a href="#">Papel multifunción</a></li>
+          <li><a href="#">Papel multifunción A4</a></li>
           <li><a href="#">Etiquetas adhesivas</a></li>
-          <li><a href="#">Papel fotográfico</a></li>
+          <li><a href="#">Papel de color</a></li>
           <li><a href="#">Cuadernos y blocs</a></li>
+          <li><a href="#">Papel fotográfico</a></li>
         </ul>
       </li>
-      <li>
-        <a href="#">Informática ▾</a>
+      <li class="has-sub">
+        <a href="#">Escritura <span class="chev">▾</span></a>
         <ul class="submenu">
-          <li><a href="#">Periféricos</a></li>
-          <li><a href="#">Consumibles tóner</a></li>
-          <li><a href="#">Cables y accesorios</a></li>
+          <li><a href="#">Bolígrafos</a></li>
+          <li><a href="#">Rotuladores y marcadores</a></li>
+          <li><a href="#">Lápices y portaminas</a></li>
+          <li><a href="#">Correctores</a></li>
         </ul>
       </li>
-      <li>
-        <a href="#">Mobiliario ▾</a>
+      <li class="has-sub">
+        <a href="#">Informática <span class="chev">▾</span></a>
+        <ul class="submenu mega">
+          <li class="sub-col">
+            <div class="sub-col-title">Periféricos</div>
+            <ul>
+              <li><a href="#">Ratones y teclados</a></li>
+              <li><a href="#">Auriculares y webcam</a></li>
+              <li><a href="#">Monitores</a></li>
+            </ul>
+          </li>
+          <li class="sub-col">
+            <div class="sub-col-title">Consumibles</div>
+            <ul>
+              <li><a href="#">Cartuchos de tinta</a></li>
+              <li><a href="#">Tóneres láser</a></li>
+              <li><a href="#">Papel para impresora</a></li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+      <li class="has-sub">
+        <a href="#">Mobiliario <span class="chev">▾</span></a>
         <ul class="submenu">
           <li><a href="#">Sillas ergonómicas</a></li>
-          <li><a href="#">Escritorios</a></li>
+          <li><a href="#">Escritorios y mesas</a></li>
           <li><a href="#">Estanterías</a></li>
-          <li><a href="#">Armarios</a></li>
+          <li><a href="#">Armarios de oficina</a></li>
+          <li><a href="#">Pedestales y cajoneras</a></li>
         </ul>
       </li>
       <li><a href="#">Embalaje</a></li>
       <li><a href="#">Material Escolar</a></li>
-      <li><a href="#">Ofimática</a></li>
-      <li style="margin-left:auto"><a href="#" style="color:var(--lime);font-weight:800">🔥 Ofertas</a></li>
+      <li class="nav-spacer"></li>
+      <li><a href="#" class="offers-link">🔥 Ofertas</a></li>
       <li><a href="#">Catálogos</a></li>
       <li><a href="#">Contacto</a></li>
     </ul>
   </div>
 </nav>
 
-<!-- ═══════════════════════════════════════════════════════
-     HERO SLIDER
-     ═══════════════════════════════════════════════════════ -->
-<section class="hero">
-  <div class="hero-bg"></div>
-  <div class="hero-decor"></div>
-  <div class="hero-decor2"></div>
-  <div class="container">
-    <div class="hero-content">
-      <span class="hero-tag">Tenerife y Canarias · 30 años a tu servicio</span>
-      <h1 class="hero-title">Todo lo que tu<br>oficina necesita</h1>
-      <p class="hero-sub">Suministros de oficina, papelería, informática y mobiliario. Más de 20.000 referencias con envío en 24–48 h en Canarias.</p>
-      <div class="hero-ctas">
-        <a href="#productos" class="btn btn-cta btn-lg">
-          Explorar productos
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </a>
-        <a href="#catalogos" class="btn btn-white btn-lg">Ver catálogos</a>
+<!-- MOBILE NAV -->
+<div class="mobile-nav" id="mobile-nav">
+  <div class="mobile-panel" id="mobile-panel">
+    <div class="mp-header">
+      <img src="data:image/png;base64,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" alt="Ofipapel">
+      <button class="mp-close" id="mp-close" type="button" aria-label="Cerrar menú">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <nav class="mp-items">
+      <div class="mp-item">Inicio</div>
+      <div class="mp-item" data-sub="mp-sub-1">Archivo y Clasificación <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="mp-sub" id="mp-sub-1">
+        <a href="#">Carpetas y archivadores</a><a href="#">Cajas de archivo</a><a href="#">Fundas y sobres</a><a href="#">Separadores</a>
+      </div>
+      <div class="mp-item" data-sub="mp-sub-2">Papel y Etiquetas <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="mp-sub" id="mp-sub-2">
+        <a href="#">Papel multifunción A4</a><a href="#">Etiquetas adhesivas</a><a href="#">Cuadernos y blocs</a>
+      </div>
+      <div class="mp-item" data-sub="mp-sub-3">Informática <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="mp-sub" id="mp-sub-3">
+        <a href="#">Ratones y teclados</a><a href="#">Cartuchos de tinta</a><a href="#">Tóneres láser</a>
+      </div>
+      <div class="mp-item" data-sub="mp-sub-4">Mobiliario <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="mp-sub" id="mp-sub-4">
+        <a href="#">Sillas ergonómicas</a><a href="#">Escritorios</a><a href="#">Estanterías</a>
+      </div>
+      <div class="mp-item">Embalaje</div>
+      <div class="mp-item">Material Escolar</div>
+      <div class="mp-item" style="color:var(--cta);font-weight:800">🔥 Ofertas</div>
+      <div class="mp-item">Catálogos</div>
+      <div class="mp-item">Contacto</div>
+    </nav>
+  </div>
+</div>
+
+<!-- HERO SLIDER -->
+<section class="hero" id="hero" aria-label="Banner principal">
+
+  <!-- Slide 1: General -->
+  <div class="hero-slide active"
+    style="background-image:url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1920&q=80')">
+    <div class="hero-overlay"></div>
+    <div class="container">
+      <div class="hero-content">
+        <span class="hero-tag">Tenerife y Canarias · 30 años a tu servicio</span>
+        <h1 class="hero-title">Todo lo que tu<br>oficina necesita</h1>
+        <p class="hero-sub">Más de 20.000 referencias de papelería, informática y mobiliario. Envío express en 24–48 h por toda Canarias.</p>
+        <div class="hero-ctas">
+          <a href="#productos" class="btn btn-cta btn-lg">Explorar productos <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+          <a href="#catalogos" class="btn btn-white btn-lg">Ver catálogos</a>
+        </div>
       </div>
     </div>
   </div>
-  <!-- Floating info card -->
-  <div class="hero-slide-info">
-    <div class="hero-slide-info-icon">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-    </div>
-    <div class="hero-slide-info-text">
-      <strong>Envío express disponible</strong>
-      <span>Entrega en 24–48 h · Pedidos antes de las 14:00</span>
+
+  <!-- Slide 2: Mobiliario -->
+  <div class="hero-slide"
+    style="background-image:url('https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1920&q=80')">
+    <div class="hero-overlay"></div>
+    <div class="container">
+      <div class="hero-content">
+        <span class="hero-tag">Nuevo catálogo 2025</span>
+        <h1 class="hero-title">Mobiliario de<br>Oficina Premium</h1>
+        <p class="hero-sub">Sillas ergonómicas, escritorios y estanterías para crear el espacio de trabajo perfecto.</p>
+        <div class="hero-ctas">
+          <a href="#" class="btn btn-cta btn-lg">Ver mobiliario</a>
+          <a href="#" class="btn btn-white btn-lg">Pedir presupuesto</a>
+        </div>
+      </div>
     </div>
   </div>
-  <div class="hero-dots">
-    <div class="hero-dot active"></div>
-    <div class="hero-dot"></div>
-    <div class="hero-dot"></div>
+
+  <!-- Slide 3: Vuelta al Cole -->
+  <div class="hero-slide"
+    style="background-image:url('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1920&q=80')">
+    <div class="hero-overlay"></div>
+    <div class="container">
+      <div class="hero-content">
+        <span class="hero-tag">Temporada escolar</span>
+        <h1 class="hero-title">Vuelta al Cole<br>2025–2026</h1>
+        <p class="hero-sub">Todo el material escolar: mochilas, cuadernos, estuches y útiles de escritura al mejor precio.</p>
+        <div class="hero-ctas">
+          <a href="#" class="btn btn-cta btn-lg">Ver material escolar</a>
+          <a href="#catalogos" class="btn btn-white btn-lg">Catálogo escolar</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrows -->
+  <button class="hero-arrow hero-prev" id="hero-prev" aria-label="Diapositiva anterior" type="button">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+  <button class="hero-arrow hero-next" id="hero-next" aria-label="Siguiente diapositiva" type="button">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+
+  <!-- Dots -->
+  <div class="hero-dots" role="tablist" aria-label="Diapositivas">
+    <button class="hero-dot active" role="tab" aria-selected="true" aria-label="Diapositiva 1" type="button"></button>
+    <button class="hero-dot" role="tab" aria-selected="false" aria-label="Diapositiva 2" type="button"></button>
+    <button class="hero-dot" role="tab" aria-selected="false" aria-label="Diapositiva 3" type="button"></button>
+  </div>
+
+  <!-- Floating card -->
+  <div class="hero-float">
+    <div class="hero-float-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+    </div>
+    <div class="hero-float-text">
+      <strong>Envío express disponible</strong>
+      <span>24–48 h · Pedidos antes de las 14:00</span>
+    </div>
   </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════
-     TRUST BAR
-     ═══════════════════════════════════════════════════════ -->
+<!-- TRUST BAR -->
 <div class="trust-bar">
   <div class="container">
     <div class="trust-grid">
@@ -479,11 +573,11 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
       </div>
       <div class="trust-item">
         <div class="trust-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-        <div class="trust-text"><strong>Mejor precio</strong><span>Oferta garantizada en todo</span></div>
+        <div class="trust-text"><strong>Mejor precio</strong><span>Oferta garantizada</span></div>
       </div>
       <div class="trust-item">
         <div class="trust-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
-        <div class="trust-text"><strong>Atención personalizada</strong><span>Asesoramiento de expertos</span></div>
+        <div class="trust-text"><strong>Atención personalizada</strong><span>Asesoramiento experto</span></div>
       </div>
       <div class="trust-item">
         <div class="trust-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
@@ -497,9 +591,7 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════
-     CATEGORÍAS
-     ═══════════════════════════════════════════════════════ -->
+<!-- CATEGORÍAS -->
 <section class="cat-section section-sm">
   <div class="container">
     <div class="section-header">
@@ -507,51 +599,42 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
       <p class="section-sub">Encuentra todo lo que necesitas para tu oficina, empresa o escuela</p>
     </div>
     <div class="cat-grid">
-      <div class="cat-card">
+      <a class="cat-card" href="#">
         <div class="cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
-        <span class="cat-name">Archivo y Clasificación</span>
-        <span class="cat-count">1.240 productos</span>
-      </div>
-      <div class="cat-card">
+        <span class="cat-name">Archivo y Clasificación</span><span class="cat-count">1.240 refs.</span>
+      </a>
+      <a class="cat-card" href="#">
         <div class="cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-        <span class="cat-name">Papel y Etiquetas</span>
-        <span class="cat-count">680 productos</span>
-      </div>
-      <div class="cat-card">
+        <span class="cat-name">Papel y Etiquetas</span><span class="cat-count">680 refs.</span>
+      </a>
+      <a class="cat-card" href="#">
         <div class="cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
-        <span class="cat-name">Escritura y Corrección</span>
-        <span class="cat-count">890 productos</span>
-      </div>
-      <div class="cat-card">
+        <span class="cat-name">Escritura y Corrección</span><span class="cat-count">890 refs.</span>
+      </a>
+      <a class="cat-card" href="#">
         <div class="cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
-        <span class="cat-name">Informática</span>
-        <span class="cat-count">520 productos</span>
-      </div>
-      <div class="cat-card">
+        <span class="cat-name">Informática</span><span class="cat-count">520 refs.</span>
+      </a>
+      <a class="cat-card" href="#">
         <div class="cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="17" width="18" height="4" rx="1"/></svg></div>
-        <span class="cat-name">Mobiliario de Oficina</span>
-        <span class="cat-count">340 productos</span>
-      </div>
-      <div class="cat-card">
+        <span class="cat-name">Mobiliario de Oficina</span><span class="cat-count">340 refs.</span>
+      </a>
+      <a class="cat-card" href="#">
         <div class="cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
-        <span class="cat-name">Embalaje</span>
-        <span class="cat-count">460 productos</span>
-      </div>
-      <div class="cat-card">
+        <span class="cat-name">Embalaje</span><span class="cat-count">460 refs.</span>
+      </a>
+      <a class="cat-card" href="#">
         <div class="cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
-        <span class="cat-name">Material Escolar</span>
-        <span class="cat-count">720 productos</span>
-      </div>
-      <div class="cat-card">
+        <span class="cat-name">Material Escolar</span><span class="cat-count">720 refs.</span>
+      </a>
+      <a class="cat-card" href="#">
         <div class="cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg></div>
-        <span class="cat-name">Ofimática / Máquinas</span>
-        <span class="cat-count">210 productos</span>
-      </div>
-      <div class="cat-card">
+        <span class="cat-name">Ofimática / Máquinas</span><span class="cat-count">210 refs.</span>
+      </a>
+      <a class="cat-card" href="#">
         <div class="cat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg></div>
-        <span class="cat-name">Servicios Generales</span>
-        <span class="cat-count">380 productos</span>
-      </div>
+        <span class="cat-name">Servicios Generales</span><span class="cat-count">380 refs.</span>
+      </a>
     </div>
     <div class="cat-cta">
       <a href="#" class="btn btn-outline">Ver todas las categorías <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
@@ -559,9 +642,7 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
   </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════
-     PRODUCTOS DESTACADOS
-     ═══════════════════════════════════════════════════════ -->
+<!-- PRODUCTOS DESTACADOS -->
 <section class="products-section section" id="productos">
   <div class="container">
     <div class="section-header flex">
@@ -569,149 +650,166 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
         <h2 class="section-title">Productos destacados</h2>
         <p class="section-sub">Selección de los más vendidos y mejor valorados</p>
       </div>
-      <a href="#" class="btn btn-outline btn-sm">Ver todos <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+      <a href="#" class="btn btn-outline btn-sm">Ver todos <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     </div>
     <div class="products-grid">
 
-      <!-- Producto 1 -->
+      <!-- P1 Silla ergonómica -->
       <div class="product-card">
         <div class="p-img-wrap">
-          <div class="p-placeholder" style="background:linear-gradient(135deg,#e8f7ea,#d0f0d4)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#33B540" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="4"/><rect x="3" y="10" width="18" height="4"/><rect x="3" y="17" width="18" height="4"/></svg>
-          </div>
-          <div class="p-overlay">
-            <a href="#" class="btn btn-primary btn-sm">Ver producto</a>
-          </div>
+          <img class="p-img" src="https://images.unsplash.com/photo-1580480055273-228ff5388ef8?auto=format&fit=crop&w=400&q=80" alt="Silla ergonómica" loading="lazy">
+          <span class="p-badge">-21%</span>
+          <div class="p-overlay"><a href="#" class="btn btn-primary btn-sm">Ver producto</a></div>
         </div>
         <div class="p-body">
           <span class="p-cat">Mobiliario</span>
           <span class="p-name"><a href="#">Silla Ergonómica Pro — Soporte Lumbar Ajustable</a></span>
-          <div class="p-stars">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          </div>
+          <div class="p-stars">⭐⭐⭐⭐<span style="opacity:.3">⭐</span></div>
           <div class="p-price"><span class="p-price-old">189,99€</span> 149,99€</div>
-          <button class="p-add">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-            Añadir al carrito
-          </button>
+          <button class="p-add" onclick="addToCart(this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Añadir al carrito</button>
         </div>
       </div>
 
-      <!-- Producto 2 -->
+      <!-- P2 Papel A4 -->
       <div class="product-card">
         <div class="p-img-wrap">
-          <div class="p-placeholder" style="background:linear-gradient(135deg,#fff9ec,#fff0cc)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          </div>
+          <img class="p-img" src="https://images.unsplash.com/photo-1589998059171-988d887df646?auto=format&fit=crop&w=400&q=80" alt="Papel A4" loading="lazy">
           <span class="p-badge">-20%</span>
-          <div class="p-overlay">
-            <a href="#" class="btn btn-primary btn-sm">Ver producto</a>
-          </div>
+          <div class="p-overlay"><a href="#" class="btn btn-primary btn-sm">Ver producto</a></div>
         </div>
         <div class="p-body">
           <span class="p-cat">Papel y Etiquetas</span>
           <span class="p-name"><a href="#">Papel A4 80g/m² Blanco — Resma 500 hojas</a></span>
-          <div class="p-stars">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          </div>
+          <div class="p-stars">⭐⭐⭐⭐⭐</div>
           <div class="p-price"><span class="p-price-old">5,99€</span> 4,79€</div>
-          <button class="p-add"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Añadir al carrito</button>
+          <button class="p-add" onclick="addToCart(this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Añadir al carrito</button>
         </div>
       </div>
 
-      <!-- Producto 3 -->
+      <!-- P3 Ratón inalámbrico -->
       <div class="product-card">
         <div class="p-img-wrap">
-          <div class="p-placeholder" style="background:linear-gradient(135deg,#ebf4fb,#d0e8f8)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#4299C4" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          </div>
+          <img class="p-img" src="https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=400&q=80" alt="Ratón inalámbrico" loading="lazy">
           <span class="p-badge new">Nuevo</span>
-          <div class="p-overlay">
-            <a href="#" class="btn btn-primary btn-sm">Ver producto</a>
-          </div>
+          <div class="p-overlay"><a href="#" class="btn btn-primary btn-sm">Ver producto</a></div>
         </div>
         <div class="p-body">
           <span class="p-cat">Informática</span>
-          <span class="p-name"><a href="#">Ratón Inalámbrico Ergonómico 2.4 GHz — 1600 DPI</a></span>
-          <div class="p-stars">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          </div>
+          <span class="p-name"><a href="#">Ratón Inalámbrico Ergonómico 2.4 GHz</a></span>
+          <div class="p-stars">⭐⭐⭐⭐<span style="opacity:.3">⭐</span></div>
           <div class="p-price">22,50€</div>
-          <button class="p-add"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Añadir al carrito</button>
+          <button class="p-add" onclick="addToCart(this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Añadir al carrito</button>
         </div>
       </div>
 
-      <!-- Producto 4 -->
+      <!-- P4 Mochila -->
       <div class="product-card">
         <div class="p-img-wrap">
-          <div class="p-placeholder" style="background:linear-gradient(135deg,#f0f9e8,#ddf2c8)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#AECC30" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-          </div>
-          <div class="p-overlay">
-            <a href="#" class="btn btn-primary btn-sm">Ver producto</a>
-          </div>
+          <img class="p-img" src="https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=400&q=80" alt="Mochila escolar" loading="lazy">
+          <div class="p-overlay"><a href="#" class="btn btn-primary btn-sm">Ver producto</a></div>
         </div>
         <div class="p-body">
           <span class="p-cat">Material Escolar</span>
-          <span class="p-name"><a href="#">Mochila Escolar Reforzada — Compartimentos múltiples</a></span>
-          <div class="p-stars">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#F5A623" stroke="#F5A623" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          </div>
+          <span class="p-name"><a href="#">Mochila Escolar Reforzada — Múltiples compartimentos</a></span>
+          <div class="p-stars">⭐⭐⭐⭐⭐</div>
           <div class="p-price">34,95€</div>
-          <button class="p-add"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Añadir al carrito</button>
+          <button class="p-add" onclick="addToCart(this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Añadir al carrito</button>
         </div>
       </div>
+
+      <!-- P5 Lámpara escritorio -->
+      <div class="product-card">
+        <div class="p-img-wrap">
+          <img class="p-img" src="https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=400&q=80" alt="Lámpara escritorio" loading="lazy">
+          <div class="p-overlay"><a href="#" class="btn btn-primary btn-sm">Ver producto</a></div>
+        </div>
+        <div class="p-body">
+          <span class="p-cat">Mobiliario</span>
+          <span class="p-name"><a href="#">Lámpara de Escritorio LED Regulable</a></span>
+          <div class="p-stars">⭐⭐⭐⭐<span style="opacity:.3">⭐</span></div>
+          <div class="p-price">48,00€</div>
+          <button class="p-add" onclick="addToCart(this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Añadir al carrito</button>
+        </div>
+      </div>
+
+      <!-- P6 Lápices / color -->
+      <div class="product-card">
+        <div class="p-img-wrap">
+          <img class="p-img" src="https://images.unsplash.com/photo-1452860606245-08befc0ff44b?auto=format&fit=crop&w=400&q=80" alt="Lápices de colores" loading="lazy">
+          <span class="p-badge">-15%</span>
+          <div class="p-overlay"><a href="#" class="btn btn-primary btn-sm">Ver producto</a></div>
+        </div>
+        <div class="p-body">
+          <span class="p-cat">Escritura</span>
+          <span class="p-name"><a href="#">Lápices de Colores Premium — Set 48 uds.</a></span>
+          <div class="p-stars">⭐⭐⭐⭐⭐</div>
+          <div class="p-price"><span class="p-price-old">18,99€</span> 16,14€</div>
+          <button class="p-add" onclick="addToCart(this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Añadir al carrito</button>
+        </div>
+      </div>
+
+      <!-- P7 Archivadores -->
+      <div class="product-card">
+        <div class="p-img-wrap">
+          <img class="p-img" src="https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?auto=format&fit=crop&w=400&q=80" alt="Archivadores" loading="lazy">
+          <div class="p-overlay"><a href="#" class="btn btn-primary btn-sm">Ver producto</a></div>
+        </div>
+        <div class="p-body">
+          <span class="p-cat">Archivo</span>
+          <span class="p-name"><a href="#">Archivador A4 Lomo Ancho 80mm — Pack 5 uds.</a></span>
+          <div class="p-stars">⭐⭐⭐⭐<span style="opacity:.3">⭐</span></div>
+          <div class="p-price">14,95€</div>
+          <button class="p-add" onclick="addToCart(this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Añadir al carrito</button>
+        </div>
+      </div>
+
+      <!-- P8 Cuaderno -->
+      <div class="product-card">
+        <div class="p-img-wrap">
+          <img class="p-img" src="https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80" alt="Cuadernos" loading="lazy">
+          <span class="p-badge new">Nuevo</span>
+          <div class="p-overlay"><a href="#" class="btn btn-primary btn-sm">Ver producto</a></div>
+        </div>
+        <div class="p-body">
+          <span class="p-cat">Papel y Etiquetas</span>
+          <span class="p-name"><a href="#">Cuaderno A5 Espiral Tapa Dura — Cuadrícula 5mm</a></span>
+          <div class="p-stars">⭐⭐⭐⭐⭐</div>
+          <div class="p-price">7,99€</div>
+          <button class="p-add" onclick="addToCart(this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Añadir al carrito</button>
+        </div>
+      </div>
+
     </div>
   </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════
-     PROMO BANNERS
-     ═══════════════════════════════════════════════════════ -->
+<!-- PROMO BANNERS -->
 <section class="promo-section section-sm">
   <div class="container">
     <div class="promo-grid">
-      <div class="promo-card promo-green">
+      <div class="promo-card promo-green" style="background-image:url('https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=800&q=80')">
+        <div class="promo-overlay"></div>
         <div class="promo-body">
           <span class="promo-label">Categoría destacada</span>
           <h3 class="promo-title">Mobiliario de Oficina</h3>
-          <p class="promo-text">Sillas ergonómicas, escritorios y estanterías para equipar tu espacio de trabajo ideal.</p>
-          <span class="promo-link">Ver mobiliario <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          <p class="promo-text">Sillas ergonómicas, escritorios y estanterías para el espacio de trabajo perfecto.</p>
+          <a href="#" class="promo-link">Ver mobiliario <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
         </div>
-        <div class="promo-deco"><svg viewBox="0 0 120 120" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="20" y="40" width="80" height="8" rx="4"/><rect x="30" y="48" width="60" height="32" rx="4"/><rect x="10" y="70" width="100" height="6" rx="3"/><line x1="35" y1="76" x2="35" y2="108"/><line x1="85" y1="76" x2="85" y2="108"/></svg></div>
       </div>
-      <div class="promo-card promo-lime">
+      <div class="promo-card promo-lime" style="background-image:url('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=800&q=80')">
+        <div class="promo-overlay"></div>
         <div class="promo-body">
-          <span class="promo-label">Temporada escolar</span>
+          <span class="promo-label">Temporada escolar 2025</span>
           <h3 class="promo-title">Vuelta al Cole</h3>
           <p class="promo-text">Cuadernos, mochilas, estuches y todo el material escolar al mejor precio.</p>
-          <span class="promo-link">Ver material <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+          <a href="#" class="promo-link">Ver material escolar <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
         </div>
-        <div class="promo-deco"><svg viewBox="0 0 120 120" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="25" y="10" width="70" height="100" rx="4"/><line x1="35" y1="40" x2="85" y2="40"/><line x1="35" y1="55" x2="85" y2="55"/><line x1="35" y1="70" x2="70" y2="70"/><path d="M55 10 V28 H65 V10"/></svg></div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════
-     CATÁLOGOS
-     ═══════════════════════════════════════════════════════ -->
+<!-- CATÁLOGOS -->
 <section class="catalogs-section section" id="catalogos">
   <div class="container">
     <div class="section-header flex">
@@ -719,93 +817,86 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
         <h2 class="section-title">Catálogos</h2>
         <p class="section-sub">Descarga nuestros catálogos y descubre todo el surtido</p>
       </div>
-      <a href="#" class="btn btn-outline btn-sm">Ver todos los catálogos <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+      <a href="#" class="btn btn-outline btn-sm">Ver todos <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     </div>
     <div class="catalogs-grid">
-
       <div class="catalog-card">
-        <div class="cat-cover cover-1">
+        <div class="cat-cover cover-bg-1">
           <div class="cat-cover-inner">
-            <svg width="56" height="72" viewBox="0 0 80 100" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"><rect x="5" y="5" width="70" height="90" rx="4"/><line x1="15" y1="30" x2="65" y2="30"/><line x1="15" y1="42" x2="65" y2="42"/><line x1="15" y1="54" x2="50" y2="54"/></svg>
-            <span style="font-size:1.5rem;font-weight:800;color:rgba(255,255,255,.8)">2025</span>
+            <svg width="48" height="64" viewBox="0 0 80 100" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="2"><rect x="5" y="5" width="70" height="90" rx="4"/><line x1="15" y1="30" x2="65" y2="30"/><line x1="15" y1="42" x2="65" y2="42"/><line x1="15" y1="54" x2="50" y2="54"/></svg>
+            <span style="font-family:var(--fh);font-size:1.4rem;font-weight:800;color:rgba(255,255,255,.85)">2025</span>
           </div>
-          <div class="cat-cover-overlay"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+          <div class="cat-cover-overlay"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
         </div>
         <div class="cat-info">
           <span class="cat-year">2025</span>
           <div class="cat-title">Catálogo General Ofipapel</div>
           <div class="cat-desc">Más de 20.000 referencias de material de oficina, papelería, informática y mobiliario.</div>
           <div class="cat-actions">
-            <a href="#" class="btn btn-primary btn-sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar PDF</a>
+            <a href="#" class="btn btn-primary btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar</a>
             <a href="#" class="btn btn-outline btn-sm">Ver online</a>
           </div>
         </div>
       </div>
-
       <div class="catalog-card">
-        <div class="cat-cover cover-2">
+        <div class="cat-cover cover-bg-2">
           <div class="cat-cover-inner">
-            <svg width="56" height="72" viewBox="0 0 80 100" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"><rect x="5" y="5" width="70" height="90" rx="4"/><rect x="15" y="20" width="50" height="35" rx="2"/><line x1="15" y1="65" x2="65" y2="65"/><line x1="15" y1="75" x2="50" y2="75"/></svg>
-            <span style="font-size:1.5rem;font-weight:800;color:rgba(255,255,255,.8)">2025</span>
+            <svg width="48" height="64" viewBox="0 0 80 100" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="2"><rect x="5" y="5" width="70" height="90" rx="4"/><rect x="15" y="20" width="50" height="35" rx="2"/><line x1="15" y1="65" x2="65" y2="65"/><line x1="15" y1="75" x2="50" y2="75"/></svg>
+            <span style="font-family:var(--fh);font-size:1.4rem;font-weight:800;color:rgba(255,255,255,.85)">2025</span>
           </div>
-          <div class="cat-cover-overlay"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+          <div class="cat-cover-overlay"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
         </div>
         <div class="cat-info">
           <span class="cat-year">2025</span>
           <div class="cat-title">Catálogo Informática y Tecnología</div>
           <div class="cat-desc">Periféricos, consumibles, cables y accesorios para equipos informáticos.</div>
           <div class="cat-actions">
-            <a href="#" class="btn btn-primary btn-sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar PDF</a>
+            <a href="#" class="btn btn-primary btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar</a>
             <a href="#" class="btn btn-outline btn-sm">Ver online</a>
           </div>
         </div>
       </div>
-
       <div class="catalog-card">
-        <div class="cat-cover cover-3">
+        <div class="cat-cover cover-bg-3">
           <div class="cat-cover-inner">
-            <svg width="56" height="72" viewBox="0 0 80 100" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"><rect x="5" y="5" width="70" height="90" rx="4"/><path d="M20 20h40v50H20z" rx="2"/><line x1="20" y1="80" x2="60" y2="80"/><line x1="20" y1="88" x2="45" y2="88"/></svg>
-            <span style="font-size:1.5rem;font-weight:800;color:rgba(255,255,255,.8)">2025</span>
+            <svg width="48" height="64" viewBox="0 0 80 100" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="2"><rect x="5" y="5" width="70" height="90" rx="4"/><path d="M20 20h40v50H20z"/><line x1="20" y1="80" x2="60" y2="80"/><line x1="20" y1="88" x2="45" y2="88"/></svg>
+            <span style="font-family:var(--fh);font-size:1.4rem;font-weight:800;color:rgba(255,255,255,.85)">2025</span>
           </div>
-          <div class="cat-cover-overlay"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+          <div class="cat-cover-overlay"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
         </div>
         <div class="cat-info">
           <span class="cat-year">2025</span>
           <div class="cat-title">Catálogo Vuelta al Cole</div>
-          <div class="cat-desc">Todo el material escolar para el nuevo curso académico.</div>
+          <div class="cat-desc">Todo el material escolar para el nuevo curso académico 2025–2026.</div>
           <div class="cat-actions">
-            <a href="#" class="btn btn-primary btn-sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar PDF</a>
+            <a href="#" class="btn btn-primary btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar</a>
             <a href="#" class="btn btn-outline btn-sm">Ver online</a>
           </div>
         </div>
       </div>
-
       <div class="catalog-card">
-        <div class="cat-cover cover-4">
+        <div class="cat-cover cover-bg-4">
           <div class="cat-cover-inner">
-            <svg width="56" height="72" viewBox="0 0 80 100" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2"><rect x="5" y="5" width="70" height="90" rx="4"/><rect x="15" y="15" width="50" height="60" rx="2"/><line x1="25" y1="82" x2="55" y2="82"/><line x1="25" y1="90" x2="45" y2="90"/></svg>
-            <span style="font-size:1.5rem;font-weight:800;color:rgba(255,255,255,.8)">2025</span>
+            <svg width="48" height="64" viewBox="0 0 80 100" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="2"><rect x="5" y="5" width="70" height="90" rx="4"/><rect x="15" y="15" width="50" height="60" rx="2"/><line x1="25" y1="82" x2="55" y2="82"/><line x1="25" y1="90" x2="45" y2="90"/></svg>
+            <span style="font-family:var(--fh);font-size:1.4rem;font-weight:800;color:rgba(255,255,255,.85)">2025</span>
           </div>
-          <div class="cat-cover-overlay"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+          <div class="cat-cover-overlay"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
         </div>
         <div class="cat-info">
           <span class="cat-year">2025</span>
           <div class="cat-title">Catálogo Mobiliario de Oficina</div>
           <div class="cat-desc">Sillas, escritorios, estanterías y armarios para equipar tu espacio de trabajo.</div>
           <div class="cat-actions">
-            <a href="#" class="btn btn-primary btn-sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar PDF</a>
+            <a href="#" class="btn btn-primary btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar</a>
             <a href="#" class="btn btn-outline btn-sm">Ver online</a>
           </div>
         </div>
       </div>
-
     </div>
   </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════
-     STORE CTA
-     ═══════════════════════════════════════════════════════ -->
+<!-- STORE CTA -->
 <section class="store-cta">
   <div class="container">
     <div class="store-cta-inner">
@@ -813,27 +904,19 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
         <h2 class="store-cta-title">Visítanos en nuestras tiendas</h2>
         <p class="store-cta-sub">Estamos en Los Cristianos, Tenerife. Nuestro equipo de especialistas te ayudará a encontrar exactamente lo que necesitas.</p>
         <div class="store-cta-hours">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Lun–Vie 9:00–14:00 / 16:00–19:30 · Sábados 9:00–14:00
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Lun–Vie 9:00–14:00 / 16:00–19:30 &nbsp;·&nbsp; Sábados 9:00–14:00
         </div>
       </div>
       <div class="store-cta-actions">
-        <a href="#" class="btn btn-white btn-lg">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          Cómo llegar
-        </a>
-        <a href="#" class="btn btn-cta btn-lg">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13 19.79 19.79 0 0 1 1.61 4.38 2 2 0 0 1 3.58 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l1.97-1.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-          Llámanos
-        </a>
+        <a href="#" class="btn btn-white btn-lg"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Cómo llegar</a>
+        <a href="#" class="btn btn-cta btn-lg"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13 19.79 19.79 0 0 1 1.61 4.38 2 2 0 0 1 3.58 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l1.97-1.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Llámanos</a>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════════════
-     FOOTER
-     ═══════════════════════════════════════════════════════ -->
+<!-- FOOTER TOP -->
 <div class="footer-top">
   <div class="container">
     <div class="footer-trust">
@@ -847,7 +930,7 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
       </div>
       <div class="ft-item">
         <div class="ft-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13 19.79 19.79 0 0 1 1.61 4.38 2 2 0 0 1 3.58 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l1.97-1.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
-        <div><strong>Atención personalizada</strong><span>Expertos a tu servicio</span></div>
+        <div><strong>Atención personalizada</strong><span>Expertos a tu disposición</span></div>
       </div>
       <div class="ft-item">
         <div class="ft-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
@@ -857,16 +940,19 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
   </div>
 </div>
 
+<!-- FOOTER MAIN -->
 <footer class="footer-main">
   <div class="container">
     <div class="footer-grid">
       <div>
-        <span class="footer-logo-text">OFIPAPEL</span>
+        <div class="footer-logo">
+          <img src="data:image/png;base64,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" alt="Ofipapel">
+        </div>
         <p class="footer-about">Suministros de oficina, papelería, informática y mobiliario en Tenerife y Canarias. Más de 30 años acompañando a empresas y particulares.</p>
         <div class="footer-social">
-          <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></a>
-          <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></a>
-          <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg></a>
+          <a href="#" aria-label="Facebook"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></a>
+          <a href="#" aria-label="Instagram"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></a>
+          <a href="#" aria-label="WhatsApp"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg></a>
         </div>
       </div>
       <div>
@@ -878,7 +964,6 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
           <li><a href="#">Informática y Tecnología</a></li>
           <li><a href="#">Mobiliario de Oficina</a></li>
           <li><a href="#">Embalaje y Expedición</a></li>
-          <li><a href="#">Material Escolar</a></li>
           <li><a href="#" style="color:var(--lime)">Ver todo el catálogo →</a></li>
         </ul>
       </div>
@@ -887,7 +972,6 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
         <ul class="footer-links">
           <li><a href="#">Sobre nosotros</a></li>
           <li><a href="#">Catálogos</a></li>
-          <li><a href="#">Portal de transparencia</a></li>
           <li><a href="#">Contacto</a></li>
           <li><a href="#">Aviso legal</a></li>
           <li><a href="#">Política de privacidad</a></li>
@@ -897,19 +981,19 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
       <div>
         <div class="footer-col-title">Contacto</div>
         <div class="footer-contact-item">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           <span>Bulevar Chajofe, 4<br>38650 Los Cristianos, Tenerife</span>
         </div>
         <div class="footer-contact-item">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13 19.79 19.79 0 0 1 1.61 4.38 2 2 0 0 1 3.58 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l1.97-1.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-          <a href="#">+34 922 79 49 19</a>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13 19.79 19.79 0 0 1 1.61 4.38 2 2 0 0 1 3.58 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l1.97-1.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          <a href="tel:+34922794919">+34 922 79 49 19</a>
         </div>
         <div class="footer-contact-item">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-          <a href="#">info@ofipapel.net</a>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <a href="mailto:info@ofipapel.net">info@ofipapel.net</a>
         </div>
         <div class="footer-contact-item">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span>Lun–Vie 9:00–14:00 / 16:00–19:30<br>Sábados 9:00–14:00</span>
         </div>
       </div>
@@ -917,6 +1001,7 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
   </div>
 </footer>
 
+<!-- FOOTER BOTTOM -->
 <div class="footer-bottom">
   <div class="container">
     <div class="footer-bottom-inner">
@@ -930,20 +1015,174 @@ h1,h2,h3,h4{font-family:var(--font-h);font-weight:800;line-height:1.15;color:var
   </div>
 </div>
 
+<!-- BACK TO TOP -->
+<button class="back-top" id="back-top" aria-label="Volver arriba" type="button">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+</button>
+
 <script>
-// Hero slider autoplay
-const dots = document.querySelectorAll('.hero-dot');
-let current = 0;
-setInterval(() => {
-  dots[current].classList.remove('active');
-  current = (current + 1) % dots.length;
-  dots[current].classList.add('active');
-}, 3500);
-dots.forEach((d,i) => d.addEventListener('click', () => {
-  dots[current].classList.remove('active');
-  current = i;
-  dots[current].classList.add('active');
-}));
+(function() {
+  'use strict';
+
+  /* ── HERO SLIDER ─────────────────────────── */
+  const slides = document.querySelectorAll('.hero-slide');
+  const dots   = document.querySelectorAll('.hero-dot');
+  let cur = 0, timer;
+
+  function goTo(n) {
+    slides[cur].classList.remove('active');
+    dots[cur].classList.remove('active');
+    dots[cur].setAttribute('aria-selected','false');
+    cur = (n + slides.length) % slides.length;
+    slides[cur].classList.add('active');
+    dots[cur].classList.add('active');
+    dots[cur].setAttribute('aria-selected','true');
+  }
+
+  function startAuto() { timer = setInterval(() => goTo(cur + 1), 5000); }
+  function stopAuto()  { clearInterval(timer); }
+
+  document.getElementById('hero-prev').addEventListener('click', () => { stopAuto(); goTo(cur - 1); startAuto(); });
+  document.getElementById('hero-next').addEventListener('click', () => { stopAuto(); goTo(cur + 1); startAuto(); });
+  dots.forEach((d, i) => d.addEventListener('click', () => { stopAuto(); goTo(i); startAuto(); }));
+
+  // swipe
+  let sx = 0;
+  document.getElementById('hero').addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, {passive:true});
+  document.getElementById('hero').addEventListener('touchend', e => {
+    const dx = sx - e.changedTouches[0].clientX;
+    if (Math.abs(dx) > 50) { stopAuto(); goTo(dx > 0 ? cur + 1 : cur - 1); startAuto(); }
+  }, {passive:true});
+
+  startAuto();
+
+  /* ── MEGAMENÚ DESKTOP ─────────────────────── */
+  const menuItems = document.querySelectorAll('.has-sub');
+
+  menuItems.forEach(item => {
+    let closeTimer;
+    const sub = item.querySelector('.submenu');
+    if (!sub) return;
+
+    function open() {
+      clearTimeout(closeTimer);
+      // close others
+      menuItems.forEach(other => {
+        if (other !== item) {
+          other.classList.remove('is-open');
+          const s = other.querySelector('.submenu');
+          if (s) s.classList.remove('is-open');
+        }
+      });
+      item.classList.add('is-open');
+      sub.classList.add('is-open');
+    }
+
+    function close() {
+      closeTimer = setTimeout(() => {
+        item.classList.remove('is-open');
+        sub.classList.remove('is-open');
+      }, 120);
+    }
+
+    item.addEventListener('mouseenter', open);
+    item.addEventListener('mouseleave', close);
+    sub.addEventListener('mouseenter', () => clearTimeout(closeTimer));
+    sub.addEventListener('mouseleave', close);
+
+    // keyboard
+    item.querySelector('a').addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        item.classList.contains('is-open') ? close() : open();
+      }
+      if (e.key === 'Escape') close();
+    });
+  });
+
+  // close on outside click
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.has-sub')) {
+      menuItems.forEach(item => {
+        item.classList.remove('is-open');
+        const s = item.querySelector('.submenu');
+        if (s) s.classList.remove('is-open');
+      });
+    }
+  });
+
+  /* ── MOBILE NAV ─────────────────────────── */
+  const hamBtn    = document.getElementById('ham-btn');
+  const mobileNav = document.getElementById('mobile-nav');
+  const mpClose   = document.getElementById('mp-close');
+
+  function openMobileNav() {
+    mobileNav.classList.add('open');
+    hamBtn.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeMobileNav() {
+    mobileNav.classList.remove('open');
+    hamBtn.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  if (hamBtn) hamBtn.addEventListener('click', openMobileNav);
+  if (mpClose) mpClose.addEventListener('click', closeMobileNav);
+  mobileNav.addEventListener('click', e => {
+    if (e.target === mobileNav) closeMobileNav();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeMobileNav();
+  });
+
+  // mobile sub-items
+  document.querySelectorAll('.mp-item[data-sub]').forEach(item => {
+    item.addEventListener('click', () => {
+      const subId = item.getAttribute('data-sub');
+      const sub = document.getElementById(subId);
+      if (sub) {
+        sub.classList.toggle('open');
+        const chev = item.querySelector('svg');
+        if (chev) chev.style.transform = sub.classList.contains('open') ? 'rotate(180deg)' : '';
+      }
+    });
+  });
+
+  /* ── STICKY HEADER ─────────────────────── */
+  const siteHeader = document.getElementById('site-header');
+  window.addEventListener('scroll', () => {
+    siteHeader.classList.toggle('scrolled', window.scrollY > 60);
+    const bt = document.getElementById('back-top');
+    if (bt) bt.classList.toggle('show', window.scrollY > 400);
+  }, {passive:true});
+
+  /* ── BACK TO TOP ─────────────────────────── */
+  const backTop = document.getElementById('back-top');
+  if (backTop) backTop.addEventListener('click', () => window.scrollTo({top:0, behavior:'smooth'}));
+
+  /* ── ADD TO CART ─────────────────────────── */
+  let cartCount = 3;
+  window.addToCart = function(btn) {
+    cartCount++;
+    document.getElementById('cart-count').textContent = cartCount;
+    btn.textContent = '✓ Añadido';
+    btn.style.background = 'var(--primary-dark)';
+    setTimeout(() => {
+      btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Añadir al carrito';
+      btn.style.background = '';
+    }, 1500);
+  };
+
+  /* ── SMOOTH SCROLL ─────────────────────── */
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const t = document.querySelector(a.getAttribute('href'));
+      if (t) { e.preventDefault(); t.scrollIntoView({behavior:'smooth', block:'start'}); }
+    });
+  });
+
+})();
 </script>
 </body>
 </html>
