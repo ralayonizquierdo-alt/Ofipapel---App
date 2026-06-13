@@ -355,7 +355,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
     <div class="login-users">Usuarios: <strong>rober</strong> / <strong>admin</strong> / <strong>david</strong> / <strong>monica</strong><br>Contraseña: <strong>ofipapel2026</strong></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v2.2</div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v2.3</div>
   </div>
 </div>
 
@@ -1408,6 +1408,11 @@ function exportCSV(){
   const blob = new Blob([header+rows],{type:'text/csv;charset=utf-8;'});
   const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download=`ofipapel_saldos_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+}
+
+// Service Worker (PWA installable)
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').catch(()=>{});
 }
 
 // Init
