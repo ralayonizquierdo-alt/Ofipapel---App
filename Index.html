@@ -149,7 +149,7 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
 .kpi.k-deuda  {border-top-color:var(--acento2);}
 .kpi-ico  {font-size:20px;margin-bottom:6px;}
 .kpi-lbl  {font-size:10px;font-weight:600;color:var(--texto2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:3px;}
-.kpi-val  {font-size:20px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--azul);}
+.kpi-val  {font-size:20px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--azul);white-space:nowrap;overflow:hidden;}
 .kpi-val.big{font-size:22px;color:var(--acento);}
 .kpi-val.neg{color:var(--rojo);}
 .kpi-delta{font-size:11px;margin-top:4px;}
@@ -310,6 +310,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
 @media(max-width:900px){
   .sidebar{width:64px;}
   .sidebar-name,.nav-item span:not(.ni),.sidebar-footer .sidebar-user,.sidebar-footer .btn-logout,.nav-section{display:none;}
+  .sidebar-logo img{display:none;}
   .main-content{margin-left:64px;}
   .nav-item{justify-content:center;padding:12px;}
   .chart-row,.chart-row-2{grid-template-columns:1fr;}
@@ -319,6 +320,9 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
 @media(max-width:600px){
   .kpi-grid{grid-template-columns:1fr 1fr;}
   .form-grid{grid-template-columns:1fr;}
+  .kpi-val{font-size:15px;white-space:nowrap;overflow:hidden;}
+  .kpi-val.big{font-size:16px;}
+  .topbar-date{display:none;}
 }
 </style>
 </head>
@@ -355,7 +359,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
     <div class="login-users">Usuarios: <strong>rober</strong> / <strong>admin</strong> / <strong>david</strong> / <strong>monica</strong><br>Contraseña: <strong>ofipapel2026</strong></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v2.3</div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v2.4</div>
   </div>
 </div>
 
