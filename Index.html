@@ -355,7 +355,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
     <div class="login-users">Usuarios: <strong>rober</strong> / <strong>admin</strong> / <strong>david</strong> / <strong>monica</strong><br>Contraseña: <strong>ofipapel2026</strong></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v2.1</div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v2.2</div>
   </div>
 </div>
 
@@ -553,14 +553,14 @@ let charts = {};
 // ═══════════════════════════════════════════════════════
 const SUPA_URL = 'https://agjmciudnnginqybnogh.supabase.co';
 const SUPA_KEY = 'sb_publishable_LaJCCCGsN2VIXFDFAxEb6g_eEZHh3j6';
-let supabase = null;
+let supaClient = null;
 let supaReady = false;
 
 async function initSupabase(){
   try{
-    supabase = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+    supaClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
     // Test connection
-    const { error } = await supabase.from('registros').select('fecha').limit(1);
+    const { error } = await supaClient.from('registros').select('fecha').limit(1);
     if(error && error.code !== 'PGRST116'){
       console.warn('Supabase error:', error.message);
       supaReady = false;
@@ -568,7 +568,7 @@ async function initSupabase(){
       supaReady = true;
       console.log('✅ Supabase conectado');
       // Subscribe to real-time changes
-      supabase.channel('registros-changes')
+      supaClient.channel('registros-changes')
         .on('postgres_changes', { event:'*', schema:'public', table:'registros' }, payload => {
           handleRealtimeChange(payload);
         }).subscribe();
@@ -594,7 +594,7 @@ async function handleRealtimeChange(payload){
 async function syncToCloud(rec){
   if(!supaReady) return false;
   try{
-    const { error } = await supabase.from('registros').upsert(rec, { onConflict:'fecha' });
+    const { error } = await supaClient.from('registros').upsert(rec, { onConflict:'fecha' });
     if(error){ console.warn('Sync error:', error); return false; }
     return true;
   } catch(e){ return false; }
@@ -603,7 +603,7 @@ async function syncToCloud(rec){
 async function loadFromCloud(){
   if(!supaReady) return false;
   try{
-    const { data, error } = await supabase.from('registros').select('*').order('fecha', { ascending:true });
+    const { data, error } = await supaClient.from('registros').select('*').order('fecha', { ascending:true });
     if(error || !data) return false;
     if(data.length > 0){
       // Cloud data wins over local seed
