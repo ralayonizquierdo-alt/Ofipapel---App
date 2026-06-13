@@ -341,7 +341,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
       <label>Contraseña</label>
       <div style="position:relative;">
         <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" style="padding-right:44px;">
-        <button type="button" onclick="togglePass()" id="togglePassBtn"
+        <button type="button" id="togglePassBtn"
           style="position:absolute;right:12px;top:50%;transform:translateY(-50%);
           background:none;border:none;cursor:pointer;font-size:18px;color:var(--texto2);
           padding:0;line-height:1;transition:color .15s;"
@@ -352,9 +352,10 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
       <input type="checkbox" id="rememberMe" style="width:16px;height:16px;accent-color:#1A5C1A;cursor:pointer;flex-shrink:0;">
       <label for="rememberMe" style="font-size:13px;color:var(--texto2);cursor:pointer;user-select:none;">Mantener sesión iniciada</label>
     </div>
-    <button class="btn-login" onclick="doLogin()">Entrar →</button>
+    <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
     <div class="login-users">Usuarios: <strong>rober</strong> / <strong>admin</strong> / <strong>david</strong> / <strong>monica</strong><br>Contraseña: <strong>ofipapel2026</strong></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v2.1</div>
   </div>
 </div>
 
@@ -1409,8 +1410,12 @@ function exportCSV(){
   a.download=`ofipapel_saldos_${new Date().toISOString().split('T')[0]}.csv`; a.click();
 }
 
-// Init date
+// Init
 document.addEventListener('DOMContentLoaded',()=>{
+  // Attach login event listeners (more reliable than onclick attributes)
+  document.getElementById('btnLogin').addEventListener('click', doLogin);
+  document.getElementById('togglePassBtn').addEventListener('click', togglePass);
+
   document.getElementById('entradaFecha').value = new Date().toISOString().split('T')[0];
   // Auto-login si hay sesión guardada
   try{
