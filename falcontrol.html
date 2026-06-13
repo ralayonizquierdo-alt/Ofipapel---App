@@ -521,7 +521,21 @@ document.addEventListener('DOMContentLoaded', () => {
   injectLogo();
   injectManifest();
   updateKwCount();
+  if (isIOS()) showIOSBanner();
 });
+
+function showIOSBanner() {
+  const banner = document.createElement('div');
+  banner.style.cssText =
+    'background:#1a1400;border:1px solid #5a4200;border-radius:12px;padding:11px 14px;' +
+    'font-size:0.8rem;color:#f0c040;line-height:1.5;margin-bottom:2px;';
+  banner.innerHTML =
+    '📱 <strong>iPhone detectado</strong> — La escucha funciona en Safari pero se reinicia ' +
+    'cada 60 s automáticamente. Mantén la pantalla encendida y no cambies de app. ' +
+    'Para instalarla: pulsa <strong>Compartir → Añadir a pantalla de inicio</strong>.';
+  const main = document.querySelector('.main');
+  main.insertBefore(banner, main.firstChild);
+}
 
 function injectLogo() {
   const src = 'data:image/webp;base64,' + LOGO_B64;
@@ -534,18 +548,28 @@ function toggleListening() {
   isListening ? stopListening() : startListening();
 }
 
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
 async function startListening() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
-    showError('Tu navegador no soporta reconocimiento de voz. Usa Chrome en Android.');
+    showError('Tu navegador no soporta reconocimiento de voz. En iPhone usa Safari; en Android usa Chrome.');
     return;
   }
   try {
     await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch(e) {
-    showError('Permiso de micrófono denegado. Actívalo en ajustes del navegador.');
+    showError('Permiso de micrófono denegado. En iPhone: Ajustes → Safari → Micrófono → Permitir.');
     return;
   }
+  // Inicializar AudioContext aquí (gesto de usuario) para que funcione en iOS
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+  } catch(_) {}
+
   clearError();
   isListening  = true;
   finalBuffer  = '';
@@ -587,7 +611,10 @@ function buildRecognition() {
 
   recognition.onend = () => {
     if (isListening) {
-      setTimeout(() => { try { recognition.start(); } catch(_){} }, 250);
+      // En iOS la sesión se cierra automáticamente cada pocos segundos;
+      // creamos un objeto nuevo en lugar de reusar el anterior.
+      const delay = isIOS() ? 600 : 250;
+      setTimeout(() => { if (isListening) buildRecognition(); }, delay);
     }
   };
 
@@ -670,6 +697,7 @@ function dismissAlarm() {
 // ─── SIREN (Web Audio) ────────────────────────────────
 function startSiren() {
   try {
+    // AudioContext ya fue creado en startListening(); solo lo reanudamos si hace falta
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
