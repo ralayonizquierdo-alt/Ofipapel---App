@@ -358,8 +358,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div class="login-users">Usuarios: <strong>rober</strong> / <strong>admin</strong> / <strong>david</strong> / <strong>monica</strong><br>Contraseña: <strong>ofipapel2026</strong></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v2.4</div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v2.5</div>
   </div>
 </div>
 
@@ -397,7 +396,14 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
       <div class="topbar-title" id="topbarTitle">Dashboard</div>
       <div class="topbar-right">
         <div class="topbar-date" id="topbarDate"></div>
-        <div class="badge-user" id="topbarUser"></div>
+        <div style="position:relative;">
+          <div class="badge-user" id="topbarUser" onclick="toggleUserMenu()" style="cursor:pointer;user-select:none;" title="Opciones de usuario"></div>
+          <div id="userMenu" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:#fff;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,0.15);min-width:180px;z-index:200;overflow:hidden;border:1px solid var(--borde);">
+            <button onclick="showChangePass()" style="width:100%;padding:12px 16px;background:none;border:none;cursor:pointer;text-align:left;font-size:13px;font-weight:500;color:var(--texto);display:flex;align-items:center;gap:10px;transition:background .15s;">🔑 Cambiar contraseña</button>
+            <div style="height:1px;background:var(--borde);"></div>
+            <button onclick="doLogout()" style="width:100%;padding:12px 16px;background:none;border:none;cursor:pointer;text-align:left;font-size:13px;font-weight:500;color:var(--rojo);display:flex;align-items:center;gap:10px;transition:background .15s;">← Cerrar sesión</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -524,6 +530,22 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
   </div><!-- /main-content -->
 </div><!-- /app -->
 
+<!-- Modal cambio contraseña -->
+<div id="changePassModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:32px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.25);margin:16px;">
+    <div style="font-size:16px;font-weight:700;color:var(--azul);margin-bottom:4px;">🔑 Cambiar contraseña</div>
+    <div style="font-size:12px;color:var(--texto2);margin-bottom:20px;">El cambio se guardará en este dispositivo</div>
+    <div class="form-group"><label>Contraseña actual</label><input type="password" id="cpCurrent" placeholder="••••••••"></div>
+    <div class="form-group"><label>Nueva contraseña</label><input type="password" id="cpNew" placeholder="••••••••"></div>
+    <div class="form-group"><label>Confirmar nueva contraseña</label><input type="password" id="cpConfirm" placeholder="••••••••"></div>
+    <div id="cpError" style="color:var(--rojo);font-size:12px;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="saveNewPass()" class="btn-save" style="flex:1;">Guardar</button>
+      <button onclick="closeChangePass()" style="flex:1;padding:11px;background:none;border:1.5px solid var(--borde);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--texto2);">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -548,6 +570,8 @@ const STORAGE_KEY = 'ofipapel_registros_v1';
 // ESTADO — declarado aquí para evitar TDZ antes de loadData()
 // ═══════════════════════════════════════════════════════
 const USERS = { rober:'ofipapel2026', admin:'ofipapel2026', david:'ofipapel2026', monica:'ofipapel2026' };
+// Cargar contraseñas personalizadas guardadas
+try{ Object.assign(USERS, JSON.parse(localStorage.getItem('op_passwords')||'{}')); }catch(e){}
 let currentUser = null;
 let registros = [...SEED_DATA];
 let charts = {};
@@ -1437,7 +1461,61 @@ document.addEventListener('DOMContentLoaded',()=>{
       doLogin();
     }
   }catch(e){}
+
+  // Cerrar menú usuario al hacer clic fuera
+  document.addEventListener('click', e => {
+    const menu = document.getElementById('userMenu');
+    const badge = document.getElementById('topbarUser');
+    if(menu && badge && !badge.contains(e.target) && !menu.contains(e.target)){
+      menu.style.display = 'none';
+    }
+  });
 });
+
+// ═══════════════════════════════════════════════════════
+// MENÚ USUARIO & CAMBIO DE CONTRASEÑA
+// ═══════════════════════════════════════════════════════
+function toggleUserMenu(){
+  const m = document.getElementById('userMenu');
+  m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+  m.style.flexDirection = 'column';
+}
+
+function showChangePass(){
+  document.getElementById('userMenu').style.display = 'none';
+  document.getElementById('cpCurrent').value = '';
+  document.getElementById('cpNew').value = '';
+  document.getElementById('cpConfirm').value = '';
+  document.getElementById('cpError').textContent = '';
+  const modal = document.getElementById('changePassModal');
+  modal.style.display = 'flex';
+}
+
+function closeChangePass(){
+  document.getElementById('changePassModal').style.display = 'none';
+}
+
+function saveNewPass(){
+  const cur = document.getElementById('cpCurrent').value;
+  const nw  = document.getElementById('cpNew').value;
+  const cf  = document.getElementById('cpConfirm').value;
+  const err = document.getElementById('cpError');
+  if(!cur || !nw || !cf){ err.textContent = 'Rellena todos los campos.'; return; }
+  if(USERS[currentUser] !== cur){ err.textContent = 'La contraseña actual no es correcta.'; return; }
+  if(nw.length < 6){ err.textContent = 'La nueva contraseña debe tener al menos 6 caracteres.'; return; }
+  if(nw !== cf){ err.textContent = 'Las contraseñas nuevas no coinciden.'; return; }
+  USERS[currentUser] = nw;
+  try{
+    const saved = JSON.parse(localStorage.getItem('op_passwords')||'{}');
+    saved[currentUser] = nw;
+    localStorage.setItem('op_passwords', JSON.stringify(saved));
+    if(document.getElementById('rememberMe')?.checked){
+      localStorage.setItem('op_pass', nw);
+    }
+  }catch(e){}
+  closeChangePass();
+  showToast('✅ Contraseña actualizada correctamente', 'ok');
+}
 </script>
 
 <script>
