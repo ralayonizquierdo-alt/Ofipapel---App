@@ -28,8 +28,8 @@ ul{list-style:none}
 h1,h2,h3,h4{font-family:var(--fh);font-weight:800;line-height:1.1}
 
 /* ── BADGES ── */
-.preview-badge{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(15,15,15,.88);color:#fff;font-size:11px;font-weight:700;padding:6px 14px;border-radius:var(--rf);z-index:9999;backdrop-filter:blur(8px);pointer-events:none;letter-spacing:.04em}
-.v-badge{position:fixed;top:12px;right:16px;background:var(--g);color:#fff;font-size:11px;font-weight:800;padding:5px 12px;border-radius:var(--rf);z-index:9999}
+
+
 
 /* ── BUTTONS ── */
 .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 26px;border-radius:var(--r);font-size:.9375rem;font-weight:600;font-family:var(--fb);line-height:1;transition:all .18s;cursor:pointer;border:2px solid transparent;white-space:nowrap}
@@ -101,8 +101,8 @@ h1,h2,h3,h4{font-family:var(--fh);font-weight:800;line-height:1.1}
 /* ── MOBILE NAV V2 ── */
 .mob-nav{display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.5)}
 .mob-nav.open{display:block}
-.mob-panel{position:fixed;top:0;right:-100%;width:min(320px,90vw);height:100%;background:#fff;box-shadow:var(--shl);overflow-y:auto;transition:right .3s cubic-bezier(.4,0,.2,1);padding:0 0 40px}
-.mob-nav.open .mob-panel{right:0}
+.mob-panel{position:fixed;top:0;left:-100%;width:min(320px,90vw);height:100%;background:#fff;box-shadow:var(--shl);overflow-y:auto;transition:left .3s cubic-bezier(.4,0,.2,1);padding:0 0 40px}
+.mob-nav.open .mob-panel{left:0}
 .mob-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bg2)}
 .mob-close{width:34px;height:34px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;color:var(--ink)}
 .mob-link{display:block;padding:13px 20px;font-size:.9375rem;font-weight:600;color:var(--ink2);border-bottom:1px solid var(--bg2);cursor:pointer;transition:all .12s}
@@ -369,8 +369,6 @@ h1,h2,h3,h4{font-family:var(--fh);font-weight:800;line-height:1.1}
 </head>
 <body>
 
-<div class="preview-badge">Vista previa — Ofipapel V2 · Estilo Editorial</div>
-<div class="v-badge">V2</div>
 
 <!-- HEADER -->
 <header class="site-header" id="hdr">
@@ -404,7 +402,8 @@ h1,h2,h3,h4{font-family:var(--fh);font-weight:800;line-height:1.1}
         </button>
         <div class="cat-flyout" id="cat-flyout">
           <ul class="cat-fly-left">
-            <li class="active" data-cat="1"><a href="#">Clasificaci&#243;n y Archivo <span class="cfl-arrow">&#8250;</span></a></li>
+            <li class="active" data-cat="0"><a href="#">A-Z Multiproducto <span class="cfl-arrow">&#8250;</span></a></li>
+            <li data-cat="1"><a href="#">Clasificaci&#243;n y Archivo <span class="cfl-arrow">&#8250;</span></a></li>
             <li data-cat="2"><a href="#">Papel y Etiquetas <span class="cfl-arrow">&#8250;</span></a></li>
             <li data-cat="3"><a href="#">Escritura y Correcci&#243;n <span class="cfl-arrow">&#8250;</span></a></li>
             <li data-cat="4"><a href="#">Inform&#225;tica <span class="cfl-arrow">&#8250;</span></a></li>
@@ -417,7 +416,17 @@ h1,h2,h3,h4{font-family:var(--fh);font-weight:800;line-height:1.1}
             <li data-cat="11"><a href="#">Servicios Generales <span class="cfl-arrow">&#8250;</span></a></li>
           </ul>
           <div class="cat-fly-right">
-            <div class="cat-fly-content active" id="cat-content-1">
+            <div class="cat-fly-content active" id="cat-content-0">
+              <div class="cfc"><strong>Multimáquinas</strong><ul><li><a href="#">A - Archivadores, Agendas</a></li><li><a href="#">B - Bolígrafos, Blocs</a></li><li><a href="#">C - Carpetas, Calculadoras</a></li><li><a href="#">D - Destructoras, Dibujo</a></li><li><a href="#">E - Escritura, Embalaje</a></li></ul></div>
+              <div class="cfc"><strong>F — M</strong><ul><li><a href="#">F - Folíos, Ficheros</a></li><li><a href="#">G - Grapadoras, Gomas</a></li><li><a href="#">I - Informática, Impresoras</a></li><li><a href="#">L - Lápices, Libretas</a></li><li><a href="#">M - Mobiliario, Máquinas</a></li></ul></div>
+              <div class="cfc"><strong>N — Z</strong><ul><li><a href="#">N - Notas adhesivas</a></li><li><a href="#">P - Papel, Perforadoras</a></li><li><a href="#">R - Rotuladores</a></li><li><a href="#">S - Sellos, Sillas</a></li><li><a href="#">T - Tinta, Tóneres</a></li><li><a href="#">Z - Ver todo el catálogo</a></li></ul></div>
+            </div>
+            <div class="cat-fly-content active" id="cat-content-0">
+              <div class="cfc"><strong>A — E</strong><ul><li><a href="#">A - Archivadores, Agendas</a></li><li><a href="#">B - Bol&#237;grafos, Blocs</a></li><li><a href="#">C - Carpetas, Calculadoras</a></li><li><a href="#">D - Destructoras, Dibujo t&#233;cnico</a></li><li><a href="#">E - Escritura, Embalaje</a></li></ul></div>
+              <div class="cfc"><strong>F — N</strong><ul><li><a href="#">F - Folios, Ficheros</a></li><li><a href="#">G - Grapadoras, Gomas</a></li><li><a href="#">I - Inform&#225;tica, Impresoras</a></li><li><a href="#">L - L&#225;pices, Libretas</a></li><li><a href="#">M - Mobiliario, M&#225;quinas</a></li><li><a href="#">N - Notas adhesivas</a></li></ul></div>
+              <div class="cfc"><strong>P — Z</strong><ul><li><a href="#">P - Papel, Perforadoras</a></li><li><a href="#">R - Rotuladores</a></li><li><a href="#">S - Sellos, Sillas</a></li><li><a href="#">T - Tinta, T&#243;neres</a></li><li><a href="#">V - Vuelta al cole</a></li><li><a href="#">Ver todo el cat&#225;logo &#8250;</a></li></ul></div>
+            </div>
+            <div class="cat-fly-content" id="cat-content-1">
               <div class="cfc"><strong>Archivadores</strong><ul><li><a href="#">Archivadores color</a></li><li><a href="#">Archivadores personalizables</a></li></ul></div>
               <div class="cfc"><strong>Carpetas</strong><ul><li><a href="#">Carpetas colgantes</a></li><li><a href="#">Carpetas fundas</a></li><li><a href="#">Carpetas polipropileno</a></li><li><a href="#">Carpetas portafolios</a></li><li><a href="#">Portamen&#250;s / Fundas</a></li><li><a href="#">Fundas porta carnet</a></li></ul></div>
               <div class="cfc"><strong>Cajas y Clasificadores</strong><ul><li><a href="#">Cajas transferencias</a></li><li><a href="#">Cajas proyectos</a></li><li><a href="#">Clasificadores fuelle</a></li><li><a href="#">Archivos definitivos</a></li></ul></div>
@@ -510,6 +519,33 @@ h1,h2,h3,h4{font-family:var(--fh);font-weight:800;line-height:1.1}
       <a href="#" class="mob-auth-reg">Reg&#237;strate &#8594;</a>
     </div>
     <a class="mob-link" href="#">Inicio</a>
+
+    <div class="mob-cat-item">
+      <button class="mob-cat-btn">A-Z Multiproducto <svg class="mob-cat-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+      <div class="mob-sub-list">
+        <div class="mob-sub-group"><div class="mob-sub-group-title">A — E</div>
+          <a class="mob-sub-link" href="#">A - Archivadores, Agendas</a>
+          <a class="mob-sub-link" href="#">B - Bol&#237;grafos, Blocs</a>
+          <a class="mob-sub-link" href="#">C - Carpetas, Calculadoras</a>
+          <a class="mob-sub-link" href="#">D - Destructoras, Dibujo t&#233;cnico</a>
+          <a class="mob-sub-link" href="#">E - Escritura, Embalaje</a>
+        </div>
+        <div class="mob-sub-group"><div class="mob-sub-group-title">F — N</div>
+          <a class="mob-sub-link" href="#">F - Folios, Ficheros</a>
+          <a class="mob-sub-link" href="#">I - Inform&#225;tica</a>
+          <a class="mob-sub-link" href="#">L - L&#225;pices, Libretas</a>
+          <a class="mob-sub-link" href="#">M - Mobiliario, M&#225;quinas</a>
+          <a class="mob-sub-link" href="#">N - Notas adhesivas</a>
+        </div>
+        <div class="mob-sub-group"><div class="mob-sub-group-title">P — Z</div>
+          <a class="mob-sub-link" href="#">P - Papel, Perforadoras</a>
+          <a class="mob-sub-link" href="#">R - Rotuladores</a>
+          <a class="mob-sub-link" href="#">S - Sellos, Sillas</a>
+          <a class="mob-sub-link" href="#">T - Tinta, T&#243;neres</a>
+          <a class="mob-sub-link" href="#">Ver todo el cat&#225;logo</a>
+        </div>
+      </div>
+    </div>
 
     <div class="mob-cat-item">
       <button class="mob-cat-btn">Clasificaci&#243;n y Archivo <svg class="mob-cat-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
@@ -879,8 +915,8 @@ h1,h2,h3,h4{font-family:var(--fh);font-weight:800;line-height:1.1}
       </div>
       <div class="stat-item">
         <div>
-          <div class="stat-num">2<span></span></div>
-          <div class="stat-label">Tiendas en Tenerife · Los Cristianos</div>
+          <div class="stat-num">3<span></span></div>
+          <div class="stat-label">Tiendas en Tenerife</div>
         </div>
       </div>
     </div>
