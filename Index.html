@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1A5C1A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ofipapel">
+<title>Ofipapel · Control Financiero</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+:root {
+  --azul:#1A5C1A;
+  --azul-med:#237523;
+  --azul-claro:#3DAF3D;
+  --acento:#8DC41E;
+  --acento2:#F5A623;
+  --rojo:#E74C3C;
+  --bg:#F2F8F2;
+  --card:#FFFFFF;
+  --borde:#C8E6C8;
+  --texto:#1A2E1A;
+  --texto2:#4A6B4A;
+  --sombra:0 2px 20px rgba(26,92,26,0.09);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--texto);}
+#loginScreen {
+  position:fixed;inset:0;background:linear-gradient(135deg,#0d3d0d 0%,#1A5C1A 40%,#237523 70%,#3a8f2a 100%);
+  display:flex;align-items:center;justify-content:center;z-index:9999;
+}
+.login-box {
+  background:var(--card);border-radius:20px;padding:44px 44px 40px;
+  width:100%;max-width:400px;box-shadow:0 24px 80px rgba(0,0,0,0.3);
+}
+.login-logo {display:flex;align-items:center;gap:14px;margin-bottom:32px;}
+.login-mark {width:48px;height:48px;background:var(--acento);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:var(--azul);}
+.login-brand {font-size:22px;font-weight:700;color:var(--azul);}
+.login-brand span {display:block;font-size:12px;font-weight:400;color:var(--texto2);margin-top:1px;}
+.login-title {font-size:17px;font-weight:600;margin-bottom:6px;}
+.login-sub {font-size:13px;color:var(--texto2);margin-bottom:28px;}
+.login-field {margin-bottom:16px;}
+.login-field label {font-size:12px;font-weight:600;color:var(--texto2);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px;}
+.login-field input {
+  width:100%;padding:12px 14px;border:1.5px solid var(--borde);border-radius:8px;
+  font-size:14px;font-family:'Inter',sans-serif;transition:border .2s;outline:none;
+}
+.login-field input:focus {border-color:var(--azul-claro);}
+.btn-login {
+  width:100%;padding:13px;background:var(--azul);color:#fff;border:none;border-radius:8px;
+  font-size:14px;font-weight:600;cursor:pointer;transition:background .2s;margin-top:4px;
+}
+.btn-login:hover{background:var(--azul-med);}
+.login-users {margin-top:20px;font-size:11px;color:var(--texto2);text-align:center;line-height:1.8;}
+.login-error {color:var(--rojo);font-size:12px;margin-top:8px;text-align:center;min-height:16px;}
+#app {display:none;height:100vh;width:100%;flex-direction:column;background:var(--bg);}
+.app-header {background:var(--azul);color:#fff;padding:20px;text-align:center;box-shadow:var(--sombra);}
+.app-header h1 {font-size:24px;margin-bottom:10px;}
+.user-info {font-size:13px;opacity:0.9;margin-top:8px;}
+.app-content {flex:1;padding:20px;display:flex;align-items:center;justify-content:center;}
+.welcome-box {background:var(--card);padding:40px;border-radius:12px;text-align:center;box-shadow:var(--sombra);}
+.welcome-box h2 {color:var(--azul);margin-bottom:16px;font-size:20px;}
+.welcome-box p {color:var(--texto2);margin-bottom:20px;line-height:1.6;}
+.btn-logout {background:var(--rojo);color:#fff;padding:12px 24px;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:background .2s;}
+.btn-logout:hover{background:#c62828;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-mark">OF</div>
+      <div class="login-brand">Ofipapel<span>Control Financiero</span></div>
+    </div>
+    <div class="login-title">Bienvenido</div>
+    <div class="login-sub">Ingresa tus credenciales para continuar</div>
+    
+    <div class="login-field">
+      <label>Usuario</label>
+      <input type="text" id="loginUser" placeholder="nombre de usuario">
+    </div>
+    
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input type="password" id="loginPass" placeholder="••••••••">
+    </div>
+    
+    <button class="btn-login" onclick="doLogin()">Entrar →</button>
+    <div class="login-error" id="loginError"></div>
+    
+    <div class="login-users">
+      Usuarios: <strong>rober</strong> / <strong>admin</strong> / <strong>david</strong> / <strong>monica</strong><br>
+      Contraseña: <strong>ofipapel2026</strong>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="app-header">
+    <h1>✅ Ofipapel Control Financiero</h1>
+    <div class="user-info">Usuario: <strong id="appUser"></strong></div>
+  </div>
+  <div class="app-content">
+    <div class="welcome-box">
+      <h2>🎉 Login Exitoso</h2>
+      <p>Sesión iniciada correctamente. El sistema está funcionando.</p>
+      <button class="btn-logout" onclick="doLogout()">← Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const USERS = {
+  rober:'ofipapel2026',
+  admin:'ofipapel2026',
+  david:'ofipapel2026',
+  monica:'ofipapel2026'
+};
+
+let currentUser = null;
+
+function doLogin() {
+  const usuario = document.getElementById('loginUser').value.trim().toLowerCase();
+  const pass = document.getElementById('loginPass').value;
+  const errorEl = document.getElementById('loginError');
+  
+  console.log('Click en Entrar - Usuario:', usuario);
+  
+  if (USERS[usuario] && USERS[usuario] === pass) {
+    console.log('✅ LOGIN CORRECTO');
+    currentUser = usuario;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('appUser').textContent = usuario.charAt(0).toUpperCase() + usuario.slice(1);
+    errorEl.textContent = '';
+    console.log('App mostrada');
+  } else {
+    console.log('❌ LOGIN FALLIDO');
+    errorEl.textContent = 'Usuario o contraseña incorrectos';
+  }
+}
+
+function doLogout() {
+  currentUser = null;
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').textContent = '';
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && document.getElementById('loginScreen').style.display !== 'none') {
+    doLogin();
+  }
+});
+
+console.log('Script cargado - Listo para login');
+</script>
+
+</body>
+</html>
