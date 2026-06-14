@@ -165,7 +165,9 @@ html,body{min-height:100dvh;background:var(--bg);color:var(--text);font-family:'
   background:rgba(255,109,0,0.15);
   border-radius:4px;padding:0 3px;
 }
-.transcript-box .t-empty{color:#444;font-style:italic;font-size:0.83rem;}
+.transcript-box .t-empty{color:#666;font-style:italic;font-size:0.83rem;}
+.dots::after{content:'...';animation:dotdot 1.4s steps(4,end) infinite;}
+@keyframes dotdot{0%,100%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
 
 /* ─── WAVEFORM BARS (decorative) ─── */
 .waveform{
@@ -594,18 +596,26 @@ function buildRecognition() {
 
   recognition.onresult = (e) => {
     let interim = '';
+    const allAlts = []; // todas las alternativas del motor de voz
+
     for (let i = e.resultIndex; i < e.results.length; i++) {
-      const r    = e.results[i];
-      const text = r[0].transcript;
+      const r = e.results[i];
+      // Recoger todas las alternativas (hasta maxAlternatives)
+      for (let j = 0; j < r.length; j++) allAlts.push(r[j].transcript);
+
       if (r.isFinal) {
-        finalBuffer += text + ' ';
-        if (finalBuffer.length > 400) finalBuffer = finalBuffer.slice(-400);
-        scanForKeywords(text, true);
+        finalBuffer += r[0].transcript + ' ';
+        if (finalBuffer.length > 600) finalBuffer = finalBuffer.slice(-600);
       } else {
-        interim += text;
-        scanForKeywords(text, false);
+        interim += r[0].transcript;
       }
     }
+
+    // Escanear: alternativas individuales + buffer acumulado completo
+    // (el buffer captura frases que llegan en resultados separados)
+    allAlts.forEach(t => scanForKeywords(t));
+    scanForKeywords(finalBuffer + ' ' + interim);
+
     renderTranscript(finalBuffer, interim);
   };
 
@@ -643,11 +653,20 @@ function stopListening() {
 }
 
 // ─── KEYWORD SCAN ─────────────────────────────────────
-function scanForKeywords(text, isFinal) {
-  if (alarmActive) return;
+function scanForKeywords(text) {
+  if (alarmActive || !text || !text.trim()) return;
   const norm = normalize(text);
   for (const kw of keywords) {
-    if (norm.includes(normalize(kw))) {
+    const normKw = normalize(kw);
+    // Coincidencia exacta de frase
+    if (norm.includes(normKw)) {
+      triggerAlarm(kw, text);
+      return;
+    }
+    // Para palabras clave de varias palabras: comprobar si todas las palabras
+    // aparecen en el texto aunque no sean consecutivas (mayor tolerancia)
+    const kwWords = normKw.split(' ').filter(w => w.length > 2);
+    if (kwWords.length > 1 && kwWords.every(w => norm.includes(w))) {
       triggerAlarm(kw, text);
       return;
     }
@@ -657,7 +676,7 @@ function scanForKeywords(text, isFinal) {
 function normalize(s) {
   return s.toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[̀-ͯ]/g, '')   // eliminar tildes/diacríticos
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -778,9 +797,18 @@ function clearLog() {
 
 // ─── TRANSCRIPT RENDER ────────────────────────────────
 function renderTranscript(finals, interim) {
-  const highlighted = highlightKw(esc(finals.slice(-300)));
-  const interimHtml = interim
-    ? `<span class="t-interim"> ${esc(interim)}</span>`
+  const finTrim = finals.trim();
+  const intTrim = interim.trim();
+
+  // Si no hay nada todavía, mostrar placeholder animado
+  if (!finTrim && !intTrim) {
+    setTranscript('<span class="t-empty">Escuchando<span class="dots"></span></span>');
+    return;
+  }
+
+  const highlighted = highlightKw(esc(finTrim.slice(-300)));
+  const interimHtml = intTrim
+    ? `<span class="t-interim"> ${esc(intTrim)}</span>`
     : '';
   setTranscript(`<span class="t-final">${highlighted}</span>${interimHtml}`);
 }
