@@ -1,0 +1,2207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Canarias INK - Consumibles para impresoras. Tóner, cartuchos inkjet, botellas de tinta, cintas y etiquetas. Envío gratuito a toda Canarias en pedidos superiores a 50€.">
+<title>Canarias INK – Consumibles para Impresoras</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ===== VARIABLES ===== */
+:root {
+  --sidebar-w: 240px;
+  --topbar-h: 64px;
+  --rad: 12px;
+  --rad-sm: 8px;
+
+  /* Brand palette — inspired by the island silhouettes in the logo */
+  --ink:        #1A1D2E;   /* main dark */
+  --ink-med:    #2C3154;
+  --ink-claro:  #3D4470;
+  --sidebar-bg: #12141F;
+  --sidebar-hover: rgba(255,255,255,0.07);
+  --sidebar-active: rgba(255,255,255,0.13);
+
+  /* Category accent colours */
+  --c-toner:    #E63946;   /* red */
+  --c-inkjet:   #2196F3;   /* blue */
+  --c-botella:  #00BFA5;   /* teal */
+  --c-cinta:    #FF9800;   /* orange */
+  --c-etiqueta: #9C27B0;   /* purple */
+
+  /* UI */
+  --acento:     #00B4D8;   /* primary accent — cyan ink */
+  --acento-d:   #0096BB;
+  --verde:      #2ECC71;
+  --rojo:       #E74C3C;
+  --naranja:    #F39C12;
+
+  /* Backgrounds */
+  --bg:         #F2F4F8;
+  --card:       #FFFFFF;
+  --card2:      #F8F9FC;
+  --borde:      #E2E6EE;
+  --borde2:     #CDD2DC;
+
+  /* Text */
+  --texto:      #1A1D2E;
+  --texto2:     #5A6378;
+  --texto3:     #8E97AA;
+
+  /* Shadows */
+  --sombra:     0 2px 16px rgba(26,29,46,0.08);
+  --sombra-h:   0 6px 28px rgba(26,29,46,0.15);
+  --sombra-ink: 0 4px 20px rgba(0,180,216,0.18);
+}
+
+/* ===== RESET ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--texto);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+input, select, textarea { font-family: inherit; }
+
+/* ===== LAYOUT ===== */
+#app {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ===== SIDEBAR ===== */
+#sidebar {
+  position: fixed;
+  left: 0; top: 0; bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--sidebar-bg);
+  display: flex;
+  flex-direction: column;
+  z-index: 200;
+  transition: width 0.3s ease;
+  overflow: hidden;
+}
+.sidebar-logo {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+.sidebar-logo img {
+  width: 160px;
+  height: auto;
+  display: block;
+  filter: brightness(0) invert(1);
+  opacity: 0.92;
+}
+.sidebar-logo .logo-fallback {
+  display: none;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+.logo-tagline {
+  color: rgba(255,255,255,0.4);
+  font-size: 0.63rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-top: 4px;
+  font-weight: 500;
+}
+nav.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 0;
+  scrollbar-width: none;
+}
+nav.sidebar-nav::-webkit-scrollbar { display: none; }
+.nav-section-title {
+  color: rgba(255,255,255,0.3);
+  font-size: 0.63rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  padding: 14px 18px 6px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  color: rgba(255,255,255,0.6);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.15s, color 0.15s;
+  border-left: 3px solid transparent;
+  white-space: nowrap;
+}
+.nav-item:hover {
+  background: var(--sidebar-hover);
+  color: rgba(255,255,255,0.9);
+}
+.nav-item.active {
+  background: var(--sidebar-active);
+  color: #fff;
+  border-left-color: var(--acento);
+}
+.nav-item .nav-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+.nav-item .nav-badge {
+  margin-left: auto;
+  background: var(--acento);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+.nav-item .cat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.sidebar-bottom {
+  border-top: 1px solid rgba(255,255,255,0.07);
+  padding: 16px 18px;
+}
+.sidebar-contact {
+  color: rgba(255,255,255,0.45);
+  font-size: 0.75rem;
+  line-height: 1.7;
+}
+.sidebar-contact strong {
+  color: rgba(255,255,255,0.7);
+  display: block;
+  margin-bottom: 4px;
+}
+.sidebar-contact a { color: var(--acento); }
+.shipping-badge {
+  margin-top: 10px;
+  background: rgba(0,180,216,0.15);
+  border: 1px solid rgba(0,180,216,0.3);
+  border-radius: var(--rad-sm);
+  padding: 8px 10px;
+  color: var(--acento);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* ===== MAIN ===== */
+#main {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  transition: margin-left 0.3s ease;
+}
+
+/* ===== TOPBAR ===== */
+#topbar {
+  position: sticky;
+  top: 0;
+  height: var(--topbar-h);
+  background: var(--card);
+  border-bottom: 1px solid var(--borde);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 24px;
+  z-index: 100;
+  box-shadow: 0 1px 8px rgba(26,29,46,0.05);
+}
+#menu-toggle {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--texto2);
+  font-size: 1.1rem;
+  transition: background 0.15s;
+  display: none;
+}
+#menu-toggle:hover { background: var(--bg); }
+.topbar-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--texto);
+  white-space: nowrap;
+}
+.topbar-search {
+  flex: 1;
+  max-width: 420px;
+  position: relative;
+  margin-left: auto;
+}
+.topbar-search input {
+  width: 100%;
+  height: 38px;
+  background: var(--bg);
+  border: 1.5px solid var(--borde);
+  border-radius: 20px;
+  padding: 0 16px 0 40px;
+  font-size: 0.875rem;
+  color: var(--texto);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.topbar-search input::placeholder { color: var(--texto3); }
+.topbar-search input:focus {
+  border-color: var(--acento);
+  box-shadow: 0 0 0 3px rgba(0,180,216,0.12);
+}
+.topbar-search .search-icon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--texto3);
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.topbar-phone {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--texto2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.topbar-phone span { color: var(--texto3); font-weight: 400; font-size: 0.72rem; }
+.btn-cart {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1.5px solid var(--borde);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: var(--texto);
+  transition: border-color 0.2s, background 0.2s;
+}
+.btn-cart:hover { border-color: var(--acento); background: #fff; }
+.cart-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: var(--c-toner);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--card);
+}
+.cart-count.hidden { display: none; }
+
+/* ===== CONTENT ===== */
+#content { flex: 1; padding: 28px 28px 48px; }
+.view { display: none; }
+.view.active { display: block; }
+
+/* ===== HERO ===== */
+.hero {
+  background: linear-gradient(135deg, var(--ink) 0%, var(--ink-med) 50%, #1a3a5c 100%);
+  border-radius: 16px;
+  padding: 48px 40px;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 28px;
+  overflow: hidden;
+  position: relative;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  right: -60px;
+  top: -60px;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(0,180,216,0.2) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero::after {
+  content: '';
+  position: absolute;
+  left: 30%;
+  bottom: -80px;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(0,180,216,0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-content { max-width: 520px; position: relative; z-index: 1; }
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0,180,216,0.2);
+  border: 1px solid rgba(0,180,216,0.4);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--acento);
+  margin-bottom: 18px;
+}
+.hero h1 {
+  font-size: 2.1rem;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 14px;
+  letter-spacing: -0.5px;
+}
+.hero h1 em {
+  color: var(--acento);
+  font-style: normal;
+}
+.hero p {
+  color: rgba(255,255,255,0.7);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+.hero-ctas {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--acento);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 11px 22px;
+  border-radius: 10px;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: var(--sombra-ink);
+}
+.btn-primary:hover {
+  background: var(--acento-d);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(0,180,216,0.3);
+}
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 11px 22px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(255,255,255,0.2);
+  transition: background 0.2s;
+}
+.btn-secondary:hover { background: rgba(255,255,255,0.18); }
+.hero-graphic {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.hero-img {
+  width: 340px;
+  height: 210px;
+  object-fit: cover;
+  border-radius: var(--rad);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  display: block;
+  margin-bottom: 12px;
+}
+.hero-stats-row {
+  display: flex;
+  gap: 10px;
+}
+.hero-stat {
+  flex: 1;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--rad-sm);
+  padding: 10px 12px;
+  text-align: center;
+  backdrop-filter: blur(10px);
+}
+.hero-stat .val {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--acento);
+  display: block;
+}
+.hero-stat .lbl {
+  font-size: 0.62rem;
+  color: rgba(255,255,255,0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 500;
+}
+
+/* ===== SHIPPING BANNER ===== */
+.shipping-banner {
+  background: linear-gradient(90deg, #00BFA5 0%, #00B4D8 100%);
+  border-radius: var(--rad);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: white;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+.shipping-banner .sb-icon { font-size: 1.4rem; }
+.shipping-banner .sb-text strong { font-size: 0.9rem; font-weight: 700; }
+.shipping-banner .sb-text span { font-size: 0.8rem; opacity: 0.85; }
+.shipping-banner .sb-pill {
+  margin-left: auto;
+  background: rgba(255,255,255,0.2);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* ===== SECTION TITLES ===== */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--texto);
+}
+.section-title span { color: var(--acento); }
+.btn-ver-todos {
+  color: var(--acento);
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: gap 0.2s;
+}
+.btn-ver-todos:hover { gap: 8px; }
+
+/* ===== CATEGORY CARDS ===== */
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  margin-bottom: 32px;
+}
+.cat-card {
+  background: var(--card);
+  border-radius: var(--rad);
+  padding: 22px 16px;
+  text-align: center;
+  cursor: pointer;
+  border: 1.5px solid var(--borde);
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.cat-card::before {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--cat-color, var(--acento));
+  transform: scaleX(0);
+  transition: transform 0.2s;
+  transform-origin: left;
+}
+.cat-card:hover {
+  border-color: var(--cat-color, var(--acento));
+  box-shadow: var(--sombra-h);
+  transform: translateY(-2px);
+}
+.cat-card:hover::before { transform: scaleX(1); }
+.cat-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--cat-bg, #E3F6FA);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin: 0 auto 12px;
+  transition: transform 0.2s;
+}
+.cat-card:hover .cat-icon { transform: scale(1.08); }
+.cat-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--texto);
+  margin-bottom: 4px;
+}
+.cat-count {
+  font-size: 0.7rem;
+  color: var(--texto3);
+}
+
+/* ===== PRODUCT GRID ===== */
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.product-card {
+  background: var(--card);
+  border-radius: var(--rad);
+  border: 1.5px solid var(--borde);
+  overflow: hidden;
+  transition: all 0.2s;
+  cursor: pointer;
+  position: relative;
+}
+.product-card:hover {
+  box-shadow: var(--sombra-h);
+  border-color: var(--borde2);
+  transform: translateY(-2px);
+}
+.product-img {
+  height: 140px;
+  background: var(--card2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  position: relative;
+  overflow: hidden;
+}
+.product-img-bg {
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  font-size: 5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.product-badges {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.badge-original { background: #E3F2FD; color: #1565C0; }
+.badge-generico { background: #F3E5F5; color: #6A1B9A; }
+.badge-oferta { background: #FFF3E0; color: #E65100; }
+.badge-nuevo { background: #E8F5E9; color: #1B5E20; }
+.badge-garantia {
+  background: rgba(0,191,165,0.12);
+  color: #00897B;
+}
+.product-body { padding: 14px; }
+.product-marca {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--texto3);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
+}
+.product-nombre {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--texto);
+  line-height: 1.35;
+  margin-bottom: 6px;
+  min-height: 2.2em;
+}
+.product-ref {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--texto3);
+  margin-bottom: 10px;
+}
+.product-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.product-price {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--texto);
+}
+.product-price-old {
+  font-size: 0.72rem;
+  color: var(--texto3);
+  text-decoration: line-through;
+  font-weight: 400;
+  display: block;
+}
+.btn-add-cart {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--acento);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  transition: background 0.2s, transform 0.15s;
+  flex-shrink: 0;
+}
+.btn-add-cart:hover {
+  background: var(--acento-d);
+  transform: scale(1.1);
+}
+.product-pages {
+  font-size: 0.68rem;
+  color: var(--texto3);
+  margin-top: 4px;
+}
+
+/* ===== BRAND LOGOS ===== */
+.brands-row {
+  background: var(--card);
+  border-radius: var(--rad);
+  border: 1.5px solid var(--borde);
+  padding: 24px 28px;
+  margin-bottom: 32px;
+}
+.brands-logos {
+  display: flex;
+  gap: 0;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.brand-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 22px;
+  border-right: 1px solid var(--borde);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--texto2);
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+  letter-spacing: 0.3px;
+}
+.brand-pill:last-child { border-right: none; }
+.brand-pill:hover {
+  color: var(--acento);
+  background: rgba(0,180,216,0.05);
+}
+
+/* ===== GARANTIA CARDS ===== */
+.garantia-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.garantia-card {
+  background: var(--card);
+  border-radius: var(--rad);
+  border: 1.5px solid var(--borde);
+  padding: 24px;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.garantia-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+.garantia-card h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 5px; }
+.garantia-card p { font-size: 0.8rem; color: var(--texto2); line-height: 1.5; }
+
+/* ===== CATALOG PAGE ===== */
+.catalog-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.filter-panel {
+  background: var(--card);
+  border-radius: var(--rad);
+  border: 1.5px solid var(--borde);
+  padding: 20px;
+  position: sticky;
+  top: calc(var(--topbar-h) + 20px);
+}
+.filter-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--texto3);
+  margin-bottom: 12px;
+  margin-top: 16px;
+}
+.filter-title:first-child { margin-top: 0; }
+.filter-sep { height: 1px; background: var(--borde); margin: 14px 0; }
+.filter-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--texto2);
+  transition: color 0.15s;
+}
+.filter-check:hover { color: var(--texto); }
+.filter-check input { accent-color: var(--acento); width: 15px; height: 15px; }
+.filter-count {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--texto3);
+}
+.filter-btn-reset {
+  width: 100%;
+  margin-top: 16px;
+  padding: 9px;
+  border-radius: 8px;
+  border: 1.5px solid var(--borde);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--texto2);
+  background: var(--bg);
+  transition: all 0.2s;
+}
+.filter-btn-reset:hover { border-color: var(--rojo); color: var(--rojo); }
+.catalog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.catalog-count {
+  font-size: 0.82rem;
+  color: var(--texto2);
+}
+.catalog-count strong { color: var(--texto); font-weight: 700; }
+.sort-select {
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1.5px solid var(--borde);
+  font-size: 0.82rem;
+  color: var(--texto);
+  background: var(--card);
+  outline: none;
+  cursor: pointer;
+}
+.sort-select:focus { border-color: var(--acento); }
+.cat-filter-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.chip {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1.5px solid var(--borde);
+  background: var(--card);
+  color: var(--texto2);
+}
+.chip:hover { border-color: var(--acento); color: var(--acento); }
+.chip.active {
+  background: var(--acento);
+  border-color: var(--acento);
+  color: #fff;
+}
+
+/* ===== MARCAS PAGE ===== */
+.marcas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 14px;
+}
+.marca-card {
+  background: var(--card);
+  border-radius: var(--rad);
+  border: 1.5px solid var(--borde);
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.marca-card:hover {
+  border-color: var(--acento);
+  box-shadow: var(--sombra-h);
+  transform: translateY(-2px);
+}
+.marca-logo-text {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--texto);
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+.marca-cat-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 8px;
+}
+.marca-tag {
+  font-size: 0.62rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+/* ===== OFERTAS PAGE ===== */
+.oferta-hero {
+  background: linear-gradient(135deg, #ff6b35 0%, #f72585 100%);
+  border-radius: 16px;
+  padding: 36px;
+  color: white;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.oferta-hero-icon { font-size: 4rem; flex-shrink: 0; }
+.oferta-hero h2 { font-size: 1.6rem; font-weight: 800; margin-bottom: 8px; }
+.oferta-hero p { opacity: 0.85; font-size: 0.9rem; }
+.oferta-countdown {
+  margin-left: auto;
+  text-align: center;
+  flex-shrink: 0;
+}
+.countdown-val {
+  font-size: 2.2rem;
+  font-weight: 800;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.countdown-lbl { font-size: 0.7rem; opacity: 0.7; text-transform: uppercase; }
+
+/* ===== CONTACTO PAGE ===== */
+.contact-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 24px;
+}
+.contact-info-card {
+  background: var(--card);
+  border-radius: var(--rad);
+  border: 1.5px solid var(--borde);
+  padding: 28px;
+}
+.contact-item {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+.contact-item:last-child { margin-bottom: 0; }
+.contact-item-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: rgba(0,180,216,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.contact-item h4 { font-size: 0.8rem; font-weight: 700; margin-bottom: 3px; }
+.contact-item p, .contact-item a { font-size: 0.82rem; color: var(--texto2); }
+.contact-form-card {
+  background: var(--card);
+  border-radius: var(--rad);
+  border: 1.5px solid var(--borde);
+  padding: 28px;
+}
+.form-group { margin-bottom: 16px; }
+.form-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--texto2);
+  margin-bottom: 6px;
+}
+.form-control {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--borde);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: var(--texto);
+  background: var(--bg);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-control:focus {
+  border-color: var(--acento);
+  box-shadow: 0 0 0 3px rgba(0,180,216,0.12);
+  background: #fff;
+}
+textarea.form-control { min-height: 110px; resize: vertical; }
+.btn-submit {
+  width: 100%;
+  padding: 12px;
+  background: var(--acento);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border-radius: 10px;
+  transition: background 0.2s, transform 0.15s;
+}
+.btn-submit:hover { background: var(--acento-d); transform: translateY(-1px); }
+
+/* ===== GARANTIA PAGE ===== */
+.garantia-page-hero {
+  background: linear-gradient(135deg, #00897B 0%, #00B4D8 100%);
+  border-radius: 16px;
+  padding: 40px;
+  color: white;
+  margin-bottom: 28px;
+  text-align: center;
+}
+.garantia-page-hero .big-icon { font-size: 3.5rem; margin-bottom: 14px; }
+.garantia-page-hero h2 { font-size: 1.6rem; font-weight: 800; margin-bottom: 10px; }
+.garantia-page-hero p { opacity: 0.85; max-width: 500px; margin: 0 auto; font-size: 0.9rem; }
+.garantia-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.step-card {
+  background: var(--card);
+  border-radius: var(--rad);
+  border: 1.5px solid var(--borde);
+  padding: 24px;
+  text-align: center;
+}
+.step-num {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--acento);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+}
+.step-card h3 { font-size: 0.88rem; font-weight: 700; margin-bottom: 6px; }
+.step-card p { font-size: 0.78rem; color: var(--texto2); line-height: 1.5; }
+.garantia-info-card {
+  background: var(--card);
+  border-radius: var(--rad);
+  border: 1.5px solid var(--borde);
+  padding: 28px;
+  margin-bottom: 16px;
+}
+.garantia-info-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 14px; color: var(--texto); }
+.garantia-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.garantia-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--texto2);
+  line-height: 1.5;
+}
+.garantia-list li::before {
+  content: '✓';
+  color: var(--verde);
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ===== CART DRAWER ===== */
+#cart-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26,29,46,0.4);
+  z-index: 300;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+#cart-overlay.open { opacity: 1; pointer-events: all; }
+#cart-drawer {
+  position: fixed;
+  right: -400px;
+  top: 0;
+  bottom: 0;
+  width: 380px;
+  background: var(--card);
+  z-index: 301;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 40px rgba(26,29,46,0.15);
+  transition: right 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+#cart-drawer.open { right: 0; }
+.cart-header {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--borde);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cart-header h3 { font-size: 1rem; font-weight: 700; }
+.btn-close-cart {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--texto2);
+  font-size: 1.1rem;
+  transition: background 0.15s;
+}
+.btn-close-cart:hover { background: var(--bg); }
+.cart-items { flex: 1; overflow-y: auto; padding: 16px; }
+.cart-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--texto3);
+}
+.cart-empty .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+.cart-empty p { font-size: 0.85rem; }
+.cart-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--borde);
+}
+.cart-item-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+.cart-item-info { flex: 1; min-width: 0; }
+.cart-item-name { font-size: 0.8rem; font-weight: 600; margin-bottom: 3px; }
+.cart-item-ref { font-size: 0.68rem; color: var(--texto3); font-family: 'IBM Plex Mono', monospace; }
+.cart-item-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.qty-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1.5px solid var(--borde);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.qty-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: var(--texto2);
+  transition: background 0.15s;
+}
+.qty-btn:hover { background: var(--bg); }
+.qty-val {
+  width: 28px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-left: 1px solid var(--borde);
+  border-right: 1px solid var(--borde);
+}
+.cart-item-price {
+  font-weight: 700;
+  font-size: 0.88rem;
+  margin-left: auto;
+}
+.btn-remove-item {
+  color: var(--texto3);
+  font-size: 0.85rem;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+.btn-remove-item:hover { color: var(--rojo); background: rgba(231,76,60,0.08); }
+.cart-footer {
+  border-top: 1px solid var(--borde);
+  padding: 16px 20px;
+}
+.cart-shipping-note {
+  background: rgba(0,180,216,0.08);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.75rem;
+  color: var(--texto2);
+  margin-bottom: 14px;
+  text-align: center;
+}
+.cart-shipping-note strong { color: var(--acento); }
+.cart-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.cart-total-lbl { font-size: 0.82rem; color: var(--texto2); }
+.cart-total-val { font-size: 1.2rem; font-weight: 800; }
+.btn-checkout {
+  width: 100%;
+  padding: 13px;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+.btn-checkout:hover { background: var(--ink-med); }
+
+/* ===== TOAST ===== */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  background: var(--ink);
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  box-shadow: var(--sombra-h);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slideIn 0.3s ease;
+  max-width: 300px;
+}
+.toast.success { background: #1a4731; }
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ===== PAGE HEADING ===== */
+.page-heading {
+  margin-bottom: 24px;
+}
+.page-heading h2 { font-size: 1.25rem; font-weight: 800; color: var(--texto); margin-bottom: 4px; }
+.page-heading p { font-size: 0.85rem; color: var(--texto2); }
+
+/* ===== UTILS ===== */
+.divider { height: 1px; background: var(--borde); margin: 24px 0; }
+.text-center { text-align: center; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1100px) {
+  .cat-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 900px) {
+  :root { --sidebar-w: 64px; }
+  .sidebar-logo img { display: none; }
+  .sidebar-logo .logo-fallback { display: block; font-size: 0.7rem; text-align: center; }
+  .logo-tagline { display: none; }
+  .nav-item span { display: none; }
+  .nav-item { justify-content: center; padding: 14px 0; }
+  .nav-item .nav-badge, .nav-item .cat-dot, .nav-section-title { display: none; }
+  .sidebar-bottom { padding: 10px; }
+  .sidebar-contact { display: none; }
+  .shipping-badge { display: none; }
+  .catalog-layout { grid-template-columns: 1fr; }
+  .filter-panel { position: static; }
+  .contact-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 660px) {
+  #menu-toggle { display: flex; }
+  #sidebar { left: calc(-1 * var(--sidebar-w)); }
+  #sidebar.open { left: 0; }
+  #main { margin-left: 0; }
+  :root { --sidebar-w: 240px; }
+  .nav-item span { display: block; }
+  .nav-item { justify-content: flex-start; padding: 10px 18px; }
+  .nav-section-title { display: block; }
+  .sidebar-contact { display: block; }
+  .shipping-badge { display: block; }
+  .hero { flex-direction: column; padding: 28px 24px; }
+  .hero h1 { font-size: 1.5rem; }
+  .hero-graphic { width: 100%; }
+  .hero-img { width: 100%; height: 180px; margin-bottom: 10px; }
+  .hero-stats-row { gap: 8px; }
+  .cat-grid { grid-template-columns: repeat(2, 1fr); }
+  #content { padding: 16px 16px 40px; }
+  .topbar-phone { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<!-- Cart overlay -->
+<div id="cart-overlay" onclick="closeCart()"></div>
+
+<!-- Cart drawer -->
+<div id="cart-drawer">
+  <div class="cart-header">
+    <h3>🛒 Mi Carrito</h3>
+    <button class="btn-close-cart" onclick="closeCart()">✕</button>
+  </div>
+  <div class="cart-items" id="cart-items-list">
+    <div class="cart-empty">
+      <div class="empty-icon">🛒</div>
+      <p>Tu carrito está vacío.<br>Añade productos para comenzar.</p>
+    </div>
+  </div>
+  <div class="cart-footer">
+    <div class="cart-shipping-note" id="cart-shipping-note">
+      ¡Añade <strong id="shipping-remaining">50,00 €</strong> más para <strong>envío gratis</strong> a Canarias! 🚀
+    </div>
+    <div class="cart-total-row">
+      <span class="cart-total-lbl">Total (IVA incl.)</span>
+      <span class="cart-total-val" id="cart-total">0,00 €</span>
+    </div>
+    <button class="btn-checkout" onclick="checkout()">Solicitar Pedido →</button>
+  </div>
+</div>
+
+<div id="app">
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sidebar-logo">
+      <img src="logo-canarias-ink.png" alt="Canarias INK" onerror="this.style.display='none';document.querySelector('.logo-fallback').style.display='block'">
+      <div class="logo-fallback">CANARIAS<br><strong>INK</strong></div>
+      <div class="logo-tagline">Consumibles para Impresoras</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Principal</div>
+      <div class="nav-item active" onclick="showView('inicio',this)">
+        <div class="nav-icon">🏠</div>
+        <span>Inicio</span>
+      </div>
+      <div class="nav-item" onclick="showView('catalogo',this)">
+        <div class="nav-icon">📦</div>
+        <span>Catálogo</span>
+      </div>
+      <div class="nav-item" onclick="showView('ofertas',this)">
+        <div class="nav-icon">🏷️</div>
+        <span>Ofertas</span>
+        <div class="nav-badge">HOT</div>
+      </div>
+
+      <div class="nav-section-title">Categorías</div>
+      <div class="nav-item" onclick="filterCat('toner')">
+        <div class="nav-icon">🖨️</div>
+        <span>Tóner</span>
+        <div class="cat-dot" style="background:var(--c-toner)"></div>
+      </div>
+      <div class="nav-item" onclick="filterCat('inkjet')">
+        <div class="nav-icon">💧</div>
+        <span>Cartuchos Inkjet</span>
+        <div class="cat-dot" style="background:var(--c-inkjet)"></div>
+      </div>
+      <div class="nav-item" onclick="filterCat('botella')">
+        <div class="nav-icon">🍶</div>
+        <span>Botellas de Tinta</span>
+        <div class="cat-dot" style="background:var(--c-botella)"></div>
+      </div>
+      <div class="nav-item" onclick="filterCat('cinta')">
+        <div class="nav-icon">📼</div>
+        <span>Cintas</span>
+        <div class="cat-dot" style="background:var(--c-cinta)"></div>
+      </div>
+      <div class="nav-item" onclick="filterCat('etiqueta')">
+        <div class="nav-icon">🏷️</div>
+        <span>Rollos y Etiquetas</span>
+        <div class="cat-dot" style="background:var(--c-etiqueta)"></div>
+      </div>
+
+      <div class="nav-section-title">Información</div>
+      <div class="nav-item" onclick="showView('marcas',this)">
+        <div class="nav-icon">⭐</div>
+        <span>Marcas</span>
+      </div>
+      <div class="nav-item" onclick="showView('garantia',this)">
+        <div class="nav-icon">🛡️</div>
+        <span>Garantía</span>
+      </div>
+      <div class="nav-item" onclick="showView('contacto',this)">
+        <div class="nav-icon">📞</div>
+        <span>Contacto</span>
+      </div>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="sidebar-contact">
+        <strong>Canarias INK</strong>
+        📞 <a href="tel:+34928000000">928 000 000</a><br>
+        ✉️ <a href="mailto:info@canariasink.es">info@canariasink.es</a><br>
+        📍 Las Palmas de Gran Canaria
+      </div>
+      <div class="shipping-badge">
+        🚀 Envío GRATIS<br>en pedidos +50 €<br>a toda Canarias
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div id="main">
+    <!-- TOPBAR -->
+    <header id="topbar">
+      <button id="menu-toggle" onclick="toggleSidebar()">☰</button>
+      <div class="topbar-title" id="topbar-title">Inicio</div>
+      <div class="topbar-search">
+        <span class="search-icon">🔍</span>
+        <input type="text" placeholder="Buscar producto, marca o referencia…" id="search-input" oninput="onSearch(this.value)">
+      </div>
+      <div class="topbar-actions">
+        <div class="topbar-phone">
+          📞 928 000 000<br>
+          <span>Lun–Vie 9–18h</span>
+        </div>
+        <button class="btn-cart" onclick="openCart()" title="Ver carrito">
+          🛒
+          <div class="cart-count hidden" id="cart-count">0</div>
+        </button>
+      </div>
+    </header>
+
+    <!-- CONTENT VIEWS -->
+    <div id="content">
+
+      <!-- ===== INICIO ===== -->
+      <div class="view active" id="v-inicio">
+
+        <!-- Hero -->
+        <div class="hero">
+          <div class="hero-content">
+            <div class="hero-badge">🚀 Envío gratis a Canarias en pedidos +50 €</div>
+            <h1>Tus consumibles,<br><em>siempre a punto</em></h1>
+            <p>Tóner, cartuchos, botellas de tinta, cintas y etiquetas. Originales y genéricos de todas las marcas. Entrega rápida en toda Canarias.</p>
+            <div class="hero-ctas">
+              <button class="btn-primary" onclick="showView('catalogo', document.querySelector('[onclick*=catalogo]'))">Ver Catálogo →</button>
+              <button class="btn-secondary" onclick="showView('ofertas', document.querySelector('[onclick*=ofertas]'))">🏷️ Ver Ofertas</button>
+            </div>
+          </div>
+          <div class="hero-graphic">
+            <img src="hero-productos.jpg" alt="Consumibles para impresoras" class="hero-img">
+            <div class="hero-stats-row">
+              <div class="hero-stat">
+                <span class="val">+2.000</span>
+                <span class="lbl">Referencias</span>
+              </div>
+              <div class="hero-stat">
+                <span class="val">+50</span>
+                <span class="lbl">Marcas</span>
+              </div>
+              <div class="hero-stat">
+                <span class="val">100%</span>
+                <span class="lbl">Garantizados</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shipping banner -->
+        <div class="shipping-banner">
+          <div class="sb-icon">📦</div>
+          <div class="sb-text">
+            <strong>Envío gratuito a toda Canarias</strong><br>
+            <span>En pedidos superiores a 50 €. Entrega en 24–48h en Gran Canaria y Tenerife.</span>
+          </div>
+          <div class="sb-pill">🛡️ Cartuchos garantizados</div>
+        </div>
+
+        <!-- Categorías -->
+        <div class="section-header">
+          <div class="section-title">Categorías de <span>Productos</span></div>
+        </div>
+        <div class="cat-grid">
+          <div class="cat-card" style="--cat-color:var(--c-toner);--cat-bg:rgba(230,57,70,0.1)" onclick="filterCat('toner')">
+            <div class="cat-icon">🖨️</div>
+            <div class="cat-name">Tóner</div>
+            <div class="cat-count">Original & Genérico</div>
+          </div>
+          <div class="cat-card" style="--cat-color:var(--c-inkjet);--cat-bg:rgba(33,150,243,0.1)" onclick="filterCat('inkjet')">
+            <div class="cat-icon">💧</div>
+            <div class="cat-name">Cartuchos Inkjet</div>
+            <div class="cat-count">Original & Genérico</div>
+          </div>
+          <div class="cat-card" style="--cat-color:var(--c-botella);--cat-bg:rgba(0,191,165,0.1)" onclick="filterCat('botella')">
+            <div class="cat-icon">🍶</div>
+            <div class="cat-name">Botellas de Tinta</div>
+            <div class="cat-count">EcoTank · MegaTank</div>
+          </div>
+          <div class="cat-card" style="--cat-color:var(--c-cinta);--cat-bg:rgba(255,152,0,0.1)" onclick="filterCat('cinta')">
+            <div class="cat-icon">📼</div>
+            <div class="cat-name">Cintas</div>
+            <div class="cat-count">Matriciales · Transferencia</div>
+          </div>
+          <div class="cat-card" style="--cat-color:var(--c-etiqueta);--cat-bg:rgba(156,39,176,0.1)" onclick="filterCat('etiqueta')">
+            <div class="cat-icon">🏷️</div>
+            <div class="cat-name">Rollos y Etiquetas</div>
+            <div class="cat-count">Térmico · Adhesivo</div>
+          </div>
+        </div>
+
+        <!-- Más vendidos -->
+        <div class="section-header">
+          <div class="section-title">Más <span>Vendidos</span></div>
+          <button class="btn-ver-todos" onclick="showView('catalogo', document.querySelector('[onclick*=catalogo]'))">Ver todos →</button>
+        </div>
+        <div class="products-grid" id="featured-products"></div>
+
+        <!-- Garantía highlight -->
+        <div class="section-header">
+          <div class="section-title">¿Por qué <span>Canarias INK</span>?</div>
+        </div>
+        <div class="garantia-grid">
+          <div class="garantia-card">
+            <div class="garantia-icon" style="background:rgba(0,180,216,0.1)">🛡️</div>
+            <div>
+              <h3>Cartuchos Garantizados</h3>
+              <p>Todos nuestros cartuchos, originales y genéricos, están garantizados. Si no imprimen bien, los cambiamos.</p>
+            </div>
+          </div>
+          <div class="garantia-card">
+            <div class="garantia-icon" style="background:rgba(46,204,113,0.1)">🚀</div>
+            <div>
+              <h3>Envío Rápido Canarias</h3>
+              <p>Entrega en 24–48h en Gran Canaria y Tenerife. Gratis en pedidos superiores a 50 €.</p>
+            </div>
+          </div>
+          <div class="garantia-card">
+            <div class="garantia-icon" style="background:rgba(255,152,0,0.1)">⭐</div>
+            <div>
+              <h3>Todas las Marcas</h3>
+              <p>HP, Canon, Epson, Brother, Kyocera, Xerox, OKI… Originales y genéricos de máxima calidad.</p>
+            </div>
+          </div>
+          <div class="garantia-card">
+            <div class="garantia-icon" style="background:rgba(156,39,176,0.1)">💬</div>
+            <div>
+              <h3>Asesoramiento Gratuito</h3>
+              <p>¿No encuentras tu referencia? Llámanos y te ayudamos a localizar el consumible que necesitas.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Marcas -->
+        <div class="brands-row">
+          <div class="section-title">Marcas que <span>Distribuimos</span></div>
+          <div class="brands-logos" id="brands-home"></div>
+        </div>
+
+      </div><!-- /v-inicio -->
+
+      <!-- ===== CATÁLOGO ===== -->
+      <div class="view" id="v-catalogo">
+        <div class="page-heading">
+          <h2>Catálogo de Productos</h2>
+          <p>Consumibles originales y genéricos para todo tipo de impresoras</p>
+        </div>
+
+        <div class="cat-filter-chips" id="cat-chips">
+          <div class="chip active" onclick="setCatFilter('todos',this)">Todos</div>
+          <div class="chip" onclick="setCatFilter('toner',this)">🖨️ Tóner</div>
+          <div class="chip" onclick="setCatFilter('inkjet',this)">💧 Inkjet</div>
+          <div class="chip" onclick="setCatFilter('botella',this)">🍶 Botellas</div>
+          <div class="chip" onclick="setCatFilter('cinta',this)">📼 Cintas</div>
+          <div class="chip" onclick="setCatFilter('etiqueta',this)">🏷️ Etiquetas</div>
+        </div>
+
+        <div class="catalog-layout">
+          <div class="filter-panel">
+            <div class="filter-title">Tipo</div>
+            <label class="filter-check"><input type="checkbox" id="f-original" checked onchange="applyFilters()"><span>Original</span><span class="filter-count" id="fc-original">0</span></label>
+            <label class="filter-check"><input type="checkbox" id="f-generico" checked onchange="applyFilters()"><span>Genérico / Compatible</span><span class="filter-count" id="fc-generico">0</span></label>
+
+            <div class="filter-sep"></div>
+            <div class="filter-title">Marca</div>
+            <div id="brand-filters"></div>
+
+            <div class="filter-sep"></div>
+            <div class="filter-title">Precio</div>
+            <label class="filter-check"><input type="checkbox" id="f-p1" onchange="applyFilters()"><span>Hasta 10 €</span></label>
+            <label class="filter-check"><input type="checkbox" id="f-p2" onchange="applyFilters()"><span>10 – 30 €</span></label>
+            <label class="filter-check"><input type="checkbox" id="f-p3" onchange="applyFilters()"><span>30 – 60 €</span></label>
+            <label class="filter-check"><input type="checkbox" id="f-p4" onchange="applyFilters()"><span>Más de 60 €</span></label>
+
+            <button class="filter-btn-reset" onclick="resetFilters()">✕ Limpiar filtros</button>
+          </div>
+
+          <div>
+            <div class="catalog-header">
+              <div class="catalog-count"><strong id="result-count">0</strong> productos encontrados</div>
+              <select class="sort-select" id="sort-select" onchange="applyFilters()">
+                <option value="popular">Más populares</option>
+                <option value="precio-asc">Precio: menor a mayor</option>
+                <option value="precio-desc">Precio: mayor a menor</option>
+                <option value="nombre">Nombre A–Z</option>
+              </select>
+            </div>
+            <div class="products-grid" id="catalog-grid"></div>
+          </div>
+        </div>
+      </div><!-- /v-catalogo -->
+
+      <!-- ===== OFERTAS ===== -->
+      <div class="view" id="v-ofertas">
+        <div class="oferta-hero">
+          <div class="oferta-hero-icon">🔥</div>
+          <div>
+            <h2>Ofertas Especiales</h2>
+            <p>Los mejores precios en consumibles para impresoras. Aprovecha nuestras promociones exclusivas.</p>
+          </div>
+          <div class="oferta-countdown">
+            <div class="countdown-val" id="countdown-val">24:00:00</div>
+            <div class="countdown-lbl">Oferta del día</div>
+          </div>
+        </div>
+        <div class="section-header">
+          <div class="section-title">Productos en <span>Oferta</span></div>
+        </div>
+        <div class="products-grid" id="ofertas-grid"></div>
+      </div><!-- /v-ofertas -->
+
+      <!-- ===== MARCAS ===== -->
+      <div class="view" id="v-marcas">
+        <div class="page-heading">
+          <h2>Nuestras Marcas</h2>
+          <p>Distribuimos consumibles originales y genéricos de más de 50 marcas</p>
+        </div>
+        <div class="marcas-grid" id="marcas-grid"></div>
+      </div><!-- /v-marcas -->
+
+      <!-- ===== GARANTIA ===== -->
+      <div class="view" id="v-garantia">
+        <div class="garantia-page-hero">
+          <div class="big-icon">🛡️</div>
+          <h2>Garantía Canarias INK</h2>
+          <p>Todos nuestros cartuchos y consumibles están garantizados. Si el producto no funciona correctamente, lo reemplazamos sin coste adicional.</p>
+        </div>
+
+        <div class="section-header">
+          <div class="section-title">¿Cómo <span>funciona</span> la garantía?</div>
+        </div>
+        <div class="garantia-steps">
+          <div class="step-card">
+            <div class="step-num">1</div>
+            <h3>Contáctanos</h3>
+            <p>Llámanos o escríbenos explicando el problema con tu cartucho. Nuestro equipo te atenderá enseguida.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">2</div>
+            <h3>Verificamos</h3>
+            <p>Te pediremos una muestra de impresión o foto del problema para evaluar la incidencia.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">3</div>
+            <h3>Reemplazamos</h3>
+            <p>Si confirmamos el defecto, enviamos el cartucho de reemplazo en tu próximo pedido sin cargo.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">4</div>
+            <h3>Devolución</h3>
+            <p>En casos excepcionales, gestionamos la devolución del importe si no disponemos de stock de sustitución.</p>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="garantia-info-card">
+            <h3>✅ Qué cubre la garantía</h3>
+            <ul class="garantia-list">
+              <li>Defectos de fabricación en el cartucho</li>
+              <li>Nivel de tinta / tóner incorrecto o vacío al recibir</li>
+              <li>Fugas o derrame de tinta</li>
+              <li>Cabezal de impresión dañado (cartuchos inkjet)</li>
+              <li>Compatibilidad incorrecta si la referencia fue sugerida por nosotros</li>
+              <li>Chips no reconocidos por la impresora</li>
+              <li>Calidad de impresión deficiente comparado con producto original</li>
+            </ul>
+          </div>
+          <div class="garantia-info-card">
+            <h3>❌ Qué no cubre la garantía</h3>
+            <ul class="garantia-list">
+              <li>Daños causados por instalación incorrecta</li>
+              <li>Uso en impresoras no compatibles (referencia elegida por el cliente)</li>
+              <li>Cartuchos caducados o almacenados incorrectamente</li>
+              <li>Daños físicos visibles (rotura, golpes)</li>
+              <li>Impresoras con cabezales dañados previamente</li>
+              <li>Productos originales con garantía directa del fabricante</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="garantia-info-card" style="margin-top:16px">
+          <h3>📋 Condiciones generales</h3>
+          <ul class="garantia-list">
+            <li>La garantía aplica durante <strong>12 meses</strong> desde la fecha de compra para genéricos, y según el fabricante para originales.</li>
+            <li>Es necesario conservar el ticket o factura de compra.</li>
+            <li>Para reclamar, contactar en el plazo máximo de 30 días desde la detección del problema.</li>
+            <li>La garantía se gestiona directamente desde Canarias INK sin necesidad de envíos postales en la mayoría de casos.</li>
+          </ul>
+        </div>
+      </div><!-- /v-garantia -->
+
+      <!-- ===== CONTACTO ===== -->
+      <div class="view" id="v-contacto">
+        <div class="page-heading">
+          <h2>Contacto</h2>
+          <p>Estamos aquí para ayudarte a encontrar el consumible que necesitas</p>
+        </div>
+        <div class="contact-grid">
+          <div>
+            <div class="contact-info-card">
+              <div class="contact-item">
+                <div class="contact-item-icon">📞</div>
+                <div>
+                  <h4>Teléfono</h4>
+                  <p><a href="tel:+34928000000">928 000 000</a></p>
+                  <p style="font-size:0.73rem;color:var(--texto3);margin-top:3px">Lunes a Viernes: 9:00 – 18:00</p>
+                </div>
+              </div>
+              <div class="contact-item">
+                <div class="contact-item-icon">✉️</div>
+                <div>
+                  <h4>Email</h4>
+                  <p><a href="mailto:info@canariasink.es">info@canariasink.es</a></p>
+                  <p style="font-size:0.73rem;color:var(--texto3);margin-top:3px">Respondemos en menos de 24h</p>
+                </div>
+              </div>
+              <div class="contact-item">
+                <div class="contact-item-icon">💬</div>
+                <div>
+                  <h4>WhatsApp</h4>
+                  <p><a href="https://wa.me/34600000000">600 000 000</a></p>
+                  <p style="font-size:0.73rem;color:var(--texto3);margin-top:3px">También por WhatsApp Business</p>
+                </div>
+              </div>
+              <div class="contact-item">
+                <div class="contact-item-icon">📍</div>
+                <div>
+                  <h4>Dirección</h4>
+                  <p>Las Palmas de Gran Canaria</p>
+                  <p style="font-size:0.73rem;color:var(--texto3);margin-top:3px">Islas Canarias, España</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="garantia-card" style="margin-top:14px">
+              <div class="garantia-icon" style="background:rgba(0,180,216,0.1)">🚀</div>
+              <div>
+                <h3>¿No encuentras tu referencia?</h3>
+                <p>Cuéntanos el modelo de tu impresora y te localizamos el consumible. Tenemos acceso a más de 2.000 referencias.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="contact-form-card">
+            <div class="section-title" style="margin-bottom:20px">Envíanos un <span>mensaje</span></div>
+            <div class="form-group">
+              <label class="form-label">Nombre</label>
+              <input class="form-control" type="text" placeholder="Tu nombre completo">
+            </div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input class="form-control" type="email" placeholder="tu@email.com">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Teléfono (opcional)</label>
+                <input class="form-control" type="tel" placeholder="600 000 000">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Modelo de impresora (opcional)</label>
+              <input class="form-control" type="text" placeholder="Ej: HP LaserJet Pro M203dw">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Mensaje</label>
+              <textarea class="form-control" placeholder="Cuéntanos qué necesitas…"></textarea>
+            </div>
+            <button class="btn-submit" onclick="sendContact()">📨 Enviar mensaje</button>
+          </div>
+        </div>
+      </div><!-- /v-contacto -->
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+/* ===== DATA ===== */
+const BRANDS = [
+  { name:'HP', cats:['toner','inkjet','botella'] },
+  { name:'Canon', cats:['toner','inkjet','botella'] },
+  { name:'Epson', cats:['inkjet','botella'] },
+  { name:'Brother', cats:['toner','inkjet','cinta'] },
+  { name:'Samsung', cats:['toner'] },
+  { name:'Xerox', cats:['toner'] },
+  { name:'Kyocera', cats:['toner'] },
+  { name:'OKI', cats:['toner','cinta'] },
+  { name:'Ricoh', cats:['toner'] },
+  { name:'Konica', cats:['toner'] },
+  { name:'Lexmark', cats:['toner','inkjet'] },
+  { name:'Pantum', cats:['toner'] },
+  { name:'Dymo', cats:['etiqueta','cinta'] },
+  { name:'Zebra', cats:['etiqueta'] },
+  { name:'Citizen', cats:['etiqueta','cinta'] },
+];
+
+const PRODUCTS = [
+  // TONER
+  { id:1, cat:'toner', marca:'HP', ref:'CF217A', nombre:'Tóner HP 17A Negro', tipo:'original', precio:49.90, precio_ant:null, paginas:1600, badge:'original', emoji:'🖨️', destacado:true, oferta:false },
+  { id:2, cat:'toner', marca:'HP', ref:'CF217A-C', nombre:'Tóner compatible HP 17A Negro', tipo:'generico', precio:14.90, precio_ant:18.90, paginas:1600, badge:'generico', emoji:'🖨️', destacado:true, oferta:true },
+  { id:3, cat:'toner', marca:'HP', ref:'CF230A', nombre:'Tóner HP 30A Negro', tipo:'original', precio:64.90, precio_ant:null, paginas:1600, badge:'original', emoji:'🖨️', destacado:false, oferta:false },
+  { id:4, cat:'toner', marca:'HP', ref:'CF230A-C', nombre:'Tóner compatible HP 30A Negro', tipo:'generico', precio:16.90, precio_ant:null, paginas:1600, badge:'generico', emoji:'🖨️', destacado:false, oferta:false },
+  { id:5, cat:'toner', marca:'Canon', ref:'3483C002', nombre:'Tóner Canon 057H Negro Alto Rdto.', tipo:'original', precio:89.50, precio_ant:null, paginas:10000, badge:'original', emoji:'🖨️', destacado:true, oferta:false },
+  { id:6, cat:'toner', marca:'Canon', ref:'3483C002-C', nombre:'Tóner compatible Canon 057H Negro', tipo:'generico', precio:22.90, precio_ant:28.90, paginas:10000, badge:'generico', emoji:'🖨️', destacado:false, oferta:true },
+  { id:7, cat:'toner', marca:'Brother', ref:'TN-2420', nombre:'Tóner Brother TN-2420 Negro', tipo:'original', precio:52.90, precio_ant:null, paginas:3000, badge:'original', emoji:'🖨️', destacado:true, oferta:false },
+  { id:8, cat:'toner', marca:'Brother', ref:'TN-2420-C', nombre:'Tóner compatible Brother TN-2420', tipo:'generico', precio:13.90, precio_ant:null, paginas:3000, badge:'generico', emoji:'🖨️', destacado:false, oferta:false },
+  { id:9, cat:'toner', marca:'Kyocera', ref:'1T02RV0NL0', nombre:'Tóner Kyocera TK-1150 Negro', tipo:'original', precio:74.00, precio_ant:null, paginas:3000, badge:'original', emoji:'🖨️', destacado:false, oferta:false },
+  { id:10, cat:'toner', marca:'Samsung', ref:'MLT-D111S', nombre:'Tóner Samsung 111S Negro', tipo:'original', precio:44.90, precio_ant:null, paginas:1000, badge:'original', emoji:'🖨️', destacado:false, oferta:false },
+  { id:11, cat:'toner', marca:'Xerox', ref:'106R03623', nombre:'Tóner Xerox 3330 Negro Alto Rdto.', tipo:'original', precio:119.00, precio_ant:null, paginas:15000, badge:'original', emoji:'🖨️', destacado:false, oferta:false },
+  { id:12, cat:'toner', marca:'HP', ref:'W2030A', nombre:'Tóner HP 415A Negro', tipo:'original', precio:79.90, precio_ant:null, paginas:2400, badge:'original', emoji:'🖨️', destacado:false, oferta:false },
+  { id:13, cat:'toner', marca:'HP', ref:'W2031A', nombre:'Tóner HP 415A Cian', tipo:'original', precio:84.90, precio_ant:null, paginas:2100, badge:'original', emoji:'🖨️', destacado:false, oferta:false },
+  { id:14, cat:'toner', marca:'HP', ref:'W2032A', nombre:'Tóner HP 415A Amarillo', tipo:'original', precio:84.90, precio_ant:null, paginas:2100, badge:'original', emoji:'🖨️', destacado:false, oferta:false },
+  { id:15, cat:'toner', marca:'HP', ref:'W2033A', nombre:'Tóner HP 415A Magenta', tipo:'original', precio:84.90, precio_ant:null, paginas:2100, badge:'original', emoji:'🖨️', destacado:false, oferta:false },
+  { id:16, cat:'toner', marca:'Lexmark', ref:'56F2H00', nombre:'Tóner Lexmark 56F2H00 Negro', tipo:'original', precio:165.00, precio_ant:null, paginas:15000, badge:'original', emoji:'🖨️', destacado:false, oferta:false },
+
+  // INKJET
+  { id:20, cat:'inkjet', marca:'HP', ref:'302XL-N', nombre:'Cartucho HP 302XL Negro', tipo:'original', precio:16.90, precio_ant:null, paginas:480, badge:'original', emoji:'💧', destacado:true, oferta:false },
+  { id:21, cat:'inkjet', marca:'HP', ref:'302XL-C', nombre:'Cartucho HP 302XL Color', tipo:'original', precio:17.90, precio_ant:null, paginas:330, badge:'original', emoji:'💧', destacado:true, oferta:false },
+  { id:22, cat:'inkjet', marca:'HP', ref:'302-PACK-C', nombre:'Pack HP 302XL Negro+Color Compatible', tipo:'generico', precio:10.90, precio_ant:14.90, paginas:480, badge:'generico', emoji:'💧', destacado:true, oferta:true },
+  { id:23, cat:'inkjet', marca:'Canon', ref:'PG-545XL', nombre:'Cartucho Canon PG-545XL Negro', tipo:'original', precio:14.90, precio_ant:null, paginas:400, badge:'original', emoji:'💧', destacado:true, oferta:false },
+  { id:24, cat:'inkjet', marca:'Canon', ref:'CL-546XL', nombre:'Cartucho Canon CL-546XL Color', tipo:'original', precio:15.90, precio_ant:null, paginas:300, badge:'original', emoji:'💧', destacado:false, oferta:false },
+  { id:25, cat:'inkjet', marca:'Canon', ref:'PG-545XL-C', nombre:'Cartucho compatible Canon PG-545XL Negro', tipo:'generico', precio:5.90, precio_ant:null, paginas:400, badge:'generico', emoji:'💧', destacado:false, oferta:false },
+  { id:26, cat:'inkjet', marca:'Epson', ref:'T3351', nombre:'Cartucho Epson 33XL Negro', tipo:'original', precio:16.90, precio_ant:null, paginas:530, badge:'original', emoji:'💧', destacado:false, oferta:false },
+  { id:27, cat:'inkjet', marca:'Epson', ref:'T3361', nombre:'Cartucho Epson 33XL Foto Negro', tipo:'original', precio:16.90, precio_ant:null, paginas:400, badge:'original', emoji:'💧', destacado:false, oferta:false },
+  { id:28, cat:'inkjet', marca:'Brother', ref:'LC3217BK', nombre:'Cartucho Brother LC3217 Negro', tipo:'original', precio:12.90, precio_ant:null, paginas:550, badge:'original', emoji:'💧', destacado:false, oferta:false },
+  { id:29, cat:'inkjet', marca:'HP', ref:'903XL-N', nombre:'Cartucho HP 903XL Negro', tipo:'original', precio:22.90, precio_ant:null, paginas:825, badge:'original', emoji:'💧', destacado:false, oferta:false },
+  { id:30, cat:'inkjet', marca:'HP', ref:'903XL-PACK', nombre:'Pack HP 903XL 4 colores Original', tipo:'original', precio:59.90, precio_ant:null, paginas:825, badge:'original', emoji:'💧', destacado:false, oferta:false },
+
+  // BOTELLAS
+  { id:40, cat:'botella', marca:'Epson', ref:'C13T00P140', nombre:'Botella Epson 104 EcoTank Negro 65ml', tipo:'original', precio:12.90, precio_ant:null, paginas:4500, badge:'original', emoji:'🍶', destacado:true, oferta:false },
+  { id:41, cat:'botella', marca:'Epson', ref:'C13T00P240', nombre:'Botella Epson 104 EcoTank Cian 65ml', tipo:'original', precio:12.90, precio_ant:null, paginas:7500, badge:'original', emoji:'🍶', destacado:true, oferta:false },
+  { id:42, cat:'botella', marca:'Epson', ref:'C13T00P340', nombre:'Botella Epson 104 EcoTank Magenta 65ml', tipo:'original', precio:12.90, precio_ant:null, paginas:7500, badge:'original', emoji:'🍶', destacado:false, oferta:false },
+  { id:43, cat:'botella', marca:'Epson', ref:'C13T00P440', nombre:'Botella Epson 104 EcoTank Amarillo 65ml', tipo:'original', precio:12.90, precio_ant:null, paginas:7500, badge:'original', emoji:'🍶', destacado:false, oferta:false },
+  { id:44, cat:'botella', marca:'Epson', ref:'104-PACK-C', nombre:'Pack Epson 104 EcoTank 4 botellas compatible', tipo:'generico', precio:19.90, precio_ant:24.90, paginas:null, badge:'generico', emoji:'🍶', destacado:true, oferta:true },
+  { id:45, cat:'botella', marca:'Canon', ref:'GI-490BK', nombre:'Botella Canon GI-490 Negro 70ml', tipo:'original', precio:13.90, precio_ant:null, paginas:6000, badge:'original', emoji:'🍶', destacado:false, oferta:false },
+  { id:46, cat:'botella', marca:'Canon', ref:'GI-490C', nombre:'Botella Canon GI-490 Cian 70ml', tipo:'original', precio:13.90, precio_ant:null, paginas:7000, badge:'original', emoji:'🍶', destacado:false, oferta:false },
+  { id:47, cat:'botella', marca:'Epson', ref:'C13T03R140', nombre:'Botella Epson 113 EcoTank Negro 127ml', tipo:'original', precio:18.90, precio_ant:null, paginas:7500, badge:'original', emoji:'🍶', destacado:false, oferta:false },
+
+  // CINTAS
+  { id:60, cat:'cinta', marca:'Epson', ref:'C13S015339', nombre:'Cinta Epson ERC-30/34/38 Negro/Rojo', tipo:'original', precio:7.90, precio_ant:null, paginas:null, badge:'original', emoji:'📼', destacado:true, oferta:false },
+  { id:61, cat:'cinta', marca:'Brother', ref:'TZe-231', nombre:'Cinta Brother TZe-231 12mm Neg/Blanco', tipo:'original', precio:8.90, precio_ant:null, paginas:null, badge:'original', emoji:'📼', destacado:true, oferta:false },
+  { id:62, cat:'cinta', marca:'Brother', ref:'TZe-231-C', nombre:'Cinta compatible TZe-231 12mm Neg/Blanco', tipo:'generico', precio:3.90, precio_ant:5.90, paginas:null, badge:'generico', emoji:'📼', destacado:false, oferta:true },
+  { id:63, cat:'cinta', marca:'Dymo', ref:'S0720530', nombre:'Cinta Dymo D1 12mm Negro/Blanco', tipo:'original', precio:11.90, precio_ant:null, paginas:null, badge:'original', emoji:'📼', destacado:false, oferta:false },
+  { id:64, cat:'cinta', marca:'OKI', ref:'09002303', nombre:'Cinta OKI ML520/521 Negro', tipo:'original', precio:5.90, precio_ant:null, paginas:null, badge:'original', emoji:'📼', destacado:false, oferta:false },
+  { id:65, cat:'cinta', marca:'Brother', ref:'TZe-241', nombre:'Cinta Brother TZe-241 18mm Neg/Blanco', tipo:'original', precio:10.90, precio_ant:null, paginas:null, badge:'original', emoji:'📼', destacado:false, oferta:false },
+  { id:66, cat:'cinta', marca:'Brother', ref:'TZe-251', nombre:'Cinta Brother TZe-251 24mm Neg/Blanco', tipo:'original', precio:13.90, precio_ant:null, paginas:null, badge:'original', emoji:'📼', destacado:false, oferta:false },
+  { id:67, cat:'cinta', marca:'Dymo', ref:'S0720550', nombre:'Cinta Dymo D1 19mm Negro/Blanco', tipo:'original', precio:14.90, precio_ant:null, paginas:null, badge:'original', emoji:'📼', destacado:false, oferta:false },
+
+  // ETIQUETAS
+  { id:80, cat:'etiqueta', marca:'Dymo', ref:'S0722370', nombre:'Etiquetas Dymo 89×36mm 260 uds.', tipo:'original', precio:14.90, precio_ant:null, paginas:null, badge:'original', emoji:'🏷️', destacado:true, oferta:false },
+  { id:81, cat:'etiqueta', marca:'Dymo', ref:'S0722370-C', nombre:'Etiquetas compatibles Dymo 89×36mm 320 uds.', tipo:'generico', precio:7.90, precio_ant:9.90, paginas:null, badge:'generico', emoji:'🏷️', destacado:true, oferta:true },
+  { id:82, cat:'etiqueta', marca:'Zebra', ref:'800284-605', nombre:'Rollo térmico Zebra 57×32mm 1000 etiq.', tipo:'original', precio:16.90, precio_ant:null, paginas:null, badge:'original', emoji:'🏷️', destacado:false, oferta:false },
+  { id:83, cat:'etiqueta', marca:'Citizen', ref:'3310069', nombre:'Rollo Citizen 57mm papel térmico 10 uds.', tipo:'original', precio:12.90, precio_ant:null, paginas:null, badge:'original', emoji:'🏷️', destacado:false, oferta:false },
+  { id:84, cat:'etiqueta', marca:'Dymo', ref:'1738595', nombre:'Etiquetas Dymo LabelWriter 28×89mm', tipo:'original', precio:19.90, precio_ant:null, paginas:null, badge:'original', emoji:'🏷️', destacado:false, oferta:false },
+  { id:85, cat:'etiqueta', marca:'Zebra', ref:'800264-505', nombre:'Rollo térmico Zebra 102×76mm 500 etiq.', tipo:'original', precio:22.90, precio_ant:null, paginas:null, badge:'original', emoji:'🏷️', destacado:false, oferta:false },
+];
+
+/* ===== STATE ===== */
+let cart = JSON.parse(localStorage.getItem('cink_cart') || '[]');
+let currentCatFilter = 'todos';
+let currentView = 'inicio';
+
+/* ===== UTILS ===== */
+const fmt = (n) => n.toFixed(2).replace('.', ',') + ' €';
+
+function toast(msg, type='') {
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' '+type : '');
+  el.innerHTML = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+/* ===== NAV ===== */
+function showView(id, el) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('v-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  if (el) el.classList.add('active');
+  currentView = id;
+  const titles = { inicio:'Inicio', catalogo:'Catálogo', ofertas:'Ofertas', marcas:'Marcas', garantia:'Garantía', contacto:'Contacto' };
+  document.getElementById('topbar-title').textContent = titles[id] || '';
+  if (window.innerWidth < 660) closeSidebarMobile();
+  window.scrollTo(0, 0);
+}
+
+function filterCat(cat) {
+  showView('catalogo', document.querySelector('[onclick*="catalogo"]'));
+  setCatFilter(cat, document.querySelector(`[onclick="setCatFilter('${cat}',this)"]`));
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+function closeSidebarMobile() {
+  document.getElementById('sidebar').classList.remove('open');
+}
+
+/* ===== PRODUCT CARD ===== */
+function buildCard(p, showOfertaBadge=false) {
+  const catColors = { toner:['#E63946','rgba(230,57,70,0.08)'], inkjet:['#2196F3','rgba(33,150,243,0.08)'], botella:['#00BFA5','rgba(0,191,165,0.08)'], cinta:['#FF9800','rgba(255,152,0,0.08)'], etiqueta:['#9C27B0','rgba(156,39,176,0.08)'] };
+  const [color, bg] = catColors[p.cat] || ['#00B4D8','rgba(0,180,216,0.08)'];
+  return `
+  <div class="product-card" onclick="openProductDetail(${p.id})">
+    <div class="product-img" style="background:${bg}">
+      <div class="product-img-bg">${p.emoji}</div>
+      ${p.emoji}
+      <div class="product-badges">
+        <span class="badge badge-${p.tipo}">${p.tipo === 'original' ? 'Original' : 'Genérico'}</span>
+        ${p.oferta || showOfertaBadge ? '<span class="badge badge-oferta">Oferta</span>' : ''}
+      </div>
+    </div>
+    <div class="product-body">
+      <div class="product-marca">${p.marca}</div>
+      <div class="product-nombre">${p.nombre}</div>
+      <div class="product-ref">${p.ref}</div>
+      ${p.paginas ? `<div class="product-pages">~${p.paginas.toLocaleString('es')} páginas</div>` : ''}
+      <div class="product-footer">
+        <div>
+          ${p.precio_ant ? `<span class="product-price-old">${fmt(p.precio_ant)}</span>` : ''}
+          <span class="product-price">${fmt(p.precio)}</span>
+        </div>
+        <button class="btn-add-cart" onclick="event.stopPropagation();addToCart(${p.id})" title="Añadir al carrito">+</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ===== CART ===== */
+function addToCart(id) {
+  const p = PRODUCTS.find(x => x.id === id);
+  if (!p) return;
+  const existing = cart.find(x => x.id === id);
+  if (existing) existing.qty++;
+  else cart.push({ id, qty: 1 });
+  saveCart();
+  updateCartUI();
+  toast(`✓ &nbsp;<strong>${p.nombre}</strong> añadido al carrito`, 'success');
+}
+
+function removeFromCart(id) {
+  cart = cart.filter(x => x.id !== id);
+  saveCart(); updateCartUI(); renderCartItems();
+}
+
+function changeQty(id, delta) {
+  const item = cart.find(x => x.id === id);
+  if (!item) return;
+  item.qty += delta;
+  if (item.qty <= 0) cart = cart.filter(x => x.id !== id);
+  saveCart(); updateCartUI(); renderCartItems();
+}
+
+function saveCart() { localStorage.setItem('cink_cart', JSON.stringify(cart)); }
+
+function updateCartUI() {
+  const total = cart.reduce((s, i) => { const p = PRODUCTS.find(x => x.id === i.id); return s + (p ? p.precio * i.qty : 0); }, 0);
+  const count = cart.reduce((s, i) => s + i.qty, 0);
+  const countEl = document.getElementById('cart-count');
+  countEl.textContent = count;
+  countEl.classList.toggle('hidden', count === 0);
+  document.getElementById('cart-total').textContent = fmt(total);
+  const remaining = Math.max(0, 50 - total);
+  const noteEl = document.getElementById('cart-shipping-note');
+  const remEl = document.getElementById('shipping-remaining');
+  if (remaining === 0) {
+    noteEl.innerHTML = '🎉 <strong>¡Envío gratuito aplicado!</strong> Tu pedido tiene envío gratis.';
+  } else {
+    remEl.textContent = fmt(remaining);
+  }
+}
+
+function renderCartItems() {
+  const el = document.getElementById('cart-items-list');
+  if (cart.length === 0) {
+    el.innerHTML = `<div class="cart-empty"><div class="empty-icon">🛒</div><p>Tu carrito está vacío.<br>Añade productos para comenzar.</p></div>`;
+    return;
+  }
+  el.innerHTML = cart.map(item => {
+    const p = PRODUCTS.find(x => x.id === item.id);
+    if (!p) return '';
+    return `<div class="cart-item">
+      <div class="cart-item-img">${p.emoji}</div>
+      <div class="cart-item-info">
+        <div class="cart-item-name">${p.nombre}</div>
+        <div class="cart-item-ref">${p.ref}</div>
+        <div class="cart-item-footer">
+          <div class="qty-ctrl">
+            <button class="qty-btn" onclick="changeQty(${p.id},-1)">−</button>
+            <div class="qty-val">${item.qty}</div>
+            <button class="qty-btn" onclick="changeQty(${p.id},1)">+</button>
+          </div>
+          <span class="cart-item-price">${fmt(p.precio * item.qty)}</span>
+          <button class="btn-remove-item" onclick="removeFromCart(${p.id})" title="Eliminar">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openCart() { renderCartItems(); document.getElementById('cart-overlay').classList.add('open'); document.getElementById('cart-drawer').classList.add('open'); }
+function closeCart() { document.getElementById('cart-overlay').classList.remove('open'); document.getElementById('cart-drawer').classList.remove('open'); }
+function checkout() {
+  if (cart.length === 0) { toast('⚠️ Tu carrito está vacío'); return; }
+  toast('📨 Pedido enviado. Contactaremos contigo en breve.', 'success');
+  cart = []; saveCart(); updateCartUI(); renderCartItems(); closeCart();
+  setTimeout(() => showView('contacto', document.querySelector('[onclick*=contacto]')), 800);
+}
+
+function openProductDetail(id) {
+  const p = PRODUCTS.find(x => x.id === id);
+  if (!p) return;
+  addToCart(id);
+}
+
+/* ===== CATALOG FILTERS ===== */
+function setCatFilter(cat, el) {
+  currentCatFilter = cat;
+  document.querySelectorAll('#cat-chips .chip').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  applyFilters();
+}
+
+function applyFilters() {
+  const fOriginal = document.getElementById('f-original').checked;
+  const fGenerico = document.getElementById('f-generico').checked;
+  const fP1 = document.getElementById('f-p1').checked;
+  const fP2 = document.getElementById('f-p2').checked;
+  const fP3 = document.getElementById('f-p3').checked;
+  const fP4 = document.getElementById('f-p4').checked;
+  const anyPrice = fP1 || fP2 || fP3 || fP4;
+  const sort = document.getElementById('sort-select').value;
+  const searchVal = document.getElementById('search-input').value.toLowerCase();
+
+  const activeBrands = Array.from(document.querySelectorAll('#brand-filters input:checked')).map(x => x.dataset.brand);
+  const allBrands = Array.from(document.querySelectorAll('#brand-filters input')).length;
+  const anyBrand = activeBrands.length < allBrands;
+
+  let filtered = PRODUCTS.filter(p => {
+    if (currentCatFilter !== 'todos' && p.cat !== currentCatFilter) return false;
+    if (!fOriginal && p.tipo === 'original') return false;
+    if (!fGenerico && p.tipo === 'generico') return false;
+    if (anyBrand && !activeBrands.includes(p.marca)) return false;
+    if (anyPrice) {
+      const ok = (fP1 && p.precio < 10) || (fP2 && p.precio >= 10 && p.precio < 30) || (fP3 && p.precio >= 30 && p.precio < 60) || (fP4 && p.precio >= 60);
+      if (!ok) return false;
+    }
+    if (searchVal && !p.nombre.toLowerCase().includes(searchVal) && !p.ref.toLowerCase().includes(searchVal) && !p.marca.toLowerCase().includes(searchVal)) return false;
+    return true;
+  });
+
+  if (sort === 'precio-asc') filtered.sort((a,b) => a.precio - b.precio);
+  else if (sort === 'precio-desc') filtered.sort((a,b) => b.precio - a.precio);
+  else if (sort === 'nombre') filtered.sort((a,b) => a.nombre.localeCompare(b.nombre));
+
+  document.getElementById('result-count').textContent = filtered.length;
+  document.getElementById('catalog-grid').innerHTML = filtered.map(p => buildCard(p)).join('') || '<p style="color:var(--texto3);grid-column:1/-1;text-align:center;padding:40px">No se encontraron productos con los filtros seleccionados.</p>';
+
+  const orig = PRODUCTS.filter(p => p.tipo==='original' && (currentCatFilter==='todos'||p.cat===currentCatFilter)).length;
+  const gen = PRODUCTS.filter(p => p.tipo==='generico' && (currentCatFilter==='todos'||p.cat===currentCatFilter)).length;
+  document.getElementById('fc-original').textContent = orig;
+  document.getElementById('fc-generico').textContent = gen;
+}
+
+function resetFilters() {
+  document.getElementById('f-original').checked = true;
+  document.getElementById('f-generico').checked = true;
+  ['f-p1','f-p2','f-p3','f-p4'].forEach(id => document.getElementById(id).checked = false);
+  document.querySelectorAll('#brand-filters input').forEach(i => i.checked = true);
+  currentCatFilter = 'todos';
+  document.querySelectorAll('#cat-chips .chip').forEach(c => c.classList.remove('active'));
+  document.querySelector('#cat-chips .chip').classList.add('active');
+  applyFilters();
+}
+
+function onSearch(val) {
+  if (currentView !== 'catalogo') {
+    showView('catalogo', document.querySelector('[onclick*=catalogo]'));
+  }
+  applyFilters();
+}
+
+/* ===== BRAND FILTERS ===== */
+function buildBrandFilters() {
+  const brands = [...new Set(PRODUCTS.map(p => p.marca))].sort();
+  document.getElementById('brand-filters').innerHTML = brands.map(b => {
+    const count = PRODUCTS.filter(p => p.marca === b).length;
+    return `<label class="filter-check"><input type="checkbox" checked data-brand="${b}" onchange="applyFilters()"><span>${b}</span><span class="filter-count">${count}</span></label>`;
+  }).join('');
+}
+
+/* ===== MARCAS ===== */
+function renderMarcas() {
+  const catColors = { toner:'var(--c-toner)', inkjet:'var(--c-inkjet)', botella:'var(--c-botella)', cinta:'var(--c-cinta)', etiqueta:'var(--c-etiqueta)' };
+  const catNames = { toner:'Tóner', inkjet:'Inkjet', botella:'Botellas', cinta:'Cintas', etiqueta:'Etiquetas' };
+  document.getElementById('marcas-grid').innerHTML = BRANDS.map(b => `
+    <div class="marca-card" onclick="filterCat('${b.cats[0]}')">
+      <div class="marca-logo-text">${b.name}</div>
+      <div style="font-size:0.72rem;color:var(--texto3)">${PRODUCTS.filter(p=>p.marca===b.name).length} referencias</div>
+      <div class="marca-cat-tags">
+        ${b.cats.map(c => `<span class="marca-tag" style="background:${catColors[c]}22;color:${catColors[c]}">${catNames[c]}</span>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+/* ===== HOME ===== */
+function renderHome() {
+  document.getElementById('featured-products').innerHTML = PRODUCTS.filter(p => p.destacado).slice(0,8).map(p => buildCard(p)).join('');
+  document.getElementById('brands-home').innerHTML = BRANDS.map(b => `<div class="brand-pill" onclick="filterCat('${b.cats[0]}')">${b.name}</div>`).join('');
+}
+
+function renderOfertas() {
+  document.getElementById('ofertas-grid').innerHTML = PRODUCTS.filter(p => p.oferta).map(p => buildCard(p, true)).join('');
+}
+
+/* ===== COUNTDOWN ===== */
+function updateCountdown() {
+  const now = new Date();
+  const end = new Date(now); end.setHours(23,59,59,0);
+  const diff = Math.max(0, end - now);
+  const h = Math.floor(diff/3600000).toString().padStart(2,'0');
+  const m = Math.floor((diff%3600000)/60000).toString().padStart(2,'0');
+  const s = Math.floor((diff%60000)/1000).toString().padStart(2,'0');
+  const el = document.getElementById('countdown-val');
+  if (el) el.textContent = `${h}:${m}:${s}`;
+}
+
+/* ===== CONTACTO ===== */
+function sendContact() {
+  toast('✅ Mensaje enviado. Te contactaremos pronto.', 'success');
+}
+
+/* ===== PWA ===== */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw-ink.js').catch(() => {});
+}
+
+/* ===== INIT ===== */
+document.addEventListener('DOMContentLoaded', () => {
+  buildBrandFilters();
+  applyFilters();
+  renderHome();
+  renderMarcas();
+  renderOfertas();
+  updateCartUI();
+  setInterval(updateCountdown, 1000);
+  updateCountdown();
+});
+</script>
+</body>
+</html>
