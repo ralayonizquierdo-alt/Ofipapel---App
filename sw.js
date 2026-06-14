@@ -1,4 +1,4 @@
-const CACHE = 'ofipapel-v2';
+const CACHE = 'ofipapel-v3';
 const ASSETS = [
   '/',
   '/Index.html',
@@ -24,6 +24,11 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // falcontrol.html nunca se sirve desde caché — siempre red
+  if (e.request.url.includes('falcontrol')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => caches.match('/Index.html')))
   );
