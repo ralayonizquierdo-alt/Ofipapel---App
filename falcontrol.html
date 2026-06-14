@@ -547,6 +547,10 @@ function injectLogo() {
 }
 
 // ─── SPEECH RECOGNITION ──────────────────────────────
+let micStream  = null;
+let analyser   = null;
+let meterFrame = null;
+
 function toggleListening() {
   isListening ? stopListening() : startListening();
 }
@@ -562,15 +566,16 @@ async function startListening() {
     return;
   }
   try {
-    await navigator.mediaDevices.getUserMedia({ audio: true });
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch(e) {
     showError('Permiso de micrófono denegado. En iPhone: Ajustes → Safari → Micrófono → Permitir.');
     return;
   }
-  // Inicializar AudioContext aquí (gesto de usuario) para que funcione en iOS
+  // Inicializar AudioContext con el stream real del micro
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') await audioCtx.resume();
+    startAudioMeter(micStream);
   } catch(_) {}
 
   clearError();
@@ -588,7 +593,9 @@ function buildRecognition() {
   if (!SR || !isListening) return;
 
   recognition = new SR();
-  recognition.continuous      = true;
+  // continuous:false es más compatible con Android/iOS — una frase por sesión,
+  // luego onend reinicia automáticamente
+  recognition.continuous      = false;
   recognition.interimResults  = true;
   recognition.maxAlternatives = 3;
   recognition.lang            = document.getElementById('langSelect').value || 'es-ES';
@@ -657,10 +664,43 @@ function buildRecognition() {
 function stopListening() {
   isListening = false;
   if (recognition) { try { recognition.stop(); } catch(_){} recognition = null; }
+  stopAudioMeter();
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
   releaseWakeLock();
   updateUI();
   setTranscript('<span class="t-empty">Pulsa "Iniciar Escucha" y acerca el dispositivo a la radio...</span>');
   finalBuffer = '';
+}
+
+// ─── MEDIDOR DE NIVEL DE AUDIO ────────────────────────
+function startAudioMeter(stream) {
+  try {
+    const source = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    source.connect(analyser);
+    const data  = new Uint8Array(analyser.frequencyBinCount);
+    const bars  = document.querySelectorAll('.waveform .bar');
+
+    function tick() {
+      if (!isListening) return;
+      analyser.getByteFrequencyData(data);
+      bars.forEach((bar, i) => {
+        const val = data[Math.floor(i * data.length / bars.length)] || 0;
+        bar.style.height = Math.max(3, (val / 255) * 22) + 'px';
+        bar.style.background = val > 80 ? 'var(--green)' : 'var(--border)';
+      });
+      meterFrame = requestAnimationFrame(tick);
+    }
+    tick();
+  } catch(e) {}
+}
+
+function stopAudioMeter() {
+  if (meterFrame) { cancelAnimationFrame(meterFrame); meterFrame = null; }
+  document.querySelectorAll('.waveform .bar').forEach(b => {
+    b.style.height = '4px'; b.style.background = 'var(--border)';
+  });
 }
 
 // ─── KEYWORD SCAN ─────────────────────────────────────
