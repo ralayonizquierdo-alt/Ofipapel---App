@@ -85,6 +85,7 @@ html,body{min-height:100dvh;background:var(--bg);color:var(--text);font-family:'
 }
 .status-label.listening{color:var(--green);}
 .status-label.alarm{color:var(--red);}
+.status-label.error{color:#ff9800;}
 .status-kw-count{
   margin-left:auto;font-size:0.72rem;
   color:var(--text2);white-space:nowrap;
@@ -580,6 +581,8 @@ async function startListening() {
   buildRecognition();
 }
 
+let sessionCount = 0;
+
 function buildRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR || !isListening) return;
@@ -591,18 +594,20 @@ function buildRecognition() {
   recognition.lang            = document.getElementById('langSelect').value || 'es-ES';
 
   recognition.onstart = () => {
-    setTranscript('<span class="t-empty">Escuchando...</span>');
+    sessionCount++;
+    setStatus(`Sesión #${sessionCount} activa`, 'listening');
+    if (!finalBuffer.trim()) {
+      setTranscript('<span class="t-empty">Habla ahora<span class="dots"></span></span>');
+    }
   };
 
   recognition.onresult = (e) => {
     let interim = '';
-    const allAlts = []; // todas las alternativas del motor de voz
+    const allAlts = [];
 
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const r = e.results[i];
-      // Recoger todas las alternativas (hasta maxAlternatives)
       for (let j = 0; j < r.length; j++) allAlts.push(r[j].transcript);
-
       if (r.isFinal) {
         finalBuffer += r[0].transcript + ' ';
         if (finalBuffer.length > 600) finalBuffer = finalBuffer.slice(-600);
@@ -611,33 +616,39 @@ function buildRecognition() {
       }
     }
 
-    // Escanear: alternativas individuales + buffer acumulado completo
-    // (el buffer captura frases que llegan en resultados separados)
     allAlts.forEach(t => scanForKeywords(t));
     scanForKeywords(finalBuffer + ' ' + interim);
-
     renderTranscript(finalBuffer, interim);
   };
 
   recognition.onend = () => {
     if (isListening) {
-      // En iOS la sesión se cierra automáticamente cada pocos segundos;
-      // creamos un objeto nuevo en lugar de reusar el anterior.
-      const delay = isIOS() ? 600 : 250;
+      setStatus('Reiniciando...', '');
+      const delay = isIOS() ? 800 : 400;
       setTimeout(() => { if (isListening) buildRecognition(); }, delay);
     }
   };
 
   recognition.onerror = (e) => {
-    if (e.error === 'no-speech') return;
+    const msgs = {
+      'no-speech':           'Sin voz — habla más cerca del micro',
+      'network':             '❌ Error de red — ¿hay conexión a internet?',
+      'not-allowed':         '❌ Micrófono denegado',
+      'service-not-allowed': '❌ Servicio no permitido en este navegador',
+      'audio-capture':       '❌ No se puede acceder al micrófono',
+      'aborted':             'Cancelado, reiniciando...',
+    };
+    const msg = msgs[e.error] || `Error: ${e.error}`;
+    setStatus(msg, e.error === 'no-speech' || e.error === 'aborted' ? 'listening' : 'error');
+
+    if (e.error === 'network') {
+      showError('Error de red: el reconocimiento de voz necesita conexión a internet (lo usa Google/Apple en segundo plano).');
+    }
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-      showError('Permiso de micrófono denegado.');
+      showError('Permiso de micrófono denegado. Comprueba los ajustes del navegador.');
       isListening = false; updateUI(); return;
     }
-    if (e.error === 'audio-capture') {
-      showError('Error al capturar audio. Comprueba el micrófono.');
-    }
-    // on other errors, onend will restart
+    // onend se encargará de reiniciar
   };
 
   recognition.start();
@@ -846,9 +857,6 @@ function updateUI() {
   const card  = document.getElementById('transcriptCard');
 
   if (isListening) {
-    dot.className   = 'status-dot listening';
-    label.className = 'status-label listening';
-    label.textContent = 'Escuchando radio...';
     btn.className   = 'btn-listen stop';
     icon.textContent = '⏹️';
     text.textContent = 'DETENER ESCUCHA';
@@ -861,7 +869,16 @@ function updateUI() {
     icon.textContent = '🎙️';
     text.textContent = 'INICIAR ESCUCHA';
     card.classList.remove('listening-active');
+    sessionCount = 0;
   }
+}
+
+function setStatus(msg, type) {
+  const dot   = document.getElementById('statusDot');
+  const label = document.getElementById('statusLabel');
+  dot.className   = 'status-dot' + (type === 'listening' ? ' listening' : type === 'error' ? ' alarm' : '');
+  label.className = 'status-label' + (type === 'listening' ? ' listening' : type === 'error' ? ' alarm' : '');
+  label.textContent = msg;
 }
 
 function updateKwCount() {
