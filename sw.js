@@ -1,4 +1,4 @@
-const CACHE = 'ofipapel-v3';
+const CACHE = 'ofipapel-v4';
 const ASSETS = [
   '/',
   '/Index.html',
