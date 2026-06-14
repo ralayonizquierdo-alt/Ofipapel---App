@@ -93,11 +93,12 @@ input, select, textarea { font-family: inherit; }
   flex-shrink: 0;
 }
 .sidebar-logo img {
-  width: 160px;
+  width: 170px;
   height: auto;
   display: block;
-  filter: brightness(0) invert(1);
-  opacity: 0.92;
+  background: #fff;
+  border-radius: 10px;
+  padding: 7px 10px;
 }
 .sidebar-logo .logo-fallback {
   display: none;
@@ -444,13 +445,14 @@ nav.sidebar-nav::-webkit-scrollbar { display: none; }
   flex-shrink: 0;
 }
 .hero-img {
-  width: 340px;
-  height: 210px;
+  width: 360px;
+  height: 220px;
   object-fit: cover;
   border-radius: var(--rad);
-  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  box-shadow: 0 10px 48px rgba(0,0,0,0.5);
   display: block;
   margin-bottom: 12px;
+  border: 2px solid rgba(255,255,255,0.12);
 }
 .hero-stats-row {
   display: flex;
@@ -1251,6 +1253,174 @@ textarea.form-control { min-height: 110px; resize: vertical; }
 }
 .btn-checkout:hover { background: var(--ink-med); }
 
+/* ===== INK DROPS DECORATION ===== */
+.ink-drops-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.ink-drop {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.18;
+  animation: floatDrop 6s ease-in-out infinite;
+}
+@keyframes floatDrop {
+  0%,100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-12px) scale(1.05); }
+}
+.cat-card .cat-bg-drop {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  top: -20px;
+  right: -20px;
+  opacity: 0.12;
+  background: var(--cat-color, var(--acento));
+  transition: opacity 0.2s;
+}
+.cat-card:hover .cat-bg-drop { opacity: 0.22; }
+
+/* ===== BRAND LOGO CARD ===== */
+.marca-card-img {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.marca-card-img img {
+  max-height: 44px;
+  max-width: 110px;
+  object-fit: contain;
+  filter: grayscale(30%);
+  transition: filter 0.2s;
+}
+.marca-card:hover .marca-card-img img { filter: grayscale(0%); }
+.brand-pill-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-right: 1px solid var(--borde);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.brand-pill-logo:last-child { border-right: none; }
+.brand-pill-logo:hover { background: rgba(0,180,216,0.05); }
+.brand-pill-logo img {
+  height: 28px;
+  width: auto;
+  max-width: 64px;
+  object-fit: contain;
+  filter: grayscale(20%);
+  transition: filter 0.2s;
+}
+.brand-pill-logo:hover img { filter: grayscale(0%); }
+.brand-pill-logo span {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--texto2);
+}
+
+/* ===== REVIEWS ===== */
+.reviews-section {
+  margin-bottom: 32px;
+}
+.reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.review-card {
+  background: var(--card);
+  border-radius: var(--rad);
+  border: 1.5px solid var(--borde);
+  padding: 22px;
+  position: relative;
+  transition: box-shadow 0.2s;
+}
+.review-card:hover { box-shadow: var(--sombra-h); }
+.review-card::before {
+  content: '"';
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  font-size: 4rem;
+  color: var(--acento);
+  opacity: 0.12;
+  font-family: Georgia, serif;
+  line-height: 1;
+}
+.review-stars {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+.star { color: #F39C12; font-size: 0.9rem; }
+.star.empty { color: var(--borde2); }
+.review-text {
+  font-size: 0.83rem;
+  color: var(--texto2);
+  line-height: 1.6;
+  margin-bottom: 14px;
+  font-style: italic;
+}
+.reviewer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.reviewer-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+.reviewer-name { font-size: 0.82rem; font-weight: 700; color: var(--texto); }
+.reviewer-info { font-size: 0.7rem; color: var(--texto3); }
+.reviews-summary {
+  background: linear-gradient(135deg, var(--ink) 0%, var(--ink-med) 100%);
+  border-radius: var(--rad);
+  padding: 24px 28px;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.reviews-summary .big-score {
+  font-size: 3.5rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #F39C12;
+}
+.reviews-summary .score-lbl { font-size: 0.78rem; color: rgba(255,255,255,0.6); margin-top: 4px; }
+.reviews-summary .score-stars { font-size: 1.1rem; margin-top: 4px; }
+.reviews-summary .score-details { font-size: 0.82rem; color: rgba(255,255,255,0.7); line-height: 1.6; }
+.reviews-badge {
+  margin-left: auto;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: var(--rad);
+  padding: 14px 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.reviews-badge .rb-val { font-size: 1.4rem; font-weight: 800; color: var(--acento); }
+.reviews-badge .rb-lbl { font-size: 0.68rem; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.5px; }
+
 /* ===== TOAST ===== */
 #toast-container {
   position: fixed;
@@ -1328,6 +1498,8 @@ textarea.form-control { min-height: 110px; resize: vertical; }
   .hero-graphic { width: 100%; }
   .hero-img { width: 100%; height: 180px; margin-bottom: 10px; }
   .hero-stats-row { gap: 8px; }
+  .reviews-summary { flex-direction: column; gap: 16px; }
+  .reviews-badge { margin-left: 0; }
   .cat-grid { grid-template-columns: repeat(2, 1fr); }
   #content { padding: 16px 16px 40px; }
   .topbar-phone { display: none; }
@@ -1519,27 +1691,32 @@ textarea.form-control { min-height: 110px; resize: vertical; }
         </div>
         <div class="cat-grid">
           <div class="cat-card" style="--cat-color:var(--c-toner);--cat-bg:rgba(230,57,70,0.1)" onclick="filterCat('toner')">
-            <div class="cat-icon">🖨️</div>
+            <div class="cat-bg-drop"></div>
+            <div class="cat-icon" style="background:rgba(230,57,70,0.12)">🖨️</div>
             <div class="cat-name">Tóner</div>
             <div class="cat-count">Original & Genérico</div>
           </div>
           <div class="cat-card" style="--cat-color:var(--c-inkjet);--cat-bg:rgba(33,150,243,0.1)" onclick="filterCat('inkjet')">
-            <div class="cat-icon">💧</div>
+            <div class="cat-bg-drop"></div>
+            <div class="cat-icon" style="background:rgba(33,150,243,0.12)">💧</div>
             <div class="cat-name">Cartuchos Inkjet</div>
             <div class="cat-count">Original & Genérico</div>
           </div>
           <div class="cat-card" style="--cat-color:var(--c-botella);--cat-bg:rgba(0,191,165,0.1)" onclick="filterCat('botella')">
-            <div class="cat-icon">🍶</div>
+            <div class="cat-bg-drop"></div>
+            <div class="cat-icon" style="background:rgba(0,191,165,0.12)">🍶</div>
             <div class="cat-name">Botellas de Tinta</div>
             <div class="cat-count">EcoTank · MegaTank</div>
           </div>
           <div class="cat-card" style="--cat-color:var(--c-cinta);--cat-bg:rgba(255,152,0,0.1)" onclick="filterCat('cinta')">
-            <div class="cat-icon">📼</div>
+            <div class="cat-bg-drop"></div>
+            <div class="cat-icon" style="background:rgba(255,152,0,0.12)">📼</div>
             <div class="cat-name">Cintas</div>
             <div class="cat-count">Matriciales · Transferencia</div>
           </div>
           <div class="cat-card" style="--cat-color:var(--c-etiqueta);--cat-bg:rgba(156,39,176,0.1)" onclick="filterCat('etiqueta')">
-            <div class="cat-icon">🏷️</div>
+            <div class="cat-bg-drop"></div>
+            <div class="cat-icon" style="background:rgba(156,39,176,0.12)">🏷️</div>
             <div class="cat-name">Rollos y Etiquetas</div>
             <div class="cat-count">Térmico · Adhesivo</div>
           </div>
@@ -1585,6 +1762,35 @@ textarea.form-control { min-height: 110px; resize: vertical; }
               <p>¿No encuentras tu referencia? Llámanos y te ayudamos a localizar el consumible que necesitas.</p>
             </div>
           </div>
+        </div>
+
+        <!-- Opiniones -->
+        <div class="reviews-section">
+          <div class="section-header">
+            <div class="section-title">Opiniones de <span>Clientes</span></div>
+            <button class="btn-ver-todos" onclick="showView('garantia', document.querySelector('[onclick*=garantia]'))">Ver garantía →</button>
+          </div>
+          <div class="reviews-summary">
+            <div>
+              <div class="big-score">4,8</div>
+              <div class="score-stars">⭐⭐⭐⭐⭐</div>
+              <div class="score-lbl">Puntuación media</div>
+            </div>
+            <div class="score-details">
+              Más de <strong style="color:#fff">320 clientes</strong> satisfechos<br>
+              en Gran Canaria, Tenerife y resto de islas.<br>
+              <span style="color:var(--acento);font-weight:600">98% recomendarían Canarias INK</span>
+            </div>
+            <div class="reviews-badge">
+              <div class="rb-val">+5 años</div>
+              <div class="rb-lbl">distribuyendo</div>
+            </div>
+            <div class="reviews-badge">
+              <div class="rb-val">320+</div>
+              <div class="rb-lbl">pedidos/mes</div>
+            </div>
+          </div>
+          <div class="reviews-grid" id="reviews-grid"></div>
         </div>
 
         <!-- Marcas -->
@@ -1833,21 +2039,21 @@ textarea.form-control { min-height: 110px; resize: vertical; }
 <script>
 /* ===== DATA ===== */
 const BRANDS = [
-  { name:'HP', cats:['toner','inkjet','botella'] },
-  { name:'Canon', cats:['toner','inkjet','botella'] },
-  { name:'Epson', cats:['inkjet','botella'] },
-  { name:'Brother', cats:['toner','inkjet','cinta'] },
-  { name:'Samsung', cats:['toner'] },
-  { name:'Xerox', cats:['toner'] },
-  { name:'Kyocera', cats:['toner'] },
-  { name:'OKI', cats:['toner','cinta'] },
-  { name:'Ricoh', cats:['toner'] },
-  { name:'Konica', cats:['toner'] },
-  { name:'Lexmark', cats:['toner','inkjet'] },
-  { name:'Pantum', cats:['toner'] },
-  { name:'Dymo', cats:['etiqueta','cinta'] },
-  { name:'Zebra', cats:['etiqueta'] },
-  { name:'Citizen', cats:['etiqueta','cinta'] },
+  { name:'HP',      domain:'hp.com',             cats:['toner','inkjet','botella'] },
+  { name:'Canon',   domain:'canon.com',           cats:['toner','inkjet','botella'] },
+  { name:'Epson',   domain:'epson.com',           cats:['inkjet','botella'] },
+  { name:'Brother', domain:'brother.com',         cats:['toner','inkjet','cinta'] },
+  { name:'Samsung', domain:'samsung.com',         cats:['toner'] },
+  { name:'Xerox',   domain:'xerox.com',           cats:['toner'] },
+  { name:'Kyocera', domain:'kyocera.com',         cats:['toner'] },
+  { name:'OKI',     domain:'oki.com',             cats:['toner','cinta'] },
+  { name:'Ricoh',   domain:'ricoh.com',           cats:['toner'] },
+  { name:'Konica',  domain:'konicaminolta.com',   cats:['toner'] },
+  { name:'Lexmark', domain:'lexmark.com',         cats:['toner','inkjet'] },
+  { name:'Pantum',  domain:'pantum.com',          cats:['toner'] },
+  { name:'Dymo',    domain:'dymo.com',            cats:['etiqueta','cinta'] },
+  { name:'Zebra',   domain:'zebra.com',           cats:['etiqueta'] },
+  { name:'Citizen', domain:'citizen-systems.com', cats:['etiqueta','cinta'] },
 ];
 
 const PRODUCTS = [
@@ -2149,20 +2355,57 @@ function buildBrandFilters() {
 function renderMarcas() {
   const catColors = { toner:'var(--c-toner)', inkjet:'var(--c-inkjet)', botella:'var(--c-botella)', cinta:'var(--c-cinta)', etiqueta:'var(--c-etiqueta)' };
   const catNames = { toner:'Tóner', inkjet:'Inkjet', botella:'Botellas', cinta:'Cintas', etiqueta:'Etiquetas' };
+  const logoBase = 'https://logo.clearbit.com/';
   document.getElementById('marcas-grid').innerHTML = BRANDS.map(b => `
     <div class="marca-card" onclick="filterCat('${b.cats[0]}')">
+      <div class="marca-card-img">
+        <img src="${logoBase}${b.domain}" alt="${b.name}"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+        <div class="marca-logo-text" style="display:none">${b.name}</div>
+      </div>
       <div class="marca-logo-text">${b.name}</div>
-      <div style="font-size:0.72rem;color:var(--texto3)">${PRODUCTS.filter(p=>p.marca===b.name).length} referencias</div>
+      <div style="font-size:0.72rem;color:var(--texto3);margin-bottom:6px">${PRODUCTS.filter(p=>p.marca===b.name).length} referencias</div>
       <div class="marca-cat-tags">
         ${b.cats.map(c => `<span class="marca-tag" style="background:${catColors[c]}22;color:${catColors[c]}">${catNames[c]}</span>`).join('')}
       </div>
     </div>`).join('');
 }
 
+/* ===== REVIEWS DATA ===== */
+const REVIEWS = [
+  { name:'María G.', initials:'MG', color:'#E63946', stars:5, text:'Llevo años comprando los tóneres compatibles HP aquí. La calidad es igual que el original y el precio imbatible. Además llegó al día siguiente.', info:'Las Palmas · Oficina', producto:'Tóner HP 17A' },
+  { name:'Carlos M.', initials:'CM', color:'#2196F3', stars:5, text:'Pedí cartuchos para mi Epson EcoTank. Me asesoraron por teléfono, llegaron rápido y funcionan perfectamente. 100% recomendable.', info:'Tenerife · Particular', producto:'Botellas Epson 104' },
+  { name:'Ana R.', initials:'AR', color:'#00BFA5', stars:5, text:'Tuve un problema con un cartucho y lo cambiaron sin preguntar nada. Eso es garantía de verdad. Seguiré comprando aquí siempre.', info:'Gran Canaria · Papelería', producto:'Cartucho Canon' },
+  { name:'Pedro L.', initials:'PL', color:'#9C27B0', stars:4, text:'Buen servicio y precios ajustados. Los cartuchos genéricos de Brother funcionan perfectamente con mi impresora. Muy contentos.', info:'Lanzarote · Empresa', producto:'Tóner Brother TN-2420' },
+  { name:'Laura S.', initials:'LS', color:'#FF9800', stars:5, text:'Compro para toda la flota de impresoras de la empresa. Siempre stock, buen precio y entrega fiable. No busco en otro sitio.', info:'Gran Canaria · Gestoría', producto:'Tóner Kyocera' },
+  { name:'José T.', initials:'JT', color:'#E91E63', stars:5, text:'Los rollos de etiquetas Dymo compatibles son perfectos. Mucho más baratos que los originales y se adhieren igual de bien.', info:'Fuerteventura · Almacén', producto:'Etiquetas Dymo' },
+];
+
 /* ===== HOME ===== */
 function renderHome() {
   document.getElementById('featured-products').innerHTML = PRODUCTS.filter(p => p.destacado).slice(0,8).map(p => buildCard(p)).join('');
-  document.getElementById('brands-home').innerHTML = BRANDS.map(b => `<div class="brand-pill" onclick="filterCat('${b.cats[0]}')">${b.name}</div>`).join('');
+
+  const logoBase = 'https://logo.clearbit.com/';
+  document.getElementById('brands-home').innerHTML = BRANDS.slice(0,12).map(b =>
+    `<div class="brand-pill-logo" onclick="filterCat('${b.cats[0]}')">
+      <img src="${logoBase}${b.domain}" alt="${b.name}" onerror="this.style.display='none'">
+      <span>${b.name}</span>
+    </div>`).join('');
+
+  document.getElementById('reviews-grid').innerHTML = REVIEWS.map(r => {
+    const stars = Array.from({length:5}, (_,i) => `<span class="star${i < r.stars ? '' : ' empty'}">★</span>`).join('');
+    return `<div class="review-card">
+      <div class="review-stars">${stars}</div>
+      <p class="review-text">"${r.text}"</p>
+      <div class="reviewer">
+        <div class="reviewer-avatar" style="background:${r.color}">${r.initials}</div>
+        <div>
+          <div class="reviewer-name">${r.name}</div>
+          <div class="reviewer-info">${r.info} · ${r.producto}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function renderOfertas() {
