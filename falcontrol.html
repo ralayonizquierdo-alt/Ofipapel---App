@@ -374,7 +374,7 @@ audio#radioPlayer{display:none;}
     <h1>FalControl Fauna</h1>
     <p>Sistema de Alerta Radio</p>
   </div>
-  <div class="header-badge">v1.7</div>
+  <div class="header-badge">v1.8</div>
 </header>
 
 <!-- STATUS BAR -->
@@ -480,8 +480,17 @@ audio#radioPlayer{display:none;}
 
 <!-- FOOTER -->
 <footer class="footer">
-  FalControl de Fauna en Canarias · <strong style="color:var(--green)">v1.7</strong>
+  FalControl de Fauna en Canarias · <strong style="color:var(--green)">v1.8</strong>
 </footer>
+
+<!-- DEBUG LOG (ayuda a diagnosticar problemas en iPhone) -->
+<div id="debugPanel" style="background:#111;border-top:1px solid #333;padding:10px 16px;font-size:0.72rem;font-family:monospace;color:#aaa;max-height:120px;overflow-y:auto;display:none;">
+  <div style="color:#555;margin-bottom:4px;">— registro de eventos —</div>
+  <div id="debugLog"></div>
+</div>
+<button onclick="toggleDebug()" style="width:100%;background:#1a1a1a;border:none;border-top:1px solid #222;color:#444;font-size:0.7rem;padding:6px;cursor:pointer;">
+  Mostrar/ocultar registro de diagnóstico
+</button>
 
 <!-- ALARM OVERLAY -->
 <div id="alarmOverlay">
@@ -566,21 +575,25 @@ async function startListening() {
     return;
   }
 
-  // iOS Safari: NO llamar getUserMedia antes de recognition.start()
-  // — en iOS ambos compiten por el micrófono y recognition pierde, causando que onresult nunca dispare.
-  // En Android/Chrome sí podemos tomar el stream para el medidor de audio.
-  if (!isIOS()) {
-    try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch(e) {
-      showError('Permiso de micrófono denegado. Comprueba los permisos del navegador.');
-      return;
+  // Siempre pedir getUserMedia para establecer el permiso de micrófono.
+  // En iOS: liberar el stream inmediatamente después para que
+  //         webkitSpeechRecognition pueda acceder al micro sin conflicto.
+  // En Android: mantener el stream para el medidor de audio.
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (isIOS()) {
+      stream.getTracks().forEach(t => t.stop());
+    } else {
+      micStream = stream;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        startAudioMeter(micStream);
+      } catch(_) {}
     }
-    try {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === 'suspended') await audioCtx.resume();
-      startAudioMeter(micStream);
-    } catch(_) {}
+  } catch(e) {
+    showError('Permiso de micrófono denegado. En iPhone: Ajustes → Safari → Micrófono → Permitir. Asegúrate de que safari.com tiene acceso al micrófono.');
+    return;
   }
 
   clearError();
@@ -607,6 +620,7 @@ function buildRecognition() {
 
   recognition.onstart = () => {
     sessionCount++;
+    addDebugLog(`onstart #${sessionCount}`);
     setStatus(`Sesión #${sessionCount} — habla cerca del micro`, 'listening');
     if (!finalBuffer.trim()) {
       setTranscript('<span class="t-empty">Habla ahora<span class="dots"></span></span>');
@@ -614,14 +628,17 @@ function buildRecognition() {
   };
 
   recognition.onspeechstart = () => {
+    addDebugLog('onspeechstart');
     setStatus(`Sesión #${sessionCount} — voz detectada`, 'listening');
   };
 
   recognition.onspeechend = () => {
+    addDebugLog('onspeechend');
     setStatus(`Sesión #${sessionCount} — procesando...`, 'listening');
   };
 
   recognition.onresult = (e) => {
+    addDebugLog(`onresult idx=${e.resultIndex}`);
     let interim = '';
     const allAlts = [];
 
@@ -642,6 +659,7 @@ function buildRecognition() {
   };
 
   recognition.onend = () => {
+    addDebugLog('onend');
     if (isListening) {
       setStatus('Reiniciando...', '');
       const delay = isIOS() ? 800 : 400;
@@ -650,11 +668,12 @@ function buildRecognition() {
   };
 
   recognition.onerror = (e) => {
+    addDebugLog(`onerror: ${e.error}`);
     const msgs = {
-      'no-speech':           'Sin voz — habla más cerca del micro',
-      'network':             '❌ Error de red — ¿hay conexión a internet?',
-      'not-allowed':         '❌ Micrófono denegado',
-      'service-not-allowed': '❌ Servicio no permitido en este navegador',
+      'no-speech':           'Sin voz detectada — habla más cerca y más alto',
+      'network':             '❌ Error de red — se necesita internet',
+      'not-allowed':         '❌ Micrófono DENEGADO — ve a Ajustes',
+      'service-not-allowed': '❌ Servicio no permitido',
       'audio-capture':       '❌ No se puede acceder al micrófono',
       'aborted':             'Cancelado, reiniciando...',
     };
@@ -924,6 +943,22 @@ function updateUI() {
     card.classList.remove('listening-active');
     sessionCount = 0;
   }
+}
+
+const debugEntries = [];
+function addDebugLog(msg) {
+  const t = new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  debugEntries.push(`${t} ${msg}`);
+  if (debugEntries.length > 30) debugEntries.shift();
+  const el = document.getElementById('debugLog');
+  if (el) el.innerHTML = debugEntries.map(e => `<div>${e}</div>`).join('');
+  const p = document.getElementById('debugPanel');
+  if (p && p.style.display !== 'none') p.scrollTop = p.scrollHeight;
+}
+function toggleDebug() {
+  const p = document.getElementById('debugPanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  if (p.style.display !== 'none') p.scrollTop = p.scrollHeight;
 }
 
 function setStatus(msg, type) {
