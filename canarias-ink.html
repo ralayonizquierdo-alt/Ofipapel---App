@@ -623,7 +623,7 @@ nav.sidebar-nav::-webkit-scrollbar { display: none; }
   border-color: var(--borde2);
   transform: translateY(-2px);
 }
-.product-card:hover .product-img img { transform: scale(1.05); }
+.product-card:hover .product-img img { filter: brightness(1.08); }
 .product-img {
   height: 140px;
   background: var(--card2);
@@ -3309,13 +3309,13 @@ const BRANDS = [
 
 const PRODUCTS = [
   // TONER
-  { id:1, cat:'toner', marca:'HP', ref:'CF217A', nombre:'Tóner HP 17A Negro', tipo:'original', precio:49.90, precio_ant:null, paginas:1600, badge:'original', emoji:'🖨️', destacado:true, oferta:false, img:'https://placehold.co/280x160/0096D6/ffffff?text=HP+17A' },
-  { id:2, cat:'toner', marca:'HP', ref:'CF217A-C', nombre:'Tóner compatible HP 17A Negro', tipo:'generico', precio:14.90, precio_ant:18.90, paginas:1600, badge:'generico', emoji:'🖨️', destacado:true, oferta:true, img:'https://placehold.co/280x160/0096D6/ffffff?text=HP+17A+Comp.' },
+  { id:1, cat:'toner', marca:'HP', ref:'CF217A', nombre:'Tóner HP 17A Negro', tipo:'original', precio:49.90, precio_ant:null, paginas:1600, badge:'original', emoji:'🖨️', destacado:true, oferta:false, img:'hero-productos.jpg', imgPos:'8% 40%', imgScale:1.6 },
+  { id:2, cat:'toner', marca:'HP', ref:'CF217A-C', nombre:'Tóner compatible HP 17A Negro', tipo:'generico', precio:14.90, precio_ant:18.90, paginas:1600, badge:'generico', emoji:'🖨️', destacado:true, oferta:true, img:'hero-productos.jpg', imgPos:'28% 50%', imgScale:1.7 },
   { id:3, cat:'toner', marca:'HP', ref:'CF230A', nombre:'Tóner HP 30A Negro', tipo:'original', precio:64.90, precio_ant:null, paginas:1600, badge:'original', emoji:'🖨️', destacado:false, oferta:false },
   { id:4, cat:'toner', marca:'HP', ref:'CF230A-C', nombre:'Tóner compatible HP 30A Negro', tipo:'generico', precio:16.90, precio_ant:null, paginas:1600, badge:'generico', emoji:'🖨️', destacado:false, oferta:false },
-  { id:5, cat:'toner', marca:'Canon', ref:'3483C002', nombre:'Tóner Canon 057H Negro Alto Rdto.', tipo:'original', precio:89.50, precio_ant:null, paginas:10000, badge:'original', emoji:'🖨️', destacado:true, oferta:false, img:'https://placehold.co/280x160/CC0000/ffffff?text=Canon+057H' },
+  { id:5, cat:'toner', marca:'Canon', ref:'3483C002', nombre:'Tóner Canon 057H Negro Alto Rdto.', tipo:'original', precio:89.50, precio_ant:null, paginas:10000, badge:'original', emoji:'🖨️', destacado:true, oferta:false, img:'hero-productos.jpg', imgPos:'52% 35%', imgScale:1.65 },
   { id:6, cat:'toner', marca:'Canon', ref:'3483C002-C', nombre:'Tóner compatible Canon 057H Negro', tipo:'generico', precio:22.90, precio_ant:28.90, paginas:10000, badge:'generico', emoji:'🖨️', destacado:false, oferta:true },
-  { id:7, cat:'toner', marca:'Brother', ref:'TN-2420', nombre:'Tóner Brother TN-2420 Negro', tipo:'original', precio:52.90, precio_ant:null, paginas:3000, badge:'original', emoji:'🖨️', destacado:true, oferta:false, img:'https://placehold.co/280x160/006AB4/ffffff?text=Brother+TN-2420' },
+  { id:7, cat:'toner', marca:'Brother', ref:'TN-2420', nombre:'Tóner Brother TN-2420 Negro', tipo:'original', precio:52.90, precio_ant:null, paginas:3000, badge:'original', emoji:'🖨️', destacado:true, oferta:false, img:'hero-productos.jpg', imgPos:'78% 45%', imgScale:1.7 },
   { id:8, cat:'toner', marca:'Brother', ref:'TN-2420-C', nombre:'Tóner compatible Brother TN-2420', tipo:'generico', precio:13.90, precio_ant:null, paginas:3000, badge:'generico', emoji:'🖨️', destacado:false, oferta:false },
   { id:9, cat:'toner', marca:'Kyocera', ref:'1T02RV0NL0', nombre:'Tóner Kyocera TK-1150 Negro', tipo:'original', precio:74.00, precio_ant:null, paginas:3000, badge:'original', emoji:'🖨️', destacado:false, oferta:false },
   { id:10, cat:'toner', marca:'Samsung', ref:'MLT-D111S', nombre:'Tóner Samsung 111S Negro', tipo:'original', precio:44.90, precio_ant:null, paginas:1000, badge:'original', emoji:'🖨️', destacado:false, oferta:false },
@@ -3327,10 +3327,10 @@ const PRODUCTS = [
   { id:16, cat:'toner', marca:'Lexmark', ref:'56F2H00', nombre:'Tóner Lexmark 56F2H00 Negro', tipo:'original', precio:165.00, precio_ant:null, paginas:15000, badge:'original', emoji:'🖨️', destacado:false, oferta:false },
 
   // INKJET
-  { id:20, cat:'inkjet', marca:'HP', ref:'302XL-N', nombre:'Cartucho HP 302XL Negro', tipo:'original', precio:16.90, precio_ant:null, paginas:480, badge:'original', emoji:'💧', destacado:true, oferta:false, img:'https://placehold.co/280x160/0096D6/ffffff?text=HP+302XL+Negro' },
-  { id:21, cat:'inkjet', marca:'HP', ref:'302XL-C', nombre:'Cartucho HP 302XL Color', tipo:'original', precio:17.90, precio_ant:null, paginas:330, badge:'original', emoji:'💧', destacado:true, oferta:false, img:'https://placehold.co/280x160/0096D6/ffffff?text=HP+302XL+Color' },
-  { id:22, cat:'inkjet', marca:'HP', ref:'302-PACK-C', nombre:'Pack HP 302XL Negro+Color Compatible', tipo:'generico', precio:10.90, precio_ant:14.90, paginas:480, badge:'generico', emoji:'💧', destacado:true, oferta:true, img:'https://placehold.co/280x160/0F1119/00B4D8?text=Pack+302XL+Comp.' },
-  { id:23, cat:'inkjet', marca:'Canon', ref:'PG-545XL', nombre:'Cartucho Canon PG-545XL Negro', tipo:'original', precio:14.90, precio_ant:null, paginas:400, badge:'original', emoji:'💧', destacado:true, oferta:false, img:'https://placehold.co/280x160/CC0000/ffffff?text=Canon+PG-545XL' },
+  { id:20, cat:'inkjet', marca:'HP', ref:'302XL-N', nombre:'Cartucho HP 302XL Negro', tipo:'original', precio:16.90, precio_ant:null, paginas:480, badge:'original', emoji:'💧', destacado:true, oferta:false, img:'hero-productos.jpg', imgPos:'18% 62%', imgScale:1.8 },
+  { id:21, cat:'inkjet', marca:'HP', ref:'302XL-C', nombre:'Cartucho HP 302XL Color', tipo:'original', precio:17.90, precio_ant:null, paginas:330, badge:'original', emoji:'💧', destacado:true, oferta:false, img:'hero-productos.jpg', imgPos:'42% 68%', imgScale:1.75 },
+  { id:22, cat:'inkjet', marca:'HP', ref:'302-PACK-C', nombre:'Pack HP 302XL Negro+Color Compatible', tipo:'generico', precio:10.90, precio_ant:14.90, paginas:480, badge:'generico', emoji:'💧', destacado:true, oferta:true, img:'hero-productos.jpg', imgPos:'62% 58%', imgScale:1.65 },
+  { id:23, cat:'inkjet', marca:'Canon', ref:'PG-545XL', nombre:'Cartucho Canon PG-545XL Negro', tipo:'original', precio:14.90, precio_ant:null, paginas:400, badge:'original', emoji:'💧', destacado:true, oferta:false, img:'hero-productos.jpg', imgPos:'88% 42%', imgScale:1.7 },
   { id:24, cat:'inkjet', marca:'Canon', ref:'CL-546XL', nombre:'Cartucho Canon CL-546XL Color', tipo:'original', precio:15.90, precio_ant:null, paginas:300, badge:'original', emoji:'💧', destacado:false, oferta:false },
   { id:25, cat:'inkjet', marca:'Canon', ref:'PG-545XL-C', nombre:'Cartucho compatible Canon PG-545XL Negro', tipo:'generico', precio:5.90, precio_ant:null, paginas:400, badge:'generico', emoji:'💧', destacado:false, oferta:false },
   { id:26, cat:'inkjet', marca:'Epson', ref:'T3351', nombre:'Cartucho Epson 33XL Negro', tipo:'original', precio:16.90, precio_ant:null, paginas:530, badge:'original', emoji:'💧', destacado:false, oferta:false },
@@ -3430,9 +3430,9 @@ function buildCard(p, showOfertaBadge=false) {
 
   const imgArea = p.img
     ? `<img src="${p.img}" alt="${p.nombre}"
-           style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;transition:transform 0.3s"
-           onerror="this.style.display='none'">
-       <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,rgba(0,0,0,0.55) 100%)"></div>`
+           style="width:100%;height:100%;object-fit:cover;object-position:${p.imgPos||'50% 50%'};position:absolute;inset:0;transform:scale(${p.imgScale||1.5});transform-origin:${p.imgPos||'50% 50%'};transition:transform 0.4s"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='none'">
+       <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,0.65) 100%)"></div>`
     : `<div class="prod-img-bg-glow"></div>${svg}`;
   return `
   <div class="product-card" onclick="openProductDetail(${p.id})">
