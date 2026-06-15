@@ -29,6 +29,7 @@
   --c-botella:  #00BFA5;   /* teal */
   --c-cinta:    #FF9800;   /* orange */
   --c-etiqueta: #9C27B0;   /* purple */
+  --c-ribbon:   #5C6BC0;   /* indigo — thermal transfer ribbons */
 
   /* UI */
   --acento:     #00B4D8;   /* primary accent — cyan ink */
@@ -1367,22 +1368,26 @@ textarea.form-control { min-height: 110px; resize: vertical; }
 .eco-banner h3 { font-size: 1.05rem; font-weight: 800; margin-bottom: 5px; }
 .eco-banner p { font-size: 0.82rem; opacity: 0.85; line-height: 1.5; }
 .eco-banner .btn-secondary { margin-left: auto; flex-shrink: 0; }
-.ink-drops-bg {
-  position: absolute;
+/* ===== INK DROPS FLOATING ===== */
+#ink-layer {
+  position: fixed;
   inset: 0;
   pointer-events: none;
+  z-index: 0;
   overflow: hidden;
-  border-radius: inherit;
 }
-.ink-drop {
+.idrop {
   position: absolute;
   border-radius: 50%;
-  opacity: 0.18;
-  animation: floatDrop 6s ease-in-out infinite;
+  filter: blur(36px);
+  animation: inkFloat linear infinite;
+  will-change: transform, opacity;
 }
-@keyframes floatDrop {
-  0%,100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-12px) scale(1.05); }
+@keyframes inkFloat {
+  0%   { transform: translateY(110vh) translateX(0) scale(0.6); opacity: 0; }
+  8%   { opacity: 1; }
+  92%  { opacity: 0.85; }
+  100% { transform: translateY(-15vh) translateX(var(--dx,30px)) scale(1.2); opacity: 0; }
 }
 .cat-card .cat-bg-drop {
   position: absolute;
@@ -1838,6 +1843,9 @@ textarea.form-control { min-height: 110px; resize: vertical; }
 </head>
 <body>
 
+<!-- Ink drops floating background -->
+<div id="ink-layer"></div>
+
 <div id="toast-container"></div>
 
 <!-- Cart overlay -->
@@ -1917,6 +1925,11 @@ textarea.form-control { min-height: 110px; resize: vertical; }
         <div class="nav-icon">🏷️</div>
         <span>Rollos y Etiquetas</span>
         <div class="cat-dot" style="background:var(--c-etiqueta)"></div>
+      </div>
+      <div class="nav-item" onclick="filterCat('ribbon')">
+        <div class="nav-icon">🎞️</div>
+        <span>Ribbons TTR</span>
+        <div class="cat-dot" style="background:var(--c-ribbon)"></div>
       </div>
 
       <div class="nav-section-title">Información</div>
@@ -2054,6 +2067,12 @@ textarea.form-control { min-height: 110px; resize: vertical; }
             <div class="cat-name">Rollos y Etiquetas</div>
             <div class="cat-count">Térmico · Adhesivo</div>
           </div>
+          <div class="cat-card" style="--cat-color:var(--c-ribbon);--cat-bg:rgba(92,107,192,0.1)" onclick="filterCat('ribbon')">
+            <div class="cat-bg-drop"></div>
+            <div class="cat-icon" style="background:rgba(92,107,192,0.12)">🎞️</div>
+            <div class="cat-name">Ribbons TTR</div>
+            <div class="cat-count">Cera · Cera-Resina · Resina</div>
+          </div>
         </div>
 
         <!-- Banner foto productos -->
@@ -2171,6 +2190,7 @@ textarea.form-control { min-height: 110px; resize: vertical; }
           <div class="chip" onclick="setCatFilter('botella',this)">🍶 Botellas</div>
           <div class="chip" onclick="setCatFilter('cinta',this)">📼 Cintas</div>
           <div class="chip" onclick="setCatFilter('etiqueta',this)">🏷️ Etiquetas</div>
+          <div class="chip" onclick="setCatFilter('ribbon',this)">🎞️ Ribbons TTR</div>
         </div>
 
         <div class="catalog-layout">
@@ -2759,6 +2779,16 @@ const PRODUCTS = [
   { id:83, cat:'etiqueta', marca:'Citizen', ref:'3310069', nombre:'Rollo Citizen 57mm papel térmico 10 uds.', tipo:'original', precio:12.90, precio_ant:null, paginas:null, badge:'original', emoji:'🏷️', destacado:false, oferta:false },
   { id:84, cat:'etiqueta', marca:'Dymo', ref:'1738595', nombre:'Etiquetas Dymo LabelWriter 28×89mm', tipo:'original', precio:19.90, precio_ant:null, paginas:null, badge:'original', emoji:'🏷️', destacado:false, oferta:false },
   { id:85, cat:'etiqueta', marca:'Zebra', ref:'800264-505', nombre:'Rollo térmico Zebra 102×76mm 500 etiq.', tipo:'original', precio:22.90, precio_ant:null, paginas:null, badge:'original', emoji:'🏷️', destacado:false, oferta:false },
+
+  // RIBBONS TTR (Cintas de transferencia térmica)
+  { id:90, cat:'ribbon', marca:'Zebra', ref:'02300BK11045', nombre:'Ribbon Zebra Cera 110mm × 450m', tipo:'original', precio:18.90, precio_ant:null, paginas:null, badge:'original', emoji:'🎞️', destacado:true, oferta:false },
+  { id:91, cat:'ribbon', marca:'Zebra', ref:'02300BK11045-C', nombre:'Ribbon compatible Cera 110mm × 450m', tipo:'generico', precio:7.90, precio_ant:9.90, paginas:null, badge:'generico', emoji:'🎞️', destacado:true, oferta:true },
+  { id:92, cat:'ribbon', marca:'Zebra', ref:'05319BK11045', nombre:'Ribbon Zebra Cera-Resina 110mm × 450m', tipo:'original', precio:28.90, precio_ant:null, paginas:null, badge:'original', emoji:'🎞️', destacado:false, oferta:false },
+  { id:93, cat:'ribbon', marca:'Datamax', ref:'IR12R250U', nombre:'Ribbon Datamax Cera-Resina 110mm × 300m', tipo:'original', precio:32.00, precio_ant:null, paginas:null, badge:'original', emoji:'🎞️', destacado:false, oferta:false },
+  { id:94, cat:'ribbon', marca:'TSC', ref:'P159055-001', nombre:'Ribbon TSC Resina 110mm × 300m', tipo:'original', precio:38.50, precio_ant:null, paginas:null, badge:'original', emoji:'🎞️', destacado:false, oferta:false },
+  { id:95, cat:'ribbon', marca:'TSC', ref:'P159055-001-C', nombre:'Ribbon compatible Resina 110mm × 300m', tipo:'generico', precio:14.90, precio_ant:18.90, paginas:null, badge:'generico', emoji:'🎞️', destacado:false, oferta:true },
+  { id:96, cat:'ribbon', marca:'Citizen', ref:'JM-BLK11045', nombre:'Ribbon Citizen Cera 110mm × 450m', tipo:'original', precio:22.00, precio_ant:null, paginas:null, badge:'original', emoji:'🎞️', destacado:false, oferta:false },
+  { id:97, cat:'ribbon', marca:'Zebra', ref:'02300BK08045', nombre:'Ribbon Zebra Cera 83mm × 450m', tipo:'original', precio:15.90, precio_ant:null, paginas:null, badge:'original', emoji:'🎞️', destacado:false, oferta:false },
 ];
 
 /* ===== STATE ===== */
@@ -2804,8 +2834,8 @@ function closeSidebarMobile() {
 
 /* ===== PRODUCT CARD ===== */
 function buildCard(p, showOfertaBadge=false) {
-  const catColors = { toner:'#E63946', inkjet:'#2196F3', botella:'#00BFA5', cinta:'#FF9800', etiqueta:'#9C27B0' };
-  const catBg = { toner:'rgba(230,57,70,0.07)', inkjet:'rgba(33,150,243,0.07)', botella:'rgba(0,191,165,0.07)', cinta:'rgba(255,152,0,0.07)', etiqueta:'rgba(156,39,176,0.07)' };
+  const catColors = { toner:'#E63946', inkjet:'#2196F3', botella:'#00BFA5', cinta:'#FF9800', etiqueta:'#9C27B0', ribbon:'#5C6BC0' };
+  const catBg = { toner:'rgba(230,57,70,0.07)', inkjet:'rgba(33,150,243,0.07)', botella:'rgba(0,191,165,0.07)', cinta:'rgba(255,152,0,0.07)', etiqueta:'rgba(156,39,176,0.07)', ribbon:'rgba(92,107,192,0.07)' };
   const color = catColors[p.cat] || '#00B4D8';
   const bg = catBg[p.cat] || 'rgba(0,180,216,0.07)';
   const svg = PRODUCT_SVGS[p.cat] || `<span style="font-size:2.5rem">${p.emoji}</span>`;
@@ -3001,8 +3031,8 @@ function buildBrandFilters() {
 
 /* ===== MARCAS ===== */
 function renderMarcas() {
-  const catColors = { toner:'var(--c-toner)', inkjet:'var(--c-inkjet)', botella:'var(--c-botella)', cinta:'var(--c-cinta)', etiqueta:'var(--c-etiqueta)' };
-  const catNames = { toner:'Tóner', inkjet:'Inkjet', botella:'Botellas', cinta:'Cintas', etiqueta:'Etiquetas' };
+  const catColors = { toner:'var(--c-toner)', inkjet:'var(--c-inkjet)', botella:'var(--c-botella)', cinta:'var(--c-cinta)', etiqueta:'var(--c-etiqueta)', ribbon:'var(--c-ribbon)' };
+  const catNames = { toner:'Tóner', inkjet:'Inkjet', botella:'Botellas', cinta:'Cintas', etiqueta:'Etiquetas', ribbon:'Ribbons TTR' };
   const logoBase = 'https://logo.clearbit.com/';
   document.getElementById('marcas-grid').innerHTML = BRANDS.map(b => {
     const bc = BRAND_COLORS[b.name] || '#555';
@@ -3080,6 +3110,19 @@ const PRODUCT_SVGS = {
     <line x1="78" y1="46" x2="78" y2="54" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
     <line x1="46" y1="50" x2="78" y2="44" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
     <line x1="46" y1="50" x2="78" y2="56" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
+  </svg>`,
+  ribbon: `<svg class="prod-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="28" cy="50" r="20" fill="currentColor" opacity="0.08"/>
+    <circle cx="28" cy="50" r="20" stroke="currentColor" stroke-width="2.5"/>
+    <circle cx="28" cy="50" r="11" fill="currentColor" opacity="0.14"/>
+    <circle cx="28" cy="50" r="5" fill="currentColor" opacity="0.45"/>
+    <circle cx="72" cy="50" r="13" fill="currentColor" opacity="0.08"/>
+    <circle cx="72" cy="50" r="13" stroke="currentColor" stroke-width="2.5"/>
+    <circle cx="72" cy="50" r="5" fill="currentColor" opacity="0.45"/>
+    <path d="M28 30 Q50 22 72 37" stroke="currentColor" stroke-width="2.2" fill="none" opacity="0.55"/>
+    <path d="M28 70 Q50 78 72 63" stroke="currentColor" stroke-width="2.2" fill="none" opacity="0.55"/>
+    <rect x="42" y="44" width="16" height="12" rx="3" fill="currentColor" opacity="0.2"/>
+    <rect x="42" y="44" width="16" height="12" rx="3" stroke="currentColor" stroke-width="1.5"/>
   </svg>`
 };
 
@@ -3158,6 +3201,43 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw-ink.js').catch(() => {});
 }
 
+/* ===== INK DROPS ANIMATION ===== */
+function initInkDrops() {
+  const layer = document.getElementById('ink-layer');
+  const colors = [
+    'rgba(0,180,216,IDX)',   // cyan
+    'rgba(230,57,70,IDX)',   // red
+    'rgba(33,150,243,IDX)',  // blue
+    'rgba(0,191,165,IDX)',   // teal
+    'rgba(255,152,0,IDX)',   // orange
+    'rgba(92,107,192,IDX)',  // indigo
+    'rgba(46,204,113,IDX)',  // green
+  ];
+  const drops = [
+    { size:180, left:8,  delay:0,   dur:18, cidx:0 },
+    { size:120, left:22, delay:4,   dur:22, cidx:1 },
+    { size:220, left:55, delay:8,   dur:26, cidx:2 },
+    { size:150, left:70, delay:2,   dur:20, cidx:3 },
+    { size:100, left:38, delay:12,  dur:24, cidx:4 },
+    { size:200, left:85, delay:6,   dur:28, cidx:5 },
+    { size:130, left:15, delay:16,  dur:19, cidx:6 },
+    { size:160, left:62, delay:10,  dur:23, cidx:0 },
+  ];
+  layer.innerHTML = drops.map(d => {
+    const opacity = (0.06 + Math.random() * 0.04).toFixed(2);
+    const col = colors[d.cidx].replace('IDX', opacity);
+    const dx = (Math.random() > 0.5 ? 1 : -1) * (20 + Math.random() * 60);
+    return `<div class="idrop" style="
+      width:${d.size}px; height:${d.size}px;
+      left:${d.left}%;
+      background:${col};
+      animation-duration:${d.dur}s;
+      animation-delay:-${d.delay}s;
+      --dx:${dx}px;
+    "></div>`;
+  }).join('');
+}
+
 /* ===== INIT ===== */
 document.addEventListener('DOMContentLoaded', () => {
   buildBrandFilters();
@@ -3168,6 +3248,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateCartUI();
   setInterval(updateCountdown, 1000);
   updateCountdown();
+  initInkDrops();
 });
 </script>
 </body>
