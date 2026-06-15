@@ -14,26 +14,35 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil(
+    // Limpiar cachés viejas
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim()).then(() => {
+      // Forzar recarga de todas las pestañas abiertas para que carguen HTML fresco
+      return self.clients.matchAll({ type: 'window' }).then(clients => {
+        return Promise.all(clients.map(client => {
+          try { return client.navigate(client.url); } catch(e) {
+            client.postMessage({ type: 'SW_RELOAD' });
+          }
+        }));
+      });
+    })
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', e => {
   const url = e.request.url;
 
-  // falcontrol.html y HTML principal: siempre red (network-first), nunca caché
-  if (url.includes('falcontrol') || e.request.destination === 'document' ||
-      url.endsWith('/') || url.endsWith('.html')) {
+  // HTML siempre desde la red (network-first) — nunca queda atrapado en caché
+  if (e.request.destination === 'document' ||
+      url.endsWith('/') || url.endsWith('.html') || url.includes('falcontrol')) {
     e.respondWith(
       fetch(e.request).catch(() => caches.match('/Index.html'))
     );
     return;
   }
 
-  // Resto de assets (CDN libs): caché primero
+  // CDN libs: caché primero
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
   );
