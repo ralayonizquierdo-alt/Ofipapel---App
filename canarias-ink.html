@@ -61,7 +61,7 @@
 html { font-size: 16px; scroll-behavior: smooth; }
 body {
   font-family: 'Inter', system-ui, sans-serif;
-  background: var(--bg);
+  background: transparent;
   color: var(--texto);
   min-height: 100vh;
   overflow-x: hidden;
@@ -74,7 +74,10 @@ input, select, textarea { font-family: inherit; }
 #app {
   display: flex;
   min-height: 100vh;
+  position: relative;
+  z-index: 1;
 }
+#main { background: transparent; }
 
 /* ===== SIDEBAR ===== */
 #sidebar {
@@ -335,41 +338,40 @@ nav.sidebar-nav::-webkit-scrollbar { display: none; }
 .view { display: none; }
 .view.active { display: block; }
 
-/* ===== HERO ===== */
-.hero {
-  background: linear-gradient(135deg, var(--ink) 0%, var(--ink-med) 50%, #1a3a5c 100%);
-  border-radius: 16px;
-  padding: 48px 40px;
-  color: white;
+/* ===== HERO FULL-BLEED ===== */
+.hero-full {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  min-height: 400px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 32px;
   margin-bottom: 28px;
-  overflow: hidden;
+}
+.hero-full-bg {
+  position: absolute;
+  inset: 0;
+  background: url('hero-productos.jpg') center/cover no-repeat;
+  transform: scale(1.03);
+  transition: transform 9s ease;
+}
+.hero-full:hover .hero-full-bg { transform: scale(1.08); }
+.hero-full-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg,
+    rgba(12,14,24,0.95) 0%,
+    rgba(12,14,24,0.82) 40%,
+    rgba(12,14,24,0.35) 70%,
+    rgba(12,14,24,0.05) 100%);
+}
+.hero-full-content {
   position: relative;
+  z-index: 1;
+  padding: 56px 52px 48px;
+  color: white;
+  max-width: 560px;
 }
-.hero::before {
-  content: '';
-  position: absolute;
-  right: -60px;
-  top: -60px;
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, rgba(0,180,216,0.2) 0%, transparent 70%);
-  pointer-events: none;
-}
-.hero::after {
-  content: '';
-  position: absolute;
-  left: 30%;
-  bottom: -80px;
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, rgba(0,180,216,0.1) 0%, transparent 70%);
-  pointer-events: none;
-}
-.hero-content { max-width: 520px; position: relative; z-index: 1; }
 .hero-badge {
   display: inline-flex;
   align-items: center;
@@ -377,34 +379,46 @@ nav.sidebar-nav::-webkit-scrollbar { display: none; }
   background: rgba(0,180,216,0.2);
   border: 1px solid rgba(0,180,216,0.4);
   border-radius: 20px;
-  padding: 5px 12px;
+  padding: 5px 14px;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--acento);
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
-.hero h1 {
-  font-size: 2.1rem;
+.hero-full-content h1 {
+  font-size: 2.4rem;
   font-weight: 800;
-  line-height: 1.15;
-  margin-bottom: 14px;
+  line-height: 1.12;
+  margin-bottom: 16px;
   letter-spacing: -0.5px;
 }
-.hero h1 em {
+.hero-full-content h1 em {
   color: var(--acento);
   font-style: normal;
 }
-.hero p {
-  color: rgba(255,255,255,0.7);
+.hero-full-content p {
+  color: rgba(255,255,255,0.72);
   font-size: 1rem;
-  line-height: 1.6;
-  margin-bottom: 24px;
+  line-height: 1.65;
+  margin-bottom: 26px;
+  max-width: 420px;
 }
 .hero-ctas {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  margin-bottom: 28px;
 }
+.hero-full-stats {
+  display: flex;
+  gap: 28px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  flex-wrap: wrap;
+}
+.hf-stat { display: flex; flex-direction: column; gap: 2px; }
+.hf-val { font-size: 1.2rem; font-weight: 800; color: var(--acento); }
+.hf-lbl { font-size: 0.63rem; color: rgba(255,255,255,0.48); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 500; }
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -1375,6 +1389,7 @@ textarea.form-control { min-height: 110px; resize: vertical; }
   pointer-events: none;
   z-index: 0;
   overflow: hidden;
+  background: var(--bg);
 }
 .idrop {
   position: absolute;
@@ -1828,11 +1843,10 @@ textarea.form-control { min-height: 110px; resize: vertical; }
   .nav-section-title { display: block; }
   .sidebar-contact { display: block; }
   .shipping-badge { display: block; }
-  .hero { flex-direction: column; padding: 28px 24px; }
-  .hero h1 { font-size: 1.5rem; }
-  .hero-graphic { width: 100%; }
-  .hero-img { width: 100%; height: 180px; margin-bottom: 10px; }
-  .hero-stats-row { gap: 8px; }
+  .hero-full { min-height: 320px; border-radius: 14px; }
+  .hero-full-content { padding: 32px 28px; }
+  .hero-full-content h1 { font-size: 1.7rem; }
+  .hero-full-stats { gap: 16px; }
   .reviews-summary { flex-direction: column; gap: 16px; }
   .reviews-badge { margin-left: 0; }
   .cat-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1992,32 +2006,23 @@ textarea.form-control { min-height: 110px; resize: vertical; }
       <!-- ===== INICIO ===== -->
       <div class="view active" id="v-inicio">
 
-        <!-- Hero -->
-        <div class="hero">
-          <div class="hero-content">
-            <div class="hero-badge">🚀 Envío gratis a Canarias en pedidos +50 €</div>
-            <h1>Tus consumibles,<br><em>siempre a punto</em></h1>
-            <p>Tóner, cartuchos, botellas de tinta, cintas y etiquetas. Originales y genéricos de todas las marcas. Entrega rápida en toda Canarias.</p>
+        <!-- Hero full-bleed -->
+        <div class="hero-full">
+          <div class="hero-full-bg"></div>
+          <div class="hero-full-overlay"></div>
+          <div class="hero-full-content">
+            <div class="hero-badge">🚀 Envío gratis a Canarias · Pedidos +50 €</div>
+            <h1>Todo lo que<br>tu impresora<br><em>necesita</em></h1>
+            <p>Tóner, cartuchos, botellas de tinta, cintas, ribbons y etiquetas. Originales y genéricos de todas las marcas. Entrega rápida en toda Canarias.</p>
             <div class="hero-ctas">
               <button class="btn-primary" onclick="showView('catalogo', document.querySelector('[onclick*=catalogo]'))">Ver Catálogo →</button>
-              <button class="btn-secondary" onclick="showView('ofertas', document.querySelector('[onclick*=ofertas]'))">🏷️ Ver Ofertas</button>
+              <button class="btn-secondary" onclick="showView('ofertas', document.querySelector('[onclick*=ofertas]'))">🏷️ Ofertas</button>
             </div>
-          </div>
-          <div class="hero-graphic">
-            <img src="hero-productos.jpg" alt="Consumibles para impresoras" class="hero-img">
-            <div class="hero-stats-row">
-              <div class="hero-stat">
-                <span class="val">+2.000</span>
-                <span class="lbl">Referencias</span>
-              </div>
-              <div class="hero-stat">
-                <span class="val">+50</span>
-                <span class="lbl">Marcas</span>
-              </div>
-              <div class="hero-stat">
-                <span class="val">100%</span>
-                <span class="lbl">Garantizados</span>
-              </div>
+            <div class="hero-full-stats">
+              <div class="hf-stat"><span class="hf-val">+2.000</span><span class="hf-lbl">Referencias</span></div>
+              <div class="hf-stat"><span class="hf-val">+50</span><span class="hf-lbl">Marcas</span></div>
+              <div class="hf-stat"><span class="hf-val">100%</span><span class="hf-lbl">Garantizados</span></div>
+              <div class="hf-stat"><span class="hf-val">24–48h</span><span class="hf-lbl">Entrega</span></div>
             </div>
           </div>
         </div>
@@ -2072,18 +2077,6 @@ textarea.form-control { min-height: 110px; resize: vertical; }
             <div class="cat-icon" style="background:rgba(92,107,192,0.12)">🎞️</div>
             <div class="cat-name">Ribbons TTR</div>
             <div class="cat-count">Cera · Cera-Resina · Resina</div>
-          </div>
-        </div>
-
-        <!-- Banner foto productos -->
-        <div class="promo-banner">
-          <div class="promo-banner-bg"></div>
-          <div class="promo-banner-overlay"></div>
-          <div class="promo-banner-content">
-            <div class="pb-tag">📦 Todas las marcas</div>
-            <h2>Originales y genéricos<br>para cualquier impresora</h2>
-            <p>Más de 2.000 referencias de HP, Canon, Epson, Brother, Kyocera y muchas más. Si no lo encuentras, lo buscamos por ti.</p>
-            <button class="btn-primary" onclick="showView('catalogo', document.querySelector('[onclick*=catalogo]'))">Explorar catálogo →</button>
           </div>
         </div>
 
