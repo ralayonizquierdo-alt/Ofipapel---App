@@ -11,6 +11,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ofipapel">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI1MCIgZmlsbD0iIzFBNUMxQSIvPjx0ZXh0IHg9IjUwIiB5PSI3MiIgZm9udC1zaXplPSI2NSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+8J+NgDwvdGV4dD48L3N2Zz4=">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI1MCIgZmlsbD0iIzFBNUMxQSIvPjx0ZXh0IHg9IjUwIiB5PSI3MiIgZm9udC1zaXplPSI2NSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+8J+NgDwvdGV4dD48L3N2Zz4=">
 <link rel="manifest" id="pwaManifest">
 <title>Ofipapel · Control Financiero</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -360,7 +362,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.1</div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.2</div>
   </div>
 </div>
 
@@ -381,6 +383,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     <div class="nav-item" onclick="showView('entrada')"><span class="ni">➕</span><span>Volcado Diario</span></div>
     <div class="nav-item" onclick="showView('deuda')"><span class="ni">🏛️</span><span>Pool de Deuda</span></div>
     <div class="nav-item" onclick="showView('pagares')"><span class="ni">📄</span><span>Pagarés &amp; Confirming</span></div>
+    <div class="nav-item" onclick="showView('proveedores')"><span class="ni">💸</span><span>Pagos Proveed.</span></div>
 
     <div class="sidebar-footer">
       <div class="sidebar-user" id="sidebarUser"></div>
@@ -527,11 +530,70 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
       <div class="view" id="v-pagares">
         <div id="pagaresContent"></div>
       </div>
+      <!-- ═══ PAGOS PROVEEDORES ═══ -->
+      <div class="view" id="v-proveedores">
+        <div class="page-header"><h1 class="page-title">💸 Pagos a Proveedores</h1></div>
+        <div class="page-body">
+          <div id="provKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+          <div class="card" style="margin-bottom:16px;padding:16px;">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+              <div style="flex:2;min-width:150px;">
+                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Proveedor</div>
+                <input type="text" id="provFiltroTexto" placeholder="Buscar nombre o código..." oninput="renderProveedores()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Desde</div>
+                <input type="date" id="provFiltroDesde" onchange="renderProveedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Hasta</div>
+                <input type="date" id="provFiltroHasta" onchange="renderProveedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Tipo</div>
+                <select id="provFiltroTipo" onchange="renderProveedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                  <option value="todos">Todos</option>
+                  <option value="Pago">Pago</option>
+                  <option value="Pago Gastos">Pago Gastos</option>
+                </select>
+              </div>
+              <button onclick="limpiarFiltrosProv()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
+              <button onclick="showProvModal()" style="padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">+ Añadir</button>
+              <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="provExcelInput" style="display:none" onchange="importProveedoresExcel(this)"></label>
+            </div>
+          </div>
+          <div class="card" id="provTabla" style="padding:0;overflow:hidden;"></div>
+        </div>
+      </div>
 
     </div><!-- /page-body -->
   </div><!-- /main-content -->
 </div><!-- /app -->
 
+
+<!-- Modal nuevo pago proveedor -->
+<div id="provModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9997;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:95%;max-width:540px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);margin:16px;">
+    <h3 style="font-size:16px;font-weight:700;color:var(--azul);margin-bottom:20px;">➕ Nuevo Pago a Proveedor</h3>
+    <div class="form-grid">
+      <div><label class="form-label">Fecha Pago *</label><input type="date" id="pfFecha" class="form-input"></div>
+      <div><label class="form-label">Código Receptor</label><input type="text" id="pfReceptor" class="form-input" placeholder="50553"></div>
+      <div style="grid-column:1/-1"><label class="form-label">Nombre Proveedor *</label><input type="text" id="pfNombre" class="form-input" placeholder="Nombre del proveedor"></div>
+      <div><label class="form-label">Nº Factura</label><input type="text" id="pfNfra" class="form-input"></div>
+      <div><label class="form-label">Doc. de Pago</label><input type="text" id="pfNdocpago" class="form-input" placeholder="Transferencia 6"></div>
+      <div><label class="form-label">Importe (€) *</label><input type="number" id="pfImporte" class="form-input" step="0.01" placeholder="1234.56"></div>
+      <div><label class="form-label">Tipo Movimiento</label>
+        <select id="pfTipo" class="form-input"><option value="Pago">Pago</option><option value="Pago Gastos">Pago Gastos</option></select>
+      </div>
+      <div><label class="form-label">Fe. Documento</label><input type="date" id="pfFedoc" class="form-input"></div>
+      <div><label class="form-label">Fe. Vencimiento</label><input type="date" id="pfFevto" class="form-input"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button onclick="saveProvModal()" style="flex:1;padding:11px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Guardar</button>
+      <button onclick="closeProvModal()" style="padding:11px 20px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:14px;cursor:pointer;">Cancelar</button>
+    </div>
+  </div>
+</div>
 <!-- Modal cambio contraseña -->
 <div id="changePassModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;display:none;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:16px;padding:32px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.25);margin:16px;">
@@ -577,6 +639,8 @@ try{ Object.assign(USERS, JSON.parse(localStorage.getItem('op_passwords')||'{}')
 let currentUser = null;
 let registros = [...SEED_DATA];
 let charts = {};
+let proveedores = [];
+try{ proveedores = JSON.parse(localStorage.getItem('op_proveedores')||'[]'); }catch(e){ proveedores=[]; }
 
 // ═══════════════════════════════════════════════════════
 // SUPABASE — base de datos en la nube (sincronización real)
@@ -774,7 +838,7 @@ function doLogout() {
 // ═══════════════════════════════════════════════════════
 // NAV
 // ═══════════════════════════════════════════════════════
-const TITLES = { dashboard:'Dashboard', historico:'Histórico', alertas:'Alertas', entrada:'Volcado Diario', deuda:'Pool de Deuda', pagares:'Pagarés & Confirming' };
+const TITLES = { dashboard:'Dashboard', historico:'Histórico', alertas:'Alertas', entrada:'Volcado Diario', deuda:'Pool de Deuda', pagares:'Pagarés & Confirming', proveedores:'Pagos a Proveedores' };
 function showView(id) {
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -784,6 +848,7 @@ function showView(id) {
   if(id==='historico') renderHistorico();
   if(id==='alertas') renderAlertas();
   if(id==='pagares') renderPagares();
+  if(id==='proveedores') renderProveedores();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1440,6 +1505,145 @@ function exportCSV(){
   a.download=`ofipapel_saldos_${new Date().toISOString().split('T')[0]}.csv`; a.click();
 }
 
+
+// ═══════════════════════════════════════════════════════
+// PAGOS A PROVEEDORES
+// ═══════════════════════════════════════════════════════
+function saveProveedores(){
+  try{ localStorage.setItem('op_proveedores', JSON.stringify(proveedores)); }catch(e){}
+}
+
+function renderProveedores(){
+  const texto = (document.getElementById('provFiltroTexto')?.value||'').toLowerCase().trim();
+  const desde = document.getElementById('provFiltroDesde')?.value||'';
+  const hasta = document.getElementById('provFiltroHasta')?.value||'';
+  const tipo  = document.getElementById('provFiltroTipo')?.value||'todos';
+
+  let f = proveedores.filter(p => {
+    if(texto && !p.nombre.toLowerCase().includes(texto) && !(p.receptor||'').toLowerCase().includes(texto)) return false;
+    if(desde && p.fecha < desde) return false;
+    if(hasta && p.fecha > hasta) return false;
+    if(tipo !== 'todos' && p.tipomov !== tipo) return false;
+    return true;
+  }).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+
+  const sumPos = f.filter(p=>p.importe>0).reduce((s,p)=>s+p.importe,0);
+  const sumNeg = Math.abs(f.filter(p=>p.importe<0).reduce((s,p)=>s+p.importe,0));
+  const neto   = f.reduce((s,p)=>s+p.importe,0);
+
+  document.getElementById('provKpis').innerHTML = `
+    <div class="kpi"><div class="kpi-ico">💳</div><div class="kpi-lbl">Total Pagado</div><div class="kpi-val">${fmt(sumPos)}</div><div class="kpi-sub">${f.filter(p=>p.importe>0).length} registros</div></div>
+    <div class="kpi"><div class="kpi-ico">↩️</div><div class="kpi-lbl">Abonos / Dev.</div><div class="kpi-val neg">${fmt(sumNeg)}</div><div class="kpi-sub">${f.filter(p=>p.importe<0).length} registros</div></div>
+    <div class="kpi"><div class="kpi-ico">🧾</div><div class="kpi-lbl">Neto</div><div class="kpi-val ${neto<0?'neg':''}">${fmt(neto)}</div><div class="kpi-sub">${f.length} en total</div></div>
+  `;
+
+  if(!f.length){
+    document.getElementById('provTabla').innerHTML='<div class="empty-state"><div class="e-ico">💸</div><h3>Sin registros</h3><p>Añade pagos manualmente o importa desde Excel.</p></div>';
+    return;
+  }
+
+  document.getElementById('provTabla').innerHTML = `
+    <div style="overflow-x:auto;">
+    <table class="tabla">
+      <thead><tr>
+        <th>Fe. Pago</th><th>Código</th><th>Proveedor</th><th>Nº Fra.</th><th>Doc. Pago</th>
+        <th style="text-align:right;">Importe</th><th>Fe. Doc.</th><th>Fe. Vto.</th><th>Tipo</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${f.map(p=>`<tr>
+          <td style="white-space:nowrap;">${p.fecha}</td>
+          <td style="color:var(--texto2);font-size:12px;">${p.receptor||'—'}</td>
+          <td style="font-weight:500;">${p.nombre}</td>
+          <td style="font-size:12px;">${p.nfra||'—'}</td>
+          <td style="font-size:12px;">${p.ndocpago||'—'}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:${p.importe<0?'var(--rojo)':'var(--texto)'};">${fmt(p.importe)}</td>
+          <td style="font-size:12px;white-space:nowrap;">${p.fedoc||'—'}</td>
+          <td style="font-size:12px;white-space:nowrap;">${p.fevto||'—'}</td>
+          <td><span style="font-size:11px;padding:2px 7px;border-radius:4px;background:${p.tipomov==='Pago Gastos'?'#FFF3CD':'#E8F5E9'};color:${p.tipomov==='Pago Gastos'?'#7B5800':'#1B5E20'};font-weight:600;">${p.tipomov}</span></td>
+          <td><button onclick="deleteProveedor('${p.id}')" style="background:none;border:none;color:var(--rojo);cursor:pointer;font-size:15px;padding:2px 6px;" title="Eliminar">🗑</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
+    <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
+      ${f.length} registros · Neto: <strong style="color:${neto<0?'var(--rojo)':'var(--azul)'};">${fmt(neto)}</strong>
+    </div>`;
+}
+
+function deleteProveedor(id){
+  if(!confirm('¿Eliminar este registro?')) return;
+  proveedores = proveedores.filter(p=>String(p.id)!==String(id));
+  saveProveedores(); renderProveedores();
+}
+
+function limpiarFiltrosProv(){
+  document.getElementById('provFiltroTexto').value='';
+  document.getElementById('provFiltroDesde').value='';
+  document.getElementById('provFiltroHasta').value='';
+  document.getElementById('provFiltroTipo').value='todos';
+  renderProveedores();
+}
+
+function showProvModal(){
+  document.getElementById('pfFecha').value=new Date().toISOString().split('T')[0];
+  ['pfReceptor','pfNombre','pfNfra','pfNdocpago','pfImporte','pfFedoc','pfFevto'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pfTipo').value='Pago';
+  document.getElementById('provModal').style.display='flex';
+}
+function closeProvModal(){ document.getElementById('provModal').style.display='none'; }
+function saveProvModal(){
+  const nombre=document.getElementById('pfNombre').value.trim();
+  const fecha=document.getElementById('pfFecha').value;
+  const importe=parseFloat(document.getElementById('pfImporte').value);
+  if(!nombre||!fecha||isNaN(importe)){alert('Completa: Fecha, Nombre e Importe.'); return;}
+  proveedores.push({
+    id:Date.now(), fecha,
+    receptor:document.getElementById('pfReceptor').value.trim(),
+    nombre,
+    nfra:document.getElementById('pfNfra').value.trim(),
+    ndocpago:document.getElementById('pfNdocpago').value.trim(),
+    importe,
+    fedoc:document.getElementById('pfFedoc').value,
+    fevto:document.getElementById('pfFevto').value,
+    tipomov:document.getElementById('pfTipo').value
+  });
+  saveProveedores(); closeProvModal(); renderProveedores();
+}
+
+function importProveedoresExcel(input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+      let n=0;
+      data.forEach(row=>{
+        const g=(...keys)=>{ for(const k of keys){ for(const rk of Object.keys(row)){ if(rk.toLowerCase().replace(/[^a-z]/g,'').includes(k.toLowerCase().replace(/[^a-z]/g,''))) return String(row[rk]||'').trim(); } } return ''; };
+        const impStr=g('importe','amount').replace(/[€\s.]/g,'').replace(',','.');
+        const imp=parseFloat(impStr);
+        proveedores.push({
+          id:Date.now()+n,
+          fecha:g('fepago','fechapago','fecha')||new Date().toISOString().split('T')[0],
+          receptor:g('receptor','codigo','cod'),
+          nombre:g('nombrereceptor','nombre','proveedor'),
+          nfra:g('nfra','fra','factura'),
+          ndocpago:g('ndocpago','docpago','documento'),
+          importe:isNaN(imp)?0:imp,
+          fedoc:g('fedoc','fechadoc'),
+          fevto:g('fevto','vencimiento','vto'),
+          tipomov:g('tipomov','tipo')||'Pago'
+        });
+        n++;
+      });
+      saveProveedores(); renderProveedores();
+      alert(n+' registros importados.');
+    }catch(err){ alert('Error: '+err.message); }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 // Service Worker (PWA installable)
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('/sw.js').catch(()=>{});
@@ -1521,62 +1725,26 @@ function saveNewPass(){
 </script>
 
 <script>
-// ── PWA ICONS + INSTALL (deferred so it never blocks page load) ──
-function cloverIcon(size){
-  try{
-    const c=document.createElement('canvas');
-    c.width=c.height=size;
-    const ctx=c.getContext('2d');
-    ctx.fillStyle='#1A5C1A';
-    ctx.beginPath();
-    ctx.arc(size/2,size/2,size/2,0,Math.PI*2);
-    ctx.fill();
-    ctx.font=Math.round(size*.65)+'px serif';
-    ctx.textAlign='center';
-    ctx.textBaseline='middle';
-    ctx.fillText('🍀',size/2,size/2+size*.04);
-    return c.toDataURL('image/png');
-  }catch(e){ return ''; }
-}
+// ── PWA MANIFEST ──────────────────────────────────────
 window.addEventListener('load',function(){
-  setTimeout(function(){
-    try{
-      // Favicon (browser tab + bookmarks)
-      const fav=document.createElement('link');
-      fav.rel='icon'; fav.type='image/png';
-      fav.href=cloverIcon(64);
-      document.head.appendChild(fav);
-      // Apple touch icon (iOS home screen)
-      const apl=document.createElement('link');
-      apl.rel='apple-touch-icon';
-      apl.href=cloverIcon(180);
-      document.head.appendChild(apl);
-      // PWA manifest
-      const manifest={
-        name:"Ofipapel Control Financiero",short_name:"Ofipapel",
-        description:"Control de saldos bancarios y cajas",
-        start_url:".",display:"standalone",
-        background_color:"#1A5C1A",theme_color:"#1A5C1A",
-        orientation:"portrait-primary",
-        icons:[
-          {src:cloverIcon(192),sizes:"192x192",type:"image/png"},
-          {src:cloverIcon(512),sizes:"512x512",type:"image/png"}
-        ]
-      };
-      const blob=new Blob([JSON.stringify(manifest)],{type:'application/json'});
-      document.getElementById('pwaManifest').href=URL.createObjectURL(blob);
-    }catch(e){}
-  },200);
+  try{
+    const manifest={name:"Ofipapel Control Financiero",short_name:"Ofipapel",
+      description:"Control de saldos bancarios y cajas",start_url:".",display:"standalone",
+      background_color:"#1A5C1A",theme_color:"#1A5C1A",orientation:"portrait-primary",icons:[]};
+    const blob=new Blob([JSON.stringify(manifest)],{type:'application/json'});
+    document.getElementById('pwaManifest').href=URL.createObjectURL(blob);
+  }catch(e){}
 });
 
 // Install prompt
 let deferredPrompt;
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault(); deferredPrompt = e;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault(); deferredPrompt=e;
   document.getElementById('installBtn').style.display='flex';
 });
 function installApp(){
   if(deferredPrompt){ deferredPrompt.prompt(); deferredPrompt.choice?.then(()=>{ document.getElementById('installBtn').style.display='none'; }); }
+}
 }
 
 // ═══════════════════════════════════════════════════════
