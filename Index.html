@@ -362,7 +362,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.2</div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.3</div>
   </div>
 </div>
 
@@ -1646,7 +1646,13 @@ function importProveedoresExcel(input){
 
 // Service Worker (PWA installable)
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  // When new SW takes control, reload to get fresh content
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    window.location.reload(true);
+  });
+  navigator.serviceWorker.register('/sw.js')
+    .then(reg=>{ reg.update(); }) // force update check on every load
+    .catch(()=>{});
 }
 
 // Init
