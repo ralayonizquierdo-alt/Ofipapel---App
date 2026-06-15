@@ -362,7 +362,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.3 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.4 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -560,6 +560,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               <button onclick="limpiarFiltrosProv()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
               <button onclick="showProvModal()" style="padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">+ Añadir</button>
               <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="provExcelInput" style="display:none" onchange="importProveedoresExcel(this)"></label>
+              <label style="padding:7px 14px;background:#e8f0fe;color:#1a3c8f;border:1px solid #1a3c8f;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📄 PDF<input type="file" accept=".pdf" id="provPdfInput" style="display:none" onchange="importProveedoresPDF(this)"></label>
             </div>
           </div>
           <div class="card" id="provTabla" style="padding:0;overflow:hidden;"></div>
@@ -1642,6 +1643,88 @@ function importProveedoresExcel(input){
     input.value='';
   };
   reader.readAsArrayBuffer(file);
+}
+
+function importProveedoresPDF(input){
+  const file=input.files[0]; if(!file) return;
+  function run(){
+    pdfjsLib.GlobalWorkerOptions.workerSrc=
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    (async()=>{
+      try{
+        const buf=await file.arrayBuffer();
+        const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+        const allLines=[];
+        for(let p=1;p<=pdf.numPages;p++){
+          const page=await pdf.getPage(p);
+          const content=await page.getTextContent();
+          const rowMap={};
+          content.items.forEach(item=>{
+            const y=Math.round(item.transform[5]/2)*2;
+            if(!rowMap[y]) rowMap[y]=[];
+            rowMap[y].push({x:item.transform[4],str:item.str});
+          });
+          Object.keys(rowMap).sort((a,b)=>b-a).forEach(y=>{
+            const line=rowMap[y].sort((a,b)=>a.x-b.x).map(i=>i.str).join(' ').replace(/\s+/g,' ').trim();
+            if(line) allLines.push(line);
+          });
+        }
+        // Reconstruct records (multi-line company names stay before the amount)
+        const endSig=/-?\d{1,3}(?:\.\d{3})*,\d{2}\s*€/;
+        const startSig=/^\d{5}\s/;
+        let cur=null;
+        const records=[];
+        allLines.forEach(line=>{
+          if(startSig.test(line)){
+            if(cur!==null) records.push(cur);
+            cur=line;
+          } else if(cur!==null && !endSig.test(cur)){
+            cur+=' '+line;
+          }
+        });
+        if(cur!==null) records.push(cur);
+        const parseDMY=s=>{
+          const[d,m,y]=s.split('/'); const yr=parseInt(y);
+          return`${yr<50?2000+yr:1900+yr}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+        };
+        const docTypePat=/\b(Domiciliaci[oó]n|Transferencia|Cheque|Pagar[eé]|Remesa|Efectivo|D[eé]bito|Giro)\s+(\d+)/i;
+        let n=0;
+        records.forEach(rec=>{
+          const m=rec.match(/^(\d{5})\s+(.*?)\s+(-?\d{1,3}(?:\.\d{3})*,\d{2})\s*€\s+(\d{2}\/\d{2}\/\d{2})\s+(\d{2}\/\d{2}\/\d{2})\s+(\d{2}\/\d{2}\/\d{2})\s+(Si|No)\s+(\S.*)$/);
+          if(!m) return;
+          const[,receptor,mid,importeStr,fedocS,fechaS,fevtoS,,tipomov]=m;
+          const importe=parseFloat(importeStr.replace(/\./g,'').replace(',','.'));
+          let nombre=mid,nfra='',ndocpago='';
+          const dp=mid.match(docTypePat);
+          if(dp){
+            ndocpago=dp[0];
+            const before=mid.substring(0,mid.indexOf(dp[0])).trim();
+            const ln=before.match(/^(.*?)\s+(\d+)\s*$/);
+            if(ln){nombre=ln[1].trim();nfra=ln[2];}else nombre=before;
+          } else {
+            const fb=mid.match(/^(.*?)\s+(\d+)\s+(\S+\s+\d+)\s*$/);
+            if(fb){nombre=fb[1].trim();nfra=fb[2];ndocpago=fb[3];}
+          }
+          const fecha=parseDMY(fechaS),fedoc=parseDMY(fedocS),fevto=parseDMY(fevtoS);
+          if(!proveedores.some(p=>p.receptor===receptor&&p.nfra===nfra&&p.fecha===fecha)){
+            proveedores.push({id:Date.now()+n,fecha,receptor,nombre,nfra,ndocpago,
+              importe:isNaN(importe)?0:importe,fedoc,fevto,tipomov:tipomov.trim()});
+            n++;
+          }
+        });
+        saveProveedores(); renderProveedores();
+        alert(n+' registros importados desde PDF.');
+      }catch(err){alert('Error al procesar el PDF: '+err.message);}
+      input.value='';
+    })();
+  }
+  if(!window.pdfjsLib){
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=run;
+    s.onerror=()=>{alert('Error al cargar la librería PDF.');input.value='';};
+    document.head.appendChild(s);
+  } else { run(); }
 }
 
 // Service Worker (PWA installable)
