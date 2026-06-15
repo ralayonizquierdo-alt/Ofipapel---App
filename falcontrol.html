@@ -374,7 +374,7 @@ audio#radioPlayer{display:none;}
     <h1>FalControl Fauna</h1>
     <p>Sistema de Alerta Radio</p>
   </div>
-  <div class="header-badge">v1.9</div>
+  <div class="header-badge">v1.10</div>
 </header>
 
 <!-- STATUS BAR -->
@@ -480,7 +480,7 @@ audio#radioPlayer{display:none;}
 
 <!-- FOOTER -->
 <footer class="footer">
-  FalControl de Fauna en Canarias · <strong style="color:var(--green)">v1.9</strong>
+  FalControl de Fauna en Canarias · <strong style="color:var(--green)">v1.10</strong>
 </footer>
 
 <!-- DEBUG LOG (ayuda a diagnosticar problemas en iPhone) -->
@@ -606,7 +606,7 @@ function buildRecognition() {
   // luego onend reinicia automáticamente
   recognition.continuous      = false;
   recognition.interimResults  = true;
-  recognition.maxAlternatives = 3;
+  recognition.maxAlternatives = 6;
   recognition.lang            = document.getElementById('langSelect').value || 'es-ES';
 
   recognition.onstart = () => {
@@ -730,21 +730,41 @@ function stopAudioMeter() {
 function scanForKeywords(text) {
   if (alarmActive || !text || !text.trim()) return;
   const norm = normalize(text);
+  const txWords = norm.split(/\s+/).filter(w => w.length > 1);
+
   for (const kw of keywords) {
     const normKw = normalize(kw);
-    // Coincidencia exacta de frase
-    if (norm.includes(normKw)) {
-      triggerAlarm(kw, text);
-      return;
-    }
-    // Para palabras clave de varias palabras: comprobar si todas las palabras
-    // aparecen en el texto aunque no sean consecutivas (mayor tolerancia)
-    const kwWords = normKw.split(' ').filter(w => w.length > 2);
+
+    // 1. Coincidencia exacta de frase
+    if (norm.includes(normKw)) { triggerAlarm(kw, text); return; }
+
+    const kwWords = normKw.split(/\s+/).filter(w => w.length > 2);
+
+    // 2. Todas las palabras presentes en el texto aunque no consecutivas
     if (kwWords.length > 1 && kwWords.every(w => norm.includes(w))) {
-      triggerAlarm(kw, text);
-      return;
+      triggerAlarm(kw, text); return;
+    }
+
+    // 3. Fuzzy: tolera 1 error en palabras ≤5 letras, 2 en las demás
+    //    (captura errores de transcripción por ruido de radio)
+    if (kwWords.length > 0 && kwWords.every(kw => {
+      const maxD = kw.length <= 5 ? 1 : 2;
+      return txWords.some(tw => levenshtein(kw, tw) <= maxD);
+    })) {
+      triggerAlarm(kw, text); return;
     }
   }
+}
+
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m+1}, (_, i) =>
+    Array.from({length: n+1}, (_, j) => i === 0 ? j : j === 0 ? i : 0));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1]
+               : 1 + Math.min(dp[i-1][j-1], dp[i-1][j], dp[i][j-1]);
+  return dp[m][n];
 }
 
 function normalize(s) {
