@@ -1253,7 +1253,120 @@ textarea.form-control { min-height: 110px; resize: vertical; }
 }
 .btn-checkout:hover { background: var(--ink-med); }
 
-/* ===== INK DROPS DECORATION ===== */
+/* ===== PRODUCT SVG illustrations ===== */
+.product-img {
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.product-img svg.prod-svg {
+  width: 90px;
+  height: 90px;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.12));
+}
+.prod-img-bg-glow {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  opacity: 0.18;
+  background: var(--prod-color, var(--acento));
+  filter: blur(24px);
+  pointer-events: none;
+}
+/* ===== BRAND LOGO BADGES ===== */
+.brand-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 14px 16px;
+  border-right: 1px solid var(--borde);
+  cursor: pointer;
+  transition: background 0.18s;
+  min-width: 90px;
+}
+.brand-badge:last-child { border-right: none; }
+.brand-badge:hover { background: var(--bg); }
+.brand-badge img.brand-logo-img {
+  height: 32px;
+  max-width: 80px;
+  object-fit: contain;
+  display: block;
+}
+.brand-badge .brand-name-pill {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  color: #fff;
+  white-space: nowrap;
+}
+/* ===== MID-PAGE BANNERS ===== */
+.promo-banner {
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 32px;
+  position: relative;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+}
+.promo-banner-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-image: url('hero-productos.jpg');
+}
+.promo-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(26,29,46,0.92) 45%, rgba(26,29,46,0.3) 100%);
+}
+.promo-banner-content {
+  position: relative;
+  z-index: 1;
+  padding: 36px 40px;
+  color: white;
+  max-width: 520px;
+}
+.promo-banner-content .pb-tag {
+  display: inline-block;
+  background: var(--acento);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-bottom: 12px;
+}
+.promo-banner-content h2 { font-size: 1.4rem; font-weight: 800; line-height: 1.25; margin-bottom: 10px; }
+.promo-banner-content p { font-size: 0.88rem; opacity: 0.8; margin-bottom: 18px; line-height: 1.5; }
+.eco-banner {
+  background: linear-gradient(135deg, #00695C 0%, #00897B 50%, #26A69A 100%);
+  border-radius: 16px;
+  padding: 28px 36px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  color: white;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+.eco-banner .eco-icon { font-size: 3rem; flex-shrink: 0; }
+.eco-banner h3 { font-size: 1.05rem; font-weight: 800; margin-bottom: 5px; }
+.eco-banner p { font-size: 0.82rem; opacity: 0.85; line-height: 1.5; }
+.eco-banner .btn-secondary { margin-left: auto; flex-shrink: 0; }
 .ink-drops-bg {
   position: absolute;
   inset: 0;
@@ -1943,6 +2056,18 @@ textarea.form-control { min-height: 110px; resize: vertical; }
           </div>
         </div>
 
+        <!-- Banner foto productos -->
+        <div class="promo-banner">
+          <div class="promo-banner-bg"></div>
+          <div class="promo-banner-overlay"></div>
+          <div class="promo-banner-content">
+            <div class="pb-tag">📦 Todas las marcas</div>
+            <h2>Originales y genéricos<br>para cualquier impresora</h2>
+            <p>Más de 2.000 referencias de HP, Canon, Epson, Brother, Kyocera y muchas más. Si no lo encuentras, lo buscamos por ti.</p>
+            <button class="btn-primary" onclick="showView('catalogo', document.querySelector('[onclick*=catalogo]'))">Explorar catálogo →</button>
+          </div>
+        </div>
+
         <!-- Más vendidos -->
         <div class="section-header">
           <div class="section-title">Más <span>Vendidos</span></div>
@@ -1983,6 +2108,16 @@ textarea.form-control { min-height: 110px; resize: vertical; }
               <p>¿No encuentras tu referencia? Llámanos y te ayudamos a localizar el consumible que necesitas.</p>
             </div>
           </div>
+        </div>
+
+        <!-- Banner eco reciclaje -->
+        <div class="eco-banner">
+          <div class="eco-icon">♻️</div>
+          <div>
+            <h3>Recicla tus cartuchos con cada pedido</h3>
+            <p>Recogemos tus cartuchos vacíos sin coste adicional. Menos residuos en Canarias, más vida a los materiales.</p>
+          </div>
+          <button class="btn-secondary" onclick="showView('articulo-reciclaje', null)">Saber más →</button>
         </div>
 
         <!-- Opiniones -->
@@ -2669,23 +2804,27 @@ function closeSidebarMobile() {
 
 /* ===== PRODUCT CARD ===== */
 function buildCard(p, showOfertaBadge=false) {
-  const catColors = { toner:['#E63946','rgba(230,57,70,0.08)'], inkjet:['#2196F3','rgba(33,150,243,0.08)'], botella:['#00BFA5','rgba(0,191,165,0.08)'], cinta:['#FF9800','rgba(255,152,0,0.08)'], etiqueta:['#9C27B0','rgba(156,39,176,0.08)'] };
-  const [color, bg] = catColors[p.cat] || ['#00B4D8','rgba(0,180,216,0.08)'];
+  const catColors = { toner:'#E63946', inkjet:'#2196F3', botella:'#00BFA5', cinta:'#FF9800', etiqueta:'#9C27B0' };
+  const catBg = { toner:'rgba(230,57,70,0.07)', inkjet:'rgba(33,150,243,0.07)', botella:'rgba(0,191,165,0.07)', cinta:'rgba(255,152,0,0.07)', etiqueta:'rgba(156,39,176,0.07)' };
+  const color = catColors[p.cat] || '#00B4D8';
+  const bg = catBg[p.cat] || 'rgba(0,180,216,0.07)';
+  const svg = PRODUCT_SVGS[p.cat] || `<span style="font-size:2.5rem">${p.emoji}</span>`;
+  const bColor = BRAND_COLORS[p.marca] || '#888';
   return `
   <div class="product-card" onclick="openProductDetail(${p.id})">
-    <div class="product-img" style="background:${bg}">
-      <div class="product-img-bg">${p.emoji}</div>
-      ${p.emoji}
+    <div class="product-img" style="background:${bg};--prod-color:${color};color:${color}">
+      <div class="prod-img-bg-glow"></div>
+      ${svg}
       <div class="product-badges">
         <span class="badge badge-${p.tipo}">${p.tipo === 'original' ? 'Original' : 'Genérico'}</span>
         ${p.oferta || showOfertaBadge ? '<span class="badge badge-oferta">Oferta</span>' : ''}
       </div>
+      <div style="position:absolute;bottom:8px;right:8px;background:${bColor};color:#fff;font-size:0.6rem;font-weight:800;padding:2px 7px;border-radius:5px;letter-spacing:0.3px">${p.marca}</div>
     </div>
     <div class="product-body">
-      <div class="product-marca">${p.marca}</div>
       <div class="product-nombre">${p.nombre}</div>
       <div class="product-ref">${p.ref}</div>
-      ${p.paginas ? `<div class="product-pages">~${p.paginas.toLocaleString('es')} páginas</div>` : ''}
+      ${p.paginas ? `<div class="product-pages">~${p.paginas.toLocaleString('es')} pág.</div>` : ''}
       <div class="product-footer">
         <div>
           ${p.precio_ant ? `<span class="product-price-old">${fmt(p.precio_ant)}</span>` : ''}
@@ -2865,20 +3004,93 @@ function renderMarcas() {
   const catColors = { toner:'var(--c-toner)', inkjet:'var(--c-inkjet)', botella:'var(--c-botella)', cinta:'var(--c-cinta)', etiqueta:'var(--c-etiqueta)' };
   const catNames = { toner:'Tóner', inkjet:'Inkjet', botella:'Botellas', cinta:'Cintas', etiqueta:'Etiquetas' };
   const logoBase = 'https://logo.clearbit.com/';
-  document.getElementById('marcas-grid').innerHTML = BRANDS.map(b => `
+  document.getElementById('marcas-grid').innerHTML = BRANDS.map(b => {
+    const bc = BRAND_COLORS[b.name] || '#555';
+    return `
     <div class="marca-card" onclick="filterCat('${b.cats[0]}')">
       <div class="marca-card-img">
         <img src="${logoBase}${b.domain}" alt="${b.name}"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-        <div class="marca-logo-text" style="display:none">${b.name}</div>
+             style="height:40px;max-width:110px;object-fit:contain;filter:grayscale(20%)"
+             onerror="this.style.display='none'">
       </div>
-      <div class="marca-logo-text">${b.name}</div>
-      <div style="font-size:0.72rem;color:var(--texto3);margin-bottom:6px">${PRODUCTS.filter(p=>p.marca===b.name).length} referencias</div>
+      <div class="brand-name-pill" style="background:${bc};display:inline-block;font-size:0.75rem;font-weight:800;padding:4px 12px;border-radius:6px;color:#fff;margin-bottom:6px">${b.name}</div>
+      <div style="font-size:0.72rem;color:var(--texto3);margin-bottom:8px">${PRODUCTS.filter(p=>p.marca===b.name).length} referencias</div>
       <div class="marca-cat-tags">
         ${b.cats.map(c => `<span class="marca-tag" style="background:${catColors[c]}22;color:${catColors[c]}">${catNames[c]}</span>`).join('')}
       </div>
-    </div>`).join('');
+    </div>`}).join('');
 }
+
+/* ===== PRODUCT SVG ILLUSTRATIONS ===== */
+const PRODUCT_SVGS = {
+  toner: `<svg class="prod-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="12" y="28" width="76" height="42" rx="7" fill="currentColor" opacity="0.15"/>
+    <rect x="12" y="28" width="76" height="42" rx="7" stroke="currentColor" stroke-width="2.5"/>
+    <rect x="18" y="36" width="34" height="16" rx="3" fill="currentColor" opacity="0.22"/>
+    <line x1="20" y1="42" x2="48" y2="42" stroke="currentColor" stroke-width="2" opacity="0.5"/>
+    <line x1="20" y1="47" x2="44" y2="47" stroke="currentColor" stroke-width="2" opacity="0.5"/>
+    <ellipse cx="50" cy="70" rx="22" ry="7" fill="currentColor" opacity="0.18"/>
+    <rect x="28" y="63" width="44" height="14" rx="2" fill="currentColor" opacity="0.12"/>
+    <circle cx="74" cy="44" r="6" fill="currentColor" opacity="0.25"/>
+    <circle cx="74" cy="44" r="3" fill="currentColor" opacity="0.5"/>
+  </svg>`,
+  inkjet: `<svg class="prod-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="28" y="12" width="44" height="56" rx="5" fill="currentColor" opacity="0.13"/>
+    <rect x="28" y="12" width="44" height="56" rx="5" stroke="currentColor" stroke-width="2.5"/>
+    <rect x="32" y="58" width="36" height="10" rx="3" fill="currentColor" opacity="0.3"/>
+    <line x1="37" y1="68" x2="37" y2="75" stroke="currentColor" stroke-width="2" opacity="0.55"/>
+    <line x1="44" y1="68" x2="44" y2="75" stroke="currentColor" stroke-width="2" opacity="0.55"/>
+    <line x1="51" y1="68" x2="51" y2="75" stroke="currentColor" stroke-width="2" opacity="0.55"/>
+    <line x1="58" y1="68" x2="58" y2="75" stroke="currentColor" stroke-width="2" opacity="0.55"/>
+    <rect x="32" y="20" width="36" height="22" rx="3" fill="currentColor" opacity="0.2"/>
+    <line x1="35" y1="28" x2="64" y2="28" stroke="currentColor" stroke-width="2" opacity="0.45"/>
+    <line x1="35" y1="34" x2="58" y2="34" stroke="currentColor" stroke-width="2" opacity="0.45"/>
+  </svg>`,
+  botella: `<svg class="prod-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="40" y="8" width="20" height="13" rx="4" fill="currentColor" opacity="0.5"/>
+    <rect x="43" y="19" width="14" height="10" fill="currentColor" opacity="0.2"/>
+    <rect x="43" y="19" width="14" height="10" stroke="currentColor" stroke-width="2"/>
+    <path d="M32 29 Q28 34 26 42 L26 78 Q26 84 32 84 L68 84 Q74 84 74 78 L74 42 Q72 34 68 29 Z" fill="currentColor" opacity="0.1"/>
+    <path d="M32 29 Q28 34 26 42 L26 78 Q26 84 32 84 L68 84 Q74 84 74 78 L74 42 Q72 34 68 29 Z" stroke="currentColor" stroke-width="2.5"/>
+    <path d="M27 60 L73 60 L73 78 Q73 83 68 83 L32 83 Q27 83 27 78 Z" fill="currentColor" opacity="0.28"/>
+    <rect x="31" y="38" width="38" height="18" rx="3" fill="currentColor" opacity="0.18"/>
+    <line x1="34" y1="44" x2="65" y2="44" stroke="currentColor" stroke-width="1.5" opacity="0.45"/>
+    <line x1="34" y1="49" x2="60" y2="49" stroke="currentColor" stroke-width="1.5" opacity="0.45"/>
+  </svg>`,
+  cinta: `<svg class="prod-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="8" y="24" width="84" height="50" rx="8" fill="currentColor" opacity="0.1"/>
+    <rect x="8" y="24" width="84" height="50" rx="8" stroke="currentColor" stroke-width="2.5"/>
+    <circle cx="32" cy="49" r="13" fill="currentColor" opacity="0.08"/>
+    <circle cx="32" cy="49" r="13" stroke="currentColor" stroke-width="2"/>
+    <circle cx="32" cy="49" r="5" fill="currentColor" opacity="0.35"/>
+    <circle cx="68" cy="49" r="13" fill="currentColor" opacity="0.08"/>
+    <circle cx="68" cy="49" r="13" stroke="currentColor" stroke-width="2"/>
+    <circle cx="68" cy="49" r="5" fill="currentColor" opacity="0.35"/>
+    <path d="M32 36 Q50 30 68 36" stroke="currentColor" stroke-width="2.5" fill="none"/>
+    <path d="M32 62 Q50 68 68 62" stroke="currentColor" stroke-width="2.5" fill="none"/>
+  </svg>`,
+  etiqueta: `<svg class="prod-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="46" cy="50" rx="32" ry="32" fill="currentColor" opacity="0.07"/>
+    <ellipse cx="46" cy="50" rx="32" ry="32" stroke="currentColor" stroke-width="2.5"/>
+    <ellipse cx="46" cy="50" rx="22" ry="22" stroke="currentColor" stroke-width="1.5" opacity="0.35" stroke-dasharray="4 3"/>
+    <ellipse cx="46" cy="50" rx="10" ry="10" fill="currentColor" opacity="0.2"/>
+    <ellipse cx="46" cy="50" rx="10" ry="10" stroke="currentColor" stroke-width="2"/>
+    <rect x="78" y="42" width="14" height="16" rx="2" fill="currentColor" opacity="0.2"/>
+    <rect x="78" y="42" width="14" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
+    <line x1="78" y1="46" x2="78" y2="54" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+    <line x1="46" y1="50" x2="78" y2="44" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
+    <line x1="46" y1="50" x2="78" y2="56" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
+  </svg>`
+};
+
+/* ===== BRAND COLORS ===== */
+const BRAND_COLORS = {
+  'HP':      '#0096D6', 'Canon':   '#CC0000', 'Epson':   '#003087',
+  'Brother': '#006AB4', 'Samsung': '#1428A0', 'Xerox':   '#E5202B',
+  'Kyocera': '#E6002D', 'OKI':     '#005BAC', 'Ricoh':   '#0079C2',
+  'Konica':  '#EE1C25', 'Lexmark': '#0090D4', 'Pantum':  '#00AEEF',
+  'Dymo':    '#E42020', 'Zebra':   '#333333', 'Citizen': '#0054A6',
+};
 
 /* ===== REVIEWS DATA ===== */
 const REVIEWS = [
@@ -2895,11 +3107,14 @@ function renderHome() {
   document.getElementById('featured-products').innerHTML = PRODUCTS.filter(p => p.destacado).slice(0,8).map(p => buildCard(p)).join('');
 
   const logoBase = 'https://logo.clearbit.com/';
-  document.getElementById('brands-home').innerHTML = BRANDS.slice(0,12).map(b =>
-    `<div class="brand-pill-logo" onclick="filterCat('${b.cats[0]}')">
-      <img src="${logoBase}${b.domain}" alt="${b.name}" onerror="this.style.display='none'">
-      <span>${b.name}</span>
-    </div>`).join('');
+  document.getElementById('brands-home').innerHTML = BRANDS.map(b => {
+    const bc = BRAND_COLORS[b.name] || '#555';
+    return `<div class="brand-badge" onclick="filterCat('${b.cats[0]}')">
+      <img class="brand-logo-img" src="${logoBase}${b.domain}" alt="${b.name}"
+           onerror="this.style.display='none'">
+      <span class="brand-name-pill" style="background:${bc}">${b.name}</span>
+    </div>`;
+  }).join('');
 
   document.getElementById('reviews-grid').innerHTML = REVIEWS.map(r => {
     const stars = Array.from({length:5}, (_,i) => `<span class="star${i < r.stars ? '' : ' empty'}">★</span>`).join('');
