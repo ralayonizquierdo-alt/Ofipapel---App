@@ -1,7 +1,5 @@
-const CACHE = 'ofipapel-v9';
+const CACHE = 'ofipapel-v10';
 const ASSETS = [
-  '/',
-  '/Index.html',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
@@ -24,12 +22,19 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // falcontrol.html nunca se sirve desde caché — siempre red
-  if (e.request.url.includes('falcontrol')) {
-    e.respondWith(fetch(e.request));
+  const url = e.request.url;
+
+  // falcontrol.html y HTML principal: siempre red (network-first), nunca caché
+  if (url.includes('falcontrol') || e.request.destination === 'document' ||
+      url.endsWith('/') || url.endsWith('.html')) {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match('/Index.html'))
+    );
     return;
   }
+
+  // Resto de assets (CDN libs): caché primero
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => caches.match('/Index.html')))
+    caches.match(e.request).then(cached => cached || fetch(e.request))
   );
 });
