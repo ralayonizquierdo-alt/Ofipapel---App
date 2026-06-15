@@ -5371,7 +5371,7 @@ function buildCard(p, showOfertaBadge=false) {
   const svg = PRODUCT_SVGS[p.cat] || `<span style="font-size:2.5rem">${p.emoji}</span>`;
   const bColor = BRAND_COLORS[p.marca] || '#888';
   const stockBadge = p.stock <= 0
-    ? '<span style="position:absolute;bottom:6px;left:8px;background:rgba(0,0,0,0.75);color:#ff8a80;font-size:0.6rem;font-weight:600;padding:2px 7px;border-radius:4px">Bajo pedido</span>'
+    ? '<span style="position:absolute;bottom:6px;left:8px;background:rgba(0,0,0,0.75);color:#ff8a80;font-size:0.6rem;font-weight:600;padding:2px 7px;border-radius:4px">Actualmente sin stock</span>'
     : p.stock <= 3
     ? '<span style="position:absolute;bottom:6px;left:8px;background:rgba(0,0,0,0.75);color:#FFD54F;font-size:0.6rem;font-weight:600;padding:2px 7px;border-radius:4px">Últimas unidades</span>'
     : '';
