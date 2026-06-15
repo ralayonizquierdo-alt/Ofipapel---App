@@ -1854,7 +1854,110 @@ textarea.form-control { min-height: 110px; resize: vertical; }
   .cat-grid { grid-template-columns: repeat(2, 1fr); }
   #content { padding: 16px 16px 40px; }
   .topbar-phone { display: none; }
+  .footer-inner { grid-template-columns: 1fr; gap: 16px; }
+  #checkout-modal { border-radius: 0; max-height: 100vh; width: 100vw; }
+  #checkout-overlay.open { align-items: flex-end; }
 }
+
+/* ===== COOKIE BANNER ===== */
+#cookie-banner {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--card); border-top: 1px solid var(--borde2);
+  padding: 14px 24px; display: flex; align-items: center;
+  justify-content: space-between; gap: 14px; z-index: 9990;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.45); flex-wrap: wrap;
+}
+#cookie-banner p { font-size: 0.82rem; color: var(--texto2); flex: 1; min-width: 200px; margin: 0; }
+#cookie-banner p a { color: var(--acento); text-decoration: underline; cursor: pointer; }
+.cookie-btns { display: flex; gap: 8px; flex-shrink: 0; }
+.btn-cookie-accept { background: var(--acento); color: #fff; padding: 9px 20px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; }
+.btn-cookie-manage { background: var(--card2); color: var(--texto2); padding: 9px 14px; border-radius: 8px; font-size: 0.82rem; border: 1px solid var(--borde2); }
+
+/* ===== CHECKOUT MODAL ===== */
+#checkout-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+  z-index: 2000; display: none; align-items: center; justify-content: center;
+}
+#checkout-overlay.open { display: flex; }
+#checkout-modal {
+  background: var(--card); border-radius: 16px;
+  width: min(620px,96vw); max-height: 92vh;
+  overflow-y: auto; box-shadow: var(--sombra-h);
+  scrollbar-width: thin; scrollbar-color: var(--borde2) transparent;
+}
+.checkout-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 22px 14px; border-bottom: 1px solid var(--borde);
+  position: sticky; top: 0; background: var(--card); z-index: 2;
+}
+.checkout-header h3 { font-size: 1.05rem; font-weight: 700; }
+.checkout-body { padding: 22px; }
+.checkout-steps { display: flex; margin-bottom: 22px; }
+.checkout-step { flex: 1; text-align: center; font-size: 0.74rem; color: var(--texto3); padding-bottom: 8px; border-bottom: 2px solid var(--borde); font-weight: 500; }
+.checkout-step.active { color: var(--acento); border-bottom-color: var(--acento); }
+.checkout-step.done { color: var(--verde); border-bottom-color: var(--verde); }
+.cs-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--borde); font-size: 0.87rem; gap: 8px; }
+.cs-item-name { color: var(--texto2); flex: 1; }
+.cs-item-qty { color: var(--texto3); font-size: 0.76rem; white-space: nowrap; }
+.cs-item-price { font-weight: 600; white-space: nowrap; }
+.cs-shipping { display: flex; justify-content: space-between; padding: 10px 12px; background: var(--card2); border-radius: 8px; font-size: 0.85rem; margin-top: 10px; }
+.cs-shipping-free { color: var(--verde); font-weight: 700; }
+.cs-total-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0 0; border-top: 2px solid var(--borde); margin-top: 10px; }
+.cs-total-lbl { font-weight: 600; }
+.cs-total-val { font-size: 1.5rem; font-weight: 800; color: var(--acento); }
+.checkout-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media(max-width:500px){ .checkout-form-row { grid-template-columns: 1fr; } }
+.payment-methods { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.pm-btn {
+  display: flex; align-items: center; gap: 14px;
+  padding: 13px 16px; border: 2px solid var(--borde);
+  border-radius: 12px; cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: var(--card2); text-align: left;
+}
+.pm-btn:hover { border-color: var(--acento); }
+.pm-btn.selected { border-color: var(--acento); background: rgba(0,180,216,0.08); }
+.pm-logo { width: 44px; height: 28px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 800; flex-shrink: 0; }
+.pm-info { flex: 1; }
+.pm-name { font-weight: 600; font-size: 0.88rem; }
+.pm-desc { font-size: 0.74rem; color: var(--texto3); margin-top: 2px; }
+.pm-radio { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--borde2); display: flex; align-items: center; justify-content: center; }
+.pm-btn.selected .pm-radio::after { content: ''; width: 9px; height: 9px; background: var(--acento); border-radius: 50%; display: block; }
+.pm-detail-box { background: var(--card2); border: 1px solid var(--borde2); border-radius: 10px; padding: 16px 18px; margin-top: 14px; font-size: 0.85rem; color: var(--texto2); display: none; }
+.pm-detail-box.visible { display: block; }
+.pm-big-number { font-size: 1.35rem; font-weight: 800; color: var(--texto); letter-spacing: 2px; margin: 6px 0 3px; }
+.btn-pay-action { width: 100%; padding: 14px; font-weight: 700; font-size: 1rem; border-radius: 10px; margin-top: 8px; transition: opacity 0.15s; }
+.btn-pay-action:hover { opacity: 0.9; }
+.btn-checkout-nav { display: flex; gap: 10px; margin-top: 18px; }
+.btn-checkout-nav .btn-secondary { flex: 1; padding: 13px; text-align: center; }
+.btn-checkout-nav .btn-primary { flex: 2; padding: 13px; text-align: center; }
+
+/* ===== FOOTER ===== */
+.site-footer { background: var(--card); border-top: 1px solid var(--borde); padding: 32px 24px 20px; }
+.footer-inner { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px; max-width: 860px; margin: 0 auto 22px; }
+.footer-col h4 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.2px; color: var(--texto3); font-weight: 600; margin-bottom: 10px; }
+.footer-col a, .footer-col span { display: block; font-size: 0.82rem; color: var(--texto2); margin-bottom: 6px; cursor: pointer; transition: color 0.15s; }
+.footer-col a:hover { color: var(--acento); }
+.footer-bottom { border-top: 1px solid var(--borde); padding-top: 14px; text-align: center; font-size: 0.73rem; color: var(--texto3); line-height: 1.7; }
+.footer-bottom a { color: var(--texto3); cursor: pointer; text-decoration: underline; }
+.footer-bottom a:hover { color: var(--acento); }
+
+/* ===== LEGAL PAGES ===== */
+.legal-container { max-width: 720px; margin: 0 auto; padding-bottom: 20px; }
+.legal-container h1 { font-size: 1.7rem; font-weight: 800; margin-bottom: 4px; }
+.legal-updated { font-size: 0.77rem; color: var(--texto3); margin-bottom: 30px; }
+.legal-container h2 { font-size: 1.05rem; font-weight: 700; margin: 28px 0 10px; color: var(--texto); border-bottom: 1px solid var(--borde); padding-bottom: 6px; }
+.legal-container h3 { font-size: 0.92rem; font-weight: 600; margin: 16px 0 7px; color: var(--texto2); }
+.legal-container p { font-size: 0.88rem; color: var(--texto2); line-height: 1.75; margin-bottom: 12px; }
+.legal-container ul, .legal-container ol { padding-left: 20px; margin-bottom: 14px; }
+.legal-container li { font-size: 0.88rem; color: var(--texto2); line-height: 1.7; margin-bottom: 5px; }
+.legal-container table { width: 100%; border-collapse: collapse; margin: 14px 0 18px; font-size: 0.84rem; }
+.legal-container th { background: var(--card2); color: var(--texto); padding: 9px 12px; text-align: left; border: 1px solid var(--borde2); font-weight: 600; }
+.legal-container td { padding: 8px 12px; border: 1px solid var(--borde); color: var(--texto2); vertical-align: top; }
+.legal-highlight { background: rgba(0,180,216,0.07); border-left: 3px solid var(--acento); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+.legal-highlight p { margin: 0; font-size: 0.84rem; }
+.cookie-table th { font-size: 0.78rem; }
+.cookie-table td { font-size: 0.8rem; }
 </style>
 </head>
 <body>
@@ -1884,10 +1987,158 @@ textarea.form-control { min-height: 110px; resize: vertical; }
       ¡Añade <strong id="shipping-remaining">50,00 €</strong> más para <strong>envío gratis</strong> a Canarias! 🚀
     </div>
     <div class="cart-total-row">
-      <span class="cart-total-lbl">Total (IVA incl.)</span>
+      <span class="cart-total-lbl">Total (IGIC 7% incl.)</span>
       <span class="cart-total-val" id="cart-total">0,00 €</span>
     </div>
     <button class="btn-checkout" onclick="checkout()">Solicitar Pedido →</button>
+  </div>
+</div>
+
+<!-- ===== COOKIE BANNER ===== -->
+<div id="cookie-banner" style="display:none">
+  <p>Usamos <strong>cookies técnicas</strong> imprescindibles para el funcionamiento de la tienda y el carrito. No usamos cookies de publicidad ni rastreo de terceros. <a onclick="showView('cookies',null)">Política de cookies</a>.</p>
+  <div class="cookie-btns">
+    <button class="btn-cookie-manage" onclick="manageCookies()">Gestionar</button>
+    <button class="btn-cookie-accept" onclick="acceptCookies()">Aceptar y continuar</button>
+  </div>
+</div>
+
+<!-- ===== CHECKOUT MODAL ===== -->
+<div id="checkout-overlay" onclick="closeCheckout()">
+  <div id="checkout-modal" onclick="event.stopPropagation()">
+    <div class="checkout-header">
+      <h3>🛒 Finalizar Pedido</h3>
+      <button onclick="closeCheckout()" style="font-size:1.2rem;color:var(--texto2);padding:4px 8px">✕</button>
+    </div>
+    <div class="checkout-body">
+      <div class="checkout-steps">
+        <div class="checkout-step active" id="cstab-1">1. Resumen</div>
+        <div class="checkout-step" id="cstab-2">2. Tus datos</div>
+        <div class="checkout-step" id="cstab-3">3. Pago</div>
+      </div>
+
+      <!-- STEP 1 -->
+      <div id="cs-step-1">
+        <div id="co-items-list"></div>
+        <div class="cs-shipping" id="co-shipping-row">
+          <span>Envío a Canarias</span><span class="cs-shipping-free">GRATIS 🚀</span>
+        </div>
+        <div class="cs-total-row">
+          <div>
+            <div class="cs-total-lbl">Total pedido</div>
+            <div style="font-size:0.73rem;color:var(--texto3);margin-top:2px">IGIC 7% incluido</div>
+          </div>
+          <div class="cs-total-val" id="co-total-val">0,00 €</div>
+        </div>
+        <button class="btn-primary" style="width:100%;padding:14px;margin-top:18px;font-size:1rem" onclick="coNextStep(2)">Continuar con mis datos →</button>
+      </div>
+
+      <!-- STEP 2 -->
+      <div id="cs-step-2" style="display:none">
+        <div class="checkout-form-row">
+          <div class="form-group">
+            <label class="form-label">Nombre y apellidos *</label>
+            <input type="text" class="form-control" id="co-nombre" placeholder="Tu nombre completo">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Teléfono *</label>
+            <input type="tel" class="form-control" id="co-telefono" placeholder="6XX XXX XXX">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email *</label>
+          <input type="email" class="form-control" id="co-email" placeholder="tu@email.com">
+        </div>
+        <div class="checkout-form-row">
+          <div class="form-group">
+            <label class="form-label">Isla de entrega *</label>
+            <select class="form-control" id="co-isla">
+              <option value="">Selecciona tu isla…</option>
+              <option>Gran Canaria</option><option>Tenerife</option>
+              <option>Lanzarote</option><option>Fuerteventura</option>
+              <option>La Palma</option><option>La Gomera</option>
+              <option>El Hierro</option><option>La Graciosa</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Código postal *</label>
+            <input type="text" class="form-control" id="co-cp" placeholder="350XX / 380XX" maxlength="5">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Dirección completa *</label>
+          <input type="text" class="form-control" id="co-dir" placeholder="Calle, número, piso, municipio">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notas del pedido (opcional)</label>
+          <textarea class="form-control" id="co-notas" rows="2" placeholder="Instrucciones de entrega, referencia empresa, etc."></textarea>
+        </div>
+        <div class="btn-checkout-nav">
+          <button class="btn-secondary" onclick="coNextStep(1)">← Volver</button>
+          <button class="btn-primary" onclick="coNextStep(3)">Elegir forma de pago →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div id="cs-step-3" style="display:none">
+        <p style="font-size:0.84rem;color:var(--texto2);margin-bottom:14px">Elige cómo quieres pagar tu pedido de <strong id="co-pay-total" style="color:var(--texto)">0,00 €</strong>:</p>
+        <div class="payment-methods">
+          <div class="pm-btn" id="pm-paypal" onclick="selectPM('paypal')">
+            <div class="pm-logo" style="background:#003087;color:#FFD140">PP</div>
+            <div class="pm-info"><div class="pm-name">PayPal</div><div class="pm-desc">Paga con tu cuenta PayPal de forma segura</div></div>
+            <div class="pm-radio"></div>
+          </div>
+          <div class="pm-btn" id="pm-card" onclick="selectPM('card')">
+            <div class="pm-logo" style="background:#635BFF;color:#fff;font-size:1rem">💳</div>
+            <div class="pm-info"><div class="pm-name">Tarjeta de crédito / débito</div><div class="pm-desc">Visa, Mastercard, Amex — pago seguro con Stripe</div></div>
+            <div class="pm-radio"></div>
+          </div>
+          <div class="pm-btn" id="pm-bizum" onclick="selectPM('bizum')">
+            <div class="pm-logo" style="background:#00C39A;color:#fff">BZM</div>
+            <div class="pm-info"><div class="pm-name">Bizum</div><div class="pm-desc">Paga directamente desde tu app bancaria</div></div>
+            <div class="pm-radio"></div>
+          </div>
+          <div class="pm-btn" id="pm-transfer" onclick="selectPM('transfer')">
+            <div class="pm-logo" style="background:var(--card2);color:var(--texto2);font-size:1rem">🏦</div>
+            <div class="pm-info"><div class="pm-name">Transferencia bancaria</div><div class="pm-desc">Confirmaremos al recibir el ingreso (1–2 días)</div></div>
+            <div class="pm-radio"></div>
+          </div>
+        </div>
+
+        <!-- PayPal -->
+        <div class="pm-detail-box" id="detail-paypal">
+          <div id="paypal-button-container"></div>
+          <p style="font-size:0.74rem;color:var(--texto3);margin-top:8px;text-align:center">Serás redirigido de forma segura a PayPal.</p>
+        </div>
+        <!-- Card/Stripe -->
+        <div class="pm-detail-box" id="detail-card">
+          <button class="btn-pay-action" style="background:#635BFF;color:#fff" onclick="stripeCheckout()">💳 Pagar con tarjeta →</button>
+          <p style="font-size:0.74rem;color:var(--texto3);margin-top:8px;text-align:center">Pago seguro mediante Stripe. No almacenamos datos de tarjeta.</p>
+        </div>
+        <!-- Bizum -->
+        <div class="pm-detail-box" id="detail-bizum">
+          <strong style="color:var(--texto)">Envía tu Bizum a:</strong>
+          <div class="pm-big-number">608 000 000</div>
+          <div style="font-size:0.8rem;color:var(--texto3)">Concepto: <strong style="color:var(--texto)">CINKTUPEDIDO — tu nombre</strong></div>
+          <div style="font-size:0.78rem;color:var(--texto2);margin-top:10px">Una vez enviado el pago, pulsa «Confirmar pedido». Te enviaremos confirmación por email.</div>
+          <button class="btn-pay-action" style="background:var(--verde);color:#fff" onclick="confirmOrder('bizum')">✓ Ya he enviado el Bizum — Confirmar pedido</button>
+        </div>
+        <!-- Transfer -->
+        <div class="pm-detail-box" id="detail-transfer">
+          <strong style="color:var(--texto)">Datos para la transferencia:</strong>
+          <div style="font-size:0.85rem;color:var(--texto2);margin-top:8px">Titular: <strong style="color:var(--texto)">Canarias INK S.L.</strong></div>
+          <div class="pm-big-number" style="font-size:1rem;letter-spacing:1px">ES00 0000 0000 0000 0000 0000</div>
+          <div style="font-size:0.78rem;color:var(--texto3)">Concepto: <strong style="color:var(--texto)">CINKTUPEDIDO — tu nombre</strong></div>
+          <div style="font-size:0.78rem;color:var(--texto2);margin-top:10px">Prepararemos tu pedido en cuanto confirmemos el ingreso (1–2 días laborables).</div>
+          <button class="btn-pay-action" style="background:var(--acento);color:#fff" onclick="confirmOrder('transfer')">✓ Confirmar pedido (pagaré por transferencia)</button>
+        </div>
+
+        <div class="btn-checkout-nav">
+          <button class="btn-secondary" onclick="coNextStep(2)">← Volver</button>
+        </div>
+      </div>
+
+    </div>
   </div>
 </div>
 
@@ -1964,6 +2215,28 @@ textarea.form-control { min-height: 110px; resize: vertical; }
       <div class="nav-item" onclick="showView('contacto',this)">
         <div class="nav-icon">📞</div>
         <span>Contacto</span>
+      </div>
+
+      <div class="nav-section-title">Legal</div>
+      <div class="nav-item" onclick="showView('terminos',this)">
+        <div class="nav-icon">📄</div>
+        <span>Términos y Condiciones</span>
+      </div>
+      <div class="nav-item" onclick="showView('envios',this)">
+        <div class="nav-icon">🚚</div>
+        <span>Envíos y Devoluciones</span>
+      </div>
+      <div class="nav-item" onclick="showView('privacidad',this)">
+        <div class="nav-icon">🔒</div>
+        <span>Privacidad</span>
+      </div>
+      <div class="nav-item" onclick="showView('cookies',this)">
+        <div class="nav-icon">🍪</div>
+        <span>Cookies</span>
+      </div>
+      <div class="nav-item" onclick="showView('legal',this)">
+        <div class="nav-icon">⚖️</div>
+        <span>Aviso Legal</span>
       </div>
     </nav>
 
@@ -2690,8 +2963,326 @@ textarea.form-control { min-height: 110px; resize: vertical; }
         </div>
       </div><!-- /v-articulo-remanufacturados -->
 
+      <!-- ===== TÉRMINOS Y CONDICIONES ===== -->
+      <div class="view" id="v-terminos">
+        <div class="page-heading">
+          <h2>Términos y Condiciones</h2>
+          <p>Condiciones generales de compra en Canarias INK</p>
+        </div>
+        <div class="legal-container">
+          <h1>Condiciones Generales de Compra</h1>
+          <div class="legal-updated">Última actualización: enero de 2025</div>
+
+          <div class="legal-highlight"><p>Al realizar un pedido en esta web, el cliente acepta las presentes condiciones generales de compra en su totalidad. Le rogamos que las lea detenidamente antes de realizar su compra.</p></div>
+
+          <h2>1. Identificación del vendedor</h2>
+          <p>Titular: <strong>Canarias INK S.L.</strong> (en constitución) · CIF: B00000000 · Domicilio: C/ Ejemplo, 1, 35001 Las Palmas de Gran Canaria · Email: <a href="mailto:info@canariasink.es" style="color:var(--acento)">info@canariasink.es</a> · Tel.: 928 000 000.</p>
+          <p><em>⚠️ Nota: sustituye estos datos por los reales de tu empresa antes de publicar.</em></p>
+
+          <h2>2. Objeto y ámbito de aplicación</h2>
+          <p>Las presentes condiciones regulan la venta a distancia de consumibles para impresoras (tóner, cartuchos inkjet, botellas de tinta, cintas, rollos de etiquetas y ribbons de transferencia térmica) a través del sitio web de Canarias INK, dirigida exclusivamente al territorio de las Islas Canarias.</p>
+
+          <h2>3. Proceso de compra y formación del contrato</h2>
+          <ol>
+            <li>El cliente selecciona los productos y los añade al carrito.</li>
+            <li>Cumplimenta el formulario de pedido con sus datos de contacto y dirección de entrega.</li>
+            <li>Elige la forma de pago y confirma el pedido.</li>
+            <li>Canarias INK envía un email de confirmación con el resumen del pedido. El contrato queda perfeccionado en ese momento.</li>
+            <li>En caso de que algún producto no esté disponible, el cliente será informado y podrá cancelar o modificar su pedido sin coste.</li>
+          </ol>
+
+          <h2>4. Precios e impuestos</h2>
+          <p>Todos los precios mostrados incluyen el <strong>IGIC (Impuesto General Indirecto Canario, 7%)</strong>, aplicable exclusivamente en el territorio canario en lugar del IVA peninsular. Los precios pueden variar sin previo aviso, si bien el precio aplicado al pedido será el vigente en el momento de la confirmación.</p>
+
+          <h2>5. Formas de pago</h2>
+          <ul>
+            <li><strong>PayPal:</strong> procesado por PayPal (Europe) S.à r.l. et Cie, S.C.A. No almacenamos datos de tu cuenta PayPal.</li>
+            <li><strong>Tarjeta de crédito/débito:</strong> procesado por Stripe, Inc. Los datos de tarjeta se transmiten cifrados directamente a Stripe; Canarias INK no accede a ellos en ningún momento.</li>
+            <li><strong>Bizum:</strong> transferencia instantánea a través de la app bancaria del cliente. El pedido se confirma una vez recibido el pago.</li>
+            <li><strong>Transferencia bancaria:</strong> el pedido se procesa al confirmar el ingreso (generalmente 1–2 días laborables).</li>
+          </ul>
+
+          <h2>6. Envíos y plazos de entrega</h2>
+          <p>Consulta nuestra <a onclick="showView('envios',null)" style="color:var(--acento);cursor:pointer">Política de Envíos y Devoluciones</a> para información detallada sobre plazos, zonas de entrega y gastos de envío.</p>
+
+          <h2>7. Derecho de desistimiento</h2>
+          <p>De conformidad con el Real Decreto Legislativo 1/2007 (Ley General para la Defensa de los Consumidores y Usuarios), el cliente tiene derecho a desistir del contrato en un plazo de <strong>14 días naturales</strong> desde la recepción del pedido, sin necesidad de indicar el motivo.</p>
+          <p>Para ejercer este derecho, el cliente debe notificarlo por email a <a href="mailto:info@canariasink.es" style="color:var(--acento)">info@canariasink.es</a> antes de que venza el plazo. Los productos deben devolverse en su embalaje original y en perfecto estado. Los gastos de devolución corren a cargo del cliente salvo que el producto sea defectuoso.</p>
+          <p><strong>Excepciones:</strong> no aplica el derecho de desistimiento a productos personalizados, a cartuchos ya abiertos o con el precinto de seguridad roto.</p>
+
+          <h2>8. Garantía de productos</h2>
+          <p>Todos los productos vendidos por Canarias INK disponen de <strong>garantía de 2 años</strong> frente a defectos de fabricación, conforme a la normativa europea. Para los cartuchos genéricos y remanufacturados, Canarias INK ofrece además una garantía de funcionamiento: si el cartucho no imprime correctamente, lo sustituimos sin coste adicional.</p>
+
+          <h2>9. Responsabilidad</h2>
+          <p>Canarias INK no será responsable de los daños indirectos o lucro cesante derivados del uso o mal uso de los productos. La responsabilidad máxima en cualquier caso estará limitada al importe del pedido afectado.</p>
+
+          <h2>10. Legislación aplicable y jurisdicción</h2>
+          <p>Las presentes condiciones se rigen por la legislación española. Para la resolución de conflictos, las partes se someten a los Juzgados y Tribunales de Las Palmas de Gran Canaria, sin perjuicio del fuero que pueda corresponder al consumidor conforme a la normativa vigente. La Comisión Europea pone a disposición de los consumidores una plataforma de resolución de litigios en línea (ODR).</p>
+        </div>
+      </div><!-- /v-terminos -->
+
+      <!-- ===== POLÍTICA DE ENVÍOS ===== -->
+      <div class="view" id="v-envios">
+        <div class="page-heading">
+          <h2>Envíos y Devoluciones</h2>
+          <p>Todo lo que necesitas saber sobre el envío y la devolución de tus pedidos</p>
+        </div>
+        <div class="legal-container">
+          <h1>Política de Envíos y Devoluciones</h1>
+          <div class="legal-updated">Última actualización: enero de 2025</div>
+
+          <h2>Zona de entrega</h2>
+          <p>Canarias INK realiza envíos únicamente al <strong>territorio de las Islas Canarias</strong>: Gran Canaria, Tenerife, Lanzarote, Fuerteventura, La Palma, La Gomera, El Hierro y La Graciosa.</p>
+          <p>No realizamos envíos a la Península, Baleares, Ceuta, Melilla ni fuera de España.</p>
+
+          <h2>Gastos de envío</h2>
+          <table>
+            <thead>
+              <tr><th>Importe del pedido</th><th>Coste de envío</th><th>Plazo estimado</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>50 € o más</td><td class="cs-shipping-free">GRATIS 🚀</td><td>24–48 h laborables</td></tr>
+              <tr><td>Menos de 50 €</td><td>5,99 €</td><td>24–48 h laborables</td></tr>
+              <tr><td>Islas menores (La Graciosa, El Hierro)</td><td>7,99 € (gratis &gt;50 €)</td><td>48–72 h laborables</td></tr>
+            </tbody>
+          </table>
+
+          <div class="legal-highlight"><p>🚀 <strong>Envío gratuito en todos los pedidos superiores a 50 €</strong> a cualquier punto de Canarias, incluyendo islas menores.</p></div>
+
+          <h2>Plazos de entrega</h2>
+          <ul>
+            <li>Los pedidos realizados antes de las <strong>13:00h en días laborables</strong> se procesan el mismo día.</li>
+            <li>Los pedidos posteriores a las 13:00h o en festivos se procesan al siguiente día laborable.</li>
+            <li>El plazo de entrega es de <strong>24 a 48 horas laborables</strong> para Gran Canaria y Tenerife, y de 48 a 72 horas para el resto de islas.</li>
+            <li>En épocas de alta demanda (Black Friday, Navidad) los plazos pueden extenderse 1–2 días adicionales.</li>
+          </ul>
+
+          <h2>Seguimiento del envío</h2>
+          <p>Una vez despachado tu pedido, recibirás un email con el número de seguimiento para que puedas monitorizar la entrega en tiempo real a través del portal del transportista.</p>
+
+          <h2>Problemas con la entrega</h2>
+          <ul>
+            <li><strong>Paquete dañado:</strong> si el embalaje presenta daños visibles en el momento de la entrega, indícalo al transportista y contáctanos en las siguientes 24 horas.</li>
+            <li><strong>Paquete no recibido:</strong> si en 72 horas laborables no has recibido tu pedido ni el aviso de tránsito, contáctanos en <a href="mailto:info@canariasink.es" style="color:var(--acento)">info@canariasink.es</a> o llámanos al 928 000 000.</li>
+            <li><strong>Dirección incorrecta:</strong> si la dirección facilitada es incorrecta y el pedido vuelve a nuestro almacén, los gastos de reenvío correrán a cargo del cliente.</li>
+          </ul>
+
+          <h2>Devoluciones y desistimiento</h2>
+          <p>Tienes <strong>14 días naturales</strong> desde la recepción del pedido para ejercer tu derecho de desistimiento, sin necesidad de justificación.</p>
+          <h3>Procedimiento de devolución</h3>
+          <ol>
+            <li>Notifícanos por email a <a href="mailto:info@canariasink.es" style="color:var(--acento)">info@canariasink.es</a> con el asunto «DEVOLUCIÓN — Nº pedido».</li>
+            <li>Te enviaremos las instrucciones para la devolución en un plazo de 24 horas.</li>
+            <li>Envíanos el producto en su embalaje original, sin abrir y en perfectas condiciones.</li>
+            <li>Una vez recibido y verificado el estado del producto, realizaremos el reembolso en el mismo método de pago utilizado en un plazo máximo de 14 días.</li>
+          </ol>
+          <h3>Gastos de devolución</h3>
+          <ul>
+            <li>Si el producto es <strong>defectuoso o incorrecto</strong>: los gastos de devolución son a nuestro cargo. Te enviaremos una etiqueta de devolución prepagada.</li>
+            <li>Si la devolución es por <strong>cambio de opinión</strong>: los gastos de devolución corren a cargo del cliente.</li>
+          </ul>
+          <h3>Productos no admitidos en devolución</h3>
+          <ul>
+            <li>Cartuchos, tóneres o botellas con el precinto de seguridad roto o abiertos.</li>
+            <li>Productos personalizados o a medida.</li>
+            <li>Productos con claros signos de haber sido usados.</li>
+          </ul>
+
+          <h2>Garantía de calidad Canarias INK</h2>
+          <p>Todos nuestros productos, originales y genéricos, están <strong>garantizados contra defectos de funcionamiento</strong>. Si un cartucho no imprime correctamente (rayas, colores incorrectos, no reconocido), lo <strong>sustituimos sin coste adicional</strong>, sin necesidad de pasar por el proceso de devolución estándar. Solo contáctanos y lo resolvemos.</p>
+        </div>
+      </div><!-- /v-envios -->
+
+      <!-- ===== POLÍTICA DE PRIVACIDAD ===== -->
+      <div class="view" id="v-privacidad">
+        <div class="page-heading">
+          <h2>Política de Privacidad</h2>
+          <p>Información sobre el tratamiento de tus datos personales</p>
+        </div>
+        <div class="legal-container">
+          <h1>Política de Privacidad</h1>
+          <div class="legal-updated">Última actualización: enero de 2025 · Conforme al RGPD (UE) 2016/679 y la LOPDGDD</div>
+
+          <h2>1. Responsable del tratamiento</h2>
+          <p><strong>Canarias INK S.L.</strong> · CIF: B00000000 · C/ Ejemplo, 1, 35001 Las Palmas de Gran Canaria · Email: <a href="mailto:privacidad@canariasink.es" style="color:var(--acento)">privacidad@canariasink.es</a>.</p>
+
+          <h2>2. Datos que recogemos</h2>
+          <table>
+            <thead><tr><th>Datos</th><th>Finalidad</th><th>Base legal</th><th>Plazo</th></tr></thead>
+            <tbody>
+              <tr><td>Nombre, email, teléfono, dirección</td><td>Gestión del pedido y entrega</td><td>Ejecución del contrato</td><td>5 años (obligaciones mercantiles)</td></tr>
+              <tr><td>Historial de pedidos</td><td>Gestión de garantías y devoluciones</td><td>Obligación legal</td><td>5 años</td></tr>
+              <tr><td>Datos de navegación (localStorage)</td><td>Carrito de compra, preferencias</td><td>Interés legítimo</td><td>Hasta que el usuario los borra</td></tr>
+            </tbody>
+          </table>
+          <p>No recogemos datos especialmente protegidos ni realizamos perfilado automatizado.</p>
+
+          <h2>3. Destinatarios</h2>
+          <p>Tus datos pueden ser comunicados a:</p>
+          <ul>
+            <li><strong>Transportistas:</strong> para la gestión de la entrega (nombre y dirección únicamente).</li>
+            <li><strong>Pasarelas de pago:</strong> PayPal y Stripe reciben los datos necesarios para procesar el pago, bajo sus propias políticas de privacidad.</li>
+            <li><strong>Administración Pública:</strong> cuando lo exija la ley (AEAT, Policía, etc.).</li>
+          </ul>
+          <p>No cedemos tus datos a terceros para fines comerciales ni de publicidad.</p>
+
+          <h2>4. Tus derechos</h2>
+          <p>Puedes ejercer en cualquier momento los siguientes derechos enviando un email a <a href="mailto:privacidad@canariasink.es" style="color:var(--acento)">privacidad@canariasink.es</a>:</p>
+          <ul>
+            <li><strong>Acceso:</strong> saber qué datos tenemos sobre ti.</li>
+            <li><strong>Rectificación:</strong> corregir datos incorrectos.</li>
+            <li><strong>Supresión:</strong> solicitar que eliminemos tus datos («derecho al olvido»).</li>
+            <li><strong>Oposición y limitación:</strong> oponerte al tratamiento o limitarlo.</li>
+            <li><strong>Portabilidad:</strong> recibir tus datos en formato estructurado y legible por máquina.</li>
+          </ul>
+          <p>Si considerás que el tratamiento no es conforme al RGPD, puedes presentar una reclamación ante la <strong>Agencia Española de Protección de Datos (AEPD)</strong> en <a href="https://www.aepd.es" style="color:var(--acento)" target="_blank">www.aepd.es</a>.</p>
+
+          <h2>5. Seguridad</h2>
+          <p>Aplicamos medidas técnicas y organizativas adecuadas para proteger tus datos: acceso restringido, cifrado de las comunicaciones (HTTPS), y minimización de los datos recogidos. No almacenamos datos de tarjeta de crédito en ningún momento.</p>
+
+          <h2>6. Cambios en esta política</h2>
+          <p>Nos reservamos el derecho a actualizar esta política. Te notificaremos los cambios relevantes por email si tienes un pedido activo o por aviso en la web en el resto de casos.</p>
+        </div>
+      </div><!-- /v-privacidad -->
+
+      <!-- ===== POLÍTICA DE COOKIES ===== -->
+      <div class="view" id="v-cookies">
+        <div class="page-heading">
+          <h2>Política de Cookies</h2>
+          <p>Información sobre el uso de cookies en canariasink.es</p>
+        </div>
+        <div class="legal-container">
+          <h1>Política de Cookies</h1>
+          <div class="legal-updated">Última actualización: enero de 2025</div>
+
+          <div class="legal-highlight"><p>Esta web utiliza <strong>únicamente cookies técnicas imprescindibles</strong> para su funcionamiento. No utilizamos cookies publicitarias, de rastreo ni de terceros con fines analíticos o de marketing.</p></div>
+
+          <h2>¿Qué es una cookie?</h2>
+          <p>Una cookie es un pequeño archivo de texto que un sitio web almacena en el dispositivo del usuario cuando lo visita. Las cookies permiten que el sitio web recuerde información entre visitas, como el idioma preferido o los productos del carrito.</p>
+          <p>Esta web utiliza principalmente <strong>localStorage</strong> (almacenamiento local del navegador), que funciona de manera similar a las cookies pero sin enviar datos al servidor, para guardar el carrito de compra y las preferencias del usuario.</p>
+
+          <h2>Cookies y almacenamiento local que usamos</h2>
+          <table class="cookie-table">
+            <thead><tr><th>Nombre</th><th>Tipo</th><th>Finalidad</th><th>Duración</th></tr></thead>
+            <tbody>
+              <tr><td>cink_cart</td><td>localStorage</td><td>Guarda los productos añadidos al carrito entre sesiones</td><td>Permanente hasta que el usuario lo borra</td></tr>
+              <tr><td>cink_cookie_ok</td><td>localStorage</td><td>Registra si el usuario ha aceptado el aviso de cookies</td><td>Permanente</td></tr>
+            </tbody>
+          </table>
+          <p>No usamos cookies de Google Analytics, Facebook Pixel, ni ninguna herramienta de rastreo de terceros.</p>
+
+          <h2>Cómo gestionar las cookies</h2>
+          <p>Puedes eliminar el almacenamiento local de esta web en cualquier momento desde la configuración de tu navegador:</p>
+          <ul>
+            <li><strong>Chrome:</strong> Configuración → Privacidad y seguridad → Cookies y otros datos de sitios → Ver todos los datos del sitio.</li>
+            <li><strong>Firefox:</strong> Preferencias → Privacidad y seguridad → Cookies y datos del sitio → Gestionar datos.</li>
+            <li><strong>Safari:</strong> Preferencias → Privacidad → Gestionar datos del sitio web.</li>
+            <li><strong>Edge:</strong> Configuración → Privacidad, búsqueda y servicios → Cookies y datos del sitio.</li>
+          </ul>
+          <p>Ten en cuenta que eliminar el almacenamiento local borrará el contenido de tu carrito de compra.</p>
+
+          <h2>Tus derechos</h2>
+          <p>Para cualquier consulta relacionada con las cookies o el tratamiento de tus datos, puedes contactarnos en <a href="mailto:privacidad@canariasink.es" style="color:var(--acento)">privacidad@canariasink.es</a>.</p>
+
+          <div style="margin-top:24px">
+            <button class="btn-secondary" onclick="acceptCookies()" style="margin-right:10px">✓ Aceptar cookies</button>
+            <button class="btn-secondary" onclick="rejectCookies()">✕ Solo técnicas (ya aceptado por defecto)</button>
+          </div>
+        </div>
+      </div><!-- /v-cookies -->
+
+      <!-- ===== AVISO LEGAL ===== -->
+      <div class="view" id="v-legal">
+        <div class="page-heading">
+          <h2>Aviso Legal</h2>
+          <p>Información legal sobre el titular de este sitio web</p>
+        </div>
+        <div class="legal-container">
+          <h1>Aviso Legal</h1>
+          <div class="legal-updated">Última actualización: enero de 2025 · Conforme a la Ley 34/2002 (LSSI-CE)</div>
+
+          <h2>1. Datos identificativos del titular</h2>
+          <p>En cumplimiento del artículo 10 de la Ley 34/2002, de 11 de julio, de Servicios de la Sociedad de la Información y de Comercio Electrónico (LSSI-CE), se informa:</p>
+          <ul>
+            <li><strong>Denominación social:</strong> Canarias INK S.L.</li>
+            <li><strong>CIF:</strong> B00000000</li>
+            <li><strong>Domicilio social:</strong> C/ Ejemplo, 1, 35001 Las Palmas de Gran Canaria</li>
+            <li><strong>Registro Mercantil:</strong> Las Palmas de Gran Canaria, Tomo 0000, Folio 000, Hoja 000000</li>
+            <li><strong>Teléfono:</strong> 928 000 000</li>
+            <li><strong>Email:</strong> <a href="mailto:info@canariasink.es" style="color:var(--acento)">info@canariasink.es</a></li>
+            <li><strong>Actividad:</strong> Comercio al por menor de consumibles para impresoras (CNAE: 4741)</li>
+          </ul>
+          <p><em>⚠️ Los datos marcados con B00000000 son ficticios. Debes sustituirlos por los reales de tu empresa.</em></p>
+
+          <h2>2. Objeto y ámbito de aplicación</h2>
+          <p>El presente Aviso Legal regula el acceso y uso del sitio web de Canarias INK, cuya dirección es <strong>canariasink.es</strong>. El acceso al sitio implica la aceptación plena y sin reservas del presente Aviso Legal. Canarias INK se reserva el derecho a modificarlo en cualquier momento.</p>
+
+          <h2>3. Propiedad intelectual e industrial</h2>
+          <p>Todos los contenidos del sitio web —textos, imágenes, logotipos, diseños, código fuente— son propiedad de Canarias INK S.L. o de sus proveedores de contenido, y están protegidos por la legislación española e internacional sobre propiedad intelectual e industrial.</p>
+          <p>Queda expresamente prohibida su reproducción, distribución, comunicación pública o transformación sin autorización escrita previa de Canarias INK S.L., salvo para uso personal y no comercial.</p>
+          <p>Las marcas comerciales de fabricantes (HP, Canon, Epson, Brother, etc.) pertenecen a sus respectivos titulares. Su mención en este sitio tiene únicamente carácter informativo y de compatibilidad de producto.</p>
+
+          <h2>4. Exclusión de garantías y responsabilidad</h2>
+          <p>Canarias INK S.L. no garantiza la disponibilidad continuada del sitio web ni la ausencia de errores en los contenidos. En ningún caso será responsable de los daños derivados de la falta de disponibilidad o de los contenidos incorrectos, salvo en los casos previstos por la ley.</p>
+          <p>Los enlaces a sitios web de terceros tienen carácter meramente informativo. Canarias INK no controla ni se responsabiliza de sus contenidos.</p>
+
+          <h2>5. Legislación aplicable y jurisdicción</h2>
+          <p>El presente Aviso Legal se rige por la legislación española. Para cualquier controversia derivada del acceso o uso de este sitio web, las partes se someten a la jurisdicción de los Juzgados y Tribunales de Las Palmas de Gran Canaria.</p>
+
+          <h2>6. Contacto</h2>
+          <p>Para cualquier consulta relativa a este Aviso Legal, puede contactar con nosotros a través de <a href="mailto:info@canariasink.es" style="color:var(--acento)">info@canariasink.es</a> o llamando al 928 000 000.</p>
+        </div>
+      </div><!-- /v-legal -->
 
     </div><!-- /content -->
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-col">
+          <h4>Canarias INK</h4>
+          <a onclick="showView('inicio',null)">Inicio</a>
+          <a onclick="showView('catalogo',null)">Catálogo de productos</a>
+          <a onclick="showView('ofertas',null)">Ofertas</a>
+          <a onclick="showView('marcas',null)">Marcas</a>
+          <a onclick="showView('blog',null)">Blog</a>
+          <a onclick="showView('contacto',null)">Contacto</a>
+        </div>
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <a onclick="showView('terminos',null)">Términos y Condiciones</a>
+          <a onclick="showView('envios',null)">Envíos y Devoluciones</a>
+          <a onclick="showView('privacidad',null)">Política de Privacidad</a>
+          <a onclick="showView('cookies',null)">Política de Cookies</a>
+          <a onclick="showView('legal',null)">Aviso Legal</a>
+        </div>
+        <div class="footer-col">
+          <h4>Contacto</h4>
+          <a href="tel:+34928000000">📞 928 000 000</a>
+          <a href="mailto:info@canariasink.es">✉️ info@canariasink.es</a>
+          <span>📍 Las Palmas de Gran Canaria</span>
+          <span>Lun–Vie: 9:00–18:00h</span>
+          <div style="margin-top:10px">
+            <div style="font-size:0.72rem;color:var(--texto3)">Envío GRATIS Canarias</div>
+            <div style="color:var(--verde);font-weight:700;font-size:0.88rem">Pedidos +50 € 🚀</div>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        © 2025 Canarias INK S.L. · CIF B00000000 · Las Palmas de Gran Canaria
+        &nbsp;·&nbsp;
+        <a onclick="showView('legal',null)">Aviso Legal</a>
+        &nbsp;·&nbsp;
+        <a onclick="showView('privacidad',null)">Privacidad</a>
+        &nbsp;·&nbsp;
+        <a onclick="showView('cookies',null)">Cookies</a>
+        &nbsp;·&nbsp;
+        <a onclick="showView('terminos',null)">T&amp;C</a>
+        &nbsp;·&nbsp;
+        <a onclick="showView('envios',null)">Envíos</a>
+      </div>
+    </footer>
+
   </div><!-- /main -->
 </div><!-- /app -->
 
@@ -2809,7 +3400,7 @@ function showView(id, el) {
   document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
   if (el) el.classList.add('active');
   currentView = id;
-  const titles = { inicio:'Inicio', catalogo:'Catálogo', ofertas:'Ofertas', marcas:'Marcas', garantia:'Garantía', blog:'Blog', 'articulo-reciclaje':'Blog · Reciclaje', 'articulo-remanufacturados':'Blog · Remanufacturados', contacto:'Contacto' };
+  const titles = { inicio:'Inicio', catalogo:'Catálogo', ofertas:'Ofertas', marcas:'Marcas', garantia:'Garantía', blog:'Blog', 'articulo-reciclaje':'Blog · Reciclaje', 'articulo-remanufacturados':'Blog · Remanufacturados', contacto:'Contacto', terminos:'Términos y Condiciones', envios:'Envíos y Devoluciones', privacidad:'Privacidad', cookies:'Política de Cookies', legal:'Aviso Legal' };
   document.getElementById('topbar-title').textContent = titles[id] || '';
   if (window.innerWidth < 660) closeSidebarMobile();
   window.scrollTo(0, 0);
@@ -2937,10 +3528,149 @@ function openCart() { renderCartItems(); document.getElementById('cart-overlay')
 function closeCart() { document.getElementById('cart-overlay').classList.remove('open'); document.getElementById('cart-drawer').classList.remove('open'); }
 function checkout() {
   if (cart.length === 0) { toast('⚠️ Tu carrito está vacío'); return; }
-  toast('📨 Pedido enviado. Contactaremos contigo en breve.', 'success');
-  cart = []; saveCart(); updateCartUI(); renderCartItems(); closeCart();
-  setTimeout(() => showView('contacto', document.querySelector('[onclick*=contacto]')), 800);
+  closeCart();
+  openCheckout();
 }
+
+/* ===== CHECKOUT MODAL ===== */
+const SHIPPING_FREE = 50;
+const SHIPPING_COST = 5.99;
+
+function openCheckout() {
+  const overlay = document.getElementById('checkout-overlay');
+  overlay.classList.add('open');
+  coNextStep(1);
+  renderCheckoutSummary();
+}
+function closeCheckout() {
+  document.getElementById('checkout-overlay').classList.remove('open');
+}
+
+function renderCheckoutSummary() {
+  const total = cart.reduce((s, i) => {
+    const p = PRODUCTS.find(x => x.id === i.id);
+    return s + (p ? p.precio * i.qty : 0);
+  }, 0);
+  const shipping = total >= SHIPPING_FREE ? 0 : SHIPPING_COST;
+  const grandTotal = total + shipping;
+
+  const list = document.getElementById('co-items-list');
+  list.innerHTML = cart.map(i => {
+    const p = PRODUCTS.find(x => x.id === i.id);
+    if (!p) return '';
+    return `<div class="cs-item">
+      <span class="cs-item-name">${p.nombre}</span>
+      <span class="cs-item-qty">×${i.qty}</span>
+      <span class="cs-item-price">${(p.precio * i.qty).toFixed(2)} €</span>
+    </div>`;
+  }).join('');
+
+  const shippingRow = document.getElementById('co-shipping-row');
+  shippingRow.innerHTML = shipping === 0
+    ? '<span>Envío a Canarias</span><span class="cs-shipping-free">GRATIS 🚀</span>'
+    : `<span>Envío a Canarias</span><span>${SHIPPING_COST.toFixed(2)} €</span>`;
+
+  const fmt = n => n.toFixed(2).replace('.', ',') + ' €';
+  document.getElementById('co-total-val').textContent = fmt(grandTotal);
+  document.getElementById('co-pay-total').textContent = fmt(grandTotal);
+}
+
+function coNextStep(n) {
+  [1, 2, 3].forEach(i => {
+    document.getElementById('cs-step-' + i).style.display = i === n ? '' : 'none';
+    const tab = document.getElementById('cstab-' + i);
+    tab.className = 'checkout-step' + (i < n ? ' done' : i === n ? ' active' : '');
+  });
+  if (n === 2) {
+    if (!document.getElementById('co-nombre').value) {
+      const saved = localStorage.getItem('cink_customer');
+      if (saved) { try { const d = JSON.parse(saved); document.getElementById('co-nombre').value = d.nombre || ''; document.getElementById('co-email').value = d.email || ''; document.getElementById('co-telefono').value = d.telefono || ''; } catch(e){} }
+    }
+  }
+  if (n === 3) {
+    const nombre = document.getElementById('co-nombre').value.trim();
+    const email = document.getElementById('co-email').value.trim();
+    const isla = document.getElementById('co-isla').value;
+    const dir = document.getElementById('co-dir').value.trim();
+    if (!nombre || !email || !isla || !dir) {
+      toast('⚠️ Por favor rellena todos los campos obligatorios (*)', 'error');
+      coNextStep(2); return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast('⚠️ El email no tiene un formato válido', 'error');
+      coNextStep(2); return;
+    }
+    localStorage.setItem('cink_customer', JSON.stringify({ nombre, email, telefono: document.getElementById('co-telefono').value }));
+  }
+  document.getElementById('checkout-modal').scrollTop = 0;
+}
+
+let selectedPM = null;
+function selectPM(method) {
+  selectedPM = method;
+  ['paypal', 'card', 'bizum', 'transfer'].forEach(m => {
+    document.getElementById('pm-' + m).classList.toggle('selected', m === method);
+    const detail = document.getElementById('detail-' + m);
+    if (detail) detail.classList.toggle('visible', m === method);
+  });
+}
+
+function stripeCheckout() {
+  const STRIPE_LINK = 'https://buy.stripe.com/CONFIGURA_TU_ENLACE'; // ← sustituir por tu Stripe Payment Link
+  window.open(STRIPE_LINK, '_blank');
+}
+
+function confirmOrder(method) {
+  const nombre = document.getElementById('co-nombre').value.trim();
+  const email = document.getElementById('co-email').value.trim();
+  const isla = document.getElementById('co-isla').value;
+  const dir = document.getElementById('co-dir').value.trim();
+  const cp = document.getElementById('co-cp').value.trim();
+  const notas = document.getElementById('co-notas').value.trim();
+
+  const lines = cart.map(i => {
+    const p = PRODUCTS.find(x => x.id === i.id);
+    return p ? `${p.nombre} (×${i.qty}) — ${(p.precio * i.qty).toFixed(2)}€` : '';
+  }).filter(Boolean).join('%0A');
+
+  const total = cart.reduce((s, i) => {
+    const p = PRODUCTS.find(x => x.id === i.id);
+    return s + (p ? p.precio * i.qty : 0);
+  }, 0);
+  const shipping = total >= SHIPPING_FREE ? 0 : SHIPPING_COST;
+
+  const subject = encodeURIComponent(`Nuevo pedido Canarias INK — ${nombre}`);
+  const body = encodeURIComponent(
+    `NUEVO PEDIDO — CANARIAS INK\n\n` +
+    `Nombre: ${nombre}\nEmail: ${email}\nTeléfono: ${document.getElementById('co-telefono').value}\n` +
+    `Isla: ${isla}\nDirección: ${dir} ${cp}\nNotas: ${notas || '—'}\n\n` +
+    `ARTÍCULOS:\n${cart.map(i => { const p = PRODUCTS.find(x => x.id === i.id); return p ? `• ${p.nombre} ×${i.qty} = ${(p.precio*i.qty).toFixed(2)}€` : ''; }).filter(Boolean).join('\n')}\n\n` +
+    `Subtotal: ${total.toFixed(2)}€\nEnvío: ${shipping === 0 ? 'GRATIS' : shipping.toFixed(2)+'€'}\n` +
+    `TOTAL: ${(total+shipping).toFixed(2)}€\n\nForma de pago: ${method}`
+  );
+
+  window.location.href = `mailto:info@canariasink.es?subject=${subject}&body=${body}`;
+
+  cart = []; saveCart(); updateCartUI(); renderCartItems();
+  setTimeout(() => {
+    closeCheckout();
+    toast('✅ Pedido confirmado. Te contactaremos en breve.', 'success');
+  }, 400);
+}
+
+/* ===== COOKIES ===== */
+function checkCookieConsent() {
+  if (!localStorage.getItem('cink_cookie_ok')) {
+    setTimeout(() => { document.getElementById('cookie-banner').style.display = 'flex'; }, 1500);
+  }
+}
+function acceptCookies() {
+  localStorage.setItem('cink_cookie_ok', '1');
+  document.getElementById('cookie-banner').style.display = 'none';
+  toast('✓ Preferencias de cookies guardadas');
+}
+function rejectCookies() { acceptCookies(); }
+function manageCookies() { showView('cookies', null); document.getElementById('cookie-banner').style.display = 'none'; }
 
 function openProductDetail(id) {
   const p = PRODUCTS.find(x => x.id === id);
@@ -3244,6 +3974,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(updateCountdown, 1000);
   updateCountdown();
   initInkDrops();
+  checkCookieConsent();
 });
 </script>
 </body>
