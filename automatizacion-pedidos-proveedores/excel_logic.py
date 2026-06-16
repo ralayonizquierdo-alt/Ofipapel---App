@@ -19,6 +19,8 @@ class ReporteCruce:
     incompletas: list[dict] = field(default_factory=list)
     duplicadas: list[dict] = field(default_factory=list)
     empates: list[dict] = field(default_factory=list)
+    sin_stock: list[dict] = field(default_factory=list)
+    sin_oferta_valida: list[dict] = field(default_factory=list)
 
 
 def _normalizar_columnas(df: pd.DataFrame) -> pd.DataFrame:
@@ -30,7 +32,17 @@ def _normalizar_columnas(df: pd.DataFrame) -> pd.DataFrame:
 def _normalizar_precio(valor) -> float:
     if isinstance(valor, str):
         valor = valor.strip().replace(",", ".")
+        if valor == "":
+            return float("nan")
     return float(valor)
+
+
+def _precio_valido(valor: float) -> bool:
+    """Un precio en blanco o 0 significa 'sin stock' (no que sea gratis):
+    ese proveedor queda descartado para ese articulo, como si fuera carisimo,
+    pero sin afectar a la comparativa de los demas proveedores.
+    """
+    return pd.notna(valor) and valor > 0
 
 
 def leer_excel_proveedor(contenido_bytes: bytes, nombre_proveedor: str, config_excel: dict) -> pd.DataFrame:
@@ -77,7 +89,10 @@ def cruzar_y_determinar_ganador(
         for referencia in duplicados[columna_clave].unique():
             reporte.duplicadas.append({"proveedor": nombre, "referencia": referencia})
         if not duplicados.empty:
-            df = df.sort_values(columna_precio).drop_duplicates(subset=[columna_clave], keep="first")
+            # Entre duplicados, preferimos quedarnos con una fila de precio
+            # valido (>0) antes que con una "sin stock" (blanco o 0).
+            orden = df[columna_precio].where(df[columna_precio].apply(_precio_valido), other=float("inf"))
+            df = df.assign(_orden=orden).sort_values("_orden").drop_duplicates(subset=[columna_clave], keep="first").drop(columns="_orden")
         frames.append(df)
 
     consolidado = pd.concat(frames, ignore_index=True)
@@ -93,8 +108,18 @@ def cruzar_y_determinar_ganador(
 
     ganador_por_referencia = {}
     for referencia, grupo in consolidado.groupby(columna_clave):
-        precio_minimo = grupo[columna_precio].min()
-        empatados = grupo[grupo[columna_precio] == precio_minimo].sort_values("proveedor")
+        es_valido = grupo[columna_precio].apply(_precio_valido)
+        validos = grupo[es_valido]
+        sin_stock = grupo[~es_valido]["proveedor"].tolist()
+        if sin_stock:
+            reporte.sin_stock.append({"referencia": referencia, "proveedores_sin_stock": sin_stock})
+
+        if validos.empty:
+            reporte.sin_oferta_valida.append({"referencia": referencia, "proveedores_sin_stock": sin_stock})
+            continue  # ningun proveedor tiene precio valido: no se asigna ganador
+
+        precio_minimo = validos[columna_precio].min()
+        empatados = validos[validos[columna_precio] == precio_minimo].sort_values("proveedor")
         ganador = empatados.iloc[0]["proveedor"]
         ganador_por_referencia[referencia] = ganador
         if len(empatados) > 1:

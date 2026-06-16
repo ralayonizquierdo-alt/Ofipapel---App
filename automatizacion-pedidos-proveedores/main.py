@@ -46,6 +46,16 @@ def imprimir_resumen(correos_por_proveedor: dict, reporte: excel_logic.ReporteCr
                 f"empatados {item['proveedores_empatados']} -> asignado a {item['ganador_asignado']}"
             )
 
+    if reporte.sin_stock:
+        print(f"\nAVISO: articulo(s) sin precio (en blanco o 0) en algun proveedor (se descarta ese proveedor para ese articulo):")
+        for item in reporte.sin_stock:
+            print(f"  - {item['referencia']}: sin stock en {item['proveedores_sin_stock']}")
+
+    if reporte.sin_oferta_valida:
+        print(f"\nAVISO IMPORTANTE: {len(reporte.sin_oferta_valida)} articulo(s) sin NINGUN proveedor con precio valido (no se asigna ganador, no apareceran en ningun Excel de salida):")
+        for item in reporte.sin_oferta_valida:
+            print(f"  - {item['referencia']}")
+
     if drafts_creados:
         print("\nBorradores creados en Outlook (revisalos antes de enviar):")
         for proveedor, draft_id in drafts_creados.items():
