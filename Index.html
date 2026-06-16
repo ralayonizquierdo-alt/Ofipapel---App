@@ -369,7 +369,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.10 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.11 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -1005,9 +1005,17 @@ async function syncDatasetToCloud(key, payload){
   if(!supaReady) return false;
   try{
     const { error } = await supaClient.from('app_sync').upsert({ id:key, payload, updated_at:new Date().toISOString() }, { onConflict:'id' });
-    if(error){ console.warn('Sync error ('+key+'):', error); return false; }
+    if(error){
+      console.warn('Sync error ('+key+'):', error);
+      showToast('⚠️ No se pudo subir "'+key+'" a la nube: '+(error.message||error.code||'error desconocido'), 'err');
+      return false;
+    }
     return true;
-  } catch(e){ return false; }
+  } catch(e){
+    console.warn('Sync exception ('+key+'):', e);
+    showToast('⚠️ No se pudo subir "'+key+'" a la nube: '+e.message, 'err');
+    return false;
+  }
 }
 
 function applyCloudDataset(key, payload){
@@ -1063,7 +1071,12 @@ async function loadAllSharedDatasets(){
   if(!supaReady) return;
   try{
     const { data: rows, error } = await supaClient.from('app_sync').select('id,payload,updated_at');
-    if(error || !rows) return;
+    if(error){
+      console.warn('Error cargando datasets compartidos:', error);
+      showToast('⚠️ No se pudieron cargar los datos de la nube: '+(error.message||error.code||'error desconocido'), 'err');
+      return;
+    }
+    if(!rows) return;
     const existing = {};
     rows.forEach(r=>{ existing[r.id]=true; applyCloudDataset(r.id, r.payload); _sharedSyncTimestamps[r.id]=r.updated_at; });
     // Si el dataset no existe aún en la nube pero hay datos locales, los subimos para iniciar la sincronización
@@ -1091,7 +1104,8 @@ async function pollSharedDatasets(){
   if(!supaReady) return;
   try{
     const { data: rows, error } = await supaClient.from('app_sync').select('id,payload,updated_at');
-    if(error || !rows) return;
+    if(error){ console.warn('Error en sondeo de datasets compartidos:', error); return; }
+    if(!rows) return;
     rows.forEach(r=>{
       if(_sharedSyncTimestamps[r.id] === r.updated_at) return;
       _sharedSyncTimestamps[r.id] = r.updated_at;
