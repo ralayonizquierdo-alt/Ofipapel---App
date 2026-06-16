@@ -362,7 +362,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.4 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.5 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -384,6 +384,11 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     <div class="nav-item" onclick="showView('deuda')"><span class="ni">🏛️</span><span>Pool de Deuda</span></div>
     <div class="nav-item" onclick="showView('pagares')"><span class="ni">📄</span><span>Pagarés &amp; Confirming</span></div>
     <div class="nav-item" onclick="showView('proveedores')"><span class="ni">💸</span><span>Pagos Proveed.</span></div>
+
+    <div class="nav-section">Operaciones</div>
+    <div class="nav-item" onclick="showView('ventas')"><span class="ni">🏪</span><span>Ventas (Caja)</span></div>
+    <div class="nav-item" onclick="showView('compras')"><span class="ni">🛒</span><span>Compras</span></div>
+    <div class="nav-item" onclick="showView('familias')"><span class="ni">📦</span><span>Familias</span></div>
 
     <div class="sidebar-footer">
       <div class="sidebar-user" id="sidebarUser"></div>
@@ -567,6 +572,117 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
         </div>
       </div>
 
+      <div class="view" id="v-ventas">
+        <div class="page-header"><h1 class="page-title">🏪 Ventas (Caja)</h1></div>
+        <div class="page-body">
+          <div id="ventKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+          <div class="card" style="margin-bottom:16px;padding:16px;">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+              <div>
+                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Tienda</div>
+                <select id="ventFiltroTienda" onchange="renderVentas()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                  <option value="todas">Todas</option>
+                </select>
+              </div>
+              <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventExcelInput" style="display:none" onchange="importVentasCajaExcel(this)"></label>
+            </div>
+          </div>
+          <div class="chart-row-2" style="margin-bottom:16px;">
+            <div class="chart-card">
+              <div class="chart-ttl">Evolución por Día</div>
+              <div class="chart-desc">Ingresos diarios de caja</div>
+              <canvas id="cVentDia" height="220"></canvas>
+            </div>
+            <div class="chart-card">
+              <div class="chart-ttl">Distribución por Hora</div>
+              <div class="chart-desc">Volumen de movimientos por franja horaria</div>
+              <canvas id="cVentHora" height="220"></canvas>
+            </div>
+          </div>
+          <div class="card" id="ventEmpTabla" style="padding:0;overflow:hidden;"></div>
+        </div>
+      </div>
+
+      <div class="view" id="v-compras">
+        <div class="page-header"><h1 class="page-title">🛒 Compras a Proveedores</h1></div>
+        <div class="page-body">
+          <div id="compKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+          <div class="card" style="margin-bottom:16px;padding:16px;">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+              <div style="flex:2;min-width:150px;">
+                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Proveedor / Nº Pedido</div>
+                <input type="text" id="compFiltroTexto" placeholder="Buscar..." oninput="renderCompras()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Almacén</div>
+                <select id="compFiltroAlmacen" onchange="renderCompras()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                  <option value="todos">Todos</option>
+                </select>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Estado</div>
+                <select id="compFiltroEstado" onchange="renderCompras()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                  <option value="todos">Todos</option>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="recibido">Recibido</option>
+                </select>
+              </div>
+              <button onclick="limpiarFiltrosComp()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
+              <button onclick="showCompModal()" style="padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">+ Añadir</button>
+              <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="compExcelInput" style="display:none" onchange="importComprasExcel(this)"></label>
+            </div>
+          </div>
+          <div class="chart-card" style="margin-bottom:16px;">
+            <div class="chart-ttl">Top Proveedores</div>
+            <div class="chart-desc">Importe comprometido por proveedor</div>
+            <canvas id="cCompProv" height="180"></canvas>
+          </div>
+          <div class="card" id="compTabla" style="padding:0;overflow:hidden;"></div>
+        </div>
+      </div>
+
+      <div class="view" id="v-familias">
+        <div class="page-header"><h1 class="page-title">📦 Ventas por Familias</h1></div>
+        <div class="page-body">
+          <div id="famKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+          <div class="card" style="margin-bottom:16px;padding:16px;">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+              <div style="flex:2;min-width:150px;">
+                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Familia / Código</div>
+                <input type="text" id="famFiltroTexto" placeholder="Buscar..." oninput="renderFamilias()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
+                <select id="famFiltroAnio" onchange="renderFamilias()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                  <option value="todos">Todos</option>
+                </select>
+              </div>
+              <div>
+                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Categoría</div>
+                <select id="famFiltroCategoria" onchange="renderFamilias()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                  <option value="todas">Todas</option>
+                </select>
+              </div>
+              <button onclick="limpiarFiltrosFam()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
+              <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="famExcelInput" style="display:none" onchange="importFamiliasExcel(this)"></label>
+            </div>
+          </div>
+          <div class="chart-row-2" style="margin-bottom:16px;">
+            <div class="chart-card">
+              <div class="chart-ttl">Top Categorías</div>
+              <div class="chart-desc">Ventas totales por categoría</div>
+              <canvas id="cFamCat" height="220"></canvas>
+            </div>
+            <div class="chart-card">
+              <div class="chart-ttl">Evolución Anual</div>
+              <div class="chart-desc">Ventas totales por año</div>
+              <canvas id="cFamAnio" height="220"></canvas>
+            </div>
+          </div>
+          <div class="card" id="famTabla" style="padding:0;overflow:hidden;"></div>
+        </div>
+      </div>
+
     </div><!-- /page-body -->
   </div><!-- /main-content -->
 </div><!-- /app -->
@@ -592,6 +708,24 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     <div style="display:flex;gap:10px;margin-top:20px;">
       <button onclick="saveProvModal()" style="flex:1;padding:11px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Guardar</button>
       <button onclick="closeProvModal()" style="padding:11px 20px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:14px;cursor:pointer;">Cancelar</button>
+    </div>
+  </div>
+</div>
+<div id="compModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9997;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:95%;max-width:540px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);margin:16px;">
+    <h3 style="font-size:16px;font-weight:700;color:var(--azul);margin-bottom:20px;">➕ Nueva Compra</h3>
+    <div class="form-grid">
+      <div><label class="form-label">Fecha *</label><input type="date" id="cfFecha" class="form-input"></div>
+      <div><label class="form-label">Nº Pedido *</label><input type="text" id="cfNpedido" class="form-input"></div>
+      <div><label class="form-label">Almacén</label><input type="text" id="cfAlmacen" class="form-input"></div>
+      <div><label class="form-label">Código Proveedor</label><input type="text" id="cfProvCod" class="form-input"></div>
+      <div style="grid-column:1/-1"><label class="form-label">Nombre Proveedor *</label><input type="text" id="cfProvNom" class="form-input"></div>
+      <div><label class="form-label">Total (€) *</label><input type="number" id="cfTotal" class="form-input" step="0.01"></div>
+      <div style="grid-column:1/-1"><label class="form-label">Observaciones</label><input type="text" id="cfObs" class="form-input"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button onclick="saveCompModal()" style="flex:1;padding:11px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Guardar</button>
+      <button onclick="closeCompModal()" style="padding:11px 20px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:14px;cursor:pointer;">Cancelar</button>
     </div>
   </div>
 </div>
@@ -642,6 +776,12 @@ let registros = [...SEED_DATA];
 let charts = {};
 let proveedores = [];
 try{ proveedores = JSON.parse(localStorage.getItem('op_proveedores')||'[]'); }catch(e){ proveedores=[]; }
+let compras = [];
+try{ compras = JSON.parse(localStorage.getItem('op_compras')||'[]'); }catch(e){ compras=[]; }
+let familias = [];
+try{ familias = JSON.parse(localStorage.getItem('op_familias')||'[]'); }catch(e){ familias=[]; }
+let ventasCaja = { porDia:[], porHora:[], porEmpleado:[], porTipoMov:[], meta:{} };
+try{ const vc=JSON.parse(localStorage.getItem('op_ventascaja')||'null'); if(vc) ventasCaja=vc; }catch(e){}
 
 // ═══════════════════════════════════════════════════════
 // SUPABASE — base de datos en la nube (sincronización real)
@@ -839,7 +979,7 @@ function doLogout() {
 // ═══════════════════════════════════════════════════════
 // NAV
 // ═══════════════════════════════════════════════════════
-const TITLES = { dashboard:'Dashboard', historico:'Histórico', alertas:'Alertas', entrada:'Volcado Diario', deuda:'Pool de Deuda', pagares:'Pagarés & Confirming', proveedores:'Pagos a Proveedores' };
+const TITLES = { dashboard:'Dashboard', historico:'Histórico', alertas:'Alertas', entrada:'Volcado Diario', deuda:'Pool de Deuda', pagares:'Pagarés & Confirming', proveedores:'Pagos a Proveedores', ventas:'Ventas (Caja)', compras:'Compras a Proveedores', familias:'Ventas por Familias' };
 function showView(id) {
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -850,6 +990,9 @@ function showView(id) {
   if(id==='alertas') renderAlertas();
   if(id==='pagares') renderPagares();
   if(id==='proveedores') renderProveedores();
+  if(id==='ventas') renderVentas();
+  if(id==='compras') renderCompras();
+  if(id==='familias') renderFamilias();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1725,6 +1868,471 @@ function importProveedoresPDF(input){
     s.onerror=()=>{alert('Error al cargar la librería PDF.');input.value='';};
     document.head.appendChild(s);
   } else { run(); }
+}
+
+// ═══════════════════════════════════════════════════════
+// VENTAS (CAJA) — agregados por día/hora/empleado/tipo al importar
+// ═══════════════════════════════════════════════════════
+function saveVentasCaja(){
+  try{ localStorage.setItem('op_ventascaja', JSON.stringify(ventasCaja)); }catch(e){}
+}
+
+function importVentasCajaExcel(input){
+  const file=input.files[0]; if(!file) return;
+  if((ventasCaja.porDia||[]).length && !confirm('Esto reemplazará los datos de Ventas (Caja) ya importados. ¿Continuar?')){
+    input.value=''; return;
+  }
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+
+      const porDiaMap={}, porHoraMap={}, porEmpMap={}, porTipoMap={}, porAlertaMap={};
+      let nFilas=0;
+
+      data.forEach(row=>{
+        const tienda=row[0];
+        if(tienda==='' || tienda==null) return;
+        const ingreso=parseFloat(row[4]);
+        if(isNaN(ingreso)) return;
+        const empleado=row[3], tipomov=row[6], descrtipo=row[7], tipcondes=row[12]||'';
+
+        const fechaRaw=row[1]; let fecha='';
+        if(fechaRaw instanceof Date) fecha=fechaRaw.toISOString().split('T')[0];
+        else if(typeof fechaRaw==='number') fecha=new Date(Math.round((fechaRaw-25569)*86400*1000)).toISOString().split('T')[0];
+        else if(typeof fechaRaw==='string' && fechaRaw) fecha=fechaRaw;
+        if(!fecha) return;
+
+        const horaRaw=row[2]; let hora='';
+        if(typeof horaRaw==='string' && horaRaw.includes(':')) hora=horaRaw.split(':')[0].padStart(2,'0');
+        else if(horaRaw instanceof Date) hora=String(horaRaw.getHours()).padStart(2,'0');
+        else if(typeof horaRaw==='number') hora=String(Math.floor((horaRaw%1)*24)).padStart(2,'0');
+
+        nFilas++;
+
+        const kd=tienda+'|'+fecha;
+        porDiaMap[kd]=porDiaMap[kd]||{tienda,fecha,total:0,n:0};
+        porDiaMap[kd].total+=ingreso; porDiaMap[kd].n++;
+
+        if(hora){
+          const kh=tienda+'|'+hora;
+          porHoraMap[kh]=porHoraMap[kh]||{tienda,hora,total:0,n:0};
+          porHoraMap[kh].total+=ingreso; porHoraMap[kh].n++;
+        }
+
+        const ke=tienda+'|'+empleado;
+        porEmpMap[ke]=porEmpMap[ke]||{tienda,empleado,total:0,n:0};
+        porEmpMap[ke].total+=ingreso; porEmpMap[ke].n++;
+
+        const kt=tienda+'|'+tipomov+'|'+tipcondes;
+        porTipoMap[kt]=porTipoMap[kt]||{tienda,tipomov,descrtipo,tipcondes,total:0,n:0};
+        porTipoMap[kt].total+=ingreso; porTipoMap[kt].n++;
+
+        if(ingreso===0 || ingreso<0){
+          const tipoAlerta = ingreso===0 ? 'cero' : 'negativo';
+          const ka=tienda+'|'+tipoAlerta;
+          porAlertaMap[ka]=porAlertaMap[ka]||{tienda,tipo:tipoAlerta,total:0,n:0};
+          porAlertaMap[ka].total+=ingreso; porAlertaMap[ka].n++;
+        }
+      });
+
+      if(nFilas===0){ alert('No se encontraron movimientos válidos en el archivo.'); input.value=''; return; }
+
+      ventasCaja = {
+        porDia: Object.values(porDiaMap).sort((a,b)=>a.fecha.localeCompare(b.fecha)),
+        porHora: Object.values(porHoraMap).sort((a,b)=>a.hora.localeCompare(b.hora)),
+        porEmpleado: Object.values(porEmpMap).sort((a,b)=>b.total-a.total),
+        porTipoMov: Object.values(porTipoMap).sort((a,b)=>b.total-a.total),
+        porAlerta: Object.values(porAlertaMap),
+        meta:{ importado:new Date().toISOString(), nFilas }
+      };
+      saveVentasCaja(); renderVentas();
+      alert(nFilas+' movimientos procesados desde Excel.');
+    }catch(err){ alert('Error al procesar el Excel: '+err.message); }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderVentas(){
+  const tiendas=[...new Set((ventasCaja.porDia||[]).map(d=>d.tienda))].sort();
+  const selT=document.getElementById('ventFiltroTienda');
+  if(selT && selT.options.length<=1) tiendas.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent='Tienda '+t; selT.appendChild(o); });
+  const tienda=selT?.value||'todas';
+
+  const filtT = arr => tienda==='todas' ? arr : arr.filter(x=>String(x.tienda)===tienda);
+  const porDia=filtT(ventasCaja.porDia||[]);
+  const porHora=filtT(ventasCaja.porHora||[]);
+  const porEmp=filtT(ventasCaja.porEmpleado||[]);
+  const porTipo=filtT(ventasCaja.porTipoMov||[]);
+  const porAlerta=filtT(ventasCaja.porAlerta||[]);
+
+  ['cVentDia','cVentHora'].forEach(destroyChart);
+
+  if(!porDia.length){
+    document.getElementById('ventKpis').innerHTML='';
+    document.getElementById('ventEmpTabla').innerHTML='<div class="empty-state"><div class="e-ico">🏪</div><h3>Sin datos</h3><p>Importa el Excel de Ventas (Caja) para ver el análisis.</p></div>';
+    return;
+  }
+
+  const totalMov = porTipo.reduce((s,t)=>s+t.n,0);
+  const totalIngreso = porDia.reduce((s,d)=>s+d.total,0);
+  const efectivo = porTipo.filter(t=>t.tipcondes==='Efectivo').reduce((s,t)=>s+t.total,0);
+  const tarjeta  = porTipo.filter(t=>t.tipcondes==='Tarjeta').reduce((s,t)=>s+t.total,0);
+  const ventasVta = porTipo.filter(t=>t.tipomov==='VTA').reduce((s,t)=>s+t.total,0);
+  const alertas = porAlerta.reduce((s,a)=>s+a.n,0);
+
+  document.getElementById('ventKpis').innerHTML = `
+    <div class="kpi"><div class="kpi-ico">🧾</div><div class="kpi-lbl">Total Movimientos</div><div class="kpi-val">${totalMov}</div><div class="kpi-sub">${fmt(totalIngreso)}</div></div>
+    <div class="kpi"><div class="kpi-ico">💵</div><div class="kpi-lbl">Efectivo</div><div class="kpi-val">${fmt(efectivo)}</div></div>
+    <div class="kpi"><div class="kpi-ico">💳</div><div class="kpi-lbl">Tarjeta</div><div class="kpi-val">${fmt(tarjeta)}</div></div>
+    <div class="kpi"><div class="kpi-ico">🛍️</div><div class="kpi-lbl">Ventas VTA</div><div class="kpi-val">${fmt(ventasVta)}</div></div>
+    <div class="kpi k-deuda"><div class="kpi-ico">⚠️</div><div class="kpi-lbl">Alertas a Revisar</div><div class="kpi-val">${alertas}</div><div class="kpi-sub">importes a 0 o negativos</div></div>
+  `;
+
+  const diaAgg={};
+  porDia.forEach(d=>{ diaAgg[d.fecha]=(diaAgg[d.fecha]||0)+d.total; });
+  const diasOrd=Object.keys(diaAgg).sort();
+  charts['cVentDia']=new Chart(document.getElementById('cVentDia'),{
+    type:'line',
+    data:{ labels:diasOrd, datasets:[{ label:'Ingreso', data:diasOrd.map(d=>diaAgg[d]), borderColor:'#1A5C1A', backgroundColor:'rgba(26,92,26,0.1)', fill:true, tension:0.3 }] },
+    options:{ responsive:true, plugins:{ legend:{display:false} }, scales:{ y:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}} } }
+  });
+
+  const horaAgg={};
+  porHora.forEach(h=>{ horaAgg[h.hora]=(horaAgg[h.hora]||0)+h.n; });
+  const horasOrd=Object.keys(horaAgg).sort();
+  charts['cVentHora']=new Chart(document.getElementById('cVentHora'),{
+    type:'bar',
+    data:{ labels:horasOrd.map(h=>h+'h'), datasets:[{ label:'Movimientos', data:horasOrd.map(h=>horaAgg[h]), backgroundColor:'rgba(141,196,30,0.7)', borderColor:'#8DC41E', borderWidth:1.5, borderRadius:4 }] },
+    options:{ responsive:true, plugins:{ legend:{display:false} } }
+  });
+
+  const empAgg={};
+  porEmp.forEach(e=>{ empAgg[e.empleado]=empAgg[e.empleado]||{total:0,n:0}; empAgg[e.empleado].total+=e.total; empAgg[e.empleado].n+=e.n; });
+  const empOrd=Object.entries(empAgg).sort((a,b)=>b[1].total-a[1].total);
+
+  document.getElementById('ventEmpTabla').innerHTML = `
+    <div style="overflow-x:auto;">
+    <table class="tabla">
+      <thead><tr><th>Empleado</th><th style="text-align:right;">Movimientos</th><th style="text-align:right;">Total</th></tr></thead>
+      <tbody>
+        ${empOrd.map(([emp,v])=>`<tr>
+          <td style="font-weight:500;">${emp}</td>
+          <td style="text-align:right;">${v.n}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(v.total)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// COMPRAS A PROVEEDORES
+// ═══════════════════════════════════════════════════════
+function saveCompras(){
+  try{ localStorage.setItem('op_compras', JSON.stringify(compras)); }catch(e){}
+}
+
+function importComprasExcel(input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+
+      const existing=new Set(compras.map(c=>c.npedido));
+      const nuevos=[];
+      data.forEach((row,idx)=>{
+        const npedido=row[0];
+        if(typeof npedido!=='number') return;
+        if(existing.has(npedido)) return;
+
+        const fechaRaw=row[1]; let fecha='';
+        if(fechaRaw instanceof Date) fecha=fechaRaw.toISOString().split('T')[0];
+        else if(typeof fechaRaw==='number') fecha=new Date(Math.round((fechaRaw-25569)*86400*1000)).toISOString().split('T')[0];
+        else if(typeof fechaRaw==='string') fecha=fechaRaw;
+
+        const almacen=String(row[2]||'').trim();
+        const provRaw=String(row[3]||'').trim();
+        let provCod='', provNom=provRaw;
+        const dashIdx=provRaw.indexOf('-');
+        if(dashIdx>-1){ provCod=provRaw.slice(0,dashIdx).trim(); provNom=provRaw.slice(dashIdx+1).trim(); }
+
+        const total=row[4];
+        if(typeof total!=='number') return;
+        const obs=String(row[5]||'').trim();
+
+        existing.add(npedido);
+        nuevos.push({ id:Date.now()+idx, npedido, fecha, almacen, provCod, provNom, total, obs, recibido:false });
+      });
+
+      if(!nuevos.length){ alert('No se encontraron pedidos nuevos para importar.'); input.value=''; return; }
+
+      compras = compras.concat(nuevos);
+      saveCompras(); renderCompras();
+      alert(nuevos.length+' pedidos importados desde Excel.');
+    }catch(err){ alert('Error al procesar el Excel: '+err.message); }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderCompras(){
+  const almacenes=[...new Set(compras.map(c=>c.almacen).filter(Boolean))].sort();
+  const selA=document.getElementById('compFiltroAlmacen');
+  if(selA && selA.options.length<=1) almacenes.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; selA.appendChild(o); });
+
+  const texto=(document.getElementById('compFiltroTexto')?.value||'').toLowerCase().trim();
+  const almacen=selA?.value||'todos';
+  const estado=document.getElementById('compFiltroEstado')?.value||'todos';
+
+  let f=compras.filter(c=>{
+    if(texto && !c.provNom.toLowerCase().includes(texto) && !String(c.npedido).includes(texto)) return false;
+    if(almacen!=='todos' && c.almacen!==almacen) return false;
+    if(estado==='pendiente' && c.recibido) return false;
+    if(estado==='recibido' && !c.recibido) return false;
+    return true;
+  }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+
+  const totalComprometido=f.reduce((s,c)=>s+c.total,0);
+  const pendientes=f.filter(c=>!c.recibido);
+  const totalPendiente=pendientes.reduce((s,c)=>s+c.total,0);
+
+  document.getElementById('compKpis').innerHTML = `
+    <div class="kpi"><div class="kpi-ico">🛒</div><div class="kpi-lbl">Total Comprometido</div><div class="kpi-val">${fmt(totalComprometido)}</div><div class="kpi-sub">${f.length} pedidos</div></div>
+    <div class="kpi k-deuda"><div class="kpi-ico">⏳</div><div class="kpi-lbl">Pendientes</div><div class="kpi-val">${fmt(totalPendiente)}</div><div class="kpi-sub">${pendientes.length} pedidos</div></div>
+  `;
+
+  destroyChart('cCompProv');
+
+  if(!f.length){
+    document.getElementById('compTabla').innerHTML='<div class="empty-state"><div class="e-ico">🛒</div><h3>Sin compras</h3><p>Añade pedidos manualmente o importa desde Excel.</p></div>';
+    return;
+  }
+
+  const byProv={};
+  f.forEach(c=>{ byProv[c.provNom]=(byProv[c.provNom]||0)+c.total; });
+  const topProv=Object.entries(byProv).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  charts['cCompProv']=new Chart(document.getElementById('cCompProv'),{
+    type:'bar',
+    data:{ labels:topProv.map(p=>p[0]), datasets:[{ label:'Total', data:topProv.map(p=>p[1]), backgroundColor:'rgba(26,60,143,0.7)', borderColor:'#1a3c8f', borderWidth:1.5, borderRadius:4 }] },
+    options:{ indexAxis:'y', responsive:true, plugins:{ legend:{display:false} }, scales:{ x:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}} } }
+  });
+
+  document.getElementById('compTabla').innerHTML = `
+    <div style="overflow-x:auto;">
+    <table class="tabla">
+      <thead><tr><th>Fecha</th><th>Nº Pedido</th><th>Almacén</th><th>Proveedor</th><th style="text-align:right;">Total</th><th>Estado</th><th></th></tr></thead>
+      <tbody>
+        ${f.map(c=>`<tr>
+          <td style="white-space:nowrap;">${c.fecha||'—'}</td>
+          <td style="font-size:12px;">${c.npedido}</td>
+          <td style="font-size:12px;">${c.almacen||'—'}</td>
+          <td style="font-weight:500;">${c.provNom}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:${c.total<0?'var(--rojo)':'var(--texto)'};">${fmt(c.total)}</td>
+          <td><span onclick="toggleCompraRecibido('${c.id}')" style="cursor:pointer;font-size:11px;padding:2px 7px;border-radius:4px;background:${c.recibido?'#E8F5E9':'#FFF3CD'};color:${c.recibido?'#1B5E20':'#7B5800'};font-weight:600;">${c.recibido?'Recibido':'Pendiente'}</span></td>
+          <td><button onclick="deleteCompra('${c.id}')" style="background:none;border:none;color:var(--rojo);cursor:pointer;font-size:15px;padding:2px 6px;" title="Eliminar">🗑</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
+    <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
+      ${f.length} pedidos · Total: <strong style="color:var(--azul);">${fmt(totalComprometido)}</strong>
+    </div>`;
+}
+
+function toggleCompraRecibido(id){
+  const c=compras.find(x=>String(x.id)===String(id));
+  if(c){ c.recibido=!c.recibido; saveCompras(); renderCompras(); }
+}
+
+function deleteCompra(id){
+  if(!confirm('¿Eliminar esta compra?')) return;
+  compras = compras.filter(c=>String(c.id)!==String(id));
+  saveCompras(); renderCompras();
+}
+
+function limpiarFiltrosComp(){
+  document.getElementById('compFiltroTexto').value='';
+  document.getElementById('compFiltroAlmacen').value='todos';
+  document.getElementById('compFiltroEstado').value='todos';
+  renderCompras();
+}
+
+function showCompModal(){
+  document.getElementById('cfFecha').value=new Date().toISOString().split('T')[0];
+  ['cfNpedido','cfAlmacen','cfProvCod','cfProvNom','cfTotal','cfObs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('compModal').style.display='flex';
+}
+function closeCompModal(){ document.getElementById('compModal').style.display='none'; }
+function saveCompModal(){
+  const provNom=document.getElementById('cfProvNom').value.trim();
+  const fecha=document.getElementById('cfFecha').value;
+  const npedido=document.getElementById('cfNpedido').value.trim();
+  const total=parseFloat(document.getElementById('cfTotal').value);
+  if(!provNom||!fecha||!npedido||isNaN(total)){ alert('Completa: Fecha, Nº Pedido, Proveedor e Total.'); return; }
+  compras.push({
+    id:Date.now(),
+    npedido: isNaN(Number(npedido)) ? npedido : Number(npedido),
+    fecha,
+    almacen:document.getElementById('cfAlmacen').value.trim(),
+    provCod:document.getElementById('cfProvCod').value.trim(),
+    provNom,
+    total,
+    obs:document.getElementById('cfObs').value.trim(),
+    recibido:false
+  });
+  saveCompras(); closeCompModal(); renderCompras();
+}
+
+// ═══════════════════════════════════════════════════════
+// VENTAS POR FAMILIAS
+// ═══════════════════════════════════════════════════════
+function saveFamilias(){
+  try{ localStorage.setItem('op_familias', JSON.stringify(familias)); }catch(e){}
+}
+
+function importFamiliasExcel(input){
+  const file=input.files[0]; if(!file) return;
+  if(familias.length && !confirm('Esto reemplazará los datos de Ventas por Familias ya importados. ¿Continuar?')){
+    input.value=''; return;
+  }
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+
+      const catMap={}, famMap={};
+      data.forEach(row=>{
+        if(typeof row[0]!=='string') return;
+        const m=row[0].trim().match(/^(\d+)\s+(.*)$/);
+        if(!m) return;
+        const code=m[1], name=m[2].trim();
+        if(code.length===2) catMap[code]=name;
+        else if(code.length===3 || code.length===4) famMap[code]=name;
+      });
+
+      const seen=new Set();
+      const registros=[];
+      data.forEach(row=>{
+        const code=row[0];
+        if(typeof code!=='number' || code<100) return;
+        const yr=row[1];
+        if(typeof yr!=='number') return;
+        const codeStr=String(Math.round(code));
+        const key=codeStr+'|'+yr;
+        if(seen.has(key)) return;
+        seen.add(key);
+        const total=row[14];
+        if(typeof total!=='number') return;
+        const catCode=codeStr.slice(0,2);
+        registros.push({
+          id:Date.now()+registros.length,
+          codigo:codeStr,
+          nombre: famMap[codeStr] || ('Familia '+codeStr),
+          catCodigo:catCode,
+          catNombre: catMap[catCode] || ('Categoría '+catCode),
+          anio: 2000+Math.round(yr),
+          meses: row.slice(2,14).map(v=>typeof v==='number'?v:0),
+          total
+        });
+      });
+
+      if(!registros.length){ alert('No se encontraron registros de familias en el archivo.'); input.value=''; return; }
+
+      familias = registros;
+      saveFamilias(); renderFamilias();
+      alert(registros.length+' registros de familias importados desde Excel.');
+    }catch(err){ alert('Error al procesar el Excel: '+err.message); }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderFamilias(){
+  const anios=[...new Set(familias.map(f=>f.anio))].sort();
+  const cats=[...new Map(familias.map(f=>[f.catCodigo,f.catNombre])).entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+
+  const selA=document.getElementById('famFiltroAnio');
+  if(selA && selA.options.length<=1) anios.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; selA.appendChild(o); });
+  const selC=document.getElementById('famFiltroCategoria');
+  if(selC && selC.options.length<=1) cats.forEach(([code,name])=>{ const o=document.createElement('option'); o.value=code; o.textContent=code+' - '+name; selC.appendChild(o); });
+
+  const anio=selA?.value||'todos';
+  const catFiltro=selC?.value||'todas';
+  const texto=(document.getElementById('famFiltroTexto')?.value||'').toLowerCase().trim();
+
+  let f=familias.filter(x=>{
+    if(anio!=='todos' && String(x.anio)!==anio) return false;
+    if(catFiltro!=='todas' && x.catCodigo!==catFiltro) return false;
+    if(texto && !x.nombre.toLowerCase().includes(texto) && !String(x.codigo).includes(texto)) return false;
+    return true;
+  }).sort((a,b)=>b.total-a.total);
+
+  const totalVentas=f.reduce((s,x)=>s+x.total,0);
+  const nFamilias=new Set(f.map(x=>x.codigo)).size;
+  const topCat = (()=>{ const m={}; f.forEach(x=>{ m[x.catNombre]=(m[x.catNombre]||0)+x.total; }); const e=Object.entries(m).sort((a,b)=>b[1]-a[1])[0]; return e?e[0]:'—'; })();
+
+  document.getElementById('famKpis').innerHTML = `
+    <div class="kpi"><div class="kpi-ico">📦</div><div class="kpi-lbl">Total Ventas</div><div class="kpi-val">${fmt(totalVentas)}</div><div class="kpi-sub">${f.length} registros</div></div>
+    <div class="kpi"><div class="kpi-ico">🔢</div><div class="kpi-lbl">Familias Activas</div><div class="kpi-val">${nFamilias}</div></div>
+    <div class="kpi"><div class="kpi-ico">🏆</div><div class="kpi-lbl">Mejor Categoría</div><div class="kpi-val" style="font-size:14px;">${topCat}</div></div>
+  `;
+
+  ['cFamCat','cFamAnio'].forEach(destroyChart);
+
+  if(!f.length){
+    document.getElementById('famTabla').innerHTML='<div class="empty-state"><div class="e-ico">📦</div><h3>Sin datos</h3><p>Importa el Excel de Ventas por Familias para ver el análisis.</p></div>';
+    return;
+  }
+
+  const byCat={};
+  f.forEach(x=>{ byCat[x.catNombre]=(byCat[x.catNombre]||0)+x.total; });
+  const topCats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  charts['cFamCat']=new Chart(document.getElementById('cFamCat'),{
+    type:'bar',
+    data:{ labels:topCats.map(c=>c[0]), datasets:[{ label:'Total', data:topCats.map(c=>c[1]), backgroundColor:'rgba(141,196,30,0.7)', borderColor:'#8DC41E', borderWidth:1.5, borderRadius:4 }] },
+    options:{ indexAxis:'y', responsive:true, plugins:{ legend:{display:false} }, scales:{ x:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}} } }
+  });
+
+  const byAnio={};
+  f.forEach(x=>{ byAnio[x.anio]=(byAnio[x.anio]||0)+x.total; });
+  const aniosOrd=Object.keys(byAnio).sort();
+  charts['cFamAnio']=new Chart(document.getElementById('cFamAnio'),{
+    type:'bar',
+    data:{ labels:aniosOrd, datasets:[{ label:'Total', data:aniosOrd.map(a=>byAnio[a]), backgroundColor:'rgba(26,92,26,0.7)', borderColor:'#1A5C1A', borderWidth:1.5, borderRadius:4 }] },
+    options:{ responsive:true, plugins:{ legend:{display:false} }, scales:{ y:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}} } }
+  });
+
+  document.getElementById('famTabla').innerHTML = `
+    <div style="overflow-x:auto;">
+    <table class="tabla">
+      <thead><tr><th>Código</th><th>Familia</th><th>Categoría</th><th>Año</th><th style="text-align:right;">Total</th></tr></thead>
+      <tbody>
+        ${f.slice(0,300).map(x=>`<tr>
+          <td style="font-size:12px;">${x.codigo}</td>
+          <td style="font-weight:500;">${x.nombre}</td>
+          <td style="font-size:12px;color:var(--texto2);">${x.catNombre}</td>
+          <td>${x.anio}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(x.total)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
+    <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
+      Mostrando ${Math.min(f.length,300)} de ${f.length} registros · Total: <strong style="color:var(--azul);">${fmt(totalVentas)}</strong>
+    </div>`;
+}
+
+function limpiarFiltrosFam(){
+  document.getElementById('famFiltroAnio').value='todos';
+  document.getElementById('famFiltroCategoria').value='todas';
+  document.getElementById('famFiltroTexto').value='';
+  renderFamilias();
 }
 
 // Service Worker (PWA installable)
