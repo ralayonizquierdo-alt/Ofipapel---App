@@ -369,7 +369,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.9 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.10 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -1062,10 +1062,10 @@ function handleAppSyncChange(payload){
 async function loadAllSharedDatasets(){
   if(!supaReady) return;
   try{
-    const { data: rows, error } = await supaClient.from('app_sync').select('id,payload');
+    const { data: rows, error } = await supaClient.from('app_sync').select('id,payload,updated_at');
     if(error || !rows) return;
     const existing = {};
-    rows.forEach(r=>{ existing[r.id]=true; applyCloudDataset(r.id, r.payload); });
+    rows.forEach(r=>{ existing[r.id]=true; applyCloudDataset(r.id, r.payload); _sharedSyncTimestamps[r.id]=r.updated_at; });
     // Si el dataset no existe aún en la nube pero hay datos locales, los subimos para iniciar la sincronización
     if(!existing.proveedores && proveedores.length) syncDatasetToCloud('proveedores', proveedores);
     if(!existing.compras && compras.length) syncDatasetToCloud('compras', compras);
@@ -1077,6 +1077,37 @@ async function loadAllSharedDatasets(){
     if(!existing.ventasclientes && ventasClientes.length) syncDatasetToCloud('ventasclientes', ventasClientes);
     if(!existing.comprasanual && comprasAnual.length) syncDatasetToCloud('comprasanual', comprasAnual);
   } catch(e){ console.warn('Error cargando datasets compartidos:', e); }
+}
+
+// ═══════════════════════════════════════════════════════
+// SONDEO DE RESPALDO — por si el proyecto de Supabase no tiene
+// la tabla app_sync añadida a la publicación de Realtime, los
+// cambios de otros usuarios igualmente llegan en unos segundos.
+// ═══════════════════════════════════════════════════════
+const _sharedSyncTimestamps = {};
+let _sharedSyncInterval = null;
+
+async function pollSharedDatasets(){
+  if(!supaReady) return;
+  try{
+    const { data: rows, error } = await supaClient.from('app_sync').select('id,payload,updated_at');
+    if(error || !rows) return;
+    rows.forEach(r=>{
+      if(_sharedSyncTimestamps[r.id] === r.updated_at) return;
+      _sharedSyncTimestamps[r.id] = r.updated_at;
+      applyCloudDataset(r.id, r.payload);
+      showToast('🔄 Datos actualizados por otro usuario','ok');
+    });
+  } catch(e){}
+}
+
+function startSharedDatasetsPolling(){
+  if(_sharedSyncInterval) return;
+  _sharedSyncInterval = setInterval(pollSharedDatasets, 15000);
+}
+
+function stopSharedDatasetsPolling(){
+  if(_sharedSyncInterval){ clearInterval(_sharedSyncInterval); _sharedSyncInterval=null; }
 }
 
 function updateSyncStatus(){
@@ -1188,7 +1219,7 @@ function doLogin() {
     applyAccessControl();
     updateStorageStatus();
     // Init cloud sync
-    initSupabase().then(() => { loadFromCloud(); loadAllSharedDatasets(); });
+    initSupabase().then(() => { loadFromCloud(); loadAllSharedDatasets(); startSharedDatasetsPolling(); });
     document.getElementById('topbarDate').textContent = new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     document.getElementById('entradaFecha').value = new Date().toISOString().split('T')[0];
     renderDashboard();
@@ -1203,6 +1234,7 @@ document.addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
 function doLogout() {
   currentUser=null;
+  stopSharedDatasetsPolling();
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('app').style.display='none';
   document.getElementById('loginUser').value='';
