@@ -134,6 +134,13 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
 .view {display:none;}
 .view.active {display:block;}
 
+/* ═══════════════════════════════════ SUB-TABS ═══ */
+.subtabs {display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+.subtab-btn {padding:8px 14px;background:var(--card);border:1px solid var(--borde);border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--texto2);}
+.subtab-btn.active {background:var(--azul);color:#fff;border-color:var(--azul);}
+.subtab-panel {display:none;}
+.subtab-panel.active {display:block;}
+
 /* ═══════════════════════════════════ KPIs ═══ */
 .kpi-grid {display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:24px;}
 .kpi {
@@ -362,7 +369,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.8 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.9 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -575,71 +582,190 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
       </div>
 
       <div class="view" id="v-ventas">
-        <div class="page-header"><h1 class="page-title">🏪 Ventas (Caja)</h1></div>
+        <div class="page-header"><h1 class="page-title">🏪 Ventas</h1></div>
         <div class="page-body">
-          <div id="ventKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
-          <div class="card" style="margin-bottom:16px;padding:16px;">
-            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
-              <div>
-                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Tienda</div>
-                <select id="ventFiltroTienda" onchange="renderVentas()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
-                  <option value="todas">Todas</option>
-                </select>
+          <div class="subtabs">
+            <button class="subtab-btn active" data-vt="caja" onclick="showVentasTab('caja')">🏪 Caja</button>
+            <button class="subtab-btn" data-vt="anual" onclick="showVentasTab('anual')">📅 Anual</button>
+            <button class="subtab-btn" data-vt="vendedores" onclick="showVentasTab('vendedores')">🧑‍💼 Vendedores</button>
+            <button class="subtab-btn" data-vt="tiendas" onclick="showVentasTab('tiendas')">🏬 Tiendas</button>
+            <button class="subtab-btn" data-vt="clientes" onclick="showVentasTab('clientes')">👥 Clientes</button>
+          </div>
+
+          <div class="subtab-panel active" id="vt-caja">
+            <div id="ventKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Tienda</div>
+                  <select id="ventFiltroTienda" onchange="renderVentas()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todas">Todas</option>
+                  </select>
+                </div>
+                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventExcelInput" style="display:none" onchange="importVentasCajaExcel(this)"></label>
               </div>
-              <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventExcelInput" style="display:none" onchange="importVentasCajaExcel(this)"></label>
             </div>
+            <div class="chart-row-2" style="margin-bottom:16px;">
+              <div class="chart-card">
+                <div class="chart-ttl">Evolución por Día</div>
+                <div class="chart-desc">Ingresos diarios de caja</div>
+                <canvas id="cVentDia" height="220"></canvas>
+              </div>
+              <div class="chart-card">
+                <div class="chart-ttl">Distribución por Hora</div>
+                <div class="chart-desc">Volumen de movimientos por franja horaria</div>
+                <canvas id="cVentHora" height="220"></canvas>
+              </div>
+            </div>
+            <div class="card" id="ventEmpTabla" style="padding:0;overflow:hidden;"></div>
           </div>
-          <div class="chart-row-2" style="margin-bottom:16px;">
-            <div class="chart-card">
-              <div class="chart-ttl">Evolución por Día</div>
-              <div class="chart-desc">Ingresos diarios de caja</div>
-              <canvas id="cVentDia" height="220"></canvas>
+
+          <div class="subtab-panel" id="vt-anual">
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Vista</div>
+                  <select id="ventAnualTipo" onchange="renderVentasAnual()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="conIgic">Con IGIC</option>
+                    <option value="sinIgic">Sin IGIC</option>
+                  </select>
+                </div>
+                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel Con IGIC<input type="file" accept=".xlsx,.xls" id="ventAnualConInput" style="display:none" onchange="importVentasAnualExcel(this,'conIgic')"></label>
+                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel Sin IGIC<input type="file" accept=".xlsx,.xls" id="ventAnualSinInput" style="display:none" onchange="importVentasAnualExcel(this,'sinIgic')"></label>
+              </div>
             </div>
-            <div class="chart-card">
-              <div class="chart-ttl">Distribución por Hora</div>
-              <div class="chart-desc">Volumen de movimientos por franja horaria</div>
-              <canvas id="cVentHora" height="220"></canvas>
+            <div id="ventAnualKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+            <div class="chart-card" style="margin-bottom:16px;">
+              <div class="chart-ttl">Evolución de Ventas Anuales</div>
+              <div class="chart-desc">Total facturado por año</div>
+              <canvas id="cVentAnual" height="200"></canvas>
             </div>
+            <div class="card" id="ventAnualTabla" style="padding:0;overflow:hidden;"></div>
           </div>
-          <div class="card" id="ventEmpTabla" style="padding:0;overflow:hidden;"></div>
+
+          <div class="subtab-panel" id="vt-vendedores">
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div style="flex:2;min-width:200px;">
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Vendedor</div>
+                  <select id="ventVendSelect" onchange="renderVentasVendedorDetalle()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="">— Ranking general —</option>
+                  </select>
+                </div>
+                <button id="ventVendInformeBtn" onclick="imprimirInformeVendedor()" style="display:none;padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🖨️ Informe individual</button>
+                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventVendExcelInput" style="display:none" onchange="importVentasVendedoresExcel(this)"></label>
+              </div>
+            </div>
+            <div id="ventVendKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+            <div class="chart-card" style="margin-bottom:16px;">
+              <div class="chart-ttl" id="ventVendChartTtl">Ranking de Vendedores</div>
+              <canvas id="cVentVend" height="220"></canvas>
+            </div>
+            <div class="card" id="ventVendTabla" style="padding:0;overflow:hidden;"></div>
+          </div>
+
+          <div class="subtab-panel" id="vt-tiendas">
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Grupo</div>
+                  <select id="ventTiendaGrupo" onchange="renderVentasTiendas()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                    <option value="OFIPAPEL">Ofipapel</option>
+                    <option value="ALIZ-1">Aliz-1</option>
+                    <option value="ALIZ-2">Aliz-2</option>
+                  </select>
+                </div>
+                <div style="flex:2;min-width:180px;">
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Tienda</div>
+                  <select id="ventTiendaSelect" onchange="renderVentasTiendaDetalle()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="">— Ranking general —</option>
+                  </select>
+                </div>
+                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventTiendaExcelInput" style="display:none" onchange="importVentasTiendasExcel(this)"></label>
+              </div>
+              <div style="font-size:11px;color:var(--texto2);margin-top:8px;">⚠️ Los terminales 41, 43, 60 y 68 no se contabilizan en los totales (uso interno).</div>
+            </div>
+            <div id="ventTiendaKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+            <div class="chart-card" style="margin-bottom:16px;">
+              <div class="chart-ttl" id="ventTiendaChartTtl">Ranking de Tiendas</div>
+              <canvas id="cVentTienda" height="220"></canvas>
+            </div>
+            <div class="card" id="ventTiendaTabla" style="padding:0;overflow:hidden;"></div>
+          </div>
+
+          <div class="subtab-panel" id="vt-clientes">
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div style="flex:2;min-width:200px;">
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Buscar Cliente</div>
+                  <input type="text" id="ventClienteFiltro" placeholder="Nombre o código..." oninput="renderVentasClientes()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                </div>
+                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventClienteExcelInput" style="display:none" onchange="importVentasClientesExcel(this)"></label>
+              </div>
+            </div>
+            <div id="ventClienteKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+            <div class="card" id="ventClienteTabla" style="padding:0;overflow:hidden;"></div>
+          </div>
         </div>
       </div>
 
       <div class="view" id="v-compras">
-        <div class="page-header"><h1 class="page-title">🛒 Compras a Proveedores</h1></div>
+        <div class="page-header"><h1 class="page-title">🛒 Compras</h1></div>
         <div class="page-body">
-          <div id="compKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
-          <div class="card" style="margin-bottom:16px;padding:16px;">
-            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
-              <div style="flex:2;min-width:150px;">
-                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Proveedor / Nº Pedido</div>
-                <input type="text" id="compFiltroTexto" placeholder="Buscar..." oninput="renderCompras()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+          <div class="subtabs">
+            <button class="subtab-btn active" data-ct="pedidos" onclick="showComprasTab('pedidos')">🛒 Pedidos</button>
+            <button class="subtab-btn" data-ct="anual" onclick="showComprasTab('anual')">📅 Histórico Anual</button>
+          </div>
+
+          <div class="subtab-panel active" id="ct-pedidos">
+            <div id="compKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div style="flex:2;min-width:150px;">
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Proveedor / Nº Pedido</div>
+                  <input type="text" id="compFiltroTexto" placeholder="Buscar..." oninput="renderCompras()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Almacén</div>
+                  <select id="compFiltroAlmacen" onchange="renderCompras()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Estado</div>
+                  <select id="compFiltroEstado" onchange="renderCompras()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="recibido">Recibido</option>
+                  </select>
+                </div>
+                <button onclick="limpiarFiltrosComp()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
+                <button onclick="showCompModal()" style="padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">+ Añadir</button>
+                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="compExcelInput" style="display:none" onchange="importComprasExcel(this)"></label>
               </div>
-              <div>
-                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Almacén</div>
-                <select id="compFiltroAlmacen" onchange="renderCompras()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
-                  <option value="todos">Todos</option>
-                </select>
-              </div>
-              <div>
-                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Estado</div>
-                <select id="compFiltroEstado" onchange="renderCompras()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
-                  <option value="todos">Todos</option>
-                  <option value="pendiente">Pendiente</option>
-                  <option value="recibido">Recibido</option>
-                </select>
-              </div>
-              <button onclick="limpiarFiltrosComp()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
-              <button onclick="showCompModal()" style="padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">+ Añadir</button>
-              <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="compExcelInput" style="display:none" onchange="importComprasExcel(this)"></label>
             </div>
+            <div class="chart-card" style="margin-bottom:16px;">
+              <div class="chart-ttl">Top Proveedores</div>
+              <div class="chart-desc">Importe comprometido por proveedor</div>
+              <canvas id="cCompProv" height="180"></canvas>
+            </div>
+            <div class="card" id="compTabla" style="padding:0;overflow:hidden;"></div>
           </div>
-          <div class="chart-card" style="margin-bottom:16px;">
-            <div class="chart-ttl">Top Proveedores</div>
-            <div class="chart-desc">Importe comprometido por proveedor</div>
-            <canvas id="cCompProv" height="180"></canvas>
+
+          <div class="subtab-panel" id="ct-anual">
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="compAnualExcelInput" style="display:none" onchange="importComprasAnualExcel(this)"></label>
+              </div>
+            </div>
+            <div id="compAnualKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+            <div class="chart-card" style="margin-bottom:16px;">
+              <div class="chart-ttl">Evolución de Compras Anuales</div>
+              <canvas id="cCompAnual" height="200"></canvas>
+            </div>
+            <div class="card" id="compAnualTabla" style="padding:0;overflow:hidden;"></div>
           </div>
-          <div class="card" id="compTabla" style="padding:0;overflow:hidden;"></div>
         </div>
       </div>
 
@@ -786,6 +912,16 @@ let familias = [];
 try{ familias = JSON.parse(localStorage.getItem('op_familias')||'[]'); }catch(e){ familias=[]; }
 let ventasCaja = { porDia:[], porHora:[], porEmpleado:[], porTipoMov:[], meta:{} };
 try{ const vc=JSON.parse(localStorage.getItem('op_ventascaja')||'null'); if(vc) ventasCaja=vc; }catch(e){}
+let ventasAnual = { conIgic:[], sinIgic:[] };
+try{ const va=JSON.parse(localStorage.getItem('op_ventasanual')||'null'); if(va) ventasAnual=va; }catch(e){}
+let ventasVendedores = [];
+try{ ventasVendedores = JSON.parse(localStorage.getItem('op_ventasvendedores')||'[]'); }catch(e){ ventasVendedores=[]; }
+let ventasTiendas = [];
+try{ ventasTiendas = JSON.parse(localStorage.getItem('op_ventastiendas')||'[]'); }catch(e){ ventasTiendas=[]; }
+let ventasClientes = [];
+try{ ventasClientes = JSON.parse(localStorage.getItem('op_ventasclientes')||'[]'); }catch(e){ ventasClientes=[]; }
+let comprasAnual = [];
+try{ comprasAnual = JSON.parse(localStorage.getItem('op_comprasanual')||'[]'); }catch(e){ comprasAnual=[]; }
 
 // ═══════════════════════════════════════════════════════
 // SUPABASE — base de datos en la nube (sincronización real)
@@ -892,6 +1028,26 @@ function applyCloudDataset(key, payload){
     ventasCaja = payload;
     try{ localStorage.setItem('op_ventascaja', JSON.stringify(ventasCaja)); }catch(e){}
     renderVentas();
+  } else if(key==='ventasanual'){
+    ventasAnual = payload;
+    try{ localStorage.setItem('op_ventasanual', JSON.stringify(ventasAnual)); }catch(e){}
+    renderVentasAnual();
+  } else if(key==='ventasvendedores'){
+    ventasVendedores = payload;
+    try{ localStorage.setItem('op_ventasvendedores', JSON.stringify(ventasVendedores)); }catch(e){}
+    renderVentasVendedores();
+  } else if(key==='ventastiendas'){
+    ventasTiendas = payload;
+    try{ localStorage.setItem('op_ventastiendas', JSON.stringify(ventasTiendas)); }catch(e){}
+    renderVentasTiendas();
+  } else if(key==='ventasclientes'){
+    ventasClientes = payload;
+    try{ localStorage.setItem('op_ventasclientes', JSON.stringify(ventasClientes)); }catch(e){}
+    renderVentasClientes();
+  } else if(key==='comprasanual'){
+    comprasAnual = payload;
+    try{ localStorage.setItem('op_comprasanual', JSON.stringify(comprasAnual)); }catch(e){}
+    renderComprasAnual();
   }
 }
 
@@ -915,6 +1071,11 @@ async function loadAllSharedDatasets(){
     if(!existing.compras && compras.length) syncDatasetToCloud('compras', compras);
     if(!existing.familias && familias.length) syncDatasetToCloud('familias', familias);
     if(!existing.ventascaja && (ventasCaja.porDia||[]).length) syncDatasetToCloud('ventascaja', ventasCaja);
+    if(!existing.ventasanual && (ventasAnual.conIgic.length||ventasAnual.sinIgic.length)) syncDatasetToCloud('ventasanual', ventasAnual);
+    if(!existing.ventasvendedores && ventasVendedores.length) syncDatasetToCloud('ventasvendedores', ventasVendedores);
+    if(!existing.ventastiendas && ventasTiendas.length) syncDatasetToCloud('ventastiendas', ventasTiendas);
+    if(!existing.ventasclientes && ventasClientes.length) syncDatasetToCloud('ventasclientes', ventasClientes);
+    if(!existing.comprasanual && comprasAnual.length) syncDatasetToCloud('comprasanual', comprasAnual);
   } catch(e){ console.warn('Error cargando datasets compartidos:', e); }
 }
 
@@ -1066,9 +1227,28 @@ function showView(id) {
   if(id==='alertas') renderAlertas();
   if(id==='pagares') renderPagares();
   if(id==='proveedores') renderProveedores();
-  if(id==='ventas') renderVentas();
-  if(id==='compras') renderCompras();
+  if(id==='ventas') showVentasTab(document.querySelector('#v-ventas .subtab-btn.active')?.dataset.vt||'caja');
+  if(id==='compras') showComprasTab(document.querySelector('#v-compras .subtab-btn.active')?.dataset.ct||'pedidos');
   if(id==='familias') renderFamilias();
+}
+
+function showVentasTab(tab){
+  document.querySelectorAll('#v-ventas .subtab-btn').forEach(b=>b.classList.toggle('active', b.dataset.vt===tab));
+  document.querySelectorAll('#v-ventas .subtab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('vt-'+tab).classList.add('active');
+  if(tab==='caja') renderVentas();
+  else if(tab==='anual') renderVentasAnual();
+  else if(tab==='vendedores') renderVentasVendedores();
+  else if(tab==='tiendas') renderVentasTiendas();
+  else if(tab==='clientes') renderVentasClientes();
+}
+
+function showComprasTab(tab){
+  document.querySelectorAll('#v-compras .subtab-btn').forEach(b=>b.classList.toggle('active', b.dataset.ct===tab));
+  document.querySelectorAll('#v-compras .subtab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('ct-'+tab).classList.add('active');
+  if(tab==='pedidos') renderCompras();
+  else if(tab==='anual') renderComprasAnual();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1958,6 +2138,97 @@ function importProveedoresPDF(input){
 }
 
 // ═══════════════════════════════════════════════════════
+// ANALÍTICAS ANUALES — helpers compartidos por Ventas Anual,
+// Vendedores, Tiendas y Compras Anual (matriz año × mes)
+// ═══════════════════════════════════════════════════════
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const MESES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const TIENDAS_EXCLUIDAS = [41,43,60,68];
+
+function tiendaGrupo(codigo){
+  if(codigo==='AA') return 'ALIZ-2';
+  if(codigo==='A1'||codigo==='A2'||codigo==='A3') return 'ALIZ-1';
+  return 'OFIPAPEL';
+}
+
+function pctChange(curr, prev){
+  if(prev==null || prev===0) return null;
+  return ((curr-prev)/Math.abs(prev))*100;
+}
+function pctBadge(pct){
+  if(pct==null) return '<span class="neu">—</span>';
+  const cls = pct>=0 ? 'pos' : 'neg2';
+  const flecha = pct>=0 ? '▲' : '▼';
+  return `<span class="${cls}">${flecha} ${Math.abs(pct).toFixed(1)}%</span>`;
+}
+
+// rows: [{anio, meses:[12 números], total}] → calcula mejor/peor mes y año.
+// El año más reciente sólo cuenta para mejor/peor año si ya está completo
+// (evita que un año en curso con meses a 0 se marque como "peor año").
+function buildAnualAnalysis(rows){
+  const ordenado = rows.slice().sort((a,b)=>a.anio-b.anio);
+  let mejorMes=null, peorMes=null;
+  ordenado.forEach((r,ri)=>{
+    r.meses.forEach((v,mi)=>{
+      if(!v) return;
+      const variacion = ri>0 ? pctChange(v, ordenado[ri-1].meses[mi]) : null;
+      if(!mejorMes || v>mejorMes.valor) mejorMes={anio:r.anio, mes:mi, valor:v, variacion};
+      if(!peorMes || v<peorMes.valor) peorMes={anio:r.anio, mes:mi, valor:v, variacion};
+    });
+  });
+
+  const maxAnio = ordenado.length ? ordenado[ordenado.length-1].anio : null;
+  let mejorAnio=null, peorAnio=null;
+  ordenado.forEach((r,ri)=>{
+    if(r.anio===maxAnio && !r.meses.every(v=>v)) return; // año en curso, incompleto
+    const variacion = ri>0 ? pctChange(r.total, ordenado[ri-1].total) : null;
+    if(!mejorAnio || r.total>mejorAnio.valor) mejorAnio={anio:r.anio, valor:r.total, variacion};
+    if(!peorAnio || r.total<peorAnio.valor) peorAnio={anio:r.anio, valor:r.total, variacion};
+  });
+
+  return {ordenado, mejorMes, peorMes, mejorAnio, peorAnio};
+}
+
+function anualKpisHtml(an){
+  if(!an.mejorAnio||!an.mejorMes) return '';
+  return `
+    <div class="kpi"><div class="kpi-ico">🏆</div><div class="kpi-lbl">Mejor Año</div><div class="kpi-val">${an.mejorAnio.anio}</div><div class="kpi-sub">${fmt(an.mejorAnio.valor)} ${pctBadge(an.mejorAnio.variacion)}</div></div>
+    <div class="kpi k-deuda"><div class="kpi-ico">📉</div><div class="kpi-lbl">Peor Año</div><div class="kpi-val">${an.peorAnio.anio}</div><div class="kpi-sub">${fmt(an.peorAnio.valor)} ${pctBadge(an.peorAnio.variacion)}</div></div>
+    <div class="kpi"><div class="kpi-ico">📈</div><div class="kpi-lbl">Mejor Mes</div><div class="kpi-val" style="font-size:15px;">${MESES[an.mejorMes.mes]} ${an.mejorMes.anio}</div><div class="kpi-sub">${fmt(an.mejorMes.valor)} ${pctBadge(an.mejorMes.variacion)}</div></div>
+    <div class="kpi k-deuda"><div class="kpi-ico">📉</div><div class="kpi-lbl">Peor Mes</div><div class="kpi-val" style="font-size:15px;">${MESES[an.peorMes.mes]} ${an.peorMes.anio}</div><div class="kpi-sub">${fmt(an.peorMes.valor)} ${pctBadge(an.peorMes.variacion)}</div></div>
+  `;
+}
+
+function renderAnualTabla(an){
+  const {ordenado, mejorMes, peorMes, mejorAnio, peorAnio} = an;
+  return `
+  <div style="overflow-x:auto;">
+  <table class="tabla">
+    <thead><tr><th>Año</th>${MESES_CORTOS.map(m=>`<th>${m}</th>`).join('')}<th>Total</th><th>Var. Anual</th></tr></thead>
+    <tbody>
+      ${ordenado.map((r,idx)=>{
+        const variacion = idx>0 ? pctChange(r.total, ordenado[idx-1].total) : null;
+        const esMejorAnio = mejorAnio && r.anio===mejorAnio.anio;
+        const esPeorAnio = peorAnio && r.anio===peorAnio.anio;
+        const rowBg = esMejorAnio ? 'background:#EDFBF3;' : esPeorAnio ? 'background:#FEF0EE;' : '';
+        return `<tr style="${rowBg}">
+          <td style="font-weight:700;">${r.anio}${esMejorAnio?' 🏆':''}${esPeorAnio?' 📉':''}</td>
+          ${r.meses.map((v,mi)=>{
+            const esMejorMes = mejorMes && r.anio===mejorMes.anio && mi===mejorMes.mes;
+            const esPeorMes = peorMes && r.anio===peorMes.anio && mi===peorMes.mes;
+            const estilo = esMejorMes?'background:var(--verde);color:#fff;font-weight:700;':esPeorMes?'background:var(--rojo);color:#fff;font-weight:700;':'';
+            return `<td style="${estilo}">${v?fmtK(v)+'€':'—'}</td>`;
+          }).join('')}
+          <td style="font-weight:700;">${fmt(r.total)}</td>
+          <td>${pctBadge(variacion)}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
 // VENTAS (CAJA) — agregados por día/hora/empleado/tipo al importar
 // ═══════════════════════════════════════════════════════
 function saveVentasCaja(){
@@ -2113,6 +2384,461 @@ function renderVentas(){
         </tr>`).join('')}
       </tbody>
     </table>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// VENTAS — ANUAL (Con/Sin IGIC)
+// ═══════════════════════════════════════════════════════
+function saveVentasAnual(){
+  try{ localStorage.setItem('op_ventasanual', JSON.stringify(ventasAnual)); }catch(e){}
+  syncDatasetToCloud('ventasanual', ventasAnual);
+}
+
+function importVentasAnualExcel(input, tipo){
+  const file=input.files[0]; if(!file) return;
+  if((ventasAnual[tipo]||[]).length && !confirm('Esto reemplazará los datos de Ventas Anual ('+(tipo==='conIgic'?'Con IGIC':'Sin IGIC')+') ya importados. ¿Continuar?')){
+    input.value=''; return;
+  }
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      const hIdx=data.findIndex(r=>String(r[0]).trim()==='Año');
+      if(hIdx===-1){ alert('No se encontró la fila de cabecera "Año" en el Excel.'); input.value=''; return; }
+
+      const registros=[];
+      for(let i=hIdx+1;i<data.length;i++){
+        const row=data[i];
+        const anioRaw=row[0];
+        if(anioRaw===''||anioRaw==null||isNaN(Number(anioRaw))) continue;
+        const anio=Number(anioRaw)<100?Number(anioRaw)+2000:Number(anioRaw);
+        const meses=[]; for(let m=0;m<12;m++) meses.push(Number(row[1+m])||0);
+        const total=typeof row[13]==='number'?row[13]:meses.reduce((s,v)=>s+v,0);
+        registros.push({ anio, meses, total });
+      }
+
+      if(!registros.length){ alert('No se encontraron registros válidos en el archivo.'); input.value=''; return; }
+
+      ventasAnual[tipo]=registros;
+      saveVentasAnual(); renderVentasAnual();
+      alert(registros.length+' años importados ('+(tipo==='conIgic'?'Con IGIC':'Sin IGIC')+').');
+    }catch(err){ alert('Error al procesar el Excel: '+err.message); }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderVentasAnual(){
+  const tipo=document.getElementById('ventAnualTipo')?.value||'conIgic';
+  const rows=(ventasAnual[tipo]||[]).map(r=>({anio:r.anio, meses:r.meses, total:r.total}));
+
+  destroyChart('cVentAnual');
+
+  if(!rows.length){
+    document.getElementById('ventAnualKpis').innerHTML='';
+    document.getElementById('ventAnualTabla').innerHTML='<div class="empty-state"><div class="e-ico">📅</div><h3>Sin datos</h3><p>Importa los Excel de Ventas Anuales (Con y Sin IGIC) para ver el análisis.</p></div>';
+    return;
+  }
+
+  const an=buildAnualAnalysis(rows);
+  document.getElementById('ventAnualKpis').innerHTML=anualKpisHtml(an);
+
+  charts['cVentAnual']=new Chart(document.getElementById('cVentAnual'),{
+    type:'line',
+    data:{ labels:an.ordenado.map(r=>r.anio), datasets:[{ label:'Total Anual', data:an.ordenado.map(r=>r.total), borderColor:'#1A5C1A', backgroundColor:'rgba(26,92,26,0.1)', fill:true, tension:0.3 }] },
+    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}}} }
+  });
+
+  document.getElementById('ventAnualTabla').innerHTML=renderAnualTabla(an);
+}
+
+// ═══════════════════════════════════════════════════════
+// VENTAS — POR VENDEDOR
+// ═══════════════════════════════════════════════════════
+function saveVentasVendedores(){
+  try{ localStorage.setItem('op_ventasvendedores', JSON.stringify(ventasVendedores)); }catch(e){}
+  syncDatasetToCloud('ventasvendedores', ventasVendedores);
+}
+
+function importVentasVendedoresExcel(input){
+  const file=input.files[0]; if(!file) return;
+  if(ventasVendedores.length && !confirm('Esto reemplazará los datos de Ventas por Vendedor ya importados. ¿Continuar?')){
+    input.value=''; return;
+  }
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      const hIdx=data.findIndex(r=>String(r[0]).trim()==='Vendedor');
+      if(hIdx===-1){ alert('No se encontró la fila de cabecera "Vendedor" en el Excel.'); input.value=''; return; }
+
+      const registros=[];
+      for(let i=hIdx+1;i<data.length;i++){
+        const row=data[i];
+        const vendedor=row[0];
+        if(vendedor===''||vendedor==null) continue;
+        if(typeof vendedor!=='number' && String(vendedor).toLowerCase().startsWith('total')) continue;
+        const anioRaw=row[1];
+        if(anioRaw===''||anioRaw==null||isNaN(Number(anioRaw))) continue;
+        const anio=Number(anioRaw)<100?Number(anioRaw)+2000:Number(anioRaw);
+        const meses=[]; for(let m=0;m<12;m++) meses.push(Number(row[2+m])||0);
+        const total=typeof row[14]==='number'?row[14]:meses.reduce((s,v)=>s+v,0);
+        registros.push({ vendedor:String(vendedor).trim(), anio, meses, total });
+      }
+
+      if(!registros.length){ alert('No se encontraron registros válidos en el archivo.'); input.value=''; return; }
+
+      ventasVendedores=registros;
+      saveVentasVendedores();
+      const sel=document.getElementById('ventVendSelect'); if(sel) sel.value='';
+      renderVentasVendedores();
+      alert(registros.length+' registros de vendedores importados.');
+    }catch(err){ alert('Error al procesar el Excel: '+err.message); }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderVentasVendedores(){
+  const sel=document.getElementById('ventVendSelect');
+  if(sel){
+    const valorActual=sel.value;
+    const vendedores=[...new Set(ventasVendedores.map(r=>r.vendedor))].sort();
+    sel.innerHTML='<option value="">— Ranking general —</option>'+vendedores.map(v=>`<option value="${v}">${v}</option>`).join('');
+    sel.value=vendedores.includes(valorActual)?valorActual:'';
+  }
+  const seleccionado=sel?.value||'';
+  const btn=document.getElementById('ventVendInformeBtn'); if(btn) btn.style.display=seleccionado?'inline-block':'none';
+  if(seleccionado){ renderVentasVendedorDetalle(); return; }
+
+  destroyChart('cVentVend');
+  document.getElementById('ventVendChartTtl').textContent='Ranking de Vendedores';
+
+  if(!ventasVendedores.length){
+    document.getElementById('ventVendKpis').innerHTML='';
+    document.getElementById('ventVendTabla').innerHTML='<div class="empty-state"><div class="e-ico">🧑‍💼</div><h3>Sin datos</h3><p>Importa el Excel de Ventas por Vendedor para ver el análisis.</p></div>';
+    return;
+  }
+
+  const porVendedor={};
+  ventasVendedores.forEach(r=>{ porVendedor[r.vendedor]=(porVendedor[r.vendedor]||0)+r.total; });
+  const ranking=Object.entries(porVendedor).sort((a,b)=>b[1]-a[1]);
+
+  document.getElementById('ventVendKpis').innerHTML=`
+    <div class="kpi"><div class="kpi-ico">🧑‍💼</div><div class="kpi-lbl">Vendedores</div><div class="kpi-val">${ranking.length}</div></div>
+    <div class="kpi"><div class="kpi-ico">💶</div><div class="kpi-lbl">Total Vendido</div><div class="kpi-val">${fmt(ranking.reduce((s,r)=>s+r[1],0))}</div></div>
+    <div class="kpi"><div class="kpi-ico">🥇</div><div class="kpi-lbl">Mejor Vendedor</div><div class="kpi-val" style="font-size:14px;">${ranking[0][0]}</div><div class="kpi-sub">${fmt(ranking[0][1])}</div></div>
+  `;
+
+  charts['cVentVend']=new Chart(document.getElementById('cVentVend'),{
+    type:'bar',
+    data:{ labels:ranking.map(r=>r[0]), datasets:[{ label:'Total Vendido', data:ranking.map(r=>r[1]), backgroundColor:'rgba(26,92,26,0.7)', borderColor:'#1A5C1A', borderWidth:1.5, borderRadius:4 }] },
+    options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}}} }
+  });
+
+  document.getElementById('ventVendTabla').innerHTML=`
+    <div style="overflow-x:auto;">
+    <table class="tabla">
+      <thead><tr><th>Vendedor</th><th style="text-align:right;">Total Vendido</th></tr></thead>
+      <tbody>
+        ${ranking.map(([v,total])=>`<tr><td style="font-weight:500;">${v}</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(total)}</td></tr>`).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
+
+function renderVentasVendedorDetalle(){
+  const sel=document.getElementById('ventVendSelect');
+  const vendedor=sel?.value||'';
+  const btn=document.getElementById('ventVendInformeBtn'); if(btn) btn.style.display=vendedor?'inline-block':'none';
+  if(!vendedor){ renderVentasVendedores(); return; }
+
+  const rows=ventasVendedores.filter(r=>r.vendedor===vendedor).map(r=>({anio:r.anio, meses:r.meses, total:r.total}));
+  destroyChart('cVentVend');
+  document.getElementById('ventVendChartTtl').textContent='Evolución Anual — '+vendedor;
+
+  if(!rows.length){
+    document.getElementById('ventVendKpis').innerHTML='';
+    document.getElementById('ventVendTabla').innerHTML='';
+    return;
+  }
+
+  const an=buildAnualAnalysis(rows);
+  document.getElementById('ventVendKpis').innerHTML=anualKpisHtml(an);
+
+  charts['cVentVend']=new Chart(document.getElementById('cVentVend'),{
+    type:'line',
+    data:{ labels:an.ordenado.map(r=>r.anio), datasets:[{ label:'Total Anual', data:an.ordenado.map(r=>r.total), borderColor:'#1A5C1A', backgroundColor:'rgba(26,92,26,0.1)', fill:true, tension:0.3 }] },
+    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}}} }
+  });
+
+  document.getElementById('ventVendTabla').innerHTML=renderAnualTabla(an);
+}
+
+function imprimirInformeVendedor(){
+  const vendedor=document.getElementById('ventVendSelect')?.value;
+  if(!vendedor) return;
+  const rows=ventasVendedores.filter(r=>r.vendedor===vendedor).map(r=>({anio:r.anio, meses:r.meses, total:r.total}));
+  if(!rows.length) return;
+  const an=buildAnualAnalysis(rows);
+  const win=window.open('', '_blank');
+  win.document.write(`
+    <html><head><title>Informe de Ventas — ${vendedor}</title>
+    <style>
+      :root{--verde:#27AE60;--rojo:#E74C3C;}
+      body{font-family:Arial,sans-serif;padding:30px;color:#1a3c2a;}
+      h1{font-size:20px;color:#1A5C1A;} h2{font-size:14px;color:#5A7385;margin-bottom:20px;font-weight:400;}
+      table{width:100%;border-collapse:collapse;margin-top:20px;font-size:12px;}
+      th,td{border:1px solid #ccc;padding:6px 8px;text-align:right;}
+      th{background:#EAF3EA;} td:first-child,th:first-child{text-align:left;}
+      .pos{color:var(--verde);font-weight:700;} .neg2{color:var(--rojo);font-weight:700;} .neu{color:#999;}
+      .resumen{display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap;}
+      .card{border:1px solid #ccc;border-radius:8px;padding:10px 16px;min-width:150px;font-size:12px;}
+      .card b{display:block;font-size:15px;color:#1A5C1A;margin:3px 0;}
+      @media print{ button{display:none;} }
+    </style></head><body>
+    <h1>Informe Individual de Ventas</h1>
+    <h2>Vendedor: ${vendedor} · Generado el ${new Date().toLocaleDateString('es-ES')}</h2>
+    <div class="resumen">
+      <div class="card">Mejor Año<b>${an.mejorAnio.anio}</b>${fmt(an.mejorAnio.valor)} ${pctBadge(an.mejorAnio.variacion)}</div>
+      <div class="card">Peor Año<b>${an.peorAnio.anio}</b>${fmt(an.peorAnio.valor)} ${pctBadge(an.peorAnio.variacion)}</div>
+      <div class="card">Mejor Mes<b>${MESES[an.mejorMes.mes]} ${an.mejorMes.anio}</b>${fmt(an.mejorMes.valor)} ${pctBadge(an.mejorMes.variacion)}</div>
+      <div class="card">Peor Mes<b>${MESES[an.peorMes.mes]} ${an.peorMes.anio}</b>${fmt(an.peorMes.valor)} ${pctBadge(an.peorMes.variacion)}</div>
+    </div>
+    ${renderAnualTabla(an)}
+    <button onclick="window.print()" style="margin-top:20px;padding:8px 16px;">🖨️ Imprimir</button>
+    </body></html>
+  `);
+  win.document.close();
+}
+
+// ═══════════════════════════════════════════════════════
+// VENTAS — POR TIENDA
+// ═══════════════════════════════════════════════════════
+function saveVentasTiendas(){
+  try{ localStorage.setItem('op_ventastiendas', JSON.stringify(ventasTiendas)); }catch(e){}
+  syncDatasetToCloud('ventastiendas', ventasTiendas);
+}
+
+function importVentasTiendasExcel(input){
+  const file=input.files[0]; if(!file) return;
+  if(ventasTiendas.length && !confirm('Esto reemplazará los datos de Ventas por Tiendas ya importados. ¿Continuar?')){
+    input.value=''; return;
+  }
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      const hIdx=data.findIndex(r=>String(r[0]).trim()==='Tda');
+      if(hIdx===-1){ alert('No se encontró la fila de cabecera "Tda" en el Excel.'); input.value=''; return; }
+
+      const registros=[];
+      for(let i=hIdx+1;i<data.length;i++){
+        const row=data[i];
+        const tiendaRaw=row[0];
+        if(tiendaRaw===''||tiendaRaw==null) continue;
+        if(typeof tiendaRaw!=='number' && String(tiendaRaw).toLowerCase().startsWith('total')) continue;
+        const anioRaw=row[1];
+        if(anioRaw===''||anioRaw==null||isNaN(Number(anioRaw))) continue;
+        const tienda=typeof tiendaRaw==='number'?tiendaRaw:String(tiendaRaw).trim();
+        if(TIENDAS_EXCLUIDAS.includes(tienda)) continue;
+        const anio=Number(anioRaw)<100?Number(anioRaw)+2000:Number(anioRaw);
+        const meses=[]; for(let m=0;m<12;m++) meses.push(Number(row[2+m])||0);
+        const total=typeof row[14]==='number'?row[14]:meses.reduce((s,v)=>s+v,0);
+        registros.push({ tienda, grupo:tiendaGrupo(tienda), anio, meses, total });
+      }
+
+      if(!registros.length){ alert('No se encontraron registros válidos en el archivo.'); input.value=''; return; }
+
+      ventasTiendas=registros;
+      saveVentasTiendas();
+      const sel=document.getElementById('ventTiendaSelect'); if(sel) sel.value='';
+      renderVentasTiendas();
+      alert(registros.length+' registros de tiendas importados. (Terminales 41, 43, 60 y 68 excluidos)');
+    }catch(err){ alert('Error al procesar el Excel: '+err.message); }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderVentasTiendas(){
+  const grupo=document.getElementById('ventTiendaGrupo')?.value||'todos';
+  const filtradas=grupo==='todos'?ventasTiendas:ventasTiendas.filter(r=>r.grupo===grupo);
+
+  const sel=document.getElementById('ventTiendaSelect');
+  if(sel){
+    const valorActual=sel.value;
+    const tiendas=[...new Set(filtradas.map(r=>r.tienda))].sort((a,b)=>{
+      const an=typeof a==='number', bn=typeof b==='number';
+      if(an&&bn) return a-b;
+      if(an) return -1;
+      if(bn) return 1;
+      return String(a).localeCompare(String(b));
+    });
+    sel.innerHTML='<option value="">— Ranking general —</option>'+tiendas.map(t=>`<option value="${t}">Tienda ${t}</option>`).join('');
+    sel.value=tiendas.map(String).includes(valorActual)?valorActual:'';
+  }
+  const seleccionada=sel?.value||'';
+  if(seleccionada){ renderVentasTiendaDetalle(); return; }
+
+  destroyChart('cVentTienda');
+  document.getElementById('ventTiendaChartTtl').textContent='Ranking de Tiendas'+(grupo!=='todos'?' — '+grupo:'');
+
+  if(!filtradas.length){
+    document.getElementById('ventTiendaKpis').innerHTML='';
+    document.getElementById('ventTiendaTabla').innerHTML='<div class="empty-state"><div class="e-ico">🏬</div><h3>Sin datos</h3><p>Importa el Excel de Ventas por Tiendas para ver el análisis.</p></div>';
+    return;
+  }
+
+  const porTienda={}, grupoMap={};
+  filtradas.forEach(r=>{ porTienda[r.tienda]=(porTienda[r.tienda]||0)+r.total; grupoMap[r.tienda]=r.grupo; });
+  const ranking=Object.entries(porTienda).sort((a,b)=>b[1]-a[1]);
+
+  document.getElementById('ventTiendaKpis').innerHTML=`
+    <div class="kpi"><div class="kpi-ico">🏬</div><div class="kpi-lbl">Tiendas</div><div class="kpi-val">${ranking.length}</div></div>
+    <div class="kpi"><div class="kpi-ico">💶</div><div class="kpi-lbl">Total Vendido</div><div class="kpi-val">${fmt(ranking.reduce((s,r)=>s+r[1],0))}</div></div>
+    <div class="kpi"><div class="kpi-ico">🥇</div><div class="kpi-lbl">Mejor Tienda</div><div class="kpi-val" style="font-size:15px;">Tienda ${ranking[0][0]}</div><div class="kpi-sub">${fmt(ranking[0][1])}</div></div>
+  `;
+
+  charts['cVentTienda']=new Chart(document.getElementById('cVentTienda'),{
+    type:'bar',
+    data:{ labels:ranking.map(r=>'Tienda '+r[0]), datasets:[{ label:'Total Vendido', data:ranking.map(r=>r[1]), backgroundColor:'rgba(26,92,26,0.7)', borderColor:'#1A5C1A', borderWidth:1.5, borderRadius:4 }] },
+    options:{ indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}}} }
+  });
+
+  document.getElementById('ventTiendaTabla').innerHTML=`
+    <div style="overflow-x:auto;">
+    <table class="tabla">
+      <thead><tr><th>Tienda</th><th>Grupo</th><th style="text-align:right;">Total Vendido</th></tr></thead>
+      <tbody>
+        ${ranking.map(([t,total])=>`<tr><td style="font-weight:500;">Tienda ${t}</td><td style="font-size:12px;">${grupoMap[t]}</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(total)}</td></tr>`).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
+
+function renderVentasTiendaDetalle(){
+  const sel=document.getElementById('ventTiendaSelect');
+  const tiendaSel=sel?.value||'';
+  if(!tiendaSel){ renderVentasTiendas(); return; }
+
+  const rows=ventasTiendas.filter(r=>String(r.tienda)===String(tiendaSel)).map(r=>({anio:r.anio, meses:r.meses, total:r.total}));
+  destroyChart('cVentTienda');
+  document.getElementById('ventTiendaChartTtl').textContent='Evolución Anual — Tienda '+tiendaSel;
+
+  if(!rows.length){
+    document.getElementById('ventTiendaKpis').innerHTML='';
+    document.getElementById('ventTiendaTabla').innerHTML='';
+    return;
+  }
+
+  const an=buildAnualAnalysis(rows);
+  document.getElementById('ventTiendaKpis').innerHTML=anualKpisHtml(an);
+
+  charts['cVentTienda']=new Chart(document.getElementById('cVentTienda'),{
+    type:'line',
+    data:{ labels:an.ordenado.map(r=>r.anio), datasets:[{ label:'Total Anual', data:an.ordenado.map(r=>r.total), borderColor:'#1A5C1A', backgroundColor:'rgba(26,92,26,0.1)', fill:true, tension:0.3 }] },
+    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}}} }
+  });
+
+  document.getElementById('ventTiendaTabla').innerHTML=renderAnualTabla(an);
+}
+
+// ═══════════════════════════════════════════════════════
+// VENTAS — POR CLIENTE
+// ═══════════════════════════════════════════════════════
+function saveVentasClientes(){
+  try{ localStorage.setItem('op_ventasclientes', JSON.stringify(ventasClientes)); }catch(e){}
+  syncDatasetToCloud('ventasclientes', ventasClientes);
+}
+
+function importVentasClientesExcel(input){
+  const file=input.files[0]; if(!file) return;
+  if(ventasClientes.length && !confirm('Esto reemplazará los datos de Ventas por Clientes ya importados. ¿Continuar?')){
+    input.value=''; return;
+  }
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      const hIdx=data.findIndex(r=>String(r[0]).trim()==='Cliente');
+      if(hIdx===-1){ alert('No se encontró la fila de cabecera "Cliente" en el Excel.'); input.value=''; return; }
+
+      const registros=[];
+      for(let i=hIdx+1;i<data.length;i++){
+        const row=data[i];
+        const codigo=row[0];
+        if(codigo===''||codigo==null) continue;
+        if(typeof codigo!=='number' && String(codigo).toLowerCase().startsWith('total')) continue;
+        const anioRaw=row[2];
+        if(anioRaw===''||anioRaw==null||isNaN(Number(anioRaw))) continue;
+        const anio=Number(anioRaw)<100?Number(anioRaw)+2000:Number(anioRaw);
+        const vendedor=String(row[1]||'').trim();
+        let total=0; for(let m=0;m<12;m++) total+=Number(row[3+m])||0;
+        const nameRow=data[i+1];
+        const nombre=nameRow?String(nameRow[0]||'').trim():'';
+        registros.push({ codigo:String(codigo).trim(), nombre, vendedor, anio, total });
+      }
+
+      if(!registros.length){ alert('No se encontraron registros válidos en el archivo.'); input.value=''; return; }
+
+      ventasClientes=registros;
+      saveVentasClientes(); renderVentasClientes();
+      alert(registros.length+' registros de clientes importados.');
+    }catch(err){ alert('Error al procesar el Excel: '+err.message); }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderVentasClientes(){
+  const filtro=(document.getElementById('ventClienteFiltro')?.value||'').toLowerCase().trim();
+
+  if(!ventasClientes.length){
+    document.getElementById('ventClienteKpis').innerHTML='';
+    document.getElementById('ventClienteTabla').innerHTML='<div class="empty-state"><div class="e-ico">👥</div><h3>Sin datos</h3><p>Importa el Excel de Ventas por Clientes para ver el análisis.</p></div>';
+    return;
+  }
+
+  const porCliente={};
+  ventasClientes.forEach(r=>{
+    const key=r.codigo+'|'+r.nombre;
+    porCliente[key]=porCliente[key]||{codigo:r.codigo, nombre:r.nombre, vendedores:new Set(), total:0};
+    porCliente[key].total+=r.total;
+    if(r.vendedor) porCliente[key].vendedores.add(r.vendedor);
+  });
+
+  let lista=Object.values(porCliente);
+  if(filtro) lista=lista.filter(c=>c.codigo.toLowerCase().includes(filtro)||c.nombre.toLowerCase().includes(filtro));
+  lista.sort((a,b)=>b.total-a.total);
+
+  document.getElementById('ventClienteKpis').innerHTML=`
+    <div class="kpi"><div class="kpi-ico">👥</div><div class="kpi-lbl">Clientes</div><div class="kpi-val">${lista.length}</div></div>
+    <div class="kpi"><div class="kpi-ico">💶</div><div class="kpi-lbl">Total Facturado</div><div class="kpi-val">${fmt(lista.reduce((s,c)=>s+c.total,0))}</div></div>
+    <div class="kpi"><div class="kpi-ico">🥇</div><div class="kpi-lbl">Mejor Cliente</div><div class="kpi-val" style="font-size:13px;">${lista[0]?lista[0].nombre||lista[0].codigo:'—'}</div><div class="kpi-sub">${lista[0]?fmt(lista[0].total):''}</div></div>
+  `;
+
+  document.getElementById('ventClienteTabla').innerHTML=`
+    <div style="overflow-x:auto;">
+    <table class="tabla">
+      <thead><tr><th>Código</th><th>Cliente</th><th>Vendedor(es)</th><th style="text-align:right;">Total</th></tr></thead>
+      <tbody>
+        ${lista.map(c=>`<tr>
+          <td style="font-size:12px;">${c.codigo}</td>
+          <td style="font-weight:500;">${c.nombre||'—'}</td>
+          <td style="font-size:12px;">${[...c.vendedores].join(', ')}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(c.total)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
+    <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
+      ${lista.length} clientes
     </div>`;
 }
 
@@ -2275,6 +3001,71 @@ function saveCompModal(){
     recibido:false
   });
   saveCompras(); closeCompModal(); renderCompras();
+}
+
+// ═══════════════════════════════════════════════════════
+// COMPRAS — HISTÓRICO ANUAL
+// ═══════════════════════════════════════════════════════
+function saveComprasAnual(){
+  try{ localStorage.setItem('op_comprasanual', JSON.stringify(comprasAnual)); }catch(e){}
+  syncDatasetToCloud('comprasanual', comprasAnual);
+}
+
+function importComprasAnualExcel(input){
+  const file=input.files[0]; if(!file) return;
+  if(comprasAnual.length && !confirm('Esto reemplazará los datos de Compras Anuales ya importados. ¿Continuar?')){
+    input.value=''; return;
+  }
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      const hIdx=data.findIndex(r=>String(r[0]).trim()==='Año');
+      if(hIdx===-1){ alert('No se encontró la fila de cabecera "Año" en el Excel.'); input.value=''; return; }
+
+      const registros=[];
+      for(let i=hIdx+1;i<data.length;i++){
+        const row=data[i];
+        const anioRaw=row[0];
+        if(anioRaw===''||anioRaw==null||isNaN(Number(anioRaw))) continue;
+        const anio=Number(anioRaw)<100?Number(anioRaw)+2000:Number(anioRaw);
+        const meses=[]; for(let m=0;m<12;m++) meses.push(Number(row[1+m])||0);
+        const total=typeof row[13]==='number'?row[13]:meses.reduce((s,v)=>s+v,0);
+        registros.push({ anio, meses, total });
+      }
+
+      if(!registros.length){ alert('No se encontraron registros válidos en el archivo.'); input.value=''; return; }
+
+      comprasAnual=registros;
+      saveComprasAnual(); renderComprasAnual();
+      alert(registros.length+' años de compras importados.');
+    }catch(err){ alert('Error al procesar el Excel: '+err.message); }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderComprasAnual(){
+  const rows=comprasAnual.map(r=>({anio:r.anio, meses:r.meses, total:r.total}));
+  destroyChart('cCompAnual');
+
+  if(!rows.length){
+    document.getElementById('compAnualKpis').innerHTML='';
+    document.getElementById('compAnualTabla').innerHTML='<div class="empty-state"><div class="e-ico">📅</div><h3>Sin datos</h3><p>Importa el Excel de Compras Anuales para ver el análisis.</p></div>';
+    return;
+  }
+
+  const an=buildAnualAnalysis(rows);
+  document.getElementById('compAnualKpis').innerHTML=anualKpisHtml(an);
+
+  charts['cCompAnual']=new Chart(document.getElementById('cCompAnual'),{
+    type:'line',
+    data:{ labels:an.ordenado.map(r=>r.anio), datasets:[{ label:'Total Anual', data:an.ordenado.map(r=>r.total), borderColor:'#1a3c8f', backgroundColor:'rgba(26,60,143,0.1)', fill:true, tension:0.3 }] },
+    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}}} }
+  });
+
+  document.getElementById('compAnualTabla').innerHTML=renderAnualTabla(an);
 }
 
 // ═══════════════════════════════════════════════════════
