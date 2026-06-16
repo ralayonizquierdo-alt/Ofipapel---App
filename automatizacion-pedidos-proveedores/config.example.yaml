@@ -33,8 +33,8 @@ proveedores:
       - "comercial@proveedorc.com"
 
 excel:
-  columnas_esperadas: ["codigo", "descripcion", "referencia", "precio"]
-  columna_clave: "referencia"
+  columnas_esperadas: ["cod_venta", "descrip", "cod_compra", "cantvend", "precio"]
+  columna_clave: "cod_compra"
   columna_precio: "precio"
   fila_cabecera: 0
 

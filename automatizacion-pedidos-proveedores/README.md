@@ -4,7 +4,8 @@ Cada semana llegan 3 correos (uno por proveedor) con asunto "Re: Pedido semanal"
 cada uno con un Excel adjunto cotizando los mismos artículos. Este script:
 
 1. Detecta los 3 correos de esta semana.
-2. Descarga y cruza los 3 Excel por la columna `referencia`.
+2. Descarga y cruza los 3 Excel por su columna clave (configurable, por
+   ejemplo `cod_compra`).
 3. Para cada artículo, decide qué proveedor ofrece el precio más bajo.
 4. Genera 3 Excel de salida (uno por proveedor) con sus artículos ganadores.
 5. Responde a cada correo original adjuntando su Excel y un mensaje predeterminado
@@ -63,8 +64,10 @@ porque contiene datos de tu organización) y edítalo:
   esa dirección a la lista).
 - `email.plantilla_respuesta`: el texto que se insertará en cada borrador de
   respuesta.
-- Revisa `excel.columnas_esperadas` si las cabeceras de tus Excel no son
-  exactamente `codigo, descripcion, referencia, precio`.
+- `excel.columnas_esperadas` debe coincidir exactamente con las cabeceras de
+  tus Excel (mayúsculas/minúsculas no importan, pero sí el resto del texto),
+  y `excel.columna_clave` / `excel.columna_precio` deben ser una de esas
+  columnas.
 
 ## 4. Primera ejecución
 
