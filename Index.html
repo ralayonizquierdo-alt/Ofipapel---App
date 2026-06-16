@@ -362,7 +362,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.7 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.8 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -811,6 +811,11 @@ async function initSupabase(){
         .on('postgres_changes', { event:'*', schema:'public', table:'registros' }, payload => {
           handleRealtimeChange(payload);
         }).subscribe();
+      // Subscribe to real-time changes en datasets compartidos (Proveedores, Compras, Familias, Ventas)
+      supaClient.channel('app-sync-changes')
+        .on('postgres_changes', { event:'*', schema:'public', table:'app_sync' }, payload => {
+          handleAppSyncChange(payload);
+        }).subscribe();
     }
   } catch(e){
     console.warn('Supabase no disponible:', e);
@@ -854,6 +859,63 @@ async function loadFromCloud(){
     }
     return false;
   } catch(e){ return false; }
+}
+
+// ═══════════════════════════════════════════════════════
+// SYNC GENÉRICO — Proveedores, Compras, Familias, Ventas (Caja)
+// Cada dataset se guarda como un único registro JSON en la tabla app_sync
+// ═══════════════════════════════════════════════════════
+async function syncDatasetToCloud(key, payload){
+  if(!supaReady) return false;
+  try{
+    const { error } = await supaClient.from('app_sync').upsert({ id:key, payload, updated_at:new Date().toISOString() }, { onConflict:'id' });
+    if(error){ console.warn('Sync error ('+key+'):', error); return false; }
+    return true;
+  } catch(e){ return false; }
+}
+
+function applyCloudDataset(key, payload){
+  if(payload==null) return;
+  if(key==='proveedores'){
+    proveedores = payload;
+    try{ localStorage.setItem('op_proveedores', JSON.stringify(proveedores)); }catch(e){}
+    renderProveedores();
+  } else if(key==='compras'){
+    compras = payload;
+    try{ localStorage.setItem('op_compras', JSON.stringify(compras)); }catch(e){}
+    renderCompras();
+  } else if(key==='familias'){
+    familias = payload;
+    try{ localStorage.setItem('op_familias', JSON.stringify(familias)); }catch(e){}
+    renderFamilias();
+  } else if(key==='ventascaja'){
+    ventasCaja = payload;
+    try{ localStorage.setItem('op_ventascaja', JSON.stringify(ventasCaja)); }catch(e){}
+    renderVentas();
+  }
+}
+
+function handleAppSyncChange(payload){
+  if(payload.eventType === 'INSERT' || payload.eventType === 'UPDATE'){
+    const row = payload.new;
+    applyCloudDataset(row.id, row.payload);
+    showToast('🔄 Datos actualizados por otro usuario','ok');
+  }
+}
+
+async function loadAllSharedDatasets(){
+  if(!supaReady) return;
+  try{
+    const { data: rows, error } = await supaClient.from('app_sync').select('id,payload');
+    if(error || !rows) return;
+    const existing = {};
+    rows.forEach(r=>{ existing[r.id]=true; applyCloudDataset(r.id, r.payload); });
+    // Si el dataset no existe aún en la nube pero hay datos locales, los subimos para iniciar la sincronización
+    if(!existing.proveedores && proveedores.length) syncDatasetToCloud('proveedores', proveedores);
+    if(!existing.compras && compras.length) syncDatasetToCloud('compras', compras);
+    if(!existing.familias && familias.length) syncDatasetToCloud('familias', familias);
+    if(!existing.ventascaja && (ventasCaja.porDia||[]).length) syncDatasetToCloud('ventascaja', ventasCaja);
+  } catch(e){ console.warn('Error cargando datasets compartidos:', e); }
 }
 
 function updateSyncStatus(){
@@ -965,7 +1027,7 @@ function doLogin() {
     applyAccessControl();
     updateStorageStatus();
     // Init cloud sync
-    initSupabase().then(() => loadFromCloud());
+    initSupabase().then(() => { loadFromCloud(); loadAllSharedDatasets(); });
     document.getElementById('topbarDate').textContent = new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     document.getElementById('entradaFecha').value = new Date().toISOString().split('T')[0];
     renderDashboard();
@@ -1669,6 +1731,7 @@ function exportCSV(){
 // ═══════════════════════════════════════════════════════
 function saveProveedores(){
   try{ localStorage.setItem('op_proveedores', JSON.stringify(proveedores)); }catch(e){}
+  syncDatasetToCloud('proveedores', proveedores);
 }
 
 function renderProveedores(){
@@ -1899,6 +1962,7 @@ function importProveedoresPDF(input){
 // ═══════════════════════════════════════════════════════
 function saveVentasCaja(){
   try{ localStorage.setItem('op_ventascaja', JSON.stringify(ventasCaja)); }catch(e){}
+  syncDatasetToCloud('ventascaja', ventasCaja);
 }
 
 function importVentasCajaExcel(input){
@@ -2057,6 +2121,7 @@ function renderVentas(){
 // ═══════════════════════════════════════════════════════
 function saveCompras(){
   try{ localStorage.setItem('op_compras', JSON.stringify(compras)); }catch(e){}
+  syncDatasetToCloud('compras', compras);
 }
 
 function importComprasExcel(input){
@@ -2217,6 +2282,7 @@ function saveCompModal(){
 // ═══════════════════════════════════════════════════════
 function saveFamilias(){
   try{ localStorage.setItem('op_familias', JSON.stringify(familias)); }catch(e){}
+  syncDatasetToCloud('familias', familias);
 }
 
 function importFamiliasExcel(input){
