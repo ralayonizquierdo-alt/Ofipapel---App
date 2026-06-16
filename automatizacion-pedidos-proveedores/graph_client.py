@@ -104,7 +104,10 @@ def filtrar_correos_pedido(mensajes: list[dict], proveedores: list[dict], asunto
 
 
 def descargar_adjunto_excel(token: str, message_id: str) -> tuple[str, bytes]:
-    url = f"{GRAPH_BASE}/me/messages/{message_id}/attachments?$select=name,contentType,contentBytes"
+    # No usar $select aqui: con firmas que incluyen imagenes incrustadas
+    # (attachments de tipo no-fichero mezclados en la coleccion), Graph
+    # puede responder 400 Bad Request si se restringen campos.
+    url = f"{GRAPH_BASE}/me/messages/{message_id}/attachments"
     resp = _request("GET", url, token)
     resp.raise_for_status()
     for attachment in resp.json().get("value", []):
