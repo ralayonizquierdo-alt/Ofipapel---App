@@ -69,12 +69,18 @@ def _remitente_coincide(remitente_email: str, patron: str) -> bool:
     return remitente_email == patron
 
 
+def _remitente_coincide_alguno(remitente_email: str, patrones: list[str]) -> bool:
+    return any(_remitente_coincide(remitente_email, patron) for patron in patrones)
+
+
 def filtrar_correos_pedido(mensajes: list[dict], proveedores: list[dict], asunto_contiene: str) -> dict[str, dict]:
     """Funcion pura: de los mensajes crudos, identifica el correo de cada proveedor.
 
     Descarta mensajes ya marcados como procesados, sin adjunto, o cuyo
     asunto no coincide. Si hay varios candidatos para el mismo proveedor
-    se queda con el mas reciente (la lista ya viene ordenada desc).
+    se queda con el mas reciente (la lista ya viene ordenada desc). Cada
+    proveedor puede tener varios remitentes validos (config "remitentes"),
+    util cuando la persona habitual esta de vacaciones y responde otra.
     """
     asunto_contiene = asunto_contiene.lower()
     encontrados: dict[str, dict] = {}
@@ -91,7 +97,7 @@ def filtrar_correos_pedido(mensajes: list[dict], proveedores: list[dict], asunto
             nombre = proveedor["nombre"]
             if nombre in encontrados:
                 continue  # ya tenemos el mas reciente para este proveedor
-            if _remitente_coincide(remitente, proveedor["remitente"]):
+            if _remitente_coincide_alguno(remitente, proveedor["remitentes"]):
                 encontrados[nombre] = msg
                 break
     return encontrados

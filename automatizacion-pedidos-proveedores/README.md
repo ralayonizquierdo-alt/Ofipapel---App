@@ -56,8 +56,11 @@ Copia `config.example.yaml` como `config.yaml` (este archivo no se sube a git
 porque contiene datos de tu organización) y edítalo:
 
 - `auth.client_id` / `auth.tenant_id`: los valores que anotaste en el paso 1.
-- `proveedores`: nombre y correo (o dominio, con `@` delante) de cada uno de
-  los 3 proveedores.
+- `proveedores`: nombre de cada proveedor y una **lista** de correos (o
+  dominios, con `@` delante) que se consideran válidos como remitente suyo —
+  puedes poner varios por proveedor (por ejemplo, si el habitual coge
+  vacaciones y otra persona responde desde otra dirección, basta con añadir
+  esa dirección a la lista).
 - `email.plantilla_respuesta`: el texto que se insertará en cada borrador de
   respuesta.
 - Revisa `excel.columnas_esperadas` si las cabeceras de tus Excel no son

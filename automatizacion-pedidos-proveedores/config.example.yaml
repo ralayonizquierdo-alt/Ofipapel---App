@@ -12,16 +12,25 @@ busqueda:
   dias_atras: 10
   asunto_contiene: "pedido semanal"
 
-# Para cada proveedor, "remitente" puede ser:
-#  - un correo exacto:        "pedidos@proveedora.com"
-#  - un dominio (con @ delante): "@proveedora.com"
+# Para cada proveedor, "remitentes" es una LISTA (puedes poner 1, 2, 5, 6...
+# las que necesites). Cada elemento puede ser:
+#  - un correo exacto:           "pedidos@proveedora.com"
+#  - un dominio (con @ delante): "@proveedora.com"  (coincide con cualquier
+#    direccion de ese dominio, util si no sabes todas las personas que
+#    pueden escribir desde esa empresa)
+# Si el correo habitual cambia (vacaciones, baja, etc.) basta con anadir
+# la direccion alternativa a la lista, no hace falta tocar nada mas.
 proveedores:
   - nombre: "Proveedor A"
-    remitente: "pedidos@proveedora.com"
+    remitentes:
+      - "pedidos@proveedora.com"
+      - "alternativo@proveedora.com"
   - nombre: "Proveedor B"
-    remitente: "ventas@proveedorb.com"
+    remitentes:
+      - "ventas@proveedorb.com"
   - nombre: "Proveedor C"
-    remitente: "comercial@proveedorc.com"
+    remitentes:
+      - "comercial@proveedorc.com"
 
 excel:
   columnas_esperadas: ["codigo", "descripcion", "referencia", "precio"]
