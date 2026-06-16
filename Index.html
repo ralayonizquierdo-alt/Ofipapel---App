@@ -369,7 +369,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.11 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.12 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -617,7 +617,33 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                 <canvas id="cVentHora" height="220"></canvas>
               </div>
             </div>
-            <div class="card" id="ventEmpTabla" style="padding:0;overflow:hidden;"></div>
+            <div class="card" id="ventEmpTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
+
+            <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">🕒 Hora de Mayor Venta por Tienda</div>
+            <div class="card" id="ventHoraPicoTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
+
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Vendedor</div>
+                  <select id="ventFiltroEmpleado" onchange="renderVentas()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Periodo</div>
+                  <div style="display:flex;gap:6px;">
+                    <button class="subtab-btn" id="ventCajaModoDia" onclick="setVentCajaModo('dia')" style="padding:7px 14px;">Día</button>
+                    <button class="subtab-btn active" id="ventCajaModoMes" onclick="setVentCajaModo('mes')" style="padding:7px 14px;">Mes</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">🧑‍💼 Nº y Totales de Ventas por Vendedor</div>
+            <div class="card" id="ventEmpDetTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
+
+            <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">⚠️ Importes a 0 o Negativos — por Empleado y Terminal</div>
+            <div class="card" id="ventAlertaTabla" style="padding:0;overflow:hidden;"></div>
           </div>
 
           <div class="subtab-panel" id="vt-anual">
@@ -686,6 +712,9 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               </div>
               <div style="font-size:11px;color:var(--texto2);margin-top:8px;">⚠️ Los terminales 41, 43, 60 y 68 no se contabilizan en los totales (uso interno).</div>
             </div>
+            <div id="ventTiendaGrupoTtl" style="font-weight:700;color:var(--azul);margin-bottom:8px;display:none;"></div>
+            <div id="ventTiendaGrupoKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+            <div class="card" id="ventTiendaGrupoTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
             <div id="ventTiendaKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
             <div class="chart-card" style="margin-bottom:16px;">
               <div class="chart-ttl" id="ventTiendaChartTtl">Ranking de Tiendas</div>
@@ -807,6 +836,9 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               <canvas id="cFamAnio" height="220"></canvas>
             </div>
           </div>
+          <div style="font-weight:700;color:var(--azul);margin-bottom:8px;" id="famCompTtl">📊 Comparativa Mensual y Anual</div>
+          <div id="famCompKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+          <div class="card" id="famCompTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
           <div class="card" id="famTabla" style="padding:0;overflow:hidden;"></div>
         </div>
       </div>
@@ -910,7 +942,8 @@ let compras = [];
 try{ compras = JSON.parse(localStorage.getItem('op_compras')||'[]'); }catch(e){ compras=[]; }
 let familias = [];
 try{ familias = JSON.parse(localStorage.getItem('op_familias')||'[]'); }catch(e){ familias=[]; }
-let ventasCaja = { porDia:[], porHora:[], porEmpleado:[], porTipoMov:[], meta:{} };
+let ventasCaja = { porDia:[], porHora:[], porEmpleado:[], porTipoMov:[], porAlerta:[], porEmpDia:[], porEmpMes:[], meta:{} };
+let ventCajaModo = 'mes';
 try{ const vc=JSON.parse(localStorage.getItem('op_ventascaja')||'null'); if(vc) ventasCaja=vc; }catch(e){}
 let ventasAnual = { conIgic:[], sinIgic:[] };
 try{ const va=JSON.parse(localStorage.getItem('op_ventasanual')||'null'); if(va) ventasAnual=va; }catch(e){}
@@ -2208,6 +2241,19 @@ function pctBadge(pct){
   return `<span class="${cls}">${flecha} ${Math.abs(pct).toFixed(1)}%</span>`;
 }
 
+// Suma varias filas {anio, meses:[12], total} (p.ej. varias tiendas o familias)
+// en una fila por año, para poder pasar el agregado por buildAnualAnalysis.
+function aggregateAnualRows(rows){
+  const porAnio={};
+  rows.forEach(r=>{
+    if(!porAnio[r.anio]) porAnio[r.anio]={anio:r.anio, meses:Array(12).fill(0), total:0};
+    const acc=porAnio[r.anio];
+    r.meses.forEach((v,mi)=>{ acc.meses[mi]+=(v||0); });
+    acc.total+=(r.total||0);
+  });
+  return Object.values(porAnio).sort((a,b)=>a.anio-b.anio);
+}
+
 // rows: [{anio, meses:[12 números], total}] → calcula mejor/peor mes y año.
 // El año más reciente sólo cuenta para mejor/peor año si ya está completo
 // (evita que un año en curso con meses a 0 se marque como "peor año").
@@ -2263,7 +2309,8 @@ function renderAnualTabla(an){
             const esMejorMes = mejorMes && r.anio===mejorMes.anio && mi===mejorMes.mes;
             const esPeorMes = peorMes && r.anio===peorMes.anio && mi===peorMes.mes;
             const estilo = esMejorMes?'background:var(--verde);color:#fff;font-weight:700;':esPeorMes?'background:var(--rojo);color:#fff;font-weight:700;':'';
-            return `<td style="${estilo}">${v?fmtK(v)+'€':'—'}</td>`;
+            const variacionMes = (idx>0 && v) ? pctChange(v, ordenado[idx-1].meses[mi]) : null;
+            return `<td style="${estilo}">${v?fmtK(v)+'€':'—'}${variacionMes!=null?'<br><span style="font-size:9px;">'+pctBadge(variacionMes)+'</span>':''}</td>`;
           }).join('')}
           <td style="font-weight:700;">${fmt(r.total)}</td>
           <td>${pctBadge(variacion)}</td>
@@ -2293,7 +2340,7 @@ function importVentasCajaExcel(input){
       const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
       const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
 
-      const porDiaMap={}, porHoraMap={}, porEmpMap={}, porTipoMap={}, porAlertaMap={};
+      const porDiaMap={}, porHoraMap={}, porEmpMap={}, porTipoMap={}, porAlertaMap={}, porEmpDiaMap={}, porEmpMesMap={};
       let nFilas=0;
 
       data.forEach(row=>{
@@ -2334,10 +2381,19 @@ function importVentasCajaExcel(input){
         porTipoMap[kt]=porTipoMap[kt]||{tienda,tipomov,descrtipo,tipcondes,total:0,n:0};
         porTipoMap[kt].total+=ingreso; porTipoMap[kt].n++;
 
+        const mes=fecha.slice(0,7);
+        const ked=tienda+'|'+empleado+'|'+fecha+'|'+tipomov+'|'+tipcondes;
+        porEmpDiaMap[ked]=porEmpDiaMap[ked]||{tienda,empleado,fecha,mes,tipomov,descrtipo,tipcondes,total:0,n:0};
+        porEmpDiaMap[ked].total+=ingreso; porEmpDiaMap[ked].n++;
+
+        const kem=tienda+'|'+empleado+'|'+mes+'|'+tipomov+'|'+tipcondes;
+        porEmpMesMap[kem]=porEmpMesMap[kem]||{tienda,empleado,mes,tipomov,descrtipo,tipcondes,total:0,n:0};
+        porEmpMesMap[kem].total+=ingreso; porEmpMesMap[kem].n++;
+
         if(ingreso===0 || ingreso<0){
           const tipoAlerta = ingreso===0 ? 'cero' : 'negativo';
-          const ka=tienda+'|'+tipoAlerta;
-          porAlertaMap[ka]=porAlertaMap[ka]||{tienda,tipo:tipoAlerta,total:0,n:0};
+          const ka=tienda+'|'+empleado+'|'+tipoAlerta;
+          porAlertaMap[ka]=porAlertaMap[ka]||{tienda,empleado,tipo:tipoAlerta,total:0,n:0};
           porAlertaMap[ka].total+=ingreso; porAlertaMap[ka].n++;
         }
       });
@@ -2350,6 +2406,8 @@ function importVentasCajaExcel(input){
         porEmpleado: Object.values(porEmpMap).sort((a,b)=>b.total-a.total),
         porTipoMov: Object.values(porTipoMap).sort((a,b)=>b.total-a.total),
         porAlerta: Object.values(porAlertaMap),
+        porEmpDia: Object.values(porEmpDiaMap),
+        porEmpMes: Object.values(porEmpMesMap),
         meta:{ importado:new Date().toISOString(), nFilas }
       };
       saveVentasCaja(); renderVentas();
@@ -2378,12 +2436,15 @@ function renderVentas(){
   if(!porDia.length){
     document.getElementById('ventKpis').innerHTML='';
     document.getElementById('ventEmpTabla').innerHTML='<div class="empty-state"><div class="e-ico">🏪</div><h3>Sin datos</h3><p>Importa el Excel de Ventas (Caja) para ver el análisis.</p></div>';
+    document.getElementById('ventHoraPicoTabla').innerHTML='';
+    document.getElementById('ventEmpDetTabla').innerHTML='';
+    document.getElementById('ventAlertaTabla').innerHTML='';
     return;
   }
 
   const totalMov = porTipo.reduce((s,t)=>s+t.n,0);
   const totalIngreso = porDia.reduce((s,d)=>s+d.total,0);
-  const efectivo = porTipo.filter(t=>t.tipcondes==='Efectivo').reduce((s,t)=>s+t.total,0);
+  const efectivo = porTipo.filter(t=>/^(efectivo|contado)$/i.test(t.tipcondes||'')).reduce((s,t)=>s+t.total,0);
   const tarjeta  = porTipo.filter(t=>t.tipcondes==='Tarjeta').reduce((s,t)=>s+t.total,0);
   const ventasVta = porTipo.filter(t=>t.tipomov==='VTA').reduce((s,t)=>s+t.total,0);
   const alertas = porAlerta.reduce((s,a)=>s+a.n,0);
@@ -2431,6 +2492,88 @@ function renderVentas(){
       </tbody>
     </table>
     </div>`;
+
+  const empleados=[...new Set((ventasCaja.porEmpleado||[]).map(e=>e.empleado))].sort();
+  const selE=document.getElementById('ventFiltroEmpleado');
+  if(selE && selE.options.length<=1) empleados.forEach(em=>{ const o=document.createElement('option'); o.value=em; o.textContent=em; selE.appendChild(o); });
+  const empleadoSel=selE?.value||'todos';
+
+  document.getElementById('ventCajaModoDia')?.classList.toggle('active', ventCajaModo==='dia');
+  document.getElementById('ventCajaModoMes')?.classList.toggle('active', ventCajaModo==='mes');
+
+  const picoPorTienda={};
+  porHora.forEach(h=>{
+    if(!picoPorTienda[h.tienda] || h.total>picoPorTienda[h.tienda].total) picoPorTienda[h.tienda]={tienda:h.tienda, hora:h.hora, total:h.total, n:h.n};
+  });
+  const picoOrd=Object.values(picoPorTienda).sort((a,b)=>String(a.tienda).localeCompare(String(b.tienda)));
+  document.getElementById('ventHoraPicoTabla').innerHTML = picoOrd.length ? `
+    <div style="overflow-x:auto;">
+    <table class="tabla">
+      <thead><tr><th>Tienda</th><th>Hora Pico</th><th style="text-align:right;">Movimientos</th><th style="text-align:right;">Ingreso</th></tr></thead>
+      <tbody>
+        ${picoOrd.map(p=>`<tr>
+          <td style="font-weight:500;">Tienda ${p.tienda}</td>
+          <td>${p.hora}h</td>
+          <td style="text-align:right;">${p.n}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(p.total)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>` : '<div class="empty-state"><div class="e-ico">🕒</div><h3>Sin datos</h3></div>';
+
+  const baseDet = filtT(ventCajaModo==='dia' ? (ventasCaja.porEmpDia||[]) : (ventasCaja.porEmpMes||[]));
+  const detFiltrado = empleadoSel==='todos' ? baseDet : baseDet.filter(x=>x.empleado===empleadoSel);
+  const detAgg={};
+  detFiltrado.forEach(r=>{
+    const periodo = ventCajaModo==='dia' ? r.fecha : r.mes;
+    const key=r.empleado+'|'+periodo;
+    if(!detAgg[key]) detAgg[key]={empleado:r.empleado, periodo, n:0, total:0, tarjeta:0, efectivo:0, otros:0};
+    const d=detAgg[key];
+    d.n+=r.n; d.total+=r.total;
+    if(r.tipcondes==='Tarjeta') d.tarjeta+=r.total;
+    else if(/^(efectivo|contado)$/i.test(r.tipcondes||'')) d.efectivo+=r.total;
+    else d.otros+=r.total;
+  });
+  const detOrd=Object.values(detAgg).sort((a,b)=>b.periodo.localeCompare(a.periodo)||a.empleado.localeCompare(b.empleado));
+  document.getElementById('ventEmpDetTabla').innerHTML = detOrd.length ? `
+    <div style="overflow-x:auto;">
+    <table class="tabla">
+      <thead><tr><th>${ventCajaModo==='dia'?'Día':'Mes'}</th><th>Empleado</th><th style="text-align:right;">Nº Ventas</th><th style="text-align:right;">Tarjeta</th><th style="text-align:right;">Efectivo/Contado</th><th style="text-align:right;">Otros</th><th style="text-align:right;">Total</th></tr></thead>
+      <tbody>
+        ${detOrd.map(d=>`<tr>
+          <td>${d.periodo}</td>
+          <td style="font-weight:500;">${d.empleado}</td>
+          <td style="text-align:right;">${d.n}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(d.tarjeta)}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(d.efectivo)}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${d.otros?fmt(d.otros):'—'}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(d.total)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>` : '<div class="empty-state"><div class="e-ico">🧑‍💼</div><h3>Sin datos</h3></div>';
+
+  const alertaOrd=[...porAlerta].sort((a,b)=>String(a.tienda).localeCompare(String(b.tienda))||String(a.empleado||'').localeCompare(String(b.empleado||''))||a.tipo.localeCompare(b.tipo));
+  document.getElementById('ventAlertaTabla').innerHTML = alertaOrd.length ? `
+    <div style="overflow-x:auto;">
+    <table class="tabla">
+      <thead><tr><th>Tienda</th><th>Empleado</th><th>Tipo</th><th style="text-align:right;">Nº</th><th style="text-align:right;">Importe</th></tr></thead>
+      <tbody>
+        ${alertaOrd.map(a=>`<tr>
+          <td>Tienda ${a.tienda}</td>
+          <td style="font-weight:500;">${a.empleado||'—'}</td>
+          <td>${a.tipo==='cero'?'⚪ Importe a 0':'🔴 Importe negativo'}</td>
+          <td style="text-align:right;">${a.n}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:${a.tipo==='negativo'?'#c0392b':'inherit'};">${fmt(a.total)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>` : '<div class="empty-state"><div class="e-ico">✅</div><h3>Sin alertas</h3><p>No hay importes a 0 ni negativos.</p></div>';
+}
+
+function setVentCajaModo(m){
+  ventCajaModo=m;
+  renderVentas();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2729,10 +2872,29 @@ function renderVentasTiendas(){
     sel.value=tiendas.map(String).includes(valorActual)?valorActual:'';
   }
   const seleccionada=sel?.value||'';
-  if(seleccionada){ renderVentasTiendaDetalle(); return; }
+  if(seleccionada){
+    document.getElementById('ventTiendaGrupoTtl').style.display='none';
+    document.getElementById('ventTiendaGrupoKpis').innerHTML='';
+    document.getElementById('ventTiendaGrupoTabla').innerHTML='';
+    renderVentasTiendaDetalle(); return;
+  }
 
   destroyChart('cVentTienda');
   document.getElementById('ventTiendaChartTtl').textContent='Ranking de Tiendas'+(grupo!=='todos'?' — '+grupo:'');
+
+  // Comparativa agregada del grupo (Ofipapel / Aliz-1 / Aliz-2): mejor/peor mes y año
+  const ttlGrupo=document.getElementById('ventTiendaGrupoTtl');
+  if(grupo!=='todos' && filtradas.length){
+    const anGrupo=buildAnualAnalysis(aggregateAnualRows(filtradas));
+    ttlGrupo.style.display='block';
+    ttlGrupo.textContent='📊 Comparativa '+grupo;
+    document.getElementById('ventTiendaGrupoKpis').innerHTML=anualKpisHtml(anGrupo);
+    document.getElementById('ventTiendaGrupoTabla').innerHTML=renderAnualTabla(anGrupo);
+  } else {
+    ttlGrupo.style.display='none';
+    document.getElementById('ventTiendaGrupoKpis').innerHTML='';
+    document.getElementById('ventTiendaGrupoTabla').innerHTML='';
+  }
 
   if(!filtradas.length){
     document.getElementById('ventTiendaKpis').innerHTML='';
@@ -3199,6 +3361,26 @@ function renderFamilias(){
     if(texto && !x.nombre.toLowerCase().includes(texto) && !String(x.codigo).includes(texto)) return false;
     return true;
   }).sort((a,b)=>b.total-a.total);
+
+  // Comparativa mensual/anual — ignora el filtro de año (necesita histórico completo)
+  // para mostrar mejor/peor mes y año del filtro de categoría/texto seleccionado.
+  const fComp=familias.filter(x=>{
+    if(catFiltro!=='todas' && x.catCodigo!==catFiltro) return false;
+    if(texto && !x.nombre.toLowerCase().includes(texto) && !String(x.codigo).includes(texto)) return false;
+    return true;
+  });
+  const compTtlEl=document.getElementById('famCompTtl');
+  if(fComp.length){
+    const etiqueta = texto ? 'Búsqueda: "'+texto+'"' : (catFiltro!=='todas' ? 'Categoría '+catFiltro : 'Todas las familias');
+    compTtlEl.textContent='📊 Comparativa Mensual y Anual — '+etiqueta;
+    const anFam=buildAnualAnalysis(aggregateAnualRows(fComp));
+    document.getElementById('famCompKpis').innerHTML=anualKpisHtml(anFam);
+    document.getElementById('famCompTabla').innerHTML=renderAnualTabla(anFam);
+  } else {
+    compTtlEl.textContent='📊 Comparativa Mensual y Anual';
+    document.getElementById('famCompKpis').innerHTML='';
+    document.getElementById('famCompTabla').innerHTML='';
+  }
 
   const totalVentas=f.reduce((s,x)=>s+x.total,0);
   const nFamilias=new Set(f.map(x=>x.codigo)).size;
