@@ -1,0 +1,46 @@
+# Copia este archivo como config.yaml y rellena tus datos.
+# config.yaml NO se sube a git (ver .gitignore) porque contiene datos de tu organizacion.
+
+auth:
+  client_id: "PEGA-AQUI-EL-APPLICATION-CLIENT-ID"
+  tenant_id: "PEGA-AQUI-EL-DIRECTORY-TENANT-ID"
+  scopes:
+    - "Mail.ReadWrite"
+  token_cache_path: "./token_cache.bin"
+
+busqueda:
+  dias_atras: 10
+  asunto_contiene: "pedido semanal"
+
+# Para cada proveedor, "remitente" puede ser:
+#  - un correo exacto:        "pedidos@proveedora.com"
+#  - un dominio (con @ delante): "@proveedora.com"
+proveedores:
+  - nombre: "Proveedor A"
+    remitente: "pedidos@proveedora.com"
+  - nombre: "Proveedor B"
+    remitente: "ventas@proveedorb.com"
+  - nombre: "Proveedor C"
+    remitente: "comercial@proveedorc.com"
+
+excel:
+  columnas_esperadas: ["codigo", "descripcion", "referencia", "precio"]
+  columna_clave: "referencia"
+  columna_precio: "precio"
+  fila_cabecera: 0
+
+salida:
+  carpeta: "./output"
+  nombre_archivo_patron: "ganador_{proveedor}_{fecha}.xlsx"
+
+email:
+  plantilla_respuesta: |
+    Hola,
+
+    Adjunto el listado de articulos en los que su oferta ha resultado
+    la mas competitiva en la comparativa de esta semana.
+
+    Quedamos a la espera de confirmacion.
+
+    Saludos.
+  marcar_categoria: "PedidoProcesado"
