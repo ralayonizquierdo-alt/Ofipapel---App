@@ -362,7 +362,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.5 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.6 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -385,10 +385,12 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     <div class="nav-item" onclick="showView('pagares')"><span class="ni">📄</span><span>Pagarés &amp; Confirming</span></div>
     <div class="nav-item" onclick="showView('proveedores')"><span class="ni">💸</span><span>Pagos Proveed.</span></div>
 
-    <div class="nav-section">Operaciones</div>
-    <div class="nav-item" onclick="showView('ventas')"><span class="ni">🏪</span><span>Ventas (Caja)</span></div>
-    <div class="nav-item" onclick="showView('compras')"><span class="ni">🛒</span><span>Compras</span></div>
-    <div class="nav-item" onclick="showView('familias')"><span class="ni">📦</span><span>Familias</span></div>
+    <div id="navOperaciones">
+      <div class="nav-section">Operaciones</div>
+      <div class="nav-item" onclick="showView('ventas')"><span class="ni">🏪</span><span>Ventas (Caja)</span></div>
+      <div class="nav-item" onclick="showView('compras')"><span class="ni">🛒</span><span>Compras</span></div>
+      <div class="nav-item" onclick="showView('familias')"><span class="ni">📦</span><span>Familias</span></div>
+    </div>
 
     <div class="sidebar-footer">
       <div class="sidebar-user" id="sidebarUser"></div>
@@ -769,6 +771,8 @@ const STORAGE_KEY = 'ofipapel_registros_v1';
 // ESTADO — declarado aquí para evitar TDZ antes de loadData()
 // ═══════════════════════════════════════════════════════
 const USERS = { rober:'ofipapel2026', admin:'ofipapel2026', david:'ofipapel2026', monica:'ofipapel2026' };
+// Usuarios con acceso a la sección Operaciones (Ventas, Compras, Familias)
+const OPERACIONES_ACCESO = ['admin', 'rober', 'david'];
 // Cargar contraseñas personalizadas guardadas
 try{ Object.assign(USERS, JSON.parse(localStorage.getItem('op_passwords')||'{}')); }catch(e){}
 let currentUser = null;
@@ -937,6 +941,12 @@ function togglePass() {
   }
 }
 
+function applyAccessControl(){
+  const tieneAcceso = OPERACIONES_ACCESO.includes(currentUser);
+  const nav = document.getElementById('navOperaciones');
+  if(nav) nav.style.display = tieneAcceso ? '' : 'none';
+}
+
 function doLogin() {
   const u = document.getElementById('loginUser').value.trim().toLowerCase();
   const p = document.getElementById('loginPass').value;
@@ -952,6 +962,7 @@ function doLogin() {
     document.getElementById('app').style.display='flex';
     document.getElementById('sidebarUser').textContent = u.charAt(0).toUpperCase()+u.slice(1);
     document.getElementById('topbarUser').textContent = u.charAt(0).toUpperCase()+u.slice(1);
+    applyAccessControl();
     updateStorageStatus();
     // Init cloud sync
     initSupabase().then(() => loadFromCloud());
@@ -981,6 +992,9 @@ function doLogout() {
 // ═══════════════════════════════════════════════════════
 const TITLES = { dashboard:'Dashboard', historico:'Histórico', alertas:'Alertas', entrada:'Volcado Diario', deuda:'Pool de Deuda', pagares:'Pagarés & Confirming', proveedores:'Pagos a Proveedores', ventas:'Ventas (Caja)', compras:'Compras a Proveedores', familias:'Ventas por Familias' };
 function showView(id) {
+  if(['ventas','compras','familias'].includes(id) && !OPERACIONES_ACCESO.includes(currentUser)){
+    id='dashboard';
+  }
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('v-'+id).classList.add('active');
