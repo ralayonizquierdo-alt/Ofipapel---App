@@ -362,7 +362,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.6 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.7 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -1773,24 +1773,34 @@ function importProveedoresExcel(input){
   const reader=new FileReader();
   reader.onload=function(e){
     try{
-      const wb=XLSX.read(e.target.result,{type:'array'});
-      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      const toFecha=v=>{
+        if(v instanceof Date) return v.toISOString().split('T')[0];
+        if(typeof v==='number') return new Date(Math.round((v-25569)*86400*1000)).toISOString().split('T')[0];
+        return '';
+      };
       let n=0;
       data.forEach(row=>{
-        const g=(...keys)=>{ for(const k of keys){ for(const rk of Object.keys(row)){ if(rk.toLowerCase().replace(/[^a-z]/g,'').includes(k.toLowerCase().replace(/[^a-z]/g,''))) return String(row[rk]||'').trim(); } } return ''; };
-        const impStr=g('importe','amount').replace(/[€\s.]/g,'').replace(',','.');
-        const imp=parseFloat(impStr);
+        const receptorRaw=row[0];
+        if(receptorRaw==='' || receptorRaw==null) return;
+        if(String(receptorRaw).trim().toLowerCase()==='receptor') return;
+        const nombre=String(row[1]||'').trim();
+        if(!nombre) return;
+        const importeStr=String(row[4]||'').replace(/[€\s]/g,'').replace(/\./g,'').replace(',','.');
+        const importe=parseFloat(importeStr);
+        if(isNaN(importe)) return;
         proveedores.push({
           id:Date.now()+n,
-          fecha:g('fepago','fechapago','fecha')||new Date().toISOString().split('T')[0],
-          receptor:g('receptor','codigo','cod'),
-          nombre:g('nombrereceptor','nombre','proveedor'),
-          nfra:g('nfra','fra','factura'),
-          ndocpago:g('ndocpago','docpago','documento'),
-          importe:isNaN(imp)?0:imp,
-          fedoc:g('fedoc','fechadoc'),
-          fevto:g('fevto','vencimiento','vto'),
-          tipomov:g('tipomov','tipo')||'Pago'
+          fecha:toFecha(row[7])||new Date().toISOString().split('T')[0],
+          receptor:String(receptorRaw).trim(),
+          nombre,
+          nfra:row[2]!==''?String(row[2]).trim():'',
+          ndocpago:String(row[3]||'').trim(),
+          importe,
+          fedoc:toFecha(row[6]),
+          fevto:toFecha(row[8]),
+          tipomov:String(row[10]||'').trim()||'Pago'
         });
         n++;
       });
