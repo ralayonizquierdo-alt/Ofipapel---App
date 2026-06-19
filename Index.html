@@ -3963,14 +3963,14 @@ Los importes están en euros (€). Las tiendas son locales físicos: tienda 1 =
 DATOS CARGADOS EN LA APP:
 ${buildDataContext()}`;
 
-    // Proxy CORS: el navegador no permite llamadas directas a api.anthropic.com
-    const proxyUrl = 'https://corsproxy.io/?https%3A%2F%2Fapi.anthropic.com%2Fv1%2Fmessages';
-    const resp = await fetch(proxyUrl, {
+    // Llamada directa con el header CORS correcto de Anthropic
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'x-api-key': chatApiKey,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
