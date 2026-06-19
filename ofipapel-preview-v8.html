@@ -589,7 +589,40 @@ img{max-width:100%;display:block}
 
 
 /* ── TESTIMONIALS ── */
+/* ── SCROLL REEL TESTIMONIALS ── */
 .testi-section{padding:72px 0}
+.reel-wrap{overflow:hidden;width:100%;padding:12px 0;mask-image:linear-gradient(to right,transparent,#000 8%,#000 92%,transparent);-webkit-mask-image:linear-gradient(to right,transparent,#000 8%,#000 92%,transparent)}
+.reel-row{display:flex;gap:0;margin-bottom:16px}
+.reel-row:last-child{margin-bottom:0}
+@keyframes reel-l{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes reel-r{from{transform:translateX(-50%)}to{transform:translateX(0)}}
+.reel-track{display:flex;gap:16px;animation:reel-l 36s linear infinite;flex-shrink:0}
+.reel-track.reel-rev{animation:reel-r 40s linear infinite}
+.reel-track:hover,.reel-track.reel-rev:hover{animation-play-state:paused}
+.testi-card{
+  flex-shrink:0;width:320px;
+  background:var(--glass-bg);border:1px solid var(--glass-border);
+  border-radius:var(--r);padding:22px 24px;
+  backdrop-filter:blur(12px);
+  transition:background .2s,border-color .2s,transform .2s;
+  cursor:default;
+}
+.testi-card:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.35);transform:translateY(-3px)}
+.testi-stars{font-size:.82rem;color:var(--cta);letter-spacing:2px;margin-bottom:12px}
+.testi-text{font-size:.84rem;color:var(--txt2);line-height:1.7;margin-bottom:18px;font-style:italic}
+.testi-author{display:flex;align-items:center;gap:12px}
+.testi-avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.78rem;color:#fff}
+.testi-name{font-weight:700;font-size:.83rem}
+.testi-role{font-size:.7rem;color:var(--txt3);margin-top:2px}
+.testi-bottom{
+  display:flex;justify-content:space-between;align-items:center;
+  background:var(--glass-bg);border:1px solid var(--glass-border);
+  border-radius:var(--r);padding:20px 28px;margin-top:28px;
+  backdrop-filter:blur(12px);
+}
+.testi-score{display:flex;align-items:center;gap:14px}
+.testi-score-num{font-family:'Plus Jakarta Sans',sans-serif;font-size:3rem;font-weight:800;color:var(--lime);line-height:1}
+@media(max-width:768px){.testi-card{width:272px}.testi-bottom{flex-direction:column;gap:16px;text-align:center}}
 .testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:32px}
 .testi-card{
   background:rgba(255,255,255,.1);
@@ -1369,46 +1402,274 @@ img{max-width:100%;display:block}
       <div class="section-kicker">Clientes</div>
       <h2>Lo que dicen de <em>nosotros</em></h2>
     </div>
-    <div class="testi-grid">
-
+  </div>
+  <div class="reel-wrap">
+    <div class="reel-row">
+    <div class="reel-track">
       <div class="testi-card">
         <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-        <p class="testi-text">"Llevamos más de 10 años trabajando con Ofipapel. Siempre cumplen con los plazos y el material llega en perfectas condiciones. Son nuestros proveedores de confianza para todo el material de oficina."</p>
+        <p class="testi-text">"Llevamos más de 10 años con Ofipapel. Siempre cumplen plazos y el material llega en perfectas condiciones."</p>
         <div class="testi-author">
           <div class="testi-avatar" style="background:linear-gradient(135deg,var(--gd),var(--g))">MR</div>
-          <div>
-            <div class="testi-name">María Rodríguez</div>
-            <div class="testi-role">Directora de Administración · Hotel Mencey</div>
-          </div>
+          <div><div class="testi-name">María Rodríguez</div><div class="testi-role">Directora Adm. · Hotel Mencey</div></div>
         </div>
       </div>
-
-      <div class="testi-card testi-card-featured">
-        <div class="testi-quote-icon">&#8220;</div>
-        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-        <p class="testi-text">"El servicio de atención al cliente es excepcional. Cuando necesitamos algo urgente nos lo traen al día siguiente. El catálogo A-Z es increíble, tienen absolutamente todo lo que una empresa puede necesitar."</p>
-        <div class="testi-author">
-          <div class="testi-avatar" style="background:linear-gradient(135deg,var(--cta),#e8800a)">JG</div>
-          <div>
-            <div class="testi-name">Juan García</div>
-            <div class="testi-role">Gerente · Grupo Empresarial Canarias</div>
-          </div>
-        </div>
-      </div>
-
       <div class="testi-card">
         <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-        <p class="testi-text">"Llevamos suministrando nuestro colegio con Ofipapel desde hace años. La relación calidad-precio es insuperable y el equipo siempre nos asesora perfectamente para la vuelta al cole."</p>
+        <p class="testi-text">"El catálogo A-Z es increíble, tienen absolutamente todo. Atención al cliente excepcional y entrega rapidísima."</p>
         <div class="testi-author">
-          <div class="testi-avatar" style="background:linear-gradient(135deg,var(--blue),#2d7ab0)">AM</div>
-          <div>
-            <div class="testi-name">Ana Martín</div>
-            <div class="testi-role">Secretaría · Colegio Santa Cruz de Tenerife</div>
-          </div>
+          <div class="testi-avatar" style="background:linear-gradient(135deg,var(--cta),#e8800a)">JG</div>
+          <div><div class="testi-name">Juan García</div><div class="testi-role">Gerente · Grupo Empresarial Canarias</div></div>
         </div>
       </div>
-
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Para la vuelta al cole son insuperables. La relación calidad-precio y el asesoramiento del equipo son top."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,var(--blue),#2d7ab0)">AM</div>
+          <div><div class="testi-name">Ana Martín</div><div class="testi-role">Secretaría · Colegio Santa Cruz</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Equipamos toda nuestra obra con material de Ofipapel. Muy buenos precios en pedidos grandes y envío puntual."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#7B2D8B,#B44FCC)">PS</div>
+          <div><div class="testi-name">Pedro Suárez</div><div class="testi-role">Jefe de Obra · Constructora Atlántico</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Los tóners y consumibles siempre disponibles. Nos ahorran tiempo y dinero cada mes. Totalmente recomendables."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#C0392B,#E74C3C)">CD</div>
+          <div><div class="testi-name">Carmen Delgado</div><div class="testi-role">Administración · Clínica Dental Playa</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Pedidos de higiene y limpieza para la farmacia, siempre puntuales. Nunca hemos tenido un problema con ellos."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#16A085,#1ABC9C)">RL</div>
+          <div><div class="testi-name">Roberto López</div><div class="testi-role">Propietario · Farmacia Central</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"El servicio online es muy cómodo. En dos días tenemos todo en la gestoría sin salir de la oficina."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,var(--gd),var(--lime))">LT</div>
+          <div><div class="testi-name">Laura Torres</div><div class="testi-role">Socia · Gestoría Torres & Asociados</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Suministramos 4 restaurantes desde Ofipapel. Siempre tienen stock y los precios son muy competitivos."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#8E6B2E,#C49A3C)">MD</div>
+          <div><div class="testi-name">Miguel Díaz</div><div class="testi-role">Director · Hostelería Canarias Sur</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Llevamos más de 10 años con Ofipapel. Siempre cumplen plazos y el material llega en perfectas condiciones."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,var(--gd),var(--g))">MR</div>
+          <div><div class="testi-name">María Rodríguez</div><div class="testi-role">Directora Adm. · Hotel Mencey</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"El catálogo A-Z es increíble, tienen absolutamente todo. Atención al cliente excepcional y entrega rapidísima."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,var(--cta),#e8800a)">JG</div>
+          <div><div class="testi-name">Juan García</div><div class="testi-role">Gerente · Grupo Empresarial Canarias</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Para la vuelta al cole son insuperables. La relación calidad-precio y el asesoramiento del equipo son top."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,var(--blue),#2d7ab0)">AM</div>
+          <div><div class="testi-name">Ana Martín</div><div class="testi-role">Secretaría · Colegio Santa Cruz</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Equipamos toda nuestra obra con material de Ofipapel. Muy buenos precios en pedidos grandes y envío puntual."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#7B2D8B,#B44FCC)">PS</div>
+          <div><div class="testi-name">Pedro Suárez</div><div class="testi-role">Jefe de Obra · Constructora Atlántico</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Los tóners y consumibles siempre disponibles. Nos ahorran tiempo y dinero cada mes. Totalmente recomendables."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#C0392B,#E74C3C)">CD</div>
+          <div><div class="testi-name">Carmen Delgado</div><div class="testi-role">Administración · Clínica Dental Playa</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Pedidos de higiene y limpieza para la farmacia, siempre puntuales. Nunca hemos tenido un problema con ellos."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#16A085,#1ABC9C)">RL</div>
+          <div><div class="testi-name">Roberto López</div><div class="testi-role">Propietario · Farmacia Central</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"El servicio online es muy cómodo. En dos días tenemos todo en la gestoría sin salir de la oficina."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,var(--gd),var(--lime))">LT</div>
+          <div><div class="testi-name">Laura Torres</div><div class="testi-role">Socia · Gestoría Torres & Asociados</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Suministramos 4 restaurantes desde Ofipapel. Siempre tienen stock y los precios son muy competitivos."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#8E6B2E,#C49A3C)">MD</div>
+          <div><div class="testi-name">Miguel Díaz</div><div class="testi-role">Director · Hostelería Canarias Sur</div></div>
+        </div>
+      </div>
     </div>
+    </div>
+    <div class="reel-row">
+    <div class="reel-track reel-rev">
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Excelente proveedor para nuestra cadena hotelera. Precios ajustados y servicio muy profesional en todo momento."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#1A5276,#2E86C1)">BH</div>
+          <div><div class="testi-name">Beatriz Herrera</div><div class="testi-role">Compras · Hotel Costa Adeje</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Todo el material escolar para la academia lo compramos aquí. Siempre con descuento por volumen y buen trato."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#884EA0,#A569BD)">EV</div>
+          <div><div class="testi-name">Elena Vega</div><div class="testi-role">Directora · Academia de Idiomas Norte</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Usamos sus servicios de impresión y encuadernación. Calidad profesional y entrega en menos de 24 horas."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#1E8449,#27AE60)">SN</div>
+          <div><div class="testi-name">Sofía Navarro</div><div class="testi-role">Arquitecta · Estudio N&R</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"El trato personal en las tiendas es inmejorable. Te asesoran sin presión y siempre encuentras lo que buscas."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#784212,#CA6F1E)">AR</div>
+          <div><div class="testi-name">Andrés Ruiz</div><div class="testi-role">Propietario · Taller Mecánico Sur</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Llevamos el mobiliario de toda la clínica de Ofipapel. Las sillas ergonómicas son de muy buena calidad."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#145A32,#1D8348)">FG</div>
+          <div><div class="testi-name">Fernando García</div><div class="testi-role">Gerente · Clínica Fisio&Salud</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Nuestra papelería y artículos de escritura vienen todos de aquí. Sin fallos en 5 años de colaboración."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,var(--blue),#5DADE2)">CP</div>
+          <div><div class="testi-name">Cristina Pérez</div><div class="testi-role">Responsable · Librería El Rincón</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Los precios de los cartuchos de impresora son los mejores de la isla. Ahorramos mucho en consumibles."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#6C3483,#9B59B6)">AP</div>
+          <div><div class="testi-name">Antonio Pérez</div><div class="testi-role">Asesor · Despacho Fiscal Pérez</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Rápidos, eficientes y simpáticos. El equipo de ventas siempre nos busca alternativas cuando algo no hay stock."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#1A5276,#3498DB)">CM</div>
+          <div><div class="testi-name">Carlos Morales</div><div class="testi-role">Director · Autoescuela Tenerife Sur</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Excelente proveedor para nuestra cadena hotelera. Precios ajustados y servicio muy profesional en todo momento."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#1A5276,#2E86C1)">BH</div>
+          <div><div class="testi-name">Beatriz Herrera</div><div class="testi-role">Compras · Hotel Costa Adeje</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Todo el material escolar para la academia lo compramos aquí. Siempre con descuento por volumen y buen trato."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#884EA0,#A569BD)">EV</div>
+          <div><div class="testi-name">Elena Vega</div><div class="testi-role">Directora · Academia de Idiomas Norte</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Usamos sus servicios de impresión y encuadernación. Calidad profesional y entrega en menos de 24 horas."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#1E8449,#27AE60)">SN</div>
+          <div><div class="testi-name">Sofía Navarro</div><div class="testi-role">Arquitecta · Estudio N&R</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"El trato personal en las tiendas es inmejorable. Te asesoran sin presión y siempre encuentras lo que buscas."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#784212,#CA6F1E)">AR</div>
+          <div><div class="testi-name">Andrés Ruiz</div><div class="testi-role">Propietario · Taller Mecánico Sur</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Llevamos el mobiliario de toda la clínica de Ofipapel. Las sillas ergonómicas son de muy buena calidad."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#145A32,#1D8348)">FG</div>
+          <div><div class="testi-name">Fernando García</div><div class="testi-role">Gerente · Clínica Fisio&Salud</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Nuestra papelería y artículos de escritura vienen todos de aquí. Sin fallos en 5 años de colaboración."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,var(--blue),#5DADE2)">CP</div>
+          <div><div class="testi-name">Cristina Pérez</div><div class="testi-role">Responsable · Librería El Rincón</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Los precios de los cartuchos de impresora son los mejores de la isla. Ahorramos mucho en consumibles."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#6C3483,#9B59B6)">AP</div>
+          <div><div class="testi-name">Antonio Pérez</div><div class="testi-role">Asesor · Despacho Fiscal Pérez</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p class="testi-text">"Rápidos, eficientes y simpáticos. El equipo de ventas siempre nos busca alternativas cuando algo no hay stock."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#1A5276,#3498DB)">CM</div>
+          <div><div class="testi-name">Carlos Morales</div><div class="testi-role">Director · Autoescuela Tenerife Sur</div></div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+  <div class="container">
     <div class="testi-bottom">
       <div class="testi-score">
         <span class="testi-score-num">4,9</span>
