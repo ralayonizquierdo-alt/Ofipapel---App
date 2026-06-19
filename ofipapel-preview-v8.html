@@ -480,6 +480,58 @@ img{max-width:100%;display:block}
 .cta-inner.in .cta-sub{animation:cta-fade .7s .22s ease both}
 .cta-inner.in .cta-btns{animation:cta-fade .7s .34s ease both}
 
+
+/* ── SCROLL REVEAL ── */
+.reveal{opacity:0;transform:translateY(44px);transition:opacity .75s cubic-bezier(.22,1,.36,1),transform .75s cubic-bezier(.22,1,.36,1)}
+.reveal.in{opacity:1;transform:none}
+.reveal-left{opacity:0;transform:translateX(-48px);transition:opacity .75s cubic-bezier(.22,1,.36,1),transform .75s cubic-bezier(.22,1,.36,1)}
+.reveal-left.in{opacity:1;transform:none}
+.reveal-right{opacity:0;transform:translateX(48px);transition:opacity .75s cubic-bezier(.22,1,.36,1),transform .75s cubic-bezier(.22,1,.36,1)}
+.reveal-right.in{opacity:1;transform:none}
+.reveal-scale{opacity:0;transform:scale(.92);transition:opacity .7s cubic-bezier(.22,1,.36,1),transform .7s cubic-bezier(.22,1,.36,1)}
+.reveal-scale.in{opacity:1;transform:none}
+/* stagger delays for grid children */
+.stagger>*:nth-child(1){transition-delay:.0s}
+.stagger>*:nth-child(2){transition-delay:.07s}
+.stagger>*:nth-child(3){transition-delay:.14s}
+.stagger>*:nth-child(4){transition-delay:.21s}
+.stagger>*:nth-child(5){transition-delay:.28s}
+.stagger>*:nth-child(6){transition-delay:.35s}
+.stagger>*:nth-child(7){transition-delay:.42s}
+.stagger>*:nth-child(8){transition-delay:.49s}
+.stagger>*:nth-child(9){transition-delay:.56s}
+.stagger>*:nth-child(10){transition-delay:.63s}
+.stagger>*:nth-child(11){transition-delay:.70s}
+.stagger>*:nth-child(12){transition-delay:.77s}
+
+/* ── PARALLAX WIDE BANNER ── */
+.wide-banner{overflow:hidden}
+.wide-banner-img{will-change:transform;transition:transform .1s linear}
+
+/* ── TRUST BAR float icons ── */
+@keyframes trust-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.trust-icon{animation:trust-float 3s ease-in-out infinite}
+.trust-item:nth-child(2) .trust-icon{animation-delay:.5s}
+.trust-item:nth-child(3) .trust-icon{animation-delay:1s}
+.trust-item:nth-child(4) .trust-icon{animation-delay:1.5s}
+
+/* ── MAP SECTION ── */
+.map-layout{display:grid;grid-template-columns:1fr 420px;gap:0;border-radius:var(--rl);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4);border:1px solid var(--glass-border)}
+.map-iframe-wrap{position:relative;min-height:440px}
+.map-iframe-wrap iframe{width:100%;height:100%;border:0;display:block;filter:hue-rotate(100deg) saturate(0.6) brightness(0.7) invert(1)}
+.map-panel{background:rgba(255,255,255,.06);backdrop-filter:blur(14px);padding:32px 28px;display:flex;flex-direction:column;gap:0}
+.map-panel-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:1.1rem;font-weight:800;color:#fff;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--glass-border)}
+.store-item{padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.store-item:last-child{border-bottom:none}
+.store-item-name{font-weight:700;font-size:.88rem;color:#fff;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.store-dot{width:8px;height:8px;border-radius:50%;background:var(--lime);flex-shrink:0;box-shadow:0 0 0 3px rgba(174,204,48,.25)}
+.store-item-info{font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.7;margin-left:16px}
+.store-item-info span{display:flex;align-items:flex-start;gap:6px;margin-bottom:3px}
+.store-item-info svg{flex-shrink:0;margin-top:2px;opacity:.7}
+.store-item-link{display:inline-flex;align-items:center;gap:6px;margin-top:8px;margin-left:16px;font-size:.75rem;font-weight:700;color:var(--lime);text-decoration:none;transition:gap .2s}
+.store-item-link:hover{gap:10px}
+@media(max-width:900px){.map-layout{grid-template-columns:1fr}.map-iframe-wrap{min-height:260px}}
+
 /* ── FOOTER ── */
 .site-ftr{
   background:rgba(5,20,8,.7);
@@ -1000,7 +1052,7 @@ img{max-width:100%;display:block}
 <!-- STATS -->
 <section class="stats-bar">
   <div class="container">
-    <div class="stats-glass-wrap" id="stats-grid">
+    <div class="stats-glass-wrap reveal" id="stats-grid">
       <div class="stats-grid">
         <div class="stat-item">
           <div class="stat-num"><span class="cnt" data-target="20">0</span><span class="stat-sfx">K</span></div>
@@ -1050,11 +1102,11 @@ img{max-width:100%;display:block}
 <!-- CATEGORIES -->
 <section class="section" style="padding-top:64px;padding-bottom:64px">
   <div class="container">
-    <div class="section-hd">
+    <div class="section-hd reveal">
       <div class="section-kicker">Todo lo que necesitas</div>
       <h2>Nuestras <em>categorías</em></h2>
     </div>
-    <div class="cat-grid">
+    <div class="cat-grid stagger">
 
       <!-- A-Z MULTIPRODUCTO — FEATURED -->
       <div class="cat-card cat-card-featured" style="grid-column:span 2">
@@ -1283,7 +1335,7 @@ img{max-width:100%;display:block}
   <div class="wide-banner-img" style="background-image:url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80')"></div>
   <div class="wide-banner-overlay"></div>
   <div class="container wide-banner-content">
-    <div class="wide-banner-kicker">&#127808; Catálogo 2025</div>
+    <div class="wide-banner-kicker reveal">&#127808; Catálogo 2025</div>
     <h2>Todo para tu empresa,<br><em>en un solo lugar</em></h2>
     <p>Más de 20.000 referencias de las mejores marcas. Material de oficina, tecnología, mobiliario y mucho más. Descubre nuestro catálogo completo y solicita tu presupuesto personalizado.</p>
     <div class="wide-banner-badges">
@@ -1305,7 +1357,7 @@ img{max-width:100%;display:block}
     <div class="promo-split">
 
       <!-- MOBILIARIO: clover image + dark overlay -->
-      <div class="promo-card promo-card-mob">
+      <div class="promo-card promo-card-mob reveal-left">
         <div class="promo-card-img" style="background-image:url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80')"></div>
         <div class="promo-card-overlay"></div>
         <div class="promo-card-body">
@@ -1327,7 +1379,7 @@ img{max-width:100%;display:block}
       </div>
 
       <!-- VUELTA AL COLE: school photo + orange overlay -->
-      <div class="promo-card promo-card-cole" style="background-image:url('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=900&q=80');background-size:cover;background-position:center">
+      <div class="promo-card promo-card-cole reveal-right" style="background-image:url('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=900&q=80');background-size:cover;background-position:center">
         <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(120,50,0,.85),rgba(200,80,0,.7));border-radius:var(--rl)"></div>
         <div class="promo-card-body">
           <div class="promo-kicker" style="opacity:.9">Vuelta al cole 2025</div>
@@ -1354,11 +1406,11 @@ img{max-width:100%;display:block}
 <!-- CATALOGS -->
 <section class="section" style="padding:60px 0">
   <div class="container">
-    <div class="section-hd">
+    <div class="section-hd reveal">
       <div class="section-kicker">Descargas</div>
       <h2>Nuestros <em>catálogos</em></h2>
     </div>
-    <div class="cat-dl-grid">
+    <div class="cat-dl-grid stagger">
       <div class="cat-dl-card">
         <div class="cat-dl-thumb"><svg width="50" height="50" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg><div class="cat-dl-label">Catálogo General</div></div>
         <div class="cat-dl-body"><div class="cat-dl-name">Catálogo General 2025</div><div class="cat-dl-year">Edición 2025 · PDF 12 MB</div><div class="cat-dl-actions"><button class="btn-ver">Ver catálogo</button><button class="btn-dl"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button></div></div>
@@ -1379,43 +1431,67 @@ img{max-width:100%;display:block}
   </div>
 </section>
 
-<!-- STORES -->
+<!-- STORES + MAP -->
 <section class="section" style="padding:60px 0">
   <div class="container">
-    <div class="section-hd">
+    <div class="section-hd reveal">
       <div class="section-kicker">Dónde estamos</div>
       <h2>Nuestras <em>tiendas</em> en Tenerife</h2>
     </div>
-    <div class="stores-grid">
-      <div class="store-card">
-        <div class="store-badge">Tienda 1</div>
-        <div class="store-name">Ofipapel Santa Cruz</div>
-        <div class="store-info">
-          <p><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>C/ Ejemplo 12, Santa Cruz de Tenerife</p>
-          <p><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg>922 XX XX XX</p>
-          <p><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 8:30–19:00h · S 9:00–13:30h</p>
-        </div>
-        <a href="#" class="store-map-btn"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Ver en mapa</a>
+    <div class="map-layout reveal">
+      <!-- Google Maps iframe (dark-tinted via CSS filter) -->
+      <div class="map-iframe-wrap">
+        <iframe
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d56136.78661076065!2d-16.30209035996942!3d28.463629966786283!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xc41ce6f53bc5b53%3A0x9c73a04c12c50ef7!2sSanta%20Cruz%20de%20Tenerife%2C%20Santa%20Cruz%20de%20Tenerife!5e0!3m2!1ses!2ses!4v1700000000000!5m2!1ses!2ses"
+          allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+          title="Mapa Ofipapel Tenerife">
+        </iframe>
       </div>
-      <div class="store-card">
-        <div class="store-badge">Tienda 2</div>
-        <div class="store-name">Ofipapel La Laguna</div>
-        <div class="store-info">
-          <p><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Av. Trinidad 45, San Cristóbal de La Laguna</p>
-          <p><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg>922 XX XX XX</p>
-          <p><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 8:30–19:00h · S 9:00–13:30h</p>
+      <!-- Store cards panel -->
+      <div class="map-panel">
+        <div class="map-panel-title">📍 Nuestras 3 tiendas</div>
+
+        <div class="store-item">
+          <div class="store-item-name">
+            <span class="store-dot"></span>Ofipapel Santa Cruz
+          </div>
+          <div class="store-item-info">
+            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>C/ Ejemplo 12, Santa Cruz de Tenerife</span>
+            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5A2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg>922 XX XX XX</span>
+            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 8:30–19:00 · S 9:00–13:30</span>
+          </div>
+          <a href="https://maps.google.com/?q=Ofipapel+Santa+Cruz+de+Tenerife" target="_blank" rel="noopener" class="store-item-link">
+            Ver en Google Maps →
+          </a>
         </div>
-        <a href="#" class="store-map-btn"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Ver en mapa</a>
-      </div>
-      <div class="store-card">
-        <div class="store-badge">Tienda 3</div>
-        <div class="store-name">Ofipapel El Corte</div>
-        <div class="store-info">
-          <p><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Pol. Industrial Costa Sur, Tenerife</p>
-          <p><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg>922 XX XX XX</p>
-          <p><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 8:30–19:00h</p>
+
+        <div class="store-item">
+          <div class="store-item-name">
+            <span class="store-dot"></span>Ofipapel La Laguna
+          </div>
+          <div class="store-item-info">
+            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Av. Trinidad 45, San Cristóbal de La Laguna</span>
+            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5A2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg>922 XX XX XX</span>
+            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 8:30–19:00 · S 9:00–13:30</span>
+          </div>
+          <a href="https://maps.google.com/?q=Ofipapel+La+Laguna+Tenerife" target="_blank" rel="noopener" class="store-item-link">
+            Ver en Google Maps →
+          </a>
         </div>
-        <a href="#" class="store-map-btn"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Ver en mapa</a>
+
+        <div class="store-item">
+          <div class="store-item-name">
+            <span class="store-dot"></span>Ofipapel Costa Sur
+          </div>
+          <div class="store-item-info">
+            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Pol. Industrial Costa Sur, Tenerife</span>
+            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5A2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg>922 XX XX XX</span>
+            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 8:30–19:00</span>
+          </div>
+          <a href="https://maps.google.com/?q=Ofipapel+Tenerife+Sur" target="_blank" rel="noopener" class="store-item-link">
+            Ver en Google Maps →
+          </a>
+        </div>
       </div>
     </div>
   </div>
@@ -1424,7 +1500,7 @@ img{max-width:100%;display:block}
 <!-- TESTIMONIALS -->
 <section class="section testi-section">
   <div class="container">
-    <div class="section-hd">
+    <div class="section-hd reveal">
       <div class="section-kicker">Clientes</div>
       <h2>Lo que dicen de <em>nosotros</em></h2>
     </div>
@@ -2023,6 +2099,48 @@ img{max-width:100%;display:block}
   new IntersectionObserver(function(entries){
     if(entries[0].isIntersecting){ el.classList.add('in'); }
   },{threshold:0.2}).observe(el);
+})();
+
+// ── Scroll Reveal ──
+(function(){
+  const revealEls = document.querySelectorAll('.reveal,.reveal-left,.reveal-right,.reveal-scale');
+  if(!revealEls.length) return;
+  const io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        // stagger children if parent has .stagger
+        const children = e.target.querySelectorAll(':scope > *');
+        if(e.target.classList.contains('stagger') && children.length){
+          children.forEach(function(child){
+            child.style.opacity='0';
+            child.style.transform='translateY(36px)';
+            child.style.transition='opacity .65s cubic-bezier(.22,1,.36,1), transform .65s cubic-bezier(.22,1,.36,1)';
+          });
+          // trigger with existing delays
+          requestAnimationFrame(function(){
+            children.forEach(function(child){ child.style.opacity='1'; child.style.transform='none'; });
+          });
+        }
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  },{threshold:0.12,rootMargin:'0px 0px -40px 0px'});
+  revealEls.forEach(function(el){ io.observe(el); });
+})();
+
+// ── Parallax Wide Banner ──
+(function(){
+  const img = document.querySelector('.wide-banner-img');
+  if(!img) return;
+  function onScroll(){
+    const rect = img.closest('.wide-banner').getBoundingClientRect();
+    const visible = (window.innerHeight - rect.top) / (window.innerHeight + rect.height);
+    const offset = (visible - 0.5) * 60;
+    img.style.transform = 'translateY(' + offset + 'px) scale(1.08)';
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
 })();
 
 </script>
