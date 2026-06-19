@@ -3988,13 +3988,14 @@ ${buildDataContext()}`;
     const reply = data.content?.[0]?.text || '(Sin respuesta)';
     chatHistory.push({ role:'assistant', content:reply });
   } catch(e) {
-    // Diagnóstico: distinguir CORS vs red bloqueada
     let diag = '';
-    try {
-      await fetch('https://api.anthropic.com/', { mode:'no-cors', cache:'no-store' });
-      diag = '\n\n🔍 Diagnóstico: api.anthropic.com es accesible pero el proxy CORS falló. Inténtalo de nuevo en unos segundos.';
-    } catch {
-      diag = '\n\n🔍 Diagnóstico: api.anthropic.com no es accesible desde esta red. Prueba conectarte con datos móviles del teléfono (sin WiFi).';
+    if(e.message === 'Failed to fetch') {
+      try {
+        await fetch('https://api.anthropic.com/', { mode:'no-cors', cache:'no-store' });
+        diag = '\n\n🔍 api.anthropic.com es accesible. Podría ser un problema temporal — inténtalo de nuevo.';
+      } catch {
+        diag = '\n\n🔍 api.anthropic.com no es accesible desde esta red. Prueba con datos móviles (sin WiFi).';
+      }
     }
     chatHistory.push({ role:'assistant', content:'❌ Error: ' + e.message + diag });
   } finally {
