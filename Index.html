@@ -3963,13 +3963,14 @@ Los importes están en euros (€). Las tiendas son locales físicos: tienda 1 =
 DATOS CARGADOS EN LA APP:
 ${buildDataContext()}`;
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    // Proxy CORS: el navegador no permite llamadas directas a api.anthropic.com
+    const proxyUrl = 'https://corsproxy.io/?https%3A%2F%2Fapi.anthropic.com%2Fv1%2Fmessages';
+    const resp = await fetch(proxyUrl, {
       method: 'POST',
       headers: {
         'x-api-key': chatApiKey,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
-        'anthropic-dangerous-direct-browser-calls': 'true'
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
@@ -3987,7 +3988,15 @@ ${buildDataContext()}`;
     const reply = data.content?.[0]?.text || '(Sin respuesta)';
     chatHistory.push({ role:'assistant', content:reply });
   } catch(e) {
-    chatHistory.push({ role:'assistant', content:'❌ Error: ' + e.message + '\n\nComprueba que la API key sea correcta y que tengas crédito en console.anthropic.com' });
+    // Diagnóstico: distinguir CORS vs red bloqueada
+    let diag = '';
+    try {
+      await fetch('https://api.anthropic.com/', { mode:'no-cors', cache:'no-store' });
+      diag = '\n\n🔍 Diagnóstico: api.anthropic.com es accesible pero el proxy CORS falló. Inténtalo de nuevo en unos segundos.';
+    } catch {
+      diag = '\n\n🔍 Diagnóstico: api.anthropic.com no es accesible desde esta red. Prueba conectarte con datos móviles del teléfono (sin WiFi).';
+    }
+    chatHistory.push({ role:'assistant', content:'❌ Error: ' + e.message + diag });
   } finally {
     document.getElementById('chatTyping')?.remove();
     renderChatMessages();
