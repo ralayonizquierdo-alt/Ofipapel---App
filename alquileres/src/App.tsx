@@ -1,0 +1,123 @@
+import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
+import {
+  LayoutDashboard, Calendar, BedDouble, Tag, Wrench, PiggyBank, BarChart3, Settings
+} from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { isSeeded, markSeeded, reservationStorage, paymentStorage, repairStorage } from './lib/storage'
+import { buildSeedReservations, buildSeedRepairs } from './lib/seedData'
+import Dashboard from './pages/Dashboard'
+import Planning from './pages/Planning'
+import Reservations from './pages/Reservations'
+import Prices from './pages/Prices'
+import Repairs from './pages/Repairs'
+import Collections from './pages/Collections'
+import Analytics from './pages/Analytics'
+import ApartmentsConfig from './pages/ApartmentsConfig'
+
+const NAV = [
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/planning', icon: Calendar, label: 'Planning' },
+  { to: '/reservas', icon: BedDouble, label: 'Reservas' },
+  { to: '/precios', icon: Tag, label: 'Precios' },
+  { to: '/reparaciones', icon: Wrench, label: 'Reparaciones' },
+  { to: '/cobros', icon: PiggyBank, label: 'Cobros' },
+  { to: '/analitica', icon: BarChart3, label: 'Analítica' },
+  { to: '/config', icon: Settings, label: 'Apartamentos' },
+]
+
+function Sidebar({ alerts }: { alerts: number }) {
+  return (
+    <aside className="w-56 min-h-screen bg-slate-900 flex flex-col shrink-0">
+      <div className="px-4 py-5 border-b border-slate-700">
+        <h1 className="text-white font-bold text-lg leading-tight">🏠 Alquileres</h1>
+        <p className="text-slate-400 text-xs mt-0.5">Gestión vacacional</p>
+      </div>
+      <nav className="flex-1 py-4 space-y-0.5 px-2">
+        {NAV.map(({ to, icon: Icon, label }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+                isActive
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`
+            }
+          >
+            <Icon size={16} />
+            {label}
+            {label === 'Dashboard' && alerts > 0 && (
+              <span className="ml-auto bg-amber-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                {alerts}
+              </span>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+      <div className="px-4 py-3 border-t border-slate-700">
+        <p className="text-slate-500 text-xs">Ofipapel © 2026</p>
+      </div>
+    </aside>
+  )
+}
+
+export default function App() {
+  const [ready, setReady] = useState(false)
+  const [alertCount, setAlertCount] = useState(0)
+
+  useEffect(() => {
+    if (!isSeeded()) {
+      const { reservations, payments } = buildSeedReservations()
+      if (reservationStorage.getAll().length === 0) {
+        reservationStorage.save(reservations)
+        paymentStorage.save(payments)
+        repairStorage.save(buildSeedRepairs())
+      }
+      markSeeded()
+    }
+    // Count pending payments
+    const reservations = reservationStorage.getAll()
+    const payments = paymentStorage.getAll()
+    const today = new Date()
+    let pending = 0
+    reservations.forEach(r => {
+      if (r.status === 'cancelada') return
+      const co = new Date(r.checkOut)
+      if (co < today) return
+      const paid = payments
+        .filter(p => p.reservationId === r.id && p.received)
+        .reduce((s, p) => s + p.amount, 0)
+      if (paid < r.total) pending++
+    })
+    setAlertCount(pending)
+    setReady(true)
+  }, [])
+
+  if (!ready) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-100">
+      <p className="text-slate-500 text-sm">Cargando...</p>
+    </div>
+  )
+
+  return (
+    <BrowserRouter basename="/alquileres">
+      <div className="flex min-h-screen bg-slate-100">
+        <Sidebar alerts={alertCount} />
+        <main className="flex-1 overflow-auto">
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard onAlertsChange={setAlertCount} />} />
+            <Route path="/planning" element={<Planning />} />
+            <Route path="/reservas" element={<Reservations />} />
+            <Route path="/precios" element={<Prices />} />
+            <Route path="/reparaciones" element={<Repairs />} />
+            <Route path="/cobros" element={<Collections />} />
+            <Route path="/analitica" element={<Analytics />} />
+            <Route path="/config" element={<ApartmentsConfig />} />
+          </Routes>
+        </main>
+      </div>
+    </BrowserRouter>
+  )
+}
