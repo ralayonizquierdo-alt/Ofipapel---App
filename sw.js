@@ -1,4 +1,4 @@
-const CACHE = 'ofipapel-v13';
+const CACHE = 'ofipapel-v14';
 const ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',

@@ -369,7 +369,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.12 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.13 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -398,6 +398,9 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
       <div class="nav-item" onclick="showView('compras')"><span class="ni">🛒</span><span>Compras</span></div>
       <div class="nav-item" onclick="showView('familias')"><span class="ni">📦</span><span>Familias</span></div>
     </div>
+
+    <div class="nav-section">Asistente</div>
+    <div class="nav-item" onclick="showView('chat')"><span class="ni">💬</span><span>Chat IA</span></div>
 
     <div class="sidebar-footer">
       <div class="sidebar-user" id="sidebarUser"></div>
@@ -840,6 +843,55 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
           <div id="famCompKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
           <div class="card" id="famCompTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
           <div class="card" id="famTabla" style="padding:0;overflow:hidden;"></div>
+        </div>
+      </div>
+
+      <div class="view" id="v-chat">
+        <div class="page-header"><h1 class="page-title">💬 Asistente IA</h1></div>
+        <div class="page-body">
+
+          <div class="card" style="margin-bottom:14px;padding:12px 16px;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="font-size:12px;font-weight:600;color:var(--texto2);">API Key Claude:</span>
+              <input type="password" id="chatApiKey" placeholder="sk-ant-api03-..."
+                     style="flex:1;min-width:200px;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;font-family:'IBM Plex Mono',monospace;"
+                     onkeydown="if(event.key==='Enter')saveChatApiKey()">
+              <button onclick="saveChatApiKey()"
+                      style="padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Guardar</button>
+              <span id="chatApiKeyStatus" style="font-size:12px;color:var(--texto2);"></span>
+            </div>
+            <div style="font-size:11px;color:var(--texto2);margin-top:6px;">La API key se guarda solo en este navegador · Consíguela en console.anthropic.com</div>
+          </div>
+
+          <div class="card" id="chatMessages"
+               style="overflow-y:auto;height:calc(100vh - 360px);min-height:200px;padding:16px;margin-bottom:12px;background:#f9fdf9;">
+            <div id="chatEmpty" style="text-align:center;color:var(--texto2);padding:40px 16px;">
+              <div style="font-size:40px;margin-bottom:12px;">💬</div>
+              <div style="font-weight:600;margin-bottom:8px;color:var(--azul);">Asistente de Datos Ofipapel</div>
+              <div style="font-size:13px;line-height:1.6;">Pregúntame sobre tus ventas, saldos, compras, familias o cualquier dato cargado en la app.<br>Respondo en español y con los números reales.</div>
+              <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
+                <span onclick="chatSuggest(this)" style="cursor:pointer;background:var(--azul-pale);color:var(--azul);padding:6px 12px;border-radius:20px;font-size:12px;border:1px solid var(--borde);">¿Cuál es el saldo total hoy?</span>
+                <span onclick="chatSuggest(this)" style="cursor:pointer;background:var(--azul-pale);color:var(--azul);padding:6px 12px;border-radius:20px;font-size:12px;border:1px solid var(--borde);">¿Qué vendedor ha facturado más?</span>
+                <span onclick="chatSuggest(this)" style="cursor:pointer;background:var(--azul-pale);color:var(--azul);padding:6px 12px;border-radius:20px;font-size:12px;border:1px solid var(--borde);">Resumen de ventas del último mes</span>
+                <span onclick="chatSuggest(this)" style="cursor:pointer;background:var(--azul-pale);color:var(--azul);padding:6px 12px;border-radius:20px;font-size:12px;border:1px solid var(--borde);">¿Hay alertas de importes negativos?</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="padding:12px;">
+            <div style="display:flex;gap:8px;align-items:flex-end;">
+              <textarea id="chatInput" placeholder="Escribe tu pregunta... (Enter para enviar, Shift+Enter para nueva línea)" rows="2"
+                        style="flex:1;padding:10px 12px;border:1px solid var(--borde);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;resize:vertical;min-height:44px;max-height:120px;outline:none;"
+                        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}"></textarea>
+              <button id="chatSendBtn" onclick="sendChatMessage()"
+                      style="padding:10px 18px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;align-self:flex-end;">Enviar</button>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+              <span style="font-size:11px;color:var(--texto2);">Modelo: Claude Haiku 4.5 · &lt;0,01€ por pregunta</span>
+              <button onclick="clearChat()" style="font-size:11px;color:var(--texto2);background:none;border:none;cursor:pointer;padding:2px 6px;">🗑️ Limpiar conversación</button>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -1292,7 +1344,7 @@ function doLogout() {
 // ═══════════════════════════════════════════════════════
 // NAV
 // ═══════════════════════════════════════════════════════
-const TITLES = { dashboard:'Dashboard', historico:'Histórico', alertas:'Alertas', entrada:'Volcado Diario', deuda:'Pool de Deuda', pagares:'Pagarés & Confirming', proveedores:'Pagos a Proveedores', ventas:'Ventas (Caja)', compras:'Compras a Proveedores', familias:'Ventas por Familias' };
+const TITLES = { dashboard:'Dashboard', historico:'Histórico', alertas:'Alertas', entrada:'Volcado Diario', deuda:'Pool de Deuda', pagares:'Pagarés & Confirming', proveedores:'Pagos a Proveedores', ventas:'Ventas (Caja)', compras:'Compras a Proveedores', familias:'Ventas por Familias', chat:'Chat IA' };
 function showView(id) {
   if(['ventas','compras','familias'].includes(id) && !OPERACIONES_ACCESO.includes(currentUser)){
     id='dashboard';
@@ -1309,6 +1361,7 @@ function showView(id) {
   if(id==='ventas') showVentasTab(document.querySelector('#v-ventas .subtab-btn.active')?.dataset.vt||'caja');
   if(id==='compras') showComprasTab(document.querySelector('#v-compras .subtab-btn.active')?.dataset.ct||'pedidos');
   if(id==='familias') renderFamilias();
+  if(id==='chat') initChatView();
 }
 
 function showVentasTab(tab){
@@ -3778,6 +3831,174 @@ function renderPagares(){
       scales:{ x:{grid:{display:false},ticks:{color:'#5A7385',font:{size:9}}}, y:{grid:{color:'rgba(26,92,26,0.07)',borderDash:[4,4]},ticks:{color:'#5A7385',font:{size:10},callback:v=>(v/1000).toFixed(0)+'K €'}} }
     }
   });
+}
+
+// ═══════════════════════════════════════════════════════
+// CHAT IA
+// ═══════════════════════════════════════════════════════
+let chatHistory = [];
+let chatApiKey = '';
+try{ chatApiKey = localStorage.getItem('op_claude_key') || ''; }catch(e){}
+
+function initChatView() {
+  const inp = document.getElementById('chatApiKey');
+  if(!inp) return;
+  if(chatApiKey) {
+    inp.value = chatApiKey;
+    const st = document.getElementById('chatApiKeyStatus');
+    if(st){ st.textContent = '✓ Configurada'; st.style.color = 'var(--verde)'; }
+  }
+  renderChatMessages();
+}
+
+function saveChatApiKey() {
+  const k = (document.getElementById('chatApiKey')?.value || '').trim();
+  if(!k){ showToast('Introduce una API key válida'); return; }
+  chatApiKey = k;
+  try{ localStorage.setItem('op_claude_key', k); }catch(e){}
+  const st = document.getElementById('chatApiKeyStatus');
+  if(st){ st.textContent = '✓ Guardada'; st.style.color = 'var(--verde)'; }
+  showToast('API key guardada');
+}
+
+function buildDataContext() {
+  const ctx = {};
+  if(registros.length) {
+    const last = registros.slice(-10).map(r=>({
+      fecha:r.fecha,
+      total:((r.bbva_ofip||0)+(r.bbva_caja||0)+(r.sant_ico||0)+(r.sant_caja||0)+(r.caixa_cta||0)+(r.c7||0)+(r.luis_bbva||0)+(r.luis_sant||0)+(r.caja_central||0)).toFixed(2),
+      bbva_ofip:r.bbva_ofip, bbva_caja:r.bbva_caja, sant_ico:r.sant_ico, sant_caja:r.sant_caja,
+      caixa_cta:r.caixa_cta, caixa_pol:r.caixa_pol, c7:r.c7,
+      luis_bbva:r.luis_bbva, luis_sant:r.luis_sant, caja_central:r.caja_central, notas:r.notas
+    }));
+    ctx.saldos_bancarios = { nRegistros:registros.length, ultimos:last };
+  }
+  if(ventasCaja.meta?.nFilas) {
+    ctx.ventas_caja = {
+      importado:ventasCaja.meta.importado, nFilas:ventasCaja.meta.nFilas,
+      porEmpleado:ventasCaja.porEmpleado.slice(0,20),
+      porTipoMov:ventasCaja.porTipoMov.slice(0,20),
+      porAlerta:ventasCaja.porAlerta,
+      totalGeneral:ventasCaja.porEmpleado.reduce((s,r)=>s+r.total,0).toFixed(2)
+    };
+  }
+  if(ventasAnual.conIgic?.length) {
+    ctx.ventas_anuales = { conIgic:ventasAnual.conIgic, sinIgic:ventasAnual.sinIgic };
+  }
+  if(comprasAnual.length) {
+    ctx.compras_anuales = comprasAnual;
+  }
+  if(compras.length) {
+    ctx.compras_pedidos = { total:compras.length, suma:compras.reduce((s,c)=>s+(c.total||0),0).toFixed(2) };
+  }
+  if(familias.length) {
+    ctx.familias = { total:familias.length, datos:familias.slice(0,50) };
+  }
+  if(ventasVendedores.length) {
+    ctx.ventas_vendedores = ventasVendedores;
+  }
+  if(ventasTiendas.length) {
+    ctx.ventas_tiendas = ventasTiendas;
+  }
+  return JSON.stringify(ctx);
+}
+
+function renderChatMessages() {
+  const cont = document.getElementById('chatMessages');
+  if(!cont) return;
+  const empty = document.getElementById('chatEmpty');
+  cont.querySelectorAll('.chat-msg').forEach(el=>el.remove());
+  if(!chatHistory.length) {
+    if(empty) empty.style.display = '';
+    return;
+  }
+  if(empty) empty.style.display = 'none';
+  chatHistory.forEach(msg => {
+    const div = document.createElement('div');
+    div.className = 'chat-msg';
+    const isUser = msg.role === 'user';
+    div.style.cssText = `display:flex;justify-content:${isUser?'flex-end':'flex-start'};margin-bottom:12px;`;
+    const bubble = document.createElement('div');
+    bubble.style.cssText = `max-width:82%;padding:10px 14px;border-radius:${isUser?'16px 16px 4px 16px':'16px 16px 16px 4px'};background:${isUser?'var(--azul)':'var(--card)'};color:${isUser?'#fff':'var(--texto)'};font-size:13px;line-height:1.55;border:${isUser?'none':'1px solid var(--borde)'};white-space:pre-wrap;word-break:break-word;`;
+    const text = typeof msg.content === 'string' ? msg.content : (msg.content||[]).map(c=>c.type==='text'?c.text:'').join('');
+    bubble.textContent = text;
+    div.appendChild(bubble);
+    cont.appendChild(div);
+  });
+  cont.scrollTop = cont.scrollHeight;
+}
+
+function chatSuggest(el) {
+  const inp = document.getElementById('chatInput');
+  if(inp){ inp.value = el.textContent; inp.focus(); }
+}
+
+async function sendChatMessage() {
+  if(!chatApiKey) { showToast('Configura tu API key primero'); return; }
+  const inputEl = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('chatSendBtn');
+  const msg = (inputEl?.value || '').trim();
+  if(!msg) return;
+
+  inputEl.value = '';
+  inputEl.disabled = true;
+  if(sendBtn){ sendBtn.disabled = true; sendBtn.textContent = '...'; }
+
+  chatHistory.push({ role:'user', content:msg });
+  renderChatMessages();
+
+  const cont = document.getElementById('chatMessages');
+  const typingDiv = document.createElement('div');
+  typingDiv.id = 'chatTyping';
+  typingDiv.className = 'chat-msg';
+  typingDiv.style.cssText = 'display:flex;justify-content:flex-start;margin-bottom:12px;';
+  typingDiv.innerHTML = '<div style="padding:10px 14px;border-radius:16px 16px 16px 4px;background:var(--card);border:1px solid var(--borde);font-size:13px;color:var(--texto2);">✦ Pensando...</div>';
+  if(cont){ cont.appendChild(typingDiv); cont.scrollTop = cont.scrollHeight; }
+
+  try {
+    const systemPrompt = `Eres el asistente financiero de Ofipapel, una empresa de papelería con tiendas en Tenerife (Los Cristianos y Playa de las Américas). Analizas datos financieros y de ventas. Responde siempre en español, de forma clara y con los números concretos cuando los tengas.
+
+Los importes están en euros (€). Las tiendas son locales físicos: tienda 1 = Los Cristianos, tienda 2 = Playa Américas. Los empleados son el personal de caja.
+
+DATOS CARGADOS EN LA APP:
+${buildDataContext()}`;
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': chatApiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-calls': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: chatHistory
+      })
+    });
+
+    if(!resp.ok) {
+      const err = await resp.json().catch(()=>({}));
+      throw new Error(err.error?.message || 'Error HTTP ' + resp.status);
+    }
+    const data = await resp.json();
+    const reply = data.content?.[0]?.text || '(Sin respuesta)';
+    chatHistory.push({ role:'assistant', content:reply });
+  } catch(e) {
+    chatHistory.push({ role:'assistant', content:'❌ Error: ' + e.message + '\n\nComprueba que la API key sea correcta y que tengas crédito en console.anthropic.com' });
+  } finally {
+    document.getElementById('chatTyping')?.remove();
+    renderChatMessages();
+    if(inputEl){ inputEl.disabled = false; inputEl.focus(); }
+    if(sendBtn){ sendBtn.disabled = false; sendBtn.textContent = 'Enviar'; }
+  }
+}
+
+function clearChat() {
+  chatHistory = [];
+  renderChatMessages();
 }
 
 </script>
