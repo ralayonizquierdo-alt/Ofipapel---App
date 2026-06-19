@@ -1,5 +1,22 @@
+[build]
+  command = "bash build.sh"
+  publish = "_site"
+
+# SPA routing: cualquier ruta bajo /alquileres/ sirve el index de la app
+[[redirects]]
+  from = "/alquileres/*"
+  to = "/alquileres/index.html"
+  status = 200
+
 [[headers]]
   for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Pragma = "no-cache"
+    Expires = "0"
+
+[[headers]]
+  for = "/alquileres/*.html"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
     Pragma = "no-cache"
