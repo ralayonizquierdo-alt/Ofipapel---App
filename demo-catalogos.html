@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo — Catálogos Ofipapel</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --g: #33B540;
+    --gd: #1D7A22;
+    --lime: #AECC30;
+    --cta: #F5A623;
+    --bg: #0a1a0c;
+    --bg2: rgba(255,255,255,.09);
+    --txt: #fff;
+    --txt2: rgba(255,255,255,.72);
+    --txt3: rgba(255,255,255,.45);
+    --glass: rgba(255,255,255,.08);
+    --glass-border: rgba(255,255,255,.14);
+    --r: 10px;
+    --rl: 18px;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #0a1a0c;
+    color: #fff;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Trébol background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cpath d='M30 15c0-8.284-6.716-15-15-15S0 6.716 0 15s6.716 15 15 15H15c0 8.284 6.716 15 15 15s15-6.716 15-15-6.716-15-15-15zm0 0c0-8.284 6.716-15 15-15s15 6.716 15 15-6.716 15-15 15H45c0 8.284-6.716 15-15 15' fill='none' stroke='rgba(51,181,64,0.06)' stroke-width='1'/%3E%3C/svg%3E");
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,26,12,.9);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--glass-border);
+    padding: 14px 32px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  nav h1 { font-size: .9rem; font-weight: 700; color: var(--lime); flex: 1; }
+  nav a {
+    color: var(--txt2); font-size: .8rem; text-decoration: none;
+    padding: 6px 14px; border-radius: 20px; border: 1px solid var(--glass-border);
+    transition: all .2s;
+  }
+  nav a:hover, nav a.active { background: var(--g); color: #fff; border-color: var(--g); }
+
+  .section { position: relative; z-index: 1; padding: 80px 24px; max-width: 1200px; margin: 0 auto; }
+  .section-tag {
+    font-size: .68rem; font-weight: 800; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--lime); margin-bottom: 10px;
+  }
+  .section-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: clamp(1.8rem, 3.5vw, 2.8rem); font-weight: 800; line-height: 1.1;
+    margin-bottom: 12px;
+  }
+  .section-title em { font-style: normal; color: var(--lime); }
+  .section-sub { color: var(--txt2); font-size: .95rem; max-width: 540px; margin-bottom: 48px; }
+  hr.sep { border: none; border-top: 1px solid var(--glass-border); margin: 80px 0; }
+
+  /* ===========================
+     OPTION A — INFINITE MARQUEE
+     =========================== */
+  .marquee-wrap {
+    overflow: hidden;
+    mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+    padding: 20px 0;
+  }
+  .marquee-track {
+    display: flex;
+    gap: 20px;
+    width: max-content;
+    animation: marquee 28s linear infinite;
+  }
+  .marquee-wrap:hover .marquee-track { animation-play-state: paused; }
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  .mq-card {
+    flex-shrink: 0;
+    width: 200px; height: 280px;
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+    transition: transform .3s, box-shadow .3s;
+  }
+  .mq-card:hover { transform: scale(1.06) translateY(-4px); box-shadow: 0 20px 50px rgba(0,0,0,.5); }
+  .mq-card img { width: 100%; height: 100%; object-fit: cover; }
+  .mq-card-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 24px 14px 14px;
+    background: linear-gradient(to top, rgba(0,0,0,.9), transparent);
+    font-size: .78rem; font-weight: 700; color: #fff;
+  }
+  .mq-card-label span {
+    display: block; font-size: .65rem; color: var(--lime);
+    font-weight: 600; margin-bottom: 4px;
+  }
+  .mq-hint { text-align: center; margin-top: 20px; font-size: .78rem; color: var(--txt3); }
+
+  /* ===========================
+     OPTION B — FLIP CARDS
+     =========================== */
+  .flip-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  @media(max-width: 768px) { .flip-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media(max-width: 480px) { .flip-grid { grid-template-columns: 1fr; } }
+
+  .flip-card { height: 320px; perspective: 1000px; cursor: pointer; }
+  .flip-inner {
+    position: relative; width: 100%; height: 100%;
+    transform-style: preserve-3d;
+    transition: transform .6s cubic-bezier(.4,0,.2,1);
+  }
+  .flip-card:hover .flip-inner,
+  .flip-card.flipped .flip-inner { transform: rotateY(180deg); }
+
+  .flip-front, .flip-back {
+    position: absolute; inset: 0;
+    border-radius: var(--rl);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    overflow: hidden;
+    border: 1px solid var(--glass-border);
+  }
+  .flip-front img { width: 100%; height: 100%; object-fit: cover; }
+  .flip-front-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 32px 20px 18px;
+    background: linear-gradient(to top, rgba(0,0,0,.85), transparent);
+  }
+  .flip-front-label h3 { font-size: 1rem; font-weight: 700; color: #fff; }
+  .flip-front-label span { font-size: .72rem; color: var(--lime); display: block; margin-bottom: 4px; }
+
+  .flip-back {
+    background: var(--gd);
+    transform: rotateY(180deg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 32px 24px; text-align: center;
+    background: linear-gradient(145deg, #1D7A22, #0a3d0c);
+  }
+  .flip-back-icon { font-size: 3rem; margin-bottom: 16px; }
+  .flip-back h3 { font-size: 1.1rem; font-weight: 800; color: #fff; margin-bottom: 8px; }
+  .flip-back p { font-size: .82rem; color: rgba(255,255,255,.72); margin-bottom: 24px; line-height: 1.5; }
+  .flip-back-btn {
+    background: var(--lime); color: #0a1a0c;
+    font-weight: 800; font-size: .8rem; padding: 10px 24px; border-radius: 50px;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+    transition: transform .2s;
+  }
+  .flip-back-btn:hover { transform: scale(1.05); }
+
+  /* ===========================
+     OPTION C — STACKED DECK
+     =========================== */
+  .deck-container {
+    display: flex; align-items: center; gap: 60px; flex-wrap: wrap;
+  }
+  .deck-stack {
+    position: relative; width: 260px; height: 360px;
+    margin: 40px auto; flex-shrink: 0;
+  }
+  .deck-card {
+    position: absolute; width: 100%; height: 100%;
+    border-radius: 18px; overflow: hidden;
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+    transition: transform .5s cubic-bezier(.34,1.56,.64,1), opacity .5s;
+    will-change: transform;
+  }
+  .deck-card:nth-child(1) { transform: rotate(-4deg) translateY(12px); z-index: 1; }
+  .deck-card:nth-child(2) { transform: rotate(-2deg) translateY(6px); z-index: 2; }
+  .deck-card:nth-child(3) { transform: rotate(0deg) translateY(0px); z-index: 3; }
+  .deck-card:nth-child(4) { transform: rotate(2deg) translateY(-6px); z-index: 4; }
+  .deck-card.is-top    { z-index: 10; transform: scale(1.02) rotate(0deg); }
+  .deck-card.fly-out   {
+    transform: translateX(120%) rotate(25deg) scale(.8);
+    opacity: 0; pointer-events: none;
+  }
+  .deck-card img { width: 100%; height: 100%; object-fit: cover; }
+  .deck-card-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 40px 20px 20px;
+    background: linear-gradient(to top, rgba(0,0,0,.92), transparent);
+  }
+  .deck-card-label h3 { font-size: 1rem; font-weight: 700; color: #fff; }
+  .deck-card-label span { font-size: .7rem; color: var(--lime); display: block; margin-bottom: 4px; }
+
+  .deck-info { flex: 1; min-width: 240px; }
+  .deck-info h3 { font-size: 1.5rem; font-weight: 800; color: #fff; margin-bottom: 10px; }
+  .deck-info p { color: var(--txt2); font-size: .9rem; line-height: 1.6; margin-bottom: 24px; }
+  .deck-counter { font-size: .8rem; color: var(--txt3); margin-bottom: 20px; }
+  .deck-counter strong { color: var(--lime); font-size: 1.4rem; margin-right: 4px; }
+  .deck-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+  .deck-btn {
+    padding: 10px 22px; border-radius: 50px; border: none; cursor: pointer;
+    font-size: .85rem; font-weight: 700; transition: all .2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .deck-btn-primary { background: var(--g); color: #fff; }
+  .deck-btn-primary:hover { background: var(--gd); }
+  .deck-btn-outline { background: transparent; border: 1px solid var(--glass-border); color: var(--txt2); }
+  .deck-btn-outline:hover { border-color: var(--lime); color: var(--lime); }
+
+  /* ===========================
+     OPTION D — BOOK OPEN
+     =========================== */
+  .books-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;
+  }
+  @media(max-width: 768px) { .books-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media(max-width: 480px) { .books-grid { grid-template-columns: 1fr; } }
+
+  .book-item { cursor: pointer; }
+  .book-scene { perspective: 1200px; }
+  .book-cover-wrap {
+    position: relative; width: 100%; height: 260px;
+    transform-style: preserve-3d;
+    transition: transform .7s cubic-bezier(.4,0,.2,1);
+    transform-origin: left center;
+  }
+  .book-item.open .book-cover-wrap { transform: rotateY(-60deg); }
+
+  .book-cover, .book-back {
+    position: absolute; inset: 0;
+    border-radius: 4px 12px 12px 4px;
+    overflow: hidden;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .book-cover { box-shadow: 4px 0 20px rgba(0,0,0,.5); }
+  .book-cover img { width: 100%; height: 100%; object-fit: cover; }
+  .book-cover::before {
+    content: '';
+    position: absolute; top: 0; left: 0; bottom: 0; width: 24px;
+    background: linear-gradient(to right, rgba(0,0,0,.4), transparent);
+    z-index: 1;
+  }
+  .book-back {
+    transform: rotateY(180deg);
+    background: linear-gradient(145deg, #1D7A22, #0a3d0c);
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 12px 4px 4px 12px;
+    padding: 20px;
+    font-size: .75rem; color: rgba(255,255,255,.6);
+    text-align: center;
+  }
+
+  .book-pages {
+    position: absolute; inset: 0; left: -8px;
+    background: linear-gradient(to right,
+      #f5f5f0 0%, #eee 5%, #f8f8f4 6%, #eee 10%,
+      #f8f8f4 11%, #eee 50%);
+    border-radius: 4px;
+    transform: translateZ(-2px);
+    z-index: -1;
+  }
+
+  .book-title {
+    margin-top: 14px; text-align: center;
+    font-size: .88rem; font-weight: 700; color: var(--txt);
+    transition: color .3s;
+  }
+  .book-subtitle { font-size: .72rem; color: var(--txt3); text-align: center; margin-top: 4px; }
+  .book-item.open .book-title { color: var(--lime); }
+
+  /* open panel */
+  .book-open-panel {
+    display: none; margin-top: 20px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r);
+    padding: 20px;
+    animation: fade-slide-up .3s ease;
+  }
+  @keyframes fade-slide-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .book-item.open .book-open-panel { display: block; }
+  .book-open-panel h4 { font-size: .85rem; color: var(--lime); font-weight: 700; margin-bottom: 8px; }
+  .book-open-panel ul { list-style: none; }
+  .book-open-panel ul li {
+    font-size: .78rem; color: var(--txt2); padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,.06); display: flex; gap: 8px;
+  }
+  .book-open-panel ul li::before { content: '▸'; color: var(--lime); flex-shrink: 0; }
+  .book-open-panel .book-download {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 14px; padding: 8px 18px; border-radius: 50px;
+    background: var(--g); color: #fff; text-decoration: none;
+    font-size: .78rem; font-weight: 700; transition: background .2s;
+  }
+  .book-open-panel .book-download:hover { background: var(--gd); }
+
+  /* ===== DEMO LABEL ===== */
+  .demo-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(174,204,48,.15); border: 1px solid rgba(174,204,48,.35);
+    border-radius: 20px; padding: 4px 14px; font-size: .72rem;
+    color: var(--lime); font-weight: 700; margin-bottom: 20px;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <h1>🗂 Demo — Estilos para "Nuestros Catálogos"</h1>
+  <a href="#marquee">A · Marquee</a>
+  <a href="#flip">B · Flip Cards</a>
+  <a href="#deck">C · Baraja</a>
+  <a href="#book">D · Libro</a>
+</nav>
+
+<!-- CATALOG DATA (shared) -->
+<script>
+const CATS = [
+  { title: 'Catálogo General 2025', year: '2025', pages: '320 páginas', img: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&q=80',
+    sections: ['Papel y Etiquetas','Archivo y Clasificación','Escritura','Informática','Mobiliario'] },
+  { title: 'Material Escolar 2025', year: '2025', pages: '128 páginas', img: 'https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?w=400&q=80',
+    sections: ['Mochilas y Estuches','Cuadernos y Blocs','Pinturas y Rotuladores','Tijeras y Pegamentos','Calculadoras'] },
+  { title: 'Mobiliario de Oficina', year: '2024', pages: '96 páginas', img: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=400&q=80',
+    sections: ['Sillas Ergonómicas','Mesas de Escritorio','Armarios y Estanterías','Mamparas','Accesorios'] },
+  { title: 'Tecnología e Informática', year: '2024', pages: '80 páginas', img: 'https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?w=400&q=80',
+    sections: ['Impresoras y Tóners','Ordenadores','Periféricos','Almacenamiento','Consumibles'] },
+  { title: 'Embalaje y Expedición', year: '2025', pages: '64 páginas', img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
+    sections: ['Cajas de Cartón','Cintas y Precintos','Film y Espumas','Bolsas','Etiquetado'] },
+  { title: 'Catálogo de Ofertas', year: '2025', pages: '48 páginas', img: 'https://images.unsplash.com/photo-1607082349566-187342175e2f?w=400&q=80',
+    sections: ['Top Ventas','Pack Ahorro','Outlet','Temporada','Novedades'] },
+];
+</script>
+
+<!-- ====================== A — MARQUEE ====================== -->
+<div class="section" id="marquee">
+  <div class="demo-badge">✦ Opción A</div>
+  <div class="section-tag">Infinite Scroll</div>
+  <h2 class="section-title">Marquee / <em>Cinta automática</em></h2>
+  <p class="section-sub">Loop continuo, se pausa al hacer hover. Muy visual, ningún click necesario. Ideal para vitrina de catálogos.</p>
+
+  <div class="marquee-wrap">
+    <div class="marquee-track" id="marquee-track"></div>
+  </div>
+  <p class="mq-hint">↑ Pasa el ratón para pausar</p>
+</div>
+
+<script>
+(function(){
+  const track = document.getElementById('marquee-track');
+  // Build 2x for seamless loop
+  for (let rep = 0; rep < 2; rep++) {
+    CATS.forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'mq-card';
+      card.innerHTML = `<img src="${c.img}" alt="${c.title}" loading="lazy">
+        <div class="mq-card-label"><span>${c.year} · ${c.pages}</span>${c.title}</div>`;
+      track.appendChild(card);
+    });
+  }
+})();
+</script>
+
+<hr class="sep">
+
+<!-- ====================== B — FLIP CARDS ====================== -->
+<div class="section" id="flip">
+  <div class="demo-badge">✦ Opción B</div>
+  <div class="section-tag">Hover Interaction</div>
+  <h2 class="section-title">Flip Cards <em>3D</em></h2>
+  <p class="section-sub">Portada en la cara frontal. Al pasar el ratón o tocar, la tarjeta gira 180° y muestra descripción + botón de descarga.</p>
+
+  <div class="flip-grid" id="flip-grid"></div>
+</div>
+
+<script>
+(function(){
+  const grid = document.getElementById('flip-grid');
+  CATS.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'flip-card';
+    card.innerHTML = `
+      <div class="flip-inner">
+        <div class="flip-front">
+          <img src="${c.img}" alt="${c.title}" loading="lazy">
+          <div class="flip-front-label"><span>${c.year} · ${c.pages}</span><h3>${c.title}</h3></div>
+        </div>
+        <div class="flip-back">
+          <div class="flip-back-icon">📋</div>
+          <h3>${c.title}</h3>
+          <p>${c.pages} · Edición ${c.year}<br>Contiene: ${c.sections.slice(0,3).join(', ')}…</p>
+          <a href="#" class="flip-back-btn">⬇ Descargar PDF</a>
+        </div>
+      </div>`;
+    // Toggle on click for mobile
+    card.addEventListener('click', () => card.classList.toggle('flipped'));
+    grid.appendChild(card);
+  });
+})();
+</script>
+
+<hr class="sep">
+
+<!-- ====================== C — STACKED DECK ====================== -->
+<div class="section" id="deck">
+  <div class="demo-badge">✦ Opción C</div>
+  <div class="section-tag">Click Interaction</div>
+  <h2 class="section-title">Baraja <em>apilada</em></h2>
+  <p class="section-sub">Cartas apiladas en perspectiva. Haz click en "Siguiente" para pasar de catálogo. La carta sale volando y aparece la siguiente.</p>
+
+  <div class="deck-container">
+    <div class="deck-stack" id="deck-stack"></div>
+    <div class="deck-info">
+      <p class="deck-counter"><strong id="deck-num">1</strong> / <span id="deck-total"></span> catálogos</p>
+      <h3 id="deck-name"></h3>
+      <p id="deck-pages" style="color:var(--lime);font-size:.8rem;margin-bottom:8px"></p>
+      <p id="deck-desc"></p>
+      <div class="deck-btns">
+        <button class="deck-btn deck-btn-primary" id="deck-next">Siguiente ›</button>
+        <a href="#" class="deck-btn deck-btn-outline">⬇ Descargar</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const stack = document.getElementById('deck-stack');
+  let current = CATS.length - 1;
+
+  // Build stack (bottom to top = index 0 at bottom)
+  CATS.forEach((c, i) => {
+    const card = document.createElement('div');
+    card.className = 'deck-card';
+    card.dataset.idx = i;
+    card.innerHTML = `<img src="${c.img}" alt="${c.title}" loading="lazy">
+      <div class="deck-card-label"><span>${c.year} · ${c.pages}</span><h3>${c.title}</h3></div>`;
+    stack.appendChild(card);
+  });
+
+  document.getElementById('deck-total').textContent = CATS.length;
+
+  function updateInfo(idx) {
+    const c = CATS[idx];
+    document.getElementById('deck-num').textContent = idx + 1;
+    document.getElementById('deck-name').textContent = c.title;
+    document.getElementById('deck-pages').textContent = `📄 ${c.pages}`;
+    document.getElementById('deck-desc').textContent = 'Contenido: ' + c.sections.join(', ');
+  }
+
+  function getCards() { return [...stack.querySelectorAll('.deck-card:not(.fly-out)')]; }
+
+  function restack() {
+    const cards = getCards();
+    const n = cards.length;
+    cards.forEach((c, i) => {
+      c.className = 'deck-card';
+      const offset = n - 1 - i;
+      c.style.transform = `rotate(${offset * -2}deg) translateY(${offset * 6}px)`;
+      c.style.zIndex = i + 1;
+    });
+    if (cards.length > 0) {
+      const top = cards[cards.length - 1];
+      top.style.transform = 'scale(1.02) rotate(0deg)';
+      top.style.zIndex = 10;
+    }
+  }
+
+  updateInfo(0);
+  restack();
+
+  document.getElementById('deck-next').addEventListener('click', () => {
+    const cards = getCards();
+    if (cards.length === 0) return;
+    const top = cards[cards.length - 1];
+    top.classList.add('fly-out');
+    top.style.transform = 'translateX(130%) rotate(25deg) scale(.8)';
+    top.style.opacity = '0';
+    setTimeout(() => restack(), 500);
+
+    current = (current + 1) % CATS.length;
+    updateInfo(current);
+  });
+})();
+</script>
+
+<hr class="sep">
+
+<!-- ====================== D — BOOK OPEN ====================== -->
+<div class="section" id="book">
+  <div class="demo-badge">✦ Opción D</div>
+  <div class="section-tag">Click to open</div>
+  <h2 class="section-title">Apertura de <em>Libro</em></h2>
+  <p class="section-sub">Click en la portada → el catálogo se "abre" con animación 3D y muestra el índice de contenidos y el botón de descarga.</p>
+
+  <div class="books-grid" id="books-grid"></div>
+</div>
+
+<script>
+(function(){
+  const grid = document.getElementById('books-grid');
+  let openBook = null;
+
+  CATS.forEach((c, i) => {
+    const item = document.createElement('div');
+    item.className = 'book-item';
+    item.innerHTML = `
+      <div class="book-scene">
+        <div class="book-cover-wrap">
+          <div class="book-pages"></div>
+          <div class="book-cover">
+            <img src="${c.img}" alt="${c.title}" loading="lazy">
+          </div>
+          <div class="book-back">Edición ${c.year}</div>
+        </div>
+      </div>
+      <div class="book-title">${c.title}</div>
+      <div class="book-subtitle">${c.year} · ${c.pages}</div>
+      <div class="book-open-panel">
+        <h4>Índice de contenidos</h4>
+        <ul>${c.sections.map(s => `<li>${s}</li>`).join('')}</ul>
+        <a href="#" class="book-download">⬇ Descargar PDF</a>
+      </div>`;
+
+    item.addEventListener('click', () => {
+      if (openBook && openBook !== item) {
+        openBook.classList.remove('open');
+      }
+      item.classList.toggle('open');
+      openBook = item.classList.contains('open') ? item : null;
+    });
+
+    grid.appendChild(item);
+  });
+})();
+</script>
+
+<div style="height:80px"></div>
+
+</body>
+</html>
