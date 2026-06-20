@@ -237,11 +237,8 @@ img{max-width:100%;display:block}
   bottom:-60px;left:30%;animation-duration:11s;animation-delay:-4s;
 }
 
-/* ── PARTICLES CANVAS ── */
-#particles-canvas{
-  position:absolute;inset:0;width:100%;height:100%;
-  pointer-events:none;z-index:1;
-}
+/* ── FULL-PAGE PARTICLES CANVAS ── */
+#bg-particles-canvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
 
 .hero-blob-c{
   width:200px;height:200px;
@@ -1377,6 +1374,7 @@ img{max-width:100%;display:block}
 </style>
 </head>
 <body>
+<canvas id="bg-particles-canvas" aria-hidden="true"></canvas>
 
 <!-- TOP BAR -->
 <div class="top-bar">
@@ -1750,7 +1748,6 @@ img{max-width:100%;display:block}
 
 <!-- HERO -->
 <section class="hero" style="padding:72px 0 80px;position:relative;overflow:hidden">
-  <canvas id="particles-canvas"></canvas>
   <div class="hero-blob hero-blob-a"></div>
   <div class="hero-blob hero-blob-b"></div>
   <div class="hero-blob hero-blob-c"></div>
@@ -3273,125 +3270,63 @@ img{max-width:100%;display:block}
   });
 })();
 
-// ── Particles BG ──
+// ── Full-page particles BG ──
+// ── Full-page particles BG ──
 (function(){
-  const canvas = document.getElementById('particles-canvas');
-  if(!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const section = canvas.closest('section');
-
-  // Corporate colours
-  const COLORS = [
-    'rgba(51,181,64,',    // --g green
-    'rgba(174,204,48,',   // --lime
-    'rgba(255,255,255,',  // white
-    'rgba(66,153,196,',   // --blue
-  ];
-
-  let W, H, particles=[], mouse={x:-9999,y:-9999};
-  const COUNT = 88;
-  const MAX_DIST = 120;
-  const SPEED  = 0.45;
-
-  function resize(){
-    W = canvas.width  = section.offsetWidth;
-    H = canvas.height = section.offsetHeight;
-  }
-
+  var canvas=document.getElementById('bg-particles-canvas');
+  if(!canvas)return;
+  var ctx=canvas.getContext('2d');
+  var COLORS=['rgba(51,181,64,','rgba(174,204,48,','rgba(255,255,255,','rgba(66,153,196,'];
+  var W,H,particles=[],mouse={x:-9999,y:-9999};
+  var COUNT=88,MAX_DIST=130,SPEED=0.45;
+  function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
   function Particle(){
-    this.x  = Math.random()*W;
-    this.y  = Math.random()*H;
-    this.vx = (Math.random()-.5)*SPEED;
-    this.vy = (Math.random()-.5)*SPEED;
-    this.r  = Math.random()*2+1;
-    this.col= COLORS[Math.floor(Math.random()*COLORS.length)];
-    this.a  = Math.random()*.6+.3;
+    this.x=Math.random()*W;this.y=Math.random()*H;
+    this.vx=(Math.random()-.5)*SPEED;this.vy=(Math.random()-.5)*SPEED;
+    this.r=Math.random()*2+1;
+    this.col=COLORS[Math.floor(Math.random()*COLORS.length)];
+    this.a=Math.random()*.6+.3;
   }
-
-  function init(){
-    resize();
-    particles=[];
-    for(let i=0;i<COUNT;i++) particles.push(new Particle());
-  }
-
+  function init(){resize();particles=[];for(var i=0;i<COUNT;i++)particles.push(new Particle());}
   function draw(){
     ctx.clearRect(0,0,W,H);
-
-    // draw lines
-    for(let i=0;i<particles.length;i++){
-      const p=particles[i];
-
-      // mouse repulsion
-      const mdx=p.x-mouse.x, mdy=p.y-mouse.y;
-      const md=Math.sqrt(mdx*mdx+mdy*mdy);
-      if(md<100){
-        const force=(100-md)/100;
-        p.vx += mdx/md*force*0.6;
-        p.vy += mdy/md*force*0.6;
-      }
-
-      for(let j=i+1;j<particles.length;j++){
-        const q=particles[j];
-        const dx=p.x-q.x, dy=p.y-q.y;
-        const dist=Math.sqrt(dx*dx+dy*dy);
+    for(var i=0;i<particles.length;i++){
+      var p=particles[i];
+      var mdx=p.x-mouse.x,mdy=p.y-mouse.y,md=Math.sqrt(mdx*mdx+mdy*mdy);
+      if(md<100){var f=(100-md)/100;p.vx+=mdx/md*f*0.6;p.vy+=mdy/md*f*0.6;}
+      for(var j=i+1;j<particles.length;j++){
+        var q=particles[j];
+        var dx=p.x-q.x,dy=p.y-q.y,dist=Math.sqrt(dx*dx+dy*dy);
         if(dist<MAX_DIST){
-          const alpha=(1-dist/MAX_DIST)*0.22;
           ctx.beginPath();
-          ctx.strokeStyle=`rgba(51,181,64,${alpha})`;
-          ctx.lineWidth=0.8;
-          ctx.moveTo(p.x,p.y);
-          ctx.lineTo(q.x,q.y);
-          ctx.stroke();
+          ctx.strokeStyle='rgba(51,181,64,'+(1-dist/MAX_DIST)*0.18+')';
+          ctx.lineWidth=0.7;ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();
         }
       }
     }
-
-    // draw & move dots
-    particles.forEach(p=>{
-      ctx.beginPath();
-      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-      ctx.fillStyle=p.col+p.a+')';
-      ctx.fill();
-
-      // glow
-      const grd=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*4);
-      grd.addColorStop(0,p.col+(p.a*.5)+')');
-      grd.addColorStop(1,p.col+'0)');
-      ctx.beginPath();
-      ctx.arc(p.x,p.y,p.r*4,0,Math.PI*2);
-      ctx.fillStyle=grd;
-      ctx.fill();
-
-      p.x+=p.vx; p.y+=p.vy;
-      // dampen speed
-      p.vx*=0.99; p.vy*=0.99;
-      // add gentle drift back
-      p.vx+=(Math.random()-.5)*0.04;
-      p.vy+=(Math.random()-.5)*0.04;
-      // clamp speed
-      const spd=Math.sqrt(p.vx*p.vx+p.vy*p.vy);
+    particles.forEach(function(p){
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=p.col+p.a+')';ctx.fill();
+      var grd=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*4);
+      grd.addColorStop(0,p.col+(p.a*.5)+')');grd.addColorStop(1,p.col+'0)');
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r*4,0,Math.PI*2);ctx.fillStyle=grd;ctx.fill();
+      p.x+=p.vx;p.y+=p.vy;
+      p.vx*=0.99;p.vy*=0.99;
+      p.vx+=(Math.random()-.5)*0.04;p.vy+=(Math.random()-.5)*0.04;
+      var spd=Math.sqrt(p.vx*p.vx+p.vy*p.vy);
       if(spd>SPEED*2){p.vx=p.vx/spd*SPEED*2;p.vy=p.vy/spd*SPEED*2;}
-
-      // wrap edges
-      if(p.x<-10) p.x=W+10;
-      if(p.x>W+10) p.x=-10;
-      if(p.y<-10) p.y=H+10;
-      if(p.y>H+10) p.y=-10;
+      if(p.x<-10)p.x=W+10;if(p.x>W+10)p.x=-10;
+      if(p.y<-10)p.y=H+10;if(p.y>H+10)p.y=-10;
     });
-
     requestAnimationFrame(draw);
   }
-
-  section.addEventListener('mousemove',e=>{
-    const rect=section.getBoundingClientRect();
-    mouse.x=e.clientX-rect.left;
-    mouse.y=e.clientY-rect.top;
+  document.addEventListener('mousemove',function(e){mouse.x=e.clientX;mouse.y=e.clientY;});
+  document.addEventListener('mouseleave',function(){mouse.x=-9999;mouse.y=-9999;});
+  window.addEventListener('resize',function(){
+    resize();
+    particles=[];for(var i=0;i<COUNT;i++)particles.push(new Particle());
   });
-  section.addEventListener('mouseleave',()=>{mouse.x=-9999;mouse.y=-9999;});
-  window.addEventListener('resize', init);
-
-  init();
-  draw();
+  init();draw();
 })();
 
 // CTA scroll reveal
