@@ -1311,6 +1311,69 @@ img{max-width:100%;display:block}
 .store-mini-map-overlay{position:absolute;inset:0;background:transparent;cursor:pointer;display:flex;align-items:flex-end;justify-content:flex-end;padding:6px}
 .store-mini-map-overlay a{background:rgba(0,0,0,.65);color:rgba(255,255,255,.9);font-size:.65rem;font-weight:600;padding:3px 8px;border-radius:8px;text-decoration:none;backdrop-filter:blur(4px)}
 @media(max-width:768px){.lang-sw{display:none}}
+
+/* ── LEGAL MODALS ── */
+.legal-modal-overlay{
+  position:fixed;inset:0;z-index:9000;
+  background:rgba(0,0,0,.75);
+  display:none;align-items:flex-start;justify-content:center;
+  overflow-y:auto;padding:40px 16px 40px;
+  backdrop-filter:blur(4px);
+}
+.legal-modal-overlay.open{display:flex}
+.legal-modal{
+  background:linear-gradient(135deg,rgba(10,40,15,.97),rgba(5,25,8,.98));
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:20px;
+  width:100%;max-width:780px;
+  padding:36px 40px 40px;
+  position:relative;
+  animation:modalIn .3s ease;
+}
+@keyframes modalIn{
+  from{opacity:0;transform:translateY(24px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.legal-modal-close{
+  position:absolute;top:16px;right:16px;
+  background:rgba(255,255,255,.12);
+  border:none;border-radius:50%;
+  width:36px;height:36px;
+  color:#fff;font-size:1.1rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .2s;
+}
+.legal-modal-close:hover{background:rgba(255,255,255,.22)}
+.legal-modal-title{
+  font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:1.5rem;font-weight:800;color:#fff;
+  margin-bottom:4px;margin-right:40px;
+}
+.legal-modal-sub{font-size:.82rem;color:var(--txt3);margin-bottom:28px}
+.legal-modal .glass-card{
+  background:rgba(255,255,255,.08);
+  backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;padding:28px 32px;margin-bottom:16px;
+}
+.legal-modal .glass-card h2{
+  font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:1.1rem;font-weight:800;color:var(--lime);
+  margin-bottom:12px;padding-bottom:10px;
+  border-bottom:1px solid rgba(255,255,255,.10);
+}
+.legal-modal .glass-card h3{font-size:.9rem;font-weight:700;margin:18px 0 6px}
+.legal-modal .glass-card p{color:var(--txt2);margin-bottom:10px;line-height:1.7;font-size:.88rem}
+.legal-modal .glass-card ul,.legal-modal .glass-card ol{color:var(--txt2);padding-left:18px;margin-bottom:10px}
+.legal-modal .glass-card li{margin-bottom:5px;line-height:1.6;font-size:.88rem}
+.legal-modal .glass-card strong{color:#fff}
+.legal-modal table{width:100%;border-collapse:collapse;font-size:.82rem}
+.legal-modal th{color:var(--lime);font-weight:700;padding:8px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,.2)}
+.legal-modal td{padding:8px 10px;color:var(--txt2);border-bottom:1px solid rgba(255,255,255,.07)}
+@media(max-width:600px){
+  .legal-modal{padding:24px 18px 28px}
+  .legal-modal .glass-card{padding:18px 16px}
+}
 </style>
 </head>
 <body>
@@ -2340,7 +2403,7 @@ img{max-width:100%;display:block}
           <ul class="store-info-list">
             <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Av. de Suecia, 7 · 38650 Los Cristianos</li>
             <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5A2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg><a href="tel:+34922792001">922 79 20 01</a></li>
-            <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 9:00–14:00 y 16:30–19:30 · S 9:00–13:00</li>
+            <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 9:00–14:00 y 16:00–19:00 · S 9:00–13:00</li>
           </ul>
           <div class="store-cta-row">
             <a href="https://maps.google.com/?q=Av+de+Suecia+7+Los+Cristianos+Tenerife" target="_blank" rel="noopener" class="store-cta-btn primary">Ver en mapa →</a>
@@ -2363,7 +2426,7 @@ img{max-width:100%;display:block}
           <ul class="store-info-list">
             <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Res. Las Viñas, C/ Noelia Afonso Cabrera · 38660 Playa de las Américas</li>
             <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5A2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg><a href="tel:+34922791029">922 79 10 29</a></li>
-            <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 9:00–14:00 y 16:30–19:30 · S 9:00–13:00</li>
+            <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 9:00–14:00 y 16:00–19:00 · S 9:00–13:00</li>
           </ul>
           <div class="store-cta-row">
             <a href="https://maps.google.com/?q=Calle+Noelia+Afonso+Cabrera+Playa+de+las+Americas+Tenerife" target="_blank" rel="noopener" class="store-cta-btn primary">Ver en mapa →</a>
@@ -2766,20 +2829,20 @@ img{max-width:100%;display:block}
       <div class="ftr-col">
         <h4>Legal</h4>
         <ul>
-          <li><a href="aviso-legal.html">Aviso Legal</a></li>
-          <li><a href="privacidad.html">Política de Privacidad</a></li>
-          <li><a href="cookies.html">Política de Cookies</a></li>
-          <li><a href="terminos.html">Términos y condiciones</a></li>
+          <li><a href="#" onclick="openLegalModal('modal-aviso');return false">Aviso Legal</a></li>
+          <li><a href="#" onclick="openLegalModal('modal-privacidad');return false">Política de Privacidad</a></li>
+          <li><a href="#" onclick="openLegalModal('modal-cookies');return false">Política de Cookies</a></li>
+          <li><a href="#" onclick="openLegalModal('modal-terminos');return false">Términos y condiciones</a></li>
         </ul>
       </div>
     </div>
     <div class="ftr-bottom">
       <span class="ftr-copy">© 2025 Ofipapel. Todos los derechos reservados.</span>
       <div class="ftr-legal">
-        <a href="aviso-legal.html">Aviso Legal</a>
-        <a href="privacidad.html">Privacidad</a>
-        <a href="cookies.html">Cookies</a>
-        <a href="terminos.html">Términos y condiciones</a>
+        <a href="#" onclick="openLegalModal('modal-aviso');return false">Aviso Legal</a>
+        <a href="#" onclick="openLegalModal('modal-privacidad');return false">Privacidad</a>
+        <a href="#" onclick="openLegalModal('modal-cookies');return false">Cookies</a>
+        <a href="#" onclick="openLegalModal('modal-terminos');return false">Términos y condiciones</a>
       </div>
     </div>
   </div>
@@ -3774,7 +3837,7 @@ var TRANSLATIONS = {
     'Menú': 'Menu',
     // Horarios en tiendas (keep as is since they're universal)
     'L–V 9:00–14:00 y 16:00–19:00 · S 9:00–13:00': 'Mon–Fri 9:00–14:00 & 16:00–19:00 · Sat 9:00–13:00',
-    'L–V 9:00–14:00 y 16:30–19:30 · S 9:00–13:00': 'Mon–Fri 9:00–14:00 & 16:30–19:30 · Sat 9:00–13:00',
+    'L–V 9:00–14:00 y 16:00–19:00 · S 9:00–13:00': 'Mon–Fri 9:00–14:00 & 16:00–19:00 · Sat 9:00–13:00',
   }
 };
 
@@ -4005,6 +4068,410 @@ function setLang(lang) {
     </form>
   </div>
 </div>
+
+
+<!-- LEGAL MODALS -->
+
+<div class="legal-modal-overlay" id="modal-aviso" onclick="if(event.target===this)closeLegalModal('modal-aviso')">
+  <div class="legal-modal">
+    <button class="legal-modal-close" onclick="closeLegalModal('modal-aviso')" aria-label="Cerrar">&#10005;</button>
+    <div class="legal-modal-title">Aviso Legal</div>
+    <div class="legal-modal-sub">Información legal y condiciones de uso</div>
+    <div class="glass-card">
+    <h2>Datos identificativos</h2>
+    <ul>
+      <li><strong>Denominación Social:</strong> Suministros de Oficinas Ofipapel S.L.</li>
+      <li><strong>Domicilio Social:</strong> Bulevar Chajofe 4, 38650, Los Cristianos, Arona, Santa Cruz de Tenerife</li>
+      <li><strong>CIF:</strong> B38381653</li>
+      <li><strong>E-Mail:</strong> ventas@ofipapelsl.com</li>
+      <li><strong>Teléfono:</strong> 922 75 35 20</li>
+      <li><strong>Sitio Web:</strong> www.ofipapel.net</li>
+      <li><strong>Registro Mercantil:</strong> Inscrita en el Registro Mercantil de Santa Cruz de Tenerife, Tomo 1209, Folio 1, Sección General, Hoja TF-10655, Inscripción 1ª</li>
+    </ul>
+  </div>
+  <div class="glass-card">
+    <h2>1. Objeto</h2>
+    <p>Suministros de Oficinas Ofipapel S.L. (en adelante también el prestador) como responsable del sitio web, pone a disposición de los usuarios el presente documento, que regula el uso del sitio web <strong>www.ofipapel.net</strong>, con el que pretendemos dar cumplimiento a las obligaciones que dispone la Ley 34/2002, de Servicios de la Sociedad de la Información y del Comercio Electrónico (LSSICE o LSSI), así como informar a todos los usuarios del sitio web respecto de cuáles son las condiciones de uso del sitio web.</p>
+    <p>Toda persona que acceda a esta web asume el papel de usuario e implica la aceptación total y sin reservas de todas y cada una de las disposiciones incluidas en este aviso legal. El prestador se reserva el derecho a modificar cualquier tipo de información que pudiera aparecer en la web, siendo suficiente la publicación en el sitio web del prestador.</p>
+  </div>
+  <div class="glass-card">
+    <h2>2. Condiciones de acceso y uso</h2>
+    <h3>2.1. Carácter gratuito del acceso</h3>
+    <p>El uso de la web de Suministros de Oficinas Ofipapel S.L. por parte del usuario tiene carácter gratuito. No obstante, algunos de los servicios suministrados a través de la Web están sujetos al pago de un precio determinado a las condiciones generales de contratación.</p>
+    <h3>2.2. Registro de Usuario</h3>
+    <p>Con carácter general la prestación de los Servicios no exige la previa suscripción o registro de los Usuarios. Aun así, Suministros de Oficinas Ofipapel S.L. condiciona el uso de algunos servicios a la previa complementación del correspondiente registro de Usuario.</p>
+    <h3>2.3. Veracidad de la información</h3>
+    <p>Toda la información que facilita el Usuario tiene que ser veraz. El Usuario garantiza la autenticidad de los datos comunicados y será el único responsable de las manifestaciones falsas o inexactas que realice y de los perjuicios que cause al prestador o a terceros.</p>
+    <h3>2.4. Menores de edad</h3>
+    <p>Para el uso de los servicios, los menores de edad tienen que obtener siempre previamente el consentimiento de los padres, tutores o representantes legales, responsables últimos de todos los actos realizados por los menores a su cargo.</p>
+    <h3>2.5. Obligación de hacer un uso correcto de la Web</h3>
+    <p>El Usuario se compromete a utilizar la Web de conformidad a la Ley y al presente Aviso Legal, absteniéndose de utilizar la página con finalidades ilícitas o prohibidas, lesivas de derechos e intereses de terceros, o que de cualquier forma puedan dañar, inutilizar, sobrecargar, deteriorar o impedir la normal utilización de equipos informáticos.</p>
+  </div>
+  <div class="glass-card">
+    <h2>3. Exclusión de garantías y responsabilidad</h2>
+    <p>El prestador se exime de cualquier tipo de responsabilidad derivada de la información publicada en nuestro sitio web, siempre que esta información haya sido manipulada o introducida por un tercero ajeno.</p>
+    <p>Suministros de Oficinas Ofipapel S.L. no otorga ninguna garantía ni se hace responsable, en ningún caso, de los daños y perjuicios de cualquier naturaleza que puedan derivarse de la falta de disponibilidad, mantenimiento y efectivo funcionamiento de la web o de sus servicios y contenidos; de la existencia de virus, programas maliciosos o lesivos en los contenidos; del uso ilícito, negligente, fraudulento o contrario a este Aviso Legal.</p>
+  </div>
+  <div class="glass-card">
+    <h2>4. Cookies</h2>
+    <p>El sitio web del prestador puede utilizar cookies para llevar a cabo determinadas funciones imprescindibles para el correcto funcionamiento y visualización del lugar. Las cookies utilizadas tienen carácter temporal, con la única finalidad de hacer más eficaz la navegación, y desaparecen al acabar la sesión del usuario. En ningún caso se utilizarán las cookies para recoger información de carácter personal.</p>
+    <p>Para más información, consulte nuestra <a href="cookies.html" style="color:var(--lime)">Política de Cookies</a>.</p>
+  </div>
+  <div class="glass-card">
+    <h2>5. Enlaces (links)</h2>
+    <p>Desde el sitio web es posible que se redirija a contenidos de terceras webs. Dado que desde el web no podemos controlar siempre los contenidos introducidos por los terceros, Suministros de Oficinas Ofipapel S.L. no asume ningún tipo de responsabilidad respecto a estos contenidos. En todo caso, el prestador procederá a la retirada inmediata de cualquier contenido que pudiera contravenir la legislación nacional o internacional, la moral o el orden público.</p>
+  </div>
+  <div class="glass-card">
+    <h2>6. Protección de datos personales</h2>
+    <p>El prestador está profundamente comprometido con el cumplimiento de la normativa de protección de datos personales y garantiza el cumplimiento íntegro de las obligaciones dispuestas, así como la implementación de las medidas de seguridad dispuestas en el Reglamento Europeo de Protección de Datos y la normativa española de protección de datos.</p>
+    <p>Para más información, consulte nuestra <a href="privacidad.html" style="color:var(--lime)">Política de Privacidad</a>.</p>
+  </div>
+  <div class="glass-card">
+    <h2>7. Redes Sociales</h2>
+    <p>Suministros de Oficinas Ofipapel S.L. puede estar presente en redes sociales. El tratamiento de los datos que los usuarios incluyan en las mismas se regirá por las condiciones de uso, políticas de privacidad y normativas de acceso y uso de las redes sociales en cuestión y aceptadas previamente por el usuario.</p>
+    <p>Queda prohibida la publicación de contenidos que sean presuntamente ilícitos por la normativa nacional, comunitaria o internacional, que atenten contra los derechos fundamentales de las personas, o que contravengan los principios de legalidad, honradez y responsabilidad.</p>
+  </div>
+  <div class="glass-card">
+    <h2>8. Propiedad Intelectual e Industrial</h2>
+    <p>El sitio web, incluyendo la programación, edición, compilación y otros elementos necesarios para su funcionamiento, los diseños, logotipos, textos, fotografías y/o gráficos son propiedad del prestador o, en caso de que fuera necesario, dispone de la licencia o autorización expresa por parte de los autores. Todos los contenidos del sitio web se encuentran debidamente protegidos por la normativa de propiedad intelectual e industrial.</p>
+    <p>La reproducción total o parcial, uso, distribución y comunicación pública requieren de la autorización escrita previa por parte del prestador. Para realizar cualquier tipo de observación respecto a posibles incumplimientos de los derechos de propiedad intelectual o industrial, puede hacerlo a través del correo electrónico <strong>ventas@ofipapelsl.com</strong>.</p>
+  </div>
+  <div class="glass-card">
+    <h2>9. Ley aplicable y jurisdicción</h2>
+    <p>Para la resolución de las controversias o cuestiones relacionadas con la presente página web o de las actividades en esta desarrolladas, será de aplicación la legislación española, a la que se someten expresamente las partes, siendo competentes para la resolución de todos los conflictos derivados o relacionados con su uso los Juzgados y Tribunales de <strong>Santa Cruz de Tenerife</strong>.</p>
+  </div>
+
+</div>
+  </div>
+</div>
+
+<div class="legal-modal-overlay" id="modal-privacidad" onclick="if(event.target===this)closeLegalModal('modal-privacidad')">
+  <div class="legal-modal">
+    <button class="legal-modal-close" onclick="closeLegalModal('modal-privacidad')" aria-label="Cerrar">&#10005;</button>
+    <div class="legal-modal-title">Política de Privacidad</div>
+    <div class="legal-modal-sub">Protección de tus datos personales</div>
+    <div class="glass-card">
+    <h2>1. Responsable del tratamiento</h2>
+    <ul>
+      <li><strong>Identidad:</strong> Suministros de Oficinas Ofipapel S.L.</li>
+      <li><strong>Dirección:</strong> Bulevar Chajofe 4, 38650, Los Cristianos, Arona, Santa Cruz de Tenerife</li>
+      <li><strong>Email:</strong> <a href="mailto:ventas@ofipapelsl.com" style="color:var(--lime)">ventas@ofipapelsl.com</a></li>
+    </ul>
+  </div>
+  <div class="glass-card">
+    <h2>2. ¿Qué datos personales tratamos?</h2>
+    <p>Con motivo de su relación con nosotros podremos tratar distintas categorías de datos personales, dependiendo del servicio o producto contratado:</p>
+    <ul>
+      <li><strong>Carácter identificativo:</strong> nombre y apellidos, DNI/documento identificativo, fecha de nacimiento, teléfono, correo electrónico, dirección, firma, dirección IP, ID de cookie, datos de localización, ID de redes sociales.</li>
+      <li><strong>Datos académicos y profesionales:</strong> formación y titulaciones, experiencia profesional.</li>
+      <li><strong>Datos bancarios:</strong> número de cuenta bancaria, número de tarjeta de crédito.</li>
+    </ul>
+  </div>
+  <div class="glass-card">
+    <h2>3. Finalidad y legitimación del tratamiento</h2>
+    <h3>Cumplimiento de obligaciones legales</h3>
+    <p>Finalidad: cumplimiento de obligaciones de índole contable, legal, fiscal y administrativa. Legitimación: ejecución contractual, cumplimiento de obligación legal.</p>
+    <h3>Prestación de servicios</h3>
+    <p>Finalidad: elaborar presupuestos personalizados, prestar los servicios solicitados y realizar la facturación de los mismos. Legitimación: ejecución pre-contractual y/o contractual.</p>
+    <h3>Gestión de registro como usuario</h3>
+    <p>Finalidad: identificarle como usuario de la plataforma y darle acceso a sus diferentes funcionalidades. Puede cancelar su cuenta de usuario registrado contactando con nosotros a través de <a href="mailto:ventas@ofipapelsl.com" style="color:var(--lime)">ventas@ofipapelsl.com</a>. Legitimación: ejecución contractual.</p>
+    <h3>Desarrollo y ejecución del contrato de compraventa</h3>
+    <p>Finalidad: gestionar el pago de los productos, gestión del envío, gestionar posibles devoluciones y contactar con el usuario en relación a actualizaciones o comunicaciones informativas. Legitimación: ejecución contractual.</p>
+    <h3>Videovigilancia</h3>
+    <p>Finalidad: vigilancia de las instalaciones con la finalidad de garantizar la seguridad de personas, bienes e instalaciones. Legitimación: interés público (Ley 5/2014, de 4 de abril, de Seguridad Privada).</p>
+    <h3>Comunicaciones comerciales</h3>
+    <p>Finalidad: envío de comunicaciones comerciales sobre ofertas relacionadas con los servicios y/o productos contratados o similares. Legitimación: interés legítimo de Suministros de Oficinas Ofipapel S.L. Puede oponerse a recibirlas en cada comunicación.</p>
+    <h3>Consultas, solicitudes o sugerencias</h3>
+    <p>Finalidad: gestión de la consulta, solicitud o sugerencia trasladada por el interesado. Legitimación: consentimiento del interesado e interés legítimo.</p>
+  </div>
+  <div class="glass-card">
+    <h2>4. Conservación de sus datos</h2>
+    <p>Los datos personales proporcionados se conservarán durante el tiempo necesario para cumplir con la finalidad para la que se recaban. Una vez finalizado este plazo conservaremos sus datos debidamente guardados y protegidos durante los plazos de prescripción legal exigidos. Una vez prescriban las posibles acciones, procederemos a la supresión de los datos personales.</p>
+  </div>
+  <div class="glass-card">
+    <h2>5. ¿A quién comunicamos sus datos?</h2>
+    <p>Para cumplir las finalidades indicadas en la presente Política de Privacidad, es necesario que demos acceso a sus datos personales a entidades que nos prestan apoyo:</p>
+    <ul>
+      <li>Entidades financieras</li>
+      <li>Proveedores de servicios tecnológicos</li>
+      <li>Entidades de asesoramiento empresarial</li>
+      <li>Seguridad Social y Agencia Tributaria</li>
+    </ul>
+    <p>Al margen de las señaladas, Suministros de Oficinas Ofipapel S.L. no cederá los datos personales a terceros, excepto por obligación legal.</p>
+  </div>
+  <div class="glass-card">
+    <h2>6. Derechos que puede ejercer</h2>
+    <p>Puede ejercitar cualquiera de los siguientes derechos, indicándonos el motivo de su solicitud y el derecho que quiere ejercitar:</p>
+    <ul>
+      <li><strong>Acceso</strong> a sus datos personales</li>
+      <li><strong>Rectificación</strong> de sus datos</li>
+      <li><strong>Supresión</strong> de sus datos cuando ya no sean necesarios</li>
+      <li><strong>Limitación</strong> del tratamiento de sus datos</li>
+      <li><strong>Portabilidad</strong> de sus datos personales</li>
+      <li><strong>Oposición</strong> al tratamiento de sus datos</li>
+    </ul>
+    <p>Puede solicitar el ejercicio de sus derechos a través de:</p>
+    <ul>
+      <li><strong>Correo postal:</strong> Bulevar Chajofe 4, 38650, Los Cristianos, Arona, Santa Cruz de Tenerife</li>
+      <li><strong>Email:</strong> <a href="mailto:ventas@ofipapelsl.com" style="color:var(--lime)">ventas@ofipapelsl.com</a></li>
+    </ul>
+    <p>Suministros de Oficinas Ofipapel S.L. deberá contestar su solicitud en el plazo de un mes a partir de la recepción. En caso de considerar vulnerado su derecho a la protección de sus datos, podrá interponer una reclamación delante de la Agencia Española de Protección de Datos (<a href="https://www.aepd.es" target="_blank" style="color:var(--lime)">www.aepd.es</a>).</p>
+  </div>
+  <div class="glass-card">
+    <h2>7. Seguridad de sus datos</h2>
+    <p>Suministros de Oficinas Ofipapel S.L. garantiza la adopción de las medidas oportunas para asegurar el tratamiento confidencial de sus datos conforme a lo dispuesto en el REGLAMENTO (UE) 2016/679 DEL PARLAMENTO EUROPEO Y DEL CONSEJO de 27 de abril de 2016 relativo a la protección de las personas físicas (RGPD).</p>
+    <p>Nuestra web posee un <strong>certificado SSL</strong> que permite establecer una conexión cifrada cuando algún usuario visita nuestra web e intercambia información con nosotros. Se encuentra alojada en los servidores de Webempresa Europa S.L.</p>
+  </div>
+  <div class="glass-card">
+    <h2>8. Cambios a la Política de Privacidad</h2>
+    <p>Es posible que modifiquemos la información contenida en esta Política de Privacidad cuando lo estimemos conveniente. En caso de que lo hagamos, se lo notificaremos por distintas vías a través de los cambios en la web o, incluso, se lo comunicaremos a su dirección de correo electrónico cuando el cambio en cuestión sea significativo para su privacidad.</p>
+    <p>Para cualquier duda o pregunta sobre la política de privacidad puede contactar en <a href="mailto:ventas@ofipapelsl.com" style="color:var(--lime)">ventas@ofipapelsl.com</a>.</p>
+  </div>
+
+</div>
+  </div>
+</div>
+
+<div class="legal-modal-overlay" id="modal-cookies" onclick="if(event.target===this)closeLegalModal('modal-cookies')">
+  <div class="legal-modal">
+    <button class="legal-modal-close" onclick="closeLegalModal('modal-cookies')" aria-label="Cerrar">&#10005;</button>
+    <div class="legal-modal-title">Política de Cookies</div>
+    <div class="legal-modal-sub">Uso de cookies en este sitio web</div>
+    <div class="glass-card">
+    <h2>¿Qué son las cookies?</h2>
+    <p>Una cookie es un fichero que se descarga en su ordenador al acceder a determinadas páginas web. Las cookies permiten a una página web, entre otras cosas, almacenar y recuperar información sobre los hábitos de navegación de un usuario o de su equipo y, dependiendo de la información que contengan y de la forma en que utilice su equipo, pueden utilizarse para reconocer al usuario. Las cookies se asocian únicamente a un usuario anónimo y su ordenador o dispositivo y no proporcionan referencias que permitan conocer sus datos personales.</p>
+  </div>
+  <div class="glass-card">
+    <h2>Tipos de cookies</h2>
+    <h3>a) Según la entidad que las gestione</h3>
+    <ul>
+      <li><strong>Cookies propias:</strong> las que se envían al equipo terminal del usuario desde un equipo o dominio gestionado por el propio editor.</li>
+      <li><strong>Cookies de terceros:</strong> las que se envían al equipo terminal del usuario desde un equipo o dominio que no es gestionado por el editor, sino por otra entidad que trata los datos.</li>
+    </ul>
+    <h3>b) Según el tiempo que permanecen activas</h3>
+    <ul>
+      <li><strong>Cookies de sesión:</strong> diseñadas para recabar y almacenar datos mientras el usuario accede a una página web.</li>
+      <li><strong>Cookies persistentes:</strong> los datos se almacenan en el terminal y pueden ser accedidos y tratados durante un periodo definido.</li>
+    </ul>
+    <h3>c) Según la finalidad</h3>
+    <ul>
+      <li><strong>Cookies técnicas:</strong> necesarias para el uso de la web y la prestación del servicio contratado.</li>
+      <li><strong>Cookies de preferencias o personalización:</strong> permiten al usuario acceder al servicio con características predefinidas (idioma, tipo de navegador, configuración regional, etc.).</li>
+      <li><strong>Cookies de análisis o medición:</strong> recogen información del uso que se realiza de la web.</li>
+      <li><strong>Cookies de publicidad comportamental:</strong> recogen información sobre las preferencias y elecciones personales de los usuarios.</li>
+    </ul>
+  </div>
+  <div class="glass-card">
+    <h2>Cookies utilizadas por este sitio web</h2>
+    <p>Las cookies utilizadas en <strong>www.ofipapel.net</strong> son propias y de terceros, y nos permiten almacenar y acceder a información relativa al idioma, el tipo de navegador utilizado, y otras características predefinidas por el usuario, así como seguir y analizar la actividad llevada a cabo para mejorar y prestar nuestros servicios de una manera más eficiente y personalizada.</p>
+    <h3>Cookies técnicas (propias)</h3>
+    <ul>
+      <li><strong>SGPBShowingLimitationDomain362904</strong> — Popup Builder — 1 día — Controla la frecuencia de aparición de ventanas emergentes.</li>
+      <li><strong>trustedsite_visit</strong> — TrustedSite — 1 día — Registra una visita al sitio para verificar que el sello de seguridad TrustedSite funcione correctamente.</li>
+      <li><strong>wp_woocommerce_session_*</strong> — WooCommerce — 2 días — Mantiene la sesión del usuario en la tienda online.</li>
+    </ul>
+    <h3>Cookies técnicas (Google)</h3>
+    <p>Cookies de Google (autenticación y seguridad): __Secure-1PAPISID, __Secure-1PSID, __Secure-3PAPISID, __Secure-3PSID, AEC, APISID, HSID, SAPISID, SEARCH_SAMESITE, SID, SIDCC, SSID, entre otras — con duraciones de 5 meses a 13 meses. Su finalidad es gestionar la sesión del usuario y mantener la seguridad durante la navegación.</p>
+    <h3>Cookies de preferencias (Google)</h3>
+    <ul>
+      <li><strong>NID</strong> — Google — 6 meses — Guarda las configuraciones y preferencias del usuario relacionadas con el uso de Google, como idioma o personalización de servicios.</li>
+    </ul>
+    <h3>Cookies de análisis o medición</h3>
+    <ul>
+      <li><strong>_ga, _ga_FCY3QWSXHW, _ga_TE6EZP9HPM</strong> — Google Analytics — 13 meses — Identificar y distinguir usuarios únicos para recopilar datos de análisis del sitio web.</li>
+      <li><strong>last_pys_landing_page, last_pysTrafficSource, pys_first_visit, pys_landing_page, pys_session_limit, pys_start_session, pysTrafficSource</strong> — PixelYourSite — 7 días / Sesión — Almacenar información sobre el origen del tráfico para análisis de conversión.</li>
+      <li><strong>sbjs_current, sbjs_first, sbjs_session, sbjs_udata, sbjs_migrations</strong> — Sourcebuster — Sesión / 30 min — Analizar el origen del tráfico y la atribución de conversiones.</li>
+      <li><strong>slimstat_tracking_code</strong> — WP SlimStat — 30 minutos — Recopilar datos anónimos sobre visitas al sitio.</li>
+    </ul>
+    <h3>Cookies de publicidad comportamental</h3>
+    <p>Las cookies de terceros de Google (APISID, HSID, NID, SAPISID, SID, SSID, __Secure-*) también pueden ser utilizadas con fines publicitarios para crear perfiles de usuario basados en su comportamiento y mostrarle anuncios relevantes en los servicios de Google y en sitios de terceros. Duración variable de 6 meses a 13 meses.</p>
+  </div>
+  <div class="glass-card">
+    <h2>Revocación y gestión de cookies</h2>
+    <p>En todo momento podrá acceder a la configuración de su navegador aceptando o rechazando todas las cookies, o bien seleccionar aquéllas cuya instalación admite. A continuación le indicamos cómo hacerlo en los navegadores más comunes:</p>
+    <ul>
+      <li><strong>Google Chrome:</strong> Configuración → Mostrar opciones avanzadas → Privacidad (Configuración de contenido) → Cookies.</li>
+      <li><strong>Microsoft Edge/Internet Explorer:</strong> Opciones de Internet → Privacidad → Avanzada.</li>
+      <li><strong>Firefox:</strong> Opciones → Privacidad → Cookies.</li>
+      <li><strong>Safari:</strong> Preferencias → Privacidad.</li>
+      <li><strong>Opera:</strong> Configuración → Opciones → Avanzado → Cookies.</li>
+    </ul>
+    <p>Tenga en cuenta que si no desea recibir cookies, ya no podemos garantizar que nuestro sitio web funcione debidamente. Rechazar las cookies no significa que ya no vaya a ver anuncios publicitarios, simplemente los anuncios no se ajustarán a sus intereses.</p>
+    <p>Puede obtener más información sobre las cookies en Internet en <a href="http://www.aboutcookies.org/" target="_blank" style="color:var(--lime)">www.aboutcookies.org</a>.</p>
+  </div>
+
+</div>
+  </div>
+</div>
+
+<div class="legal-modal-overlay" id="modal-terminos" onclick="if(event.target===this)closeLegalModal('modal-terminos')">
+  <div class="legal-modal">
+    <button class="legal-modal-close" onclick="closeLegalModal('modal-terminos')" aria-label="Cerrar">&#10005;</button>
+    <div class="legal-modal-title">Términos y condiciones</div>
+    <div class="legal-modal-sub">Compra, envíos y devoluciones</div>
+    <div class="glass-card">
+    <h2>1. ¿Cómo comprar?</h2>
+    <h3>¿Cómo encuentro un producto?</h3>
+    <p>En las <strong>Secciones de Productos</strong> encontrará las diferentes familias y subfamilias de todo nuestro catálogo de artículos disponibles. En <strong>Marcas</strong> encontrará cada artículo de las diferentes marcas; una vez elegida la marca, elija el producto que más le guste y añádalo al Carrito. Revise la sección <strong>Ofertas</strong> para encontrar los artículos con descuento. También puede usar directamente nuestro <strong>Buscador</strong>.</p>
+    <p>Una vez tenga en el Carrito todos los productos deseados vaya a "Ver Carrito" y posteriormente a "Finalizar Compra", donde dejará sus datos personales y el destino del envío. Finalmente podrá pagar usando cualquiera de las formas de pago ofrecidas en la página.</p>
+  </div>
+  <div class="glass-card">
+    <h2>2. ¿Cómo pagar?</h2>
+    <h3>¿Cuáles son las formas de pago admitidas?</h3>
+    <p>Puede pagar su compra con cualquiera de las siguientes formas de pago:</p>
+    <ul>
+      <li><strong>Tarjetas de crédito o débito:</strong> Visa, MasterCard, 4B, Euro 6000, Maestro española, American Express.</li>
+      <li><strong>Transferencia bancaria.</strong></li>
+      <li><strong>Contra reembolso.</strong></li>
+      <li><strong>En tienda</strong> (solo para recogidas en tienda, previo pedido en web).</li>
+    </ul>
+    <h3>¿Es seguro comprar en la web?</h3>
+    <p>Cuando tramita el pedido, todas las compras se efectúan bajo una conexión segura que garantiza la confidencialidad de todos sus datos. Las compras son realizadas en un entorno de servidor seguro bajo protocolo SSL (Secure Socket Layer) y todas las comunicaciones se transmiten encriptadas bajo un cifrado de 128 bits, que asegura el mayor nivel de protección a las comunicaciones.</p>
+    <h3>¿Es seguro pagar con tarjeta de crédito o débito?</h3>
+    <p>Visa, MasterCard y American Express han desarrollado un sistema de Comercio Electrónico Seguro mediante el cual el Emisor de la tarjeta (banco o caja de ahorros) identifica al titular de la tarjeta antes de autorizar el pago. Los datos de su tarjeta y su contraseña quedan protegidos por este sistema desde su introducción.</p>
+    <p>Ofipapel S.L. realiza la venta y distribución de los productos ofertados en este servicio. Las operaciones de venta se entenderán realizadas en Ofipapel S.L. — Bulevar Chajofe, 4, Los Cristianos (Santa Cruz de Tenerife).</p>
+  </div>
+  <div class="glass-card">
+    <h2>Seguridad en la compra</h2>
+    <p>Conforme a nuestra Garantía de seguridad y confidencialidad, en Ofipapel S.L. estamos especialmente interesados en ofrecer a nuestros clientes el más alto nivel de seguridad y proteger la confidencialidad de sus datos.</p>
+    <p>Esta ventana de autenticación está fuera del control de Ofipapel S.L., por lo que es responsabilidad del Emisor cualquier incidencia que pueda surgir durante el proceso de verificación.</p>
+    <p>Para cualquier consulta, llame al <a href="tel:+34922753520" style="color:var(--lime)">922 75 35 20</a> o escriba a <a href="mailto:pedidos@ofipapelsl.com" style="color:var(--lime)">pedidos@ofipapelsl.com</a>.</p>
+
+    <!-- SECTION: ENVÍOS Y PLAZOS -->
+    <div class="glass-card" style="background:rgba(174,204,48,.08);border-color:rgba(174,204,48,.25);margin-top:48px">
+      <h2 style="font-size:1.6rem">2. Envíos y plazos</h2>
+      <p style="color:rgba(255,255,255,.65);font-size:.9rem">Destinos, tarifas y tiempos de entrega</p>
+    </div>
+    <div class="glass-card">
+    <h2>Ventas solo en Canarias</h2>
+    <p>Los pedidos recibidos de lunes a viernes hasta las <strong>11:30 horas</strong> se podrán gestionar el mismo día; pasada esa hora se gestionarán para el día siguiente. Los pedidos recibidos los sábados, domingos y festivos se gestionarán el primer día laborable disponible.</p>
+    <p>En términos generales y como guía para nuestros clientes, salvo imprevistos o roturas de stock, el tiempo estimado de entrega es:</p>
+    <ul>
+      <li><strong>Tenerife:</strong> 24–48 horas (días laborables)</li>
+      <li><strong>La Gomera, El Hierro y La Palma:</strong> 24–48 horas (días laborables)</li>
+      <li><strong>Gran Canaria:</strong> 48–72 horas (días laborables)</li>
+      <li><strong>Lanzarote y Fuerteventura:</strong> 72–120 horas</li>
+    </ul>
+    <p>Todos los productos disponibles en la plataforma se encuentran en nuestros almacenes y tiendas en Tenerife, y salvo roturas de stock, se entregarán según las condiciones establecidas.</p>
+  </div>
+  <div class="glass-card">
+    <h2>Gastos de envío</h2>
+    <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:.88rem">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(255,255,255,.25)">
+          <th style="padding:10px 12px;text-align:left;color:var(--lime)">Destino</th>
+          <th style="padding:10px 12px;text-align:left;color:var(--lime)">Portes pagados desde</th>
+          <th style="padding:10px 12px;text-align:left;color:var(--lime)">Si no alcanza el mínimo</th>
+          <th style="padding:10px 12px;text-align:left;color:var(--lime)">Plazo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid rgba(255,255,255,.08)">
+          <td style="padding:10px 12px;color:#fff;font-weight:600">Tenerife</td>
+          <td style="padding:10px 12px;color:var(--lime);font-weight:700">20 €</td>
+          <td style="padding:10px 12px;color:var(--txt2)">5 €</td>
+          <td style="padding:10px 12px;color:var(--txt2)">24–48h</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,.08)">
+          <td style="padding:10px 12px;color:#fff;font-weight:600">La Gomera / El Hierro / La Palma</td>
+          <td style="padding:10px 12px;color:var(--lime);font-weight:700">200 €</td>
+          <td style="padding:10px 12px;color:var(--txt2)">15 €</td>
+          <td style="padding:10px 12px;color:var(--txt2)">48–72h</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,.08)">
+          <td style="padding:10px 12px;color:#fff;font-weight:600">Gran Canaria</td>
+          <td style="padding:10px 12px;color:var(--lime);font-weight:700">200 €</td>
+          <td style="padding:10px 12px;color:var(--txt2)">15 €</td>
+          <td style="padding:10px 12px;color:var(--txt2)">48–72h</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,.08)">
+          <td style="padding:10px 12px;color:#fff;font-weight:600">Lanzarote</td>
+          <td style="padding:10px 12px;color:var(--lime);font-weight:700">300 €</td>
+          <td style="padding:10px 12px;color:var(--txt2)">20 €</td>
+          <td style="padding:10px 12px;color:var(--txt2)">72h</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 12px;color:#fff;font-weight:600">Fuerteventura</td>
+          <td style="padding:10px 12px;color:var(--lime);font-weight:700">300 €</td>
+          <td style="padding:10px 12px;color:var(--txt2)">20 €</td>
+          <td style="padding:10px 12px;color:var(--txt2)">72h</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:16px;font-size:.82rem;color:var(--txt3)">Para artículos de gran volumen o peso, el importe de los portes se calculará mediante presupuesto. Contacte con nosotros en <a href="tel:+34922753520" style="color:var(--lime)">922 75 35 20</a>.</p>
+  </div>
+  <div class="glass-card">
+    <h2>Artículos bajo pedido</h2>
+    <p>Hay ciertos productos cuyo stock puede aparecer temporalmente agotado o no disponible. Si solicita dichos artículos y los encarga bajo pedido, nos pondremos en contacto con usted para informarle del tiempo de entrega y, si está de acuerdo, procederemos a encargarlo para usted.</p>
+    <p>Para cualquier consulta sobre disponibilidad o plazos, llame al <a href="tel:+34922753520" style="color:var(--lime)">922 75 35 20</a> o escriba a <a href="mailto:pedidos@ofipapelsl.com" style="color:var(--lime)">pedidos@ofipapelsl.com</a>.</p>
+
+    <!-- SECTION: DEVOLUCIONES -->
+    <div class="glass-card" style="background:rgba(66,153,196,.08);border-color:rgba(66,153,196,.25);margin-top:48px">
+      <h2 style="font-size:1.6rem">3. Devoluciones</h2>
+      <p style="color:rgba(255,255,255,.65);font-size:.9rem">Plazos, condiciones y proceso de devolución</p>
+    </div>
+    <div class="glass-card">
+    <h2>¿Cuál es el plazo de devolución o cambio?</h2>
+    <p>El plazo de devolución que a continuación se detalla empezará a contar desde la entrega del pedido:</p>
+    <ul>
+      <li><strong>14 días naturales</strong> — Garantía de desistimiento (no se admitirán devoluciones fuera de dicho plazo).</li>
+    </ul>
+    <p>El producto debe estar en perfectas condiciones (sin usar) con todas las etiquetas y en el embalaje original, en caso contrario el bien sufrirá una depreciación o se anulará la devolución. Todo ello conforme a las excepciones al Derecho de Desistimiento reguladas en el RDL 1/2007.</p>
+    <p>Una vez recibida la mercancía en nuestro almacén, y previa comprobación del estado de la misma, se procederá al reintegro de su importe, conforme a la modalidad de pago realizada por el cliente, en un plazo no superior a <strong>30 días naturales</strong> desde la recepción de la mercancía devuelta. El coste directo de la devolución del bien será asumido por el cliente según se recoge en el TRLGDCU.</p>
+  </div>
+  <div class="glass-card">
+    <h2>¿Cómo devuelvo productos con taras, desperfectos o errores?</h2>
+    <p>En las <strong>48 horas siguientes</strong> a la recepción del pedido debe notificar cualquier incidencia con el mismo. La comunicación puede realizarse de forma telefónica al <a href="tel:+34922753520" style="color:var(--lime)">922 75 35 20</a> o mediante correo electrónico a <a href="mailto:compras@ofipapelsl.com" style="color:var(--lime)">compras@ofipapelsl.com</a>.</p>
+    <p>Si el motivo de la devolución es un defecto en el producto, la devolución estará exenta de gastos.</p>
+    <p>En caso de recibir mercancía dañada o rota, le aconsejamos que también se lo haga saber a la agencia de transportes que haya gestionado la entrega de su pedido.</p>
+  </div>
+  <div class="glass-card">
+    <h2>¿Hay gastos de devolución?</h2>
+    <p>El gasto de devolución será asumido por el cliente según se recoge en el TRLGDCU. Los pedidos cuyo envío fue realizado sin cargo, se descontará el importe del mismo al realizar el abono de la Devolución del producto.</p>
+    <h3>¿Puedo devolver en tienda un producto comprado en la web?</h3>
+    <p>Sí, puede devolver en la tienda aquellos artículos adquiridos en la web, sin coste alguno.</p>
+    <h3>¿Puedo cambiar por otro producto?</h3>
+    <p>Sí, puede cambiar por otro artículo, siempre y cuando conserven el embalaje original y estén en perfectas condiciones, teniendo que abonar en tal caso los gastos de envío.</p>
+    <h3>Productos no admitidos para devolución</h3>
+    <p>Conforme a las excepciones al Derecho de Desistimiento reguladas en el RDL 1/2007, no se admitirá la devolución de aquellos <strong>productos configurados a medida (personalizados)</strong>.</p>
+  </div>
+  <div class="glass-card">
+    <h2>¿Cómo se realiza la devolución?</h2>
+    <p>Comuníquenos que quiere realizar la devolución a través de:</p>
+    <ul>
+      <li><strong>Email:</strong> <a href="mailto:pedidos@ofipapelsl.com" style="color:var(--lime)">pedidos@ofipapelsl.com</a></li>
+      <li><strong>Teléfono:</strong> <a href="tel:+34922753520" style="color:var(--lime)">922 75 35 20</a> — L–V 9:00 a 14:00 y 16:00 a 19:00 · S 9:00 a 13:00</li>
+    </ul>
+    <p>Indíquenos: nombre y correo electrónico de quien realizó la compra, fecha de compra, productos comprados, motivo de la devolución y cuenta bancaria (CCC) en la que solicita se realice la devolución.</p>
+    <p>La dirección de envío de las devoluciones es:<br><strong>Ofipapel, s.l. — C/ Bulevar Chajofe, 4 — 38650 Los Cristianos, Santa Cruz de Tenerife</strong></p>
+  </div>
+  <div class="glass-card">
+    <h2>5. Contacto</h2>
+    <p>Para información general sobre Ofipapel S.L., llame al teléfono <a href="tel:+34922753520" style="color:var(--lime)">922 75 35 20</a> en horario de lunes a viernes 9:00 a 14:00 y 16:00 a 19:00, o escríbanos un correo a <a href="mailto:comercial@ofipapelsl.com" style="color:var(--lime)">comercial@ofipapelsl.com</a>.</p>
+    <h3>¿Cómo puedo presentar una reclamación?</h3>
+    <p>Las partes se someten, a su elección, para la resolución de los conflictos y con renuncia a cualquier otro fuero, a los juzgados y tribunales del domicilio del usuario.</p>
+    <p>Conforme al Reglamento (UE) nº 524/2013 del Parlamento Europeo y del Consejo, de 21 de mayo de 2013, ponemos a disposición del cliente el enlace a la plataforma de resolución de litigios en línea de la Unión Europea: <a href="https://ec.europa.eu/consumers/odr/" target="_blank" style="color:var(--lime)">ec.europa.eu/consumers/odr/</a></p>
+  </div>
+</div>
+
+<script>
+function openLegalModal(id){
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeLegalModal(id){
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow='';
+}
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){
+    document.querySelectorAll('.legal-modal-overlay.open').forEach(function(m){
+      m.classList.remove('open');
+    });
+    document.body.style.overflow='';
+  }
+});
+</script>
 
 </body>
 </html>
