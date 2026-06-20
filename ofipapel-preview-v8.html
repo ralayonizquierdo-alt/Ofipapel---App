@@ -1253,41 +1253,55 @@ img{max-width:100%;display:block}
 }
 .mob-cat-body a:hover,.mob-cat-body a:active{color:var(--lime);background:rgba(255,255,255,.04)}
 
-/* ── CATALOG CAROUSEL ── */
-.cat-carousel-outer{position:relative;overflow:hidden}
-.cat-carousel{
-  display:flex;gap:20px;overflow-x:auto;
-  scroll-behavior:smooth;-webkit-overflow-scrolling:touch;
-  scrollbar-width:none;padding:24px 40px;
-  cursor:grab;user-select:none;
+/* ── COVERFLOW CATALOG ── */
+.cf-cat-section{padding:60px 0 50px}
+.cf-cat-stage{
+  position:relative;height:420px;
+  perspective:1400px;perspective-origin:50% 45%;
+  overflow:visible;
+  display:flex;align-items:center;justify-content:center;
+  max-width:1060px;margin:0 auto;
 }
-.cat-carousel::-webkit-scrollbar{display:none}
-.cat-carousel.dragging{cursor:grabbing;scroll-behavior:auto}
-.cat-card{
-  flex:0 0 220px;background:rgba(255,255,255,.1);
-  backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.2);
-  border-radius:16px;overflow:hidden;
-  transition:transform .25s,box-shadow .25s;
+.cf-cat-item{
+  position:absolute;width:258px;height:350px;
+  border-radius:16px;overflow:hidden;cursor:pointer;
+  transition:transform .55s cubic-bezier(.4,0,.2,1),opacity .55s,box-shadow .55s;
+  box-shadow:0 8px 40px rgba(0,0,0,.5);
+  will-change:transform,opacity;user-select:none;
 }
-.cat-card:hover{transform:translateY(-6px);box-shadow:0 20px 40px rgba(0,0,0,.5)}
-.cat-card-cover{height:260px;position:relative;overflow:hidden}
-.cat-card-cover img{width:100%;height:100%;object-fit:cover;transform:scale(1.08);transition:transform .4s}
-.cat-card:hover .cat-card-cover img{transform:scale(1)}
-.cat-card-badge{
-  position:absolute;top:10px;left:10px;
-  background:var(--lime);color:#1a1a1a;
-  font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
-  padding:3px 8px;border-radius:10px;
+.cf-cat-item img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cf-cat-overlay{
+  position:absolute;inset:0;
+  background:linear-gradient(to top,rgba(0,0,0,.85) 0%,rgba(0,0,0,.18) 55%,transparent);
 }
-.cat-card-body{padding:16px}
-.cat-card-name{font-family:'Plus Jakarta Sans',sans-serif;font-size:.9rem;font-weight:700;margin-bottom:4px}
-.cat-card-sub{font-size:.72rem;color:var(--txt3);margin-bottom:14px}
-.cat-card-btn{
-  width:100%;padding:8px;border:none;border-radius:8px;
-  background:var(--g);color:#fff;font-weight:700;font-size:.78rem;
-  cursor:pointer;transition:background .2s;
+.cf-cat-info{
+  position:absolute;bottom:0;left:0;right:0;padding:18px 16px;
+  transform:translateY(8px);opacity:0;transition:opacity .3s,transform .3s;
 }
-.cat-card-btn:hover{background:var(--gd)}
+.cf-cat-item.cf-active .cf-cat-info{opacity:1;transform:translateY(0)}
+.cf-cat-badge{
+  display:inline-block;font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  background:var(--lime);color:#000;border-radius:8px;padding:2px 7px;margin-bottom:5px;
+}
+.cf-cat-name{font-size:1rem;font-weight:800;line-height:1.25;margin-bottom:3px}
+.cf-cat-meta{font-size:.72rem;color:rgba(255,255,255,.58);margin-bottom:10px}
+.cf-cat-dl{
+  display:inline-flex;align-items:center;gap:5px;padding:8px 16px;
+  background:var(--cta);color:#fff;font-size:.78rem;font-weight:700;
+  border-radius:20px;border:none;cursor:pointer;transition:background .2s;
+}
+.cf-cat-dl:hover{background:#d4871a}
+.cf-cat-controls{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:24px;padding-bottom:24px}
+.cf-cat-btn{
+  width:42px;height:42px;border-radius:50%;
+  border:1.5px solid rgba(174,204,48,.4);background:rgba(174,204,48,.08);
+  color:var(--lime);font-size:1.3rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:background .2s;
+}
+.cf-cat-btn:hover{background:rgba(174,204,48,.2)}
+.cf-cat-dots{display:flex;gap:8px}
+.cf-cat-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2);cursor:pointer;transition:background .3s,transform .3s}
+.cf-cat-dot.active{background:var(--lime);transform:scale(1.35)}
 
 /* ── LANGUAGE SWITCHER ── */
 .lang-sw{display:flex;align-items:center;gap:2px;border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:2px;margin-left:4px}
@@ -2268,86 +2282,18 @@ img{max-width:100%;display:block}
 </section>
 
 <!-- CATALOGS -->
-<section class="section" style="padding:60px 0 20px">
+<section class="section cf-cat-section">
   <div class="container">
     <div class="section-hd reveal">
       <div class="section-kicker">Descargas</div>
       <h2>Nuestros <em>catálogos</em></h2>
     </div>
   </div>
-  <div class="cat-carousel-outer">
-    <div class="cat-carousel" id="cat-carousel">
-      <div class="cat-card">
-        <div class="cat-card-cover">
-          <img src="https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&q=80" alt="Catálogo General 2025" loading="lazy">
-          <span class="cat-card-badge">General</span>
-        </div>
-        <div class="cat-card-body">
-          <div class="cat-card-name">Catálogo General 2025</div>
-          <div class="cat-card-sub">Edición 2025 · PDF · 12 MB</div>
-          <button class="cat-card-btn">&#8681; Ver catálogo</button>
-        </div>
-      </div>
-      <div class="cat-card">
-        <div class="cat-card-cover">
-          <img src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&q=80" alt="Catálogo Informática 2025" loading="lazy">
-          <span class="cat-card-badge">Informática</span>
-        </div>
-        <div class="cat-card-body">
-          <div class="cat-card-name">Catálogo Informática 2025</div>
-          <div class="cat-card-sub">Edición 2025 · PDF · 8 MB</div>
-          <button class="cat-card-btn">&#8681; Ver catálogo</button>
-        </div>
-      </div>
-      <div class="cat-card">
-        <div class="cat-card-cover">
-          <img src="https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&q=80" alt="Catálogo Mobiliario 2025" loading="lazy">
-          <span class="cat-card-badge">Mobiliario</span>
-        </div>
-        <div class="cat-card-body">
-          <div class="cat-card-name">Catálogo Mobiliario 2025</div>
-          <div class="cat-card-sub">Edición 2025 · PDF · 15 MB</div>
-          <button class="cat-card-btn">&#8681; Ver catálogo</button>
-        </div>
-      </div>
-      <div class="cat-card">
-        <div class="cat-card-cover">
-          <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" alt="Catálogo Embalaje 2025" loading="lazy">
-          <span class="cat-card-badge">Embalaje</span>
-        </div>
-        <div class="cat-card-body">
-          <div class="cat-card-name">Catálogo Embalaje 2025</div>
-          <div class="cat-card-sub">Edición 2025 · PDF · 6 MB</div>
-          <button class="cat-card-btn">&#8681; Ver catálogo</button>
-        </div>
-      </div>
-      <div class="cat-card">
-        <div class="cat-card-cover">
-          <img src="https://images.unsplash.com/photo-1452860606245-08befc0ff44b?w=400&q=80" alt="Catálogo Escolar 2025" loading="lazy">
-          <span class="cat-card-badge">Escolar</span>
-        </div>
-        <div class="cat-card-body">
-          <div class="cat-card-name">Catálogo Escolar 2025</div>
-          <div class="cat-card-sub">Edición 2025 · PDF · 9 MB</div>
-          <button class="cat-card-btn">&#8681; Ver catálogo</button>
-        </div>
-      </div>
-      <div class="cat-card">
-        <div class="cat-card-cover">
-          <img src="https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=400&q=80" alt="Catálogo Papel 2025" loading="lazy">
-          <span class="cat-card-badge">Papel</span>
-        </div>
-        <div class="cat-card-body">
-          <div class="cat-card-name">Catálogo Papel 2025</div>
-          <div class="cat-card-sub">Edición 2025 · PDF · 5 MB</div>
-          <button class="cat-card-btn">&#8681; Ver catálogo</button>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div style="display:flex;justify-content:center;gap:10px;margin-top:16px;padding-bottom:20px">
-    <button class="carousel-btn" id="cat-prev" aria-label="Anterior">&#8592;</button>
-    <button class="carousel-btn" id="cat-next" aria-label="Siguiente">&#8594;</button>
+  <div class="cf-cat-stage" id="cf-cat-stage"></div>
+  <div class="cf-cat-controls">
+    <button class="cf-cat-btn" id="cf-cat-prev" aria-label="Anterior">&#8249;</button>
+    <div class="cf-cat-dots" id="cf-cat-dots"></div>
+    <button class="cf-cat-btn" id="cf-cat-next" aria-label="Siguiente">&#8250;</button>
   </div>
 </section>
 
@@ -3673,41 +3619,77 @@ document.addEventListener('keydown', function(e) {
   });
 })();
 
-// ── Catalog carousel drag ──────────────────────────────────────────────────
+// ── Coverflow Catalog ─────────────────────────────────────────────────────
 (function(){
-  var el = document.getElementById('cat-carousel');
-  if(!el) return;
-  var isDown=false, startX, scrollLeft, moved=false;
-  el.addEventListener('mousedown',function(e){
-    isDown=true;moved=false;
-    el.classList.add('dragging');
-    startX=e.pageX-el.offsetLeft;scrollLeft=el.scrollLeft;
+  var CDATA = [
+    {name:'Catálogo General 2025', badge:'General', meta:'Edición 2025 · PDF · 12 MB',
+     img:'https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&q=80'},
+    {name:'Catálogo Informática 2025', badge:'Informática', meta:'Edición 2025 · PDF · 8 MB',
+     img:'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600&q=80'},
+    {name:'Catálogo Mobiliario 2025', badge:'Mobiliario', meta:'Edición 2025 · PDF · 15 MB',
+     img:'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=600&q=80'},
+    {name:'Catálogo Embalaje 2025', badge:'Embalaje', meta:'Edición 2025 · PDF · 6 MB',
+     img:'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80'},
+    {name:'Catálogo Escolar 2025', badge:'Escolar', meta:'Edición 2025 · PDF · 9 MB',
+     img:'https://images.unsplash.com/photo-1452860606245-08befc0ff44b?w=600&q=80'},
+    {name:'Catálogo Papel 2025', badge:'Papel', meta:'Edición 2025 · PDF · 5 MB',
+     img:'https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=600&q=80'},
+  ];
+  var stage  = document.getElementById('cf-cat-stage');
+  var dotsEl = document.getElementById('cf-cat-dots');
+  if(!stage) return;
+  var N = CDATA.length, cur = 0;
+
+  CDATA.forEach(function(c, i){
+    var el = document.createElement('div');
+    el.className = 'cf-cat-item';
+    el.innerHTML = '<img src="'+c.img+'" alt="'+c.name+'" loading="lazy">'
+      + '<div class="cf-cat-overlay"></div>'
+      + '<div class="cf-cat-info">'
+      +   '<span class="cf-cat-badge">'+c.badge+'</span>'
+      +   '<div class="cf-cat-name">'+c.name+'</div>'
+      +   '<div class="cf-cat-meta">'+c.meta+'</div>'
+      +   '<button class="cf-cat-dl">↓ Ver catálogo</button>'
+      + '</div>';
+    el.addEventListener('click', function(){ if(i!==cur) go(i); });
+    stage.appendChild(el);
+    var d = document.createElement('button');
+    d.className = 'cf-cat-dot';
+    d.addEventListener('click', function(){ go(i); });
+    dotsEl.appendChild(d);
   });
-  el.addEventListener('mouseleave',function(){isDown=false;el.classList.remove('dragging')});
-  el.addEventListener('mouseup',function(){isDown=false;el.classList.remove('dragging')});
-  el.addEventListener('mousemove',function(e){
-    if(!isDown)return;e.preventDefault();moved=true;
-    var x=e.pageX-el.offsetLeft;
-    el.scrollLeft=scrollLeft-(x-startX)*1.3;
+
+  document.getElementById('cf-cat-prev').addEventListener('click', function(){ go((cur-1+N)%N); });
+  document.getElementById('cf-cat-next').addEventListener('click', function(){ go((cur+1)%N); });
+
+  function go(idx){ cur=idx; render(); }
+
+  function render(){
+    var items = stage.querySelectorAll('.cf-cat-item');
+    var dots  = dotsEl.querySelectorAll('.cf-cat-dot');
+    items.forEach(function(el, i){
+      var off=i-cur, abs=Math.abs(off);
+      el.classList.toggle('cf-active', off===0);
+      if(abs>2){
+        el.style.opacity='0'; el.style.pointerEvents='none'; el.style.zIndex='0';
+        return;
+      }
+      el.style.opacity       = abs===0?'1':abs===1?'0.62':'0.28';
+      el.style.zIndex        = String(10-abs);
+      el.style.pointerEvents = '';
+      var tx=off*56, ry=off<0?48:off>0?-48:0, tz=off===0?120:-65, sc=off===0?1:0.82;
+      el.style.transform = 'translateX('+tx+'%) translateZ('+tz+'px) rotateY('+ry+'deg) scale('+sc+')';
+      el.style.boxShadow = off===0?'0 30px 80px rgba(0,0,0,.7)':'0 8px 30px rgba(0,0,0,.4)';
+    });
+    dots.forEach(function(d,i){ d.classList.toggle('active',i===cur); });
+  }
+
+  render();
+  var auto = setInterval(function(){ go((cur+1)%N); }, 4500);
+  stage.addEventListener('mouseenter', function(){ clearInterval(auto); });
+  stage.addEventListener('mouseleave', function(){
+    auto = setInterval(function(){ go((cur+1)%N); }, 4500);
   });
-  // Prevent card button click after drag
-  el.addEventListener('click',function(e){
-    if(moved){e.preventDefault();e.stopPropagation();moved=false;}
-  },true);
-  // Touch drag
-  var touchStartX, touchScrollLeft;
-  el.addEventListener('touchstart',function(e){
-    touchStartX=e.touches[0].pageX;touchScrollLeft=el.scrollLeft;
-  },{passive:true});
-  el.addEventListener('touchmove',function(e){
-    var dx=touchStartX-e.touches[0].pageX;
-    el.scrollLeft=touchScrollLeft+dx;
-  },{passive:true});
-  // Prev/Next buttons
-  var prev=document.getElementById('cat-prev');
-  var next=document.getElementById('cat-next');
-  if(prev) prev.addEventListener('click',function(){el.scrollBy({left:-260,behavior:'smooth'})});
-  if(next) next.addEventListener('click',function(){el.scrollBy({left:260,behavior:'smooth'})});
 })();
 
 // ── Language switcher ─────────────────────────────────────────────────────────
