@@ -1371,6 +1371,48 @@ img{max-width:100%;display:block}
   .legal-modal{padding:24px 18px 28px}
   .legal-modal .glass-card{padding:18px 16px}
 }
+
+/* ── BLOG OVERLAY ── */
+.blog-overlay{position:fixed;inset:0;z-index:8000;background:#0A2B0E;display:none;overflow-y:auto;}
+.blog-overlay::before{content:'';position:fixed;inset:0;background:linear-gradient(135deg,rgba(10,40,15,.88) 0%,rgba(20,80,25,.82) 50%,rgba(10,35,15,.90) 100%);z-index:0;pointer-events:none;}
+.blog-overlay.open{display:block;}
+.blog-overlay-inner{position:relative;z-index:1;padding-bottom:80px;}
+.blog-overlay-close{position:fixed;top:20px;right:20px;z-index:8100;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:50%;width:44px;height:44px;color:#fff;font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;}
+.blog-overlay-close:hover{background:rgba(255,255,255,.28);}
+.blog-overlay .page-hero{padding:100px 0 48px;text-align:center;}
+.blog-overlay .page-kicker{font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--lime);margin-bottom:12px;}
+.blog-overlay h1{font-family:'Plus Jakarta Sans',sans-serif;font-size:clamp(2rem,5vw,3.2rem);font-weight:800;line-height:1.15;}
+.blog-overlay h1 em{color:var(--lime);font-style:normal;}
+.blog-overlay .page-subtitle{color:rgba(255,255,255,.7);font-size:1.05rem;margin-top:12px;max-width:600px;margin-left:auto;margin-right:auto;}
+.blog-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;margin-top:32px;}
+.blog-card{display:block;background:rgba(10,40,15,.65);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.25);border-radius:20px;overflow:hidden;transition:transform .2s,box-shadow .2s;text-decoration:none;color:inherit;}
+.blog-card:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,.4);}
+.blog-card-img{height:200px;background:#1D7A22;position:relative;overflow:hidden;}
+.blog-card-img img{width:100%;height:100%;object-fit:cover;}
+.blog-card-body{padding:24px;}
+.blog-tag-pill{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--lime);margin-bottom:8px;}
+.blog-card-body h3{font-family:'Plus Jakarta Sans',sans-serif;font-size:1.1rem;font-weight:700;line-height:1.3;margin-bottom:10px;color:#fff;}
+.blog-card-body p{font-size:.85rem;color:rgba(255,255,255,.85);line-height:1.65;margin-bottom:16px;}
+.blog-meta{font-size:.75rem;color:rgba(255,255,255,.5);}
+/* Blog article modals */
+.blog-modal-overlay{position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.82);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 16px 60px;backdrop-filter:blur(5px);}
+.blog-modal-overlay.open{display:flex;}
+.blog-modal{background:linear-gradient(135deg,rgba(10,40,15,.97),rgba(5,25,8,.98));border:1px solid rgba(255,255,255,.13);border-radius:20px;width:100%;max-width:800px;padding:40px 44px 48px;position:relative;animation:modalIn .3s ease;}
+.blog-modal-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.12);border:none;border-radius:50%;width:38px;height:38px;color:#fff;font-size:1.15rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;}
+.blog-modal-close:hover{background:rgba(255,255,255,.22);}
+.blog-modal .article-img{width:100%;max-height:360px;object-fit:cover;border-radius:14px;margin-bottom:28px;border:1px solid rgba(255,255,255,.1);}
+.blog-modal .article-hero-inner{padding:0 0 28px;}
+.blog-modal .article-hero-inner h1{font-family:'Plus Jakarta Sans',sans-serif;font-size:clamp(1.4rem,3vw,2rem);font-weight:800;line-height:1.25;margin:12px 0 10px;color:#fff;}
+.blog-modal .art-tag{font-size:.75rem;color:var(--lime);font-weight:700;letter-spacing:.05em;text-transform:uppercase;}
+.blog-modal .article-meta-line{font-size:.83rem;color:rgba(255,255,255,.5);display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;}
+.blog-modal .art-body h2{font-family:'Plus Jakarta Sans',sans-serif;font-size:1.25rem;font-weight:800;color:var(--lime);margin:32px 0 12px;}
+.blog-modal .art-body h3{font-size:1rem;font-weight:700;margin:20px 0 8px;color:#fff;}
+.blog-modal .art-body p{color:rgba(255,255,255,.75);line-height:1.8;margin-bottom:14px;}
+.blog-modal .art-body ul,.blog-modal .art-body ol{color:rgba(255,255,255,.75);padding-left:20px;margin-bottom:14px;}
+.blog-modal .art-body li{margin-bottom:7px;line-height:1.7;}
+.blog-modal .art-body blockquote{border-left:3px solid var(--lime);padding:14px 20px;background:rgba(255,255,255,.06);border-radius:0 10px 10px 0;margin:20px 0;font-style:italic;color:rgba(255,255,255,.75);}
+@media(max-width:600px){.blog-modal{padding:28px 20px 36px;}.blog-modal-overlay{padding:20px 10px 40px;}.blog-overlay .page-hero{padding:80px 0 32px;}}
+@media(max-width:768px){.blog-grid{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
@@ -1942,7 +1984,7 @@ img{max-width:100%;display:block}
         <h4>Empresa</h4>
         <ul>
           <li><a href="sobre-ofipapel.html">Sobre Ofipapel</a></li>
-          <li><a href="blog.html">Blog</a></li>
+          <li><a href="#" onclick="openBlogOverlay();return false">Blog</a></li>
           <li><a href="#">Ofertas</a></li>
           <li><a href="#">Catálogos</a></li>
           <li><a href="#">Contacto</a></li>
@@ -3091,6 +3133,229 @@ function setLang(lang) {
 
 <!-- LEGAL MODALS -->
 
+<!-- ── BLOG OVERLAY ── -->
+<div id="blog-overlay" class="blog-overlay" role="dialog" aria-label="Blog de Ofipapel">
+  <button class="blog-overlay-close" onclick="closeBlogOverlay()" aria-label="Cerrar blog">&#10005;</button>
+  <div class="blog-overlay-inner">
+    <div class="container">
+      <div class="page-hero">
+        <div class="page-kicker">Consejos y novedades</div>
+        <h1>El blog de <em>Ofipapel</em></h1>
+        <p class="page-subtitle">Consejos de organización, novedades de producto, guías de compra y todo lo que necesitas saber sobre el mundo de la oficina.</p>
+      </div>
+      <div class="blog-grid">
+        <a href="#" onclick="openBlogModal('b-art-1');return false" class="blog-card">
+          <div class="blog-card-img"><img src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=600&q=80" alt="Tóners y cartuchos" loading="lazy"></div>
+          <div class="blog-card-body">
+            <div class="blog-tag-pill">Impresión · Tóners</div>
+            <h3>Ofipapel, s.l.: todo lo que necesitas saber sobre tóners y cartuchos en Tenerife</h3>
+            <p>Descubre cómo elegir el tóner o cartucho adecuado para tu impresora, qué diferencias hay entre originales y compatibles, y cómo ahorrar sin sacrificar calidad.</p>
+            <div class="blog-meta">📅 15 junio 2025 · ⏱ 5 min lectura</div>
+          </div>
+        </a>
+        <a href="#" onclick="openBlogModal('b-art-2');return false" class="blog-card">
+          <div class="blog-card-img"><img src="https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=600&q=80" alt="Reciclaje cartuchos" loading="lazy"></div>
+          <div class="blog-card-body">
+            <div class="blog-tag-pill">Reciclaje · Sostenibilidad</div>
+            <h3>La importancia del reciclaje de cartuchos y tóneres</h3>
+            <p>Cada cartucho que termina en la basura tarda hasta 1.000 años en degradarse. Te explicamos por qué reciclar importa y cómo hacerlo en Canarias.</p>
+            <div class="blog-meta">📅 Junio 2025 · ⏱ 5 min lectura</div>
+          </div>
+        </a>
+        <a href="#" onclick="openBlogModal('b-art-3');return false" class="blog-card">
+          <div class="blog-card-img"><img src="https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=600&q=80" alt="Cartuchos remanufacturados" loading="lazy"></div>
+          <div class="blog-card-body">
+            <div class="blog-tag-pill">Remanufacturados · Calidad</div>
+            <h3>¿Cómo se fabrican los cartuchos remanufacturados?</h3>
+            <p>Un cartucho remanufacturado no es un cartucho de segunda mano: es un producto regenerado con controles de calidad estrictos. Te explicamos el proceso completo.</p>
+            <div class="blog-meta">📅 Junio 2025 · ⏱ 6 min lectura</div>
+          </div>
+        </a>
+        <a href="#" onclick="openBlogModal('b-art-4');return false" class="blog-card">
+          <div class="blog-card-img"><img src="https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=600&q=80" alt="Organización oficina" loading="lazy"></div>
+          <div class="blog-card-body">
+            <div class="blog-tag-pill">Organización · Oficina</div>
+            <h3>10 trucos para tener tu escritorio siempre ordenado</h3>
+            <p>La productividad empieza en el espacio de trabajo. Te damos 10 consejos prácticos y los productos que necesitas para mantenerlo impecable.</p>
+            <div class="blog-meta">📅 2 junio 2025 · ⏱ 4 min lectura</div>
+          </div>
+        </a>
+        <a href="#" onclick="openBlogModal('b-art-5');return false" class="blog-card">
+          <div class="blog-card-img"><img src="https://images.unsplash.com/photo-1519219788971-8d9797e0928e?w=600&q=80" alt="Vuelta al cole" loading="lazy"></div>
+          <div class="blog-card-body">
+            <div class="blog-tag-pill">Escolar · Tendencias</div>
+            <h3>Guía completa de material escolar 2025-2026</h3>
+            <p>Todo lo que necesitan tus hijos para empezar el curso con buen pie. Lista completa por niveles educativos con los mejores precios de Tenerife.</p>
+            <div class="blog-meta">📅 20 mayo 2025 · ⏱ 6 min lectura</div>
+          </div>
+        </a>
+        <a href="#" onclick="openBlogModal('b-art-6');return false" class="blog-card">
+          <div class="blog-card-img"><img src="https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=600&q=80" alt="Archivo" loading="lazy"></div>
+          <div class="blog-card-body">
+            <div class="blog-tag-pill">Archivo · Productividad</div>
+            <h3>Cómo digitalizar y organizar tus archivos físicos en 2025</h3>
+            <p>La documentación en papel sigue siendo esencial. Aprende a combinar archivo físico y digital para cumplir con la legislación y ser más eficiente.</p>
+            <div class="blog-meta">📅 8 mayo 2025 · ⏱ 5 min lectura</div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+  <!-- ARTICLE MODALS (IDs prefixed b- to avoid collision with other modals) -->
+  <div id="b-art-1" class="blog-modal-overlay" onclick="if(event.target===this)closeBlogModal('b-art-1')">
+    <div class="blog-modal">
+      <button class="blog-modal-close" onclick="closeBlogModal('b-art-1')">&#10005;</button>
+      <div class="art-tag">Impresión · Tóners · Guía de compra</div>
+      <div class="article-hero-inner">
+        <h1>Ofipapel, s.l.: todo lo que necesitas saber sobre tóners y cartuchos en Tenerife</h1>
+        <div class="article-meta-line"><span>📅 15 junio 2025</span><span>⏱ 5 min lectura</span><span>✍ Ofipapel, s.l.</span></div>
+      </div>
+      <img class="article-img" src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=900&q=85" alt="Tóners y cartuchos">
+      <div class="art-body">
+        <h2>¿Original, compatible o remanufacturado?</h2>
+        <p>Elegir el cartucho adecuado para tu impresora puede marcar la diferencia entre una impresión perfecta y un dolor de cabeza. En Ofipapel llevamos más de 20 años ayudando a empresas y particulares de Tenerife a tomar la decisión correcta.</p>
+        <h3>Cartuchos originales</h3>
+        <p>Fabricados por el mismo fabricante de la impresora (HP, Canon, Epson, Brother…). Ofrecen la mejor calidad de impresión garantizada y no anulan la garantía del equipo. Son la opción más cara, pero la más segura.</p>
+        <h3>Cartuchos compatibles</h3>
+        <p>Fabricados por terceros para ser compatibles con modelos específicos. Su calidad ha mejorado enormemente en los últimos años. Pueden suponer un ahorro de hasta el 70% respecto al original.</p>
+        <h3>Cartuchos remanufacturados</h3>
+        <p>Cartuchos originales recargados y reacondicionados. Son la opción más ecológica y también muy económica. En Ofipapel trabajamos con proveedores certificados que garantizan la calidad del proceso.</p>
+        <blockquote>El 80% de los cartuchos vendidos en Canarias son compatibles o remanufacturados. La calidad ya no es excusa para pagar más de la cuenta.</blockquote>
+        <h2>¿Cómo saber qué cartucho necesito?</h2>
+        <p>Lo más sencillo es mirar el modelo de tu impresora (generalmente en la parte frontal o inferior) y buscarlo en nuestro buscador o consultarnos directamente en tienda. En Ofipapel tenemos stock de más de 2.000 referencias de cartuchos para Tenerife.</p>
+        <h2>Consejo Ofipapel</h2>
+        <p>Si imprimes poco (menos de 200 páginas al mes), un cartucho compatible de buena marca te dará exactamente los mismos resultados que uno original a un precio mucho menor. Si imprimes en volumen, valora la opción de sistemas de tinta continua o cartuchos de alta capacidad.</p>
+      </div>
+    </div>
+  </div>
+  <div id="b-art-2" class="blog-modal-overlay" onclick="if(event.target===this)closeBlogModal('b-art-2')">
+    <div class="blog-modal">
+      <button class="blog-modal-close" onclick="closeBlogModal('b-art-2')">&#10005;</button>
+      <div class="art-tag">Blog · Reciclaje · Sostenibilidad</div>
+      <div class="article-hero-inner">
+        <h1>La importancia del reciclaje de cartuchos y tóneres</h1>
+        <div class="article-meta-line"><span>📅 Junio 2025</span><span>⏱ 5 min lectura</span><span>✍ Ofipapel, s.l.</span></div>
+      </div>
+      <img class="article-img" src="https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=900&q=85" alt="Reciclaje de cartuchos">
+      <div class="art-body">
+        <h2>Un problema ambiental invisible</h2>
+        <p>Cada año se desechan más de 500 millones de cartuchos de tinta y tóner en todo el mundo. Un cartucho plástico puede tardar hasta 1.000 años en degradarse si termina en un vertedero.</p>
+        <h3>¿Qué contiene un cartucho usado?</h3>
+        <p>Los cartuchos contienen plástico de alta resistencia, componentes metálicos, tinta o tóner residual y, en algunos casos, chips electrónicos. Todos estos materiales son reciclables si se gestionan correctamente.</p>
+        <h2>Cómo reciclar en Canarias</h2>
+        <p>En Ofipapel disponemos de puntos de recogida de cartuchos usados en nuestras tres tiendas de Tenerife. También podemos recoger en tu empresa si el volumen lo justifica.</p>
+        <blockquote>Reciclar un cartucho ahorra hasta 3 litros de petróleo. En Ofipapel recogemos más de 5.000 cartuchos al año para su correcta gestión.</blockquote>
+        <h2>Programa Canarias Ink</h2>
+        <p>Nuestro programa de reciclaje Canarias Ink ofrece descuentos en tu próxima compra por cada cartucho que entregues en tienda. Es nuestra forma de hacer la sostenibilidad accesible para todos.</p>
+      </div>
+    </div>
+  </div>
+  <div id="b-art-3" class="blog-modal-overlay" onclick="if(event.target===this)closeBlogModal('b-art-3')">
+    <div class="blog-modal">
+      <button class="blog-modal-close" onclick="closeBlogModal('b-art-3')">&#10005;</button>
+      <div class="art-tag">Blog · Remanufacturados · Proceso &amp; Calidad</div>
+      <div class="article-hero-inner">
+        <h1>¿Cómo se fabrican los cartuchos remanufacturados?</h1>
+        <div class="article-meta-line"><span>📅 Junio 2025</span><span>⏱ 6 min lectura</span><span>✍ Ofipapel, s.l.</span></div>
+      </div>
+      <img class="article-img" src="https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=900&q=85" alt="Cartuchos remanufacturados">
+      <div class="art-body">
+        <h2>El proceso paso a paso</h2>
+        <p>Un cartucho remanufacturado pasa por un proceso riguroso antes de llegar a tus manos. No es simplemente "rellenado": es reacondicionado desde cero.</p>
+        <h3>1. Inspección inicial</h3>
+        <p>Cada cartucho recogido es inspeccionado visualmente y mediante pruebas de presión para detectar grietas, fugas o daños que lo hagan inviable para su remanufactura.</p>
+        <h3>2. Limpieza y descontaminación</h3>
+        <p>Se elimina toda la tinta residual mediante sistemas de vacío y limpieza ultrasónica. Las cabezas de impresión se limpian con soluciones específicas para cada tipo de tinta.</p>
+        <h3>3. Reemplazo de piezas</h3>
+        <p>Las piezas desgastadas (esponjas absorbentes, chips de memoria, sellos) se reemplazan por componentes nuevos de la misma especificación que el original.</p>
+        <h3>4. Rellenado de tinta</h3>
+        <p>Se introduce tinta de alta calidad en las proporciones exactas. La composición química debe coincidir con la especificación del fabricante para garantizar la misma gama de colores.</p>
+        <h3>5. Control de calidad</h3>
+        <p>Cada cartucho remanufacturado se testea imprimiendo páginas de prueba y midiendo la densidad óptica de los colores. Solo los que superan el control de calidad llegan a la venta.</p>
+        <blockquote>Un buen cartucho remanufacturado ofrece el 95-98% de la calidad de un original a un precio entre un 40% y un 60% menor.</blockquote>
+      </div>
+    </div>
+  </div>
+  <div id="b-art-4" class="blog-modal-overlay" onclick="if(event.target===this)closeBlogModal('b-art-4')">
+    <div class="blog-modal">
+      <button class="blog-modal-close" onclick="closeBlogModal('b-art-4')">&#10005;</button>
+      <div class="art-tag">Organización · Oficina · Productividad</div>
+      <div class="article-hero-inner">
+        <h1>10 trucos para tener tu escritorio siempre ordenado</h1>
+        <div class="article-meta-line"><span>📅 2 junio 2025</span><span>⏱ 4 min lectura</span></div>
+      </div>
+      <img class="article-img" src="https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=900&q=85" alt="Escritorio organizado">
+      <div class="art-body">
+        <h2>Por qué el orden importa</h2>
+        <p>Estudios demuestran que un espacio de trabajo ordenado puede aumentar la productividad hasta un 20%. El desorden genera estrés cognitivo que consume energía mental.</p>
+        <h3>1. Regla del "solo lo necesario"</h3><p>En tu escritorio solo deben estar los objetos que usas a diario. El resto, en cajones o armarios.</p>
+        <h3>2. Bandeja de entrada física</h3><p>Una bandeja para documentos pendientes evita que el papel se acumule de forma caótica.</p>
+        <h3>3. Organizador de cajón</h3><p>Los bolígrafos, clips y pequeños materiales van en un organizador. Un cajón desordenado es tiempo perdido buscando.</p>
+        <h3>4. Gestión de cables</h3><p>Usa pasacables o abrazaderas para mantener los cables bajo control. El desorden de cables también genera estrés visual.</p>
+        <h3>5. Sistema de archivo al día</h3><p>Archiva los documentos el mismo día que los recibes o generas. Un archivador por categorías es suficiente para la mayoría de oficinas.</p>
+        <h3>6. Limpieza de 5 minutos</h3><p>Dedica los últimos 5 minutos de cada jornada a ordenar tu espacio. Empezar el día siguiente con todo ordenado multiplica tu efectividad.</p>
+        <h3>7. Notas adhesivas con criterio</h3><p>Las notas Post-it son útiles pero pueden convertirse en ruido visual. Usa un cuaderno para notas largas y Post-it solo para recordatorios urgentes del día.</p>
+        <h3>8. Zona de trabajo y zona de almacenaje</h3><p>Diferencia claramente dónde trabajas (zona limpia) de dónde guardas materiales (zona de almacenaje).</p>
+        <h3>9. Un sitio para cada cosa</h3><p>Cada objeto debe tener su lugar fijo. Así es mucho más fácil devolver las cosas a su sitio y encontrarlas cuando las necesitas.</p>
+        <h3>10. Revisión semanal</h3><p>Una vez por semana, dedica 15 minutos a revisar tu espacio: tira lo que no sirve, archiva lo pendiente y repón el material que te falta.</p>
+      </div>
+    </div>
+  </div>
+  <div id="b-art-5" class="blog-modal-overlay" onclick="if(event.target===this)closeBlogModal('b-art-5')">
+    <div class="blog-modal">
+      <button class="blog-modal-close" onclick="closeBlogModal('b-art-5')">&#10005;</button>
+      <div class="art-tag">Escolar · Tendencias · Guía de compra</div>
+      <div class="article-hero-inner">
+        <h1>Guía completa de material escolar 2025-2026</h1>
+        <div class="article-meta-line"><span>📅 20 mayo 2025</span><span>⏱ 6 min lectura</span></div>
+      </div>
+      <img class="article-img" src="https://images.unsplash.com/photo-1519219788971-8d9797e0928e?w=900&q=85" alt="Material escolar">
+      <div class="art-body">
+        <h2>Lo esencial por etapas</h2>
+        <p>Cada etapa educativa tiene sus propias necesidades. En Ofipapel hemos preparado esta guía para que no te falte nada en la vuelta al cole 2025-2026.</p>
+        <h3>Infantil (3-6 años)</h3>
+        <p>Ceras gruesas, plastilina no tóxica, tijeras de punta redonda, pegamento en barra, carpeta con fundas y mochila ergonómica. Lo más importante: materiales seguros y resistentes.</p>
+        <h3>Primaria (6-12 años)</h3>
+        <p>Lápices HB y de colores, estuche completo (sacapuntas, goma, regla), cuadernos de pauta y cuadriculados, archivador por asignaturas, y una calculadora básica para los últimos cursos.</p>
+        <h3>Secundaria (12-16 años)</h3>
+        <p>Bolígrafos de varios colores para apuntes, subrayadores, cuadernos de espiral A4, calculadora científica aprobada por el centro, y carpetas clasificadoras por materias.</p>
+        <h3>Bachillerato y FP (16-18 años)</h3>
+        <p>Material técnico según la especialidad, calculadora financiera o científica avanzada, bloc de dibujo técnico si aplica, y agenda para gestionar el tiempo de estudio.</p>
+        <blockquote>En Ofipapel tienes packs de material escolar por niveles con descuento durante julio, agosto y septiembre. Pide el tuyo en cualquiera de nuestras tiendas de Tenerife.</blockquote>
+        <h2>Marcas y calidad</h2>
+        <p>Trabajamos con las mejores marcas del sector: Staedtler, Pilot, BIC, Maped, Pritt y muchas más. Siempre con los mejores precios de Tenerife y sin coste de envío en pedidos superiores a 20€.</p>
+      </div>
+    </div>
+  </div>
+  <div id="b-art-6" class="blog-modal-overlay" onclick="if(event.target===this)closeBlogModal('b-art-6')">
+    <div class="blog-modal">
+      <button class="blog-modal-close" onclick="closeBlogModal('b-art-6')">&#10005;</button>
+      <div class="art-tag">Archivo · Productividad · Digital</div>
+      <div class="article-hero-inner">
+        <h1>Cómo digitalizar y organizar tus archivos físicos en 2025</h1>
+        <div class="article-meta-line"><span>📅 8 mayo 2025</span><span>⏱ 5 min lectura</span></div>
+      </div>
+      <img class="article-img" src="https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=900&q=85" alt="Archivo y digitalización">
+      <div class="art-body">
+        <h2>El papel no ha muerto, pero el desorden sí</h2>
+        <p>A pesar de la transformación digital, muchas empresas y autónomos siguen generando documentación en papel. La clave es saber gestionar ambos mundos.</p>
+        <h2>Sistema híbrido: físico + digital</h2>
+        <p>El mejor sistema no es eliminar el papel, sino tener un criterio claro sobre qué se archiva físicamente y qué se digitaliza.</p>
+        <h3>Qué guardar en papel</h3>
+        <p>Contratos originales con firma manuscrita, documentación notarial, títulos y certificados, facturas con sello original cuando lo requiera la ley.</p>
+        <h3>Qué digitalizar</h3>
+        <p>Facturas recibidas, albaranes, correspondencia comercial, informes y presupuestos. Todo lo que no requiera el original para tener validez legal.</p>
+        <h2>Pasos para digitalizar tu archivo</h2>
+        <p><strong>Paso 1:</strong> Clasifica primero. Antes de escanear, organiza los documentos por categoría y año.</p>
+        <p><strong>Paso 2:</strong> Usa un escáner de alimentación automática para grandes volúmenes. En Ofipapel tenemos impresoras multifunción con esta función.</p>
+        <p><strong>Paso 3:</strong> Nombra los archivos con un criterio consistente: AAAA-MM-DD_tipo_descripción.pdf</p>
+        <p><strong>Paso 4:</strong> Guarda en la nube (Google Drive, OneDrive) con copia de seguridad local.</p>
+        <p><strong>Paso 5:</strong> Destruye los originales que no necesitan conservarse con una destructora de documentos homologada RGPD.</p>
+        <blockquote>Un buen sistema de archivo te puede ahorrar hasta 30 minutos al día en búsqueda de documentos. En Ofipapel tenemos todo lo que necesitas: archivadores, carpetas, destructoras y escáneres.</blockquote>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="legal-modal-overlay" id="modal-aviso" onclick="if(event.target===this)closeLegalModal('modal-aviso')">
   <div class="legal-modal">
     <button class="legal-modal-close" onclick="closeLegalModal('modal-aviso')" aria-label="Cerrar">&#10005;</button>
@@ -3134,7 +3399,7 @@ function setLang(lang) {
   <div class="glass-card">
     <h2>4. Cookies</h2>
     <p>El sitio web del prestador puede utilizar cookies para llevar a cabo determinadas funciones imprescindibles para el correcto funcionamiento y visualización del lugar. Las cookies utilizadas tienen carácter temporal, con la única finalidad de hacer más eficaz la navegación, y desaparecen al acabar la sesión del usuario. En ningún caso se utilizarán las cookies para recoger información de carácter personal.</p>
-    <p>Para más información, consulte nuestra <a href="cookies.html" style="color:var(--lime)">Política de Cookies</a>.</p>
+    <p>Para más información, consulte nuestra <a href="#" onclick="closeLegalModal('modal-aviso');openLegalModal('modal-cookies');return false" style="color:var(--lime)">Política de Cookies</a>.</p>
   </div>
   <div class="glass-card">
     <h2>5. Enlaces (links)</h2>
@@ -3143,7 +3408,7 @@ function setLang(lang) {
   <div class="glass-card">
     <h2>6. Protección de datos personales</h2>
     <p>El prestador está profundamente comprometido con el cumplimiento de la normativa de protección de datos personales y garantiza el cumplimiento íntegro de las obligaciones dispuestas, así como la implementación de las medidas de seguridad dispuestas en el Reglamento Europeo de Protección de Datos y la normativa española de protección de datos.</p>
-    <p>Para más información, consulte nuestra <a href="privacidad.html" style="color:var(--lime)">Política de Privacidad</a>.</p>
+    <p>Para más información, consulte nuestra <a href="#" onclick="closeLegalModal('modal-aviso');openLegalModal('modal-privacidad');return false" style="color:var(--lime)">Política de Privacidad</a>.</p>
   </div>
   <div class="glass-card">
     <h2>7. Redes Sociales</h2>
@@ -3488,6 +3753,33 @@ document.addEventListener('keydown',function(e){
       m.classList.remove('open');
     });
     document.body.style.overflow='';
+  }
+});
+
+function openBlogOverlay(){
+  document.getElementById('blog-overlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeBlogOverlay(){
+  document.getElementById('blog-overlay').classList.remove('open');
+  document.body.style.overflow='';
+  document.querySelectorAll('.blog-modal-overlay.open').forEach(function(m){m.classList.remove('open');});
+}
+function openBlogModal(id){
+  document.getElementById(id).classList.add('open');
+}
+function closeBlogModal(id){
+  document.getElementById(id).classList.remove('open');
+}
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){
+    // Close blog modals first, then overlay
+    var openBlogModals=document.querySelectorAll('.blog-modal-overlay.open');
+    if(openBlogModals.length>0){
+      openBlogModals.forEach(function(m){m.classList.remove('open');});
+    } else {
+      closeBlogOverlay();
+    }
   }
 });
 </script>
