@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ofipapel — Catálogos Demo 2 (E–H)</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --g:#33B540;--gd:#1D7A22;--lime:#AECC30;--cta:#F5A623;
+  --dark:#0a1a0c;--darker:#060f08;--txt:#e8f0e8;--txt2:rgba(232,240,232,.65);
+}
+body{font-family:Inter,system-ui,sans-serif;background:var(--darker);color:var(--txt);overflow-x:hidden}
+
+/* ── NAV ── */
+.demo-nav{
+  position:sticky;top:0;z-index:1000;
+  background:rgba(6,15,8,.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(174,204,48,.2);
+  display:flex;align-items:center;gap:8px;padding:10px 24px;
+}
+.demo-nav h1{font-size:.73rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--lime);margin-right:auto}
+.demo-nav a{
+  padding:5px 12px;border-radius:20px;font-size:.7rem;font-weight:700;
+  text-decoration:none;color:var(--txt2);border:1px solid rgba(255,255,255,.1);
+  transition:background .2s,color .2s;
+}
+.demo-nav a:hover{background:rgba(174,204,48,.18);color:var(--lime);border-color:rgba(174,204,48,.4)}
+
+/* ── SECTION ── */
+.sec{padding:72px 0 56px}
+.sec-header{text-align:center;margin-bottom:44px;padding:0 24px}
+.sec-label{
+  display:inline-block;font-size:.66rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--lime);background:rgba(174,204,48,.1);border:1px solid rgba(174,204,48,.25);
+  border-radius:20px;padding:3px 12px;margin-bottom:12px;
+}
+.sec-title{font-size:clamp(1.5rem,3vw,2.2rem);font-weight:900;line-height:1.15;margin-bottom:8px}
+.sec-title em{color:var(--lime);font-style:normal}
+.sec-sub{font-size:.88rem;color:var(--txt2);max-width:500px;margin:0 auto}
+.sec-divider{height:1px;background:linear-gradient(to right,transparent,rgba(174,204,48,.2),transparent);margin-top:72px}
+
+/* ════════════════════════════════════════
+   E — COVERFLOW
+════════════════════════════════════════ */
+.cf-stage{
+  position:relative;height:400px;
+  perspective:1400px;perspective-origin:50% 45%;
+  overflow:visible;
+  display:flex;align-items:center;justify-content:center;
+  max-width:1000px;margin:0 auto;
+}
+.cf-item{
+  position:absolute;width:250px;height:340px;
+  border-radius:14px;overflow:hidden;cursor:pointer;
+  transition:transform .55s cubic-bezier(.4,0,.2,1),opacity .55s,box-shadow .55s;
+  box-shadow:0 8px 40px rgba(0,0,0,.5);
+  will-change:transform,opacity;user-select:none;
+}
+.cf-item img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cf-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.85) 0%,rgba(0,0,0,.2) 55%,transparent)}
+.cf-info{
+  position:absolute;bottom:0;left:0;right:0;padding:18px 16px;
+  transform:translateY(8px);opacity:0;transition:opacity .3s,transform .3s;
+}
+.cf-item.cf-active .cf-info{opacity:1;transform:translateY(0)}
+.cf-badge{
+  display:inline-block;font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  background:var(--lime);color:#000;border-radius:8px;padding:2px 7px;margin-bottom:5px;
+}
+.cf-title{font-size:1rem;font-weight:800;line-height:1.25;margin-bottom:3px}
+.cf-pages{font-size:.72rem;color:rgba(255,255,255,.6);margin-bottom:10px}
+.cf-dl{
+  display:inline-flex;align-items:center;gap:5px;padding:7px 14px;
+  background:var(--cta);color:#fff;font-size:.76rem;font-weight:700;
+  border-radius:20px;text-decoration:none;border:none;cursor:pointer;
+}
+.cf-controls{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:20px}
+.cf-btn{
+  width:42px;height:42px;border-radius:50%;
+  border:1.5px solid rgba(174,204,48,.4);background:rgba(174,204,48,.08);
+  color:var(--lime);font-size:1.3rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .2s;
+}
+.cf-btn:hover{background:rgba(174,204,48,.2)}
+.cf-dots{display:flex;gap:8px}
+.cf-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2);cursor:pointer;transition:background .3s,transform .3s}
+.cf-dot.active{background:var(--lime);transform:scale(1.35)}
+
+/* ════════════════════════════════════════
+   F — MAGNETIC TILT CARDS
+════════════════════════════════════════ */
+.tilt-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:22px;
+  max-width:940px;margin:0 auto;padding:0 24px;
+}
+.tilt-card{
+  position:relative;border-radius:16px;overflow:hidden;cursor:pointer;
+  box-shadow:0 10px 40px rgba(0,0,0,.4);will-change:transform;
+}
+.tilt-card:hover{box-shadow:0 25px 60px rgba(0,0,0,.6)}
+.tilt-img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;transform:scale(1.03);transition:transform .4s}
+.tilt-card:hover .tilt-img{transform:scale(1.09)}
+.tilt-glare{position:absolute;inset:0;pointer-events:none;z-index:3;border-radius:inherit}
+.tilt-shade{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.9) 0%,rgba(0,0,0,.25) 55%,transparent);z-index:2}
+.tilt-info{position:absolute;bottom:0;left:0;right:0;padding:16px;z-index:4;transform:translateY(4px);transition:transform .3s}
+.tilt-card:hover .tilt-info{transform:translateY(0)}
+.tilt-badge{font-size:.57rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:var(--lime);color:#000;border-radius:7px;padding:2px 7px;margin-bottom:5px;display:inline-block}
+.tilt-title{font-size:.92rem;font-weight:800;line-height:1.25;margin-bottom:2px}
+.tilt-sub{font-size:.7rem;color:rgba(255,255,255,.58);margin-bottom:10px}
+.tilt-acts{display:flex;gap:7px;opacity:0;transform:translateY(6px);transition:opacity .25s .05s,transform .25s .05s}
+.tilt-card:hover .tilt-acts{opacity:1;transform:translateY(0)}
+.tilt-act{flex:1;padding:7px;border-radius:8px;font-size:.7rem;font-weight:700;text-align:center;border:none;cursor:pointer;transition:background .2s}
+.tilt-act.p{background:var(--cta);color:#fff}
+.tilt-act.p:hover{background:#d4871a}
+.tilt-act.s{background:rgba(255,255,255,.14);color:#fff;backdrop-filter:blur(4px)}
+.tilt-act.s:hover{background:rgba(255,255,255,.24)}
+
+/* ════════════════════════════════════════
+   G — BENTO EXPAND
+════════════════════════════════════════ */
+.bento-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:14px;
+  max-width:1080px;margin:0 auto;padding:0 24px;
+}
+.bento-card{
+  position:relative;border-radius:14px;overflow:hidden;cursor:pointer;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  transition:box-shadow .3s;
+}
+.bento-card:hover{box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.bento-card.expanded{grid-column:1/-1;cursor:default}
+/* image wrap — ratio changes per state */
+.bento-iw{overflow:hidden;position:relative;aspect-ratio:4/3;transition:aspect-ratio .4s}
+.bento-card.expanded .bento-iw{aspect-ratio:21/9}
+.bento-iw img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s}
+.bento-card:not(.expanded):hover .bento-iw img{transform:scale(1.04)}
+.bento-iw-shade{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.6) 0%,transparent 50%)}
+/* compact footer */
+.bento-foot{padding:12px 14px}
+.bento-badge{font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(174,204,48,.18);color:var(--lime);border-radius:7px;padding:2px 7px;margin-bottom:5px;display:inline-block}
+.bento-ctitle{font-size:.9rem;font-weight:700;line-height:1.3;margin-bottom:1px}
+.bento-csub{font-size:.7rem;color:var(--txt2)}
+.bento-card.expanded .bento-foot{display:none}
+/* expand btn */
+.bento-xbtn{
+  position:absolute;bottom:10px;right:10px;
+  width:28px;height:28px;border-radius:50%;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(4px);
+  border:1px solid rgba(255,255,255,.2);color:#fff;
+  font-size:.9rem;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:background .2s;z-index:5;
+}
+.bento-xbtn:hover{background:rgba(51,181,64,.55)}
+.bento-card.expanded .bento-xbtn{display:none}
+/* close btn */
+.bento-cbtn{
+  position:absolute;top:12px;right:12px;display:none;
+  width:30px;height:30px;border-radius:50%;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(4px);
+  border:1px solid rgba(255,255,255,.2);color:#fff;
+  font-size:.9rem;align-items:center;justify-content:center;
+  cursor:pointer;transition:background .2s;z-index:10;
+}
+.bento-cbtn:hover{background:rgba(220,50,50,.55)}
+.bento-card.expanded .bento-cbtn{display:flex}
+/* expanded body */
+.bento-exp{display:none;padding:24px;animation:fuUp .3s ease}
+.bento-card.expanded .bento-exp{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+@keyframes fuUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.bento-exp-badge{display:inline-block;font-size:.63rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;background:var(--lime);color:#000;border-radius:9px;padding:3px 9px;margin-bottom:9px}
+.bento-exp-title{font-size:1.45rem;font-weight:900;line-height:1.2;margin-bottom:5px}
+.bento-exp-sub{color:var(--txt2);font-size:.86rem;margin-bottom:14px}
+.bento-stats{display:flex;gap:20px;margin-bottom:16px}
+.bento-stat-val{font-size:1.45rem;font-weight:900;color:var(--lime);line-height:1}
+.bento-stat-lbl{font-size:.68rem;color:var(--txt2);margin-top:2px}
+.bento-exp-btns{display:flex;gap:9px;flex-wrap:wrap}
+.bento-ebtn{
+  padding:9px 18px;border-radius:9px;font-size:.8rem;font-weight:700;
+  border:none;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:background .2s;
+}
+.bento-ebtn.p{background:var(--cta);color:#fff}
+.bento-ebtn.p:hover{background:#d4871a}
+.bento-ebtn.g{background:rgba(255,255,255,.1);color:#fff}
+.bento-ebtn.g:hover{background:rgba(255,255,255,.18)}
+.bento-toc-lbl{font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--lime);margin-bottom:10px}
+.bento-toc{list-style:none;display:flex;flex-direction:column;gap:5px}
+.bento-toc li{
+  display:flex;align-items:center;gap:9px;padding:8px 11px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);
+  border-radius:8px;font-size:.8rem;color:var(--txt2);
+}
+.bento-toc-n{
+  width:19px;height:19px;border-radius:50%;background:rgba(174,204,48,.18);color:var(--lime);
+  font-size:.62rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+
+/* ════════════════════════════════════════
+   H — CINEMA SHOWCASE
+════════════════════════════════════════ */
+.cinema-wrap{max-width:1160px;margin:0 auto;padding:0 24px 72px}
+.cinema-box{
+  position:relative;height:500px;overflow:hidden;
+  border-radius:18px;box-shadow:0 40px 100px rgba(0,0,0,.65);
+}
+.cinema-track{display:flex;height:100%;transition:transform .7s cubic-bezier(.77,0,.175,1);will-change:transform}
+.cinema-slide{position:relative;flex-shrink:0;width:100%;height:100%;overflow:hidden}
+.cinema-bg{
+  position:absolute;inset:-20px;background-size:cover;background-position:center;
+  transition:transform .7s cubic-bezier(.77,0,.175,1);will-change:transform;
+}
+.cinema-shade{
+  position:absolute;inset:0;
+  background:linear-gradient(to right,rgba(0,0,0,.88) 0%,rgba(0,0,0,.55) 40%,rgba(0,0,0,.15) 75%,rgba(0,0,0,.3) 100%);
+}
+.cinema-cnt{
+  position:absolute;left:52px;top:50%;transform:translateY(-50%);max-width:460px;
+}
+.cinema-yr{font-size:.7rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--lime);margin-bottom:7px}
+.cinema-bdg{display:inline-block;font-size:.63rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:var(--lime);color:#000;border-radius:9px;padding:3px 9px;margin-bottom:13px}
+.cinema-h2{font-size:clamp(1.7rem,3.2vw,2.6rem);font-weight:900;line-height:1.1;margin-bottom:9px;text-shadow:0 2px 20px rgba(0,0,0,.5)}
+.cinema-p{font-size:.9rem;color:rgba(255,255,255,.72);line-height:1.6;margin-bottom:20px}
+.cinema-meta{display:flex;align-items:center;gap:12px;margin-bottom:20px;font-size:.76rem;color:rgba(255,255,255,.45)}
+.cinema-dot-sep{width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.3)}
+.cinema-btns{display:flex;gap:10px;flex-wrap:wrap}
+.cinema-btn{
+  padding:10px 20px;border-radius:9px;font-size:.83rem;font-weight:700;
+  border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  transition:background .2s,transform .15s;
+}
+.cinema-btn:hover{transform:translateY(-2px)}
+.cinema-btn.p{background:var(--cta);color:#fff}
+.cinema-btn.p:hover{background:#d4871a}
+.cinema-btn.g{background:rgba(255,255,255,.12);color:#fff;backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.18)}
+.cinema-btn.g:hover{background:rgba(255,255,255,.2)}
+/* arrows */
+.cin-arr{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:42px;height:42px;border-radius:50%;
+  background:rgba(0,0,0,.45);backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,.18);color:#fff;font-size:1.2rem;
+  cursor:pointer;z-index:5;display:flex;align-items:center;justify-content:center;
+  transition:background .2s;
+}
+.cin-arr:hover{background:rgba(51,181,64,.5)}
+.cin-arr-l{left:18px}
+.cin-arr-r{right:18px}
+/* side dots */
+.cin-dots{position:absolute;right:20px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:9px;z-index:5}
+.cin-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.28);cursor:pointer;transition:background .3s,height .3s,border-radius .3s}
+.cin-dot.active{background:var(--lime);height:22px;border-radius:3px}
+/* progress */
+.cin-prog{position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,.1)}
+.cin-bar{height:100%;background:var(--lime);width:0}
+/* counter */
+.cin-ctr{position:absolute;bottom:18px;left:52px;font-size:.72rem;color:rgba(255,255,255,.45);font-weight:700;letter-spacing:.05em}
+.cin-ctr span{color:var(--lime)}
+/* thumbs */
+.cin-thumbs{display:flex;gap:9px;margin-top:14px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.cin-thumbs::-webkit-scrollbar{display:none}
+.cin-thumb{
+  flex-shrink:0;width:76px;height:48px;border-radius:7px;overflow:hidden;
+  cursor:pointer;border:2px solid transparent;opacity:.45;transition:opacity .3s,border-color .3s;
+}
+.cin-thumb.active{border-color:var(--lime);opacity:1}
+.cin-thumb img{width:100%;height:100%;object-fit:cover}
+
+/* ── FOOTER ── */
+.demo-footer{text-align:center;padding:36px 24px;border-top:1px solid rgba(255,255,255,.06);color:var(--txt2);font-size:.78rem}
+
+/* ── RESPONSIVE ── */
+@media(max-width:780px){
+  .tilt-grid,.bento-grid{grid-template-columns:repeat(2,1fr)}
+  .cinema-cnt{left:24px;right:56px}
+  .bento-card.expanded .bento-exp{grid-template-columns:1fr}
+}
+@media(max-width:520px){
+  .tilt-grid{grid-template-columns:1fr}
+  .bento-grid{grid-template-columns:1fr}
+  .cf-item{width:200px;height:280px}
+  .cinema-box{height:420px}
+  .cinema-h2{font-size:1.4rem}
+}
+</style>
+</head>
+<body>
+
+<nav class="demo-nav">
+  <h1>Ofipapel · Catálogos Demo 2</h1>
+  <a href="#sec-e">E · Coverflow</a>
+  <a href="#sec-f">F · Tilt</a>
+  <a href="#sec-g">G · Bento</a>
+  <a href="#sec-h">H · Cinema</a>
+</nav>
+
+<script>
+const CATS = [
+  {title:'Catálogo General 2025',sub:'+20.000 referencias de oficina',year:'2025',pages:320,badge:'NUEVO',
+   img:'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&q=80',
+   toc:['Escritura y Corrección','Papel y Etiquetas','Mobiliario','Informática','Embalaje y Expedición']},
+  {title:'Catálogo Escolar 2025',sub:'Material para el aula y el hogar',year:'2025',pages:128,badge:'BACK TO SCHOOL',
+   img:'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&q=80',
+   toc:['Mochilas y Bolsas','Escritura','Cuadernos','Plástica','Material Técnico']},
+  {title:'Catálogo Mobiliario',sub:'Sillas, mesas y ergonomía',year:'2024',pages:96,badge:'ERGONOMÍA',
+   img:'https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=800&q=80',
+   toc:['Sillas de Oficina','Mesas de Trabajo','Cajoneras','Estanterías','Mamparas']},
+  {title:'Catálogo Tecnología',sub:'Impresión, informática y consumibles',year:'2025',pages:210,badge:'TECH',
+   img:'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&q=80',
+   toc:['Impresoras','Cartuchos y Tóner','Periféricos','Almacenamiento','Cables']},
+  {title:'Catálogo Embalaje',sub:'Cajas, cintas y expedición',year:'2024',pages:64,badge:'LOGÍSTICA',
+   img:'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
+   toc:['Cajas de Cartón','Cintas Adhesivas','Burbujas','Etiquetas','Film Retráctil']},
+  {title:'Catálogo Limpieza',sub:'Higiene y mantenimiento',year:'2025',pages:80,badge:'HIGIENE',
+   img:'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=800&q=80',
+   toc:['Higiene Personal','Limpieza de Superficies','Dispensadores','Gestión de Residuos','Reposición']},
+];
+</script>
+
+<!-- ══ E — COVERFLOW ══════════════════════════════ -->
+<section id="sec-e" class="sec">
+  <div class="sec-header">
+    <span class="sec-label">Opción E</span>
+    <h2 class="sec-title"><em>Coverflow</em> 3D</h2>
+    <p class="sec-sub">Carrusel estilo Apple con perspectiva 3D. El catálogo central emerge hacia delante; los laterales se inclinan creando profundidad.</p>
+  </div>
+  <div class="cf-stage" id="cf-stage"></div>
+  <div class="cf-controls">
+    <button class="cf-btn" id="cf-prev">&#8249;</button>
+    <div class="cf-dots" id="cf-dots"></div>
+    <button class="cf-btn" id="cf-next">&#8250;</button>
+  </div>
+  <div class="sec-divider"></div>
+</section>
+
+<!-- ══ F — TILT CARDS ════════════════════════════ -->
+<section id="sec-f" class="sec">
+  <div class="sec-header">
+    <span class="sec-label">Opción F</span>
+    <h2 class="sec-title">Magnetic <em>Tilt Cards</em></h2>
+    <p class="sec-sub">Cada tarjeta sigue el movimiento del ratón en 3D con efecto de brillo. Mueve el cursor sobre las tarjetas.</p>
+  </div>
+  <div class="tilt-grid" id="tilt-grid"></div>
+  <div class="sec-divider"></div>
+</section>
+
+<!-- ══ G — BENTO EXPAND ══════════════════════════ -->
+<section id="sec-g" class="sec">
+  <div class="sec-header">
+    <span class="sec-label">Opción G</span>
+    <h2 class="sec-title">Bento <em>Expand</em> Grid</h2>
+    <p class="sec-sub">Grid de tarjetas compactas. Click en una tarjeta → se expande a ancho completo mostrando estadísticas e índice.</p>
+  </div>
+  <div class="bento-grid" id="bento-grid"></div>
+  <div class="sec-divider"></div>
+</section>
+
+<!-- ══ H — CINEMA ════════════════════════════════ -->
+<section id="sec-h" class="sec">
+  <div class="sec-header">
+    <span class="sec-label">Opción H</span>
+    <h2 class="sec-title"><em>Cinema</em> Showcase</h2>
+    <p class="sec-sub">Presentación fullscreen con parallax y avance automático. Miniaturas inferiores para navegación directa.</p>
+  </div>
+  <div class="cinema-wrap">
+    <div class="cinema-box" id="cin-box">
+      <div class="cinema-track" id="cin-track"></div>
+      <button class="cin-arr cin-arr-l" id="cin-prev">&#8249;</button>
+      <button class="cin-arr cin-arr-r" id="cin-next">&#8250;</button>
+      <div class="cin-dots" id="cin-dots"></div>
+      <div class="cin-ctr"><span id="cin-cur">1</span> / <span id="cin-tot">6</span></div>
+      <div class="cin-prog"><div class="cin-bar" id="cin-bar"></div></div>
+    </div>
+    <div class="cin-thumbs" id="cin-thumbs"></div>
+  </div>
+</section>
+
+<footer class="demo-footer">Demo 2 · Estilos E–H · Ofipapel · Mucho Más Que Papel</footer>
+
+<script>
+/* ═══════ E — COVERFLOW ════════════════════════ */
+(function(){
+  const stage = document.getElementById('cf-stage');
+  const dotsEl = document.getElementById('cf-dots');
+  const N = CATS.length;
+  let cur = 0;
+
+  CATS.forEach((c, i) => {
+    const el = document.createElement('div');
+    el.className = 'cf-item';
+    el.innerHTML = `<img src="${c.img}" alt="${c.title}" loading="lazy">
+      <div class="cf-overlay"></div>
+      <div class="cf-info">
+        <span class="cf-badge">${c.badge}</span>
+        <div class="cf-title">${c.title}</div>
+        <div class="cf-pages">${c.pages} páginas · ${c.year}</div>
+        <button class="cf-dl">↓ Descargar PDF</button>
+      </div>`;
+    el.addEventListener('click', () => { if(i!==cur) go(i); });
+    stage.appendChild(el);
+
+    const d = document.createElement('button');
+    d.className = 'cf-dot';
+    d.addEventListener('click', () => go(i));
+    dotsEl.appendChild(d);
+  });
+
+  document.getElementById('cf-prev').onclick = () => go((cur-1+N)%N);
+  document.getElementById('cf-next').onclick = () => go((cur+1)%N);
+
+  function go(idx){ cur=idx; render(); }
+
+  function render(){
+    const items = stage.querySelectorAll('.cf-item');
+    const dots  = dotsEl.querySelectorAll('.cf-dot');
+    items.forEach((el,i)=>{
+      const off = i - cur, abs = Math.abs(off);
+      el.classList.toggle('cf-active', off===0);
+      if(abs>2){ el.style.opacity='0'; el.style.pointerEvents='none'; el.style.zIndex='0'; return; }
+      el.style.opacity    = abs===0?'1':abs===1?'0.6':'0.28';
+      el.style.zIndex     = String(10-abs);
+      el.style.pointerEvents = '';
+      const tx = off*57, ry = off<0?48:off>0?-48:0, tz = off===0?110:-70, sc = off===0?1:0.8;
+      el.style.transform  = `translateX(${tx}%) translateZ(${tz}px) rotateY(${ry}deg) scale(${sc})`;
+      el.style.boxShadow  = off===0?'0 30px 80px rgba(0,0,0,.7)':'0 8px 30px rgba(0,0,0,.4)';
+    });
+    dots.forEach((d,i)=>d.classList.toggle('active',i===cur));
+  }
+
+  render();
+
+  let auto = setInterval(()=>go((cur+1)%N), 4000);
+  stage.addEventListener('mouseenter',()=>clearInterval(auto));
+  stage.addEventListener('mouseleave',()=>{ auto=setInterval(()=>go((cur+1)%N),4000); });
+})();
+
+/* ═══════ F — TILT CARDS ══════════════════════ */
+(function(){
+  const grid = document.getElementById('tilt-grid');
+
+  CATS.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'tilt-card';
+    card.innerHTML = `<img class="tilt-img" src="${c.img}" alt="${c.title}" loading="lazy">
+      <div class="tilt-glare"></div>
+      <div class="tilt-shade"></div>
+      <div class="tilt-info">
+        <span class="tilt-badge">${c.badge}</span>
+        <div class="tilt-title">${c.title}</div>
+        <div class="tilt-sub">${c.sub}</div>
+        <div class="tilt-acts">
+          <button class="tilt-act p">Descargar</button>
+          <button class="tilt-act s">Ver online</button>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+
+    const glare = card.querySelector('.tilt-glare');
+    let raf;
+    card.addEventListener('mousemove', e => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(()=>{
+        const r = card.getBoundingClientRect();
+        const x=e.clientX-r.left, y=e.clientY-r.top;
+        const rx=((y-r.height/2)/r.height)*-14, ry=((x-r.width/2)/r.width)*14;
+        card.style.transform=`perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.03)`;
+        card.style.transition='transform .08s linear,box-shadow .3s';
+        glare.style.background=`radial-gradient(circle at ${(x/r.width*100).toFixed(1)}% ${(y/r.height*100).toFixed(1)}%,rgba(255,255,255,.36) 0%,transparent 56%)`;
+      });
+    });
+    card.addEventListener('mouseleave', ()=>{
+      cancelAnimationFrame(raf);
+      card.style.transform='';
+      card.style.transition='transform .5s cubic-bezier(.4,0,.2,1),box-shadow .3s';
+      glare.style.background='transparent';
+    });
+  });
+})();
+
+/* ═══════ G — BENTO EXPAND ════════════════════ */
+(function(){
+  const grid = document.getElementById('bento-grid');
+  let expanded = null;
+
+  CATS.forEach((c, i) => {
+    const card = document.createElement('div');
+    card.className = 'bento-card';
+
+    const tocHtml = (c.toc||[]).map((t,ti)=>
+      `<li><span class="bento-toc-n">${ti+1}</span>${t}</li>`).join('');
+
+    card.innerHTML = `
+      <div class="bento-iw">
+        <img src="${c.img}" alt="${c.title}" loading="lazy">
+        <div class="bento-iw-shade"></div>
+      </div>
+      <div class="bento-foot">
+        <span class="bento-badge">${c.badge}</span>
+        <div class="bento-ctitle">${c.title}</div>
+        <div class="bento-csub">${c.sub}</div>
+      </div>
+      <button class="bento-xbtn" aria-label="Expandir">＋</button>
+      <div class="bento-exp">
+        <div>
+          <span class="bento-exp-badge">${c.badge}</span>
+          <div class="bento-exp-title">${c.title}</div>
+          <div class="bento-exp-sub">${c.sub}</div>
+          <div class="bento-stats">
+            <div><div class="bento-stat-val">${c.pages}</div><div class="bento-stat-lbl">Páginas</div></div>
+            <div><div class="bento-stat-val">${c.year}</div><div class="bento-stat-lbl">Edición</div></div>
+            <div><div class="bento-stat-val">${(c.toc||[]).length}</div><div class="bento-stat-lbl">Secciones</div></div>
+          </div>
+          <div class="bento-exp-btns">
+            <button class="bento-ebtn p">↓ Descargar PDF</button>
+            <button class="bento-ebtn g">Ver online</button>
+          </div>
+        </div>
+        <div>
+          <div class="bento-toc-lbl">Índice de contenidos</div>
+          <ul class="bento-toc">${tocHtml}</ul>
+        </div>
+      </div>
+      <button class="bento-cbtn" aria-label="Cerrar">✕</button>`;
+
+    grid.appendChild(card);
+
+    card.querySelector('.bento-xbtn').addEventListener('click', e=>{
+      e.stopPropagation();
+      if(expanded && expanded!==card){ collapse(expanded); }
+      card.classList.add('expanded');
+      expanded = card;
+      card.scrollIntoView({behavior:'smooth',block:'nearest'});
+    });
+
+    card.querySelector('.bento-cbtn').addEventListener('click', e=>{
+      e.stopPropagation();
+      collapse(card);
+    });
+  });
+
+  function collapse(card){
+    card.classList.remove('expanded');
+    if(expanded===card) expanded=null;
+  }
+})();
+
+/* ═══════ H — CINEMA ══════════════════════════ */
+(function(){
+  const track   = document.getElementById('cin-track');
+  const dotsEl  = document.getElementById('cin-dots');
+  const thumbsEl= document.getElementById('cin-thumbs');
+  const barEl   = document.getElementById('cin-bar');
+  const curEl   = document.getElementById('cin-cur');
+  const N = CATS.length;
+  let cur = 0;
+  document.getElementById('cin-tot').textContent = N;
+
+  CATS.forEach((c,i)=>{
+    // slide
+    const slide = document.createElement('div');
+    slide.className = 'cinema-slide';
+    slide.innerHTML = `
+      <div class="cinema-bg" style="background-image:url('${c.img}')"></div>
+      <div class="cinema-shade"></div>
+      <div class="cinema-cnt">
+        <div class="cinema-yr">${c.year}</div>
+        <span class="cinema-bdg">${c.badge}</span>
+        <h2 class="cinema-h2">${c.title}</h2>
+        <p class="cinema-p">${c.sub}</p>
+        <div class="cinema-meta">
+          <span>${c.pages} páginas</span>
+          <span class="cinema-dot-sep"></span>
+          <span>PDF gratuito</span>
+          <span class="cinema-dot-sep"></span>
+          <span>${c.year}</span>
+        </div>
+        <div class="cinema-btns">
+          <button class="cinema-btn p">↓ Descargar catálogo</button>
+          <button class="cinema-btn g">Ver online</button>
+        </div>
+      </div>`;
+    track.appendChild(slide);
+
+    // dot
+    const dot = document.createElement('button');
+    dot.className='cin-dot'+(i===0?' active':'');
+    dot.addEventListener('click',()=>go(i));
+    dotsEl.appendChild(dot);
+
+    // thumb
+    const th = document.createElement('div');
+    th.className='cin-thumb'+(i===0?' active':'');
+    th.innerHTML=`<img src="${c.img}" alt="${c.title}" loading="lazy">`;
+    th.addEventListener('click',()=>go(i));
+    thumbsEl.appendChild(th);
+  });
+
+  document.getElementById('cin-prev').onclick=()=>go((cur-1+N)%N);
+  document.getElementById('cin-next').onclick=()=>go((cur+1)%N);
+
+  // swipe
+  let tx0=0;
+  track.addEventListener('touchstart',e=>{tx0=e.touches[0].clientX},{passive:true});
+  track.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-tx0;
+    if(Math.abs(dx)>48) go(dx<0?(cur+1)%N:(cur-1+N)%N);
+  });
+
+  function go(idx){ cur=idx; render(); resetBar(); }
+
+  function render(){
+    track.style.transform=`translateX(-${cur*100}%)`;
+    curEl.textContent=cur+1;
+    // parallax
+    track.querySelectorAll('.cinema-bg').forEach((bg,i)=>{
+      bg.style.transform=`translateX(${(i-cur)*22}px) scale(1.06)`;
+    });
+    dotsEl.querySelectorAll('.cin-dot').forEach((d,i)=>d.classList.toggle('active',i===cur));
+    const ths=thumbsEl.querySelectorAll('.cin-thumb');
+    ths.forEach((t,i)=>t.classList.toggle('active',i===cur));
+    if(ths[cur]) ths[cur].scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+  }
+
+  // auto-advance with animated progress bar
+  const INTV=5500;
+  let startTs, rafId;
+
+  function tickBar(ts){
+    if(!startTs) startTs=ts;
+    const pct=Math.min(100,((ts-startTs)/INTV)*100);
+    barEl.style.width=pct+'%';
+    if(pct<100){ rafId=requestAnimationFrame(tickBar); }
+    else{ go((cur+1)%N); }
+  }
+
+  function resetBar(){
+    cancelAnimationFrame(rafId);
+    startTs=null;
+    barEl.style.transition='none';
+    barEl.style.width='0%';
+    setTimeout(()=>{ barEl.style.transition=''; rafId=requestAnimationFrame(tickBar); },30);
+  }
+
+  const box=document.getElementById('cin-box');
+  box.addEventListener('mouseenter',()=>cancelAnimationFrame(rafId));
+  box.addEventListener('mouseleave',()=>resetBar());
+
+  render();
+  resetBar();
+})();
+</script>
+</body>
+</html>
