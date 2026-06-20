@@ -461,25 +461,32 @@ img{max-width:100%;display:block}
 .btn-dl:hover{background:rgba(255,255,255,.2)}
 
 /* ── STORES ── */
-.stores-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.stores-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:40px}
 .store-card{
-  background:rgba(255,255,255,.1);
-  backdrop-filter:blur(14px);
-  border:1px solid var(--glass-border);
-  border-radius:var(--rl);
-  padding:28px 24px;
-  position:relative;overflow:hidden;
-  transition:background .2s,transform .2s;
+  background:rgba(255,255,255,.07);backdrop-filter:blur(16px);
+  border:1px solid rgba(255,255,255,.12);border-radius:20px;
+  overflow:hidden;transition:transform .3s,box-shadow .3s;
 }
-.store-card:hover{background:rgba(255,255,255,.18);transform:translateY(-4px)}
-.store-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--g),var(--lime))}
-.store-badge{display:inline-flex;background:rgba(255,255,255,.1);border:1px solid var(--glass-border);color:var(--lime);border-radius:4px;padding:3px 8px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px}
-.store-name{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;margin-bottom:8px}
-.store-info{display:flex;flex-direction:column;gap:7px;margin-bottom:16px}
-.store-info p{display:flex;align-items:flex-start;gap:8px;font-size:.82rem;color:var(--txt2)}
-.store-info svg{flex-shrink:0;margin-top:2px;color:var(--lime)}
-.store-map-btn{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;font-weight:600;color:var(--white);background:rgba(255,255,255,.12);border:1px solid var(--glass-border);border-radius:var(--r);padding:8px 14px;transition:background .2s}
-.store-map-btn:hover{background:rgba(255,255,255,.22)}
+.store-card:hover{transform:translateY(-7px);box-shadow:0 24px 60px rgba(0,0,0,.45)}
+.store-head{background:linear-gradient(135deg,var(--gd) 0%,var(--g) 100%);padding:20px 22px 16px}
+.store-num{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;color:#fff;margin-bottom:9px}
+.store-head-title{font-size:.95rem;font-weight:800;color:#fff;line-height:1.25;margin-bottom:2px}
+.store-head-sub{font-size:.65rem;color:rgba(255,255,255,.68);letter-spacing:.06em;text-transform:uppercase}
+.store-map-thumb{height:148px;overflow:hidden;position:relative}
+.store-map-thumb iframe{width:100%;height:100%;border:none;display:block;filter:invert(.88) hue-rotate(180deg) saturate(.55) brightness(.88)}
+.store-body{padding:17px 20px 20px}
+.store-info-list{list-style:none;display:flex;flex-direction:column;gap:7px;margin-bottom:15px}
+.store-info-list li{display:flex;align-items:flex-start;gap:8px;font-size:.78rem;color:rgba(255,255,255,.75)}
+.store-info-list li svg{flex-shrink:0;margin-top:2px;color:var(--lime)}
+.store-info-list a{color:inherit;text-decoration:none}
+.store-info-list a:hover{color:var(--lime)}
+.store-cta-row{display:flex;gap:8px}
+.store-cta-btn{flex:1;padding:9px 12px;border-radius:10px;font-size:.76rem;font-weight:700;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;border:none;cursor:pointer;transition:background .2s,border-color .2s}
+.store-cta-btn.primary{background:var(--g);color:#fff}
+.store-cta-btn.primary:hover{background:var(--gd)}
+.store-cta-btn.ghost{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.15)}
+.store-cta-btn.ghost:hover{background:rgba(255,255,255,.18)}
+@media(max-width:900px){.stores-grid{grid-template-columns:1fr}}
 
 
 /* ── CTA SECTION ── */
@@ -539,21 +546,7 @@ img{max-width:100%;display:block}
 .trust-item:nth-child(4) .trust-icon{animation-delay:1.5s}
 
 /* ── MAP SECTION ── */
-.map-layout{display:grid;grid-template-columns:1fr 420px;gap:0;border-radius:var(--rl);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4);border:1px solid var(--glass-border)}
-.map-iframe-wrap{position:relative;min-height:440px}
-.map-iframe-wrap iframe{width:100%;height:100%;border:0;display:block;filter:none}
-.map-panel{background:rgba(255,255,255,.06);backdrop-filter:blur(14px);padding:32px 28px;display:flex;flex-direction:column;gap:0}
-.map-panel-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:1.1rem;font-weight:800;color:#fff;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--glass-border)}
-.store-item{padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08)}
-.store-item:last-child{border-bottom:none}
-.store-item-name{font-weight:700;font-size:.88rem;color:#fff;margin-bottom:8px;display:flex;align-items:center;gap:8px}
-.store-dot{width:8px;height:8px;border-radius:50%;background:var(--lime);flex-shrink:0;box-shadow:0 0 0 3px rgba(174,204,48,.25)}
-.store-item-info{font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.7;margin-left:16px}
-.store-item-info span{display:flex;align-items:flex-start;gap:6px;margin-bottom:3px}
-.store-item-info svg{flex-shrink:0;margin-top:2px;opacity:.7}
-.store-item-link{display:inline-flex;align-items:center;gap:6px;margin-top:8px;margin-left:16px;font-size:.75rem;font-weight:700;color:var(--lime);text-decoration:none;transition:gap .2s}
-.store-item-link:hover{gap:10px}
-@media(max-width:900px){.map-layout{grid-template-columns:1fr}.map-iframe-wrap{min-height:260px}}
+
 
 
 /* ── CIRCULAR 3D GALLERY ── */
@@ -1275,7 +1268,7 @@ img{max-width:100%;display:block}
   background:linear-gradient(to top,rgba(0,0,0,.85) 0%,rgba(0,0,0,.18) 55%,transparent);
 }
 .cf-cat-info{
-  position:absolute;bottom:0;left:0;right:0;padding:18px 16px;
+  position:absolute;bottom:0;left:0;right:0;padding:14px 16px 16px;
   transform:translateY(8px);opacity:0;transition:opacity .3s,transform .3s;
 }
 .cf-cat-item.cf-active .cf-cat-info{opacity:1;transform:translateY(0)}
@@ -1284,13 +1277,17 @@ img{max-width:100%;display:block}
   background:var(--lime);color:#000;border-radius:8px;padding:2px 7px;margin-bottom:5px;
 }
 .cf-cat-name{font-size:1rem;font-weight:800;line-height:1.25;margin-bottom:3px}
-.cf-cat-meta{font-size:.72rem;color:rgba(255,255,255,.58);margin-bottom:10px}
+.cf-cat-meta{font-size:.72rem;color:rgba(255,255,255,.58);margin-bottom:0}
+.cf-cat-btns{display:flex;gap:7px;margin-top:10px}
 .cf-cat-dl{
-  display:inline-flex;align-items:center;gap:5px;padding:8px 16px;
-  background:var(--cta);color:#fff;font-size:.78rem;font-weight:700;
-  border-radius:20px;border:none;cursor:pointer;transition:background .2s;
+  flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:8px 12px;
+  color:#fff;font-size:.75rem;font-weight:700;
+  border-radius:16px;border:none;cursor:pointer;transition:background .2s;
 }
-.cf-cat-dl:hover{background:#d4871a}
+.cf-cat-dl.cf-online{background:rgba(255,255,255,.2)}
+.cf-cat-dl.cf-online:hover{background:rgba(255,255,255,.32)}
+.cf-cat-dl.cf-down{background:var(--cta)}
+.cf-cat-dl.cf-down:hover{background:#d4871a}
 .cf-cat-controls{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:24px;padding-bottom:24px}
 .cf-cat-btn{
   width:42px;height:42px;border-radius:50%;
@@ -2297,80 +2294,84 @@ img{max-width:100%;display:block}
   </div>
 </section>
 
-<!-- STORES + MAP -->
+<!-- STORES -->
 <section class="section" style="padding:60px 0">
   <div class="container">
     <div class="section-hd reveal">
       <div class="section-kicker">Dónde estamos</div>
       <h2>Nuestras <em>tiendas</em> en Tenerife</h2>
     </div>
-    <div class="map-layout reveal">
-      <!-- Google Maps iframe (dark-tinted via CSS filter) -->
-      <div class="map-iframe-wrap">
-        <iframe
-          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d13897.82!2d-16.7254!3d28.0494!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xc6795cb81a50d41%3A0x3a74c5b8d95b1f4e!2sLos%20Cristianos%2C%20Arona%2C%20Santa%20Cruz%20de%20Tenerife!5e0!3m2!1ses!2ses!4v1700000000000!5m2!1ses!2ses"
-          allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"
-          title="Mapa Ofipapel Tenerife">
-        </iframe>
-      </div>
-      <!-- Store cards panel -->
-      <div class="map-panel">
-        <div class="map-panel-title">📍 Nuestras 3 tiendas</div>
+    <div class="stores-grid reveal stagger">
 
-        <div class="store-item">
-          <div class="store-item-name">
-            <span class="store-dot"></span>Ofipapel — Los Cristianos
-          </div>
-          <div class="store-mini-map">
-            <iframe src="https://maps.google.com/maps?q=C+Bulevar+Chajofe+4+Los+Cristianos+Tenerife&z=17&output=embed&hl=es" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Mapa tienda"></iframe>
-            <div class="store-mini-map-overlay"><a href="https://maps.google.com/?q=C%2F+Bulevar+Chajofe+4+Los+Cristianos+Tenerife" target="_blank" rel="noopener" data-t="open_maps">Abrir en Google Maps ↗</a></div>
-          </div>
-          <div class="store-item-info">
-            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>C/ Bulevar Chajofe, 4 · 38650 Los Cristianos</span>
-            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5A2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg><a href="tel:+34922753520" style="color:inherit">922 75 35 20</a></span>
-            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 9:00–14:00 y 16:00–19:00 · S 9:00–13:00</span>
-          </div>
-          <a href="https://maps.google.com/?q=C%2F+Bulevar+Chajofe+4+Los+Cristianos+Tenerife" target="_blank" rel="noopener" class="store-item-link">
-            Ver en Google Maps →
-          </a>
+      <!-- 1 — Ofipapel Los Cristianos -->
+      <div class="store-card">
+        <div class="store-head">
+          <div class="store-num">1</div>
+          <div class="store-head-title">Ofipapel — Los Cristianos</div>
+          <div class="store-head-sub">Sede principal · Bulevar Chajofe</div>
         </div>
-
-        <div class="store-item">
-          <div class="store-item-name">
-            <span class="store-dot"></span>Aliz 1 — Los Cristianos
-          </div>
-          <div class="store-mini-map">
-            <iframe src="https://maps.google.com/maps?q=Avenida+de+Suecia+7+Los+Cristianos+Tenerife&z=17&output=embed&hl=es" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Mapa tienda"></iframe>
-            <div class="store-mini-map-overlay"><a href="https://maps.google.com/?q=Av+de+Suecia+7+Los+Cristianos+Tenerife" target="_blank" rel="noopener" data-t="open_maps">Abrir en Google Maps ↗</a></div>
-          </div>
-          <div class="store-item-info">
-            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Av. de Suecia, 7 · 38650 Los Cristianos</span>
-            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5A2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg><a href="tel:+34922792001" style="color:inherit">922 79 20 01</a></span>
-            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 9:00–14:00 y 16:30–19:30 · S 9:00–13:00</span>
-          </div>
-          <a href="https://maps.google.com/?q=Av+de+Suecia+7+Los+Cristianos+Tenerife" target="_blank" rel="noopener" class="store-item-link">
-            Ver en Google Maps →
-          </a>
+        <div class="store-map-thumb">
+          <iframe src="https://maps.google.com/maps?q=C+Bulevar+Chajofe+4+Los+Cristianos+Tenerife&z=17&output=embed&hl=es" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Mapa tienda Los Cristianos"></iframe>
         </div>
-
-        <div class="store-item">
-          <div class="store-item-name">
-            <span class="store-dot"></span>Aliz 2 — Playa de las Américas
+        <div class="store-body">
+          <ul class="store-info-list">
+            <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>C/ Bulevar Chajofe, 4 · 38650 Los Cristianos</li>
+            <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5A2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg><a href="tel:+34922753520">922 75 35 20</a></li>
+            <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 9:00–14:00 y 16:00–19:00 · S 9:00–13:00</li>
+          </ul>
+          <div class="store-cta-row">
+            <a href="https://maps.google.com/?q=C%2F+Bulevar+Chajofe+4+Los+Cristianos+Tenerife" target="_blank" rel="noopener" class="store-cta-btn primary">Ver en mapa →</a>
+            <a href="tel:+34922753520" class="store-cta-btn ghost">Llamar</a>
           </div>
-          <div class="store-mini-map">
-            <iframe src="https://maps.google.com/maps?q=Calle+Noelia+Afonso+Cabrera+Playa+de+las+Americas+Tenerife&z=17&output=embed&hl=es" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Mapa tienda"></iframe>
-            <div class="store-mini-map-overlay"><a href="https://maps.google.com/?q=Calle+Noelia+Afonso+Cabrera+Playa+de+las+Americas+Tenerife" target="_blank" rel="noopener" data-t="open_maps">Abrir en Google Maps ↗</a></div>
-          </div>
-          <div class="store-item-info">
-            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Res. Las Viñas, C/ Noelia Afonso Cabrera · 38660 Playa de las Américas</span>
-            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5A2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg><a href="tel:+34922791029" style="color:inherit">922 79 10 29</a></span>
-            <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 9:00–14:00 y 16:30–19:30 · S 9:00–13:00</span>
-          </div>
-          <a href="https://maps.google.com/?q=Calle+Noelia+Afonso+Cabrera+Playa+de+las+Americas+Tenerife" target="_blank" rel="noopener" class="store-item-link">
-            Ver en Google Maps →
-          </a>
         </div>
       </div>
+
+      <!-- 2 — Aliz 1 Los Cristianos -->
+      <div class="store-card">
+        <div class="store-head">
+          <div class="store-num">2</div>
+          <div class="store-head-title">Aliz 1 — Los Cristianos</div>
+          <div class="store-head-sub">Av. de Suecia · Los Cristianos</div>
+        </div>
+        <div class="store-map-thumb">
+          <iframe src="https://maps.google.com/maps?q=Avenida+de+Suecia+7+Los+Cristianos+Tenerife&z=17&output=embed&hl=es" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Mapa tienda Aliz 1"></iframe>
+        </div>
+        <div class="store-body">
+          <ul class="store-info-list">
+            <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Av. de Suecia, 7 · 38650 Los Cristianos</li>
+            <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5A2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg><a href="tel:+34922792001">922 79 20 01</a></li>
+            <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 9:00–14:00 y 16:30–19:30 · S 9:00–13:00</li>
+          </ul>
+          <div class="store-cta-row">
+            <a href="https://maps.google.com/?q=Av+de+Suecia+7+Los+Cristianos+Tenerife" target="_blank" rel="noopener" class="store-cta-btn primary">Ver en mapa →</a>
+            <a href="tel:+34922792001" class="store-cta-btn ghost">Llamar</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 — Aliz 2 Playa de las Américas -->
+      <div class="store-card">
+        <div class="store-head">
+          <div class="store-num">3</div>
+          <div class="store-head-title">Aliz 2 — Playa de las Américas</div>
+          <div class="store-head-sub">Res. Las Viñas · C/ Noelia Afonso</div>
+        </div>
+        <div class="store-map-thumb">
+          <iframe src="https://maps.google.com/maps?q=Calle+Noelia+Afonso+Cabrera+Playa+de+las+Americas+Tenerife&z=17&output=embed&hl=es" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Mapa tienda Aliz 2"></iframe>
+        </div>
+        <div class="store-body">
+          <ul class="store-info-list">
+            <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Res. Las Viñas, C/ Noelia Afonso Cabrera · 38660 Playa de las Américas</li>
+            <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5A2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg><a href="tel:+34922791029">922 79 10 29</a></li>
+            <li><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>L–V 9:00–14:00 y 16:30–19:30 · S 9:00–13:00</li>
+          </ul>
+          <div class="store-cta-row">
+            <a href="https://maps.google.com/?q=Calle+Noelia+Afonso+Cabrera+Playa+de+las+Americas+Tenerife" target="_blank" rel="noopener" class="store-cta-btn primary">Ver en mapa →</a>
+            <a href="tel:+34922791029" class="store-cta-btn ghost">Llamar</a>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </section>
@@ -2776,9 +2777,9 @@ img{max-width:100%;display:block}
     <div class="ftr-bottom">
       <span class="ftr-copy">© 2025 Ofipapel. Todos los derechos reservados.</span>
       <div class="ftr-legal">
-        <a href="#">Política de privacidad</a>
-        <a href="#">Cookies</a>
-        <a href="#">Términos de uso</a>
+        <a href="privacidad.html">Política de privacidad</a>
+        <a href="cookies.html">Cookies</a>
+        <a href="aviso-legal.html">Términos de uso</a>
       </div>
     </div>
   </div>
@@ -3649,7 +3650,10 @@ document.addEventListener('keydown', function(e) {
       +   '<span class="cf-cat-badge">'+c.badge+'</span>'
       +   '<div class="cf-cat-name">'+c.name+'</div>'
       +   '<div class="cf-cat-meta">'+c.meta+'</div>'
-      +   '<button class="cf-cat-dl">↓ Ver catálogo</button>'
+      +   '<div class="cf-cat-btns">'
+      +     '<button class="cf-cat-dl cf-online">&#128065; Ver online</button>'
+      +     '<button class="cf-cat-dl cf-down">&#8681; Descargar</button>'
+      +   '</div>'
       + '</div>';
     el.addEventListener('click', function(){ if(i!==cur) go(i); });
     stage.appendChild(el);
