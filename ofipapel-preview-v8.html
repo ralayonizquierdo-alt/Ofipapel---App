@@ -27,7 +27,7 @@
   --rl:20px;
   --rf:50px;
 }
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth;overflow-x:hidden}
 body{
   font-family:'Inter',sans-serif;
   color:var(--txt);
@@ -1123,6 +1123,10 @@ img{max-width:100%;display:block}
   .hdr-actions .login-link,.hdr-actions .reg-btn{display:none}
   .hamburger{display:block}
   .main-nav{display:none}
+  .top-bar .container{flex-wrap:wrap;gap:6px;padding:4px 16px}
+  .tb-ship{font-size:.65rem;padding:2px 9px}
+  .tb-notice{font-size:.65rem;padding:2px 9px}
+  .tb-cta{font-size:.65rem;padding:2px 9px}
   .hero{padding:48px 0 56px}
 
   .trust-grid{grid-template-columns:1fr 1fr}
@@ -1153,7 +1157,7 @@ img{max-width:100%;display:block}
 }
 
 /* ── KINETIC SCROLL GALLERY ── */
-.kinetic-section{padding:60px 0}
+.kinetic-section{padding:60px 0;overflow:hidden}
 .kinetic-grid{
   display:grid;
   grid-template-columns:repeat(3,1fr);
@@ -2005,126 +2009,110 @@ img{max-width:100%;display:block}
       <div class="section-kicker">Precio especial</div>
       <h2>Nuestras <em>ofertas</em></h2>
     </div>
-  </div>
-  <div class="prod-circ-wrap" id="circ-offers-wrap">
-    <div class="prod-circ-track" id="circ-offers">
-      <div class="prod-circ-card" id="circ-offers-card-0" style="position:absolute;left:50%;top:50%">
-        <div class="prod-circ-card-body">
-          <div style="position:relative">
-            <img class="prod-circ-img" src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400&q=80" alt="Cinta adhesiva Scotch Pack 6u" loading="lazy">
-            <span class="prod-badge-offer">OFERTA</span>
+    <div class="prod-carousel-outer">
+      <div class="prod-carousel" id="offers-carousel">
+        <div class="prod-card">
+          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
+            <img src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400&q=80" alt="Cinta adhesiva Scotch Pack 6u" loading="lazy" style="width:100%;height:100%;object-fit:cover">
+            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
+            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Embalaje</span>
           </div>
-          <div class="prod-circ-info">
-            <div style="font-size:.67rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Embalaje</div>
-            <div class="prod-circ-name">Cinta adhesiva Scotch Pack 6u</div>
-            <div class="prod-circ-price"><span>5,90€</span><span class="old-price">7,80€</span></div>
+          <div class="prod-body">
+            <div class="prod-name">Cinta adhesiva Scotch Pack 6u</div>
+            <div class="prod-price"><span class="current">5,90€</span><span class="old">7,80€</span></div>
+            <button class="prod-add">A&ntilde;adir</button>
           </div>
-          <button class="prod-circ-add">Añadir</button>
         </div>
-      </div>
-      <div class="prod-circ-card" id="circ-offers-card-1" style="position:absolute;left:50%;top:50%">
-        <div class="prod-circ-card-body">
-          <div style="position:relative">
-            <img class="prod-circ-img" src="https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&q=80" alt="Calculadora CASIO FX-570 SP" loading="lazy">
-            <span class="prod-badge-offer">OFERTA</span>
+        <div class="prod-card">
+          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
+            <img src="https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&q=80" alt="Calculadora CASIO FX-570 SP" loading="lazy" style="width:100%;height:100%;object-fit:cover">
+            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
+            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Ofimática</span>
           </div>
-          <div class="prod-circ-info">
-            <div style="font-size:.67rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Ofimática</div>
-            <div class="prod-circ-name">Calculadora CASIO FX-570 SP</div>
-            <div class="prod-circ-price"><span>22,00€</span><span class="old-price">28,00€</span></div>
+          <div class="prod-body">
+            <div class="prod-name">Calculadora CASIO FX-570 SP</div>
+            <div class="prod-price"><span class="current">22,00€</span><span class="old">28,00€</span></div>
+            <button class="prod-add">A&ntilde;adir</button>
           </div>
-          <button class="prod-circ-add">Añadir</button>
         </div>
-      </div>
-      <div class="prod-circ-card" id="circ-offers-card-2" style="position:absolute;left:50%;top:50%">
-        <div class="prod-circ-card-body">
-          <div style="position:relative">
-            <img class="prod-circ-img" src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" alt="Carpeta A4 anillas 4 aros" loading="lazy">
-            <span class="prod-badge-offer">OFERTA</span>
+        <div class="prod-card">
+          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
+            <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" alt="Carpeta A4 anillas 4 aros" loading="lazy" style="width:100%;height:100%;object-fit:cover">
+            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
+            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Clasificación</span>
           </div>
-          <div class="prod-circ-info">
-            <div style="font-size:.67rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Clasificación</div>
-            <div class="prod-circ-name">Carpeta A4 anillas 4 aros</div>
-            <div class="prod-circ-price"><span>2,50€</span><span class="old-price">3,90€</span></div>
+          <div class="prod-body">
+            <div class="prod-name">Carpeta A4 anillas 4 aros</div>
+            <div class="prod-price"><span class="current">2,50€</span><span class="old">3,90€</span></div>
+            <button class="prod-add">A&ntilde;adir</button>
           </div>
-          <button class="prod-circ-add">Añadir</button>
         </div>
-      </div>
-      <div class="prod-circ-card" id="circ-offers-card-3" style="position:absolute;left:50%;top:50%">
-        <div class="prod-circ-card-body">
-          <div style="position:relative">
-            <img class="prod-circ-img" src="https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&q=80" alt="Archivador palanca A4 negro" loading="lazy">
-            <span class="prod-badge-offer">OFERTA</span>
+        <div class="prod-card">
+          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
+            <img src="https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&q=80" alt="Archivador palanca A4 negro" loading="lazy" style="width:100%;height:100%;object-fit:cover">
+            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
+            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Clasificación</span>
           </div>
-          <div class="prod-circ-info">
-            <div style="font-size:.67rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Clasificación</div>
-            <div class="prod-circ-name">Archivador palanca A4 negro</div>
-            <div class="prod-circ-price"><span>3,50€</span><span class="old-price">4,90€</span></div>
+          <div class="prod-body">
+            <div class="prod-name">Archivador palanca A4 negro</div>
+            <div class="prod-price"><span class="current">3,50€</span><span class="old">4,90€</span></div>
+            <button class="prod-add">A&ntilde;adir</button>
           </div>
-          <button class="prod-circ-add">Añadir</button>
         </div>
-      </div>
-      <div class="prod-circ-card" id="circ-offers-card-4" style="position:absolute;left:50%;top:50%">
-        <div class="prod-circ-card-body">
-          <div style="position:relative">
-            <img class="prod-circ-img" src="https://images.unsplash.com/photo-1544642058-b4e3de49d0b5?w=400&q=80" alt="Rotuladores permanentes 4u." loading="lazy">
-            <span class="prod-badge-offer">OFERTA</span>
+        <div class="prod-card">
+          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
+            <img src="https://images.unsplash.com/photo-1544642058-b4e3de49d0b5?w=400&q=80" alt="Rotuladores permanentes 4u." loading="lazy" style="width:100%;height:100%;object-fit:cover">
+            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
+            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Escritura</span>
           </div>
-          <div class="prod-circ-info">
-            <div style="font-size:.67rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Escritura</div>
-            <div class="prod-circ-name">Rotuladores permanentes 4u.</div>
-            <div class="prod-circ-price"><span>4,20€</span><span class="old-price">5,50€</span></div>
+          <div class="prod-body">
+            <div class="prod-name">Rotuladores permanentes 4u.</div>
+            <div class="prod-price"><span class="current">4,20€</span><span class="old">5,50€</span></div>
+            <button class="prod-add">A&ntilde;adir</button>
           </div>
-          <button class="prod-circ-add">Añadir</button>
         </div>
-      </div>
-      <div class="prod-circ-card" id="circ-offers-card-5" style="position:absolute;left:50%;top:50%">
-        <div class="prod-circ-card-body">
-          <div style="position:relative">
-            <img class="prod-circ-img" src="https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=400&q=80" alt="Papel DIN A4 80g 500h Hamelin" loading="lazy">
-            <span class="prod-badge-offer">OFERTA</span>
+        <div class="prod-card">
+          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
+            <img src="https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=400&q=80" alt="Papel DIN A4 80g 500h Hamelin" loading="lazy" style="width:100%;height:100%;object-fit:cover">
+            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
+            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Papel</span>
           </div>
-          <div class="prod-circ-info">
-            <div style="font-size:.67rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Papel</div>
-            <div class="prod-circ-name">Papel DIN A4 80g 500h Hamelin</div>
-            <div class="prod-circ-price"><span>4,50€</span><span class="old-price">5,95€</span></div>
+          <div class="prod-body">
+            <div class="prod-name">Papel DIN A4 80g 500h Hamelin</div>
+            <div class="prod-price"><span class="current">4,50€</span><span class="old">5,95€</span></div>
+            <button class="prod-add">A&ntilde;adir</button>
           </div>
-          <button class="prod-circ-add">Añadir</button>
         </div>
-      </div>
-      <div class="prod-circ-card" id="circ-offers-card-6" style="position:absolute;left:50%;top:50%">
-        <div class="prod-circ-card-body">
-          <div style="position:relative">
-            <img class="prod-circ-img" src="https://images.unsplash.com/photo-1519219788971-8d9797e0928e?w=400&q=80" alt="Cuaderno espiral A4 80h" loading="lazy">
-            <span class="prod-badge-offer">OFERTA</span>
+        <div class="prod-card">
+          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
+            <img src="https://images.unsplash.com/photo-1519219788971-8d9797e0928e?w=400&q=80" alt="Cuaderno espiral A4 80h" loading="lazy" style="width:100%;height:100%;object-fit:cover">
+            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
+            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Papel</span>
           </div>
-          <div class="prod-circ-info">
-            <div style="font-size:.67rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Papel</div>
-            <div class="prod-circ-name">Cuaderno espiral A4 80h</div>
-            <div class="prod-circ-price"><span>3,20€</span><span class="old-price">3,90€</span></div>
+          <div class="prod-body">
+            <div class="prod-name">Cuaderno espiral A4 80h</div>
+            <div class="prod-price"><span class="current">3,20€</span><span class="old">3,90€</span></div>
+            <button class="prod-add">A&ntilde;adir</button>
           </div>
-          <button class="prod-circ-add">Añadir</button>
         </div>
-      </div>
-      <div class="prod-circ-card" id="circ-offers-card-7" style="position:absolute;left:50%;top:50%">
-        <div class="prod-circ-card-body">
-          <div style="position:relative">
-            <img class="prod-circ-img" src="https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&q=80" alt="Tijeras de oficina 21cm" loading="lazy">
-            <span class="prod-badge-offer">OFERTA</span>
+        <div class="prod-card">
+          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
+            <img src="https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&q=80" alt="Tijeras de oficina 21cm" loading="lazy" style="width:100%;height:100%;object-fit:cover">
+            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
+            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Escritura</span>
           </div>
-          <div class="prod-circ-info">
-            <div style="font-size:.67rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em">Escritura</div>
-            <div class="prod-circ-name">Tijeras de oficina 21cm</div>
-            <div class="prod-circ-price"><span>5,50€</span><span class="old-price">7,20€</span></div>
+          <div class="prod-body">
+            <div class="prod-name">Tijeras de oficina 21cm</div>
+            <div class="prod-price"><span class="current">5,50€</span><span class="old">7,20€</span></div>
+            <button class="prod-add">A&ntilde;adir</button>
           </div>
-          <button class="prod-circ-add">Añadir</button>
         </div>
       </div>
     </div>
-  </div>
-  <div class="circ-controls">
-    <button class="circ-btn" id="circ-offers-prev" aria-label="Anterior">&#8592;</button>
-    <button class="circ-btn" id="circ-offers-next" aria-label="Siguiente">&#8594;</button>
+    <div style="display:flex;justify-content:center;gap:10px;margin-top:20px">
+      <button class="carousel-btn" id="offers-prev" aria-label="Anterior">&#8592;</button>
+      <button class="carousel-btn" id="offers-next" aria-label="Siguiente">&#8594;</button>
+    </div>
   </div>
 </section>
 
@@ -2775,15 +2763,23 @@ img{max-width:100%;display:block}
     flyout.classList.toggle('open');
   });
 
+  function _switchCat(li){
+    document.querySelectorAll('.cat-fly-left li').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.cat-fly-content').forEach(x=>x.classList.remove('active'));
+    li.classList.add('active');
+    var panel = flyout.querySelector('.cat-fly-content[data-cat="'+li.dataset.cat+'"]');
+    if(panel) panel.classList.add('active');
+  }
   document.querySelectorAll('.cat-fly-left li').forEach(function(li){
-    li.addEventListener('mouseenter', function(){
-      document.querySelectorAll('.cat-fly-left li').forEach(x=>x.classList.remove('active'));
-      document.querySelectorAll('.cat-fly-content').forEach(x=>x.classList.remove('active'));
-      li.classList.add('active');
-      var panel = flyout.querySelector('.cat-fly-content[data-cat="'+li.dataset.cat+'"]');
-      if(panel) panel.classList.add('active');
-    });
+    li.addEventListener('mouseenter', function(){ _switchCat(li); });
+    li.addEventListener('touchstart', function(e){ e.preventDefault(); _openFlyout(); _switchCat(li); },{passive:false});
+    li.addEventListener('click', function(){ _switchCat(li); });
   });
+  // Mobile: button tap opens flyout
+  btn.addEventListener('touchstart', function(e){
+    e.preventDefault();
+    flyout.classList.toggle('open');
+  },{passive:false});
 
   document.addEventListener('click', function(e){
     if(!e.target.closest('#cat-flyout') && !e.target.closest('.nav-cat-btn')){
@@ -3050,8 +3046,19 @@ function initCircGallery(trackId, radius, speed, enableScrollRotation) {
 
 // Init all three galleries
 initCircGallery('circ-catalog', 340, 0.018, true);
-initCircGallery('circ-new',     280, 0.022, false);
-initCircGallery('circ-offers',  280, -0.019, false);
+
+// ── Offers carousel drag ──────────────────────────────────────────────────────
+(function(){
+  var el = document.getElementById('offers-carousel');
+  if(!el) return;
+  var isDown=false, startX, scrollLeft;
+  el.addEventListener('mousedown',function(e){isDown=true;el.classList.add('active');startX=e.pageX-el.offsetLeft;scrollLeft=el.scrollLeft});
+  el.addEventListener('mouseleave',function(){isDown=false;el.classList.remove('active')});
+  el.addEventListener('mouseup',function(){isDown=false;el.classList.remove('active')});
+  el.addEventListener('mousemove',function(e){if(!isDown)return;e.preventDefault();var x=e.pageX-el.offsetLeft;el.scrollLeft=scrollLeft-(x-startX)*1.5});
+  document.getElementById('offers-prev').addEventListener('click',function(){el.scrollBy({left:-250,behavior:'smooth'})});
+  document.getElementById('offers-next').addEventListener('click',function(){el.scrollBy({left:250,behavior:'smooth'})});
+})();
 
 // ── Payment modal ─────────────────────────────────────────────────────────────
 (function() {
