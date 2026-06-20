@@ -803,6 +803,20 @@ img{max-width:100%;display:block}
 }
 .auth-submit:hover{background:var(--gd)}
 .auth-forgot{font-size:.78rem;color:var(--lime);text-align:right;cursor:pointer;text-decoration:underline}
+.auth-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.auth-field select{height:42px;width:100%;background:rgba(255,255,255,.08);border:1px solid var(--glass-border);border-radius:var(--r);padding:0 14px;color:#fff;font-size:.88rem;outline:none;appearance:none;cursor:pointer}
+.auth-field select option{background:#0a280f;color:#fff}
+.auth-field input:required:valid,.auth-field select:required:valid{border-color:rgba(174,204,48,.3)}
+.auth-check{display:flex;align-items:flex-start;gap:10px;font-size:.8rem;color:var(--txt2);cursor:pointer;padding:4px 0}
+.auth-check input[type=checkbox]{width:16px;height:16px;flex-shrink:0;margin-top:1px;accent-color:var(--g)}
+.auth-privacy-text{font-size:.74rem;color:var(--txt3);line-height:1.55;padding:10px 12px;background:rgba(255,255,255,.04);border-radius:var(--r);border:1px solid var(--glass-border)}
+.auth-privacy-text a{color:var(--lime)}
+.auth-rgpd{margin-top:4px;padding:14px 16px;background:rgba(174,204,48,.05);border-radius:var(--r);border:1px solid rgba(174,204,48,.2)}
+.auth-rgpd-title{font-size:.78rem;font-weight:700;color:var(--lime);margin-bottom:10px;letter-spacing:.03em}
+.auth-rgpd dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:.72rem;color:var(--txt2);line-height:1.45;margin:0}
+.auth-rgpd dt{font-weight:700;color:var(--txt);white-space:nowrap}
+.auth-rgpd dd{margin:0}
+.auth-rgpd a{color:var(--lime)}
 
 /* ── CPC SECTION ── */
 .cpc-section{padding:72px 0}
@@ -3858,7 +3872,7 @@ function setLang(lang) {
 
 <!-- AUTH MODAL -->
 <div class="modal-overlay" id="modal-auth">
-  <div class="modal-box" style="max-width:420px">
+  <div class="modal-box">
     <button class="modal-close" onclick="document.getElementById('modal-auth').classList.remove('open')">&times;</button>
 
     <div class="auth-tabs">
@@ -3885,26 +3899,109 @@ function setLang(lang) {
 
     <!-- REGISTER -->
     <form class="auth-form hidden" id="auth-form-register" onsubmit="return false">
-      <div class="modal-title" style="margin-bottom:18px">Crear cuenta</div>
-      <div class="auth-field">
-        <label>Nombre completo</label>
-        <input type="text" placeholder="Tu nombre" autocomplete="name">
+      <div class="modal-title" style="margin-bottom:18px">Registrarse</div>
+
+      <div class="auth-grid">
+        <div class="auth-field">
+          <label>Nombre <span style="color:var(--cta)">*</span></label>
+          <input type="text" placeholder="Tu nombre" autocomplete="given-name" required>
+        </div>
+        <div class="auth-field">
+          <label>Apellidos <span style="color:var(--cta)">*</span></label>
+          <input type="text" placeholder="Tus apellidos" autocomplete="family-name" required>
+        </div>
       </div>
-      <div class="auth-field">
-        <label>Correo electrónico</label>
-        <input type="email" placeholder="tu@email.com" autocomplete="email">
+
+      <div class="auth-grid">
+        <div class="auth-field">
+          <label>Empresa</label>
+          <input type="text" placeholder="Nombre de empresa" autocomplete="organization">
+        </div>
+        <div class="auth-field">
+          <label>Tel&#233;fono <span style="color:var(--cta)">*</span></label>
+          <input type="tel" placeholder="922 000 000" autocomplete="tel" required>
+        </div>
       </div>
+
       <div class="auth-field">
-        <label>Contraseña</label>
-        <input type="password" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+        <label>Direcci&#243;n <span style="color:var(--cta)">*</span></label>
+        <input type="text" placeholder="Calle, n&#250;mero, piso..." autocomplete="street-address" required>
       </div>
+
+      <div class="auth-grid">
+        <div class="auth-field">
+          <label>Poblaci&#243;n <span style="color:var(--cta)">*</span></label>
+          <input type="text" placeholder="Ciudad o municipio" autocomplete="address-level2" required>
+        </div>
+        <div class="auth-field">
+          <label>Pa&#237;s <span style="color:var(--cta)">*</span></label>
+          <select autocomplete="country" required>
+            <option value="">Seleccionar...</option>
+            <option value="ES" selected>Espa&#241;a</option>
+            <option value="DE">Alemania</option>
+            <option value="FR">Francia</option>
+            <option value="IT">Italia</option>
+            <option value="PT">Portugal</option>
+            <option value="GB">Reino Unido</option>
+            <option value="OTHER">Otro</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="auth-grid">
+        <div class="auth-field">
+          <label>C&#243;digo Postal <span style="color:var(--cta)">*</span></label>
+          <input type="text" placeholder="38001" autocomplete="postal-code" required>
+        </div>
+        <div class="auth-field">
+          <label>DNI / NIF / NIE <span style="color:var(--cta)">*</span></label>
+          <input type="text" placeholder="00000000A" required>
+        </div>
+      </div>
+
       <div class="auth-field">
-        <label>Confirmar contraseña</label>
-        <input type="password" placeholder="Repite la contraseña" autocomplete="new-password">
+        <label>Nombre de usuario <span style="color:var(--cta)">*</span> <span style="font-size:.7rem;opacity:.65">Obligatorio</span></label>
+        <input type="text" placeholder="nombre_usuario" autocomplete="username" required>
       </div>
+
+      <div class="auth-field">
+        <label>Direcci&#243;n de correo electr&#243;nico <span style="color:var(--cta)">*</span> <span style="font-size:.7rem;opacity:.65">Obligatorio</span></label>
+        <input type="email" placeholder="tu@email.com" autocomplete="email" required>
+      </div>
+
+      <div class="auth-field">
+        <label>Contrase&#241;a <span style="color:var(--cta)">*</span> <span style="font-size:.7rem;opacity:.65">Obligatorio</span></label>
+        <input type="password" placeholder="M&#237;nimo 8 caracteres" autocomplete="new-password" required>
+      </div>
+
+      <div class="auth-privacy-text">
+        Protecci&#243;n de datos: Consulte la p&#225;gina de <a href="#">Protecci&#243;n de Datos</a>.
+      </div>
+
+      <label class="auth-check">
+        <input type="checkbox" required>
+        <span>He le&#237;do y acepto la pol&#237;tica de privacidad. <span style="color:var(--cta)">*</span></span>
+      </label>
+
+      <p class="auth-privacy-text" style="margin:0">
+        Tus datos personales se utilizar&#225;n para procesar tu pedido, mejorar tu experiencia en esta web, gestionar el acceso a tu cuenta y otros prop&#243;sitos descritos en nuestra <a href="#">pol&#237;tica de privacidad</a>.
+      </p>
+
       <button class="auth-submit" onclick="document.getElementById('modal-auth').classList.remove('open')">
-        Crear cuenta &#8594;
+        Registrarse &#8594;
       </button>
+
+      <div class="auth-rgpd">
+        <div class="auth-rgpd-title">Informaci&#243;n b&#225;sica sobre la protecci&#243;n de datos</div>
+        <dl>
+          <dt>Responsable:</dt><dd>Suministros de Oficina Ofipapel S.L. &mdash; ventas@ofipapelsl.com &mdash; NIF: B38381653</dd>
+          <dt>Finalidad:</dt><dd>Registro como usuario en nuestra web para realizar compras online. Gesti&#243;n de su compra.</dd>
+          <dt>Legitimaci&#243;n:</dt><dd>Su consentimiento. Ejecuci&#243;n contractual.</dd>
+          <dt>Destinatarios:</dt><dd>No se conceder&#225;n datos a terceros excepto: requerimiento legal, entidades financieras, proveedores de servicios tecnol&#243;gicos y entidades de asesoramiento empresarial.</dd>
+          <dt>Derechos:</dt><dd>Tiene derecho de acceso, rectificaci&#243;n, supresi&#243;n y dem&#225;s derechos explicados en la informaci&#243;n adicional.</dd>
+          <dt>Adicional:</dt><dd>Consulte la informaci&#243;n adicional y detallada sobre Protecci&#243;n de Datos en nuestra <a href="#">p&#225;gina de pol&#237;tica de privacidad</a>.</dd>
+        </dl>
+      </div>
     </form>
   </div>
 </div>
