@@ -1288,6 +1288,18 @@ img{max-width:100%;display:block}
   cursor:pointer;transition:background .2s;
 }
 .cat-card-btn:hover{background:var(--gd)}
+
+/* ── LANGUAGE SWITCHER ── */
+.lang-sw{display:flex;align-items:center;gap:2px;border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:2px;margin-left:4px}
+.lang-sw button{padding:3px 9px;background:transparent;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:.68rem;font-weight:700;border-radius:16px;transition:all .15s;letter-spacing:.06em;line-height:1}
+.lang-sw button.active{background:var(--g);color:#fff}
+.lang-sw button:hover:not(.active){color:var(--white);background:rgba(255,255,255,.08)}
+/* ── MINI MAPS ── */
+.store-mini-map{height:130px;border-radius:10px;overflow:hidden;margin:10px 0 12px;border:1px solid rgba(255,255,255,.12);position:relative}
+.store-mini-map iframe{width:100%;height:100%;border:0;filter:grayscale(.25) brightness(.85) contrast(1.1)}
+.store-mini-map-overlay{position:absolute;inset:0;background:transparent;cursor:pointer;display:flex;align-items:flex-end;justify-content:flex-end;padding:6px}
+.store-mini-map-overlay a{background:rgba(0,0,0,.65);color:rgba(255,255,255,.9);font-size:.65rem;font-weight:600;padding:3px 8px;border-radius:8px;text-decoration:none;backdrop-filter:blur(4px)}
+@media(max-width:768px){.lang-sw{display:none}}
 </style>
 </head>
 <body>
@@ -1333,8 +1345,12 @@ img{max-width:100%;display:block}
         <a href="#" class="cart-btn" onclick="event.preventDefault();document.getElementById('modal-payment').classList.add('open')">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
           <span class="cart-count">3</span>
-          Carrito
+          <span data-t="cart">Carrito</span>
         </a>
+        <div class="lang-sw" id="lang-sw" role="group" aria-label="Idioma">
+          <button class="active" data-lang="es" onclick="setLang('es')" aria-label="Español">ES</button>
+          <button data-lang="en" onclick="setLang('en')" aria-label="English">EN</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2359,6 +2375,10 @@ img{max-width:100%;display:block}
           <div class="store-item-name">
             <span class="store-dot"></span>Ofipapel — Los Cristianos
           </div>
+          <div class="store-mini-map">
+            <iframe src="https://maps.google.com/maps?q=C+Bulevar+Chajofe+4+Los+Cristianos+Tenerife&z=17&output=embed&hl=es" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Mapa tienda"></iframe>
+            <div class="store-mini-map-overlay"><a href="https://maps.google.com/?q=C%2F+Bulevar+Chajofe+4+Los+Cristianos+Tenerife" target="_blank" rel="noopener" data-t="open_maps">Abrir en Google Maps ↗</a></div>
+          </div>
           <div class="store-item-info">
             <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>C/ Bulevar Chajofe, 4 · 38650 Los Cristianos</span>
             <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5A2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg><a href="tel:+34922753520" style="color:inherit">922 75 35 20</a></span>
@@ -2373,6 +2393,10 @@ img{max-width:100%;display:block}
           <div class="store-item-name">
             <span class="store-dot"></span>Aliz 1 — Los Cristianos
           </div>
+          <div class="store-mini-map">
+            <iframe src="https://maps.google.com/maps?q=Avenida+de+Suecia+7+Los+Cristianos+Tenerife&z=17&output=embed&hl=es" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Mapa tienda"></iframe>
+            <div class="store-mini-map-overlay"><a href="https://maps.google.com/?q=Av+de+Suecia+7+Los+Cristianos+Tenerife" target="_blank" rel="noopener" data-t="open_maps">Abrir en Google Maps ↗</a></div>
+          </div>
           <div class="store-item-info">
             <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Av. de Suecia, 7 · 38650 Los Cristianos</span>
             <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5A2 2 0 0 1 3.6 1.32h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16.29z"/></svg><a href="tel:+34922792001" style="color:inherit">922 79 20 01</a></span>
@@ -2386,6 +2410,10 @@ img{max-width:100%;display:block}
         <div class="store-item">
           <div class="store-item-name">
             <span class="store-dot"></span>Aliz 2 — Playa de las Américas
+          </div>
+          <div class="store-mini-map">
+            <iframe src="https://maps.google.com/maps?q=Calle+Noelia+Afonso+Cabrera+Playa+de+las+Americas+Tenerife&z=17&output=embed&hl=es" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade" title="Mapa tienda"></iframe>
+            <div class="store-mini-map-overlay"><a href="https://maps.google.com/?q=Calle+Noelia+Afonso+Cabrera+Playa+de+las+Americas+Tenerife" target="_blank" rel="noopener" data-t="open_maps">Abrir en Google Maps ↗</a></div>
           </div>
           <div class="store-item-info">
             <span><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Res. Las Viñas, C/ Noelia Afonso Cabrera · 38660 Playa de las Américas</span>
@@ -3680,6 +3708,136 @@ document.addEventListener('keydown', function(e) {
   var next=document.getElementById('cat-next');
   if(prev) prev.addEventListener('click',function(){el.scrollBy({left:-260,behavior:'smooth'})});
   if(next) next.addEventListener('click',function(){el.scrollBy({left:260,behavior:'smooth'})});
+})();
+
+// ── Language switcher ─────────────────────────────────────────────────────────
+var TRANSLATIONS = {
+  en: {
+    // Top bar
+    'Envío gratis en pedidos +20€':   '🚚 Free shipping on orders +€20',
+    'No hacemos envíos a Península':   'ℹ No shipping to Mainland Spain',
+    'Precios exclusivos web':          '★ Exclusive web prices',
+    // Header nav
+    'Inicio':        'Home',
+    'Catálogos':     'Catalogues',
+    'Ofertas':       'Offers',
+    'Contacto':      'Contact',
+    'Todas las categorías': 'All categories',
+    'Iniciar sesión':'Sign in',
+    'Regístrate →':  'Register →',
+    'Carrito':       'Cart',
+    // Search
+    'Busca entre más de 20.000 referencias...': 'Search among 20,000+ products...',
+    'Buscar producto, marca o referencia…':     'Search product, brand or reference…',
+    // Hero
+    'Material de oficina': 'Office supplies',
+    'para empresas y particulares en Tenerife. Entrega en 24–48h, precio garantizado y atención personalizada en 3 tiendas.':
+      'for businesses and individuals in Tenerife. 24–48h delivery, guaranteed price and personal service in 3 stores.',
+    'Ver catálogo': 'View catalogue',
+    'Ir a la tienda': 'Go to store',
+    // Trust bar
+    'Envío rápido': 'Fast shipping',
+    'Entrega 24-48h en Tenerife': '24-48h delivery in Tenerife',
+    'Mejor precio': 'Best price',
+    'Precio garantizado': 'Guaranteed price',
+    'Atención personal': 'Personal support',
+    'Asesoramiento sin compromiso': 'No-commitment advice',
+    'Recogida en tienda': 'In-store pickup',
+    'Sin coste adicional': 'No extra charge',
+    // Sections
+    'Novedades':     'What\'s New',
+    'Precio especial': 'Special price',
+    'Nuestras ofertas': 'Our Offers',
+    'Descargas':     'Downloads',
+    'Nuestros catálogos': 'Our Catalogues',
+    'Nuestras tiendas en Tenerife': 'Our Stores in Tenerife',
+    'Dónde estamos': 'Find Us',
+    '📍 Nuestras 3 tiendas': '📍 Our 3 stores',
+    'Ver en Google Maps →': 'View on Google Maps →',
+    'Abrir en Google Maps ↗': 'Open in Google Maps ↗',
+    // Product cards
+    'Añadir': 'Add',
+    'Añadir al carrito': 'Add to cart',
+    'Ver catálogo': 'View catalogue',
+    '↓ Ver catálogo': '↓ View catalogue',
+    // Testimonials
+    'Clientes': 'Customers',
+    'Lo que dicen de nosotros': 'What our customers say',
+    // CTA
+    'Haz crecer tu empresa': 'Grow your business',
+    'Precios especiales para empresas y autónomos. Sin permanencia, sin letra pequeña.':
+      'Special prices for businesses and freelancers. No lock-in, no hidden fees.',
+    'Llamar ahora': 'Call now',
+    'Solicitar presupuesto': 'Get a quote',
+    // Footer
+    'Empresa':          'Company',
+    'Sobre Ofipapel':   'About Ofipapel',
+    'Blog':             'Blog',
+    'Atención al cliente': 'Customer Service',
+    'Cómo comprar':     'How to buy',
+    'Envíos y plazos':  'Shipping & Delivery',
+    'Devoluciones':     'Returns',
+    'Facturación':      'Invoicing',
+    'Aviso Legal':      'Legal Notice',
+    // Wide banner
+    'Catálogo 2025':    '2025 Catalogue',
+    'Más de 20.000 referencias de las mejores marcas. Material de oficina, tecnología, mobiliario y mucho más. Descubre nuestro catálogo completo y solicita tu presupuesto personalizado.':
+      'Over 20,000 products from top brands. Office supplies, technology, furniture and more. Discover our full catalogue and request your personalised quote.',
+    'Descargar catálogo': 'Download catalogue',
+    // Mobile
+    'Menú': 'Menu',
+    // Horarios en tiendas (keep as is since they're universal)
+    'L–V 9:00–14:00 y 16:00–19:00 · S 9:00–13:00': 'Mon–Fri 9:00–14:00 & 16:00–19:00 · Sat 9:00–13:00',
+    'L–V 9:00–14:00 y 16:30–19:30 · S 9:00–13:00': 'Mon–Fri 9:00–14:00 & 16:30–19:30 · Sat 9:00–13:00',
+  }
+};
+
+var _langNodes = [];   // cache for quick restore
+
+function _walkNodes(root, fn) {
+  var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+  var n;
+  while ((n = w.nextNode())) fn(n);
+}
+
+function setLang(lang) {
+  // Update buttons
+  document.querySelectorAll('.lang-sw button').forEach(function(b){
+    b.classList.toggle('active', b.dataset.lang === lang);
+  });
+  document.documentElement.lang = lang;
+  localStorage.setItem('ofipapel_lang', lang);
+
+  if (lang === 'en') {
+    _langNodes = [];
+    var map = TRANSLATIONS.en;
+    _walkNodes(document.body, function(node) {
+      if (node.parentNode && node.parentNode.nodeName === 'SCRIPT') return;
+      var t = node.textContent.trim();
+      if (t && map[t] !== undefined) {
+        _langNodes.push({node: node, orig: node.textContent});
+        node.textContent = node.textContent.replace(t, map[t]);
+      }
+    });
+    // Translate placeholder attributes
+    document.querySelectorAll('input[placeholder]').forEach(function(el){
+      var ph = el.getAttribute('placeholder').trim();
+      if (map[ph]) { el._origPh = el.getAttribute('placeholder'); el.setAttribute('placeholder', map[ph]); }
+    });
+  } else {
+    // Restore
+    _langNodes.forEach(function(item){ item.node.textContent = item.orig; });
+    _langNodes = [];
+    document.querySelectorAll('input[placeholder]').forEach(function(el){
+      if (el._origPh) { el.setAttribute('placeholder', el._origPh); delete el._origPh; }
+    });
+  }
+}
+
+// Init on load
+(function(){
+  var saved = localStorage.getItem('ofipapel_lang');
+  if (saved && saved !== 'es') setLang(saved);
 })();
 
 </script>
