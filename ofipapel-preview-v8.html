@@ -1451,11 +1451,11 @@ img{max-width:100%;display:block}
         <input type="search" placeholder="Busca entre más de 20.000 referencias...">
       </div>
       <div class="hdr-actions">
-        <a href="#" class="login-link" onclick="event.preventDefault();document.getElementById('modal-auth').classList.add('open')">
+        <a href="#" class="login-link" onclick="event.preventDefault();document.getElementById('modal-auth').classList.add('open');switchAuthTab('login')">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           Iniciar sesión
         </a>
-        <a href="#" class="reg-btn">Regístrate →</a>
+        <a href="#" class="reg-btn" onclick="event.preventDefault();document.getElementById('modal-auth').classList.add('open');switchAuthTab('register')">Regístrate →</a>
         <a href="#" class="cart-btn" onclick="event.preventDefault();document.getElementById('modal-payment').classList.add('open')">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
           <span class="cart-count">3</span>
