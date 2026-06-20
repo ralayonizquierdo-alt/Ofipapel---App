@@ -1231,6 +1231,27 @@ img{max-width:100%;display:block}
   0%{transform:translateY(calc(-1*(100vh + 80px)))}
   100%{transform:translateY(0)}
 }
+
+/* ── MOBILE ACCORDION ── */
+.mob-cat-item{border-bottom:1px solid rgba(255,255,255,.08)}
+.mob-cat-head{
+  width:100%;display:flex;justify-content:space-between;align-items:center;
+  padding:13px 20px;
+  color:var(--txt2);font-size:.875rem;font-weight:600;
+  background:none;border:none;cursor:pointer;text-align:left;
+}
+.mob-cat-head.open,.mob-cat-head:hover{color:var(--white);background:rgba(255,255,255,.06)}
+.mob-cat-head svg{transition:transform .2s;flex-shrink:0;opacity:.6}
+.mob-cat-head.open svg{transform:rotate(90deg);opacity:1}
+.mob-cat-body{display:none;background:rgba(0,0,0,.25);padding:4px 0 8px}
+.mob-cat-body.open{display:block}
+.mob-cat-body a{
+  display:block;padding:8px 20px 8px 34px;
+  color:rgba(255,255,255,.5);font-size:.8rem;font-weight:400;
+  border:none;text-decoration:none;
+  transition:color .15s,background .15s;
+}
+.mob-cat-body a:hover,.mob-cat-body a:active{color:var(--lime);background:rgba(255,255,255,.04)}
 </style>
 </head>
 <body>
@@ -1302,37 +1323,40 @@ img{max-width:100%;display:block}
     <div class="cat-flyout" id="cat-flyout" role="dialog" aria-label="Categor&#237;as">
         <div class="cat-fly-left">
           <ul>
-            <li data-cat="0" class="active"><a href="#">Artículos Generales <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
-            <li data-cat="1"><a href="#">Blocs y Cuadernos <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
-            <li data-cat="2"><a href="#">Clasificaci&#243;n y Archivo <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
-            <li data-cat="3"><a href="#">Comunicaci&#243;n Visual <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
-            <li data-cat="4"><a href="#">Embalaje y Expedici&#243;n <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
-            <li data-cat="5"><a href="#">Escolar <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
-            <li data-cat="6"><a href="#">Escritura y Correcci&#243;n <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
-            <li data-cat="7"><a href="#">Inform&#225;tica <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
-            <li data-cat="8"><a href="#">Mobiliario de Oficina <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
-            <li data-cat="9"><a href="#">Mobiliario ACTIU <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
-            <li data-cat="10"><a href="#">Ofim&#225;tica &#8211; M&#225;quinas <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
-            <li data-cat="11"><a href="#">Papel y Etiquetas <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
-            <li data-cat="12"><a href="#">Servicios Generales <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
-            <li data-cat="13"><a href="#">Superofertas <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="0" class="active"><a href="#">Art&#237;culos Generales <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="1"><a href="#">Blocs y Cuadernos <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="2"><a href="#">Cintas Adhesivas y Pegamentos <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="3"><a href="#">Clasificaci&#243;n y Archivo <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="4"><a href="#">Comunicaci&#243;n Visual y Se&#241;alizaci&#243;n <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="5"><a href="#">Embalaje y Expedici&#243;n <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="6"><a href="#">Escolar <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="7"><a href="#">Escritura y Correcci&#243;n <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="8"><a href="#">Higiene y Limpieza <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="9"><a href="#">Inform&#225;tica <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="10"><a href="#">Mobiliario de Oficina <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="11"><a href="#">Mobiliario ACTIU <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="12"><a href="#">Ofim&#225;tica &#8211; M&#225;quinas <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="13"><a href="#">Papel y Etiquetas <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="14"><a href="#">Servicios Generales <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="15"><a href="#">Superofertas <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
+            <li data-cat="16"><a href="#">Z-Regalos Promocionales <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></a></li>
           </ul>
         </div>
         <div class="cat-fly-right">
           <div class="cat-fly-content active" data-cat="0">
-            <div class="cat-fly-head">Artículos Generales</div>
+            <div class="cat-fly-head">Art&#237;culos Generales</div>
               <a href="#">Complementos Sobremesa</a>
               <a href="#">Sellos y Fechadores</a>
               <a href="#">Grapas y Grapadores</a>
               <a href="#">Clips y Sujetapapeles</a>
-              <a href="#">Tijeras y Cúteres</a>
+              <a href="#">Tijeras y C&#250;teres</a>
               <a href="#">Perforadoras</a>
               <a href="#">Dispensadores de Cinta</a>
               <a href="#">Calculadoras</a>
-              <a href="#">Pisapapeles</a>
               <a href="#">Organizadores Escritorio</a>
-              <a href="#">Correo y Envíos</a>
               <a href="#">Plastificadoras</a>
+              <a href="#">Correo y Env&#237;os</a>
+              <a href="#">Pisapapeles</a>
           </div>
           <div class="cat-fly-content" data-cat="1">
             <div class="cat-fly-head">Blocs y Cuadernos</div>
@@ -1341,120 +1365,150 @@ img{max-width:100%;display:block}
               <a href="#">Blocs de Dibujo</a>
               <a href="#">Libretas y Cuadernos</a>
               <a href="#">Notas Adhesivas Post-it</a>
-              <a href="#">Planificadores y Dietarios</a>
+              <a href="#">Planificadores</a>
               <a href="#">Cuadernos de Reuniones</a>
-              <a href="#">Blocs Manualidades</a>
               <a href="#">Taco de Notas</a>
               <a href="#">Papel Milimetrado</a>
               <a href="#">Blocks Espiral</a>
               <a href="#">Cuadernos Oxford</a>
+              <a href="#">Blocs Manualidades</a>
           </div>
           <div class="cat-fly-content" data-cat="2">
-            <div class="cat-fly-head">Clasificaci&#243;n y Archivo</div>
-              <a href="#">&#193;lbumes Fotos / Monedas</a>
-              <a href="#">Archivos Modulares</a>
-              <a href="#">Cajas Proyectos</a>
-              <a href="#">Carpetas y Archivadores</a>
-              <a href="#">Cajas Archivadoras</a>
-              <a href="#">Ficheros y Revisteros</a>
-              <a href="#">Bandejas Clasificadoras</a>
-              <a href="#">Encuadernaci&#243;n</a>
-              <a href="#">Fundas Portadocumentos</a>
-              <a href="#">Separadores</a>
-              <a href="#">Cajas de Transferencia</a>
-              <a href="#">Carpetas Colgantes</a>
+            <div class="cat-fly-head">Cintas Adhesivas y Pegamentos</div>
+              <a href="#">Cinta Adhesiva Transparente</a>
+              <a href="#">Cinta Kraft</a>
+              <a href="#">Cinta Doble Cara</a>
+              <a href="#">Cinta de Pintor</a>
+              <a href="#">Celo Escolar</a>
+              <a href="#">Pegamentos Escolares</a>
+              <a href="#">Barras de Silicona</a>
+              <a href="#">Pistolas de Silicona</a>
+              <a href="#">Sprays Adhesivos</a>
+              <a href="#">Velcro Adhesivo</a>
+              <a href="#">Masilla Adhesiva</a>
+              <a href="#">Pegamento en L&#237;quido</a>
           </div>
           <div class="cat-fly-content" data-cat="3">
-            <div class="cat-fly-head">Comunicaci&#243;n Visual</div>
-              <a href="#">Expositores Portafolletos</a>
-              <a href="#">Letras y N&#250;meros Adhesivos</a>
-              <a href="#">Portanombres y Tarjetas</a>
-              <a href="#">Portafolletos Metacrilato</a>
-              <a href="#">Vitrinas y Tableros Anuncios</a>
-              <a href="#">Videoproyecci&#243;n</a>
-              <a href="#">Tizas</a>
+            <div class="cat-fly-head">Clasificaci&#243;n y Archivo</div>
+              <a href="#">Carpetas y Archivadores</a>
+              <a href="#">Cajas Archivadoras</a>
+              <a href="#">Cajas Proyectos</a>
+              <a href="#">Ficheros y Revisteros</a>
+              <a href="#">Bandejas Clasificadoras</a>
+              <a href="#">Fundas Portadocumentos</a>
+              <a href="#">Separadores</a>
+              <a href="#">Carpetas Colgantes</a>
+              <a href="#">Cajas de Transferencia</a>
+              <a href="#">Encuadernaci&#243;n</a>
+              <a href="#">&#193;lbumes Fotos</a>
+              <a href="#">Archivos Modulares</a>
+          </div>
+          <div class="cat-fly-content" data-cat="4">
+            <div class="cat-fly-head">Comunicaci&#243;n Visual y Se&#241;alizaci&#243;n</div>
               <a href="#">Pizarras Blancas</a>
               <a href="#">Tableros de Corcho</a>
               <a href="#">Rotuladores Pizarra</a>
+              <a href="#">Tizas</a>
+              <a href="#">Expositores Portafolletos</a>
+              <a href="#">Portafolletos Metacrilato</a>
+              <a href="#">Vitrinas y Tableros Anuncios</a>
+              <a href="#">Portanombres y Tarjetas</a>
+              <a href="#">Letras y N&#250;meros Adhesivos</a>
               <a href="#">Se&#241;alizaci&#243;n</a>
               <a href="#">Marcos y Displays</a>
+              <a href="#">Videoproyecci&#243;n</a>
           </div>
-          <div class="cat-fly-content" data-cat="4">
+          <div class="cat-fly-content" data-cat="5">
             <div class="cat-fly-head">Embalaje y Expedici&#243;n</div>
               <a href="#">Material de Embalaje</a>
               <a href="#">Bobinas Papel Regalo</a>
               <a href="#">Film Burbuja</a>
               <a href="#">Film Estirable</a>
-              <a href="#">Cinta Adhesiva Transparente</a>
-              <a href="#">Cinta Kraft</a>
+              <a href="#">Cinta Adhesiva Embalaje</a>
               <a href="#">Cajas de Cart&#243;n</a>
               <a href="#">Sobres de Burbuja</a>
               <a href="#">Bolsas Politeno</a>
               <a href="#">Etiquetas Expedici&#243;n</a>
               <a href="#">Precinto Seguridad</a>
               <a href="#">Espuma Protectora</a>
+              <a href="#">Cinta Kraft Embalaje</a>
           </div>
-          <div class="cat-fly-content" data-cat="5">
+          <div class="cat-fly-content" data-cat="6">
             <div class="cat-fly-head">Escolar</div>
               <a href="#">Material Escolar General</a>
-              <a href="#">Blocs de Dibujo</a>
-              <a href="#">Blocs Escolares</a>
               <a href="#">Rotuladores Escolares</a>
-              <a href="#">Minipacks Escolares</a>
-              <a href="#">Blocs Manualidades y M&#250;sica</a>
               <a href="#">Mochilas Escolares</a>
               <a href="#">Estuches</a>
               <a href="#">Pinturas y Acuarelas</a>
               <a href="#">L&#225;pices de Color</a>
               <a href="#">Compases y Reglas</a>
+              <a href="#">Blocs Manualidades y M&#250;sica</a>
+              <a href="#">Blocs Escolares</a>
+              <a href="#">Blocs de Dibujo</a>
+              <a href="#">Minipacks Escolares</a>
               <a href="#">Pegamentos y Colas</a>
           </div>
-          <div class="cat-fly-content" data-cat="6">
+          <div class="cat-fly-content" data-cat="7">
             <div class="cat-fly-head">Escritura y Correcci&#243;n</div>
-              <a href="#">Rotuladores y Marcadores</a>
-              <a href="#">Rotuladores Textil</a>
-              <a href="#">Cinta Correctora</a>
               <a href="#">Bol&#237;grafos</a>
               <a href="#">Plumas y Carga</a>
               <a href="#">L&#225;pices y Portaminas</a>
+              <a href="#">Rotuladores y Marcadores</a>
+              <a href="#">Marcadores Permanentes</a>
               <a href="#">Subrayadores Fluorescentes</a>
               <a href="#">Gomas de Borrar</a>
-              <a href="#">Marcadores Permanentes</a>
+              <a href="#">Cinta Correctora</a>
+              <a href="#">L&#225;piz Corrector</a>
               <a href="#">Sets de Escritura</a>
               <a href="#">Tinta China</a>
-              <a href="#">L&#225;piz Corrector</a>
+              <a href="#">Rotuladores Textil</a>
           </div>
-          <div class="cat-fly-content" data-cat="7">
+          <div class="cat-fly-content" data-cat="8">
+            <div class="cat-fly-head">Higiene y Limpieza</div>
+              <a href="#">Productos de Limpieza</a>
+              <a href="#">Papel Higi&#233;nico</a>
+              <a href="#">Papel de Manos</a>
+              <a href="#">Jabn Dispensador</a>
+              <a href="#">Desinfectantes</a>
+              <a href="#">Guantes Desechables</a>
+              <a href="#">Mascarillas</a>
+              <a href="#">Papeleras e Higiene</a>
+              <a href="#">Ambientadores</a>
+              <a href="#">Fregonas y Cepillos</a>
+              <a href="#">Material Sanitario</a>
+              <a href="#">Gel Hidroalcoh&#243;lico</a>
+          </div>
+          <div class="cat-fly-content" data-cat="9">
             <div class="cat-fly-head">Inform&#225;tica</div>
               <a href="#">Accesorios Inform&#225;tica</a>
               <a href="#">Soportes Monitor y TV</a>
               <a href="#">Tarjetas de Memoria</a>
-              <a href="#">Ergonom&#237;a y Multimedia</a>
-              <a href="#">Impresoras L&#225;ser</a>
-              <a href="#">Reposapiés y Alfombrillas</a>
-              <a href="#">T&#243;ners y Cartuchos</a>
               <a href="#">Memorias USB</a>
               <a href="#">Ratones y Teclados</a>
               <a href="#">Cables y Adaptadores</a>
-              <a href="#">Limpieza Inform&#225;tica</a>
               <a href="#">Auriculares y Webcams</a>
+              <a href="#">Limpieza Inform&#225;tica</a>
+              <a href="#">T&#243;ners y Cartuchos</a>
+              <a href="#">Impresoras L&#225;ser</a>
+              <a href="#">Reposa pi&#233;s y Alfombrillas</a>
+              <a href="#">Ergonom&#237;a y Multimedia</a>
           </div>
-          <div class="cat-fly-content" data-cat="8">
+          <div class="cat-fly-content" data-cat="10">
             <div class="cat-fly-head">Mobiliario de Oficina</div>
-              <a href="#">Armarios y Ficheros</a>
-              <a href="#">Archivador Met&#225;lico Cajones</a>
               <a href="#">Sillas de Oficina</a>
-              <a href="#">Taburetes de Oficina</a>
+              <a href="#">Sillas de Direcci&#243;n</a>
               <a href="#">Mesas de Escritorio</a>
               <a href="#">Mesas Esquineras</a>
+              <a href="#">Armarios y Ficheros</a>
               <a href="#">Estanter&#237;as Met&#225;licas</a>
               <a href="#">Pedestales y Cajoneras</a>
               <a href="#">Percheros</a>
               <a href="#">Mamparas Divisorias</a>
               <a href="#">Flexos y L&#225;mparas</a>
-              <a href="#">Sillas de Direcci&#243;n</a>
+              <a href="#">Archivador Met&#225;lico Cajones</a>
+              <a href="#">Taburetes de Oficina</a>
           </div>
-          <div class="cat-fly-content" data-cat="9">
+          <div class="cat-fly-content" data-cat="11">
             <div class="cat-fly-head">Mobiliario ACTIU</div>
               <a href="#">Sillas de Oficina ACTIU</a>
               <a href="#">Mesas de Trabajo ACTIU</a>
@@ -1463,7 +1517,7 @@ img{max-width:100%;display:block}
               <a href="#">Colecciones ACTIU</a>
               <a href="#">Mesas Reuni&#243;n ACTIU</a>
           </div>
-          <div class="cat-fly-content" data-cat="10">
+          <div class="cat-fly-content" data-cat="12">
             <div class="cat-fly-head">Ofim&#225;tica &#8211; M&#225;quinas</div>
               <a href="#">Destructoras de Documentos</a>
               <a href="#">Etiquetadoras</a>
@@ -1474,41 +1528,41 @@ img{max-width:100%;display:block}
               <a href="#">Encuadernadoras</a>
               <a href="#">Contadoras de Billetes</a>
               <a href="#">Detectores Billetes Falsos</a>
-              <a href="#">M&#225;quinas de Escribir</a>
               <a href="#">Selladoras</a>
               <a href="#">Calculadoras Sobremesa</a>
+              <a href="#">M&#225;quinas de Escribir</a>
           </div>
-          <div class="cat-fly-content" data-cat="11">
+          <div class="cat-fly-content" data-cat="13">
             <div class="cat-fly-head">Papel y Etiquetas</div>
-              <a href="#">Etiquetas Adhesivas</a>
-              <a href="#">Etiquetas Especiales</a>
               <a href="#">Papel Multifunci&#243;n A4</a>
               <a href="#">Papel Fotocopia 80g</a>
               <a href="#">Papel Reciclado</a>
               <a href="#">Papel Color</a>
-              <a href="#">Sobres y Bolsas Correo</a>
               <a href="#">Papel T&#233;rmico Fax</a>
               <a href="#">Papel Continuo</a>
+              <a href="#">Etiquetas Adhesivas</a>
+              <a href="#">Etiquetas Especiales</a>
+              <a href="#">Sobres y Bolsas Correo</a>
               <a href="#">Folios Satinados</a>
               <a href="#">Papel Cuadriculado</a>
               <a href="#">Papel Kraft</a>
           </div>
-          <div class="cat-fly-content" data-cat="12">
+          <div class="cat-fly-content" data-cat="14">
             <div class="cat-fly-head">Servicios Generales</div>
               <a href="#">Almacenaje y Mantenimiento</a>
               <a href="#">Contenedores y Papeleras</a>
-              <a href="#">Higiene y Limpieza</a>
               <a href="#">Pilas y Cargadores</a>
               <a href="#">Iluminaci&#243;n Oficina</a>
               <a href="#">Primeros Auxilios</a>
               <a href="#">Seguridad y EPIs</a>
               <a href="#">Menaje y Cocina</a>
-              <a href="#">Productos de Limpieza</a>
-              <a href="#">Material Sanitario</a>
-              <a href="#">Ambientadores</a>
               <a href="#">Se&#241;alizaci&#243;n Seguridad</a>
+              <a href="#">Ropa de Trabajo</a>
+              <a href="#">Herramientas Oficina</a>
+              <a href="#">Botiquines</a>
+              <a href="#">Material El&#233;ctrico</a>
           </div>
-          <div class="cat-fly-content" data-cat="13">
+          <div class="cat-fly-content" data-cat="15">
             <div class="cat-fly-head">Superofertas</div>
               <a href="#">Sillas de Oficina Oferta</a>
               <a href="#">Mesas de Oficina Oferta</a>
@@ -1516,6 +1570,17 @@ img{max-width:100%;display:block}
               <a href="#">Material Escolar Oferta</a>
               <a href="#">Embalaje Oferta</a>
               <a href="#">Art&#237;culos Generales Oferta</a>
+          </div>
+          <div class="cat-fly-content" data-cat="16">
+            <div class="cat-fly-head">Z-Regalos Promocionales</div>
+              <a href="#">Bol&#237;grafos Publicitarios</a>
+              <a href="#">Blocks Publicitarios</a>
+              <a href="#">Mochilas Personalizadas</a>
+              <a href="#">Art&#237;culos de Regalo</a>
+              <a href="#">Paraguas Publicitarios</a>
+              <a href="#">Tazas y Vasos</a>
+              <a href="#">Libretas Personalizadas</a>
+              <a href="#">Bolsas Publicitarias</a>
           </div>
         </div>
       </div>
@@ -2682,15 +2747,280 @@ img{max-width:100%;display:block}
     <div class="mob-search"><input type="search" placeholder="Buscar productos..."></div>
   </div>
   <div class="mob-cats">
-    <a href="#">Clasificación y Archivo <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></a>
-    <a href="#">Papel y Etiquetas <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></a>
-    <a href="#">Escritura y Corrección <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></a>
-    <a href="#">Informática <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></a>
-    <a href="#">Mobiliario de Oficina <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></a>
-    <a href="#">Embalaje y Expedición <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></a>
-    <a href="#">Material Escolar <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></a>
-    <a href="#">Ofimática / Máquinas <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></a>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Art&#237;culos Generales <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Complementos Sobremesa</a>
+    <a href="#">Sellos y Fechadores</a>
+    <a href="#">Grapas y Grapadores</a>
+    <a href="#">Clips y Sujetapapeles</a>
+    <a href="#">Tijeras y C&#250;teres</a>
+    <a href="#">Perforadoras</a>
+    <a href="#">Dispensadores de Cinta</a>
+    <a href="#">Calculadoras</a>
+    <a href="#">Organizadores Escritorio</a>
+    <a href="#">Plastificadoras</a>
+    <a href="#">Correo y Env&#237;os</a>
+    <a href="#">Pisapapeles</a>
+    </div>
   </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Blocs y Cuadernos <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Agendas y Calendarios</a>
+    <a href="#">Blocs Escolares</a>
+    <a href="#">Blocs de Dibujo</a>
+    <a href="#">Libretas y Cuadernos</a>
+    <a href="#">Notas Adhesivas Post-it</a>
+    <a href="#">Planificadores</a>
+    <a href="#">Cuadernos de Reuniones</a>
+    <a href="#">Taco de Notas</a>
+    <a href="#">Papel Milimetrado</a>
+    <a href="#">Blocks Espiral</a>
+    <a href="#">Cuadernos Oxford</a>
+    <a href="#">Blocs Manualidades</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Cintas Adhesivas y Pegamentos <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Cinta Adhesiva Transparente</a>
+    <a href="#">Cinta Kraft</a>
+    <a href="#">Cinta Doble Cara</a>
+    <a href="#">Cinta de Pintor</a>
+    <a href="#">Celo Escolar</a>
+    <a href="#">Pegamentos Escolares</a>
+    <a href="#">Barras de Silicona</a>
+    <a href="#">Pistolas de Silicona</a>
+    <a href="#">Sprays Adhesivos</a>
+    <a href="#">Velcro Adhesivo</a>
+    <a href="#">Masilla Adhesiva</a>
+    <a href="#">Pegamento en L&#237;quido</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Clasificaci&#243;n y Archivo <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Carpetas y Archivadores</a>
+    <a href="#">Cajas Archivadoras</a>
+    <a href="#">Cajas Proyectos</a>
+    <a href="#">Ficheros y Revisteros</a>
+    <a href="#">Bandejas Clasificadoras</a>
+    <a href="#">Fundas Portadocumentos</a>
+    <a href="#">Separadores</a>
+    <a href="#">Carpetas Colgantes</a>
+    <a href="#">Cajas de Transferencia</a>
+    <a href="#">Encuadernaci&#243;n</a>
+    <a href="#">&#193;lbumes Fotos</a>
+    <a href="#">Archivos Modulares</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Comunicaci&#243;n Visual y Se&#241;alizaci&#243;n <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Pizarras Blancas</a>
+    <a href="#">Tableros de Corcho</a>
+    <a href="#">Rotuladores Pizarra</a>
+    <a href="#">Tizas</a>
+    <a href="#">Expositores Portafolletos</a>
+    <a href="#">Portafolletos Metacrilato</a>
+    <a href="#">Vitrinas y Tableros Anuncios</a>
+    <a href="#">Portanombres y Tarjetas</a>
+    <a href="#">Letras y N&#250;meros Adhesivos</a>
+    <a href="#">Se&#241;alizaci&#243;n</a>
+    <a href="#">Marcos y Displays</a>
+    <a href="#">Videoproyecci&#243;n</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Embalaje y Expedici&#243;n <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Material de Embalaje</a>
+    <a href="#">Bobinas Papel Regalo</a>
+    <a href="#">Film Burbuja</a>
+    <a href="#">Film Estirable</a>
+    <a href="#">Cinta Adhesiva Embalaje</a>
+    <a href="#">Cajas de Cart&#243;n</a>
+    <a href="#">Sobres de Burbuja</a>
+    <a href="#">Bolsas Politeno</a>
+    <a href="#">Etiquetas Expedici&#243;n</a>
+    <a href="#">Precinto Seguridad</a>
+    <a href="#">Espuma Protectora</a>
+    <a href="#">Cinta Kraft Embalaje</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Escolar <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Material Escolar General</a>
+    <a href="#">Rotuladores Escolares</a>
+    <a href="#">Mochilas Escolares</a>
+    <a href="#">Estuches</a>
+    <a href="#">Pinturas y Acuarelas</a>
+    <a href="#">L&#225;pices de Color</a>
+    <a href="#">Compases y Reglas</a>
+    <a href="#">Blocs Manualidades y M&#250;sica</a>
+    <a href="#">Blocs Escolares</a>
+    <a href="#">Blocs de Dibujo</a>
+    <a href="#">Minipacks Escolares</a>
+    <a href="#">Pegamentos y Colas</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Escritura y Correcci&#243;n <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Bol&#237;grafos</a>
+    <a href="#">Plumas y Carga</a>
+    <a href="#">L&#225;pices y Portaminas</a>
+    <a href="#">Rotuladores y Marcadores</a>
+    <a href="#">Marcadores Permanentes</a>
+    <a href="#">Subrayadores Fluorescentes</a>
+    <a href="#">Gomas de Borrar</a>
+    <a href="#">Cinta Correctora</a>
+    <a href="#">L&#225;piz Corrector</a>
+    <a href="#">Sets de Escritura</a>
+    <a href="#">Tinta China</a>
+    <a href="#">Rotuladores Textil</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Higiene y Limpieza <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Productos de Limpieza</a>
+    <a href="#">Papel Higi&#233;nico</a>
+    <a href="#">Papel de Manos</a>
+    <a href="#">Jabn Dispensador</a>
+    <a href="#">Desinfectantes</a>
+    <a href="#">Guantes Desechables</a>
+    <a href="#">Mascarillas</a>
+    <a href="#">Papeleras e Higiene</a>
+    <a href="#">Ambientadores</a>
+    <a href="#">Fregonas y Cepillos</a>
+    <a href="#">Material Sanitario</a>
+    <a href="#">Gel Hidroalcoh&#243;lico</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Inform&#225;tica <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Accesorios Inform&#225;tica</a>
+    <a href="#">Soportes Monitor y TV</a>
+    <a href="#">Tarjetas de Memoria</a>
+    <a href="#">Memorias USB</a>
+    <a href="#">Ratones y Teclados</a>
+    <a href="#">Cables y Adaptadores</a>
+    <a href="#">Auriculares y Webcams</a>
+    <a href="#">Limpieza Inform&#225;tica</a>
+    <a href="#">T&#243;ners y Cartuchos</a>
+    <a href="#">Impresoras L&#225;ser</a>
+    <a href="#">Reposa pi&#233;s y Alfombrillas</a>
+    <a href="#">Ergonom&#237;a y Multimedia</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Mobiliario de Oficina <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Sillas de Oficina</a>
+    <a href="#">Sillas de Direcci&#243;n</a>
+    <a href="#">Mesas de Escritorio</a>
+    <a href="#">Mesas Esquineras</a>
+    <a href="#">Armarios y Ficheros</a>
+    <a href="#">Estanter&#237;as Met&#225;licas</a>
+    <a href="#">Pedestales y Cajoneras</a>
+    <a href="#">Percheros</a>
+    <a href="#">Mamparas Divisorias</a>
+    <a href="#">Flexos y L&#225;mparas</a>
+    <a href="#">Archivador Met&#225;lico Cajones</a>
+    <a href="#">Taburetes de Oficina</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Mobiliario ACTIU <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Sillas de Oficina ACTIU</a>
+    <a href="#">Mesas de Trabajo ACTIU</a>
+    <a href="#">Sistemas de Almacenaje</a>
+    <a href="#">Mobiliario Ergon&#243;mico</a>
+    <a href="#">Colecciones ACTIU</a>
+    <a href="#">Mesas Reuni&#243;n ACTIU</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Ofim&#225;tica &#8211; M&#225;quinas <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Destructoras de Documentos</a>
+    <a href="#">Etiquetadoras</a>
+    <a href="#">M&#225;quinas Etiquetadoras Precios</a>
+    <a href="#">Impresoras Etiquetas T&#233;rmicas</a>
+    <a href="#">Plastificadoras</a>
+    <a href="#">Guillotinas de Corte</a>
+    <a href="#">Encuadernadoras</a>
+    <a href="#">Contadoras de Billetes</a>
+    <a href="#">Detectores Billetes Falsos</a>
+    <a href="#">Selladoras</a>
+    <a href="#">Calculadoras Sobremesa</a>
+    <a href="#">M&#225;quinas de Escribir</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Papel y Etiquetas <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Papel Multifunci&#243;n A4</a>
+    <a href="#">Papel Fotocopia 80g</a>
+    <a href="#">Papel Reciclado</a>
+    <a href="#">Papel Color</a>
+    <a href="#">Papel T&#233;rmico Fax</a>
+    <a href="#">Papel Continuo</a>
+    <a href="#">Etiquetas Adhesivas</a>
+    <a href="#">Etiquetas Especiales</a>
+    <a href="#">Sobres y Bolsas Correo</a>
+    <a href="#">Folios Satinados</a>
+    <a href="#">Papel Cuadriculado</a>
+    <a href="#">Papel Kraft</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Servicios Generales <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Almacenaje y Mantenimiento</a>
+    <a href="#">Contenedores y Papeleras</a>
+    <a href="#">Pilas y Cargadores</a>
+    <a href="#">Iluminaci&#243;n Oficina</a>
+    <a href="#">Primeros Auxilios</a>
+    <a href="#">Seguridad y EPIs</a>
+    <a href="#">Menaje y Cocina</a>
+    <a href="#">Se&#241;alizaci&#243;n Seguridad</a>
+    <a href="#">Ropa de Trabajo</a>
+    <a href="#">Herramientas Oficina</a>
+    <a href="#">Botiquines</a>
+    <a href="#">Material El&#233;ctrico</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Superofertas <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Sillas de Oficina Oferta</a>
+    <a href="#">Mesas de Oficina Oferta</a>
+    <a href="#">Inform&#225;tica Oferta</a>
+    <a href="#">Material Escolar Oferta</a>
+    <a href="#">Embalaje Oferta</a>
+    <a href="#">Art&#237;culos Generales Oferta</a>
+    </div>
+  </div>
+  <div class="mob-cat-item">
+    <button class="mob-cat-head">Z-Regalos Promocionales <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <div class="mob-cat-body">
+    <a href="#">Bol&#237;grafos Publicitarios</a>
+    <a href="#">Blocks Publicitarios</a>
+    <a href="#">Mochilas Personalizadas</a>
+    <a href="#">Art&#237;culos de Regalo</a>
+    <a href="#">Paraguas Publicitarios</a>
+    <a href="#">Tazas y Vasos</a>
+    <a href="#">Libretas Personalizadas</a>
+    <a href="#">Bolsas Publicitarias</a>
+    </div>
+  </div>
+</div>
   <div class="mob-ftr">
     <a href="#" class="mob-btn-login">Iniciar sesión</a>
     <a href="#" class="mob-btn-reg">Regístrate →</a>
@@ -3188,6 +3518,19 @@ document.addEventListener('keydown', function(e) {
     frag.appendChild(b);
   }
   streams.appendChild(frag);
+})();
+
+// ── Mobile category accordion ──────────────────────────────────────────────
+(function(){
+  document.querySelectorAll('.mob-cat-head').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var body = btn.nextElementSibling;
+      var isOpen = body.classList.contains('open');
+      document.querySelectorAll('.mob-cat-body').forEach(function(b){b.classList.remove('open')});
+      document.querySelectorAll('.mob-cat-head').forEach(function(b){b.classList.remove('open')});
+      if(!isOpen){ body.classList.add('open'); btn.classList.add('open'); }
+    });
+  });
 })();
 
 </script>
