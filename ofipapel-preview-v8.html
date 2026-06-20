@@ -1252,6 +1252,42 @@ img{max-width:100%;display:block}
   transition:color .15s,background .15s;
 }
 .mob-cat-body a:hover,.mob-cat-body a:active{color:var(--lime);background:rgba(255,255,255,.04)}
+
+/* ── CATALOG CAROUSEL ── */
+.cat-carousel-outer{position:relative;overflow:hidden}
+.cat-carousel{
+  display:flex;gap:20px;overflow-x:auto;
+  scroll-behavior:smooth;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;padding:24px 40px;
+  cursor:grab;user-select:none;
+}
+.cat-carousel::-webkit-scrollbar{display:none}
+.cat-carousel.dragging{cursor:grabbing;scroll-behavior:auto}
+.cat-card{
+  flex:0 0 220px;background:rgba(255,255,255,.1);
+  backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.2);
+  border-radius:16px;overflow:hidden;
+  transition:transform .25s,box-shadow .25s;
+}
+.cat-card:hover{transform:translateY(-6px);box-shadow:0 20px 40px rgba(0,0,0,.5)}
+.cat-card-cover{height:260px;position:relative;overflow:hidden}
+.cat-card-cover img{width:100%;height:100%;object-fit:cover;transform:scale(1.08);transition:transform .4s}
+.cat-card:hover .cat-card-cover img{transform:scale(1)}
+.cat-card-badge{
+  position:absolute;top:10px;left:10px;
+  background:var(--lime);color:#1a1a1a;
+  font-size:.58rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  padding:3px 8px;border-radius:10px;
+}
+.cat-card-body{padding:16px}
+.cat-card-name{font-family:'Plus Jakarta Sans',sans-serif;font-size:.9rem;font-weight:700;margin-bottom:4px}
+.cat-card-sub{font-size:.72rem;color:var(--txt3);margin-bottom:14px}
+.cat-card-btn{
+  width:100%;padding:8px;border:none;border-radius:8px;
+  background:var(--g);color:#fff;font-weight:700;font-size:.78rem;
+  cursor:pointer;transition:background .2s;
+}
+.cat-card-btn:hover{background:var(--gd)}
 </style>
 </head>
 <body>
@@ -2216,80 +2252,86 @@ img{max-width:100%;display:block}
 </section>
 
 <!-- CATALOGS -->
-<section class="circ-section section">
+<section class="section" style="padding:60px 0 20px">
   <div class="container">
     <div class="section-hd reveal">
       <div class="section-kicker">Descargas</div>
       <h2>Nuestros <em>catálogos</em></h2>
     </div>
   </div>
-  <div class="circ-wrap" id="circ-catalog-wrap">
-    <div class="circ-track" id="circ-catalog">
-      <div class="circ-card" id="circ-catalog-card-0" style="position:absolute;left:50%;top:50%">
-        <div class="circ-card-body">
-          <img class="circ-card-img" src="https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&q=80" alt="Catálogo General 2025" loading="lazy">
-          <div class="circ-card-info">
-            <div class="circ-card-name">Catálogo General 2025</div>
-            <div class="circ-card-sub">Edición 2025 · PDF · 12 MB</div>
-          </div>
-          <button class="circ-card-btn">Ver catálogo</button>
+  <div class="cat-carousel-outer">
+    <div class="cat-carousel" id="cat-carousel">
+      <div class="cat-card">
+        <div class="cat-card-cover">
+          <img src="https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&q=80" alt="Catálogo General 2025" loading="lazy">
+          <span class="cat-card-badge">General</span>
+        </div>
+        <div class="cat-card-body">
+          <div class="cat-card-name">Catálogo General 2025</div>
+          <div class="cat-card-sub">Edición 2025 · PDF · 12 MB</div>
+          <button class="cat-card-btn">&#8681; Ver catálogo</button>
         </div>
       </div>
-      <div class="circ-card" id="circ-catalog-card-1" style="position:absolute;left:50%;top:50%">
-        <div class="circ-card-body">
-          <img class="circ-card-img" src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&q=80" alt="Catálogo Informática 2025" loading="lazy">
-          <div class="circ-card-info">
-            <div class="circ-card-name">Catálogo Informática 2025</div>
-            <div class="circ-card-sub">Edición 2025 · PDF · 8 MB</div>
-          </div>
-          <button class="circ-card-btn">Ver catálogo</button>
+      <div class="cat-card">
+        <div class="cat-card-cover">
+          <img src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&q=80" alt="Catálogo Informática 2025" loading="lazy">
+          <span class="cat-card-badge">Informática</span>
+        </div>
+        <div class="cat-card-body">
+          <div class="cat-card-name">Catálogo Informática 2025</div>
+          <div class="cat-card-sub">Edición 2025 · PDF · 8 MB</div>
+          <button class="cat-card-btn">&#8681; Ver catálogo</button>
         </div>
       </div>
-      <div class="circ-card" id="circ-catalog-card-2" style="position:absolute;left:50%;top:50%">
-        <div class="circ-card-body">
-          <img class="circ-card-img" src="https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&q=80" alt="Catálogo Mobiliario 2025" loading="lazy">
-          <div class="circ-card-info">
-            <div class="circ-card-name">Catálogo Mobiliario 2025</div>
-            <div class="circ-card-sub">Edición 2025 · PDF · 15 MB</div>
-          </div>
-          <button class="circ-card-btn">Ver catálogo</button>
+      <div class="cat-card">
+        <div class="cat-card-cover">
+          <img src="https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&q=80" alt="Catálogo Mobiliario 2025" loading="lazy">
+          <span class="cat-card-badge">Mobiliario</span>
+        </div>
+        <div class="cat-card-body">
+          <div class="cat-card-name">Catálogo Mobiliario 2025</div>
+          <div class="cat-card-sub">Edición 2025 · PDF · 15 MB</div>
+          <button class="cat-card-btn">&#8681; Ver catálogo</button>
         </div>
       </div>
-      <div class="circ-card" id="circ-catalog-card-3" style="position:absolute;left:50%;top:50%">
-        <div class="circ-card-body">
-          <img class="circ-card-img" src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" alt="Catálogo Embalaje 2025" loading="lazy">
-          <div class="circ-card-info">
-            <div class="circ-card-name">Catálogo Embalaje 2025</div>
-            <div class="circ-card-sub">Edición 2025 · PDF · 6 MB</div>
-          </div>
-          <button class="circ-card-btn">Ver catálogo</button>
+      <div class="cat-card">
+        <div class="cat-card-cover">
+          <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" alt="Catálogo Embalaje 2025" loading="lazy">
+          <span class="cat-card-badge">Embalaje</span>
+        </div>
+        <div class="cat-card-body">
+          <div class="cat-card-name">Catálogo Embalaje 2025</div>
+          <div class="cat-card-sub">Edición 2025 · PDF · 6 MB</div>
+          <button class="cat-card-btn">&#8681; Ver catálogo</button>
         </div>
       </div>
-      <div class="circ-card" id="circ-catalog-card-4" style="position:absolute;left:50%;top:50%">
-        <div class="circ-card-body">
-          <img class="circ-card-img" src="https://images.unsplash.com/photo-1452860606245-08befc0ff44b?w=400&q=80" alt="Catálogo Escolar 2025" loading="lazy">
-          <div class="circ-card-info">
-            <div class="circ-card-name">Catálogo Escolar 2025</div>
-            <div class="circ-card-sub">Edición 2025 · PDF · 9 MB</div>
-          </div>
-          <button class="circ-card-btn">Ver catálogo</button>
+      <div class="cat-card">
+        <div class="cat-card-cover">
+          <img src="https://images.unsplash.com/photo-1452860606245-08befc0ff44b?w=400&q=80" alt="Catálogo Escolar 2025" loading="lazy">
+          <span class="cat-card-badge">Escolar</span>
+        </div>
+        <div class="cat-card-body">
+          <div class="cat-card-name">Catálogo Escolar 2025</div>
+          <div class="cat-card-sub">Edición 2025 · PDF · 9 MB</div>
+          <button class="cat-card-btn">&#8681; Ver catálogo</button>
         </div>
       </div>
-      <div class="circ-card" id="circ-catalog-card-5" style="position:absolute;left:50%;top:50%">
-        <div class="circ-card-body">
-          <img class="circ-card-img" src="https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=400&q=80" alt="Catálogo Papel 2025" loading="lazy">
-          <div class="circ-card-info">
-            <div class="circ-card-name">Catálogo Papel 2025</div>
-            <div class="circ-card-sub">Edición 2025 · PDF · 5 MB</div>
-          </div>
-          <button class="circ-card-btn">Ver catálogo</button>
+      <div class="cat-card">
+        <div class="cat-card-cover">
+          <img src="https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=400&q=80" alt="Catálogo Papel 2025" loading="lazy">
+          <span class="cat-card-badge">Papel</span>
+        </div>
+        <div class="cat-card-body">
+          <div class="cat-card-name">Catálogo Papel 2025</div>
+          <div class="cat-card-sub">Edición 2025 · PDF · 5 MB</div>
+          <button class="cat-card-btn">&#8681; Ver catálogo</button>
         </div>
       </div>
     </div>
   </div>
-  <div class="circ-controls">
-    <button class="circ-btn" id="circ-catalog-prev" aria-label="Anterior">&#8592;</button>
-    <button class="circ-btn" id="circ-catalog-next" aria-label="Siguiente">&#8594;</button>
+  <div style="display:flex;justify-content:center;gap:10px;margin-top:16px;padding-bottom:20px">
+    <button class="carousel-btn" id="cat-prev" aria-label="Anterior">&#8592;</button>
+    <button class="carousel-btn" id="cat-next" aria-label="Siguiente">&#8594;</button>
   </div>
 </section>
 
@@ -3445,7 +3487,7 @@ function initCircGallery(trackId, radius, speed, enableScrollRotation) {
 }
 
 // Init all three galleries
-initCircGallery('circ-catalog', 340, 0.018, true);
+
 
 // ── Offers carousel drag ──────────────────────────────────────────────────────
 (function(){
@@ -3601,6 +3643,43 @@ document.addEventListener('keydown', function(e) {
       if(!isOpen){ body.classList.add('open'); btn.classList.add('open'); }
     });
   });
+})();
+
+// ── Catalog carousel drag ──────────────────────────────────────────────────
+(function(){
+  var el = document.getElementById('cat-carousel');
+  if(!el) return;
+  var isDown=false, startX, scrollLeft, moved=false;
+  el.addEventListener('mousedown',function(e){
+    isDown=true;moved=false;
+    el.classList.add('dragging');
+    startX=e.pageX-el.offsetLeft;scrollLeft=el.scrollLeft;
+  });
+  el.addEventListener('mouseleave',function(){isDown=false;el.classList.remove('dragging')});
+  el.addEventListener('mouseup',function(){isDown=false;el.classList.remove('dragging')});
+  el.addEventListener('mousemove',function(e){
+    if(!isDown)return;e.preventDefault();moved=true;
+    var x=e.pageX-el.offsetLeft;
+    el.scrollLeft=scrollLeft-(x-startX)*1.3;
+  });
+  // Prevent card button click after drag
+  el.addEventListener('click',function(e){
+    if(moved){e.preventDefault();e.stopPropagation();moved=false;}
+  },true);
+  // Touch drag
+  var touchStartX, touchScrollLeft;
+  el.addEventListener('touchstart',function(e){
+    touchStartX=e.touches[0].pageX;touchScrollLeft=el.scrollLeft;
+  },{passive:true});
+  el.addEventListener('touchmove',function(e){
+    var dx=touchStartX-e.touches[0].pageX;
+    el.scrollLeft=touchScrollLeft+dx;
+  },{passive:true});
+  // Prev/Next buttons
+  var prev=document.getElementById('cat-prev');
+  var next=document.getElementById('cat-next');
+  if(prev) prev.addEventListener('click',function(){el.scrollBy({left:-260,behavior:'smooth'})});
+  if(next) next.addEventListener('click',function(){el.scrollBy({left:260,behavior:'smooth'})});
 })();
 
 </script>
