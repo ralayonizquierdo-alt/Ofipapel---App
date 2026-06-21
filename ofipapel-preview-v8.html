@@ -1551,6 +1551,75 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
   .cli-stat-grid{grid-template-columns:1fr}
   .cli-fav-grid{grid-template-columns:1fr}
 }
+
+/* ══ MOBILE BOTTOM NAV + STICKY SEARCH ══ */
+.mob-bottom-nav{display:none}
+.mob-search-sticky{display:none}
+
+@media(max-width:768px){
+  /* Sticky search bar below header */
+  .mob-search-sticky{
+    display:block;
+    position:sticky;
+    top:68px;
+    z-index:290;
+    background:rgba(5,20,8,.95);
+    backdrop-filter:blur(14px);
+    padding:8px 14px;
+    border-bottom:1px solid var(--glass-border);
+  }
+  .mob-search-wrap{position:relative}
+  .mob-search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.4);pointer-events:none}
+  .mob-search-wrap input{
+    width:100%;box-sizing:border-box;
+    background:rgba(255,255,255,.1);
+    border:1px solid var(--glass-border);
+    border-radius:24px;
+    padding:9px 16px 9px 40px;
+    color:#fff;font-size:.9rem;outline:none;
+    transition:border-color .2s,background .2s;
+  }
+  .mob-search-wrap input:focus{border-color:rgba(174,204,48,.6);background:rgba(255,255,255,.15)}
+  .mob-search-wrap input::placeholder{color:rgba(255,255,255,.35)}
+
+  /* Bottom navigation */
+  .mob-bottom-nav{
+    display:flex;
+    position:fixed;bottom:0;left:0;right:0;
+    z-index:500;
+    background:rgba(4,18,6,.96);
+    backdrop-filter:blur(18px);
+    border-top:1px solid var(--glass-border);
+    height:62px;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .mob-nav-item{
+    flex:1;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:3px;
+    color:rgba(255,255,255,.45);
+    font-size:.55rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    cursor:pointer;background:none;border:none;
+    text-decoration:none;transition:color .2s;position:relative;
+    padding:6px 2px 4px;
+  }
+  .mob-nav-item.active,.mob-nav-item:hover{color:var(--lime)}
+  .mob-nav-item svg{width:22px;height:22px;flex-shrink:0}
+  .mob-nav-badge{
+    position:absolute;top:5px;right:calc(50% - 20px);
+    background:var(--cta);color:#fff;
+    font-size:.58rem;font-weight:700;
+    min-width:16px;height:16px;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    padding:0 3px;
+  }
+  .mob-nav-separator{width:1px;background:var(--glass-border);margin:10px 0;flex-shrink:0}
+
+  /* Body bottom padding so content doesn't hide behind nav */
+  body{padding-bottom:62px}
+
+  /* WhatsApp button above bottom nav */
+  .wa-float{bottom:76px !important}
+}
 </style>
 </head>
 <body>
@@ -1607,6 +1676,14 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
     </div>
   </div>
 </header>
+<!-- MOBILE STICKY SEARCH -->
+<div class="mob-search-sticky" aria-hidden="true">
+  <div class="mob-search-wrap">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="search" placeholder="Busca entre más de 20.000 referencias..." aria-label="Buscar productos">
+  </div>
+</div>
+
 
 <!-- NAV -->
 <nav class="main-nav">
@@ -5391,5 +5468,30 @@ function showCliSection(id, btn){
 }
 </script>
 
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mob-bottom-nav" aria-label="Navegación principal móvil">
+  <a href="#inicio" class="mob-nav-item active" onclick="window.scrollTo({top:0,behavior:'smooth'});document.querySelectorAll('.mob-nav-item').forEach(function(i){i.classList.remove('active')});this.classList.add('active')">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    Inicio
+  </a>
+  <a href="#" class="mob-nav-item" onclick="event.preventDefault();document.getElementById('mob-panel').classList.add('open');document.getElementById('mob-overlay').classList.add('open');document.querySelectorAll('.mob-nav-item').forEach(function(i){i.classList.remove('active')});this.classList.add('active')">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Catálogo
+  </a>
+  <a href="#ofertas" class="mob-nav-item" onclick="document.querySelectorAll('.mob-nav-item').forEach(function(i){i.classList.remove('active')});this.classList.add('active')">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+    Ofertas
+  </a>
+  <a href="#" class="mob-nav-item" onclick="event.preventDefault();openClienteArea();document.querySelectorAll('.mob-nav-item').forEach(function(i){i.classList.remove('active')});this.classList.add('active')">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    Cuenta
+  </a>
+  <a href="#" class="mob-nav-item" onclick="event.preventDefault();document.getElementById('modal-payment').classList.add('open');document.querySelectorAll('.mob-nav-item').forEach(function(i){i.classList.remove('active')});this.classList.add('active')">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+    <span class="mob-nav-badge">3</span>
+    Carrito
+  </a>
+</nav>
 </body>
 </html>
