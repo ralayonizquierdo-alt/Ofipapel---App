@@ -4144,16 +4144,16 @@ function setLang(lang) {
       </div>
 
       <div class="auth-privacy-text">
-        Protecci&#243;n de datos: Consulte la p&#225;gina de <a href="#">Protecci&#243;n de Datos</a>.
+        Protecci&#243;n de datos: Consulte la p&#225;gina de <a href="#" onclick="event.preventDefault();document.getElementById('modal-auth').classList.remove('open');document.getElementById('modal-privacidad').classList.add('open');document.body.style.overflow='hidden'">Protecci&#243;n de Datos</a>.
       </div>
 
       <label class="auth-check">
         <input type="checkbox" required>
-        <span>He le&#237;do y acepto la pol&#237;tica de privacidad. <span style="color:var(--cta)">*</span></span>
+        <span>He le&#237;do y acepto la <a href="#" onclick="event.preventDefault();document.getElementById('modal-privacidad').classList.add('open');document.body.style.overflow='hidden'" style="color:var(--lime)">pol&#237;tica de privacidad</a>. <span style="color:var(--cta)">*</span></span>
       </label>
 
       <p class="auth-privacy-text" style="margin:0">
-        Tus datos personales se utilizar&#225;n para procesar tu pedido, mejorar tu experiencia en esta web, gestionar el acceso a tu cuenta y otros prop&#243;sitos descritos en nuestra <a href="#">pol&#237;tica de privacidad</a>.
+        Tus datos personales se utilizar&#225;n para procesar tu pedido, mejorar tu experiencia en esta web, gestionar el acceso a tu cuenta y otros prop&#243;sitos descritos en nuestra <a href="#" onclick="event.preventDefault();document.getElementById('modal-privacidad').classList.add('open');document.body.style.overflow='hidden'">pol&#237;tica de privacidad</a>.
       </p>
 
       <button class="auth-submit" onclick="document.getElementById('modal-auth').classList.remove('open')">
@@ -4166,9 +4166,9 @@ function setLang(lang) {
           <dt>Responsable:</dt><dd>Suministros de Oficina Ofipapel S.L. &mdash; ventas@ofipapelsl.com &mdash; NIF: B38381653</dd>
           <dt>Finalidad:</dt><dd>Registro como usuario en nuestra web para realizar compras online. Gesti&#243;n de su compra.</dd>
           <dt>Legitimaci&#243;n:</dt><dd>Su consentimiento. Ejecuci&#243;n contractual.</dd>
-          <dt>Destinatarios:</dt><dd>No se conceder&#225;n datos a terceros excepto: requerimiento legal, entidades financieras, proveedores de servicios tecnol&#243;gicos y entidades de asesoramiento empresarial.</dd>
+          <dt>Destinatarios:</dt><dd>No se conceder&#225;n datos a terceros excepto por requerimiento legal.</dd>
           <dt>Derechos:</dt><dd>Tiene derecho de acceso, rectificaci&#243;n, supresi&#243;n y dem&#225;s derechos explicados en la informaci&#243;n adicional.</dd>
-          <dt>Adicional:</dt><dd>Consulte la informaci&#243;n adicional y detallada sobre Protecci&#243;n de Datos en nuestra <a href="#">p&#225;gina de pol&#237;tica de privacidad</a>.</dd>
+          <dt>Adicional:</dt><dd>Consulte la informaci&#243;n adicional y detallada sobre Protecci&#243;n de Datos en nuestra <a href="#" onclick="event.preventDefault();document.getElementById('modal-privacidad').classList.add('open');document.body.style.overflow='hidden'">p&#225;gina de pol&#237;tica de privacidad</a>.</dd>
         </dl>
       </div>
     </form>
