@@ -3194,6 +3194,19 @@ img{max-width:100%;display:block}
   carousel.addEventListener('mouseleave',()=>{isDown=false;carousel.style.cursor='grab'});
   carousel.addEventListener('mouseup',()=>{isDown=false;carousel.style.cursor='grab'});
   carousel.addEventListener('mousemove',e=>{if(!isDown)return;e.preventDefault();const x=e.pageX-carousel.offsetLeft;carousel.scrollLeft=scrollLeft-(x-startX)*1.2});
+  // Auto-scroll
+  var _paused=false;
+  carousel.addEventListener('mouseenter',()=>{_paused=true});
+  carousel.addEventListener('mouseleave',()=>{_paused=false});
+  carousel.addEventListener('touchstart',()=>{_paused=true},{passive:true});
+  carousel.addEventListener('touchend',()=>{setTimeout(()=>{_paused=false},1500)},{passive:true});
+  (function _tick(){
+    if(!_paused){
+      carousel.scrollLeft+=0.5;
+      if(carousel.scrollLeft>=carousel.scrollWidth-carousel.clientWidth-2) carousel.scrollLeft=0;
+    }
+    requestAnimationFrame(_tick);
+  })();
 })();
 
 // ── Category flyout ──
@@ -3448,6 +3461,19 @@ function initCircGallery(trackId, radius, speed, enableScrollRotation) {
   el.addEventListener('mousemove',function(e){if(!isDown)return;e.preventDefault();var x=e.pageX-el.offsetLeft;el.scrollLeft=scrollLeft-(x-startX)*1.5});
   document.getElementById('offers-prev').addEventListener('click',function(){el.scrollBy({left:-250,behavior:'smooth'})});
   document.getElementById('offers-next').addEventListener('click',function(){el.scrollBy({left:250,behavior:'smooth'})});
+  // Auto-scroll
+  var _paused=false;
+  el.addEventListener('mouseenter',function(){_paused=true});
+  el.addEventListener('mouseleave',function(){_paused=false});
+  el.addEventListener('touchstart',function(){_paused=true},{passive:true});
+  el.addEventListener('touchend',function(){setTimeout(function(){_paused=false},1500)},{passive:true});
+  (function _tick(){
+    if(!_paused){
+      el.scrollLeft+=0.5;
+      if(el.scrollLeft>=el.scrollWidth-el.clientWidth-2) el.scrollLeft=0;
+    }
+    requestAnimationFrame(_tick);
+  })();
 })();
 
 // ── Payment modal ─────────────────────────────────────────────────────────────
