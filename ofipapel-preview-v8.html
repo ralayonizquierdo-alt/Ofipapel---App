@@ -823,6 +823,10 @@ img{max-width:100%;display:block}
 .auth-privacy-text a{color:var(--lime)}
 .auth-rgpd{margin-top:4px;padding:14px 16px;background:rgba(174,204,48,.05);border-radius:var(--r);border:1px solid rgba(174,204,48,.2)}
 .auth-rgpd-title{font-size:.78rem;font-weight:700;color:var(--lime);margin-bottom:10px;letter-spacing:.03em}
+.reg-type-toggle{display:flex;background:rgba(255,255,255,.06);border:1px solid var(--glass-border);border-radius:12px;padding:4px;gap:4px;margin-bottom:20px}
+.reg-type-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 14px;border:none;border-radius:8px;background:transparent;color:var(--txt2);font-family:inherit;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.reg-type-btn.active{background:var(--g);color:#fff;box-shadow:0 2px 12px rgba(51,181,64,.35)}
+.reg-type-btn svg{flex-shrink:0}
 .auth-rgpd dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:.72rem;color:var(--txt2);line-height:1.45;margin:0}
 .auth-rgpd dt{font-weight:700;color:var(--txt);white-space:nowrap}
 .auth-rgpd dd{margin:0}
@@ -3570,6 +3574,23 @@ function applyCoupon() {
   }
 })();
 
+function setRegisterType(type) {
+  var isEmpresa = type === 'empresa';
+  document.getElementById('reg-type-particular').classList.toggle('active', !isEmpresa);
+  document.getElementById('reg-type-empresa').classList.toggle('active', isEmpresa);
+  document.getElementById('reg-row-particular').style.display = isEmpresa ? 'none' : '';
+  document.getElementById('reg-row-empresa').style.display   = isEmpresa ? ''     : 'none';
+  var lbl = document.getElementById('reg-doc-label');
+  var inp = document.getElementById('reg-doc-input');
+  if (isEmpresa) {
+    lbl.innerHTML = 'CIF / NIF <span style="color:var(--cta)">*</span>';
+    inp.placeholder = 'B00000000';
+  } else {
+    lbl.innerHTML = 'DNI / NIF / NIE <span style="color:var(--cta)">*</span>';
+    inp.placeholder = '00000000A';
+  }
+}
+
 function switchAuthTab(tab) {
   var loginForm    = document.getElementById('auth-form-login');
   var registerForm = document.getElementById('auth-form-register');
@@ -3970,9 +3991,22 @@ function setLang(lang) {
 
     <!-- REGISTER -->
     <form class="auth-form hidden" id="auth-form-register" onsubmit="return false">
-      <div class="modal-title" style="margin-bottom:18px">Registrarse</div>
+      <div class="modal-title" style="margin-bottom:16px">Registrarse</div>
 
-      <div class="auth-grid">
+      <!-- TIPO DE CLIENTE -->
+      <div class="reg-type-toggle">
+        <button class="reg-type-btn active" id="reg-type-particular" type="button" onclick="setRegisterType('particular')">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Aut&#243;nomo / Particular
+        </button>
+        <button class="reg-type-btn" id="reg-type-empresa" type="button" onclick="setRegisterType('empresa')">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Empresa
+        </button>
+      </div>
+
+      <!-- NOMBRE + APELLIDOS (particular) -->
+      <div class="auth-grid" id="reg-row-particular">
         <div class="auth-field">
           <label>Nombre <span style="color:var(--cta)">*</span></label>
           <input type="text" placeholder="Tu nombre" autocomplete="given-name" required>
@@ -3983,15 +4017,15 @@ function setLang(lang) {
         </div>
       </div>
 
-      <div class="auth-grid">
-        <div class="auth-field">
-          <label>Empresa</label>
-          <input type="text" placeholder="Nombre de empresa" autocomplete="organization">
-        </div>
-        <div class="auth-field">
-          <label>Tel&#233;fono <span style="color:var(--cta)">*</span></label>
-          <input type="tel" placeholder="922 000 000" autocomplete="tel" required>
-        </div>
+      <!-- RAZÓN SOCIAL (empresa) — oculto por defecto -->
+      <div class="auth-field" id="reg-row-empresa" style="display:none">
+        <label>Raz&#243;n Social <span style="color:var(--cta)">*</span></label>
+        <input type="text" placeholder="Nombre legal de la empresa" autocomplete="organization" required>
+      </div>
+
+      <div class="auth-field">
+        <label>Tel&#233;fono <span style="color:var(--cta)">*</span></label>
+        <input type="tel" placeholder="922 000 000" autocomplete="tel" required>
       </div>
 
       <div class="auth-field">
@@ -4025,8 +4059,8 @@ function setLang(lang) {
           <input type="text" placeholder="38001" autocomplete="postal-code" required>
         </div>
         <div class="auth-field">
-          <label>DNI / NIF / NIE <span style="color:var(--cta)">*</span></label>
-          <input type="text" placeholder="00000000A" required>
+          <label id="reg-doc-label">DNI / NIF / NIE <span style="color:var(--cta)">*</span></label>
+          <input id="reg-doc-input" type="text" placeholder="00000000A" required>
         </div>
       </div>
 
