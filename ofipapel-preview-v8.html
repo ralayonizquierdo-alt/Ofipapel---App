@@ -1385,6 +1385,11 @@ img{max-width:100%;display:block}
   .legal-modal{padding:24px 18px 28px}
   .legal-modal .glass-card{padding:18px 16px}
 }
+@media(max-width:540px){
+  .modal-box{padding:24px 18px;width:min(500px,96vw)}
+  .cpc-form-grid{grid-template-columns:1fr}
+  .auth-grid{grid-template-columns:1fr}
+}
 
 /* ── BLOG OVERLAY ── */
 .blog-overlay{position:fixed;inset:0;z-index:8000;background:#0A2B0E;display:none;overflow-y:auto;}
@@ -2779,7 +2784,7 @@ img{max-width:100%;display:block}
     <h2 class="cta-h2">¿Listo para trabajar con<br>el <em>mejor proveedor</em><br>de Canarias?</h2>
     <p class="cta-sub">Regístrate gratis y accede a precios especiales para empresas, pedidos programados y atención personalizada dedicada.</p>
     <div class="cta-btns">
-      <a href="#" class="cta-btn-primary">
+      <a href="#" class="cta-btn-primary" onclick="event.preventDefault();document.getElementById('modal-auth').classList.add('open');switchAuthTab('register')">
         <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Crear cuenta gratuita →
       </a>
