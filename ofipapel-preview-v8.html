@@ -1513,6 +1513,8 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
 .cli-nav-btn.active{background:rgba(255,255,255,.12);color:#fff;border-left:3px solid var(--lime)}
 .cli-section{display:none}
 .cli-section.active{display:block}
+.mi-cuenta-btn{display:flex;align-items:center;gap:6px}
+@media(max-width:900px){.mi-cuenta-txt{display:none}}
 .cli-stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:28px}
 .cli-stat-card{background:rgba(255,255,255,.07);border:1px solid var(--glass-border);border-radius:14px;padding:20px;text-align:center}
 .cli-stat-num{font-size:2rem;font-weight:800;color:var(--lime)}
@@ -1539,8 +1541,8 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
 .cli-quick-actions{display:flex;gap:12px;margin-bottom:28px;flex-wrap:wrap}
 @media(max-width:768px){
   .cli-wrap{flex-direction:column}
-  .cli-nav{width:auto;display:flex;flex-direction:row;overflow-x:auto;gap:6px;margin-bottom:16px}
-  .cli-nav-btn{padding:8px 12px;white-space:nowrap}
+  .cli-nav{width:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:16px}
+  .cli-nav-btn{padding:9px 6px;font-size:.72rem;flex-direction:column;gap:3px;text-align:center;justify-content:center;white-space:normal}
   .cli-stat-grid{grid-template-columns:repeat(2,1fr)}
   .cli-fav-grid{grid-template-columns:repeat(2,1fr)}
   .cli-profile-grid{grid-template-columns:1fr}
@@ -1587,11 +1589,9 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
         <input type="search" placeholder="Busca entre más de 20.000 referencias...">
       </div>
       <div class="hdr-actions">
-<a href="#" onclick="openClienteArea();return false" class="hdr-icon-btn" title="Mi cuenta" style="display:flex;align-items:center;gap:6px;color:var(--txt2);font-size:.78rem;font-weight:600;transition:.2s" onmouseover="this.style.color='#fff'" onmouseout="this.style.color=''"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Mi cuenta</a>
-
-        <a href="#" class="login-link" onclick="event.preventDefault();document.getElementById('modal-auth').classList.add('open');switchAuthTab('login')">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Iniciar sesión
+<a href="#" class="login-link mi-cuenta-btn" onclick="event.preventDefault();openClienteArea()">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span class="mi-cuenta-txt">Mi cuenta</span>
         </a>
         <a href="#" class="reg-btn" onclick="event.preventDefault();document.getElementById('modal-auth').classList.add('open');switchAuthTab('register')">Regístrate →</a>
         <a href="#" class="cart-btn" onclick="event.preventDefault();document.getElementById('modal-payment').classList.add('open')">
