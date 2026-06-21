@@ -1480,6 +1480,20 @@ img{max-width:100%;display:block}
 .blog-modal .art-body blockquote{border-left:3px solid var(--lime);padding:14px 20px;background:rgba(255,255,255,.06);border-radius:0 10px 10px 0;margin:20px 0;font-style:italic;color:rgba(255,255,255,.75);}
 @media(max-width:600px){.blog-modal{padding:28px 20px 36px;}.blog-modal-overlay{padding:20px 10px 40px;}.blog-overlay .page-hero{padding:80px 0 32px;}}
 @media(max-width:768px){.blog-grid{grid-template-columns:1fr;}}
+
+/* ── CATEGORY PAGE OVERLAY ── */
+.cat-page-hero{padding:96px 0 32px;text-align:center}
+.cat-page-pill{display:inline-flex;align-items:center;gap:8px;padding:5px 16px;border-radius:20px;font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px}
+.cat-page-hero h1{font-family:'Plus Jakarta Sans',sans-serif;font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;line-height:1.15;margin-bottom:10px}
+.cat-page-desc{color:var(--txt2);font-size:.97rem;line-height:1.7;max-width:560px;margin:0 auto}
+.subcat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:28px 0 80px}
+.subcat-card{display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.055);border:1px solid var(--glass-border);border-radius:12px;padding:15px 16px;cursor:pointer;text-decoration:none;color:#fff;transition:background .2s,border-color .2s,transform .18s}
+.subcat-card:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.28);transform:translateY(-2px)}
+.subcat-card-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.subcat-card-name{font-size:.875rem;font-weight:600;line-height:1.3;flex:1}
+.subcat-card-arrow{flex-shrink:0;opacity:.45}
+@media(max-width:900px){.subcat-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.subcat-grid{grid-template-columns:1fr;gap:10px}.cat-page-hero{padding:80px 0 24px}}
 </style>
 </head>
 <body>
@@ -1894,7 +1908,7 @@ img{max-width:100%;display:block}
     <div class="cat-grid stagger">
 
       <!-- A-Z MULTIPRODUCTO — FEATURED -->
-      <div class="cat-card cat-card-featured" style="grid-column:span 2">
+      <div class="cat-card cat-card-featured" style="grid-column:span 2" role="button" onclick="openCategoryPage('az')">
         <div class="cat-icon"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M4 6l8-4 8 4v12l-8 4-8-4z"/><path d="M4 6l8 4 8-4"/><path d="M12 10v12"/></svg></div>
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -1907,126 +1921,126 @@ img{max-width:100%;display:block}
       </div>
 
       <!-- Clasificación y Archivo -->
-      <div class="cat-card" style="--cc:#4299C4">
+      <div class="cat-card" role="button" onclick="openCategoryPage('archivo')" style="--cc:#4299C4">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div>
         <div><div class="cat-name">Clasificación y Archivo</div><div class="cat-count">Archivadores, carpetas...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Papel y Etiquetas -->
-      <div class="cat-card" style="--cc:#AECC30">
+      <div class="cat-card" role="button" onclick="openCategoryPage('papel')" style="--cc:#AECC30">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
         <div><div class="cat-name">Papel y Etiquetas</div><div class="cat-count">Folios, etiquetas, cartulinas...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Escritura -->
-      <div class="cat-card" style="--cc:#F5A623">
+      <div class="cat-card" role="button" onclick="openCategoryPage('escritura')" style="--cc:#F5A623">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
         <div><div class="cat-name">Escritura y Corrección</div><div class="cat-count">Bolígrafos, marcadores...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Informática -->
-      <div class="cat-card" style="--cc:#818CF8">
+      <div class="cat-card" role="button" onclick="openCategoryPage('informatica')" style="--cc:#818CF8">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
         <div><div class="cat-name">Informática</div><div class="cat-count">Periféricos, consumibles...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Mobiliario -->
-      <div class="cat-card" style="--cc:#A78BFA">
+      <div class="cat-card" role="button" onclick="openCategoryPage('mobiliario')" style="--cc:#A78BFA">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></div>
         <div><div class="cat-name">Mobiliario de Oficina</div><div class="cat-count">Sillas, mesas, estanterías...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Embalaje -->
-      <div class="cat-card" style="--cc:#F97316">
+      <div class="cat-card" role="button" onclick="openCategoryPage('embalaje')" style="--cc:#F97316">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12.89 1.45l8 4A2 2 0 0 1 22 7.24v9.53a2 2 0 0 1-1.11 1.79l-8 4a2 2 0 0 1-1.79 0l-8-4a2 2 0 0 1-1.1-1.8V7.24a2 2 0 0 1 1.11-1.79l8-4a2 2 0 0 1 1.78 0z"/></svg></div>
         <div><div class="cat-name">Embalaje y Expedición</div><div class="cat-count">Cajas, cinta, burbujas...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Material Escolar -->
-      <div class="cat-card" style="--cc:#F43F5E">
+      <div class="cat-card" role="button" onclick="openCategoryPage('escolar')" style="--cc:#F43F5E">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
         <div><div class="cat-name">Material Escolar</div><div class="cat-count">Cuadernos, mochilas, cole...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Blocs y Cuadernos -->
-      <div class="cat-card" style="--cc:#2DD4BF">
+      <div class="cat-card" role="button" onclick="openCategoryPage('blocs')" style="--cc:#2DD4BF">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
         <div><div class="cat-name">Blocs y Cuadernos</div><div class="cat-count">Agendas, libretas, blocs...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Artículos Generales -->
-      <div class="cat-card" style="--cc:#94A3B8">
+      <div class="cat-card" role="button" onclick="openCategoryPage('generales')" style="--cc:#94A3B8">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg></div>
         <div><div class="cat-name">Artículos Generales</div><div class="cat-count">Grapas, clips, tijeras...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Ofimática -->
-      <div class="cat-card" style="--cc:#60A5FA">
+      <div class="cat-card" role="button" onclick="openCategoryPage('ofimatica')" style="--cc:#60A5FA">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><path d="M12 18h.01"/></svg></div>
         <div><div class="cat-name">Ofimática / Máquinas</div><div class="cat-count">Calculadoras, plastificadoras...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Servicios Generales -->
-      <div class="cat-card" style="--cc:#33B540">
+      <div class="cat-card" role="button" onclick="openCategoryPage('servicios')" style="--cc:#33B540">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
         <div><div class="cat-name">Servicios Generales</div><div class="cat-count">Higiene, desinfección...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Cintas Adhesivas y Pegamentos -->
-      <div class="cat-card" style="--cc:#EAB308">
+      <div class="cat-card" role="button" onclick="openCategoryPage('cintas')" style="--cc:#EAB308">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
         <div><div class="cat-name">Cintas Adhesivas y Pegamentos</div><div class="cat-count">Celo, silicona, cola...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Comunicación Visual y Señalización -->
-      <div class="cat-card" style="--cc:#9333EA">
+      <div class="cat-card" role="button" onclick="openCategoryPage('visual')" style="--cc:#9333EA">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg></div>
         <div><div class="cat-name">Comunicación Visual</div><div class="cat-count">Carteles, señalización...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Dibujo y Pintura -->
-      <div class="cat-card" style="--cc:#EC4899">
+      <div class="cat-card" role="button" onclick="openCategoryPage('dibujo')" style="--cc:#EC4899">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg></div>
         <div><div class="cat-name">Dibujo y Pintura</div><div class="cat-count">Pinceles, acuarelas...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Entretenimiento y Regalos -->
-      <div class="cat-card" style="--cc:#E11D48">
+      <div class="cat-card" role="button" onclick="openCategoryPage('entretenimiento')" style="--cc:#E11D48">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg></div>
         <div><div class="cat-name">Entretenimiento y Regalos</div><div class="cat-count">Juegos, puzzles, detalles...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Mobiliario Oficinas ACTIU -->
-      <div class="cat-card" style="--cc:#0284C7">
+      <div class="cat-card" role="button" onclick="openCategoryPage('actiu')" style="--cc:#0284C7">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M20 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v3"/><path d="M2 11v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H6v-2a2 2 0 0 0-4 0z"/><path d="M6 19v2M18 19v2"/></svg></div>
         <div><div class="cat-name">Mobiliario ACTIU</div><div class="cat-count">Sillas ergonómicas, mesas...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Sobres y Envíos -->
-      <div class="cat-card" style="--cc:#0D9488">
+      <div class="cat-card" role="button" onclick="openCategoryPage('sobres')" style="--cc:#0D9488">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
         <div><div class="cat-name">Sobres y Envíos</div><div class="cat-count">Sobres, burbuja, kraft...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
       </div>
 
       <!-- Z-Regalos Promocionales -->
-      <div class="cat-card" style="--cc:#CA8A04">
+      <div class="cat-card" role="button" onclick="openCategoryPage('regalos')" style="--cc:#CA8A04">
         <div class="cat-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
         <div><div class="cat-name">Z-Regalos Promocionales</div><div class="cat-count">Merchandising, detalles...</div></div>
         <svg class="cat-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
@@ -3657,6 +3671,72 @@ function switchAuthTab(tab) {
 })();
 
 
+
+// ── Category pages ──
+var CATS_DATA = {
+  az:{ name:'A-Z Multiproducto', desc:'El catálogo más completo — papel, escritura, archivo, embalaje, escolar y mucho más', color:'#33B540',
+    subs:['Sillas Oferta','Informática Oferta','Material Escolar Oferta','Embalaje Oferta','Artículos Generales Oferta','Papel Oferta','Mobiliario Oferta','Escritura Oferta']},
+  archivo:{ name:'Clasificación y Archivo', desc:'Archivadores, carpetas y todo lo necesario para organizar tu documentación', color:'#4299C4',
+    subs:['Álbumes Fotos, Monedas, Sellos','Archivadores','Archivos Definitivos','Archivos Modulares (Módulos)','Cajas Transferencias','Carpetas Colgantes','Carpetas Documentos Portafolios','Carpetas Fundas','Carpetas Portamenú','Carpetas Proyectos','Carpetas Varias','Carteras Documentos','Clasificadores Fuelle (Acordeón)','Dossier','Ficheros Fichas','Fundas','Listines Telefónicos','Maletines Portadocumentos','Portafirmas','Portatarjetas Tarjeteros','Sobres Portadocumentos','Subcarpetas']},
+  papel:{ name:'Papel y Etiquetas', desc:'Folios, etiquetas, cartulinas y todo tipo de papel para tu oficina', color:'#AECC30',
+    subs:['Cartulinas','Etiquetas','Papel Continuo Ordenador','Papeles Especiales (Informática)','Papeles Multifunción','Rollos Cálculo','Rollos Papel Plotter','Rollos Papel Télex']},
+  escritura:{ name:'Escritura y Corrección', desc:'Bolígrafos, marcadores, correctores y material de escritura profesional', color:'#F5A623',
+    subs:['Afilalápices (Oficina)','Bolígrafos','Cinta y Lápiz Correctores','Correctores Líquidos','Escritura de Regalo','Gomas Borrar (Oficinas)','Lápices','Minas Grafito','Portaminas','Recambios Bolígrafo y Rotulador','Resaltadores (Marcadores)','Rotuladores Marcadores','Tintas y Tinteros']},
+  informatica:{ name:'Informática', desc:'Periféricos, consumibles y equipos informáticos para tu empresa', color:'#818CF8',
+    subs:['Accesorios Informática','Consumibles Compatibles','Consumibles Originales','Equipos Informática','Equipos Multifuncionales','Ergonomía y Multimedia','Impresoras']},
+  mobiliario:{ name:'Mobiliario de Oficina', desc:'Sillas, mesas y estanterías para equipar tu espacio de trabajo', color:'#A78BFA',
+    subs:['Armarios y Ficheros','Mobiliario Auxiliar','Sillas de Oficina']},
+  embalaje:{ name:'Embalaje y Expedición', desc:'Cajas, cinta adhesiva, burbujas y todo para tus envíos', color:'#F97316',
+    subs:['Balanzas Pesacartas Electrónicas','Bobinas Papel Regalo','Bolsa Asa Tiendas (Plásticas)','Bolsas Celofán y Otras','Bolsas Para Regalos','Bolsas y Accesorios de Regalo','Cajas de Embalaje','Cintas y Lazos para Regalos','Cuerdas de Embalar','Dispensadores Papel 30-60 ctm','Film Paletizar','Fundas Grip (Cierre Rápido)','Papel Embalar Bobinas','Plástico Adhesivos Rollos','Portaplanos Cartón','Portaplanos Plásticos','Rollos de Burbujas','Sobres y Etiquetas de Envío']},
+  escolar:{ name:'Material Escolar', desc:'Cuadernos, mochilas y material escolar para todas las edades', color:'#F43F5E',
+    subs:['Artículos Escolar Diseño','Blocs de Dibujo','Blocs Varios Escolares','Ceras (Creyón)','Escuadras y Cartabones','Lápices de Colores (Escolares)','Material Dibujo Técnico','Material Escolar','Mochilas Escolares','Papeles y Rollos','Reglas Escolares','Reglas Técnicas, Escalímetros']},
+  blocs:{ name:'Blocs y Cuadernos', desc:'Agendas, libretas, blocs y cuadernos para tu organización diaria', color:'#2DD4BF',
+    subs:['Agendas y Calendarios','Blocs Oficina','Cuadernos y Blocs Espiral','Libretas','Libros Contabilidad y Registro','Notas Reposicionables','Organización','Recambios Agendas','Recambios Papel','Talonarios Impresos']},
+  generales:{ name:'Artículos Generales', desc:'Grapas, clips, tijeras y complementos esenciales de oficina', color:'#94A3B8',
+    subs:['Accesorios de Sujeción','Clavadoras Grapadoras','Complementos Sobremesa','Cutter y Complementos','Grapadoras','Grapas','Módulos Bucs Sobremesa','Papeleras Oficina','Sacagrapas Quitagrapas','Sellos y Fechadores','Taladros Perforadores','Tijeras de Oficina','Tintas y Tampones']},
+  ofimatica:{ name:'Ofimática / Máquinas', desc:'Calculadoras, plastificadoras, destructoras y máquinas de oficina', color:'#60A5FA',
+    subs:['Accesorios Máquina Turnos','Cajas Registradoras','Calculadoras','Cizallas y Guillotinas','Destructoras Documentos','Encuadernación','Etiquetadoras','Impresoras Etiquetas','Pilas — Baterías','Plastificación','Rotulación y Etiquetado','Telefonía']},
+  servicios:{ name:'Servicios Generales', desc:'Productos de higiene, limpieza y mantenimiento para tu oficina', color:'#33B540',
+    subs:['Almacenaje y Mantenimiento','Detectores Contadores Dinero','Higiene y Limpieza','Seguridad']},
+  cintas:{ name:'Cintas Adhesivas y Pegamentos', desc:'Celo, silicona, cola y todo tipo de adhesivos', color:'#EAB308',
+    subs:['Cintas Adhesivas','Cintas de Embalar','Máquinas Selladoras Bolsas','Masilla Adhesiva y Velcro','Pegamentos','Portarrollos Cinta Adhesiva','Precintadoras Embalaje']},
+  visual:{ name:'Comunicación Visual y Señalización', desc:'Pizarras, proyección, carteles y señalización para tu espacio', color:'#9333EA',
+    subs:['Accesorios Pizarras','Atriles Información Conferencias','Expositores Portafolletos','Fundas y Display','Letras y Números Adhesivos','Pizarras','Proyección','Señalización Rotulación','Tizas','Videoproyección','Vitrinas Tableros (Anuncios)']},
+  dibujo:{ name:'Dibujo y Pintura', desc:'Pinceles, acuarelas, blocs de bellas artes y materiales creativos', color:'#EC4899',
+    subs:['Accesorios (Bellas-Artes)','Bellas Artes','Blocs y Láminas (Bellas Artes)']},
+  entretenimiento:{ name:'Entretenimiento y Regalos', desc:'Juegos de mesa, juegos educativos y artículos de ocio', color:'#E11D48',
+    subs:['Juegos de Mesa (Ajedrez, Barajas, Damas)','Juegos Educativos, Globos']},
+  actiu:{ name:'Mobiliario Oficinas ACTIU', desc:'Sillas ergonómicas, mesas y armarios de la marca ACTIU para oficinas profesionales', color:'#0284C7',
+    subs:['Armarios Madera (Actiu)','Armarios Metal (Actiu)','Bucs (Actiu)','Mesas y Alas','Sillas y Sillones']},
+  sobres:{ name:'Sobres y Envíos', desc:'Sobres kraft, acolchados, de colores y tarjetas de visita', color:'#0D9488',
+    subs:['Sobre Ventana','Sobres Acolchados','Sobres en Paquetes','Sobres Tipo Bolsa','Sobres y Tarjetones Colores','Tarjetas de Visita (Cartulina)','Tipo Sobre']},
+  regalos:{ name:'Z-Regalos Promocionales', desc:'Merchandising, bolígrafos publicitarios, tazas y artículos personalizados', color:'#CA8A04',
+    subs:['Bolígrafos Publicitarios','Blocks Publicitarios','Mochilas Personalizadas','Artículos de Regalo','Paraguas Publicitarios','Tazas y Vasos','Libretas Personalizadas','Bolsas Publicitarias']}
+};
+
+function openCategoryPage(id) {
+  var cat = CATS_DATA[id];
+  if (!cat) return;
+  var overlay = document.getElementById('modal-category');
+  document.getElementById('cat-page-hero').innerHTML =
+    '<div class="cat-page-pill" style="background:'+cat.color+'22;border:1px solid '+cat.color+'66;color:'+cat.color+'">'+cat.name+'</div>'+
+    '<h1>'+cat.name+'</h1>'+
+    '<p class="cat-page-desc">'+cat.desc+'</p>';
+  var svgArrow='<svg class="subcat-card-arrow" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>';
+  var svgDot='<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg>';
+  document.getElementById('cat-page-grid').innerHTML = cat.subs.map(function(s){
+    return '<a href="#" class="subcat-card" onclick="return false">'+
+      '<div class="subcat-card-icon" style="background:'+cat.color+'1a;color:'+cat.color+'">'+svgDot+'</div>'+
+      '<span class="subcat-card-name">'+s+'</span>'+svgArrow+'</a>';
+  }).join('');
+  overlay.classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeCategoryPage(){
+  document.getElementById('modal-category').classList.remove('open');
+  document.body.style.overflow='';
+}
+
 // ── Overlay particles ──
 (function(){
   var COLORS=['rgba(51,181,64,','rgba(174,204,48,','rgba(255,255,255,','rgba(66,153,196,'];
@@ -4348,6 +4428,19 @@ function setLang(lang) {
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+
+<!-- CATEGORY PAGE OVERLAY -->
+<div id="modal-category" class="blog-overlay" role="dialog" aria-label="Categoría de productos">
+  <canvas class="overlay-particles" aria-hidden="true"></canvas>
+  <button class="blog-overlay-close" onclick="closeCategoryPage()" aria-label="Cerrar">&#10005;</button>
+  <div class="blog-overlay-inner">
+    <div class="container">
+      <div class="cat-page-hero" id="cat-page-hero"></div>
+      <div class="subcat-grid" id="cat-page-grid"></div>
     </div>
   </div>
 </div>
