@@ -1503,6 +1503,52 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
 .subcat-card-arrow{flex-shrink:0;opacity:.45}
 @media(max-width:900px){.subcat-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:520px){.subcat-grid{grid-template-columns:1fr;gap:10px}.cat-page-hero{padding:80px 0 24px}}
+
+/* ===== ÁREA DE CLIENTE ===== */
+.cli-wrap{display:flex;gap:24px;padding-top:90px}
+.cli-greeting{padding:0 0 28px}
+.cli-nav{width:220px;flex-shrink:0;display:flex;flex-direction:column;gap:4px}
+.cli-nav-btn{display:flex;align-items:center;gap:10px;width:100%;padding:11px 16px;border-radius:10px;color:rgba(255,255,255,.7);font-weight:600;font-size:.875rem;background:none;border:none;cursor:pointer;text-align:left;transition:.2s}
+.cli-nav-btn:hover{background:rgba(255,255,255,.08);color:#fff}
+.cli-nav-btn.active{background:rgba(255,255,255,.12);color:#fff;border-left:3px solid var(--lime)}
+.cli-section{display:none}
+.cli-section.active{display:block}
+.cli-stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:28px}
+.cli-stat-card{background:rgba(255,255,255,.07);border:1px solid var(--glass-border);border-radius:14px;padding:20px;text-align:center}
+.cli-stat-num{font-size:2rem;font-weight:800;color:var(--lime)}
+.cli-stat-lbl{font-size:.78rem;color:var(--txt2);margin-top:4px}
+.cli-table{width:100%;border-collapse:collapse}
+.cli-table th{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--txt2);padding:10px 14px;text-align:left;border-bottom:1px solid var(--glass-border)}
+.cli-table td{padding:13px 14px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.875rem;vertical-align:middle}
+.cli-table tr:last-child td{border-bottom:none}
+.cli-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.68rem;font-weight:700;letter-spacing:.04em}
+.cli-badge-green{background:rgba(51,181,64,.2);color:#33B540;border:1px solid rgba(51,181,64,.3)}
+.cli-badge-lime{background:rgba(174,204,48,.2);color:#AECC30;border:1px solid rgba(174,204,48,.3)}
+.cli-badge-orange{background:rgba(245,166,35,.2);color:#F5A623;border:1px solid rgba(245,166,35,.3)}
+.cli-badge-gray{background:rgba(255,255,255,.1);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15)}
+.cli-section-title{font-size:1.2rem;font-weight:700;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--glass-border)}
+.cli-btn-sm{font-size:.72rem;padding:5px 12px;border-radius:16px;border:1px solid var(--glass-border);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;transition:.2s}
+.cli-btn-sm:hover{background:rgba(255,255,255,.18)}
+.cli-fav-grid{grid-template-columns:repeat(3,1fr);gap:14px}
+.cli-fav-card{background:rgba(255,255,255,.07);border:1px solid var(--glass-border);border-radius:12px;padding:14px;cursor:pointer}
+.cli-fav-img{width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:10px;background:rgba(255,255,255,.06)}
+.cli-profile-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.cli-field{display:flex;flex-direction:column;gap:6px}
+.cli-field label{font-size:.78rem;color:var(--txt2);font-weight:600}
+.cli-field input{background:rgba(255,255,255,.07);border:1px solid var(--glass-border);border-radius:8px;padding:10px 14px;color:#fff;font-size:.875rem;width:100%}
+.cli-quick-actions{display:flex;gap:12px;margin-bottom:28px;flex-wrap:wrap}
+@media(max-width:768px){
+  .cli-wrap{flex-direction:column}
+  .cli-nav{width:auto;display:flex;flex-direction:row;overflow-x:auto;gap:6px;margin-bottom:16px}
+  .cli-nav-btn{padding:8px 12px;white-space:nowrap}
+  .cli-stat-grid{grid-template-columns:repeat(2,1fr)}
+  .cli-fav-grid{grid-template-columns:repeat(2,1fr)}
+  .cli-profile-grid{grid-template-columns:1fr}
+}
+@media(max-width:480px){
+  .cli-stat-grid{grid-template-columns:1fr}
+  .cli-fav-grid{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -1541,6 +1587,8 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
         <input type="search" placeholder="Busca entre más de 20.000 referencias...">
       </div>
       <div class="hdr-actions">
+<a href="#" onclick="openClienteArea();return false" class="hdr-icon-btn" title="Mi cuenta" style="display:flex;align-items:center;gap:6px;color:var(--txt2);font-size:.78rem;font-weight:600;transition:.2s" onmouseover="this.style.color='#fff'" onmouseout="this.style.color=''"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Mi cuenta</a>
+
         <a href="#" class="login-link" onclick="event.preventDefault();document.getElementById('modal-auth').classList.add('open');switchAuthTab('login')">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           Iniciar sesión
@@ -4329,6 +4377,204 @@ function setLang(lang) {
 <!-- LEGAL MODALS -->
 
 <!-- ── SOBRE OFIPAPEL OVERLAY ── -->
+<!-- ÁREA DE CLIENTE -->
+<div id="modal-cliente" class="blog-overlay" role="dialog" aria-label="Área de cliente">
+  <canvas class="overlay-particles" aria-hidden="true"></canvas>
+  <button class="blog-overlay-close" onclick="closeClienteArea()" aria-label="Cerrar">&#10005;</button>
+  <div class="blog-overlay-inner">
+    <div class="container">
+
+      <!-- Greeting -->
+      <div class="cli-greeting">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--g),var(--lime));display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:800;color:#fff;flex-shrink:0">MG</div>
+          <div>
+            <div style="font-size:1.3rem;font-weight:800;font-family:'Plus Jakarta Sans',sans-serif">Hola, <span style="color:var(--lime)">María García</span> 👋</div>
+            <div style="font-size:.82rem;color:var(--txt2);margin-top:3px">Empresa: Gestiones López SL &nbsp;·&nbsp; Cliente desde 2021 &nbsp;·&nbsp; <span style="color:var(--lime)">★ Cliente Preferente</span></div>
+          </div>
+          <div style="margin-left:auto">
+            <button onclick="closeClienteArea()" style="background:rgba(255,255,255,.08);border:1px solid var(--glass-border);border-radius:24px;padding:8px 18px;color:rgba(255,255,255,.7);font-size:.8rem;cursor:pointer">Cerrar sesión</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Layout -->
+      <div class="cli-wrap">
+
+        <!-- Sidebar -->
+        <nav class="cli-nav">
+          <button class="cli-nav-btn active" onclick="showCliSection('dashboard',this)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Dashboard
+          </button>
+          <button class="cli-nav-btn" onclick="showCliSection('pedidos',this)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+            Mis Pedidos
+          </button>
+          <button class="cli-nav-btn" onclick="showCliSection('presupuestos',this)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            Presupuestos
+          </button>
+          <button class="cli-nav-btn" onclick="showCliSection('favoritos',this)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            Favoritos
+          </button>
+          <button class="cli-nav-btn" onclick="showCliSection('facturas',this)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Facturas
+          </button>
+          <button class="cli-nav-btn" onclick="showCliSection('datos',this)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Mis Datos
+          </button>
+        </nav>
+
+        <!-- Content -->
+        <div class="cli-content" style="flex:1;min-width:0">
+
+          <!-- DASHBOARD -->
+          <div id="cli-dashboard" class="cli-section active">
+            <div class="cli-stat-grid">
+              <div class="cli-stat-card">
+                <div class="cli-stat-num">12</div>
+                <div class="cli-stat-lbl">Pedidos realizados</div>
+              </div>
+              <div class="cli-stat-card">
+                <div class="cli-stat-num" style="color:var(--cta)">1</div>
+                <div class="cli-stat-lbl">En tránsito</div>
+              </div>
+              <div class="cli-stat-card">
+                <div class="cli-stat-num" style="color:#818CF8">4</div>
+                <div class="cli-stat-lbl">Favoritos guardados</div>
+              </div>
+              <div class="cli-stat-card">
+                <div class="cli-stat-num" style="color:#2DD4BF">2</div>
+                <div class="cli-stat-lbl">Presupuestos activos</div>
+              </div>
+            </div>
+
+            <div class="cli-quick-actions">
+              <button class="btn-primary" style="font-size:.82rem;padding:10px 20px" onclick="showCliSection('pedidos',document.querySelector('[onclick*=pedidos]'))">+ Repetir último pedido</button>
+              <button class="cli-btn-sm" style="padding:9px 18px;font-size:.82rem" onclick="showCliSection('presupuestos',document.querySelector('[onclick*=presupuestos]'))">Solicitar presupuesto</button>
+              <button class="cli-btn-sm" style="padding:9px 18px;font-size:.82rem" onclick="showCliSection('facturas',document.querySelector('[onclick*=facturas]'))">Descargar facturas</button>
+            </div>
+
+            <div class="cli-section-title">Actividad reciente</div>
+            <table class="cli-table">
+              <thead><tr><th>Nº Pedido</th><th>Fecha</th><th>Total</th><th>Estado</th><th></th></tr></thead>
+              <tbody>
+                <tr><td><strong>#OFI-2025-0341</strong></td><td style="color:var(--txt2)">18 jun 2025</td><td><strong>€247,80</strong></td><td><span class="cli-badge cli-badge-lime">En tránsito</span></td><td><button class="cli-btn-sm">Ver</button></td></tr>
+                <tr><td><strong>#OFI-2025-0298</strong></td><td style="color:var(--txt2)">02 jun 2025</td><td><strong>€89,45</strong></td><td><span class="cli-badge cli-badge-green">Entregado</span></td><td><button class="cli-btn-sm">Ver</button></td></tr>
+                <tr><td><strong>#OFI-2025-0261</strong></td><td style="color:var(--txt2)">14 may 2025</td><td><strong>€512,30</strong></td><td><span class="cli-badge cli-badge-green">Entregado</span></td><td><button class="cli-btn-sm">Ver</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- MIS PEDIDOS -->
+          <div id="cli-pedidos" class="cli-section">
+            <div class="cli-section-title">Mis Pedidos</div>
+            <table class="cli-table">
+              <thead><tr><th>Nº Pedido</th><th>Fecha</th><th>Artículos</th><th>Total</th><th>Estado</th><th></th></tr></thead>
+              <tbody>
+                <tr><td><strong>#OFI-2025-0341</strong></td><td style="color:var(--txt2)">18 jun 2025</td><td style="color:var(--txt2)">8 artículos</td><td><strong>€247,80</strong></td><td><span class="cli-badge cli-badge-lime">En tránsito</span></td><td><button class="cli-btn-sm">Ver detalle</button></td></tr>
+                <tr><td><strong>#OFI-2025-0298</strong></td><td style="color:var(--txt2)">02 jun 2025</td><td style="color:var(--txt2)">3 artículos</td><td><strong>€89,45</strong></td><td><span class="cli-badge cli-badge-green">Entregado</span></td><td><button class="cli-btn-sm">Ver detalle</button></td></tr>
+                <tr><td><strong>#OFI-2025-0261</strong></td><td style="color:var(--txt2)">14 may 2025</td><td style="color:var(--txt2)">21 artículos</td><td><strong>€512,30</strong></td><td><span class="cli-badge cli-badge-green">Entregado</span></td><td><button class="cli-btn-sm">Ver detalle</button></td></tr>
+                <tr><td><strong>#OFI-2025-0219</strong></td><td style="color:var(--txt2)">28 abr 2025</td><td style="color:var(--txt2)">5 artículos</td><td><strong>€134,90</strong></td><td><span class="cli-badge cli-badge-green">Entregado</span></td><td><button class="cli-btn-sm">Ver detalle</button></td></tr>
+                <tr><td><strong>#OFI-2025-0187</strong></td><td style="color:var(--txt2)">10 abr 2025</td><td style="color:var(--txt2)">2 artículos</td><td><strong>€44,20</strong></td><td><span class="cli-badge cli-badge-gray">Cancelado</span></td><td><button class="cli-btn-sm">Ver detalle</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- PRESUPUESTOS -->
+          <div id="cli-presupuestos" class="cli-section">
+            <div class="cli-section-title">Mis Presupuestos</div>
+            <table class="cli-table">
+              <thead><tr><th>Nº</th><th>Fecha solicitud</th><th>Descripción</th><th>Estado</th><th></th></tr></thead>
+              <tbody>
+                <tr><td><strong>#PRES-2025-042</strong></td><td style="color:var(--txt2)">15 jun 2025</td><td style="color:var(--txt2)">Material oficina Q3 — 45 referencias</td><td><span class="cli-badge cli-badge-orange">Pendiente</span></td><td><button class="cli-btn-sm">Ver</button></td></tr>
+                <tr><td><strong>#PRES-2025-031</strong></td><td style="color:var(--txt2)">03 may 2025</td><td style="color:var(--txt2)">Mobiliario sala reuniones</td><td><span class="cli-badge cli-badge-lime">Enviado</span></td><td><button class="cli-btn-sm">Ver</button></td></tr>
+                <tr><td><strong>#PRES-2025-018</strong></td><td style="color:var(--txt2)">20 mar 2025</td><td style="color:var(--txt2)">Material escolar lote empresa</td><td><span class="cli-badge cli-badge-green">Aceptado</span></td><td><button class="cli-btn-sm">Ver</button></td></tr>
+              </tbody>
+            </table>
+            <div style="margin-top:20px">
+              <button class="btn-primary" style="font-size:.82rem;padding:10px 22px" onclick="document.getElementById('modal-cpc')?.classList.add('open')">+ Solicitar nuevo presupuesto</button>
+            </div>
+          </div>
+
+          <!-- FAVORITOS -->
+          <div id="cli-favoritos" class="cli-section">
+            <div class="cli-section-title">Mis Favoritos</div>
+            <div class="cli-fav-grid" style="display:grid;gap:14px">
+              <div class="cli-fav-card">
+                <div class="cli-fav-img" style="display:flex;align-items:center;justify-content:center;font-size:2rem">📎</div>
+                <div style="font-size:.82rem;font-weight:600;margin-bottom:4px">Archivadores A4 Leitz 180°</div>
+                <div style="font-size:.78rem;color:var(--lime);font-weight:700;margin-bottom:8px">€4,95 / ud</div>
+                <button class="cli-btn-sm" style="width:100%">Añadir al carrito</button>
+              </div>
+              <div class="cli-fav-card">
+                <div class="cli-fav-img" style="display:flex;align-items:center;justify-content:center;font-size:2rem">🖊️</div>
+                <div style="font-size:.82rem;font-weight:600;margin-bottom:4px">Bolígrafo BIC Cristal M10 — Caja 50</div>
+                <div style="font-size:.78rem;color:var(--lime);font-weight:700;margin-bottom:8px">€12,30 / caja</div>
+                <button class="cli-btn-sm" style="width:100%">Añadir al carrito</button>
+              </div>
+              <div class="cli-fav-card">
+                <div class="cli-fav-img" style="display:flex;align-items:center;justify-content:center;font-size:2rem">📄</div>
+                <div style="font-size:.82rem;font-weight:600;margin-bottom:4px">Papel Multifunción A4 500h 80g</div>
+                <div style="font-size:.78rem;color:var(--lime);font-weight:700;margin-bottom:8px">€5,20 / resma</div>
+                <button class="cli-btn-sm" style="width:100%">Añadir al carrito</button>
+              </div>
+              <div class="cli-fav-card">
+                <div class="cli-fav-img" style="display:flex;align-items:center;justify-content:center;font-size:2rem">✂️</div>
+                <div style="font-size:.82rem;font-weight:600;margin-bottom:4px">Tijeras Maped Sensoft 21cm</div>
+                <div style="font-size:.78rem;color:var(--lime);font-weight:700;margin-bottom:8px">€8,75 / ud</div>
+                <button class="cli-btn-sm" style="width:100%">Añadir al carrito</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- FACTURAS -->
+          <div id="cli-facturas" class="cli-section">
+            <div class="cli-section-title">Mis Facturas</div>
+            <table class="cli-table">
+              <thead><tr><th>Nº Factura</th><th>Fecha</th><th>Pedido</th><th>Total (IVA inc.)</th><th></th></tr></thead>
+              <tbody>
+                <tr><td><strong>FAC-2025-0261</strong></td><td style="color:var(--txt2)">16 may 2025</td><td style="color:var(--txt2)">#OFI-2025-0261</td><td><strong>€619,88</strong></td><td><button class="cli-btn-sm">⬇ Descargar PDF</button></td></tr>
+                <tr><td><strong>FAC-2025-0219</strong></td><td style="color:var(--txt2)">30 abr 2025</td><td style="color:var(--txt2)">#OFI-2025-0219</td><td><strong>€163,23</strong></td><td><button class="cli-btn-sm">⬇ Descargar PDF</button></td></tr>
+                <tr><td><strong>FAC-2025-0187</strong></td><td style="color:var(--txt2)">12 abr 2025</td><td style="color:var(--txt2)">#OFI-2025-0187</td><td><strong>€53,48</strong></td><td><button class="cli-btn-sm">⬇ Descargar PDF</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- MIS DATOS -->
+          <div id="cli-datos" class="cli-section">
+            <div class="cli-section-title">Mis Datos</div>
+            <div class="cli-profile-grid" style="margin-bottom:24px">
+              <div class="cli-field"><label>Nombre</label><input type="text" value="María" class="auth-input"></div>
+              <div class="cli-field"><label>Apellidos</label><input type="text" value="García López" class="auth-input"></div>
+              <div class="cli-field"><label>Email</label><input type="email" value="m.garcia@gestioneslopez.es" class="auth-input"></div>
+              <div class="cli-field"><label>Teléfono</label><input type="tel" value="922 34 56 78" class="auth-input"></div>
+              <div class="cli-field"><label>Empresa</label><input type="text" value="Gestiones López" class="auth-input"></div>
+              <div class="cli-field"><label>Razón Social</label><input type="text" value="Gestiones López SL" class="auth-input"></div>
+              <div class="cli-field"><label>CIF / NIF</label><input type="text" value="B38123456" class="auth-input"></div>
+            </div>
+            <div class="cli-section-title" style="margin-top:8px">Dirección de envío</div>
+            <div class="cli-profile-grid" style="margin-bottom:24px">
+              <div class="cli-field" style="grid-column:span 2"><label>Dirección</label><input type="text" value="Calle La Marina 14, 2ºB" class="auth-input"></div>
+              <div class="cli-field"><label>Ciudad</label><input type="text" value="Santa Cruz de Tenerife" class="auth-input"></div>
+              <div class="cli-field"><label>Código Postal</label><input type="text" value="38001" class="auth-input"></div>
+            </div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <button class="btn-primary" style="font-size:.85rem;padding:11px 28px">Guardar cambios</button>
+              <button class="cli-btn-sm" style="padding:10px 20px;font-size:.85rem">Cambiar contraseña</button>
+            </div>
+          </div>
+
+        </div><!-- end cli-content -->
+      </div><!-- end cli-wrap -->
+    </div><!-- end container -->
+  </div><!-- end blog-overlay-inner -->
+</div><!-- end modal-cliente -->
+
 <div id="about-overlay" class="blog-overlay" role="dialog" aria-label="Sobre Ofipapel">
   <canvas class="overlay-particles" aria-hidden="true"></canvas>
   <button class="blog-overlay-close" onclick="closeAboutOverlay()" aria-label="Cerrar">&#10005;</button>
@@ -5125,6 +5371,24 @@ document.addEventListener('keydown',function(e){
     }
   }
 });
+
+function openClienteArea(){
+  document.getElementById('modal-cliente').classList.add('open');
+  document.body.classList.add('overlay-open');
+  document.body.style.overflow='hidden';
+}
+function closeClienteArea(){
+  document.getElementById('modal-cliente').classList.remove('open');
+  document.body.classList.remove('overlay-open');
+  document.body.style.overflow='';
+}
+function showCliSection(id, btn){
+  document.querySelectorAll('.cli-section').forEach(function(s){s.classList.remove('active');});
+  document.querySelectorAll('.cli-nav-btn').forEach(function(b){b.classList.remove('active');});
+  var el = document.getElementById('cli-'+id);
+  if(el) el.classList.add('active');
+  if(btn) btn.classList.add('active');
+}
 </script>
 
 </body>
