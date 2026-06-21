@@ -128,10 +128,17 @@ img{max-width:100%;display:block}
   background:rgba(255,255,255,.12)!important;
   border:1px solid var(--glass-border);
   border-radius:var(--r);
-  padding:8px 10px;
+  padding:6px 10px;position:relative;
 }
 .cart-btn:hover{background:rgba(255,255,255,.2)!important}
-.cart-count{background:var(--cta);color:#fff;font-size:.65rem;font-weight:700;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.cart-emoji{font-size:1.4rem;line-height:1;display:block}
+.cart-count{
+  position:absolute;top:-5px;right:-5px;
+  background:var(--cta);color:#fff;font-size:.58rem;font-weight:700;
+  min-width:17px;height:17px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;padding:0 3px;
+  border:2px solid rgba(10,40,15,.9);
+}
 
 /* ── NAV ── */
 .main-nav{
@@ -944,7 +951,7 @@ img{max-width:100%;display:block}
 .mob-cats{flex:1;padding:12px 0}
 .mob-cats a{display:flex;align-items:center;justify-content:space-between;padding:13px 20px;color:var(--txt2);font-size:.875rem;font-weight:500;border-bottom:1px solid rgba(255,255,255,.08);transition:color .2s,background .2s}
 .mob-cats a:hover{color:var(--white);background:rgba(255,255,255,.06)}
-.mob-ftr{padding:20px;border-top:1px solid var(--glass-border);display:flex;gap:10px}
+.mob-auth-top{padding:12px 20px 4px;display:flex;gap:10px}
 .mob-btn-login{flex:1;text-align:center;padding:10px;border:1px solid var(--glass-border);border-radius:var(--r);color:var(--txt2);font-size:.85rem;font-weight:600;background:rgba(255,255,255,.06)}
 .mob-btn-reg{flex:1;text-align:center;padding:10px;background:var(--cta);color:#fff;border-radius:var(--r);font-size:.85rem;font-weight:700}
 .hamburger{display:none;background:none;border:none;cursor:pointer;padding:8px;color:var(--txt)}
@@ -1172,8 +1179,14 @@ img{max-width:100%;display:block}
 }
 @media(max-width:768px){
   .hdr-search{display:none}
-  .hdr-actions .login-link,.hdr-actions .reg-btn{display:none}
   .hamburger{display:block}
+  /* Compact header on mobile portrait — show Mi cuenta icon + Regístrate */
+  .hdr-tagline{display:none}
+  .hdr-logo img{height:38px}
+  .hdr-inner{gap:10px}
+  .hdr-actions{gap:6px}
+  .lang-sw{display:none!important}
+  .reg-btn{padding:5px 9px!important;font-size:.68rem!important;white-space:nowrap}
   .main-nav{display:none}
   .top-bar .container{gap:5px 12px;padding:5px 16px}
   .tb-ship,.tb-notice,.tb-cta{font-size:.68rem;padding:3px 10px}
@@ -1663,8 +1676,8 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
           <span class="mi-cuenta-txt">Mi cuenta</span>
         </a>
         <a href="#" class="reg-btn" onclick="event.preventDefault();document.getElementById('modal-auth').classList.add('open');switchAuthTab('register')">Regístrate →</a>
-        <a href="#" class="cart-btn" onclick="event.preventDefault();document.getElementById('modal-payment').classList.add('open')">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        <a href="#" class="cart-btn" aria-label="Carrito (3 artículos)" onclick="event.preventDefault();document.getElementById('modal-payment').classList.add('open')">
+          <span class="cart-emoji">🛒</span>
           <span class="cart-count">3</span>
         </a>
         <div class="lang-sw" id="lang-sw" role="group" aria-label="Idioma">
@@ -3108,6 +3121,10 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
       </button>
     </div>
     <div class="mob-search"><input type="search" placeholder="Buscar productos..."></div>
+    <div class="mob-auth-top">
+      <a href="#" class="mob-btn-login" onclick="event.preventDefault();document.getElementById('mob-panel').classList.remove('open');document.getElementById('mob-overlay').classList.remove('open');document.getElementById('modal-auth').classList.add('open');switchAuthTab('login')">Iniciar sesión</a>
+      <a href="#" class="mob-btn-reg" onclick="event.preventDefault();document.getElementById('mob-panel').classList.remove('open');document.getElementById('mob-overlay').classList.remove('open');document.getElementById('modal-auth').classList.add('open');switchAuthTab('register')">Regístrate →</a>
+    </div>
   </div>
   <div class="mob-cats">
   <div class="mob-cat-item">
@@ -3379,10 +3396,6 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
     </div>
   </div>
 </div>
-  <div class="mob-ftr">
-    <a href="#" class="mob-btn-login" onclick="event.preventDefault();document.getElementById('mob-panel').classList.remove('open');document.getElementById('mob-overlay').classList.remove('open');document.getElementById('modal-auth').classList.add('open');switchAuthTab('login')">Iniciar sesión</a>
-    <a href="#" class="mob-btn-reg" onclick="event.preventDefault();document.getElementById('mob-panel').classList.remove('open');document.getElementById('mob-overlay').classList.remove('open');document.getElementById('modal-auth').classList.add('open');switchAuthTab('register')">Regístrate →</a>
-  </div>
 </div>
 
 <script>
