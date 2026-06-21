@@ -70,16 +70,23 @@ img{max-width:100%;display:block}
   background:rgba(0,0,0,.30);
   backdrop-filter:blur(10px);
   border-bottom:1px solid var(--glass-border);
-  padding:6px 0;
-  font-size:.72rem;
+  padding:7px 0;
+  font-size:.8rem;
   letter-spacing:.025em;
 }
-.top-bar .container{display:flex;justify-content:center;align-items:center;gap:16px}
-.tb-ship,.tb-notice{display:inline-flex;align-items:center;gap:6px;
+.top-bar .container{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px 16px}
+.tb-ship{display:inline-flex;align-items:center;gap:6px;
   color:var(--lime);font-weight:700;letter-spacing:.04em;
   background:rgba(174,204,48,.13);
   border:1px solid rgba(174,204,48,.45);
-  border-radius:20px;padding:3px 12px;white-space:nowrap;
+  border-radius:20px;padding:4px 14px;white-space:nowrap;
+  flex-basis:100%;justify-content:center;
+}
+.tb-notice{display:inline-flex;align-items:center;gap:6px;
+  color:var(--lime);font-weight:700;letter-spacing:.04em;
+  background:rgba(174,204,48,.13);
+  border:1px solid rgba(174,204,48,.45);
+  border-radius:20px;padding:4px 14px;white-space:nowrap;
 }
 
 /* ── HEADER ── */
@@ -679,8 +686,8 @@ img{max-width:100%;display:block}
   color:var(--lime);font-weight:700;letter-spacing:.04em;
   background:rgba(174,204,48,.13);
   border:1px solid rgba(174,204,48,.45);
-  border-radius:20px;padding:3px 12px;white-space:nowrap;
-  font-size:.73rem;font-family:'Plus Jakarta Sans',sans-serif;
+  border-radius:20px;padding:4px 14px;white-space:nowrap;
+  font-family:'Plus Jakarta Sans',sans-serif;
 }
 
 /* ── TRUST BADGES ── */
@@ -1130,10 +1137,8 @@ img{max-width:100%;display:block}
   .hdr-actions .login-link,.hdr-actions .reg-btn{display:none}
   .hamburger{display:block}
   .main-nav{display:none}
-  .top-bar .container{flex-wrap:wrap;gap:6px;padding:4px 16px}
-  .tb-ship{font-size:.65rem;padding:2px 9px}
-  .tb-notice{font-size:.65rem;padding:2px 9px}
-  .tb-cta{font-size:.65rem;padding:2px 9px}
+  .top-bar .container{gap:5px 12px;padding:5px 16px}
+  .tb-ship,.tb-notice,.tb-cta{font-size:.68rem;padding:3px 10px}
   .hero{padding:48px 0 56px}
 
   .trust-grid{grid-template-columns:1fr 1fr}
