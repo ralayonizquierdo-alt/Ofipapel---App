@@ -4053,10 +4053,16 @@ function setLang(lang) {
         </div>
       </div>
 
-      <!-- RAZÓN SOCIAL (empresa) — oculto por defecto -->
-      <div class="auth-field" id="reg-row-empresa" style="display:none">
-        <label>Raz&#243;n Social <span style="color:var(--cta)">*</span></label>
-        <input type="text" placeholder="Nombre legal de la empresa" autocomplete="organization" required>
+      <!-- EMPRESA + RAZÓN SOCIAL (empresa) — oculto por defecto -->
+      <div id="reg-row-empresa" style="display:none">
+        <div class="auth-field">
+          <label>Empresa <span style="color:var(--cta)">*</span></label>
+          <input type="text" placeholder="Nombre comercial de la empresa" autocomplete="organization" required>
+        </div>
+        <div class="auth-field">
+          <label>Raz&#243;n Social <span style="color:var(--cta)">*</span></label>
+          <input type="text" placeholder="Nombre legal de la empresa" required>
+        </div>
       </div>
 
       <div class="auth-field">
