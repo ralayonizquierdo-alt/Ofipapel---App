@@ -1378,7 +1378,9 @@ img{max-width:100%;display:block}
   backdrop-filter:blur(4px);
 }
 .legal-modal-overlay.open{display:flex}
+.overlay-particles{position:absolute;inset:0;pointer-events:none;z-index:0}
 .legal-modal{
+  position:relative;z-index:1;
   background:linear-gradient(135deg,rgba(10,40,15,.97),rgba(5,25,8,.98));
   border:1px solid rgba(255,255,255,.12);
   border-radius:20px;
@@ -3654,6 +3656,28 @@ function switchAuthTab(tab) {
   }
 })();
 
+
+// ── Overlay particles ──
+(function(){
+  var COLORS=['rgba(51,181,64,','rgba(174,204,48,','rgba(255,255,255,','rgba(66,153,196,'];
+  var COUNT=70,MAX_DIST=120,SPEED=0.4;
+  function makeP(W,H){return{x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*SPEED,vy:(Math.random()-.5)*SPEED,r:Math.random()*2+1,col:COLORS[Math.floor(Math.random()*COLORS.length)],a:Math.random()*.5+.25};}
+  document.querySelectorAll('.overlay-particles').forEach(function(cv){
+    var ctx=cv.getContext('2d'),W=0,H=0,parts=[],ready=false;
+    function resize(){W=cv.width=cv.parentElement.clientWidth||window.innerWidth;H=cv.height=cv.parentElement.clientHeight||window.innerHeight;parts=[];for(var i=0;i<COUNT;i++)parts.push(makeP(W,H));ready=true;}
+    function tick(){
+      if(cv.parentElement.classList.contains('open')){
+        if(!ready||cv.width===0)resize();
+        ctx.clearRect(0,0,W,H);
+        for(var i=0;i<parts.length;i++){var p=parts[i];for(var j=i+1;j<parts.length;j++){var q=parts[j],dx=p.x-q.x,dy=p.y-q.y,d=Math.sqrt(dx*dx+dy*dy);if(d<MAX_DIST){ctx.beginPath();ctx.strokeStyle='rgba(51,181,64,'+(1-d/MAX_DIST)*0.18+')';ctx.lineWidth=0.7;ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();}}}
+        parts.forEach(function(p){ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=p.col+p.a+')';ctx.fill();var g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*4);g.addColorStop(0,p.col+(p.a*.5)+')');g.addColorStop(1,p.col+'0)');ctx.beginPath();ctx.arc(p.x,p.y,p.r*4,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();p.x+=p.vx;p.y+=p.vy;p.vx*=0.99;p.vy*=0.99;p.vx+=(Math.random()-.5)*0.04;p.vy+=(Math.random()-.5)*0.04;if(p.x<-10)p.x=W+10;if(p.x>W+10)p.x=-10;if(p.y<-10)p.y=H+10;if(p.y>H+10)p.y=-10;});
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  });
+})();
+
 // Close modals on Escape
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
@@ -4215,6 +4239,7 @@ function setLang(lang) {
 
 <!-- ── SOBRE OFIPAPEL OVERLAY ── -->
 <div id="about-overlay" class="blog-overlay" role="dialog" aria-label="Sobre Ofipapel">
+  <canvas class="overlay-particles" aria-hidden="true"></canvas>
   <button class="blog-overlay-close" onclick="closeAboutOverlay()" aria-label="Cerrar">&#10005;</button>
   <div class="blog-overlay-inner">
     <div class="container">
@@ -4329,6 +4354,7 @@ function setLang(lang) {
 
 <!-- ── BLOG OVERLAY ── -->
 <div id="blog-overlay" class="blog-overlay" role="dialog" aria-label="Blog de Ofipapel">
+  <canvas class="overlay-particles" aria-hidden="true"></canvas>
   <button class="blog-overlay-close" onclick="closeBlogOverlay()" aria-label="Cerrar blog">&#10005;</button>
   <div class="blog-overlay-inner">
     <div class="container">
@@ -4551,6 +4577,7 @@ function setLang(lang) {
   </div>
 </div>
 <div class="legal-modal-overlay" id="modal-aviso" onclick="if(event.target===this)closeLegalModal('modal-aviso')">
+  <canvas class="overlay-particles" aria-hidden="true"></canvas>
   <div class="legal-modal">
     <button class="legal-modal-close" onclick="closeLegalModal('modal-aviso')" aria-label="Cerrar">&#10005;</button>
     <div class="legal-modal-title">Aviso Legal</div>
@@ -4624,6 +4651,7 @@ function setLang(lang) {
 </div>
 
 <div class="legal-modal-overlay" id="modal-privacidad" onclick="if(event.target===this)closeLegalModal('modal-privacidad')">
+  <canvas class="overlay-particles" aria-hidden="true"></canvas>
   <div class="legal-modal">
     <button class="legal-modal-close" onclick="closeLegalModal('modal-privacidad')" aria-label="Cerrar">&#10005;</button>
     <div class="legal-modal-title">Política de Privacidad</div>
@@ -4711,6 +4739,7 @@ function setLang(lang) {
 </div>
 
 <div class="legal-modal-overlay" id="modal-cookies" onclick="if(event.target===this)closeLegalModal('modal-cookies')">
+  <canvas class="overlay-particles" aria-hidden="true"></canvas>
   <div class="legal-modal">
     <button class="legal-modal-close" onclick="closeLegalModal('modal-cookies')" aria-label="Cerrar">&#10005;</button>
     <div class="legal-modal-title">Política de Cookies</div>
@@ -4783,6 +4812,7 @@ function setLang(lang) {
 </div>
 
 <div class="legal-modal-overlay" id="modal-terminos" onclick="if(event.target===this)closeLegalModal('modal-terminos')">
+  <canvas class="overlay-particles" aria-hidden="true"></canvas>
   <div class="legal-modal">
     <button class="legal-modal-close" onclick="closeLegalModal('modal-terminos')" aria-label="Cerrar">&#10005;</button>
     <div class="legal-modal-title">Términos y condiciones</div>
