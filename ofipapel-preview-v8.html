@@ -1638,6 +1638,93 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
   /* WhatsApp button above bottom nav */
   .wa-float{bottom:76px !important}
 }
+
+/* ══ CONTACT MODAL ══ */
+.contact-wrap{display:grid;grid-template-columns:1fr 1.4fr;gap:40px;padding:20px 0}
+.contact-info-panel{}
+.contact-info-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(174,204,48,.15);border:1px solid rgba(174,204,48,.4);
+  color:var(--lime);font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  padding:5px 14px;border-radius:20px;margin-bottom:20px;
+}
+.contact-info-panel h2{font-size:clamp(1.6rem,3vw,2.4rem);font-weight:800;line-height:1.15;margin-bottom:14px}
+.contact-info-panel p{color:var(--txt2);font-size:.93rem;line-height:1.6;margin-bottom:28px}
+.contact-data{display:flex;flex-direction:column;gap:16px}
+.contact-data-item{display:flex;align-items:flex-start;gap:14px}
+.contact-data-icon{
+  width:38px;height:38px;border-radius:10px;flex-shrink:0;
+  background:rgba(174,204,48,.12);border:1px solid rgba(174,204,48,.25);
+  display:flex;align-items:center;justify-content:center;color:var(--lime);
+}
+.contact-data-text strong{display:block;font-size:.78rem;font-weight:700;color:var(--white);margin-bottom:2px}
+.contact-data-text a,.contact-data-text span{font-size:.84rem;color:var(--txt2);text-decoration:none;transition:color .2s}
+.contact-data-text a:hover{color:var(--lime)}
+/* Form */
+.contact-form-panel{
+  background:rgba(255,255,255,.05);border:1px solid var(--glass-border);
+  border-radius:18px;padding:28px 28px 24px;
+}
+.cf-form-title{font-size:1.05rem;font-weight:700;margin-bottom:20px;color:var(--white)}
+.cf-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.cf-field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.cf-field:last-of-type{margin-bottom:18px}
+.cf-field label{font-size:.74rem;font-weight:600;color:rgba(255,255,255,.6);letter-spacing:.03em}
+.cf-field input,.cf-field select,.cf-field textarea{
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:10px;
+  padding:10px 14px;
+  color:#fff;font-size:.875rem;
+  outline:none;transition:border-color .2s,background .2s;
+  font-family:inherit;
+}
+.cf-field input::placeholder,.cf-field textarea::placeholder{color:rgba(255,255,255,.3)}
+.cf-field input:focus,.cf-field select:focus,.cf-field textarea:focus{
+  border-color:var(--lime);background:rgba(255,255,255,.10);
+}
+.cf-field select{cursor:pointer;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='rgba(255,255,255,.4)' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:calc(100% - 14px) center;
+  padding-right:36px;
+}
+.cf-field select option{background:#0d2e10;color:#fff}
+.cf-field textarea{resize:vertical;min-height:90px}
+.cf-privacy{display:flex;align-items:center;gap:10px;margin-bottom:18px;font-size:.78rem;color:var(--txt2)}
+.cf-privacy input[type=checkbox]{width:16px;height:16px;accent-color:var(--g);cursor:pointer;flex-shrink:0}
+.cf-privacy a{color:var(--lime);text-decoration:none}
+.cf-privacy a:hover{text-decoration:underline}
+.cf-submit-btn{
+  width:100%;padding:13px;
+  background:var(--g);color:#fff;
+  border:none;border-radius:12px;
+  font-size:.95rem;font-weight:700;
+  cursor:pointer;transition:background .2s,transform .1s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  font-family:inherit;
+}
+.cf-submit-btn:hover{background:var(--gd)}
+.cf-submit-btn:active{transform:scale(.98)}
+.cf-success{
+  display:none;text-align:center;
+  padding:40px 20px;
+}
+.cf-success-circle{
+  width:72px;height:72px;border-radius:50%;
+  background:rgba(51,181,64,.15);border:2px solid rgba(51,181,64,.4);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 20px;font-size:2rem;
+}
+.cf-success h3{font-size:1.4rem;font-weight:800;margin-bottom:10px}
+.cf-success p{color:var(--txt2);font-size:.9rem;line-height:1.6}
+@media(max-width:900px){
+  .contact-wrap{grid-template-columns:1fr}
+  .contact-info-panel{display:none}
+}
+@media(max-width:580px){
+  .cf-row{grid-template-columns:1fr}
+  .contact-form-panel{padding:20px 16px}
+}
 </style>
 </head>
 <body>
@@ -1998,7 +2085,7 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
         <p class="hero-sub h-anim-3">Más de 20.000 referencias para empresas y particulares en Tenerife. Entrega en 24–48h, precio garantizado y atención personalizada en 3 tiendas.</p>
         <div class="hero-btns h-anim-4">
           <a href="#catalogos" class="btn-primary">Ver catálogo completo</a>
-          <a href="#contacto" class="btn-glass">Contactar con ventas</a>
+          <a href="#" class="btn-glass" onclick="openContactModal('ventas');return false">Contactar con ventas</a>
         </div>
       </div></div>
     </div>
@@ -2361,8 +2448,8 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
       <span class="wbadge">Precio garantizado</span>
     </div>
     <div class="wide-banner-btns">
-      <a href="#catalogos" class="btn-primary">Descargar catálogo</a>
-      <a href="#" onclick="document.getElementById('modal-cpc').classList.add('open');return false" class="btn-glass">Solicitar presupuesto</a>
+      <a href="#" class="btn-primary" onclick="openContactModal('catalogo');return false">Descargar catálogo</a>
+      <a href="#" onclick="openContactModal('presupuesto');return false" class="btn-glass">Solicitar presupuesto</a>
     </div>
   </div>
 </div>
@@ -3102,7 +3189,7 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
           <li><a href="#" onclick="openBlogOverlay();return false">Blog</a></li>
           <li><a href="#novedades">Ofertas</a></li>
           <li><a href="#catalogos">Catálogos</a></li>
-          <li><a href="#contacto">Contacto</a></li>
+          <li><a href="#" onclick="openContactModal('info');return false">Contacto</a></li>
         </ul>
       </div>
       <div class="ftr-col">
@@ -4706,6 +4793,122 @@ function setLang(lang) {
   </div><!-- end blog-overlay-inner -->
 </div><!-- end modal-cliente -->
 
+<!-- CONTACT MODAL -->
+<div id="modal-contact" class="blog-overlay" role="dialog" aria-label="Formulario de contacto">
+  <canvas class="overlay-particles" aria-hidden="true"></canvas>
+  <button class="blog-overlay-close" onclick="closeContactModal()" aria-label="Cerrar">&#10005;</button>
+  <div class="blog-overlay-inner">
+    <div class="container">
+      <div class="contact-wrap">
+
+        <!-- LEFT: info -->
+        <div class="contact-info-panel">
+          <div class="contact-info-badge">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.84a16 16 0 0 0 6.24 6.24l.94-.94a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            Estamos aqu&#237;
+          </div>
+          <h2>&#191;C&#243;mo podemos <span class="text-lime">ayudarte?</span></h2>
+          <p>Cu&#233;ntanos lo que necesitas y nuestro equipo te responder&#225; en menos de 24&nbsp;h laborables.</p>
+          <div class="contact-data">
+            <div class="contact-data-item">
+              <div class="contact-data-icon">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.84a16 16 0 0 0 6.24 6.24l.94-.94a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              </div>
+              <div class="contact-data-text">
+                <strong>Tel&#233;fono</strong>
+                <a href="tel:922228948">922 22 89 48</a>
+              </div>
+            </div>
+            <div class="contact-data-item">
+              <div class="contact-data-icon">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              </div>
+              <div class="contact-data-text">
+                <strong>Email</strong>
+                <a href="mailto:info@ofipapel.net">info@ofipapel.net</a>
+              </div>
+            </div>
+            <div class="contact-data-item">
+              <div class="contact-data-icon">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <div class="contact-data-text">
+                <strong>Horario de atenci&#243;n</strong>
+                <span>L&#8211;V&nbsp;8:30&#8211;19:00 &middot; S&nbsp;9:00&#8211;13:30</span>
+              </div>
+            </div>
+            <div class="contact-data-item">
+              <div class="contact-data-icon">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              </div>
+              <div class="contact-data-text">
+                <strong>Tiendas en Tenerife</strong>
+                <span>Santa Cruz &middot; La Laguna</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: form -->
+        <div class="contact-form-panel">
+          <p class="cf-form-title" id="cf-modal-title">Env&#237;anos tu mensaje</p>
+          <form class="contact-form" id="contact-form-el" onsubmit="submitContactForm(event)">
+            <div class="cf-row">
+              <div class="cf-field">
+                <label>Nombre completo *</label>
+                <input type="text" name="nombre" placeholder="Tu nombre y apellidos" required>
+              </div>
+              <div class="cf-field">
+                <label>Empresa</label>
+                <input type="text" name="empresa" placeholder="Nombre de tu empresa">
+              </div>
+            </div>
+            <div class="cf-row">
+              <div class="cf-field">
+                <label>Email *</label>
+                <input type="email" name="email" placeholder="tu@email.com" required>
+              </div>
+              <div class="cf-field">
+                <label>Tel&#233;fono</label>
+                <input type="tel" name="telefono" placeholder="+34 6XX XXX XXX">
+              </div>
+            </div>
+            <div class="cf-field">
+              <label>Motivo del contacto</label>
+              <select name="motivo" id="cf-subject">
+                <option value="info">Informaci&#243;n general</option>
+                <option value="ventas">Contactar con ventas</option>
+                <option value="presupuesto">Solicitar presupuesto</option>
+                <option value="catalogo">Descargar cat&#225;logo</option>
+                <option value="otros">Otros</option>
+              </select>
+            </div>
+            <div class="cf-field">
+              <label>Mensaje *</label>
+              <textarea name="mensaje" placeholder="Cu&#233;ntanos qu&#233; necesitas..." required></textarea>
+            </div>
+            <div class="cf-privacy">
+              <input type="checkbox" id="cf-privacy-chk" required>
+              <label for="cf-privacy-chk">He le&#237;do y acepto la <a href="#" onclick="openLegalModal('modal-privacidad');return false">pol&#237;tica de privacidad</a></label>
+            </div>
+            <button type="submit" class="cf-submit-btn">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              Enviar mensaje
+            </button>
+          </form>
+          <div class="cf-success" id="cf-success-msg">
+            <div class="cf-success-circle">&#10003;</div>
+            <h3>&#161;Mensaje enviado!</h3>
+            <p>Nos pondremos en contacto contigo en menos de 24&nbsp;h laborables.<br>Gracias por confiar en Ofipapel.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <div id="about-overlay" class="blog-overlay" role="dialog" aria-label="Sobre Ofipapel">
   <canvas class="overlay-particles" aria-hidden="true"></canvas>
   <button class="blog-overlay-close" onclick="closeAboutOverlay()" aria-label="Cerrar">&#10005;</button>
@@ -5463,6 +5666,53 @@ document.addEventListener('keydown',function(e){
     document.body.style.overflow='';
   }
 });
+
+
+/* ── Contact Modal ── */
+function openContactModal(subject) {
+  var modal = document.getElementById('modal-contact');
+  if (!modal) return;
+  modal.classList.add('open');
+  document.body.classList.add('overlay-open');
+  document.body.style.overflow = 'hidden';
+  // Pre-select subject
+  if (subject) {
+    var sel = document.getElementById('cf-subject');
+    if (sel) sel.value = subject;
+    var title = document.getElementById('cf-modal-title');
+    var titles = {
+      'ventas': 'Contactar con el equipo de ventas',
+      'presupuesto': 'Solicitar presupuesto personalizado',
+      'catalogo': 'Solicitar catálogo 2025',
+      'info': 'Envíanos tu mensaje'
+    };
+    if (title) title.textContent = titles[subject] || 'Envíanos tu mensaje';
+  }
+  // Reset form state
+  var form = document.getElementById('contact-form-el');
+  var success = document.getElementById('cf-success-msg');
+  if (form) form.style.display = '';
+  if (success) success.style.display = 'none';
+  // Init particles for this overlay
+  if (typeof initOverlayParticles === 'function') {
+    var canvas = modal.querySelector('.overlay-particles');
+    if (canvas) initOverlayParticles(canvas);
+  }
+}
+function closeContactModal() {
+  var modal = document.getElementById('modal-contact');
+  if (!modal) return;
+  modal.classList.remove('open');
+  document.body.classList.remove('overlay-open');
+  document.body.style.overflow = '';
+}
+function submitContactForm(e) {
+  e.preventDefault();
+  var form = document.getElementById('contact-form-el');
+  var success = document.getElementById('cf-success-msg');
+  if (form) form.style.display = 'none';
+  if (success) success.style.display = 'block';
+}
 
 function openAboutOverlay(){
   document.getElementById('about-overlay').classList.add('open');
