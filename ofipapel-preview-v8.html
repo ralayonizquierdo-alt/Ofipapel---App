@@ -1233,6 +1233,53 @@ img{max-width:100%;display:block}
   .cat-card[style]:not(.cat-card-featured) .cat-arrow{display:none}
 }
 
+/* ── PROMO BANNERS SLIDER ── */
+.promo-banners-section{width:100%;background:#000;line-height:0}
+.promo-slider-wrap{position:relative;overflow:hidden;width:100%}
+.promo-slider{display:flex;transition:transform .45s cubic-bezier(.4,0,.2,1)}
+.promo-slide{min-width:100%;flex-shrink:0;position:relative;cursor:pointer}
+.promo-slide img{width:100%;height:auto;display:block;max-height:420px;object-fit:cover}
+.promo-placeholder{
+  width:100%;height:200px;
+  background:linear-gradient(135deg,rgba(26,92,26,.8),rgba(10,40,15,.95));
+  border-top:1px solid var(--glass-border);
+  border-bottom:1px solid var(--glass-border);
+  display:flex;align-items:center;justify-content:center;
+}
+.promo-placeholder-inner{text-align:center;color:rgba(255,255,255,.4)}
+.promo-placeholder-inner svg{margin-bottom:12px;display:block;margin-left:auto;margin-right:auto}
+.promo-placeholder-inner p{font-size:.9rem;line-height:1.5;margin:0}
+.promo-placeholder-inner span{font-size:.75rem;color:rgba(255,255,255,.25)}
+/* Arrows */
+.promo-prev,.promo-next{
+  position:absolute;top:50%;transform:translateY(-50%);
+  background:rgba(0,0,0,.45);color:#fff;border:none;
+  width:38px;height:60px;font-size:1.8rem;line-height:1;
+  cursor:pointer;transition:background .2s;z-index:10;
+  display:none;
+}
+.promo-prev{left:0;border-radius:0 6px 6px 0}
+.promo-next{right:0;border-radius:6px 0 0 6px}
+.promo-slider-wrap:hover .promo-prev,
+.promo-slider-wrap:hover .promo-next{display:block}
+.promo-prev:hover,.promo-next:hover{background:rgba(0,0,0,.7)}
+/* Dots */
+.promo-dots{
+  position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
+  display:flex;gap:7px;z-index:10;
+}
+.promo-dot{
+  width:8px;height:8px;border-radius:50%;border:none;
+  background:rgba(255,255,255,.35);cursor:pointer;transition:background .2s,transform .2s;padding:0;
+}
+.promo-dot.active{background:var(--lime);transform:scale(1.3)}
+/* Hide controls when only 1 slide */
+.promo-dots:has(button:only-child){display:none}
+@media(max-width:768px){
+  .promo-slide img{max-height:none}
+  .promo-placeholder{height:130px}
+}
+
 /* ── KINETIC SCROLL GALLERY ── */
 .kinetic-section{padding:60px 0;overflow:hidden}
 .kinetic-grid{
@@ -2123,6 +2170,32 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
           <div class="stat-label">Tiendas en Tenerife</div>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- BANNERS PROMOCIONALES -->
+<section class="promo-banners-section" id="banners-promo" aria-label="Banners promocionales">
+  <div class="promo-slider-wrap">
+    <div class="promo-slider" id="promo-slider">
+      <!-- BANNER 1 — placeholder hasta embeber imagen real -->
+      <div class="promo-slide active">
+        <div class="promo-placeholder">
+          <div class="promo-placeholder-inner">
+            <svg width="48" height="48" fill="none" stroke="rgba(174,204,48,.5)" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <p>Banner A-Z Súper Ofertas<br><span>Sube el archivo de imagen para embeber</span></p>
+          </div>
+        </div>
+        <!-- Cuando tengas el archivo, reemplaza el div.promo-placeholder por:
+             <img src="data:image/jpeg;base64,..." alt="A-Z Súper Ofertas"> -->
+      </div>
+      <!-- BANNER 2 (añadir más aquí) -->
+    </div>
+    <!-- Controles del slider (visibles solo si hay >1 banner) -->
+    <button class="promo-prev" onclick="promoSlide(-1)" aria-label="Anterior">&#8249;</button>
+    <button class="promo-next" onclick="promoSlide(1)" aria-label="Siguiente">&#8250;</button>
+    <div class="promo-dots" id="promo-dots">
+      <button class="promo-dot active" onclick="promoGoTo(0)" aria-label="Banner 1"></button>
     </div>
   </div>
 </section>
@@ -5722,6 +5795,27 @@ function submitContactForm(e) {
   if (form) form.style.display = 'none';
   if (success) success.style.display = 'block';
 }
+
+/* ── Promo Slider ── */
+(function(){
+  var currentSlide = 0;
+  var autoTimer;
+  function countSlides(){ return document.querySelectorAll('.promo-slide').length; }
+  window.promoGoTo = function(n){
+    var slides = document.querySelectorAll('.promo-slide');
+    var dots   = document.querySelectorAll('.promo-dot');
+    currentSlide = (n + slides.length) % slides.length;
+    document.getElementById('promo-slider').style.transform = 'translateX(-'+currentSlide*100+'%)';
+    slides.forEach(function(s,i){ s.classList.toggle('active', i===currentSlide); });
+    dots.forEach(function(d,i){ d.classList.toggle('active', i===currentSlide); });
+  };
+  window.promoSlide = function(dir){ promoGoTo(currentSlide + dir); resetAuto(); };
+  function resetAuto(){
+    clearInterval(autoTimer);
+    if(countSlides() > 1) autoTimer = setInterval(function(){ promoGoTo(currentSlide+1); }, 5000);
+  }
+  document.addEventListener('DOMContentLoaded', function(){ resetAuto(); });
+})();
 
 function openAboutOverlay(){
   document.getElementById('about-overlay').classList.add('open');
