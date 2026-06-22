@@ -557,55 +557,8 @@ img{max-width:100%;display:block}
 
 
 /* ── CIRCULAR 3D GALLERY ── */
-.circ-section{padding:72px 0;text-align:center}
-.circ-wrap{position:relative;width:100%;height:480px;perspective:1100px;margin:0 auto;max-width:900px}
-.circ-track{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .05s linear}
-.circ-card{
-  position:absolute;left:50%;top:50%;
-  width:200px;height:280px;
-  transform-origin:center center;
-  transform-style:preserve-3d;
-  cursor:pointer;
-  transition:box-shadow .2s;
-}
-.circ-card-body{
-  width:100%;height:100%;
-  background:rgba(255,255,255,.1);
-  backdrop-filter:blur(14px);
-  border:1px solid var(--glass-border);
-  border-radius:var(--rl);
-  overflow:hidden;
-  display:flex;flex-direction:column;
-  box-shadow:0 8px 32px rgba(0,0,0,.35);
-  transition:transform .2s,box-shadow .2s;
-}
-.circ-card:hover .circ-card-body{transform:scale(1.04);box-shadow:0 16px 48px rgba(0,0,0,.55)}
-.circ-card-img{width:100%;height:160px;object-fit:cover;flex-shrink:0}
-.circ-card-info{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:6px}
-.circ-card-name{font-family:'Plus Jakarta Sans',sans-serif;font-size:.82rem;font-weight:700;color:#fff;line-height:1.3}
-.circ-card-sub{font-size:.72rem;color:var(--txt3)}
-.circ-card-btn{
-  margin:0 14px 14px;
-  background:var(--g);color:#fff;
-  border:none;border-radius:var(--rf);
-  padding:7px 14px;font-size:.75rem;font-weight:700;cursor:pointer;
-  transition:background .2s;
-}
-.circ-card-btn:hover{background:var(--gd)}
-.circ-controls{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:24px}
-.circ-btn{
-  width:40px;height:40px;border-radius:50%;
-  background:rgba(255,255,255,.1);
-  border:1px solid var(--glass-border);
-  color:#fff;font-size:1.2rem;line-height:1;
-  cursor:pointer;transition:background .2s;display:flex;align-items:center;justify-content:center;
-}
-.circ-btn:hover{background:rgba(255,255,255,.2)}
 
 /* ── PRODUCT CAROUSEL (circular style, smaller) ── */
-.prod-circ-section{padding:60px 0}
-.prod-circ-wrap{position:relative;width:100%;height:360px;perspective:900px;margin:0 auto;max-width:800px}
-.prod-circ-track{position:absolute;inset:0;transform-style:preserve-3d}
 .prod-circ-card{
   position:absolute;left:50%;top:50%;
   width:170px;height:240px;
@@ -1282,49 +1235,8 @@ img{max-width:100%;display:block}
 }
 
 /* ── KINETIC SCROLL GALLERY ── */
-.kinetic-section{padding:60px 0;overflow:hidden}
-.kinetic-grid{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:20px;
-  padding:0 20px;
-  max-width:1200px;
-  margin:32px auto 0;
-}
-.kinetic-item{
-  width:100%;height:320px;
-  position:relative;overflow:hidden;
-  border-radius:12px;
-  cursor:pointer;
-  will-change:transform;
-  transition:box-shadow .3s;
-}
-.kinetic-item:hover{box-shadow:0 20px 50px rgba(0,0,0,.5)}
-.kinetic-item img{
-  position:absolute;inset:0;
-  width:100%;height:100%;
-  object-fit:cover;
-  transform:scale(1.15);
-}
-.kinetic-overlay{
-  position:absolute;bottom:0;left:0;width:100%;
-  padding:14px;
-  background:linear-gradient(to top,rgba(0,0,0,.88) 0%,transparent 100%);
-  color:#fff;box-sizing:border-box;
-  pointer-events:none;
-}
-.kinetic-overlay h3{margin:0 0 3px;font-size:.9rem;font-weight:700;font-family:inherit}
-.kinetic-overlay em{font-size:.78rem;opacity:.82;font-style:normal;display:block;margin-bottom:4px}
-.kinetic-overlay p{font-size:.7rem;margin:0;opacity:.6}
-.kinetic-badge{
-  position:absolute;top:10px;right:10px;
-  background:#33B540;color:#fff;
-  font-size:.6rem;font-weight:800;letter-spacing:.06em;
-  text-transform:uppercase;padding:3px 8px;border-radius:12px;
-  pointer-events:none;
-}
-@media(max-width:900px){.kinetic-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:580px){.kinetic-grid{grid-template-columns:1fr}}
+@media(max-width:900px){}
+@media(max-width:580px){}
 
 /* ── BACKGROUND SCENE BEAMS ── */
 .bg-scene{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:hidden}
@@ -1787,6 +1699,87 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
 .faldilla-section{width:100%;line-height:0;overflow:hidden;border-bottom:1px solid var(--glass-border)}
 .faldilla-section img{width:100%;display:block;height:180px;object-fit:cover;object-position:center top}
 @media(max-width:768px){.faldilla-section img{height:auto;min-height:90px;object-fit:contain;background:#f0f7f0}}
+
+/* ── UNIFIED PRODUCT TAB CAROUSEL ── */
+.ptab-section{padding:50px 0;background:rgba(240,248,240,.6)}
+.ptab-kicker{text-align:center;font-size:.7rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--g);margin-bottom:20px}
+.ptab-tabs{display:flex;border:1px solid #dde8dd;border-radius:0;overflow:hidden;margin-bottom:0}
+.ptab-tab{flex:1;padding:14px 10px;text-align:center;font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border:none;border-right:1px solid #dde8dd;background:#fff;color:#888;transition:all .2s}
+.ptab-tab:last-child{border-right:none}
+.ptab-tab.active{background:var(--g);color:#fff}
+.ptab-tab:hover:not(.active){background:rgba(51,181,64,.08);color:var(--g)}
+.ptab-panel{display:none;position:relative;padding:24px 0 8px}
+.ptab-panel.active{display:block}
+.ptab-overflow{overflow:hidden;padding:8px 4px 16px}
+.ptab-track{display:flex;gap:16px;transition:transform .4s cubic-bezier(.4,0,.2,1);will-change:transform}
+.ptab-card{
+  flex:0 0 190px;
+  background:#fff;
+  border:1px solid #e4ede4;
+  border-radius:10px;
+  overflow:hidden;
+  transition:box-shadow .2s,transform .2s;
+  position:relative;
+}
+.ptab-card:hover{box-shadow:0 6px 20px rgba(51,181,64,.15);transform:translateY(-3px)}
+.ptab-img{
+  position:relative;
+  height:160px;
+  background:#f5faf5;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+}
+.ptab-img img{max-width:88%;max-height:88%;object-fit:contain;transition:transform .3s}
+.ptab-card:hover .ptab-img img{transform:scale(1.06)}
+.ptab-badge{
+  position:absolute;top:8px;left:8px;
+  background:var(--cta);color:#fff;
+  font-size:.52rem;font-weight:800;letter-spacing:.04em;
+  text-transform:uppercase;padding:2px 7px;border-radius:10px;
+  line-height:1.4;
+}
+.ptab-badge.nuevo{background:var(--g)}
+.ptab-badge.pct{background:#e53935}
+.ptab-body{padding:10px 12px 12px}
+.ptab-name{
+  font-size:.68rem;font-weight:700;text-transform:uppercase;
+  color:#1a1a1a;line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+  min-height:52px;margin-bottom:8px;
+}
+.ptab-price{margin-bottom:10px;display:flex;align-items:baseline;gap:6px}
+.ptab-price .cur{color:var(--g);font-weight:800;font-size:.95rem}
+.ptab-price .old{color:#aaa;font-size:.68rem;text-decoration:line-through}
+.ptab-actions{display:flex;align-items:center;gap:6px}
+.ptab-qty{display:flex;align-items:center;border:1px solid #d0e8d0;border-radius:6px;overflow:hidden}
+.ptab-qty button{background:none;border:none;width:22px;height:28px;font-size:.85rem;cursor:pointer;color:var(--g);font-weight:700}
+.ptab-qty input{width:26px;height:28px;border:none;border-left:1px solid #d0e8d0;border-right:1px solid #d0e8d0;text-align:center;font-size:.72rem;font-weight:700;color:#222;-moz-appearance:textfield}
+.ptab-qty input::-webkit-outer-spin-button,.ptab-qty input::-webkit-inner-spin-button{-webkit-appearance:none}
+.ptab-buy{
+  flex:1;background:var(--g);color:#fff;border:none;border-radius:6px;
+  padding:7px 2px;font-size:.6rem;font-weight:800;letter-spacing:.04em;
+  text-transform:uppercase;cursor:pointer;transition:background .2s;white-space:nowrap;
+}
+.ptab-buy:hover{background:var(--gd)}
+.ptab-nav{
+  position:absolute;top:50%;transform:translateY(-60%);
+  width:38px;height:38px;border-radius:50%;
+  background:#fff;border:2px solid var(--g);
+  color:var(--g);font-size:1.4rem;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;z-index:10;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.1);
+}
+.ptab-nav:hover{background:var(--g);color:#fff}
+.ptab-prev{left:-48px}
+.ptab-next{right:-48px}
+.ptab-carousel-wrap{position:relative;padding:0 52px}
+@media(max-width:768px){
+  .ptab-carousel-wrap{padding:0 36px}
+  .ptab-prev{left:-38px}
+  .ptab-next{right:-38px}
+  .ptab-card{flex:0 0 160px}
+  .ptab-img{height:130px}
+}
 </style>
 </head>
 <body>
@@ -2380,132 +2373,600 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
 </section>
 
 <!-- PRODUCTS -->
-<section class="section" style="padding:64px 0">
+<!-- PRODUCTS TABS -->
+<section class="ptab-section" id="novedades">
   <div class="container">
-    <div class="section-hd" style="display:flex;align-items:center;justify-content:space-between;text-align:left;margin-bottom:32px">
-      <div>
-        <div class="section-kicker" style="justify-content:flex-start">Más vendidos</div>
-        <h2 style="text-align:left">Productos <em>destacados</em></h2>
-      </div>
-      <div class="carousel-controls">
-        <button class="carousel-btn" id="carousel-prev" aria-label="Anterior">&#8249;</button>
-        <button class="carousel-btn" id="carousel-next" aria-label="Siguiente">&#8250;</button>
+    <p class="ptab-kicker">Los mejores productos de un vistazo</p>
+    <div class="ptab-tabs">
+      <button class="ptab-tab active" data-tab="0">Art&#237;culos Nuevos</button>
+      <button class="ptab-tab" data-tab="1">M&#225;s Vendidos</button>
+      <button class="ptab-tab" data-tab="2">Promociones del Mes</button>
+    </div>
+    <div class="ptab-panel active">
+      <div class="ptab-carousel-wrap">
+        <button class="ptab-nav ptab-prev" onclick="ptabNav(0,-1)" aria-label="Anterior">&#8249;</button>
+        <div class="ptab-overflow">
+          <div class="ptab-track" id="ptab-track-0">
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&q=80" alt="Archivador Palanca A4" loading="lazy">
+            <span class="ptab-badge nuevo">NUEVO</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Archivador Palanca A4</p>
+                <div class="ptab-price">
+                  <span class="cur">2,89€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1519219788971-8d9797e0928e?w=400&q=80" alt="Cuaderno Oxford A5" loading="lazy">
+            <span class="ptab-badge nuevo">NUEVO</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Cuaderno Oxford A5</p>
+                <div class="ptab-price">
+                  <span class="cur">3,45€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&q=80" alt="Caja Clasificadora" loading="lazy">
+            <span class="ptab-badge nuevo">NUEVO</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Caja Clasificadora</p>
+                <div class="ptab-price">
+                  <span class="cur">5,20€</span>
+          <span class="old">6,50€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&q=80" alt="Organizador de Mesa" loading="lazy">
+            <span class="ptab-badge nuevo">NUEVO</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Organizador de Mesa</p>
+                <div class="ptab-price">
+                  <span class="cur">8,90€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80" alt="Maletín Portadocumentos" loading="lazy">
+            <span class="ptab-badge nuevo">NUEVO</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Maletín Portadocumentos</p>
+                <div class="ptab-price">
+                  <span class="cur">14,50€</span>
+          <span class="old">17,00€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=400&q=80" alt="Set Rotuladores Stabilo" loading="lazy">
+            <span class="ptab-badge nuevo">NUEVO</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Set Rotuladores Stabilo</p>
+                <div class="ptab-price">
+                  <span class="cur">4,75€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1544642058-b4e3de49d0b5?w=400&q=80" alt="Tijeras Maped Comfort" loading="lazy">
+            <span class="ptab-badge nuevo">NUEVO</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Tijeras Maped Comfort</p>
+                <div class="ptab-price">
+                  <span class="cur">5,50€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400&q=80" alt="Papel A4 80g · 500h" loading="lazy">
+            <span class="ptab-badge nuevo">NUEVO</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Papel A4 80g · 500h</p>
+                <div class="ptab-price">
+                  <span class="cur">4,75€</span>
+          <span class="old">5,30€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1503694978374-8a2fa686963a?w=400&q=80" alt="Grapadora Rapid Eco" loading="lazy">
+            <span class="ptab-badge nuevo">NUEVO</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Grapadora Rapid Eco</p>
+                <div class="ptab-price">
+                  <span class="cur">9,90€</span>
+          <span class="old">12,00€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="ptab-nav ptab-next" onclick="ptabNav(0,1)" aria-label="Siguiente">&#8250;</button>
       </div>
     </div>
-    <div class="prod-carousel-outer"><div class="prod-carousel" id="prod-carousel">
-      <div class="prod-card">
-        <div class="prod-img prod-img-photo" style="background-image:url('https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=400&q=80')">
-          <div class="prod-badge">Oferta</div>
+    <div class="ptab-panel">
+      <div class="ptab-carousel-wrap">
+        <button class="ptab-nav ptab-prev" onclick="ptabNav(1,-1)" aria-label="Anterior">&#8249;</button>
+        <div class="ptab-overflow">
+          <div class="ptab-track" id="ptab-track-1">
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=400&q=80" alt="Archivador A4 lomo 8cm negro" loading="lazy">
+            <span class="ptab-badge">Oferta</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Archivador A4 lomo 8cm negro</p>
+                <div class="ptab-price">
+                  <span class="cur">2,45€</span>
+          <span class="old">3,20€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&q=80" alt="Papel A4 80g 500h Navigator" loading="lazy">
+            <span class="ptab-badge">Oferta</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Papel A4 80g 500h Navigator</p>
+                <div class="ptab-price">
+                  <span class="cur">4,75€</span>
+          <span class="old">5,30€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1452860606245-08befc0ff44b?w=400&q=80" alt="Bolígrafo BIC Cristal Pack 50u." loading="lazy">
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Bolígrafo BIC Cristal Pack 50u.</p>
+                <div class="ptab-price">
+                  <span class="cur">8,90€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&q=80" alt="Ratón inalámbrico Logitech M185" loading="lazy">
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Ratón inalámbrico Logitech M185</p>
+                <div class="ptab-price">
+                  <span class="cur">16,50€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80" alt="Post-it notas adhesivas 100u." loading="lazy">
+            <span class="ptab-badge">Oferta</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Post-it notas adhesivas 100u.</p>
+                <div class="ptab-price">
+                  <span class="cur">3,20€</span>
+          <span class="old">3,90€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&q=80" alt="Grapadora RAPID Classic 23" loading="lazy">
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Grapadora RAPID Classic 23</p>
+                <div class="ptab-price">
+                  <span class="cur">12,00€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1544642058-b4e3de49d0b5?w=400&q=80" alt="Tijeras MAPED 21cm acero" loading="lazy">
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Tijeras MAPED 21cm acero</p>
+                <div class="ptab-price">
+                  <span class="cur">5,50€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400&q=80" alt="Cinta adhesiva Scotch 3M Pack 6u." loading="lazy">
+            <span class="ptab-badge">Oferta</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Cinta adhesiva Scotch 3M Pack 6u.</p>
+                <div class="ptab-price">
+                  <span class="cur">7,80€</span>
+          <span class="old">9,50€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&q=80" alt="Calculadora CASIO FX-570 SP" loading="lazy">
+            <span class="ptab-badge">Oferta</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Calculadora CASIO FX-570 SP</p>
+                <div class="ptab-price">
+                  <span class="cur">22,00€</span>
+          <span class="old">28,00€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" alt="Carpeta A4 anillas 4 aros azul" loading="lazy">
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Carpeta A4 anillas 4 aros azul</p>
+                <div class="ptab-price">
+                  <span class="cur">3,90€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="prod-body">
-          <div class="prod-cat-label">Clasificación</div>
-          <div class="prod-name">Archivador A4 lomo 8cm negro</div>
-          <div class="prod-price"><span class="current">2,45€</span><span class="old">3,20€</span></div>
-          <button class="prod-add">Añadir al carrito</button>
-        </div>
+        <button class="ptab-nav ptab-next" onclick="ptabNav(1,1)" aria-label="Siguiente">&#8250;</button>
       </div>
-      <div class="prod-card">
-        <div class="prod-img prod-img-photo" style="background-image:url('https://images.unsplash.com/photo-1589998059171-988d887df646?auto=format&fit=crop&w=400&q=80')">
-          <div class="prod-badge">Oferta</div>
+    </div>
+    <div class="ptab-panel">
+      <div class="ptab-carousel-wrap">
+        <button class="ptab-nav ptab-prev" onclick="ptabNav(2,-1)" aria-label="Anterior">&#8249;</button>
+        <div class="ptab-overflow">
+          <div class="ptab-track" id="ptab-track-2">
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400&q=80" alt="Cinta adhesiva Scotch Pack 6u." loading="lazy">
+            <span class="ptab-badge pct">−18%</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Cinta adhesiva Scotch Pack 6u.</p>
+                <div class="ptab-price">
+                  <span class="cur">7,80€</span>
+          <span class="old">9,50€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&q=80" alt="Calculadora CASIO FX-570 SP" loading="lazy">
+            <span class="ptab-badge pct">−21%</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Calculadora CASIO FX-570 SP</p>
+                <div class="ptab-price">
+                  <span class="cur">22,00€</span>
+          <span class="old">28,00€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" alt="Carpeta A4 anillas 4 aros" loading="lazy">
+            <span class="ptab-badge pct">−20%</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Carpeta A4 anillas 4 aros</p>
+                <div class="ptab-price">
+                  <span class="cur">3,90€</span>
+          <span class="old">4,90€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&q=80" alt="Archivador palanca A4 negro" loading="lazy">
+            <span class="ptab-badge pct">−23%</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Archivador palanca A4 negro</p>
+                <div class="ptab-price">
+                  <span class="cur">2,45€</span>
+          <span class="old">3,20€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1544642058-b4e3de49d0b5?w=400&q=80" alt="Rotuladores permanentes 4u." loading="lazy">
+            <span class="ptab-badge pct">−24%</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Rotuladores permanentes 4u.</p>
+                <div class="ptab-price">
+                  <span class="cur">5,50€</span>
+          <span class="old">7,20€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=400&q=80" alt="Papel A4 80g 500h Hamelin" loading="lazy">
+            <span class="ptab-badge pct">−10%</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Papel A4 80g 500h Hamelin</p>
+                <div class="ptab-price">
+                  <span class="cur">4,75€</span>
+          <span class="old">5,30€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1519219788971-8d9797e0928e?w=400&q=80" alt="Cuaderno espiral A4 80h" loading="lazy">
+            <span class="ptab-badge pct">−22%</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Cuaderno espiral A4 80h</p>
+                <div class="ptab-price">
+                  <span class="cur">3,20€</span>
+          <span class="old">4,10€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+            <div class="ptab-card">
+              <div class="ptab-img">
+                <img src="https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&q=80" alt="Tijeras de oficina 21cm" loading="lazy">
+            <span class="ptab-badge pct">−19%</span>
+              </div>
+              <div class="ptab-body">
+                <p class="ptab-name">Tijeras de oficina 21cm</p>
+                <div class="ptab-price">
+                  <span class="cur">5,50€</span>
+          <span class="old">6,80€</span>
+                </div>
+                <div class="ptab-actions">
+                  <div class="ptab-qty">
+                    <button onclick="ptabQty(this,-1)">&#8722;</button>
+                    <input type="number" value="1" min="1" aria-label="Cantidad">
+                    <button onclick="ptabQty(this,1)">+</button>
+                  </div>
+                  <button class="ptab-buy">Comprar</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="prod-body">
-          <div class="prod-cat-label">Papel</div>
-          <div class="prod-name">Papel A4 80g 500 hojas Navigator</div>
-          <div class="prod-price"><span class="current">4,75€</span><span class="old">5,30€</span></div>
-          <button class="prod-add">Añadir al carrito</button>
-        </div>
+        <button class="ptab-nav ptab-next" onclick="ptabNav(2,1)" aria-label="Siguiente">&#8250;</button>
       </div>
-      <div class="prod-card">
-        <div class="prod-img prod-img-photo" style="background-image:url('https://images.unsplash.com/photo-1452860606245-08befc0ff44b?auto=format&fit=crop&w=400&q=80')">
-          <div class="prod-badge">Popular</div>
-        </div>
-        <div class="prod-body">
-          <div class="prod-cat-label">Escritura</div>
-          <div class="prod-name">Bolígrafo BIC Cristal Pack 50u.</div>
-          <div class="prod-price"><span class="current">8,90€</span></div>
-          <button class="prod-add">Añadir al carrito</button>
-        </div>
-      </div>
-      <div class="prod-card">
-        <div class="prod-img prod-img-photo" style="background-image:url('https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=400&q=80')">
-          
-        </div>
-        <div class="prod-body">
-          <div class="prod-cat-label">Informática</div>
-          <div class="prod-name">Ratón inalámbrico Logitech M185</div>
-          <div class="prod-price"><span class="current">16,50€</span></div>
-          <button class="prod-add">Añadir al carrito</button>
-        </div>
-      </div>
-      <div class="prod-card">
-        <div class="prod-img prod-img-photo" style="background-image:url('https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80')">
-          <div class="prod-badge">Oferta</div>
-        </div>
-        <div class="prod-body">
-          <div class="prod-cat-label">Papelería</div>
-          <div class="prod-name">Post-it notas adhesivas 100u.</div>
-          <div class="prod-price"><span class="current">3,20€</span><span class="old">3,90€</span></div>
-          <button class="prod-add">Añadir al carrito</button>
-        </div>
-      </div>
-      <div class="prod-card">
-        <div class="prod-img prod-img-photo" style="background-image:url('https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=400&q=80')">
-          <div class="prod-badge">Nuevo</div>
-        </div>
-        <div class="prod-body">
-          <div class="prod-cat-label">Oficina</div>
-          <div class="prod-name">Grapadora RAPID Classic 23</div>
-          <div class="prod-price"><span class="current">12,00€</span></div>
-          <button class="prod-add">Añadir al carrito</button>
-        </div>
-      </div>
-      <div class="prod-card">
-        <div class="prod-img prod-img-photo" style="background-image:url('https://images.unsplash.com/photo-1452860606245-08befc0ff44b?auto=format&fit=crop&w=400&q=80')">
-          
-        </div>
-        <div class="prod-body">
-          <div class="prod-cat-label">Escritura</div>
-          <div class="prod-name">Tijeras MAPED 21cm acero</div>
-          <div class="prod-price"><span class="current">5,50€</span></div>
-          <button class="prod-add">Añadir al carrito</button>
-        </div>
-      </div>
-      <div class="prod-card">
-        <div class="prod-img prod-img-photo" style="background-image:url('https://images.unsplash.com/photo-1586075010923-2dd4570fb338?auto=format&fit=crop&w=400&q=80')">
-          <div class="prod-badge">Oferta</div>
-        </div>
-        <div class="prod-body">
-          <div class="prod-cat-label">Embalaje</div>
-          <div class="prod-name">Cinta adhesiva Scotch 3M Pack 6u.</div>
-          <div class="prod-price"><span class="current">7,80€</span><span class="old">9,50€</span></div>
-          <button class="prod-add">Añadir al carrito</button>
-        </div>
-      </div>
-      <div class="prod-card">
-        <div class="prod-img prod-img-photo" style="background-image:url('https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=400&q=80')">
-          <div class="prod-badge">Oferta</div>
-        </div>
-        <div class="prod-body">
-          <div class="prod-cat-label">Ofimática</div>
-          <div class="prod-name">Calculadora CASIO FX-570 SP</div>
-          <div class="prod-price"><span class="current">22,00€</span><span class="old">28,00€</span></div>
-          <button class="prod-add">Añadir al carrito</button>
-        </div>
-      </div>
-      <div class="prod-card">
-        <div class="prod-img prod-img-photo" style="background-image:url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=400&q=80')">
-          <div class="prod-badge">Nuevo</div>
-        </div>
-        <div class="prod-body">
-          <div class="prod-cat-label">Clasificación</div>
-          <div class="prod-name">Carpeta A4 anillas 4 aros azul</div>
-          <div class="prod-price"><span class="current">3,90€</span></div>
-          <button class="prod-add">Añadir al carrito</button>
-        </div>
-      </div>
-        </div></div>
+    </div>
   </div>
 </section>
+
 
 
 <!-- SUPPLIER REEL -->
@@ -2593,213 +3054,6 @@ body.overlay-open>*:not(.blog-overlay.open):not(.legal-modal-overlay.open):not(#
 
 
 <!-- NOVEDADES CAROUSEL -->
-<section class="kinetic-section" id="novedades">
-  <div class="container">
-    <div class="section-hd reveal">
-      <div class="section-kicker">Art&#237;culos nuevos</div>
-      <h2>Novedades <em>destacadas</em></h2>
-    </div>
-  </div>
-  <div class="kinetic-grid" id="kinetic-grid">
-    <div class="kinetic-item">
-      <img src="https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=600&q=80" alt="Archivador Palanca A4" loading="lazy">
-      <div class="kinetic-badge">NUEVO</div>
-      <div class="kinetic-overlay">
-        <h3>Archivador Palanca A4</h3>
-        <em>€4,95 · Ref. ARQ-2025</em>
-        <p>1 unidad · Negro / Azul</p>
-      </div>
-    </div>
-    <div class="kinetic-item">
-      <img src="https://images.unsplash.com/photo-1519219788971-8d9797e0928e?w=600&q=80" alt="Cuaderno Oxford A5" loading="lazy">
-      <div class="kinetic-badge">NUEVO</div>
-      <div class="kinetic-overlay">
-        <h3>Cuaderno Oxford A5</h3>
-        <em>€6,90 · Ref. CUA-OXF5</em>
-        <p>1 unidad · Tapa dura</p>
-      </div>
-    </div>
-    <div class="kinetic-item">
-      <img src="https://images.unsplash.com/photo-1589998059171-988d887df646?w=600&q=80" alt="Caja Clasificadora" loading="lazy">
-      <div class="kinetic-badge">NUEVO</div>
-      <div class="kinetic-overlay">
-        <h3>Caja Clasificadora</h3>
-        <em>€12,50 · Ref. CLX-350</em>
-        <p>1 unidad · Con tapa</p>
-      </div>
-    </div>
-    <div class="kinetic-item">
-      <img src="https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=600&q=80" alt="Organizador de Mesa" loading="lazy">
-      <div class="kinetic-badge">NUEVO</div>
-      <div class="kinetic-overlay">
-        <h3>Organizador de Mesa</h3>
-        <em>€28,90 · Ref. ORG-5C</em>
-        <p>1 unidad · 5 compartimentos</p>
-      </div>
-    </div>
-    <div class="kinetic-item">
-      <img src="https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&q=80" alt="Maletín Portadocumentos" loading="lazy">
-      <div class="kinetic-badge">NUEVO</div>
-      <div class="kinetic-overlay">
-        <h3>Maletín Portadocumentos</h3>
-        <em>€45,00 · Ref. MAL-BLK</em>
-        <p>1 unidad · Negro</p>
-      </div>
-    </div>
-    <div class="kinetic-item">
-      <img src="https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=600&q=80" alt="Set Rotuladores Stabilo" loading="lazy">
-      <div class="kinetic-badge">NUEVO</div>
-      <div class="kinetic-overlay">
-        <h3>Set Rotuladores Stabilo</h3>
-        <em>€8,75 · Ref. STB-18C</em>
-        <p>18 colores · Punta fina</p>
-      </div>
-    </div>
-    <div class="kinetic-item">
-      <img src="https://images.unsplash.com/photo-1544642058-b4e3de49d0b5?w=600&q=80" alt="Tijeras Maped Comfort" loading="lazy">
-      <div class="kinetic-badge">NUEVO</div>
-      <div class="kinetic-overlay">
-        <h3>Tijeras Maped Comfort</h3>
-        <em>€3,50 · Ref. TIJ-M21</em>
-        <p>1 unidad · 21 cm</p>
-      </div>
-    </div>
-    <div class="kinetic-item">
-      <img src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=600&q=80" alt="Papel A4 80g · 500h" loading="lazy">
-      <div class="kinetic-badge">NUEVO</div>
-      <div class="kinetic-overlay">
-        <h3>Papel A4 80g · 500h</h3>
-        <em>€5,20 · Ref. PAP-A480</em>
-        <p>1 resma · Blanco extra</p>
-      </div>
-    </div>
-    <div class="kinetic-item">
-      <img src="https://images.unsplash.com/photo-1503694978374-8a2fa686963a?w=600&q=80" alt="Grapadora Rapid Eco" loading="lazy">
-      <div class="kinetic-badge">NUEVO</div>
-      <div class="kinetic-overlay">
-        <h3>Grapadora Rapid Eco</h3>
-        <em>€14,90 · Ref. GRP-R23</em>
-        <p>1 unidad · 26/6 mm</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- OFERTAS CAROUSEL -->
-<section class="prod-circ-section" style="padding-top:0">
-  <div class="container">
-    <div class="section-hd reveal">
-      <div class="section-kicker">Precio especial</div>
-      <h2>Nuestras <em>ofertas</em></h2>
-    </div>
-    <div class="prod-carousel-outer">
-      <div class="prod-carousel" id="offers-carousel">
-        <div class="prod-card">
-          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
-            <img src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400&q=80" alt="Cinta adhesiva Scotch Pack 6u" loading="lazy" style="width:100%;height:100%;object-fit:cover">
-            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
-            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Embalaje</span>
-          </div>
-          <div class="prod-body">
-            <div class="prod-name">Cinta adhesiva Scotch Pack 6u</div>
-            <div class="prod-price"><span class="current">5,90€</span><span class="old">7,80€</span></div>
-            <button class="prod-add">A&ntilde;adir</button>
-          </div>
-        </div>
-        <div class="prod-card">
-          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
-            <img src="https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&q=80" alt="Calculadora CASIO FX-570 SP" loading="lazy" style="width:100%;height:100%;object-fit:cover">
-            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
-            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Ofimática</span>
-          </div>
-          <div class="prod-body">
-            <div class="prod-name">Calculadora CASIO FX-570 SP</div>
-            <div class="prod-price"><span class="current">22,00€</span><span class="old">28,00€</span></div>
-            <button class="prod-add">A&ntilde;adir</button>
-          </div>
-        </div>
-        <div class="prod-card">
-          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
-            <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" alt="Carpeta A4 anillas 4 aros" loading="lazy" style="width:100%;height:100%;object-fit:cover">
-            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
-            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Clasificación</span>
-          </div>
-          <div class="prod-body">
-            <div class="prod-name">Carpeta A4 anillas 4 aros</div>
-            <div class="prod-price"><span class="current">2,50€</span><span class="old">3,90€</span></div>
-            <button class="prod-add">A&ntilde;adir</button>
-          </div>
-        </div>
-        <div class="prod-card">
-          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
-            <img src="https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&q=80" alt="Archivador palanca A4 negro" loading="lazy" style="width:100%;height:100%;object-fit:cover">
-            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
-            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Clasificación</span>
-          </div>
-          <div class="prod-body">
-            <div class="prod-name">Archivador palanca A4 negro</div>
-            <div class="prod-price"><span class="current">3,50€</span><span class="old">4,90€</span></div>
-            <button class="prod-add">A&ntilde;adir</button>
-          </div>
-        </div>
-        <div class="prod-card">
-          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
-            <img src="https://images.unsplash.com/photo-1544642058-b4e3de49d0b5?w=400&q=80" alt="Rotuladores permanentes 4u." loading="lazy" style="width:100%;height:100%;object-fit:cover">
-            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
-            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Escritura</span>
-          </div>
-          <div class="prod-body">
-            <div class="prod-name">Rotuladores permanentes 4u.</div>
-            <div class="prod-price"><span class="current">4,20€</span><span class="old">5,50€</span></div>
-            <button class="prod-add">A&ntilde;adir</button>
-          </div>
-        </div>
-        <div class="prod-card">
-          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
-            <img src="https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=400&q=80" alt="Papel DIN A4 80g 500h Hamelin" loading="lazy" style="width:100%;height:100%;object-fit:cover">
-            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
-            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Papel</span>
-          </div>
-          <div class="prod-body">
-            <div class="prod-name">Papel DIN A4 80g 500h Hamelin</div>
-            <div class="prod-price"><span class="current">4,50€</span><span class="old">5,95€</span></div>
-            <button class="prod-add">A&ntilde;adir</button>
-          </div>
-        </div>
-        <div class="prod-card">
-          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
-            <img src="https://images.unsplash.com/photo-1519219788971-8d9797e0928e?w=400&q=80" alt="Cuaderno espiral A4 80h" loading="lazy" style="width:100%;height:100%;object-fit:cover">
-            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
-            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Papel</span>
-          </div>
-          <div class="prod-body">
-            <div class="prod-name">Cuaderno espiral A4 80h</div>
-            <div class="prod-price"><span class="current">3,20€</span><span class="old">3,90€</span></div>
-            <button class="prod-add">A&ntilde;adir</button>
-          </div>
-        </div>
-        <div class="prod-card">
-          <div class="prod-img-photo" style="height:160px;position:relative;overflow:hidden">
-            <img src="https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&q=80" alt="Tijeras de oficina 21cm" loading="lazy" style="width:100%;height:100%;object-fit:cover">
-            <span class="prod-badge" style="background:var(--cta)">OFERTA</span>
-            <span style="position:absolute;top:10px;right:10px;font-size:.6rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px">Escritura</span>
-          </div>
-          <div class="prod-body">
-            <div class="prod-name">Tijeras de oficina 21cm</div>
-            <div class="prod-price"><span class="current">5,50€</span><span class="old">7,20€</span></div>
-            <button class="prod-add">A&ntilde;adir</button>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div style="display:flex;justify-content:center;gap:10px;margin-top:20px">
-      <button class="carousel-btn" id="offers-prev" aria-label="Anterior">&#8592;</button>
-      <button class="carousel-btn" id="offers-next" aria-label="Siguiente">&#8594;</button>
-    </div>
-  </div>
-</section>
-
-<!-- CATALOGS -->
 <section class="section cf-cat-section" id="catalogos">
   <div class="container">
     <div class="section-hd reveal">
@@ -4099,29 +4353,6 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// ── Kinetic Scroll Gallery ──
-(function() {
-  var grid = document.getElementById('kinetic-grid');
-  if (!grid) return;
-  var items = Array.from(grid.querySelectorAll('.kinetic-item'));
-  var prevScrollY = window.scrollY || 0;
-  var rawVelocity = 0;
-  var smoothed = 0;
-
-  window.addEventListener('scroll', function() {
-    rawVelocity = window.scrollY - prevScrollY;
-    prevScrollY = window.scrollY;
-  }, { passive: true });
-
-  (function kineticLoop() {
-    smoothed += (rawVelocity - smoothed) * 0.12;
-    rawVelocity *= 0.88;
-    var skew = Math.max(-15, Math.min(15, smoothed * 0.5));
-    var t = 'skewX(' + skew.toFixed(2) + 'deg)';
-    for (var i = 0; i < items.length; i++) items[i].style.transform = t;
-    requestAnimationFrame(kineticLoop);
-  })();
-})();
 
 // ── Background Scene Beams ──
 (function() {
@@ -5911,5 +6142,42 @@ function showCliSection(id, btn){
     Carrito
   </a>
 </nav>
+
+<script>
+
+/* ── Tabbed Product Carousel ── */
+(function(){
+  var ptabPos = [0, 0, 0];
+  var CARD_W = 206; // 190px card + 16px gap
+
+  document.querySelectorAll('.ptab-tab').forEach(function(tab){
+    tab.addEventListener('click', function(){
+      var idx = parseInt(this.dataset.tab);
+      document.querySelectorAll('.ptab-tab').forEach(function(t){ t.classList.remove('active'); });
+      document.querySelectorAll('.ptab-panel').forEach(function(p){ p.classList.remove('active'); });
+      this.classList.add('active');
+      document.querySelectorAll('.ptab-panel')[idx].classList.add('active');
+    });
+  });
+
+  window.ptabNav = function(panelIdx, dir){
+    var panel = document.querySelectorAll('.ptab-panel')[panelIdx];
+    if(!panel) return;
+    var track = panel.querySelector('.ptab-track');
+    var cards = panel.querySelectorAll('.ptab-card');
+    var wrap = panel.querySelector('.ptab-overflow');
+    var visible = Math.max(1, Math.floor((wrap.offsetWidth) / CARD_W));
+    var maxPos = Math.max(0, cards.length - visible);
+    ptabPos[panelIdx] = Math.max(0, Math.min(maxPos, ptabPos[panelIdx] + dir));
+    track.style.transform = 'translateX(-' + (ptabPos[panelIdx] * CARD_W) + 'px)';
+  };
+
+  window.ptabQty = function(btn, delta){
+    var input = btn.parentElement.querySelector('input');
+    input.value = Math.max(1, parseInt(input.value||1) + delta);
+  };
+})();
+
+</script>
 </body>
 </html>
