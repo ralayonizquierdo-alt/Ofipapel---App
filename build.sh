@@ -22,3 +22,6 @@ cp logo-canarias-ink.png _site/ 2>/dev/null || true
 
 # Copy the built alquileres app into _site/alquileres/
 cp -r alquileres/dist/. _site/alquileres/
+
+# SPA routing: todas las rutas bajo /alquileres/* sirven el index de la app
+echo "/alquileres/*  /alquileres/index.html  200" > _site/_redirects
