@@ -118,6 +118,13 @@ export default function Layout() {
           ))}
         </nav>
 
+        {/* Limón photo in sidebar */}
+        <div className="absolute bottom-20 right-0 w-32 pointer-events-none select-none" style={{ opacity: 0.28 }}>
+          <img src={`${import.meta.env.BASE_URL}limon.png`} alt="" className="w-full" />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, #141414 0%, transparent 45%)' }} />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, #141414 0%, transparent 35%)' }} />
+        </div>
+
         {/* Footer con notas musicales */}
         <div className="px-6 py-5 relative" style={{ borderTop: '1px solid #1a1a1a' }}>
           <div className="flex items-center justify-center gap-2">
@@ -153,9 +160,13 @@ export default function Layout() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
-          {/* Guitarra fantasma de fondo — muy sutil */}
-          <div className="fixed bottom-0 right-0 w-64 pointer-events-none opacity-[0.025] text-[#c9a96e]"
+          {/* Guitar backgrounds — more visible */}
+          <div className="fixed bottom-0 right-0 w-[420px] pointer-events-none opacity-[0.09] text-[#c9a96e]"
             style={{ zIndex: 0 }}>
+            <GuitarBackground className="w-full" />
+          </div>
+          <div className="fixed top-0 right-0 w-[280px] pointer-events-none opacity-[0.05] text-[#e05252]"
+            style={{ zIndex: 0, transform: 'scaleX(-1) rotate(15deg)', transformOrigin: 'top right' }}>
             <GuitarBackground className="w-full" />
           </div>
           <div className="relative z-10">
