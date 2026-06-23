@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale'
 import { Plus, X, Stethoscope, Utensils, Pill, StickyNote, Weight, AlertCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { LimonRecord } from '../types'
+import CatIllustration from '../components/CatIllustration'
 
 const TYPE_CONFIG = {
   vet:        { label: 'Veterinario', icon: Stethoscope, color: '#e05252', bg: '#e0525215' },
@@ -62,21 +63,52 @@ export default function LimonPage() {
 
   return (
     <div className="animate-fadeIn max-w-3xl mx-auto">
-      {/* Header con gatito */}
-      <div className="flex items-center gap-4 mb-8">
-        <div>
-          <h2 className="font-display text-3xl font-bold" style={{
-            background: 'linear-gradient(135deg, #6db56d, #c9a96e)',
+
+      {/* Hero banner con el gato */}
+      <div className="relative rounded-2xl overflow-hidden mb-8"
+        style={{
+          background: 'linear-gradient(135deg, #0e1a0e 0%, #111 50%, #1a1208 100%)',
+          border: '1px solid #2a3a2a',
+          minHeight: '180px',
+        }}
+      >
+        {/* Resplandor verde suave */}
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at 20% 50%, #6db56d18 0%, transparent 60%)' }} />
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at 80% 30%, #c9a96e10 0%, transparent 50%)' }} />
+
+        {/* Ilustración del gato — fondo difuminado */}
+        <div className="absolute right-0 top-0 bottom-0 w-48 pointer-events-none"
+          style={{ opacity: 0.18, filter: 'blur(1px)' }}>
+          <CatIllustration className="w-full h-full object-contain" />
+        </div>
+
+        {/* Gato destacado a la derecha */}
+        <div className="absolute right-4 bottom-0 w-36 pointer-events-none"
+          style={{ filter: 'drop-shadow(0 0 20px #6db56d30)' }}>
+          <CatIllustration className="w-full" />
+        </div>
+
+        {/* Texto */}
+        <div className="relative z-10 px-7 py-7">
+          <p className="text-xs tracking-[0.3em] uppercase text-[#6db56d80] mb-2">El rey de la casa</p>
+          <h2 className="font-display text-4xl font-bold leading-none mb-1" style={{
+            background: 'linear-gradient(135deg, #a0d4a0, #6db56d, #c9a96e)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
           }}>
-            Limón 🍋
+            Limón
           </h2>
-          <p className="text-[#666] text-sm mt-1">El rincón del rey de la casa</p>
+          <p className="text-2xl mt-1">🍋</p>
         </div>
+      </div>
+
+      {/* Botón nueva entrada */}
+      <div className="flex justify-end mb-6">
         <button
           onClick={() => { setForm(emptyForm()); setShowModal(true) }}
-          className="ml-auto btn-primary flex items-center gap-2"
+          className="btn-primary flex items-center gap-2"
         >
           <Plus size={16} /> Nueva entrada
         </button>
