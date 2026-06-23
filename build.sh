@@ -7,8 +7,15 @@ npm ci
 npm run build
 cd ..
 
-# Assemble _site: static root files + built alquileres app
+# Build the joe-app React app
+cd joe-app
+npm ci
+npm run build
+cd ..
+
+# Assemble _site: static root files + built apps
 mkdir -p _site/alquileres
+mkdir -p _site/joe
 
 # Copy root static files
 cp index.html _site/
@@ -20,8 +27,12 @@ cp sw-ink.js _site/ 2>/dev/null || true
 cp hero-productos.jpg _site/ 2>/dev/null || true
 cp logo-canarias-ink.png _site/ 2>/dev/null || true
 
-# Copy the built alquileres app into _site/alquileres/
+# Copy the built apps
 cp -r alquileres/dist/. _site/alquileres/
+cp -r joe-app/dist/. _site/joe/
 
-# SPA routing: todas las rutas bajo /alquileres/* sirven el index de la app
-echo "/alquileres/*  /alquileres/index.html  200" > _site/_redirects
+# SPA routing
+{
+  echo "/alquileres/*  /alquileres/index.html  200"
+  echo "/joe/*         /joe/index.html          200"
+} > _site/_redirects

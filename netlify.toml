@@ -2,10 +2,18 @@
   command = "bash build.sh"
   publish = "_site"
 
+[build.environment]
+  NODE_VERSION = "20"
+
 # SPA routing: cualquier ruta bajo /alquileres/ sirve el index de la app
 [[redirects]]
   from = "/alquileres/*"
   to = "/alquileres/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/joe/*"
+  to = "/joe/index.html"
   status = 200
 
 [[headers]]
