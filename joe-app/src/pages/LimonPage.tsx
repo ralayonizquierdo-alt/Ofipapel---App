@@ -4,7 +4,6 @@ import { es } from 'date-fns/locale'
 import { Plus, X, Stethoscope, Utensils, Pill, StickyNote, Weight, AlertCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { LimonRecord } from '../types'
-import CatIllustration from '../components/CatIllustration'
 
 const TYPE_CONFIG = {
   vet:        { label: 'Veterinario', icon: Stethoscope, color: '#e05252', bg: '#e0525215' },
@@ -69,26 +68,30 @@ export default function LimonPage() {
         style={{
           background: 'linear-gradient(135deg, #0e1a0e 0%, #111 50%, #1a1208 100%)',
           border: '1px solid #2a3a2a',
-          minHeight: '180px',
+          minHeight: '200px',
         }}
       >
         {/* Resplandor verde suave */}
         <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse at 20% 50%, #6db56d18 0%, transparent 60%)' }} />
+          style={{ background: 'radial-gradient(ellipse at 20% 50%, #6db56d22 0%, transparent 60%)' }} />
         <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse at 80% 30%, #c9a96e10 0%, transparent 50%)' }} />
+          style={{ background: 'radial-gradient(ellipse at 80% 30%, #c9a96e12 0%, transparent 50%)' }} />
 
-        {/* Ilustración del gato — fondo difuminado */}
-        <div className="absolute right-0 top-0 bottom-0 w-48 pointer-events-none"
-          style={{ opacity: 0.18, filter: 'blur(1px)' }}>
-          <CatIllustration className="w-full h-full object-contain" />
+        {/* Foto real de Limón — fondo difuminado */}
+        <div className="absolute right-0 top-0 bottom-0 w-56 pointer-events-none"
+          style={{ opacity: 0.25, filter: 'blur(3px)' }}>
+          <img src={`${import.meta.env.BASE_URL}limon.png`} alt="" className="w-full h-full object-contain object-bottom" />
         </div>
 
-        {/* Gato destacado a la derecha */}
-        <div className="absolute right-4 bottom-0 w-36 pointer-events-none"
-          style={{ filter: 'drop-shadow(0 0 20px #6db56d30)' }}>
-          <CatIllustration className="w-full" />
+        {/* Foto real de Limón — destacada */}
+        <div className="absolute right-2 bottom-0 w-44 pointer-events-none"
+          style={{ filter: 'drop-shadow(0 0 24px #6db56d40)' }}>
+          <img src={`${import.meta.env.BASE_URL}limon.png`} alt="Limón" className="w-full" />
         </div>
+
+        {/* Overlay para que el texto sea legible */}
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(to right, #0e1a0e 40%, transparent 75%)' }} />
 
         {/* Texto */}
         <div className="relative z-10 px-7 py-7">
