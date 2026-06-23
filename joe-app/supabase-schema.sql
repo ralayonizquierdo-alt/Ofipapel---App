@@ -64,3 +64,10 @@ alter table hospital_shifts disable row level security;
 alter table limon_records disable row level security;
 alter table spotify_playlists disable row level security;
 alter table business_tasks disable row level security;
+
+-- Permisos para la clave anónima (necesario aunque RLS esté desactivado)
+grant select, insert, update, delete on table events to anon;
+grant select, insert, update, delete on table hospital_shifts to anon;
+grant select, insert, update, delete on table limon_records to anon;
+grant select, insert, update, delete on table spotify_playlists to anon;
+grant select, insert, update, delete on table business_tasks to anon;
