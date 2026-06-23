@@ -37,6 +37,7 @@ export default function CalendarPage() {
   const [showModal, setShowModal] = useState(false)
   const [editEvent, setEditEvent] = useState<Partial<CalendarEvent>>(emptyEvent())
   const [listening, setListening] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
 
   useEffect(() => {
@@ -45,26 +46,32 @@ export default function CalendarPage() {
 
   async function loadEvents() {
     const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
-    const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
-    const { data } = await supabase
+    const end = format(endOfMonth(currentMonth), "yyyy-MM-dd'T'23:59:59")
+    const { data, error } = await supabase
       .from('events')
       .select('*')
       .gte('start_time', start)
       .lte('start_time', end)
       .order('start_time')
+    if (error) console.error('Error cargando eventos:', error.message)
     if (data) setEvents(data)
   }
 
   async function saveEvent() {
     if (!editEvent.title?.trim()) return
+    setSaveError(null)
+    const { id, created_at, ...rest } = editEvent as CalendarEvent
     const payload = {
-      ...editEvent,
+      ...rest,
+      ...(editEvent.id ? { id } : {}),
       start_time: editEvent.start_time || format(selectedDate, "yyyy-MM-dd'T'HH:mm:ss"),
     }
-    if (editEvent.id) {
-      await supabase.from('events').update(payload).eq('id', editEvent.id)
-    } else {
-      await supabase.from('events').insert(payload)
+    const { error } = editEvent.id
+      ? await supabase.from('events').update(payload).eq('id', editEvent.id)
+      : await supabase.from('events').insert(payload)
+    if (error) {
+      setSaveError(error.message)
+      return
     }
     setShowModal(false)
     setEditEvent(emptyEvent())
@@ -287,10 +294,16 @@ export default function CalendarPage() {
               <h3 className="font-display text-lg font-semibold text-[#e0e0e0]">
                 {editEvent.id ? 'Editar evento' : 'Nuevo evento'}
               </h3>
-              <button onClick={() => { setShowModal(false); setEditEvent(emptyEvent()) }} className="text-[#555] hover:text-[#888]">
+              <button onClick={() => { setShowModal(false); setEditEvent(emptyEvent()); setSaveError(null) }} className="text-[#555] hover:text-[#888]">
                 <X size={20} />
               </button>
             </div>
+
+            {saveError && (
+              <div className="mx-6 mt-4 px-4 py-3 rounded-lg bg-[#e0525215] border border-[#e05252]/40 text-sm text-[#e05252]">
+                Error al guardar: {saveError}
+              </div>
+            )}
 
             <div className="px-6 py-5 space-y-4">
               {/* Título + voz */}
@@ -402,7 +415,7 @@ export default function CalendarPage() {
             </div>
 
             <div className="px-6 py-4 border-t border-[#2a2a2a] flex justify-end gap-2">
-              <button onClick={() => { setShowModal(false); setEditEvent(emptyEvent()) }} className="btn-ghost">
+              <button onClick={() => { setShowModal(false); setEditEvent(emptyEvent()); setSaveError(null) }} className="btn-ghost">
                 Cancelar
               </button>
               <button onClick={saveEvent} className="btn-primary">
