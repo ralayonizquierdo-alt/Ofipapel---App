@@ -152,3 +152,78 @@ def construir_excel_por_proveedor(df_consolidado: pd.DataFrame, nombre_proveedor
             hoja.column_dimensions[columna[0].column_letter].width = ancho
 
     return buffer.getvalue()
+
+
+def construir_excel_no_stock(
+    df_consolidado: pd.DataFrame,
+    columna_clave: str,
+    columna_precio: str,
+    columnas_salida: list[str],
+) -> bytes:
+    """Genera el .xlsx con los articulos sin precio valido en ningun proveedor."""
+    columnas_salida_lower = [c.lower() for c in columnas_salida]
+    columna_clave = columna_clave.lower()
+    columna_precio_lower = columna_precio.lower()
+    cols_mostrar = [c for c in columnas_salida_lower if c != columna_precio_lower]
+
+    sin_ganador = df_consolidado[df_consolidado["proveedor_ganador"].isna()]
+    filtrado = sin_ganador[cols_mostrar].drop_duplicates(subset=[columna_clave])
+
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        filtrado.to_excel(writer, index=False, sheet_name="NO STOCK")
+        hoja = writer.sheets["NO STOCK"]
+        for celda in hoja[1]:
+            celda.font = Font(bold=True)
+        for columna in hoja.columns:
+            ancho = max((len(str(c.value)) for c in columna if c.value is not None), default=10) + 2
+            hoja.column_dimensions[columna[0].column_letter].width = ancho
+
+    return buffer.getvalue()
+
+
+def construir_excel_comparativa(
+    df_consolidado: pd.DataFrame,
+    columna_clave: str,
+    columna_precio: str,
+    columnas_salida: list[str],
+) -> bytes:
+    """Genera el .xlsx con todos los articulos y los precios de cada proveedor en columnas separadas."""
+    columnas_salida_lower = [c.lower() for c in columnas_salida]
+    columna_clave = columna_clave.lower()
+    columna_precio_lower = columna_precio.lower()
+    cols_info = [c for c in columnas_salida_lower if c != columna_precio_lower]
+
+    info = df_consolidado[cols_info].drop_duplicates(subset=[columna_clave])
+
+    pivot = (
+        df_consolidado
+        .groupby([columna_clave, "proveedor"])[columna_precio_lower]
+        .first()
+        .unstack("proveedor")
+        .reset_index()
+    )
+    pivot.columns.name = None
+    pivot = pivot.rename(columns={
+        col: f"precio_{col}" for col in pivot.columns if col != columna_clave
+    })
+
+    ganador = (
+        df_consolidado[[columna_clave, "proveedor_ganador"]]
+        .drop_duplicates(subset=[columna_clave])
+    )
+
+    resultado = info.merge(pivot, on=columna_clave, how="left")
+    resultado = resultado.merge(ganador, on=columna_clave, how="left")
+
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        resultado.to_excel(writer, index=False, sheet_name="Comparativa")
+        hoja = writer.sheets["Comparativa"]
+        for celda in hoja[1]:
+            celda.font = Font(bold=True)
+        for columna in hoja.columns:
+            ancho = max((len(str(c.value)) for c in columna if c.value is not None), default=10) + 2
+            hoja.column_dimensions[columna[0].column_letter].width = ancho
+
+    return buffer.getvalue()

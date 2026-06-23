@@ -124,6 +124,28 @@ def main():
             graph_client.marcar_correo_procesado(token, mensaje["id"], config["email"]["marcar_categoria"])
             drafts_creados[nombre] = draft_id
 
+    excel_bytes_no_stock = excel_logic.construir_excel_no_stock(
+        df_consolidado,
+        config["excel"]["columna_clave"],
+        config["excel"]["columna_precio"],
+        config["excel"]["columnas_esperadas"],
+    )
+    ruta_no_stock = os.path.join(config["salida"]["carpeta"], f"NO_STOCK_{hoy}.xlsx")
+    with open(ruta_no_stock, "wb") as f:
+        f.write(excel_bytes_no_stock)
+    print(f"Excel NO STOCK generado: {ruta_no_stock}")
+
+    excel_bytes_comparativa = excel_logic.construir_excel_comparativa(
+        df_consolidado,
+        config["excel"]["columna_clave"],
+        config["excel"]["columna_precio"],
+        config["excel"]["columnas_esperadas"],
+    )
+    ruta_comparativa = os.path.join(config["salida"]["carpeta"], f"Comparativa_{hoy}.xlsx")
+    with open(ruta_comparativa, "wb") as f:
+        f.write(excel_bytes_comparativa)
+    print(f"Excel comparativa generado: {ruta_comparativa}")
+
     imprimir_resumen(correos_por_proveedor, reporte, drafts_creados)
 
 
