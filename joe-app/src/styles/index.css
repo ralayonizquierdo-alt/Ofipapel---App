@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+:root {
+  --gold: #c9a96e;
+  --gold-light: #e2c99a;
+  --burgundy: #722f37;
+  --burgundy-light: #9b3f4a;
+  --charcoal: #1a1a1a;
+  --carbon: #111111;
+  --obsidian: #0a0a0a;
+  --smoke: #2a2a2a;
+  --ash: #3a3a3a;
+  --silver: #888888;
+  --pearl: #cccccc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--obsidian);
+  color: var(--pearl);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: 'Playfair Display', serif;
+}
+
+/* Scrollbar elegante */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--carbon); }
+::-webkit-scrollbar-thumb { background: var(--ash); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+/* Animaciones */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+/* Gradiente dorado */
+.text-gold-gradient {
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Línea separadora dorada */
+.divider-gold {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: 0.4;
+}
+
+/* Tarjeta base */
+.card {
+  background: var(--charcoal);
+  border: 1px solid var(--ash);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.card:hover {
+  border-color: var(--gold);
+  transition: border-color 0.2s ease;
+}
+
+/* Botón primario */
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold), #a07840);
+  color: var(--obsidian);
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 0.5rem 1.25rem;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--silver);
+  border: 1px solid var(--ash);
+  border-radius: 8px;
+  padding: 0.5rem 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ghost:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
