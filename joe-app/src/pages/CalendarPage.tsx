@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   isSameMonth, isSameDay, addMonths, subMonths, isToday,
-  parseISO, startOfWeek, endOfWeek,
+  parseISO, startOfWeek, endOfWeek, startOfDay,
 } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus, Mic, MicOff, X, Bell, MapPin, Heart } from 'lucide-react'
@@ -122,8 +122,14 @@ export default function CalendarPage() {
   const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
   const days = eachDayOfInterval({ start: calStart, end: calEnd })
 
-  const dayEvents = (date: Date) =>
-    events.filter(e => isSameDay(parseISO(e.start_time), date))
+  const dayEvents = (date: Date) => {
+    const d = startOfDay(date)
+    return events.filter(e => {
+      const start = startOfDay(parseISO(e.start_time))
+      const end = e.end_time ? startOfDay(parseISO(e.end_time)) : start
+      return d >= start && d <= end
+    })
+  }
 
   const selectedDayEvents = dayEvents(selectedDate)
 
