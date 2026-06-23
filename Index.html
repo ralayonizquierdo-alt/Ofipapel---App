@@ -369,7 +369,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.13 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.14 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -2151,8 +2151,9 @@ function importProveedoresExcel(input){
       const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
       const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
       const toFecha=v=>{
-        if(v instanceof Date) return v.toISOString().split('T')[0];
-        if(typeof v==='number') return new Date(Math.round((v-25569)*86400*1000)).toISOString().split('T')[0];
+        const fmtLocal=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+dd;};
+        if(v instanceof Date) return fmtLocal(v);
+        if(typeof v==='number') return fmtLocal(new Date(Math.round((v-25569)*86400*1000)));
         return '';
       };
       let n=0;
@@ -2167,7 +2168,7 @@ function importProveedoresExcel(input){
         if(isNaN(importe)) return;
         proveedores.push({
           id:Date.now()+n,
-          fecha:toFecha(row[7])||new Date().toISOString().split('T')[0],
+          fecha:toFecha(row[7])||new Date().toLocaleDateString('en-CA'),
           receptor:String(receptorRaw).trim(),
           nombre,
           nfra:row[2]!==''?String(row[2]).trim():'',
@@ -2404,8 +2405,9 @@ function importVentasCajaExcel(input){
         const empleado=row[3], tipomov=row[6], descrtipo=row[7], tipcondes=row[12]||'';
 
         const fechaRaw=row[1]; let fecha='';
-        if(fechaRaw instanceof Date) fecha=fechaRaw.toISOString().split('T')[0];
-        else if(typeof fechaRaw==='number') fecha=new Date(Math.round((fechaRaw-25569)*86400*1000)).toISOString().split('T')[0];
+        const fmtLocal=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+dd;};
+        if(fechaRaw instanceof Date) fecha=fmtLocal(fechaRaw);
+        else if(typeof fechaRaw==='number') fecha=fmtLocal(new Date(Math.round((fechaRaw-25569)*86400*1000)));
         else if(typeof fechaRaw==='string' && fechaRaw) fecha=fechaRaw;
         if(!fecha) return;
 
@@ -3127,8 +3129,9 @@ function importComprasExcel(input){
         if(existing.has(npedido)) return;
 
         const fechaRaw=row[1]; let fecha='';
-        if(fechaRaw instanceof Date) fecha=fechaRaw.toISOString().split('T')[0];
-        else if(typeof fechaRaw==='number') fecha=new Date(Math.round((fechaRaw-25569)*86400*1000)).toISOString().split('T')[0];
+        const fmtLocalC=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+dd;};
+        if(fechaRaw instanceof Date) fecha=fmtLocalC(fechaRaw);
+        else if(typeof fechaRaw==='number') fecha=fmtLocalC(new Date(Math.round((fechaRaw-25569)*86400*1000)));
         else if(typeof fechaRaw==='string') fecha=fechaRaw;
 
         const almacen=String(row[2]||'').trim();
