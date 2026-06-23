@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Trash2, Music2, Radio, ExternalLink, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { SpotifyPlaylist } from '../types'
+import { GuitarBackground, VinylRecord } from '../components/RockBackground'
 
 const RADIO_STATIONS = [
   { name: 'Rock FM España',     url: 'https://www.rockfm.fm/', logo: '🎸' },
@@ -56,9 +57,39 @@ export default function MusicPage() {
 
   return (
     <div className="animate-fadeIn max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h2 className="font-display text-3xl font-bold text-gold-gradient">Música</h2>
-        <p className="text-[#666] text-sm mt-1">Rock & más — tus playlists y emisoras</p>
+
+      {/* Hero Rock */}
+      <div className="relative rounded-2xl overflow-hidden mb-8"
+        style={{
+          background: 'linear-gradient(135deg, #120808 0%, #0e0e0e 40%, #0d0d14 100%)',
+          border: '1px solid #2a1a1a',
+          minHeight: '160px',
+        }}
+      >
+        {/* Guitarra fondo */}
+        <div className="absolute -right-8 -top-4 h-full pointer-events-none opacity-[0.07] text-[#e05252]">
+          <GuitarBackground className="h-full w-auto" />
+        </div>
+        {/* Vinilo decorativo */}
+        <div className="absolute right-32 top-1/2 -translate-y-1/2 w-28 pointer-events-none opacity-[0.12] text-[#c9a96e]">
+          <VinylRecord className="w-full" />
+        </div>
+        {/* Resplandor rojo */}
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at 10% 50%, #e0525215 0%, transparent 60%)' }} />
+
+        <div className="relative z-10 px-7 py-7">
+          <p className="text-xs tracking-[0.3em] uppercase text-[#e0525260] mb-2">♩ ♪ ♫ ♬</p>
+          <h2 className="font-display text-4xl font-bold leading-none mb-1"
+            style={{
+              background: 'linear-gradient(135deg, #ff8080, #e05252, #c9a96e)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>
+            Música
+          </h2>
+          <p className="text-[#666] text-sm mt-2">Rock & más — tus playlists y emisoras</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

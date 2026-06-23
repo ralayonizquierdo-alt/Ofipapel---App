@@ -3,6 +3,7 @@ import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import {
   CalendarDays, Music2, Cat, Briefcase, Stethoscope, Menu, X,
 } from 'lucide-react'
+import { GuitarBackground } from './RockBackground'
 
 const nav = [
   { to: '/agenda',  icon: CalendarDays, label: 'Agenda',   color: '#c9a96e' },
@@ -151,8 +152,15 @@ export default function Layout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+          {/* Guitarra fantasma de fondo — muy sutil */}
+          <div className="fixed bottom-0 right-0 w-64 pointer-events-none opacity-[0.025] text-[#c9a96e]"
+            style={{ zIndex: 0 }}>
+            <GuitarBackground className="w-full" />
+          </div>
+          <div className="relative z-10">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
