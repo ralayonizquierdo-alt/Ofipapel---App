@@ -5,19 +5,20 @@ import {
   parseISO, startOfWeek, endOfWeek,
 } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Mic, MicOff, X, Bell, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Mic, MicOff, X, Bell, MapPin, Heart } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { CalendarEvent, EventCategory } from '../types'
 
-const CATEGORY_CONFIG: Record<EventCategory, { label: string; color: string; bg: string }> = {
-  hospital:   { label: 'Hospital',    color: '#5b8dd9', bg: '#5b8dd920' },
-  empresa:    { label: 'Empresa',     color: '#9b6bb5', bg: '#9b6bb520' },
-  zumba:      { label: 'Zumba',       color: '#e0854a', bg: '#e0854a20' },
-  meditacion: { label: 'Meditación',  color: '#6db59e', bg: '#6db59e20' },
-  enologia:   { label: 'Enología',    color: '#c9a96e', bg: '#c9a96e20' },
-  astrologia: { label: 'Astrología',  color: '#b56db5', bg: '#b56db520' },
-  personal:   { label: 'Personal',    color: '#888888', bg: '#88888820' },
-  limon:      { label: 'Limón',       color: '#6db56d', bg: '#6db56d20' },
+const CATEGORY_CONFIG: Record<EventCategory, { label: string; color: string; bg: string; heart?: boolean }> = {
+  pareja:     { label: 'Rober ♥',    color: '#e8304a', bg: '#e8304a20', heart: true },
+  hospital:   { label: 'Hospital',   color: '#5b8dd9', bg: '#5b8dd920' },
+  empresa:    { label: 'Empresa',    color: '#9b6bb5', bg: '#9b6bb520' },
+  zumba:      { label: 'Zumba',      color: '#e0854a', bg: '#e0854a20' },
+  meditacion: { label: 'Meditación', color: '#6db59e', bg: '#6db59e20' },
+  enologia:   { label: 'Enología',   color: '#c9a96e', bg: '#c9a96e20' },
+  astrologia: { label: 'Astrología', color: '#b56db5', bg: '#b56db520' },
+  personal:   { label: 'Personal',   color: '#888888', bg: '#88888820' },
+  limon:      { label: 'Limón',      color: '#6db56d', bg: '#6db56d20' },
 }
 
 const emptyEvent = (): Partial<CalendarEvent> => ({
@@ -189,11 +190,9 @@ export default function CalendarPage() {
                   </span>
                   <div className="flex flex-wrap justify-center gap-0.5">
                     {evs.slice(0, 3).map(e => (
-                      <div
-                        key={e.id}
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: CATEGORY_CONFIG[e.category].color }}
-                      />
+                      CATEGORY_CONFIG[e.category].heart
+                        ? <Heart key={e.id} size={9} fill="#e8304a" style={{ color: '#e8304a' }} />
+                        : <div key={e.id} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: CATEGORY_CONFIG[e.category].color }} />
                     ))}
                   </div>
                 </button>
@@ -206,7 +205,10 @@ export default function CalendarPage() {
           <div className="flex flex-wrap gap-3">
             {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
               <span key={key} className="flex items-center gap-1.5 text-xs text-[#888]">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cfg.color }} />
+                {cfg.heart
+                  ? <Heart size={10} fill="#e8304a" style={{ color: '#e8304a' }} />
+                  : <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cfg.color }} />
+                }
                 {cfg.label}
               </span>
             ))}
@@ -245,7 +247,10 @@ export default function CalendarPage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-[#e0e0e0] truncate">{ev.title}</p>
+                          <p className="text-sm font-medium text-[#e0e0e0] truncate flex items-center gap-1.5">
+                            {cfg.heart && <Heart size={12} fill="#e8304a" style={{ color: '#e8304a', flexShrink: 0 }} />}
+                            {ev.title}
+                          </p>
                           {ev.location && (
                             <p className="text-xs text-[#888] flex items-center gap-1 mt-0.5">
                               <MapPin size={10} /> {ev.location}

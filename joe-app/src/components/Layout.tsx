@@ -12,6 +12,15 @@ const nav = [
   { to: '/limon',   icon: Cat,          label: 'Limón 🍋', color: '#6db56d' },
 ]
 
+/* SVG decorativo - púa de guitarra */
+function GuitarPick({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 40 48" className={className} fill="currentColor">
+      <path d="M20 2C10 2 2 10 2 20c0 8 6 16 18 26 12-10 18-18 18-26C38 10 30 2 20 2z" />
+    </svg>
+  )
+}
+
 export default function Layout() {
   const [open, setOpen] = useState(false)
   const location = useLocation()
@@ -19,7 +28,7 @@ export default function Layout() {
   const currentNav = nav.find(n => location.pathname.startsWith(n.to))
 
   return (
-    <div className="flex h-full min-h-screen bg-[#0a0a0a]">
+    <div className="flex h-full min-h-screen" style={{ background: '#0a0a0a' }}>
       {/* Overlay mobile */}
       {open && (
         <div
@@ -32,24 +41,41 @@ export default function Layout() {
       <aside
         className={`
           fixed md:static top-0 left-0 h-full z-30
-          w-64 flex-shrink-0 flex flex-col
-          bg-[#111111] border-r border-[#2a2a2a]
+          w-64 flex-shrink-0 flex flex-col overflow-hidden
           transform transition-transform duration-300
           ${open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
+        style={{
+          background: 'linear-gradient(180deg, #141414 0%, #0f0f0f 100%)',
+          borderRight: '1px solid #222',
+        }}
       >
+        {/* Decoración top — picks de guitarra */}
+        <div className="absolute top-0 right-0 w-24 h-24 pointer-events-none opacity-[0.04]">
+          <GuitarPick className="absolute top-2 right-2 w-10 h-12 text-[#c9a96e] rotate-12" />
+          <GuitarPick className="absolute top-6 right-8 w-6 h-8 text-[#c9a96e] -rotate-6" />
+        </div>
+
         {/* Logo */}
-        <div className="px-6 pt-8 pb-6 border-b border-[#2a2a2a]">
-          <h1 className="font-display text-2xl font-bold text-gold-gradient">
-            Joe's World
-          </h1>
-          <p className="text-[#888] text-xs mt-1 font-light tracking-widest uppercase">
+        <div className="relative px-6 pt-8 pb-6" style={{ borderBottom: '1px solid #1e1e1e' }}>
+          <div className="flex items-center gap-3 mb-1">
+            {/* Vinilo decorativo */}
+            <div className="relative w-8 h-8 flex-shrink-0">
+              <div className="absolute inset-0 rounded-full border-2 border-[#c9a96e30]" />
+              <div className="absolute inset-1 rounded-full border border-[#c9a96e20]" />
+              <div className="absolute inset-[10px] rounded-full bg-[#c9a96e]" />
+            </div>
+            <h1 className="font-display text-2xl font-bold text-gold-gradient leading-none">
+              Joe's World
+            </h1>
+          </div>
+          <p className="text-[#555] text-[10px] mt-2 font-light tracking-[0.3em] uppercase ml-11">
             tu espacio personal
           </p>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-6 space-y-1">
+        <nav className="flex-1 px-3 py-6 space-y-0.5">
           {nav.map(({ to, icon: Icon, label, color }) => (
             <NavLink
               key={to}
@@ -57,28 +83,31 @@ export default function Layout() {
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                  isActive
-                    ? 'bg-[#1a1a1a] border border-[#3a3a3a]'
-                    : 'hover:bg-[#1a1a1a]'
+                  isActive ? 'border border-[#2a2a2a]' : 'hover:bg-[#161616] border border-transparent'
                 }`
               }
+              style={({ isActive }) => isActive ? { background: `linear-gradient(135deg, ${color}12, ${color}06)` } : {}}
             >
               {({ isActive }) => (
                 <>
-                  <Icon
-                    size={20}
-                    style={{ color: isActive ? color : '#666' }}
-                    className="transition-colors duration-200 group-hover:opacity-90"
-                  />
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                    style={isActive ? { backgroundColor: color + '20' } : { backgroundColor: '#1a1a1a' }}
+                  >
+                    <Icon
+                      size={16}
+                      style={{ color: isActive ? color : '#555' }}
+                    />
+                  </div>
                   <span
                     className="text-sm font-medium transition-colors duration-200"
-                    style={{ color: isActive ? '#e0e0e0' : '#666' }}
+                    style={{ color: isActive ? '#e0e0e0' : '#555' }}
                   >
                     {label}
                   </span>
                   {isActive && (
                     <div
-                      className="ml-auto w-1.5 h-1.5 rounded-full"
+                      className="ml-auto w-1 h-4 rounded-full"
                       style={{ backgroundColor: color }}
                     />
                   )}
@@ -88,10 +117,15 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-[#2a2a2a]">
-          <p className="text-[#444] text-xs text-center font-light">
-            ♪ hecho con amor ♪
+        {/* Footer con notas musicales */}
+        <div className="px-6 py-5 relative" style={{ borderTop: '1px solid #1a1a1a' }}>
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-[#c9a96e30] text-base">♩</span>
+            <p className="text-[#333] text-[11px] font-light tracking-widest">hecho con amor</p>
+            <span className="text-[#c9a96e30] text-base">♪</span>
+          </div>
+          <p className="text-[#222] text-[9px] text-center mt-1 tracking-widest">
+            ★ ROCK & ROLL ★
           </p>
         </div>
       </aside>
@@ -99,16 +133,22 @@ export default function Layout() {
       {/* Main */}
       <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
         {/* Top bar mobile */}
-        <header className="md:hidden flex items-center gap-3 px-4 py-4 bg-[#111111] border-b border-[#2a2a2a]">
+        <header
+          className="md:hidden flex items-center gap-3 px-4 py-4"
+          style={{ background: '#111', borderBottom: '1px solid #1e1e1e' }}
+        >
           <button
             onClick={() => setOpen(!open)}
-            className="text-[#888] hover:text-[#c9a96e] transition-colors"
+            className="text-[#666] hover:text-[#c9a96e] transition-colors"
           >
             {open ? <X size={22} /> : <Menu size={22} />}
           </button>
-          <span className="font-display text-lg font-semibold text-[#c9a96e]">
-            {currentNav?.label ?? "Joe's World"}
-          </span>
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-4 rounded-full" style={{ backgroundColor: currentNav?.color ?? '#c9a96e' }} />
+            <span className="font-display text-lg font-semibold" style={{ color: currentNav?.color ?? '#c9a96e' }}>
+              {currentNav?.label ?? "Joe's World"}
+            </span>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8">

@@ -7,6 +7,7 @@ export type EventCategory =
   | 'astrologia'
   | 'personal'
   | 'limon'
+  | 'pareja'
 
 export interface CalendarEvent {
   id: string
