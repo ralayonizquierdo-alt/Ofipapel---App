@@ -12,7 +12,7 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState(true)
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/joe">
       {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} />}
       <Routes>
         <Route path="/" element={<Layout />}>
