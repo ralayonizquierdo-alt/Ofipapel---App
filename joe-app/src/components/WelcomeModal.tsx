@@ -112,40 +112,56 @@ export default function WelcomeModal({ onClose }: WelcomeModalProps) {
         }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Resplandor fondo */}
-        <div
-          className="absolute inset-0 rounded-3xl blur-2xl opacity-20 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse, #c9a96e 0%, transparent 70%)' }}
-        />
+        {/* Resplandores */}
+        <div className="absolute inset-0 rounded-3xl blur-3xl opacity-25 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at 30% 50%, #c9a96e 0%, transparent 60%)' }} />
+        <div className="absolute inset-0 rounded-3xl blur-3xl opacity-15 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at 80% 20%, #722f37 0%, transparent 60%)' }} />
 
         {/* Tarjeta */}
         <div
           className="relative rounded-3xl overflow-hidden border border-[#c9a96e22]"
           style={{
-            background: 'linear-gradient(145deg, #161616, #0e0e0e)',
-            boxShadow: '0 0 60px #c9a96e18, 0 24px 64px #00000080',
+            background: 'linear-gradient(145deg, #161616 0%, #0e0e0e 100%)',
+            boxShadow: '0 0 80px #c9a96e15, 0 0 30px #722f3710, 0 24px 64px #00000090',
           }}
         >
-          {/* Línea dorada superior */}
-          <div
-            className="h-[2px] w-full"
-            style={{ background: 'linear-gradient(90deg, transparent, #c9a96e, #722f37, #c9a96e, transparent)' }}
-          />
+          {/* Línea superior */}
+          <div className="h-[2px] w-full"
+            style={{ background: 'linear-gradient(90deg, transparent, #c9a96e, #722f37, #c9a96e, transparent)' }} />
 
-          <div className="px-8 py-10">
-            {/* Saludo */}
-            <div className="flex items-center gap-2 mb-7">
-              <Sparkles size={14} className="text-[#c9a96e]" />
-              <span className="text-xs tracking-[0.25em] uppercase text-[#888] font-light">
-                {getGreeting()}
-              </span>
+          {/* Notas musicales decorativas */}
+          <div className="absolute top-6 right-6 text-[#c9a96e08] text-6xl font-bold pointer-events-none select-none leading-none">
+            ♫
+          </div>
+          <div className="absolute bottom-16 right-4 text-[#722f3708] text-4xl pointer-events-none select-none">
+            ♪
+          </div>
+
+          <div className="px-8 pt-9 pb-7">
+            {/* Saludo + gato */}
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div className="flex items-center gap-2">
+                <Sparkles size={13} className="text-[#c9a96e]" />
+                <span className="text-xs tracking-[0.25em] uppercase text-[#777] font-light">
+                  {getGreeting()}
+                </span>
+              </div>
+              {/* Limón mini */}
+              <div className="flex-shrink-0 w-12 h-12 rounded-xl overflow-hidden border border-[#c9a96e20]"
+                style={{ background: 'linear-gradient(135deg, #1a1a1a, #111)' }}>
+                <div className="w-full h-full flex items-center justify-center text-2xl">
+                  🐱
+                </div>
+              </div>
             </div>
 
             {/* Nombre */}
             <h1
-              className="font-display text-5xl font-bold mb-8 leading-none"
+              className="font-display font-bold leading-none mb-2"
               style={{
-                background: 'linear-gradient(135deg, #e2c99a 0%, #c9a96e 40%, #9b7040 100%)',
+                fontSize: 'clamp(2.5rem, 8vw, 3.5rem)',
+                background: 'linear-gradient(135deg, #e2c99a 0%, #c9a96e 50%, #a07840 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
               }}
@@ -153,22 +169,24 @@ export default function WelcomeModal({ onClose }: WelcomeModalProps) {
               Hola, Joe
             </h1>
 
-            {/* Separador */}
-            <div
-              className="w-12 h-[1px] mb-8"
-              style={{ background: 'linear-gradient(90deg, #c9a96e, transparent)' }}
-            />
+            {/* Banda decorativa */}
+            <div className="flex items-center gap-2 mb-7 mt-3">
+              <div className="h-[1px] w-8" style={{ background: 'linear-gradient(90deg, #c9a96e, transparent)' }} />
+              <span className="text-[9px] tracking-[0.3em] text-[#444] uppercase">Rock & Soul</span>
+              <div className="h-[1px] flex-1" style={{ background: 'linear-gradient(90deg, transparent, #722f3740)' }} />
+            </div>
+
+            {/* Comillas decorativas */}
+            <div className="text-4xl leading-none mb-1 font-display"
+              style={{ color: '#c9a96e20' }}>"</div>
 
             {/* Frase del día */}
-            <blockquote className="mb-3">
-              <p
-                className="font-display text-xl font-normal leading-relaxed italic"
-                style={{ color: '#d4d4d4' }}
-              >
-                "{quote.text}"
+            <blockquote className="pl-3 border-l-2 border-[#c9a96e30] mb-4">
+              <p className="font-display text-lg font-normal leading-relaxed italic" style={{ color: '#ccc' }}>
+                {quote.text}
               </p>
             </blockquote>
-            <p className="text-sm text-[#666] tracking-wider">— {quote.author}</p>
+            <p className="text-xs text-[#555] tracking-widest pl-3">— {quote.author}</p>
           </div>
 
           {/* Footer */}
