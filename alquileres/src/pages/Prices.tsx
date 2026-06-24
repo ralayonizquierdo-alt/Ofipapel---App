@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { priceStorage } from '../lib/storage'
-import type { PriceEntry, ApartmentType, Season } from '../types'
+import { priceStorage, offerPriceStorage } from '../lib/storage'
+import type { PriceEntry, ApartmentType, Season, OfferPrice } from '../types'
 import { calcPrices } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
 import Modal from '../components/ui/Modal'
-import { Pencil, Info } from 'lucide-react'
+import { Pencil, Info, Printer, Plus, Trash2 } from 'lucide-react'
+import { MONTH_NAMES_ES } from '../lib/dateUtils'
 
 const APT_TYPE_LABELS: Record<ApartmentType, string> = {
   '1BR': '1 Dormitorio (104, 105)',
@@ -17,26 +18,46 @@ const CURRENT_YEAR = new Date().getFullYear()
 
 export default function Prices() {
   const [prices, setPrices] = useState<PriceEntry[]>([])
+  const [offerPrices, setOfferPrices] = useState<OfferPrice[]>([])
   const [selectedSeason, setSelectedSeason] = useState<Season>('VERANO')
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR + 1)
   const [editing, setEditing] = useState<PriceEntry | null>(null)
+  const [showOfferForm, setShowOfferForm] = useState(false)
+  const [editingOffer, setEditingOffer] = useState<OfferPrice | null>(null)
 
-  function reload() { setPrices(priceStorage.getAll()) }
+  function reload() {
+    setPrices(priceStorage.getAll())
+    setOfferPrices(offerPriceStorage.getAll())
+  }
   useEffect(() => { reload() }, [])
 
   const filtered = prices.filter(p => p.season === selectedSeason && p.year === selectedYear)
   const availableYears = [...new Set(prices.map(p => p.year))].sort()
 
+  function handleDeleteOffer(id: string) {
+    if (!confirm('¿Eliminar tarifa de oferta?')) return
+    offerPriceStorage.delete(id)
+    reload()
+  }
+
   return (
     <div className="p-6">
-      <PageHeader title="Tabla de Precios" subtitle={`Los precios se actualizan en Enero para el año siguiente`} />
+      <PageHeader
+        title="Tabla de Precios"
+        subtitle="Los precios se actualizan en Enero para el año siguiente"
+        actions={
+          <button onClick={() => window.print()} className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
+            <Printer size={16} /> Imprimir
+          </button>
+        }
+      />
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start gap-3">
         <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
         <div className="text-sm text-blue-700">
           <strong>Reglas de precio:</strong> Vacacional incluye 40€ limpieza. Prolongaciones = precio_contratado ÷ días × días_extra.
-          Descuento 10% para directos y VIP-B (desde 14/04/26). Canal inmobiliaria/Booking = precio base +15%.
-          Web publica: precio total con limpieza.
+          Descuento 10% CON PAGO DE CONTADO para directos y VIP-B (desde 14/04/26). Canal inmobiliaria/Booking/Web = precio base +15% (limpieza no incluida, se cobra aparte).
+          DIRECTOS y VIP-B no se publican en web.
         </div>
       </div>
 
@@ -84,8 +105,53 @@ export default function Prices() {
         })}
       </div>
 
+      {/* Offer Prices section */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-slate-800">Tarifas de Oferta</h2>
+          <button
+            onClick={() => { setEditingOffer(null); setShowOfferForm(true) }}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+            <Plus size={15} /> Nueva tarifa de oferta
+          </button>
+        </div>
+
+        {offerPrices.length === 0 ? (
+          <div className="bg-white rounded-xl border border-dashed border-slate-300 p-6 text-center">
+            <p className="text-slate-400 text-sm">No hay tarifas de oferta registradas</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {offerPrices.map(op => (
+              <div key={op.id} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-slate-800">{op.label}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {MONTH_NAMES_ES[op.month - 1]} {op.year} · {APT_TYPE_LABELS[op.apartmentType]} ·
+                    1S: {op.price1week}€ · 2S: {op.price2weeks}€ · 3S: {op.price3weeks}€ · 1M: {op.price1month}€ · Limp: {op.cleaningFee}€
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => { setEditingOffer(op); setShowOfferForm(true) }}
+                    className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Pencil size={14} /></button>
+                  <button onClick={() => handleDeleteOffer(op.id)}
+                    className="p-1.5 text-slate-400 hover:text-red-600 rounded"><Trash2 size={14} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {editing && (
         <PriceEditModal entry={editing} onClose={() => { setEditing(null); reload() }} />
+      )}
+
+      {showOfferForm && (
+        <OfferPriceModal
+          editing={editingOffer}
+          onClose={() => { setShowOfferForm(false); setEditingOffer(null); reload() }}
+        />
       )}
     </div>
   )
@@ -93,11 +159,11 @@ export default function Prices() {
 
 function PriceTable({ entry, onEdit }: { entry: PriceEntry; onEdit: () => void }) {
   const rows = [
-    { label: '1 Semana', days: 7, base: entry.price1week },
-    { label: '2 Semanas', days: 14, base: entry.price2weeks },
-    { label: '3 Semanas', days: 21, base: entry.price3weeks },
-    { label: '1 Mes', days: 30, base: entry.price1month },
-    { label: 'Directo (-10%)', days: 30, base: entry.price1month * 0.9 },
+    { label: '1 Semana (7d)', days: 7, base: entry.price1week },
+    { label: '2 Semanas (14d)', days: 14, base: entry.price2weeks },
+    { label: '3 Semanas (21d)', days: 21, base: entry.price3weeks },
+    { label: '1 Mes (30d)', days: 30, base: entry.price1month },
+    { label: 'Directo/VIP-B (-10%)', days: 30, base: entry.price1month * 0.9, isDirect: true },
   ]
 
   return (
@@ -113,12 +179,13 @@ function PriceTable({ entry, onEdit }: { entry: PriceEntry; onEdit: () => void }
           <thead>
             <tr className="border-b border-slate-100">
               <th className="text-left py-2.5 px-4 text-xs font-medium text-slate-500">Duración</th>
-              <th className="text-right py-2.5 px-4 text-xs font-medium text-slate-500">Base propietario</th>
+              <th className="text-right py-2.5 px-4 text-xs font-medium text-slate-500">Base Propietario</th>
               <th className="text-right py-2.5 px-4 text-xs font-medium text-slate-500">+ Limpieza</th>
-              <th className="text-right py-2.5 px-4 text-xs font-medium text-amber-600">Inmobiliaria (+15%)</th>
-              <th className="text-right py-2.5 px-4 text-xs font-medium text-violet-600">Booking (+15%)</th>
-              <th className="text-right py-2.5 px-4 text-xs font-medium text-green-700 bg-green-50">Web (publicar)</th>
-              <th className="text-right py-2.5 px-4 text-xs font-medium text-slate-500">€/noche</th>
+              <th className="text-right py-2.5 px-4 text-xs font-medium text-slate-500">Pago Propietario</th>
+              <th className="text-right py-2.5 px-4 text-xs font-medium text-amber-600">Inmobi. (+15%)</th>
+              <th className="text-right py-2.5 px-4 text-xs font-medium text-violet-600">Reserva (+15%)</th>
+              <th className="text-right py-2.5 px-4 text-xs font-medium text-green-700 bg-green-50">Web (Publicar)</th>
+              <th className="text-right py-2.5 px-4 text-xs font-medium text-slate-500">€/Noche</th>
             </tr>
           </thead>
           <tbody>
@@ -127,10 +194,14 @@ function PriceTable({ entry, onEdit }: { entry: PriceEntry; onEdit: () => void }
               const calc = calcPrices(row.base, entry.cleaningFee)
               const perNight = (row.base / row.days).toFixed(2)
               return (
-                <tr key={row.label} className="border-b border-slate-50 hover:bg-slate-50">
-                  <td className="py-3 px-4 font-medium text-slate-700">{row.label}</td>
-                  <td className="py-3 px-4 text-right text-slate-600">{row.base.toLocaleString('es-ES')} €</td>
-                  <td className="py-3 px-4 text-right text-slate-600">{calc.totalOwner.toLocaleString('es-ES')} €</td>
+                <tr key={row.label} className={`border-b border-slate-50 hover:bg-slate-50 ${(row as { isDirect?: boolean }).isDirect ? 'bg-green-50/30' : ''}`}>
+                  <td className={`py-3 px-4 font-medium ${(row as { isDirect?: boolean }).isDirect ? 'text-green-700' : 'text-slate-700'}`}>
+                    {row.label}
+                    {(row as { isDirect?: boolean }).isDirect && <span className="ml-1 text-xs font-normal text-green-600">(contado/efectivo)</span>}
+                  </td>
+                  <td className={`py-3 px-4 text-right ${(row as { isDirect?: boolean }).isDirect ? 'text-green-700 font-semibold' : 'text-slate-600'}`}>{row.base.toLocaleString('es-ES')} €</td>
+                  <td className="py-3 px-4 text-right text-slate-500 text-xs">{entry.cleaningFee} €</td>
+                  <td className="py-3 px-4 text-right text-slate-700 font-semibold">{calc.totalOwner.toLocaleString('es-ES')} €</td>
                   <td className="py-3 px-4 text-right text-amber-700 font-medium">{calc.realEstate.toLocaleString('es-ES')} €</td>
                   <td className="py-3 px-4 text-right text-violet-700 font-medium">{calc.booking.toLocaleString('es-ES')} €</td>
                   <td className="py-3 px-4 text-right font-bold text-green-700 bg-green-50">{calc.webPrice.toLocaleString('es-ES')} €</td>
@@ -141,8 +212,8 @@ function PriceTable({ entry, onEdit }: { entry: PriceEntry; onEdit: () => void }
           </tbody>
           <tfoot>
             <tr className="border-t border-slate-200 bg-slate-50">
-              <td colSpan={7} className="py-2 px-4 text-xs text-slate-400">
-                Limpieza: {entry.cleaningFee}€ · Precios {entry.season} {entry.year}
+              <td colSpan={8} className="py-2 px-4 text-xs text-slate-400">
+                Limpieza: {entry.cleaningFee}€ · Precios {entry.season} {entry.year} · Canales: limpieza no incluida, se cobra aparte
               </td>
             </tr>
           </tfoot>
@@ -207,6 +278,88 @@ function PriceEditModal({ entry, onClose }: { entry: PriceEntry; onClose: () => 
             <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
             <button onClick={save} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Guardar</button>
           </div>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onClose: () => void }) {
+  const [label, setLabel] = useState(editing?.label || '')
+  const [year, setYear] = useState(editing?.year || new Date().getFullYear())
+  const [month, setMonth] = useState(editing?.month || new Date().getMonth() + 1)
+  const [aptType, setAptType] = useState<ApartmentType>(editing?.apartmentType || '1BR')
+  const [p1w, setP1w] = useState(editing?.price1week || 0)
+  const [p2w, setP2w] = useState(editing?.price2weeks || 0)
+  const [p3w, setP3w] = useState(editing?.price3weeks || 0)
+  const [p1m, setP1m] = useState(editing?.price1month || 0)
+  const [cleaning, setCleaning] = useState(editing?.cleaningFee || 40)
+
+  function handleSave() {
+    if (!label.trim()) return alert('Introduce una etiqueta')
+    const data = {
+      label, year, month, apartmentType: aptType,
+      price1week: p1w, price2weeks: p2w, price3weeks: p3w, price1month: p1m, cleaningFee: cleaning
+    }
+    if (editing) {
+      offerPriceStorage.update(editing.id, data)
+    } else {
+      offerPriceStorage.add(data)
+    }
+    onClose()
+  }
+
+  return (
+    <Modal title={editing ? 'Editar tarifa de oferta' : 'Nueva tarifa de oferta'} onClose={onClose}>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Etiqueta *</label>
+          <input value={label} onChange={e => setLabel(e.target.value)}
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            placeholder="Ej: PRECIOS OFERTA ABRIL 2026" />
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Año</label>
+            <input type="number" value={year} onChange={e => setYear(Number(e.target.value))}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Mes (1-12)</label>
+            <input type="number" value={month} onChange={e => setMonth(Number(e.target.value))}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" min="1" max="12" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Tipo apartamento</label>
+            <select value={aptType} onChange={e => setAptType(e.target.value as ApartmentType)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              {(Object.keys(APT_TYPE_LABELS) as ApartmentType[]).map(k => (
+                <option key={k} value={k}>{APT_TYPE_LABELS[k]}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {[
+            ['1 Semana (€)', p1w, setP1w],
+            ['2 Semanas (€)', p2w, setP2w],
+            ['3 Semanas (€)', p3w, setP3w],
+            ['1 Mes (€)', p1m, setP1m],
+            ['Limpieza (€)', cleaning, setCleaning],
+          ].map(([lbl, val, setter]) => (
+            <div key={lbl as string}>
+              <label className="block text-xs font-medium text-slate-600 mb-1">{lbl as string}</label>
+              <input type="number" value={val as number}
+                onChange={e => (setter as (v: number) => void)(Number(e.target.value))}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+          <button onClick={handleSave} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+            {editing ? 'Guardar' : 'Crear'}
+          </button>
         </div>
       </div>
     </Modal>

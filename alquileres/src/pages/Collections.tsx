@@ -44,11 +44,37 @@ export default function Collections() {
   const yearTotal = apartments.reduce((s, a) =>
     s + QUARTERS.reduce((q, qt) => q + getQuarterTotal(a.id, qt.months), 0), 0)
 
+  // Annual summary: determine efectivo vs transferencia per payment
+  function getAnnualBreakdown(aptId: string): { transferencia: number; efectivo: number; total: number } {
+    const aptReservationIds = reservations
+      .filter(r => r.apartmentId === aptId && r.status !== 'cancelada')
+      .map(r => r.id)
+    const yearStr = String(year)
+    const aptPayments = payments.filter(p =>
+      p.received && p.paymentDate?.startsWith(yearStr) && aptReservationIds.includes(p.reservationId)
+    )
+    let efectivo = 0
+    let transferencia = 0
+    for (const p of aptPayments) {
+      if (p.paymentMethod) {
+        if (p.paymentMethod === 'efectivo') efectivo += p.amount
+        else if (p.paymentMethod === 'transferencia') transferencia += p.amount
+        else transferencia += p.amount
+      } else {
+        // Legacy: infer from reservation channel
+        const res = reservations.find(r => r.id === p.reservationId)
+        if (res?.channel === 'directo') efectivo += p.amount
+        else transferencia += p.amount
+      }
+    }
+    return { transferencia, efectivo, total: efectivo + transferencia }
+  }
+
   return (
     <div className="p-6">
       <PageHeader
         title="Total Cobrado por Trimestres"
-        subtitle={`IGIC incluido al 7%`}
+        subtitle="IGIC incluido al 7%"
         actions={
           <select value={year} onChange={e => setYear(Number(e.target.value))}
             className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
@@ -61,6 +87,7 @@ export default function Collections() {
         {QUARTERS.map(({ q, months, label }) => {
           const qTotal = apartments.reduce((s, a) => s + getQuarterTotal(a.id, months), 0)
           const qIGIC = calcIGIC(qTotal)
+          const qWithIGIC = qTotal + qIGIC
           return (
             <div key={q} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
@@ -82,6 +109,7 @@ export default function Collections() {
                       ))}
                       <th className="text-right py-2.5 px-4 font-semibold text-slate-700 bg-slate-100">TRIMESTRE</th>
                       <th className="text-right py-2.5 px-4 font-medium text-slate-500">IGIC 7%</th>
+                      <th className="text-right py-2.5 px-4 font-medium text-slate-700 bg-amber-50">TOTAL</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -89,6 +117,7 @@ export default function Collections() {
                       const monthAmounts = months.map(m => getMonthAmount(apt.id, m))
                       const total = monthAmounts.reduce((s, a) => s + a, 0)
                       if (total === 0) return null
+                      const igic = calcIGIC(total)
                       return (
                         <tr key={apt.id} className="border-b border-slate-100 hover:bg-slate-50">
                           <td className="py-2.5 px-4 font-medium text-slate-700 text-xs">{apt.name}</td>
@@ -101,7 +130,10 @@ export default function Collections() {
                             {total.toLocaleString('es-ES')} €
                           </td>
                           <td className="py-2.5 px-4 text-right text-slate-500 text-xs">
-                            {calcIGIC(total).toLocaleString('es-ES')} €
+                            {igic.toLocaleString('es-ES')} €
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-semibold text-amber-700 bg-amber-50 text-xs">
+                            {(total + igic).toLocaleString('es-ES')} €
                           </td>
                         </tr>
                       )
@@ -124,6 +156,9 @@ export default function Collections() {
                       <td className="py-3 px-4 text-right font-semibold text-slate-600">
                         {qIGIC.toLocaleString('es-ES')} €
                       </td>
+                      <td className="py-3 px-4 text-right font-bold text-amber-700 bg-amber-50">
+                        {qWithIGIC.toLocaleString('es-ES')} €
+                      </td>
                     </tr>
                   </tfoot>
                 </table>
@@ -131,6 +166,58 @@ export default function Collections() {
             </div>
           )
         })}
+
+        {/* Annual summary by apartment - transfer vs cash */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="px-5 py-3 bg-slate-600">
+            <h3 className="font-semibold text-white">Cobros Anuales {year} — Transferencia vs Efectivo</h3>
+          </div>
+          <div className="overflow-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className="text-left py-2.5 px-4 font-medium text-slate-600">Apartamento</th>
+                  <th className="text-right py-2.5 px-4 font-medium text-blue-700">Transferencia</th>
+                  <th className="text-right py-2.5 px-4 font-medium text-green-700">Efectivo</th>
+                  <th className="text-right py-2.5 px-4 font-semibold text-slate-700">Total</th>
+                  <th className="text-right py-2.5 px-4 font-medium text-slate-500">IGIC 7%</th>
+                  <th className="text-right py-2.5 px-4 font-medium text-amber-700 bg-amber-50">Total con IGIC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {apartments.map(apt => {
+                  const { transferencia, efectivo, total } = getAnnualBreakdown(apt.id)
+                  if (total === 0) return null
+                  const igic = calcIGIC(total)
+                  return (
+                    <tr key={apt.id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="py-2.5 px-4 font-medium text-slate-700 text-xs">{apt.name}</td>
+                      <td className="py-2.5 px-4 text-right text-blue-700">{transferencia > 0 ? `${transferencia.toLocaleString('es-ES')} €` : '—'}</td>
+                      <td className="py-2.5 px-4 text-right text-green-700">{efectivo > 0 ? `${efectivo.toLocaleString('es-ES')} €` : '—'}</td>
+                      <td className="py-2.5 px-4 text-right font-bold text-slate-800">{total.toLocaleString('es-ES')} €</td>
+                      <td className="py-2.5 px-4 text-right text-slate-500 text-xs">{igic.toLocaleString('es-ES')} €</td>
+                      <td className="py-2.5 px-4 text-right font-semibold text-amber-700 bg-amber-50">{(total + igic).toLocaleString('es-ES')} €</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+              <tfoot className="border-t-2 border-slate-300 bg-slate-50">
+                <tr>
+                  <td className="py-3 px-4 font-semibold text-slate-700">TOTAL ANUAL</td>
+                  <td className="py-3 px-4 text-right font-bold text-blue-700">
+                    {apartments.reduce((s, a) => s + getAnnualBreakdown(a.id).transferencia, 0).toLocaleString('es-ES')} €
+                  </td>
+                  <td className="py-3 px-4 text-right font-bold text-green-700">
+                    {apartments.reduce((s, a) => s + getAnnualBreakdown(a.id).efectivo, 0).toLocaleString('es-ES')} €
+                  </td>
+                  <td className="py-3 px-4 text-right font-bold text-slate-900">{yearTotal.toLocaleString('es-ES')} €</td>
+                  <td className="py-3 px-4 text-right font-semibold text-slate-600">{calcIGIC(yearTotal).toLocaleString('es-ES')} €</td>
+                  <td className="py-3 px-4 text-right font-bold text-amber-700 bg-amber-50">{(yearTotal + calcIGIC(yearTotal)).toLocaleString('es-ES')} €</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
 
         {/* Annual total */}
         <div className="bg-slate-900 rounded-xl p-5 flex items-center justify-between">

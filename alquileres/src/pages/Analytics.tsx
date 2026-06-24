@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { reservationStorage, paymentStorage, repairStorage, apartmentStorage } from '../lib/storage'
-import type { Reservation, Payment, Repair, Apartment } from '../types'
+import { reservationStorage, paymentStorage, repairStorage, expenseStorage, apartmentStorage } from '../lib/storage'
+import type { Reservation, Payment, Repair, Expense, Apartment } from '../types'
 import { MONTH_NAMES_ES } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
@@ -10,6 +10,7 @@ export default function Analytics() {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [repairs, setRepairs] = useState<Repair[]>([])
+  const [expenses, setExpenses] = useState<Expense[]>([])
   const [apartments, setApartments] = useState<Apartment[]>([])
   const [year, setYear] = useState(new Date().getFullYear())
 
@@ -17,6 +18,7 @@ export default function Analytics() {
     setReservations(reservationStorage.getAll())
     setPayments(paymentStorage.getAll())
     setRepairs(repairStorage.getAll())
+    setExpenses(expenseStorage.getAll())
     setApartments(apartmentStorage.getAll().filter(a => a.active))
   }, [])
 
@@ -46,9 +48,13 @@ export default function Analytics() {
       .filter(p => p.received && p.paymentDate?.startsWith(String(year)))
       .filter(p => reservations.find(r => r.id === p.reservationId && r.apartmentId === apt.id))
       .reduce((s, p) => s + p.amount, 0)
-    const costs = repairs
+    const repairCosts = repairs
       .filter(r => r.apartmentId === apt.id && r.repairDate?.startsWith(String(year)))
       .reduce((s, r) => s + (r.amount || 0), 0)
+    const productionCosts = expenses
+      .filter(e => e.apartmentId === apt.id && e.expenseDate?.startsWith(String(year)))
+      .reduce((s, e) => s + (e.amount || 0), 0)
+    const costs = repairCosts + productionCosts
     return {
       apt,
       rented,
@@ -68,9 +74,13 @@ export default function Analytics() {
     const income = payments
       .filter(p => p.received && p.paymentDate?.startsWith(monthStr))
       .reduce((s, p) => s + p.amount, 0)
-    const costs = repairs
+    const repairMonthCosts = repairs
       .filter(r => r.repairDate?.startsWith(monthStr))
       .reduce((s, r) => s + (r.amount || 0), 0)
+    const expenseMonthCosts = expenses
+      .filter(e => e.expenseDate?.startsWith(monthStr))
+      .reduce((s, e) => s + (e.amount || 0), 0)
+    const costs = repairMonthCosts + expenseMonthCosts
     return {
       month: MONTH_NAMES_ES[i].slice(0, 3),
       ingresos: Math.round(income),
@@ -86,6 +96,7 @@ export default function Analytics() {
   const years = [...new Set([
     ...payments.map(p => p.paymentDate?.slice(0, 4)),
     ...repairs.map(r => r.repairDate?.slice(0, 4)),
+    ...expenses.map(e => e.expenseDate?.slice(0, 4)),
   ].filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
 
   return (

@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Calendar, BedDouble, Tag, Wrench, PiggyBank, BarChart3, Settings, Menu, X
+  LayoutDashboard, Calendar, BedDouble, Tag, Wrench, PiggyBank, BarChart3, Settings, Menu, X, Receipt
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { isSeeded, markSeeded, reservationStorage, paymentStorage, repairStorage } from './lib/storage'
@@ -13,6 +13,7 @@ import Repairs from './pages/Repairs'
 import Collections from './pages/Collections'
 import Analytics from './pages/Analytics'
 import ApartmentsConfig from './pages/ApartmentsConfig'
+import Costos from './pages/Costos'
 
 const NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -20,6 +21,7 @@ const NAV = [
   { to: '/reservas', icon: BedDouble, label: 'Reservas' },
   { to: '/precios', icon: Tag, label: 'Precios' },
   { to: '/reparaciones', icon: Wrench, label: 'Reparaciones' },
+  { to: '/costos', icon: Receipt, label: 'Costes' },
   { to: '/cobros', icon: PiggyBank, label: 'Cobros' },
   { to: '/analitica', icon: BarChart3, label: 'Analítica' },
   { to: '/config', icon: Settings, label: 'Apartamentos' },
@@ -180,6 +182,7 @@ export default function App() {
               <Route path="/reservas" element={<Reservations />} />
               <Route path="/precios" element={<Prices />} />
               <Route path="/reparaciones" element={<Repairs />} />
+              <Route path="/costos" element={<Costos />} />
               <Route path="/cobros" element={<Collections />} />
               <Route path="/analitica" element={<Analytics />} />
               <Route path="/config" element={<ApartmentsConfig />} />
