@@ -3,8 +3,7 @@ import {
   LayoutDashboard, Calendar, BedDouble, Tag, Wrench, PiggyBank, BarChart3, Settings, Menu, X, Receipt
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { isSeeded, markSeeded, isSeededV2, markSeededV2, reservationStorage, paymentStorage, repairStorage } from './lib/storage'
-import { buildSeedReservations, buildSeedRepairs, buildSeed2026 } from './lib/seedData'
+import { reservationStorage, paymentStorage } from './lib/storage'
 import Dashboard from './pages/Dashboard'
 import Planning from './pages/Planning'
 import Reservations from './pages/Reservations'
@@ -125,21 +124,6 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
-    if (!isSeeded()) {
-      const { reservations, payments } = buildSeedReservations()
-      if (reservationStorage.getAll().length === 0) {
-        reservationStorage.save(reservations)
-        paymentStorage.save(payments)
-        repairStorage.save(buildSeedRepairs())
-      }
-      markSeeded()
-    }
-    if (!isSeededV2()) {
-      const { reservations: r2, payments: p2 } = buildSeed2026()
-      reservationStorage.save([...reservationStorage.getAll(), ...r2])
-      paymentStorage.save([...paymentStorage.getAll(), ...p2])
-      markSeededV2()
-    }
     const reservations = reservationStorage.getAll()
     const payments = paymentStorage.getAll()
     const today = new Date()

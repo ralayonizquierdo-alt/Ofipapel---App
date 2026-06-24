@@ -1,6 +1,7 @@
 import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice } from '../types'
 import { DEFAULT_PRICES_2026 } from './priceCalc'
 import { nanoid } from './nanoid'
+import { buildSeedReservations, buildSeedRepairs, buildSeed2026 } from './seedData'
 
 const KEYS = {
   apartments: 'aq_apartments',
@@ -199,4 +200,23 @@ export function isSeededV2(): boolean {
 
 export function markSeededV2(): void {
   localStorage.setItem('aq_seeded_v2', '1')
+}
+
+// Run once synchronously at startup (called from main.tsx before React renders)
+export function initStorage(): void {
+  if (!isSeeded()) {
+    if (reservationStorage.getAll().length === 0) {
+      const { reservations, payments } = buildSeedReservations()
+      reservationStorage.save(reservations)
+      paymentStorage.save(payments)
+      repairStorage.save(buildSeedRepairs())
+    }
+    markSeeded()
+  }
+  if (!isSeededV2()) {
+    const { reservations: r2, payments: p2 } = buildSeed2026()
+    reservationStorage.save([...reservationStorage.getAll(), ...r2])
+    paymentStorage.save([...paymentStorage.getAll(), ...p2])
+    markSeededV2()
+  }
 }
