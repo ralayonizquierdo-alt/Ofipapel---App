@@ -27,7 +27,9 @@ export interface HospitalShift {
   id: string
   date: string
   shift_type: 'morning' | 'afternoon' | 'night' | 'free'
+  work_center: 'hospital' | 'centro_salud'
   location: string
+  floor?: string
   notes?: string
   created_at: string
 }
