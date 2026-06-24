@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { format, parseISO, isFuture } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Plus, X, Stethoscope, Utensils, Pill, StickyNote, Weight, AlertCircle } from 'lucide-react'
+import { Plus, X, Stethoscope, Utensils, Pill, StickyNote, Weight, AlertCircle, BellRing, Bell } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { LimonRecord } from '../types'
 
@@ -29,8 +29,33 @@ export default function LimonPage() {
   const [filter, setFilter] = useState<RecordType | 'all'>('all')
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState<Partial<LimonRecord>>(emptyForm())
+  const [notifPerm, setNotifPerm] = useState<NotificationPermission | 'unsupported'>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
+  )
 
   useEffect(() => { loadRecords() }, [])
+
+  // Disparar notificaciones para avisos de hoy cuando se cargan los registros
+  useEffect(() => {
+    if (records.length === 0) return
+    const todayStr = format(new Date(), 'yyyy-MM-dd')
+    const dueToday = records.filter(r => r.next_date === todayStr)
+    if (dueToday.length > 0 && notifPerm === 'granted') {
+      dueToday.forEach(r => {
+        new Notification(`🍋 Limón — ${r.title}`, {
+          body: r.description ? r.description : 'Aviso programado para hoy',
+          icon: `${import.meta.env.BASE_URL}limon.png`,
+          tag: `limon-${r.id}`,
+        })
+      })
+    }
+  }, [records, notifPerm])
+
+  async function requestNotifPermission() {
+    if (typeof Notification === 'undefined') return
+    const perm = await Notification.requestPermission()
+    setNotifPerm(perm)
+  }
 
   async function loadRecords() {
     const { data } = await supabase
@@ -107,8 +132,27 @@ export default function LimonPage() {
         </div>
       </div>
 
-      {/* Botón nueva entrada */}
-      <div className="flex justify-end mb-6">
+      {/* Botón nueva entrada + activar alarmas */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          {notifPerm === 'unsupported' && null}
+          {notifPerm === 'default' && (
+            <button
+              onClick={requestNotifPermission}
+              className="flex items-center gap-2 text-xs text-[#888] hover:text-[#c9a96e] border border-[#2a2a2a] hover:border-[#c9a96e40] px-3 py-2 rounded-lg transition-all"
+            >
+              <Bell size={13} /> Activar avisos / alarmas
+            </button>
+          )}
+          {notifPerm === 'granted' && (
+            <span className="flex items-center gap-1.5 text-xs text-[#6db56d]">
+              <BellRing size={13} /> Avisos activados
+            </span>
+          )}
+          {notifPerm === 'denied' && (
+            <span className="text-xs text-[#e05252]">Notificaciones bloqueadas en el navegador</span>
+          )}
+        </div>
         <button
           onClick={() => { setForm(emptyForm()); setShowModal(true) }}
           className="btn-primary flex items-center gap-2"
@@ -116,6 +160,34 @@ export default function LimonPage() {
           <Plus size={16} /> Nueva entrada
         </button>
       </div>
+
+      {/* Avisos de hoy */}
+      {(() => {
+        const todayStr = format(new Date(), 'yyyy-MM-dd')
+        const dueToday = records.filter(r => r.next_date === todayStr)
+        if (dueToday.length === 0) return null
+        return (
+          <div className="card mb-6 border-[#e0a84a]/40 bg-[#e0a84a08]">
+            <h3 className="text-sm font-semibold text-[#e0e0e0] flex items-center gap-2 mb-3">
+              <BellRing size={14} className="text-[#e0a84a]" /> Avisos para hoy
+            </h3>
+            <div className="space-y-2">
+              {dueToday.map(r => {
+                const cfg = TYPE_CONFIG[r.type]
+                const Icon = cfg.icon
+                return (
+                  <div key={r.id} className="flex items-center gap-3 text-sm">
+                    <Icon size={14} style={{ color: cfg.color }} />
+                    <span className="text-[#e0e0e0] flex-1 font-medium">{r.title}</span>
+                    {r.description && <span className="text-[#888] text-xs truncate max-w-[160px]">{r.description}</span>}
+                    <span className="text-[#e0a84a] text-xs font-semibold">¡Hoy!</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Próximas citas */}
       {upcoming.length > 0 && (
@@ -278,9 +350,12 @@ export default function LimonPage() {
                     className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#c9a96e] focus:outline-none" />
                 </div>
                 <div>
-                  <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Próxima cita</label>
+                  <label className="text-xs text-[#888] uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                    <BellRing size={11} className="text-[#e0a84a]" /> Aviso / Alarma
+                  </label>
                   <input type="date" value={form.next_date ?? ''} onChange={e => setForm(p => ({ ...p, next_date: e.target.value }))}
                     className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#c9a96e] focus:outline-none" />
+                  <p className="text-[10px] text-[#555] mt-1">Aparecerá en "Avisos de hoy" ese día</p>
                 </div>
               </div>
               {(form.type === 'weight' || form.type === 'medication' || form.type === 'food') && (

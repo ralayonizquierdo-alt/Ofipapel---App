@@ -65,6 +65,11 @@ alter table limon_records disable row level security;
 alter table spotify_playlists disable row level security;
 alter table business_tasks disable row level security;
 
+-- ACTUALIZACIÓN: añadir columnas para distinción hospital/centro de salud
+-- Ejecuta esto en Supabase > SQL Editor si la tabla ya existía:
+--   alter table hospital_shifts add column work_center text not null default 'hospital';
+--   alter table hospital_shifts add column floor text;
+
 -- Permisos para la clave anónima (necesario aunque RLS esté desactivado)
 grant select, insert, update, delete on table events to anon;
 grant select, insert, update, delete on table hospital_shifts to anon;

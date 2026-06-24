@@ -5,25 +5,34 @@ import {
   startOfWeek, endOfWeek,
 } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, X, MapPin, Moon, Sun, Sunset } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, MapPin, Moon, Sun, Sunset, Building2, Stethoscope, Layers } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { HospitalShift } from '../types'
 
 const SHIFT_CONFIG = {
-  morning:   { label: 'Mañana',  icon: Sun,     color: '#e0a84a', bg: '#e0a84a15' },
-  afternoon: { label: 'Tarde',   icon: Sunset,  color: '#e0854a', bg: '#e0854a15' },
-  night:     { label: 'Noche',   icon: Moon,    color: '#5b8dd9', bg: '#5b8dd915' },
-  free:      { label: 'Libre',   icon: X,       color: '#6db56d', bg: '#6db56d15' },
+  morning:   { label: 'Mañana', icon: Sun,    color: '#e0a84a', bg: '#e0a84a15' },
+  afternoon: { label: 'Tarde',  icon: Sunset, color: '#e0854a', bg: '#e0854a15' },
+  night:     { label: 'Noche',  icon: Moon,   color: '#5b8dd9', bg: '#5b8dd915' },
+  free:      { label: 'Libre',  icon: X,      color: '#6db56d', bg: '#6db56d15' },
 } as const
 
 type ShiftType = keyof typeof SHIFT_CONFIG
+type WorkCenter = 'hospital' | 'centro_salud'
+
+const TAB_CONFIG: Record<WorkCenter, { label: string; icon: typeof Building2; color: string }> = {
+  hospital:     { label: 'Hospital',        icon: Building2,   color: '#5b8dd9' },
+  centro_salud: { label: 'Centro de Salud', icon: Stethoscope, color: '#9b6bb5' },
+}
 
 export default function ShiftsPage() {
+  const [activeTab, setActiveTab] = useState<WorkCenter>('hospital')
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [shifts, setShifts] = useState<HospitalShift[]>([])
   const [selected, setSelected] = useState<Date>(new Date())
   const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState<Partial<HospitalShift>>({ shift_type: 'morning', location: '' })
+  const [form, setForm] = useState<Partial<HospitalShift>>({
+    shift_type: 'morning', location: '', floor: '',
+  })
 
   useEffect(() => { loadShifts() }, [currentMonth])
 
@@ -39,15 +48,23 @@ export default function ShiftsPage() {
   }
 
   async function saveShift() {
-    if (!form.location?.trim()) return
-    const payload = { ...form, date: format(selected, 'yyyy-MM-dd') }
+    if (!form.shift_type) return
+    const payload = {
+      shift_type: form.shift_type,
+      location: form.location ?? '',
+      floor: form.floor ?? '',
+      notes: form.notes ?? '',
+      work_center: activeTab,
+      date: format(selected, 'yyyy-MM-dd'),
+      ...(form.id ? { id: form.id } : {}),
+    }
     if (form.id) {
       await supabase.from('hospital_shifts').update(payload).eq('id', form.id)
     } else {
       await supabase.from('hospital_shifts').insert(payload)
     }
     setShowModal(false)
-    setForm({ shift_type: 'morning', location: '' })
+    setForm({ shift_type: 'morning', location: '', floor: '' })
     loadShifts()
   }
 
@@ -56,6 +73,8 @@ export default function ShiftsPage() {
     loadShifts()
   }
 
+  const tabShifts = shifts.filter(s => (s.work_center ?? 'hospital') === activeTab)
+
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(currentMonth)
   const calStart = startOfWeek(monthStart, { weekStartsOn: 1 })
@@ -63,19 +82,17 @@ export default function ShiftsPage() {
   const days = eachDayOfInterval({ start: calStart, end: calEnd })
 
   const dayShift = (date: Date) =>
-    shifts.find(s => s.date === format(date, 'yyyy-MM-dd'))
-
-  const currentMonthShifts = shifts.filter(s => s.shift_type !== 'free')
+    tabShifts.find(s => s.date === format(date, 'yyyy-MM-dd'))
 
   return (
     <div className="animate-fadeIn max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="font-display text-3xl font-bold text-gold-gradient capitalize">
-            Turnos Hospital
-          </h2>
+          <h2 className="font-display text-3xl font-bold text-gold-gradient capitalize">Turnos</h2>
           <p className="text-[#666] text-sm mt-1">
-            {currentMonthShifts.length} turnos este mes
+            {tabShifts.filter(s => s.shift_type !== 'free').length} turnos este mes
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -91,8 +108,32 @@ export default function ShiftsPage() {
         </div>
       </div>
 
+      {/* Pestañas */}
+      <div className="flex gap-2 mb-6">
+        {(Object.entries(TAB_CONFIG) as [WorkCenter, typeof TAB_CONFIG[WorkCenter]][]).map(([key, cfg]) => {
+          const Icon = cfg.icon
+          const isActive = activeTab === key
+          return (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                isActive
+                  ? 'border-transparent text-[#0a0a0a]'
+                  : 'border-[#2a2a2a] text-[#666] hover:border-[#3a3a3a] hover:text-[#aaa]'
+              }`}
+              style={isActive ? { backgroundColor: cfg.color } : {}}
+            >
+              <Icon size={15} />
+              {cfg.label}
+            </button>
+          )
+        })}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Calendario turnos */}
+
+        {/* Calendario */}
         <div className="lg:col-span-2 card">
           <div className="grid grid-cols-7 mb-2">
             {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => (
@@ -112,7 +153,7 @@ export default function ShiftsPage() {
                   onClick={() => setSelected(day)}
                   onDoubleClick={() => {
                     setSelected(day)
-                    setForm({ shift_type: 'morning', location: '', ...(shift ?? {}) })
+                    setForm({ shift_type: 'morning', location: '', floor: '', ...(shift ?? {}) })
                     setShowModal(true)
                   }}
                   className={`
@@ -128,23 +169,19 @@ export default function ShiftsPage() {
                   `}>
                     {format(day, 'd')}
                   </span>
-                  {Icon && (
-                    <Icon size={12} className="mt-0.5" style={{ color: cfg!.color }} />
-                  )}
+                  {Icon && <Icon size={12} className="mt-0.5" style={{ color: cfg!.color }} />}
                 </button>
               )
             })}
           </div>
 
-          {/* Leyenda */}
           <div className="divider-gold my-4" />
           <div className="flex flex-wrap gap-4">
             {Object.entries(SHIFT_CONFIG).map(([key, cfg]) => {
               const Icon = cfg.icon
               return (
                 <span key={key} className="flex items-center gap-1.5 text-xs text-[#888]">
-                  <Icon size={12} style={{ color: cfg.color }} />
-                  {cfg.label}
+                  <Icon size={12} style={{ color: cfg.color }} /> {cfg.label}
                 </span>
               )
             })}
@@ -158,10 +195,7 @@ export default function ShiftsPage() {
               {format(selected, "EEE d MMM", { locale: es })}
             </h3>
             <button
-              onClick={() => {
-                setForm({ shift_type: 'morning', location: '' })
-                setShowModal(true)
-              }}
+              onClick={() => { setForm({ shift_type: 'morning', location: '', floor: '' }); setShowModal(true) }}
               className="btn-primary flex items-center gap-1.5 text-xs px-3 py-1.5"
             >
               <Plus size={14} />
@@ -170,31 +204,29 @@ export default function ShiftsPage() {
 
           {(() => {
             const shift = dayShift(selected)
-            if (!shift) return (
-              <p className="text-[#555] text-sm text-center py-8">Sin turno asignado</p>
-            )
+            if (!shift) return <p className="text-[#555] text-sm text-center py-8">Sin turno asignado</p>
             const cfg = SHIFT_CONFIG[shift.shift_type]
             const Icon = cfg.icon
             return (
               <div className="rounded-xl p-4 border" style={{ backgroundColor: cfg.bg, borderColor: cfg.color + '40' }}>
                 <div className="flex items-center gap-3 mb-3">
-                  <Icon size={24} style={{ color: cfg.color }} />
+                  <Icon size={22} style={{ color: cfg.color }} />
                   <span className="font-semibold text-[#e0e0e0]">{cfg.label}</span>
-                  <button
-                    onClick={() => deleteShift(shift.id)}
-                    className="ml-auto text-[#555] hover:text-[#e05252]"
-                  >
+                  <button onClick={() => deleteShift(shift.id)} className="ml-auto text-[#555] hover:text-[#e05252]">
                     <X size={14} />
                   </button>
                 </div>
+                {activeTab === 'hospital' && shift.floor && (
+                  <p className="text-sm text-[#888] flex items-center gap-1.5 mb-1">
+                    <Layers size={12} /> Planta: {shift.floor}
+                  </p>
+                )}
                 {shift.location && (
                   <p className="text-sm text-[#888] flex items-center gap-1.5">
                     <MapPin size={12} /> {shift.location}
                   </p>
                 )}
-                {shift.notes && (
-                  <p className="text-xs text-[#666] mt-2">{shift.notes}</p>
-                )}
+                {shift.notes && <p className="text-xs text-[#666] mt-2">{shift.notes}</p>}
                 <button
                   onClick={() => { setForm(shift); setShowModal(true) }}
                   className="mt-3 text-xs text-[#888] hover:text-[#c9a96e] transition-colors"
@@ -205,21 +237,18 @@ export default function ShiftsPage() {
             )
           })()}
 
-          {/* Resumen del mes */}
           <div className="divider-gold my-4" />
           <h4 className="text-xs text-[#666] uppercase tracking-wider mb-3">Este mes</h4>
           <div className="space-y-2">
             {Object.entries(SHIFT_CONFIG).map(([key, cfg]) => {
-              const count = shifts.filter(s => s.shift_type === key).length
+              const count = tabShifts.filter(s => s.shift_type === key).length
               const Icon = cfg.icon
               return (
                 <div key={key} className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2 text-[#888]">
                     <Icon size={14} style={{ color: cfg.color }} /> {cfg.label}
                   </span>
-                  <span className="font-medium" style={{ color: count > 0 ? cfg.color : '#444' }}>
-                    {count}
-                  </span>
+                  <span className="font-medium" style={{ color: count > 0 ? cfg.color : '#444' }}>{count}</span>
                 </div>
               )
             })}
@@ -232,10 +261,15 @@ export default function ShiftsPage() {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-2xl w-full max-w-sm animate-fadeIn">
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a]">
-              <h3 className="font-display text-lg font-semibold text-[#e0e0e0]">Turno del {format(selected, 'd MMM', { locale: es })}</h3>
-              <button onClick={() => setShowModal(false)} className="text-[#555] hover:text-[#888]"><X size={20} /></button>
+              <h3 className="font-display text-lg font-semibold text-[#e0e0e0]">
+                {TAB_CONFIG[activeTab].label} — {format(selected, 'd MMM', { locale: es })}
+              </h3>
+              <button onClick={() => setShowModal(false)} className="text-[#555] hover:text-[#888]">
+                <X size={20} />
+              </button>
             </div>
             <div className="px-6 py-5 space-y-4">
+              {/* Tipo de turno */}
               <div>
                 <label className="text-xs text-[#888] uppercase tracking-wider block mb-2">Turno</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -247,7 +281,9 @@ export default function ShiftsPage() {
                         key={key}
                         onClick={() => setForm(p => ({ ...p, shift_type: key }))}
                         className={`flex items-center gap-2 py-2.5 px-3 rounded-lg border text-sm transition-all ${
-                          form.shift_type === key ? 'border-transparent text-[#0a0a0a] font-semibold' : 'border-[#2a2a2a] text-[#888]'
+                          form.shift_type === key
+                            ? 'border-transparent text-[#0a0a0a] font-semibold'
+                            : 'border-[#2a2a2a] text-[#888]'
                         }`}
                         style={form.shift_type === key ? { backgroundColor: cfg.color } : {}}
                       >
@@ -257,16 +293,38 @@ export default function ShiftsPage() {
                   })}
                 </div>
               </div>
+
+              {/* Planta — solo hospital */}
+              {activeTab === 'hospital' && (
+                <div>
+                  <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">
+                    Planta / Unidad
+                  </label>
+                  <input
+                    type="text"
+                    value={form.floor ?? ''}
+                    onChange={e => setForm(p => ({ ...p, floor: e.target.value }))}
+                    placeholder="Planta 3, UCI, Urgencias, Quirófano..."
+                    className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] placeholder-[#444] focus:border-[#c9a96e] focus:outline-none"
+                  />
+                </div>
+              )}
+
+              {/* Nombre del centro */}
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Centro / Planta</label>
+                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">
+                  {activeTab === 'hospital' ? 'Hospital' : 'Centro de Salud'}
+                </label>
                 <input
                   type="text"
                   value={form.location ?? ''}
                   onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
-                  placeholder="Hospital Universitario, Planta 3..."
+                  placeholder={activeTab === 'hospital' ? 'Hospital Universitario...' : 'Centro de Salud Norte...'}
                   className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] placeholder-[#444] focus:border-[#c9a96e] focus:outline-none"
                 />
               </div>
+
+              {/* Notas */}
               <div>
                 <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Notas</label>
                 <textarea
