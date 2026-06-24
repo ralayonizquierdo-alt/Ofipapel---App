@@ -287,6 +287,109 @@ export function buildSeedReservations(): { reservations: Reservation[]; payments
   return { reservations, payments }
 }
 
+export function buildSeed2026(): { reservations: Reservation[]; payments: Payment[] } {
+  const reservations: Reservation[] = []
+  const payments: Payment[] = []
+
+  function addRes(r: Reservation, pays: { amount: number; paymentDate?: string; entryNumber?: string }[] = []) {
+    reservations.push(r)
+    pays.forEach(p => payments.push(mkPay(r.id, p.amount, p.paymentDate, p.entryNumber)))
+  }
+
+  function mk(
+    aptId: string, ci: string, co: string, base: number,
+    type: Reservation['stayType'], channel: Reservation['channel'] = 'inmobiliaria',
+    st: Reservation['status'] = 'confirmada'
+  ): Reservation {
+    return { ...mkRes(aptId, ci, co, base, type, channel), status: st }
+  }
+
+  // ── Invierno 2025-26: Ático 402 (Oct'25–Abr'26) ─────────────────────────
+  const r402w = mk('402', '2025-10-01', '2026-04-30', 7760, 'directo', 'directo', 'completada')
+  addRes(r402w, [
+    { amount: 1300, paymentDate: '2025-10-01' },
+    { amount: 1300, paymentDate: '2025-11-03' },
+    { amount: 1300, paymentDate: '2025-12-01' },
+    { amount: 1300, paymentDate: '2026-01-05' },
+    { amount: 1300, paymentDate: '2026-02-02' },
+    { amount: 1300, paymentDate: '2026-03-02' },
+  ])
+
+  // ── Invierno 2025-26: Juan XXIII (Nov'25–Abr'26) ────────────────────────
+  const rJXXIIIw = mk('JXXIII', '2025-11-01', '2026-04-30', 5460, 'directo', 'directo', 'completada')
+  addRes(rJXXIIIw, [
+    { amount: 1100, paymentDate: '2025-11-01' },
+    { amount: 1100, paymentDate: '2025-12-01' },
+    { amount: 1100, paymentDate: '2026-01-03' },
+    { amount: 1100, paymentDate: '2026-02-02' },
+    { amount: 1100, paymentDate: '2026-03-02' },
+  ])
+
+  // ── Completadas mayo / principios junio 2026 ─────────────────────────────
+  const r104_may = mk('104', '2026-05-24', '2026-06-07', 340, '2semanas', 'inmobiliaria', 'completada')
+  addRes(r104_may, [{ amount: 380, paymentDate: '2026-05-24' }])
+
+  const r106_may = mk('106', '2026-05-18', '2026-06-08', 760, '2semanas', 'inmobiliaria', 'completada')
+  addRes(r106_may, [{ amount: 800, paymentDate: '2026-05-18' }])
+
+  const r203_may = mk('203', '2026-05-04', '2026-06-01', 380, '1mes', 'inmobiliaria', 'completada')
+  addRes(r203_may, [{ amount: 420, paymentDate: '2026-05-04' }])
+
+  const r402_may = mk('402', '2026-05-10', '2026-05-17', 550, '1semana', 'inmobiliaria', 'completada')
+  addRes(r402_may, [{ amount: 590, paymentDate: '2026-05-10' }])
+
+  // ── Activas hoy (24 junio 2026) ───────────────────────────────────────────
+  const r104a = mk('104', '2026-06-21', '2026-06-28', 340, '1semana')
+  addRes(r104a, [{ amount: 380, paymentDate: '2026-06-21' }])
+
+  const r105a = mk('105', '2026-06-15', '2026-06-29', 450, '2semanas')
+  addRes(r105a, [{ amount: 490, paymentDate: '2026-06-15' }])
+
+  // pago parcial → pendiente
+  const r106a = mk('106', '2026-06-08', '2026-07-06', 1100, '1mes', 'directo')
+  addRes(r106a, [{ amount: 400, paymentDate: '2026-06-08' }])
+
+  const r203a = mk('203', '2026-06-22', '2026-06-29', 380, '1semana')
+  addRes(r203a, [{ amount: 420, paymentDate: '2026-06-22' }])
+
+  const r204a = mk('204', '2026-06-21', '2026-06-28', 380, '1semana')
+  addRes(r204a, [{ amount: 420, paymentDate: '2026-06-21' }])
+
+  const rP3a = mk('P3', '2026-06-01', '2026-07-01', 1800, '1mes')
+  addRes(rP3a, [{ amount: 1840, paymentDate: '2026-06-01' }])
+
+  // sin pago → pendiente
+  const rAP2Ba = mk('AP2B', '2026-06-17', '2026-07-01', 450, '2semanas')
+  addRes(rAP2Ba)
+
+  const rJXXIIIa = mk('JXXIII', '2026-06-10', '2026-07-05', 1000, '1mes', 'directo')
+  addRes(rJXXIIIa, [{ amount: 1040, paymentDate: '2026-06-10' }])
+
+  // ── Próximas entradas ─────────────────────────────────────────────────────
+  // sin pago → pendiente
+  const r402b = mk('402', '2026-06-28', '2026-07-05', 550, '1semana', 'booking')
+  addRes(r402b)
+
+  const r104b = mk('104', '2026-07-05', '2026-07-12', 340, '1semana', 'booking')
+  addRes(r104b, [{ amount: 380, paymentDate: '2026-07-05' }])
+
+  const r105b = mk('105', '2026-07-06', '2026-07-20', 450, '2semanas', 'inmobiliaria')
+  addRes(r105b, [{ amount: 490, paymentDate: '2026-07-06' }])
+
+  // sin pago → pendiente
+  const r106b = mk('106', '2026-07-12', '2026-07-26', 760, '2semanas', 'booking')
+  addRes(r106b)
+
+  const r203b = mk('203', '2026-07-06', '2026-07-13', 380, '1semana', 'inmobiliaria')
+  addRes(r203b, [{ amount: 420, paymentDate: '2026-07-06' }])
+
+  // sin pago → pendiente
+  const rP3b = mk('P3', '2026-07-06', '2026-08-03', 1800, '1mes', 'booking')
+  addRes(rP3b)
+
+  return { reservations, payments }
+}
+
 export function buildSeedRepairs(): Repair[] {
   return [
     mkRepair('104', 'HERVIDOR DE AGUA 1,8Lt. 2200W.', 'OFIPAPEL', '2368341-44', 15.50, '2025-06-05'),

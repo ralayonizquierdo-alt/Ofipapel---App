@@ -192,3 +192,11 @@ export function isSeeded(): boolean {
 export function markSeeded(): void {
   localStorage.setItem('aq_seeded', '1')
 }
+
+export function isSeededV2(): boolean {
+  return localStorage.getItem('aq_seeded_v2') === '1'
+}
+
+export function markSeededV2(): void {
+  localStorage.setItem('aq_seeded_v2', '1')
+}
