@@ -20,7 +20,7 @@ export default function Prices() {
   const [prices, setPrices] = useState<PriceEntry[]>([])
   const [offerPrices, setOfferPrices] = useState<OfferPrice[]>([])
   const [selectedSeason, setSelectedSeason] = useState<Season>('VERANO')
-  const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR + 1)
+  const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR)
   const [editing, setEditing] = useState<PriceEntry | null>(null)
   const [showOfferForm, setShowOfferForm] = useState(false)
   const [editingOffer, setEditingOffer] = useState<OfferPrice | null>(null)
@@ -52,7 +52,7 @@ export default function Prices() {
         }
       />
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+      <div className="print:hidden bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start gap-3">
         <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
         <div className="text-sm text-blue-700">
           <strong>Reglas de precio:</strong> Vacacional incluye 40€ limpieza. Prolongaciones = precio_contratado ÷ días × días_extra.
@@ -62,7 +62,7 @@ export default function Prices() {
       </div>
 
       {/* Season / Year selector */}
-      <div className="flex gap-4 mb-6">
+      <div className="print:hidden flex gap-4 mb-6">
         <div className="flex bg-white border border-slate-200 rounded-lg p-1 gap-1">
           {(['VERANO', 'INVIERNO'] as Season[]).map(s => (
             <button key={s}
@@ -111,7 +111,7 @@ export default function Prices() {
           <h2 className="text-lg font-semibold text-slate-800">Tarifas de Oferta</h2>
           <button
             onClick={() => { setEditingOffer(null); setShowOfferForm(true) }}
-            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+            className="print:hidden flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
             <Plus size={15} /> Nueva tarifa de oferta
           </button>
         </div>
@@ -167,10 +167,10 @@ function PriceTable({ entry, onEdit }: { entry: PriceEntry; onEdit: () => void }
   ]
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden break-inside-avoid">
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50">
         <h3 className="font-semibold text-slate-700 text-sm">{APT_TYPE_LABELS[entry.apartmentType]}</h3>
-        <button onClick={onEdit} className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium">
+        <button onClick={onEdit} className="print:hidden flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium">
           <Pencil size={13} /> Editar precios base
         </button>
       </div>
@@ -182,8 +182,8 @@ function PriceTable({ entry, onEdit }: { entry: PriceEntry; onEdit: () => void }
               <th className="text-right py-2.5 px-4 text-xs font-medium text-slate-500">Base Propietario</th>
               <th className="text-right py-2.5 px-4 text-xs font-medium text-slate-500">+ Limpieza</th>
               <th className="text-right py-2.5 px-4 text-xs font-medium text-slate-500">Pago Propietario</th>
-              <th className="text-right py-2.5 px-4 text-xs font-medium text-amber-600">Inmobi. (+15%)</th>
-              <th className="text-right py-2.5 px-4 text-xs font-medium text-violet-600">Reserva (+15%)</th>
+              <th className="text-right py-2.5 px-4 text-xs font-medium text-amber-600">+ Inmobi. (15%)</th>
+              <th className="text-right py-2.5 px-4 text-xs font-medium text-violet-600">+ Reserva (15%)</th>
               <th className="text-right py-2.5 px-4 text-xs font-medium text-green-700 bg-green-50">Web (Publicar)</th>
               <th className="text-right py-2.5 px-4 text-xs font-medium text-slate-500">€/Noche</th>
             </tr>

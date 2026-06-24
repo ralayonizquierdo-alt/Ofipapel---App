@@ -18,6 +18,7 @@ const STATUS_COLORS: Record<string, string> = {
   confirmada: 'bg-blue-100 text-blue-700',
   completada: 'bg-green-100 text-green-700',
   cancelada: 'bg-red-100 text-red-700',
+  cobrada: 'bg-emerald-100 text-emerald-800',
 }
 
 export default function Reservations() {
@@ -107,6 +108,7 @@ export default function Reservations() {
             {filtered.map(r => {
               const paid = getPaid(r)
               const pending = r.total - paid
+              const displayStatus = (r.status === 'confirmada' && r.total > 0 && paid >= r.total) ? 'cobrada' : r.status
               return (
                 <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
                   onClick={() => setSelectedRes(r)}>
@@ -123,8 +125,8 @@ export default function Reservations() {
                     </span>
                   </td>
                   <td className="py-3 px-4">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[r.status]}`}>
-                      {r.status}
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[displayStatus]}`}>
+                      {displayStatus}
                     </span>
                   </td>
                   <td className="py-3 px-4" onClick={e => e.stopPropagation()}>

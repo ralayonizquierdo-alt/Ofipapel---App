@@ -1,1 +1,5 @@
 @import "tailwindcss";
+
+@media print {
+  @page { size: A4 landscape; margin: 1.5cm 1cm; }
+}

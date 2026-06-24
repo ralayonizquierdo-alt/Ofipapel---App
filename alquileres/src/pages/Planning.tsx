@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { reservationStorage, apartmentStorage } from '../lib/storage'
 import type { Reservation, Apartment } from '../types'
-import { MONTH_NAMES_ES, DAY_NAMES_ES, getDaysInMonth, getSeason, formatDateShort } from '../lib/dateUtils'
+import { MONTH_NAMES_ES, DAY_NAMES_ES, getDaysInMonth, getSeason } from '../lib/dateUtils'
 
 const APT_COLORS = [
   'bg-blue-400', 'bg-emerald-400', 'bg-violet-400', 'bg-amber-400',
@@ -53,6 +53,13 @@ export default function Planning() {
 
   const colorMap: Record<string, string> = {}
   apartments.forEach((a, i) => { colorMap[a.id] = APT_COLORS[i % APT_COLORS.length] })
+
+  function fmtD(iso: string, withYear = false): string {
+    const d = new Date(iso)
+    const day = d.getDate()
+    const mon = d.getMonth() + 1
+    return withYear ? `${day}/${mon}/${String(d.getFullYear()).slice(2)}` : `${day}/${mon}`
+  }
 
   const today = new Date()
   const isToday = (d: number) => year === today.getFullYear() && month === today.getMonth() + 1 && d === today.getDate()
@@ -112,7 +119,7 @@ export default function Planning() {
                   return (
                     <td
                       key={d}
-                      title={res ? `${res.guestName || 'Reserva'} | ${res.basePrice}+${res.cleaningFee}€ · ${formatDateShort(res.checkIn)} al ${formatDateShort(res.checkOut)} · ${res.nights}N` : ''}
+                      title={res ? `${apt.id}, ${fmtD(res.checkIn)} al ${fmtD(res.checkOut, true)}, ${res.basePrice}+${res.cleaningFee} ${res.nights}-N` : ''}
                       className={`h-9 p-0 relative ${isWe ? 'bg-slate-50' : ''} ${isToday(d) ? 'bg-blue-50' : ''}`}
                     >
                       {res && (
@@ -122,7 +129,7 @@ export default function Planning() {
                         >
                           {isStart && (
                             <span className="text-white font-semibold px-1 truncate text-xs leading-none">
-                              {res.basePrice}+{res.cleaningFee}€ · {res.nights}N
+                              {apt.id}, {fmtD(res.checkIn)} al {fmtD(res.checkOut, true)}, {res.basePrice}+{res.cleaningFee} {res.nights}-N
                             </span>
                           )}
                         </div>

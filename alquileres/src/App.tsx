@@ -151,13 +151,13 @@ export default function App() {
     <BrowserRouter basename="/alquileres">
       <div className="flex min-h-screen bg-slate-100">
         {/* Desktop sidebar */}
-        <div className="hidden md:flex">
+        <div className="hidden md:flex print:hidden">
           <Sidebar alerts={alertCount} />
         </div>
 
         <div className="flex-1 flex flex-col min-w-0">
           {/* Mobile header */}
-          <div className="md:hidden">
+          <div className="md:hidden print:hidden">
             <MobileHeader alerts={alertCount} onMenuOpen={() => setDrawerOpen(true)} />
           </div>
 

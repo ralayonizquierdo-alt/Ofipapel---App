@@ -41,19 +41,19 @@ export function stayTypeDays(stayType: StayType): number {
 
 export function calcPrices(basePrice: number, cleaning = CLEANING_FEE): PriceCalculation {
   const totalOwner = basePrice + cleaning
-  const realEstate = basePrice * (1 + CHANNEL_FEE)
-  const booking = basePrice * (1 + CHANNEL_FEE)
-  const webPrice = basePrice * (1 + CHANNEL_FEE)
-  const discount10 = basePrice * (1 - DISCOUNT_DIRECT)
+  // Commission is applied only on base price (excluding cleaning fee)
+  const commission = Math.round(basePrice * CHANNEL_FEE * 100) / 100
+  // Web published price = base + both channel commissions (Inmobiliaria + Reserva)
+  const webPrice = Math.round((basePrice + commission * 2) * 100) / 100
 
   return {
     basePrice,
     cleaningFee: cleaning,
     totalOwner,
-    realEstate: Math.round(realEstate * 100) / 100,
-    booking: Math.round(booking * 100) / 100,
-    webPrice: Math.round(webPrice * 100) / 100,
-    discount10: Math.round(discount10 * 100) / 100,
+    realEstate: commission,
+    booking: commission,
+    webPrice,
+    discount10: Math.round(basePrice * (1 - DISCOUNT_DIRECT) * 100) / 100,
   }
 }
 
