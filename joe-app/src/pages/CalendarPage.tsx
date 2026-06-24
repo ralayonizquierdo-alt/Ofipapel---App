@@ -11,7 +11,6 @@ import type { CalendarEvent, EventCategory } from '../types'
 
 const CATEGORY_CONFIG: Record<EventCategory, { label: string; color: string; bg: string; heart?: boolean }> = {
   pareja:     { label: 'Rober ♥',    color: '#e8304a', bg: '#e8304a20', heart: true },
-  hospital:   { label: 'Hospital',   color: '#5b8dd9', bg: '#5b8dd920' },
   empresa:    { label: 'Empresa',    color: '#9b6bb5', bg: '#9b6bb520' },
   zumba:      { label: 'Zumba',      color: '#e0854a', bg: '#e0854a20' },
   meditacion: { label: 'Meditación', color: '#6db59e', bg: '#6db59e20' },
