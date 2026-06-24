@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { format, parseISO, isPast } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Plus, X, CheckCircle2, Circle, Clock, AlertCircle, Mic, MicOff } from 'lucide-react'
+import { Plus, X, CheckCircle2, Circle, Clock, AlertCircle, Mic, MicOff, BellRing } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { playAlarm } from '../lib/sounds'
 
 interface BusinessTask {
   id: string
@@ -36,6 +37,13 @@ export default function BusinessPage() {
   const [listening, setListening] = useState(false)
 
   useEffect(() => { loadTasks() }, [])
+
+  useEffect(() => {
+    if (tasks.length === 0) return
+    const todayStr = format(new Date(), 'yyyy-MM-dd')
+    const dueToday = tasks.filter(t => !t.done && t.due_date === todayStr)
+    if (dueToday.length > 0) playAlarm()
+  }, [tasks])
 
   async function loadTasks() {
     const { data } = await supabase.from('business_tasks').select('*').order('created_at', { ascending: false })
@@ -102,6 +110,23 @@ export default function BusinessPage() {
           <Plus size={16} /> Nueva tarea
         </button>
       </div>
+
+      {/* Tareas para hoy */}
+      {(() => {
+        const todayStr = format(new Date(), 'yyyy-MM-dd')
+        const dueToday = tasks.filter(t => !t.done && t.due_date === todayStr)
+        if (dueToday.length === 0) return null
+        return (
+          <div className="card mb-4 border-[#e0a84a]/40 bg-[#e0a84a08]">
+            <p className="text-sm text-[#e0a84a] flex items-center gap-2 font-medium mb-2">
+              <BellRing size={14} /> {dueToday.length} tarea{dueToday.length > 1 ? 's' : ''} para hoy
+            </p>
+            {dueToday.map(t => (
+              <p key={t.id} className="text-xs text-[#888] ml-5">• {t.title}</p>
+            ))}
+          </div>
+        )
+      })()}
 
       {/* Alertas vencidas */}
       {overdue.length > 0 && (

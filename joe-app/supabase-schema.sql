@@ -58,12 +58,24 @@ create table if not exists business_tasks (
   created_at timestamptz default now()
 );
 
+-- Meu Coisinhas
+create table if not exists coisinhas (
+  id uuid primary key default gen_random_uuid(),
+  type text not null check (type in ('nota','recordatorio','compra')),
+  title text not null,
+  content text,
+  reminder_date date,
+  done boolean default false,
+  created_at timestamptz default now()
+);
+
 -- RLS (Row Level Security) — desactivado para uso personal, una sola usuaria
 alter table events disable row level security;
 alter table hospital_shifts disable row level security;
 alter table limon_records disable row level security;
 alter table spotify_playlists disable row level security;
 alter table business_tasks disable row level security;
+alter table coisinhas disable row level security;
 
 -- ACTUALIZACIÓN: añadir columnas para distinción hospital/centro de salud
 -- Ejecuta esto en Supabase > SQL Editor si la tabla ya existía:
@@ -76,3 +88,4 @@ grant select, insert, update, delete on table hospital_shifts to anon;
 grant select, insert, update, delete on table limon_records to anon;
 grant select, insert, update, delete on table spotify_playlists to anon;
 grant select, insert, update, delete on table business_tasks to anon;
+grant select, insert, update, delete on table coisinhas to anon;

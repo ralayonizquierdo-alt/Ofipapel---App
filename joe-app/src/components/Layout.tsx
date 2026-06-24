@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import {
-  CalendarDays, Music2, Cat, Briefcase, Stethoscope, Menu, X,
+  CalendarDays, Music2, Cat, Briefcase, Stethoscope, Menu, X, Sparkles,
 } from 'lucide-react'
 import { MusicNotesBg } from './RockBackground'
 
@@ -10,7 +10,8 @@ const nav = [
   { to: '/turnos',  icon: Stethoscope,  label: 'Turnos',   color: '#5b8dd9' },
   { to: '/empresa', icon: Briefcase,    label: 'Empresa',  color: '#9b6bb5' },
   { to: '/musica',  icon: Music2,       label: 'Música',   color: '#e05252' },
-  { to: '/limon',   icon: Cat,          label: 'Limón 🍋', color: '#6db56d' },
+  { to: '/limon',      icon: Cat,      label: 'Limón 🍋',    color: '#6db56d' },
+  { to: '/coisinhas', icon: Sparkles, label: 'Coisinhas ✨', color: '#d4609e' },
 ]
 
 /* SVG decorativo - púa de guitarra */
