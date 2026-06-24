@@ -43,6 +43,9 @@ export interface Reservation {
   createdAt: string
 }
 
+export type PaymentMethod = 'efectivo' | 'transferencia' | 'otro'
+export type ExpenseType = 'lavanderia' | 'limpieza' | 'luz' | 'agua' | 'impuestos' | 'otro'
+
 export interface Payment {
   id: string
   reservationId: string
@@ -50,7 +53,33 @@ export interface Payment {
   paymentDate?: string
   entryNumber?: string
   received: boolean
+  paymentMethod?: PaymentMethod
   createdAt: string
+}
+
+export interface Expense {
+  id: string
+  apartmentId: string
+  expenseDate?: string
+  expenseType: ExpenseType
+  description: string
+  supplier?: string
+  amount: number
+  entryNumber?: string
+  createdAt: string
+}
+
+export interface OfferPrice {
+  id: string
+  year: number
+  month: number
+  apartmentType: ApartmentType
+  price1week: number
+  price2weeks: number
+  price3weeks: number
+  price1month: number
+  cleaningFee: number
+  label: string
 }
 
 export interface Repair {

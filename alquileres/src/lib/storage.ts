@@ -1,4 +1,4 @@
-import type { Apartment, PriceEntry, Reservation, Payment, Repair } from '../types'
+import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice } from '../types'
 import { DEFAULT_PRICES_2026 } from './priceCalc'
 import { nanoid } from './nanoid'
 
@@ -8,6 +8,8 @@ const KEYS = {
   reservations: 'aq_reservations',
   payments: 'aq_payments',
   repairs: 'aq_repairs',
+  expenses: 'aq_expenses',
+  offerPrices: 'aq_offer_prices',
 }
 
 function load<T>(key: string, defaults: T[]): T[] {
@@ -141,6 +143,43 @@ export const repairStorage = {
   },
   delete: (id: string): void => {
     save(KEYS.repairs, repairStorage.getAll().filter(r => r.id !== id))
+  },
+}
+
+// ─── Expenses ─────────────────────────────────────────────────────────────────
+
+export const expenseStorage = {
+  getAll: (): Expense[] => load<Expense>(KEYS.expenses, []),
+  save: (expenses: Expense[]) => save(KEYS.expenses, expenses),
+  add: (e: Omit<Expense, 'id' | 'createdAt'>): Expense => {
+    const all = expenseStorage.getAll()
+    const item: Expense = { ...e, id: nanoid(), createdAt: new Date().toISOString() }
+    save(KEYS.expenses, [...all, item])
+    return item
+  },
+  update: (id: string, data: Partial<Expense>): void => {
+    const all = expenseStorage.getAll().map(e => e.id === id ? { ...e, ...data } : e)
+    save(KEYS.expenses, all)
+  },
+  delete: (id: string): void => {
+    save(KEYS.expenses, expenseStorage.getAll().filter(e => e.id !== id))
+  },
+}
+
+export const offerPriceStorage = {
+  getAll: (): OfferPrice[] => load<OfferPrice>(KEYS.offerPrices, []),
+  add: (entry: Omit<OfferPrice, 'id'>): OfferPrice => {
+    const all = offerPriceStorage.getAll()
+    const item = { ...entry, id: nanoid() }
+    save(KEYS.offerPrices, [...all, item])
+    return item
+  },
+  update: (id: string, data: Partial<OfferPrice>): void => {
+    const all = offerPriceStorage.getAll().map(p => p.id === id ? { ...p, ...data } : p)
+    save(KEYS.offerPrices, all)
+  },
+  delete: (id: string): void => {
+    save(KEYS.offerPrices, offerPriceStorage.getAll().filter(p => p.id !== id))
   },
 }
 

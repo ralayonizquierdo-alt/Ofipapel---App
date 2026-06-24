@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { reservationStorage, apartmentStorage } from '../lib/storage'
 import type { Reservation, Apartment } from '../types'
-import { MONTH_NAMES_ES, DAY_NAMES_ES, getDaysInMonth, getSeason } from '../lib/dateUtils'
+import { MONTH_NAMES_ES, DAY_NAMES_ES, getDaysInMonth, getSeason, formatDateShort } from '../lib/dateUtils'
 
 const APT_COLORS = [
   'bg-blue-400', 'bg-emerald-400', 'bg-violet-400', 'bg-amber-400',
@@ -112,7 +112,7 @@ export default function Planning() {
                   return (
                     <td
                       key={d}
-                      title={res ? `${res.guestName || 'Reserva'} | ${res.checkIn} → ${res.checkOut} | ${res.total}€` : ''}
+                      title={res ? `${res.guestName || 'Reserva'} | ${res.basePrice}+${res.cleaningFee}€ · ${formatDateShort(res.checkIn)} al ${formatDateShort(res.checkOut)} · ${res.nights}N` : ''}
                       className={`h-9 p-0 relative ${isWe ? 'bg-slate-50' : ''} ${isToday(d) ? 'bg-blue-50' : ''}`}
                     >
                       {res && (
@@ -122,7 +122,7 @@ export default function Planning() {
                         >
                           {isStart && (
                             <span className="text-white font-semibold px-1 truncate text-xs leading-none">
-                              {res.total}€
+                              {res.basePrice}+{res.cleaningFee}€ · {res.nights}N
                             </span>
                           )}
                         </div>

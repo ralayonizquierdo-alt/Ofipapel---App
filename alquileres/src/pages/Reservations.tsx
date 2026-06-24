@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Pencil, Trash2, CheckCircle, Circle } from 'lucide-react'
 import { reservationStorage, paymentStorage, apartmentStorage, priceStorage } from '../lib/storage'
-import type { Reservation, Payment, Apartment, PriceEntry, StayType, Channel } from '../types'
+import type { Reservation, Payment, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
 import { formatDate, getNights, getSeason, today } from '../lib/dateUtils'
 import { getApartmentType, calcTotal } from '../lib/priceCalc'
 import Modal from '../components/ui/Modal'
@@ -147,6 +147,7 @@ export default function Reservations() {
 
       {showForm && (
         <ReservationForm
+          key={editing?.id || 'new'}
           apartments={apartments}
           prices={prices}
           editing={editing}
@@ -376,11 +377,18 @@ function PaymentModal({ reservation, payments, aptName, onClose, onUpdate }:
     onUpdate()
   }
 
-  function updatePayment(id: string, field: 'amount' | 'paymentDate' | 'entryNumber', value: string) {
-    const numValue = field === 'amount' ? Number(value) : undefined
-    const strValue = field !== 'amount' ? value : undefined
-    paymentStorage.update(id, field === 'amount' ? { amount: numValue! } : { [field]: strValue })
-    setLocalPayments(prev => prev.map(p => p.id === id ? { ...p, [field]: field === 'amount' ? numValue : strValue } : p))
+  function updatePayment(id: string, field: 'amount' | 'paymentDate' | 'entryNumber' | 'paymentMethod', value: string) {
+    if (field === 'amount') {
+      const numValue = Number(value)
+      paymentStorage.update(id, { amount: numValue })
+      setLocalPayments(prev => prev.map(p => p.id === id ? { ...p, amount: numValue } : p))
+    } else if (field === 'paymentMethod') {
+      paymentStorage.update(id, { paymentMethod: value as PaymentMethod })
+      setLocalPayments(prev => prev.map(p => p.id === id ? { ...p, paymentMethod: value as PaymentMethod } : p))
+    } else {
+      paymentStorage.update(id, { [field]: value })
+      setLocalPayments(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
+    }
   }
 
   function deletePayment(id: string) {
@@ -414,37 +422,48 @@ function PaymentModal({ reservation, payments, aptName, onClose, onUpdate }:
         </div>
 
         <div className="space-y-2">
-          <div className="grid grid-cols-12 gap-2 text-xs font-medium text-slate-500 px-2">
-            <div className="col-span-1"></div>
-            <div className="col-span-3">Importe (€)</div>
-            <div className="col-span-3">Fecha cobro</div>
-            <div className="col-span-3">Nº Asiento</div>
-            <div className="col-span-2"></div>
+          <div className="grid grid-cols-13 gap-2 text-xs font-medium text-slate-500 px-2" style={{gridTemplateColumns: '1fr 3fr 3fr 2fr 2fr 2fr'}}>
+            <div></div>
+            <div>Importe (€)</div>
+            <div>Fecha cobro</div>
+            <div>Método</div>
+            <div>Nº Asiento</div>
+            <div></div>
           </div>
           {localPayments.map((p, i) => (
-            <div key={p.id} className={`grid grid-cols-12 gap-2 items-center p-2 rounded-lg ${p.received ? 'bg-green-50' : 'bg-amber-50'}`}>
-              <div className="col-span-1 flex justify-center">
+            <div key={p.id} className={`grid gap-2 items-center p-2 rounded-lg ${p.received ? 'bg-green-50' : 'bg-amber-50'}`} style={{gridTemplateColumns: '1fr 3fr 3fr 2fr 2fr 2fr'}}>
+              <div className="flex justify-center">
                 <button onClick={() => toggleReceived(p.id)} title={p.received ? 'Marcar como pendiente' : 'Marcar como cobrado'}>
                   {p.received ? <CheckCircle size={18} className="text-green-600" /> : <Circle size={18} className="text-amber-400" />}
                 </button>
               </div>
-              <div className="col-span-3">
+              <div>
                 <input type="number" value={p.amount}
                   onChange={e => updatePayment(p.id, 'amount', e.target.value)}
                   className="w-full border border-slate-200 rounded px-2 py-1 text-sm" />
               </div>
-              <div className="col-span-3">
+              <div>
                 <input type="date" value={p.paymentDate || ''}
                   onChange={e => updatePayment(p.id, 'paymentDate', e.target.value)}
                   className="w-full border border-slate-200 rounded px-2 py-1 text-sm" />
               </div>
-              <div className="col-span-3">
+              <div>
+                <select value={p.paymentMethod || ''}
+                  onChange={e => updatePayment(p.id, 'paymentMethod', e.target.value)}
+                  className="w-full border border-slate-200 rounded px-2 py-1 text-sm">
+                  <option value="">—</option>
+                  <option value="efectivo">Efectivo</option>
+                  <option value="transferencia">Transferencia</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+              <div>
                 <input value={p.entryNumber || ''}
                   onChange={e => updatePayment(p.id, 'entryNumber', e.target.value)}
                   className="w-full border border-slate-200 rounded px-2 py-1 text-sm"
                   placeholder="Nº asiento" />
               </div>
-              <div className="col-span-2 flex justify-end gap-1">
+              <div className="flex justify-end gap-1">
                 <span className="text-xs text-slate-400">P{i + 1}</span>
                 <button onClick={() => deletePayment(p.id)} className="text-slate-300 hover:text-red-500 p-0.5">
                   <Trash2 size={13} />

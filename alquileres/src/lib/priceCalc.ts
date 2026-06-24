@@ -43,7 +43,7 @@ export function calcPrices(basePrice: number, cleaning = CLEANING_FEE): PriceCal
   const totalOwner = basePrice + cleaning
   const realEstate = basePrice * (1 + CHANNEL_FEE)
   const booking = basePrice * (1 + CHANNEL_FEE)
-  const webPrice = basePrice + cleaning
+  const webPrice = basePrice * (1 + CHANNEL_FEE)
   const discount10 = basePrice * (1 - DISCOUNT_DIRECT)
 
   return {
