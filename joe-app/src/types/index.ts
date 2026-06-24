@@ -52,3 +52,13 @@ export interface SpotifyPlaylist {
   embed_url: string
   created_at: string
 }
+
+export interface Coisinha {
+  id: string
+  type: 'nota' | 'recordatorio' | 'compra'
+  title: string
+  content?: string
+  reminder_date?: string
+  done: boolean
+  created_at: string
+}

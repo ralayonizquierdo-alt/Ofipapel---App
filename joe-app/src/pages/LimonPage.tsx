@@ -3,6 +3,7 @@ import { format, parseISO, isFuture } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Plus, X, Stethoscope, Utensils, Pill, StickyNote, Weight, AlertCircle, BellRing, Bell } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { playAlarm } from '../lib/sounds'
 import type { LimonRecord } from '../types'
 
 const TYPE_CONFIG = {
@@ -40,14 +41,17 @@ export default function LimonPage() {
     if (records.length === 0) return
     const todayStr = format(new Date(), 'yyyy-MM-dd')
     const dueToday = records.filter(r => r.next_date === todayStr)
-    if (dueToday.length > 0 && notifPerm === 'granted') {
-      dueToday.forEach(r => {
-        new Notification(`🍋 Limón — ${r.title}`, {
-          body: r.description ? r.description : 'Aviso programado para hoy',
-          icon: `${import.meta.env.BASE_URL}limon.png`,
-          tag: `limon-${r.id}`,
+    if (dueToday.length > 0) {
+      playAlarm()
+      if (notifPerm === 'granted') {
+        dueToday.forEach(r => {
+          new Notification(`🍋 Limón — ${r.title}`, {
+            body: r.description ? r.description : 'Aviso programado para hoy',
+            icon: `${import.meta.env.BASE_URL}limon.png`,
+            tag: `limon-${r.id}`,
+          })
         })
-      })
+      }
     }
   }, [records, notifPerm])
 

@@ -7,6 +7,7 @@ import ShiftsPage from './pages/ShiftsPage'
 import MusicPage from './pages/MusicPage'
 import LimonPage from './pages/LimonPage'
 import BusinessPage from './pages/BusinessPage'
+import CoisinhasPage from './pages/CoisinhasPage'
 
 export default function App() {
   const [showWelcome, setShowWelcome] = useState(true)
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="musica" element={<MusicPage />} />
           <Route path="limon" element={<LimonPage />} />
           <Route path="empresa" element={<BusinessPage />} />
+          <Route path="coisinhas" element={<CoisinhasPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
