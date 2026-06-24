@@ -22,6 +22,16 @@ export default function Analytics() {
     setApartments(apartmentStorage.getAll().filter(a => a.active))
   }, [])
 
+  useEffect(() => {
+    if (payments.length === 0) return
+    const payYears = [...new Set(
+      payments.map(p => p.paymentDate?.slice(0, 4)).filter(Boolean)
+    )].sort((a, b) => b!.localeCompare(a!))
+    if (payYears.length > 0 && !payYears.includes(String(year))) {
+      setYear(Number(payYears[0]))
+    }
+  }, [payments.length])
+
   // ── Occupancy per apartment ───────────────────────────────────────────────
   function getRentedDays(aptId: string): number {
     let days = 0
@@ -93,11 +103,9 @@ export default function Analytics() {
   const totalCosts = aptStats.reduce((s, a) => s + a.costs, 0)
   const totalNet = totalIncome - totalCosts
 
-  const years = [...new Set([
-    ...payments.map(p => p.paymentDate?.slice(0, 4)),
-    ...repairs.map(r => r.repairDate?.slice(0, 4)),
-    ...expenses.map(e => e.expenseDate?.slice(0, 4)),
-  ].filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
+  const years = [...new Set(
+    payments.map(p => p.paymentDate?.slice(0, 4)).filter(Boolean)
+  )].sort((a, b) => b!.localeCompare(a!))
 
   return (
     <div className="p-6">
