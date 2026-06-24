@@ -1,5 +1,4 @@
 export type EventCategory =
-  | 'hospital'
   | 'empresa'
   | 'zumba'
   | 'meditacion'
