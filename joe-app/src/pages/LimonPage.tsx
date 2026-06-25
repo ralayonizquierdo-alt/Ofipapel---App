@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { format, parseISO, isFuture } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Plus, X, Stethoscope, Utensils, Pill, StickyNote, Weight, AlertCircle, BellRing, Bell } from 'lucide-react'
+import { Plus, X, Stethoscope, Utensils, Pill, StickyNote, Weight, AlertCircle, BellRing, Bell, Mic, MicOff } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { playAlarm } from '../lib/sounds'
 import type { LimonRecord } from '../types'
@@ -22,6 +22,7 @@ const emptyForm = (): Partial<LimonRecord> => ({
   description: '',
   date: format(new Date(), 'yyyy-MM-dd'),
   next_date: '',
+  next_time: '',
   value: '',
 })
 
@@ -33,14 +34,35 @@ export default function LimonPage() {
   const [notifPerm, setNotifPerm] = useState<NotificationPermission | 'unsupported'>(
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   )
+  const [listeningDesc, setListeningDesc] = useState(false)
 
   useEffect(() => { loadRecords() }, [])
+
+  function startVoiceDesc() {
+    const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition
+    if (!SR) return
+    const rec = new SR()
+    rec.lang = 'es-ES'
+    rec.onresult = (e: SpeechRecognitionEvent) => {
+      const text = e.results[0][0].transcript
+      setForm(p => ({ ...p, description: (p.description ? p.description + ' ' : '') + text }))
+      setListeningDesc(false)
+    }
+    rec.onend = () => setListeningDesc(false)
+    rec.start()
+    setListeningDesc(true)
+  }
 
   // Disparar notificaciones para avisos de hoy cuando se cargan los registros
   useEffect(() => {
     if (records.length === 0) return
     const todayStr = format(new Date(), 'yyyy-MM-dd')
-    const dueToday = records.filter(r => r.next_date === todayStr)
+    const nowTime  = format(new Date(), 'HH:mm')
+    const dueToday = records.filter(r => {
+      if (r.next_date !== todayStr) return false
+      if (r.next_time && nowTime < r.next_time) return false
+      return true
+    })
     if (dueToday.length > 0) {
       playAlarm()
       if (notifPerm === 'granted') {
@@ -168,7 +190,12 @@ export default function LimonPage() {
       {/* Avisos de hoy */}
       {(() => {
         const todayStr = format(new Date(), 'yyyy-MM-dd')
-        const dueToday = records.filter(r => r.next_date === todayStr)
+        const nowTime  = format(new Date(), 'HH:mm')
+        const dueToday = records.filter(r => {
+          if (r.next_date !== todayStr) return false
+          if (r.next_time && nowTime < r.next_time) return false
+          return true
+        })
         if (dueToday.length === 0) return null
         return (
           <div className="card mb-6 border-[#e0a84a]/40 bg-[#e0a84a08]">
@@ -357,9 +384,13 @@ export default function LimonPage() {
                   <label className="text-xs text-[#888] uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
                     <BellRing size={11} className="text-[#e0a84a]" /> Aviso / Alarma
                   </label>
-                  <input type="date" value={form.next_date ?? ''} onChange={e => setForm(p => ({ ...p, next_date: e.target.value }))}
-                    className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#c9a96e] focus:outline-none" />
-                  <p className="text-[10px] text-[#555] mt-1">Aparecerá en "Avisos de hoy" ese día</p>
+                  <div className="flex gap-2">
+                    <input type="date" value={form.next_date ?? ''} onChange={e => setForm(p => ({ ...p, next_date: e.target.value }))}
+                      className="flex-1 bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#c9a96e] focus:outline-none" />
+                    <input type="time" value={form.next_time ?? ''} onChange={e => setForm(p => ({ ...p, next_time: e.target.value }))}
+                      className="w-28 bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#c9a96e] focus:outline-none" />
+                  </div>
+                  <p className="text-[10px] text-[#555] mt-1">Sonará a la hora indicada (o al abrir la app si no hay hora)</p>
                 </div>
               </div>
               {(form.type === 'weight' || form.type === 'medication' || form.type === 'food') && (
@@ -372,7 +403,14 @@ export default function LimonPage() {
                 </div>
               )}
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Notas</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs text-[#888] uppercase tracking-wider">Notas</label>
+                  <button onClick={startVoiceDesc}
+                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${listeningDesc ? 'border-[#e05252] text-[#e05252]' : 'border-[#3a3a3a] text-[#555] hover:border-[#c9a96e] hover:text-[#c9a96e]'}`}>
+                    {listeningDesc ? <MicOff size={12} /> : <Mic size={12} />}
+                    {listeningDesc ? 'Escuchando…' : 'Voz'}
+                  </button>
+                </div>
                 <textarea value={form.description ?? ''} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
                   rows={2}
                   className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] placeholder-[#444] focus:border-[#c9a96e] focus:outline-none resize-none" />
