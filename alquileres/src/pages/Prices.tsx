@@ -19,7 +19,6 @@ const CURRENT_YEAR = new Date().getFullYear()
 export default function Prices() {
   const [prices, setPrices] = useState<PriceEntry[]>([])
   const [offerPrices, setOfferPrices] = useState<OfferPrice[]>([])
-  const [selectedSeason, setSelectedSeason] = useState<Season>('VERANO')
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR)
   const [editing, setEditing] = useState<PriceEntry | null>(null)
   const [showOfferForm, setShowOfferForm] = useState(false)
@@ -31,8 +30,8 @@ export default function Prices() {
   }
   useEffect(() => { reload() }, [])
 
-  const filtered = prices.filter(p => p.season === selectedSeason && p.year === selectedYear)
   const availableYears = [...new Set(prices.map(p => p.year))].sort()
+  const pricesBySeason = (season: Season) => prices.filter(p => p.season === season && p.year === selectedYear)
 
   function handleDeleteOffer(id: string) {
     if (!confirm('¿Eliminar tarifa de oferta?')) return
@@ -61,47 +60,48 @@ export default function Prices() {
         </div>
       </div>
 
-      {/* Season / Year selector */}
+      {/* Year selector */}
       <div className="print:hidden flex gap-4 mb-6">
-        <div className="flex bg-white border border-slate-200 rounded-lg p-1 gap-1">
-          {(['VERANO', 'INVIERNO'] as Season[]).map(s => (
-            <button key={s}
-              onClick={() => setSelectedSeason(s)}
-              className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
-                selectedSeason === s
-                  ? s === 'VERANO' ? 'bg-orange-500 text-white' : 'bg-blue-600 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}>
-              {s} {s === 'VERANO' ? '(May–Sep)' : '(Oct–Abr)'}
-            </button>
-          ))}
-        </div>
         <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}
           className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-700">
           {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
 
-      {/* Price tables */}
-      <div className="space-y-6">
-        {(['1BR', '2BR', '2BR_ATICO', '3BR'] as ApartmentType[]).map(aptType => {
-          const entry = filtered.find(p => p.apartmentType === aptType)
-          if (!entry) return (
-            <div key={aptType} className="bg-white rounded-xl border border-dashed border-slate-300 p-6 text-center">
-              <p className="text-slate-400 text-sm">{APT_TYPE_LABELS[aptType]} — Sin precios para {selectedSeason} {selectedYear}</p>
-              <button
-                onClick={() => {
-                  const newEntry = priceStorage.add({
-                    year: selectedYear, season: selectedSeason, apartmentType: aptType,
-                    price1week: 0, price2weeks: 0, price3weeks: 0, price1month: 0, cleaningFee: 40
-                  })
-                  setEditing(newEntry)
-                  reload()
-                }}
-                className="mt-2 text-sm text-blue-600 hover:underline">+ Añadir precios</button>
+      {/* Price tables — both seasons */}
+      <div className="space-y-8">
+        {(['VERANO', 'INVIERNO'] as Season[]).map(season => {
+          const filtered = pricesBySeason(season)
+          return (
+            <div key={season}>
+              <div className="flex items-center gap-2 mb-4 px-1">
+                <span className={`text-sm font-bold px-3 py-1 rounded-full ${season === 'VERANO' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {season === 'VERANO' ? 'VERANO (May–Sep)' : 'INVIERNO (Oct–Abr)'}
+                </span>
+              </div>
+              <div className="space-y-4">
+                {(['1BR', '2BR', '2BR_ATICO', '3BR'] as ApartmentType[]).map(aptType => {
+                  const entry = filtered.find(p => p.apartmentType === aptType)
+                  if (!entry) return (
+                    <div key={aptType} className="bg-white rounded-xl border border-dashed border-slate-300 p-4 text-center">
+                      <p className="text-slate-400 text-sm">{APT_TYPE_LABELS[aptType]} — Sin precios para {season} {selectedYear}</p>
+                      <button
+                        onClick={() => {
+                          const newEntry = priceStorage.add({
+                            year: selectedYear, season, apartmentType: aptType,
+                            price1week: 0, price2weeks: 0, price3weeks: 0, price1month: 0, cleaningFee: 40
+                          })
+                          setEditing(newEntry)
+                          reload()
+                        }}
+                        className="mt-2 text-sm text-blue-600 hover:underline">+ Añadir precios</button>
+                    </div>
+                  )
+                  return <PriceTable key={aptType} entry={entry} onEdit={() => setEditing(entry)} />
+                })}
+              </div>
             </div>
           )
-          return <PriceTable key={aptType} entry={entry} onEdit={() => setEditing(entry)} />
         })}
       </div>
 

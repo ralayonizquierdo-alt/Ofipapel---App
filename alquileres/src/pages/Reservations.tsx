@@ -53,6 +53,14 @@ export default function Reservations() {
     return payments.filter(p => p.reservationId === r.id && p.received).reduce((s, p) => s + p.amount, 0)
   }
 
+  function getPaymentMethods(r: Reservation): string {
+    const rp = payments.filter(p => p.reservationId === r.id && p.received && p.paymentMethod)
+    if (rp.length === 0) return '—'
+    const labels: Record<string, string> = { efectivo: 'Efectivo', transferencia: 'Transfer.', otro: 'Otro' }
+    const methods = [...new Set(rp.map(p => p.paymentMethod))]
+    return methods.map(m => labels[m!] || m!).join('+')
+  }
+
   function handleDelete(id: string) {
     if (!confirm('¿Eliminar esta reserva?')) return
     reservationStorage.delete(id)
@@ -100,6 +108,7 @@ export default function Reservations() {
               <th className="text-left py-3 px-4 font-medium text-slate-600">Tipo</th>
               <th className="text-right py-3 px-4 font-medium text-slate-600">Total</th>
               <th className="text-right py-3 px-4 font-medium text-slate-600">Cobrado</th>
+              <th className="text-left py-3 px-4 font-medium text-slate-600">Forma pago</th>
               <th className="text-left py-3 px-4 font-medium text-slate-600">Estado</th>
               <th className="py-3 px-4"></th>
             </tr>
@@ -124,6 +133,7 @@ export default function Reservations() {
                       {pending > 0 && <span className="ml-1 text-amber-500">(-{pending.toFixed(0)})</span>}
                     </span>
                   </td>
+                  <td className="py-3 px-4 text-slate-500 text-xs">{getPaymentMethods(r)}</td>
                   <td className="py-3 px-4">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[displayStatus]}`}>
                       {displayStatus}
@@ -141,7 +151,7 @@ export default function Reservations() {
               )
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={9} className="py-8 text-center text-slate-400 text-sm">No hay reservas</td></tr>
+              <tr><td colSpan={10} className="py-8 text-center text-slate-400 text-sm">No hay reservas</td></tr>
             )}
           </tbody>
         </table>
@@ -149,7 +159,6 @@ export default function Reservations() {
 
       {showForm && (
         <ReservationForm
-          key={editing?.id || 'new'}
           apartments={apartments}
           prices={prices}
           editing={editing}
@@ -424,7 +433,7 @@ function PaymentModal({ reservation, payments, aptName, onClose, onUpdate }:
         </div>
 
         <div className="space-y-2">
-          <div className="grid grid-cols-13 gap-2 text-xs font-medium text-slate-500 px-2" style={{gridTemplateColumns: '1fr 3fr 3fr 2fr 2fr 2fr'}}>
+          <div className="grid gap-2 text-xs font-medium text-slate-500 px-2" style={{gridTemplateColumns: '1fr 3fr 3fr 2fr 2fr 2fr'}}>
             <div></div>
             <div>Importe (€)</div>
             <div>Fecha cobro</div>

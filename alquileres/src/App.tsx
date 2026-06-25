@@ -1,9 +1,10 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Calendar, BedDouble, Tag, Wrench, PiggyBank, BarChart3, Settings, Menu, X, Receipt
+  LayoutDashboard, Calendar, BedDouble, Tag, Wrench, PiggyBank, BarChart3, Settings, Menu, X
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { reservationStorage, paymentStorage } from './lib/storage'
+import { isSeeded, markSeeded, reservationStorage, paymentStorage, repairStorage } from './lib/storage'
+import { buildSeedReservations, buildSeedRepairs } from './lib/seedData'
 import Dashboard from './pages/Dashboard'
 import Planning from './pages/Planning'
 import Reservations from './pages/Reservations'
@@ -12,7 +13,6 @@ import Repairs from './pages/Repairs'
 import Collections from './pages/Collections'
 import Analytics from './pages/Analytics'
 import ApartmentsConfig from './pages/ApartmentsConfig'
-import Costos from './pages/Costos'
 
 const NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -20,7 +20,6 @@ const NAV = [
   { to: '/reservas', icon: BedDouble, label: 'Reservas' },
   { to: '/precios', icon: Tag, label: 'Precios' },
   { to: '/reparaciones', icon: Wrench, label: 'Reparaciones' },
-  { to: '/costos', icon: Receipt, label: 'Costes' },
   { to: '/cobros', icon: PiggyBank, label: 'Cobros' },
   { to: '/analitica', icon: BarChart3, label: 'Analítica' },
   { to: '/config', icon: Settings, label: 'Apartamentos' },
@@ -124,6 +123,15 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
+    if (!isSeeded()) {
+      const { reservations, payments } = buildSeedReservations()
+      if (reservationStorage.getAll().length === 0) {
+        reservationStorage.save(reservations)
+        paymentStorage.save(payments)
+        repairStorage.save(buildSeedRepairs())
+      }
+      markSeeded()
+    }
     const reservations = reservationStorage.getAll()
     const payments = paymentStorage.getAll()
     const today = new Date()
@@ -151,13 +159,13 @@ export default function App() {
     <BrowserRouter basename="/alquileres">
       <div className="flex min-h-screen bg-slate-100">
         {/* Desktop sidebar */}
-        <div className="hidden md:flex print:hidden">
+        <div className="hidden md:flex">
           <Sidebar alerts={alertCount} />
         </div>
 
         <div className="flex-1 flex flex-col min-w-0">
           {/* Mobile header */}
-          <div className="md:hidden print:hidden">
+          <div className="md:hidden">
             <MobileHeader alerts={alertCount} onMenuOpen={() => setDrawerOpen(true)} />
           </div>
 
@@ -172,7 +180,6 @@ export default function App() {
               <Route path="/reservas" element={<Reservations />} />
               <Route path="/precios" element={<Prices />} />
               <Route path="/reparaciones" element={<Repairs />} />
-              <Route path="/costos" element={<Costos />} />
               <Route path="/cobros" element={<Collections />} />
               <Route path="/analitica" element={<Analytics />} />
               <Route path="/config" element={<ApartmentsConfig />} />

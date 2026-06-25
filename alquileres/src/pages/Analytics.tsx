@@ -54,9 +54,11 @@ export default function Analytics() {
   const daysInYear = 365
   const aptStats = apartments.map(apt => {
     const rented = getRentedDays(apt.id)
+    const aptResIds = new Set(
+      reservations.filter(r => r.apartmentId === apt.id && r.status !== 'cancelada').map(r => r.id)
+    )
     const income = payments
-      .filter(p => p.received && p.paymentDate?.startsWith(String(year)))
-      .filter(p => reservations.find(r => r.id === p.reservationId && r.apartmentId === apt.id))
+      .filter(p => p.received && p.paymentDate?.startsWith(String(year)) && aptResIds.has(p.reservationId))
       .reduce((s, p) => s + p.amount, 0)
     const repairCosts = repairs
       .filter(r => r.apartmentId === apt.id && r.repairDate?.startsWith(String(year)))
