@@ -20,6 +20,16 @@ export default function Analytics() {
     setApartments(apartmentStorage.getAll().filter(a => a.active))
   }, [])
 
+  useEffect(() => {
+    if (payments.length === 0) return
+    const payYears = [...new Set(
+      payments.map(p => p.paymentDate?.slice(0, 4)).filter(Boolean)
+    )].sort((a, b) => b!.localeCompare(a!))
+    if (payYears.length > 0 && !payYears.includes(String(year))) {
+      setYear(Number(payYears[0]))
+    }
+  }, [payments.length])
+
   // ── Occupancy per apartment ───────────────────────────────────────────────
   function getRentedDays(aptId: string): number {
     let days = 0
@@ -42,9 +52,11 @@ export default function Analytics() {
   const daysInYear = 365
   const aptStats = apartments.map(apt => {
     const rented = getRentedDays(apt.id)
+    const aptResIds = new Set(
+      reservations.filter(r => r.apartmentId === apt.id && r.status !== 'cancelada').map(r => r.id)
+    )
     const income = payments
-      .filter(p => p.received && p.paymentDate?.startsWith(String(year)))
-      .filter(p => reservations.find(r => r.id === p.reservationId && r.apartmentId === apt.id))
+      .filter(p => p.received && p.paymentDate?.startsWith(String(year)) && aptResIds.has(p.reservationId))
       .reduce((s, p) => s + p.amount, 0)
     const costs = repairs
       .filter(r => r.apartmentId === apt.id && r.repairDate?.startsWith(String(year)))
