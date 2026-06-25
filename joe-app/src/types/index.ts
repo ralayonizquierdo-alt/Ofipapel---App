@@ -5,7 +5,6 @@ export type EventCategory =
   | 'enologia'
   | 'astrologia'
   | 'personal'
-  | 'limon'
   | 'pareja'
 
 export interface CalendarEvent {
