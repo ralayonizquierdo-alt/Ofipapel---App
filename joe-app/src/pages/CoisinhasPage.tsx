@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Plus, X, CheckCircle2, Circle, StickyNote, Bell, ShoppingCart, BellRing } from 'lucide-react'
+import { Plus, X, CheckCircle2, Circle, StickyNote, Bell, ShoppingCart, BellRing, Mic, MicOff } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { playAlarm } from '../lib/sounds'
 import type { Coisinha } from '../types'
@@ -20,6 +20,7 @@ const emptyForm = (): Partial<Coisinha> => ({
   content: '',
   done: false,
   reminder_date: '',
+  reminder_time: '',
 })
 
 export default function CoisinhasPage() {
@@ -30,13 +31,34 @@ export default function CoisinhasPage() {
   const [notifPerm, setNotifPerm] = useState<NotificationPermission | 'unsupported'>(
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   )
+  const [listeningContent, setListeningContent] = useState(false)
+
+  function startVoiceContent() {
+    const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition
+    if (!SR) return
+    const rec = new SR()
+    rec.lang = 'es-ES'
+    rec.onresult = (e: SpeechRecognitionEvent) => {
+      const text = e.results[0][0].transcript
+      setForm(p => ({ ...p, content: (p.content ? p.content + ' ' : '') + text }))
+      setListeningContent(false)
+    }
+    rec.onend = () => setListeningContent(false)
+    rec.start()
+    setListeningContent(true)
+  }
 
   useEffect(() => { load() }, [])
 
   useEffect(() => {
     if (items.length === 0) return
     const todayStr = format(new Date(), 'yyyy-MM-dd')
-    const dueToday = items.filter(i => !i.done && i.type === 'recordatorio' && i.reminder_date === todayStr)
+    const nowTime  = format(new Date(), 'HH:mm')
+    const dueToday = items.filter(i => {
+      if (i.done || i.type !== 'recordatorio' || i.reminder_date !== todayStr) return false
+      if (i.reminder_time && nowTime < i.reminder_time) return false
+      return true
+    })
     if (dueToday.length > 0) {
       playAlarm()
       if (notifPerm === 'granted') {
@@ -299,7 +321,14 @@ export default function CoisinhasPage() {
 
               {/* Contenido / detalles */}
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Detalles</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs text-[#888] uppercase tracking-wider">Detalles</label>
+                  <button onClick={startVoiceContent}
+                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${listeningContent ? 'border-[#e05252] text-[#e05252]' : 'border-[#3a3a3a] text-[#555] hover:border-[#d4609e] hover:text-[#d4609e]'}`}>
+                    {listeningContent ? <MicOff size={12} /> : <Mic size={12} />}
+                    {listeningContent ? 'Escuchando…' : 'Voz'}
+                  </button>
+                </div>
                 <textarea
                   value={form.content ?? ''}
                   onChange={e => setForm(p => ({ ...p, content: e.target.value }))}
@@ -312,15 +341,23 @@ export default function CoisinhasPage() {
               {form.type === 'recordatorio' && (
                 <div>
                   <label className="text-xs text-[#888] uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-                    <BellRing size={11} style={{ color: '#d4609e' }} /> Fecha del aviso
+                    <BellRing size={11} style={{ color: '#d4609e' }} /> Aviso
                   </label>
-                  <input
-                    type="date"
-                    value={form.reminder_date ?? ''}
-                    onChange={e => setForm(p => ({ ...p, reminder_date: e.target.value }))}
-                    className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#d4609e] focus:outline-none"
-                  />
-                  <p className="text-[10px] text-[#555] mt-1">Sonará una alarma y aparecerá en "Recordatorios para hoy"</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={form.reminder_date ?? ''}
+                      onChange={e => setForm(p => ({ ...p, reminder_date: e.target.value }))}
+                      className="flex-1 bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#d4609e] focus:outline-none"
+                    />
+                    <input
+                      type="time"
+                      value={form.reminder_time ?? ''}
+                      onChange={e => setForm(p => ({ ...p, reminder_time: e.target.value }))}
+                      className="w-28 bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#d4609e] focus:outline-none"
+                    />
+                  </div>
+                  <p className="text-[10px] text-[#555] mt-1">Sonará a la hora indicada (o al abrir la app si no hay hora)</p>
                 </div>
               )}
             </div>

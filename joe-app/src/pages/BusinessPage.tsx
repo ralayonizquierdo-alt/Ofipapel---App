@@ -10,6 +10,7 @@ interface BusinessTask {
   title: string
   description?: string
   due_date?: string
+  due_time?: string
   priority: 'high' | 'medium' | 'low'
   done: boolean
   created_at: string
@@ -27,6 +28,7 @@ const emptyTask = (): Partial<BusinessTask> => ({
   priority: 'medium',
   done: false,
   due_date: '',
+  due_time: '',
 })
 
 export default function BusinessPage() {
@@ -35,13 +37,19 @@ export default function BusinessPage() {
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState<Partial<BusinessTask>>(emptyTask())
   const [listening, setListening] = useState(false)
+  const [listeningDesc, setListeningDesc] = useState(false)
 
   useEffect(() => { loadTasks() }, [])
 
   useEffect(() => {
     if (tasks.length === 0) return
     const todayStr = format(new Date(), 'yyyy-MM-dd')
-    const dueToday = tasks.filter(t => !t.done && t.due_date === todayStr)
+    const nowTime  = format(new Date(), 'HH:mm')
+    const dueToday = tasks.filter(t => {
+      if (t.done || t.due_date !== todayStr) return false
+      if (t.due_time && nowTime < t.due_time) return false
+      return true
+    })
     if (dueToday.length > 0) playAlarm()
   }, [tasks])
 
@@ -70,6 +78,21 @@ export default function BusinessPage() {
   async function del(id: string) {
     await supabase.from('business_tasks').delete().eq('id', id)
     loadTasks()
+  }
+
+  function startVoiceDesc() {
+    const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition
+    if (!SR) return
+    const rec = new SR()
+    rec.lang = 'es-ES'
+    rec.onresult = (e: SpeechRecognitionEvent) => {
+      const text = e.results[0][0].transcript
+      setForm(p => ({ ...p, description: (p.description ? p.description + ' ' : '') + text }))
+      setListeningDesc(false)
+    }
+    rec.onend = () => setListeningDesc(false)
+    rec.start()
+    setListeningDesc(true)
   }
 
   function startVoice() {
@@ -257,11 +280,22 @@ export default function BusinessPage() {
               </div>
               <div>
                 <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Fecha límite</label>
-                <input type="date" value={form.due_date ?? ''} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
-                  className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#9b6bb5] focus:outline-none" />
+                <div className="flex gap-2">
+                  <input type="date" value={form.due_date ?? ''} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
+                    className="flex-1 bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#9b6bb5] focus:outline-none" />
+                  <input type="time" value={form.due_time ?? ''} onChange={e => setForm(p => ({ ...p, due_time: e.target.value }))}
+                    className="w-28 bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#9b6bb5] focus:outline-none" />
+                </div>
               </div>
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Notas</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs text-[#888] uppercase tracking-wider">Notas</label>
+                  <button onClick={startVoiceDesc}
+                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${listeningDesc ? 'border-[#e05252] text-[#e05252]' : 'border-[#3a3a3a] text-[#555] hover:border-[#9b6bb5] hover:text-[#9b6bb5]'}`}>
+                    {listeningDesc ? <MicOff size={12} /> : <Mic size={12} />}
+                    {listeningDesc ? 'Escuchando…' : 'Voz'}
+                  </button>
+                </div>
                 <textarea value={form.description ?? ''} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
                   rows={2}
                   className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] placeholder-[#444] focus:border-[#9b6bb5] focus:outline-none resize-none" />

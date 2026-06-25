@@ -5,7 +5,7 @@ import {
   startOfWeek, endOfWeek,
 } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, X, MapPin, Moon, Sun, Sunset, Building2, Stethoscope, Layers } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, MapPin, Moon, Sun, Sunset, Building2, Stethoscope, Layers, Mic, MicOff } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { HospitalShift } from '../types'
 
@@ -33,6 +33,22 @@ export default function ShiftsPage() {
   const [form, setForm] = useState<Partial<HospitalShift>>({
     shift_type: 'morning', location: '', floor: '',
   })
+  const [listeningNotes, setListeningNotes] = useState(false)
+
+  function startVoiceNotes() {
+    const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition
+    if (!SR) return
+    const rec = new SR()
+    rec.lang = 'es-ES'
+    rec.onresult = (e: SpeechRecognitionEvent) => {
+      const text = e.results[0][0].transcript
+      setForm(p => ({ ...p, notes: (p.notes ? p.notes + ' ' : '') + text }))
+      setListeningNotes(false)
+    }
+    rec.onend = () => setListeningNotes(false)
+    rec.start()
+    setListeningNotes(true)
+  }
 
   useEffect(() => { loadShifts() }, [currentMonth])
 
@@ -326,7 +342,14 @@ export default function ShiftsPage() {
 
               {/* Notas */}
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Notas</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs text-[#888] uppercase tracking-wider">Notas</label>
+                  <button onClick={startVoiceNotes}
+                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${listeningNotes ? 'border-[#e05252] text-[#e05252]' : 'border-[#3a3a3a] text-[#555] hover:border-[#c9a96e] hover:text-[#c9a96e]'}`}>
+                    {listeningNotes ? <MicOff size={12} /> : <Mic size={12} />}
+                    {listeningNotes ? 'Escuchando…' : 'Voz'}
+                  </button>
+                </div>
                 <textarea
                   value={form.notes ?? ''}
                   onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}

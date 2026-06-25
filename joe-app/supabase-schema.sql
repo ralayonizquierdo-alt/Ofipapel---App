@@ -82,6 +82,12 @@ alter table coisinhas disable row level security;
 --   alter table hospital_shifts add column work_center text not null default 'hospital';
 --   alter table hospital_shifts add column floor text;
 
+-- ACTUALIZACIÓN: hora de alarma en recordatorios
+-- Ejecuta cada línea por separado en Supabase > SQL Editor:
+--   alter table limon_records add column if not exists next_time text;
+--   alter table coisinhas add column if not exists reminder_time text;
+--   alter table business_tasks add column if not exists due_time text;
+
 -- Permisos para la clave anónima (necesario aunque RLS esté desactivado)
 grant select, insert, update, delete on table events to anon;
 grant select, insert, update, delete on table hospital_shifts to anon;

@@ -39,6 +39,7 @@ export interface LimonRecord {
   description?: string
   date: string
   next_date?: string
+  next_time?: string
   value?: string
   created_at: string
 }
@@ -57,6 +58,7 @@ export interface Coisinha {
   title: string
   content?: string
   reminder_date?: string
+  reminder_time?: string
   done: boolean
   created_at: string
 }
