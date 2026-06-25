@@ -54,6 +54,13 @@ export default function Planning() {
   const colorMap: Record<string, string> = {}
   apartments.forEach((a, i) => { colorMap[a.id] = APT_COLORS[i % APT_COLORS.length] })
 
+  function fmtD(iso: string, withYear = false): string {
+    const d = new Date(iso)
+    const day = d.getDate()
+    const mon = d.getMonth() + 1
+    return withYear ? `${day}/${mon}/${String(d.getFullYear()).slice(2)}` : `${day}/${mon}`
+  }
+
   const today = new Date()
   const isToday = (d: number) => year === today.getFullYear() && month === today.getMonth() + 1 && d === today.getDate()
 
@@ -109,20 +116,34 @@ export default function Planning() {
                   const isStart = !!startRes
                   const dow = new Date(year, month - 1, d).getDay()
                   const isWe = dow === 0 || dow === 6
+
+                  // Calculate how many days the bar spans from the start day in this month view
+                  let spanDays = 1
+                  if (isStart && res) {
+                    const co = new Date(res.checkOut)
+                    const lastInView = (co.getFullYear() === year && co.getMonth() + 1 === month)
+                      ? co.getDate() - 1  // checkOut is exclusive
+                      : daysInMonth
+                    spanDays = Math.max(1, lastInView - d + 1)
+                  }
+
+                  const label = res ? `${apt.id}, ${fmtD(res.checkIn)} al ${fmtD(res.checkOut, true)}, ${res.basePrice}+${res.cleaningFee} ${res.nights}-N` : ''
                   return (
                     <td
                       key={d}
-                      title={res ? `${res.guestName || 'Reserva'} | ${res.checkIn} → ${res.checkOut} | ${res.total}€` : ''}
+                      title={label}
                       className={`h-9 p-0 relative ${isWe ? 'bg-slate-50' : ''} ${isToday(d) ? 'bg-blue-50' : ''}`}
                     >
                       {res && (
                         <div
-                          className={`absolute inset-y-1 ${colorMap[apt.id]} opacity-80 rounded-sm flex items-center`}
-                          style={{ left: isStart ? '2px' : '0', right: '0' }}
+                          className={`absolute inset-y-1 ${colorMap[apt.id]} opacity-80 rounded-sm flex items-center overflow-hidden`}
+                          style={isStart
+                            ? { left: '2px', width: `calc(${spanDays} * 2rem - 2px)`, zIndex: 2 }
+                            : { left: '0', right: '0' }}
                         >
                           {isStart && (
-                            <span className="text-white font-semibold px-1 truncate text-xs leading-none">
-                              {res.total}€
+                            <span className="text-white font-semibold px-1 text-xs leading-none whitespace-nowrap">
+                              {label}
                             </span>
                           )}
                         </div>
