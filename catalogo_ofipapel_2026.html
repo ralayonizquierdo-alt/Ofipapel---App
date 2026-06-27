@@ -3,55 +3,168 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tarifa Librerías 2026 · OFIPAPEL</title>
+<title>Catálogo Escolar 2026/2027 · Vuelta al Cole · OFIPAPEL</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --verde: #2e8b3a;
-    --verde-oscuro: #1d5c26;
-    --verde-claro: #4caf50;
-    --verde-light: #e8f5e9;
+    --verde: #2E7D32;
+    --verde-oscuro: #1B5E20;
+    --verde-claro: #43A047;
+    --verde-lima: #76BB21;
+    --verde-light: #E8F5E9;
+    --azul: #1565C0;
     --gris: #f5f5f5;
     --gris-medio: #e0e0e0;
     --negro: #1a1a1a;
     --blanco: #ffffff;
-    --acento: #ff6f00;
+    --acento: #FF6F00;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'Barlow',sans-serif; background:#e8ebe8; color:var(--negro); }
 
-  /* PORTADA */
+  /* ===== PORTADA ===== */
   .portada {
     width:210mm; min-height:297mm; margin:0 auto 20px;
-    background:var(--verde-oscuro); position:relative;
+    background:#fff; position:relative;
     overflow:hidden; display:flex; flex-direction:column;
-    justify-content:center; align-items:center; page-break-after:always;
+    page-break-after:always;
   }
-  .portada::before { content:''; position:absolute; top:-80px; right:-80px; width:420px; height:420px; border-radius:50%; background:rgba(255,255,255,0.05); }
-  .portada::after  { content:''; position:absolute; bottom:-100px; left:-100px; width:500px; height:500px; border-radius:50%; background:rgba(255,255,255,0.04); }
-  .portada-stripe  { position:absolute; left:0; top:0; bottom:0; width:14px; background:var(--verde-claro); }
-  .portada-inner   { position:relative; z-index:2; text-align:center; padding:60px 50px; }
-  .logo-empresa    { font-family:'Barlow Condensed',sans-serif; font-size:72px; font-weight:900; color:#fff; letter-spacing:-2px; line-height:1; }
-  .logo-empresa span { color:var(--verde-claro); }
-  .logo-sub        { font-size:13px; letter-spacing:4px; color:rgba(255,255,255,0.6); text-transform:uppercase; margin-top:8px; }
-  .portada-divider { width:80px; height:4px; background:var(--verde-claro); margin:44px auto; border-radius:2px; }
-  .portada-titulo  { font-family:'Barlow Condensed',sans-serif; font-size:50px; font-weight:900; color:#fff; text-transform:uppercase; letter-spacing:3px; line-height:1.1; }
-  .portada-titulo em { color:var(--acento); font-style:normal; display:block; font-size:80px; letter-spacing:-1px; }
-  .portada-fecha   { margin-top:32px; font-size:13px; color:rgba(255,255,255,0.55); letter-spacing:3px; text-transform:uppercase; }
-  .portada-contacto { position:absolute; bottom:40px; left:0; right:0; text-align:center; color:rgba(255,255,255,0.45); font-size:11.5px; letter-spacing:1px; }
 
-  /* PÁGINA */
+  /* Logo header */
+  .portada-header {
+    padding:22px 40px 14px;
+    display:flex; flex-direction:column; align-items:center;
+    border-bottom:2px solid var(--verde-light);
+  }
+  .portada-logo-box {
+    display:inline-flex; flex-direction:row; align-items:center; gap:10px;
+    background:linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%);
+    border-radius:10px; padding:10px 18px;
+    box-shadow:0 3px 12px rgba(27,94,32,0.35);
+    margin-bottom:8px;
+  }
+  .portada-logo-clover {
+    display:flex; flex-direction:column; align-items:center;
+  }
+  .portada-logo-clover svg { width:36px; height:36px; }
+  .portada-logo-texts {
+    display:flex; flex-direction:column;
+  }
+  .portada-logo-name {
+    font-family:'Barlow Condensed',sans-serif; font-size:38px; font-weight:900;
+    color:#fff; letter-spacing:3px; line-height:1;
+  }
+  .portada-logo-sumin {
+    font-size:8.5px; color:rgba(255,255,255,0.8); letter-spacing:2.5px;
+    text-transform:uppercase; margin-top:2px;
+    border-top:1px solid rgba(255,255,255,0.3); padding-top:3px;
+  }
+  .portada-ciudad {
+    font-size:10.5px; color:#555; letter-spacing:1.5px; text-align:center;
+    text-transform:uppercase; margin-top:2px;
+  }
+  .portada-ciudad strong { color:#222; }
+
+  /* Title block */
+  .portada-title-block {
+    text-align:center; padding:18px 40px 0;
+  }
+  .portada-catalogo {
+    font-family:'Barlow Condensed',sans-serif; font-size:56px; font-weight:900;
+    color:var(--verde-oscuro); text-transform:uppercase; letter-spacing:2px; line-height:1;
+  }
+  .portada-temporada {
+    font-family:'Barlow Condensed',sans-serif; font-size:26px; font-weight:600;
+    color:var(--verde-oscuro); letter-spacing:5px; margin-top:6px;
+  }
+
+  /* Hero section */
+  .portada-hero {
+    flex:1; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; padding:0 30px;
+    position:relative; min-height:200px;
+  }
+  .portada-plane-left {
+    position:absolute; top:10px; left:30px;
+    font-size:28px; transform:rotate(-30deg);
+    filter:drop-shadow(1px 1px 2px rgba(0,0,0,0.15));
+  }
+  .portada-plane-right {
+    position:absolute; top:5px; right:80px;
+    font-size:42px; transform:rotate(-15deg);
+    filter:drop-shadow(1px 1px 2px rgba(0,0,0,0.15));
+  }
+  .portada-plane-mid {
+    position:absolute; top:40px; left:80px;
+    font-size:22px; transform:rotate(-25deg);
+    filter:drop-shadow(1px 1px 2px rgba(0,0,0,0.15));
+  }
+  .portada-vuelta-text {
+    text-align:center; line-height:0.88;
+  }
+  .portada-vuelta-line {
+    font-family:'Barlow Condensed',sans-serif; font-size:115px; font-weight:900;
+    color:var(--verde-lima); text-transform:uppercase; letter-spacing:-1px;
+    text-shadow:2px 2px 0px rgba(100,160,0,0.2);
+  }
+  .portada-escolar-icons {
+    font-size:50px; margin-top:8px; letter-spacing:6px;
+    line-height:1;
+  }
+
+  /* Categories text */
+  .portada-cats-text {
+    text-align:center; font-size:13.5px; color:#333;
+    padding:10px 50px 6px; line-height:1.65;
+  }
+  .portada-igic {
+    text-align:center; font-size:12px; color:#111;
+    padding:0 40px 14px; letter-spacing:0.5px;
+    font-weight:700;
+  }
+  .portada-igic-dot { color:var(--verde-lima); }
+
+  /* Footer bar */
+  .portada-footer-bar {
+    background:linear-gradient(90deg, #2E7D32 0%, #388E3C 50%, #2E7D32 100%);
+    padding:14px 40px;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+  }
+  .portada-footer-bar::before {
+    content:''; position:absolute; left:-40px; top:-20px;
+    width:120px; height:120px; border-radius:50%;
+    background:rgba(255,255,255,0.06);
+  }
+  .portada-footer-bar::after {
+    content:''; position:absolute; right:-20px; bottom:-30px;
+    width:100px; height:100px; border-radius:50%;
+    background:rgba(255,255,255,0.05);
+  }
+  .portada-web-url {
+    font-family:'Barlow Condensed',sans-serif; font-size:54px; font-weight:900;
+    color:#fff; letter-spacing:1px; position:relative; z-index:1;
+  }
+  .portada-footer-info {
+    background:#1B5E20;
+    padding:9px 20px;
+    font-size:9px; color:rgba(255,255,255,0.8);
+    text-align:center; letter-spacing:0.8px;
+  }
+
+  /* ===== PÁGINA ===== */
   .pagina { width:210mm; min-height:297mm; margin:0 auto 20px; background:#fff; position:relative; page-break-after:always; overflow:hidden; }
   .pagina-contenido { padding-bottom:34px; }
 
   /* CABECERA */
-  .page-header { background:var(--verde-oscuro); padding:13px 22px; display:flex; align-items:center; justify-content:space-between; }
-  .page-header-logo { font-family:'Barlow Condensed',sans-serif; font-size:22px; font-weight:900; color:#fff; }
-  .page-header-logo span { color:var(--verde-claro); }
-  .page-header-cat { font-size:11px; color:rgba(255,255,255,0.65); letter-spacing:2px; text-transform:uppercase; }
+  .page-header { background:var(--verde-oscuro); padding:11px 22px; display:flex; align-items:center; justify-content:space-between; }
+  .page-header-logo { font-family:'Barlow Condensed',sans-serif; font-size:22px; font-weight:900; color:#fff; letter-spacing:1px; }
+  .page-header-logo span { color:var(--verde-lima); }
+  .page-header-cat { font-size:10px; color:rgba(255,255,255,0.65); letter-spacing:2px; text-transform:uppercase; }
 
   /* BANNER SECCIÓN */
-  .seccion-banner { background:var(--verde-claro); padding:9px 22px; display:flex; align-items:center; gap:10px; }
+  .seccion-banner { background:var(--verde); padding:8px 22px; display:flex; align-items:center; gap:10px; }
   .seccion-banner h2 { font-family:'Barlow Condensed',sans-serif; font-size:19px; font-weight:800; color:#fff; text-transform:uppercase; letter-spacing:1px; }
   .seccion-icon { font-size:18px; }
 
@@ -65,7 +178,7 @@
   .producto-img-wrap .emoji-fallback { font-size:32px; display:none; }
   .producto-img-wrap img.error + .emoji-fallback { display:block; }
 
-  .producto-ref    { font-size:7.5px; color:#aaa; letter-spacing:0.5px; font-weight:600; text-transform:uppercase; margin-bottom:3px; }
+  .producto-ref    { font-size:9px; color:#111; letter-spacing:0.5px; font-weight:700; text-transform:uppercase; margin-bottom:3px; }
   .producto-nombre { font-size:9px; font-weight:700; color:var(--negro); line-height:1.3; margin-bottom:3px; flex-grow:1; }
   .producto-formato{ font-size:8px; color:#777; margin-bottom:6px; line-height:1.3; }
   .producto-precio { background:var(--verde); color:#fff; font-family:'Barlow Condensed',sans-serif; font-size:15px; font-weight:800; padding:3px 9px; border-radius:4px; }
@@ -82,34 +195,58 @@
 
 <!-- PORTADA -->
 <div class="portada">
-  <div class="portada-stripe"></div>
-  <div class="portada-inner">
-    <div class="logo-empresa">OFI<span>PAPEL</span></div>
-    <div class="logo-sub">Suministros de Oficina · Los Cristianos · Tenerife</div>
-    <div class="portada-divider"></div>
-    <div class="portada-titulo">
-      Tarifa
-      <em>2026</em>
-      Librerías
+  <div class="portada-header">
+    <div class="portada-logo-box">
+      <div class="portada-logo-clover">
+        <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="18" cy="10" r="8" fill="rgba(255,255,255,0.25)"/>
+          <circle cx="18" cy="26" r="8" fill="rgba(255,255,255,0.25)"/>
+          <circle cx="10" cy="18" r="8" fill="rgba(255,255,255,0.25)"/>
+          <circle cx="26" cy="18" r="8" fill="rgba(255,255,255,0.25)"/>
+          <circle cx="18" cy="18" r="5" fill="rgba(255,255,255,0.5)"/>
+        </svg>
+      </div>
+      <div class="portada-logo-texts">
+        <div class="portada-logo-name">OFIPAPEL</div>
+        <div class="portada-logo-sumin">Suministros de Oficina</div>
+      </div>
     </div>
-    <div class="portada-fecha">Año 2026 · Precios sin IGIC</div>
+    <p class="portada-ciudad">Suministros de Oficina &nbsp;|&nbsp; <strong>Los Cristianos · Tenerife</strong></p>
   </div>
-  <div class="portada-contacto">
-    Bulevar Chajofe Nº4 · Los Cristianos · Tenerife &nbsp;|&nbsp; Tel. 922 753 520 &nbsp;|&nbsp; www.ofipapel.net
+
+  <div class="portada-title-block">
+    <div class="portada-catalogo">CATÁLOGO ESCOLAR</div>
+    <div class="portada-temporada">TEMPORADA 2026 / 2027</div>
+  </div>
+
+  <div class="portada-hero">
+    <div class="portada-plane-right">✈</div>
+    <div class="portada-plane-left">✈</div>
+    <div class="portada-plane-mid">✈</div>
+    <div class="portada-vuelta-text">
+      <div class="portada-vuelta-line">VUELTA</div>
+      <div class="portada-vuelta-line">AL COLE</div>
+    </div>
+    <div class="portada-escolar-icons">🖍️ ✏️ 📐 📒 🎨</div>
+  </div>
+
+  <div class="portada-cats-text">
+    Rotuladores, lápices, ceras, acuareles, pinceles,<br>
+    cuadernos, geometría, calculadoras y mucho más.
+  </div>
+  <div class="portada-igic">
+    Precios sin IGIC <span class="portada-igic-dot">•</span> Envíos a toda Canarias
+  </div>
+
+  <div class="portada-footer-bar">
+    <div class="portada-web-url">www.ofipapel.net</div>
+  </div>
+  <div class="portada-footer-info">
+    TELÉFONO: 922 753 520 &nbsp;|&nbsp; DIRECCIÓN: Bulevar Chajofe Nº 4 · Los Cristianos &nbsp;|&nbsp; WEB: www.ofipapel.net
   </div>
 </div>
 
 <script>
-// Las imágenes de ofipapel.net siguen el patrón:
-// https://ofipapel.net/wp-content/uploads/YYYY/MM/SKU.jpg
-// El SKU coincide con Cod.Venta (ref) del listado.
-// Usamos el patrón base con año/mes conocidos, con fallback por emoji.
-
-function imgUrl(ref) {
-  // Intentamos distintos años/meses comunes en la web
-  return `https://ofipapel.net/wp-content/uploads/2021/07/${ref}.jpg`;
-}
-
 const productos = [
   {ref:"14725",nombre:"ROTULADOR Carioca JOY 12-Colores C/Cartón",desc:"",cat:"Rotuladores Carioca",e:"🖊️",precio:"1,06€"},
   {ref:"14726",nombre:"ROTULADOR Carioca JOY 18-Colores c/Cartón",desc:"",cat:"Rotuladores Carioca",e:"🖊️",precio:"1,50€"},
@@ -1004,6 +1141,22 @@ const productos = [
   {ref:"146451",nombre:"PORTATODO ESCOLAR 3 CREMALLERAS VIBES",desc:"",cat:"Agendas y Portatodo",e:"📅",precio:"3,00€"},
 ];
 
+// Fechas de carga más probables en wp-content/uploads (ordenadas por frecuencia)
+const DATE_CHAIN = [
+  '2021/07','2021/08','2021/09','2021/10','2021/11','2021/12',
+  '2022/01','2022/02','2022/03','2022/04','2022/05','2022/06',
+  '2022/07','2022/08','2022/09','2022/10','2022/11','2022/12',
+  '2021/01','2021/02','2021/03','2021/04','2021/05','2021/06',
+  '2020/07','2020/08','2020/09','2020/10','2020/11','2020/12',
+  '2020/01','2020/02','2020/03','2020/04','2020/05','2020/06',
+  '2023/01','2023/02','2023/03','2023/04','2023/05','2023/06',
+  '2023/07','2023/08','2023/09','2023/10','2023/11','2023/12',
+  '2024/01','2024/02','2024/03','2024/04','2024/05','2024/06',
+  '2024/07','2024/08','2024/09','2024/10','2024/11','2024/12',
+  '2019/01','2019/02','2019/03','2019/04','2019/05','2019/06',
+  '2019/07','2019/08','2019/09','2019/10','2019/11','2019/12',
+];
+
 // Agrupar por categoría
 const cats = {};
 productos.forEach(p => { if(!cats[p.cat]) cats[p.cat]=[]; cats[p.cat].push(p); });
@@ -1022,7 +1175,7 @@ Object.keys(cats).forEach(cat => {
       <div class="pagina-contenido">
         <div class="page-header">
           <div class="page-header-logo">OFI<span>PAPEL</span></div>
-          <div class="page-header-cat">Tarifa Librerías 2026</div>
+          <div class="page-header-cat">Catálogo Escolar 2026/2027 · Vuelta al Cole</div>
         </div>
         <div class="seccion-banner">
           <span class="seccion-icon">${chunk[0].e}</span>
@@ -1038,21 +1191,14 @@ Object.keys(cats).forEach(cat => {
 
     const grid = document.getElementById('g'+pageN);
     chunk.forEach(p => {
-      // Intentamos varias rutas de imagen comunes en ofipapel.net
-      const urls = [
-        `https://ofipapel.net/wp-content/uploads/2021/07/${p.ref}.jpg`,
-        `https://ofipapel.net/wp-content/uploads/2022/01/${p.ref}.jpg`,
-        `https://ofipapel.net/wp-content/uploads/2021/08/${p.ref}.jpg`,
-        `https://ofipapel.net/wp-content/uploads/2021/09/${p.ref}.jpg`,
-        `https://ofipapel.net/wp-content/uploads/2023/01/${p.ref}.jpg`,
-      ];
+      const urls = DATE_CHAIN.map(d => `https://ofipapel.net/wp-content/uploads/${d}/${p.ref}.jpg`);
       const card = document.createElement('div');
       card.className = 'producto';
       card.innerHTML = `
         <div class="producto-img-wrap">
-          <img id="img_${p.ref.replace(/[^a-z0-9]/gi,'_')}" src="${urls[0]}" alt="${p.nombre}"
+          <img src="${urls[0]}" alt="${p.nombre}"
             data-urls='${JSON.stringify(urls)}' data-idx="0"
-            onerror="this.dataset.idx=parseInt(this.dataset.idx)+1;const u=JSON.parse(this.dataset.urls);if(this.dataset.idx<u.length){this.src=u[this.dataset.idx];}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"
+            onerror="var u=JSON.parse(this.dataset.urls),n=+this.dataset.idx+1;this.dataset.idx=n;if(n<u.length){this.src=u[n];}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"
           >
           <span class="emoji-fallback" style="display:none">${p.e}</span>
         </div>
