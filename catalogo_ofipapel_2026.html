@@ -7,242 +7,208 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --verde: #2E7D32;
+    --verde:        #2E7D32;
     --verde-oscuro: #1B5E20;
-    --verde-claro: #43A047;
-    --verde-lima: #76BB21;
-    --verde-light: #E8F5E9;
-    --azul: #1565C0;
-    --gris: #f5f5f5;
-    --gris-medio: #e0e0e0;
-    --negro: #1a1a1a;
-    --blanco: #ffffff;
-    --acento: #FF6F00;
+    --verde-medio:  #338A38;
+    --verde-claro:  #43A047;
+    --verde-lima:   #76BB21;
+    --verde-light:  #E8F5E9;
+    --azul:         #3B72C8;
+    --gris:         #f5f5f5;
+    --gris-medio:   #e0e0e0;
+    --negro:        #1a1a1a;
+    --blanco:       #ffffff;
+    --acento:       #FF6F00;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Barlow',sans-serif; background:#e8ebe8; color:var(--negro); }
+  body { font-family:'Barlow',sans-serif; background:#e0e4e0; color:var(--negro); }
 
   /* ===== PORTADA ===== */
+  /* Guarda tu imagen de portada como "portada.jpg" en la misma carpeta que este HTML */
   .portada {
-    width:210mm; min-height:297mm; margin:0 auto 20px;
-    background:#fff; position:relative;
-    overflow:hidden; display:flex; flex-direction:column;
+    width:210mm; height:297mm;
+    margin:0 auto 20px;
     page-break-after:always;
-  }
-
-  /* Logo header */
-  .portada-header {
-    padding:22px 40px 14px;
-    display:flex; flex-direction:column; align-items:center;
-    border-bottom:2px solid var(--verde-light);
-  }
-  .portada-logo-box {
-    display:inline-flex; flex-direction:row; align-items:center; gap:10px;
-    background:linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%);
-    border-radius:10px; padding:10px 18px;
-    box-shadow:0 3px 12px rgba(27,94,32,0.35);
-    margin-bottom:8px;
-  }
-  .portada-logo-clover {
-    display:flex; flex-direction:column; align-items:center;
-  }
-  .portada-logo-clover svg { width:36px; height:36px; }
-  .portada-logo-texts {
-    display:flex; flex-direction:column;
-  }
-  .portada-logo-name {
-    font-family:'Barlow Condensed',sans-serif; font-size:38px; font-weight:900;
-    color:#fff; letter-spacing:3px; line-height:1;
-  }
-  .portada-logo-sumin {
-    font-size:8.5px; color:rgba(255,255,255,0.8); letter-spacing:2.5px;
-    text-transform:uppercase; margin-top:2px;
-    border-top:1px solid rgba(255,255,255,0.3); padding-top:3px;
-  }
-  .portada-ciudad {
-    font-size:10.5px; color:#555; letter-spacing:1.5px; text-align:center;
-    text-transform:uppercase; margin-top:2px;
-  }
-  .portada-ciudad strong { color:#222; }
-
-  /* Title block */
-  .portada-title-block {
-    text-align:center; padding:18px 40px 0;
-  }
-  .portada-catalogo {
-    font-family:'Barlow Condensed',sans-serif; font-size:56px; font-weight:900;
-    color:var(--verde-oscuro); text-transform:uppercase; letter-spacing:2px; line-height:1;
-  }
-  .portada-temporada {
-    font-family:'Barlow Condensed',sans-serif; font-size:26px; font-weight:600;
-    color:var(--verde-oscuro); letter-spacing:5px; margin-top:6px;
-  }
-
-  /* Hero section */
-  .portada-hero {
-    flex:1; display:flex; flex-direction:column; align-items:center;
-    justify-content:center; padding:0 30px;
-    position:relative; min-height:200px;
-  }
-  .portada-plane-left {
-    position:absolute; top:10px; left:30px;
-    font-size:28px; transform:rotate(-30deg);
-    filter:drop-shadow(1px 1px 2px rgba(0,0,0,0.15));
-  }
-  .portada-plane-right {
-    position:absolute; top:5px; right:80px;
-    font-size:42px; transform:rotate(-15deg);
-    filter:drop-shadow(1px 1px 2px rgba(0,0,0,0.15));
-  }
-  .portada-plane-mid {
-    position:absolute; top:40px; left:80px;
-    font-size:22px; transform:rotate(-25deg);
-    filter:drop-shadow(1px 1px 2px rgba(0,0,0,0.15));
-  }
-  .portada-vuelta-text {
-    text-align:center; line-height:0.88;
-  }
-  .portada-vuelta-line {
-    font-family:'Barlow Condensed',sans-serif; font-size:115px; font-weight:900;
-    color:var(--verde-lima); text-transform:uppercase; letter-spacing:-1px;
-    text-shadow:2px 2px 0px rgba(100,160,0,0.2);
-  }
-  .portada-escolar-icons {
-    font-size:50px; margin-top:8px; letter-spacing:6px;
-    line-height:1;
-  }
-
-  /* Categories text */
-  .portada-cats-text {
-    text-align:center; font-size:13.5px; color:#333;
-    padding:10px 50px 6px; line-height:1.65;
-  }
-  .portada-igic {
-    text-align:center; font-size:12px; color:#111;
-    padding:0 40px 14px; letter-spacing:0.5px;
-    font-weight:700;
-  }
-  .portada-igic-dot { color:var(--verde-lima); }
-
-  /* Footer bar */
-  .portada-footer-bar {
-    background:linear-gradient(90deg, #2E7D32 0%, #388E3C 50%, #2E7D32 100%);
-    padding:14px 40px;
-    text-align:center;
-    position:relative;
     overflow:hidden;
-  }
-  .portada-footer-bar::before {
-    content:''; position:absolute; left:-40px; top:-20px;
-    width:120px; height:120px; border-radius:50%;
-    background:rgba(255,255,255,0.06);
-  }
-  .portada-footer-bar::after {
-    content:''; position:absolute; right:-20px; bottom:-30px;
-    width:100px; height:100px; border-radius:50%;
-    background:rgba(255,255,255,0.05);
-  }
-  .portada-web-url {
-    font-family:'Barlow Condensed',sans-serif; font-size:54px; font-weight:900;
-    color:#fff; letter-spacing:1px; position:relative; z-index:1;
-  }
-  .portada-footer-info {
+    position:relative;
     background:#1B5E20;
-    padding:9px 20px;
-    font-size:9px; color:rgba(255,255,255,0.8);
-    text-align:center; letter-spacing:0.8px;
+  }
+  .portada-img {
+    width:100%; height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  /* Fallback CSS si no se encuentra portada.jpg */
+  .portada-fallback {
+    display:none;
+    width:100%; height:100%;
+    flex-direction:column;
+    align-items:center; justify-content:center;
+    background:linear-gradient(160deg,#1B5E20 0%,#2E7D32 60%,#388E3C 100%);
+    color:#fff; text-align:center; padding:40px;
+  }
+  .portada-fallback .fb-logo {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:60px; font-weight:900; letter-spacing:4px;
+    color:#fff;
+  }
+  .portada-fallback .fb-logo span { color:var(--verde-lima); }
+  .portada-fallback .fb-title {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:46px; font-weight:900;
+    color:#fff; text-transform:uppercase;
+    margin:30px 0 10px;
+  }
+  .portada-fallback .fb-hero {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:90px; font-weight:900; line-height:0.9;
+    color:var(--verde-lima); text-transform:uppercase;
+  }
+  .portada-fallback .fb-sub {
+    font-size:14px; color:rgba(255,255,255,0.8);
+    margin-top:20px;
+  }
+  .portada-fallback .fb-web {
+    position:absolute; bottom:0; left:0; right:0;
+    background:#1B5E20; padding:18px;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:42px; font-weight:900; color:#fff;
+    text-align:center;
   }
 
-  /* ===== PÁGINA ===== */
-  .pagina { width:210mm; min-height:297mm; margin:0 auto 20px; background:#fff; position:relative; page-break-after:always; overflow:hidden; }
+  /* ===== PÁGINA INTERIOR ===== */
+  .pagina {
+    width:210mm; min-height:297mm;
+    margin:0 auto 20px;
+    background:#fff; position:relative;
+    page-break-after:always; overflow:hidden;
+  }
   .pagina-contenido { padding-bottom:34px; }
 
-  /* CABECERA */
-  .page-header { background:var(--verde-oscuro); padding:11px 22px; display:flex; align-items:center; justify-content:space-between; }
-  .page-header-logo { font-family:'Barlow Condensed',sans-serif; font-size:22px; font-weight:900; color:#fff; letter-spacing:1px; }
+  /* CABECERA — gradiente corporativo con acento lima */
+  .page-header {
+    background:linear-gradient(90deg, #1B5E20 0%, #2E7D32 70%, #338A38 100%);
+    padding:10px 20px;
+    display:flex; align-items:center; justify-content:space-between;
+    position:relative; overflow:hidden;
+  }
+  .page-header::after {
+    content:''; position:absolute;
+    right:60px; top:-18px;
+    width:70px; height:70px; border-radius:50%;
+    background:rgba(255,255,255,0.06);
+  }
+  .page-header-logo {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:22px; font-weight:900; color:#fff; letter-spacing:1px;
+  }
   .page-header-logo span { color:var(--verde-lima); }
-  .page-header-cat { font-size:10px; color:rgba(255,255,255,0.65); letter-spacing:2px; text-transform:uppercase; }
+  .page-header-cat {
+    font-size:10px; color:rgba(255,255,255,0.65);
+    letter-spacing:2px; text-transform:uppercase;
+  }
 
-  /* BANNER SECCIÓN */
-  .seccion-banner { background:var(--verde); padding:8px 22px; display:flex; align-items:center; gap:10px; }
-  .seccion-banner h2 { font-family:'Barlow Condensed',sans-serif; font-size:19px; font-weight:800; color:#fff; text-transform:uppercase; letter-spacing:1px; }
-  .seccion-icon { font-size:18px; }
+  /* BANNER SECCIÓN — paleta corporativa: verde con borde lima */
+  .seccion-banner {
+    background:linear-gradient(90deg, #2E7D32 0%, #388E3C 55%, #2E7D32 100%);
+    border-left:5px solid var(--verde-lima);
+    padding:7px 16px;
+    display:flex; align-items:center; gap:9px;
+    position:relative; overflow:hidden;
+  }
+  .seccion-banner::after {
+    content:''; position:absolute;
+    right:-10px; top:-15px;
+    width:65px; height:65px; border-radius:50%;
+    background:rgba(255,255,255,0.06);
+  }
+  .seccion-banner h2 {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:17px; font-weight:800;
+    color:#fff; text-transform:uppercase; letter-spacing:1px;
+  }
+  .seccion-icon { font-size:16px; }
+  .seccion-banner.continuacion h2::after {
+    content:' (cont.)';
+    font-size:11px; font-weight:400; opacity:0.7;
+  }
 
-  /* GRID */
-  .productos-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--gris-medio); }
+  /* GRID — 4 columnas, sin huecos */
+  .productos-grid {
+    display:grid; grid-template-columns:repeat(4,1fr);
+    gap:1px; background:var(--gris-medio);
+  }
 
-  .producto { background:#fff; padding:11px 9px; display:flex; flex-direction:column; align-items:center; text-align:center; }
+  /* TARJETA PRODUCTO */
+  .producto {
+    background:#fff; padding:9px 8px;
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+  }
+  .producto-img-wrap {
+    width:90px; height:90px;
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom:6px;
+    background:linear-gradient(135deg,#f8f8f8,#efefef);
+    border-radius:7px; overflow:hidden; flex-shrink:0;
+    border:1px solid #e8e8e8;
+  }
+  .producto-img-wrap img { width:86px; height:86px; object-fit:contain; }
+  .producto-img-wrap .emoji-fallback { font-size:40px; display:none; }
 
-  .producto-img-wrap { width:72px; height:72px; display:flex; align-items:center; justify-content:center; margin-bottom:7px; background:var(--gris); border-radius:6px; overflow:hidden; flex-shrink:0; }
-  .producto-img-wrap img { width:68px; height:68px; object-fit:contain; }
-  .producto-img-wrap .emoji-fallback { font-size:32px; display:none; }
-  .producto-img-wrap img.error + .emoji-fallback { display:block; }
-
-  .producto-ref    { font-size:9px; color:#111; letter-spacing:0.5px; font-weight:700; text-transform:uppercase; margin-bottom:3px; }
-  .producto-nombre { font-size:9px; font-weight:700; color:var(--negro); line-height:1.3; margin-bottom:3px; flex-grow:1; }
-  .producto-formato{ font-size:8px; color:#777; margin-bottom:6px; line-height:1.3; }
-  .producto-precio { background:var(--verde); color:#fff; font-family:'Barlow Condensed',sans-serif; font-size:15px; font-weight:800; padding:3px 9px; border-radius:4px; }
+  .producto-ref {
+    font-size:9px; color:#111; letter-spacing:0.5px;
+    font-weight:700; text-transform:uppercase; margin-bottom:3px;
+  }
+  .producto-nombre {
+    font-size:9px; font-weight:700; color:var(--negro);
+    line-height:1.3; margin-bottom:3px; flex-grow:1;
+  }
+  .producto-formato {
+    font-size:8px; color:#777; margin-bottom:5px; line-height:1.3;
+  }
+  .producto-precio {
+    background:var(--verde-medio); color:#fff;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:15px; font-weight:800;
+    padding:3px 10px; border-radius:4px;
+  }
   .producto-precio small { font-size:9px; opacity:0.8; }
 
-  /* PIE */
-  .page-footer { position:absolute; bottom:0; left:0; right:0; height:34px; background:var(--verde-oscuro); display:flex; align-items:center; justify-content:space-between; padding:0 22px; }
-  .page-footer span { font-size:9px; color:rgba(255,255,255,0.55); letter-spacing:1px; text-transform:uppercase; }
+  /* PIE DE PÁGINA */
+  .page-footer {
+    position:absolute; bottom:0; left:0; right:0; height:34px;
+    background:linear-gradient(90deg, #1B5E20 0%, #2E7D32 100%);
+    display:flex; align-items:center; justify-content:space-between; padding:0 20px;
+  }
+  .page-footer span {
+    font-size:9px; color:rgba(255,255,255,0.55);
+    letter-spacing:1px; text-transform:uppercase;
+  }
 
-  @media print { body{background:#fff;} .portada,.pagina{margin:0;box-shadow:none;} }
+  @media print {
+    body { background:#fff; }
+    .portada, .pagina { margin:0; box-shadow:none; }
+    @page { size: A4; margin:0; }
+  }
 </style>
 </head>
 <body>
 
-<!-- PORTADA -->
+<!-- ===== PORTADA =====
+     Guarda tu imagen como "portada.jpg" en la misma carpeta que este HTML
+     para que aparezca aquí. Si no se encuentra, se muestra un diseño CSS de respaldo. -->
 <div class="portada">
-  <div class="portada-header">
-    <div class="portada-logo-box">
-      <div class="portada-logo-clover">
-        <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="18" cy="10" r="8" fill="rgba(255,255,255,0.25)"/>
-          <circle cx="18" cy="26" r="8" fill="rgba(255,255,255,0.25)"/>
-          <circle cx="10" cy="18" r="8" fill="rgba(255,255,255,0.25)"/>
-          <circle cx="26" cy="18" r="8" fill="rgba(255,255,255,0.25)"/>
-          <circle cx="18" cy="18" r="5" fill="rgba(255,255,255,0.5)"/>
-        </svg>
-      </div>
-      <div class="portada-logo-texts">
-        <div class="portada-logo-name">OFIPAPEL</div>
-        <div class="portada-logo-sumin">Suministros de Oficina</div>
-      </div>
-    </div>
-    <p class="portada-ciudad">Suministros de Oficina &nbsp;|&nbsp; <strong>Los Cristianos · Tenerife</strong></p>
-  </div>
-
-  <div class="portada-title-block">
-    <div class="portada-catalogo">CATÁLOGO ESCOLAR</div>
-    <div class="portada-temporada">TEMPORADA 2026 / 2027</div>
-  </div>
-
-  <div class="portada-hero">
-    <div class="portada-plane-right">✈</div>
-    <div class="portada-plane-left">✈</div>
-    <div class="portada-plane-mid">✈</div>
-    <div class="portada-vuelta-text">
-      <div class="portada-vuelta-line">VUELTA</div>
-      <div class="portada-vuelta-line">AL COLE</div>
-    </div>
-    <div class="portada-escolar-icons">🖍️ ✏️ 📐 📒 🎨</div>
-  </div>
-
-  <div class="portada-cats-text">
-    Rotuladores, lápices, ceras, acuareles, pinceles,<br>
-    cuadernos, geometría, calculadoras y mucho más.
-  </div>
-  <div class="portada-igic">
-    Precios sin IGIC <span class="portada-igic-dot">•</span> Envíos a toda Canarias
-  </div>
-
-  <div class="portada-footer-bar">
-    <div class="portada-web-url">www.ofipapel.net</div>
-  </div>
-  <div class="portada-footer-info">
-    TELÉFONO: 922 753 520 &nbsp;|&nbsp; DIRECCIÓN: Bulevar Chajofe Nº 4 · Los Cristianos &nbsp;|&nbsp; WEB: www.ofipapel.net
+  <img class="portada-img" src="portada.jpg"
+    alt="Catálogo Escolar Vuelta al Cole 2026/2027 - Ofipapel"
+    onerror="this.style.display='none'; document.getElementById('portada-fallback').style.display='flex';">
+  <div class="portada-fallback" id="portada-fallback">
+    <div class="fb-logo">OFI<span>PAPEL</span></div>
+    <div style="font-size:11px;letter-spacing:3px;opacity:.7;margin-top:6px;">SUMINISTROS DE OFICINA · LOS CRISTIANOS · TENERIFE</div>
+    <div class="fb-title">CATÁLOGO ESCOLAR<br><span style="font-size:22px;letter-spacing:4px;font-weight:600">TEMPORADA 2026 / 2027</span></div>
+    <div class="fb-hero">VUELTA<br>AL COLE</div>
+    <div class="fb-sub">Rotuladores · Lápices · Ceras · Cuadernos · Geometría · Calculadoras</div>
+    <div style="margin-top:12px;font-size:12px;font-weight:700;opacity:.9">Precios sin IGIC &nbsp;•&nbsp; Envíos a toda Canarias</div>
+    <div class="fb-web">www.ofipapel.net</div>
   </div>
 </div>
 
@@ -1141,7 +1107,22 @@ const productos = [
   {ref:"146451",nombre:"PORTATODO ESCOLAR 3 CREMALLERAS VIBES",desc:"",cat:"Agendas y Portatodo",e:"📅",precio:"3,00€"},
 ];
 
-// Fechas de carga más probables en wp-content/uploads (ordenadas por frecuencia)
+// ============================================================
+// CONFIGURACIÓN DE IMÁGENES
+// Configura LOCAL_IMG_BASE con la URL de tu servidor local de imágenes.
+// Pasos en IIS (recomendado):
+//   1. Abrir IIS Manager → Default Web Site → Add Virtual Directory
+//      Alias: "imagenes"  |  Physical path: E:\Imagenes
+//   2. Verificar: http://server-ofipapel/imagenes/14725.jpg
+//   3. Ajusta LOCAL_IMG_BASE si usas IP en vez de nombre de servidor
+//
+// Alternativa rápida (PowerShell en el servidor):
+//   cd E:\ && python -m http.server 8080
+//   → LOCAL_IMG_BASE = 'http://192.168.X.X:8080/Imagenes/'
+// ============================================================
+const LOCAL_IMG_BASE = 'http://server-ofipapel/imagenes/';
+
+// Cadena de fechas completa para buscar imágenes en ofipapel.net (fallback)
 const DATE_CHAIN = [
   '2021/07','2021/08','2021/09','2021/10','2021/11','2021/12',
   '2022/01','2022/02','2022/03','2022/04','2022/05','2022/06',
@@ -1157,58 +1138,113 @@ const DATE_CHAIN = [
   '2019/07','2019/08','2019/09','2019/10','2019/11','2019/12',
 ];
 
-// Agrupar por categoría
+// ============================================================
+// LAYOUT CONTINUO: las categorías fluyen sin forzar página nueva.
+// Solo se pasa a página nueva si la categoría completa no cabe
+// en el espacio restante. Categorías grandes (>5 filas) continúan
+// en las páginas siguientes con su nombre repetido.
+// ============================================================
+const COLS         = 4;
+const PAGE_H_HDR   = 44;   // px cabecera de página
+const BANNER_H     = 36;   // px banner de sección
+const ROW_H        = 178;  // px estimados por fila de 4 tarjetas (imagen 90px)
+const PAGE_CAP     = 1043; // px disponibles por página (A4 - footer 34px)
+
+// Agrupar productos por categoría (mantiene el orden del array)
 const cats = {};
 productos.forEach(p => { if(!cats[p.cat]) cats[p.cat]=[]; cats[p.cat].push(p); });
 
-let pageN = 0;
-const PERPAGE = 20;
+let pageN = 0, usedH = 0, gridSeq = 0, pageHasContent = false;
 
-Object.keys(cats).forEach(cat => {
+function pc() { return document.getElementById('pc' + pageN); }
+
+function startPage() {
+  pageN++;
+  usedH = PAGE_H_HDR;
+  pageHasContent = false;
+  const pg = document.createElement('div');
+  pg.className = 'pagina';
+  pg.innerHTML =
+    '<div class="pagina-contenido" id="pc' + pageN + '">' +
+      '<div class="page-header">' +
+        '<div class="page-header-logo">OFI<span>PAPEL</span></div>' +
+        '<div class="page-header-cat">Catálogo Escolar 2026/2027 · Vuelta al Cole</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="page-footer">' +
+      '<span>OFIPAPEL · Bulevar Chajofe Nº4 · Los Cristianos · Tenerife</span>' +
+      '<span>Tel. 922 753 520 · www.ofipapel.net</span>' +
+    '</div>';
+  document.body.appendChild(pg);
+}
+
+function addBanner(cat, icon, isCont) {
+  const b = document.createElement('div');
+  b.className = 'seccion-banner' + (isCont ? ' continuacion' : '');
+  b.innerHTML = '<span class="seccion-icon">' + icon + '</span><h2>' + cat + '</h2>';
+  pc().appendChild(b);
+  usedH += BANNER_H;
+  pageHasContent = true;
+}
+
+function newGrid() {
+  gridSeq++;
+  const g = document.createElement('div');
+  g.className = 'productos-grid';
+  g.id = 'g' + gridSeq;
+  pc().appendChild(g);
+  return g;
+}
+
+function makeCard(p) {
+  // Prioridad: 1) servidor local IIS, 2) ofipapel.net (72 fechas), 3) emoji
+  const urls = [LOCAL_IMG_BASE + p.ref + '.jpg']
+    .concat(DATE_CHAIN.map(d =>
+      'https://ofipapel.net/wp-content/uploads/' + d + '/' + p.ref + '.jpg'));
+  const c = document.createElement('div');
+  c.className = 'producto';
+  c.innerHTML =
+    '<div class="producto-img-wrap">' +
+      '<img src="' + urls[0] + '" alt="' + p.nombre.replace(/"/g,'&quot;') + '"' +
+        ' data-urls=\'' + JSON.stringify(urls) + '\' data-idx="0"' +
+        ' onerror="var u=JSON.parse(this.dataset.urls),n=+this.dataset.idx+1;' +
+          'this.dataset.idx=n;' +
+          'if(n<u.length){this.src=u[n];}' +
+          'else{this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';}">' +
+      '<span class="emoji-fallback" style="display:none">' + p.e + '</span>' +
+    '</div>' +
+    '<div class="producto-ref">' + p.ref + '</div>' +
+    '<div class="producto-nombre">' + p.nombre + '</div>' +
+    '<div class="producto-formato">' + p.desc + '</div>' +
+    '<div class="producto-precio">' + p.precio + ' <small>/ud.</small></div>';
+  return c;
+}
+
+Object.keys(cats).forEach(function(cat) {
   const items = cats[cat];
-  for(let i=0; i<items.length; i+=PERPAGE){
-    const chunk = items.slice(i, i+PERPAGE);
-    pageN++;
-    const pg = document.createElement('div');
-    pg.className = 'pagina';
-    pg.innerHTML = `
-      <div class="pagina-contenido">
-        <div class="page-header">
-          <div class="page-header-logo">OFI<span>PAPEL</span></div>
-          <div class="page-header-cat">Catálogo Escolar 2026/2027 · Vuelta al Cole</div>
-        </div>
-        <div class="seccion-banner">
-          <span class="seccion-icon">${chunk[0].e}</span>
-          <h2>${cat}</h2>
-        </div>
-        <div class="productos-grid" id="g${pageN}"></div>
-      </div>
-      <div class="page-footer">
-        <span>OFIPAPEL · Bulevar Chajofe Nº4 · Los Cristianos · Tenerife</span>
-        <span>Tel. 922 753 520 · www.ofipapel.net</span>
-      </div>`;
-    document.body.appendChild(pg);
+  const catRows = Math.ceil(items.length / COLS);
+  const catH    = BANNER_H + catRows * ROW_H;
 
-    const grid = document.getElementById('g'+pageN);
-    chunk.forEach(p => {
-      const urls = DATE_CHAIN.map(d => `https://ofipapel.net/wp-content/uploads/${d}/${p.ref}.jpg`);
-      const card = document.createElement('div');
-      card.className = 'producto';
-      card.innerHTML = `
-        <div class="producto-img-wrap">
-          <img src="${urls[0]}" alt="${p.nombre}"
-            data-urls='${JSON.stringify(urls)}' data-idx="0"
-            onerror="var u=JSON.parse(this.dataset.urls),n=+this.dataset.idx+1;this.dataset.idx=n;if(n<u.length){this.src=u[n];}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"
-          >
-          <span class="emoji-fallback" style="display:none">${p.e}</span>
-        </div>
-        <div class="producto-ref">${p.ref}</div>
-        <div class="producto-nombre">${p.nombre}</div>
-        <div class="producto-formato">${p.desc}</div>
-        <div class="producto-precio">${p.precio} <small>/ud.</small></div>`;
-      grid.appendChild(card);
-    });
+  // ¿Cabe la categoría entera en el espacio restante?
+  if (pageN === 0 || (pageHasContent && usedH + catH > PAGE_CAP)) {
+    startPage();
   }
+
+  addBanner(cat, items[0].e, false);
+  var grid = newGrid();
+
+  items.forEach(function(p, idx) {
+    if (idx % COLS === 0) {
+      // ¿Cabe una fila más?
+      if (usedH + ROW_H > PAGE_CAP) {
+        startPage();
+        addBanner(cat, items[0].e, true);
+        grid = newGrid();
+      }
+      usedH += ROW_H;
+    }
+    grid.appendChild(makeCard(p));
+  });
 });
 </script>
 </body>
