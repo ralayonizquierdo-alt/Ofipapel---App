@@ -31,49 +31,74 @@
     page-break-after:always;
     overflow:hidden;
     position:relative;
-    background:#1B5E20;
+    background:#ffffff;
   }
   .portada-img {
     width:100%; height:100%;
     object-fit:cover;
     display:block;
   }
-  /* Fallback CSS si no se encuentra portada.jpg */
+  /* Diseño de portada (se muestra siempre que portada.jpg no esté disponible) */
   .portada-fallback {
     display:none;
     width:100%; height:100%;
     flex-direction:column;
+    align-items:stretch;
+    background:#ffffff;
+    color:#222; text-align:center;
+    position:relative; box-sizing:border-box;
+    padding-bottom:22mm;
+  }
+  .portada-fallback .fb-top {
+    padding:10mm 18mm 7mm;
+    border-bottom:4px solid var(--verde-lima);
+    display:flex; flex-direction:column;
     align-items:center; justify-content:center;
-    background:linear-gradient(160deg,#1B5E20 0%,#2E7D32 60%,#388E3C 100%);
-    color:#fff; text-align:center; padding:40px;
   }
   .portada-fallback .fb-logo {
     font-family:'Barlow Condensed',sans-serif;
-    font-size:60px; font-weight:900; letter-spacing:4px;
-    color:#fff;
+    font-size:62px; font-weight:900; letter-spacing:3px;
+    color:#2E7D32; line-height:1;
   }
   .portada-fallback .fb-logo span { color:var(--verde-lima); }
-  .portada-fallback .fb-title {
+  .portada-fallback .fb-tagline {
+    font-size:9px; letter-spacing:3px; color:#888;
+    text-transform:uppercase; margin-top:4px;
+  }
+  .portada-fallback .fb-title-block {
+    padding:7mm 18mm 5mm;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+  }
+  .portada-fallback .fb-cat-label {
     font-family:'Barlow Condensed',sans-serif;
-    font-size:46px; font-weight:900;
-    color:#fff; text-transform:uppercase;
-    margin:30px 0 10px;
+    font-size:34px; font-weight:800; letter-spacing:5px;
+    color:#222; text-transform:uppercase;
+  }
+  .portada-fallback .fb-cat-season {
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:16px; font-weight:500; letter-spacing:7px;
+    color:#666; text-transform:uppercase; margin-top:3px;
   }
   .portada-fallback .fb-hero {
     font-family:'Barlow Condensed',sans-serif;
-    font-size:90px; font-weight:900; line-height:0.9;
+    font-size:108px; font-weight:900; line-height:0.82;
     color:var(--verde-lima); text-transform:uppercase;
+    letter-spacing:-2px;
+    padding:2mm 0 4mm;
+    flex-shrink:0;
   }
-  .portada-fallback .fb-sub {
-    font-size:14px; color:rgba(255,255,255,0.8);
-    margin-top:20px;
+  .portada-fallback .fb-markers {
+    flex:1; display:flex;
+    align-items:center; justify-content:center;
+    padding:0 8mm;
   }
   .portada-fallback .fb-web {
     position:absolute; bottom:0; left:0; right:0;
-    background:#1B5E20; padding:18px;
+    background:#2E7D32; padding:6mm 18mm;
     font-family:'Barlow Condensed',sans-serif;
-    font-size:42px; font-weight:900; color:#fff;
-    text-align:center;
+    font-size:26px; font-weight:700; color:#fff;
+    letter-spacing:3px; text-align:center;
   }
 
   /* ===== PÁGINA INTERIOR ===== */
@@ -206,12 +231,67 @@
     alt="Catálogo Escolar Vuelta al Cole 2026/2027 - Ofipapel"
     onerror="this.style.display='none'; document.getElementById('portada-fallback').style.display='flex';">
   <div class="portada-fallback" id="portada-fallback">
-    <div class="fb-logo">OFI<span>PAPEL</span></div>
-    <div style="font-size:11px;letter-spacing:3px;opacity:.7;margin-top:6px;">SUMINISTROS DE OFICINA · LOS CRISTIANOS · TENERIFE</div>
-    <div class="fb-title">CATÁLOGO ESCOLAR<br><span style="font-size:22px;letter-spacing:4px;font-weight:600">TEMPORADA 2026 / 2027</span></div>
+    <div class="fb-top">
+      <div class="fb-logo">OFI<span>PAPEL</span></div>
+      <div class="fb-tagline">Suministros de Oficina &nbsp;·&nbsp; Los Cristianos &nbsp;·&nbsp; Tenerife</div>
+    </div>
+    <div class="fb-title-block">
+      <div class="fb-cat-label">Catálogo Escolar</div>
+      <div class="fb-cat-season">Temporada 2026 / 2027</div>
+    </div>
     <div class="fb-hero">VUELTA<br>AL COLE</div>
-    <div class="fb-sub">Rotuladores · Lápices · Ceras · Cuadernos · Geometría · Calculadoras</div>
-    <div style="margin-top:12px;font-size:12px;font-weight:700;opacity:.9">Precios sin IGIC &nbsp;•&nbsp; Envíos a toda Canarias</div>
+    <div class="fb-markers">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 245" width="100%" style="max-width:460px;display:block">
+        <!-- Rotulador 1: Rojo, rot -22° -->
+        <g transform="translate(78,228) rotate(-22)">
+          <rect x="-13" y="-155" width="26" height="155" rx="6" fill="#E53935"/>
+          <rect x="-13" y="-155" width="26" height="54" rx="6" fill="#B71C1C"/>
+          <rect x="-9" y="-163" width="18" height="12" rx="6" fill="#7F0000"/>
+          <polygon points="-13,0 13,0 0,20" fill="#B71C1C"/>
+          <rect x="-6" y="-142" width="7" height="88" rx="3" fill="rgba(255,255,255,0.22)"/>
+        </g>
+        <!-- Rotulador 2: Naranja, rot -13° -->
+        <g transform="translate(160,225) rotate(-13)">
+          <rect x="-13" y="-155" width="26" height="155" rx="6" fill="#FF9800"/>
+          <rect x="-13" y="-155" width="26" height="54" rx="6" fill="#E65100"/>
+          <rect x="-9" y="-163" width="18" height="12" rx="6" fill="#BF360C"/>
+          <polygon points="-13,0 13,0 0,20" fill="#E65100"/>
+          <rect x="-6" y="-142" width="7" height="88" rx="3" fill="rgba(255,255,255,0.22)"/>
+        </g>
+        <!-- Rotulador 3: Verde lima (color corporativo), rot -4° -->
+        <g transform="translate(243,223) rotate(-4)">
+          <rect x="-13" y="-155" width="26" height="155" rx="6" fill="#76BB21"/>
+          <rect x="-13" y="-155" width="26" height="54" rx="6" fill="#4E7F16"/>
+          <rect x="-9" y="-163" width="18" height="12" rx="6" fill="#335210"/>
+          <polygon points="-13,0 13,0 0,20" fill="#4E7F16"/>
+          <rect x="-6" y="-142" width="7" height="88" rx="3" fill="rgba(255,255,255,0.22)"/>
+        </g>
+        <!-- Rotulador 4: Azul corporativo, rot +4° -->
+        <g transform="translate(297,223) rotate(4)">
+          <rect x="-13" y="-155" width="26" height="155" rx="6" fill="#3B72C8"/>
+          <rect x="-13" y="-155" width="26" height="54" rx="6" fill="#1565C0"/>
+          <rect x="-9" y="-163" width="18" height="12" rx="6" fill="#0D47A1"/>
+          <polygon points="-13,0 13,0 0,20" fill="#1565C0"/>
+          <rect x="-6" y="-142" width="7" height="88" rx="3" fill="rgba(255,255,255,0.22)"/>
+        </g>
+        <!-- Rotulador 5: Morado, rot +13° -->
+        <g transform="translate(380,225) rotate(13)">
+          <rect x="-13" y="-155" width="26" height="155" rx="6" fill="#9C27B0"/>
+          <rect x="-13" y="-155" width="26" height="54" rx="6" fill="#6A1B9A"/>
+          <rect x="-9" y="-163" width="18" height="12" rx="6" fill="#4A148C"/>
+          <polygon points="-13,0 13,0 0,20" fill="#6A1B9A"/>
+          <rect x="-6" y="-142" width="7" height="88" rx="3" fill="rgba(255,255,255,0.22)"/>
+        </g>
+        <!-- Rotulador 6: Rosa, rot +22° -->
+        <g transform="translate(462,228) rotate(22)">
+          <rect x="-13" y="-155" width="26" height="155" rx="6" fill="#E91E63"/>
+          <rect x="-13" y="-155" width="26" height="54" rx="6" fill="#AD1457"/>
+          <rect x="-9" y="-163" width="18" height="12" rx="6" fill="#880E4F"/>
+          <polygon points="-13,0 13,0 0,20" fill="#AD1457"/>
+          <rect x="-6" y="-142" width="7" height="88" rx="3" fill="rgba(255,255,255,0.22)"/>
+        </g>
+      </svg>
+    </div>
     <div class="fb-web">www.ofipapel.net</div>
   </div>
 </div>
