@@ -25,6 +25,11 @@ proveedores:
     remitentes:
       - "pedidos@proveedora.com"
       - "alternativo@proveedora.com"
+    # columnas_extra es opcional: columnas adicionales de ESTE proveedor que se
+    # incluiran al final de su Excel de salida (no afectan a los demas proveedores).
+    # Util si un proveedor incluye sus codigos internos u otra columna propia.
+    # columnas_extra:
+    #   - "cod_interno"
   - nombre: "Proveedor B"
     remitentes:
       - "ventas@proveedorb.com"

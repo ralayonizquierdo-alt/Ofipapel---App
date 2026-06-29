@@ -93,7 +93,9 @@ def main():
     dfs = {}
     for nombre, mensaje in correos_por_proveedor.items():
         nombre_archivo, contenido = graph_client.descargar_adjunto_excel(token, mensaje["id"])
-        dfs[nombre] = excel_logic.leer_excel_proveedor(contenido, nombre, config["excel"])
+        proveedor_cfg = next(p for p in config["proveedores"] if p["nombre"] == nombre)
+        columnas_extra = proveedor_cfg.get("columnas_extra", [])
+        dfs[nombre] = excel_logic.leer_excel_proveedor(contenido, nombre, config["excel"], columnas_extra)
 
     df_consolidado, reporte = excel_logic.cruzar_y_determinar_ganador(
         dfs, config["excel"]["columna_clave"], config["excel"]["columna_precio"]
@@ -102,8 +104,10 @@ def main():
     hoy = date.today().isoformat()
     drafts_creados = {}
     for nombre, mensaje in correos_por_proveedor.items():
+        proveedor_cfg = next(p for p in config["proveedores"] if p["nombre"] == nombre)
+        columnas_extra = proveedor_cfg.get("columnas_extra", [])
         excel_bytes = excel_logic.construir_excel_por_proveedor(
-            df_consolidado, nombre, config["excel"]["columnas_esperadas"]
+            df_consolidado, nombre, config["excel"]["columnas_esperadas"], columnas_extra
         )
         nombre_archivo_salida = config["salida"]["nombre_archivo_patron"].format(
             proveedor=nombre.replace(" ", "_"), fecha=hoy

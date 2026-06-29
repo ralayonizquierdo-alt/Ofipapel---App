@@ -45,7 +45,12 @@ def _precio_valido(valor: float) -> bool:
     return pd.notna(valor) and valor > 0
 
 
-def leer_excel_proveedor(contenido_bytes: bytes, nombre_proveedor: str, config_excel: dict) -> pd.DataFrame:
+def leer_excel_proveedor(
+    contenido_bytes: bytes,
+    nombre_proveedor: str,
+    config_excel: dict,
+    columnas_extra: list[str] = None,
+) -> pd.DataFrame:
     """Lee el Excel adjunto de un proveedor y lo normaliza a un formato comun."""
     df = pd.read_excel(BytesIO(contenido_bytes), header=config_excel["fila_cabecera"])
     df = _normalizar_columnas(df)
@@ -61,7 +66,13 @@ def leer_excel_proveedor(contenido_bytes: bytes, nombre_proveedor: str, config_e
     columna_clave = config_excel["columna_clave"].lower()
     columna_precio = config_excel["columna_precio"].lower()
 
-    df = df[columnas_esperadas].copy()
+    cols_a_leer = list(columnas_esperadas)
+    if columnas_extra:
+        for col in [c.lower() for c in columnas_extra]:
+            if col in df.columns and col not in cols_a_leer:
+                cols_a_leer.append(col)
+
+    df = df[cols_a_leer].copy()
     df[columna_clave] = df[columna_clave].astype(str).str.strip()
     df[columna_precio] = df[columna_precio].apply(_normalizar_precio)
     df["proveedor"] = nombre_proveedor
@@ -134,12 +145,23 @@ def cruzar_y_determinar_ganador(
     return consolidado, reporte
 
 
-def construir_excel_por_proveedor(df_consolidado: pd.DataFrame, nombre_proveedor: str, columnas_salida: list[str]) -> bytes:
+def construir_excel_por_proveedor(
+    df_consolidado: pd.DataFrame,
+    nombre_proveedor: str,
+    columnas_salida: list[str],
+    columnas_extra: list[str] = None,
+) -> bytes:
     """Genera el .xlsx con los articulos en los que nombre_proveedor resulto ganador."""
     columnas_salida = [c.lower() for c in columnas_salida]
+    cols_final = list(columnas_salida)
+    if columnas_extra:
+        for col in [c.lower() for c in columnas_extra]:
+            if col not in cols_final and col in df_consolidado.columns:
+                cols_final.append(col)
+
     es_ganador = df_consolidado["proveedor_ganador"] == nombre_proveedor
     es_propio = df_consolidado["proveedor"] == nombre_proveedor
-    filtrado = df_consolidado[es_ganador & es_propio][columnas_salida]
+    filtrado = df_consolidado[es_ganador & es_propio][cols_final]
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
