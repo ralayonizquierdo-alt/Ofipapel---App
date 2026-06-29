@@ -1223,29 +1223,20 @@ const DATE_CHAIN = [
 ];
 
 // ============================================================
-// LAYOUT CONTINUO: las categorías fluyen sin forzar página nueva.
-// Solo se pasa a página nueva si la categoría completa no cabe
-// en el espacio restante. Categorías grandes (>5 filas) continúan
-// en las páginas siguientes con su nombre repetido.
+// LAYOUT: grid continuo en el orden original del documento
 // ============================================================
-const COLS         = 4;
-const PAGE_H_HDR   = 44;   // px cabecera de página
-const BANNER_H     = 36;   // px banner de sección
-const ROW_H        = 178;  // px estimados por fila de 4 tarjetas (imagen 90px)
-const PAGE_CAP     = 1043; // px disponibles por página (A4 - footer 34px)
+const COLS       = 4;
+const PAGE_H_HDR = 44;   // px cabecera de página
+const ROW_H      = 178;  // px estimados por fila de 4 tarjetas (imagen 90px)
+const PAGE_CAP   = 1043; // px disponibles por página (A4 - footer 34px)
 
-// Agrupar productos por categoría (mantiene el orden del array)
-const cats = {};
-productos.forEach(p => { if(!cats[p.cat]) cats[p.cat]=[]; cats[p.cat].push(p); });
-
-let pageN = 0, usedH = 0, gridSeq = 0, pageHasContent = false;
+let pageN = 0, usedH = 0, gridSeq = 0;
 
 function pc() { return document.getElementById('pc' + pageN); }
 
 function startPage() {
   pageN++;
   usedH = PAGE_H_HDR;
-  pageHasContent = false;
   const pg = document.createElement('div');
   pg.className = 'pagina';
   pg.innerHTML =
@@ -1257,18 +1248,9 @@ function startPage() {
     '</div>' +
     '<div class="page-footer">' +
       '<span>OFIPAPEL · Bulevar Chajofe Nº4 · Los Cristianos · Tenerife</span>' +
-      '<span>Tel. 922 753 520 · www.ofipapel.net</span>' +
+      '<span>Tel. 922 753 520 · www.ofipapel.net</span>' +
     '</div>';
   document.body.appendChild(pg);
-}
-
-function addBanner(cat, icon, isCont) {
-  const b = document.createElement('div');
-  b.className = 'seccion-banner' + (isCont ? ' continuacion' : '');
-  b.innerHTML = '<span class="seccion-icon">' + icon + '</span><h2>' + cat + '</h2>';
-  pc().appendChild(b);
-  usedH += BANNER_H;
-  pageHasContent = true;
 }
 
 function newGrid() {
@@ -1281,7 +1263,6 @@ function newGrid() {
 }
 
 function makeCard(p) {
-  // Prioridad: 1) servidor local IIS, 2) ofipapel.net (72 fechas), 3) emoji
   const urls = [LOCAL_IMG_BASE + p.ref + '.jpg']
     .concat(DATE_CHAIN.map(d =>
       'https://ofipapel.net/wp-content/uploads/' + d + '/' + p.ref + '.jpg'));
@@ -1290,11 +1271,11 @@ function makeCard(p) {
   c.innerHTML =
     '<div class="producto-img-wrap">' +
       '<img src="' + urls[0] + '" alt="' + p.nombre.replace(/"/g,'&quot;') + '"' +
-        ' data-urls=\'' + JSON.stringify(urls) + '\' data-idx="0"' +
+        ' data-urls='' + JSON.stringify(urls) + '' data-idx="0"' +
         ' onerror="var u=JSON.parse(this.dataset.urls),n=+this.dataset.idx+1;' +
           'this.dataset.idx=n;' +
           'if(n<u.length){this.src=u[n];}' +
-          'else{this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';}">' +
+          'else{this.style.display='none';this.nextElementSibling.style.display='flex';}">' +
       '<span class="emoji-fallback" style="display:none">' + p.e + '</span>' +
     '</div>' +
     '<div class="producto-ref">' + p.ref + '</div>' +
@@ -1304,31 +1285,18 @@ function makeCard(p) {
   return c;
 }
 
-Object.keys(cats).forEach(function(cat) {
-  const items = cats[cat];
-  const catRows = Math.ceil(items.length / COLS);
-  const catH    = BANNER_H + catRows * ROW_H;
+startPage();
+let grid = newGrid();
 
-  // ¿Cabe la categoría entera en el espacio restante?
-  if (pageN === 0 || (pageHasContent && usedH + catH > PAGE_CAP)) {
-    startPage();
-  }
-
-  addBanner(cat, items[0].e, false);
-  var grid = newGrid();
-
-  items.forEach(function(p, idx) {
-    if (idx % COLS === 0) {
-      // ¿Cabe una fila más?
-      if (usedH + ROW_H > PAGE_CAP) {
-        startPage();
-        addBanner(cat, items[0].e, true);
-        grid = newGrid();
-      }
-      usedH += ROW_H;
+productos.forEach(function(p, idx) {
+  if (idx % COLS === 0) {
+    if (usedH + ROW_H > PAGE_CAP) {
+      startPage();
+      grid = newGrid();
     }
-    grid.appendChild(makeCard(p));
-  });
+    usedH += ROW_H;
+  }
+  grid.appendChild(makeCard(p));
 });
 </script>
 </body>
