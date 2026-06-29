@@ -1271,11 +1271,11 @@ function makeCard(p) {
   c.innerHTML =
     '<div class="producto-img-wrap">' +
       '<img src="' + urls[0] + '" alt="' + p.nombre.replace(/"/g,'&quot;') + '"' +
-        ' data-urls='' + JSON.stringify(urls) + '' data-idx="0"' +
+        ' data-urls=\'' + JSON.stringify(urls) + '\' data-idx="0"' +
         ' onerror="var u=JSON.parse(this.dataset.urls),n=+this.dataset.idx+1;' +
           'this.dataset.idx=n;' +
           'if(n<u.length){this.src=u[n];}' +
-          'else{this.style.display='none';this.nextElementSibling.style.display='flex';}">' +
+          'else{this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';}">' +
       '<span class="emoji-fallback" style="display:none">' + p.e + '</span>' +
     '</div>' +
     '<div class="producto-ref">' + p.ref + '</div>' +
