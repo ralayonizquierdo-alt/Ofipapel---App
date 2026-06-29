@@ -10,6 +10,7 @@ Uso:
 
 import argparse
 import os
+from collections import defaultdict
 from datetime import date
 
 import yaml
@@ -39,7 +40,7 @@ def imprimir_resumen(correos_por_proveedor: dict, reporte: excel_logic.ReporteCr
             print(f"  - {item['proveedor']}: {item['referencia']} (se quedo con el precio mas bajo)")
 
     if reporte.empates:
-        print(f"\nAVISO: empate(s) de precio resueltos por orden alfabetico de proveedor:")
+        print(f"\nAVISO: empate(s) de precio resueltos:")
         for item in reporte.empates:
             print(
                 f"  - {item['referencia']} (precio {item['precio']}): "
@@ -55,6 +56,17 @@ def imprimir_resumen(correos_por_proveedor: dict, reporte: excel_logic.ReporteCr
         print(f"\nAVISO IMPORTANTE: {len(reporte.sin_oferta_valida)} articulo(s) sin NINGUN proveedor con precio valido (no se asigna ganador, no apareceran en ningun Excel de salida):")
         for item in reporte.sin_oferta_valida:
             print(f"  - {item['referencia']}")
+
+    if reporte.excluidos_por_marca:
+        por_proveedor = defaultdict(list)
+        for item in reporte.excluidos_por_marca:
+            por_proveedor[item["proveedor"]].append(item["referencia"])
+        print(f"\nINFO: {len(reporte.excluidos_por_marca)} articulo(s) excluido(s) de su proveedor por regla de marca:")
+        for prov, refs in por_proveedor.items():
+            print(f"  - {prov}: {len(refs)} articulo(s) excluido(s) (marca no permitida para ese proveedor)")
+
+    if reporte.balance_aplicado:
+        print(f"\nINFO: regla de balanceo aplicada en {len(reporte.balance_aplicado)} empate(s) de precio entre proveedores configurados.")
 
     if drafts_creados:
         print("\nBorradores creados en Outlook (revisalos antes de enviar):")
@@ -97,8 +109,24 @@ def main():
         columnas_extra = proveedor_cfg.get("columnas_extra", [])
         dfs[nombre] = excel_logic.leer_excel_proveedor(contenido, nombre, config["excel"], columnas_extra)
 
+    # Extraer reglas opcionales de la config
+    excluir_marcas_por_proveedor = {
+        p["nombre"]: p["excluir_marcas"]
+        for p in config["proveedores"]
+        if p.get("excluir_marcas")
+    }
+    balance_entre = config.get("reglas", {}).get("balance_entre", [])
+    columna_descripcion = config["excel"].get("columna_descripcion")
+    columna_cantidad = config["excel"].get("columna_cantidad")
+
     df_consolidado, reporte = excel_logic.cruzar_y_determinar_ganador(
-        dfs, config["excel"]["columna_clave"], config["excel"]["columna_precio"]
+        dfs,
+        config["excel"]["columna_clave"],
+        config["excel"]["columna_precio"],
+        columna_descripcion=columna_descripcion,
+        columna_cantidad=columna_cantidad,
+        excluir_marcas_por_proveedor=excluir_marcas_por_proveedor,
+        balance_entre=balance_entre,
     )
 
     hoy = date.today().isoformat()

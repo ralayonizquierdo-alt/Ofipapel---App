@@ -3,6 +3,7 @@ los Excel de salida. No depende de red ni de Graph - testeable con archivos
 de ejemplo sin necesidad de conexion.
 """
 
+import re
 from dataclasses import dataclass, field
 from io import BytesIO
 
@@ -21,6 +22,8 @@ class ReporteCruce:
     empates: list[dict] = field(default_factory=list)
     sin_stock: list[dict] = field(default_factory=list)
     sin_oferta_valida: list[dict] = field(default_factory=list)
+    excluidos_por_marca: list[dict] = field(default_factory=list)
+    balance_aplicado: list[dict] = field(default_factory=list)
 
 
 def _normalizar_columnas(df: pd.DataFrame) -> pd.DataFrame:
@@ -83,16 +86,24 @@ def cruzar_y_determinar_ganador(
     dfs_por_proveedor: dict[str, pd.DataFrame],
     columna_clave: str,
     columna_precio: str,
+    columna_descripcion: str = None,
+    columna_cantidad: str = None,
+    excluir_marcas_por_proveedor: dict[str, list[str]] = None,
+    balance_entre: list[str] = None,
 ) -> tuple[pd.DataFrame, ReporteCruce]:
     """Cruza los Excel de los proveedores por columna_clave y asigna, para cada
-    articulo, el proveedor con el precio mas bajo. Nunca falla en silencio ante
-    datos inconsistentes: cualquier discrepancia queda registrada en el
-    ReporteCruce devuelto para que el usuario la revise antes de confiar en el
-    resultado.
+    articulo, el proveedor con el precio mas bajo.
+
+    excluir_marcas_por_proveedor: {proveedor: [marcas]} — ese proveedor no puede
+      ganar articulos cuya descripcion contenga alguna de las marcas indicadas.
+    balance_entre: lista de 2 proveedores cuyo importe total de pedido se intenta
+      equilibrar asignando los empates de precio al que lleve menos acumulado.
     """
     reporte = ReporteCruce()
     proveedores = list(dfs_por_proveedor.keys())
     total_proveedores = len(proveedores)
+    excluir_marcas_por_proveedor = excluir_marcas_por_proveedor or {}
+    balance_entre = list(balance_entre or [])
 
     frames = []
     for nombre, df in dfs_por_proveedor.items():
@@ -108,6 +119,30 @@ def cruzar_y_determinar_ganador(
 
     consolidado = pd.concat(frames, ignore_index=True)
 
+    # Copia de trabajo para la determinacion de ganadores: aqui aplicamos las
+    # exclusiones por marca sin tocar el consolidado original (que se usara para
+    # generar los Excel de salida con los precios reales de cada proveedor).
+    trabajo = consolidado.copy()
+
+    if excluir_marcas_por_proveedor and columna_descripcion:
+        col_desc = columna_descripcion.lower()
+        if col_desc in trabajo.columns:
+            for proveedor, marcas in excluir_marcas_por_proveedor.items():
+                if not marcas:
+                    continue
+                patron = "|".join(re.escape(m) for m in marcas)
+                mask = (
+                    (trabajo["proveedor"] == proveedor)
+                    & trabajo[col_desc].str.contains(patron, case=False, na=False)
+                )
+                if mask.any():
+                    for ref in trabajo.loc[mask, columna_clave].unique():
+                        reporte.excluidos_por_marca.append({
+                            "referencia": ref,
+                            "proveedor": proveedor,
+                        })
+                    trabajo.loc[mask, columna_precio] = float("nan")
+
     cobertura = consolidado.groupby(columna_clave)["proveedor"].nunique()
     for referencia in cobertura[cobertura < total_proveedores].index:
         presentes = consolidado.loc[consolidado[columna_clave] == referencia, "proveedor"].tolist()
@@ -117,8 +152,11 @@ def cruzar_y_determinar_ganador(
             "proveedores_sin_cotizacion": [p for p in proveedores if p not in presentes],
         })
 
+    # Acumulado de importe (precio x cantidad) por proveedor para el balanceo
+    totales_balance = {p: 0.0 for p in balance_entre}
+
     ganador_por_referencia = {}
-    for referencia, grupo in consolidado.groupby(columna_clave):
+    for referencia, grupo in trabajo.groupby(columna_clave):
         es_valido = grupo[columna_precio].apply(_precio_valido)
         validos = grupo[es_valido]
         sin_stock = grupo[~es_valido]["proveedor"].tolist()
@@ -127,19 +165,53 @@ def cruzar_y_determinar_ganador(
 
         if validos.empty:
             reporte.sin_oferta_valida.append({"referencia": referencia, "proveedores_sin_stock": sin_stock})
-            continue  # ningun proveedor tiene precio valido: no se asigna ganador
+            continue
 
         precio_minimo = validos[columna_precio].min()
         empatados = validos[validos[columna_precio] == precio_minimo].sort_values("proveedor")
-        ganador = empatados.iloc[0]["proveedor"]
-        ganador_por_referencia[referencia] = ganador
+        empatados_lista = empatados["proveedor"].tolist()
+
+        # Si ambos proveedores de balanceo estan empatados al precio minimo,
+        # asignar al que lleve menos importe acumulado (empate secundario: orden
+        # alfabetico para garantizar determinismo).
+        balance_en_empate = [p for p in balance_entre if p in empatados_lista]
+        if len(balance_en_empate) >= 2:
+            ganador = min(balance_en_empate, key=lambda p: (totales_balance.get(p, 0.0), p))
+            otro = next(p for p in balance_en_empate if p != ganador)
+            reporte.balance_aplicado.append({
+                "referencia": referencia,
+                "precio": precio_minimo,
+                "ganador": ganador,
+                "otro_proveedor": otro,
+            })
+        else:
+            ganador = empatados.iloc[0]["proveedor"]
+
         if len(empatados) > 1:
             reporte.empates.append({
                 "referencia": referencia,
                 "precio": precio_minimo,
-                "proveedores_empatados": empatados["proveedor"].tolist(),
+                "proveedores_empatados": empatados_lista,
                 "ganador_asignado": ganador,
             })
+
+        ganador_por_referencia[referencia] = ganador
+
+        # Actualizar acumulado del ganador (para proximas decisiones de balanceo)
+        if ganador in totales_balance:
+            fila = validos[validos["proveedor"] == ganador].iloc[0]
+            precio = fila[columna_precio]
+            qty = 1.0
+            if columna_cantidad:
+                col_qty = columna_cantidad.lower()
+                if col_qty in fila.index:
+                    try:
+                        q = float(fila[col_qty])
+                        if pd.notna(q) and q > 0:
+                            qty = q
+                    except (ValueError, TypeError):
+                        pass
+            totales_balance[ganador] += precio * qty
 
     consolidado["proveedor_ganador"] = consolidado[columna_clave].map(ganador_por_referencia)
     return consolidado, reporte

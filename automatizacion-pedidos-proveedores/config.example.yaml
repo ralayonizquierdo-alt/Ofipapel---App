@@ -30,6 +30,13 @@ proveedores:
     # Util si un proveedor incluye sus codigos internos u otra columna propia.
     # columnas_extra:
     #   - "cod_interno"
+    #
+    # excluir_marcas es opcional: este proveedor NO podra ganar articulos cuya
+    # descripcion contenga alguna de estas palabras (busqueda sin distinguir
+    # mayusculas/minusculas). Util para no comprar ciertas marcas a un proveedor.
+    # excluir_marcas:
+    #   - "Epson"
+    #   - "Brother"
   - nombre: "Proveedor B"
     remitentes:
       - "ventas@proveedorb.com"
@@ -41,6 +48,12 @@ excel:
   columnas_esperadas: ["cod_venta", "descrip", "cod_compra", "cantvend", "precio"]
   columna_clave: "cod_compra"
   columna_precio: "precio"
+  # columna_descripcion: nombre de la columna que contiene la descripcion del articulo.
+  # Necesaria para que funcione "excluir_marcas" en proveedores.
+  columna_descripcion: "descrip"
+  # columna_cantidad: nombre de la columna con la cantidad pedida.
+  # Necesaria para calcular importes en el balanceo entre proveedores.
+  columna_cantidad: "cantvend"
   fila_cabecera: 0
 
 salida:
@@ -58,3 +71,12 @@ email:
 
     Saludos.
   marcar_categoria: "PedidoProcesado"
+
+# reglas es opcional. Permite configurar comportamientos especiales en el cruce.
+# reglas:
+#   # balance_entre: dos proveedores entre los que repartir los empates de precio
+#   # para igualar los importes totales de pedido (se asigna cada empate al que
+#   # lleve menos importe acumulado hasta ese momento).
+#   balance_entre:
+#     - "Proveedor B"
+#     - "Proveedor C"
