@@ -285,7 +285,7 @@ export default function CoisinhasPage() {
               {/* Tipo */}
               <div>
                 <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-2">Tipo</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="flex flex-wrap gap-2">
                   {(Object.keys(TYPE_CONFIG) as CoisinhaType[]).map(key => {
                     const cfg = TYPE_CONFIG[key]
                     const Icon = cfg.icon
@@ -293,7 +293,7 @@ export default function CoisinhasPage() {
                       <button
                         key={key}
                         onClick={() => setForm(p => ({ ...p, type: key }))}
-                        className={`flex items-center gap-2 py-2.5 px-3 rounded-lg border text-xs font-medium transition-all ${
+                        className={`flex items-center gap-2 py-2 px-3 rounded-lg border text-xs font-medium transition-all ${
                           form.type === key ? 'border-transparent text-[#0a0a0a]' : 'border-[#2a2a2a] text-[#bbb]'
                         }`}
                         style={form.type === key ? { backgroundColor: cfg.color } : {}}

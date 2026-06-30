@@ -367,8 +367,8 @@ export default function CalendarPage() {
       {/* Modal nuevo/editar evento */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-2xl w-full max-w-md animate-fadeIn">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a]">
+          <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-2xl w-full max-w-md animate-fadeIn overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a] flex-shrink-0">
               <h3 className="font-display text-lg font-semibold text-[#e0e0e0]">
                 {editEvent.id ? 'Editar evento' : 'Nuevo evento'}
               </h3>
@@ -383,7 +383,7 @@ export default function CalendarPage() {
               </div>
             )}
 
-            <div className="px-6 py-5 space-y-4">
+            <div className="px-6 py-5 space-y-4 overflow-y-auto">
               <div>
                 <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Título</label>
                 <div className="flex gap-2">
@@ -405,12 +405,12 @@ export default function CalendarPage() {
 
               <div>
                 <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Categoría</label>
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
                     <button
                       key={key}
                       onClick={() => setEditEvent(p => ({ ...p, category: key as EventCategory }))}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-medium border transition-all ${
+                      className={`py-1.5 px-3 rounded-lg text-xs font-medium border transition-all ${
                         editEvent.category === key
                           ? 'text-[#0a0a0a] border-transparent'
                           : 'border-[#2a2a2a] text-[#bbb] hover:border-[#3a3a3a]'
