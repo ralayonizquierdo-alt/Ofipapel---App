@@ -351,33 +351,6 @@ export default function MusicPage() {
             </div>
           </div>
 
-          {/* Emisoras */}
-          <div className="card">
-            <h3 className="font-display text-base font-semibold text-[#e0e0e0] flex items-center gap-2 mb-4">
-              <Radio size={16} className="text-[#e05252]" /> Emisoras Rock
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {RADIO_STATIONS.map(s => (
-                <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2.5 p-3 rounded-xl bg-[#111] border border-[#2a2a2a] hover:border-[#e05252] hover:bg-[#e0525208] transition-all group">
-                  <img
-                    src={stationLogoUrl(s.url)}
-                    alt={s.name}
-                    className="w-7 h-7 rounded object-contain"
-                    onError={e => {
-                      const t = e.currentTarget
-                      t.style.display = 'none'
-                      const fb = t.nextElementSibling as HTMLElement | null
-                      if (fb) fb.style.display = 'inline'
-                    }}
-                  />
-                  <span className="text-xl" style={{ display: 'none' }}>{s.fallback}</span>
-                  <span className="text-xs text-[#888] group-hover:text-[#e0e0e0] transition-colors leading-tight">{s.name}</span>
-                  <ExternalLink size={10} className="ml-auto text-[#444] group-hover:text-[#e05252]" />
-                </a>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Sidebar */}
@@ -409,6 +382,34 @@ export default function MusicPage() {
                     <Trash2 size={14} />
                   </button>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Emisoras */}
+          <div className="card">
+            <h3 className="font-display text-base font-semibold text-[#e0e0e0] flex items-center gap-2 mb-4">
+              <Radio size={16} className="text-[#e05252]" /> Emisoras Rock
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              {RADIO_STATIONS.map(s => (
+                <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2.5 p-3 rounded-xl bg-[#111] border border-[#2a2a2a] hover:border-[#e05252] hover:bg-[#e0525208] transition-all group">
+                  <img
+                    src={stationLogoUrl(s.url)}
+                    alt={s.name}
+                    className="w-7 h-7 rounded object-contain"
+                    onError={e => {
+                      const t = e.currentTarget
+                      t.style.display = 'none'
+                      const fb = t.nextElementSibling as HTMLElement | null
+                      if (fb) fb.style.display = 'inline'
+                    }}
+                  />
+                  <span className="text-xl" style={{ display: 'none' }}>{s.fallback}</span>
+                  <span className="text-xs text-[#888] group-hover:text-[#e0e0e0] transition-colors leading-tight">{s.name}</span>
+                  <ExternalLink size={10} className="ml-auto text-[#444] group-hover:text-[#e05252]" />
+                </a>
               ))}
             </div>
           </div>
