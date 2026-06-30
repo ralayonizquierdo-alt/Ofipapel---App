@@ -423,22 +423,53 @@ export default function CalendarPage() {
                 </div>
               </div>
 
+              {/* Fecha */}
+              <div>
+                <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Fecha</label>
+                <input
+                  type="date"
+                  value={editEvent.start_time?.slice(0, 10) ?? ''}
+                  onChange={e => {
+                    const d = e.target.value
+                    setEditEvent(p => ({
+                      ...p,
+                      start_time: d + 'T' + (p.start_time?.slice(11, 16) ?? '09:00') + ':00',
+                      end_time:   d + 'T' + (p.end_time?.slice(11, 16)   ?? '10:00') + ':00',
+                    }))
+                  }}
+                  className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#c9a96e] focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Horas inicio / fin */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Inicio</label>
+                  <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Hora inicio</label>
                   <input
-                    type="datetime-local"
-                    value={editEvent.start_time?.slice(0, 16) ?? ''}
-                    onChange={e => setEditEvent(p => ({ ...p, start_time: e.target.value + ':00' }))}
+                    type="time"
+                    value={editEvent.start_time?.slice(11, 16) ?? ''}
+                    onChange={e => {
+                      const t = e.target.value
+                      setEditEvent(p => ({
+                        ...p,
+                        start_time: (p.start_time?.slice(0, 10) ?? format(selectedDate, 'yyyy-MM-dd')) + 'T' + t + ':00',
+                      }))
+                    }}
                     className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#c9a96e] focus:outline-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Fin</label>
+                  <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Hora fin</label>
                   <input
-                    type="datetime-local"
-                    value={editEvent.end_time?.slice(0, 16) ?? ''}
-                    onChange={e => setEditEvent(p => ({ ...p, end_time: e.target.value + ':00' }))}
+                    type="time"
+                    value={editEvent.end_time?.slice(11, 16) ?? ''}
+                    onChange={e => {
+                      const t = e.target.value
+                      setEditEvent(p => ({
+                        ...p,
+                        end_time: (p.end_time?.slice(0, 10) ?? format(selectedDate, 'yyyy-MM-dd')) + 'T' + t + ':00',
+                      }))
+                    }}
                     className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#c9a96e] focus:outline-none transition-colors"
                   />
                 </div>
