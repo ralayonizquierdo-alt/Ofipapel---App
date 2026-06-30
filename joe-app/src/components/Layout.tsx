@@ -14,55 +14,83 @@ const nav = [
   { to: '/coisinhas', icon: Sparkles, label: 'Coisinhas ✨', color: '#d4609e' },
 ]
 
-/* SVG decorativo — silueta botánica floral */
+/* SVG decorativo — silueta botánica floral, cubre toda la barra lateral */
 function FloralDecoration({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 256 110" fill="none" className={className} xmlns="http://www.w3.org/2000/svg">
-      {/* Ramas principales */}
-      <path d="M256 0 C210 25 170 48 140 78 C120 96 105 108 88 110"
-        stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity="0.7"/>
-      <path d="M256 35 C220 50 190 62 165 80"
-        stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.5"/>
-      <path d="M200 0 C180 28 162 44 148 60"
-        stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.45"/>
-      <path d="M256 70 C238 78 222 88 210 100"
-        stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" opacity="0.4"/>
-      {/* Hojas */}
-      <path d="M195 30 C199 20 210 24 207 34 C202 38 193 35 195 30Z" fill="currentColor" opacity="0.55"/>
-      <path d="M168 52 C173 42 184 47 180 57 C175 61 166 58 168 52Z" fill="currentColor" opacity="0.5"/>
-      <path d="M148 68 C153 59 163 63 160 73 C155 77 146 74 148 68Z" fill="currentColor" opacity="0.5"/>
-      <path d="M222 18 C226 10 235 14 232 22 C228 26 220 23 222 18Z" fill="currentColor" opacity="0.45"/>
-      <path d="M238 52 C241 44 249 47 247 55 C244 59 236 56 238 52Z" fill="currentColor" opacity="0.4"/>
-      <path d="M175 78 C178 70 187 73 184 81 C181 85 173 82 175 78Z" fill="currentColor" opacity="0.45"/>
-      <path d="M140 88 C143 80 151 83 149 91 C146 95 138 92 140 88Z" fill="currentColor" opacity="0.4"/>
-      {/* Flores — pétalos circulares */}
-      <circle cx="140" cy="78" r="4.5" fill="currentColor" opacity="0.35"/>
-      <circle cx="140" cy="69" r="4"   fill="currentColor" opacity="0.22"/>
-      <circle cx="148" cy="73" r="4"   fill="currentColor" opacity="0.22"/>
-      <circle cx="148" cy="82" r="4"   fill="currentColor" opacity="0.22"/>
-      <circle cx="140" cy="87" r="4"   fill="currentColor" opacity="0.22"/>
-      <circle cx="132" cy="82" r="4"   fill="currentColor" opacity="0.22"/>
-      <circle cx="132" cy="73" r="4"   fill="currentColor" opacity="0.22"/>
-
-      <circle cx="165" cy="80" r="3.5" fill="currentColor" opacity="0.3"/>
-      <circle cx="165" cy="72" r="3"   fill="currentColor" opacity="0.18"/>
-      <circle cx="172" cy="76" r="3"   fill="currentColor" opacity="0.18"/>
-      <circle cx="172" cy="84" r="3"   fill="currentColor" opacity="0.18"/>
-      <circle cx="158" cy="84" r="3"   fill="currentColor" opacity="0.18"/>
-      <circle cx="158" cy="76" r="3"   fill="currentColor" opacity="0.18"/>
-
-      <circle cx="210" cy="100" r="3"   fill="currentColor" opacity="0.28"/>
-      <circle cx="210" cy="93"  r="2.5" fill="currentColor" opacity="0.16"/>
-      <circle cx="216" cy="96"  r="2.5" fill="currentColor" opacity="0.16"/>
-      <circle cx="216" cy="103" r="2.5" fill="currentColor" opacity="0.16"/>
-      <circle cx="204" cy="103" r="2.5" fill="currentColor" opacity="0.16"/>
-      <circle cx="204" cy="96"  r="2.5" fill="currentColor" opacity="0.16"/>
+    <svg viewBox="0 0 256 800" fill="none" preserveAspectRatio="xMidYMid slice"
+      className={className} xmlns="http://www.w3.org/2000/svg">
+      {/* Rama principal: de arriba-derecha a abajo-izquierda */}
+      <path d="M256 0 C215 80 175 165 140 255 C105 345 75 435 50 545 C30 625 15 705 0 800"
+        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      {/* Ramas laterales derecha */}
+      <path d="M256 115 C235 140 210 162 185 188" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+      <path d="M256 315 C238 335 218 352 198 372" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+      <path d="M256 515 C240 532 222 548 205 565" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
+      <path d="M256 695 C242 708 226 720 210 732" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
+      {/* Ramas laterales izquierda */}
+      <path d="M0 255 C20 272 42 290 60 312" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+      <path d="M0 455 C18 470 38 486 55 505" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
+      <path d="M0 648 C16 662 33 675 50 688" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round"/>
+      {/* Hojas — rama principal */}
+      <path d="M228 38 C232 28 242 31 240 41C237 46 226 43 228 38Z" fill="currentColor"/>
+      <path d="M205 78 C209 68 219 71 217 81C214 86 203 83 205 78Z" fill="currentColor"/>
+      <path d="M182 122 C186 112 196 115 194 125C191 130 180 127 182 122Z" fill="currentColor"/>
+      <path d="M162 168 C166 158 176 161 174 171C171 176 160 173 162 168Z" fill="currentColor"/>
+      <path d="M143 218 C147 208 157 211 155 221C152 226 141 223 143 218Z" fill="currentColor"/>
+      <path d="M122 275 C126 265 136 268 134 278C131 283 120 280 122 275Z" fill="currentColor"/>
+      <path d="M100 342 C104 332 114 335 112 345C109 350 98 347 100 342Z" fill="currentColor"/>
+      <path d="M78 418 C82 408 92 411 90 421C87 426 76 423 78 418Z" fill="currentColor"/>
+      <path d="M58 498 C62 488 72 491 70 501C67 506 56 503 58 498Z" fill="currentColor"/>
+      <path d="M40 578 C44 568 54 571 52 581C49 586 38 583 40 578Z" fill="currentColor"/>
+      <path d="M22 658 C26 648 36 651 34 661C31 666 20 663 22 658Z" fill="currentColor"/>
+      {/* Hojas — lateral derecha */}
+      <path d="M240 148 C244 140 252 143 250 151C247 155 238 153 240 148Z" fill="currentColor"/>
+      <path d="M210 180 C214 172 222 175 220 183C217 187 208 185 210 180Z" fill="currentColor"/>
+      <path d="M238 345 C242 337 250 340 248 348C245 352 236 350 238 345Z" fill="currentColor"/>
+      <path d="M208 368 C212 360 220 363 218 371C215 375 206 373 208 368Z" fill="currentColor"/>
+      <path d="M242 545 C246 537 254 540 252 548C249 552 240 550 242 545Z" fill="currentColor"/>
+      <path d="M212 565 C216 557 224 560 222 568C219 572 210 570 212 565Z" fill="currentColor"/>
+      <path d="M240 715 C244 707 252 710 250 718C247 722 238 720 240 715Z" fill="currentColor"/>
+      {/* Hojas — lateral izquierda */}
+      <path d="M15 268 C10 261 19 256 24 263C24 269 17 273 15 268Z" fill="currentColor"/>
+      <path d="M47 298 C42 291 51 286 56 293C56 299 49 303 47 298Z" fill="currentColor"/>
+      <path d="M17 468 C12 461 21 456 26 463C26 469 19 473 17 468Z" fill="currentColor"/>
+      <path d="M47 490 C42 483 51 478 56 485C56 491 49 495 47 490Z" fill="currentColor"/>
+      <path d="M17 660 C12 653 21 648 26 655C26 661 19 665 17 660Z" fill="currentColor"/>
+      <path d="M47 685 C42 678 51 673 56 680C56 686 49 690 47 685Z" fill="currentColor"/>
+      {/* Flores */}
+      <circle cx="140" cy="255" r="5"/><circle cx="140" cy="246" r="4.5"/>
+      <circle cx="148" cy="250" r="4.5"/><circle cx="148" cy="260" r="4.5"/>
+      <circle cx="140" cy="264" r="4.5"/><circle cx="132" cy="260" r="4.5"/>
+      <circle cx="132" cy="250" r="4.5"/>
+      <circle cx="185" cy="188" r="4"/><circle cx="185" cy="180" r="3.5"/>
+      <circle cx="192" cy="184" r="3.5"/><circle cx="192" cy="192" r="3.5"/>
+      <circle cx="185" cy="196" r="3.5"/><circle cx="178" cy="192" r="3.5"/>
+      <circle cx="178" cy="184" r="3.5"/>
+      <circle cx="78" cy="418" r="4.5"/><circle cx="78" cy="409" r="4"/>
+      <circle cx="86" cy="413" r="4"/><circle cx="86" cy="423" r="4"/>
+      <circle cx="78" cy="427" r="4"/><circle cx="70" cy="423" r="4"/>
+      <circle cx="70" cy="413" r="4"/>
+      <circle cx="198" cy="372" r="3.5"/><circle cx="198" cy="364" r="3"/>
+      <circle cx="205" cy="368" r="3"/><circle cx="205" cy="376" r="3"/>
+      <circle cx="191" cy="376" r="3"/><circle cx="191" cy="368" r="3"/>
+      <circle cx="35" cy="598" r="4"/><circle cx="35" cy="590" r="3.5"/>
+      <circle cx="42" cy="594" r="3.5"/><circle cx="42" cy="602" r="3.5"/>
+      <circle cx="35" cy="606" r="3.5"/><circle cx="28" cy="602" r="3.5"/>
+      <circle cx="28" cy="594" r="3.5"/>
+      <circle cx="205" cy="565" r="3"/><circle cx="205" cy="558" r="2.5"/>
+      <circle cx="211" cy="561" r="2.5"/><circle cx="211" cy="569" r="2.5"/>
+      <circle cx="199" cy="569" r="2.5"/><circle cx="199" cy="561" r="2.5"/>
+      <circle cx="210" cy="732" r="3"/><circle cx="210" cy="725" r="2.5"/>
+      <circle cx="216" cy="728" r="2.5"/><circle cx="216" cy="736" r="2.5"/>
+      <circle cx="204" cy="736" r="2.5"/><circle cx="204" cy="728" r="2.5"/>
       {/* Puntitos / bayas */}
-      <circle cx="88"  cy="110" r="2.5" fill="currentColor" opacity="0.4"/>
-      <circle cx="148" cy="60"  r="2"   fill="currentColor" opacity="0.32"/>
-      <circle cx="200" cy="0"   r="1.8" fill="currentColor" opacity="0.28"/>
-      <circle cx="245" cy="88"  r="1.5" fill="currentColor" opacity="0.22"/>
-      <circle cx="185" cy="95"  r="1.5" fill="currentColor" opacity="0.22"/>
+      <circle cx="245" cy="52" r="2"/><circle cx="172" cy="638" r="2"/>
+      <circle cx="105" cy="548" r="1.8"/><circle cx="165" cy="468" r="2"/>
+      <circle cx="220" cy="458" r="1.8"/><circle cx="235" cy="648" r="1.8"/>
+      <circle cx="120" cy="698" r="2"/><circle cx="82" cy="748" r="1.5"/>
+      <circle cx="178" cy="778" r="1.5"/><circle cx="60" cy="312" r="2"/>
+      <circle cx="55" cy="505" r="1.8"/><circle cx="50" cy="688" r="2"/>
     </svg>
   )
 }
@@ -96,10 +124,13 @@ export default function Layout() {
           borderRight: '1px solid #222',
         }}
       >
+        {/* Decoración floral: cubre toda la barra lateral */}
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0, opacity: 0.065 }}>
+          <FloralDecoration className="w-full h-full text-[#c9a96e]" />
+        </div>
+
         {/* Logo + decoración floral */}
-        <div className="relative px-6 pt-8 pb-6 overflow-hidden" style={{ borderBottom: '1px solid #1e1e1e' }}>
-          {/* Silueta botánica */}
-          <FloralDecoration className="absolute inset-0 w-full h-full text-[#c9a96e] pointer-events-none" />
+        <div className="relative px-6 pt-8 pb-6" style={{ borderBottom: '1px solid #1e1e1e', zIndex: 1 }}>
           <div className="flex items-center gap-3 mb-1 relative z-10">
             {/* Logo J */}
             <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
@@ -107,8 +138,8 @@ export default function Layout() {
                 background: 'linear-gradient(135deg, #c9a96e 0%, #8a6020 100%)',
                 boxShadow: '0 0 0 2px #c9a96e22, 0 2px 10px #c9a96e28',
               }}>
-              <span className="font-display text-lg font-black leading-none select-none"
-                style={{ color: '#0a0a0a' }}>J</span>
+              <span className="font-display text-lg font-black select-none"
+                style={{ color: '#0a0a0a', lineHeight: '1', transform: 'translateY(-1px)', display: 'block' }}>J</span>
             </div>
             <h1 className="font-display text-2xl font-bold text-gold-gradient leading-none relative z-10">
               Joe's World
@@ -120,7 +151,7 @@ export default function Layout() {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-6 space-y-1">
+        <nav className="flex-1 px-3 py-6 space-y-1 relative" style={{ zIndex: 1 }}>
           {nav.map(({ to, icon: Icon, label, color }) => (
             <NavLink
               key={to}
@@ -163,14 +194,14 @@ export default function Layout() {
         </nav>
 
         {/* Limón photo in sidebar */}
-        <div className="absolute bottom-20 right-0 w-32 pointer-events-none select-none" style={{ opacity: 0.28 }}>
+        <div className="absolute bottom-20 right-0 w-32 pointer-events-none select-none" style={{ opacity: 0.28, zIndex: 1 }}>
           <img src={`${import.meta.env.BASE_URL}limon.png`} alt="" className="w-full" />
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, #141414 0%, transparent 45%)' }} />
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, #141414 0%, transparent 35%)' }} />
         </div>
 
         {/* Footer con notas musicales */}
-        <div className="px-6 py-5 relative" style={{ borderTop: '1px solid #1a1a1a' }}>
+        <div className="px-6 py-5 relative" style={{ borderTop: '1px solid #1a1a1a', zIndex: 1 }}>
           <div className="flex items-center justify-center gap-2">
             <span className="text-[#c9a96e30] text-base">♩</span>
             <p className="text-[#333] text-[11px] font-light tracking-widest">hecho con amor</p>
