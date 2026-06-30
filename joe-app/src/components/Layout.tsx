@@ -14,11 +14,55 @@ const nav = [
   { to: '/coisinhas', icon: Sparkles, label: 'Coisinhas ✨', color: '#d4609e' },
 ]
 
-/* SVG decorativo - púa de guitarra */
-function GuitarPick({ className }: { className?: string }) {
+/* SVG decorativo — silueta botánica floral */
+function FloralDecoration({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 40 48" className={className} fill="currentColor">
-      <path d="M20 2C10 2 2 10 2 20c0 8 6 16 18 26 12-10 18-18 18-26C38 10 30 2 20 2z" />
+    <svg viewBox="0 0 256 110" fill="none" className={className} xmlns="http://www.w3.org/2000/svg">
+      {/* Ramas principales */}
+      <path d="M256 0 C210 25 170 48 140 78 C120 96 105 108 88 110"
+        stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity="0.7"/>
+      <path d="M256 35 C220 50 190 62 165 80"
+        stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.5"/>
+      <path d="M200 0 C180 28 162 44 148 60"
+        stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.45"/>
+      <path d="M256 70 C238 78 222 88 210 100"
+        stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" opacity="0.4"/>
+      {/* Hojas */}
+      <path d="M195 30 C199 20 210 24 207 34 C202 38 193 35 195 30Z" fill="currentColor" opacity="0.55"/>
+      <path d="M168 52 C173 42 184 47 180 57 C175 61 166 58 168 52Z" fill="currentColor" opacity="0.5"/>
+      <path d="M148 68 C153 59 163 63 160 73 C155 77 146 74 148 68Z" fill="currentColor" opacity="0.5"/>
+      <path d="M222 18 C226 10 235 14 232 22 C228 26 220 23 222 18Z" fill="currentColor" opacity="0.45"/>
+      <path d="M238 52 C241 44 249 47 247 55 C244 59 236 56 238 52Z" fill="currentColor" opacity="0.4"/>
+      <path d="M175 78 C178 70 187 73 184 81 C181 85 173 82 175 78Z" fill="currentColor" opacity="0.45"/>
+      <path d="M140 88 C143 80 151 83 149 91 C146 95 138 92 140 88Z" fill="currentColor" opacity="0.4"/>
+      {/* Flores — pétalos circulares */}
+      <circle cx="140" cy="78" r="4.5" fill="currentColor" opacity="0.35"/>
+      <circle cx="140" cy="69" r="4"   fill="currentColor" opacity="0.22"/>
+      <circle cx="148" cy="73" r="4"   fill="currentColor" opacity="0.22"/>
+      <circle cx="148" cy="82" r="4"   fill="currentColor" opacity="0.22"/>
+      <circle cx="140" cy="87" r="4"   fill="currentColor" opacity="0.22"/>
+      <circle cx="132" cy="82" r="4"   fill="currentColor" opacity="0.22"/>
+      <circle cx="132" cy="73" r="4"   fill="currentColor" opacity="0.22"/>
+
+      <circle cx="165" cy="80" r="3.5" fill="currentColor" opacity="0.3"/>
+      <circle cx="165" cy="72" r="3"   fill="currentColor" opacity="0.18"/>
+      <circle cx="172" cy="76" r="3"   fill="currentColor" opacity="0.18"/>
+      <circle cx="172" cy="84" r="3"   fill="currentColor" opacity="0.18"/>
+      <circle cx="158" cy="84" r="3"   fill="currentColor" opacity="0.18"/>
+      <circle cx="158" cy="76" r="3"   fill="currentColor" opacity="0.18"/>
+
+      <circle cx="210" cy="100" r="3"   fill="currentColor" opacity="0.28"/>
+      <circle cx="210" cy="93"  r="2.5" fill="currentColor" opacity="0.16"/>
+      <circle cx="216" cy="96"  r="2.5" fill="currentColor" opacity="0.16"/>
+      <circle cx="216" cy="103" r="2.5" fill="currentColor" opacity="0.16"/>
+      <circle cx="204" cy="103" r="2.5" fill="currentColor" opacity="0.16"/>
+      <circle cx="204" cy="96"  r="2.5" fill="currentColor" opacity="0.16"/>
+      {/* Puntitos / bayas */}
+      <circle cx="88"  cy="110" r="2.5" fill="currentColor" opacity="0.4"/>
+      <circle cx="148" cy="60"  r="2"   fill="currentColor" opacity="0.32"/>
+      <circle cx="200" cy="0"   r="1.8" fill="currentColor" opacity="0.28"/>
+      <circle cx="245" cy="88"  r="1.5" fill="currentColor" opacity="0.22"/>
+      <circle cx="185" cy="95"  r="1.5" fill="currentColor" opacity="0.22"/>
     </svg>
   )
 }
@@ -52,26 +96,25 @@ export default function Layout() {
           borderRight: '1px solid #222',
         }}
       >
-        {/* Decoración top — picks de guitarra */}
-        <div className="absolute top-0 right-0 w-24 h-24 pointer-events-none opacity-[0.04]">
-          <GuitarPick className="absolute top-2 right-2 w-10 h-12 text-[#c9a96e] rotate-12" />
-          <GuitarPick className="absolute top-6 right-8 w-6 h-8 text-[#c9a96e] -rotate-6" />
-        </div>
-
-        {/* Logo */}
-        <div className="relative px-6 pt-8 pb-6" style={{ borderBottom: '1px solid #1e1e1e' }}>
-          <div className="flex items-center gap-3 mb-1">
-            {/* Vinilo decorativo */}
-            <div className="relative w-8 h-8 flex-shrink-0">
-              <div className="absolute inset-0 rounded-full border-2 border-[#c9a96e30]" />
-              <div className="absolute inset-1 rounded-full border border-[#c9a96e20]" />
-              <div className="absolute inset-[10px] rounded-full bg-[#c9a96e]" />
+        {/* Logo + decoración floral */}
+        <div className="relative px-6 pt-8 pb-6 overflow-hidden" style={{ borderBottom: '1px solid #1e1e1e' }}>
+          {/* Silueta botánica */}
+          <FloralDecoration className="absolute inset-0 w-full h-full text-[#c9a96e] pointer-events-none" />
+          <div className="flex items-center gap-3 mb-1 relative z-10">
+            {/* Logo J */}
+            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{
+                background: 'linear-gradient(135deg, #c9a96e 0%, #8a6020 100%)',
+                boxShadow: '0 0 0 2px #c9a96e22, 0 2px 10px #c9a96e28',
+              }}>
+              <span className="font-display text-lg font-black leading-none select-none"
+                style={{ color: '#0a0a0a' }}>J</span>
             </div>
-            <h1 className="font-display text-2xl font-bold text-gold-gradient leading-none">
+            <h1 className="font-display text-2xl font-bold text-gold-gradient leading-none relative z-10">
               Joe's World
             </h1>
           </div>
-          <p className="text-[#999] text-[10px] mt-2 font-light tracking-[0.3em] uppercase ml-11">
+          <p className="text-[#999] text-[10px] mt-2 font-light tracking-[0.3em] uppercase ml-12 relative z-10">
             tu espacio personal
           </p>
         </div>
