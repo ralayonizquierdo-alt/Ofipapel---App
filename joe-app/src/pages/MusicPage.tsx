@@ -308,7 +308,7 @@ export default function MusicPage() {
                     {!a.id.startsWith('__default_') && (
                       <button
                         onClick={() => deleteArtist(a.id)}
-                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#1a1a1a] border border-[#3a3a3a] text-[#555] hover:text-[#e05252] hover:border-[#e05252] transition-all flex items-center justify-center opacity-0 group-hover:opacity-100"
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#1a1a1a] border border-[#3a3a3a] text-[#555] hover:text-[#e05252] hover:border-[#e05252] transition-all flex items-center justify-center"
                       >
                         <X size={10} />
                       </button>
