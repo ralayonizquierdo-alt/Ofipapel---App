@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Music2, Radio, ExternalLink, X } from 'lucide-react'
+import { Plus, Trash2, Music2, Radio, ExternalLink, X, Quote } from 'lucide-react'
+import { getDayOfYear } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import type { SpotifyPlaylist } from '../types'
 import { GuitarBackground, VinylRecord } from '../components/RockBackground'
@@ -11,10 +12,42 @@ const RADIO_STATIONS = [
   { name: 'Classic Rock Radio', url: 'https://www.classicrockradio.com/', logo: '🎺' },
 ]
 
-const EMBED_EXAMPLES = [
-  { label: 'Rock Clásico',   uri: '37i9dQZF1DWXRqgorJj26U' },
-  { label: 'Power Ballads',  uri: '37i9dQZF1DX1s5THSb5hwB' },
-  { label: 'Rock Español',   uri: '37i9dQZF1DX3dFTZmfJWMI' },
+const ROCK_QUOTES = [
+  { quote: 'Rock and roll is here to stay, it will never die.', author: 'Neil Young' },
+  { quote: 'Music gives a soul to the universe, wings to the mind, flight to the imagination, and life to everything.', author: 'Platón' },
+  { quote: "I am not afraid of dying. I'm afraid of not trying.", author: 'Jay-Z' },
+  { quote: 'Without music, life would be a mistake.', author: 'Friedrich Nietzsche' },
+  { quote: "One good thing about music — when it hits you, you feel no pain.", author: 'Bob Marley' },
+  { quote: 'Rock and roll is the music of the streets.', author: 'Chuck Berry' },
+  { quote: "I'd rather be hated for who I am than loved for who I'm not.", author: 'Kurt Cobain' },
+  { quote: 'We will rock you.', author: 'Queen' },
+  { quote: "I'm a cult hero, baby. This is what I do.", author: 'Ozzy Osbourne' },
+  { quote: 'Music is the shorthand of emotion.', author: 'Leo Tolstói' },
+  { quote: 'Talk about passion — that is what rock and roll is all about.', author: 'Mick Jagger' },
+  { quote: "It's only rock 'n' roll, but I like it.", author: 'The Rolling Stones' },
+  { quote: 'Drugs, sex, rock and roll. All three at once if possible.', author: 'Lemmy Kilmister' },
+  { quote: 'No one can make you feel inferior without your consent.', author: 'Eleanor Roosevelt' },
+  { quote: 'The music is all around us. All you have to do is listen.', author: 'August Rush' },
+  { quote: "I just want to live while I'm alive.", author: 'Jon Bon Jovi' },
+  { quote: 'Rock music is not meant to be perfect.', author: 'Ozzy Osbourne' },
+  { quote: 'Turn it up! Rock and roll!', author: 'AC/DC' },
+  { quote: "I'd rather die on my feet than live on my knees.", author: 'Emiliano Zapata' },
+  { quote: 'Music is the wine that fills the cup of silence.', author: 'Robert Fripp' },
+  { quote: "Don't stop believin'.", author: 'Journey' },
+  { quote: 'We are the champions, my friends.', author: 'Freddie Mercury' },
+  { quote: 'Every day is a new beginning.', author: 'Steven Tyler' },
+  { quote: 'Rock and roll is a nuclear blast of reality in a mundane world.', author: 'Kim Fowley' },
+  { quote: 'If you want to sing out, sing out.', author: 'Cat Stevens' },
+  { quote: "I'm not going to change the way I look or the way I feel to conform to anything.", author: 'Freddie Mercury' },
+  { quote: "Long live rock, I need it every night.", author: 'The Who' },
+  { quote: 'Music can change the world because it can change people.', author: 'Bono' },
+  { quote: "Heaven isn't too far away.", author: 'Warrant' },
+  { quote: 'Rock and roll means well.', author: 'Tom Petty' },
+  { quote: 'Angus Young nació tocando la guitarra. El resto de nosotros lo aprendimos.', author: 'Malcolm Young' },
+  { quote: "You shook me all night long.", author: 'AC/DC' },
+  { quote: 'The first time I heard Elvis, I knew that music was going to mean everything to me.', author: 'Keith Richards' },
+  { quote: 'I live for rock and roll. It is my life.', author: 'Jimmy Page' },
+  { quote: 'Stay hungry, stay foolish.', author: 'Steve Jobs' },
 ]
 
 function toEmbedUrl(input: string): string {
@@ -28,6 +61,8 @@ export default function MusicPage() {
   const [active, setActive] = useState<SpotifyPlaylist | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ name: '', spotify_uri: '' })
+
+  const todayQuote = ROCK_QUOTES[getDayOfYear(new Date()) % ROCK_QUOTES.length]
 
   useEffect(() => { loadPlaylists() }, [])
 
@@ -66,15 +101,12 @@ export default function MusicPage() {
           minHeight: '160px',
         }}
       >
-        {/* Guitarra fondo */}
         <div className="absolute -right-8 -top-4 h-full pointer-events-none opacity-[0.07] text-[#e05252]">
           <GuitarBackground className="h-full w-auto" />
         </div>
-        {/* Vinilo decorativo */}
         <div className="absolute right-32 top-1/2 -translate-y-1/2 w-28 pointer-events-none opacity-[0.12] text-[#c9a96e]">
           <VinylRecord className="w-full" />
         </div>
-        {/* Resplandor rojo */}
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: 'radial-gradient(ellipse at 10% 50%, #e0525215 0%, transparent 60%)' }} />
 
@@ -146,8 +178,9 @@ export default function MusicPage() {
           </div>
         </div>
 
-        {/* Sidebar playlists */}
+        {/* Sidebar */}
         <div className="space-y-4">
+          {/* Mis Playlists */}
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display text-base font-semibold text-[#e0e0e0]">Mis Playlists</h3>
@@ -167,7 +200,7 @@ export default function MusicPage() {
               {playlists.map(pl => (
                 <div
                   key={pl.id}
-                  className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all group ${
+                  className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
                     active?.id === pl.id
                       ? 'border-[#c9a96e] bg-[#c9a96e10]'
                       : 'border-[#2a2a2a] hover:border-[#3a3a3a] bg-[#111]'
@@ -178,28 +211,34 @@ export default function MusicPage() {
                   <span className="text-sm text-[#ccc] flex-1 truncate">{pl.name}</span>
                   <button
                     onClick={e => { e.stopPropagation(); deletePlaylist(pl.id) }}
-                    className="text-[#444] hover:text-[#e05252] opacity-0 group-hover:opacity-100 transition-all"
+                    className="text-[#555] hover:text-[#e05252] transition-colors flex-shrink-0"
                   >
-                    <Trash2 size={12} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Sugerencias rápidas */}
-          <div className="card">
-            <h4 className="text-xs text-[#666] uppercase tracking-wider mb-3">Añadir rápido</h4>
-            <div className="space-y-1.5">
-              {EMBED_EXAMPLES.map(ex => (
-                <button
-                  key={ex.uri}
-                  onClick={() => setForm({ name: ex.label, spotify_uri: ex.uri })}
-                  className="w-full text-left text-xs text-[#888] hover:text-[#c9a96e] transition-colors py-1"
-                >
-                  + {ex.label}
-                </button>
-              ))}
+          {/* Frase rock del día */}
+          <div className="card" style={{
+            background: 'linear-gradient(135deg, #120808 0%, #111 100%)',
+            borderColor: '#2a1a1a',
+          }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Quote size={14} className="text-[#e05252]" />
+              <span className="text-xs text-[#e05252] uppercase tracking-[0.2em] font-semibold">Frase del día</span>
+            </div>
+            <p className="text-[#e0e0e0] text-sm font-medium leading-relaxed italic mb-3">
+              "{todayQuote.quote}"
+            </p>
+            <p className="text-[#c9a96e] text-xs text-right font-semibold tracking-wide">
+              — {todayQuote.author}
+            </p>
+            <div className="mt-3 flex justify-center gap-1 opacity-30">
+              <span className="text-[#e05252] text-base">♩</span>
+              <span className="text-[#c9a96e] text-base">♪</span>
+              <span className="text-[#e05252] text-base">♫</span>
             </div>
           </div>
         </div>
@@ -233,7 +272,7 @@ export default function MusicPage() {
                   placeholder="https://open.spotify.com/playlist/..."
                   className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] placeholder-[#444] focus:border-[#c9a96e] focus:outline-none"
                 />
-                <p className="text-xs text-[#555] mt-1">Pega el enlace de Spotify → Compartir → Copiar enlace</p>
+                <p className="text-xs text-[#555] mt-1">Spotify → Compartir → Copiar enlace</p>
               </div>
             </div>
             <div className="px-6 py-4 border-t border-[#2a2a2a] flex justify-end gap-2">
