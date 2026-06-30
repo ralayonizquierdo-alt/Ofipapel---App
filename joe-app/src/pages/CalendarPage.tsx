@@ -389,10 +389,10 @@ export default function CalendarPage() {
                   <label className="text-xs text-[#bbb] uppercase tracking-wider">Título</label>
                   <button
                     onClick={listening ? stopVoice : startVoice}
-                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${listening ? 'border-[#e05252] text-[#e05252] bg-[#e0525210]' : 'border-[#3a3a3a] text-[#666] hover:border-[#c9a96e] hover:text-[#c9a96e]'}`}
+                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${listening ? 'border-[#e05252] text-[#e05252]' : 'border-[#3a3a3a] text-[#999] hover:border-[#c9a96e] hover:text-[#c9a96e]'}`}
                   >
-                    {listening ? <MicOff size={11} /> : <Mic size={11} />}
-                    <span>{listening ? 'Escuchando…' : 'Voz'}</span>
+                    {listening ? <MicOff size={12} /> : <Mic size={12} />}
+                    {listening ? 'Escuchando…' : 'Voz'}
                   </button>
                 </div>
                 <input
