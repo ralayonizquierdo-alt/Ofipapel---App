@@ -369,7 +369,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.14 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.15 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -399,8 +399,10 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
       <div class="nav-item" onclick="showView('familias')"><span class="ni">📦</span><span>Familias</span></div>
     </div>
 
-    <div class="nav-section">Asistente</div>
-    <div class="nav-item" onclick="showView('chat')"><span class="ni">💬</span><span>Chat IA</span></div>
+    <div id="navChat">
+      <div class="nav-section">Asistente</div>
+      <div class="nav-item" onclick="showView('chat')"><span class="ni">💬</span><span>Chat IA</span></div>
+    </div>
 
     <div class="sidebar-footer">
       <div class="sidebar-user" id="sidebarUser"></div>
@@ -980,11 +982,37 @@ const STORAGE_KEY = 'ofipapel_registros_v1';
 // ═══════════════════════════════════════════════════════
 // ESTADO — declarado aquí para evitar TDZ antes de loadData()
 // ═══════════════════════════════════════════════════════
-const USERS = { rober:'ofipapel2026', admin:'ofipapel2026', david:'ofipapel2026', monica:'ofipapel2026' };
+// Contraseñas almacenadas como SHA-256 (nunca en texto plano)
+const USERS = {
+  rober:  'd086b000c4d69407866d15606d2c5bb9c8f64431bf4f72d1393b9996ca9a3cec',
+  admin:  'd086b000c4d69407866d15606d2c5bb9c8f64431bf4f72d1393b9996ca9a3cec',
+  david:  'd086b000c4d69407866d15606d2c5bb9c8f64431bf4f72d1393b9996ca9a3cec',
+  monica: 'd086b000c4d69407866d15606d2c5bb9c8f64431bf4f72d1393b9996ca9a3cec'
+};
+// Menús restringidos por usuario (vacío = acceso total)
+const USER_BLOCKED = { monica: ['ventas','compras','familias','chat'] };
 // Usuarios con acceso a la sección Operaciones (Ventas, Compras, Familias)
 const OPERACIONES_ACCESO = ['admin', 'rober', 'david'];
-// Cargar contraseñas personalizadas guardadas
+// Cargar contraseñas personalizadas guardadas (ya hasheadas)
 try{ Object.assign(USERS, JSON.parse(localStorage.getItem('op_passwords')||'{}')); }catch(e){}
+
+// Helper: SHA-256 del texto plano
+async function hashPass(p){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(p));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// Duración de sesión: 8 horas
+const SESSION_HOURS = 8;
+function refreshSessionExpiry(){
+  try{ localStorage.setItem('op_expiry', Date.now() + SESSION_HOURS*3600*1000); }catch(e){}
+}
+function isSessionExpired(){
+  try{
+    const exp = parseInt(localStorage.getItem('op_expiry')||'0');
+    return exp && Date.now() > exp;
+  }catch(e){ return false; }
+}
 let currentUser = null;
 let registros = [...SEED_DATA];
 let charts = {};
@@ -1295,22 +1323,34 @@ function togglePass() {
 }
 
 function applyAccessControl(){
-  const tieneAcceso = OPERACIONES_ACCESO.includes(currentUser);
+  const blocked = USER_BLOCKED[currentUser] || [];
+  // Sección Operaciones
   const nav = document.getElementById('navOperaciones');
-  if(nav) nav.style.display = tieneAcceso ? '' : 'none';
+  if(nav) nav.style.display = OPERACIONES_ACCESO.includes(currentUser) ? '' : 'none';
+  // Chat IA
+  const navChat = document.getElementById('navChat');
+  if(navChat) navChat.style.display = blocked.includes('chat') ? 'none' : '';
 }
 
 function doLogin() {
   const u = document.getElementById('loginUser').value.trim().toLowerCase();
   const p = document.getElementById('loginPass').value;
-  if (USERS[u] && USERS[u] === p) {
-    currentUser = u;
-    // Recordar sesión si el checkbox está marcado
-    if(document.getElementById('rememberMe').checked){
-      try{ localStorage.setItem('op_user', u); localStorage.setItem('op_pass', p); }catch(e){}
-    } else {
-      try{ localStorage.removeItem('op_user'); localStorage.removeItem('op_pass'); }catch(e){}
+  hashPass(p).then(hash => {
+    if (!USERS[u] || USERS[u] !== hash) {
+      document.getElementById('loginError').textContent = 'Usuario o contraseña incorrectos.';
+      return;
     }
+    document.getElementById('loginError').textContent = '';
+    currentUser = u;
+    refreshSessionExpiry();
+    // Recordar sesión si el checkbox está marcado (guardamos hash, nunca texto plano)
+    if(document.getElementById('rememberMe').checked){
+      try{ localStorage.setItem('op_user', u); localStorage.setItem('op_pass_h', hash); }catch(e){}
+    } else {
+      try{ localStorage.removeItem('op_user'); localStorage.removeItem('op_pass_h'); }catch(e){}
+    }
+    // Limpiar clave plana antigua si existía
+    try{ localStorage.removeItem('op_pass'); }catch(e){}
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('app').style.display='flex';
     document.getElementById('sidebarUser').textContent = u.charAt(0).toUpperCase()+u.slice(1);
@@ -1320,19 +1360,18 @@ function doLogin() {
     // Init cloud sync
     initSupabase().then(() => { loadFromCloud(); loadAllSharedDatasets(); startSharedDatasetsPolling(); });
     document.getElementById('topbarDate').textContent = new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-    document.getElementById('entradaFecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('entradaFecha').value = new Date().toLocaleDateString('en-CA');
     renderDashboard();
     renderDeuda();
     renderAlertas();
     renderHistorico();
-  } else {
-    document.getElementById('loginError').textContent='Usuario o contraseña incorrectos.';
-  }
+  });
 }
 document.addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
 function doLogout() {
   currentUser=null;
+  try{ localStorage.removeItem('op_user'); localStorage.removeItem('op_pass_h'); localStorage.removeItem('op_expiry'); }catch(e){}
   stopSharedDatasetsPolling();
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('app').style.display='none';
@@ -1346,9 +1385,8 @@ function doLogout() {
 // ═══════════════════════════════════════════════════════
 const TITLES = { dashboard:'Dashboard', historico:'Histórico', alertas:'Alertas', entrada:'Volcado Diario', deuda:'Pool de Deuda', pagares:'Pagarés & Confirming', proveedores:'Pagos a Proveedores', ventas:'Ventas (Caja)', compras:'Compras a Proveedores', familias:'Ventas por Familias', chat:'Chat IA' };
 function showView(id) {
-  if(['ventas','compras','familias'].includes(id) && !OPERACIONES_ACCESO.includes(currentUser)){
-    id='dashboard';
-  }
+  const blocked = USER_BLOCKED[currentUser] || [];
+  if(blocked.includes(id)){ id='dashboard'; }
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('v-'+id).classList.add('active');
@@ -3534,15 +3572,23 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('togglePassBtn').addEventListener('click', togglePass);
 
   document.getElementById('entradaFecha').value = new Date().toISOString().split('T')[0];
-  // Auto-login si hay sesión guardada
+  // Auto-login si hay sesión guardada y no ha expirado
   try{
     const su = localStorage.getItem('op_user');
-    const sp = localStorage.getItem('op_pass');
-    if(su && sp && USERS[su] && USERS[su]===sp){
-      document.getElementById('loginUser').value = su;
-      document.getElementById('loginPass').value = sp;
-      document.getElementById('rememberMe').checked = true;
-      doLogin();
+    const sh = localStorage.getItem('op_pass_h');
+    if(su && sh && USERS[su] && USERS[su]===sh && !isSessionExpired()){
+      currentUser = su;
+      refreshSessionExpiry();
+      document.getElementById('loginScreen').style.display='none';
+      document.getElementById('app').style.display='flex';
+      document.getElementById('sidebarUser').textContent = su.charAt(0).toUpperCase()+su.slice(1);
+      document.getElementById('topbarUser').textContent = su.charAt(0).toUpperCase()+su.slice(1);
+      applyAccessControl();
+      updateStorageStatus();
+      initSupabase().then(() => { loadFromCloud(); loadAllSharedDatasets(); startSharedDatasetsPolling(); });
+      document.getElementById('topbarDate').textContent = new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+      document.getElementById('entradaFecha').value = new Date().toLocaleDateString('en-CA');
+      renderDashboard(); renderDeuda(); renderAlertas(); renderHistorico();
     }
   }catch(e){}
 
@@ -3585,20 +3631,24 @@ function saveNewPass(){
   const cf  = document.getElementById('cpConfirm').value;
   const err = document.getElementById('cpError');
   if(!cur || !nw || !cf){ err.textContent = 'Rellena todos los campos.'; return; }
-  if(USERS[currentUser] !== cur){ err.textContent = 'La contraseña actual no es correcta.'; return; }
   if(nw.length < 6){ err.textContent = 'La nueva contraseña debe tener al menos 6 caracteres.'; return; }
   if(nw !== cf){ err.textContent = 'Las contraseñas nuevas no coinciden.'; return; }
-  USERS[currentUser] = nw;
-  try{
-    const saved = JSON.parse(localStorage.getItem('op_passwords')||'{}');
-    saved[currentUser] = nw;
-    localStorage.setItem('op_passwords', JSON.stringify(saved));
-    if(document.getElementById('rememberMe')?.checked){
-      localStorage.setItem('op_pass', nw);
-    }
-  }catch(e){}
-  closeChangePass();
-  showToast('✅ Contraseña actualizada correctamente', 'ok');
+  hashPass(cur).then(curHash => {
+    if(USERS[currentUser] !== curHash){ err.textContent = 'La contraseña actual no es correcta.'; return; }
+    hashPass(nw).then(newHash => {
+      USERS[currentUser] = newHash;
+      try{
+        const saved = JSON.parse(localStorage.getItem('op_passwords')||'{}');
+        saved[currentUser] = newHash;
+        localStorage.setItem('op_passwords', JSON.stringify(saved));
+        // Actualizar hash guardado en sesión si hay recordar sesión
+        const su = localStorage.getItem('op_user');
+        if(su === currentUser) localStorage.setItem('op_pass_h', newHash);
+      }catch(e){}
+      closeChangePass();
+      showToast('✅ Contraseña actualizada correctamente', 'ok');
+    });
+  });
 }
 </script>
 
