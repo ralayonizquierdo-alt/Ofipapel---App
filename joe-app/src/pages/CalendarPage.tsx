@@ -385,22 +385,23 @@ export default function CalendarPage() {
 
             <div className="px-6 py-5 space-y-4 overflow-y-auto">
               <div>
-                <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Título</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={editEvent.title ?? ''}
-                    onChange={e => setEditEvent(p => ({ ...p, title: e.target.value }))}
-                    placeholder="¿Qué tienes?"
-                    className="flex-1 bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] placeholder-[#444] focus:border-[#c9a96e] focus:outline-none transition-colors"
-                  />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs text-[#bbb] uppercase tracking-wider">Título</label>
                   <button
                     onClick={listening ? stopVoice : startVoice}
-                    className={`px-3 py-2.5 rounded-lg border transition-colors ${listening ? 'border-[#e05252] text-[#e05252] bg-[#e0525210]' : 'border-[#3a3a3a] text-[#bbb] hover:border-[#c9a96e] hover:text-[#c9a96e]'}`}
+                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${listening ? 'border-[#e05252] text-[#e05252] bg-[#e0525210]' : 'border-[#3a3a3a] text-[#666] hover:border-[#c9a96e] hover:text-[#c9a96e]'}`}
                   >
-                    {listening ? <MicOff size={16} /> : <Mic size={16} />}
+                    {listening ? <MicOff size={11} /> : <Mic size={11} />}
+                    <span>{listening ? 'Escuchando…' : 'Voz'}</span>
                   </button>
                 </div>
+                <input
+                  type="text"
+                  value={editEvent.title ?? ''}
+                  onChange={e => setEditEvent(p => ({ ...p, title: e.target.value }))}
+                  placeholder="¿Qué tienes?"
+                  className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] placeholder-[#444] focus:border-[#c9a96e] focus:outline-none transition-colors"
+                />
               </div>
 
               <div>
