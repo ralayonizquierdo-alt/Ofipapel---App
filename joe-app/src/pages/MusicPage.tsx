@@ -15,17 +15,6 @@ interface FavoriteArtist {
 }
 
 /* ── constantes ── */
-const RADIO_STATIONS = [
-  { name: 'Rock FM España',     url: 'https://www.rockfm.fm/',            fallback: '🎸' },
-  { name: 'Radio 3 (RNE)',      url: 'https://www.rtve.es/radio/radio3/', fallback: '🎵' },
-  { name: 'M80 Radio',          url: 'https://www.m80radio.com/',          fallback: '🤘' },
-  { name: 'Classic Rock Radio', url: 'https://www.classicrockradio.com/', fallback: '🎺' },
-]
-
-function stationLogoUrl(siteUrl: string) {
-  const domain = new URL(siteUrl).hostname
-  return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
-}
 
 const ROCK_QUOTES = [
   { quote: 'Rock and roll is here to stay, it will never die.', author: 'Neil Young' },
@@ -386,33 +375,30 @@ export default function MusicPage() {
             </div>
           </div>
 
-          {/* Emisoras */}
-          <div className="card">
-            <h3 className="font-display text-base font-semibold text-[#e0e0e0] flex items-center gap-2 mb-4">
-              <Radio size={16} className="text-[#e05252]" /> Emisoras Rock
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {RADIO_STATIONS.map(s => (
-                <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2.5 p-3 rounded-xl bg-[#111] border border-[#2a2a2a] hover:border-[#e05252] hover:bg-[#e0525208] transition-all group">
-                  <img
-                    src={stationLogoUrl(s.url)}
-                    alt={s.name}
-                    className="w-7 h-7 rounded object-contain"
-                    onError={e => {
-                      const t = e.currentTarget
-                      t.style.display = 'none'
-                      const fb = t.nextElementSibling as HTMLElement | null
-                      if (fb) fb.style.display = 'inline'
-                    }}
-                  />
-                  <span className="text-xl" style={{ display: 'none' }}>{s.fallback}</span>
-                  <span className="text-xs text-[#888] group-hover:text-[#e0e0e0] transition-colors leading-tight">{s.name}</span>
-                  <ExternalLink size={10} className="ml-auto text-[#444] group-hover:text-[#e05252]" />
-                </a>
-              ))}
+          {/* Emisoras — portal radio.es */}
+          <a href="https://www.radio.es/genre/rock" target="_blank" rel="noopener noreferrer"
+            className="block card group transition-all hover:border-[#e05252]"
+            style={{ background: 'linear-gradient(135deg, #110808 0%, #0e0e0e 60%, #0d0814 100%)', borderColor: '#2a1a1a' }}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center bg-[#1a1a1a]">
+                <img
+                  src="https://www.google.com/s2/favicons?domain=radio.es&sz=64"
+                  alt="radio.es"
+                  className="w-8 h-8 object-contain"
+                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-display text-base font-bold text-[#e0e0e0] group-hover:text-white transition-colors">radio.es</p>
+                <p className="text-xs text-[#666]">Emisoras rock en directo</p>
+              </div>
+              <ExternalLink size={14} className="text-[#444] group-hover:text-[#e05252] transition-colors flex-shrink-0" />
             </div>
-          </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#e0525210] border border-[#e05252]/20 group-hover:bg-[#e0525220] transition-all">
+              <Radio size={14} className="text-[#e05252] flex-shrink-0" />
+              <span className="text-xs text-[#bbb] group-hover:text-[#e0e0e0] transition-colors">Miles de emisoras en un solo lugar</span>
+            </div>
+          </a>
 
           {/* Frase rock del día */}
           <div className="card" style={{ background: 'linear-gradient(135deg, #120808 0%, #111 100%)', borderColor: '#2a1a1a' }}>
