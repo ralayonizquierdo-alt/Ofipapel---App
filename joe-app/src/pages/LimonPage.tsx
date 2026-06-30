@@ -165,7 +165,7 @@ export default function LimonPage() {
           {notifPerm === 'default' && (
             <button
               onClick={requestNotifPermission}
-              className="flex items-center gap-2 text-xs text-[#888] hover:text-[#c9a96e] border border-[#2a2a2a] hover:border-[#c9a96e40] px-3 py-2 rounded-lg transition-all"
+              className="flex items-center gap-2 text-xs text-[#bbb] hover:text-[#c9a96e] border border-[#2a2a2a] hover:border-[#c9a96e40] px-3 py-2 rounded-lg transition-all"
             >
               <Bell size={13} /> Activar avisos / alarmas
             </button>
@@ -210,7 +210,7 @@ export default function LimonPage() {
                   <div key={r.id} className="flex items-center gap-3 text-sm">
                     <Icon size={14} style={{ color: cfg.color }} />
                     <span className="text-[#e0e0e0] flex-1 font-medium">{r.title}</span>
-                    {r.description && <span className="text-[#888] text-xs truncate max-w-[160px]">{r.description}</span>}
+                    {r.description && <span className="text-[#bbb] text-xs truncate max-w-[160px]">{r.description}</span>}
                     <span className="text-[#e0a84a] text-xs font-semibold">¡Hoy!</span>
                   </div>
                 )
@@ -234,7 +234,7 @@ export default function LimonPage() {
                 <div key={r.id} className="flex items-center gap-3 text-sm">
                   <Icon size={14} style={{ color: cfg.color }} />
                   <span className="text-[#ccc] flex-1">{r.title}</span>
-                  <span className="text-[#888] text-xs">
+                  <span className="text-[#bbb] text-xs">
                     {format(parseISO(r.next_date!), "d MMM", { locale: es })}
                   </span>
                 </div>
@@ -249,7 +249,7 @@ export default function LimonPage() {
         <button
           onClick={() => setFilter('all')}
           className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-            filter === 'all' ? 'bg-[#c9a96e] text-[#0a0a0a] border-[#c9a96e]' : 'border-[#2a2a2a] text-[#888] hover:border-[#3a3a3a]'
+            filter === 'all' ? 'bg-[#c9a96e] text-[#0a0a0a] border-[#c9a96e]' : 'border-[#2a2a2a] text-[#bbb] hover:border-[#3a3a3a]'
           }`}
         >
           Todo
@@ -262,7 +262,7 @@ export default function LimonPage() {
               key={key}
               onClick={() => setFilter(key)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                filter === key ? 'text-[#0a0a0a] border-transparent' : 'border-[#2a2a2a] text-[#888]'
+                filter === key ? 'text-[#0a0a0a] border-transparent' : 'border-[#2a2a2a] text-[#bbb]'
               }`}
               style={filter === key ? { backgroundColor: cfg.color } : {}}
             >
@@ -276,8 +276,8 @@ export default function LimonPage() {
       {filtered.length === 0 ? (
         <div className="card text-center py-16">
           <span className="text-5xl">🍋</span>
-          <p className="text-[#555] mt-4">Sin registros aún</p>
-          <p className="text-[#444] text-sm">Añade la primera entrada de Limón</p>
+          <p className="text-[#999] mt-4">Sin registros aún</p>
+          <p className="text-[#888] text-sm">Añade la primera entrada de Limón</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -304,14 +304,14 @@ export default function LimonPage() {
                       )}
                     </div>
                     {r.description && (
-                      <p className="text-xs text-[#666] mt-0.5 truncate">{r.description}</p>
+                      <p className="text-xs text-[#aaa] mt-0.5 truncate">{r.description}</p>
                     )}
                     <div className="flex items-center gap-3 mt-1.5">
-                      <span className="text-xs text-[#555]">
+                      <span className="text-xs text-[#999]">
                         {format(parseISO(r.date), "d MMM yyyy", { locale: es })}
                       </span>
                       {r.next_date && (
-                        <span className="text-xs text-[#888]">
+                        <span className="text-xs text-[#bbb]">
                           → próxima: {format(parseISO(r.next_date), "d MMM", { locale: es })}
                         </span>
                       )}
@@ -319,7 +319,7 @@ export default function LimonPage() {
                   </div>
                   <button
                     onClick={e => { e.stopPropagation(); del(r.id) }}
-                    className="text-[#444] hover:text-[#e05252] opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                    className="text-[#888] hover:text-[#e05252] opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
                   >
                     <X size={14} />
                   </button>
@@ -336,14 +336,14 @@ export default function LimonPage() {
           <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-2xl w-full max-w-md animate-fadeIn">
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a]">
               <h3 className="font-display text-lg font-semibold text-[#e0e0e0]">Registro de Limón</h3>
-              <button onClick={() => { setShowModal(false); setForm(emptyForm()) }} className="text-[#555] hover:text-[#888]">
+              <button onClick={() => { setShowModal(false); setForm(emptyForm()) }} className="text-[#999] hover:text-[#bbb]">
                 <X size={20} />
               </button>
             </div>
             <div className="px-6 py-5 space-y-4">
               {/* Tipo */}
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-2">Tipo</label>
+                <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-2">Tipo</label>
                 <div className="grid grid-cols-5 gap-1.5">
                   {(Object.keys(TYPE_CONFIG) as RecordType[]).map(key => {
                     const cfg = TYPE_CONFIG[key]
@@ -353,7 +353,7 @@ export default function LimonPage() {
                         key={key}
                         onClick={() => setForm(p => ({ ...p, type: key }))}
                         className={`flex flex-col items-center gap-1 py-2 rounded-lg border text-xs transition-all ${
-                          form.type === key ? 'border-transparent text-[#0a0a0a]' : 'border-[#2a2a2a] text-[#666]'
+                          form.type === key ? 'border-transparent text-[#0a0a0a]' : 'border-[#2a2a2a] text-[#aaa]'
                         }`}
                         style={form.type === key ? { backgroundColor: cfg.color } : {}}
                       >
@@ -365,7 +365,7 @@ export default function LimonPage() {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Título</label>
+                <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Título</label>
                 <input
                   type="text"
                   value={form.title ?? ''}
@@ -376,12 +376,12 @@ export default function LimonPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Fecha</label>
+                  <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Fecha</label>
                   <input type="date" value={form.date ?? ''} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
                     className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#c9a96e] focus:outline-none" />
                 </div>
                 <div>
-                  <label className="text-xs text-[#888] uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                  <label className="text-xs text-[#bbb] uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
                     <BellRing size={11} className="text-[#e0a84a]" /> Aviso / Alarma
                   </label>
                   <div className="flex gap-2">
@@ -390,12 +390,12 @@ export default function LimonPage() {
                     <input type="time" value={form.next_time ?? ''} onChange={e => setForm(p => ({ ...p, next_time: e.target.value }))}
                       className="w-28 bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#c9a96e] focus:outline-none" />
                   </div>
-                  <p className="text-[10px] text-[#555] mt-1">Sonará a la hora indicada (o al abrir la app si no hay hora)</p>
+                  <p className="text-[10px] text-[#999] mt-1">Sonará a la hora indicada (o al abrir la app si no hay hora)</p>
                 </div>
               </div>
               {(form.type === 'weight' || form.type === 'medication' || form.type === 'food') && (
                 <div>
-                  <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">
+                  <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">
                     {form.type === 'weight' ? 'Peso (kg)' : form.type === 'medication' ? 'Dosis' : 'Cantidad/Marca'}
                   </label>
                   <input type="text" value={form.value ?? ''} onChange={e => setForm(p => ({ ...p, value: e.target.value }))}
@@ -404,9 +404,9 @@ export default function LimonPage() {
               )}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs text-[#888] uppercase tracking-wider">Notas</label>
+                  <label className="text-xs text-[#bbb] uppercase tracking-wider">Notas</label>
                   <button onClick={startVoiceDesc}
-                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${listeningDesc ? 'border-[#e05252] text-[#e05252]' : 'border-[#3a3a3a] text-[#555] hover:border-[#c9a96e] hover:text-[#c9a96e]'}`}>
+                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${listeningDesc ? 'border-[#e05252] text-[#e05252]' : 'border-[#3a3a3a] text-[#999] hover:border-[#c9a96e] hover:text-[#c9a96e]'}`}>
                     {listeningDesc ? <MicOff size={12} /> : <Mic size={12} />}
                     {listeningDesc ? 'Escuchando…' : 'Voz'}
                   </button>

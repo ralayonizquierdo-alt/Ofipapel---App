@@ -71,45 +71,45 @@ export default function Layout() {
               Joe's World
             </h1>
           </div>
-          <p className="text-[#555] text-[10px] mt-2 font-light tracking-[0.3em] uppercase ml-11">
+          <p className="text-[#999] text-[10px] mt-2 font-light tracking-[0.3em] uppercase ml-11">
             tu espacio personal
           </p>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-6 space-y-0.5">
+        <nav className="flex-1 px-3 py-6 space-y-1">
           {nav.map(({ to, icon: Icon, label, color }) => (
             <NavLink
               key={to}
               to={to}
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                  isActive ? 'border border-[#2a2a2a]' : 'hover:bg-[#161616] border border-transparent'
+                `flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 group ${
+                  isActive ? 'border border-[#2a2a2a]' : 'hover:bg-[#1e1e1e] border border-transparent'
                 }`
               }
-              style={({ isActive }) => isActive ? { background: `linear-gradient(135deg, ${color}12, ${color}06)` } : {}}
+              style={({ isActive }) => isActive ? { background: `linear-gradient(135deg, ${color}15, ${color}08)` } : {}}
             >
               {({ isActive }) => (
                 <>
                   <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                    style={isActive ? { backgroundColor: color + '20' } : { backgroundColor: '#1a1a1a' }}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                    style={isActive ? { backgroundColor: color + '25' } : { backgroundColor: '#222' }}
                   >
                     <Icon
-                      size={16}
-                      style={{ color: isActive ? color : '#555' }}
+                      size={20}
+                      style={{ color: isActive ? color : '#aaa' }}
                     />
                   </div>
                   <span
-                    className="text-sm font-medium transition-colors duration-200"
-                    style={{ color: isActive ? '#e0e0e0' : '#555' }}
+                    className="text-base font-medium transition-colors duration-200"
+                    style={{ color: isActive ? '#f0f0f0' : '#aaa' }}
                   >
                     {label}
                   </span>
                   {isActive && (
                     <div
-                      className="ml-auto w-1 h-4 rounded-full"
+                      className="ml-auto w-1.5 h-5 rounded-full"
                       style={{ backgroundColor: color }}
                     />
                   )}
@@ -143,18 +143,19 @@ export default function Layout() {
       <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
         {/* Top bar mobile */}
         <header
-          className="md:hidden flex items-center gap-3 px-4 py-4"
-          style={{ background: '#111', borderBottom: '1px solid #1e1e1e' }}
+          className="md:hidden flex items-center gap-3 px-5 py-4"
+          style={{ background: '#111', borderBottom: '1px solid #2a2a2a' }}
         >
           <button
             onClick={() => setOpen(!open)}
-            className="text-[#666] hover:text-[#c9a96e] transition-colors"
+            className="p-2 rounded-lg transition-colors"
+            style={{ color: '#bbb' }}
           >
-            {open ? <X size={22} /> : <Menu size={22} />}
+            {open ? <X size={26} /> : <Menu size={26} />}
           </button>
-          <div className="flex items-center gap-2">
-            <div className="w-1 h-4 rounded-full" style={{ backgroundColor: currentNav?.color ?? '#c9a96e' }} />
-            <span className="font-display text-lg font-semibold" style={{ color: currentNav?.color ?? '#c9a96e' }}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-1.5 h-6 rounded-full" style={{ backgroundColor: currentNav?.color ?? '#c9a96e' }} />
+            <span className="font-display text-xl font-semibold" style={{ color: currentNav?.color ?? '#c9a96e' }}>
               {currentNav?.label ?? "Joe's World"}
             </span>
           </div>

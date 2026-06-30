@@ -5,17 +5,21 @@
   --gold-light: #e2c99a;
   --burgundy: #722f37;
   --burgundy-light: #9b3f4a;
-  --charcoal: #1a1a1a;
+  --charcoal: #1c1c1c;
   --carbon: #111111;
   --obsidian: #0a0a0a;
   --smoke: #2a2a2a;
-  --ash: #3a3a3a;
-  --silver: #888888;
-  --pearl: #cccccc;
+  --ash: #484848;      /* era #3a3a3a — bordes más visibles */
+  --silver: #c0c0c0;   /* era #888888 — texto btn-ghost más legible */
+  --pearl: #e8e8e8;    /* era #cccccc — texto base más brillante */
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  font-size: 18px; /* base up from 16px: todo lo rem escala +12.5% */
 }
 
 html, body, #root {
@@ -29,6 +33,7 @@ body {
   color: var(--pearl);
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
+  line-height: 1.65;
 }
 
 .font-display {
@@ -70,8 +75,8 @@ body {
 .card {
   background: var(--charcoal);
   border: 1px solid var(--ash);
-  border-radius: 12px;
-  padding: 1.25rem;
+  border-radius: 16px;
+  padding: 1.5rem;
 }
 
 .card:hover {
@@ -83,11 +88,13 @@ body {
 .btn-primary {
   background: linear-gradient(135deg, var(--gold), #a07840);
   color: var(--obsidian);
-  font-weight: 600;
-  border-radius: 8px;
-  padding: 0.5rem 1.25rem;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 0.65rem 1.5rem;
+  min-height: 44px;
   border: none;
   cursor: pointer;
+  font-size: 0.95rem;
   transition: opacity 0.2s ease, transform 0.1s ease;
 }
 
@@ -100,9 +107,11 @@ body {
   background: transparent;
   color: var(--silver);
   border: 1px solid var(--ash);
-  border-radius: 8px;
-  padding: 0.5rem 1.25rem;
+  border-radius: 10px;
+  padding: 0.65rem 1.5rem;
+  min-height: 44px;
   cursor: pointer;
+  font-size: 0.95rem;
   transition: all 0.2s ease;
 }
 
