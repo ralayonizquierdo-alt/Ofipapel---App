@@ -156,7 +156,7 @@ export default function ShiftsPage() {
               <div key={d} className="text-center text-base text-[#aaa] font-bold py-2">{d}</div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-1 overflow-hidden">
             {days.map(day => {
               const shift = dayShift(day)
               const isSelected = isSameDay(day, selected)
@@ -173,19 +173,19 @@ export default function ShiftsPage() {
                     setShowModal(true)
                   }}
                   className={`
-                    flex flex-col items-center py-2 rounded-lg transition-all min-h-[76px] border
+                    flex flex-col items-center py-2 px-0.5 rounded-lg transition-all min-h-[76px] border
                     ${isSelected ? 'border-[#c9a96e]' : 'border-transparent'}
                     ${!isCurrentMon ? 'opacity-25' : ''}
                     ${cfg ? '' : 'hover:bg-[#1a1a1a]'}
                   `}
                   style={cfg ? { backgroundColor: cfg.bg, borderColor: isSelected ? '#c9a96e' : cfg.color + '30' } : {}}
                 >
-                  <span className={`text-lg font-bold w-10 h-10 flex items-center justify-center rounded-full
+                  <span className={`text-lg font-bold w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full
                     ${isToday(day) ? 'bg-[#c9a96e] text-[#0a0a0a]' : 'text-[#f0f0f0]'}
                   `}>
                     {format(day, 'd')}
                   </span>
-                  {Icon && <Icon size={16} className="mt-0.5" style={{ color: cfg!.color }} />}
+                  {Icon && <Icon size={14} className="mt-0.5 flex-shrink-0" style={{ color: cfg!.color }} />}
                 </button>
               )
             })}
