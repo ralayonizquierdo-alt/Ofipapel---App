@@ -128,21 +128,22 @@ export default function LimonPage() {
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: 'radial-gradient(ellipse at 80% 30%, #c9a96e12 0%, transparent 50%)' }} />
 
-        {/* Foto real de Limón — fondo difuminado */}
-        <div className="absolute right-0 inset-y-0 w-56 pointer-events-none"
-          style={{ opacity: 0.25, filter: 'blur(3px)' }}>
-          <img src={`${import.meta.env.BASE_URL}limon.png`} alt="" className="w-full h-full object-contain object-center" />
-        </div>
-
-        {/* Foto real de Limón — destacada, contenida en el hero */}
-        <div className="absolute right-2 inset-y-0 w-48 pointer-events-none flex items-center"
-          style={{ filter: 'drop-shadow(0 0 24px #6db56d40)' }}>
-          <img src={`${import.meta.env.BASE_URL}limon.png`} alt="Limón" className="w-full h-full object-contain" />
+        {/* Rectángulo marrón con la foto de Limón */}
+        <div className="absolute right-0 inset-y-0 w-52 overflow-hidden pointer-events-none"
+          style={{ background: '#1e1008' }}>
+          <img
+            src={`${import.meta.env.BASE_URL}limon.png`}
+            alt="Limón"
+            className="w-full h-full object-cover object-center"
+          />
+          {/* sombra interior izquierda para fundir con el fondo */}
+          <div className="absolute inset-0 pointer-events-none"
+            style={{ background: 'linear-gradient(to right, #0e1a0e 0%, transparent 45%)' }} />
         </div>
 
         {/* Overlay para que el texto sea legible */}
         <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'linear-gradient(to right, #0e1a0e 38%, transparent 72%)' }} />
+          style={{ background: 'linear-gradient(to right, #0e1a0e 32%, transparent 62%)' }} />
 
         {/* Texto */}
         <div className="relative z-10 px-7 py-7">
