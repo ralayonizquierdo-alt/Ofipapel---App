@@ -272,8 +272,8 @@ export default function CoisinhasPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-2xl w-full max-w-md animate-fadeIn">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a]">
+          <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-2xl w-full max-w-md animate-fadeIn overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a] flex-shrink-0">
               <h3 className="font-display text-lg font-semibold text-[#e0e0e0]">
                 {form.id ? 'Editar' : 'Nueva coisinha'}
               </h3>
@@ -281,7 +281,7 @@ export default function CoisinhasPage() {
                 <X size={20} />
               </button>
             </div>
-            <div className="px-6 py-5 space-y-4">
+            <div className="px-6 py-5 space-y-4 overflow-y-auto">
               {/* Tipo */}
               <div>
                 <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-2">Tipo</label>
