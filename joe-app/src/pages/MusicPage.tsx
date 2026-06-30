@@ -79,6 +79,13 @@ const DEFAULT_ARTISTS: FavoriteArtist[] = [
     embed_url: 'https://open.spotify.com/embed/artist/58lV9VcRSjABbAbfWS6skp?utm_source=generator&theme=0',
     created_at: '2000-01-01T00:00:00Z',
   },
+  {
+    id: '__default_bruno_mars__',
+    name: 'Bruno Mars',
+    spotify_url: 'https://open.spotify.com/artist/0du5cEVh5yTK9QJze8zA0C',
+    embed_url: 'https://open.spotify.com/embed/artist/0du5cEVh5yTK9QJze8zA0C?utm_source=generator&theme=0',
+    created_at: '2000-01-02T00:00:00Z',
+  },
 ]
 
 /* ── helpers ── */
