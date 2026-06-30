@@ -147,13 +147,6 @@ export default function WelcomeModal({ onClose }: WelcomeModalProps) {
                   {getGreeting()}
                 </span>
               </div>
-              {/* Limón mini */}
-              <div className="flex-shrink-0 w-12 h-12 rounded-xl overflow-hidden border border-[#c9a96e20]"
-                style={{ background: 'linear-gradient(135deg, #1a1a1a, #111)' }}>
-                <div className="w-full h-full flex items-center justify-center text-2xl">
-                  🐱
-                </div>
-              </div>
             </div>
 
             {/* Nombre */}
@@ -175,10 +168,6 @@ export default function WelcomeModal({ onClose }: WelcomeModalProps) {
               <span className="text-[9px] tracking-[0.3em] text-[#444] uppercase">Rock & Soul</span>
               <div className="h-[1px] flex-1" style={{ background: 'linear-gradient(90deg, transparent, #722f3740)' }} />
             </div>
-
-            {/* Comillas decorativas */}
-            <div className="text-4xl leading-none mb-1 font-display"
-              style={{ color: '#c9a96e20' }}>"</div>
 
             {/* Frase del día */}
             <blockquote className="pl-3 border-l-2 border-[#c9a96e30] mb-4">
