@@ -330,10 +330,16 @@ export default function CoisinhasPage() {
                   </button>
                 </div>
                 <textarea
+                  ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' } }}
                   value={form.content ?? ''}
-                  onChange={e => setForm(p => ({ ...p, content: e.target.value }))}
-                  rows={2}
-                  className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] placeholder-[#444] focus:border-[#d4609e] focus:outline-none resize-none"
+                  onChange={e => {
+                    setForm(p => ({ ...p, content: e.target.value }))
+                    e.currentTarget.style.height = 'auto'
+                    e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'
+                  }}
+                  rows={3}
+                  className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] placeholder-[#444] focus:border-[#d4609e] focus:outline-none resize-none overflow-hidden"
+                  style={{ minHeight: '80px' }}
                 />
               </div>
 
