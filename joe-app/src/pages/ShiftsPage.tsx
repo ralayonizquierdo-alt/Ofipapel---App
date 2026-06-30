@@ -104,18 +104,18 @@ export default function ShiftsPage() {
     <div className="animate-fadeIn max-w-4xl mx-auto">
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-2">
         <div>
           <h2 className="font-display text-3xl font-bold text-gold-gradient capitalize">Turnos</h2>
           <p className="text-[#aaa] text-sm mt-1">
             {tabShifts.filter(s => s.shift_type !== 'free').length} turnos este mes
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center sm:justify-end gap-2">
           <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="btn-ghost p-2 rounded-lg">
             <ChevronLeft size={18} />
           </button>
-          <span className="text-base text-[#ddd] font-semibold capitalize min-w-[140px] text-center">
+          <span className="text-base text-[#ddd] font-semibold capitalize min-w-[110px] text-center">
             {format(currentMonth, 'MMMM yyyy', { locale: es })}
           </span>
           <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="btn-ghost p-2 rounded-lg">
