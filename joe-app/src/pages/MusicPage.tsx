@@ -1,11 +1,18 @@
-import { useState, useEffect } from 'react'
-import { Plus, Trash2, Music2, Radio, ExternalLink, X, Quote, Star } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, Trash2, Music2, Radio, X, Quote, Star, Play, Square, Loader2 } from 'lucide-react'
 import { getDayOfYear } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import type { SpotifyPlaylist } from '../types'
 import { GuitarBackground, VinylRecord } from '../components/RockBackground'
 
 /* ── tipos ── */
+interface RadioStation {
+  stationuuid: string
+  name: string
+  url_resolved: string
+  favicon: string
+}
+
 interface FavoriteArtist {
   id: string
   name: string
@@ -111,10 +118,22 @@ export default function MusicPage() {
   const [artistForm, setArtistForm] = useState({ name: '', spotify_url: '' })
   const [playlistForm, setPlaylistForm] = useState({ name: '', spotify_uri: '' })
   const [artistError, setArtistError] = useState<string | null>(null)
+  const [radioStations, setRadioStations] = useState<RadioStation[]>([])
+  const [activeStation, setActiveStation] = useState<RadioStation | null>(null)
+  const [radioPlaying, setRadioPlaying] = useState(false)
+  const [radioLoading, setRadioLoading] = useState(false)
+  const [radioError, setRadioError] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const todayQuote = ROCK_QUOTES[getDayOfYear(new Date()) % ROCK_QUOTES.length]
 
   useEffect(() => { loadAll() }, [])
+  useEffect(() => {
+    fetch('https://de1.api.radio-browser.info/json/stations/search?' + new URLSearchParams({
+      tag: 'rock', limit: '8', order: 'clickcount', reverse: 'true', hidebroken: 'true',
+    })).then(r => r.json()).then(setRadioStations).catch(() => {})
+    return () => { audioRef.current?.pause() }
+  }, [])
 
   useEffect(() => {
     if (artists.length === 0) return
@@ -213,12 +232,30 @@ export default function MusicPage() {
     loadAll()
   }
 
+  function stopRadio() {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
+    setActiveStation(null); setRadioPlaying(false); setRadioLoading(false)
+  }
+
+  function playStation(station: RadioStation) {
+    if (activeStation?.stationuuid === station.stationuuid) { stopRadio(); return }
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = '' }
+    setActiveStation(station); setRadioLoading(true); setRadioError(null); setRadioPlaying(false)
+    const audio = new Audio(station.url_resolved)
+    audioRef.current = audio
+    audio.addEventListener('playing', () => { setRadioPlaying(true); setRadioLoading(false) })
+    audio.addEventListener('error', () => { setRadioError('No se puede reproducir esta emisora'); setRadioLoading(false); setRadioPlaying(false) })
+    audio.play().catch(() => { setRadioError('Error al iniciar la emisora'); setRadioLoading(false) })
+  }
+
   function selectArtist(a: FavoriteArtist) {
+    stopRadio()
     setActiveArtist(a)
     setActivePlaylist(null)
   }
 
   function selectPlaylist(p: SpotifyPlaylist) {
+    stopRadio()
     setActivePlaylist(p)
     setActiveArtist(null)
   }
@@ -375,30 +412,51 @@ export default function MusicPage() {
             </div>
           </div>
 
-          {/* Emisoras — portal radio.es */}
-          <a href="https://www.radio.es/genre/rock" target="_blank" rel="noopener noreferrer"
-            className="block card group transition-all hover:border-[#e05252]"
-            style={{ background: 'linear-gradient(135deg, #110808 0%, #0e0e0e 60%, #0d0814 100%)', borderColor: '#2a1a1a' }}>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center bg-[#1a1a1a]">
-                <img
-                  src="https://www.google.com/s2/favicons?domain=radio.es&sz=64"
-                  alt="radio.es"
-                  className="w-8 h-8 object-contain"
-                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-display text-base font-bold text-[#e0e0e0] group-hover:text-white transition-colors">radio.es</p>
-                <p className="text-xs text-[#666]">Emisoras rock en directo</p>
-              </div>
-              <ExternalLink size={14} className="text-[#444] group-hover:text-[#e05252] transition-colors flex-shrink-0" />
+          {/* Emisoras Rock — reproductor integrado */}
+          <div className="card">
+            <div className="flex items-center gap-2 mb-3">
+              <Radio size={15} className="text-[#e05252]" />
+              <h3 className="font-display text-base font-semibold text-[#e0e0e0] flex-1">Emisoras Rock</h3>
+              {activeStation && radioPlaying && (
+                <span className="flex items-center gap-1 text-xs text-[#e05252]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#e05252] animate-pulse" />
+                  En directo
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#e0525210] border border-[#e05252]/20 group-hover:bg-[#e0525220] transition-all">
-              <Radio size={14} className="text-[#e05252] flex-shrink-0" />
-              <span className="text-xs text-[#bbb] group-hover:text-[#e0e0e0] transition-colors">Miles de emisoras en un solo lugar para mi querida Joe !!</span>
+            {radioError && (
+              <p className="text-xs text-[#e05252] mb-2">{radioError}</p>
+            )}
+            {radioStations.length === 0 && (
+              <div className="flex items-center gap-2 py-3 justify-center">
+                <Loader2 size={14} className="text-[#555] animate-spin" />
+                <span className="text-xs text-[#555]">Cargando emisoras…</span>
+              </div>
+            )}
+            <div className="space-y-0.5">
+              {radioStations.map(s => {
+                const isActive = activeStation?.stationuuid === s.stationuuid
+                return (
+                  <button key={s.stationuuid} onClick={() => playStation(s)}
+                    className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all text-left ${
+                      isActive ? 'bg-[#e0525212] border border-[#e05252]/25' : 'hover:bg-[#1a1a1a] border border-transparent'
+                    }`}>
+                    {s.favicon
+                      ? <img src={s.favicon} alt="" className="w-5 h-5 rounded flex-shrink-0 object-contain"
+                          onError={e => { (e.currentTarget as HTMLImageElement).replaceWith(Object.assign(document.createElement('span'), { className: 'w-5 h-5 flex-shrink-0', innerHTML: '📻' })) }} />
+                      : <Radio size={13} className="text-[#555] flex-shrink-0" />
+                    }
+                    <span className={`text-xs flex-1 truncate ${isActive ? 'text-[#e0e0e0] font-medium' : 'text-[#888]'}`}>
+                      {s.name}
+                    </span>
+                    {isActive && radioLoading && <Loader2 size={12} className="text-[#e05252] animate-spin flex-shrink-0" />}
+                    {isActive && radioPlaying && <Square size={10} className="text-[#e05252] fill-[#e05252] flex-shrink-0" />}
+                    {!isActive && <Play size={10} className="text-[#444] flex-shrink-0" />}
+                  </button>
+                )
+              })}
             </div>
-          </a>
+          </div>
 
           {/* Frase rock del día */}
           <div className="card" style={{ background: 'linear-gradient(135deg, #120808 0%, #111 100%)', borderColor: '#2a1a1a' }}>
