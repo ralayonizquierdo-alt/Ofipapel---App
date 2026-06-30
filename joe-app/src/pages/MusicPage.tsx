@@ -396,7 +396,7 @@ export default function MusicPage() {
             </div>
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#e0525210] border border-[#e05252]/20 group-hover:bg-[#e0525220] transition-all">
               <Radio size={14} className="text-[#e05252] flex-shrink-0" />
-              <span className="text-xs text-[#bbb] group-hover:text-[#e0e0e0] transition-colors">Miles de emisoras en un solo lugar</span>
+              <span className="text-xs text-[#bbb] group-hover:text-[#e0e0e0] transition-colors">Miles de emisoras en un solo lugar para mi querida Joe !!</span>
             </div>
           </a>
 
