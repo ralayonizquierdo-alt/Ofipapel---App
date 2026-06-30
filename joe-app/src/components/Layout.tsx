@@ -193,13 +193,6 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* Limón photo in sidebar */}
-        <div className="absolute bottom-20 right-0 w-32 pointer-events-none select-none" style={{ opacity: 0.28, zIndex: 1 }}>
-          <img src={`${import.meta.env.BASE_URL}limon.png`} alt="" className="w-full" />
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, #141414 0%, transparent 45%)' }} />
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, #141414 0%, transparent 35%)' }} />
-        </div>
-
         {/* Footer con notas musicales */}
         <div className="px-6 py-5 relative" style={{ borderTop: '1px solid #1a1a1a', zIndex: 1 }}>
           <div className="flex items-center justify-center gap-2">
