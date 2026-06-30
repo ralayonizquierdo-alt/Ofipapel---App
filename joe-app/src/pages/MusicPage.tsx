@@ -129,9 +129,21 @@ export default function MusicPage() {
 
   useEffect(() => { loadAll() }, [])
   useEffect(() => {
-    fetch('https://de1.api.radio-browser.info/json/stations/search?' + new URLSearchParams({
-      tag: 'rock', limit: '8', order: 'clickcount', reverse: 'true', hidebroken: 'true',
-    })).then(r => r.json()).then(setRadioStations).catch(() => {})
+    const params = (tag: string) => new URLSearchParams({
+      tag, limit: '20', order: 'clickcount', reverse: 'true', hidebroken: 'true',
+    }).toString()
+    const base = 'https://de1.api.radio-browser.info/json/stations/search?'
+    Promise.all([
+      fetch(base + params('rock')).then(r => r.json()),
+      fetch(base + params('metal')).then(r => r.json()),
+    ]).then(([rock, metal]) => {
+      const seen = new Set<string>()
+      const merged: RadioStation[] = []
+      for (const s of [...rock, ...metal]) {
+        if (!seen.has(s.stationuuid)) { seen.add(s.stationuuid); merged.push(s) }
+      }
+      setRadioStations(merged)
+    }).catch(() => {})
     return () => { audioRef.current?.pause() }
   }, [])
 
@@ -433,7 +445,7 @@ export default function MusicPage() {
                 <span className="text-xs text-[#555]">Cargando emisoras…</span>
               </div>
             )}
-            <div className="space-y-0.5">
+            <div className="space-y-0.5 max-h-72 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#333 transparent' }}>
               {radioStations.map(s => {
                 const isActive = activeStation?.stationuuid === s.stationuuid
                 return (
