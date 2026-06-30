@@ -127,7 +127,7 @@ export default function CoisinhasPage() {
           }}>
             Meu Coisinhas
           </h2>
-          <p className="text-[#666] text-sm mt-1">
+          <p className="text-[#aaa] text-sm mt-1">
             {items.filter(i => !i.done).length} pendientes
           </p>
         </div>
@@ -135,7 +135,7 @@ export default function CoisinhasPage() {
           {notifPerm === 'default' && (
             <button
               onClick={requestNotifPermission}
-              className="flex items-center gap-1.5 text-xs text-[#888] hover:text-[#d4609e] border border-[#2a2a2a] hover:border-[#d4609e40] px-3 py-2 rounded-lg transition-all"
+              className="flex items-center gap-1.5 text-xs text-[#bbb] hover:text-[#d4609e] border border-[#2a2a2a] hover:border-[#d4609e40] px-3 py-2 rounded-lg transition-all"
             >
               <Bell size={13} /> Avisos
             </button>
@@ -165,7 +165,7 @@ export default function CoisinhasPage() {
               <div key={i.id} className="flex items-center gap-3 text-sm">
                 <Bell size={13} style={{ color: '#d4609e' }} />
                 <span className="text-[#e0e0e0] flex-1 font-medium">{i.title}</span>
-                {i.content && <span className="text-[#888] text-xs truncate max-w-[140px]">{i.content}</span>}
+                {i.content && <span className="text-[#bbb] text-xs truncate max-w-[140px]">{i.content}</span>}
                 <span className="text-xs font-semibold" style={{ color: '#d4609e' }}>¡Hoy!</span>
               </div>
             ))}
@@ -180,7 +180,7 @@ export default function CoisinhasPage() {
           className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
             filter === 'all'
               ? 'text-[#0a0a0a] border-transparent'
-              : 'border-[#2a2a2a] text-[#888]'
+              : 'border-[#2a2a2a] text-[#bbb]'
           }`}
           style={filter === 'all' ? { backgroundColor: '#d4609e' } : {}}
         >
@@ -194,7 +194,7 @@ export default function CoisinhasPage() {
               key={key}
               onClick={() => setFilter(key)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                filter === key ? 'text-[#0a0a0a] border-transparent' : 'border-[#2a2a2a] text-[#888]'
+                filter === key ? 'text-[#0a0a0a] border-transparent' : 'border-[#2a2a2a] text-[#bbb]'
               }`}
               style={filter === key ? { backgroundColor: cfg.color } : {}}
             >
@@ -208,8 +208,8 @@ export default function CoisinhasPage() {
       {filtered.length === 0 ? (
         <div className="card text-center py-16">
           <span className="text-5xl">🌟</span>
-          <p className="text-[#555] mt-4">Nada por aquí todavía</p>
-          <p className="text-[#444] text-sm">Añade notas, recordatorios o cosas a comprar</p>
+          <p className="text-[#999] mt-4">Nada por aquí todavía</p>
+          <p className="text-[#888] text-sm">Añade notas, recordatorios o cosas a comprar</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -238,7 +238,7 @@ export default function CoisinhasPage() {
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className={`text-sm font-medium ${item.done ? 'line-through text-[#555]' : 'text-[#e0e0e0]'}`}>
+                    <p className={`text-sm font-medium ${item.done ? 'line-through text-[#999]' : 'text-[#e0e0e0]'}`}>
                       {item.title}
                     </p>
                     {isRemindedToday && (
@@ -248,10 +248,10 @@ export default function CoisinhasPage() {
                     )}
                   </div>
                   {item.content && (
-                    <p className="text-xs text-[#666] mt-0.5 truncate">{item.content}</p>
+                    <p className="text-xs text-[#aaa] mt-0.5 truncate">{item.content}</p>
                   )}
                   {item.reminder_date && (
-                    <p className="text-xs text-[#555] mt-1 flex items-center gap-1">
+                    <p className="text-xs text-[#999] mt-1 flex items-center gap-1">
                       <Bell size={10} style={{ color: '#d4609e' }} />
                       {format(new Date(item.reminder_date + 'T00:00:00'), "d MMM yyyy", { locale: es })}
                     </p>
@@ -259,7 +259,7 @@ export default function CoisinhasPage() {
                 </div>
                 <button
                   onClick={e => { e.stopPropagation(); del(item.id) }}
-                  className="text-[#444] hover:text-[#e05252] opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                  className="text-[#888] hover:text-[#e05252] opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
                 >
                   <X size={14} />
                 </button>
@@ -277,14 +277,14 @@ export default function CoisinhasPage() {
               <h3 className="font-display text-lg font-semibold text-[#e0e0e0]">
                 {form.id ? 'Editar' : 'Nueva coisinha'}
               </h3>
-              <button onClick={() => { setShowModal(false); setForm(emptyForm()) }} className="text-[#555] hover:text-[#888]">
+              <button onClick={() => { setShowModal(false); setForm(emptyForm()) }} className="text-[#999] hover:text-[#bbb]">
                 <X size={20} />
               </button>
             </div>
             <div className="px-6 py-5 space-y-4">
               {/* Tipo */}
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-2">Tipo</label>
+                <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-2">Tipo</label>
                 <div className="grid grid-cols-3 gap-2">
                   {(Object.keys(TYPE_CONFIG) as CoisinhaType[]).map(key => {
                     const cfg = TYPE_CONFIG[key]
@@ -294,7 +294,7 @@ export default function CoisinhasPage() {
                         key={key}
                         onClick={() => setForm(p => ({ ...p, type: key }))}
                         className={`flex items-center gap-2 py-2.5 px-3 rounded-lg border text-xs font-medium transition-all ${
-                          form.type === key ? 'border-transparent text-[#0a0a0a]' : 'border-[#2a2a2a] text-[#888]'
+                          form.type === key ? 'border-transparent text-[#0a0a0a]' : 'border-[#2a2a2a] text-[#bbb]'
                         }`}
                         style={form.type === key ? { backgroundColor: cfg.color } : {}}
                       >
@@ -307,7 +307,7 @@ export default function CoisinhasPage() {
 
               {/* Título */}
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">
+                <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">
                   {form.type === 'compra' ? 'Qué comprar' : 'Título'}
                 </label>
                 <input
@@ -322,9 +322,9 @@ export default function CoisinhasPage() {
               {/* Contenido / detalles */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs text-[#888] uppercase tracking-wider">Detalles</label>
+                  <label className="text-xs text-[#bbb] uppercase tracking-wider">Detalles</label>
                   <button onClick={startVoiceContent}
-                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${listeningContent ? 'border-[#e05252] text-[#e05252]' : 'border-[#3a3a3a] text-[#555] hover:border-[#d4609e] hover:text-[#d4609e]'}`}>
+                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${listeningContent ? 'border-[#e05252] text-[#e05252]' : 'border-[#3a3a3a] text-[#999] hover:border-[#d4609e] hover:text-[#d4609e]'}`}>
                     {listeningContent ? <MicOff size={12} /> : <Mic size={12} />}
                     {listeningContent ? 'Escuchando…' : 'Voz'}
                   </button>
@@ -340,7 +340,7 @@ export default function CoisinhasPage() {
               {/* Recordatorio — solo para tipo recordatorio */}
               {form.type === 'recordatorio' && (
                 <div>
-                  <label className="text-xs text-[#888] uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                  <label className="text-xs text-[#bbb] uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
                     <BellRing size={11} style={{ color: '#d4609e' }} /> Aviso
                   </label>
                   <div className="flex gap-2">
@@ -357,7 +357,7 @@ export default function CoisinhasPage() {
                       className="w-28 bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#d4609e] focus:outline-none"
                     />
                   </div>
-                  <p className="text-[10px] text-[#555] mt-1">Sonará a la hora indicada (o al abrir la app si no hay hora)</p>
+                  <p className="text-[10px] text-[#999] mt-1">Sonará a la hora indicada (o al abrir la app si no hay hora)</p>
                 </div>
               )}
             </div>

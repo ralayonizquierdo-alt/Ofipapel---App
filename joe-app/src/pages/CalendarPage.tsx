@@ -164,7 +164,7 @@ export default function CalendarPage() {
           <h2 className="font-display text-3xl font-bold text-gold-gradient capitalize">
             {format(currentMonth, 'MMMM yyyy', { locale: es })}
           </h2>
-          <p className="text-[#666] text-sm mt-1">Agenda personal</p>
+          <p className="text-[#aaa] text-sm mt-1">Agenda personal</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="btn-ghost p-2 rounded-lg">
@@ -184,7 +184,7 @@ export default function CalendarPage() {
         <div className="lg:col-span-2 card">
           <div className="grid grid-cols-7 mb-2">
             {['L','M','X','J','V','S','D'].map(d => (
-              <div key={d} className="text-center text-xs text-[#555] font-medium py-2">{d}</div>
+              <div key={d} className="text-center text-xs text-[#999] font-medium py-2">{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7 gap-1">
@@ -200,13 +200,13 @@ export default function CalendarPage() {
                   onClick={() => setSelectedDate(day)}
                   onDoubleClick={() => openNewEvent(day)}
                   className={`
-                    relative flex flex-col items-center py-2 px-1 rounded-lg transition-all duration-150 min-h-[56px]
+                    relative flex flex-col items-center py-2 px-1 rounded-lg transition-all duration-150 min-h-[64px]
                     ${isSelected ? 'bg-[#2a2a2a] border border-[#c9a96e]' : 'hover:bg-[#1a1a1a]'}
                     ${!isCurrentMonth ? 'opacity-30' : ''}
                   `}
                 >
-                  <span className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-0.5
-                    ${todayDay ? 'bg-[#c9a96e] text-[#0a0a0a] font-bold' : 'text-[#ccc]'}
+                  <span className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full mb-0.5
+                    ${todayDay ? 'bg-[#c9a96e] text-[#0a0a0a] font-bold' : 'text-[#ddd]'}
                   `}>
                     {format(day, 'd')}
                   </span>
@@ -231,14 +231,14 @@ export default function CalendarPage() {
           <div className="divider-gold my-4" />
           <div className="flex flex-wrap gap-3">
             {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
-              <span key={key} className="flex items-center gap-1.5 text-xs text-[#888]">
+              <span key={key} className="flex items-center gap-1.5 text-xs text-[#bbb]">
                 {cfg.heart
                   ? <Heart size={10} fill="#e8304a" style={{ color: '#e8304a' }} />
                   : <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cfg.color }} />}
                 {cfg.label}
               </span>
             ))}
-            <span className="flex items-center gap-1.5 text-xs text-[#888]">
+            <span className="flex items-center gap-1.5 text-xs text-[#bbb]">
               <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: '#e0a84a' }} /> Turno
             </span>
           </div>
@@ -259,7 +259,7 @@ export default function CalendarPage() {
           </div>
 
           {totalItems === 0 && (
-            <p className="text-[#555] text-sm text-center py-8">Sin entradas para este día</p>
+            <p className="text-[#999] text-sm text-center py-8">Sin entradas para este día</p>
           )}
 
           {/* Turno */}
@@ -278,12 +278,12 @@ export default function CalendarPage() {
                   </span>
                 </div>
                 {selShift.floor && (
-                  <p className="text-xs text-[#888] flex items-center gap-1 ml-5">
+                  <p className="text-xs text-[#bbb] flex items-center gap-1 ml-5">
                     <Layers size={10} /> {selShift.floor}
                   </p>
                 )}
                 {selShift.location && (
-                  <p className="text-xs text-[#888] flex items-center gap-1 ml-5">
+                  <p className="text-xs text-[#bbb] flex items-center gap-1 ml-5">
                     <MapPin size={10} /> {selShift.location}
                   </p>
                 )}
@@ -338,7 +338,7 @@ export default function CalendarPage() {
                           {ev.title}
                         </p>
                         {ev.location && (
-                          <p className="text-xs text-[#888] flex items-center gap-1 mt-0.5">
+                          <p className="text-xs text-[#bbb] flex items-center gap-1 mt-0.5">
                             <MapPin size={10} /> {ev.location}
                           </p>
                         )}
@@ -351,7 +351,7 @@ export default function CalendarPage() {
                       </div>
                       <button
                         onClick={e => { e.stopPropagation(); deleteEvent(ev.id) }}
-                        className="text-[#555] hover:text-[#e05252] transition-colors flex-shrink-0"
+                        className="text-[#999] hover:text-[#e05252] transition-colors flex-shrink-0"
                       >
                         <X size={14} />
                       </button>
@@ -372,7 +372,7 @@ export default function CalendarPage() {
               <h3 className="font-display text-lg font-semibold text-[#e0e0e0]">
                 {editEvent.id ? 'Editar evento' : 'Nuevo evento'}
               </h3>
-              <button onClick={() => { setShowModal(false); setEditEvent(emptyEvent()); setSaveError(null) }} className="text-[#555] hover:text-[#888]">
+              <button onClick={() => { setShowModal(false); setEditEvent(emptyEvent()); setSaveError(null) }} className="text-[#999] hover:text-[#bbb]">
                 <X size={20} />
               </button>
             </div>
@@ -385,7 +385,7 @@ export default function CalendarPage() {
 
             <div className="px-6 py-5 space-y-4">
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Título</label>
+                <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Título</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -396,7 +396,7 @@ export default function CalendarPage() {
                   />
                   <button
                     onClick={listening ? stopVoice : startVoice}
-                    className={`px-3 py-2.5 rounded-lg border transition-colors ${listening ? 'border-[#e05252] text-[#e05252] bg-[#e0525210]' : 'border-[#3a3a3a] text-[#888] hover:border-[#c9a96e] hover:text-[#c9a96e]'}`}
+                    className={`px-3 py-2.5 rounded-lg border transition-colors ${listening ? 'border-[#e05252] text-[#e05252] bg-[#e0525210]' : 'border-[#3a3a3a] text-[#bbb] hover:border-[#c9a96e] hover:text-[#c9a96e]'}`}
                   >
                     {listening ? <MicOff size={16} /> : <Mic size={16} />}
                   </button>
@@ -404,7 +404,7 @@ export default function CalendarPage() {
               </div>
 
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Categoría</label>
+                <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Categoría</label>
                 <div className="grid grid-cols-4 gap-1.5">
                   {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
                     <button
@@ -413,7 +413,7 @@ export default function CalendarPage() {
                       className={`py-1.5 px-2 rounded-lg text-xs font-medium border transition-all ${
                         editEvent.category === key
                           ? 'text-[#0a0a0a] border-transparent'
-                          : 'border-[#2a2a2a] text-[#888] hover:border-[#3a3a3a]'
+                          : 'border-[#2a2a2a] text-[#bbb] hover:border-[#3a3a3a]'
                       }`}
                       style={editEvent.category === key ? { backgroundColor: cfg.color } : {}}
                     >
@@ -425,7 +425,7 @@ export default function CalendarPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Inicio</label>
+                  <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Inicio</label>
                   <input
                     type="datetime-local"
                     value={editEvent.start_time?.slice(0, 16) ?? ''}
@@ -434,7 +434,7 @@ export default function CalendarPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Fin</label>
+                  <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Fin</label>
                   <input
                     type="datetime-local"
                     value={editEvent.end_time?.slice(0, 16) ?? ''}
@@ -445,7 +445,7 @@ export default function CalendarPage() {
               </div>
 
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Ubicación</label>
+                <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Ubicación</label>
                 <input
                   type="text"
                   value={editEvent.location ?? ''}
@@ -456,7 +456,7 @@ export default function CalendarPage() {
               </div>
 
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                <label className="text-xs text-[#bbb] uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
                   <Bell size={12} /> Recordatorio
                 </label>
                 <select
@@ -474,7 +474,7 @@ export default function CalendarPage() {
               </div>
 
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Notas</label>
+                <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Notas</label>
                 <textarea
                   value={editEvent.description ?? ''}
                   onChange={e => setEditEvent(p => ({ ...p, description: e.target.value }))}

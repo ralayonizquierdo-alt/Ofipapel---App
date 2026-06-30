@@ -125,7 +125,7 @@ export default function BusinessPage() {
           }}>
             Empresa
           </h2>
-          <p className="text-[#666] text-sm mt-1">
+          <p className="text-[#aaa] text-sm mt-1">
             {pending.length} pendientes · {done.length} completadas
           </p>
         </div>
@@ -145,7 +145,7 @@ export default function BusinessPage() {
               <BellRing size={14} /> {dueToday.length} tarea{dueToday.length > 1 ? 's' : ''} para hoy
             </p>
             {dueToday.map(t => (
-              <p key={t.id} className="text-xs text-[#888] ml-5">• {t.title}</p>
+              <p key={t.id} className="text-xs text-[#bbb] ml-5">• {t.title}</p>
             ))}
           </div>
         )
@@ -158,7 +158,7 @@ export default function BusinessPage() {
             <AlertCircle size={14} /> {overdue.length} tarea{overdue.length > 1 ? 's' : ''} vencida{overdue.length > 1 ? 's' : ''}
           </p>
           {overdue.map(t => (
-            <p key={t.id} className="text-xs text-[#888] ml-5">• {t.title}</p>
+            <p key={t.id} className="text-xs text-[#bbb] ml-5">• {t.title}</p>
           ))}
         </div>
       )}
@@ -170,7 +170,7 @@ export default function BusinessPage() {
             key={key}
             onClick={() => setFilter(key)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-              filter === key ? 'bg-[#9b6bb5] text-white border-[#9b6bb5]' : 'border-[#2a2a2a] text-[#888]'
+              filter === key ? 'bg-[#9b6bb5] text-white border-[#9b6bb5]' : 'border-[#2a2a2a] text-[#bbb]'
             }`}
           >
             {label}
@@ -182,7 +182,7 @@ export default function BusinessPage() {
       {filtered.length === 0 ? (
         <div className="card text-center py-16">
           <CheckCircle2 size={40} className="mx-auto text-[#2a2a2a] mb-4" />
-          <p className="text-[#555]">{filter === 'done' ? '¡Sin completadas aún!' : '¡Todo al día!'}</p>
+          <p className="text-[#999]">{filter === 'done' ? '¡Sin completadas aún!' : '¡Todo al día!'}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -204,7 +204,7 @@ export default function BusinessPage() {
                 </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className={`text-sm font-medium ${task.done ? 'line-through text-[#555]' : 'text-[#e0e0e0]'}`}>
+                    <p className={`text-sm font-medium ${task.done ? 'line-through text-[#999]' : 'text-[#e0e0e0]'}`}>
                       {task.title}
                     </p>
                     <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: pr.bg, color: pr.color }}>
@@ -212,10 +212,10 @@ export default function BusinessPage() {
                     </span>
                   </div>
                   {task.description && (
-                    <p className="text-xs text-[#666] mt-0.5 truncate">{task.description}</p>
+                    <p className="text-xs text-[#aaa] mt-0.5 truncate">{task.description}</p>
                   )}
                   {task.due_date && (
-                    <p className={`text-xs flex items-center gap-1 mt-1 ${isOverdue ? 'text-[#e05252]' : 'text-[#555]'}`}>
+                    <p className={`text-xs flex items-center gap-1 mt-1 ${isOverdue ? 'text-[#e05252]' : 'text-[#999]'}`}>
                       <Clock size={10} />
                       {format(parseISO(task.due_date), "d MMM yyyy", { locale: es })}
                       {isOverdue && ' — vencida'}
@@ -224,7 +224,7 @@ export default function BusinessPage() {
                 </div>
                 <button
                   onClick={e => { e.stopPropagation(); del(task.id) }}
-                  className="text-[#444] hover:text-[#e05252] opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                  className="text-[#888] hover:text-[#e05252] opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
                 >
                   <X size={14} />
                 </button>
@@ -240,11 +240,11 @@ export default function BusinessPage() {
           <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-2xl w-full max-w-md animate-fadeIn">
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a]">
               <h3 className="font-display text-lg font-semibold text-[#e0e0e0]">{form.id ? 'Editar tarea' : 'Nueva tarea'}</h3>
-              <button onClick={() => { setShowModal(false); setForm(emptyTask()) }} className="text-[#555] hover:text-[#888]"><X size={20} /></button>
+              <button onClick={() => { setShowModal(false); setForm(emptyTask()) }} className="text-[#999] hover:text-[#bbb]"><X size={20} /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Tarea</label>
+                <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Tarea</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -255,21 +255,21 @@ export default function BusinessPage() {
                   />
                   <button
                     onClick={listening ? () => setListening(false) : startVoice}
-                    className={`px-3 rounded-lg border transition-colors ${listening ? 'border-[#e05252] text-[#e05252]' : 'border-[#3a3a3a] text-[#888] hover:border-[#9b6bb5]'}`}
+                    className={`px-3 rounded-lg border transition-colors ${listening ? 'border-[#e05252] text-[#e05252]' : 'border-[#3a3a3a] text-[#bbb] hover:border-[#9b6bb5]'}`}
                   >
                     {listening ? <MicOff size={16} /> : <Mic size={16} />}
                   </button>
                 </div>
               </div>
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Prioridad</label>
+                <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Prioridad</label>
                 <div className="grid grid-cols-3 gap-2">
                   {(Object.keys(PRIORITY) as (keyof typeof PRIORITY)[]).map(key => (
                     <button
                       key={key}
                       onClick={() => setForm(p => ({ ...p, priority: key }))}
                       className={`py-2 rounded-lg border text-xs font-medium transition-all ${
-                        form.priority === key ? 'border-transparent text-[#0a0a0a]' : 'border-[#2a2a2a] text-[#888]'
+                        form.priority === key ? 'border-transparent text-[#0a0a0a]' : 'border-[#2a2a2a] text-[#bbb]'
                       }`}
                       style={form.priority === key ? { backgroundColor: PRIORITY[key].color } : {}}
                     >
@@ -279,7 +279,7 @@ export default function BusinessPage() {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-[#888] uppercase tracking-wider block mb-1.5">Fecha límite</label>
+                <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Fecha límite</label>
                 <div className="flex gap-2">
                   <input type="date" value={form.due_date ?? ''} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))}
                     className="flex-1 bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] focus:border-[#9b6bb5] focus:outline-none" />
@@ -289,9 +289,9 @@ export default function BusinessPage() {
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs text-[#888] uppercase tracking-wider">Notas</label>
+                  <label className="text-xs text-[#bbb] uppercase tracking-wider">Notas</label>
                   <button onClick={startVoiceDesc}
-                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${listeningDesc ? 'border-[#e05252] text-[#e05252]' : 'border-[#3a3a3a] text-[#555] hover:border-[#9b6bb5] hover:text-[#9b6bb5]'}`}>
+                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${listeningDesc ? 'border-[#e05252] text-[#e05252]' : 'border-[#3a3a3a] text-[#999] hover:border-[#9b6bb5] hover:text-[#9b6bb5]'}`}>
                     {listeningDesc ? <MicOff size={12} /> : <Mic size={12} />}
                     {listeningDesc ? 'Escuchando…' : 'Voz'}
                   </button>
