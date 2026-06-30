@@ -16,11 +16,16 @@ interface FavoriteArtist {
 
 /* ── constantes ── */
 const RADIO_STATIONS = [
-  { name: 'Rock FM España',     url: 'https://www.rockfm.fm/', logo: '🎸' },
-  { name: 'Radio 3 (RNE)',      url: 'https://www.rtve.es/radio/radio3/', logo: '🎵' },
-  { name: 'M80 Radio',          url: 'https://www.m80radio.com/', logo: '🤘' },
-  { name: 'Classic Rock Radio', url: 'https://www.classicrockradio.com/', logo: '🎺' },
+  { name: 'Rock FM España',     url: 'https://www.rockfm.fm/',            fallback: '🎸' },
+  { name: 'Radio 3 (RNE)',      url: 'https://www.rtve.es/radio/radio3/', fallback: '🎵' },
+  { name: 'M80 Radio',          url: 'https://www.m80radio.com/',          fallback: '🤘' },
+  { name: 'Classic Rock Radio', url: 'https://www.classicrockradio.com/', fallback: '🎺' },
 ]
+
+function stationLogoUrl(siteUrl: string) {
+  const domain = new URL(siteUrl).hostname
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
+}
 
 const ROCK_QUOTES = [
   { quote: 'Rock and roll is here to stay, it will never die.', author: 'Neil Young' },
@@ -355,7 +360,18 @@ export default function MusicPage() {
               {RADIO_STATIONS.map(s => (
                 <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-2.5 p-3 rounded-xl bg-[#111] border border-[#2a2a2a] hover:border-[#e05252] hover:bg-[#e0525208] transition-all group">
-                  <span className="text-xl">{s.logo}</span>
+                  <img
+                    src={stationLogoUrl(s.url)}
+                    alt={s.name}
+                    className="w-7 h-7 rounded object-contain"
+                    onError={e => {
+                      const t = e.currentTarget
+                      t.style.display = 'none'
+                      const fb = t.nextElementSibling as HTMLElement | null
+                      if (fb) fb.style.display = 'inline'
+                    }}
+                  />
+                  <span className="text-xl" style={{ display: 'none' }}>{s.fallback}</span>
                   <span className="text-xs text-[#888] group-hover:text-[#e0e0e0] transition-colors leading-tight">{s.name}</span>
                   <ExternalLink size={10} className="ml-auto text-[#444] group-hover:text-[#e05252]" />
                 </a>
