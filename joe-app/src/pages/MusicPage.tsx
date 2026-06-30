@@ -104,6 +104,7 @@ export default function MusicPage() {
   const [showAddPlaylist, setShowAddPlaylist] = useState(false)
   const [artistForm, setArtistForm] = useState({ name: '', spotify_url: '' })
   const [playlistForm, setPlaylistForm] = useState({ name: '', spotify_uri: '' })
+  const [artistError, setArtistError] = useState<string | null>(null)
 
   const todayQuote = ROCK_QUOTES[getDayOfYear(new Date()) % ROCK_QUOTES.length]
 
@@ -115,10 +116,12 @@ export default function MusicPage() {
       supabase.from('spotify_playlists').select('*').order('created_at'),
     ])
     const artData: FavoriteArtist[] = artRes.data ?? []
-    if (artData.length === 0) {
-      await supabase.from('favorite_artists').insert(BON_JOVI_SEED)
-      const { data: seeded } = await supabase.from('favorite_artists').select('*').order('created_at')
-      setArtists(seeded ?? [])
+    if (!artRes.error && artData.length === 0) {
+      const { error: seedErr } = await supabase.from('favorite_artists').insert(BON_JOVI_SEED)
+      if (!seedErr) {
+        const { data: seeded } = await supabase.from('favorite_artists').select('*').order('created_at')
+        setArtists(seeded ?? [])
+      }
     } else {
       setArtists(artData)
     }
@@ -127,13 +130,21 @@ export default function MusicPage() {
 
   async function addArtist() {
     const url = artistForm.spotify_url.trim()
-    if (!artistForm.name.trim() || !url) return
+    if (!artistForm.name.trim()) { setArtistError('Escribe el nombre del artista'); return }
+    if (!url) { setArtistError('Pega el enlace de Spotify del artista'); return }
     const embed_url = toArtistEmbedUrl(url)
-    if (!embed_url) return
-    await supabase.from('favorite_artists').insert({ name: artistForm.name.trim(), spotify_url: url, embed_url })
+    if (!embed_url) {
+      setArtistError('URL no válida — copia desde Spotify → artista → ··· → Compartir → Copiar enlace')
+      return
+    }
+    setArtistError(null)
+    const { error } = await supabase.from('favorite_artists').insert({
+      name: artistForm.name.trim(), spotify_url: url, embed_url,
+    })
+    if (error) { setArtistError(`Error al guardar: ${error.message}`); return }
     setArtistForm({ name: '', spotify_url: '' })
     setShowAddArtist(false)
-    loadAll()
+    await loadAll()
   }
 
   async function deleteArtist(id: string) {
@@ -357,14 +368,19 @@ export default function MusicPage() {
           <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-2xl w-full max-w-sm animate-fadeIn">
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a]">
               <h3 className="font-display text-lg font-semibold text-[#e0e0e0]">Añadir Artista</h3>
-              <button onClick={() => setShowAddArtist(false)} className="text-[#555] hover:text-[#888]"><X size={20} /></button>
+              <button onClick={() => { setShowAddArtist(false); setArtistError(null); setArtistForm({ name: '', spotify_url: '' }) }} className="text-[#555] hover:text-[#888]"><X size={20} /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
+              {artistError && (
+                <div className="px-3 py-2.5 rounded-lg bg-[#e0525215] border border-[#e05252]/40 text-sm text-[#e05252]">
+                  {artistError}
+                </div>
+              )}
               <div>
                 <label className="text-xs text-[#bbb] uppercase tracking-wider block mb-1.5">Nombre del artista</label>
                 <input type="text" value={artistForm.name}
                   onChange={e => setArtistForm(p => ({ ...p, name: e.target.value }))}
-                  placeholder="Ej: Bon Jovi"
+                  placeholder="Ej: AC/DC"
                   className="w-full bg-[#111] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-[#e0e0e0] placeholder-[#444] focus:border-[#c9a96e] focus:outline-none" />
               </div>
               <div>
@@ -377,7 +393,7 @@ export default function MusicPage() {
               </div>
             </div>
             <div className="px-6 py-4 border-t border-[#2a2a2a] flex justify-end gap-2">
-              <button onClick={() => setShowAddArtist(false)} className="btn-ghost">Cancelar</button>
+              <button onClick={() => { setShowAddArtist(false); setArtistError(null); setArtistForm({ name: '', spotify_url: '' }) }} className="btn-ghost">Cancelar</button>
               <button onClick={addArtist} className="btn-primary">Añadir</button>
             </div>
           </div>
