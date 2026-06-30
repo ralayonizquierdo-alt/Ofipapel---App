@@ -108,6 +108,7 @@ function artistInitial(name: string) {
 /* ── componente ── */
 export default function MusicPage() {
   const [artists, setArtists] = useState<FavoriteArtist[]>(DEFAULT_ARTISTS)
+  const [artistImages, setArtistImages] = useState<Record<string, string>>({})
   const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([])
   const [activeArtist, setActiveArtist] = useState<FavoriteArtist | null>(null)
   const [activePlaylist, setActivePlaylist] = useState<SpotifyPlaylist | null>(null)
@@ -120,6 +121,29 @@ export default function MusicPage() {
   const todayQuote = ROCK_QUOTES[getDayOfYear(new Date()) % ROCK_QUOTES.length]
 
   useEffect(() => { loadAll() }, [])
+
+  useEffect(() => {
+    if (artists.length === 0) return
+    const missing = artists.filter(a => !artistImages[a.id])
+    if (missing.length === 0) return
+    Promise.all(
+      missing.map(async a => {
+        try {
+          const res = await fetch(
+            `https://open.spotify.com/oembed?url=${encodeURIComponent(a.spotify_url)}`
+          )
+          if (!res.ok) return null
+          const data = await res.json()
+          return data.thumbnail_url ? { id: a.id, url: data.thumbnail_url as string } : null
+        } catch { return null }
+      })
+    ).then(results => {
+      const imgs: Record<string, string> = {}
+      for (const r of results) { if (r) imgs[r.id] = r.url }
+      if (Object.keys(imgs).length > 0)
+        setArtistImages(prev => ({ ...prev, ...imgs }))
+    })
+  }, [artists])
 
   async function loadAll() {
     const [artRes, plRes] = await Promise.all([
@@ -295,10 +319,13 @@ export default function MusicPage() {
                       style={{ background: isActive ? grad : '#111' }}
                     >
                       <div
-                        className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-black text-white shadow-lg"
-                        style={{ background: grad }}
+                        className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-black text-white shadow-lg overflow-hidden"
+                        style={{ background: artistImages[a.id] ? '#111' : grad }}
                       >
-                        {artistInitial(a.name)}
+                        {artistImages[a.id]
+                          ? <img src={artistImages[a.id]} alt={a.name} className="w-full h-full object-cover" />
+                          : artistInitial(a.name)
+                        }
                       </div>
                       <span className="text-xs font-semibold text-center leading-tight line-clamp-2"
                         style={{ color: isActive ? '#fff' : '#ccc' }}>
