@@ -125,7 +125,7 @@ export default function CoisinhasPage() {
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
           }}>
-            Meu Coisinhas
+            Minhas Coisinhas
           </h2>
           <p className="text-[#aaa] text-sm mt-1">
             {items.filter(i => !i.done).length} pendientes
