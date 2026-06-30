@@ -424,11 +424,11 @@ export default function MusicPage() {
             </div>
           </div>
 
-          {/* Emisoras Rock — reproductor integrado */}
+          {/* Mis emisoras de rock — reproductor integrado */}
           <div className="card">
             <div className="flex items-center gap-2 mb-3">
               <Radio size={15} className="text-[#e05252]" />
-              <h3 className="font-display text-base font-semibold text-[#e0e0e0] flex-1">Emisoras Rock</h3>
+              <h3 className="font-display text-base font-semibold text-[#e0e0e0] flex-1">Mis emisoras de rock</h3>
               {activeStation && radioPlaying && (
                 <span className="flex items-center gap-1 text-xs text-[#e05252]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#e05252] animate-pulse" />
