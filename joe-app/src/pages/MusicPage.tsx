@@ -71,11 +71,15 @@ const ARTIST_COLORS = [
   'linear-gradient(135deg, #4a9ec9, #0a3050)',
 ]
 
-const BON_JOVI_SEED: Omit<FavoriteArtist, 'id' | 'created_at'> = {
-  name: 'Bon Jovi',
-  spotify_url: 'https://open.spotify.com/artist/58lV9VcRSjABbAbfWS6skp',
-  embed_url: 'https://open.spotify.com/embed/artist/58lV9VcRSjABbAbfWS6skp?utm_source=generator&theme=0',
-}
+const DEFAULT_ARTISTS: FavoriteArtist[] = [
+  {
+    id: '__default_bon_jovi__',
+    name: 'Bon Jovi',
+    spotify_url: 'https://open.spotify.com/artist/58lV9VcRSjABbAbfWS6skp',
+    embed_url: 'https://open.spotify.com/embed/artist/58lV9VcRSjABbAbfWS6skp?utm_source=generator&theme=0',
+    created_at: '2000-01-01T00:00:00Z',
+  },
+]
 
 /* ── helpers ── */
 function toArtistEmbedUrl(input: string): string {
@@ -96,7 +100,7 @@ function artistInitial(name: string) {
 
 /* ── componente ── */
 export default function MusicPage() {
-  const [artists, setArtists] = useState<FavoriteArtist[]>([])
+  const [artists, setArtists] = useState<FavoriteArtist[]>(DEFAULT_ARTISTS)
   const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([])
   const [activeArtist, setActiveArtist] = useState<FavoriteArtist | null>(null)
   const [activePlaylist, setActivePlaylist] = useState<SpotifyPlaylist | null>(null)
@@ -115,15 +119,19 @@ export default function MusicPage() {
       supabase.from('favorite_artists').select('*').order('created_at'),
       supabase.from('spotify_playlists').select('*').order('created_at'),
     ])
-    const artData: FavoriteArtist[] = artRes.data ?? []
-    if (!artRes.error && artData.length === 0) {
-      const { error: seedErr } = await supabase.from('favorite_artists').insert(BON_JOVI_SEED)
-      if (!seedErr) {
-        const { data: seeded } = await supabase.from('favorite_artists').select('*').order('created_at')
-        setArtists(seeded ?? [])
-      }
-    } else {
-      setArtists(artData)
+    if (artRes.data) {
+      setArtists(prev => {
+        const merged = [...DEFAULT_ARTISTS]
+        for (const db of artRes.data!) {
+          if (!merged.some(d => d.spotify_url === db.spotify_url)) merged.push(db)
+        }
+        // keep any optimistic (local_) adds not yet confirmed in DB
+        for (const local of prev) {
+          if (local.id.startsWith('local_') && !merged.some(d => d.spotify_url === local.spotify_url))
+            merged.push(local)
+        }
+        return merged
+      })
     }
     if (plRes.data) setPlaylists(plRes.data)
   }
@@ -138,19 +146,31 @@ export default function MusicPage() {
       return
     }
     setArtistError(null)
-    const { error } = await supabase.from('favorite_artists').insert({
-      name: artistForm.name.trim(), spotify_url: url, embed_url,
-    })
+    const name = artistForm.name.trim()
+    const { error } = await supabase.from('favorite_artists').insert({ name, spotify_url: url, embed_url })
     if (error) { setArtistError(`Error al guardar: ${error.message}`); return }
+    // optimistic update so the artist appears immediately even if SELECT is blocked
+    const optimistic: FavoriteArtist = {
+      id: `local_${Date.now()}`,
+      name, spotify_url: url, embed_url,
+      created_at: new Date().toISOString(),
+    }
+    setArtists(prev => {
+      const deduped = prev.filter(a => a.spotify_url !== url)
+      return [...deduped, optimistic]
+    })
     setArtistForm({ name: '', spotify_url: '' })
     setShowAddArtist(false)
-    await loadAll()
+    loadAll() // try to swap in real DB id; harmless if SELECT is blocked
   }
 
   async function deleteArtist(id: string) {
-    await supabase.from('favorite_artists').delete().eq('id', id)
     if (activeArtist?.id === id) setActiveArtist(null)
-    loadAll()
+    setArtists(prev => prev.filter(a => a.id !== id))
+    if (!id.startsWith('__default_') && !id.startsWith('local_')) {
+      await supabase.from('favorite_artists').delete().eq('id', id)
+      loadAll()
+    }
   }
 
   async function addPlaylist() {
@@ -278,12 +298,14 @@ export default function MusicPage() {
                         {a.name}
                       </span>
                     </button>
-                    <button
-                      onClick={() => deleteArtist(a.id)}
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#1a1a1a] border border-[#3a3a3a] text-[#555] hover:text-[#e05252] hover:border-[#e05252] transition-all flex items-center justify-center opacity-0 group-hover:opacity-100"
-                    >
-                      <X size={10} />
-                    </button>
+                    {!a.id.startsWith('__default_') && (
+                      <button
+                        onClick={() => deleteArtist(a.id)}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#1a1a1a] border border-[#3a3a3a] text-[#555] hover:text-[#e05252] hover:border-[#e05252] transition-all flex items-center justify-center opacity-0 group-hover:opacity-100"
+                      >
+                        <X size={10} />
+                      </button>
+                    )}
                   </div>
                 )
               })}
