@@ -11,7 +11,7 @@ const nav = [
   { to: '/empresa', icon: Briefcase,    label: 'Empresa',  color: '#9b6bb5' },
   { to: '/musica',  icon: Music2,       label: 'Música',   color: '#e05252' },
   { to: '/limon',      icon: Cat,      label: 'Limón 🍋',    color: '#6db56d' },
-  { to: '/coisinhas', icon: Sparkles, label: 'Coisinhas ✨', color: '#d4609e' },
+  { to: '/coisinhas', icon: Sparkles, label: 'Minhas Coisinhas ✨', color: '#d4609e' },
 ]
 
 /* SVG decorativo — silueta botánica floral, cubre toda la barra lateral */
