@@ -115,7 +115,7 @@ export default function ShiftsPage() {
           <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="btn-ghost p-2 rounded-lg">
             <ChevronLeft size={18} />
           </button>
-          <span className="text-sm text-[#bbb] capitalize min-w-[120px] text-center">
+          <span className="text-base text-[#ddd] font-semibold capitalize min-w-[140px] text-center">
             {format(currentMonth, 'MMMM yyyy', { locale: es })}
           </span>
           <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="btn-ghost p-2 rounded-lg">
@@ -133,7 +133,7 @@ export default function ShiftsPage() {
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl text-base font-semibold border transition-all ${
                 isActive
                   ? 'border-transparent text-[#0a0a0a]'
                   : 'border-[#2a2a2a] text-[#aaa] hover:border-[#3a3a3a] hover:text-[#aaa]'
@@ -153,7 +153,7 @@ export default function ShiftsPage() {
         <div className="lg:col-span-2 card">
           <div className="grid grid-cols-7 mb-2">
             {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => (
-              <div key={d} className="text-center text-xs text-[#999] py-2">{d}</div>
+              <div key={d} className="text-center text-base text-[#aaa] font-bold py-2">{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7 gap-1">
@@ -173,19 +173,19 @@ export default function ShiftsPage() {
                     setShowModal(true)
                   }}
                   className={`
-                    flex flex-col items-center py-2 rounded-lg transition-all min-h-[56px] border
+                    flex flex-col items-center py-2 rounded-lg transition-all min-h-[76px] border
                     ${isSelected ? 'border-[#c9a96e]' : 'border-transparent'}
                     ${!isCurrentMon ? 'opacity-25' : ''}
                     ${cfg ? '' : 'hover:bg-[#1a1a1a]'}
                   `}
                   style={cfg ? { backgroundColor: cfg.bg, borderColor: isSelected ? '#c9a96e' : cfg.color + '30' } : {}}
                 >
-                  <span className={`text-xs w-6 h-6 flex items-center justify-center rounded-full
-                    ${isToday(day) ? 'bg-[#c9a96e] text-[#0a0a0a] font-bold' : 'text-[#ccc]'}
+                  <span className={`text-lg font-bold w-10 h-10 flex items-center justify-center rounded-full
+                    ${isToday(day) ? 'bg-[#c9a96e] text-[#0a0a0a]' : 'text-[#f0f0f0]'}
                   `}>
                     {format(day, 'd')}
                   </span>
-                  {Icon && <Icon size={12} className="mt-0.5" style={{ color: cfg!.color }} />}
+                  {Icon && <Icon size={16} className="mt-0.5" style={{ color: cfg!.color }} />}
                 </button>
               )
             })}
@@ -196,8 +196,8 @@ export default function ShiftsPage() {
             {Object.entries(SHIFT_CONFIG).map(([key, cfg]) => {
               const Icon = cfg.icon
               return (
-                <span key={key} className="flex items-center gap-1.5 text-xs text-[#bbb]">
-                  <Icon size={12} style={{ color: cfg.color }} /> {cfg.label}
+                <span key={key} className="flex items-center gap-1.5 text-sm text-[#bbb]">
+                  <Icon size={14} style={{ color: cfg.color }} /> {cfg.label}
                 </span>
               )
             })}
@@ -207,7 +207,7 @@ export default function ShiftsPage() {
         {/* Panel día */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display text-lg font-semibold capitalize text-[#e0e0e0]">
+            <h3 className="font-display text-2xl font-bold capitalize text-[#f0f0f0]">
               {format(selected, "EEE d MMM", { locale: es })}
             </h3>
             <button
@@ -220,32 +220,32 @@ export default function ShiftsPage() {
 
           {(() => {
             const shift = dayShift(selected)
-            if (!shift) return <p className="text-[#999] text-sm text-center py-8">Sin turno asignado</p>
+            if (!shift) return <p className="text-[#999] text-base text-center py-8">Sin turno asignado</p>
             const cfg = SHIFT_CONFIG[shift.shift_type]
             const Icon = cfg.icon
             return (
               <div className="rounded-xl p-4 border" style={{ backgroundColor: cfg.bg, borderColor: cfg.color + '40' }}>
                 <div className="flex items-center gap-3 mb-3">
-                  <Icon size={22} style={{ color: cfg.color }} />
-                  <span className="font-semibold text-[#e0e0e0]">{cfg.label}</span>
+                  <Icon size={26} style={{ color: cfg.color }} />
+                  <span className="text-xl font-bold text-[#f0f0f0]">{cfg.label}</span>
                   <button onClick={() => deleteShift(shift.id)} className="ml-auto text-[#999] hover:text-[#e05252]">
-                    <X size={14} />
+                    <X size={16} />
                   </button>
                 </div>
                 {activeTab === 'hospital' && shift.floor && (
-                  <p className="text-sm text-[#bbb] flex items-center gap-1.5 mb-1">
-                    <Layers size={12} /> Planta: {shift.floor}
+                  <p className="text-base text-[#bbb] flex items-center gap-1.5 mb-1">
+                    <Layers size={14} /> Planta: {shift.floor}
                   </p>
                 )}
                 {shift.location && (
-                  <p className="text-sm text-[#bbb] flex items-center gap-1.5">
-                    <MapPin size={12} /> {shift.location}
+                  <p className="text-base text-[#bbb] flex items-center gap-1.5">
+                    <MapPin size={14} /> {shift.location}
                   </p>
                 )}
-                {shift.notes && <p className="text-xs text-[#aaa] mt-2">{shift.notes}</p>}
+                {shift.notes && <p className="text-sm text-[#bbb] mt-2">{shift.notes}</p>}
                 <button
                   onClick={() => { setForm(shift); setShowModal(true) }}
-                  className="mt-3 text-xs text-[#bbb] hover:text-[#c9a96e] transition-colors"
+                  className="mt-3 text-sm text-[#bbb] hover:text-[#c9a96e] transition-colors"
                 >
                   Editar
                 </button>
@@ -254,17 +254,17 @@ export default function ShiftsPage() {
           })()}
 
           <div className="divider-gold my-4" />
-          <h4 className="text-xs text-[#aaa] uppercase tracking-wider mb-3">Este mes</h4>
+          <h4 className="text-sm text-[#aaa] uppercase tracking-wider mb-3">Este mes</h4>
           <div className="space-y-2">
             {Object.entries(SHIFT_CONFIG).map(([key, cfg]) => {
               const count = tabShifts.filter(s => s.shift_type === key).length
               const Icon = cfg.icon
               return (
-                <div key={key} className="flex items-center justify-between text-sm">
+                <div key={key} className="flex items-center justify-between text-base">
                   <span className="flex items-center gap-2 text-[#bbb]">
-                    <Icon size={14} style={{ color: cfg.color }} /> {cfg.label}
+                    <Icon size={16} style={{ color: cfg.color }} /> {cfg.label}
                   </span>
-                  <span className="font-medium" style={{ color: count > 0 ? cfg.color : '#444' }}>{count}</span>
+                  <span className="font-bold text-lg" style={{ color: count > 0 ? cfg.color : '#555' }}>{count}</span>
                 </div>
               )
             })}

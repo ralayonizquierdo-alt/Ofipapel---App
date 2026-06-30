@@ -184,7 +184,7 @@ export default function CalendarPage() {
         <div className="lg:col-span-2 card">
           <div className="grid grid-cols-7 mb-2">
             {['L','M','X','J','V','S','D'].map(d => (
-              <div key={d} className="text-center text-sm text-[#666] font-semibold py-2">{d}</div>
+              <div key={d} className="text-center text-base text-[#aaa] font-bold py-2">{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7 gap-1">
@@ -200,13 +200,13 @@ export default function CalendarPage() {
                   onClick={() => setSelectedDate(day)}
                   onDoubleClick={() => openNewEvent(day)}
                   className={`
-                    relative flex flex-col items-center py-2 px-1 rounded-lg transition-all duration-150 min-h-[68px]
+                    relative flex flex-col items-center py-2 px-1 rounded-lg transition-all duration-150 min-h-[80px]
                     ${isSelected ? 'bg-[#2a2a2a] border border-[#c9a96e]' : 'hover:bg-[#1a1a1a]'}
                     ${!isCurrentMonth ? 'opacity-30' : ''}
                   `}
                 >
-                  <span className={`text-sm font-semibold w-8 h-8 flex items-center justify-center rounded-full mb-0.5
-                    ${todayDay ? 'bg-[#c9a96e] text-[#0a0a0a] font-bold' : 'text-[#ddd]'}
+                  <span className={`text-lg font-bold w-10 h-10 flex items-center justify-center rounded-full mb-0.5
+                    ${todayDay ? 'bg-[#c9a96e] text-[#0a0a0a]' : 'text-[#f0f0f0]'}
                   `}>
                     {format(day, 'd')}
                   </span>
@@ -231,15 +231,15 @@ export default function CalendarPage() {
           <div className="divider-gold my-4" />
           <div className="flex flex-wrap gap-3">
             {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
-              <span key={key} className="flex items-center gap-1.5 text-sm text-[#888]">
+              <span key={key} className="flex items-center gap-1.5 text-base text-[#bbb]">
                 {cfg.heart
-                  ? <Heart size={11} fill="#e8304a" style={{ color: '#e8304a' }} />
-                  : <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cfg.color }} />}
+                  ? <Heart size={13} fill="#e8304a" style={{ color: '#e8304a' }} />
+                  : <span className="w-3 h-3 rounded-full" style={{ backgroundColor: cfg.color }} />}
                 {cfg.label}
               </span>
             ))}
-            <span className="flex items-center gap-1.5 text-sm text-[#888]">
-              <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#e0a84a' }} /> Turno
+            <span className="flex items-center gap-1.5 text-base text-[#bbb]">
+              <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#e0a84a' }} /> Turno
             </span>
           </div>
         </div>
@@ -247,7 +247,7 @@ export default function CalendarPage() {
         {/* Tablón del día */}
         <div className="card flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-display text-lg font-semibold capitalize text-[#e0e0e0]">
+            <h3 className="font-display text-2xl font-bold capitalize text-[#f0f0f0]">
               {format(selectedDate, "EEE d MMM", { locale: es })}
             </h3>
             <button
@@ -259,7 +259,7 @@ export default function CalendarPage() {
           </div>
 
           {totalItems === 0 && (
-            <p className="text-[#999] text-sm text-center py-8">Sin entradas para este día</p>
+            <p className="text-[#999] text-base text-center py-8">Sin entradas para este día</p>
           )}
 
           {/* Turno */}
@@ -271,20 +271,20 @@ export default function CalendarPage() {
             return (
               <div className="rounded-xl p-3 border" style={{ backgroundColor: sc.bg, borderColor: sc.color + '40' }}>
                 <div className="flex items-center gap-2 mb-1">
-                  <SI size={16} style={{ color: sc.color }} />
-                  <span className="text-base font-semibold text-[#e0e0e0]">{sc.label}</span>
-                  <span className="ml-auto flex items-center gap-1 text-sm" style={{ color: cc.color }}>
-                    <CI size={13} /> {cc.label}
+                  <SI size={20} style={{ color: sc.color }} />
+                  <span className="text-xl font-bold text-[#f0f0f0]">{sc.label}</span>
+                  <span className="ml-auto flex items-center gap-1.5 text-base font-medium" style={{ color: cc.color }}>
+                    <CI size={15} /> {cc.label}
                   </span>
                 </div>
                 {selShift.floor && (
-                  <p className="text-sm text-[#888] flex items-center gap-1 ml-5">
-                    <Layers size={12} /> {selShift.floor}
+                  <p className="text-base text-[#bbb] flex items-center gap-1.5 ml-6">
+                    <Layers size={13} /> {selShift.floor}
                   </p>
                 )}
                 {selShift.location && (
-                  <p className="text-sm text-[#888] flex items-center gap-1 ml-5">
-                    <MapPin size={12} /> {selShift.location}
+                  <p className="text-base text-[#bbb] flex items-center gap-1.5 ml-6">
+                    <MapPin size={13} /> {selShift.location}
                   </p>
                 )}
               </div>
@@ -294,12 +294,12 @@ export default function CalendarPage() {
           {/* Avisos Limón */}
           {selLimon.length > 0 && (
             <div className="rounded-xl p-3 border border-[#6db56d40] bg-[#6db56d0a]">
-              <p className="text-sm font-semibold text-[#6db56d] flex items-center gap-1.5 mb-2">
-                <BellRing size={14} /> Limón 🍋
+              <p className="text-base font-bold text-[#6db56d] flex items-center gap-1.5 mb-2">
+                <BellRing size={16} /> Limón 🍋
               </p>
               <div className="space-y-1.5">
                 {selLimon.map(r => (
-                  <p key={r.id} className="text-base text-[#e0e0e0] ml-4 truncate">{r.title}</p>
+                  <p key={r.id} className="text-lg text-[#f0f0f0] ml-5 truncate">{r.title}</p>
                 ))}
               </div>
             </div>
@@ -308,12 +308,12 @@ export default function CalendarPage() {
           {/* Tareas Empresa */}
           {selBiz.length > 0 && (
             <div className="rounded-xl p-3 border border-[#9b6bb540] bg-[#9b6bb50a]">
-              <p className="text-sm font-semibold text-[#9b6bb5] flex items-center gap-1.5 mb-2">
-                <Briefcase size={14} /> Empresa
+              <p className="text-base font-bold text-[#9b6bb5] flex items-center gap-1.5 mb-2">
+                <Briefcase size={16} /> Empresa
               </p>
               <div className="space-y-1.5">
                 {selBiz.map(t => (
-                  <p key={t.id} className="text-base text-[#e0e0e0] ml-4 truncate">{t.title}</p>
+                  <p key={t.id} className="text-lg text-[#f0f0f0] ml-5 truncate">{t.title}</p>
                 ))}
               </div>
             </div>
@@ -333,17 +333,17 @@ export default function CalendarPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-base font-medium text-[#e0e0e0] truncate flex items-center gap-1.5">
-                          {cfg.heart && <Heart size={14} fill="#e8304a" style={{ color: '#e8304a', flexShrink: 0 }} />}
+                        <p className="text-lg font-semibold text-[#f0f0f0] truncate flex items-center gap-1.5">
+                          {cfg.heart && <Heart size={16} fill="#e8304a" style={{ color: '#e8304a', flexShrink: 0 }} />}
                           {ev.title}
                         </p>
                         {ev.location && (
-                          <p className="text-sm text-[#888] flex items-center gap-1 mt-0.5">
-                            <MapPin size={12} /> {ev.location}
+                          <p className="text-base text-[#bbb] flex items-center gap-1 mt-0.5">
+                            <MapPin size={13} /> {ev.location}
                           </p>
                         )}
                         {!ev.is_all_day && (
-                          <p className="text-sm mt-1" style={{ color: cfg.color }}>
+                          <p className="text-base font-medium mt-1" style={{ color: cfg.color }}>
                             {format(parseISO(ev.start_time), 'HH:mm')}
                             {ev.end_time && ` — ${format(parseISO(ev.end_time), 'HH:mm')}`}
                           </p>
