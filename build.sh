@@ -13,9 +13,16 @@ npm ci
 npm run build
 cd ..
 
+# Build the ofipapel-erp React app
+cd ofipapel-erp
+npm ci
+npm run build
+cd ..
+
 # Assemble _site: static root files + built apps
 mkdir -p _site/alquileres
 mkdir -p _site/joe
+mkdir -p _site/erp
 
 # Copy root static files
 cp index.html _site/
@@ -30,9 +37,11 @@ cp logo-canarias-ink.png _site/ 2>/dev/null || true
 # Copy the built apps
 cp -r alquileres/dist/. _site/alquileres/
 cp -r joe-app/dist/. _site/joe/
+cp -r ofipapel-erp/dist/. _site/erp/
 
 # SPA routing
 {
   echo "/alquileres/*  /alquileres/index.html  200"
   echo "/joe/*         /joe/index.html          200"
+  echo "/erp/*         /erp/index.html          200"
 } > _site/_redirects

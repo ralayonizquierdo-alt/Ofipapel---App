@@ -16,6 +16,11 @@
   to = "/joe/index.html"
   status = 200
 
+[[redirects]]
+  from = "/erp/*"
+  to = "/erp/index.html"
+  status = 200
+
 [[headers]]
   for = "/*.html"
   [headers.values]
