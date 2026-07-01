@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Importación de Pedidos a Proveedores · Ofipapel</title>
+<link rel="icon" href="logo-ofipapel.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --verde-oscuro:#145c26;
+  --verde:#1e7d32;
+  --verde-claro:#eaf7ec;
+  --acento:#8bc34a;
+  --texto:#1c2b1f;
+  --texto2:#6b7a6d;
+  --borde:#dfe8e1;
+  --rojo:#c0392b;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:#fff;color:var(--texto);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;}
+header.hero{
+  position:relative;
+  background:linear-gradient(180deg, rgba(10,50,20,0.35), rgba(255,255,255,0.96) 92%), url('fondo-ofipapel.jpg') center 20%/cover no-repeat;
+  padding:22px 24px 26px;
+  border-bottom:3px solid var(--verde);
+}
+header.hero .hero-inner{
+  display:flex; align-items:center; gap:18px; max-width:1100px; margin:0 auto;
+}
+header.hero img.logo{ height:64px; width:auto; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25)); }
+header.hero .titulos h1{ margin:0; font-size:22px; color:var(--verde-oscuro); }
+header.hero .titulos p{ margin:2px 0 0; font-size:13px; color:var(--texto2); }
+
+main{ max-width:1100px; margin:24px auto 60px; padding:0 20px; }
+
+.card{
+  background:#fff; border:1px solid var(--borde); border-radius:12px;
+  padding:18px 20px; margin-bottom:20px; box-shadow:0 1px 3px rgba(20,92,38,0.06);
+}
+.card h2{ margin:0 0 14px; font-size:15px; color:var(--verde-oscuro); display:flex; align-items:center; gap:8px; }
+
+.dropzone{
+  border:2px dashed var(--verde); border-radius:10px; background:var(--verde-claro);
+  padding:26px; text-align:center; cursor:pointer; transition:background .15s;
+}
+.dropzone:hover{ background:#dff3e1; }
+.dropzone input{ display:none; }
+.dropzone .dz-title{ font-weight:600; color:var(--verde-oscuro); }
+.dropzone .dz-sub{ font-size:12px; color:var(--texto2); margin-top:4px; }
+
+.row{ display:flex; flex-wrap:wrap; gap:14px; }
+.field{ display:flex; flex-direction:column; gap:4px; flex:1; min-width:150px; }
+.field label{ font-size:11px; font-weight:600; color:var(--texto2); }
+.field input, .field select{
+  padding:8px 10px; border:1px solid var(--borde); border-radius:8px; font-size:13px; color:var(--texto);
+}
+
+.estado{ font-size:13px; margin-top:10px; padding:8px 12px; border-radius:8px; display:none; }
+.estado.ok{ display:block; background:#e8f5e9; color:#1b5e20; }
+.estado.warn{ display:block; background:#fff3cd; color:#7b5800; }
+.estado.err{ display:block; background:#fdecea; color:var(--rojo); }
+
+.toolbar{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+button.btn{
+  padding:8px 14px; border:none; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;
+}
+.btn-primary{ background:var(--verde); color:#fff; }
+.btn-primary:hover{ background:var(--verde-oscuro); }
+.btn-acento{ background:var(--acento); color:#0d3d0d; }
+.btn-acento:hover{ filter:brightness(0.95); }
+.btn-secundario{ background:var(--verde-claro); color:var(--verde-oscuro); border:1px solid var(--borde); }
+.btn-secundario:hover{ background:#dff3e1; }
+.btn-peligro{ background:#fdecea; color:var(--rojo); }
+
+table.tabla{ width:100%; border-collapse:collapse; font-size:12.5px; }
+table.tabla thead th{
+  background:var(--verde-claro); color:var(--verde-oscuro); text-align:left; font-size:11px;
+  padding:8px 6px; border-bottom:2px solid var(--verde); white-space:nowrap; cursor:pointer;
+}
+table.tabla thead th.sortable:hover{ text-decoration:underline; }
+table.tabla tbody td{ border-bottom:1px solid var(--borde); padding:2px; }
+table.tabla tbody td input{
+  width:100%; border:1px solid transparent; padding:5px 6px; font-size:12.5px; border-radius:5px; background:transparent;
+}
+table.tabla tbody td input:focus{ border-color:var(--verde); background:#fff; outline:none; }
+table.tabla tbody tr:hover td{ background:#f7fcf8; }
+table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var(--verde); color:var(--verde-oscuro); }
+.col-num input{ text-align:right; }
+.del-btn{ background:none; border:none; color:var(--rojo); cursor:pointer; font-size:14px; }
+.empty-state{ text-align:center; padding:40px 20px; color:var(--texto2); }
+.tabla-wrap{ overflow-x:auto; }
+.footer-note{ font-size:11.5px; color:var(--texto2); margin-top:10px; line-height:1.5; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <img class="logo" src="logo-ofipapel.png" alt="Ofipapel" onerror="this.style.display='none'">
+    <div class="titulos">
+      <h1>Importación de Pedidos a Proveedores</h1>
+      <p>Convierte la factura PDF de un proveedor en el Excel 5.0/95 (*.xls) que admite Gestión</p>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>1. Cargar factura PDF</h2>
+    <label class="dropzone" for="pdfInput">
+      <div class="dz-title">📄 Haz clic o arrastra aquí la factura PDF del proveedor</div>
+      <div class="dz-sub">Solo PDFs de texto (no facturas escaneadas como imagen)</div>
+      <input type="file" id="pdfInput" accept="application/pdf" onchange="onPdfSelected(this)">
+    </label>
+    <div id="estadoPdf" class="estado"></div>
+  </div>
+
+  <div class="card">
+    <h2>2. Datos de cabecera (pedido)</h2>
+    <div class="row">
+      <div class="field">
+        <label>Proveedor</label>
+        <input type="text" id="cabProveedor" placeholder="Se detecta automáticamente si es posible">
+      </div>
+      <div class="field">
+        <label>Nº Pedido</label>
+        <input type="text" id="cabPedido">
+      </div>
+      <div class="field">
+        <label>Fecha</label>
+        <input type="date" id="cabFecha">
+      </div>
+      <div class="field">
+        <label>Almacén</label>
+        <input type="text" id="cabAlmacen">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3. Vista previa (revisa y completa antes de exportar)</h2>
+    <div class="toolbar">
+      <button class="btn btn-secundario" onclick="ordenarPorReferencia()">↕ Ordenar por Rfcia. Proveedor</button>
+      <button class="btn btn-secundario" onclick="anadirFila()">+ Añadir fila</button>
+      <button class="btn btn-peligro" onclick="vaciarFilas()">🗑 Vaciar todo</button>
+    </div>
+    <div class="tabla-wrap">
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>Codigo ISBN</th>
+            <th>Marca</th>
+            <th class="sortable" onclick="ordenarPorReferencia()">Rfcia. Proveedor</th>
+            <th style="min-width:220px;">Descripción</th>
+            <th>Udes</th>
+            <th>Precio U.</th>
+            <th>Dto %</th>
+            <th>Igic</th>
+            <th>Importe</th>
+            <th>Cod. Familia</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbodyFilas"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="8" style="text-align:right;">TOTAL PEDIDO:</td>
+            <td id="totalImporte">0,00</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div id="emptyState" class="empty-state">Aún no hay líneas. Carga un PDF o añade filas manualmente.</div>
+  </div>
+
+  <div class="card">
+    <h2>4. Exportar</h2>
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="generarExcel('xls')">📥 Generar Excel (.xls)</button>
+      <button class="btn btn-secundario" onclick="generarExcel('biff5')">📥 Variante estricta Excel 5.0/95</button>
+    </div>
+    <div class="footer-note">
+      El ISBN, la Marca y el Cod. Familia casi nunca vienen en la factura del proveedor (el ISBN solo aplica a proveedores de libros) — revísalos y complétalos a mano en la tabla antes de generar el Excel. El Igic tampoco viene desglosado por línea en la mayoría de facturas: complétalo si tu Gestión lo necesita.<br>
+      <strong>Nota de compatibilidad:</strong> el botón principal genera un .xls Excel 97-2003 (se abre igual y conserva tildes/Ñ correctamente). La "variante estricta Excel 5.0/95" genera el formato exacto que pide la plantilla, pero la librería usada convierte las tildes y la Ñ en "_" — solo úsala si tu Gestión rechaza el .xls normal, y revisa los nombres/descripciones después.
+    </div>
+  </div>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+// NÚCLEO: extracción de texto posicional del PDF (líneas reconstruidas
+// agrupando por coordenada Y y ordenando por X), igual patrón que
+// importProveedoresPDF en Index.html.
+// ═══════════════════════════════════════════════════════
+async function extraerLineasPDF(file){
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  const todasLineas = [];
+  for(let p=1; p<=pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const rowMap = {};
+    content.items.forEach(item=>{
+      const y = Math.round(item.transform[5]/2)*2;
+      if(!rowMap[y]) rowMap[y] = [];
+      rowMap[y].push({x:item.transform[4], str:item.str});
+    });
+    Object.keys(rowMap).sort((a,b)=>b-a).forEach(y=>{
+      const linea = rowMap[y].sort((a,b)=>a.x-b.x).map(i=>i.str).join(' ').replace(/\s+/g,' ').trim();
+      if(linea) todasLineas.push(linea);
+    });
+  }
+  return todasLineas;
+}
+
+// ═══════════════════════════════════════════════════════
+// PARSER GENÉRICO: reconoce líneas de artículo con el patrón habitual
+// "CODIGO  DESCRIPCION  CANTIDAD  PRECIO  DTO%  [DTOAD%]  PRECIO_NETO  IMPORTE"
+// (comas como separador decimal, punto como separador de miles).
+// Sirve de base para cualquier proveedor; si un proveedor nuevo tiene un
+// formato de columnas distinto, se añade su propia función de parser en
+// PERFILES_PROVEEDOR sin tocar el resto del código.
+// ═══════════════════════════════════════════════════════
+const CODE_RE = /^(\d{6,9}|[A-Z]{2}\d{3,6})$/;
+const INT_RE = /^\d+$/;
+const DEC_RE = /^\d{1,3}(?:\.\d{3})*,\d{2,3}$/;
+
+function parseDec(s){ return parseFloat(s.replace(/\./g,'').replace(',','.')); }
+
+function parsearLineaGenerica(linea){
+  const tokens = linea.split(/\s+/);
+  if(!CODE_RE.test(tokens[0])) return null;
+  const codigo = tokens[0];
+  const n = tokens.length;
+  if(n < 6) return null;
+
+  const last = tokens[n-1], prevLast = tokens[n-2];
+  if(!DEC_RE.test(last) || !DEC_RE.test(prevLast)) return null;
+  const impTotal = parseDec(last);
+  const precNeto = parseDec(prevLast);
+
+  let i = n-3;
+  const decimales = [];
+  while(i >= 0 && DEC_RE.test(tokens[i])){ decimales.unshift(tokens[i]); i--; }
+  if(decimales.length < 2 || decimales.length > 3) return null;
+  const precTarifa = parseDec(decimales[0]);
+
+  if(i < 1 || !INT_RE.test(tokens[i])) return null;
+  const cantidad = parseInt(tokens[i], 10);
+
+  let descTokens = tokens.slice(1, i);
+  if(descTokens.length && descTokens[descTokens.length-1] === '=') descTokens.pop();
+  const descripcion = descTokens.join(' ').trim();
+  if(!descripcion) return null;
+
+  const dtoEfectivo = precTarifa > 0 ? Math.round((1 - precNeto/precTarifa) * 10000) / 100 : 0;
+
+  return { codigo, descripcion, cantidad, precioUnitario:precNeto, dto:dtoEfectivo, importe:impTotal };
+}
+
+function parserGenerico(lineas){
+  const filas = [];
+  lineas.forEach(linea=>{
+    const r = parsearLineaGenerica(linea);
+    if(r) filas.push(r);
+  });
+  return filas;
+}
+
+// ═══════════════════════════════════════════════════════
+// PERFILES DE PROVEEDOR: detección automática + parser propio (opcional).
+// Si "parser" es null se usa el parserGenerico (le ha bastado a APLI).
+// Para añadir un proveedor nuevo: aportar una factura de muestra y
+// registrar aquí su detección + (si el genérico no le sirve) su parser.
+// ═══════════════════════════════════════════════════════
+const PERFILES_PROVEEDOR = [
+  {
+    id: 'apli',
+    nombre: 'APLI PAPER S.A.U.',
+    detectar: texto => /APLI\s+PAPER|ESA60914108/i.test(texto),
+    parser: null
+  }
+];
+
+function detectarProveedor(lineas){
+  const texto = lineas.join(' ');
+  return PERFILES_PROVEEDOR.find(p => p.detectar(texto)) || null;
+}
+
+// ═══════════════════════════════════════════════════════
+// ESTADO Y RENDER DE LA TABLA EDITABLE
+// ═══════════════════════════════════════════════════════
+let filas = [];
+
+function nuevaFila(datos){
+  return Object.assign({
+    isbn:'', marca:'', ref:'', desc:'', udes:0, precioU:0, dto:0, igic:'', importe:0, familia:''
+  }, datos||{});
+}
+
+function anadirFila(){
+  filas.push(nuevaFila());
+  renderFilas();
+}
+
+function vaciarFilas(){
+  if(filas.length && !confirm('¿Vaciar todas las líneas de la vista previa?')) return;
+  filas = [];
+  renderFilas();
+}
+
+function eliminarFila(idx){
+  filas.splice(idx,1);
+  renderFilas();
+}
+
+function actualizarCelda(idx, campo, valor){
+  const numericos = ['udes','precioU','dto','importe'];
+  filas[idx][campo] = numericos.includes(campo) ? (parseFloat(valor.replace(',','.'))||0) : valor;
+  renderTotales();
+}
+
+function ordenarPorReferencia(){
+  filas.sort((a,b)=> String(a.ref).localeCompare(String(b.ref), 'es', {numeric:true}));
+  renderFilas();
+}
+
+function fmtNum(v){ return (Math.round(v*100)/100).toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+function renderFilas(){
+  const tbody = document.getElementById('tbodyFilas');
+  document.getElementById('emptyState').style.display = filas.length ? 'none' : 'block';
+  tbody.innerHTML = filas.map((f,idx)=>`
+    <tr>
+      <td><input value="${f.isbn}" oninput="actualizarCelda(${idx},'isbn',this.value)"></td>
+      <td><input value="${f.marca}" oninput="actualizarCelda(${idx},'marca',this.value)"></td>
+      <td><input value="${f.ref}" oninput="actualizarCelda(${idx},'ref',this.value)"></td>
+      <td><input value="${f.desc}" oninput="actualizarCelda(${idx},'desc',this.value)"></td>
+      <td class="col-num"><input value="${f.udes}" oninput="actualizarCelda(${idx},'udes',this.value)"></td>
+      <td class="col-num"><input value="${f.precioU}" oninput="actualizarCelda(${idx},'precioU',this.value)"></td>
+      <td class="col-num"><input value="${f.dto}" oninput="actualizarCelda(${idx},'dto',this.value)"></td>
+      <td class="col-num"><input value="${f.igic}" oninput="actualizarCelda(${idx},'igic',this.value)"></td>
+      <td class="col-num"><input value="${f.importe}" oninput="actualizarCelda(${idx},'importe',this.value)"></td>
+      <td><input value="${f.familia}" oninput="actualizarCelda(${idx},'familia',this.value)"></td>
+      <td><button class="del-btn" title="Eliminar" onclick="eliminarFila(${idx})">🗑</button></td>
+    </tr>`).join('');
+  renderTotales();
+}
+
+function renderTotales(){
+  const total = filas.reduce((s,f)=>s + (parseFloat(f.importe)||0), 0);
+  document.getElementById('totalImporte').textContent = fmtNum(total);
+}
+
+// ═══════════════════════════════════════════════════════
+// CARGA DE PDF → DETECCIÓN DE PROVEEDOR → PARSEO → VISTA PREVIA
+// ═══════════════════════════════════════════════════════
+function mostrarEstado(tipo, texto){
+  const el = document.getElementById('estadoPdf');
+  el.className = 'estado ' + tipo;
+  el.textContent = texto;
+}
+
+async function onPdfSelected(input){
+  const file = input.files[0];
+  if(!file) return;
+  mostrarEstado('warn', 'Leyendo PDF…');
+  try{
+    const lineas = await extraerLineasPDF(file);
+    const perfil = detectarProveedor(lineas);
+    const parserAUsar = (perfil && perfil.parser) ? perfil.parser : parserGenerico;
+    const filasParseadas = parserAUsar(lineas);
+
+    if(!filasParseadas.length){
+      mostrarEstado('err', 'No se ha podido extraer ninguna línea de artículo de este PDF. Añade las filas a mano.');
+      input.value = '';
+      return;
+    }
+
+    document.getElementById('cabProveedor').value = perfil ? perfil.nombre : '';
+
+    filas = filasParseadas.map(f => nuevaFila({
+      marca: perfil ? perfil.nombre.split(' ')[0] : '',
+      ref: f.codigo,
+      desc: f.descripcion,
+      udes: f.cantidad,
+      precioU: f.precioUnitario,
+      dto: f.dto,
+      importe: f.importe
+    }));
+    renderFilas();
+
+    if(perfil){
+      mostrarEstado('ok', `Proveedor detectado: ${perfil.nombre}. ${filas.length} líneas extraídas — revisa ISBN/Marca/Familia/Igic antes de exportar.`);
+    } else {
+      mostrarEstado('warn', `Proveedor no reconocido — se ha usado el extractor genérico. ${filas.length} líneas extraídas: revisa bien la tabla, puede haber errores de columnas.`);
+    }
+  }catch(err){
+    mostrarEstado('err', 'Error al procesar el PDF: ' + err.message);
+  }
+  input.value = '';
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORTACIÓN A EXCEL 5.0/95 (.xls, BIFF5) SEGÚN LA PLANTILLA
+// ═══════════════════════════════════════════════════════
+function generarExcel(bookType){
+  if(!filas.length){ alert('No hay líneas para exportar.'); return; }
+
+  const proveedor = document.getElementById('cabProveedor').value.trim();
+  const pedido = document.getElementById('cabPedido').value.trim();
+  const fecha = document.getElementById('cabFecha').value;
+  const almacen = document.getElementById('cabAlmacen').value.trim();
+
+  const aoa = [
+    ['PROPUESTA DE PEDIDO', '', '', 'ALMACEN', almacen],
+    ['PROVEEDOR;', proveedor, '', '', ''],
+    ['Nº Pedido', pedido, 'FECHA', fecha, ''],
+    [],
+    ['Codigo I.S.B.N.','EDITORIAL','Rfcia. Proveedor','DESCRIPCION','Udes','Precio U.','Dcto','Igic','IMPORTE','COD. FAMILIA']
+  ];
+
+  filas.forEach(f=>{
+    aoa.push([f.isbn, f.marca, f.ref, f.desc, f.udes, f.precioU, f.dto, f.igic, f.importe, f.familia]);
+  });
+
+  const total = filas.reduce((s,f)=>s + (parseFloat(f.importe)||0), 0);
+  aoa.push(['', '', '', '', '', '', '', 'TOTAL', Math.round(total*100)/100, '']);
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{wch:14},{wch:16},{wch:16},{wch:40},{wch:8},{wch:10},{wch:8},{wch:8},{wch:12},{wch:12}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'fichero');
+
+  const sufijo = bookType==='biff5' ? '_ESTRICTO5095' : '';
+  const nombreArchivo = 'PEDIDO_' + (proveedor||'PROVEEDOR').replace(/[^\w]+/g,'_') + '_' + (pedido||'sinnum') + sufijo + '.xls';
+  XLSX.writeFile(wb, nombreArchivo, {bookType:bookType});
+}
+
+renderFilas();
+</script>
+</body>
+</html>

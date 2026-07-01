@@ -22,10 +22,13 @@ cp index.html _site/
 cp Index.html _site/ 2>/dev/null || true
 cp canarias-ink.html _site/ 2>/dev/null || true
 cp falcontrol.html _site/ 2>/dev/null || true
+cp importacion-pedidos-proveedores.html _site/ 2>/dev/null || true
 cp sw.js _site/ 2>/dev/null || true
 cp sw-ink.js _site/ 2>/dev/null || true
 cp hero-productos.jpg _site/ 2>/dev/null || true
 cp logo-canarias-ink.png _site/ 2>/dev/null || true
+cp logo-ofipapel.png _site/ 2>/dev/null || true
+cp fondo-ofipapel.jpg _site/ 2>/dev/null || true
 
 # Copy the built apps
 cp -r alquileres/dist/. _site/alquileres/
