@@ -142,7 +142,7 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
         <thead>
           <tr>
             <th>Codigo ISBN</th>
-            <th>Marca</th>
+            <th>Marca (Editorial)</th>
             <th class="sortable" onclick="ordenarPor('ref')">Rfcia. Proveedor</th>
             <th class="sortable" style="min-width:220px;" onclick="ordenarPor('desc')">Descripción</th>
             <th>Udes</th>
@@ -174,7 +174,7 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
       <button class="btn btn-secundario" onclick="generarExcel('biff5')">📥 Variante estricta Excel 5.0/95</button>
     </div>
     <div class="footer-note">
-      El Cod. Familia casi nunca viene en la factura del proveedor: revísalo y complétalo a mano en la tabla antes de generar el Excel. El ISBN se rellenará solo cuando el proveedor sea de libros y tengamos su perfil dado de alta (por ahora solo APLI está dado de alta y no vende libros, así que esa columna queda en blanco); para el resto de proveedores esa columna no aplica. El Igic tampoco viene desglosado por línea en la mayoría de facturas: complétalo si tu Gestión lo necesita.<br>
+      El Cod. Familia casi nunca viene en la factura del proveedor: revísalo y complétalo a mano en la tabla antes de generar el Excel. El ISBN y la Marca (Editorial) son campos de proveedores de libros: se rellenarán solos cuando demos de alta el perfil de un proveedor de libros que los incluya en su factura; para el resto de proveedores (como APLI, dado de alta ahora) esas dos columnas no aplican y quedan en blanco. El Igic tampoco viene desglosado por línea en la mayoría de facturas: complétalo si tu Gestión lo necesita.<br>
       <strong>Nota de compatibilidad:</strong> el botón principal genera un .xls Excel 97-2003 (se abre igual y conserva tildes/Ñ correctamente). La "variante estricta Excel 5.0/95" genera el formato exacto que pide la plantilla, pero la librería usada convierte las tildes y la Ñ en "_" — solo úsala si tu Gestión rechaza el .xls normal, y revisa los nombres/descripciones después.
     </div>
   </div>
@@ -406,7 +406,6 @@ async function onPdfSelected(file){
     proveedorDetectado = perfil ? perfil.nombre : '';
 
     filas = filasParseadas.map(f => nuevaFila({
-      marca: perfil ? perfil.nombre.split(' ')[0] : '',
       ref: f.codigo,
       desc: f.descripcion,
       udes: f.cantidad,
