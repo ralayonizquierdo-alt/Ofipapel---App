@@ -138,8 +138,8 @@ export default function CalendarPage() {
   const dayEvents = (date: Date) => {
     const d = startOfDay(date)
     return events.filter(e => {
-      const start = startOfDay(parseISO(e.start_time))
-      const end   = e.end_time ? startOfDay(parseISO(e.end_time)) : start
+      const start = startOfDay(parseISO(e.start_time.slice(0, 10)))
+      const end   = e.end_time ? startOfDay(parseISO(e.end_time.slice(0, 10))) : start
       return d >= start && d <= end
     })
   }
@@ -344,8 +344,8 @@ export default function CalendarPage() {
                         )}
                         {!ev.is_all_day && (
                           <p className="text-base font-medium mt-1" style={{ color: cfg.color }}>
-                            {format(parseISO(ev.start_time), 'HH:mm')}
-                            {ev.end_time && ` — ${format(parseISO(ev.end_time), 'HH:mm')}`}
+                            {ev.start_time.slice(11, 16)}
+                            {ev.end_time && ` — ${ev.end_time.slice(11, 16)}`}
                           </p>
                         )}
                       </div>
