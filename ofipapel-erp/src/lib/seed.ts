@@ -1,0 +1,432 @@
+import { createRng, pick, intBetween, daysAgo, daysAhead } from './rng'
+import type {
+  Location,
+  SalesRep,
+  Van,
+  Category,
+  Supplier,
+  Product,
+  StockEntry,
+  Client,
+  SaleOrder,
+  PurchaseOrder,
+  Invoice,
+  AppUser,
+  Database,
+  OrderLine,
+  EstadoVenta,
+  CanalVenta,
+} from '../types'
+
+const ZONES = [
+  'Santa Cruz de Tenerife',
+  'La Laguna',
+  'Sur de Tenerife',
+  'Las Palmas de Gran Canaria',
+  'Telde',
+  'Lanzarote',
+  'Fuerteventura',
+] as const
+
+const REP_NAMES = [
+  'Carlos Medina',
+  'Beatriz Hernández',
+  'Óscar Delgado',
+  'Nayra Santana',
+  'Iván Cabrera',
+  'Sara Rodríguez',
+  'Airam Pérez',
+] as const
+
+function buildLocations(): Location[] {
+  return [
+    { id: 'alm-1', nombre: 'Almacén Central', tipo: 'Almacén', direccion: 'Polígono Costa Sur, Santa Cruz de Tenerife', zona: 'Santa Cruz de Tenerife' },
+    { id: 'alm-2', nombre: 'Almacén Las Palmas', tipo: 'Almacén', direccion: 'Polígono El Sebadal, Las Palmas de Gran Canaria', zona: 'Las Palmas de Gran Canaria' },
+    { id: 'alm-3', nombre: 'Almacén Sur Tenerife', tipo: 'Almacén', direccion: 'Polígono Los Majuelos, Arona', zona: 'Sur de Tenerife' },
+    { id: 'alm-4', nombre: 'Almacén Lanzarote-Fuerteventura', tipo: 'Almacén', direccion: 'Polígono Argana, Arrecife', zona: 'Lanzarote' },
+    { id: 'tie-1', nombre: 'Tienda Santa Cruz', tipo: 'Tienda', direccion: 'Calle Villalba Hervás, Santa Cruz de Tenerife', zona: 'Santa Cruz de Tenerife' },
+    { id: 'tie-2', nombre: 'Tienda La Laguna', tipo: 'Tienda', direccion: 'Avenida Trinidad, La Laguna', zona: 'La Laguna' },
+    { id: 'tie-3', nombre: 'Tienda Las Palmas', tipo: 'Tienda', direccion: 'Calle Triana, Las Palmas de Gran Canaria', zona: 'Las Palmas de Gran Canaria' },
+  ]
+}
+
+function buildRepsAndVans(): { reps: SalesRep[]; vans: Van[] } {
+  const reps: SalesRep[] = []
+  const vans: Van[] = []
+  REP_NAMES.forEach((nombre, i) => {
+    const repId = `com-${i + 1}`
+    const vanId = `fur-${i + 1}`
+    reps.push({
+      id: repId,
+      nombre,
+      zona: ZONES[i],
+      telefono: `6${intBetweenFixed(i, 10000000, 99999999)}`,
+      furgonId: vanId,
+    })
+    vans.push({
+      id: vanId,
+      matricula: `${intBetweenFixed(i, 1000, 9999)} ${['BCD', 'FGH', 'JKL', 'MNP'][i % 4]}`,
+      comercialId: repId,
+      estado: (['En ruta', 'En ruta', 'En base', 'En ruta', 'En ruta', 'Mantenimiento', 'En ruta'] as const)[i],
+    })
+  })
+  return { reps, vans }
+}
+
+// Deterministic filler so phone/plate numbers don't require passing rng around at module scope
+function intBetweenFixed(seedOffset: number, min: number, max: number): number {
+  const rng = createRng(1000 + seedOffset)
+  return Math.floor(rng() * (max - min + 1)) + min
+}
+
+const CATEGORY_DEFS: { nombre: string; templates: string[]; sizes?: string[] }[] = [
+  {
+    nombre: 'Papelería',
+    templates: ['Folio A4 80g', 'Folio A4 90g', 'Folio A3 80g', 'Bloc de notas', 'Bloc cuadriculado', 'Papel continuo', 'Cartulina', 'Papel kraft', 'Sobre americano', 'Sobre bolsa A4'],
+    sizes: ['paquete 500', 'paquete 250', 'caja 5 paquetes', 'unidad'],
+  },
+  {
+    nombre: 'Escritura',
+    templates: ['Bolígrafo azul', 'Bolígrafo negro', 'Bolígrafo rojo', 'Rotulador permanente', 'Rotulador fluorescente', 'Lápiz HB', 'Portaminas', 'Corrector líquido', 'Corrector cinta', 'Marcador pizarra blanca'],
+    sizes: ['unidad', 'caja 12 uds', 'caja 50 uds', 'blister 3 uds'],
+  },
+  {
+    nombre: 'Archivo y Clasificación',
+    templates: ['Archivador de palanca A4', 'Carpeta con gomas', 'Carpeta colgante', 'Subcarpeta color', 'Separador de plástico', 'Caja archivo definitivo', 'Fundas multitaladro', 'Clasificador de fuelle'],
+    sizes: ['unidad', 'paquete 10 uds', 'paquete 25 uds', 'paquete 100 uds'],
+  },
+  {
+    nombre: 'Informática y Consumibles',
+    templates: ['Tóner compatible HP', 'Tóner compatible Brother', 'Cartucho tinta compatible', 'Cable USB-C', 'Ratón inalámbrico', 'Teclado USB', 'Disco USB 32GB', 'Regleta 6 tomas'],
+  },
+  {
+    nombre: 'Mobiliario de oficina',
+    templates: ['Silla de oficina', 'Mesa de escritorio', 'Cajonera con ruedas', 'Bandeja portadocumentos', 'Papelera metálica', 'Perchero de pie'],
+  },
+  {
+    nombre: 'Embalaje y Manipulado',
+    templates: ['Caja cartón canal simple', 'Caja cartón canal doble', 'Rollo film estirable', 'Precinto adhesivo', 'Burbuja de embalaje', 'Etiqueta envío adhesiva'],
+    sizes: ['unidad', 'paquete 10 uds', 'rollo', 'caja 36 uds'],
+  },
+  {
+    nombre: 'Impresión y Tóner',
+    templates: ['Papel fotográfico', 'Papel para plotter', 'Cinta impresora matricial', 'Tóner original', 'Tambor compatible'],
+  },
+  {
+    nombre: 'Material Escolar',
+    templates: ['Cuaderno cuadriculado', 'Cuaderno rayado', 'Estuche escolar', 'Mochila escolar', 'Goma de borrar', 'Sacapuntas', 'Pegamento de barra', 'Tijera escolar'],
+    sizes: ['unidad', 'pack 5 uds'],
+  },
+  {
+    nombre: 'Limpieza e Higiene',
+    templates: ['Gel hidroalcohólico', 'Papel higiénico industrial', 'Bobina secamanos', 'Bayeta multiusos', 'Bolsa de basura', 'Guantes desechables'],
+    sizes: ['unidad', 'paquete 6 uds', 'caja 12 uds'],
+  },
+  {
+    nombre: 'Regalo y Detalle',
+    templates: ['Agenda anual', 'Set de escritorio', 'Libreta tapa dura', 'Taza personalizable', 'Powerbank promocional'],
+  },
+]
+
+const SUPPLIER_NAMES = [
+  'Distribuciones Papel Sur S.L.',
+  'Global Office Supplies',
+  'Canarias Ofimática S.A.',
+  'Suministros Atlántico',
+  'Papelera del Teide S.L.',
+  'Mayorista Insular de Oficina',
+  'Ibérica de Consumibles',
+  'Distribuciones Guanche',
+  'Ofertas Escolares Canarias',
+  'Embalajes del Atlántico',
+  'Tóner Express Canarias',
+  'Mobiliario Insular S.L.',
+]
+
+const CLIENT_COMPANY_NAMES = [
+  'Librería Montaña S.L.', 'Copistería Rápida', 'Gestoría Benítez y Asociados', 'Colegio San Fernando',
+  'Ayuntamiento de Candelaria', 'Ferretería Hermanos López', 'Clínica Dental Sonrisa', 'Asesoría Fiscal Canarias',
+  'Hotel Playa Dorada', 'Restaurante El Mirador', 'Autoescuela Vía Rápida', 'Notaría Pérez-Suárez',
+  'Instituto Tecnológico Insular', 'Farmacia Ldo. Ramírez', 'Óptica Visión Clara', 'Supermercados Isleños S.L.',
+  'Constructora Atlántida', 'Peluquería Estilo Canario', 'Academia de Idiomas Britain', 'Talleres Mecánicos Suárez',
+  'Papelería El Estudiante', 'Centro Médico Vitalia', 'Inmobiliaria Costa Norte', 'Bufete Jurídico Domínguez',
+  'Panadería La Espiga', 'Distribuciones Náuticas', 'Editorial Insular', 'Agencia de Viajes Volcán',
+  'Consultora Empresarial Teide', 'Residencia Los Almendros', 'Gimnasio PowerFit', 'Estudio de Arquitectura Bello',
+  'Frutería El Guanche', 'Taller de Serigrafía Color', 'Colegio Concertado Santa Ana', 'Veterinaria San Roque',
+  'Imprenta Rápida Digital', 'Cafetería Central', 'Aseguradora Insular', 'Transportes Rodríguez e Hijos',
+  'Librería-Papelería Arco Iris',
+]
+
+const PARTICULAR_NAMES = [
+  'Ana Pérez', 'Juan Delgado', 'María Cabrera', 'Pedro Hernández', 'Lucía Santana',
+  'Miguel Rodríguez', 'Carmen Díaz', 'Antonio Ramos', 'Isabel Torres', 'Francisco Gil',
+]
+
+const TARIFAS = ['Tarifa A', 'Tarifa B', 'Tarifa C', 'PVP'] as const
+
+function buildCategories(): Category[] {
+  return CATEGORY_DEFS.map((c, i) => ({ id: `cat-${i + 1}`, nombre: c.nombre }))
+}
+
+function buildSuppliers(rng: () => number): Supplier[] {
+  return SUPPLIER_NAMES.map((nombre, i) => ({
+    id: `prov-${i + 1}`,
+    nombre,
+    contacto: pick(rng, ['Marta Ruiz', 'Javier Soto', 'Elena Castro', 'David Morales', 'Cristina Alonso']),
+    telefono: `9${intBetween(rng, 10000000, 99999999)}`,
+    email: `pedidos@${nombre.toLowerCase().replace(/[^a-z]+/g, '').slice(0, 12)}.es`,
+    plazoEntregaDias: intBetween(rng, 1, 10),
+    ultimaCompra: daysAgo(rng, 45),
+  }))
+}
+
+function buildProducts(rng: () => number, categories: Category[], suppliers: Supplier[]): Product[] {
+  const products: Product[] = []
+  let counter = 10000
+  CATEGORY_DEFS.forEach((catDef, catIdx) => {
+    const categoriaId = categories[catIdx].id
+    const sizes = catDef.sizes ?? ['unidad']
+    catDef.templates.forEach((template) => {
+      sizes.forEach((size) => {
+        counter += intBetween(rng, 3, 9)
+        const coste = Number((intBetween(rng, 40, 4000) / 100).toFixed(2))
+        const margenMinorista = 1.5 + rng() * 1.1
+        const margenMayorista = 1.15 + rng() * 0.4
+        const pvp = Number((coste * margenMinorista).toFixed(2))
+        const tarifaMayorista = Number((coste * margenMayorista).toFixed(2))
+        products.push({
+          id: `prod-${counter}`,
+          sku: `OF-${counter}`,
+          nombre: size === 'unidad' ? template : `${template} (${size})`,
+          categoriaId,
+          proveedorId: pick(rng, suppliers).id,
+          coste,
+          pvp,
+          tarifaMayorista,
+          iva: pick(rng, [21, 21, 21, 4] as const),
+          unidadVenta: size,
+          ubicacion: `P${intBetween(rng, 1, 8)}-E${intBetween(rng, 1, 6)}`,
+          activo: rng() > 0.03,
+        })
+      })
+    })
+  })
+  return products
+}
+
+function buildStock(rng: () => number, products: Product[], locations: Location[]): StockEntry[] {
+  const entries: StockEntry[] = []
+  const almacenes = locations.filter((l) => l.tipo === 'Almacén')
+  const tiendas = locations.filter((l) => l.tipo === 'Tienda')
+  let id = 1
+  products.forEach((p) => {
+    // Every product lives in the central warehouse.
+    const central = almacenes[0]
+    entries.push(makeStockEntry(rng, id++, p.id, central.id))
+    // Distributed across the other warehouses with decreasing likelihood.
+    almacenes.slice(1).forEach((loc) => {
+      if (rng() < 0.55) entries.push(makeStockEntry(rng, id++, p.id, loc.id))
+    })
+    // Only a curated subset reaches the retail stores.
+    tiendas.forEach((loc) => {
+      if (rng() < 0.35) entries.push(makeStockEntry(rng, id++, p.id, loc.id))
+    })
+  })
+  return entries
+}
+
+function makeStockEntry(rng: () => number, id: number, productoId: string, locationId: string): StockEntry {
+  const minimo = intBetween(rng, 10, 120)
+  const bajoMinimoChance = rng() < 0.12
+  const unidades = bajoMinimoChance ? intBetween(rng, 0, minimo - 1) : intBetween(rng, minimo, minimo * 8)
+  return { id: `stk-${id}`, productoId, locationId, unidades, minimo }
+}
+
+function buildClients(rng: () => number, reps: SalesRep[]): Client[] {
+  const clients: Client[] = []
+  let id = 1
+  CLIENT_COMPANY_NAMES.forEach((nombre) => {
+    const rep = pick(rng, reps)
+    clients.push({
+      id: `cli-${id++}`,
+      nombre,
+      tipo: 'Mayorista',
+      tarifa: pick(rng, TARIFAS.slice(0, 3)),
+      comercialId: rep.id,
+      zona: rep.zona,
+      cif: `B${intBetween(rng, 10000000, 99999999)}`,
+      telefono: `9${intBetween(rng, 10000000, 99999999)}`,
+      email: `compras@${nombre.toLowerCase().replace(/[^a-z]+/g, '').slice(0, 14)}.es`,
+      direccion: `Zona ${rep.zona}`,
+      saldoPendiente: Number((rng() < 0.55 ? intBetween(rng, 0, 350000) / 100 : 0).toFixed(2)),
+      ultimoPedido: daysAgo(rng, 60),
+    })
+  })
+  PARTICULAR_NAMES.forEach((nombre) => {
+    const rep = pick(rng, reps)
+    clients.push({
+      id: `cli-${id++}`,
+      nombre,
+      tipo: 'Minorista',
+      tarifa: 'PVP',
+      comercialId: rep.id,
+      zona: rep.zona,
+      cif: `${intBetween(rng, 10000000, 99999999)}${pick(rng, ['A', 'B', 'C', 'D'])}`,
+      telefono: `6${intBetween(rng, 10000000, 99999999)}`,
+      email: `${nombre.toLowerCase().replace(/[^a-z]+/g, '.')}@correo.es`,
+      direccion: `Zona ${rep.zona}`,
+      saldoPendiente: 0,
+      ultimoPedido: daysAgo(rng, 90),
+    })
+  })
+  return clients
+}
+
+function priceFor(client: Client, product: Product): number {
+  if (client.tipo === 'Minorista') return product.pvp
+  if (client.tarifa === 'Tarifa A') return Number((product.tarifaMayorista * 0.97).toFixed(2))
+  if (client.tarifa === 'Tarifa C') return Number((product.tarifaMayorista * 1.05).toFixed(2))
+  return product.tarifaMayorista
+}
+
+function makeLineas(rng: () => number, client: Client, products: Product[]): OrderLine[] {
+  const count = intBetween(rng, 1, 6)
+  const lineas: OrderLine[] = []
+  for (let i = 0; i < count; i++) {
+    const producto = pick(rng, products)
+    lineas.push({
+      productoId: producto.id,
+      cantidad: intBetween(rng, 1, client.tipo === 'Mayorista' ? 40 : 5),
+      precioUnit: priceFor(client, producto),
+      iva: producto.iva,
+    })
+  }
+  return lineas
+}
+
+function totalFor(lineas: OrderLine[]): number {
+  return Number(lineas.reduce((sum, l) => sum + l.cantidad * l.precioUnit * (1 + l.iva / 100), 0).toFixed(2))
+}
+
+const ESTADOS_VENTA: EstadoVenta[] = ['Presupuesto', 'Pedido', 'Albarán', 'Facturado', 'Facturado', 'Facturado', 'Facturado']
+
+function buildSales(rng: () => number, clients: Client[], products: Product[]): SaleOrder[] {
+  const sales: SaleOrder[] = []
+  const total = 260
+  for (let i = 1; i <= total; i++) {
+    const client = pick(rng, clients)
+    const lineas = makeLineas(rng, client, products)
+    const canal: CanalVenta = client.tipo === 'Minorista' ? pick(rng, ['Tienda', 'Web', 'Comercial']) : pick(rng, ['Comercial', 'Comercial', 'Web'])
+    sales.push({
+      id: `V-2026-${String(1000 + i)}`,
+      clienteId: client.id,
+      comercialId: client.comercialId,
+      estado: pick(rng, ESTADOS_VENTA),
+      canal,
+      fecha: daysAgo(rng, 75),
+      lineas,
+      total: totalFor(lineas),
+    })
+  }
+  return sales.sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+}
+
+function buildInvoices(sales: SaleOrder[]): Invoice[] {
+  return sales
+    .filter((s) => s.estado === 'Facturado')
+    .map((s, i) => {
+      const base = Number(s.lineas.reduce((sum, l) => sum + l.cantidad * l.precioUnit, 0).toFixed(2))
+      const iva = Number((s.total - base).toFixed(2))
+      return {
+        id: `F-2026-${String(500 + i)}`,
+        ventaId: s.id,
+        clienteId: s.clienteId,
+        fecha: s.fecha,
+        base,
+        iva,
+        total: s.total,
+      }
+    })
+}
+
+function buildPurchases(rng: () => number, suppliers: Supplier[], products: Product[], locations: Location[]): PurchaseOrder[] {
+  const almacenes = locations.filter((l) => l.tipo === 'Almacén')
+  const purchases: PurchaseOrder[] = []
+  for (let i = 1; i <= 70; i++) {
+    const proveedor = pick(rng, suppliers)
+    const lineas: OrderLine[] = Array.from({ length: intBetween(rng, 1, 5) }, () => {
+      const producto = pick(rng, products.filter((p) => p.proveedorId === proveedor.id) || products)
+      return { productoId: producto?.id ?? pick(rng, products).id, cantidad: intBetween(rng, 20, 400), precioUnit: producto?.coste ?? 1, iva: producto?.iva ?? 21 }
+    })
+    const estado = rng() < 0.4 ? 'Pendiente' : 'Recibido'
+    purchases.push({
+      id: `C-2026-${String(200 + i)}`,
+      proveedorId: proveedor.id,
+      locationId: pick(rng, almacenes).id,
+      estado,
+      fecha: daysAgo(rng, 60),
+      fechaPrevista: estado === 'Pendiente' ? daysAhead(rng, 15) : daysAgo(rng, 60),
+      lineas,
+      total: totalFor(lineas),
+    })
+  }
+  return purchases.sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+}
+
+function buildUsers(reps: SalesRep[], locations: Location[]): AppUser[] {
+  const users: AppUser[] = []
+  users.push({ id: 'usr-1', nombre: 'Rubén Alayón Izquierdo', usuario: 'r.alayonizquierdo', rol: 'Administración', ultimoAcceso: 'hoy 09:12', activo: true })
+  reps.forEach((rep, i) => {
+    users.push({
+      id: `usr-com-${i + 1}`,
+      nombre: rep.nombre,
+      usuario: rep.nombre.toLowerCase().split(' ').join('.'),
+      rol: 'Comercial',
+      ultimoAcceso: `hoy ${8 + (i % 3)}:${(10 * i) % 60 || '05'}`,
+      activo: true,
+    })
+  })
+  locations.filter((l) => l.tipo === 'Almacén').forEach((loc, i) => {
+    users.push({
+      id: `usr-alm-${i + 1}`,
+      nombre: `Encargado ${loc.nombre}`,
+      usuario: `almacen${i + 1}`,
+      rol: 'Almacén',
+      ubicacionId: loc.id,
+      ultimoAcceso: `hoy 08:${20 + i * 5}`,
+      activo: true,
+    })
+  })
+  users.push({ id: 'usr-cont-1', nombre: 'Cristina Bello', usuario: 'c.bello', rol: 'Contabilidad', ultimoAcceso: 'ayer 18:40', activo: true })
+  return users
+}
+
+export function generateDatabase(): Database {
+  const rng = createRng(20260702)
+  const locations = buildLocations()
+  const { reps, vans } = buildRepsAndVans()
+  const categories = buildCategories()
+  const suppliers = buildSuppliers(rng)
+  const products = buildProducts(rng, categories, suppliers)
+  const stock = buildStock(rng, products, locations)
+  const clients = buildClients(rng, reps)
+  const sales = buildSales(rng, clients, products)
+  const invoices = buildInvoices(sales)
+  const purchases = buildPurchases(rng, suppliers, products, locations)
+  const users = buildUsers(reps, locations)
+
+  return {
+    locations,
+    salesReps: reps,
+    vans,
+    categories,
+    suppliers,
+    products,
+    stock,
+    clients,
+    sales,
+    purchases,
+    invoices,
+    users,
+  }
+}

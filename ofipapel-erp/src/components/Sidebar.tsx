@@ -1,7 +1,11 @@
 import { NavLink } from 'react-router-dom'
+import { RotateCcw } from 'lucide-react'
 import { MENU_SECTIONS, PHASE_META } from '../data/menu'
+import { useDatabase } from '../lib/DatabaseContext'
 
 export default function Sidebar() {
+  const { reset } = useDatabase()
+
   return (
     <aside className="w-72 shrink-0 h-screen sticky top-0 overflow-y-auto bg-slate-900 text-slate-200 flex flex-col">
       <div className="px-5 py-5 border-b border-slate-800">
@@ -49,8 +53,18 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="px-5 py-4 border-t border-slate-800 text-[11px] text-slate-500">
-        Prototipo de navegación — sin datos reales todavía
+      <div className="px-5 py-4 border-t border-slate-800">
+        <p className="text-[11px] text-slate-500 mb-2">
+          Prototipo interactivo — datos de ejemplo guardados en este navegador, sin base de datos real todavía
+        </p>
+        <button
+          onClick={() => {
+            if (confirm('¿Restaurar todos los datos de ejemplo? Se perderán los cambios hechos en esta sesión.')) reset()
+          }}
+          className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-white"
+        >
+          <RotateCcw size={12} /> Restaurar datos de ejemplo
+        </button>
       </div>
     </aside>
   )
