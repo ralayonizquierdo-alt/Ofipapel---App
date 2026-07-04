@@ -10,7 +10,7 @@ const STORES = [
     name: 'Los Cristianos',
     address: 'TODO: dirección exacta de la tienda de Los Cristianos',
     hours: 'Lunes a viernes 9:00-13:30 y 16:30-20:00, sábados 9:30-13:30',
-    phone: 'TODO: teléfono fijo de la tienda',
+    phone: '643 31 66 14',
   },
   {
     name: 'Playa de las Américas',
