@@ -4,19 +4,12 @@
 
 const BUSINESS_NAME = 'Ofipapel';
 
-// TODO: sustituye estos datos por los reales de cada tienda antes de publicar.
 const STORES = [
   {
     name: 'Los Cristianos',
-    address: 'TODO: dirección exacta de la tienda de Los Cristianos',
+    address: 'Calle Bulevar Chajofe, n.º 4, 38650 Los Cristianos, Santa Cruz de Tenerife, España',
     hours: 'Lunes a viernes 9:00-13:30 y 16:30-20:00, sábados 9:30-13:30',
     phone: '643 31 66 14',
-  },
-  {
-    name: 'Playa de las Américas',
-    address: 'TODO: dirección exacta de la tienda de Playa de las Américas',
-    hours: 'Lunes a viernes 9:00-13:30 y 16:30-20:00, sábados 9:30-13:30',
-    phone: 'TODO: teléfono fijo de la tienda',
   },
 ];
 
@@ -40,12 +33,12 @@ const FAQ_RULES = [
     reply: `Nuestros horarios son:\n${storesSummary()}`,
   },
   {
-    keywords: ['direccion', 'dirección', 'donde estan', 'dónde están', 'ubicacion', 'ubicación', 'mapa', 'como llegar', 'cómo llegar'],
-    reply: `Estas son nuestras tiendas:\n${storesSummary()}`,
+    keywords: ['direccion', 'dirección', 'donde estan', 'donde estáis', 'dónde están', 'dónde estáis', 'ubicacion', 'ubicación', 'mapa', 'como llegar', 'cómo llegar'],
+    reply: `Estamos en:\n${storesSummary()}`,
   },
   {
     keywords: ['telefono', 'teléfono', 'llamar', 'numero', 'número'],
-    reply: `Puedes llamarnos a:\n${storesSummary()}`,
+    reply: `Puedes llamarnos al:\n${storesSummary()}`,
   },
   {
     keywords: ['gracias', 'muchas gracias', 'perfecto', 'vale gracias'],
@@ -54,7 +47,7 @@ const FAQ_RULES = [
 ];
 
 // Prompt de sistema usado como respaldo cuando ninguna regla de FAQ coincide.
-const AI_SYSTEM_PROMPT = `Eres el asistente de atención al cliente por WhatsApp de ${BUSINESS_NAME}, una papelería con tiendas físicas en Tenerife.
+const AI_SYSTEM_PROMPT = `Eres el asistente de atención al cliente por WhatsApp de ${BUSINESS_NAME}, una papelería en Tenerife.
 
 Información del negocio:
 ${storesSummary()}

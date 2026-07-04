@@ -9,12 +9,11 @@ Vive como una función serverless de Netlify en
 `netlify/functions/whatsapp-webhook.js`, así que se despliega junto con el
 resto del sitio sin necesidad de un servidor aparte.
 
-## 1. Editar los datos del negocio
+## 1. Datos del negocio
 
-Abre `netlify/functions/whatsapp-agent-config.js` y rellena los campos
-marcados con `TODO`: direcciones y teléfonos reales de cada tienda. Los
-horarios ya están puestos de forma orientativa, ajústalos si no son correctos.
-Puedes añadir más preguntas frecuentes en el array `FAQ_RULES`.
+Los datos de la tienda (Los Cristianos: dirección, teléfono y horario) ya
+están cargados en `netlify/functions/whatsapp-agent-config.js`. Puedes
+añadir más preguntas frecuentes en el array `FAQ_RULES` si lo necesitas.
 
 ## 2. Crear la app de WhatsApp Cloud API en Meta
 
