@@ -1,0 +1,186 @@
+// Webhook de WhatsApp Cloud API (Meta) para el agente de respuesta automática de Ofipapel.
+//
+// GET  -> verificación del webhook que hace Meta al configurarlo.
+// POST -> mensajes entrantes de clientes; responde con reglas rápidas (FAQ) o,
+//         si ninguna coincide, con una respuesta generada por Claude.
+//
+// Variables de entorno necesarias (configúralas en Netlify > Site settings > Environment variables):
+//   WHATSAPP_VERIFY_TOKEN   token que tú inventas y usas al configurar el webhook en Meta
+//   WHATSAPP_TOKEN          access token de la app de WhatsApp Cloud API (Meta for Developers)
+//   WHATSAPP_PHONE_NUMBER_ID  id del número de WhatsApp Business (Meta for Developers)
+//   WHATSAPP_APP_SECRET     (opcional pero recomendado) app secret, para verificar la firma de Meta
+//   ANTHROPIC_API_KEY       api key de Claude, para responder cuando no hay una regla de FAQ
+
+const crypto = require('crypto');
+const { FAQ_RULES, AI_SYSTEM_PROMPT } = require('./whatsapp-agent-config');
+
+const GRAPH_API_VERSION = 'v20.0';
+const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
+const DEDUP_TTL_MS = 5 * 60 * 1000;
+
+// Deduplicación best-effort de mensajes reenviados por Meta (sobrevive solo mientras
+// la función esté "caliente"; no requiere base de datos para el caso de uso actual).
+const processedMessageIds = new Map();
+
+function alreadyProcessed(messageId) {
+  const now = Date.now();
+  for (const [id, ts] of processedMessageIds) {
+    if (now - ts > DEDUP_TTL_MS) processedMessageIds.delete(id);
+  }
+  if (processedMessageIds.has(messageId)) return true;
+  processedMessageIds.set(messageId, now);
+  return false;
+}
+
+function verifySignature(event) {
+  const secret = process.env.WHATSAPP_APP_SECRET;
+  if (!secret) return true; // no configurado: se omite la verificación (ver README de configuración)
+
+  const header = event.headers['x-hub-signature-256'] || event.headers['X-Hub-Signature-256'];
+  if (!header) return false;
+
+  const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64') : Buffer.from(event.body || '', 'utf8');
+  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+
+  const a = Buffer.from(header);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+function matchFaqRule(text) {
+  const normalized = text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, ''); // quita acentos para comparar con más tolerancia
+
+  for (const rule of FAQ_RULES) {
+    const hit = rule.keywords.some((keyword) => {
+      const normalizedKeyword = keyword
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '');
+      return normalized.includes(normalizedKeyword);
+    });
+    if (hit) return rule.reply;
+  }
+  return null;
+}
+
+async function askClaude(userText) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
+  }
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 300,
+        system: AI_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userText }],
+      }),
+    });
+
+    if (!resp.ok) {
+      console.error('Error de Claude API:', resp.status, await resp.text());
+      return 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
+    }
+
+    const data = await resp.json();
+    const text = data?.content?.find((block) => block.type === 'text')?.text?.trim();
+    return text || 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
+  } catch (err) {
+    console.error('Fallo llamando a Claude:', err);
+    return 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
+  }
+}
+
+async function sendWhatsappMessage(to, body) {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = process.env.WHATSAPP_TOKEN;
+
+  const resp = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'text',
+      text: { body },
+    }),
+  });
+
+  if (!resp.ok) {
+    console.error('Error enviando mensaje de WhatsApp:', resp.status, await resp.text());
+  }
+}
+
+async function handleIncomingMessage(message) {
+  if (message.type !== 'text') {
+    await sendWhatsappMessage(
+      message.from,
+      'Gracias por tu mensaje. Por ahora solo puedo leer texto, pero un miembro del equipo revisará esto en breve.'
+    );
+    return;
+  }
+
+  const text = message.text?.body || '';
+  const reply = matchFaqRule(text) || (await askClaude(text));
+  await sendWhatsappMessage(message.from, reply);
+}
+
+exports.handler = async (event) => {
+  if (event.httpMethod === 'GET') {
+    const params = event.queryStringParameters || {};
+    const mode = params['hub.mode'];
+    const token = params['hub.verify_token'];
+    const challenge = params['hub.challenge'];
+
+    if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+      return { statusCode: 200, body: challenge || '' };
+    }
+    return { statusCode: 403, body: 'Forbidden' };
+  }
+
+  if (event.httpMethod === 'POST') {
+    if (!verifySignature(event)) {
+      return { statusCode: 401, body: 'Invalid signature' };
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(event.body || '{}');
+    } catch (err) {
+      return { statusCode: 400, body: 'Invalid JSON' };
+    }
+
+    try {
+      const changes = payload?.entry?.flatMap((entry) => entry.changes || []) || [];
+      for (const change of changes) {
+        const messages = change.value?.messages || [];
+        for (const message of messages) {
+          if (alreadyProcessed(message.id)) continue;
+          await handleIncomingMessage(message);
+        }
+      }
+    } catch (err) {
+      console.error('Error procesando webhook de WhatsApp:', err);
+    }
+
+    // Meta espera un 200 rápido; los errores ya se han registrado arriba.
+    return { statusCode: 200, body: 'EVENT_RECEIVED' };
+  }
+
+  return { statusCode: 405, body: 'Method Not Allowed' };
+};
