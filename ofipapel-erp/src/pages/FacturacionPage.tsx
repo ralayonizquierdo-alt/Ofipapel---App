@@ -87,7 +87,7 @@ export default function FacturacionPage() {
             </>
           }
         >
-          <div id="invoice-print-area">
+          <div className="print-area">
             <div className="flex items-start justify-between mb-6">
               <div>
                 <div className="font-semibold text-slate-900">Ofipapel</div>

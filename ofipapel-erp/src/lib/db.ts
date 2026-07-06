@@ -1,13 +1,32 @@
 import type { Database } from '../types'
 import { generateDatabase } from './seed'
 
-const STORAGE_KEY = 'ofipapel-erp-db-v1'
+const STORAGE_KEY = 'ofipapel-erp-db-v2'
+
+/**
+ * Rellena cualquier colección que falte en un snapshot guardado por una versión
+ * anterior de la app (p. ej. abierta antes de añadir un módulo nuevo), en vez de
+ * romper la pantalla que la usa.
+ */
+function withMissingCollections(parsed: Partial<Database>): Database {
+  const fresh = generateDatabase()
+  const merged: Record<string, unknown> = { ...fresh, ...parsed }
+  for (const key of Object.keys(fresh)) {
+    if (!Array.isArray(merged[key])) {
+      merged[key] = fresh[key as keyof Database]
+    }
+  }
+  return merged as unknown as Database
+}
 
 export function loadDatabase(): Database {
   const raw = localStorage.getItem(STORAGE_KEY)
   if (raw) {
     try {
-      return JSON.parse(raw) as Database
+      const parsed = JSON.parse(raw) as Partial<Database>
+      const complete = withMissingCollections(parsed)
+      saveDatabase(complete)
+      return complete
     } catch {
       // fall through to regeneration if the stored payload is corrupted
     }

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { BarChart3 } from 'lucide-react'
 import { useDatabase } from '../lib/DatabaseContext'
 import Badge from '../components/Badge'
+import ReportBuilder, { type DimensionOption } from '../components/ReportBuilder'
 import { formatEUR } from '../lib/format'
 
 function daysSince(iso: string): number {
@@ -101,6 +102,61 @@ export default function InformesPage() {
   const maxComercial = Math.max(...rankingComerciales.map((c) => c.total), 1)
   const maxRotacion = Math.max(...rotacionPorCategoria.map((c) => c.rotacion), 0.01)
 
+  const categoriaById = useMemo(() => new Map(db.categories.map((c) => [c.id, c.nombre])), [db.categories])
+  const proveedorById = useMemo(() => new Map(db.suppliers.map((s) => [s.id, s])), [db.suppliers])
+  const locationById = useMemo(() => new Map(db.locations.map((l) => [l.id, l])), [db.locations])
+
+  const ventaLineas = useMemo(
+    () =>
+      db.sales.flatMap((s) =>
+        s.lineas.map((l) => ({
+          fecha: s.fecha,
+          comercialId: s.comercialId,
+          clienteId: s.clienteId,
+          canal: s.canal,
+          categoriaId: productById.get(l.productoId)?.categoriaId ?? '',
+          cantidad: l.cantidad,
+          importe: l.cantidad * l.precioUnit * (1 + l.iva / 100),
+        })),
+      ),
+    [db.sales, productById],
+  )
+
+  const compraLineas = useMemo(
+    () =>
+      db.purchases.flatMap((p) =>
+        p.lineas.map((l) => ({
+          fecha: p.fecha,
+          proveedorId: p.proveedorId,
+          locationId: p.locationId,
+          estado: p.estado,
+          categoriaId: productById.get(l.productoId)?.categoriaId ?? '',
+          cantidad: l.cantidad,
+          importe: l.cantidad * l.precioUnit * (1 + l.iva / 100),
+        })),
+      ),
+    [db.purchases, productById],
+  )
+
+  type VentaLinea = (typeof ventaLineas)[number]
+  type CompraLinea = (typeof compraLineas)[number]
+
+  const dimensionesVentas: DimensionOption<VentaLinea>[] = [
+    { value: 'comercial', label: 'Comercial', resolve: (l) => repById.get(l.comercialId)?.nombre ?? '—' },
+    { value: 'cliente', label: 'Cliente', resolve: (l) => clienteById.get(l.clienteId)?.nombre ?? 'Cliente eliminado' },
+    { value: 'categoria', label: 'Familia', resolve: (l) => categoriaById.get(l.categoriaId) ?? '—' },
+    { value: 'canal', label: 'Canal', resolve: (l) => l.canal },
+    { value: 'fecha', label: 'Mes', resolve: (l) => l.fecha.slice(0, 7) },
+  ]
+
+  const dimensionesCompras: DimensionOption<CompraLinea>[] = [
+    { value: 'proveedor', label: 'Proveedor', resolve: (l) => proveedorById.get(l.proveedorId)?.nombre ?? '—' },
+    { value: 'categoria', label: 'Familia', resolve: (l) => categoriaById.get(l.categoriaId) ?? '—' },
+    { value: 'almacen', label: 'Almacén destino', resolve: (l) => locationById.get(l.locationId)?.nombre ?? '—' },
+    { value: 'estado', label: 'Estado', resolve: (l) => l.estado },
+    { value: 'fecha', label: 'Mes', resolve: (l) => l.fecha.slice(0, 7) },
+  ]
+
   return (
     <div>
       <div className="flex items-start justify-between mb-1">
@@ -114,6 +170,31 @@ export default function InformesPage() {
       </div>
       <p className="text-sm text-slate-500 mb-6 ml-[52px]">Rentabilidad, ranking de ventas y rotación de stock, calculados sobre los datos actuales</p>
 
+      <div className="text-sm font-semibold text-slate-900 mb-3">Generador de informes</div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <ReportBuilder
+          title="Ventas"
+          data={ventaLineas}
+          dimensions={dimensionesVentas}
+          getFecha={(l) => l.fecha}
+          getUnidades={(l) => l.cantidad}
+          getImporte={(l) => l.importe}
+          csvPrefix="ventas"
+          rowUnitLabel="Líneas"
+        />
+        <ReportBuilder
+          title="Compras"
+          data={compraLineas}
+          dimensions={dimensionesCompras}
+          getFecha={(l) => l.fecha}
+          getUnidades={(l) => l.cantidad}
+          getImporte={(l) => l.importe}
+          csvPrefix="compras"
+          rowUnitLabel="Líneas"
+        />
+      </div>
+
+      <div className="text-sm font-semibold text-slate-900 mb-3">Resumen rápido</div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <div className="text-sm font-medium text-slate-700 mb-1">Productos más vendidos (importe)</div>
