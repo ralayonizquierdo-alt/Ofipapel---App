@@ -38,13 +38,13 @@ export default function FacturacionPage() {
 
   const rows = clienteFiltro ? db.invoices.filter((i) => i.clienteId === clienteFiltro) : db.invoices
   const totalFacturado = db.invoices.reduce((sum, i) => sum + i.total, 0)
-  const totalIva = db.invoices.reduce((sum, i) => sum + i.iva, 0)
+  const totalIgic = db.invoices.reduce((sum, i) => sum + i.igic, 0)
 
   const columns: Column<Invoice>[] = [
     { key: 'id', label: 'Factura', sortValue: (i) => i.id },
     { key: 'cliente', label: 'Cliente', render: (i) => clienteById.get(i.clienteId)?.nombre ?? 'Cliente eliminado', sortValue: (i) => clienteById.get(i.clienteId)?.nombre ?? '' },
     { key: 'base', label: 'Base', align: 'right', render: (i) => formatEUR(i.base), sortValue: (i) => i.base },
-    { key: 'iva', label: 'IVA', align: 'right', render: (i) => formatEUR(i.iva), sortValue: (i) => i.iva },
+    { key: 'igic', label: 'IGIC', align: 'right', render: (i) => formatEUR(i.igic), sortValue: (i) => i.igic },
     { key: 'total', label: 'Total', align: 'right', render: (i) => formatEUR(i.total), sortValue: (i) => i.total },
     { key: 'fecha', label: 'Fecha', render: (i) => formatDate(i.fecha), sortValue: (i) => i.fecha },
   ]
@@ -64,7 +64,7 @@ export default function FacturacionPage() {
         <Badge label="Activo (Fase 1)" />
       </div>
       <p className="text-sm text-slate-500 mb-6 ml-[52px]">
-        {db.invoices.length} facturas · {formatEUR(totalFacturado)} facturados ({formatEUR(totalIva)} de IVA repercutido)
+        {db.invoices.length} facturas · {formatEUR(totalFacturado)} facturados ({formatEUR(totalIgic)} de IGIC repercutido)
       </p>
 
       <DataTable
@@ -131,7 +131,7 @@ export default function FacturacionPage() {
                     <th className="text-left px-3 py-2">Producto</th>
                     <th className="text-right px-3 py-2">Cantidad</th>
                     <th className="text-right px-3 py-2">Precio</th>
-                    <th className="text-right px-3 py-2">IVA</th>
+                    <th className="text-right px-3 py-2">IGIC</th>
                     <th className="text-right px-3 py-2">Subtotal</th>
                   </tr>
                 </thead>
@@ -141,8 +141,8 @@ export default function FacturacionPage() {
                       <td className="px-3 py-2">{productById.get(l.productoId)?.nombre ?? 'Producto eliminado'}</td>
                       <td className="px-3 py-2 text-right">{l.cantidad}</td>
                       <td className="px-3 py-2 text-right">{formatEUR(l.precioUnit)}</td>
-                      <td className="px-3 py-2 text-right">{l.iva}%</td>
-                      <td className="px-3 py-2 text-right">{formatEUR(l.cantidad * l.precioUnit * (1 + l.iva / 100))}</td>
+                      <td className="px-3 py-2 text-right">{l.igic}%</td>
+                      <td className="px-3 py-2 text-right">{formatEUR(l.cantidad * l.precioUnit * (1 + l.igic / 100))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -155,8 +155,8 @@ export default function FacturacionPage() {
                   <span className="text-slate-800">{formatEUR(selected.base)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">IVA</span>
-                  <span className="text-slate-800">{formatEUR(selected.iva)}</span>
+                  <span className="text-slate-500">IGIC</span>
+                  <span className="text-slate-800">{formatEUR(selected.igic)}</span>
                 </div>
                 <div className="flex justify-between text-base font-semibold text-slate-900 border-t border-slate-200 pt-1 mt-1">
                   <span>Total</span>

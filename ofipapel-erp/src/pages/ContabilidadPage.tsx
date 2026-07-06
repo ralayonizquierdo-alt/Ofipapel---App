@@ -17,9 +17,9 @@ interface AccountEntry {
 const CUENTAS: Record<string, string> = {
   '430': 'Clientes',
   '700': 'Ventas de mercaderías',
-  '477': 'H.P. IVA repercutido',
+  '477': 'H.P. IGIC repercutido',
   '600': 'Compras de mercaderías',
-  '472': 'H.P. IVA soportado',
+  '472': 'H.P. IGIC soportado',
   '400': 'Proveedores',
 }
 
@@ -34,16 +34,16 @@ export default function ContabilidadPage() {
       const cliente = clienteById.get(inv.clienteId)?.nombre ?? 'Cliente'
       entries.push({ id: `${inv.id}-1`, fecha: inv.fecha, concepto: `Factura ${inv.id} · ${cliente}`, cuenta: '430', debe: inv.total, haber: 0 })
       entries.push({ id: `${inv.id}-2`, fecha: inv.fecha, concepto: `Factura ${inv.id} · ${cliente}`, cuenta: '700', debe: 0, haber: inv.base })
-      entries.push({ id: `${inv.id}-3`, fecha: inv.fecha, concepto: `Factura ${inv.id} · ${cliente}`, cuenta: '477', debe: 0, haber: inv.iva })
+      entries.push({ id: `${inv.id}-3`, fecha: inv.fecha, concepto: `Factura ${inv.id} · ${cliente}`, cuenta: '477', debe: 0, haber: inv.igic })
     })
     db.purchases
       .filter((p) => p.estado === 'Recibido')
       .forEach((p) => {
         const base = Number(p.lineas.reduce((sum, l) => sum + l.cantidad * l.precioUnit, 0).toFixed(2))
-        const iva = Number((p.total - base).toFixed(2))
+        const igic = Number((p.total - base).toFixed(2))
         const proveedor = proveedorById.get(p.proveedorId)?.nombre ?? 'Proveedor'
         entries.push({ id: `${p.id}-1`, fecha: p.fecha, concepto: `Compra ${p.id} · ${proveedor}`, cuenta: '600', debe: base, haber: 0 })
-        entries.push({ id: `${p.id}-2`, fecha: p.fecha, concepto: `Compra ${p.id} · ${proveedor}`, cuenta: '472', debe: iva, haber: 0 })
+        entries.push({ id: `${p.id}-2`, fecha: p.fecha, concepto: `Compra ${p.id} · ${proveedor}`, cuenta: '472', debe: igic, haber: 0 })
         entries.push({ id: `${p.id}-3`, fecha: p.fecha, concepto: `Compra ${p.id} · ${proveedor}`, cuenta: '400', debe: 0, haber: p.total })
       })
     return entries.sort((a, b) => (a.fecha < b.fecha ? 1 : -1))

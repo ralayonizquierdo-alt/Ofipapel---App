@@ -36,17 +36,17 @@ export default function FiscalidadPage() {
     db.invoices.forEach((inv) => {
       const q = quarterOf(inv.fecha)
       const acc = map.get(q) ?? { repercutido: 0, soportado: 0 }
-      acc.repercutido += inv.iva
+      acc.repercutido += inv.igic
       map.set(q, acc)
     })
     db.purchases
       .filter((p) => p.estado === 'Recibido')
       .forEach((p) => {
         const base = p.lineas.reduce((sum, l) => sum + l.cantidad * l.precioUnit, 0)
-        const iva = p.total - base
+        const igic = p.total - base
         const q = quarterOf(p.fecha)
         const acc = map.get(q) ?? { repercutido: 0, soportado: 0 }
-        acc.soportado += iva
+        acc.soportado += igic
         map.set(q, acc)
       })
     return [...map.entries()]
@@ -117,16 +117,16 @@ export default function FiscalidadPage() {
         </div>
         <Badge label="Activo (Fase 2)" />
       </div>
-      <p className="text-sm text-slate-500 mb-6 ml-[52px]">IVA trimestral, Veri*Factu y estado de cumplimiento normativo</p>
+      <p className="text-sm text-slate-500 mb-6 ml-[52px]">IGIC trimestral, Veri*Factu y estado de cumplimiento normativo</p>
 
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-6">
-        <div className="px-4 py-3 border-b border-slate-200 text-sm font-medium text-slate-700">IVA por trimestre (modelo 303)</div>
+        <div className="px-4 py-3 border-b border-slate-200 text-sm font-medium text-slate-700">IGIC por trimestre (modelo 420)</div>
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500">
               <th className="text-left px-4 py-2">Trimestre</th>
-              <th className="text-right px-4 py-2">IVA repercutido</th>
-              <th className="text-right px-4 py-2">IVA soportado</th>
+              <th className="text-right px-4 py-2">IGIC repercutido</th>
+              <th className="text-right px-4 py-2">IGIC soportado</th>
               <th className="text-right px-4 py-2">Resultado</th>
             </tr>
           </thead>

@@ -40,7 +40,7 @@ export interface Supplier {
   ultimaCompra: string
 }
 
-export type IvaRate = 21 | 10 | 4
+export type IgicRate = 7 | 3 | 0
 
 export type FormatoVenta = 'Unidad' | 'Paquete'
 
@@ -53,7 +53,7 @@ export interface Product {
   coste: number
   pvp: number
   tarifaMayorista: number
-  iva: IvaRate
+  igic: IgicRate
   unidadVenta: string
   formatoVenta: FormatoVenta
   unidadesPorPaquete: number
@@ -94,7 +94,7 @@ export interface OrderLine {
   productoId: string
   cantidad: number
   precioUnit: number
-  iva: IvaRate
+  igic: IgicRate
 }
 
 export type CanalVenta = 'Comercial' | 'Tienda' | 'Web'
@@ -140,7 +140,7 @@ export interface Invoice {
   clienteId: string
   fecha: string
   base: number
-  iva: number
+  igic: number
   total: number
 }
 

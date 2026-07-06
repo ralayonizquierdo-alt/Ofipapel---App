@@ -11,7 +11,7 @@ import type { Client, ClienteTipo } from '../types'
 const emptyForm = {
   nombre: '',
   tipo: 'Mayorista' as ClienteTipo,
-  tarifa: 'Tarifa B',
+  tarifa: 'Tarifa 2',
   comercialId: '',
   cif: '',
   telefono: '',
@@ -170,9 +170,10 @@ export default function ClientesPage() {
                     disabled={form.tipo === 'Minorista'}
                     onChange={(e) => setForm({ ...form, tarifa: e.target.value })}
                   >
-                    <option value="Tarifa A">Tarifa A</option>
-                    <option value="Tarifa B">Tarifa B</option>
-                    <option value="Tarifa C">Tarifa C</option>
+                    <option value="Tarifa 1">Tarifa 1</option>
+                    <option value="Tarifa 2">Tarifa 2</option>
+                    <option value="Tarifa 3">Tarifa 3</option>
+                    <option value="Tarifa 6 (Mayor)">Tarifa 6 (Mayor)</option>
                     <option value="PVP">PVP</option>
                   </select>
                 </FormField>

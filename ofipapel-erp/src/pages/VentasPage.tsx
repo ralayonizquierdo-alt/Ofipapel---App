@@ -58,16 +58,17 @@ export default function VentasPage() {
     const producto = productById.get(productoId)
     if (!cliente || !producto) return 0
     if (cliente.tipo === 'Minorista') return producto.pvp
-    if (cliente.tarifa === 'Tarifa A') return Number((producto.tarifaMayorista * 0.97).toFixed(2))
-    if (cliente.tarifa === 'Tarifa C') return Number((producto.tarifaMayorista * 1.05).toFixed(2))
-    return producto.tarifaMayorista
+    if (cliente.tarifa === 'Tarifa 1') return Number((producto.tarifaMayorista * 1.06).toFixed(2))
+    if (cliente.tarifa === 'Tarifa 3') return Number((producto.tarifaMayorista * 0.95).toFixed(2))
+    if (cliente.tarifa === 'Tarifa 6 (Mayor)') return Number((producto.tarifaMayorista * 0.9).toFixed(2))
+    return producto.tarifaMayorista // Tarifa 2 = tarifa mayorista base
   }
 
   const draftTotal = draftLines.reduce((sum, l) => {
     const producto = productById.get(l.productoId)
     if (!producto) return sum
     const precio = priceFor(draftClienteId, l.productoId)
-    return sum + l.cantidad * precio * (1 + producto.iva / 100)
+    return sum + l.cantidad * precio * (1 + producto.igic / 100)
   }, 0)
 
   function saveNewOrder() {
@@ -77,10 +78,10 @@ export default function VentasPage() {
       .filter((l) => l.productoId && l.cantidad > 0)
       .map((l) => {
         const producto = productById.get(l.productoId)!
-        return { productoId: l.productoId, cantidad: l.cantidad, precioUnit: priceFor(draftClienteId, l.productoId), iva: producto.iva }
+        return { productoId: l.productoId, cantidad: l.cantidad, precioUnit: priceFor(draftClienteId, l.productoId), igic: producto.igic }
       })
     if (lineas.length === 0) return
-    const total = Number(lineas.reduce((sum, l) => sum + l.cantidad * l.precioUnit * (1 + l.iva / 100), 0).toFixed(2))
+    const total = Number(lineas.reduce((sum, l) => sum + l.cantidad * l.precioUnit * (1 + l.igic / 100), 0).toFixed(2))
     add({
       id: `V-2026-${Date.now().toString().slice(-6)}`,
       clienteId: cliente.id,
@@ -193,7 +194,7 @@ export default function VentasPage() {
                   <th className="text-left px-3 py-2">Producto</th>
                   <th className="text-right px-3 py-2">Cantidad</th>
                   <th className="text-right px-3 py-2">Precio</th>
-                  <th className="text-right px-3 py-2">IVA</th>
+                  <th className="text-right px-3 py-2">IGIC</th>
                   <th className="text-right px-3 py-2">Subtotal</th>
                 </tr>
               </thead>
@@ -203,8 +204,8 @@ export default function VentasPage() {
                     <td className="px-3 py-2">{productById.get(l.productoId)?.nombre ?? 'Producto eliminado'}</td>
                     <td className="px-3 py-2 text-right">{l.cantidad}</td>
                     <td className="px-3 py-2 text-right">{formatEUR(l.precioUnit)}</td>
-                    <td className="px-3 py-2 text-right">{l.iva}%</td>
-                    <td className="px-3 py-2 text-right">{formatEUR(l.cantidad * l.precioUnit * (1 + l.iva / 100))}</td>
+                    <td className="px-3 py-2 text-right">{l.igic}%</td>
+                    <td className="px-3 py-2 text-right">{formatEUR(l.cantidad * l.precioUnit * (1 + l.igic / 100))}</td>
                   </tr>
                 ))}
               </tbody>

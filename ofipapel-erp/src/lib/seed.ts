@@ -1,4 +1,5 @@
 import { createRng, pick, intBetween, daysAgo, daysAhead } from './rng'
+import { placeholderImageFor } from './placeholderImage'
 import type {
   Location,
   SalesRep,
@@ -167,8 +168,6 @@ const PARTICULAR_NAMES = [
   'Miguel Rodríguez', 'Carmen Díaz', 'Antonio Ramos', 'Isabel Torres', 'Francisco Gil',
 ]
 
-const TARIFAS = ['Tarifa A', 'Tarifa B', 'Tarifa C', 'PVP'] as const
-
 function buildCategories(): Category[] {
   return CATEGORY_DEFS.map((c, i) => ({ id: `cat-${i + 1}`, nombre: c.nombre }))
 }
@@ -215,13 +214,14 @@ function buildProducts(rng: () => number, categories: Category[], suppliers: Sup
           coste,
           pvp,
           tarifaMayorista,
-          iva: pick(rng, [21, 21, 21, 4] as const),
+          igic: pick(rng, [7, 7, 7, 3, 0] as const),
           unidadVenta: size,
           formatoVenta,
           unidadesPorPaquete,
           ubicacion: `P${intBetween(rng, 1, 8)}-E${intBetween(rng, 1, 6)}`,
           activo: rng() > 0.03,
           publicadoWeb: rng() > 0.05,
+          imagenUrl: rng() > 0.1 ? placeholderImageFor(catDef.nombre) : undefined,
         })
       })
     })
@@ -266,7 +266,8 @@ function buildClients(rng: () => number, reps: SalesRep[]): Client[] {
       id: `cli-${id++}`,
       nombre,
       tipo: 'Mayorista',
-      tarifa: pick(rng, TARIFAS.slice(0, 3)),
+      // Tarifa 6 (Mayor) es la reservada para las cuentas más grandes, así que sale con menos frecuencia.
+      tarifa: pick(rng, ['Tarifa 1', 'Tarifa 1', 'Tarifa 2', 'Tarifa 2', 'Tarifa 3', 'Tarifa 6 (Mayor)'] as const),
       comercialId: rep.id,
       zona: rep.zona,
       cif: `B${intBetween(rng, 10000000, 99999999)}`,
@@ -299,9 +300,10 @@ function buildClients(rng: () => number, reps: SalesRep[]): Client[] {
 
 function priceFor(client: Client, product: Product): number {
   if (client.tipo === 'Minorista') return product.pvp
-  if (client.tarifa === 'Tarifa A') return Number((product.tarifaMayorista * 0.97).toFixed(2))
-  if (client.tarifa === 'Tarifa C') return Number((product.tarifaMayorista * 1.05).toFixed(2))
-  return product.tarifaMayorista
+  if (client.tarifa === 'Tarifa 1') return Number((product.tarifaMayorista * 1.06).toFixed(2))
+  if (client.tarifa === 'Tarifa 3') return Number((product.tarifaMayorista * 0.95).toFixed(2))
+  if (client.tarifa === 'Tarifa 6 (Mayor)') return Number((product.tarifaMayorista * 0.9).toFixed(2))
+  return product.tarifaMayorista // Tarifa 2 = tarifa mayorista base
 }
 
 function makeLineas(rng: () => number, client: Client, products: Product[]): OrderLine[] {
@@ -313,14 +315,14 @@ function makeLineas(rng: () => number, client: Client, products: Product[]): Ord
       productoId: producto.id,
       cantidad: intBetween(rng, 1, client.tipo === 'Mayorista' ? 40 : 5),
       precioUnit: priceFor(client, producto),
-      iva: producto.iva,
+      igic: producto.igic,
     })
   }
   return lineas
 }
 
 function totalFor(lineas: OrderLine[]): number {
-  return Number(lineas.reduce((sum, l) => sum + l.cantidad * l.precioUnit * (1 + l.iva / 100), 0).toFixed(2))
+  return Number(lineas.reduce((sum, l) => sum + l.cantidad * l.precioUnit * (1 + l.igic / 100), 0).toFixed(2))
 }
 
 const ESTADOS_VENTA: EstadoVenta[] = ['Presupuesto', 'Pedido', 'Albarán', 'Facturado', 'Facturado', 'Facturado', 'Facturado']
@@ -354,14 +356,14 @@ function buildInvoices(sales: SaleOrder[]): Invoice[] {
     .filter((s) => s.estado === 'Facturado')
     .map((s, i) => {
       const base = Number(s.lineas.reduce((sum, l) => sum + l.cantidad * l.precioUnit, 0).toFixed(2))
-      const iva = Number((s.total - base).toFixed(2))
+      const igic = Number((s.total - base).toFixed(2))
       return {
         id: `F-2026-${String(500 + i)}`,
         ventaId: s.id,
         clienteId: s.clienteId,
         fecha: s.fecha,
         base,
-        iva,
+        igic,
         total: s.total,
       }
     })
@@ -374,7 +376,7 @@ function buildPurchases(rng: () => number, suppliers: Supplier[], products: Prod
     const proveedor = pick(rng, suppliers)
     const lineas: OrderLine[] = Array.from({ length: intBetween(rng, 1, 5) }, () => {
       const producto = pick(rng, products.filter((p) => p.proveedorId === proveedor.id) || products)
-      return { productoId: producto?.id ?? pick(rng, products).id, cantidad: intBetween(rng, 20, 400), precioUnit: producto?.coste ?? 1, iva: producto?.iva ?? 21 }
+      return { productoId: producto?.id ?? pick(rng, products).id, cantidad: intBetween(rng, 20, 400), precioUnit: producto?.coste ?? 1, igic: producto?.igic ?? 7 }
     })
     const estado = rng() < 0.4 ? 'Pendiente' : 'Recibido'
     purchases.push({

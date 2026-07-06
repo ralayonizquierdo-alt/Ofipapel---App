@@ -6,7 +6,7 @@ import Modal from '../components/Modal'
 import Badge from '../components/Badge'
 import FormField, { inputClass } from '../components/FormField'
 import { formatEUR } from '../lib/format'
-import type { Product, IvaRate, FormatoVenta } from '../types'
+import type { Product, IgicRate, FormatoVenta } from '../types'
 
 const emptyForm = {
   sku: '',
@@ -16,7 +16,7 @@ const emptyForm = {
   coste: '0',
   pvp: '0',
   tarifaMayorista: '0',
-  iva: '21',
+  igic: '7',
   unidadVenta: 'unidad',
   formatoVenta: 'Unidad' as FormatoVenta,
   unidadesPorPaquete: '1',
@@ -86,7 +86,7 @@ export default function CatalogoPage() {
       coste: String(p.coste),
       pvp: String(p.pvp),
       tarifaMayorista: String(p.tarifaMayorista),
-      iva: String(p.iva),
+      igic: String(p.igic),
       unidadVenta: p.unidadVenta,
       formatoVenta: p.formatoVenta,
       unidadesPorPaquete: String(p.unidadesPorPaquete),
@@ -124,7 +124,7 @@ export default function CatalogoPage() {
       coste: Number(form.coste) || 0,
       pvp: Number(form.pvp) || 0,
       tarifaMayorista: Number(form.tarifaMayorista) || 0,
-      iva: Number(form.iva) as IvaRate,
+      igic: Number(form.igic) as IgicRate,
       unidadVenta: form.unidadVenta,
       formatoVenta: form.formatoVenta,
       unidadesPorPaquete: form.formatoVenta === 'Paquete' ? Number(form.unidadesPorPaquete) || 1 : 1,
@@ -300,11 +300,11 @@ export default function CatalogoPage() {
             </FormField>
           </div>
           <div className="grid grid-cols-2 gap-x-4">
-            <FormField label="IVA">
-              <select className={inputClass} value={form.iva} onChange={(e) => setForm({ ...form, iva: e.target.value })}>
-                <option value="21">21%</option>
-                <option value="10">10%</option>
-                <option value="4">4%</option>
+            <FormField label="IGIC">
+              <select className={inputClass} value={form.igic} onChange={(e) => setForm({ ...form, igic: e.target.value })}>
+                <option value="7">7% (general)</option>
+                <option value="3">3% (reducido)</option>
+                <option value="0">0% (tipo cero)</option>
               </select>
             </FormField>
             <FormField label="Ubicación en almacén">

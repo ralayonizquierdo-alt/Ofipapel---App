@@ -110,9 +110,9 @@ export const MENU_SECTIONS: MenuSection[] = [
         description: 'Fichas de cliente, tarifas asignadas, condiciones e historial.',
         sampleColumns: ['Cliente', 'Tipo', 'Tarifa', 'Saldo pendiente', 'Últ. pedido'],
         sampleRows: [
-          ['Librería Montaña S.L.', 'Mayorista', 'Tarifa B', '1.240,50 €', '18/06/2026'],
+          ['Librería Montaña S.L.', 'Mayorista', 'Tarifa 2', '1.240,50 €', '18/06/2026'],
           ['Ana Pérez (particular)', 'Minorista', 'PVP', '0,00 €', '29/06/2026'],
-          ['Copistería Rápida', 'Mayorista', 'Tarifa A', '340,00 €', '30/06/2026'],
+          ['Copistería Rápida', 'Mayorista', 'Tarifa 1', '340,00 €', '30/06/2026'],
         ],
       },
       {
@@ -161,8 +161,8 @@ export const MENU_SECTIONS: MenuSection[] = [
         path: '/facturacion',
         icon: Receipt,
         phase: 'core',
-        description: 'Series, numeración legal, IVA y exportación de facturas en PDF.',
-        sampleColumns: ['Factura', 'Cliente', 'Base', 'IVA', 'Total'],
+        description: 'Series, numeración legal, IGIC y exportación de facturas en PDF.',
+        sampleColumns: ['Factura', 'Cliente', 'Base', 'IGIC', 'Total'],
         sampleRows: [
           ['F-2026-0512', 'Librería Montaña S.L.', '506,10 €', '106,30 €', '612,40 €'],
           ['F-2026-0511', 'Copistería Rápida', '163,60 €', '34,40 €', '198,00 €'],
@@ -216,7 +216,7 @@ export const MENU_SECTIONS: MenuSection[] = [
         icon: Calculator,
         phase: 'pro',
         description: 'Asientos automáticos desde facturas y libro mayor.',
-        features: ['Asiento automático por factura', 'Libro mayor y diario', 'Cierre de IVA trimestral'],
+        features: ['Asiento automático por factura', 'Libro mayor y diario', 'Cierre de IGIC trimestral'],
       },
       {
         id: 'fiscalidad',

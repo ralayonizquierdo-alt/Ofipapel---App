@@ -48,8 +48,8 @@ export default function ComprasPage() {
     if (!proveedor) return
     const catalogo = db.products.filter((p) => p.proveedorId === draftProveedorId)
     const base = catalogo.length > 0 ? catalogo : db.products.slice(0, 5)
-    const lineas = base.slice(0, 3).map((p) => ({ productoId: p.id, cantidad: 50, precioUnit: p.coste, iva: p.iva }))
-    const total = Number(lineas.reduce((sum, l) => sum + l.cantidad * l.precioUnit * (1 + l.iva / 100), 0).toFixed(2))
+    const lineas = base.slice(0, 3).map((p) => ({ productoId: p.id, cantidad: 50, precioUnit: p.coste, igic: p.igic }))
+    const total = Number(lineas.reduce((sum, l) => sum + l.cantidad * l.precioUnit * (1 + l.igic / 100), 0).toFixed(2))
     const fechaPrevista = new Date()
     fechaPrevista.setDate(fechaPrevista.getDate() + proveedor.plazoEntregaDias)
     add({
@@ -152,7 +152,7 @@ export default function ComprasPage() {
                     <td className="px-3 py-2">{productById.get(l.productoId)?.nombre ?? 'Producto eliminado'}</td>
                     <td className="px-3 py-2 text-right">{l.cantidad}</td>
                     <td className="px-3 py-2 text-right">{formatEUR(l.precioUnit)}</td>
-                    <td className="px-3 py-2 text-right">{formatEUR(l.cantidad * l.precioUnit * (1 + l.iva / 100))}</td>
+                    <td className="px-3 py-2 text-right">{formatEUR(l.cantidad * l.precioUnit * (1 + l.igic / 100))}</td>
                   </tr>
                 ))}
               </tbody>
