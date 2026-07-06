@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
-import { Package, Plus, Trash2 } from 'lucide-react'
+import { Package, Plus, Trash2, ImageOff, Upload, X } from 'lucide-react'
 import { useDatabase, useCollection } from '../lib/DatabaseContext'
 import DataTable, { type Column } from '../components/DataTable'
 import Modal from '../components/Modal'
 import Badge from '../components/Badge'
 import FormField, { inputClass } from '../components/FormField'
 import { formatEUR } from '../lib/format'
-import type { Product, IvaRate } from '../types'
+import type { Product, IvaRate, FormatoVenta } from '../types'
 
 const emptyForm = {
   sku: '',
@@ -18,8 +18,26 @@ const emptyForm = {
   tarifaMayorista: '0',
   iva: '21',
   unidadVenta: 'unidad',
+  formatoVenta: 'Unidad' as FormatoVenta,
+  unidadesPorPaquete: '1',
   ubicacion: '',
   activo: true,
+  publicadoWeb: true,
+  imagenUrl: '',
+}
+
+function Thumbnail({ src, size = 32 }: { src?: string; size?: number }) {
+  if (src) {
+    return <img src={src} alt="" style={{ width: size, height: size }} className="rounded-md object-cover border border-slate-200" />
+  }
+  return (
+    <div
+      style={{ width: size, height: size }}
+      className="rounded-md border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-300"
+    >
+      <ImageOff size={Math.round(size * 0.5)} />
+    </div>
+  )
 }
 
 export default function CatalogoPage() {
@@ -41,13 +59,20 @@ export default function CatalogoPage() {
   const filteredByCategoria = categoriaFiltro ? products.filter((p) => p.categoriaId === categoriaFiltro) : products
 
   const columns: Column<Product>[] = [
+    { key: 'imagen', label: '', render: (p) => <Thumbnail src={p.imagenUrl} /> },
     { key: 'sku', label: 'SKU', sortValue: (p) => p.sku },
     { key: 'nombre', label: 'Producto', sortValue: (p) => p.nombre },
     { key: 'categoria', label: 'Categoría', render: (p) => categoriaById.get(p.categoriaId) ?? '—', sortValue: (p) => categoriaById.get(p.categoriaId) ?? '' },
+    {
+      key: 'formato',
+      label: 'Formato',
+      render: (p) => (p.formatoVenta === 'Paquete' ? `Paquete (${p.unidadesPorPaquete} uds)` : 'Unidad'),
+      sortValue: (p) => p.formatoVenta,
+    },
     { key: 'coste', label: 'Coste', align: 'right', render: (p) => formatEUR(p.coste), sortValue: (p) => p.coste },
     { key: 'pvp', label: 'PVP', align: 'right', render: (p) => formatEUR(p.pvp), sortValue: (p) => p.pvp },
-    { key: 'tarifa', label: 'Tarifa mayorista', align: 'right', render: (p) => formatEUR(p.tarifaMayorista), sortValue: (p) => p.tarifaMayorista },
     { key: 'stock', label: 'Stock total', align: 'right', render: (p) => (stockByProduct.get(p.id) ?? 0).toLocaleString('es-ES'), sortValue: (p) => stockByProduct.get(p.id) ?? 0 },
+    { key: 'web', label: 'Web', render: (p) => <Badge label={p.publicadoWeb ? 'Publicado' : 'No publicado'} />, sortValue: (p) => (p.publicadoWeb ? 1 : 0) },
     { key: 'estado', label: 'Estado', render: (p) => <Badge label={p.activo ? 'Activo' : 'Inactivo'} /> },
   ]
 
@@ -63,8 +88,12 @@ export default function CatalogoPage() {
       tarifaMayorista: String(p.tarifaMayorista),
       iva: String(p.iva),
       unidadVenta: p.unidadVenta,
+      formatoVenta: p.formatoVenta,
+      unidadesPorPaquete: String(p.unidadesPorPaquete),
       ubicacion: p.ubicacion,
       activo: p.activo,
+      publicadoWeb: p.publicadoWeb,
+      imagenUrl: p.imagenUrl ?? '',
     })
   }
 
@@ -79,6 +108,13 @@ export default function CatalogoPage() {
     setCreating(false)
   }
 
+  function handleImageChange(file: File | undefined) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setForm((f) => ({ ...f, imagenUrl: String(reader.result) }))
+    reader.readAsDataURL(file)
+  }
+
   function save() {
     const payload = {
       sku: form.sku,
@@ -90,8 +126,12 @@ export default function CatalogoPage() {
       tarifaMayorista: Number(form.tarifaMayorista) || 0,
       iva: Number(form.iva) as IvaRate,
       unidadVenta: form.unidadVenta,
+      formatoVenta: form.formatoVenta,
+      unidadesPorPaquete: form.formatoVenta === 'Paquete' ? Number(form.unidadesPorPaquete) || 1 : 1,
       ubicacion: form.ubicacion,
       activo: form.activo,
+      publicadoWeb: form.publicadoWeb,
+      imagenUrl: form.imagenUrl || undefined,
     }
     if (selected) {
       update(selected.id, payload)
@@ -172,11 +212,27 @@ export default function CatalogoPage() {
             </>
           }
         >
+          <div className="flex items-center gap-3 mb-4">
+            <Thumbnail src={form.imagenUrl || undefined} size={64} />
+            <div>
+              <label className="flex items-center gap-1.5 px-3 py-2 text-sm border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 w-fit">
+                <Upload size={14} />
+                {form.imagenUrl ? 'Cambiar imagen' : 'Añadir imagen'}
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange(e.target.files?.[0])} />
+              </label>
+              {form.imagenUrl && (
+                <button onClick={() => setForm((f) => ({ ...f, imagenUrl: '' }))} className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-600 mt-1.5">
+                  <X size={12} /> Quitar imagen
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-x-4">
             <FormField label="SKU">
               <input className={inputClass} value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
             </FormField>
-            <FormField label="Unidad de venta">
+            <FormField label="Unidad de venta (texto libre)">
               <input className={inputClass} value={form.unidadVenta} onChange={(e) => setForm({ ...form, unidadVenta: e.target.value })} />
             </FormField>
           </div>
@@ -202,6 +258,29 @@ export default function CatalogoPage() {
                 ))}
               </select>
             </FormField>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4">
+            <FormField label="Formato de venta">
+              <select
+                className={inputClass}
+                value={form.formatoVenta}
+                onChange={(e) => setForm({ ...form, formatoVenta: e.target.value as FormatoVenta })}
+              >
+                <option value="Unidad">Unidad</option>
+                <option value="Paquete">Paquete</option>
+              </select>
+            </FormField>
+            {form.formatoVenta === 'Paquete' && (
+              <FormField label="Unidades por paquete">
+                <input
+                  type="number"
+                  min={1}
+                  className={inputClass}
+                  value={form.unidadesPorPaquete}
+                  onChange={(e) => setForm({ ...form, unidadesPorPaquete: e.target.value })}
+                />
+              </FormField>
+            )}
           </div>
           <div className="grid grid-cols-3 gap-x-4">
             <FormField label="Coste (€)">
@@ -232,10 +311,16 @@ export default function CatalogoPage() {
               <input className={inputClass} value={form.ubicacion} onChange={(e) => setForm({ ...form, ubicacion: e.target.value })} />
             </FormField>
           </div>
-          <label className="flex items-center gap-2 text-sm text-slate-700 mt-1">
-            <input type="checkbox" checked={form.activo} onChange={(e) => setForm({ ...form, activo: e.target.checked })} />
-            Producto activo
-          </label>
+          <div className="flex items-center gap-6 mt-1">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={form.activo} onChange={(e) => setForm({ ...form, activo: e.target.checked })} />
+              Producto activo
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={form.publicadoWeb} onChange={(e) => setForm({ ...form, publicadoWeb: e.target.checked })} />
+              Publicar en la web
+            </label>
+          </div>
         </Modal>
       )}
     </div>

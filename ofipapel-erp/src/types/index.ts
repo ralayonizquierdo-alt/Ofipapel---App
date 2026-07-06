@@ -42,6 +42,8 @@ export interface Supplier {
 
 export type IvaRate = 21 | 10 | 4
 
+export type FormatoVenta = 'Unidad' | 'Paquete'
+
 export interface Product {
   id: string
   sku: string
@@ -53,8 +55,12 @@ export interface Product {
   tarifaMayorista: number
   iva: IvaRate
   unidadVenta: string
+  formatoVenta: FormatoVenta
+  unidadesPorPaquete: number
   ubicacion: string
   activo: boolean
+  publicadoWeb: boolean
+  imagenUrl?: string
 }
 
 export interface StockEntry {

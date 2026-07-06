@@ -13,7 +13,7 @@ export default function TiendaWebPage() {
   const clienteById = useMemo(() => new Map(db.clients.map((c) => [c.id, c])), [db.clients])
   const pedidosWeb = useMemo(() => db.sales.filter((s) => s.canal === 'Web'), [db.sales])
   const productosActivos = db.products.filter((p) => p.activo).length
-  const productosPublicados = Math.round(productosActivos * 0.985)
+  const productosPublicados = db.products.filter((p) => p.activo && p.publicadoWeb).length
 
   const columns: Column<SaleOrder>[] = [
     { key: 'id', label: 'Pedido web', sortValue: (s) => s.id },

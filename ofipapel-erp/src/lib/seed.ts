@@ -19,6 +19,7 @@ import type {
   CashSession,
   Lote,
   StockTransfer,
+  FormatoVenta,
 } from '../types'
 
 const ZONES = [
@@ -183,6 +184,12 @@ function buildSuppliers(rng: () => number): Supplier[] {
   }))
 }
 
+function parseFormato(size: string): { formatoVenta: FormatoVenta; unidadesPorPaquete: number } {
+  if (size === 'unidad' || size === 'rollo') return { formatoVenta: 'Unidad', unidadesPorPaquete: 1 }
+  const match = size.match(/\d+/)
+  return { formatoVenta: 'Paquete', unidadesPorPaquete: match ? Number(match[0]) : 1 }
+}
+
 function buildProducts(rng: () => number, categories: Category[], suppliers: Supplier[]): Product[] {
   const products: Product[] = []
   let counter = 10000
@@ -197,6 +204,7 @@ function buildProducts(rng: () => number, categories: Category[], suppliers: Sup
         const margenMayorista = 1.15 + rng() * 0.4
         const pvp = Number((coste * margenMinorista).toFixed(2))
         const tarifaMayorista = Number((coste * margenMayorista).toFixed(2))
+        const { formatoVenta, unidadesPorPaquete } = parseFormato(size)
         products.push({
           id: `prod-${counter}`,
           sku: `OF-${counter}`,
@@ -208,8 +216,11 @@ function buildProducts(rng: () => number, categories: Category[], suppliers: Sup
           tarifaMayorista,
           iva: pick(rng, [21, 21, 21, 4] as const),
           unidadVenta: size,
+          formatoVenta,
+          unidadesPorPaquete,
           ubicacion: `P${intBetween(rng, 1, 8)}-E${intBetween(rng, 1, 6)}`,
           activo: rng() > 0.03,
+          publicadoWeb: rng() > 0.05,
         })
       })
     })
