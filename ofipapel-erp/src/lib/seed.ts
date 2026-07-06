@@ -16,6 +16,9 @@ import type {
   OrderLine,
   EstadoVenta,
   CanalVenta,
+  CashSession,
+  Lote,
+  StockTransfer,
 } from '../types'
 
 const ZONES = [
@@ -310,8 +313,9 @@ function totalFor(lineas: OrderLine[]): number {
 
 const ESTADOS_VENTA: EstadoVenta[] = ['Presupuesto', 'Pedido', 'Albarán', 'Facturado', 'Facturado', 'Facturado', 'Facturado']
 
-function buildSales(rng: () => number, clients: Client[], products: Product[]): SaleOrder[] {
+function buildSales(rng: () => number, clients: Client[], products: Product[], locations: Location[]): SaleOrder[] {
   const sales: SaleOrder[] = []
+  const tiendas = locations.filter((l) => l.tipo === 'Tienda')
   const total = 260
   for (let i = 1; i <= total; i++) {
     const client = pick(rng, clients)
@@ -323,6 +327,8 @@ function buildSales(rng: () => number, clients: Client[], products: Product[]): 
       comercialId: client.comercialId,
       estado: pick(rng, ESTADOS_VENTA),
       canal,
+      locationId: canal === 'Tienda' ? pick(rng, tiendas).id : undefined,
+      formaPago: canal === 'Tienda' ? pick(rng, ['Efectivo', 'Tarjeta']) : undefined,
       fecha: daysAgo(rng, 75),
       lineas,
       total: totalFor(lineas),
@@ -401,6 +407,90 @@ function buildUsers(reps: SalesRep[], locations: Location[]): AppUser[] {
   return users
 }
 
+function buildCashSessions(rng: () => number, locations: Location[]): CashSession[] {
+  const tiendas = locations.filter((l) => l.tipo === 'Tienda')
+  const sessions: CashSession[] = []
+  let id = 1
+  tiendas.forEach((tienda) => {
+    for (let dayOffset = 14; dayOffset >= 0; dayOffset--) {
+      const d = new Date()
+      d.setDate(d.getDate() - dayOffset)
+      const fechaApertura = d.toISOString().slice(0, 10)
+      const saldoInicial = 100
+      const ventasEfectivo = Number((intBetween(rng, 8000, 45000) / 100).toFixed(2))
+      const ventasTarjeta = Number((intBetween(rng, 15000, 60000) / 100).toFixed(2))
+      const esHoy = dayOffset === 0
+      const esperado = saldoInicial + ventasEfectivo
+      const diferencia = esHoy ? 0 : Number(((rng() - 0.5) * 6).toFixed(2))
+      sessions.push({
+        id: `caja-${id++}`,
+        locationId: tienda.id,
+        fechaApertura,
+        fechaCierre: esHoy ? null : fechaApertura,
+        saldoInicial,
+        ventasEfectivo,
+        ventasTarjeta,
+        saldoContado: esHoy ? null : Number((esperado + diferencia).toFixed(2)),
+        estado: esHoy ? 'Abierta' : 'Cerrada',
+      })
+    }
+  })
+  return sessions
+}
+
+const CADUCIDAD_CATEGORIA = 'Limpieza e Higiene'
+
+function buildLotes(rng: () => number, products: Product[], categories: Category[], locations: Location[]): Lote[] {
+  const categoria = categories.find((c) => c.nombre === CADUCIDAD_CATEGORIA)
+  if (!categoria) return []
+  const productosConCaducidad = products.filter((p) => p.categoriaId === categoria.id)
+  const almacenes = locations.filter((l) => l.tipo === 'Almacén')
+  const lotes: Lote[] = []
+  let id = 1
+  productosConCaducidad.forEach((producto) => {
+    const numLotes = intBetween(rng, 1, 3)
+    for (let i = 0; i < numLotes; i++) {
+      const loc = pick(rng, almacenes)
+      const diasCaducidad = intBetween(rng, -10, 400)
+      const fecha = new Date()
+      fecha.setDate(fecha.getDate() + diasCaducidad)
+      lotes.push({
+        id: `lote-${id++}`,
+        productoId: producto.id,
+        locationId: loc.id,
+        lote: `L${fecha.getFullYear()}${String(intBetween(rng, 1, 52)).padStart(2, '0')}-${intBetween(rng, 100, 999)}`,
+        fechaCaducidad: fecha.toISOString().slice(0, 10),
+        unidades: intBetween(rng, 10, 300),
+      })
+    }
+  })
+  return lotes
+}
+
+function buildTransfers(rng: () => number, products: Product[], locations: Location[]): StockTransfer[] {
+  const almacenes = locations.filter((l) => l.tipo === 'Almacén')
+  const transfers: StockTransfer[] = []
+  const estados = ['Pendiente', 'En tránsito', 'Completada', 'Completada', 'Completada'] as const
+  for (let i = 1; i <= 22; i++) {
+    const origen = pick(rng, almacenes)
+    let destino = pick(rng, almacenes)
+    while (destino.id === origen.id) destino = pick(rng, almacenes)
+    const lineas = Array.from({ length: intBetween(rng, 1, 4) }, () => ({
+      productoId: pick(rng, products).id,
+      cantidad: intBetween(rng, 10, 150),
+    }))
+    transfers.push({
+      id: `TR-2026-${String(100 + i)}`,
+      origenId: origen.id,
+      destinoId: destino.id,
+      fecha: daysAgo(rng, 30),
+      estado: pick(rng, estados),
+      lineas,
+    })
+  }
+  return transfers.sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+}
+
 export function generateDatabase(): Database {
   const rng = createRng(20260702)
   const locations = buildLocations()
@@ -410,10 +500,13 @@ export function generateDatabase(): Database {
   const products = buildProducts(rng, categories, suppliers)
   const stock = buildStock(rng, products, locations)
   const clients = buildClients(rng, reps)
-  const sales = buildSales(rng, clients, products)
+  const sales = buildSales(rng, clients, products, locations)
   const invoices = buildInvoices(sales)
   const purchases = buildPurchases(rng, suppliers, products, locations)
   const users = buildUsers(reps, locations)
+  const cashSessions = buildCashSessions(rng, locations)
+  const lotes = buildLotes(rng, products, categories, locations)
+  const transfers = buildTransfers(rng, products, locations)
 
   return {
     locations,
@@ -424,6 +517,9 @@ export function generateDatabase(): Database {
     products,
     stock,
     clients,
+    cashSessions,
+    lotes,
+    transfers,
     sales,
     purchases,
     invoices,

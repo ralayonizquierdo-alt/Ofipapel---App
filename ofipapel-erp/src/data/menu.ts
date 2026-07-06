@@ -52,7 +52,7 @@ export interface MenuSection {
 
 export const PHASE_META: Record<Phase, { label: string; color: string; dot: string }> = {
   core: { label: 'Activo (Fase 1)', color: 'bg-emerald-100 text-emerald-800', dot: 'bg-emerald-500' },
-  pro: { label: 'Fase 2', color: 'bg-orange-100 text-orange-800', dot: 'bg-orange-500' },
+  pro: { label: 'Activo (Fase 2)', color: 'bg-orange-100 text-orange-800', dot: 'bg-orange-500' },
   advanced: { label: 'Fase 3', color: 'bg-purple-100 text-purple-800', dot: 'bg-purple-500' },
   optional: { label: 'Opcional / escalable', color: 'bg-slate-200 text-slate-700', dot: 'bg-slate-500' },
 }

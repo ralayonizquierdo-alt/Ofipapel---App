@@ -11,10 +11,16 @@ import ComprasPage from './pages/ComprasPage'
 import FacturacionPage from './pages/FacturacionPage'
 import TiendaWebPage from './pages/TiendaWebPage'
 import UsuariosPage from './pages/UsuariosPage'
+import TPVPage from './pages/TPVPage'
+import ContabilidadPage from './pages/ContabilidadPage'
+import FiscalidadPage from './pages/FiscalidadPage'
+import LotesPage from './pages/LotesPage'
+import InformesPage from './pages/InformesPage'
+import TransferenciasPage from './pages/TransferenciasPage'
 import ModulePage from './components/ModulePage'
 import { ALL_ITEMS } from './data/menu'
 
-// Módulos de Fase 1 ya desarrollados en profundidad; el resto sigue como
+// Módulos de Fase 1 y 2 ya desarrollados en profundidad; el resto sigue como
 // pantalla de referencia (ModulePage) hasta que se aborden en su fase.
 const BUILT_PAGES: Record<string, ComponentType> = {
   catalogo: CatalogoPage,
@@ -26,6 +32,12 @@ const BUILT_PAGES: Record<string, ComponentType> = {
   facturacion: FacturacionPage,
   web: TiendaWebPage,
   usuarios: UsuariosPage,
+  tpv: TPVPage,
+  contabilidad: ContabilidadPage,
+  fiscalidad: FiscalidadPage,
+  lotes: LotesPage,
+  informes: InformesPage,
+  multialmacen: TransferenciasPage,
 }
 
 function App() {

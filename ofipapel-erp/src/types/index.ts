@@ -99,6 +99,8 @@ export interface SaleOrder {
   comercialId: string
   estado: EstadoVenta
   canal: CanalVenta
+  locationId?: string
+  formaPago?: 'Efectivo' | 'Tarjeta'
   fecha: string
   lineas: OrderLine[]
   total: number
@@ -139,6 +141,45 @@ export interface AppUser {
   activo: boolean
 }
 
+export type EstadoCaja = 'Abierta' | 'Cerrada'
+
+export interface CashSession {
+  id: string
+  locationId: string
+  fechaApertura: string
+  fechaCierre: string | null
+  saldoInicial: number
+  ventasEfectivo: number
+  ventasTarjeta: number
+  saldoContado: number | null
+  estado: EstadoCaja
+}
+
+export interface Lote {
+  id: string
+  productoId: string
+  locationId: string
+  lote: string
+  fechaCaducidad: string
+  unidades: number
+}
+
+export type EstadoTransferencia = 'Pendiente' | 'En tránsito' | 'Completada'
+
+export interface TransferLine {
+  productoId: string
+  cantidad: number
+}
+
+export interface StockTransfer {
+  id: string
+  origenId: string
+  destinoId: string
+  fecha: string
+  estado: EstadoTransferencia
+  lineas: TransferLine[]
+}
+
 export interface Database {
   locations: Location[]
   salesReps: SalesRep[]
@@ -152,4 +193,7 @@ export interface Database {
   purchases: PurchaseOrder[]
   invoices: Invoice[]
   users: AppUser[]
+  cashSessions: CashSession[]
+  lotes: Lote[]
+  transfers: StockTransfer[]
 }
