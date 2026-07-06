@@ -44,15 +44,20 @@ export type IgicRate = 7 | 3 | 0
 
 export type FormatoVenta = 'Unidad' | 'Paquete'
 
+export type TarifaId = 'Tarifa 1' | 'Tarifa 2' | 'Tarifa 3' | 'Tarifa 6 (Mayor)'
+
+export const TARIFA_IDS: TarifaId[] = ['Tarifa 1', 'Tarifa 2', 'Tarifa 3', 'Tarifa 6 (Mayor)']
+
 export interface Product {
   id: string
   sku: string
+  codigoBarras: string
   nombre: string
   categoriaId: string
   proveedorId: string
   coste: number
   pvp: number
-  tarifaMayorista: number
+  tarifas: Record<TarifaId, number>
   igic: IgicRate
   unidadVenta: string
   formatoVenta: FormatoVenta

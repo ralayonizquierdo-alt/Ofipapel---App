@@ -7,7 +7,7 @@ import Badge from '../components/Badge'
 import { inputClass } from '../components/FormField'
 import { formatEUR, formatDate } from '../lib/format'
 import { createInvoiceFromSale } from '../lib/invoicing'
-import type { SaleOrder, EstadoVenta, OrderLine } from '../types'
+import type { SaleOrder, EstadoVenta, OrderLine, TarifaId } from '../types'
 
 const ESTADOS: EstadoVenta[] = ['Presupuesto', 'Pedido', 'Albarán', 'Facturado']
 
@@ -58,10 +58,7 @@ export default function VentasPage() {
     const producto = productById.get(productoId)
     if (!cliente || !producto) return 0
     if (cliente.tipo === 'Minorista') return producto.pvp
-    if (cliente.tarifa === 'Tarifa 1') return Number((producto.tarifaMayorista * 1.06).toFixed(2))
-    if (cliente.tarifa === 'Tarifa 3') return Number((producto.tarifaMayorista * 0.95).toFixed(2))
-    if (cliente.tarifa === 'Tarifa 6 (Mayor)') return Number((producto.tarifaMayorista * 0.9).toFixed(2))
-    return producto.tarifaMayorista // Tarifa 2 = tarifa mayorista base
+    return producto.tarifas[cliente.tarifa as TarifaId] ?? producto.tarifas['Tarifa 2']
   }
 
   const draftTotal = draftLines.reduce((sum, l) => {

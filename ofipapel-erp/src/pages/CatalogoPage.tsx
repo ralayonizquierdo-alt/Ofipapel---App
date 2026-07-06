@@ -6,16 +6,21 @@ import Modal from '../components/Modal'
 import Badge from '../components/Badge'
 import FormField, { inputClass } from '../components/FormField'
 import { formatEUR } from '../lib/format'
+import { TARIFA_IDS } from '../types'
 import type { Product, IgicRate, FormatoVenta } from '../types'
 
 const emptyForm = {
   sku: '',
+  codigoBarras: '',
   nombre: '',
   categoriaId: '',
   proveedorId: '',
   coste: '0',
   pvp: '0',
-  tarifaMayorista: '0',
+  tarifa1: '0',
+  tarifa2: '0',
+  tarifa3: '0',
+  tarifa6: '0',
   igic: '7',
   unidadVenta: 'unidad',
   formatoVenta: 'Unidad' as FormatoVenta,
@@ -63,14 +68,12 @@ export default function CatalogoPage() {
     { key: 'sku', label: 'SKU', sortValue: (p) => p.sku },
     { key: 'nombre', label: 'Producto', sortValue: (p) => p.nombre },
     { key: 'categoria', label: 'Categoría', render: (p) => categoriaById.get(p.categoriaId) ?? '—', sortValue: (p) => categoriaById.get(p.categoriaId) ?? '' },
-    {
-      key: 'formato',
-      label: 'Formato',
-      render: (p) => (p.formatoVenta === 'Paquete' ? `Paquete (${p.unidadesPorPaquete} uds)` : 'Unidad'),
-      sortValue: (p) => p.formatoVenta,
-    },
     { key: 'coste', label: 'Coste', align: 'right', render: (p) => formatEUR(p.coste), sortValue: (p) => p.coste },
     { key: 'pvp', label: 'PVP', align: 'right', render: (p) => formatEUR(p.pvp), sortValue: (p) => p.pvp },
+    { key: 't1', label: 'Tarifa 1', align: 'right', render: (p) => formatEUR(p.tarifas['Tarifa 1']), sortValue: (p) => p.tarifas['Tarifa 1'] },
+    { key: 't2', label: 'Tarifa 2', align: 'right', render: (p) => formatEUR(p.tarifas['Tarifa 2']), sortValue: (p) => p.tarifas['Tarifa 2'] },
+    { key: 't3', label: 'Tarifa 3', align: 'right', render: (p) => formatEUR(p.tarifas['Tarifa 3']), sortValue: (p) => p.tarifas['Tarifa 3'] },
+    { key: 't6', label: 'Tarifa 6 (Mayor)', align: 'right', render: (p) => formatEUR(p.tarifas['Tarifa 6 (Mayor)']), sortValue: (p) => p.tarifas['Tarifa 6 (Mayor)'] },
     { key: 'stock', label: 'Stock total', align: 'right', render: (p) => (stockByProduct.get(p.id) ?? 0).toLocaleString('es-ES'), sortValue: (p) => stockByProduct.get(p.id) ?? 0 },
     { key: 'web', label: 'Web', render: (p) => <Badge label={p.publicadoWeb ? 'Publicado' : 'No publicado'} />, sortValue: (p) => (p.publicadoWeb ? 1 : 0) },
     { key: 'estado', label: 'Estado', render: (p) => <Badge label={p.activo ? 'Activo' : 'Inactivo'} /> },
@@ -80,12 +83,16 @@ export default function CatalogoPage() {
     setSelected(p)
     setForm({
       sku: p.sku,
+      codigoBarras: p.codigoBarras,
       nombre: p.nombre,
       categoriaId: p.categoriaId,
       proveedorId: p.proveedorId,
       coste: String(p.coste),
       pvp: String(p.pvp),
-      tarifaMayorista: String(p.tarifaMayorista),
+      tarifa1: String(p.tarifas['Tarifa 1']),
+      tarifa2: String(p.tarifas['Tarifa 2']),
+      tarifa3: String(p.tarifas['Tarifa 3']),
+      tarifa6: String(p.tarifas['Tarifa 6 (Mayor)']),
       igic: String(p.igic),
       unidadVenta: p.unidadVenta,
       formatoVenta: p.formatoVenta,
@@ -99,7 +106,7 @@ export default function CatalogoPage() {
 
   function openCreate() {
     const nextSku = `OF-${10000 + products.length + Math.floor(Math.random() * 900)}`
-    setForm({ ...emptyForm, sku: nextSku, categoriaId: db.categories[0]?.id ?? '', proveedorId: db.suppliers[0]?.id ?? '' })
+    setForm({ ...emptyForm, sku: nextSku, codigoBarras: '', categoriaId: db.categories[0]?.id ?? '', proveedorId: db.suppliers[0]?.id ?? '' })
     setCreating(true)
   }
 
@@ -118,12 +125,18 @@ export default function CatalogoPage() {
   function save() {
     const payload = {
       sku: form.sku,
+      codigoBarras: form.codigoBarras,
       nombre: form.nombre,
       categoriaId: form.categoriaId,
       proveedorId: form.proveedorId,
       coste: Number(form.coste) || 0,
       pvp: Number(form.pvp) || 0,
-      tarifaMayorista: Number(form.tarifaMayorista) || 0,
+      tarifas: {
+        'Tarifa 1': Number(form.tarifa1) || 0,
+        'Tarifa 2': Number(form.tarifa2) || 0,
+        'Tarifa 3': Number(form.tarifa3) || 0,
+        'Tarifa 6 (Mayor)': Number(form.tarifa6) || 0,
+      },
       igic: Number(form.igic) as IgicRate,
       unidadVenta: form.unidadVenta,
       formatoVenta: form.formatoVenta,
@@ -161,14 +174,14 @@ export default function CatalogoPage() {
         <Badge label="Activo (Fase 1)" />
       </div>
       <p className="text-sm text-slate-500 mb-6 ml-[52px]">
-        {products.length.toLocaleString('es-ES')} referencias · Alta, baja y edición de productos
+        {products.length.toLocaleString('es-ES')} referencias · Alta, baja y edición de productos, con precio por cada tarifa
       </p>
 
       <DataTable
         columns={columns}
         rows={filteredByCategoria}
         rowKey={(p) => p.id}
-        searchableText={(p) => `${p.sku} ${p.nombre} ${categoriaById.get(p.categoriaId)} ${proveedorById.get(p.proveedorId)}`}
+        searchableText={(p) => `${p.sku} ${p.codigoBarras} ${p.nombre} ${categoriaById.get(p.categoriaId)} ${proveedorById.get(p.proveedorId)}`}
         onRowClick={openEdit}
         pageSize={14}
         filters={
@@ -195,6 +208,7 @@ export default function CatalogoPage() {
         <Modal
           title={selected ? `Editar ${selected.sku}` : 'Nuevo producto'}
           subtitle={selected ? `${stockByProduct.get(selected.id) ?? 0} unidades en stock total` : undefined}
+          wide
           onClose={closeModal}
           footer={
             <>
@@ -228,9 +242,12 @@ export default function CatalogoPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-x-4">
+          <div className="grid grid-cols-3 gap-x-4">
             <FormField label="SKU">
               <input className={inputClass} value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+            </FormField>
+            <FormField label="Código de barras (EAN)">
+              <input className={`${inputClass} font-mono`} value={form.codigoBarras} onChange={(e) => setForm({ ...form, codigoBarras: e.target.value })} />
             </FormField>
             <FormField label="Unidad de venta (texto libre)">
               <input className={inputClass} value={form.unidadVenta} onChange={(e) => setForm({ ...form, unidadVenta: e.target.value })} />
@@ -289,17 +306,6 @@ export default function CatalogoPage() {
             <FormField label="PVP (€)">
               <input type="number" step="0.01" className={inputClass} value={form.pvp} onChange={(e) => setForm({ ...form, pvp: e.target.value })} />
             </FormField>
-            <FormField label="Tarifa mayorista (€)">
-              <input
-                type="number"
-                step="0.01"
-                className={inputClass}
-                value={form.tarifaMayorista}
-                onChange={(e) => setForm({ ...form, tarifaMayorista: e.target.value })}
-              />
-            </FormField>
-          </div>
-          <div className="grid grid-cols-2 gap-x-4">
             <FormField label="IGIC">
               <select className={inputClass} value={form.igic} onChange={(e) => setForm({ ...form, igic: e.target.value })}>
                 <option value="7">7% (general)</option>
@@ -307,10 +313,30 @@ export default function CatalogoPage() {
                 <option value="0">0% (tipo cero)</option>
               </select>
             </FormField>
-            <FormField label="Ubicación en almacén">
-              <input className={inputClass} value={form.ubicacion} onChange={(e) => setForm({ ...form, ubicacion: e.target.value })} />
-            </FormField>
           </div>
+
+          <div className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2 mt-2">Precio por tarifa</div>
+          <div className="grid grid-cols-4 gap-x-4">
+            {TARIFA_IDS.map((t) => (
+              <FormField key={t} label={t}>
+                <input
+                  type="number"
+                  step="0.01"
+                  className={inputClass}
+                  value={t === 'Tarifa 1' ? form.tarifa1 : t === 'Tarifa 2' ? form.tarifa2 : t === 'Tarifa 3' ? form.tarifa3 : form.tarifa6}
+                  onChange={(e) => {
+                    const key = t === 'Tarifa 1' ? 'tarifa1' : t === 'Tarifa 2' ? 'tarifa2' : t === 'Tarifa 3' ? 'tarifa3' : 'tarifa6'
+                    setForm((f) => ({ ...f, [key]: e.target.value }))
+                  }}
+                />
+              </FormField>
+            ))}
+          </div>
+
+          <FormField label="Ubicación en almacén">
+            <input className={inputClass} value={form.ubicacion} onChange={(e) => setForm({ ...form, ubicacion: e.target.value })} />
+          </FormField>
+
           <div className="flex items-center gap-6 mt-1">
             <label className="flex items-center gap-2 text-sm text-slate-700">
               <input type="checkbox" checked={form.activo} onChange={(e) => setForm({ ...form, activo: e.target.checked })} />

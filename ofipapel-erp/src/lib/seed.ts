@@ -22,6 +22,7 @@ import type {
   StockTransfer,
   FormatoVenta,
   VerifactuEnvio,
+  TarifaId,
 } from '../types'
 
 const ZONES = [
@@ -190,6 +191,25 @@ function parseFormato(size: string): { formatoVenta: FormatoVenta; unidadesPorPa
   return { formatoVenta: 'Paquete', unidadesPorPaquete: match ? Number(match[0]) : 1 }
 }
 
+/** EAN-13 con dígito de control real, para que el lector de código de barras del TPV tenga algo válido que leer. */
+function buildEan13(rng: () => number): string {
+  let digits = '84' // prefijo arbitrario, no es un GS1 real
+  for (let i = 0; i < 10; i++) digits += intBetween(rng, 0, 9)
+  let sum = 0
+  for (let i = 0; i < 12; i++) sum += (i % 2 === 0 ? 1 : 3) * Number(digits[i])
+  const checkDigit = (10 - (sum % 10)) % 10
+  return digits + checkDigit
+}
+
+function tarifasFor(tarifaBase: number): Record<TarifaId, number> {
+  return {
+    'Tarifa 1': Number((tarifaBase * 1.06).toFixed(2)),
+    'Tarifa 2': tarifaBase,
+    'Tarifa 3': Number((tarifaBase * 0.95).toFixed(2)),
+    'Tarifa 6 (Mayor)': Number((tarifaBase * 0.9).toFixed(2)),
+  }
+}
+
 function buildProducts(rng: () => number, categories: Category[], suppliers: Supplier[]): Product[] {
   const products: Product[] = []
   let counter = 10000
@@ -208,12 +228,13 @@ function buildProducts(rng: () => number, categories: Category[], suppliers: Sup
         products.push({
           id: `prod-${counter}`,
           sku: `OF-${counter}`,
+          codigoBarras: buildEan13(rng),
           nombre: size === 'unidad' ? template : `${template} (${size})`,
           categoriaId,
           proveedorId: pick(rng, suppliers).id,
           coste,
           pvp,
-          tarifaMayorista,
+          tarifas: tarifasFor(tarifaMayorista),
           igic: pick(rng, [7, 7, 7, 3, 0] as const),
           unidadVenta: size,
           formatoVenta,
@@ -300,10 +321,7 @@ function buildClients(rng: () => number, reps: SalesRep[]): Client[] {
 
 function priceFor(client: Client, product: Product): number {
   if (client.tipo === 'Minorista') return product.pvp
-  if (client.tarifa === 'Tarifa 1') return Number((product.tarifaMayorista * 1.06).toFixed(2))
-  if (client.tarifa === 'Tarifa 3') return Number((product.tarifaMayorista * 0.95).toFixed(2))
-  if (client.tarifa === 'Tarifa 6 (Mayor)') return Number((product.tarifaMayorista * 0.9).toFixed(2))
-  return product.tarifaMayorista // Tarifa 2 = tarifa mayorista base
+  return product.tarifas[client.tarifa as TarifaId] ?? product.tarifas['Tarifa 2']
 }
 
 function makeLineas(rng: () => number, client: Client, products: Product[]): OrderLine[] {

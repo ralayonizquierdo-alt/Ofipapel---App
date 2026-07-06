@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Store, Plus, X, Lock, Unlock, Search } from 'lucide-react'
+import { Store, Plus, X, Lock, Unlock, ScanBarcode } from 'lucide-react'
 import { useDatabase, useCollection } from '../lib/DatabaseContext'
 import DataTable, { type Column } from '../components/DataTable'
 import Modal from '../components/Modal'
@@ -99,7 +99,9 @@ export default function TPVPage() {
   const resultadosBusqueda = useMemo(() => {
     const q = normalizar(busqueda)
     if (!q) return []
-    return db.products.filter((p) => p.activo && (normalizar(p.sku).includes(q) || normalizar(p.nombre).includes(q))).slice(0, 8)
+    return db.products
+      .filter((p) => p.activo && (p.codigoBarras.includes(busqueda.trim()) || normalizar(p.sku).includes(q) || normalizar(p.nombre).includes(q)))
+      .slice(0, 8)
   }, [busqueda, db.products])
 
   function addToCart(productoId: string) {
@@ -114,11 +116,18 @@ export default function TPVPage() {
 
   function handleBuscadorKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key !== 'Enter') return
+    const crudo = busqueda.trim()
     const q = normalizar(busqueda)
     if (!q) return
-    const exacto = db.products.find((p) => p.activo && normalizar(p.sku) === q)
-    if (exacto) {
-      addToCart(exacto.id)
+    // Un lector de código de barras "escribe" el EAN completo y envía Enter: se comprueba primero.
+    const porBarcode = db.products.find((p) => p.activo && p.codigoBarras === crudo)
+    if (porBarcode) {
+      addToCart(porBarcode.id)
+      return
+    }
+    const porSku = db.products.find((p) => p.activo && normalizar(p.sku) === q)
+    if (porSku) {
+      addToCart(porSku.id)
       return
     }
     if (resultadosBusqueda.length > 0) addToCart(resultadosBusqueda[0].id)
@@ -203,15 +212,15 @@ export default function TPVPage() {
             </button>
           </div>
 
-          <div className="relative mb-4">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="relative mb-1">
+            <ScanBarcode size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               ref={buscadorRef}
               autoFocus
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               onKeyDown={handleBuscadorKeyDown}
-              placeholder="Buscar por código o nombre y pulsar Enter…"
+              placeholder="Escanear código de barras, o escribir código/nombre y pulsar Enter…"
               className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
             />
             {resultadosBusqueda.length > 0 && (
@@ -226,12 +235,16 @@ export default function TPVPage() {
                       <span className="text-slate-400 font-mono text-xs mr-2">{p.sku}</span>
                       {p.nombre}
                     </span>
-                    <span className="text-slate-500">{formatEUR(p.pvp)}</span>
+                    <span className="flex items-center gap-3">
+                      <span className="text-slate-400 font-mono text-xs">{p.codigoBarras}</span>
+                      <span className="text-slate-500">{formatEUR(p.pvp)}</span>
+                    </span>
                   </button>
                 ))}
               </div>
             )}
           </div>
+          <p className="text-xs text-slate-400 mb-4">El lector de códigos de barras funciona igual que un teclado: escanea y el artículo se añade solo.</p>
 
           <div className="border border-slate-200 rounded-lg overflow-hidden mb-4">
             <table className="w-full text-sm">
