@@ -125,6 +125,15 @@ export interface PurchaseOrder {
   total: number
 }
 
+export type EstadoEnvioAeat = 'Pendiente' | 'Enviado'
+
+export interface VerifactuEnvio {
+  id: string
+  invoiceId: string
+  estado: EstadoEnvioAeat
+  fechaEnvio: string | null
+}
+
 export interface Invoice {
   id: string
   ventaId: string
@@ -202,4 +211,5 @@ export interface Database {
   cashSessions: CashSession[]
   lotes: Lote[]
   transfers: StockTransfer[]
+  verifactuEnvios: VerifactuEnvio[]
 }

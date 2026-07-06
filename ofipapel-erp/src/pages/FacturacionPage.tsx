@@ -1,6 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Receipt, Printer } from 'lucide-react'
+import QRCode from 'qrcode'
 import { useDatabase } from '../lib/DatabaseContext'
+import { useVerifactuChain } from '../lib/useVerifactuChain'
+import { VERIFACTU_EMISOR_NIF, verifactuQrUrl } from '../lib/verifactu'
 import DataTable, { type Column } from '../components/DataTable'
 import Modal from '../components/Modal'
 import Badge from '../components/Badge'
@@ -10,8 +13,24 @@ import type { Invoice } from '../types'
 
 export default function FacturacionPage() {
   const { db } = useDatabase()
+  const chain = useVerifactuChain()
   const [clienteFiltro, setClienteFiltro] = useState('')
   const [selected, setSelected] = useState<Invoice | null>(null)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!selected) {
+      setQrDataUrl(null)
+      return
+    }
+    let cancelled = false
+    QRCode.toDataURL(verifactuQrUrl(selected.id, selected.fecha, selected.total), { margin: 1, width: 130 }).then((url) => {
+      if (!cancelled) setQrDataUrl(url)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selected])
 
   const clienteById = useMemo(() => new Map(db.clients.map((c) => [c.id, c])), [db.clients])
   const ventaById = useMemo(() => new Map(db.sales.map((s) => [s.id, s])), [db.sales])
@@ -143,6 +162,15 @@ export default function FacturacionPage() {
                   <span>Total</span>
                   <span>{formatEUR(selected.total)}</span>
                 </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 mt-6 pt-4 border-t border-slate-200">
+              {qrDataUrl && <img src={qrDataUrl} alt="QR Veri*Factu" className="w-20 h-20 shrink-0" />}
+              <div className="text-[11px] text-slate-400 leading-snug">
+                <div>Factura verificable en la sede electrónica de la AEAT — Sistema Veri*Factu.</div>
+                <div>NIF emisor: {VERIFACTU_EMISOR_NIF}</div>
+                <div className="font-mono break-all">Huella: {chain?.get(selected.id)?.hash ?? '—'}</div>
               </div>
             </div>
           </div>

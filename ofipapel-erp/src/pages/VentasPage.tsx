@@ -6,6 +6,7 @@ import Modal from '../components/Modal'
 import Badge from '../components/Badge'
 import { inputClass } from '../components/FormField'
 import { formatEUR, formatDate } from '../lib/format'
+import { createInvoiceFromSale } from '../lib/invoicing'
 import type { SaleOrder, EstadoVenta, OrderLine } from '../types'
 
 const ESTADOS: EstadoVenta[] = ['Presupuesto', 'Pedido', 'Albarán', 'Facturado']
@@ -18,6 +19,7 @@ interface DraftLine {
 export default function VentasPage() {
   const { db } = useDatabase()
   const { items: sales, add, update, remove } = useCollection('sales')
+  const { add: addInvoice } = useCollection('invoices')
   const [estadoFiltro, setEstadoFiltro] = useState('')
   const [comercialFiltro, setComercialFiltro] = useState('')
   const [selected, setSelected] = useState<SaleOrder | null>(null)
@@ -94,7 +96,11 @@ export default function VentasPage() {
 
   function advanceEstado(order: SaleOrder) {
     const idx = ESTADOS.indexOf(order.estado)
-    if (idx < ESTADOS.length - 1) update(order.id, { estado: ESTADOS[idx + 1] })
+    if (idx >= ESTADOS.length - 1) return
+    const siguiente = ESTADOS[idx + 1]
+    update(order.id, { estado: siguiente })
+    if (siguiente === 'Facturado') addInvoice(createInvoiceFromSale({ ...order, estado: siguiente }))
+    setSelected((s) => (s ? { ...s, estado: siguiente } : s))
   }
 
   function handleDelete() {

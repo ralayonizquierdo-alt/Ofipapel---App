@@ -20,6 +20,7 @@ import type {
   Lote,
   StockTransfer,
   FormatoVenta,
+  VerifactuEnvio,
 } from '../types'
 
 const ZONES = [
@@ -44,10 +45,10 @@ const REP_NAMES = [
 
 function buildLocations(): Location[] {
   return [
-    { id: 'alm-1', nombre: 'Almacén Central', tipo: 'Almacén', direccion: 'Polígono Costa Sur, Santa Cruz de Tenerife', zona: 'Santa Cruz de Tenerife' },
-    { id: 'alm-2', nombre: 'Almacén Las Palmas', tipo: 'Almacén', direccion: 'Polígono El Sebadal, Las Palmas de Gran Canaria', zona: 'Las Palmas de Gran Canaria' },
-    { id: 'alm-3', nombre: 'Almacén Sur Tenerife', tipo: 'Almacén', direccion: 'Polígono Los Majuelos, Arona', zona: 'Sur de Tenerife' },
-    { id: 'alm-4', nombre: 'Almacén Lanzarote-Fuerteventura', tipo: 'Almacén', direccion: 'Polígono Argana, Arrecife', zona: 'Lanzarote' },
+    { id: 'alm-1', nombre: 'Ofipapel', tipo: 'Almacén', direccion: 'Polígono Costa Sur, Santa Cruz de Tenerife', zona: 'Santa Cruz de Tenerife' },
+    { id: 'alm-2', nombre: 'Aliz 1', tipo: 'Almacén', direccion: 'Polígono El Sebadal, Las Palmas de Gran Canaria', zona: 'Las Palmas de Gran Canaria' },
+    { id: 'alm-3', nombre: 'Aliz 2', tipo: 'Almacén', direccion: 'Polígono Los Majuelos, Arona', zona: 'Sur de Tenerife' },
+    { id: 'alm-4', nombre: 'Nave 6', tipo: 'Almacén', direccion: 'Polígono Argana, Arrecife', zona: 'Lanzarote' },
     { id: 'tie-1', nombre: 'Tienda Santa Cruz', tipo: 'Tienda', direccion: 'Calle Villalba Hervás, Santa Cruz de Tenerife', zona: 'Santa Cruz de Tenerife' },
     { id: 'tie-2', nombre: 'Tienda La Laguna', tipo: 'Tienda', direccion: 'Avenida Trinidad, La Laguna', zona: 'La Laguna' },
     { id: 'tie-3', nombre: 'Tienda Las Palmas', tipo: 'Tienda', direccion: 'Calle Triana, Las Palmas de Gran Canaria', zona: 'Las Palmas de Gran Canaria' },
@@ -418,6 +419,17 @@ function buildUsers(reps: SalesRep[], locations: Location[]): AppUser[] {
   return users
 }
 
+function buildVerifactuEnvios(invoices: Invoice[]): VerifactuEnvio[] {
+  const sorted = [...invoices].sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+  return sorted.map((inv, i) => ({
+    id: inv.id,
+    invoiceId: inv.id,
+    // Las facturas más recientes quedan como "Pendiente" de envío, para poder probar la acción.
+    estado: i < 5 ? 'Pendiente' : 'Enviado',
+    fechaEnvio: i < 5 ? null : inv.fecha,
+  }))
+}
+
 function buildCashSessions(rng: () => number, locations: Location[]): CashSession[] {
   const tiendas = locations.filter((l) => l.tipo === 'Tienda')
   const sessions: CashSession[] = []
@@ -518,6 +530,7 @@ export function generateDatabase(): Database {
   const cashSessions = buildCashSessions(rng, locations)
   const lotes = buildLotes(rng, products, categories, locations)
   const transfers = buildTransfers(rng, products, locations)
+  const verifactuEnvios = buildVerifactuEnvios(invoices)
 
   return {
     locations,
@@ -535,5 +548,6 @@ export function generateDatabase(): Database {
     purchases,
     invoices,
     users,
+    verifactuEnvios,
   }
 }

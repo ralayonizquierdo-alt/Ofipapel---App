@@ -7,6 +7,7 @@ import Badge from '../components/Badge'
 import StatCard from '../components/StatCard'
 import { inputClass } from '../components/FormField'
 import { formatEUR, formatDate } from '../lib/format'
+import { createInvoiceFromSale } from '../lib/invoicing'
 import type { SaleOrder } from '../types'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -20,6 +21,7 @@ export default function TPVPage() {
   const { db } = useDatabase()
   const { items: sessions, add: addSession, update: updateSession } = useCollection('cashSessions')
   const { items: sales, add: addSale } = useCollection('sales')
+  const { add: addInvoice } = useCollection('invoices')
   const tiendas = db.locations.filter((l) => l.tipo === 'Tienda')
   const [tiendaId, setTiendaId] = useState(tiendas[0]?.id ?? '')
   const [closing, setClosing] = useState(false)
@@ -93,7 +95,7 @@ export default function TPVPage() {
     if (lineas.length === 0) return
     const total = Number(lineas.reduce((sum, l) => sum + l.cantidad * l.precioUnit * (1 + l.iva / 100), 0).toFixed(2))
     const repDeLaTienda = db.salesReps.find((r) => r.zona === db.locations.find((l) => l.id === tiendaId)?.zona) ?? db.salesReps[0]
-    addSale({
+    const venta: SaleOrder = {
       id: `V-2026-${Date.now().toString().slice(-6)}`,
       clienteId: db.clients.find((c) => c.tipo === 'Minorista')?.id ?? db.clients[0].id,
       comercialId: repDeLaTienda.id,
@@ -104,7 +106,9 @@ export default function TPVPage() {
       fecha: today(),
       lineas,
       total,
-    })
+    }
+    addSale(venta)
+    addInvoice(createInvoiceFromSale(venta))
     updateSession(sesionAbierta.id, {
       ventasEfectivo: sesionAbierta.ventasEfectivo + (formaPago === 'Efectivo' ? total : 0),
       ventasTarjeta: sesionAbierta.ventasTarjeta + (formaPago === 'Tarjeta' ? total : 0),
