@@ -143,6 +143,43 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 
 ::-webkit-scrollbar{height:10px;width:10px;}
 ::-webkit-scrollbar-thumb{background:#c9dfc9;border-radius:5px;}
+
+/* ── hoja imprimible ── */
+#printArea{display:none;}
+@media print{
+  @page{ size:A4 landscape; margin:9mm; }
+  html, body{ background:#fff !important; }
+  body *{ visibility:hidden; }
+  #printArea, #printArea *{ visibility:visible; }
+  #printArea{
+    display:block; position:absolute; top:0; left:0; width:100%;
+    font-family:'Inter',sans-serif; color:#1A2E1A;
+  }
+  .p-header{ text-align:center; margin-bottom:4mm; }
+  .p-header h1{ font-size:17pt; color:#1A5C1A; margin-bottom:1mm; letter-spacing:.2px; }
+  .p-header .p-sub{ font-size:8pt; color:#59775A; }
+  .p-legend{ display:flex; justify-content:center; align-items:center; gap:5mm; margin-top:2.5mm; font-size:7pt; flex-wrap:wrap; }
+  .p-legend .sw{ display:inline-block; width:3mm; height:3mm; border-radius:0.8mm; margin-right:1mm; vertical-align:middle; }
+
+  .p-monthrow{ display:flex; border-bottom:0.5mm solid #1A5C1A; padding-bottom:0.8mm; margin-bottom:1mm; }
+  .p-namecell{ width:44mm; flex-shrink:0; font-size:7pt; font-weight:700; color:#1A5C1A; align-self:flex-end; }
+  .p-daysheadcell{ width:14mm; flex-shrink:0; font-size:7pt; font-weight:700; color:#1A5C1A; text-align:right; align-self:flex-end; }
+  .p-months{ flex:1; display:flex; }
+  .p-month{ text-align:center; font-size:6.6pt; font-weight:700; color:#1A5C1A; background:#EBF7EB; border-right:0.2mm solid #D3E9D3; padding:1mm 0; }
+
+  .p-unit{ break-inside:avoid; margin-top:2.2mm; }
+  .p-unit-title{ font-size:8pt; font-weight:700; color:#1A5C1A; background:#EBF7EB; padding:1mm 2mm; border-radius:0.6mm; }
+
+  .p-emp-row{ display:flex; align-items:center; height:5mm; border-bottom:0.15mm solid #eee; break-inside:avoid; }
+  .p-name{ width:44mm; flex-shrink:0; font-size:7pt; padding-right:2mm; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .p-track{ flex:1; position:relative; height:3.6mm; background:#fafafa; }
+  .p-block{ position:absolute; top:0; height:3.6mm; border-radius:0.5mm; }
+  .p-blocked{ position:absolute; top:0; height:3.6mm;
+    background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 1mm,#FBCFCB 1mm,#FBCFCB 2mm); }
+  .p-days{ width:14mm; flex-shrink:0; text-align:right; font-size:7pt; color:#59775A; }
+
+  .p-footer{ margin-top:4mm; text-align:center; font-size:6.5pt; color:#999; }
+}
 </style>
 </head>
 <body>
@@ -154,7 +191,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     </div>
     <select id="yearSelect"></select>
     <button class="secondary" id="btnRotation">Prioridad rotación</button>
-    <button id="btnExport">Exportar CSV</button>
+    <button id="btnPrint">🖨 Imprimir</button>
   </header>
   <div id="body">
     <aside>
@@ -245,6 +282,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div id="printArea"></div>
 
 <script>
 /* ═══════════════════ DATOS DE EJEMPLO ═══════════════════ */
@@ -835,21 +874,107 @@ document.getElementById('searchInput').oninput = (e)=>{ filterText=e.target.valu
 document.getElementById('unitFilter').onchange = (e)=>{ filterUnit=e.target.value; renderGrid(); };
 document.getElementById('onlyConflicts').onchange = (e)=>{ onlyConflicts=e.target.checked; renderGrid(); };
 
-document.getElementById('btnExport').onclick = ()=>{
-  const rows = [['Empleado','Unidad','Inicio','Fin','Días']];
-  for(const p of state.periods){
-    const emp = EMPLOYEES.find(e=>e.id===p.employeeId);
-    const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name;
-    const days = isoToIndex(state.year,p.end)-isoToIndex(state.year,p.start)+1;
-    rows.push([emp.name, unit, p.start, p.end, days]);
+/* ═══════════════════ HOJA IMPRIMIBLE ═══════════════════ */
+function buildPrintArea(){
+  const container = document.getElementById('printArea');
+  container.innerHTML = '';
+  const y = state.year;
+  const n = daysInYear(y);
+  const ml = monthLengths(y);
+
+  const header = document.createElement('div'); header.className='p-header';
+  const now = new Date();
+  header.innerHTML = `<h1>Ofipapel · Cuadrante de Vacaciones ${y}</h1>
+    <div class="p-sub">Generado el ${now.toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'})}</div>`;
+  const legend = document.createElement('div'); legend.className='p-legend';
+  let legendHtml='';
+  for(let i=1;i<=4;i++) legendHtml += `<span><span class="sw" style="background:${periodColor(i)}"></span>Periodo ${i}º</span>`;
+  legendHtml += `<span><span class="sw" style="background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 40%,#FBCFCB 40%,#FBCFCB 80%)"></span>Fecha bloqueada</span>`;
+  legend.innerHTML = legendHtml;
+  header.appendChild(legend);
+  container.appendChild(header);
+
+  const grid = document.createElement('div'); grid.className='p-grid';
+
+  const monthRow = document.createElement('div'); monthRow.className='p-monthrow';
+  const nameHead = document.createElement('div'); nameHead.className='p-namecell'; nameHead.textContent='Empleado';
+  monthRow.appendChild(nameHead);
+  const monthsWrap = document.createElement('div'); monthsWrap.className='p-months';
+  ml.forEach((days,i)=>{
+    const m = document.createElement('div'); m.className='p-month';
+    m.style.width = (days/n*100)+'%';
+    m.textContent = MONTH_NAMES[i];
+    monthsWrap.appendChild(m);
+  });
+  monthRow.appendChild(monthsWrap);
+  const daysHead = document.createElement('div'); daysHead.className='p-daysheadcell'; daysHead.textContent='Días';
+  monthRow.appendChild(daysHead);
+  grid.appendChild(monthRow);
+
+  const filteredEmployees = EMPLOYEES.filter(e=>{
+    if(filterUnit && e.unitId!==filterUnit) return false;
+    if(filterText && !e.name.toLowerCase().includes(filterText.toLowerCase())) return false;
+    return true;
+  });
+
+  for(const u of UNITS){
+    const emps = filteredEmployees.filter(e=>e.unitId===u.id);
+    if(!emps.length) continue;
+    if(onlyConflicts && !unitHasConflict(u.id, y)) continue;
+
+    const unitDiv = document.createElement('div'); unitDiv.className='p-unit';
+    const title = document.createElement('div'); title.className='p-unit-title';
+    title.textContent = u.name+' · '+emps.length;
+    unitDiv.appendChild(title);
+
+    for(const emp of emps){
+      const row = document.createElement('div'); row.className='p-emp-row';
+      const nameCell = document.createElement('div'); nameCell.className='p-name';
+      nameCell.textContent = emp.name + (emp.note ? ' 🔁' : '');
+      row.appendChild(nameCell);
+
+      const track = document.createElement('div'); track.className='p-track';
+      for(const b of state.blockedRanges){
+        const segs = blockedSegmentsForYear(b, y, n);
+        for(const seg of segs){
+          const ov = document.createElement('div'); ov.className='p-blocked';
+          ov.style.left = (seg.start/n*100)+'%';
+          ov.style.width = ((seg.end-seg.start+1)/n*100)+'%';
+          track.appendChild(ov);
+        }
+      }
+      const myPeriods = state.periods.filter(p=>p.employeeId===emp.id).sort((a,b)=>a.start.localeCompare(b.start));
+      myPeriods.forEach((p,i)=>{
+        const s = Math.max(0, isoToIndex(y,p.start));
+        const e = Math.min(n-1, isoToIndex(y,p.end));
+        if(e<0||s>=n) return;
+        const blk = document.createElement('div'); blk.className='p-block';
+        blk.style.left = (s/n*100)+'%';
+        blk.style.width = ((e-s+1)/n*100)+'%';
+        blk.style.background = periodColor(i+1);
+        track.appendChild(blk);
+      });
+      row.appendChild(track);
+
+      const used = state.periods.filter(p=>p.employeeId===emp.id)
+        .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
+      const daysCell = document.createElement('div'); daysCell.className='p-days';
+      daysCell.textContent = used+'/'+emp.daysPerYear;
+      row.appendChild(daysCell);
+
+      unitDiv.appendChild(row);
+    }
+    grid.appendChild(unitDiv);
   }
-  const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `vacaciones_${state.year}.csv`;
-  a.click();
-};
+  container.appendChild(grid);
+
+  const footer = document.createElement('div'); footer.className='p-footer';
+  footer.textContent = 'Ofipapel · documento interno · cuadrante de vacaciones';
+  container.appendChild(footer);
+}
+
+document.getElementById('btnPrint').onclick = ()=>{ buildPrintArea(); window.print(); };
+window.addEventListener('beforeprint', buildPrintArea);
 
 /* ═══════════════════ TOAST ═══════════════════ */
 let toastTimer=null;
