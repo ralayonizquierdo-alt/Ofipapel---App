@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Truck,
   Plus,
@@ -20,7 +20,7 @@ import StatCard from '../components/StatCard'
 import FormField, { inputClass } from '../components/FormField'
 import { formatEUR, formatDate } from '../lib/format'
 import { vehiclePlaceholderImageFor } from '../lib/placeholderImage'
-import { TENERIFE_BOUNDS, TENERIFE_COAST, TENERIFE_ROADS, TENERIFE_TOWNS } from '../lib/geo'
+import RealMap from '../components/RealMap'
 import type { Vehicle, VehicleType, VehicleEstado, TipoGastoVehiculo, EstadoCitaVehiculo } from '../types'
 
 const TIPOS_GASTO: TipoGastoVehiculo[] = ['Revisión periódica', 'ITV', 'Reparación', 'Neumáticos', 'Combustible', 'Seguro', 'Multa', 'Otros']
@@ -33,61 +33,8 @@ function Thumbnail({ src, size = 32 }: { src?: string; size?: number }) {
   return <img src={src} alt="" style={{ width: size, height: size }} className="rounded-md object-cover border border-slate-200 bg-slate-50" />
 }
 
-// La flota reparte solo en Tenerife: el mapa siempre encuadra la isla (no el archipiélago completo).
-const MAP_W = 360
-const MAP_H = 320
-const MAP_PAD = 30
-
-function project(lat: number, lon: number): { x: number; y: number } {
-  const x = ((lon - TENERIFE_BOUNDS.lonMin) / (TENERIFE_BOUNDS.lonMax - TENERIFE_BOUNDS.lonMin)) * (MAP_W - MAP_PAD * 2) + MAP_PAD
-  const y = MAP_H - (((lat - TENERIFE_BOUNDS.latMin) / (TENERIFE_BOUNDS.latMax - TENERIFE_BOUNDS.latMin)) * (MAP_H - MAP_PAD * 2) + MAP_PAD)
-  return { x, y }
-}
-
-const COAST_PATH = `M ${TENERIFE_COAST.map(([lon, lat]) => {
-  const { x, y } = project(lat, lon)
-  return `${x.toFixed(1)} ${y.toFixed(1)}`
-}).join(' L ')} Z`
-
-const ROAD_PATHS = TENERIFE_ROADS.map((road) => ({
-  nombre: road.nombre,
-  d: `M ${road.puntos.map(([lon, lat]) => {
-    const { x, y } = project(lat, lon)
-    return `${x.toFixed(1)} ${y.toFixed(1)}`
-  }).join(' L ')}`,
-}))
-
-/** Mapa de Tenerife (costa, carreteras principales y localidades) con la posición de uno o varios vehículos. */
-function TenerifeMapa({ vehicles, titulo }: { vehicles: Vehicle[]; titulo: string }) {
-  const [positions, setPositions] = useState(() => new Map(vehicles.map((v) => [v.id, { lat: v.ubicacion.lat, lon: v.ubicacion.lon, t: Date.now() }])))
-  const [, setTick] = useState(0)
-
-  useEffect(() => {
-    setPositions((prev) => {
-      const next = new Map(prev)
-      vehicles.forEach((v) => {
-        if (!next.has(v.id)) next.set(v.id, { lat: v.ubicacion.lat, lon: v.ubicacion.lon, t: Date.now() })
-      })
-      return next
-    })
-    const moveInterval = setInterval(() => {
-      setPositions((prev) => {
-        const next = new Map(prev)
-        vehicles.forEach((v) => {
-          if (v.estado !== 'En ruta') return
-          const cur = next.get(v.id) ?? { lat: v.ubicacion.lat, lon: v.ubicacion.lon, t: Date.now() }
-          next.set(v.id, { lat: cur.lat + (Math.random() - 0.5) * 0.006, lon: cur.lon + (Math.random() - 0.5) * 0.006, t: Date.now() })
-        })
-        return next
-      })
-    }, 4000)
-    const clockInterval = setInterval(() => setTick((n) => n + 1), 1000)
-    return () => {
-      clearInterval(moveInterval)
-      clearInterval(clockInterval)
-    }
-  }, [vehicles])
-
+/** Envoltorio con cabecera/leyenda alrededor del mapa real (Leaflet + OpenStreetMap) de la flota. */
+function FlotaMapa({ vehicles, titulo, focusVehicleId, heightClass }: { vehicles: Vehicle[]; titulo: string; focusVehicleId?: string; heightClass?: string }) {
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4">
       <div className="flex items-center justify-between mb-2">
@@ -101,44 +48,9 @@ function TenerifeMapa({ vehicles, titulo }: { vehicles: Vehicle[]; titulo: strin
           </span>
         </div>
       </div>
-      <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} className="w-full h-auto">
-        <rect width={MAP_W} height={MAP_H} rx="12" fill="#eef2f6" />
-        <path d={COAST_PATH} fill="#e7edf3" stroke="#b9c6d3" strokeWidth="1.5" />
-        {ROAD_PATHS.map((road) => (
-          <path key={road.nombre} d={road.d} fill="none" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.8">
-            <title>{road.nombre}</title>
-          </path>
-        ))}
-        {TENERIFE_TOWNS.map((town) => {
-          const { x, y } = project(town.lat, town.lon)
-          return (
-            <g key={town.nombre}>
-              <circle cx={x} cy={y} r="2.5" fill="#64748b" />
-              <text x={x} y={y - 6} textAnchor="middle" fontSize="8" fill="#475569">
-                {town.nombre}
-              </text>
-            </g>
-          )
-        })}
-        {vehicles.map((v) => {
-          const pos = positions.get(v.id) ?? { lat: v.ubicacion.lat, lon: v.ubicacion.lon, t: Date.now() }
-          const { x, y } = project(pos.lat, pos.lon)
-          const color = v.tipo === 'Furgón de reparto' ? '#0284c7' : '#9333ea'
-          const segsAgo = Math.max(0, Math.round((Date.now() - pos.t) / 1000))
-          return (
-            <g key={v.id}>
-              {v.estado === 'En ruta' && <circle cx={x} cy={y} r="9" fill={color} opacity="0.25" />}
-              <circle cx={x} cy={y} r="5" fill={v.estado === 'En ruta' ? color : '#94a3b8'} stroke="white" strokeWidth="1.5">
-                <title>
-                  {v.matricula} · {v.ubicacion.zona} · {v.estado} · actualizado hace {segsAgo}s
-                </title>
-              </circle>
-            </g>
-          )
-        })}
-      </svg>
+      <RealMap vehicles={vehicles} focusVehicleId={focusVehicleId} heightClass={heightClass} />
       <p className="text-xs text-slate-400 mt-1">
-        Ubicación simulada con fines de demostración (Ofipapel reparte solo en Tenerife) — se actualiza cada pocos segundos.
+        Mapa real (OpenStreetMap) — requiere conexión a internet. Posición simulada con fines de demostración (Ofipapel reparte solo en Tenerife).
       </p>
     </div>
   )
@@ -378,7 +290,7 @@ export default function FlotaPage() {
       </div>
 
       <div className="mb-6">
-        <TenerifeMapa vehicles={vehicles} titulo="Tenerife — ubicación en vivo de la flota" />
+        <FlotaMapa vehicles={vehicles} titulo="Tenerife — ubicación en vivo de la flota" heightClass="h-96" />
       </div>
 
       <DataTable
@@ -707,7 +619,7 @@ export default function FlotaPage() {
               <p className="text-xs text-slate-400 mb-3">
                 Última posición conocida: {selected.ubicacion.lat.toFixed(4)}, {selected.ubicacion.lon.toFixed(4)} · simulada con fines de demostración.
               </p>
-              <TenerifeMapa vehicles={[selected]} titulo={`Posición de ${selected.matricula}`} />
+              <FlotaMapa vehicles={[selected]} titulo={`Posición de ${selected.matricula}`} focusVehicleId={selected.id} heightClass="h-72" />
             </div>
           )}
         </Modal>
