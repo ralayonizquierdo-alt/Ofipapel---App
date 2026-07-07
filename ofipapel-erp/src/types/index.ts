@@ -28,6 +28,8 @@ export interface Van {
 export interface Category {
   id: string
   nombre: string
+  margenMinorista: number
+  margenMayorista: number
 }
 
 export interface Supplier {
@@ -175,15 +177,6 @@ export interface CashSession {
   estado: EstadoCaja
 }
 
-export interface Lote {
-  id: string
-  productoId: string
-  locationId: string
-  lote: string
-  fechaCaducidad: string
-  unidades: number
-}
-
 export type EstadoTransferencia = 'Pendiente' | 'En tránsito' | 'Completada'
 
 export interface TransferLine {
@@ -214,7 +207,6 @@ export interface Database {
   invoices: Invoice[]
   users: AppUser[]
   cashSessions: CashSession[]
-  lotes: Lote[]
   transfers: StockTransfer[]
   verifactuEnvios: VerifactuEnvio[]
 }

@@ -18,7 +18,6 @@ import type {
   EstadoVenta,
   CanalVenta,
   CashSession,
-  Lote,
   StockTransfer,
   FormatoVenta,
   VerifactuEnvio,
@@ -86,52 +85,72 @@ function intBetweenFixed(seedOffset: number, min: number, max: number): number {
   return Math.floor(rng() * (max - min + 1)) + min
 }
 
-const CATEGORY_DEFS: { nombre: string; templates: string[]; sizes?: string[] }[] = [
+const CATEGORY_DEFS: { nombre: string; templates: string[]; sizes?: string[]; margenMinorista: number; margenMayorista: number }[] = [
   {
     nombre: 'Papelería',
     templates: ['Folio A4 80g', 'Folio A4 90g', 'Folio A3 80g', 'Bloc de notas', 'Bloc cuadriculado', 'Papel continuo', 'Cartulina', 'Papel kraft', 'Sobre americano', 'Sobre bolsa A4'],
     sizes: ['paquete 500', 'paquete 250', 'caja 5 paquetes', 'unidad'],
+    margenMinorista: 85,
+    margenMayorista: 35,
   },
   {
     nombre: 'Escritura',
     templates: ['Bolígrafo azul', 'Bolígrafo negro', 'Bolígrafo rojo', 'Rotulador permanente', 'Rotulador fluorescente', 'Lápiz HB', 'Portaminas', 'Corrector líquido', 'Corrector cinta', 'Marcador pizarra blanca'],
     sizes: ['unidad', 'caja 12 uds', 'caja 50 uds', 'blister 3 uds'],
+    margenMinorista: 100,
+    margenMayorista: 40,
   },
   {
     nombre: 'Archivo y Clasificación',
     templates: ['Archivador de palanca A4', 'Carpeta con gomas', 'Carpeta colgante', 'Subcarpeta color', 'Separador de plástico', 'Caja archivo definitivo', 'Fundas multitaladro', 'Clasificador de fuelle'],
     sizes: ['unidad', 'paquete 10 uds', 'paquete 25 uds', 'paquete 100 uds'],
+    margenMinorista: 80,
+    margenMayorista: 30,
   },
   {
     nombre: 'Informática y Consumibles',
     templates: ['Tóner compatible HP', 'Tóner compatible Brother', 'Cartucho tinta compatible', 'Cable USB-C', 'Ratón inalámbrico', 'Teclado USB', 'Disco USB 32GB', 'Regleta 6 tomas'],
+    margenMinorista: 60,
+    margenMayorista: 25,
   },
   {
     nombre: 'Mobiliario de oficina',
     templates: ['Silla de oficina', 'Mesa de escritorio', 'Cajonera con ruedas', 'Bandeja portadocumentos', 'Papelera metálica', 'Perchero de pie'],
+    margenMinorista: 50,
+    margenMayorista: 20,
   },
   {
     nombre: 'Embalaje y Manipulado',
     templates: ['Caja cartón canal simple', 'Caja cartón canal doble', 'Rollo film estirable', 'Precinto adhesivo', 'Burbuja de embalaje', 'Etiqueta envío adhesiva'],
     sizes: ['unidad', 'paquete 10 uds', 'rollo', 'caja 36 uds'],
+    margenMinorista: 70,
+    margenMayorista: 30,
   },
   {
     nombre: 'Impresión y Tóner',
     templates: ['Papel fotográfico', 'Papel para plotter', 'Cinta impresora matricial', 'Tóner original', 'Tambor compatible'],
+    margenMinorista: 65,
+    margenMayorista: 25,
   },
   {
     nombre: 'Material Escolar',
     templates: ['Cuaderno cuadriculado', 'Cuaderno rayado', 'Estuche escolar', 'Mochila escolar', 'Goma de borrar', 'Sacapuntas', 'Pegamento de barra', 'Tijera escolar'],
     sizes: ['unidad', 'pack 5 uds'],
+    margenMinorista: 90,
+    margenMayorista: 35,
   },
   {
     nombre: 'Limpieza e Higiene',
     templates: ['Gel hidroalcohólico', 'Papel higiénico industrial', 'Bobina secamanos', 'Bayeta multiusos', 'Bolsa de basura', 'Guantes desechables'],
     sizes: ['unidad', 'paquete 6 uds', 'caja 12 uds'],
+    margenMinorista: 60,
+    margenMayorista: 20,
   },
   {
     nombre: 'Regalo y Detalle',
     templates: ['Agenda anual', 'Set de escritorio', 'Libreta tapa dura', 'Taza personalizable', 'Powerbank promocional'],
+    margenMinorista: 110,
+    margenMayorista: 45,
   },
 ]
 
@@ -170,7 +189,12 @@ const PARTICULAR_NAMES = [
 ]
 
 function buildCategories(): Category[] {
-  return CATEGORY_DEFS.map((c, i) => ({ id: `cat-${i + 1}`, nombre: c.nombre }))
+  return CATEGORY_DEFS.map((c, i) => ({
+    id: `cat-${i + 1}`,
+    nombre: c.nombre,
+    margenMinorista: c.margenMinorista,
+    margenMayorista: c.margenMayorista,
+  }))
 }
 
 function buildSuppliers(rng: () => number): Supplier[] {
@@ -201,7 +225,7 @@ function buildEan13(rng: () => number): string {
   return digits + checkDigit
 }
 
-function tarifasFor(tarifaBase: number): Record<TarifaId, number> {
+export function tarifasFor(tarifaBase: number): Record<TarifaId, number> {
   return {
     'Tarifa 1': Number((tarifaBase * 1.06).toFixed(2)),
     'Tarifa 2': tarifaBase,
@@ -220,10 +244,10 @@ function buildProducts(rng: () => number, categories: Category[], suppliers: Sup
       sizes.forEach((size) => {
         counter += intBetween(rng, 3, 9)
         const coste = Number((intBetween(rng, 40, 4000) / 100).toFixed(2))
-        const margenMinorista = 1.5 + rng() * 1.1
-        const margenMayorista = 1.15 + rng() * 0.4
-        const pvp = Number((coste * margenMinorista).toFixed(2))
-        const tarifaMayorista = Number((coste * margenMayorista).toFixed(2))
+        // Margen de la familia con un pequeño desajuste por producto para que no todos salgan al céntimo iguales.
+        const jitter = 0.95 + rng() * 0.1
+        const pvp = Number((coste * (1 + catDef.margenMinorista / 100) * jitter).toFixed(2))
+        const tarifaMayorista = Number((coste * (1 + catDef.margenMayorista / 100) * jitter).toFixed(2))
         const { formatoVenta, unidadesPorPaquete } = parseFormato(size)
         products.push({
           id: `prod-${counter}`,
@@ -481,35 +505,6 @@ function buildCashSessions(rng: () => number, locations: Location[]): CashSessio
   return sessions
 }
 
-const CADUCIDAD_CATEGORIA = 'Limpieza e Higiene'
-
-function buildLotes(rng: () => number, products: Product[], categories: Category[], locations: Location[]): Lote[] {
-  const categoria = categories.find((c) => c.nombre === CADUCIDAD_CATEGORIA)
-  if (!categoria) return []
-  const productosConCaducidad = products.filter((p) => p.categoriaId === categoria.id)
-  const almacenes = locations.filter((l) => l.tipo === 'Almacén')
-  const lotes: Lote[] = []
-  let id = 1
-  productosConCaducidad.forEach((producto) => {
-    const numLotes = intBetween(rng, 1, 3)
-    for (let i = 0; i < numLotes; i++) {
-      const loc = pick(rng, almacenes)
-      const diasCaducidad = intBetween(rng, -10, 400)
-      const fecha = new Date()
-      fecha.setDate(fecha.getDate() + diasCaducidad)
-      lotes.push({
-        id: `lote-${id++}`,
-        productoId: producto.id,
-        locationId: loc.id,
-        lote: `L${fecha.getFullYear()}${String(intBetween(rng, 1, 52)).padStart(2, '0')}-${intBetween(rng, 100, 999)}`,
-        fechaCaducidad: fecha.toISOString().slice(0, 10),
-        unidades: intBetween(rng, 10, 300),
-      })
-    }
-  })
-  return lotes
-}
-
 function buildTransfers(rng: () => number, products: Product[], locations: Location[]): StockTransfer[] {
   const almacenes = locations.filter((l) => l.tipo === 'Almacén')
   const transfers: StockTransfer[] = []
@@ -548,7 +543,6 @@ export function generateDatabase(): Database {
   const purchases = buildPurchases(rng, suppliers, products, locations)
   const users = buildUsers(reps, locations)
   const cashSessions = buildCashSessions(rng, locations)
-  const lotes = buildLotes(rng, products, categories, locations)
   const transfers = buildTransfers(rng, products, locations)
   const verifactuEnvios = buildVerifactuEnvios(invoices)
 
@@ -562,7 +556,6 @@ export function generateDatabase(): Database {
     stock,
     clients,
     cashSessions,
-    lotes,
     transfers,
     sales,
     purchases,

@@ -228,13 +228,13 @@ export const MENU_SECTIONS: MenuSection[] = [
         features: ['Facturación electrónica', 'Veri*Factu / SII', 'Modelos 303 y 390'],
       },
       {
-        id: 'lotes',
-        label: 'Lotes y caducidad',
-        path: '/lotes',
+        id: 'familias',
+        label: 'Familias y tarifas',
+        path: '/familias',
         icon: Boxes,
         phase: 'pro',
-        description: 'Trazabilidad por lote, caducidad o número de serie.',
-        features: ['Alta de lote en recepción', 'Alertas de caducidad', 'Trazabilidad completa'],
+        description: 'Familias de productos, márgenes de beneficio y recálculo de precios.',
+        features: ['Alta, edición y baja de familias', 'Margen minorista y mayorista por familia', 'Recálculo de precios de toda la familia'],
       },
       {
         id: 'informes',

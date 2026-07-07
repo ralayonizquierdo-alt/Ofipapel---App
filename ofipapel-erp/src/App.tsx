@@ -14,7 +14,7 @@ import UsuariosPage from './pages/UsuariosPage'
 import TPVPage from './pages/TPVPage'
 import ContabilidadPage from './pages/ContabilidadPage'
 import FiscalidadPage from './pages/FiscalidadPage'
-import LotesPage from './pages/LotesPage'
+import FamiliasPage from './pages/FamiliasPage'
 import InformesPage from './pages/InformesPage'
 import TransferenciasPage from './pages/TransferenciasPage'
 import ModulePage from './components/ModulePage'
@@ -35,7 +35,7 @@ const BUILT_PAGES: Record<string, ComponentType> = {
   tpv: TPVPage,
   contabilidad: ContabilidadPage,
   fiscalidad: FiscalidadPage,
-  lotes: LotesPage,
+  familias: FamiliasPage,
   informes: InformesPage,
   multialmacen: TransferenciasPage,
 }

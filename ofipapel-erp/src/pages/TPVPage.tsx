@@ -39,6 +39,8 @@ export default function TPVPage() {
   const [cart, setCart] = useState<CartLine[]>([])
   const [busqueda, setBusqueda] = useState('')
   const [formaPago, setFormaPago] = useState<'Efectivo' | 'Tarjeta'>('Efectivo')
+  const [cobroAbierto, setCobroAbierto] = useState(false)
+  const [importeEntregado, setImporteEntregado] = useState('0')
   const buscadorRef = useRef<HTMLInputElement>(null)
 
   const productById = useMemo(() => new Map(db.products.map((p) => [p.id, p])), [db.products])
@@ -175,6 +177,20 @@ export default function TPVPage() {
     })
     setSelling(false)
     setCart([])
+    setCobroAbierto(false)
+  }
+
+  const importeEntregadoNum = Number(importeEntregado) || 0
+  const cambio = importeEntregadoNum - cartTotal
+
+  function iniciarCobro() {
+    if (cart.length === 0) return
+    if (formaPago === 'Tarjeta') {
+      confirmarVenta()
+      return
+    }
+    setImporteEntregado(cartTotal.toFixed(2))
+    setCobroAbierto(true)
   }
 
   return (
@@ -318,7 +334,7 @@ export default function TPVPage() {
             <div className="flex items-center gap-4">
               <span className="text-lg font-semibold text-slate-900">Total: {formatEUR(cartTotal)}</span>
               <button
-                onClick={confirmarVenta}
+                onClick={iniciarCobro}
                 disabled={cart.length === 0}
                 className="px-5 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-40"
               >
@@ -404,6 +420,60 @@ export default function TPVPage() {
             <input type="number" step="0.01" className={inputClass} value={saldoContado} onChange={(e) => setSaldoContado(e.target.value)} />
           </label>
           {Number(saldoContado) !== esperado && <p className="text-xs text-red-600 mt-2">Descuadre: {formatEUR(Number(saldoContado) - esperado)}</p>}
+        </Modal>
+      )}
+
+      {cobroAbierto && (
+        <Modal
+          title="Cobrar en efectivo"
+          subtitle={`Total: ${formatEUR(cartTotal)}`}
+          onClose={() => setCobroAbierto(false)}
+          footer={
+            <>
+              <button onClick={() => setCobroAbierto(false)} className="px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarVenta}
+                disabled={cambio < 0}
+                className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-40"
+              >
+                Confirmar cobro
+              </button>
+            </>
+          }
+        >
+          <label className="block mb-3">
+            <span className="block text-xs font-medium text-slate-500 mb-1">Importe entregado por el cliente</span>
+            <input
+              type="number"
+              step="0.01"
+              autoFocus
+              className={inputClass}
+              value={importeEntregado}
+              onChange={(e) => setImporteEntregado(e.target.value)}
+            />
+          </label>
+          <div className="flex gap-2 mb-4">
+            {[cartTotal, 10, 20, 50, 100]
+              .filter((v, i, arr) => arr.indexOf(v) === i)
+              .map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setImporteEntregado(v.toFixed(2))}
+                  className="px-2.5 py-1 text-xs border border-slate-200 rounded-lg hover:bg-slate-50"
+                >
+                  {v === cartTotal ? 'Importe exacto' : formatEUR(v)}
+                </button>
+              ))}
+          </div>
+          {cambio >= 0 ? (
+            <p className="text-sm text-slate-700">
+              Cambio a devolver: <strong className="text-emerald-600">{formatEUR(cambio)}</strong>
+            </p>
+          ) : (
+            <p className="text-sm text-red-600">Falta {formatEUR(-cambio)} para completar el importe.</p>
+          )}
         </Modal>
       )}
     </div>
