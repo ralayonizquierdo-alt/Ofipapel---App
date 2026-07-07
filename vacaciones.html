@@ -80,25 +80,24 @@ aside h2{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(
 main{flex:1;overflow:auto;position:relative;background:#fff;}
 #gridWrap{position:relative;padding-bottom:30px;}
 
-.month-row,.day-row{display:flex;position:sticky;left:0;z-index:5;background:#fff;}
 .header-sticky{position:sticky;top:0;z-index:6;background:#fff;border-bottom:1px solid var(--borde);}
 .corner{position:sticky;left:0;top:0;z-index:8;width:var(--name-w);flex-shrink:0;background:#fff;
   border-right:1px solid var(--borde);border-bottom:1px solid var(--borde);}
 .month-label{
   border-right:1px solid var(--borde);text-align:center;font-size:.72rem;font-weight:700;color:var(--verde);
-  padding:5px 0;background:var(--verde-pale);
+  padding:5px 0;background:var(--verde-pale);flex-shrink:0;
 }
 .day-tick{border-right:1px solid #f1f1f1;text-align:center;font-size:.55rem;color:var(--texto2);padding:3px 0;flex-shrink:0;}
 .day-tick.weekend{background:#FAFAF5;}
 .day-tick.blocked{background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 4px,#FBCFCB 4px,#FBCFCB 8px);color:var(--rojo);}
 
 .unit-group{border-bottom:2px solid var(--borde);}
-.unit-header{display:flex;background:var(--verde-pale);position:sticky;left:0;}
+.unit-header{display:flex;background:var(--verde-pale);}
 .unit-header .corner-cell{
   width:var(--name-w);flex-shrink:0;padding:5px 10px;font-size:.75rem;font-weight:700;color:var(--verde);
   border-right:1px solid var(--borde);position:sticky;left:0;background:var(--verde-pale);z-index:4;
 }
-.coverage-track{position:relative;height:16px;flex:1;}
+.coverage-track{position:relative;height:16px;flex-shrink:0;}
 .cov-cell{position:absolute;top:0;height:16px;}
 
 .emp-row{display:flex;position:relative;height:var(--row-h);border-bottom:1px solid #f2f2f2;}
@@ -110,7 +109,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 .emp-row:hover .emp-name{background:#FAFDF9;}
 .emp-name b{font-weight:600;}
 .emp-name span{font-size:.62rem;color:var(--texto2);}
-.track{position:relative;flex:1;cursor:crosshair;}
+.track{position:relative;flex-shrink:0;cursor:crosshair;}
 .blocked-overlay{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg,rgba(231,76,60,.07),rgba(231,76,60,.07) 4px,rgba(231,76,60,.13) 4px,rgba(231,76,60,.13) 8px);pointer-events:none;}
 .period-block{
   position:absolute;top:3px;height:calc(var(--row-h) - 6px);border-radius:4px;cursor:pointer;
@@ -359,6 +358,7 @@ function isBlockedIndex(y, idx){
 }
 
 /* ═══════════════════ COLORES DE PERIODO ═══════════════════ */
+const NAME_W = 190; // debe coincidir con --name-w en CSS
 const PERIOD_COLORS = ['#3DAF3D','#4A90D9','#F5A623','#9B59B6','#E4667A','#16A085','#D9822B'];
 function periodColor(n){ return PERIOD_COLORS[(n-1) % PERIOD_COLORS.length]; }
 
@@ -484,6 +484,7 @@ function renderGrid(){
   const y = state.year;
   const n = daysInYear(y);
   const totalW = n * 22; // px, matches --day-w
+  const rowW = NAME_W + totalW; // full row width so flex children never get squeezed to viewport width
 
   // header: months
   const headerSticky = document.createElement('div');
@@ -491,6 +492,7 @@ function renderGrid(){
 
   const monthRow = document.createElement('div');
   monthRow.style.display='flex';
+  monthRow.style.width = rowW+'px';
   const corner1 = document.createElement('div'); corner1.className='corner'; corner1.style.height='24px';
   monthRow.appendChild(corner1);
   const ml = monthLengths(y);
@@ -504,6 +506,7 @@ function renderGrid(){
 
   const dayRow = document.createElement('div');
   dayRow.style.display='flex';
+  dayRow.style.width = rowW+'px';
   const corner2 = document.createElement('div'); corner2.className='corner'; corner2.style.height='18px';
   corner2.style.borderTop='none';
   dayRow.appendChild(corner2);
@@ -538,6 +541,7 @@ function renderGrid(){
     const group = document.createElement('div'); group.className='unit-group';
 
     const uh = document.createElement('div'); uh.className='unit-header';
+    uh.style.width = rowW+'px';
     const cc = document.createElement('div'); cc.className='corner-cell';
     cc.textContent = u.name + ' · ' + emps.length;
     uh.appendChild(cc);
@@ -563,6 +567,7 @@ function renderGrid(){
 
 function buildEmployeeRow(emp, y, n, totalW){
   const row = document.createElement('div'); row.className='emp-row';
+  row.style.width = (NAME_W + totalW)+'px';
   const nameCell = document.createElement('div'); nameCell.className='emp-name';
   const used = state.periods.filter(p=>p.employeeId===emp.id)
     .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
