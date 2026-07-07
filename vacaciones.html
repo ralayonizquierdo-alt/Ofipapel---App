@@ -161,13 +161,19 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 .p-months{ flex:1; display:flex; }
 .p-month{ text-align:center; font-size:6.6pt; font-weight:700; color:#1A5C1A; background:#EBF7EB; border-right:0.2mm solid #D3E9D3; padding:1mm 0; }
 
+.p-dayrow{ flex:1; position:relative; height:3.2mm; border-bottom:0.2mm solid #ddd; margin-bottom:1.5mm; }
+.p-daytick{ position:absolute; top:0; font-size:5pt; color:#7a9a7a; transform:translateX(-50%); white-space:nowrap; }
+.p-daytick::after{ content:''; position:absolute; left:50%; top:2.4mm; width:0.15mm; height:1mm; background:#ccc; }
+
 .p-unit{ break-inside:avoid; margin-top:2.2mm; }
 .p-unit-title{ font-size:8pt; font-weight:700; color:#1A5C1A; background:#EBF7EB; padding:1mm 2mm; border-radius:0.6mm; }
 
 .p-emp-row{ display:flex; align-items:center; height:5mm; border-bottom:0.15mm solid #eee; break-inside:avoid; }
 .p-name{ width:44mm; flex-shrink:0; font-size:7pt; padding-right:2mm; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .p-track{ flex:1; position:relative; height:3.6mm; background:#fafafa; }
-.p-block{ position:absolute; top:0; height:3.6mm; border-radius:0.5mm; }
+.p-block{ position:absolute; top:0; height:3.6mm; border-radius:0.5mm;
+  display:flex; align-items:center; justify-content:center; overflow:hidden;
+  font-size:5pt; font-weight:700; color:#fff; white-space:nowrap; }
 .p-blocked{ position:absolute; top:0; height:3.6mm;
   background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 1mm,#FBCFCB 1mm,#FBCFCB 2mm); }
 .p-days{ width:14mm; flex-shrink:0; text-align:right; font-size:7pt; color:#59775A; }
@@ -299,9 +305,16 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 <div class="overlay" id="printPreviewOverlay">
   <div class="modal print-preview-modal">
     <div class="ppm-header">
-      <h3>Vista previa de impresión · A3 apaisado</h3>
+      <div>
+        <h3>Vista previa de impresión · A3 apaisado</h3>
+        <div style="font-size:.68rem;color:var(--texto2);margin-top:2px;">
+          Ambos abren el cuadro de impresión del navegador (ya en A3 apaisado) — en "Guardar como PDF"
+          elige el destino "Guardar como PDF" (o "Microsoft Print to PDF") en ese cuadro.
+        </div>
+      </div>
       <div class="left" style="display:flex;gap:8px;">
         <button class="btn btn-ghost" id="ppmClose">Cerrar</button>
+        <button class="btn btn-ghost" id="ppmSavePdf">💾 Guardar como PDF</button>
         <button class="btn btn-primary" id="ppmPrintNow">🖨 Imprimir</button>
       </div>
     </div>
@@ -939,6 +952,26 @@ function buildPrintArea(){
   monthRow.appendChild(daysHead);
   grid.appendChild(monthRow);
 
+  // regla de números de día, para poder leer el inicio/fin exacto de cada periodo
+  const dayRowWrap = document.createElement('div'); dayRowWrap.style.display='flex';
+  const daySpacerL = document.createElement('div'); daySpacerL.className='p-namecell';
+  dayRowWrap.appendChild(daySpacerL);
+  const dayTicks = document.createElement('div'); dayTicks.className='p-dayrow';
+  for(let idx=0; idx<n; idx++){
+    const d = dateFromIndex(y, idx);
+    const dom = d.getUTCDate();
+    if(dom===1 || dom%5===0){
+      const t = document.createElement('div'); t.className='p-daytick';
+      t.style.left = (idx/n*100)+'%';
+      t.textContent = dom;
+      dayTicks.appendChild(t);
+    }
+  }
+  dayRowWrap.appendChild(dayTicks);
+  const daySpacerR = document.createElement('div'); daySpacerR.className='p-daysheadcell';
+  dayRowWrap.appendChild(daySpacerR);
+  grid.appendChild(dayRowWrap);
+
   const filteredEmployees = EMPLOYEES.filter(e=>{
     if(filterUnit && e.unitId!==filterUnit) return false;
     if(filterText && !e.name.toLowerCase().includes(filterText.toLowerCase())) return false;
@@ -980,6 +1013,11 @@ function buildPrintArea(){
         blk.style.left = (s/n*100)+'%';
         blk.style.width = ((e-s+1)/n*100)+'%';
         blk.style.background = periodColor(i+1);
+        const dStart = dateFromIndex(y, s), dEnd = dateFromIndex(y, e);
+        blk.textContent = dStart.getUTCMonth()===dEnd.getUTCMonth()
+          ? `${dStart.getUTCDate()}–${dEnd.getUTCDate()}`
+          : `${dStart.getUTCDate()}/${dStart.getUTCMonth()+1}–${dEnd.getUTCDate()}/${dEnd.getUTCMonth()+1}`;
+        blk.title = fmtRange(p.start,p.end);
         track.appendChild(blk);
       });
       row.appendChild(track);
@@ -1026,6 +1064,7 @@ function closePrintPreview(){
 document.getElementById('btnPrint').onclick = openPrintPreview;
 document.getElementById('ppmClose').onclick = closePrintPreview;
 document.getElementById('ppmPrintNow').onclick = ()=> window.print();
+document.getElementById('ppmSavePdf').onclick = ()=> window.print();
 
 window.addEventListener('beforeprint', ()=>{
   buildPrintArea();
