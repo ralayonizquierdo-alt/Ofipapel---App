@@ -151,7 +151,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   <header>
     <div>
       <h1>Cuadrante de Vacaciones</h1>
-      <span class="sub">Prototipo · Ofipapel, Aliz 1 y Aliz 2 · datos de ejemplo</span>
+      <span class="sub">Plantilla real (35 personas) · quedan algunos apellidos por confirmar</span>
     </div>
     <select id="yearSelect"></select>
     <button class="secondary" id="btnRotation">Prioridad rotación</button>
@@ -261,32 +261,55 @@ const UNITS = [
   {id:'ofipapel_info',     name:'Ofipapel · Informática',  group:'Dependientas',  defaultMax:1},
 ];
 
-const NAME_POOL = ["María López","Carlos Pérez","Ana Rodríguez","José Martín","Laura Sánchez","David González",
-  "Carmen Díaz","Javier Ruiz","Isabel Hernández","Antonio Jiménez","Lucía Moreno","Francisco Álvarez",
-  "Elena Romero","Manuel Navarro","Marta Torres","Pedro Domínguez","Cristina Vázquez","Miguel Ramos",
-  "Sara Gil","Alberto Serrano","Rosa Castro","Rafael Ortega","Beatriz Rubio","Sergio Molina",
-  "Silvia Delgado","Ángel Ortiz","Patricia Marín","Diego Iglesias","Nuria Santos","Óscar Cano",
-  "Teresa Peña","Iván Vega"];
-
-function buildEmployees(){
-  const counts = {repartidores:7, almacen:2, oficina:3, pedidos:2, comerciales:7, aliz2:2, aliz1:3, ofipapel_detalle:4, ofipapel_info:2};
-  let i=0, out=[];
-  for(const u of UNITS){
-    for(let n=0;n<counts[u.id];n++){
-      const startYear = 2008 + ((i*3)%16);
-      out.push({
-        id:'e'+i, name:NAME_POOL[i%NAME_POOL.length], unitId:u.id,
-        seniorityYear:startYear, daysPerYear:22, hadLastYear:false
-      });
-      i++;
-    }
-  }
-  return out;
-}
-const EMPLOYEES = buildEmployees();
+const EMPLOYEES = [
+  // Repartidores
+  {id:'e1', name:'Barroso Santos, Carlos Francisco', unitId:'repartidores', seniorityYear:null, daysPerYear:22},
+  {id:'e2', name:'Bermúdez Barreto, Julio', unitId:'repartidores', seniorityYear:null, daysPerYear:22},
+  {id:'e3', name:'Manu (apellido pendiente)', unitId:'repartidores', seniorityYear:null, daysPerYear:22, note:'Sustituye a Javier Blanco Suárez'},
+  {id:'e4', name:'Walter (apellido pendiente)', unitId:'repartidores', seniorityYear:null, daysPerYear:22, note:'Sustituye a Manuel González Rodríguez'},
+  {id:'e5', name:'Martín Melo, Juan Antonio', unitId:'repartidores', seniorityYear:null, daysPerYear:22},
+  {id:'e6', name:'Ortiz Carmona, Antonio Manuel', unitId:'repartidores', seniorityYear:null, daysPerYear:22},
+  {id:'e7', name:'Fran (apellido pendiente)', unitId:'repartidores', seniorityYear:null, daysPerYear:22, note:'Sustituye a Mario Ezequiel Ramírez Quiroz'},
+  {id:'e8', name:'Rodríguez Santos, Jesús Manuel', unitId:'repartidores', seniorityYear:null, daysPerYear:22},
+  {id:'e9', name:'Páez González, Nauzet', unitId:'repartidores', seniorityYear:null, daysPerYear:22},
+  // Comerciales (vendedores)
+  {id:'e10', name:'Correa Hernández, Roberto', unitId:'comerciales', seniorityYear:null, daysPerYear:22},
+  {id:'e11', name:'Fumero Benítez, Haridian', unitId:'comerciales', seniorityYear:null, daysPerYear:22},
+  {id:'e12', name:'García Padrón, Felipe Sebastián', unitId:'comerciales', seniorityYear:null, daysPerYear:22},
+  {id:'e13', name:'Gómez Rufiangel, María Luz', unitId:'comerciales', seniorityYear:null, daysPerYear:22},
+  {id:'e14', name:'Iguarán Martínez, Javier', unitId:'comerciales', seniorityYear:null, daysPerYear:22},
+  {id:'e15', name:'Ramos Delgado, Miguel', unitId:'comerciales', seniorityYear:null, daysPerYear:22},
+  {id:'e16', name:'Rodríguez Deniz, María Paz', unitId:'comerciales', seniorityYear:null, daysPerYear:22},
+  // Ofipapel · Detalle
+  {id:'e17', name:'Alayón Barrera, Herminia Mari', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:22},
+  {id:'e18', name:'Brito Morales, Rosa María', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:22},
+  {id:'e19', name:'Natalia (apellido pendiente)', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:22},
+  {id:'e20', name:'Afonso García, María Ángeles', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:22, note:'Comodín: suele cambiar de tienda según necesidad'},
+  {id:'e21', name:'Delgado Valido, Dunia', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:22},
+  // Oficina
+  {id:'e22', name:'Martín Hernández, María Candelaria', unitId:'oficina', seniorityYear:null, daysPerYear:22},
+  {id:'e23', name:'Perdigón Pérez, Mónica', unitId:'oficina', seniorityYear:null, daysPerYear:22},
+  {id:'e24', name:'Yanes García, Patricia', unitId:'oficina', seniorityYear:null, daysPerYear:22},
+  // Aliz 1
+  {id:'e25', name:'Pedrido Seoane, María', unitId:'aliz1', seniorityYear:null, daysPerYear:22},
+  {id:'e26', name:'Fumero Reverón, María Teresa', unitId:'aliz1', seniorityYear:null, daysPerYear:22},
+  {id:'e27', name:'Cabrera Pérez, Sonia Pilar', unitId:'aliz1', seniorityYear:null, daysPerYear:22, note:'Comodín: suele cambiar de tienda según necesidad'},
+  // Aliz 2
+  {id:'e28', name:'Díaz Hernández, María Joani', unitId:'aliz2', seniorityYear:null, daysPerYear:22},
+  {id:'e29', name:'Linares Morales, Soledad', unitId:'aliz2', seniorityYear:null, daysPerYear:22},
+  // Ofipapel · Informática
+  {id:'e30', name:'Chinea Ramos, Evelin Lucía', unitId:'ofipapel_info', seniorityYear:null, daysPerYear:22},
+  {id:'e31', name:'García Fumero, María Candelaria', unitId:'ofipapel_info', seniorityYear:null, daysPerYear:22},
+  // Pedidos
+  {id:'e32', name:'Cabrera Darias, Tomás Iván', unitId:'pedidos', seniorityYear:null, daysPerYear:22},
+  {id:'e33', name:'García Vázquez, Miguel Ángel', unitId:'pedidos', seniorityYear:null, daysPerYear:22},
+  // Almacén
+  {id:'e34', name:'Hernández Páez, Miguel', unitId:'almacen', seniorityYear:null, daysPerYear:22},
+  {id:'e35', name:'Jose (apellido pendiente)', unitId:'almacen', seniorityYear:null, daysPerYear:22, note:'Nuevo en el equipo'},
+];
 
 /* ═══════════════════ ESTADO ═══════════════════ */
-const STORAGE_KEY = 'ofipapel_vacaciones_v1';
+const STORAGE_KEY = 'ofipapel_vacaciones_v2';
 let state = loadState();
 
 function defaultState(){
@@ -543,7 +566,10 @@ function buildEmployeeRow(emp, y, n, totalW){
   const nameCell = document.createElement('div'); nameCell.className='emp-name';
   const used = state.periods.filter(p=>p.employeeId===emp.id)
     .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
-  nameCell.innerHTML = `<b>${emp.name}</b><span>${used}/${emp.daysPerYear} días · antig. ${emp.seniorityYear}</span>`;
+  const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
+  const noteBadge = emp.note ? ' 🔁' : '';
+  nameCell.title = emp.note || '';
+  nameCell.innerHTML = `<b>${emp.name}${noteBadge}</b><span>${used}/${emp.daysPerYear} días · ${senLabel}</span>`;
   row.appendChild(nameCell);
 
   const track = document.createElement('div'); track.className='track';
@@ -774,16 +800,19 @@ document.getElementById('btnRotation').onclick = ()=>{
   const list = [...EMPLOYEES].sort((a,b)=>{
     const flagA = state.lastYearFlags[a.id] ? 1000 : 0;
     const flagB = state.lastYearFlags[b.id] ? 1000 : 0;
-    const scoreA = -flagA + (new Date().getFullYear()-a.seniorityYear);
-    const scoreB = -flagB + (new Date().getFullYear()-b.seniorityYear);
+    const senA = a.seniorityYear ? (new Date().getFullYear()-a.seniorityYear) : 0;
+    const senB = b.seniorityYear ? (new Date().getFullYear()-b.seniorityYear) : 0;
+    const scoreA = -flagA + senA;
+    const scoreB = -flagB + senB;
     return scoreB-scoreA;
   });
   list.forEach((emp,i)=>{
     const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name;
+    const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
     const row = document.createElement('div');
     row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #f0f0f0;font-size:.78rem;';
     row.innerHTML = `<b style="width:22px;color:var(--verde);">${i+1}</b>
-      <span style="flex:1;">${emp.name}<br><small style="color:var(--texto2);">${unit} · antig. ${emp.seniorityYear}</small></span>`;
+      <span style="flex:1;">${emp.name}<br><small style="color:var(--texto2);">${unit} · ${senLabel}</small></span>`;
     const chk = document.createElement('input'); chk.type='checkbox';
     chk.checked = !!state.lastYearFlags[emp.id];
     chk.title='Tuvo esta época el año pasado';
@@ -830,19 +859,6 @@ function showToast(msg){
 document.querySelectorAll('.overlay').forEach(ov=>{
   ov.addEventListener('mousedown', (e)=>{ if(e.target===ov) closeModal(ov.id); });
 });
-
-/* ═══════════════════ SEED DE EJEMPLO (solo si no hay datos) ═══════════════════ */
-function seedExampleData(){
-  if(state.periods.length) return;
-  const y = state.year;
-  const pick = (unitId, n)=> EMPLOYEES.filter(e=>e.unitId===unitId).slice(0,n);
-  const add = (emp, s, e)=> state.periods.push({id:'p'+Math.random().toString(36).slice(2,9), employeeId:emp.id, start:s, end:e});
-  pick('repartidores',3).forEach((emp,i)=> add(emp, `${y}-07-${String(1+i*10).padStart(2,'0')}`, `${y}-07-${String(15+i*10).padStart(2,'0')}`));
-  pick('comerciales',2).forEach((emp,i)=> add(emp, `${y}-08-${String(1+i*15).padStart(2,'0')}`, `${y}-08-${String(15+i*15).padStart(2,'0')}`));
-  pick('aliz1',1).forEach((emp)=> add(emp, `${y}-06-15`, `${y}-06-29`));
-  pick('ofipapel_detalle',2).forEach((emp,i)=> add(emp, `${y}-07-${String(1+i*14).padStart(2,'0')}`, `${y}-07-${String(14+i*14).padStart(2,'0')}`));
-}
-seedExampleData();
 
 render();
 </script>
