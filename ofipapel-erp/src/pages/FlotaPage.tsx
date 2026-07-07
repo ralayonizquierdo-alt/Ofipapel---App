@@ -20,7 +20,7 @@ import StatCard from '../components/StatCard'
 import FormField, { inputClass } from '../components/FormField'
 import { formatEUR, formatDate } from '../lib/format'
 import { vehiclePlaceholderImageFor } from '../lib/placeholderImage'
-import { ZONE_COORDS, ISLA_POR_ZONA, ISLAND_BOUNDS } from '../lib/geo'
+import { TENERIFE_BOUNDS, TENERIFE_COAST, TENERIFE_ROADS, TENERIFE_TOWNS } from '../lib/geo'
 import type { Vehicle, VehicleType, VehicleEstado, TipoGastoVehiculo, EstadoCitaVehiculo } from '../types'
 
 const TIPOS_GASTO: TipoGastoVehiculo[] = ['Revisión periódica', 'ITV', 'Reparación', 'Neumáticos', 'Combustible', 'Seguro', 'Multa', 'Otros']
@@ -33,36 +33,50 @@ function Thumbnail({ src, size = 32 }: { src?: string; size?: number }) {
   return <img src={src} alt="" style={{ width: size, height: size }} className="rounded-md object-cover border border-slate-200 bg-slate-50" />
 }
 
-// Bounding box aproximado de las islas donde opera la flota, para proyectar lat/lon en el lienzo del mapa.
-const MAP_BOUNDS = { lonMin: -16.95, lonMax: -13.3, latMin: 27.55, latMax: 29.35 }
-const MAP_W = 420
-const MAP_H = 260
+// La flota reparte solo en Tenerife: el mapa siempre encuadra la isla (no el archipiélago completo).
+const MAP_W = 360
+const MAP_H = 320
+const MAP_PAD = 30
 
 function project(lat: number, lon: number): { x: number; y: number } {
-  const x = ((lon - MAP_BOUNDS.lonMin) / (MAP_BOUNDS.lonMax - MAP_BOUNDS.lonMin)) * (MAP_W - 40) + 20
-  const y = MAP_H - (((lat - MAP_BOUNDS.latMin) / (MAP_BOUNDS.latMax - MAP_BOUNDS.latMin)) * (MAP_H - 40) + 20)
+  const x = ((lon - TENERIFE_BOUNDS.lonMin) / (TENERIFE_BOUNDS.lonMax - TENERIFE_BOUNDS.lonMin)) * (MAP_W - MAP_PAD * 2) + MAP_PAD
+  const y = MAP_H - (((lat - TENERIFE_BOUNDS.latMin) / (TENERIFE_BOUNDS.latMax - TENERIFE_BOUNDS.latMin)) * (MAP_H - MAP_PAD * 2) + MAP_PAD)
   return { x, y }
 }
 
-const ISLAS = [
-  { nombre: 'Tenerife', lat: 28.27, lon: -16.62, rx: 60, ry: 42 },
-  { nombre: 'Gran Canaria', lat: 27.98, lon: -15.6, rx: 42, ry: 38 },
-  { nombre: 'Lanzarote', lat: 29.04, lon: -13.63, rx: 32, ry: 22 },
-  { nombre: 'Fuerteventura', lat: 28.42, lon: -14.0, rx: 30, ry: 45 },
-]
+const COAST_PATH = `M ${TENERIFE_COAST.map(([lon, lat]) => {
+  const { x, y } = project(lat, lon)
+  return `${x.toFixed(1)} ${y.toFixed(1)}`
+}).join(' L ')} Z`
 
-function FlotaMapa({ vehicles }: { vehicles: Vehicle[] }) {
+const ROAD_PATHS = TENERIFE_ROADS.map((road) => ({
+  nombre: road.nombre,
+  d: `M ${road.puntos.map(([lon, lat]) => {
+    const { x, y } = project(lat, lon)
+    return `${x.toFixed(1)} ${y.toFixed(1)}`
+  }).join(' L ')}`,
+}))
+
+/** Mapa de Tenerife (costa, carreteras principales y localidades) con la posición de uno o varios vehículos. */
+function TenerifeMapa({ vehicles, titulo }: { vehicles: Vehicle[]; titulo: string }) {
   const [positions, setPositions] = useState(() => new Map(vehicles.map((v) => [v.id, { lat: v.ubicacion.lat, lon: v.ubicacion.lon, t: Date.now() }])))
   const [, setTick] = useState(0)
 
   useEffect(() => {
+    setPositions((prev) => {
+      const next = new Map(prev)
+      vehicles.forEach((v) => {
+        if (!next.has(v.id)) next.set(v.id, { lat: v.ubicacion.lat, lon: v.ubicacion.lon, t: Date.now() })
+      })
+      return next
+    })
     const moveInterval = setInterval(() => {
       setPositions((prev) => {
         const next = new Map(prev)
         vehicles.forEach((v) => {
           if (v.estado !== 'En ruta') return
           const cur = next.get(v.id) ?? { lat: v.ubicacion.lat, lon: v.ubicacion.lon, t: Date.now() }
-          next.set(v.id, { lat: cur.lat + (Math.random() - 0.5) * 0.01, lon: cur.lon + (Math.random() - 0.5) * 0.01, t: Date.now() })
+          next.set(v.id, { lat: cur.lat + (Math.random() - 0.5) * 0.006, lon: cur.lon + (Math.random() - 0.5) * 0.006, t: Date.now() })
         })
         return next
       })
@@ -77,7 +91,7 @@ function FlotaMapa({ vehicles }: { vehicles: Vehicle[] }) {
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4">
       <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium text-slate-700">Ubicación en vivo de la flota</div>
+        <div className="text-sm font-medium text-slate-700">{titulo}</div>
         <div className="flex items-center gap-3 text-xs text-slate-400">
           <span className="flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-sky-500 inline-block" /> Furgón
@@ -88,14 +102,20 @@ function FlotaMapa({ vehicles }: { vehicles: Vehicle[] }) {
         </div>
       </div>
       <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} className="w-full h-auto">
-        <rect width={MAP_W} height={MAP_H} rx="12" fill="#eff6ff" />
-        {ISLAS.map((isla) => {
-          const { x, y } = project(isla.lat, isla.lon)
+        <rect width={MAP_W} height={MAP_H} rx="12" fill="#eef2f6" />
+        <path d={COAST_PATH} fill="#e7edf3" stroke="#b9c6d3" strokeWidth="1.5" />
+        {ROAD_PATHS.map((road) => (
+          <path key={road.nombre} d={road.d} fill="none" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.8">
+            <title>{road.nombre}</title>
+          </path>
+        ))}
+        {TENERIFE_TOWNS.map((town) => {
+          const { x, y } = project(town.lat, town.lon)
           return (
-            <g key={isla.nombre}>
-              <ellipse cx={x} cy={y} rx={isla.rx} ry={isla.ry} fill="#dbeafe" stroke="#bfdbfe" />
-              <text x={x} y={y + isla.ry + 12} textAnchor="middle" fontSize="9" fill="#64748b">
-                {isla.nombre}
+            <g key={town.nombre}>
+              <circle cx={x} cy={y} r="2.5" fill="#64748b" />
+              <text x={x} y={y - 6} textAnchor="middle" fontSize="8" fill="#475569">
+                {town.nombre}
               </text>
             </g>
           )
@@ -107,8 +127,8 @@ function FlotaMapa({ vehicles }: { vehicles: Vehicle[] }) {
           const segsAgo = Math.max(0, Math.round((Date.now() - pos.t) / 1000))
           return (
             <g key={v.id}>
-              {v.estado === 'En ruta' && <circle cx={x} cy={y} r="7" fill={color} opacity="0.25" />}
-              <circle cx={x} cy={y} r="4" fill={v.estado === 'En ruta' ? color : '#94a3b8'}>
+              {v.estado === 'En ruta' && <circle cx={x} cy={y} r="9" fill={color} opacity="0.25" />}
+              <circle cx={x} cy={y} r="5" fill={v.estado === 'En ruta' ? color : '#94a3b8'} stroke="white" strokeWidth="1.5">
                 <title>
                   {v.matricula} · {v.ubicacion.zona} · {v.estado} · actualizado hace {segsAgo}s
                 </title>
@@ -117,73 +137,8 @@ function FlotaMapa({ vehicles }: { vehicles: Vehicle[] }) {
           )
         })}
       </svg>
-      <p className="text-xs text-slate-400 mt-1">Ubicación simulada con fines de demostración — se actualiza cada pocos segundos.</p>
-    </div>
-  )
-}
-
-const ISLA_W = 320
-const ISLA_H = 260
-
-/** Mapa centrado en la isla del vehículo (su ubicación nunca sale de ahí), con las zonas de esa isla como referencia. */
-function IslaMapa({ vehicle }: { vehicle: Vehicle }) {
-  const isla = ISLA_POR_ZONA[vehicle.ubicacion.zona] ?? 'Tenerife'
-  const bounds = ISLAND_BOUNDS[isla]
-  const [pos, setPos] = useState({ lat: vehicle.ubicacion.lat, lon: vehicle.ubicacion.lon, t: Date.now() })
-  const [, setTick] = useState(0)
-
-  useEffect(() => {
-    setPos({ lat: vehicle.ubicacion.lat, lon: vehicle.ubicacion.lon, t: Date.now() })
-    if (vehicle.estado !== 'En ruta') return
-    const moveInterval = setInterval(() => {
-      setPos((cur) => ({ lat: cur.lat + (Math.random() - 0.5) * 0.006, lon: cur.lon + (Math.random() - 0.5) * 0.006, t: Date.now() }))
-    }, 4000)
-    const clockInterval = setInterval(() => setTick((n) => n + 1), 1000)
-    return () => {
-      clearInterval(moveInterval)
-      clearInterval(clockInterval)
-    }
-  }, [vehicle.id, vehicle.estado, vehicle.ubicacion.lat, vehicle.ubicacion.lon])
-
-  function projectIsla(lat: number, lon: number): { x: number; y: number } {
-    const x = ((lon - bounds.lonMin) / (bounds.lonMax - bounds.lonMin)) * (ISLA_W - 50) + 25
-    const y = ISLA_H - (((lat - bounds.latMin) / (bounds.latMax - bounds.latMin)) * (ISLA_H - 50) + 25)
-    return { x, y }
-  }
-
-  const zonasDeLaIsla = Object.entries(ISLA_POR_ZONA).filter(([, i]) => i === isla).map(([zona]) => zona)
-  const { x, y } = projectIsla(pos.lat, pos.lon)
-  const color = vehicle.tipo === 'Furgón de reparto' ? '#0284c7' : '#9333ea'
-  const segsAgo = Math.max(0, Math.round((Date.now() - pos.t) / 1000))
-
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4">
-      <div className="text-sm font-medium text-slate-700 mb-2">Isla de {isla} — posición de {vehicle.matricula}</div>
-      <svg viewBox={`0 0 ${ISLA_W} ${ISLA_H}`} className="w-full h-auto">
-        <rect width={ISLA_W} height={ISLA_H} rx="12" fill="#eff6ff" />
-        <ellipse cx={ISLA_W / 2} cy={ISLA_H / 2} rx={(ISLA_W - 50) / 2} ry={(ISLA_H - 50) / 2} fill="#dbeafe" stroke="#bfdbfe" />
-        {zonasDeLaIsla.map((zona) => {
-          const coords = ZONE_COORDS[zona]
-          if (!coords) return null
-          const p = projectIsla(coords.lat, coords.lon)
-          return (
-            <g key={zona}>
-              <circle cx={p.x} cy={p.y} r="3" fill="#94a3b8" />
-              <text x={p.x} y={p.y - 7} textAnchor="middle" fontSize="8" fill="#64748b">
-                {zona}
-              </text>
-            </g>
-          )
-        })}
-        {vehicle.estado === 'En ruta' && <circle cx={x} cy={y} r="9" fill={color} opacity="0.25" />}
-        <circle cx={x} cy={y} r="5" fill={vehicle.estado === 'En ruta' ? color : '#94a3b8'} stroke="white" strokeWidth="1.5">
-          <title>
-            {vehicle.matricula} · {vehicle.ubicacion.zona} · {vehicle.estado} · actualizado hace {segsAgo}s
-          </title>
-        </circle>
-      </svg>
       <p className="text-xs text-slate-400 mt-1">
-        Ubicación simulada con fines de demostración — la posición real de este vehículo siempre está dentro de la isla de {isla}.
+        Ubicación simulada con fines de demostración (Ofipapel reparte solo en Tenerife) — se actualiza cada pocos segundos.
       </p>
     </div>
   )
@@ -423,7 +378,7 @@ export default function FlotaPage() {
       </div>
 
       <div className="mb-6">
-        <FlotaMapa vehicles={vehicles} />
+        <TenerifeMapa vehicles={vehicles} titulo="Tenerife — ubicación en vivo de la flota" />
       </div>
 
       <DataTable
@@ -752,7 +707,7 @@ export default function FlotaPage() {
               <p className="text-xs text-slate-400 mb-3">
                 Última posición conocida: {selected.ubicacion.lat.toFixed(4)}, {selected.ubicacion.lon.toFixed(4)} · simulada con fines de demostración.
               </p>
-              <IslaMapa vehicle={selected} />
+              <TenerifeMapa vehicles={[selected]} titulo={`Posición de ${selected.matricula}`} />
             </div>
           )}
         </Modal>

@@ -1,6 +1,6 @@
 import { createRng, pick, intBetween, daysAgo, daysAhead } from './rng'
 import { placeholderImageFor, vehiclePlaceholderImageFor } from './placeholderImage'
-import { ZONE_COORDS } from './geo'
+import { TENERIFE_ZONE_COORDS, TENERIFE_ZONES } from './geo'
 import type {
   Location,
   SalesRep,
@@ -97,13 +97,15 @@ function buildPlateLetters(rng: () => number): string {
   return letters
 }
 
-function buildVehicleFor(rng: () => number, tipo: VehicleType, idx: number, comercialId: string, zona: string): Vehicle {
+function buildVehicleFor(rng: () => number, tipo: VehicleType, idx: number, comercialId: string): Vehicle {
   const modelo = tipo === 'Furgón de reparto' ? FURGON_MODELS[idx % FURGON_MODELS.length] : COCHE_MODELS[idx % COCHE_MODELS.length]
   const anio = intBetween(rng, 2018, 2025)
   const antiguedadAnios = 2026 - anio
   const kilometraje = tipo === 'Furgón de reparto' ? intBetween(rng, 20000, 40000) * Math.max(1, antiguedadAnios) : intBetween(rng, 8000, 22000) * Math.max(1, antiguedadAnios)
   const matricula = `${intBetween(rng, 1000, 9999)} ${buildPlateLetters(rng)}`
-  const coords = ZONE_COORDS[zona] ?? ZONE_COORDS['Santa Cruz de Tenerife']
+  // La flota reparte solo en Tenerife, así que la ubicación siempre cae dentro de la isla.
+  const zona = pick(rng, TENERIFE_ZONES)
+  const coords = TENERIFE_ZONE_COORDS[zona]
   const itvVencida = rng() < 0.12
   const itvUltima = daysAgo(rng, antiguedadAnios > 4 ? 300 : 500)
   const itvProxima = itvVencida ? daysAgo(rng, 20) : daysAhead(rng, intBetween(rng, 15, 340))
@@ -160,8 +162,8 @@ function buildRepsAndVehicles(rng: () => number): { reps: SalesRep[]; vehicles: 
       furgonId,
       cocheId,
     })
-    vehicles.push(buildVehicleFor(rng, 'Furgón de reparto', i, repId, ZONES[i]))
-    vehicles.push(buildVehicleFor(rng, 'Coche comercial', i, repId, ZONES[i]))
+    vehicles.push(buildVehicleFor(rng, 'Furgón de reparto', i, repId))
+    vehicles.push(buildVehicleFor(rng, 'Coche comercial', i, repId))
   })
   return { reps, vehicles }
 }

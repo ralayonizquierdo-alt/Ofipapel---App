@@ -1,30 +1,81 @@
-/** Coordenadas reales aproximadas de las zonas comerciales, y a qué isla pertenece cada una. */
-export const ZONE_COORDS: Record<string, { lat: number; lon: number }> = {
+/**
+ * La flota de Ofipapel reparte únicamente en Tenerife, así que todo el módulo de
+ * geolocalización se centra en esta isla (nada de archipiélago completo).
+ */
+
+export const TENERIFE_ZONE_COORDS: Record<string, { lat: number; lon: number }> = {
   'Santa Cruz de Tenerife': { lat: 28.4636, lon: -16.2518 },
   'La Laguna': { lat: 28.4874, lon: -16.3159 },
   'Sur de Tenerife': { lat: 28.05, lon: -16.73 },
-  'Las Palmas de Gran Canaria': { lat: 28.1235, lon: -15.4366 },
-  Telde: { lat: 27.9977, lon: -15.4167 },
-  Lanzarote: { lat: 29.0469, lon: -13.5899 },
-  Fuerteventura: { lat: 28.416, lon: -14.0053 },
 }
 
-export type IslaNombre = 'Tenerife' | 'Gran Canaria' | 'Lanzarote' | 'Fuerteventura'
+export const TENERIFE_ZONES = Object.keys(TENERIFE_ZONE_COORDS)
 
-export const ISLA_POR_ZONA: Record<string, IslaNombre> = {
-  'Santa Cruz de Tenerife': 'Tenerife',
-  'La Laguna': 'Tenerife',
-  'Sur de Tenerife': 'Tenerife',
-  'Las Palmas de Gran Canaria': 'Gran Canaria',
-  Telde: 'Gran Canaria',
-  Lanzarote: 'Lanzarote',
-  Fuerteventura: 'Fuerteventura',
-}
+export const TENERIFE_BOUNDS = { lonMin: -16.95, lonMax: -16.1, latMin: 27.95, latMax: 28.62 }
 
-/** Bounding box real aproximado (lon/lat) de cada isla, para poder encuadrar un mapa zoom por isla. */
-export const ISLAND_BOUNDS: Record<IslaNombre, { lonMin: number; lonMax: number; latMin: number; latMax: number }> = {
-  Tenerife: { lonMin: -16.95, lonMax: -16.1, latMin: 27.95, latMax: 28.62 },
-  'Gran Canaria': { lonMin: -15.87, lonMax: -15.25, latMin: 27.72, latMax: 28.2 },
-  Lanzarote: { lonMin: -13.9, lonMax: -13.4, latMin: 28.83, latMax: 29.25 },
-  Fuerteventura: { lonMin: -14.65, lonMax: -13.85, latMin: 28.02, latMax: 28.8 },
-}
+/** Contorno aproximado de la costa de Tenerife (lon, lat), en sentido horario desde Anaga. */
+export const TENERIFE_COAST: [number, number][] = [
+  [-16.15, 28.57], // Punta de Anaga (NE)
+  [-16.2, 28.53],
+  [-16.25, 28.47], // Santa Cruz
+  [-16.32, 28.4],
+  [-16.37, 28.35], // Candelaria
+  [-16.42, 28.31], // Güímar
+  [-16.55, 28.15],
+  [-16.68, 27.97], // Punta de Rasca (S)
+  [-16.72, 28.05], // Los Cristianos
+  [-16.75, 28.1], // Adeje
+  [-16.8, 28.2], // Alcalá
+  [-16.84, 28.24], // Los Gigantes
+  [-16.87, 28.3],
+  [-16.92, 28.35], // Punta de Teno (NW)
+  [-16.85, 28.37],
+  [-16.77, 28.37], // Garachico
+  [-16.71, 28.35], // Icod de los Vinos
+  [-16.55, 28.42], // Puerto de la Cruz
+  [-16.45, 28.45],
+  [-16.32, 28.58], // Punta del Hidalgo
+  [-16.15, 28.57],
+]
+
+export const TENERIFE_ROADS: { nombre: string; puntos: [number, number][] }[] = [
+  {
+    nombre: 'TF-1 (Autopista del Sur)',
+    puntos: [
+      [-16.25, 28.47],
+      [-16.37, 28.35],
+      [-16.42, 28.31],
+      [-16.55, 28.15],
+      [-16.68, 27.99],
+      [-16.72, 28.05],
+    ],
+  },
+  {
+    nombre: 'TF-5 (Autopista del Norte)',
+    puntos: [
+      [-16.25, 28.47],
+      [-16.32, 28.5],
+      [-16.45, 28.45],
+      [-16.55, 28.42],
+      [-16.71, 28.35],
+      [-16.77, 28.37],
+    ],
+  },
+  {
+    nombre: 'TF-24 (subida al Teide)',
+    puntos: [
+      [-16.32, 28.5],
+      [-16.45, 28.35],
+      [-16.55, 28.24],
+    ],
+  },
+]
+
+export const TENERIFE_TOWNS: { nombre: string; lat: number; lon: number }[] = [
+  { nombre: 'Santa Cruz de Tenerife', lat: 28.4636, lon: -16.2518 },
+  { nombre: 'La Laguna', lat: 28.4874, lon: -16.3159 },
+  { nombre: 'Puerto de la Cruz', lat: 28.4135, lon: -16.5466 },
+  { nombre: 'La Orotava', lat: 28.3894, lon: -16.5225 },
+  { nombre: 'Los Cristianos', lat: 28.0525, lon: -16.7178 },
+  { nombre: 'Candelaria', lat: 28.3556, lon: -16.3667 },
+]
