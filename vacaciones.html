@@ -144,41 +144,54 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 ::-webkit-scrollbar{height:10px;width:10px;}
 ::-webkit-scrollbar-thumb{background:#c9dfc9;border-radius:5px;}
 
-/* ── hoja imprimible ── */
-#printArea{display:none;}
+/* ── hoja imprimible (tamaño real, A3 apaisado) — activa siempre para poder previsualizarla en pantalla ── */
+#printArea{
+  display:none; box-sizing:border-box; width:420mm; min-height:297mm; padding:14mm;
+  background:#fff; font-family:'Inter',sans-serif; color:#1A2E1A;
+}
+.p-header{ text-align:center; margin-bottom:4mm; }
+.p-header h1{ font-size:17pt; color:#1A5C1A; margin-bottom:1mm; letter-spacing:.2px; }
+.p-header .p-sub{ font-size:8pt; color:#59775A; }
+.p-legend{ display:flex; justify-content:center; align-items:center; gap:5mm; margin-top:2.5mm; font-size:7pt; flex-wrap:wrap; }
+.p-legend .sw{ display:inline-block; width:3mm; height:3mm; border-radius:0.8mm; margin-right:1mm; vertical-align:middle; }
+
+.p-monthrow{ display:flex; border-bottom:0.5mm solid #1A5C1A; padding-bottom:0.8mm; margin-bottom:1mm; }
+.p-namecell{ width:44mm; flex-shrink:0; font-size:7pt; font-weight:700; color:#1A5C1A; align-self:flex-end; }
+.p-daysheadcell{ width:14mm; flex-shrink:0; font-size:7pt; font-weight:700; color:#1A5C1A; text-align:right; align-self:flex-end; }
+.p-months{ flex:1; display:flex; }
+.p-month{ text-align:center; font-size:6.6pt; font-weight:700; color:#1A5C1A; background:#EBF7EB; border-right:0.2mm solid #D3E9D3; padding:1mm 0; }
+
+.p-unit{ break-inside:avoid; margin-top:2.2mm; }
+.p-unit-title{ font-size:8pt; font-weight:700; color:#1A5C1A; background:#EBF7EB; padding:1mm 2mm; border-radius:0.6mm; }
+
+.p-emp-row{ display:flex; align-items:center; height:5mm; border-bottom:0.15mm solid #eee; break-inside:avoid; }
+.p-name{ width:44mm; flex-shrink:0; font-size:7pt; padding-right:2mm; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.p-track{ flex:1; position:relative; height:3.6mm; background:#fafafa; }
+.p-block{ position:absolute; top:0; height:3.6mm; border-radius:0.5mm; }
+.p-blocked{ position:absolute; top:0; height:3.6mm;
+  background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 1mm,#FBCFCB 1mm,#FBCFCB 2mm); }
+.p-days{ width:14mm; flex-shrink:0; text-align:right; font-size:7pt; color:#59775A; }
+
+.p-footer{ margin-top:4mm; text-align:center; font-size:6.5pt; color:#999; }
+
+/* ── modal de vista previa (en pantalla) ── */
+.print-preview-modal{ padding:0; width:auto; max-width:95vw; max-height:92vh; display:flex; flex-direction:column; }
+.ppm-header{ display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-bottom:1px solid var(--borde); flex-shrink:0; }
+.ppm-header h3{ font-size:.95rem; color:var(--verde); }
+.ppm-scroll{ overflow:auto; background:#ccc; padding:20px; flex:1; display:flex; justify-content:center; align-items:flex-start; }
+#ppmPageWrap{ flex-shrink:0; box-shadow:0 4px 24px rgba(0,0,0,.35); }
+#ppmPageWrap #printArea{ transform-origin:top left; }
+
+/* ── impresión real: solo se ve la hoja, a tamaño físico ── */
 @media print{
-  @page{ size:A4 landscape; margin:9mm; }
+  @page{ size:A3 landscape; margin:0; }
   html, body{ background:#fff !important; }
   body *{ visibility:hidden; }
   #printArea, #printArea *{ visibility:visible; }
   #printArea{
-    display:block; position:absolute; top:0; left:0; width:100%;
-    font-family:'Inter',sans-serif; color:#1A2E1A;
+    display:block !important; position:absolute; top:0; left:0;
+    transform:none !important; width:420mm; min-height:297mm;
   }
-  .p-header{ text-align:center; margin-bottom:4mm; }
-  .p-header h1{ font-size:17pt; color:#1A5C1A; margin-bottom:1mm; letter-spacing:.2px; }
-  .p-header .p-sub{ font-size:8pt; color:#59775A; }
-  .p-legend{ display:flex; justify-content:center; align-items:center; gap:5mm; margin-top:2.5mm; font-size:7pt; flex-wrap:wrap; }
-  .p-legend .sw{ display:inline-block; width:3mm; height:3mm; border-radius:0.8mm; margin-right:1mm; vertical-align:middle; }
-
-  .p-monthrow{ display:flex; border-bottom:0.5mm solid #1A5C1A; padding-bottom:0.8mm; margin-bottom:1mm; }
-  .p-namecell{ width:44mm; flex-shrink:0; font-size:7pt; font-weight:700; color:#1A5C1A; align-self:flex-end; }
-  .p-daysheadcell{ width:14mm; flex-shrink:0; font-size:7pt; font-weight:700; color:#1A5C1A; text-align:right; align-self:flex-end; }
-  .p-months{ flex:1; display:flex; }
-  .p-month{ text-align:center; font-size:6.6pt; font-weight:700; color:#1A5C1A; background:#EBF7EB; border-right:0.2mm solid #D3E9D3; padding:1mm 0; }
-
-  .p-unit{ break-inside:avoid; margin-top:2.2mm; }
-  .p-unit-title{ font-size:8pt; font-weight:700; color:#1A5C1A; background:#EBF7EB; padding:1mm 2mm; border-radius:0.6mm; }
-
-  .p-emp-row{ display:flex; align-items:center; height:5mm; border-bottom:0.15mm solid #eee; break-inside:avoid; }
-  .p-name{ width:44mm; flex-shrink:0; font-size:7pt; padding-right:2mm; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .p-track{ flex:1; position:relative; height:3.6mm; background:#fafafa; }
-  .p-block{ position:absolute; top:0; height:3.6mm; border-radius:0.5mm; }
-  .p-blocked{ position:absolute; top:0; height:3.6mm;
-    background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 1mm,#FBCFCB 1mm,#FBCFCB 2mm); }
-  .p-days{ width:14mm; flex-shrink:0; text-align:right; font-size:7pt; color:#59775A; }
-
-  .p-footer{ margin-top:4mm; text-align:center; font-size:6.5pt; color:#999; }
 }
 </style>
 </head>
@@ -283,7 +296,22 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 
 <div class="toast" id="toast"></div>
 
-<div id="printArea"></div>
+<div class="overlay" id="printPreviewOverlay">
+  <div class="modal print-preview-modal">
+    <div class="ppm-header">
+      <h3>Vista previa de impresión · A3 apaisado</h3>
+      <div class="left" style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" id="ppmClose">Cerrar</button>
+        <button class="btn btn-primary" id="ppmPrintNow">🖨 Imprimir</button>
+      </div>
+    </div>
+    <div class="ppm-scroll">
+      <div id="ppmPageWrap">
+        <div id="printArea"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 /* ═══════════════════ DATOS DE EJEMPLO ═══════════════════ */
@@ -973,8 +1001,43 @@ function buildPrintArea(){
   container.appendChild(footer);
 }
 
-document.getElementById('btnPrint').onclick = ()=>{ buildPrintArea(); window.print(); };
-window.addEventListener('beforeprint', buildPrintArea);
+function openPrintPreview(){
+  buildPrintArea();
+  const pa = document.getElementById('printArea');
+  pa.style.display = 'block';
+  pa.style.transform = 'none';
+  openModal('printPreviewOverlay');
+  requestAnimationFrame(()=>{
+    const scrollBox = document.querySelector('#printPreviewOverlay .ppm-scroll');
+    const wrap = document.getElementById('ppmPageWrap');
+    const trueW = pa.offsetWidth, trueH = pa.offsetHeight;
+    const availW = scrollBox.clientWidth - 40;
+    const scale = Math.min(1, availW/trueW);
+    pa.style.transform = `scale(${scale})`;
+    wrap.style.width = (trueW*scale)+'px';
+    wrap.style.height = (trueH*scale)+'px';
+  });
+}
+function closePrintPreview(){
+  closeModal('printPreviewOverlay');
+  document.getElementById('printArea').style.display = 'none';
+}
+
+document.getElementById('btnPrint').onclick = openPrintPreview;
+document.getElementById('ppmClose').onclick = closePrintPreview;
+document.getElementById('ppmPrintNow').onclick = ()=> window.print();
+
+window.addEventListener('beforeprint', ()=>{
+  buildPrintArea();
+  const pa = document.getElementById('printArea');
+  pa.style.display = 'block';
+  pa.style.transform = 'none';
+});
+window.addEventListener('afterprint', ()=>{
+  if(!document.getElementById('printPreviewOverlay').classList.contains('open')){
+    document.getElementById('printArea').style.display = 'none';
+  }
+});
 
 /* ═══════════════════ TOAST ═══════════════════ */
 let toastTimer=null;
