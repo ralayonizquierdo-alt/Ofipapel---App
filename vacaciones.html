@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Vacaciones Ofipapel">
+<meta name="theme-color" content="#1A5C1A">
+<title>Ofipapel · Cuadrante de Vacaciones</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --verde:      #1A5C1A;
+  --verde-med:  #237523;
+  --verde-cl:   #3DAF3D;
+  --verde-pale: #EBF7EB;
+  --acento:     #8DC41E;
+  --acento2:    #F5A623;
+  --rojo:       #E74C3C;
+  --bg:         #F2F8F2;
+  --card:       #FFFFFF;
+  --borde:      #D3E9D3;
+  --texto:      #1A2E1A;
+  --texto2:     #59775A;
+  --sombra:     0 2px 16px rgba(26,92,26,0.08);
+  --rad:        10px;
+  --day-w:      22px;
+  --row-h:      28px;
+  --name-w:     190px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--texto);}
+button,input,select{font-family:inherit;}
+
+/* ── layout ── */
+#app{display:flex;flex-direction:column;height:100vh;}
+header{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:12px 20px;background:var(--verde);color:#fff;box-shadow:var(--sombra);z-index:20;
+}
+header h1{font-size:1.05rem;font-weight:700;letter-spacing:.2px;margin-right:auto;}
+header .sub{font-size:.72rem;color:#dff0df;font-weight:400;display:block;margin-top:2px;}
+header select, header button{
+  background:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:.8rem;font-weight:600;
+  color:var(--verde);cursor:pointer;
+}
+header button.secondary{background:rgba(255,255,255,.15);color:#fff;}
+header button:hover{filter:brightness(0.96);}
+
+#body{display:flex;flex:1;min-height:0;}
+
+/* ── sidebar ── */
+aside{
+  width:270px;flex-shrink:0;background:var(--card);border-right:1px solid var(--borde);
+  overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:18px;
+}
+aside h2{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--texto2);margin-bottom:8px;}
+.field{margin-bottom:8px;}
+.field label{font-size:.75rem;color:var(--texto2);display:block;margin-bottom:3px;}
+.field input[type=text],.field select{
+  width:100%;padding:6px 8px;border:1px solid var(--borde);border-radius:6px;font-size:.8rem;background:#fff;
+}
+.check-row{display:flex;align-items:center;gap:6px;font-size:.8rem;margin:6px 0;}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:.78rem;margin:4px 0;}
+.swatch{width:14px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.08);}
+.summary-row{display:flex;justify-content:space-between;font-size:.75rem;padding:3px 0;border-bottom:1px dashed var(--borde);}
+.summary-row b{color:var(--verde);}
+.mini-btn{
+  background:var(--verde-pale);border:1px solid var(--borde);border-radius:6px;padding:5px 8px;
+  font-size:.72rem;color:var(--verde);cursor:pointer;
+}
+.mini-btn:hover{background:var(--verde);color:#fff;}
+.block-item{display:flex;justify-content:space-between;align-items:center;font-size:.72rem;background:var(--verde-pale);
+  border-radius:6px;padding:5px 7px;margin-bottom:5px;}
+.block-item button{background:none;border:none;color:var(--rojo);cursor:pointer;font-size:.85rem;}
+
+/* ── main grid area ── */
+main{flex:1;overflow:auto;position:relative;background:#fff;}
+#gridWrap{position:relative;padding-bottom:30px;}
+
+.month-row,.day-row{display:flex;position:sticky;left:0;z-index:5;background:#fff;}
+.header-sticky{position:sticky;top:0;z-index:6;background:#fff;border-bottom:1px solid var(--borde);}
+.corner{position:sticky;left:0;top:0;z-index:8;width:var(--name-w);flex-shrink:0;background:#fff;
+  border-right:1px solid var(--borde);border-bottom:1px solid var(--borde);}
+.month-label{
+  border-right:1px solid var(--borde);text-align:center;font-size:.72rem;font-weight:700;color:var(--verde);
+  padding:5px 0;background:var(--verde-pale);
+}
+.day-tick{border-right:1px solid #f1f1f1;text-align:center;font-size:.55rem;color:var(--texto2);padding:3px 0;flex-shrink:0;}
+.day-tick.weekend{background:#FAFAF5;}
+.day-tick.blocked{background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 4px,#FBCFCB 4px,#FBCFCB 8px);color:var(--rojo);}
+
+.unit-group{border-bottom:2px solid var(--borde);}
+.unit-header{display:flex;background:var(--verde-pale);position:sticky;left:0;}
+.unit-header .corner-cell{
+  width:var(--name-w);flex-shrink:0;padding:5px 10px;font-size:.75rem;font-weight:700;color:var(--verde);
+  border-right:1px solid var(--borde);position:sticky;left:0;background:var(--verde-pale);z-index:4;
+}
+.coverage-track{position:relative;height:16px;flex:1;}
+.cov-cell{position:absolute;top:0;height:16px;}
+
+.emp-row{display:flex;position:relative;height:var(--row-h);border-bottom:1px solid #f2f2f2;}
+.emp-row:hover{background:#FAFDF9;}
+.emp-name{
+  width:var(--name-w);flex-shrink:0;padding:0 10px;display:flex;flex-direction:column;justify-content:center;
+  font-size:.75rem;border-right:1px solid var(--borde);position:sticky;left:0;background:#fff;z-index:3;
+}
+.emp-row:hover .emp-name{background:#FAFDF9;}
+.emp-name b{font-weight:600;}
+.emp-name span{font-size:.62rem;color:var(--texto2);}
+.track{position:relative;flex:1;cursor:crosshair;}
+.blocked-overlay{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg,rgba(231,76,60,.07),rgba(231,76,60,.07) 4px,rgba(231,76,60,.13) 4px,rgba(231,76,60,.13) 8px);pointer-events:none;}
+.period-block{
+  position:absolute;top:3px;height:calc(var(--row-h) - 6px);border-radius:4px;cursor:pointer;
+  box-shadow:0 1px 3px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;
+  font-size:.55rem;color:#fff;font-weight:700;overflow:hidden;white-space:nowrap;
+}
+.period-block:hover{filter:brightness(1.08);outline:2px solid rgba(0,0,0,.2);}
+.drag-preview{position:absolute;top:3px;height:calc(var(--row-h) - 6px);border-radius:4px;background:rgba(26,92,26,.35);
+  border:1px dashed var(--verde);pointer-events:none;}
+
+/* ── modal ── */
+.overlay{position:fixed;inset:0;background:rgba(20,40,20,.45);display:none;align-items:center;justify-content:center;z-index:50;}
+.overlay.open{display:flex;}
+.modal{background:#fff;border-radius:var(--rad);padding:20px;width:360px;max-width:92vw;box-shadow:var(--sombra);}
+.modal h3{font-size:.95rem;margin-bottom:12px;color:var(--verde);}
+.modal .field{margin-bottom:10px;}
+.warn-box{background:#FFF6E5;border:1px solid #F5D68C;border-radius:8px;padding:8px 10px;font-size:.72rem;color:#8a5a00;margin-bottom:10px;}
+.err-box{background:#FDECEA;border:1px solid #F5B7B1;border-radius:8px;padding:8px 10px;font-size:.72rem;color:#a02c1f;margin-bottom:10px;}
+.modal-actions{display:flex;justify-content:space-between;margin-top:14px;gap:8px;}
+.modal-actions .left{display:flex;gap:8px;}
+.btn{padding:8px 14px;border-radius:7px;border:none;font-size:.8rem;font-weight:600;cursor:pointer;}
+.btn-primary{background:var(--verde);color:#fff;}
+.btn-primary:disabled{background:#ccc;cursor:not-allowed;}
+.btn-ghost{background:#eee;color:#333;}
+.btn-danger{background:#FDECEA;color:var(--rojo);}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222;color:#fff;
+  padding:10px 16px;border-radius:8px;font-size:.8rem;z-index:60;box-shadow:0 4px 20px rgba(0,0,0,.3);opacity:0;
+  transition:opacity .25s;pointer-events:none;}
+.toast.show{opacity:1;}
+
+::-webkit-scrollbar{height:10px;width:10px;}
+::-webkit-scrollbar-thumb{background:#c9dfc9;border-radius:5px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div>
+      <h1>Cuadrante de Vacaciones</h1>
+      <span class="sub">Prototipo · Ofipapel, Aliz 1 y Aliz 2 · datos de ejemplo</span>
+    </div>
+    <select id="yearSelect"></select>
+    <button class="secondary" id="btnRotation">Prioridad rotación</button>
+    <button id="btnExport">Exportar CSV</button>
+  </header>
+  <div id="body">
+    <aside>
+      <div>
+        <h2>Filtros</h2>
+        <div class="field">
+          <label>Buscar empleado</label>
+          <input type="text" id="searchInput" placeholder="Nombre...">
+        </div>
+        <div class="field">
+          <label>Unidad</label>
+          <select id="unitFilter"><option value="">Todas</option></select>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="onlyConflicts">
+          <label for="onlyConflicts">Solo unidades con exceso de cobertura</label>
+        </div>
+      </div>
+
+      <div>
+        <h2>Leyenda</h2>
+        <div id="legendBox"></div>
+        <div class="legend-item"><span class="swatch" style="background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 3px,#FBCFCB 3px,#FBCFCB 6px)"></span>Fecha bloqueada (empresa)</div>
+        <div class="legend-item"><span class="swatch" style="background:#E74C3C"></span>Día con exceso de cobertura</div>
+      </div>
+
+      <div>
+        <h2>Fechas bloqueadas</h2>
+        <div id="blockList"></div>
+        <div class="field"><label>Etiqueta</label><input type="text" id="blkLabel" placeholder="Ej: Campaña Reyes"></div>
+        <div class="field"><label>Desde</label><input type="text" id="blkStart" placeholder="MM-DD"></div>
+        <div class="field"><label>Hasta</label><input type="text" id="blkEnd" placeholder="MM-DD"></div>
+        <button class="mini-btn" id="btnAddBlock">+ Añadir bloqueo</button>
+      </div>
+
+      <div>
+        <h2>Cobertura por unidad</h2>
+        <div id="unitLimits"></div>
+      </div>
+
+      <div>
+        <h2>Resumen de días</h2>
+        <div id="summaryBox" style="max-height:220px;overflow-y:auto;"></div>
+      </div>
+    </aside>
+    <main>
+      <div id="gridWrap"></div>
+    </main>
+  </div>
+</div>
+
+<div class="overlay" id="periodOverlay">
+  <div class="modal">
+    <h3 id="pmTitle">Nuevo periodo</h3>
+    <div class="field"><label>Empleado</label><div id="pmEmployee" style="font-size:.85rem;font-weight:600;"></div></div>
+    <div class="field"><label>Desde</label><input type="date" id="pmStart"></div>
+    <div class="field"><label>Hasta</label><input type="date" id="pmEnd"></div>
+    <div id="pmWarnings"></div>
+    <div class="check-row" id="pmOverrideRow" style="display:none;">
+      <input type="checkbox" id="pmOverrideCheck">
+      <label for="pmOverrideCheck">Guardar de todas formas, superando la cobertura recomendada</label>
+    </div>
+    <div class="modal-actions">
+      <div class="left">
+        <button class="btn btn-danger" id="pmDelete" style="display:none;">Eliminar</button>
+      </div>
+      <div class="left">
+        <button class="btn btn-ghost" id="pmCancel">Cancelar</button>
+        <button class="btn btn-primary" id="pmSave">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="rotationOverlay">
+  <div class="modal" style="width:440px;">
+    <h3>Prioridad de rotación sugerida</h3>
+    <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
+      Marca quién disfrutó ya de este mismo periodo el año pasado. La prioridad combina "no repetir" con antigüedad
+      (más antigüedad = más prioridad en caso de empate). Es solo una sugerencia: la decisión final es manual.
+    </p>
+    <div id="rotationList" style="max-height:340px;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <div></div>
+      <button class="btn btn-ghost" id="rotClose">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════ DATOS DE EJEMPLO ═══════════════════ */
+const UNITS = [
+  {id:'repartidores',      name:'Repartidores',            group:'Reparto',       defaultMax:1},
+  {id:'almacen',           name:'Almacén',                 group:'Almacén',       defaultMax:1},
+  {id:'oficina',           name:'Oficina',                 group:'Oficina',       defaultMax:1},
+  {id:'pedidos',           name:'Pedidos',                 group:'Pedidos',       defaultMax:1},
+  {id:'comerciales',       name:'Comerciales',             group:'Comerciales',   defaultMax:1},
+  {id:'aliz2',             name:'Aliz 2',                  group:'Dependientas',  defaultMax:1},
+  {id:'aliz1',             name:'Aliz 1',                  group:'Dependientas',  defaultMax:1},
+  {id:'ofipapel_detalle',  name:'Ofipapel · Detalle',      group:'Dependientas',  defaultMax:1},
+  {id:'ofipapel_info',     name:'Ofipapel · Informática',  group:'Dependientas',  defaultMax:1},
+];
+
+const NAME_POOL = ["María López","Carlos Pérez","Ana Rodríguez","José Martín","Laura Sánchez","David González",
+  "Carmen Díaz","Javier Ruiz","Isabel Hernández","Antonio Jiménez","Lucía Moreno","Francisco Álvarez",
+  "Elena Romero","Manuel Navarro","Marta Torres","Pedro Domínguez","Cristina Vázquez","Miguel Ramos",
+  "Sara Gil","Alberto Serrano","Rosa Castro","Rafael Ortega","Beatriz Rubio","Sergio Molina",
+  "Silvia Delgado","Ángel Ortiz","Patricia Marín","Diego Iglesias","Nuria Santos","Óscar Cano",
+  "Teresa Peña","Iván Vega"];
+
+function buildEmployees(){
+  const counts = {repartidores:7, almacen:2, oficina:3, pedidos:2, comerciales:7, aliz2:2, aliz1:3, ofipapel_detalle:4, ofipapel_info:2};
+  let i=0, out=[];
+  for(const u of UNITS){
+    for(let n=0;n<counts[u.id];n++){
+      const startYear = 2008 + ((i*3)%16);
+      out.push({
+        id:'e'+i, name:NAME_POOL[i%NAME_POOL.length], unitId:u.id,
+        seniorityYear:startYear, daysPerYear:22, hadLastYear:false
+      });
+      i++;
+    }
+  }
+  return out;
+}
+const EMPLOYEES = buildEmployees();
+
+/* ═══════════════════ ESTADO ═══════════════════ */
+const STORAGE_KEY = 'ofipapel_vacaciones_v1';
+let state = loadState();
+
+function defaultState(){
+  return {
+    year: new Date().getFullYear(),
+    periods: [],
+    blockedRanges: [
+      {id:'b1', label:'Vuelta al cole', startMD:'09-01', endMD:'09-30'},
+      {id:'b2', label:'Campaña de Navidad', startMD:'12-20', endMD:'01-06'},
+    ],
+    unitOverrides: [],
+    unitMax: Object.fromEntries(UNITS.map(u=>[u.id,u.defaultMax])),
+    lastYearFlags: {},
+  };
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return Object.assign(defaultState(), JSON.parse(raw));
+  }catch(e){}
+  return defaultState();
+}
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+/* ═══════════════════ FECHAS ═══════════════════ */
+function isLeap(y){ return (y%4===0 && y%100!==0) || y%400===0; }
+function daysInYear(y){ return isLeap(y)?366:365; }
+function dateFromIndex(y, idx){ const d=new Date(Date.UTC(y,0,1)); d.setUTCDate(d.getUTCDate()+idx); return d; }
+function toISO(d){ return d.toISOString().slice(0,10); }
+function isoToIndex(y, iso){
+  const d = new Date(iso+'T00:00:00Z');
+  const start = new Date(Date.UTC(y,0,1));
+  return Math.round((d-start)/86400000);
+}
+const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function monthLengths(y){ return [31, isLeap(y)?29:28,31,30,31,30,31,31,30,31,30,31]; }
+
+function mdInRange(md, startMD, endMD){
+  // handles ranges that wrap around the year (e.g. 12-20 .. 01-06)
+  if(startMD <= endMD) return md >= startMD && md <= endMD;
+  return md >= startMD || md <= endMD;
+}
+function isBlockedIndex(y, idx){
+  const d = dateFromIndex(y, idx);
+  const md = String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+  return state.blockedRanges.find(b => mdInRange(md, b.startMD, b.endMD)) || null;
+}
+
+/* ═══════════════════ COLORES DE PERIODO ═══════════════════ */
+const PERIOD_COLORS = ['#3DAF3D','#4A90D9','#F5A623','#9B59B6','#E4667A','#16A085','#D9822B'];
+function periodColor(n){ return PERIOD_COLORS[(n-1) % PERIOD_COLORS.length]; }
+
+/* ═══════════════════ VALIDACIÓN DE COBERTURA ═══════════════════ */
+function effectiveMax(unitId, idx, y){
+  const d = dateFromIndex(y, idx);
+  const iso = toISO(d);
+  const ov = state.unitOverrides.find(o => o.unitId===unitId && iso>=o.start && iso<=o.end);
+  return ov ? ov.max : (state.unitMax[unitId] ?? 1);
+}
+function absentCount(unitId, idx, y, excludePeriodId){
+  const iso = toISO(dateFromIndex(y, idx));
+  let n=0;
+  for(const p of state.periods){
+    if(p.id===excludePeriodId) continue;
+    const emp = EMPLOYEES.find(e=>e.id===p.employeeId);
+    if(!emp || emp.unitId!==unitId) continue;
+    if(iso>=p.start && iso<=p.end) n++;
+  }
+  return n;
+}
+function unitCoverageForDay(unitId, idx, y, excludePeriodId){
+  const count = absentCount(unitId, idx, y, excludePeriodId);
+  const max = effectiveMax(unitId, idx, y);
+  return {count, max, over: count>max};
+}
+
+/* ═══════════════════ RENDER ═══════════════════ */
+let filterText='', filterUnit='', onlyConflicts=false;
+let dragCtx = null;
+let editingPeriodId = null;
+
+function fmtRange(a,b){
+  const da = new Date(a+'T00:00:00Z'), db=new Date(b+'T00:00:00Z');
+  const opts={day:'2-digit',month:'short'};
+  return da.toLocaleDateString('es-ES',opts)+' – '+db.toLocaleDateString('es-ES',opts);
+}
+
+function render(){
+  renderYearSelect();
+  renderUnitFilter();
+  renderLegend();
+  renderBlockList();
+  renderUnitLimits();
+  renderGrid();
+  renderSummary();
+  saveState();
+}
+
+function renderYearSelect(){
+  const sel = document.getElementById('yearSelect');
+  if(sel.options.length) { sel.value=state.year; return; }
+  const now = new Date().getFullYear();
+  for(let y=now-1;y<=now+2;y++){
+    const o=document.createElement('option'); o.value=y; o.textContent=y;
+    sel.appendChild(o);
+  }
+  sel.value=state.year;
+}
+
+function renderUnitFilter(){
+  const sel = document.getElementById('unitFilter');
+  if(sel.options.length>1) return;
+  for(const u of UNITS){
+    const o=document.createElement('option'); o.value=u.id; o.textContent=u.name+' ('+u.group+')';
+    sel.appendChild(o);
+  }
+}
+
+function renderLegend(){
+  const box = document.getElementById('legendBox');
+  box.innerHTML='';
+  for(let n=1;n<=4;n++){
+    const div=document.createElement('div'); div.className='legend-item';
+    div.innerHTML = `<span class="swatch" style="background:${periodColor(n)}"></span>Periodo ${n}º solicitado`;
+    box.appendChild(div);
+  }
+}
+
+function renderBlockList(){
+  const box = document.getElementById('blockList');
+  box.innerHTML='';
+  for(const b of state.blockedRanges){
+    const div=document.createElement('div'); div.className='block-item';
+    div.innerHTML = `<span>${b.label}<br><small>${b.startMD} → ${b.endMD}</small></span>`;
+    const btn=document.createElement('button'); btn.textContent='✕';
+    btn.onclick=()=>{ state.blockedRanges = state.blockedRanges.filter(x=>x.id!==b.id); render(); };
+    div.appendChild(btn);
+    box.appendChild(div);
+  }
+}
+
+function renderUnitLimits(){
+  const box = document.getElementById('unitLimits');
+  box.innerHTML='';
+  for(const u of UNITS){
+    const row=document.createElement('div'); row.className='field';
+    row.innerHTML = `<label>${u.name} — máx. fuera a la vez</label>`;
+    const inp=document.createElement('input'); inp.type='text'; inp.inputMode='numeric';
+    inp.style.width='60px';
+    inp.value = state.unitMax[u.id] ?? u.defaultMax;
+    inp.onchange = ()=>{
+      const v = parseInt(inp.value,10);
+      state.unitMax[u.id] = isNaN(v) ? u.defaultMax : Math.max(0,v);
+      render();
+    };
+    row.appendChild(inp);
+    box.appendChild(row);
+  }
+}
+
+function unitHasConflict(unitId, y){
+  const n = daysInYear(y);
+  for(let idx=0; idx<n; idx++){
+    if(unitCoverageForDay(unitId, idx, y).over) return true;
+  }
+  return false;
+}
+
+function renderGrid(){
+  const wrap = document.getElementById('gridWrap');
+  wrap.innerHTML = '';
+  const y = state.year;
+  const n = daysInYear(y);
+  const totalW = n * 22; // px, matches --day-w
+
+  // header: months
+  const headerSticky = document.createElement('div');
+  headerSticky.className = 'header-sticky';
+
+  const monthRow = document.createElement('div');
+  monthRow.style.display='flex';
+  const corner1 = document.createElement('div'); corner1.className='corner'; corner1.style.height='24px';
+  monthRow.appendChild(corner1);
+  const ml = monthLengths(y);
+  for(let m=0;m<12;m++){
+    const el=document.createElement('div'); el.className='month-label';
+    el.style.width = (ml[m]*22)+'px';
+    el.textContent = MONTH_NAMES[m];
+    monthRow.appendChild(el);
+  }
+  headerSticky.appendChild(monthRow);
+
+  const dayRow = document.createElement('div');
+  dayRow.style.display='flex';
+  const corner2 = document.createElement('div'); corner2.className='corner'; corner2.style.height='18px';
+  corner2.style.borderTop='none';
+  dayRow.appendChild(corner2);
+  for(let idx=0; idx<n; idx++){
+    const d = dateFromIndex(y, idx);
+    const dow = d.getUTCDay();
+    const el = document.createElement('div');
+    el.className = 'day-tick' + ((dow===0||dow===6)?' weekend':'');
+    const blocked = isBlockedIndex(y, idx);
+    if(blocked) el.classList.add('blocked');
+    el.style.width='22px';
+    const dom = d.getUTCDate();
+    if(dom===1||dom%5===0) el.textContent = dom;
+    if(blocked) el.title = blocked.label;
+    dayRow.appendChild(el);
+  }
+  headerSticky.appendChild(dayRow);
+  wrap.appendChild(headerSticky);
+
+  // unit groups
+  const filteredEmployees = EMPLOYEES.filter(e=>{
+    if(filterUnit && e.unitId!==filterUnit) return false;
+    if(filterText && !e.name.toLowerCase().includes(filterText.toLowerCase())) return false;
+    return true;
+  });
+
+  for(const u of UNITS){
+    const emps = filteredEmployees.filter(e=>e.unitId===u.id);
+    if(!emps.length) continue;
+    if(onlyConflicts && !unitHasConflict(u.id, y)) continue;
+
+    const group = document.createElement('div'); group.className='unit-group';
+
+    const uh = document.createElement('div'); uh.className='unit-header';
+    const cc = document.createElement('div'); cc.className='corner-cell';
+    cc.textContent = u.name + ' · ' + emps.length;
+    uh.appendChild(cc);
+    const cov = document.createElement('div'); cov.className='coverage-track';
+    cov.style.width = totalW+'px';
+    for(let idx=0; idx<n; idx++){
+      const {count,max,over} = unitCoverageForDay(u.id, idx, y);
+      const cell = document.createElement('div'); cell.className='cov-cell';
+      cell.style.left=(idx*22)+'px'; cell.style.width='22px';
+      cell.style.background = over ? '#E74C3C' : (count>0 ? '#BFE3BF' : 'transparent');
+      if(count>0) cell.title = count+' fuera / máx '+max;
+      cov.appendChild(cell);
+    }
+    uh.appendChild(cov);
+    group.appendChild(uh);
+
+    for(const emp of emps){
+      group.appendChild(buildEmployeeRow(emp, y, n, totalW));
+    }
+    wrap.appendChild(group);
+  }
+}
+
+function buildEmployeeRow(emp, y, n, totalW){
+  const row = document.createElement('div'); row.className='emp-row';
+  const nameCell = document.createElement('div'); nameCell.className='emp-name';
+  const used = state.periods.filter(p=>p.employeeId===emp.id)
+    .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
+  nameCell.innerHTML = `<b>${emp.name}</b><span>${used}/${emp.daysPerYear} días · antig. ${emp.seniorityYear}</span>`;
+  row.appendChild(nameCell);
+
+  const track = document.createElement('div'); track.className='track';
+  track.style.width = totalW+'px';
+
+  // blocked overlay
+  for(const b of state.blockedRanges){
+    const segs = blockedSegmentsForYear(b, y, n);
+    for(const seg of segs){
+      const ov=document.createElement('div'); ov.className='blocked-overlay';
+      ov.style.left=(seg.start*22)+'px'; ov.style.width=((seg.end-seg.start+1)*22)+'px';
+      track.appendChild(ov);
+    }
+  }
+
+  // period blocks
+  const myPeriods = state.periods.filter(p=>p.employeeId===emp.id)
+    .sort((a,b)=> a.start.localeCompare(b.start));
+  myPeriods.forEach((p, i)=>{
+    const s = Math.max(0, isoToIndex(y,p.start));
+    const e = Math.min(n-1, isoToIndex(y,p.end));
+    if(e<0 || s>=n) return;
+    const block = document.createElement('div'); block.className='period-block';
+    block.style.left=(s*22)+'px'; block.style.width=((e-s+1)*22)+'px';
+    block.style.background = periodColor(i+1);
+    block.textContent = (e-s+1)+'d';
+    block.title = fmtRange(p.start,p.end);
+    block.onclick = (ev)=>{ ev.stopPropagation(); openPeriodModal(emp, p); };
+    track.appendChild(block);
+  });
+
+  track.addEventListener('mousedown', (ev)=> startDrag(ev, emp, track, y, n));
+  row.appendChild(track);
+  return row;
+}
+
+function blockedSegmentsForYear(b, y, n){
+  const segs=[];
+  let curStart=null;
+  for(let idx=0; idx<n; idx++){
+    const blocked = !!isBlockedIndex(y, idx) && isBlockedIndex(y, idx).id===b.id;
+    if(blocked && curStart===null) curStart=idx;
+    if(!blocked && curStart!==null){ segs.push({start:curStart,end:idx-1}); curStart=null; }
+  }
+  if(curStart!==null) segs.push({start:curStart,end:n-1});
+  return segs;
+}
+
+/* ═══════════════════ DRAG PARA CREAR PERIODO ═══════════════════ */
+function startDrag(ev, emp, track, y, n){
+  if(ev.button!==0) return;
+  const rect = track.getBoundingClientRect();
+  const startIdx = Math.max(0, Math.min(n-1, Math.floor((ev.clientX-rect.left)/22)));
+  dragCtx = {emp, track, y, n, startIdx, curIdx:startIdx, previewEl:null};
+  const preview = document.createElement('div'); preview.className='drag-preview';
+  preview.style.left=(startIdx*22)+'px'; preview.style.width='22px';
+  track.appendChild(preview);
+  dragCtx.previewEl = preview;
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+}
+function onDragMove(ev){
+  if(!dragCtx) return;
+  const rect = dragCtx.track.getBoundingClientRect();
+  const idx = Math.max(0, Math.min(dragCtx.n-1, Math.floor((ev.clientX-rect.left)/22)));
+  dragCtx.curIdx = idx;
+  const lo = Math.min(dragCtx.startIdx, idx), hi = Math.max(dragCtx.startIdx, idx);
+  dragCtx.previewEl.style.left=(lo*22)+'px';
+  dragCtx.previewEl.style.width=((hi-lo+1)*22)+'px';
+}
+function onDragEnd(ev){
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+  if(!dragCtx) return;
+  const {emp,y,n,startIdx,curIdx,previewEl} = dragCtx;
+  previewEl.remove();
+  const lo = Math.min(startIdx,curIdx), hi = Math.max(startIdx,curIdx);
+  dragCtx = null;
+
+  // hard block: cualquier día bloqueado dentro del rango
+  for(let idx=lo; idx<=hi; idx++){
+    const b = isBlockedIndex(y, idx);
+    if(b){
+      showToast('No se puede seleccionar el '+fmtDate(dateFromIndex(y,idx))+': "'+b.label+'" está bloqueado.');
+      return;
+    }
+  }
+  const startISO = toISO(dateFromIndex(y,lo));
+  const endISO = toISO(dateFromIndex(y,hi));
+
+  // hard block: solape con otro periodo del mismo empleado
+  const overlap = state.periods.find(p=> p.employeeId===emp.id && !(endISO<p.start || startISO>p.end));
+  if(overlap){
+    showToast('Ese rango se solapa con otro periodo ya asignado a '+emp.name+'.');
+    return;
+  }
+
+  openPeriodModal(emp, null, startISO, endISO);
+}
+function fmtDate(d){ return d.toLocaleDateString('es-ES',{day:'2-digit',month:'short'}); }
+
+/* ═══════════════════ MODAL DE PERIODO ═══════════════════ */
+function openPeriodModal(emp, period, startISO, endISO){
+  editingPeriodId = period ? period.id : null;
+  document.getElementById('pmTitle').textContent = period ? 'Editar periodo' : 'Nuevo periodo';
+  document.getElementById('pmEmployee').textContent = emp.name + ' — ' + (UNITS.find(u=>u.id===emp.unitId)||{}).name;
+  document.getElementById('pmStart').value = period ? period.start : startISO;
+  document.getElementById('pmEnd').value = period ? period.end : endISO;
+  document.getElementById('pmDelete').style.display = period ? 'inline-block' : 'none';
+  document.getElementById('pmOverrideCheck').checked = false;
+  document.getElementById('pmOverrideRow').style.display = 'none';
+  document.getElementById('pmSave').disabled = false;
+
+  document.getElementById('pmDelete').onclick = ()=>{
+    state.periods = state.periods.filter(p=>p.id!==period.id);
+    closeModal('periodOverlay'); render();
+  };
+  document.getElementById('pmCancel').onclick = ()=> closeModal('periodOverlay');
+  document.getElementById('pmStart').oninput = ()=> validateModal(emp);
+  document.getElementById('pmEnd').oninput = ()=> validateModal(emp);
+  document.getElementById('pmOverrideCheck').onchange = ()=> validateModal(emp);
+  document.getElementById('pmSave').onclick = ()=> savePeriod(emp);
+
+  validateModal(emp);
+  openModal('periodOverlay');
+}
+
+function validateModal(emp){
+  const start = document.getElementById('pmStart').value;
+  const end = document.getElementById('pmEnd').value;
+  const warnBox = document.getElementById('pmWarnings');
+  const overrideRow = document.getElementById('pmOverrideRow');
+  const saveBtn = document.getElementById('pmSave');
+  warnBox.innerHTML='';
+  overrideRow.style.display='none';
+  saveBtn.disabled=false;
+
+  if(!start || !end || end<start){
+    warnBox.innerHTML = '<div class="err-box">Rango de fechas no válido.</div>';
+    saveBtn.disabled=true;
+    return;
+  }
+  const y = state.year;
+  const sIdx = isoToIndex(y,start), eIdx = isoToIndex(y,end);
+
+  // bloqueos
+  for(let idx=sIdx; idx<=eIdx; idx++){
+    const b = isBlockedIndex(y, idx);
+    if(b){
+      warnBox.innerHTML += `<div class="err-box">Incluye el ${fmtDate(dateFromIndex(y,idx))}, bloqueado por "${b.label}".</div>`;
+      saveBtn.disabled=true;
+      return;
+    }
+  }
+  // solape
+  const overlap = state.periods.find(p=> p.employeeId===emp.id && p.id!==editingPeriodId && !(end<p.start || start>p.end));
+  if(overlap){
+    warnBox.innerHTML = `<div class="err-box">Se solapa con el periodo ${fmtRange(overlap.start,overlap.end)} del mismo empleado.</div>`;
+    saveBtn.disabled=true;
+    return;
+  }
+  // cobertura
+  const overDays=[];
+  for(let idx=sIdx; idx<=eIdx; idx++){
+    const {count,max,over} = unitCoverageForDay(emp.unitId, idx, y, editingPeriodId);
+    if(over || count+1>max) overDays.push({idx, count:count+1, max});
+  }
+  if(overDays.length){
+    const unitName = (UNITS.find(u=>u.id===emp.unitId)||{}).name;
+    warnBox.innerHTML = `<div class="warn-box">⚠ Supera la cobertura recomendada de <b>${unitName}</b> en ${overDays.length} día(s)
+      (quedarían ${overDays[0].count} fuera cuando el máximo es ${overDays[0].max}).</div>`;
+    overrideRow.style.display='flex';
+    saveBtn.disabled = !document.getElementById('pmOverrideCheck').checked;
+  }
+}
+
+function savePeriod(emp){
+  const start = document.getElementById('pmStart').value;
+  const end = document.getElementById('pmEnd').value;
+  if(editingPeriodId){
+    const p = state.periods.find(p=>p.id===editingPeriodId);
+    p.start=start; p.end=end;
+  } else {
+    state.periods.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6), employeeId:emp.id, start, end});
+  }
+  closeModal('periodOverlay');
+  render();
+}
+
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+/* ═══════════════════ RESUMEN ═══════════════════ */
+function renderSummary(){
+  const box = document.getElementById('summaryBox');
+  box.innerHTML='';
+  const y = state.year;
+  for(const emp of EMPLOYEES){
+    const used = state.periods.filter(p=>p.employeeId===emp.id)
+      .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
+    const row = document.createElement('div'); row.className='summary-row';
+    row.innerHTML = `<span>${emp.name}</span><b>${used}/${emp.daysPerYear}</b>`;
+    box.appendChild(row);
+  }
+}
+
+/* ═══════════════════ BLOQUEOS ═══════════════════ */
+document.getElementById('btnAddBlock').onclick = ()=>{
+  const label = document.getElementById('blkLabel').value.trim();
+  const s = document.getElementById('blkStart').value.trim();
+  const e = document.getElementById('blkEnd').value.trim();
+  const re = /^\d{2}-\d{2}$/;
+  if(!label || !re.test(s) || !re.test(e)){
+    showToast('Indica etiqueta y fechas en formato MM-DD.');
+    return;
+  }
+  state.blockedRanges.push({id:'b'+Date.now(), label, startMD:s, endMD:e});
+  document.getElementById('blkLabel').value='';
+  document.getElementById('blkStart').value='';
+  document.getElementById('blkEnd').value='';
+  render();
+};
+
+/* ═══════════════════ ROTACIÓN ═══════════════════ */
+document.getElementById('btnRotation').onclick = ()=>{
+  const box = document.getElementById('rotationList');
+  box.innerHTML='';
+  const list = [...EMPLOYEES].sort((a,b)=>{
+    const flagA = state.lastYearFlags[a.id] ? 1000 : 0;
+    const flagB = state.lastYearFlags[b.id] ? 1000 : 0;
+    const scoreA = -flagA + (new Date().getFullYear()-a.seniorityYear);
+    const scoreB = -flagB + (new Date().getFullYear()-b.seniorityYear);
+    return scoreB-scoreA;
+  });
+  list.forEach((emp,i)=>{
+    const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name;
+    const row = document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #f0f0f0;font-size:.78rem;';
+    row.innerHTML = `<b style="width:22px;color:var(--verde);">${i+1}</b>
+      <span style="flex:1;">${emp.name}<br><small style="color:var(--texto2);">${unit} · antig. ${emp.seniorityYear}</small></span>`;
+    const chk = document.createElement('input'); chk.type='checkbox';
+    chk.checked = !!state.lastYearFlags[emp.id];
+    chk.title='Tuvo esta época el año pasado';
+    chk.onchange = ()=>{ state.lastYearFlags[emp.id] = chk.checked; saveState(); document.getElementById('btnRotation').click(); };
+    row.appendChild(chk);
+    box.appendChild(row);
+  });
+  openModal('rotationOverlay');
+};
+document.getElementById('rotClose').onclick = ()=> closeModal('rotationOverlay');
+
+/* ═══════════════════ FILTROS / TOP BAR ═══════════════════ */
+document.getElementById('yearSelect').onchange = (e)=>{ state.year=parseInt(e.target.value,10); render(); };
+document.getElementById('searchInput').oninput = (e)=>{ filterText=e.target.value; renderGrid(); };
+document.getElementById('unitFilter').onchange = (e)=>{ filterUnit=e.target.value; renderGrid(); };
+document.getElementById('onlyConflicts').onchange = (e)=>{ onlyConflicts=e.target.checked; renderGrid(); };
+
+document.getElementById('btnExport').onclick = ()=>{
+  const rows = [['Empleado','Unidad','Inicio','Fin','Días']];
+  for(const p of state.periods){
+    const emp = EMPLOYEES.find(e=>e.id===p.employeeId);
+    const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name;
+    const days = isoToIndex(state.year,p.end)-isoToIndex(state.year,p.start)+1;
+    rows.push([emp.name, unit, p.start, p.end, days]);
+  }
+  const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `vacaciones_${state.year}.csv`;
+  a.click();
+};
+
+/* ═══════════════════ TOAST ═══════════════════ */
+let toastTimer=null;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove('show'), 3200);
+}
+
+document.querySelectorAll('.overlay').forEach(ov=>{
+  ov.addEventListener('mousedown', (e)=>{ if(e.target===ov) closeModal(ov.id); });
+});
+
+/* ═══════════════════ SEED DE EJEMPLO (solo si no hay datos) ═══════════════════ */
+function seedExampleData(){
+  if(state.periods.length) return;
+  const y = state.year;
+  const pick = (unitId, n)=> EMPLOYEES.filter(e=>e.unitId===unitId).slice(0,n);
+  const add = (emp, s, e)=> state.periods.push({id:'p'+Math.random().toString(36).slice(2,9), employeeId:emp.id, start:s, end:e});
+  pick('repartidores',3).forEach((emp,i)=> add(emp, `${y}-07-${String(1+i*10).padStart(2,'0')}`, `${y}-07-${String(15+i*10).padStart(2,'0')}`));
+  pick('comerciales',2).forEach((emp,i)=> add(emp, `${y}-08-${String(1+i*15).padStart(2,'0')}`, `${y}-08-${String(15+i*15).padStart(2,'0')}`));
+  pick('aliz1',1).forEach((emp)=> add(emp, `${y}-06-15`, `${y}-06-29`));
+  pick('ofipapel_detalle',2).forEach((emp,i)=> add(emp, `${y}-07-${String(1+i*14).padStart(2,'0')}`, `${y}-07-${String(14+i*14).padStart(2,'0')}`));
+}
+seedExampleData();
+
+render();
+</script>
+</body>
+</html>
