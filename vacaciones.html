@@ -28,7 +28,7 @@
   --rad:        10px;
   --day-w:      22px;
   --row-h:      28px;
-  --name-w:     190px;
+  --name-w:     250px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--texto);}
@@ -107,8 +107,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   font-size:.75rem;border-right:1px solid var(--borde);position:sticky;left:0;background:#fff;z-index:3;
 }
 .emp-row:hover .emp-name{background:#FAFDF9;}
-.emp-name b{font-weight:600;}
-.emp-name span{font-size:.62rem;color:var(--texto2);}
+.emp-name b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.emp-name span{font-size:.62rem;color:var(--texto2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .track{position:relative;flex-shrink:0;cursor:crosshair;}
 .blocked-overlay{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg,rgba(231,76,60,.07),rgba(231,76,60,.07) 4px,rgba(231,76,60,.13) 4px,rgba(231,76,60,.13) 8px);pointer-events:none;}
 .period-block{
@@ -358,7 +358,7 @@ function isBlockedIndex(y, idx){
 }
 
 /* ═══════════════════ COLORES DE PERIODO ═══════════════════ */
-const NAME_W = 190; // debe coincidir con --name-w en CSS
+const NAME_W = 250; // debe coincidir con --name-w en CSS
 const PERIOD_COLORS = ['#3DAF3D','#4A90D9','#F5A623','#9B59B6','#E4667A','#16A085','#D9822B'];
 function periodColor(n){ return PERIOD_COLORS[(n-1) % PERIOD_COLORS.length]; }
 
