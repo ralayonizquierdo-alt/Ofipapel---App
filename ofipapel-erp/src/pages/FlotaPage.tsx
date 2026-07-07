@@ -20,6 +20,7 @@ import StatCard from '../components/StatCard'
 import FormField, { inputClass } from '../components/FormField'
 import { formatEUR, formatDate } from '../lib/format'
 import { vehiclePlaceholderImageFor } from '../lib/placeholderImage'
+import { ZONE_COORDS, ISLA_POR_ZONA, ISLAND_BOUNDS } from '../lib/geo'
 import type { Vehicle, VehicleType, VehicleEstado, TipoGastoVehiculo, EstadoCitaVehiculo } from '../types'
 
 const TIPOS_GASTO: TipoGastoVehiculo[] = ['Revisión periódica', 'ITV', 'Reparación', 'Neumáticos', 'Combustible', 'Seguro', 'Multa', 'Otros']
@@ -117,6 +118,73 @@ function FlotaMapa({ vehicles }: { vehicles: Vehicle[] }) {
         })}
       </svg>
       <p className="text-xs text-slate-400 mt-1">Ubicación simulada con fines de demostración — se actualiza cada pocos segundos.</p>
+    </div>
+  )
+}
+
+const ISLA_W = 320
+const ISLA_H = 260
+
+/** Mapa centrado en la isla del vehículo (su ubicación nunca sale de ahí), con las zonas de esa isla como referencia. */
+function IslaMapa({ vehicle }: { vehicle: Vehicle }) {
+  const isla = ISLA_POR_ZONA[vehicle.ubicacion.zona] ?? 'Tenerife'
+  const bounds = ISLAND_BOUNDS[isla]
+  const [pos, setPos] = useState({ lat: vehicle.ubicacion.lat, lon: vehicle.ubicacion.lon, t: Date.now() })
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    setPos({ lat: vehicle.ubicacion.lat, lon: vehicle.ubicacion.lon, t: Date.now() })
+    if (vehicle.estado !== 'En ruta') return
+    const moveInterval = setInterval(() => {
+      setPos((cur) => ({ lat: cur.lat + (Math.random() - 0.5) * 0.006, lon: cur.lon + (Math.random() - 0.5) * 0.006, t: Date.now() }))
+    }, 4000)
+    const clockInterval = setInterval(() => setTick((n) => n + 1), 1000)
+    return () => {
+      clearInterval(moveInterval)
+      clearInterval(clockInterval)
+    }
+  }, [vehicle.id, vehicle.estado, vehicle.ubicacion.lat, vehicle.ubicacion.lon])
+
+  function projectIsla(lat: number, lon: number): { x: number; y: number } {
+    const x = ((lon - bounds.lonMin) / (bounds.lonMax - bounds.lonMin)) * (ISLA_W - 50) + 25
+    const y = ISLA_H - (((lat - bounds.latMin) / (bounds.latMax - bounds.latMin)) * (ISLA_H - 50) + 25)
+    return { x, y }
+  }
+
+  const zonasDeLaIsla = Object.entries(ISLA_POR_ZONA).filter(([, i]) => i === isla).map(([zona]) => zona)
+  const { x, y } = projectIsla(pos.lat, pos.lon)
+  const color = vehicle.tipo === 'Furgón de reparto' ? '#0284c7' : '#9333ea'
+  const segsAgo = Math.max(0, Math.round((Date.now() - pos.t) / 1000))
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-4">
+      <div className="text-sm font-medium text-slate-700 mb-2">Isla de {isla} — posición de {vehicle.matricula}</div>
+      <svg viewBox={`0 0 ${ISLA_W} ${ISLA_H}`} className="w-full h-auto">
+        <rect width={ISLA_W} height={ISLA_H} rx="12" fill="#eff6ff" />
+        <ellipse cx={ISLA_W / 2} cy={ISLA_H / 2} rx={(ISLA_W - 50) / 2} ry={(ISLA_H - 50) / 2} fill="#dbeafe" stroke="#bfdbfe" />
+        {zonasDeLaIsla.map((zona) => {
+          const coords = ZONE_COORDS[zona]
+          if (!coords) return null
+          const p = projectIsla(coords.lat, coords.lon)
+          return (
+            <g key={zona}>
+              <circle cx={p.x} cy={p.y} r="3" fill="#94a3b8" />
+              <text x={p.x} y={p.y - 7} textAnchor="middle" fontSize="8" fill="#64748b">
+                {zona}
+              </text>
+            </g>
+          )
+        })}
+        {vehicle.estado === 'En ruta' && <circle cx={x} cy={y} r="9" fill={color} opacity="0.25" />}
+        <circle cx={x} cy={y} r="5" fill={vehicle.estado === 'En ruta' ? color : '#94a3b8'} stroke="white" strokeWidth="1.5">
+          <title>
+            {vehicle.matricula} · {vehicle.ubicacion.zona} · {vehicle.estado} · actualizado hace {segsAgo}s
+          </title>
+        </circle>
+      </svg>
+      <p className="text-xs text-slate-400 mt-1">
+        Ubicación simulada con fines de demostración — la posición real de este vehículo siempre está dentro de la isla de {isla}.
+      </p>
     </div>
   )
 }
@@ -684,7 +752,7 @@ export default function FlotaPage() {
               <p className="text-xs text-slate-400 mb-3">
                 Última posición conocida: {selected.ubicacion.lat.toFixed(4)}, {selected.ubicacion.lon.toFixed(4)} · simulada con fines de demostración.
               </p>
-              <FlotaMapa vehicles={[selected]} />
+              <IslaMapa vehicle={selected} />
             </div>
           )}
         </Modal>

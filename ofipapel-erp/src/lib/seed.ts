@@ -1,5 +1,6 @@
 import { createRng, pick, intBetween, daysAgo, daysAhead } from './rng'
 import { placeholderImageFor, vehiclePlaceholderImageFor } from './placeholderImage'
+import { ZONE_COORDS } from './geo'
 import type {
   Location,
   SalesRep,
@@ -94,17 +95,6 @@ function buildPlateLetters(rng: () => number): string {
   let letters = ''
   for (let i = 0; i < 3; i++) letters += PLATE_LETTERS[Math.floor(rng() * PLATE_LETTERS.length)]
   return letters
-}
-
-// Coordenadas reales aproximadas por zona; cada vehículo se sitúa con un pequeño margen alrededor.
-const ZONE_COORDS: Record<string, { lat: number; lon: number }> = {
-  'Santa Cruz de Tenerife': { lat: 28.4636, lon: -16.2518 },
-  'La Laguna': { lat: 28.4874, lon: -16.3159 },
-  'Sur de Tenerife': { lat: 28.05, lon: -16.73 },
-  'Las Palmas de Gran Canaria': { lat: 28.1235, lon: -15.4366 },
-  Telde: { lat: 27.9977, lon: -15.4167 },
-  Lanzarote: { lat: 29.0469, lon: -13.5899 },
-  Fuerteventura: { lat: 28.416, lon: -14.0053 },
 }
 
 function buildVehicleFor(rng: () => number, tipo: VehicleType, idx: number, comercialId: string, zona: string): Vehicle {
