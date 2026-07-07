@@ -18,7 +18,8 @@ export default function Dashboard() {
     const facturacionPendiente = db.clients.reduce((sum, c) => sum + c.saldoPendiente, 0)
     const pedidosAbiertos = db.sales.filter((s) => s.estado !== 'Facturado').length
     const alertasStock = db.stock.filter((s) => s.unidades < s.minimo).length
-    const furgonesEnRuta = db.vans.filter((v) => v.estado === 'En ruta').length
+    const furgones = db.vehicles.filter((v) => v.tipo === 'Furgón de reparto')
+    const furgonesEnRuta = furgones.filter((v) => v.estado === 'En ruta').length
 
     const locationById = new Map(db.locations.map((l) => [l.id, l]))
     const alertasPorAlmacen = new Map<string, number>()
@@ -36,7 +37,7 @@ export default function Dashboard() {
       .slice(0, 8)
       .map((s) => ({ sale: s, cliente: clienteById.get(s.clienteId) }))
 
-    return { referenciasActivas, ventasUltimos30, facturacionPendiente, pedidosAbiertos, alertasStock, furgonesEnRuta, alertasPorAlmacen, recientes }
+    return { referenciasActivas, ventasUltimos30, facturacionPendiente, pedidosAbiertos, alertasStock, furgonesEnRuta, furgonesTotal: furgones.length, alertasPorAlmacen, recientes }
   }, [db])
 
   return (
@@ -50,7 +51,7 @@ export default function Dashboard() {
         <StatCard icon={Receipt} label="Facturación pendiente" value={formatEUR(stats.facturacionPendiente)} tone="warn" />
         <StatCard icon={ShoppingCart} label="Pedidos abiertos" value={String(stats.pedidosAbiertos)} />
         <StatCard icon={Warehouse} label="Alertas de stock" value={String(stats.alertasStock)} tone="warn" />
-        <StatCard icon={Truck} label="Furgones en ruta" value={`${stats.furgonesEnRuta} / ${db.vans.length}`} tone="good" />
+        <StatCard icon={Truck} label="Furgones en ruta" value={`${stats.furgonesEnRuta} / ${stats.furgonesTotal}`} tone="good" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -97,7 +98,7 @@ export default function Dashboard() {
           <div className="px-4 py-3 border-b border-slate-200 text-sm font-medium text-slate-700">Equipo comercial y reparto</div>
           <div>
             {db.salesReps.map((rep) => {
-              const van = db.vans.find((v) => v.comercialId === rep.id)
+              const van = db.vehicles.find((v) => v.id === rep.furgonId)
               return (
                 <div key={rep.id} className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 last:border-0">
                   <div>

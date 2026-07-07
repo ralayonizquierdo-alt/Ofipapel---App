@@ -17,6 +17,7 @@ import FiscalidadPage from './pages/FiscalidadPage'
 import FamiliasPage from './pages/FamiliasPage'
 import InformesPage from './pages/InformesPage'
 import TransferenciasPage from './pages/TransferenciasPage'
+import FlotaPage from './pages/FlotaPage'
 import ModulePage from './components/ModulePage'
 import { ALL_ITEMS } from './data/menu'
 
@@ -38,6 +39,7 @@ const BUILT_PAGES: Record<string, ComponentType> = {
   familias: FamiliasPage,
   informes: InformesPage,
   multialmacen: TransferenciasPage,
+  flota: FlotaPage,
 }
 
 function App() {

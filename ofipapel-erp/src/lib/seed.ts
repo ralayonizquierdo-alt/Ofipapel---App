@@ -1,9 +1,10 @@
 import { createRng, pick, intBetween, daysAgo, daysAhead } from './rng'
-import { placeholderImageFor } from './placeholderImage'
+import { placeholderImageFor, vehiclePlaceholderImageFor } from './placeholderImage'
 import type {
   Location,
   SalesRep,
-  Van,
+  Vehicle,
+  VehicleType,
   Category,
   Supplier,
   Product,
@@ -21,6 +22,9 @@ import type {
   StockTransfer,
   FormatoVenta,
   VerifactuEnvio,
+  GastoVehiculo,
+  TipoGastoVehiculo,
+  CitaVehiculo,
   TarifaId,
 } from '../types'
 
@@ -56,33 +60,189 @@ function buildLocations(): Location[] {
   ]
 }
 
-function buildRepsAndVans(): { reps: SalesRep[]; vans: Van[] } {
+// Deterministic filler so phone/plate numbers don't require passing rng around at module scope
+function intBetweenFixed(seedOffset: number, min: number, max: number): number {
+  const rng = createRng(1000 + seedOffset)
+  return Math.floor(rng() * (max - min + 1)) + min
+}
+
+const FURGON_MODELS = [
+  { marca: 'Peugeot', modelo: 'Partner' },
+  { marca: 'Citroën', modelo: 'Berlingo' },
+  { marca: 'Renault', modelo: 'Kangoo' },
+  { marca: 'Fiat', modelo: 'Doblo Cargo' },
+  { marca: 'Volkswagen', modelo: 'Caddy' },
+  { marca: 'Ford', modelo: 'Transit Connect' },
+  { marca: 'Opel', modelo: 'Combo Cargo' },
+] as const
+
+const COCHE_MODELS = [
+  { marca: 'Seat', modelo: 'León' },
+  { marca: 'Volkswagen', modelo: 'Golf' },
+  { marca: 'Dacia', modelo: 'Sandero' },
+  { marca: 'Peugeot', modelo: '308' },
+  { marca: 'Renault', modelo: 'Clio' },
+  { marca: 'Opel', modelo: 'Corsa' },
+  { marca: 'Toyota', modelo: 'Corolla' },
+] as const
+
+const ASEGURADORAS = ['Mapfre', 'Allianz', 'Mutua Madrileña', 'AXA', 'Generali', 'Reale Seguros'] as const
+
+const PLATE_LETTERS = 'BCDFGHJKLMNPRSTVWXYZ'
+
+function buildPlateLetters(rng: () => number): string {
+  let letters = ''
+  for (let i = 0; i < 3; i++) letters += PLATE_LETTERS[Math.floor(rng() * PLATE_LETTERS.length)]
+  return letters
+}
+
+// Coordenadas reales aproximadas por zona; cada vehículo se sitúa con un pequeño margen alrededor.
+const ZONE_COORDS: Record<string, { lat: number; lon: number }> = {
+  'Santa Cruz de Tenerife': { lat: 28.4636, lon: -16.2518 },
+  'La Laguna': { lat: 28.4874, lon: -16.3159 },
+  'Sur de Tenerife': { lat: 28.05, lon: -16.73 },
+  'Las Palmas de Gran Canaria': { lat: 28.1235, lon: -15.4366 },
+  Telde: { lat: 27.9977, lon: -15.4167 },
+  Lanzarote: { lat: 29.0469, lon: -13.5899 },
+  Fuerteventura: { lat: 28.416, lon: -14.0053 },
+}
+
+function buildVehicleFor(rng: () => number, tipo: VehicleType, idx: number, comercialId: string, zona: string): Vehicle {
+  const modelo = tipo === 'Furgón de reparto' ? FURGON_MODELS[idx % FURGON_MODELS.length] : COCHE_MODELS[idx % COCHE_MODELS.length]
+  const anio = intBetween(rng, 2018, 2025)
+  const antiguedadAnios = 2026 - anio
+  const kilometraje = tipo === 'Furgón de reparto' ? intBetween(rng, 20000, 40000) * Math.max(1, antiguedadAnios) : intBetween(rng, 8000, 22000) * Math.max(1, antiguedadAnios)
+  const matricula = `${intBetween(rng, 1000, 9999)} ${buildPlateLetters(rng)}`
+  const coords = ZONE_COORDS[zona] ?? ZONE_COORDS['Santa Cruz de Tenerife']
+  const itvVencida = rng() < 0.12
+  const itvUltima = daysAgo(rng, antiguedadAnios > 4 ? 300 : 500)
+  const itvProxima = itvVencida ? daysAgo(rng, 20) : daysAhead(rng, intBetween(rng, 15, 340))
+  const financiacionActiva = rng() < 0.55
+  const cuotasTotales = pick(rng, [36, 48, 60])
+  const financiacion = financiacionActiva
+    ? {
+        activa: true,
+        cuotaMensual: Number((intBetween(rng, 15000, 35000) / 100).toFixed(2)),
+        cuotasPagadas: intBetween(rng, 1, cuotasTotales - 1),
+        cuotasTotales,
+      }
+    : { activa: false, cuotaMensual: 0, cuotasPagadas: 0, cuotasTotales: 0 }
+  const id = tipo === 'Furgón de reparto' ? `fur-${idx + 1}` : `coc-${idx + 1}`
+  return {
+    id,
+    tipo,
+    marca: modelo.marca,
+    modelo: modelo.modelo,
+    anio,
+    matricula,
+    fotoUrl: vehiclePlaceholderImageFor(tipo, id),
+    comercialId,
+    kilometraje,
+    estado: tipo === 'Furgón de reparto' ? pick(rng, ['En ruta', 'En ruta', 'En ruta', 'En base', 'Taller'] as const) : pick(rng, ['En ruta', 'En ruta', 'En base'] as const),
+    fechaAlta: daysAgo(rng, antiguedadAnios * 365 + intBetween(rng, 0, 200)),
+    itvUltima,
+    itvProxima,
+    seguroCompania: pick(rng, ASEGURADORAS),
+    seguroPoliza: `POL-${intBetween(rng, 100000, 999999)}`,
+    seguroVencimiento: daysAhead(rng, intBetween(rng, 5, 360)),
+    financiacion,
+    ubicacion: {
+      lat: Number((coords.lat + (rng() - 0.5) * 0.06).toFixed(5)),
+      lon: Number((coords.lon + (rng() - 0.5) * 0.06).toFixed(5)),
+      zona,
+      actualizado: new Date(Date.now() - intBetween(rng, 0, 40) * 60000).toISOString(),
+    },
+  }
+}
+
+function buildRepsAndVehicles(rng: () => number): { reps: SalesRep[]; vehicles: Vehicle[] } {
   const reps: SalesRep[] = []
-  const vans: Van[] = []
+  const vehicles: Vehicle[] = []
   REP_NAMES.forEach((nombre, i) => {
     const repId = `com-${i + 1}`
-    const vanId = `fur-${i + 1}`
+    const furgonId = `fur-${i + 1}`
+    const cocheId = `coc-${i + 1}`
     reps.push({
       id: repId,
       nombre,
       zona: ZONES[i],
       telefono: `6${intBetweenFixed(i, 10000000, 99999999)}`,
-      furgonId: vanId,
+      furgonId,
+      cocheId,
     })
-    vans.push({
-      id: vanId,
-      matricula: `${intBetweenFixed(i, 1000, 9999)} ${['BCD', 'FGH', 'JKL', 'MNP'][i % 4]}`,
-      comercialId: repId,
-      estado: (['En ruta', 'En ruta', 'En base', 'En ruta', 'En ruta', 'Mantenimiento', 'En ruta'] as const)[i],
-    })
+    vehicles.push(buildVehicleFor(rng, 'Furgón de reparto', i, repId, ZONES[i]))
+    vehicles.push(buildVehicleFor(rng, 'Coche comercial', i, repId, ZONES[i]))
   })
-  return { reps, vans }
+  return { reps, vehicles }
 }
 
-// Deterministic filler so phone/plate numbers don't require passing rng around at module scope
-function intBetweenFixed(seedOffset: number, min: number, max: number): number {
-  const rng = createRng(1000 + seedOffset)
-  return Math.floor(rng() * (max - min + 1)) + min
+const GASTO_TEMPLATES: { tipo: TipoGastoVehiculo; descripciones: string[]; importe: [number, number] }[] = [
+  { tipo: 'Combustible', descripciones: ['Repostaje diésel', 'Repostaje gasolina'], importe: [3000, 8000] },
+  { tipo: 'Revisión periódica', descripciones: ['Revisión de mantenimiento programada', 'Cambio de aceite y filtros'], importe: [8000, 22000] },
+  { tipo: 'Reparación', descripciones: ['Sustitución de pastillas de freno', 'Reparación de avería eléctrica', 'Cambio de batería'], importe: [6000, 45000] },
+  { tipo: 'Neumáticos', descripciones: ['Cambio de neumáticos (juego de 4)', 'Cambio de neumáticos (juego de 2)'], importe: [15000, 42000] },
+  { tipo: 'Multa', descripciones: ['Multa por estacionamiento', 'Multa por exceso de velocidad'], importe: [3000, 20000] },
+  { tipo: 'Otros', descripciones: ['Lavado y limpieza integral', 'Peaje / aparcamiento'], importe: [500, 4000] },
+]
+
+function buildGastosVehiculos(rng: () => number, vehicles: Vehicle[]): GastoVehiculo[] {
+  const gastos: GastoVehiculo[] = []
+  let id = 1
+  vehicles.forEach((v) => {
+    const numGastos = intBetween(rng, 5, 12)
+    for (let i = 0; i < numGastos; i++) {
+      const tpl = pick(rng, GASTO_TEMPLATES)
+      gastos.push({
+        id: `gv-${id++}`,
+        vehiculoId: v.id,
+        fecha: daysAgo(rng, 380),
+        tipo: tpl.tipo,
+        descripcion: pick(rng, tpl.descripciones),
+        km: tpl.tipo !== 'Multa' && tpl.tipo !== 'Otros' ? intBetween(rng, Math.max(0, v.kilometraje - 40000), v.kilometraje) : undefined,
+        taller: tpl.tipo === 'Revisión periódica' || tpl.tipo === 'Reparación' || tpl.tipo === 'Neumáticos' ? pick(rng, ['Taller Insular', 'Talleres Guanche', 'Servicio Oficial', 'Neumáticos Atlántico']) : undefined,
+        importe: Number((intBetween(rng, tpl.importe[0], tpl.importe[1]) / 100).toFixed(2)),
+      })
+    }
+    // Gasto del seguro anual, siempre presente
+    gastos.push({
+      id: `gv-${id++}`,
+      vehiculoId: v.id,
+      fecha: daysAgo(rng, 200),
+      tipo: 'Seguro',
+      descripcion: `Prima anual · ${v.seguroCompania}`,
+      importe: Number((intBetween(rng, 35000, 75000) / 100).toFixed(2)),
+    })
+  })
+  return gastos.sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+}
+
+const CITA_TEMPLATES: { tipo: TipoGastoVehiculo; descripciones: string[] }[] = [
+  { tipo: 'ITV', descripciones: ['Cita de inspección técnica (ITV)'] },
+  { tipo: 'Revisión periódica', descripciones: ['Revisión de mantenimiento programada', 'Cambio de aceite y filtros'] },
+  { tipo: 'Neumáticos', descripciones: ['Cambio de neumáticos programado'] },
+  { tipo: 'Seguro', descripciones: ['Renovación de póliza de seguro'] },
+  { tipo: 'Otros', descripciones: ['Lavado y limpieza integral', 'Revisión de aire acondicionado'] },
+]
+
+function buildCitasVehiculos(rng: () => number, vehicles: Vehicle[]): CitaVehiculo[] {
+  const citas: CitaVehiculo[] = []
+  let id = 1
+  vehicles.forEach((v) => {
+    const numCitas = intBetween(rng, 1, 3)
+    for (let i = 0; i < numCitas; i++) {
+      const tpl = pick(rng, CITA_TEMPLATES)
+      const completada = rng() < 0.25
+      citas.push({
+        id: `cv-${id++}`,
+        vehiculoId: v.id,
+        fecha: completada ? daysAgo(rng, 30) : daysAhead(rng, intBetween(rng, 2, 90)),
+        tipo: tpl.tipo,
+        descripcion: pick(rng, tpl.descripciones),
+        estado: completada ? 'Completada' : 'Pendiente',
+      })
+    }
+  })
+  return citas.sort((a, b) => (a.fecha < b.fecha ? -1 : 1))
 }
 
 const CATEGORY_DEFS: { nombre: string; templates: string[]; sizes?: string[]; margenMinorista: number; margenMayorista: number }[] = [
@@ -532,7 +692,7 @@ function buildTransfers(rng: () => number, products: Product[], locations: Locat
 export function generateDatabase(): Database {
   const rng = createRng(20260702)
   const locations = buildLocations()
-  const { reps, vans } = buildRepsAndVans()
+  const { reps, vehicles } = buildRepsAndVehicles(rng)
   const categories = buildCategories()
   const suppliers = buildSuppliers(rng)
   const products = buildProducts(rng, categories, suppliers)
@@ -545,11 +705,13 @@ export function generateDatabase(): Database {
   const cashSessions = buildCashSessions(rng, locations)
   const transfers = buildTransfers(rng, products, locations)
   const verifactuEnvios = buildVerifactuEnvios(invoices)
+  const gastosVehiculos = buildGastosVehiculos(rng, vehicles)
+  const citasVehiculos = buildCitasVehiculos(rng, vehicles)
 
   return {
     locations,
     salesReps: reps,
-    vans,
+    vehicles,
     categories,
     suppliers,
     products,
@@ -562,5 +724,7 @@ export function generateDatabase(): Database {
     invoices,
     users,
     verifactuEnvios,
+    gastosVehiculos,
+    citasVehiculos,
   }
 }

@@ -14,15 +14,77 @@ export interface SalesRep {
   zona: string
   telefono: string
   furgonId: string
+  cocheId: string
 }
 
-export type VanEstado = 'En ruta' | 'En base' | 'Mantenimiento'
+export type VehicleType = 'Furgón de reparto' | 'Coche comercial'
+export type VehicleEstado = 'En ruta' | 'En base' | 'Taller'
 
-export interface Van {
+export interface VehicleFinanciacion {
+  activa: boolean
+  cuotaMensual: number
+  cuotasPagadas: number
+  cuotasTotales: number
+}
+
+export interface VehicleUbicacion {
+  lat: number
+  lon: number
+  zona: string
+  actualizado: string
+}
+
+export interface Vehicle {
   id: string
+  tipo: VehicleType
+  marca: string
+  modelo: string
+  anio: number
   matricula: string
+  fotoUrl?: string
   comercialId: string
-  estado: VanEstado
+  kilometraje: number
+  estado: VehicleEstado
+  fechaAlta: string
+  itvUltima: string
+  itvProxima: string
+  seguroCompania: string
+  seguroPoliza: string
+  seguroVencimiento: string
+  financiacion: VehicleFinanciacion
+  ubicacion: VehicleUbicacion
+}
+
+export type TipoGastoVehiculo =
+  | 'Revisión periódica'
+  | 'ITV'
+  | 'Reparación'
+  | 'Neumáticos'
+  | 'Combustible'
+  | 'Seguro'
+  | 'Multa'
+  | 'Otros'
+
+export interface GastoVehiculo {
+  id: string
+  vehiculoId: string
+  fecha: string
+  tipo: TipoGastoVehiculo
+  descripcion: string
+  km?: number
+  taller?: string
+  importe: number
+}
+
+export type EstadoCitaVehiculo = 'Pendiente' | 'Completada'
+
+export interface CitaVehiculo {
+  id: string
+  vehiculoId: string
+  fecha: string
+  tipo: TipoGastoVehiculo
+  descripcion: string
+  estado: EstadoCitaVehiculo
 }
 
 export interface Category {
@@ -196,7 +258,7 @@ export interface StockTransfer {
 export interface Database {
   locations: Location[]
   salesReps: SalesRep[]
-  vans: Van[]
+  vehicles: Vehicle[]
   categories: Category[]
   suppliers: Supplier[]
   products: Product[]
@@ -209,4 +271,6 @@ export interface Database {
   cashSessions: CashSession[]
   transfers: StockTransfer[]
   verifactuEnvios: VerifactuEnvio[]
+  gastosVehiculos: GastoVehiculo[]
+  citasVehiculos: CitaVehiculo[]
 }

@@ -19,6 +19,7 @@ const OVERRIDES: Record<string, string> = {
   'En ruta': 'bg-emerald-100 text-emerald-700',
   'En base': 'bg-slate-100 text-slate-700',
   Mantenimiento: 'bg-orange-100 text-orange-700',
+  Taller: 'bg-red-100 text-red-700',
   Mayorista: 'bg-blue-100 text-blue-700',
   Minorista: 'bg-purple-100 text-purple-700',
 }

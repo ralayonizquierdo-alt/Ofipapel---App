@@ -25,6 +25,7 @@ import {
   Handshake,
   LineChart,
   MapPin,
+  Car,
 } from 'lucide-react'
 
 export type Phase = 'core' | 'pro' | 'advanced' | 'optional'
@@ -253,6 +254,15 @@ export const MENU_SECTIONS: MenuSection[] = [
         phase: 'pro',
         description: 'Transferencias entre almacenes y rutas de reparto.',
         features: ['Transferencias entre almacenes', 'Reserva de stock', 'Rutas de reparto'],
+      },
+      {
+        id: 'flota',
+        label: 'Flota de vehículos',
+        path: '/flota',
+        icon: Car,
+        phase: 'pro',
+        description: 'Furgones de reparto y coches comerciales: documentación, mantenimiento y ubicación.',
+        features: ['Ficha por vehículo (ITV, seguro, financiación)', 'Historial de mantenimiento y gastos', 'Geolocalización en tiempo real (simulada)'],
       },
     ],
   },

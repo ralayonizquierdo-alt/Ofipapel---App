@@ -1,7 +1,7 @@
 import type { Database } from '../types'
 import { generateDatabase } from './seed'
 
-const STORAGE_KEY = 'ofipapel-erp-db-v5'
+const STORAGE_KEY = 'ofipapel-erp-db-v6'
 
 /**
  * Rellena cualquier colección que falte en un snapshot guardado por una versión
