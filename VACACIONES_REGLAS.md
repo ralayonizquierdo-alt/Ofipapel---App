@@ -80,6 +80,9 @@ Comerciales (máx. 1 fuera a la vez), que ya evita que dos falten el mismo día.
 
 - Habitualmente se reparten en periodos de **15 días**, varios a lo largo del año.
 - Días totales por empleado: **30 días naturales** para todos (confirmado).
+- **Regla dura sobre el día de la semana**: un periodo no puede **empezar ni terminar en sábado**. Terminar
+  en domingo sí está permitido (así se reincorpora el lunes). Se aplica siempre — al crear, editar,
+  arrastrar/estirar un periodo, y también en el generador automático.
 
 ## 7. Particularidades individuales (ficha por empleado)
 

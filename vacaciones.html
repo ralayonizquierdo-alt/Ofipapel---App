@@ -552,6 +552,14 @@ function isBlockedIndex(y, idx){
   return state.blockedRanges.find(b => mdInRange(md, b.startMD, b.endMD)) || null;
 }
 
+/* Regla: un periodo no puede empezar ni terminar en sábado (el domingo sí vale para terminar,
+   así se reincorpora el lunes). */
+function weekendEdgeConflict(startIdx, endIdx, y){
+  if(dateFromIndex(y, startIdx).getUTCDay()===6) return 'El periodo no puede empezar en sábado.';
+  if(dateFromIndex(y, endIdx).getUTCDay()===6) return 'El periodo no puede terminar en sábado.';
+  return null;
+}
+
 /* ═══════════════════ COLORES DE PERIODO ═══════════════════ */
 const NAME_W = 250; // debe coincidir con --name-w en CSS
 const PERIOD_COLORS = ['#3DAF3D','#4A90D9','#F5A623','#9B59B6','#E4667A','#16A085','#D9822B'];
@@ -919,6 +927,10 @@ function onDragEnd(ev){
       return;
     }
   }
+  // hard block: no puede empezar/terminar en sábado
+  const wConf = weekendEdgeConflict(lo, hi, y);
+  if(wConf){ showToast(wConf); return; }
+
   const startISO = toISO(dateFromIndex(y,lo));
   const endISO = toISO(dateFromIndex(y,hi));
 
@@ -1006,6 +1018,12 @@ function attachPeriodBlockDrag(block, emp, period, y, n){
           return;
         }
       }
+      const wConf = weekendEdgeConflict(curStart, curEnd, y);
+      if(wConf){
+        showToast(wConf);
+        renderGrid();
+        return;
+      }
       const selfOverlap = state.periods.find(p=> p.employeeId===emp.id && p.id!==period.id && !(newEndISO<p.start || newStartISO>p.end));
       if(selfOverlap){
         showToast('Ese rango se solaparía con otro periodo de '+emp.name+'.');
@@ -1091,6 +1109,13 @@ function validateModal(emp){
       saveBtn.disabled=true;
       return;
     }
+  }
+  // no puede empezar/terminar en sábado
+  const wConf = weekendEdgeConflict(sIdx, eIdx, y);
+  if(wConf){
+    warnBox.innerHTML = `<div class="err-box">${wConf}</div>`;
+    saveBtn.disabled=true;
+    return;
   }
   // solape
   const overlap = state.periods.find(p=> p.employeeId===emp.id && p.id!==editingPeriodId && !(end<p.start || start>p.end));
@@ -1416,6 +1441,7 @@ function unitFitsRange(unitId, startIdx, endIdx, y){
 function rangeOk(emp, startIdx, endIdx, y){
   const n = daysInYear(y);
   if(startIdx<0 || endIdx>=n || endIdx<startIdx) return false;
+  if(weekendEdgeConflict(startIdx, endIdx, y)) return false;
   const sISO = toISO(dateFromIndex(y,startIdx)), eISO = toISO(dateFromIndex(y,endIdx));
   const selfOverlap = state.periods.some(p=> p.employeeId===emp.id && !(eISO<p.start || sISO>p.end));
   if(selfOverlap) return false;
