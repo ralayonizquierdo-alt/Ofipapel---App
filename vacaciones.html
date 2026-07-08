@@ -54,8 +54,11 @@ header button:hover{filter:brightness(0.96);}
 /* ── sidebar ── */
 aside{
   width:270px;flex-shrink:0;background:var(--card);border-right:1px solid var(--borde);
-  overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:18px;
+  overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:18px;
+  transition:width .22s ease,padding .22s ease;
 }
+aside.collapsed{width:0;padding:16px 0;border-right:none;}
+aside.collapsed > *{opacity:0;pointer-events:none;}
 aside h2{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--texto2);margin-bottom:8px;}
 .rules-section{background:var(--verde-pale);border:1px solid var(--borde);border-radius:var(--rad);padding:14px;}
 .rules-section h2{color:var(--verde);font-size:.78rem;margin-bottom:6px;}
@@ -86,6 +89,11 @@ aside h2{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(
 .mini-btn:hover{background:var(--verde);color:#fff;}
 .mini-btn-danger{background:#FDECEA;border-color:#F5B7B1;color:var(--rojo);margin-top:6px;margin-left:0;display:block;}
 .mini-btn-danger:hover{background:var(--rojo);color:#fff;}
+.mini-btn-primary{
+  display:block;width:100%;background:var(--verde);border:none;border-radius:8px;padding:10px 14px;
+  font-size:.82rem;font-weight:700;color:#fff;cursor:pointer;box-shadow:0 3px 10px rgba(26,92,26,.35);
+}
+.mini-btn-primary:hover{background:var(--verde-med);}
 .block-item{display:flex;justify-content:space-between;align-items:center;font-size:.72rem;background:var(--verde-pale);
   border-radius:6px;padding:5px 7px;margin-bottom:5px;}
 .block-item button{background:none;border:none;color:var(--rojo);cursor:pointer;font-size:.85rem;}
@@ -222,13 +230,14 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <h1>Cuadrante de Vacaciones</h1>
       <span class="sub">Plantilla real (35 personas) · quedan algunos apellidos por confirmar</span>
     </div>
+    <button class="secondary" id="btnToggleSidebar" title="Mostrar/ocultar Reglas y Filtros">☰</button>
     <select id="yearSelect"></select>
     <button class="secondary" id="btnEmployees">👤 Empleados</button>
     <button class="secondary" id="btnRotation">Prioridad rotación</button>
-    <button id="btnPrint">🖨 Imprimir</button>
+    <button id="btnPrint">🖨 Vista previa</button>
   </header>
   <div id="body">
-    <aside>
+    <aside id="sidebar">
       <div class="rules-section">
         <h2>⚙️ Reglas / Filtros</h2>
 
@@ -256,8 +265,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
           <input type="checkbox" id="genOverwrite">
           <label for="genOverwrite">Sobrescribir a quien ya tenga vacaciones asignadas este año</label>
         </div>
-        <button class="mini-btn" id="btnGenerate">⚙️ Generar plan</button>
-        <button class="mini-btn mini-btn-danger" id="btnClearGenerated">🗑 Borrar todo y empezar de nuevo</button>
+        <button class="mini-btn-primary" id="btnGenerate">⚙️ Generar plan</button>
+        <button class="mini-btn-danger" id="btnClearGenerated">🗑 Borrar todo y empezar de nuevo</button>
         <div id="generateReport" style="font-size:.72rem;margin-top:8px;"></div>
 
         <h3>Fechas bloqueadas</h3>
@@ -1638,6 +1647,7 @@ document.getElementById('rotClose').onclick = ()=> closeModal('rotationOverlay')
 
 /* ═══════════════════ FILTROS / TOP BAR ═══════════════════ */
 document.getElementById('yearSelect').onchange = (e)=>{ state.year=parseInt(e.target.value,10); render(); };
+document.getElementById('btnToggleSidebar').onclick = ()=> document.getElementById('sidebar').classList.toggle('collapsed');
 document.getElementById('searchInput').oninput = (e)=>{ filterText=e.target.value; renderGrid(); };
 document.getElementById('unitFilter').onchange = (e)=>{ filterUnit=e.target.value; renderGrid(); };
 document.getElementById('onlyConflicts').onchange = (e)=>{ onlyConflicts=e.target.checked; renderGrid(); };
