@@ -30,10 +30,9 @@ Natalia y Jose (ambos nuevas incorporaciones). La antigüedad de estas 5 persona
 
 Se dio de baja permanente a Infante Santana, María Carmen — ya no aparece en el listado.
 
-**[pendiente / a confirmar]** En la tabla de antigüedad que pasaste aparecen tres personas que no están en
-esta plantilla: **Alayón Izquierdo, Luis David**, **Alayón Izquierdo, Roberto** y **Alayón Melo, Luis**
-(antigüedad 2003, 2003 y 2015). ¿Son gerencia/propiedad y no participan del cuadrante, o hay que darlos de
-alta y decir a qué unidad pertenecen?
+En la tabla de antigüedad que pasaste aparecían tres personas más — Alayón Izquierdo, Luis David; Alayón
+Izquierdo, Roberto; y Alayón Melo, Luis — confirmado que son gerencia/propiedad y no participan de este
+cuadrante, así que quedan fuera de la plantilla.
 
 ## 2. Fechas bloqueadas para todos (no se puede pedir vacaciones)
 
@@ -132,7 +131,6 @@ Para no depender de que yo edite el código cada vez, ahora hay dos herramientas
   activas, generador automático (total o por unidad), prioridad de rotación, impresión/PDF en A3 apaisado
   con vista previa.
 - Lo que falta para pasar de prototipo a versión de uso diario: cerrar los puntos "[pendiente]" de este
-  documento (apellidos, antigüedad de las 5 personas nuevas, las 3 personas "Alayón" de la tabla, valores
-  de cobertura por temporada), y decidir dónde vive el dato de forma permanente si más de una persona
-  necesita editarlo a la vez (¿localStorage sigue siendo suficiente, o hace falta una base de datos
-  compartida, como en `alquileres`?).
+  documento (apellidos y antigüedad de las 5 personas nuevas, valores de cobertura por temporada), y
+  decidir dónde vive el dato de forma permanente si más de una persona necesita editarlo a la vez
+  (¿localStorage sigue siendo suficiente, o hace falta una base de datos compartida, como en `alquileres`?).
