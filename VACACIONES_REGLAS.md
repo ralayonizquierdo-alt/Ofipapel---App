@@ -83,6 +83,11 @@ Comerciales (máx. 1 fuera a la vez), que ya evita que dos falten el mismo día.
 - **Regla dura sobre el día de la semana**: un periodo no puede **empezar ni terminar en sábado**. Terminar
   en domingo sí está permitido (así se reincorpora el lunes). Se aplica siempre — al crear, editar,
   arrastrar/estirar un periodo, y también en el generador automático.
+- **Separación entre los periodos de una misma persona**: el generador automático intenta dejar al menos
+  ~45 días entre dos periodos de la misma persona (no los deja pegados uno detrás de otro), aunque prioriza
+  igualmente evitar coincidir con compañeros — en las pruebas la separación real ha sido de 43 a más de 300
+  días según el hueco disponible. Es una preferencia del generador, no un bloqueo duro: si editas a mano dos
+  periodos seguidos para la misma persona, la app lo sigue permitiendo.
 
 ## 7. Particularidades individuales (ficha por empleado)
 
