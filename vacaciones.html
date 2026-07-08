@@ -426,6 +426,24 @@ function isoToIndex(y, iso){
 const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 function monthLengths(y){ return [31, isLeap(y)?29:28,31,30,31,30,31,31,30,31,30,31]; }
 
+/* Fondo repetido que marca sábados y domingos, expresado en % para que valga igual en pantalla (px) que en la hoja impresa (mm) */
+function weekendGradient(n, y, color){
+  const dow0 = dateFromIndex(y, 0).getUTCDay(); // 0=domingo ... 6=sábado
+  const dayPct = 100/n, weekPct = 7*dayPct;
+  const idxs = [];
+  for(let i=0;i<7;i++){ const dow=(dow0+i)%7; if(dow===0||dow===6) idxs.push(i); }
+  idxs.sort((a,b)=>a-b);
+  const stops = [];
+  let prevEnd = 0;
+  for(const idx of idxs){
+    const start = idx*dayPct, end = (idx+1)*dayPct;
+    stops.push(`transparent ${prevEnd}%`, `transparent ${start}%`, `${color} ${start}%`, `${color} ${end}%`);
+    prevEnd = end;
+  }
+  stops.push(`transparent ${prevEnd}%`, `transparent ${weekPct}%`);
+  return `repeating-linear-gradient(to right, ${stops.join(', ')})`;
+}
+
 function mdInRange(md, startMD, endMD){
   // handles ranges that wrap around the year (e.g. 12-20 .. 01-06)
   if(startMD <= endMD) return md >= startMD && md <= endMD;
@@ -659,6 +677,7 @@ function buildEmployeeRow(emp, y, n, totalW){
 
   const track = document.createElement('div'); track.className='track';
   track.style.width = totalW+'px';
+  track.style.backgroundImage = weekendGradient(n, y, '#F0F3F0');
 
   // blocked overlay
   for(const b of state.blockedRanges){
@@ -957,6 +976,7 @@ function buildPrintArea(){
   const daySpacerL = document.createElement('div'); daySpacerL.className='p-namecell';
   dayRowWrap.appendChild(daySpacerL);
   const dayTicks = document.createElement('div'); dayTicks.className='p-dayrow';
+  dayTicks.style.backgroundImage = weekendGradient(n, y, '#e2e2e2');
   for(let idx=0; idx<n; idx++){
     const d = dateFromIndex(y, idx);
     const dom = d.getUTCDate();
@@ -995,6 +1015,7 @@ function buildPrintArea(){
       row.appendChild(nameCell);
 
       const track = document.createElement('div'); track.className='p-track';
+      track.style.backgroundImage = weekendGradient(n, y, '#eee');
       for(const b of state.blockedRanges){
         const segs = blockedSegmentsForYear(b, y, n);
         for(const seg of segs){
