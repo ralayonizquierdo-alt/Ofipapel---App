@@ -120,6 +120,89 @@ Para no depender de que yo edite el código cada vez, ahora hay dos herramientas
   en vez de forzarlo. Se puede lanzar para toda la plantilla o solo para la unidad seleccionada en el
   filtro. El resultado siempre queda editable a mano después, como cualquier otro periodo.
 
+## Guía de la pantalla: qué hace cada parte
+
+Recorrido rápido de la interfaz, en el mismo orden en que aparece en pantalla, para que cualquiera pueda
+usarla sin tener que preguntar.
+
+### Cabecera
+
+- **Selector de año**: cambia el año que se está viendo/editando. Cada año tiene su propio calendario y
+  guarda sus propios periodos por separado.
+- **👤 Empleados**: abre la gestión de plantilla (altas, bajas y ficha de cada persona — ver más abajo).
+- **Prioridad rotación**: abre el panel de apoyo para decidir a quién le toca preferencia este año.
+- **🖨 Imprimir**: abre la vista previa de impresión/PDF.
+
+### Barra lateral — sección "⚙️ Reglas / Filtros"
+
+Todo lo relacionado con reglas y con qué se ve en el calendario vive agrupado aquí:
+
+- **Filtros de vista**
+  - *Buscar empleado*: escribe un nombre y el calendario solo muestra a quien coincida.
+  - *Unidad*: limita el calendario a una sola unidad. También es el **ámbito que usan el generador
+    automático y el botón de borrar todo** — con "Todas" actúan sobre toda la plantilla visible.
+  - *Solo unidades con exceso de cobertura*: oculta las unidades que no tengan ningún día por encima de su
+    máximo, para localizar rápido dónde hay un problema de cobertura.
+- **Generador automático**
+  - *Sobrescribir a quien ya tenga vacaciones asignadas este año*: si está desmarcado (por defecto), el
+    generador solo rellena a quien todavía no tiene ningún periodo; si lo marcas, borra y vuelve a generar
+    también a quien ya tuviera algo, dentro del filtro de Unidad activo.
+  - **⚙️ Generar plan**: crea automáticamente los periodos que falten (ver sección 8 más arriba).
+  - **🗑 Borrar todo y empezar de nuevo**: borra (con confirmación) todas las vacaciones ya asignadas dentro
+    del filtro de Unidad/nombre activo, para volver a generar desde cero.
+- **Fechas bloqueadas**: lista de rangos en los que nadie puede coger vacaciones (aparecen con rayado rosa
+  en el calendario). El formulario de abajo (*Etiqueta*, *Desde*, *Hasta* en formato `MM-DD`) añade uno
+  nuevo; la "✕" de cada tarjeta lo borra.
+- **Cobertura por unidad**: un campo numérico por unidad con el máximo de personas que pueden estar fuera
+  a la vez en esa unidad. Cambiarlo aquí afecta a todo el año (para una excepción solo en ciertas fechas, se
+  usa la regla de texto `COBERTURA:` con rango de fechas).
+- **Reglas de texto**: cuadro para escribir reglas sueltas que se aplican de verdad al pulsar
+  *Procesar reglas de texto* (sintaxis `BLOQUEO:` / `PAREJA:` / `COBERTURA:` / `DIAS:`, detallada en la
+  sección 8). Debajo aparece, línea por línea, qué se ha entendido y aplicado y qué no.
+- **Registro de reglas activas**: resumen de solo lectura, siempre actualizado, con todos los bloqueos,
+  límites de cobertura, parejas incompatibles, comodines y "sin sustituto" que hay cargados en este momento
+  — para revisar de un vistazo que todo está bien antes de imprimir o generar.
+
+### Barra lateral — otras secciones
+
+- **Leyenda**: qué significa cada color de barra (periodo 1º, 2º, 3º...) y cada icono (🔁 comodín, 🚫 sin
+  sustituto, 🔗 tiene pareja incompatible, rayado = fecha bloqueada, rojo = exceso de cobertura).
+- **Resumen de días**: lista de todos los empleados con los días de vacaciones ya asignados frente a su
+  total (ej. "18/30"), para ver de un vistazo a quién le queda mucho por coger.
+
+### El calendario (zona central)
+
+- Cada fila es un empleado; cada columna, un día del año. Los sábados y domingos aparecen sombreados en gris
+  para orientarse mejor.
+- **Arrastrar sobre una fila vacía** crea un periodo nuevo entre las dos fechas marcadas.
+- **Arrastrar el cuerpo de una barra ya creada** la mueve entera (mismas fechas, distinto sitio).
+- **Arrastrar por el borde izquierdo o derecho de una barra** cambia solo esa fecha (inicio o fin).
+- **Clic simple sobre una barra** (sin arrastrar) abre su ficha para editar las fechas a mano o eliminarla.
+- La franja de color justo encima de cada grupo de unidad es el "mapa de calor" de cobertura: verde si hay
+  gente fuera pero dentro del máximo, rojo si ese día se supera.
+
+### Modal "Empleados"
+
+- Lista con buscador y la casilla *Mostrar también los dados de baja*. Cada fila se puede pulsar para abrir
+  su ficha. El botón *+ Nuevo empleado* da de alta a alguien desde cero.
+- **Ficha de empleado**: nombre, unidad, año de antigüedad (en blanco si no se sabe), días de vacaciones al
+  año, fechas preferidas (las que usará el generador automático, formato `DD/MM-DD/MM`), particularidades/
+  notas en texto libre, las casillas 🔁 comodín y 🚫 sin sustituto, y *Activo* (desmárcala para dar de baja
+  sin perder el historial de esa persona). *Eliminar ficha* la borra de verdad, con confirmación.
+
+### Modal "Prioridad rotación"
+
+Ordena a toda la plantilla de mayor a menor prioridad (combinando antigüedad y si ya marcaste que tuvo esa
+misma época el año pasado). La casilla de cada fila es precisamente para marcar eso — "tuvo esta época el
+año pasado" — de cara al año siguiente. Es solo orientativo, no asigna nada por sí solo.
+
+### Vista previa de impresión / PDF
+
+Muestra a tamaño reducido cómo saldrá la hoja en papel (A3 apaisado) antes de imprimir de verdad. Desde ahí,
+*Imprimir* manda directamente a la impresora y *Guardar como PDF* abre el mismo cuadro de impresión del
+navegador para que elijas ahí el destino "Guardar como PDF" (un navegador no permite que una página lo
+preseleccione automáticamente).
+
 ## Posibles reglas adicionales a valorar
 
 - **Límite de periodos por empleado al año**: ¿máximo de veces que se puede fraccionar el año, o libre?
