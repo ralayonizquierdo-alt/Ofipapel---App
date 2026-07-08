@@ -57,6 +57,18 @@ aside{
   overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:18px;
 }
 aside h2{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--texto2);margin-bottom:8px;}
+.rules-section{background:var(--verde-pale);border:1px solid var(--borde);border-radius:var(--rad);padding:14px;}
+.rules-section h2{color:var(--verde);font-size:.78rem;margin-bottom:6px;}
+.rules-section h3{
+  font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;color:var(--verde);
+  margin:14px 0 6px;border-top:1px dashed var(--borde);padding-top:10px;
+}
+.rules-section h3:first-of-type{border-top:none;padding-top:0;}
+.hint{font-size:.68rem;color:var(--texto2);margin-bottom:6px;line-height:1.5;}
+.hint code{background:#fff;border:1px solid var(--borde);border-radius:4px;padding:1px 4px;font-size:.66rem;}
+.rules-log-item{padding:3px 0;border-bottom:1px dashed var(--borde);}
+.rules-log-cat{font-weight:700;color:var(--verde);margin-top:8px;display:block;}
+.rules-log-cat:first-child{margin-top:0;}
 .field{margin-bottom:8px;}
 .field label{font-size:.75rem;color:var(--texto2);display:block;margin-bottom:3px;}
 .field input[type=text],.field select{
@@ -209,13 +221,16 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <span class="sub">Plantilla real (35 personas) · quedan algunos apellidos por confirmar</span>
     </div>
     <select id="yearSelect"></select>
+    <button class="secondary" id="btnEmployees">👤 Empleados</button>
     <button class="secondary" id="btnRotation">Prioridad rotación</button>
     <button id="btnPrint">🖨 Imprimir</button>
   </header>
   <div id="body">
     <aside>
-      <div>
-        <h2>Filtros</h2>
+      <div class="rules-section">
+        <h2>⚙️ Reglas / Filtros</h2>
+
+        <h3>Filtros de vista</h3>
         <div class="field">
           <label>Buscar empleado</label>
           <input type="text" id="searchInput" placeholder="Nombre...">
@@ -228,6 +243,41 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
           <input type="checkbox" id="onlyConflicts">
           <label for="onlyConflicts">Solo unidades con exceso de cobertura</label>
         </div>
+
+        <h3>Generador automático</h3>
+        <p class="hint">Genera un borrador de vacaciones usando las reglas de abajo y las fechas preferidas
+          de cada ficha. Respeta el filtro de Unidad de arriba: con "Todas" genera la plantilla entera; eligiendo
+          una unidad, solo esa.</p>
+        <div class="check-row">
+          <input type="checkbox" id="genOverwrite">
+          <label for="genOverwrite">Sobrescribir a quien ya tenga vacaciones asignadas este año</label>
+        </div>
+        <button class="mini-btn" id="btnGenerate">⚙️ Generar plan</button>
+        <div id="generateReport" style="font-size:.72rem;margin-top:8px;"></div>
+
+        <h3>Fechas bloqueadas</h3>
+        <div id="blockList"></div>
+        <div class="field"><label>Etiqueta</label><input type="text" id="blkLabel" placeholder="Ej: Campaña Reyes"></div>
+        <div class="field"><label>Desde</label><input type="text" id="blkStart" placeholder="MM-DD"></div>
+        <div class="field"><label>Hasta</label><input type="text" id="blkEnd" placeholder="MM-DD"></div>
+        <button class="mini-btn" id="btnAddBlock">+ Añadir bloqueo</button>
+
+        <h3>Cobertura por unidad</h3>
+        <div id="unitLimits"></div>
+
+        <h3>Reglas de texto (se procesan de verdad)</h3>
+        <p class="hint">Una regla por línea. Reconocidas:<br>
+          <code>BLOQUEO: 10/05-20/05 Feria</code><br>
+          <code>PAREJA: Nombre1 / Nombre2 - Motivo</code><br>
+          <code>COBERTURA: Unidad max 2</code><br>
+          <code>DIAS: Nombre 30</code><br>
+          Lo que no encaje en ese formato se guarda como nota informativa, sin aplicarse.</p>
+        <textarea id="yearRulesText" rows="4" style="width:100%;padding:6px 8px;border:1px solid var(--borde);border-radius:6px;font-size:.75rem;font-family:'IBM Plex Mono',monospace;"></textarea>
+        <button class="mini-btn" id="btnProcessRules" style="margin-top:6px;">Procesar reglas de texto</button>
+        <div id="rulesProcessResult" style="font-size:.7rem;margin-top:8px;"></div>
+
+        <h3>Registro de reglas activas</h3>
+        <div id="rulesLog" style="font-size:.72rem;"></div>
       </div>
 
       <div>
@@ -235,20 +285,9 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
         <div id="legendBox"></div>
         <div class="legend-item"><span class="swatch" style="background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 3px,#FBCFCB 3px,#FBCFCB 6px)"></span>Fecha bloqueada (empresa)</div>
         <div class="legend-item"><span class="swatch" style="background:#E74C3C"></span>Día con exceso de cobertura</div>
-      </div>
-
-      <div>
-        <h2>Fechas bloqueadas</h2>
-        <div id="blockList"></div>
-        <div class="field"><label>Etiqueta</label><input type="text" id="blkLabel" placeholder="Ej: Campaña Reyes"></div>
-        <div class="field"><label>Desde</label><input type="text" id="blkStart" placeholder="MM-DD"></div>
-        <div class="field"><label>Hasta</label><input type="text" id="blkEnd" placeholder="MM-DD"></div>
-        <button class="mini-btn" id="btnAddBlock">+ Añadir bloqueo</button>
-      </div>
-
-      <div>
-        <h2>Cobertura por unidad</h2>
-        <div id="unitLimits"></div>
+        <div class="legend-item">🔁 Comodín: cambia de tienda/puesto según necesidad</div>
+        <div class="legend-item">🚫 Sin sustituto (nadie cubre su puesto)</div>
+        <div class="legend-item">🔗 Tiene pareja incompatible (no pueden coincidir)</div>
       </div>
 
       <div>
@@ -300,6 +339,47 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   </div>
 </div>
 
+<div class="overlay" id="employeesOverlay">
+  <div class="modal" style="width:560px;max-height:88vh;display:flex;flex-direction:column;">
+    <div id="empListView">
+      <h3>Empleados</h3>
+      <p style="font-size:.72rem;color:var(--texto2);margin-bottom:10px;">
+        Aquí vive la plantilla real: da de alta/baja a quien entra o sale, y abre la ficha de cada persona
+        para editar su unidad, antigüedad, días y particularidades.
+      </p>
+      <div class="field"><input type="text" id="empSearchInput" placeholder="Buscar por nombre..."></div>
+      <div class="check-row">
+        <input type="checkbox" id="empShowInactive">
+        <label for="empShowInactive">Mostrar también los dados de baja</label>
+      </div>
+      <div id="empListBox" style="max-height:360px;overflow-y:auto;margin:8px 0;"></div>
+      <div class="modal-actions">
+        <button class="mini-btn" id="btnAddEmployee">+ Nuevo empleado</button>
+        <button class="btn btn-ghost" id="empListClose">Cerrar</button>
+      </div>
+    </div>
+    <div id="empCardView" style="display:none;">
+      <h3 id="empCardTitle">Ficha de empleado</h3>
+      <div class="field"><label>Nombre completo</label><input type="text" id="ecName"></div>
+      <div class="field"><label>Unidad</label><select id="ecUnit"></select></div>
+      <div class="field"><label>Año de antigüedad (dejar vacío si no se sabe)</label><input type="text" id="ecSeniority" placeholder="Ej: 2015" inputmode="numeric"></div>
+      <div class="field"><label>Días de vacaciones al año</label><input type="text" id="ecDays" inputmode="numeric"></div>
+      <div class="field"><label>Fechas preferidas (para el generador automático, formato DD/MM-DD/MM, separadas por comas)</label><input type="text" id="ecPrefs" placeholder="Ej: 15/07-29/07, 01/10-15/10"></div>
+      <div class="field"><label>Particularidades / notas</label><input type="text" id="ecNote" placeholder="Ej: acuerdo previo, restricción médica..."></div>
+      <div class="check-row"><input type="checkbox" id="ecFloater"><label for="ecFloater">🔁 Comodín: cambia de tienda/puesto según necesidad</label></div>
+      <div class="check-row"><input type="checkbox" id="ecSinSustituto"><label for="ecSinSustituto">🚫 Sin sustituto (nadie cubre su puesto)</label></div>
+      <div class="check-row"><input type="checkbox" id="ecActive"><label for="ecActive">Activo (desmarcar = de baja, deja de aparecer en el cuadrante)</label></div>
+      <div class="modal-actions">
+        <div class="left"><button class="btn btn-danger" id="ecDelete">🗑 Eliminar ficha</button></div>
+        <div class="left">
+          <button class="btn btn-ghost" id="ecBack">← Volver a la lista</button>
+          <button class="btn btn-primary" id="ecSave">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <div class="overlay" id="printPreviewOverlay">
@@ -340,61 +420,66 @@ const UNITS = [
   {id:'ofipapel_info',     name:'Ofipapel · Informática',  group:'Dependientas',  defaultMax:1},
 ];
 
-const EMPLOYEES = [
+/* Plantilla de partida — solo se usa para poblar state.employees la primera vez.
+   A partir de ahí la lista real y editable vive en state.employees (ver "Empleados" en la barra lateral). */
+const EMPLOYEE_SEED = [
   // Repartidores
-  {id:'e1', name:'Barroso Santos, Carlos Francisco', unitId:'repartidores', seniorityYear:null, daysPerYear:22},
-  {id:'e2', name:'Bermúdez Barreto, Julio', unitId:'repartidores', seniorityYear:null, daysPerYear:22},
-  {id:'e3', name:'Manu (apellido pendiente)', unitId:'repartidores', seniorityYear:null, daysPerYear:22, note:'Sustituye a Javier Blanco Suárez'},
-  {id:'e4', name:'Walter (apellido pendiente)', unitId:'repartidores', seniorityYear:null, daysPerYear:22, note:'Sustituye a Manuel González Rodríguez'},
-  {id:'e5', name:'Martín Melo, Juan Antonio', unitId:'repartidores', seniorityYear:null, daysPerYear:22},
-  {id:'e6', name:'Ortiz Carmona, Antonio Manuel', unitId:'repartidores', seniorityYear:null, daysPerYear:22},
-  {id:'e7', name:'Fran (apellido pendiente)', unitId:'repartidores', seniorityYear:null, daysPerYear:22, note:'Sustituye a Mario Ezequiel Ramírez Quiroz'},
-  {id:'e8', name:'Rodríguez Santos, Jesús Manuel', unitId:'repartidores', seniorityYear:null, daysPerYear:22},
-  {id:'e9', name:'Páez González, Nauzet', unitId:'repartidores', seniorityYear:null, daysPerYear:22},
+  {id:'e1', name:'Barroso Santos, Carlos Francisco', unitId:'repartidores', seniorityYear:2010, daysPerYear:30},
+  {id:'e2', name:'Bermúdez Barreto, Julio', unitId:'repartidores', seniorityYear:1997, daysPerYear:30},
+  {id:'e3', name:'Manu (apellido pendiente)', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Javier Blanco Suárez'},
+  {id:'e4', name:'Walter (apellido pendiente)', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Manuel González Rodríguez'},
+  {id:'e5', name:'Martín Melo, Juan Antonio', unitId:'repartidores', seniorityYear:2001, daysPerYear:30},
+  {id:'e6', name:'Ortiz Carmona, Antonio Manuel', unitId:'repartidores', seniorityYear:2016, daysPerYear:30},
+  {id:'e7', name:'Fran (apellido pendiente)', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Mario Ezequiel Ramírez Quiroz'},
+  {id:'e8', name:'Rodríguez Santos, Jesús Manuel', unitId:'repartidores', seniorityYear:2016, daysPerYear:30},
+  {id:'e9', name:'Páez González, Nauzet', unitId:'repartidores', seniorityYear:2022, daysPerYear:30},
   // Comerciales (vendedores)
-  {id:'e10', name:'Correa Hernández, Roberto', unitId:'comerciales', seniorityYear:null, daysPerYear:22},
-  {id:'e11', name:'Fumero Benítez, Haridian', unitId:'comerciales', seniorityYear:null, daysPerYear:22},
-  {id:'e12', name:'García Padrón, Felipe Sebastián', unitId:'comerciales', seniorityYear:null, daysPerYear:22},
-  {id:'e13', name:'Gómez Rufiangel, María Luz', unitId:'comerciales', seniorityYear:null, daysPerYear:22},
-  {id:'e14', name:'Iguarán Martínez, Javier', unitId:'comerciales', seniorityYear:null, daysPerYear:22},
-  {id:'e15', name:'Ramos Delgado, Miguel', unitId:'comerciales', seniorityYear:null, daysPerYear:22},
-  {id:'e16', name:'Rodríguez Deniz, María Paz', unitId:'comerciales', seniorityYear:null, daysPerYear:22},
+  {id:'e10', name:'Correa Hernández, Roberto', unitId:'comerciales', seniorityYear:2000, daysPerYear:30, note:'Cubre clientes mutuamente con María Luz Gómez Rufiangel'},
+  {id:'e11', name:'Fumero Benítez, Haridian', unitId:'comerciales', seniorityYear:2011, daysPerYear:30, note:'Cubre clientes mutuamente con Javier Iguarán Martínez'},
+  {id:'e12', name:'García Padrón, Felipe Sebastián', unitId:'comerciales', seniorityYear:2011, daysPerYear:30, sinSustituto:true},
+  {id:'e13', name:'Gómez Rufiangel, María Luz', unitId:'comerciales', seniorityYear:2006, daysPerYear:30, note:'Cubre clientes mutuamente con Roberto Correa Hernández'},
+  {id:'e14', name:'Iguarán Martínez, Javier', unitId:'comerciales', seniorityYear:2010, daysPerYear:30, note:'Cubre clientes mutuamente con Haridian Fumero Benítez'},
+  {id:'e15', name:'Ramos Delgado, Miguel', unitId:'comerciales', seniorityYear:2022, daysPerYear:30, sinSustituto:true},
+  {id:'e16', name:'Rodríguez Deniz, María Paz', unitId:'comerciales', seniorityYear:2010, daysPerYear:30, sinSustituto:true},
   // Ofipapel · Detalle
-  {id:'e17', name:'Alayón Barrera, Herminia Mari', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:22},
-  {id:'e18', name:'Brito Morales, Rosa María', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:22},
-  {id:'e19', name:'Natalia (apellido pendiente)', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:22},
-  {id:'e20', name:'Afonso García, María Ángeles', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:22, note:'Comodín: suele cambiar de tienda según necesidad'},
-  {id:'e21', name:'Delgado Valido, Dunia', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:22},
+  {id:'e17', name:'Alayón Barrera, Herminia Mari', unitId:'ofipapel_detalle', seniorityYear:2005, daysPerYear:30},
+  {id:'e18', name:'Brito Morales, Rosa María', unitId:'ofipapel_detalle', seniorityYear:2008, daysPerYear:30},
+  {id:'e19', name:'Natalia (apellido pendiente)', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:30, note:'Comparte el turno de la fotocopiadora con Dunia Delgado Valido: siempre debe quedar una de las dos'},
+  {id:'e20', name:'Afonso García, María Ángeles', unitId:'ofipapel_detalle', seniorityYear:2022, daysPerYear:30, floater:true, note:'Comodín: suele cambiar de tienda según necesidad'},
+  {id:'e21', name:'Delgado Valido, Dunia', unitId:'ofipapel_detalle', seniorityYear:2015, daysPerYear:30, note:'Comparte el turno de la fotocopiadora con Natalia: siempre debe quedar una de las dos'},
   // Oficina
-  {id:'e22', name:'Martín Hernández, María Candelaria', unitId:'oficina', seniorityYear:null, daysPerYear:22},
-  {id:'e23', name:'Perdigón Pérez, Mónica', unitId:'oficina', seniorityYear:null, daysPerYear:22},
-  {id:'e24', name:'Yanes García, Patricia', unitId:'oficina', seniorityYear:null, daysPerYear:22},
+  {id:'e22', name:'Martín Hernández, María Candelaria', unitId:'oficina', seniorityYear:2000, daysPerYear:30},
+  {id:'e23', name:'Perdigón Pérez, Mónica', unitId:'oficina', seniorityYear:1994, daysPerYear:30},
+  {id:'e24', name:'Yanes García, Patricia', unitId:'oficina', seniorityYear:2009, daysPerYear:30},
   // Aliz 1
-  {id:'e25', name:'Pedrido Seoane, María', unitId:'aliz1', seniorityYear:null, daysPerYear:22},
-  {id:'e26', name:'Fumero Reverón, María Teresa', unitId:'aliz1', seniorityYear:null, daysPerYear:22},
-  {id:'e27', name:'Cabrera Pérez, Sonia Pilar', unitId:'aliz1', seniorityYear:null, daysPerYear:22, note:'Comodín: suele cambiar de tienda según necesidad'},
+  {id:'e25', name:'Pedrido Seoane, María', unitId:'aliz1', seniorityYear:2017, daysPerYear:30},
+  {id:'e26', name:'Fumero Reverón, María Teresa', unitId:'aliz1', seniorityYear:2018, daysPerYear:30},
+  {id:'e27', name:'Cabrera Pérez, Sonia Pilar', unitId:'aliz1', seniorityYear:2006, daysPerYear:30, floater:true, note:'Comodín: suele cambiar de tienda según necesidad'},
   // Aliz 2
-  {id:'e28', name:'Díaz Hernández, María Joani', unitId:'aliz2', seniorityYear:null, daysPerYear:22},
-  {id:'e29', name:'Linares Morales, Soledad', unitId:'aliz2', seniorityYear:null, daysPerYear:22},
+  {id:'e28', name:'Díaz Hernández, María Joani', unitId:'aliz2', seniorityYear:2000, daysPerYear:30},
+  {id:'e29', name:'Linares Morales, Soledad', unitId:'aliz2', seniorityYear:1984, daysPerYear:30},
   // Ofipapel · Informática
-  {id:'e30', name:'Chinea Ramos, Evelin Lucía', unitId:'ofipapel_info', seniorityYear:null, daysPerYear:22},
-  {id:'e31', name:'García Fumero, María Candelaria', unitId:'ofipapel_info', seniorityYear:null, daysPerYear:22},
+  {id:'e30', name:'Chinea Ramos, Evelin Lucía', unitId:'ofipapel_info', seniorityYear:2016, daysPerYear:30},
+  {id:'e31', name:'García Fumero, María Candelaria', unitId:'ofipapel_info', seniorityYear:2002, daysPerYear:30},
   // Pedidos
-  {id:'e32', name:'Cabrera Darias, Tomás Iván', unitId:'pedidos', seniorityYear:null, daysPerYear:22},
-  {id:'e33', name:'García Vázquez, Miguel Ángel', unitId:'pedidos', seniorityYear:null, daysPerYear:22},
+  {id:'e32', name:'Cabrera Darias, Tomás Iván', unitId:'pedidos', seniorityYear:2010, daysPerYear:30},
+  {id:'e33', name:'García Vázquez, Miguel Ángel', unitId:'pedidos', seniorityYear:2007, daysPerYear:30},
   // Almacén
-  {id:'e34', name:'Hernández Páez, Miguel', unitId:'almacen', seniorityYear:null, daysPerYear:22},
-  {id:'e35', name:'Jose (apellido pendiente)', unitId:'almacen', seniorityYear:null, daysPerYear:22, note:'Nuevo en el equipo'},
+  {id:'e34', name:'Hernández Páez, Miguel', unitId:'almacen', seniorityYear:2018, daysPerYear:30},
+  {id:'e35', name:'Jose (apellido pendiente)', unitId:'almacen', seniorityYear:null, daysPerYear:30, note:'Nuevo en el equipo'},
 ];
 
 /* ═══════════════════ ESTADO ═══════════════════ */
-const STORAGE_KEY = 'ofipapel_vacaciones_v2';
+const STORAGE_KEY = 'ofipapel_vacaciones_v3';
 let state = loadState();
+let EMPLOYEES = state.employees; // referencia viva: editar este array (altas/bajas/fichas) ya persiste, porque es el mismo objeto que state.employees
 
 function defaultState(){
   return {
     year: new Date().getFullYear(),
     periods: [],
+    employees: EMPLOYEE_SEED.map(e=>({...e})),
+    nextEmployeeSeq: EMPLOYEE_SEED.length + 1,
     blockedRanges: [
       {id:'b1', label:'Vuelta al cole', startMD:'09-01', endMD:'09-30'},
       {id:'b2', label:'Campaña de Navidad', startMD:'12-20', endMD:'01-06'},
@@ -402,6 +487,13 @@ function defaultState(){
     unitOverrides: [],
     unitMax: Object.fromEntries(UNITS.map(u=>[u.id,u.defaultMax])),
     lastYearFlags: {},
+    pairRules: [
+      {id:'pair1', empIds:['e19','e21'], label:'Fotocopiadora'},
+      {id:'pair2', empIds:['e13','e10'], label:'Cobertura mutua de clientes'},
+      {id:'pair3', empIds:['e11','e14'], label:'Cobertura mutua de clientes'},
+    ],
+    employeePrefs: {},
+    yearRulesText: '',
   };
 }
 function loadState(){
@@ -484,6 +576,26 @@ function unitCoverageForDay(unitId, idx, y, excludePeriodId){
   return {count, max, over: count>max};
 }
 
+/* ═══════════════════ PAREJAS INCOMPATIBLES (nunca pueden coincidir) ═══════════════════ */
+function findPairPartners(empId){
+  const partners = [];
+  for(const pr of state.pairRules){
+    if(pr.empIds.includes(empId)){
+      for(const other of pr.empIds){
+        if(other!==empId) partners.push({partnerId:other, label:pr.label});
+      }
+    }
+  }
+  return partners;
+}
+function pairOverlapConflict(empId, startISO, endISO, excludePeriodId){
+  for(const {partnerId, label} of findPairPartners(empId)){
+    const overlap = state.periods.find(p=> p.employeeId===partnerId && p.id!==excludePeriodId && !(endISO<p.start || startISO>p.end));
+    if(overlap) return {partnerId, label, overlap};
+  }
+  return null;
+}
+
 /* ═══════════════════ RENDER ═══════════════════ */
 let filterText='', filterUnit='', onlyConflicts=false;
 let dragCtx = null;
@@ -501,9 +613,49 @@ function render(){
   renderLegend();
   renderBlockList();
   renderUnitLimits();
+  renderRulesLog();
   renderGrid();
   renderSummary();
   saveState();
+}
+
+/* ═══════════════════ REGISTRO DE REGLAS ACTIVAS (siempre actualizado) ═══════════════════ */
+function renderRulesLog(){
+  const box = document.getElementById('rulesLog');
+  if(!box) return;
+  let html = '';
+
+  html += '<span class="rules-log-cat">Bloqueos de fecha</span>';
+  html += state.blockedRanges.length
+    ? state.blockedRanges.map(b=>`<div class="rules-log-item">${b.label}: ${b.startMD} → ${b.endMD}</div>`).join('')
+    : '<div class="rules-log-item">Ninguno</div>';
+
+  html += '<span class="rules-log-cat">Cobertura por unidad (máx. fuera a la vez)</span>';
+  html += UNITS.map(u=> `<div class="rules-log-item">${u.name}: ${state.unitMax[u.id] ?? u.defaultMax}</div>`).join('');
+  if(state.unitOverrides.length){
+    html += state.unitOverrides.map(o=>{
+      const uName = (UNITS.find(u=>u.id===o.unitId)||{}).name || o.unitId;
+      return `<div class="rules-log-item">⤷ ${uName}: máx ${o.max} entre ${o.start} y ${o.end}</div>`;
+    }).join('');
+  }
+
+  html += '<span class="rules-log-cat">Parejas incompatibles</span>';
+  html += state.pairRules.length
+    ? state.pairRules.map(pr=>{
+        const names = pr.empIds.map(id=> (EMPLOYEES.find(e=>e.id===id)||{}).name || id).join(' ↔ ');
+        return `<div class="rules-log-item">${names} — ${pr.label}</div>`;
+      }).join('')
+    : '<div class="rules-log-item">Ninguna</div>';
+
+  const floaters = EMPLOYEES.filter(e=>e.active!==false && e.floater);
+  html += '<span class="rules-log-cat">Comodines 🔁</span>';
+  html += floaters.length ? floaters.map(e=>`<div class="rules-log-item">${e.name}</div>`).join('') : '<div class="rules-log-item">Ninguno</div>';
+
+  const noSub = EMPLOYEES.filter(e=>e.active!==false && e.sinSustituto);
+  html += '<span class="rules-log-cat">Sin sustituto 🚫</span>';
+  html += noSub.length ? noSub.map(e=>`<div class="rules-log-item">${e.name}</div>`).join('') : '<div class="rules-log-item">Ninguno</div>';
+
+  box.innerHTML = html;
 }
 
 function renderYearSelect(){
@@ -626,6 +778,7 @@ function renderGrid(){
 
   // unit groups
   const filteredEmployees = EMPLOYEES.filter(e=>{
+    if(e.active===false) return false;
     if(filterUnit && e.unitId!==filterUnit) return false;
     if(filterText && !e.name.toLowerCase().includes(filterText.toLowerCase())) return false;
     return true;
@@ -670,9 +823,9 @@ function buildEmployeeRow(emp, y, n, totalW){
   const used = state.periods.filter(p=>p.employeeId===emp.id)
     .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
   const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
-  const noteBadge = emp.note ? ' 🔁' : '';
+  const badges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'');
   nameCell.title = emp.note || '';
-  nameCell.innerHTML = `<b>${emp.name}${noteBadge}</b><span>${used}/${emp.daysPerYear} días · ${senLabel}</span>`;
+  nameCell.innerHTML = `<b>${emp.name}${badges}</b><span>${used}/${emp.daysPerYear} días · ${senLabel}</span>`;
   row.appendChild(nameCell);
 
   const track = document.createElement('div'); track.className='track';
@@ -771,6 +924,14 @@ function onDragEnd(ev){
     return;
   }
 
+  // hard block: coincide con una pareja incompatible (ej. fotocopiadora, cobertura de clientes)
+  const pconf = pairOverlapConflict(emp.id, startISO, endISO, null);
+  if(pconf){
+    const partnerEmp = EMPLOYEES.find(e=>e.id===pconf.partnerId);
+    showToast(`No puede coincidir con ${partnerEmp.name} (${pconf.label}).`);
+    return;
+  }
+
   openPeriodModal(emp, null, startISO, endISO);
 }
 function fmtDate(d){ return d.toLocaleDateString('es-ES',{day:'2-digit',month:'short'}); }
@@ -835,6 +996,15 @@ function validateModal(emp){
     saveBtn.disabled=true;
     return;
   }
+  // pareja incompatible
+  const pconf = pairOverlapConflict(emp.id, start, end, editingPeriodId);
+  if(pconf){
+    const partnerEmp = EMPLOYEES.find(e=>e.id===pconf.partnerId);
+    warnBox.innerHTML = `<div class="err-box">Coincide con ${partnerEmp.name}, que ya tiene vacaciones en ese rango
+      (regla: ${pconf.label}). No pueden coincidir.</div>`;
+    saveBtn.disabled=true;
+    return;
+  }
   // cobertura
   const overDays=[];
   for(let idx=sIdx; idx<=eIdx; idx++){
@@ -866,12 +1036,143 @@ function savePeriod(emp){
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
+/* ═══════════════════ FICHA DE EMPLEADO (alta/baja/edición) ═══════════════════ */
+let editingEmployeeId = null;
+
+function empBadgeText(emp){
+  return (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (emp.active===false?' · DE BAJA':'');
+}
+
+function renderEmployeeList(){
+  const box = document.getElementById('empListBox');
+  box.innerHTML = '';
+  const q = document.getElementById('empSearchInput').value.trim().toLowerCase();
+  const showInactive = document.getElementById('empShowInactive').checked;
+  const list = EMPLOYEES.filter(e=>{
+    if(!showInactive && e.active===false) return false;
+    if(q && !e.name.toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=> a.name.localeCompare(b.name,'es'));
+
+  if(!list.length){
+    box.innerHTML = '<p style="font-size:.75rem;color:var(--texto2);">Sin resultados.</p>';
+    return;
+  }
+  for(const emp of list){
+    const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '(sin unidad)';
+    const row = document.createElement('div');
+    row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:7px 4px;'
+      +'border-bottom:1px solid #f0f0f0;font-size:.78rem;cursor:pointer;';
+    row.innerHTML = `<span>${emp.name}${empBadgeText(emp)}<br><small style="color:var(--texto2);">${unit}</small></span>
+      <span style="color:var(--verde);">✎</span>`;
+    row.onclick = ()=> openEmployeeCard(emp.id);
+    box.appendChild(row);
+  }
+}
+
+function openEmployeesModal(){
+  document.getElementById('empListView').style.display='block';
+  document.getElementById('empCardView').style.display='none';
+  renderEmployeeList();
+  openModal('employeesOverlay');
+}
+
+function openEmployeeCard(empId){
+  editingEmployeeId = empId;
+  const emp = empId ? EMPLOYEES.find(e=>e.id===empId) : null;
+  document.getElementById('empListView').style.display='none';
+  document.getElementById('empCardView').style.display='block';
+  document.getElementById('empCardTitle').textContent = emp ? 'Ficha de empleado' : 'Nuevo empleado';
+
+  const unitSel = document.getElementById('ecUnit');
+  unitSel.innerHTML = UNITS.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+
+  document.getElementById('ecName').value = emp ? emp.name : '';
+  unitSel.value = emp ? emp.unitId : UNITS[0].id;
+  document.getElementById('ecSeniority').value = (emp && emp.seniorityYear) ? emp.seniorityYear : '';
+  document.getElementById('ecDays').value = emp ? emp.daysPerYear : 30;
+  document.getElementById('ecPrefs').value = emp ? ((state.employeePrefs[emp.id]||{}).preferredText || '') : '';
+  document.getElementById('ecNote').value = emp ? (emp.note||'') : '';
+  document.getElementById('ecFloater').checked = emp ? !!emp.floater : false;
+  document.getElementById('ecSinSustituto').checked = emp ? !!emp.sinSustituto : false;
+  document.getElementById('ecActive').checked = emp ? emp.active!==false : true;
+  document.getElementById('ecDelete').style.display = emp ? 'inline-block' : 'none';
+}
+
+function backToEmployeeList(){
+  document.getElementById('empCardView').style.display='none';
+  document.getElementById('empListView').style.display='block';
+  renderEmployeeList();
+}
+
+document.getElementById('btnEmployees').onclick = openEmployeesModal;
+document.getElementById('empListClose').onclick = ()=> closeModal('employeesOverlay');
+document.getElementById('empSearchInput').oninput = renderEmployeeList;
+document.getElementById('empShowInactive').onchange = renderEmployeeList;
+document.getElementById('btnAddEmployee').onclick = ()=> openEmployeeCard(null);
+document.getElementById('ecBack').onclick = backToEmployeeList;
+
+document.getElementById('ecSave').onclick = ()=>{
+  const name = document.getElementById('ecName').value.trim();
+  if(!name){ showToast('El nombre no puede estar vacío.'); return; }
+  const unitId = document.getElementById('ecUnit').value;
+  const senRaw = document.getElementById('ecSeniority').value.trim();
+  const seniorityYear = senRaw ? parseInt(senRaw,10) : null;
+  const daysRaw = document.getElementById('ecDays').value.trim();
+  const daysPerYear = parseInt(daysRaw,10);
+  const prefsText = document.getElementById('ecPrefs').value.trim();
+  const note = document.getElementById('ecNote').value.trim();
+  const floater = document.getElementById('ecFloater').checked;
+  const sinSustituto = document.getElementById('ecSinSustituto').checked;
+  const active = document.getElementById('ecActive').checked;
+
+  let emp = editingEmployeeId ? EMPLOYEES.find(e=>e.id===editingEmployeeId) : null;
+  if(!emp){
+    emp = {id: 'e'+(state.nextEmployeeSeq++)};
+    EMPLOYEES.push(emp);
+    editingEmployeeId = emp.id;
+  }
+  emp.name = name;
+  emp.unitId = unitId;
+  emp.seniorityYear = (seniorityYear && !isNaN(seniorityYear)) ? seniorityYear : null;
+  emp.daysPerYear = (!isNaN(daysPerYear) && daysPerYear>0) ? daysPerYear : 30;
+  if(note) emp.note = note; else delete emp.note;
+  if(floater) emp.floater = true; else delete emp.floater;
+  if(sinSustituto) emp.sinSustituto = true; else delete emp.sinSustituto;
+  emp.active = active;
+
+  if(prefsText) state.employeePrefs[emp.id] = {preferredText: prefsText};
+  else delete state.employeePrefs[emp.id];
+
+  showToast('Ficha guardada: '+name);
+  backToEmployeeList();
+  render();
+};
+
+document.getElementById('ecDelete').onclick = ()=>{
+  if(!editingEmployeeId) return;
+  const emp = EMPLOYEES.find(e=>e.id===editingEmployeeId);
+  if(!emp) return;
+  const ok = confirm(`¿Eliminar definitivamente a ${emp.name}? Se borrarán también sus vacaciones asignadas.\n\n`
+    +`Si solo ha dejado la empresa temporalmente o quieres conservar el historial, mejor desmarca "Activo" en vez de eliminar.`);
+  if(!ok) return;
+  const idx = EMPLOYEES.findIndex(e=>e.id===editingEmployeeId);
+  if(idx>-1) EMPLOYEES.splice(idx,1);
+  state.periods = state.periods.filter(p=>p.employeeId!==editingEmployeeId);
+  delete state.employeePrefs[editingEmployeeId];
+  state.pairRules = state.pairRules.filter(pr=>!pr.empIds.includes(editingEmployeeId));
+  showToast('Empleado eliminado.');
+  backToEmployeeList();
+  render();
+};
+
 /* ═══════════════════ RESUMEN ═══════════════════ */
 function renderSummary(){
   const box = document.getElementById('summaryBox');
   box.innerHTML='';
   const y = state.year;
   for(const emp of EMPLOYEES){
+    if(emp.active===false) continue;
     const used = state.periods.filter(p=>p.employeeId===emp.id)
       .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
     const row = document.createElement('div'); row.className='summary-row';
@@ -879,6 +1180,221 @@ function renderSummary(){
     box.appendChild(row);
   }
 }
+
+/* ═══════════════════ BÚSQUEDA DIFUSA DE NOMBRES/UNIDADES (para las reglas de texto) ═══════════════════ */
+function normalizeText(s){
+  return s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+}
+function findEmployeeByFuzzyName(q){
+  const nq = normalizeText(q);
+  if(!nq) return null;
+  const active = EMPLOYEES.filter(e=>e.active!==false);
+  let hit = active.find(e=> normalizeText(e.name).includes(nq));
+  if(hit) return hit;
+  hit = active.find(e=> normalizeText(e.name).split(/[\s,]+/).some(tok=> tok===nq || tok.startsWith(nq)));
+  if(hit) return hit;
+  // varias palabras en cualquier orden (ej. "Felipe Garcia" debe encontrar "García Padrón, Felipe Sebastián")
+  const qWords = nq.split(/[\s,]+/).filter(Boolean);
+  if(qWords.length>1){
+    hit = active.find(e=>{
+      const nameTokens = normalizeText(e.name).split(/[\s,]+/).filter(Boolean);
+      return qWords.every(qw=> nameTokens.some(tok=> tok===qw || tok.startsWith(qw)));
+    });
+  }
+  return hit || null;
+}
+function findUnitByFuzzyName(q){
+  const nq = normalizeText(q);
+  return UNITS.find(u=> normalizeText(u.name).includes(nq) || nq.includes(normalizeText(u.name))) || null;
+}
+
+/* ═══════════════════ REGLAS DE TEXTO (mini-lenguaje que se procesa de verdad) ═══════════════════ */
+function processRulesText(){
+  const textEl = document.getElementById('yearRulesText');
+  const text = textEl.value;
+  state.yearRulesText = text;
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const results = [];
+
+  for(const line of lines){
+    const m = line.match(/^([A-Za-zÁÉÍÓÚáéíóúñÑ_]+)\s*:\s*(.+)$/);
+    if(!m){ results.push({icon:'ℹ️', msg:`"${line}" — no reconocida, guardada como nota informativa.`}); continue; }
+    const [, rawType, rest] = m;
+    const type = normalizeText(rawType).toUpperCase();
+
+    if(type==='BLOQUEO'){
+      const rm = rest.match(/^(\d{1,2})\/(\d{1,2})\s*-\s*(\d{1,2})\/(\d{1,2})\s*(.*)$/);
+      if(!rm){ results.push({icon:'❌', msg:`BLOQUEO no reconocido: "${rest}" (usa DD/MM-DD/MM Etiqueta).`}); continue; }
+      const [, d1,mo1,d2,mo2,label] = rm;
+      const startMD = mo1.padStart(2,'0')+'-'+d1.padStart(2,'0');
+      const endMD = mo2.padStart(2,'0')+'-'+d2.padStart(2,'0');
+      state.blockedRanges.push({id:'b'+Date.now()+Math.random().toString(36).slice(2,5), label: label.trim()||'Bloqueo', startMD, endMD});
+      results.push({icon:'✅', msg:`Bloqueo añadido: ${label.trim()||'(sin etiqueta)'} (${startMD} → ${endMD}).`});
+
+    } else if(type==='PAREJA'){
+      const pm = rest.match(/^(.+?)\s*[\/,]\s*(.+?)\s*-\s*(.*)$/);
+      if(!pm){ results.push({icon:'❌', msg:`PAREJA no reconocida: "${rest}" (usa NombreA / NombreB - Motivo).`}); continue; }
+      const [, n1, n2, label] = pm;
+      const e1 = findEmployeeByFuzzyName(n1), e2 = findEmployeeByFuzzyName(n2);
+      if(!e1 || !e2){ results.push({icon:'❌', msg:`No encuentro a "${!e1?n1:n2}" en la plantilla.`}); continue; }
+      state.pairRules.push({id:'pair'+Date.now()+Math.random().toString(36).slice(2,5), empIds:[e1.id,e2.id], label: label.trim()||'Regla de pareja'});
+      results.push({icon:'✅', msg:`Pareja añadida: ${e1.name} ↔ ${e2.name} (${label.trim()||'sin motivo'}).`});
+
+    } else if(type==='COBERTURA'){
+      const cm = rest.match(/^(.+?)\s+max\s+(\d+)(?:\s+(\d{1,2}\/\d{1,2})\s*-\s*(\d{1,2}\/\d{1,2}))?\s*$/i);
+      if(!cm){ results.push({icon:'❌', msg:`COBERTURA no reconocida: "${rest}" (usa Unidad max N [DD/MM-DD/MM]).`}); continue; }
+      const [, unitName, maxStr, dFrom, dTo] = cm;
+      const unit = findUnitByFuzzyName(unitName);
+      if(!unit){ results.push({icon:'❌', msg:`No encuentro la unidad "${unitName}".`}); continue; }
+      const max = parseInt(maxStr,10);
+      if(dFrom && dTo){
+        const [d1,mo1] = dFrom.split('/'), [d2,mo2] = dTo.split('/');
+        const y = state.year;
+        const start = `${y}-${mo1.padStart(2,'0')}-${d1.padStart(2,'0')}`;
+        const end = `${y}-${mo2.padStart(2,'0')}-${d2.padStart(2,'0')}`;
+        state.unitOverrides.push({id:'ov'+Date.now()+Math.random().toString(36).slice(2,5), unitId:unit.id, max, start, end});
+        results.push({icon:'✅', msg:`Excepción de cobertura: ${unit.name} máx ${max} entre ${dFrom} y ${dTo}.`});
+      } else {
+        state.unitMax[unit.id] = max;
+        results.push({icon:'✅', msg:`Cobertura por defecto de ${unit.name} fijada a máx ${max}.`});
+      }
+
+    } else if(type==='DIAS'){
+      const dm = rest.match(/^(.+?)\s+(\d+)\s*$/);
+      if(!dm){ results.push({icon:'❌', msg:`DIAS no reconocido: "${rest}" (usa Nombre N).`}); continue; }
+      const [, name, daysStr] = dm;
+      const emp = findEmployeeByFuzzyName(name);
+      if(!emp){ results.push({icon:'❌', msg:`No encuentro a "${name}" en la plantilla.`}); continue; }
+      emp.daysPerYear = parseInt(daysStr,10);
+      results.push({icon:'✅', msg:`Días de ${emp.name} fijados a ${emp.daysPerYear}.`});
+
+    } else {
+      results.push({icon:'ℹ️', msg:`"${line}" — prefijo no reconocido, guardada como nota informativa.`});
+    }
+  }
+
+  render();
+  const resBox = document.getElementById('rulesProcessResult');
+  resBox.innerHTML = results.length
+    ? results.map(r=>`<div class="rules-log-item">${r.icon} ${r.msg}</div>`).join('')
+    : '<div class="rules-log-item">Nada que procesar.</div>';
+}
+document.getElementById('btnProcessRules').onclick = processRulesText;
+document.getElementById('yearRulesText').value = state.yearRulesText || '';
+document.getElementById('yearRulesText').oninput = (e)=>{ state.yearRulesText = e.target.value; };
+
+/* ═══════════════════ GENERADOR AUTOMÁTICO DE PLAN ═══════════════════ */
+function parsePreferredRanges(text, year){
+  if(!text) return [];
+  const re = /(\d{1,2})\/(\d{1,2})\s*-\s*(\d{1,2})\/(\d{1,2})/g;
+  const out = [];
+  let m;
+  while((m = re.exec(text))){
+    const d1=+m[1], mo1=+m[2], d2=+m[3], mo2=+m[4];
+    const s = new Date(Date.UTC(year, mo1-1, d1));
+    const e = new Date(Date.UTC(year, mo2-1, d2));
+    if(!isNaN(s) && !isNaN(e) && e>=s) out.push({start: toISO(s), end: toISO(e)});
+  }
+  return out;
+}
+function rotationScore(emp){
+  const flag = state.lastYearFlags[emp.id] ? 1000 : 0;
+  const sen = emp.seniorityYear ? (new Date().getFullYear()-emp.seniorityYear) : 0;
+  return -flag + sen;
+}
+function unitFitsRange(unitId, startIdx, endIdx, y){
+  for(let idx=startIdx; idx<=endIdx; idx++){
+    if(isBlockedIndex(y, idx)) return false;
+    const {count, max} = unitCoverageForDay(unitId, idx, y, null);
+    if(count+1 > max) return false;
+  }
+  return true;
+}
+function rangeOk(emp, startIdx, endIdx, y){
+  const n = daysInYear(y);
+  if(startIdx<0 || endIdx>=n || endIdx<startIdx) return false;
+  const sISO = toISO(dateFromIndex(y,startIdx)), eISO = toISO(dateFromIndex(y,endIdx));
+  const selfOverlap = state.periods.some(p=> p.employeeId===emp.id && !(eISO<p.start || sISO>p.end));
+  if(selfOverlap) return false;
+  if(!unitFitsRange(emp.unitId, startIdx, endIdx, y)) return false;
+  for(const {partnerId} of findPairPartners(emp.id)){
+    const conflict = state.periods.some(p=> p.employeeId===partnerId && !(eISO<p.start || sISO>p.end));
+    if(conflict) return false;
+  }
+  return true;
+}
+function tryPlaceRange(emp, range, y){
+  const s = isoToIndex(y, range.start), e = isoToIndex(y, range.end);
+  for(let shift=0; shift<=6; shift++){
+    const dirs = shift===0 ? [0] : [shift,-shift];
+    for(const dir of dirs){
+      const s2=s+dir, e2=e+dir;
+      if(rangeOk(emp, s2, e2, y)) return {start: toISO(dateFromIndex(y,s2)), end: toISO(dateFromIndex(y,e2))};
+    }
+  }
+  return null;
+}
+function findFallbackSlot(emp, y, lengthDays){
+  const n = daysInYear(y);
+  for(let s=0; s<=n-lengthDays; s++){
+    const e = s+lengthDays-1;
+    if(rangeOk(emp, s, e, y)) return {start: toISO(dateFromIndex(y,s)), end: toISO(dateFromIndex(y,e))};
+  }
+  return null;
+}
+function generatePlan(){
+  const y = state.year;
+  const overwrite = document.getElementById('genOverwrite').checked;
+  let targets = EMPLOYEES.filter(e=> e.active!==false && (!filterUnit || e.unitId===filterUnit));
+  if(filterText) targets = targets.filter(e=> e.name.toLowerCase().includes(filterText.toLowerCase()));
+
+  if(!targets.length){
+    document.getElementById('generateReport').innerHTML = '<div class="rules-log-item">No hay empleados que coincidan con el filtro actual.</div>';
+    return;
+  }
+
+  if(overwrite){
+    const ids = new Set(targets.map(e=>e.id));
+    state.periods = state.periods.filter(p=> !ids.has(p.employeeId));
+  } else {
+    targets = targets.filter(e=> !state.periods.some(p=>p.employeeId===e.id));
+  }
+
+  targets.sort((a,b)=> rotationScore(b) - rotationScore(a));
+
+  const assignedLines = [], failedLines = [];
+  for(const emp of targets){
+    const prefText = (state.employeePrefs[emp.id]||{}).preferredText || '';
+    const ranges = parsePreferredRanges(prefText, y);
+    let placedCount = 0;
+    for(const r of ranges){
+      const placed = tryPlaceRange(emp, r, y);
+      if(placed){
+        state.periods.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6), employeeId:emp.id, start:placed.start, end:placed.end});
+        placedCount++;
+      }
+    }
+    if(placedCount===0){
+      const fallback = findFallbackSlot(emp, y, 15);
+      if(fallback){
+        state.periods.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6), employeeId:emp.id, start:fallback.start, end:fallback.end});
+        assignedLines.push(`${emp.name} — sin preferencia usable, asignado ${fmtRange(fallback.start,fallback.end)} automáticamente.`);
+      } else {
+        failedLines.push(emp.name);
+      }
+    } else {
+      assignedLines.push(`${emp.name} — ${placedCount}/${ranges.length} periodo(s) preferido(s) colocado(s).`);
+    }
+  }
+
+  render();
+  const box = document.getElementById('generateReport');
+  let html = `<div class="rules-log-item">✅ ${assignedLines.length} empleado(s) procesado(s) sobre ${targets.length}.</div>`;
+  if(failedLines.length) html += `<div class="rules-log-item">⚠ Sin hueco disponible para: ${failedLines.join(', ')}. Requieren asignación manual.</div>`;
+  html += assignedLines.map(l=>`<div class="rules-log-item">• ${l}</div>`).join('');
+  box.innerHTML = html;
+}
+document.getElementById('btnGenerate').onclick = generatePlan;
 
 /* ═══════════════════ BLOQUEOS ═══════════════════ */
 document.getElementById('btnAddBlock').onclick = ()=>{
@@ -901,7 +1417,7 @@ document.getElementById('btnAddBlock').onclick = ()=>{
 document.getElementById('btnRotation').onclick = ()=>{
   const box = document.getElementById('rotationList');
   box.innerHTML='';
-  const list = [...EMPLOYEES].sort((a,b)=>{
+  const list = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>{
     const flagA = state.lastYearFlags[a.id] ? 1000 : 0;
     const flagB = state.lastYearFlags[b.id] ? 1000 : 0;
     const senA = a.seniorityYear ? (new Date().getFullYear()-a.seniorityYear) : 0;
@@ -993,6 +1509,7 @@ function buildPrintArea(){
   grid.appendChild(dayRowWrap);
 
   const filteredEmployees = EMPLOYEES.filter(e=>{
+    if(e.active===false) return false;
     if(filterUnit && e.unitId!==filterUnit) return false;
     if(filterText && !e.name.toLowerCase().includes(filterText.toLowerCase())) return false;
     return true;
@@ -1011,7 +1528,8 @@ function buildPrintArea(){
     for(const emp of emps){
       const row = document.createElement('div'); row.className='p-emp-row';
       const nameCell = document.createElement('div'); nameCell.className='p-name';
-      nameCell.textContent = emp.name + (emp.note ? ' 🔁' : '');
+      const pBadges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'');
+      nameCell.textContent = emp.name + pBadges;
       row.appendChild(nameCell);
 
       const track = document.createElement('div'); track.className='p-track';
