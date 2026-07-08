@@ -853,8 +853,8 @@ function buildEmployeeRow(emp, y, n, totalW){
     block.style.left=(s*22)+'px'; block.style.width=((e-s+1)*22)+'px';
     block.style.background = periodColor(i+1);
     block.textContent = (e-s+1)+'d';
-    block.title = fmtRange(p.start,p.end);
-    block.onclick = (ev)=>{ ev.stopPropagation(); openPeriodModal(emp, p); };
+    block.title = fmtRange(p.start,p.end)+' — arrastra para mover, estira por el borde para cambiar la fecha';
+    attachPeriodBlockDrag(block, emp, p, y, n);
     track.appendChild(block);
   });
 
@@ -935,6 +935,104 @@ function onDragEnd(ev){
   openPeriodModal(emp, null, startISO, endISO);
 }
 function fmtDate(d){ return d.toLocaleDateString('es-ES',{day:'2-digit',month:'short'}); }
+
+/* ═══════════════════ ARRASTRAR PARA MOVER / ESTIRAR UN PERIODO YA CREADO ═══════════════════ */
+function attachPeriodBlockDrag(block, emp, period, y, n){
+  const EDGE = 8; // px de zona sensible en cada borde para redimensionar
+
+  block.addEventListener('mousemove', (ev)=>{
+    if(block.dataset.dragging) return;
+    const rect = block.getBoundingClientRect();
+    const x = ev.clientX - rect.left;
+    block.style.cursor = (x<=EDGE || x>=rect.width-EDGE) ? 'ew-resize' : 'grab';
+  });
+
+  block.addEventListener('mousedown', (ev)=>{
+    if(ev.button!==0) return;
+    ev.stopPropagation(); // no debe disparar también la creación de un periodo nuevo en el track
+    const rect = block.getBoundingClientRect();
+    const offsetX = ev.clientX - rect.left;
+    const mode = offsetX<=EDGE ? 'resize-left' : (offsetX>=rect.width-EDGE ? 'resize-right' : 'move');
+
+    const origStart = isoToIndex(y, period.start);
+    const origEnd = isoToIndex(y, period.end);
+    const startX = ev.clientX;
+    let moved = false, curStart = origStart, curEnd = origEnd;
+    block.dataset.dragging = '1';
+    block.style.cursor = mode==='move' ? 'grabbing' : 'ew-resize';
+
+    function onMove(mv){
+      const dx = mv.clientX - startX;
+      if(Math.abs(dx) > 3) moved = true;
+      const dayDelta = Math.round(dx/22);
+      let s = origStart, e = origEnd;
+      if(mode==='move'){
+        s = origStart+dayDelta; e = origEnd+dayDelta;
+        if(s<0){ e += -s; s=0; }
+        if(e>n-1){ s -= (e-(n-1)); e=n-1; }
+      } else if(mode==='resize-left'){
+        s = Math.min(origEnd, Math.max(0, origStart+dayDelta));
+      } else {
+        e = Math.max(origStart, Math.min(n-1, origEnd+dayDelta));
+      }
+      curStart = s; curEnd = e;
+      block.style.left = (s*22)+'px';
+      block.style.width = ((e-s+1)*22)+'px';
+      block.textContent = (e-s+1)+'d';
+    }
+
+    function onUp(){
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      delete block.dataset.dragging;
+
+      if(!moved){
+        openPeriodModal(emp, period); // clic simple, sin arrastre: abre la ficha del periodo como antes
+        return;
+      }
+      const newStartISO = toISO(dateFromIndex(y, curStart));
+      const newEndISO = toISO(dateFromIndex(y, curEnd));
+
+      for(let idx=curStart; idx<=curEnd; idx++){
+        const b = isBlockedIndex(y, idx);
+        if(b){
+          showToast(`No se puede mover ahí: "${b.label}" está bloqueado.`);
+          renderGrid();
+          return;
+        }
+      }
+      const selfOverlap = state.periods.find(p=> p.employeeId===emp.id && p.id!==period.id && !(newEndISO<p.start || newStartISO>p.end));
+      if(selfOverlap){
+        showToast('Ese rango se solaparía con otro periodo de '+emp.name+'.');
+        renderGrid();
+        return;
+      }
+      const pconf = pairOverlapConflict(emp.id, newStartISO, newEndISO, period.id);
+      if(pconf){
+        const partnerEmp = EMPLOYEES.find(e=>e.id===pconf.partnerId);
+        showToast(`No puede coincidir con ${partnerEmp.name} (${pconf.label}).`);
+        renderGrid();
+        return;
+      }
+
+      let overDays = 0;
+      for(let idx=curStart; idx<=curEnd; idx++){
+        const {count,max} = unitCoverageForDay(emp.unitId, idx, y, period.id);
+        if(count+1>max) overDays++;
+      }
+
+      period.start = newStartISO;
+      period.end = newEndISO;
+      render();
+      if(overDays>0){
+        const unitName = (UNITS.find(u=>u.id===emp.unitId)||{}).name;
+        showToast(`Guardado. ⚠ Supera la cobertura recomendada de ${unitName} en ${overDays} día(s).`);
+      }
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
 
 /* ═══════════════════ MODAL DE PERIODO ═══════════════════ */
 function openPeriodModal(emp, period, startISO, endISO){
