@@ -84,6 +84,8 @@ aside h2{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(
   font-size:.72rem;color:var(--verde);cursor:pointer;
 }
 .mini-btn:hover{background:var(--verde);color:#fff;}
+.mini-btn-danger{background:#FDECEA;border-color:#F5B7B1;color:var(--rojo);margin-top:6px;margin-left:0;display:block;}
+.mini-btn-danger:hover{background:var(--rojo);color:#fff;}
 .block-item{display:flex;justify-content:space-between;align-items:center;font-size:.72rem;background:var(--verde-pale);
   border-radius:6px;padding:5px 7px;margin-bottom:5px;}
 .block-item button{background:none;border:none;color:var(--rojo);cursor:pointer;font-size:.85rem;}
@@ -245,14 +247,17 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
         </div>
 
         <h3>Generador automático</h3>
-        <p class="hint">Genera un borrador de vacaciones usando las reglas de abajo y las fechas preferidas
-          de cada ficha. Respeta el filtro de Unidad de arriba: con "Todas" genera la plantilla entera; eligiendo
-          una unidad, solo esa.</p>
+        <p class="hint">Genera un borrador de vacaciones (hasta completar los días de cada ficha) usando las
+          reglas de abajo y las fechas preferidas de cada persona. Reparte lo que no tiene preferencia
+          buscando siempre la fecha menos concurrida de toda la empresa, para no amontonar a mucha gente en
+          los mismos días. Respeta el filtro de Unidad de arriba: con "Todas" genera la plantilla entera;
+          eligiendo una unidad, solo esa.</p>
         <div class="check-row">
           <input type="checkbox" id="genOverwrite">
           <label for="genOverwrite">Sobrescribir a quien ya tenga vacaciones asignadas este año</label>
         </div>
         <button class="mini-btn" id="btnGenerate">⚙️ Generar plan</button>
+        <button class="mini-btn mini-btn-danger" id="btnClearGenerated">🗑 Borrar todo y empezar de nuevo</button>
         <div id="generateReport" style="font-size:.72rem;margin-top:8px;"></div>
 
         <h3>Fechas bloqueadas</h3>
@@ -1432,13 +1437,30 @@ function tryPlaceRange(emp, range, y){
   }
   return null;
 }
+/* Nº de personas de TODA la empresa que ya están fuera ese día — usado para repartir el generador
+   por la fecha menos concurrida, en vez de siempre la primera libre (lo que amontonaba a todo el mundo
+   a principios de enero). */
+function companyAbsentCount(idx, y){
+  const iso = toISO(dateFromIndex(y, idx));
+  let n=0;
+  for(const p of state.periods){ if(iso>=p.start && iso<=p.end) n++; }
+  return n;
+}
 function findFallbackSlot(emp, y, lengthDays){
   const n = daysInYear(y);
+  let best=null, bestScore=Infinity;
   for(let s=0; s<=n-lengthDays; s++){
     const e = s+lengthDays-1;
-    if(rangeOk(emp, s, e, y)) return {start: toISO(dateFromIndex(y,s)), end: toISO(dateFromIndex(y,e))};
+    if(!rangeOk(emp, s, e, y)) continue;
+    let score = 0;
+    for(let idx=s; idx<=e; idx++) score += companyAbsentCount(idx, y);
+    if(score < bestScore){
+      bestScore = score;
+      best = {start: toISO(dateFromIndex(y,s)), end: toISO(dateFromIndex(y,e))};
+      if(bestScore===0) break; // no hace falta seguir buscando, ya es un hueco totalmente libre
+    }
   }
-  return null;
+  return best;
 }
 function generatePlan(){
   const y = state.year;
@@ -1464,35 +1486,64 @@ function generatePlan(){
   for(const emp of targets){
     const prefText = (state.employeePrefs[emp.id]||{}).preferredText || '';
     const ranges = parsePreferredRanges(prefText, y);
-    let placedCount = 0;
+    let daysPlaced = 0, fromPrefs = 0, fromFallback = 0;
+
     for(const r of ranges){
       const placed = tryPlaceRange(emp, r, y);
       if(placed){
         state.periods.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6), employeeId:emp.id, start:placed.start, end:placed.end});
-        placedCount++;
+        daysPlaced += isoToIndex(y,placed.end)-isoToIndex(y,placed.start)+1;
+        fromPrefs++;
       }
     }
-    if(placedCount===0){
-      const fallback = findFallbackSlot(emp, y, 15);
-      if(fallback){
-        state.periods.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6), employeeId:emp.id, start:fallback.start, end:fallback.end});
-        assignedLines.push(`${emp.name} — sin preferencia usable, asignado ${fmtRange(fallback.start,fallback.end)} automáticamente.`);
-      } else {
-        failedLines.push(emp.name);
-      }
+
+    let remaining = emp.daysPerYear - daysPlaced;
+    while(remaining > 0){
+      const chunk = Math.min(15, remaining);
+      const fallback = findFallbackSlot(emp, y, chunk);
+      if(!fallback) break;
+      state.periods.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6), employeeId:emp.id, start:fallback.start, end:fallback.end});
+      const chunkDays = isoToIndex(y,fallback.end)-isoToIndex(y,fallback.start)+1;
+      daysPlaced += chunkDays;
+      remaining -= chunkDays;
+      fromFallback++;
+    }
+
+    if(daysPlaced===0){
+      failedLines.push(emp.name);
     } else {
-      assignedLines.push(`${emp.name} — ${placedCount}/${ranges.length} periodo(s) preferido(s) colocado(s).`);
+      const complete = daysPlaced>=emp.daysPerYear;
+      assignedLines.push(`${emp.name} — ${daysPlaced}/${emp.daysPerYear} días asignados`
+        + (fromPrefs?` (${fromPrefs} preferido(s)`+(fromFallback?` + ${fromFallback} automático(s))`:`)`):(fromFallback?` (${fromFallback} automático(s))`:``))
+        + (complete?'.':' — no hay más hueco disponible, revisar a mano.'));
     }
   }
 
   render();
   const box = document.getElementById('generateReport');
-  let html = `<div class="rules-log-item">✅ ${assignedLines.length} empleado(s) procesado(s) sobre ${targets.length}.</div>`;
-  if(failedLines.length) html += `<div class="rules-log-item">⚠ Sin hueco disponible para: ${failedLines.join(', ')}. Requieren asignación manual.</div>`;
+  let html = `<div class="rules-log-item">✅ ${assignedLines.length} empleado(s) con algo asignado, sobre ${targets.length}.</div>`;
+  if(failedLines.length) html += `<div class="rules-log-item">⚠ Sin ningún hueco disponible para: ${failedLines.join(', ')}. Requieren asignación manual.</div>`;
   html += assignedLines.map(l=>`<div class="rules-log-item">• ${l}</div>`).join('');
   box.innerHTML = html;
 }
 document.getElementById('btnGenerate').onclick = generatePlan;
+
+function clearGeneratedPeriods(){
+  let targets = EMPLOYEES.filter(e=> e.active!==false && (!filterUnit || e.unitId===filterUnit));
+  if(filterText) targets = targets.filter(e=> e.name.toLowerCase().includes(filterText.toLowerCase()));
+  if(!targets.length){ showToast('No hay empleados que coincidan con el filtro actual.'); return; }
+  const scopeLabel = filterUnit ? (UNITS.find(u=>u.id===filterUnit)||{}).name : 'toda la plantilla filtrada';
+  const affected = targets.filter(e=> state.periods.some(p=>p.employeeId===e.id)).length;
+  const ok = confirm(`¿Borrar TODAS las vacaciones ya asignadas de ${scopeLabel} (afecta a ${affected} persona(s) con periodos)? Esta acción no se puede deshacer.`);
+  if(!ok) return;
+  const ids = new Set(targets.map(e=>e.id));
+  state.periods = state.periods.filter(p=> !ids.has(p.employeeId));
+  render();
+  document.getElementById('generateReport').innerHTML =
+    `<div class="rules-log-item">🗑 Borradas las vacaciones de ${scopeLabel}. Puedes generar de nuevo desde cero.</div>`;
+  showToast('Vacaciones borradas.');
+}
+document.getElementById('btnClearGenerated').onclick = clearGeneratedPeriods;
 
 /* ═══════════════════ BLOQUEOS ═══════════════════ */
 document.getElementById('btnAddBlock').onclick = ()=>{
