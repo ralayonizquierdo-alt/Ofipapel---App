@@ -60,6 +60,14 @@ aside{
 aside.collapsed{width:0;padding:16px 0;border-right:none;}
 aside.collapsed > *{opacity:0;pointer-events:none;}
 aside h2{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--texto2);margin-bottom:8px;}
+.onleave-box{background:#FFF6E5;border:1px solid #F5D68C;border-radius:var(--rad);padding:14px;}
+.onleave-box h2{color:#8a5a00;font-size:.78rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+#onLeaveCount{background:#8a5a00;color:#fff;border-radius:10px;padding:1px 7px;font-size:.68rem;font-weight:700;}
+#onLeaveList{max-height:220px;overflow-y:auto;margin-top:6px;}
+.onleave-item{background:#fff;border:1px solid #F5D68C;border-radius:6px;padding:6px 8px;margin-bottom:5px;font-size:.75rem;}
+.onleave-item b{display:block;}
+.onleave-item small{color:var(--texto2);}
+.onleave-empty{font-size:.75rem;color:#8a5a00;}
 .rules-section{background:var(--verde-pale);border:1px solid var(--borde);border-radius:var(--rad);padding:14px;}
 .rules-section h2{color:var(--verde);font-size:.78rem;margin-bottom:6px;}
 .rules-section h3{
@@ -238,6 +246,12 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   </header>
   <div id="body">
     <aside id="sidebar">
+      <div class="onleave-box">
+        <h2>🏖️ ¿Quién está de vacaciones? <span id="onLeaveCount"></span></h2>
+        <div class="field"><label>Fecha</label><input type="date" id="onLeaveDate"></div>
+        <div id="onLeaveList"></div>
+      </div>
+
       <div class="rules-section">
         <h2>⚙️ Reglas / Filtros</h2>
 
@@ -636,10 +650,44 @@ function render(){
   renderBlockList();
   renderUnitLimits();
   renderRulesLog();
+  renderOnLeave();
   renderGrid();
   renderSummary();
   saveState();
 }
+
+/* ═══════════════════ ¿QUIÉN ESTÁ DE VACACIONES? (control visual rápido) ═══════════════════ */
+function renderOnLeave(){
+  const input = document.getElementById('onLeaveDate');
+  const y = state.year;
+  let dateVal = input.value;
+  if(!dateVal || parseInt(dateVal.slice(0,4),10)!==y){
+    const todayISO = new Date().toISOString().slice(0,10);
+    dateVal = (parseInt(todayISO.slice(0,4),10)===y) ? todayISO : `${y}-01-01`;
+    input.value = dateVal;
+  }
+
+  const onLeave = EMPLOYEES
+    .filter(e=> e.active!==false)
+    .map(emp=>{
+      const period = state.periods.find(p=> p.employeeId===emp.id && dateVal>=p.start && dateVal<=p.end);
+      return period ? {emp, period} : null;
+    })
+    .filter(Boolean)
+    .sort((a,b)=> a.emp.name.localeCompare(b.emp.name,'es'));
+
+  document.getElementById('onLeaveCount').textContent = onLeave.length;
+  const box = document.getElementById('onLeaveList');
+  if(!onLeave.length){
+    box.innerHTML = '<p class="onleave-empty">Nadie de vacaciones ese día.</p>';
+    return;
+  }
+  box.innerHTML = onLeave.map(({emp,period})=>{
+    const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
+    return `<div class="onleave-item"><b>${emp.name}</b><small>${unit} · ${fmtRange(period.start,period.end)}</small></div>`;
+  }).join('');
+}
+document.getElementById('onLeaveDate').oninput = renderOnLeave;
 
 /* ═══════════════════ REGISTRO DE REGLAS ACTIVAS (siempre actualizado) ═══════════════════ */
 function renderRulesLog(){

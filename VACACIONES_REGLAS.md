@@ -165,6 +165,10 @@ Todo lo relacionado con reglas y con qué se ve en el calendario vive agrupado a
 
 ### Barra lateral — otras secciones
 
+- **🏖️ ¿Quién está de vacaciones?**: panel destacado en amarillo, arriba del todo, para control visual
+  rápido. Por defecto muestra la fecha de hoy; se puede cambiar a cualquier otra fecha del año que se esté
+  viendo, y lista a quién le toca vacaciones ese día (nombre, unidad y el rango completo del periodo), con
+  un contador junto al título.
 - **Leyenda**: qué significa cada color de barra (periodo 1º, 2º, 3º...) y cada icono (🔁 comodín, 🚫 sin
   sustituto, 🔗 tiene pareja incompatible, rayado = fecha bloqueada, rojo = exceso de cobertura).
 - **Resumen de días**: lista de todos los empleados con los días de vacaciones ya asignados frente a su
