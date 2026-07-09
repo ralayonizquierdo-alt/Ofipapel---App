@@ -65,6 +65,22 @@ vacaciones a la vez** — si lo intentas, la app lo bloquea directamente (no es 
 - **María Luz Gómez Rufiangel ↔ Roberto Correa Hernández** — se cubren mutuamente los clientes.
 - **Haridian Fumero Benítez ↔ Javier Iguarán Martínez** — se cubren mutuamente los clientes.
 
+### Pareja que sí debe coincidir (regla contraria, nueva)
+
+Al contrario que las anteriores, hay una pareja que **siempre debe salir de vacaciones junta**:
+
+- **Javier Iguarán Martínez ↔ Rosa María Brito Morales** — 💑 en el nombre de ambos en la cuadrícula, el
+  listado de empleados y la hoja impresa.
+
+Esta regla no bloquea nada (no impide guardar fechas distintas), pero:
+- Al crear o editar un periodo para uno de los dos, si las fechas no coinciden con las que ya tiene su pareja
+  la app muestra un aviso informativo (azul) recordándolo — no impide guardar.
+- El **generador automático** intenta primero repetir para cada uno las fechas ya asignadas a su pareja antes
+  de mirar sus preferencias propias o buscar hueco libre; si sobran días por asignar tras eso, sigue con el
+  reparto habitual.
+- Se ve también en el "Registro de reglas activas" del panel lateral, en su propio apartado ("Parejas que
+  salen juntas 💑"), separado del de parejas incompatibles.
+
 Además, tres comerciales están marcados como **"sin sustituto"** (nadie cubre su cartera si faltan):
 **Felipe García Padrón**, **María Paz Rodríguez Deniz** y **Miguel Ramos Delgado**. De momento esto es solo
 informativo (icono 🚫 en el nombre) — la protección real sigue siendo el límite de cobertura de
@@ -228,8 +244,8 @@ Todo lo relacionado con reglas y con qué se ve en el calendario vive agrupado a
   *Procesar reglas de texto* (sintaxis `BLOQUEO:` / `PAREJA:` / `COBERTURA:` / `DIAS:`, detallada en la
   sección 8). Debajo aparece, línea por línea, qué se ha entendido y aplicado y qué no.
 - **Registro de reglas activas**: resumen de solo lectura, siempre actualizado, con todos los bloqueos,
-  límites de cobertura, parejas incompatibles, comodines y "sin sustituto" que hay cargados en este momento
-  — para revisar de un vistazo que todo está bien antes de imprimir o generar.
+  límites de cobertura, parejas incompatibles, parejas que salen juntas 💑, comodines y "sin sustituto" que
+  hay cargados en este momento — para revisar de un vistazo que todo está bien antes de imprimir o generar.
 
 ### Barra lateral — otras secciones
 
@@ -238,7 +254,8 @@ Todo lo relacionado con reglas y con qué se ve en el calendario vive agrupado a
   lista a quién le toca vacaciones **o permiso** ese día (nombre, unidad y el rango completo), marcando los
   permisos aparte, con un contador junto al título.
 - **Leyenda**: qué significa cada color de barra (periodo 1º, 2º, 3º...) y cada icono (🔁 comodín, 🚫 sin
-  sustituto, 🔗 tiene pareja incompatible, rayado = fecha bloqueada, rojo = exceso de cobertura).
+  sustituto, 🔗 tiene pareja incompatible, 💑 pareja que sale junta, rayado = fecha bloqueada, rojo = exceso
+  de cobertura).
 - **Resumen de días**: lista de todos los empleados con los días de vacaciones ya asignados frente a su
   total (ej. "18/30"), para ver de un vistazo a quién le queda mucho por coger.
 

@@ -172,6 +172,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 .modal .field{margin-bottom:10px;}
 .warn-box{background:#FFF6E5;border:1px solid #F5D68C;border-radius:8px;padding:8px 10px;font-size:.72rem;color:#8a5a00;margin-bottom:10px;}
 .err-box{background:#FDECEA;border:1px solid #F5B7B1;border-radius:8px;padding:8px 10px;font-size:.72rem;color:#a02c1f;margin-bottom:10px;}
+.info-box{background:#EAF2FD;border:1px solid #A9C9F5;border-radius:8px;padding:8px 10px;font-size:.72rem;color:#1a4d8a;margin-bottom:10px;}
 .modal-actions{display:flex;justify-content:space-between;margin-top:14px;gap:8px;}
 .modal-actions .left{display:flex;gap:8px;}
 .btn{padding:8px 14px;border-radius:7px;border:none;font-size:.8rem;font-weight:600;cursor:pointer;}
@@ -354,6 +355,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
         <div class="legend-item">🔁 Comodín: cambia de tienda/puesto según necesidad</div>
         <div class="legend-item">🚫 Sin sustituto (nadie cubre su puesto)</div>
         <div class="legend-item">🔗 Tiene pareja incompatible (no pueden coincidir)</div>
+        <div class="legend-item">💑 Pareja: suelen salir juntos de vacaciones</div>
       </div>
 
       <div>
@@ -655,9 +657,10 @@ function defaultState(){
     unitMax: Object.fromEntries(UNITS.map(u=>[u.id,u.defaultMax])),
     lastYearFlags: {},
     pairRules: [
-      {id:'pair1', empIds:['e19','e21'], label:'Fotocopiadora'},
-      {id:'pair2', empIds:['e13','e10'], label:'Cobertura mutua de clientes'},
-      {id:'pair3', empIds:['e11','e14'], label:'Cobertura mutua de clientes'},
+      {id:'pair1', empIds:['e19','e21'], label:'Fotocopiadora', mode:'excluir'},
+      {id:'pair2', empIds:['e13','e10'], label:'Cobertura mutua de clientes', mode:'excluir'},
+      {id:'pair3', empIds:['e11','e14'], label:'Cobertura mutua de clientes', mode:'excluir'},
+      {id:'pair4', empIds:['e14','e18'], label:'Pareja: siempre salen juntos de vacaciones', mode:'juntos'},
     ],
     employeePrefs: {},
     yearRulesText: '',
@@ -799,6 +802,21 @@ function effectiveDaysPerYear(emp){
 function findPairPartners(empId){
   const partners = [];
   for(const pr of state.pairRules){
+    if((pr.mode||'excluir')!=='excluir') continue;
+    if(pr.empIds.includes(empId)){
+      for(const other of pr.empIds){
+        if(other!==empId) partners.push({partnerId:other, label:pr.label});
+      }
+    }
+  }
+  return partners;
+}
+/* Parejas que, al contrario, deberían coincidir de vacaciones (ej. pareja sentimental). Solo es un aviso
+   informativo — nunca bloquea el guardado. */
+function findTogetherPartners(empId){
+  const partners = [];
+  for(const pr of state.pairRules){
+    if(pr.mode!=='juntos') continue;
     if(pr.empIds.includes(empId)){
       for(const other of pr.empIds){
         if(other!==empId) partners.push({partnerId:other, label:pr.label});
@@ -899,9 +917,19 @@ function renderRulesLog(){
     }).join('');
   }
 
+  const excluirPairs = state.pairRules.filter(pr=>(pr.mode||'excluir')==='excluir');
   html += '<span class="rules-log-cat">Parejas incompatibles</span>';
-  html += state.pairRules.length
-    ? state.pairRules.map(pr=>{
+  html += excluirPairs.length
+    ? excluirPairs.map(pr=>{
+        const names = pr.empIds.map(id=> (EMPLOYEES.find(e=>e.id===id)||{}).name || id).join(' ↔ ');
+        return `<div class="rules-log-item">${names} — ${pr.label}</div>`;
+      }).join('')
+    : '<div class="rules-log-item">Ninguna</div>';
+
+  const juntosPairs = state.pairRules.filter(pr=>pr.mode==='juntos');
+  html += '<span class="rules-log-cat">Parejas que salen juntas 💑</span>';
+  html += juntosPairs.length
+    ? juntosPairs.map(pr=>{
         const names = pr.empIds.map(id=> (EMPLOYEES.find(e=>e.id===id)||{}).name || id).join(' ↔ ');
         return `<div class="rules-log-item">${names} — ${pr.label}</div>`;
       }).join('')
@@ -1083,7 +1111,7 @@ function buildEmployeeRow(emp, y, n, totalW, gridDayIndices){
   const used = state.periods.filter(p=>p.employeeId===emp.id)
     .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
   const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
-  const badges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'');
+  const badges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'');
   nameCell.title = emp.note || '';
   nameCell.innerHTML = `<b>${emp.name}${badges}</b><span>${used}/${effectiveDaysPerYear(emp)} días · ${senLabel}</span>`;
   row.appendChild(nameCell);
@@ -1394,6 +1422,18 @@ function validateModal(emp){
     overrideRow.style.display='flex';
     saveBtn.disabled = !document.getElementById('pmOverrideCheck').checked;
   }
+  // pareja que sale junta (informativo, no bloquea)
+  const togetherPartners = findTogetherPartners(emp.id);
+  for(const tp of togetherPartners){
+    const partnerEmp = EMPLOYEES.find(e=>e.id===tp.partnerId);
+    if(!partnerEmp) continue;
+    const partnerPeriods = state.periods.filter(p=>p.employeeId===tp.partnerId);
+    const matches = partnerPeriods.some(p=> p.start===start && p.end===end);
+    if(!matches){
+      warnBox.innerHTML += `<div class="info-box">💑 ${partnerEmp.name} suele salir de vacaciones junto con ${emp.name}
+        (${tp.label}). ${partnerPeriods.length ? 'Sus periodos actuales no coinciden con este rango.' : 'Todavía no tiene periodos asignados.'}</div>`;
+    }
+  }
 }
 
 function savePeriod(emp){
@@ -1416,7 +1456,7 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 let editingEmployeeId = null;
 
 function empBadgeText(emp){
-  return (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (emp.active===false?' · DE BAJA':'');
+  return (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (emp.active===false?' · DE BAJA':'');
 }
 
 function renderEmployeeList(){
@@ -1786,7 +1826,19 @@ function generatePlan(){
   for(const emp of targets){
     const prefText = (state.employeePrefs[emp.id]||{}).preferredText || '';
     const ranges = parsePreferredRanges(prefText, y);
-    let daysPlaced = 0, fromPrefs = 0, fromFallback = 0;
+    let daysPlaced = 0, fromPrefs = 0, fromFallback = 0, fromPartner = 0;
+
+    // pareja que sale junta: intenta replicar primero las fechas ya asignadas a su pareja
+    for(const {partnerId} of findTogetherPartners(emp.id)){
+      const partnerPeriods = state.periods.filter(p=>p.employeeId===partnerId);
+      for(const pp of partnerPeriods){
+        const s = isoToIndex(y, pp.start), e = isoToIndex(y, pp.end);
+        if(!rangeOk(emp, s, e, y)) continue;
+        state.periods.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6), employeeId:emp.id, start:pp.start, end:pp.end});
+        daysPlaced += e-s+1;
+        fromPartner++;
+      }
+    }
 
     for(const r of ranges){
       const placed = tryPlaceRange(emp, r, y);
@@ -1814,8 +1866,12 @@ function generatePlan(){
       failedLines.push(emp.name);
     } else {
       const complete = daysPlaced>=targetDays;
+      const parts = [];
+      if(fromPartner) parts.push(`${fromPartner} en pareja 💑`);
+      if(fromPrefs) parts.push(`${fromPrefs} preferido(s)`);
+      if(fromFallback) parts.push(`${fromFallback} automático(s)`);
       assignedLines.push(`${emp.name} — ${daysPlaced}/${targetDays} días asignados`
-        + (fromPrefs?` (${fromPrefs} preferido(s)`+(fromFallback?` + ${fromFallback} automático(s))`:`)`):(fromFallback?` (${fromFallback} automático(s))`:``))
+        + (parts.length?` (${parts.join(' + ')})`:``)
         + (complete?'.':' — no hay más hueco disponible, revisar a mano.'));
     }
   }
@@ -2191,7 +2247,7 @@ function buildPrintArea(){
     for(const emp of emps){
       const row = document.createElement('div'); row.className='p-emp-row';
       const nameCell = document.createElement('div'); nameCell.className='p-name';
-      const pBadges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'');
+      const pBadges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'');
       nameCell.textContent = emp.name + pBadges;
       row.appendChild(nameCell);
 
