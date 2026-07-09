@@ -428,19 +428,30 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 </div>
 
 <div class="overlay" id="holidaysOverlay">
-  <div class="modal" style="width:560px;max-height:88vh;display:flex;flex-direction:column;">
+  <div class="modal" style="width:640px;max-height:88vh;display:flex;flex-direction:column;">
     <h3>Festivos trabajados</h3>
     <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
       Festivos nacionales/locales en los que la tienda abre en horario reducido. A quien asignes como
       trabajador de un festivo se le suma automáticamente <b>1 día</b> a su total de vacaciones del año,
       como compensación.
     </p>
-    <div id="holidaysList" style="max-height:320px;overflow-y:auto;margin-bottom:12px;"></div>
+    <div id="holidaysList" style="max-height:280px;overflow-y:auto;margin-bottom:12px;"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
       <div class="field" style="flex:1;min-width:110px;"><label>Fecha</label><input type="date" id="hNewDate"></div>
       <div class="field" style="flex:2;min-width:140px;"><label>Festividad</label><input type="text" id="hNewName" placeholder="Ej: La Candelaria"></div>
       <div class="field" style="flex:1;min-width:90px;"><label>Tienda</label><input type="text" id="hNewTienda" placeholder="Ej: Aliz-1"></div>
       <button class="mini-btn" id="btnAddHoliday" style="margin-bottom:8px;">+ Añadir</button>
+    </div>
+    <div style="border-top:1px solid #e4e8e1;margin-top:6px;padding-top:10px;">
+      <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--verde);font-weight:700;margin-bottom:6px;">
+        Registro de compensaciones — qué día se compensó, cuándo y cómo
+      </div>
+      <p style="font-size:.7rem;color:var(--texto2);margin-bottom:8px;">
+        Marca cada festivo trabajado como "Compensado" en cuanto la persona disfrute ese día de más, indicando
+        si se lo llevó como vacaciones o como permiso y en qué fecha. Así queda constancia de que ya se le dio,
+        y no se le vuelve a dar dos veces.
+      </p>
+      <div id="compensationsSummary" style="max-height:200px;overflow-y:auto;"></div>
     </div>
     <div class="modal-actions">
       <div></div>
@@ -2018,6 +2029,7 @@ function renderHolidaysList(){
   const sorted = [...state.holidaysWorked].sort((a,b)=>a.date.localeCompare(b.date));
   const activeEmps = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
   for(const h of sorted){
+    h.comp = h.comp || {};
     const card = document.createElement('div'); card.className='block-item';
     card.style.cssText='display:block;padding:8px 10px;';
     const dateLabel = fmtDate(new Date(h.date+'T00:00:00Z'));
@@ -2031,15 +2043,44 @@ function renderHolidaysList(){
       sel.innerHTML = '<option value="">— sin asignar —</option>' + activeEmps.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
       sel.value = h.empIds[slot] || '';
       sel.onchange = ()=>{
+        const oldId = h.empIds[slot];
         const newIds = [h.empIds[0]||'', h.empIds[1]||''];
         newIds[slot] = sel.value;
         h.empIds = newIds.filter(Boolean);
+        if(oldId && !h.empIds.includes(oldId)) delete h.comp[oldId];
         render();
         renderHolidaysList();
       };
       selsWrap.appendChild(sel);
     }
     card.appendChild(selsWrap);
+
+    const compWrap = document.createElement('div'); compWrap.style.cssText='margin-top:8px;display:flex;flex-direction:column;gap:6px;';
+    for(const empId of h.empIds){
+      const emp = EMPLOYEES.find(e=>e.id===empId);
+      if(!emp) continue;
+      const c = h.comp[empId] || null;
+      const key = h.id+'|'+empId;
+      const row = document.createElement('div');
+      row.style.cssText='background:#F7F9F6;border:1px solid #e4e8e1;border-radius:6px;padding:6px 8px;font-size:.72rem;';
+      row.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+        <span>${emp.name}</span>
+        <label style="display:flex;align-items:center;gap:4px;font-weight:600;white-space:nowrap;color:${c?'#0a6e4a':'#8a5a00'};">
+          <input type="checkbox" data-compchk="${key}" ${c?'checked':''}> ${c?'Compensado':'Pendiente'}
+        </label>
+      </div>
+      <div style="display:${c?'flex':'none'};gap:6px;margin-top:6px;flex-wrap:wrap;">
+        <select data-comptipo="${key}" style="flex:1;min-width:120px;padding:3px;">
+          <option value="vacaciones" ${(!c||c.tipo==='vacaciones')?'selected':''}>Día de vacaciones</option>
+          <option value="permiso" ${c&&c.tipo==='permiso'?'selected':''}>Día de permiso</option>
+        </select>
+        <input type="date" data-compfecha="${key}" value="${c&&c.fecha?c.fecha:''}" style="flex:1;min-width:120px;padding:3px;">
+        <input type="text" data-compnota="${key}" placeholder="Nota (opcional)" value="${c&&c.nota?c.nota.replace(/"/g,'&quot;'):''}" style="flex:2;min-width:120px;padding:3px;">
+      </div>`;
+      compWrap.appendChild(row);
+    }
+    if(compWrap.children.length) card.appendChild(compWrap);
+
     card.querySelector('[data-del]').onclick = ()=>{
       state.holidaysWorked = state.holidaysWorked.filter(x=>x.id!==h.id);
       render();
@@ -2048,6 +2089,81 @@ function renderHolidaysList(){
     box.appendChild(card);
   }
   if(!sorted.length) box.innerHTML = '<p style="font-size:.75rem;color:var(--texto2);">No hay festivos cargados.</p>';
+
+  box.querySelectorAll('[data-compchk]').forEach(chk=>{
+    chk.onchange = ()=>{
+      const [hid, empId] = chk.dataset.compchk.split('|');
+      const h2 = state.holidaysWorked.find(x=>x.id===hid);
+      if(!h2) return;
+      h2.comp = h2.comp || {};
+      if(chk.checked) h2.comp[empId] = h2.comp[empId] || {tipo:'vacaciones', fecha:'', nota:''};
+      else delete h2.comp[empId];
+      saveState();
+      renderHolidaysList();
+    };
+  });
+  box.querySelectorAll('[data-comptipo]').forEach(sel=>{
+    sel.onchange = ()=>{
+      const [hid, empId] = sel.dataset.comptipo.split('|');
+      const h2 = state.holidaysWorked.find(x=>x.id===hid);
+      if(!h2 || !h2.comp || !h2.comp[empId]) return;
+      h2.comp[empId].tipo = sel.value;
+      saveState();
+      renderCompensationsSummary();
+    };
+  });
+  box.querySelectorAll('[data-compfecha]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const [hid, empId] = inp.dataset.compfecha.split('|');
+      const h2 = state.holidaysWorked.find(x=>x.id===hid);
+      if(!h2 || !h2.comp || !h2.comp[empId]) return;
+      h2.comp[empId].fecha = inp.value;
+      saveState();
+      renderCompensationsSummary();
+    };
+  });
+  box.querySelectorAll('[data-compnota]').forEach(inp=>{
+    inp.oninput = ()=>{
+      const [hid, empId] = inp.dataset.compnota.split('|');
+      const h2 = state.holidaysWorked.find(x=>x.id===hid);
+      if(!h2 || !h2.comp || !h2.comp[empId]) return;
+      h2.comp[empId].nota = inp.value;
+      saveState();
+      renderCompensationsSummary();
+    };
+  });
+
+  renderCompensationsSummary();
+}
+
+function renderCompensationsSummary(){
+  const box = document.getElementById('compensationsSummary');
+  if(!box) return;
+  const rows = [];
+  for(const h of state.holidaysWorked){
+    h.comp = h.comp || {};
+    for(const empId of h.empIds){
+      const emp = EMPLOYEES.find(e=>e.id===empId);
+      if(!emp) continue;
+      rows.push({emp, h, c: h.comp[empId]||null});
+    }
+  }
+  if(!rows.length){
+    box.innerHTML = '<p style="font-size:.72rem;color:var(--texto2);">Todavía no hay festivos trabajados asignados a nadie.</p>';
+    return;
+  }
+  rows.sort((a,b)=> a.emp.name.localeCompare(b.emp.name,'es') || a.h.date.localeCompare(b.h.date));
+  box.innerHTML = rows.map(({emp,h,c})=>{
+    const dateLabel = fmtDate(new Date(h.date+'T00:00:00Z'));
+    if(c){
+      const tipoLabel = c.tipo==='permiso' ? 'día de permiso' : 'día de vacaciones';
+      const compDateLabel = c.fecha ? fmtDate(new Date(c.fecha+'T00:00:00Z')) : '(sin fecha indicada)';
+      return `<div class="onleave-item"><b>${emp.name} <span style="color:#0a6e4a;">✔ Compensado</span></b>
+        <small>${h.festividad} (${dateLabel}) → se lo llevó como ${tipoLabel} el ${compDateLabel}${c.nota?' · '+c.nota:''}</small></div>`;
+    }
+    return `<div class="onleave-item"><b>${emp.name} <span style="color:#8a5a00;">⏳ Pendiente</span></b>
+      <small>${h.festividad} (${dateLabel}) — todavía no se ha marcado cómo se compensó</small></div>`;
+  }).join('');
 }
 document.getElementById('btnHolidays').onclick = ()=>{ renderHolidaysList(); openModal('holidaysOverlay'); };
 document.getElementById('holidaysClose').onclick = ()=> closeModal('holidaysOverlay');
