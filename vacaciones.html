@@ -356,6 +356,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
         <div class="legend-item">🚫 Sin sustituto (nadie cubre su puesto)</div>
         <div class="legend-item">🔗 Tiene pareja incompatible (no pueden coincidir)</div>
         <div class="legend-item">💑 Pareja: suelen salir juntos de vacaciones</div>
+        <div class="legend-item">📌 Tiene fechas de vacaciones fijas todos los años</div>
       </div>
 
       <div>
@@ -515,6 +516,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <div class="field"><label>Días de vacaciones al año</label><input type="text" id="ecDays" inputmode="numeric"></div>
       <div class="field" id="ecHolidayNote" style="display:none;font-size:.72rem;color:var(--texto2);"></div>
       <div class="field"><label>Fechas preferidas (para el generador automático, formato DD/MM-DD/MM, separadas por comas)</label><input type="text" id="ecPrefs" placeholder="Ej: 15/07-29/07, 01/10-15/10"></div>
+      <div class="check-row"><input type="checkbox" id="ecPrefsFixed"><label for="ecPrefsFixed">📌 Son fechas fijas todos los años (no solo preferidas): el generador no las mueve aunque haya que revisarlas a mano</label></div>
       <div class="field"><label>Particularidades / notas</label><input type="text" id="ecNote" placeholder="Ej: acuerdo previo, restricción médica..."></div>
       <div class="field"><label>Turno de sábado</label>
         <select id="ecSaturdayGroup">
@@ -680,7 +682,9 @@ function defaultState(){
       {id:'pair3', empIds:['e11','e14'], label:'Cobertura mutua de clientes', mode:'excluir'},
       {id:'pair4', empIds:['e14','e18'], label:'Pareja: siempre salen juntos de vacaciones', mode:'juntos'},
     ],
-    employeePrefs: {},
+    employeePrefs: {
+      e31: {preferredText: '01/07-15/07', fixed: true},
+    },
     yearRulesText: '',
     holidaysWorked: [
       {id:'h1', date:'2026-02-02', festividad:'La Candelaria', tienda:'Aliz-1', empIds:[]},
@@ -694,12 +698,25 @@ function defaultState(){
     permisos: [],
   };
 }
+/* Migraciones puntuales para datos ya guardados en el navegador del usuario, sin tener que resetear
+   todo el localStorage (que borraría periodos, permisos, etc. ya cargados) cada vez que se precarga
+   una regla nueva. Cada migración solo se aplica una vez (se marca en state._migrations). */
+function applyMigrations(state){
+  state._migrations = state._migrations || {};
+  if(!state._migrations.fixedPrefCandelariaFumero){
+    if(!state.employeePrefs.e31){
+      state.employeePrefs.e31 = {preferredText:'01/07-15/07', fixed:true};
+    }
+    state._migrations.fixedPrefCandelariaFumero = true;
+  }
+  return state;
+}
 function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw) return Object.assign(defaultState(), JSON.parse(raw));
+    if(raw) return applyMigrations(Object.assign(defaultState(), JSON.parse(raw)));
   }catch(e){}
-  return defaultState();
+  return applyMigrations(defaultState());
 }
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
@@ -843,6 +860,9 @@ function findTogetherPartners(empId){
   }
   return partners;
 }
+function hasFixedPref(empId){
+  return !!(state.employeePrefs[empId] && state.employeePrefs[empId].fixed && state.employeePrefs[empId].preferredText);
+}
 function pairOverlapConflict(empId, startISO, endISO, excludePeriodId){
   for(const {partnerId, label} of findPairPartners(empId)){
     const overlap = state.periods.find(p=> p.employeeId===partnerId && p.id!==excludePeriodId && !(endISO<p.start || startISO>p.end));
@@ -953,6 +973,12 @@ function renderRulesLog(){
         const names = pr.empIds.map(id=> (EMPLOYEES.find(e=>e.id===id)||{}).name || id).join(' ↔ ');
         return `<div class="rules-log-item">${names} — ${pr.label}</div>`;
       }).join('')
+    : '<div class="rules-log-item">Ninguna</div>';
+
+  const fixedPrefEmps = EMPLOYEES.filter(e=>e.active!==false && hasFixedPref(e.id));
+  html += '<span class="rules-log-cat">Vacaciones fijas cada año 📌</span>';
+  html += fixedPrefEmps.length
+    ? fixedPrefEmps.map(e=>`<div class="rules-log-item">${e.name} — ${state.employeePrefs[e.id].preferredText}</div>`).join('')
     : '<div class="rules-log-item">Ninguna</div>';
 
   const floaters = EMPLOYEES.filter(e=>e.active!==false && e.floater);
@@ -1131,7 +1157,7 @@ function buildEmployeeRow(emp, y, n, totalW, gridDayIndices){
   const used = state.periods.filter(p=>p.employeeId===emp.id)
     .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
   const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
-  const badges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'');
+  const badges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (hasFixedPref(emp.id)?' 📌':'');
   nameCell.title = emp.note || '';
   nameCell.innerHTML = `<b>${emp.name}${badges}</b><span>${used}/${effectiveDaysPerYear(emp)} días · ${senLabel}</span>`;
   row.appendChild(nameCell);
@@ -1454,6 +1480,16 @@ function validateModal(emp){
         (${tp.label}). ${partnerPeriods.length ? 'Sus periodos actuales no coinciden con este rango.' : 'Todavía no tiene periodos asignados.'}</div>`;
     }
   }
+  // vacaciones fijas todos los años (informativo, no bloquea)
+  if(hasFixedPref(emp.id)){
+    const fixedRanges = parsePreferredRanges(state.employeePrefs[emp.id].preferredText, y);
+    const matchesFixed = fixedRanges.some(r=> r.start===start && r.end===end);
+    if(!matchesFixed && fixedRanges.length){
+      const rangesLabel = fixedRanges.map(r=>fmtRange(r.start,r.end)).join(', ');
+      warnBox.innerHTML += `<div class="info-box">📌 ${emp.name} tiene fechas de vacaciones fijas todos los años (${rangesLabel})
+        y este rango no coincide. Comprueba que esas fechas fijas estén asignadas en otro periodo.</div>`;
+    }
+  }
 }
 
 function savePeriod(emp){
@@ -1476,7 +1512,7 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 let editingEmployeeId = null;
 
 function empBadgeText(emp){
-  return (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (emp.active===false?' · DE BAJA':'');
+  return (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (hasFixedPref(emp.id)?' 📌':'') + (emp.active===false?' · DE BAJA':'');
 }
 
 function renderEmployeeList(){
@@ -1536,6 +1572,7 @@ function openEmployeeCard(empId){
     holNote.style.display='none';
   }
   document.getElementById('ecPrefs').value = emp ? ((state.employeePrefs[emp.id]||{}).preferredText || '') : '';
+  document.getElementById('ecPrefsFixed').checked = emp ? !!(state.employeePrefs[emp.id]||{}).fixed : false;
   document.getElementById('ecNote').value = emp ? (emp.note||'') : '';
   document.getElementById('ecSaturdayGroup').value = emp ? (emp.saturdayGroup||'') : '';
   document.getElementById('ecFloater').checked = emp ? !!emp.floater : false;
@@ -1566,6 +1603,7 @@ document.getElementById('ecSave').onclick = ()=>{
   const daysRaw = document.getElementById('ecDays').value.trim();
   const daysPerYear = parseInt(daysRaw,10);
   const prefsText = document.getElementById('ecPrefs').value.trim();
+  const prefsFixed = document.getElementById('ecPrefsFixed').checked;
   const note = document.getElementById('ecNote').value.trim();
   const saturdayGroup = document.getElementById('ecSaturdayGroup').value;
   const floater = document.getElementById('ecFloater').checked;
@@ -1588,7 +1626,7 @@ document.getElementById('ecSave').onclick = ()=>{
   if(sinSustituto) emp.sinSustituto = true; else delete emp.sinSustituto;
   emp.active = active;
 
-  if(prefsText) state.employeePrefs[emp.id] = {preferredText: prefsText};
+  if(prefsText) state.employeePrefs[emp.id] = {preferredText: prefsText, fixed: prefsFixed};
   else delete state.employeePrefs[emp.id];
 
   showToast('Ficha guardada: '+name);
@@ -1783,6 +1821,13 @@ function tryPlaceRange(emp, range, y){
   }
   return null;
 }
+/* Para fechas FIJAS (no solo preferidas): no se desplazan ni un día — o entran exactas o se deja para
+   revisión manual, a diferencia de tryPlaceRange que nudgea ±1..6 días si hay conflicto. */
+function tryPlaceRangeExact(emp, range, y){
+  const s = isoToIndex(y, range.start), e = isoToIndex(y, range.end);
+  if(rangeOk(emp, s, e, y)) return {start: range.start, end: range.end};
+  return null;
+}
 /* Nº de personas de TODA la empresa que ya están fuera ese día — usado para repartir el generador
    por la fecha menos concurrida, en vez de siempre la primera libre (lo que amontonaba a todo el mundo
    a principios de enero). */
@@ -1845,11 +1890,11 @@ function generatePlan(){
 
   targets.sort((a,b)=> rotationScore(b) - rotationScore(a));
 
-  const assignedLines = [], failedLines = [];
+  const assignedLines = [], failedLines = [], fixedFailedLines = [];
   for(const emp of targets){
-    const prefText = (state.employeePrefs[emp.id]||{}).preferredText || '';
-    const ranges = parsePreferredRanges(prefText, y);
-    let daysPlaced = 0, fromPrefs = 0, fromFallback = 0, fromPartner = 0;
+    const prefObj = state.employeePrefs[emp.id] || {};
+    const ranges = parsePreferredRanges(prefObj.preferredText || '', y);
+    let daysPlaced = 0, fromPrefs = 0, fromFallback = 0, fromPartner = 0, fromFixed = 0;
 
     // pareja que sale junta: intenta replicar primero las fechas ya asignadas a su pareja
     for(const {partnerId} of findTogetherPartners(emp.id)){
@@ -1864,11 +1909,13 @@ function generatePlan(){
     }
 
     for(const r of ranges){
-      const placed = tryPlaceRange(emp, r, y);
+      const placed = prefObj.fixed ? tryPlaceRangeExact(emp, r, y) : tryPlaceRange(emp, r, y);
       if(placed){
         state.periods.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6), employeeId:emp.id, start:placed.start, end:placed.end});
         daysPlaced += isoToIndex(y,placed.end)-isoToIndex(y,placed.start)+1;
-        fromPrefs++;
+        if(prefObj.fixed) fromFixed++; else fromPrefs++;
+      } else if(prefObj.fixed){
+        fixedFailedLines.push(`${emp.name} — ${fmtRange(r.start,r.end)}`);
       }
     }
 
@@ -1890,6 +1937,7 @@ function generatePlan(){
     } else {
       const complete = daysPlaced>=targetDays;
       const parts = [];
+      if(fromFixed) parts.push(`${fromFixed} fijo(s) 📌`);
       if(fromPartner) parts.push(`${fromPartner} en pareja 💑`);
       if(fromPrefs) parts.push(`${fromPrefs} preferido(s)`);
       if(fromFallback) parts.push(`${fromFallback} automático(s)`);
@@ -1902,6 +1950,7 @@ function generatePlan(){
   render();
   const box = document.getElementById('generateReport');
   let html = `<div class="rules-log-item">✅ ${assignedLines.length} empleado(s) con algo asignado, sobre ${targets.length}.</div>`;
+  if(fixedFailedLines.length) html += `<div class="rules-log-item">📌⚠ No se pudieron respetar estas fechas FIJAS (conflicto de cobertura o bloqueo): ${fixedFailedLines.join('; ')}. Revisar a mano.</div>`;
   if(failedLines.length) html += `<div class="rules-log-item">⚠ Sin ningún hueco disponible para: ${failedLines.join(', ')}. Requieren asignación manual.</div>`;
   html += assignedLines.map(l=>`<div class="rules-log-item">• ${l}</div>`).join('');
   box.innerHTML = html;
@@ -2375,7 +2424,7 @@ function buildPrintArea(){
     for(const emp of emps){
       const row = document.createElement('div'); row.className='p-emp-row';
       const nameCell = document.createElement('div'); nameCell.className='p-name';
-      const pBadges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'');
+      const pBadges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (hasFixedPref(emp.id)?' 📌':'');
       nameCell.textContent = emp.name + pBadges;
       row.appendChild(nameCell);
 

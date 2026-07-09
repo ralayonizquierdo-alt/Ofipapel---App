@@ -115,6 +115,14 @@ Comerciales (máx. 1 fuera a la vez), que ya evita que dos falten el mismo día.
   decidir cómo afecta eso al cálculo de cobertura.
 - Cualquier otra particularidad (restricción médica, acuerdo previo, etc.) se añade directamente en el
   campo "Particularidades / notas" de la ficha de cada persona — ya no hace falta tocar código.
+- **Vacaciones fijas cada año** 📌: **María Candelaria García Fumero** (Ofipapel · Informática) coge todos
+  los años del **1 al 15 de julio** fijo; los otros 15 días son a convenir cada año. Se ha precargado en su
+  ficha como "fecha preferida" marcada como **fija** (checkbox 📌 junto al campo de fechas preferidas): a
+  diferencia de una preferencia normal, el generador automático nunca la desplaza ni un día — o entra exacta
+  del 1 al 15 de julio, o se deja sin asignar y avisa en el informe para revisarlo a mano (una preferencia
+  normal sí se puede correr unos días si hay conflicto). El resto de sus 15 días se reparten igual que a
+  cualquier otra persona. Esta misma casilla "fecha fija" se puede usar para cualquier otro empleado que
+  tenga una fecha de vacaciones invariable año tras año.
 
 ## 8. Reglas de texto y generador automático (nuevo)
 
@@ -261,8 +269,8 @@ Todo lo relacionado con reglas y con qué se ve en el calendario vive agrupado a
   lista a quién le toca vacaciones **o permiso** ese día (nombre, unidad y el rango completo), marcando los
   permisos aparte, con un contador junto al título.
 - **Leyenda**: qué significa cada color de barra (periodo 1º, 2º, 3º...) y cada icono (🔁 comodín, 🚫 sin
-  sustituto, 🔗 tiene pareja incompatible, 💑 pareja que sale junta, rayado = fecha bloqueada, rojo = exceso
-  de cobertura).
+  sustituto, 🔗 tiene pareja incompatible, 💑 pareja que sale junta, 📌 fechas fijas cada año, rayado = fecha
+  bloqueada, rojo = exceso de cobertura).
 - **Resumen de días**: lista de todos los empleados con los días de vacaciones ya asignados frente a su
   total (ej. "18/30"), para ver de un vistazo a quién le queda mucho por coger.
 
