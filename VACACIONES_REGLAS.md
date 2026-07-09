@@ -160,6 +160,26 @@ quién cubre qué puesto los sábados.
   que no he podido verificar que funcione de forma fiable en este entorno, así que preferí la opción segura
   y sin dependencias.
 
+## 11. Permisos (nuevo, enlazado con la cobertura)
+
+Fechas puntuales de permiso, aparte de las vacaciones — se gestionan desde el botón **📋 Permisos**.
+
+- Al conceder un permiso (empleado, fechas, motivo) queda guardado en un **registro** ordenado
+  cronológicamente, con quién, unidad, fechas y motivo, y un botón para borrarlo.
+- **Está enlazado con las reglas de cobertura**: un permiso cuenta exactamente igual que un periodo de
+  vacaciones a la hora de calcular cuánta gente queda fuera de una unidad ese día. Esto significa que:
+  - Al ir a conceder un permiso, si esas fechas ya están justas de gente en su unidad (por vacaciones u
+    otros permisos), sale un aviso — no bloquea, pero avisa antes de confirmar.
+  - Si esas fechas coinciden con un sábado y el empleado tiene turno de sábado asignado, también avisa para
+    que se revise quién cubriría ese turno.
+  - El **mapa de calor de cobertura** del calendario principal y el **generador automático** de vacaciones
+    ya tienen en cuenta los permisos concedidos, así que no proponen fechas que dejarían una unidad
+    descubierta por culpa de un permiso ya dado.
+- No se puede conceder un permiso que se solape con otro permiso o con unas vacaciones ya asignadas a la
+  misma persona (bloqueo duro, evita duplicar fechas).
+- Los permisos también aparecen en el panel **"¿Quién está fuera?"** (ahora incluye vacaciones y permisos
+  juntos, marcados como "(permiso)") y en su mensaje de WhatsApp.
+
 ## Guía de la pantalla: qué hace cada parte
 
 Recorrido rápido de la interfaz, en el mismo orden en que aparece en pantalla, para que cualquiera pueda
@@ -176,6 +196,8 @@ usarla sin tener que preguntar.
   sábados (ver sección 10 de reglas).
 - **🎉 Festivos**: gestiona los festivos trabajados y a quién se le suma el día de compensación (ver
   sección 9 de reglas).
+- **📋 Permisos**: concede permisos puntuales y consulta el registro de los ya dados (ver sección 11 de
+  reglas).
 - **🖨 Vista previa**: abre la vista previa de impresión/PDF.
 
 ### Barra lateral — sección "⚙️ Reglas / Filtros"
@@ -211,10 +233,10 @@ Todo lo relacionado con reglas y con qué se ve en el calendario vive agrupado a
 
 ### Barra lateral — otras secciones
 
-- **🏖️ ¿Quién está de vacaciones?**: panel destacado en amarillo, arriba del todo, para control visual
-  rápido. Por defecto muestra la fecha de hoy; se puede cambiar a cualquier otra fecha del año que se esté
-  viendo, y lista a quién le toca vacaciones ese día (nombre, unidad y el rango completo del periodo), con
-  un contador junto al título.
+- **🏖️ ¿Quién está fuera?**: panel destacado en amarillo, arriba del todo, para control visual rápido. Por
+  defecto muestra la fecha de hoy; se puede cambiar a cualquier otra fecha del año que se esté viendo, y
+  lista a quién le toca vacaciones **o permiso** ese día (nombre, unidad y el rango completo), marcando los
+  permisos aparte, con un contador junto al título.
 - **Leyenda**: qué significa cada color de barra (periodo 1º, 2º, 3º...) y cada icono (🔁 comodín, 🚫 sin
   sustituto, 🔗 tiene pareja incompatible, rayado = fecha bloqueada, rojo = exceso de cobertura).
 - **Resumen de días**: lista de todos los empleados con los días de vacaciones ya asignados frente a su
@@ -264,8 +286,8 @@ Muestra a tamaño reducido cómo saldrá la hoja en papel (A3 apaisado) antes de
 *Imprimir* manda directamente a la impresora y *Guardar como PDF* abre el mismo cuadro de impresión del
 navegador para que elijas ahí el destino "Guardar como PDF" (un navegador no permite que una página lo
 preseleccione automáticamente). El botón *📱 WhatsApp* abre WhatsApp con un mensaje de texto ya escrito con
-quién está de vacaciones en la fecha seleccionada en el panel "¿Quién está de vacaciones?" — no envía la
-imagen del cuadrante, solo la lista en texto (ver nota sobre esto en la sección 10).
+quién está de vacaciones o con permiso en la fecha seleccionada en el panel "¿Quién está fuera?" — no envía
+la imagen del cuadrante, solo la lista en texto (ver nota sobre esto en la sección 10).
 
 ### Vista previa de Turnos de sábado
 

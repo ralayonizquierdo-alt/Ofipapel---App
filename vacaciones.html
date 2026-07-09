@@ -278,12 +278,13 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <button class="secondary" id="btnRotation">Prioridad rotación</button>
     <button class="secondary" id="btnSaturdays">🔄 Turnos sábado</button>
     <button class="secondary" id="btnHolidays">🎉 Festivos</button>
+    <button class="secondary" id="btnPermisos">📋 Permisos</button>
     <button id="btnPrint">🖨 Vista previa</button>
   </header>
   <div id="body">
     <aside id="sidebar">
       <div class="onleave-box">
-        <h2>🏖️ ¿Quién está de vacaciones? <span id="onLeaveCount"></span></h2>
+        <h2>🏖️ ¿Quién está fuera? <span id="onLeaveCount"></span></h2>
         <div class="field"><label>Fecha</label><input type="date" id="onLeaveDate"></div>
         <div id="onLeaveList"></div>
       </div>
@@ -442,6 +443,34 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <div class="modal-actions">
       <div></div>
       <button class="btn btn-ghost" id="holidaysClose">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="permisosOverlay">
+  <div class="modal" style="width:620px;max-height:88vh;display:flex;flex-direction:column;">
+    <h3>Permisos</h3>
+    <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
+      Fechas puntuales de permiso, aparte de las vacaciones. Cuentan igual que las vacaciones para la
+      cobertura de su unidad, así que aquí puedes comprobar antes de conceder uno si esas fechas ya están
+      justas de gente.
+    </p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="field" style="flex:2;min-width:170px;"><label>Empleado</label><select id="pmzEmp"></select></div>
+      <div class="field" style="flex:1;min-width:110px;"><label>Desde</label><input type="date" id="pmzStart"></div>
+      <div class="field" style="flex:1;min-width:110px;"><label>Hasta</label><input type="date" id="pmzEnd"></div>
+      <div class="field" style="flex:2;min-width:140px;"><label>Motivo</label><input type="text" id="pmzMotivo" placeholder="Ej: gestión personal"></div>
+    </div>
+    <div id="pmzWarnings"></div>
+    <button class="mini-btn-primary" id="btnAddPermiso" style="margin-bottom:14px;">+ Añadir permiso</button>
+
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--verde);font-weight:700;margin-bottom:6px;">
+      Registro de permisos concedidos
+    </div>
+    <div id="permisosList" style="overflow-y:auto;flex:1;"></div>
+    <div class="modal-actions">
+      <div></div>
+      <button class="btn btn-ghost" id="permisosClose">Cerrar</button>
     </div>
   </div>
 </div>
@@ -641,6 +670,7 @@ function defaultState(){
       {id:'h6', date:'2026-10-12', festividad:'Hispanidad',    tienda:'Aliz-1', empIds:[]},
       {id:'h7', date:'2026-12-08', festividad:'Inmaculada Concepción', tienda:'Aliz-1', empIds:[]},
     ],
+    permisos: [],
   };
 }
 function loadState(){
@@ -744,6 +774,11 @@ function absentCount(unitId, idx, y, excludePeriodId){
     if(!emp || emp.unitId!==unitId) continue;
     if(iso>=p.start && iso<=p.end) n++;
   }
+  for(const perm of state.permisos){
+    const emp = EMPLOYEES.find(e=>e.id===perm.employeeId);
+    if(!emp || emp.unitId!==unitId) continue;
+    if(iso>=perm.start && iso<=perm.end) n++;
+  }
   return n;
 }
 function unitCoverageForDay(unitId, idx, y, excludePeriodId){
@@ -805,6 +840,18 @@ function render(){
 }
 
 /* ═══════════════════ ¿QUIÉN ESTÁ DE VACACIONES? (control visual rápido) ═══════════════════ */
+function getOnLeaveItems(dateVal){
+  const items = [];
+  for(const emp of EMPLOYEES.filter(e=>e.active!==false)){
+    const period = state.periods.find(p=> p.employeeId===emp.id && dateVal>=p.start && dateVal<=p.end);
+    if(period) items.push({emp, range:period, tipo:'Vacaciones'});
+    const permiso = state.permisos.find(p=> p.employeeId===emp.id && dateVal>=p.start && dateVal<=p.end);
+    if(permiso) items.push({emp, range:permiso, tipo:'Permiso'});
+  }
+  items.sort((a,b)=> a.emp.name.localeCompare(b.emp.name,'es'));
+  return items;
+}
+
 function renderOnLeave(){
   const input = document.getElementById('onLeaveDate');
   const y = state.year;
@@ -815,24 +862,19 @@ function renderOnLeave(){
     input.value = dateVal;
   }
 
-  const onLeave = EMPLOYEES
-    .filter(e=> e.active!==false)
-    .map(emp=>{
-      const period = state.periods.find(p=> p.employeeId===emp.id && dateVal>=p.start && dateVal<=p.end);
-      return period ? {emp, period} : null;
-    })
-    .filter(Boolean)
-    .sort((a,b)=> a.emp.name.localeCompare(b.emp.name,'es'));
+  const items = getOnLeaveItems(dateVal);
 
-  document.getElementById('onLeaveCount').textContent = onLeave.length;
+  document.getElementById('onLeaveCount').textContent = items.length;
   const box = document.getElementById('onLeaveList');
-  if(!onLeave.length){
-    box.innerHTML = '<p class="onleave-empty">Nadie de vacaciones ese día.</p>';
+  if(!items.length){
+    box.innerHTML = '<p class="onleave-empty">Nadie de vacaciones ni con permiso ese día.</p>';
     return;
   }
-  box.innerHTML = onLeave.map(({emp,period})=>{
+  box.innerHTML = items.map(({emp,range,tipo})=>{
     const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
-    return `<div class="onleave-item"><b>${emp.name}</b><small>${unit} · ${fmtRange(period.start,period.end)}</small></div>`;
+    const tag = tipo==='Permiso' ? ' <span style="color:#8a5a00;font-weight:700;">(permiso)</span>' : '';
+    const motivo = (tipo==='Permiso' && range.motivo) ? ' · '+range.motivo : '';
+    return `<div class="onleave-item"><b>${emp.name}${tag}</b><small>${unit} · ${fmtRange(range.start,range.end)}${motivo}</small></div>`;
   }).join('');
 }
 document.getElementById('onLeaveDate').oninput = renderOnLeave;
@@ -1954,6 +1996,113 @@ document.getElementById('btnAddHoliday').onclick = ()=>{
   renderHolidaysList();
 };
 
+/* ═══════════════════ PERMISOS ═══════════════════ */
+function renderPermisosEmpSelect(){
+  const sel = document.getElementById('pmzEmp');
+  sel.innerHTML = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'))
+    .map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+}
+
+function validatePermisoForm(){
+  const empId = document.getElementById('pmzEmp').value;
+  const start = document.getElementById('pmzStart').value;
+  const end = document.getElementById('pmzEnd').value;
+  const box = document.getElementById('pmzWarnings');
+  const btn = document.getElementById('btnAddPermiso');
+  box.innerHTML = '';
+  btn.disabled = false;
+  if(!empId || !start || !end) return;
+  if(end<start){ box.innerHTML = '<div class="err-box">Rango de fechas no válido.</div>'; btn.disabled = true; return; }
+
+  const emp = EMPLOYEES.find(e=>e.id===empId);
+  if(!emp) return;
+  const y = state.year;
+
+  const ownPermOverlap = state.permisos.find(p=> p.employeeId===empId && !(end<p.start || start>p.end));
+  if(ownPermOverlap){
+    box.innerHTML = `<div class="err-box">Ya tiene un permiso concedido en ese rango (${fmtRange(ownPermOverlap.start,ownPermOverlap.end)}).</div>`;
+    btn.disabled = true; return;
+  }
+  const vacOverlap = state.periods.find(p=> p.employeeId===empId && !(end<p.start || start>p.end));
+  if(vacOverlap){
+    box.innerHTML = `<div class="err-box">Coincide con sus vacaciones (${fmtRange(vacOverlap.start,vacOverlap.end)}).</div>`;
+    btn.disabled = true; return;
+  }
+
+  const sIdx = Math.max(0, isoToIndex(y,start)), eIdx = Math.min(daysInYear(y)-1, isoToIndex(y,end));
+  let overDays=0, maxSeen=1, countSeen=0, hasSat=false;
+  for(let idx=sIdx; idx<=eIdx; idx++){
+    const {count,max} = unitCoverageForDay(emp.unitId, idx, y, null);
+    if(count+1>max){ overDays++; maxSeen=max; countSeen=count+1; }
+    if(dateFromIndex(y, idx).getUTCDay()===6) hasSat = true;
+  }
+  let html = '';
+  if(overDays>0){
+    const unitName = (UNITS.find(u=>u.id===emp.unitId)||{}).name;
+    html += `<div class="warn-box">⚠ Con este permiso, <b>${unitName}</b> quedaría con ${countSeen} persona(s) fuera
+      (máx. recomendado ${maxSeen}) en ${overDays} día(s). No se bloquea, pero revísalo antes de concederlo.</div>`;
+  }
+  if(hasSat && emp.saturdayGroup){
+    html += `<div class="warn-box">ℹ️ Incluye un sábado y ${emp.name} cubre turno de sábado
+      (Grupo ${emp.saturdayGroup}${emp.saturdayPost?', '+emp.saturdayPost:''}) — comprueba quién lo cubriría ese día.</div>`;
+  }
+  box.innerHTML = html;
+}
+document.getElementById('pmzEmp').onchange = validatePermisoForm;
+document.getElementById('pmzStart').oninput = validatePermisoForm;
+document.getElementById('pmzEnd').oninput = validatePermisoForm;
+
+function renderPermisosList(){
+  const box = document.getElementById('permisosList');
+  const sorted = [...state.permisos].sort((a,b)=> a.start.localeCompare(b.start));
+  if(!sorted.length){
+    box.innerHTML = '<p style="font-size:.75rem;color:var(--texto2);">No hay permisos registrados.</p>';
+    return;
+  }
+  box.innerHTML = sorted.map(p=>{
+    const emp = EMPLOYEES.find(e=>e.id===p.employeeId) || {name:'(empleado eliminado)', unitId:null};
+    const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
+    return `<div class="block-item" style="display:block;padding:8px 10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <b>${emp.name}</b>
+        <button data-delperm="${p.id}" style="background:none;border:none;color:var(--rojo);cursor:pointer;font-size:.85rem;">✕</button>
+      </div>
+      <small style="color:var(--texto2);">${unit} · ${fmtRange(p.start,p.end)}${p.motivo?' · '+p.motivo:''}</small>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('[data-delperm]').forEach(btn=>{
+    btn.onclick = ()=>{
+      state.permisos = state.permisos.filter(p=>p.id!==btn.dataset.delperm);
+      render();
+      renderPermisosList();
+    };
+  });
+}
+
+document.getElementById('btnPermisos').onclick = ()=>{
+  renderPermisosEmpSelect();
+  renderPermisosList();
+  document.getElementById('pmzStart').value = '';
+  document.getElementById('pmzEnd').value = '';
+  document.getElementById('pmzMotivo').value = '';
+  document.getElementById('pmzWarnings').innerHTML = '';
+  openModal('permisosOverlay');
+};
+document.getElementById('permisosClose').onclick = ()=> closeModal('permisosOverlay');
+document.getElementById('btnAddPermiso').onclick = ()=>{
+  const empId = document.getElementById('pmzEmp').value;
+  const start = document.getElementById('pmzStart').value;
+  const end = document.getElementById('pmzEnd').value;
+  const motivo = document.getElementById('pmzMotivo').value.trim();
+  if(!empId || !start || !end || end<start){ showToast('Completa empleado y un rango de fechas válido.'); return; }
+  state.permisos.push({id:'perm'+Date.now()+Math.random().toString(36).slice(2,5), employeeId:empId, start, end, motivo});
+  document.getElementById('pmzMotivo').value = '';
+  document.getElementById('pmzWarnings').innerHTML = '';
+  render();
+  renderPermisosList();
+  showToast('Permiso registrado.');
+};
+
 /* ═══════════════════ FILTROS / TOP BAR ═══════════════════ */
 document.getElementById('yearSelect').onchange = (e)=>{ state.year=parseInt(e.target.value,10); render(); };
 document.getElementById('btnToggleSidebar').onclick = ()=> document.getElementById('sidebar').classList.toggle('collapsed');
@@ -2233,18 +2382,16 @@ function shareTurnosWhatsapp(){
 }
 function shareVacationsWhatsapp(){
   const dateVal = document.getElementById('onLeaveDate').value || new Date().toISOString().slice(0,10);
-  const onLeave = EMPLOYEES.filter(e=>e.active!==false).map(emp=>{
-    const p = state.periods.find(pp=> pp.employeeId===emp.id && dateVal>=pp.start && dateVal<=pp.end);
-    return p ? {emp,p} : null;
-  }).filter(Boolean).sort((a,b)=> a.emp.name.localeCompare(b.emp.name,'es'));
+  const items = getOnLeaveItems(dateVal);
   const dateLabel = fmtDate(new Date(dateVal+'T00:00:00Z'));
-  let text = `🏖️ *Vacaciones Ofipapel — ${dateLabel}*\n\n`;
-  if(!onLeave.length){
-    text += 'Nadie de vacaciones ese día.';
+  let text = `🏖️ *Vacaciones y permisos Ofipapel — ${dateLabel}*\n\n`;
+  if(!items.length){
+    text += 'Nadie de vacaciones ni con permiso ese día.';
   } else {
-    for(const {emp,p} of onLeave){
+    for(const {emp,range,tipo} of items){
       const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
-      text += `• ${emp.name} (${unit}) — ${fmtRange(p.start,p.end)}\n`;
+      const tag = tipo==='Permiso' ? ' [PERMISO]' : '';
+      text += `• ${emp.name}${tag} (${unit}) — ${fmtRange(range.start,range.end)}\n`;
     }
   }
   openWhatsapp(text);
