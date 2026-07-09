@@ -4,7 +4,7 @@ Documento de referencia para revisar con el equipo. Recoge lo acordado hasta aho
 reglas, más una lista de posibles reglas adicionales a valorar. Los puntos marcados **[pendiente]** son
 los que aún faltan por cerrar.
 
-## 1. Empleados y unidades (plantilla real, 35 personas)
+## 1. Empleados y unidades (plantilla real, 36 personas)
 
 La plantilla ya no vive en el código: se edita desde la propia app (botón **👤 Empleados**), con una ficha
 por persona (unidad, antigüedad, días, particularidades, activo/baja). Esto es importante porque la
@@ -21,18 +21,20 @@ plantilla cambia con el tiempo — dar de baja a alguien no borra su historial, 
 | Dependientas | Ofipapel · Informática | 2 |
 | Pedidos | Pedidos | 2 |
 | Almacén | Almacén | 2 |
-| **Total** | | **35** |
+| Limpieza | Limpieza | 1 |
+| **Total** | | **36** |
 
-**[pendiente]** Apellidos de 5 personas nuevas/sustitutas: Manu (sustituye a Javier Blanco Suárez),
-Walter (sustituye a Manuel González Rodríguez), Fran (sustituye a Mario Ezequiel Ramírez Quiroz),
-Natalia y Jose (ambos nuevas incorporaciones). La antigüedad de estas 5 personas también queda pendiente
-(no hereda la de quien sustituyen, son personas distintas).
+Los 5 apellidos que faltaban se han resuelto cruzando con el Excel real (hoja "Turno SABADOS"):
+**Manu → Morales Álvarez, Manuel**; **Walter → Mendoza Acevedo, Walter**; **Fran → Herrera Martín,
+Francisco Javier**; **Natalia → García Reina, Natalia**; **Jose → García Vargas, José Manuel**. Su
+antigüedad sigue pendiente (no la heredan de quien sustituyen, son personas distintas).
 
-Se dio de baja permanente a Infante Santana, María Carmen — ya no aparece en el listado.
+Se dio de alta a **Ávila Ovando, Gladys Lastenia** (Limpieza), que aparecía en el Excel pero no en la
+plantilla anterior.
 
-En la tabla de antigüedad que pasaste aparecían tres personas más — Alayón Izquierdo, Luis David; Alayón
-Izquierdo, Roberto; y Alayón Melo, Luis — confirmado que son gerencia/propiedad y no participan de este
-cuadrante, así que quedan fuera de la plantilla.
+Se dio de baja permanente a Infante Santana, María Carmen — ya no aparece en el listado. Los tres Alayón
+de la tabla de antigüedad (Luis David, Roberto y Luis Melo) son gerencia/propiedad y no participan de este
+cuadrante.
 
 ## 2. Fechas bloqueadas para todos (no se puede pedir vacaciones)
 
@@ -120,6 +122,37 @@ Para no depender de que yo edite el código cada vez, ahora hay dos herramientas
   en vez de forzarlo. Se puede lanzar para toda la plantilla o solo para la unidad seleccionada en el
   filtro. El resultado siempre queda editable a mano después, como cualquier otro periodo.
 
+## 9. Festivos trabajados (nuevo)
+
+Basado en la hoja "FESTIVOS LABORABLES" del Excel: en ciertos festivos nacionales/locales, Aliz-1 (a veces
+las 3 tiendas) abre en horario reducido y necesita a 1-2 personas concretas trabajando.
+
+- **Cada festivo trabajado suma automáticamente 1 día** a los días de vacaciones totales de quien lo
+  trabaje ese año (compensación). Se ve reflejado al momento en el cuadrante, el resumen, la ficha y la
+  hoja impresa (ej. "0/31 días" en vez de "0/30" si esa persona tiene un festivo asignado).
+- Se han precargado las **7 fechas de 2026** que aparecían en la revisión más reciente del Excel (21/01/26):
+  La Candelaria (2 feb), Carnaval (17 feb), Jueves Santo (2 abr), Día de Canarias (30 may), Fiesta de Arona
+  (5 oct), Hispanidad (12 oct) e Inmaculada Concepción (8 dic) — **sin nadie asignado todavía**, porque el
+  Excel tenía nombres ambiguos entre dos "Cande" distintas y preferí dejarlo en blanco antes que adivinar
+  mal quién trabajó cada uno. Se asignan desde el botón **🎉 Festivos**.
+- Navidad (24 dic) y Fin de Año (31 dic) no se han incluido como festivo "compensable" porque en el Excel
+  son de "todos trabajan en horario reducido", no una asignación de 1-2 personas concretas — si querías que
+  también compensen, dímelo y los añado.
+
+## 10. Turnos de sábado (nuevo, panel aparte)
+
+Basado en la hoja "Turno SABADOS": una clasificación de apoyo (no un calendario semana a semana) para saber
+quién cubre qué puesto los sábados.
+
+- Cada empleado se puede marcar como **Grupo A** o **Grupo B**, con un campo de texto libre para el
+  "puesto a cubrir" (tienda, reparto, almacén...). Se edita desde el botón **🔄 Turnos sábado**.
+- Recordatorio del Excel, incluido como nota en el propio panel: no se pueden cambiar turnos con quien
+  encabeza cada tienda, y cualquier cambio de turno solo se admite por urgencia avisando con 15 días de
+  antelación.
+- **[pendiente]** No he precargado las asignaciones Grupo A/B reales porque la hoja de origen tenía las
+  columnas desalineadas y no pude mapear con seguridad quién iba en cada grupo — queda vacío, listo para
+  rellenar desde la app.
+
 ## Guía de la pantalla: qué hace cada parte
 
 Recorrido rápido de la interfaz, en el mismo orden en que aparece en pantalla, para que cualquiera pueda
@@ -127,11 +160,16 @@ usarla sin tener que preguntar.
 
 ### Cabecera
 
+- **☰**: pliega/despliega la barra lateral de Reglas y Filtros, para ganar espacio en pantalla.
 - **Selector de año**: cambia el año que se está viendo/editando. Cada año tiene su propio calendario y
   guarda sus propios periodos por separado.
 - **👤 Empleados**: abre la gestión de plantilla (altas, bajas y ficha de cada persona — ver más abajo).
 - **Prioridad rotación**: abre el panel de apoyo para decidir a quién le toca preferencia este año.
-- **🖨 Imprimir**: abre la vista previa de impresión/PDF.
+- **🔄 Turnos sábado**: clasificación de apoyo en Grupo A/B con el puesto que cubre cada persona los
+  sábados (ver sección 10 de reglas).
+- **🎉 Festivos**: gestiona los festivos trabajados y a quién se le suma el día de compensación (ver
+  sección 9 de reglas).
+- **🖨 Vista previa**: abre la vista previa de impresión/PDF.
 
 ### Barra lateral — sección "⚙️ Reglas / Filtros"
 
@@ -153,9 +191,10 @@ Todo lo relacionado con reglas y con qué se ve en el calendario vive agrupado a
 - **Fechas bloqueadas**: lista de rangos en los que nadie puede coger vacaciones (aparecen con rayado rosa
   en el calendario). El formulario de abajo (*Etiqueta*, *Desde*, *Hasta* en formato `MM-DD`) añade uno
   nuevo; la "✕" de cada tarjeta lo borra.
-- **Cobertura por unidad**: un campo numérico por unidad con el máximo de personas que pueden estar fuera
-  a la vez en esa unidad. Cambiarlo aquí afecta a todo el año (para una excepción solo en ciertas fechas, se
-  usa la regla de texto `COBERTURA:` con rango de fechas).
+- **Cobertura por unidad**: elige la unidad en el desplegable y ajusta su máximo de personas fuera a la vez
+  en el campo numérico de al lado (antes eran 9 campos siempre visibles; ahora solo se ve el de la unidad
+  seleccionada, ya que se toca poco). Cambiarlo aquí afecta a todo el año (para una excepción solo en
+  ciertas fechas, se usa la regla de texto `COBERTURA:` con rango de fechas).
 - **Reglas de texto**: cuadro para escribir reglas sueltas que se aplican de verdad al pulsar
   *Procesar reglas de texto* (sintaxis `BLOQUEO:` / `PAREJA:` / `COBERTURA:` / `DIAS:`, detallada en la
   sección 8). Debajo aparece, línea por línea, qué se ha entendido y aplicado y qué no.
@@ -176,8 +215,9 @@ Todo lo relacionado con reglas y con qué se ve en el calendario vive agrupado a
 
 ### El calendario (zona central)
 
-- Cada fila es un empleado; cada columna, un día del año. Los sábados y domingos aparecen sombreados en gris
-  para orientarse mejor.
+- Cada fila es un empleado; cada columna, un día del año. Los sábados y domingos aparecen sombreados en gris,
+  y hay una línea vertical cada 5 días (1, 6, 11, 16, 21, 26 de cada mes) igual que en el Excel original,
+  para que sea fácil ubicar una fecha de un vistazo.
 - **Arrastrar sobre una fila vacía** crea un periodo nuevo entre las dos fechas marcadas.
 - **Arrastrar el cuerpo de una barra ya creada** la mueve entera (mismas fechas, distinto sitio).
 - **Arrastrar por el borde izquierdo o derecho de una barra** cambia solo esa fecha (inicio o fin).
@@ -200,6 +240,17 @@ Ordena a toda la plantilla de mayor a menor prioridad (combinando antigüedad y 
 misma época el año pasado). La casilla de cada fila es precisamente para marcar eso — "tuvo esta época el
 año pasado" — de cara al año siguiente. Es solo orientativo, no asigna nada por sí solo.
 
+### Modal "Turnos sábado"
+
+Lista a todo el mundo agrupado por Grupo A / Grupo B / Sin asignar. En cada fila se elige el grupo y se
+escribe el puesto que cubre ese sábado — se guarda solo, no hace falta ningún botón de guardar.
+
+### Modal "Festivos"
+
+Una tarjeta por festivo (fecha, festividad, tienda) con dos desplegables para marcar qué 1-2 personas lo
+trabajaron ese año — al elegirlas se les suma automáticamente 1 día a su total de vacaciones. Abajo del
+todo hay un formulario para añadir festivos nuevos que no estén en la lista.
+
 ### Vista previa de impresión / PDF
 
 Muestra a tamaño reducido cómo saldrá la hoja en papel (A3 apaisado) antes de imprimir de verdad. Desde ahí,
@@ -220,12 +271,15 @@ preseleccione automáticamente).
   quien lo abre — no se comparten automáticamente entre varios ordenadores.
 - La plantilla, los periodos, las reglas y las preferencias ya se editan todos desde la propia app (fichas,
   formularios y el cuadro de reglas de texto) — ya no hace falta tocar código para el día a día.
-- Funcionalidades incluidas: calendario horizontal año completo con sábados/domingos sombreados,
-  pintar/editar/borrar periodos, aviso de choque con fechas bloqueadas y cobertura, bloqueo duro de parejas
-  incompatibles, gestión de empleados (alta/baja/ficha), reglas de texto procesables, registro de reglas
-  activas, generador automático (total o por unidad), prioridad de rotación, impresión/PDF en A3 apaisado
-  con vista previa.
+- Funcionalidades incluidas: calendario horizontal año completo con cuadrícula cada 5 días y
+  sábados/domingos sombreados, pintar/mover/estirar/borrar periodos arrastrando, aviso de choque con
+  fechas bloqueadas y cobertura, bloqueo duro de parejas incompatibles, gestión de empleados
+  (alta/baja/ficha), reglas de texto procesables, registro de reglas activas, generador automático (total
+  o por unidad), prioridad de rotación, turnos de sábado (Grupo A/B), festivos trabajados con compensación
+  automática de días, panel de "quién está de vacaciones hoy", impresión/PDF en A3 apaisado con vista
+  previa.
 - Lo que falta para pasar de prototipo a versión de uso diario: cerrar los puntos "[pendiente]" de este
-  documento (apellidos y antigüedad de las 5 personas nuevas, valores de cobertura por temporada), y
+  documento (apellidos y antigüedad de las 5 personas nuevas, asignaciones reales de Grupo A/B, valores de
+  cobertura por temporada, quién trabajó cada festivo), y
   decidir dónde vive el dato de forma permanente si más de una persona necesita editarlo a la vez
   (¿localStorage sigue siendo suficiente, o hace falta una base de datos compartida, como en `alquileres`?).

@@ -242,6 +242,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <select id="yearSelect"></select>
     <button class="secondary" id="btnEmployees">👤 Empleados</button>
     <button class="secondary" id="btnRotation">Prioridad rotación</button>
+    <button class="secondary" id="btnSaturdays">🔄 Turnos sábado</button>
+    <button class="secondary" id="btnHolidays">🎉 Festivos</button>
     <button id="btnPrint">🖨 Vista previa</button>
   </header>
   <div id="body">
@@ -291,7 +293,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
         <button class="mini-btn" id="btnAddBlock">+ Añadir bloqueo</button>
 
         <h3>Cobertura por unidad</h3>
-        <div id="unitLimits"></div>
+        <div class="field"><label>Unidad</label><select id="covUnitSelect"></select></div>
+        <div class="field"><label>Máx. personas de vacaciones a la vez</label><input type="text" id="covUnitMax" inputmode="numeric" style="width:70px;"></div>
 
         <h3>Reglas de texto (se procesan de verdad)</h3>
         <p class="hint">Una regla por línea. Reconocidas:<br>
@@ -367,6 +370,45 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   </div>
 </div>
 
+<div class="overlay" id="saturdayOverlay">
+  <div class="modal" style="width:520px;max-height:88vh;display:flex;flex-direction:column;">
+    <h3>Turnos de sábado</h3>
+    <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
+      Clasifica a cada persona en Grupo A o Grupo B según el puesto que cubre los sábados en tienda,
+      reparto, comerciales u oficinas. Es una clasificación de apoyo (no genera un calendario semana a
+      semana): recuerda que no se pueden cambiar turnos con quien encabeza cada tienda salvo urgencia,
+      avisando con 15 días de antelación.
+    </p>
+    <div id="saturdayList" style="overflow-y:auto;flex:1;"></div>
+    <div class="modal-actions">
+      <div></div>
+      <button class="btn btn-ghost" id="saturdayClose">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="holidaysOverlay">
+  <div class="modal" style="width:560px;max-height:88vh;display:flex;flex-direction:column;">
+    <h3>Festivos trabajados</h3>
+    <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
+      Festivos nacionales/locales en los que la tienda abre en horario reducido. A quien asignes como
+      trabajador de un festivo se le suma automáticamente <b>1 día</b> a su total de vacaciones del año,
+      como compensación.
+    </p>
+    <div id="holidaysList" style="max-height:320px;overflow-y:auto;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="field" style="flex:1;min-width:110px;"><label>Fecha</label><input type="date" id="hNewDate"></div>
+      <div class="field" style="flex:2;min-width:140px;"><label>Festividad</label><input type="text" id="hNewName" placeholder="Ej: La Candelaria"></div>
+      <div class="field" style="flex:1;min-width:90px;"><label>Tienda</label><input type="text" id="hNewTienda" placeholder="Ej: Aliz-1"></div>
+      <button class="mini-btn" id="btnAddHoliday" style="margin-bottom:8px;">+ Añadir</button>
+    </div>
+    <div class="modal-actions">
+      <div></div>
+      <button class="btn btn-ghost" id="holidaysClose">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="employeesOverlay">
   <div class="modal" style="width:560px;max-height:88vh;display:flex;flex-direction:column;">
     <div id="empListView">
@@ -392,6 +434,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <div class="field"><label>Unidad</label><select id="ecUnit"></select></div>
       <div class="field"><label>Año de antigüedad (dejar vacío si no se sabe)</label><input type="text" id="ecSeniority" placeholder="Ej: 2015" inputmode="numeric"></div>
       <div class="field"><label>Días de vacaciones al año</label><input type="text" id="ecDays" inputmode="numeric"></div>
+      <div class="field" id="ecHolidayNote" style="display:none;font-size:.72rem;color:var(--texto2);"></div>
       <div class="field"><label>Fechas preferidas (para el generador automático, formato DD/MM-DD/MM, separadas por comas)</label><input type="text" id="ecPrefs" placeholder="Ej: 15/07-29/07, 01/10-15/10"></div>
       <div class="field"><label>Particularidades / notas</label><input type="text" id="ecNote" placeholder="Ej: acuerdo previo, restricción médica..."></div>
       <div class="check-row"><input type="checkbox" id="ecFloater"><label for="ecFloater">🔁 Comodín: cambia de tienda/puesto según necesidad</label></div>
@@ -446,6 +489,7 @@ const UNITS = [
   {id:'aliz1',             name:'Aliz 1',                  group:'Dependientas',  defaultMax:1},
   {id:'ofipapel_detalle',  name:'Ofipapel · Detalle',      group:'Dependientas',  defaultMax:1},
   {id:'ofipapel_info',     name:'Ofipapel · Informática',  group:'Dependientas',  defaultMax:1},
+  {id:'limpieza',          name:'Limpieza',                group:'Limpieza',      defaultMax:1},
 ];
 
 /* Plantilla de partida — solo se usa para poblar state.employees la primera vez.
@@ -454,11 +498,11 @@ const EMPLOYEE_SEED = [
   // Repartidores
   {id:'e1', name:'Barroso Santos, Carlos Francisco', unitId:'repartidores', seniorityYear:2010, daysPerYear:30},
   {id:'e2', name:'Bermúdez Barreto, Julio', unitId:'repartidores', seniorityYear:1997, daysPerYear:30},
-  {id:'e3', name:'Manu (apellido pendiente)', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Javier Blanco Suárez'},
-  {id:'e4', name:'Walter (apellido pendiente)', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Manuel González Rodríguez'},
+  {id:'e3', name:'Morales Álvarez, Manuel', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Javier Blanco Suárez'},
+  {id:'e4', name:'Mendoza Acevedo, Walter', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Manuel González Rodríguez'},
   {id:'e5', name:'Martín Melo, Juan Antonio', unitId:'repartidores', seniorityYear:2001, daysPerYear:30},
   {id:'e6', name:'Ortiz Carmona, Antonio Manuel', unitId:'repartidores', seniorityYear:2016, daysPerYear:30},
-  {id:'e7', name:'Fran (apellido pendiente)', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Mario Ezequiel Ramírez Quiroz'},
+  {id:'e7', name:'Herrera Martín, Francisco Javier', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Mario Ezequiel Ramírez Quiroz'},
   {id:'e8', name:'Rodríguez Santos, Jesús Manuel', unitId:'repartidores', seniorityYear:2016, daysPerYear:30},
   {id:'e9', name:'Páez González, Nauzet', unitId:'repartidores', seniorityYear:2022, daysPerYear:30},
   // Comerciales (vendedores)
@@ -472,7 +516,7 @@ const EMPLOYEE_SEED = [
   // Ofipapel · Detalle
   {id:'e17', name:'Alayón Barrera, Herminia Mari', unitId:'ofipapel_detalle', seniorityYear:2005, daysPerYear:30},
   {id:'e18', name:'Brito Morales, Rosa María', unitId:'ofipapel_detalle', seniorityYear:2008, daysPerYear:30},
-  {id:'e19', name:'Natalia (apellido pendiente)', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:30, note:'Comparte el turno de la fotocopiadora con Dunia Delgado Valido: siempre debe quedar una de las dos'},
+  {id:'e19', name:'García Reina, Natalia', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:30, note:'Comparte el turno de la fotocopiadora con Dunia Delgado Valido: siempre debe quedar una de las dos'},
   {id:'e20', name:'Afonso García, María Ángeles', unitId:'ofipapel_detalle', seniorityYear:2022, daysPerYear:30, floater:true, note:'Comodín: suele cambiar de tienda según necesidad'},
   {id:'e21', name:'Delgado Valido, Dunia', unitId:'ofipapel_detalle', seniorityYear:2015, daysPerYear:30, note:'Comparte el turno de la fotocopiadora con Natalia: siempre debe quedar una de las dos'},
   // Oficina
@@ -494,11 +538,13 @@ const EMPLOYEE_SEED = [
   {id:'e33', name:'García Vázquez, Miguel Ángel', unitId:'pedidos', seniorityYear:2007, daysPerYear:30},
   // Almacén
   {id:'e34', name:'Hernández Páez, Miguel', unitId:'almacen', seniorityYear:2018, daysPerYear:30},
-  {id:'e35', name:'Jose (apellido pendiente)', unitId:'almacen', seniorityYear:null, daysPerYear:30, note:'Nuevo en el equipo'},
+  {id:'e35', name:'García Vargas, José Manuel', unitId:'almacen', seniorityYear:null, daysPerYear:30, note:'Nuevo en el equipo'},
+  // Limpieza
+  {id:'e36', name:'Ávila Ovando, Gladys Lastenia', unitId:'limpieza', seniorityYear:null, daysPerYear:30},
 ];
 
 /* ═══════════════════ ESTADO ═══════════════════ */
-const STORAGE_KEY = 'ofipapel_vacaciones_v3';
+const STORAGE_KEY = 'ofipapel_vacaciones_v4';
 let state = loadState();
 let EMPLOYEES = state.employees; // referencia viva: editar este array (altas/bajas/fichas) ya persiste, porque es el mismo objeto que state.employees
 
@@ -522,6 +568,15 @@ function defaultState(){
     ],
     employeePrefs: {},
     yearRulesText: '',
+    holidaysWorked: [
+      {id:'h1', date:'2026-02-02', festividad:'La Candelaria', tienda:'Aliz-1', empIds:[]},
+      {id:'h2', date:'2026-02-17', festividad:'Carnaval',      tienda:'Aliz-1', empIds:[]},
+      {id:'h3', date:'2026-04-02', festividad:'Jueves Santo',  tienda:'Aliz-1', empIds:[]},
+      {id:'h4', date:'2026-05-30', festividad:'Día de Canarias', tienda:'Aliz-1', empIds:[]},
+      {id:'h5', date:'2026-10-05', festividad:'Fiesta de Arona', tienda:'Aliz-1', empIds:[]},
+      {id:'h6', date:'2026-10-12', festividad:'Hispanidad',    tienda:'Aliz-1', empIds:[]},
+      {id:'h7', date:'2026-12-08', festividad:'Inmaculada Concepción', tienda:'Aliz-1', empIds:[]},
+    ],
   };
 }
 function loadState(){
@@ -631,6 +686,14 @@ function unitCoverageForDay(unitId, idx, y, excludePeriodId){
   const count = absentCount(unitId, idx, y, excludePeriodId);
   const max = effectiveMax(unitId, idx, y);
   return {count, max, over: count>max};
+}
+
+/* ═══════════════════ FESTIVOS TRABAJADOS (compensan +1 día cada uno) ═══════════════════ */
+function holidaysWorkedBy(empId){
+  return state.holidaysWorked.filter(h => h.empIds.includes(empId));
+}
+function effectiveDaysPerYear(emp){
+  return emp.daysPerYear + holidaysWorkedBy(emp.id).length;
 }
 
 /* ═══════════════════ PAREJAS INCOMPATIBLES (nunca pueden coincidir) ═══════════════════ */
@@ -793,23 +856,20 @@ function renderBlockList(){
 }
 
 function renderUnitLimits(){
-  const box = document.getElementById('unitLimits');
-  box.innerHTML='';
-  for(const u of UNITS){
-    const row=document.createElement('div'); row.className='field';
-    row.innerHTML = `<label>${u.name} — máx. fuera a la vez</label>`;
-    const inp=document.createElement('input'); inp.type='text'; inp.inputMode='numeric';
-    inp.style.width='60px';
-    inp.value = state.unitMax[u.id] ?? u.defaultMax;
-    inp.onchange = ()=>{
-      const v = parseInt(inp.value,10);
-      state.unitMax[u.id] = isNaN(v) ? u.defaultMax : Math.max(0,v);
-      render();
-    };
-    row.appendChild(inp);
-    box.appendChild(row);
+  const sel = document.getElementById('covUnitSelect');
+  if(!sel.options.length){
+    sel.innerHTML = UNITS.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
   }
+  const u = UNITS.find(x=>x.id===sel.value) || UNITS[0];
+  document.getElementById('covUnitMax').value = state.unitMax[u.id] ?? u.defaultMax;
 }
+document.getElementById('covUnitSelect').onchange = renderUnitLimits;
+document.getElementById('covUnitMax').onchange = ()=>{
+  const u = UNITS.find(x=>x.id===document.getElementById('covUnitSelect').value);
+  const v = parseInt(document.getElementById('covUnitMax').value,10);
+  state.unitMax[u.id] = isNaN(v) ? u.defaultMax : Math.max(0,v);
+  render();
+};
 
 function unitHasConflict(unitId, y){
   const n = daysInYear(y);
@@ -919,7 +979,7 @@ function buildEmployeeRow(emp, y, n, totalW, gridDayIndices){
   const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
   const badges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'');
   nameCell.title = emp.note || '';
-  nameCell.innerHTML = `<b>${emp.name}${badges}</b><span>${used}/${emp.daysPerYear} días · ${senLabel}</span>`;
+  nameCell.innerHTML = `<b>${emp.name}${badges}</b><span>${used}/${effectiveDaysPerYear(emp)} días · ${senLabel}</span>`;
   row.appendChild(nameCell);
 
   const track = document.createElement('div'); track.className='track';
@@ -1301,6 +1361,14 @@ function openEmployeeCard(empId){
   unitSel.value = emp ? emp.unitId : UNITS[0].id;
   document.getElementById('ecSeniority').value = (emp && emp.seniorityYear) ? emp.seniorityYear : '';
   document.getElementById('ecDays').value = emp ? emp.daysPerYear : 30;
+  const holNote = document.getElementById('ecHolidayNote');
+  const holCount = emp ? holidaysWorkedBy(emp.id).length : 0;
+  if(holCount){
+    holNote.style.display='block';
+    holNote.textContent = `+ ${holCount} día(s) por festivos trabajados = ${effectiveDaysPerYear(emp)} días en total este año.`;
+  } else {
+    holNote.style.display='none';
+  }
   document.getElementById('ecPrefs').value = emp ? ((state.employeePrefs[emp.id]||{}).preferredText || '') : '';
   document.getElementById('ecNote').value = emp ? (emp.note||'') : '';
   document.getElementById('ecFloater').checked = emp ? !!emp.floater : false;
@@ -1386,7 +1454,8 @@ function renderSummary(){
     const used = state.periods.filter(p=>p.employeeId===emp.id)
       .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
     const row = document.createElement('div'); row.className='summary-row';
-    row.innerHTML = `<span>${emp.name}</span><b>${used}/${emp.daysPerYear}</b>`;
+    const holWorked = holidaysWorkedBy(emp.id).length;
+    row.innerHTML = `<span>${emp.name}</span><b>${used}/${effectiveDaysPerYear(emp)}${holWorked?` <small style="color:var(--texto2);font-weight:400;">(+${holWorked} festivo${holWorked>1?'s':''})</small>`:''}</b>`;
     box.appendChild(row);
   }
 }
@@ -1622,7 +1691,8 @@ function generatePlan(){
       }
     }
 
-    let remaining = emp.daysPerYear - daysPlaced;
+    const targetDays = effectiveDaysPerYear(emp);
+    let remaining = targetDays - daysPlaced;
     while(remaining > 0){
       const chunk = Math.min(15, remaining);
       const fallback = findFallbackSlot(emp, y, chunk);
@@ -1637,8 +1707,8 @@ function generatePlan(){
     if(daysPlaced===0){
       failedLines.push(emp.name);
     } else {
-      const complete = daysPlaced>=emp.daysPerYear;
-      assignedLines.push(`${emp.name} — ${daysPlaced}/${emp.daysPerYear} días asignados`
+      const complete = daysPlaced>=targetDays;
+      assignedLines.push(`${emp.name} — ${daysPlaced}/${targetDays} días asignados`
         + (fromPrefs?` (${fromPrefs} preferido(s)`+(fromFallback?` + ${fromFallback} automático(s))`:`)`):(fromFallback?` (${fromFallback} automático(s))`:``))
         + (complete?'.':' — no hay más hueco disponible, revisar a mano.'));
     }
@@ -1717,6 +1787,97 @@ document.getElementById('btnRotation').onclick = ()=>{
   openModal('rotationOverlay');
 };
 document.getElementById('rotClose').onclick = ()=> closeModal('rotationOverlay');
+
+/* ═══════════════════ TURNOS DE SÁBADO ═══════════════════ */
+function renderSaturdayList(){
+  const box = document.getElementById('saturdayList');
+  box.innerHTML = '';
+  const groups = [
+    {key:'A', label:'Grupo A'},
+    {key:'B', label:'Grupo B'},
+    {key:'', label:'Sin asignar'},
+  ];
+  const active = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+  for(const g of groups){
+    const emps = active.filter(e=> (e.saturdayGroup||'')===g.key);
+    if(!emps.length) continue;
+    const title = document.createElement('div'); title.className='rules-log-cat';
+    title.textContent = g.label+' · '+emps.length;
+    box.appendChild(title);
+    for(const emp of emps){
+      const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
+      const row = document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px dashed var(--borde);font-size:.78rem;';
+      row.innerHTML = `<span style="flex:1;">${emp.name}<br><small style="color:var(--texto2);">${unit}</small></span>`;
+      const grpSel = document.createElement('select'); grpSel.style.cssText='width:64px;padding:4px;font-size:.72rem;';
+      grpSel.innerHTML = `<option value="">Sin asignar</option><option value="A">Grupo A</option><option value="B">Grupo B</option>`;
+      grpSel.value = emp.saturdayGroup||'';
+      grpSel.onchange = ()=>{ emp.saturdayGroup = grpSel.value; saveState(); renderSaturdayList(); };
+      const postInp = document.createElement('input'); postInp.type='text'; postInp.placeholder='Puesto a cubrir...';
+      postInp.style.cssText='width:120px;padding:4px 6px;font-size:.72rem;border:1px solid var(--borde);border-radius:5px;';
+      postInp.value = emp.saturdayPost||'';
+      postInp.onchange = ()=>{ emp.saturdayPost = postInp.value.trim(); saveState(); };
+      row.appendChild(grpSel);
+      row.appendChild(postInp);
+      box.appendChild(row);
+    }
+  }
+}
+document.getElementById('btnSaturdays').onclick = ()=>{ renderSaturdayList(); openModal('saturdayOverlay'); };
+document.getElementById('saturdayClose').onclick = ()=> closeModal('saturdayOverlay');
+
+/* ═══════════════════ FESTIVOS TRABAJADOS ═══════════════════ */
+function renderHolidaysList(){
+  const box = document.getElementById('holidaysList');
+  box.innerHTML = '';
+  const sorted = [...state.holidaysWorked].sort((a,b)=>a.date.localeCompare(b.date));
+  const activeEmps = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+  for(const h of sorted){
+    const card = document.createElement('div'); card.className='block-item';
+    card.style.cssText='display:block;padding:8px 10px;';
+    const dateLabel = fmtDate(new Date(h.date+'T00:00:00Z'));
+    card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;">
+      <b>${h.festividad}</b><button data-del="${h.id}" style="background:none;border:none;color:var(--rojo);cursor:pointer;font-size:.85rem;">✕</button>
+    </div>
+    <small style="color:var(--texto2);">${dateLabel} · ${h.tienda||'—'}</small>`;
+    const selsWrap = document.createElement('div'); selsWrap.style.cssText='display:flex;gap:6px;margin-top:6px;';
+    for(let slot=0; slot<2; slot++){
+      const sel = document.createElement('select'); sel.style.cssText='flex:1;padding:4px;font-size:.72rem;';
+      sel.innerHTML = '<option value="">— sin asignar —</option>' + activeEmps.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+      sel.value = h.empIds[slot] || '';
+      sel.onchange = ()=>{
+        const newIds = [h.empIds[0]||'', h.empIds[1]||''];
+        newIds[slot] = sel.value;
+        h.empIds = newIds.filter(Boolean);
+        render();
+        renderHolidaysList();
+      };
+      selsWrap.appendChild(sel);
+    }
+    card.appendChild(selsWrap);
+    card.querySelector('[data-del]').onclick = ()=>{
+      state.holidaysWorked = state.holidaysWorked.filter(x=>x.id!==h.id);
+      render();
+      renderHolidaysList();
+    };
+    box.appendChild(card);
+  }
+  if(!sorted.length) box.innerHTML = '<p style="font-size:.75rem;color:var(--texto2);">No hay festivos cargados.</p>';
+}
+document.getElementById('btnHolidays').onclick = ()=>{ renderHolidaysList(); openModal('holidaysOverlay'); };
+document.getElementById('holidaysClose').onclick = ()=> closeModal('holidaysOverlay');
+document.getElementById('btnAddHoliday').onclick = ()=>{
+  const date = document.getElementById('hNewDate').value;
+  const name = document.getElementById('hNewName').value.trim();
+  const tienda = document.getElementById('hNewTienda').value.trim();
+  if(!date || !name){ showToast('Indica al menos la fecha y la festividad.'); return; }
+  state.holidaysWorked.push({id:'h'+Date.now(), date, festividad:name, tienda, empIds:[]});
+  document.getElementById('hNewDate').value='';
+  document.getElementById('hNewName').value='';
+  document.getElementById('hNewTienda').value='';
+  render();
+  renderHolidaysList();
+};
 
 /* ═══════════════════ FILTROS / TOP BAR ═══════════════════ */
 document.getElementById('yearSelect').onchange = (e)=>{ state.year=parseInt(e.target.value,10); render(); };
@@ -1843,7 +2004,7 @@ function buildPrintArea(){
       const used = state.periods.filter(p=>p.employeeId===emp.id)
         .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
       const daysCell = document.createElement('div'); daysCell.className='p-days';
-      daysCell.textContent = used+'/'+emp.daysPerYear;
+      daysCell.textContent = used+'/'+effectiveDaysPerYear(emp);
       row.appendChild(daysCell);
 
       unitDiv.appendChild(row);
