@@ -224,6 +224,22 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 
 .p-footer{ margin-top:4mm; text-align:center; font-size:6.5pt; color:#999; }
 
+/* ── hoja imprimible de turnos de sábado (A4, activa siempre para previsualizar) ── */
+#turnosPrintArea{
+  display:none; box-sizing:border-box; width:210mm; min-height:297mm; padding:14mm;
+  background:#fff; font-family:'Inter',sans-serif; color:#1A2E1A;
+}
+.tp-header{ text-align:center; margin-bottom:6mm; }
+.tp-header h1{ font-size:15pt; color:#1A5C1A; margin-bottom:1mm; letter-spacing:.2px; }
+.tp-header .tp-sub{ font-size:8pt; color:#59775A; }
+.tp-table{ width:100%; border-collapse:collapse; font-size:8.5pt; }
+.tp-table th{ background:#EBF7EB; color:#1A5C1A; text-align:left; padding:3mm 2mm; border-bottom:0.4mm solid #1A5C1A; }
+.tp-table td{ padding:2mm; border-bottom:0.2mm solid #eee; }
+.tp-table th.tp-a, .tp-table td.tp-a{ background:#DCE9FB; text-align:center; }
+.tp-table th.tp-b, .tp-table td.tp-b{ background:#DFF3DF; text-align:center; }
+.tp-table td.tp-a, .tp-table td.tp-b{ font-weight:700; color:#1A5C1A; }
+.tp-footer{ margin-top:6mm; text-align:center; font-size:6.5pt; color:#999; }
+
 /* ── modal de vista previa (en pantalla) ── */
 .print-preview-modal{ padding:0; width:auto; max-width:95vw; max-height:92vh; display:flex; flex-direction:column; }
 .ppm-header{ display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-bottom:1px solid var(--borde); flex-shrink:0; }
@@ -237,10 +253,14 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   @page{ size:A3 landscape; margin:0; }
   html, body{ background:#fff !important; }
   body *{ visibility:hidden; }
-  #printArea, #printArea *{ visibility:visible; }
+  #printArea, #printArea *, #turnosPrintArea, #turnosPrintArea *{ visibility:visible; }
   #printArea{
-    display:block !important; position:absolute; top:0; left:0;
+    position:absolute; top:0; left:0;
     transform:none !important; width:420mm; min-height:297mm;
+  }
+  #turnosPrintArea{
+    position:absolute; top:0; left:0;
+    transform:none !important; width:210mm; min-height:297mm;
   }
 }
 </style>
@@ -396,7 +416,10 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <div id="saturdayList" style="overflow-y:auto;flex:1;"></div>
     <div class="modal-actions">
       <div></div>
-      <button class="btn btn-ghost" id="saturdayClose">Cerrar</button>
+      <div class="left">
+        <button class="btn btn-ghost" id="saturdayClose">Cerrar</button>
+        <button class="btn btn-primary" id="btnSaturdayPreview">🖨 Vista previa</button>
+      </div>
     </div>
   </div>
 </div>
@@ -479,6 +502,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       </div>
       <div class="left" style="display:flex;gap:8px;">
         <button class="btn btn-ghost" id="ppmClose">Cerrar</button>
+        <button class="btn btn-ghost" id="ppmWhatsapp">📱 WhatsApp</button>
         <button class="btn btn-ghost" id="ppmSavePdf">💾 Guardar como PDF</button>
         <button class="btn btn-primary" id="ppmPrintNow">🖨 Imprimir</button>
       </div>
@@ -486,6 +510,32 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <div class="ppm-scroll">
       <div id="ppmPageWrap">
         <div id="printArea"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="turnosPrintPreviewOverlay">
+  <div class="modal print-preview-modal">
+    <div class="ppm-header">
+      <div>
+        <h3>Vista previa · Turnos de sábado</h3>
+        <div style="font-size:.68rem;color:var(--texto2);margin-top:2px;">
+          Imprimir/Guardar PDF abren el cuadro de impresión del navegador. WhatsApp comparte un resumen
+          de texto (Grupo A/B por puesto), ya que no se puede adjuntar la imagen sin depender de un
+          servicio externo.
+        </div>
+      </div>
+      <div class="left" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-ghost" id="tpmClose">Cerrar</button>
+        <button class="btn btn-ghost" id="tpmWhatsapp">📱 WhatsApp</button>
+        <button class="btn btn-ghost" id="tpmSavePdf">💾 Guardar como PDF</button>
+        <button class="btn btn-primary" id="tpmPrintNow">🖨 Imprimir</button>
+      </div>
+    </div>
+    <div class="ppm-scroll">
+      <div id="tpmPageWrap">
+        <div id="turnosPrintArea"></div>
       </div>
     </div>
   </div>
@@ -2043,7 +2093,11 @@ function buildPrintArea(){
   container.appendChild(footer);
 }
 
+let activePrintTarget = 'vacaciones'; // 'vacaciones' | 'turnos' — cuál de las dos hojas se imprime con Ctrl+P
+
 function openPrintPreview(){
+  activePrintTarget = 'vacaciones';
+  document.getElementById('turnosPrintArea').style.display = 'none';
   buildPrintArea();
   const pa = document.getElementById('printArea');
   pa.style.display = 'block';
@@ -2065,22 +2119,136 @@ function closePrintPreview(){
   document.getElementById('printArea').style.display = 'none';
 }
 
+function openTurnosPrintPreview(){
+  activePrintTarget = 'turnos';
+  closeModal('saturdayOverlay');
+  document.getElementById('printArea').style.display = 'none';
+  buildTurnosPrintArea();
+  const pa = document.getElementById('turnosPrintArea');
+  pa.style.display = 'block';
+  pa.style.transform = 'none';
+  openModal('turnosPrintPreviewOverlay');
+  requestAnimationFrame(()=>{
+    const scrollBox = document.querySelector('#turnosPrintPreviewOverlay .ppm-scroll');
+    const wrap = document.getElementById('tpmPageWrap');
+    const trueW = pa.offsetWidth, trueH = pa.offsetHeight;
+    const availW = scrollBox.clientWidth - 40;
+    const scale = Math.min(1, availW/trueW);
+    pa.style.transform = `scale(${scale})`;
+    wrap.style.width = (trueW*scale)+'px';
+    wrap.style.height = (trueH*scale)+'px';
+  });
+}
+function closeTurnosPrintPreview(){
+  closeModal('turnosPrintPreviewOverlay');
+  document.getElementById('turnosPrintArea').style.display = 'none';
+}
+
 document.getElementById('btnPrint').onclick = openPrintPreview;
 document.getElementById('ppmClose').onclick = closePrintPreview;
 document.getElementById('ppmPrintNow').onclick = ()=> window.print();
 document.getElementById('ppmSavePdf').onclick = ()=> window.print();
+document.getElementById('ppmWhatsapp').onclick = ()=> shareVacationsWhatsapp();
+
+document.getElementById('btnSaturdayPreview').onclick = openTurnosPrintPreview;
+document.getElementById('tpmClose').onclick = closeTurnosPrintPreview;
+document.getElementById('tpmPrintNow').onclick = ()=> window.print();
+document.getElementById('tpmSavePdf').onclick = ()=> window.print();
+document.getElementById('tpmWhatsapp').onclick = ()=> shareTurnosWhatsapp();
 
 window.addEventListener('beforeprint', ()=>{
-  buildPrintArea();
-  const pa = document.getElementById('printArea');
-  pa.style.display = 'block';
-  pa.style.transform = 'none';
+  if(activePrintTarget==='turnos'){
+    buildTurnosPrintArea();
+    document.getElementById('printArea').style.display = 'none';
+    const pa = document.getElementById('turnosPrintArea');
+    pa.style.display = 'block'; pa.style.transform = 'none';
+  } else {
+    buildPrintArea();
+    document.getElementById('turnosPrintArea').style.display = 'none';
+    const pa = document.getElementById('printArea');
+    pa.style.display = 'block'; pa.style.transform = 'none';
+  }
 });
 window.addEventListener('afterprint', ()=>{
   if(!document.getElementById('printPreviewOverlay').classList.contains('open')){
     document.getElementById('printArea').style.display = 'none';
   }
+  if(!document.getElementById('turnosPrintPreviewOverlay').classList.contains('open')){
+    document.getElementById('turnosPrintArea').style.display = 'none';
+  }
 });
+
+/* ═══════════════════ HOJA IMPRIMIBLE DE TURNOS DE SÁBADO ═══════════════════ */
+function buildTurnosPrintArea(){
+  const container = document.getElementById('turnosPrintArea');
+  container.innerHTML = '';
+  const header = document.createElement('div'); header.className='tp-header';
+  const now = new Date();
+  header.innerHTML = `<h1>Ofipapel · Turnos de sábado</h1>
+    <div class="tp-sub">Generado el ${now.toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'})}</div>`;
+  container.appendChild(header);
+
+  const table = document.createElement('table'); table.className='tp-table';
+  table.innerHTML = '<thead><tr><th>Empleado</th><th>Puesto a cubrir</th><th class="tp-a">Grupo A</th><th class="tp-b">Grupo B</th></tr></thead>';
+  const tbody = document.createElement('tbody');
+  const active = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>{
+    const pa = a.saturdayPost||'zzz', pb = b.saturdayPost||'zzz';
+    if(pa!==pb) return pa.localeCompare(pb,'es');
+    return a.name.localeCompare(b.name,'es');
+  });
+  for(const emp of active){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${emp.name}</td><td>${emp.saturdayPost||'—'}</td>
+      <td class="tp-a">${emp.saturdayGroup==='A'?'●':''}</td>
+      <td class="tp-b">${emp.saturdayGroup==='B'?'●':''}</td>`;
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  container.appendChild(table);
+
+  const footer = document.createElement('div'); footer.className='tp-footer';
+  footer.textContent = 'Ofipapel · documento interno · turnos de sábado';
+  container.appendChild(footer);
+}
+
+/* ═══════════════════ COMPARTIR POR WHATSAPP (resumen de texto) ═══════════════════ */
+function openWhatsapp(text){
+  window.open('https://wa.me/?text='+encodeURIComponent(text), '_blank');
+}
+function shareTurnosWhatsapp(){
+  const active = EMPLOYEES.filter(e=>e.active!==false && e.saturdayGroup);
+  const byPost = {};
+  for(const emp of active){
+    const post = emp.saturdayPost || 'Sin puesto asignado';
+    if(!byPost[post]) byPost[post] = {A:[], B:[]};
+    byPost[post][emp.saturdayGroup].push(emp.name);
+  }
+  let text = `🔄 *Turnos de sábado — Ofipapel*\n📅 ${new Date().toLocaleDateString('es-ES')}\n`;
+  for(const post of Object.keys(byPost).sort((a,b)=>a.localeCompare(b,'es'))){
+    text += `\n*${post.toUpperCase()}*\n`;
+    text += `Grupo A: ${byPost[post].A.join(', ')||'—'}\n`;
+    text += `Grupo B: ${byPost[post].B.join(', ')||'—'}\n`;
+  }
+  openWhatsapp(text);
+}
+function shareVacationsWhatsapp(){
+  const dateVal = document.getElementById('onLeaveDate').value || new Date().toISOString().slice(0,10);
+  const onLeave = EMPLOYEES.filter(e=>e.active!==false).map(emp=>{
+    const p = state.periods.find(pp=> pp.employeeId===emp.id && dateVal>=pp.start && dateVal<=pp.end);
+    return p ? {emp,p} : null;
+  }).filter(Boolean).sort((a,b)=> a.emp.name.localeCompare(b.emp.name,'es'));
+  const dateLabel = fmtDate(new Date(dateVal+'T00:00:00Z'));
+  let text = `🏖️ *Vacaciones Ofipapel — ${dateLabel}*\n\n`;
+  if(!onLeave.length){
+    text += 'Nadie de vacaciones ese día.';
+  } else {
+    for(const {emp,p} of onLeave){
+      const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
+      text += `• ${emp.name} (${unit}) — ${fmtRange(p.start,p.end)}\n`;
+    }
+  }
+  openWhatsapp(text);
+}
 
 /* ═══════════════════ TOAST ═══════════════════ */
 let toastTimer=null;

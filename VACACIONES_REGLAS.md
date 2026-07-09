@@ -154,6 +154,11 @@ quién cubre qué puesto los sábados.
   (Reparto, Comercial, Ofipapel, Oficina, Aliz-1, Aliz-2, Almacén, Pedidos). Quedan sin asignar quienes no
   aparecían en esa hoja (algunos comerciales, Dunia, María Pedrido, Gladys de Limpieza) — rellénalo desde
   la app si también hacen turno de sábado.
+- Tiene su propia vista previa/impresión/PDF/WhatsApp, igual que el cuadrante de vacaciones (ver más abajo
+  en la guía de pantalla). **Nota sobre WhatsApp**: comparte solo un resumen en texto (nombre + grupo por
+  puesto), no una imagen del documento — adjuntar la imagen o el PDF real requeriría una librería externa
+  que no he podido verificar que funcione de forma fiable en este entorno, así que preferí la opción segura
+  y sin dependencias.
 
 ## Guía de la pantalla: qué hace cada parte
 
@@ -258,7 +263,15 @@ todo hay un formulario para añadir festivos nuevos que no estén en la lista.
 Muestra a tamaño reducido cómo saldrá la hoja en papel (A3 apaisado) antes de imprimir de verdad. Desde ahí,
 *Imprimir* manda directamente a la impresora y *Guardar como PDF* abre el mismo cuadro de impresión del
 navegador para que elijas ahí el destino "Guardar como PDF" (un navegador no permite que una página lo
-preseleccione automáticamente).
+preseleccione automáticamente). El botón *📱 WhatsApp* abre WhatsApp con un mensaje de texto ya escrito con
+quién está de vacaciones en la fecha seleccionada en el panel "¿Quién está de vacaciones?" — no envía la
+imagen del cuadrante, solo la lista en texto (ver nota sobre esto en la sección 10).
+
+### Vista previa de Turnos de sábado
+
+Igual que la de vacaciones, pero para la tabla de turnos: *🖨 Vista previa* (dentro del propio modal de
+Turnos), *Imprimir*, *Guardar como PDF* (A4) y *📱 WhatsApp*, que envía un resumen de texto con el Grupo
+A/B de cada puesto, listo para pegar en el grupo del equipo.
 
 ## Posibles reglas adicionales a valorar
 
