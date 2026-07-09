@@ -505,6 +505,13 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <div class="field" id="ecHolidayNote" style="display:none;font-size:.72rem;color:var(--texto2);"></div>
       <div class="field"><label>Fechas preferidas (para el generador automático, formato DD/MM-DD/MM, separadas por comas)</label><input type="text" id="ecPrefs" placeholder="Ej: 15/07-29/07, 01/10-15/10"></div>
       <div class="field"><label>Particularidades / notas</label><input type="text" id="ecNote" placeholder="Ej: acuerdo previo, restricción médica..."></div>
+      <div class="field"><label>Turno de sábado</label>
+        <select id="ecSaturdayGroup">
+          <option value="">— No hace sábados —</option>
+          <option value="A">Grupo A</option>
+          <option value="B">Grupo B</option>
+        </select>
+      </div>
       <div class="check-row"><input type="checkbox" id="ecFloater"><label for="ecFloater">🔁 Comodín: cambia de tienda/puesto según necesidad</label></div>
       <div class="check-row"><input type="checkbox" id="ecSinSustituto"><label for="ecSinSustituto">🚫 Sin sustituto (nadie cubre su puesto)</label></div>
       <div class="check-row"><input type="checkbox" id="ecActive"><label for="ecActive">Activo (desmarcar = de baja, deja de aparecer en el cuadrante)</label></div>
@@ -890,7 +897,9 @@ function renderOnLeave(){
   }
   box.innerHTML = items.map(({emp,range,tipo})=>{
     const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
-    const tag = tipo==='Permiso' ? ' <span style="color:#8a5a00;font-weight:700;">(permiso)</span>' : '';
+    const tag = tipo==='Permiso'
+      ? ' <span style="color:#8a5a00;font-weight:700;">(permiso)</span>'
+      : ' <span style="color:#0a6e4a;font-weight:700;">🏖️ (vacaciones)</span>';
     const motivo = (tipo==='Permiso' && range.motivo) ? ' · '+range.motivo : '';
     return `<div class="onleave-item"><b>${emp.name}${tag}</b><small>${unit} · ${fmtRange(range.start,range.end)}${motivo}</small></div>`;
   }).join('');
@@ -1517,6 +1526,7 @@ function openEmployeeCard(empId){
   }
   document.getElementById('ecPrefs').value = emp ? ((state.employeePrefs[emp.id]||{}).preferredText || '') : '';
   document.getElementById('ecNote').value = emp ? (emp.note||'') : '';
+  document.getElementById('ecSaturdayGroup').value = emp ? (emp.saturdayGroup||'') : '';
   document.getElementById('ecFloater').checked = emp ? !!emp.floater : false;
   document.getElementById('ecSinSustituto').checked = emp ? !!emp.sinSustituto : false;
   document.getElementById('ecActive').checked = emp ? emp.active!==false : true;
@@ -1546,6 +1556,7 @@ document.getElementById('ecSave').onclick = ()=>{
   const daysPerYear = parseInt(daysRaw,10);
   const prefsText = document.getElementById('ecPrefs').value.trim();
   const note = document.getElementById('ecNote').value.trim();
+  const saturdayGroup = document.getElementById('ecSaturdayGroup').value;
   const floater = document.getElementById('ecFloater').checked;
   const sinSustituto = document.getElementById('ecSinSustituto').checked;
   const active = document.getElementById('ecActive').checked;
@@ -1561,6 +1572,7 @@ document.getElementById('ecSave').onclick = ()=>{
   emp.seniorityYear = (seniorityYear && !isNaN(seniorityYear)) ? seniorityYear : null;
   emp.daysPerYear = (!isNaN(daysPerYear) && daysPerYear>0) ? daysPerYear : 30;
   if(note) emp.note = note; else delete emp.note;
+  if(saturdayGroup) emp.saturdayGroup = saturdayGroup; else delete emp.saturdayGroup;
   if(floater) emp.floater = true; else delete emp.floater;
   if(sinSustituto) emp.sinSustituto = true; else delete emp.sinSustituto;
   emp.active = active;
