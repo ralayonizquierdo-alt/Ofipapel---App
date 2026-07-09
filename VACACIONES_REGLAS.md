@@ -144,14 +144,16 @@ las 3 tiendas) abre en horario reducido y necesita a 1-2 personas concretas trab
 Basado en la hoja "Turno SABADOS": una clasificación de apoyo (no un calendario semana a semana) para saber
 quién cubre qué puesto los sábados.
 
-- Cada empleado se puede marcar como **Grupo A** o **Grupo B**, con un campo de texto libre para el
-  "puesto a cubrir" (tienda, reparto, almacén...). Se edita desde el botón **🔄 Turnos sábado**.
+- El panel es una **tabla/cuadrícula** (Empleado · Puesto a cubrir · Grupo A · Grupo B), agrupada por
+  puesto igual que en el Excel original — marcar la casilla de un grupo desmarca automáticamente la del
+  otro. Se abre desde el botón **🔄 Turnos sábado**.
 - Recordatorio del Excel, incluido como nota en el propio panel: no se pueden cambiar turnos con quien
   encabeza cada tienda, y cualquier cambio de turno solo se admite por urgencia avisando con 15 días de
   antelación.
-- **[pendiente]** No he precargado las asignaciones Grupo A/B reales porque la hoja de origen tenía las
-  columnas desalineadas y no pude mapear con seguridad quién iba en cada grupo — queda vacío, listo para
-  rellenar desde la app.
+- Se han precargado las **29 asignaciones reales** de Grupo A/B y puesto que aparecían en el Excel
+  (Reparto, Comercial, Ofipapel, Oficina, Aliz-1, Aliz-2, Almacén, Pedidos). Quedan sin asignar quienes no
+  aparecían en esa hoja (algunos comerciales, Dunia, María Pedrido, Gladys de Limpieza) — rellénalo desde
+  la app si también hacen turno de sábado.
 
 ## Guía de la pantalla: qué hace cada parte
 

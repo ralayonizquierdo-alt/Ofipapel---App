@@ -80,6 +80,20 @@ aside h2{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(
 .rules-log-item{padding:3px 0;border-bottom:1px dashed var(--borde);}
 .rules-log-cat{font-weight:700;color:var(--verde);margin-top:8px;display:block;}
 .rules-log-cat:first-child{margin-top:0;}
+.sat-table{width:100%;border-collapse:collapse;font-size:.76rem;}
+.sat-table thead th{
+  position:sticky;top:0;background:var(--verde-pale);color:var(--verde);text-align:left;
+  padding:7px 8px;border-bottom:2px solid var(--borde);z-index:1;
+}
+.sat-table td{padding:5px 8px;border-bottom:1px solid #eee;}
+.sat-table tbody tr:hover{background:#FAFDF9;}
+.sat-table td input[type=text]{width:100%;border:1px solid var(--borde);border-radius:4px;padding:4px 6px;font-size:.72rem;}
+.sat-table .sat-cell-a,.sat-table .sat-cell-b{text-align:center;width:60px;}
+.sat-table .sat-cell-a{background:#DCE9FB;}
+.sat-table .sat-cell-b{background:#DFF3DF;}
+.sat-table thead th:nth-child(3){background:#C7DCF7;}
+.sat-table thead th:nth-child(4){background:#C9EAC9;}
+.sat-table input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
 .field{margin-bottom:8px;}
 .field label{font-size:.75rem;color:var(--texto2);display:block;margin-bottom:3px;}
 .field input[type=text],.field select{
@@ -371,7 +385,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 </div>
 
 <div class="overlay" id="saturdayOverlay">
-  <div class="modal" style="width:520px;max-height:88vh;display:flex;flex-direction:column;">
+  <div class="modal" style="width:580px;max-height:88vh;display:flex;flex-direction:column;">
     <h3>Turnos de sábado</h3>
     <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
       Clasifica a cada persona en Grupo A o Grupo B según el puesto que cubre los sábados en tienda,
@@ -496,55 +510,55 @@ const UNITS = [
    A partir de ahí la lista real y editable vive en state.employees (ver "Empleados" en la barra lateral). */
 const EMPLOYEE_SEED = [
   // Repartidores
-  {id:'e1', name:'Barroso Santos, Carlos Francisco', unitId:'repartidores', seniorityYear:2010, daysPerYear:30},
-  {id:'e2', name:'Bermúdez Barreto, Julio', unitId:'repartidores', seniorityYear:1997, daysPerYear:30},
-  {id:'e3', name:'Morales Álvarez, Manuel', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Javier Blanco Suárez'},
-  {id:'e4', name:'Mendoza Acevedo, Walter', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Manuel González Rodríguez'},
-  {id:'e5', name:'Martín Melo, Juan Antonio', unitId:'repartidores', seniorityYear:2001, daysPerYear:30},
-  {id:'e6', name:'Ortiz Carmona, Antonio Manuel', unitId:'repartidores', seniorityYear:2016, daysPerYear:30},
-  {id:'e7', name:'Herrera Martín, Francisco Javier', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Mario Ezequiel Ramírez Quiroz'},
-  {id:'e8', name:'Rodríguez Santos, Jesús Manuel', unitId:'repartidores', seniorityYear:2016, daysPerYear:30},
-  {id:'e9', name:'Páez González, Nauzet', unitId:'repartidores', seniorityYear:2022, daysPerYear:30},
+  {id:'e1', name:'Barroso Santos, Carlos Francisco', unitId:'repartidores', seniorityYear:2010, daysPerYear:30, saturdayGroup:'A', saturdayPost:'Reparto'},
+  {id:'e2', name:'Bermúdez Barreto, Julio', unitId:'repartidores', seniorityYear:1997, daysPerYear:30, saturdayGroup:'B', saturdayPost:'Reparto'},
+  {id:'e3', name:'Morales Álvarez, Manuel', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Javier Blanco Suárez', saturdayGroup:'B', saturdayPost:'Reparto'},
+  {id:'e4', name:'Mendoza Acevedo, Walter', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Manuel González Rodríguez', saturdayGroup:'B', saturdayPost:'Reparto'},
+  {id:'e5', name:'Martín Melo, Juan Antonio', unitId:'repartidores', seniorityYear:2001, daysPerYear:30, saturdayGroup:'B', saturdayPost:'Reparto'},
+  {id:'e6', name:'Ortiz Carmona, Antonio Manuel', unitId:'repartidores', seniorityYear:2016, daysPerYear:30, saturdayGroup:'A', saturdayPost:'Reparto'},
+  {id:'e7', name:'Herrera Martín, Francisco Javier', unitId:'repartidores', seniorityYear:null, daysPerYear:30, note:'Sustituye a Mario Ezequiel Ramírez Quiroz', saturdayGroup:'A', saturdayPost:'Reparto'},
+  {id:'e8', name:'Rodríguez Santos, Jesús Manuel', unitId:'repartidores', seniorityYear:2016, daysPerYear:30, saturdayGroup:'A', saturdayPost:'Reparto'},
+  {id:'e9', name:'Páez González, Nauzet', unitId:'repartidores', seniorityYear:2022, daysPerYear:30, saturdayGroup:'A', saturdayPost:'Reparto'},
   // Comerciales (vendedores)
-  {id:'e10', name:'Correa Hernández, Roberto', unitId:'comerciales', seniorityYear:2000, daysPerYear:30, note:'Cubre clientes mutuamente con María Luz Gómez Rufiangel'},
+  {id:'e10', name:'Correa Hernández, Roberto', unitId:'comerciales', seniorityYear:2000, daysPerYear:30, note:'Cubre clientes mutuamente con María Luz Gómez Rufiangel', saturdayGroup:'A', saturdayPost:'Comercial'},
   {id:'e11', name:'Fumero Benítez, Haridian', unitId:'comerciales', seniorityYear:2011, daysPerYear:30, note:'Cubre clientes mutuamente con Javier Iguarán Martínez'},
   {id:'e12', name:'García Padrón, Felipe Sebastián', unitId:'comerciales', seniorityYear:2011, daysPerYear:30, sinSustituto:true},
-  {id:'e13', name:'Gómez Rufiangel, María Luz', unitId:'comerciales', seniorityYear:2006, daysPerYear:30, note:'Cubre clientes mutuamente con Roberto Correa Hernández'},
-  {id:'e14', name:'Iguarán Martínez, Javier', unitId:'comerciales', seniorityYear:2010, daysPerYear:30, note:'Cubre clientes mutuamente con Haridian Fumero Benítez'},
+  {id:'e13', name:'Gómez Rufiangel, María Luz', unitId:'comerciales', seniorityYear:2006, daysPerYear:30, note:'Cubre clientes mutuamente con Roberto Correa Hernández', saturdayGroup:'A', saturdayPost:'Comercial'},
+  {id:'e14', name:'Iguarán Martínez, Javier', unitId:'comerciales', seniorityYear:2010, daysPerYear:30, note:'Cubre clientes mutuamente con Haridian Fumero Benítez', saturdayGroup:'B', saturdayPost:'Comercial'},
   {id:'e15', name:'Ramos Delgado, Miguel', unitId:'comerciales', seniorityYear:2022, daysPerYear:30, sinSustituto:true},
   {id:'e16', name:'Rodríguez Deniz, María Paz', unitId:'comerciales', seniorityYear:2010, daysPerYear:30, sinSustituto:true},
   // Ofipapel · Detalle
-  {id:'e17', name:'Alayón Barrera, Herminia Mari', unitId:'ofipapel_detalle', seniorityYear:2005, daysPerYear:30},
-  {id:'e18', name:'Brito Morales, Rosa María', unitId:'ofipapel_detalle', seniorityYear:2008, daysPerYear:30},
-  {id:'e19', name:'García Reina, Natalia', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:30, note:'Comparte el turno de la fotocopiadora con Dunia Delgado Valido: siempre debe quedar una de las dos'},
-  {id:'e20', name:'Afonso García, María Ángeles', unitId:'ofipapel_detalle', seniorityYear:2022, daysPerYear:30, floater:true, note:'Comodín: suele cambiar de tienda según necesidad'},
+  {id:'e17', name:'Alayón Barrera, Herminia Mari', unitId:'ofipapel_detalle', seniorityYear:2005, daysPerYear:30, saturdayGroup:'A', saturdayPost:'Ofipapel'},
+  {id:'e18', name:'Brito Morales, Rosa María', unitId:'ofipapel_detalle', seniorityYear:2008, daysPerYear:30, saturdayGroup:'B', saturdayPost:'Ofipapel'},
+  {id:'e19', name:'García Reina, Natalia', unitId:'ofipapel_detalle', seniorityYear:null, daysPerYear:30, note:'Comparte el turno de la fotocopiadora con Dunia Delgado Valido: siempre debe quedar una de las dos', saturdayGroup:'B', saturdayPost:'Ofipapel'},
+  {id:'e20', name:'Afonso García, María Ángeles', unitId:'ofipapel_detalle', seniorityYear:2022, daysPerYear:30, floater:true, note:'Comodín: suele cambiar de tienda según necesidad', saturdayGroup:'A', saturdayPost:'Ofipapel'},
   {id:'e21', name:'Delgado Valido, Dunia', unitId:'ofipapel_detalle', seniorityYear:2015, daysPerYear:30, note:'Comparte el turno de la fotocopiadora con Natalia: siempre debe quedar una de las dos'},
   // Oficina
-  {id:'e22', name:'Martín Hernández, María Candelaria', unitId:'oficina', seniorityYear:2000, daysPerYear:30},
-  {id:'e23', name:'Perdigón Pérez, Mónica', unitId:'oficina', seniorityYear:1994, daysPerYear:30},
-  {id:'e24', name:'Yanes García, Patricia', unitId:'oficina', seniorityYear:2009, daysPerYear:30},
+  {id:'e22', name:'Martín Hernández, María Candelaria', unitId:'oficina', seniorityYear:2000, daysPerYear:30, saturdayGroup:'A', saturdayPost:'Oficina'},
+  {id:'e23', name:'Perdigón Pérez, Mónica', unitId:'oficina', seniorityYear:1994, daysPerYear:30, saturdayGroup:'B', saturdayPost:'Oficina'},
+  {id:'e24', name:'Yanes García, Patricia', unitId:'oficina', seniorityYear:2009, daysPerYear:30, saturdayGroup:'B', saturdayPost:'Oficina'},
   // Aliz 1
   {id:'e25', name:'Pedrido Seoane, María', unitId:'aliz1', seniorityYear:2017, daysPerYear:30},
-  {id:'e26', name:'Fumero Reverón, María Teresa', unitId:'aliz1', seniorityYear:2018, daysPerYear:30},
-  {id:'e27', name:'Cabrera Pérez, Sonia Pilar', unitId:'aliz1', seniorityYear:2006, daysPerYear:30, floater:true, note:'Comodín: suele cambiar de tienda según necesidad'},
+  {id:'e26', name:'Fumero Reverón, María Teresa', unitId:'aliz1', seniorityYear:2018, daysPerYear:30, saturdayGroup:'A', saturdayPost:'Aliz-1'},
+  {id:'e27', name:'Cabrera Pérez, Sonia Pilar', unitId:'aliz1', seniorityYear:2006, daysPerYear:30, floater:true, note:'Comodín: suele cambiar de tienda según necesidad', saturdayGroup:'B', saturdayPost:'Aliz-1'},
   // Aliz 2
-  {id:'e28', name:'Díaz Hernández, María Joani', unitId:'aliz2', seniorityYear:2000, daysPerYear:30},
-  {id:'e29', name:'Linares Morales, Soledad', unitId:'aliz2', seniorityYear:1984, daysPerYear:30},
+  {id:'e28', name:'Díaz Hernández, María Joani', unitId:'aliz2', seniorityYear:2000, daysPerYear:30, saturdayGroup:'A', saturdayPost:'Aliz-2'},
+  {id:'e29', name:'Linares Morales, Soledad', unitId:'aliz2', seniorityYear:1984, daysPerYear:30, saturdayGroup:'B', saturdayPost:'Aliz-2'},
   // Ofipapel · Informática
-  {id:'e30', name:'Chinea Ramos, Evelin Lucía', unitId:'ofipapel_info', seniorityYear:2016, daysPerYear:30},
-  {id:'e31', name:'García Fumero, María Candelaria', unitId:'ofipapel_info', seniorityYear:2002, daysPerYear:30},
+  {id:'e30', name:'Chinea Ramos, Evelin Lucía', unitId:'ofipapel_info', seniorityYear:2016, daysPerYear:30, saturdayGroup:'A', saturdayPost:'Ofipapel'},
+  {id:'e31', name:'García Fumero, María Candelaria', unitId:'ofipapel_info', seniorityYear:2002, daysPerYear:30, saturdayGroup:'B', saturdayPost:'Tienda Mayor'},
   // Pedidos
-  {id:'e32', name:'Cabrera Darias, Tomás Iván', unitId:'pedidos', seniorityYear:2010, daysPerYear:30},
-  {id:'e33', name:'García Vázquez, Miguel Ángel', unitId:'pedidos', seniorityYear:2007, daysPerYear:30},
+  {id:'e32', name:'Cabrera Darias, Tomás Iván', unitId:'pedidos', seniorityYear:2010, daysPerYear:30, saturdayGroup:'A', saturdayPost:'Pedidos'},
+  {id:'e33', name:'García Vázquez, Miguel Ángel', unitId:'pedidos', seniorityYear:2007, daysPerYear:30, saturdayGroup:'B', saturdayPost:'Pedidos'},
   // Almacén
-  {id:'e34', name:'Hernández Páez, Miguel', unitId:'almacen', seniorityYear:2018, daysPerYear:30},
-  {id:'e35', name:'García Vargas, José Manuel', unitId:'almacen', seniorityYear:null, daysPerYear:30, note:'Nuevo en el equipo'},
+  {id:'e34', name:'Hernández Páez, Miguel', unitId:'almacen', seniorityYear:2018, daysPerYear:30, saturdayGroup:'B', saturdayPost:'Almacén'},
+  {id:'e35', name:'García Vargas, José Manuel', unitId:'almacen', seniorityYear:null, daysPerYear:30, note:'Nuevo en el equipo', saturdayGroup:'A', saturdayPost:'Almacén'},
   // Limpieza
   {id:'e36', name:'Ávila Ovando, Gladys Lastenia', unitId:'limpieza', seniorityYear:null, daysPerYear:30},
 ];
 
 /* ═══════════════════ ESTADO ═══════════════════ */
-const STORAGE_KEY = 'ofipapel_vacaciones_v4';
+const STORAGE_KEY = 'ofipapel_vacaciones_v5';
 let state = loadState();
 let EMPLOYEES = state.employees; // referencia viva: editar este array (altas/bajas/fichas) ya persiste, porque es el mismo objeto que state.employees
 
@@ -1791,37 +1805,48 @@ document.getElementById('rotClose').onclick = ()=> closeModal('rotationOverlay')
 /* ═══════════════════ TURNOS DE SÁBADO ═══════════════════ */
 function renderSaturdayList(){
   const box = document.getElementById('saturdayList');
-  box.innerHTML = '';
-  const groups = [
-    {key:'A', label:'Grupo A'},
-    {key:'B', label:'Grupo B'},
-    {key:'', label:'Sin asignar'},
-  ];
-  const active = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
-  for(const g of groups){
-    const emps = active.filter(e=> (e.saturdayGroup||'')===g.key);
-    if(!emps.length) continue;
-    const title = document.createElement('div'); title.className='rules-log-cat';
-    title.textContent = g.label+' · '+emps.length;
-    box.appendChild(title);
-    for(const emp of emps){
-      const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
-      const row = document.createElement('div');
-      row.style.cssText='display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px dashed var(--borde);font-size:.78rem;';
-      row.innerHTML = `<span style="flex:1;">${emp.name}<br><small style="color:var(--texto2);">${unit}</small></span>`;
-      const grpSel = document.createElement('select'); grpSel.style.cssText='width:64px;padding:4px;font-size:.72rem;';
-      grpSel.innerHTML = `<option value="">Sin asignar</option><option value="A">Grupo A</option><option value="B">Grupo B</option>`;
-      grpSel.value = emp.saturdayGroup||'';
-      grpSel.onchange = ()=>{ emp.saturdayGroup = grpSel.value; saveState(); renderSaturdayList(); };
-      const postInp = document.createElement('input'); postInp.type='text'; postInp.placeholder='Puesto a cubrir...';
-      postInp.style.cssText='width:120px;padding:4px 6px;font-size:.72rem;border:1px solid var(--borde);border-radius:5px;';
-      postInp.value = emp.saturdayPost||'';
-      postInp.onchange = ()=>{ emp.saturdayPost = postInp.value.trim(); saveState(); };
-      row.appendChild(grpSel);
-      row.appendChild(postInp);
-      box.appendChild(row);
-    }
+  const active = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>{
+    const pa = a.saturdayPost || 'zzz', pb = b.saturdayPost || 'zzz';
+    if(pa!==pb) return pa.localeCompare(pb,'es');
+    return a.name.localeCompare(b.name,'es');
+  });
+
+  let html = '<table class="sat-table"><thead><tr><th>Empleado</th><th>Puesto a cubrir</th><th>Grupo A</th><th>Grupo B</th></tr></thead><tbody>';
+  for(const emp of active){
+    const post = (emp.saturdayPost||'').replace(/"/g,'&quot;');
+    html += `<tr>
+      <td>${emp.name}</td>
+      <td><input type="text" data-post="${emp.id}" value="${post}" placeholder="—"></td>
+      <td class="sat-cell-a"><input type="checkbox" data-groupa="${emp.id}" ${emp.saturdayGroup==='A'?'checked':''}></td>
+      <td class="sat-cell-b"><input type="checkbox" data-groupb="${emp.id}" ${emp.saturdayGroup==='B'?'checked':''}></td>
+    </tr>`;
   }
+  html += '</tbody></table>';
+  box.innerHTML = html;
+
+  box.querySelectorAll('[data-post]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const emp = EMPLOYEES.find(e=>e.id===inp.dataset.post);
+      emp.saturdayPost = inp.value.trim();
+      saveState();
+    };
+  });
+  box.querySelectorAll('[data-groupa]').forEach(chk=>{
+    chk.onchange = ()=>{
+      const emp = EMPLOYEES.find(e=>e.id===chk.dataset.groupa);
+      emp.saturdayGroup = chk.checked ? 'A' : '';
+      saveState();
+      renderSaturdayList();
+    };
+  });
+  box.querySelectorAll('[data-groupb]').forEach(chk=>{
+    chk.onchange = ()=>{
+      const emp = EMPLOYEES.find(e=>e.id===chk.dataset.groupb);
+      emp.saturdayGroup = chk.checked ? 'B' : '';
+      saveState();
+      renderSaturdayList();
+    };
+  });
 }
 document.getElementById('btnSaturdays').onclick = ()=>{ renderSaturdayList(); openModal('saturdayOverlay'); };
 document.getElementById('saturdayClose').onclick = ()=> closeModal('saturdayOverlay');
