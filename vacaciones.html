@@ -564,6 +564,27 @@ function weekendGradient(n, y, color){
   return `repeating-linear-gradient(to right, ${stops.join(', ')})`;
 }
 
+/* Índices de día (dentro del año) donde va una línea vertical de cuadrícula: cada 5 días de cada mes
+   (1,6,11,16,21,26...), igual que las columnas "(1/05) (5/10) (10/15)..." del Excel original. */
+function gridLineDayIndices(y, n){
+  const idxs = [];
+  for(let idx=0; idx<n; idx++){
+    const dom = dateFromIndex(y, idx).getUTCDate();
+    if(dom%5===1) idxs.push(idx);
+  }
+  return idxs;
+}
+/* Cuadrícula en px (pantalla) o en % (hoja impresa) a partir de esos índices. */
+function gridLinesBackground(dayIndices, n, color, unit){ // unit: 'px' (día=22px) o '%' (día=100/n %)
+  const stops = [];
+  for(const idx of dayIndices){
+    const pos = unit==='px' ? idx*22 : (idx/n*100);
+    const nextPos = unit==='px' ? pos+1 : (pos + 100/n*0.12);
+    stops.push(`transparent ${pos}${unit}`, `${color} ${pos}${unit}`, `${color} ${nextPos}${unit}`, `transparent ${nextPos}${unit}`);
+  }
+  return `linear-gradient(to right, ${stops.join(', ')})`;
+}
+
 function mdInRange(md, startMD, endMD){
   // handles ranges that wrap around the year (e.g. 12-20 .. 01-06)
   if(startMD <= endMD) return md >= startMD && md <= endMD;
@@ -846,6 +867,8 @@ function renderGrid(){
   headerSticky.appendChild(dayRow);
   wrap.appendChild(headerSticky);
 
+  const gridDayIndices = gridLineDayIndices(y, n);
+
   // unit groups
   const filteredEmployees = EMPLOYEES.filter(e=>{
     if(e.active===false) return false;
@@ -868,6 +891,7 @@ function renderGrid(){
     uh.appendChild(cc);
     const cov = document.createElement('div'); cov.className='coverage-track';
     cov.style.width = totalW+'px';
+    cov.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#cfe0cf', 'px');
     for(let idx=0; idx<n; idx++){
       const {count,max,over} = unitCoverageForDay(u.id, idx, y);
       const cell = document.createElement('div'); cell.className='cov-cell';
@@ -880,13 +904,13 @@ function renderGrid(){
     group.appendChild(uh);
 
     for(const emp of emps){
-      group.appendChild(buildEmployeeRow(emp, y, n, totalW));
+      group.appendChild(buildEmployeeRow(emp, y, n, totalW, gridDayIndices));
     }
     wrap.appendChild(group);
   }
 }
 
-function buildEmployeeRow(emp, y, n, totalW){
+function buildEmployeeRow(emp, y, n, totalW, gridDayIndices){
   const row = document.createElement('div'); row.className='emp-row';
   row.style.width = (NAME_W + totalW)+'px';
   const nameCell = document.createElement('div'); nameCell.className='emp-name';
@@ -900,7 +924,8 @@ function buildEmployeeRow(emp, y, n, totalW){
 
   const track = document.createElement('div'); track.className='track';
   track.style.width = totalW+'px';
-  track.style.backgroundImage = weekendGradient(n, y, '#F0F3F0');
+  track.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#dfeadf', 'px')
+    + ', ' + weekendGradient(n, y, '#F0F3F0');
 
   // blocked overlay
   for(const b of state.blockedRanges){
@@ -1737,12 +1762,15 @@ function buildPrintArea(){
   monthRow.appendChild(daysHead);
   grid.appendChild(monthRow);
 
+  const gridDayIndices = gridLineDayIndices(y, n);
+
   // regla de números de día, para poder leer el inicio/fin exacto de cada periodo
   const dayRowWrap = document.createElement('div'); dayRowWrap.style.display='flex';
   const daySpacerL = document.createElement('div'); daySpacerL.className='p-namecell';
   dayRowWrap.appendChild(daySpacerL);
   const dayTicks = document.createElement('div'); dayTicks.className='p-dayrow';
-  dayTicks.style.backgroundImage = weekendGradient(n, y, '#e2e2e2');
+  dayTicks.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#c9c9c9', '%')
+    + ', ' + weekendGradient(n, y, '#e2e2e2');
   for(let idx=0; idx<n; idx++){
     const d = dateFromIndex(y, idx);
     const dom = d.getUTCDate();
@@ -1783,7 +1811,8 @@ function buildPrintArea(){
       row.appendChild(nameCell);
 
       const track = document.createElement('div'); track.className='p-track';
-      track.style.backgroundImage = weekendGradient(n, y, '#eee');
+      track.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#dcdcdc', '%')
+        + ', ' + weekendGradient(n, y, '#eee');
       for(const b of state.blockedRanges){
         const segs = blockedSegmentsForYear(b, y, n);
         for(const seg of segs){
