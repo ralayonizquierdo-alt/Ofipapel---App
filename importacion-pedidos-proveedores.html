@@ -147,7 +147,10 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
             <th class="sortable" style="min-width:220px;" onclick="ordenarPor('desc')">Descripción</th>
             <th>Udes</th>
             <th>Precio U.</th>
-            <th>Dto %</th>
+            <th>Dcto.</th>
+            <th>Dcto. (X+X)</th>
+            <th>Dcto. Adicional</th>
+            <th>Dcto. Campaña</th>
             <th>Igic</th>
             <th>Importe</th>
             <th>Cod. Familia</th>
@@ -157,7 +160,7 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
         <tbody id="tbodyFilas"></tbody>
         <tfoot>
           <tr>
-            <td colspan="8" style="text-align:right;">TOTAL PEDIDO:</td>
+            <td colspan="11" style="text-align:right;">TOTAL PEDIDO:</td>
             <td id="totalImporte">0,00</td>
             <td colspan="2"></td>
           </tr>
@@ -174,7 +177,9 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
       <button class="btn btn-secundario" onclick="generarExcel('biff5')">📥 Variante estricta Excel 5.0/95</button>
     </div>
     <div class="footer-note">
-      El Cod. Familia casi nunca viene en la factura del proveedor: revísalo y complétalo a mano en la tabla antes de generar el Excel. El ISBN y la Marca (Editorial) son campos de proveedores de libros: se rellenarán solos cuando demos de alta el perfil de un proveedor de libros que los incluya en su factura; para el resto de proveedores (como APLI, dado de alta ahora) esas dos columnas no aplican y quedan en blanco. El Igic tampoco viene desglosado por línea en la mayoría de facturas: complétalo si tu Gestión lo necesita.<br>
+      El Cod. Familia casi nunca viene en la factura del proveedor: revísalo y complétalo a mano en la tabla antes de generar el Excel. El ISBN y la Marca (Editorial) son campos de proveedores de libros: se rellenarán solos cuando demos de alta el perfil de un proveedor de libros que los incluya en su factura; para el resto de proveedores esas dos columnas no aplican y quedan en blanco. El Igic tampoco viene desglosado por línea en la mayoría de facturas: complétalo si tu Gestión lo necesita.<br>
+      Las 4 columnas de descuento se rellenan solo cuando la factura del proveedor las trae — cada proveedor usa como mucho 1 o 2, el resto quedan en 0.<br>
+      <strong>Proveedores dados de alta:</strong> APLI, COFRAP/MAPED, HAMELIN, FILA IBERIA, CABERO/FINOCAN, JOUMMA BAGS, FAIBO, NOGUERA Y VINTRÓ, ROYMART, TALENS, SENFORT, PRYSE. Para cualquier otro proveedor se usa un extractor genérico — revisa bien la tabla porque puede fallar. <em>Roymart tiene un formato de factura especialmente irregular: revísalo con más cuidado que el resto.</em> Las facturas escaneadas como imagen (sin texto seleccionable, p.ej. Integral Informática/Mandatelo) no se pueden procesar todavía.<br>
       <strong>Nota de compatibilidad:</strong> el botón principal genera un .xls Excel 97-2003 (se abre igual y conserva tildes/Ñ correctamente). La "variante estricta Excel 5.0/95" genera el formato exacto que pide la plantilla, pero la librería usada convierte las tildes y la Ñ en "_" — solo úsala si tu Gestión rechaza el .xls normal, y revisa los nombres/descripciones después.
     </div>
   </div>
@@ -212,72 +217,323 @@ async function extraerLineasPDF(file){
 }
 
 // ═══════════════════════════════════════════════════════
+// UTILIDADES NUMÉRICAS COMUNES
+// (comas como separador decimal, punto como separador de miles —
+// salvo parseDecPunto, que es al revés, para proveedores como NOGUERA).
+// ═══════════════════════════════════════════════════════
+function fila_(o){
+  return Object.assign({codigo:'', descripcion:'', cantidad:0, precioUnitario:0, dto1:0, dto2:0, dto3:0, dto4:0, importe:0}, o);
+}
+function parseDecComa(s){ return parseFloat(String(s).replace(/\./g,'').replace(',','.')); }
+function parseDecPunto(s){ return parseFloat(String(s).replace(/,/g,'')); }
+const round2_ = v => Math.round(v*100)/100;
+
+// ═══════════════════════════════════════════════════════
 // PARSER GENÉRICO: reconoce líneas de artículo con el patrón habitual
 // "CODIGO  DESCRIPCION  CANTIDAD  PRECIO  DTO%  [DTOAD%]  PRECIO_NETO  IMPORTE"
-// (comas como separador decimal, punto como separador de miles).
-// Sirve de base para cualquier proveedor; si un proveedor nuevo tiene un
-// formato de columnas distinto, se añade su propia función de parser en
-// PERFILES_PROVEEDOR sin tocar el resto del código.
+// Sirve de base cuando un proveedor no tiene perfil propio dado de alta.
 // ═══════════════════════════════════════════════════════
 const CODE_RE = /^(\d{6,9}|[A-Z]{2}\d{3,6})$/;
 const INT_RE = /^\d+$/;
 const DEC_RE = /^\d{1,3}(?:\.\d{3})*,\d{2,3}$/;
 
-function parseDec(s){ return parseFloat(s.replace(/\./g,'').replace(',','.')); }
-
-function parsearLineaGenerica(linea){
-  const tokens = linea.split(/\s+/);
-  if(!CODE_RE.test(tokens[0])) return null;
-  const codigo = tokens[0];
-  const n = tokens.length;
-  if(n < 6) return null;
-
-  const last = tokens[n-1], prevLast = tokens[n-2];
-  if(!DEC_RE.test(last) || !DEC_RE.test(prevLast)) return null;
-  const impTotal = parseDec(last);
-  const precNeto = parseDec(prevLast);
-
-  let i = n-3;
-  const decimales = [];
-  while(i >= 0 && DEC_RE.test(tokens[i])){ decimales.unshift(tokens[i]); i--; }
-  if(decimales.length < 2 || decimales.length > 3) return null;
-  const precTarifa = parseDec(decimales[0]);
-
-  if(i < 1 || !INT_RE.test(tokens[i])) return null;
-  const cantidad = parseInt(tokens[i], 10);
-
-  let descTokens = tokens.slice(1, i);
-  if(descTokens.length && descTokens[descTokens.length-1] === '=') descTokens.pop();
-  const descripcion = descTokens.join(' ').trim();
-  if(!descripcion) return null;
-
-  const dtoEfectivo = precTarifa > 0 ? Math.round((1 - precNeto/precTarifa) * 10000) / 100 : 0;
-
-  return { codigo, descripcion, cantidad, precioUnitario:precNeto, dto:dtoEfectivo, importe:impTotal };
-}
-
 function parserGenerico(lineas){
   const filas = [];
   lineas.forEach(linea=>{
-    const r = parsearLineaGenerica(linea);
-    if(r) filas.push(r);
+    const tokens = linea.split(/\s+/);
+    if(!CODE_RE.test(tokens[0])) return;
+    const codigo = tokens[0];
+    const n = tokens.length;
+    if(n < 6) return;
+
+    const last = tokens[n-1], prevLast = tokens[n-2];
+    if(!DEC_RE.test(last) || !DEC_RE.test(prevLast)) return;
+    const impTotal = parseDecComa(last);
+    const precNeto = parseDecComa(prevLast);
+
+    let i = n-3;
+    const decimales = [];
+    while(i >= 0 && DEC_RE.test(tokens[i])){ decimales.unshift(tokens[i]); i--; }
+    if(decimales.length < 2 || decimales.length > 3) return;
+    const precTarifa = parseDecComa(decimales[0]);
+
+    if(i < 1 || !INT_RE.test(tokens[i])) return;
+    const cantidad = parseInt(tokens[i], 10);
+
+    let descTokens = tokens.slice(1, i);
+    if(descTokens.length && descTokens[descTokens.length-1] === '=') descTokens.pop();
+    const descripcion = descTokens.join(' ').trim();
+    if(!descripcion) return;
+
+    const dtoEfectivo = precTarifa > 0 ? round2_((1 - precNeto/precTarifa) * 100) : 0;
+    filas.push(fila_({codigo, descripcion, cantidad, precioUnitario:precNeto, dto1:dtoEfectivo, importe:impTotal}));
   });
   return filas;
 }
 
 // ═══════════════════════════════════════════════════════
-// PERFILES DE PROVEEDOR: detección automática + parser propio (opcional).
-// Si "parser" es null se usa el parserGenerico (le ha bastado a APLI).
+// PARSERS ESPECÍFICOS POR PROVEEDOR
+// Cada uno recibe el array de líneas reconstruidas del PDF y devuelve
+// filas {codigo, descripcion, cantidad, precioUnitario, dto1..dto4, importe}.
+// ═══════════════════════════════════════════════════════
+
+// APLI: "CODIGO DESCRIPCION [=] CANTIDAD PRECIO.TARIFA DTO% [DTOAD%] PRECIO.NETO IMPORTE"
+function parseApli(lineas){
+  const filas = [];
+  lineas.forEach(linea=>{
+    const tokens = linea.split(/\s+/);
+    if(!CODE_RE.test(tokens[0])) return;
+    const codigo = tokens[0];
+    const n = tokens.length;
+    if(n < 6) return;
+    const last = tokens[n-1], prevLast = tokens[n-2];
+    if(!DEC_RE.test(last) || !DEC_RE.test(prevLast)) return;
+    const importe = parseDecComa(last);
+    const precioNeto = parseDecComa(prevLast);
+    let i = n-3;
+    const decimales = [];
+    while(i >= 0 && DEC_RE.test(tokens[i])){ decimales.unshift(tokens[i]); i--; }
+    if(decimales.length < 2 || decimales.length > 3) return;
+    if(i < 1 || !INT_RE.test(tokens[i])) return;
+    const cantidad = parseInt(tokens[i], 10);
+    let descTokens = tokens.slice(1, i);
+    if(descTokens.length && descTokens[descTokens.length-1] === '=') descTokens.pop();
+    const descripcion = descTokens.join(' ').trim();
+    if(!descripcion) return;
+    const dtoPct = parseDecComa(decimales[1]);
+    const dtoAdPct = decimales.length===3 ? parseDecComa(decimales[2]) : 0;
+    filas.push(fila_({codigo, descripcion, cantidad, precioUnitario:precioNeto, dto1:dtoPct, dto3:dtoAdPct, importe}));
+  });
+  return filas;
+}
+
+// COFRAP / MAPED: "CODIGO(6d) DESC_L1 PRECIO CANT IMPORTE" (+ DESC_L2 opcional) + "EAN : xxx"
+function parseCofrap(lineas){
+  const filas = [];
+  const FULL_RE = /^(\d{6})\s+(.*?)\s+(\d+,\d{3})\s+(\d{1,3}(?:\.\d{3})*)\s+(\d{1,3}(?:\.\d{3})*,\d{2})$/;
+  const FREE_RE = /^(\d{6})\s+(.*?)\s+0,000\s+(\d{1,3}(?:\.\d{3})*)$/;
+  const EAN_RE = /^EAN\s*:\s*\d+$/;
+  const CODE_START_RE = /^\d{6}\s/;
+  let pendingIdx = -1;
+  lineas.forEach(l=>{
+    const m = l.match(FULL_RE);
+    if(m){
+      const [,codigo,desc,precio,cant,importe] = m;
+      filas.push(fila_({codigo, descripcion:desc.trim(),
+        cantidad:parseInt(cant.replace(/\./g,''),10),
+        precioUnitario:parseDecComa(precio), importe:parseDecComa(importe)}));
+      pendingIdx = filas.length-1;
+      return;
+    }
+    if(FREE_RE.test(l)){ pendingIdx = -1; return; }
+    if(EAN_RE.test(l)){ pendingIdx = -1; return; }
+    if(pendingIdx>=0 && !CODE_START_RE.test(l)){
+      filas[pendingIdx].descripcion = (filas[pendingIdx].descripcion + ' ' + l).trim();
+    }
+  });
+  return filas;
+}
+
+// HAMELIN / FILA (mismo software): "LINEA REF DESC EAN IVA%" + "CANT UNI PRECIO EUR por 1 UNI [-DTO% ]NETO EUR [IMPORTE EUR]"
+// Las líneas "Compue" / "s. por ..." son el desglose de lo que trae la caja
+// del artículo compuesto y ya están incluidas en su precio: se ignoran.
+function parseHamelinStyle(lineas){
+  const filas = [];
+  const HEADER_RE = /^(\d+)\s+([A-Z0-9]{6,10})\s+(.*?)\s+(\d{8,14})\s+[\d.]+%$/;
+  const PRICE_RE = /^(\d+(?:\.\d{3})*)\s*[A-Z]{2,4}\s+(\d+,\d{2})\s*EUR\s+por\s+\d+\s*[A-Z]{2,4}\s+(?:-([\d.]+)%\s+)?(\d+,\d{2})\s*EUR(?:\s+(\d+(?:\.\d{3})*,\d{2})\s*EUR)?$/;
+  let header = null, isComponent = false;
+  lineas.forEach(l=>{
+    if(/^Compue\s*$/.test(l) || /^s\.\s*por\b/.test(l)){ isComponent = true; header = null; return; }
+    const hm = l.match(HEADER_RE);
+    if(hm){ isComponent = false; header = { codigo:hm[2], descripcion:hm[3].trim() }; return; }
+    const pm = l.match(PRICE_RE);
+    if(pm){
+      if(!isComponent && header){
+        const cantidad = parseInt(pm[1].replace(/\./g,''),10);
+        const precioNeto = parseDecComa(pm[4]);
+        const dto = pm[3] ? parseFloat(pm[3]) : 0;
+        const importe = pm[5] ? parseDecComa(pm[5]) : round2_(cantidad*precioNeto);
+        filas.push(fila_({codigo:header.codigo, descripcion:header.descripcion, cantidad, precioUnitario:precioNeto, dto1:dto, importe}));
+      }
+      header = null; isComponent = false;
+      return;
+    }
+    if(header && !isComponent) header.descripcion = (header.descripcion + ' ' + l).trim();
+  });
+  return filas;
+}
+
+// CABERO / FINOCAN: "CANTIDAD CODIGO EAN13 DESCRIPCION PRECIO %DTO(0 en la línea)"
+// + un descuento GLOBAL de factura ("Descuento Global XX %") aplicado a todas las líneas.
+function parseFinocan(lineas){
+  const filas = [];
+  const RE = /^(\d+)\s+(\d{5,10})\s+(\d{13})\s+(.*?)\s+(\d+,\d{2})\s+(\d+)%$/;
+  const texto = lineas.join(' ');
+  let globalDto = 0;
+  const gm = texto.match(/Descuento Global\s+(\d+)\s*%/i);
+  if(gm) globalDto = parseInt(gm[1],10);
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const [,cant,codigo,,desc,precio] = m;
+    const cantidad = parseInt(cant,10);
+    const precioUnitario = parseDecComa(precio);
+    const importe = round2_(cantidad*precioUnitario*(1-globalDto/100));
+    filas.push(fila_({codigo, descripcion:desc.trim().replace(/[+]+$/,'').trim(), cantidad, precioUnitario, dto1:globalDto, importe}));
+  });
+  return filas;
+}
+
+// JOUMMA BAGS: "REF REF2 DESC.. MARCA EAN CANTIDAD PRECIO DTO. [DTO.2] PRECIONETO IMPORTE" (+ desc. envuelta en líneas siguientes)
+function parseJoumma(lineas){
+  const filas = [];
+  const RE = /^(\d{9,15})\s+(\d{5,10})\s+(.*?)\s+(\d{13})\s+(\d{1,3}(?:\.\d{3})*)\s+(\d+,\d{2})\s+(\d+,\d{2})\s+(?:(\d+,\d{2})\s+)?(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})$/;
+  const CODE_START_RE = /^\d{9,15}\s/;
+  let pendingIdx = -1;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(m){
+      filas.push(fila_({codigo:m[1], descripcion:m[3].trim(), cantidad:parseInt(m[5].replace(/\./g,''),10),
+        precioUnitario:parseDecComa(m[9]), dto1:parseDecComa(m[7]), dto2: m[8]?parseDecComa(m[8]):0, importe:parseDecComa(m[10])}));
+      pendingIdx = filas.length-1;
+      return;
+    }
+    if(/^TOTAL\b/.test(l)){ pendingIdx=-1; return; }
+    if(pendingIdx>=0 && !CODE_START_RE.test(l)){
+      filas[pendingIdx].descripcion = (filas[pendingIdx].descripcion + ' ' + l).trim();
+    }
+  });
+  return filas;
+}
+
+// FAIBO: "CODIGO CANTIDAD DETALLE PRECIO [DTO1] + [DTO2] IMPORTE" (el "+" es literal, doble descuento en cascada)
+function parseFaibo(lineas){
+  const filas = [];
+  const RE = /^([A-Z0-9][A-Z0-9-]{1,12})\s+(\d+)\s+(.*?)\s+(\d+,\d{3})\s+(?:(\d+)?\s*\+\s*(\d+)?\s+)?(\d+(?:\.\d{3})*,\d{2})$/;
+  lineas.forEach(l=>{
+    if(/^Peso \(kg\)/.test(l) || /^Codigo Arancelario/.test(l)) return;
+    const m = l.match(RE);
+    if(!m) return;
+    const [,codigo,cant,desc,precio,d1,d2,importe] = m;
+    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:parseInt(cant,10),
+      precioUnitario:parseDecComa(precio), dto1: d1?parseInt(d1,10):0, dto2: d2?parseInt(d2,10):0, importe:parseDecComa(importe)}));
+  });
+  return filas;
+}
+
+// NOGUERA Y VINTRÓ: usa PUNTO como separador decimal (no coma)
+function parseNoguera(lineas){
+  const filas = [];
+  const RE = /^([A-Z]{2}[A-Z0-9]*\d[A-Z0-9]*)\s+(.*?)\s+(\d+\.\d{2})\s+(\d+\.\d{3})\s+(\d+\.\d{2})\s+(\d+\.\d{3})\s+(\d+(?:,\d{3})*\.\d{2})$/;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const [,codigo,desc,cant,,dto,precioNeto,importe] = m;
+    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:Math.round(parseDecPunto(cant)),
+      precioUnitario:parseDecPunto(precioNeto), dto1:parseDecPunto(dto), importe:parseDecPunto(importe)}));
+  });
+  return filas;
+}
+
+// ROYMART: el "Paquetes" (cantidad) flota de posición según cuánto se envuelva la
+// descripción, así que no se localiza por posición: se deriva matemáticamente de
+// PVP, %Dto y Total (que sí son fiables: PVP es siempre el 1er decimal del bloque
+// y Total el 2º — cualquier decimal posterior es un subtotal de página, se ignora).
+function parseRoymart(lineas){
+  const CODE_START_RE = /^([A-Z]{2,4}-?\d+[A-Z0-9]*)\s+(.*)$/;
+  const DEC_RE_RM = /^\d{1,3}(?:\.\d{3})*,\d{2}$/;
+  const STOP_RE = /^(---|Suma y sigue|Sumas anteriores|C[oó]digo Paquetes|Datos del cliente|Suma imp\. DTO)/i;
+  const blocks = [];
+  let cur = null;
+  lineas.forEach(l=>{
+    if(STOP_RE.test(l)){ if(cur){ blocks.push(cur); cur=null; } return; }
+    const m = l.match(CODE_START_RE);
+    if(m){ if(cur) blocks.push(cur); cur = { codigo:m[1], texto:[m[2]] }; return; }
+    if(cur) cur.texto.push(l);
+  });
+  if(cur) blocks.push(cur);
+
+  const filas = [];
+  blocks.forEach(b=>{
+    const tokens = b.texto.join(' ').split(/\s+/).filter(Boolean);
+    const decIdx = [];
+    tokens.forEach((t,i)=>{ if(DEC_RE_RM.test(t)) decIdx.push(i); });
+    if(decIdx.length < 2) return;
+    const pvpIdx = decIdx[0], totalIdx = decIdx[1];
+    const pvp = parseDecComa(tokens[pvpIdx]);
+    const total = parseDecComa(tokens[totalIdx]);
+    let dto = 0, dtoIdx = -1;
+    if(/^\d{1,3}$/.test(tokens[pvpIdx+1])){ dto = parseInt(tokens[pvpIdx+1],10); dtoIdx = pvpIdx+1; }
+    const cantidad = dto < 100 && pvp>0 ? Math.round(total/(pvp*(1-dto/100))) : 0;
+    const dropIdx = new Set([pvpIdx, totalIdx, dtoIdx, ...decIdx.slice(2)]);
+    const descTokens = tokens.filter((t,i)=> !dropIdx.has(i));
+    filas.push(fila_({codigo:b.codigo, descripcion:descTokens.join(' ').trim(), cantidad, precioUnitario:pvp, dto1:dto, importe:total}));
+  });
+  return filas;
+}
+
+// TALENS: "LINEA,000 [ARTICULO] DESC CANT.PEDIDA CANT.ENTREGADA PRECIO.BRUTO [%DTO] PRECIO.NETO IMPORTE IVA%"
+function parseTalens(lineas){
+  const filas = [];
+  const RE = /^\d+,000\s+(?:([A-Z0-9]{4,12})\s+)?(.*?)\s+(\d+)\s+(\d+)\s+(\d+,\d{2})\s+(?:(\d+,\d)\s+)?(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})\s+\d+,\d{2}$/;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const [,codigo,desc,,cantEnt,precioBruto,pct,precioNeto,importe] = m;
+    const bruto = parseDecComa(precioBruto), neto = parseDecComa(precioNeto);
+    const dto = pct ? parseDecComa(pct) : (bruto>0 ? round2_((1-neto/bruto)*100) : 0);
+    filas.push(fila_({codigo:codigo||'', descripcion:desc.trim(), cantidad:parseInt(cantEnt,10),
+      precioUnitario:neto, dto1:dto, importe:parseDecComa(importe)}));
+  });
+  return filas;
+}
+
+// SENFORT: "CODIGO DESCRIPCION CANTIDAD PRECIO IMPORTE IVA(entero)" — sin descuentos
+function parseSenfor(lineas){
+  const filas = [];
+  const RE = /^(\d{4,10})\s+(.*?)\s+(\d{1,3}(?:\.\d{3})*)\s+(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})\s+\d+$/;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const [,codigo,desc,cant,precio,importe] = m;
+    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:parseInt(cant.replace(/\./g,''),10),
+      precioUnitario:parseDecComa(precio), importe:parseDecComa(importe)}));
+  });
+  return filas;
+}
+
+// PRYSE: "[CODIGO] DESCRIPCION CANTIDAD,000 PRECIO,00000 DTO,00 No sujeto IMPORTE,00 €"
+function parsePryse(lineas){
+  const filas = [];
+  const RE = /^\[([A-Z0-9]{4,10})\]\s+(.*?)\s+(\d{1,3}(?:\.\d{3})*),(\d{3})\s+(\d+),(\d{5})\s+(\d+),(\d{2})\s+No sujeto\s+(\d+(?:\.\d{3})*),(\d{2})\s*€$/;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const desc = m[2].replace(/\(Bienes\)\s*$/,'').trim();
+    filas.push(fila_({codigo:m[1], descripcion:desc, cantidad:parseInt(m[3].replace(/\./g,''),10),
+      precioUnitario:parseFloat(m[5]+'.'+m[6]), dto1:parseFloat(m[7]+'.'+m[8]), importe:parseDecComa(m[9]+','+m[10])}));
+  });
+  return filas;
+}
+
+// ═══════════════════════════════════════════════════════
+// PERFILES DE PROVEEDOR: detección automática + parser propio.
 // Para añadir un proveedor nuevo: aportar una factura de muestra y
-// registrar aquí su detección + (si el genérico no le sirve) su parser.
+// registrar aquí su detección + su función de parser, sin tocar el resto.
 // ═══════════════════════════════════════════════════════
 const PERFILES_PROVEEDOR = [
-  {
-    id: 'apli',
-    nombre: 'APLI PAPER S.A.U.',
-    detectar: texto => /APLI\s+PAPER|ESA60914108/i.test(texto),
-    parser: null
-  }
+  { id:'apli', nombre:'APLI PAPER S.A.U.', detectar: t => /APLI\s+PAPER|ESA60914108/i.test(t), parser: parseApli },
+  { id:'cofrap', nombre:'COFRAP ESPAÑOLA (MAPED)', detectar: t => /COFRAP\s+ESPA|A28533586/i.test(t), parser: parseCofrap },
+  { id:'hamelin', nombre:'HAMELIN BRANDS S.L.U.', detectar: t => /HAMELIN\s+BRANDS|B64271281/i.test(t), parser: parseHamelinStyle },
+  { id:'fila', nombre:'FILA IBERIA', detectar: t => /FILA\s+IBERIA|ESB66875329/i.test(t), parser: parseHamelinStyle },
+  { id:'finocan', nombre:'CABERO GROUP (FINOCAN)', detectar: t => /CABERO\s+GROUP|A58210675/i.test(t), parser: parseFinocan },
+  { id:'joumma', nombre:'JOUMMA BAGS, S.L.', detectar: t => /JOUMMA\s+BAGS|B98087331/i.test(t), parser: parseJoumma },
+  { id:'faibo', nombre:'FAIBO (VDA. E. FAJEDA)', detectar: t => /VDA\.\s*E\.\s*FAJEDA|FAIBO/i.test(t), parser: parseFaibo },
+  { id:'noguera', nombre:'NOGUERA Y VINTRÓ ANDALUCIA', detectar: t => /NOGUERA\s+Y\s+VINTR|B-41574435/i.test(t), parser: parseNoguera },
+  { id:'roymart', nombre:'ROYMART, S.L.', detectar: t => /ROYMART|B58263526/i.test(t), parser: parseRoymart },
+  { id:'talens', nombre:'TALENS ESPAÑA, S.A.U.', detectar: t => /TALENS\s+ESPA|A08542771/i.test(t), parser: parseTalens },
+  { id:'senfor', nombre:'SENFORT S.A.', detectar: t => /SENFORT|A08795809/i.test(t), parser: parseSenfor },
+  { id:'pryse', nombre:'PRYSE S.A.', detectar: t => /PRYSE|A58276254/i.test(t), parser: parsePryse }
 ];
 
 function detectarProveedor(lineas){
@@ -293,7 +549,8 @@ let proveedorDetectado = '';
 
 function nuevaFila(datos){
   return Object.assign({
-    isbn:'', marca:'', ref:'', desc:'', udes:0, precioU:0, dto:0, igic:'', importe:0, familia:''
+    isbn:'', marca:'', ref:'', desc:'', udes:0, precioU:0,
+    dto1:0, dto2:0, dto3:0, dto4:0, igic:'', importe:0, familia:''
   }, datos||{});
 }
 
@@ -315,7 +572,7 @@ function eliminarFila(idx){
 }
 
 function actualizarCelda(idx, campo, valor){
-  const numericos = ['udes','precioU','dto','importe'];
+  const numericos = ['udes','precioU','dto1','dto2','dto3','dto4','importe'];
   filas[idx][campo] = numericos.includes(campo) ? (parseFloat(valor.replace(',','.'))||0) : valor;
   renderTotales();
 }
@@ -352,7 +609,10 @@ function renderFilas(){
       <td><input value="${f.desc}" oninput="actualizarCelda(${idx},'desc',this.value)"></td>
       <td class="col-num"><input value="${f.udes}" oninput="actualizarCelda(${idx},'udes',this.value)"></td>
       <td class="col-num"><input value="${f.precioU}" oninput="actualizarCelda(${idx},'precioU',this.value)"></td>
-      <td class="col-num"><input value="${f.dto}" oninput="actualizarCelda(${idx},'dto',this.value)"></td>
+      <td class="col-num"><input value="${f.dto1}" oninput="actualizarCelda(${idx},'dto1',this.value)"></td>
+      <td class="col-num"><input value="${f.dto2}" oninput="actualizarCelda(${idx},'dto2',this.value)"></td>
+      <td class="col-num"><input value="${f.dto3}" oninput="actualizarCelda(${idx},'dto3',this.value)"></td>
+      <td class="col-num"><input value="${f.dto4}" oninput="actualizarCelda(${idx},'dto4',this.value)"></td>
       <td class="col-num"><input value="${f.igic}" oninput="actualizarCelda(${idx},'igic',this.value)"></td>
       <td class="col-num"><input value="${f.importe}" oninput="actualizarCelda(${idx},'importe',this.value)"></td>
       <td><input value="${f.familia}" oninput="actualizarCelda(${idx},'familia',this.value)"></td>
@@ -410,7 +670,7 @@ async function onPdfSelected(file){
       desc: f.descripcion,
       udes: f.cantidad,
       precioU: f.precioUnitario,
-      dto: f.dto,
+      dto1: f.dto1, dto2: f.dto2, dto3: f.dto3, dto4: f.dto4,
       importe: f.importe
     }));
     ordenActual = {campo:null, asc:true};
@@ -449,18 +709,18 @@ function generarExcel(bookType){
   if(!filas.length){ alert('No hay líneas para exportar.'); return; }
 
   const aoa = [
-    ['Codigo I.S.B.N.','EDITORIAL','Rfcia. Proveedor','DESCRIPCION','Udes','Precio U.','Dcto','Igic','IMPORTE','COD. FAMILIA']
+    ['Codigo I.S.B.N.','EDITORIAL','Rfcia. Proveedor','DESCRIPCION','Udes','Precio U.','Dcto.','Dcto. (X+X)','Dcto. Adicional','Dcto. Campaña','Igic','IMPORTE','COD. FAMILIA']
   ];
 
   filas.forEach(f=>{
-    aoa.push([f.isbn, f.marca, f.ref, f.desc, f.udes, f.precioU, f.dto, f.igic, f.importe, f.familia]);
+    aoa.push([f.isbn, f.marca, f.ref, f.desc, f.udes, f.precioU, f.dto1, f.dto2, f.dto3, f.dto4, f.igic, f.importe, f.familia]);
   });
 
   const total = filas.reduce((s,f)=>s + (parseFloat(f.importe)||0), 0);
-  aoa.push(['', '', '', '', '', '', '', 'TOTAL', Math.round(total*100)/100, '']);
+  aoa.push(['', '', '', '', '', '', '', '', '', '', 'TOTAL', Math.round(total*100)/100, '']);
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [{wch:14},{wch:16},{wch:16},{wch:40},{wch:8},{wch:10},{wch:8},{wch:8},{wch:12},{wch:12}];
+  ws['!cols'] = [{wch:14},{wch:16},{wch:16},{wch:40},{wch:8},{wch:10},{wch:8},{wch:10},{wch:10},{wch:10},{wch:8},{wch:12},{wch:12}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
 
