@@ -154,6 +154,13 @@ las 3 tiendas) abre en horario reducido y necesita a 1-2 personas concretas trab
 - Navidad (24 dic) y Fin de Año (31 dic) no se han incluido como festivo "compensable" porque en el Excel
   son de "todos trabajan en horario reducido", no una asignación de 1-2 personas concretas — si querías que
   también compensen, dímelo y los añado.
+- **Registro de compensaciones (nuevo)**: dentro del mismo panel de Festivos, cada festivo trabajado se
+  puede marcar como **Compensado** o dejarlo en **Pendiente**, por cada persona que lo trabajó. Al marcarlo
+  compensado se indica si se lo llevó como **día de vacaciones** o **día de permiso**, en qué fecha, y una
+  nota opcional. Debajo de la lista de festivos hay un resumen ("Registro de compensaciones") con todo esto
+  de un vistazo, para comprobar rápidamente qué festivos ya se han compensado, cuándo y cómo, y evitar dar
+  el mismo día dos veces. Esto es solo un registro informativo — no bloquea nada ni cambia el total de días
+  (ese +1 día ya se suma automáticamente en cuanto se asigna a la persona el festivo trabajado).
 
 ## 10. Turnos de sábado (nuevo, panel aparte)
 
@@ -294,8 +301,12 @@ escribe el puesto que cubre ese sábado — se guarda solo, no hace falta ningú
 ### Modal "Festivos"
 
 Una tarjeta por festivo (fecha, festividad, tienda) con dos desplegables para marcar qué 1-2 personas lo
-trabajaron ese año — al elegirlas se les suma automáticamente 1 día a su total de vacaciones. Abajo del
-todo hay un formulario para añadir festivos nuevos que no estén en la lista.
+trabajaron ese año — al elegirlas se les suma automáticamente 1 día a su total de vacaciones. Debajo de
+cada persona asignada hay un interruptor "Compensado / Pendiente"; al marcarlo se despliegan un desplegable
+(vacaciones o permiso), una fecha y una nota, para dejar constancia de cómo y cuándo se le dio el día. Más
+abajo hay un formulario para añadir festivos nuevos que no estén en la lista, y al final del todo el
+"Registro de compensaciones", que resume en una lista todos los festivos trabajados de todas las personas
+con su estado (✔ Compensado, con el detalle, o ⏳ Pendiente).
 
 ### Vista previa de impresión / PDF
 
