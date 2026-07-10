@@ -19,9 +19,7 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
-      // TODO: refactorizar los setState directos dentro de useEffect en
-      // Reservations.tsx (y otros) y volver a subir esto a "error".
-      'react-hooks/set-state-in-effect': 'warn',
+      '@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^_', argsIgnorePattern: '^_' }],
     },
   },
 ])

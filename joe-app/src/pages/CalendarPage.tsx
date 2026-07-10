@@ -80,7 +80,7 @@ export default function CalendarPage() {
   async function saveEvent() {
     if (!editEvent.title?.trim()) return
     setSaveError(null)
-    const { id, created_at, ...rest } = editEvent as CalendarEvent
+    const { id, created_at: _created_at, ...rest } = editEvent as CalendarEvent
     const payload = {
       ...rest,
       ...(editEvent.id ? { id } : {}),
