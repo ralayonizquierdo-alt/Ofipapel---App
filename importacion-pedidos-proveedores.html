@@ -64,6 +64,11 @@ main{ max-width:1100px; margin:24px auto 60px; padding:0 20px; position:relative
 .dz-acciones{ display:flex; justify-content:center; margin-top:8px; }
 .dz-acciones button{ font-size:11.5px; background:none; border:none; color:var(--texto2); text-decoration:underline; cursor:pointer; }
 
+.row-campos{ display:flex; flex-wrap:wrap; gap:14px; }
+.campo{ display:flex; flex-direction:column; gap:4px; flex:1; min-width:150px; }
+.campo label{ font-size:11px; font-weight:600; color:var(--texto2); }
+.campo input{ padding:8px 10px; border:1px solid var(--borde); border-radius:8px; font-size:13px; color:var(--texto); }
+
 .estado{ font-size:13px; margin-top:10px; padding:8px 12px; border-radius:8px; display:none; }
 .estado.ok{ display:block; background:#e8f5e9; color:#1b5e20; }
 .estado.warn{ display:block; background:#fff3cd; color:#7b5800; }
@@ -130,7 +135,37 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
   </div>
 
   <div class="card">
-    <h2>2. Vista previa (revisa y completa antes de exportar)</h2>
+    <h2>2. Datos de cabecera</h2>
+    <div class="row-campos">
+      <div class="campo">
+        <label>Proveedor</label>
+        <input type="text" id="cabProveedor" placeholder="Se detecta solo si el proveedor tiene perfil">
+      </div>
+      <div class="campo">
+        <label>Nº Pedido</label>
+        <input type="text" id="cabPedido">
+      </div>
+      <div class="campo">
+        <label>Fecha</label>
+        <input type="date" id="cabFecha">
+      </div>
+      <div class="campo">
+        <label>Almacén</label>
+        <input type="text" id="cabAlmacen">
+      </div>
+      <div class="campo">
+        <label>Contactar con</label>
+        <input type="text" id="cabContacto">
+      </div>
+      <div class="campo">
+        <label>E-mail</label>
+        <input type="text" id="cabEmail">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3. Vista previa (revisa y completa antes de exportar)</h2>
     <div class="toolbar">
       <button class="btn btn-secundario" id="btnOrdenRef" onclick="ordenarPor('ref')">↕ Ordenar por Rfcia. Proveedor</button>
       <button class="btn btn-secundario" id="btnOrdenDesc" onclick="ordenarPor('desc')">↕ Ordenar por Descripción</button>
@@ -145,6 +180,8 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
             <th>Marca (Editorial)</th>
             <th class="sortable" onclick="ordenarPor('ref')">Rfcia. Proveedor</th>
             <th class="sortable" style="min-width:220px;" onclick="ordenarPor('desc')">Descripción</th>
+            <th>Caja</th>
+            <th>Ud./Caja</th>
             <th>Udes</th>
             <th>Precio U.</th>
             <th>Dcto.</th>
@@ -160,7 +197,7 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
         <tbody id="tbodyFilas"></tbody>
         <tfoot>
           <tr>
-            <td colspan="11" style="text-align:right;">TOTAL PEDIDO:</td>
+            <td colspan="13" style="text-align:right;">TOTAL PEDIDO:</td>
             <td id="totalImporte">0,00</td>
             <td colspan="2"></td>
           </tr>
@@ -171,13 +208,14 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
   </div>
 
   <div class="card">
-    <h2>3. Exportar</h2>
+    <h2>4. Exportar</h2>
     <div class="toolbar">
       <button class="btn btn-primary" onclick="generarExcel('xls')">📥 Generar Excel (.xls)</button>
       <button class="btn btn-secundario" onclick="generarExcel('biff5')">📥 Variante estricta Excel 5.0/95</button>
     </div>
     <div class="footer-note">
-      El Cod. Familia casi nunca viene en la factura del proveedor: revísalo y complétalo a mano en la tabla antes de generar el Excel. La columna "Codigo ISBN / EAN" se rellena sola con el código de barras (EAN) siempre que la factura del proveedor lo traiga (APLI no lo trae; COFRAP/MAPED, HAMELIN, FILA IBERIA, CABERO/FINOCAN, JOUMMA BAGS e INTEGRAL INFORMÁTICA/MANDATELO sí). La Marca (Editorial) sigue siendo un campo solo de proveedores de libros: se rellenará sola cuando demos de alta el perfil de uno. El Igic tampoco viene desglosado por línea en la mayoría de facturas: complétalo si tu Gestión lo necesita.<br>
+      El Cod. Familia, Caja y Ud./Caja casi nunca vienen en la factura del proveedor: revísalos y complétalos a mano en la tabla antes de generar el Excel. La columna "Codigo ISBN / EAN" se rellena sola con el código de barras (EAN) siempre que la factura del proveedor lo traiga (APLI no lo trae; COFRAP/MAPED, HAMELIN, FILA IBERIA, CABERO/FINOCAN, JOUMMA BAGS e INTEGRAL INFORMÁTICA/MANDATELO sí). La Marca (Editorial) sigue siendo un campo solo de proveedores de libros: se rellenará sola cuando demos de alta el perfil de uno. El Igic tampoco viene desglosado por línea en la mayoría de facturas: complétalo si tu Gestión lo necesita.<br>
+      El Excel generado incluye las mismas casillas de cabecera que la plantilla (Proveedor, Nº Pedido, Fecha, Almacén, Contacto, E-mail) en la misma posición, y las mismas columnas de datos — pero sin colores ni bordes, porque la librería que usamos no puede conservarlos al exportar a .xls (a Gestión no le afecta: solo lee los datos).<br>
       Las 4 columnas de descuento se rellenan solo cuando la factura del proveedor las trae — cada proveedor usa como mucho 1 o 2, el resto quedan en 0.<br>
       <strong>Proveedores dados de alta:</strong> APLI, COFRAP/MAPED, HAMELIN, FILA IBERIA, CABERO/FINOCAN, JOUMMA BAGS, FAIBO, NOGUERA Y VINTRÓ, ROYMART, TALENS, SENFORT, PRYSE, INTEGRAL INFORMÁTICA/MANDATELO. Para cualquier otro proveedor se usa un extractor genérico — revisa bien la tabla porque puede fallar. <em>Roymart tiene un formato de factura especialmente irregular: revísalo con más cuidado que el resto.</em> Las facturas escaneadas como imagen (sin texto seleccionable) no se pueden procesar todavía — necesitarían OCR.<br>
       <strong>Nota de compatibilidad:</strong> el botón principal genera un .xls Excel 97-2003 (se abre igual y conserva tildes/Ñ correctamente). La "variante estricta Excel 5.0/95" genera el formato exacto que pide la plantilla, pero la librería usada convierte las tildes y la Ñ en "_" — solo úsala si tu Gestión rechaza el .xls normal, y revisa los nombres/descripciones después.
@@ -572,7 +610,7 @@ let proveedorDetectado = '';
 
 function nuevaFila(datos){
   return Object.assign({
-    isbn:'', marca:'', ref:'', desc:'', udes:0, precioU:0,
+    isbn:'', marca:'', ref:'', desc:'', caja:'', udCaja:'', udes:0, precioU:0,
     dto1:0, dto2:0, dto3:0, dto4:0, igic:'', importe:0, familia:''
   }, datos||{});
 }
@@ -630,6 +668,8 @@ function renderFilas(){
       <td><input value="${f.marca}" oninput="actualizarCelda(${idx},'marca',this.value)"></td>
       <td><input value="${f.ref}" oninput="actualizarCelda(${idx},'ref',this.value)"></td>
       <td><input value="${f.desc}" oninput="actualizarCelda(${idx},'desc',this.value)"></td>
+      <td class="col-num"><input value="${f.caja}" oninput="actualizarCelda(${idx},'caja',this.value)"></td>
+      <td class="col-num"><input value="${f.udCaja}" oninput="actualizarCelda(${idx},'udCaja',this.value)"></td>
       <td class="col-num"><input value="${f.udes}" oninput="actualizarCelda(${idx},'udes',this.value)"></td>
       <td class="col-num"><input value="${f.precioU}" oninput="actualizarCelda(${idx},'precioU',this.value)"></td>
       <td class="col-num"><input value="${f.dto1}" oninput="actualizarCelda(${idx},'dto1',this.value)"></td>
@@ -687,6 +727,7 @@ async function onPdfSelected(file){
     }
 
     proveedorDetectado = perfil ? perfil.nombre : '';
+    document.getElementById('cabProveedor').value = proveedorDetectado;
 
     filas = filasParseadas.map(f => nuevaFila({
       isbn: f.ean || '',
@@ -729,28 +770,52 @@ dropzoneEl.addEventListener('drop', e=>{
 // ═══════════════════════════════════════════════════════
 // EXPORTACIÓN A EXCEL 5.0/95 (.xls, BIFF5) SEGÚN LA PLANTILLA
 // ═══════════════════════════════════════════════════════
+// Cabecera con las mismas etiquetas y posiciones de celda que la plantilla
+// oficial (Plantilla_PEDIDOS_PROVEEDORES_ALTA_NUEVOS), sin colores ni bordes
+// (esa parte decorativa no la conserva la librería al exportar a .xls).
+function filaVacia(n){ return new Array(n).fill(''); }
+
 function generarExcel(bookType){
   if(!filas.length){ alert('No hay líneas para exportar.'); return; }
 
-  const aoa = [
-    ['Codigo I.S.B.N.','EDITORIAL','Rfcia. Proveedor','DESCRIPCION','Udes','Precio U.','Dcto.','Dcto. (X+X)','Dcto. Adicional','Dcto. Campaña','Igic','IMPORTE','COD. FAMILIA']
-  ];
+  const proveedor = document.getElementById('cabProveedor').value.trim();
+  const pedido = document.getElementById('cabPedido').value.trim();
+  const fecha = document.getElementById('cabFecha').value;
+  const almacen = document.getElementById('cabAlmacen').value.trim();
+  const contacto = document.getElementById('cabContacto').value.trim();
+  const email = document.getElementById('cabEmail').value.trim();
+
+  const NCOLS = 16; // A..P
+  const aoa = [];
+  const fila = ()=> filaVacia(NCOLS);
+
+  let r;
+  r = fila(); r[2]='PROPUESTA    DE     PEDIDO'; r[4]='ALMACEN'; r[5]=almacen; aoa.push(r);
+  aoa.push(fila());
+  r = fila(); r[2]='PROVEEDOR;'; r[3]=proveedor; aoa.push(r);
+  aoa.push(fila());
+  r = fila(); r[0]='922-75.35.20'; r[2]='Nº Pedido'; r[3]=pedido; r[4]='FECHA'; r[5]=fecha; aoa.push(r);
+  r = fila(); r[0]='Compras@ofipapelsl.com'; aoa.push(r);
+  r = fila(); r[2]='Contactar con:'; r[3]=contacto; r[4]='E-mail'; r[5]=email; aoa.push(r);
+  aoa.push(fila());
+
+  aoa.push(['Codigo I.S.B.N.','EDITORIAL','Rfcia. Proveedor','DESCRIPCION','Caja','Ud./Caja','Udes','Precio U.','Dcto.','Dcto. (X+X)','Dcto. Adicional','Dcto. Campaña','Igic','IMPORTE','','COD. FAMILIA']);
 
   filas.forEach(f=>{
-    aoa.push([f.isbn, f.marca, f.ref, f.desc, f.udes, f.precioU, f.dto1, f.dto2, f.dto3, f.dto4, f.igic, f.importe, f.familia]);
+    aoa.push([f.isbn, f.marca, f.ref, f.desc, f.caja, f.udCaja, f.udes, f.precioU, f.dto1, f.dto2, f.dto3, f.dto4, f.igic, f.importe, '', f.familia]);
   });
 
   const total = filas.reduce((s,f)=>s + (parseFloat(f.importe)||0), 0);
-  aoa.push(['', '', '', '', '', '', '', '', '', '', 'TOTAL', Math.round(total*100)/100, '']);
+  r = fila(); r[12]='TOTAL'; r[13]=Math.round(total*100)/100; aoa.push(r);
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [{wch:14},{wch:16},{wch:16},{wch:40},{wch:8},{wch:10},{wch:8},{wch:10},{wch:10},{wch:10},{wch:8},{wch:12},{wch:12}];
+  ws['!cols'] = [{wch:14},{wch:16},{wch:16},{wch:40},{wch:7},{wch:9},{wch:8},{wch:10},{wch:8},{wch:10},{wch:10},{wch:10},{wch:8},{wch:12},{wch:2},{wch:12}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
 
   const sufijo = bookType==='biff5' ? '_ESTRICTO5095' : '';
   const fechaHoy = new Date().toISOString().slice(0,10);
-  const nombreArchivo = 'PEDIDO_' + (proveedorDetectado||'PROVEEDOR').replace(/[^\w]+/g,'_') + '_' + fechaHoy + sufijo + '.xls';
+  const nombreArchivo = 'PEDIDO_' + (proveedor||'PROVEEDOR').replace(/[^\w]+/g,'_') + '_' + fechaHoy + sufijo + '.xls';
   XLSX.writeFile(wb, nombreArchivo, {bookType:bookType});
 }
 
