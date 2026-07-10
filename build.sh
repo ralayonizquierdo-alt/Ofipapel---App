@@ -26,6 +26,7 @@ cp sw.js _site/ 2>/dev/null || true
 cp sw-ink.js _site/ 2>/dev/null || true
 cp hero-productos.jpg _site/ 2>/dev/null || true
 cp logo-canarias-ink.png _site/ 2>/dev/null || true
+cp privacidad.html _site/ 2>/dev/null || true
 
 # Copy the built apps
 cp -r alquileres/dist/. _site/alquileres/
