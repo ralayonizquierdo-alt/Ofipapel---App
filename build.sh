@@ -23,6 +23,7 @@ cp Index.html _site/ 2>/dev/null || true
 cp canarias-ink.html _site/ 2>/dev/null || true
 cp falcontrol.html _site/ 2>/dev/null || true
 cp privacidad.html _site/ 2>/dev/null || true
+cp 404.html _site/ 2>/dev/null || true
 cp sw.js _site/ 2>/dev/null || true
 cp sw-ink.js _site/ 2>/dev/null || true
 cp hero-productos.jpg _site/ 2>/dev/null || true
