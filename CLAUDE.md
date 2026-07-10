@@ -97,6 +97,15 @@ Creativity usar para cada tarea, la paleta/tipografía real de cada una de las
 de imágenes por IA comercialmente seguras. Consultar ese documento antes de
 abordar cualquier encargo visual.
 
+## Skills de RAX
+
+`.claude/skills/` — sistema modular de Skills de Claude Code para este repo.
+Cada Skill es una carpeta autocontenida con su propio `SKILL.md`; añadir una
+Skill nueva nunca requiere modificar una existente. Ver
+`.claude/skills/README.md` para las reglas de aislamiento y el catálogo
+actual (por ahora: `diseno-ofipapel`, que envuelve `design-studio/` para
+producir banners, posts, carteles y flyers de marca).
+
 ## Convenciones
 
 - Nombres de commit descriptivos, en español, estilo `fix:`/`feat:` cuando aplica.
