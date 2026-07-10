@@ -275,6 +275,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <h1>Cuadrante de Vacaciones</h1>
       <span class="sub">Plantilla real (35 personas) · quedan algunos apellidos por confirmar</span>
     </div>
+    <span id="cloudStatus" style="font-size:1.1rem;cursor:default;" title="Conectando con la nube…">🔄</span>
     <button class="secondary" id="btnToggleSidebar" title="Mostrar/ocultar Reglas y Filtros">☰</button>
     <select id="yearSelect"></select>
     <button class="secondary" id="btnEmployees">👤 Empleados</button>
@@ -720,7 +721,133 @@ function loadState(){
   }catch(e){}
   return applyMigrations(defaultState());
 }
-function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function saveState(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  scheduleCloudSave();
+}
+
+/* ═══════════════════ SINCRONIZACIÓN EN LA NUBE (Firestore vía API REST, sin SDK/CDN) ═══════════════════
+   Guarda el mismo JSON que ya usábamos en localStorage como un único documento en Firestore
+   (ofipapel_vacaciones/shared), y lo sondea cada pocos segundos para recoger cambios hechos desde
+   otros dispositivos. No es instantáneo (no hay conexión "push"), pero no depende de cargar ningún
+   SDK externo — solo peticiones fetch() normales, que sí puedo probar y verificar. */
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyDLqPoqiMgiqbk5Uv-4RoYrbA-5Yfc1A_s',
+  projectId: 'ofipapelvv',
+};
+const FIRESTORE_COLLECTION = 'ofipapel_vacaciones';
+const FIRESTORE_DOC_ID = 'shared';
+const FIRESTORE_POLL_MS = 6000;
+const FIRESTORE_SAVE_DEBOUNCE_MS = 900;
+
+function firestoreBaseUrl(){
+  return `https://firestore.googleapis.com/v1/projects/${FIREBASE_CONFIG.projectId}/databases/(default)/documents`;
+}
+function firestoreDocUrl(){
+  return `${firestoreBaseUrl()}/${FIRESTORE_COLLECTION}/${FIRESTORE_DOC_ID}?key=${FIREBASE_CONFIG.apiKey}`;
+}
+
+let cloudSaveTimer = null;
+let cloudPollTimer = null;
+let lastKnownUpdateTime = null;
+let isApplyingRemoteUpdate = false;
+let cloudSyncStarted = false;
+
+function setCloudStatus(status){
+  const el = document.getElementById('cloudStatus');
+  if(!el) return;
+  if(status==='connecting'){ el.textContent = '🔄'; el.title = 'Conectando con la nube…'; }
+  else if(status==='synced'){ el.textContent = '☁️'; el.title = 'Sincronizado con la nube: los cambios se comparten con el resto de dispositivos (puede tardar unos segundos en verse).'; }
+  else { el.textContent = '⚠️'; el.title = 'Sin conexión con la nube ahora mismo: los cambios se están guardando solo en este dispositivo.'; }
+}
+
+async function firestoreFetchDoc(){
+  const res = await fetch(firestoreDocUrl());
+  if(res.status===404) return {exists:false};
+  if(!res.ok) throw new Error('Firestore GET '+res.status);
+  const json = await res.json();
+  const raw = json.fields && json.fields.data && json.fields.data.stringValue;
+  if(!raw) return {exists:false};
+  return {exists:true, updateTime: json.updateTime, data: JSON.parse(raw)};
+}
+async function firestoreCreateDoc(stateObj){
+  const url = `${firestoreBaseUrl()}/${FIRESTORE_COLLECTION}?documentId=${FIRESTORE_DOC_ID}&key=${FIREBASE_CONFIG.apiKey}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({fields: {data: {stringValue: JSON.stringify(stateObj)}}}),
+  });
+  if(!res.ok) throw new Error('Firestore CREATE '+res.status);
+  const json = await res.json();
+  return json.updateTime;
+}
+async function firestorePatchDoc(stateObj){
+  const res = await fetch(firestoreDocUrl(), {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({fields: {data: {stringValue: JSON.stringify(stateObj)}}}),
+  });
+  if(!res.ok) throw new Error('Firestore PATCH '+res.status);
+  const json = await res.json();
+  return json.updateTime;
+}
+
+function applyRemoteState(remote){
+  isApplyingRemoteUpdate = true;
+  state = applyMigrations(Object.assign(defaultState(), remote));
+  EMPLOYEES = state.employees;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  render();
+  isApplyingRemoteUpdate = false;
+}
+
+function scheduleCloudSave(){
+  if(isApplyingRemoteUpdate || !cloudSyncStarted) return;
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(async ()=>{
+    try{
+      lastKnownUpdateTime = await firestorePatchDoc(state);
+      setCloudStatus('synced');
+    }catch(err){
+      console.error('No se pudo guardar en la nube', err);
+      setCloudStatus('offline');
+    }
+  }, FIRESTORE_SAVE_DEBOUNCE_MS);
+}
+
+async function pollCloud(){
+  try{
+    const doc = await firestoreFetchDoc();
+    if(doc.exists && doc.updateTime!==lastKnownUpdateTime){
+      lastKnownUpdateTime = doc.updateTime;
+      applyRemoteState(doc.data);
+    }
+    setCloudStatus('synced');
+  }catch(err){
+    console.error('Error sondeando la nube', err);
+    setCloudStatus('offline');
+  }
+}
+
+async function initCloudSync(){
+  setCloudStatus('connecting');
+  try{
+    const doc = await firestoreFetchDoc();
+    if(doc.exists){
+      lastKnownUpdateTime = doc.updateTime;
+      applyRemoteState(doc.data);
+    } else {
+      lastKnownUpdateTime = await firestoreCreateDoc(state);
+    }
+    setCloudStatus('synced');
+  }catch(err){
+    console.error('No se pudo conectar con la nube al iniciar', err);
+    setCloudStatus('offline');
+  }
+  cloudSyncStarted = true;
+  clearInterval(cloudPollTimer);
+  cloudPollTimer = setInterval(pollCloud, FIRESTORE_POLL_MS);
+}
 
 /* ═══════════════════ FECHAS ═══════════════════ */
 function isLeap(y){ return (y%4===0 && y%100!==0) || y%400===0; }
@@ -2668,6 +2795,7 @@ function injectManifest(){
   document.head.appendChild(link);
 }
 injectManifest();
+initCloudSync();
 </script>
 </body>
 </html>

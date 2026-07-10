@@ -211,6 +211,30 @@ Fechas puntuales de permiso, aparte de las vacaciones — se gestionan desde el 
 - Los permisos también aparecen en el panel **"¿Quién está fuera?"** (ahora incluye vacaciones y permisos
   juntos, marcados como "(permiso)") y en su mensaje de WhatsApp.
 
+## 12. Sincronización en la nube entre dispositivos (nuevo)
+
+Hasta ahora todo se guardaba solo en el navegador de cada dispositivo (`localStorage`), sin compartirse.
+Ahora los datos (empleados, periodos, permisos, festivos, reglas... todo) se guardan también en una base de
+datos en la nube (Firestore, proyecto `ofipapelvv`), para que los cambios se vean en todos los dispositivos.
+
+- **Icono de estado** junto al título, en la cabecera:
+  - 🔄 conectando.
+  - ☁️ sincronizado — los cambios se comparten con el resto de dispositivos (puede tardar unos segundos en
+    verse, no es instantáneo).
+  - ⚠️ sin conexión con la nube ahora mismo — se sigue trabajando con normalidad, pero los cambios de
+    momento solo se guardan en este dispositivo hasta que vuelva la conexión.
+- Cada dispositivo **consulta la nube cada ~6 segundos** para recoger cambios hechos por otros; al guardar
+  algo, se sube a la nube pasado menos de un segundo. No es una conexión "en directo" al milisegundo, pero
+  para el uso normal (una persona edita, otra revisa poco después) es más que suficiente.
+- **Aviso importante**: si dos personas editan exactamente lo mismo a la vez en dos dispositivos distintos,
+  gana el último guardado (el otro cambio se pierde). Para el uso habitual de la app (una persona a la vez
+  gestionando el cuadrante) no debería pasar, pero conviene saberlo.
+- Los datos no están protegidos por usuario/contraseña — cualquiera que abra el enlace de la app puede ver y
+  modificar los datos, igual que ahora mismo cualquiera con acceso al archivo podía verlo todo. Si en algún
+  momento hace falta limitar quién puede editar, se puede añadir un control de acceso más adelante.
+- Si algún día no hay conexión a internet, la app sigue funcionando igual que antes (todo en local); en
+  cuanto vuelve la conexión, se sincroniza solo.
+
 ## Guía de la pantalla: qué hace cada parte
 
 Recorrido rápido de la interfaz, en el mismo orden en que aparece en pantalla, para que cualquiera pueda
