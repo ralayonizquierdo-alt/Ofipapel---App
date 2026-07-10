@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Delete } from 'lucide-react'
 
-const DEFAULT_PIN_HASH = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4'
 export const PIN_STORAGE_KEY = 'joe_pin_hash'
 const SESSION_KEY = 'joe_unlocked'
 const SESSION_HOURS = 12
@@ -11,8 +10,8 @@ export async function hashPin(pin: string): Promise<string> {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-export function getCurrentPinHash(): string {
-  try { return localStorage.getItem(PIN_STORAGE_KEY) || DEFAULT_PIN_HASH } catch { return DEFAULT_PIN_HASH }
+export function getCurrentPinHash(): string | null {
+  try { return localStorage.getItem(PIN_STORAGE_KEY) } catch { return null }
 }
 
 function isSessionValid(): boolean {
@@ -22,10 +21,17 @@ function isSessionValid(): boolean {
   } catch { return false }
 }
 
+function saveSession() {
+  try { sessionStorage.setItem(SESSION_KEY, String(Date.now() + SESSION_HOURS * 3600 * 1000)) } catch {}
+}
+
 interface Props { onUnlock: () => void }
 
 export default function PinScreen({ onUnlock }: Props) {
+  const isFirstTime = !getCurrentPinHash()
+  const [step, setStep] = useState<'login' | 'create' | 'confirm'>(isFirstTime ? 'create' : 'login')
   const [pin, setPin] = useState('')
+  const [newPin, setNewPin] = useState('')
   const [error, setError] = useState(false)
   const [shake, setShake] = useState(false)
 
@@ -33,28 +39,42 @@ export default function PinScreen({ onUnlock }: Props) {
     if (isSessionValid()) onUnlock()
   }, [])
 
+  const subtitle: Record<typeof step, string> = {
+    login:   'introduce tu PIN',
+    create:  'crea tu PIN de acceso',
+    confirm: 'repite tu PIN',
+  }
+
   function press(d: string) {
     if (pin.length >= 4) return
     const next = pin + d
     setPin(next)
     setError(false)
-    if (next.length === 4) verify(next)
+    if (next.length === 4) handleFull(next)
   }
 
-  function del() {
-    setPin(p => p.slice(0, -1))
-    setError(false)
+  function del() { setPin(p => p.slice(0, -1)); setError(false) }
+
+  function triggerError() {
+    setError(true); setShake(true)
+    setTimeout(() => { setPin(''); setError(false); setShake(false) }, 600)
   }
 
-  async function verify(code: string) {
-    const h = await hashPin(code)
-    if (h === getCurrentPinHash()) {
-      try { sessionStorage.setItem(SESSION_KEY, String(Date.now() + SESSION_HOURS * 3600 * 1000)) } catch {}
-      onUnlock()
+  async function handleFull(code: string) {
+    if (step === 'login') {
+      const h = await hashPin(code)
+      if (h === getCurrentPinHash()) { saveSession(); onUnlock() }
+      else triggerError()
+    } else if (step === 'create') {
+      setNewPin(code)
+      setStep('confirm')
+      setPin('')
     } else {
-      setError(true)
-      setShake(true)
-      setTimeout(() => { setPin(''); setShake(false) }, 600)
+      if (code !== newPin) { triggerError(); setStep('confirm'); return }
+      const h = await hashPin(code)
+      try { localStorage.setItem(PIN_STORAGE_KEY, h) } catch {}
+      saveSession()
+      onUnlock()
     }
   }
 
@@ -71,7 +91,7 @@ export default function PinScreen({ onUnlock }: Props) {
           <span className="font-black text-3xl select-none" style={{ color: '#0a0a0a', lineHeight: 1, transform: 'translateY(-1px)', display: 'block' }}>J</span>
         </div>
         <h1 className="text-2xl font-bold" style={{ color: '#c9a96e' }}>Joe's World</h1>
-        <p className="text-xs tracking-[0.3em] uppercase" style={{ color: '#555' }}>introduce tu PIN</p>
+        <p className="text-xs tracking-[0.3em] uppercase" style={{ color: '#555' }}>{subtitle[step]}</p>
       </div>
 
       {/* Dots */}
@@ -86,7 +106,9 @@ export default function PinScreen({ onUnlock }: Props) {
       </div>
 
       {error && (
-        <p className="text-sm mb-4 -mt-2" style={{ color: '#e05252' }}>PIN incorrecto</p>
+        <p className="text-sm mb-4 -mt-2" style={{ color: '#e05252' }}>
+          {step === 'confirm' ? 'Los PINs no coinciden' : 'PIN incorrecto'}
+        </p>
       )}
 
       {/* Keypad */}
@@ -112,7 +134,16 @@ export default function PinScreen({ onUnlock }: Props) {
         })}
       </div>
 
-      <p className="mt-10 text-[10px] tracking-widest uppercase" style={{ color: '#2a2a2a' }}>♩ rock & roll ♪</p>
+      {step !== 'login' && (
+        <div className="flex gap-1.5 mt-6">
+          {(['create','confirm'] as const).map(s => (
+            <div key={s} className="w-1.5 h-1.5 rounded-full transition-all"
+              style={{ background: s === step ? '#c9a96e' : '#2a2a2a' }} />
+          ))}
+        </div>
+      )}
+
+      <p className="mt-8 text-[10px] tracking-widest uppercase" style={{ color: '#2a2a2a' }}>♩ rock & roll ♪</p>
 
       <style>{`
         @keyframes shake {

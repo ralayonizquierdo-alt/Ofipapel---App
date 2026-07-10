@@ -41,7 +41,7 @@ export default function ChangePinModal({ onClose }: Props) {
   async function handleComplete(code: string) {
     if (step === 'current') {
       const h = await hashPin(code)
-      if (h !== getCurrentPinHash()) { triggerError('PIN incorrecto'); return }
+      if (h !== (getCurrentPinHash() ?? '')) { triggerError('PIN incorrecto'); return }
       setStep('new')
       setPin('')
     } else if (step === 'new') {
