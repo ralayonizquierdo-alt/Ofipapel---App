@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Calendar, BedDouble, Tag, Wrench, PiggyBank, BarChart3, Settings, Menu, X
+  LayoutDashboard, Calendar, BedDouble, Tag, Wrench, PiggyBank, BarChart3, Settings, Menu, X, KeyRound, LogOut
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import LoginScreen from './components/LoginScreen'
+import ChangePasswordModal from './components/ChangePasswordModal'
 import { isSeeded, markSeeded, reservationStorage, paymentStorage, repairStorage } from './lib/storage'
 import { buildSeedReservations, buildSeedRepairs } from './lib/seedData'
 import Dashboard from './pages/Dashboard'
@@ -54,7 +56,7 @@ function NavItems({ alerts, onClose }: { alerts: number; onClose?: () => void })
   )
 }
 
-function Sidebar({ alerts }: { alerts: number }) {
+function Sidebar({ alerts, onChangePassword, onLogout }: { alerts: number; onChangePassword: () => void; onLogout: () => void }) {
   return (
     <aside className="w-56 min-h-screen bg-slate-900 flex flex-col shrink-0">
       <div className="px-4 py-5 border-b border-slate-700">
@@ -64,8 +66,16 @@ function Sidebar({ alerts }: { alerts: number }) {
       <nav className="flex-1 py-4 space-y-0.5 px-2">
         <NavItems alerts={alerts} />
       </nav>
-      <div className="px-4 py-3 border-t border-slate-700">
-        <p className="text-slate-500 text-xs">Ofipapel © 2026</p>
+      <div className="px-4 py-3 border-t border-slate-700 space-y-1">
+        <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>
+        <button onClick={onChangePassword}
+          className="flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
+          <KeyRound size={13} /> Cambiar contraseña
+        </button>
+        <button onClick={onLogout}
+          className="flex items-center gap-2 text-slate-400 hover:text-red-400 text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
+          <LogOut size={13} /> Cerrar sesión
+        </button>
       </div>
     </aside>
   )
@@ -91,7 +101,7 @@ function MobileHeader({ alerts, onMenuOpen }: { alerts: number; onMenuOpen: () =
   )
 }
 
-function Drawer({ alerts, open, onClose }: { alerts: number; open: boolean; onClose: () => void }) {
+function Drawer({ alerts, open, onClose, onChangePassword, onLogout }: { alerts: number; open: boolean; onClose: () => void; onChangePassword: () => void; onLogout: () => void }) {
   if (!open) return null
   return (
     <>
@@ -109,8 +119,16 @@ function Drawer({ alerts, open, onClose }: { alerts: number; open: boolean; onCl
         <nav className="flex-1 py-4 space-y-0.5 px-2 overflow-y-auto">
           <NavItems alerts={alerts} onClose={onClose} />
         </nav>
-        <div className="px-4 py-3 border-t border-slate-700">
-          <p className="text-slate-500 text-xs">Ofipapel © 2026</p>
+        <div className="px-4 py-3 border-t border-slate-700 space-y-1">
+          <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>
+          <button onClick={() => { onClose(); onChangePassword() }}
+            className="flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
+            <KeyRound size={13} /> Cambiar contraseña
+          </button>
+          <button onClick={() => { onClose(); onLogout() }}
+            className="flex items-center gap-2 text-slate-400 hover:text-red-400 text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
+            <LogOut size={13} /> Cerrar sesión
+          </button>
         </div>
       </div>
     </>
@@ -121,6 +139,8 @@ export default function App() {
   const [ready, setReady] = useState(false)
   const [alertCount, setAlertCount] = useState(0)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [loggedIn, setLoggedIn] = useState(false)
+  const [showChangePassword, setShowChangePassword] = useState(false)
 
   useEffect(() => {
     if (!isSeeded()) {
@@ -155,12 +175,21 @@ export default function App() {
     </div>
   )
 
+  if (!loggedIn) return <LoginScreen onLogin={() => setLoggedIn(true)} />
+
   return (
     <BrowserRouter basename="/Ofipapel---App/alquileres">
+      {showChangePassword && (
+        <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
+      )}
       <div className="flex min-h-screen bg-slate-100">
         {/* Desktop sidebar */}
         <div className="hidden md:flex">
-          <Sidebar alerts={alertCount} />
+          <Sidebar
+            alerts={alertCount}
+            onChangePassword={() => setShowChangePassword(true)}
+            onLogout={() => setLoggedIn(false)}
+          />
         </div>
 
         <div className="flex-1 flex flex-col min-w-0">
@@ -170,7 +199,13 @@ export default function App() {
           </div>
 
           {/* Mobile drawer */}
-          <Drawer alerts={alertCount} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+          <Drawer
+            alerts={alertCount}
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            onChangePassword={() => setShowChangePassword(true)}
+            onLogout={() => setLoggedIn(false)}
+          />
 
           <main className="flex-1 overflow-auto">
             <Routes>
