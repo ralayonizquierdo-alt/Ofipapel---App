@@ -274,7 +274,14 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <h3>🔒 Iniciar sesión</h3>
     <p style="font-size:.75rem;color:var(--texto2);margin-bottom:12px;">Cuadrante de Vacaciones — Ofipapel</p>
     <div class="field"><label>Usuario</label><input type="text" id="loginEmail" autocomplete="username" autocapitalize="off" autocorrect="off"></div>
-    <div class="field"><label>Contraseña</label><input type="password" id="loginPassword" autocomplete="current-password"></div>
+    <div class="field">
+      <label>Contraseña</label>
+      <div style="position:relative;">
+        <input type="password" id="loginPassword" autocomplete="current-password" style="width:100%;padding-right:34px;box-sizing:border-box;">
+        <button type="button" id="toggleLoginPassword" title="Mostrar/ocultar contraseña"
+          style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;padding:4px;line-height:1;">👁️</button>
+      </div>
+    </div>
     <div id="loginError" style="display:none;"></div>
     <button class="btn btn-primary" id="loginSubmit" style="width:100%;margin-top:6px;">Entrar</button>
   </div>
@@ -846,6 +853,13 @@ document.getElementById('loginSubmit').onclick = async ()=>{
 document.getElementById('loginPassword').addEventListener('keydown', (e)=>{
   if(e.key==='Enter') document.getElementById('loginSubmit').click();
 });
+document.getElementById('toggleLoginPassword').onclick = ()=>{
+  const inp = document.getElementById('loginPassword');
+  const btn = document.getElementById('toggleLoginPassword');
+  const showing = inp.type==='text';
+  inp.type = showing ? 'password' : 'text';
+  btn.textContent = showing ? '👁️' : '🙈';
+};
 document.getElementById('btnLogout').onclick = ()=>{
   if(confirm('¿Cerrar sesión en este dispositivo?')) authSignOut();
 };
