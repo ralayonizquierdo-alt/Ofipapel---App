@@ -38,6 +38,12 @@ export default function ChangePinModal({ onClose }: Props) {
     setTimeout(() => { setPin(''); setShake(false) }, 600)
   }
 
+  function resetPin() {
+    setStep('new')
+    setPin('')
+    setError('')
+  }
+
   async function handleComplete(code: string) {
     if (step === 'current') {
       const h = await hashPin(code)
@@ -85,7 +91,16 @@ export default function ChangePinModal({ onClose }: Props) {
               }} />
           ))}
         </div>
-        {error && <p className="text-xs mb-3 mt-1" style={{ color: '#e05252' }}>{error}</p>}
+        {error && (
+          <div className="flex flex-col items-center mb-3 mt-1 gap-1">
+            <p className="text-xs" style={{ color: '#e05252' }}>{error}</p>
+            {step === 'current' && (
+              <button onClick={resetPin} className="text-xs underline" style={{ color: '#c9a96e88' }}>
+                ¿No recuerdas tu PIN? Restablécelo
+              </button>
+            )}
+          </div>
+        )}
         {!error && <div className="mb-3 h-4" />}
 
         {/* Keypad */}
