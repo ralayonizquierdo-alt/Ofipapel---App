@@ -141,7 +141,7 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
       <table class="tabla">
         <thead>
           <tr>
-            <th>Codigo ISBN</th>
+            <th>Codigo ISBN / EAN</th>
             <th>Marca (Editorial)</th>
             <th class="sortable" onclick="ordenarPor('ref')">Rfcia. Proveedor</th>
             <th class="sortable" style="min-width:220px;" onclick="ordenarPor('desc')">Descripción</th>
@@ -177,7 +177,7 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
       <button class="btn btn-secundario" onclick="generarExcel('biff5')">📥 Variante estricta Excel 5.0/95</button>
     </div>
     <div class="footer-note">
-      El Cod. Familia casi nunca viene en la factura del proveedor: revísalo y complétalo a mano en la tabla antes de generar el Excel. El ISBN y la Marca (Editorial) son campos de proveedores de libros: se rellenarán solos cuando demos de alta el perfil de un proveedor de libros que los incluya en su factura; para el resto de proveedores esas dos columnas no aplican y quedan en blanco. El Igic tampoco viene desglosado por línea en la mayoría de facturas: complétalo si tu Gestión lo necesita.<br>
+      El Cod. Familia casi nunca viene en la factura del proveedor: revísalo y complétalo a mano en la tabla antes de generar el Excel. La columna "Codigo ISBN / EAN" se rellena sola con el código de barras (EAN) siempre que la factura del proveedor lo traiga (APLI no lo trae; COFRAP/MAPED, HAMELIN, FILA IBERIA, CABERO/FINOCAN, JOUMMA BAGS e INTEGRAL INFORMÁTICA/MANDATELO sí). La Marca (Editorial) sigue siendo un campo solo de proveedores de libros: se rellenará sola cuando demos de alta el perfil de uno. El Igic tampoco viene desglosado por línea en la mayoría de facturas: complétalo si tu Gestión lo necesita.<br>
       Las 4 columnas de descuento se rellenan solo cuando la factura del proveedor las trae — cada proveedor usa como mucho 1 o 2, el resto quedan en 0.<br>
       <strong>Proveedores dados de alta:</strong> APLI, COFRAP/MAPED, HAMELIN, FILA IBERIA, CABERO/FINOCAN, JOUMMA BAGS, FAIBO, NOGUERA Y VINTRÓ, ROYMART, TALENS, SENFORT, PRYSE, INTEGRAL INFORMÁTICA/MANDATELO. Para cualquier otro proveedor se usa un extractor genérico — revisa bien la tabla porque puede fallar. <em>Roymart tiene un formato de factura especialmente irregular: revísalo con más cuidado que el resto.</em> Las facturas escaneadas como imagen (sin texto seleccionable) no se pueden procesar todavía — necesitarían OCR.<br>
       <strong>Nota de compatibilidad:</strong> el botón principal genera un .xls Excel 97-2003 (se abre igual y conserva tildes/Ñ correctamente). La "variante estricta Excel 5.0/95" genera el formato exacto que pide la plantilla, pero la librería usada convierte las tildes y la Ñ en "_" — solo úsala si tu Gestión rechaza el .xls normal, y revisa los nombres/descripciones después.
@@ -222,7 +222,7 @@ async function extraerLineasPDF(file){
 // salvo parseDecPunto, que es al revés, para proveedores como NOGUERA).
 // ═══════════════════════════════════════════════════════
 function fila_(o){
-  return Object.assign({codigo:'', descripcion:'', cantidad:0, precioUnitario:0, dto1:0, dto2:0, dto3:0, dto4:0, importe:0}, o);
+  return Object.assign({codigo:'', descripcion:'', cantidad:0, precioUnitario:0, dto1:0, dto2:0, dto3:0, dto4:0, importe:0, ean:''}, o);
 }
 function parseDecComa(s){ return parseFloat(String(s).replace(/\./g,'').replace(',','.')); }
 function parseDecPunto(s){ return parseFloat(String(s).replace(/,/g,'')); }
@@ -312,7 +312,7 @@ function parseCofrap(lineas){
   const filas = [];
   const FULL_RE = /^(\d{6})\s+(.*?)\s+(\d+,\d{3})\s+(\d{1,3}(?:\.\d{3})*)\s+(\d{1,3}(?:\.\d{3})*,\d{2})$/;
   const FREE_RE = /^(\d{6})\s+(.*?)\s+0,000\s+(\d{1,3}(?:\.\d{3})*)$/;
-  const EAN_RE = /^EAN\s*:\s*\d+$/;
+  const EAN_RE = /^EAN\s*:\s*(\d+)$/;
   const CODE_START_RE = /^\d{6}\s/;
   let pendingIdx = -1;
   lineas.forEach(l=>{
@@ -326,7 +326,8 @@ function parseCofrap(lineas){
       return;
     }
     if(FREE_RE.test(l)){ pendingIdx = -1; return; }
-    if(EAN_RE.test(l)){ pendingIdx = -1; return; }
+    const eanM = l.match(EAN_RE);
+    if(eanM){ if(pendingIdx>=0) filas[pendingIdx].ean = eanM[1]; pendingIdx = -1; return; }
     if(pendingIdx>=0 && !CODE_START_RE.test(l)){
       filas[pendingIdx].descripcion = (filas[pendingIdx].descripcion + ' ' + l).trim();
     }
@@ -345,7 +346,7 @@ function parseHamelinStyle(lineas){
   lineas.forEach(l=>{
     if(/^Compue\s*$/.test(l) || /^s\.\s*por\b/.test(l)){ isComponent = true; header = null; return; }
     const hm = l.match(HEADER_RE);
-    if(hm){ isComponent = false; header = { codigo:hm[2], descripcion:hm[3].trim() }; return; }
+    if(hm){ isComponent = false; header = { codigo:hm[2], descripcion:hm[3].trim(), ean:hm[4] }; return; }
     const pm = l.match(PRICE_RE);
     if(pm){
       if(!isComponent && header){
@@ -353,7 +354,7 @@ function parseHamelinStyle(lineas){
         const precioNeto = parseDecComa(pm[4]);
         const dto = pm[3] ? parseFloat(pm[3]) : 0;
         const importe = pm[5] ? parseDecComa(pm[5]) : round2_(cantidad*precioNeto);
-        filas.push(fila_({codigo:header.codigo, descripcion:header.descripcion, cantidad, precioUnitario:precioNeto, dto1:dto, importe}));
+        filas.push(fila_({codigo:header.codigo, descripcion:header.descripcion, cantidad, precioUnitario:precioNeto, dto1:dto, importe, ean:header.ean}));
       }
       header = null; isComponent = false;
       return;
@@ -375,11 +376,11 @@ function parseFinocan(lineas){
   lineas.forEach(l=>{
     const m = l.match(RE);
     if(!m) return;
-    const [,cant,codigo,,desc,precio] = m;
+    const [,cant,codigo,ean,desc,precio] = m;
     const cantidad = parseInt(cant,10);
     const precioUnitario = parseDecComa(precio);
     const importe = round2_(cantidad*precioUnitario*(1-globalDto/100));
-    filas.push(fila_({codigo, descripcion:desc.trim().replace(/[+]+$/,'').trim(), cantidad, precioUnitario, dto1:globalDto, importe}));
+    filas.push(fila_({codigo, descripcion:desc.trim().replace(/[+]+$/,'').trim(), cantidad, precioUnitario, dto1:globalDto, importe, ean}));
   });
   return filas;
 }
@@ -394,7 +395,7 @@ function parseJoumma(lineas){
     const m = l.match(RE);
     if(m){
       filas.push(fila_({codigo:m[1], descripcion:m[3].trim(), cantidad:parseInt(m[5].replace(/\./g,''),10),
-        precioUnitario:parseDecComa(m[9]), dto1:parseDecComa(m[7]), dto2: m[8]?parseDecComa(m[8]):0, importe:parseDecComa(m[10])}));
+        precioUnitario:parseDecComa(m[9]), dto1:parseDecComa(m[7]), dto2: m[8]?parseDecComa(m[8]):0, importe:parseDecComa(m[10]), ean:m[4]}));
       pendingIdx = filas.length-1;
       return;
     }
@@ -530,7 +531,7 @@ function parseMandatelo(lineas){
       if(!desc) desc = prevLine;
       filas.push(fila_({codigo:m[1], descripcion:desc, cantidad:Math.round(parseDecComa(m[4])),
         precioUnitario:parseDecComa(m[5]), dto1: m[6]?parseDecComa(m[6]):0, dto2: m[7]?parseDecComa(m[7]):0,
-        importe:parseDecComa(m[9])}));
+        importe:parseDecComa(m[9]), ean:m[2]}));
     }
     prevLine = l;
   });
@@ -688,6 +689,7 @@ async function onPdfSelected(file){
     proveedorDetectado = perfil ? perfil.nombre : '';
 
     filas = filasParseadas.map(f => nuevaFila({
+      isbn: f.ean || '',
       ref: f.codigo,
       desc: f.descripcion,
       udes: f.cantidad,
