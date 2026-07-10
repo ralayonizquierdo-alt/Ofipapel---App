@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react'
 import { Delete } from 'lucide-react'
 
-const PIN_HASH = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4'
+const DEFAULT_PIN_HASH = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4'
+export const PIN_STORAGE_KEY = 'joe_pin_hash'
 const SESSION_KEY = 'joe_unlocked'
 const SESSION_HOURS = 12
 
-async function hashPin(pin: string): Promise<string> {
+export async function hashPin(pin: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin))
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+export function getCurrentPinHash(): string {
+  try { return localStorage.getItem(PIN_STORAGE_KEY) || DEFAULT_PIN_HASH } catch { return DEFAULT_PIN_HASH }
 }
 
 function isSessionValid(): boolean {
@@ -43,7 +48,7 @@ export default function PinScreen({ onUnlock }: Props) {
 
   async function verify(code: string) {
     const h = await hashPin(code)
-    if (h === PIN_HASH) {
+    if (h === getCurrentPinHash()) {
       try { sessionStorage.setItem(SESSION_KEY, String(Date.now() + SESSION_HOURS * 3600 * 1000)) } catch {}
       onUnlock()
     } else {

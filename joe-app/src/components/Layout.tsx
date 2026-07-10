@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import {
-  CalendarDays, Music2, Cat, Briefcase, Stethoscope, Menu, X, Sparkles,
+  CalendarDays, Music2, Cat, Briefcase, Stethoscope, Menu, X, Sparkles, Lock,
 } from 'lucide-react'
 import { MusicNotesBg } from './RockBackground'
+import ChangePinModal from './ChangePinModal'
 
 const nav = [
   { to: '/agenda',  icon: CalendarDays, label: 'Agenda',   color: '#c9a96e' },
@@ -97,6 +98,7 @@ function FloralDecoration({ className }: { className?: string }) {
 
 export default function Layout() {
   const [open, setOpen] = useState(false)
+  const [showChangePin, setShowChangePin] = useState(false)
   const location = useLocation()
 
   const currentNav = nav.find(n => location.pathname.startsWith(n.to))
@@ -203,7 +205,16 @@ export default function Layout() {
           <p className="text-[#222] text-[9px] text-center mt-1 tracking-widest">
             ★ ROCK & ROLL ★
           </p>
+          <button onClick={() => setShowChangePin(true)}
+            className="flex items-center gap-1.5 mx-auto mt-3 px-3 py-1.5 rounded-lg transition-colors"
+            style={{ color: '#333', fontSize: 10 }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#c9a96e')}
+            onMouseLeave={e => (e.currentTarget.style.color = '#333')}>
+            <Lock size={10} />
+            <span className="tracking-widest uppercase">Cambiar PIN</span>
+          </button>
         </div>
+        {showChangePin && <ChangePinModal onClose={() => setShowChangePin(false)} />}
       </aside>
 
       {/* Main */}
