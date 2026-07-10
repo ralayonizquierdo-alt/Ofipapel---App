@@ -210,15 +210,14 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
   <div class="card">
     <h2>4. Exportar</h2>
     <div class="toolbar">
-      <button class="btn btn-primary" onclick="generarExcel('xls')">📥 Generar Excel (.xls)</button>
-      <button class="btn btn-secundario" onclick="generarExcel('biff5')">📥 Variante estricta Excel 5.0/95</button>
+      <button class="btn btn-primary" onclick="generarExcel()">📥 Generar Excel 5.0/95 (.xls)</button>
     </div>
     <div class="footer-note">
       El Cod. Familia, Caja y Ud./Caja casi nunca vienen en la factura del proveedor: revísalos y complétalos a mano en la tabla antes de generar el Excel. La columna "Codigo ISBN / EAN" se rellena sola con el código de barras (EAN) siempre que la factura del proveedor lo traiga (APLI no lo trae; COFRAP/MAPED, HAMELIN, FILA IBERIA, CABERO/FINOCAN, JOUMMA BAGS e INTEGRAL INFORMÁTICA/MANDATELO sí). La Marca (Editorial) sigue siendo un campo solo de proveedores de libros: se rellenará sola cuando demos de alta el perfil de uno. El Igic tampoco viene desglosado por línea en la mayoría de facturas: complétalo si tu Gestión lo necesita.<br>
       El Excel generado incluye las mismas casillas de cabecera que la plantilla (Proveedor, Nº Pedido, Fecha, Almacén, Contacto, E-mail) en la misma posición, y las mismas columnas de datos — pero sin colores ni bordes, porque la librería que usamos no puede conservarlos al exportar a .xls (a Gestión no le afecta: solo lee los datos).<br>
       Las 4 columnas de descuento se rellenan solo cuando la factura del proveedor las trae — cada proveedor usa como mucho 1 o 2, el resto quedan en 0.<br>
       <strong>Proveedores dados de alta:</strong> APLI, COFRAP/MAPED, HAMELIN, FILA IBERIA, CABERO/FINOCAN, JOUMMA BAGS, FAIBO, NOGUERA Y VINTRÓ, ROYMART, TALENS, SENFORT, PRYSE, INTEGRAL INFORMÁTICA/MANDATELO. Para cualquier otro proveedor se usa un extractor genérico — revisa bien la tabla porque puede fallar. <em>Roymart tiene un formato de factura especialmente irregular: revísalo con más cuidado que el resto.</em> Las facturas escaneadas como imagen (sin texto seleccionable) no se pueden procesar todavía — necesitarían OCR.<br>
-      <strong>Nota de compatibilidad:</strong> el botón principal genera un .xls Excel 97-2003 (se abre igual y conserva tildes/Ñ correctamente). La "variante estricta Excel 5.0/95" genera el formato exacto que pide la plantilla, pero la librería usada convierte las tildes y la Ñ en "_" — solo úsala si tu Gestión rechaza el .xls normal, y revisa los nombres/descripciones después.
+      <strong>Nota de compatibilidad:</strong> el Excel se genera en formato Excel 5.0/95 real (BIFF5), el que necesita tu Gestión. Esa librería no admite letras con tilde ni la Ñ, así que se sustituyen automáticamente por su versión sin tilde (p.ej. "ESTÁNDAR" → "ESTANDAR", "Ñoño" → "Nono") para que quede legible en vez de aparecer como "_".
     </div>
   </div>
 
@@ -775,7 +774,15 @@ dropzoneEl.addEventListener('drop', e=>{
 // (esa parte decorativa no la conserva la librería al exportar a .xls).
 function filaVacia(n){ return new Array(n).fill(''); }
 
-function generarExcel(bookType){
+// El formato Excel 5.0/95 (BIFF5) no admite letras acentuadas ni Ñ en la
+// librería que usamos (las convierte en "_"), así que antes de escribir se
+// sustituyen por su equivalente sin tilde para que el texto quede legible.
+function quitarAcentos(v){
+  if(typeof v !== 'string') return v;
+  return v.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[Ññ]/g, m => m==='Ñ' ? 'N' : 'n');
+}
+
+function generarExcel(){
   if(!filas.length){ alert('No hay líneas para exportar.'); return; }
 
   const proveedor = document.getElementById('cabProveedor').value.trim();
@@ -808,15 +815,16 @@ function generarExcel(bookType){
   const total = filas.reduce((s,f)=>s + (parseFloat(f.importe)||0), 0);
   r = fila(); r[12]='TOTAL'; r[13]=Math.round(total*100)/100; aoa.push(r);
 
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const aoaSinAcentos = aoa.map(fila => fila.map(quitarAcentos));
+
+  const ws = XLSX.utils.aoa_to_sheet(aoaSinAcentos);
   ws['!cols'] = [{wch:14},{wch:16},{wch:16},{wch:40},{wch:7},{wch:9},{wch:8},{wch:10},{wch:8},{wch:10},{wch:10},{wch:10},{wch:8},{wch:12},{wch:2},{wch:12}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
 
-  const sufijo = bookType==='biff5' ? '_ESTRICTO5095' : '';
   const fechaHoy = new Date().toISOString().slice(0,10);
-  const nombreArchivo = 'PEDIDO_' + (proveedor||'PROVEEDOR').replace(/[^\w]+/g,'_') + '_' + fechaHoy + sufijo + '.xls';
-  XLSX.writeFile(wb, nombreArchivo, {bookType:bookType});
+  const nombreArchivo = 'PEDIDO_' + (proveedor||'PROVEEDOR').replace(/[^\w]+/g,'_') + '_' + fechaHoy + '.xls';
+  XLSX.writeFile(wb, nombreArchivo, {bookType:'biff5'});
 }
 
 renderFilas();
