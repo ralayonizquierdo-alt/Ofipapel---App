@@ -44,7 +44,7 @@ jobs:
           mkdir -p _site/alquileres _site/joe
           # Static files at repo root
           cp Index.html index.html _site/
-          cp canarias-ink.html falcontrol.html importacion-pedidos-proveedores.html privacidad.html _site/
+          cp canarias-ink.html falcontrol.html importacion-pedidos-proveedores.html privacidad.html vacaciones.html _site/
           cp fondo-ofipapel.jpg hero-productos.jpg logo-canarias-ink.png logo-ofipapel.png _site/
           cp sw.js sw-ink.js _site/
           [ -f _redirects ] && cp _redirects _site/ || true
