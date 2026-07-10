@@ -14,7 +14,7 @@ en la raíz: cada subproyecto se gestiona por separado.
 | `privacidad.html` | Política de privacidad (requerida para el review de la app de WhatsApp Cloud API) | HTML estático |
 | `joe-app/` | App personal: agenda, turnos de hospital, música, seguimiento de "Limón", tareas de empresa, "Coisinhas" | React 19 + Vite + TypeScript + Tailwind 4 + Supabase (persistencia real en la nube) |
 | `alquileres/` | Gestión de alquileres vacacionales: reservas, precios, reparaciones, cobros, analítica | React 19 + Vite + TypeScript + Tailwind 4 + Recharts. **Persistencia solo en `localStorage` del navegador** — pese a tener `@supabase/supabase-js` como dependencia, no se usa; no hay sync entre dispositivos ni backend real. |
-| `netlify/functions/` | Bot de WhatsApp con IA para atención al cliente | Netlify Functions (Node). `whatsapp-webhook.js` (Meta Cloud API) y `twilio-webhook.js` (alternativa Twilio) comparten `whatsapp-agent-config.js` (reglas FAQ + prompt) y `whatsapp-agent-core.js` (matching de FAQ + llamada a Claude). Usa Claude Haiku (`claude-haiku-4-5-20251001`) vía API de Anthropic cuando ninguna regla de FAQ coincide. |
+| `netlify/functions/` | Bot de WhatsApp con IA para atención al cliente | Netlify Functions (Node, con `package.json` propio para `@sentry/node`). `whatsapp-webhook.js` (Meta Cloud API) y `twilio-webhook.js` (alternativa Twilio) comparten `whatsapp-agent-config.js` (reglas FAQ + prompt), `whatsapp-agent-core.js` (matching de FAQ + llamada a Claude) y `sentry.js` (captura de errores, opcional). Usa Claude Haiku (`claude-haiku-4-5-20251001`) vía API de Anthropic cuando ninguna regla de FAQ coincide. |
 | `design-studio/` | Estudio de diseño autónomo de RAX: banners, logotipos, gráficos, edición de imagen | Ver `design-studio/README.md` — plantillas HTML + Adobe for Creativity (MCP) + Adobe Firefly API (opcional, requiere credenciales) |
 
 Los tres HTML monolíticos (`Index.html`, `canarias-ink.html`, `falcontrol.html`)
@@ -69,6 +69,12 @@ el repo:
 - `FIREFLY_CLIENT_ID` / `FIREFLY_CLIENT_SECRET` (opcionales, no configuradas
   todavía) — credenciales OAuth Server-to-Server de Adobe Developer Console
   para `design-studio/scripts/firefly-generate.js`. Ver `design-studio/README.md`.
+- `VITE_SENTRY_DSN` (opcional, no configurada todavía) — DSN de Sentry para
+  `joe-app` y `alquileres` (cada app puede usar un proyecto de Sentry
+  distinto). Sin ella, `Sentry.init` no se ejecuta — cero impacto.
+- `SENTRY_DSN` (opcional, no configurada todavía) — DSN de Sentry para
+  `netlify/functions` (`whatsapp-webhook.js`, `twilio-webhook.js`). Mismo
+  comportamiento: sin ella, los errores solo van a `console.error` como antes.
 
 Los HTML monolíticos llevan la URL y la clave `publishable` de Supabase
 **hardcodeadas en el propio fichero** (es el modelo esperado en Supabase para

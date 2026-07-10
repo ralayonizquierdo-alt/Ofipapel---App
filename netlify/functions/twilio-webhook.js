@@ -12,8 +12,10 @@
 //
 // Variables de entorno necesarias:
 //   ANTHROPIC_API_KEY   api key de Claude, para responder cuando no hay una regla de FAQ
+//   SENTRY_DSN          (opcional) DSN de Sentry, para recibir los errores de esta función
 
 const { matchFaqRule, askClaude } = require('./whatsapp-agent-core');
+const { captureException } = require('./sentry');
 
 function escapeXml(text) {
   return text
@@ -40,6 +42,7 @@ exports.handler = async (event) => {
     reply = matchFaqRule(text) || (await askClaude(text));
   } catch (err) {
     console.error('Error procesando mensaje de Twilio:', err);
+    captureException(err);
     reply = 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
   }
 

@@ -11,9 +11,11 @@
 //   WHATSAPP_PHONE_NUMBER_ID  id del número de WhatsApp Business (Meta for Developers)
 //   WHATSAPP_APP_SECRET     (opcional pero recomendado) app secret, para verificar la firma de Meta
 //   ANTHROPIC_API_KEY       api key de Claude, para responder cuando no hay una regla de FAQ
+//   SENTRY_DSN              (opcional) DSN de Sentry, para recibir los errores de esta función
 
 const crypto = require('crypto');
 const { matchFaqRule, askClaude } = require('./whatsapp-agent-core');
+const { captureException } = require('./sentry');
 
 const GRAPH_API_VERSION = 'v20.0';
 const DEDUP_TTL_MS = 5 * 60 * 1000;
@@ -121,6 +123,7 @@ exports.handler = async (event) => {
       }
     } catch (err) {
       console.error('Error procesando webhook de WhatsApp:', err);
+      captureException(err);
     }
 
     // Meta espera un 200 rápido; los errores ya se han registrado arriba.

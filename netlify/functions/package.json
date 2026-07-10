@@ -1,0 +1,7 @@
+{
+  "name": "ofipapel-netlify-functions",
+  "private": true,
+  "dependencies": {
+    "@sentry/node": "^10.64.0"
+  }
+}
