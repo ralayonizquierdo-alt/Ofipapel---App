@@ -29,6 +29,7 @@ cp hero-productos.jpg _site/ 2>/dev/null || true
 cp logo-canarias-ink.png _site/ 2>/dev/null || true
 cp logo-ofipapel.png _site/ 2>/dev/null || true
 cp fondo-ofipapel.jpg _site/ 2>/dev/null || true
+cp privacidad.html _site/ 2>/dev/null || true
 
 # Copy the built apps
 cp -r alquileres/dist/. _site/alquileres/
