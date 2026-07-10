@@ -14,7 +14,8 @@ en la raíz: cada subproyecto se gestiona por separado.
 | `privacidad.html` | Política de privacidad (requerida para el review de la app de WhatsApp Cloud API) | HTML estático |
 | `joe-app/` | App personal: agenda, turnos de hospital, música, seguimiento de "Limón", tareas de empresa, "Coisinhas" | React 19 + Vite + TypeScript + Tailwind 4 + Supabase (persistencia real en la nube) |
 | `alquileres/` | Gestión de alquileres vacacionales: reservas, precios, reparaciones, cobros, analítica | React 19 + Vite + TypeScript + Tailwind 4 + Recharts. **Persistencia solo en `localStorage` del navegador** — pese a tener `@supabase/supabase-js` como dependencia, no se usa; no hay sync entre dispositivos ni backend real. |
-| `netlify/functions/` | Bot de WhatsApp con IA para atención al cliente | Netlify Functions (Node). `whatsapp-webhook.js` (Meta Cloud API) y `twilio-webhook.js` (alternativa Twilio) comparten `whatsapp-agent-config.js` (reglas FAQ + prompt). Usa Claude Haiku (`claude-haiku-4-5-20251001`) vía API de Anthropic cuando ninguna regla de FAQ coincide. |
+| `netlify/functions/` | Bot de WhatsApp con IA para atención al cliente | Netlify Functions (Node). `whatsapp-webhook.js` (Meta Cloud API) y `twilio-webhook.js` (alternativa Twilio) comparten `whatsapp-agent-config.js` (reglas FAQ + prompt) y `whatsapp-agent-core.js` (matching de FAQ + llamada a Claude). Usa Claude Haiku (`claude-haiku-4-5-20251001`) vía API de Anthropic cuando ninguna regla de FAQ coincide. |
+| `design-studio/` | Estudio de diseño autónomo de RAX: banners, logotipos, gráficos, edición de imagen | Ver `design-studio/README.md` — plantillas HTML + Adobe for Creativity (MCP) + Adobe Firefly API (opcional, requiere credenciales) |
 
 Los tres HTML monolíticos (`Index.html`, `canarias-ink.html`, `falcontrol.html`)
 no tienen proceso de build: se sirven tal cual. Cualquier cambio se hace
@@ -42,10 +43,9 @@ bash build.sh   # compila alquileres y joe-app, y ensambla todo en _site/
   publica `_site/` y sirve las funciones serverless de `netlify/functions/`.
   Rutas: `/alquileres/*` → `alquileres/dist`, `/joe/*` → `joe-app/dist`,
   el resto son los HTML estáticos de la raíz.
-- **GitHub Pages** (`.github/workflows/pages.yml`) despliega el repo en
-  cada push a `main`, pero publica el código **sin compilar** — `joe-app`
-  y `alquileres` no funcionan correctamente ahí porque no pasan por Vite.
-  Antes de depender de esa URL, hay que alinear el workflow con `build.sh`.
+- **GitHub Pages** (`.github/workflows/pages.yml`) es el respaldo: ejecuta el
+  mismo `build.sh` que Netlify y publica `_site/`, así que genera exactamente
+  el mismo resultado en ambas plataformas.
 
 ## CI
 
@@ -66,12 +66,25 @@ el repo:
 - `joe-app` y `alquileres` usan `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`
   vía `.env.local` (no versionado) en desarrollo, e inyectadas por Netlify en
   producción.
+- `FIREFLY_CLIENT_ID` / `FIREFLY_CLIENT_SECRET` (opcionales, no configuradas
+  todavía) — credenciales OAuth Server-to-Server de Adobe Developer Console
+  para `design-studio/scripts/firefly-generate.js`. Ver `design-studio/README.md`.
 
 Los HTML monolíticos llevan la URL y la clave `publishable` de Supabase
 **hardcodeadas en el propio fichero** (es el modelo esperado en Supabase para
 clientes puramente frontend, protegido por RLS en las tablas — no es una key
 secreta, pero conviene verificar periódicamente que las políticas RLS de
 Supabase son correctas).
+
+## Estudio de diseño (RAX)
+
+`design-studio/README.md` documenta cómo crear banners, logotipos y gráficos
+para Ofipapel de forma autónoma: qué herramientas del conector Adobe for
+Creativity usar para cada tarea, la paleta/tipografía real de cada una de las
+3 apps, el script de render HTML→PNG/PDF standalone, y la integración
+(preparada, pendiente de credenciales) con Adobe Firefly API para generación
+de imágenes por IA comercialmente seguras. Consultar ese documento antes de
+abordar cualquier encargo visual.
 
 ## Convenciones
 
