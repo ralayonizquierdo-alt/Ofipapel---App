@@ -179,7 +179,7 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
     <div class="footer-note">
       El Cod. Familia casi nunca viene en la factura del proveedor: revísalo y complétalo a mano en la tabla antes de generar el Excel. El ISBN y la Marca (Editorial) son campos de proveedores de libros: se rellenarán solos cuando demos de alta el perfil de un proveedor de libros que los incluya en su factura; para el resto de proveedores esas dos columnas no aplican y quedan en blanco. El Igic tampoco viene desglosado por línea en la mayoría de facturas: complétalo si tu Gestión lo necesita.<br>
       Las 4 columnas de descuento se rellenan solo cuando la factura del proveedor las trae — cada proveedor usa como mucho 1 o 2, el resto quedan en 0.<br>
-      <strong>Proveedores dados de alta:</strong> APLI, COFRAP/MAPED, HAMELIN, FILA IBERIA, CABERO/FINOCAN, JOUMMA BAGS, FAIBO, NOGUERA Y VINTRÓ, ROYMART, TALENS, SENFORT, PRYSE. Para cualquier otro proveedor se usa un extractor genérico — revisa bien la tabla porque puede fallar. <em>Roymart tiene un formato de factura especialmente irregular: revísalo con más cuidado que el resto.</em> Las facturas escaneadas como imagen (sin texto seleccionable, p.ej. Integral Informática/Mandatelo) no se pueden procesar todavía.<br>
+      <strong>Proveedores dados de alta:</strong> APLI, COFRAP/MAPED, HAMELIN, FILA IBERIA, CABERO/FINOCAN, JOUMMA BAGS, FAIBO, NOGUERA Y VINTRÓ, ROYMART, TALENS, SENFORT, PRYSE, INTEGRAL INFORMÁTICA/MANDATELO. Para cualquier otro proveedor se usa un extractor genérico — revisa bien la tabla porque puede fallar. <em>Roymart tiene un formato de factura especialmente irregular: revísalo con más cuidado que el resto.</em> Las facturas escaneadas como imagen (sin texto seleccionable) no se pueden procesar todavía — necesitarían OCR.<br>
       <strong>Nota de compatibilidad:</strong> el botón principal genera un .xls Excel 97-2003 (se abre igual y conserva tildes/Ñ correctamente). La "variante estricta Excel 5.0/95" genera el formato exacto que pide la plantilla, pero la librería usada convierte las tildes y la Ñ en "_" — solo úsala si tu Gestión rechaza el .xls normal, y revisa los nombres/descripciones después.
     </div>
   </div>
@@ -516,6 +516,27 @@ function parsePryse(lineas){
   return filas;
 }
 
+// INTEGRAL INFORMÁTICA IMPORT (Mandatelo.com): "CODIGO EAN13 DESCRIPCION UNID PRECIO [%DTO1 %DTO2] IGIC IMPORTE"
+// Cuando la descripción queda vacía en la línea (a veces el texto del PDF la
+// deja en la línea anterior), se recupera de ahí.
+function parseMandatelo(lineas){
+  const filas = [];
+  const RE = /^([A-Z0-9]{4,10})\s+(\d{13})\s+(.*?)\s*(\d+,\d{2})\s+(\d+,\d{2})\s+(?:(\d+,\d{2})\s+(\d+,\d{2})\s+)?(\d+)\s+(\d+(?:\.\d{3})*,\d{2})$/;
+  let prevLine = '';
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(m){
+      let desc = m[3].trim();
+      if(!desc) desc = prevLine;
+      filas.push(fila_({codigo:m[1], descripcion:desc, cantidad:Math.round(parseDecComa(m[4])),
+        precioUnitario:parseDecComa(m[5]), dto1: m[6]?parseDecComa(m[6]):0, dto2: m[7]?parseDecComa(m[7]):0,
+        importe:parseDecComa(m[9])}));
+    }
+    prevLine = l;
+  });
+  return filas;
+}
+
 // ═══════════════════════════════════════════════════════
 // PERFILES DE PROVEEDOR: detección automática + parser propio.
 // Para añadir un proveedor nuevo: aportar una factura de muestra y
@@ -533,7 +554,8 @@ const PERFILES_PROVEEDOR = [
   { id:'roymart', nombre:'ROYMART, S.L.', detectar: t => /ROYMART|B58263526/i.test(t), parser: parseRoymart },
   { id:'talens', nombre:'TALENS ESPAÑA, S.A.U.', detectar: t => /TALENS\s+ESPA|A08542771/i.test(t), parser: parseTalens },
   { id:'senfor', nombre:'SENFORT S.A.', detectar: t => /SENFORT|A08795809/i.test(t), parser: parseSenfor },
-  { id:'pryse', nombre:'PRYSE S.A.', detectar: t => /PRYSE|A58276254/i.test(t), parser: parsePryse }
+  { id:'pryse', nombre:'PRYSE S.A.', detectar: t => /PRYSE|A58276254/i.test(t), parser: parsePryse },
+  { id:'mandatelo', nombre:'INTEGRAL INFORMATICA IMPORT (Mandatelo)', detectar: t => /INTEGRAL INFORMATICA|MANDATELO|B-?76539642/i.test(t), parser: parseMandatelo }
 ];
 
 function detectarProveedor(lineas){
