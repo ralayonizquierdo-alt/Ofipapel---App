@@ -17,7 +17,7 @@ export default function App() {
   if (!unlocked) return <PinScreen onUnlock={() => setUnlocked(true)} />
 
   return (
-    <BrowserRouter basename="/joe">
+    <BrowserRouter basename="/Ofipapel---App/joe">
       {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} />}
       <Routes>
         <Route path="/" element={<Layout />}>
