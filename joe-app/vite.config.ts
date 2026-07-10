@@ -4,6 +4,6 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/joe/',
+  base: '/Ofipapel---App/joe/',
   server: { port: 5174 },
 })
