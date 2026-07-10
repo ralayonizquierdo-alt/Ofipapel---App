@@ -269,6 +269,16 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 </style>
 </head>
 <body>
+<div id="authGate" style="position:fixed;inset:0;background:linear-gradient(135deg,#1A5C1A,#2E7D32);display:flex;align-items:center;justify-content:center;z-index:9999;">
+  <div class="modal" style="width:320px;">
+    <h3>🔒 Iniciar sesión</h3>
+    <p style="font-size:.75rem;color:var(--texto2);margin-bottom:12px;">Cuadrante de Vacaciones — Ofipapel</p>
+    <div class="field"><label>Email</label><input type="email" id="loginEmail" autocomplete="username"></div>
+    <div class="field"><label>Contraseña</label><input type="password" id="loginPassword" autocomplete="current-password"></div>
+    <div id="loginError" style="display:none;"></div>
+    <button class="btn btn-primary" id="loginSubmit" style="width:100%;margin-top:6px;">Entrar</button>
+  </div>
+</div>
 <div id="app">
   <header>
     <div>
@@ -276,6 +286,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <span class="sub">Plantilla real (35 personas) · quedan algunos apellidos por confirmar</span>
     </div>
     <span id="cloudStatus" style="font-size:1.1rem;cursor:default;" title="Conectando con la nube…">🔄</span>
+    <button class="secondary" id="btnLogout" title="Cerrar sesión" style="display:none;">🔒 Salir</button>
     <button class="secondary" id="btnToggleSidebar" title="Mostrar/ocultar Reglas y Filtros">☰</button>
     <select id="yearSelect"></select>
     <button class="secondary" id="btnEmployees">👤 Empleados</button>
@@ -726,11 +737,117 @@ function saveState(){
   scheduleCloudSave();
 }
 
+/* ═══════════════════ LOGIN (Firebase Authentication vía API REST, sin SDK/CDN) ═══════════════════
+   Cada persona entra con su propio email/contraseña. El token de sesión se guarda en este dispositivo
+   para no tener que iniciar sesión cada vez, y se renueva solo antes de caducar (dura 1 hora, se renueva
+   con margen de 5 minutos). Las reglas de Firestore exigen sesión iniciada para leer/escribir, así que
+   sin login la app funciona en local pero no sincroniza con la nube. */
+const AUTH_STORAGE_KEY = 'ofipapel_vacaciones_auth_v1';
+const IDENTITY_TOOLKIT_BASE = 'https://identitytoolkit.googleapis.com/v1';
+const SECURE_TOKEN_BASE = 'https://securetoken.googleapis.com/v1';
+let authSession = loadAuthSession();
+
+function loadAuthSession(){
+  try{
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return null;
+}
+function saveAuthSession(session){
+  authSession = session;
+  if(session) localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+  else localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+async function authSignIn(email, password){
+  const res = await fetch(`${IDENTITY_TOOLKIT_BASE}/accounts:signInWithPassword?key=${FIREBASE_CONFIG.apiKey}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({email, password, returnSecureToken:true}),
+  });
+  const json = await res.json();
+  if(!res.ok) throw new Error((json.error && json.error.message) || 'Error de inicio de sesión');
+  saveAuthSession({
+    idToken: json.idToken,
+    refreshToken: json.refreshToken,
+    expiresAt: Date.now() + parseInt(json.expiresIn,10)*1000,
+    email: json.email,
+  });
+}
+async function authRefreshToken(){
+  if(!authSession || !authSession.refreshToken) throw new Error('Sin sesión');
+  const res = await fetch(`${SECURE_TOKEN_BASE}/token?key=${FIREBASE_CONFIG.apiKey}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({grant_type:'refresh_token', refresh_token: authSession.refreshToken}),
+  });
+  const json = await res.json();
+  if(!res.ok) throw new Error((json.error && json.error.message) || 'No se pudo renovar la sesión');
+  saveAuthSession({
+    idToken: json.id_token,
+    refreshToken: json.refresh_token,
+    expiresAt: Date.now() + parseInt(json.expires_in,10)*1000,
+    email: authSession.email,
+  });
+}
+async function authGetValidIdToken(){
+  if(!authSession) return null;
+  if(Date.now() > authSession.expiresAt - 5*60*1000){
+    try{ await authRefreshToken(); }
+    catch(e){ saveAuthSession(null); return null; }
+  }
+  return authSession.idToken;
+}
+function authSignOut(){
+  saveAuthSession(null);
+  location.reload();
+}
+function showAuthGate(show){
+  document.getElementById('authGate').style.display = show ? 'flex' : 'none';
+  document.getElementById('btnLogout').style.display = show ? 'none' : 'inline-block';
+}
+document.getElementById('loginSubmit').onclick = async ()=>{
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errBox = document.getElementById('loginError');
+  errBox.style.display = 'none';
+  if(!email || !password){
+    errBox.textContent = 'Indica email y contraseña.';
+    errBox.className = 'err-box';
+    errBox.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('loginSubmit');
+  btn.disabled = true; btn.textContent = 'Entrando…';
+  try{
+    await authSignIn(email, password);
+    showAuthGate(false);
+    initCloudSync();
+  }catch(err){
+    const msg = /INVALID_LOGIN_CREDENTIALS|EMAIL_NOT_FOUND|INVALID_PASSWORD/.test(err.message)
+      ? 'Email o contraseña incorrectos.'
+      : /USER_DISABLED/.test(err.message) ? 'Esta cuenta está deshabilitada.'
+      : 'No se pudo iniciar sesión: '+err.message;
+    errBox.textContent = msg;
+    errBox.className = 'err-box';
+    errBox.style.display = 'block';
+  }finally{
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+};
+document.getElementById('loginPassword').addEventListener('keydown', (e)=>{
+  if(e.key==='Enter') document.getElementById('loginSubmit').click();
+});
+document.getElementById('btnLogout').onclick = ()=>{
+  if(confirm('¿Cerrar sesión en este dispositivo?')) authSignOut();
+};
+
 /* ═══════════════════ SINCRONIZACIÓN EN LA NUBE (Firestore vía API REST, sin SDK/CDN) ═══════════════════
    Guarda el mismo JSON que ya usábamos en localStorage como un único documento en Firestore
    (ofipapel_vacaciones/shared), y lo sondea cada pocos segundos para recoger cambios hechos desde
    otros dispositivos. No es instantáneo (no hay conexión "push"), pero no depende de cargar ningún
-   SDK externo — solo peticiones fetch() normales, que sí puedo probar y verificar. */
+   SDK externo — solo peticiones fetch() normales, que sí puedo probar y verificar. Exige sesión iniciada
+   (ver bloque LOGIN arriba): cada petición lleva el token de la persona conectada. */
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyDLqPoqiMgiqbk5Uv-4RoYrbA-5Yfc1A_s',
   projectId: 'ofipapelvv',
@@ -761,9 +878,15 @@ function setCloudStatus(status){
   else { el.textContent = '⚠️'; el.title = 'Sin conexión con la nube ahora mismo: los cambios se están guardando solo en este dispositivo.'; }
 }
 
+async function authHeaders(){
+  const idToken = await authGetValidIdToken();
+  if(!idToken) throw new Error('AUTH_REQUIRED');
+  return {'Content-Type':'application/json', 'Authorization': 'Bearer '+idToken};
+}
 async function firestoreFetchDoc(){
-  const res = await fetch(firestoreDocUrl());
+  const res = await fetch(firestoreDocUrl(), {headers: await authHeaders()});
   if(res.status===404) return {exists:false};
+  if(res.status===401 || res.status===403) throw new Error('AUTH_REQUIRED');
   if(!res.ok) throw new Error('Firestore GET '+res.status);
   const json = await res.json();
   const raw = json.fields && json.fields.data && json.fields.data.stringValue;
@@ -774,9 +897,10 @@ async function firestoreCreateDoc(stateObj){
   const url = `${firestoreBaseUrl()}/${FIRESTORE_COLLECTION}?documentId=${FIRESTORE_DOC_ID}&key=${FIREBASE_CONFIG.apiKey}`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: {'Content-Type':'application/json'},
+    headers: await authHeaders(),
     body: JSON.stringify({fields: {data: {stringValue: JSON.stringify(stateObj)}}}),
   });
+  if(res.status===401 || res.status===403) throw new Error('AUTH_REQUIRED');
   if(!res.ok) throw new Error('Firestore CREATE '+res.status);
   const json = await res.json();
   return json.updateTime;
@@ -784,9 +908,10 @@ async function firestoreCreateDoc(stateObj){
 async function firestorePatchDoc(stateObj){
   const res = await fetch(firestoreDocUrl(), {
     method: 'PATCH',
-    headers: {'Content-Type':'application/json'},
+    headers: await authHeaders(),
     body: JSON.stringify({fields: {data: {stringValue: JSON.stringify(stateObj)}}}),
   });
+  if(res.status===401 || res.status===403) throw new Error('AUTH_REQUIRED');
   if(!res.ok) throw new Error('Firestore PATCH '+res.status);
   const json = await res.json();
   return json.updateTime;
@@ -801,6 +926,15 @@ function applyRemoteState(remote){
   isApplyingRemoteUpdate = false;
 }
 
+function handleAuthLost(){
+  saveAuthSession(null);
+  cloudSyncStarted = false;
+  clearInterval(cloudPollTimer);
+  clearTimeout(cloudSaveTimer);
+  setCloudStatus('offline');
+  showAuthGate(true);
+}
+
 function scheduleCloudSave(){
   if(isApplyingRemoteUpdate || !cloudSyncStarted) return;
   clearTimeout(cloudSaveTimer);
@@ -810,7 +944,8 @@ function scheduleCloudSave(){
       setCloudStatus('synced');
     }catch(err){
       console.error('No se pudo guardar en la nube', err);
-      setCloudStatus('offline');
+      if(err.message==='AUTH_REQUIRED') handleAuthLost();
+      else setCloudStatus('offline');
     }
   }, FIRESTORE_SAVE_DEBOUNCE_MS);
 }
@@ -825,11 +960,13 @@ async function pollCloud(){
     setCloudStatus('synced');
   }catch(err){
     console.error('Error sondeando la nube', err);
-    setCloudStatus('offline');
+    if(err.message==='AUTH_REQUIRED') handleAuthLost();
+    else setCloudStatus('offline');
   }
 }
 
 async function initCloudSync(){
+  if(!authSession){ showAuthGate(true); return; }
   setCloudStatus('connecting');
   try{
     const doc = await firestoreFetchDoc();
@@ -842,6 +979,7 @@ async function initCloudSync(){
     setCloudStatus('synced');
   }catch(err){
     console.error('No se pudo conectar con la nube al iniciar', err);
+    if(err.message==='AUTH_REQUIRED'){ handleAuthLost(); return; }
     setCloudStatus('offline');
   }
   cloudSyncStarted = true;
@@ -2795,7 +2933,7 @@ function injectManifest(){
   document.head.appendChild(link);
 }
 injectManifest();
-initCloudSync();
+if(authSession){ showAuthGate(false); initCloudSync(); } else { showAuthGate(true); }
 </script>
 </body>
 </html>

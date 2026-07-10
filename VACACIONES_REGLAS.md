@@ -229,11 +229,25 @@ datos en la nube (Firestore, proyecto `ofipapelvv`), para que los cambios se vea
 - **Aviso importante**: si dos personas editan exactamente lo mismo a la vez en dos dispositivos distintos,
   gana el último guardado (el otro cambio se pierde). Para el uso habitual de la app (una persona a la vez
   gestionando el cuadrante) no debería pasar, pero conviene saberlo.
-- Los datos no están protegidos por usuario/contraseña — cualquiera que abra el enlace de la app puede ver y
-  modificar los datos, igual que ahora mismo cualquiera con acceso al archivo podía verlo todo. Si en algún
-  momento hace falta limitar quién puede editar, se puede añadir un control de acceso más adelante.
 - Si algún día no hay conexión a internet, la app sigue funcionando igual que antes (todo en local); en
   cuanto vuelve la conexión, se sincroniza solo.
+
+## 13. Inicio de sesión (login, nuevo)
+
+Para que no cualquiera con el enlace pueda ver o cambiar los datos, ahora hace falta iniciar sesión con
+email y contraseña antes de entrar.
+
+- Cada persona tiene su **propia cuenta** (email + contraseña), creada de antemano — no hay
+  autorregistro, así que solo entra quien ya tiene una cuenta dada de alta.
+- Una vez que inicias sesión en un dispositivo, **se queda recordado**: no hace falta volver a entrar cada
+  vez que se abre la app en ese mismo móvil/ordenador (la sesión se renueva sola). Solo se pide de nuevo si
+  cierras sesión a propósito, o si el dispositivo lleva mucho tiempo sin usarse.
+- Botón **🔒 Salir** en la cabecera para cerrar sesión en ese dispositivo (pide confirmación).
+- Sin sesión iniciada, la app no puede leer ni guardar en la nube — la Base de datos (Firestore) exige
+  estar identificado para cualquier lectura o escritura.
+- Si necesitas dar de alta a alguien nuevo o quitarle el acceso a alguien, se hace desde la consola de
+  Firebase (Authentication → Users), no hay una pantalla dentro de la propia app para gestionar cuentas por
+  ahora.
 
 ## Guía de la pantalla: qué hace cada parte
 
