@@ -235,19 +235,21 @@ datos en la nube (Firestore, proyecto `ofipapelvv`), para que los cambios se vea
 ## 13. Inicio de sesión (login, nuevo)
 
 Para que no cualquiera con el enlace pueda ver o cambiar los datos, ahora hace falta iniciar sesión con
-email y contraseña antes de entrar.
+**usuario y contraseña** antes de entrar.
 
-- Cada persona tiene su **propia cuenta** (email + contraseña), creada de antemano — no hay
-  autorregistro, así que solo entra quien ya tiene una cuenta dada de alta.
+- De momento hay dos cuentas, una para **Luis** y otra para **Rober** (usuario + contraseña, sin necesidad
+  de escribir un email real en la pantalla de login).
+- La contraseña no está escrita en ningún sitio del código de la app — el inicio de sesión lo verifica
+  Firebase en su servidor (por debajo se usan cuentas reales de Firebase Authentication con un dominio
+  interno inventado solo como identificador técnico, nunca se envía ningún correo a esa dirección).
 - Una vez que inicias sesión en un dispositivo, **se queda recordado**: no hace falta volver a entrar cada
   vez que se abre la app en ese mismo móvil/ordenador (la sesión se renueva sola). Solo se pide de nuevo si
   cierras sesión a propósito, o si el dispositivo lleva mucho tiempo sin usarse.
 - Botón **🔒 Salir** en la cabecera para cerrar sesión en ese dispositivo (pide confirmación).
-- Sin sesión iniciada, la app no puede leer ni guardar en la nube — la Base de datos (Firestore) exige
+- Sin sesión iniciada, la app no puede leer ni guardar en la nube — la base de datos (Firestore) exige
   estar identificado para cualquier lectura o escritura.
-- Si necesitas dar de alta a alguien nuevo o quitarle el acceso a alguien, se hace desde la consola de
-  Firebase (Authentication → Users), no hay una pantalla dentro de la propia app para gestionar cuentas por
-  ahora.
+- Si más adelante hace falta añadir a alguien más o cambiar una contraseña, se puede hacer sin tocar el
+  código (se gestiona por fuera, en Firebase Authentication).
 
 ## Guía de la pantalla: qué hace cada parte
 

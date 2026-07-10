@@ -273,7 +273,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   <div class="modal" style="width:320px;">
     <h3>🔒 Iniciar sesión</h3>
     <p style="font-size:.75rem;color:var(--texto2);margin-bottom:12px;">Cuadrante de Vacaciones — Ofipapel</p>
-    <div class="field"><label>Email</label><input type="email" id="loginEmail" autocomplete="username"></div>
+    <div class="field"><label>Usuario</label><input type="text" id="loginEmail" autocomplete="username" autocapitalize="off" autocorrect="off"></div>
     <div class="field"><label>Contraseña</label><input type="password" id="loginPassword" autocomplete="current-password"></div>
     <div id="loginError" style="display:none;"></div>
     <button class="btn btn-primary" id="loginSubmit" style="width:100%;margin-top:6px;">Entrar</button>
@@ -738,14 +738,22 @@ function saveState(){
 }
 
 /* ═══════════════════ LOGIN (Firebase Authentication vía API REST, sin SDK/CDN) ═══════════════════
-   Cada persona entra con su propio email/contraseña. El token de sesión se guarda en este dispositivo
-   para no tener que iniciar sesión cada vez, y se renueva solo antes de caducar (dura 1 hora, se renueva
-   con margen de 5 minutos). Las reglas de Firestore exigen sesión iniciada para leer/escribir, así que
-   sin login la app funciona en local pero no sincroniza con la nube. */
+   La pantalla pide solo "usuario" (sin @dominio), pero por debajo sigue usando cuentas reales de Firebase
+   Authentication (que exigen un email con formato válido) — se le añade un dominio interno inventado que
+   nunca se usa para enviar correos, solo como identificador. La verificación de la contraseña la hace
+   Firebase en su servidor; no hay ninguna contraseña guardada en este archivo.
+   El token de sesión se guarda en este dispositivo para no tener que iniciar sesión cada vez, y se renueva
+   solo antes de caducar (dura 1 hora, se renueva con margen de 5 minutos). Las reglas de Firestore exigen
+   sesión iniciada para leer/escribir, así que sin login la app funciona en local pero no sincroniza. */
 const AUTH_STORAGE_KEY = 'ofipapel_vacaciones_auth_v1';
+const AUTH_USER_DOMAIN = 'ofipapelvv.internal';
 const IDENTITY_TOOLKIT_BASE = 'https://identitytoolkit.googleapis.com/v1';
 const SECURE_TOKEN_BASE = 'https://securetoken.googleapis.com/v1';
 let authSession = loadAuthSession();
+
+function usernameToAuthEmail(username){
+  return username.toLowerCase().replace(/[^a-z0-9._-]/g,'') + '@' + AUTH_USER_DOMAIN;
+}
 
 function loadAuthSession(){
   try{
@@ -807,12 +815,12 @@ function showAuthGate(show){
   document.getElementById('btnLogout').style.display = show ? 'none' : 'inline-block';
 }
 document.getElementById('loginSubmit').onclick = async ()=>{
-  const email = document.getElementById('loginEmail').value.trim();
+  const username = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
   const errBox = document.getElementById('loginError');
   errBox.style.display = 'none';
-  if(!email || !password){
-    errBox.textContent = 'Indica email y contraseña.';
+  if(!username || !password){
+    errBox.textContent = 'Indica usuario y contraseña.';
     errBox.className = 'err-box';
     errBox.style.display = 'block';
     return;
@@ -820,12 +828,12 @@ document.getElementById('loginSubmit').onclick = async ()=>{
   const btn = document.getElementById('loginSubmit');
   btn.disabled = true; btn.textContent = 'Entrando…';
   try{
-    await authSignIn(email, password);
+    await authSignIn(usernameToAuthEmail(username), password);
     showAuthGate(false);
     initCloudSync();
   }catch(err){
     const msg = /INVALID_LOGIN_CREDENTIALS|EMAIL_NOT_FOUND|INVALID_PASSWORD/.test(err.message)
-      ? 'Email o contraseña incorrectos.'
+      ? 'Usuario o contraseña incorrectos.'
       : /USER_DISABLED/.test(err.message) ? 'Esta cuenta está deshabilitada.'
       : 'No se pudo iniciar sesión: '+err.message;
     errBox.textContent = msg;
