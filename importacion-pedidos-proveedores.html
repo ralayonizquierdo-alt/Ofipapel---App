@@ -56,6 +56,7 @@ main{ max-width:1100px; margin:24px auto 60px; padding:0 20px; position:relative
 }
 .dropzone:hover{ background:#dff3e1; }
 .dropzone.dragover{ background:#d5f0d8; border-color:var(--verde-oscuro); border-style:solid; }
+.dropzone.dropzone-bloqueada{ opacity:.5; pointer-events:none; cursor:not-allowed; }
 .dropzone input{ display:none; }
 .dropzone .dz-icono{ font-size:32px; line-height:1; margin-bottom:2px; }
 .dropzone .dz-title{ font-weight:600; color:var(--verde-oscuro); }
@@ -104,6 +105,22 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
 .empty-state{ text-align:center; padding:40px 20px; color:var(--texto2); }
 .tabla-wrap{ overflow-x:auto; }
 .footer-note{ font-size:11.5px; color:var(--texto2); margin-top:10px; line-height:1.5; }
+
+.modal-overlay{
+  display:none; position:fixed; inset:0; background:rgba(10,30,15,0.55);
+  align-items:center; justify-content:center; z-index:1000; padding:20px;
+}
+.modal-overlay.visible{ display:flex; }
+.modal-box{ background:#fff; border-radius:14px; max-width:480px; width:100%; padding:24px; box-shadow:0 12px 40px rgba(0,0,0,0.25); }
+.modal-box h3{ margin:0 0 14px; font-size:17px; color:var(--verde-oscuro); }
+.modal-check{ display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--borde); font-size:13.5px; }
+.modal-check:last-of-type{ border-bottom:none; }
+.modal-check .valor{ font-weight:600; }
+.modal-banner{ margin-top:16px; padding:12px 14px; border-radius:10px; font-size:14px; font-weight:600; display:flex; align-items:flex-start; gap:8px; }
+.modal-banner.ok{ background:#e8f5e9; color:#1b5e20; }
+.modal-banner.err{ background:#fdecea; color:var(--rojo); }
+.modal-banner.warn{ background:#fff3cd; color:#7b5800; }
+.modal-box .btn{ margin-top:18px; width:100%; }
 </style>
 </head>
 <body>
@@ -122,7 +139,14 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
 
   <div class="card">
     <h2>1. Cargar factura PDF</h2>
-    <label class="dropzone" for="pdfInput" id="dropzone">
+    <div class="campo" style="margin-bottom:14px;max-width:420px;">
+      <label>Proveedor</label>
+      <select id="selProveedorPrevio" onchange="onSelProveedorChange()">
+        <option value="">-- Selecciona un proveedor --</option>
+      </select>
+    </div>
+    <div id="avisoProveedorPrevio" class="estado"></div>
+    <label class="dropzone dropzone-bloqueada" for="pdfInput" id="dropzone">
       <div class="dz-icono">📄</div>
       <div class="dz-title" id="dzTitulo">Haz clic o arrastra aquí la factura PDF del proveedor</div>
       <div class="dz-sub">Solo PDFs de texto (no facturas escaneadas como imagen)</div>
@@ -222,6 +246,14 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
   </div>
 
 </main>
+
+<div class="modal-overlay" id="modalVerificacion">
+  <div class="modal-box">
+    <h3>Verificación del PDF</h3>
+    <div id="modalContenido"></div>
+    <button class="btn btn-primary" onclick="cerrarModalVerificacion()">Entendido, seguir revisando</button>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
@@ -406,7 +438,7 @@ function parseHamelinStyle(lineas){
 function parseFinocan(lineas){
   const filas = [];
   const RE = /^(\d+)\s+(\d{5,10})\s+(\d{13})\s+(.*?)\s+(\d+,\d{2})\s+(\d+)%$/;
-  const texto = lineas.join(' ');
+  const texto = lineas.join('\n');
   let globalDto = 0;
   const gm = texto.match(/Descuento Global\s+(\d+)\s*%/i);
   if(gm) globalDto = parseInt(gm[1],10);
@@ -580,25 +612,106 @@ function parseMandatelo(lineas){
 // Para añadir un proveedor nuevo: aportar una factura de muestra y
 // registrar aquí su detección + su función de parser, sin tocar el resto.
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// EXTRACCIÓN DEL TOTAL QUE IMPRIME LA PROPIA FACTURA (base imponible /
+// subtotal, SIN Igic), para poder comparar contra la suma calculada.
+// ═══════════════════════════════════════════════════════
+function totalSimple(texto, re){ const m = texto.match(re); return m ? parseDecComa(m[1]) : null; }
+function totalRepetidoComa(texto, keyword){
+  const idx = texto.search(new RegExp(keyword, 'i'));
+  if(idx<0) return null;
+  const resto = texto.slice(idx, idx+400);
+  const m = resto.match(/(\d{1,3}(?:\.\d{3})*,\d{2})\s+\1\b/);
+  return m ? parseDecComa(m[1]) : null;
+}
+function totalRepetidoPunto(texto, keyword){
+  const idx = texto.search(new RegExp(keyword, 'i'));
+  if(idx<0) return null;
+  const resto = texto.slice(idx, idx+400);
+  const m = resto.match(/(\d{1,3}(?:,\d{3})*\.\d{2})\s+\1\b/);
+  return m ? parseDecPunto(m[1]) : null;
+}
+function ultimoNumeroTrasLinea(texto, keyword){
+  const idx = texto.search(new RegExp(keyword, 'i'));
+  if(idx<0) return null;
+  const lineas = texto.slice(idx, idx+300).split('\n').slice(0,6);
+  let mejor = null;
+  lineas.forEach(linea=>{
+    const nums = [...linea.matchAll(/\d{1,3}(?:\.\d{3})*,\d{2}/g)].map(m=>m[0]);
+    if(nums.length>=2 && (!mejor || nums.length>mejor.length)) mejor = nums;
+  });
+  return mejor ? parseDecComa(mejor[mejor.length-1]) : null;
+}
+
 const PERFILES_PROVEEDOR = [
-  { id:'apli', nombre:'APLI PAPER S.A.U.', detectar: t => /APLI\s+PAPER|ESA60914108/i.test(t), parser: parseApli },
-  { id:'cofrap', nombre:'COFRAP ESPAÑOLA (MAPED)', detectar: t => /COFRAP\s+ESPA|A28533586/i.test(t), parser: parseCofrap },
-  { id:'hamelin', nombre:'HAMELIN BRANDS S.L.U.', detectar: t => /HAMELIN\s+BRANDS|B64271281/i.test(t), parser: parseHamelinStyle },
-  { id:'fila', nombre:'FILA IBERIA', detectar: t => /FILA\s+IBERIA|ESB66875329/i.test(t), parser: parseHamelinStyle },
-  { id:'finocan', nombre:'CABERO GROUP (FINOCAN)', detectar: t => /CABERO\s+GROUP|A58210675/i.test(t), parser: parseFinocan },
-  { id:'joumma', nombre:'JOUMMA BAGS, S.L.', detectar: t => /JOUMMA\s+BAGS|B98087331/i.test(t), parser: parseJoumma },
-  { id:'faibo', nombre:'FAIBO (VDA. E. FAJEDA)', detectar: t => /VDA\.\s*E\.\s*FAJEDA|FAIBO/i.test(t), parser: parseFaibo },
-  { id:'noguera', nombre:'NOGUERA Y VINTRÓ ANDALUCIA', detectar: t => /NOGUERA\s+Y\s+VINTR|B-41574435/i.test(t), parser: parseNoguera },
-  { id:'roymart', nombre:'ROYMART, S.L.', detectar: t => /ROYMART|B58263526/i.test(t), parser: parseRoymart },
-  { id:'talens', nombre:'TALENS ESPAÑA, S.A.U.', detectar: t => /TALENS\s+ESPA|A08542771/i.test(t), parser: parseTalens },
-  { id:'senfor', nombre:'SENFORT S.A.', detectar: t => /SENFORT|A08795809/i.test(t), parser: parseSenfor },
-  { id:'pryse', nombre:'PRYSE S.A.', detectar: t => /PRYSE|A58276254/i.test(t), parser: parsePryse },
-  { id:'mandatelo', nombre:'INTEGRAL INFORMATICA IMPORT (Mandatelo)', detectar: t => /INTEGRAL INFORMATICA|MANDATELO|B-?76539642/i.test(t), parser: parseMandatelo }
+  { id:'apli', nombre:'APLI PAPER S.A.U.', detectar: t => /APLI\s+PAPER|ESA60914108/i.test(t), parser: parseApli,
+    total: t => totalSimple(t, /Subtotal:\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
+  { id:'cofrap', nombre:'COFRAP ESPAÑOLA (MAPED)', detectar: t => /COFRAP\s+ESPA|A28533586/i.test(t), parser: parseCofrap,
+    total: t => totalSimple(t, /Base imponible\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
+  { id:'hamelin', nombre:'HAMELIN BRANDS S.L.U.', detectar: t => /HAMELIN\s+BRANDS|B64271281/i.test(t), parser: parseHamelinStyle,
+    total: t => totalSimple(t, /Base imponible\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
+  { id:'fila', nombre:'FILA IBERIA', detectar: t => /FILA\s+IBERIA|ESB66875329/i.test(t), parser: parseHamelinStyle,
+    total: t => totalSimple(t, /Base imponible\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
+  { id:'finocan', nombre:'CABERO GROUP (FINOCAN)', detectar: t => /CABERO\s+GROUP|A58210675/i.test(t), parser: parseFinocan,
+    total: t => totalSimple(t, /Base imponible:?\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
+  { id:'joumma', nombre:'JOUMMA BAGS, S.L.', detectar: t => /JOUMMA\s+BAGS|B98087331/i.test(t), parser: parseJoumma,
+    total: t => { const m = t.match(/(\d{1,3}(?:\.\d{3})*,\d{2})\s+(\d{1,3}(?:\.\d{3})*,\d{2})\s+(\d{1,3}(?:\.\d{3})*,\d{2})\s+(\d{1,3}(?:\.\d{3})*,\d{2})\s+Multivencimientos/i); return m?parseDecComa(m[4]):null; } },
+  { id:'faibo', nombre:'FAIBO (VDA. E. FAJEDA)', detectar: t => /VDA\.\s*E\.\s*FAJEDA|FAIBO/i.test(t), parser: parseFaibo,
+    total: t => totalRepetidoComa(t, 'BASE IMPONIBLE') },
+  { id:'noguera', nombre:'NOGUERA Y VINTRÓ ANDALUCIA', detectar: t => /NOGUERA\s+Y\s+VINTR|B-41574435/i.test(t), parser: parseNoguera,
+    total: t => totalRepetidoPunto(t, 'Total Factura') },
+  { id:'roymart', nombre:'ROYMART, S.L.', detectar: t => /ROYMART|B58263526/i.test(t), parser: parseRoymart,
+    total: t => ultimoNumeroTrasLinea(t, 'Total pedido') },
+  { id:'talens', nombre:'TALENS ESPAÑA, S.A.U.', detectar: t => /TALENS\s+ESPA|A08542771/i.test(t), parser: parseTalens,
+    total: t => ultimoNumeroTrasLinea(t, 'IMPORTE\\s+TOTAL\\s+FACT') },
+  { id:'senfor', nombre:'SENFORT S.A.', detectar: t => /SENFORT|A08795809/i.test(t), parser: parseSenfor,
+    total: t => totalSimple(t, /Total \(Euros\)\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
+  { id:'pryse', nombre:'PRYSE S.A.', detectar: t => /PRYSE|A58276254/i.test(t), parser: parsePryse,
+    total: t => totalSimple(t, /Base imponible\s+(?:Base imponible\s+)?(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
+  { id:'mandatelo', nombre:'INTEGRAL INFORMATICA IMPORT (Mandatelo)', detectar: t => /INTEGRAL INFORMATICA|MANDATELO|B-?76539642/i.test(t), parser: parseMandatelo,
+    total: t => totalRepetidoComa(t, 'SUBTOTAL') }
 ];
 
 function detectarProveedor(lineas){
-  const texto = lineas.join(' ');
+  const texto = lineas.join('\n');
   return PERFILES_PROVEEDOR.find(p => p.detectar(texto)) || null;
+}
+
+// ═══════════════════════════════════════════════════════
+// DESPLEGABLE "PROVEEDOR" PREVIO A LA CARGA DEL PDF
+// ═══════════════════════════════════════════════════════
+let perfilSeleccionadoId = '';
+
+function poblarSelectorProveedores(){
+  const sel = document.getElementById('selProveedorPrevio');
+  PERFILES_PROVEEDOR.forEach(p=>{
+    const o = document.createElement('option');
+    o.value = p.id; o.textContent = p.nombre;
+    sel.appendChild(o);
+  });
+  const oOtro = document.createElement('option');
+  oOtro.value = 'otro'; oOtro.textContent = 'Otro proveedor (no está en la lista)';
+  sel.appendChild(oOtro);
+}
+
+function onSelProveedorChange(){
+  const sel = document.getElementById('selProveedorPrevio');
+  perfilSeleccionadoId = sel.value;
+  const dropzoneEl = document.getElementById('dropzone');
+  const aviso = document.getElementById('avisoProveedorPrevio');
+  if(!perfilSeleccionadoId){
+    dropzoneEl.classList.add('dropzone-bloqueada');
+    aviso.className = 'estado';
+    return;
+  }
+  dropzoneEl.classList.remove('dropzone-bloqueada');
+  if(perfilSeleccionadoId === 'otro'){
+    aviso.className = 'estado warn';
+    aviso.textContent = 'Proveedor no homologado: se usará un extractor genérico y tendrás que revisar bien la tabla antes de exportar.';
+  } else {
+    aviso.className = 'estado ok';
+    aviso.textContent = '✅ Proveedor homologado — se procesará con su perfil específico.';
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -716,12 +829,23 @@ async function onPdfSelected(file){
   mostrarEstado('warn', 'Leyendo PDF…');
   try{
     const lineas = await extraerLineasPDF(file);
-    const perfil = detectarProveedor(lineas);
+    const texto = lineas.join('\n');
+    // El proveedor elegido en el desplegable manda; si es "otro" (o no hay
+    // selección), se recurre a la detección automática y, en su defecto, al genérico.
+    let perfil = null;
+    if(perfilSeleccionadoId && perfilSeleccionadoId !== 'otro'){
+      perfil = PERFILES_PROVEEDOR.find(p => p.id === perfilSeleccionadoId) || null;
+    } else if(!perfilSeleccionadoId){
+      perfil = detectarProveedor(lineas);
+    }
     const parserAUsar = (perfil && perfil.parser) ? perfil.parser : parserGenerico;
     const filasParseadas = parserAUsar(lineas);
 
     if(!filasParseadas.length){
-      mostrarEstado('err', 'No se ha podido extraer ninguna línea de artículo de este PDF. Añade las filas a mano.');
+      const pista = (perfil && perfilSeleccionadoId && perfilSeleccionadoId!=='otro')
+        ? ' Revisa que has seleccionado el proveedor correcto en el desplegable.'
+        : '';
+      mostrarEstado('err', 'No se ha podido extraer ninguna línea de artículo de este PDF.' + pista + ' Añade las filas a mano.');
       return;
     }
 
@@ -742,13 +866,46 @@ async function onPdfSelected(file){
     actualizarBotonesOrden();
 
     if(perfil){
-      mostrarEstado('ok', `Proveedor detectado: ${perfil.nombre}. ${filas.length} líneas extraídas — revisa ISBN/Marca/Familia/Igic antes de exportar.`);
+      mostrarEstado('ok', `Proveedor: ${perfil.nombre}. ${filas.length} líneas extraídas — revisa ISBN/Marca/Familia/Igic antes de exportar.`);
     } else {
-      mostrarEstado('warn', `Proveedor no reconocido — se ha usado el extractor genérico. ${filas.length} líneas extraídas: revisa bien la tabla, puede haber errores de columnas.`);
+      mostrarEstado('warn', `Proveedor genérico. ${filas.length} líneas extraídas: revisa bien la tabla, puede haber errores de columnas.`);
     }
+
+    const sumaCalculada = round2_(filas.reduce((s,f)=>s+(parseFloat(f.importe)||0), 0));
+    const totalFactura = (perfil && perfil.total) ? perfil.total(texto) : null;
+    mostrarModalVerificacion({ perfil, lineas: filas.length, sumaCalculada, totalFactura });
   }catch(err){
     mostrarEstado('err', 'Error al procesar el PDF: ' + err.message);
   }
+}
+
+function mostrarModalVerificacion({ perfil, lineas, sumaCalculada, totalFactura }){
+  const cont = document.getElementById('modalContenido');
+  const fmt = v => v.toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €';
+  let banner;
+  if(totalFactura === null){
+    banner = `<div class="modal-banner warn">⚠️ No se ha podido leer el total de la propia factura para comparar (proveedor sin perfil, o formato no reconocido). Revisa el total a mano antes de exportar.</div>`;
+  } else {
+    const diff = Math.round((sumaCalculada - totalFactura) * 100) / 100;
+    const tolerancia = Math.max(0.05, totalFactura * 0.01);
+    if(Math.abs(diff) <= tolerancia){
+      banner = `<div class="modal-banner ok">👍🏽 Todo cuadra: la suma calculada coincide con el total de la factura.</div>`;
+    } else {
+      banner = `<div class="modal-banner err">🚨 ¡Atención! La suma calculada NO coincide con el total de la factura (diferencia de ${fmt(Math.abs(diff))}). Puede que se haya perdido alguna línea o que algún importe esté mal leído — revisa la tabla antes de exportar.</div>`;
+    }
+  }
+  cont.innerHTML = `
+    <div class="modal-check"><span>Proveedor</span><span class="valor">${perfil ? perfil.nombre : 'Genérico'}</span></div>
+    <div class="modal-check"><span>Líneas extraídas</span><span class="valor">${lineas}</span></div>
+    <div class="modal-check"><span>Suma calculada</span><span class="valor">${fmt(sumaCalculada)}</span></div>
+    <div class="modal-check"><span>Total según factura</span><span class="valor">${totalFactura===null ? '—' : fmt(totalFactura)}</span></div>
+    ${banner}
+  `;
+  document.getElementById('modalVerificacion').classList.add('visible');
+}
+
+function cerrarModalVerificacion(){
+  document.getElementById('modalVerificacion').classList.remove('visible');
 }
 
 const dropzoneEl = document.getElementById('dropzone');
@@ -827,6 +984,7 @@ function generarExcel(){
   XLSX.writeFile(wb, nombreArchivo, {bookType:'biff5'});
 }
 
+poblarSelectorProveedores();
 renderFilas();
 </script>
 </body>
