@@ -156,7 +156,7 @@ export default function App() {
   )
 
   return (
-    <BrowserRouter basename="/alquileres">
+    <BrowserRouter basename="/Ofipapel---App/alquileres">
       <div className="flex min-h-screen bg-slate-100">
         {/* Desktop sidebar */}
         <div className="hidden md:flex">
