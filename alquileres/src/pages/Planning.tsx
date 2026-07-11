@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { reservationStorage, apartmentStorage } from '../lib/storage'
-import type { Reservation, Apartment } from '../types'
+import { useData } from '../contexts/DataContext'
+import type { Reservation } from '../types'
 import { MONTH_NAMES_ES, DAY_NAMES_ES, getDaysInMonth, getSeason } from '../lib/dateUtils'
 
 const APT_COLORS = [
@@ -10,16 +10,11 @@ const APT_COLORS = [
 ]
 
 export default function Planning() {
+  const { reservations, apartments: allApartments } = useData()
+  const apartments = allApartments.filter(a => a.active)
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
-  const [reservations, setReservations] = useState<Reservation[]>([])
-  const [apartments, setApartments] = useState<Apartment[]>([])
-
-  useEffect(() => {
-    setReservations(reservationStorage.getAll())
-    setApartments(apartmentStorage.getAll().filter(a => a.active))
-  }, [])
 
   const daysInMonth = getDaysInMonth(year, month)
   const season = getSeason(new Date(year, month - 1, 1))

@@ -1,10 +1,11 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Calendar, BedDouble, Tag, Wrench, PiggyBank, BarChart3, Settings, Menu, X
+  LayoutDashboard, Calendar, BedDouble, Tag, Wrench, PiggyBank, BarChart3, Settings, Menu, X, KeyRound, LogOut
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { isSeeded, markSeeded, reservationStorage, paymentStorage, repairStorage } from './lib/storage'
-import { buildSeedReservations, buildSeedRepairs } from './lib/seedData'
+import { useMemo, useState } from 'react'
+import LoginScreen from './components/LoginScreen'
+import ChangePasswordModal from './components/ChangePasswordModal'
+import { useData } from './contexts/DataContext'
 import Dashboard from './pages/Dashboard'
 import Planning from './pages/Planning'
 import Reservations from './pages/Reservations'
@@ -15,14 +16,14 @@ import Analytics from './pages/Analytics'
 import ApartmentsConfig from './pages/ApartmentsConfig'
 
 const NAV = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/planning', icon: Calendar, label: 'Planning' },
-  { to: '/reservas', icon: BedDouble, label: 'Reservas' },
-  { to: '/precios', icon: Tag, label: 'Precios' },
-  { to: '/reparaciones', icon: Wrench, label: 'Reparaciones' },
-  { to: '/cobros', icon: PiggyBank, label: 'Cobros' },
-  { to: '/analitica', icon: BarChart3, label: 'Analítica' },
-  { to: '/config', icon: Settings, label: 'Apartamentos' },
+  { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/planning',     icon: Calendar,        label: 'Planning' },
+  { to: '/reservas',     icon: BedDouble,       label: 'Reservas' },
+  { to: '/precios',      icon: Tag,             label: 'Precios' },
+  { to: '/reparaciones', icon: Wrench,          label: 'Reparaciones' },
+  { to: '/cobros',       icon: PiggyBank,       label: 'Cobros' },
+  { to: '/analitica',    icon: BarChart3,       label: 'Analítica' },
+  { to: '/config',       icon: Settings,        label: 'Apartamentos' },
 ]
 
 function NavItems({ alerts, onClose }: { alerts: number; onClose?: () => void }) {
@@ -54,7 +55,7 @@ function NavItems({ alerts, onClose }: { alerts: number; onClose?: () => void })
   )
 }
 
-function Sidebar({ alerts }: { alerts: number }) {
+function Sidebar({ alerts, onChangePassword, onLogout }: { alerts: number; onChangePassword: () => void; onLogout: () => void }) {
   return (
     <aside className="w-56 min-h-screen bg-slate-900 flex flex-col shrink-0">
       <div className="px-4 py-5 border-b border-slate-700">
@@ -64,8 +65,16 @@ function Sidebar({ alerts }: { alerts: number }) {
       <nav className="flex-1 py-4 space-y-0.5 px-2">
         <NavItems alerts={alerts} />
       </nav>
-      <div className="px-4 py-3 border-t border-slate-700">
-        <p className="text-slate-500 text-xs">Ofipapel © 2026</p>
+      <div className="px-4 py-3 border-t border-slate-700 space-y-1">
+        <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>
+        <button onClick={onChangePassword}
+          className="flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
+          <KeyRound size={13} /> Cambiar contraseña
+        </button>
+        <button onClick={onLogout}
+          className="flex items-center gap-2 text-slate-400 hover:text-red-400 text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
+          <LogOut size={13} /> Cerrar sesión
+        </button>
       </div>
     </aside>
   )
@@ -91,7 +100,7 @@ function MobileHeader({ alerts, onMenuOpen }: { alerts: number; onMenuOpen: () =
   )
 }
 
-function Drawer({ alerts, open, onClose }: { alerts: number; open: boolean; onClose: () => void }) {
+function Drawer({ alerts, open, onClose, onChangePassword, onLogout }: { alerts: number; open: boolean; onClose: () => void; onChangePassword: () => void; onLogout: () => void }) {
   if (!open) return null
   return (
     <>
@@ -109,8 +118,16 @@ function Drawer({ alerts, open, onClose }: { alerts: number; open: boolean; onCl
         <nav className="flex-1 py-4 space-y-0.5 px-2 overflow-y-auto">
           <NavItems alerts={alerts} onClose={onClose} />
         </nav>
-        <div className="px-4 py-3 border-t border-slate-700">
-          <p className="text-slate-500 text-xs">Ofipapel © 2026</p>
+        <div className="px-4 py-3 border-t border-slate-700 space-y-1">
+          <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>
+          <button onClick={() => { onClose(); onChangePassword() }}
+            className="flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
+            <KeyRound size={13} /> Cambiar contraseña
+          </button>
+          <button onClick={() => { onClose(); onLogout() }}
+            className="flex items-center gap-2 text-slate-400 hover:text-red-400 text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
+            <LogOut size={13} /> Cerrar sesión
+          </button>
         </div>
       </div>
     </>
@@ -118,49 +135,44 @@ function Drawer({ alerts, open, onClose }: { alerts: number; open: boolean; onCl
 }
 
 export default function App() {
-  const [ready, setReady] = useState(false)
-  const [alertCount, setAlertCount] = useState(0)
+  const { loading, reservations, payments } = useData()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [loggedIn, setLoggedIn] = useState(false)
+  const [showChangePassword, setShowChangePassword] = useState(false)
 
-  useEffect(() => {
-    if (!isSeeded()) {
-      const { reservations, payments } = buildSeedReservations()
-      if (reservationStorage.getAll().length === 0) {
-        reservationStorage.save(reservations)
-        paymentStorage.save(payments)
-        repairStorage.save(buildSeedRepairs())
-      }
-      markSeeded()
-    }
-    const reservations = reservationStorage.getAll()
-    const payments = paymentStorage.getAll()
+  const alertCount = useMemo(() => {
     const today = new Date()
-    let pending = 0
-    reservations.forEach(r => {
-      if (r.status === 'cancelada') return
-      const co = new Date(r.checkOut)
-      if (co < today) return
+    return reservations.filter(r => {
+      if (r.status === 'cancelada') return false
+      if (new Date(r.checkOut) < today) return false
       const paid = payments
         .filter(p => p.reservationId === r.id && p.received)
         .reduce((s, p) => s + p.amount, 0)
-      if (paid < r.total) pending++
-    })
-    setAlertCount(pending)
-    setReady(true)
-  }, [])
+      return paid < r.total
+    }).length
+  }, [reservations, payments])
 
-  if (!ready) return (
+  if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100">
       <p className="text-slate-500 text-sm">Cargando...</p>
     </div>
   )
 
+  if (!loggedIn) return <LoginScreen onLogin={() => setLoggedIn(true)} />
+
   return (
     <BrowserRouter basename="/Ofipapel---App/alquileres">
+      {showChangePassword && (
+        <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
+      )}
       <div className="flex min-h-screen bg-slate-100">
         {/* Desktop sidebar */}
         <div className="hidden md:flex">
-          <Sidebar alerts={alertCount} />
+          <Sidebar
+            alerts={alertCount}
+            onChangePassword={() => setShowChangePassword(true)}
+            onLogout={() => setLoggedIn(false)}
+          />
         </div>
 
         <div className="flex-1 flex flex-col min-w-0">
@@ -170,12 +182,18 @@ export default function App() {
           </div>
 
           {/* Mobile drawer */}
-          <Drawer alerts={alertCount} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+          <Drawer
+            alerts={alertCount}
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            onChangePassword={() => setShowChangePassword(true)}
+            onLogout={() => setLoggedIn(false)}
+          />
 
           <main className="flex-1 overflow-auto">
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<Dashboard onAlertsChange={setAlertCount} />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/planning" element={<Planning />} />
               <Route path="/reservas" element={<Reservations />} />
               <Route path="/precios" element={<Prices />} />

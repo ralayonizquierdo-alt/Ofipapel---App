@@ -1,26 +1,14 @@
 import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { reservationStorage, paymentStorage, repairStorage, expenseStorage, apartmentStorage } from '../lib/storage'
-import type { Reservation, Payment, Repair, Expense, Apartment } from '../types'
+import { useData } from '../contexts/DataContext'
 import { MONTH_NAMES_ES } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
 
 export default function Analytics() {
-  const [reservations, setReservations] = useState<Reservation[]>([])
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [repairs, setRepairs] = useState<Repair[]>([])
-  const [expenses, setExpenses] = useState<Expense[]>([])
-  const [apartments, setApartments] = useState<Apartment[]>([])
+  const { reservations, payments, repairs, expenses, apartments: allApartments } = useData()
+  const apartments = allApartments.filter(a => a.active)
   const [year, setYear] = useState(new Date().getFullYear())
-
-  useEffect(() => {
-    setReservations(reservationStorage.getAll())
-    setPayments(paymentStorage.getAll())
-    setRepairs(repairStorage.getAll())
-    setExpenses(expenseStorage.getAll())
-    setApartments(apartmentStorage.getAll().filter(a => a.active))
-  }, [])
 
   useEffect(() => {
     if (payments.length === 0) return
@@ -32,7 +20,6 @@ export default function Analytics() {
     }
   }, [payments.length])
 
-  // ── Occupancy per apartment ───────────────────────────────────────────────
   function getRentedDays(aptId: string): number {
     let days = 0
     reservations
@@ -41,7 +28,6 @@ export default function Analytics() {
         const ci = new Date(r.checkIn)
         const co = new Date(r.checkOut)
         if (ci.getFullYear() !== year && co.getFullYear() !== year) return
-        // Count days in the year
         const start = new Date(Math.max(ci.getTime(), new Date(year, 0, 1).getTime()))
         const end = new Date(Math.min(co.getTime(), new Date(year, 11, 31, 23, 59).getTime()))
         if (end > start) {
@@ -79,7 +65,6 @@ export default function Analytics() {
     }
   })
 
-  // ── Monthly income chart ──────────────────────────────────────────────────
   const monthlyData = Array.from({ length: 12 }, (_, i) => {
     const month = i + 1
     const monthStr = `${year}-${String(month).padStart(2, '0')}`

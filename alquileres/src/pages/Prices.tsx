@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { priceStorage, offerPriceStorage } from '../lib/storage'
+import { useState } from 'react'
+import { useData } from '../contexts/DataContext'
 import type { PriceEntry, ApartmentType, Season, OfferPrice } from '../types'
 import { calcPrices } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
@@ -17,26 +17,18 @@ const APT_TYPE_LABELS: Record<ApartmentType, string> = {
 const CURRENT_YEAR = new Date().getFullYear()
 
 export default function Prices() {
-  const [prices, setPrices] = useState<PriceEntry[]>([])
-  const [offerPrices, setOfferPrices] = useState<OfferPrice[]>([])
+  const { prices, offerPrices, addPrice, deleteOfferPrice } = useData()
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR)
   const [editing, setEditing] = useState<PriceEntry | null>(null)
   const [showOfferForm, setShowOfferForm] = useState(false)
   const [editingOffer, setEditingOffer] = useState<OfferPrice | null>(null)
-
-  function reload() {
-    setPrices(priceStorage.getAll())
-    setOfferPrices(offerPriceStorage.getAll())
-  }
-  useEffect(() => { reload() }, [])
 
   const availableYears = [...new Set(prices.map(p => p.year))].sort()
   const pricesBySeason = (season: Season) => prices.filter(p => p.season === season && p.year === selectedYear)
 
   function handleDeleteOffer(id: string) {
     if (!confirm('¿Eliminar tarifa de oferta?')) return
-    offerPriceStorage.delete(id)
-    reload()
+    deleteOfferPrice(id)
   }
 
   return (
@@ -87,12 +79,11 @@ export default function Prices() {
                       <p className="text-slate-400 text-sm">{APT_TYPE_LABELS[aptType]} — Sin precios para {season} {selectedYear}</p>
                       <button
                         onClick={() => {
-                          const newEntry = priceStorage.add({
+                          const newEntry = addPrice({
                             year: selectedYear, season, apartmentType: aptType,
                             price1week: 0, price2weeks: 0, price3weeks: 0, price1month: 0, cleaningFee: 40
                           })
                           setEditing(newEntry)
-                          reload()
                         }}
                         className="mt-2 text-sm text-blue-600 hover:underline">+ Añadir precios</button>
                     </div>
@@ -144,13 +135,13 @@ export default function Prices() {
       </div>
 
       {editing && (
-        <PriceEditModal entry={editing} onClose={() => { setEditing(null); reload() }} />
+        <PriceEditModal entry={editing} onClose={() => setEditing(null)} />
       )}
 
       {showOfferForm && (
         <OfferPriceModal
           editing={editingOffer}
-          onClose={() => { setShowOfferForm(false); setEditingOffer(null); reload() }}
+          onClose={() => { setShowOfferForm(false); setEditingOffer(null) }}
         />
       )}
     </div>
@@ -224,6 +215,7 @@ function PriceTable({ entry, onEdit }: { entry: PriceEntry; onEdit: () => void }
 }
 
 function PriceEditModal({ entry, onClose }: { entry: PriceEntry; onClose: () => void }) {
+  const { updatePrice } = useData()
   const [p1w, setP1w] = useState(entry.price1week)
   const [p2w, setP2w] = useState(entry.price2weeks)
   const [p3w, setP3w] = useState(entry.price3weeks)
@@ -231,7 +223,7 @@ function PriceEditModal({ entry, onClose }: { entry: PriceEntry; onClose: () => 
   const [cleaning, setCleaning] = useState(entry.cleaningFee)
 
   function save() {
-    priceStorage.update(entry.id, {
+    updatePrice(entry.id, {
       price1week: p1w, price2weeks: p2w, price3weeks: p3w,
       price1month: p1m, cleaningFee: cleaning
     })
@@ -285,6 +277,7 @@ function PriceEditModal({ entry, onClose }: { entry: PriceEntry; onClose: () => 
 }
 
 function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onClose: () => void }) {
+  const { addOfferPrice, updateOfferPrice } = useData()
   const [label, setLabel] = useState(editing?.label || '')
   const [year, setYear] = useState(editing?.year || new Date().getFullYear())
   const [month, setMonth] = useState(editing?.month || new Date().getMonth() + 1)
@@ -302,9 +295,9 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
       price1week: p1w, price2weeks: p2w, price3weeks: p3w, price1month: p1m, cleaningFee: cleaning
     }
     if (editing) {
-      offerPriceStorage.update(editing.id, data)
+      updateOfferPrice(editing.id, data)
     } else {
-      offerPriceStorage.add(data)
+      addOfferPrice(data)
     }
     onClose()
   }

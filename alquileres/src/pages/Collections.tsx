@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react'
-import { reservationStorage, paymentStorage, apartmentStorage } from '../lib/storage'
-import type { Reservation, Payment, Apartment } from '../types'
+import { useState } from 'react'
+import { useData } from '../contexts/DataContext'
 import { calcIGIC } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
 import { MONTH_NAMES_ES } from '../lib/dateUtils'
@@ -13,20 +12,12 @@ const QUARTERS = [
 ]
 
 export default function Collections() {
-  const [reservations, setReservations] = useState<Reservation[]>([])
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [apartments, setApartments] = useState<Apartment[]>([])
+  const { reservations, payments, apartments: allApartments } = useData()
+  const apartments = allApartments.filter(a => a.active)
   const [year, setYear] = useState(new Date().getFullYear())
-
-  useEffect(() => {
-    setReservations(reservationStorage.getAll())
-    setPayments(paymentStorage.getAll())
-    setApartments(apartmentStorage.getAll().filter(a => a.active))
-  }, [])
 
   const years = [...new Set(payments.map(p => p.paymentDate?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
 
-  // Get amount paid per apartment per month
   function getMonthAmount(aptId: string, month: number): number {
     const monthStr = `${year}-${String(month).padStart(2, '0')}`
     const aptReservationIds = reservations
@@ -44,7 +35,6 @@ export default function Collections() {
   const yearTotal = apartments.reduce((s, a) =>
     s + QUARTERS.reduce((q, qt) => q + getQuarterTotal(a.id, qt.months), 0), 0)
 
-  // Annual summary: determine efectivo vs transferencia per payment
   function getAnnualBreakdown(aptId: string): { transferencia: number; efectivo: number; total: number } {
     const aptReservationIds = reservations
       .filter(r => r.apartmentId === aptId && r.status !== 'cancelada')
@@ -61,7 +51,6 @@ export default function Collections() {
         else if (p.paymentMethod === 'transferencia') transferencia += p.amount
         else transferencia += p.amount
       } else {
-        // Legacy: infer from reservation channel
         const res = reservations.find(r => r.id === p.reservationId)
         if (res?.channel === 'directo') efectivo += p.amount
         else transferencia += p.amount
@@ -167,7 +156,7 @@ export default function Collections() {
           )
         })}
 
-        {/* Annual summary by apartment - transfer vs cash */}
+        {/* Annual summary by apartment */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="px-5 py-3 bg-slate-600">
             <h3 className="font-semibold text-white">Cobros Anuales {year} — Transferencia vs Efectivo</h3>

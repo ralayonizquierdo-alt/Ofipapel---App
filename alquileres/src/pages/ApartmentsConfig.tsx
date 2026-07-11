@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
-import { apartmentStorage } from '../lib/storage'
+import { useData } from '../contexts/DataContext'
 import type { Apartment, ApartmentType } from '../types'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
@@ -11,22 +11,17 @@ const TYPE_LABELS: Record<ApartmentType, string> = {
 }
 
 export default function ApartmentsConfig() {
-  const [apartments, setApartments] = useState<Apartment[]>([])
+  const { apartments, updateApartment, deleteApartment } = useData()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Apartment | null>(null)
 
-  function reload() { setApartments(apartmentStorage.getAll()) }
-  useEffect(() => { reload() }, [])
-
   function handleDelete(id: string) {
     if (!confirm('¿Eliminar este apartamento?')) return
-    apartmentStorage.delete(id)
-    reload()
+    deleteApartment(id)
   }
 
   function toggleActive(a: Apartment) {
-    apartmentStorage.update(a.id, { active: !a.active })
-    reload()
+    updateApartment(a.id, { active: !a.active })
   }
 
   return (
@@ -71,14 +66,15 @@ export default function ApartmentsConfig() {
       </div>
 
       {showForm && (
-        <AptForm editing={editing} onClose={() => setShowForm(false)} onSave={() => { setShowForm(false); reload() }} />
+        <AptForm editing={editing} onClose={() => setShowForm(false)} />
       )}
     </div>
   )
 }
 
-function AptForm({ editing, onClose, onSave }:
-  { editing: Apartment | null; onClose: () => void; onSave: () => void }) {
+function AptForm({ editing, onClose }:
+  { editing: Apartment | null; onClose: () => void }) {
+  const { addApartment, updateApartment } = useData()
   const [id, setId] = useState(editing?.id || '')
   const [name, setName] = useState(editing?.name || '')
   const [bedrooms, setBedrooms] = useState(editing?.bedrooms || 1)
@@ -88,11 +84,11 @@ function AptForm({ editing, onClose, onSave }:
   function handleSave() {
     if (!name.trim() || !id.trim()) return alert('Completa nombre e ID')
     if (editing) {
-      apartmentStorage.update(editing.id, { name, bedrooms, type, notes })
+      updateApartment(editing.id, { name, bedrooms, type, notes })
     } else {
-      apartmentStorage.add({ id, name, bedrooms, type, active: true, notes })
+      addApartment({ id, name, bedrooms, type, active: true, notes })
     }
-    onSave()
+    onClose()
   }
 
   return (

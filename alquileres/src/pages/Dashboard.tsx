@@ -1,22 +1,11 @@
-import { useEffect, useState } from 'react'
 import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock } from 'lucide-react'
-import { reservationStorage, paymentStorage, apartmentStorage, repairStorage } from '../lib/storage'
-import type { Reservation, Payment, Apartment } from '../types'
+import { useData } from '../contexts/DataContext'
+import type { Reservation } from '../types'
 import { formatDate, formatDateShort, today } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
 
-interface Props { onAlertsChange: (n: number) => void }
-
-export default function Dashboard({ onAlertsChange }: Props) {
-  const [reservations, setReservations] = useState<Reservation[]>([])
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [apartments, setApartments] = useState<Apartment[]>([])
-
-  useEffect(() => {
-    setReservations(reservationStorage.getAll())
-    setPayments(paymentStorage.getAll())
-    setApartments(apartmentStorage.getAll())
-  }, [])
+export default function Dashboard() {
+  const { reservations, payments, apartments, repairs } = useData()
 
   const todayStr = today()
   const now = new Date()
@@ -33,8 +22,6 @@ export default function Dashboard({ onAlertsChange }: Props) {
     return paid < r.total && new Date(r.checkOut) >= now
   })
 
-  useEffect(() => { onAlertsChange(pendingPayment.length) }, [pendingPayment.length])
-
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
   const monthStart = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`
@@ -48,13 +35,11 @@ export default function Dashboard({ onAlertsChange }: Props) {
     .filter(p => p.received && p.paymentDate && p.paymentDate.startsWith(String(currentYear)))
     .reduce((s, p) => s + p.amount, 0)
 
-  const totalRepairs = repairStorage.getAll()
+  const totalRepairs = repairs
     .filter(r => r.repairDate?.startsWith(String(currentYear)))
     .reduce((s, r) => s + (r.amount || 0), 0)
 
   const netYear = yearIncome - totalRepairs
-
-  // Price renewal alert: January reminder
   const isPriceRenewalMonth = currentMonth === 1
 
   function getApartmentName(id: string) {
