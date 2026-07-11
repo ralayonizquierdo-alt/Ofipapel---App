@@ -4,6 +4,7 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import LoginScreen from './components/LoginScreen'
+import MigrateLocalData from './components/MigrateLocalData'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import { useData } from './contexts/DataContext'
 import Dashboard from './pages/Dashboard'
@@ -190,6 +191,7 @@ export default function App() {
             onLogout={() => setLoggedIn(false)}
           />
 
+          <MigrateLocalData />
           <main className="flex-1 overflow-auto">
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
