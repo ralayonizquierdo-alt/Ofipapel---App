@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
-import { expenseStorage, apartmentStorage } from '../lib/storage'
+import { useData } from '../contexts/DataContext'
 import type { Expense, Apartment, ExpenseType } from '../types'
 import { formatDate } from '../lib/dateUtils'
 import Modal from '../components/ui/Modal'
@@ -29,16 +29,13 @@ function sortApartments(apts: Apartment[]): Apartment[] {
 }
 
 export default function Costos() {
-  const [expenses, setExpenses] = useState<Expense[]>([])
-  const [apartments, setApartments] = useState<Apartment[]>([])
+  const { expenses, apartments: allApartments, deleteExpense } = useData()
+  const apartments = sortApartments(allApartments)
   const [filterApt, setFilterApt] = useState('')
   const [filterYear, setFilterYear] = useState('')
   const [filterType, setFilterType] = useState<ExpenseType | ''>('')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
-
-  function reload() { setExpenses(expenseStorage.getAll()) }
-  useEffect(() => { reload(); setApartments(sortApartments(apartmentStorage.getAll())) }, [])
 
   const years = [...new Set(expenses.map(e => e.expenseDate?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
 
@@ -53,11 +50,9 @@ export default function Costos() {
   function getAptName(id: string) { return apartments.find(a => a.id === id)?.name || id }
   function handleDelete(id: string) {
     if (!confirm('¿Eliminar este gasto?')) return
-    expenseStorage.delete(id)
-    reload()
+    deleteExpense(id)
   }
 
-  // Group by apartment for summary cards
   const byApt = apartments.map(a => ({
     apt: a,
     total: filtered.filter(e => e.apartmentId === a.id).reduce((s, e) => s + (e.amount || 0), 0)
@@ -172,15 +167,15 @@ export default function Costos() {
           apartments={apartments}
           editing={editing}
           onClose={() => setShowForm(false)}
-          onSave={() => { setShowForm(false); reload() }}
         />
       )}
     </div>
   )
 }
 
-function ExpenseForm({ apartments, editing, onClose, onSave }:
-  { apartments: Apartment[]; editing: Expense | null; onClose: () => void; onSave: () => void }) {
+function ExpenseForm({ apartments, editing, onClose }:
+  { apartments: Apartment[]; editing: Expense | null; onClose: () => void }) {
+  const { addExpense, updateExpense } = useData()
   const [aptId, setAptId] = useState(editing?.apartmentId || apartments[0]?.id || '')
   const [expenseDate, setExpenseDate] = useState(editing?.expenseDate || '')
   const [expenseType, setExpenseType] = useState<ExpenseType>(editing?.expenseType || 'lavanderia')
@@ -200,9 +195,9 @@ function ExpenseForm({ apartments, editing, onClose, onSave }:
       amount,
       entryNumber: entryNumber || undefined,
     }
-    if (editing) expenseStorage.update(editing.id, data)
-    else expenseStorage.add(data)
-    onSave()
+    if (editing) updateExpense(editing.id, data)
+    else addExpense(data)
+    onClose()
   }
 
   return (

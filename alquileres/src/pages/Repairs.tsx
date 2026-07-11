@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
-import { repairStorage, apartmentStorage } from '../lib/storage'
+import { useData } from '../contexts/DataContext'
 import type { Repair, Apartment } from '../types'
 import { formatDate } from '../lib/dateUtils'
 import Modal from '../components/ui/Modal'
@@ -20,15 +20,12 @@ function sortApartments(apts: Apartment[]): Apartment[] {
 }
 
 export default function Repairs() {
-  const [repairs, setRepairs] = useState<Repair[]>([])
-  const [apartments, setApartments] = useState<Apartment[]>([])
+  const { repairs, apartments: allApartments, deleteRepair } = useData()
+  const apartments = sortApartments(allApartments)
   const [filterApt, setFilterApt] = useState('')
   const [filterYear, setFilterYear] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Repair | null>(null)
-
-  function reload() { setRepairs(repairStorage.getAll()) }
-  useEffect(() => { reload(); setApartments(sortApartments(apartmentStorage.getAll())) }, [])
 
   const years = [...new Set(repairs.map(r => r.repairDate?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
 
@@ -42,11 +39,9 @@ export default function Repairs() {
   function getAptName(id: string) { return apartments.find(a => a.id === id)?.name || id }
   function handleDelete(id: string) {
     if (!confirm('¿Eliminar?')) return
-    repairStorage.delete(id)
-    reload()
+    deleteRepair(id)
   }
 
-  // Group by apartment for totals
   const byApt = apartments.map(a => ({
     apt: a,
     total: filtered.filter(r => r.apartmentId === a.id).reduce((s, r) => s + (r.amount || 0), 0)
@@ -149,15 +144,15 @@ export default function Repairs() {
           apartments={apartments}
           editing={editing}
           onClose={() => setShowForm(false)}
-          onSave={() => { setShowForm(false); reload() }}
         />
       )}
     </div>
   )
 }
 
-function RepairForm({ apartments, editing, onClose, onSave }:
-  { apartments: Apartment[]; editing: Repair | null; onClose: () => void; onSave: () => void }) {
+function RepairForm({ apartments, editing, onClose }:
+  { apartments: Apartment[]; editing: Repair | null; onClose: () => void }) {
+  const { addRepair, updateRepair } = useData()
   const [aptId, setAptId] = useState(editing?.apartmentId || apartments[0]?.id || '')
   const [repairDate, setRepairDate] = useState(editing?.repairDate || '')
   const [item, setItem] = useState(editing?.item || '')
@@ -169,9 +164,9 @@ function RepairForm({ apartments, editing, onClose, onSave }:
   function handleSave() {
     if (!item.trim()) return alert('Introduce una descripción')
     const data = { apartmentId: aptId, repairDate: repairDate || undefined, item, supplier, document, amount, entryNumber }
-    if (editing) repairStorage.update(editing.id, data)
-    else repairStorage.add(data)
-    onSave()
+    if (editing) updateRepair(editing.id, data)
+    else addRepair(data)
+    onClose()
   }
 
   return (

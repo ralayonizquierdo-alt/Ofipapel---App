@@ -2,11 +2,10 @@ import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 're
 import {
   LayoutDashboard, Calendar, BedDouble, Tag, Wrench, PiggyBank, BarChart3, Settings, Menu, X, KeyRound, LogOut
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import LoginScreen from './components/LoginScreen'
 import ChangePasswordModal from './components/ChangePasswordModal'
-import { isSeeded, markSeeded, reservationStorage, paymentStorage, repairStorage } from './lib/storage'
-import { buildSeedReservations, buildSeedRepairs } from './lib/seedData'
+import { useData } from './contexts/DataContext'
 import Dashboard from './pages/Dashboard'
 import Planning from './pages/Planning'
 import Reservations from './pages/Reservations'
@@ -17,14 +16,14 @@ import Analytics from './pages/Analytics'
 import ApartmentsConfig from './pages/ApartmentsConfig'
 
 const NAV = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/planning', icon: Calendar, label: 'Planning' },
-  { to: '/reservas', icon: BedDouble, label: 'Reservas' },
-  { to: '/precios', icon: Tag, label: 'Precios' },
-  { to: '/reparaciones', icon: Wrench, label: 'Reparaciones' },
-  { to: '/cobros', icon: PiggyBank, label: 'Cobros' },
-  { to: '/analitica', icon: BarChart3, label: 'Analítica' },
-  { to: '/config', icon: Settings, label: 'Apartamentos' },
+  { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/planning',     icon: Calendar,        label: 'Planning' },
+  { to: '/reservas',     icon: BedDouble,       label: 'Reservas' },
+  { to: '/precios',      icon: Tag,             label: 'Precios' },
+  { to: '/reparaciones', icon: Wrench,          label: 'Reparaciones' },
+  { to: '/cobros',       icon: PiggyBank,       label: 'Cobros' },
+  { to: '/analitica',    icon: BarChart3,       label: 'Analítica' },
+  { to: '/config',       icon: Settings,        label: 'Apartamentos' },
 ]
 
 function NavItems({ alerts, onClose }: { alerts: number; onClose?: () => void }) {
@@ -136,40 +135,24 @@ function Drawer({ alerts, open, onClose, onChangePassword, onLogout }: { alerts:
 }
 
 export default function App() {
-  const [ready, setReady] = useState(false)
-  const [alertCount, setAlertCount] = useState(0)
+  const { loading, reservations, payments } = useData()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [loggedIn, setLoggedIn] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
 
-  useEffect(() => {
-    if (!isSeeded()) {
-      const { reservations, payments } = buildSeedReservations()
-      if (reservationStorage.getAll().length === 0) {
-        reservationStorage.save(reservations)
-        paymentStorage.save(payments)
-        repairStorage.save(buildSeedRepairs())
-      }
-      markSeeded()
-    }
-    const reservations = reservationStorage.getAll()
-    const payments = paymentStorage.getAll()
+  const alertCount = useMemo(() => {
     const today = new Date()
-    let pending = 0
-    reservations.forEach(r => {
-      if (r.status === 'cancelada') return
-      const co = new Date(r.checkOut)
-      if (co < today) return
+    return reservations.filter(r => {
+      if (r.status === 'cancelada') return false
+      if (new Date(r.checkOut) < today) return false
       const paid = payments
         .filter(p => p.reservationId === r.id && p.received)
         .reduce((s, p) => s + p.amount, 0)
-      if (paid < r.total) pending++
-    })
-    setAlertCount(pending)
-    setReady(true)
-  }, [])
+      return paid < r.total
+    }).length
+  }, [reservations, payments])
 
-  if (!ready) return (
+  if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100">
       <p className="text-slate-500 text-sm">Cargando...</p>
     </div>
@@ -210,7 +193,7 @@ export default function App() {
           <main className="flex-1 overflow-auto">
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<Dashboard onAlertsChange={setAlertCount} />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/planning" element={<Planning />} />
               <Route path="/reservas" element={<Reservations />} />
               <Route path="/precios" element={<Prices />} />

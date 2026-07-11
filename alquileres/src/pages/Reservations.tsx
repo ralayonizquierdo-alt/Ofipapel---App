@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Pencil, Trash2, CheckCircle, Circle } from 'lucide-react'
-import { reservationStorage, paymentStorage, apartmentStorage, priceStorage } from '../lib/storage'
-import type { Reservation, Payment, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
+import { useData } from '../contexts/DataContext'
+import type { Reservation, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
 import { formatDate, getNights, getSeason, today } from '../lib/dateUtils'
 import { getApartmentType, calcTotal } from '../lib/priceCalc'
 import Modal from '../components/ui/Modal'
@@ -22,37 +22,24 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default function Reservations() {
-  const [reservations, setReservations] = useState<Reservation[]>([])
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [apartments, setApartments] = useState<Apartment[]>([])
-  const [prices, setPrices] = useState<PriceEntry[]>([])
+  const { reservations, payments, apartments, prices } = useData()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Reservation | null>(null)
   const [selectedRes, setSelectedRes] = useState<Reservation | null>(null)
   const [filterApt, setFilterApt] = useState('')
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()))
 
-  function reload() {
-    setReservations(reservationStorage.getAll())
-    setPayments(paymentStorage.getAll())
-  }
-
-  useEffect(() => {
-    reload()
-    setApartments(apartmentStorage.getAll())
-    setPrices(priceStorage.getAll())
-  }, [])
-
   const filtered = reservations
     .filter(r => !filterApt || r.apartmentId === filterApt)
     .filter(r => !filterYear || r.checkIn.startsWith(filterYear) || r.checkOut.startsWith(filterYear))
     .sort((a, b) => b.checkIn.localeCompare(a.checkIn))
 
+  const years = [...new Set(reservations.map(r => r.checkIn.slice(0, 4)))].sort((a, b) => b.localeCompare(a))
+
   function getAptName(id: string) { return apartments.find(a => a.id === id)?.name || id }
   function getPaid(r: Reservation) {
     return payments.filter(p => p.reservationId === r.id && p.received).reduce((s, p) => s + p.amount, 0)
   }
-
   function getPaymentMethods(r: Reservation): string {
     const rp = payments.filter(p => p.reservationId === r.id && p.received && p.paymentMethod)
     if (rp.length === 0) return '—'
@@ -60,14 +47,6 @@ export default function Reservations() {
     const methods = [...new Set(rp.map(p => p.paymentMethod))]
     return methods.map(m => labels[m!] || m!).join('+')
   }
-
-  function handleDelete(id: string) {
-    if (!confirm('¿Eliminar esta reserva?')) return
-    reservationStorage.delete(id)
-    reload()
-  }
-
-  const years = [...new Set(reservations.map(r => r.checkIn.slice(0, 4)))].sort((a, b) => b.localeCompare(a))
 
   return (
     <div className="p-6">
@@ -143,8 +122,6 @@ export default function Reservations() {
                     <div className="flex items-center gap-1 justify-end">
                       <button onClick={() => { setEditing(r); setShowForm(true) }}
                         className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Pencil size={14} /></button>
-                      <button onClick={() => handleDelete(r.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 rounded"><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -163,17 +140,15 @@ export default function Reservations() {
           prices={prices}
           editing={editing}
           onClose={() => setShowForm(false)}
-          onSave={() => { setShowForm(false); reload() }}
+          onSave={() => setShowForm(false)}
         />
       )}
 
       {selectedRes && (
         <PaymentModal
           reservation={selectedRes}
-          payments={payments.filter(p => p.reservationId === selectedRes.id)}
           aptName={getAptName(selectedRes.apartmentId)}
           onClose={() => setSelectedRes(null)}
-          onUpdate={reload}
         />
       )}
     </div>
@@ -183,6 +158,8 @@ export default function Reservations() {
 // ── Reservation Form ──────────────────────────────────────────────────────────
 function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   { apartments: Apartment[]; prices: PriceEntry[]; editing: Reservation | null; onClose: () => void; onSave: () => void }) {
+
+  const { addReservation, updateReservation, deleteReservation, addPayment, payments } = useData()
 
   const [aptId, setAptId] = useState(editing?.apartmentId || apartments[0]?.id || '')
   const [checkIn, setCheckIn] = useState(editing?.checkIn || today())
@@ -200,7 +177,6 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   const nights = checkOut && checkIn ? getNights(checkIn, checkOut) : 0
   const total = calcTotal(basePrice, cleaningFee, discountPct)
 
-  // Auto-fill price from price table
   useEffect(() => {
     if (!autoCalc || !aptId || !checkIn) return
     const season = getSeason(checkIn)
@@ -223,7 +199,6 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
     setCleaningFee(priceEntry.cleaningFee)
   }, [aptId, stayType, checkIn, autoCalc, prices])
 
-  // Auto-set checkout from stay type
   useEffect(() => {
     if (!autoCalc || !checkIn) return
     const daysMap: Record<StayType, number> = {
@@ -241,17 +216,20 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
     const data = {
       apartmentId: aptId, guestName, checkIn, checkOut,
       nights: getNights(checkIn, checkOut), stayType, channel,
-      basePrice, cleaningFee, discountPct, total,
-      status, notes,
+      basePrice, cleaningFee, discountPct, total, status, notes,
     }
     if (editing) {
-      reservationStorage.update(editing.id, data)
-      // Auto-create/update payment for total
+      updateReservation(editing.id, data)
     } else {
-      const res = reservationStorage.add(data)
-      // Auto-create a pending payment for the total
-      paymentStorage.add({ reservationId: res.id, amount: total, received: false })
+      const res = addReservation(data)
+      addPayment({ reservationId: res.id, amount: total, received: false })
     }
+    onSave()
+  }
+
+  function handleDelete() {
+    if (!editing || !confirm('¿Eliminar esta reserva?')) return
+    deleteReservation(editing.id, payments)
     onSave()
   }
 
@@ -352,11 +330,16 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-          <button onClick={handleSave} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-            {editing ? 'Guardar cambios' : 'Crear reserva'}
-          </button>
+        <div className="flex justify-between items-center pt-2">
+          {editing ? (
+            <button onClick={handleDelete} className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg">Eliminar</button>
+          ) : <div />}
+          <div className="flex gap-3">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+            <button onClick={handleSave} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+              {editing ? 'Guardar cambios' : 'Crear reserva'}
+            </button>
+          </div>
         </div>
       </div>
     </Modal>
@@ -364,48 +347,18 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
 }
 
 // ── Payment Modal ─────────────────────────────────────────────────────────────
-function PaymentModal({ reservation, payments, aptName, onClose, onUpdate }:
-  { reservation: Reservation; payments: Payment[]; aptName: string; onClose: () => void; onUpdate: () => void }) {
+function PaymentModal({ reservation, aptName, onClose }:
+  { reservation: Reservation; aptName: string; onClose: () => void }) {
 
-  const [localPayments, setLocalPayments] = useState(payments)
-  const totalPaid = localPayments.filter(p => p.received).reduce((s, p) => s + p.amount, 0)
+  const { payments, addPayment, updatePayment, deletePayment } = useData()
+  const modalPayments = payments.filter(p => p.reservationId === reservation.id)
+  const totalPaid = modalPayments.filter(p => p.received).reduce((s, p) => s + p.amount, 0)
   const pending = reservation.total - totalPaid
 
-  function addPayment() {
-    const p = paymentStorage.add({
-      reservationId: reservation.id,
-      amount: Math.max(0, pending),
-      received: false,
-    })
-    setLocalPayments(prev => [...prev, p])
-    onUpdate()
-  }
-
-  function toggleReceived(id: string) {
-    const p = localPayments.find(p => p.id === id)!
-    paymentStorage.update(id, { received: !p.received })
-    setLocalPayments(prev => prev.map(p => p.id === id ? { ...p, received: !p.received } : p))
-    onUpdate()
-  }
-
-  function updatePayment(id: string, field: 'amount' | 'paymentDate' | 'entryNumber' | 'paymentMethod', value: string) {
-    if (field === 'amount') {
-      const numValue = Number(value)
-      paymentStorage.update(id, { amount: numValue })
-      setLocalPayments(prev => prev.map(p => p.id === id ? { ...p, amount: numValue } : p))
-    } else if (field === 'paymentMethod') {
-      paymentStorage.update(id, { paymentMethod: value as PaymentMethod })
-      setLocalPayments(prev => prev.map(p => p.id === id ? { ...p, paymentMethod: value as PaymentMethod } : p))
-    } else {
-      paymentStorage.update(id, { [field]: value })
-      setLocalPayments(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
-    }
-  }
-
-  function deletePayment(id: string) {
-    paymentStorage.delete(id)
-    setLocalPayments(prev => prev.filter(p => p.id !== id))
-    onUpdate()
+  function handleUpdateField(id: string, field: 'amount' | 'paymentDate' | 'entryNumber' | 'paymentMethod', value: string) {
+    if (field === 'amount') updatePayment(id, { amount: Number(value) })
+    else if (field === 'paymentMethod') updatePayment(id, { paymentMethod: value as PaymentMethod })
+    else updatePayment(id, { [field]: value })
   }
 
   return (
@@ -434,46 +387,33 @@ function PaymentModal({ reservation, payments, aptName, onClose, onUpdate }:
 
         <div className="space-y-2">
           <div className="grid gap-2 text-xs font-medium text-slate-500 px-2" style={{gridTemplateColumns: '1fr 3fr 3fr 2fr 2fr 2fr'}}>
-            <div></div>
-            <div>Importe (€)</div>
-            <div>Fecha cobro</div>
-            <div>Método</div>
-            <div>Nº Asiento</div>
-            <div></div>
+            <div></div><div>Importe (€)</div><div>Fecha cobro</div><div>Método</div><div>Nº Asiento</div><div></div>
           </div>
-          {localPayments.map((p, i) => (
+          {modalPayments.map((p, i) => (
             <div key={p.id} className={`grid gap-2 items-center p-2 rounded-lg ${p.received ? 'bg-green-50' : 'bg-amber-50'}`} style={{gridTemplateColumns: '1fr 3fr 3fr 2fr 2fr 2fr'}}>
               <div className="flex justify-center">
-                <button onClick={() => toggleReceived(p.id)} title={p.received ? 'Marcar como pendiente' : 'Marcar como cobrado'}>
+                <button onClick={() => updatePayment(p.id, { received: !p.received })}
+                  title={p.received ? 'Marcar como pendiente' : 'Marcar como cobrado'}>
                   {p.received ? <CheckCircle size={18} className="text-green-600" /> : <Circle size={18} className="text-amber-400" />}
                 </button>
               </div>
-              <div>
-                <input type="number" value={p.amount}
-                  onChange={e => updatePayment(p.id, 'amount', e.target.value)}
-                  className="w-full border border-slate-200 rounded px-2 py-1 text-sm" />
-              </div>
-              <div>
-                <input type="date" value={p.paymentDate || ''}
-                  onChange={e => updatePayment(p.id, 'paymentDate', e.target.value)}
-                  className="w-full border border-slate-200 rounded px-2 py-1 text-sm" />
-              </div>
-              <div>
-                <select value={p.paymentMethod || ''}
-                  onChange={e => updatePayment(p.id, 'paymentMethod', e.target.value)}
-                  className="w-full border border-slate-200 rounded px-2 py-1 text-sm">
-                  <option value="">—</option>
-                  <option value="efectivo">Efectivo</option>
-                  <option value="transferencia">Transferencia</option>
-                  <option value="otro">Otro</option>
-                </select>
-              </div>
-              <div>
-                <input value={p.entryNumber || ''}
-                  onChange={e => updatePayment(p.id, 'entryNumber', e.target.value)}
-                  className="w-full border border-slate-200 rounded px-2 py-1 text-sm"
-                  placeholder="Nº asiento" />
-              </div>
+              <input type="number" defaultValue={p.amount}
+                onBlur={e => handleUpdateField(p.id, 'amount', e.target.value)}
+                className="w-full border border-slate-200 rounded px-2 py-1 text-sm" />
+              <input type="date" defaultValue={p.paymentDate || ''}
+                onChange={e => handleUpdateField(p.id, 'paymentDate', e.target.value)}
+                className="w-full border border-slate-200 rounded px-2 py-1 text-sm" />
+              <select defaultValue={p.paymentMethod || ''}
+                onChange={e => handleUpdateField(p.id, 'paymentMethod', e.target.value)}
+                className="w-full border border-slate-200 rounded px-2 py-1 text-sm">
+                <option value="">—</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="otro">Otro</option>
+              </select>
+              <input defaultValue={p.entryNumber || ''}
+                onBlur={e => handleUpdateField(p.id, 'entryNumber', e.target.value)}
+                className="w-full border border-slate-200 rounded px-2 py-1 text-sm" placeholder="Nº asiento" />
               <div className="flex justify-end gap-1">
                 <span className="text-xs text-slate-400">P{i + 1}</span>
                 <button onClick={() => deletePayment(p.id)} className="text-slate-300 hover:text-red-500 p-0.5">
@@ -484,7 +424,7 @@ function PaymentModal({ reservation, payments, aptName, onClose, onUpdate }:
           ))}
         </div>
 
-        <button onClick={addPayment}
+        <button onClick={() => addPayment({ reservationId: reservation.id, amount: Math.max(0, pending), received: false })}
           className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium">
           <Plus size={15} /> Añadir pago
         </button>
