@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Ofipapel — Banner de marca</title>
+<meta name="hz:slide-selector" content=".banner" />
+<meta name="hz:canvas-width" content="1200" />
+<meta name="hz:canvas-height" content="630" />
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,700;0,800;1,400&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #0d0d0d;
+}
+
+.banner {
+  position: relative;
+  width: 1200px;
+  height: 630px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0d3d0d 0%, #1A5C1A 40%, #237523 70%, #3a8f2a 100%);
+  font-family: 'Inter', sans-serif;
+}
+
+/* decorative soft shapes, echoing the login screen gradient */
+.deco-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+}
+.deco-1 { width: 520px; height: 520px; top: -220px; right: -140px; }
+.deco-2 { width: 340px; height: 340px; bottom: -180px; right: 220px; background: rgba(141,196,30,0.10); }
+
+.kicker {
+  position: absolute;
+  top: 72px;
+  left: 96px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #C8E6C8;
+}
+
+.mark {
+  position: absolute;
+  top: 128px;
+  left: 96px;
+  width: 76px;
+  height: 76px;
+  border-radius: 18px;
+  background: #8DC41E;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 34px;
+  color: #1A5C1A;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+}
+
+.brand {
+  position: absolute;
+  top: 224px;
+  left: 96px;
+  font-weight: 800;
+  font-size: 76px;
+  color: #ffffff;
+  letter-spacing: -1px;
+}
+
+.tagline {
+  position: absolute;
+  top: 320px;
+  left: 98px;
+  font-weight: 400;
+  font-size: 25px;
+  color: #EBF7EB;
+}
+
+.divider {
+  position: absolute;
+  top: 388px;
+  left: 98px;
+  width: 64px;
+  height: 4px;
+  border-radius: 2px;
+  background: #F5A623;
+}
+
+.info-row {
+  position: absolute;
+  top: 430px;
+  left: 98px;
+  display: flex;
+  gap: 36px;
+}
+
+.info-item {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 15px;
+  color: #DFF2DF;
+  line-height: 1.6;
+}
+.info-item strong {
+  display: block;
+  font-weight: 600;
+  color: #ffffff;
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  color: #8DC41E;
+}
+</style>
+</head>
+<body>
+  <div class="banner" data-canvas-width="1200" data-canvas-height="630">
+    <div class="deco-circle deco-1"></div>
+    <div class="deco-circle deco-2"></div>
+
+    <div class="kicker">Papelería · Material de oficina · Imprenta</div>
+    <div class="mark">O</div>
+    <div class="brand">Ofipapel</div>
+    <div class="tagline">Tu papelería de confianza en Los Cristianos</div>
+    <div class="divider"></div>
+
+    <div class="info-row">
+      <div class="info-item"><strong>Horario</strong>Lun–Vie 9:00–13:30 / 16:30–20:00<br>Sáb 9:30–13:30</div>
+      <div class="info-item"><strong>Teléfono</strong>643 31 66 14</div>
+      <div class="info-item"><strong>Dirección</strong>C/ Bulevar Chajofe, 4 · Los Cristianos</div>
+    </div>
+  </div>
+</body>
+</html>
