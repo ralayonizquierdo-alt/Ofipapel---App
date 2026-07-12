@@ -1,4 +1,5 @@
 _site/
 alquileres/node_modules/
 alquileres/dist/
-joe-app/
+joe-app/node_modules/
+joe-app/dist/
