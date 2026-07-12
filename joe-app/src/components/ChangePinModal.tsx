@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X, Delete } from 'lucide-react'
-import { hashPin, getCurrentPinHash, PIN_STORAGE_KEY } from './PinScreen'
+import { hashPin, getCurrentPinHash, PIN_STORAGE_KEY } from '../lib/pinAuth'
 
 type Step = 'current' | 'new' | 'confirm'
 
@@ -57,7 +57,7 @@ export default function ChangePinModal({ onClose }: Props) {
     } else {
       if (code !== newPin) { triggerError('Los PINs no coinciden'); return }
       const h = await hashPin(code)
-      try { localStorage.setItem(PIN_STORAGE_KEY, h) } catch {}
+      try { localStorage.setItem(PIN_STORAGE_KEY, h) } catch { /* modo privado: no se puede guardar el PIN */ }
       setDone(true)
     }
   }

@@ -1,25 +1,16 @@
 import { useState, useEffect } from 'react'
 import { Delete, Fingerprint } from 'lucide-react'
+import { PIN_STORAGE_KEY, hashPin, getCurrentPinHash } from '../lib/pinAuth'
 
-export const PIN_STORAGE_KEY = 'joe_pin_hash'
 const SESSION_KEY  = 'joe_unlocked'
 const CRED_ID_KEY  = 'joe_cred_id'
-
-export async function hashPin(pin: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin))
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
-export function getCurrentPinHash(): string | null {
-  try { return localStorage.getItem(PIN_STORAGE_KEY) } catch { return null }
-}
 
 function isSessionValid(): boolean {
   try { return sessionStorage.getItem(SESSION_KEY) === '1' } catch { return false }
 }
 
 function saveSession() {
-  try { sessionStorage.setItem(SESSION_KEY, '1') } catch {}
+  try { sessionStorage.setItem(SESSION_KEY, '1') } catch { /* modo privado: la sesión no persiste, no es crítico */ }
 }
 
 // ── WebAuthn helpers ────────────────────────────────────────────────────────
@@ -141,7 +132,7 @@ export default function PinScreen({ onUnlock }: Props) {
     } else if (step === 'confirm') {
       if (code !== newPin) { triggerError(); setStep('confirm'); return }
       const h = await hashPin(code)
-      try { localStorage.setItem(PIN_STORAGE_KEY, h) } catch {}
+      try { localStorage.setItem(PIN_STORAGE_KEY, h) } catch { /* modo privado: no se puede guardar el PIN */ }
       if (bioAvail) { setStep('bio-setup'); setPin('') }
       else { saveSession(); onUnlock() }
     }
