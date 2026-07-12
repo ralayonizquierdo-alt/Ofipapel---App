@@ -69,13 +69,38 @@ create table if not exists coisinhas (
   created_at timestamptz default now()
 );
 
--- RLS (Row Level Security) — desactivado para uso personal, una sola usuaria
-alter table events disable row level security;
-alter table hospital_shifts disable row level security;
-alter table limon_records disable row level security;
-alter table spotify_playlists disable row level security;
-alter table business_tasks disable row level security;
-alter table coisinhas disable row level security;
+-- RLS (Row Level Security)
+-- La app no tiene pantalla de login con usuario real: usa inicio de sesión
+-- anónimo de Supabase (src/lib/supabase.ts abre una sesión anónima al
+-- arrancar). Esto NO distingue entre personas, pero exige una sesión válida
+-- — bloquea el acceso directo a la REST API usando solo la clave anon
+-- pública (sin pasar por la app). Requiere activar "Allow anonymous
+-- sign-ins" en Supabase > Authentication > Sign In / Providers.
+alter table events enable row level security;
+alter table hospital_shifts enable row level security;
+alter table limon_records enable row level security;
+alter table spotify_playlists enable row level security;
+alter table business_tasks enable row level security;
+alter table coisinhas enable row level security;
+
+drop policy if exists "authenticated_all_events" on events;
+create policy "authenticated_all_events" on events
+  for all to authenticated using (true) with check (true);
+drop policy if exists "authenticated_all_hospital_shifts" on hospital_shifts;
+create policy "authenticated_all_hospital_shifts" on hospital_shifts
+  for all to authenticated using (true) with check (true);
+drop policy if exists "authenticated_all_limon_records" on limon_records;
+create policy "authenticated_all_limon_records" on limon_records
+  for all to authenticated using (true) with check (true);
+drop policy if exists "authenticated_all_spotify_playlists" on spotify_playlists;
+create policy "authenticated_all_spotify_playlists" on spotify_playlists
+  for all to authenticated using (true) with check (true);
+drop policy if exists "authenticated_all_business_tasks" on business_tasks;
+create policy "authenticated_all_business_tasks" on business_tasks
+  for all to authenticated using (true) with check (true);
+drop policy if exists "authenticated_all_coisinhas" on coisinhas;
+create policy "authenticated_all_coisinhas" on coisinhas
+  for all to authenticated using (true) with check (true);
 
 -- ACTUALIZACIÓN: añadir columnas para distinción hospital/centro de salud
 -- Ejecuta esto en Supabase > SQL Editor si la tabla ya existía:
@@ -88,10 +113,18 @@ alter table coisinhas disable row level security;
 --   alter table coisinhas add column if not exists reminder_time text;
 --   alter table business_tasks add column if not exists due_time text;
 
--- Permisos para la clave anónima (necesario aunque RLS esté desactivado)
-grant select, insert, update, delete on table events to anon;
-grant select, insert, update, delete on table hospital_shifts to anon;
-grant select, insert, update, delete on table limon_records to anon;
-grant select, insert, update, delete on table spotify_playlists to anon;
-grant select, insert, update, delete on table business_tasks to anon;
-grant select, insert, update, delete on table coisinhas to anon;
+-- Permisos: solo el rol authenticated (sesión anónima incluida) puede operar.
+-- Se retira el acceso directo del rol anon.
+revoke select, insert, update, delete on table events from anon;
+revoke select, insert, update, delete on table hospital_shifts from anon;
+revoke select, insert, update, delete on table limon_records from anon;
+revoke select, insert, update, delete on table spotify_playlists from anon;
+revoke select, insert, update, delete on table business_tasks from anon;
+revoke select, insert, update, delete on table coisinhas from anon;
+
+grant select, insert, update, delete on table events to authenticated;
+grant select, insert, update, delete on table hospital_shifts to authenticated;
+grant select, insert, update, delete on table limon_records to authenticated;
+grant select, insert, update, delete on table spotify_playlists to authenticated;
+grant select, insert, update, delete on table business_tasks to authenticated;
+grant select, insert, update, delete on table coisinhas to authenticated;

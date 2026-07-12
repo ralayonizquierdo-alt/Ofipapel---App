@@ -137,7 +137,11 @@ con lo existente en vez de inventar una paleta distinta.
 design-studio/
 ├── README.md              ← este documento
 ├── templates/              plantillas HTML fuente (versionadas)
-│   └── ofipapel-banner.html   demo de banner de marca genérico de Ofipapel
+│   ├── ofipapel-banner.html            demo de banner de marca genérico de Ofipapel
+│   └── ofipapel-vuelta-al-cole-*.html  campaña real (banner/post/story/whatsapp/landing)
+├── campaigns/
+│   └── vuelta-al-cole-2026/COPY.md     copy comercial, CTAs y confirmaciones pendientes de cada campaña
+├── assets/                 activos de marca fuente reutilizables (logos, etc.), versionados
 ├── scripts/
 │   ├── render-html.js        HTML → PNG/PDF standalone (Playwright/Chromium)
 │   └── firefly-generate.js   texto → imagen vía Adobe Firefly API (sin probar, pendiente de credenciales)

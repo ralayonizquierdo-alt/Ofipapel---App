@@ -54,3 +54,43 @@ de WhatsApp de Canarias INK (17) — todas requieren un dato o aprobación del
 propietario que ya se pidió en la sesión anterior. Considerar también borrar
 las ramas huérfanas ya consolidadas (`rax-project-manager-skill-1o2kl3`,
 `rax-sales-marketing-skill-4raaru`) una vez este PR esté fusionado.
+
+---
+
+### 2026-07-12 — Sprint "RAX v1 Production"
+
+**Resumen**: el propietario pidió un plan de despliegue para uso diario
+(4 bloques: producción inmediata, configuración pendiente, validación,
+métricas). Al preparar el plan se detectó que otra sesión en paralelo había
+auditado y arreglado dos cosas reales en una rama huérfana sin fusionar
+(proxy de IA de `Index.html`, migración de `alquileres` — pero a Supabase,
+mientras que `main` ya había migrado el mismo módulo a Firebase de forma
+independiente). El propietario aprobó: Firebase como backend definitivo de
+`alquileres`, rescatar el proxy de IA como prioridad máxima, y continuar el
+resto del Bloque 1 tomando las decisiones técnicas sin pausar salvo por
+datos de producción, riesgo de pérdida de información o decisión de
+negocio.
+
+**Ejecutado**: rebase de la rama de trabajo sobre `main` actualizado;
+proxy `chat-assistant.js` adaptado y fusionado; RLS real en Supabase
+(`joe-app`) y reglas reales en Firestore (`alquileres`), ambos con sesión
+anónima, código fusionado y build/lint verificados — pendiente solo de
+activación en las consolas externas (fuera del alcance de este repo);
+`index.html`/`Index.html` confirmado como no-problema por lectura de
+código, sin necesidad de preguntar al propietario.
+
+**No ejecutado, deliberadamente aplazado por falta de datos que solo tiene
+el propietario**: número real de WhatsApp de Canarias INK, decisión del
+canal de WhatsApp canónico (Meta vs Twilio), publicación de la campaña
+"Vuelta al Cole" (depende de lo anterior), y la migración manual de datos
+locales de `alquileres` en los dispositivos reales de Luis y Rober (acción
+física que solo pueden hacer ellos).
+
+**Decisiones tomadas**: ver `DECISIONES.md`, entrada 2026-07-12.
+
+**Siguiente paso recomendado para la próxima sesión**: en cuanto el
+propietario confirme el número de WhatsApp de Canarias INK y el canal
+canónico, cerrar esos dos ítems y publicar la campaña. Recordar activar
+"Allow anonymous sign-ins" (Supabase) y el proveedor "Anonymous" +
+desplegar `firestore.rules` (Firebase) — sin eso, el blindaje de acceso
+fusionado en este sprint no está realmente activo todavía.

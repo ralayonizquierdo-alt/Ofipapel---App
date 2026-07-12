@@ -12,11 +12,12 @@ por ID (`RT-xx` ↔ `RN-xx`) cuando un ítem técnico habilita uno de negocio.
 | RT-04 | Resolver la duplicidad `index.html` / `Index.html` en la raíz (`DT-02`) una vez confirmado con el propietario cuál es el vigente | 3 / 2 / 2 → 8 | — | Bloqueado — necesita respuesta del propietario |
 | RT-05 | Migrar la Skill `diseno-ofipapel` a `.claude/skills/` para que sea versionada y reutilizable en cualquier sesión (incluida la nube) | 3 / 1 / 3 → 11 | — | **Resuelto** (2026-07-10, ver `DECISIONES.md`) |
 | RT-06 | Consolidar las 3 ramas huérfanas y divergentes de Skills/infraestructura RAX (`rax-project-manager-skill`, `rax-sales-marketing-skill`, `autonomous-dev-environment`) en una única rama coherente | 4 / 1 / 4 → 15 | — | **Resuelto** (2026-07-10, ver `DECISIONES.md`) |
+| RT-07 | Mover el asistente de IA de `Index.html` a un proxy server-side (`DT-06`) | 5 / 1 / 4 → 17 | — | **Resuelto** (2026-07-12) |
+| RT-08 | Blindar el acceso a `joe-app` (Supabase, `DT-07`) y `alquileres` (Firestore, `DT-08`) con sesión + reglas/RLS reales | 5 / 1 / 4 → 17 | — | **Resuelto en código** (2026-07-12) — pendiente de activación en Supabase/Firebase Console por el propietario |
 
 ## Próximo paso recomendado (mayor score, sin bloqueo externo)
 
-Con RT-05 y RT-06 resueltos, el mayor score pendiente sin bloqueo es
-**RT-01** (decidir el agente de WhatsApp canónico) y **RT-03** (CI mínima) —
-ambos aplazados por instrucción explícita del propietario hasta cerrar la
-fase de consolidación actual. RT-02 (RLS/esquema de Supabase) también está
-aplazado a petición expresa, pese a su score alto.
+Con RT-05 a RT-08 resueltos, el mayor score pendiente sin bloqueo externo es
+**RT-03** (CI mínima). **RT-01** (canal de WhatsApp canónico) necesita una
+respuesta corta del propietario. RT-02 queda reducido de alcance: solo
+aplica ya a `joe-app` (ver `DEUDA_TECNICA.md` DT-05).

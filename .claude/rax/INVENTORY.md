@@ -1,52 +1,50 @@
 # Inventario de proyectos — RAX
 
 Mantenido por la Skill `project-manager`. Refleja el estado real del repo
-`ralayonizquierdo-alt/Ofipapel---App`. Última revisión completa: 2026-07-10
-(consolidación de las ramas de Skills en una única fuente de verdad).
+`ralayonizquierdo-alt/Ofipapel---App`. Última revisión completa: 2026-07-12
+(Sprint "RAX v1 Production").
 
 | Proyecto | Tipo | Ruta | Stack | Despliegue | Estado |
 |---|---|---|---|---|---|
-| Ofipapel · Control Financiero | Sitio/app de negocio (papelería) | `Index.html` | HTML monolítico + Chart.js + Supabase JS + SheetJS | GitHub Pages + Netlify (`_site/`) | Activo |
-| Canarias INK | Microsite de marca (venta de consumibles de impresora) | `canarias-ink.html` | HTML monolítico | GitHub Pages + Netlify | Activo |
+| Ofipapel · Control Financiero | Sitio/app de negocio (papelería) | `Index.html` | HTML monolítico + Chart.js + Supabase JS + SheetJS. Asistente de IA vía proxy server-side (`netlify/functions/chat-assistant.js`) — ya no expone la API key de Anthropic en el navegador | GitHub Pages + Netlify (`_site/`) | Activo |
+| Canarias INK | Microsite de marca (venta de consumibles de impresora) | `canarias-ink.html` | HTML monolítico | GitHub Pages + Netlify | Activo — botón de WhatsApp con número placeholder, ver `ROADMAP_TECNICO.md` |
 | FalControl | Microsite/herramienta personal ("Radio Alerta"), sin relación de negocio con Ofipapel | `falcontrol.html` | HTML monolítico | GitHub Pages + Netlify | Activo |
-| Alquileres | Aplicación interna de gestión (8 apartamentos reales) | `alquileres/` | React 19 + Vite + TS + Tailwind 4 + Recharts. Declara `@supabase/supabase-js` como dependencia pero **no se usa en ningún fichero de `src/`** — toda la persistencia es `localStorage` del navegador (verificado por grep, no por suposición). Riesgo real de pérdida de datos de negocio. | Netlify (build propio, `_site/alquileres/`) | Activo — ver deuda técnica |
-| Joe App | Aplicación familiar/personal (calendario, turnos, "coisinhas", música, negocio) | `joe-app/` | React 19 + Vite + TS + Supabase (uso real confirmado en las 6 páginas) | Netlify (`_site/joe/`) | Activo |
+| Alquileres | Aplicación interna de gestión (8 apartamentos reales) | `alquileres/` | React 19 + Vite + TS + Tailwind 4 + Recharts + **Firebase Firestore** (proyecto `ofipapelvv`) — backend real confirmado, con login de app (Luis/Rober) y reglas de acceso (`alquileres/firestore.rules`, pendiente de activar el proveedor Anonymous y desplegar) | Netlify (build propio, `_site/alquileres/`) | Activo |
+| Joe App | Aplicación familiar/personal (calendario, turnos, "coisinhas", música, negocio) | `joe-app/` | React 19 + Vite + TS + Supabase + PIN/biometría (WebAuthn) de acceso a la UI + sesión anónima Supabase para RLS | Netlify (`_site/joe/`) | Activo |
 | Agente WhatsApp (Meta Cloud API) | Automatización — auto-respuesta con reglas + IA (Claude) | `netlify/functions/whatsapp-webhook.js`, `whatsapp-agent-config.js` | Netlify Functions + Anthropic API | Netlify Functions | Activo (ver `WHATSAPP_SETUP.md`) |
-| Agente WhatsApp (Twilio, alternativa) | Automatización — variante del agente anterior vía Twilio | `netlify/functions/twilio-webhook.js` | Netlify Functions | Netlify Functions | Activo/paralelo — **sigue sin confirmar con el propietario cuál es la vía canónica** (no resuelto en esta consolidación, aplazado a petición del propietario) |
-| Landing genérica raíz | Redirección/landing mínima | `index.html` (minúsculas) | HTML estático | GitHub Pages + Netlify | Activo — convive con `Index.html` (mayúscula), ver deuda técnica |
-| Design Studio | Estudio de diseño autónomo compartido por las Skills visuales: brand kits reales (verificados contra el CSS de cada sitio), script de render HTML→PNG/PDF (Playwright), integración Firefly preparada | `design-studio/` | Plantillas HTML + Playwright (preinstalado en sesiones cloud) + Adobe for Creativity (MCP) | No se despliega — es infraestructura de autoría, no un producto | Activo desde 2026-07-10 |
+| Agente WhatsApp (Twilio, alternativa) | Automatización — variante del agente anterior vía Twilio | `netlify/functions/twilio-webhook.js` | Netlify Functions | Netlify Functions | Activo/paralelo — **sigue sin confirmar con el propietario cuál es la vía canónica** |
+| Landing genérica raíz | Redirect a `Index.html` | `index.html` (minúsculas) | HTML estático, `location.replace('Index.html')` | GitHub Pages + Netlify | Activo — confirmado intencional, no es deuda técnica |
+| Design Studio | Estudio de diseño autónomo compartido por las Skills visuales | `design-studio/` | Plantillas HTML + Playwright + Adobe for Creativity (MCP) | No se despliega | Activo — validado con la campaña real "Vuelta al Cole" |
 
 ## Skills de RAX (referencia — el detalle vive en `.claude/skills/README.md`)
 
 | Skill | Estado |
 |---|---|
-| `project-manager` | Activa, versionada en el repo |
-| `diseno-ofipapel` | Activa, versionada en el repo — validada con la primera campaña real ("Vuelta al Cole") el 2026-07-10 |
-| `sales-marketing` | Deliberadamente no incorporada — código existe en rama huérfana, aparcado hasta que `diseno-ofipapel` acumule más de una pieza real usada por el negocio |
+| `project-manager` | Activa |
+| `diseno-ofipapel` | Activa — validada con una campaña real |
+| `sales-marketing` | No incorporada — aparcada hasta que `diseno-ofipapel` acumule más piezas reales |
 
 ## Infraestructura compartida
 
-- **Despliegue dual**: GitHub Pages (`.github/workflows/pages.yml`, sirve el
-  repo tal cual en cada push a `main`) y Netlify (`netlify.toml` + `build.sh`,
-  compila `alquileres/` y `joe-app/`, ensambla todo en `_site/`).
-- **Base de datos**: Supabase, usado realmente solo por `joe-app/` (cada uno
-  con su propio `supabase-schema.sql`/config). `alquileres/` NO tiene backend
-  real pese a la dependencia declarada (ver fila de arriba) — migrarlo queda
-  aplazado a petición explícita del propietario (2026-07-10), no está hecho.
-- **IA**: Anthropic API (Claude) usada por el agente de WhatsApp.
-- **Diseño**: `design-studio/` (brand kits + render HTML→PNG/PDF + Adobe for
-  Creativity), consumido por la Skill `diseno-ofipapel`.
+- **Despliegue dual**: GitHub Pages (`.github/workflows/pages.yml`) y Netlify (`netlify.toml` + `build.sh`).
+- **Bases de datos**: Supabase (`joe-app`, con RLS + sesión anónima) y Firebase Firestore (`alquileres`, con reglas + sesión anónima). Dos backends distintos por decisión explícita del propietario — no se unifican.
+- **IA**: Anthropic API, usada por el agente de WhatsApp y por el proxy `chat-assistant.js` de `Index.html`.
+- **Diseño**: `design-studio/`, consumido por `diseno-ofipapel`.
 
-## Deliberadamente aplazado en esta revisión (2026-07-10)
+## Pendiente de activación en consolas externas (no ejecutable desde este repo)
 
-Por instrucción explícita del propietario, quedan fuera de esta consolidación
-y de cualquier trabajo hasta nueva indicación: RLS/seguridad de Supabase en
-`joe-app`, instrumentación/logging del bot de WhatsApp, y la migración de
-`alquileres` a Supabase. Ver `.claude/rax/DEUDA_TECNICA.md` y
-`ROADMAP_TECNICO.md` — siguen abiertos, no se han tocado.
+- Supabase (`joe-app`): activar "Allow anonymous sign-ins".
+- Firebase (`ofipapelvv`): activar el proveedor "Anonymous" y desplegar `alquileres/firestore.rules`.
+- Netlify: configurar `CHAT_ASSISTANT_TOKEN` (debe coincidir con `APP_CHAT_TOKEN` en `Index.html`).
+
+## Deliberadamente fuera de alcance de este sprint
+
+Login con identidad real (Firebase Auth / Supabase Auth) en `alquileres` e
+`Index.html` — hoy siguen siendo una contraseña client-side, no un control
+de acceso a los datos (`DT-09`). Decidir el canal de WhatsApp canónico y
+corregir el número de WhatsApp de Canarias INK — pendientes de datos que
+solo tiene el propietario.
 
 ## Proyectos sin clasificar / a vigilar
 
-Ninguno detectado en esta revisión. La Skill `project-manager` debe añadir
-aquí cualquier carpeta o fichero nuevo que aparezca sin clasificación previa,
-en vez de integrarlo silenciosamente arriba.
+Ninguno detectado en esta revisión.

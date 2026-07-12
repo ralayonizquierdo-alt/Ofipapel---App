@@ -10,12 +10,12 @@ sesión — no dupliques aquí lo que ya vive en otro sitio.
 
 | Ruta | Qué es | Stack |
 |---|---|---|
-| `Index.html` | Control financiero de Ofipapel (ventas, caja, informes) | HTML/CSS/JS vanilla en un único fichero, sin build. Supabase como backend (URL + clave `anon` hardcodeadas en el fichero, es el modelo esperado para clientes frontend). |
+| `Index.html` | Control financiero de Ofipapel (ventas, caja, informes) | HTML/CSS/JS vanilla en un único fichero, sin build. Supabase como backend (URL + clave `anon` hardcodeadas en el fichero, es el modelo esperado para clientes frontend). Asistente de IA vía proxy server-side (`netlify/functions/chat-assistant.js`), no llama a Anthropic directamente desde el navegador. |
 | `canarias-ink.html` | Catálogo/e-commerce de consumibles de impresora | HTML/CSS/JS vanilla en un único fichero, sin build. Catálogo de productos embebido como array JS. |
 | `falcontrol.html` | App personal de alertas de radio, sin relación de negocio con Ofipapel | HTML/CSS/JS vanilla en un único fichero, sin build. |
 | `privacidad.html` | Política de privacidad (requerida para el review de la app de WhatsApp Cloud API) | HTML estático |
 | `joe-app/` | App personal: agenda, turnos de hospital, música, seguimiento de "Limón", tareas de empresa, "Coisinhas" | React 19 + Vite + TypeScript + Tailwind 4 + Supabase (persistencia real en la nube) |
-| `alquileres/` | Gestión de alquileres vacacionales: reservas, precios, reparaciones, cobros, analítica | React 19 + Vite + TypeScript + Tailwind 4 + Recharts. **Persistencia solo en `localStorage` del navegador** — pese a tener `@supabase/supabase-js` como dependencia, no se usa; no hay sync entre dispositivos ni backend real (deuda técnica real, ver `.claude/rax/DEUDA_TECNICA.md`). |
+| `alquileres/` | Gestión de alquileres vacacionales: reservas, precios, reparaciones, cobros, analítica | React 19 + Vite + TypeScript + Tailwind 4 + Recharts + **Firebase Firestore** (proyecto `ofipapelvv`) como backend real, con login de app y `firestore.rules` (pendiente de activar el proveedor Anonymous y desplegar, ver `.claude/rax/DEUDA_TECNICA.md`). |
 | `netlify/functions/` | Bot de WhatsApp con IA para atención al cliente | Netlify Functions. `whatsapp-webhook.js` (Meta Cloud API) y `twilio-webhook.js` (alternativa Twilio) — cuál de las dos es la canónica sigue sin decidirse, ver deuda técnica. Usa `whatsapp-agent-config.js` (reglas FAQ + prompt) y la API de Anthropic cuando ninguna regla coincide. |
 | `design-studio/` | Estudio de diseño autónomo de RAX: banners, posts, landing pages, edición de imagen | Ver `design-studio/README.md` — plantillas HTML renderizadas con Playwright/Chromium + Adobe for Creativity (MCP) + Adobe Firefly API (opcional, requiere credenciales) |
 
@@ -58,11 +58,25 @@ Configurados en Netlify (Site settings → Environment variables), **no** en
 el repo:
 - `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`,
   `WHATSAPP_APP_SECRET` — Meta Cloud API (ver `WHATSAPP_SETUP.md`).
-- `ANTHROPIC_API_KEY` — respuestas de IA del bot de WhatsApp.
-- `joe-app` y `alquileres` usan `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`
-  vía `.env.local` (no versionado) en desarrollo, e inyectadas por Netlify en
-  producción. `alquileres` las tiene disponibles como dependencia pero no las
-  usa todavía (ver arriba).
+- `ANTHROPIC_API_KEY` — usada por el bot de WhatsApp y por
+  `netlify/functions/chat-assistant.js` (proxy del asistente de IA de
+  `Index.html`).
+- `CHAT_ASSISTANT_TOKEN` — token compartido para `chat-assistant.js`; debe
+  coincidir exactamente con la constante `APP_CHAT_TOKEN` embebida en
+  `Index.html`. No es un secreto real (Index.html es HTML estático visible
+  con "ver código fuente"), solo evita dejar el endpoint completamente
+  abierto — ver el comentario en `chat-assistant.js`.
+- `joe-app` usa `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` vía
+  `.env.local` (no versionado) en desarrollo, e inyectadas por Netlify en
+  producción. Requiere además "Allow anonymous sign-ins" activado en
+  Supabase (Authentication > Sign In / Providers) para que el RLS
+  funcione — sin eso, la app sigue funcionando pero sin el blindaje activo.
+- `alquileres` usa **Firebase Firestore** (proyecto `ofipapelvv`), con la
+  config ya embebida en `alquileres/src/lib/firebase.ts` (no requiere
+  variables de entorno). Requiere activar el proveedor "Anonymous" en
+  Firebase Console > Authentication > Sign-in method y desplegar
+  `alquileres/firestore.rules` para que las reglas de acceso estén
+  realmente activas.
 - `FIREFLY_CLIENT_ID` / `FIREFLY_CLIENT_SECRET` (opcionales, no configuradas
   todavía) — credenciales OAuth Server-to-Server de Adobe Developer Console
   para `design-studio/scripts/firefly-generate.js`. Ver `design-studio/README.md`.

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, getDoc, writeBatch } from 'firebase/firestore'
-import { db, stripUndef } from '../lib/firebase'
+import { db, stripUndef, ensureAnonSession } from '../lib/firebase'
 import { nanoid } from '../lib/nanoid'
 import { DEFAULT_PRICES_2026 } from '../lib/priceCalc'
 import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice } from '../types'
@@ -84,6 +84,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState({ apartments:false, prices:false, reservations:false, payments:false, repairs:false, expenses:false, offerPrices:false })
 
   const loading = !Object.values(ready).every(Boolean)
+
+  // ── Sesión anónima (ver firestore.rules) ─────────────────────────────────────
+  // No bloquea las suscripciones de abajo: mientras las reglas sigan en modo
+  // abierto o el proveedor Anonymous no esté activado, esto falla en
+  // silencio y la app sigue leyendo/escribiendo igual que hoy.
+  useEffect(() => {
+    ensureAnonSession().catch((err) => console.error('No se pudo abrir sesión anónima de Firebase:', err))
+  }, [])
 
   // ── Real-time subscriptions ──────────────────────────────────────────────────
   useEffect(() => {

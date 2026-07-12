@@ -136,3 +136,42 @@ fase.
 
 **Reversibilidad**: alta — el código de `sales-marketing` sigue existiendo
 en su rama original, no se ha borrado.
+
+---
+
+### 2026-07-12 — Sprint "RAX v1 Production": backend de `alquileres`, proxy de IA, RLS/reglas
+
+A partir de esta entrada, y por instrucción explícita del propietario, se
+documentan aquí solo las decisiones finales — no las alternativas
+evaluadas.
+
+**`alquileres` se queda en Firebase Firestore** (proyecto `ofipapelvv`, ya
+en `main`). Se descarta la migración paralela a Supabase que existía en una
+rama huérfana sin fusionar; no se sustituye una implementación ya
+integrada por otra.
+
+**Proxy server-side para el asistente de IA de `Index.html`**
+(`netlify/functions/chat-assistant.js`) rescatado de esa misma rama y
+adaptado sobre el `main` actual — la API key de Anthropic ya no se expone
+en el navegador.
+
+**RLS/reglas de acceso reales en ambos backends**: `joe-app` (Supabase) y
+`alquileres` (Firestore) ahora exigen una sesión (anónima) para leer o
+escribir, en vez de aceptar cualquier petición con solo la clave pública.
+El código está fusionado; falta que el propietario active el proveedor de
+sign-in anónimo en cada consola (Supabase / Firebase) y, en el caso de
+Firestore, despliegue `alquileres/firestore.rules` — ninguna de las dos
+cosas es ejecutable desde este repo sin esas credenciales.
+
+**`index.html` vs `Index.html`** confirmado como no-problema: es un
+redirect intencional, no deuda técnica.
+
+**Quién decide**: propietario (backend de `alquileres`, prioridad del
+proxy de IA); Claude ejecuta el resto de decisiones técnicas dentro de ese
+marco, sin pausar salvo por datos de producción, riesgo de pérdida de
+información o decisión de negocio — ninguno de los cambios de esta entrada
+cruzó esas líneas.
+
+**Reversibilidad**: alta — todos los cambios son aditivos (nuevas reglas,
+nuevo proxy, nuevas sesiones) y revertibles con `git revert`; ninguno
+modifica datos existentes.
