@@ -17,8 +17,8 @@ export default function Planning() {
   const [apartments, setApartments] = useState<Apartment[]>([])
 
   useEffect(() => {
-    setReservations(reservationStorage.getAll())
-    setApartments(apartmentStorage.getAll().filter(a => a.active))
+    reservationStorage.getAll().then(setReservations)
+    apartmentStorage.getAll().then(apts => setApartments(apts.filter(a => a.active)))
   }, [])
 
   const daysInMonth = getDaysInMonth(year, month)

@@ -33,14 +33,14 @@ export default function Reservations() {
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()))
 
   function reload() {
-    setReservations(reservationStorage.getAll())
-    setPayments(paymentStorage.getAll())
+    reservationStorage.getAll().then(setReservations)
+    paymentStorage.getAll().then(setPayments)
   }
 
   useEffect(() => {
     reload()
-    setApartments(apartmentStorage.getAll())
-    setPrices(priceStorage.getAll())
+    apartmentStorage.getAll().then(setApartments)
+    priceStorage.getAll().then(setPrices)
   }, [])
 
   const filtered = reservations
@@ -61,9 +61,9 @@ export default function Reservations() {
     return methods.map(m => labels[m!] || m!).join('+')
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (!confirm('¿Eliminar esta reserva?')) return
-    reservationStorage.delete(id)
+    await reservationStorage.delete(id)
     reload()
   }
 
@@ -236,7 +236,7 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
     setCheckOut(date.toISOString().split('T')[0])
   }, [stayType, checkIn, autoCalc])
 
-  function handleSave() {
+  async function handleSave() {
     if (!aptId || !checkIn || !checkOut) return alert('Completa los campos obligatorios')
     const data = {
       apartmentId: aptId, guestName, checkIn, checkOut,
@@ -245,12 +245,12 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
       status, notes,
     }
     if (editing) {
-      reservationStorage.update(editing.id, data)
+      await reservationStorage.update(editing.id, data)
       // Auto-create/update payment for total
     } else {
-      const res = reservationStorage.add(data)
+      const res = await reservationStorage.add(data)
       // Auto-create a pending payment for the total
-      paymentStorage.add({ reservationId: res.id, amount: total, received: false })
+      await paymentStorage.add({ reservationId: res.id, amount: total, received: false })
     }
     onSave()
   }
@@ -371,8 +371,8 @@ function PaymentModal({ reservation, payments, aptName, onClose, onUpdate }:
   const totalPaid = localPayments.filter(p => p.received).reduce((s, p) => s + p.amount, 0)
   const pending = reservation.total - totalPaid
 
-  function addPayment() {
-    const p = paymentStorage.add({
+  async function addPayment() {
+    const p = await paymentStorage.add({
       reservationId: reservation.id,
       amount: Math.max(0, pending),
       received: false,
@@ -381,29 +381,29 @@ function PaymentModal({ reservation, payments, aptName, onClose, onUpdate }:
     onUpdate()
   }
 
-  function toggleReceived(id: string) {
+  async function toggleReceived(id: string) {
     const p = localPayments.find(p => p.id === id)!
-    paymentStorage.update(id, { received: !p.received })
+    await paymentStorage.update(id, { received: !p.received })
     setLocalPayments(prev => prev.map(p => p.id === id ? { ...p, received: !p.received } : p))
     onUpdate()
   }
 
-  function updatePayment(id: string, field: 'amount' | 'paymentDate' | 'entryNumber' | 'paymentMethod', value: string) {
+  async function updatePayment(id: string, field: 'amount' | 'paymentDate' | 'entryNumber' | 'paymentMethod', value: string) {
     if (field === 'amount') {
       const numValue = Number(value)
-      paymentStorage.update(id, { amount: numValue })
+      await paymentStorage.update(id, { amount: numValue })
       setLocalPayments(prev => prev.map(p => p.id === id ? { ...p, amount: numValue } : p))
     } else if (field === 'paymentMethod') {
-      paymentStorage.update(id, { paymentMethod: value as PaymentMethod })
+      await paymentStorage.update(id, { paymentMethod: value as PaymentMethod })
       setLocalPayments(prev => prev.map(p => p.id === id ? { ...p, paymentMethod: value as PaymentMethod } : p))
     } else {
-      paymentStorage.update(id, { [field]: value })
+      await paymentStorage.update(id, { [field]: value })
       setLocalPayments(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
     }
   }
 
-  function deletePayment(id: string) {
-    paymentStorage.delete(id)
+  async function deletePayment(id: string) {
+    await paymentStorage.delete(id)
     setLocalPayments(prev => prev.filter(p => p.id !== id))
     onUpdate()
   }

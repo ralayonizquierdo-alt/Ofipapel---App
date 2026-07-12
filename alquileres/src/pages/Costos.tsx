@@ -37,8 +37,11 @@ export default function Costos() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
 
-  function reload() { setExpenses(expenseStorage.getAll()) }
-  useEffect(() => { reload(); setApartments(sortApartments(apartmentStorage.getAll())) }, [])
+  function reload() { expenseStorage.getAll().then(setExpenses) }
+  useEffect(() => {
+    reload()
+    apartmentStorage.getAll().then(apts => setApartments(sortApartments(apts)))
+  }, [])
 
   const years = [...new Set(expenses.map(e => e.expenseDate?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
 
@@ -51,9 +54,9 @@ export default function Costos() {
   const totalFiltered = filtered.reduce((s, e) => s + (e.amount || 0), 0)
 
   function getAptName(id: string) { return apartments.find(a => a.id === id)?.name || id }
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (!confirm('¿Eliminar este gasto?')) return
-    expenseStorage.delete(id)
+    await expenseStorage.delete(id)
     reload()
   }
 
@@ -189,7 +192,7 @@ function ExpenseForm({ apartments, editing, onClose, onSave }:
   const [amount, setAmount] = useState(editing?.amount || 0)
   const [entryNumber, setEntryNumber] = useState(editing?.entryNumber || '')
 
-  function handleSave() {
+  async function handleSave() {
     if (!description.trim()) return alert('Introduce una descripción')
     const data = {
       apartmentId: aptId,
@@ -200,8 +203,8 @@ function ExpenseForm({ apartments, editing, onClose, onSave }:
       amount,
       entryNumber: entryNumber || undefined,
     }
-    if (editing) expenseStorage.update(editing.id, data)
-    else expenseStorage.add(data)
+    if (editing) await expenseStorage.update(editing.id, data)
+    else await expenseStorage.add(data)
     onSave()
   }
 

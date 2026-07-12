@@ -25,17 +25,17 @@ export default function Prices() {
   const [editingOffer, setEditingOffer] = useState<OfferPrice | null>(null)
 
   function reload() {
-    setPrices(priceStorage.getAll())
-    setOfferPrices(offerPriceStorage.getAll())
+    priceStorage.getAll().then(setPrices)
+    offerPriceStorage.getAll().then(setOfferPrices)
   }
   useEffect(() => { reload() }, [])
 
   const availableYears = [...new Set(prices.map(p => p.year))].sort()
   const pricesBySeason = (season: Season) => prices.filter(p => p.season === season && p.year === selectedYear)
 
-  function handleDeleteOffer(id: string) {
+  async function handleDeleteOffer(id: string) {
     if (!confirm('¿Eliminar tarifa de oferta?')) return
-    offerPriceStorage.delete(id)
+    await offerPriceStorage.delete(id)
     reload()
   }
 
@@ -86,8 +86,8 @@ export default function Prices() {
                     <div key={aptType} className="bg-white rounded-xl border border-dashed border-slate-300 p-4 text-center">
                       <p className="text-slate-400 text-sm">{APT_TYPE_LABELS[aptType]} — Sin precios para {season} {selectedYear}</p>
                       <button
-                        onClick={() => {
-                          const newEntry = priceStorage.add({
+                        onClick={async () => {
+                          const newEntry = await priceStorage.add({
                             year: selectedYear, season, apartmentType: aptType,
                             price1week: 0, price2weeks: 0, price3weeks: 0, price1month: 0, cleaningFee: 40
                           })
@@ -230,8 +230,8 @@ function PriceEditModal({ entry, onClose }: { entry: PriceEntry; onClose: () => 
   const [p1m, setP1m] = useState(entry.price1month)
   const [cleaning, setCleaning] = useState(entry.cleaningFee)
 
-  function save() {
-    priceStorage.update(entry.id, {
+  async function save() {
+    await priceStorage.update(entry.id, {
       price1week: p1w, price2weeks: p2w, price3weeks: p3w,
       price1month: p1m, cleaningFee: cleaning
     })
@@ -295,16 +295,16 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
   const [p1m, setP1m] = useState(editing?.price1month || 0)
   const [cleaning, setCleaning] = useState(editing?.cleaningFee || 40)
 
-  function handleSave() {
+  async function handleSave() {
     if (!label.trim()) return alert('Introduce una etiqueta')
     const data = {
       label, year, month, apartmentType: aptType,
       price1week: p1w, price2weeks: p2w, price3weeks: p3w, price1month: p1m, cleaningFee: cleaning
     }
     if (editing) {
-      offerPriceStorage.update(editing.id, data)
+      await offerPriceStorage.update(editing.id, data)
     } else {
-      offerPriceStorage.add(data)
+      await offerPriceStorage.add(data)
     }
     onClose()
   }

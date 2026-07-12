@@ -5,9 +5,11 @@ import App from './App.tsx'
 import { initStorage } from './lib/storage'
 
 initStorage()
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+  .catch((err) => console.error('Error inicializando datos:', err))
+  .finally(() => {
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    )
+  })

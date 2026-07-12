@@ -15,11 +15,11 @@ export default function Analytics() {
   const [year, setYear] = useState(new Date().getFullYear())
 
   useEffect(() => {
-    setReservations(reservationStorage.getAll())
-    setPayments(paymentStorage.getAll())
-    setRepairs(repairStorage.getAll())
-    setExpenses(expenseStorage.getAll())
-    setApartments(apartmentStorage.getAll().filter(a => a.active))
+    reservationStorage.getAll().then(setReservations)
+    paymentStorage.getAll().then(setPayments)
+    repairStorage.getAll().then(setRepairs)
+    expenseStorage.getAll().then(setExpenses)
+    apartmentStorage.getAll().then(apts => setApartments(apts.filter(a => a.active)))
   }, [])
 
   useEffect(() => {

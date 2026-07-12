@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock } from 'lucide-react'
 import { reservationStorage, paymentStorage, apartmentStorage, repairStorage } from '../lib/storage'
-import type { Reservation, Payment, Apartment } from '../types'
+import type { Reservation, Payment, Apartment, Repair } from '../types'
 import { formatDate, formatDateShort, today } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
 
@@ -11,11 +11,13 @@ export default function Dashboard({ onAlertsChange }: Props) {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [apartments, setApartments] = useState<Apartment[]>([])
+  const [repairs, setRepairs] = useState<Repair[]>([])
 
   useEffect(() => {
-    setReservations(reservationStorage.getAll())
-    setPayments(paymentStorage.getAll())
-    setApartments(apartmentStorage.getAll())
+    reservationStorage.getAll().then(setReservations)
+    paymentStorage.getAll().then(setPayments)
+    apartmentStorage.getAll().then(setApartments)
+    repairStorage.getAll().then(setRepairs)
   }, [])
 
   const todayStr = today()
@@ -48,7 +50,7 @@ export default function Dashboard({ onAlertsChange }: Props) {
     .filter(p => p.received && p.paymentDate && p.paymentDate.startsWith(String(currentYear)))
     .reduce((s, p) => s + p.amount, 0)
 
-  const totalRepairs = repairStorage.getAll()
+  const totalRepairs = repairs
     .filter(r => r.repairDate?.startsWith(String(currentYear)))
     .reduce((s, r) => s + (r.amount || 0), 0)
 

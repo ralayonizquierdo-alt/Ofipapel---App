@@ -15,17 +15,17 @@ export default function ApartmentsConfig() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Apartment | null>(null)
 
-  function reload() { setApartments(apartmentStorage.getAll()) }
+  function reload() { apartmentStorage.getAll().then(setApartments) }
   useEffect(() => { reload() }, [])
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (!confirm('¿Eliminar este apartamento?')) return
-    apartmentStorage.delete(id)
+    await apartmentStorage.delete(id)
     reload()
   }
 
-  function toggleActive(a: Apartment) {
-    apartmentStorage.update(a.id, { active: !a.active })
+  async function toggleActive(a: Apartment) {
+    await apartmentStorage.update(a.id, { active: !a.active })
     reload()
   }
 
@@ -85,12 +85,12 @@ function AptForm({ editing, onClose, onSave }:
   const [type, setType] = useState<ApartmentType>(editing?.type || '1BR')
   const [notes, setNotes] = useState(editing?.notes || '')
 
-  function handleSave() {
+  async function handleSave() {
     if (!name.trim() || !id.trim()) return alert('Completa nombre e ID')
     if (editing) {
-      apartmentStorage.update(editing.id, { name, bedrooms, type, notes })
+      await apartmentStorage.update(editing.id, { name, bedrooms, type, notes })
     } else {
-      apartmentStorage.add({ id, name, bedrooms, type, active: true, notes })
+      await apartmentStorage.add({ id, name, bedrooms, type, active: true, notes })
     }
     onSave()
   }

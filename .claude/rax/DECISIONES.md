@@ -56,3 +56,50 @@ dentro de "bajo riesgo" según el propio criterio de la Skill.
 comunicada al propietario en el resumen de la sesión.
 
 **Reversibilidad**: total — un `git revert` del commit correspondiente.
+
+---
+
+### 2026-07-12 — Auditoría de producción: proxy del Asistente IA y migración de `alquileres/` a Supabase
+
+**Contexto**: en "modo CTO", auditoría real de código (no solo arquitectura)
+sobre todo el ecosistema. Hallazgos relevantes: (1) `Index.html` llamaba a
+Claude directamente desde el navegador con la API key de cada usuario en
+claro; (2) `alquileres/` no tenía backend real, todo vivía en `localStorage`
+(riesgo de pérdida total de datos de negocio); (3) el login de `Index.html`
+es 100% client-side con contraseña compartida por defecto y sin RLS
+verificado en Supabase; (4) dos agentes de WhatsApp activos en paralelo sin
+decidir cuál es el canónico.
+
+**Decisión**: implementar (2) y (1), que el propietario aprobó explícitamente:
+- `netlify/functions/chat-assistant.js`: proxy server-side para el chat de
+  `Index.html`. La API key de Anthropic (`ANTHROPIC_API_KEY`, ya existente)
+  pasa a vivir solo en el servidor; se añade un token de aplicación
+  (`CHAT_ASSISTANT_TOKEN`) y rate-limit básico en memoria como mitigación
+  parcial, documentado como no-definitivo mientras no haya auth real.
+- `alquileres/`: nuevo `supabase-schema.sql` (7 tablas + `seed_flags`),
+  `src/lib/supabase.ts` (mismo patrón que `joe-app`), y `storage.ts`
+  reescrito de síncrono/localStorage a asíncrono/Supabase, con migración
+  automática de los datos existentes en el navegador la primera vez que
+  corre. Las 9 páginas + `App.tsx`/`main.tsx` se actualizaron para el nuevo
+  API asíncrono. RLS se deja **activado pero con política abierta** (no
+  hay auth de app todavía) — mismo tipo de riesgo que (3), documentado en
+  `DEUDA_TECNICA.md` DT-09.
+
+No se implementaron (3) ni (4): el propietario decidió posponerlas
+explícitamente. Quedan abiertas en `DEUDA_TECNICA.md` (DT-06, DT-07) y
+`ROADMAP_TECNICO.md` (RT-01).
+
+**Alternativas descartadas**: para el proxy de IA, mantener las API keys
+personales en el navegador (descartado por ser la causa raíz del hallazgo);
+para `alquileres/`, un patrón "local-first con sync en segundo plano"
+(descartado por añadir arquitectura no solicitada — el propietario pidió
+explícitamente minimizar ampliación de arquitectura en esta fase).
+
+**Quién decide**: propuesto por Claude tras auditoría, aprobado
+explícitamente por el propietario para (1) y (2); (3) y (4) pospuestas por
+decisión explícita del propietario.
+
+**Reversibilidad**: alta — ambos cambios son aditivos (nuevas funciones/
+esquema), revertibles con `git revert`. La migración de datos de
+`alquileres/` es best-effort una sola vez por navegador; no se ha probado
+contra un proyecto Supabase real (ver limitación en `SESSION_LOG.md`).

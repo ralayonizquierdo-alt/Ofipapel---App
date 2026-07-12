@@ -19,9 +19,9 @@ export default function Collections() {
   const [year, setYear] = useState(new Date().getFullYear())
 
   useEffect(() => {
-    setReservations(reservationStorage.getAll())
-    setPayments(paymentStorage.getAll())
-    setApartments(apartmentStorage.getAll().filter(a => a.active))
+    reservationStorage.getAll().then(setReservations)
+    paymentStorage.getAll().then(setPayments)
+    apartmentStorage.getAll().then(apts => setApartments(apts.filter(a => a.active)))
   }, [])
 
   const years = [...new Set(payments.map(p => p.paymentDate?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))

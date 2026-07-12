@@ -1,14 +1,14 @@
 # Inventario de proyectos — RAX
 
 Mantenido por la Skill `project-manager`. Refleja el estado real del repo
-`ralayonizquierdo-alt/Ofipapel---App`. Última revisión completa: 2026-07-10.
+`ralayonizquierdo-alt/Ofipapel---App`. Última revisión completa: 2026-07-12.
 
 | Proyecto | Tipo | Ruta | Stack | Despliegue | Estado |
 |---|---|---|---|---|---|
-| Ofipapel · Control Financiero | Sitio/app de negocio (papelería) | `Index.html` | HTML monolítico + Chart.js + Supabase JS + SheetJS | GitHub Pages + Netlify (`_site/`) | Activo |
+| Ofipapel · Control Financiero | Sitio/app de negocio (papelería) | `Index.html` | HTML monolítico + Chart.js + Supabase JS + SheetJS | GitHub Pages + Netlify (`_site/`) | Activo — Asistente IA ahora vía proxy server-side (`netlify/functions/chat-assistant.js`); login sigue siendo client-side (ver DT-06/DT-07) |
 | Canarias INK | Microsite de marca (venta de consumibles de impresora) | `canarias-ink.html` | HTML monolítico | GitHub Pages + Netlify | Activo |
 | FalControl | Microsite/herramienta ("Radio Alerta") | `falcontrol.html` | HTML monolítico | GitHub Pages + Netlify | Activo |
-| Alquileres | Aplicación interna de gestión | `alquileres/` | React 19 + Vite + TS + Tailwind 4 + Supabase + Recharts | Netlify (build propio, `_site/alquileres/`) | Activo |
+| Alquileres | Aplicación interna de gestión | `alquileres/` | React 19 + Vite + TS + Tailwind 4 + Supabase + Recharts | Netlify (build propio, `_site/alquileres/`) | Activo — **ahora con backend Supabase real** (antes solo `localStorage`, ver DT-09); pendiente que el propietario cree el proyecto Supabase y configure variables de entorno |
 | Joe App | Aplicación familiar/personal (calendario, turnos, "coisinhas", música, negocio) | `joe-app/` | React 19 + Vite + TS + Supabase | Netlify (`_site/joe/`) | Activo |
 | Agente WhatsApp (Meta Cloud API) | Automatización — auto-respuesta con reglas + IA (Claude) | `netlify/functions/whatsapp-webhook.js`, `whatsapp-agent-config.js` | Netlify Functions + Anthropic API | Netlify Functions | Activo (ver `WHATSAPP_SETUP.md`) |
 | Agente WhatsApp (Twilio, alternativa) | Automatización — variante del agente anterior vía Twilio | `netlify/functions/twilio-webhook.js` | Netlify Functions | Netlify Functions | Activo/paralelo — **confirmar con el propietario cuál es la vía canónica** |

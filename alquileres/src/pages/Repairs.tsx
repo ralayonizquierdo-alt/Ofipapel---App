@@ -27,8 +27,11 @@ export default function Repairs() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Repair | null>(null)
 
-  function reload() { setRepairs(repairStorage.getAll()) }
-  useEffect(() => { reload(); setApartments(sortApartments(apartmentStorage.getAll())) }, [])
+  function reload() { repairStorage.getAll().then(setRepairs) }
+  useEffect(() => {
+    reload()
+    apartmentStorage.getAll().then(apts => setApartments(sortApartments(apts)))
+  }, [])
 
   const years = [...new Set(repairs.map(r => r.repairDate?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
 
@@ -40,9 +43,9 @@ export default function Repairs() {
   const totalFiltered = filtered.reduce((s, r) => s + (r.amount || 0), 0)
 
   function getAptName(id: string) { return apartments.find(a => a.id === id)?.name || id }
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (!confirm('¿Eliminar?')) return
-    repairStorage.delete(id)
+    await repairStorage.delete(id)
     reload()
   }
 
@@ -166,11 +169,11 @@ function RepairForm({ apartments, editing, onClose, onSave }:
   const [amount, setAmount] = useState(editing?.amount || 0)
   const [entryNumber, setEntryNumber] = useState(editing?.entryNumber || '')
 
-  function handleSave() {
+  async function handleSave() {
     if (!item.trim()) return alert('Introduce una descripción')
     const data = { apartmentId: aptId, repairDate: repairDate || undefined, item, supplier, document, amount, entryNumber }
-    if (editing) repairStorage.update(editing.id, data)
-    else repairStorage.add(data)
+    if (editing) await repairStorage.update(editing.id, data)
+    else await repairStorage.add(data)
     onSave()
   }
 
