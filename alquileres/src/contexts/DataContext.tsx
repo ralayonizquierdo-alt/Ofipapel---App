@@ -65,6 +65,7 @@ interface DataContextValue {
 
 const DataContext = createContext<DataContextValue | null>(null)
 
+// eslint-disable-next-line react-refresh/only-export-components -- patrón estándar de Context: hook + Provider en el mismo fichero
 export function useData(): DataContextValue {
   const ctx = useContext(DataContext)
   if (!ctx) throw new Error('useData must be used inside DataProvider')
