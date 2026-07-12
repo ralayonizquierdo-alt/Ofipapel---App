@@ -27,30 +27,9 @@ jobs:
             alquileres/package-lock.json
             joe-app/package-lock.json
 
-      - name: Build alquileres
-        run: |
-          cd alquileres
-          npm ci
-          npm run build
-
-      - name: Build joe-app
-        run: |
-          cd joe-app
-          npm ci
-          npm run build
-
-      - name: Assemble _site
-        run: |
-          mkdir -p _site/alquileres _site/joe
-          # Static files at repo root
-          cp Index.html index.html _site/
-          cp canarias-ink.html falcontrol.html importacion-pedidos-proveedores.html privacidad.html vacaciones.html _site/
-          cp fondo-ofipapel.jpg hero-productos.jpg logo-canarias-ink.png logo-ofipapel.png _site/
-          cp sw.js sw-ink.js _site/
-          [ -f _redirects ] && cp _redirects _site/ || true
-          # Built apps
-          cp -r alquileres/dist/. _site/alquileres/
-          cp -r joe-app/dist/. _site/joe/
+      # Mismo script que usa Netlify — una sola lista de ficheros que
+      # mantener, en vez de duplicarla también aquí.
+      - run: bash build.sh
 
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
