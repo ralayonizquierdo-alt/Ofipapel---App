@@ -1,12 +1,15 @@
 import { createRng, pick, intBetween, daysAgo, daysAhead } from './rng'
 import { placeholderImageFor, vehiclePlaceholderImageFor } from './placeholderImage'
 import { TENERIFE_ZONE_COORDS, TENERIFE_ZONES } from './geo'
+import { priceForMargin } from './pricing'
+import { TARIFA_IDS } from '../types'
 import type {
   Location,
   SalesRep,
   Vehicle,
   VehicleType,
   Category,
+  Subfamilia,
   Supplier,
   Product,
   StockEntry,
@@ -237,72 +240,92 @@ function buildCitasVehiculos(rng: () => number, vehicles: Vehicle[]): CitaVehicu
   return citas.sort((a, b) => (a.fecha < b.fecha ? -1 : 1))
 }
 
-const CATEGORY_DEFS: { nombre: string; templates: string[]; sizes?: string[]; margenMinorista: number; margenMayorista: number }[] = [
+interface CategoryDef {
+  nombre: string
+  templates: string[]
+  sizes?: string[]
+  margenMinorista: number
+  /** Margen de beneficio (%) sobre coste, ya definido de forma independiente para cada tarifa mayorista. */
+  margenes: Record<TarifaId, number>
+  subfamilias: string[]
+}
+
+const CATEGORY_DEFS: CategoryDef[] = [
   {
     nombre: 'Papelería',
     templates: ['Folio A4 80g', 'Folio A4 90g', 'Folio A3 80g', 'Bloc de notas', 'Bloc cuadriculado', 'Papel continuo', 'Cartulina', 'Papel kraft', 'Sobre americano', 'Sobre bolsa A4'],
     sizes: ['paquete 500', 'paquete 250', 'caja 5 paquetes', 'unidad'],
     margenMinorista: 85,
-    margenMayorista: 35,
+    margenes: { 'Tarifa 1': 45, 'Tarifa 2': 35, 'Tarifa 3': 28, 'Tarifa 6 (Mayor)': 20 },
+    subfamilias: ['Papel y folios', 'Blocs y libretas', 'Cartulina y papel kraft', 'Sobres'],
   },
   {
     nombre: 'Escritura',
     templates: ['Bolígrafo azul', 'Bolígrafo negro', 'Bolígrafo rojo', 'Rotulador permanente', 'Rotulador fluorescente', 'Lápiz HB', 'Portaminas', 'Corrector líquido', 'Corrector cinta', 'Marcador pizarra blanca'],
     sizes: ['unidad', 'caja 12 uds', 'caja 50 uds', 'blister 3 uds'],
     margenMinorista: 100,
-    margenMayorista: 40,
+    margenes: { 'Tarifa 1': 50, 'Tarifa 2': 40, 'Tarifa 3': 32, 'Tarifa 6 (Mayor)': 24 },
+    subfamilias: ['Bolígrafos', 'Rotuladores y marcadores', 'Lápices y portaminas', 'Correctores'],
   },
   {
     nombre: 'Archivo y Clasificación',
     templates: ['Archivador de palanca A4', 'Carpeta con gomas', 'Carpeta colgante', 'Subcarpeta color', 'Separador de plástico', 'Caja archivo definitivo', 'Fundas multitaladro', 'Clasificador de fuelle'],
     sizes: ['unidad', 'paquete 10 uds', 'paquete 25 uds', 'paquete 100 uds'],
     margenMinorista: 80,
-    margenMayorista: 30,
+    margenes: { 'Tarifa 1': 40, 'Tarifa 2': 30, 'Tarifa 3': 24, 'Tarifa 6 (Mayor)': 18 },
+    subfamilias: ['Archivadores', 'Carpetas', 'Cajas y clasificadores', 'Accesorios de archivo'],
   },
   {
     nombre: 'Informática y Consumibles',
     templates: ['Tóner compatible HP', 'Tóner compatible Brother', 'Cartucho tinta compatible', 'Cable USB-C', 'Ratón inalámbrico', 'Teclado USB', 'Disco USB 32GB', 'Regleta 6 tomas'],
     margenMinorista: 60,
-    margenMayorista: 25,
+    margenes: { 'Tarifa 1': 32, 'Tarifa 2': 25, 'Tarifa 3': 20, 'Tarifa 6 (Mayor)': 15 },
+    subfamilias: ['Tóner y tinta', 'Periféricos', 'Almacenamiento y accesorios'],
   },
   {
     nombre: 'Mobiliario de oficina',
     templates: ['Silla de oficina', 'Mesa de escritorio', 'Cajonera con ruedas', 'Bandeja portadocumentos', 'Papelera metálica', 'Perchero de pie'],
     margenMinorista: 50,
-    margenMayorista: 20,
+    margenes: { 'Tarifa 1': 26, 'Tarifa 2': 20, 'Tarifa 3': 16, 'Tarifa 6 (Mayor)': 12 },
+    subfamilias: ['Sillas y mesas', 'Almacenaje', 'Complementos de oficina'],
   },
   {
     nombre: 'Embalaje y Manipulado',
     templates: ['Caja cartón canal simple', 'Caja cartón canal doble', 'Rollo film estirable', 'Precinto adhesivo', 'Burbuja de embalaje', 'Etiqueta envío adhesiva'],
     sizes: ['unidad', 'paquete 10 uds', 'rollo', 'caja 36 uds'],
     margenMinorista: 70,
-    margenMayorista: 30,
+    margenes: { 'Tarifa 1': 38, 'Tarifa 2': 30, 'Tarifa 3': 24, 'Tarifa 6 (Mayor)': 18 },
+    subfamilias: ['Cajas de cartón', 'Film y precintos', 'Protección y etiquetado'],
   },
   {
     nombre: 'Impresión y Tóner',
     templates: ['Papel fotográfico', 'Papel para plotter', 'Cinta impresora matricial', 'Tóner original', 'Tambor compatible'],
     margenMinorista: 65,
-    margenMayorista: 25,
+    margenes: { 'Tarifa 1': 34, 'Tarifa 2': 25, 'Tarifa 3': 20, 'Tarifa 6 (Mayor)': 15 },
+    subfamilias: ['Papel especial', 'Consumibles de impresión'],
   },
   {
     nombre: 'Material Escolar',
     templates: ['Cuaderno cuadriculado', 'Cuaderno rayado', 'Estuche escolar', 'Mochila escolar', 'Goma de borrar', 'Sacapuntas', 'Pegamento de barra', 'Tijera escolar'],
     sizes: ['unidad', 'pack 5 uds'],
     margenMinorista: 90,
-    margenMayorista: 35,
+    margenes: { 'Tarifa 1': 46, 'Tarifa 2': 35, 'Tarifa 3': 28, 'Tarifa 6 (Mayor)': 20 },
+    subfamilias: ['Cuadernos', 'Estuches y mochilas', 'Material de dibujo'],
   },
   {
     nombre: 'Limpieza e Higiene',
     templates: ['Gel hidroalcohólico', 'Papel higiénico industrial', 'Bobina secamanos', 'Bayeta multiusos', 'Bolsa de basura', 'Guantes desechables'],
     sizes: ['unidad', 'paquete 6 uds', 'caja 12 uds'],
     margenMinorista: 60,
-    margenMayorista: 20,
+    margenes: { 'Tarifa 1': 30, 'Tarifa 2': 20, 'Tarifa 3': 16, 'Tarifa 6 (Mayor)': 12 },
+    subfamilias: ['Higiene', 'Limpieza general', 'Desechables'],
   },
   {
     nombre: 'Regalo y Detalle',
     templates: ['Agenda anual', 'Set de escritorio', 'Libreta tapa dura', 'Taza personalizable', 'Powerbank promocional'],
     margenMinorista: 110,
-    margenMayorista: 45,
+    margenes: { 'Tarifa 1': 55, 'Tarifa 2': 45, 'Tarifa 3': 36, 'Tarifa 6 (Mayor)': 27 },
+    subfamilias: ['Papelería de regalo', 'Artículos promocionales'],
   },
 ]
 
@@ -343,10 +366,23 @@ const PARTICULAR_NAMES = [
 function buildCategories(): Category[] {
   return CATEGORY_DEFS.map((c, i) => ({
     id: `cat-${i + 1}`,
+    numero: i + 1,
     nombre: c.nombre,
     margenMinorista: c.margenMinorista,
-    margenMayorista: c.margenMayorista,
+    margenes: c.margenes,
   }))
+}
+
+function buildSubfamilias(categories: Category[]): Subfamilia[] {
+  const subfamilias: Subfamilia[] = []
+  let id = 1
+  CATEGORY_DEFS.forEach((catDef, catIdx) => {
+    const familiaId = categories[catIdx].id
+    catDef.subfamilias.forEach((nombre, subIdx) => {
+      subfamilias.push({ id: `sub-${id++}`, familiaId, numero: subIdx + 1, nombre })
+    })
+  })
+  return subfamilias
 }
 
 function buildSuppliers(rng: () => number): Supplier[] {
@@ -377,40 +413,36 @@ function buildEan13(rng: () => number): string {
   return digits + checkDigit
 }
 
-export function tarifasFor(tarifaBase: number): Record<TarifaId, number> {
-  return {
-    'Tarifa 1': Number((tarifaBase * 1.06).toFixed(2)),
-    'Tarifa 2': tarifaBase,
-    'Tarifa 3': Number((tarifaBase * 0.95).toFixed(2)),
-    'Tarifa 6 (Mayor)': Number((tarifaBase * 0.9).toFixed(2)),
-  }
-}
-
-function buildProducts(rng: () => number, categories: Category[], suppliers: Supplier[]): Product[] {
+function buildProducts(rng: () => number, categories: Category[], subfamilias: Subfamilia[], suppliers: Supplier[]): Product[] {
   const products: Product[] = []
   let counter = 10000
   CATEGORY_DEFS.forEach((catDef, catIdx) => {
-    const categoriaId = categories[catIdx].id
+    const familia = categories[catIdx]
+    const subfamiliasDeLaFamilia = subfamilias.filter((s) => s.familiaId === familia.id)
     const sizes = catDef.sizes ?? ['unidad']
-    catDef.templates.forEach((template) => {
+    catDef.templates.forEach((template, templateIdx) => {
+      const subfamiliaId = subfamiliasDeLaFamilia[templateIdx % subfamiliasDeLaFamilia.length].id
       sizes.forEach((size) => {
         counter += intBetween(rng, 3, 9)
         const coste = Number((intBetween(rng, 40, 4000) / 100).toFixed(2))
         // Margen de la familia con un pequeño desajuste por producto para que no todos salgan al céntimo iguales.
         const jitter = 0.95 + rng() * 0.1
-        const pvp = Number((coste * (1 + catDef.margenMinorista / 100) * jitter).toFixed(2))
-        const tarifaMayorista = Number((coste * (1 + catDef.margenMayorista / 100) * jitter).toFixed(2))
+        const pvp = priceForMargin(coste * jitter, familia.margenMinorista)
+        const tarifas = {} as Record<TarifaId, number>
+        TARIFA_IDS.forEach((t) => {
+          tarifas[t] = priceForMargin(coste * jitter, familia.margenes[t])
+        })
         const { formatoVenta, unidadesPorPaquete } = parseFormato(size)
         products.push({
           id: `prod-${counter}`,
           sku: `OF-${counter}`,
           codigoBarras: buildEan13(rng),
           nombre: size === 'unidad' ? template : `${template} (${size})`,
-          categoriaId,
+          subfamiliaId,
           proveedorId: pick(rng, suppliers).id,
           coste,
           pvp,
-          tarifas: tarifasFor(tarifaMayorista),
+          tarifas,
           igic: pick(rng, [7, 7, 7, 3, 0] as const),
           unidadVenta: size,
           formatoVenta,
@@ -686,8 +718,9 @@ export function generateDatabase(): Database {
   const locations = buildLocations()
   const { reps, vehicles } = buildRepsAndVehicles(rng)
   const categories = buildCategories()
+  const subfamilias = buildSubfamilias(categories)
   const suppliers = buildSuppliers(rng)
-  const products = buildProducts(rng, categories, suppliers)
+  const products = buildProducts(rng, categories, subfamilias, suppliers)
   const stock = buildStock(rng, products, locations)
   const clients = buildClients(rng, reps)
   const sales = buildSales(rng, clients, products, locations)
@@ -705,6 +738,7 @@ export function generateDatabase(): Database {
     salesReps: reps,
     vehicles,
     categories,
+    subfamilias,
     suppliers,
     products,
     stock,

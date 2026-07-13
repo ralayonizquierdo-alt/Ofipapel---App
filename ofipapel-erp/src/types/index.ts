@@ -87,11 +87,26 @@ export interface CitaVehiculo {
   estado: EstadoCitaVehiculo
 }
 
+export type TarifaId = 'Tarifa 1' | 'Tarifa 2' | 'Tarifa 3' | 'Tarifa 6 (Mayor)'
+
+export const TARIFA_IDS: TarifaId[] = ['Tarifa 1', 'Tarifa 2', 'Tarifa 3', 'Tarifa 6 (Mayor)']
+
+/** Familia de productos. Lleva un número identificativo y agrupa varias subfamilias. */
 export interface Category {
   id: string
+  numero: number
   nombre: string
   margenMinorista: number
-  margenMayorista: number
+  /** % de beneficio sobre el coste para cada tarifa mayorista, ya definido por familia. */
+  margenes: Record<TarifaId, number>
+}
+
+/** Subfamilia dentro de una familia — es donde se clasifican realmente los productos. */
+export interface Subfamilia {
+  id: string
+  familiaId: string
+  numero: number
+  nombre: string
 }
 
 export interface Supplier {
@@ -108,16 +123,12 @@ export type IgicRate = 7 | 3 | 0
 
 export type FormatoVenta = 'Unidad' | 'Paquete'
 
-export type TarifaId = 'Tarifa 1' | 'Tarifa 2' | 'Tarifa 3' | 'Tarifa 6 (Mayor)'
-
-export const TARIFA_IDS: TarifaId[] = ['Tarifa 1', 'Tarifa 2', 'Tarifa 3', 'Tarifa 6 (Mayor)']
-
 export interface Product {
   id: string
   sku: string
   codigoBarras: string
   nombre: string
-  categoriaId: string
+  subfamiliaId: string
   proveedorId: string
   coste: number
   pvp: number
@@ -260,6 +271,7 @@ export interface Database {
   salesReps: SalesRep[]
   vehicles: Vehicle[]
   categories: Category[]
+  subfamilias: Subfamilia[]
   suppliers: Supplier[]
   products: Product[]
   stock: StockEntry[]

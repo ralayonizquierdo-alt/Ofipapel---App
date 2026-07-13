@@ -30,6 +30,12 @@ export default function InformesPage() {
   const productById = useMemo(() => new Map(db.products.map((p) => [p.id, p])), [db.products])
   const clienteById = useMemo(() => new Map(db.clients.map((c) => [c.id, c])), [db.clients])
   const repById = useMemo(() => new Map(db.salesReps.map((r) => [r.id, r])), [db.salesReps])
+  const subfamiliaById = useMemo(() => new Map(db.subfamilias.map((s) => [s.id, s])), [db.subfamilias])
+
+  function familiaIdParaProducto(productoId: string): string {
+    const subfamiliaId = productById.get(productoId)?.subfamiliaId
+    return (subfamiliaId && subfamiliaById.get(subfamiliaId)?.familiaId) ?? ''
+  }
 
   const rankingProductos = useMemo(() => {
     const map = new Map<string, { unidades: number; importe: number; margen: number }>()
@@ -77,14 +83,14 @@ export default function InformesPage() {
       .filter((s) => daysSince(s.fecha) <= 30)
       .forEach((s) =>
         s.lineas.forEach((l) => {
-          const cat = productById.get(l.productoId)?.categoriaId
+          const cat = familiaIdParaProducto(l.productoId)
           if (!cat) return
           vendidos.set(cat, (vendidos.get(cat) ?? 0) + l.cantidad)
         }),
       )
     const stockPorCategoria = new Map<string, number>()
     db.stock.forEach((s) => {
-      const cat = productById.get(s.productoId)?.categoriaId
+      const cat = familiaIdParaProducto(s.productoId)
       if (!cat) return
       stockPorCategoria.set(cat, (stockPorCategoria.get(cat) ?? 0) + s.unidades)
     })
@@ -95,7 +101,7 @@ export default function InformesPage() {
         return { nombre: c.nombre, stock, vendido, rotacion: stock > 0 ? vendido / stock : 0 }
       })
       .sort((a, b) => b.rotacion - a.rotacion)
-  }, [db.sales, db.stock, db.categories, productById])
+  }, [db.sales, db.stock, db.categories, productById, subfamiliaById])
 
   const maxProducto = Math.max(...rankingProductos.map((p) => p.importe), 1)
   const maxCliente = Math.max(...rankingClientes.map((c) => c.total), 1)
@@ -103,6 +109,7 @@ export default function InformesPage() {
   const maxRotacion = Math.max(...rotacionPorCategoria.map((c) => c.rotacion), 0.01)
 
   const categoriaById = useMemo(() => new Map(db.categories.map((c) => [c.id, c.nombre])), [db.categories])
+  const nombreSubfamilia = useMemo(() => new Map(db.subfamilias.map((s) => [s.id, s.nombre])), [db.subfamilias])
   const proveedorById = useMemo(() => new Map(db.suppliers.map((s) => [s.id, s])), [db.suppliers])
   const locationById = useMemo(() => new Map(db.locations.map((l) => [l.id, l])), [db.locations])
 
@@ -114,12 +121,13 @@ export default function InformesPage() {
           comercialId: s.comercialId,
           clienteId: s.clienteId,
           canal: s.canal,
-          categoriaId: productById.get(l.productoId)?.categoriaId ?? '',
+          categoriaId: familiaIdParaProducto(l.productoId),
+          subfamiliaId: productById.get(l.productoId)?.subfamiliaId ?? '',
           cantidad: l.cantidad,
           importe: l.cantidad * l.precioUnit * (1 + l.igic / 100),
         })),
       ),
-    [db.sales, productById],
+    [db.sales, productById, subfamiliaById],
   )
 
   const compraLineas = useMemo(
@@ -130,12 +138,13 @@ export default function InformesPage() {
           proveedorId: p.proveedorId,
           locationId: p.locationId,
           estado: p.estado,
-          categoriaId: productById.get(l.productoId)?.categoriaId ?? '',
+          categoriaId: familiaIdParaProducto(l.productoId),
+          subfamiliaId: productById.get(l.productoId)?.subfamiliaId ?? '',
           cantidad: l.cantidad,
           importe: l.cantidad * l.precioUnit * (1 + l.igic / 100),
         })),
       ),
-    [db.purchases, productById],
+    [db.purchases, productById, subfamiliaById],
   )
 
   type VentaLinea = (typeof ventaLineas)[number]
@@ -145,6 +154,7 @@ export default function InformesPage() {
     { value: 'comercial', label: 'Comercial', resolve: (l) => repById.get(l.comercialId)?.nombre ?? '—' },
     { value: 'cliente', label: 'Cliente', resolve: (l) => clienteById.get(l.clienteId)?.nombre ?? 'Cliente eliminado' },
     { value: 'categoria', label: 'Familia', resolve: (l) => categoriaById.get(l.categoriaId) ?? '—' },
+    { value: 'subfamilia', label: 'Subfamilia', resolve: (l) => nombreSubfamilia.get(l.subfamiliaId) ?? '—' },
     { value: 'canal', label: 'Canal', resolve: (l) => l.canal },
     { value: 'fecha', label: 'Mes', resolve: (l) => l.fecha.slice(0, 7) },
   ]
@@ -152,6 +162,7 @@ export default function InformesPage() {
   const dimensionesCompras: DimensionOption<CompraLinea>[] = [
     { value: 'proveedor', label: 'Proveedor', resolve: (l) => proveedorById.get(l.proveedorId)?.nombre ?? '—' },
     { value: 'categoria', label: 'Familia', resolve: (l) => categoriaById.get(l.categoriaId) ?? '—' },
+    { value: 'subfamilia', label: 'Subfamilia', resolve: (l) => nombreSubfamilia.get(l.subfamiliaId) ?? '—' },
     { value: 'almacen', label: 'Almacén destino', resolve: (l) => locationById.get(l.locationId)?.nombre ?? '—' },
     { value: 'estado', label: 'Estado', resolve: (l) => l.estado },
     { value: 'fecha', label: 'Mes', resolve: (l) => l.fecha.slice(0, 7) },

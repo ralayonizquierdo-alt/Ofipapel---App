@@ -13,7 +13,8 @@ const emptyForm = {
   sku: '',
   codigoBarras: '',
   nombre: '',
-  categoriaId: '',
+  familiaId: '',
+  subfamiliaId: '',
   proveedorId: '',
   coste: '0',
   pvp: '0',
@@ -51,9 +52,10 @@ export default function CatalogoPage() {
   const [selected, setSelected] = useState<Product | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState(emptyForm)
-  const [categoriaFiltro, setCategoriaFiltro] = useState('')
+  const [subfamiliaFiltro, setSubfamiliaFiltro] = useState('')
 
-  const categoriaById = useMemo(() => new Map(db.categories.map((c) => [c.id, c.nombre])), [db.categories])
+  const subfamiliaById = useMemo(() => new Map(db.subfamilias.map((s) => [s.id, s])), [db.subfamilias])
+  const familiaById = useMemo(() => new Map(db.categories.map((c) => [c.id, c])), [db.categories])
   const proveedorById = useMemo(() => new Map(db.suppliers.map((s) => [s.id, s.nombre])), [db.suppliers])
   const stockByProduct = useMemo(() => {
     const map = new Map<string, number>()
@@ -61,13 +63,22 @@ export default function CatalogoPage() {
     return map
   }, [db.stock])
 
-  const filteredByCategoria = categoriaFiltro ? products.filter((p) => p.categoriaId === categoriaFiltro) : products
+  function familiaNombreDe(p: Product): string {
+    const familiaId = subfamiliaById.get(p.subfamiliaId)?.familiaId
+    return (familiaId && familiaById.get(familiaId)?.nombre) ?? '—'
+  }
+  function subfamiliaNombreDe(p: Product): string {
+    return subfamiliaById.get(p.subfamiliaId)?.nombre ?? '—'
+  }
+
+  const filteredBySubfamilia = subfamiliaFiltro ? products.filter((p) => p.subfamiliaId === subfamiliaFiltro) : products
 
   const columns: Column<Product>[] = [
     { key: 'imagen', label: '', render: (p) => <Thumbnail src={p.imagenUrl} /> },
     { key: 'sku', label: 'SKU', sortValue: (p) => p.sku },
     { key: 'nombre', label: 'Producto', sortValue: (p) => p.nombre },
-    { key: 'categoria', label: 'Categoría', render: (p) => categoriaById.get(p.categoriaId) ?? '—', sortValue: (p) => categoriaById.get(p.categoriaId) ?? '' },
+    { key: 'familia', label: 'Familia', render: (p) => familiaNombreDe(p), sortValue: (p) => familiaNombreDe(p) },
+    { key: 'subfamilia', label: 'Subfamilia', render: (p) => subfamiliaNombreDe(p), sortValue: (p) => subfamiliaNombreDe(p) },
     { key: 'coste', label: 'Coste', align: 'right', render: (p) => formatEUR(p.coste), sortValue: (p) => p.coste },
     { key: 'pvp', label: 'PVP', align: 'right', render: (p) => formatEUR(p.pvp), sortValue: (p) => p.pvp },
     { key: 't1', label: 'Tarifa 1', align: 'right', render: (p) => formatEUR(p.tarifas['Tarifa 1']), sortValue: (p) => p.tarifas['Tarifa 1'] },
@@ -85,7 +96,8 @@ export default function CatalogoPage() {
       sku: p.sku,
       codigoBarras: p.codigoBarras,
       nombre: p.nombre,
-      categoriaId: p.categoriaId,
+      familiaId: subfamiliaById.get(p.subfamiliaId)?.familiaId ?? '',
+      subfamiliaId: p.subfamiliaId,
       proveedorId: p.proveedorId,
       coste: String(p.coste),
       pvp: String(p.pvp),
@@ -106,7 +118,9 @@ export default function CatalogoPage() {
 
   function openCreate() {
     const nextSku = `OF-${10000 + products.length + Math.floor(Math.random() * 900)}`
-    setForm({ ...emptyForm, sku: nextSku, codigoBarras: '', categoriaId: db.categories[0]?.id ?? '', proveedorId: db.suppliers[0]?.id ?? '' })
+    const primeraFamilia = db.categories[0]?.id ?? ''
+    const primeraSubfamilia = db.subfamilias.find((s) => s.familiaId === primeraFamilia)?.id ?? ''
+    setForm({ ...emptyForm, sku: nextSku, codigoBarras: '', familiaId: primeraFamilia, subfamiliaId: primeraSubfamilia, proveedorId: db.suppliers[0]?.id ?? '' })
     setCreating(true)
   }
 
@@ -127,7 +141,7 @@ export default function CatalogoPage() {
       sku: form.sku,
       codigoBarras: form.codigoBarras,
       nombre: form.nombre,
-      categoriaId: form.categoriaId,
+      subfamiliaId: form.subfamiliaId,
       proveedorId: form.proveedorId,
       coste: Number(form.coste) || 0,
       pvp: Number(form.pvp) || 0,
@@ -179,19 +193,27 @@ export default function CatalogoPage() {
 
       <DataTable
         columns={columns}
-        rows={filteredByCategoria}
+        rows={filteredBySubfamilia}
         rowKey={(p) => p.id}
-        searchableText={(p) => `${p.sku} ${p.codigoBarras} ${p.nombre} ${categoriaById.get(p.categoriaId)} ${proveedorById.get(p.proveedorId)}`}
+        searchableText={(p) => `${p.sku} ${p.codigoBarras} ${p.nombre} ${familiaNombreDe(p)} ${subfamiliaNombreDe(p)} ${proveedorById.get(p.proveedorId)}`}
         onRowClick={openEdit}
         pageSize={14}
         filters={
-          <select value={categoriaFiltro} onChange={(e) => setCategoriaFiltro(e.target.value)} className={`${inputClass} max-w-[220px]`}>
-            <option value="">Todas las categorías</option>
-            {db.categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
-              </option>
-            ))}
+          <select value={subfamiliaFiltro} onChange={(e) => setSubfamiliaFiltro(e.target.value)} className={`${inputClass} max-w-[220px]`}>
+            <option value="">Todas las subfamilias</option>
+            {[...db.categories]
+              .sort((a, b) => a.numero - b.numero)
+              .map((c) => (
+                <optgroup key={c.id} label={`${String(c.numero).padStart(2, '0')} · ${c.nombre}`}>
+                  {db.subfamilias
+                    .filter((s) => s.familiaId === c.id)
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nombre}
+                      </option>
+                    ))}
+                </optgroup>
+              ))}
           </select>
         }
         actions={
@@ -256,14 +278,35 @@ export default function CatalogoPage() {
           <FormField label="Nombre">
             <input className={inputClass} value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
           </FormField>
-          <div className="grid grid-cols-2 gap-x-4">
-            <FormField label="Categoría">
-              <select className={inputClass} value={form.categoriaId} onChange={(e) => setForm({ ...form, categoriaId: e.target.value })}>
-                {db.categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
-                ))}
+          <div className="grid grid-cols-3 gap-x-4">
+            <FormField label="Familia">
+              <select
+                className={inputClass}
+                value={form.familiaId}
+                onChange={(e) => {
+                  const familiaId = e.target.value
+                  const primeraSubfamilia = db.subfamilias.find((s) => s.familiaId === familiaId)?.id ?? ''
+                  setForm({ ...form, familiaId, subfamiliaId: primeraSubfamilia })
+                }}
+              >
+                {[...db.categories]
+                  .sort((a, b) => a.numero - b.numero)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {String(c.numero).padStart(2, '0')} · {c.nombre}
+                    </option>
+                  ))}
+              </select>
+            </FormField>
+            <FormField label="Subfamilia">
+              <select className={inputClass} value={form.subfamiliaId} onChange={(e) => setForm({ ...form, subfamiliaId: e.target.value })}>
+                {db.subfamilias
+                  .filter((s) => s.familiaId === form.familiaId)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nombre}
+                    </option>
+                  ))}
               </select>
             </FormField>
             <FormField label="Proveedor">
