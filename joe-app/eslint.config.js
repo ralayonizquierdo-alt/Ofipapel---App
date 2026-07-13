@@ -18,10 +18,5 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
-    rules: {
-      // TODO: refactorizar los setState directos dentro de useEffect en
-      // Reservations.tsx y MigrateLocalData.tsx, y volver a subir esto a "error".
-      'react-hooks/set-state-in-effect': 'warn',
-    },
   },
 ])

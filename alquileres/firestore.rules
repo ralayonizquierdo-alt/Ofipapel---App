@@ -1,0 +1,31 @@
+rules_version = '2';
+
+// Reglas de acceso para el proyecto Firebase "ofipapelvv" (alquileres/).
+//
+// La app no tiene Firebase Auth con usuario real: la pantalla de login de
+// Luis/Rober (src/components/LoginScreen.tsx) es solo una contraseña
+// comparada en el propio navegador, no un control de acceso a los datos.
+// Antes de estas reglas, cualquiera con la apiKey pública (visible en el
+// bundle de JS servido) podía leer/escribir directamente en Firestore sin
+// pasar por la app. Estas reglas exigen una sesión (aunque sea anónima, ver
+// src/lib/firebase.ts::ensureAnonSession) para cualquier operación — mismo
+// nivel de protección que el RLS de Supabase en joe-app: no distingue entre
+// personas, pero bloquea el acceso directo con solo la clave pública.
+//
+// Despliegue (requiere el CLI de Firebase autenticado con acceso al
+// proyecto "ofipapelvv" — no se puede aplicar desde este repo sin esas
+// credenciales):
+//   firebase deploy --only firestore:rules --project ofipapelvv
+// o pegar el contenido de este fichero en Firebase Console > Firestore
+// Database > Reglas > Publicar.
+//
+// Requiere también activar el proveedor "Anonymous" en Firebase Console >
+// Authentication > Sign-in method — sin eso, ensureAnonSession() nunca
+// obtiene sesión y estas reglas rechazarían todas las peticiones.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{collection}/{docId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

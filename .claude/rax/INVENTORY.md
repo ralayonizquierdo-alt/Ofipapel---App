@@ -1,0 +1,50 @@
+# Inventario de proyectos — RAX
+
+Mantenido por la Skill `project-manager`. Refleja el estado real del repo
+`ralayonizquierdo-alt/Ofipapel---App`. Última revisión completa: 2026-07-12
+(Sprint "RAX v1 Production").
+
+| Proyecto | Tipo | Ruta | Stack | Despliegue | Estado |
+|---|---|---|---|---|---|
+| Ofipapel · Control Financiero | Sitio/app de negocio (papelería) | `Index.html` | HTML monolítico + Chart.js + Supabase JS + SheetJS. Asistente de IA vía proxy server-side (`netlify/functions/chat-assistant.js`) — ya no expone la API key de Anthropic en el navegador | GitHub Pages + Netlify (`_site/`) | Activo |
+| Canarias INK | Microsite de marca (venta de consumibles de impresora) | `canarias-ink.html` | HTML monolítico | GitHub Pages + Netlify | Activo — botón de WhatsApp con número placeholder, ver `ROADMAP_TECNICO.md` |
+| FalControl | Microsite/herramienta personal ("Radio Alerta"), sin relación de negocio con Ofipapel | `falcontrol.html` | HTML monolítico | GitHub Pages + Netlify | Activo |
+| Alquileres | Aplicación interna de gestión (8 apartamentos reales) | `alquileres/` | React 19 + Vite + TS + Tailwind 4 + Recharts + **Firebase Firestore** (proyecto `ofipapelvv`) — backend real confirmado, con login de app (Luis/Rober) y reglas de acceso (`alquileres/firestore.rules`, pendiente de activar el proveedor Anonymous y desplegar) | Netlify (build propio, `_site/alquileres/`) | Activo |
+| Joe App | Aplicación familiar/personal (calendario, turnos, "coisinhas", música, negocio) | `joe-app/` | React 19 + Vite + TS + Supabase + PIN/biometría (WebAuthn) de acceso a la UI + sesión anónima Supabase para RLS | Netlify (`_site/joe/`) | Activo |
+| Agente WhatsApp (Meta Cloud API) | Automatización — auto-respuesta con reglas + IA (Claude) | `netlify/functions/whatsapp-webhook.js`, `whatsapp-agent-config.js` | Netlify Functions + Anthropic API | Netlify Functions | Activo (ver `WHATSAPP_SETUP.md`) |
+| Agente WhatsApp (Twilio, alternativa) | Automatización — variante del agente anterior vía Twilio | `netlify/functions/twilio-webhook.js` | Netlify Functions | Netlify Functions | Activo/paralelo — **sigue sin confirmar con el propietario cuál es la vía canónica** |
+| Landing genérica raíz | Redirect a `Index.html` | `index.html` (minúsculas) | HTML estático, `location.replace('Index.html')` | GitHub Pages + Netlify | Activo — confirmado intencional, no es deuda técnica |
+| Design Studio | Estudio de diseño autónomo compartido por las Skills visuales | `design-studio/` | Plantillas HTML + Playwright + Adobe for Creativity (MCP) | No se despliega | Activo — validado con la campaña real "Vuelta al Cole" |
+
+## Skills de RAX (referencia — el detalle vive en `.claude/skills/README.md`)
+
+| Skill | Estado |
+|---|---|
+| `project-manager` | Activa |
+| `diseno-ofipapel` | Activa — validada con una campaña real |
+| `sales-marketing` | No incorporada — aparcada hasta que `diseno-ofipapel` acumule más piezas reales |
+
+## Infraestructura compartida
+
+- **Despliegue dual**: GitHub Pages (`.github/workflows/pages.yml`) y Netlify (`netlify.toml` + `build.sh`).
+- **Bases de datos**: Supabase (`joe-app`, con RLS + sesión anónima) y Firebase Firestore (`alquileres`, con reglas + sesión anónima). Dos backends distintos por decisión explícita del propietario — no se unifican.
+- **IA**: Anthropic API, usada por el agente de WhatsApp y por el proxy `chat-assistant.js` de `Index.html`.
+- **Diseño**: `design-studio/`, consumido por `diseno-ofipapel`.
+
+## Pendiente de activación en consolas externas (no ejecutable desde este repo)
+
+- Supabase (`joe-app`): activar "Allow anonymous sign-ins".
+- Firebase (`ofipapelvv`): activar el proveedor "Anonymous" y desplegar `alquileres/firestore.rules`.
+- Netlify: configurar `CHAT_ASSISTANT_TOKEN` (debe coincidir con `APP_CHAT_TOKEN` en `Index.html`).
+
+## Deliberadamente fuera de alcance de este sprint
+
+Login con identidad real (Firebase Auth / Supabase Auth) en `alquileres` e
+`Index.html` — hoy siguen siendo una contraseña client-side, no un control
+de acceso a los datos (`DT-09`). Decidir el canal de WhatsApp canónico y
+corregir el número de WhatsApp de Canarias INK — pendientes de datos que
+solo tiene el propietario.
+
+## Proyectos sin clasificar / a vigilar
+
+Ninguno detectado en esta revisión.

@@ -852,19 +852,6 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
         <div class="page-header"><h1 class="page-title">💬 Asistente IA</h1></div>
         <div class="page-body">
 
-          <div class="card" style="margin-bottom:14px;padding:12px 16px;">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <span style="font-size:12px;font-weight:600;color:var(--texto2);">API Key Claude:</span>
-              <input type="password" id="chatApiKey" placeholder="sk-ant-api03-..."
-                     style="flex:1;min-width:200px;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;font-family:'IBM Plex Mono',monospace;"
-                     onkeydown="if(event.key==='Enter')saveChatApiKey()">
-              <button onclick="saveChatApiKey()"
-                      style="padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Guardar</button>
-              <span id="chatApiKeyStatus" style="font-size:12px;color:var(--texto2);"></span>
-            </div>
-            <div style="font-size:11px;color:var(--texto2);margin-top:6px;">La API key se guarda solo en este navegador · Consíguela en console.anthropic.com</div>
-          </div>
-
           <div class="card" id="chatMessages"
                style="overflow-y:auto;height:calc(100vh - 360px);min-height:200px;padding:16px;margin-bottom:12px;background:#f9fdf9;">
             <div id="chatEmpty" style="text-align:center;color:var(--texto2);padding:40px 16px;">
@@ -3890,28 +3877,14 @@ function renderPagares(){
 // CHAT IA
 // ═══════════════════════════════════════════════════════
 let chatHistory = [];
-let chatApiKey = '';
-try{ chatApiKey = localStorage.getItem('op_claude_key') || ''; }catch(e){}
+// Token compartido de la app para el proxy server-side (no es un secreto real:
+// Index.html es HTML estático y cualquiera puede verlo con "ver código
+// fuente"; solo evita que el endpoint quede completamente abierto. Debe
+// coincidir con CHAT_ASSISTANT_TOKEN en las variables de entorno de Netlify.
+const APP_CHAT_TOKEN = 'ofipapel-chat-2026';
 
 function initChatView() {
-  const inp = document.getElementById('chatApiKey');
-  if(!inp) return;
-  if(chatApiKey) {
-    inp.value = chatApiKey;
-    const st = document.getElementById('chatApiKeyStatus');
-    if(st){ st.textContent = '✓ Configurada'; st.style.color = 'var(--verde)'; }
-  }
   renderChatMessages();
-}
-
-function saveChatApiKey() {
-  const k = (document.getElementById('chatApiKey')?.value || '').trim();
-  if(!k){ showToast('Introduce una API key válida'); return; }
-  chatApiKey = k;
-  try{ localStorage.setItem('op_claude_key', k); }catch(e){}
-  const st = document.getElementById('chatApiKeyStatus');
-  if(st){ st.textContent = '✓ Guardada'; st.style.color = 'var(--verde)'; }
-  showToast('API key guardada');
 }
 
 function buildDataContext() {
@@ -3987,7 +3960,6 @@ function chatSuggest(el) {
 }
 
 async function sendChatMessage() {
-  if(!chatApiKey) { showToast('Configura tu API key primero'); return; }
   const inputEl = document.getElementById('chatInput');
   const sendBtn = document.getElementById('chatSendBtn');
   const msg = (inputEl?.value || '').trim();
@@ -4016,41 +3988,28 @@ Los importes están en euros (€). Las tiendas son locales físicos: tienda 1 =
 DATOS CARGADOS EN LA APP:
 ${buildDataContext()}`;
 
-    // Llamada directa con el header CORS correcto de Anthropic
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    // La llamada a Claude va ahora a través de una Netlify Function: la API
+    // key vive solo en el servidor, no en este navegador (ver
+    // netlify/functions/chat-assistant.js).
+    const resp = await fetch('/.netlify/functions/chat-assistant', {
       method: 'POST',
       headers: {
-        'x-api-key': chatApiKey,
-        'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
-        'anthropic-dangerous-direct-browser-access': 'true'
+        'x-chat-token': APP_CHAT_TOKEN
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
         system: systemPrompt,
         messages: chatHistory
       })
     });
 
+    const data = await resp.json().catch(()=>({}));
     if(!resp.ok) {
-      const err = await resp.json().catch(()=>({}));
-      throw new Error(err.error?.message || 'Error HTTP ' + resp.status);
+      throw new Error(data.error || 'Error HTTP ' + resp.status);
     }
-    const data = await resp.json();
-    const reply = data.content?.[0]?.text || '(Sin respuesta)';
-    chatHistory.push({ role:'assistant', content:reply });
+    chatHistory.push({ role:'assistant', content: data.reply || '(Sin respuesta)' });
   } catch(e) {
-    let diag = '';
-    if(e.message === 'Failed to fetch') {
-      try {
-        await fetch('https://api.anthropic.com/', { mode:'no-cors', cache:'no-store' });
-        diag = '\n\n🔍 api.anthropic.com es accesible. Podría ser un problema temporal — inténtalo de nuevo.';
-      } catch {
-        diag = '\n\n🔍 api.anthropic.com no es accesible desde esta red. Prueba con datos móviles (sin WiFi).';
-      }
-    }
-    chatHistory.push({ role:'assistant', content:'❌ Error: ' + e.message + diag });
+    chatHistory.push({ role:'assistant', content:'❌ Error: ' + e.message });
   } finally {
     document.getElementById('chatTyping')?.remove();
     renderChatMessages();

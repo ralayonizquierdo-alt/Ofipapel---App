@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import WelcomeModal from './components/WelcomeModal'
@@ -9,10 +9,15 @@ import MusicPage from './pages/MusicPage'
 import LimonPage from './pages/LimonPage'
 import BusinessPage from './pages/BusinessPage'
 import CoisinhasPage from './pages/CoisinhasPage'
+import { ensureAnonSession } from './lib/supabase'
 
 export default function App() {
   const [unlocked, setUnlocked] = useState(false)
   const [showWelcome, setShowWelcome] = useState(true)
+
+  useEffect(() => {
+    ensureAnonSession().catch((err) => console.error('No se pudo abrir sesión anónima de Supabase:', err))
+  }, [])
 
   if (!unlocked) return <PinScreen onUnlock={() => setUnlocked(true)} />
 

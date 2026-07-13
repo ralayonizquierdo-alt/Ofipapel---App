@@ -80,6 +80,7 @@ export default function CalendarPage() {
   async function saveEvent() {
     if (!editEvent.title?.trim()) return
     setSaveError(null)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- se excluye created_at del payload a propósito
     const { id, created_at, ...rest } = editEvent as CalendarEvent
     const payload = {
       ...rest,

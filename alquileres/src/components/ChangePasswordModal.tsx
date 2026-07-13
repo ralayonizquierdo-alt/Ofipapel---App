@@ -1,11 +1,6 @@
 import { useState } from 'react'
 import { X, Eye, EyeOff } from 'lucide-react'
-import { getStoredHash, saveHash } from './LoginScreen'
-
-async function hashPw(pw: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw))
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
-}
+import { hashPw, getStoredHash, saveHash } from '../lib/passwordAuth'
 
 interface Props { onClose: () => void }
 
