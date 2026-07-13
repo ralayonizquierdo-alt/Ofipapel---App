@@ -203,3 +203,51 @@ adelante (rompiendo este modo restringido para esa tarea concreta).
 
 **Quién decide**: propietario. **Reversibilidad**: total — el propietario
 puede levantar este modo en cualquier momento para una tarea concreta.
+
+---
+
+### 2026-07-12 — PR #67 detectado: rama definitiva de facto, invalida parte de la clasificación de ramas anterior
+
+**Contexto**: al preparar el plan de limpieza post-fusión, el propietario
+señaló la existencia del PR #67 (`claude/rax-validation-priorities-88bwrv`
+→ `main`), abierto y sin fusionar. Verificado con diffs de contenido (no
+solo mensajes de commit): ese PR incluye una copia funcionalmente idéntica
+de **todo** el rescate hecho en `claude/rax-v1-consolidacion` (`chat-assistant.js`
+byte a byte idéntico, `Index.html` byte a byte idéntico, RLS de `joe-app`
+equivalente, CI/Dependabot/dedup de WhatsApp/`404.html`/`design-studio`
+presentes), más trabajo real que esta rama no tenía:
+- **Reglas de seguridad de Firestore para `alquileres`** (`firestore.rules`
+  nuevo) — no existía ninguna versionada; sin ellas, cualquiera con la
+  `apiKey` pública de Firebase (visible en el bundle) podía leer/escribir
+  toda la base de datos de alquileres sin pasar por la app. Mismo tipo de
+  hallazgo que el RLS de `joe-app`, en el backend nuevo.
+- **Primera campaña real** "Vuelta al Cole 2026" (5 piezas + copy),
+  generada con `design-studio` + `diseno-ofipapel`, validando el pipeline
+  de extremo a extremo.
+- **DT-02 resuelto**: `index.html` vs `Index.html` confirmado como
+  redirect intencional (lectura de `build.sh`/`netlify.toml`), no deuda
+  técnica real — se había dejado como pregunta abierta en la clasificación
+  anterior.
+- Su propia documentación (`CLAUDE.md`, `.claude/rax/*`) ya actualizada a
+  este estado.
+
+**Decisión**: `claude/rax-validation-priorities-88bwrv` **se retira de la
+lista de ramas "Prueba/obsoleto"** — es la rama viva de un PR abierto, no
+un experimento sin fusionar. No se toca ni se borra bajo ningún concepto
+hasta que el propio PR #67 se fusione o se cierre explícitamente. El resto
+de la clasificación anterior se mantiene: las otras 4 ramas marcadas
+"Prueba/obsoleto" (la propia `rax-project-manager-skill-1o2kl3`,
+`autonomous-dev-environment-8obtv2` / PR #61, `rls-user-data-security-414x0a`,
+`vacation-rental-app-eb8fdy`) siguen siéndolo — su contenido útil está
+confirmado presente tanto en `claude/rax-v1-consolidacion` como,
+independientemente, en PR #67. `claude/rax-sales-marketing-skill-4raaru`
+sigue conservándose intacta por instrucción expresa.
+
+**Efecto sobre `claude/rax-v1-consolidacion`**: al ser un subconjunto
+estricto y verificado de PR #67, esta rama (la creada en esta sesión) pasa
+también a ser segura de eliminar una vez PR #67 se fusione — no antes,
+por si acaso PR #67 no llega a fusionarse.
+
+**Quién decide**: verificación técnica de Claude a partir de la
+instrucción del propietario. **Reversibilidad**: alta — ninguna rama se ha
+tocado, solo se corrige el informe.

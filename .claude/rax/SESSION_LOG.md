@@ -96,3 +96,30 @@ propietario apruebe qué borrar.
 ramas y el estado final del repo; con su aprobación expresa, fusionar
 `claude/rax-v1-consolidacion` a `main`, cerrar PR #61 sin fusionar, y
 borrar las ramas marcadas como seguras.
+
+---
+
+### 2026-07-12 — Modo restringido activado + PR #67 detectado
+
+**Resumen**: el propietario acota el trabajo a solo documentación/
+arquitectura (ver `DECISIONES.md`). Al preparar el plan de limpieza
+post-fusión, señaló la existencia de PR #67, abierto sobre
+`claude/rax-validation-priorities-88bwrv`. Verificado con diffs de
+contenido: ese PR es un superconjunto de `claude/rax-v1-consolidacion`
+(todo el rescate de esta sesión está ahí, byte a byte en los ficheros
+clave) más trabajo real que esta sesión no tenía — reglas de seguridad de
+Firestore para `alquileres` (antes sin ninguna, mismo tipo de exposición
+que el RLS de `joe-app`) y la primera campaña real de `diseno-ofipapel`.
+
+**Corrección importante sobre el informe anterior**:
+`claude/rax-validation-priorities-88bwrv` **no** es segura de borrar — es
+la rama viva de PR #67, abierto. Se había clasificado como "Prueba/obsoleto"
+antes de que este PR existiera (o antes de que se detectara). El resto de
+la clasificación se mantiene sin cambios.
+
+**Siguiente paso recomendado**: esperar a que el propietario fusione PR
+#67. Cuando eso ocurra: (1) `claude/rax-v1-consolidacion` pasa a ser
+segura de borrar también (ya no hace falta fusionarla, PR #67 la cubre
+entera); (2) cerrar PR #61 sin fusionar; (3) borrar las 4 ramas
+"Prueba/obsoleto" confirmadas; (4) `rax-sales-marketing-skill-4raaru` se
+mantiene intacta. Ver informe de cierre entregado en este turno.
