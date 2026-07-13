@@ -25,7 +25,7 @@ export default function MigrateLocalData() {
   const [done, setDone] = useState(false)
 
   useEffect(() => {
-    if (localStorage.getItem('aq_migrated_to_firestore')) return
+    if (localStorage.getItem('aq_migration_done')) return
     if (hasLocalData()) setShow(true)
   }, [])
 
@@ -40,14 +40,14 @@ export default function MigrateLocalData() {
         await setDoc(doc(db, col, item.id), stripUndef(item))
       }
     }
-    localStorage.setItem('aq_migrated_to_firestore', '1')
+    localStorage.setItem('aq_migration_done', '1')
     setMigrating(false)
     setDone(true)
     setTimeout(() => setShow(false), 3000)
   }
 
   function dismiss() {
-    localStorage.setItem('aq_migrated_to_firestore', '1')
+    localStorage.setItem('aq_migration_done', '1')
     setShow(false)
   }
 
