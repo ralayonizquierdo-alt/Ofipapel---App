@@ -128,6 +128,10 @@ para tener contexto antes de tocar código.
 
 ## Convenciones
 
+- **Ramas, PRs y ciclo de vida de las ramas**: ver `CONTRIBUTING.md` —
+  comprobar ramas activas antes de crear una nueva, proceso de
+  reconciliación, y criterio para cerrar o eliminar ramas. No lo dupliques
+  aquí.
 - Nombres de commit descriptivos, en español, estilo `fix:`/`feat:` cuando aplica.
 - No existen tests automatizados todavía en ninguna parte del repo (CI
   cubre lint + build, no tests).

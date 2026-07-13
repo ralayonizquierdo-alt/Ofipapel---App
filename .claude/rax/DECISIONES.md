@@ -276,3 +276,26 @@ se cumpla automáticamente en cualquier sesión futura de Claude Code sobre
 este repo, no solo en esta.
 
 **Quién decide**: propietario. **Reversibilidad**: total.
+
+---
+
+### 2026-07-13 — `CONTRIBUTING.md`: normas de trabajo formalizadas para humanos y sesiones de Claude Code
+
+**Contexto**: la disciplina de ramas del punto anterior vivía solo dentro
+de `project-manager/SKILL.md` — útil para sesiones de Claude Code, pero
+invisible para GitHub y para cualquier colaborador humano (GitHub muestra
+`CONTRIBUTING.md` automáticamente al abrir issues/PRs; un `SKILL.md` no).
+
+**Decisión**: crear `CONTRIBUTING.md` en la raíz con las normas completas
+de trabajo del repo (uso de ramas, comprobación de ramas activas antes de
+crear una nueva, creación de PRs, proceso de reconciliación, y criterio
+para cerrar/eliminar ramas — la tabla Producción/Inactivo con
+valor/Prueba-obsoleto, con la regla explícita de no borrar por antigüedad
+y de verificar contenido con diffs reales, no solo títulos de commit).
+`CLAUDE.md` referencia el documento en vez de duplicar su contenido
+(sección "Convenciones"). `project-manager/SKILL.md` sigue siendo la
+aplicación automática de estas normas dentro de una sesión de Claude Code;
+`CONTRIBUTING.md` es la fuente de verdad legible por cualquiera.
+
+**Quién decide**: propietario. **Reversibilidad**: total — es
+documentación pura, no toca código de ninguna app.
