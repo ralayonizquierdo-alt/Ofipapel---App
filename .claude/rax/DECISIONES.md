@@ -172,3 +172,34 @@ criterio ya acordado explícitamente en turnos anteriores.
 **Reversibilidad**: alta — todo son commits aditivos o refactors
 verificados sobre `claude/rax-v1-consolidacion`, que todavía no se ha
 fusionado a `main`. Nada de esto ha tocado `main` directamente.
+
+---
+
+### 2026-07-12 — Modo restringido: solo arquitectura/documentación, cero código de producción
+
+**Contexto**: tras cerrar el sprint de consolidación de código
+(`claude/rax-v1-consolidacion`) y entregar la clasificación de ramas para
+aprobación, el propietario acota explícitamente el ámbito de trabajo:
+solo documentación y organización del repo (`CLAUDE.md`, `.claude/skills/`,
+`.claude/rax/`, inventario, clasificación de ramas, propuesta de limpieza,
+roadmap, deuda técnica). Prohibido: tocar código de producción
+(`Index.html`, `joe-app`, `alquileres`, `canarias-ink.html`, funciones de
+Netlify, bot de WhatsApp), abrir PRs de código, o rescatar funcionalidad de
+otras ramas aunque sea de bajo riesgo. Cualquier cambio de código detectado
+como necesario se documenta como pendiente, no se implementa.
+
+**Decisión derivada — Sentry (PR #61) queda formalmente descartado, no
+solo aplazado**: en la clasificación de ramas anterior quedó como pregunta
+abierta ("¿lo rescato o lo doy por descartado?"). Este modo restringido
+responde la pregunta por sí solo: no se rescata mientras esté vigente.
+Queda documentado como pendiente en `DEUDA_TECNICA.md`/`ROADMAP_TECNICO.md`
+para una futura sesión con permiso explícito de tocar código, no como
+trabajo en curso.
+
+**Efecto sobre la clasificación de ramas ya entregada**: `claude/autonomous-dev-environment-8obtv2`
+(PR #61) deja de tener la salvedad de Sentry — pasa a "Prueba/obsoleto"
+sin condición, salvo que el propietario pida explícitamente rescatarlo más
+adelante (rompiendo este modo restringido para esa tarea concreta).
+
+**Quién decide**: propietario. **Reversibilidad**: total — el propietario
+puede levantar este modo en cualquier momento para una tarea concreta.

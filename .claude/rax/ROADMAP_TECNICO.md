@@ -18,6 +18,7 @@ por ID (`RT-xx` ↔ `RN-xx`) cuando un ítem técnico habilita uno de negocio.
 | RT-10 | Resolver la contraseña compartida por defecto en `alquileres/LoginScreen.tsx` (`DT-11`), probablemente a la vez que RT-07 | 5 / 4 / 3 → 15 | RN-04 | Pendiente de decisión del propietario |
 | RT-11 | Auditar en profundidad `vacaciones.html` e `importacion-pedidos-proveedores.html` (descubiertos durante esta consolidación, nunca auditados) | 2 / 2 / 2 → 6 | — | Pendiente |
 | RT-12 | Probar `design-studio/scripts/firefly-generate.js` con credenciales reales de Adobe Firefly | 2 / 1 / 2 → 6 | — | Pendiente de `FIREFLY_CLIENT_ID`/`FIREFLY_CLIENT_SECRET` |
+| RT-13 | Añadir observabilidad de errores (Sentry) a `joe-app` y `alquileres` (`DT-14`) — código ya escrito y verificado en `claude/autonomous-dev-environment-8obtv2`, sin rescatar | 3 / 2 / 2 → 8 | — | Pendiente — bloqueado por el modo restringido (solo documentación) vigente desde 2026-07-12, no por falta de plan |
 
 ## Próximo paso recomendado (mayor score, sin bloqueo externo)
 
@@ -26,3 +27,9 @@ Con RT-05/RT-06 resueltos, los de mayor score sin bloqueo son **RT-07/RT-08/RT-1
 decisión explícita del propietario, no por falta de plan. El siguiente
 paso puramente técnico sin decisión de negocio pendiente es **RT-01**
 (decidir canal de WhatsApp) en cuanto el propietario responda.
+
+**Nota (2026-07-12):** mientras el modo restringido esté vigente (ver
+`DECISIONES.md` y `project-manager/SKILL.md`), ninguno de estos ítems se
+implementa aunque tenga score alto y cero bloqueo de negocio — todos
+quedan documentados como pendientes hasta que el propietario levante la
+restricción, aunque sea para uno solo de ellos.

@@ -176,6 +176,20 @@ pueda afectar a una app en uso salvo que sea un fix de seguridad o un bug
 confirmado con el riesgo ya evaluado. En estos casos, presenta la
 recomendación con su score de prioridad y espera confirmación.
 
+**Modo restringido (vigente desde 2026-07-12, ver `DECISIONES.md`):** el
+ámbito de esta Skill puede acotarse por instrucción explícita del
+propietario a solo arquitectura y organización del repositorio —
+documentación (`CLAUDE.md`, `.claude/skills/`, `.claude/rax/`), inventario,
+clasificación de ramas, propuestas de limpieza, roadmap y deuda técnica.
+Mientras ese modo esté activo: cero cambios en código de producción
+(`Index.html`, `joe-app`, `alquileres`, `canarias-ink.html`, funciones de
+Netlify, bot de WhatsApp), no se abren PRs de código, y no se "rescata"
+código de otras ramas aunque sea funcionalidad ya implementada y de bajo
+riesgo — cualquier cambio de código que se detecte como necesario se anota
+como pendiente en `DEUDA_TECNICA.md`/`ROADMAP_TECNICO.md`, nunca se
+implementa. Este modo se mantiene hasta que el propietario lo levante
+explícitamente.
+
 ## Cierre de sesión
 
 Al terminar una sesión de trabajo con cambios relevantes:
