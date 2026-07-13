@@ -251,3 +251,28 @@ por si acaso PR #67 no llega a fusionarse.
 **Quién decide**: verificación técnica de Claude a partir de la
 instrucción del propietario. **Reversibilidad**: alta — ninguna rama se ha
 tocado, solo se corrige el informe.
+
+---
+
+### 2026-07-13 — Regla fija: comprobar ramas activas antes de crear una nueva
+
+**Contexto**: consecuencia directa de la causa raíz de todo lo limpiado
+estos días — `claude/rax-project-manager-skill-1o2kl3` (propia),
+`claude/autonomous-dev-environment-8obtv2` (PR #61) y
+`claude/rax-validation-priorities-88bwrv` (ahora PR #67) reconstruyeron el
+mismo sistema de Skills de forma independiente, cada una sin saber que las
+otras existían, porque nada obligaba a comprobarlo antes de crear rama.
+
+**Decisión**: ninguna sesión crea una rama nueva sin comprobar antes si ya
+existe una rama activa para ese mismo trabajo. Si existe, continúa sobre
+ella. Si no existe, crea una única rama nueva y lo indica explícitamente
+en el primer mensaje de la sesión. Además, ampliado por el propietario el
+mismo día: no duplicar trabajo ya iniciado ni recrear funcionalidad ya
+implementada (aunque se trabaje en rama propia), y si se detecta trabajo
+relacionado en otra rama, reconciliarlo **antes** de empezar a implementar
+— no como limpieza posterior. Codificado como política permanente en
+`.claude/skills/project-manager/SKILL.md` ("Disciplina de ramas") para que
+se cumpla automáticamente en cualquier sesión futura de Claude Code sobre
+este repo, no solo en esta.
+
+**Quién decide**: propietario. **Reversibilidad**: total.

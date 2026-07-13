@@ -66,6 +66,50 @@ Al activarte por primera vez en una sesión de trabajo real sobre este repo:
 
 No hace falta preguntar permiso para este resumen: es lectura pura.
 
+5. Antes de crear cualquier rama nueva para un trabajo, comprueba primero
+   si ya existe una rama activa para ese mismo trabajo (ver "Disciplina de
+   ramas" más abajo).
+
+## Disciplina de ramas
+
+Regla fija desde 2026-07-13 (ver `DECISIONES.md`), consecuencia directa de
+que 4+ ramas independientes reconstruyeran el mismo sistema de RAX sin
+verse entre sí:
+
+**Ninguna sesión crea una rama nueva sin comprobar antes si ya existe una
+rama activa para ese mismo trabajo.**
+
+1. Antes de hacer `git checkout -b`, revisa `git branch -r` y los PRs
+   abiertos (`.claude/rax/INVENTORY.md` y `DECISIONES.md` deberían tener
+   rastro de las ramas RAX conocidas; si no, hay que mirar en GitHub).
+   Busca específicamente ramas cuyo nombre o commits recientes sugieran el
+   mismo objetivo que la tarea actual.
+2. **Si existe una rama activa para ese trabajo** (con PR abierto, o con
+   commits recientes y sin fusionar): continúa sobre ella
+   (`git checkout <rama>`), no crees una nueva. "Activa" significa: no
+   fusionada, no cerrada, y con actividad o relevancia reciente — una rama
+   ya rescatada y marcada para borrar no cuenta.
+3. **Si no existe ninguna rama activa equivalente**: crea una única rama
+   nueva, y dilo explícitamente en el primer mensaje de la sesión (nombre
+   de la rama y desde qué base se creó) para que quede rastro y cualquier
+   otra sesión pueda encontrarla antes de duplicar el trabajo.
+4. Nunca crear una segunda rama "por si acaso" mientras ya exista una
+   abierta para el mismo objetivo, aunque parezca más limpio empezar de
+   cero — ese exacto razonamiento es el que causó la consolidación de
+   2026-07-12.
+5. **No dupliques trabajo ya iniciado ni recrees funcionalidad ya
+   implementada.** Esto aplica incluso si decides trabajar sobre tu propia
+   rama nueva: antes de escribir código para algo, comprueba si ya existe
+   en `main`, en un PR abierto, o en otra rama — no asumas que hace falta
+   reimplementarlo solo porque tú no lo has visto hacer.
+6. **Si detectas que otra rama contiene trabajo relacionado con la tarea
+   actual, recon­cíliala antes de empezar a implementar**, no después. Eso
+   significa: leer su diff real (no solo el título/mensaje de commit),
+   decidir qué se rescata y qué se descarta con criterio explícito, y
+   dejarlo escrito en `DECISIONES.md` — antes de la primera línea de
+   código, no como limpieza a posteriori. Reconciliar después de implementar
+   por duplicado es exactamente el coste que esta regla existe para evitar.
+
 ## Detección y clasificación automática de proyectos
 
 Cuando encuentres una carpeta de primer nivel o un fichero suelto en la raíz
