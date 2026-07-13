@@ -954,15 +954,25 @@ function generarExcel(){
   const aoa = [];
   const fila = ()=> filaVacia(NCOLS);
 
+  // Filas 1-10: cabecera del pedido + panel de referencia de códigos de
+  // familia más usados, reproduciendo exactamente la misma disposición
+  // (mismas filas/columnas y textos) que la plantilla oficial de Gestión.
+  // Los datos de línea deben empezar en la fila 12, igual que en la plantilla.
   let r;
-  r = fila(); r[2]='PROPUESTA    DE     PEDIDO'; r[4]='ALMACEN'; r[5]=almacen; aoa.push(r);
-  aoa.push(fila());
-  r = fila(); r[2]='PROVEEDOR;'; r[3]=proveedor; aoa.push(r);
-  aoa.push(fila());
-  r = fila(); r[0]='922-75.35.20'; r[2]='Nº Pedido'; r[3]=pedido; r[4]='FECHA'; r[5]=fecha; aoa.push(r);
-  r = fila(); r[0]='Compras@ofipapelsl.com'; aoa.push(r);
-  r = fila(); r[2]='Contactar con:'; r[3]=contacto; r[4]='E-mail'; r[5]=email; aoa.push(r);
-  aoa.push(fila());
+  r = fila(); r[10]=1001; r[11]='< L} LIBROS DE TEXTOS     '; r[14]='Para otros dieños consultar el arbol de FAMILIAS'; aoa.push(r);
+  r = fila(); r[2]='PROPUESTA    DE     PEDIDO'; r[4]='ALMACEN'; r[5]=almacen;
+    r[9]='L}'; r[10]=100125; r[11]='LIBRO TEXTOS (L} 25%)         '; r[14]=20; r[15]='-} ARTICULOS de DISEÑO (Escolar)'; aoa.push(r);
+  r = fila(); r[9]='L}'; r[10]=100130; r[11]='LIBRO TEXTOS (L} 30%)         '; r[13]='Para incluir'; aoa.push(r);
+  r = fila(); r[2]='PROVEEDOR;'; r[3]=proveedor;
+    r[10]=1002; r[11]='<< L< LIBROS DE LECTURAS '; r[13]='Referencias'; r[14]=209102; r[15]='ARTICULOS DISEÑO (Varios)     '; aoa.push(r);
+  r = fila(); r[9]='L<'; r[10]=100225; r[11]='LIBRO Lecturas (25% L<)       '; r[13]='en un mismo'; r[14]=209162; r[15]='MOCHILAS (Diseño)                            '; aoa.push(r);
+  r = fila(); r[0]='922-75.35.20'; r[2]='Nº Pedido'; r[3]=pedido; r[4]='FECHA'; r[5]=fecha;
+    r[9]='L<'; r[10]=100230; r[11]='LIBRO Lecturas (30% L<)       '; r[13]='codigo'; r[14]=209160; r[15]='Macutos Bolsas y Bandoleras (Diseño)'; aoa.push(r);
+  r = fila(); r[0]='Compras@ofipapelsl.com'; r[13]='el padre no '; r[14]=209163; r[15]='Monederos Billeteras (Diseño)'; aoa.push(r);
+  r = fila(); r[2]='Contactar con:'; r[3]=contacto; r[4]='E-mail'; r[5]=email;
+    r[10]=209102; r[11]='ARTICULOS DISEÑO (Varios)     '; r[13]='lleva '; r[14]=209166; r[15]='Neceser Escolar (Diseño)'; aoa.push(r);
+  r = fila(); r[10]=209162; r[11]='MOCHILAS (Diseño) SOLO  ALTA EN WEB                           '; r[14]=209176; r[15]='Plumier (Diseño)'; aoa.push(r);
+  r = fila(); r[1]='MARCA'; r[2]='Rfecia. Compra'; r[11]='CODIGO  A'; r[12]='Margen'; r[14]=209179; r[15]='Portatodo (Diseño)'; aoa.push(r);
 
   aoa.push(['Codigo I.S.B.N.','MARCA/EDITORIAL','Rfcia. Proveedor','DESCRIPCION','Caja','Ud./Caja','Udes','Precio U.','Dcto.','Dcto. (X+X)','Dcto. Adicional','Dcto. Campaña','Igic','IMPORTE','','COD. FAMILIA']);
 
