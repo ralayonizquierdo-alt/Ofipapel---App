@@ -1,5 +1,6 @@
 // Panel web para revisar las conversaciones archivadas del bot de WhatsApp.
 // Protegido con autenticación básica (usuario cualquiera, contraseña = DASHBOARD_PASSWORD).
+// (deploy trigger: confirmar que DASHBOARD_PASSWORD se recoge tras guardarla en Netlify)
 //
 // URL: https://<tu-sitio>.netlify.app/.netlify/functions/conversations
 //   ?phone=34600000000   -> ver el hilo completo de ese número
