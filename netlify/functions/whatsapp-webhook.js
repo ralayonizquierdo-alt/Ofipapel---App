@@ -15,7 +15,7 @@
 //   OWNER_EMAIL             (opcional) email donde recibir el aviso de cada conversación
 
 const crypto = require('crypto');
-const { matchFaqRule, askClaude, notifyOwner } = require('./whatsapp-agent-core');
+const { matchFaqRule, askClaude, notifyOwner, getHistory, appendToHistory } = require('./whatsapp-agent-core');
 
 const GRAPH_API_VERSION = 'v20.0';
 const DEDUP_TTL_MS = 5 * 60 * 1000;
@@ -83,7 +83,8 @@ async function handleIncomingMessage(message) {
   }
 
   const text = message.text?.body || '';
-  const reply = matchFaqRule(text) || (await askClaude(text));
+  const reply = matchFaqRule(text) || (await askClaude(text, getHistory(message.from)));
+  appendToHistory(message.from, text, reply);
   await sendWhatsappMessage(message.from, reply);
   await notifyOwner({ channel: 'Meta', from: message.from, customerMessage: text, botReply: reply });
 }

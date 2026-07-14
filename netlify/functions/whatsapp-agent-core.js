@@ -6,6 +6,35 @@ const { FAQ_RULES, AI_SYSTEM_PROMPT } = require('./whatsapp-agent-config');
 
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 
+// Memoria de conversación por número, en memoria (best-effort: sobrevive mientras
+// la función esté "caliente", se pierde en un cold start o redeploy). Suficiente
+// para que el bot recuerde el contexto dentro de una misma charla.
+const CONVERSATION_TTL_MS = 30 * 60 * 1000; // 30 min de inactividad = conversación nueva
+const MAX_HISTORY_MESSAGES = 10; // últimos mensajes (usuario + bot) que se recuerdan
+const conversations = new Map(); // from -> { messages: [{role, content}], updatedAt }
+
+function getHistory(from) {
+  const conv = conversations.get(from);
+  if (!conv) return [];
+  if (Date.now() - conv.updatedAt > CONVERSATION_TTL_MS) {
+    conversations.delete(from);
+    return [];
+  }
+  return conv.messages;
+}
+
+function appendToHistory(from, userText, botReply) {
+  const now = Date.now();
+  for (const [key, conv] of conversations) {
+    if (now - conv.updatedAt > CONVERSATION_TTL_MS) conversations.delete(key);
+  }
+  const conv = conversations.get(from) || { messages: [], updatedAt: now };
+  conv.messages.push({ role: 'user', content: userText }, { role: 'assistant', content: botReply });
+  conv.messages = conv.messages.slice(-MAX_HISTORY_MESSAGES);
+  conv.updatedAt = now;
+  conversations.set(from, conv);
+}
+
 function matchFaqRule(text) {
   const normalized = text
     .toLowerCase()
@@ -25,7 +54,7 @@ function matchFaqRule(text) {
   return null;
 }
 
-async function askClaude(userText) {
+async function askClaude(userText, history = []) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
@@ -43,7 +72,7 @@ async function askClaude(userText) {
         model: CLAUDE_MODEL,
         max_tokens: 300,
         system: AI_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userText }],
+        messages: [...history, { role: 'user', content: userText }],
       }),
     });
 
@@ -93,4 +122,4 @@ async function notifyOwner({ channel, from, customerMessage, botReply }) {
   }
 }
 
-module.exports = { matchFaqRule, askClaude, notifyOwner };
+module.exports = { matchFaqRule, askClaude, notifyOwner, getHistory, appendToHistory };

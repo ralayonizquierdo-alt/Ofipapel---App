@@ -15,7 +15,7 @@
 //   RESEND_API_KEY      (opcional) api key de resend.com, para avisar por email de cada conversación
 //   OWNER_EMAIL         (opcional) email donde recibir el aviso de cada conversación
 
-const { matchFaqRule, askClaude, notifyOwner } = require('./whatsapp-agent-core');
+const { matchFaqRule, askClaude, notifyOwner, getHistory, appendToHistory } = require('./whatsapp-agent-core');
 
 function escapeXml(text) {
   return text
@@ -40,11 +40,12 @@ exports.handler = async (event) => {
 
   let reply;
   try {
-    reply = matchFaqRule(text) || (await askClaude(text));
+    reply = matchFaqRule(text) || (await askClaude(text, getHistory(from)));
   } catch (err) {
     console.error('Error procesando mensaje de Twilio:', err);
     reply = 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
   }
+  appendToHistory(from, text, reply);
 
   await notifyOwner({ channel: 'Twilio', from, customerMessage: text, botReply: reply });
 
