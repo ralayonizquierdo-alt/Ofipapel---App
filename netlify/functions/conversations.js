@@ -9,7 +9,7 @@
 //   DASHBOARD_PASSWORD      contraseña para entrar al panel
 //   UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN  almacén de conversaciones
 
-const { isConfigured, loadConversation, listConversationPhones } = require('./conversation-store');
+const { isConfigured, loadConversation, listConversationPhones, diagnose } = require('./conversation-store');
 
 function checkAuth(event) {
   const password = process.env.DASHBOARD_PASSWORD;
@@ -57,13 +57,23 @@ function pageShell(title, body) {
 </html>`;
 }
 
-function renderList(phones) {
+function renderDiagnostic(diagnostic) {
+  if (diagnostic.ok) {
+    return '<p style="color:#1a6b2f;font-size:14px;">✓ Conexión con Upstash correcta (lectura y escritura).</p>';
+  }
+  return `<div style="background:#fdecea;border:1px solid #f5c2c0;border-radius:10px;padding:12px 16px;margin:16px 0;">
+  <strong style="color:#a41c14;">Fallo de conexión con Upstash (${escapeHtml(diagnostic.stage)})</strong>
+  <p style="font-size:14px;margin:6px 0 0;">${escapeHtml(diagnostic.detail)}</p>
+</div>`;
+}
+
+function renderList(phones, diagnostic) {
   const items = phones
     .map((p) => `<li><a href="?phone=${encodeURIComponent(p)}">${escapeHtml(p)}</a></li>`)
     .join('');
   return pageShell(
     'Conversaciones · Ofipapel',
-    `<h1>Conversaciones</h1><ul>${items || '<li>Todavía no hay conversaciones archivadas.</li>'}</ul>`
+    `<h1>Conversaciones</h1>${renderDiagnostic(diagnostic)}<ul>${items || '<li>Todavía no hay conversaciones archivadas.</li>'}</ul>`
   );
 }
 
@@ -112,10 +122,10 @@ exports.handler = async (event) => {
     };
   }
 
-  const phones = await listConversationPhones();
+  const [phones, diagnostic] = await Promise.all([listConversationPhones(), diagnose()]);
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    body: renderList(phones),
+    body: renderList(phones, diagnostic),
   };
 };
