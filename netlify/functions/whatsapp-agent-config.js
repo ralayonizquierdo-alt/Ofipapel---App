@@ -10,12 +10,9 @@ const STORES = [
     address: 'Calle Bulevar Chajofe, n.º 4, 38650 Los Cristianos, Santa Cruz de Tenerife, España',
     hours: 'Lunes a viernes 9:00-13:30 y 16:30-20:00, sábados 9:30-13:30',
     phone: '922 753 520',
+    mapsUrl: 'https://maps.app.goo.gl/Sx5yVAos3Ltjyuiv8',
   },
 ];
-
-function mapsLink(address) {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
-}
 
 function storesSummary() {
   return STORES.map(
@@ -25,7 +22,7 @@ function storesSummary() {
 
 function storesLocationSummary() {
   return STORES.map(
-    (s) => `• ${s.name}: ${s.address}\n  Cómo llegar: ${mapsLink(s.address)}`
+    (s) => `• ${s.name}: ${s.address}\n  Cómo llegar: ${s.mapsUrl}`
   ).join('\n');
 }
 
@@ -56,7 +53,7 @@ const FAQ_RULES = [
     reply: `Nuestros horarios son:\n${storesSummary()}`,
   },
   {
-    keywords: ['direccion', 'dirección', 'donde estan', 'donde estáis', 'dónde están', 'dónde estáis', 'ubicacion', 'ubicación', 'mapa', 'como llegar', 'cómo llegar'],
+    keywords: ['direccion', 'dirección', 'donde estan', 'donde estáis', 'dónde están', 'dónde estáis', 'ubicacion', 'ubicación', 'mapa', 'como llegar', 'cómo llegar', 'como llego', 'cómo llego'],
     reply: `Estamos en:\n${storesLocationSummary()}`,
   },
   {
