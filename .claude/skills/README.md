@@ -29,6 +29,7 @@ markdown con las instrucciones.
 |---|---|---|
 | [`project-manager`](./project-manager/SKILL.md) | CTO / Product Manager / Coordinador del ecosistema RAX. Piensa, planifica y prioriza; no escribe código. Mantiene `.claude/rax/` al día. | ✅ Activa |
 | [`diseno-ofipapel`](./diseno-ofipapel/SKILL.md) | Diseño visual de marca (banners, posts, landing pages, material promocional) para Ofipapel, Canarias INK y FalControl, reutilizando `design-studio/` | ✅ Activa — validada por primera vez con la campaña real "Vuelta al Cole" |
+| [`ui-ux-pro-max`](./ui-ux-pro-max/SKILL.md) | Base de datos consultable de UI/UX (estilos, paletas de color, tipografías, guías de accesibilidad/UX, stacks) para diseñar o revisar interfaces de `joe-app`/`alquileres`. Importada de terceros ([nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), MIT), scripts Python de librería estándar sin red | ✅ Activa |
 
 ## Deliberadamente no incluida: `sales-marketing`
 
