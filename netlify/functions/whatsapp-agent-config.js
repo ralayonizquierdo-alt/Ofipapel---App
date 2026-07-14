@@ -21,6 +21,9 @@ function storesSummary() {
 
 const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿En qué puedo ayudarte? Puedes preguntarme por horarios, ubicación, teléfono o lo que necesites.`;
 
+const REGISTRO_URL = 'https://ofipapel.net/mi-cuenta/';
+const REGISTRO_INFO = `Puedes registrarte aquí: ${REGISTRO_URL}\nEl mismo registro sirve tanto para comprar en la web como en cualquiera de nuestras tiendas. Al registrarte, tienes una tarifa de precios mejorada. Además, si es tu primer pedido en la web, puedes usar el código B1ENVEN1DA para un 10% extra de descuento.`;
+
 // Reglas de coincidencia por palabras clave, evaluadas en orden.
 // La primera que encuentre una palabra clave en el mensaje gana.
 const FAQ_RULES = [
@@ -41,6 +44,10 @@ const FAQ_RULES = [
     reply: `Puedes llamarnos al:\n${storesSummary()}`,
   },
   {
+    keywords: ['registrar', 'registro', 'cuenta de cliente', 'abrir cuenta', 'crear cuenta', 'darme de alta', 'alta de cliente', 'como me registro', 'cómo me registro'],
+    reply: REGISTRO_INFO,
+  },
+  {
     keywords: ['gracias', 'muchas gracias', 'perfecto', 'vale gracias'],
     reply: '¡De nada! Si necesitas cualquier otra cosa aquí estamos. 😊',
   },
@@ -51,6 +58,8 @@ const AI_SYSTEM_PROMPT = `Eres el asistente de atención al cliente por WhatsApp
 
 Información del negocio:
 ${storesSummary()}
+
+Registro de clientes: ${REGISTRO_INFO}
 
 Instrucciones:
 - Responde siempre en español, de forma breve, cercana y natural (máximo 3-4 frases), como en un chat de WhatsApp real.
