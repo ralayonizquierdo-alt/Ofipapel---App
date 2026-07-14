@@ -27,7 +27,6 @@ function matchFaqRule(text) {
 
 async function askClaude(userText) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  console.log('DEBUG ANTHROPIC_API_KEY presente:', !!apiKey, 'longitud:', apiKey ? apiKey.length : 0);
   if (!apiKey) {
     return 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
   }
