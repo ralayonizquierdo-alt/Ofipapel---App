@@ -37,18 +37,38 @@ const COMO_COMPRAR_INFO = `Puedes comprar en https://ofipapel.net: busca el prod
 
 const PAGO_INFO = `Formas de pago aceptadas: tarjeta de crédito o débito (Visa, MasterCard, 4B, Euro 6000, Maestro, American Express), transferencia bancaria, contra reembolso, o en tienda (solo para recogidas, con el pedido hecho antes por la web).`;
 
-const ENVIOS_INFO = `Hacemos envíos solo dentro de Canarias. Los pedidos de lunes a viernes antes de las 11:30h se gestionan ese mismo día (después, al día siguiente; los de fin de semana/festivos, el próximo día laborable).
+const ENVIOS_GENERAL_INTRO = `Hacemos envíos a toda Canarias. Los pedidos de lunes a viernes antes de las 11:30h se gestionan ese mismo día (después, al día siguiente; los de fin de semana/festivos, el próximo día laborable).`;
 
-Por isla (importe mínimo para envío gratis · gastos de envío si no se llega a ese mínimo · tiempo estimado de entrega):
-• Tenerife: gratis desde 20€ · 5€ si no se llega · 24-48h
-• La Gomera: gratis desde 200€ · 15€ si no se llega · 48-72h
-• El Hierro: gratis desde 200€ · 15€ si no se llega · 48-72h
-• La Palma: gratis desde 200€ · 15€ si no se llega · 48-72h
-• Gran Canaria: gratis desde 200€ · 15€ si no se llega · 48-72h
-• Lanzarote: gratis desde 300€ · 20€ si no se llega · 72h
-• Fuerteventura: gratis desde 300€ · 20€ si no se llega · 72h
+// Datos por isla, usados tanto para la regla de FAQ (respuesta dirigida a una isla
+// concreta si el cliente la menciona) como para el contexto que recibe la IA.
+const ISLAND_SHIPPING = [
+  { name: 'Tenerife', keywords: ['tenerife'], freeFrom: 20, feeBelow: 5, delivery: '24-48h' },
+  { name: 'La Gomera', keywords: ['gomera'], freeFrom: 200, feeBelow: 15, delivery: '48-72h' },
+  { name: 'El Hierro', keywords: ['hierro'], freeFrom: 200, feeBelow: 15, delivery: '48-72h' },
+  { name: 'La Palma', keywords: ['la palma', 'palma'], freeFrom: 200, feeBelow: 15, delivery: '48-72h' },
+  { name: 'Gran Canaria', keywords: ['gran canaria'], freeFrom: 200, feeBelow: 15, delivery: '48-72h' },
+  { name: 'Lanzarote', keywords: ['lanzarote'], freeFrom: 300, feeBelow: 20, delivery: '72h' },
+  { name: 'Fuerteventura', keywords: ['fuerteventura'], freeFrom: 300, feeBelow: 20, delivery: '72h' },
+];
 
-Para artículos muy pesados o voluminosos, el porte se calcula aparte, a consultar.`;
+function islandShippingLine(island) {
+  return `A ${island.name} el envío es gratis a partir de ${island.freeFrom}€; si no llegas a esa cantidad se cobran ${island.feeBelow}€ de gastos de envío. El plazo estimado es de ${island.delivery} (en días laborables).`;
+}
+
+function findIslandInText(normalizedText) {
+  return ISLAND_SHIPPING.find((island) => island.keywords.some((k) => normalizedText.includes(k)));
+}
+
+// Respuesta rápida: si el cliente ya menciona una isla, contesta solo sobre esa isla
+// (sin soltar la tabla entera); si no la menciona, da el resumen general y pregunta.
+function enviosReply(normalizedText) {
+  const island = findIslandInText(normalizedText);
+  if (island) return `${islandShippingLine(island)} Para artículos muy pesados o voluminosos el porte se calcula aparte, a consultar.`;
+  return `${ENVIOS_GENERAL_INTRO} El envío gratis y el plazo cambian según la isla — ¿a cuál te refieres? Así te doy el dato exacto.`;
+}
+
+// Versión completa (todas las islas), para el contexto de la IA.
+const ENVIOS_INFO = `${ENVIOS_GENERAL_INTRO}\n\n${ISLAND_SHIPPING.map(islandShippingLine).join('\n')}\n\nPara artículos muy pesados o voluminosos, el porte se calcula aparte, a consultar.`;
 
 const DEVOLUCIONES_INFO = `Tienes 14 días naturales desde la entrega para devolver un producto, siempre que esté sin usar, con las etiquetas y en su embalaje original. El reembolso se hace por el mismo medio de pago, en un plazo máximo de 30 días naturales. Los gastos de la devolución los asume el cliente, salvo que el producto tenga algún defecto. Si compraste por la web, también puedes devolver en tienda sin coste. Para iniciar una devolución escribe a pedidos@ofipapelsl.com indicando tus datos, la compra y el motivo. Si el producto llegó dañado o defectuoso, avísanos en las 24h siguientes a la entrega (con fotos) a ese mismo email.`;
 
@@ -85,7 +105,7 @@ const FAQ_RULES = [
   },
   {
     keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'portes', 'cuando llega', 'cuándo llega', 'plazo de entrega', 'mandan a', 'enviais a', 'enviáis a'],
-    reply: ENVIOS_INFO,
+    reply: enviosReply,
   },
   {
     keywords: ['devolucion', 'devolución', 'devoluciones', 'devolver', 'devuelvo', 'devuelvas', 'cambio de producto', 'cambiar un producto', 'reembolso', 'garantia', 'garantía'],
@@ -120,7 +140,8 @@ Devoluciones: ${DEVOLUCIONES_INFO}
 Contacto general: teléfono ${STORES[0].phone}, email comercial@ofipapelsl.com (consultas generales) o pedidos@ofipapelsl.com (pedidos y devoluciones).
 
 Instrucciones:
-- Responde siempre en español, de forma breve, cercana y natural (máximo 3-4 frases), como en un chat de WhatsApp real.
+- Responde siempre en español, de forma breve, cercana y natural (máximo 3-4 frases), como lo haría una persona real del equipo escribiendo un WhatsApp, no como un robot leyendo una lista de datos.
+- Contesta solo a lo que el cliente ha preguntado. Si la información que tienes cubre varios casos (por ejemplo, varias islas de envío) y el cliente solo pregunta por uno, dale únicamente el dato de ese caso concreto; no le sueltes toda la lista si no la ha pedido.
 - Si preguntan por productos o precios concretos que no conoces con certeza, no inventes datos: invita a llamar o visitar la tienda.
 - Si el mensaje parece una queja, un pedido complejo, o el cliente muestra que no está satisfecho con tu respuesta, ofrécele amablemente hablar con una persona del equipo y facilita el teléfono directo: ${STORES[0].phone}.
 - No uses markdown ni listas largas, escribe como un mensaje de texto normal.`;

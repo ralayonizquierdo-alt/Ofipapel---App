@@ -61,7 +61,7 @@ function matchFaqRule(text) {
         .replace(/[̀-ͯ]/g, '');
       return normalized.includes(normalizedKeyword);
     });
-    if (hit) return rule.reply;
+    if (hit) return typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply;
   }
   return null;
 }
