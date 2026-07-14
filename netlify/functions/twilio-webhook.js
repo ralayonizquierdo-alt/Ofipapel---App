@@ -14,6 +14,8 @@
 //   ANTHROPIC_API_KEY   api key de Claude, para responder cuando no hay una regla de FAQ
 //   RESEND_API_KEY      (opcional) api key de resend.com, para avisar por email de cada conversación
 //   OWNER_EMAIL         (opcional) email donde recibir el aviso de cada conversación
+//   UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN  (opcional) para archivar las
+//     conversaciones y verlas en el panel (netlify/functions/conversations.js)
 
 const { matchFaqRule, askClaude, notifyOwner, getHistory, appendToHistory } = require('./whatsapp-agent-core');
 
@@ -40,12 +42,12 @@ exports.handler = async (event) => {
 
   let reply;
   try {
-    reply = matchFaqRule(text) || (await askClaude(text, getHistory(from)));
+    reply = matchFaqRule(text) || (await askClaude(text, await getHistory(from)));
   } catch (err) {
     console.error('Error procesando mensaje de Twilio:', err);
     reply = 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
   }
-  appendToHistory(from, text, reply);
+  await appendToHistory(from, text, reply);
 
   await notifyOwner({ channel: 'Twilio', from, customerMessage: text, botReply: reply });
 

@@ -13,6 +13,8 @@
 //   ANTHROPIC_API_KEY       api key de Claude, para responder cuando no hay una regla de FAQ
 //   RESEND_API_KEY          (opcional) api key de resend.com, para avisar por email de cada conversación
 //   OWNER_EMAIL             (opcional) email donde recibir el aviso de cada conversación
+//   UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN  (opcional) para archivar las
+//     conversaciones y verlas en el panel (netlify/functions/conversations.js)
 
 const crypto = require('crypto');
 const { matchFaqRule, askClaude, notifyOwner, getHistory, appendToHistory } = require('./whatsapp-agent-core');
@@ -83,8 +85,8 @@ async function handleIncomingMessage(message) {
   }
 
   const text = message.text?.body || '';
-  const reply = matchFaqRule(text) || (await askClaude(text, getHistory(message.from)));
-  appendToHistory(message.from, text, reply);
+  const reply = matchFaqRule(text) || (await askClaude(text, await getHistory(message.from)));
+  await appendToHistory(message.from, text, reply);
   await sendWhatsappMessage(message.from, reply);
   await notifyOwner({ channel: 'Meta', from: message.from, customerMessage: text, botReply: reply });
 }

@@ -3,17 +3,24 @@
 // matching de FAQ ni la llamada a Claude entre los dos canales.
 
 const { FAQ_RULES, AI_SYSTEM_PROMPT } = require('./whatsapp-agent-config');
+const conversationStore = require('./conversation-store');
 
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 
-// Memoria de conversación por número, en memoria (best-effort: sobrevive mientras
-// la función esté "caliente", se pierde en un cold start o redeploy). Suficiente
-// para que el bot recuerde el contexto dentro de una misma charla.
+// Memoria de conversación por número, para dar contexto a Claude entre mensajes.
+// Si UPSTASH_REDIS_REST_URL/TOKEN están configuradas, se usa el almacén archivado
+// (conversation-store.js), que sobrevive a cold starts y alimenta el panel web.
+// Si no, cae de vuelta a un mapa en memoria (best-effort, se pierde en cold starts).
 const CONVERSATION_TTL_MS = 30 * 60 * 1000; // 30 min de inactividad = conversación nueva
-const MAX_HISTORY_MESSAGES = 10; // últimos mensajes (usuario + bot) que se recuerdan
-const conversations = new Map(); // from -> { messages: [{role, content}], updatedAt }
+const MAX_HISTORY_MESSAGES = 10; // últimos mensajes (usuario + bot) que se le pasan a Claude
+const conversations = new Map(); // from -> { messages: [{role, content}], updatedAt } (fallback)
 
-function getHistory(from) {
+async function getHistory(from) {
+  if (conversationStore.isConfigured()) {
+    const messages = await conversationStore.loadConversation(from);
+    return messages.slice(-MAX_HISTORY_MESSAGES).map(({ role, content }) => ({ role, content }));
+  }
+
   const conv = conversations.get(from);
   if (!conv) return [];
   if (Date.now() - conv.updatedAt > CONVERSATION_TTL_MS) {
@@ -23,7 +30,12 @@ function getHistory(from) {
   return conv.messages;
 }
 
-function appendToHistory(from, userText, botReply) {
+async function appendToHistory(from, userText, botReply) {
+  if (conversationStore.isConfigured()) {
+    await conversationStore.appendMessages(from, userText, botReply);
+    return;
+  }
+
   const now = Date.now();
   for (const [key, conv] of conversations) {
     if (now - conv.updatedAt > CONVERSATION_TTL_MS) conversations.delete(key);
