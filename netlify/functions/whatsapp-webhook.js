@@ -1,5 +1,5 @@
 // Webhook de WhatsApp Cloud API (Meta) para el agente de respuesta automática de Ofipapel.
-// (deploy trigger: recoger ANTHROPIC_API_KEY añadida en Netlify)
+// (deploy trigger: recoger UPSTASH_REDIS_REST_URL/TOKEN y DASHBOARD_PASSWORD añadidas en Netlify)
 //
 // GET  -> verificación del webhook que hace Meta al configurarlo.
 // POST -> mensajes entrantes de clientes; responde con reglas rápidas (FAQ) o,
