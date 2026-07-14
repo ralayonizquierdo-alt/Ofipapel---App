@@ -37,7 +37,18 @@ const COMO_COMPRAR_INFO = `Puedes comprar en https://ofipapel.net: busca el prod
 
 const PAGO_INFO = `Formas de pago aceptadas: tarjeta de crédito o débito (Visa, MasterCard, 4B, Euro 6000, Maestro, American Express), transferencia bancaria, contra reembolso, o en tienda (solo para recogidas, con el pedido hecho antes por la web).`;
 
-const ENVIOS_INFO = `Hacemos envíos solo dentro de Canarias. Los pedidos de lunes a viernes antes de las 11:30h se gestionan ese mismo día (después, al día siguiente; los de fin de semana/festivos, el próximo día laborable). Tiempos estimados de entrega: Tenerife, La Gomera, El Hierro y La Palma 24-48h; Gran Canaria 48-72h; Lanzarote y Fuerteventura 72-120h. El envío sale gratis a partir de 20€ en Tenerife (200€ en el resto de islas, 300€ en Lanzarote/Fuerteventura); por debajo de ese importe se cobran unos gastos de gestión.`;
+const ENVIOS_INFO = `Hacemos envíos solo dentro de Canarias. Los pedidos de lunes a viernes antes de las 11:30h se gestionan ese mismo día (después, al día siguiente; los de fin de semana/festivos, el próximo día laborable).
+
+Por isla (importe mínimo para envío gratis · gastos de envío si no se llega a ese mínimo · tiempo estimado de entrega):
+• Tenerife: gratis desde 20€ · 5€ si no se llega · 24-48h
+• La Gomera: gratis desde 200€ · 15€ si no se llega · 48-72h
+• El Hierro: gratis desde 200€ · 15€ si no se llega · 48-72h
+• La Palma: gratis desde 200€ · 15€ si no se llega · 48-72h
+• Gran Canaria: gratis desde 200€ · 15€ si no se llega · 48-72h
+• Lanzarote: gratis desde 300€ · 20€ si no se llega · 72h
+• Fuerteventura: gratis desde 300€ · 20€ si no se llega · 72h
+
+Para artículos muy pesados o voluminosos, el porte se calcula aparte, a consultar.`;
 
 const DEVOLUCIONES_INFO = `Tienes 14 días naturales desde la entrega para devolver un producto, siempre que esté sin usar, con las etiquetas y en su embalaje original. El reembolso se hace por el mismo medio de pago, en un plazo máximo de 30 días naturales. Los gastos de la devolución los asume el cliente, salvo que el producto tenga algún defecto. Si compraste por la web, también puedes devolver en tienda sin coste. Para iniciar una devolución escribe a pedidos@ofipapelsl.com indicando tus datos, la compra y el motivo. Si el producto llegó dañado o defectuoso, avísanos en las 24h siguientes a la entrega (con fotos) a ese mismo email.`;
 
