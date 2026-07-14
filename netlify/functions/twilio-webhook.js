@@ -12,8 +12,10 @@
 //
 // Variables de entorno necesarias:
 //   ANTHROPIC_API_KEY   api key de Claude, para responder cuando no hay una regla de FAQ
+//   RESEND_API_KEY      (opcional) api key de resend.com, para avisar por email de cada conversación
+//   OWNER_EMAIL         (opcional) email donde recibir el aviso de cada conversación
 
-const { matchFaqRule, askClaude } = require('./whatsapp-agent-core');
+const { matchFaqRule, askClaude, notifyOwner } = require('./whatsapp-agent-core');
 
 function escapeXml(text) {
   return text
@@ -34,6 +36,7 @@ exports.handler = async (event) => {
   const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body || '';
   const params = new URLSearchParams(rawBody);
   const text = params.get('Body') || '';
+  const from = params.get('From') || '';
 
   let reply;
   try {
@@ -42,6 +45,8 @@ exports.handler = async (event) => {
     console.error('Error procesando mensaje de Twilio:', err);
     reply = 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
   }
+
+  await notifyOwner({ channel: 'Twilio', from, customerMessage: text, botReply: reply });
 
   return {
     statusCode: 200,

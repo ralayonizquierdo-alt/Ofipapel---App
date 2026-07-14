@@ -61,4 +61,36 @@ async function askClaude(userText) {
   }
 }
 
-module.exports = { matchFaqRule, askClaude };
+// Avisa por email de cada conversación (pregunta del cliente + respuesta del bot),
+// ya que el número de prueba/producción de WhatsApp no tiene una app donde ver los
+// chats. Usa Resend (resend.com) con su remitente de pruebas, que no requiere
+// verificar un dominio propio para empezar a enviar.
+async function notifyOwner({ channel, from, customerMessage, botReply }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const ownerEmail = process.env.OWNER_EMAIL;
+  if (!apiKey || !ownerEmail) return; // notificaciones no configuradas, se omite en silencio
+
+  try {
+    const resp = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Ofipapel Bot <onboarding@resend.dev>',
+        to: [ownerEmail],
+        subject: `WhatsApp (${channel}) — ${from}`,
+        text: `Cliente (${from}) escribió:\n${customerMessage}\n\nEl bot respondió:\n${botReply}`,
+      }),
+    });
+
+    if (!resp.ok) {
+      console.error('Error enviando notificación por email:', resp.status, await resp.text());
+    }
+  } catch (err) {
+    console.error('Fallo llamando a Resend:', err);
+  }
+}
+
+module.exports = { matchFaqRule, askClaude, notifyOwner };

@@ -11,9 +11,11 @@
 //   WHATSAPP_PHONE_NUMBER_ID  id del número de WhatsApp Business (Meta for Developers)
 //   WHATSAPP_APP_SECRET     (opcional pero recomendado) app secret, para verificar la firma de Meta
 //   ANTHROPIC_API_KEY       api key de Claude, para responder cuando no hay una regla de FAQ
+//   RESEND_API_KEY          (opcional) api key de resend.com, para avisar por email de cada conversación
+//   OWNER_EMAIL             (opcional) email donde recibir el aviso de cada conversación
 
 const crypto = require('crypto');
-const { matchFaqRule, askClaude } = require('./whatsapp-agent-core');
+const { matchFaqRule, askClaude, notifyOwner } = require('./whatsapp-agent-core');
 
 const GRAPH_API_VERSION = 'v20.0';
 const DEDUP_TTL_MS = 5 * 60 * 1000;
@@ -83,6 +85,7 @@ async function handleIncomingMessage(message) {
   const text = message.text?.body || '';
   const reply = matchFaqRule(text) || (await askClaude(text));
   await sendWhatsappMessage(message.from, reply);
+  await notifyOwner({ channel: 'Meta', from: message.from, customerMessage: text, botReply: reply });
 }
 
 exports.handler = async (event) => {
