@@ -13,9 +13,19 @@ const STORES = [
   },
 ];
 
+function mapsLink(address) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
+
 function storesSummary() {
   return STORES.map(
     (s) => `• ${s.name}: ${s.address} · Horario: ${s.hours} · Tel: ${s.phone}`
+  ).join('\n');
+}
+
+function storesLocationSummary() {
+  return STORES.map(
+    (s) => `• ${s.name}: ${s.address}\n  Cómo llegar: ${mapsLink(s.address)}`
   ).join('\n');
 }
 
@@ -47,7 +57,7 @@ const FAQ_RULES = [
   },
   {
     keywords: ['direccion', 'dirección', 'donde estan', 'donde estáis', 'dónde están', 'dónde estáis', 'ubicacion', 'ubicación', 'mapa', 'como llegar', 'cómo llegar'],
-    reply: `Estamos en:\n${storesSummary()}`,
+    reply: `Estamos en:\n${storesLocationSummary()}`,
   },
   {
     keywords: ['telefono', 'teléfono', 'llamar', 'numero', 'número'],
