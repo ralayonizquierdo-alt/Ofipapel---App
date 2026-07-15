@@ -216,12 +216,14 @@ const FAQ_RULES = [
     reply: '¡De nada! Si necesitas cualquier otra cosa aquí estamos. 😊',
   },
   {
-    // Al final a propósito: "hola" aparece en muchísimos mensajes que además
-    // preguntan otra cosa (p. ej. "Hola, ¿tenéis descuento por registrarme?"), y si
-    // esta regla fuera la primera se comería esas preguntas. Solo debe ganar si
-    // ninguna regla más específica ha coincidido antes.
+    // Al final a propósito: "hola"/"buenos días" aparece en muchísimos mensajes que
+    // además preguntan otra cosa (p. ej. "Buenos días, ¿tenéis bobinas de 20kg?"), y
+    // si esta regla fuera la primera se comería esas preguntas. Solo debe ganar si
+    // ninguna regla más específica ha coincidido antes Y el mensaje es realmente solo
+    // un saludo corto — si es largo (pregunta real detrás), se deja pasar a la IA en
+    // vez de devolver el saludo genérico.
     keywords: ['hola', 'buenas', 'buenos dias', 'buenos días', 'buenas tardes', 'buenas noches'],
-    reply: GREETING,
+    reply: (normalizedText) => (normalizedText.split(/\s+/).filter(Boolean).length <= 6 ? GREETING : null),
   },
 ];
 
