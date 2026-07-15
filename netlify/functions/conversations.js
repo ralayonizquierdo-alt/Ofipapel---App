@@ -178,29 +178,33 @@ function pageShell(title, body) {
       url('/fondo-conversaciones.jpg') center 30% / cover;
     box-shadow: 0 6px 20px rgba(13,61,13,.3);
   }
-  .topbar img { height: 40px; width: auto; display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
+  .topbar img { height: clamp(36px, 11vw, 52px); width: auto; display: block; flex-shrink: 0; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
   .topbar h1 {
     margin: 0;
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: clamp(6px, 2vw, 12px);
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 24px;
+    font-size: clamp(22px, 8.2vw, 42px);
     font-weight: 700;
     letter-spacing: .4px;
     text-transform: uppercase;
     color: #ffffff;
+    line-height: 1.05;
     text-shadow: 0 2px 0 rgba(13,61,13,.85), 0 4px 12px rgba(0,0,0,.5), 0 0 26px rgba(255,255,255,.25);
   }
   .topbar h1 span {
-    font-size: 15px;
+    font-size: clamp(13px, 4.6vw, 23px);
     font-weight: 700;
     letter-spacing: .8px;
     color: #fff;
     background: rgba(255,255,255,.16);
     border: 1px solid rgba(255,255,255,.5);
     border-radius: 999px;
-    padding: 4px 10px;
+    padding: .25em .6em;
     text-shadow: none;
     box-shadow: 0 2px 6px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.25);
   }
