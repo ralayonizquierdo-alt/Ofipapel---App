@@ -133,7 +133,16 @@ const FAQ_RULES = [
     reply: DEVOLUCIONES_INFO,
   },
   {
-    keywords: ['hablar con alguien', 'hablar con una persona', 'hablar con un agente', 'hablar con agente', 'atencion humana', 'atención humana', 'persona real', 'no me sirve', 'no me ayuda', 'quiero hablar con'],
+    keywords: [
+      'hablar con alguien', 'hablar con una persona', 'hablar con un agente', 'hablar con agente',
+      'atencion humana', 'atención humana', 'persona real', 'no me sirve', 'no me ayuda', 'quiero hablar con',
+      'queja', 'quejarme', 'poner una queja', 'reclamacion', 'reclamación', 'reclamar', 'denuncia', 'denunciar',
+      'estoy harto', 'estoy harta', 'estoy cansado de', 'estoy cansada de', 'mal servicio', 'pesimo', 'pésimo',
+      'indignado', 'indignada', 'inaceptable', 'esto es un desastre', 'esto no puede ser', 'estafa',
+      'me han estafado', 'me habeis estafado', 'me habéis estafado', 'necesito una solucion', 'necesito una solución',
+      'quiero una solucion', 'quiero una solución', 'que solucion me dan', 'qué solución me dan', 'solucion ya',
+      'solución ya', 'es urgente', 'muy urgente',
+    ],
     reply: AGENTE_INFO,
   },
   {
@@ -175,6 +184,7 @@ module.exports = {
   BUSINESS_NAME,
   STORES,
   GREETING,
+  AGENTE_INFO,
   FAQ_RULES,
   AI_SYSTEM_PROMPT,
 };

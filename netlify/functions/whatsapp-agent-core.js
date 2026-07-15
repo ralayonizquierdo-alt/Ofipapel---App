@@ -2,7 +2,7 @@
 // (Meta Cloud API) como por twilio-webhook.js (Twilio), para no duplicar el
 // matching de FAQ ni la llamada a Claude entre los dos canales.
 
-const { FAQ_RULES, AI_SYSTEM_PROMPT } = require('./whatsapp-agent-config');
+const { FAQ_RULES, AI_SYSTEM_PROMPT, AGENTE_INFO } = require('./whatsapp-agent-config');
 const conversationStore = require('./conversation-store');
 
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
@@ -64,6 +64,43 @@ function matchFaqRule(text) {
     if (hit) return typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply;
   }
   return null;
+}
+
+// Palabras demasiado comunes como para servir de pista de que dos preguntas son
+// "la misma", se ignoran al comparar.
+const STOPWORDS_COMPARACION = new Set([
+  'que', 'para', 'con', 'los', 'las', 'del', 'por', 'una', 'uno', 'esta', 'este',
+  'esto', 'pero', 'como', 'cómo', 'donde', 'dónde', 'cuando', 'cuándo', 'tiene',
+  'tienen', 'hola', 'buenas', 'gracias', 'favor', 'porfa', 'porfavor', 'sobre',
+  'quiero', 'necesito', 'puedo', 'podeis', 'podéis', 'vosotros', 'ustedes', 'sido',
+]);
+
+function palabrasSignificativas(text) {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 3 && !STOPWORDS_COMPARACION.has(w));
+}
+
+// Detecta si el cliente está insistiendo/repitiendo una pregunta que ya hizo antes
+// en la misma conversación (comparando palabras significativas, no texto exacto),
+// para escalar a una persona en vez de darle otra vez la misma respuesta genérica.
+function isRepeatQuestion(text, history) {
+  const currentWords = new Set(palabrasSignificativas(text));
+  if (currentWords.size === 0) return false;
+
+  const previousUserMessages = history.filter((m) => m.role === 'user').map((m) => m.content);
+  for (const prev of previousUserMessages) {
+    const prevWords = new Set(palabrasSignificativas(prev));
+    if (prevWords.size === 0) continue;
+    const overlap = [...currentWords].filter((w) => prevWords.has(w)).length;
+    const ratio = overlap / Math.min(currentWords.size, prevWords.size);
+    if (ratio >= 0.6) return true;
+  }
+  return false;
 }
 
 async function askClaude(userText, history = []) {
@@ -134,4 +171,4 @@ async function notifyOwner({ channel, from, customerMessage, botReply }) {
   }
 }
 
-module.exports = { matchFaqRule, askClaude, notifyOwner, getHistory, appendToHistory };
+module.exports = { matchFaqRule, askClaude, notifyOwner, getHistory, appendToHistory, isRepeatQuestion, AGENTE_INFO };

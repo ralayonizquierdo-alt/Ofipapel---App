@@ -17,7 +17,7 @@
 //     conversaciones y verlas en el panel (netlify/functions/conversations.js)
 
 const crypto = require('crypto');
-const { matchFaqRule, askClaude, notifyOwner, getHistory, appendToHistory } = require('./whatsapp-agent-core');
+const { matchFaqRule, askClaude, notifyOwner, getHistory, appendToHistory, isRepeatQuestion, AGENTE_INFO } = require('./whatsapp-agent-core');
 
 const GRAPH_API_VERSION = 'v20.0';
 const DEDUP_TTL_MS = 5 * 60 * 1000;
@@ -85,7 +85,8 @@ async function handleIncomingMessage(message) {
   }
 
   const text = message.text?.body || '';
-  const reply = matchFaqRule(text) || (await askClaude(text, await getHistory(message.from)));
+  const history = await getHistory(message.from);
+  const reply = matchFaqRule(text) || (isRepeatQuestion(text, history) ? AGENTE_INFO : await askClaude(text, history));
   await appendToHistory(message.from, text, reply);
   await sendWhatsappMessage(message.from, reply);
   await notifyOwner({ channel: 'Meta', from: message.from, customerMessage: text, botReply: reply });
