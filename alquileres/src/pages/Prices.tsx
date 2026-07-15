@@ -195,7 +195,9 @@ function PriceTable({ entry, onEdit }: { entry: PriceEntry; onEdit: () => void }
                   <td className="py-3 px-4 text-right text-slate-700 font-semibold">{calc.totalOwner.toLocaleString('es-ES')} €</td>
                   <td className="py-3 px-4 text-right text-amber-700 font-medium">{calc.realEstate.toLocaleString('es-ES')} €</td>
                   <td className="py-3 px-4 text-right text-violet-700 font-medium">{calc.booking.toLocaleString('es-ES')} €</td>
-                  <td className="py-3 px-4 text-right font-bold text-green-700 bg-green-50">{calc.webPrice.toLocaleString('es-ES')} €</td>
+                  <td className="py-3 px-4 text-right font-bold text-green-700 bg-green-50">
+                    {(row as { isDirect?: boolean }).isDirect ? '0' : calc.webPrice.toLocaleString('es-ES')} €
+                  </td>
                   <td className="py-3 px-4 text-right text-slate-400 text-xs">{perNight} €</td>
                 </tr>
               )
