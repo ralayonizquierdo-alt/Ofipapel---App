@@ -371,11 +371,43 @@ Igual que la de vacaciones, pero para la tabla de turnos: *🖨 Vista previa* (d
 Turnos), *Imprimir*, *Guardar como PDF* (A4) y *📱 WhatsApp*, que envía un resumen de texto con el Grupo
 A/B de cada puesto, listo para pegar en el grupo del equipo.
 
+## 14. Cambios pedidos por dirección (primera tanda, nuevo)
+
+Según el documento "Cuadrante de Vacaciones. MEJORAS" recibido:
+
+- **Fechas inhábiles ampliadas**: el bloqueo "Vuelta al cole" ahora cubre **del 1 de septiembre al 15 de
+  octubre** (antes solo septiembre) — se ha actualizado el bloqueo por defecto y también en cualquier
+  dispositivo que ya tuviera datos guardados (se corrige solo, sin perder nada de lo ya cargado). Las
+  Navidades siguen igual (20 dic – 6 ene).
+- **No se puede empezar un periodo en viernes, sábado ni domingo** (antes solo se bloqueaba el sábado).
+  Terminar en sábado sigue bloqueado; terminar en domingo sigue permitido, igual que antes.
+- **Nueva unidad "Mobiliario"**, con **Patricia (Yanes García)** como jefa — pasa a contar en la cobertura
+  de Mobiliario en vez de Oficina, aunque también siga echando una mano en oficina. Su sustituta de
+  confianza es **Cande, de administración (Martín Hernández, María Candelaria)** — se ha cargado una regla
+  dura para que **nunca coincidan de vacaciones** (si una está fuera, la otra no puede estarlo también),
+  igual que las demás parejas incompatibles.
+- **Prioridad por hijos a cargo** 👶: nueva casilla en la ficha de cada empleado. Si está marcada, esa
+  persona tiene prioridad en la rotación sugerida **por delante de la antigüedad** (pero por detrás de "no
+  repitió el año pasado", que sigue siendo el criterio más importante). Se ve reflejado en el panel
+  "Prioridad rotación".
+
+### Pendiente de definir (segunda tanda)
+
+- **Jefas de tienda y sustitutas de confianza** en Ofipapel, Aliz-1 y Aliz-2 (para Mobiliario ya está
+  hecho, con Patricia y Cande) — falta que dirección confirme los nombres.
+- **Rotación en "rueda"**: quien empieza el 15 de enero un año, al siguiente empieza el 15 de febrero, y
+  así sucesivamente entre el personal del bloque — falta definir el orden de la rueda y quién la encabeza
+  el primer año.
+- **"Planning en escalera"**: una vista/impresión con el mismo aspecto que el Excel de dirección (meses en
+  columnas de bloques de 5 días, empleadas en filas, periodos en diagonal tipo escalera) — pendiente de
+  construir.
+- **Pantalla de vista rápida del plan anual completo** (no solo "quién está fuera hoy", sino un vistazo del
+  año entero) — pendiente de construir.
+
 ## Posibles reglas adicionales a valorar
 
 - **Límite de periodos por empleado al año**: ¿máximo de veces que se puede fraccionar el año, o libre?
 - **Aviso de "mismo mes, misma unidad, muchos años seguidos"**: para equilibrar con quien nunca la pide.
-- **Prioridad automática por hijos en edad escolar** en julio/agosto — a valorar si aplica aquí.
 - **Aviso de coincidencia entre comerciales y su zona/cliente asignado**, más fino que el límite genérico.
 
 ## Cómo está construido el prototipo

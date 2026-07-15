@@ -548,6 +548,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       </div>
       <div class="check-row"><input type="checkbox" id="ecFloater"><label for="ecFloater">🔁 Comodín: cambia de tienda/puesto según necesidad</label></div>
       <div class="check-row"><input type="checkbox" id="ecSinSustituto"><label for="ecSinSustituto">🚫 Sin sustituto (nadie cubre su puesto)</label></div>
+      <div class="check-row"><input type="checkbox" id="ecHijos"><label for="ecHijos">👶 Tiene hijos a cargo (prioridad en la rotación, por delante de la antigüedad)</label></div>
       <div class="check-row"><input type="checkbox" id="ecActive"><label for="ecActive">Activo (desmarcar = de baja, deja de aparecer en el cuadrante)</label></div>
       <div class="modal-actions">
         <div class="left"><button class="btn btn-danger" id="ecDelete">🗑 Eliminar ficha</button></div>
@@ -625,6 +626,7 @@ const UNITS = [
   {id:'aliz1',             name:'Aliz 1',                  group:'Dependientas',  defaultMax:1},
   {id:'ofipapel_detalle',  name:'Ofipapel · Detalle',      group:'Dependientas',  defaultMax:1},
   {id:'ofipapel_info',     name:'Ofipapel · Informática',  group:'Dependientas',  defaultMax:1},
+  {id:'mobiliario',        name:'Mobiliario',              group:'Dependientas',  defaultMax:1},
   {id:'limpieza',          name:'Limpieza',                group:'Limpieza',      defaultMax:1},
 ];
 
@@ -658,7 +660,7 @@ const EMPLOYEE_SEED = [
   // Oficina
   {id:'e22', name:'Martín Hernández, María Candelaria', unitId:'oficina', seniorityYear:2000, daysPerYear:30, saturdayGroup:'A', saturdayPost:'Oficina'},
   {id:'e23', name:'Perdigón Pérez, Mónica', unitId:'oficina', seniorityYear:1994, daysPerYear:30, saturdayGroup:'B', saturdayPost:'Oficina'},
-  {id:'e24', name:'Yanes García, Patricia', unitId:'oficina', seniorityYear:2009, daysPerYear:30, saturdayGroup:'B', saturdayPost:'Oficina'},
+  {id:'e24', name:'Yanes García, Patricia', unitId:'mobiliario', seniorityYear:2009, daysPerYear:30, note:'Jefa de Mobiliario (también hace trabajo de oficina)', saturdayGroup:'B', saturdayPost:'Oficina'},
   // Aliz 1
   {id:'e25', name:'Pedrido Seoane, María', unitId:'aliz1', seniorityYear:2017, daysPerYear:30},
   {id:'e26', name:'Fumero Reverón, María Teresa', unitId:'aliz1', seniorityYear:2018, daysPerYear:30, saturdayGroup:'A', saturdayPost:'Aliz-1'},
@@ -691,7 +693,7 @@ function defaultState(){
     employees: EMPLOYEE_SEED.map(e=>({...e})),
     nextEmployeeSeq: EMPLOYEE_SEED.length + 1,
     blockedRanges: [
-      {id:'b1', label:'Vuelta al cole', startMD:'09-01', endMD:'09-30'},
+      {id:'b1', label:'Vuelta al cole y campaña de otoño', startMD:'09-01', endMD:'10-15'},
       {id:'b2', label:'Campaña de Navidad', startMD:'12-20', endMD:'01-06'},
     ],
     unitOverrides: [],
@@ -702,6 +704,7 @@ function defaultState(){
       {id:'pair2', empIds:['e13','e10'], label:'Cobertura mutua de clientes', mode:'excluir'},
       {id:'pair3', empIds:['e11','e14'], label:'Cobertura mutua de clientes', mode:'excluir'},
       {id:'pair4', empIds:['e14','e18'], label:'Pareja: siempre salen juntos de vacaciones', mode:'juntos'},
+      {id:'pair5', empIds:['e24','e22'], label:'Jefa de Mobiliario y sustituta de confianza', mode:'excluir'},
     ],
     employeePrefs: {
       e31: {preferredText: '01/07-15/07', fixed: true},
@@ -729,6 +732,20 @@ function applyMigrations(state){
       state.employeePrefs.e31 = {preferredText:'01/07-15/07', fixed:true};
     }
     state._migrations.fixedPrefCandelariaFumero = true;
+  }
+  if(!state._migrations.mobiliarioUnit202607){
+    const patricia = state.employees.find(e=>e.id==='e24');
+    if(patricia) patricia.unitId = 'mobiliario';
+    if(!state.pairRules.some(pr=>pr.id==='pair5')){
+      state.pairRules.push({id:'pair5', empIds:['e24','e22'], label:'Jefa de Mobiliario y sustituta de confianza', mode:'excluir'});
+    }
+    if(state.unitMax.mobiliario===undefined) state.unitMax.mobiliario = 1;
+    state._migrations.mobiliarioUnit202607 = true;
+  }
+  if(!state._migrations.blockRangeOtono202607){
+    const b1 = state.blockedRanges.find(b=>b.id==='b1');
+    if(b1 && b1.endMD==='09-30'){ b1.endMD = '10-15'; b1.label = 'Vuelta al cole y campaña de otoño'; }
+    state._migrations.blockRangeOtono202607 = true;
   }
   return state;
 }
@@ -1075,7 +1092,10 @@ function isBlockedIndex(y, idx){
 /* Regla: un periodo no puede empezar ni terminar en sábado (el domingo sí vale para terminar,
    así se reincorpora el lunes). */
 function weekendEdgeConflict(startIdx, endIdx, y){
-  if(dateFromIndex(y, startIdx).getUTCDay()===6) return 'El periodo no puede empezar en sábado.';
+  const startDay = dateFromIndex(y, startIdx).getUTCDay(); // 0=domingo ... 5=viernes, 6=sábado
+  if(startDay===5) return 'El periodo no puede empezar en viernes.';
+  if(startDay===6) return 'El periodo no puede empezar en sábado.';
+  if(startDay===0) return 'El periodo no puede empezar en domingo.';
   if(dateFromIndex(y, endIdx).getUTCDay()===6) return 'El periodo no puede terminar en sábado.';
   return null;
 }
@@ -1866,6 +1886,7 @@ function openEmployeeCard(empId){
   document.getElementById('ecSaturdayGroup').value = emp ? (emp.saturdayGroup||'') : '';
   document.getElementById('ecFloater').checked = emp ? !!emp.floater : false;
   document.getElementById('ecSinSustituto').checked = emp ? !!emp.sinSustituto : false;
+  document.getElementById('ecHijos').checked = emp ? !!emp.hijos : false;
   document.getElementById('ecActive').checked = emp ? emp.active!==false : true;
   document.getElementById('ecDelete').style.display = emp ? 'inline-block' : 'none';
 }
@@ -1897,6 +1918,7 @@ document.getElementById('ecSave').onclick = ()=>{
   const saturdayGroup = document.getElementById('ecSaturdayGroup').value;
   const floater = document.getElementById('ecFloater').checked;
   const sinSustituto = document.getElementById('ecSinSustituto').checked;
+  const hijos = document.getElementById('ecHijos').checked;
   const active = document.getElementById('ecActive').checked;
 
   let emp = editingEmployeeId ? EMPLOYEES.find(e=>e.id===editingEmployeeId) : null;
@@ -1913,6 +1935,7 @@ document.getElementById('ecSave').onclick = ()=>{
   if(saturdayGroup) emp.saturdayGroup = saturdayGroup; else delete emp.saturdayGroup;
   if(floater) emp.floater = true; else delete emp.floater;
   if(sinSustituto) emp.sinSustituto = true; else delete emp.sinSustituto;
+  if(hijos) emp.hijos = true; else delete emp.hijos;
   emp.active = active;
 
   if(prefsText) state.employeePrefs[emp.id] = {preferredText: prefsText, fixed: prefsFixed};
@@ -2074,8 +2097,9 @@ function parsePreferredRanges(text, year){
 }
 function rotationScore(emp){
   const flag = state.lastYearFlags[emp.id] ? 1000 : 0;
+  const hijos = emp.hijos ? 200 : 0;
   const sen = emp.seniorityYear ? (new Date().getFullYear()-emp.seniorityYear) : 0;
-  return -flag + sen;
+  return -flag + hijos + sen;
 }
 function unitFitsRange(unitId, startIdx, endIdx, y){
   for(let idx=startIdx; idx<=endIdx; idx++){
@@ -2284,22 +2308,15 @@ document.getElementById('btnAddBlock').onclick = ()=>{
 document.getElementById('btnRotation').onclick = ()=>{
   const box = document.getElementById('rotationList');
   box.innerHTML='';
-  const list = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>{
-    const flagA = state.lastYearFlags[a.id] ? 1000 : 0;
-    const flagB = state.lastYearFlags[b.id] ? 1000 : 0;
-    const senA = a.seniorityYear ? (new Date().getFullYear()-a.seniorityYear) : 0;
-    const senB = b.seniorityYear ? (new Date().getFullYear()-b.seniorityYear) : 0;
-    const scoreA = -flagA + senA;
-    const scoreB = -flagB + senB;
-    return scoreB-scoreA;
-  });
+  const list = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=> rotationScore(b) - rotationScore(a));
   list.forEach((emp,i)=>{
     const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name;
     const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
+    const hijosLabel = emp.hijos ? ' · 👶 hijos a cargo' : '';
     const row = document.createElement('div');
     row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #f0f0f0;font-size:.78rem;';
     row.innerHTML = `<b style="width:22px;color:var(--verde);">${i+1}</b>
-      <span style="flex:1;">${emp.name}<br><small style="color:var(--texto2);">${unit} · ${senLabel}</small></span>`;
+      <span style="flex:1;">${emp.name}<br><small style="color:var(--texto2);">${unit} · ${senLabel}${hijosLabel}</small></span>`;
     const chk = document.createElement('input'); chk.type='checkbox';
     chk.checked = !!state.lastYearFlags[emp.id];
     chk.title='Tuvo esta época el año pasado';
