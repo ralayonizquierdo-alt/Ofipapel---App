@@ -124,23 +124,28 @@ function pageShell(title, body) {
   .topbar img { height: 40px; width: auto; display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
   .topbar h1 {
     margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 25px;
+    font-size: 24px;
     font-weight: 700;
-    letter-spacing: .6px;
+    letter-spacing: .4px;
     text-transform: uppercase;
-    background: linear-gradient(180deg, #ffffff 0%, #d9f5d0 45%, #8DC41E 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    -webkit-text-stroke: 1px rgba(13,61,13,.6);
-    text-shadow: 0 2px 0 rgba(13,61,13,.55), 0 5px 14px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.35);
+    color: #ffffff;
+    text-shadow: 0 2px 0 rgba(13,61,13,.85), 0 4px 12px rgba(0,0,0,.5), 0 0 26px rgba(255,255,255,.25);
   }
   .topbar h1 span {
-    background: linear-gradient(180deg, #fff6da 0%, #F5A623 55%, #c97c0e 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .8px;
+    color: #fff;
+    background: rgba(255,255,255,.16);
+    border: 1px solid rgba(255,255,255,.5);
+    border-radius: 999px;
+    padding: 4px 10px;
+    text-shadow: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.25);
   }
 
   main { padding: 0 16px; }
