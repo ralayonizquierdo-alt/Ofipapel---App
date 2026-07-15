@@ -185,6 +185,7 @@ const FAQ_RULES = [
   },
   {
     keywords: [
+      // español
       'hablar con alguien', 'hablar con una persona', 'hablar con un agente', 'hablar con agente',
       'atencion humana', 'atención humana', 'persona real', 'no me sirve', 'no me ayuda', 'quiero hablar con',
       'queja', 'quejarme', 'poner una queja', 'reclamacion', 'reclamación', 'reclamar', 'denuncia', 'denunciar',
@@ -193,11 +194,21 @@ const FAQ_RULES = [
       'me han estafado', 'me habeis estafado', 'me habéis estafado', 'necesito una solucion', 'necesito una solución',
       'quiero una solucion', 'quiero una solución', 'que solucion me dan', 'qué solución me dan', 'solucion ya',
       'solución ya', 'es urgente', 'muy urgente',
+      // inglés (mismo canal de escalado, para que no dependa del idioma del cliente)
+      'talk to an agent', 'talk to a person', 'talk to a human', 'speak to an agent', 'speak with an agent',
+      'speak to a person', 'speak with a person', 'human agent', 'human person', 'real person', 'a real human',
+      'customer service', 'i want to talk to', 'i want to speak to', 'can i speak with', 'can i talk to',
+      'this is unacceptable', 'i want to complain', 'i have a complaint', 'this is a scam', 'i was scammed',
+      'i need a solution', 'very urgent', 'it is urgent',
     ],
     reply: agenteInfo,
   },
   {
-    keywords: ['presupuesto', 'presupuestos', 'pedir presupuesto', 'solicitar presupuesto', 'necesito un presupuesto', 'quiero un presupuesto', 'hacer un presupuesto'],
+    keywords: [
+      'presupuesto', 'presupuestos', 'pedir presupuesto', 'solicitar presupuesto', 'necesito un presupuesto',
+      'quiero un presupuesto', 'hacer un presupuesto',
+      'quote', 'a quote', 'price quote', 'get a quote', 'request a quote', 'need a quote',
+    ],
     reply: agenteInfo,
   },
   {
