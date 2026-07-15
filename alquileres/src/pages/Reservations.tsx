@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus, Pencil, Trash2, CheckCircle, Circle } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { Reservation, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
 import { formatDate, getNights, getSeason, today } from '../lib/dateUtils'
@@ -28,6 +29,18 @@ export default function Reservations() {
   const [selectedRes, setSelectedRes] = useState<Reservation | null>(null)
   const [filterApt, setFilterApt] = useState('')
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()))
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  useEffect(() => {
+    const editId = searchParams.get('edit')
+    if (!editId || reservations.length === 0) return
+    const res = reservations.find(r => r.id === editId)
+    if (res) {
+      setEditing(res)
+      setShowForm(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, reservations])
 
   const filtered = reservations
     .filter(r => !filterApt || r.apartmentId === filterApt)
@@ -159,7 +172,7 @@ export default function Reservations() {
 function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   { apartments: Apartment[]; prices: PriceEntry[]; editing: Reservation | null; onClose: () => void; onSave: () => void }) {
 
-  const { addReservation, updateReservation, deleteReservation, addPayment, payments } = useData()
+  const { addReservation, updateReservation, deleteReservation, addPayment, updatePayment, payments } = useData()
 
   const [aptId, setAptId] = useState(editing?.apartmentId || apartments[0]?.id || '')
   const [checkIn, setCheckIn] = useState(editing?.checkIn || today())
@@ -213,16 +226,29 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
 
   function handleSave() {
     if (!aptId || !checkIn || !checkOut) return alert('Completa los campos obligatorios')
+    const newTotal = calcTotal(basePrice, cleaningFee, discountPct)
     const data = {
       apartmentId: aptId, guestName, checkIn, checkOut,
       nights: getNights(checkIn, checkOut), stayType, channel,
-      basePrice, cleaningFee, discountPct, total, status, notes,
+      basePrice, cleaningFee, discountPct, total: newTotal, status, notes,
     }
     if (editing) {
       updateReservation(editing.id, data)
+      if (newTotal !== editing.total) {
+        const resPayments = payments.filter(p => p.reservationId === editing.id)
+        const totalPaid = resPayments.filter(p => p.received).reduce((s, p) => s + p.amount, 0)
+        const newPending = newTotal - totalPaid
+        const unreceived = resPayments.filter(p => !p.received)
+        if (unreceived.length === 0) {
+          if (newPending > 0) addPayment({ reservationId: editing.id, amount: newPending, received: false })
+        } else {
+          updatePayment(unreceived[0].id, { amount: Math.max(0, newPending) })
+          unreceived.slice(1).forEach(p => updatePayment(p.id, { amount: 0 }))
+        }
+      }
     } else {
       const res = addReservation(data)
-      addPayment({ reservationId: res.id, amount: total, received: false })
+      addPayment({ reservationId: res.id, amount: newTotal, received: false })
     }
     onSave()
   }
