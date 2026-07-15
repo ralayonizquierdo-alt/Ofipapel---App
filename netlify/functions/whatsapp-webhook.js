@@ -23,7 +23,19 @@
 //     conversaciones y verlas en el panel (netlify/functions/conversations.js)
 
 const crypto = require('crypto');
-const { matchFaqRule, askClaude, notifyOwner, getHistory, appendToHistory, isRepeatQuestion, AGENTE_INFO } = require('./whatsapp-agent-core');
+const {
+  matchFaqRule,
+  askClaude,
+  notifyOwner,
+  getHistory,
+  appendToHistory,
+  appendCustomerMessage,
+  isRepeatQuestion,
+  isBotPaused,
+  pauseBot,
+  AGENTE_INFO,
+} = require('./whatsapp-agent-core');
+const { sendWhatsappMessage } = require('./whatsapp-send');
 
 const GRAPH_API_VERSION = 'v20.0';
 const DEDUP_TTL_MS = 5 * 60 * 1000;
@@ -56,29 +68,6 @@ function verifySignature(event) {
   const b = Buffer.from(expected);
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
-}
-
-async function sendWhatsappMessage(to, body) {
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const token = process.env.WHATSAPP_TOKEN;
-
-  const resp = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      to,
-      type: 'text',
-      text: { body },
-    }),
-  });
-
-  if (!resp.ok) {
-    console.error('Error enviando mensaje de WhatsApp:', resp.status, await resp.text());
-  }
 }
 
 const ESCALATE_QUESTION = '¿Quieres que te ponga en contacto con una persona del equipo?';
@@ -125,6 +114,7 @@ async function handleEscalateReply(message) {
   if (buttonId === 'escalate_yes') {
     await sendWhatsappMessage(message.from, AGENTE_INFO);
     await appendToHistory(message.from, '[El cliente confirmó que quiere hablar con una persona]', AGENTE_INFO);
+    await pauseBot(message.from, 24);
     await notifyOwner({
       channel: 'Meta',
       from: message.from,
@@ -155,6 +145,14 @@ async function handleIncomingMessage(message) {
   }
 
   const text = message.text?.body || '';
+
+  // Bot en pausa (escalado confirmado o respuesta manual reciente desde el panel):
+  // se guarda el mensaje para que lo vea la persona, pero no se contesta automático.
+  if (await isBotPaused(message.from)) {
+    await appendCustomerMessage(message.from, text);
+    return;
+  }
+
   const history = await getHistory(message.from);
   const faqReply = matchFaqRule(text);
   const wantsEscalation = faqReply === AGENTE_INFO || (!faqReply && isRepeatQuestion(text, history));

@@ -46,19 +46,51 @@ async function loadConversation(phone) {
   }
 }
 
-async function appendMessages(phone, userText, botReply) {
+async function pushMessages(phone, newMessages) {
   if (!isConfigured()) return;
   const now = Date.now();
   const messages = await loadConversation(phone);
-  messages.push({ role: 'user', content: userText, ts: now });
-  messages.push({ role: 'assistant', content: botReply, ts: now });
+  for (const m of newMessages) messages.push({ ...m, ts: now });
   const trimmed = messages.slice(-MAX_STORED_MESSAGES);
   await redisCommand(['SET', `conv:${phone}`, JSON.stringify(trimmed)]);
   await redisCommand(['SADD', 'conversations_index', phone]);
 }
 
+async function appendMessages(phone, userText, botReply) {
+  await pushMessages(phone, [
+    { role: 'user', content: userText },
+    { role: 'assistant', content: botReply },
+  ]);
+}
+
+// Guarda solo el mensaje del cliente, sin respuesta del bot emparejada — se usa
+// cuando el bot está en pausa y es una persona quien va a responder desde el panel.
+async function appendCustomerMessage(phone, userText) {
+  await pushMessages(phone, [{ role: 'user', content: userText }]);
+}
+
+// Guarda una respuesta escrita a mano desde el panel de conversaciones (no del bot).
+async function appendAgentMessage(phone, agentText) {
+  await pushMessages(phone, [{ role: 'agent', content: agentText }]);
+}
+
 async function listConversationPhones() {
   return (await redisCommand(['SMEMBERS', 'conversations_index'])) || [];
+}
+
+// Pausa las respuestas automáticas del bot para un número durante N horas (por
+// defecto 24, alineado con la ventana de mensajería de WhatsApp), para que no se
+// crucen con las respuestas manuales de una persona desde el panel.
+async function pauseBot(phone, hours = 24) {
+  await redisCommand(['SET', `paused:${phone}`, '1', 'EX', String(Math.round(hours * 3600))]);
+}
+
+async function isBotPaused(phone) {
+  return (await redisCommand(['GET', `paused:${phone}`])) === '1';
+}
+
+async function resumeBot(phone) {
+  await redisCommand(['DEL', `paused:${phone}`]);
 }
 
 // Prueba de escritura + lectura contra Upstash, devolviendo el error real (código HTTP
@@ -115,4 +147,15 @@ async function diagnose() {
   return { ok: true };
 }
 
-module.exports = { isConfigured, loadConversation, appendMessages, listConversationPhones, diagnose };
+module.exports = {
+  isConfigured,
+  loadConversation,
+  appendMessages,
+  appendCustomerMessage,
+  appendAgentMessage,
+  listConversationPhones,
+  pauseBot,
+  isBotPaused,
+  resumeBot,
+  diagnose,
+};

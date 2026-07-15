@@ -9,8 +9,18 @@
 //   DASHBOARD_PASSWORD      contraseña para entrar al panel
 //   UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN  almacén de conversaciones
 
-const { isConfigured, loadConversation, listConversationPhones, diagnose } = require('./conversation-store');
+const {
+  isConfigured,
+  loadConversation,
+  appendAgentMessage,
+  listConversationPhones,
+  pauseBot,
+  isBotPaused,
+  resumeBot,
+  diagnose,
+} = require('./conversation-store');
 const { AGENTE_INFO } = require('./whatsapp-agent-config');
+const { sendWhatsappMessage } = require('./whatsapp-send');
 
 function checkAuth(event) {
   const password = process.env.DASHBOARD_PASSWORD;
@@ -86,13 +96,17 @@ function renderList(entries, diagnostic) {
   );
 }
 
-function renderThread(phone, messages) {
+function renderThread(phone, messages, { paused, error } = {}) {
   const bubbles = messages
     .map((m) => {
       const isCustomer = m.role === 'user';
+      const isAgent = m.role === 'agent';
       const time = m.ts ? new Date(m.ts).toLocaleString('es-ES') : '';
+      const bg = isCustomer ? '#f0f0f0' : isAgent ? '#cfe3fb' : '#d9f2d9';
+      const label = isAgent ? '<div style="font-size:11px;color:#1a5c9a;font-weight:600;">Tú</div>' : '';
       return `<div style="display:flex;justify-content:${isCustomer ? 'flex-start' : 'flex-end'};margin:10px 0;">
-  <div style="max-width:75%;padding:10px 14px;border-radius:14px;background:${isCustomer ? '#f0f0f0' : '#d9f2d9'};">
+  <div style="max-width:75%;padding:10px 14px;border-radius:14px;background:${bg};">
+    ${label}
     <div>${escapeHtml(m.content)}</div>
     <div style="font-size:11px;color:#888;margin-top:4px;">${escapeHtml(time)}</div>
   </div>
@@ -100,9 +114,29 @@ function renderThread(phone, messages) {
     })
     .join('');
 
+  const errorBanner = error
+    ? '<div style="background:#fdecea;border:1px solid #f5c2c0;border-radius:10px;padding:12px 16px;margin:12px 0;color:#a41c14;font-size:14px;">No se pudo enviar el mensaje. Puede que hayan pasado más de 24h desde el último mensaje del cliente — en ese caso WhatsApp exige una plantilla aprobada en vez de texto libre.</div>'
+    : '';
+
+  const pauseBar = paused
+    ? `<form method="POST" style="margin:12px 0;display:inline;">
+    <input type="hidden" name="phone" value="${escapeHtml(phone)}">
+    <input type="hidden" name="action" value="resume">
+    <button type="submit" style="background:#eee;border:none;padding:6px 12px;border-radius:8px;font-size:13px;">▶ Reactivar bot</button>
+  </form>
+  <span style="font-size:13px;color:#888;"> 🤖 bot en pausa — tus mensajes no se cruzarán con los suyos.</span>`
+    : '';
+
+  const replyForm = `<form method="POST" style="margin-top:20px;">
+  <input type="hidden" name="phone" value="${escapeHtml(phone)}">
+  <input type="hidden" name="action" value="reply">
+  <textarea name="message" rows="3" required placeholder="Escribe tu respuesta..." style="width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #ccc;font-family:inherit;font-size:15px;"></textarea>
+  <button type="submit" style="margin-top:8px;background:#1a6b2f;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:15px;">Enviar</button>
+</form>`;
+
   return pageShell(
     `${phone} · Conversaciones Ofipapel`,
-    `<p><a href="?">← Todas las conversaciones</a></p><h1>${escapeHtml(phone)}</h1>${bubbles || '<p>Sin mensajes.</p>'}`
+    `<p><a href="?">← Todas las conversaciones</a></p><h1>${escapeHtml(phone)}</h1>${pauseBar}${errorBanner}${bubbles || '<p>Sin mensajes.</p>'}${replyForm}`
   );
 }
 
@@ -120,14 +154,46 @@ exports.handler = async (event) => {
     };
   }
 
+  if (event.httpMethod === 'POST') {
+    const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body || '';
+    const params = new URLSearchParams(rawBody);
+    const phone = params.get('phone') || '';
+    const action = params.get('action');
+
+    if (phone && action === 'reply') {
+      const message = (params.get('message') || '').trim();
+      if (message) {
+        const result = await sendWhatsappMessage(phone, message);
+        if (!result.ok) {
+          return {
+            statusCode: 303,
+            headers: { Location: `?phone=${encodeURIComponent(phone)}&error=1` },
+            body: '',
+          };
+        }
+        await appendAgentMessage(phone, message);
+        await pauseBot(phone, 24); // que no se crucen bot y respuesta manual
+      }
+    } else if (phone && action === 'resume') {
+      await resumeBot(phone);
+    }
+
+    return {
+      statusCode: 303,
+      headers: { Location: `?phone=${encodeURIComponent(phone)}` },
+      body: '',
+    };
+  }
+
   const phone = event.queryStringParameters?.phone;
 
   if (phone) {
-    const messages = await loadConversation(phone);
+    const [messages, paused] = await Promise.all([loadConversation(phone), isBotPaused(phone)]);
+    const error = event.queryStringParameters?.error === '1';
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      body: renderThread(phone, messages),
+      body: renderThread(phone, messages, { paused, error }),
     };
   }
 

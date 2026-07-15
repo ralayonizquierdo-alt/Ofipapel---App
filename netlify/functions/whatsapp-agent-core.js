@@ -18,7 +18,11 @@ const conversations = new Map(); // from -> { messages: [{role, content}], updat
 async function getHistory(from) {
   if (conversationStore.isConfigured()) {
     const messages = await conversationStore.loadConversation(from);
-    return messages.slice(-MAX_HISTORY_MESSAGES).map(({ role, content }) => ({ role, content }));
+    // Los mensajes escritos a mano desde el panel se guardan con role "agent"; de
+    // cara a Claude se presentan como "assistant" (la API solo admite user/assistant).
+    return messages
+      .slice(-MAX_HISTORY_MESSAGES)
+      .map(({ role, content }) => ({ role: role === 'agent' ? 'assistant' : role, content }));
   }
 
   const conv = conversations.get(from);
@@ -45,6 +49,33 @@ async function appendToHistory(from, userText, botReply) {
   conv.messages = conv.messages.slice(-MAX_HISTORY_MESSAGES);
   conv.updatedAt = now;
   conversations.set(from, conv);
+}
+
+// Guarda solo el mensaje del cliente (sin respuesta), para cuando el bot está en
+// pausa porque una persona está atendiendo esa conversación desde el panel.
+async function appendCustomerMessage(from, userText) {
+  if (conversationStore.isConfigured()) {
+    await conversationStore.appendCustomerMessage(from, userText);
+    return;
+  }
+  const now = Date.now();
+  const conv = conversations.get(from) || { messages: [], updatedAt: now };
+  conv.messages.push({ role: 'user', content: userText });
+  conv.messages = conv.messages.slice(-MAX_HISTORY_MESSAGES);
+  conv.updatedAt = now;
+  conversations.set(from, conv);
+}
+
+// Pausa/reanudación del bot para un número (requiere Upstash: sin él, el bot nunca
+// se pausa y responde siempre, que es el comportamiento de siempre).
+async function isBotPaused(from) {
+  if (!conversationStore.isConfigured()) return false;
+  return conversationStore.isBotPaused(from);
+}
+
+async function pauseBot(from, hours = 24) {
+  if (!conversationStore.isConfigured()) return;
+  await conversationStore.pauseBot(from, hours);
 }
 
 function matchFaqRule(text) {
@@ -171,4 +202,15 @@ async function notifyOwner({ channel, from, customerMessage, botReply }) {
   }
 }
 
-module.exports = { matchFaqRule, askClaude, notifyOwner, getHistory, appendToHistory, isRepeatQuestion, AGENTE_INFO };
+module.exports = {
+  matchFaqRule,
+  askClaude,
+  notifyOwner,
+  getHistory,
+  appendToHistory,
+  appendCustomerMessage,
+  isRepeatQuestion,
+  isBotPaused,
+  pauseBot,
+  AGENTE_INFO,
+};
