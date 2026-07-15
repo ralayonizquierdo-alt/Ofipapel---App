@@ -1,6 +1,6 @@
 // Panel web para revisar las conversaciones archivadas del bot de WhatsApp.
 // Protegido con autenticación básica (usuario cualquiera, contraseña = DASHBOARD_PASSWORD).
-// (deploy trigger: recoger URL/TOKEN de Upstash copiados sin la traducción del navegador)
+// (deploy trigger: recoger el token de Upstash regenerado)
 //
 // URL: https://<tu-sitio>.netlify.app/.netlify/functions/conversations
 //   ?phone=34600000000   -> ver el hilo completo de ese número
