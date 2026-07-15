@@ -33,7 +33,8 @@ const {
   isRepeatQuestion,
   isBotPaused,
   pauseBot,
-  AGENTE_INFO,
+  agenteInfo,
+  isAgenteInfoMessage,
 } = require('./whatsapp-agent-core');
 const { sendWhatsappMessage } = require('./whatsapp-send');
 
@@ -107,19 +108,20 @@ async function sendEscalateButtons(to) {
 
 // Si el cliente confirma o rechaza los botones "¿Quieres hablar con una persona?".
 // Solo cuando confirma con "Sí" se avisa por email y se marca en el panel de
-// conversaciones (que detecta el aviso buscando AGENTE_INFO en el historial).
+// conversaciones (que detecta el aviso con isAgenteInfoMessage sobre el historial).
 async function handleEscalateReply(message) {
   const buttonId = message.interactive.button_reply.id;
 
   if (buttonId === 'escalate_yes') {
-    await sendWhatsappMessage(message.from, AGENTE_INFO);
-    await appendToHistory(message.from, '[El cliente confirmó que quiere hablar con una persona]', AGENTE_INFO);
+    const reply = agenteInfo();
+    await sendWhatsappMessage(message.from, reply);
+    await appendToHistory(message.from, '[El cliente confirmó que quiere hablar con una persona]', reply);
     await pauseBot(message.from, 24);
     await notifyOwner({
       channel: 'Meta',
       from: message.from,
       customerMessage: '(confirmó que quiere hablar con una persona del equipo)',
-      botReply: AGENTE_INFO,
+      botReply: reply,
     });
     return;
   }
@@ -155,7 +157,7 @@ async function handleIncomingMessage(message) {
 
   const history = await getHistory(message.from);
   const faqReply = matchFaqRule(text);
-  const wantsEscalation = faqReply === AGENTE_INFO || (!faqReply && isRepeatQuestion(text, history));
+  const wantsEscalation = isAgenteInfoMessage(faqReply || '') || (!faqReply && isRepeatQuestion(text, history));
 
   if (wantsEscalation) {
     await sendEscalateButtons(message.from);

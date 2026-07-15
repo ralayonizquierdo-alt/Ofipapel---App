@@ -19,7 +19,7 @@ const {
   resumeBot,
   diagnose,
 } = require('./conversation-store');
-const { AGENTE_INFO } = require('./whatsapp-agent-config');
+const { isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const { sendWhatsappMessage } = require('./whatsapp-send');
 
 function checkAuth(event) {
@@ -76,7 +76,7 @@ function pageShell(title, body) {
 function needsAttention(messages) {
   let pending = false;
   for (const m of messages) {
-    if (m.role === 'assistant' && m.content === AGENTE_INFO) pending = true;
+    if (m.role === 'assistant' && isAgenteInfoMessage(m.content)) pending = true;
     else if (m.role === 'agent') pending = false;
   }
   return pending;

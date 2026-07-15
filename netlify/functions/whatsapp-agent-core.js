@@ -2,7 +2,7 @@
 // (Meta Cloud API) como por twilio-webhook.js (Twilio), para no duplicar el
 // matching de FAQ ni la llamada a Claude entre los dos canales.
 
-const { FAQ_RULES, AI_SYSTEM_PROMPT, AGENTE_INFO } = require('./whatsapp-agent-config');
+const { FAQ_RULES, AI_SYSTEM_PROMPT, agenteInfo, isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const conversationStore = require('./conversation-store');
 
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
@@ -212,5 +212,6 @@ module.exports = {
   isRepeatQuestion,
   isBotPaused,
   pauseBot,
-  AGENTE_INFO,
+  agenteInfo,
+  isAgenteInfoMessage,
 };

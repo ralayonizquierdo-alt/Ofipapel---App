@@ -31,7 +31,52 @@ const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿E
 const REGISTRO_URL = 'https://ofipapel.net/mi-cuenta/';
 const REGISTRO_INFO = `Puedes registrarte aquí: ${REGISTRO_URL}\nEl mismo registro sirve tanto para comprar en la web como en cualquiera de nuestras tiendas. Al registrarte, tienes una tarifa de precios mejorada. Además, si es tu primer pedido en la web, puedes usar el código B1ENVEN1DA para un 10% extra de descuento.`;
 
-const AGENTE_INFO = `Claro, ahora mismo un miembro del equipo revisará tu conversación y te atenderá personalmente. Si es urgente, también puedes llamarnos directamente al ${STORES[0].phone} en horario de tienda (${STORES[0].hours}).`;
+// Horario comercial estructurado (mismo horario que STORES[0].hours, en texto), para
+// poder comprobar por código si ahora mismo hay alguien del equipo disponible o no.
+// Minutos desde medianoche, hora de Canarias. Día: 0=domingo ... 6=sábado.
+const TIMEZONE = 'Atlantic/Canary';
+const BUSINESS_HOURS_RANGES = {
+  1: [[540, 810], [990, 1200]], // lunes 9:00-13:30 y 16:30-20:00
+  2: [[540, 810], [990, 1200]],
+  3: [[540, 810], [990, 1200]],
+  4: [[540, 810], [990, 1200]],
+  5: [[540, 810], [990, 1200]],
+  6: [[570, 810]], // sábado 9:30-13:30
+  0: [], // domingo cerrado
+};
+
+function isWithinBusinessHours(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TIMEZONE,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+
+  const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const day = weekdayMap[parts.find((p) => p.type === 'weekday').value];
+  const minutesNow = Number(parts.find((p) => p.type === 'hour').value) * 60 + Number(parts.find((p) => p.type === 'minute').value);
+
+  return (BUSINESS_HOURS_RANGES[day] || []).some(([start, end]) => minutesNow >= start && minutesNow < end);
+}
+
+// Dos variantes del mensaje de escalado a persona: en horario dice que se revisa
+// "ahora mismo"; fuera de horario deja claro que hasta que abra la tienda solo
+// puede seguir ayudando el bot, para no generar una falsa expectativa.
+const AGENTE_INFO_ABIERTO = `Claro, ahora mismo un miembro del equipo revisará tu conversación y te atenderá personalmente. Si es urgente, también puedes llamarnos directamente al ${STORES[0].phone} en horario de tienda (${STORES[0].hours}).`;
+
+const AGENTE_INFO_CERRADO = `Claro, en cuanto abramos (${STORES[0].hours}) un miembro del equipo revisará tu conversación y te atenderá personalmente. Ahora mismo estamos fuera de horario, así que de momento solo puedo seguir ayudándote yo — cuéntame qué necesitas y lo intento.`;
+
+function agenteInfo() {
+  return isWithinBusinessHours() ? AGENTE_INFO_ABIERTO : AGENTE_INFO_CERRADO;
+}
+
+// Para detectar si un texto ya guardado es "el" mensaje de escalado a persona,
+// sin importar si se mandó en horario o fuera de horario.
+function isAgenteInfoMessage(text) {
+  return text === AGENTE_INFO_ABIERTO || text === AGENTE_INFO_CERRADO;
+}
 
 const PEDIDOS_INFO = `Para el seguimiento de tu pedido o cualquier incidencia relacionada, lo mejor es que contactes directamente con el departamento de Pedidos: ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com.`;
 
@@ -143,11 +188,11 @@ const FAQ_RULES = [
       'quiero una solucion', 'quiero una solución', 'que solucion me dan', 'qué solución me dan', 'solucion ya',
       'solución ya', 'es urgente', 'muy urgente',
     ],
-    reply: AGENTE_INFO,
+    reply: agenteInfo,
   },
   {
     keywords: ['presupuesto', 'presupuestos', 'pedir presupuesto', 'solicitar presupuesto', 'necesito un presupuesto', 'quiero un presupuesto', 'hacer un presupuesto'],
-    reply: AGENTE_INFO,
+    reply: agenteInfo,
   },
   {
     keywords: ['gracias', 'muchas gracias', 'perfecto', 'vale gracias'],
@@ -181,14 +226,18 @@ Instrucciones:
 - Si preguntan por productos o precios concretos que no conoces con certeza, no inventes datos: invita a llamar o visitar la tienda.
 - Si preguntan algo concreto sobre un pedido ya hecho (en qué estado está, cuándo llega exactamente, una incidencia, un número de pedido) y no tienes esa información, no inventes nada: indícales que contacten con Pedidos al ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com.
 - Si es un tema administrativo (facturas, pagos, cuentas) que no puedas resolver, indícales que contacten con Administración al ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.
-- Si el mensaje parece una queja, un pedido complejo, o el cliente muestra que no está satisfecho con tu respuesta, ofrécele amablemente hablar con una persona del equipo y facilita el teléfono directo: ${STORES[0].phone}.
+- Si el mensaje parece una queja, un pedido complejo, o el cliente muestra que no está satisfecho con tu respuesta, ofrécele amablemente hablar con una persona del equipo y facilita el teléfono directo: ${STORES[0].phone}. Ten en cuenta el horario de tienda (${STORES[0].hours}): si ahora mismo está cerrado, dilo y aclara que la atención personal será cuando abramos, no al instante.
 - No uses markdown ni listas largas, escribe como un mensaje de texto normal.`;
 
 module.exports = {
   BUSINESS_NAME,
   STORES,
   GREETING,
-  AGENTE_INFO,
+  AGENTE_INFO_ABIERTO,
+  AGENTE_INFO_CERRADO,
+  agenteInfo,
+  isAgenteInfoMessage,
+  isWithinBusinessHours,
   FAQ_RULES,
   AI_SYSTEM_PROMPT,
 };

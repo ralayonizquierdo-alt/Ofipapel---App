@@ -17,7 +17,7 @@
 //   UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN  (opcional) para archivar las
 //     conversaciones y verlas en el panel (netlify/functions/conversations.js)
 
-const { matchFaqRule, askClaude, notifyOwner, getHistory, appendToHistory, isRepeatQuestion, AGENTE_INFO } = require('./whatsapp-agent-core');
+const { matchFaqRule, askClaude, notifyOwner, getHistory, appendToHistory, isRepeatQuestion, agenteInfo } = require('./whatsapp-agent-core');
 
 function escapeXml(text) {
   return text
@@ -43,7 +43,7 @@ exports.handler = async (event) => {
   let reply;
   try {
     const history = await getHistory(from);
-    reply = matchFaqRule(text) || (isRepeatQuestion(text, history) ? AGENTE_INFO : await askClaude(text, history));
+    reply = matchFaqRule(text) || (isRepeatQuestion(text, history) ? agenteInfo() : await askClaude(text, history));
   } catch (err) {
     console.error('Error procesando mensaje de Twilio:', err);
     reply = 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
