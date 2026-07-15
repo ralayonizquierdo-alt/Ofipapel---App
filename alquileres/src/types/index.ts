@@ -94,6 +94,21 @@ export interface Repair {
   createdAt: string
 }
 
+export interface DeletedRepair {
+  id: string
+  originalId: string
+  reason: string
+  deletedAt: string
+  deletedBy: string
+  apartmentId: string
+  repairDate?: string
+  item: string
+  supplier?: string
+  document?: string
+  amount?: number
+  entryNumber?: string
+}
+
 export interface QuarterSummary {
   quarter: 1 | 2 | 3 | 4
   year: number
