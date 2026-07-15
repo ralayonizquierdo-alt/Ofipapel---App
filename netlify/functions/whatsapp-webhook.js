@@ -1,9 +1,15 @@
 // Webhook de WhatsApp Cloud API (Meta) para el agente de respuesta automática de Ofipapel.
-// (deploy trigger: recoger UPSTASH_REDIS_REST_URL/TOKEN y DASHBOARD_PASSWORD añadidas en Netlify)
+// (deploy trigger: escalado a humano con confirmación por botones)
 //
 // GET  -> verificación del webhook que hace Meta al configurarlo.
 // POST -> mensajes entrantes de clientes; responde con reglas rápidas (FAQ) o,
 //         si ninguna coincide, con una respuesta generada por Claude.
+//
+// Escalado a persona: cuando una regla de queja/presupuesto/etc. o una pregunta
+// repetida sugieren que hace falta una persona, el bot NO escala directo — manda
+// unos botones "¿Quieres que te ponga en contacto con una persona?" (Sí/No) y solo
+// si el cliente confirma "Sí" se avisa por email (RESEND_API_KEY/OWNER_EMAIL) y se
+// marca la conversación en el panel (netlify/functions/conversations.js).
 //
 // Variables de entorno necesarias (configúralas en Netlify > Site settings > Environment variables):
 //   WHATSAPP_VERIFY_TOKEN   token que tú inventas y usas al configurar el webhook en Meta
@@ -11,8 +17,8 @@
 //   WHATSAPP_PHONE_NUMBER_ID  id del número de WhatsApp Business (Meta for Developers)
 //   WHATSAPP_APP_SECRET     (opcional pero recomendado) app secret, para verificar la firma de Meta
 //   ANTHROPIC_API_KEY       api key de Claude, para responder cuando no hay una regla de FAQ
-//   RESEND_API_KEY          (opcional) api key de resend.com, para avisar por email de cada conversación
-//   OWNER_EMAIL             (opcional) email donde recibir el aviso de cada conversación
+//   RESEND_API_KEY / OWNER_EMAIL  para que llegue el aviso por email cuando el cliente
+//     confirma que quiere hablar con una persona (sin esto, el aviso se omite en silencio)
 //   UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN  (opcional) para archivar las
 //     conversaciones y verlas en el panel (netlify/functions/conversations.js)
 
@@ -75,7 +81,71 @@ async function sendWhatsappMessage(to, body) {
   }
 }
 
+const ESCALATE_QUESTION = '¿Quieres que te ponga en contacto con una persona del equipo?';
+const ESCALATE_DECLINE_REPLY = 'Entendido, sigo por aquí. Cuéntame otra vez qué necesitas e intento ayudarte.';
+
+async function sendEscalateButtons(to) {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = process.env.WHATSAPP_TOKEN;
+
+  const resp = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        body: { text: ESCALATE_QUESTION },
+        action: {
+          buttons: [
+            { type: 'reply', reply: { id: 'escalate_yes', title: '✅ Sí' } },
+            { type: 'reply', reply: { id: 'escalate_no', title: '✖️ No' } },
+          ],
+        },
+      },
+    }),
+  });
+
+  if (!resp.ok) {
+    console.error('Error enviando botones de escalado:', resp.status, await resp.text());
+  }
+}
+
+// Si el cliente confirma o rechaza los botones "¿Quieres hablar con una persona?".
+// Solo cuando confirma con "Sí" se avisa por email y se marca en el panel de
+// conversaciones (que detecta el aviso buscando AGENTE_INFO en el historial).
+async function handleEscalateReply(message) {
+  const buttonId = message.interactive.button_reply.id;
+
+  if (buttonId === 'escalate_yes') {
+    await sendWhatsappMessage(message.from, AGENTE_INFO);
+    await appendToHistory(message.from, '[El cliente confirmó que quiere hablar con una persona]', AGENTE_INFO);
+    await notifyOwner({
+      channel: 'Meta',
+      from: message.from,
+      customerMessage: '(confirmó que quiere hablar con una persona del equipo)',
+      botReply: AGENTE_INFO,
+    });
+    return;
+  }
+
+  if (buttonId === 'escalate_no') {
+    await sendWhatsappMessage(message.from, ESCALATE_DECLINE_REPLY);
+    await appendToHistory(message.from, '[El cliente prefirió seguir con el bot]', ESCALATE_DECLINE_REPLY);
+  }
+}
+
 async function handleIncomingMessage(message) {
+  if (message.type === 'interactive' && message.interactive?.type === 'button_reply') {
+    await handleEscalateReply(message);
+    return;
+  }
+
   if (message.type !== 'text') {
     await sendWhatsappMessage(
       message.from,
@@ -86,10 +156,18 @@ async function handleIncomingMessage(message) {
 
   const text = message.text?.body || '';
   const history = await getHistory(message.from);
-  const reply = matchFaqRule(text) || (isRepeatQuestion(text, history) ? AGENTE_INFO : await askClaude(text, history));
+  const faqReply = matchFaqRule(text);
+  const wantsEscalation = faqReply === AGENTE_INFO || (!faqReply && isRepeatQuestion(text, history));
+
+  if (wantsEscalation) {
+    await sendEscalateButtons(message.from);
+    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${ESCALATE_QUESTION}`);
+    return;
+  }
+
+  const reply = faqReply || (await askClaude(text, history));
   await appendToHistory(message.from, text, reply);
   await sendWhatsappMessage(message.from, reply);
-  await notifyOwner({ channel: 'Meta', from: message.from, customerMessage: text, botReply: reply });
 }
 
 exports.handler = async (event) => {

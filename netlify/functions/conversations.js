@@ -10,6 +10,7 @@
 //   UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN  almacén de conversaciones
 
 const { isConfigured, loadConversation, listConversationPhones, diagnose } = require('./conversation-store');
+const { AGENTE_INFO } = require('./whatsapp-agent-config');
 
 function checkAuth(event) {
   const password = process.env.DASHBOARD_PASSWORD;
@@ -69,9 +70,15 @@ function renderDiagnostic(diagnostic) {
 </div>`;
 }
 
-function renderList(phones, diagnostic) {
-  const items = phones
-    .map((p) => `<li><a href="?phone=${encodeURIComponent(p)}">${escapeHtml(p)}</a></li>`)
+function renderList(entries, diagnostic) {
+  // Las conversaciones con escalado confirmado van primero, para que salten a la vista.
+  const sorted = [...entries].sort((a, b) => Number(b.escalated) - Number(a.escalated));
+  const items = sorted
+    .map(({ phone, escalated }) => {
+      const label = escalated ? `⚠️ ${escapeHtml(phone)} — requiere atención` : escapeHtml(phone);
+      const style = escalated ? 'background:#fdecea;color:#a41c14;font-weight:600;' : '';
+      return `<li><a href="?phone=${encodeURIComponent(phone)}" style="${style}">${label}</a></li>`;
+    })
     .join('');
   return pageShell(
     'Conversaciones · Ofipapel',
@@ -125,9 +132,16 @@ exports.handler = async (event) => {
   }
 
   const [phones, diagnostic] = await Promise.all([listConversationPhones(), diagnose()]);
+  const entries = await Promise.all(
+    phones.map(async (phone) => {
+      const messages = await loadConversation(phone);
+      const escalated = messages.some((m) => m.role === 'assistant' && m.content === AGENTE_INFO);
+      return { phone, escalated };
+    })
+  );
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    body: renderList(phones, diagnostic),
+    body: renderList(entries, diagnostic),
   };
 };
