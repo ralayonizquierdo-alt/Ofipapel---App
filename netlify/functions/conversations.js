@@ -70,6 +70,18 @@ function pageShell(title, body) {
 </html>`;
 }
 
+// "Requiere atención" solo si el escalado más reciente todavía no ha tenido
+// ninguna respuesta manual (role "agent") después. En cuanto contestas desde el
+// panel, se considera atendida (aunque quede en el historial que se escaló).
+function needsAttention(messages) {
+  let pending = false;
+  for (const m of messages) {
+    if (m.role === 'assistant' && m.content === AGENTE_INFO) pending = true;
+    else if (m.role === 'agent') pending = false;
+  }
+  return pending;
+}
+
 function renderDiagnostic(diagnostic) {
   if (diagnostic.ok) {
     return '<p style="color:#1a6b2f;font-size:14px;">✓ Conexión con Upstash correcta (lectura y escritura).</p>';
@@ -127,7 +139,7 @@ function renderThread(phone, messages, { paused, error } = {}) {
   <span style="font-size:13px;color:#888;"> 🤖 bot en pausa — tus mensajes no se cruzarán con los suyos.</span>`
     : '';
 
-  const replyForm = `<form method="POST" style="margin-top:20px;">
+  const replyForm = `<form method="POST" style="margin-top:20px;" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Enviando...';">
   <input type="hidden" name="phone" value="${escapeHtml(phone)}">
   <input type="hidden" name="action" value="reply">
   <textarea name="message" rows="3" required placeholder="Escribe tu respuesta..." style="width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #ccc;font-family:inherit;font-size:15px;"></textarea>
@@ -201,7 +213,7 @@ exports.handler = async (event) => {
   const entries = await Promise.all(
     phones.map(async (phone) => {
       const messages = await loadConversation(phone);
-      const escalated = messages.some((m) => m.role === 'assistant' && m.content === AGENTE_INFO);
+      const escalated = needsAttention(messages);
       return { phone, escalated };
     })
   );
