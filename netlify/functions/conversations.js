@@ -103,8 +103,8 @@ function pageShell(title, body) {
     margin: 0 auto 48px;
     padding: 0 0 16px;
     background:
-      linear-gradient(rgba(242,248,242,.94), rgba(242,248,242,.94)),
-      url('/fondo-ofipapel.jpg') center top / cover no-repeat;
+      linear-gradient(rgba(242,248,242,.55), rgba(242,248,242,.65)),
+      url('/fondo-conversaciones.jpg') center / cover fixed;
     background-color: var(--bg);
     color: var(--text);
     -webkit-font-smoothing: antialiased;
@@ -117,18 +117,30 @@ function pageShell(title, body) {
     padding: 22px 20px 26px;
     margin-bottom: 22px;
     background:
-      linear-gradient(135deg, rgba(13,61,13,.88) 0%, rgba(26,92,26,.87) 40%, rgba(35,117,35,.85) 70%, rgba(58,143,42,.82) 100%),
-      url('/fondo-ofipapel.jpg') center 30% / cover;
-    box-shadow: 0 6px 20px rgba(13,61,13,.25);
+      linear-gradient(135deg, rgba(13,61,13,.62) 0%, rgba(26,92,26,.58) 40%, rgba(35,117,35,.55) 70%, rgba(58,143,42,.5) 100%),
+      url('/fondo-conversaciones.jpg') center 30% / cover;
+    box-shadow: 0 6px 20px rgba(13,61,13,.3);
   }
-  .topbar img { height: 40px; width: auto; display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
+  .topbar img { height: 40px; width: auto; display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
   .topbar h1 {
     margin: 0;
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: .2px;
-    color: #fff;
-    text-shadow: 0 1px 0 rgba(255,255,255,.18), 0 3px 8px rgba(0,0,0,.35);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 25px;
+    font-weight: 700;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    background: linear-gradient(180deg, #ffffff 0%, #d9f5d0 45%, #8DC41E 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(13,61,13,.6);
+    text-shadow: 0 2px 0 rgba(13,61,13,.55), 0 5px 14px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.35);
+  }
+  .topbar h1 span {
+    background: linear-gradient(180deg, #fff6da 0%, #F5A623 55%, #c97c0e 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
   main { padding: 0 16px; }
@@ -268,7 +280,7 @@ function pageShell(title, body) {
 <body>
 <div class="topbar">
   <img src="data:image/png;base64,${LOGO_BASE64}" alt="Ofipapel">
-  <h1>Conversaciones</h1>
+  <h1>WhatsApp <span>BOT</span></h1>
 </div>
 <main>${body}</main>
 </body>

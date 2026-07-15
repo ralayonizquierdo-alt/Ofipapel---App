@@ -30,6 +30,7 @@ cp hero-productos.jpg _site/ 2>/dev/null || true
 cp logo-canarias-ink.png _site/ 2>/dev/null || true
 cp logo-ofipapel.png _site/ 2>/dev/null || true
 cp fondo-ofipapel.jpg _site/ 2>/dev/null || true
+cp fondo-conversaciones.jpg _site/ 2>/dev/null || true
 cp privacidad.html _site/ 2>/dev/null || true
 cp 404.html _site/ 2>/dev/null || true
 
