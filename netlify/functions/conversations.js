@@ -19,7 +19,62 @@ const {
   diagnose,
 } = require('./conversation-store');
 const { isAgenteInfoMessage } = require('./whatsapp-agent-config');
-const { sendWhatsappMessage } = require('./whatsapp-send');
+const { sendWhatsappMessage, uploadWhatsappMedia, sendWhatsappMedia } = require('./whatsapp-send');
+
+// Tipos de adjunto admitidos desde el panel y su tope de tamaño. WhatsApp exige
+// imagen para jpeg/png y "documento" para el resto (pdf); el tope real lo pone
+// Netlify (~6MB por petición), así que nos quedamos algo por debajo para tener margen.
+const ALLOWED_ATTACHMENT_TYPES = { 'image/jpeg': 'image', 'image/png': 'image', 'application/pdf': 'document' };
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
+// Parser mínimo de multipart/form-data (sin dependencias) para el formulario de
+// respuesta del panel, que necesita poder adjuntar un archivo binario.
+function parseMultipart(buffer, contentType) {
+  const boundaryMatch = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType || '');
+  const boundary = boundaryMatch ? (boundaryMatch[1] || boundaryMatch[2]).trim() : null;
+  if (!boundary) return { fields: {}, files: [] };
+
+  const boundaryBuf = Buffer.from(`--${boundary}`);
+  const headerSep = Buffer.from('\r\n\r\n');
+  const fields = {};
+  const files = [];
+
+  let start = buffer.indexOf(boundaryBuf);
+  while (start !== -1) {
+    const next = buffer.indexOf(boundaryBuf, start + boundaryBuf.length);
+    if (next === -1) break;
+
+    let part = buffer.slice(start + boundaryBuf.length, next);
+    if (part.slice(0, 2).toString() === '\r\n') part = part.slice(2);
+    if (part.slice(-2).toString() === '\r\n') part = part.slice(0, -2);
+
+    if (part.length) {
+      const sepIdx = part.indexOf(headerSep);
+      if (sepIdx !== -1) {
+        const headerText = part.slice(0, sepIdx).toString('utf8');
+        const body = part.slice(sepIdx + headerSep.length);
+        const nameMatch = /name="([^"]+)"/i.exec(headerText);
+        const filenameMatch = /filename="([^"]*)"/i.exec(headerText);
+        const typeMatch = /Content-Type:\s*([^\r\n]+)/i.exec(headerText);
+        const name = nameMatch ? nameMatch[1] : null;
+
+        if (name && filenameMatch && filenameMatch[1]) {
+          files.push({
+            fieldName: name,
+            filename: filenameMatch[1],
+            contentType: typeMatch ? typeMatch[1].trim() : 'application/octet-stream',
+            data: body,
+          });
+        } else if (name) {
+          fields[name] = body.toString('utf8');
+        }
+      }
+    }
+    start = next;
+  }
+
+  return { fields, files };
+}
 
 // Logo real de Ofipapel (design-studio/assets/logo-ofipapel-transparente.png), embebido
 // como base64 para que el panel sea autocontenido y no dependa de que build.sh lo copie.
@@ -62,6 +117,8 @@ const ICON = {
   back: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>',
   send: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg>',
   chevron: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
+  clip: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05 12.25 20.24a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.48"/></svg>',
+  file: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
 };
 
 function pageShell(title, body) {
@@ -279,6 +336,19 @@ function pageShell(title, body) {
     transition: border-color .15s ease, box-shadow .15s ease;
   }
   .reply-form textarea:focus { outline: none; border-color: var(--green-light); box-shadow: 0 0 0 3px rgba(61,175,61,.18); }
+
+  .reply-toolbar { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .attach-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+    background: var(--bg-soft); border: 1.5px solid var(--border); color: var(--green-mid);
+    cursor: pointer; transition: background .15s ease, border-color .15s ease;
+  }
+  .attach-btn:hover { background: #ddf0dd; border-color: var(--green-light); }
+  .attach-btn input[type="file"] { display: none; }
+  .attach-filename { display: none; align-items: center; gap: 6px; font-size: 13px; color: var(--green-dark); background: var(--bg-soft); border: 1px solid var(--border); border-radius: 999px; padding: 5px 10px 5px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .attach-filename.show { display: inline-flex; }
+  .attach-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
   .reply-form .btn-primary { margin-top: 10px; }
 </style>
 </head>
@@ -351,8 +421,15 @@ function renderThread(phone, messages, { paused, error } = {}) {
     })
     .join('');
 
+  const ERROR_MESSAGES = {
+    send: 'No se pudo enviar el mensaje. Puede que hayan pasado más de 24h desde el último mensaje del cliente — en ese caso WhatsApp exige una plantilla aprobada en vez de texto libre.',
+    size: `El archivo pesa demasiado (máximo ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB).`,
+    type: 'Solo se admiten imágenes (JPG/PNG) o PDF como adjunto.',
+    upload: 'No se pudo subir el adjunto a WhatsApp. Inténtalo de nuevo.',
+    empty: 'Escribe un mensaje o adjunta un archivo antes de enviar.',
+  };
   const errorBanner = error
-    ? `<div class="error-banner">${ICON.alert}<span>No se pudo enviar el mensaje. Puede que hayan pasado más de 24h desde el último mensaje del cliente — en ese caso WhatsApp exige una plantilla aprobada en vez de texto libre.</span></div>`
+    ? `<div class="error-banner">${ICON.alert}<span>${escapeHtml(ERROR_MESSAGES[error] || ERROR_MESSAGES.send)}</span></div>`
     : '';
 
   const pauseBar = paused
@@ -367,11 +444,27 @@ function renderThread(phone, messages, { paused, error } = {}) {
   </div>`
     : '';
 
-  const replyForm = `<form class="reply-form" method="POST" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').lastChild.textContent=' Enviando...';">
+  const replyForm = `<form class="reply-form" method="POST" enctype="multipart/form-data" onsubmit="
+    var ta=this.querySelector('textarea'), fi=this.querySelector('input[type=file]');
+    if (!ta.value.trim() && (!fi.files || !fi.files.length)) { alert('Escribe un mensaje o adjunta un archivo.'); return false; }
+    var b=this.querySelector('button[type=submit]'); b.disabled=true; b.lastChild.textContent=' Enviando...';
+  ">
   <input type="hidden" name="phone" value="${escapeHtml(phone)}">
   <input type="hidden" name="action" value="reply">
-  <textarea name="message" rows="3" required placeholder="Escribe tu respuesta..."></textarea>
-  <button type="submit" class="btn btn-primary">${ICON.send} Enviar</button>
+  <textarea name="message" rows="3" placeholder="Escribe tu respuesta..."></textarea>
+  <div class="reply-toolbar">
+    <label class="attach-btn" title="Adjuntar imagen o PDF">
+      ${ICON.clip}
+      <input type="file" name="attachment" accept="image/jpeg,image/png,application/pdf" onchange="
+        var f=this.files[0], tag=this.closest('.reply-toolbar').querySelector('.attach-filename');
+        if (f) { tag.classList.add('show'); tag.querySelector('span').textContent = f.name; }
+        else { tag.classList.remove('show'); }
+      ">
+    </label>
+    <span class="attach-filename">${ICON.file}<span></span></span>
+    <button type="submit" class="btn btn-primary" style="margin-left:auto;">${ICON.send} Enviar</button>
+  </div>
+  <div class="attach-hint">Imágenes (JPG/PNG) o PDF, máximo ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB.</div>
 </form>`;
 
   return pageShell(
@@ -397,22 +490,55 @@ exports.handler = async (event) => {
   }
 
   if (event.httpMethod === 'POST') {
-    const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body || '';
-    const params = new URLSearchParams(rawBody);
-    const phone = params.get('phone') || '';
-    const action = params.get('action');
+    const contentType = event.headers['content-type'] || event.headers['Content-Type'] || '';
+    let phone = '';
+    let action = '';
+    let message = '';
+    let file = null;
+
+    if (contentType.includes('multipart/form-data')) {
+      const rawBuffer = event.isBase64Encoded
+        ? Buffer.from(event.body, 'base64')
+        : Buffer.from(event.body || '', 'binary');
+      const { fields, files } = parseMultipart(rawBuffer, contentType);
+      phone = fields.phone || '';
+      action = fields.action || '';
+      message = (fields.message || '').trim();
+      file = files.find((f) => f.fieldName === 'attachment' && f.data && f.data.length > 0) || null;
+    } else {
+      const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body || '';
+      const params = new URLSearchParams(rawBody);
+      phone = params.get('phone') || '';
+      action = params.get('action') || '';
+      message = (params.get('message') || '').trim();
+    }
+
+    const redirect = (errorCode) => ({
+      statusCode: 303,
+      headers: { Location: `?phone=${encodeURIComponent(phone)}${errorCode ? `&error=${errorCode}` : ''}` },
+      body: '',
+    });
 
     if (phone && action === 'reply') {
-      const message = (params.get('message') || '').trim();
-      if (message) {
+      if (!message && !file) return redirect('empty');
+
+      if (file) {
+        if (file.data.length > MAX_ATTACHMENT_BYTES) return redirect('size');
+        const kind = ALLOWED_ATTACHMENT_TYPES[file.contentType];
+        if (!kind) return redirect('type');
+
+        const upload = await uploadWhatsappMedia(file.data, file.contentType, file.filename);
+        if (!upload.ok) return redirect('upload');
+
+        const send = await sendWhatsappMedia(phone, upload.id, kind, { caption: message || undefined, filename: file.filename });
+        if (!send.ok) return redirect('send');
+
+        const label = kind === 'image' ? '📷' : '📎';
+        await appendAgentMessage(phone, `${label} ${file.filename}${message ? ` — ${message}` : ''}`);
+        await pauseBot(phone, 24);
+      } else {
         const result = await sendWhatsappMessage(phone, message);
-        if (!result.ok) {
-          return {
-            statusCode: 303,
-            headers: { Location: `?phone=${encodeURIComponent(phone)}&error=1` },
-            body: '',
-          };
-        }
+        if (!result.ok) return redirect('send');
         await appendAgentMessage(phone, message);
         await pauseBot(phone, 24); // que no se crucen bot y respuesta manual
       }
@@ -420,18 +546,14 @@ exports.handler = async (event) => {
       await resumeBot(phone);
     }
 
-    return {
-      statusCode: 303,
-      headers: { Location: `?phone=${encodeURIComponent(phone)}` },
-      body: '',
-    };
+    return redirect();
   }
 
   const phone = event.queryStringParameters?.phone;
 
   if (phone) {
     const [messages, paused] = await Promise.all([loadConversation(phone), isBotPaused(phone)]);
-    const error = event.queryStringParameters?.error === '1';
+    const error = event.queryStringParameters?.error || '';
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
