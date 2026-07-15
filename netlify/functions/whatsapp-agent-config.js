@@ -86,6 +86,21 @@ const FAQ_RULES = [
     reply: GREETING,
   },
   {
+    keywords: ['placa vv', 'placas vv', 'placa de vv', 'placas de vv', 'placa vivienda vacacional', 'placas vivienda vacacional', 'vivienda vacacional'],
+    reply: PLACAS_VV_INFO,
+  },
+  {
+    // Colocada antes que las reglas genéricas de horario/dirección/teléfono para que
+    // "teléfono de pedidos", "extensión de pedidos", etc. no caigan en la respuesta
+    // genérica de contacto solo por contener la palabra "teléfono" o "número".
+    keywords: ['estado de mi pedido', 'estado del pedido', 'seguimiento de mi pedido', 'seguimiento del pedido', 'donde esta mi pedido', 'dónde está mi pedido', 'donde está mi pedido', 'cuando llega mi pedido', 'cuándo llega mi pedido', 'numero de pedido', 'número de pedido', 'no me ha llegado mi pedido', 'no me llego mi pedido', 'no me llegó mi pedido', 'mi pedido no ha llegado', 'incidencia con mi pedido', 'incidencia con un pedido', 'incidencia con el pedido', 'telefono de pedidos', 'teléfono de pedidos', 'telefono directo a pedidos', 'teléfono directo a pedidos', 'numero de pedidos', 'número de pedidos', 'extension de pedidos', 'extensión de pedidos', 'extension 2', 'extensión 2'],
+    reply: PEDIDOS_INFO,
+  },
+  {
+    keywords: ['factura', 'facturas', 'administracion', 'administración', 'departamento administrativo', 'telefono de administracion', 'teléfono de administración', 'telefono directo a administracion', 'teléfono directo a administración', 'extension de administracion', 'extensión de administración', 'extension 1', 'extensión 1'],
+    reply: ADMINISTRACION_INFO,
+  },
+  {
     keywords: ['horario', 'hora', 'abierto', 'abren', 'cierran', 'cierra'],
     reply: `Nuestros horarios son:\n${storesSummary()}`,
   },
@@ -108,18 +123,6 @@ const FAQ_RULES = [
   {
     keywords: ['forma de pago', 'formas de pago', 'metodo de pago', 'método de pago', 'como pagar', 'cómo pagar', 'pago con tarjeta', 'contra reembolso', 'transferencia'],
     reply: PAGO_INFO,
-  },
-  {
-    keywords: ['placa vv', 'placas vv', 'placa de vv', 'placas de vv', 'placa vivienda vacacional', 'placas vivienda vacacional', 'vivienda vacacional'],
-    reply: PLACAS_VV_INFO,
-  },
-  {
-    keywords: ['estado de mi pedido', 'estado del pedido', 'seguimiento de mi pedido', 'seguimiento del pedido', 'donde esta mi pedido', 'dónde está mi pedido', 'donde está mi pedido', 'cuando llega mi pedido', 'cuándo llega mi pedido', 'numero de pedido', 'número de pedido', 'no me ha llegado mi pedido', 'no me llego mi pedido', 'no me llegó mi pedido', 'mi pedido no ha llegado', 'incidencia con mi pedido', 'incidencia con un pedido', 'incidencia con el pedido'],
-    reply: PEDIDOS_INFO,
-  },
-  {
-    keywords: ['factura', 'facturas', 'administracion', 'administración', 'departamento administrativo'],
-    reply: ADMINISTRACION_INFO,
   },
   {
     keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'portes', 'cuando llega', 'cuándo llega', 'plazo de entrega', 'mandan a', 'enviais a', 'enviáis a'],
