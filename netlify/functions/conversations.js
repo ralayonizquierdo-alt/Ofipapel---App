@@ -102,7 +102,10 @@ function pageShell(title, body) {
     max-width: 720px;
     margin: 0 auto 48px;
     padding: 0 0 16px;
-    background: var(--bg);
+    background:
+      linear-gradient(rgba(242,248,242,.94), rgba(242,248,242,.94)),
+      url('/fondo-ofipapel.jpg') center top / cover no-repeat;
+    background-color: var(--bg);
     color: var(--text);
     -webkit-font-smoothing: antialiased;
   }
@@ -113,7 +116,9 @@ function pageShell(title, body) {
     gap: 14px;
     padding: 22px 20px 26px;
     margin-bottom: 22px;
-    background: linear-gradient(135deg, #0d3d0d 0%, var(--green-dark) 40%, var(--green-mid) 70%, #3a8f2a 100%);
+    background:
+      linear-gradient(135deg, rgba(13,61,13,.88) 0%, rgba(26,92,26,.87) 40%, rgba(35,117,35,.85) 70%, rgba(58,143,42,.82) 100%),
+      url('/fondo-ofipapel.jpg') center 30% / cover;
     box-shadow: 0 6px 20px rgba(13,61,13,.25);
   }
   .topbar img { height: 40px; width: auto; display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
