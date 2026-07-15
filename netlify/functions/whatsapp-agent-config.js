@@ -84,6 +84,8 @@ const ADMINISTRACION_INFO = `Para temas administrativos (facturas, pagos, cuenta
 
 const PLACAS_VV_INFO = `Los pedidos de placas VV (identificación de vivienda vacacional) tardan entre 2 y 4 días en procesarse, dependiendo del volumen de trabajo que haya en producción en ese momento. Si elegiste recogida en tienda, te avisamos por teléfono en cuanto esté lista.`;
 
+const AGENDAS_INFO = `Tenemos muchísimos modelos y diseños de agendas en stock, pero no los subimos todos a la web porque cada año cambian los diseños y no es viable mantenerlo actualizado. Te invitamos a pasar por nuestra tienda, donde podrás ver en vivo cada uno de los diseños que tenemos disponibles.`;
+
 const COMO_COMPRAR_INFO = `Puedes comprar en https://ofipapel.net: busca el producto por secciones, marcas o con el buscador, añádelo al carrito y ve a "Finalizar Compra" para dejar tus datos y elegir cómo pagar.`;
 
 const PAGO_INFO = `Formas de pago aceptadas: tarjeta de crédito o débito (Visa, MasterCard, 4B, Euro 6000, Maestro, American Express), transferencia bancaria, contra reembolso, o en tienda (solo para recogidas, con el pedido hecho antes por la web).`;
@@ -129,6 +131,10 @@ const FAQ_RULES = [
   {
     keywords: ['placa vv', 'placas vv', 'placa de vv', 'placas de vv', 'placa vivienda vacacional', 'placas vivienda vacacional', 'vivienda vacacional'],
     reply: PLACAS_VV_INFO,
+  },
+  {
+    keywords: ['agenda', 'agendas'],
+    reply: AGENDAS_INFO,
   },
   {
     // Colocada antes que las reglas genéricas de horario/dirección/teléfono para que
@@ -223,6 +229,8 @@ Formas de pago: ${PAGO_INFO}
 Envíos: ${ENVIOS_INFO}
 
 Placas VV (identificación de vivienda vacacional): ${PLACAS_VV_INFO}
+
+Agendas: ${AGENDAS_INFO}
 
 Devoluciones: ${DEVOLUCIONES_INFO}
 
