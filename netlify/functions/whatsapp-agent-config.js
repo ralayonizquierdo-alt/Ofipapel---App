@@ -127,10 +127,6 @@ const DEVOLUCIONES_INFO = `Tienes 14 días naturales desde la entrega para devol
 // La primera que encuentre una palabra clave en el mensaje gana.
 const FAQ_RULES = [
   {
-    keywords: ['hola', 'buenas', 'buenos dias', 'buenos días', 'buenas tardes', 'buenas noches'],
-    reply: GREETING,
-  },
-  {
     keywords: ['placa vv', 'placas vv', 'placa de vv', 'placas de vv', 'placa vivienda vacacional', 'placas vivienda vacacional', 'vivienda vacacional'],
     reply: PLACAS_VV_INFO,
   },
@@ -197,6 +193,14 @@ const FAQ_RULES = [
   {
     keywords: ['gracias', 'muchas gracias', 'perfecto', 'vale gracias'],
     reply: '¡De nada! Si necesitas cualquier otra cosa aquí estamos. 😊',
+  },
+  {
+    // Al final a propósito: "hola" aparece en muchísimos mensajes que además
+    // preguntan otra cosa (p. ej. "Hola, ¿tenéis descuento por registrarme?"), y si
+    // esta regla fuera la primera se comería esas preguntas. Solo debe ganar si
+    // ninguna regla más específica ha coincidido antes.
+    keywords: ['hola', 'buenas', 'buenos dias', 'buenos días', 'buenas tardes', 'buenas noches'],
+    reply: GREETING,
   },
 ];
 
