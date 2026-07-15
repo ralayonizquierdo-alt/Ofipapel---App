@@ -7,7 +7,7 @@ import {
 import { es } from 'date-fns/locale'
 import {
   ChevronLeft, ChevronRight, Plus, Mic, MicOff, X, Bell,
-  MapPin, Heart, Sun, Sunset, Moon, Building2, Stethoscope,
+  MapPin, Heart, Sun, Sunrise, Sunset, Moon, Activity, Building2, Stethoscope,
   BellRing, Briefcase, Layers,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -24,10 +24,12 @@ const CATEGORY_CONFIG: Record<EventCategory, { label: string; color: string; bg:
 }
 
 const SHIFT_CONFIG = {
-  morning:   { label: 'Mañana',  icon: Sun,    color: '#e0a84a', bg: '#e0a84a12' },
-  afternoon: { label: 'Tarde',   icon: Sunset, color: '#e0854a', bg: '#e0854a12' },
-  night:     { label: 'Noche',   icon: Moon,   color: '#5b8dd9', bg: '#5b8dd912' },
-  free:      { label: 'Libre',   icon: X,      color: '#6db56d', bg: '#6db56d12' },
+  morning:   { label: 'Mañana',  icon: Sun,      color: '#e0a84a', bg: '#e0a84a12' },
+  dia:       { label: 'Día',     icon: Sunrise,  color: '#e05252', bg: '#e0525212' },
+  afternoon: { label: 'Tarde',   icon: Sunset,   color: '#e0854a', bg: '#e0854a12' },
+  night:     { label: 'Noche',   icon: Moon,     color: '#5b8dd9', bg: '#5b8dd912' },
+  hd:        { label: 'HD',      icon: Activity, color: '#c97ab0', bg: '#c97ab012' },
+  free:      { label: 'Libre',   icon: X,        color: '#6db56d', bg: '#6db56d12' },
 } as const
 
 const CENTER_CONFIG = {
