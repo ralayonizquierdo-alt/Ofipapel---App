@@ -154,7 +154,11 @@ const FAQ_RULES = [
     reply: `Puedes llamarnos al:\n${storesSummary()}`,
   },
   {
-    keywords: ['registrar', 'registro', 'cuenta de cliente', 'abrir cuenta', 'crear cuenta', 'darme de alta', 'alta de cliente', 'como me registro', 'cómo me registro'],
+    keywords: [
+      'registrar', 'registro', 'cuenta de cliente', 'abrir cuenta', 'crear cuenta', 'darme de alta',
+      'darse de alta', 'dar de alta', 'alta de cliente', 'alta nueva', 'nuevo cliente', 'cliente nuevo',
+      'nueva cuenta', 'mi cuenta', 'como me registro', 'cómo me registro',
+    ],
     reply: REGISTRO_INFO,
   },
   {
