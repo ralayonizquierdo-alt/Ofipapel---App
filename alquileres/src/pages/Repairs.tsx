@@ -24,6 +24,8 @@ export default function Repairs() {
   const apartments = sortApartments(allApartments)
   const [filterApt, setFilterApt] = useState('')
   const [filterYear, setFilterYear] = useState('')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Repair | null>(null)
 
@@ -32,6 +34,8 @@ export default function Repairs() {
   const filtered = repairs
     .filter(r => !filterApt || r.apartmentId === filterApt)
     .filter(r => !filterYear || r.repairDate?.startsWith(filterYear))
+    .filter(r => !filterDateFrom || (r.repairDate && r.repairDate >= filterDateFrom))
+    .filter(r => !filterDateTo || (r.repairDate && r.repairDate <= filterDateTo))
     .sort((a, b) => (b.repairDate || '').localeCompare(a.repairDate || ''))
 
   const totalFiltered = filtered.reduce((s, r) => s + (r.amount || 0), 0)
@@ -61,17 +65,27 @@ export default function Repairs() {
       />
 
       {/* Filters */}
-      <div className="flex gap-3 mb-5">
+      <div className="flex flex-wrap gap-3 mb-5">
         <select value={filterApt} onChange={e => setFilterApt(e.target.value)}
           className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
           <option value="">Todos los apartamentos</option>
           {apartments.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
-        <select value={filterYear} onChange={e => setFilterYear(e.target.value)}
+        <select value={filterYear} onChange={e => { setFilterYear(e.target.value); setFilterDateFrom(''); setFilterDateTo('') }}
           className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
           <option value="">Todos los años</option>
           {years.map(y => <option key={y} value={y!}>{y}</option>)}
         </select>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">Desde</span>
+          <input type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setFilterYear('') }}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white" />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">Hasta</span>
+          <input type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setFilterYear('') }}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white" />
+        </div>
       </div>
 
       {/* Totals by apartment */}
@@ -83,6 +97,11 @@ export default function Repairs() {
               <p className="text-lg font-bold text-red-700 mt-0.5">{total.toLocaleString('es-ES')} €</p>
             </div>
           ))}
+          <div className="col-span-2 bg-blue-50 rounded-lg border-2 border-blue-300 p-4 flex flex-col justify-center">
+            <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Total general</p>
+            <p className="text-2xl font-bold text-blue-800 mt-1">{totalFiltered.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</p>
+            <p className="text-xs text-blue-500 mt-0.5">{filtered.length} reparaciones</p>
+          </div>
         </div>
       )}
 
