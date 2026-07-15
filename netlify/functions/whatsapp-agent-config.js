@@ -146,6 +146,10 @@ const FAQ_RULES = [
     reply: AGENTE_INFO,
   },
   {
+    keywords: ['presupuesto', 'presupuestos', 'pedir presupuesto', 'solicitar presupuesto', 'necesito un presupuesto', 'quiero un presupuesto', 'hacer un presupuesto'],
+    reply: AGENTE_INFO,
+  },
+  {
     keywords: ['gracias', 'muchas gracias', 'perfecto', 'vale gracias'],
     reply: '¡De nada! Si necesitas cualquier otra cosa aquí estamos. 😊',
   },
