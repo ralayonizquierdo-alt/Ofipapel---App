@@ -398,11 +398,46 @@ Según el documento "Cuadrante de Vacaciones. MEJORAS" recibido:
 - **Rotación en "rueda"**: quien empieza el 15 de enero un año, al siguiente empieza el 15 de febrero, y
   así sucesivamente entre el personal del bloque — falta definir el orden de la rueda y quién la encabeza
   el primer año.
-- **"Planning en escalera"**: una vista/impresión con el mismo aspecto que el Excel de dirección (meses en
-  columnas de bloques de 5 días, empleadas en filas, periodos en diagonal tipo escalera) — pendiente de
-  construir.
-- **Pantalla de vista rápida del plan anual completo** (no solo "quién está fuera hoy", sino un vistazo del
-  año entero) — pendiente de construir.
+
+## 15. Bloques organizativos, Planning en escalera y Plan anual (nuevo)
+
+Según el documento de dirección, la plantilla se organiza en **3 bloques** para los turnos de vacaciones
+del periodo normal (15 enero – 15 agosto):
+
+- **1º Bloque · Tiendas**: Ofipapel · Detalle, Ofipapel · Informática (Mayor), Mobiliario, Aliz-1, Aliz-2.
+- **2º Bloque · Oficina**: Oficina.
+- **3º Bloque · Reparto y almacén**: Repartidores, Comerciales, Almacén, Pedidos.
+
+(Limpieza no encaja en ninguno de los 3 bloques del documento, así que queda fuera de esta agrupación —
+sigue funcionando con normalidad en el resto de la app.)
+
+### 🪜 Planning en escalera (nuevo botón en la cabecera)
+
+Una vista/impresión en A3 apaisado, en el mismo formato que usa dirección en su Excel: los meses de enero
+a agosto en columnas, subdivididos en bloques de 5 días, y cada persona en una fila con su periodo
+dibujado como una barra de color en la fecha que le corresponde.
+
+- Se elige el bloque (1º, 2º o 3º) con un desplegable arriba del todo — cambia la vista al momento.
+- Dentro de cada unidad del bloque, las personas se ordenan por la fecha en la que empieza su primer
+  periodo dentro de la ventana enero-agosto — así, si los turnos están bien repartidos en el tiempo,
+  el propio orden de las filas dibuja el efecto "escalera" del Excel, sin tener que forzar nada a mano.
+  Quien todavía no tenga fecha asignada aparece al final (por orden alfabético).
+- Igual que en la hoja de vacaciones normal: cuadrícula de 5 días, sábados/domingos sombreados, fechas
+  bloqueadas marcadas, y los mismos iconos junto al nombre (🔁 comodín, 🚫 sin sustituto, 🔗 pareja
+  incompatible, 💑 pareja que sale junta, 📌 fechas fijas).
+- Botones de **Imprimir**, **Guardar como PDF** y **WhatsApp** (resumen de texto con las fechas de cada
+  persona del bloque elegido), igual que en Vacaciones y Turnos.
+
+### 📆 Plan anual (nuevo botón en la cabecera)
+
+Una ventana rápida y escueta (sin cuadrícula, solo texto) con el estado de las vacaciones de **todo el
+año**, agrupado por bloque y luego por unidad: nombre de cada persona y sus fechas asignadas (o "Sin
+vacaciones asignadas todavía" si no tiene ninguna). Pensada para revisar de un vistazo, en el móvil o en
+el ordenador, sin tener que abrir el calendario completo. Incluye botón de **WhatsApp** para compartir el
+resumen del año por texto.
+
+Esta pantalla es distinta del panel lateral "¿Quién está fuera?" (que muestra solo un día concreto) — el
+Plan anual muestra el año entero de cada persona de un vistazo.
 
 ## Posibles reglas adicionales a valorar
 
