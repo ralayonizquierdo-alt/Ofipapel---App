@@ -37,6 +37,8 @@ const PEDIDOS_INFO = `Para el seguimiento de tu pedido o cualquier incidencia re
 
 const ADMINISTRACION_INFO = `Para temas administrativos (facturas, pagos, cuentas) contacta directamente con Administración: ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.`;
 
+const PLACAS_VV_INFO = `Los pedidos de placas VV (identificación de vivienda vacacional) tardan entre 2 y 4 días en procesarse, dependiendo del volumen de trabajo que haya en producción en ese momento. Si elegiste recogida en tienda, te avisamos por teléfono en cuanto esté lista.`;
+
 const COMO_COMPRAR_INFO = `Puedes comprar en https://ofipapel.net: busca el producto por secciones, marcas o con el buscador, añádelo al carrito y ve a "Finalizar Compra" para dejar tus datos y elegir cómo pagar.`;
 
 const PAGO_INFO = `Formas de pago aceptadas: tarjeta de crédito o débito (Visa, MasterCard, 4B, Euro 6000, Maestro, American Express), transferencia bancaria, contra reembolso, o en tienda (solo para recogidas, con el pedido hecho antes por la web).`;
@@ -108,6 +110,10 @@ const FAQ_RULES = [
     reply: PAGO_INFO,
   },
   {
+    keywords: ['placa vv', 'placas vv', 'placa de vv', 'placas de vv', 'placa vivienda vacacional', 'placas vivienda vacacional', 'vivienda vacacional'],
+    reply: PLACAS_VV_INFO,
+  },
+  {
     keywords: ['estado de mi pedido', 'estado del pedido', 'seguimiento de mi pedido', 'seguimiento del pedido', 'donde esta mi pedido', 'dónde está mi pedido', 'donde está mi pedido', 'cuando llega mi pedido', 'cuándo llega mi pedido', 'numero de pedido', 'número de pedido', 'no me ha llegado mi pedido', 'no me llego mi pedido', 'no me llegó mi pedido', 'mi pedido no ha llegado', 'incidencia con mi pedido', 'incidencia con un pedido', 'incidencia con el pedido'],
     reply: PEDIDOS_INFO,
   },
@@ -146,6 +152,8 @@ Cómo comprar: ${COMO_COMPRAR_INFO}
 Formas de pago: ${PAGO_INFO}
 
 Envíos: ${ENVIOS_INFO}
+
+Placas VV (identificación de vivienda vacacional): ${PLACAS_VV_INFO}
 
 Devoluciones: ${DEVOLUCIONES_INFO}
 
