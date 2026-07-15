@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { Reservation } from '../types'
 import { MONTH_NAMES_ES, DAY_NAMES_ES, getDaysInMonth, getSeason } from '../lib/dateUtils'
@@ -12,6 +13,7 @@ const APT_COLORS = [
 export default function Planning() {
   const { reservations, apartments: allApartments } = useData()
   const apartments = allApartments.filter(a => a.active)
+  const navigate = useNavigate()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -131,10 +133,11 @@ export default function Planning() {
                     >
                       {res && (
                         <div
-                          className={`absolute inset-y-1 ${colorMap[apt.id]} opacity-80 rounded-sm flex items-center overflow-hidden`}
+                          className={`absolute inset-y-1 ${colorMap[apt.id]} opacity-80 rounded-sm flex items-center overflow-hidden ${isStart ? 'cursor-pointer hover:opacity-100' : ''}`}
                           style={isStart
                             ? { left: '2px', width: `calc(${spanDays} * 2rem - 2px)`, zIndex: 2 }
                             : { left: '0', right: '0' }}
+                          onClick={isStart && res ? () => navigate(`/reservas?edit=${res.id}`) : undefined}
                         >
                           {isStart && (
                             <span className="text-white font-semibold px-1 text-xs leading-none whitespace-nowrap">
