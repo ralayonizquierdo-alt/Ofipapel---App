@@ -8,21 +8,21 @@ const STORES = [
   {
     name: 'Los Cristianos (sede principal)',
     address: 'C/ Bulevar Chajofe, n.º 4, 38650 Los Cristianos, Santa Cruz de Tenerife, España',
-    hours: 'Lunes a viernes 9:00-14:00 y 16:00-19:00, sábados 9:00-13:00',
+    hours: 'Lunes a viernes 9:00 a 14:00 y 16:00 a 19:00, sábados 9:00 a 13:00',
     phone: '922 753 520',
     mapsUrl: 'https://maps.app.goo.gl/Sx5yVAos3Ltjyuiv8',
   },
   {
     name: 'Aliz 1 (Los Cristianos)',
     address: 'Av. de Suecia, n.º 7, 38650 Los Cristianos, Santa Cruz de Tenerife, España',
-    hours: 'Lunes a viernes 9:00-14:00 y 16:30-19:30, sábados 9:00-13:00',
+    hours: 'Lunes a viernes 9:00 a 14:00 y 16:30 a 19:30, sábados 9:00 a 13:00',
     phone: '922 792 001',
     mapsUrl: 'https://maps.google.com/?q=Av+de+Suecia+7+Los+Cristianos+Tenerife',
   },
   {
     name: 'Aliz 2 (Playa de las Américas)',
     address: 'Res. Las Viñas, C/ Noelia Afonso Cabrera, 38660 Playa de las Américas, Santa Cruz de Tenerife, España',
-    hours: 'Lunes a viernes 9:00-14:00 y 16:30-19:30, sábados 9:00-13:00',
+    hours: 'Lunes a viernes 9:00 a 14:00 y 16:30 a 19:30, sábados 9:00 a 13:00',
     phone: '922 791 029',
     mapsUrl: 'https://maps.google.com/?q=Calle+Noelia+Afonso+Cabrera+Playa+de+las+Americas+Tenerife',
   },
@@ -121,11 +121,11 @@ const ENVIOS_GENERAL_INTRO = `Hacemos envíos a toda Canarias. Los pedidos de lu
 // Datos por isla, usados tanto para la regla de FAQ (respuesta dirigida a una isla
 // concreta si el cliente la menciona) como para el contexto que recibe la IA.
 const ISLAND_SHIPPING = [
-  { name: 'Tenerife', keywords: ['tenerife'], freeFrom: 20, feeBelow: 5, delivery: '24-48h' },
-  { name: 'La Gomera', keywords: ['gomera'], freeFrom: 200, feeBelow: 15, delivery: '48-72h' },
-  { name: 'El Hierro', keywords: ['hierro'], freeFrom: 200, feeBelow: 15, delivery: '48-72h' },
-  { name: 'La Palma', keywords: ['la palma', 'palma'], freeFrom: 200, feeBelow: 15, delivery: '48-72h' },
-  { name: 'Gran Canaria', keywords: ['gran canaria'], freeFrom: 200, feeBelow: 15, delivery: '48-72h' },
+  { name: 'Tenerife', keywords: ['tenerife'], freeFrom: 20, feeBelow: 5, delivery: '24 a 48h' },
+  { name: 'La Gomera', keywords: ['gomera'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
+  { name: 'El Hierro', keywords: ['hierro'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
+  { name: 'La Palma', keywords: ['la palma', 'palma'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
+  { name: 'Gran Canaria', keywords: ['gran canaria'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
   { name: 'Lanzarote', keywords: ['lanzarote'], freeFrom: 300, feeBelow: 20, delivery: '72h' },
   { name: 'Fuerteventura', keywords: ['fuerteventura'], freeFrom: 300, feeBelow: 20, delivery: '72h' },
 ];
