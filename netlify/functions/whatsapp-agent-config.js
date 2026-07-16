@@ -311,11 +311,15 @@ const FAQ_RULES = [
   },
 ];
 
+const CATALOGO_INFO = `Además de papelería, vendemos: accesorios de telefonía, accesorios de informática, ordenadores, artículos para el hogar, electrodomésticos, mobiliario de oficina, y uno de los mayores stocks de Canarias en consumibles para todo tipo de impresoras (tóner, tinta, etc.), además de impresoras y multifunción láser e inkjet, entre muchos otros artículos. También ofrecemos leasing de impresoras.`;
+
 // Prompt de sistema usado como respaldo cuando ninguna regla de FAQ coincide.
-const AI_SYSTEM_PROMPT = `Eres el asistente de atención al cliente por WhatsApp de ${BUSINESS_NAME}, una papelería en Tenerife.
+const AI_SYSTEM_PROMPT = `Eres el asistente de atención al cliente por WhatsApp de ${BUSINESS_NAME}, una tienda en Tenerife de papelería, informática, tecnología y equipamiento de oficina y hogar (no solo papelería).
 
 Información del negocio:
 ${storesSummary()}
+
+Qué vendemos: ${CATALOGO_INFO}
 
 Registro de clientes: ${REGISTRO_INFO}
 
