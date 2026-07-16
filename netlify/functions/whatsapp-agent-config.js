@@ -110,6 +110,33 @@ const ADMINISTRACION_INFO = `Para temas administrativos (facturas, pagos, cuenta
 
 const REPROGRAFIA_INFO = `Imprimimos todo tipo de documentos, en blanco y negro o a color, desde A4 hasta A3 (el tamaño más grande que hacemos). Hay distintos tipos de papel según lo que necesites, y el precio varía según la cantidad y el acabado — por eso, para impresiones, copias, fotocopias, encuadernados, plastificados, folletos, tarjetas de visita, sellos personalizados, talonarios, tarjetas para bodas o cualquier trabajo de imprenta (y sobre todo para precios), lo mejor es contactar directamente con el departamento de Reprografía: ${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com. Los sellos personalizados solo se hacen en la tienda de Los Cristianos.`;
 
+const REPROGRAFIA_CONTACT = `${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com`;
+
+// Un ítem concreto por mensaje (igual que con los envíos): si el cliente pregunta
+// por un servicio de Reprografía en concreto, se contesta solo sobre ese, no con
+// el listado completo cada vez.
+const REPROGRAFIA_ITEMS = [
+  { name: 'impresiones', keywords: ['imprimir', 'imprime', 'imprimen', 'imprimimos', 'impresion', 'impresión', 'impresiones'] },
+  { name: 'copias', keywords: ['copias'] },
+  { name: 'fotocopias', keywords: ['fotocopia', 'fotocopias'] },
+  { name: 'encuadernados', keywords: ['encuadernado', 'encuadernados', 'encuadernar'] },
+  { name: 'plastificados', keywords: ['plastificado', 'plastificados', 'plastificar'] },
+  { name: 'folletos', keywords: ['folletos'] },
+  { name: 'tarjetas de visita', keywords: ['tarjetas de visita'] },
+  { name: 'sellos personalizados', keywords: ['sellos personalizados', 'sello personalizado', 'sellos', 'sello'], extra: ' (ojo, esto solo se hace en la tienda de Los Cristianos)' },
+  { name: 'talonarios', keywords: ['talonarios'] },
+  { name: 'tarjetas para bodas', keywords: ['tarjetas para bodas'] },
+  { name: 'trabajos de imprenta', keywords: ['trabajo de imprenta', 'trabajos de imprenta', 'imprenta'] },
+];
+
+function reprografiaReply(normalizedText) {
+  const item = REPROGRAFIA_ITEMS.find((it) => it.keywords.some((k) => normalizedText.includes(k)));
+  if (item) {
+    return `Sí, hacemos ${item.name}${item.extra || ''}. El precio depende de la cantidad y el acabado, así que para eso o para encargarlo, contacta con Reprografía: ${REPROGRAFIA_CONTACT}.`;
+  }
+  return REPROGRAFIA_INFO;
+}
+
 const PLACAS_VV_INFO = `Los pedidos de placas VV (identificación de vivienda vacacional) tardan entre 2 y 4 días en procesarse, dependiendo del volumen de trabajo que haya en producción en ese momento. Si elegiste recogida en tienda, te avisamos por teléfono en cuanto esté lista.`;
 
 const AGENDAS_INFO = `Tenemos muchísimos modelos y diseños de agendas en stock. En la web solo están los modelos más básicos, que se repiten todos los años; el resto no lo subimos porque cada año cambian los diseños y no es viable mantenerlo actualizado. Te invitamos a pasar por nuestra tienda, donde podrás ver en vivo cada uno de los diseños que tenemos disponibles.`;
@@ -183,7 +210,7 @@ const FAQ_RULES = [
       'trabajo de imprenta', 'trabajos de imprenta', 'imprenta', 'reprografia', 'reprografía',
       'departamento de reprografia', 'departamento de reprografía', 'extension 3010', 'extensión 3010',
     ],
-    reply: REPROGRAFIA_INFO,
+    reply: reprografiaReply,
   },
   {
     keywords: ['horario', 'hora', 'abierto', 'abren', 'cierran', 'cierra'],
