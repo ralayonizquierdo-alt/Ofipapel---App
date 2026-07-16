@@ -1,0 +1,17 @@
+{
+  "name": "Canarias INK",
+  "short_name": "Canarias INK",
+  "description": "Consumibles para impresoras en Canarias",
+  "start_url": "/Ofipapel---App/canarias-ink.html",
+  "display": "standalone",
+  "background_color": "#0F1119",
+  "theme_color": "#0F1119",
+  "icons": [
+    {
+      "src": "/Ofipapel---App/logo-canarias-ink.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
