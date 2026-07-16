@@ -19,6 +19,9 @@
 //   ANTHROPIC_API_KEY       api key de Claude, para responder cuando no hay una regla de FAQ
 //   RESEND_API_KEY / OWNER_EMAIL  para que llegue el aviso por email cuando el cliente
 //     confirma que quiere hablar con una persona (sin esto, el aviso se omite en silencio)
+//   OWNER_WHATSAPP_NUMBER   (opcional) tu número personal, en formato internacional sin
+//     "+" (ej. 34600000000), para recibir un WhatsApp de aviso cuando se confirma un
+//     escalado — mismo canal, así te suena la notificación de siempre
 //   UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN  (opcional) para archivar las
 //     conversaciones y verlas en el panel (netlify/functions/conversations.js)
 
@@ -106,6 +109,21 @@ async function sendEscalateButtons(to) {
   }
 }
 
+// Aviso por WhatsApp al número personal del dueño, solo cuando se confirma un
+// escalado (no en cada mensaje, para no saturar). Requiere OWNER_WHATSAPP_NUMBER
+// en Netlify; si no está configurada, se omite en silencio. Ojo: si hace más de
+// 24h que no le escribes tú al bot, Meta puede rechazar este envío (ventana de
+// mensajería) — en ese caso solo falla el aviso, no la conversación con el cliente.
+async function notifyOwnerByWhatsapp(customerPhone, lastCustomerMessage) {
+  const ownerNumber = process.env.OWNER_WHATSAPP_NUMBER;
+  if (!ownerNumber) return;
+
+  const panelUrl = `${process.env.URL || ''}/.netlify/functions/conversations?phone=${encodeURIComponent(customerPhone)}`;
+  const alert = `🔔 *Ofipapel Bot* — un cliente quiere hablar con una persona\n\n📱 ${customerPhone}\n💬 Último mensaje: "${lastCustomerMessage}"\n\n👉 Ver conversación: ${panelUrl}`;
+
+  await sendWhatsappMessage(ownerNumber, alert);
+}
+
 // Si el cliente confirma o rechaza los botones "¿Quieres hablar con una persona?".
 // Solo cuando confirma con "Sí" se avisa por email y se marca en el panel de
 // conversaciones (que detecta el aviso con isAgenteInfoMessage sobre el historial).
@@ -123,6 +141,9 @@ async function handleEscalateReply(message) {
       customerMessage: '(confirmó que quiere hablar con una persona del equipo)',
       botReply: reply,
     });
+    const history = await getHistory(message.from);
+    const lastUserMessage = [...history].reverse().find((m) => m.role === 'user');
+    await notifyOwnerByWhatsapp(message.from, lastUserMessage ? lastUserMessage.content : '(sin mensaje previo)');
     return;
   }
 
