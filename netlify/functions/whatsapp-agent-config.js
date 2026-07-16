@@ -112,7 +112,20 @@ const REPROGRAFIA_INFO = `Imprimimos todo tipo de documentos, en blanco y negro 
 
 const REPROGRAFIA_CONTACT = `${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com`;
 
-const SELLOS_INFO = `Los sellos personalizados se pueden pedir de dos formas: en la tienda de Los Cristianos (llama al ${REPROGRAFIA_CONTACT}), o desde la web comprando el producto "sello" — si el diseño es sencillo, indica cómo lo quieres en las observaciones del pedido; si lleva logotipo o es más complejo, mándanos el diseño por email a impresion.ofipapel@gmail.com después de finalizar el pedido.`;
+// En vez de soltar la parrafada de las dos vías, se le pregunta al cliente cuál
+// prefiere (con botones) y se le da solo el dato que le corresponde.
+const SELLOS_QUESTION = '¿Vas a pedir el sello desde la web o prefieres pasar por la tienda de Los Cristianos?';
+
+const SELLOS_WEB_INFO = `Busca el producto "Sello Printy Brother" en la web — hay varios tamaños disponibles. Si el diseño es sencillo, indícalo en las observaciones del pedido; si lleva logotipo o es más complejo, mándanos el diseño por email a impresion.ofipapel@gmail.com después de finalizar el pedido. Antes de imprimirlo, siempre te enviamos una prueba para que nos des el OK.`;
+
+const SELLOS_TIENDA_INFO = `Perfecto, puedes pasar por la tienda de Los Cristianos (C/ Bulevar Chajofe, n.º 4) o llamar al ${REPROGRAFIA_CONTACT} para que te asesoren sobre el diseño y el tamaño.`;
+
+// Para detectar si un texto ya guardado es "la" pregunta de web/tienda de sellos
+// (mismo patrón que isAgenteInfoMessage), y así el webhook sepa cuándo mandar los
+// botones en vez de la respuesta de texto normal.
+function isSellosQuestion(text) {
+  return text === SELLOS_QUESTION;
+}
 
 // Un ítem concreto por mensaje (igual que con los envíos): si el cliente pregunta
 // por un servicio de Reprografía en concreto, se contesta solo sobre ese, no con
@@ -126,7 +139,7 @@ const REPROGRAFIA_ITEMS = [
   { name: 'plastificados', keywords: ['plastificado', 'plastificados', 'plastificar'] },
   { name: 'folletos', keywords: ['folletos'] },
   { name: 'tarjetas de visita', keywords: ['tarjetas de visita'] },
-  { name: 'sellos personalizados', keywords: ['sellos personalizados', 'sello personalizado', 'sellos', 'sello'], reply: SELLOS_INFO },
+  { name: 'sellos personalizados', keywords: ['sellos personalizados', 'sello personalizado', 'sellos', 'sello'], reply: SELLOS_QUESTION },
   { name: 'talonarios', keywords: ['talonarios'] },
   { name: 'tarjetas para bodas', keywords: ['tarjetas para bodas'] },
   { name: 'trabajos de imprenta', keywords: ['trabajo de imprenta', 'trabajos de imprenta', 'imprenta'] },
@@ -338,6 +351,10 @@ module.exports = {
   agenteInfo,
   isAgenteInfoMessage,
   isWithinBusinessHours,
+  SELLOS_QUESTION,
+  SELLOS_WEB_INFO,
+  SELLOS_TIENDA_INFO,
+  isSellosQuestion,
   FAQ_RULES,
   AI_SYSTEM_PROMPT,
 };

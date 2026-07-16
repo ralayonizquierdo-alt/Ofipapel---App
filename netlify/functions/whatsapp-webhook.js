@@ -39,6 +39,12 @@ const {
   agenteInfo,
   isAgenteInfoMessage,
 } = require('./whatsapp-agent-core');
+const {
+  SELLOS_QUESTION,
+  SELLOS_WEB_INFO,
+  SELLOS_TIENDA_INFO,
+  isSellosQuestion,
+} = require('./whatsapp-agent-config');
 const { sendWhatsappMessage } = require('./whatsapp-send');
 
 const GRAPH_API_VERSION = 'v20.0';
@@ -153,8 +159,54 @@ async function handleEscalateReply(message) {
   }
 }
 
+// Botones "¿Web o tienda?" para sellos personalizados, en vez de soltar de golpe
+// las dos vías de pedido (ver whatsapp-agent-config.js: SELLOS_QUESTION/WEB/TIENDA).
+async function sendSellosButtons(to) {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = process.env.WHATSAPP_TOKEN;
+
+  const resp = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        body: { text: SELLOS_QUESTION },
+        action: {
+          buttons: [
+            { type: 'reply', reply: { id: 'sellos_web', title: '🌐 Por la web' } },
+            { type: 'reply', reply: { id: 'sellos_tienda', title: '🏬 En tienda' } },
+          ],
+        },
+      },
+    }),
+  });
+
+  if (!resp.ok) {
+    console.error('Error enviando botones de sellos:', resp.status, await resp.text());
+  }
+}
+
+async function handleSellosReply(message) {
+  const buttonId = message.interactive.button_reply.id;
+  const reply = buttonId === 'sellos_web' ? SELLOS_WEB_INFO : SELLOS_TIENDA_INFO;
+  await sendWhatsappMessage(message.from, reply);
+  await appendToHistory(message.from, `[El cliente eligió ${buttonId === 'sellos_web' ? 'web' : 'tienda'} para el sello]`, reply);
+}
+
 async function handleIncomingMessage(message) {
   if (message.type === 'interactive' && message.interactive?.type === 'button_reply') {
+    const buttonId = message.interactive.button_reply.id;
+    if (buttonId === 'sellos_web' || buttonId === 'sellos_tienda') {
+      await handleSellosReply(message);
+      return;
+    }
     await handleEscalateReply(message);
     return;
   }
@@ -183,6 +235,12 @@ async function handleIncomingMessage(message) {
   if (wantsEscalation) {
     await sendEscalateButtons(message.from);
     await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${ESCALATE_QUESTION}`);
+    return;
+  }
+
+  if (isSellosQuestion(faqReply || '')) {
+    await sendSellosButtons(message.from);
+    await appendToHistory(message.from, text, `[Se preguntó web o tienda para el sello] ${SELLOS_QUESTION}`);
     return;
   }
 
