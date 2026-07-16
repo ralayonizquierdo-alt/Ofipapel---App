@@ -2,7 +2,7 @@
 // (Meta Cloud API) como por twilio-webhook.js (Twilio), para no duplicar el
 // matching de FAQ ni la llamada a Claude entre los dos canales.
 
-const { FAQ_RULES, AI_SYSTEM_PROMPT, agenteInfo, isAgenteInfoMessage } = require('./whatsapp-agent-config');
+const { FAQ_RULES, buildAiSystemPrompt, agenteInfo, isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const conversationStore = require('./conversation-store');
 
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
@@ -151,7 +151,7 @@ async function askClaude(userText, history = []) {
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: 300,
-        system: AI_SYSTEM_PROMPT,
+        system: buildAiSystemPrompt(),
         messages: [...history, { role: 'user', content: userText }],
       }),
     });

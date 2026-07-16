@@ -81,7 +81,7 @@ function isWithinBusinessHours(date = new Date()) {
 // puede seguir ayudando el bot, para no generar una falsa expectativa.
 const AGENTE_INFO_ABIERTO = `Claro, ahora mismo un miembro del equipo revisará tu conversación y te atenderá personalmente. Si es urgente, también puedes llamarnos directamente al ${STORES[0].phone} en horario de tienda (${STORES[0].hours}).`;
 
-const AGENTE_INFO_CERRADO = `Claro, en cuanto abramos (${STORES[0].hours}) un miembro del equipo revisará tu conversación y te atenderá personalmente. Ahora mismo estamos fuera de horario, así que de momento solo puedo seguir ayudándote yo — cuéntame qué necesitas y lo intento.`;
+const AGENTE_INFO_CERRADO = `Ahora mismo estamos fuera del horario comercial (${STORES[0].hours}). Un miembro del equipo atenderá tu petición en cuanto retomemos la actividad.`;
 
 function agenteInfo() {
   return isWithinBusinessHours() ? AGENTE_INFO_ABIERTO : AGENTE_INFO_CERRADO;
@@ -248,8 +248,14 @@ const FAQ_RULES = [
     reply: `Estamos en:\n${storesLocationSummary()}`,
   },
   {
+    // Las llamadas van casi siempre a la central (STORES[0]), así que no hace falta
+    // dar el teléfono de las 3 tiendas — y si estamos fuera de horario no se invita
+    // a llamar "ahora" porque no habría nadie para atender.
     keywords: ['telefono', 'teléfono', 'llamar', 'numero', 'número'],
-    reply: `Puedes llamarnos al:\n${storesSummary()}`,
+    reply: () =>
+      isWithinBusinessHours()
+        ? `Puedes llamarnos ahora al ${STORES[0].phone} (horario: ${STORES[0].hours}).`
+        : `Ahora mismo estamos fuera de horario (${STORES[0].hours}), así que no hay nadie disponible para atender llamadas. Nuestro teléfono es ${STORES[0].phone} — puedes llamarnos en cuanto abramos.`,
   },
   {
     keywords: [
@@ -326,8 +332,19 @@ const FAQ_RULES = [
 
 const CATALOGO_INFO = `Además de papelería, vendemos: accesorios de telefonía, accesorios de informática, ordenadores, artículos para el hogar, electrodomésticos, mobiliario de oficina, y uno de los mayores stocks de Canarias en consumibles para todo tipo de impresoras (tóner, tinta, etc.), además de impresoras y multifunción láser e inkjet, entre muchos otros artículos. También ofrecemos leasing de impresoras.`;
 
-// Prompt de sistema usado como respaldo cuando ninguna regla de FAQ coincide.
-const AI_SYSTEM_PROMPT = `Eres el asistente de atención al cliente por WhatsApp de ${BUSINESS_NAME}, una tienda en Tenerife de papelería, informática, tecnología y equipamiento de oficina y hogar (no solo papelería).
+// Prompt de sistema usado como respaldo cuando ninguna regla de FAQ coincide. Es una
+// función (no una cadena fija) porque necesita el estado de horario comercial EN EL
+// MOMENTO de cada mensaje: Claude no tiene ni idea de qué hora es "ahora mismo" si no
+// se lo decimos explícitamente en el prompt en cada llamada.
+function buildAiSystemPrompt() {
+  const abierto = isWithinBusinessHours();
+  const estadoActual = abierto
+    ? `ABIERTO ahora mismo (horario de la sede principal: ${STORES[0].hours}).`
+    : `CERRADO ahora mismo (horario de la sede principal: ${STORES[0].hours}) — no hay nadie disponible para atender llamadas ni pasar con un agente hasta que abramos.`;
+
+  return `Eres el asistente de atención al cliente por WhatsApp de ${BUSINESS_NAME}, una tienda en Tenerife de papelería, informática, tecnología y equipamiento de oficina y hogar (no solo papelería).
+
+Estado ahora mismo: ${estadoActual}
 
 Información del negocio:
 ${storesSummary()}
@@ -355,11 +372,13 @@ Contacto general: teléfono ${STORES[0].phone}, email comercial@ofipapelsl.com (
 Instrucciones:
 - Responde SIEMPRE en el idioma en que esté escrito el mensaje del cliente, desde el primer mensaje, aunque sea muy corto (si escribe "Hi", respondes en inglés; si escribe "Hola", en español; etc.). No respondas en español por defecto ni digas cosas como "respondo en español" — cambia de idioma directamente, sin comentarlo. Hazlo de forma breve, cercana y natural (máximo 3-4 frases), como lo haría una persona real del equipo escribiendo un WhatsApp, no como un robot leyendo una lista de datos.
 - Contesta solo a lo que el cliente ha preguntado. Si la información que tienes cubre varios casos (por ejemplo, varias islas de envío) y el cliente solo pregunta por uno, dale únicamente el dato de ese caso concreto; no le sueltes toda la lista si no la ha pedido.
-- Si preguntan por productos o precios concretos que no conoces con certeza, no inventes datos: invita a llamar o visitar la tienda, y añade también la opción de pasarle con un agente si lo prefiere, con un tono cercano tipo "no obstante, si lo desea, podemos pasarle con un agente que resolverá su duda 😊".
-- Si preguntan algo concreto sobre un pedido ya hecho (en qué estado está, cuándo llega exactamente, una incidencia, un número de pedido) y no tienes esa información, no inventes nada: indícales que contacten con Pedidos al ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com.
-- Si es un tema administrativo (facturas, pagos, cuentas) que no puedas resolver, indícales que contacten con Administración al ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.
-- Si el mensaje parece una queja, un pedido complejo, o el cliente muestra que no está satisfecho con tu respuesta, ofrécele amablemente hablar con una persona del equipo y facilita el teléfono directo: ${STORES[0].phone}. Ten en cuenta el horario de tienda (${STORES[0].hours}): si ahora mismo está cerrado, dilo y aclara que la atención personal será cuando abramos, no al instante.
+- Nunca invites a llamar "ahora mismo" si estamos fuera del horario comercial (${STORES[0].hours}) — no habría nadie para atender la llamada. Fuera de horario, en vez de sugerir llamar, deja claro que la atención personal (por teléfono o con un agente) será en cuanto abramos y retomemos la actividad, no al instante.
+- Si preguntan por productos o precios concretos que no conoces con certeza, no inventes datos: invita a visitar la tienda o, si estamos en horario, a llamar; y añade también la opción de pasarle con un agente si lo prefiere, con un tono cercano tipo "no obstante, si lo desea, podemos pasarle con un agente que resolverá su duda 😊".
+- Si preguntan algo concreto sobre un pedido ya hecho (en qué estado está, cuándo llega exactamente, una incidencia, un número de pedido) y no tienes esa información, no inventes nada: indícales que contacten con Pedidos al ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
+- Si es un tema administrativo (facturas, pagos, cuentas) que no puedas resolver, indícales que contacten con Administración al ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
+- Si el mensaje parece una queja, un pedido complejo, o el cliente muestra que no está satisfecho con tu respuesta, ofrécele amablemente hablar con una persona del equipo. Si estamos en horario, facilita el teléfono directo: ${STORES[0].phone}. Si estamos fuera de horario, no des el teléfono para llamar ahora: dile que un agente atenderá su petición en cuanto retomemos la actividad.
 - No uses markdown ni listas largas, escribe como un mensaje de texto normal.`;
+}
 
 module.exports = {
   BUSINESS_NAME,
@@ -375,5 +394,5 @@ module.exports = {
   SELLOS_TIENDA_INFO,
   isSellosQuestion,
   FAQ_RULES,
-  AI_SYSTEM_PROMPT,
+  buildAiSystemPrompt,
 };
