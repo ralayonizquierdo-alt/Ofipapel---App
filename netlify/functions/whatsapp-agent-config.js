@@ -6,11 +6,25 @@ const BUSINESS_NAME = 'Ofipapel';
 
 const STORES = [
   {
-    name: 'Los Cristianos',
-    address: 'Calle Bulevar Chajofe, n.º 4, 38650 Los Cristianos, Santa Cruz de Tenerife, España',
-    hours: 'Lunes a viernes 9:00-13:30 y 16:30-20:00, sábados 9:30-13:30',
+    name: 'Los Cristianos (sede principal)',
+    address: 'C/ Bulevar Chajofe, n.º 4, 38650 Los Cristianos, Santa Cruz de Tenerife, España',
+    hours: 'Lunes a viernes 9:00 a 14:00 y 16:00 a 19:00, sábados 9:00 a 13:00',
     phone: '922 753 520',
     mapsUrl: 'https://maps.app.goo.gl/Sx5yVAos3Ltjyuiv8',
+  },
+  {
+    name: 'Aliz 1 (Los Cristianos)',
+    address: 'Av. de Suecia, n.º 7, 38650 Los Cristianos, Santa Cruz de Tenerife, España',
+    hours: 'Lunes a viernes 9:00 a 14:00 y 16:30 a 19:30, sábados 9:00 a 13:00',
+    phone: '922 792 001',
+    mapsUrl: 'https://maps.google.com/?q=Av+de+Suecia+7+Los+Cristianos+Tenerife',
+  },
+  {
+    name: 'Aliz 2 (Playa de las Américas)',
+    address: 'Res. Las Viñas, C/ Noelia Afonso Cabrera, 38660 Playa de las Américas, Santa Cruz de Tenerife, España',
+    hours: 'Lunes a viernes 9:00 a 14:00 y 16:30 a 19:30, sábados 9:00 a 13:00',
+    phone: '922 791 029',
+    mapsUrl: 'https://maps.google.com/?q=Calle+Noelia+Afonso+Cabrera+Playa+de+las+Americas+Tenerife',
   },
 ];
 
@@ -31,17 +45,18 @@ const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿E
 const REGISTRO_URL = 'https://ofipapel.net/mi-cuenta/';
 const REGISTRO_INFO = `Puedes registrarte aquí: ${REGISTRO_URL}\nEl mismo registro sirve tanto para comprar en la web como en cualquiera de nuestras tiendas. Al registrarte, tienes una tarifa de precios mejorada. Además, si es tu primer pedido en la web, puedes usar el código B1ENVEN1DA para un 10% extra de descuento.`;
 
-// Horario comercial estructurado (mismo horario que STORES[0].hours, en texto), para
-// poder comprobar por código si ahora mismo hay alguien del equipo disponible o no.
-// Minutos desde medianoche, hora de Canarias. Día: 0=domingo ... 6=sábado.
+// Horario comercial estructurado (mismo horario que STORES[0].hours, la sede
+// principal, en texto), para poder comprobar por código si ahora mismo hay
+// alguien del equipo disponible o no. Minutos desde medianoche, hora de
+// Canarias. Día: 0=domingo ... 6=sábado.
 const TIMEZONE = 'Atlantic/Canary';
 const BUSINESS_HOURS_RANGES = {
-  1: [[540, 810], [990, 1200]], // lunes 9:00-13:30 y 16:30-20:00
-  2: [[540, 810], [990, 1200]],
-  3: [[540, 810], [990, 1200]],
-  4: [[540, 810], [990, 1200]],
-  5: [[540, 810], [990, 1200]],
-  6: [[570, 810]], // sábado 9:30-13:30
+  1: [[540, 840], [960, 1140]], // lunes 9:00-14:00 y 16:00-19:00
+  2: [[540, 840], [960, 1140]],
+  3: [[540, 840], [960, 1140]],
+  4: [[540, 840], [960, 1140]],
+  5: [[540, 840], [960, 1140]],
+  6: [[540, 780]], // sábado 9:00-13:00
   0: [], // domingo cerrado
 };
 
@@ -78,9 +93,68 @@ function isAgenteInfoMessage(text) {
   return text === AGENTE_INFO_ABIERTO || text === AGENTE_INFO_CERRADO;
 }
 
+// La regla de "hablar con alguien"/queja hace match por substring, así que un
+// mensaje como "no quiero hablar con una persona" también la dispara aunque el
+// cliente esté diciendo justo lo contrario. Si el mensaje contiene una negación
+// clara delante, no se escala (se deja pasar a la IA en vez de ofrecer el botón).
+const NEGATION_MARKERS = ['no quiero', 'no necesito', 'no hace falta', 'no me hace falta', 'sin necesidad de', 'no quisiera', "don't want", 'do not want', "don't need"];
+
+function agenteInfoOrDecline(normalizedText) {
+  const declined = NEGATION_MARKERS.some((marker) => normalizedText.includes(marker));
+  return declined ? null : agenteInfo();
+}
+
 const PEDIDOS_INFO = `Para el seguimiento de tu pedido o cualquier incidencia relacionada, lo mejor es que contactes directamente con el departamento de Pedidos: ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com.`;
 
 const ADMINISTRACION_INFO = `Para temas administrativos (facturas, pagos, cuentas) contacta directamente con Administración: ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.`;
+
+const REPROGRAFIA_INFO = `Imprimimos todo tipo de documentos, en blanco y negro o a color, desde A4 hasta A3 (el tamaño más grande que hacemos). Hay distintos tipos de papel según lo que necesites, y el precio varía según la cantidad y el acabado — por eso, para impresiones, copias, fotocopias, encuadernados, plastificados, folletos, tarjetas de visita, sellos personalizados, talonarios, tarjetas para bodas o cualquier trabajo de imprenta (y sobre todo para precios), lo mejor es contactar directamente con el departamento de Reprografía: ${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com. Los sellos personalizados se piden en la tienda de Los Cristianos o desde la web (indicando el diseño en las observaciones del pedido, o por email si lleva logotipo).`;
+
+const REPROGRAFIA_CONTACT = `${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com`;
+
+// En vez de soltar la parrafada de las dos vías, se le pregunta al cliente cuál
+// prefiere (con botones) y se le da solo el dato que le corresponde.
+const SELLOS_QUESTION = '¿Vas a pedir el sello desde la web o prefieres pasar por la tienda de Los Cristianos?';
+
+const SELLOS_FABRICACION_INFO = 'La fabricación es casi al instante, aunque depende un poco del volumen de trabajo que haya en producción en ese momento.';
+
+const SELLOS_WEB_INFO = `Busca el producto "Sello Printy Brother" en la web — hay varios tamaños disponibles y cada uno tiene su precio (varía según el tamaño). Si el diseño es sencillo, indícalo en las observaciones del pedido; si lleva logotipo o es más complejo, mándanos el diseño por email a impresion.ofipapel@gmail.com después de finalizar el pedido. Antes de imprimirlo, siempre te enviamos una prueba para que nos des el OK. ${SELLOS_FABRICACION_INFO}`;
+
+const SELLOS_TIENDA_INFO = `Perfecto, puedes pasar por la tienda de Los Cristianos (C/ Bulevar Chajofe, n.º 4) o llamar al ${REPROGRAFIA_CONTACT} para que te asesoren sobre el diseño, el tamaño y el precio (varía según el tamaño elegido). ${SELLOS_FABRICACION_INFO}`;
+
+// Para detectar si un texto ya guardado es "la" pregunta de web/tienda de sellos
+// (mismo patrón que isAgenteInfoMessage), y así el webhook sepa cuándo mandar los
+// botones en vez de la respuesta de texto normal.
+function isSellosQuestion(text) {
+  return text === SELLOS_QUESTION;
+}
+
+// Un ítem concreto por mensaje (igual que con los envíos): si el cliente pregunta
+// por un servicio de Reprografía en concreto, se contesta solo sobre ese, no con
+// el listado completo cada vez. "reply" opcional para una respuesta a medida en
+// vez de la plantilla genérica (p. ej. sellos, que tiene dos vías de pedido).
+const REPROGRAFIA_ITEMS = [
+  { name: 'impresiones', keywords: ['imprimir', 'imprime', 'imprimen', 'imprimimos', 'impresion', 'impresión', 'impresiones'] },
+  { name: 'copias', keywords: ['copias'] },
+  { name: 'fotocopias', keywords: ['fotocopia', 'fotocopias'] },
+  { name: 'encuadernados', keywords: ['encuadernado', 'encuadernados', 'encuadernar'] },
+  { name: 'plastificados', keywords: ['plastificado', 'plastificados', 'plastificar'] },
+  { name: 'folletos', keywords: ['folletos'] },
+  { name: 'tarjetas de visita', keywords: ['tarjetas de visita'] },
+  { name: 'sellos personalizados', keywords: ['sellos personalizados', 'sello personalizado', 'sellos', 'sello'], reply: SELLOS_QUESTION },
+  { name: 'talonarios', keywords: ['talonarios'] },
+  { name: 'tarjetas para bodas', keywords: ['tarjetas para bodas'] },
+  { name: 'trabajos de imprenta', keywords: ['trabajo de imprenta', 'trabajos de imprenta', 'imprenta'] },
+];
+
+function reprografiaReply(normalizedText) {
+  const item = REPROGRAFIA_ITEMS.find((it) => it.keywords.some((k) => normalizedText.includes(k)));
+  if (item) {
+    if (item.reply) return item.reply;
+    return `Sí, hacemos ${item.name}. El precio depende de la cantidad y el acabado, así que para eso o para encargarlo, contacta con Reprografía: ${REPROGRAFIA_CONTACT}.`;
+  }
+  return REPROGRAFIA_INFO;
+}
 
 const PLACAS_VV_INFO = `Los pedidos de placas VV (identificación de vivienda vacacional) tardan entre 2 y 4 días en procesarse, dependiendo del volumen de trabajo que haya en producción en ese momento. Si elegiste recogida en tienda, te avisamos por teléfono en cuanto esté lista.`;
 
@@ -95,17 +169,25 @@ const ENVIOS_GENERAL_INTRO = `Hacemos envíos a toda Canarias. Los pedidos de lu
 // Datos por isla, usados tanto para la regla de FAQ (respuesta dirigida a una isla
 // concreta si el cliente la menciona) como para el contexto que recibe la IA.
 const ISLAND_SHIPPING = [
-  { name: 'Tenerife', keywords: ['tenerife'], freeFrom: 20, feeBelow: 5, delivery: '24-48h' },
-  { name: 'La Gomera', keywords: ['gomera'], freeFrom: 200, feeBelow: 15, delivery: '48-72h' },
-  { name: 'El Hierro', keywords: ['hierro'], freeFrom: 200, feeBelow: 15, delivery: '48-72h' },
-  { name: 'La Palma', keywords: ['la palma', 'palma'], freeFrom: 200, feeBelow: 15, delivery: '48-72h' },
-  { name: 'Gran Canaria', keywords: ['gran canaria'], freeFrom: 200, feeBelow: 15, delivery: '48-72h' },
+  {
+    name: 'Tenerife',
+    keywords: ['tenerife'],
+    freeFrom: 20,
+    feeBelow: 5,
+    delivery: '24 a 48h',
+    cutoffNote: 'Si el pedido se hace antes de las 13:00h, se entrega al día siguiente (salvo imprevistos); si se hace después de esa hora, ya no entra en el reparto del día siguiente, sino en el del otro día.',
+  },
+  { name: 'La Gomera', keywords: ['gomera'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
+  { name: 'El Hierro', keywords: ['hierro'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
+  { name: 'La Palma', keywords: ['la palma', 'palma'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
+  { name: 'Gran Canaria', keywords: ['gran canaria'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
   { name: 'Lanzarote', keywords: ['lanzarote'], freeFrom: 300, feeBelow: 20, delivery: '72h' },
   { name: 'Fuerteventura', keywords: ['fuerteventura'], freeFrom: 300, feeBelow: 20, delivery: '72h' },
 ];
 
 function islandShippingLine(island) {
-  return `A ${island.name} el envío es gratis a partir de ${island.freeFrom}€; si no llegas a esa cantidad se cobran ${island.feeBelow}€ de gastos de envío. El plazo estimado es de ${island.delivery} (en días laborables).`;
+  const cutoff = island.cutoffNote ? ` ${island.cutoffNote}` : '';
+  return `A ${island.name} el envío es gratis a partir de ${island.freeFrom}€; si no llegas a esa cantidad se cobran ${island.feeBelow}€ de gastos de envío. El plazo estimado es de ${island.delivery} (en días laborables).${cutoff}`;
 }
 
 function findIslandInText(normalizedText) {
@@ -146,6 +228,16 @@ const FAQ_RULES = [
   {
     keywords: ['factura', 'facturas', 'administracion', 'administración', 'departamento administrativo', 'telefono de administracion', 'teléfono de administración', 'telefono directo a administracion', 'teléfono directo a administración', 'extension de administracion', 'extensión de administración', 'extension 1', 'extensión 1'],
     reply: ADMINISTRACION_INFO,
+  },
+  {
+    keywords: [
+      'imprimir', 'imprime', 'imprimen', 'imprimimos', 'impresion', 'impresión', 'impresiones', 'copias', 'fotocopia', 'fotocopias',
+      'encuadernado', 'encuadernados', 'encuadernar', 'plastificado', 'plastificados', 'plastificar',
+      'folletos', 'tarjetas de visita', 'sellos personalizados', 'sello', 'sellos', 'talonarios', 'tarjetas para bodas',
+      'trabajo de imprenta', 'trabajos de imprenta', 'imprenta', 'reprografia', 'reprografía',
+      'departamento de reprografia', 'departamento de reprografía', 'extension 3010', 'extensión 3010',
+    ],
+    reply: reprografiaReply,
   },
   {
     keywords: ['horario', 'hora', 'abierto', 'abren', 'cierran', 'cierra'],
@@ -201,7 +293,7 @@ const FAQ_RULES = [
       'this is unacceptable', 'i want to complain', 'i have a complaint', 'this is a scam', 'i was scammed',
       'i need a solution', 'very urgent', 'it is urgent',
     ],
-    reply: agenteInfo,
+    reply: agenteInfoOrDecline,
   },
   {
     keywords: [
@@ -227,11 +319,15 @@ const FAQ_RULES = [
   },
 ];
 
+const CATALOGO_INFO = `Además de papelería, vendemos: accesorios de telefonía, accesorios de informática, ordenadores, artículos para el hogar, electrodomésticos, mobiliario de oficina, y uno de los mayores stocks de Canarias en consumibles para todo tipo de impresoras (tóner, tinta, etc.), además de impresoras y multifunción láser e inkjet, entre muchos otros artículos. También ofrecemos leasing de impresoras.`;
+
 // Prompt de sistema usado como respaldo cuando ninguna regla de FAQ coincide.
-const AI_SYSTEM_PROMPT = `Eres el asistente de atención al cliente por WhatsApp de ${BUSINESS_NAME}, una papelería en Tenerife.
+const AI_SYSTEM_PROMPT = `Eres el asistente de atención al cliente por WhatsApp de ${BUSINESS_NAME}, una tienda en Tenerife de papelería, informática, tecnología y equipamiento de oficina y hogar (no solo papelería).
 
 Información del negocio:
 ${storesSummary()}
+
+Qué vendemos: ${CATALOGO_INFO}
 
 Registro de clientes: ${REGISTRO_INFO}
 
@@ -245,6 +341,8 @@ Placas VV (identificación de vivienda vacacional): ${PLACAS_VV_INFO}
 
 Agendas: ${AGENDAS_INFO}
 
+Reprografía (impresiones, copias, encuadernados, imprenta): ${REPROGRAFIA_INFO}
+
 Devoluciones: ${DEVOLUCIONES_INFO}
 
 Contacto general: teléfono ${STORES[0].phone}, email comercial@ofipapelsl.com (consultas generales) o pedidos@ofipapelsl.com (pedidos y devoluciones).
@@ -252,7 +350,7 @@ Contacto general: teléfono ${STORES[0].phone}, email comercial@ofipapelsl.com (
 Instrucciones:
 - Responde SIEMPRE en el idioma en que esté escrito el mensaje del cliente, desde el primer mensaje, aunque sea muy corto (si escribe "Hi", respondes en inglés; si escribe "Hola", en español; etc.). No respondas en español por defecto ni digas cosas como "respondo en español" — cambia de idioma directamente, sin comentarlo. Hazlo de forma breve, cercana y natural (máximo 3-4 frases), como lo haría una persona real del equipo escribiendo un WhatsApp, no como un robot leyendo una lista de datos.
 - Contesta solo a lo que el cliente ha preguntado. Si la información que tienes cubre varios casos (por ejemplo, varias islas de envío) y el cliente solo pregunta por uno, dale únicamente el dato de ese caso concreto; no le sueltes toda la lista si no la ha pedido.
-- Si preguntan por productos o precios concretos que no conoces con certeza, no inventes datos: invita a llamar o visitar la tienda.
+- Si preguntan por productos o precios concretos que no conoces con certeza, no inventes datos: invita a llamar o visitar la tienda, y añade también la opción de pasarle con un agente si lo prefiere, con un tono cercano tipo "no obstante, si lo desea, podemos pasarle con un agente que resolverá su duda 😊".
 - Si preguntan algo concreto sobre un pedido ya hecho (en qué estado está, cuándo llega exactamente, una incidencia, un número de pedido) y no tienes esa información, no inventes nada: indícales que contacten con Pedidos al ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com.
 - Si es un tema administrativo (facturas, pagos, cuentas) que no puedas resolver, indícales que contacten con Administración al ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.
 - Si el mensaje parece una queja, un pedido complejo, o el cliente muestra que no está satisfecho con tu respuesta, ofrécele amablemente hablar con una persona del equipo y facilita el teléfono directo: ${STORES[0].phone}. Ten en cuenta el horario de tienda (${STORES[0].hours}): si ahora mismo está cerrado, dilo y aclara que la atención personal será cuando abramos, no al instante.
@@ -267,6 +365,10 @@ module.exports = {
   agenteInfo,
   isAgenteInfoMessage,
   isWithinBusinessHours,
+  SELLOS_QUESTION,
+  SELLOS_WEB_INFO,
+  SELLOS_TIENDA_INFO,
+  isSellosQuestion,
   FAQ_RULES,
   AI_SYSTEM_PROMPT,
 };

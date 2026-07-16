@@ -1,5 +1,5 @@
 // Webhook de WhatsApp Cloud API (Meta) para el agente de respuesta automática de Ofipapel.
-// (deploy trigger: escalado a humano con confirmación por botones)
+// (deploy trigger: recoger OWNER_WHATSAPP_NUMBER añadida en Netlify)
 //
 // GET  -> verificación del webhook que hace Meta al configurarlo.
 // POST -> mensajes entrantes de clientes; responde con reglas rápidas (FAQ) o,
@@ -19,6 +19,9 @@
 //   ANTHROPIC_API_KEY       api key de Claude, para responder cuando no hay una regla de FAQ
 //   RESEND_API_KEY / OWNER_EMAIL  para que llegue el aviso por email cuando el cliente
 //     confirma que quiere hablar con una persona (sin esto, el aviso se omite en silencio)
+//   OWNER_WHATSAPP_NUMBER   (opcional) tu número personal, en formato internacional sin
+//     "+" (ej. 34600000000), para recibir un WhatsApp de aviso cuando se confirma un
+//     escalado — mismo canal, así te suena la notificación de siempre
 //   UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN  (opcional) para archivar las
 //     conversaciones y verlas en el panel (netlify/functions/conversations.js)
 
@@ -36,6 +39,12 @@ const {
   agenteInfo,
   isAgenteInfoMessage,
 } = require('./whatsapp-agent-core');
+const {
+  SELLOS_QUESTION,
+  SELLOS_WEB_INFO,
+  SELLOS_TIENDA_INFO,
+  isSellosQuestion,
+} = require('./whatsapp-agent-config');
 const { sendWhatsappMessage } = require('./whatsapp-send');
 
 const GRAPH_API_VERSION = 'v20.0';
@@ -106,6 +115,21 @@ async function sendEscalateButtons(to) {
   }
 }
 
+// Aviso por WhatsApp al número personal del dueño, solo cuando se confirma un
+// escalado (no en cada mensaje, para no saturar). Requiere OWNER_WHATSAPP_NUMBER
+// en Netlify; si no está configurada, se omite en silencio. Ojo: si hace más de
+// 24h que no le escribes tú al bot, Meta puede rechazar este envío (ventana de
+// mensajería) — en ese caso solo falla el aviso, no la conversación con el cliente.
+async function notifyOwnerByWhatsapp(customerPhone, lastCustomerMessage) {
+  const ownerNumber = process.env.OWNER_WHATSAPP_NUMBER;
+  if (!ownerNumber) return;
+
+  const panelUrl = `${process.env.URL || ''}/.netlify/functions/conversations?phone=${encodeURIComponent(customerPhone)}`;
+  const alert = `🔔 *Ofipapel Bot* — un cliente quiere hablar con una persona\n\n📱 ${customerPhone}\n💬 Último mensaje: "${lastCustomerMessage}"\n\n👉 Ver conversación: ${panelUrl}`;
+
+  await sendWhatsappMessage(ownerNumber, alert);
+}
+
 // Si el cliente confirma o rechaza los botones "¿Quieres hablar con una persona?".
 // Solo cuando confirma con "Sí" se avisa por email y se marca en el panel de
 // conversaciones (que detecta el aviso con isAgenteInfoMessage sobre el historial).
@@ -123,6 +147,9 @@ async function handleEscalateReply(message) {
       customerMessage: '(confirmó que quiere hablar con una persona del equipo)',
       botReply: reply,
     });
+    const history = await getHistory(message.from);
+    const lastUserMessage = [...history].reverse().find((m) => m.role === 'user');
+    await notifyOwnerByWhatsapp(message.from, lastUserMessage ? lastUserMessage.content : '(sin mensaje previo)');
     return;
   }
 
@@ -132,8 +159,54 @@ async function handleEscalateReply(message) {
   }
 }
 
+// Botones "¿Web o tienda?" para sellos personalizados, en vez de soltar de golpe
+// las dos vías de pedido (ver whatsapp-agent-config.js: SELLOS_QUESTION/WEB/TIENDA).
+async function sendSellosButtons(to) {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = process.env.WHATSAPP_TOKEN;
+
+  const resp = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        body: { text: SELLOS_QUESTION },
+        action: {
+          buttons: [
+            { type: 'reply', reply: { id: 'sellos_web', title: '🌐 Por la web' } },
+            { type: 'reply', reply: { id: 'sellos_tienda', title: '🏬 En tienda' } },
+          ],
+        },
+      },
+    }),
+  });
+
+  if (!resp.ok) {
+    console.error('Error enviando botones de sellos:', resp.status, await resp.text());
+  }
+}
+
+async function handleSellosReply(message) {
+  const buttonId = message.interactive.button_reply.id;
+  const reply = buttonId === 'sellos_web' ? SELLOS_WEB_INFO : SELLOS_TIENDA_INFO;
+  await sendWhatsappMessage(message.from, reply);
+  await appendToHistory(message.from, `[El cliente eligió ${buttonId === 'sellos_web' ? 'web' : 'tienda'} para el sello]`, reply);
+}
+
 async function handleIncomingMessage(message) {
   if (message.type === 'interactive' && message.interactive?.type === 'button_reply') {
+    const buttonId = message.interactive.button_reply.id;
+    if (buttonId === 'sellos_web' || buttonId === 'sellos_tienda') {
+      await handleSellosReply(message);
+      return;
+    }
     await handleEscalateReply(message);
     return;
   }
@@ -162,6 +235,12 @@ async function handleIncomingMessage(message) {
   if (wantsEscalation) {
     await sendEscalateButtons(message.from);
     await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${ESCALATE_QUESTION}`);
+    return;
+  }
+
+  if (isSellosQuestion(faqReply || '')) {
+    await sendSellosButtons(message.from);
+    await appendToHistory(message.from, text, `[Se preguntó web o tienda para el sello] ${SELLOS_QUESTION}`);
     return;
   }
 
