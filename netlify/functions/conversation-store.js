@@ -78,6 +78,13 @@ async function listConversationPhones() {
   return (await redisCommand(['SMEMBERS', 'conversations_index'])) || [];
 }
 
+// Borra por completo el historial archivado de un número (usado desde el panel,
+// sobre todo para limpiar números de prueba). No se puede deshacer.
+async function clearConversation(phone) {
+  await redisCommand(['DEL', `conv:${phone}`]);
+  await redisCommand(['SREM', 'conversations_index', phone]);
+}
+
 // Pausa las respuestas automáticas del bot para un número durante N horas (por
 // defecto 24, alineado con la ventana de mensajería de WhatsApp), para que no se
 // crucen con las respuestas manuales de una persona desde el panel.
@@ -157,5 +164,6 @@ module.exports = {
   pauseBot,
   isBotPaused,
   resumeBot,
+  clearConversation,
   diagnose,
 };

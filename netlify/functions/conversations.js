@@ -16,6 +16,7 @@ const {
   pauseBot,
   isBotPaused,
   resumeBot,
+  clearConversation,
   diagnose,
 } = require('./conversation-store');
 const { isAgenteInfoMessage } = require('./whatsapp-agent-config');
@@ -119,6 +120,7 @@ const ICON = {
   chevron: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
   clip: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05 12.25 20.24a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.48"/></svg>',
   file: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+  trash: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
 };
 
 function pageShell(title, body) {
@@ -280,12 +282,20 @@ function pageShell(title, body) {
   }
   .back-link:hover { color: var(--green-dark); }
 
+  .thread-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
   .thread-title {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 21px; font-weight: 700; color: var(--green-dark);
-    margin: 0 0 16px;
+    margin: 0;
     text-shadow: 0 1px 0 #fff, 0 2px 0 rgba(26,92,26,.08);
   }
+  .danger-link {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; font-size: 12.5px; font-weight: 600; color: #b5493c;
+    padding: 4px 0; opacity: .75;
+  }
+  .danger-link:hover { opacity: 1; text-decoration: underline; }
 
   .pause-bar {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -471,10 +481,19 @@ function renderThread(phone, messages, { paused, error } = {}) {
   <div class="attach-hint">Imágenes (JPG/PNG) o PDF, máximo ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB.</div>
 </form>`;
 
+  const clearForm = `<form method="POST" onsubmit="return confirm('¿Borrar todo el historial de ${escapeHtml(phone)}? No se puede deshacer.');" style="display:inline;">
+  <input type="hidden" name="phone" value="${escapeHtml(phone)}">
+  <input type="hidden" name="action" value="clear">
+  <button type="submit" class="danger-link">${ICON.trash} Borrar historial</button>
+</form>`;
+
   return pageShell(
     `${phone} · Conversaciones Ofipapel`,
     `<a class="back-link" href="?">${ICON.back} Todas las conversaciones</a>
-<h2 class="thread-title">${escapeHtml(phone)}</h2>
+<div class="thread-header">
+  <h2 class="thread-title">${escapeHtml(phone)}</h2>
+  ${clearForm}
+</div>
 ${pauseBar}${errorBanner}${bubbles || '<div class="empty-thread">Sin mensajes.</div>'}${replyForm}`
   );
 }
@@ -548,6 +567,9 @@ exports.handler = async (event) => {
       }
     } else if (phone && action === 'resume') {
       await resumeBot(phone);
+    } else if (phone && action === 'clear') {
+      await clearConversation(phone);
+      return { statusCode: 303, headers: { Location: '?' }, body: '' };
     }
 
     return redirect();
