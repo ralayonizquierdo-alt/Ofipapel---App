@@ -6,11 +6,25 @@ const BUSINESS_NAME = 'Ofipapel';
 
 const STORES = [
   {
-    name: 'Los Cristianos',
-    address: 'Calle Bulevar Chajofe, n.º 4, 38650 Los Cristianos, Santa Cruz de Tenerife, España',
-    hours: 'Lunes a viernes 9:00-13:30 y 16:30-20:00, sábados 9:30-13:30',
+    name: 'Los Cristianos (sede principal)',
+    address: 'C/ Bulevar Chajofe, n.º 4, 38650 Los Cristianos, Santa Cruz de Tenerife, España',
+    hours: 'Lunes a viernes 9:00-14:00 y 16:00-19:00, sábados 9:00-13:00',
     phone: '922 753 520',
     mapsUrl: 'https://maps.app.goo.gl/Sx5yVAos3Ltjyuiv8',
+  },
+  {
+    name: 'Aliz 1 (Los Cristianos)',
+    address: 'Av. de Suecia, n.º 7, 38650 Los Cristianos, Santa Cruz de Tenerife, España',
+    hours: 'Lunes a viernes 9:00-14:00 y 16:30-19:30, sábados 9:00-13:00',
+    phone: '922 792 001',
+    mapsUrl: 'https://maps.google.com/?q=Av+de+Suecia+7+Los+Cristianos+Tenerife',
+  },
+  {
+    name: 'Aliz 2 (Playa de las Américas)',
+    address: 'Res. Las Viñas, C/ Noelia Afonso Cabrera, 38660 Playa de las Américas, Santa Cruz de Tenerife, España',
+    hours: 'Lunes a viernes 9:00-14:00 y 16:30-19:30, sábados 9:00-13:00',
+    phone: '922 791 029',
+    mapsUrl: 'https://maps.google.com/?q=Calle+Noelia+Afonso+Cabrera+Playa+de+las+Americas+Tenerife',
   },
 ];
 
@@ -31,17 +45,18 @@ const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿E
 const REGISTRO_URL = 'https://ofipapel.net/mi-cuenta/';
 const REGISTRO_INFO = `Puedes registrarte aquí: ${REGISTRO_URL}\nEl mismo registro sirve tanto para comprar en la web como en cualquiera de nuestras tiendas. Al registrarte, tienes una tarifa de precios mejorada. Además, si es tu primer pedido en la web, puedes usar el código B1ENVEN1DA para un 10% extra de descuento.`;
 
-// Horario comercial estructurado (mismo horario que STORES[0].hours, en texto), para
-// poder comprobar por código si ahora mismo hay alguien del equipo disponible o no.
-// Minutos desde medianoche, hora de Canarias. Día: 0=domingo ... 6=sábado.
+// Horario comercial estructurado (mismo horario que STORES[0].hours, la sede
+// principal, en texto), para poder comprobar por código si ahora mismo hay
+// alguien del equipo disponible o no. Minutos desde medianoche, hora de
+// Canarias. Día: 0=domingo ... 6=sábado.
 const TIMEZONE = 'Atlantic/Canary';
 const BUSINESS_HOURS_RANGES = {
-  1: [[540, 810], [990, 1200]], // lunes 9:00-13:30 y 16:30-20:00
-  2: [[540, 810], [990, 1200]],
-  3: [[540, 810], [990, 1200]],
-  4: [[540, 810], [990, 1200]],
-  5: [[540, 810], [990, 1200]],
-  6: [[570, 810]], // sábado 9:30-13:30
+  1: [[540, 840], [960, 1140]], // lunes 9:00-14:00 y 16:00-19:00
+  2: [[540, 840], [960, 1140]],
+  3: [[540, 840], [960, 1140]],
+  4: [[540, 840], [960, 1140]],
+  5: [[540, 840], [960, 1140]],
+  6: [[540, 780]], // sábado 9:00-13:00
   0: [], // domingo cerrado
 };
 
