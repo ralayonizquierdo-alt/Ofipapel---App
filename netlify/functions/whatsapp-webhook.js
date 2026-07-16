@@ -44,6 +44,8 @@ const {
   SELLOS_WEB_INFO,
   SELLOS_TIENDA_INFO,
   isSellosQuestion,
+  isWithinBusinessHours,
+  STORES,
 } = require('./whatsapp-agent-config');
 const { sendWhatsappMessage } = require('./whatsapp-send');
 
@@ -80,7 +82,14 @@ function verifySignature(event) {
   return crypto.timingSafeEqual(a, b);
 }
 
-const ESCALATE_QUESTION = '¿Quieres que te ponga en contacto con una persona del equipo?';
+// Fuera de horario, la propia pregunta de "¿quieres que te ponga en contacto...?" ya
+// deja claro que ahora mismo no hay nadie y que la atención será en cuanto abramos —
+// así el cliente no piensa que va a hablar con alguien al instante al pulsar "Sí".
+function escalateQuestion() {
+  return isWithinBusinessHours()
+    ? '¿Quieres que te ponga en contacto con una persona del equipo?'
+    : `Ahora mismo estamos fuera del horario comercial (${STORES[0].hours}), así que nadie puede atenderte al instante. ¿Quieres que igualmente te pongamos en contacto? Un agente revisará tu conversación en cuanto retomemos la actividad.`;
+}
 const ESCALATE_DECLINE_REPLY = 'Entendido, sigo por aquí. Cuéntame otra vez qué necesitas e intento ayudarte.';
 
 async function sendEscalateButtons(to) {
@@ -99,7 +108,7 @@ async function sendEscalateButtons(to) {
       type: 'interactive',
       interactive: {
         type: 'button',
-        body: { text: ESCALATE_QUESTION },
+        body: { text: escalateQuestion() },
         action: {
           buttons: [
             { type: 'reply', reply: { id: 'escalate_yes', title: '✅ Sí' } },
@@ -234,7 +243,7 @@ async function handleIncomingMessage(message) {
 
   if (wantsEscalation) {
     await sendEscalateButtons(message.from);
-    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${ESCALATE_QUESTION}`);
+    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${escalateQuestion()}`);
     return;
   }
 
