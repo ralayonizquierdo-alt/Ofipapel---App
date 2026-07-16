@@ -108,13 +108,16 @@ const PEDIDOS_INFO = `Para el seguimiento de tu pedido o cualquier incidencia re
 
 const ADMINISTRACION_INFO = `Para temas administrativos (facturas, pagos, cuentas) contacta directamente con Administración: ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.`;
 
-const REPROGRAFIA_INFO = `Imprimimos todo tipo de documentos, en blanco y negro o a color, desde A4 hasta A3 (el tamaño más grande que hacemos). Hay distintos tipos de papel según lo que necesites, y el precio varía según la cantidad y el acabado — por eso, para impresiones, copias, fotocopias, encuadernados, plastificados, folletos, tarjetas de visita, sellos personalizados, talonarios, tarjetas para bodas o cualquier trabajo de imprenta (y sobre todo para precios), lo mejor es contactar directamente con el departamento de Reprografía: ${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com. Los sellos personalizados solo se hacen en la tienda de Los Cristianos.`;
+const REPROGRAFIA_INFO = `Imprimimos todo tipo de documentos, en blanco y negro o a color, desde A4 hasta A3 (el tamaño más grande que hacemos). Hay distintos tipos de papel según lo que necesites, y el precio varía según la cantidad y el acabado — por eso, para impresiones, copias, fotocopias, encuadernados, plastificados, folletos, tarjetas de visita, sellos personalizados, talonarios, tarjetas para bodas o cualquier trabajo de imprenta (y sobre todo para precios), lo mejor es contactar directamente con el departamento de Reprografía: ${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com. Los sellos personalizados se piden en la tienda de Los Cristianos o desde la web (indicando el diseño en las observaciones del pedido, o por email si lleva logotipo).`;
 
 const REPROGRAFIA_CONTACT = `${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com`;
 
+const SELLOS_INFO = `Los sellos personalizados se pueden pedir de dos formas: en la tienda de Los Cristianos (llama al ${REPROGRAFIA_CONTACT}), o desde la web comprando el producto "sello" — si el diseño es sencillo, indica cómo lo quieres en las observaciones del pedido; si lleva logotipo o es más complejo, mándanos el diseño por email a impresion.ofipapel@gmail.com después de finalizar el pedido.`;
+
 // Un ítem concreto por mensaje (igual que con los envíos): si el cliente pregunta
 // por un servicio de Reprografía en concreto, se contesta solo sobre ese, no con
-// el listado completo cada vez.
+// el listado completo cada vez. "reply" opcional para una respuesta a medida en
+// vez de la plantilla genérica (p. ej. sellos, que tiene dos vías de pedido).
 const REPROGRAFIA_ITEMS = [
   { name: 'impresiones', keywords: ['imprimir', 'imprime', 'imprimen', 'imprimimos', 'impresion', 'impresión', 'impresiones'] },
   { name: 'copias', keywords: ['copias'] },
@@ -123,7 +126,7 @@ const REPROGRAFIA_ITEMS = [
   { name: 'plastificados', keywords: ['plastificado', 'plastificados', 'plastificar'] },
   { name: 'folletos', keywords: ['folletos'] },
   { name: 'tarjetas de visita', keywords: ['tarjetas de visita'] },
-  { name: 'sellos personalizados', keywords: ['sellos personalizados', 'sello personalizado', 'sellos', 'sello'], extra: ' (ojo, esto solo se hace en la tienda de Los Cristianos)' },
+  { name: 'sellos personalizados', keywords: ['sellos personalizados', 'sello personalizado', 'sellos', 'sello'], reply: SELLOS_INFO },
   { name: 'talonarios', keywords: ['talonarios'] },
   { name: 'tarjetas para bodas', keywords: ['tarjetas para bodas'] },
   { name: 'trabajos de imprenta', keywords: ['trabajo de imprenta', 'trabajos de imprenta', 'imprenta'] },
@@ -132,7 +135,8 @@ const REPROGRAFIA_ITEMS = [
 function reprografiaReply(normalizedText) {
   const item = REPROGRAFIA_ITEMS.find((it) => it.keywords.some((k) => normalizedText.includes(k)));
   if (item) {
-    return `Sí, hacemos ${item.name}${item.extra || ''}. El precio depende de la cantidad y el acabado, así que para eso o para encargarlo, contacta con Reprografía: ${REPROGRAFIA_CONTACT}.`;
+    if (item.reply) return item.reply;
+    return `Sí, hacemos ${item.name}. El precio depende de la cantidad y el acabado, así que para eso o para encargarlo, contacta con Reprografía: ${REPROGRAFIA_CONTACT}.`;
   }
   return REPROGRAFIA_INFO;
 }
@@ -206,7 +210,7 @@ const FAQ_RULES = [
     keywords: [
       'imprimir', 'imprime', 'imprimen', 'imprimimos', 'impresion', 'impresión', 'impresiones', 'copias', 'fotocopia', 'fotocopias',
       'encuadernado', 'encuadernados', 'encuadernar', 'plastificado', 'plastificados', 'plastificar',
-      'folletos', 'tarjetas de visita', 'sellos personalizados', 'talonarios', 'tarjetas para bodas',
+      'folletos', 'tarjetas de visita', 'sellos personalizados', 'sello', 'sellos', 'talonarios', 'tarjetas para bodas',
       'trabajo de imprenta', 'trabajos de imprenta', 'imprenta', 'reprografia', 'reprografía',
       'departamento de reprografia', 'departamento de reprografía', 'extension 3010', 'extensión 3010',
     ],
