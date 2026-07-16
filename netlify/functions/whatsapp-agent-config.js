@@ -304,8 +304,13 @@ const FAQ_RULES = [
     reply: agenteInfo,
   },
   {
+    // Igual que el saludo: "gracias"/"perfecto" aparecen también al final de mensajes
+    // con una pregunta real detrás (p. ej. "...¿sería posible recogerlo esta mañana?
+    // Gracias."), así que solo se contesta "de nada" si el mensaje es puro
+    // agradecimiento/cierre corto; si es largo, se deja pasar a reglas más
+    // específicas o a la IA en vez de comerse la pregunta.
     keywords: ['gracias', 'muchas gracias', 'perfecto', 'vale gracias'],
-    reply: '¡De nada! Si necesitas cualquier otra cosa aquí estamos. 😊',
+    reply: (normalizedText) => (normalizedText.split(/\s+/).filter(Boolean).length <= 6 ? '¡De nada! Si necesitas cualquier otra cosa aquí estamos. 😊' : null),
   },
   {
     // Al final a propósito: "hola"/"buenos días" aparece en muchísimos mensajes que
