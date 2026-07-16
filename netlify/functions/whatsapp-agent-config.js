@@ -160,6 +160,8 @@ const PLACAS_VV_INFO = `Los pedidos de placas VV (identificación de vivienda va
 
 const AGENDAS_INFO = `Tenemos muchísimos modelos y diseños de agendas en stock. En la web solo están los modelos más básicos, que se repiten todos los años; el resto no lo subimos porque cada año cambian los diseños y no es viable mantenerlo actualizado. Te invitamos a pasar por nuestra tienda, donde podrás ver en vivo cada uno de los diseños que tenemos disponibles.`;
 
+const REGALOS_INFO = `Tenemos una campaña de regalos directos según el importe de tu compra. Puedes consultar la lista de regalos disponibles y el importe necesario para cada uno en la familia de productos "Z-Regalos Promocionales" de la web. Para elegir tu regalo, indícalo en las observaciones del pedido.`;
+
 const COMO_COMPRAR_INFO = `Puedes comprar en https://ofipapel.net: busca el producto por secciones, marcas o con el buscador, añádelo al carrito y ve a "Finalizar Compra" para dejar tus datos y elegir cómo pagar.`;
 
 const PAGO_INFO = `Formas de pago aceptadas: tarjeta de crédito o débito (Visa, MasterCard, 4B, Euro 6000, Maestro, American Express), transferencia bancaria, contra reembolso, o en tienda (solo para recogidas, con el pedido hecho antes por la web).`;
@@ -217,6 +219,10 @@ const FAQ_RULES = [
   {
     keywords: ['agenda', 'agendas'],
     reply: AGENDAS_INFO,
+  },
+  {
+    keywords: ['regalo directo', 'regalos directos', 'regalo por compra', 'regalos por compra', 'campaña de regalos', 'campana de regalos', 'regalos promocionales', 'z-regalos', 'que regalo', 'qué regalo', 'que regalos', 'qué regalos'],
+    reply: REGALOS_INFO,
   },
   {
     // Colocada antes que las reglas genéricas de horario/dirección/teléfono para que
@@ -362,6 +368,8 @@ Envíos: ${ENVIOS_INFO}
 Placas VV (identificación de vivienda vacacional): ${PLACAS_VV_INFO}
 
 Agendas: ${AGENDAS_INFO}
+
+Campaña de regalos directos: ${REGALOS_INFO}
 
 Reprografía (impresiones, copias, encuadernados, imprenta): ${REPROGRAFIA_INFO}
 
