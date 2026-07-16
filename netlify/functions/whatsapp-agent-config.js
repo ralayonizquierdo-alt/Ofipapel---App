@@ -78,6 +78,17 @@ function isAgenteInfoMessage(text) {
   return text === AGENTE_INFO_ABIERTO || text === AGENTE_INFO_CERRADO;
 }
 
+// La regla de "hablar con alguien"/queja hace match por substring, así que un
+// mensaje como "no quiero hablar con una persona" también la dispara aunque el
+// cliente esté diciendo justo lo contrario. Si el mensaje contiene una negación
+// clara delante, no se escala (se deja pasar a la IA en vez de ofrecer el botón).
+const NEGATION_MARKERS = ['no quiero', 'no necesito', 'no hace falta', 'no me hace falta', 'sin necesidad de', 'no quisiera', "don't want", 'do not want', "don't need"];
+
+function agenteInfoOrDecline(normalizedText) {
+  const declined = NEGATION_MARKERS.some((marker) => normalizedText.includes(marker));
+  return declined ? null : agenteInfo();
+}
+
 const PEDIDOS_INFO = `Para el seguimiento de tu pedido o cualquier incidencia relacionada, lo mejor es que contactes directamente con el departamento de Pedidos: ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com.`;
 
 const ADMINISTRACION_INFO = `Para temas administrativos (facturas, pagos, cuentas) contacta directamente con Administración: ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.`;
@@ -201,7 +212,7 @@ const FAQ_RULES = [
       'this is unacceptable', 'i want to complain', 'i have a complaint', 'this is a scam', 'i was scammed',
       'i need a solution', 'very urgent', 'it is urgent',
     ],
-    reply: agenteInfo,
+    reply: agenteInfoOrDecline,
   },
   {
     keywords: [
