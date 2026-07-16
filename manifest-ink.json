@@ -8,8 +8,14 @@
   "theme_color": "#0F1119",
   "icons": [
     {
-      "src": "/Ofipapel---App/logo-canarias-ink.png",
+      "src": "/Ofipapel---App/favicon.svg",
       "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/Ofipapel---App/logo-canarias-ink.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
