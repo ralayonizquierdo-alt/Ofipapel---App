@@ -108,6 +108,8 @@ const PEDIDOS_INFO = `Para el seguimiento de tu pedido o cualquier incidencia re
 
 const ADMINISTRACION_INFO = `Para temas administrativos (facturas, pagos, cuentas) contacta directamente con Administración: ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.`;
 
+const REPROGRAFIA_INFO = `Imprimimos todo tipo de documentos, en blanco y negro o a color, desde A4 hasta A3 (el tamaño más grande que hacemos). Hay distintos tipos de papel según lo que necesites, y el precio varía según la cantidad y el acabado — por eso, para impresiones, copias, fotocopias, encuadernados, plastificados, folletos, tarjetas de visita, sellos personalizados, talonarios, tarjetas para bodas o cualquier trabajo de imprenta (y sobre todo para precios), lo mejor es contactar directamente con el departamento de Reprografía: ${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com.`;
+
 const PLACAS_VV_INFO = `Los pedidos de placas VV (identificación de vivienda vacacional) tardan entre 2 y 4 días en procesarse, dependiendo del volumen de trabajo que haya en producción en ese momento. Si elegiste recogida en tienda, te avisamos por teléfono en cuanto esté lista.`;
 
 const AGENDAS_INFO = `Tenemos muchísimos modelos y diseños de agendas en stock. En la web solo están los modelos más básicos, que se repiten todos los años; el resto no lo subimos porque cada año cambian los diseños y no es viable mantenerlo actualizado. Te invitamos a pasar por nuestra tienda, donde podrás ver en vivo cada uno de los diseños que tenemos disponibles.`;
@@ -172,6 +174,16 @@ const FAQ_RULES = [
   {
     keywords: ['factura', 'facturas', 'administracion', 'administración', 'departamento administrativo', 'telefono de administracion', 'teléfono de administración', 'telefono directo a administracion', 'teléfono directo a administración', 'extension de administracion', 'extensión de administración', 'extension 1', 'extensión 1'],
     reply: ADMINISTRACION_INFO,
+  },
+  {
+    keywords: [
+      'imprimir', 'imprime', 'imprimen', 'imprimimos', 'impresion', 'impresión', 'impresiones', 'copias', 'fotocopia', 'fotocopias',
+      'encuadernado', 'encuadernados', 'encuadernar', 'plastificado', 'plastificados', 'plastificar',
+      'folletos', 'tarjetas de visita', 'sellos personalizados', 'talonarios', 'tarjetas para bodas',
+      'trabajo de imprenta', 'trabajos de imprenta', 'imprenta', 'reprografia', 'reprografía',
+      'departamento de reprografia', 'departamento de reprografía', 'extension 3010', 'extensión 3010',
+    ],
+    reply: REPROGRAFIA_INFO,
   },
   {
     keywords: ['horario', 'hora', 'abierto', 'abren', 'cierran', 'cierra'],
@@ -270,6 +282,8 @@ Envíos: ${ENVIOS_INFO}
 Placas VV (identificación de vivienda vacacional): ${PLACAS_VV_INFO}
 
 Agendas: ${AGENDAS_INFO}
+
+Reprografía (impresiones, copias, encuadernados, imprenta): ${REPROGRAFIA_INFO}
 
 Devoluciones: ${DEVOLUCIONES_INFO}
 
