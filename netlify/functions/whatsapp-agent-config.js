@@ -169,7 +169,14 @@ const ENVIOS_GENERAL_INTRO = `Hacemos envíos a toda Canarias. Los pedidos de lu
 // Datos por isla, usados tanto para la regla de FAQ (respuesta dirigida a una isla
 // concreta si el cliente la menciona) como para el contexto que recibe la IA.
 const ISLAND_SHIPPING = [
-  { name: 'Tenerife', keywords: ['tenerife'], freeFrom: 20, feeBelow: 5, delivery: '24 a 48h' },
+  {
+    name: 'Tenerife',
+    keywords: ['tenerife'],
+    freeFrom: 20,
+    feeBelow: 5,
+    delivery: '24 a 48h',
+    cutoffNote: 'Si el pedido se hace antes de las 13:00h, se entrega al día siguiente (salvo imprevistos); si se hace después de esa hora, ya no entra en el reparto del día siguiente, sino en el del otro día.',
+  },
   { name: 'La Gomera', keywords: ['gomera'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
   { name: 'El Hierro', keywords: ['hierro'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
   { name: 'La Palma', keywords: ['la palma', 'palma'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
@@ -179,7 +186,8 @@ const ISLAND_SHIPPING = [
 ];
 
 function islandShippingLine(island) {
-  return `A ${island.name} el envío es gratis a partir de ${island.freeFrom}€; si no llegas a esa cantidad se cobran ${island.feeBelow}€ de gastos de envío. El plazo estimado es de ${island.delivery} (en días laborables).`;
+  const cutoff = island.cutoffNote ? ` ${island.cutoffNote}` : '';
+  return `A ${island.name} el envío es gratis a partir de ${island.freeFrom}€; si no llegas a esa cantidad se cobran ${island.feeBelow}€ de gastos de envío. El plazo estimado es de ${island.delivery} (en días laborables).${cutoff}`;
 }
 
 function findIslandInText(normalizedText) {
