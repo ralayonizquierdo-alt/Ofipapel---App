@@ -116,9 +116,11 @@ const REPROGRAFIA_CONTACT = `${STORES[0].phone} extensión 3010, o impresion.ofi
 // prefiere (con botones) y se le da solo el dato que le corresponde.
 const SELLOS_QUESTION = '¿Vas a pedir el sello desde la web o prefieres pasar por la tienda de Los Cristianos?';
 
-const SELLOS_WEB_INFO = `Busca el producto "Sello Printy Brother" en la web — hay varios tamaños disponibles. Si el diseño es sencillo, indícalo en las observaciones del pedido; si lleva logotipo o es más complejo, mándanos el diseño por email a impresion.ofipapel@gmail.com después de finalizar el pedido. Antes de imprimirlo, siempre te enviamos una prueba para que nos des el OK.`;
+const SELLOS_FABRICACION_INFO = 'La fabricación es casi al instante, aunque depende un poco del volumen de trabajo que haya en producción en ese momento.';
 
-const SELLOS_TIENDA_INFO = `Perfecto, puedes pasar por la tienda de Los Cristianos (C/ Bulevar Chajofe, n.º 4) o llamar al ${REPROGRAFIA_CONTACT} para que te asesoren sobre el diseño y el tamaño.`;
+const SELLOS_WEB_INFO = `Busca el producto "Sello Printy Brother" en la web — hay varios tamaños disponibles. Si el diseño es sencillo, indícalo en las observaciones del pedido; si lleva logotipo o es más complejo, mándanos el diseño por email a impresion.ofipapel@gmail.com después de finalizar el pedido. Antes de imprimirlo, siempre te enviamos una prueba para que nos des el OK. ${SELLOS_FABRICACION_INFO}`;
+
+const SELLOS_TIENDA_INFO = `Perfecto, puedes pasar por la tienda de Los Cristianos (C/ Bulevar Chajofe, n.º 4) o llamar al ${REPROGRAFIA_CONTACT} para que te asesoren sobre el diseño y el tamaño. ${SELLOS_FABRICACION_INFO}`;
 
 // Para detectar si un texto ya guardado es "la" pregunta de web/tienda de sellos
 // (mismo patrón que isAgenteInfoMessage), y así el webhook sepa cuándo mandar los
