@@ -11,6 +11,7 @@ const STORES = [
     hours: 'Lunes a viernes 9:00 a 14:00 y 16:00 a 19:00, sábados 9:00 a 13:00',
     phone: '922 753 520',
     mapsUrl: 'https://maps.app.goo.gl/Sx5yVAos3Ltjyuiv8',
+    keywords: ['sede principal', 'tienda principal', 'central', 'bulevar chajofe'],
   },
   {
     name: 'Aliz 1 (Los Cristianos)',
@@ -18,6 +19,7 @@ const STORES = [
     hours: 'Lunes a viernes 9:00 a 14:00 y 16:30 a 19:30, sábados 9:00 a 13:00',
     phone: '922 792 001',
     mapsUrl: 'https://maps.google.com/?q=Av+de+Suecia+7+Los+Cristianos+Tenerife',
+    keywords: ['aliz 1', 'aliz1', 'av. de suecia', 'avenida de suecia'],
   },
   {
     name: 'Aliz 2 (Playa de las Américas)',
@@ -25,6 +27,7 @@ const STORES = [
     hours: 'Lunes a viernes 9:00 a 14:00 y 16:30 a 19:30, sábados 9:00 a 13:00',
     phone: '922 791 029',
     mapsUrl: 'https://maps.google.com/?q=Calle+Noelia+Afonso+Cabrera+Playa+de+las+Americas+Tenerife',
+    keywords: ['aliz 2', 'aliz2', 'playa de las americas', 'noelia afonso'],
   },
 ];
 
@@ -34,10 +37,13 @@ function storesSummary() {
   ).join('\n');
 }
 
-function storesLocationSummary() {
-  return STORES.map(
-    (s) => `• ${s.name}: ${s.address}\n  Cómo llegar: ${s.mapsUrl}`
-  ).join('\n');
+// Si el cliente menciona una tienda concreta (Aliz 1, Aliz 2, o la sede principal
+// explícitamente), se le contesta solo sobre esa. Si no menciona ninguna, por
+// defecto se da la sede principal (STORES[0]) — las llamadas y visitas van casi
+// siempre ahí, así que no hace falta soltar la lista completa de las 3 tiendas
+// cada vez que preguntan por horario, dirección o teléfono.
+function findStoreInText(normalizedText) {
+  return STORES.find((s) => s.keywords.some((k) => normalizedText.includes(k)));
 }
 
 const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿En qué puedo ayudarte? Puedes preguntarme por horarios, ubicación, teléfono o lo que necesites.`;
@@ -81,7 +87,7 @@ function isWithinBusinessHours(date = new Date()) {
 // puede seguir ayudando el bot, para no generar una falsa expectativa.
 const AGENTE_INFO_ABIERTO = `Claro, ahora mismo un miembro del equipo revisará tu conversación y te atenderá personalmente. Si es urgente, también puedes llamarnos directamente al ${STORES[0].phone} en horario de tienda (${STORES[0].hours}).`;
 
-const AGENTE_INFO_CERRADO = `Claro, en cuanto abramos (${STORES[0].hours}) un miembro del equipo revisará tu conversación y te atenderá personalmente. Ahora mismo estamos fuera de horario, así que de momento solo puedo seguir ayudándote yo — cuéntame qué necesitas y lo intento.`;
+const AGENTE_INFO_CERRADO = `Ahora mismo estamos fuera del horario comercial (${STORES[0].hours}). Un miembro del equipo atenderá tu petición en cuanto retomemos la actividad.`;
 
 function agenteInfo() {
   return isWithinBusinessHours() ? AGENTE_INFO_ABIERTO : AGENTE_INFO_CERRADO;
@@ -160,11 +166,19 @@ const PLACAS_VV_INFO = `Los pedidos de placas VV (identificación de vivienda va
 
 const AGENDAS_INFO = `Tenemos muchísimos modelos y diseños de agendas en stock. En la web solo están los modelos más básicos, que se repiten todos los años; el resto no lo subimos porque cada año cambian los diseños y no es viable mantenerlo actualizado. Te invitamos a pasar por nuestra tienda, donde podrás ver en vivo cada uno de los diseños que tenemos disponibles.`;
 
-const COMO_COMPRAR_INFO = `Puedes comprar en https://ofipapel.net: busca el producto por secciones, marcas o con el buscador, añádelo al carrito y ve a "Finalizar Compra" para dejar tus datos y elegir cómo pagar.`;
+const REGALOS_INFO = `Tenemos una campaña de regalos directos según el importe de tu compra. Los regalos disponibles van cambiando cada varias semanas, así que la lista actualizada (con el importe necesario para cada uno) siempre está en la familia de productos "Z-Regalos Promocionales" de la web. Para elegir tu regalo, indícalo en las observaciones del pedido.`;
+
+const COMO_COMPRAR_INFO = `Puedes comprar en https://ofipapel.net: busca el producto por secciones, marcas o con el buscador, añádelo al carrito y ve a "Finalizar Compra" para dejar tus datos y elegir cómo pagar. Ahí mismo puedes elegir "Recogida en tienda" en vez de envío a domicilio.`;
+
+const RECOGIDA_TIENDA_INFO = `Sí, al hacer tu pedido en la web, en el paso de "Finalizar Compra" puedes elegir "Recogida en tienda" en vez de envío a domicilio — a veces resulta más cómodo y rápido pasar a por él, aunque tu pedido ya tenga el envío gratis.`;
+
+const CATALOGO_DESCARGA_INFO = `En la web puedes descargar nuestros catálogos en formato PDF. Si lo prefieres en formato físico, solo tienes que pasar por alguna de nuestras tiendas.`;
 
 const PAGO_INFO = `Formas de pago aceptadas: tarjeta de crédito o débito (Visa, MasterCard, 4B, Euro 6000, Maestro, American Express), transferencia bancaria, contra reembolso, o en tienda (solo para recogidas, con el pedido hecho antes por la web).`;
 
-const ENVIOS_GENERAL_INTRO = `Hacemos envíos a toda Canarias. Los pedidos de lunes a viernes antes de las 11:30h se gestionan ese mismo día (después, al día siguiente; los de fin de semana/festivos, el próximo día laborable).`;
+const ENVIOS_GENERAL_INTRO = `Hacemos envíos a toda Canarias, pero no enviamos a Península ni al extranjero. Los pedidos de lunes a viernes antes de las 11:30h se gestionan ese mismo día (después, al día siguiente; los de fin de semana/festivos, el próximo día laborable).`;
+
+const PENINSULA_EXTRANJERO_KEYWORDS = ['peninsula', 'península', 'espana peninsular', 'españa peninsular', 'extranjero', 'fuera de canarias', 'fuera de españa', 'internacional', 'otro pais', 'otro país'];
 
 // Datos por isla, usados tanto para la regla de FAQ (respuesta dirigida a una isla
 // concreta si el cliente la menciona) como para el contexto que recibe la IA.
@@ -197,6 +211,9 @@ function findIslandInText(normalizedText) {
 // Respuesta rápida: si el cliente ya menciona una isla, contesta solo sobre esa isla
 // (sin soltar la tabla entera); si no la menciona, da el resumen general y pregunta.
 function enviosReply(normalizedText) {
+  if (PENINSULA_EXTRANJERO_KEYWORDS.some((k) => normalizedText.includes(k))) {
+    return 'No, solo hacemos envíos dentro de las Islas Canarias — no enviamos a Península ni al extranjero.';
+  }
   const island = findIslandInText(normalizedText);
   if (island) return `${islandShippingLine(island)} Para artículos muy pesados o voluminosos el porte se calcula aparte, a consultar.`;
   return `${ENVIOS_GENERAL_INTRO} El envío gratis y el plazo cambian según la isla — ¿a cuál te refieres? Así te doy el dato exacto.`;
@@ -205,7 +222,7 @@ function enviosReply(normalizedText) {
 // Versión completa (todas las islas), para el contexto de la IA.
 const ENVIOS_INFO = `${ENVIOS_GENERAL_INTRO}\n\n${ISLAND_SHIPPING.map(islandShippingLine).join('\n')}\n\nPara artículos muy pesados o voluminosos, el porte se calcula aparte, a consultar.`;
 
-const DEVOLUCIONES_INFO = `Tienes 14 días naturales desde la entrega para devolver un producto, siempre que esté sin usar, con las etiquetas y en su embalaje original. El reembolso se hace por el mismo medio de pago, en un plazo máximo de 30 días naturales. Los gastos de la devolución los asume el cliente, salvo que el producto tenga algún defecto. Si compraste por la web, también puedes devolver en tienda sin coste. Para iniciar una devolución escribe a pedidos@ofipapelsl.com indicando tus datos, la compra y el motivo. Si el producto llegó dañado o defectuoso, avísanos en las 24h siguientes a la entrega (con fotos) a ese mismo email.`;
+const DEVOLUCIONES_INFO = `Tienes 14 días naturales desde la entrega para devolver un producto, siempre que esté sin usar, con las etiquetas y en su embalaje original. El reembolso se hace por el mismo medio de pago, en un plazo máximo de 30 días naturales. Los gastos de la devolución los asume el cliente, salvo que el producto tenga algún defecto. Si compraste por la web, también puedes devolver en tienda sin coste. Para iniciar una devolución escribe a pedidos@ofipapelsl.com indicando tus datos de compra (núm. de pedido o núm. de factura) y el motivo. Si el producto llegó dañado o defectuoso, avísanos en las 24h siguientes a la entrega (con fotos) a ese mismo email.`;
 
 // Reglas de coincidencia por palabras clave, evaluadas en orden.
 // La primera que encuentre una palabra clave en el mensaje gana.
@@ -217,6 +234,10 @@ const FAQ_RULES = [
   {
     keywords: ['agenda', 'agendas'],
     reply: AGENDAS_INFO,
+  },
+  {
+    keywords: ['regalo directo', 'regalos directos', 'regalo por compra', 'regalos por compra', 'campaña de regalos', 'campana de regalos', 'regalos promocionales', 'z-regalos', 'que regalo', 'qué regalo', 'que regalos', 'qué regalos'],
+    reply: REGALOS_INFO,
   },
   {
     // Colocada antes que las reglas genéricas de horario/dirección/teléfono para que
@@ -240,16 +261,40 @@ const FAQ_RULES = [
     reply: reprografiaReply,
   },
   {
+    // Por defecto solo se da el horario de la sede principal (no las 3 tiendas) —
+    // si el cliente nombra una tienda en concreto (Aliz 1, Aliz 2...), se le da la suya.
     keywords: ['horario', 'hora', 'abierto', 'abren', 'cierran', 'cierra'],
-    reply: `Nuestros horarios son:\n${storesSummary()}`,
+    reply: (normalizedText) => {
+      const found = findStoreInText(normalizedText);
+      const store = found || STORES[0];
+      const footer = found ? '' : ' Si preguntas por otra de nuestras tiendas (Aliz 1 o Aliz 2) te doy su horario en concreto.';
+      return `Horario de ${store.name}: ${store.hours}.${footer}`;
+    },
   },
   {
+    // Igual que el horario: por defecto solo la dirección de la sede principal, salvo
+    // que el cliente pregunte por una tienda concreta.
     keywords: ['direccion', 'dirección', 'donde estan', 'donde estáis', 'dónde están', 'dónde estáis', 'ubicacion', 'ubicación', 'mapa', 'como llegar', 'cómo llegar', 'como llego', 'cómo llego'],
-    reply: `Estamos en:\n${storesLocationSummary()}`,
+    reply: (normalizedText) => {
+      const found = findStoreInText(normalizedText);
+      const store = found || STORES[0];
+      const footer = found ? '' : '\nSi buscas otra de nuestras tiendas (Aliz 1 o Aliz 2) dime cuál y te paso su dirección.';
+      return `Estamos en: ${store.address}\nCómo llegar: ${store.mapsUrl}${footer}`;
+    },
   },
   {
+    // Las llamadas van casi siempre a la central (STORES[0]), así que no hace falta
+    // dar el teléfono de las 3 tiendas — y si estamos fuera de horario no se invita
+    // a llamar "ahora" porque no habría nadie para atender.
     keywords: ['telefono', 'teléfono', 'llamar', 'numero', 'número'],
-    reply: `Puedes llamarnos al:\n${storesSummary()}`,
+    reply: (normalizedText) => {
+      const found = findStoreInText(normalizedText);
+      const store = found || STORES[0];
+      const nombre = found ? '' : ` (${store.name})`;
+      return isWithinBusinessHours()
+        ? `Puedes llamarnos ahora al ${store.phone}${nombre} (horario: ${store.hours}).`
+        : `Ahora mismo estamos fuera de horario (${store.hours}), así que no hay nadie disponible para atender llamadas. Nuestro teléfono es ${store.phone}${nombre} — puedes llamarnos en cuanto abramos.`;
+    },
   },
   {
     keywords: [
@@ -258,6 +303,17 @@ const FAQ_RULES = [
       'nueva cuenta', 'mi cuenta', 'como me registro', 'cómo me registro',
     ],
     reply: REGISTRO_INFO,
+  },
+  {
+    // Antes que la regla genérica de "cómo comprar" para que preguntas del tipo
+    // "¿puedo pedir y recogerlo en tienda?" no caigan en la respuesta genérica del
+    // proceso de compra sin mencionar la opción de recogida.
+    keywords: ['recogida en tienda', 'recoger en tienda', 'recoger en la tienda', 'recoger mi pedido en tienda', 'recoger el pedido en tienda', 'recogerlo en tienda', 'recogerlo en la tienda'],
+    reply: RECOGIDA_TIENDA_INFO,
+  },
+  {
+    keywords: ['catalogo fisico', 'catálogo físico', 'catalogo en pdf', 'catálogo en pdf', 'catalogo impreso', 'catálogo impreso', 'descargar catalogo', 'descargar catálogo', 'teneis catalogo', 'tenéis catálogo', 'tienen catalogo', 'tienen catálogo'],
+    reply: CATALOGO_DESCARGA_INFO,
   },
   {
     keywords: ['como comprar', 'cómo comprar', 'como hago un pedido', 'cómo hago un pedido', 'hacer un pedido', 'comprar online', 'comprar por internet', 'comprar en la web'],
@@ -286,12 +342,20 @@ const FAQ_RULES = [
       'me han estafado', 'me habeis estafado', 'me habéis estafado', 'necesito una solucion', 'necesito una solución',
       'quiero una solucion', 'quiero una solución', 'que solucion me dan', 'qué solución me dan', 'solucion ya',
       'solución ya', 'es urgente', 'muy urgente',
+      // Pedir que el equipo le devuelva la llamada/mensaje: esto NO lo puede prometer
+      // la IA por su cuenta (no tiene forma de avisar a nadie de verdad), así que se
+      // engancha al mismo flujo real de escalado en vez de dejar que lo conteste sola.
+      'pasar un mensaje', 'pasarle un mensaje', 'pasar mi mensaje', 'pasar mi consulta', 'pasarle mi consulta',
+      'dejar un mensaje', 'dejar mi numero', 'dejar mi número', 'dejar mi telefono', 'dejar mi teléfono',
+      'que me llamen', 'que me llame', 'que me contacten', 'que me contacte', 'que me devuelvan la llamada',
+      'me pueden llamar', 'me podeis llamar', 'me podéis llamar', 'anotar mi consulta', 'anotar mi pedido',
       // inglés (mismo canal de escalado, para que no dependa del idioma del cliente)
       'talk to an agent', 'talk to a person', 'talk to a human', 'speak to an agent', 'speak with an agent',
       'speak to a person', 'speak with a person', 'human agent', 'human person', 'real person', 'a real human',
       'customer service', 'i want to talk to', 'i want to speak to', 'can i speak with', 'can i talk to',
       'this is unacceptable', 'i want to complain', 'i have a complaint', 'this is a scam', 'i was scammed',
       'i need a solution', 'very urgent', 'it is urgent',
+      'pass a message', 'leave a message', 'call me back', 'have someone call me', 'can someone call me',
     ],
     reply: agenteInfoOrDecline,
   },
@@ -304,8 +368,13 @@ const FAQ_RULES = [
     reply: agenteInfo,
   },
   {
+    // Igual que el saludo: "gracias"/"perfecto" aparecen también al final de mensajes
+    // con una pregunta real detrás (p. ej. "...¿sería posible recogerlo esta mañana?
+    // Gracias."), así que solo se contesta "de nada" si el mensaje es puro
+    // agradecimiento/cierre corto; si es largo, se deja pasar a reglas más
+    // específicas o a la IA en vez de comerse la pregunta.
     keywords: ['gracias', 'muchas gracias', 'perfecto', 'vale gracias'],
-    reply: '¡De nada! Si necesitas cualquier otra cosa aquí estamos. 😊',
+    reply: (normalizedText) => (normalizedText.split(/\s+/).filter(Boolean).length <= 6 ? '¡De nada! Si necesitas cualquier otra cosa aquí estamos. 😊' : null),
   },
   {
     // Al final a propósito: "hola"/"buenos días" aparece en muchísimos mensajes que
@@ -321,8 +390,19 @@ const FAQ_RULES = [
 
 const CATALOGO_INFO = `Además de papelería, vendemos: accesorios de telefonía, accesorios de informática, ordenadores, artículos para el hogar, electrodomésticos, mobiliario de oficina, y uno de los mayores stocks de Canarias en consumibles para todo tipo de impresoras (tóner, tinta, etc.), además de impresoras y multifunción láser e inkjet, entre muchos otros artículos. También ofrecemos leasing de impresoras.`;
 
-// Prompt de sistema usado como respaldo cuando ninguna regla de FAQ coincide.
-const AI_SYSTEM_PROMPT = `Eres el asistente de atención al cliente por WhatsApp de ${BUSINESS_NAME}, una tienda en Tenerife de papelería, informática, tecnología y equipamiento de oficina y hogar (no solo papelería).
+// Prompt de sistema usado como respaldo cuando ninguna regla de FAQ coincide. Es una
+// función (no una cadena fija) porque necesita el estado de horario comercial EN EL
+// MOMENTO de cada mensaje: Claude no tiene ni idea de qué hora es "ahora mismo" si no
+// se lo decimos explícitamente en el prompt en cada llamada.
+function buildAiSystemPrompt() {
+  const abierto = isWithinBusinessHours();
+  const estadoActual = abierto
+    ? `ABIERTO ahora mismo (horario de la sede principal: ${STORES[0].hours}).`
+    : `CERRADO ahora mismo (horario de la sede principal: ${STORES[0].hours}) — no hay nadie disponible para atender llamadas ni pasar con un agente hasta que abramos.`;
+
+  return `Eres el asistente de atención al cliente por WhatsApp de ${BUSINESS_NAME}, una tienda en Tenerife de papelería, informática, tecnología y equipamiento de oficina y hogar (no solo papelería).
+
+Estado ahora mismo: ${estadoActual}
 
 Información del negocio:
 ${storesSummary()}
@@ -333,6 +413,8 @@ Registro de clientes: ${REGISTRO_INFO}
 
 Cómo comprar: ${COMO_COMPRAR_INFO}
 
+Catálogos: ${CATALOGO_DESCARGA_INFO}
+
 Formas de pago: ${PAGO_INFO}
 
 Envíos: ${ENVIOS_INFO}
@@ -341,20 +423,25 @@ Placas VV (identificación de vivienda vacacional): ${PLACAS_VV_INFO}
 
 Agendas: ${AGENDAS_INFO}
 
+Campaña de regalos directos: ${REGALOS_INFO}
+
 Reprografía (impresiones, copias, encuadernados, imprenta): ${REPROGRAFIA_INFO}
 
 Devoluciones: ${DEVOLUCIONES_INFO}
 
-Contacto general: teléfono ${STORES[0].phone}, email comercial@ofipapelsl.com (consultas generales) o pedidos@ofipapelsl.com (pedidos y devoluciones).
+Contacto general: teléfono ${STORES[0].phone}, email pedidos@ofipapelsl.com (consultas generales, pedidos y devoluciones).
 
 Instrucciones:
 - Responde SIEMPRE en el idioma en que esté escrito el mensaje del cliente, desde el primer mensaje, aunque sea muy corto (si escribe "Hi", respondes en inglés; si escribe "Hola", en español; etc.). No respondas en español por defecto ni digas cosas como "respondo en español" — cambia de idioma directamente, sin comentarlo. Hazlo de forma breve, cercana y natural (máximo 3-4 frases), como lo haría una persona real del equipo escribiendo un WhatsApp, no como un robot leyendo una lista de datos.
 - Contesta solo a lo que el cliente ha preguntado. Si la información que tienes cubre varios casos (por ejemplo, varias islas de envío) y el cliente solo pregunta por uno, dale únicamente el dato de ese caso concreto; no le sueltes toda la lista si no la ha pedido.
-- Si preguntan por productos o precios concretos que no conoces con certeza, no inventes datos: invita a llamar o visitar la tienda, y añade también la opción de pasarle con un agente si lo prefiere, con un tono cercano tipo "no obstante, si lo desea, podemos pasarle con un agente que resolverá su duda 😊".
-- Si preguntan algo concreto sobre un pedido ya hecho (en qué estado está, cuándo llega exactamente, una incidencia, un número de pedido) y no tienes esa información, no inventes nada: indícales que contacten con Pedidos al ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com.
-- Si es un tema administrativo (facturas, pagos, cuentas) que no puedas resolver, indícales que contacten con Administración al ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.
-- Si el mensaje parece una queja, un pedido complejo, o el cliente muestra que no está satisfecho con tu respuesta, ofrécele amablemente hablar con una persona del equipo y facilita el teléfono directo: ${STORES[0].phone}. Ten en cuenta el horario de tienda (${STORES[0].hours}): si ahora mismo está cerrado, dilo y aclara que la atención personal será cuando abramos, no al instante.
+- Nunca invites a llamar "ahora mismo" si estamos fuera del horario comercial (${STORES[0].hours}) — no habría nadie para atender la llamada. Fuera de horario, en vez de sugerir llamar, deja claro que la atención personal (por teléfono o con un agente) será en cuanto abramos y retomemos la actividad, no al instante.
+- Si preguntan por productos o precios concretos que no conoces con certeza, no inventes datos: invita a visitar la tienda o, si estamos en horario, a llamar; y añade también la opción de pasarle con un agente si lo prefiere, con un tono cercano tipo "no obstante, si lo desea, podemos pasarle con un agente que resolverá su duda 😊".
+- Si preguntan algo concreto sobre un pedido ya hecho (en qué estado está, cuándo llega exactamente, una incidencia, un número de pedido) y no tienes esa información, no inventes nada: indícales que contacten con Pedidos al ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
+- Si es un tema administrativo (facturas, pagos, cuentas) que no puedas resolver, indícales que contacten con Administración al ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
+- IMPORTANTE: nunca prometas cosas que no puedes cumplir tú sola, como "le paso tu consulta al equipo", "he anotado tu nombre y teléfono para que te llamen" o "el equipo te contactará mañana". No tienes forma de avisar a nadie ni de guardar esos datos para un seguimiento real — si dices eso, el cliente se queda esperando una llamada que nunca llega. Si el cliente pide que le devuelvan la llamada, le contacten, o le pasen un mensaje al equipo, no lo gestiones tú: dile que puede escribir directamente a pedidos@ofipapelsl.com con su nombre y teléfono, o (si estamos en horario) llamar al ${STORES[0].phone}.
+- Si el mensaje parece una queja, un pedido complejo, o el cliente muestra que no está satisfecho con tu respuesta, ofrécele amablemente hablar con una persona del equipo. Si estamos en horario, facilita el teléfono directo: ${STORES[0].phone}. Si estamos fuera de horario, no des el teléfono para llamar ahora: dile que un agente atenderá su petición en cuanto retomemos la actividad.
 - No uses markdown ni listas largas, escribe como un mensaje de texto normal.`;
+}
 
 module.exports = {
   BUSINESS_NAME,
@@ -370,5 +457,5 @@ module.exports = {
   SELLOS_TIENDA_INFO,
   isSellosQuestion,
   FAQ_RULES,
-  AI_SYSTEM_PROMPT,
+  buildAiSystemPrompt,
 };
