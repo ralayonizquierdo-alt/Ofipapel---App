@@ -11,6 +11,7 @@ const STORES = [
     hours: 'Lunes a viernes 9:00 a 14:00 y 16:00 a 19:00, sábados 9:00 a 13:00',
     phone: '922 753 520',
     mapsUrl: 'https://maps.app.goo.gl/Sx5yVAos3Ltjyuiv8',
+    keywords: ['sede principal', 'tienda principal', 'central', 'bulevar chajofe'],
   },
   {
     name: 'Aliz 1 (Los Cristianos)',
@@ -18,6 +19,7 @@ const STORES = [
     hours: 'Lunes a viernes 9:00 a 14:00 y 16:30 a 19:30, sábados 9:00 a 13:00',
     phone: '922 792 001',
     mapsUrl: 'https://maps.google.com/?q=Av+de+Suecia+7+Los+Cristianos+Tenerife',
+    keywords: ['aliz 1', 'aliz1', 'av. de suecia', 'avenida de suecia'],
   },
   {
     name: 'Aliz 2 (Playa de las Américas)',
@@ -25,6 +27,7 @@ const STORES = [
     hours: 'Lunes a viernes 9:00 a 14:00 y 16:30 a 19:30, sábados 9:00 a 13:00',
     phone: '922 791 029',
     mapsUrl: 'https://maps.google.com/?q=Calle+Noelia+Afonso+Cabrera+Playa+de+las+Americas+Tenerife',
+    keywords: ['aliz 2', 'aliz2', 'playa de las americas', 'noelia afonso'],
   },
 ];
 
@@ -34,10 +37,13 @@ function storesSummary() {
   ).join('\n');
 }
 
-function storesLocationSummary() {
-  return STORES.map(
-    (s) => `• ${s.name}: ${s.address}\n  Cómo llegar: ${s.mapsUrl}`
-  ).join('\n');
+// Si el cliente menciona una tienda concreta (Aliz 1, Aliz 2, o la sede principal
+// explícitamente), se le contesta solo sobre esa. Si no menciona ninguna, por
+// defecto se da la sede principal (STORES[0]) — las llamadas y visitas van casi
+// siempre ahí, así que no hace falta soltar la lista completa de las 3 tiendas
+// cada vez que preguntan por horario, dirección o teléfono.
+function findStoreInText(normalizedText) {
+  return STORES.find((s) => s.keywords.some((k) => normalizedText.includes(k)));
 }
 
 const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿En qué puedo ayudarte? Puedes preguntarme por horarios, ubicación, teléfono o lo que necesites.`;
@@ -246,22 +252,40 @@ const FAQ_RULES = [
     reply: reprografiaReply,
   },
   {
+    // Por defecto solo se da el horario de la sede principal (no las 3 tiendas) —
+    // si el cliente nombra una tienda en concreto (Aliz 1, Aliz 2...), se le da la suya.
     keywords: ['horario', 'hora', 'abierto', 'abren', 'cierran', 'cierra'],
-    reply: `Nuestros horarios son:\n${storesSummary()}`,
+    reply: (normalizedText) => {
+      const found = findStoreInText(normalizedText);
+      const store = found || STORES[0];
+      const footer = found ? '' : ' Si preguntas por otra de nuestras tiendas (Aliz 1 o Aliz 2) te doy su horario en concreto.';
+      return `Horario de ${store.name}: ${store.hours}.${footer}`;
+    },
   },
   {
+    // Igual que el horario: por defecto solo la dirección de la sede principal, salvo
+    // que el cliente pregunte por una tienda concreta.
     keywords: ['direccion', 'dirección', 'donde estan', 'donde estáis', 'dónde están', 'dónde estáis', 'ubicacion', 'ubicación', 'mapa', 'como llegar', 'cómo llegar', 'como llego', 'cómo llego'],
-    reply: `Estamos en:\n${storesLocationSummary()}`,
+    reply: (normalizedText) => {
+      const found = findStoreInText(normalizedText);
+      const store = found || STORES[0];
+      const footer = found ? '' : '\nSi buscas otra de nuestras tiendas (Aliz 1 o Aliz 2) dime cuál y te paso su dirección.';
+      return `Estamos en: ${store.address}\nCómo llegar: ${store.mapsUrl}${footer}`;
+    },
   },
   {
     // Las llamadas van casi siempre a la central (STORES[0]), así que no hace falta
     // dar el teléfono de las 3 tiendas — y si estamos fuera de horario no se invita
     // a llamar "ahora" porque no habría nadie para atender.
     keywords: ['telefono', 'teléfono', 'llamar', 'numero', 'número'],
-    reply: () =>
-      isWithinBusinessHours()
-        ? `Puedes llamarnos ahora al ${STORES[0].phone} (horario: ${STORES[0].hours}).`
-        : `Ahora mismo estamos fuera de horario (${STORES[0].hours}), así que no hay nadie disponible para atender llamadas. Nuestro teléfono es ${STORES[0].phone} — puedes llamarnos en cuanto abramos.`,
+    reply: (normalizedText) => {
+      const found = findStoreInText(normalizedText);
+      const store = found || STORES[0];
+      const nombre = found ? '' : ` (${store.name})`;
+      return isWithinBusinessHours()
+        ? `Puedes llamarnos ahora al ${store.phone}${nombre} (horario: ${store.hours}).`
+        : `Ahora mismo estamos fuera de horario (${store.hours}), así que no hay nadie disponible para atender llamadas. Nuestro teléfono es ${store.phone}${nombre} — puedes llamarnos en cuanto abramos.`;
+    },
   },
   {
     keywords: [
