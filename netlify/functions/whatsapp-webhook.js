@@ -88,7 +88,7 @@ function verifySignature(event) {
 function escalateQuestion() {
   return isWithinBusinessHours()
     ? '¿Quieres que te ponga en contacto con una persona del equipo?'
-    : `Ahora mismo estamos fuera del horario comercial (${STORES[0].hours}), así que nadie puede atenderte al instante. Si te resulta más cómodo, ¿quieres que igualmente te pongamos en contacto? Un agente revisará tu conversación en cuanto retomemos la actividad.`;
+    : `Ahora mismo estamos fuera del horario comercial (${STORES[0].hours}), así que nadie puede atenderte al instante. ¿Quieres que igualmente te pongamos en contacto? Un agente revisará tu conversación en cuanto retomemos la actividad.`;
 }
 const ESCALATE_DECLINE_REPLY = 'Entendido, sigo por aquí. Cuéntame otra vez qué necesitas e intento ayudarte.';
 
