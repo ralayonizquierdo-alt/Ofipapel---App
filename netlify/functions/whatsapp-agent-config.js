@@ -168,7 +168,9 @@ const AGENDAS_INFO = `Tenemos muchísimos modelos y diseños de agendas en stock
 
 const REGALOS_INFO = `Tenemos una campaña de regalos directos según el importe de tu compra. Los regalos disponibles van cambiando cada varias semanas, así que la lista actualizada (con el importe necesario para cada uno) siempre está en la familia de productos "Z-Regalos Promocionales" de la web. Para elegir tu regalo, indícalo en las observaciones del pedido.`;
 
-const COMO_COMPRAR_INFO = `Puedes comprar en https://ofipapel.net: busca el producto por secciones, marcas o con el buscador, añádelo al carrito y ve a "Finalizar Compra" para dejar tus datos y elegir cómo pagar.`;
+const COMO_COMPRAR_INFO = `Puedes comprar en https://ofipapel.net: busca el producto por secciones, marcas o con el buscador, añádelo al carrito y ve a "Finalizar Compra" para dejar tus datos y elegir cómo pagar. Ahí mismo puedes elegir "Recogida en tienda" en vez de envío a domicilio.`;
+
+const RECOGIDA_TIENDA_INFO = `Sí, al hacer tu pedido en la web, en el paso de "Finalizar Compra" puedes elegir "Recogida en tienda" en vez de envío a domicilio (así te ahorras los gastos de envío). Te avisamos por teléfono en cuanto esté listo para recoger.`;
 
 const PAGO_INFO = `Formas de pago aceptadas: tarjeta de crédito o débito (Visa, MasterCard, 4B, Euro 6000, Maestro, American Express), transferencia bancaria, contra reembolso, o en tienda (solo para recogidas, con el pedido hecho antes por la web).`;
 
@@ -294,6 +296,13 @@ const FAQ_RULES = [
       'nueva cuenta', 'mi cuenta', 'como me registro', 'cómo me registro',
     ],
     reply: REGISTRO_INFO,
+  },
+  {
+    // Antes que la regla genérica de "cómo comprar" para que preguntas del tipo
+    // "¿puedo pedir y recogerlo en tienda?" no caigan en la respuesta genérica del
+    // proceso de compra sin mencionar la opción de recogida.
+    keywords: ['recogida en tienda', 'recoger en tienda', 'recoger en la tienda', 'recoger mi pedido en tienda', 'recoger el pedido en tienda', 'recogerlo en tienda', 'recogerlo en la tienda'],
+    reply: RECOGIDA_TIENDA_INFO,
   },
   {
     keywords: ['como comprar', 'cómo comprar', 'como hago un pedido', 'cómo hago un pedido', 'hacer un pedido', 'comprar online', 'comprar por internet', 'comprar en la web'],
