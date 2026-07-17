@@ -176,7 +176,9 @@ const CATALOGO_DESCARGA_INFO = `En la web puedes descargar nuestros catálogos e
 
 const PAGO_INFO = `Formas de pago aceptadas: tarjeta de crédito o débito (Visa, MasterCard, 4B, Euro 6000, Maestro, American Express), transferencia bancaria, contra reembolso, o en tienda (solo para recogidas, con el pedido hecho antes por la web).`;
 
-const ENVIOS_GENERAL_INTRO = `Hacemos envíos a toda Canarias. Los pedidos de lunes a viernes antes de las 11:30h se gestionan ese mismo día (después, al día siguiente; los de fin de semana/festivos, el próximo día laborable).`;
+const ENVIOS_GENERAL_INTRO = `Hacemos envíos a toda Canarias, pero no enviamos a Península ni al extranjero. Los pedidos de lunes a viernes antes de las 11:30h se gestionan ese mismo día (después, al día siguiente; los de fin de semana/festivos, el próximo día laborable).`;
+
+const PENINSULA_EXTRANJERO_KEYWORDS = ['peninsula', 'península', 'espana peninsular', 'españa peninsular', 'extranjero', 'fuera de canarias', 'fuera de españa', 'internacional', 'otro pais', 'otro país'];
 
 // Datos por isla, usados tanto para la regla de FAQ (respuesta dirigida a una isla
 // concreta si el cliente la menciona) como para el contexto que recibe la IA.
@@ -209,6 +211,9 @@ function findIslandInText(normalizedText) {
 // Respuesta rápida: si el cliente ya menciona una isla, contesta solo sobre esa isla
 // (sin soltar la tabla entera); si no la menciona, da el resumen general y pregunta.
 function enviosReply(normalizedText) {
+  if (PENINSULA_EXTRANJERO_KEYWORDS.some((k) => normalizedText.includes(k))) {
+    return 'No, solo hacemos envíos dentro de las Islas Canarias — no enviamos a Península ni al extranjero.';
+  }
   const island = findIslandInText(normalizedText);
   if (island) return `${islandShippingLine(island)} Para artículos muy pesados o voluminosos el porte se calcula aparte, a consultar.`;
   return `${ENVIOS_GENERAL_INTRO} El envío gratis y el plazo cambian según la isla — ¿a cuál te refieres? Así te doy el dato exacto.`;
