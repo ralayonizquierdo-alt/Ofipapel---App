@@ -170,7 +170,7 @@ const REGALOS_INFO = `Tenemos una campaña de regalos directos según el importe
 
 const COMO_COMPRAR_INFO = `Puedes comprar en https://ofipapel.net: busca el producto por secciones, marcas o con el buscador, añádelo al carrito y ve a "Finalizar Compra" para dejar tus datos y elegir cómo pagar. Ahí mismo puedes elegir "Recogida en tienda" en vez de envío a domicilio.`;
 
-const RECOGIDA_TIENDA_INFO = `Sí, al hacer tu pedido en la web, en el paso de "Finalizar Compra" puedes elegir "Recogida en tienda" en vez de envío a domicilio (así te ahorras los gastos de envío). Te avisamos por teléfono en cuanto esté listo para recoger.`;
+const RECOGIDA_TIENDA_INFO = `Sí, al hacer tu pedido en la web, en el paso de "Finalizar Compra" puedes elegir "Recogida en tienda" en vez de envío a domicilio — te viene bien tanto si quieres ahorrarte los gastos de envío como si simplemente te resulta más cómodo o rápido pasar a por él, aunque tu pedido ya tenga el envío gratis. Te avisamos por teléfono en cuanto esté listo para recoger.`;
 
 const PAGO_INFO = `Formas de pago aceptadas: tarjeta de crédito o débito (Visa, MasterCard, 4B, Euro 6000, Maestro, American Express), transferencia bancaria, contra reembolso, o en tienda (solo para recogidas, con el pedido hecho antes por la web).`;
 
