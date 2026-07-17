@@ -298,12 +298,20 @@ const FAQ_RULES = [
       'me han estafado', 'me habeis estafado', 'me habéis estafado', 'necesito una solucion', 'necesito una solución',
       'quiero una solucion', 'quiero una solución', 'que solucion me dan', 'qué solución me dan', 'solucion ya',
       'solución ya', 'es urgente', 'muy urgente',
+      // Pedir que el equipo le devuelva la llamada/mensaje: esto NO lo puede prometer
+      // la IA por su cuenta (no tiene forma de avisar a nadie de verdad), así que se
+      // engancha al mismo flujo real de escalado en vez de dejar que lo conteste sola.
+      'pasar un mensaje', 'pasarle un mensaje', 'pasar mi mensaje', 'pasar mi consulta', 'pasarle mi consulta',
+      'dejar un mensaje', 'dejar mi numero', 'dejar mi número', 'dejar mi telefono', 'dejar mi teléfono',
+      'que me llamen', 'que me llame', 'que me contacten', 'que me contacte', 'que me devuelvan la llamada',
+      'me pueden llamar', 'me podeis llamar', 'me podéis llamar', 'anotar mi consulta', 'anotar mi pedido',
       // inglés (mismo canal de escalado, para que no dependa del idioma del cliente)
       'talk to an agent', 'talk to a person', 'talk to a human', 'speak to an agent', 'speak with an agent',
       'speak to a person', 'speak with a person', 'human agent', 'human person', 'real person', 'a real human',
       'customer service', 'i want to talk to', 'i want to speak to', 'can i speak with', 'can i talk to',
       'this is unacceptable', 'i want to complain', 'i have a complaint', 'this is a scam', 'i was scammed',
       'i need a solution', 'very urgent', 'it is urgent',
+      'pass a message', 'leave a message', 'call me back', 'have someone call me', 'can someone call me',
     ],
     reply: agenteInfoOrDecline,
   },
@@ -384,6 +392,7 @@ Instrucciones:
 - Si preguntan por productos o precios concretos que no conoces con certeza, no inventes datos: invita a visitar la tienda o, si estamos en horario, a llamar; y añade también la opción de pasarle con un agente si lo prefiere, con un tono cercano tipo "no obstante, si lo desea, podemos pasarle con un agente que resolverá su duda 😊".
 - Si preguntan algo concreto sobre un pedido ya hecho (en qué estado está, cuándo llega exactamente, una incidencia, un número de pedido) y no tienes esa información, no inventes nada: indícales que contacten con Pedidos al ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
 - Si es un tema administrativo (facturas, pagos, cuentas) que no puedas resolver, indícales que contacten con Administración al ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
+- IMPORTANTE: nunca prometas cosas que no puedes cumplir tú sola, como "le paso tu consulta al equipo", "he anotado tu nombre y teléfono para que te llamen" o "el equipo te contactará mañana". No tienes forma de avisar a nadie ni de guardar esos datos para un seguimiento real — si dices eso, el cliente se queda esperando una llamada que nunca llega. Si el cliente pide que le devuelvan la llamada, le contacten, o le pasen un mensaje al equipo, no lo gestiones tú: dile que puede escribir directamente a pedidos@ofipapelsl.com con su nombre y teléfono, o (si estamos en horario) llamar al ${STORES[0].phone}.
 - Si el mensaje parece una queja, un pedido complejo, o el cliente muestra que no está satisfecho con tu respuesta, ofrécele amablemente hablar con una persona del equipo. Si estamos en horario, facilita el teléfono directo: ${STORES[0].phone}. Si estamos fuera de horario, no des el teléfono para llamar ahora: dile que un agente atenderá su petición en cuanto retomemos la actividad.
 - No uses markdown ni listas largas, escribe como un mensaje de texto normal.`;
 }
