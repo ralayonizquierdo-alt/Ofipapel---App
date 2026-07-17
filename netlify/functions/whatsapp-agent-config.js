@@ -172,6 +172,8 @@ const COMO_COMPRAR_INFO = `Puedes comprar en https://ofipapel.net: busca el prod
 
 const RECOGIDA_TIENDA_INFO = `Sí, al hacer tu pedido en la web, en el paso de "Finalizar Compra" puedes elegir "Recogida en tienda" en vez de envío a domicilio — a veces resulta más cómodo y rápido pasar a por él, aunque tu pedido ya tenga el envío gratis.`;
 
+const CATALOGO_DESCARGA_INFO = `En la web puedes descargar nuestros catálogos en formato PDF. Si lo prefieres en formato físico, solo tienes que pasar por alguna de nuestras tiendas.`;
+
 const PAGO_INFO = `Formas de pago aceptadas: tarjeta de crédito o débito (Visa, MasterCard, 4B, Euro 6000, Maestro, American Express), transferencia bancaria, contra reembolso, o en tienda (solo para recogidas, con el pedido hecho antes por la web).`;
 
 const ENVIOS_GENERAL_INTRO = `Hacemos envíos a toda Canarias. Los pedidos de lunes a viernes antes de las 11:30h se gestionan ese mismo día (después, al día siguiente; los de fin de semana/festivos, el próximo día laborable).`;
@@ -305,6 +307,10 @@ const FAQ_RULES = [
     reply: RECOGIDA_TIENDA_INFO,
   },
   {
+    keywords: ['catalogo fisico', 'catálogo físico', 'catalogo en pdf', 'catálogo en pdf', 'catalogo impreso', 'catálogo impreso', 'descargar catalogo', 'descargar catálogo', 'teneis catalogo', 'tenéis catálogo', 'tienen catalogo', 'tienen catálogo'],
+    reply: CATALOGO_DESCARGA_INFO,
+  },
+  {
     keywords: ['como comprar', 'cómo comprar', 'como hago un pedido', 'cómo hago un pedido', 'hacer un pedido', 'comprar online', 'comprar por internet', 'comprar en la web'],
     reply: COMO_COMPRAR_INFO,
   },
@@ -401,6 +407,8 @@ Qué vendemos: ${CATALOGO_INFO}
 Registro de clientes: ${REGISTRO_INFO}
 
 Cómo comprar: ${COMO_COMPRAR_INFO}
+
+Catálogos: ${CATALOGO_DESCARGA_INFO}
 
 Formas de pago: ${PAGO_INFO}
 
