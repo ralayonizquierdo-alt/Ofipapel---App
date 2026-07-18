@@ -183,9 +183,27 @@ const PENINSULA_EXTRANJERO_KEYWORDS = ['peninsula', 'península', 'espana penins
 // Además de las frases exactas de arriba, cubre variantes tipo "fuera de las Islas
 // Canarias", "fuera de la isla de Canarias", etc., que no son un substring literal
 // de ninguna keyword fija.
+// Provincias españolas fuera de Canarias (las 48 peninsulares + Baleares + Ceuta y
+// Melilla; las 2 provincias canarias — Santa Cruz de Tenerife y Las Palmas — no están
+// aquí porque esas SÍ tienen servicio y ya las cubre ISLAND_SHIPPING). Así, si el
+// cliente nombra una provincia/ciudad concreta en vez de decir "Península", el bot
+// contesta directo en lugar de preguntar "¿a qué isla te refieres?".
+const PROVINCIAS_FUERA_DE_CANARIAS = [
+  'alava', 'araba', 'albacete', 'alicante', 'alacant', 'almeria', 'avila', 'badajoz',
+  'baleares', 'illes balears', 'islas baleares', 'mallorca', 'menorca', 'ibiza', 'eivissa',
+  'barcelona', 'burgos', 'caceres', 'cadiz', 'cantabria', 'castellon', 'castello',
+  'ciudad real', 'cordoba', 'cuenca', 'girona', 'gerona', 'granada', 'guadalajara',
+  'gipuzkoa', 'guipuzcoa', 'huelva', 'huesca', 'jaen', 'la rioja', 'leon', 'lleida',
+  'lerida', 'lugo', 'madrid', 'malaga', 'murcia', 'navarra', 'nafarroa', 'ourense',
+  'orense', 'asturias', 'oviedo', 'palencia', 'pontevedra', 'salamanca', 'segovia',
+  'sevilla', 'soria', 'tarragona', 'teruel', 'toledo', 'valencia', 'valladolid',
+  'vizcaya', 'bizkaia', 'zamora', 'zaragoza', 'ceuta', 'melilla',
+];
+
 function mentionsOutsideCanarias(normalizedText) {
   if (PENINSULA_EXTRANJERO_KEYWORDS.some((k) => normalizedText.includes(k))) return true;
-  return /fuera de(l)?\s+(la[s]?\s+)?(isla[s]?\s+)?(de\s+)?canarias/.test(normalizedText);
+  if (/fuera de(l)?\s+(la[s]?\s+)?(isla[s]?\s+)?(de\s+)?canarias/.test(normalizedText)) return true;
+  return PROVINCIAS_FUERA_DE_CANARIAS.some((p) => normalizedText.includes(p));
 }
 
 // Datos por isla, usados tanto para la regla de FAQ (respuesta dirigida a una isla
@@ -201,8 +219,11 @@ const ISLAND_SHIPPING = [
   },
   { name: 'La Gomera', keywords: ['gomera'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
   { name: 'El Hierro', keywords: ['hierro'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
-  { name: 'La Palma', keywords: ['la palma', 'palma'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
-  { name: 'Gran Canaria', keywords: ['gran canaria'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
+  // Ojo: 'palma' a secas NO es keyword de La Palma porque coincide con "Las Palmas"
+  // (capital de Gran Canaria) y con "Palma de Mallorca" — ambigüedad real en español,
+  // así que solo se reconoce con el artículo ("la palma").
+  { name: 'La Palma', keywords: ['la palma'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
+  { name: 'Gran Canaria', keywords: ['gran canaria', 'las palmas'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
   { name: 'Lanzarote', keywords: ['lanzarote'], freeFrom: 300, feeBelow: 20, delivery: '72h' },
   { name: 'Fuerteventura', keywords: ['fuerteventura'], freeFrom: 300, feeBelow: 20, delivery: '72h' },
 ];
