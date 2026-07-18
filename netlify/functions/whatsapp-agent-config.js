@@ -332,7 +332,7 @@ const FAQ_RULES = [
     reply: PAGO_INFO,
   },
   {
-    keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'portes', 'cuando llega', 'cuándo llega', 'plazo de entrega', 'mandan a', 'enviais', 'enviáis', 'envian a', 'envían a'],
+    keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'portes', 'cuando llega', 'cuándo llega', 'plazo de entrega', 'mandan a', 'mandais', 'mandáis', 'enviais', 'enviáis', 'envian a', 'envían a'],
     reply: enviosReply,
   },
   {
