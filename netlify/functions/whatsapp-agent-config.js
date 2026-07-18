@@ -178,7 +178,15 @@ const PAGO_INFO = `Formas de pago aceptadas: tarjeta de crédito o débito (Visa
 
 const ENVIOS_GENERAL_INTRO = `Hacemos envíos a toda Canarias, pero no enviamos a Península ni al extranjero. Los pedidos de lunes a viernes antes de las 11:30h se gestionan ese mismo día (después, al día siguiente; los de fin de semana/festivos, el próximo día laborable).`;
 
-const PENINSULA_EXTRANJERO_KEYWORDS = ['peninsula', 'península', 'espana peninsular', 'españa peninsular', 'extranjero', 'fuera de canarias', 'fuera de españa', 'internacional', 'otro pais', 'otro país'];
+const PENINSULA_EXTRANJERO_KEYWORDS = ['peninsula', 'península', 'espana peninsular', 'españa peninsular', 'extranjero', 'fuera de españa', 'internacional', 'otro pais', 'otro país'];
+
+// Además de las frases exactas de arriba, cubre variantes tipo "fuera de las Islas
+// Canarias", "fuera de la isla de Canarias", etc., que no son un substring literal
+// de ninguna keyword fija.
+function mentionsOutsideCanarias(normalizedText) {
+  if (PENINSULA_EXTRANJERO_KEYWORDS.some((k) => normalizedText.includes(k))) return true;
+  return /fuera de(l)?\s+(la[s]?\s+)?(isla[s]?\s+)?(de\s+)?canarias/.test(normalizedText);
+}
 
 // Datos por isla, usados tanto para la regla de FAQ (respuesta dirigida a una isla
 // concreta si el cliente la menciona) como para el contexto que recibe la IA.
@@ -211,7 +219,7 @@ function findIslandInText(normalizedText) {
 // Respuesta rápida: si el cliente ya menciona una isla, contesta solo sobre esa isla
 // (sin soltar la tabla entera); si no la menciona, da el resumen general y pregunta.
 function enviosReply(normalizedText) {
-  if (PENINSULA_EXTRANJERO_KEYWORDS.some((k) => normalizedText.includes(k))) {
+  if (mentionsOutsideCanarias(normalizedText)) {
     return 'No, solo hacemos envíos dentro de las Islas Canarias — no enviamos a Península ni al extranjero.';
   }
   const island = findIslandInText(normalizedText);
@@ -324,7 +332,7 @@ const FAQ_RULES = [
     reply: PAGO_INFO,
   },
   {
-    keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'portes', 'cuando llega', 'cuándo llega', 'plazo de entrega', 'mandan a', 'enviais a', 'enviáis a'],
+    keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'portes', 'cuando llega', 'cuándo llega', 'plazo de entrega', 'mandan a', 'enviais', 'enviáis', 'envian a', 'envían a'],
     reply: enviosReply,
   },
   {
