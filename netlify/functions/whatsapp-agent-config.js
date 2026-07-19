@@ -197,6 +197,23 @@ function isNoSeLaRespuesta(text) {
   return (text || '').includes(NO_SE_LA_RESPUESTA);
 }
 
+// Red de seguridad determinista: pedirle a la IA por instrucciones que no confirme
+// productos concretos sin datos reales AYUDA, pero no es 100% fiable — un modelo
+// rápido como Haiku a veces igualmente suelta un "sí, vendemos ese tipo de
+// artículos" por pura plausibilidad (se ha visto en pruebas reales, con productos
+// inventados como "reparador de arañazos" o "sangrías de fibra"). En vez de confiar
+// en que la IA se porte bien siempre, se analiza su propia respuesta: si confirma
+// con un "sí" sin que haya venido de una regla fija (que sí son datos reales), no
+// nos fiamos y se sustituye entera por la respuesta segura — no se manda nada de
+// lo que haya escrito la IA, porque podría llevar el dato inventado mezclado.
+const FALSE_CONFIDENCE_PATTERN = /\bs[ií],?\s+(vendemos|tenemos|hacemos|disponemos|contamos con)\b/i;
+
+function isUnverifiedConfirmation(text) {
+  return FALSE_CONFIDENCE_PATTERN.test(text || '');
+}
+
+const PRODUCTO_NO_VERIFICADO_INFO = `No tengo acceso al catálogo en tiempo real, así que no puedo confirmarte eso con seguridad. Puedes buscarlo en https://ofipapel.net o consultarlo en tienda.`;
+
 // Un ítem concreto por mensaje (igual que con los envíos): si el cliente pregunta
 // por un servicio de Reprografía en concreto, se contesta solo sobre ese, no con
 // el listado completo cada vez. "reply" opcional para una respuesta a medida en
@@ -592,6 +609,8 @@ module.exports = {
   startsWithGreeting,
   NO_SE_LA_RESPUESTA,
   isNoSeLaRespuesta,
+  isUnverifiedConfirmation,
+  PRODUCTO_NO_VERIFICADO_INFO,
   FAQ_RULES,
   buildAiSystemPrompt,
 };

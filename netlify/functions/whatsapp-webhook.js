@@ -50,6 +50,8 @@ const {
   startsWithGreeting,
   isNoSeLaRespuesta,
   NO_SE_LA_RESPUESTA,
+  isUnverifiedConfirmation,
+  PRODUCTO_NO_VERIFICADO_INFO,
 } = require('./whatsapp-agent-config');
 const { sendWhatsappMessage } = require('./whatsapp-send');
 
@@ -277,6 +279,21 @@ async function handleIncomingMessage(message) {
   }
 
   const aiReply = await askClaude(text, history);
+
+  // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos/hacemos..."
+  // en modo libre (sin regla fija detrás), no nos fiamos de esa afirmación — no
+  // tiene acceso a catálogo/stock real, así que puede ser pura invención (se ha
+  // visto en pruebas reales). Se descarta TODO el texto de la IA — podría llevar
+  // el dato inventado mezclado con el resto — y se sustituye por la respuesta
+  // segura de siempre, seguida del segundo mensaje con botones reales de escalado.
+  if (isUnverifiedConfirmation(aiReply)) {
+    const infoReply = greeting + PRODUCTO_NO_VERIFICADO_INFO;
+    await appendToHistory(message.from, text, infoReply);
+    await sendWhatsappMessage(message.from, infoReply);
+    await sendEscalateButtons(message.from, '');
+    await appendToHistory(message.from, '[continuación automática: se ofreció además hablar con un agente]', escalateQuestion());
+    return;
+  }
 
   // La IA no sabía la respuesta con certeza: en vez de fiarse de que la frase-
   // sentinela sea la ÚNICA respuesta (la IA a veces le añade contexto propio
