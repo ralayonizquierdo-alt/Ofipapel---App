@@ -41,19 +41,27 @@ button,input,select{font-family:inherit;}
 /* ── layout ── */
 #app{display:flex;flex-direction:column;height:100vh;}
 header{
-  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-  padding:12px 20px;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:6px 14px;
   background-image:var(--bg-pattern-header);background-size:cover;background-position:center;
   color:#fff;box-shadow:var(--sombra);z-index:20;
+  overflow:hidden;transition:padding .18s ease,max-height .18s ease;max-height:200px;
 }
-header h1{font-size:1.05rem;font-weight:700;letter-spacing:.2px;margin-right:auto;}
-header .sub{font-size:.72rem;color:#dff0df;font-weight:400;display:block;margin-top:2px;}
+header.collapsed{padding:0 14px;max-height:0;box-shadow:none;}
+header.collapsed > *{opacity:0;pointer-events:none;}
+header h1{font-size:.92rem;font-weight:700;letter-spacing:.2px;margin-right:auto;}
 header select, header button{
-  background:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:.8rem;font-weight:600;
+  background:#fff;border:none;border-radius:7px;padding:5px 9px;font-size:.72rem;font-weight:600;
   color:var(--verde);cursor:pointer;
 }
 header button.secondary{background:rgba(255,255,255,.15);color:#fff;}
 header button:hover{filter:brightness(0.96);}
+#btnToggleHeader{
+  position:fixed;top:4px;right:4px;z-index:30;
+  background:var(--verde);color:#fff;border:none;border-radius:7px;
+  padding:3px 8px;font-size:.7rem;cursor:pointer;box-shadow:var(--sombra);opacity:.85;
+}
+#btnToggleHeader:hover{opacity:1;}
 
 #body{display:flex;flex:1;min-height:0;}
 
@@ -310,10 +318,10 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   </div>
 </div>
 <div id="app">
-  <header>
+  <button id="btnToggleHeader" title="Mostrar/ocultar cabecera">▲</button>
+  <header id="mainHeader">
     <div>
-      <h1>Cuadrante de Vacaciones</h1>
-      <span class="sub">Plantilla real (35 personas) · quedan algunos apellidos por confirmar</span>
+      <h1>Vacaciones y Turnos</h1>
     </div>
     <span id="cloudStatus" style="font-size:1.1rem;cursor:default;" title="Conectando con la nube…">🔄</span>
     <button class="secondary" id="btnLogout" title="Cerrar sesión" style="display:none;">🔒 Salir</button>
@@ -2718,6 +2726,10 @@ document.getElementById('btnAddPermiso').onclick = ()=>{
 /* ═══════════════════ FILTROS / TOP BAR ═══════════════════ */
 document.getElementById('yearSelect').onchange = (e)=>{ state.year=parseInt(e.target.value,10); render(); };
 document.getElementById('btnToggleSidebar').onclick = ()=> document.getElementById('sidebar').classList.toggle('collapsed');
+document.getElementById('btnToggleHeader').onclick = ()=>{
+  const collapsed = document.getElementById('mainHeader').classList.toggle('collapsed');
+  document.getElementById('btnToggleHeader').textContent = collapsed ? '▼' : '▲';
+};
 document.getElementById('searchInput').oninput = (e)=>{ filterText=e.target.value; renderGrid(); };
 document.getElementById('unitFilter').onchange = (e)=>{ filterUnit=e.target.value; renderGrid(); };
 document.getElementById('onlyConflicts').onchange = (e)=>{ onlyConflicts=e.target.checked; renderGrid(); };
