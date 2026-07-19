@@ -212,6 +212,13 @@ const REPROGRAFIA_ITEMS = [
   { name: 'plastificados', keywords: ['plastificado', 'plastificados', 'plastificar'] },
   { name: 'folletos', keywords: ['folletos'] },
   { name: 'tarjetas de visita', keywords: ['tarjetas de visita'] },
+  // Antes que "sellos personalizados": si preguntan específicamente por sellos de
+  // correos (postales), no se les mete en el flujo de sellos personalizados de goma.
+  {
+    name: 'sellos de correos',
+    keywords: ['sellos de correos', 'sello de correos', 'sellos postales', 'sello postal'],
+    reply: 'No, no vendemos sellos de correos (postales) — eso lo gestiona Correos. Si buscas un sello personalizado (de goma, para negocio), sí lo hacemos: dime y te explico cómo pedirlo.',
+  },
   { name: 'sellos personalizados', keywords: ['sellos personalizados', 'sello personalizado', 'sellos', 'sello'], reply: SELLOS_QUESTION },
   { name: 'talonarios', keywords: ['talonarios'] },
   { name: 'tarjetas para bodas', keywords: ['tarjetas para bodas'] },
@@ -530,6 +537,8 @@ Información del negocio:
 ${storesSummary()}
 
 Qué vendemos: ${CATALOGO_INFO}
+
+Qué NO vendemos (dilo con seguridad, no hace falta escalar): sellos de correos/postales (eso lo gestiona Correos, no nosotros — sí hacemos sellos personalizados de goma, que es distinto) ni papel sellado/timbrado para trámites oficiales.
 
 Registro de clientes: ${REGISTRO_INFO}
 
