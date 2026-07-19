@@ -202,7 +202,10 @@ function isNoSeLaRespuesta(text) {
 // el listado completo cada vez. "reply" opcional para una respuesta a medida en
 // vez de la plantilla genérica (p. ej. sellos, que tiene dos vías de pedido).
 const REPROGRAFIA_ITEMS = [
-  { name: 'impresiones', keywords: ['imprimir', 'imprime', 'imprimen', 'imprimimos', 'impresion', 'impresión', 'impresiones'] },
+  // 'impresion'/'impresión' a secas NO son keyword: coinciden con "impresionante",
+  // "me parece impresionante", etc. — un cumplido sobre la tienda no debe disparar
+  // la respuesta de Reprografía. 'impresiones' (plural) sí es seguro.
+  { name: 'impresiones', keywords: ['imprimir', 'imprime', 'imprimen', 'imprimimos', 'impresiones'] },
   { name: 'copias', keywords: ['copias'] },
   { name: 'fotocopias', keywords: ['fotocopia', 'fotocopias'] },
   { name: 'encuadernados', keywords: ['encuadernado', 'encuadernados', 'encuadernar'] },
@@ -333,8 +336,10 @@ const FAQ_RULES = [
     reply: PLACAS_VV_INFO,
   },
   {
+    // 'agenda' (el producto) coincide con "agendar"/"agendarme" (pedir cita), así
+    // que si el mensaje usa el verbo se deja pasar en vez de hablar de cuadernos.
     keywords: ['agenda', 'agendas'],
-    reply: AGENDAS_INFO,
+    reply: (normalizedText) => (/agendar/.test(normalizedText) ? null : AGENDAS_INFO),
   },
   {
     keywords: ['regalo directo', 'regalos directos', 'regalo por compra', 'regalos por compra', 'campaña de regalos', 'campana de regalos', 'regalos promocionales', 'z-regalos', 'que regalo', 'qué regalo', 'que regalos', 'qué regalos'],
@@ -353,7 +358,7 @@ const FAQ_RULES = [
   },
   {
     keywords: [
-      'imprimir', 'imprime', 'imprimen', 'imprimimos', 'impresion', 'impresión', 'impresiones', 'copias', 'fotocopia', 'fotocopias',
+      'imprimir', 'imprime', 'imprimen', 'imprimimos', 'impresiones', 'copias', 'fotocopia', 'fotocopias',
       'encuadernado', 'encuadernados', 'encuadernar', 'plastificado', 'plastificados', 'plastificar',
       'folletos', 'tarjetas de visita', 'sellos personalizados', 'sello', 'sellos', 'talonarios', 'tarjetas para bodas',
       'trabajo de imprenta', 'trabajos de imprenta', 'imprenta', 'reprografia', 'reprografía',
@@ -398,7 +403,10 @@ const FAQ_RULES = [
   {
     // Por defecto solo se da el horario de la sede principal (no las 3 tiendas) —
     // si el cliente nombra una tienda en concreto (Aliz 1, Aliz 2...), se le da la suya.
-    keywords: ['horario', 'hora', 'abierto', 'abren', 'cierran', 'cierra'],
+    // Ojo: 'hora' a secas NO es keyword — coincide con "ahora" ("ahora mismo",
+    // "¿podéis ayudarme ahora?"), una de las palabras más comunes del español, y
+    // disparaba esta regla en mensajes que no tenían nada que ver con el horario.
+    keywords: ['horario', 'a que hora', 'a qué hora', 'que hora abren', 'qué hora abren', 'que hora cierran', 'qué hora cierran', 'hasta que hora', 'hasta qué hora', 'desde que hora', 'desde qué hora', 'abierto', 'abren', 'cierran', 'cierra'],
     reply: (normalizedText) => {
       const found = findStoreInText(normalizedText);
       const store = found || STORES[0];
@@ -408,8 +416,11 @@ const FAQ_RULES = [
   },
   {
     // Igual que el horario: por defecto solo la dirección de la sede principal, salvo
-    // que el cliente pregunte por una tienda concreta.
-    keywords: ['direccion', 'dirección', 'donde estan', 'donde estáis', 'dónde están', 'dónde estáis', 'ubicacion', 'ubicación', 'mapa', 'como llegar', 'cómo llegar', 'como llego', 'cómo llego'],
+    // que el cliente pregunte por una tienda concreta. Ojo: 'mapa' a secas NO es
+    // keyword — coincide con "mapamundi" o "mapa de Tenerife" (productos que se
+    // pueden vender en la tienda), y disparaba la dirección de la tienda en vez de
+    // dejar pasar la pregunta sobre el producto.
+    keywords: ['direccion', 'dirección', 'donde estan', 'donde estáis', 'dónde están', 'dónde estáis', 'ubicacion', 'ubicación', 'como llegar', 'cómo llegar', 'como llego', 'cómo llego'],
     reply: (normalizedText) => {
       const found = findStoreInText(normalizedText);
       const store = found || STORES[0];
