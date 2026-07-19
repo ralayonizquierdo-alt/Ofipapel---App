@@ -169,8 +169,17 @@ function isSellosQuestion(text) {
 // respuesta final.
 const NO_SE_LA_RESPUESTA = 'Lo siento, no tengo la respuesta para eso, pero puedo pasarte con un agente.';
 
+// Se comprueba por "includes", no por igualdad exacta: la IA (aunque se le pida
+// literalmente esa frase y nada más) a veces le añade una frase propia delante o
+// detrás ("No tengo información sobre ese producto en concreto. Lo siento..."), y
+// con igualdad exacta ese caso NO se detectaba — se mandaba como texto normal en
+// vez de disparar el escalado real, y el cliente se quedaba con una respuesta a
+// medias (y el siguiente mensaje suyo volvía a caer en la IA, que podía inventarse
+// una promesa falsa tipo "te paso con un agente ahora mismo"). Con "includes" da
+// igual lo que la IA añada alrededor: si la frase exacta aparece en algún punto,
+// se dispara el escalado real de todas formas.
 function isNoSeLaRespuesta(text) {
-  return (text || '').trim() === NO_SE_LA_RESPUESTA;
+  return (text || '').includes(NO_SE_LA_RESPUESTA);
 }
 
 // Un ítem concreto por mensaje (igual que con los envíos): si el cliente pregunta
