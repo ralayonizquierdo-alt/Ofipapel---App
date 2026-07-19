@@ -49,6 +49,7 @@ const {
   GREETING,
   startsWithGreeting,
   isNoSeLaRespuesta,
+  NO_SE_LA_RESPUESTA,
 } = require('./whatsapp-agent-config');
 const { sendWhatsappMessage } = require('./whatsapp-send');
 
@@ -270,14 +271,33 @@ async function handleIncomingMessage(message) {
 
   const aiReply = await askClaude(text, history);
 
-  // La IA no sabía la respuesta: en vez de mandar la frase-sentinela tal cual, se
-  // dispara el flujo real de escalado (mismo mecanismo que "quiero hablar con una
-  // persona"), dejando claro que es justo porque no se sabe la respuesta exacta —
-  // no es el mismo caso genérico que una queja o "quiero hablar con alguien".
+  // La IA no sabía la respuesta con certeza: en vez de fiarse de que la frase-
+  // sentinela sea la ÚNICA respuesta (la IA a veces le añade contexto propio
+  // delante, p. ej. "No tengo información sobre ese producto. [sentinela]"), se
+  // manda esa parte útil como mensaje aparte (si la hay) y SIEMPRE se sigue con un
+  // segundo mensaje con los botones reales de escalado — así el cliente se queda
+  // con la info que sí había, y además con la opción real de hablar con alguien,
+  // en vez de depender de que la IA repita una frase exacta sin nada más.
   if (isNoSeLaRespuesta(aiReply)) {
-    const prefix = `${greeting}No tengo la respuesta exacta a eso. `;
+    const infoPart = aiReply.split(NO_SE_LA_RESPUESTA)[0].trim();
+
+    if (infoPart) {
+      const infoReply = greeting + infoPart;
+      await appendToHistory(message.from, text, infoReply);
+      await sendWhatsappMessage(message.from, infoReply);
+    }
+
+    // Si ya se mandó la parte informativa (con su saludo, si tocaba), el segundo
+    // mensaje va sin repetir saludo ni "no sé la respuesta" — la propia pregunta de
+    // escalado ("¿quieres que te ponga en contacto...?") ya funciona como sugerencia
+    // aparte sin sonar redundante.
+    const prefix = infoPart ? '' : `${greeting}No tengo la respuesta exacta a eso. `;
     await sendEscalateButtons(message.from, prefix);
-    await appendToHistory(message.from, text, `[La IA no supo responder; se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
+    await appendToHistory(
+      message.from,
+      infoPart ? '[continuación automática: se ofreció además hablar con un agente]' : text,
+      `${prefix}${escalateQuestion()}`
+    );
     return;
   }
 
