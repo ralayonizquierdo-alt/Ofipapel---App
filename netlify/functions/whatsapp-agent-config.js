@@ -74,6 +74,21 @@ function startsWithGreeting(rawText) {
   return stripLeadingGreeting(normalized) !== null;
 }
 
+// Mismo criterio que el saludo, pero para "gracias"/"perfecto": el mensaje ENTERO
+// (troceado por comas/puntos) tiene que ser solo agradecimiento — así "gracias" al
+// final de una pregunta real, o "perfecto" dentro de una frase ("el regalo
+// perfecto"), no cuentan como agradecimiento puro.
+const THANKS_PHRASES = ['muchas gracias', 'vale gracias', 'gracias', 'perfecto'];
+
+function isPureThanks(normalizedText) {
+  const parts = normalizedText
+    .trim()
+    .split(/[,.!¡]+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return parts.length > 0 && parts.every((part) => THANKS_PHRASES.includes(part));
+}
+
 const REGISTRO_URL = 'https://ofipapel.net/mi-cuenta/';
 const REGISTRO_INFO = `Puedes registrarte aquí: ${REGISTRO_URL}\nEl mismo registro sirve tanto para comprar en la web como en cualquiera de nuestras tiendas. Al registrarte, tienes una tarifa de precios mejorada. Además, si es tu primer pedido en la web, puedes usar el código B1ENVEN1DA para un 10% extra de descuento.`;
 
@@ -292,11 +307,16 @@ function findIslandInText(normalizedText) {
 // Respuesta rápida: si el cliente ya menciona una isla, contesta solo sobre esa isla
 // (sin soltar la tabla entera); si no la menciona, da el resumen general y pregunta.
 function enviosReply(normalizedText) {
+  // Se comprueba la isla ANTES que "fuera de Canarias": un mensaje puede colar una
+  // palabra que coincide con una provincia peninsular sin querer (p. ej. un cliente
+  // que se llama o se apellida "León" preguntando por Tenerife) — si el mensaje
+  // menciona una isla real, esa respuesta concreta gana siempre, en vez de decirle
+  // por error que no se envía a donde sí se envía.
+  const island = findIslandInText(normalizedText);
+  if (island) return `${islandShippingLine(island)} Para artículos muy pesados o voluminosos el porte se calcula aparte, a consultar.`;
   if (mentionsOutsideCanarias(normalizedText)) {
     return 'No, solo hacemos envíos dentro de las Islas Canarias — no enviamos a Península ni al extranjero.';
   }
-  const island = findIslandInText(normalizedText);
-  if (island) return `${islandShippingLine(island)} Para artículos muy pesados o voluminosos el porte se calcula aparte, a consultar.`;
   return `${ENVIOS_GENERAL_INTRO} El envío gratis y el plazo cambian según la isla — ¿a cuál te refieres? Así te doy el dato exacto.`;
 }
 
@@ -341,6 +361,39 @@ const FAQ_RULES = [
       'escaneado', 'escaneados', 'escanear', 'escaneo', 'escanea', 'digitalizar', 'digitalizacion', 'digitalización',
     ],
     reply: reprografiaReply,
+  },
+  {
+    // Colocada antes que la regla genérica de "teléfono/llamar" (más abajo, con la
+    // keyword suelta "llamar") para que frases como "me pueden llamar" o "que me
+    // llamen" no caigan en la respuesta genérica del teléfono de la tienda — eso
+    // invita al CLIENTE a llamar, cuando en realidad está pidiendo lo contrario
+    // (que LE llamen a él). Con "llamar" a secas más abajo, esta regla nunca ganaba.
+    keywords: [
+      // español
+      'hablar con alguien', 'hablar con una persona', 'hablar con un agente', 'hablar con agente',
+      'atencion humana', 'atención humana', 'persona real', 'no me sirve', 'no me ayuda', 'quiero hablar con',
+      'queja', 'quejarme', 'poner una queja', 'reclamacion', 'reclamación', 'reclamar', 'denuncia', 'denunciar',
+      'estoy harto', 'estoy harta', 'estoy cansado de', 'estoy cansada de', 'mal servicio', 'pesimo', 'pésimo',
+      'indignado', 'indignada', 'inaceptable', 'esto es un desastre', 'esto no puede ser', 'estafa',
+      'me han estafado', 'me habeis estafado', 'me habéis estafado', 'necesito una solucion', 'necesito una solución',
+      'quiero una solucion', 'quiero una solución', 'que solucion me dan', 'qué solución me dan', 'solucion ya',
+      'solución ya', 'es urgente', 'muy urgente',
+      // Pedir que el equipo le devuelva la llamada/mensaje: esto NO lo puede prometer
+      // la IA por su cuenta (no tiene forma de avisar a nadie de verdad), así que se
+      // engancha al mismo flujo real de escalado en vez de dejar que lo conteste sola.
+      'pasar un mensaje', 'pasarle un mensaje', 'pasar mi mensaje', 'pasar mi consulta', 'pasarle mi consulta',
+      'dejar un mensaje', 'dejar mi numero', 'dejar mi número', 'dejar mi telefono', 'dejar mi teléfono',
+      'que me llamen', 'que me llame', 'que me contacten', 'que me contacte', 'que me devuelvan la llamada',
+      'me pueden llamar', 'me podeis llamar', 'me podéis llamar', 'anotar mi consulta', 'anotar mi pedido',
+      // inglés (mismo canal de escalado, para que no dependa del idioma del cliente)
+      'talk to an agent', 'talk to a person', 'talk to a human', 'speak to an agent', 'speak with an agent',
+      'speak to a person', 'speak with a person', 'human agent', 'human person', 'real person', 'a real human',
+      'customer service', 'i want to talk to', 'i want to speak to', 'can i speak with', 'can i talk to',
+      'this is unacceptable', 'i want to complain', 'i have a complaint', 'this is a scam', 'i was scammed',
+      'i need a solution', 'very urgent', 'it is urgent',
+      'pass a message', 'leave a message', 'call me back', 'have someone call me', 'can someone call me',
+    ],
+    reply: agenteInfoOrDecline,
   },
   {
     // Por defecto solo se da el horario de la sede principal (no las 3 tiendas) —
@@ -415,34 +468,6 @@ const FAQ_RULES = [
   },
   {
     keywords: [
-      // español
-      'hablar con alguien', 'hablar con una persona', 'hablar con un agente', 'hablar con agente',
-      'atencion humana', 'atención humana', 'persona real', 'no me sirve', 'no me ayuda', 'quiero hablar con',
-      'queja', 'quejarme', 'poner una queja', 'reclamacion', 'reclamación', 'reclamar', 'denuncia', 'denunciar',
-      'estoy harto', 'estoy harta', 'estoy cansado de', 'estoy cansada de', 'mal servicio', 'pesimo', 'pésimo',
-      'indignado', 'indignada', 'inaceptable', 'esto es un desastre', 'esto no puede ser', 'estafa',
-      'me han estafado', 'me habeis estafado', 'me habéis estafado', 'necesito una solucion', 'necesito una solución',
-      'quiero una solucion', 'quiero una solución', 'que solucion me dan', 'qué solución me dan', 'solucion ya',
-      'solución ya', 'es urgente', 'muy urgente',
-      // Pedir que el equipo le devuelva la llamada/mensaje: esto NO lo puede prometer
-      // la IA por su cuenta (no tiene forma de avisar a nadie de verdad), así que se
-      // engancha al mismo flujo real de escalado en vez de dejar que lo conteste sola.
-      'pasar un mensaje', 'pasarle un mensaje', 'pasar mi mensaje', 'pasar mi consulta', 'pasarle mi consulta',
-      'dejar un mensaje', 'dejar mi numero', 'dejar mi número', 'dejar mi telefono', 'dejar mi teléfono',
-      'que me llamen', 'que me llame', 'que me contacten', 'que me contacte', 'que me devuelvan la llamada',
-      'me pueden llamar', 'me podeis llamar', 'me podéis llamar', 'anotar mi consulta', 'anotar mi pedido',
-      // inglés (mismo canal de escalado, para que no dependa del idioma del cliente)
-      'talk to an agent', 'talk to a person', 'talk to a human', 'speak to an agent', 'speak with an agent',
-      'speak to a person', 'speak with a person', 'human agent', 'human person', 'real person', 'a real human',
-      'customer service', 'i want to talk to', 'i want to speak to', 'can i speak with', 'can i talk to',
-      'this is unacceptable', 'i want to complain', 'i have a complaint', 'this is a scam', 'i was scammed',
-      'i need a solution', 'very urgent', 'it is urgent',
-      'pass a message', 'leave a message', 'call me back', 'have someone call me', 'can someone call me',
-    ],
-    reply: agenteInfoOrDecline,
-  },
-  {
-    keywords: [
       'presupuesto', 'presupuestos', 'pedir presupuesto', 'solicitar presupuesto', 'necesito un presupuesto',
       'quiero un presupuesto', 'hacer un presupuesto',
       'quote', 'a quote', 'price quote', 'get a quote', 'request a quote', 'need a quote',
@@ -452,11 +477,12 @@ const FAQ_RULES = [
   {
     // Igual que el saludo: "gracias"/"perfecto" aparecen también al final de mensajes
     // con una pregunta real detrás (p. ej. "...¿sería posible recogerlo esta mañana?
-    // Gracias."), así que solo se contesta "de nada" si el mensaje es puro
-    // agradecimiento/cierre corto; si es largo, se deja pasar a reglas más
-    // específicas o a la IA en vez de comerse la pregunta.
+    // Gracias.") o dentro de una pregunta real ("busco el regalo perfecto"). El
+    // conteo de palabras totales daba falsos positivos en ambos casos — ahora se
+    // comprueba que el mensaje ENTERO (quitando puntuación) sea solo agradecimiento,
+    // no que sea corto.
     keywords: ['gracias', 'muchas gracias', 'perfecto', 'vale gracias'],
-    reply: (normalizedText) => (normalizedText.split(/\s+/).filter(Boolean).length <= 6 ? '¡De nada! Si necesitas cualquier otra cosa aquí estamos. 😊' : null),
+    reply: (normalizedText) => (isPureThanks(normalizedText) ? '¡De nada! Si necesitas cualquier otra cosa aquí estamos. 😊' : null),
   },
   {
     // Al final a propósito: "hola"/"buenos días" aparece en muchísimos mensajes que
