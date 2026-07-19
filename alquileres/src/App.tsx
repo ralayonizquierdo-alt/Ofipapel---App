@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Calendar, BedDouble, Tag, Wrench, PiggyBank, BarChart3, Settings, Menu, X
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import bgTrebol from './assets/bg-trebol.png'
 import { isSeeded, markSeeded, reservationStorage, paymentStorage, repairStorage } from './lib/storage'
 import { buildSeedReservations, buildSeedRepairs } from './lib/seedData'
 import Dashboard from './pages/Dashboard'
@@ -56,15 +57,17 @@ function NavItems({ alerts, onClose }: { alerts: number; onClose?: () => void })
 
 function Sidebar({ alerts }: { alerts: number }) {
   return (
-    <aside className="w-56 min-h-screen bg-slate-900 flex flex-col shrink-0">
-      <div className="px-4 py-5 border-b border-slate-700">
+    <aside className="w-56 min-h-screen bg-slate-900 flex flex-col shrink-0 relative overflow-hidden"
+      style={{ backgroundImage: `url(${bgTrebol})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      <div className="absolute inset-0 bg-slate-900/90 pointer-events-none" />
+      <div className="px-4 py-5 border-b border-slate-700 relative z-10">
         <h1 className="text-white font-bold text-lg leading-tight">🏠 Alquileres</h1>
         <p className="text-slate-400 text-xs mt-0.5">Gestión vacacional</p>
       </div>
-      <nav className="flex-1 py-4 space-y-0.5 px-2">
+      <nav className="flex-1 py-4 space-y-0.5 px-2 relative z-10">
         <NavItems alerts={alerts} />
       </nav>
-      <div className="px-4 py-3 border-t border-slate-700">
+      <div className="px-4 py-3 border-t border-slate-700 relative z-10">
         <p className="text-slate-500 text-xs">Ofipapel © 2026</p>
       </div>
     </aside>
@@ -75,15 +78,17 @@ function MobileHeader({ alerts, onMenuOpen }: { alerts: number; onMenuOpen: () =
   const location = useLocation()
   const current = NAV.find(n => location.pathname.startsWith(n.to))
   return (
-    <header className="bg-slate-900 text-white flex items-center justify-between px-4 py-3 sticky top-0 z-30">
-      <div className="flex items-center gap-3">
+    <header className="text-white flex items-center justify-between px-4 py-3 sticky top-0 z-30 relative overflow-hidden"
+      style={{ backgroundImage: `url(${bgTrebol})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      <div className="absolute inset-0 bg-slate-900/88 pointer-events-none" />
+      <div className="flex items-center gap-3 relative z-10">
         <button onClick={onMenuOpen} className="p-1 rounded-lg hover:bg-slate-700">
           <Menu size={22} />
         </button>
         <span className="font-semibold text-sm">{current?.label ?? 'Alquileres'}</span>
       </div>
       {alerts > 0 && (
-        <span className="bg-amber-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+        <span className="bg-amber-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold relative z-10">
           {alerts}
         </span>
       )}
@@ -96,8 +101,10 @@ function Drawer({ alerts, open, onClose }: { alerts: number; open: boolean; onCl
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
-      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 flex flex-col">
-        <div className="px-4 py-5 border-b border-slate-700 flex items-center justify-between">
+      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 flex flex-col relative overflow-hidden"
+        style={{ backgroundImage: `url(${bgTrebol})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+        <div className="absolute inset-0 bg-slate-900/90 pointer-events-none" />
+        <div className="px-4 py-5 border-b border-slate-700 flex items-center justify-between relative z-10">
           <div>
             <h1 className="text-white font-bold text-lg leading-tight">🏠 Alquileres</h1>
             <p className="text-slate-400 text-xs mt-0.5">Gestión vacacional</p>
@@ -106,10 +113,10 @@ function Drawer({ alerts, open, onClose }: { alerts: number; open: boolean; onCl
             <X size={20} />
           </button>
         </div>
-        <nav className="flex-1 py-4 space-y-0.5 px-2 overflow-y-auto">
+        <nav className="flex-1 py-4 space-y-0.5 px-2 overflow-y-auto relative z-10">
           <NavItems alerts={alerts} onClose={onClose} />
         </nav>
-        <div className="px-4 py-3 border-t border-slate-700">
+        <div className="px-4 py-3 border-t border-slate-700 relative z-10">
           <p className="text-slate-500 text-xs">Ofipapel © 2026</p>
         </div>
       </div>
@@ -157,13 +164,15 @@ export default function App() {
 
   return (
     <BrowserRouter basename="/alquileres">
-      <div className="flex min-h-screen bg-slate-100">
+      <div className="flex min-h-screen bg-slate-100 relative"
+        style={{ backgroundImage: `url(${bgTrebol})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
+        <div className="absolute inset-0 bg-slate-100/92 pointer-events-none" />
         {/* Desktop sidebar */}
-        <div className="hidden md:flex">
+        <div className="hidden md:flex relative z-10">
           <Sidebar alerts={alertCount} />
         </div>
 
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 relative z-10">
           {/* Mobile header */}
           <div className="md:hidden">
             <MobileHeader alerts={alertCount} onMenuOpen={() => setDrawerOpen(true)} />
