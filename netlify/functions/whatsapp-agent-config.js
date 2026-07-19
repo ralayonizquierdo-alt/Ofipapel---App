@@ -203,10 +203,13 @@ function isNoSeLaRespuesta(text) {
 // artículos" por pura plausibilidad (se ha visto en pruebas reales, con productos
 // inventados como "reparador de arañazos" o "sangrías de fibra"). En vez de confiar
 // en que la IA se porte bien siempre, se analiza su propia respuesta: si confirma
-// con un "sí" sin que haya venido de una regla fija (que sí son datos reales), no
-// nos fiamos y se sustituye entera por la respuesta segura — no se manda nada de
-// lo que haya escrito la IA, porque podría llevar el dato inventado mezclado.
-const FALSE_CONFIDENCE_PATTERN = /\bs[ií],?\s+(vendemos|tenemos|hacemos|disponemos|contamos con)\b/i;
+// con un "sí, vendemos/tenemos" (verbos de catálogo/stock de PRODUCTO) sin que
+// haya venido de una regla fija, no nos fiamos y se sustituye entera por la
+// respuesta segura. Ojo: solo "vendemos"/"tenemos" — "hacemos" se quitó porque
+// también sale en confirmaciones legítimas de SERVICIOS que la IA sí conoce de
+// verdad (p. ej. "sí, hacemos entregas a otras islas", que es un hecho real de
+// ENVIOS_INFO, no una invención) y daba falsos positivos.
+const FALSE_CONFIDENCE_PATTERN = /\bs[ií],?\s+(vendemos|tenemos)\b/i;
 
 function isUnverifiedConfirmation(text) {
   return FALSE_CONFIDENCE_PATTERN.test(text || '');
