@@ -56,12 +56,12 @@ header select, header button{
 }
 header button.secondary{background:rgba(255,255,255,.15);color:#fff;}
 header button:hover{filter:brightness(0.96);}
-#btnToggleHeader{
-  position:fixed;top:4px;right:4px;z-index:30;
+#floatingToggles{position:fixed;top:4px;right:4px;z-index:30;display:flex;gap:4px;}
+#floatingToggles button{
   background:var(--verde);color:#fff;border:none;border-radius:7px;
   padding:3px 8px;font-size:.7rem;cursor:pointer;box-shadow:var(--sombra);opacity:.85;
 }
-#btnToggleHeader:hover{opacity:1;}
+#floatingToggles button:hover{opacity:1;}
 
 #body{display:flex;flex:1;min-height:0;}
 
@@ -318,14 +318,16 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   </div>
 </div>
 <div id="app">
-  <button id="btnToggleHeader" title="Mostrar/ocultar cabecera">▲</button>
+  <div id="floatingToggles">
+    <button id="btnToggleSidebar" title="Mostrar/ocultar Reglas y Filtros">☰</button>
+    <button id="btnToggleHeader" title="Mostrar/ocultar cabecera">▲</button>
+  </div>
   <header id="mainHeader">
     <div>
       <h1>Vacaciones y Turnos</h1>
     </div>
     <span id="cloudStatus" style="font-size:1.1rem;cursor:default;" title="Conectando con la nube…">🔄</span>
     <button class="secondary" id="btnLogout" title="Cerrar sesión" style="display:none;">🔒 Salir</button>
-    <button class="secondary" id="btnToggleSidebar" title="Mostrar/ocultar Reglas y Filtros">☰</button>
     <select id="yearSelect"></select>
     <button class="secondary" id="btnEmployees">👤 Empleados</button>
     <button class="secondary" id="btnRotation">Prioridad rotación</button>
