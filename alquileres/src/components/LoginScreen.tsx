@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
-import { hashPw, getStoredHash } from '../lib/passwordAuth'
+import { hashPw, getStoredHash, saveHash } from '../lib/passwordAuth'
+import bgTrebol from '../assets/bg-trebol.png'
 
 type User = 'Luis' | 'Rober'
 
@@ -14,6 +15,9 @@ export default function LoginScreen({ onLogin }: Props) {
   const [show, setShow] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resetMode, setResetMode] = useState(false)
+  const [resetCode, setResetCode] = useState('')
+  const [resetMsg, setResetMsg] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -28,9 +32,22 @@ export default function LoginScreen({ onLogin }: Props) {
     setLoading(false)
   }
 
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault()
+    const h = await hashPw(resetCode)
+    const DEFAULT_HASH = 'd086b000c4d69407866d15606d2c5bb9c8f64431bf4f72d1393b9996ca9a3cec'
+    if (h !== DEFAULT_HASH) { setResetMsg('Código incorrecto'); return }
+    saveHash(DEFAULT_HASH)
+    setResetMsg('✓ Contraseña restablecida')
+    setResetCode('')
+    setTimeout(() => { setResetMode(false); setResetMsg('') }, 2500)
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100">
-      <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden"
+      style={{ backgroundImage: `url(${bgTrebol})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      <div className="absolute inset-0 bg-blue-950/75 pointer-events-none" />
+      <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm relative z-10">
         <div className="flex flex-col items-center mb-8">
           <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl mb-3"
             style={{ background: '#1976D2' }}>
@@ -87,7 +104,42 @@ export default function LoginScreen({ onLogin }: Props) {
             style={{ background: '#1976D2' }}>
             {loading ? 'Verificando...' : 'Entrar'}
           </button>
+
+          <p className="text-center">
+            <button type="button" onClick={() => setResetMode(true)}
+              className="text-xs text-slate-400 hover:text-blue-500 transition-colors">
+              ¿Olvidaste la contraseña?
+            </button>
+          </p>
         </form>
+
+        {resetMode && (
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <form onSubmit={handleReset} className="space-y-3">
+              <p className="text-xs text-slate-500 text-center">Introduce la contraseña predeterminada para restablecer el acceso</p>
+              <input
+                type="password"
+                value={resetCode}
+                onChange={e => { setResetCode(e.target.value); setResetMsg('') }}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Contraseña predeterminada"
+                autoFocus
+              />
+              {resetMsg && (
+                <p className={`text-xs ${resetMsg.startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>{resetMsg}</p>
+              )}
+              <div className="flex gap-2">
+                <button type="submit" className="flex-1 py-2 rounded-lg text-xs font-semibold text-white" style={{ background: '#1976D2' }}>
+                  Restablecer
+                </button>
+                <button type="button" onClick={() => { setResetMode(false); setResetMsg('') }}
+                  className="px-3 py-2 rounded-lg text-xs text-slate-500 border border-slate-200 hover:border-slate-400">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   )
