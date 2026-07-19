@@ -272,10 +272,12 @@ async function handleIncomingMessage(message) {
 
   // La IA no sabía la respuesta: en vez de mandar la frase-sentinela tal cual, se
   // dispara el flujo real de escalado (mismo mecanismo que "quiero hablar con una
-  // persona"), para no dejar al cliente con una promesa vacía.
+  // persona"), dejando claro que es justo porque no se sabe la respuesta exacta —
+  // no es el mismo caso genérico que una queja o "quiero hablar con alguien".
   if (isNoSeLaRespuesta(aiReply)) {
-    await sendEscalateButtons(message.from, greeting);
-    await appendToHistory(message.from, text, `[La IA no supo responder; se ofreció escalar a una persona] ${greeting}${escalateQuestion()}`);
+    const prefix = `${greeting}No tengo la respuesta exacta a eso. `;
+    await sendEscalateButtons(message.from, prefix);
+    await appendToHistory(message.from, text, `[La IA no supo responder; se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
     return;
   }
 
