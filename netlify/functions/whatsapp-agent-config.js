@@ -292,7 +292,7 @@ const ISLAND_SHIPPING = [
     freeFrom: 20,
     feeBelow: 5,
     delivery: '24 a 48h',
-    cutoffNote: 'Si el pedido se hace antes de las 13:00h, se entrega al día siguiente (salvo imprevistos); si se hace después de esa hora, ya no entra en el reparto del día siguiente, sino en el del otro día.',
+    cutoffNote: 'Si el pedido se hace antes de las 13:00h, se entrega al día siguiente (salvo imprevistos); si se hace después de esa hora, ya no entra en el reparto del día siguiente, sino en el del otro día. El reparto es de lunes a viernes (no hay reparto en sábado ni domingo), así que un pedido de fin de semana entra en el reparto del lunes.',
   },
   { name: 'La Gomera', keywords: ['gomera'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
   { name: 'El Hierro', keywords: ['hierro'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
