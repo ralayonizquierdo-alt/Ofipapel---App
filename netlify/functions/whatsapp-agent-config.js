@@ -342,7 +342,10 @@ const FAQ_RULES = [
     reply: (normalizedText) => (/agendar/.test(normalizedText) ? null : AGENDAS_INFO),
   },
   {
-    keywords: ['regalo directo', 'regalos directos', 'regalo por compra', 'regalos por compra', 'campaña de regalos', 'campana de regalos', 'regalos promocionales', 'z-regalos', 'que regalo', 'qué regalo', 'que regalos', 'qué regalos'],
+    // 'que regalo'/'qué regalo' a secas se quitaron: coincidían con preguntas
+    // genéricas de "¿qué regalo me recomendáis?" que no tienen nada que ver con
+    // la campaña de regalos directos por importe de compra.
+    keywords: ['regalo directo', 'regalos directos', 'regalo por compra', 'regalos por compra', 'campaña de regalos', 'campana de regalos', 'regalos promocionales', 'z-regalos'],
     reply: REGALOS_INFO,
   },
   {
