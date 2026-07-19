@@ -18,6 +18,8 @@ const {
   resumeBot,
   clearConversation,
   diagnose,
+  markAsViewed,
+  getLastViewed,
 } = require('./conversation-store');
 const { isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const { sendWhatsappMessage, uploadWhatsappMedia, sendWhatsappMedia } = require('./whatsapp-send');
@@ -266,9 +268,16 @@ function pageShell(title, body) {
     box-shadow: inset 0 1px 0 rgba(255,255,255,.3), 0 2px 6px rgba(217,67,47,.4);
   }
 
-  .convo-info { flex: 1; min-width: 0; }
+  .convo-info { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .convo-phone { font-family: 'IBM Plex Mono', monospace; font-size: 15.5px; font-weight: 600; }
-  .convo-flag { display: flex; align-items: center; gap: 5px; color: var(--danger); font-size: 12.5px; font-weight: 600; margin-top: 3px; }
+  .convo-flag { display: flex; align-items: center; gap: 5px; color: var(--danger); font-size: 12.5px; font-weight: 600; width: 100%; margin-top: 1px; }
+  .unread-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+    background: var(--green-mid); color: #fff;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700;
+    line-height: 1;
+  }
 
   .convo-card svg.chevron { flex-shrink: 0; color: var(--text-muted); }
   .convo-card.escalated { border-color: #f3c6bd; }
@@ -388,6 +397,12 @@ function needsAttention(messages) {
   return pending;
 }
 
+// Mensajes del cliente recibidos después de la última vez que se abrió ese hilo en
+// el panel — para saber de un vistazo si queda algo por revisar en cada conversación.
+function countUnread(messages, lastViewed) {
+  return messages.filter((m) => m.role === 'user' && (m.ts || 0) > lastViewed).length;
+}
+
 function renderDiagnostic(diagnostic) {
   if (diagnostic.ok) {
     return `<div class="diagnostic ok">${ICON.check}<span>Conexión con Upstash correcta (lectura y escritura).</span></div>`;
@@ -396,24 +411,30 @@ function renderDiagnostic(diagnostic) {
 }
 
 function renderList(entries, diagnostic) {
-  // Las conversaciones con escalado confirmado van primero, para que salten a la vista.
-  const sorted = [...entries].sort((a, b) => Number(b.escalated) - Number(a.escalated));
+  // Las conversaciones con escalado confirmado van primero, luego por nº de mensajes
+  // sin leer (de más a menos), para que salte a la vista lo que falta por revisar.
+  const sorted = [...entries].sort((a, b) => Number(b.escalated) - Number(a.escalated) || b.unread - a.unread);
   const items = sorted
-    .map(({ phone, escalated }) => {
+    .map(({ phone, escalated, unread }) => {
       const flag = escalated ? `<div class="convo-flag">${ICON.warning} Requiere atención</div>` : '';
+      const badge = unread > 0 ? `<span class="unread-badge">${unread}</span>` : '';
       return `<li><a class="convo-card${escalated ? ' escalated' : ''}" href="?phone=${encodeURIComponent(phone)}">
     <div class="convo-avatar">${ICON.chat}</div>
     <div class="convo-info">
       <div class="convo-phone">${escapeHtml(phone)}</div>
+      ${badge}
       ${flag}
     </div>
     <span class="chevron">${ICON.chevron}</span>
   </a></li>`;
     })
     .join('');
+  // Auto-refresco cada 30s para que la lista (y el contador de sin leer) se
+  // mantenga al día sin tener que recargar a mano.
+  const autoRefresh = `<script>setTimeout(function(){ location.reload(); }, 30000);</script>`;
   return pageShell(
     'Conversaciones · Ofipapel',
-    `${renderDiagnostic(diagnostic)}<ul class="convo-list">${items || '<li><div class="empty-state">Todavía no hay conversaciones archivadas.</div></li>'}</ul>`
+    `${renderDiagnostic(diagnostic)}<ul class="convo-list">${items || '<li><div class="empty-state">Todavía no hay conversaciones archivadas.</div></li>'}</ul>${autoRefresh}`
   );
 }
 
@@ -580,6 +601,7 @@ exports.handler = async (event) => {
   if (phone) {
     const [messages, paused] = await Promise.all([loadConversation(phone), isBotPaused(phone)]);
     const error = event.queryStringParameters?.error || '';
+    await markAsViewed(phone); // abrir el hilo pone a cero el contador de sin leer
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
@@ -590,9 +612,10 @@ exports.handler = async (event) => {
   const [phones, diagnostic] = await Promise.all([listConversationPhones(), diagnose()]);
   const entries = await Promise.all(
     phones.map(async (phone) => {
-      const messages = await loadConversation(phone);
+      const [messages, lastViewed] = await Promise.all([loadConversation(phone), getLastViewed(phone)]);
       const escalated = needsAttention(messages);
-      return { phone, escalated };
+      const unread = countUnread(messages, lastViewed);
+      return { phone, escalated, unread };
     })
   );
   return {

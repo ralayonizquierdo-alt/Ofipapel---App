@@ -100,6 +100,19 @@ async function resumeBot(phone) {
   await redisCommand(['DEL', `paused:${phone}`]);
 }
 
+// Marca de "última vez que se abrió esta conversación en el panel", para poder
+// contar cuántos mensajes del cliente han llegado desde entonces (mensajes sin
+// leer) en el listado. Se actualiza cada vez que se abre el hilo de un número.
+async function markAsViewed(phone) {
+  await redisCommand(['SET', `viewed:${phone}`, String(Date.now())]);
+}
+
+async function getLastViewed(phone) {
+  const raw = await redisCommand(['GET', `viewed:${phone}`]);
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 // Prueba de escritura + lectura contra Upstash, devolviendo el error real (código HTTP
 // y cuerpo de la respuesta) tal cual lo manda Upstash, para poder mostrarlo en el panel
 // sin tener que ir a mirar los logs de Netlify ni la consola de Upstash a mano.
@@ -166,4 +179,6 @@ module.exports = {
   resumeBot,
   clearConversation,
   diagnose,
+  markAsViewed,
+  getLastViewed,
 };
