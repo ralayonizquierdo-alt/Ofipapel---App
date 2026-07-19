@@ -46,6 +46,9 @@ const {
   isSellosQuestion,
   isWithinBusinessHours,
   STORES,
+  GREETING,
+  startsWithGreeting,
+  isNoSeLaRespuesta,
 } = require('./whatsapp-agent-config');
 const { sendWhatsappMessage } = require('./whatsapp-send');
 
@@ -92,7 +95,7 @@ function escalateQuestion() {
 }
 const ESCALATE_DECLINE_REPLY = 'Entendido, sigo por aquí. Cuéntame otra vez qué necesitas e intento ayudarte.';
 
-async function sendEscalateButtons(to) {
+async function sendEscalateButtons(to, greetingPrefix = '') {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const token = process.env.WHATSAPP_TOKEN;
 
@@ -108,7 +111,7 @@ async function sendEscalateButtons(to) {
       type: 'interactive',
       interactive: {
         type: 'button',
-        body: { text: escalateQuestion() },
+        body: { text: greetingPrefix + escalateQuestion() },
         action: {
           buttons: [
             { type: 'reply', reply: { id: 'escalate_yes', title: '✅ Sí' } },
@@ -170,7 +173,7 @@ async function handleEscalateReply(message) {
 
 // Botones "¿Web o tienda?" para sellos personalizados, en vez de soltar de golpe
 // las dos vías de pedido (ver whatsapp-agent-config.js: SELLOS_QUESTION/WEB/TIENDA).
-async function sendSellosButtons(to) {
+async function sendSellosButtons(to, greetingPrefix = '') {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const token = process.env.WHATSAPP_TOKEN;
 
@@ -186,7 +189,7 @@ async function sendSellosButtons(to) {
       type: 'interactive',
       interactive: {
         type: 'button',
-        body: { text: SELLOS_QUESTION },
+        body: { text: greetingPrefix + SELLOS_QUESTION },
         action: {
           buttons: [
             { type: 'reply', reply: { id: 'sellos_web', title: '🌐 Por la web' } },
@@ -241,19 +244,42 @@ async function handleIncomingMessage(message) {
   const faqReply = matchFaqRule(text);
   const wantsEscalation = isAgenteInfoMessage(faqReply || '') || (!faqReply && isRepeatQuestion(text, history));
 
+  // Si el cliente saluda junto con su pregunta (p. ej. "Buenas tardes, ¿hacéis
+  // escaneados?"), se antepone el saludo a la respuesta que sea — así no hace falta
+  // que ninguna regla individual ni la IA se acuerden de saludar por su cuenta.
+  const greeting = startsWithGreeting(text) ? '¡Hola! ' : '';
+
   if (wantsEscalation) {
-    await sendEscalateButtons(message.from);
-    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${escalateQuestion()}`);
+    await sendEscalateButtons(message.from, greeting);
+    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${greeting}${escalateQuestion()}`);
     return;
   }
 
   if (isSellosQuestion(faqReply || '')) {
-    await sendSellosButtons(message.from);
-    await appendToHistory(message.from, text, `[Se preguntó web o tienda para el sello] ${SELLOS_QUESTION}`);
+    await sendSellosButtons(message.from, greeting);
+    await appendToHistory(message.from, text, `[Se preguntó web o tienda para el sello] ${greeting}${SELLOS_QUESTION}`);
     return;
   }
 
-  const reply = faqReply || (await askClaude(text, history));
+  if (faqReply) {
+    const reply = faqReply === GREETING ? faqReply : greeting + faqReply;
+    await appendToHistory(message.from, text, reply);
+    await sendWhatsappMessage(message.from, reply);
+    return;
+  }
+
+  const aiReply = await askClaude(text, history);
+
+  // La IA no sabía la respuesta: en vez de mandar la frase-sentinela tal cual, se
+  // dispara el flujo real de escalado (mismo mecanismo que "quiero hablar con una
+  // persona"), para no dejar al cliente con una promesa vacía.
+  if (isNoSeLaRespuesta(aiReply)) {
+    await sendEscalateButtons(message.from, greeting);
+    await appendToHistory(message.from, text, `[La IA no supo responder; se ofreció escalar a una persona] ${greeting}${escalateQuestion()}`);
+    return;
+  }
+
+  const reply = greeting + aiReply;
   await appendToHistory(message.from, text, reply);
   await sendWhatsappMessage(message.from, reply);
 }

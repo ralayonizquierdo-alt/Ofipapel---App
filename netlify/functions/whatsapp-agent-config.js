@@ -48,6 +48,32 @@ function findStoreInText(normalizedText) {
 
 const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿En qué puedo ayudarte? Puedes preguntarme por horarios, ubicación, teléfono o lo que necesites.`;
 
+// Detección de saludo robusta: NO cuenta palabras totales (eso rompía con mensajes
+// tipo "Buenas tardes, ¿hacéis escaneados?", que caían justo en 6 palabras y se
+// comían la pregunta real). En vez de eso, quita el saludo del principio del texto
+// y mira si queda algo con contenido detrás.
+const GREETING_PHRASES = ['buenos dias', 'buenos días', 'buenas tardes', 'buenas noches', 'hola', 'buenas'];
+
+function stripLeadingGreeting(normalizedText) {
+  const trimmed = normalizedText.trim();
+  const phrase = GREETING_PHRASES.find((p) => trimmed.startsWith(p));
+  if (!phrase) return null;
+  return trimmed.slice(phrase.length).replace(/^[\s,.!¡¿?-]+/, '').trim();
+}
+
+// Saludo "puro": el cliente solo saluda, sin ninguna pregunta detrás.
+function isPureGreeting(normalizedText) {
+  return stripLeadingGreeting(normalizedText) === '';
+}
+
+// Para usar desde whatsapp-webhook.js sobre el texto tal cual llega (sin normalizar
+// a mano) — cierto tanto si es un saludo puro como si el saludo va seguido de una
+// pregunta real, para poder anteponer un "¡Hola!" a la respuesta que sea.
+function startsWithGreeting(rawText) {
+  const normalized = rawText.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return stripLeadingGreeting(normalized) !== null;
+}
+
 const REGISTRO_URL = 'https://ofipapel.net/mi-cuenta/';
 const REGISTRO_INFO = `Puedes registrarte aquí: ${REGISTRO_URL}\nEl mismo registro sirve tanto para comprar en la web como en cualquiera de nuestras tiendas. Al registrarte, tienes una tarifa de precios mejorada. Además, si es tu primer pedido en la web, puedes usar el código B1ENVEN1DA para un 10% extra de descuento.`;
 
@@ -135,6 +161,18 @@ function isSellosQuestion(text) {
   return text === SELLOS_QUESTION;
 }
 
+// Sentinela para cuando la IA no tiene ninguna respuesta fiable: en vez de dejar que
+// improvise una promesa vacía ("le paso tu consulta al equipo") o se limite a decir
+// "no lo sé" sin más, se le instruye (ver AI_SYSTEM_PROMPT) a devolver EXACTAMENTE
+// este texto — así whatsapp-webhook.js lo detecta y dispara el flujo real de
+// escalado (botones Sí/No) en vez de mandar la frase tal cual como si fuera la
+// respuesta final.
+const NO_SE_LA_RESPUESTA = 'Lo siento, no tengo la respuesta para eso, pero puedo pasarte con un agente.';
+
+function isNoSeLaRespuesta(text) {
+  return (text || '').trim() === NO_SE_LA_RESPUESTA;
+}
+
 // Un ítem concreto por mensaje (igual que con los envíos): si el cliente pregunta
 // por un servicio de Reprografía en concreto, se contesta solo sobre ese, no con
 // el listado completo cada vez. "reply" opcional para una respuesta a medida en
@@ -151,6 +189,11 @@ const REPROGRAFIA_ITEMS = [
   { name: 'talonarios', keywords: ['talonarios'] },
   { name: 'tarjetas para bodas', keywords: ['tarjetas para bodas'] },
   { name: 'trabajos de imprenta', keywords: ['trabajo de imprenta', 'trabajos de imprenta', 'imprenta'] },
+  {
+    name: 'escaneado de documentos',
+    keywords: ['escaneado', 'escaneados', 'escanear', 'escaneo', 'escanea', 'digitalizar', 'digitalizacion', 'digitalización'],
+    reply: `No, no tenemos servicio de escaneado de documentos. Si necesitas otra cosa de Reprografía (impresiones, copias, encuadernados, plastificados...), contacta con el departamento: ${REPROGRAFIA_CONTACT}.`,
+  },
 ];
 
 function reprografiaReply(normalizedText) {
@@ -286,6 +329,7 @@ const FAQ_RULES = [
       'folletos', 'tarjetas de visita', 'sellos personalizados', 'sello', 'sellos', 'talonarios', 'tarjetas para bodas',
       'trabajo de imprenta', 'trabajos de imprenta', 'imprenta', 'reprografia', 'reprografía',
       'departamento de reprografia', 'departamento de reprografía', 'extension 3010', 'extensión 3010',
+      'escaneado', 'escaneados', 'escanear', 'escaneo', 'escanea', 'digitalizar', 'digitalizacion', 'digitalización',
     ],
     reply: reprografiaReply,
   },
@@ -410,10 +454,10 @@ const FAQ_RULES = [
     // además preguntan otra cosa (p. ej. "Buenos días, ¿tenéis bobinas de 20kg?"), y
     // si esta regla fuera la primera se comería esas preguntas. Solo debe ganar si
     // ninguna regla más específica ha coincidido antes Y el mensaje es realmente solo
-    // un saludo corto — si es largo (pregunta real detrás), se deja pasar a la IA en
-    // vez de devolver el saludo genérico.
+    // un saludo puro (sin nada más detrás) — si hay una pregunta real, se deja pasar
+    // a reglas más específicas o a la IA en vez de devolver el saludo genérico.
     keywords: ['hola', 'buenas', 'buenos dias', 'buenos días', 'buenas tardes', 'buenas noches'],
-    reply: (normalizedText) => (normalizedText.split(/\s+/).filter(Boolean).length <= 6 ? GREETING : null),
+    reply: (normalizedText) => (isPureGreeting(normalizedText) ? GREETING : null),
   },
 ];
 
@@ -462,9 +506,10 @@ Contacto general: teléfono ${STORES[0].phone}, email pedidos@ofipapelsl.com (co
 
 Instrucciones:
 - Responde SIEMPRE en el idioma en que esté escrito el mensaje del cliente, desde el primer mensaje, aunque sea muy corto (si escribe "Hi", respondes en inglés; si escribe "Hola", en español; etc.). No respondas en español por defecto ni digas cosas como "respondo en español" — cambia de idioma directamente, sin comentarlo. Hazlo de forma breve, cercana y natural (máximo 3-4 frases), como lo haría una persona real del equipo escribiendo un WhatsApp, no como un robot leyendo una lista de datos.
+- No hace falta que saludes tú al principio de tu respuesta (ni "Hola", ni "¡Buenas!", ni nada parecido): si el cliente ha saludado, el sistema ya antepone el saludo automáticamente antes de tu respuesta. Ve directa/o a responder la pregunta.
 - Contesta solo a lo que el cliente ha preguntado. Si la información que tienes cubre varios casos (por ejemplo, varias islas de envío) y el cliente solo pregunta por uno, dale únicamente el dato de ese caso concreto; no le sueltes toda la lista si no la ha pedido.
 - Nunca invites a llamar "ahora mismo" si estamos fuera del horario comercial (${STORES[0].hours}) — no habría nadie para atender la llamada. Fuera de horario, en vez de sugerir llamar, deja claro que la atención personal (por teléfono o con un agente) será en cuanto abramos y retomemos la actividad, no al instante.
-- Si preguntan por productos o precios concretos que no conoces con certeza, no inventes datos: invita a visitar la tienda o, si estamos en horario, a llamar; y añade también la opción de pasarle con un agente si lo prefiere, con un tono cercano tipo "no obstante, si lo desea, podemos pasarle con un agente que resolverá su duda 😊".
+- IMPORTANTE — si no sabes la respuesta a algo (un producto, precio o servicio del que no tienes datos fiables, o cualquier pregunta que no puedas responder con seguridad) y no tienes ningún dato concreto al que redirigir al cliente (ni un departamento, ni un email), NO improvises una respuesta ni inventes que vas a "consultarlo" o "pasarlo al equipo". En su lugar, responde ÚNICA Y EXACTAMENTE con este texto, sin añadir ni quitar nada: "${NO_SE_LA_RESPUESTA}" — el sistema detecta ese texto exacto y le ofrece al cliente hablar con un agente de verdad (con botones Sí/No reales), en vez de una promesa vacía.
 - Si preguntan algo concreto sobre un pedido ya hecho (en qué estado está, cuándo llega exactamente, una incidencia, un número de pedido) y no tienes esa información, no inventes nada: indícales que contacten con Pedidos al ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
 - Si es un tema administrativo (facturas, pagos, cuentas) que no puedas resolver, indícales que contacten con Administración al ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
 - IMPORTANTE: nunca prometas cosas que no puedes cumplir tú sola, como "le paso tu consulta al equipo", "he anotado tu nombre y teléfono para que te llamen" o "el equipo te contactará mañana". No tienes forma de avisar a nadie ni de guardar esos datos para un seguimiento real — si dices eso, el cliente se queda esperando una llamada que nunca llega. Si el cliente pide que le devuelvan la llamada, le contacten, o le pasen un mensaje al equipo, no lo gestiones tú: dile que puede escribir directamente a pedidos@ofipapelsl.com con su nombre y teléfono, o (si estamos en horario) llamar al ${STORES[0].phone}.
@@ -485,6 +530,9 @@ module.exports = {
   SELLOS_WEB_INFO,
   SELLOS_TIENDA_INFO,
   isSellosQuestion,
+  startsWithGreeting,
+  NO_SE_LA_RESPUESTA,
+  isNoSeLaRespuesta,
   FAQ_RULES,
   buildAiSystemPrompt,
 };
