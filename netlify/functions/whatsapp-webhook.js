@@ -243,7 +243,9 @@ async function handleIncomingMessage(message) {
 
   const history = await getHistory(message.from);
   const faqReply = matchFaqRule(text);
-  const wantsEscalation = isAgenteInfoMessage(faqReply || '') || (!faqReply && isRepeatQuestion(text, history));
+  const isExplicitRequest = isAgenteInfoMessage(faqReply || ''); // "hablar con alguien", queja, presupuesto...
+  const isRepeated = !faqReply && isRepeatQuestion(text, history);
+  const wantsEscalation = isExplicitRequest || isRepeated;
 
   // Si el cliente saluda junto con su pregunta (p. ej. "Buenas tardes, ¿hacéis
   // escaneados?"), se antepone el saludo a la respuesta que sea — así no hace falta
@@ -251,8 +253,13 @@ async function handleIncomingMessage(message) {
   const greeting = startsWithGreeting(text) ? '¡Hola! ' : '';
 
   if (wantsEscalation) {
-    await sendEscalateButtons(message.from, greeting);
-    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${greeting}${escalateQuestion()}`);
+    // Si el cliente pidió expresamente hablar con alguien (o es una queja/
+    // presupuesto), no hace falta explicar el motivo. Pero si lo que ha pasado es
+    // que ha insistido con una pregunta parecida sin que el bot se la resolviera,
+    // se le dice igual que en el caso de "no sé la respuesta" — mismo motivo real.
+    const prefix = isRepeated ? `${greeting}Veo que no he conseguido resolver tu duda. ` : greeting;
+    await sendEscalateButtons(message.from, prefix);
+    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
     return;
   }
 
