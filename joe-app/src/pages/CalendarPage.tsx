@@ -32,6 +32,12 @@ const SHIFT_CONFIG = {
   free:      { label: 'Libre',   icon: X,        color: '#6db56d', bg: '#6db56d12' },
 } as const
 
+type ShiftCfg = { label: string; icon: React.ComponentType<{ size?: number; style?: React.CSSProperties; className?: string }>; color: string; bg: string }
+const FALLBACK_SHIFT: ShiftCfg = { label: 'Turno', icon: Sun, color: '#888888', bg: '#88888812' }
+function getShiftCfg(type: string): ShiftCfg {
+  return (SHIFT_CONFIG as Record<string, ShiftCfg>)[type] ?? FALLBACK_SHIFT
+}
+
 const CENTER_CONFIG = {
   hospital:     { label: 'Hospital',        icon: Building2,   color: '#5b8dd9' },
   centro_salud: { label: 'Centro de Salud', icon: Stethoscope, color: '#9b6bb5' },
@@ -216,7 +222,7 @@ export default function CalendarPage() {
                   <div className="flex flex-wrap justify-center gap-0.5">
                     {/* Indicador de turno */}
                     {shift && shift.shift_type !== 'free' && (
-                      <div className="w-1.5 h-1.5 rounded-sm" style={{ backgroundColor: SHIFT_CONFIG[shift.shift_type].color }} />
+                      <div className="w-1.5 h-1.5 rounded-sm" style={{ backgroundColor: getShiftCfg(shift.shift_type).color }} />
                     )}
                     {/* Puntos de eventos */}
                     {evs.slice(0, 2).map(e => (
@@ -267,7 +273,7 @@ export default function CalendarPage() {
 
           {/* Turno */}
           {selShift && (() => {
-            const sc  = SHIFT_CONFIG[selShift.shift_type]
+            const sc  = getShiftCfg(selShift.shift_type)
             const cc  = CENTER_CONFIG[selShift.work_center ?? 'hospital']
             const SI  = sc.icon
             const CI  = cc.icon
