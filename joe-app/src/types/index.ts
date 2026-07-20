@@ -24,7 +24,7 @@ export interface CalendarEvent {
 export interface HospitalShift {
   id: string
   date: string
-  shift_type: 'morning' | 'dia' | 'afternoon' | 'night' | 'hd' | 'free'
+  shift_type: string
   work_center: 'hospital' | 'centro_salud'
   location: string
   floor?: string
