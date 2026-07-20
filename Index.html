@@ -381,7 +381,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.15 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.16 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -2196,17 +2196,18 @@ function importProveedoresExcel(input){
       let n=0;
       data.forEach(row=>{
         const receptorRaw=row[0];
-        if(receptorRaw==='' || receptorRaw==null) return;
-        if(String(receptorRaw).trim().toLowerCase()==='receptor') return;
+        // Saltar fila de cabecera
+        if(String(receptorRaw||'').trim().toLowerCase()==='receptor') return;
         const nombre=String(row[1]||'').trim();
         if(!nombre) return;
+        // Saltar filas de totales/títulos (sin nombre o con importe no parseable)
         const importeStr=String(row[4]||'').replace(/[€\s]/g,'').replace(/\./g,'').replace(',','.');
         const importe=parseFloat(importeStr);
-        if(isNaN(importe)) return;
+        if(isNaN(importe)||importe===0) return;
         proveedores.push({
           id:Date.now()+n,
           fecha:toFecha(row[7])||new Date().toLocaleDateString('en-CA'),
-          receptor:String(receptorRaw).trim(),
+          receptor:String(receptorRaw||'').trim(),
           nombre,
           nfra:row[2]!==''?String(row[2]).trim():'',
           ndocpago:String(row[3]||'').trim(),
