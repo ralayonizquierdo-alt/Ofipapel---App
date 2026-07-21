@@ -2736,13 +2736,15 @@ function buildPrintArea(){
   grid.appendChild(monthRow);
 
   const gridDayIndices = gridLineDayIndices(y, n);
+  const allDayIndices = Array.from({length:n}, (_,i)=>i);
 
   // regla de números de día, para poder leer el inicio/fin exacto de cada periodo
   const dayRowWrap = document.createElement('div'); dayRowWrap.style.display='flex';
   const daySpacerL = document.createElement('div'); daySpacerL.className='p-namecell';
   dayRowWrap.appendChild(daySpacerL);
   const dayTicks = document.createElement('div'); dayTicks.className='p-dayrow';
-  dayTicks.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#c9c9c9', '%')
+  dayTicks.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#b0b0b0', '%')
+    + ', ' + gridLinesBackground(allDayIndices, n, '#dedede', '%')
     + ', ' + weekendGradient(n, y, '#e2e2e2');
   for(let idx=0; idx<n; idx++){
     const d = dateFromIndex(y, idx);
@@ -2790,7 +2792,8 @@ function buildPrintArea(){
       row.appendChild(nameCell);
 
       const track = document.createElement('div'); track.className='p-track';
-      track.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#dcdcdc', '%')
+      track.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#b8b8b8', '%')
+        + ', ' + gridLinesBackground(allDayIndices, n, '#e6e6e6', '%')
         + ', ' + weekendGradient(n, y, '#eee');
       for(const b of state.blockedRanges){
         const segs = blockedSegmentsForYear(b, y, n);
