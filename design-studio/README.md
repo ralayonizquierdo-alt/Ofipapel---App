@@ -108,6 +108,31 @@ con lo existente en vez de inventar una paleta distinta.
   - Nota Adobe Fonts: `Inter` no está en el plan Adobe Fonts conectado (`not_entitled`); `IBM Plex Mono` sí (`IBMPlexMono-Bold`, disponible). Para piezas que vayan a Adobe Express, usa Adobe Fonts cuando puedas y cae a Google Fonts `@import` para igualar la marca exacta cuando el destino sea un archivo standalone.
 - Gradiente de fondo de referencia (pantalla de login): `linear-gradient(135deg,#0d3d0d 0%,#1A5C1A 40%,#237523 70%,#3a8f2a 100%)`
 
+#### Fondo e identidad corporativa oficial para publicaciones (obligatorio)
+
+Proporcionado por el propietario el 2026-07-21 — **usar como fondo/paleta por
+defecto en todas las publicaciones de redes sociales** (posts e imágenes de
+producto), no solo en piezas de `Index.html`, salvo que se pida explícitamente
+otra cosa:
+
+- Imagen fuente versionada: `design-studio/assets/fondo-corporativo-ofipapel.png`
+  (textura de ondas verdes con motivo de trébol — mismo trébol del logo —
+  destellos y una franja azul/turquesa en la esquina inferior izquierda).
+- Colores extraídos de esa imagen (ampliación de la paleta de arriba, no la
+  sustituyen):
+  - Verde brillante (dominante del fondo): `#5FB355` – `#83D084`
+  - Verde claro / highlight: `#9DDD9C` – `#C0E4C3`
+  - Acento azul/turquesa (nuevo, esquina del fondo): `#6DB0AE`
+  - Transición verde-amarillo (borde del fondo): `#C1D48A`
+  - Blanco base: `#FEFEFC`
+- Úsalo como `background-image` (con `background-size:cover`) en piezas donde
+  el fondo verde plano/gradiente quedaría soso — tarjetas de características,
+  pantallas finales de vídeo, posts de producto — en vez de un
+  `linear-gradient` inventado. El acento azul es nuevo respecto a la paleta
+  histórica (solo verdes): úsalo con moderación (detalles, no como color
+  principal) hasta que el propietario confirme si sustituye o complementa el
+  naranja como segundo acento.
+
 ### Canarias INK (`canarias-ink.html`) — e-commerce de consumibles de impresora
 - Fondo oscuro: `#1A1D2E` / `#12141F` (sidebar)
 - Acento primario cian: `#00B4D8`
