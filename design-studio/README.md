@@ -133,6 +133,15 @@ otra cosa:
   principal) hasta que el propietario confirme si sustituye o complementa el
   naranja como segundo acento.
 
+#### Eslogan oficial (obligatorio)
+
+**"Mucho más que papel"** — proporcionado por el propietario el 2026-07-21.
+Incluir en todas las publicaciones de redes sociales (junto al logo, o en la
+pantalla/tarjeta final), salvo que se pida explícitamente omitirlo. Estilo de
+referencia: Poppins itálica, semi-bold, acento verde de marca — ver
+`design-studio/templates/` o las piezas ya generadas en sesiones de vídeo de
+producto para el tratamiento visual exacto.
+
 ### Canarias INK (`canarias-ink.html`) — e-commerce de consumibles de impresora
 - Fondo oscuro: `#1A1D2E` / `#12141F` (sidebar)
 - Acento primario cian: `#00B4D8`
