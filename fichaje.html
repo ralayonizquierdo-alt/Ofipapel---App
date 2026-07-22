@@ -60,9 +60,20 @@ button,input,select,textarea{font-family:inherit;}
 .clock-card:hover{box-shadow:var(--sombra-h);}
 .clock-card:nth-of-type(2){animation-delay:.08s;}
 .clock-card:nth-of-type(3){animation-delay:.16s;}
-.clock-clock{text-align:center;font-family:'IBM Plex Mono',monospace;font-size:2.3rem;font-weight:600;
-  color:var(--verde);letter-spacing:2px;}
-.clock-date{text-align:center;font-size:.8rem;color:var(--texto2);margin-top:3px;text-transform:capitalize;font-weight:500;}
+.clock-hybrid{display:flex;align-items:center;justify-content:center;gap:22px;}
+.analog-clock{flex-shrink:0;width:92px;height:92px;filter:drop-shadow(0 3px 8px rgba(26,92,26,.18));}
+.analog-face{fill:#fbfffb;stroke:var(--borde);stroke-width:2.5;}
+.analog-tick{stroke:var(--verde-cl);stroke-width:1.6;stroke-linecap:round;}
+.analog-tick.major{stroke:var(--verde);stroke-width:2.6;}
+.analog-hand{stroke-linecap:round;}
+.hand-hour{stroke:var(--verde);stroke-width:5;}
+.hand-minute{stroke:var(--verde-med);stroke-width:3.5;}
+.hand-second{stroke:var(--acento2);stroke-width:1.6;}
+.analog-pin{fill:var(--verde);}
+.digital-block{text-align:left;}
+.clock-clock{font-family:'IBM Plex Mono',monospace;font-size:2.1rem;font-weight:600;
+  color:var(--verde);letter-spacing:1px;line-height:1;}
+.clock-date{font-size:.76rem;color:var(--texto2);margin-top:6px;text-transform:capitalize;font-weight:500;max-width:190px;}
 
 .select-wrap label{display:block;font-size:.72rem;font-weight:700;color:var(--texto2);text-transform:uppercase;
   letter-spacing:1px;margin-bottom:8px;}
@@ -204,8 +215,20 @@ tr.warn td{background:#FFF6E5;}
   </div>
 
   <div class="clock-card">
-    <div class="clock-clock" id="liveClock">--:--</div>
-    <div class="clock-date" id="liveDate"></div>
+    <div class="clock-hybrid">
+      <svg class="analog-clock" viewBox="0 0 100 100">
+        <circle class="analog-face" cx="50" cy="50" r="47"></circle>
+        <g id="analogTicks"></g>
+        <line id="handHour" class="analog-hand hand-hour" x1="50" y1="50" x2="50" y2="28"></line>
+        <line id="handMinute" class="analog-hand hand-minute" x1="50" y1="50" x2="50" y2="18"></line>
+        <line id="handSecond" class="analog-hand hand-second" x1="50" y1="50" x2="50" y2="15"></line>
+        <circle class="analog-pin" cx="50" cy="50" r="3.2"></circle>
+      </svg>
+      <div class="digital-block">
+        <div class="clock-clock" id="liveClock">--:--</div>
+        <div class="clock-date" id="liveDate"></div>
+      </div>
+    </div>
   </div>
 
   <div class="clock-card select-wrap" id="searchStep">
@@ -635,13 +658,37 @@ function setCloudStatus(elId, status){
   el.title = status==='connecting' ? 'Conectando…' : status==='synced' ? 'Conectado' : 'Sin conexión — reintentando';
 }
 
-/* ═══════════════════ RELOJ EN VIVO ═══════════════════ */
+/* ═══════════════════ RELOJ EN VIVO — mitad digital, mitad analógico ═══════════════════ */
+function canaryHMS(d){
+  const parts = new Intl.DateTimeFormat('en-GB',{timeZone:'Atlantic/Canary',hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}).formatToParts(d);
+  const get = t => parseInt(parts.find(p=>p.type===t).value, 10);
+  return {h:get('hour')%24, m:get('minute'), s:get('second')};
+}
+function buildAnalogTicks(){
+  const g = document.getElementById('analogTicks');
+  let html = '';
+  for(let i=0; i<12; i++){
+    const angle = i*30;
+    const major = i%3===0;
+    const rOuter = 47, rInner = major ? 39 : 42;
+    html += `<line class="analog-tick${major?' major':''}" x1="50" y1="${50-rOuter}" x2="50" y2="${50-rInner}" transform="rotate(${angle} 50 50)"></line>`;
+  }
+  g.innerHTML = html;
+}
 function tickClock(){
   const now = new Date();
+  const {h, m, s} = canaryHMS(now);
   document.getElementById('liveClock').textContent =
-    new Intl.DateTimeFormat('es-ES',{timeZone:'Atlantic/Canary',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(now);
+    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   document.getElementById('liveDate').textContent = canaryDateLong(now.toISOString());
+  const hourDeg = (h%12)*30 + m*0.5;
+  const minuteDeg = m*6 + s*0.1;
+  const secondDeg = s*6;
+  document.getElementById('handHour').setAttribute('transform', `rotate(${hourDeg} 50 50)`);
+  document.getElementById('handMinute').setAttribute('transform', `rotate(${minuteDeg} 50 50)`);
+  document.getElementById('handSecond').setAttribute('transform', `rotate(${secondDeg} 50 50)`);
 }
+buildAnalogTicks();
 setInterval(tickClock, 1000); tickClock();
 
 /* ═══════════════════ PANTALLA DE FICHAJE — lógica ═══════════════════ */
