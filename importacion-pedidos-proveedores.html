@@ -608,6 +608,25 @@ function parseMandatelo(lineas){
   return filas;
 }
 
+function parseMuchoCartucho(lineas){
+  const filas = [];
+  const RE = /^(\S+)\s+(\S+)\s+(.+?)\s+(\d+)\s+([\d.,]+)\s?€\s+([\d.,]+)%\s+([\d.,]+)\s?€$/;
+  lineas.forEach(linea=>{
+    const m = linea.match(RE);
+    if(!m) return;
+    const [, sku, part, desc, cantidad, precio, dto, importe] = m;
+    let ean = '';
+    if(/^\d{13}$/.test(sku)) ean = sku;
+    else if(/^\d{13}$/.test(part)) ean = part;
+    filas.push(fila_({
+      codigo: sku==='---' ? '' : sku, ean, descripcion: desc.trim(),
+      cantidad: parseInt(cantidad,10), precioUnitario: parseDecComa(precio),
+      dto1: parseDecComa(dto), importe: parseDecComa(importe)
+    }));
+  });
+  return filas;
+}
+
 // ═══════════════════════════════════════════════════════
 // PERFILES DE PROVEEDOR: detección automática + parser propio.
 // Para añadir un proveedor nuevo: aportar una factura de muestra y
@@ -643,6 +662,19 @@ function ultimoNumeroTrasLinea(texto, keyword){
   });
   return mejor ? parseDecComa(mejor[mejor.length-1]) : null;
 }
+// La fila de VALORES viene en la línea siguiente a la fila de ETIQUETAS
+// (ej. "B.I. LPI ... Total factura" seguida de "3.503,52€ 23,65€ ... 3.527,17€").
+function totalSiguienteLinea(texto, keyword){
+  const idx = texto.search(new RegExp(keyword, 'i'));
+  if(idx<0) return null;
+  const lineas = texto.slice(idx).split('\n');
+  for(let i=1;i<lineas.length;i++){
+    const nums = [...lineas[i].matchAll(/\d{1,3}(?:\.\d{3})*,\d{2}/g)].map(m=>m[0]);
+    if(nums.length) return parseDecComa(nums[nums.length-1]);
+    if(lineas[i].trim()) break;
+  }
+  return null;
+}
 
 const PERFILES_PROVEEDOR = [
   { id:'apli', nombre:'APLI PAPER S.A.U.', detectar: t => /APLI\s+PAPER|ESA60914108/i.test(t), parser: parseApli,
@@ -670,7 +702,9 @@ const PERFILES_PROVEEDOR = [
   { id:'pryse', nombre:'PRYSE S.A.', detectar: t => /PRYSE|A58276254/i.test(t), parser: parsePryse,
     total: t => totalSimple(t, /Base imponible\s+(?:Base imponible\s+)?(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
   { id:'mandatelo', nombre:'INTEGRAL INFORMATICA IMPORT (Mandatelo)', detectar: t => /INTEGRAL INFORMATICA|MANDATELO|B-?76539642/i.test(t), parser: parseMandatelo,
-    total: t => totalRepetidoComa(t, 'SUBTOTAL') }
+    total: t => totalRepetidoComa(t, 'SUBTOTAL') },
+  { id:'muchocartucho', nombre:'MUCHO CARTUCHO (ATRAMENTUM S.L.)', detectar: t => /Atramentum\s+S\.?L\.?|ESB54685573/i.test(t), parser: parseMuchoCartucho,
+    total: t => totalSiguienteLinea(t, 'Total\\s+factura') }
 ];
 
 function detectarProveedor(lineas){
