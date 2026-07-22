@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#1A5C1A">
-<link rel="icon" href="favicon.svg">
+<link rel="icon" type="image/svg+xml" href="favicon-fichaje.svg">
 <title>Ofipapel · Fichaje</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Poppins:wght@600;700;800&display=swap');
@@ -187,6 +187,13 @@ tr.warn td{background:#FFF6E5;}
 .check-row{display:flex;align-items:center;gap:6px;font-size:.8rem;}
 tr.flag td{background:#FFF1EC;}
 .badge.warn{background:#FFF1EC;color:#b6401f;}
+#alertasCount{background:var(--rojo);color:#fff;border-radius:20px;padding:1px 7px;font-size:.68rem;
+  font-weight:700;margin-left:4px;}
+.badge.repeat{background:#FDE4E1;color:#b6401f;}
+.badge.once{background:#FFF6E5;color:#8a5a00;}
+.holiday-item{display:flex;justify-content:space-between;align-items:center;font-size:.75rem;
+  background:var(--verde-pale);border-radius:8px;padding:7px 10px;margin-bottom:6px;}
+.holiday-item button{background:none;border:none;color:var(--rojo);cursor:pointer;font-size:.9rem;}
 .mini-btn{background:var(--verde-pale);border:1px solid var(--borde);border-radius:6px;padding:6px 10px;
   font-size:.75rem;color:var(--verde);cursor:pointer;}
 .mini-btn:hover{background:var(--verde);color:#fff;}
@@ -301,6 +308,7 @@ tr.flag td{background:#FFF1EC;}
 
   <div class="admin-tabs">
     <button class="tab-btn active" data-tab="hoy">📌 Hoy</button>
+    <button class="tab-btn" data-tab="alertas">🔔 Alertas <span id="alertasCount" class="hidden"></span></button>
     <button class="tab-btn" data-tab="personas">👤 Personas</button>
     <button class="tab-btn" data-tab="historico">🕒 Histórico</button>
     <button class="tab-btn" data-tab="correccion">✏️ Corrección</button>
@@ -311,6 +319,27 @@ tr.flag td{background:#FFF1EC;}
     <h2>Estado de hoy — <span id="hoyFecha"></span></h2>
     <table><thead><tr><th>Persona</th><th>Último evento</th><th>Hora</th><th>Estado</th></tr></thead>
       <tbody id="hoyBody"></tbody></table>
+  </div>
+
+  <div class="panel hidden" id="tab-alertas">
+    <h2>🔔 Fichajes fuera de horario comercial — últimos <span id="alertasDias">30</span> días</h2>
+    <div class="filters-row">
+      <div class="field"><label>Ventana</label>
+        <select id="alertasRango">
+          <option value="7">Últimos 7 días</option>
+          <option value="30" selected>Últimos 30 días</option>
+          <option value="90">Últimos 90 días</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" style="width:auto;" id="btnAlertasRefresh">Actualizar</button>
+    </div>
+    <div id="alertasSummary" style="font-size:.82rem;margin-bottom:14px;"></div>
+    <h3 style="font-size:.82rem;color:var(--texto2);margin-bottom:8px;">Personas con más fichajes fuera de horario</h3>
+    <table style="margin-bottom:20px;"><thead><tr><th>Persona</th><th>Nº fuera de horario</th><th>Último caso</th><th>Patrón</th></tr></thead>
+      <tbody id="alertasPorPersona"></tbody></table>
+    <h3 style="font-size:.82rem;color:var(--texto2);margin-bottom:8px;">Últimos casos (todos)</h3>
+    <table><thead><tr><th>Persona</th><th>Fecha</th><th>Hora</th><th>Tipo</th></tr></thead>
+      <tbody id="alertasLista"></tbody></table>
   </div>
 
   <div class="panel hidden" id="tab-personas">
@@ -371,21 +400,48 @@ tr.flag td{background:#FFF1EC;}
 
     <details style="margin-bottom:16px;">
       <summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:var(--verde);">
-        ⚙️ Horario comercial (para marcar fichajes fuera de horario)</summary>
-      <p class="info-box" style="margin-top:10px;">Cualquier fichaje antes de la apertura, después del cierre, o
-        en un día no marcado como laborable, se señala como "fuera de horario" en la vista previa, el
-        impreso/PDF y el WhatsApp — útil para detectar patrones repetitivos. Ajusta esto una vez al horario
-        real de Ofipapel.</p>
+        ⚙️ Horario comercial por departamento (y festivos)</summary>
+      <p class="info-box" style="margin-top:10px;">Cualquier fichaje fuera del horario del departamento de esa
+        persona (o en un festivo marcado como cerrado/con horario especial) se señala como "fuera de horario"
+        en la vista previa, el impreso/PDF, el WhatsApp y en 🔔 Alertas. Los departamentos sin horario
+        configurado todavía <strong>no</strong> se marcan (para no dar falsos avisos) hasta que lo rellenes
+        aquí.</p>
+
       <div class="filters-row">
-        <div class="field"><label>Apertura</label><input type="time" id="bhOpen"></div>
-        <div class="field"><label>Cierre</label><input type="time" id="bhClose"></div>
+        <div class="field"><label>Departamento</label><select id="bhUnit"></select></div>
       </div>
-      <div class="field">
-        <label>Días laborables</label>
-        <div id="bhDays" style="display:flex;gap:10px;flex-wrap:wrap;font-size:.78rem;"></div>
+      <div id="bhUnitStatus" style="font-size:.78rem;margin-bottom:10px;"></div>
+      <div class="filters-row">
+        <div class="field"><label>Mañana desde</label><input type="time" id="bhMorningStart"></div>
+        <div class="field"><label>Mañana hasta</label><input type="time" id="bhMorningEnd"></div>
+        <div class="field"><label>Tarde desde (opcional)</label><input type="time" id="bhAfternoonStart"></div>
+        <div class="field"><label>Tarde hasta (opcional)</label><input type="time" id="bhAfternoonEnd"></div>
       </div>
-      <button class="mini-btn" id="btnSaveBusinessHours">Guardar horario</button>
+      <div class="filters-row">
+        <div class="field"><label>Sábado desde (vacío = cerrado)</label><input type="time" id="bhSatStart"></div>
+        <div class="field"><label>Sábado hasta</label><input type="time" id="bhSatEnd"></div>
+        <div class="check-row"><input type="checkbox" id="bhSunday"><label for="bhSunday">Abre domingos (mismo horario que L-V)</label></div>
+      </div>
+      <button class="mini-btn" id="btnSaveUnitSchedule">Guardar horario de este departamento</button>
       <span id="bhSaved" style="font-size:.75rem;color:var(--texto2);margin-left:8px;"></span>
+
+      <h3 style="font-size:.8rem;margin:18px 0 8px;color:var(--texto2);">🎉 Festivos con horario especial</h3>
+      <p class="hint" style="font-size:.74rem;color:var(--texto2);margin-bottom:10px;">Se aplica igual a todos
+        los departamentos ese día (sustituye a su horario normal). Añade aquí festivos con apertura reducida o
+        cierre total.</p>
+      <div id="holidayList" style="margin-bottom:12px;"></div>
+      <div class="filters-row">
+        <div class="field"><label>Fecha</label><input type="date" id="holDate"></div>
+        <div class="field"><label>Etiqueta</label><input type="text" id="holLabel" placeholder="Ej: Día de Canarias"></div>
+        <div class="check-row"><input type="checkbox" id="holClosed"><label for="holClosed">Cerrado todo el día</label></div>
+      </div>
+      <div class="filters-row" id="holHoursRow">
+        <div class="field"><label>Mañana desde</label><input type="time" id="holMorningStart"></div>
+        <div class="field"><label>Mañana hasta</label><input type="time" id="holMorningEnd"></div>
+        <div class="field"><label>Tarde desde</label><input type="time" id="holAfternoonStart"></div>
+        <div class="field"><label>Tarde hasta</label><input type="time" id="holAfternoonEnd"></div>
+      </div>
+      <button class="mini-btn" id="btnAddHoliday">+ Añadir festivo</button>
     </details>
 
     <div id="expSummary" style="font-size:.82rem;margin-bottom:10px;"></div>
@@ -631,39 +687,72 @@ async function verifyPin(personId, pin, token){
   return {ok: hash===cfg.pinHash, reason: hash===cfg.pinHash ? null : 'INCORRECTO'};
 }
 
-/* ═══════════════════ HORARIO COMERCIAL (para marcar fichajes fuera de horario) ═══════════════════
+/* ═══════════════════ HORARIO COMERCIAL POR DEPARTAMENTO + FESTIVOS ═══════════════════
    Se guarda como un documento más dentro de ofipapel_fichaje_config (id fijo _business_hours) en vez de
    crear una colección nueva solo para esto — no hay conflicto de ids porque los empleados usan sus propios
-   ids de Vacaciones/gerencia, nunca "_business_hours". */
+   ids de Vacaciones/gerencia, nunca "_business_hours". El horario es siempre el mismo cada semana salvo los
+   festivos (que se guardan aparte y sustituyen al horario normal ese día, igual para todos los departamentos).
+   Los datos se guardan como JSON en dos campos de texto (mismo patrón que usa vacaciones.html para su estado
+   completo) en vez de intentar mapear una estructura anidada al formato nativo de Firestore. */
 const BUSINESS_HOURS_DOC = '_business_hours';
-let businessHours = {openTime:'08:00', closeTime:'20:30', workDays:new Set([1,2,3,4,5,6])};
+function mkSchedule(morningStart, morningEnd, afternoonStart, afternoonEnd, saturdayStart, saturdayEnd){
+  return {morningStart:morningStart||'', morningEnd:morningEnd||'', afternoonStart:afternoonStart||'',
+    afternoonEnd:afternoonEnd||'', saturdayStart:saturdayStart||'', saturdayEnd:saturdayEnd||'', sundayOpen:false};
+}
+/* Horarios reales confirmados por dirección (jul-2026). El resto de departamentos (Reparto, Comerciales,
+   Oficina, Almacén, Pedidos, Limpieza, Mobiliario) se dejan sin configurar a propósito — no se inventa un
+   horario para ellos, así que de momento no se marca ningún fichaje suyo como "fuera de horario" hasta que
+   gerencia lo rellene aquí mismo. */
+const DEFAULT_UNIT_SCHEDULES = {
+  ofipapel_detalle: mkSchedule('09:00','14:00','16:00','19:00','09:00','13:00'),
+  ofipapel_info:    mkSchedule('09:00','14:00','16:00','19:00','09:00','13:00'),
+  aliz1:            mkSchedule('09:00','14:00','16:30','19:30','09:00','13:00'),
+  aliz2:            mkSchedule('09:00','14:00','16:30','19:30','09:00','13:00'),
+};
+let unitSchedules = JSON.parse(JSON.stringify(DEFAULT_UNIT_SCHEDULES));
+let holidaySchedules = {}; // dateKey -> {label, closed, morningStart, morningEnd, afternoonStart, afternoonEnd}
+
 async function loadBusinessHours(token){
   try{
     const doc = await fsGetDoc('ofipapel_fichaje_config', BUSINESS_HOURS_DOC, token);
     if(doc){
-      businessHours = {
-        openTime: doc.openTime || '08:00',
-        closeTime: doc.closeTime || '20:30',
-        workDays: new Set(String(doc.workDays||'1,2,3,4,5,6').split(',').filter(Boolean).map(Number)),
-      };
+      unitSchedules = doc.scheduleJson ? JSON.parse(doc.scheduleJson) : JSON.parse(JSON.stringify(DEFAULT_UNIT_SCHEDULES));
+      holidaySchedules = doc.holidaysJson ? JSON.parse(doc.holidaysJson) : {};
     }
   }catch(err){ console.error('No se pudo leer el horario comercial', err); }
 }
-async function saveBusinessHours(openTime, closeTime, workDaysSet, token){
-  const fields = {openTime, closeTime, workDays:[...workDaysSet].sort().join(',')};
+async function persistBusinessHours(token){
+  const fields = {
+    scheduleJson: JSON.stringify(unitSchedules),
+    holidaysJson: JSON.stringify(holidaySchedules),
+    updatedAt: new Date().toISOString(), updatedBy: adminDisplayName(),
+  };
   const existing = await fsGetDoc('ofipapel_fichaje_config', BUSINESS_HOURS_DOC, token);
   if(existing) await fsPatchDoc('ofipapel_fichaje_config', BUSINESS_HOURS_DOC, fields, token);
   else await fsCreateDoc('ofipapel_fichaje_config', fields, token, BUSINESS_HOURS_DOC);
-  businessHours = {openTime, closeTime, workDays:workDaysSet};
 }
 function weekdayFromDateKey(dateKey){ // 1=lunes … 7=domingo (ISO), calculado sobre el propio dateKey (ya en hora de Canarias)
   const js = new Date(dateKey+'T00:00:00Z').getUTCDay(); // 0=domingo … 6=sábado
   return js===0 ? 7 : js;
 }
+function inWindow(t, start, end){ return start && end ? (t>=start && t<=end) : false; }
 function isOutsideBusinessHours(e){
-  if(!businessHours.workDays.has(weekdayFromDateKey(e.dateKey))) return true;
   const t = canaryTime(e.occurredAt);
-  return t < businessHours.openTime || t > businessHours.closeTime;
+  const holiday = holidaySchedules[e.dateKey];
+  if(holiday){
+    if(holiday.closed) return true;
+    return !(inWindow(t, holiday.morningStart, holiday.morningEnd) || inWindow(t, holiday.afternoonStart, holiday.afternoonEnd));
+  }
+  const person = personById(e.personId);
+  const schedule = person && unitSchedules[person.unitId];
+  if(!schedule) return false; // departamento sin horario configurado: no se marca (evita falsos positivos)
+  const wd = weekdayFromDateKey(e.dateKey);
+  if(wd===7){
+    if(!schedule.sundayOpen) return true;
+    return !(inWindow(t, schedule.morningStart, schedule.morningEnd) || inWindow(t, schedule.afternoonStart, schedule.afternoonEnd));
+  }
+  if(wd===6) return !inWindow(t, schedule.saturdayStart, schedule.saturdayEnd);
+  return !(inWindow(t, schedule.morningStart, schedule.morningEnd) || inWindow(t, schedule.afternoonStart, schedule.afternoonEnd));
 }
 
 /* ═══════════════════ EVENTOS DE FICHAJE (un documento por evento, inmutable) ═══════════════════ */
@@ -917,27 +1006,96 @@ async function enterAdminApp(){
   await loadPeople(adminToken);
   fillPersonSelects();
   await loadBusinessHours(adminToken);
-  populateBusinessHoursForm();
+  populateBusinessHoursUnitSelect();
+  renderHolidayList();
   await renderTabHoy();
+  renderTabAlertas(); // en segundo plano, para que el aviso 🔔 ya se vea sin tener que entrar en la pestaña
 }
-const WEEKDAY_LABELS = [['1','L'],['2','M'],['3','X'],['4','J'],['5','V'],['6','S'],['7','D']];
-function populateBusinessHoursForm(){
-  document.getElementById('bhOpen').value = businessHours.openTime;
-  document.getElementById('bhClose').value = businessHours.closeTime;
-  document.getElementById('bhDays').innerHTML = WEEKDAY_LABELS.map(([num,label])=>`
-    <label style="display:flex;align-items:center;gap:3px;cursor:pointer;">
-      <input type="checkbox" data-day="${num}" ${businessHours.workDays.has(Number(num))?'checked':''}>${label}
-    </label>`).join('');
+
+/* ── Horario por departamento ── */
+function populateBusinessHoursUnitSelect(){
+  const sel = document.getElementById('bhUnit');
+  sel.innerHTML = UNIT_ORDER.filter(u=>u!=='gerencia').map(u=>`<option value="${u}">${UNIT_NAMES[u]}</option>`).join('');
+  loadUnitScheduleIntoForm(sel.value);
 }
-document.getElementById('btnSaveBusinessHours').onclick = async ()=>{
-  const openTime = document.getElementById('bhOpen').value || '08:00';
-  const closeTime = document.getElementById('bhClose').value || '20:30';
-  const days = new Set([...document.querySelectorAll('#bhDays input:checked')].map(i=>Number(i.dataset.day)));
+function loadUnitScheduleIntoForm(unitId){
+  const s = unitSchedules[unitId];
+  const statusEl = document.getElementById('bhUnitStatus');
+  statusEl.innerHTML = s ? '<span class="badge ok">✓ Configurado</span>' : '<span class="badge no">— Sin configurar (sus fichajes no se marcan)</span>';
+  document.getElementById('bhMorningStart').value = s ? s.morningStart : '';
+  document.getElementById('bhMorningEnd').value = s ? s.morningEnd : '';
+  document.getElementById('bhAfternoonStart').value = s ? s.afternoonStart : '';
+  document.getElementById('bhAfternoonEnd').value = s ? s.afternoonEnd : '';
+  document.getElementById('bhSatStart').value = s ? s.saturdayStart : '';
+  document.getElementById('bhSatEnd').value = s ? s.saturdayEnd : '';
+  document.getElementById('bhSunday').checked = !!(s && s.sundayOpen);
+}
+document.getElementById('bhUnit').addEventListener('change', e=> loadUnitScheduleIntoForm(e.target.value));
+document.getElementById('btnSaveUnitSchedule').onclick = async ()=>{
+  const unitId = document.getElementById('bhUnit').value;
+  const schedule = mkSchedule(
+    document.getElementById('bhMorningStart').value,
+    document.getElementById('bhMorningEnd').value,
+    document.getElementById('bhAfternoonStart').value,
+    document.getElementById('bhAfternoonEnd').value,
+    document.getElementById('bhSatStart').value,
+    document.getElementById('bhSatEnd').value,
+  );
+  schedule.sundayOpen = document.getElementById('bhSunday').checked;
+  if(!schedule.morningStart || !schedule.morningEnd){
+    showToast('Indica al menos la franja de mañana (o el horario continuo) para poder guardar.');
+    return;
+  }
+  unitSchedules[unitId] = schedule;
   try{
-    await saveBusinessHours(openTime, closeTime, days, adminToken);
+    await persistBusinessHours(adminToken);
+    loadUnitScheduleIntoForm(unitId);
     document.getElementById('bhSaved').textContent = 'Guardado ✔';
     setTimeout(()=>{ document.getElementById('bhSaved').textContent=''; }, 2500);
   }catch(err){ showToast('No se pudo guardar el horario: '+err.message); }
+};
+
+/* ── Festivos con horario especial ── */
+document.getElementById('holClosed').addEventListener('change', e=>{
+  document.getElementById('holHoursRow').classList.toggle('hidden', e.target.checked);
+});
+function renderHolidayList(){
+  const box = document.getElementById('holidayList');
+  const entries = Object.entries(holidaySchedules).sort((a,b)=>a[0].localeCompare(b[0]));
+  if(!entries.length){ box.innerHTML = '<div style="font-size:.75rem;color:var(--texto2);">Sin festivos añadidos todavía.</div>'; return; }
+  box.innerHTML = entries.map(([date, h])=>`
+    <div class="holiday-item">
+      <span><strong>${date}</strong> — ${h.label||'(sin etiqueta)'} —
+        ${h.closed ? 'Cerrado todo el día' : `Mañana ${h.morningStart||'—'}-${h.morningEnd||'—'} · Tarde ${h.afternoonStart||'—'}-${h.afternoonEnd||'—'}`}</span>
+      <button data-date="${date}" title="Eliminar">✕</button>
+    </div>`).join('');
+  box.querySelectorAll('button[data-date]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      delete holidaySchedules[btn.dataset.date];
+      try{ await persistBusinessHours(adminToken); renderHolidayList(); }
+      catch(err){ showToast('No se pudo eliminar: '+err.message); }
+    };
+  });
+}
+document.getElementById('btnAddHoliday').onclick = async ()=>{
+  const date = document.getElementById('holDate').value;
+  const label = document.getElementById('holLabel').value.trim();
+  const closed = document.getElementById('holClosed').checked;
+  if(!date){ showToast('Indica la fecha del festivo.'); return; }
+  holidaySchedules[date] = {
+    label, closed,
+    morningStart: closed ? '' : document.getElementById('holMorningStart').value,
+    morningEnd: closed ? '' : document.getElementById('holMorningEnd').value,
+    afternoonStart: closed ? '' : document.getElementById('holAfternoonStart').value,
+    afternoonEnd: closed ? '' : document.getElementById('holAfternoonEnd').value,
+  };
+  try{
+    await persistBusinessHours(adminToken);
+    renderHolidayList();
+    ['holDate','holLabel','holMorningStart','holMorningEnd','holAfternoonStart','holAfternoonEnd'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('holClosed').checked = false;
+    document.getElementById('holHoursRow').classList.remove('hidden');
+  }catch(err){ showToast('No se pudo guardar el festivo: '+err.message); }
 };
 document.getElementById('expMonth').addEventListener('change', e=>{
   const val = e.target.value; // "YYYY-MM"
@@ -957,8 +1115,57 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     document.getElementById('tab-'+btn.dataset.tab).classList.remove('hidden');
     if(btn.dataset.tab==='hoy') renderTabHoy();
     if(btn.dataset.tab==='personas') renderTabPersonas();
+    if(btn.dataset.tab==='alertas') renderTabAlertas();
   };
 });
+document.getElementById('btnAlertasRefresh').onclick = renderTabAlertas;
+document.getElementById('alertasRango').addEventListener('change', renderTabAlertas);
+
+/* Umbral simple para distinguir un caso puntual de un patrón que merece revisar con la persona. */
+const REPEAT_THRESHOLD = 3;
+async function renderTabAlertas(){
+  const days = Number(document.getElementById('alertasRango').value);
+  document.getElementById('alertasDias').textContent = days;
+  const summaryBody = document.getElementById('alertasPorPersona');
+  const listBody = document.getElementById('alertasLista');
+  summaryBody.innerHTML = '<tr><td colspan="4">Cargando…</td></tr>';
+  listBody.innerHTML = '<tr><td colspan="4">Cargando…</td></tr>';
+
+  const since = new Date(Date.now() - days*86400000);
+  const sinceKey = canaryDateKey(since);
+  let flagged = [];
+  for(const p of PEOPLE){
+    const events = await eventsForPerson(p.id, adminToken);
+    events.filter(e=>e.dateKey>=sinceKey && isOutsideBusinessHours(e))
+      .forEach(e=> flagged.push({...e, _name:p.name}));
+  }
+  flagged.sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt));
+
+  const countEl = document.getElementById('alertasCount');
+  if(flagged.length){ countEl.textContent = flagged.length; countEl.classList.remove('hidden'); }
+  else countEl.classList.add('hidden');
+
+  document.getElementById('alertasSummary').innerHTML = flagged.length
+    ? `${flagged.length} fichaje(s) fuera de horario en los últimos ${days} días.`
+    : `Sin fichajes fuera de horario en los últimos ${days} días. 👍`;
+
+  const byPerson = {};
+  flagged.forEach(e=>{ (byPerson[e._name] = byPerson[e._name]||[]).push(e); });
+  const summaryRows = Object.entries(byPerson)
+    .sort((a,b)=>b[1].length - a[1].length)
+    .map(([name, evs])=>{
+      const last = evs[0];
+      const repeat = evs.length >= REPEAT_THRESHOLD;
+      return `<tr class="${repeat?'flag':''}"><td>${name}</td><td>${evs.length}</td>
+        <td class="mono">${last.dateKey} ${canaryTime(last.occurredAt)}</td>
+        <td><span class="badge ${repeat?'repeat':'once'}">${repeat?'🔴 Patrón repetido':'⚠️ Puntual'}</span></td></tr>`;
+    });
+  summaryBody.innerHTML = summaryRows.join('') || '<tr><td colspan="4">Sin casos en este periodo.</td></tr>';
+
+  const listRows = flagged.slice(0,30).map(e=>`<tr class="flag">
+    <td>${e._name}</td><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td></tr>`);
+  listBody.innerHTML = listRows.join('') || '<tr><td colspan="4">Sin casos en este periodo.</td></tr>';
+}
 function fillPersonSelects(){
   const opts = '<option value="">— Selecciona —</option>' + PEOPLE.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
   ['histPerson','corrPerson','expPerson'].forEach(id=>{ document.getElementById(id).innerHTML = opts; });
