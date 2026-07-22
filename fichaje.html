@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1A5C1A">
+<link rel="icon" href="favicon.svg">
+<title>Ofipapel · Fichaje</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --verde:      #1A5C1A;
+  --verde-med:  #237523;
+  --verde-cl:   #3DAF3D;
+  --verde-pale: #EBF7EB;
+  --acento:     #8DC41E;  /* lima, del logo */
+  --acento-d:   #6FA018;
+  --acento2:    #F5A623;  /* naranja, del logo */
+  --rojo:       #E74C3C;
+  --bg:         #F2F8F2;
+  --card:       #FFFFFF;
+  --borde:      #D3E9D3;
+  --texto:      #1A2E1A;
+  --texto2:     #4A6B4A;
+  --sombra:     0 2px 20px rgba(26,92,26,0.09);
+  --sombra-h:   0 6px 28px rgba(26,92,26,0.16);
+  --rad:        14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'Inter',sans-serif;color:var(--texto);}
+body{background:url(bg-trebol.png) center/cover fixed;}
+button,input,select,textarea{font-family:inherit;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+.hidden{display:none !important;}
+
+/* ═══════════════════ Cabecera de marca (compartida) ═══════════════════ */
+.brand-bar{display:flex;align-items:center;gap:12px;padding:14px 18px;color:#fff;
+  background:linear-gradient(135deg,#0d3d0d 0%,#1A5C1A 45%,#237523 75%,#3a8f2a 100%);
+  box-shadow:var(--sombra);position:sticky;top:0;z-index:40;}
+.brand-bar img{height:38px;width:auto;object-fit:contain;filter:drop-shadow(0 1px 4px rgba(0,0,0,.3));}
+.brand-bar h1{font-size:1.05rem;font-weight:700;flex:1;}
+.brand-bar h1 span{display:block;font-size:.68rem;font-weight:400;opacity:.85;margin-top:1px;}
+.cloud-dot{font-size:1rem;}
+.brand-bar .ghost-btn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);color:#fff;
+  padding:6px 12px;border-radius:8px;font-size:.72rem;cursor:pointer;}
+.brand-bar .ghost-btn:hover{background:rgba(255,255,255,.24);}
+
+/* ═══════════════════ Pantalla de fichaje (sin login, cualquier dispositivo) ═══════════════════ */
+#clockScreen{max-width:560px;margin:0 auto;padding:18px 16px 60px;}
+.clock-card{background:var(--card);border-radius:var(--rad);box-shadow:var(--sombra);padding:20px;margin-bottom:16px;}
+.clock-clock{text-align:center;font-family:'IBM Plex Mono',monospace;font-size:2.1rem;font-weight:600;color:var(--verde);letter-spacing:1px;}
+.clock-date{text-align:center;font-size:.78rem;color:var(--texto2);margin-top:2px;text-transform:capitalize;}
+
+#searchStep .field input{width:100%;padding:14px 16px;border:1.5px solid var(--borde);border-radius:10px;
+  font-size:1rem;outline:none;}
+#peopleList{margin-top:12px;max-height:52vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;}
+.person-btn{display:flex;align-items:center;justify-content:space-between;text-align:left;
+  background:var(--verde-pale);border:1px solid var(--borde);border-radius:10px;padding:12px 14px;
+  font-size:.92rem;font-weight:600;color:var(--texto);cursor:pointer;}
+.person-btn:active{background:var(--acento);color:#fff;}
+.person-btn small{font-weight:400;color:var(--texto2);font-size:.72rem;}
+.person-empty{text-align:center;color:var(--texto2);font-size:.85rem;padding:20px 0;}
+
+#pinStep{text-align:center;}
+#pinStep h2{font-size:1.15rem;margin-bottom:4px;}
+#pinStep .who{color:var(--texto2);font-size:.85rem;margin-bottom:18px;}
+.pin-dots{display:flex;justify-content:center;gap:14px;margin-bottom:22px;}
+.pin-dots span{width:16px;height:16px;border-radius:50%;border:2px solid var(--verde-cl);background:#fff;}
+.pin-dots span.filled{background:var(--verde);}
+.pin-dots.err span{border-color:var(--rojo);}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:280px;margin:0 auto;}
+.keypad button{padding:18px 0;font-size:1.3rem;font-weight:600;border:none;border-radius:12px;
+  background:var(--verde-pale);color:var(--texto);cursor:pointer;}
+.keypad button:active{background:var(--acento);color:#fff;}
+.keypad button.wide{grid-column:span 1;font-size:.85rem;background:none;color:var(--texto2);}
+#pinError{color:var(--rojo);font-size:.82rem;margin-top:10px;min-height:1.2em;}
+.link-back{display:block;text-align:center;margin-top:16px;color:var(--texto2);font-size:.8rem;
+  text-decoration:underline;background:none;border:none;cursor:pointer;}
+
+#actionStep{text-align:center;}
+#actionStep h2{font-size:1.3rem;margin-bottom:2px;}
+#actionStep .role{color:var(--texto2);font-size:.82rem;margin-bottom:16px;}
+.today-log{list-style:none;text-align:left;font-size:.82rem;margin:0 0 18px;padding:10px 12px;
+  background:var(--verde-pale);border-radius:10px;}
+.today-log li{display:flex;justify-content:space-between;padding:2px 0;}
+.today-log .empty{color:var(--texto2);text-align:center;}
+.action-grid{display:flex;flex-direction:column;gap:12px;}
+.action-btn{padding:22px 10px;border:none;border-radius:14px;font-size:1.05rem;font-weight:700;color:#fff;
+  cursor:pointer;box-shadow:var(--sombra);}
+.action-btn.entrada{background:var(--verde);}
+.action-btn.salida{background:var(--rojo);}
+.action-btn.pausa_inicio{background:var(--acento2);}
+.action-btn.pausa_fin{background:var(--acento-d);}
+.action-btn:active{filter:brightness(0.92);}
+#geoNote{font-size:.68rem;color:var(--texto2);margin-top:14px;}
+.toast-ok{background:var(--verde);color:#fff;border-radius:10px;padding:14px;font-weight:600;margin-bottom:14px;}
+
+/* ═══════════════════ Acceso gerencia (modal) ═══════════════════ */
+#authGate{position:fixed;inset:0;background:linear-gradient(135deg,rgba(13,61,13,.92),rgba(35,117,35,.88));
+  display:none;align-items:center;justify-content:center;z-index:9999;}
+.modal{background:#fff;border-radius:var(--rad);padding:22px;width:340px;max-width:92vw;box-shadow:var(--sombra);}
+.modal h3{font-size:1rem;margin-bottom:4px;color:var(--verde);}
+.modal p.sub{font-size:.75rem;color:var(--texto2);margin-bottom:14px;}
+.field{margin-bottom:12px;}
+.field label{font-size:.72rem;color:var(--texto2);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;}
+.field input[type=text],.field input[type=password],.field select,.field textarea{
+  width:100%;padding:9px 10px;border:1px solid var(--borde);border-radius:8px;font-size:.85rem;background:#fff;}
+.err-box{background:#FDECEA;border:1px solid #F5B7B1;border-radius:8px;padding:8px 10px;font-size:.75rem;color:#a02c1f;margin-bottom:10px;}
+.info-box{background:#EAF2FD;border:1px solid #A9C9F5;border-radius:8px;padding:8px 10px;font-size:.75rem;color:#1a4d8a;margin-bottom:10px;}
+.btn{padding:9px 16px;border-radius:8px;border:none;font-size:.82rem;font-weight:600;cursor:pointer;}
+.btn-primary{background:var(--verde);color:#fff;width:100%;}
+.btn-primary:disabled{background:#ccc;cursor:not-allowed;}
+.btn-ghost{background:#eee;color:#333;}
+.btn-danger{background:#FDECEA;color:var(--rojo);}
+
+/* ═══════════════════ Panel de gerencia ═══════════════════ */
+#adminApp{max-width:1100px;margin:0 auto;padding:18px;}
+.admin-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.tab-btn{padding:8px 14px;background:var(--card);border:1px solid var(--borde);border-radius:8px;
+  font-size:.8rem;font-weight:600;color:var(--texto2);cursor:pointer;}
+.tab-btn.active{background:var(--verde);color:#fff;border-color:var(--verde);}
+.panel{background:var(--card);border-radius:var(--rad);box-shadow:var(--sombra);padding:18px;margin-bottom:16px;}
+.panel h2{font-size:.95rem;color:var(--verde);margin-bottom:12px;}
+table{width:100%;border-collapse:collapse;font-size:.82rem;}
+th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--borde);color:var(--texto2);font-size:.72rem;
+  text-transform:uppercase;letter-spacing:.4px;}
+td{padding:8px 10px;border-bottom:1px solid var(--borde);}
+tr.warn td{background:#FFF6E5;}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.68rem;font-weight:700;}
+.badge.ok{background:var(--verde-pale);color:var(--verde);}
+.badge.no{background:#FDECEA;color:var(--rojo);}
+.filters-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;}
+.filters-row .field{margin-bottom:0;min-width:160px;}
+.mini-btn{background:var(--verde-pale);border:1px solid var(--borde);border-radius:6px;padding:6px 10px;
+  font-size:.75rem;color:var(--verde);cursor:pointer;}
+.mini-btn:hover{background:var(--verde);color:#fff;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222;color:#fff;
+  padding:10px 16px;border-radius:8px;font-size:.8rem;z-index:9998;box-shadow:0 4px 20px rgba(0,0,0,.3);
+  opacity:0;transition:opacity .25s;pointer-events:none;}
+.toast.show{opacity:1;}
+
+@media print{
+  body>*:not(#printArea){display:none !important;}
+  body{background:#fff !important;}
+  #printArea{display:block !important;position:absolute;top:0;left:0;width:100%;padding:14mm;}
+}
+#printArea{display:none;}
+#printArea table{width:100%;}
+#printArea h2{margin-bottom:4px;}
+#printArea .meta{font-size:.75rem;color:#555;margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ PANTALLA DE FICHAJE — sin login, cualquier dispositivo ═══════════════════ -->
+<div id="clockScreen">
+  <div class="brand-bar" style="border-radius:var(--rad);margin-bottom:16px;">
+    <img src="logo-ofipapel.png" alt="Ofipapel">
+    <h1>Fichaje<span>Ofipapel</span></h1>
+    <span class="cloud-dot" id="clockCloudStatus" title="Conectando…">🔄</span>
+    <button class="ghost-btn" id="btnOpenAdmin">🔒 Gerencia</button>
+  </div>
+
+  <div class="clock-card">
+    <div class="clock-clock" id="liveClock">--:--</div>
+    <div class="clock-date" id="liveDate"></div>
+  </div>
+
+  <div class="clock-card" id="searchStep">
+    <div class="field"><input type="text" id="personSearch" placeholder="Busca tu nombre…" autocomplete="off"></div>
+    <div id="peopleList"></div>
+  </div>
+
+  <div class="clock-card hidden" id="pinStep">
+    <h2 id="pinPersonName"></h2>
+    <div class="who">Introduce tu PIN de 4 dígitos</div>
+    <div class="pin-dots" id="pinDots">
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <div class="keypad" id="keypad">
+      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+      <button class="wide" data-k="clear">Borrar</button><button data-k="0">0</button>
+      <button class="wide" data-k="back">⌫</button>
+    </div>
+    <div id="pinError"></div>
+    <button class="link-back" id="btnPinBack">← No soy yo / volver</button>
+  </div>
+
+  <div class="clock-card hidden" id="actionStep">
+    <div id="actionSuccess"></div>
+    <h2 id="actionPersonName"></h2>
+    <div class="role">¿Qué quieres registrar ahora?</div>
+    <ul class="today-log" id="todayLog"></ul>
+    <div class="action-grid" id="actionGrid"></div>
+    <div id="geoNote"></div>
+    <button class="link-back" id="btnActionBack">← Volver</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ LOGIN GERENCIA ═══════════════════ -->
+<div id="authGate">
+  <div class="modal">
+    <h3>🔒 Acceso de gerencia</h3>
+    <p class="sub">Fichaje — Ofipapel. Solo Luis, Rober y David.</p>
+    <div class="field"><label>Usuario</label><input type="text" id="loginUser" autocomplete="username" autocapitalize="off" autocorrect="off"></div>
+    <div class="field"><label>Contraseña</label><input type="password" id="loginPass" autocomplete="current-password"></div>
+    <div id="loginError" class="err-box hidden"></div>
+    <button class="btn btn-primary" id="loginSubmit">Entrar</button>
+    <button class="link-back" id="btnCloseAuthGate">← Volver al fichaje</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ PANEL DE GERENCIA ═══════════════════ -->
+<div id="adminApp" class="hidden">
+  <div class="brand-bar" style="border-radius:var(--rad);margin-bottom:16px;">
+    <img src="logo-ofipapel.png" alt="Ofipapel">
+    <h1>Fichaje<span>Panel de gerencia — <span id="adminWhoAmI"></span></span></h1>
+    <span class="cloud-dot" id="adminCloudStatus" title="Conectando…">🔄</span>
+    <button class="ghost-btn" id="btnAdminLogout">Salir</button>
+  </div>
+
+  <div class="admin-tabs">
+    <button class="tab-btn active" data-tab="hoy">📌 Hoy</button>
+    <button class="tab-btn" data-tab="personas">👤 Personas</button>
+    <button class="tab-btn" data-tab="historico">🕒 Histórico</button>
+    <button class="tab-btn" data-tab="correccion">✏️ Corrección</button>
+    <button class="tab-btn" data-tab="exportar">🖨 Exportar</button>
+  </div>
+
+  <div class="panel" id="tab-hoy">
+    <h2>Estado de hoy — <span id="hoyFecha"></span></h2>
+    <table><thead><tr><th>Persona</th><th>Último evento</th><th>Hora</th><th>Estado</th></tr></thead>
+      <tbody id="hoyBody"></tbody></table>
+  </div>
+
+  <div class="panel hidden" id="tab-personas">
+    <h2>Personas y PIN de fichaje</h2>
+    <p class="sub" style="font-size:.78rem;color:var(--texto2);margin-bottom:10px;">
+      La plantilla (36 personas) se lee en directo de Vacaciones y Turnos — aquí solo se gestiona su PIN de
+      fichaje. Luis, Rober y David solo existen en esta app.</p>
+    <table><thead><tr><th>Nombre</th><th>Unidad</th><th>PIN</th><th>Activo</th><th></th></tr></thead>
+      <tbody id="personasBody"></tbody></table>
+  </div>
+
+  <div class="panel hidden" id="tab-historico">
+    <h2>Histórico de fichajes</h2>
+    <div class="filters-row">
+      <div class="field"><label>Persona</label><select id="histPerson"></select></div>
+      <div class="field"><label>Desde</label><input type="date" id="histFrom"></div>
+      <div class="field"><label>Hasta</label><input type="date" id="histTo"></div>
+      <button class="btn btn-primary" style="width:auto;" id="btnHistSearch">Buscar</button>
+    </div>
+    <table><thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Origen</th><th>Motivo / corregido por</th></tr></thead>
+      <tbody id="histBody"></tbody></table>
+  </div>
+
+  <div class="panel hidden" id="tab-correccion">
+    <h2>Añadir corrección</h2>
+    <p class="info-box">Se usa cuando alguien olvidó fichar o se equivocó. Nunca se borra ni se edita el
+      fichaje original — esto crea un registro nuevo enlazado, con motivo y quién lo hizo, tal y como exige
+      la conservación de un rastro fiable.</p>
+    <div class="field"><label>Persona</label><select id="corrPerson"></select></div>
+    <div class="field"><label>Tipo de fichaje</label>
+      <select id="corrType">
+        <option value="entrada">Entrada</option>
+        <option value="pausa_inicio">Inicio de pausa</option>
+        <option value="pausa_fin">Fin de pausa</option>
+        <option value="salida">Salida</option>
+      </select>
+    </div>
+    <div class="field"><label>Fecha</label><input type="date" id="corrDate"></div>
+    <div class="field"><label>Hora</label><input type="text" id="corrTime" placeholder="HH:MM"></div>
+    <div class="field"><label>Motivo (obligatorio)</label><textarea id="corrReason" rows="2"></textarea></div>
+    <button class="btn btn-primary" id="btnSaveCorrection">Guardar corrección</button>
+    <div id="corrResult" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="panel hidden" id="tab-exportar">
+    <h2>Exportar / imprimir</h2>
+    <div class="filters-row">
+      <div class="field"><label>Persona</label><select id="expPerson"></select></div>
+      <div class="field"><label>Desde</label><input type="date" id="expFrom"></div>
+      <div class="field"><label>Hasta</label><input type="date" id="expTo"></div>
+      <button class="btn btn-primary" style="width:auto;" id="btnExpPreview">Vista previa</button>
+    </div>
+    <div id="expPreviewBox"></div>
+    <div id="expActions" class="hidden" style="margin-top:12px;display:flex;gap:8px;">
+      <button class="btn btn-primary" style="width:auto;" id="btnExpPrint">🖨 Imprimir / Guardar PDF</button>
+      <button class="btn btn-ghost" id="btnExpWhatsapp">📱 WhatsApp</button>
+    </div>
+  </div>
+</div>
+
+<div id="printArea">
+  <h2 id="printTitle"></h2>
+  <div class="meta" id="printMeta"></div>
+  <table><thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Motivo / corregido por</th></tr></thead>
+    <tbody id="printBody"></tbody></table>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════ FIREBASE / FIRESTORE (REST, sin SDK — mismo patrón que vacaciones.html) ═══════════════════
+   Mismo proyecto Firebase que Vacaciones y Turnos y Alquileres (ofipapelvv). Esta app NUNCA escribe en la
+   colección de Vacaciones (ofipapel_vacaciones) — solo la lee para no duplicar el alta de la plantilla. */
+const FIREBASE_CONFIG = { apiKey: 'AIzaSyDLqPoqiMgiqbk5Uv-4RoYrbA-5Yfc1A_s', projectId: 'ofipapelvv' };
+const IDENTITY_TOOLKIT_BASE = 'https://identitytoolkit.googleapis.com/v1';
+const SECURE_TOKEN_BASE = 'https://securetoken.googleapis.com/v1';
+const AUTH_USER_DOMAIN = 'ofipapelvv.internal';
+
+function fsBase(){ return `https://firestore.googleapis.com/v1/projects/${FIREBASE_CONFIG.projectId}/databases/(default)/documents`; }
+function fsHeaders(token, withJson){
+  const h = {};
+  if(token) h['Authorization'] = 'Bearer '+token;
+  if(withJson) h['Content-Type'] = 'application/json';
+  return h;
+}
+async function fsError(res){
+  let msg = 'Error Firestore '+res.status;
+  try{ const j = await res.json(); msg = (j.error && j.error.message) || msg; }catch(e){}
+  return new Error((res.status===401||res.status===403) ? 'AUTH_REQUIRED' : msg);
+}
+function toFsValue(v){
+  if(v===null || v===undefined) return {nullValue:null};
+  if(typeof v==='boolean') return {booleanValue:v};
+  if(typeof v==='number') return Number.isInteger(v) ? {integerValue:String(v)} : {doubleValue:v};
+  return {stringValue:String(v)};
+}
+function toFsFields(obj){
+  const fields = {};
+  for(const k in obj) fields[k] = toFsValue(obj[k]);
+  return fields;
+}
+function fromFsValue(v){
+  if(!v) return null;
+  if('stringValue' in v) return v.stringValue;
+  if('integerValue' in v) return parseInt(v.integerValue,10);
+  if('doubleValue' in v) return v.doubleValue;
+  if('booleanValue' in v) return v.booleanValue;
+  if('mapValue' in v) return fromFsFields((v.mapValue&&v.mapValue.fields)||{});
+  return null;
+}
+function fromFsFields(fields){
+  const obj = {};
+  for(const k in (fields||{})) obj[k] = fromFsValue(fields[k]);
+  return obj;
+}
+async function fsGetDoc(collection, docId, token){
+  const res = await fetch(`${fsBase()}/${collection}/${docId}?key=${FIREBASE_CONFIG.apiKey}`, {headers: fsHeaders(token)});
+  if(res.status===404) return null;
+  if(!res.ok) throw await fsError(res);
+  const json = await res.json();
+  return {id: docId, ...fromFsFields(json.fields)};
+}
+async function fsCreateDoc(collection, fields, token, docId){
+  const url = docId
+    ? `${fsBase()}/${collection}?documentId=${encodeURIComponent(docId)}&key=${FIREBASE_CONFIG.apiKey}`
+    : `${fsBase()}/${collection}?key=${FIREBASE_CONFIG.apiKey}`;
+  const res = await fetch(url, {method:'POST', headers: fsHeaders(token,true), body: JSON.stringify({fields: toFsFields(fields)})});
+  if(!res.ok) throw await fsError(res);
+  const json = await res.json();
+  return {id: json.name.split('/').pop(), ...fromFsFields(json.fields)};
+}
+async function fsPatchDoc(collection, docId, fields, token){
+  const mask = Object.keys(fields).map(k=>`updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+  const res = await fetch(`${fsBase()}/${collection}/${docId}?${mask}&key=${FIREBASE_CONFIG.apiKey}`,
+    {method:'PATCH', headers: fsHeaders(token,true), body: JSON.stringify({fields: toFsFields(fields)})});
+  if(!res.ok) throw await fsError(res);
+}
+/* Todas las consultas usan como máximo UN filtro de igualdad y ordenan/filtran el resto en el propio
+   navegador. Firestore exige crear un índice compuesto manual (en la consola) en cuanto se combina una
+   igualdad con un rango o con "orderBy" en otro campo — para no depender de ese paso de configuración
+   externa (como el índice o las reglas), el volumen de esta app es pequeño de sobra para hacerlo aquí. */
+async function fsQueryEqual(collection, field, value, token, limit){
+  const body = {structuredQuery:{
+    from:[{collectionId:collection}],
+    where:{fieldFilter:{field:{fieldPath:field}, op:'EQUAL', value: toFsValue(value)}},
+    limit: limit || 3000,
+  }};
+  const res = await fetch(`${fsBase()}:runQuery?key=${FIREBASE_CONFIG.apiKey}`,
+    {method:'POST', headers: fsHeaders(token,true), body: JSON.stringify(body)});
+  if(!res.ok) throw await fsError(res);
+  const json = await res.json();
+  return json.filter(r=>r.document).map(r=>({id:r.document.name.split('/').pop(), ...fromFsFields(r.document.fields)}));
+}
+
+/* ═══════════════════ SESIÓN ANÓNIMA (para poder fichar sin login de gerencia) ═══════════════════
+   Igual patrón que ya usan alquileres/joe-app: exige sesión (aunque sea anónima) para que las reglas de
+   Firestore no queden totalmente abiertas con solo la apiKey pública. Requiere que el proveedor "Anonymous"
+   esté activado en Firebase Console > Authentication (mismo paso pendiente ya anotado para alquileres). */
+const ANON_KEY = 'ofipapel_fichaje_anon_v1';
+let anonSession = loadJSON(ANON_KEY);
+async function ensureAnonSession(){
+  if(anonSession && Date.now() < anonSession.expiresAt - 5*60*1000) return anonSession.idToken;
+  if(anonSession && anonSession.refreshToken){
+    try{ return await refreshGeneric(anonSession, s=>{anonSession=s; saveJSON(ANON_KEY,s);}); }catch(e){ anonSession=null; }
+  }
+  const res = await fetch(`${IDENTITY_TOOLKIT_BASE}/accounts:signUp?key=${FIREBASE_CONFIG.apiKey}`,
+    {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({returnSecureToken:true})});
+  const json = await res.json();
+  if(!res.ok) throw new Error((json.error&&json.error.message)||'No se pudo iniciar sesión anónima');
+  anonSession = {idToken:json.idToken, refreshToken:json.refreshToken, expiresAt: Date.now()+parseInt(json.expiresIn,10)*1000};
+  saveJSON(ANON_KEY, anonSession);
+  return anonSession.idToken;
+}
+async function refreshGeneric(session, save){
+  const res = await fetch(`${SECURE_TOKEN_BASE}/token?key=${FIREBASE_CONFIG.apiKey}`, {
+    method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({grant_type:'refresh_token', refresh_token: session.refreshToken}),
+  });
+  const json = await res.json();
+  if(!res.ok) throw new Error((json.error&&json.error.message)||'No se pudo renovar la sesión');
+  const updated = {idToken:json.id_token, refreshToken:json.refresh_token, expiresAt: Date.now()+parseInt(json.expires_in,10)*1000, email: session.email};
+  save(updated);
+  return updated.idToken;
+}
+
+/* ═══════════════════ LOGIN GERENCIA (Luis / Rober / David) ═══════════════════ */
+const ADMIN_KEY = 'ofipapel_fichaje_admin_auth_v1';
+let adminSession = loadJSON(ADMIN_KEY);
+function usernameToAuthEmail(u){ return u.toLowerCase().replace(/[^a-z0-9._-]/g,'') + '@' + AUTH_USER_DOMAIN; }
+function adminDisplayName(){
+  if(!adminSession || !adminSession.email) return '';
+  const local = adminSession.email.split('@')[0];
+  return local.charAt(0).toUpperCase()+local.slice(1);
+}
+async function adminSignIn(username, password){
+  const res = await fetch(`${IDENTITY_TOOLKIT_BASE}/accounts:signInWithPassword?key=${FIREBASE_CONFIG.apiKey}`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({email: usernameToAuthEmail(username), password, returnSecureToken:true}),
+  });
+  const json = await res.json();
+  if(!res.ok) throw new Error((json.error&&json.error.message)||'Error de inicio de sesión');
+  adminSession = {idToken:json.idToken, refreshToken:json.refreshToken, expiresAt: Date.now()+parseInt(json.expiresIn,10)*1000, email: json.email};
+  saveJSON(ADMIN_KEY, adminSession);
+}
+async function adminGetValidToken(){
+  if(!adminSession) return null;
+  if(Date.now() > adminSession.expiresAt - 5*60*1000){
+    try{ await refreshGeneric(adminSession, s=>{adminSession=s; saveJSON(ADMIN_KEY,s);}); }
+    catch(e){ adminSession=null; saveJSON(ADMIN_KEY,null); return null; }
+  }
+  return adminSession.idToken;
+}
+function adminSignOut(){ adminSession=null; saveJSON(ADMIN_KEY,null); location.reload(); }
+async function getActiveToken(){
+  if(adminSession){ const t = await adminGetValidToken(); if(t) return t; }
+  return await ensureAnonSession();
+}
+
+function loadJSON(key){ try{ const r=localStorage.getItem(key); return r?JSON.parse(r):null; }catch(e){ return null; } }
+function saveJSON(key, val){ if(val) localStorage.setItem(key, JSON.stringify(val)); else localStorage.removeItem(key); }
+
+/* ═══════════════════ PERSONAS (plantilla de Vacaciones, solo lectura + 3 de gerencia) ═══════════════════ */
+const GERENCIA_PEOPLE = [
+  {id:'ger_luis',  name:'Luis (gerencia)'},
+  {id:'ger_rober', name:'Rober (gerencia)'},
+  {id:'ger_david', name:'David (gerencia)'},
+];
+let PEOPLE = []; // {id, name, unitId?}
+
+async function loadPeople(token){
+  let employees = [];
+  try{
+    const doc = await fsGetDoc('ofipapel_vacaciones', 'shared', token);
+    if(doc && doc.data){
+      const state = JSON.parse(doc.data);
+      employees = (state.employees||[]).filter(e=>e.active!==false).map(e=>({id:e.id, name:e.name, unitId:e.unitId}));
+    }
+  }catch(err){
+    console.error('No se pudo leer la plantilla de Vacaciones y Turnos', err);
+  }
+  PEOPLE = [...employees, ...GERENCIA_PEOPLE].sort((a,b)=>a.name.localeCompare(b.name,'es'));
+  return PEOPLE;
+}
+function personById(id){ return PEOPLE.find(p=>p.id===id); }
+
+/* ═══════════════════ PIN (hash SHA-256, nunca en claro) ═══════════════════
+   Limitación conocida y aceptada: un PIN de 4 dígitos tiene solo 10.000 combinaciones, así que el hash no
+   protege frente a alguien que ya tuviera lectura directa de la colección de configuración — el mismo nivel
+   de protección "solo bloquea acceso directo con la apiKey pública" que ya se documenta para el resto del
+   ecosistema (ver DT-09), no una barrera criptográfica fuerte. */
+async function sha256Hex(text){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function getPersonConfig(personId, token){ return await fsGetDoc('ofipapel_fichaje_config', personId, token); }
+async function setPersonPin(personId, pin, token){
+  const hash = await sha256Hex(personId+':'+pin);
+  const existing = await getPersonConfig(personId, token);
+  const fields = {pinHash:hash, active:true, updatedAt:new Date().toISOString(), updatedBy:adminDisplayName()};
+  if(existing) await fsPatchDoc('ofipapel_fichaje_config', personId, fields, token);
+  else await fsCreateDoc('ofipapel_fichaje_config', fields, token, personId);
+}
+async function setPersonActive(personId, active, token){
+  await fsPatchDoc('ofipapel_fichaje_config', personId, {active, updatedAt:new Date().toISOString(), updatedBy:adminDisplayName()}, token);
+}
+async function verifyPin(personId, pin, token){
+  const cfg = await getPersonConfig(personId, token);
+  if(!cfg || !cfg.pinHash) return {ok:false, reason:'SIN_PIN'};
+  if(cfg.active===false) return {ok:false, reason:'INACTIVO'};
+  const hash = await sha256Hex(personId+':'+pin);
+  return {ok: hash===cfg.pinHash, reason: hash===cfg.pinHash ? null : 'INCORRECTO'};
+}
+
+/* ═══════════════════ EVENTOS DE FICHAJE (un documento por evento, inmutable) ═══════════════════ */
+const TYPE_LABEL = {entrada:'Entrada', salida:'Salida', pausa_inicio:'Inicio de pausa', pausa_fin:'Fin de pausa'};
+function canaryDateKey(d){ return new Intl.DateTimeFormat('en-CA',{timeZone:'Atlantic/Canary',year:'numeric',month:'2-digit',day:'2-digit'}).format(d||new Date()); }
+function canaryTime(iso){ return new Intl.DateTimeFormat('es-ES',{timeZone:'Atlantic/Canary',hour:'2-digit',minute:'2-digit'}).format(new Date(iso)); }
+function canaryDateLong(iso){ return new Intl.DateTimeFormat('es-ES',{timeZone:'Atlantic/Canary',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(iso)); }
+
+async function createEvent(personId, type, token, extra){
+  extra = extra || {};
+  const now = new Date();
+  const fields = {
+    personId, type,
+    occurredAt: now.toISOString(),
+    dateKey: canaryDateKey(now),
+    correctionOf: extra.correctionOf || null,
+    correctionReason: extra.correctionReason || null,
+    correctedBy: extra.correctedBy || null,
+    geoLat: (extra.geo && extra.geo.lat) || null,
+    geoLng: (extra.geo && extra.geo.lng) || null,
+  };
+  return await fsCreateDoc('ofipapel_fichaje_eventos', fields, token);
+}
+async function eventsForPersonToday(personId, token){
+  const todayKey = canaryDateKey();
+  const all = await fsQueryEqual('ofipapel_fichaje_eventos', 'personId', personId, token);
+  return all.filter(e=>e.dateKey===todayKey).sort((a,b)=>a.occurredAt.localeCompare(b.occurredAt));
+}
+async function eventsToday(token){
+  const all = await fsQueryEqual('ofipapel_fichaje_eventos', 'dateKey', canaryDateKey(), token);
+  return all.sort((a,b)=>a.occurredAt.localeCompare(b.occurredAt));
+}
+async function eventsForPerson(personId, token){
+  const all = await fsQueryEqual('ofipapel_fichaje_eventos', 'personId', personId, token);
+  return all.sort((a,b)=>a.occurredAt.localeCompare(b.occurredAt));
+}
+function nextActions(todayEvents){
+  const ordered = [...todayEvents].sort((a,b)=>a.occurredAt.localeCompare(b.occurredAt));
+  const last = ordered[ordered.length-1];
+  if(!last || last.type==='salida') return ['entrada'];
+  if(last.type==='pausa_inicio') return ['pausa_fin'];
+  return ['pausa_inicio','salida'];
+}
+
+/* ═══════════════════ UI helpers ═══════════════════ */
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function setCloudStatus(elId, status){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  el.textContent = status==='connecting' ? '🔄' : status==='synced' ? '☁️' : '⚠️';
+  el.title = status==='connecting' ? 'Conectando…' : status==='synced' ? 'Conectado' : 'Sin conexión — reintentando';
+}
+
+/* ═══════════════════ RELOJ EN VIVO ═══════════════════ */
+function tickClock(){
+  const now = new Date();
+  document.getElementById('liveClock').textContent =
+    new Intl.DateTimeFormat('es-ES',{timeZone:'Atlantic/Canary',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(now);
+  document.getElementById('liveDate').textContent = canaryDateLong(now.toISOString());
+}
+setInterval(tickClock, 1000); tickClock();
+
+/* ═══════════════════ PANTALLA DE FICHAJE — lógica ═══════════════════ */
+let clockToken = null;
+let selectedPerson = null;
+let pinBuffer = '';
+let cachedGeo = null;
+
+function renderPeopleList(filter){
+  const box = document.getElementById('peopleList');
+  const q = (filter||'').trim().toLowerCase();
+  const list = PEOPLE.filter(p=>!q || p.name.toLowerCase().includes(q));
+  if(!list.length){ box.innerHTML = '<div class="person-empty">Sin resultados.</div>'; return; }
+  box.innerHTML = list.map(p=>`<button class="person-btn" data-id="${p.id}">${p.name}${p.unitId?`<small>${p.unitId}</small>`:''}</button>`).join('');
+  box.querySelectorAll('.person-btn').forEach(btn=>{
+    btn.onclick = ()=> openPinStep(personById(btn.dataset.id));
+  });
+}
+document.getElementById('personSearch').addEventListener('input', e=>renderPeopleList(e.target.value));
+
+function openPinStep(person){
+  selectedPerson = person; pinBuffer = '';
+  document.getElementById('searchStep').classList.add('hidden');
+  document.getElementById('actionStep').classList.add('hidden');
+  document.getElementById('pinStep').classList.remove('hidden');
+  document.getElementById('pinPersonName').textContent = person.name;
+  document.getElementById('pinError').textContent = '';
+  document.getElementById('pinDots').classList.remove('err');
+  renderPinDots();
+}
+function renderPinDots(){
+  document.querySelectorAll('#pinDots span').forEach((dot,i)=> dot.classList.toggle('filled', i<pinBuffer.length));
+}
+document.getElementById('keypad').addEventListener('click', async (e)=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  const k = btn.dataset.k;
+  if(k==='clear'){ pinBuffer=''; renderPinDots(); return; }
+  if(k==='back'){ pinBuffer = pinBuffer.slice(0,-1); renderPinDots(); return; }
+  if(pinBuffer.length>=4) return;
+  pinBuffer += k; renderPinDots();
+  if(pinBuffer.length===4) await submitPin();
+});
+async function submitPin(){
+  const errBox = document.getElementById('pinError');
+  errBox.textContent = 'Comprobando…';
+  try{
+    clockToken = await getActiveToken();
+    setCloudStatus('clockCloudStatus','synced');
+    const result = await verifyPin(selectedPerson.id, pinBuffer, clockToken);
+    if(!result.ok){
+      document.getElementById('pinDots').classList.add('err');
+      errBox.textContent = result.reason==='SIN_PIN' ? 'Aún no tienes PIN asignado — pídeselo a gerencia.'
+        : result.reason==='INACTIVO' ? 'Tu acceso de fichaje está desactivado — habla con gerencia.'
+        : 'PIN incorrecto.';
+      pinBuffer=''; renderPinDots();
+      return;
+    }
+    await openActionStep();
+  }catch(err){
+    setCloudStatus('clockCloudStatus','offline');
+    errBox.textContent = err.message==='AUTH_REQUIRED' ? 'Sin conexión con el servidor, inténtalo de nuevo.' : ('Error: '+err.message);
+  }
+}
+document.getElementById('btnPinBack').onclick = ()=>{
+  document.getElementById('pinStep').classList.add('hidden');
+  document.getElementById('searchStep').classList.remove('hidden');
+};
+
+async function openActionStep(){
+  document.getElementById('pinStep').classList.add('hidden');
+  document.getElementById('actionStep').classList.remove('hidden');
+  document.getElementById('actionSuccess').innerHTML = '';
+  document.getElementById('actionPersonName').textContent = selectedPerson.name;
+  await refreshActionStep();
+  if(!cachedGeo && navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      pos=>{ cachedGeo = {lat:pos.coords.latitude, lng:pos.coords.longitude}; },
+      ()=>{ cachedGeo = null; },
+      {timeout:4000}
+    );
+  }
+}
+async function refreshActionStep(){
+  const todayEvents = await eventsForPersonToday(selectedPerson.id, clockToken);
+  const log = document.getElementById('todayLog');
+  if(!todayEvents.length){
+    log.innerHTML = '<li class="empty">Hoy todavía no has fichado nada.</li>';
+  }else{
+    log.innerHTML = todayEvents.map(e=>`<li><span>${TYPE_LABEL[e.type]||e.type}</span><span class="mono">${canaryTime(e.occurredAt)}</span></li>`).join('');
+  }
+  const actions = nextActions(todayEvents);
+  const grid = document.getElementById('actionGrid');
+  const LABELS = {entrada:'🟢 Entrada', pausa_inicio:'🟠 Inicio de pausa', pausa_fin:'🟢 Fin de pausa', salida:'🔴 Salida'};
+  grid.innerHTML = actions.map(a=>`<button class="action-btn ${a}" data-type="${a}">${LABELS[a]}</button>`).join('');
+  grid.querySelectorAll('button').forEach(btn=>{
+    btn.onclick = ()=> doClockAction(btn.dataset.type);
+  });
+  document.getElementById('geoNote').textContent = cachedGeo ? '📍 Ubicación registrada con este fichaje.' : '';
+}
+async function doClockAction(type){
+  try{
+    await createEvent(selectedPerson.id, type, clockToken, {geo: cachedGeo});
+    document.getElementById('actionSuccess').innerHTML =
+      `<div class="toast-ok">${TYPE_LABEL[type]} registrada a las ${canaryTime(new Date().toISOString())} ✔</div>`;
+    await refreshActionStep();
+    setTimeout(resetClockScreen, 2600);
+  }catch(err){
+    showToast('No se pudo registrar: '+err.message);
+  }
+}
+function resetClockScreen(){
+  selectedPerson = null; pinBuffer='';
+  document.getElementById('actionStep').classList.add('hidden');
+  document.getElementById('searchStep').classList.remove('hidden');
+  document.getElementById('personSearch').value = '';
+  renderPeopleList('');
+}
+document.getElementById('btnActionBack').onclick = resetClockScreen;
+
+/* ═══════════════════ ACCESO / LOGIN GERENCIA ═══════════════════ */
+document.getElementById('btnOpenAdmin').onclick = ()=>{ document.getElementById('authGate').style.display='flex'; };
+document.getElementById('btnCloseAuthGate').onclick = ()=>{ document.getElementById('authGate').style.display='none'; };
+document.getElementById('loginSubmit').onclick = async ()=>{
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const errBox = document.getElementById('loginError');
+  errBox.classList.add('hidden');
+  if(!user || !pass){ errBox.textContent='Indica usuario y contraseña.'; errBox.classList.remove('hidden'); return; }
+  const btn = document.getElementById('loginSubmit');
+  btn.disabled = true; btn.textContent = 'Entrando…';
+  try{
+    await adminSignIn(user, pass);
+    document.getElementById('authGate').style.display = 'none';
+    await enterAdminApp();
+  }catch(err){
+    const msg = /INVALID_LOGIN_CREDENTIALS|EMAIL_NOT_FOUND|INVALID_PASSWORD/.test(err.message)
+      ? 'Usuario o contraseña incorrectos.' : 'No se pudo iniciar sesión: '+err.message;
+    errBox.textContent = msg; errBox.classList.remove('hidden');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+};
+document.getElementById('btnAdminLogout').onclick = ()=>{ if(confirm('¿Cerrar sesión de gerencia?')) adminSignOut(); };
+
+/* ═══════════════════ PANEL DE GERENCIA ═══════════════════ */
+let adminToken = null;
+async function enterAdminApp(){
+  adminToken = await adminGetValidToken();
+  if(!adminToken) return;
+  setCloudStatus('adminCloudStatus','synced');
+  document.getElementById('clockScreen').classList.add('hidden');
+  document.getElementById('adminApp').classList.remove('hidden');
+  document.getElementById('adminWhoAmI').textContent = adminDisplayName();
+  await loadPeople(adminToken);
+  fillPersonSelects();
+  await renderTabHoy();
+}
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.onclick = ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.add('hidden'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.remove('hidden');
+    if(btn.dataset.tab==='hoy') renderTabHoy();
+    if(btn.dataset.tab==='personas') renderTabPersonas();
+  };
+});
+function fillPersonSelects(){
+  const opts = '<option value="">— Selecciona —</option>' + PEOPLE.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  ['histPerson','corrPerson','expPerson'].forEach(id=>{ document.getElementById(id).innerHTML = opts; });
+  document.getElementById('expPerson').innerHTML = '<option value="">Todas</option>' + PEOPLE.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+async function renderTabHoy(){
+  document.getElementById('hoyFecha').textContent = canaryDateLong(new Date().toISOString());
+  const body = document.getElementById('hoyBody');
+  body.innerHTML = '<tr><td colspan="4">Cargando…</td></tr>';
+  const events = await eventsToday(adminToken);
+  const byPerson = {};
+  events.forEach(e=>{ (byPerson[e.personId] = byPerson[e.personId]||[]).push(e); });
+  const rows = PEOPLE.map(p=>{
+    const evs = (byPerson[p.id]||[]).sort((a,b)=>a.occurredAt.localeCompare(b.occurredAt));
+    const last = evs[evs.length-1];
+    const noEntrada = !last;
+    return `<tr class="${noEntrada?'warn':''}"><td>${p.name}</td>
+      <td>${last?TYPE_LABEL[last.type]:'—'}</td>
+      <td class="mono">${last?canaryTime(last.occurredAt):'—'}</td>
+      <td>${noEntrada?'<span class="badge no">Sin fichar</span>':'<span class="badge ok">Al día</span>'}</td></tr>`;
+  });
+  body.innerHTML = rows.join('');
+}
+
+async function renderTabPersonas(){
+  const body = document.getElementById('personasBody');
+  body.innerHTML = '<tr><td colspan="5">Cargando…</td></tr>';
+  const rows = [];
+  for(const p of PEOPLE){
+    const cfg = await getPersonConfig(p.id, adminToken);
+    const hasPin = !!(cfg && cfg.pinHash);
+    const active = !cfg || cfg.active!==false;
+    rows.push(`<tr>
+      <td>${p.name}</td>
+      <td>${p.unitId||'—'}</td>
+      <td>${hasPin?'<span class="badge ok">Sí</span>':'<span class="badge no">No</span>'}</td>
+      <td>${active?'<span class="badge ok">Activo</span>':'<span class="badge no">Inactivo</span>'}</td>
+      <td>
+        <button class="mini-btn" data-act="pin" data-id="${p.id}">${hasPin?'Resetear PIN':'Asignar PIN'}</button>
+        <button class="mini-btn" data-act="toggle" data-id="${p.id}" data-active="${active}">${active?'Desactivar':'Activar'}</button>
+      </td>
+    </tr>`);
+  }
+  body.innerHTML = rows.join('');
+  body.querySelectorAll('button[data-act="pin"]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const pin = prompt('Nuevo PIN de 4 dígitos para '+personById(btn.dataset.id).name+':');
+      if(!pin) return;
+      if(!/^\d{4}$/.test(pin)){ showToast('El PIN debe tener exactamente 4 dígitos.'); return; }
+      await setPersonPin(btn.dataset.id, pin, adminToken);
+      showToast('PIN actualizado.');
+      renderTabPersonas();
+    };
+  });
+  body.querySelectorAll('button[data-act="toggle"]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const next = !(btn.dataset.active==='true');
+      await setPersonActive(btn.dataset.id, next, adminToken);
+      showToast(next?'Persona activada.':'Persona desactivada.');
+      renderTabPersonas();
+    };
+  });
+}
+
+function eventsInRange(events, from, to){
+  return events.filter(e=>{
+    const k = e.dateKey;
+    return (!from || k>=from) && (!to || k<=to);
+  });
+}
+function renderHistRows(events){
+  return events.map(e=>`<tr>
+    <td>${e.dateKey}</td>
+    <td class="mono">${canaryTime(e.occurredAt)}</td>
+    <td>${TYPE_LABEL[e.type]||e.type}</td>
+    <td>${e.correctionOf ? 'Corrección' : 'Fichaje'}</td>
+    <td>${e.correctionReason ? `${e.correctionReason} (${e.correctedBy||'—'})` : '—'}</td>
+  </tr>`).join('');
+}
+document.getElementById('btnHistSearch').onclick = async ()=>{
+  const personId = document.getElementById('histPerson').value;
+  if(!personId){ showToast('Elige una persona.'); return; }
+  const from = document.getElementById('histFrom').value;
+  const to = document.getElementById('histTo').value;
+  const events = eventsInRange(await eventsForPerson(personId, adminToken), from, to);
+  document.getElementById('histBody').innerHTML = events.length ? renderHistRows(events) : '<tr><td colspan="5">Sin fichajes en ese rango.</td></tr>';
+};
+
+document.getElementById('btnSaveCorrection').onclick = async ()=>{
+  const personId = document.getElementById('corrPerson').value;
+  const type = document.getElementById('corrType').value;
+  const date = document.getElementById('corrDate').value;
+  const time = document.getElementById('corrTime').value.trim();
+  const reason = document.getElementById('corrReason').value.trim();
+  const result = document.getElementById('corrResult');
+  if(!personId || !date || !/^\d{1,2}:\d{2}$/.test(time) || !reason){
+    result.innerHTML = '<div class="err-box">Rellena persona, fecha, hora (HH:MM) y motivo.</div>';
+    return;
+  }
+  const [hh,mm] = time.split(':').map(Number);
+  const occurredAt = new Date(`${date}T${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}:00`);
+  try{
+    await fsCreateDoc('ofipapel_fichaje_eventos', {
+      personId, type,
+      occurredAt: occurredAt.toISOString(),
+      dateKey: canaryDateKey(occurredAt),
+      correctionOf: 'manual', correctionReason: reason, correctedBy: adminDisplayName(),
+      geoLat: null, geoLng: null,
+    }, adminToken);
+    result.innerHTML = '<div class="info-box">Corrección guardada.</div>';
+    document.getElementById('corrReason').value = '';
+  }catch(err){
+    result.innerHTML = '<div class="err-box">Error: '+err.message+'</div>';
+  }
+};
+
+let lastExport = {label:'', events:[]};
+document.getElementById('btnExpPreview').onclick = async ()=>{
+  const personId = document.getElementById('expPerson').value;
+  const from = document.getElementById('expFrom').value;
+  const to = document.getElementById('expTo').value;
+  let events = [];
+  if(personId){
+    events = eventsInRange(await eventsForPerson(personId, adminToken), from, to);
+  }else{
+    // "Todas": recorre cada persona (volumen pequeño, uso puntual de exportación).
+    for(const p of PEOPLE){
+      events = events.concat((await eventsForPerson(p.id, adminToken)).map(e=>({...e, _name:p.name})));
+    }
+    events = eventsInRange(events, from, to).sort((a,b)=>a.occurredAt.localeCompare(b.occurredAt));
+  }
+  lastExport = {label: personId ? personById(personId).name : 'Toda la plantilla', from, to, events};
+  const box = document.getElementById('expPreviewBox');
+  const head = personId ? '<th>Fecha</th><th>Hora</th><th>Tipo</th><th>Origen</th>' : '<th>Persona</th><th>Fecha</th><th>Hora</th><th>Tipo</th>';
+  const rows = events.map(e=> personId
+    ? `<tr><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td><td>${e.correctionOf?'Corrección':'Fichaje'}</td></tr>`
+    : `<tr><td>${e._name}</td><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td></tr>`
+  ).join('');
+  box.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${rows||'<tr><td colspan="4">Sin fichajes en ese rango.</td></tr>'}</tbody></table>`;
+  document.getElementById('expActions').classList.remove('hidden');
+};
+document.getElementById('btnExpPrint').onclick = ()=>{
+  document.getElementById('printTitle').textContent = 'Fichaje — '+lastExport.label;
+  document.getElementById('printMeta').textContent = `Del ${lastExport.from||'inicio'} al ${lastExport.to||'hoy'} · generado ${new Date().toLocaleString('es-ES')}`;
+  document.getElementById('printBody').innerHTML = lastExport.events.map(e=>`<tr>
+    <td>${e.dateKey}</td><td>${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td>
+    <td>${e.correctionReason ? `${e.correctionReason} (${e.correctedBy||'—'})` : '—'}</td></tr>`).join('');
+  window.print();
+};
+document.getElementById('btnExpWhatsapp').onclick = ()=>{
+  const lines = [`*Fichaje — ${lastExport.label}*`, `Del ${lastExport.from||'inicio'} al ${lastExport.to||'hoy'}`, ''];
+  lastExport.events.forEach(e=> lines.push(`${e.dateKey} ${canaryTime(e.occurredAt)} — ${TYPE_LABEL[e.type]}`));
+  window.open('https://wa.me/?text='+encodeURIComponent(lines.join('\n')), '_blank');
+};
+
+/* ═══════════════════ ARRANQUE ═══════════════════ */
+(async function init(){
+  try{
+    clockToken = await getActiveToken();
+    setCloudStatus('clockCloudStatus','synced');
+  }catch(err){
+    setCloudStatus('clockCloudStatus','offline');
+  }
+  await loadPeople(clockToken);
+  renderPeopleList('');
+  if(adminSession){ await enterAdminApp(); }
+})();
+</script>
+</body>
+</html>
