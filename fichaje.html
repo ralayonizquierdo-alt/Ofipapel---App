@@ -490,14 +490,17 @@ tr.flag td{background:#FFF1EC;}
 
 <script>
 /* ═══════════════════ FIREBASE / FIRESTORE (REST, sin SDK — mismo patrón que vacaciones.html) ═══════════════════
-   Mismo proyecto Firebase que Vacaciones y Turnos y Alquileres (ofipapelvv). Esta app NUNCA escribe en la
-   colección de Vacaciones (ofipapel_vacaciones) — solo la lee para no duplicar el alta de la plantilla. */
-const FIREBASE_CONFIG = { apiKey: 'AIzaSyDLqPoqiMgiqbk5Uv-4RoYrbA-5Yfc1A_s', projectId: 'ofipapelvv' };
+   Fichaje tiene su propio proyecto Firebase ("Ofipapel Fichaje", separado de Vacaciones/Alquileres a petición
+   expresa del propietario, para no compartir cuota ni facturación con el resto del ecosistema). Se mantiene
+   además una conexión de SOLO LECTURA aparte al proyecto de Vacaciones (VACACIONES_FIREBASE_CONFIG, más abajo)
+   únicamente para leer su plantilla de empleados — nunca se escribe ahí. */
+const FIREBASE_CONFIG = { apiKey: 'AIzaSyCZ7cBQXZkw-VB0vnJE4m8lj3mscyiIMEc', projectId: 'ofipapel-fichaje-63ced' };
+const VACACIONES_FIREBASE_CONFIG = { apiKey: 'AIzaSyDLqPoqiMgiqbk5Uv-4RoYrbA-5Yfc1A_s', projectId: 'ofipapelvv' };
 const IDENTITY_TOOLKIT_BASE = 'https://identitytoolkit.googleapis.com/v1';
 const SECURE_TOKEN_BASE = 'https://securetoken.googleapis.com/v1';
-const AUTH_USER_DOMAIN = 'ofipapelvv.internal';
+const AUTH_USER_DOMAIN = 'ofipapel-fichaje.internal';
 
-function fsBase(){ return `https://firestore.googleapis.com/v1/projects/${FIREBASE_CONFIG.projectId}/databases/(default)/documents`; }
+function fsBase(cfg){ cfg = cfg || FIREBASE_CONFIG; return `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents`; }
 function fsHeaders(token, withJson){
   const h = {};
   if(token) h['Authorization'] = 'Bearer '+token;
@@ -534,8 +537,9 @@ function fromFsFields(fields){
   for(const k in (fields||{})) obj[k] = fromFsValue(fields[k]);
   return obj;
 }
-async function fsGetDoc(collection, docId, token){
-  const res = await fetch(`${fsBase()}/${collection}/${docId}?key=${FIREBASE_CONFIG.apiKey}`, {headers: fsHeaders(token)});
+async function fsGetDoc(collection, docId, token, cfg){
+  cfg = cfg || FIREBASE_CONFIG;
+  const res = await fetch(`${fsBase(cfg)}/${collection}/${docId}?key=${cfg.apiKey}`, {headers: fsHeaders(token)});
   if(res.status===404) return null;
   if(!res.ok) throw await fsError(res);
   const json = await res.json();
@@ -576,13 +580,13 @@ async function fsQueryEqual(collection, field, value, token, limit){
 /* ═══════════════════ SESIÓN ANÓNIMA (para poder fichar sin login de gerencia) ═══════════════════
    Igual patrón que ya usan alquileres/joe-app: exige sesión (aunque sea anónima) para que las reglas de
    Firestore no queden totalmente abiertas con solo la apiKey pública. Requiere que el proveedor "Anonymous"
-   esté activado en Firebase Console > Authentication (mismo paso pendiente ya anotado para alquileres). */
+   esté activado en Firebase Console > Authentication — en ESTE proyecto (Ofipapel Fichaje). */
 const ANON_KEY = 'ofipapel_fichaje_anon_v1';
 let anonSession = loadJSON(ANON_KEY);
 async function ensureAnonSession(){
   if(anonSession && Date.now() < anonSession.expiresAt - 5*60*1000) return anonSession.idToken;
   if(anonSession && anonSession.refreshToken){
-    try{ return await refreshGeneric(anonSession, s=>{anonSession=s; saveJSON(ANON_KEY,s);}); }catch(e){ anonSession=null; }
+    try{ return await refreshGeneric(anonSession, s=>{anonSession=s; saveJSON(ANON_KEY,s);}, FIREBASE_CONFIG); }catch(e){ anonSession=null; }
   }
   const res = await fetch(`${IDENTITY_TOOLKIT_BASE}/accounts:signUp?key=${FIREBASE_CONFIG.apiKey}`,
     {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({returnSecureToken:true})});
@@ -592,8 +596,27 @@ async function ensureAnonSession(){
   saveJSON(ANON_KEY, anonSession);
   return anonSession.idToken;
 }
-async function refreshGeneric(session, save){
-  const res = await fetch(`${SECURE_TOKEN_BASE}/token?key=${FIREBASE_CONFIG.apiKey}`, {
+/* Sesión anónima aparte, contra el proyecto de Vacaciones (ofipapelvv) — un token de un proyecto Firebase no
+   sirve para autenticar en otro, así que hace falta una segunda sesión solo para poder leer su plantilla.
+   Requiere que "Anonymous" esté activado también en ESE proyecto (mismo paso ya pendiente para alquileres). */
+const VAC_ANON_KEY = 'ofipapel_fichaje_vac_anon_v1';
+let vacAnonSession = loadJSON(VAC_ANON_KEY);
+async function ensureVacacionesAnonSession(){
+  if(vacAnonSession && Date.now() < vacAnonSession.expiresAt - 5*60*1000) return vacAnonSession.idToken;
+  if(vacAnonSession && vacAnonSession.refreshToken){
+    try{ return await refreshGeneric(vacAnonSession, s=>{vacAnonSession=s; saveJSON(VAC_ANON_KEY,s);}, VACACIONES_FIREBASE_CONFIG); }catch(e){ vacAnonSession=null; }
+  }
+  const res = await fetch(`${IDENTITY_TOOLKIT_BASE}/accounts:signUp?key=${VACACIONES_FIREBASE_CONFIG.apiKey}`,
+    {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({returnSecureToken:true})});
+  const json = await res.json();
+  if(!res.ok) throw new Error((json.error&&json.error.message)||'No se pudo iniciar sesión anónima (Vacaciones)');
+  vacAnonSession = {idToken:json.idToken, refreshToken:json.refreshToken, expiresAt: Date.now()+parseInt(json.expiresIn,10)*1000};
+  saveJSON(VAC_ANON_KEY, vacAnonSession);
+  return vacAnonSession.idToken;
+}
+async function refreshGeneric(session, save, cfg){
+  cfg = cfg || FIREBASE_CONFIG;
+  const res = await fetch(`${SECURE_TOKEN_BASE}/token?key=${cfg.apiKey}`, {
     method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
     body: new URLSearchParams({grant_type:'refresh_token', refresh_token: session.refreshToken}),
   });
@@ -657,10 +680,11 @@ const UNIT_NAMES = {
 };
 let PEOPLE = []; // {id, name, unitId?}
 
-async function loadPeople(token){
+async function loadPeople(){
   let employees = [];
   try{
-    const doc = await fsGetDoc('ofipapel_vacaciones', 'shared', token);
+    const vacToken = await ensureVacacionesAnonSession();
+    const doc = await fsGetDoc('ofipapel_vacaciones', 'shared', vacToken, VACACIONES_FIREBASE_CONFIG);
     if(doc && doc.data){
       const state = JSON.parse(doc.data);
       employees = (state.employees||[]).filter(e=>e.active!==false).map(e=>({id:e.id, name:e.name, unitId:e.unitId}));
@@ -1080,7 +1104,7 @@ async function enterAdminApp(){
   document.getElementById('clockScreen').classList.add('hidden');
   document.getElementById('adminApp').classList.remove('hidden');
   document.getElementById('adminWhoAmI').textContent = adminDisplayName();
-  await loadPeople(adminToken);
+  await loadPeople();
   fillPersonSelects();
   await loadBusinessHours(adminToken);
   populateBusinessHoursUnitSelect();
@@ -1483,7 +1507,7 @@ document.getElementById('btnExpWhatsapp').onclick = ()=>{
   }catch(err){
     setCloudStatus('clockCloudStatus','offline');
   }
-  await loadPeople(clockToken);
+  await loadPeople();
   populatePersonSelect();
   if(adminSession){ await enterAdminApp(); }
 })();
