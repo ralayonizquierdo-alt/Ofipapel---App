@@ -410,12 +410,14 @@ function parseCofrap(lineas){
 // del artículo compuesto y ya están incluidas en su precio: se ignoran.
 function parseHamelinStyle(lineas){
   const filas = [];
+  // Factura normal: cabecera termina en un % (ej. Igic). "Notificación de pedido": sin ese % final.
   const HEADER_RE = /^(\d+)\s+([A-Z0-9]{6,10})\s+(.*?)\s+(\d{8,14})\s+[\d.]+%$/;
-  const PRICE_RE = /^(\d+(?:\.\d{3})*)\s*[A-Z]{2,4}\s+(\d+,\d{2})\s*EUR\s+por\s+\d+\s*[A-Z]{2,4}\s+(?:-([\d.]+)%\s+)?(\d+,\d{2})\s*EUR(?:\s+(\d+(?:\.\d{3})*,\d{2})\s*EUR)?$/;
+  const HEADER_RE2 = /^(\d+)\s+(\d{6,10})\s+(.+?)\s+(\d{8,14})$/;
+  const PRICE_RE = /^(\d+(?:\.\d{3})*)\s*[A-Z]{2,4}\s+(\d+,\d{2})\s*EUR\s+por\s+\d+\s*[A-Z]{2,4}\s+(?:-([\d.]+)%\s+)?(\d+,\d{2})\s*(?:EUR)?(?:\s+(\d+(?:\.\d{3})*,\d{2})\s*(?:EUR)?)?$/;
   let header = null, isComponent = false;
   lineas.forEach(l=>{
-    if(/^Compue\s*$/.test(l) || /^s\.\s*por\b/.test(l)){ isComponent = true; header = null; return; }
-    const hm = l.match(HEADER_RE);
+    if(/^Compue\s*$/.test(l) || /^s\.\s*por\b/.test(l) || /^Compues\.\s*por\s+/.test(l)){ isComponent = true; header = null; return; }
+    const hm = l.match(HEADER_RE) || l.match(HEADER_RE2);
     if(hm){ isComponent = false; header = { codigo:hm[2], descripcion:hm[3].trim(), ean:hm[4] }; return; }
     const pm = l.match(PRICE_RE);
     if(pm){
@@ -650,6 +652,327 @@ function parseMuchoCartucho(lineas){
   return filas;
 }
 
+// PARDO: "COD.ARTICULO CONCEPTO CANTIDAD PRECIO IMPORTE" (precio a 4 decimales)
+function parsePardo(lineas){
+  const filas = [];
+  const RE = /^(\d{4,7})\s+(.+?)\s+(\d+)\s+(\d+,\d{2,4})\s+(\d+(?:\.\d{3})*,\d{2})$/;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const [,codigo,desc,cant,precio,importe] = m;
+    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:parseInt(cant,10), precioUnitario:parseDecComa(precio), importe:parseDecComa(importe)}));
+  });
+  return filas;
+}
+
+// PILOT (Comercial Arge): "EAN Caja Código Descripción Cajas Unidades PVP Caja PVP Unidad Neto Caja Neto Unidad % Dto. Total Neto"
+// La descripción a veces queda vacía en la línea numérica y se completa con las líneas siguientes.
+function parsePilot(lineas){
+  const filas = [];
+  const RE_CON_DESC = /^(\d{13})\s+(\S+)\s+(.+?)\s+(\d+)\s+(\d+)\s+(\d+,\d{3})\s+(\d+,\d{3})\s+(\d+,\d{3})\s+(\d+,\d{3})\s+(?:\d+\.\d{2}\s+\d+\.\d{2}\s+)?(\d+(?:\.\d{3})*,\d{2})$/;
+  const RE_SIN_DESC = /^(\d{13})\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+,\d{3})\s+(\d+,\d{3})\s+(\d+,\d{3})\s+(\d+,\d{3})\s+(?:\d+\.\d{2}\s+\d+\.\d{2}\s+)?(\d+(?:\.\d{3})*,\d{2})$/;
+  const RE_DTO_SOLO = /^\d+\.\d{2}\s+\d+\.\d{2}$/;
+  const RE_NO_CONTINUACION = /page \d|PAGE BREAK|registro mercantil|c\.i\.f\.|tarifa|desglose|condiciones de entrega|suministros oficina|n. factura|cliente|agente|telefono|EAN Caja/i;
+  function continuacion(i){
+    let extra = '';
+    let j = i+1;
+    while(j<lineas.length && lineas[j].trim()!=='' && lineas[j].length<40 && !RE_CON_DESC.test(lineas[j]) && !RE_SIN_DESC.test(lineas[j]) && !RE_DTO_SOLO.test(lineas[j]) && !RE_NO_CONTINUACION.test(lineas[j])){
+      extra += (extra?' ':'') + lineas[j].trim();
+      j++;
+    }
+    return extra;
+  }
+  lineas.forEach((l,i)=>{
+    let m = l.match(RE_CON_DESC);
+    if(m){
+      const [,ean,codigo,desc,,unidades,,,,netou,totalNeto] = m;
+      const descFull = (desc.trim() + ' ' + continuacion(i)).trim();
+      filas.push(fila_({codigo, ean, descripcion:descFull, cantidad:parseInt(unidades,10), precioUnitario:parseDecComa(netou), importe:parseDecComa(totalNeto)}));
+      return;
+    }
+    m = l.match(RE_SIN_DESC);
+    if(m){
+      const [,ean,codigo,,unidades,,,,netou,totalNeto] = m;
+      const descFull = continuacion(i).trim();
+      filas.push(fila_({codigo, ean, descripcion:descFull, cantidad:parseInt(unidades,10), precioUnitario:parseDecComa(netou), importe:parseDecComa(totalNeto)}));
+    }
+  });
+  return filas;
+}
+
+// MICHEL: "CODIGO DESCRIPCION CANTIDAD PRECIO DTO% IMPORTE" con precios en formato punto-decimal.
+function parseMichel(lineas){
+  const filas = [];
+  const RE = /^(\d{8})\s+(.+?)\s+(\d+)\s+(\d+\.\d{4})\s+(\d+)[A-Z]?\s+(\d+\.\d{2})$/;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const [,codigo,desc,cant,precio,dto,importe] = m;
+    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:parseInt(cant,10), precioUnitario:parseDecPunto(precio), dto1:parseInt(dto,10), importe:parseDecPunto(importe)}));
+  });
+  return filas;
+}
+
+// ESSELTE/ACCO: "REFERENCIA DESCRIPCION CANTIDAD PRECIO IMPORTE DESCUENTOS IMP.NETO IVA/RE"
+// El descuento puede ser "NETO" (0%) o hasta 3 porcentajes en cascada antes del importe neto final.
+function parseEsselte(lineas){
+  const filas = [];
+  const RE = /^(\S+)\s+(.+?)\s+(\d+)\s+(\d+,\d{3})\s+(\d+(?:\.\d{3})*,\d{2})\s+(?:NETO\s+|(?:\d+,\d\s+){1,3})(\d+(?:\.\d{3})*,\d{2})$/;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const [,codigo,desc,cant,precio,,impNeto] = m;
+    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:parseInt(cant,10), precioUnitario:parseDecComa(precio), importe:parseDecComa(impNeto)}));
+  });
+  return filas;
+}
+
+// FABRISA (Fabri-Papel): "Cód.Prod. Descripción Cantidad Prec.Tarifa Dto% Prec.Neto Imp.Total"
+function parseFabrisa(lineas){
+  const filas = [];
+  const RE = /^(\d{6,9})\s+(.+?)\s+(\d+)\s+(\d+,\d{3})\s+(\d+,\d{2})\s+(\d+,\d{3})\s+(\d+(?:\.\d{3})*,\d{2})$/;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const [,codigo,desc,cant,precioTarifa,dto,,importe] = m;
+    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:parseInt(cant,10), precioUnitario:parseDecComa(precioTarifa), dto1:parseDecComa(dto), importe:parseDecComa(importe)}));
+  });
+  return filas;
+}
+
+// FELLOWES IBERICA: "Código Descripción Cantidad Precio Unitario Importe Neto Total" (formato punto-decimal)
+function parseFellowes(lineas){
+  const filas = [];
+  const RE = /^(\d{4,8})\s+(.+?)\s+(\d+)\s+(\d+\.\d{2})\s+(\d+\.\d{2})\s+(\d+(?:,\d{3})*\.\d{2})$/;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const [,codigo,desc,cant,precio,,total] = m;
+    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:parseInt(cant,10), precioUnitario:parseDecPunto(precio), importe:parseDecPunto(total)}));
+  });
+  return filas;
+}
+
+// GRAFOPLAS DEL NOROESTE: "MODELO DESCRIPCIÓN CANTIDAD PRECIO IMPORTE DTO. TOTAL IVA" (IVA siempre en blanco, solo "%")
+function parseGrafoplas(lineas){
+  const filas = [];
+  const RE = /^(\d{7,8})\s+(.+?)\s+(\d{1,3}(?:\.\d{3})*)\s+(\d+,\d{4})\s+(\d+(?:\.\d{3})*,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})\s+%$/;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const [,codigo,desc,cant,precio,importe] = m;
+    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:parseInt(cant.replace(/\./g,''),10), precioUnitario:parseDecComa(precio), importe:parseDecComa(importe)}));
+  });
+  return filas;
+}
+
+// JOVI: formato muy irregular (precio/dto/importe pueden aparecer en distinto orden según cómo
+// envuelva la descripción). Se ancla por el descuento compuesto "XX+X,XX[+X]" (siempre con "+")
+// y se deriva la cantidad matemáticamente: cantidad = importe / (precio × factor_descuento).
+function parseJovi(lineas){
+  const RE_NOISE = /SUMINISTROS DE OFICINA|Factura N|^Fecha$|Su pedido N\.|C.digo Cliente|C.digo Representante|Alb.r.n N|Agencia Transporte|F\. Expedici.n|PAGE BREAK|C\.I\.F\. A - 08828113|REFERENCIA CONCEPTO|^FFF|BULEVAR CHAJOFE|ESPA.A$/;
+  const limpias = lineas.filter(l => l.trim()!=='' && !RE_NOISE.test(l));
+  const filas = [];
+  let buffer = [];
+  limpias.forEach(l=>{
+    if(/^1,00$/.test(l.trim())){
+      let ean = '';
+      const idxEan = buffer.findIndex(x=>/EAN:\s*(\d+)/.test(x));
+      if(idxEan>=0){ ean = buffer[idxEan].match(/EAN:\s*(\d+)/)[1]; buffer.splice(idxEan,1); }
+      const blob = buffer.join(' ').replace(/\s+/g,' ').trim();
+      const m = blob.match(/^(\S+)\s+(.*)$/);
+      if(m){
+        const codigo = m[1];
+        let resto = m[2];
+        let precio, dtoStr, importe, descripcion;
+        let mNum = resto.match(/(\d+,\d+|0)\s+(\d+(?:,\d+)?(?:\+\d+(?:,\d+)?){1,3})\s+(\d+(?:\.\d{3})*,\d{2})/);
+        if(mNum){
+          precio = parseDecComa(mNum[1]); dtoStr = mNum[2]; importe = parseDecComa(mNum[3]);
+          descripcion = resto.replace(mNum[0], '').replace(/\s+/g,' ').trim();
+        } else {
+          const mDto = resto.match(/\d+(?:,\d+)?(?:\+\d+(?:,\d+)?){1,3}/);
+          if(mDto){
+            dtoStr = mDto[0];
+            const sinDto = resto.slice(0,mDto.index) + ' ' + resto.slice(mDto.index+mDto[0].length);
+            const mPar = sinDto.match(/(\d+,\d+)\s+(\d+(?:\.\d{3})*,\d{2})/);
+            if(mPar){
+              precio = parseDecComa(mPar[1]); importe = parseDecComa(mPar[2]);
+              descripcion = sinDto.replace(mPar[0], '').replace(/\s+/g,' ').trim();
+            }
+          }
+        }
+        if(precio!==undefined && importe!==undefined){
+          const factor = dtoStr.split('+').reduce((f,p)=>f*(1-parseDecComa(p)/100), 1);
+          const cantidad = precio>0 ? Math.round(importe/(precio*factor)) : 0;
+          filas.push(fila_({codigo, ean, descripcion, cantidad, precioUnitario:precio, dto1:parseDecComa(dtoStr.split('+')[0]), importe}));
+        }
+      }
+      buffer = [];
+    } else {
+      buffer.push(l);
+    }
+  });
+  return filas;
+}
+
+// DICAPRODUCT: "Nº Albarán Código Descripción Cantidad Precio Total"; la descripción puede
+// envolver a la línea siguiente (donde vienen los números) o venir todo en una sola línea.
+function parseDicaproduct(lineas){
+  const filas = [];
+  const RE_COMPLETA = /^(\d+)\s+(\S+)\s+(.+?)\s+(\d+(?:\.\d{3})*,\d{2})\s+(\d+,\d{3})\s+(\d+(?:\.\d{3})*,\d{2})$/;
+  const RE_HEADER = /^(\d+)\s+(\S+)\s+(.+)$/;
+  const RE_CONT = /^(.*?)\s+(\d+(?:\.\d{3})*,\d{2})\s+(\d+,\d{3})\s+(\d+(?:\.\d{3})*,\d{2})$/;
+  for(let i=0;i<lineas.length;i++){
+    const l = lineas[i];
+    let m = l.match(RE_COMPLETA);
+    if(m){
+      const [,,codigo,desc,cant,precio,total] = m;
+      filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:Math.round(parseDecComa(cant)), precioUnitario:parseDecComa(precio), importe:parseDecComa(total)}));
+      continue;
+    }
+    m = l.match(RE_HEADER);
+    if(m && i+1<lineas.length){
+      const mc = lineas[i+1].match(RE_CONT);
+      if(mc){
+        const [,,codigo,desc1] = m;
+        const [,desc2,cant,precio,total] = mc;
+        const desc = (desc1.trim() + ' ' + desc2.trim()).trim();
+        filas.push(fila_({codigo, descripcion:desc, cantidad:Math.round(parseDecComa(cant)), precioUnitario:parseDecComa(precio), importe:parseDecComa(total)}));
+        i++;
+      }
+    }
+  }
+  return filas;
+}
+
+// SADIPAL (Arconvert): "Codigo Descripción Cantidad Precio Dto% Import I.V.A."
+// Alguna línea trae la descripción en la línea ANTERIOR en vez de en la misma.
+function parseSadipal(lineas){
+  const filas = [];
+  const RE_CON_DESC = /^(\S+)\s+(.+?)\s+(\d+)\s+(\d+,\d{2,3})\s+(\d+)\s+(\d+(?:\.\d{3})*,\d{2})\s+\d+$/;
+  const RE_SIN_DESC = /^(\S+)\s+(\d+)\s+(\d+,\d{2,3})\s+(\d+)\s+(\d+(?:\.\d{3})*,\d{2})\s+\d+$/;
+  lineas.forEach((l,i)=>{
+    let m = l.match(RE_CON_DESC);
+    if(m){
+      const [,codigo,desc,cant,precio,dto,importe] = m;
+      filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:parseInt(cant,10), precioUnitario:parseDecComa(precio), dto1:parseInt(dto,10), importe:parseDecComa(importe)}));
+      return;
+    }
+    m = l.match(RE_SIN_DESC);
+    if(m){
+      const [,codigo,cant,precio,dto,importe] = m;
+      const desc = (i>0 && !RE_CON_DESC.test(lineas[i-1]) && !RE_SIN_DESC.test(lineas[i-1])) ? lineas[i-1].trim() : '';
+      filas.push(fila_({codigo, descripcion:desc, cantidad:parseInt(cant,10), precioUnitario:parseDecComa(precio), dto1:parseInt(dto,10), importe:parseDecComa(importe)}));
+    }
+  });
+  return filas;
+}
+
+// UNI MITSUBISHI (Uni-ball / POSCA): "Cliente Art. Artículo Descripción Unidades Precio Dto Dto Dto Imp.Neto"
+// formato punto-decimal; el descuento es opcional (puede faltar del todo).
+function parseUniMitsubishi(lineas){
+  const filas = [];
+  const RE = /^(\d{6,9})\s+(.+?)\s+(\d+)\s+(\d+\.\d{2})\s+(?:(\d+\.\d{2})\s+)?(\d+(?:,\d{3})*\.\d{2})$/;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const [,codigo,desc,cant,precio,dto,importe] = m;
+    const descLimpia = desc.replace(/\bFACTURA\b/g,'').replace(/\s+/g,' ').trim();
+    filas.push(fila_({codigo, descripcion:descLimpia, cantidad:parseInt(cant,10), precioUnitario:parseFloat(precio), dto1: dto?parseFloat(dto):0, importe:parseDecPunto(importe)}));
+  });
+  return filas;
+}
+
+// UTANPLAS (Grupo Archivo 2000): "REFERENCIA DESCRIPCION CANTIDAD PRECIO IMPORTE NETO"
+// cantidad en formato "X,000"; a veces trae un 4º número repitiendo el importe (Imp.Neto).
+function parseUtanplas(lineas){
+  const filas = [];
+  const RE = /^(\S+)\s+(.+?)\s+(\d+,\d{3})\s+(\d+,\d{2,4})\s+(\d+(?:\.\d{3})*,\d{2})(?:\s+\d+(?:\.\d{3})*,\d{2})?$/;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const [,codigo,desc,cant,precio,importe] = m;
+    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:Math.round(parseDecComa(cant)), precioUnitario:parseDecComa(precio), importe:parseDecComa(importe)}));
+  });
+  return filas;
+}
+
+// PERFOTEC: "CODIGO DENOMINACION CANTIDAD PRECIO DTO DTO IGIC IMPORTE".
+// PDF con bastante ruido/OCR: cantidad, precio, descuentos e importe a veces se reparten en
+// líneas distintas (a veces la continuación va DESPUÉS, a veces ANTES de la cabecera del artículo).
+function parsePerfotec(lineas){
+  const filas = [];
+  const RE_COMPLETA = /^(\S+)\s+(.+?)\s+(\d+,\d{2})\s+(\d+,\d{3})\s+(\d+,\d{2})(?:\s+(\d+,\d{2}))?\s+(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})$/;
+  const RE_HEADER_PARCIAL = /^(\S+)\s+(.+?)\s+(\d+,\d{2})\s+(\d+,\d{3})\s+(\d+,\d{2})$/;
+  const RE_COLA = /^(?:(\d+,\d{2})\s+)?(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})$/;
+  const RE_HEADER_SOLO = /^(\S+)\s+(.+?)\s+(\d+,\d{2})$/;
+  const RE_NUM_COMPLETOS = /^(\d+,\d{3})\s+(\d+,\d{2})(?:\s+(\d+,\d{2}))?\s+(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})$/;
+  const RE_NUM_TODO = /^(\d+,\d{2})\s+(\d+,\d{3})\s+(\d+,\d{2})(?:\s+(\d+,\d{2}))?\s+(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})$/;
+  const RE_HEADER_PURO = /^(\S+)\s+([^\d]+)$/;
+  const usados = new Set();
+  const push = (codigo,desc,cant,precio,dto1,dto2,importe) => {
+    if(parseDecComa(importe)===0 && parseDecComa(precio)===0) return;
+    filas.push(fila_({codigo, descripcion:desc.replace(/^\*/,'').trim(), cantidad:Math.round(parseDecComa(cant)), precioUnitario:parseDecComa(precio), dto1:parseDecComa(dto1), dto2: dto2?parseDecComa(dto2):0, importe:parseDecComa(importe)}));
+  };
+  for(let i=0;i<lineas.length;i++){
+    if(usados.has(i)) continue;
+    const l = lineas[i];
+    let m = l.match(RE_COMPLETA);
+    if(m){ push(m[1],m[2],m[3],m[4],m[5],m[6],m[8]); continue; }
+
+    m = l.match(RE_HEADER_PARCIAL);
+    if(m){
+      let hecho = false;
+      for(const j of [i+1, i-1]){
+        if(j<0 || j>=lineas.length || usados.has(j)) continue;
+        const mc = lineas[j].match(RE_COLA);
+        if(mc){ push(m[1],m[2],m[3],m[4],m[5],mc[1],mc[3]); usados.add(j); hecho=true; break; }
+      }
+      if(hecho) continue;
+    }
+
+    m = l.match(RE_HEADER_PURO);
+    if(m){
+      let hecho = false;
+      for(const j of [i+1, i-1]){
+        if(j<0 || j>=lineas.length || usados.has(j)) continue;
+        const mn = lineas[j].match(RE_NUM_TODO);
+        if(mn){ push(m[1],m[2],mn[1],mn[2],mn[3],mn[4],mn[6]); usados.add(j); hecho=true; break; }
+      }
+      if(hecho) continue;
+    }
+
+    m = l.match(RE_HEADER_SOLO);
+    if(m){
+      for(const j of [i+1, i-1]){
+        if(j<0 || j>=lineas.length || usados.has(j)) continue;
+        const mn = lineas[j].match(RE_NUM_COMPLETOS);
+        if(mn){ push(m[1],m[2],m[3],mn[1],mn[2],mn[3],mn[5]); usados.add(j); break; }
+      }
+    }
+  }
+  return filas;
+}
+
+// ACRILICOS (ACRYLICOS) VALLEJO: el PDF usa una fuente subconjunto cuyo mapeo de caracteres
+// está desplazado +29 en el código Unicode respecto al texto real (letras, dígitos y signos
+// incluidos). Hay que "descifrar" cada línea antes de poder aplicar ningún patrón normal.
+function desplazarTexto(s, n){
+  return String(s).split('').map(c => String.fromCodePoint(c.codePointAt(0)+n)).join('');
+}
+function parseAcrilicosVallejo(lineasCrudas){
+  const lineas = lineasCrudas.map(l => desplazarTexto(l, 29));
+  const filas = [];
+  const RE = /^\d+=(\S+)=(.+?)=(\d+)=([\d,]+)=(-?\d+)%=(?:(-?\d+)=%=)?([\d.]+,\d{2})$/;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const [,codigo,desc,cant,precio,dto1,dto2,importe] = m;
+    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:parseInt(cant,10), precioUnitario:parseDecComa(precio), dto1:Math.abs(parseDecComa(dto1)), dto2: dto2?Math.abs(parseDecComa(dto2)):0, importe:parseDecComa(importe)}));
+  });
+  return filas;
+}
+
 // ═══════════════════════════════════════════════════════
 // PERFILES DE PROVEEDOR: detección automática + parser propio.
 // Para añadir un proveedor nuevo: aportar una factura de muestra y
@@ -714,6 +1037,59 @@ function totalSiguienteLinea(texto, keyword){
   }
   return null;
 }
+// Versión en formato punto-decimal (miles con coma, decimales con punto) de totalSiguienteLinea.
+function totalSiguienteLineaPunto(texto, keyword){
+  const idx = texto.search(new RegExp(keyword, 'i'));
+  if(idx<0) return null;
+  const lineas = texto.slice(idx).split('\n');
+  for(let i=1;i<lineas.length;i++){
+    const nums = [...lineas[i].matchAll(/\d{1,3}(?:,\d{3})*\.\d{2}/g)].map(m=>m[0]);
+    if(nums.length) return parseDecPunto(nums[nums.length-1]);
+    if(lineas[i].trim()) break;
+  }
+  return null;
+}
+// El valor aparece en la línea ANTERIOR a la palabra clave (en vez de en la siguiente),
+// por cómo ordena pdf.js algunas cajas de texto superpuestas en ciertas plantillas.
+function totalLineaAnterior(texto, keyword){
+  const idx = texto.search(new RegExp(keyword, 'i'));
+  if(idx<0) return null;
+  const antes = texto.slice(0, idx).split('\n');
+  for(let i=antes.length-1;i>=0;i--){
+    const nums = [...antes[i].matchAll(/\d{1,3}(?:\.\d{3})*,\d{2}/g)].map(m=>m[0]);
+    if(nums.length) return parseDecComa(nums[nums.length-1]);
+    if(antes[i].trim()) break;
+  }
+  return null;
+}
+// Como totalRepetidoComa pero probando TODAS las apariciones de la palabra clave (algunos PDF
+// multipágina repiten la cabecera de totales en cada página, pero solo la última trae valores).
+function totalRepetidoComaTodas(texto, keyword){
+  const re = new RegExp(keyword, 'gi');
+  let m; let resultado = null;
+  while((m = re.exec(texto))){
+    const resto = texto.slice(m.index, m.index+400);
+    const mm = resto.match(/(\d{1,3}(?:\.\d{3})*,\d{2})\s+\1\b/);
+    if(mm) resultado = parseDecComa(mm[1]);
+  }
+  return resultado;
+}
+// Base Imponible del formato nuevo de ACRILICOS VALLEJO (previo descifrado +29): tras
+// "Suma importes", la línea de valores empieza con "IMPORTE EUR" (el propio subtotal).
+function totalAcrilicosVallejo(textoCrudo){
+  // Ojo: desplazar el bloque completo movería también los '\n' (10+29=39=comilla),
+  // destruyendo los saltos de línea. Hay que desplazar línea a línea y volver a unir.
+  const texto = textoCrudo.split('\n').map(l => desplazarTexto(l, 29)).join('\n');
+  const idx = texto.search(/Suma importes/i);
+  if(idx<0) return null;
+  const lineas = texto.slice(idx).split('\n');
+  for(let i=1;i<lineas.length;i++){
+    const m = lineas[i].match(/([\d.]+,\d{2})\s*EUR/);
+    if(m) return parseDecComa(m[1]);
+    if(lineas[i].trim()) break;
+  }
+  return null;
+}
 
 const PERFILES_PROVEEDOR = [
   { id:'apli', nombre:'APLI PAPER S.A.U.', detectar: t => /APLI\s+PAPER|ESA60914108/i.test(t), parser: parseApli,
@@ -743,7 +1119,35 @@ const PERFILES_PROVEEDOR = [
   { id:'mandatelo', nombre:'INTEGRAL INFORMATICA IMPORT (Mandatelo)', detectar: t => /INTEGRAL INFORMATICA|MANDATELO|B-?76539642/i.test(t), parser: parseMandatelo,
     total: t => totalRepetidoComa(t, 'SUBTOTAL') },
   { id:'muchocartucho', nombre:'MUCHO CARTUCHO (ATRAMENTUM S.L.)', detectar: t => /Atramentum\s+S\.?L\.?|ESB54685573/i.test(t), parser: parseMuchoCartucho,
-    total: t => totalSiguienteLinea(t, 'Total\\s+factura') }
+    total: t => totalSiguienteLinea(t, 'Total\\s+factura') },
+  { id:'pardo', nombre:'PARDO', detectar: t => /CIF:\s*B75062927/i.test(t), parser: parsePardo,
+    total: t => totalRepetidoComa(t, 'BASE IMP') },
+  { id:'pilot', nombre:'COMERCIAL ARGE (PILOT)', detectar: t => /Comercial\s+Arge|A-?28623379/i.test(t), parser: parsePilot,
+    total: t => totalLineaAnterior(t, 'Total Factura') },
+  { id:'michel', nombre:'MICHEL', detectar: t => /SUMA Y SIGUE/i.test(t), parser: parseMichel,
+    total: t => { const ms = [...t.matchAll(/(\d+\.\d{2})\s+\1\b/g)]; return ms.length ? parseDecPunto(ms[ms.length-1][1]) : null; } },
+  { id:'esselte', nombre:'ESSELTE (ACCO BRANDS)', detectar: t => /Pedidos\.Spain@acco\.com|BOFAES2X/i.test(t), parser: parseEsselte,
+    total: t => totalRepetidoComaTodas(t, 'SUMA IMPORTE') },
+  { id:'fabrisa', nombre:'FABRI-PAPEL, S.L.U.', detectar: t => /FABRI-PAPEL|B-?34239392/i.test(t), parser: parseFabrisa,
+    total: t => totalSimple(t, /Subtotal:\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
+  { id:'fellowes', nombre:'FELLOWES IBERICA S.L.', detectar: t => /Fellowes\s+Iberica|B84265172/i.test(t), parser: parseFellowes,
+    total: t => totalSiguienteLineaPunto(t, 'Total Factura') },
+  { id:'grafoplas', nombre:'GRAFOPLÁS DEL NOROESTE, S.A.', detectar: t => /Grafopl.s\s+del\s+Noroeste|A15027139/i.test(t), parser: parseGrafoplas,
+    total: t => totalRepetidoComaTodas(t, 'TOTAL FACTURA') },
+  { id:'jovi', nombre:'JOVI', detectar: t => /C\.I\.F\.\s*A\s*-?\s*08828113/i.test(t), parser: lineas => parseJovi(lineas),
+    total: t => totalRepetidoComa(t, 'TOTAL FACTURA') },
+  { id:'dicaproduct', nombre:'DICAPRODUCT, S.L.', detectar: t => /DICAPRODUCT|B-?73204166/i.test(t), parser: parseDicaproduct,
+    total: t => totalSimple(t, /Total neto\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
+  { id:'sadipal', nombre:'ARCONVERT / SADIPAL', detectar: t => /SADIPAL|ARCONVERT|ESA\s*17001801/i.test(t), parser: parseSadipal,
+    total: t => totalSimple(t, /\bImporte\s+(\d+(?:\.\d{3})*,\d{2})\b/) },
+  { id:'unimitsubishi', nombre:'UNI-BALL / MITSUBISHI (POSCA)', detectar: t => /MPESA\d+/i.test(t), parser: parseUniMitsubishi,
+    total: t => totalRepetidoPunto(t, 'Imp.Bruto') },
+  { id:'utanplas', nombre:'UTANPLAS, S.L.U. (Archivo 2000)', detectar: t => /UTANPLAS|B-?19467562/i.test(t), parser: parseUtanplas,
+    total: t => totalRepetidoComa(t, 'BASE IMPONIBLE') },
+  { id:'perfotec', nombre:'PERFOTEC, S.L.', detectar: t => /PERFOTEC/i.test(t), parser: parsePerfotec,
+    total: t => totalSimple(t, /B\. IMPONIBLE[\s\S]{0,30}?(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
+  { id:'acrilicosvallejo', nombre:'ACRÍLICOS VALLEJO, S.L.U.', detectar: t => /ACRYLICOS VALLEJO|ESB60562956/i.test(desplazarTexto(t, 29)), parser: parseAcrilicosVallejo,
+    total: t => totalAcrilicosVallejo(t) }
 ];
 
 function detectarProveedor(lineas){
