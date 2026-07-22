@@ -197,6 +197,9 @@ tr.flag td{background:#FFF1EC;}
 .mini-btn{background:var(--verde-pale);border:1px solid var(--borde);border-radius:6px;padding:6px 10px;
   font-size:.75rem;color:var(--verde);cursor:pointer;}
 .mini-btn:hover{background:var(--verde);color:#fff;}
+.mini-btn-danger{background:#FDECEA;border:1px solid #F5B7B1;border-radius:6px;padding:6px 10px;
+  font-size:.75rem;color:var(--rojo);cursor:pointer;}
+.mini-btn-danger:hover{background:var(--rojo);color:#fff;}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222;color:#fff;
   padding:10px 16px;border-radius:8px;font-size:.8rem;z-index:9998;box-shadow:0 4px 20px rgba(0,0,0,.3);
   opacity:0;transition:opacity .25s;pointer-events:none;}
@@ -346,9 +349,30 @@ tr.flag td{background:#FFF1EC;}
     <h2>Personas y PIN de fichaje</h2>
     <p class="sub" style="font-size:.78rem;color:var(--texto2);margin-bottom:10px;">
       La plantilla (36 personas) se lee en directo de Vacaciones y Turnos — aquí solo se gestiona su PIN de
-      fichaje. Luis, Rober y David solo existen en esta app.</p>
+      fichaje. Luis, Rober y David solo existen en esta app. Dentro de un mismo departamento cada persona
+      puede tener su propio horario (botón "Horario") — si no se configura ninguno, se usa el horario general
+      del departamento (pestaña Exportar).</p>
     <table><thead><tr><th>Nombre</th><th>Unidad</th><th>PIN</th><th>Activo</th><th></th></tr></thead>
       <tbody id="personasBody"></tbody></table>
+
+    <div id="personScheduleEditor" class="hidden" style="margin-top:18px;border-top:1px solid var(--borde);padding-top:16px;">
+      <h3 style="font-size:.85rem;color:var(--verde);margin-bottom:6px;">🕘 Horario individual de <span id="pschedName"></span></h3>
+      <div id="pschedSource" class="info-box"></div>
+      <div class="filters-row">
+        <div class="field"><label>Mañana desde</label><input type="time" id="pschedMorningStart"></div>
+        <div class="field"><label>Mañana hasta</label><input type="time" id="pschedMorningEnd"></div>
+        <div class="field"><label>Tarde desde (opcional)</label><input type="time" id="pschedAfternoonStart"></div>
+        <div class="field"><label>Tarde hasta (opcional)</label><input type="time" id="pschedAfternoonEnd"></div>
+      </div>
+      <div class="filters-row">
+        <div class="field"><label>Sábado desde (vacío = cerrado)</label><input type="time" id="pschedSatStart"></div>
+        <div class="field"><label>Sábado hasta</label><input type="time" id="pschedSatEnd"></div>
+        <div class="check-row"><input type="checkbox" id="pschedSunday"><label for="pschedSunday">Abre domingos</label></div>
+      </div>
+      <button class="mini-btn" id="btnSavePersonSchedule">Guardar horario individual</button>
+      <button class="mini-btn-danger" id="btnClearPersonSchedule" style="margin-left:6px;">Quitar excepción (usar el del departamento)</button>
+      <span id="pschedSaved" style="font-size:.75rem;color:var(--texto2);margin-left:8px;"></span>
+    </div>
   </div>
 
   <div class="panel hidden" id="tab-historico">
@@ -400,12 +424,14 @@ tr.flag td{background:#FFF1EC;}
 
     <details style="margin-bottom:16px;">
       <summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:var(--verde);">
-        ⚙️ Horario comercial por departamento (y festivos)</summary>
-      <p class="info-box" style="margin-top:10px;">Cualquier fichaje fuera del horario del departamento de esa
-        persona (o en un festivo marcado como cerrado/con horario especial) se señala como "fuera de horario"
-        en la vista previa, el impreso/PDF, el WhatsApp y en 🔔 Alertas. Los departamentos sin horario
-        configurado todavía <strong>no</strong> se marcan (para no dar falsos avisos) hasta que lo rellenes
-        aquí.</p>
+        ⚙️ Horario general por departamento (y festivos)</summary>
+      <p class="info-box" style="margin-top:10px;">Este es el horario <strong>por defecto</strong> de cada
+        departamento — se usa para cualquier persona de ese departamento que no tenga su propio horario
+        individual configurado (pestaña 👤 Personas → botón "Horario"), que manda siempre que exista. Cualquier
+        fichaje fuera del horario que le corresponda a esa persona (o en un festivo marcado como cerrado/con
+        horario especial) se señala como "fuera de horario" en la vista previa, el impreso/PDF, el WhatsApp y
+        en 🔔 Alertas. Sin horario de departamento ni individual, esa persona <strong>no</strong> se marca
+        nunca (para no dar falsos avisos).</p>
 
       <div class="filters-row">
         <div class="field"><label>Departamento</label><select id="bhUnit"></select></div>
@@ -736,6 +762,58 @@ function weekdayFromDateKey(dateKey){ // 1=lunes … 7=domingo (ISO), calculado 
   return js===0 ? 7 : js;
 }
 function inWindow(t, start, end){ return start && end ? (t>=start && t<=end) : false; }
+
+/* ── Horario individual por persona ──
+   Dentro de un mismo departamento cada persona puede tener un turno distinto (ej. Almacén: José turno
+   corrido 9-17, Miguel turno corrido 9-18; Pedidos: Iván turno corrido 9-18, Miguel turno partido
+   9-14:30/16-18) — así que el horario del departamento es solo el valor por defecto cuando la persona no
+   tiene uno propio. Se guarda en el mismo documento de ofipapel_fichaje_config de cada persona (junto al
+   PIN), no en un JSON aparte, porque ya es un dato por persona igual que el PIN. */
+const DEFAULT_PERSON_SCHEDULES = {
+  e35: mkSchedule('09:00','17:00','','','',''),           // García Vargas, José Manuel (Almacén): turno corrido 9-17
+  e34: mkSchedule('09:00','18:00','','','',''),           // Hernández Páez, Miguel (Almacén): turno corrido 9-18
+  e32: mkSchedule('09:00','18:00','','','',''),           // Cabrera Darias, Tomás Iván (Pedidos): turno corrido 9-18
+  e33: mkSchedule('09:00','14:30','16:00','18:00','',''), // García Vázquez, Miguel Ángel (Pedidos): turno partido
+};
+let PERSON_CONFIG = {}; // caché: personId -> doc de ofipapel_fichaje_config (o null si no existe todavía)
+async function ensurePeopleConfigsCached(personIds, token){
+  for(const id of personIds){
+    if(!(id in PERSON_CONFIG)){
+      try{ PERSON_CONFIG[id] = await getPersonConfig(id, token); }
+      catch(err){ PERSON_CONFIG[id] = null; }
+    }
+  }
+}
+function personScheduleFromConfig(cfg){
+  if(!cfg || !cfg.morningStart) return null; // sin horario propio guardado en su ficha
+  return {
+    morningStart:cfg.morningStart, morningEnd:cfg.morningEnd||'',
+    afternoonStart:cfg.afternoonStart||'', afternoonEnd:cfg.afternoonEnd||'',
+    saturdayStart:cfg.saturdayStart||'', saturdayEnd:cfg.saturdayEnd||'',
+    sundayOpen: !!cfg.sundayOpen,
+  };
+}
+/* Prioridad: horario propio guardado > excepción conocida de fábrica > horario general del departamento > sin marcar. */
+function effectiveSchedule(personId){
+  const own = personScheduleFromConfig(PERSON_CONFIG[personId]);
+  if(own) return own;
+  if(DEFAULT_PERSON_SCHEDULES[personId]) return DEFAULT_PERSON_SCHEDULES[personId];
+  const person = personById(personId);
+  const unitId = person && person.unitId;
+  return (unitId && unitSchedules[unitId]) || null;
+}
+async function setPersonSchedule(personId, schedule, token){
+  const fields = {...schedule, updatedAt:new Date().toISOString(), updatedBy:adminDisplayName()};
+  const existing = await fsGetDoc('ofipapel_fichaje_config', personId, token);
+  if(existing) await fsPatchDoc('ofipapel_fichaje_config', personId, fields, token);
+  else await fsCreateDoc('ofipapel_fichaje_config', fields, token, personId);
+  PERSON_CONFIG[personId] = {...(existing||{}), ...fields};
+}
+async function clearPersonSchedule(personId, token){
+  const blank = mkSchedule('','','','','','');
+  await setPersonSchedule(personId, blank, token);
+}
+
 function isOutsideBusinessHours(e){
   const t = canaryTime(e.occurredAt);
   const holiday = holidaySchedules[e.dateKey];
@@ -743,9 +821,8 @@ function isOutsideBusinessHours(e){
     if(holiday.closed) return true;
     return !(inWindow(t, holiday.morningStart, holiday.morningEnd) || inWindow(t, holiday.afternoonStart, holiday.afternoonEnd));
   }
-  const person = personById(e.personId);
-  const schedule = person && unitSchedules[person.unitId];
-  if(!schedule) return false; // departamento sin horario configurado: no se marca (evita falsos positivos)
+  const schedule = effectiveSchedule(e.personId);
+  if(!schedule) return false; // sin horario propio, ni conocido, ni de departamento: no se marca (evita falsos positivos)
   const wd = weekdayFromDateKey(e.dateKey);
   if(wd===7){
     if(!schedule.sundayOpen) return true;
@@ -1133,6 +1210,7 @@ async function renderTabAlertas(){
 
   const since = new Date(Date.now() - days*86400000);
   const sinceKey = canaryDateKey(since);
+  await ensurePeopleConfigsCached(PEOPLE.map(p=>p.id), adminToken);
   let flagged = [];
   for(const p of PEOPLE){
     const events = await eventsForPerson(p.id, adminToken);
@@ -1197,6 +1275,7 @@ async function renderTabPersonas(){
   const rows = [];
   for(const p of PEOPLE){
     const cfg = await getPersonConfig(p.id, adminToken);
+    PERSON_CONFIG[p.id] = cfg; // aprovecha esta misma consulta para la caché de horarios
     const hasPin = !!(cfg && cfg.pinHash);
     const active = !cfg || cfg.active!==false;
     rows.push(`<tr>
@@ -1207,6 +1286,7 @@ async function renderTabPersonas(){
       <td>
         <button class="mini-btn" data-act="pin" data-id="${p.id}">${hasPin?'Resetear PIN':'Asignar PIN'}</button>
         <button class="mini-btn" data-act="toggle" data-id="${p.id}" data-active="${active}">${active?'Desactivar':'Activar'}</button>
+        <button class="mini-btn" data-act="horario" data-id="${p.id}">Horario</button>
       </td>
     </tr>`);
   }
@@ -1229,7 +1309,67 @@ async function renderTabPersonas(){
       renderTabPersonas();
     };
   });
+  body.querySelectorAll('button[data-act="horario"]').forEach(btn=>{
+    btn.onclick = ()=> openPersonScheduleEditor(btn.dataset.id);
+  });
 }
+
+let editingScheduleFor = null;
+function openPersonScheduleEditor(personId){
+  editingScheduleFor = personId;
+  const person = personById(personId);
+  document.getElementById('personScheduleEditor').classList.remove('hidden');
+  document.getElementById('pschedName').textContent = person.name;
+
+  const own = personScheduleFromConfig(PERSON_CONFIG[personId]);
+  const known = DEFAULT_PERSON_SCHEDULES[personId];
+  const deptSchedule = person.unitId && unitSchedules[person.unitId];
+  const shown = own || known || deptSchedule || mkSchedule('','','','','','');
+  const sourceEl = document.getElementById('pschedSource');
+  if(own) sourceEl.textContent = 'Tiene un horario individual guardado.';
+  else if(known) sourceEl.textContent = 'Mostrando una excepción ya conocida (todavía no guardada como suya) — pulsa Guardar para fijarla.';
+  else if(deptSchedule) sourceEl.textContent = `Sin horario propio: se usa el horario general de ${UNIT_NAMES[person.unitId]||person.unitId}.`;
+  else sourceEl.textContent = 'Sin horario propio ni de departamento: sus fichajes no se marcan todavía.';
+
+  document.getElementById('pschedMorningStart').value = shown.morningStart||'';
+  document.getElementById('pschedMorningEnd').value = shown.morningEnd||'';
+  document.getElementById('pschedAfternoonStart').value = shown.afternoonStart||'';
+  document.getElementById('pschedAfternoonEnd').value = shown.afternoonEnd||'';
+  document.getElementById('pschedSatStart').value = shown.saturdayStart||'';
+  document.getElementById('pschedSatEnd').value = shown.saturdayEnd||'';
+  document.getElementById('pschedSunday').checked = !!shown.sundayOpen;
+}
+document.getElementById('btnSavePersonSchedule').onclick = async ()=>{
+  if(!editingScheduleFor) return;
+  const schedule = mkSchedule(
+    document.getElementById('pschedMorningStart').value,
+    document.getElementById('pschedMorningEnd').value,
+    document.getElementById('pschedAfternoonStart').value,
+    document.getElementById('pschedAfternoonEnd').value,
+    document.getElementById('pschedSatStart').value,
+    document.getElementById('pschedSatEnd').value,
+  );
+  schedule.sundayOpen = document.getElementById('pschedSunday').checked;
+  if(!schedule.morningStart || !schedule.morningEnd){
+    showToast('Indica al menos la franja de mañana (o el horario continuo) para poder guardar.');
+    return;
+  }
+  try{
+    await setPersonSchedule(editingScheduleFor, schedule, adminToken);
+    document.getElementById('pschedSaved').textContent = 'Guardado ✔';
+    setTimeout(()=>{ document.getElementById('pschedSaved').textContent=''; }, 2500);
+    openPersonScheduleEditor(editingScheduleFor);
+  }catch(err){ showToast('No se pudo guardar: '+err.message); }
+};
+document.getElementById('btnClearPersonSchedule').onclick = async ()=>{
+  if(!editingScheduleFor) return;
+  if(!confirm('¿Quitar el horario individual de '+personById(editingScheduleFor).name+' y volver a usar el del departamento?')) return;
+  try{
+    await clearPersonSchedule(editingScheduleFor, adminToken);
+    openPersonScheduleEditor(editingScheduleFor);
+    showToast('Horario individual eliminado.');
+  }catch(err){ showToast('No se pudo eliminar: '+err.message); }
+};
 
 function eventsInRange(events, from, to){
   return events.filter(e=>{
@@ -1289,6 +1429,7 @@ document.getElementById('btnExpPreview').onclick = async ()=>{
   const from = document.getElementById('expFrom').value;
   const to = document.getElementById('expTo').value;
   const onlyOutside = document.getElementById('expOnlyOutside').checked;
+  await ensurePeopleConfigsCached(personId ? [personId] : PEOPLE.map(p=>p.id), adminToken);
   let events = [];
   if(personId){
     events = eventsInRange(await eventsForPerson(personId, adminToken), from, to);
