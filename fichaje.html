@@ -184,6 +184,9 @@ tr.warn td{background:#FFF6E5;}
 .badge.no{background:#FDECEA;color:var(--rojo);}
 .filters-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;}
 .filters-row .field{margin-bottom:0;min-width:160px;}
+.check-row{display:flex;align-items:center;gap:6px;font-size:.8rem;}
+tr.flag td{background:#FFF1EC;}
+.badge.warn{background:#FFF1EC;color:#b6401f;}
 .mini-btn{background:var(--verde-pale);border:1px solid var(--borde);border-radius:6px;padding:6px 10px;
   font-size:.75rem;color:var(--verde);cursor:pointer;}
 .mini-btn:hover{background:var(--verde);color:#fff;}
@@ -356,10 +359,36 @@ tr.warn td{background:#FFF6E5;}
     <h2>Exportar / imprimir</h2>
     <div class="filters-row">
       <div class="field"><label>Persona</label><select id="expPerson"></select></div>
+      <div class="field"><label>Mes completo</label><input type="month" id="expMonth"></div>
       <div class="field"><label>Desde</label><input type="date" id="expFrom"></div>
       <div class="field"><label>Hasta</label><input type="date" id="expTo"></div>
       <button class="btn btn-primary" style="width:auto;" id="btnExpPreview">Vista previa</button>
     </div>
+    <div class="check-row" style="margin-bottom:14px;">
+      <input type="checkbox" id="expOnlyOutside">
+      <label for="expOnlyOutside">Mostrar solo fichajes fuera de horario comercial</label>
+    </div>
+
+    <details style="margin-bottom:16px;">
+      <summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:var(--verde);">
+        ⚙️ Horario comercial (para marcar fichajes fuera de horario)</summary>
+      <p class="info-box" style="margin-top:10px;">Cualquier fichaje antes de la apertura, después del cierre, o
+        en un día no marcado como laborable, se señala como "fuera de horario" en la vista previa, el
+        impreso/PDF y el WhatsApp — útil para detectar patrones repetitivos. Ajusta esto una vez al horario
+        real de Ofipapel.</p>
+      <div class="filters-row">
+        <div class="field"><label>Apertura</label><input type="time" id="bhOpen"></div>
+        <div class="field"><label>Cierre</label><input type="time" id="bhClose"></div>
+      </div>
+      <div class="field">
+        <label>Días laborables</label>
+        <div id="bhDays" style="display:flex;gap:10px;flex-wrap:wrap;font-size:.78rem;"></div>
+      </div>
+      <button class="mini-btn" id="btnSaveBusinessHours">Guardar horario</button>
+      <span id="bhSaved" style="font-size:.75rem;color:var(--texto2);margin-left:8px;"></span>
+    </details>
+
+    <div id="expSummary" style="font-size:.82rem;margin-bottom:10px;"></div>
     <div id="expPreviewBox"></div>
     <div id="expActions" class="hidden" style="margin-top:12px;display:flex;gap:8px;">
       <button class="btn btn-primary" style="width:auto;" id="btnExpPrint">🖨 Imprimir / Guardar PDF</button>
@@ -371,7 +400,7 @@ tr.warn td{background:#FFF6E5;}
 <div id="printArea">
   <h2 id="printTitle"></h2>
   <div class="meta" id="printMeta"></div>
-  <table><thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Motivo / corregido por</th></tr></thead>
+  <table><thead><tr id="printHead"><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Aviso</th><th>Motivo / corregido por</th></tr></thead>
     <tbody id="printBody"></tbody></table>
 </div>
 
@@ -600,6 +629,41 @@ async function verifyPin(personId, pin, token){
   if(cfg.active===false) return {ok:false, reason:'INACTIVO'};
   const hash = await sha256Hex(personId+':'+pin);
   return {ok: hash===cfg.pinHash, reason: hash===cfg.pinHash ? null : 'INCORRECTO'};
+}
+
+/* ═══════════════════ HORARIO COMERCIAL (para marcar fichajes fuera de horario) ═══════════════════
+   Se guarda como un documento más dentro de ofipapel_fichaje_config (id fijo _business_hours) en vez de
+   crear una colección nueva solo para esto — no hay conflicto de ids porque los empleados usan sus propios
+   ids de Vacaciones/gerencia, nunca "_business_hours". */
+const BUSINESS_HOURS_DOC = '_business_hours';
+let businessHours = {openTime:'08:00', closeTime:'20:30', workDays:new Set([1,2,3,4,5,6])};
+async function loadBusinessHours(token){
+  try{
+    const doc = await fsGetDoc('ofipapel_fichaje_config', BUSINESS_HOURS_DOC, token);
+    if(doc){
+      businessHours = {
+        openTime: doc.openTime || '08:00',
+        closeTime: doc.closeTime || '20:30',
+        workDays: new Set(String(doc.workDays||'1,2,3,4,5,6').split(',').filter(Boolean).map(Number)),
+      };
+    }
+  }catch(err){ console.error('No se pudo leer el horario comercial', err); }
+}
+async function saveBusinessHours(openTime, closeTime, workDaysSet, token){
+  const fields = {openTime, closeTime, workDays:[...workDaysSet].sort().join(',')};
+  const existing = await fsGetDoc('ofipapel_fichaje_config', BUSINESS_HOURS_DOC, token);
+  if(existing) await fsPatchDoc('ofipapel_fichaje_config', BUSINESS_HOURS_DOC, fields, token);
+  else await fsCreateDoc('ofipapel_fichaje_config', fields, token, BUSINESS_HOURS_DOC);
+  businessHours = {openTime, closeTime, workDays:workDaysSet};
+}
+function weekdayFromDateKey(dateKey){ // 1=lunes … 7=domingo (ISO), calculado sobre el propio dateKey (ya en hora de Canarias)
+  const js = new Date(dateKey+'T00:00:00Z').getUTCDay(); // 0=domingo … 6=sábado
+  return js===0 ? 7 : js;
+}
+function isOutsideBusinessHours(e){
+  if(!businessHours.workDays.has(weekdayFromDateKey(e.dateKey))) return true;
+  const t = canaryTime(e.occurredAt);
+  return t < businessHours.openTime || t > businessHours.closeTime;
 }
 
 /* ═══════════════════ EVENTOS DE FICHAJE (un documento por evento, inmutable) ═══════════════════ */
@@ -852,8 +916,39 @@ async function enterAdminApp(){
   document.getElementById('adminWhoAmI').textContent = adminDisplayName();
   await loadPeople(adminToken);
   fillPersonSelects();
+  await loadBusinessHours(adminToken);
+  populateBusinessHoursForm();
   await renderTabHoy();
 }
+const WEEKDAY_LABELS = [['1','L'],['2','M'],['3','X'],['4','J'],['5','V'],['6','S'],['7','D']];
+function populateBusinessHoursForm(){
+  document.getElementById('bhOpen').value = businessHours.openTime;
+  document.getElementById('bhClose').value = businessHours.closeTime;
+  document.getElementById('bhDays').innerHTML = WEEKDAY_LABELS.map(([num,label])=>`
+    <label style="display:flex;align-items:center;gap:3px;cursor:pointer;">
+      <input type="checkbox" data-day="${num}" ${businessHours.workDays.has(Number(num))?'checked':''}>${label}
+    </label>`).join('');
+}
+document.getElementById('btnSaveBusinessHours').onclick = async ()=>{
+  const openTime = document.getElementById('bhOpen').value || '08:00';
+  const closeTime = document.getElementById('bhClose').value || '20:30';
+  const days = new Set([...document.querySelectorAll('#bhDays input:checked')].map(i=>Number(i.dataset.day)));
+  try{
+    await saveBusinessHours(openTime, closeTime, days, adminToken);
+    document.getElementById('bhSaved').textContent = 'Guardado ✔';
+    setTimeout(()=>{ document.getElementById('bhSaved').textContent=''; }, 2500);
+  }catch(err){ showToast('No se pudo guardar el horario: '+err.message); }
+};
+document.getElementById('expMonth').addEventListener('change', e=>{
+  const val = e.target.value; // "YYYY-MM"
+  if(!val) return;
+  const [y,m] = val.split('-').map(Number);
+  const first = `${y}-${String(m).padStart(2,'0')}-01`;
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const last = `${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  document.getElementById('expFrom').value = first;
+  document.getElementById('expTo').value = last;
+});
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.onclick = ()=>{
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -986,6 +1081,7 @@ document.getElementById('btnExpPreview').onclick = async ()=>{
   const personId = document.getElementById('expPerson').value;
   const from = document.getElementById('expFrom').value;
   const to = document.getElementById('expTo').value;
+  const onlyOutside = document.getElementById('expOnlyOutside').checked;
   let events = [];
   if(personId){
     events = eventsInRange(await eventsForPerson(personId, adminToken), from, to);
@@ -996,27 +1092,38 @@ document.getElementById('btnExpPreview').onclick = async ()=>{
     }
     events = eventsInRange(events, from, to).sort((a,b)=>a.occurredAt.localeCompare(b.occurredAt));
   }
-  lastExport = {label: personId ? personById(personId).name : 'Toda la plantilla', from, to, events};
+  events = events.map(e=>({...e, _outside: isOutsideBusinessHours(e)}));
+  const totalOutside = events.filter(e=>e._outside).length;
+  if(onlyOutside) events = events.filter(e=>e._outside);
+
+  lastExport = {label: personId ? personById(personId).name : 'Toda la plantilla', from, to, events, totalOutside};
+  document.getElementById('expSummary').innerHTML = events.length
+    ? `${events.length} fichaje(s) en el periodo · <strong style="color:${totalOutside?'#b6401f':'inherit'}">${totalOutside} fuera de horario comercial</strong>`
+    : '';
   const box = document.getElementById('expPreviewBox');
-  const head = personId ? '<th>Fecha</th><th>Hora</th><th>Tipo</th><th>Origen</th>' : '<th>Persona</th><th>Fecha</th><th>Hora</th><th>Tipo</th>';
+  const head = personId ? '<th>Fecha</th><th>Hora</th><th>Tipo</th><th>Origen</th><th>Aviso</th>' : '<th>Persona</th><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Aviso</th>';
+  const avisoCell = e => e._outside ? '<span class="badge warn">⚠️ Fuera de horario</span>' : '';
   const rows = events.map(e=> personId
-    ? `<tr><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td><td>${e.correctionOf?'Corrección':'Fichaje'}</td></tr>`
-    : `<tr><td>${e._name}</td><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td></tr>`
+    ? `<tr class="${e._outside?'flag':''}"><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td><td>${e.correctionOf?'Corrección':'Fichaje'}</td><td>${avisoCell(e)}</td></tr>`
+    : `<tr class="${e._outside?'flag':''}"><td>${e._name}</td><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td><td>${avisoCell(e)}</td></tr>`
   ).join('');
-  box.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${rows||'<tr><td colspan="4">Sin fichajes en ese rango.</td></tr>'}</tbody></table>`;
+  box.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${rows||'<tr><td colspan="5">Sin fichajes en ese rango.</td></tr>'}</tbody></table>`;
   document.getElementById('expActions').classList.remove('hidden');
 };
 document.getElementById('btnExpPrint').onclick = ()=>{
   document.getElementById('printTitle').textContent = 'Fichaje — '+lastExport.label;
-  document.getElementById('printMeta').textContent = `Del ${lastExport.from||'inicio'} al ${lastExport.to||'hoy'} · generado ${new Date().toLocaleString('es-ES')}`;
+  document.getElementById('printMeta').textContent =
+    `Del ${lastExport.from||'inicio'} al ${lastExport.to||'hoy'} · ${lastExport.totalOutside||0} fichaje(s) fuera de horario comercial · generado ${new Date().toLocaleString('es-ES')}`;
   document.getElementById('printBody').innerHTML = lastExport.events.map(e=>`<tr>
     <td>${e.dateKey}</td><td>${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td>
+    <td>${e._outside ? '⚠️ Fuera de horario' : ''}</td>
     <td>${e.correctionReason ? `${e.correctionReason} (${e.correctedBy||'—'})` : '—'}</td></tr>`).join('');
   window.print();
 };
 document.getElementById('btnExpWhatsapp').onclick = ()=>{
-  const lines = [`*Fichaje — ${lastExport.label}*`, `Del ${lastExport.from||'inicio'} al ${lastExport.to||'hoy'}`, ''];
-  lastExport.events.forEach(e=> lines.push(`${e.dateKey} ${canaryTime(e.occurredAt)} — ${TYPE_LABEL[e.type]}`));
+  const lines = [`*Fichaje — ${lastExport.label}*`, `Del ${lastExport.from||'inicio'} al ${lastExport.to||'hoy'}`,
+    `${lastExport.totalOutside||0} fuera de horario comercial`, ''];
+  lastExport.events.forEach(e=> lines.push(`${e.dateKey} ${canaryTime(e.occurredAt)} — ${TYPE_LABEL[e.type]}${e._outside?' ⚠️':''}`));
   window.open('https://wa.me/?text='+encodeURIComponent(lines.join('\n')), '_blank');
 };
 
