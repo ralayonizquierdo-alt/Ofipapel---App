@@ -1303,6 +1303,82 @@ let cajaCierres = [];
 try{ const cc=JSON.parse(localStorage.getItem('op_cajacierres')||'null'); if(cc) cajaCierres=cc; }catch(e){}
 let cajaBancoRecibos = [];
 try{ const cb=JSON.parse(localStorage.getItem('op_cajabancorecibos')||'null'); if(cb) cajaBancoRecibos=cb; }catch(e){}
+// Seed: CajaAyCC_Z8_140726 (Ej.2183 cerrado + Ej.2184 abierto) + resguardos bancarios 16/07
+;(function _seedCajaCierres(){
+  if(localStorage.getItem('op_cajacierres_seed_v1')) return;
+  const ej2183 = {
+    fecha:'2026-07-14', fechaApertura:'2026-07-10',
+    stores:[
+      {codigo:'43',tipo:'Efectivo',haber:1450},{codigo:'43',tipo:'Tarjetas',haber:686.27},
+      {codigo:'44',tipo:'Efectivo',haber:500},{codigo:'44',tipo:'Tarjetas',haber:824.93},
+      {codigo:'45',tipo:'Efectivo',haber:130},{codigo:'45',tipo:'Tarjetas',haber:424.26},
+      {codigo:'45',tipo:'Efectivo',haber:150},{codigo:'45',tipo:'Tarjetas',haber:313.33},
+      {codigo:'46',tipo:'Efectivo',haber:270},{codigo:'46',tipo:'Tarjetas',haber:194.68},
+      {codigo:'46',tipo:'Efectivo',haber:40},{codigo:'46',tipo:'Tarjetas',haber:54.16},
+      {codigo:'47',tipo:'Efectivo',haber:0},
+      {codigo:'48',tipo:'Efectivo',haber:540},{codigo:'48',tipo:'Tarjetas',haber:1218.19},
+      {codigo:'48',tipo:'Efectivo',haber:355},{codigo:'48',tipo:'Tarjetas',haber:339.88},
+      {codigo:'54',tipo:'Efectivo',haber:0},
+      {codigo:'A2',tipo:'Efectivo',haber:250},{codigo:'A2',tipo:'Tarjetas',haber:377.57},
+      {codigo:'A2',tipo:'Efectivo',haber:120},{codigo:'A2',tipo:'Tarjetas',haber:250.34},
+      {codigo:'A3',tipo:'Efectivo',haber:70},{codigo:'A3',tipo:'Tarjetas',haber:117.63},
+      {codigo:'AA',tipo:'Efectivo',haber:600},{codigo:'AA',tipo:'Tarjetas',haber:339.58},
+      {codigo:'AA',tipo:'Efectivo',haber:220},{codigo:'AA',tipo:'Tarjetas',haber:57.41}
+    ],
+    bancoPagos:[
+      {banco:'Banco Santander',numPago:'187872-Z8',importe:3435},
+      {banco:'Banco Santander',numPago:'187873-Z8',importe:820},
+      {banco:'BBVA',numPago:'187874-Z8',importe:440},
+      {banco:'Tarjetas BBVA',numPago:'187875-Z8',importe:194.68},
+      {banco:'Tarjetas BBVA',numPago:'187876-Z8',importe:54.16},
+      {banco:'Tarjetas Caixa',numPago:'187877-Z8',importe:313.33},
+      {banco:'Tarjetas Caixa',numPago:'187878-Z8',importe:339.88},
+      {banco:'Tarjetas Caixa',numPago:'187879-Z8',importe:250.34},
+      {banco:'Tarjetas Caixa',numPago:'187880-Z8',importe:57.41},
+      {banco:'Tarjetas Caixa',numPago:'187881-Z8',importe:424.26},
+      {banco:'Tarjetas Caixa',numPago:'187882-Z8',importe:281.81},
+      {banco:'Tarjetas Caixa',numPago:'187883-Z8',importe:1218.19},
+      {banco:'Tarjetas Caixa',numPago:'187884-Z8',importe:824.93},
+      {banco:'Tarjetas Caixa',numPago:'187885-Z8',importe:495.20},
+      {banco:'Tarjetas Caixa',numPago:'187886-Z8',importe:226.09},
+      {banco:'Tarjetas Caixa',numPago:'187887-Z8',importe:90.90},
+      {banco:'Tarjetas Caixa',numPago:'187888-Z8',importe:84.47},
+      {banco:'Tarjetas Caixa',numPago:'187889-Z8',importe:339.58}
+    ],
+    efectivoTotal:4695,tarjetasTotal:5198.23,chequesTotal:0,
+    efectivoBancoDeposit:4695,tarjetasBancoDeposit:5195.23,
+    filename:'CajaAyCC_Z8_140726.Pdf (Ej.2183 Cerrado)'
+  };
+  const ej2184 = {
+    fecha:'2026-07-16', fechaApertura:'2026-07-13',
+    stores:[
+      {codigo:'43',tipo:'Efectivo',haber:1010},{codigo:'43',tipo:'Tarjetas',haber:1251.94},
+      {codigo:'44',tipo:'Efectivo',haber:420},{codigo:'44',tipo:'Tarjetas',haber:799.74},
+      {codigo:'45',tipo:'Efectivo',haber:260},{codigo:'45',tipo:'Tarjetas',haber:358.12},
+      {codigo:'46',tipo:'Efectivo',haber:180},{codigo:'46',tipo:'Tarjetas',haber:276.29},
+      {codigo:'47',tipo:'Efectivo',haber:0},
+      {codigo:'48',tipo:'Efectivo',haber:730},{codigo:'48',tipo:'Tarjetas',haber:919.02},
+      {codigo:'A2',tipo:'Efectivo',haber:130},{codigo:'A2',tipo:'Tarjetas',haber:550.78},
+      {codigo:'A3',tipo:'Efectivo',haber:20},{codigo:'A3',tipo:'Tarjetas',haber:257.96},
+      {codigo:'AA',tipo:'Efectivo',haber:540},{codigo:'AA',tipo:'Tarjetas',haber:506.37}
+    ],
+    bancoPagos:[],
+    efectivoTotal:3290,tarjetasTotal:4920.22,chequesTotal:0,
+    efectivoBancoDeposit:2966.98,tarjetasBancoDeposit:0,
+    filename:'CajaAyCC_Z8_140726.Pdf (Ej.2184 Abierto)'
+  };
+  const bankReceipts = [
+    {fecha:'2026-07-16',tipo:'efectivo',importe:2586.98,banco:'Santander',legible:true,filename:'INGRESO_EFECTIVO_OOFI_160726.pdf'},
+    {fecha:'2026-07-16',tipo:'efectivo',importe:380,banco:'Santander',legible:true,filename:'INGRESO_EFECTIVO_ALIZ_2_160726.pdf'},
+    {fecha:'2026-07-16',tipo:'cheque',importe:339.70,banco:'Santander',legible:true,filename:'INGRESO_TALONES_160726.pdf'}
+  ];
+  let ccChanged=false, cbChanged=false;
+  [ej2183,ej2184].forEach(e=>{ if(!cajaCierres.find(c=>c.filename===e.filename)){cajaCierres.push(e);ccChanged=true;} });
+  bankReceipts.forEach(r=>{ if(!cajaBancoRecibos.find(b=>b.filename===r.filename)){cajaBancoRecibos.push(r);cbChanged=true;} });
+  if(ccChanged){ cajaCierres.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')); try{localStorage.setItem('op_cajacierres',JSON.stringify(cajaCierres));}catch(e){} }
+  if(cbChanged){ cajaBancoRecibos.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')); try{localStorage.setItem('op_cajabancorecibos',JSON.stringify(cajaBancoRecibos));}catch(e){} }
+  localStorage.setItem('op_cajacierres_seed_v1','1');
+})();
 let cajaEfectivo = [];
 try{ const ce=JSON.parse(localStorage.getItem('op_cajaefectivo')||'null'); if(ce) cajaEfectivo=ce; }catch(e){}
 let cajaDetalles = [];
