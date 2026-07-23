@@ -1,17 +1,62 @@
 #!/bin/bash
 set -e
 
-# Build the alquileres React app
-cd alquileres
-npm ci
-npm run build
-cd ..
+# Netlify preserva /opt/build/cache entre builds del mismo sitio (salvo
+# "Clear cache and deploy"). Lo usamos para no reconstruir alquileres/ o
+# joe-app/ cuando nada ha cambiado en su carpeta desde el último despliegue,
+# ahorrando el npm ci + build de la app que no cambió.
+CACHE_DIR="/opt/build/cache"
 
-# Build the joe-app React app
-cd joe-app
-npm ci
-npm run build
-cd ..
+# Devuelve 0 (skip) solo si hay build anterior en caché Y no hay diferencias
+# reales en esa carpeta desde el último commit desplegado. Cualquier duda
+# (primera build, caché limpiada, fallo del diff) hace que se reconstruya.
+should_skip_build() {
+  local watch_dir="$1"
+  local cache_marker="$2"
+
+  if [ -z "$CACHED_COMMIT_REF" ] || [ ! -d "$cache_marker" ]; then
+    return 1
+  fi
+  git diff --quiet "$CACHED_COMMIT_REF" "$COMMIT_REF" -- "$watch_dir" 2>/dev/null
+}
+
+build_alquileres() {
+  echo "== alquileres: reconstruyendo (cambios detectados o sin caché previa) =="
+  cd alquileres
+  npm ci
+  npm run build
+  cd ..
+  rm -rf "$CACHE_DIR/alquileres-dist"
+  mkdir -p "$CACHE_DIR/alquileres-dist"
+  cp -r alquileres/dist/. "$CACHE_DIR/alquileres-dist/"
+}
+
+build_joe_app() {
+  echo "== joe-app: reconstruyendo (cambios detectados o sin caché previa) =="
+  cd joe-app
+  npm ci
+  npm run build
+  cd ..
+  rm -rf "$CACHE_DIR/joe-dist"
+  mkdir -p "$CACHE_DIR/joe-dist"
+  cp -r joe-app/dist/. "$CACHE_DIR/joe-dist/"
+}
+
+if should_skip_build "alquileres/" "$CACHE_DIR/alquileres-dist"; then
+  echo "== alquileres: sin cambios desde el último deploy, reutilizando build anterior =="
+  mkdir -p alquileres/dist
+  cp -r "$CACHE_DIR/alquileres-dist/." alquileres/dist/
+else
+  build_alquileres
+fi
+
+if should_skip_build "joe-app/" "$CACHE_DIR/joe-dist"; then
+  echo "== joe-app: sin cambios desde el último deploy, reutilizando build anterior =="
+  mkdir -p joe-app/dist
+  cp -r "$CACHE_DIR/joe-dist/." joe-app/dist/
+else
+  build_joe_app
+fi
 
 # Assemble _site: static root files + built apps
 mkdir -p _site/alquileres
