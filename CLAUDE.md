@@ -117,6 +117,14 @@ el CSS real, no inventados), el script de render HTML→PNG/PDF standalone, y
 la integración (preparada, pendiente de credenciales) con Adobe Firefly
 API. Consultar ese documento antes de abordar cualquier encargo visual.
 
+`.claude/brand/` es la fuente única de verdad de la identidad de marca de
+OFIPAPEL (logotipo oficial, paleta, tipografía, reglas de uso, plantillas
+y ejemplos aprobados por el propietario). Cualquier Skill que genere
+contenido gráfico o publicitario para Ofipapel debe consultar
+`.claude/brand/reglas.md` antes de producir nada; ante contradicción con
+un prompt puntual, prevalece siempre lo que hay ahí. Ver
+`.claude/brand/README.md`.
+
 ## Skills de RAX
 
 `.claude/skills/` — sistema modular de Skills de Claude Code para este
