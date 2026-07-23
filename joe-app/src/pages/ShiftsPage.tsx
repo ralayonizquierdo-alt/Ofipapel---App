@@ -41,7 +41,7 @@ function loadCustom(): ShiftTypeDef[] {
 }
 
 function saveCustom(types: ShiftTypeDef[]) {
-  try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(types)) } catch {}
+  try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(types)) } catch { /* localStorage no disponible, se ignora */ }
 }
 
 function hexBg(hex: string) { return hex + '20' }
@@ -216,7 +216,7 @@ export default function ShiftsPage() {
   function updateBuiltinHours(key: string, hours: number) {
     const next = { ...editHours, [key]: hours }
     setEditHours(next)
-    try { localStorage.setItem('joe_shift_hours', JSON.stringify(next)) } catch {}
+    try { localStorage.setItem('joe_shift_hours', JSON.stringify(next)) } catch { /* localStorage no disponible, se ignora */ }
   }
 
   function resolvedHours(t: ShiftTypeDef): number {
