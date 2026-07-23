@@ -175,3 +175,96 @@ cruzó esas líneas.
 **Reversibilidad**: alta — todos los cambios son aditivos (nuevas reglas,
 nuevo proxy, nuevas sesiones) y revertibles con `git revert`; ninguno
 modifica datos existentes.
+
+---
+
+### 2026-07-12 — Modo restringido: solo arquitectura/documentación, cero código de producción
+
+**Contexto**: tras cerrar el sprint anterior, el propietario acota
+explícitamente el ámbito de trabajo de una sesión paralela que estaba
+reconstruyendo el mismo sistema de Skills sobre otra rama
+(`claude/rax-v1-consolidacion`): solo documentación y organización del
+repo (`CLAUDE.md`, `.claude/skills/`, `.claude/rax/`, inventario,
+clasificación de ramas, roadmap, deuda técnica). Prohibido: tocar código de
+producción (`Index.html`, `joe-app`, `alquileres`, `canarias-ink.html`,
+funciones de Netlify, bot de WhatsApp), abrir PRs de código, o rescatar
+funcionalidad de otras ramas aunque sea de bajo riesgo. Cualquier cambio de
+código detectado como necesario se documenta como pendiente, no se
+implementa.
+
+**Decisión derivada — Sentry (PR #61) queda formalmente descartado, no
+solo aplazado**: no se rescata mientras esté vigente este modo. Queda
+documentado como pendiente en `DEUDA_TECNICA.md`/`ROADMAP_TECNICO.md` para
+una futura sesión con permiso explícito de tocar código.
+
+**Quién decide**: propietario. **Reversibilidad**: total — el propietario
+puede levantar este modo en cualquier momento para una tarea concreta.
+
+---
+
+### 2026-07-12 — PR #67 detectado: invalida la clasificación de ramas de la sesión paralela
+
+**Contexto**: al preparar un plan de limpieza de ramas, se detectó el PR
+#67 (`claude/rax-validation-priorities-88bwrv` → `main`), abierto y sin
+fusionar en ese momento. Verificado con diffs de contenido (no solo
+mensajes de commit): ese PR incluía una copia funcionalmente idéntica de
+todo el rescate hecho en paralelo en `claude/rax-v1-consolidacion`
+(`chat-assistant.js` e `Index.html` byte a byte idénticos, RLS de `joe-app`
+equivalente, CI/Dependabot/dedup de WhatsApp/`404.html`/`design-studio`
+presentes), más trabajo real que esa rama paralela no tenía: reglas de
+seguridad de Firestore para `alquileres` (`firestore.rules`), la primera
+campaña real ("Vuelta al Cole 2026") y la resolución de DT-02.
+
+**Decisión**: `claude/rax-validation-priorities-88bwrv` se retira de
+cualquier lista de ramas candidatas a "Prueba/obsoleto" — es la rama de un
+PR abierto con trabajo genuinamente más completo, no un experimento. Al
+ser `claude/rax-v1-consolidacion` un subconjunto estricto y verificado de
+ese PR, pasa a ser segura de eliminar una vez el PR se fusione.
+
+**Quién decide**: verificación técnica de Claude. **Reversibilidad**:
+alta — ninguna rama se tocó, solo se corrigió el informe.
+
+---
+
+### 2026-07-13 — Regla fija: comprobar ramas activas antes de crear una nueva
+
+**Contexto**: consecuencia directa de la causa raíz de todo lo limpiado
+estos días — varias ramas (`claude/rax-project-manager-skill-1o2kl3`,
+`claude/autonomous-dev-environment-8obtv2` / PR #61,
+`claude/rax-validation-priorities-88bwrv` / PR #67) reconstruyeron el
+mismo sistema de Skills de forma independiente, cada una sin saber que las
+otras existían, porque nada obligaba a comprobarlo antes de crear rama.
+
+**Decisión**: ninguna sesión crea una rama nueva sin comprobar antes si ya
+existe una rama activa para ese mismo trabajo. Si existe, continúa sobre
+ella. Si no existe, crea una única rama nueva y lo indica explícitamente
+en el primer mensaje de la sesión. Ampliado el mismo día: no duplicar
+trabajo ya iniciado ni recrear funcionalidad ya implementada, y si se
+detecta trabajo relacionado en otra rama, reconciliarlo **antes** de
+empezar a implementar, no como limpieza posterior. Codificado como
+política permanente en `.claude/skills/project-manager/SKILL.md`
+("Disciplina de ramas").
+
+**Quién decide**: propietario. **Reversibilidad**: total.
+
+---
+
+### 2026-07-13 — `CONTRIBUTING.md`: normas de trabajo formalizadas para humanos y sesiones de Claude Code
+
+**Contexto**: la disciplina de ramas del punto anterior vivía solo dentro
+de `project-manager/SKILL.md` — útil para sesiones de Claude Code, pero
+invisible para GitHub y para cualquier colaborador humano (GitHub muestra
+`CONTRIBUTING.md` automáticamente al abrir issues/PRs; un `SKILL.md` no).
+
+**Decisión**: crear `CONTRIBUTING.md` en la raíz con las normas completas
+de trabajo del repo (uso de ramas, comprobación de ramas activas antes de
+crear una nueva, creación de PRs, proceso de reconciliación, y criterio
+para cerrar/eliminar ramas — tabla Producción/Inactivo con
+valor/Prueba-obsoleto, con la regla explícita de no borrar por antigüedad
+y de verificar contenido con diffs reales, no solo títulos de commit).
+`CLAUDE.md` referencia el documento en vez de duplicar su contenido.
+`project-manager/SKILL.md` sigue siendo la aplicación automática de estas
+normas dentro de una sesión de Claude Code; `CONTRIBUTING.md` es la fuente
+de verdad legible por cualquiera.
+
+**Quién decide**: propietario. **Reversibilidad**: total.

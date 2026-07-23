@@ -94,3 +94,29 @@ canónico, cerrar esos dos ítems y publicar la campaña. Recordar activar
 "Allow anonymous sign-ins" (Supabase) y el proveedor "Anonymous" +
 desplegar `firestore.rules` (Firebase) — sin eso, el blindaje de acceso
 fusionado en este sprint no está realmente activo todavía.
+
+---
+
+### 2026-07-12 — Modo restringido activado + PR #67 detectado
+
+**Resumen**: en una sesión paralela que reconstruía el mismo sistema de
+Skills sobre `claude/rax-v1-consolidacion`, el propietario acota el
+trabajo a solo documentación/arquitectura (ver `DECISIONES.md`). Al
+preparar el plan de limpieza de ramas, se detectó PR #67, abierto sobre
+`claude/rax-validation-priorities-88bwrv`. Verificado con diffs de
+contenido: ese PR es un superconjunto de `claude/rax-v1-consolidacion`
+(todo el rescate de esa sesión está ahí, byte a byte en los ficheros
+clave) más trabajo real que la sesión paralela no tenía — reglas de
+seguridad de Firestore para `alquileres` y la primera campaña real de
+`diseno-ofipapel`.
+
+**Corrección importante sobre un informe anterior**:
+`claude/rax-validation-priorities-88bwrv` **no** era segura de borrar
+mientras el PR #67 seguía abierto — era la rama viva de ese PR, no un
+experimento sin fusionar.
+
+**Siguiente paso recomendado**: una vez el propietario fusione PR #67:
+(1) `claude/rax-v1-consolidacion` pasa a ser segura de borrar (PR #67 la
+cubre entera); (2) cerrar PR #61 sin fusionar; (3) borrar las 4 ramas
+"Prueba/obsoleto" confirmadas; (4) `rax-sales-marketing-skill-4raaru` se
+mantiene intacta.
