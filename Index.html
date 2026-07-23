@@ -347,9 +347,57 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
   .topbar-date{display:none;}
   .saldo-hero{font-size:36px !important;white-space:nowrap;}
 }
+/* ── Modal bloqueo arrastre ── */
+#arrastModal{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(10,22,40,.72);backdrop-filter:blur(3px);}
+#arrastModal.hidden{display:none;}
+.arrast-box{background:var(--card);border-radius:16px;width:min(680px,95vw);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.45);overflow:hidden;}
+.arrast-head{background:#c0392b;color:#fff;padding:20px 24px;display:flex;align-items:center;gap:14px;}
+.arrast-head-ico{font-size:32px;flex-shrink:0;}
+.arrast-head-ttl{font-size:17px;font-weight:800;line-height:1.2;}
+.arrast-head-sub{font-size:12px;opacity:.9;margin-top:3px;}
+.arrast-body{overflow-y:auto;padding:20px 24px;flex:1;}
+.arrast-section{margin-bottom:18px;}
+.arrast-section-ttl{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--rojo);margin-bottom:8px;}
+.arrast-row{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:8px;background:#FEF0EE;margin-bottom:6px;font-size:13px;}
+.arrast-row-ico{font-size:16px;flex-shrink:0;margin-top:1px;}
+.arrast-row-body{}
+.arrast-row-body strong{display:block;font-weight:700;}
+.arrast-row-body span{color:var(--texto2);font-size:12px;}
+.arrast-footer{padding:16px 24px;border-top:1px solid var(--borde);display:flex;flex-direction:column;gap:10px;}
+.arrast-check-line{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;padding:12px 14px;border-radius:8px;background:#FFF7E6;border:1.5px solid var(--acento);cursor:pointer;}
+.arrast-check-line input[type=checkbox]{width:18px;height:18px;cursor:pointer;accent-color:var(--rojo);}
+.arrast-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.btn-corregir{padding:11px;background:var(--rojo);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;}
+.btn-corregir:hover{background:#a93226;}
+.btn-continuar{padding:11px;background:var(--fondo2);color:var(--texto);border:1.5px solid var(--borde);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;opacity:.4;pointer-events:none;transition:opacity .2s;}
+.btn-continuar.activo{opacity:1;pointer-events:auto;}
 </style>
 </head>
 <body>
+
+<!-- ══════════════════ MODAL ALERTAS ARRASTRE ══════════════════ -->
+<div id="arrastModal" class="hidden">
+  <div class="arrast-box">
+    <div class="arrast-head">
+      <div class="arrast-head-ico">🚨</div>
+      <div>
+        <div class="arrast-head-ttl">ALERTAS CRÍTICAS — Revisa antes de continuar</div>
+        <div class="arrast-head-sub">Se han detectado incidencias que deben corregirse antes de registrar este arrastre.</div>
+      </div>
+    </div>
+    <div class="arrast-body" id="arrastBody"></div>
+    <div class="arrast-footer">
+      <label class="arrast-check-line">
+        <input type="checkbox" id="arrastCheck" onchange="arrastCheckChange()">
+        <span>Soy consciente de las alertas pendientes y asumo la responsabilidad de subirlo igualmente.</span>
+      </label>
+      <div class="arrast-btns">
+        <button class="btn-corregir" onclick="cerrarArrastModal(true)">🔴 Ir a corregir primero</button>
+        <button class="btn-continuar" id="btnContinuarArrast" onclick="arrastContinuar()">⚠️ Subir igualmente</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ══════════════════ LOGIN ══════════════════ -->
 <div id="loginScreen">
@@ -381,7 +429,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.15 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.21 ·<span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -406,7 +454,8 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
 
     <div id="navOperaciones">
       <div class="nav-section">Operaciones</div>
-      <div class="nav-item" onclick="showView('ventas')"><span class="ni">🏪</span><span>Ventas (Caja)</span></div>
+      <div class="nav-item" onclick="showView('caja')"><span class="ni">💰</span><span>Caja</span></div>
+      <div class="nav-item" onclick="showView('ventas')"><span class="ni">🏪</span><span>Ventas</span></div>
       <div class="nav-item" onclick="showView('compras')"><span class="ni">🛒</span><span>Compras</span></div>
       <div class="nav-item" onclick="showView('familias')"><span class="ni">📦</span><span>Familias</span></div>
     </div>
@@ -458,21 +507,31 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
 
       <!-- ═══ HISTÓRICO ═══ -->
       <div class="view" id="v-historico">
-        <div class="filter-bar">
-          <label>Período:</label>
-          <select id="filtPeriod" onchange="renderHistorico()">
-            <option value="7">Últimos 7 días</option>
-            <option value="14">Últimos 14 días</option>
-            <option value="30">Último mes</option>
-            <option value="all">Todo</option>
-          </select>
-          <label>Desde:</label>
-          <input type="date" id="filtDesde" onchange="renderHistorico()">
-          <label>Hasta:</label>
-          <input type="date" id="filtHasta" onchange="renderHistorico()">
-          <button class="btn-filter" onclick="exportCSV()">⬇ Exportar CSV</button>
+        <div class="page-header" style="padding-bottom:0;margin-bottom:0;"><h1 class="page-title">📅 Histórico</h1></div>
+        <div class="subtabs" style="margin-bottom:0;">
+          <button class="subtab-btn active" data-ht="registros" onclick="showHistTab('registros')">📋 Registros</button>
+          <button class="subtab-btn" data-ht="comparativa" onclick="showHistTab('comparativa')">📊 Comparativa Anual</button>
         </div>
-        <div id="histContent"></div>
+        <div class="subtab-panel active" id="ht-registros">
+          <div class="filter-bar">
+            <label>Período:</label>
+            <select id="filtPeriod" onchange="renderHistorico()">
+              <option value="7">Últimos 7 días</option>
+              <option value="14">Últimos 14 días</option>
+              <option value="30">Último mes</option>
+              <option value="all">Todo</option>
+            </select>
+            <label>Desde:</label>
+            <input type="date" id="filtDesde" onchange="renderHistorico()">
+            <label>Hasta:</label>
+            <input type="date" id="filtHasta" onchange="renderHistorico()">
+            <button class="btn-filter" onclick="exportCSV()">⬇ Exportar CSV</button>
+          </div>
+          <div id="histContent"></div>
+        </div>
+        <div class="subtab-panel" id="ht-comparativa">
+          <div id="histComparativaContent" style="padding:0 4px;"></div>
+        </div>
       </div>
 
       <!-- ═══ ALERTAS ═══ -->
@@ -550,6 +609,34 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
           <div class="upload-status" id="uploadStatus"></div>
         </div>
         <input type="file" id="excelInput2" accept=".xlsx,.xls" style="display:none" onchange="importarExcel(this)">
+
+        <div class="sec-title">💰 Importar PDFs de Caja</div>
+        <div class="chart-row-2">
+          <div>
+            <div class="upload-zone" id="cajaCierreZone" onclick="document.getElementById('cajaCierreInput').click()"
+              ondragover="event.preventDefault();this.classList.add('drag')"
+              ondragleave="this.classList.remove('drag')"
+              ondrop="cajaCierreDrop(event)">
+              <div class="upload-icon">📋</div>
+              <div class="upload-title">Cierre de Cajas (PDF del sistema)</div>
+              <div class="upload-sub">Archivos CajaAyCC Z8 · Admite varios a la vez</div>
+              <div class="upload-status" id="cajaCierreStatus"></div>
+            </div>
+            <input type="file" id="cajaCierreInput" accept=".pdf,.Pdf" multiple style="display:none" onchange="importCierrePDF(this)">
+          </div>
+          <div>
+            <div class="upload-zone" id="cajaBancoZone" onclick="document.getElementById('cajaBancoInput').click()"
+              ondragover="event.preventDefault();this.classList.add('drag')"
+              ondragleave="this.classList.remove('drag')"
+              ondrop="cajaBancoDrop(event)">
+              <div class="upload-icon">🏦</div>
+              <div class="upload-title">Resguardos del Banco (PDF)</div>
+              <div class="upload-sub">Ingresos Santander / BBVA / CaixaBank · Admite varios</div>
+              <div class="upload-status" id="cajaBancoStatus"></div>
+            </div>
+            <input type="file" id="cajaBancoInput" accept=".pdf,.Pdf" multiple style="display:none" onchange="importBancoPDF(this)">
+          </div>
+        </div>
       </div>
 
       <!-- ═══ DEUDA ═══ -->
@@ -598,18 +685,60 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
         </div>
       </div>
 
-      <div class="view" id="v-ventas">
-        <div class="page-header"><h1 class="page-title">🏪 Ventas</h1></div>
+      <!-- ═══ CAJA ═══ -->
+      <div class="view" id="v-caja">
+        <div class="page-header"><h1 class="page-title">💰 Control de Caja</h1></div>
         <div class="page-body">
           <div class="subtabs">
-            <button class="subtab-btn active" data-vt="caja" onclick="showVentasTab('caja')">🏪 Caja</button>
-            <button class="subtab-btn" data-vt="anual" onclick="showVentasTab('anual')">📅 Anual</button>
-            <button class="subtab-btn" data-vt="vendedores" onclick="showVentasTab('vendedores')">🧑‍💼 Vendedores</button>
-            <button class="subtab-btn" data-vt="tiendas" onclick="showVentasTab('tiendas')">🏬 Tiendas</button>
-            <button class="subtab-btn" data-vt="clientes" onclick="showVentasTab('clientes')">👥 Clientes</button>
+            <button class="subtab-btn active" data-cajaTab="conciliacion" onclick="showCajaSubTab('conciliacion')">🔍 Conciliación Diaria</button>
+            <button class="subtab-btn" data-cajaTab="efectivo" onclick="showCajaSubTab('efectivo')">💵 Efectivo Tiendas</button>
+            <button class="subtab-btn" data-cajaTab="registro" onclick="showCajaSubTab('registro')">🏪 Registro de Ventas</button>
           </div>
 
-          <div class="subtab-panel active" id="vt-caja">
+          <!-- CONCILIACIÓN -->
+          <div class="subtab-panel active" id="cajat-conciliacion">
+            <div id="cajaConcilAlert"></div>
+            <div style="font-size:12px;color:var(--texto2);margin-bottom:12px;">Los PDFs se importan desde <strong style="cursor:pointer;color:var(--azul);text-decoration:underline;" onclick="showView('entrada')">Volcado Diario</strong>.</div>
+            <div id="cajaReconcilTabla"></div>
+            <div style="font-weight:700;color:var(--azul);margin-bottom:8px;margin-top:16px;">📅 Histórico de Conciliaciones</div>
+            <div class="card" id="cajaHistorico" style="padding:0;overflow:hidden;"></div>
+          </div>
+
+          <!-- EFECTIVO TIENDAS -->
+          <div class="subtab-panel" id="cajat-efectivo">
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="font-weight:700;font-size:14px;color:var(--azul);margin-bottom:12px;">💵 Registrar efectivo pendiente de ingreso</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px;">
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Fecha</div>
+                  <input type="date" id="efFecha" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Ofipapel (€)</div>
+                  <input type="number" id="efOfipapel" min="0" step="0.01" placeholder="0,00" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Aliz-1 (€)</div>
+                  <input type="number" id="efAliz1" min="0" step="0.01" placeholder="0,00" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Aliz-2 (€)</div>
+                  <input type="number" id="efAliz2" min="0" step="0.01" placeholder="0,00" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Notas (opcional)</div>
+                  <input type="text" id="efNotas" placeholder="Ej: semana del 14 jul" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;">
+                </div>
+              </div>
+              <button onclick="guardarEfectivo()" style="padding:8px 20px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">💾 Guardar</button>
+            </div>
+            <div id="efKpis" style="margin-bottom:16px;"></div>
+            <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">📅 Histórico de efectivo por tienda</div>
+            <div class="card" id="efHistorico" style="padding:0;overflow:hidden;"></div>
+          </div>
+
+          <!-- REGISTRO DIARIO (migrado desde Ventas > Caja) -->
+          <div class="subtab-panel" id="cajat-registro">
             <div id="ventKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
             <div class="card" style="margin-bottom:16px;padding:16px;">
               <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
@@ -635,10 +764,8 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               </div>
             </div>
             <div class="card" id="ventEmpTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
-
             <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">🕒 Hora de Mayor Venta por Tienda</div>
             <div class="card" id="ventHoraPicoTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
-
             <div class="card" style="margin-bottom:16px;padding:16px;">
               <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
                 <div>
@@ -658,12 +785,25 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             </div>
             <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">🧑‍💼 Nº y Totales de Ventas por Vendedor</div>
             <div class="card" id="ventEmpDetTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
-
             <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">⚠️ Importes a 0 o Negativos — por Empleado y Terminal</div>
             <div class="card" id="ventAlertaTabla" style="padding:0;overflow:hidden;"></div>
           </div>
+        </div>
+      </div>
 
-          <div class="subtab-panel" id="vt-anual">
+      <div class="view" id="v-ventas">
+        <div class="page-header"><h1 class="page-title">🏪 Ventas</h1></div>
+        <div class="page-body">
+          <div class="subtabs">
+            <button class="subtab-btn active" data-vt="anual" onclick="showVentasTab('anual')">📅 Anual</button>
+            <button class="subtab-btn" data-vt="vendedores" onclick="showVentasTab('vendedores')">🧑‍💼 Vendedores</button>
+            <button class="subtab-btn" data-vt="tiendas" onclick="showVentasTab('tiendas')">🏬 Tiendas</button>
+            <button class="subtab-btn" data-vt="clientes" onclick="showVentasTab('clientes')">👥 Clientes</button>
+            <button class="subtab-btn" data-vt="web" onclick="showVentasTab('web')">🌐 Venta Web</button>
+            <button class="subtab-btn" data-vt="familias" onclick="showVentasTab('familias')">📦 Familias</button>
+          </div>
+
+          <div class="subtab-panel active" id="vt-anual">
             <div class="card" style="margin-bottom:16px;padding:16px;">
               <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
                 <div>
@@ -742,17 +882,120 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
 
           <div class="subtab-panel" id="vt-clientes">
             <div class="card" style="margin-bottom:16px;padding:16px;">
-              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
-                <div style="flex:2;min-width:200px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px;">
+                <div style="flex:2;min-width:160px;">
                   <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Buscar Cliente</div>
                   <input type="text" id="ventClienteFiltro" placeholder="Nombre o código..." oninput="renderVentasClientes()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
                 </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
+                  <select id="ventClienteAnio" onchange="renderVentasClientes()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Vendedor</div>
+                  <select id="ventClienteVendedor" onchange="renderVentasClientes()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
                 <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventClienteExcelInput" style="display:none" onchange="importVentasClientesExcel(this)"></label>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button id="btnCliVistaNormal" onclick="setCliVista('normal')" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--azul);background:var(--azul);color:#fff;">👥 Listado</button>
+                <button id="btnCliVistaInactivos" onclick="setCliVista('inactivos')" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--borde);background:var(--fondo2);color:var(--texto);">💤 Sin Actividad</button>
+                <button id="btnCliVistaVendedor" onclick="setCliVista('vendedor')" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--borde);background:var(--fondo2);color:var(--texto);">🧑‍💼 Por Vendedor</button>
+              </div>
+            </div>
+            <!-- panel inactivos — filtro extra -->
+            <div id="ventCliInactivosFiltroBar" class="card" style="display:none;margin-bottom:16px;padding:14px 16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Sin compras desde el año</div>
+                  <select id="ventCliSinComprasDesde" onchange="renderVentasClientes()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="">— Selecciona —</option>
+                  </select>
+                </div>
+                <div style="font-size:12px;color:var(--texto2);align-self:center;">Clientes que compraron antes de ese año pero no tienen registro posterior.</div>
               </div>
             </div>
             <div id="ventClienteKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
             <div class="card" id="ventClienteTabla" style="padding:0;overflow:hidden;"></div>
           </div>
+
+          <!-- VENTA WEB -->
+          <div class="subtab-panel" id="vt-web">
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
+                  <select id="ventWebAnioFiltro" onchange="renderVentasWeb()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventWebExcelInput" style="display:none" onchange="importVentasWebExcel(this)"></label>
+              </div>
+            </div>
+            <div id="ventWebKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+            <div class="chart-row-2" style="margin-bottom:16px;">
+              <div class="chart-card">
+                <div class="chart-ttl">Evolución Mensual</div>
+                <div class="chart-desc">Ventas web por mes</div>
+                <canvas id="cVentWebMes" height="220"></canvas>
+              </div>
+              <div class="chart-card">
+                <div class="chart-ttl">Distribución por Año</div>
+                <div class="chart-desc">Proporción anual del total</div>
+                <canvas id="cVentWebAnio" height="220"></canvas>
+              </div>
+            </div>
+            <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">📊 Resumen Anual por Mes</div>
+            <div class="card" id="ventWebTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
+          </div>
+
+          <!-- FAMILIAS EN VENTAS -->
+          <div class="subtab-panel" id="vt-familias">
+            <div id="vtfamKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div style="flex:2;min-width:150px;">
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Familia / Código</div>
+                  <input type="text" id="vtfamFiltroTexto" placeholder="Buscar..." oninput="renderVentasFamilias()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
+                  <select id="vtfamFiltroAnio" onchange="renderVentasFamilias()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Categoría</div>
+                  <select id="vtfamFiltroCategoria" onchange="renderVentasFamilias()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todas">Todas</option>
+                  </select>
+                </div>
+                <button onclick="limpiarFiltrosFamPfx('vtfam')" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
+                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="vtfamExcelInput" style="display:none" onchange="importFamiliasExcelPfx(this,'vtfam')"></label>
+              </div>
+            </div>
+            <div class="chart-row-2" style="margin-bottom:16px;">
+              <div class="chart-card">
+                <div class="chart-ttl">Top Categorías</div>
+                <div class="chart-desc">Ventas totales por categoría</div>
+                <canvas id="cVtfamCat" height="220"></canvas>
+              </div>
+              <div class="chart-card">
+                <div class="chart-ttl">Evolución Anual</div>
+                <div class="chart-desc">Ventas totales por año</div>
+                <canvas id="cVtfamAnio" height="220"></canvas>
+              </div>
+            </div>
+            <div style="font-weight:700;color:var(--azul);margin-bottom:8px;" id="vtfamCompTtl">📊 Comparativa Mensual y Anual</div>
+            <div id="vtfamCompKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+            <div class="card" id="vtfamCompTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
+            <div class="card" id="vtfamTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
+          </div>
+
         </div>
       </div>
 
@@ -863,19 +1106,6 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
       <div class="view" id="v-chat">
         <div class="page-header"><h1 class="page-title">💬 Asistente IA</h1></div>
         <div class="page-body">
-
-          <div class="card" style="margin-bottom:14px;padding:12px 16px;">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <span style="font-size:12px;font-weight:600;color:var(--texto2);">API Key Claude:</span>
-              <input type="password" id="chatApiKey" placeholder="sk-ant-api03-..."
-                     style="flex:1;min-width:200px;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;font-family:'IBM Plex Mono',monospace;"
-                     onkeydown="if(event.key==='Enter')saveChatApiKey()">
-              <button onclick="saveChatApiKey()"
-                      style="padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">Guardar</button>
-              <span id="chatApiKeyStatus" style="font-size:12px;color:var(--texto2);"></span>
-            </div>
-            <div style="font-size:11px;color:var(--texto2);margin-top:6px;">La API key se guarda solo en este navegador · Consíguela en console.anthropic.com</div>
-          </div>
 
           <div class="card" id="chatMessages"
                style="overflow-y:auto;height:calc(100vh - 360px);min-height:200px;padding:16px;margin-bottom:12px;background:#f9fdf9;">
@@ -1037,6 +1267,12 @@ try{ familias = JSON.parse(localStorage.getItem('op_familias')||'[]'); }catch(e)
 let ventasCaja = { porDia:[], porHora:[], porEmpleado:[], porTipoMov:[], porAlerta:[], porEmpDia:[], porEmpMes:[], meta:{} };
 let ventCajaModo = 'mes';
 try{ const vc=JSON.parse(localStorage.getItem('op_ventascaja')||'null'); if(vc) ventasCaja=vc; }catch(e){}
+let cajaCierres = [];
+try{ const cc=JSON.parse(localStorage.getItem('op_cajacierres')||'null'); if(cc) cajaCierres=cc; }catch(e){}
+let cajaBancoRecibos = [];
+try{ const cb=JSON.parse(localStorage.getItem('op_cajabancorecibos')||'null'); if(cb) cajaBancoRecibos=cb; }catch(e){}
+let cajaEfectivo = [];
+try{ const ce=JSON.parse(localStorage.getItem('op_cajaefectivo')||'null'); if(ce) cajaEfectivo=ce; }catch(e){}
 let ventasAnual = { conIgic:[], sinIgic:[] };
 try{ const va=JSON.parse(localStorage.getItem('op_ventasanual')||'null'); if(va) ventasAnual=va; }catch(e){}
 let ventasVendedores = [];
@@ -1181,6 +1417,14 @@ function applyCloudDataset(key, payload){
     comprasAnual = payload;
     try{ localStorage.setItem('op_comprasanual', JSON.stringify(comprasAnual)); }catch(e){}
     renderComprasAnual();
+  } else if(key==='ventasweb'){
+    ventasWeb = payload;
+    try{ localStorage.setItem('op_ventasweb', JSON.stringify(ventasWeb)); }catch(e){}
+    renderVentasWeb();
+  } else if(key==='cajaefectivo'){
+    cajaEfectivo = payload;
+    try{ localStorage.setItem('op_cajaefectivo', JSON.stringify(cajaEfectivo)); }catch(e){}
+    renderCajaEfectivo();
   }
 }
 
@@ -1214,6 +1458,8 @@ async function loadAllSharedDatasets(){
     if(!existing.ventastiendas && ventasTiendas.length) syncDatasetToCloud('ventastiendas', ventasTiendas);
     if(!existing.ventasclientes && ventasClientes.length) syncDatasetToCloud('ventasclientes', ventasClientes);
     if(!existing.comprasanual && comprasAnual.length) syncDatasetToCloud('comprasanual', comprasAnual);
+    if(!existing.ventasweb && ventasWeb.length) syncDatasetToCloud('ventasweb', ventasWeb);
+    if(!existing.cajaefectivo && cajaEfectivo.length) syncDatasetToCloud('cajaefectivo', cajaEfectivo);
   } catch(e){ console.warn('Error cargando datasets compartidos:', e); }
 }
 
@@ -1395,7 +1641,7 @@ function doLogout() {
 // ═══════════════════════════════════════════════════════
 // NAV
 // ═══════════════════════════════════════════════════════
-const TITLES = { dashboard:'Dashboard', historico:'Histórico', alertas:'Alertas', entrada:'Volcado Diario', deuda:'Pool de Deuda', pagares:'Pagarés & Confirming', proveedores:'Pagos a Proveedores', ventas:'Ventas (Caja)', compras:'Compras a Proveedores', familias:'Ventas por Familias', chat:'Chat IA' };
+const TITLES = { dashboard:'Dashboard', historico:'Histórico', alertas:'Alertas', entrada:'Volcado Diario', deuda:'Pool de Deuda', pagares:'Pagarés & Confirming', proveedores:'Pagos a Proveedores', caja:'Control de Caja', ventas:'Ventas', compras:'Compras a Proveedores', familias:'Ventas por Familias', chat:'Chat IA' };
 function showView(id) {
   const blocked = USER_BLOCKED[currentUser] || [];
   if(blocked.includes(id)){ id='dashboard'; }
@@ -1404,25 +1650,28 @@ function showView(id) {
   document.getElementById('v-'+id).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n=>{ if(n.getAttribute('onclick')?.includes(id)) n.classList.add('active'); });
   document.getElementById('topbarTitle').textContent = TITLES[id]||id;
-  if(id==='historico') renderHistorico();
+  if(id==='historico') showHistTab(document.querySelector('#v-historico .subtab-btn.active')?.dataset.ht||'registros');
   if(id==='alertas') renderAlertas();
   if(id==='pagares') renderPagares();
   if(id==='proveedores') renderProveedores();
-  if(id==='ventas') showVentasTab(document.querySelector('#v-ventas .subtab-btn.active')?.dataset.vt||'caja');
+  if(id==='caja') { showCajaSubTab(document.querySelector('#v-caja .subtab-btn.active')?.dataset.cajaTab||'conciliacion'); }
+  if(id==='ventas') showVentasTab(document.querySelector('#v-ventas .subtab-btn.active')?.dataset.vt||'anual');
   if(id==='compras') showComprasTab(document.querySelector('#v-compras .subtab-btn.active')?.dataset.ct||'pedidos');
   if(id==='familias') renderFamilias();
   if(id==='chat') initChatView();
 }
 
 function showVentasTab(tab){
+  if(!document.getElementById('vt-'+tab)) tab='anual';
   document.querySelectorAll('#v-ventas .subtab-btn').forEach(b=>b.classList.toggle('active', b.dataset.vt===tab));
   document.querySelectorAll('#v-ventas .subtab-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('vt-'+tab).classList.add('active');
-  if(tab==='caja') renderVentas();
-  else if(tab==='anual') renderVentasAnual();
+  if(tab==='anual') renderVentasAnual();
   else if(tab==='vendedores') renderVentasVendedores();
   else if(tab==='tiendas') renderVentasTiendas();
   else if(tab==='clientes') renderVentasClientes();
+  else if(tab==='web') renderVentasWeb();
+  else if(tab==='familias') renderVentasFamilias();
 }
 
 function showComprasTab(tab){
@@ -1632,6 +1881,46 @@ function renderDashboard(){
     </div>
   </div>
 
+  ${(() => {
+    if(!cajaCierres.length) return '';
+    const lc=cajaCierres[cajaCierres.length-1];
+    const bd=cajaBancoRecibos.filter(b=>b.fecha===lc.fecha);
+    const totalBEf=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
+    const diff=Math.abs((lc.efectivoBancoDeposit||0)-totalBEf);
+    const cuadra=bd.length>0&&diff<0.05;
+    const descuadre=bd.length>0&&diff>=0.05;
+    const ico=cuadra?'✅':descuadre?'❌':'⏳';
+    const tipo=cuadra?'ok':descuadre?'warn':'info';
+    const txt=cuadra?`Conciliado ✔ Efectivo depositado: ${fmt(lc.efectivoBancoDeposit||0)}`:descuadre?`DESCUADRE: sistema ${fmt(lc.efectivoBancoDeposit||0)} vs banco ${fmt(totalBEf)} · Dif: ${fmt(diff)}`:`Resguardos bancarios pendientes · Efectivo sistema: ${fmt(lc.efectivoBancoDeposit||0)}`;
+    return `<div class="alert-card ${tipo}" style="margin-bottom:20px;cursor:pointer;" onclick="showView('caja')"><div class="alert-ico">${ico}</div><div><div class="alert-ttl">💰 Control de Caja — ${new Date((lc.fecha||'')+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}</div><div class="alert-txt">${txt}</div></div></div>`;
+  })()}
+
+  ${(() => {
+    if(!cajaEfectivo.length) return '';
+    const le = cajaEfectivo[cajaEfectivo.length-1];
+    const total = (le.ofipapel||0)+(le.aliz1||0)+(le.aliz2||0);
+    const fechaStr = new Date((le.fecha||'')+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+    const fmtV = v => v!=null&&v>0 ? new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:2}).format(v) : '—';
+    return `<div class="card" style="margin-bottom:20px;padding:16px;cursor:pointer;" onclick="showView('caja');showCajaSubTab('efectivo')">
+      <div style="font-weight:700;font-size:13px;color:var(--azul);margin-bottom:10px;">💵 Efectivo pendiente de ingreso — ${fechaStr}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;">
+        <div style="background:var(--fondo2);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:11px;color:var(--texto2);font-weight:600;margin-bottom:4px;">Ofipapel</div>
+          <div style="font-size:16px;font-weight:700;color:var(--verde);">${fmtV(le.ofipapel)}</div>
+        </div>
+        <div style="background:var(--fondo2);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:11px;color:var(--texto2);font-weight:600;margin-bottom:4px;">Aliz-1</div>
+          <div style="font-size:16px;font-weight:700;color:var(--verde);">${fmtV(le.aliz1)}</div>
+        </div>
+        <div style="background:var(--fondo2);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:11px;color:var(--texto2);font-weight:600;margin-bottom:4px;">Aliz-2</div>
+          <div style="font-size:16px;font-weight:700;color:var(--verde);">${fmtV(le.aliz2)}</div>
+        </div>
+      </div>
+      <div style="text-align:right;font-size:12px;color:var(--texto2);">Total: <strong style="color:var(--texto)">${fmtV(total)}</strong>${le.notas?` · ${le.notas}`:''}</div>
+    </div>`;
+  })()}
+
   <div class="sec-title">📈 Evolución del Saldo Total</div>
   <div class="chart-row">
     <div class="chart-card">
@@ -1719,6 +2008,219 @@ function renderDashboard(){
 // ═══════════════════════════════════════════════════════
 // HISTÓRICO
 // ═══════════════════════════════════════════════════════
+function showHistTab(tab){
+  document.querySelectorAll('#v-historico .subtab-btn').forEach(b=>b.classList.toggle('active',b.dataset.ht===tab));
+  document.querySelectorAll('#v-historico .subtab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('ht-'+tab).classList.add('active');
+  if(tab==='registros') renderHistorico();
+  else if(tab==='comparativa') renderHistoricoComparativa();
+}
+
+function renderHistoricoComparativa(){
+  const all = sortedRegistros();
+  if(!all.length){
+    document.getElementById('histComparativaContent').innerHTML=`<div class="empty-state"><div class="e-ico">📊</div><h3>Sin datos</h3><p>Añade registros para ver la comparativa anual.</p></div>`;
+    return;
+  }
+
+  // Agrupar por año → mes → último registro del mes
+  const byYear = {};
+  all.forEach(r=>{
+    const y=r.fecha.slice(0,4), m=r.fecha.slice(5,7);
+    if(!byYear[y]) byYear[y]={};
+    byYear[y][m]=r; // el último del mes (están ordenados)
+  });
+  const years = Object.keys(byYear).sort();
+  const MONTHS = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const ACCOUNTS = [
+    {key:'bbva_ofip', label:'BBVA Ofipapel'},
+    {key:'sant_ico',  label:'Santander ICO'},
+    {key:'caixa_cta', label:'CaixaBank Cta'},
+    {key:'c7',        label:'Caja Siete'},
+    {key:'caja_central', label:'Caja Central'},
+    {key:'luis_bbva', label:'Luis BBVA'},
+    {key:'luis_sant', label:'Luis Santander'},
+  ];
+
+  // KPIs por año: avg, max, min, final, primer, registros
+  const COLORS = ['#2B5F8E','#F0A500','#27AE60','#E85B2C','#8E44AD','#1ABC9C','#E74C3C'];
+  const kpisByYear = years.map((y,i)=>{
+    const recs = all.filter(r=>r.fecha.startsWith(y));
+    const tots = recs.map(r=>total(r));
+    const avg = tots.reduce((s,v)=>s+v,0)/tots.length;
+    const max = Math.max(...tots);
+    const min = Math.min(...tots);
+    const first = tots[0], last2 = tots[tots.length-1];
+    const change = last2-first;
+    return {y, avg, max, min, first, last:last2, change, count:recs.length, color:COLORS[i%COLORS.length]};
+  });
+
+  // Datos mensuales para el gráfico multi-año
+  const datasets = years.map((y,i)=>({
+    label: y,
+    data: MONTHS.map(m=>{ const r=byYear[y]?.[m]; return r?total(r):null; }),
+    borderColor: COLORS[i%COLORS.length],
+    backgroundColor: COLORS[i%COLORS.length]+'22',
+    borderWidth: 2.5,
+    pointRadius: 4,
+    pointBackgroundColor: COLORS[i%COLORS.length],
+    fill: false,
+    tension: 0.3,
+    spanGaps: true,
+  }));
+
+  // Destruir gráficos anteriores
+  ['cCompAnio','cCompMes','cCompCuentas'].forEach(id=>destroyChart(id));
+
+  document.getElementById('histComparativaContent').innerHTML = `
+  <div class="sec-title" style="margin-top:8px">📊 Saldo Total — Comparativa entre años</div>
+
+  <!-- KPIs por año -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px;">
+    ${kpisByYear.map(k=>`
+    <div class="card" style="padding:16px;border-top:4px solid ${k.color};">
+      <div style="font-weight:800;font-size:18px;color:${k.color};margin-bottom:10px;">${k.y}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;">
+        <div><div style="color:var(--texto2);">Promedio</div><div style="font-weight:700;">${fmt(k.avg)}</div></div>
+        <div><div style="color:var(--texto2);">Máximo</div><div style="font-weight:700;color:var(--verde);">${fmt(k.max)}</div></div>
+        <div><div style="color:var(--texto2);">Mínimo</div><div style="font-weight:700;color:var(--rojo);">${fmt(k.min)}</div></div>
+        <div><div style="color:var(--texto2);">Final</div><div style="font-weight:700;">${fmt(k.last)}</div></div>
+        <div style="grid-column:1/-1;margin-top:4px;padding-top:6px;border-top:1px solid var(--borde);">
+          <div style="color:var(--texto2);">Variación anual</div>
+          <div style="font-weight:700;color:${k.change>=0?'var(--verde)':'var(--rojo)'};">${k.change>=0?'▲ +':'▼ '}${fmt(Math.abs(k.change))}</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--texto2);margin-top:8px;">${k.count} registros</div>
+    </div>`).join('')}
+  </div>
+
+  <!-- Gráfico de líneas mes a mes por año -->
+  <div class="chart-card" style="margin-bottom:20px;">
+    <div class="chart-ttl">Evolución mensual por año — Saldo Total</div>
+    <div class="chart-desc">Un punto por mes (último registro del mes) · ${years.join(', ')}</div>
+    <canvas id="cCompMes" height="${years.length>2?100:80}"></canvas>
+  </div>
+
+  <!-- Gráfico de barras comparativa avg/max por año -->
+  <div class="chart-row-2" style="margin-bottom:20px;">
+    <div class="chart-card">
+      <div class="chart-ttl">Saldo promedio por año</div>
+      <div class="chart-desc">Promedio de todos los registros del año</div>
+      <canvas id="cCompAnio" height="180"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-ttl">Saldo por cuenta — promedio anual</div>
+      <div class="chart-desc">Promedio de cada cuenta bancaria por año</div>
+      <canvas id="cCompCuentas" height="180"></canvas>
+    </div>
+  </div>
+
+  <!-- Tabla mes × año -->
+  <div class="tcard" style="margin-bottom:20px;">
+    <div class="tcard-hd"><h3>Tabla comparativa mes × año</h3><p>Saldo total (último registro de cada mes)</p></div>
+    <div class="tscroll">
+    <table>
+      <thead><tr>
+        <th>Mes</th>
+        ${years.map((y,i)=>`<th style="color:${COLORS[i%COLORS.length]};">${y}</th>`).join('')}
+        ${years.length>1?'<th>Δ último–primero</th>':''}
+      </tr></thead>
+      <tbody>
+        ${MONTHS.map((m,mi)=>{
+          const vals = years.map(y=>byYear[y]?.[m]?total(byYear[y][m]):null);
+          const hasAny = vals.some(v=>v!=null);
+          if(!hasAny) return '';
+          const first = vals.find(v=>v!=null);
+          const last2 = [...vals].reverse().find(v=>v!=null);
+          const delta = (first!=null&&last2!=null&&years.length>1)?last2-first:null;
+          return `<tr>
+            <td style="font-weight:600;">${MONTH_NAMES[mi]}</td>
+            ${vals.map(v=>v!=null?`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(v)}</td>`:'<td style="text-align:center;color:var(--texto2);">—</td>').join('')}
+            ${years.length>1?`<td style="text-align:right;font-weight:700;color:${delta==null?'var(--texto2)':delta>=0?'var(--verde)':'var(--rojo)'};">${delta==null?'—':(delta>=0?'▲ +':'▼ ')+fmt(Math.abs(delta))}</td>`:''}
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot><tr style="background:var(--fondo2);font-weight:700;">
+        <td>Promedio</td>
+        ${kpisByYear.map(k=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(k.avg)}</td>`).join('')}
+        ${years.length>1?`<td style="text-align:right;color:${(kpisByYear[kpisByYear.length-1].avg-kpisByYear[0].avg)>=0?'var(--verde)':'var(--rojo)'};">${((kpisByYear[kpisByYear.length-1].avg-kpisByYear[0].avg)>=0?'▲ +':'▼ ')+fmt(Math.abs(kpisByYear[kpisByYear.length-1].avg-kpisByYear[0].avg))}</td>`:''}
+      </tr></tfoot>
+    </table>
+    </div>
+  </div>
+
+  <!-- Tabla desglose por cuenta -->
+  <div class="tcard" style="margin-bottom:8px;">
+    <div class="tcard-hd"><h3>Saldo promedio por cuenta y año</h3><p>Media de todos los registros del año para cada cuenta</p></div>
+    <div class="tscroll">
+    <table>
+      <thead><tr>
+        <th>Cuenta</th>
+        ${years.map((y,i)=>`<th style="color:${COLORS[i%COLORS.length]};">${y}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${ACCOUNTS.map(acc=>{
+          const avgs = years.map(y=>{
+            const recs=all.filter(r=>r.fecha.startsWith(y));
+            return recs.length?recs.reduce((s,r)=>s+(r[acc.key]||0),0)/recs.length:null;
+          });
+          return `<tr>
+            <td style="font-weight:500;">${acc.label}</td>
+            ${avgs.map(v=>v!=null?`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(v)}</td>`:'<td style="text-align:center;color:var(--texto2);">—</td>').join('')}
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>
+  </div>`;
+
+  // Gráfico líneas mes a mes
+  charts['cCompMes'] = new Chart(document.getElementById('cCompMes'),{
+    type:'line',
+    data:{ labels:MONTH_NAMES, datasets },
+    options:{ responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{display:true,position:'top',labels:{boxWidth:12,font:{size:11}}}, tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y!=null?fmt(ctx.parsed.y):'—'}`}} },
+      scales:{ x:{grid:G.grid,ticks:G.ticks}, y:{grid:G.grid,ticks:{...G.ticks,callback:v=>(v/1000).toFixed(0)+'K €'}} }
+    }
+  });
+
+  // Gráfico barras promedio por año
+  charts['cCompAnio'] = new Chart(document.getElementById('cCompAnio'),{
+    type:'bar',
+    data:{ labels:years,
+      datasets:[
+        { label:'Saldo promedio', data:kpisByYear.map(k=>k.avg), backgroundColor:kpisByYear.map(k=>k.color+'BB'), borderColor:kpisByYear.map(k=>k.color), borderWidth:2, borderRadius:6 },
+        { label:'Máximo', data:kpisByYear.map(k=>k.max), backgroundColor:'transparent', borderColor:kpisByYear.map(k=>k.color), borderWidth:2, type:'line', pointRadius:6, pointBackgroundColor:kpisByYear.map(k=>k.color) },
+      ]
+    },
+    options:{ responsive:true,
+      plugins:{ legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:10}}}, tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`}} },
+      scales:{ x:{grid:G.grid,ticks:G.ticks}, y:{grid:G.grid,ticks:{...G.ticks,callback:v=>(v/1000).toFixed(0)+'K €'}} }
+    }
+  });
+
+  // Gráfico barras cuentas por año (agrupado)
+  const cuentaColors = ['#2B5F8E','#F0A500','#27AE60','#E85B2C','#8E44AD','#1ABC9C','#E74C3C'];
+  charts['cCompCuentas'] = new Chart(document.getElementById('cCompCuentas'),{
+    type:'bar',
+    data:{
+      labels: years,
+      datasets: ACCOUNTS.map((acc,i)=>({
+        label: acc.label,
+        data: years.map(y=>{ const recs=all.filter(r=>r.fecha.startsWith(y)); return recs.length?recs.reduce((s,r)=>s+(r[acc.key]||0),0)/recs.length:null; }),
+        backgroundColor: cuentaColors[i%cuentaColors.length]+'AA',
+        borderColor: cuentaColors[i%cuentaColors.length],
+        borderWidth:1, borderRadius:4
+      }))
+    },
+    options:{ responsive:true,
+      plugins:{ legend:{display:true,position:'right',labels:{boxWidth:10,font:{size:10}}}, tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`}} },
+      scales:{ x:{grid:G.grid,ticks:G.ticks,stacked:false}, y:{grid:G.grid,ticks:{...G.ticks,callback:v=>(v/1000).toFixed(0)+'K €'},stacked:false} }
+    }
+  });
+}
+
 function renderHistorico(){
   let sorted = sortedRegistros();
   const period = document.getElementById('filtPeriod')?.value||'7';
@@ -1973,9 +2475,113 @@ function guardarRegistro(){
 }
 
 // ═══════════════════════════════════════════════════════
+// MODAL ALERTAS ARRASTRE
+// ═══════════════════════════════════════════════════════
+let _arrastPendingInput = null;
+
+function checkAlertasArrastre(){
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const hoyStr = hoy.toISOString().slice(0,10);
+  const alertas = [];
+
+  // 1. Pagarés vencidos (estado === 'vencido')
+  const pagVenc = PAGARES_DATA.filter(p => p.estado === 'vencido');
+  if(pagVenc.length){
+    const sum = pagVenc.reduce((s,p)=>s+p.importe,0);
+    alertas.push({
+      cat:'pagares',
+      titulo:`${pagVenc.length} pagaré(s) vencido(s) sin cobrar`,
+      items: pagVenc.map(p=>`${p.pagare} — ${fmt(p.importe)} · Vto: ${new Date(p.vto+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}`),
+      sumario:`Total pendiente: ${fmt(sum)}`,
+      nav:'pagares'
+    });
+  }
+
+  // 2. Confirming vencidos (vto < hoy)
+  const confVenc = CONF_SANT_DATA.filter(c => c.vto < hoyStr);
+  if(confVenc.length){
+    const sum = confVenc.reduce((s,c)=>s+c.importe,0);
+    alertas.push({
+      cat:'confirming',
+      titulo:`${confVenc.length} Confirming vencido(s) sin liquidar`,
+      items: confVenc.map(c=>`${c.proveedor} — ${fmt(c.importe)} · Vto: ${new Date(c.vto+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}`),
+      sumario:`Total: ${fmt(sum)}`,
+      nav:'pagares'
+    });
+  }
+
+  // 3. Pool bancario: tipo 'alerta' o fecha vto superada
+  const parseVtoES = s => { const m=(s||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m?new Date(`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}T12:00:00`):null; };
+  const deudaAlerta = DEUDA_DATA.filter(d => {
+    if(d.tipo==='alerta') return true;
+    const v = parseVtoES(d.vto);
+    return v && v < hoy;
+  });
+  if(deudaAlerta.length){
+    alertas.push({
+      cat:'deuda',
+      titulo:`${deudaAlerta.length} préstamo(s) del pool bancario vencido(s) o en alerta`,
+      items: deudaAlerta.map(d=>`${d.nombre} — ${fmt(d.pendiente)} pendiente · Vto: ${d.vto}`),
+      sumario:`Revisa con tu gestor bancario antes de registrar el arrastre.`,
+      nav:'deuda'
+    });
+  }
+
+  return alertas;
+}
+
+function mostrarModalArrastre(input){
+  _arrastPendingInput = input;
+  const alertas = checkAlertasArrastre();
+  if(!alertas.length){ _ejecutarArrastre(input); return; }
+
+  const iconos = {pagares:'📄',confirming:'🏦',deuda:'🏛️'};
+  const navLabels = {pagares:'Pagarés & Confirming',deuda:'Pool de Deuda'};
+
+  document.getElementById('arrastBody').innerHTML = alertas.map(a=>`
+    <div class="arrast-section">
+      <div class="arrast-section-ttl">${iconos[a.cat]||'⚠️'} ${a.titulo}</div>
+      ${a.items.map(item=>`
+        <div class="arrast-row">
+          <div class="arrast-row-ico">🔴</div>
+          <div class="arrast-row-body"><strong>${item}</strong></div>
+        </div>`).join('')}
+      <div style="font-size:12px;color:var(--texto2);margin-top:6px;padding-left:2px;">
+        ${a.sumario}
+        — <a href="#" style="color:var(--azul);" onclick="event.preventDefault();cerrarArrastModal(false);showView('${a.nav}');">Ir a ${navLabels[a.nav]||a.nav} →</a>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('arrastCheck').checked = false;
+  document.getElementById('btnContinuarArrast').classList.remove('activo');
+  document.getElementById('arrastModal').classList.remove('hidden');
+}
+
+function arrastCheckChange(){
+  const checked = document.getElementById('arrastCheck').checked;
+  document.getElementById('btnContinuarArrast').classList.toggle('activo', checked);
+}
+
+function cerrarArrastModal(limpiarInput){
+  document.getElementById('arrastModal').classList.add('hidden');
+  if(limpiarInput && _arrastPendingInput){ _arrastPendingInput.value=''; _arrastPendingInput=null; }
+}
+
+function arrastContinuar(){
+  if(!document.getElementById('arrastCheck').checked) return;
+  cerrarArrastModal(false);
+  if(_arrastPendingInput){ _ejecutarArrastre(_arrastPendingInput); _arrastPendingInput=null; }
+}
+
+// ═══════════════════════════════════════════════════════
 // IMPORTAR EXCEL
 // ═══════════════════════════════════════════════════════
 function importarExcel(input){
+  if(!input.files[0]) return;
+  mostrarModalArrastre(input);
+}
+
+function _ejecutarArrastre(input){
   const file = input.files[0];
   if(!file) return;
   const statusEl = document.getElementById('uploadStatus');
@@ -2209,17 +2815,18 @@ function importProveedoresExcel(input){
       let n=0;
       data.forEach(row=>{
         const receptorRaw=row[0];
-        if(receptorRaw==='' || receptorRaw==null) return;
-        if(String(receptorRaw).trim().toLowerCase()==='receptor') return;
+        // Saltar fila de cabecera
+        if(String(receptorRaw||'').trim().toLowerCase()==='receptor') return;
         const nombre=String(row[1]||'').trim();
         if(!nombre) return;
+        // Saltar filas de totales/títulos (sin nombre o con importe no parseable)
         const importeStr=String(row[4]||'').replace(/[€\s]/g,'').replace(/\./g,'').replace(',','.');
         const importe=parseFloat(importeStr);
-        if(isNaN(importe)) return;
+        if(isNaN(importe)||importe===0) return;
         proveedores.push({
           id:Date.now()+n,
           fecha:toFecha(row[7])||new Date().toLocaleDateString('en-CA'),
-          receptor:String(receptorRaw).trim(),
+          receptor:String(receptorRaw||'').trim(),
           nombre,
           nfra:row[2]!==''?String(row[2]).trim():'',
           ndocpago:String(row[3]||'').trim(),
@@ -2318,6 +2925,496 @@ function importProveedoresPDF(input){
     s.onerror=()=>{alert('Error al cargar la librería PDF.');input.value='';};
     document.head.appendChild(s);
   } else { run(); }
+}
+
+// ═══════════════════════════════════════════════════════
+// CAJA — Conciliación de Cierres y Banco
+// ═══════════════════════════════════════════════════════
+function saveCajaCierres(){ try{localStorage.setItem('op_cajacierres',JSON.stringify(cajaCierres));}catch(e){} }
+function saveCajaBanco(){ try{localStorage.setItem('op_cajabancorecibos',JSON.stringify(cajaBancoRecibos));}catch(e){} }
+function saveCajaEfectivo(){ try{localStorage.setItem('op_cajaefectivo',JSON.stringify(cajaEfectivo));}catch(e){} syncDatasetToCloud('cajaefectivo', cajaEfectivo); }
+
+function showCajaSubTab(tab){
+  document.querySelectorAll('#v-caja .subtab-btn').forEach(b=>b.classList.toggle('active', b.dataset.cajaTab===tab));
+  document.querySelectorAll('#v-caja .subtab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('cajat-'+tab).classList.add('active');
+  if(tab==='conciliacion') renderCajaView();
+  else if(tab==='efectivo') renderCajaEfectivo();
+  else if(tab==='registro') renderVentas();
+}
+
+function guardarEfectivo(){
+  const fecha = document.getElementById('efFecha').value;
+  if(!fecha){ showToast('Indica la fecha','err'); return; }
+  const ofipapel = parseFloat(document.getElementById('efOfipapel').value)||0;
+  const aliz1 = parseFloat(document.getElementById('efAliz1').value)||0;
+  const aliz2 = parseFloat(document.getElementById('efAliz2').value)||0;
+  const notas = document.getElementById('efNotas').value.trim();
+  const idx = cajaEfectivo.findIndex(e=>e.fecha===fecha);
+  const entry = {fecha,ofipapel,aliz1,aliz2,notas};
+  if(idx>=0) cajaEfectivo[idx]=entry; else cajaEfectivo.push(entry);
+  cajaEfectivo.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  saveCajaEfectivo();
+  renderCajaEfectivo();
+  renderDashboard();
+  showToast('✅ Efectivo guardado','ok');
+}
+
+function renderCajaEfectivo(){
+  const fmtV = v => v!=null&&v>0 ? new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:2}).format(v) : '—';
+  // Pre-fill date input with today if empty
+  const efFecha = document.getElementById('efFecha');
+  if(efFecha&&!efFecha.value) efFecha.value = new Date().toISOString().slice(0,10);
+
+  // KPIs: total acumulado de la última semana por tienda
+  const kpisEl = document.getElementById('efKpis');
+  if(kpisEl && cajaEfectivo.length){
+    const le = cajaEfectivo[cajaEfectivo.length-1];
+    const total = (le.ofipapel||0)+(le.aliz1||0)+(le.aliz2||0);
+    kpisEl.innerHTML = `<div class="kpi-grid" style="margin-bottom:16px;">
+      <div class="kpi"><div class="kpi-ico">🏪</div><div class="kpi-lbl">Ofipapel</div><div class="kpi-val">${fmtV(le.ofipapel)}</div><div class="kpi-delta">Último registro</div></div>
+      <div class="kpi"><div class="kpi-ico">🏬</div><div class="kpi-lbl">Aliz-1</div><div class="kpi-val">${fmtV(le.aliz1)}</div><div class="kpi-delta">Último registro</div></div>
+      <div class="kpi"><div class="kpi-ico">🏬</div><div class="kpi-lbl">Aliz-2</div><div class="kpi-val">${fmtV(le.aliz2)}</div><div class="kpi-delta">Último registro</div></div>
+      <div class="kpi"><div class="kpi-ico">💰</div><div class="kpi-lbl">Total</div><div class="kpi-val">${fmtV(total)}</div><div class="kpi-delta">Todas las tiendas</div></div>
+    </div>`;
+  } else if(kpisEl) kpisEl.innerHTML='';
+
+  // Histórico
+  const el = document.getElementById('efHistorico');
+  if(!el) return;
+  if(!cajaEfectivo.length){
+    el.innerHTML='<div style="padding:20px;text-align:center;color:var(--texto2);font-size:13px;">Sin registros aún. Introduce los importes de efectivo pendiente arriba.</div>';
+    return;
+  }
+  const sorted=[...cajaEfectivo].reverse();
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead><tr style="background:var(--fondo2);">
+      <th style="padding:10px 12px;text-align:left;font-weight:600;">Fecha</th>
+      <th style="padding:10px 12px;text-align:right;font-weight:600;">Ofipapel</th>
+      <th style="padding:10px 12px;text-align:right;font-weight:600;">Aliz-1</th>
+      <th style="padding:10px 12px;text-align:right;font-weight:600;">Aliz-2</th>
+      <th style="padding:10px 12px;text-align:right;font-weight:600;">Total</th>
+      <th style="padding:10px 12px;text-align:left;font-weight:600;">Notas</th>
+      <th style="padding:10px 12px;text-align:center;font-weight:600;"></th>
+    </tr></thead>
+    <tbody>${sorted.map((e,i)=>{
+      const tot=(e.ofipapel||0)+(e.aliz1||0)+(e.aliz2||0);
+      const dStr=new Date((e.fecha||'')+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+      const bg=i%2===0?'var(--fondo)':'var(--fondo2)';
+      return `<tr style="background:${bg};">
+        <td style="padding:9px 12px;">${dStr}</td>
+        <td style="padding:9px 12px;text-align:right;">${fmtV(e.ofipapel)}</td>
+        <td style="padding:9px 12px;text-align:right;">${fmtV(e.aliz1)}</td>
+        <td style="padding:9px 12px;text-align:right;">${fmtV(e.aliz2)}</td>
+        <td style="padding:9px 12px;text-align:right;font-weight:600;">${fmtV(tot)}</td>
+        <td style="padding:9px 12px;color:var(--texto2);">${e.notas||''}</td>
+        <td style="padding:9px 12px;text-align:center;"><button onclick="deleteEfectivo('${e.fecha}')" style="background:none;border:none;cursor:pointer;font-size:14px;" title="Eliminar">🗑️</button></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+function deleteEfectivo(fecha){
+  if(!confirm('¿Eliminar el registro de '+fecha+'?')) return;
+  cajaEfectivo=cajaEfectivo.filter(e=>e.fecha!==fecha);
+  saveCajaEfectivo();
+  renderCajaEfectivo();
+  renderDashboard();
+}
+
+function cajaCierreDrop(e){
+  e.preventDefault();
+  document.getElementById('cajaCierreZone').classList.remove('drag');
+  importCierrePDF({files:e.dataTransfer.files});
+}
+function cajaBancoDrop(e){
+  e.preventDefault();
+  document.getElementById('cajaBancoZone').classList.remove('drag');
+  importBancoPDF({files:e.dataTransfer.files});
+}
+
+function parsePDFTextCaja(file, cb){
+  function run(){
+    pdfjsLib.GlobalWorkerOptions.workerSrc=
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    (async()=>{
+      try{
+        const buf=await file.arrayBuffer();
+        const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+        const allLines=[];
+        for(let p=1;p<=pdf.numPages;p++){
+          const page=await pdf.getPage(p);
+          const content=await page.getTextContent();
+          const rowMap={};
+          content.items.forEach(item=>{
+            const y=Math.round(item.transform[5]/2)*2;
+            if(!rowMap[y]) rowMap[y]=[];
+            rowMap[y].push({x:item.transform[4],str:item.str});
+          });
+          Object.keys(rowMap).sort((a,b)=>b-a).forEach(y=>{
+            const line=rowMap[y].sort((a,b)=>a.x-b.x).map(i=>i.str).join(' ').replace(/\s+/g,' ').trim();
+            if(line) allLines.push(line);
+          });
+        }
+        cb(null, allLines);
+      }catch(err){ cb(err, null); }
+    })();
+  }
+  if(!window.pdfjsLib){
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=run;
+    s.onerror=()=>cb(new Error('Error cargando PDF.js'),null);
+    document.head.appendChild(s);
+  } else { run(); }
+}
+
+function parseNumES2(s){
+  if(s==null) return null;
+  const n=parseFloat(String(s).replace(/\s/g,'').replace(/\./g,'').replace(',','.'));
+  return isNaN(n)?null:n;
+}
+function parseFechaES2(s){
+  const m=String(s||'').match(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
+  return m?`${m[3]}-${m[2]}-${m[1]}`:null;
+}
+
+function parseCierreCentralLines(lines){
+  const r={fecha:null,fechaApertura:null,stores:[],bancoPagos:[],efectivoTotal:0,tarjetasTotal:0,chequesTotal:0,efectivoBancoDeposit:0,tarjetasBancoDeposit:0,filename:''};
+  const firstNum=line=>{const m=line.match(/([\d]{1,3}(?:\.[\d]{3})*,[\d]{2})/); return m?parseNumES2(m[1]):null;};
+  for(const line of lines){
+    if(!r.fecha){const fd=parseFechaES2(line); if(fd) r.fecha=fd;}
+    if(/Apertura:/.test(line)&&!r.fechaApertura){const fd=parseFechaES2(line); if(fd){r.fechaApertura=fd; if(!r.fecha) r.fecha=fd;}}
+    const cm=line.match(/Cierre Caja (Efectivo|Tarjetas)\s+(\w+)-(.+)/i);
+    if(cm){
+      const tipo=cm[1],codigo=cm[2];
+      const num=firstNum(line);
+      if(num!==null) r.stores.push({codigo,tipo,haber:num});
+      continue;
+    }
+    const bm=line.match(/Ingreso[s]?\s+((?:Banco\s+\w+|Tarjetas\s+\w+))[.\s]*(?:N[ºo]\s*Pago[:\s]+(\S+))?/i);
+    if(bm){
+      const banco=bm[1],numPago=bm[2]||'';
+      const nums=[...line.matchAll(/([\d]{1,3}(?:\.[\d]{3})*,[\d]{2})/g)].map(m=>parseNumES2(m[1]));
+      const importe=nums.length>=2?nums[1]:nums.length===1?nums[0]:0;
+      if(importe) r.bancoPagos.push({banco:banco.trim(),numPago,importe});
+      continue;
+    }
+    if(/Tarjetas\.{2}:/.test(line)){const n=firstNum(line); if(n) r.tarjetasTotal=n;}
+    if(/Efectivo\.{2}:/.test(line)){const n=firstNum(line); if(n) r.efectivoTotal=n;}
+    if(/Cheques\.{2}:/.test(line)){const n=firstNum(line); if(n) r.chequesTotal=n;}
+  }
+  if(!r.efectivoTotal) r.efectivoTotal=r.stores.filter(s=>s.tipo==='Efectivo').reduce((s,x)=>s+x.haber,0);
+  if(!r.tarjetasTotal) r.tarjetasTotal=r.stores.filter(s=>s.tipo==='Tarjetas').reduce((s,x)=>s+x.haber,0);
+  r.efectivoBancoDeposit=r.bancoPagos.filter(p=>!/Tarjetas/i.test(p.banco)).reduce((s,x)=>s+x.importe,0);
+  r.tarjetasBancoDeposit=r.bancoPagos.filter(p=>/Tarjetas/i.test(p.banco)).reduce((s,x)=>s+x.importe,0);
+  return r;
+}
+
+function parseBancoPDFLines(lines, filename){
+  const r={fecha:null,tipo:'efectivo',importe:0,banco:'Santander',legible:false,filename};
+  for(const line of lines){
+    const em=line.match(/Ingreso en efectivo de\s+([\d.,]+)\s*€/i);
+    if(em){r.importe=parseNumES2(em[1]);r.tipo='efectivo';r.legible=true;}
+    if(/Entrega.*Negociaci[oó]n de documentos/i.test(line)) r.tipo='cheque';
+    if(/CHEQUES/i.test(line)) r.tipo='cheque';
+    const im=line.match(/importe[:\s]+([\d.,]+)\s*€/i);
+    if(im&&!r.importe){r.importe=parseNumES2(im[1]);if(r.importe) r.legible=true;}
+    const fd=parseFechaES2(line); if(fd&&!r.fecha) r.fecha=fd;
+    if(/Santander/i.test(line)) r.banco='Santander';
+    else if(/BBVA/i.test(line)) r.banco='BBVA';
+    else if(/CaixaBank|La Caixa/i.test(line)) r.banco='CaixaBank';
+  }
+  return r;
+}
+
+function importCierrePDF(input){
+  const files=input.files; if(!files||!files.length) return;
+  let remaining=files.length; let importados=0;
+  const st=document.getElementById('cajaCierreStatus');
+  if(st) st.textContent='Procesando...';
+  for(const f of files){
+    parsePDFTextCaja(f,(err,lines)=>{
+      remaining--;
+      if(!err&&lines){
+        const data=parseCierreCentralLines(lines);
+        data.filename=f.name;
+        if(data.fecha||data.stores.length){
+          const idx=cajaCierres.findIndex(c=>c.filename===f.name);
+          if(idx>=0) cajaCierres[idx]=data; else cajaCierres.push(data);
+          importados++;
+        }
+      }
+      if(remaining===0){
+        cajaCierres.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+        saveCajaCierres();
+        if(st) st.textContent=`✅ ${importados} cierre(s) importado(s)`;
+        renderCajaView();
+      }
+    });
+  }
+  if(input.value!==undefined) input.value='';
+}
+
+function importBancoPDF(input){
+  const files=input.files; if(!files||!files.length) return;
+  let remaining=files.length; let importados=0;
+  const st=document.getElementById('cajaBancoStatus');
+  if(st) st.textContent='Procesando...';
+  for(const f of files){
+    parsePDFTextCaja(f,(err,lines)=>{
+      remaining--;
+      if(!err&&lines){
+        const data=parseBancoPDFLines(lines,f.name);
+        if(data.importe>0){
+          const idx=cajaBancoRecibos.findIndex(c=>c.filename===f.name);
+          if(idx>=0) cajaBancoRecibos[idx]=data; else cajaBancoRecibos.push(data);
+          importados++;
+        }
+      }
+      if(remaining===0){
+        cajaBancoRecibos.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+        saveCajaBanco();
+        if(st) st.textContent=`✅ ${importados} resguardo(s) importado(s)`;
+        renderCajaView();
+      }
+    });
+  }
+  if(input.value!==undefined) input.value='';
+}
+
+function renderCajaView(){
+  renderCajaConciliacion();
+  renderCajaHistorico();
+}
+
+function renderCajaConciliacion(){
+  const alertEl=document.getElementById('cajaConcilAlert');
+  const tablaEl=document.getElementById('cajaReconcilTabla');
+  if(!alertEl||!tablaEl) return;
+  if(!cajaCierres.length){
+    alertEl.innerHTML='';
+    tablaEl.innerHTML=`<div class="empty-state"><div class="e-ico">📋</div><h3>Sin datos</h3><p>Importa el PDF de Cierre de Cajas (CajaAyCC Z8) para ver la conciliación.</p></div>`;
+    return;
+  }
+  const last=cajaCierres[cajaCierres.length-1];
+  const bd=cajaBancoRecibos.filter(b=>b.fecha===last.fecha);
+  const totalBEf=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
+  const diff=Math.abs((last.efectivoBancoDeposit||0)-totalBEf);
+  const cuadra=bd.length>0&&diff<0.05;
+  const descuadre=bd.length>0&&diff>=0.05;
+  const pendiente=bd.length===0;
+  const fechaLabel=last.fecha?new Date(last.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'}):'—';
+
+  if(descuadre){
+    alertEl.innerHTML=`<div style="background:#c0392b;color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">⚠️</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">DESCUADRE DETECTADO — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Sistema: <strong>${fmt(last.efectivoBancoDeposit||0)}</strong> · Banco: <strong>${fmt(totalBEf)}</strong> · Diferencia: <strong>${fmt(diff)}</strong></div></div></div>`;
+  } else if(cuadra){
+    alertEl.innerHTML=`<div style="background:#27AE60;color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">✅</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">CAJA CUADRADA — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Efectivo depositado: <strong>${fmt(last.efectivoBancoDeposit||0)}</strong></div></div></div>`;
+  } else {
+    alertEl.innerHTML=`<div style="background:var(--naranja,#F5A623);color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">⏳</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">PENDIENTE — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Cierre cargado. Añade los resguardos bancarios para completar la conciliación.</div></div></div>`;
+  }
+
+  const storeRows=(()=>{
+    if(!last.stores||!last.stores.length) return '';
+    const pc={};
+    last.stores.forEach(s=>{
+      if(!pc[s.codigo]) pc[s.codigo]={efectivo:0,tarjetas:0};
+      if(s.tipo==='Efectivo') pc[s.codigo].efectivo+=s.haber;
+      else pc[s.codigo].tarjetas+=s.haber;
+    });
+    return Object.entries(pc).map(([cod,v])=>`<tr>
+      <td style="font-weight:600;font-family:'IBM Plex Mono',monospace;">${cod}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(v.efectivo)}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(v.tarjetas)}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(v.efectivo+v.tarjetas)}</td>
+    </tr>`).join('');
+  })();
+
+  tablaEl.innerHTML=`
+  <div class="card" style="padding:16px;margin-bottom:16px;">
+    <div style="font-weight:700;color:var(--azul);margin-bottom:12px;">🔍 Conciliación — ${last.filename||last.fecha}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
+      <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">💵</div><div class="kpi-lbl">Efectivo Tiendas</div><div class="kpi-val" style="font-size:18px;">${fmt(last.efectivoTotal||0)}</div><div class="kpi-sub">del sistema</div></div>
+      <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">💳</div><div class="kpi-lbl">Tarjetas Tiendas</div><div class="kpi-val" style="font-size:18px;">${fmt(last.tarjetasTotal||0)}</div><div class="kpi-sub">del sistema</div></div>
+      <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">🏦</div><div class="kpi-lbl">Depósito Banco</div><div class="kpi-val" style="font-size:18px;">${fmt(last.efectivoBancoDeposit||0)}</div><div class="kpi-sub">efectivo→banco</div></div>
+      ${bd.length?`<div class="kpi" style="background:${cuadra?'#e8f5e9':'#fdecea'};"><div class="kpi-ico">${cuadra?'✅':'❌'}</div><div class="kpi-lbl">Banco (resguardos)</div><div class="kpi-val" style="font-size:18px;">${fmt(totalBEf)}</div><div class="kpi-sub">confirmado</div></div>`:''}
+    </div>
+    <table class="tabla" style="margin-bottom:0;">
+      <thead><tr><th>Concepto</th><th style="text-align:right;">Sistema</th><th style="text-align:right;">Banco</th><th style="text-align:right;">Diferencia</th><th style="text-align:center;">Estado</th></tr></thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:600;">Efectivo depositado en banco</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(last.efectivoBancoDeposit||0)}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${bd.length?fmt(totalBEf):'—'}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;color:${diff>0.05&&bd.length?'#c0392b':'inherit'};">${bd.length?fmt(diff):'—'}</td>
+          <td style="text-align:center;">${bd.length?(diff<0.05?'✅':'❌'):'⏳'}</td>
+        </tr>
+        ${last.bancoPagos&&last.bancoPagos.length?`<tr style="background:var(--fondo,#f8f9fa);"><td colspan="5" style="font-size:11px;color:var(--texto2);padding:8px 12px;"><strong>Detalle pagos sistema:</strong> ${last.bancoPagos.map(p=>`${p.banco} ${fmt(p.importe)} (${p.numPago||'—'})`).join(' · ')}</td></tr>`:''}
+        ${bd.length?`<tr style="background:var(--fondo,#f8f9fa);"><td colspan="5" style="font-size:11px;color:var(--texto2);padding:8px 12px;"><strong>Resguardos bancarios:</strong> ${bd.map(b=>`${b.banco} ${fmt(b.importe)} [${b.tipo}] ${b.filename}`).join(' · ')}</td></tr>`:''}
+      </tbody>
+    </table>
+  </div>
+  ${storeRows?`<div class="card" style="padding:16px;margin-bottom:16px;"><div style="font-weight:700;color:var(--azul);margin-bottom:12px;">🏪 Detalle por Terminal</div><div style="overflow-x:auto;"><table class="tabla"><thead><tr><th>Cód.</th><th style="text-align:right;">Efectivo</th><th style="text-align:right;">Tarjetas</th><th style="text-align:right;">Total</th></tr></thead><tbody>${storeRows}</tbody></table></div></div>`:''}`;
+}
+
+function renderCajaHistorico(){
+  const el=document.getElementById('cajaHistorico');
+  if(!el) return;
+  if(!cajaCierres.length){
+    el.innerHTML='<div class="empty-state"><div class="e-ico">📅</div><h3>Sin histórico</h3></div>';
+    return;
+  }
+  const sorted=[...cajaCierres].reverse();
+  el.innerHTML=`<div style="overflow-x:auto;"><table class="tabla">
+    <thead><tr><th>Fecha</th><th>Archivo</th><th style="text-align:right;">Efectivo</th><th style="text-align:right;">Tarjetas</th><th style="text-align:right;">→Banco</th><th style="text-align:center;">Estado</th><th></th></tr></thead>
+    <tbody>
+    ${sorted.map(c=>{
+      const bd=cajaBancoRecibos.filter(b=>b.fecha===c.fecha);
+      const tbef=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
+      const diff=Math.abs((c.efectivoBancoDeposit||0)-tbef);
+      const ico=bd.length===0?'⏳':diff<0.05?'✅':'❌';
+      return `<tr>
+        <td>${c.fecha?new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td>
+        <td style="font-size:11px;color:var(--texto2);">${c.filename||'—'}</td>
+        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoTotal||0)}</td>
+        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.tarjetasTotal||0)}</td>
+        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoBancoDeposit||0)}</td>
+        <td style="text-align:center;font-size:16px;">${ico}</td>
+        <td><button onclick="deleteCierre('${c.filename}')" style="background:none;border:none;color:var(--rojo,#E74C3C);cursor:pointer;font-size:12px;padding:2px 6px;">✕</button></td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+function deleteCierre(filename){
+  if(!confirm('¿Eliminar este cierre?')) return;
+  cajaCierres=cajaCierres.filter(c=>c.filename!==filename);
+  saveCajaCierres(); renderCajaView();
+}
+
+// ═══════════════════════════════════════════════════════
+// VENTAS WEB — importación y analítica
+// ═══════════════════════════════════════════════════════
+let ventasWeb = [];
+try{ const vw=JSON.parse(localStorage.getItem('op_ventasweb')||'null'); if(vw) ventasWeb=vw; }catch(e){}
+
+function saveVentasWeb(){ try{localStorage.setItem('op_ventasweb',JSON.stringify(ventasWeb));}catch(e){} syncDatasetToCloud('ventasweb', ventasWeb); }
+
+function importVentasWebExcel(input){
+  const file=input.files[0]; if(!file) return;
+  if(ventasWeb.length&&!confirm('Esto reemplazará los datos de Venta Web. ¿Continuar?')){ input.value=''; return; }
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      const meses={};
+      data.forEach(row=>{
+        const col0=String(row[0]||'');
+        const tm=col0.match(/TOTAL\s+(\d{2})\/(\d{4})/);
+        if(tm){
+          const mes=parseInt(tm[1]),anio=parseInt(tm[2]);
+          const total=parseFloat(row[6])||0;
+          const key=`${anio}-${String(mes).padStart(2,'0')}`;
+          meses[key]={anio,mes,total};
+        }
+      });
+      ventasWeb=Object.values(meses).sort((a,b)=>a.anio-b.anio||a.mes-b.mes);
+      if(!ventasWeb.length){ alert('No se encontraron totales mensuales en el Excel.'); input.value=''; return; }
+      saveVentasWeb(); renderVentasWeb();
+      alert(ventasWeb.length+' meses importados.');
+    }catch(err){ alert('Error: '+err.message); }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderVentasWeb(){
+  const anioFiltEl=document.getElementById('ventWebAnioFiltro');
+  const kpisEl=document.getElementById('ventWebKpis');
+  const tablaEl=document.getElementById('ventWebTabla');
+  if(!kpisEl||!tablaEl) return;
+
+  ['cVentWebMes','cVentWebAnio'].forEach(destroyChart);
+
+  if(!ventasWeb.length){
+    kpisEl.innerHTML='';
+    tablaEl.innerHTML='<div class="empty-state"><div class="e-ico">🌐</div><h3>Sin datos</h3><p>Importa el Excel de Venta Web para ver el análisis.</p></div>';
+    return;
+  }
+
+  const anios=[...new Set(ventasWeb.map(r=>r.anio))].sort();
+  if(anioFiltEl){
+    const prev=anioFiltEl.value;
+    anioFiltEl.innerHTML='<option value="todos">Todos</option>';
+    anios.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;anioFiltEl.appendChild(o);});
+    if(prev&&prev!=='todos') anioFiltEl.value=prev;
+  }
+  const selAnio=anioFiltEl?.value||'todos';
+  const filtrado=selAnio==='todos'?ventasWeb:ventasWeb.filter(r=>String(r.anio)===selAnio);
+
+  const totalGeneral=filtrado.reduce((s,r)=>s+r.total,0);
+  const totalAnioActual=(()=>{const a=anios[anios.length-1];return ventasWeb.filter(r=>r.anio===a).reduce((s,r)=>s+r.total,0);})();
+  const mejorMes=filtrado.reduce((mx,r)=>r.total>mx.total?r:mx,{total:0,mes:0,anio:0});
+  const mediaAnual=anios.length?totalGeneral/anios.length:0;
+
+  kpisEl.innerHTML=`
+    <div class="kpi"><div class="kpi-ico">🌐</div><div class="kpi-lbl">Total Período</div><div class="kpi-val">${fmt(totalGeneral)}</div><div class="kpi-sub">${filtrado.length} meses</div></div>
+    <div class="kpi"><div class="kpi-ico">📅</div><div class="kpi-lbl">Año ${anios[anios.length-1]}</div><div class="kpi-val">${fmt(totalAnioActual)}</div><div class="kpi-sub">año más reciente</div></div>
+    <div class="kpi"><div class="kpi-ico">⭐</div><div class="kpi-lbl">Mejor Mes</div><div class="kpi-val">${fmt(mejorMes.total)}</div><div class="kpi-sub">${MESES_CORTOS[mejorMes.mes-1]||''} ${mejorMes.anio}</div></div>
+    <div class="kpi"><div class="kpi-ico">📊</div><div class="kpi-lbl">Media Anual</div><div class="kpi-val">${fmt(mediaAnual)}</div><div class="kpi-sub">promedio por año</div></div>
+  `;
+
+  const labMes=filtrado.map(r=>`${MESES_CORTOS[r.mes-1]} ${r.anio}`);
+  const valMes=filtrado.map(r=>r.total);
+  charts['cVentWebMes']=new Chart(document.getElementById('cVentWebMes'),{
+    type:'bar',
+    data:{labels:labMes,datasets:[{label:'Ventas Web',data:valMes,backgroundColor:'rgba(26,92,26,0.75)',borderColor:'#1A5C1A',borderWidth:1.5,borderRadius:4}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v/1000).toFixed(1)+'K €'}}}}
+  });
+
+  const totalPorAnio={};
+  ventasWeb.forEach(r=>{totalPorAnio[r.anio]=(totalPorAnio[r.anio]||0)+r.total;});
+  const anioLabels=Object.keys(totalPorAnio);
+  const anioVals=anioLabels.map(a=>totalPorAnio[a]);
+  const cols=['#1A5C1A','#237523','#3DAF3D','#8DC41E','#F5A623','#E31837','#004B91'];
+  charts['cVentWebAnio']=new Chart(document.getElementById('cVentWebAnio'),{
+    type:'doughnut',
+    data:{labels:anioLabels,datasets:[{data:anioVals,backgroundColor:cols.slice(0,anioLabels.length),borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,cutout:'55%',plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:8}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmt(ctx.parsed)}`}}}}
+  });
+
+  const mesAgg={};
+  filtrado.forEach(r=>{
+    if(!mesAgg[r.anio]) mesAgg[r.anio]={};
+    mesAgg[r.anio][r.mes]=r.total;
+  });
+  const aniosFilt=[...new Set(filtrado.map(r=>r.anio))].sort();
+  const totAnioFilt={};
+  aniosFilt.forEach(a=>totAnioFilt[a]=Array.from({length:12},(_,i)=>mesAgg[a]?.(i+1)||0).reduce((s,v)=>s+v,0));
+
+  tablaEl.innerHTML=`<div style="overflow-x:auto;"><table class="tabla">
+    <thead><tr>
+      <th>Mes</th>
+      ${aniosFilt.map(a=>`<th style="text-align:right;">${a}</th>`).join('')}
+    </tr></thead>
+    <tbody>
+    ${Array.from({length:12},(_,i)=>{
+      const mes=i+1;
+      const vals=aniosFilt.map(a=>mesAgg[a]?.[mes]);
+      if(vals.every(v=>v==null)) return '';
+      return `<tr>
+        <td style="font-weight:600;">${MESES[i]}</td>
+        ${aniosFilt.map(a=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${mesAgg[a]?.[mes]!=null?fmt(mesAgg[a][mes]):'—'}</td>`).join('')}
+      </tr>`;
+    }).join('')}
+    </tbody>
+    <tfoot><tr style="font-weight:700;background:var(--fondo,#f8f9fa);">
+      <td>TOTAL</td>
+      ${aniosFilt.map(a=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;">${fmt(totAnioFilt[a])}</td>`).join('')}
+    </tr></tfoot>
+  </table></div>`;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -3109,26 +4206,70 @@ function importVentasClientesExcel(input){
   reader.readAsArrayBuffer(file);
 }
 
-function renderVentasClientes(){
-  const filtro=(document.getElementById('ventClienteFiltro')?.value||'').toLowerCase().trim();
+let _cliVista = 'normal';
+function setCliVista(v){
+  _cliVista=v;
+  ['normal','inactivos','vendedor'].forEach(k=>{
+    const btn=document.getElementById('btnCliVista'+k.charAt(0).toUpperCase()+k.slice(1));
+    if(btn){ btn.style.background=k===v?'var(--azul)':'var(--fondo2)'; btn.style.color=k===v?'#fff':'var(--texto)'; btn.style.borderColor=k===v?'var(--azul)':'var(--borde)'; }
+  });
+  document.getElementById('ventCliInactivosFiltroBar').style.display=v==='inactivos'?'':'none';
+  renderVentasClientes();
+}
 
+function renderVentasClientes(){
   if(!ventasClientes.length){
     document.getElementById('ventClienteKpis').innerHTML='';
     document.getElementById('ventClienteTabla').innerHTML='<div class="empty-state"><div class="e-ico">👥</div><h3>Sin datos</h3><p>Importa el Excel de Ventas por Clientes para ver el análisis.</p></div>';
     return;
   }
 
-  const porCliente={};
-  ventasClientes.forEach(r=>{
-    const key=r.codigo+'|'+r.nombre;
-    porCliente[key]=porCliente[key]||{codigo:r.codigo, nombre:r.nombre, vendedores:new Set(), total:0};
-    porCliente[key].total+=r.total;
-    if(r.vendedor) porCliente[key].vendedores.add(r.vendedor);
+  const filtro=(document.getElementById('ventClienteFiltro')?.value||'').toLowerCase().trim();
+  const anioFiltro=document.getElementById('ventClienteAnio')?.value||'todos';
+  const vendedorFiltro=document.getElementById('ventClienteVendedor')?.value||'todos';
+
+  // Poblar selectores si están vacíos
+  const selA=document.getElementById('ventClienteAnio');
+  if(selA && selA.options.length<=1){
+    [...new Set(ventasClientes.map(r=>r.anio))].sort().forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; selA.appendChild(o); });
+  }
+  const selV=document.getElementById('ventClienteVendedor');
+  if(selV && selV.options.length<=1){
+    [...new Set(ventasClientes.map(r=>r.vendedor).filter(Boolean))].sort().forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; selV.appendChild(o); });
+  }
+  const selSCD=document.getElementById('ventCliSinComprasDesde');
+  if(selSCD && selSCD.options.length<=1){
+    [...new Set(ventasClientes.map(r=>r.anio))].sort().forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; selSCD.appendChild(o); });
+  }
+
+  if(_cliVista==='inactivos'){
+    _renderClientesInactivos(filtro, vendedorFiltro);
+    return;
+  }
+  if(_cliVista==='vendedor'){
+    _renderClientesPorVendedor(filtro, anioFiltro);
+    return;
+  }
+
+  // ── Vista normal: listado por cliente con agrupación año ──
+  let datos = ventasClientes.filter(r=>{
+    if(anioFiltro!=='todos' && String(r.anio)!==anioFiltro) return false;
+    if(vendedorFiltro!=='todos' && r.vendedor!==vendedorFiltro) return false;
+    if(filtro && !r.codigo.toLowerCase().includes(filtro) && !r.nombre.toLowerCase().includes(filtro)) return false;
+    return true;
   });
 
-  let lista=Object.values(porCliente);
-  if(filtro) lista=lista.filter(c=>c.codigo.toLowerCase().includes(filtro)||c.nombre.toLowerCase().includes(filtro));
-  lista.sort((a,b)=>b.total-a.total);
+  const porCliente={};
+  datos.forEach(r=>{
+    const key=r.codigo;
+    if(!porCliente[key]) porCliente[key]={codigo:r.codigo, nombre:r.nombre, vendedores:new Set(), total:0, anios:{}};
+    porCliente[key].total+=r.total;
+    if(r.vendedor) porCliente[key].vendedores.add(r.vendedor);
+    porCliente[key].anios[r.anio]=(porCliente[key].anios[r.anio]||0)+r.total;
+  });
+
+  const lista=Object.values(porCliente).sort((a,b)=>b.total-a.total);
+  const aniosDisp=anioFiltro==='todos'?[...new Set(datos.map(r=>r.anio))].sort():[anioFiltro];
 
   document.getElementById('ventClienteKpis').innerHTML=`
     <div class="kpi"><div class="kpi-ico">👥</div><div class="kpi-lbl">Clientes</div><div class="kpi-val">${lista.length}</div></div>
@@ -3139,20 +4280,134 @@ function renderVentasClientes(){
   document.getElementById('ventClienteTabla').innerHTML=`
     <div style="overflow-x:auto;">
     <table class="tabla">
-      <thead><tr><th>Código</th><th>Cliente</th><th>Vendedor(es)</th><th style="text-align:right;">Total</th></tr></thead>
+      <thead><tr>
+        <th>Código</th><th>Cliente</th><th>Vendedor(es)</th>
+        ${aniosDisp.map(a=>`<th style="text-align:right;">${a}</th>`).join('')}
+        ${aniosDisp.length>1?'<th style="text-align:right;font-weight:700;">Total</th>':''}
+      </tr></thead>
       <tbody>
-        ${lista.map(c=>`<tr>
+        ${lista.slice(0,300).map(c=>`<tr>
           <td style="font-size:12px;">${c.codigo}</td>
           <td style="font-weight:500;">${c.nombre||'—'}</td>
-          <td style="font-size:12px;">${[...c.vendedores].join(', ')}</td>
-          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(c.total)}</td>
+          <td style="font-size:12px;">${[...c.vendedores].join(', ')||'—'}</td>
+          ${aniosDisp.map(a=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${c.anios[a]?fmt(c.anios[a]):'—'}</td>`).join('')}
+          ${aniosDisp.length>1?`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;">${fmt(c.total)}</td>`:''}
         </tr>`).join('')}
       </tbody>
-    </table>
-    </div>
+    </table></div>
     <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
-      ${lista.length} clientes
+      Mostrando ${Math.min(lista.length,300)} de ${lista.length} clientes
     </div>`;
+}
+
+function _renderClientesInactivos(filtro, vendedorFiltro){
+  const sinComprasDesde=Number(document.getElementById('ventCliSinComprasDesde')?.value)||0;
+
+  // Construir mapa: cliente → años con compra
+  const mapaCli={};
+  ventasClientes.forEach(r=>{
+    if(vendedorFiltro!=='todos' && r.vendedor!==vendedorFiltro) return;
+    const key=r.codigo;
+    if(!mapaCli[key]) mapaCli[key]={codigo:r.codigo, nombre:r.nombre, vendedores:new Set(), anios:[], total:0};
+    if(!mapaCli[key].anios.includes(r.anio)) mapaCli[key].anios.push(r.anio);
+    mapaCli[key].total+=r.total;
+    if(r.vendedor) mapaCli[key].vendedores.add(r.vendedor);
+  });
+
+  let inactivos=Object.values(mapaCli);
+  if(sinComprasDesde){
+    inactivos=inactivos.filter(c=>{
+      const ultAnio=Math.max(...c.anios);
+      return ultAnio < sinComprasDesde;
+    });
+  }
+  if(filtro) inactivos=inactivos.filter(c=>c.codigo.toLowerCase().includes(filtro)||c.nombre.toLowerCase().includes(filtro));
+  inactivos.sort((a,b)=>Math.max(...b.anios)-Math.max(...a.anios));
+
+  document.getElementById('ventClienteKpis').innerHTML=`
+    <div class="kpi"><div class="kpi-ico">💤</div><div class="kpi-lbl">Clientes Inactivos</div><div class="kpi-val">${inactivos.length}</div><div class="kpi-sub">${sinComprasDesde?'Sin compras desde '+sinComprasDesde:'Sin filtrar por año'}</div></div>
+    <div class="kpi"><div class="kpi-ico">💶</div><div class="kpi-lbl">Facturado Histórico</div><div class="kpi-val">${fmt(inactivos.reduce((s,c)=>s+c.total,0))}</div><div class="kpi-sub">Total acumulado</div></div>
+    <div class="kpi"><div class="kpi-ico">📅</div><div class="kpi-lbl">Más reciente inactivo</div><div class="kpi-val" style="font-size:14px;">${inactivos[0]?Math.max(...inactivos[0].anios):'—'}</div></div>
+  `;
+
+  if(!sinComprasDesde){
+    document.getElementById('ventClienteTabla').innerHTML='<div style="padding:24px;text-align:center;color:var(--texto2);font-size:13px;">Selecciona un año en el filtro "Sin compras desde el año" para ver los clientes inactivos.</div>';
+    return;
+  }
+
+  document.getElementById('ventClienteTabla').innerHTML=`
+    <div style="overflow-x:auto;">
+    <table class="tabla">
+      <thead><tr>
+        <th>Código</th><th>Cliente</th><th>Vendedor asignado</th><th style="text-align:center;">Últ. año compra</th><th style="text-align:center;">Años activo</th><th style="text-align:right;">Total histórico</th>
+      </tr></thead>
+      <tbody>
+        ${inactivos.slice(0,300).map(c=>{
+          const ult=Math.max(...c.anios);
+          const aniosActivos=c.anios.length;
+          return `<tr>
+            <td style="font-size:12px;">${c.codigo}</td>
+            <td style="font-weight:500;">${c.nombre||'—'}</td>
+            <td style="font-size:12px;">${[...c.vendedores].join(', ')||'—'}</td>
+            <td style="text-align:center;"><span style="padding:2px 10px;border-radius:12px;background:#FEF0EE;color:var(--rojo);font-weight:700;font-size:12px;">${ult}</span></td>
+            <td style="text-align:center;font-size:12px;">${aniosActivos}</td>
+            <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(c.total)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>
+    <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
+      ${inactivos.length} clientes sin compras desde ${sinComprasDesde}
+    </div>`;
+}
+
+function _renderClientesPorVendedor(filtro, anioFiltro){
+  let datos=ventasClientes.filter(r=>{
+    if(anioFiltro!=='todos' && String(r.anio)!==anioFiltro) return false;
+    if(filtro && !r.codigo.toLowerCase().includes(filtro) && !r.nombre.toLowerCase().includes(filtro)) return false;
+    return true;
+  });
+
+  const porVendedor={};
+  datos.forEach(r=>{
+    const v=r.vendedor||'Sin asignar';
+    if(!porVendedor[v]) porVendedor[v]={vendedor:v, clientes:new Map(), total:0};
+    const cli=porVendedor[v].clientes;
+    const prev=cli.get(r.codigo)||{codigo:r.codigo, nombre:r.nombre, total:0};
+    prev.total+=r.total;
+    cli.set(r.codigo, prev);
+    porVendedor[v].total+=r.total;
+  });
+
+  const vendors=Object.values(porVendedor).sort((a,b)=>b.total-a.total);
+
+  document.getElementById('ventClienteKpis').innerHTML=`
+    <div class="kpi"><div class="kpi-ico">🧑‍💼</div><div class="kpi-lbl">Vendedores</div><div class="kpi-val">${vendors.length}</div></div>
+    <div class="kpi"><div class="kpi-ico">💶</div><div class="kpi-lbl">Total Facturado</div><div class="kpi-val">${fmt(vendors.reduce((s,v)=>s+v.total,0))}</div></div>
+    <div class="kpi"><div class="kpi-ico">🥇</div><div class="kpi-lbl">Mejor Vendedor</div><div class="kpi-val" style="font-size:13px;">${vendors[0]?.vendedor||'—'}</div><div class="kpi-sub">${vendors[0]?fmt(vendors[0].total):''}</div></div>
+  `;
+
+  document.getElementById('ventClienteTabla').innerHTML=vendors.map(v=>{
+    const clientes=[...v.clientes.values()].sort((a,b)=>b.total-a.total);
+    return `
+    <div style="border-bottom:2px solid var(--borde);padding-bottom:0;">
+      <div style="padding:12px 16px;background:var(--fondo2);display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:700;font-size:14px;">🧑‍💼 ${v.vendedor}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--azul);">${clientes.length} clientes · ${fmt(v.total)}</div>
+      </div>
+      <div style="overflow-x:auto;">
+      <table class="tabla" style="margin:0;">
+        <tbody>
+          ${clientes.slice(0,50).map(c=>`<tr>
+            <td style="font-size:12px;padding-left:24px;">${c.codigo}</td>
+            <td style="font-weight:500;">${c.nombre||'—'}</td>
+            <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(c.total)}</td>
+          </tr>`).join('')}
+          ${clientes.length>50?`<tr><td colspan="3" style="text-align:center;color:var(--texto2);font-size:12px;padding:8px;">... y ${clientes.length-50} más</td></tr>`:''}
+        </tbody>
+      </table></div>
+    </div>`;
+  }).join('')||'<div class="empty-state"><div class="e-ico">🧑‍💼</div><h3>Sin datos</h3></div>';
 }
 
 // ═══════════════════════════════════════════════════════
@@ -3440,7 +4695,12 @@ function importFamiliasExcel(input){
       if(!registros.length){ alert('No se encontraron registros de familias en el archivo.'); input.value=''; return; }
 
       familias = registros;
-      saveFamilias(); renderFamilias();
+      saveFamilias();
+      ['fam','vtfam'].forEach(p=>{
+        const sa=document.getElementById(p+'FiltroAnio'); if(sa) while(sa.options.length>1) sa.remove(1);
+        const sc=document.getElementById(p+'FiltroCategoria'); if(sc) while(sc.options.length>1) sc.remove(1);
+      });
+      renderFamilias(); renderVentasFamilias();
       alert(registros.length+' registros de familias importados desde Excel.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -3448,18 +4708,83 @@ function importFamiliasExcel(input){
   reader.readAsArrayBuffer(file);
 }
 
-function renderFamilias(){
+function renderFamilias(){ _renderFamiliasCore('fam','cFam'); }
+function renderVentasFamilias(){ _renderFamiliasCore('vtfam','cVtfam'); }
+
+function limpiarFiltrosFam(){ limpiarFiltrosFamPfx('fam'); }
+function limpiarFiltrosFamPfx(pfx){
+  document.getElementById(pfx+'FiltroAnio').value='todos';
+  document.getElementById(pfx+'FiltroCategoria').value='todas';
+  document.getElementById(pfx+'FiltroTexto').value='';
+  _renderFamiliasCore(pfx, pfx==='fam'?'cFam':'cVtfam');
+}
+
+function importFamiliasExcelPfx(input, pfx){
+  // Wrapper que usa el importador original pero fuerza renderizado del prefijo correcto
+  const orig = input; // keep ref
+  // Swap the after-render call to target the right prefix
+  const file=input.files[0]; if(!file) return;
+  if(familias.length && !confirm('Esto reemplazará los datos de Ventas por Familias ya importados. ¿Continuar?')){
+    input.value=''; return;
+  }
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      const catMap={}, famMap={};
+      data.forEach(row=>{
+        if(typeof row[0]!=='string') return;
+        const m=row[0].trim().match(/^(\d+)\s+(.*)$/);
+        if(!m) return;
+        const code=m[1], name=m[2].trim();
+        if(code.length===2) catMap[code]=name;
+        else if(code.length===3 || code.length===4) famMap[code]=name;
+      });
+      const seen=new Set(), registros=[];
+      data.forEach(row=>{
+        const code=row[0];
+        if(typeof code!=='number' || code<100) return;
+        const yr=row[1];
+        if(typeof yr!=='number') return;
+        const codeStr=String(Math.round(code));
+        const key=codeStr+'|'+yr;
+        if(seen.has(key)) return;
+        seen.add(key);
+        const tot=row[14];
+        if(typeof tot!=='number') return;
+        const catCode=codeStr.slice(0,2);
+        registros.push({ id:Date.now()+registros.length, codigo:codeStr, nombre:famMap[codeStr]||('Familia '+codeStr), catCodigo:catCode, catNombre:catMap[catCode]||('Categoría '+catCode), anio:2000+Math.round(yr), meses:row.slice(2,14).map(v=>typeof v==='number'?v:0), total:tot });
+      });
+      if(!registros.length){ alert('No se encontraron registros de familias en el archivo.'); input.value=''; return; }
+      familias = registros;
+      saveFamilias();
+      // Reset selectores de ambas vistas para que se repueblen
+      ['fam','vtfam'].forEach(p=>{
+        const sa=document.getElementById(p+'FiltroAnio'); if(sa) while(sa.options.length>1) sa.remove(1);
+        const sc=document.getElementById(p+'FiltroCategoria'); if(sc) while(sc.options.length>1) sc.remove(1);
+      });
+      renderFamilias(); renderVentasFamilias();
+      alert(registros.length+' registros de familias importados desde Excel.');
+    }catch(err){ alert('Error al procesar el Excel: '+err.message); }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function _renderFamiliasCore(pfx, cpfx){
+  const el = id => document.getElementById(id);
   const anios=[...new Set(familias.map(f=>f.anio))].sort();
   const cats=[...new Map(familias.map(f=>[f.catCodigo,f.catNombre])).entries()].sort((a,b)=>a[0].localeCompare(b[0]));
 
-  const selA=document.getElementById('famFiltroAnio');
+  const selA=el(pfx+'FiltroAnio');
   if(selA && selA.options.length<=1) anios.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; selA.appendChild(o); });
-  const selC=document.getElementById('famFiltroCategoria');
+  const selC=el(pfx+'FiltroCategoria');
   if(selC && selC.options.length<=1) cats.forEach(([code,name])=>{ const o=document.createElement('option'); o.value=code; o.textContent=code+' - '+name; selC.appendChild(o); });
 
   const anio=selA?.value||'todos';
   const catFiltro=selC?.value||'todas';
-  const texto=(document.getElementById('famFiltroTexto')?.value||'').toLowerCase().trim();
+  const texto=(el(pfx+'FiltroTexto')?.value||'').toLowerCase().trim();
 
   let f=familias.filter(x=>{
     if(anio!=='todos' && String(x.anio)!==anio) return false;
@@ -3468,47 +4793,45 @@ function renderFamilias(){
     return true;
   }).sort((a,b)=>b.total-a.total);
 
-  // Comparativa mensual/anual — ignora el filtro de año (necesita histórico completo)
-  // para mostrar mejor/peor mes y año del filtro de categoría/texto seleccionado.
   const fComp=familias.filter(x=>{
     if(catFiltro!=='todas' && x.catCodigo!==catFiltro) return false;
     if(texto && !x.nombre.toLowerCase().includes(texto) && !String(x.codigo).includes(texto)) return false;
     return true;
   });
-  const compTtlEl=document.getElementById('famCompTtl');
-  if(fComp.length){
+  const compTtlEl=el(pfx+'CompTtl');
+  if(fComp.length && compTtlEl){
     const etiqueta = texto ? 'Búsqueda: "'+texto+'"' : (catFiltro!=='todas' ? 'Categoría '+catFiltro : 'Todas las familias');
     compTtlEl.textContent='📊 Comparativa Mensual y Anual — '+etiqueta;
     const anFam=buildAnualAnalysis(aggregateAnualRows(fComp));
-    document.getElementById('famCompKpis').innerHTML=anualKpisHtml(anFam);
-    document.getElementById('famCompTabla').innerHTML=renderAnualTabla(anFam);
-  } else {
+    el(pfx+'CompKpis').innerHTML=anualKpisHtml(anFam);
+    el(pfx+'CompTabla').innerHTML=renderAnualTabla(anFam);
+  } else if(compTtlEl){
     compTtlEl.textContent='📊 Comparativa Mensual y Anual';
-    document.getElementById('famCompKpis').innerHTML='';
-    document.getElementById('famCompTabla').innerHTML='';
+    el(pfx+'CompKpis').innerHTML='';
+    el(pfx+'CompTabla').innerHTML='';
   }
 
   const totalVentas=f.reduce((s,x)=>s+x.total,0);
   const nFamilias=new Set(f.map(x=>x.codigo)).size;
-  const topCat = (()=>{ const m={}; f.forEach(x=>{ m[x.catNombre]=(m[x.catNombre]||0)+x.total; }); const e=Object.entries(m).sort((a,b)=>b[1]-a[1])[0]; return e?e[0]:'—'; })();
+  const topCat=(()=>{ const m={}; f.forEach(x=>{ m[x.catNombre]=(m[x.catNombre]||0)+x.total; }); const e=Object.entries(m).sort((a,b)=>b[1]-a[1])[0]; return e?e[0]:'—'; })();
 
-  document.getElementById('famKpis').innerHTML = `
+  el(pfx+'Kpis').innerHTML = `
     <div class="kpi"><div class="kpi-ico">📦</div><div class="kpi-lbl">Total Ventas</div><div class="kpi-val">${fmt(totalVentas)}</div><div class="kpi-sub">${f.length} registros</div></div>
     <div class="kpi"><div class="kpi-ico">🔢</div><div class="kpi-lbl">Familias Activas</div><div class="kpi-val">${nFamilias}</div></div>
     <div class="kpi"><div class="kpi-ico">🏆</div><div class="kpi-lbl">Mejor Categoría</div><div class="kpi-val" style="font-size:14px;">${topCat}</div></div>
   `;
 
-  ['cFamCat','cFamAnio'].forEach(destroyChart);
+  [cpfx+'Cat', cpfx+'Anio'].forEach(destroyChart);
 
   if(!f.length){
-    document.getElementById('famTabla').innerHTML='<div class="empty-state"><div class="e-ico">📦</div><h3>Sin datos</h3><p>Importa el Excel de Ventas por Familias para ver el análisis.</p></div>';
+    el(pfx+'Tabla').innerHTML='<div class="empty-state"><div class="e-ico">📦</div><h3>Sin datos</h3><p>Importa el Excel de Ventas por Familias para ver el análisis.</p></div>';
     return;
   }
 
   const byCat={};
   f.forEach(x=>{ byCat[x.catNombre]=(byCat[x.catNombre]||0)+x.total; });
   const topCats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  charts['cFamCat']=new Chart(document.getElementById('cFamCat'),{
+  charts[cpfx+'Cat']=new Chart(el(cpfx+'Cat'),{
     type:'bar',
     data:{ labels:topCats.map(c=>c[0]), datasets:[{ label:'Total', data:topCats.map(c=>c[1]), backgroundColor:'rgba(141,196,30,0.7)', borderColor:'#8DC41E', borderWidth:1.5, borderRadius:4 }] },
     options:{ indexAxis:'y', responsive:true, plugins:{ legend:{display:false} }, scales:{ x:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}} } }
@@ -3517,13 +4840,13 @@ function renderFamilias(){
   const byAnio={};
   f.forEach(x=>{ byAnio[x.anio]=(byAnio[x.anio]||0)+x.total; });
   const aniosOrd=Object.keys(byAnio).sort();
-  charts['cFamAnio']=new Chart(document.getElementById('cFamAnio'),{
+  charts[cpfx+'Anio']=new Chart(el(cpfx+'Anio'),{
     type:'bar',
     data:{ labels:aniosOrd, datasets:[{ label:'Total', data:aniosOrd.map(a=>byAnio[a]), backgroundColor:'rgba(26,92,26,0.7)', borderColor:'#1A5C1A', borderWidth:1.5, borderRadius:4 }] },
     options:{ responsive:true, plugins:{ legend:{display:false} }, scales:{ y:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}} } }
   });
 
-  document.getElementById('famTabla').innerHTML = `
+  el(pfx+'Tabla').innerHTML = `
     <div style="overflow-x:auto;">
     <table class="tabla">
       <thead><tr><th>Código</th><th>Familia</th><th>Categoría</th><th>Año</th><th style="text-align:right;">Total</th></tr></thead>
@@ -3541,13 +4864,6 @@ function renderFamilias(){
     <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
       Mostrando ${Math.min(f.length,300)} de ${f.length} registros · Total: <strong style="color:var(--azul);">${fmt(totalVentas)}</strong>
     </div>`;
-}
-
-function limpiarFiltrosFam(){
-  document.getElementById('famFiltroAnio').value='todos';
-  document.getElementById('famFiltroCategoria').value='todas';
-  document.getElementById('famFiltroTexto').value='';
-  renderFamilias();
 }
 
 // Service Worker (PWA installable)
@@ -3902,28 +5218,14 @@ function renderPagares(){
 // CHAT IA
 // ═══════════════════════════════════════════════════════
 let chatHistory = [];
-let chatApiKey = '';
-try{ chatApiKey = localStorage.getItem('op_claude_key') || ''; }catch(e){}
+// Token compartido de la app para el proxy server-side (no es un secreto real:
+// Index.html es HTML estático y cualquiera puede verlo con "ver código
+// fuente"; solo evita que el endpoint quede completamente abierto. Debe
+// coincidir con CHAT_ASSISTANT_TOKEN en las variables de entorno de Netlify.
+const APP_CHAT_TOKEN = 'ofipapel-chat-2026';
 
 function initChatView() {
-  const inp = document.getElementById('chatApiKey');
-  if(!inp) return;
-  if(chatApiKey) {
-    inp.value = chatApiKey;
-    const st = document.getElementById('chatApiKeyStatus');
-    if(st){ st.textContent = '✓ Configurada'; st.style.color = 'var(--verde)'; }
-  }
   renderChatMessages();
-}
-
-function saveChatApiKey() {
-  const k = (document.getElementById('chatApiKey')?.value || '').trim();
-  if(!k){ showToast('Introduce una API key válida'); return; }
-  chatApiKey = k;
-  try{ localStorage.setItem('op_claude_key', k); }catch(e){}
-  const st = document.getElementById('chatApiKeyStatus');
-  if(st){ st.textContent = '✓ Guardada'; st.style.color = 'var(--verde)'; }
-  showToast('API key guardada');
 }
 
 function buildDataContext() {
@@ -3999,7 +5301,6 @@ function chatSuggest(el) {
 }
 
 async function sendChatMessage() {
-  if(!chatApiKey) { showToast('Configura tu API key primero'); return; }
   const inputEl = document.getElementById('chatInput');
   const sendBtn = document.getElementById('chatSendBtn');
   const msg = (inputEl?.value || '').trim();
@@ -4028,41 +5329,28 @@ Los importes están en euros (€). Las tiendas son locales físicos: tienda 1 =
 DATOS CARGADOS EN LA APP:
 ${buildDataContext()}`;
 
-    // Llamada directa con el header CORS correcto de Anthropic
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    // La llamada a Claude va ahora a través de una Netlify Function: la API
+    // key vive solo en el servidor, no en este navegador (ver
+    // netlify/functions/chat-assistant.js).
+    const resp = await fetch('/.netlify/functions/chat-assistant', {
       method: 'POST',
       headers: {
-        'x-api-key': chatApiKey,
-        'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
-        'anthropic-dangerous-direct-browser-access': 'true'
+        'x-chat-token': APP_CHAT_TOKEN
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
         system: systemPrompt,
         messages: chatHistory
       })
     });
 
+    const data = await resp.json().catch(()=>({}));
     if(!resp.ok) {
-      const err = await resp.json().catch(()=>({}));
-      throw new Error(err.error?.message || 'Error HTTP ' + resp.status);
+      throw new Error(data.error || 'Error HTTP ' + resp.status);
     }
-    const data = await resp.json();
-    const reply = data.content?.[0]?.text || '(Sin respuesta)';
-    chatHistory.push({ role:'assistant', content:reply });
+    chatHistory.push({ role:'assistant', content: data.reply || '(Sin respuesta)' });
   } catch(e) {
-    let diag = '';
-    if(e.message === 'Failed to fetch') {
-      try {
-        await fetch('https://api.anthropic.com/', { mode:'no-cors', cache:'no-store' });
-        diag = '\n\n🔍 api.anthropic.com es accesible. Podría ser un problema temporal — inténtalo de nuevo.';
-      } catch {
-        diag = '\n\n🔍 api.anthropic.com no es accesible desde esta red. Prueba con datos móviles (sin WiFi).';
-      }
-    }
-    chatHistory.push({ role:'assistant', content:'❌ Error: ' + e.message + diag });
+    chatHistory.push({ role:'assistant', content:'❌ Error: ' + e.message });
   } finally {
     document.getElementById('chatTyping')?.remove();
     renderChatMessages();
