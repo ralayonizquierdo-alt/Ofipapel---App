@@ -381,7 +381,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.16 · <span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.17 ·<span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -406,7 +406,8 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
 
     <div id="navOperaciones">
       <div class="nav-section">Operaciones</div>
-      <div class="nav-item" onclick="showView('ventas')"><span class="ni">🏪</span><span>Ventas (Caja)</span></div>
+      <div class="nav-item" onclick="showView('caja')"><span class="ni">💰</span><span>Caja</span></div>
+      <div class="nav-item" onclick="showView('ventas')"><span class="ni">🏪</span><span>Ventas</span></div>
       <div class="nav-item" onclick="showView('compras')"><span class="ni">🛒</span><span>Compras</span></div>
       <div class="nav-item" onclick="showView('familias')"><span class="ni">📦</span><span>Familias</span></div>
     </div>
@@ -550,6 +551,34 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
           <div class="upload-status" id="uploadStatus"></div>
         </div>
         <input type="file" id="excelInput2" accept=".xlsx,.xls" style="display:none" onchange="importarExcel(this)">
+
+        <div class="sec-title">💰 Importar PDFs de Caja</div>
+        <div class="chart-row-2">
+          <div>
+            <div class="upload-zone" id="cajaCierreZone" onclick="document.getElementById('cajaCierreInput').click()"
+              ondragover="event.preventDefault();this.classList.add('drag')"
+              ondragleave="this.classList.remove('drag')"
+              ondrop="cajaCierreDrop(event)">
+              <div class="upload-icon">📋</div>
+              <div class="upload-title">Cierre de Cajas (PDF del sistema)</div>
+              <div class="upload-sub">Archivos CajaAyCC Z8 · Admite varios a la vez</div>
+              <div class="upload-status" id="cajaCierreStatus"></div>
+            </div>
+            <input type="file" id="cajaCierreInput" accept=".pdf,.Pdf" multiple style="display:none" onchange="importCierrePDF(this)">
+          </div>
+          <div>
+            <div class="upload-zone" id="cajaBancoZone" onclick="document.getElementById('cajaBancoInput').click()"
+              ondragover="event.preventDefault();this.classList.add('drag')"
+              ondragleave="this.classList.remove('drag')"
+              ondrop="cajaBancoDrop(event)">
+              <div class="upload-icon">🏦</div>
+              <div class="upload-title">Resguardos del Banco (PDF)</div>
+              <div class="upload-sub">Ingresos Santander / BBVA / CaixaBank · Admite varios</div>
+              <div class="upload-status" id="cajaBancoStatus"></div>
+            </div>
+            <input type="file" id="cajaBancoInput" accept=".pdf,.Pdf" multiple style="display:none" onchange="importBancoPDF(this)">
+          </div>
+        </div>
       </div>
 
       <!-- ═══ DEUDA ═══ -->
@@ -598,18 +627,26 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
         </div>
       </div>
 
-      <div class="view" id="v-ventas">
-        <div class="page-header"><h1 class="page-title">🏪 Ventas</h1></div>
+      <!-- ═══ CAJA ═══ -->
+      <div class="view" id="v-caja">
+        <div class="page-header"><h1 class="page-title">💰 Control de Caja</h1></div>
         <div class="page-body">
           <div class="subtabs">
-            <button class="subtab-btn active" data-vt="caja" onclick="showVentasTab('caja')">🏪 Caja</button>
-            <button class="subtab-btn" data-vt="anual" onclick="showVentasTab('anual')">📅 Anual</button>
-            <button class="subtab-btn" data-vt="vendedores" onclick="showVentasTab('vendedores')">🧑‍💼 Vendedores</button>
-            <button class="subtab-btn" data-vt="tiendas" onclick="showVentasTab('tiendas')">🏬 Tiendas</button>
-            <button class="subtab-btn" data-vt="clientes" onclick="showVentasTab('clientes')">👥 Clientes</button>
+            <button class="subtab-btn active" data-cajaTab="conciliacion" onclick="showCajaSubTab('conciliacion')">🔍 Conciliación Diaria</button>
+            <button class="subtab-btn" data-cajaTab="registro" onclick="showCajaSubTab('registro')">🏪 Registro de Ventas</button>
           </div>
 
-          <div class="subtab-panel active" id="vt-caja">
+          <!-- CONCILIACIÓN -->
+          <div class="subtab-panel active" id="cajat-conciliacion">
+            <div id="cajaConcilAlert"></div>
+            <div style="font-size:12px;color:var(--texto2);margin-bottom:12px;">Los PDFs se importan desde <strong style="cursor:pointer;color:var(--azul);text-decoration:underline;" onclick="showView('entrada')">Volcado Diario</strong>.</div>
+            <div id="cajaReconcilTabla"></div>
+            <div style="font-weight:700;color:var(--azul);margin-bottom:8px;margin-top:16px;">📅 Histórico de Conciliaciones</div>
+            <div class="card" id="cajaHistorico" style="padding:0;overflow:hidden;"></div>
+          </div>
+
+          <!-- REGISTRO DIARIO (migrado desde Ventas > Caja) -->
+          <div class="subtab-panel" id="cajat-registro">
             <div id="ventKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
             <div class="card" style="margin-bottom:16px;padding:16px;">
               <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
@@ -635,10 +672,8 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               </div>
             </div>
             <div class="card" id="ventEmpTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
-
             <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">🕒 Hora de Mayor Venta por Tienda</div>
             <div class="card" id="ventHoraPicoTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
-
             <div class="card" style="margin-bottom:16px;padding:16px;">
               <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
                 <div>
@@ -658,12 +693,24 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             </div>
             <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">🧑‍💼 Nº y Totales de Ventas por Vendedor</div>
             <div class="card" id="ventEmpDetTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
-
             <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">⚠️ Importes a 0 o Negativos — por Empleado y Terminal</div>
             <div class="card" id="ventAlertaTabla" style="padding:0;overflow:hidden;"></div>
           </div>
+        </div>
+      </div>
 
-          <div class="subtab-panel" id="vt-anual">
+      <div class="view" id="v-ventas">
+        <div class="page-header"><h1 class="page-title">🏪 Ventas</h1></div>
+        <div class="page-body">
+          <div class="subtabs">
+            <button class="subtab-btn active" data-vt="anual" onclick="showVentasTab('anual')">📅 Anual</button>
+            <button class="subtab-btn" data-vt="vendedores" onclick="showVentasTab('vendedores')">🧑‍💼 Vendedores</button>
+            <button class="subtab-btn" data-vt="tiendas" onclick="showVentasTab('tiendas')">🏬 Tiendas</button>
+            <button class="subtab-btn" data-vt="clientes" onclick="showVentasTab('clientes')">👥 Clientes</button>
+            <button class="subtab-btn" data-vt="web" onclick="showVentasTab('web')">🌐 Venta Web</button>
+          </div>
+
+          <div class="subtab-panel active" id="vt-anual">
             <div class="card" style="margin-bottom:16px;padding:16px;">
               <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
                 <div>
@@ -752,6 +799,36 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             </div>
             <div id="ventClienteKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
             <div class="card" id="ventClienteTabla" style="padding:0;overflow:hidden;"></div>
+          </div>
+
+          <!-- VENTA WEB -->
+          <div class="subtab-panel" id="vt-web">
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
+                  <select id="ventWebAnioFiltro" onchange="renderVentasWeb()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventWebExcelInput" style="display:none" onchange="importVentasWebExcel(this)"></label>
+              </div>
+            </div>
+            <div id="ventWebKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+            <div class="chart-row-2" style="margin-bottom:16px;">
+              <div class="chart-card">
+                <div class="chart-ttl">Evolución Mensual</div>
+                <div class="chart-desc">Ventas web por mes</div>
+                <canvas id="cVentWebMes" height="220"></canvas>
+              </div>
+              <div class="chart-card">
+                <div class="chart-ttl">Distribución por Año</div>
+                <div class="chart-desc">Proporción anual del total</div>
+                <canvas id="cVentWebAnio" height="220"></canvas>
+              </div>
+            </div>
+            <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">📊 Resumen Anual por Mes</div>
+            <div class="card" id="ventWebTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
           </div>
         </div>
       </div>
@@ -1024,6 +1101,10 @@ try{ familias = JSON.parse(localStorage.getItem('op_familias')||'[]'); }catch(e)
 let ventasCaja = { porDia:[], porHora:[], porEmpleado:[], porTipoMov:[], porAlerta:[], porEmpDia:[], porEmpMes:[], meta:{} };
 let ventCajaModo = 'mes';
 try{ const vc=JSON.parse(localStorage.getItem('op_ventascaja')||'null'); if(vc) ventasCaja=vc; }catch(e){}
+let cajaCierres = [];
+try{ const cc=JSON.parse(localStorage.getItem('op_cajacierres')||'null'); if(cc) cajaCierres=cc; }catch(e){}
+let cajaBancoRecibos = [];
+try{ const cb=JSON.parse(localStorage.getItem('op_cajabancorecibos')||'null'); if(cb) cajaBancoRecibos=cb; }catch(e){}
 let ventasAnual = { conIgic:[], sinIgic:[] };
 try{ const va=JSON.parse(localStorage.getItem('op_ventasanual')||'null'); if(va) ventasAnual=va; }catch(e){}
 let ventasVendedores = [];
@@ -1168,6 +1249,10 @@ function applyCloudDataset(key, payload){
     comprasAnual = payload;
     try{ localStorage.setItem('op_comprasanual', JSON.stringify(comprasAnual)); }catch(e){}
     renderComprasAnual();
+  } else if(key==='ventasweb'){
+    ventasWeb = payload;
+    try{ localStorage.setItem('op_ventasweb', JSON.stringify(ventasWeb)); }catch(e){}
+    renderVentasWeb();
   }
 }
 
@@ -1201,6 +1286,7 @@ async function loadAllSharedDatasets(){
     if(!existing.ventastiendas && ventasTiendas.length) syncDatasetToCloud('ventastiendas', ventasTiendas);
     if(!existing.ventasclientes && ventasClientes.length) syncDatasetToCloud('ventasclientes', ventasClientes);
     if(!existing.comprasanual && comprasAnual.length) syncDatasetToCloud('comprasanual', comprasAnual);
+    if(!existing.ventasweb && ventasWeb.length) syncDatasetToCloud('ventasweb', ventasWeb);
   } catch(e){ console.warn('Error cargando datasets compartidos:', e); }
 }
 
@@ -1382,7 +1468,7 @@ function doLogout() {
 // ═══════════════════════════════════════════════════════
 // NAV
 // ═══════════════════════════════════════════════════════
-const TITLES = { dashboard:'Dashboard', historico:'Histórico', alertas:'Alertas', entrada:'Volcado Diario', deuda:'Pool de Deuda', pagares:'Pagarés & Confirming', proveedores:'Pagos a Proveedores', ventas:'Ventas (Caja)', compras:'Compras a Proveedores', familias:'Ventas por Familias', chat:'Chat IA' };
+const TITLES = { dashboard:'Dashboard', historico:'Histórico', alertas:'Alertas', entrada:'Volcado Diario', deuda:'Pool de Deuda', pagares:'Pagarés & Confirming', proveedores:'Pagos a Proveedores', caja:'Control de Caja', ventas:'Ventas', compras:'Compras a Proveedores', familias:'Ventas por Familias', chat:'Chat IA' };
 function showView(id) {
   const blocked = USER_BLOCKED[currentUser] || [];
   if(blocked.includes(id)){ id='dashboard'; }
@@ -1395,21 +1481,23 @@ function showView(id) {
   if(id==='alertas') renderAlertas();
   if(id==='pagares') renderPagares();
   if(id==='proveedores') renderProveedores();
-  if(id==='ventas') showVentasTab(document.querySelector('#v-ventas .subtab-btn.active')?.dataset.vt||'caja');
+  if(id==='caja') { showCajaSubTab(document.querySelector('#v-caja .subtab-btn.active')?.dataset.cajaTab||'conciliacion'); }
+  if(id==='ventas') showVentasTab(document.querySelector('#v-ventas .subtab-btn.active')?.dataset.vt||'anual');
   if(id==='compras') showComprasTab(document.querySelector('#v-compras .subtab-btn.active')?.dataset.ct||'pedidos');
   if(id==='familias') renderFamilias();
   if(id==='chat') initChatView();
 }
 
 function showVentasTab(tab){
+  if(!document.getElementById('vt-'+tab)) tab='anual';
   document.querySelectorAll('#v-ventas .subtab-btn').forEach(b=>b.classList.toggle('active', b.dataset.vt===tab));
   document.querySelectorAll('#v-ventas .subtab-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('vt-'+tab).classList.add('active');
-  if(tab==='caja') renderVentas();
-  else if(tab==='anual') renderVentasAnual();
+  if(tab==='anual') renderVentasAnual();
   else if(tab==='vendedores') renderVentasVendedores();
   else if(tab==='tiendas') renderVentasTiendas();
   else if(tab==='clientes') renderVentasClientes();
+  else if(tab==='web') renderVentasWeb();
 }
 
 function showComprasTab(tab){
@@ -1652,6 +1740,19 @@ function renderDashboard(){
     <canvas id="cCaja" height="70"></canvas>
   </div>
 
+  ${(() => {
+    if(!cajaCierres.length) return '';
+    const lc=cajaCierres[cajaCierres.length-1];
+    const bd=cajaBancoRecibos.filter(b=>b.fecha===lc.fecha);
+    const totalBEf=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
+    const diff=Math.abs((lc.efectivoBancoDeposit||0)-totalBEf);
+    const cuadra=bd.length>0&&diff<0.05;
+    const descuadre=bd.length>0&&diff>=0.05;
+    const ico=cuadra?'✅':descuadre?'❌':'⏳';
+    const tipo=cuadra?'ok':descuadre?'warn':'info';
+    const txt=cuadra?`Conciliado ✔ Efectivo depositado: ${fmt(lc.efectivoBancoDeposit||0)}`:descuadre?`DESCUADRE: sistema ${fmt(lc.efectivoBancoDeposit||0)} vs banco ${fmt(totalBEf)} · Dif: ${fmt(diff)}`:`Resguardos bancarios pendientes · Efectivo sistema: ${fmt(lc.efectivoBancoDeposit||0)}`;
+    return `<div class="alert-card ${tipo}" style="margin-bottom:20px;cursor:pointer;" onclick="showView('caja')"><div class="alert-ico">${ico}</div><div><div class="alert-ttl">💰 Control de Caja — ${new Date((lc.fecha||'')+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}</div><div class="alert-txt">${txt}</div></div></div>`;
+  })()}
   ${last.notas?`<div class="alert-card info" style="margin-bottom:20px"><div class="alert-ico">📝</div><div><div class="alert-ttl">Nota del último registro</div><div class="alert-txt">${last.notas}</div></div></div>`:''}
   `;
 
@@ -2306,6 +2407,415 @@ function importProveedoresPDF(input){
     s.onerror=()=>{alert('Error al cargar la librería PDF.');input.value='';};
     document.head.appendChild(s);
   } else { run(); }
+}
+
+// ═══════════════════════════════════════════════════════
+// CAJA — Conciliación de Cierres y Banco
+// ═══════════════════════════════════════════════════════
+function saveCajaCierres(){ try{localStorage.setItem('op_cajacierres',JSON.stringify(cajaCierres));}catch(e){} }
+function saveCajaBanco(){ try{localStorage.setItem('op_cajabancorecibos',JSON.stringify(cajaBancoRecibos));}catch(e){} }
+
+function showCajaSubTab(tab){
+  document.querySelectorAll('#v-caja .subtab-btn').forEach(b=>b.classList.toggle('active', b.dataset.cajaTab===tab));
+  document.querySelectorAll('#v-caja .subtab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('cajat-'+tab).classList.add('active');
+  if(tab==='conciliacion') renderCajaView();
+  else if(tab==='registro') renderVentas();
+}
+
+function cajaCierreDrop(e){
+  e.preventDefault();
+  document.getElementById('cajaCierreZone').classList.remove('drag');
+  importCierrePDF({files:e.dataTransfer.files});
+}
+function cajaBancoDrop(e){
+  e.preventDefault();
+  document.getElementById('cajaBancoZone').classList.remove('drag');
+  importBancoPDF({files:e.dataTransfer.files});
+}
+
+function parsePDFTextCaja(file, cb){
+  function run(){
+    pdfjsLib.GlobalWorkerOptions.workerSrc=
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    (async()=>{
+      try{
+        const buf=await file.arrayBuffer();
+        const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+        const allLines=[];
+        for(let p=1;p<=pdf.numPages;p++){
+          const page=await pdf.getPage(p);
+          const content=await page.getTextContent();
+          const rowMap={};
+          content.items.forEach(item=>{
+            const y=Math.round(item.transform[5]/2)*2;
+            if(!rowMap[y]) rowMap[y]=[];
+            rowMap[y].push({x:item.transform[4],str:item.str});
+          });
+          Object.keys(rowMap).sort((a,b)=>b-a).forEach(y=>{
+            const line=rowMap[y].sort((a,b)=>a.x-b.x).map(i=>i.str).join(' ').replace(/\s+/g,' ').trim();
+            if(line) allLines.push(line);
+          });
+        }
+        cb(null, allLines);
+      }catch(err){ cb(err, null); }
+    })();
+  }
+  if(!window.pdfjsLib){
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=run;
+    s.onerror=()=>cb(new Error('Error cargando PDF.js'),null);
+    document.head.appendChild(s);
+  } else { run(); }
+}
+
+function parseNumES2(s){
+  if(s==null) return null;
+  const n=parseFloat(String(s).replace(/\s/g,'').replace(/\./g,'').replace(',','.'));
+  return isNaN(n)?null:n;
+}
+function parseFechaES2(s){
+  const m=String(s||'').match(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
+  return m?`${m[3]}-${m[2]}-${m[1]}`:null;
+}
+
+function parseCierreCentralLines(lines){
+  const r={fecha:null,fechaApertura:null,stores:[],bancoPagos:[],efectivoTotal:0,tarjetasTotal:0,chequesTotal:0,efectivoBancoDeposit:0,tarjetasBancoDeposit:0,filename:''};
+  const firstNum=line=>{const m=line.match(/([\d]{1,3}(?:\.[\d]{3})*,[\d]{2})/); return m?parseNumES2(m[1]):null;};
+  for(const line of lines){
+    if(!r.fecha){const fd=parseFechaES2(line); if(fd) r.fecha=fd;}
+    if(/Apertura:/.test(line)&&!r.fechaApertura){const fd=parseFechaES2(line); if(fd){r.fechaApertura=fd; if(!r.fecha) r.fecha=fd;}}
+    const cm=line.match(/Cierre Caja (Efectivo|Tarjetas)\s+(\w+)-(.+)/i);
+    if(cm){
+      const tipo=cm[1],codigo=cm[2];
+      const num=firstNum(line);
+      if(num!==null) r.stores.push({codigo,tipo,haber:num});
+      continue;
+    }
+    const bm=line.match(/Ingreso[s]?\s+((?:Banco\s+\w+|Tarjetas\s+\w+))[.\s]*(?:N[ºo]\s*Pago[:\s]+(\S+))?/i);
+    if(bm){
+      const banco=bm[1],numPago=bm[2]||'';
+      const nums=[...line.matchAll(/([\d]{1,3}(?:\.[\d]{3})*,[\d]{2})/g)].map(m=>parseNumES2(m[1]));
+      const importe=nums.length>=2?nums[1]:nums.length===1?nums[0]:0;
+      if(importe) r.bancoPagos.push({banco:banco.trim(),numPago,importe});
+      continue;
+    }
+    if(/Tarjetas\.{2}:/.test(line)){const n=firstNum(line); if(n) r.tarjetasTotal=n;}
+    if(/Efectivo\.{2}:/.test(line)){const n=firstNum(line); if(n) r.efectivoTotal=n;}
+    if(/Cheques\.{2}:/.test(line)){const n=firstNum(line); if(n) r.chequesTotal=n;}
+  }
+  if(!r.efectivoTotal) r.efectivoTotal=r.stores.filter(s=>s.tipo==='Efectivo').reduce((s,x)=>s+x.haber,0);
+  if(!r.tarjetasTotal) r.tarjetasTotal=r.stores.filter(s=>s.tipo==='Tarjetas').reduce((s,x)=>s+x.haber,0);
+  r.efectivoBancoDeposit=r.bancoPagos.filter(p=>!/Tarjetas/i.test(p.banco)).reduce((s,x)=>s+x.importe,0);
+  r.tarjetasBancoDeposit=r.bancoPagos.filter(p=>/Tarjetas/i.test(p.banco)).reduce((s,x)=>s+x.importe,0);
+  return r;
+}
+
+function parseBancoPDFLines(lines, filename){
+  const r={fecha:null,tipo:'efectivo',importe:0,banco:'Santander',legible:false,filename};
+  for(const line of lines){
+    const em=line.match(/Ingreso en efectivo de\s+([\d.,]+)\s*€/i);
+    if(em){r.importe=parseNumES2(em[1]);r.tipo='efectivo';r.legible=true;}
+    if(/Entrega.*Negociaci[oó]n de documentos/i.test(line)) r.tipo='cheque';
+    if(/CHEQUES/i.test(line)) r.tipo='cheque';
+    const im=line.match(/importe[:\s]+([\d.,]+)\s*€/i);
+    if(im&&!r.importe){r.importe=parseNumES2(im[1]);if(r.importe) r.legible=true;}
+    const fd=parseFechaES2(line); if(fd&&!r.fecha) r.fecha=fd;
+    if(/Santander/i.test(line)) r.banco='Santander';
+    else if(/BBVA/i.test(line)) r.banco='BBVA';
+    else if(/CaixaBank|La Caixa/i.test(line)) r.banco='CaixaBank';
+  }
+  return r;
+}
+
+function importCierrePDF(input){
+  const files=input.files; if(!files||!files.length) return;
+  let remaining=files.length; let importados=0;
+  const st=document.getElementById('cajaCierreStatus');
+  if(st) st.textContent='Procesando...';
+  for(const f of files){
+    parsePDFTextCaja(f,(err,lines)=>{
+      remaining--;
+      if(!err&&lines){
+        const data=parseCierreCentralLines(lines);
+        data.filename=f.name;
+        if(data.fecha||data.stores.length){
+          const idx=cajaCierres.findIndex(c=>c.filename===f.name);
+          if(idx>=0) cajaCierres[idx]=data; else cajaCierres.push(data);
+          importados++;
+        }
+      }
+      if(remaining===0){
+        cajaCierres.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+        saveCajaCierres();
+        if(st) st.textContent=`✅ ${importados} cierre(s) importado(s)`;
+        renderCajaView();
+      }
+    });
+  }
+  if(input.value!==undefined) input.value='';
+}
+
+function importBancoPDF(input){
+  const files=input.files; if(!files||!files.length) return;
+  let remaining=files.length; let importados=0;
+  const st=document.getElementById('cajaBancoStatus');
+  if(st) st.textContent='Procesando...';
+  for(const f of files){
+    parsePDFTextCaja(f,(err,lines)=>{
+      remaining--;
+      if(!err&&lines){
+        const data=parseBancoPDFLines(lines,f.name);
+        if(data.importe>0){
+          const idx=cajaBancoRecibos.findIndex(c=>c.filename===f.name);
+          if(idx>=0) cajaBancoRecibos[idx]=data; else cajaBancoRecibos.push(data);
+          importados++;
+        }
+      }
+      if(remaining===0){
+        cajaBancoRecibos.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+        saveCajaBanco();
+        if(st) st.textContent=`✅ ${importados} resguardo(s) importado(s)`;
+        renderCajaView();
+      }
+    });
+  }
+  if(input.value!==undefined) input.value='';
+}
+
+function renderCajaView(){
+  renderCajaConciliacion();
+  renderCajaHistorico();
+}
+
+function renderCajaConciliacion(){
+  const alertEl=document.getElementById('cajaConcilAlert');
+  const tablaEl=document.getElementById('cajaReconcilTabla');
+  if(!alertEl||!tablaEl) return;
+  if(!cajaCierres.length){
+    alertEl.innerHTML='';
+    tablaEl.innerHTML=`<div class="empty-state"><div class="e-ico">📋</div><h3>Sin datos</h3><p>Importa el PDF de Cierre de Cajas (CajaAyCC Z8) para ver la conciliación.</p></div>`;
+    return;
+  }
+  const last=cajaCierres[cajaCierres.length-1];
+  const bd=cajaBancoRecibos.filter(b=>b.fecha===last.fecha);
+  const totalBEf=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
+  const diff=Math.abs((last.efectivoBancoDeposit||0)-totalBEf);
+  const cuadra=bd.length>0&&diff<0.05;
+  const descuadre=bd.length>0&&diff>=0.05;
+  const pendiente=bd.length===0;
+  const fechaLabel=last.fecha?new Date(last.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'}):'—';
+
+  if(descuadre){
+    alertEl.innerHTML=`<div style="background:#c0392b;color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">⚠️</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">DESCUADRE DETECTADO — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Sistema: <strong>${fmt(last.efectivoBancoDeposit||0)}</strong> · Banco: <strong>${fmt(totalBEf)}</strong> · Diferencia: <strong>${fmt(diff)}</strong></div></div></div>`;
+  } else if(cuadra){
+    alertEl.innerHTML=`<div style="background:#27AE60;color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">✅</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">CAJA CUADRADA — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Efectivo depositado: <strong>${fmt(last.efectivoBancoDeposit||0)}</strong></div></div></div>`;
+  } else {
+    alertEl.innerHTML=`<div style="background:var(--naranja,#F5A623);color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">⏳</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">PENDIENTE — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Cierre cargado. Añade los resguardos bancarios para completar la conciliación.</div></div></div>`;
+  }
+
+  const storeRows=(()=>{
+    if(!last.stores||!last.stores.length) return '';
+    const pc={};
+    last.stores.forEach(s=>{
+      if(!pc[s.codigo]) pc[s.codigo]={efectivo:0,tarjetas:0};
+      if(s.tipo==='Efectivo') pc[s.codigo].efectivo+=s.haber;
+      else pc[s.codigo].tarjetas+=s.haber;
+    });
+    return Object.entries(pc).map(([cod,v])=>`<tr>
+      <td style="font-weight:600;font-family:'IBM Plex Mono',monospace;">${cod}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(v.efectivo)}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(v.tarjetas)}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(v.efectivo+v.tarjetas)}</td>
+    </tr>`).join('');
+  })();
+
+  tablaEl.innerHTML=`
+  <div class="card" style="padding:16px;margin-bottom:16px;">
+    <div style="font-weight:700;color:var(--azul);margin-bottom:12px;">🔍 Conciliación — ${last.filename||last.fecha}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
+      <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">💵</div><div class="kpi-lbl">Efectivo Tiendas</div><div class="kpi-val" style="font-size:18px;">${fmt(last.efectivoTotal||0)}</div><div class="kpi-sub">del sistema</div></div>
+      <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">💳</div><div class="kpi-lbl">Tarjetas Tiendas</div><div class="kpi-val" style="font-size:18px;">${fmt(last.tarjetasTotal||0)}</div><div class="kpi-sub">del sistema</div></div>
+      <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">🏦</div><div class="kpi-lbl">Depósito Banco</div><div class="kpi-val" style="font-size:18px;">${fmt(last.efectivoBancoDeposit||0)}</div><div class="kpi-sub">efectivo→banco</div></div>
+      ${bd.length?`<div class="kpi" style="background:${cuadra?'#e8f5e9':'#fdecea'};"><div class="kpi-ico">${cuadra?'✅':'❌'}</div><div class="kpi-lbl">Banco (resguardos)</div><div class="kpi-val" style="font-size:18px;">${fmt(totalBEf)}</div><div class="kpi-sub">confirmado</div></div>`:''}
+    </div>
+    <table class="tabla" style="margin-bottom:0;">
+      <thead><tr><th>Concepto</th><th style="text-align:right;">Sistema</th><th style="text-align:right;">Banco</th><th style="text-align:right;">Diferencia</th><th style="text-align:center;">Estado</th></tr></thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:600;">Efectivo depositado en banco</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(last.efectivoBancoDeposit||0)}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${bd.length?fmt(totalBEf):'—'}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;color:${diff>0.05&&bd.length?'#c0392b':'inherit'};">${bd.length?fmt(diff):'—'}</td>
+          <td style="text-align:center;">${bd.length?(diff<0.05?'✅':'❌'):'⏳'}</td>
+        </tr>
+        ${last.bancoPagos&&last.bancoPagos.length?`<tr style="background:var(--fondo,#f8f9fa);"><td colspan="5" style="font-size:11px;color:var(--texto2);padding:8px 12px;"><strong>Detalle pagos sistema:</strong> ${last.bancoPagos.map(p=>`${p.banco} ${fmt(p.importe)} (${p.numPago||'—'})`).join(' · ')}</td></tr>`:''}
+        ${bd.length?`<tr style="background:var(--fondo,#f8f9fa);"><td colspan="5" style="font-size:11px;color:var(--texto2);padding:8px 12px;"><strong>Resguardos bancarios:</strong> ${bd.map(b=>`${b.banco} ${fmt(b.importe)} [${b.tipo}] ${b.filename}`).join(' · ')}</td></tr>`:''}
+      </tbody>
+    </table>
+  </div>
+  ${storeRows?`<div class="card" style="padding:16px;margin-bottom:16px;"><div style="font-weight:700;color:var(--azul);margin-bottom:12px;">🏪 Detalle por Terminal</div><div style="overflow-x:auto;"><table class="tabla"><thead><tr><th>Cód.</th><th style="text-align:right;">Efectivo</th><th style="text-align:right;">Tarjetas</th><th style="text-align:right;">Total</th></tr></thead><tbody>${storeRows}</tbody></table></div></div>`:''}`;
+}
+
+function renderCajaHistorico(){
+  const el=document.getElementById('cajaHistorico');
+  if(!el) return;
+  if(!cajaCierres.length){
+    el.innerHTML='<div class="empty-state"><div class="e-ico">📅</div><h3>Sin histórico</h3></div>';
+    return;
+  }
+  const sorted=[...cajaCierres].reverse();
+  el.innerHTML=`<div style="overflow-x:auto;"><table class="tabla">
+    <thead><tr><th>Fecha</th><th>Archivo</th><th style="text-align:right;">Efectivo</th><th style="text-align:right;">Tarjetas</th><th style="text-align:right;">→Banco</th><th style="text-align:center;">Estado</th><th></th></tr></thead>
+    <tbody>
+    ${sorted.map(c=>{
+      const bd=cajaBancoRecibos.filter(b=>b.fecha===c.fecha);
+      const tbef=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
+      const diff=Math.abs((c.efectivoBancoDeposit||0)-tbef);
+      const ico=bd.length===0?'⏳':diff<0.05?'✅':'❌';
+      return `<tr>
+        <td>${c.fecha?new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td>
+        <td style="font-size:11px;color:var(--texto2);">${c.filename||'—'}</td>
+        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoTotal||0)}</td>
+        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.tarjetasTotal||0)}</td>
+        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoBancoDeposit||0)}</td>
+        <td style="text-align:center;font-size:16px;">${ico}</td>
+        <td><button onclick="deleteCierre('${c.filename}')" style="background:none;border:none;color:var(--rojo,#E74C3C);cursor:pointer;font-size:12px;padding:2px 6px;">✕</button></td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+function deleteCierre(filename){
+  if(!confirm('¿Eliminar este cierre?')) return;
+  cajaCierres=cajaCierres.filter(c=>c.filename!==filename);
+  saveCajaCierres(); renderCajaView();
+}
+
+// ═══════════════════════════════════════════════════════
+// VENTAS WEB — importación y analítica
+// ═══════════════════════════════════════════════════════
+let ventasWeb = [];
+try{ const vw=JSON.parse(localStorage.getItem('op_ventasweb')||'null'); if(vw) ventasWeb=vw; }catch(e){}
+
+function saveVentasWeb(){ try{localStorage.setItem('op_ventasweb',JSON.stringify(ventasWeb));}catch(e){} syncDatasetToCloud('ventasweb', ventasWeb); }
+
+function importVentasWebExcel(input){
+  const file=input.files[0]; if(!file) return;
+  if(ventasWeb.length&&!confirm('Esto reemplazará los datos de Venta Web. ¿Continuar?')){ input.value=''; return; }
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      const meses={};
+      data.forEach(row=>{
+        const col0=String(row[0]||'');
+        const tm=col0.match(/TOTAL\s+(\d{2})\/(\d{4})/);
+        if(tm){
+          const mes=parseInt(tm[1]),anio=parseInt(tm[2]);
+          const total=parseFloat(row[6])||0;
+          const key=`${anio}-${String(mes).padStart(2,'0')}`;
+          meses[key]={anio,mes,total};
+        }
+      });
+      ventasWeb=Object.values(meses).sort((a,b)=>a.anio-b.anio||a.mes-b.mes);
+      if(!ventasWeb.length){ alert('No se encontraron totales mensuales en el Excel.'); input.value=''; return; }
+      saveVentasWeb(); renderVentasWeb();
+      alert(ventasWeb.length+' meses importados.');
+    }catch(err){ alert('Error: '+err.message); }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderVentasWeb(){
+  const anioFiltEl=document.getElementById('ventWebAnioFiltro');
+  const kpisEl=document.getElementById('ventWebKpis');
+  const tablaEl=document.getElementById('ventWebTabla');
+  if(!kpisEl||!tablaEl) return;
+
+  ['cVentWebMes','cVentWebAnio'].forEach(destroyChart);
+
+  if(!ventasWeb.length){
+    kpisEl.innerHTML='';
+    tablaEl.innerHTML='<div class="empty-state"><div class="e-ico">🌐</div><h3>Sin datos</h3><p>Importa el Excel de Venta Web para ver el análisis.</p></div>';
+    return;
+  }
+
+  const anios=[...new Set(ventasWeb.map(r=>r.anio))].sort();
+  if(anioFiltEl){
+    const prev=anioFiltEl.value;
+    anioFiltEl.innerHTML='<option value="todos">Todos</option>';
+    anios.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;anioFiltEl.appendChild(o);});
+    if(prev&&prev!=='todos') anioFiltEl.value=prev;
+  }
+  const selAnio=anioFiltEl?.value||'todos';
+  const filtrado=selAnio==='todos'?ventasWeb:ventasWeb.filter(r=>String(r.anio)===selAnio);
+
+  const totalGeneral=filtrado.reduce((s,r)=>s+r.total,0);
+  const totalAnioActual=(()=>{const a=anios[anios.length-1];return ventasWeb.filter(r=>r.anio===a).reduce((s,r)=>s+r.total,0);})();
+  const mejorMes=filtrado.reduce((mx,r)=>r.total>mx.total?r:mx,{total:0,mes:0,anio:0});
+  const mediaAnual=anios.length?totalGeneral/anios.length:0;
+
+  kpisEl.innerHTML=`
+    <div class="kpi"><div class="kpi-ico">🌐</div><div class="kpi-lbl">Total Período</div><div class="kpi-val">${fmt(totalGeneral)}</div><div class="kpi-sub">${filtrado.length} meses</div></div>
+    <div class="kpi"><div class="kpi-ico">📅</div><div class="kpi-lbl">Año ${anios[anios.length-1]}</div><div class="kpi-val">${fmt(totalAnioActual)}</div><div class="kpi-sub">año más reciente</div></div>
+    <div class="kpi"><div class="kpi-ico">⭐</div><div class="kpi-lbl">Mejor Mes</div><div class="kpi-val">${fmt(mejorMes.total)}</div><div class="kpi-sub">${MESES_CORTOS[mejorMes.mes-1]||''} ${mejorMes.anio}</div></div>
+    <div class="kpi"><div class="kpi-ico">📊</div><div class="kpi-lbl">Media Anual</div><div class="kpi-val">${fmt(mediaAnual)}</div><div class="kpi-sub">promedio por año</div></div>
+  `;
+
+  const labMes=filtrado.map(r=>`${MESES_CORTOS[r.mes-1]} ${r.anio}`);
+  const valMes=filtrado.map(r=>r.total);
+  charts['cVentWebMes']=new Chart(document.getElementById('cVentWebMes'),{
+    type:'bar',
+    data:{labels:labMes,datasets:[{label:'Ventas Web',data:valMes,backgroundColor:'rgba(26,92,26,0.75)',borderColor:'#1A5C1A',borderWidth:1.5,borderRadius:4}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v/1000).toFixed(1)+'K €'}}}}
+  });
+
+  const totalPorAnio={};
+  ventasWeb.forEach(r=>{totalPorAnio[r.anio]=(totalPorAnio[r.anio]||0)+r.total;});
+  const anioLabels=Object.keys(totalPorAnio);
+  const anioVals=anioLabels.map(a=>totalPorAnio[a]);
+  const cols=['#1A5C1A','#237523','#3DAF3D','#8DC41E','#F5A623','#E31837','#004B91'];
+  charts['cVentWebAnio']=new Chart(document.getElementById('cVentWebAnio'),{
+    type:'doughnut',
+    data:{labels:anioLabels,datasets:[{data:anioVals,backgroundColor:cols.slice(0,anioLabels.length),borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,cutout:'55%',plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:8}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmt(ctx.parsed)}`}}}}
+  });
+
+  const mesAgg={};
+  filtrado.forEach(r=>{
+    if(!mesAgg[r.anio]) mesAgg[r.anio]={};
+    mesAgg[r.anio][r.mes]=r.total;
+  });
+  const aniosFilt=[...new Set(filtrado.map(r=>r.anio))].sort();
+  const totAnioFilt={};
+  aniosFilt.forEach(a=>totAnioFilt[a]=Array.from({length:12},(_,i)=>mesAgg[a]?.(i+1)||0).reduce((s,v)=>s+v,0));
+
+  tablaEl.innerHTML=`<div style="overflow-x:auto;"><table class="tabla">
+    <thead><tr>
+      <th>Mes</th>
+      ${aniosFilt.map(a=>`<th style="text-align:right;">${a}</th>`).join('')}
+    </tr></thead>
+    <tbody>
+    ${Array.from({length:12},(_,i)=>{
+      const mes=i+1;
+      const vals=aniosFilt.map(a=>mesAgg[a]?.[mes]);
+      if(vals.every(v=>v==null)) return '';
+      return `<tr>
+        <td style="font-weight:600;">${MESES[i]}</td>
+        ${aniosFilt.map(a=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${mesAgg[a]?.[mes]!=null?fmt(mesAgg[a][mes]):'—'}</td>`).join('')}
+      </tr>`;
+    }).join('')}
+    </tbody>
+    <tfoot><tr style="font-weight:700;background:var(--fondo,#f8f9fa);">
+      <td>TOTAL</td>
+      ${aniosFilt.map(a=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;">${fmt(totAnioFilt[a])}</td>`).join('')}
+    </tr></tfoot>
+  </table></div>`;
 }
 
 // ═══════════════════════════════════════════════════════
