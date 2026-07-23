@@ -86,13 +86,15 @@ button,input,select,textarea{font-family:inherit;}
   color:var(--verde);letter-spacing:1px;line-height:1;}
 .clock-date{font-size:.76rem;color:var(--texto2);margin-top:6px;text-transform:capitalize;font-weight:500;max-width:190px;}
 
-.select-wrap label{display:block;font-size:.72rem;font-weight:700;color:var(--texto2);text-transform:uppercase;
-  letter-spacing:1px;margin-bottom:8px;}
-#personSelect{width:100%;padding:16px 18px;border:1.5px solid var(--borde);border-radius:12px;
-  font-size:1.02rem;font-weight:600;background:#fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="%236FA018"><path d="M5.5 7.5l4.5 5 4.5-5z"/></svg>') no-repeat right 16px center;
-  background-size:18px;appearance:none;-webkit-appearance:none;outline:none;cursor:pointer;
+.dept-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media (max-width:420px){ .dept-grid{grid-template-columns:1fr;} }
+.dept-block label{display:block;font-size:.68rem;font-weight:700;color:var(--texto2);text-transform:uppercase;
+  letter-spacing:.5px;margin-bottom:6px;}
+.person-select{width:100%;padding:13px 16px;border:1.5px solid var(--borde);border-radius:12px;
+  font-size:.92rem;font-weight:600;background:#fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="%236FA018"><path d="M5.5 7.5l4.5 5 4.5-5z"/></svg>') no-repeat right 14px center;
+  background-size:16px;appearance:none;-webkit-appearance:none;outline:none;cursor:pointer;
   transition:border-color .15s, box-shadow .15s;}
-#personSelect:focus{border-color:var(--verde-cl);box-shadow:0 0 0 3px rgba(61,175,61,.15);}
+.person-select:focus{border-color:var(--verde-cl);box-shadow:0 0 0 3px rgba(61,175,61,.15);}
 .select-hint{font-size:.74rem;color:var(--texto2);margin-top:10px;text-align:center;}
 
 #pinStep{text-align:center;}
@@ -256,11 +258,8 @@ tr.flag td{background:#FFF1EC;}
   </div>
 
   <div class="clock-card select-wrap" id="searchStep">
-    <label for="personSelect">Elige tu nombre</label>
-    <select id="personSelect">
-      <option value="" selected disabled>— Selecciona tu departamento y nombre —</option>
-    </select>
-    <div class="select-hint">Ordenado por departamento, igual que en Vacaciones y Turnos.</div>
+    <div class="dept-grid" id="deptGrid"></div>
+    <div class="select-hint">Toca el desplegable de tu departamento o tienda y busca tu nombre.</div>
   </div>
 
   <div class="clock-card hidden" id="pinStep">
@@ -968,16 +967,21 @@ let pinBuffer = '';
 let cachedGeo = null;
 
 function populatePersonSelect(){
-  const sel = document.getElementById('personSelect');
+  const grid = document.getElementById('deptGrid');
   const groups = peopleGroupedByUnit();
-  sel.innerHTML = '<option value="" selected disabled>— Selecciona tu departamento y nombre —</option>' +
-    groups.map(g => `<optgroup label="${g.label}">` +
-      g.people.map(p=>`<option value="${p.id}">${p.name}</option>`).join('') +
-      `</optgroup>`
-    ).join('');
+  grid.innerHTML = groups.map(g => `
+    <div class="dept-block">
+      <label>${g.label}</label>
+      <select class="person-select" data-unit="${g.unitId}">
+        <option value="" selected disabled>— Elige tu nombre —</option>
+        ${g.people.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
+      </select>
+    </div>`
+  ).join('');
 }
-document.getElementById('personSelect').addEventListener('change', e=>{
-  const person = personById(e.target.value);
+document.getElementById('deptGrid').addEventListener('change', e=>{
+  const sel = e.target.closest('.person-select'); if(!sel) return;
+  const person = personById(sel.value);
   if(person) openPinStep(person);
 });
 
@@ -1075,7 +1079,7 @@ function resetClockScreen(){
   selectedPerson = null; pinBuffer='';
   document.getElementById('actionStep').classList.add('hidden');
   document.getElementById('searchStep').classList.remove('hidden');
-  document.getElementById('personSelect').value = '';
+  document.querySelectorAll('#deptGrid .person-select').forEach(sel=> sel.value = '');
 }
 document.getElementById('btnActionBack').onclick = resetClockScreen;
 
