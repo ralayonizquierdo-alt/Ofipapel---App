@@ -693,6 +693,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <button class="subtab-btn active" data-cajaTab="conciliacion" onclick="showCajaSubTab('conciliacion')">🔍 Conciliación Diaria</button>
             <button class="subtab-btn" data-cajaTab="efectivo" onclick="showCajaSubTab('efectivo')">💵 Efectivo Tiendas</button>
             <button class="subtab-btn" data-cajaTab="registro" onclick="showCajaSubTab('registro')">🏪 Registro de Ventas</button>
+            <button class="subtab-btn" data-cajaTab="tabla" onclick="showCajaSubTab('tabla')">📊 Tabla Diaria</button>
           </div>
 
           <!-- CONCILIACIÓN -->
@@ -787,6 +788,11 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <div class="card" id="ventEmpDetTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
             <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">⚠️ Importes a 0 o Negativos — por Empleado y Terminal</div>
             <div class="card" id="ventAlertaTabla" style="padding:0;overflow:hidden;"></div>
+          </div>
+
+          <!-- TABLA DIARIA TIPO JEFE -->
+          <div class="subtab-panel" id="cajat-tabla">
+            <div id="tablaJefeContainer"></div>
           </div>
         </div>
       </div>
@@ -1299,6 +1305,28 @@ let cajaBancoRecibos = [];
 try{ const cb=JSON.parse(localStorage.getItem('op_cajabancorecibos')||'null'); if(cb) cajaBancoRecibos=cb; }catch(e){}
 let cajaEfectivo = [];
 try{ const ce=JSON.parse(localStorage.getItem('op_cajaefectivo')||'null'); if(ce) cajaEfectivo=ce; }catch(e){}
+let cajaDetalles = [];
+try{ const cd=JSON.parse(localStorage.getItem('op_cajadetalles')||'null'); if(cd) cajaDetalles=cd; }catch(e){}
+// Datos históricos (se insertan solo si no existen ya)
+;(function _seedHistorico(){
+  const seed = [
+    {fecha:'2026-07-09',ofipapel:2010,aliz1:240,aliz2:290},
+    {fecha:'2026-07-10',ofipapel:2890,aliz1:320,aliz2:600},
+    {fecha:'2026-07-11',ofipapel:545,aliz1:120,aliz2:220},
+    {fecha:'2026-07-13',ofipapel:2600,aliz1:150,aliz2:540}
+  ];
+  let changed = false;
+  seed.forEach(s => {
+    if(!cajaEfectivo.find(e=>e.fecha===s.fecha)){
+      cajaEfectivo.push(s);
+      changed = true;
+    }
+  });
+  if(changed){
+    cajaEfectivo.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    try{ localStorage.setItem('op_cajaefectivo',JSON.stringify(cajaEfectivo)); }catch(e){}
+  }
+})();
 let ventasAnual = { conIgic:[], sinIgic:[] };
 try{ const va=JSON.parse(localStorage.getItem('op_ventasanual')||'null'); if(va) ventasAnual=va; }catch(e){}
 let ventasVendedores = [];
@@ -2694,6 +2722,14 @@ function _ejecutarArrastre(input){
           if(idxCaja >= 0) cajaEfectivo[idxCaja] = entry; else cajaEfectivo.push(entry);
           cajaEfectivo.sort((a,b) => a.fecha.localeCompare(b.fecha));
           saveCajaEfectivo();
+          // Guardar detalle por terminal para la Tabla Diaria
+          if(cajasData.terminales && cajasData.terminales.length > 0){
+            const detEntry = { fecha: entryFecha, terminales: cajasData.terminales };
+            const idxDet = cajaDetalles.findIndex(e => e.fecha === entryFecha);
+            if(idxDet >= 0) cajaDetalles[idxDet] = detEntry; else cajaDetalles.push(detEntry);
+            cajaDetalles.sort((a,b) => a.fecha.localeCompare(b.fecha));
+            saveCajaDetalles();
+          }
           const tot = cajasData.ofipapel + cajasData.aliz1 + cajasData.aliz2;
           cajaMsg = ` · Efectivo cajas: ${fmt(tot)}`;
         }
@@ -2721,89 +2757,110 @@ function _ejecutarArrastre(input){
 function _parseTotalCajasSheet(wb){
   const ws = wb.Sheets['TOTAL CAJAS'];
   if(!ws) return null;
-
   const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
-
   const OFIPAPEL = new Set(['43','44','45','46','48']);
   const ALIZ1    = new Set(['A2','A3']);
   const ALIZ2    = new Set(['AA']);
-
-  // Parse "1.407,36" or "53,09" → float
+  const TERMINAL_NAMES = {
+    '43':'Admin (Administración)', '44':'T-4 (Detall)', '45':'T-5 (Detall)',
+    '46':'T-6 (Copistería)', '47':'Admin (Conta-Gestión)', '48':'T-8 (Mayor)',
+    'A2':'T-2 (Izquierda)', 'A3':'T-3 (Derecha)', 'AA':'T-1 (Aliz-2)'
+  };
   const parseES = s => {
     s = String(s).trim();
     if(s.includes(',') && s.includes('.')) return parseFloat(s.replace(/\./g,'').replace(',','.'));
     if(s.includes(',')) return parseFloat(s.replace(',','.'));
     return parseFloat(s) || 0;
   };
-
-  const stores = {}; // code → {group, efectivo, found}
-  let currentCode = null, fecha = null, inGrandTotal = false;
-
+  // Integers in the sheet are in cents (÷100); floats are already euros
+  const fromCents = v => typeof v === 'number' ? (Number.isInteger(v) ? v/100 : v) : 0;
+  const stores = {};
+  let currentCode = null, fecha = null, inGrandTotal = false, pendingRetirado = false;
   for(let i=0; i<data.length; i++){
     const row = data[i];
     const strCells = row.map(c => String(c == null ? '' : c).trim());
     const joined   = strCells.join('|');
-
-    // Stop processing at the grand-total block
-    if(/Totales de todos los Ejercicios/i.test(joined)){ inGrandTotal = true; }
+    if(/Totales\s+de\s+todos\s+los\s+Ejercicios/i.test(joined)){ inGrandTotal = true; }
     if(inGrandTotal) continue;
-
-    // Extract date from first "Apertura: DD/MM/YYYY" found
     if(!fecha){
       const dm = joined.match(/Apertura:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/);
       if(dm) fecha = `${dm[3]}-${dm[2].padStart(2,'0')}-${dm[1].padStart(2,'0')}`;
     }
-
-    // Store section header: "Tienda:44   ..."
     const tm = joined.match(/Tienda:([A-Z0-9]+)/);
     if(tm){
       currentCode = tm[1];
+      pendingRetirado = false;
       const group = OFIPAPEL.has(currentCode) ? 'ofipapel'
                   : ALIZ1.has(currentCode)    ? 'aliz1'
                   : ALIZ2.has(currentCode)    ? 'aliz2'
                   : null;
-      stores[currentCode] = { group, efectivo: 0, found: false };
+      if(group && !stores[currentCode]){
+        stores[currentCode] = {
+          group, nombre: TERMINAL_NAMES[currentCode] || currentCode,
+          tarjetas:0, efectivo:0, fondoApertura:0, fondoCierre:0, retirado:0
+        };
+      }
       continue;
     }
-
     if(!currentCode || !stores[currentCode]?.group) continue;
-    if(stores[currentCode].found) continue; // already captured
-
-    // Pattern A — text row: "E  fectivo..:    53,09    0,00    53,09 ..."
-    // Ofipapel stores and Aliz-2 use this format
-    if(/E\s+fectivo|Efectivo\.\./i.test(joined)){
-      for(const c of strCells){
-        // Match Spanish decimal number: optional thousands with . and comma for decimals
-        if(/^\d{1,3}(\.\d{3})*,\d{2}$/.test(c)){
-          stores[currentCode].efectivo = parseES(c);
-          stores[currentCode].found = true;
-          break;
-        }
-      }
+    const s = stores[currentCode];
+    if(pendingRetirado){
+      const v = parseFloat(strCells[0]);
+      if(!isNaN(v) && v > 0) s.retirado += v / 100;
+      pendingRetirado = false;
       continue;
     }
-
-    // Pattern B — numeric cell row: "Total Efectivo:|||||15553"
-    // Aliz-1 stores use this format (values in cents)
-    if(/^Total Efectivo\b/i.test(joined) && !stores[currentCode].found){
-      for(const c of row){
-        if(typeof c === 'number' && c > 0){
-          // Values > 10 000 are in cents (e.g. 15553 → 155.53 €)
-          stores[currentCode].efectivo = c > 10000 ? Math.round(c) / 100 : c;
-          stores[currentCode].found = true;
-          break;
-        }
-      }
+    const a0 = strCells[0];
+    if(/Tarjetas\.\./i.test(a0)){
+      const bv = typeof row[1] === 'number' ? row[1] : parseFloat(row[1]) || 0;
+      if(bv > 0) s.tarjetas += fromCents(bv);
+    } else if(/E\s+fectivo\.\.|Efectivo\.\./i.test(a0)){
+      const m = a0.match(/(\d{1,3}(?:\.\d{3})*,\d{2})/);
+      if(m) s.efectivo += parseES(m[1]);
+    } else if(/^Contado\.\./i.test(a0)){
+      s.fondoApertura += fromCents(row[16]);
+    } else if(/^Cr[eé]dito\.\./i.test(a0)){
+      // Fondo al Cierre está en columna Q (índice 16) de la fila "Crédito..:"
+      s.fondoCierre += fromCents(row[16]);
+    } else if(/^Total Ej\./i.test(a0)){
+      s.retirado += fromCents(row[16]);
+    } else if(/^Total Efectivo:/i.test(a0)){
+      // Aliz-1: efectivo en columna B (índice 1)
+      const bv = typeof row[1] === 'number' ? row[1] : parseFloat(row[1]) || 0;
+      if(bv > 0) s.efectivo += fromCents(bv);
+    } else if(/^Fondo Apertura:/i.test(a0)){
+      const bv = typeof row[1] === 'number' ? row[1] : parseFloat(row[1]) || 0;
+      if(bv > 0) s.fondoApertura += fromCents(bv);
+    } else if(/^Fondo al Cierre:/i.test(a0)){
+      // Aliz-1: Fondo al Cierre en columna B (índice 1)
+      const bv = typeof row[1] === 'number' ? row[1] : parseFloat(row[1]) || 0;
+      if(bv > 0) s.fondoCierre += fromCents(bv);
+    } else if(/^Total Retirado:$/i.test(a0) && !row[1]){
+      pendingRetirado = true;
+    } else if(/^Cheques\.\./i.test(a0) && ALIZ1.has(currentCode)){
+      // Aliz-1: tarjetas/cheques en columna I (índice 8)
+      const iv = typeof row[8] === 'number' ? row[8] : parseFloat(row[8]) || 0;
+      if(iv > 0) s.tarjetas += fromCents(iv);
     }
   }
-
-  const result = { fecha, ofipapel: 0, aliz1: 0, aliz2: 0 };
-  for(const info of Object.values(stores)){
-    if(info.group) result[info.group] += info.efectivo;
+  const result = { fecha, ofipapel:0, aliz1:0, aliz2:0, terminales:[] };
+  for(const [code, info] of Object.entries(stores)){
+    if(info.group){
+      result[info.group] += info.fondoCierre;
+      result.terminales.push({
+        code, group:info.group, nombre:info.nombre,
+        tarjetas:  Math.round(info.tarjetas*100)/100,
+        efectivo:  Math.round(info.efectivo*100)/100,
+        total:     Math.round((info.tarjetas+info.efectivo)*100)/100,
+        fondoApertura: Math.round(info.fondoApertura*100)/100,
+        fondoCierre:   Math.round(info.fondoCierre*100)/100,
+        retirado:      Math.round(info.retirado*100)/100
+      });
+    }
   }
-  result.ofipapel = Math.round(result.ofipapel * 100) / 100;
-  result.aliz1    = Math.round(result.aliz1    * 100) / 100;
-  result.aliz2    = Math.round(result.aliz2    * 100) / 100;
+  result.ofipapel = Math.round(result.ofipapel*100)/100;
+  result.aliz1    = Math.round(result.aliz1*100)/100;
+  result.aliz2    = Math.round(result.aliz2*100)/100;
   return result;
 }
 
@@ -3071,6 +3128,7 @@ function importProveedoresPDF(input){
 function saveCajaCierres(){ try{localStorage.setItem('op_cajacierres',JSON.stringify(cajaCierres));}catch(e){} }
 function saveCajaBanco(){ try{localStorage.setItem('op_cajabancorecibos',JSON.stringify(cajaBancoRecibos));}catch(e){} }
 function saveCajaEfectivo(){ try{localStorage.setItem('op_cajaefectivo',JSON.stringify(cajaEfectivo));}catch(e){} syncDatasetToCloud('cajaefectivo', cajaEfectivo); }
+function saveCajaDetalles(){ try{localStorage.setItem('op_cajadetalles',JSON.stringify(cajaDetalles));}catch(e){} }
 
 function showCajaSubTab(tab){
   document.querySelectorAll('#v-caja .subtab-btn').forEach(b=>b.classList.toggle('active', b.dataset.cajaTab===tab));
@@ -3079,6 +3137,7 @@ function showCajaSubTab(tab){
   if(tab==='conciliacion') renderCajaView();
   else if(tab==='efectivo') renderCajaEfectivo();
   else if(tab==='registro') renderVentas();
+  else if(tab==='tabla') renderTablaJefe();
 }
 
 function guardarEfectivo(){
@@ -3096,6 +3155,136 @@ function guardarEfectivo(){
   renderCajaEfectivo();
   renderDashboard();
   showToast('✅ Efectivo guardado','ok');
+}
+
+function renderTablaJefe(){
+  const el = document.getElementById('tablaJefeContainer');
+  if(!el) return;
+  const fmtE = v => new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:2}).format(v||0);
+  const fmtD = f => { const d = new Date(f+'T12:00:00'); return d.toLocaleDateString('es-ES',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}); };
+  // Date picker — show last 7 days with data
+  const fechas = [...new Set([...cajaDetalles.map(d=>d.fecha), ...cajaEfectivo.map(e=>e.fecha)])].sort().reverse().slice(0,30);
+  const stored = el.dataset.tablaFecha;
+  const selectedFecha = (stored && fechas.includes(stored)) ? stored : (fechas[0]||null);
+
+  if(!fechas.length){
+    el.innerHTML = `<div style="padding:24px;text-align:center;color:var(--texto2);font-size:13px;">Sin datos todavía. Importa un Excel desde <strong>Volcado Diario</strong> para ver la tabla.</div>`;
+    return;
+  }
+
+  const detRow = cajaDetalles.find(d=>d.fecha===selectedFecha);
+  const efRow  = cajaEfectivo.find(e=>e.fecha===selectedFecha);
+
+  const GROUPS = [
+    {key:'ofipapel', label:'🏢 Ofipapel', color:'#1a73e8'},
+    {key:'aliz1',    label:'🏬 Aliz-1',   color:'#0f9d58'},
+    {key:'aliz2',    label:'🏪 Aliz-2',   color:'#e37400'}
+  ];
+  const GROUP_ORDER = {ofipapel:0, aliz1:1, aliz2:2};
+
+  const terminales = detRow ? [...detRow.terminales].sort((a,b)=>(GROUP_ORDER[a.group]??9)-(GROUP_ORDER[b.group]??9)||a.code.localeCompare(b.code)) : [];
+
+  // Build group subtotals from terminal data
+  const subtotals = {};
+  GROUPS.forEach(g=>{
+    const rows = terminales.filter(t=>t.group===g.key);
+    subtotals[g.key] = {
+      tarjetas:     rows.reduce((s,r)=>s+r.tarjetas,0),
+      efectivo:     rows.reduce((s,r)=>s+r.efectivo,0),
+      total:        rows.reduce((s,r)=>s+r.total,0),
+      fondoApertura:rows.reduce((s,r)=>s+r.fondoApertura,0),
+      fondoCierre:  rows.reduce((s,r)=>s+r.fondoCierre,0),
+      retirado:     rows.reduce((s,r)=>s+r.retirado,0)
+    };
+  });
+  // If no terminal detail but we have summary efectivo, show summary-only row per group
+  const hasDetail = terminales.length > 0;
+
+  const th = s=>`<th style="padding:8px 10px;text-align:right;font-weight:700;font-size:11px;color:var(--texto2);white-space:nowrap;border-bottom:2px solid var(--borde);">${s}</th>`;
+  const thL= s=>`<th style="padding:8px 10px;text-align:left;font-weight:700;font-size:11px;color:var(--texto2);white-space:nowrap;border-bottom:2px solid var(--borde);">${s}</th>`;
+  const td = (v,bold)=>`<td style="padding:7px 10px;text-align:right;font-size:12px;${bold?'font-weight:700;':''}white-space:nowrap;">${fmtE(v)}</td>`;
+  const tdL= (s,bold,color)=>`<td style="padding:7px 10px;text-align:left;font-size:12px;${bold?'font-weight:600;':''}${color?'color:'+color+';':''}">${s}</td>`;
+
+  let rows = '';
+  if(hasDetail){
+    let lastGroup = null;
+    for(const t of terminales){
+      if(t.group !== lastGroup){
+        lastGroup = t.group;
+        const g = GROUPS.find(x=>x.key===t.group);
+        const sub = subtotals[t.group];
+        // Group header separator
+        rows += `<tr style="background:var(--fondo2);">
+          <td colspan="7" style="padding:6px 10px;font-size:11px;font-weight:700;color:${g.color};">${g.label}</td>
+        </tr>`;
+      }
+      rows += `<tr style="border-bottom:1px solid var(--borde);">
+        ${tdL(t.nombre)}
+        ${td(t.tarjetas)} ${td(t.efectivo)} ${td(t.total,true)}
+        ${td(t.fondoApertura)} ${td(t.fondoCierre)} ${td(t.retirado)}
+      </tr>`;
+    }
+    // Group subtotals
+    for(const g of GROUPS){
+      const sub = subtotals[g.key];
+      if(!terminales.find(t=>t.group===g.key)) continue;
+      rows += `<tr style="background:color-mix(in srgb,${g.color} 8%,transparent);border-bottom:2px solid var(--borde);">
+        ${tdL('Subtotal '+g.label,true,g.color)}
+        ${td(sub.tarjetas,true)} ${td(sub.efectivo,true)} ${td(sub.total,true)}
+        ${td(sub.fondoApertura,true)} ${td(sub.fondoCierre,true)} ${td(sub.retirado,true)}
+      </tr>`;
+    }
+  } else if(efRow) {
+    // Fallback: only summary data available (historical entries without terminal detail)
+    for(const g of GROUPS){
+      const v = efRow[g.key]||0;
+      rows += `<tr style="background:color-mix(in srgb,${g.color} 6%,transparent);border-bottom:1px solid var(--borde);">
+        ${tdL(g.label+' (resumen)',true,g.color)}
+        <td colspan="2" style="padding:7px 10px;text-align:center;font-size:11px;color:var(--texto2);">Sin detalle por terminal</td>
+        ${td(v,true)}
+        <td colspan="3" style="padding:7px 10px;text-align:center;font-size:11px;color:var(--texto2);">—</td>
+      </tr>`;
+    }
+  }
+
+  // Grand total
+  const gTarj  = GROUPS.reduce((s,g)=>s+(subtotals[g.key]?.tarjetas||0),0);
+  const gEfect = GROUPS.reduce((s,g)=>s+(subtotals[g.key]?.efectivo||0),0);
+  const gTot   = GROUPS.reduce((s,g)=>s+(subtotals[g.key]?.total||0),0);
+  const gAper  = GROUPS.reduce((s,g)=>s+(subtotals[g.key]?.fondoApertura||0),0);
+  const gCierr = GROUPS.reduce((s,g)=>s+(subtotals[g.key]?.fondoCierre||0),0);
+  const gRet   = GROUPS.reduce((s,g)=>s+(subtotals[g.key]?.retirado||0),0);
+  const grandRow = hasDetail ? `<tr style="background:var(--azul);color:#fff;">
+    <td style="padding:8px 10px;font-weight:700;font-size:12px;">TOTAL GLOBAL</td>
+    <td style="padding:8px 10px;text-align:right;font-weight:700;font-size:12px;">${fmtE(gTarj)}</td>
+    <td style="padding:8px 10px;text-align:right;font-weight:700;font-size:12px;">${fmtE(gEfect)}</td>
+    <td style="padding:8px 10px;text-align:right;font-weight:700;font-size:12px;">${fmtE(gTot)}</td>
+    <td style="padding:8px 10px;text-align:right;font-weight:700;font-size:12px;">${fmtE(gAper)}</td>
+    <td style="padding:8px 10px;text-align:right;font-weight:700;font-size:12px;">${fmtE(gCierr)}</td>
+    <td style="padding:8px 10px;text-align:right;font-weight:700;font-size:12px;">${fmtE(gRet)}</td>
+  </tr>` : '';
+
+  // Date selector
+  const dateSel = `<select onchange="document.getElementById('tablaJefeContainer').dataset.tablaFecha=this.value;renderTablaJefe();"
+    style="padding:6px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;background:var(--superficie);color:var(--texto);">
+    ${fechas.map(f=>`<option value="${f}"${f===selectedFecha?' selected':''}>${fmtD(f)}</option>`).join('')}
+  </select>`;
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <div style="font-weight:700;font-size:14px;color:var(--azul);">📊 Tabla Diaria por Terminal</div>
+      ${dateSel}
+      ${!hasDetail&&efRow?'<span style="font-size:11px;color:var(--texto2);font-style:italic;">⚠️ Solo datos de resumen disponibles para este día. Importa el Excel del mismo día para ver el desglose por terminal.</span>':''}
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:var(--fondo2);">
+          ${thL('Terminal')}${th('Tarjetas')}${th('Efectivo')}${th('Total')}${th('Fdo. Apertura')}${th('Fdo. Cierre')}${th('Retirado')}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot>${grandRow}</tfoot>
+      </table>
+    </div>`;
 }
 
 function renderCajaEfectivo(){
