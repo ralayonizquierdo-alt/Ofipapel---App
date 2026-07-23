@@ -429,7 +429,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.21 ·<span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.22 ·<span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -1005,6 +1005,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
           <div class="subtabs">
             <button class="subtab-btn active" data-ct="pedidos" onclick="showComprasTab('pedidos')">🛒 Pedidos</button>
             <button class="subtab-btn" data-ct="anual" onclick="showComprasTab('anual')">📅 Histórico Anual</button>
+            <button class="subtab-btn" data-ct="proveedores" onclick="showComprasTab('proveedores')">🏭 Por Proveedor</button>
           </div>
 
           <div class="subtab-panel active" id="ct-pedidos">
@@ -1054,6 +1055,31 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               <canvas id="cCompAnual" height="200"></canvas>
             </div>
             <div class="card" id="compAnualTabla" style="padding:0;overflow:hidden;"></div>
+          </div>
+
+          <div class="subtab-panel" id="ct-proveedores">
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
+                  <select id="compProvAnio" onchange="renderComprasProveedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Almacén</div>
+                  <select id="compProvAlmacen" onchange="renderComprasProveedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="chart-card" style="margin-bottom:16px;">
+              <div class="chart-ttl">Compras por Proveedor y Mes</div>
+              <div class="chart-desc">Importe mensual acumulado — top proveedores</div>
+              <canvas id="cCompProvMes" height="220"></canvas>
+            </div>
+            <div class="card" id="compProvTabla" style="padding:0;overflow:hidden;"></div>
           </div>
         </div>
       </div>
@@ -1680,6 +1706,7 @@ function showComprasTab(tab){
   document.getElementById('ct-'+tab).classList.add('active');
   if(tab==='pedidos') renderCompras();
   else if(tab==='anual') renderComprasAnual();
+  else if(tab==='proveedores') renderComprasProveedores();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -4570,6 +4597,122 @@ function saveCompModal(){
     recibido:false
   });
   saveCompras(); closeCompModal(); renderCompras();
+}
+
+// ═══════════════════════════════════════════════════════
+// COMPRAS — POR PROVEEDOR Y MES
+// ═══════════════════════════════════════════════════════
+function renderComprasProveedores(){
+  const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const COLORS=['#1a3c8f','#2e7d32','#f57c00','#c62828','#6a1b9a','#00838f','#558b2f','#4e342e'];
+
+  // Rebuild year options
+  const anios=[...new Set(compras.map(c=>c.fecha?c.fecha.slice(0,4):null).filter(Boolean))].sort((a,b)=>b-a);
+  const selAnio=document.getElementById('compProvAnio');
+  if(selAnio){
+    const prev=selAnio.value;
+    selAnio.innerHTML='<option value="todos">Todos</option>';
+    anios.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;selAnio.appendChild(o);});
+    if(anios.includes(prev)) selAnio.value=prev;
+  }
+  const anioFiltro=selAnio?.value||'todos';
+
+  // Rebuild almacen options
+  const almacenes=[...new Set(compras.map(c=>c.almacen).filter(Boolean))].sort();
+  const selAlm=document.getElementById('compProvAlmacen');
+  if(selAlm && selAlm.options.length<=1){
+    almacenes.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;selAlm.appendChild(o);});
+  }
+  const almFiltro=selAlm?.value||'todos';
+
+  destroyChart('cCompProvMes');
+
+  const f=compras.filter(c=>{
+    if(!c.fecha) return false;
+    if(anioFiltro!=='todos' && c.fecha.slice(0,4)!==anioFiltro) return false;
+    if(almFiltro!=='todos' && c.almacen!==almFiltro) return false;
+    return true;
+  });
+
+  if(!f.length){
+    document.getElementById('compProvTabla').innerHTML='<div class="empty-state"><div class="e-ico">🏭</div><h3>Sin datos</h3><p>Importa pedidos de compras para ver el resumen por proveedor y mes.</p></div>';
+    return;
+  }
+
+  // Pivot: proveedor -> mes[0..11]
+  const pivot={};
+  f.forEach(c=>{
+    const mes=parseInt(c.fecha.slice(5,7),10)-1;
+    if(mes<0||mes>11) return;
+    const p=c.provNom||'Sin proveedor';
+    if(!pivot[p]) pivot[p]=new Array(12).fill(0);
+    pivot[p][mes]+=c.total;
+  });
+
+  const provs=Object.entries(pivot).sort((a,b)=>b[1].reduce((s,v)=>s+v,0)-a[1].reduce((s,v)=>s+v,0));
+  const mesTotales=new Array(12).fill(0);
+  provs.forEach(([,m])=>m.forEach((v,i)=>mesTotales[i]+=v));
+  const grandTotal=mesTotales.reduce((s,v)=>s+v,0);
+
+  // Chart — top 8 stacked
+  const top8=provs.slice(0,8);
+  charts['cCompProvMes']=new Chart(document.getElementById('cCompProvMes'),{
+    type:'bar',
+    data:{
+      labels:MESES,
+      datasets:top8.map(([prov,meses],i)=>({
+        label:prov.length>28?prov.slice(0,26)+'…':prov,
+        data:meses,
+        backgroundColor:COLORS[i%COLORS.length]+'cc',
+        borderColor:COLORS[i%COLORS.length],
+        borderWidth:1,
+        borderRadius:2
+      }))
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},
+      scales:{
+        x:{stacked:true,...G},
+        y:{stacked:true,ticks:{callback:v=>(v/1000).toFixed(0)+'K €'},...G}
+      }
+    }
+  });
+
+  // Pivot table
+  const fmtC=v=>v>0?fmt(v):'—';
+  document.getElementById('compProvTabla').innerHTML=`
+    <div style="overflow-x:auto;">
+    <table class="tabla" style="font-size:12px;">
+      <thead>
+        <tr>
+          <th style="white-space:nowrap;min-width:160px;position:sticky;left:0;background:var(--card-bg);z-index:1;">Proveedor</th>
+          ${MESES.map(m=>`<th style="text-align:right;white-space:nowrap;">${m}</th>`).join('')}
+          <th style="text-align:right;white-space:nowrap;background:var(--azul-pale);color:var(--azul);">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${provs.map(([prov,meses])=>{
+          const tot=meses.reduce((s,v)=>s+v,0);
+          return `<tr>
+            <td style="font-weight:500;white-space:nowrap;position:sticky;left:0;background:var(--card-bg);">${prov}</td>
+            ${meses.map(v=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;color:${v>0?'var(--texto)':'var(--texto2)'};">${fmtC(v)}</td>`).join('')}
+            <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--azul);background:var(--azul-pale);">${fmt(tot)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="background:var(--azul-pale);">
+          <td style="font-weight:700;color:var(--azul);position:sticky;left:0;background:var(--azul-pale);">TOTAL</td>
+          ${mesTotales.map(v=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--azul);">${v>0?fmt(v):'—'}</td>`).join('')}
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:800;color:var(--azul);">${fmt(grandTotal)}</td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+    <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
+      ${provs.length} proveedores · Total: <strong style="color:var(--azul);">${fmt(grandTotal)}</strong>
+    </div>`;
 }
 
 // ═══════════════════════════════════════════════════════
