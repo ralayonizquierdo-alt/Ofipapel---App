@@ -381,7 +381,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.17 ·<span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.18 ·<span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -633,6 +633,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
         <div class="page-body">
           <div class="subtabs">
             <button class="subtab-btn active" data-cajaTab="conciliacion" onclick="showCajaSubTab('conciliacion')">🔍 Conciliación Diaria</button>
+            <button class="subtab-btn" data-cajaTab="efectivo" onclick="showCajaSubTab('efectivo')">💵 Efectivo Tiendas</button>
             <button class="subtab-btn" data-cajaTab="registro" onclick="showCajaSubTab('registro')">🏪 Registro de Ventas</button>
           </div>
 
@@ -643,6 +644,39 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <div id="cajaReconcilTabla"></div>
             <div style="font-weight:700;color:var(--azul);margin-bottom:8px;margin-top:16px;">📅 Histórico de Conciliaciones</div>
             <div class="card" id="cajaHistorico" style="padding:0;overflow:hidden;"></div>
+          </div>
+
+          <!-- EFECTIVO TIENDAS -->
+          <div class="subtab-panel" id="cajat-efectivo">
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="font-weight:700;font-size:14px;color:var(--azul);margin-bottom:12px;">💵 Registrar efectivo pendiente de ingreso</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px;">
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Fecha</div>
+                  <input type="date" id="efFecha" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Ofipapel (€)</div>
+                  <input type="number" id="efOfipapel" min="0" step="0.01" placeholder="0,00" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Aliz-1 (€)</div>
+                  <input type="number" id="efAliz1" min="0" step="0.01" placeholder="0,00" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Aliz-2 (€)</div>
+                  <input type="number" id="efAliz2" min="0" step="0.01" placeholder="0,00" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;">
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Notas (opcional)</div>
+                  <input type="text" id="efNotas" placeholder="Ej: semana del 14 jul" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;">
+                </div>
+              </div>
+              <button onclick="guardarEfectivo()" style="padding:8px 20px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">💾 Guardar</button>
+            </div>
+            <div id="efKpis" style="margin-bottom:16px;"></div>
+            <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">📅 Histórico de efectivo por tienda</div>
+            <div class="card" id="efHistorico" style="padding:0;overflow:hidden;"></div>
           </div>
 
           <!-- REGISTRO DIARIO (migrado desde Ventas > Caja) -->
@@ -1105,6 +1139,8 @@ let cajaCierres = [];
 try{ const cc=JSON.parse(localStorage.getItem('op_cajacierres')||'null'); if(cc) cajaCierres=cc; }catch(e){}
 let cajaBancoRecibos = [];
 try{ const cb=JSON.parse(localStorage.getItem('op_cajabancorecibos')||'null'); if(cb) cajaBancoRecibos=cb; }catch(e){}
+let cajaEfectivo = [];
+try{ const ce=JSON.parse(localStorage.getItem('op_cajaefectivo')||'null'); if(ce) cajaEfectivo=ce; }catch(e){}
 let ventasAnual = { conIgic:[], sinIgic:[] };
 try{ const va=JSON.parse(localStorage.getItem('op_ventasanual')||'null'); if(va) ventasAnual=va; }catch(e){}
 let ventasVendedores = [];
@@ -1253,6 +1289,10 @@ function applyCloudDataset(key, payload){
     ventasWeb = payload;
     try{ localStorage.setItem('op_ventasweb', JSON.stringify(ventasWeb)); }catch(e){}
     renderVentasWeb();
+  } else if(key==='cajaefectivo'){
+    cajaEfectivo = payload;
+    try{ localStorage.setItem('op_cajaefectivo', JSON.stringify(cajaEfectivo)); }catch(e){}
+    renderCajaEfectivo();
   }
 }
 
@@ -1287,6 +1327,7 @@ async function loadAllSharedDatasets(){
     if(!existing.ventasclientes && ventasClientes.length) syncDatasetToCloud('ventasclientes', ventasClientes);
     if(!existing.comprasanual && comprasAnual.length) syncDatasetToCloud('comprasanual', comprasAnual);
     if(!existing.ventasweb && ventasWeb.length) syncDatasetToCloud('ventasweb', ventasWeb);
+    if(!existing.cajaefectivo && cajaEfectivo.length) syncDatasetToCloud('cajaefectivo', cajaEfectivo);
   } catch(e){ console.warn('Error cargando datasets compartidos:', e); }
 }
 
@@ -1707,6 +1748,46 @@ function renderDashboard(){
     </div>
   </div>
 
+  ${(() => {
+    if(!cajaCierres.length) return '';
+    const lc=cajaCierres[cajaCierres.length-1];
+    const bd=cajaBancoRecibos.filter(b=>b.fecha===lc.fecha);
+    const totalBEf=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
+    const diff=Math.abs((lc.efectivoBancoDeposit||0)-totalBEf);
+    const cuadra=bd.length>0&&diff<0.05;
+    const descuadre=bd.length>0&&diff>=0.05;
+    const ico=cuadra?'✅':descuadre?'❌':'⏳';
+    const tipo=cuadra?'ok':descuadre?'warn':'info';
+    const txt=cuadra?`Conciliado ✔ Efectivo depositado: ${fmt(lc.efectivoBancoDeposit||0)}`:descuadre?`DESCUADRE: sistema ${fmt(lc.efectivoBancoDeposit||0)} vs banco ${fmt(totalBEf)} · Dif: ${fmt(diff)}`:`Resguardos bancarios pendientes · Efectivo sistema: ${fmt(lc.efectivoBancoDeposit||0)}`;
+    return `<div class="alert-card ${tipo}" style="margin-bottom:20px;cursor:pointer;" onclick="showView('caja')"><div class="alert-ico">${ico}</div><div><div class="alert-ttl">💰 Control de Caja — ${new Date((lc.fecha||'')+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}</div><div class="alert-txt">${txt}</div></div></div>`;
+  })()}
+
+  ${(() => {
+    if(!cajaEfectivo.length) return '';
+    const le = cajaEfectivo[cajaEfectivo.length-1];
+    const total = (le.ofipapel||0)+(le.aliz1||0)+(le.aliz2||0);
+    const fechaStr = new Date((le.fecha||'')+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+    const fmtV = v => v!=null&&v>0 ? new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:2}).format(v) : '—';
+    return `<div class="card" style="margin-bottom:20px;padding:16px;cursor:pointer;" onclick="showView('caja');showCajaSubTab('efectivo')">
+      <div style="font-weight:700;font-size:13px;color:var(--azul);margin-bottom:10px;">💵 Efectivo pendiente de ingreso — ${fechaStr}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;">
+        <div style="background:var(--fondo2);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:11px;color:var(--texto2);font-weight:600;margin-bottom:4px;">Ofipapel</div>
+          <div style="font-size:16px;font-weight:700;color:var(--verde);">${fmtV(le.ofipapel)}</div>
+        </div>
+        <div style="background:var(--fondo2);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:11px;color:var(--texto2);font-weight:600;margin-bottom:4px;">Aliz-1</div>
+          <div style="font-size:16px;font-weight:700;color:var(--verde);">${fmtV(le.aliz1)}</div>
+        </div>
+        <div style="background:var(--fondo2);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:11px;color:var(--texto2);font-weight:600;margin-bottom:4px;">Aliz-2</div>
+          <div style="font-size:16px;font-weight:700;color:var(--verde);">${fmtV(le.aliz2)}</div>
+        </div>
+      </div>
+      <div style="text-align:right;font-size:12px;color:var(--texto2);">Total: <strong style="color:var(--texto)">${fmtV(total)}</strong>${le.notas?` · ${le.notas}`:''}</div>
+    </div>`;
+  })()}
+
   <div class="sec-title">📈 Evolución del Saldo Total</div>
   <div class="chart-row">
     <div class="chart-card">
@@ -1740,19 +1821,6 @@ function renderDashboard(){
     <canvas id="cCaja" height="70"></canvas>
   </div>
 
-  ${(() => {
-    if(!cajaCierres.length) return '';
-    const lc=cajaCierres[cajaCierres.length-1];
-    const bd=cajaBancoRecibos.filter(b=>b.fecha===lc.fecha);
-    const totalBEf=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
-    const diff=Math.abs((lc.efectivoBancoDeposit||0)-totalBEf);
-    const cuadra=bd.length>0&&diff<0.05;
-    const descuadre=bd.length>0&&diff>=0.05;
-    const ico=cuadra?'✅':descuadre?'❌':'⏳';
-    const tipo=cuadra?'ok':descuadre?'warn':'info';
-    const txt=cuadra?`Conciliado ✔ Efectivo depositado: ${fmt(lc.efectivoBancoDeposit||0)}`:descuadre?`DESCUADRE: sistema ${fmt(lc.efectivoBancoDeposit||0)} vs banco ${fmt(totalBEf)} · Dif: ${fmt(diff)}`:`Resguardos bancarios pendientes · Efectivo sistema: ${fmt(lc.efectivoBancoDeposit||0)}`;
-    return `<div class="alert-card ${tipo}" style="margin-bottom:20px;cursor:pointer;" onclick="showView('caja')"><div class="alert-ico">${ico}</div><div><div class="alert-ttl">💰 Control de Caja — ${new Date((lc.fecha||'')+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}</div><div class="alert-txt">${txt}</div></div></div>`;
-  })()}
   ${last.notas?`<div class="alert-card info" style="margin-bottom:20px"><div class="alert-ico">📝</div><div><div class="alert-ttl">Nota del último registro</div><div class="alert-txt">${last.notas}</div></div></div>`:''}
   `;
 
@@ -2414,13 +2482,94 @@ function importProveedoresPDF(input){
 // ═══════════════════════════════════════════════════════
 function saveCajaCierres(){ try{localStorage.setItem('op_cajacierres',JSON.stringify(cajaCierres));}catch(e){} }
 function saveCajaBanco(){ try{localStorage.setItem('op_cajabancorecibos',JSON.stringify(cajaBancoRecibos));}catch(e){} }
+function saveCajaEfectivo(){ try{localStorage.setItem('op_cajaefectivo',JSON.stringify(cajaEfectivo));}catch(e){} syncDatasetToCloud('cajaefectivo', cajaEfectivo); }
 
 function showCajaSubTab(tab){
   document.querySelectorAll('#v-caja .subtab-btn').forEach(b=>b.classList.toggle('active', b.dataset.cajaTab===tab));
   document.querySelectorAll('#v-caja .subtab-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('cajat-'+tab).classList.add('active');
   if(tab==='conciliacion') renderCajaView();
+  else if(tab==='efectivo') renderCajaEfectivo();
   else if(tab==='registro') renderVentas();
+}
+
+function guardarEfectivo(){
+  const fecha = document.getElementById('efFecha').value;
+  if(!fecha){ showToast('Indica la fecha','err'); return; }
+  const ofipapel = parseFloat(document.getElementById('efOfipapel').value)||0;
+  const aliz1 = parseFloat(document.getElementById('efAliz1').value)||0;
+  const aliz2 = parseFloat(document.getElementById('efAliz2').value)||0;
+  const notas = document.getElementById('efNotas').value.trim();
+  const idx = cajaEfectivo.findIndex(e=>e.fecha===fecha);
+  const entry = {fecha,ofipapel,aliz1,aliz2,notas};
+  if(idx>=0) cajaEfectivo[idx]=entry; else cajaEfectivo.push(entry);
+  cajaEfectivo.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  saveCajaEfectivo();
+  renderCajaEfectivo();
+  renderDashboard();
+  showToast('✅ Efectivo guardado','ok');
+}
+
+function renderCajaEfectivo(){
+  const fmtV = v => v!=null&&v>0 ? new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:2}).format(v) : '—';
+  // Pre-fill date input with today if empty
+  const efFecha = document.getElementById('efFecha');
+  if(efFecha&&!efFecha.value) efFecha.value = new Date().toISOString().slice(0,10);
+
+  // KPIs: total acumulado de la última semana por tienda
+  const kpisEl = document.getElementById('efKpis');
+  if(kpisEl && cajaEfectivo.length){
+    const le = cajaEfectivo[cajaEfectivo.length-1];
+    const total = (le.ofipapel||0)+(le.aliz1||0)+(le.aliz2||0);
+    kpisEl.innerHTML = `<div class="kpi-grid" style="margin-bottom:16px;">
+      <div class="kpi"><div class="kpi-ico">🏪</div><div class="kpi-lbl">Ofipapel</div><div class="kpi-val">${fmtV(le.ofipapel)}</div><div class="kpi-delta">Último registro</div></div>
+      <div class="kpi"><div class="kpi-ico">🏬</div><div class="kpi-lbl">Aliz-1</div><div class="kpi-val">${fmtV(le.aliz1)}</div><div class="kpi-delta">Último registro</div></div>
+      <div class="kpi"><div class="kpi-ico">🏬</div><div class="kpi-lbl">Aliz-2</div><div class="kpi-val">${fmtV(le.aliz2)}</div><div class="kpi-delta">Último registro</div></div>
+      <div class="kpi"><div class="kpi-ico">💰</div><div class="kpi-lbl">Total</div><div class="kpi-val">${fmtV(total)}</div><div class="kpi-delta">Todas las tiendas</div></div>
+    </div>`;
+  } else if(kpisEl) kpisEl.innerHTML='';
+
+  // Histórico
+  const el = document.getElementById('efHistorico');
+  if(!el) return;
+  if(!cajaEfectivo.length){
+    el.innerHTML='<div style="padding:20px;text-align:center;color:var(--texto2);font-size:13px;">Sin registros aún. Introduce los importes de efectivo pendiente arriba.</div>';
+    return;
+  }
+  const sorted=[...cajaEfectivo].reverse();
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead><tr style="background:var(--fondo2);">
+      <th style="padding:10px 12px;text-align:left;font-weight:600;">Fecha</th>
+      <th style="padding:10px 12px;text-align:right;font-weight:600;">Ofipapel</th>
+      <th style="padding:10px 12px;text-align:right;font-weight:600;">Aliz-1</th>
+      <th style="padding:10px 12px;text-align:right;font-weight:600;">Aliz-2</th>
+      <th style="padding:10px 12px;text-align:right;font-weight:600;">Total</th>
+      <th style="padding:10px 12px;text-align:left;font-weight:600;">Notas</th>
+      <th style="padding:10px 12px;text-align:center;font-weight:600;"></th>
+    </tr></thead>
+    <tbody>${sorted.map((e,i)=>{
+      const tot=(e.ofipapel||0)+(e.aliz1||0)+(e.aliz2||0);
+      const dStr=new Date((e.fecha||'')+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+      const bg=i%2===0?'var(--fondo)':'var(--fondo2)';
+      return `<tr style="background:${bg};">
+        <td style="padding:9px 12px;">${dStr}</td>
+        <td style="padding:9px 12px;text-align:right;">${fmtV(e.ofipapel)}</td>
+        <td style="padding:9px 12px;text-align:right;">${fmtV(e.aliz1)}</td>
+        <td style="padding:9px 12px;text-align:right;">${fmtV(e.aliz2)}</td>
+        <td style="padding:9px 12px;text-align:right;font-weight:600;">${fmtV(tot)}</td>
+        <td style="padding:9px 12px;color:var(--texto2);">${e.notas||''}</td>
+        <td style="padding:9px 12px;text-align:center;"><button onclick="deleteEfectivo('${e.fecha}')" style="background:none;border:none;cursor:pointer;font-size:14px;" title="Eliminar">🗑️</button></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+function deleteEfectivo(fecha){
+  if(!confirm('¿Eliminar el registro de '+fecha+'?')) return;
+  cajaEfectivo=cajaEfectivo.filter(e=>e.fecha!==fecha);
+  saveCajaEfectivo();
+  renderCajaEfectivo();
+  renderDashboard();
 }
 
 function cajaCierreDrop(e){
