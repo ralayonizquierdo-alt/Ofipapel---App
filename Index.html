@@ -429,7 +429,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.19 ·<span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.20 ·<span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -507,21 +507,31 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
 
       <!-- ═══ HISTÓRICO ═══ -->
       <div class="view" id="v-historico">
-        <div class="filter-bar">
-          <label>Período:</label>
-          <select id="filtPeriod" onchange="renderHistorico()">
-            <option value="7">Últimos 7 días</option>
-            <option value="14">Últimos 14 días</option>
-            <option value="30">Último mes</option>
-            <option value="all">Todo</option>
-          </select>
-          <label>Desde:</label>
-          <input type="date" id="filtDesde" onchange="renderHistorico()">
-          <label>Hasta:</label>
-          <input type="date" id="filtHasta" onchange="renderHistorico()">
-          <button class="btn-filter" onclick="exportCSV()">⬇ Exportar CSV</button>
+        <div class="page-header" style="padding-bottom:0;margin-bottom:0;"><h1 class="page-title">📅 Histórico</h1></div>
+        <div class="subtabs" style="margin-bottom:0;">
+          <button class="subtab-btn active" data-ht="registros" onclick="showHistTab('registros')">📋 Registros</button>
+          <button class="subtab-btn" data-ht="comparativa" onclick="showHistTab('comparativa')">📊 Comparativa Anual</button>
         </div>
-        <div id="histContent"></div>
+        <div class="subtab-panel active" id="ht-registros">
+          <div class="filter-bar">
+            <label>Período:</label>
+            <select id="filtPeriod" onchange="renderHistorico()">
+              <option value="7">Últimos 7 días</option>
+              <option value="14">Últimos 14 días</option>
+              <option value="30">Último mes</option>
+              <option value="all">Todo</option>
+            </select>
+            <label>Desde:</label>
+            <input type="date" id="filtDesde" onchange="renderHistorico()">
+            <label>Hasta:</label>
+            <input type="date" id="filtHasta" onchange="renderHistorico()">
+            <button class="btn-filter" onclick="exportCSV()">⬇ Exportar CSV</button>
+          </div>
+          <div id="histContent"></div>
+        </div>
+        <div class="subtab-panel" id="ht-comparativa">
+          <div id="histComparativaContent" style="padding:0 4px;"></div>
+        </div>
       </div>
 
       <!-- ═══ ALERTAS ═══ -->
@@ -1566,7 +1576,7 @@ function showView(id) {
   document.getElementById('v-'+id).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n=>{ if(n.getAttribute('onclick')?.includes(id)) n.classList.add('active'); });
   document.getElementById('topbarTitle').textContent = TITLES[id]||id;
-  if(id==='historico') renderHistorico();
+  if(id==='historico') showHistTab(document.querySelector('#v-historico .subtab-btn.active')?.dataset.ht||'registros');
   if(id==='alertas') renderAlertas();
   if(id==='pagares') renderPagares();
   if(id==='proveedores') renderProveedores();
@@ -1923,6 +1933,219 @@ function renderDashboard(){
 // ═══════════════════════════════════════════════════════
 // HISTÓRICO
 // ═══════════════════════════════════════════════════════
+function showHistTab(tab){
+  document.querySelectorAll('#v-historico .subtab-btn').forEach(b=>b.classList.toggle('active',b.dataset.ht===tab));
+  document.querySelectorAll('#v-historico .subtab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('ht-'+tab).classList.add('active');
+  if(tab==='registros') renderHistorico();
+  else if(tab==='comparativa') renderHistoricoComparativa();
+}
+
+function renderHistoricoComparativa(){
+  const all = sortedRegistros();
+  if(!all.length){
+    document.getElementById('histComparativaContent').innerHTML=`<div class="empty-state"><div class="e-ico">📊</div><h3>Sin datos</h3><p>Añade registros para ver la comparativa anual.</p></div>`;
+    return;
+  }
+
+  // Agrupar por año → mes → último registro del mes
+  const byYear = {};
+  all.forEach(r=>{
+    const y=r.fecha.slice(0,4), m=r.fecha.slice(5,7);
+    if(!byYear[y]) byYear[y]={};
+    byYear[y][m]=r; // el último del mes (están ordenados)
+  });
+  const years = Object.keys(byYear).sort();
+  const MONTHS = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const ACCOUNTS = [
+    {key:'bbva_ofip', label:'BBVA Ofipapel'},
+    {key:'sant_ico',  label:'Santander ICO'},
+    {key:'caixa_cta', label:'CaixaBank Cta'},
+    {key:'c7',        label:'Caja Siete'},
+    {key:'caja_central', label:'Caja Central'},
+    {key:'luis_bbva', label:'Luis BBVA'},
+    {key:'luis_sant', label:'Luis Santander'},
+  ];
+
+  // KPIs por año: avg, max, min, final, primer, registros
+  const COLORS = ['#2B5F8E','#F0A500','#27AE60','#E85B2C','#8E44AD','#1ABC9C','#E74C3C'];
+  const kpisByYear = years.map((y,i)=>{
+    const recs = all.filter(r=>r.fecha.startsWith(y));
+    const tots = recs.map(r=>total(r));
+    const avg = tots.reduce((s,v)=>s+v,0)/tots.length;
+    const max = Math.max(...tots);
+    const min = Math.min(...tots);
+    const first = tots[0], last2 = tots[tots.length-1];
+    const change = last2-first;
+    return {y, avg, max, min, first, last:last2, change, count:recs.length, color:COLORS[i%COLORS.length]};
+  });
+
+  // Datos mensuales para el gráfico multi-año
+  const datasets = years.map((y,i)=>({
+    label: y,
+    data: MONTHS.map(m=>{ const r=byYear[y]?.[m]; return r?total(r):null; }),
+    borderColor: COLORS[i%COLORS.length],
+    backgroundColor: COLORS[i%COLORS.length]+'22',
+    borderWidth: 2.5,
+    pointRadius: 4,
+    pointBackgroundColor: COLORS[i%COLORS.length],
+    fill: false,
+    tension: 0.3,
+    spanGaps: true,
+  }));
+
+  // Destruir gráficos anteriores
+  ['cCompAnio','cCompMes','cCompCuentas'].forEach(id=>destroyChart(id));
+
+  document.getElementById('histComparativaContent').innerHTML = `
+  <div class="sec-title" style="margin-top:8px">📊 Saldo Total — Comparativa entre años</div>
+
+  <!-- KPIs por año -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px;">
+    ${kpisByYear.map(k=>`
+    <div class="card" style="padding:16px;border-top:4px solid ${k.color};">
+      <div style="font-weight:800;font-size:18px;color:${k.color};margin-bottom:10px;">${k.y}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;">
+        <div><div style="color:var(--texto2);">Promedio</div><div style="font-weight:700;">${fmt(k.avg)}</div></div>
+        <div><div style="color:var(--texto2);">Máximo</div><div style="font-weight:700;color:var(--verde);">${fmt(k.max)}</div></div>
+        <div><div style="color:var(--texto2);">Mínimo</div><div style="font-weight:700;color:var(--rojo);">${fmt(k.min)}</div></div>
+        <div><div style="color:var(--texto2);">Final</div><div style="font-weight:700;">${fmt(k.last)}</div></div>
+        <div style="grid-column:1/-1;margin-top:4px;padding-top:6px;border-top:1px solid var(--borde);">
+          <div style="color:var(--texto2);">Variación anual</div>
+          <div style="font-weight:700;color:${k.change>=0?'var(--verde)':'var(--rojo)'};">${k.change>=0?'▲ +':'▼ '}${fmt(Math.abs(k.change))}</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--texto2);margin-top:8px;">${k.count} registros</div>
+    </div>`).join('')}
+  </div>
+
+  <!-- Gráfico de líneas mes a mes por año -->
+  <div class="chart-card" style="margin-bottom:20px;">
+    <div class="chart-ttl">Evolución mensual por año — Saldo Total</div>
+    <div class="chart-desc">Un punto por mes (último registro del mes) · ${years.join(', ')}</div>
+    <canvas id="cCompMes" height="${years.length>2?100:80}"></canvas>
+  </div>
+
+  <!-- Gráfico de barras comparativa avg/max por año -->
+  <div class="chart-row-2" style="margin-bottom:20px;">
+    <div class="chart-card">
+      <div class="chart-ttl">Saldo promedio por año</div>
+      <div class="chart-desc">Promedio de todos los registros del año</div>
+      <canvas id="cCompAnio" height="180"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-ttl">Saldo por cuenta — promedio anual</div>
+      <div class="chart-desc">Promedio de cada cuenta bancaria por año</div>
+      <canvas id="cCompCuentas" height="180"></canvas>
+    </div>
+  </div>
+
+  <!-- Tabla mes × año -->
+  <div class="tcard" style="margin-bottom:20px;">
+    <div class="tcard-hd"><h3>Tabla comparativa mes × año</h3><p>Saldo total (último registro de cada mes)</p></div>
+    <div class="tscroll">
+    <table>
+      <thead><tr>
+        <th>Mes</th>
+        ${years.map((y,i)=>`<th style="color:${COLORS[i%COLORS.length]};">${y}</th>`).join('')}
+        ${years.length>1?'<th>Δ último–primero</th>':''}
+      </tr></thead>
+      <tbody>
+        ${MONTHS.map((m,mi)=>{
+          const vals = years.map(y=>byYear[y]?.[m]?total(byYear[y][m]):null);
+          const hasAny = vals.some(v=>v!=null);
+          if(!hasAny) return '';
+          const first = vals.find(v=>v!=null);
+          const last2 = [...vals].reverse().find(v=>v!=null);
+          const delta = (first!=null&&last2!=null&&years.length>1)?last2-first:null;
+          return `<tr>
+            <td style="font-weight:600;">${MONTH_NAMES[mi]}</td>
+            ${vals.map(v=>v!=null?`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(v)}</td>`:'<td style="text-align:center;color:var(--texto2);">—</td>').join('')}
+            ${years.length>1?`<td style="text-align:right;font-weight:700;color:${delta==null?'var(--texto2)':delta>=0?'var(--verde)':'var(--rojo)'};">${delta==null?'—':(delta>=0?'▲ +':'▼ ')+fmt(Math.abs(delta))}</td>`:''}
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot><tr style="background:var(--fondo2);font-weight:700;">
+        <td>Promedio</td>
+        ${kpisByYear.map(k=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(k.avg)}</td>`).join('')}
+        ${years.length>1?`<td style="text-align:right;color:${(kpisByYear[kpisByYear.length-1].avg-kpisByYear[0].avg)>=0?'var(--verde)':'var(--rojo)'};">${((kpisByYear[kpisByYear.length-1].avg-kpisByYear[0].avg)>=0?'▲ +':'▼ ')+fmt(Math.abs(kpisByYear[kpisByYear.length-1].avg-kpisByYear[0].avg))}</td>`:''}
+      </tr></tfoot>
+    </table>
+    </div>
+  </div>
+
+  <!-- Tabla desglose por cuenta -->
+  <div class="tcard" style="margin-bottom:8px;">
+    <div class="tcard-hd"><h3>Saldo promedio por cuenta y año</h3><p>Media de todos los registros del año para cada cuenta</p></div>
+    <div class="tscroll">
+    <table>
+      <thead><tr>
+        <th>Cuenta</th>
+        ${years.map((y,i)=>`<th style="color:${COLORS[i%COLORS.length]};">${y}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${ACCOUNTS.map(acc=>{
+          const avgs = years.map(y=>{
+            const recs=all.filter(r=>r.fecha.startsWith(y));
+            return recs.length?recs.reduce((s,r)=>s+(r[acc.key]||0),0)/recs.length:null;
+          });
+          return `<tr>
+            <td style="font-weight:500;">${acc.label}</td>
+            ${avgs.map(v=>v!=null?`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(v)}</td>`:'<td style="text-align:center;color:var(--texto2);">—</td>').join('')}
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>
+  </div>`;
+
+  // Gráfico líneas mes a mes
+  charts['cCompMes'] = new Chart(document.getElementById('cCompMes'),{
+    type:'line',
+    data:{ labels:MONTH_NAMES, datasets },
+    options:{ responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{display:true,position:'top',labels:{boxWidth:12,font:{size:11}}}, tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y!=null?fmt(ctx.parsed.y):'—'}`}} },
+      scales:{ x:{grid:G.grid,ticks:G.ticks}, y:{grid:G.grid,ticks:{...G.ticks,callback:v=>(v/1000).toFixed(0)+'K €'}} }
+    }
+  });
+
+  // Gráfico barras promedio por año
+  charts['cCompAnio'] = new Chart(document.getElementById('cCompAnio'),{
+    type:'bar',
+    data:{ labels:years,
+      datasets:[
+        { label:'Saldo promedio', data:kpisByYear.map(k=>k.avg), backgroundColor:kpisByYear.map(k=>k.color+'BB'), borderColor:kpisByYear.map(k=>k.color), borderWidth:2, borderRadius:6 },
+        { label:'Máximo', data:kpisByYear.map(k=>k.max), backgroundColor:'transparent', borderColor:kpisByYear.map(k=>k.color), borderWidth:2, type:'line', pointRadius:6, pointBackgroundColor:kpisByYear.map(k=>k.color) },
+      ]
+    },
+    options:{ responsive:true,
+      plugins:{ legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:10}}}, tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`}} },
+      scales:{ x:{grid:G.grid,ticks:G.ticks}, y:{grid:G.grid,ticks:{...G.ticks,callback:v=>(v/1000).toFixed(0)+'K €'}} }
+    }
+  });
+
+  // Gráfico barras cuentas por año (agrupado)
+  const cuentaColors = ['#2B5F8E','#F0A500','#27AE60','#E85B2C','#8E44AD','#1ABC9C','#E74C3C'];
+  charts['cCompCuentas'] = new Chart(document.getElementById('cCompCuentas'),{
+    type:'bar',
+    data:{
+      labels: years,
+      datasets: ACCOUNTS.map((acc,i)=>({
+        label: acc.label,
+        data: years.map(y=>{ const recs=all.filter(r=>r.fecha.startsWith(y)); return recs.length?recs.reduce((s,r)=>s+(r[acc.key]||0),0)/recs.length:null; }),
+        backgroundColor: cuentaColors[i%cuentaColors.length]+'AA',
+        borderColor: cuentaColors[i%cuentaColors.length],
+        borderWidth:1, borderRadius:4
+      }))
+    },
+    options:{ responsive:true,
+      plugins:{ legend:{display:true,position:'right',labels:{boxWidth:10,font:{size:10}}}, tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`}} },
+      scales:{ x:{grid:G.grid,ticks:G.ticks,stacked:false}, y:{grid:G.grid,ticks:{...G.ticks,callback:v=>(v/1000).toFixed(0)+'K €'},stacked:false} }
+    }
+  });
+}
+
 function renderHistorico(){
   let sorted = sortedRegistros();
   const period = document.getElementById('filtPeriod')?.value||'7';
