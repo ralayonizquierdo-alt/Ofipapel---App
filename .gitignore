@@ -2,3 +2,6 @@ _site/
 alquileres/node_modules/
 alquileres/dist/
 joe-app/
+.env.local
+.env.*.local
+.claude/settings.local.json
