@@ -2864,7 +2864,8 @@ function _ejecutarArrastre(input){
         }
       } catch(cajErr){ console.warn('TOTAL CAJAS parse error:', cajErr); }
 
-      statusEl.innerHTML = `<span class="ok">✅ ${fechaLabel} — Total: ${fmt(totalCalc)}${cajaMsg}</span>`;
+      const ahoraLabel = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      statusEl.innerHTML = `<span class="ok">✅ ${fechaLabel} — Total: ${fmt(totalCalc)}${cajaMsg} · Subido ${ahoraLabel}</span>`;
       renderDashboard(); renderAlertas();
       showToast(`✅ Importado: ${fechaLabel}`,'ok');
 
@@ -3604,7 +3605,8 @@ function importCierrePDF(input){
       if(remaining===0){
         cajaCierres.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
         saveCajaCierres();
-        if(st) st.textContent=`✅ ${importados} cierre(s) importado(s)`;
+        const tsC = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        if(st) st.textContent=`✅ Importado ${tsC}`;
         renderCajaView();
       }
     });
@@ -3631,7 +3633,8 @@ function importBancoPDF(input){
       if(remaining===0){
         cajaBancoRecibos.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
         saveCajaBanco();
-        if(st) st.textContent=`✅ ${importados} resguardo(s) importado(s)`;
+        const tsB = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        if(st) st.textContent=`✅ Importado ${tsB}`;
         renderCajaView();
       }
     });
