@@ -429,7 +429,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     </div>
     <button class="btn-login" id="btnLogin">Entrar →</button>
     <div class="login-error" id="loginError"></div>
-    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.20 ·<span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
+    <div style="font-size:10px;color:#ccc;text-align:center;margin-top:8px;">v3.23 ·<span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
 
@@ -693,6 +693,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <button class="subtab-btn active" data-cajaTab="conciliacion" onclick="showCajaSubTab('conciliacion')">🔍 Conciliación Diaria</button>
             <button class="subtab-btn" data-cajaTab="efectivo" onclick="showCajaSubTab('efectivo')">💵 Efectivo Tiendas</button>
             <button class="subtab-btn" data-cajaTab="registro" onclick="showCajaSubTab('registro')">🏪 Registro de Ventas</button>
+            <button class="subtab-btn" data-cajaTab="tabla" onclick="showCajaSubTab('tabla')">📊 Tabla Diaria</button>
           </div>
 
           <!-- CONCILIACIÓN -->
@@ -788,6 +789,11 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">⚠️ Importes a 0 o Negativos — por Empleado y Terminal</div>
             <div class="card" id="ventAlertaTabla" style="padding:0;overflow:hidden;"></div>
           </div>
+
+          <!-- TABLA DIARIA TIPO JEFE -->
+          <div class="subtab-panel" id="cajat-tabla">
+            <div id="tablaJefeContainer"></div>
+          </div>
         </div>
       </div>
 
@@ -800,6 +806,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <button class="subtab-btn" data-vt="tiendas" onclick="showVentasTab('tiendas')">🏬 Tiendas</button>
             <button class="subtab-btn" data-vt="clientes" onclick="showVentasTab('clientes')">👥 Clientes</button>
             <button class="subtab-btn" data-vt="web" onclick="showVentasTab('web')">🌐 Venta Web</button>
+            <button class="subtab-btn" data-vt="familias" onclick="showVentasTab('familias')">📦 Familias</button>
           </div>
 
           <div class="subtab-panel active" id="vt-anual">
@@ -881,12 +888,41 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
 
           <div class="subtab-panel" id="vt-clientes">
             <div class="card" style="margin-bottom:16px;padding:16px;">
-              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
-                <div style="flex:2;min-width:200px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px;">
+                <div style="flex:2;min-width:160px;">
                   <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Buscar Cliente</div>
                   <input type="text" id="ventClienteFiltro" placeholder="Nombre o código..." oninput="renderVentasClientes()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
                 </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
+                  <select id="ventClienteAnio" onchange="renderVentasClientes()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Vendedor</div>
+                  <select id="ventClienteVendedor" onchange="renderVentasClientes()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
                 <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventClienteExcelInput" style="display:none" onchange="importVentasClientesExcel(this)"></label>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button id="btnCliVistaNormal" onclick="setCliVista('normal')" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--azul);background:var(--azul);color:#fff;">👥 Listado</button>
+                <button id="btnCliVistaInactivos" onclick="setCliVista('inactivos')" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--borde);background:var(--fondo2);color:var(--texto);">💤 Sin Actividad</button>
+                <button id="btnCliVistaVendedor" onclick="setCliVista('vendedor')" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--borde);background:var(--fondo2);color:var(--texto);">🧑‍💼 Por Vendedor</button>
+              </div>
+            </div>
+            <!-- panel inactivos — filtro extra -->
+            <div id="ventCliInactivosFiltroBar" class="card" style="display:none;margin-bottom:16px;padding:14px 16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Sin compras desde el año</div>
+                  <select id="ventCliSinComprasDesde" onchange="renderVentasClientes()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="">— Selecciona —</option>
+                  </select>
+                </div>
+                <div style="font-size:12px;color:var(--texto2);align-self:center;">Clientes que compraron antes de ese año pero no tienen registro posterior.</div>
               </div>
             </div>
             <div id="ventClienteKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
@@ -922,6 +958,50 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">📊 Resumen Anual por Mes</div>
             <div class="card" id="ventWebTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
           </div>
+
+          <!-- FAMILIAS EN VENTAS -->
+          <div class="subtab-panel" id="vt-familias">
+            <div id="vtfamKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div style="flex:2;min-width:150px;">
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Familia / Código</div>
+                  <input type="text" id="vtfamFiltroTexto" placeholder="Buscar..." oninput="renderVentasFamilias()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
+                  <select id="vtfamFiltroAnio" onchange="renderVentasFamilias()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Categoría</div>
+                  <select id="vtfamFiltroCategoria" onchange="renderVentasFamilias()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todas">Todas</option>
+                  </select>
+                </div>
+                <button onclick="limpiarFiltrosFamPfx('vtfam')" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
+                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="vtfamExcelInput" style="display:none" onchange="importFamiliasExcelPfx(this,'vtfam')"></label>
+              </div>
+            </div>
+            <div class="chart-row-2" style="margin-bottom:16px;">
+              <div class="chart-card">
+                <div class="chart-ttl">Top Categorías</div>
+                <div class="chart-desc">Ventas totales por categoría</div>
+                <canvas id="cVtfamCat" height="220"></canvas>
+              </div>
+              <div class="chart-card">
+                <div class="chart-ttl">Evolución Anual</div>
+                <div class="chart-desc">Ventas totales por año</div>
+                <canvas id="cVtfamAnio" height="220"></canvas>
+              </div>
+            </div>
+            <div style="font-weight:700;color:var(--azul);margin-bottom:8px;" id="vtfamCompTtl">📊 Comparativa Mensual y Anual</div>
+            <div id="vtfamCompKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
+            <div class="card" id="vtfamCompTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
+            <div class="card" id="vtfamTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
+          </div>
+
         </div>
       </div>
 
@@ -931,6 +1011,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
           <div class="subtabs">
             <button class="subtab-btn active" data-ct="pedidos" onclick="showComprasTab('pedidos')">🛒 Pedidos</button>
             <button class="subtab-btn" data-ct="anual" onclick="showComprasTab('anual')">📅 Histórico Anual</button>
+            <button class="subtab-btn" data-ct="proveedores" onclick="showComprasTab('proveedores')">🏭 Por Proveedor</button>
           </div>
 
           <div class="subtab-panel active" id="ct-pedidos">
@@ -980,6 +1061,31 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               <canvas id="cCompAnual" height="200"></canvas>
             </div>
             <div class="card" id="compAnualTabla" style="padding:0;overflow:hidden;"></div>
+          </div>
+
+          <div class="subtab-panel" id="ct-proveedores">
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
+                  <select id="compProvAnio" onchange="renderComprasProveedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Almacén</div>
+                  <select id="compProvAlmacen" onchange="renderComprasProveedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="chart-card" style="margin-bottom:16px;">
+              <div class="chart-ttl">Compras por Proveedor y Mes</div>
+              <div class="chart-desc">Importe mensual acumulado — top proveedores</div>
+              <canvas id="cCompProvMes" height="220"></canvas>
+            </div>
+            <div class="card" id="compProvTabla" style="padding:0;overflow:hidden;"></div>
           </div>
         </div>
       </div>
@@ -1197,8 +1303,106 @@ let cajaCierres = [];
 try{ const cc=JSON.parse(localStorage.getItem('op_cajacierres')||'null'); if(cc) cajaCierres=cc; }catch(e){}
 let cajaBancoRecibos = [];
 try{ const cb=JSON.parse(localStorage.getItem('op_cajabancorecibos')||'null'); if(cb) cajaBancoRecibos=cb; }catch(e){}
+// Seed: CajaAyCC_Z8_140726 (Ej.2183 cerrado + Ej.2184 abierto) + resguardos bancarios 16/07
+;(function _seedCajaCierres(){
+  if(localStorage.getItem('op_cajacierres_seed_v1')) return;
+  const ej2183 = {
+    fecha:'2026-07-14', fechaApertura:'2026-07-10',
+    stores:[
+      {codigo:'43',tipo:'Efectivo',haber:1450},{codigo:'43',tipo:'Tarjetas',haber:686.27},
+      {codigo:'44',tipo:'Efectivo',haber:500},{codigo:'44',tipo:'Tarjetas',haber:824.93},
+      {codigo:'45',tipo:'Efectivo',haber:130},{codigo:'45',tipo:'Tarjetas',haber:424.26},
+      {codigo:'45',tipo:'Efectivo',haber:150},{codigo:'45',tipo:'Tarjetas',haber:313.33},
+      {codigo:'46',tipo:'Efectivo',haber:270},{codigo:'46',tipo:'Tarjetas',haber:194.68},
+      {codigo:'46',tipo:'Efectivo',haber:40},{codigo:'46',tipo:'Tarjetas',haber:54.16},
+      {codigo:'47',tipo:'Efectivo',haber:0},
+      {codigo:'48',tipo:'Efectivo',haber:540},{codigo:'48',tipo:'Tarjetas',haber:1218.19},
+      {codigo:'48',tipo:'Efectivo',haber:355},{codigo:'48',tipo:'Tarjetas',haber:339.88},
+      {codigo:'54',tipo:'Efectivo',haber:0},
+      {codigo:'A2',tipo:'Efectivo',haber:250},{codigo:'A2',tipo:'Tarjetas',haber:377.57},
+      {codigo:'A2',tipo:'Efectivo',haber:120},{codigo:'A2',tipo:'Tarjetas',haber:250.34},
+      {codigo:'A3',tipo:'Efectivo',haber:70},{codigo:'A3',tipo:'Tarjetas',haber:117.63},
+      {codigo:'AA',tipo:'Efectivo',haber:600},{codigo:'AA',tipo:'Tarjetas',haber:339.58},
+      {codigo:'AA',tipo:'Efectivo',haber:220},{codigo:'AA',tipo:'Tarjetas',haber:57.41}
+    ],
+    bancoPagos:[
+      {banco:'Banco Santander',numPago:'187872-Z8',importe:3435},
+      {banco:'Banco Santander',numPago:'187873-Z8',importe:820},
+      {banco:'BBVA',numPago:'187874-Z8',importe:440},
+      {banco:'Tarjetas BBVA',numPago:'187875-Z8',importe:194.68},
+      {banco:'Tarjetas BBVA',numPago:'187876-Z8',importe:54.16},
+      {banco:'Tarjetas Caixa',numPago:'187877-Z8',importe:313.33},
+      {banco:'Tarjetas Caixa',numPago:'187878-Z8',importe:339.88},
+      {banco:'Tarjetas Caixa',numPago:'187879-Z8',importe:250.34},
+      {banco:'Tarjetas Caixa',numPago:'187880-Z8',importe:57.41},
+      {banco:'Tarjetas Caixa',numPago:'187881-Z8',importe:424.26},
+      {banco:'Tarjetas Caixa',numPago:'187882-Z8',importe:281.81},
+      {banco:'Tarjetas Caixa',numPago:'187883-Z8',importe:1218.19},
+      {banco:'Tarjetas Caixa',numPago:'187884-Z8',importe:824.93},
+      {banco:'Tarjetas Caixa',numPago:'187885-Z8',importe:495.20},
+      {banco:'Tarjetas Caixa',numPago:'187886-Z8',importe:226.09},
+      {banco:'Tarjetas Caixa',numPago:'187887-Z8',importe:90.90},
+      {banco:'Tarjetas Caixa',numPago:'187888-Z8',importe:84.47},
+      {banco:'Tarjetas Caixa',numPago:'187889-Z8',importe:339.58}
+    ],
+    efectivoTotal:4695,tarjetasTotal:5198.23,chequesTotal:0,
+    efectivoBancoDeposit:4695,tarjetasBancoDeposit:5195.23,
+    filename:'CajaAyCC_Z8_140726.Pdf (Ej.2183 Cerrado)'
+  };
+  const ej2184 = {
+    fecha:'2026-07-16', fechaApertura:'2026-07-13',
+    stores:[
+      {codigo:'43',tipo:'Efectivo',haber:1010},{codigo:'43',tipo:'Tarjetas',haber:1251.94},
+      {codigo:'44',tipo:'Efectivo',haber:420},{codigo:'44',tipo:'Tarjetas',haber:799.74},
+      {codigo:'45',tipo:'Efectivo',haber:260},{codigo:'45',tipo:'Tarjetas',haber:358.12},
+      {codigo:'46',tipo:'Efectivo',haber:180},{codigo:'46',tipo:'Tarjetas',haber:276.29},
+      {codigo:'47',tipo:'Efectivo',haber:0},
+      {codigo:'48',tipo:'Efectivo',haber:730},{codigo:'48',tipo:'Tarjetas',haber:919.02},
+      {codigo:'A2',tipo:'Efectivo',haber:130},{codigo:'A2',tipo:'Tarjetas',haber:550.78},
+      {codigo:'A3',tipo:'Efectivo',haber:20},{codigo:'A3',tipo:'Tarjetas',haber:257.96},
+      {codigo:'AA',tipo:'Efectivo',haber:540},{codigo:'AA',tipo:'Tarjetas',haber:506.37}
+    ],
+    bancoPagos:[],
+    efectivoTotal:3290,tarjetasTotal:4920.22,chequesTotal:0,
+    efectivoBancoDeposit:2966.98,tarjetasBancoDeposit:0,
+    filename:'CajaAyCC_Z8_140726.Pdf (Ej.2184 Abierto)'
+  };
+  const bankReceipts = [
+    {fecha:'2026-07-16',tipo:'efectivo',importe:2586.98,banco:'Santander',legible:true,filename:'INGRESO_EFECTIVO_OOFI_160726.pdf'},
+    {fecha:'2026-07-16',tipo:'efectivo',importe:380,banco:'Santander',legible:true,filename:'INGRESO_EFECTIVO_ALIZ_2_160726.pdf'},
+    {fecha:'2026-07-16',tipo:'cheque',importe:339.70,banco:'Santander',legible:true,filename:'INGRESO_TALONES_160726.pdf'}
+  ];
+  let ccChanged=false, cbChanged=false;
+  [ej2183,ej2184].forEach(e=>{ if(!cajaCierres.find(c=>c.filename===e.filename)){cajaCierres.push(e);ccChanged=true;} });
+  bankReceipts.forEach(r=>{ if(!cajaBancoRecibos.find(b=>b.filename===r.filename)){cajaBancoRecibos.push(r);cbChanged=true;} });
+  if(ccChanged){ cajaCierres.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')); try{localStorage.setItem('op_cajacierres',JSON.stringify(cajaCierres));}catch(e){} }
+  if(cbChanged){ cajaBancoRecibos.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')); try{localStorage.setItem('op_cajabancorecibos',JSON.stringify(cajaBancoRecibos));}catch(e){} }
+  localStorage.setItem('op_cajacierres_seed_v1','1');
+})();
 let cajaEfectivo = [];
 try{ const ce=JSON.parse(localStorage.getItem('op_cajaefectivo')||'null'); if(ce) cajaEfectivo=ce; }catch(e){}
+let cajaDetalles = [];
+try{ const cd=JSON.parse(localStorage.getItem('op_cajadetalles')||'null'); if(cd) cajaDetalles=cd; }catch(e){}
+// Datos históricos (se insertan solo si no existen ya)
+;(function _seedHistorico(){
+  const seed = [
+    {fecha:'2026-07-09',ofipapel:2010,aliz1:240,aliz2:290},
+    {fecha:'2026-07-10',ofipapel:2890,aliz1:320,aliz2:600},
+    {fecha:'2026-07-11',ofipapel:545,aliz1:120,aliz2:220},
+    {fecha:'2026-07-13',ofipapel:2600,aliz1:150,aliz2:540}
+  ];
+  let changed = false;
+  seed.forEach(s => {
+    if(!cajaEfectivo.find(e=>e.fecha===s.fecha)){
+      cajaEfectivo.push(s);
+      changed = true;
+    }
+  });
+  if(changed){
+    cajaEfectivo.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    try{ localStorage.setItem('op_cajaefectivo',JSON.stringify(cajaEfectivo)); }catch(e){}
+  }
+})();
 let ventasAnual = { conIgic:[], sinIgic:[] };
 try{ const va=JSON.parse(localStorage.getItem('op_ventasanual')||'null'); if(va) ventasAnual=va; }catch(e){}
 let ventasVendedores = [];
@@ -1597,6 +1801,7 @@ function showVentasTab(tab){
   else if(tab==='tiendas') renderVentasTiendas();
   else if(tab==='clientes') renderVentasClientes();
   else if(tab==='web') renderVentasWeb();
+  else if(tab==='familias') renderVentasFamilias();
 }
 
 function showComprasTab(tab){
@@ -1605,6 +1810,7 @@ function showComprasTab(tab){
   document.getElementById('ct-'+tab).classList.add('active');
   if(tab==='pedidos') renderCompras();
   else if(tab==='anual') renderComprasAnual();
+  else if(tab==='proveedores') renderComprasProveedores();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2266,6 +2472,8 @@ function renderAlertas(){
   const cargaMes = 9540+3930+3083+2661+2266+2318;
   alerts.push({type:'info', ico:'💸', ttl:'Carga financiera mensual estructural', txt:`Estimada en ~${fmt(cargaMes)}/mes entre hipotecas, ICO y préstamos.`});
 
+  const fiscalAlerts = getFiscalAlertas();
+
   const html = `
   <div class="sec-title" style="margin-top:0">Alertas y Notificaciones Automáticas</div>
   <div class="alerts-grid">
@@ -2274,9 +2482,60 @@ function renderAlertas(){
       <div class="alert-ico">${a.ico}</div>
       <div><div class="alert-ttl">${a.ttl}</div><div class="alert-txt">${a.txt}</div></div>
     </div>`).join('')}
-  </div>`;
+  </div>
+  ${fiscalAlerts.length ? `
+  <div class="sec-title" style="margin-top:24px">📅 Calendario Fiscal — Obligaciones Tributarias (SL Canarias)</div>
+  <div class="alerts-grid">
+    ${fiscalAlerts.map(a=>`
+    <div class="alert-card ${a.type}">
+      <div class="alert-ico">${a.ico}</div>
+      <div>
+        <div class="alert-ttl">${a.mod} <span style="font-weight:400;font-size:11px;opacity:.8">— ${a.urgLabel}</span></div>
+        <div class="alert-txt">${a.txt}</div>
+        <div style="font-size:11px;margin-top:4px;opacity:.7">Fecha límite: ${a.dt.toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'})}</div>
+      </div>
+    </div>`).join('')}
+  </div>` : ''}`;
 
   document.getElementById('alertasContent').innerHTML = html;
+}
+
+function getFiscalAlertas(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const year = today.getFullYear();
+  const MS = 86400000;
+  const dl = (y,m,d) => new Date(y, m-1, d);
+
+  const events = [];
+  for(const y of [year-1, year, year+1]){
+    const febDays = new Date(y,2,0).getDate();
+    events.push({ico:'📋', mod:`IGIC Mod.420 T4 ${y-1}`, dt:dl(y,1,31),  txt:`Liquidación IGIC 4º trimestre ${y-1}. Presentación del modelo 420.`});
+    events.push({ico:'📋', mod:`IGIC Mod.420 T1 ${y}`,   dt:dl(y,4,20),  txt:`Liquidación IGIC 1er trimestre ${y}. Presentación del modelo 420.`});
+    events.push({ico:'📋', mod:`IGIC Mod.420 T2 ${y}`,   dt:dl(y,7,20),  txt:`Liquidación IGIC 2º trimestre ${y}. Presentación del modelo 420.`});
+    events.push({ico:'📋', mod:`IGIC Mod.420 T3 ${y}`,   dt:dl(y,10,20), txt:`Liquidación IGIC 3er trimestre ${y}. Presentación del modelo 420.`});
+    events.push({ico:'📊', mod:`IGIC Mod.425 ${y-1}`,    dt:dl(y,1,31),  txt:`Resumen anual IGIC ejercicio ${y-1}. Presentación junto con Mod.420 T4.`});
+    events.push({ico:'📊', mod:`IGIC Mod.415 ${y-1}`,    dt:dl(y,2,febDays), txt:`Declaración informativa de operaciones con terceros IGIC ${y-1}.`});
+    events.push({ico:'🏛️', mod:`IS Mod.202 1P ${y}`,     dt:dl(y,4,20),  txt:`Pago fraccionado del Impuesto sobre Sociedades — 1er periodo ${y}.`});
+    events.push({ico:'🏛️', mod:`IS Mod.202 2P ${y}`,     dt:dl(y,10,20), txt:`Pago fraccionado del Impuesto sobre Sociedades — 2º periodo ${y}.`});
+    events.push({ico:'🏛️', mod:`IS Mod.202 3P ${y}`,     dt:dl(y,12,20), txt:`Pago fraccionado del Impuesto sobre Sociedades — 3er periodo ${y}.`});
+    events.push({ico:'🏛️', mod:`IS Mod.200 ${y-1}`,      dt:dl(y,7,25),  txt:`Declaración anual del Impuesto sobre Sociedades ejercicio ${y-1}.`});
+    events.push({ico:'📚', mod:`Libros Oficiales ${y-1}`, dt:dl(y,4,30),  txt:`Legalización de libros contables del ejercicio ${y-1} en el Registro Mercantil.`});
+    events.push({ico:'🏢', mod:`Cuentas Anuales ${y-1}`,  dt:dl(y,7,30),  txt:`Depósito de Cuentas Anuales ejercicio ${y-1} en el Registro Mercantil.`});
+  }
+
+  return events
+    .map(e => { const diff = Math.round((e.dt - today) / MS); return {...e, diff}; })
+    .filter(e => e.diff >= -30 && e.diff <= 90)
+    .sort((a,b) => a.diff - b.diff)
+    .map(e => {
+      let type, urgLabel;
+      if(e.diff < 0)      { type='err';  urgLabel=`VENCIDO hace ${-e.diff} día${-e.diff!==1?'s':''}`; }
+      else if(e.diff===0) { type='err';  urgLabel='HOY — plazo límite'; }
+      else if(e.diff<=7)  { type='err';  urgLabel=`⏰ en ${e.diff} día${e.diff!==1?'s':''}`; }
+      else if(e.diff<=14) { type='warn'; urgLabel=`en ${e.diff} días`; }
+      else                { type='info'; urgLabel=`en ${e.diff} días`; }
+      return {...e, type, urgLabel};
+    });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2580,7 +2839,32 @@ function _ejecutarArrastre(input){
 
       const fechaLabel = new Date(fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'});
       const totalCalc = rec.bbva_ofip + rec.sant_ico + rec.caixa_cta + rec.caixa_pol + rec.c7 + rec.luis_bbva + rec.luis_sant;
-      statusEl.innerHTML = `<span class="ok">✅ ${fechaLabel} — Total: ${fmt(totalCalc)}</span>`;
+
+      // ── TOTAL CAJAS: leer efectivo por tiendas ──
+      let cajaMsg = '';
+      try {
+        const cajasData = _parseTotalCajasSheet(wb);
+        if(cajasData && (cajasData.ofipapel > 0 || cajasData.aliz1 > 0 || cajasData.aliz2 > 0)){
+          const entryFecha = cajasData.fecha || fecha;
+          const entry = { fecha: entryFecha, ofipapel: cajasData.ofipapel, aliz1: cajasData.aliz1, aliz2: cajasData.aliz2 };
+          const idxCaja = cajaEfectivo.findIndex(e => e.fecha === entryFecha);
+          if(idxCaja >= 0) cajaEfectivo[idxCaja] = entry; else cajaEfectivo.push(entry);
+          cajaEfectivo.sort((a,b) => a.fecha.localeCompare(b.fecha));
+          saveCajaEfectivo();
+          // Guardar detalle por terminal para la Tabla Diaria
+          if(cajasData.terminales && cajasData.terminales.length > 0){
+            const detEntry = { fecha: entryFecha, terminales: cajasData.terminales };
+            const idxDet = cajaDetalles.findIndex(e => e.fecha === entryFecha);
+            if(idxDet >= 0) cajaDetalles[idxDet] = detEntry; else cajaDetalles.push(detEntry);
+            cajaDetalles.sort((a,b) => a.fecha.localeCompare(b.fecha));
+            saveCajaDetalles();
+          }
+          const tot = cajasData.ofipapel + cajasData.aliz1 + cajasData.aliz2;
+          cajaMsg = ` · Efectivo cajas: ${fmt(tot)}`;
+        }
+      } catch(cajErr){ console.warn('TOTAL CAJAS parse error:', cajErr); }
+
+      statusEl.innerHTML = `<span class="ok">✅ ${fechaLabel} — Total: ${fmt(totalCalc)}${cajaMsg}</span>`;
       renderDashboard(); renderAlertas();
       showToast(`✅ Importado: ${fechaLabel}`,'ok');
 
@@ -2592,6 +2876,121 @@ function _ejecutarArrastre(input){
     input.value = '';
   };
   reader.readAsArrayBuffer(file);
+}
+
+// ═══════════════════════════════════════════════════════
+// TOTAL CAJAS — parser de la hoja del Excel diario
+// Tiendas Ofipapel: 43,44,45,46,48 (47 es admin pass-through)
+// Tiendas Aliz-1: A2,A3  — Tienda Aliz-2: AA
+// ═══════════════════════════════════════════════════════
+function _parseTotalCajasSheet(wb){
+  const ws = wb.Sheets['TOTAL CAJAS'];
+  if(!ws) return null;
+  const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+  const OFIPAPEL = new Set(['43','44','45','46','48']);
+  const ALIZ1    = new Set(['A2','A3']);
+  const ALIZ2    = new Set(['AA']);
+  const TERMINAL_NAMES = {
+    '43':'Admin (Administración)', '44':'T-4 (Detall)', '45':'T-5 (Detall)',
+    '46':'T-6 (Copistería)', '47':'Admin (Conta-Gestión)', '48':'T-8 (Mayor)',
+    'A2':'T-2 (Izquierda)', 'A3':'T-3 (Derecha)', 'AA':'T-1 (Aliz-2)'
+  };
+  const parseES = s => {
+    s = String(s).trim();
+    if(s.includes(',') && s.includes('.')) return parseFloat(s.replace(/\./g,'').replace(',','.'));
+    if(s.includes(',')) return parseFloat(s.replace(',','.'));
+    return parseFloat(s) || 0;
+  };
+  // Integers in the sheet are in cents (÷100); floats are already euros
+  const fromCents = v => typeof v === 'number' ? (Number.isInteger(v) ? v/100 : v) : 0;
+  const stores = {};
+  let currentCode = null, fecha = null, inGrandTotal = false, pendingRetirado = false;
+  for(let i=0; i<data.length; i++){
+    const row = data[i];
+    const strCells = row.map(c => String(c == null ? '' : c).trim());
+    const joined   = strCells.join('|');
+    if(/Totales\s+de\s+todos\s+los\s+Ejercicios/i.test(joined)){ inGrandTotal = true; }
+    if(inGrandTotal) continue;
+    if(!fecha){
+      const dm = joined.match(/Apertura:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if(dm) fecha = `${dm[3]}-${dm[2].padStart(2,'0')}-${dm[1].padStart(2,'0')}`;
+    }
+    const tm = joined.match(/Tienda:([A-Z0-9]+)/);
+    if(tm){
+      currentCode = tm[1];
+      pendingRetirado = false;
+      const group = OFIPAPEL.has(currentCode) ? 'ofipapel'
+                  : ALIZ1.has(currentCode)    ? 'aliz1'
+                  : ALIZ2.has(currentCode)    ? 'aliz2'
+                  : null;
+      if(group && !stores[currentCode]){
+        stores[currentCode] = {
+          group, nombre: TERMINAL_NAMES[currentCode] || currentCode,
+          tarjetas:0, efectivo:0, fondoApertura:0, fondoCierre:0, retirado:0
+        };
+      }
+      continue;
+    }
+    if(!currentCode || !stores[currentCode]?.group) continue;
+    const s = stores[currentCode];
+    if(pendingRetirado){
+      const v = parseFloat(strCells[0]);
+      if(!isNaN(v) && v > 0) s.retirado += v / 100;
+      pendingRetirado = false;
+      continue;
+    }
+    const a0 = strCells[0];
+    if(/Tarjetas\.\./i.test(a0)){
+      const bv = typeof row[1] === 'number' ? row[1] : parseFloat(row[1]) || 0;
+      if(bv > 0) s.tarjetas += fromCents(bv);
+    } else if(/E\s+fectivo\.\.|Efectivo\.\./i.test(a0)){
+      const m = a0.match(/(\d{1,3}(?:\.\d{3})*,\d{2})/);
+      if(m) s.efectivo += parseES(m[1]);
+    } else if(/^Contado\.\./i.test(a0)){
+      s.fondoApertura += fromCents(row[16]);
+    } else if(/^Cr[eé]dito\.\./i.test(a0)){
+      // Fondo al Cierre está en columna Q (índice 16) de la fila "Crédito..:"
+      s.fondoCierre += fromCents(row[16]);
+    } else if(/^Total Ej\./i.test(a0)){
+      s.retirado += fromCents(row[16]);
+    } else if(/^Total Efectivo:/i.test(a0)){
+      // Aliz-1: efectivo en columna B (índice 1)
+      const bv = typeof row[1] === 'number' ? row[1] : parseFloat(row[1]) || 0;
+      if(bv > 0) s.efectivo += fromCents(bv);
+    } else if(/^Fondo Apertura:/i.test(a0)){
+      const bv = typeof row[1] === 'number' ? row[1] : parseFloat(row[1]) || 0;
+      if(bv > 0) s.fondoApertura += fromCents(bv);
+    } else if(/^Fondo al Cierre:/i.test(a0)){
+      // Aliz-1: Fondo al Cierre en columna B (índice 1)
+      const bv = typeof row[1] === 'number' ? row[1] : parseFloat(row[1]) || 0;
+      if(bv > 0) s.fondoCierre += fromCents(bv);
+    } else if(/^Total Retirado:$/i.test(a0) && !row[1]){
+      pendingRetirado = true;
+    } else if(/^Cheques\.\./i.test(a0) && ALIZ1.has(currentCode)){
+      // Aliz-1: tarjetas/cheques en columna I (índice 8)
+      const iv = typeof row[8] === 'number' ? row[8] : parseFloat(row[8]) || 0;
+      if(iv > 0) s.tarjetas += fromCents(iv);
+    }
+  }
+  const result = { fecha, ofipapel:0, aliz1:0, aliz2:0, terminales:[] };
+  for(const [code, info] of Object.entries(stores)){
+    if(info.group){
+      result[info.group] += info.fondoCierre;
+      result.terminales.push({
+        code, group:info.group, nombre:info.nombre,
+        tarjetas:  Math.round(info.tarjetas*100)/100,
+        efectivo:  Math.round(info.efectivo*100)/100,
+        total:     Math.round((info.tarjetas+info.efectivo)*100)/100,
+        fondoApertura: Math.round(info.fondoApertura*100)/100,
+        fondoCierre:   Math.round(info.fondoCierre*100)/100,
+        retirado:      Math.round(info.retirado*100)/100
+      });
+    }
+  }
+  result.ofipapel = Math.round(result.ofipapel*100)/100;
+  result.aliz1    = Math.round(result.aliz1*100)/100;
+  result.aliz2    = Math.round(result.aliz2*100)/100;
+  return result;
 }
 
 function dropExcel(e){
@@ -2858,6 +3257,7 @@ function importProveedoresPDF(input){
 function saveCajaCierres(){ try{localStorage.setItem('op_cajacierres',JSON.stringify(cajaCierres));}catch(e){} }
 function saveCajaBanco(){ try{localStorage.setItem('op_cajabancorecibos',JSON.stringify(cajaBancoRecibos));}catch(e){} }
 function saveCajaEfectivo(){ try{localStorage.setItem('op_cajaefectivo',JSON.stringify(cajaEfectivo));}catch(e){} syncDatasetToCloud('cajaefectivo', cajaEfectivo); }
+function saveCajaDetalles(){ try{localStorage.setItem('op_cajadetalles',JSON.stringify(cajaDetalles));}catch(e){} }
 
 function showCajaSubTab(tab){
   document.querySelectorAll('#v-caja .subtab-btn').forEach(b=>b.classList.toggle('active', b.dataset.cajaTab===tab));
@@ -2866,6 +3266,7 @@ function showCajaSubTab(tab){
   if(tab==='conciliacion') renderCajaView();
   else if(tab==='efectivo') renderCajaEfectivo();
   else if(tab==='registro') renderVentas();
+  else if(tab==='tabla') renderTablaJefe();
 }
 
 function guardarEfectivo(){
@@ -2883,6 +3284,136 @@ function guardarEfectivo(){
   renderCajaEfectivo();
   renderDashboard();
   showToast('✅ Efectivo guardado','ok');
+}
+
+function renderTablaJefe(){
+  const el = document.getElementById('tablaJefeContainer');
+  if(!el) return;
+  const fmtE = v => new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:2}).format(v||0);
+  const fmtD = f => { const d = new Date(f+'T12:00:00'); return d.toLocaleDateString('es-ES',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}); };
+  // Date picker — show last 7 days with data
+  const fechas = [...new Set([...cajaDetalles.map(d=>d.fecha), ...cajaEfectivo.map(e=>e.fecha)])].sort().reverse().slice(0,30);
+  const stored = el.dataset.tablaFecha;
+  const selectedFecha = (stored && fechas.includes(stored)) ? stored : (fechas[0]||null);
+
+  if(!fechas.length){
+    el.innerHTML = `<div style="padding:24px;text-align:center;color:var(--texto2);font-size:13px;">Sin datos todavía. Importa un Excel desde <strong>Volcado Diario</strong> para ver la tabla.</div>`;
+    return;
+  }
+
+  const detRow = cajaDetalles.find(d=>d.fecha===selectedFecha);
+  const efRow  = cajaEfectivo.find(e=>e.fecha===selectedFecha);
+
+  const GROUPS = [
+    {key:'ofipapel', label:'🏢 Ofipapel', color:'#1a73e8'},
+    {key:'aliz1',    label:'🏬 Aliz-1',   color:'#0f9d58'},
+    {key:'aliz2',    label:'🏪 Aliz-2',   color:'#e37400'}
+  ];
+  const GROUP_ORDER = {ofipapel:0, aliz1:1, aliz2:2};
+
+  const terminales = detRow ? [...detRow.terminales].sort((a,b)=>(GROUP_ORDER[a.group]??9)-(GROUP_ORDER[b.group]??9)||a.code.localeCompare(b.code)) : [];
+
+  // Build group subtotals from terminal data
+  const subtotals = {};
+  GROUPS.forEach(g=>{
+    const rows = terminales.filter(t=>t.group===g.key);
+    subtotals[g.key] = {
+      tarjetas:     rows.reduce((s,r)=>s+r.tarjetas,0),
+      efectivo:     rows.reduce((s,r)=>s+r.efectivo,0),
+      total:        rows.reduce((s,r)=>s+r.total,0),
+      fondoApertura:rows.reduce((s,r)=>s+r.fondoApertura,0),
+      fondoCierre:  rows.reduce((s,r)=>s+r.fondoCierre,0),
+      retirado:     rows.reduce((s,r)=>s+r.retirado,0)
+    };
+  });
+  // If no terminal detail but we have summary efectivo, show summary-only row per group
+  const hasDetail = terminales.length > 0;
+
+  const th = s=>`<th style="padding:8px 10px;text-align:right;font-weight:700;font-size:11px;color:var(--texto2);white-space:nowrap;border-bottom:2px solid var(--borde);">${s}</th>`;
+  const thL= s=>`<th style="padding:8px 10px;text-align:left;font-weight:700;font-size:11px;color:var(--texto2);white-space:nowrap;border-bottom:2px solid var(--borde);">${s}</th>`;
+  const td = (v,bold)=>`<td style="padding:7px 10px;text-align:right;font-size:12px;${bold?'font-weight:700;':''}white-space:nowrap;">${fmtE(v)}</td>`;
+  const tdL= (s,bold,color)=>`<td style="padding:7px 10px;text-align:left;font-size:12px;${bold?'font-weight:600;':''}${color?'color:'+color+';':''}">${s}</td>`;
+
+  let rows = '';
+  if(hasDetail){
+    let lastGroup = null;
+    for(const t of terminales){
+      if(t.group !== lastGroup){
+        lastGroup = t.group;
+        const g = GROUPS.find(x=>x.key===t.group);
+        const sub = subtotals[t.group];
+        // Group header separator
+        rows += `<tr style="background:var(--fondo2);">
+          <td colspan="7" style="padding:6px 10px;font-size:11px;font-weight:700;color:${g.color};">${g.label}</td>
+        </tr>`;
+      }
+      rows += `<tr style="border-bottom:1px solid var(--borde);">
+        ${tdL(t.nombre)}
+        ${td(t.tarjetas)} ${td(t.efectivo)} ${td(t.total,true)}
+        ${td(t.fondoApertura)} ${td(t.fondoCierre)} ${td(t.retirado)}
+      </tr>`;
+    }
+    // Group subtotals
+    for(const g of GROUPS){
+      const sub = subtotals[g.key];
+      if(!terminales.find(t=>t.group===g.key)) continue;
+      rows += `<tr style="background:color-mix(in srgb,${g.color} 8%,transparent);border-bottom:2px solid var(--borde);">
+        ${tdL('Subtotal '+g.label,true,g.color)}
+        ${td(sub.tarjetas,true)} ${td(sub.efectivo,true)} ${td(sub.total,true)}
+        ${td(sub.fondoApertura,true)} ${td(sub.fondoCierre,true)} ${td(sub.retirado,true)}
+      </tr>`;
+    }
+  } else if(efRow) {
+    // Fallback: only summary data available (historical entries without terminal detail)
+    for(const g of GROUPS){
+      const v = efRow[g.key]||0;
+      rows += `<tr style="background:color-mix(in srgb,${g.color} 6%,transparent);border-bottom:1px solid var(--borde);">
+        ${tdL(g.label+' (resumen)',true,g.color)}
+        <td colspan="2" style="padding:7px 10px;text-align:center;font-size:11px;color:var(--texto2);">Sin detalle por terminal</td>
+        ${td(v,true)}
+        <td colspan="3" style="padding:7px 10px;text-align:center;font-size:11px;color:var(--texto2);">—</td>
+      </tr>`;
+    }
+  }
+
+  // Grand total
+  const gTarj  = GROUPS.reduce((s,g)=>s+(subtotals[g.key]?.tarjetas||0),0);
+  const gEfect = GROUPS.reduce((s,g)=>s+(subtotals[g.key]?.efectivo||0),0);
+  const gTot   = GROUPS.reduce((s,g)=>s+(subtotals[g.key]?.total||0),0);
+  const gAper  = GROUPS.reduce((s,g)=>s+(subtotals[g.key]?.fondoApertura||0),0);
+  const gCierr = GROUPS.reduce((s,g)=>s+(subtotals[g.key]?.fondoCierre||0),0);
+  const gRet   = GROUPS.reduce((s,g)=>s+(subtotals[g.key]?.retirado||0),0);
+  const grandRow = hasDetail ? `<tr style="background:var(--azul);color:#fff;">
+    <td style="padding:8px 10px;font-weight:700;font-size:12px;">TOTAL GLOBAL</td>
+    <td style="padding:8px 10px;text-align:right;font-weight:700;font-size:12px;">${fmtE(gTarj)}</td>
+    <td style="padding:8px 10px;text-align:right;font-weight:700;font-size:12px;">${fmtE(gEfect)}</td>
+    <td style="padding:8px 10px;text-align:right;font-weight:700;font-size:12px;">${fmtE(gTot)}</td>
+    <td style="padding:8px 10px;text-align:right;font-weight:700;font-size:12px;">${fmtE(gAper)}</td>
+    <td style="padding:8px 10px;text-align:right;font-weight:700;font-size:12px;">${fmtE(gCierr)}</td>
+    <td style="padding:8px 10px;text-align:right;font-weight:700;font-size:12px;">${fmtE(gRet)}</td>
+  </tr>` : '';
+
+  // Date selector
+  const dateSel = `<select onchange="document.getElementById('tablaJefeContainer').dataset.tablaFecha=this.value;renderTablaJefe();"
+    style="padding:6px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;background:var(--superficie);color:var(--texto);">
+    ${fechas.map(f=>`<option value="${f}"${f===selectedFecha?' selected':''}>${fmtD(f)}</option>`).join('')}
+  </select>`;
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <div style="font-weight:700;font-size:14px;color:var(--azul);">📊 Tabla Diaria por Terminal</div>
+      ${dateSel}
+      ${!hasDetail&&efRow?'<span style="font-size:11px;color:var(--texto2);font-style:italic;">⚠️ Solo datos de resumen disponibles para este día. Importa el Excel del mismo día para ver el desglose por terminal.</span>':''}
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:var(--fondo2);">
+          ${thL('Terminal')}${th('Tarjetas')}${th('Efectivo')}${th('Total')}${th('Fdo. Apertura')}${th('Fdo. Cierre')}${th('Retirado')}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot>${grandRow}</tfoot>
+      </table>
+    </div>`;
 }
 
 function renderCajaEfectivo(){
@@ -4131,26 +4662,70 @@ function importVentasClientesExcel(input){
   reader.readAsArrayBuffer(file);
 }
 
-function renderVentasClientes(){
-  const filtro=(document.getElementById('ventClienteFiltro')?.value||'').toLowerCase().trim();
+let _cliVista = 'normal';
+function setCliVista(v){
+  _cliVista=v;
+  ['normal','inactivos','vendedor'].forEach(k=>{
+    const btn=document.getElementById('btnCliVista'+k.charAt(0).toUpperCase()+k.slice(1));
+    if(btn){ btn.style.background=k===v?'var(--azul)':'var(--fondo2)'; btn.style.color=k===v?'#fff':'var(--texto)'; btn.style.borderColor=k===v?'var(--azul)':'var(--borde)'; }
+  });
+  document.getElementById('ventCliInactivosFiltroBar').style.display=v==='inactivos'?'':'none';
+  renderVentasClientes();
+}
 
+function renderVentasClientes(){
   if(!ventasClientes.length){
     document.getElementById('ventClienteKpis').innerHTML='';
     document.getElementById('ventClienteTabla').innerHTML='<div class="empty-state"><div class="e-ico">👥</div><h3>Sin datos</h3><p>Importa el Excel de Ventas por Clientes para ver el análisis.</p></div>';
     return;
   }
 
-  const porCliente={};
-  ventasClientes.forEach(r=>{
-    const key=r.codigo+'|'+r.nombre;
-    porCliente[key]=porCliente[key]||{codigo:r.codigo, nombre:r.nombre, vendedores:new Set(), total:0};
-    porCliente[key].total+=r.total;
-    if(r.vendedor) porCliente[key].vendedores.add(r.vendedor);
+  const filtro=(document.getElementById('ventClienteFiltro')?.value||'').toLowerCase().trim();
+  const anioFiltro=document.getElementById('ventClienteAnio')?.value||'todos';
+  const vendedorFiltro=document.getElementById('ventClienteVendedor')?.value||'todos';
+
+  // Poblar selectores si están vacíos
+  const selA=document.getElementById('ventClienteAnio');
+  if(selA && selA.options.length<=1){
+    [...new Set(ventasClientes.map(r=>r.anio))].sort().forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; selA.appendChild(o); });
+  }
+  const selV=document.getElementById('ventClienteVendedor');
+  if(selV && selV.options.length<=1){
+    [...new Set(ventasClientes.map(r=>r.vendedor).filter(Boolean))].sort().forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; selV.appendChild(o); });
+  }
+  const selSCD=document.getElementById('ventCliSinComprasDesde');
+  if(selSCD && selSCD.options.length<=1){
+    [...new Set(ventasClientes.map(r=>r.anio))].sort().forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; selSCD.appendChild(o); });
+  }
+
+  if(_cliVista==='inactivos'){
+    _renderClientesInactivos(filtro, vendedorFiltro);
+    return;
+  }
+  if(_cliVista==='vendedor'){
+    _renderClientesPorVendedor(filtro, anioFiltro);
+    return;
+  }
+
+  // ── Vista normal: listado por cliente con agrupación año ──
+  let datos = ventasClientes.filter(r=>{
+    if(anioFiltro!=='todos' && String(r.anio)!==anioFiltro) return false;
+    if(vendedorFiltro!=='todos' && r.vendedor!==vendedorFiltro) return false;
+    if(filtro && !r.codigo.toLowerCase().includes(filtro) && !r.nombre.toLowerCase().includes(filtro)) return false;
+    return true;
   });
 
-  let lista=Object.values(porCliente);
-  if(filtro) lista=lista.filter(c=>c.codigo.toLowerCase().includes(filtro)||c.nombre.toLowerCase().includes(filtro));
-  lista.sort((a,b)=>b.total-a.total);
+  const porCliente={};
+  datos.forEach(r=>{
+    const key=r.codigo;
+    if(!porCliente[key]) porCliente[key]={codigo:r.codigo, nombre:r.nombre, vendedores:new Set(), total:0, anios:{}};
+    porCliente[key].total+=r.total;
+    if(r.vendedor) porCliente[key].vendedores.add(r.vendedor);
+    porCliente[key].anios[r.anio]=(porCliente[key].anios[r.anio]||0)+r.total;
+  });
+
+  const lista=Object.values(porCliente).sort((a,b)=>b.total-a.total);
+  const aniosDisp=anioFiltro==='todos'?[...new Set(datos.map(r=>r.anio))].sort():[anioFiltro];
 
   document.getElementById('ventClienteKpis').innerHTML=`
     <div class="kpi"><div class="kpi-ico">👥</div><div class="kpi-lbl">Clientes</div><div class="kpi-val">${lista.length}</div></div>
@@ -4161,20 +4736,134 @@ function renderVentasClientes(){
   document.getElementById('ventClienteTabla').innerHTML=`
     <div style="overflow-x:auto;">
     <table class="tabla">
-      <thead><tr><th>Código</th><th>Cliente</th><th>Vendedor(es)</th><th style="text-align:right;">Total</th></tr></thead>
+      <thead><tr>
+        <th>Código</th><th>Cliente</th><th>Vendedor(es)</th>
+        ${aniosDisp.map(a=>`<th style="text-align:right;">${a}</th>`).join('')}
+        ${aniosDisp.length>1?'<th style="text-align:right;font-weight:700;">Total</th>':''}
+      </tr></thead>
       <tbody>
-        ${lista.map(c=>`<tr>
+        ${lista.slice(0,300).map(c=>`<tr>
           <td style="font-size:12px;">${c.codigo}</td>
           <td style="font-weight:500;">${c.nombre||'—'}</td>
-          <td style="font-size:12px;">${[...c.vendedores].join(', ')}</td>
-          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(c.total)}</td>
+          <td style="font-size:12px;">${[...c.vendedores].join(', ')||'—'}</td>
+          ${aniosDisp.map(a=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${c.anios[a]?fmt(c.anios[a]):'—'}</td>`).join('')}
+          ${aniosDisp.length>1?`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;">${fmt(c.total)}</td>`:''}
         </tr>`).join('')}
       </tbody>
-    </table>
-    </div>
+    </table></div>
     <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
-      ${lista.length} clientes
+      Mostrando ${Math.min(lista.length,300)} de ${lista.length} clientes
     </div>`;
+}
+
+function _renderClientesInactivos(filtro, vendedorFiltro){
+  const sinComprasDesde=Number(document.getElementById('ventCliSinComprasDesde')?.value)||0;
+
+  // Construir mapa: cliente → años con compra
+  const mapaCli={};
+  ventasClientes.forEach(r=>{
+    if(vendedorFiltro!=='todos' && r.vendedor!==vendedorFiltro) return;
+    const key=r.codigo;
+    if(!mapaCli[key]) mapaCli[key]={codigo:r.codigo, nombre:r.nombre, vendedores:new Set(), anios:[], total:0};
+    if(!mapaCli[key].anios.includes(r.anio)) mapaCli[key].anios.push(r.anio);
+    mapaCli[key].total+=r.total;
+    if(r.vendedor) mapaCli[key].vendedores.add(r.vendedor);
+  });
+
+  let inactivos=Object.values(mapaCli);
+  if(sinComprasDesde){
+    inactivos=inactivos.filter(c=>{
+      const ultAnio=Math.max(...c.anios);
+      return ultAnio < sinComprasDesde;
+    });
+  }
+  if(filtro) inactivos=inactivos.filter(c=>c.codigo.toLowerCase().includes(filtro)||c.nombre.toLowerCase().includes(filtro));
+  inactivos.sort((a,b)=>Math.max(...b.anios)-Math.max(...a.anios));
+
+  document.getElementById('ventClienteKpis').innerHTML=`
+    <div class="kpi"><div class="kpi-ico">💤</div><div class="kpi-lbl">Clientes Inactivos</div><div class="kpi-val">${inactivos.length}</div><div class="kpi-sub">${sinComprasDesde?'Sin compras desde '+sinComprasDesde:'Sin filtrar por año'}</div></div>
+    <div class="kpi"><div class="kpi-ico">💶</div><div class="kpi-lbl">Facturado Histórico</div><div class="kpi-val">${fmt(inactivos.reduce((s,c)=>s+c.total,0))}</div><div class="kpi-sub">Total acumulado</div></div>
+    <div class="kpi"><div class="kpi-ico">📅</div><div class="kpi-lbl">Más reciente inactivo</div><div class="kpi-val" style="font-size:14px;">${inactivos[0]?Math.max(...inactivos[0].anios):'—'}</div></div>
+  `;
+
+  if(!sinComprasDesde){
+    document.getElementById('ventClienteTabla').innerHTML='<div style="padding:24px;text-align:center;color:var(--texto2);font-size:13px;">Selecciona un año en el filtro "Sin compras desde el año" para ver los clientes inactivos.</div>';
+    return;
+  }
+
+  document.getElementById('ventClienteTabla').innerHTML=`
+    <div style="overflow-x:auto;">
+    <table class="tabla">
+      <thead><tr>
+        <th>Código</th><th>Cliente</th><th>Vendedor asignado</th><th style="text-align:center;">Últ. año compra</th><th style="text-align:center;">Años activo</th><th style="text-align:right;">Total histórico</th>
+      </tr></thead>
+      <tbody>
+        ${inactivos.slice(0,300).map(c=>{
+          const ult=Math.max(...c.anios);
+          const aniosActivos=c.anios.length;
+          return `<tr>
+            <td style="font-size:12px;">${c.codigo}</td>
+            <td style="font-weight:500;">${c.nombre||'—'}</td>
+            <td style="font-size:12px;">${[...c.vendedores].join(', ')||'—'}</td>
+            <td style="text-align:center;"><span style="padding:2px 10px;border-radius:12px;background:#FEF0EE;color:var(--rojo);font-weight:700;font-size:12px;">${ult}</span></td>
+            <td style="text-align:center;font-size:12px;">${aniosActivos}</td>
+            <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(c.total)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>
+    <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
+      ${inactivos.length} clientes sin compras desde ${sinComprasDesde}
+    </div>`;
+}
+
+function _renderClientesPorVendedor(filtro, anioFiltro){
+  let datos=ventasClientes.filter(r=>{
+    if(anioFiltro!=='todos' && String(r.anio)!==anioFiltro) return false;
+    if(filtro && !r.codigo.toLowerCase().includes(filtro) && !r.nombre.toLowerCase().includes(filtro)) return false;
+    return true;
+  });
+
+  const porVendedor={};
+  datos.forEach(r=>{
+    const v=r.vendedor||'Sin asignar';
+    if(!porVendedor[v]) porVendedor[v]={vendedor:v, clientes:new Map(), total:0};
+    const cli=porVendedor[v].clientes;
+    const prev=cli.get(r.codigo)||{codigo:r.codigo, nombre:r.nombre, total:0};
+    prev.total+=r.total;
+    cli.set(r.codigo, prev);
+    porVendedor[v].total+=r.total;
+  });
+
+  const vendors=Object.values(porVendedor).sort((a,b)=>b.total-a.total);
+
+  document.getElementById('ventClienteKpis').innerHTML=`
+    <div class="kpi"><div class="kpi-ico">🧑‍💼</div><div class="kpi-lbl">Vendedores</div><div class="kpi-val">${vendors.length}</div></div>
+    <div class="kpi"><div class="kpi-ico">💶</div><div class="kpi-lbl">Total Facturado</div><div class="kpi-val">${fmt(vendors.reduce((s,v)=>s+v.total,0))}</div></div>
+    <div class="kpi"><div class="kpi-ico">🥇</div><div class="kpi-lbl">Mejor Vendedor</div><div class="kpi-val" style="font-size:13px;">${vendors[0]?.vendedor||'—'}</div><div class="kpi-sub">${vendors[0]?fmt(vendors[0].total):''}</div></div>
+  `;
+
+  document.getElementById('ventClienteTabla').innerHTML=vendors.map(v=>{
+    const clientes=[...v.clientes.values()].sort((a,b)=>b.total-a.total);
+    return `
+    <div style="border-bottom:2px solid var(--borde);padding-bottom:0;">
+      <div style="padding:12px 16px;background:var(--fondo2);display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:700;font-size:14px;">🧑‍💼 ${v.vendedor}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--azul);">${clientes.length} clientes · ${fmt(v.total)}</div>
+      </div>
+      <div style="overflow-x:auto;">
+      <table class="tabla" style="margin:0;">
+        <tbody>
+          ${clientes.slice(0,50).map(c=>`<tr>
+            <td style="font-size:12px;padding-left:24px;">${c.codigo}</td>
+            <td style="font-weight:500;">${c.nombre||'—'}</td>
+            <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmt(c.total)}</td>
+          </tr>`).join('')}
+          ${clientes.length>50?`<tr><td colspan="3" style="text-align:center;color:var(--texto2);font-size:12px;padding:8px;">... y ${clientes.length-50} más</td></tr>`:''}
+        </tbody>
+      </table></div>
+    </div>`;
+  }).join('')||'<div class="empty-state"><div class="e-ico">🧑‍💼</div><h3>Sin datos</h3></div>';
 }
 
 // ═══════════════════════════════════════════════════════
@@ -4340,6 +5029,122 @@ function saveCompModal(){
 }
 
 // ═══════════════════════════════════════════════════════
+// COMPRAS — POR PROVEEDOR Y MES
+// ═══════════════════════════════════════════════════════
+function renderComprasProveedores(){
+  const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const COLORS=['#1a3c8f','#2e7d32','#f57c00','#c62828','#6a1b9a','#00838f','#558b2f','#4e342e'];
+
+  // Rebuild year options
+  const anios=[...new Set(compras.map(c=>c.fecha?c.fecha.slice(0,4):null).filter(Boolean))].sort((a,b)=>b-a);
+  const selAnio=document.getElementById('compProvAnio');
+  if(selAnio){
+    const prev=selAnio.value;
+    selAnio.innerHTML='<option value="todos">Todos</option>';
+    anios.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;selAnio.appendChild(o);});
+    if(anios.includes(prev)) selAnio.value=prev;
+  }
+  const anioFiltro=selAnio?.value||'todos';
+
+  // Rebuild almacen options
+  const almacenes=[...new Set(compras.map(c=>c.almacen).filter(Boolean))].sort();
+  const selAlm=document.getElementById('compProvAlmacen');
+  if(selAlm && selAlm.options.length<=1){
+    almacenes.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;selAlm.appendChild(o);});
+  }
+  const almFiltro=selAlm?.value||'todos';
+
+  destroyChart('cCompProvMes');
+
+  const f=compras.filter(c=>{
+    if(!c.fecha) return false;
+    if(anioFiltro!=='todos' && c.fecha.slice(0,4)!==anioFiltro) return false;
+    if(almFiltro!=='todos' && c.almacen!==almFiltro) return false;
+    return true;
+  });
+
+  if(!f.length){
+    document.getElementById('compProvTabla').innerHTML='<div class="empty-state"><div class="e-ico">🏭</div><h3>Sin datos</h3><p>Importa pedidos de compras para ver el resumen por proveedor y mes.</p></div>';
+    return;
+  }
+
+  // Pivot: proveedor -> mes[0..11]
+  const pivot={};
+  f.forEach(c=>{
+    const mes=parseInt(c.fecha.slice(5,7),10)-1;
+    if(mes<0||mes>11) return;
+    const p=c.provNom||'Sin proveedor';
+    if(!pivot[p]) pivot[p]=new Array(12).fill(0);
+    pivot[p][mes]+=c.total;
+  });
+
+  const provs=Object.entries(pivot).sort((a,b)=>b[1].reduce((s,v)=>s+v,0)-a[1].reduce((s,v)=>s+v,0));
+  const mesTotales=new Array(12).fill(0);
+  provs.forEach(([,m])=>m.forEach((v,i)=>mesTotales[i]+=v));
+  const grandTotal=mesTotales.reduce((s,v)=>s+v,0);
+
+  // Chart — top 8 stacked
+  const top8=provs.slice(0,8);
+  charts['cCompProvMes']=new Chart(document.getElementById('cCompProvMes'),{
+    type:'bar',
+    data:{
+      labels:MESES,
+      datasets:top8.map(([prov,meses],i)=>({
+        label:prov.length>28?prov.slice(0,26)+'…':prov,
+        data:meses,
+        backgroundColor:COLORS[i%COLORS.length]+'cc',
+        borderColor:COLORS[i%COLORS.length],
+        borderWidth:1,
+        borderRadius:2
+      }))
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},
+      scales:{
+        x:{stacked:true,...G},
+        y:{stacked:true,ticks:{callback:v=>(v/1000).toFixed(0)+'K €'},...G}
+      }
+    }
+  });
+
+  // Pivot table
+  const fmtC=v=>v>0?fmt(v):'—';
+  document.getElementById('compProvTabla').innerHTML=`
+    <div style="overflow-x:auto;">
+    <table class="tabla" style="font-size:12px;">
+      <thead>
+        <tr>
+          <th style="white-space:nowrap;min-width:160px;position:sticky;left:0;background:var(--card-bg);z-index:1;">Proveedor</th>
+          ${MESES.map(m=>`<th style="text-align:right;white-space:nowrap;">${m}</th>`).join('')}
+          <th style="text-align:right;white-space:nowrap;background:var(--azul-pale);color:var(--azul);">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${provs.map(([prov,meses])=>{
+          const tot=meses.reduce((s,v)=>s+v,0);
+          return `<tr>
+            <td style="font-weight:500;white-space:nowrap;position:sticky;left:0;background:var(--card-bg);">${prov}</td>
+            ${meses.map(v=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;color:${v>0?'var(--texto)':'var(--texto2)'};">${fmtC(v)}</td>`).join('')}
+            <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--azul);background:var(--azul-pale);">${fmt(tot)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="background:var(--azul-pale);">
+          <td style="font-weight:700;color:var(--azul);position:sticky;left:0;background:var(--azul-pale);">TOTAL</td>
+          ${mesTotales.map(v=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--azul);">${v>0?fmt(v):'—'}</td>`).join('')}
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:800;color:var(--azul);">${fmt(grandTotal)}</td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+    <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
+      ${provs.length} proveedores · Total: <strong style="color:var(--azul);">${fmt(grandTotal)}</strong>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
 // COMPRAS — HISTÓRICO ANUAL
 // ═══════════════════════════════════════════════════════
 function saveComprasAnual(){
@@ -4462,7 +5267,12 @@ function importFamiliasExcel(input){
       if(!registros.length){ alert('No se encontraron registros de familias en el archivo.'); input.value=''; return; }
 
       familias = registros;
-      saveFamilias(); renderFamilias();
+      saveFamilias();
+      ['fam','vtfam'].forEach(p=>{
+        const sa=document.getElementById(p+'FiltroAnio'); if(sa) while(sa.options.length>1) sa.remove(1);
+        const sc=document.getElementById(p+'FiltroCategoria'); if(sc) while(sc.options.length>1) sc.remove(1);
+      });
+      renderFamilias(); renderVentasFamilias();
       alert(registros.length+' registros de familias importados desde Excel.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -4470,18 +5280,83 @@ function importFamiliasExcel(input){
   reader.readAsArrayBuffer(file);
 }
 
-function renderFamilias(){
+function renderFamilias(){ _renderFamiliasCore('fam','cFam'); }
+function renderVentasFamilias(){ _renderFamiliasCore('vtfam','cVtfam'); }
+
+function limpiarFiltrosFam(){ limpiarFiltrosFamPfx('fam'); }
+function limpiarFiltrosFamPfx(pfx){
+  document.getElementById(pfx+'FiltroAnio').value='todos';
+  document.getElementById(pfx+'FiltroCategoria').value='todas';
+  document.getElementById(pfx+'FiltroTexto').value='';
+  _renderFamiliasCore(pfx, pfx==='fam'?'cFam':'cVtfam');
+}
+
+function importFamiliasExcelPfx(input, pfx){
+  // Wrapper que usa el importador original pero fuerza renderizado del prefijo correcto
+  const orig = input; // keep ref
+  // Swap the after-render call to target the right prefix
+  const file=input.files[0]; if(!file) return;
+  if(familias.length && !confirm('Esto reemplazará los datos de Ventas por Familias ya importados. ¿Continuar?')){
+    input.value=''; return;
+  }
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      const catMap={}, famMap={};
+      data.forEach(row=>{
+        if(typeof row[0]!=='string') return;
+        const m=row[0].trim().match(/^(\d+)\s+(.*)$/);
+        if(!m) return;
+        const code=m[1], name=m[2].trim();
+        if(code.length===2) catMap[code]=name;
+        else if(code.length===3 || code.length===4) famMap[code]=name;
+      });
+      const seen=new Set(), registros=[];
+      data.forEach(row=>{
+        const code=row[0];
+        if(typeof code!=='number' || code<100) return;
+        const yr=row[1];
+        if(typeof yr!=='number') return;
+        const codeStr=String(Math.round(code));
+        const key=codeStr+'|'+yr;
+        if(seen.has(key)) return;
+        seen.add(key);
+        const tot=row[14];
+        if(typeof tot!=='number') return;
+        const catCode=codeStr.slice(0,2);
+        registros.push({ id:Date.now()+registros.length, codigo:codeStr, nombre:famMap[codeStr]||('Familia '+codeStr), catCodigo:catCode, catNombre:catMap[catCode]||('Categoría '+catCode), anio:2000+Math.round(yr), meses:row.slice(2,14).map(v=>typeof v==='number'?v:0), total:tot });
+      });
+      if(!registros.length){ alert('No se encontraron registros de familias en el archivo.'); input.value=''; return; }
+      familias = registros;
+      saveFamilias();
+      // Reset selectores de ambas vistas para que se repueblen
+      ['fam','vtfam'].forEach(p=>{
+        const sa=document.getElementById(p+'FiltroAnio'); if(sa) while(sa.options.length>1) sa.remove(1);
+        const sc=document.getElementById(p+'FiltroCategoria'); if(sc) while(sc.options.length>1) sc.remove(1);
+      });
+      renderFamilias(); renderVentasFamilias();
+      alert(registros.length+' registros de familias importados desde Excel.');
+    }catch(err){ alert('Error al procesar el Excel: '+err.message); }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function _renderFamiliasCore(pfx, cpfx){
+  const el = id => document.getElementById(id);
   const anios=[...new Set(familias.map(f=>f.anio))].sort();
   const cats=[...new Map(familias.map(f=>[f.catCodigo,f.catNombre])).entries()].sort((a,b)=>a[0].localeCompare(b[0]));
 
-  const selA=document.getElementById('famFiltroAnio');
+  const selA=el(pfx+'FiltroAnio');
   if(selA && selA.options.length<=1) anios.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; selA.appendChild(o); });
-  const selC=document.getElementById('famFiltroCategoria');
+  const selC=el(pfx+'FiltroCategoria');
   if(selC && selC.options.length<=1) cats.forEach(([code,name])=>{ const o=document.createElement('option'); o.value=code; o.textContent=code+' - '+name; selC.appendChild(o); });
 
   const anio=selA?.value||'todos';
   const catFiltro=selC?.value||'todas';
-  const texto=(document.getElementById('famFiltroTexto')?.value||'').toLowerCase().trim();
+  const texto=(el(pfx+'FiltroTexto')?.value||'').toLowerCase().trim();
 
   let f=familias.filter(x=>{
     if(anio!=='todos' && String(x.anio)!==anio) return false;
@@ -4490,47 +5365,45 @@ function renderFamilias(){
     return true;
   }).sort((a,b)=>b.total-a.total);
 
-  // Comparativa mensual/anual — ignora el filtro de año (necesita histórico completo)
-  // para mostrar mejor/peor mes y año del filtro de categoría/texto seleccionado.
   const fComp=familias.filter(x=>{
     if(catFiltro!=='todas' && x.catCodigo!==catFiltro) return false;
     if(texto && !x.nombre.toLowerCase().includes(texto) && !String(x.codigo).includes(texto)) return false;
     return true;
   });
-  const compTtlEl=document.getElementById('famCompTtl');
-  if(fComp.length){
+  const compTtlEl=el(pfx+'CompTtl');
+  if(fComp.length && compTtlEl){
     const etiqueta = texto ? 'Búsqueda: "'+texto+'"' : (catFiltro!=='todas' ? 'Categoría '+catFiltro : 'Todas las familias');
     compTtlEl.textContent='📊 Comparativa Mensual y Anual — '+etiqueta;
     const anFam=buildAnualAnalysis(aggregateAnualRows(fComp));
-    document.getElementById('famCompKpis').innerHTML=anualKpisHtml(anFam);
-    document.getElementById('famCompTabla').innerHTML=renderAnualTabla(anFam);
-  } else {
+    el(pfx+'CompKpis').innerHTML=anualKpisHtml(anFam);
+    el(pfx+'CompTabla').innerHTML=renderAnualTabla(anFam);
+  } else if(compTtlEl){
     compTtlEl.textContent='📊 Comparativa Mensual y Anual';
-    document.getElementById('famCompKpis').innerHTML='';
-    document.getElementById('famCompTabla').innerHTML='';
+    el(pfx+'CompKpis').innerHTML='';
+    el(pfx+'CompTabla').innerHTML='';
   }
 
   const totalVentas=f.reduce((s,x)=>s+x.total,0);
   const nFamilias=new Set(f.map(x=>x.codigo)).size;
-  const topCat = (()=>{ const m={}; f.forEach(x=>{ m[x.catNombre]=(m[x.catNombre]||0)+x.total; }); const e=Object.entries(m).sort((a,b)=>b[1]-a[1])[0]; return e?e[0]:'—'; })();
+  const topCat=(()=>{ const m={}; f.forEach(x=>{ m[x.catNombre]=(m[x.catNombre]||0)+x.total; }); const e=Object.entries(m).sort((a,b)=>b[1]-a[1])[0]; return e?e[0]:'—'; })();
 
-  document.getElementById('famKpis').innerHTML = `
+  el(pfx+'Kpis').innerHTML = `
     <div class="kpi"><div class="kpi-ico">📦</div><div class="kpi-lbl">Total Ventas</div><div class="kpi-val">${fmt(totalVentas)}</div><div class="kpi-sub">${f.length} registros</div></div>
     <div class="kpi"><div class="kpi-ico">🔢</div><div class="kpi-lbl">Familias Activas</div><div class="kpi-val">${nFamilias}</div></div>
     <div class="kpi"><div class="kpi-ico">🏆</div><div class="kpi-lbl">Mejor Categoría</div><div class="kpi-val" style="font-size:14px;">${topCat}</div></div>
   `;
 
-  ['cFamCat','cFamAnio'].forEach(destroyChart);
+  [cpfx+'Cat', cpfx+'Anio'].forEach(destroyChart);
 
   if(!f.length){
-    document.getElementById('famTabla').innerHTML='<div class="empty-state"><div class="e-ico">📦</div><h3>Sin datos</h3><p>Importa el Excel de Ventas por Familias para ver el análisis.</p></div>';
+    el(pfx+'Tabla').innerHTML='<div class="empty-state"><div class="e-ico">📦</div><h3>Sin datos</h3><p>Importa el Excel de Ventas por Familias para ver el análisis.</p></div>';
     return;
   }
 
   const byCat={};
   f.forEach(x=>{ byCat[x.catNombre]=(byCat[x.catNombre]||0)+x.total; });
   const topCats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  charts['cFamCat']=new Chart(document.getElementById('cFamCat'),{
+  charts[cpfx+'Cat']=new Chart(el(cpfx+'Cat'),{
     type:'bar',
     data:{ labels:topCats.map(c=>c[0]), datasets:[{ label:'Total', data:topCats.map(c=>c[1]), backgroundColor:'rgba(141,196,30,0.7)', borderColor:'#8DC41E', borderWidth:1.5, borderRadius:4 }] },
     options:{ indexAxis:'y', responsive:true, plugins:{ legend:{display:false} }, scales:{ x:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}} } }
@@ -4539,13 +5412,13 @@ function renderFamilias(){
   const byAnio={};
   f.forEach(x=>{ byAnio[x.anio]=(byAnio[x.anio]||0)+x.total; });
   const aniosOrd=Object.keys(byAnio).sort();
-  charts['cFamAnio']=new Chart(document.getElementById('cFamAnio'),{
+  charts[cpfx+'Anio']=new Chart(el(cpfx+'Anio'),{
     type:'bar',
     data:{ labels:aniosOrd, datasets:[{ label:'Total', data:aniosOrd.map(a=>byAnio[a]), backgroundColor:'rgba(26,92,26,0.7)', borderColor:'#1A5C1A', borderWidth:1.5, borderRadius:4 }] },
     options:{ responsive:true, plugins:{ legend:{display:false} }, scales:{ y:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}} } }
   });
 
-  document.getElementById('famTabla').innerHTML = `
+  el(pfx+'Tabla').innerHTML = `
     <div style="overflow-x:auto;">
     <table class="tabla">
       <thead><tr><th>Código</th><th>Familia</th><th>Categoría</th><th>Año</th><th style="text-align:right;">Total</th></tr></thead>
@@ -4563,13 +5436,6 @@ function renderFamilias(){
     <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
       Mostrando ${Math.min(f.length,300)} de ${f.length} registros · Total: <strong style="color:var(--azul);">${fmt(totalVentas)}</strong>
     </div>`;
-}
-
-function limpiarFiltrosFam(){
-  document.getElementById('famFiltroAnio').value='todos';
-  document.getElementById('famFiltroCategoria').value='todas';
-  document.getElementById('famFiltroTexto').value='';
-  renderFamilias();
 }
 
 // Service Worker (PWA installable)

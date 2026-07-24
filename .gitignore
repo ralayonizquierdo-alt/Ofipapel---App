@@ -7,3 +7,6 @@ design-studio/output/
 netlify/functions/node_modules/
 __pycache__/
 *.pyc
+.env.local
+.env.*.local
+.claude/settings.local.json
