@@ -207,6 +207,7 @@ tr.flag td{background:#FFF1EC;}
 .holiday-item{display:flex;justify-content:space-between;align-items:center;font-size:.75rem;
   background:var(--verde-pale);border-radius:8px;padding:7px 10px;margin-bottom:6px;}
 .holiday-item button{background:none;border:none;color:var(--rojo);cursor:pointer;font-size:.9rem;}
+.mini-select{padding:6px 8px;border:1px solid var(--borde);border-radius:6px;font-size:.78rem;background:#fff;color:var(--texto);}
 .mini-btn{background:var(--verde-pale);border:1px solid var(--borde);border-radius:6px;padding:6px 10px;
   font-size:.75rem;color:var(--verde);cursor:pointer;}
 .mini-btn:hover{background:var(--verde);color:#fff;}
@@ -362,7 +363,9 @@ tr.flag td{background:#FFF1EC;}
       La plantilla (36 personas) se lee en directo de Vacaciones y Turnos — aquí solo se gestiona su PIN de
       fichaje. Luis, Rober y David solo existen en esta app. Dentro de un mismo departamento cada persona
       puede tener su propio horario (botón "Horario") — si no se configura ninguno, se usa el horario general
-      del departamento (pestaña Exportar).</p>
+      del departamento (pestaña Exportar). Si alguien cambia de tienda o departamento, cambia su "Unidad" aquí
+      mismo — solo afecta a Fichaje (agrupación en la pantalla de fichar, horario e Histórico), sin tocar su
+      ficha real en Vacaciones y Turnos.</p>
     <table><thead><tr><th>Nombre</th><th>Unidad</th><th>PIN</th><th>Activo</th><th></th></tr></thead>
       <tbody id="personasBody"></tbody></table>
 
@@ -738,9 +741,28 @@ async function loadPeople(){
     console.error('No se pudo leer la plantilla de Vacaciones y Turnos', err);
   }
   PEOPLE = [...employees, ...GERENCIA_PEOPLE];
+  try{
+    const token = await getActiveToken();
+    await ensurePeopleConfigsCached(PEOPLE.map(p=>p.id), token);
+  }catch(err){
+    console.error('No se pudieron leer los cambios de departamento/horario', err);
+  }
   return PEOPLE;
 }
 function personById(id){ return PEOPLE.find(p=>p.id===id); }
+/* Departamento real de hoy: el de Vacaciones, salvo que gerencia lo haya cambiado a mano en esta
+   misma app (persona que pasó de tienda) — ese cambio se guarda aparte, sin tocar vacaciones.html. */
+function effectiveUnitId(person){
+  const cfg = PERSON_CONFIG[person.id];
+  return (cfg && cfg.unitOverride) || person.unitId;
+}
+async function setPersonUnitOverride(personId, unitId, token){
+  const existing = await getPersonConfig(personId, token);
+  const fields = {unitOverride: unitId||'', updatedAt:new Date().toISOString(), updatedBy:adminDisplayName()};
+  if(existing) await fsPatchDoc('ofipapel_fichaje_config', personId, fields, token);
+  else await fsCreateDoc('ofipapel_fichaje_config', fields, token, personId);
+  PERSON_CONFIG[personId] = {...(existing||{}), ...fields};
+}
 
 /* Agrupación reducida a 5 bloques solo para la pantalla de fichaje (búsqueda de nombre) —
    el resto de la app (Histórico, horarios, exportar) sigue usando UNIT_ORDER/UNIT_NAMES tal cual. */
@@ -756,7 +778,7 @@ const CLOCK_GROUP_BY_UNIT = {
 function peopleGroupedForClock(){
   const groups = {};
   PEOPLE.forEach(p=>{
-    const g = CLOCK_GROUP_BY_UNIT[p.unitId] || 'ofipapel';
+    const g = CLOCK_GROUP_BY_UNIT[effectiveUnitId(p)] || 'ofipapel';
     (groups[g] = groups[g] || []).push(p);
   });
   return CLOCK_GROUP_ORDER.filter(g=>groups[g] && groups[g].length).map(g=>({
@@ -879,7 +901,7 @@ function effectiveSchedule(personId){
   if(own) return own;
   if(DEFAULT_PERSON_SCHEDULES[personId]) return DEFAULT_PERSON_SCHEDULES[personId];
   const person = personById(personId);
-  const unitId = person && person.unitId;
+  const unitId = person && effectiveUnitId(person);
   return (unitId && unitSchedules[unitId]) || null;
 }
 async function setPersonSchedule(personId, schedule, token){
@@ -1335,7 +1357,7 @@ function fillPersonSelects(){
   document.getElementById('expPerson').innerHTML = '<option value="">Todas</option>' + PEOPLE.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
   document.getElementById('histPerson').innerHTML = '<option value="">Todas</option>' + PEOPLE.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
   document.getElementById('histUnit').innerHTML = '<option value="">Todos</option>' +
-    UNIT_ORDER.filter(u=>PEOPLE.some(p=>p.unitId===u)).map(u=>`<option value="${u}">${UNIT_NAMES[u]}</option>`).join('');
+    UNIT_ORDER.filter(u=>PEOPLE.some(p=>effectiveUnitId(p)===u)).map(u=>`<option value="${u}">${UNIT_NAMES[u]}</option>`).join('');
 }
 
 async function renderTabHoy(){
@@ -1366,9 +1388,16 @@ async function renderTabPersonas(){
     PERSON_CONFIG[p.id] = cfg; // aprovecha esta misma consulta para la caché de horarios
     const hasPin = !!(cfg && cfg.pinHash);
     const active = !cfg || cfg.active!==false;
+    const unitEff = effectiveUnitId(p);
+    const overridden = !!(cfg && cfg.unitOverride);
     rows.push(`<tr>
       <td>${p.name}</td>
-      <td>${p.unitId||'—'}</td>
+      <td>
+        <select class="mini-select" data-act="unit" data-id="${p.id}">
+          ${UNIT_ORDER.map(u=>`<option value="${u}" ${u===unitEff?'selected':''}>${UNIT_NAMES[u]}</option>`).join('')}
+        </select>
+        ${overridden?`<div style="font-size:.68rem;color:var(--texto2);margin-top:3px;">Original en Vacaciones: ${UNIT_NAMES[p.unitId]||p.unitId||'—'}</div>`:''}
+      </td>
       <td>${hasPin?'<span class="badge ok">Sí</span>':'<span class="badge no">No</span>'}</td>
       <td>${active?'<span class="badge ok">Activo</span>':'<span class="badge no">Inactivo</span>'}</td>
       <td>
@@ -1379,6 +1408,21 @@ async function renderTabPersonas(){
     </tr>`);
   }
   body.innerHTML = rows.join('');
+  body.querySelectorAll('select[data-act="unit"]').forEach(sel=>{
+    sel.onchange = async ()=>{
+      const person = personById(sel.dataset.id);
+      const newUnit = sel.value;
+      const override = newUnit===person.unitId ? '' : newUnit;
+      sel.disabled = true;
+      try{
+        await setPersonUnitOverride(sel.dataset.id, override, adminToken);
+        showToast(override ? 'Departamento cambiado para el fichaje.' : 'Departamento restaurado al de Vacaciones y Turnos.');
+      }catch(err){
+        showToast('No se pudo guardar: '+err.message);
+      }
+      renderTabPersonas();
+    };
+  });
   body.querySelectorAll('button[data-act="pin"]').forEach(btn=>{
     btn.onclick = async ()=>{
       const pin = prompt('Nuevo PIN de 4 dígitos para '+personById(btn.dataset.id).name+':');
@@ -1411,12 +1455,13 @@ function openPersonScheduleEditor(personId){
 
   const own = personScheduleFromConfig(PERSON_CONFIG[personId]);
   const known = DEFAULT_PERSON_SCHEDULES[personId];
-  const deptSchedule = person.unitId && unitSchedules[person.unitId];
+  const unitId = effectiveUnitId(person);
+  const deptSchedule = unitId && unitSchedules[unitId];
   const shown = own || known || deptSchedule || mkSchedule('','','','','','');
   const sourceEl = document.getElementById('pschedSource');
   if(own) sourceEl.textContent = 'Tiene un horario individual guardado.';
   else if(known) sourceEl.textContent = 'Mostrando una excepción ya conocida (todavía no guardada como suya) — pulsa Guardar para fijarla.';
-  else if(deptSchedule) sourceEl.textContent = `Sin horario propio: se usa el horario general de ${UNIT_NAMES[person.unitId]||person.unitId}.`;
+  else if(deptSchedule) sourceEl.textContent = `Sin horario propio: se usa el horario general de ${UNIT_NAMES[unitId]||unitId}.`;
   else sourceEl.textContent = 'Sin horario propio ni de departamento: sus fichajes no se marcan todavía.';
 
   document.getElementById('pschedMorningStart').value = shown.morningStart||'';
@@ -1481,7 +1526,7 @@ document.getElementById('btnHistSearch').onclick = async ()=>{
   const from = document.getElementById('histFrom').value;
   const to = document.getElementById('histTo').value;
 
-  const targets = personId ? [personById(personId)] : PEOPLE.filter(p=>!unitId || p.unitId===unitId);
+  const targets = personId ? [personById(personId)] : PEOPLE.filter(p=>!unitId || effectiveUnitId(p)===unitId);
   const showName = targets.length > 1;
   let events = [];
   for(const p of targets){
