@@ -2472,6 +2472,8 @@ function renderAlertas(){
   const cargaMes = 9540+3930+3083+2661+2266+2318;
   alerts.push({type:'info', ico:'💸', ttl:'Carga financiera mensual estructural', txt:`Estimada en ~${fmt(cargaMes)}/mes entre hipotecas, ICO y préstamos.`});
 
+  const fiscalAlerts = getFiscalAlertas();
+
   const html = `
   <div class="sec-title" style="margin-top:0">Alertas y Notificaciones Automáticas</div>
   <div class="alerts-grid">
@@ -2480,9 +2482,60 @@ function renderAlertas(){
       <div class="alert-ico">${a.ico}</div>
       <div><div class="alert-ttl">${a.ttl}</div><div class="alert-txt">${a.txt}</div></div>
     </div>`).join('')}
-  </div>`;
+  </div>
+  ${fiscalAlerts.length ? `
+  <div class="sec-title" style="margin-top:24px">📅 Calendario Fiscal — Obligaciones Tributarias (SL Canarias)</div>
+  <div class="alerts-grid">
+    ${fiscalAlerts.map(a=>`
+    <div class="alert-card ${a.type}">
+      <div class="alert-ico">${a.ico}</div>
+      <div>
+        <div class="alert-ttl">${a.mod} <span style="font-weight:400;font-size:11px;opacity:.8">— ${a.urgLabel}</span></div>
+        <div class="alert-txt">${a.txt}</div>
+        <div style="font-size:11px;margin-top:4px;opacity:.7">Fecha límite: ${a.dt.toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'})}</div>
+      </div>
+    </div>`).join('')}
+  </div>` : ''}`;
 
   document.getElementById('alertasContent').innerHTML = html;
+}
+
+function getFiscalAlertas(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const year = today.getFullYear();
+  const MS = 86400000;
+  const dl = (y,m,d) => new Date(y, m-1, d);
+
+  const events = [];
+  for(const y of [year-1, year, year+1]){
+    const febDays = new Date(y,2,0).getDate();
+    events.push({ico:'📋', mod:`IGIC Mod.420 T4 ${y-1}`, dt:dl(y,1,31),  txt:`Liquidación IGIC 4º trimestre ${y-1}. Presentación del modelo 420.`});
+    events.push({ico:'📋', mod:`IGIC Mod.420 T1 ${y}`,   dt:dl(y,4,20),  txt:`Liquidación IGIC 1er trimestre ${y}. Presentación del modelo 420.`});
+    events.push({ico:'📋', mod:`IGIC Mod.420 T2 ${y}`,   dt:dl(y,7,20),  txt:`Liquidación IGIC 2º trimestre ${y}. Presentación del modelo 420.`});
+    events.push({ico:'📋', mod:`IGIC Mod.420 T3 ${y}`,   dt:dl(y,10,20), txt:`Liquidación IGIC 3er trimestre ${y}. Presentación del modelo 420.`});
+    events.push({ico:'📊', mod:`IGIC Mod.425 ${y-1}`,    dt:dl(y,1,31),  txt:`Resumen anual IGIC ejercicio ${y-1}. Presentación junto con Mod.420 T4.`});
+    events.push({ico:'📊', mod:`IGIC Mod.415 ${y-1}`,    dt:dl(y,2,febDays), txt:`Declaración informativa de operaciones con terceros IGIC ${y-1}.`});
+    events.push({ico:'🏛️', mod:`IS Mod.202 1P ${y}`,     dt:dl(y,4,20),  txt:`Pago fraccionado del Impuesto sobre Sociedades — 1er periodo ${y}.`});
+    events.push({ico:'🏛️', mod:`IS Mod.202 2P ${y}`,     dt:dl(y,10,20), txt:`Pago fraccionado del Impuesto sobre Sociedades — 2º periodo ${y}.`});
+    events.push({ico:'🏛️', mod:`IS Mod.202 3P ${y}`,     dt:dl(y,12,20), txt:`Pago fraccionado del Impuesto sobre Sociedades — 3er periodo ${y}.`});
+    events.push({ico:'🏛️', mod:`IS Mod.200 ${y-1}`,      dt:dl(y,7,25),  txt:`Declaración anual del Impuesto sobre Sociedades ejercicio ${y-1}.`});
+    events.push({ico:'📚', mod:`Libros Oficiales ${y-1}`, dt:dl(y,4,30),  txt:`Legalización de libros contables del ejercicio ${y-1} en el Registro Mercantil.`});
+    events.push({ico:'🏢', mod:`Cuentas Anuales ${y-1}`,  dt:dl(y,7,30),  txt:`Depósito de Cuentas Anuales ejercicio ${y-1} en el Registro Mercantil.`});
+  }
+
+  return events
+    .map(e => { const diff = Math.round((e.dt - today) / MS); return {...e, diff}; })
+    .filter(e => e.diff >= -30 && e.diff <= 90)
+    .sort((a,b) => a.diff - b.diff)
+    .map(e => {
+      let type, urgLabel;
+      if(e.diff < 0)      { type='err';  urgLabel=`VENCIDO hace ${-e.diff} día${-e.diff!==1?'s':''}`; }
+      else if(e.diff===0) { type='err';  urgLabel='HOY — plazo límite'; }
+      else if(e.diff<=7)  { type='err';  urgLabel=`⏰ en ${e.diff} día${e.diff!==1?'s':''}`; }
+      else if(e.diff<=14) { type='warn'; urgLabel=`en ${e.diff} días`; }
+      else                { type='info'; urgLabel=`en ${e.diff} días`; }
+      return {...e, type, urgLabel};
+    });
 }
 
 // ═══════════════════════════════════════════════════════
