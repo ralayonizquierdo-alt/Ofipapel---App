@@ -326,6 +326,7 @@ tr.flag td{background:#FFF1EC;}
     <button class="tab-btn" data-tab="historico">🕒 Histórico</button>
     <button class="tab-btn" data-tab="correccion">✏️ Corrección</button>
     <button class="tab-btn" data-tab="exportar">🖨 Exportar</button>
+    <button class="tab-btn" data-tab="normativa">⚖️ Normativa vigente</button>
   </div>
 
   <div class="panel" id="tab-hoy">
@@ -491,6 +492,35 @@ tr.flag td{background:#FFF1EC;}
       <button class="btn btn-primary" style="width:auto;" id="btnExpPrint">🖨 Imprimir / Guardar PDF</button>
       <button class="btn btn-ghost" id="btnExpWhatsapp">📱 WhatsApp</button>
     </div>
+  </div>
+
+  <div class="panel hidden" id="tab-normativa">
+    <h2>⚖️ Normativa vigente del registro horario</h2>
+    <p class="info-box">
+      <strong>Real Decreto-ley 8/2019, art. 34.9 del Estatuto de los Trabajadores</strong> — obliga a registrar
+      diariamente el horario concreto de inicio y fin de la jornada de cada persona trabajadora. Los registros
+      deben conservarse un mínimo de <strong>4 años</strong> y quedar a disposición de la propia persona
+      trabajadora, sus representantes legales y la Inspección de Trabajo y Seguridad Social. La ley no exige
+      ningún sistema homologado ni certificado oficialmente: permite cualquier medio, siempre que sea fiable e
+      invariable (de ahí que esta app nunca edite ni borre un fichaje ya hecho — toda corrección se guarda como
+      un registro nuevo enlazado al original, con motivo y autor).
+    </p>
+    <p class="info-box">
+      <strong>Reforma pendiente (registro 100% digital)</strong> — el anteproyecto que iba a endurecer esta
+      obligación (registro exclusivamente digital, interoperable con la Inspección) está <strong>parado</strong>
+      desde el dictamen contrario del Consejo de Estado. A día de hoy no hay fecha prevista de aprobación ni
+      especificación técnica publicada. Mientras siga así, no existe ninguna obligación de migrar a un producto
+      de terceros ni de solicitar homologación alguna.
+    </p>
+    <p class="info-box">
+      <strong>Cómo cumple esta app ya hoy:</strong> registro inmutable evento a evento (nunca "gana el último
+      guardado"), conservación indefinida (sin borrado automático, por encima del mínimo de 4 años exigido),
+      corrección siempre con motivo y persona responsable, y exportación lista para entregar a la persona
+      trabajadora o a Inspección desde la pestaña 🖨 Exportar.
+    </p>
+    <p class="sub" style="font-size:.78rem;color:var(--texto2);">
+      Última actualización de este apartado: <strong>24 de julio de 2026</strong>. Si la reforma avanza y se
+      publica una especificación técnica concreta, este resumen se revisará.</p>
   </div>
 </div>
 
@@ -711,16 +741,27 @@ async function loadPeople(){
   return PEOPLE;
 }
 function personById(id){ return PEOPLE.find(p=>p.id===id); }
-function peopleGroupedByUnit(){
+
+/* Agrupación reducida a 5 bloques solo para la pantalla de fichaje (búsqueda de nombre) —
+   el resto de la app (Histórico, horarios, exportar) sigue usando UNIT_ORDER/UNIT_NAMES tal cual. */
+const CLOCK_GROUP_ORDER = ['ofipapel','aliz1','aliz2','comerciales','repartidores'];
+const CLOCK_GROUP_NAMES = {
+  ofipapel:'Ofipapel', aliz1:'Aliz-1', aliz2:'Aliz-2', comerciales:'Comerciales', repartidores:'Reparto',
+};
+const CLOCK_GROUP_BY_UNIT = {
+  repartidores:'repartidores', comerciales:'comerciales', aliz1:'aliz1', aliz2:'aliz2',
+  almacen:'ofipapel', oficina:'ofipapel', pedidos:'ofipapel', ofipapel_detalle:'ofipapel',
+  ofipapel_info:'ofipapel', mobiliario:'ofipapel', limpieza:'ofipapel', gerencia:'ofipapel',
+};
+function peopleGroupedForClock(){
   const groups = {};
   PEOPLE.forEach(p=>{
-    const unitId = p.unitId && UNIT_NAMES[p.unitId] ? p.unitId : 'otros';
-    (groups[unitId] = groups[unitId] || []).push(p);
+    const g = CLOCK_GROUP_BY_UNIT[p.unitId] || 'ofipapel';
+    (groups[g] = groups[g] || []).push(p);
   });
-  const order = [...UNIT_ORDER, 'otros'];
-  return order.filter(u=>groups[u] && groups[u].length).map(u=>({
-    unitId: u, label: UNIT_NAMES[u] || 'Otros',
-    people: groups[u].sort((a,b)=>a.name.localeCompare(b.name,'es')),
+  return CLOCK_GROUP_ORDER.filter(g=>groups[g] && groups[g].length).map(g=>({
+    unitId: g, label: CLOCK_GROUP_NAMES[g],
+    people: groups[g].sort((a,b)=>a.name.localeCompare(b.name,'es')),
   }));
 }
 
@@ -968,7 +1009,7 @@ let cachedGeo = null;
 
 function populatePersonSelect(){
   const grid = document.getElementById('deptGrid');
-  const groups = peopleGroupedByUnit();
+  const groups = peopleGroupedForClock();
   grid.innerHTML = groups.map(g => `
     <div class="dept-block">
       <label>${g.label}</label>
