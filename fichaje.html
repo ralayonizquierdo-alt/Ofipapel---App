@@ -711,16 +711,27 @@ async function loadPeople(){
   return PEOPLE;
 }
 function personById(id){ return PEOPLE.find(p=>p.id===id); }
-function peopleGroupedByUnit(){
+
+/* Agrupación reducida a 5 bloques solo para la pantalla de fichaje (búsqueda de nombre) —
+   el resto de la app (Histórico, horarios, exportar) sigue usando UNIT_ORDER/UNIT_NAMES tal cual. */
+const CLOCK_GROUP_ORDER = ['ofipapel','aliz1','aliz2','comerciales','repartidores'];
+const CLOCK_GROUP_NAMES = {
+  ofipapel:'Ofipapel', aliz1:'Aliz-1', aliz2:'Aliz-2', comerciales:'Comerciales', repartidores:'Reparto',
+};
+const CLOCK_GROUP_BY_UNIT = {
+  repartidores:'repartidores', comerciales:'comerciales', aliz1:'aliz1', aliz2:'aliz2',
+  almacen:'ofipapel', oficina:'ofipapel', pedidos:'ofipapel', ofipapel_detalle:'ofipapel',
+  ofipapel_info:'ofipapel', mobiliario:'ofipapel', limpieza:'ofipapel', gerencia:'ofipapel',
+};
+function peopleGroupedForClock(){
   const groups = {};
   PEOPLE.forEach(p=>{
-    const unitId = p.unitId && UNIT_NAMES[p.unitId] ? p.unitId : 'otros';
-    (groups[unitId] = groups[unitId] || []).push(p);
+    const g = CLOCK_GROUP_BY_UNIT[p.unitId] || 'ofipapel';
+    (groups[g] = groups[g] || []).push(p);
   });
-  const order = [...UNIT_ORDER, 'otros'];
-  return order.filter(u=>groups[u] && groups[u].length).map(u=>({
-    unitId: u, label: UNIT_NAMES[u] || 'Otros',
-    people: groups[u].sort((a,b)=>a.name.localeCompare(b.name,'es')),
+  return CLOCK_GROUP_ORDER.filter(g=>groups[g] && groups[g].length).map(g=>({
+    unitId: g, label: CLOCK_GROUP_NAMES[g],
+    people: groups[g].sort((a,b)=>a.name.localeCompare(b.name,'es')),
   }));
 }
 
@@ -968,7 +979,7 @@ let cachedGeo = null;
 
 function populatePersonSelect(){
   const grid = document.getElementById('deptGrid');
-  const groups = peopleGroupedByUnit();
+  const groups = peopleGroupedForClock();
   grid.innerHTML = groups.map(g => `
     <div class="dept-block">
       <label>${g.label}</label>
