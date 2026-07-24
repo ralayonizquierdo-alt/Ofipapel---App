@@ -775,16 +775,30 @@ const CLOCK_GROUP_BY_UNIT = {
   almacen:'ofipapel', oficina:'ofipapel', pedidos:'ofipapel', ofipapel_detalle:'ofipapel',
   ofipapel_info:'ofipapel', mobiliario:'ofipapel', limpieza:'ofipapel', gerencia:'ofipapel',
 };
+/* Dentro del bloque "Ofipapel" (que junta varios departamentos reales) se vuelve a subdividir por
+   departamento, con el nombre en <optgroup> — los navegadores lo muestran en negrita de serie. Los otros
+   4 bloques (Aliz-1, Aliz-2, Comerciales, Reparto) son cada uno un único departamento, así que no lo necesitan. */
+const OFIPAPEL_SUBUNITS = ['almacen','oficina','pedidos','ofipapel_detalle','ofipapel_info','mobiliario','limpieza','gerencia'];
 function peopleGroupedForClock(){
   const groups = {};
   PEOPLE.forEach(p=>{
     const g = CLOCK_GROUP_BY_UNIT[effectiveUnitId(p)] || 'ofipapel';
     (groups[g] = groups[g] || []).push(p);
   });
-  return CLOCK_GROUP_ORDER.filter(g=>groups[g] && groups[g].length).map(g=>({
-    unitId: g, label: CLOCK_GROUP_NAMES[g],
-    people: groups[g].sort((a,b)=>a.name.localeCompare(b.name,'es')),
-  }));
+  return CLOCK_GROUP_ORDER.filter(g=>groups[g] && groups[g].length).map(g=>{
+    const people = groups[g].sort((a,b)=>a.name.localeCompare(b.name,'es'));
+    const entry = {unitId: g, label: CLOCK_GROUP_NAMES[g], people};
+    if(g==='ofipapel'){
+      const subGroups = {};
+      people.forEach(p=>{
+        const su = effectiveUnitId(p);
+        (subGroups[su] = subGroups[su] || []).push(p);
+      });
+      entry.subgroups = OFIPAPEL_SUBUNITS.filter(u=>subGroups[u] && subGroups[u].length)
+        .map(u=>({unitId: u, label: UNIT_NAMES[u]||u, people: subGroups[u]}));
+    }
+    return entry;
+  });
 }
 
 /* ═══════════════════ PIN (hash SHA-256, nunca en claro) ═══════════════════
@@ -1037,7 +1051,11 @@ function populatePersonSelect(){
       <label>${g.label}</label>
       <select class="person-select" data-unit="${g.unitId}">
         <option value="" selected disabled>— Elige tu nombre —</option>
-        ${g.people.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
+        ${g.subgroups
+          ? g.subgroups.map(sg=>`<optgroup label="${sg.label}">` +
+              sg.people.map(p=>`<option value="${p.id}">${p.name}</option>`).join('') +
+              `</optgroup>`).join('')
+          : g.people.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
       </select>
     </div>`
   ).join('');
