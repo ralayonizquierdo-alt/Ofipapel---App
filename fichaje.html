@@ -506,7 +506,10 @@ tr.flag td{background:#FFF1EC;}
         Aliz-1/Aliz-2. Un fichaje hecho fuera de ese radio se señala como "fuera de lugar" en 🔔 Alertas y en
         Exportar, para que gerencia lo revise — <strong>nunca bloquea el fichaje</strong>, porque el GPS de un
         móvil puede fallar por varios metros incluso estando en el sitio correcto. Sin ubicación configurada,
-        ese departamento no se marca nunca.</p>
+        ese departamento no se marca nunca. Ofipapel, Reparto, Aliz-1 y Aliz-2 ya vienen precargados con la
+        dirección de cada sitio (localizada por dirección postal, no exacta al metro) — repasa cada uno con
+        el botón "Usar mi ubicación actual" estando físicamente allí para afinarlo. Comerciales se deja sin
+        configurar a propósito: no tiene un sitio fijo donde fichar.</p>
 
       <div class="filters-row">
         <div class="field"><label>Departamento</label><select id="gfUnit"></select></div>
@@ -919,11 +922,35 @@ function inWindow(t, start, end){ return start && end ? (t>=start && t<=end) : f
    tienda puede fallar por decenas de metros, así que gerencia revisa el aviso con criterio en vez de que
    la app le impida fichar a alguien real por un mal dato de posición. */
 const GEOFENCES_DOC = '_geofences';
+/* Coordenadas de partida (localizadas por dirección, jul-2026) — gerencia puede ajustarlas en cualquier
+   momento desde Exportar (incluido el botón "Usar mi ubicación actual" estando ya en el sitio, que es más
+   preciso que una búsqueda por dirección). Comerciales se deja fuera a propósito: sin sitio fijo, no hay
+   radio que tenga sentido para ellos (ver Normativa/decisión con el propietario, jul-2026).
+   - Ofipapel (Almacén, Oficina, Pedidos, Detalle, Informática, Mobiliario, Limpieza, Gerencia): C/ Bulevar
+     Chajofe nº4, 38650 Los Cristianos.
+   - Reparto: nave en C/ Tanganillo, Pol. Ind. Llano del Camello, 38639 San Miguel de Abona — coordenada
+     menos precisa (corresponde al polígono, no al número exacto de la calle); conviene recalibrarla con
+     "Usar mi ubicación actual" en cuanto alguien esté allí, por eso lleva más radio de margen.
+   - Aliz-1: Av. de Suecia nº7, 38650 Los Cristianos.
+   - Aliz-2: Res. Las Viñas, C/ Noelia Afonso Cabrera, 38660 Playa de las Américas. */
+const DEFAULT_GEOFENCES = {
+  almacen:            {lat:28.0536, lng:-16.7146, radius:120},
+  oficina:            {lat:28.0536, lng:-16.7146, radius:120},
+  pedidos:            {lat:28.0536, lng:-16.7146, radius:120},
+  ofipapel_detalle:   {lat:28.0536, lng:-16.7146, radius:120},
+  ofipapel_info:      {lat:28.0536, lng:-16.7146, radius:120},
+  mobiliario:         {lat:28.0536, lng:-16.7146, radius:120},
+  limpieza:           {lat:28.0536, lng:-16.7146, radius:120},
+  gerencia:           {lat:28.0536, lng:-16.7146, radius:120},
+  repartidores:       {lat:28.0555, lng:-16.6183, radius:250},
+  aliz1:              {lat:28.05217, lng:-16.71787, radius:120},
+  aliz2:              {lat:28.0600, lng:-16.7286, radius:120},
+};
 let geofences = {}; // unitId -> {lat, lng, radius, label}
 async function loadGeofences(token){
   try{
     const doc = await fsGetDoc('ofipapel_fichaje_config', GEOFENCES_DOC, token);
-    geofences = doc && doc.geofencesJson ? JSON.parse(doc.geofencesJson) : {};
+    geofences = doc && doc.geofencesJson ? JSON.parse(doc.geofencesJson) : JSON.parse(JSON.stringify(DEFAULT_GEOFENCES));
   }catch(err){ console.error('No se pudo leer la ubicación esperada', err); }
 }
 async function persistGeofences(token){
