@@ -355,6 +355,15 @@ tr.flag td{background:#FFF1EC;}
     <h3 style="font-size:.82rem;color:var(--texto2);margin-bottom:8px;">Últimos casos (todos)</h3>
     <table><thead><tr><th>Persona</th><th>Fecha</th><th>Hora</th><th>Tipo</th></tr></thead>
       <tbody id="alertasLista"></tbody></table>
+
+    <h2 style="margin-top:26px;">📍 Fichajes fuera del lugar esperado — últimos <span id="alertasDiasGeo">30</span> días</h2>
+    <div id="alertasGeoSummary" style="font-size:.82rem;margin-bottom:14px;"></div>
+    <h3 style="font-size:.82rem;color:var(--texto2);margin-bottom:8px;">Personas con más fichajes fuera de lugar</h3>
+    <table style="margin-bottom:20px;"><thead><tr><th>Persona</th><th>Nº fuera de lugar</th><th>Último caso</th><th>Patrón</th></tr></thead>
+      <tbody id="alertasGeoPorPersona"></tbody></table>
+    <h3 style="font-size:.82rem;color:var(--texto2);margin-bottom:8px;">Últimos casos (todos)</h3>
+    <table><thead><tr><th>Persona</th><th>Fecha</th><th>Hora</th><th>Tipo</th></tr></thead>
+      <tbody id="alertasGeoLista"></tbody></table>
   </div>
 
   <div class="panel hidden" id="tab-personas">
@@ -487,6 +496,31 @@ tr.flag td{background:#FFF1EC;}
         <div class="field"><label>Tarde hasta</label><input type="time" id="holAfternoonEnd"></div>
       </div>
       <button class="mini-btn" id="btnAddHoliday">+ Añadir festivo</button>
+    </details>
+
+    <details style="margin-bottom:16px;">
+      <summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:var(--verde);">
+        📍 Ubicación esperada por departamento (fichaje fuera de sitio)</summary>
+      <p class="info-box" style="margin-top:10px;">Guarda aquí el punto (y el radio en metros a su alrededor)
+        donde debería fichar cada departamento — por ejemplo la nave para Reparto o cada tienda para
+        Aliz-1/Aliz-2. Un fichaje hecho fuera de ese radio se señala como "fuera de lugar" en 🔔 Alertas y en
+        Exportar, para que gerencia lo revise — <strong>nunca bloquea el fichaje</strong>, porque el GPS de un
+        móvil puede fallar por varios metros incluso estando en el sitio correcto. Sin ubicación configurada,
+        ese departamento no se marca nunca.</p>
+
+      <div class="filters-row">
+        <div class="field"><label>Departamento</label><select id="gfUnit"></select></div>
+      </div>
+      <div id="gfUnitStatus" style="font-size:.78rem;margin-bottom:10px;"></div>
+      <div class="filters-row">
+        <div class="field"><label>Latitud</label><input type="text" id="gfLat" placeholder="Ej: 28.4636"></div>
+        <div class="field"><label>Longitud</label><input type="text" id="gfLng" placeholder="Ej: -16.2518"></div>
+        <div class="field"><label>Radio (metros)</label><input type="number" id="gfRadius" placeholder="Ej: 150" min="10"></div>
+      </div>
+      <button class="mini-btn" id="btnUseMyLocation">📍 Usar mi ubicación actual</button>
+      <button class="mini-btn" id="btnSaveGeofence">Guardar ubicación de este departamento</button>
+      <button class="mini-btn-danger" id="btnClearGeofence">Quitar ubicación</button>
+      <span id="gfSaved" style="font-size:.75rem;color:var(--texto2);margin-left:8px;"></span>
     </details>
 
     <div id="expSummary" style="font-size:.82rem;margin-bottom:10px;"></div>
@@ -879,6 +913,42 @@ function weekdayFromDateKey(dateKey){ // 1=lunes … 7=domingo (ISO), calculado 
 }
 function inWindow(t, start, end){ return start && end ? (t>=start && t<=end) : false; }
 
+/* ═══════════════════ UBICACIÓN ESPERADA POR DEPARTAMENTO (fichaje fuera de sitio) ═══════════════════
+   Mismo patrón de guardado que el horario comercial: un documento fijo con un JSON por departamento
+   (lat, lng, radio en metros). Solo AVISA, nunca bloquea el fichaje — el GPS de un móvil dentro de una
+   tienda puede fallar por decenas de metros, así que gerencia revisa el aviso con criterio en vez de que
+   la app le impida fichar a alguien real por un mal dato de posición. */
+const GEOFENCES_DOC = '_geofences';
+let geofences = {}; // unitId -> {lat, lng, radius, label}
+async function loadGeofences(token){
+  try{
+    const doc = await fsGetDoc('ofipapel_fichaje_config', GEOFENCES_DOC, token);
+    geofences = doc && doc.geofencesJson ? JSON.parse(doc.geofencesJson) : {};
+  }catch(err){ console.error('No se pudo leer la ubicación esperada', err); }
+}
+async function persistGeofences(token){
+  const fields = {geofencesJson: JSON.stringify(geofences), updatedAt:new Date().toISOString(), updatedBy:adminDisplayName()};
+  const existing = await fsGetDoc('ofipapel_fichaje_config', GEOFENCES_DOC, token);
+  if(existing) await fsPatchDoc('ofipapel_fichaje_config', GEOFENCES_DOC, fields, token);
+  else await fsCreateDoc('ofipapel_fichaje_config', fields, token, GEOFENCES_DOC);
+}
+function haversineMeters(lat1, lng1, lat2, lng2){
+  const R = 6371000, toRad = d => d*Math.PI/180;
+  const dLat = toRad(lat2-lat1), dLng = toRad(lng2-lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+  return R * 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+/* true = fuera del radio esperado · false = dentro · null = no aplica (sin geocerca configurada para su
+   departamento) · 'sin_ubicacion' = tenía geocerca pero no se pudo comprobar (denegó el permiso, sin GPS…). */
+function isOutsideGeofence(e){
+  const person = personById(e.personId);
+  if(!person) return null;
+  const zone = geofences[effectiveUnitId(person)];
+  if(!zone || zone.lat==null || zone.lng==null || !zone.radius) return null;
+  if(e.geoLat==null || e.geoLng==null) return 'sin_ubicacion';
+  return haversineMeters(e.geoLat, e.geoLng, zone.lat, zone.lng) > zone.radius;
+}
+
 /* ── Horario individual por persona ──
    Dentro de un mismo departamento cada persona puede tener un turno distinto (ej. Almacén: José turno
    corrido 9-17, Miguel turno corrido 9-18; Pedidos: Iván turno corrido 9-18, Miguel turno partido
@@ -1223,6 +1293,8 @@ async function enterAdminApp(){
   await loadBusinessHours(adminToken);
   populateBusinessHoursUnitSelect();
   renderHolidayList();
+  await loadGeofences(adminToken);
+  populateGeofenceUnitSelect();
   await renderTabHoy();
   renderTabAlertas(); // en segundo plano, para que el aviso 🔔 ya se vea sin tener que entrar en la pestaña
 }
@@ -1312,6 +1384,65 @@ document.getElementById('btnAddHoliday').onclick = async ()=>{
     document.getElementById('holHoursRow').classList.remove('hidden');
   }catch(err){ showToast('No se pudo guardar el festivo: '+err.message); }
 };
+
+/* ── Ubicación esperada por departamento ── */
+function populateGeofenceUnitSelect(){
+  const sel = document.getElementById('gfUnit');
+  sel.innerHTML = UNIT_ORDER.filter(u=>u!=='gerencia').map(u=>`<option value="${u}">${UNIT_NAMES[u]}</option>`).join('');
+  loadUnitGeofenceIntoForm(sel.value);
+}
+function loadUnitGeofenceIntoForm(unitId){
+  const z = geofences[unitId];
+  const statusEl = document.getElementById('gfUnitStatus');
+  statusEl.innerHTML = z ? '<span class="badge ok">✓ Configurada</span>' : '<span class="badge no">— Sin configurar (sus fichajes no se marcan)</span>';
+  document.getElementById('gfLat').value = z ? z.lat : '';
+  document.getElementById('gfLng').value = z ? z.lng : '';
+  document.getElementById('gfRadius').value = z ? z.radius : '';
+}
+document.getElementById('gfUnit').addEventListener('change', e=> loadUnitGeofenceIntoForm(e.target.value));
+document.getElementById('btnUseMyLocation').onclick = ()=>{
+  if(!navigator.geolocation){ showToast('Este dispositivo no puede dar tu ubicación.'); return; }
+  const btn = document.getElementById('btnUseMyLocation');
+  btn.disabled = true; btn.textContent = 'Localizando…';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      document.getElementById('gfLat').value = pos.coords.latitude.toFixed(6);
+      document.getElementById('gfLng').value = pos.coords.longitude.toFixed(6);
+      btn.disabled = false; btn.textContent = '📍 Usar mi ubicación actual';
+    },
+    ()=>{ showToast('No se pudo obtener tu ubicación (¿permiso denegado?).'); btn.disabled = false; btn.textContent = '📍 Usar mi ubicación actual'; },
+    {timeout:8000}
+  );
+};
+document.getElementById('btnSaveGeofence').onclick = async ()=>{
+  const unitId = document.getElementById('gfUnit').value;
+  const lat = parseFloat(document.getElementById('gfLat').value);
+  const lng = parseFloat(document.getElementById('gfLng').value);
+  const radius = parseInt(document.getElementById('gfRadius').value, 10);
+  if(!isFinite(lat) || !isFinite(lng) || !radius || radius<10){
+    showToast('Indica latitud, longitud y un radio de al menos 10 metros.');
+    return;
+  }
+  geofences[unitId] = {lat, lng, radius};
+  try{
+    await persistGeofences(adminToken);
+    loadUnitGeofenceIntoForm(unitId);
+    document.getElementById('gfSaved').textContent = 'Guardado ✔';
+    setTimeout(()=>{ document.getElementById('gfSaved').textContent=''; }, 2500);
+  }catch(err){ showToast('No se pudo guardar la ubicación: '+err.message); }
+};
+document.getElementById('btnClearGeofence').onclick = async ()=>{
+  const unitId = document.getElementById('gfUnit').value;
+  if(!geofences[unitId]) return;
+  if(!confirm(`¿Quitar la ubicación esperada de ${UNIT_NAMES[unitId]}?`)) return;
+  delete geofences[unitId];
+  try{
+    await persistGeofences(adminToken);
+    loadUnitGeofenceIntoForm(unitId);
+    showToast('Ubicación eliminada.');
+  }catch(err){ showToast('No se pudo eliminar: '+err.message); }
+};
+
 document.getElementById('expMonth').addEventListener('change', e=>{
   const val = e.target.value; // "YYYY-MM"
   if(!val) return;
@@ -1338,32 +1469,20 @@ document.getElementById('alertasRango').addEventListener('change', renderTabAler
 
 /* Umbral simple para distinguir un caso puntual de un patrón que merece revisar con la persona. */
 const REPEAT_THRESHOLD = 3;
-async function renderTabAlertas(){
-  const days = Number(document.getElementById('alertasRango').value);
-  document.getElementById('alertasDias').textContent = days;
-  const summaryBody = document.getElementById('alertasPorPersona');
-  const listBody = document.getElementById('alertasLista');
-  summaryBody.innerHTML = '<tr><td colspan="4">Cargando…</td></tr>';
-  listBody.innerHTML = '<tr><td colspan="4">Cargando…</td></tr>';
-
-  const since = new Date(Date.now() - days*86400000);
-  const sinceKey = canaryDateKey(since);
-  await ensurePeopleConfigsCached(PEOPLE.map(p=>p.id), adminToken);
-  let flagged = [];
-  for(const p of PEOPLE){
-    const events = await eventsForPerson(p.id, adminToken);
-    events.filter(e=>e.dateKey>=sinceKey && isOutsideBusinessHours(e))
-      .forEach(e=> flagged.push({...e, _name:p.name}));
-  }
+function renderAlertsBlock(flagged, days, {summaryBodyId, listBodyId, summaryElId, countElId, label}){
+  const summaryBody = document.getElementById(summaryBodyId);
+  const listBody = document.getElementById(listBodyId);
   flagged.sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt));
 
-  const countEl = document.getElementById('alertasCount');
-  if(flagged.length){ countEl.textContent = flagged.length; countEl.classList.remove('hidden'); }
-  else countEl.classList.add('hidden');
+  if(countElId){
+    const countEl = document.getElementById(countElId);
+    if(flagged.length){ countEl.textContent = flagged.length; countEl.classList.remove('hidden'); }
+    else countEl.classList.add('hidden');
+  }
 
-  document.getElementById('alertasSummary').innerHTML = flagged.length
-    ? `${flagged.length} fichaje(s) fuera de horario en los últimos ${days} días.`
-    : `Sin fichajes fuera de horario en los últimos ${days} días. 👍`;
+  document.getElementById(summaryElId).innerHTML = flagged.length
+    ? `${flagged.length} fichaje(s) ${label} en los últimos ${days} días.`
+    : `Sin fichajes ${label} en los últimos ${days} días. 👍`;
 
   const byPerson = {};
   flagged.forEach(e=>{ (byPerson[e._name] = byPerson[e._name]||[]).push(e); });
@@ -1381,6 +1500,42 @@ async function renderTabAlertas(){
   const listRows = flagged.slice(0,30).map(e=>`<tr class="flag">
     <td>${e._name}</td><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td></tr>`);
   listBody.innerHTML = listRows.join('') || '<tr><td colspan="4">Sin casos en este periodo.</td></tr>';
+}
+async function renderTabAlertas(){
+  const days = Number(document.getElementById('alertasRango').value);
+  document.getElementById('alertasDias').textContent = days;
+  document.getElementById('alertasDiasGeo').textContent = days;
+  ['alertasPorPersona','alertasLista','alertasGeoPorPersona','alertasGeoLista'].forEach(id=>{
+    document.getElementById(id).innerHTML = '<tr><td colspan="4">Cargando…</td></tr>';
+  });
+
+  const since = new Date(Date.now() - days*86400000);
+  const sinceKey = canaryDateKey(since);
+  await ensurePeopleConfigsCached(PEOPLE.map(p=>p.id), adminToken);
+  let flaggedHours = [], flaggedGeo = [], sinUbicacion = 0;
+  for(const p of PEOPLE){
+    const events = await eventsForPerson(p.id, adminToken);
+    events.filter(e=>e.dateKey>=sinceKey).forEach(e=>{
+      if(isOutsideBusinessHours(e)) flaggedHours.push({...e, _name:p.name});
+      const geo = isOutsideGeofence(e);
+      if(geo===true) flaggedGeo.push({...e, _name:p.name});
+      else if(geo==='sin_ubicacion') sinUbicacion++;
+    });
+  }
+
+  renderAlertsBlock(flaggedHours, days, {
+    summaryBodyId:'alertasPorPersona', listBodyId:'alertasLista', summaryElId:'alertasSummary',
+    countElId:'alertasCount', label:'fuera de horario',
+  });
+  renderAlertsBlock(flaggedGeo, days, {
+    summaryBodyId:'alertasGeoPorPersona', listBodyId:'alertasGeoLista', summaryElId:'alertasGeoSummary',
+    label:'fuera de lugar',
+  });
+  if(sinUbicacion){
+    document.getElementById('alertasGeoSummary').innerHTML +=
+      ` <span style="color:var(--texto2);">· ${sinUbicacion} fichaje(s) en departamentos con ubicación
+      configurada sin poder comprobarse (permiso de ubicación denegado o sin GPS).</span>`;
+  }
 }
 function fillPersonSelects(){
   const opts = '<option value="">— Selecciona —</option>' + PEOPLE.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
@@ -1622,20 +1777,29 @@ document.getElementById('btnExpPreview').onclick = async ()=>{
     }
     events = eventsInRange(events, from, to).sort((a,b)=>a.occurredAt.localeCompare(b.occurredAt));
   }
-  events = events.map(e=>({...e, _outside: isOutsideBusinessHours(e)}));
+  events = events.map(e=>({...e, _outside: isOutsideBusinessHours(e), _outsideGeo: isOutsideGeofence(e)}));
   const totalOutside = events.filter(e=>e._outside).length;
-  if(onlyOutside) events = events.filter(e=>e._outside);
+  const totalOutsideGeo = events.filter(e=>e._outsideGeo===true).length;
+  if(onlyOutside) events = events.filter(e=>e._outside || e._outsideGeo===true);
 
-  lastExport = {label: personId ? personById(personId).name : 'Toda la plantilla', from, to, events, totalOutside};
+  lastExport = {label: personId ? personById(personId).name : 'Toda la plantilla', from, to, events, totalOutside, totalOutsideGeo};
   document.getElementById('expSummary').innerHTML = events.length
-    ? `${events.length} fichaje(s) en el periodo · <strong style="color:${totalOutside?'#b6401f':'inherit'}">${totalOutside} fuera de horario comercial</strong>`
+    ? `${events.length} fichaje(s) en el periodo · <strong style="color:${totalOutside?'#b6401f':'inherit'}">${totalOutside} fuera de horario comercial</strong>` +
+      ` · <strong style="color:${totalOutsideGeo?'#b6401f':'inherit'}">${totalOutsideGeo} fuera de lugar</strong>`
     : '';
   const box = document.getElementById('expPreviewBox');
   const head = personId ? '<th>Fecha</th><th>Hora</th><th>Tipo</th><th>Origen</th><th>Aviso</th>' : '<th>Persona</th><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Aviso</th>';
-  const avisoCell = e => e._outside ? '<span class="badge warn">⚠️ Fuera de horario</span>' : '';
+  const avisoCell = e => {
+    const parts = [];
+    if(e._outside) parts.push('<span class="badge warn">⚠️ Fuera de horario</span>');
+    if(e._outsideGeo===true) parts.push('<span class="badge warn">📍 Fuera de lugar</span>');
+    else if(e._outsideGeo==='sin_ubicacion') parts.push('<span class="badge no">📍 Sin ubicación</span>');
+    return parts.join(' ');
+  };
+  const flagRow = e => e._outside || e._outsideGeo===true;
   const rows = events.map(e=> personId
-    ? `<tr class="${e._outside?'flag':''}"><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td><td>${e.correctionOf?'Corrección':'Fichaje'}</td><td>${avisoCell(e)}</td></tr>`
-    : `<tr class="${e._outside?'flag':''}"><td>${e._name}</td><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td><td>${avisoCell(e)}</td></tr>`
+    ? `<tr class="${flagRow(e)?'flag':''}"><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td><td>${e.correctionOf?'Corrección':'Fichaje'}</td><td>${avisoCell(e)}</td></tr>`
+    : `<tr class="${flagRow(e)?'flag':''}"><td>${e._name}</td><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td><td>${avisoCell(e)}</td></tr>`
   ).join('');
   box.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${rows||'<tr><td colspan="5">Sin fichajes en ese rango.</td></tr>'}</tbody></table>`;
   document.getElementById('expActions').classList.remove('hidden');
@@ -1643,17 +1807,23 @@ document.getElementById('btnExpPreview').onclick = async ()=>{
 document.getElementById('btnExpPrint').onclick = ()=>{
   document.getElementById('printTitle').textContent = 'Fichaje — '+lastExport.label;
   document.getElementById('printMeta').textContent =
-    `Del ${lastExport.from||'inicio'} al ${lastExport.to||'hoy'} · ${lastExport.totalOutside||0} fichaje(s) fuera de horario comercial · generado ${new Date().toLocaleString('es-ES')}`;
-  document.getElementById('printBody').innerHTML = lastExport.events.map(e=>`<tr>
+    `Del ${lastExport.from||'inicio'} al ${lastExport.to||'hoy'} · ${lastExport.totalOutside||0} fichaje(s) fuera de horario comercial · ${lastExport.totalOutsideGeo||0} fuera de lugar · generado ${new Date().toLocaleString('es-ES')}`;
+  document.getElementById('printBody').innerHTML = lastExport.events.map(e=>{
+    const avisos = [e._outside?'⚠️ Fuera de horario':'', e._outsideGeo===true?'📍 Fuera de lugar':(e._outsideGeo==='sin_ubicacion'?'📍 Sin ubicación':'')].filter(Boolean).join(' · ');
+    return `<tr>
     <td>${e.dateKey}</td><td>${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td>
-    <td>${e._outside ? '⚠️ Fuera de horario' : ''}</td>
-    <td>${e.correctionReason ? `${e.correctionReason} (${e.correctedBy||'—'})` : '—'}</td></tr>`).join('');
+    <td>${avisos}</td>
+    <td>${e.correctionReason ? `${e.correctionReason} (${e.correctedBy||'—'})` : '—'}</td></tr>`;
+  }).join('');
   window.print();
 };
 document.getElementById('btnExpWhatsapp').onclick = ()=>{
   const lines = [`*Fichaje — ${lastExport.label}*`, `Del ${lastExport.from||'inicio'} al ${lastExport.to||'hoy'}`,
-    `${lastExport.totalOutside||0} fuera de horario comercial`, ''];
-  lastExport.events.forEach(e=> lines.push(`${e.dateKey} ${canaryTime(e.occurredAt)} — ${TYPE_LABEL[e.type]}${e._outside?' ⚠️':''}`));
+    `${lastExport.totalOutside||0} fuera de horario comercial · ${lastExport.totalOutsideGeo||0} fuera de lugar`, ''];
+  lastExport.events.forEach(e=>{
+    const avisos = (e._outside?' ⚠️':'') + (e._outsideGeo===true?' 📍':'');
+    lines.push(`${e.dateKey} ${canaryTime(e.occurredAt)} — ${TYPE_LABEL[e.type]}${avisos}`);
+  });
   window.open('https://wa.me/?text='+encodeURIComponent(lines.join('\n')), '_blank');
 };
 
