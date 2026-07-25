@@ -5,9 +5,10 @@
 // el estado de app.html vive en memoria del navegador, igual que el resto
 // de datos de la app hoy).
 //
-// Variables de entorno: ninguna necesaria para el proveedor "simulated"
-// (el único activo). Ver marketing-engine/core/providers/README.md para
-// cuando se conecte un proveedor real.
+// Variables de entorno: ninguna obligatoria — sin OPENAI_API_KEY, el
+// Creative Engine usa el proveedor "simulated". Con OPENAI_API_KEY
+// definida, genera la pieza real con OpenAI Images. Ver
+// creative-engine/FIRST_REAL_GENERATION.md.
 //
 // IMPORTANTE — bloqueantes conocidos antes de producción real (ver
 // marketing-engine/INTEGRATION.md para el detalle):
@@ -134,6 +135,50 @@ exports.handler = async (event) => {
       };
     } catch (err) {
       response.errors.push(`No se pudo leer la pieza final generada: ${err.message}`);
+    }
+  }
+
+  // ============================================================
+  // Primera conexión real: Marketing Engine → Creative Engine → proveedor
+  // real (OpenAI Images) → resultado real. Ver FIRST_REAL_GENERATION.md.
+  // Punto de sustitución de proveedor: una sola variable de entorno
+  // (OPENAI_API_KEY) — sin ella cae a "simulated", sin tocar código.
+  if (finalJob.status === 'completed') {
+    try {
+      const { fromMarketingEngine, runCreativePipeline } = require(path.join(REPO_ROOT, 'creative-engine/index.js'));
+      if (!process.env.CREATIVE_ENGINE_ASSETS_DIR) {
+        process.env.CREATIVE_ENGINE_ASSETS_DIR = path.join(process.env.TMPDIR || '/tmp', 'creative-engine-assets');
+      }
+      const creativeProviderId = process.env.OPENAI_API_KEY ? 'openai-images' : 'simulated';
+      const brief = fromMarketingEngine(finalJob);
+      const creativeResult = await runCreativePipeline(brief, { providerId: creativeProviderId, variantCount: 1 });
+      const variant = creativeResult.variants[0];
+
+      response.creative = {
+        creativeId: creativeResult.creativeId,
+        providerId: creativeProviderId,
+        providerStatus: variant.providerStatus,
+        providerError: variant.providerError,
+        validation: variant.validation,
+      };
+
+      // Solo se sustituye la pieza del maquetador por la del Creative
+      // Engine cuando hay una generación real de verdad (proveedor
+      // "openai-images" con éxito) — con el fallback "simulated" se
+      // mantiene el renderedAsset ya compuesto por el maquetador (mejor
+      // preview que un placeholder), pero `response.creative` deja
+      // constancia igualmente de que la costura se ejecutó.
+      if (creativeProviderId === 'openai-images' && variant.providerStatus === 'ok' && variant.assetPath) {
+        const buffer = fs.readFileSync(variant.assetPath);
+        response.renderedAsset = {
+          mimeType: 'image/png',
+          base64: buffer.toString('base64'),
+          width: creativeResult.preparedAssets.dimensions.width,
+          height: creativeResult.preparedAssets.dimensions.height,
+        };
+      }
+    } catch (err) {
+      response.errors.push(`Creative Engine no pudo generar la pieza: ${err.message}`);
     }
   }
 

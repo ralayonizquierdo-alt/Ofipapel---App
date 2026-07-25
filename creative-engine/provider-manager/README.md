@@ -9,7 +9,7 @@ para el contrato exacto (`GENERATION_REQUEST_SHAPE`/`GENERATION_RESULT_SHAPE`/
 | Proveedor | Estado | Tipo | Notas |
 |---|---|---|---|
 | `simulated` | **active** | image | Placeholder SVG determinista, sin red |
-| `openai-images` | planned | image | |
+| `openai-images` | **active** | image | Primer proveedor real conectado (ver `../FIRST_REAL_GENERATION.md`). Requiere `OPENAI_API_KEY` — sin ella lanza `PROVIDER_NOT_CONFIGURED` |
 | `canva` | planned | template | Rellena plantillas de marca, no genera desde cero |
 | `adobe-firefly` | planned | image | `design-studio/scripts/firefly-generate.js` ya tiene el cliente HTTP |
 | `ideogram` | planned | image | Fuerte en texto renderizado — ver nota en su fichero |

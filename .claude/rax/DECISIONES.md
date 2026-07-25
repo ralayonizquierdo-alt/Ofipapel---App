@@ -572,3 +572,40 @@ adicional del propietario durante la construcción.
 `marketing-engine/` ni de `app.html` se tocó. `creative-engine/creative-assets/assets/`
 es generado y está en `.gitignore` (mismo patrón de dos líneas que
 `marketing-engine/jobs/`).
+
+### 2026-07-25 — Primera generación real: Marketing Engine → Creative Engine → OpenAI Images
+
+**Contexto**: ambos motores estaban completos pero nunca conectados con
+un proveedor real. El propietario pidió demostrar la arquitectura, no
+ampliarla: un solo proveedor real (OpenAI Images), sin tocar `app.html`
+ni ningún agente.
+
+**Decisión**: se implementó `openai-images.provider.js` (llamada real a
+`/v1/images/generations`, `status: 'active'`) y se conectó en el único
+punto que ya conocía ambos motores: `netlify/functions/marketing-engine-run.js`.
+La elección de proveedor (`openai-images` si hay `OPENAI_API_KEY`, si no
+`simulated`) vive ahí, no dentro de `creative-engine/` — es el punto de
+sustitución de un futuro proveedor distinto. `response.renderedAsset`
+solo se sustituye por la imagen real cuando la generación tiene éxito de
+verdad; con el fallback se mantiene el PNG del maquetador, para no
+degradar la vista previa actual. Ver `FIRST_REAL_GENERATION.md`.
+
+**Verificado**: extremo a extremo con el fallback `simulated` (sin
+`OPENAI_API_KEY` en este entorno) — pipeline completo, `response.creative`
+presente, `renderedAsset` intacto. El cuerpo real de `generate()`
+(mapeo de tamaño, escritura de PNG, manejo de respuesta) se verificó por
+separado con `fetch` sustituido por un doble de prueba, sin llamada real
+a la API (no hay credencial en este sandbox).
+
+**Alternativas descartadas**: hacer que `marketing-engine/07-maquetador`
+llame a `creative-engine` directamente — descartado, rompería el
+principio de independencia ya documentado (conocimiento en un solo
+sentido). La integración vive en el puente, no en ninguno de los dos
+motores.
+
+**Quién decide**: propietario (objetivo explícito del sprint); Claude
+ejecutó implementación y verificación dentro de ese marco.
+
+**Reversibilidad**: alta — 3 ficheros tocados, ninguno de
+`marketing-engine/` ni `app.html`. Sin `OPENAI_API_KEY`, el comportamiento
+es idéntico al de antes de este sprint.
