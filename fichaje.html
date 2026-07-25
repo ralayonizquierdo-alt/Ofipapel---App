@@ -929,8 +929,7 @@ const GEOFENCES_DOC = '_geofences';
    - Ofipapel (Almacén, Oficina, Pedidos, Detalle, Informática, Mobiliario, Limpieza, Gerencia): C/ Bulevar
      Chajofe nº4, 38650 Los Cristianos.
    - Reparto: nave en C/ Tanganillo, Pol. Ind. Llano del Camello, 38639 San Miguel de Abona — coordenada
-     menos precisa (corresponde al polígono, no al número exacto de la calle); conviene recalibrarla con
-     "Usar mi ubicación actual" en cuanto alguien esté allí, por eso lleva más radio de margen.
+     exacta dada por el propietario, no localizada por dirección.
    - Aliz-1: Av. de Suecia nº7, 38650 Los Cristianos.
    - Aliz-2: Res. Las Viñas, C/ Noelia Afonso Cabrera, 38660 Playa de las Américas. */
 const DEFAULT_GEOFENCES = {
@@ -942,7 +941,7 @@ const DEFAULT_GEOFENCES = {
   mobiliario:         {lat:28.0536, lng:-16.7146, radius:120},
   limpieza:           {lat:28.0536, lng:-16.7146, radius:120},
   gerencia:           {lat:28.0536, lng:-16.7146, radius:120},
-  repartidores:       {lat:28.0555, lng:-16.6183, radius:250},
+  repartidores:       {lat:28.0531054, lng:-16.6218404, radius:120},
   aliz1:              {lat:28.05217, lng:-16.71787, radius:120},
   aliz2:              {lat:28.0600, lng:-16.7286, radius:120},
 };
