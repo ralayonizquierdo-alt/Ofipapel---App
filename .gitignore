@@ -6,6 +6,8 @@ joe-app/dist/
 design-studio/output/
 marketing-engine/jobs/*
 !marketing-engine/jobs/.gitkeep
+marketing-engine/intelligence/learning-engine/records/*
+!marketing-engine/intelligence/learning-engine/records/.gitkeep
 netlify/functions/node_modules/
 __pycache__/
 *.pyc

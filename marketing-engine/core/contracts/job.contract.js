@@ -44,6 +44,14 @@ const JOB_SHAPE = {
   retryCount: 'object',
   currentAgentIndex: 'number',
   status: JOB_STATUS,
+  // Lo adjunta core/orchestrator.js justo antes del primer agente (capa
+  // marketing-engine/intelligence/). Opcional a propósito por dos motivos:
+  // un Job recién salido de createJob() todavía no lo tiene, y si la capa
+  // de inteligencia falla se queda en null — el pipeline debe funcionar
+  // igual que antes de que existiera. La forma INTERNA la validan los
+  // contratos de intelligence/contracts.js, no este fichero: mismo
+  // criterio que `state`, aquí solo se valida la forma exterior del Job.
+  intelligence: maybe('object'),
 };
 
 // Sobre uniforme que devuelve CUALQUIER agents/0N-*/service.js. El

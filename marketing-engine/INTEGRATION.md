@@ -142,9 +142,24 @@ Vienen tal cual de `core/event-log.js` → `readEvents(jobId)`. Campos según `t
 | `agent_error` | `agentId`, `error` |
 | `loop_back` | `from`, `to`, `retryCount`, `reason` |
 | `provider_start` / `provider_result` / `provider_error` | `providerId`, `assetPath` o `error` |
+| `intelligence_ready` / `intelligence_scored` / `intelligence_error` | ver `marketing-engine/intelligence/README.md` |
 | `pipeline_end` | `status` (`completed`\|`failed_needs_human`), `reason` (si falló) |
 
 Todos llevan `at` (timestamp ISO), añadido automáticamente por `appendEvent()`.
+
+### `job.intelligence` — existe, pero deliberadamente no se expone todavía
+
+Desde 2026-07-25, `core/orchestrator.js` adjunta `job.intelligence`
+(recomendación, variantes, comparación con la decisión real, puntuación —
+ver `marketing-engine/intelligence/README.md`) a cada job, en modo
+`shadow` (nunca cambia una decisión real del pipeline). Se guarda en
+`jobs/<id>/job.json`, pero **`response` de esta función NO lo incluye**
+todavía — la respuesta HTTP arriba sigue siendo exactamente la misma que
+antes de esa capa, campo por campo. Es intencional: este sprint construyó
+la capa de inteligencia, no una nueva funcionalidad de cara a la app.
+Exponerlo es un cambio de una línea (añadir `response.intelligence =
+finalJob.intelligence;` junto al resto de campos condicionales), reservado
+para `marketing-engine/ROADMAP_V2.md`, Fase 1.
 
 ## `app.html` — qué cambió
 

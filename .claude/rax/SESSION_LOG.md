@@ -156,3 +156,60 @@ Netlify, resolver el bloqueante de Chromium en Lambda (empaquetar
 `@sparticuz/chromium` o equivalente). Si se decide persistir
 `CampaignStore` entre recargas, es un cambio ortogonal — hoy vive solo en
 memoria del navegador, igual que el resto del estado de `app.html`.
+
+---
+
+### 2026-07-25 — `marketing-engine/intelligence/`: ventaja competitiva en Shadow Mode
+
+**Resumen**: sprint nuevo, explícitamente distinto del anterior — el
+propietario pidió dejar de añadir funcionalidad técnica y construir en su
+lugar el conocimiento propio del sistema: cinco componentes (Product
+Intelligence, Campaign Recommender, Creative Score, Variant Engine,
+Learning Engine) que analizan cada producto, recomiendan un enfoque de
+campaña con razones, puntúan el resultado 0-100, y preparan la estructura
+para aprender de resultados reales — todo determinista, sin ningún
+proveedor de IA conectado. Al conectarlo con el pipeline, el propietario
+tomó la decisión de arquitectura central del sprint: la capa arranca en
+**Shadow Mode** — analiza, recomienda y compara con la decisión real del
+pipeline sin cambiar nunca esa decisión — y solo pasará a "Decision Mode"
+(un interruptor de una variable de entorno) cuando se demuestre con datos
+propios que sus recomendaciones son mejores o equivalentes.
+
+**Ejecutado**: `marketing-engine/intelligence/` completo (product-
+intelligence, campaign-recommender, creative-score, variant-engine,
+learning-engine, más `contracts.js`, `mode.js`, `clock.js`, `index.js`);
+dos costuras no bloqueantes en `core/orchestrator.js` (antes del primer
+agente, después del último) envueltas en `try/catch`; un campo opcional
+nuevo en `JOB_SHAPE`; `cli/run-intelligence.js` como demo; un bug real de
+coherencia encontrado y corregido durante el desarrollo (objetivo y tipo
+de campaña podían salir de dos señales de calendario distintas y
+contradictorias); documentación completa (`intelligence/README.md`,
+`ROADMAP_V2.md` con 4 fases a 12 meses, nueva sección en
+`ARCHITECTURE.md`, actualización de `INTEGRATION.md`/`CLAUDE.md`/
+`INVENTORY.md`). Verificado: determinismo byte a byte, razonamiento
+estacional real (misma ficha, tres fechas, tres campañas distintas),
+regresión completa del pipeline de 8 agentes sin ningún cambio de
+comportamiento, y resiliencia ante un almacén de aprendizaje no
+escribible.
+
+**No ejecutado, deliberadamente fuera de alcance en este sprint**: activar
+Decision Mode (ni siquiera parcialmente) — el propio propietario fue
+explícito en que primero hay que demostrarlo. Exponer `job.intelligence`
+en la respuesta de la función Netlify o en la UI de `app.html` — habría
+sido la "nueva funcionalidad técnica" que el propietario pidió dejar de
+añadir; queda para la Fase 1 de `ROADMAP_V2.md`. Registro automático de
+resultados reales (clics, ventas) — no hay ningún disparador real todavía,
+así que `recordOutcome()` existe y está probada pero nada la llama.
+
+**Decisiones tomadas**: ver `DECISIONES.md`, entrada 2026-07-25 (Shadow
+Mode).
+
+**Siguiente paso recomendado para la próxima sesión**: cuando haya
+volumen suficiente de campañas reales pasadas por el pipeline, revisar
+`agreementRate` acumulado en `learning-engine/store.js#listRecords()` por
+categoría — es la señal que decide si se activa Decision Mode (Fase 3 de
+`ROADMAP_V2.md`), no una fecha en el calendario. Antes de eso, la Fase 1
+(exponer la recomendación en el Almacén para que el propietario la vea
+junto al resultado real) es la pieza que falta para que Shadow Mode
+empiece a acumular comparaciones de campañas reales y no solo de
+ejemplos de CLI.

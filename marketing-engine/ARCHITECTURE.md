@@ -346,3 +346,63 @@ La pieza generada es un PNG real de 1080×1920 con el logo real de Ofipapel,
 el fondo corporativo real, el eslogan obligatorio, y el título del
 Copywriter — con un placeholder "IMAGEN SIMULADA" donde iría la fotografía
 del producto una vez se active un proveedor de IA real.
+
+## 13. Capa de Inteligencia (`marketing-engine/intelligence/`)
+
+**Añadida**: 2026-07-25, en el sprint posterior a la integración con
+`app.html`. Documentación completa en
+`intelligence/README.md` y `ROADMAP_V2.md` — esta sección es solo el
+resumen de cómo encaja en el pipeline descrito arriba.
+
+**Qué es y qué no es.** No es un agente — no aparece en `PIPELINE`
+(`core/pipeline-config.js`), no tiene `interface.js` por componente, nunca
+cruza el sobre uniforme `AGENT_RESULT_SHAPE` que valida el orquestador.
+Tampoco es un proveedor de IA — no está en `core/providers/registry.js`,
+no genera imágenes ni texto, cero llamadas de red. Es un tercer tipo de
+cosa: un servicio de `core/` (mismo nivel que `invokeProvider()`) que el
+orquestador invoca en dos puntos concretos, sin conocer sus cinco
+componentes internos (Product Intelligence, Campaign Recommender,
+Creative Score, Variant Engine, Learning Engine).
+
+**Las dos costuras con el orquestador** (`core/orchestrator.js`):
+
+```
+runPipeline(job):
+  appendEvent(pipeline_start)
+  attachIntelligence(job)        ← ANTES del primer agente (director-creativo)
+  while (...) { ... 8 agentes ... }
+  job.status = 'completed'
+  closeIntelligence(job)         ← DESPUÉS del último agente, antes del saveJob final
+  appendEvent(pipeline_end)
+```
+
+Ambas están envueltas en `try/catch` y nunca propagan un error — si
+`intelligence/` falla, `job.intelligence` queda en `null` y el pipeline
+completa exactamente igual que si el módulo no existiera (verificado:
+forzar un directorio de aprendizaje no escribible no rompe el pipeline,
+solo genera un evento `intelligence_error`).
+
+**Shadow Mode.** Por defecto (`intelligence/mode.js`,
+`MARKETING_ENGINE_INTELLIGENCE_MODE` sin definir), esta capa nunca cambia
+una decisión real: `attachIntelligence` calcula una recomendación propia
+sin tocar `job.input`, y `closeIntelligence` la compara con lo que el
+pipeline decidió de verdad una vez es definitivo. Cambiar a
+`decision` (una variable de entorno, ver `intelligence/mode.js`) hace que
+la recomendación se aplique como override de `job.input` — pero solo en
+los campos que el usuario no haya fijado ya, y nunca en producción hasta
+que Fase 3 de `ROADMAP_V2.md` lo justifique con datos de Shadow Mode.
+
+**Simulado vs. medido — igual que la tabla de la sección 9, pero para
+Creative Score en concreto**: 4 de sus 8 dimensiones (55 puntos) son
+medidas de verdad sobre el estado real del pipeline (branding contra
+`guardian-marca`, copy/claridad/jerarquía contra texto y composición
+reales); las otras 4 (45 puntos: impacto visual, atención, conversión,
+adecuación al público) son heurísticas proxy, marcadas
+`confidence:'proxy'` en el resultado, con su punto de enganche futuro
+documentado en `creative-score/service.js`.
+
+**Decisión de diseño no cubierta en la sección 10**: un fichero
+`contracts.js` único para las 5 formas de `intelligence/`, en vez del
+patrón `interface.js` por agente — porque estos componentes nunca cruzan
+la frontera de sobre uniforme que justifica ese patrón en `agents/`. Ver
+la cabecera de `intelligence/contracts.js` para el razonamiento completo.

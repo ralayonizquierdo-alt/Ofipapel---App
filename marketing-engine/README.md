@@ -58,6 +58,19 @@ crea campañas a través de `netlify/functions/marketing-engine-run.js`, qué
 puntos del motor se tocaron para hacerlo posible, y la guía completa para
 sustituir `simulated` por un proveedor de IA real.
 
+## Capa de inteligencia (`intelligence/`)
+
+Antes de que un job llegue a `01-director-creativo`, y otra vez cuando
+termina, `marketing-engine/intelligence/` lo analiza, recomienda un
+enfoque propio (con razones) y lo compara con lo que el pipeline decidió
+de verdad — en modo `shadow` (por defecto) nunca cambia ninguna decisión,
+solo asesora y registra. Ver **[intelligence/README.md](./intelligence/README.md)**
+y **[ROADMAP_V2.md](./ROADMAP_V2.md)**.
+
+```bash
+node marketing-engine/cli/run-intelligence.js marketing-engine/campaigns-input/ejemplo-producto-generico.json
+```
+
 ## `package.json`
 
 No existe todavía — nada aquí necesita un paquete npm (mismo precedente que
@@ -71,9 +84,10 @@ marketing-engine/
 ├── core/           orquestador, contratos compartidos, registro de proveedores
 ├── agents/         los 8 agentes, cada uno autocontenido
 ├── knowledge/       el cerebro: criterio creativo reutilizable, sin código ni IA — ver knowledge/README.md
+├── intelligence/    la capa de cálculo sobre ese criterio — ver intelligence/README.md
 ├── jobs/           estado + traza por ejecución (generado, no versionado salvo .gitkeep)
 ├── campaigns-input/ briefs de ejemplo para probar el pipeline
-└── cli/            punto de entrada de línea de comandos
+└── cli/            puntos de entrada de línea de comandos (pipeline + inteligencia)
 ```
 
 ## Conocimiento creativo (`knowledge/`)

@@ -25,6 +25,13 @@ const { AGENT_RESULT_SHAPE } = require('./contracts/job.contract.js');
 const { getProvider } = require('./providers/registry.js');
 const { saveJob } = require('./job-store.js');
 const { appendEvent } = require('./event-log.js');
+// Capa de inteligencia (marketing-engine/intelligence/) — ASESORA, nunca
+// bloqueante. A diferencia del proveedor de IA (cuyo fallo sí termina el
+// job en failed_needs_human), si esta capa falla el pipeline continúa
+// exactamente igual que antes de que existiera. En modo 'shadow' (por
+// defecto, ver intelligence/mode.js) nunca cambia ninguna decisión real —
+// solo analiza, compara y registra. Ver intelligence/README.md.
+const { enrichJob, closeJob } = require('../intelligence/index.js');
 
 const AGENTS_ROOT = path.join(__dirname, '..', 'agents');
 
@@ -57,6 +64,11 @@ function fail(job, reason) {
 async function runPipeline(job) {
   appendEvent(job.id, { type: 'pipeline_start', input: job.input });
   saveJob(job);
+
+  // Se ejecuta ANTES del primer agente (director-creativo), después de
+  // pipeline_start a propósito — para que ese siga siendo el primer evento
+  // de la traza que pinta app.html. Ver attachIntelligence() más abajo.
+  attachIntelligence(job);
 
   while (job.currentAgentIndex < PIPELINE.length) {
     const agentId = PIPELINE[job.currentAgentIndex];
@@ -119,6 +131,7 @@ async function runPipeline(job) {
   }
 
   job.status = 'completed';
+  closeIntelligence(job); // puntúa la pieza, compara y registra — antes del saveJob final
   saveJob(job);
   appendEvent(job.id, { type: 'pipeline_end', status: job.status });
   return job;
@@ -150,6 +163,45 @@ async function invokeProvider(job, especialistaPromptsOutput) {
   } catch (err) {
     appendEvent(job.id, { type: 'provider_error', providerId, error: err.message });
     return { failed: true, reason: `Proveedor "${providerId}" falló: ${err.message}` };
+  }
+}
+
+// Las dos costuras con marketing-engine/intelligence/. Ambas capturan
+// CUALQUIER error y siguen adelante: la inteligencia asesora y evalúa,
+// nunca decide si una campaña se produce o no (ni, en modo 'shadow', qué
+// forma tiene).
+function attachIntelligence(job) {
+  try {
+    job.intelligence = enrichJob(job);
+    appendEvent(job.id, {
+      type: 'intelligence_ready',
+      mode: job.intelligence.mode,
+      categoryKey: job.intelligence.productProfile.categoryKey,
+      campaignType: job.intelligence.recommendation.campaignType,
+      variants: job.intelligence.variants.length,
+    });
+  } catch (err) {
+    job.intelligence = null;
+    appendEvent(job.id, { type: 'intelligence_error', phase: 'enrich', error: err.message });
+  }
+}
+
+function closeIntelligence(job) {
+  if (!job.intelligence) return;
+  try {
+    const closed = closeJob(job);
+    job.intelligence.shadowComparison = closed.shadowComparison;
+    job.intelligence.creativeScore = closed.creativeScore;
+    appendEvent(job.id, {
+      type: 'intelligence_scored',
+      total: closed.creativeScore && closed.creativeScore.total,
+      band: closed.creativeScore && closed.creativeScore.band,
+      agreementRate: closed.shadowComparison && closed.shadowComparison.agreementRate,
+      recorded: closed.recorded,
+      warnings: closed.warnings,
+    });
+  } catch (err) {
+    appendEvent(job.id, { type: 'intelligence_error', phase: 'close', error: err.message });
   }
 }
 

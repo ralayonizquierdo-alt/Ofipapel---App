@@ -15,7 +15,7 @@ Mantenido por la Skill `project-manager`. Refleja el estado real del repo
 | Agente WhatsApp (Twilio, alternativa) | Automatización — variante del agente anterior vía Twilio | `netlify/functions/twilio-webhook.js` | Netlify Functions | Netlify Functions | Activo/paralelo — **sigue sin confirmar con el propietario cuál es la vía canónica** |
 | Landing genérica raíz | Redirect a `Index.html` | `index.html` (minúsculas) | HTML estático, `location.replace('Index.html')` | GitHub Pages + Netlify | Activo — confirmado intencional, no es deuda técnica |
 | Design Studio | Estudio de diseño autónomo compartido por las Skills visuales | `design-studio/` | Plantillas HTML + Playwright + Adobe for Creativity (MCP) + `brand-kit.json` (identidad visual machine-readable) | No se despliega | Activo — validado con la campaña real "Vuelta al Cole" |
-| Motor de Marketing con IA | Orquestación multi-agente (8 agentes) que convierte un brief de producto en una publicación lista, preparado para proveedores de IA reales sin tocar el núcleo | `marketing-engine/` | Node.js (CommonJS) puro, sin dependencias npm — CLI propio (`cli/run-pipeline.js`) y puente serverless (`netlify/functions/marketing-engine-run.js`, consumido por `app.html`), usa `design-studio/scripts/render-html.js` y `design-studio/brand-kit.json` por referencia | Netlify Functions (además del CLI) | Activo — funcional de punta a punta en modo simulado, integrado con `app.html`; ningún proveedor de IA real conectado todavía (ver `marketing-engine/INTEGRATION.md`) |
+| Motor de Marketing con IA | Orquestación multi-agente (8 agentes) que convierte un brief de producto en una publicación lista, preparado para proveedores de IA reales sin tocar el núcleo. Desde 2026-07-25, `intelligence/` analiza/recomienda/puntúa cada campaña en modo *shadow* (asesora, nunca decide) | `marketing-engine/` | Node.js (CommonJS) puro, sin dependencias npm — CLI propio (`cli/run-pipeline.js`, `cli/run-intelligence.js`) y puente serverless (`netlify/functions/marketing-engine-run.js`, consumido por `app.html`), usa `design-studio/scripts/render-html.js` y `design-studio/brand-kit.json` por referencia | Netlify Functions (además del CLI) | Activo — funcional de punta a punta en modo simulado, integrado con `app.html`; ningún proveedor de IA real conectado todavía (ver `marketing-engine/INTEGRATION.md`, `intelligence/README.md`) |
 | Panel de Redes Sociales | Almacén (crea campañas vía Motor de Marketing) + Calendario (programa lo ya aprobado) | `app.html` | HTML monolítico. Estado (`CampaignStore`) solo en memoria del navegador, sin persistencia | GitHub Pages + Netlify | Activo — integrado con `marketing-engine/` (2026-07-25); sin proveedores de IA reales todavía, ver `marketing-engine/INTEGRATION.md` |
 
 ## Skills de RAX (referencia — el detalle vive en `.claude/skills/README.md`)
@@ -53,6 +53,17 @@ decidir si "ya se puede retomar sales-marketing".
   `netlify/functions/marketing-engine-run.js` — ver
   `marketing-engine/INTEGRATION.md` para el mapa completo de puntos de
   integración y el bloqueante conocido de Playwright/Chromium en Lambda.
+- **Capa de Inteligencia**: `marketing-engine/intelligence/` (mismo
+  2026-07-25) — Product Intelligence, Campaign Recommender, Creative
+  Score, Variant Engine y Learning Engine, independientes de cualquier
+  proveedor de IA. Corre en modo *shadow* por defecto: analiza cada
+  campaña, recomienda con razones, compara con la decisión real del
+  pipeline y registra todo, sin cambiar ninguna decisión. Un modo
+  `decision` existe como interruptor de una sola variable de entorno
+  (`MARKETING_ENGINE_INTELLIGENCE_MODE`), pendiente de activar hasta que
+  el propio Shadow Mode demuestre que las recomendaciones son mejores o
+  equivalentes — ver `marketing-engine/intelligence/README.md` y
+  `marketing-engine/ROADMAP_V2.md`.
 
 ## Pendiente de activación en consolas externas (no ejecutable desde este repo)
 

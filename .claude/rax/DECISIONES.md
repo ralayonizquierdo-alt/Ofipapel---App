@@ -354,3 +354,109 @@ sigue funcionando igual sin `MARKETING_ENGINE_JOBS_DIR` definida). El
 cambio en `app.html` es más profundo (reescribe Almacén y Calendario) pero
 sigue siendo un único fichero versionado normalmente — revertible con
 `git revert` si hiciera falta.
+
+### 2026-07-25 — `marketing-engine/intelligence/`: capa de inteligencia en Shadow Mode
+
+**Contexto**: cerrada la integración app↔motor, el propietario cambió el
+objetivo del sprint explícitamente: *"A partir de este momento no quiero
+añadir nuevas funcionalidades técnicas. Quiero construir la ventaja
+competitiva del producto... No quiero depender únicamente de la calidad
+del modelo de IA. Quiero que el conocimiento del sistema sea el verdadero
+valor del producto."* Pidió 5 componentes (Product Intelligence, Campaign
+Recommender, Creative Score, Variant Engine, Learning Engine) que
+enriquecieran cada campaña antes de llegar al Director Creativo, sin
+conectar ningún proveedor de IA.
+
+Al plantear la integración con el orquestador surgió la decisión
+arquitectónica real de todo el sprint: ¿esta capa debía empezar a decidir,
+o solo asesorar? El propietario resolvió con una instrucción muy concreta,
+después de que se le presentaran las dos opciones: **modo "Shadow"**. La
+capa analiza, recomienda y compara con la decisión real — nunca decide —
+hasta que se demuestre con datos propios que sus recomendaciones son
+mejores o equivalentes, momento en el que se activa un modo "Decision" con
+una única variable de entorno, reversible en el acto.
+
+**Decisión**:
+
+1. **`marketing-engine/intelligence/`**, hermana de `core/` y `agents/`
+   dentro de `marketing-engine/` — no un conjunto de agentes nuevos en
+   `PIPELINE` (`core/pipeline-config.js`), sino un servicio de `core/`
+   (mismo nivel que `invokeProvider()`) con un único punto de entrada
+   (`index.js` → `enrichJob`/`closeJob`) que el orquestador invoca en dos
+   costuras: antes del primer agente y después del último, ambas
+   envueltas en `try/catch` sin propagación de errores.
+2. **`intelligence/mode.js`**: interruptor `shadow` (por defecto) /
+   `decision`, leído de `MARKETING_ENGINE_INTELLIGENCE_MODE` en cada
+   llamada (mismo patrón que `MARKETING_ENGINE_JOBS_DIR`). En `shadow`,
+   `enrichJob()` calcula su propia recomendación sin tocar `job.input`. En
+   `decision`, la aplica como override — pero nunca pisa un valor que el
+   usuario ya haya fijado explícitamente. Es el único sitio de todo el
+   módulo donde el modo cambia un comportamiento observable.
+3. **Comparación explicada, no solo registrada**: `campaign-recommender/service.js`
+   → `compareToActual()` corre al final del pipeline (cuando la decisión
+   real ya es definitiva, no antes de que un bucle de vuelta pudiera
+   cambiarla) y compara campo a campo — con `actual:null` explícito, nunca
+   inventado, en los campos que el pipeline no decide hoy (p. ej.
+   `campaignType`, que es un concepto exclusivo de `intelligence/`).
+4. **Registro automático para análisis futuro**: `learning-engine/store.js`
+   (mismo patrón que `core/job-store.js`: fichero por `jobId`, base
+   configurable vía `MARKETING_ENGINE_LEARNING_DIR`) guarda recomendación +
+   decisión real + comparación + puntuación en cada job completado — sin
+   que esto exponga nada nuevo en la app ni en la función Netlify.
+   `getRecommendationBias()` ya cuenta campañas comparables reales, pero
+   devuelve siempre un resultado neutro a propósito: contar no es
+   aprender, y este sprint no implementa lo segundo.
+5. **Creative Score honesto sobre lo que mide de verdad**: 55 de 100
+   puntos son medidas reales sobre el estado del pipeline (branding,
+   copy, claridad, jerarquía); los otros 45 (impacto visual, atención,
+   conversión, adecuación al público) son heurísticas proxy, marcadas
+   `confidence:'proxy'` en el resultado — nunca presentadas como medición
+   real. Nunca es una puerta: `08-control-calidad` sigue siendo el único
+   paso que puede bloquear una pieza.
+6. **`marketing-engine/ROADMAP_V2.md`** (nuevo): 4 fases a 12 meses, con
+   el criterio explícito del propietario ("cuando se compruebe que las
+   recomendaciones son mejores o equivalentes") como condición de la Fase
+   3 para activar `decision` mode — no una fecha, un criterio.
+
+**Verificado**: determinismo (misma entrada + misma fecha efectiva vía
+`MARKETING_ENGINE_NOW` = misma salida byte a byte), coherencia interna
+(un bug real encontrado y corregido en desarrollo: `objective` y
+`campaignType` podían derivarse de dos eventos de calendario activos
+distintos, produciendo p. ej. una recomendación "Lifestyle" con un CTA
+agresivo de "vender" — ahora ambos se derivan del mismo evento),
+razonamiento estacional (misma ficha, tres fechas, tres campañas
+distintas), regresión completa del pipeline existente con la capa activa,
+y resiliencia (un directorio de aprendizaje no escribible no rompe el
+pipeline — solo un evento `intelligence_error` en la traza).
+
+**Alternativas descartadas**:
+- Modelar `intelligence/` como agentes nuevos en `PIPELINE` — descartado:
+  nunca cruzan el sobre uniforme `AGENT_RESULT_SHAPE`, no son pasos
+  independientemente sustituibles por id como los proveedores de
+  `core/providers/registry.js`. Son una capa cohesionada con un punto de
+  entrada, más parecida a `invokeProvider()` que a un agente.
+- Un `interface.js` por componente (mismo patrón que `agents/`) —
+  descartado a favor de un único `contracts.js`: ese patrón existe en
+  `agents/` porque cada agente cruza la frontera de sobre uniforme que
+  valida el orquestador; ningún componente de `intelligence/` lo hace.
+- Activar `decision` mode en este mismo sprint, aunque fuera solo para
+  algún campo — descartado explícitamente por el propietario: el sprint
+  demuestra que la inteligencia razona bien antes de darle autoridad, no
+  al mismo tiempo.
+- Registrar automáticamente resultados reales (clics, ventas) en cada
+  job — descartado: no hay ningún disparador real todavía (ninguna UI
+  para introducirlos), así que `recordOutcome()` existe y está probada,
+  pero nada la llama todavía — evita fingir una funcionalidad que no
+  existe de verdad.
+
+**Quién decide**: propietario (instrucción directa del objetivo del
+sprint, y decisión explícita de Shadow Mode frente a Decision Mode tras
+presentársele la disyuntiva); Claude ejecutó diseño, implementación,
+verificación y documentación dentro de ese marco.
+
+**Reversibilidad**: total y de un solo paso para el modo
+(`MARKETING_ENGINE_INTELLIGENCE_MODE`, por defecto ya en el lado seguro).
+El resto es aditivo: carpeta nueva, dos costuras en `core/orchestrator.js`
+envueltas en `try/catch`, un campo opcional (`intelligence: maybe('object')`)
+en `JOB_SHAPE`. Ningún fichero de `agents/` se modificó — el pipeline de 8
+agentes es, byte a byte, el mismo de antes de este sprint.
