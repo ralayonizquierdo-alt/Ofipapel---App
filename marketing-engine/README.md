@@ -51,6 +51,13 @@ Ver `core/providers/README.md`. Resumen: un fichero nuevo en
 `05-especialista-prompts/config.js` a ese `providerId`. Cero cambios en el
 orquestador ni en ningún agente.
 
+## Integración con `app.html`
+
+Ver **[INTEGRATION.md](./INTEGRATION.md)** — cómo el Almacén de `app.html`
+crea campañas a través de `netlify/functions/marketing-engine-run.js`, qué
+puntos del motor se tocaron para hacerlo posible, y la guía completa para
+sustituir `simulated` por un proveedor de IA real.
+
 ## `package.json`
 
 No existe todavía — nada aquí necesita un paquete npm (mismo precedente que

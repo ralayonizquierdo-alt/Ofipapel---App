@@ -15,7 +15,8 @@ Mantenido por la Skill `project-manager`. Refleja el estado real del repo
 | Agente WhatsApp (Twilio, alternativa) | Automatización — variante del agente anterior vía Twilio | `netlify/functions/twilio-webhook.js` | Netlify Functions | Netlify Functions | Activo/paralelo — **sigue sin confirmar con el propietario cuál es la vía canónica** |
 | Landing genérica raíz | Redirect a `Index.html` | `index.html` (minúsculas) | HTML estático, `location.replace('Index.html')` | GitHub Pages + Netlify | Activo — confirmado intencional, no es deuda técnica |
 | Design Studio | Estudio de diseño autónomo compartido por las Skills visuales | `design-studio/` | Plantillas HTML + Playwright + Adobe for Creativity (MCP) + `brand-kit.json` (identidad visual machine-readable) | No se despliega | Activo — validado con la campaña real "Vuelta al Cole" |
-| Motor de Marketing con IA | Orquestación multi-agente (8 agentes) que convierte un brief de producto en una publicación lista, preparado para proveedores de IA reales sin tocar el núcleo | `marketing-engine/` | Node.js (CommonJS) puro, sin dependencias npm — CLI propio (`cli/run-pipeline.js`), usa `design-studio/scripts/render-html.js` y `design-studio/brand-kit.json` por referencia | No se despliega (CLI/script) | Activo — funcional de punta a punta en modo simulado; ningún proveedor de IA real conectado todavía (ver `marketing-engine/ARCHITECTURE.md`) |
+| Motor de Marketing con IA | Orquestación multi-agente (8 agentes) que convierte un brief de producto en una publicación lista, preparado para proveedores de IA reales sin tocar el núcleo | `marketing-engine/` | Node.js (CommonJS) puro, sin dependencias npm — CLI propio (`cli/run-pipeline.js`) y puente serverless (`netlify/functions/marketing-engine-run.js`, consumido por `app.html`), usa `design-studio/scripts/render-html.js` y `design-studio/brand-kit.json` por referencia | Netlify Functions (además del CLI) | Activo — funcional de punta a punta en modo simulado, integrado con `app.html`; ningún proveedor de IA real conectado todavía (ver `marketing-engine/INTEGRATION.md`) |
+| Panel de Redes Sociales | Almacén (crea campañas vía Motor de Marketing) + Calendario (programa lo ya aprobado) | `app.html` | HTML monolítico. Estado (`CampaignStore`) solo en memoria del navegador, sin persistencia | GitHub Pages + Netlify | Activo — integrado con `marketing-engine/` (2026-07-25); sin proveedores de IA reales todavía, ver `marketing-engine/INTEGRATION.md` |
 
 ## Skills de RAX (referencia — el detalle vive en `.claude/skills/README.md`)
 
@@ -47,7 +48,11 @@ decidir si "ya se puede retomar sales-marketing".
   `maquetador` renderiza con `render-html.js`). Sin proveedores de imagen/
   vídeo por IA conectados — arquitectura preparada para añadirlos (OpenAI
   Images, Google, Ideogram, Adobe Firefly, Flux, Runway, Veo) sin tocar el
-  núcleo. Ver `marketing-engine/ARCHITECTURE.md`.
+  núcleo. Ver `marketing-engine/ARCHITECTURE.md`. Desde 2026-07-25 es
+  además el "cerebro" real de `app.html` (Almacén) vía
+  `netlify/functions/marketing-engine-run.js` — ver
+  `marketing-engine/INTEGRATION.md` para el mapa completo de puntos de
+  integración y el bloqueante conocido de Playwright/Chromium en Lambda.
 
 ## Pendiente de activación en consolas externas (no ejecutable desde este repo)
 

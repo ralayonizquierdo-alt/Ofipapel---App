@@ -13,6 +13,16 @@ const { assertShape, enumOf, arrayOf, maybe } = require('./shapes.js');
 const JOB_STATUS = enumOf('running', 'completed', 'failed_needs_human');
 
 // Brief de entrada: lo que aporta el propietario/RAX al arrancar un job.
+//
+// Los 4 campos "maybe" (postTypeOverride/objective/creativeStyleHint/
+// targetDate) son opcionales por diseño: el pipeline decide esos mismos
+// aspectos de forma autónoma (01-director-creativo) si no se proporcionan.
+// Cuando la app permite al usuario elegirlos explícitamente en el
+// formulario de "Nueva Campaña" (ver marketing-engine/INTEGRATION.md),
+// pasan a tener prioridad sobre la simulación — nunca la sustituyen para
+// otros agentes, se consumen en un único sitio
+// (01-director-creativo/service.js). `targetDate` no lo consume ningún
+// agente: es solo para que la app muestre "fecha prevista" en el Almacén.
 const JOB_INPUT_SHAPE = {
   productName: 'string',
   category: 'string',
@@ -20,6 +30,10 @@ const JOB_INPUT_SHAPE = {
   description: 'string',
   channel: maybe(enumOf('instagram', 'facebook', 'whatsapp', 'ambas')),
   images: arrayOf('string'),
+  postTypeOverride: maybe(enumOf('foto', 'carrusel', 'reel')),
+  objective: maybe(enumOf('vender', 'emocionar', 'sorprender', 'minimalista')),
+  creativeStyleHint: maybe('string'),
+  targetDate: maybe('string'),
 };
 
 const JOB_SHAPE = {

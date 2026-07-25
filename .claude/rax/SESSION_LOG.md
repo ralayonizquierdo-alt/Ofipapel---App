@@ -94,3 +94,65 @@ canónico, cerrar esos dos ítems y publicar la campaña. Recordar activar
 "Allow anonymous sign-ins" (Supabase) y el proveedor "Anonymous" +
 desplegar `firestore.rules` (Firebase) — sin eso, el blindaje de acceso
 fusionado en este sprint no está realmente activo todavía.
+
+---
+
+### 2026-07-24/25 — Motor de Marketing con IA: construcción + integración con `app.html`
+
+**Resumen**: sesión larga en dos fases. Fase 1 (2026-07-24): construcción
+desde cero de `marketing-engine/`, un pipeline de 8 agentes con
+responsabilidad única (Director Creativo → Director de Arte → Guardián de
+Marca → Fotógrafo Publicitario → Especialista en Prompts → proveedor de
+IA → Copywriter → Maquetador → Control de Calidad), sin dependencias npm,
+con contratos propios por shape-checker, registro de proveedores (7
+"planned" + `simulated` activo), y `brand-kit.json` como fuente de verdad
+de marca verificada línea a línea contra el CSS real (se encontró y
+corrigió una imprecisión heredada de un intento anterior no fusionado,
+`sales-marketing`). Fase 2 (2026-07-25): integración de ese motor con
+`app.html` (el panel de redes sociales — se detectó que ni `CLAUDE.md` ni
+este inventario lo documentaban, corregido en la misma sesión), bajo el
+principio explícito del propietario de que la app nunca debe implementar
+lógica creativa propia. El propietario autorizó trabajo autónomo por el
+resto de su lista de prioridades tras dar el objetivo, sin pausar salvo
+decisión de arquitectura que comprometiera el proyecto — no surgió
+ninguna.
+
+**Ejecutado**: puente serverless nuevo
+(`netlify/functions/marketing-engine-run.js`) + `netlify.toml` con
+`included_files`; 3 bugs reales corregidos antes de construir el puente
+(ruta de almacenamiento de jobs incompatible con `/tmp` de Lambda,
+duplicada en dos escritores independientes; `metadata` sobrescrita en vez
+de fusionada en el orquestador, que habría roto en silencio el paso de
+fotos reales); 4 campos opcionales nuevos en `JOB_INPUT_SHAPE` consumidos
+en un único punto (Director Creativo); proveedor `simulated` capaz de usar
+una foto real de producto en vez de un placeholder abstracto; `app.html`
+reescrito con `CampaignStore` como estado único compartido, Almacén como
+centro de trabajo creativo (crear/aprobar/rechazar/editar) y Calendario
+reducido a solo-organizar (se eliminó su capacidad de crear contenido).
+Verificado de punta a punta con Playwright contra un servidor propio
+mínimo (sin `netlify-cli`): crear campaña con foto real → pipeline
+completo → aprobar → aparece en Calendario → programar, todo confirmado.
+Documentado en `marketing-engine/ARCHITECTURE.md`,
+`marketing-engine/INTEGRATION.md`, y en `CLAUDE.md`/`INVENTORY.md` (gap de
+`app.html` y `marketing-engine/` corregido en ambos).
+
+**No ejecutado, deliberadamente fuera de alcance por instrucción explícita
+del propietario**: ningún proveedor de IA real (OpenAI Images, Canva,
+Runway, Veo...) — sigue activo únicamente `simulated`. Tampoco se resolvió
+el bloqueante de Playwright/Chromium en AWS Lambda real (el maquetador
+solo se ha verificado en este sandbox de desarrollo, no en un despliegue
+real de Netlify) — documentado como bloqueante conocido, no solucionado,
+en `marketing-engine/INTEGRATION.md`.
+
+**Decisiones tomadas**: ver `DECISIONES.md`, entradas 2026-07-24 y
+2026-07-25.
+
+**Siguiente paso recomendado para la próxima sesión**: cuando el
+propietario quiera conectar el primer proveedor de IA real, seguir la guía
+de `marketing-engine/INTEGRATION.md` ("Cómo sustituir `simulated` por un
+proveedor real") — el punto de enganche ya está preparado y no requiere
+tocar `app.html` ni el orquestador. Antes de cualquier despliegue real a
+Netlify, resolver el bloqueante de Chromium en Lambda (empaquetar
+`@sparticuz/chromium` o equivalente). Si se decide persistir
+`CampaignStore` entre recargas, es un cambio ortogonal — hoy vive solo en
+memoria del navegador, igual que el resto del estado de `app.html`.

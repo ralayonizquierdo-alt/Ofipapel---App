@@ -11,7 +11,7 @@
 
 const { INPUT_SHAPE, OUTPUT_SHAPE } = require('./interface.js');
 const { assertShape } = require('../../core/contracts/shapes.js');
-const { CATEGORY_RULES, DEFAULT_CHANNEL } = require('./config.js');
+const { CATEGORY_RULES, DEFAULT_CHANNEL, OBJECTIVE_TONE_MAP } = require('./config.js');
 
 const AGENT_ID = 'director-creativo';
 
@@ -35,10 +35,22 @@ async function run(job) {
 
 function simulateDecision(job) {
   const rule = CATEGORY_RULES[job.input.category] || CATEGORY_RULES.default;
+  const { postTypeOverride, objective, creativeStyleHint } = job.input;
+
+  // Los overrides explícitos del usuario (elegidos en el formulario de
+  // "Nueva Campaña" de la app) priman sobre la simulación por categoría —
+  // pero solo aquí; el resto del pipeline sigue viendo un único
+  // postType/tone en la salida, sin necesidad de saber si vino de una
+  // regla o de una elección del usuario.
+  let strategy = `Mostrar "${job.input.productName}" destacando su beneficio principal para el público de ${job.input.brand}.`;
+  if (creativeStyleHint) {
+    strategy += ` Estilo pedido: ${creativeStyleHint}.`;
+  }
+
   return {
-    strategy: `Mostrar "${job.input.productName}" destacando su beneficio principal para el público de ${job.input.brand}.`,
-    postType: rule.postType,
-    tone: rule.tone,
+    strategy,
+    postType: postTypeOverride || rule.postType,
+    tone: (objective && OBJECTIVE_TONE_MAP[objective]) || rule.tone,
     channel: job.input.channel || DEFAULT_CHANNEL,
     graphicFamily: rule.graphicFamily,
   };

@@ -259,3 +259,98 @@ ejecutó el diseño y la implementación dentro de ese marco.
 una línea añadida a `design-studio/README.md`, una línea añadida a
 `.gitignore`), no modifica ningún fichero existente de las apps de
 negocio. `marketing-engine/jobs/` es generado y está en `.gitignore`.
+
+### 2026-07-25 — Integración `app.html` ↔ `marketing-engine/`: el Almacén como único punto de creación
+
+**Contexto**: el propietario pidió conectar de verdad `marketing-engine/`
+(hasta entonces solo accesible por CLI) con `app.html` (el panel de redes
+sociales — no documentado hasta ahora ni en este inventario ni en
+`CLAUDE.md`, gap corregido en esta misma sesión), con un principio
+explícito no negociable: *"La aplicación será únicamente la interfaz. El
+Marketing Engine será el cerebro. Toda decisión creativa debe pasar por el
+Marketing Engine. La aplicación nunca deberá implementar lógica creativa
+propia."* Sin nuevas pantallas ni navegación, sin proveedores de IA reales
+todavía, sin fusionar la PR. El propietario autorizó después trabajo
+autónomo por el resto de la lista de prioridades (revisar duplicidades,
+probar, documentar, informe final) sin pausar salvo decisión de
+arquitectura que comprometiera el proyecto.
+
+**Decisión**:
+
+1. **Puente serverless nuevo**, no cambios en el núcleo del motor:
+   `netlify/functions/marketing-engine-run.js` crea un `Job` a partir del
+   formulario "+ Nueva Campaña" del Almacén, ejecuta `runPipeline()` tal
+   cual, y devuelve el job final (incluida la pieza generada en base64,
+   porque la app no tiene backend/CDN propio). `app.html` nunca importa
+   nada de `marketing-engine/` directamente — solo `fetch()`.
+2. **3 bugs reales encontrados por el agente de planificación leyendo el
+   código fuente** (no solo la descripción), corregidos antes de construir
+   el puente encima: `job-store.js` tenía una ruta de escritura fija
+   incompatible con el filesystem de solo-`/tmp` de Lambda; dos escritores
+   de ficheros (`simulated.provider.js`, `07-maquetador/service.js`)
+   ignoraban esa capa y recalculaban su propia ruta por su cuenta;
+   `orchestrator.js` sobrescribía (en vez de fusionar) `metadata` al
+   invocar al proveedor, lo que habría roto en silencio el paso de la foto
+   real del producto. Ver tabla completa en `marketing-engine/INTEGRATION.md`.
+3. **4 campos opcionales nuevos** en `JOB_INPUT_SHAPE`
+   (`postTypeOverride`, `objective`, `creativeStyleHint`, `targetDate`),
+   consumidos en un único sitio (`01-director-creativo/service.js`): si el
+   usuario los elige en el formulario, priman sobre la simulación por
+   categoría; si no, el Director Creativo decide solo, igual que antes.
+   `targetDate` no lo consume ningún agente — es solo para que el Almacén
+   muestre "fecha prevista".
+4. **`simulated.provider.js` usa la foto real del producto cuando existe**
+   (`req.metadata.sourceImage` como `data:image/...`) en vez del
+   placeholder SVG abstracto — sigue sin ser IA real (cero red, cero
+   credenciales), pero permite verificar el flujo completo con un producto
+   de verdad, no solo con datos de relleno.
+5. **`CampaignStore`** (IIFE nueva en `app.html`, antes de `Almacen`/
+   `Calendario`): único estado compartido de campañas, con
+   `subscribe()`/`notify()` para que Almacén y Calendario se repinten
+   solos el uno al otro sin recargar. Sustituye los dos arrays
+   `carruseles` independientes y duplicados que existían antes (mismos 6
+   productos de demo, con `id`s coincidentes mostrando cosas distintas
+   según la vista — fuente real de inconsistencia, no solo redundancia de
+   código).
+6. **Cambio de responsabilidad, no solo de código**: el Calendario pierde
+   por completo la capacidad de crear contenido (se elimina el modal de
+   subida y su botón) — pasa a leer `CampaignStore` filtrando
+   `status === 'approved'`. Aprobar/rechazar/editar viven exclusivamente
+   en el Almacén, sobre el resultado que ya devolvió el motor.
+7. Verificado de punta a punta con Playwright contra un servidor mínimo
+   propio (módulo `http` nativo, sin `netlify-cli`): crear campaña con
+   foto real → pipeline real (20 eventos de traza) → `ready_for_review` →
+   aprobar → aparece en el pool del Calendario → programar → confirmado en
+   `stat-programados`. Guion completo en `marketing-engine/INTEGRATION.md`.
+
+**Alternativas descartadas**:
+- Que la app decidiera tipo/tono/estrategia y se lo "dijera" al motor —
+  descartado explícitamente por el propietario: rompería el principio
+  "toda decisión creativa pasa por el motor". Los overrides opcionales
+  (punto 3) son una influencia, no una decisión que la app tome por su
+  cuenta — el motor sigue siendo libre de ignorarlos si no vienen.
+- Editar el resultado de una campaña directamente en el Almacén (retocar
+  copy/imagen a mano) — descartado: "Editar" reabre el formulario y
+  **relanza el pipeline completo**, nunca modifica el resultado generado
+  a mano. Mantiene la garantía de que ningún contenido final salió sin
+  pasar por el motor.
+- Subir el asset generado a almacenamiento externo y devolver una URL —
+  descartado por ahora: la app no tiene backend/CDN propio hoy (ninguna
+  vista de `app.html` lo tiene), así que se devuelve base64 inline,
+  documentado como límite práctico (~6MB) a resolver si se conecta un
+  proveedor de vídeo real.
+
+**Quién decide**: propietario (instrucción directa, incluyendo
+autorización explícita para trabajo autónomo sin pausas de confirmación);
+Claude ejecutó diseño, implementación, pruebas y documentación dentro de
+ese marco, deteniéndose solo en los puntos que sí requerían decisión del
+propietario (ninguno surgió — los 3 bugs y el diseño de estados se
+resolvieron dentro del marco ya autorizado).
+
+**Reversibilidad**: alta — el puente es un fichero nuevo
+(`marketing-engine-run.js`) más una entrada en `netlify.toml`; los cambios
+en `marketing-engine/core/` son compatibles hacia atrás con el CLI (que
+sigue funcionando igual sin `MARKETING_ENGINE_JOBS_DIR` definida). El
+cambio en `app.html` es más profundo (reescribe Almacén y Calendario) pero
+sigue siendo un único fichero versionado normalmente — revertible con
+`git revert` si hiciera falta.

@@ -130,7 +130,18 @@ async function invokeProvider(job, especialistaPromptsOutput) {
 
   try {
     const provider = getProvider(providerId);
-    const request = { ...generationRequest, metadata: { jobId: job.id } };
+    const request = {
+      ...generationRequest,
+      // Fusiona con cualquier metadata que ya trajera especialista-prompts
+      // (nunca la sobrescribe) y añade jobId + la foto real del producto,
+      // si el usuario subió una, para que el proveedor pueda usarla en vez
+      // de generar un placeholder abstracto (ver simulated.provider.js).
+      metadata: {
+        ...(generationRequest.metadata || {}),
+        jobId: job.id,
+        sourceImage: job.input.images[0] || null,
+      },
+    };
     const genResult = await provider.generate(request);
     job.state[PROVIDER_STATE_KEY] = genResult;
     appendEvent(job.id, { type: 'provider_result', providerId, assetPath: genResult.assetPath });

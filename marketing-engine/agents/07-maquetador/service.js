@@ -15,6 +15,7 @@ const { INPUT_SHAPE, OUTPUT_SHAPE } = require('./interface.js');
 const { assertShape } = require('../../core/contracts/shapes.js');
 const { REPO_ROOT, RENDER_SCRIPT, NODE_PATH_FOR_PLAYWRIGHT, RENDER_SCALE } = require('./config.js');
 const { buildHtml } = require('./templates/pieza-generica.js');
+const { jobDir: getJobDir } = require('../../core/job-store.js');
 
 const AGENT_ID = 'maquetador';
 const BRAND_KIT_PATH = path.join(REPO_ROOT, 'design-studio', 'brand-kit.json');
@@ -30,9 +31,8 @@ async function run(job) {
   const width = provider.width || 1080;
   const height = provider.height || 1920;
 
-  const jobDir = path.join(REPO_ROOT, 'marketing-engine', 'jobs', job.id);
-  const tmpDir = path.join(jobDir, 'tmp');
-  const assetsDir = path.join(jobDir, 'assets');
+  const tmpDir = path.join(getJobDir(job.id), 'tmp');
+  const assetsDir = path.join(getJobDir(job.id), 'assets');
   fs.mkdirSync(tmpDir, { recursive: true });
   fs.mkdirSync(assetsDir, { recursive: true });
 

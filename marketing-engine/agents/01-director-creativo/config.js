@@ -11,4 +11,15 @@ const CATEGORY_RULES = {
 
 const DEFAULT_CHANNEL = 'ambas';
 
-module.exports = { CATEGORY_RULES, DEFAULT_CHANNEL };
+// Mapeo de job.input.objective (si el usuario lo elige explícitamente en
+// la app) a un tono — mismos 4 modos de comunicación que
+// marketing-engine/knowledge/creative-playbook.md. Cuando está presente,
+// prima sobre el tono por defecto de CATEGORY_RULES (ver service.js).
+const OBJECTIVE_TONE_MAP = {
+  vender: 'directo y persuasivo, con urgencia clara',
+  emocionar: 'cálido y cercano, construye relación antes que vender',
+  sorprender: 'rompe el patrón habitual del feed, con energía',
+  minimalista: 'sobrio, preciso, sin adjetivos vacíos',
+};
+
+module.exports = { CATEGORY_RULES, DEFAULT_CHANNEL, OBJECTIVE_TONE_MAP };

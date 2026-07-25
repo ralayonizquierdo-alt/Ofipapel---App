@@ -13,15 +13,18 @@ sesión — no dupliques aquí lo que ya vive en otro sitio.
 | `Index.html` | Control financiero de Ofipapel (ventas, caja, informes) | HTML/CSS/JS vanilla en un único fichero, sin build. Supabase como backend (URL + clave `anon` hardcodeadas en el fichero, es el modelo esperado para clientes frontend). Asistente de IA vía proxy server-side (`netlify/functions/chat-assistant.js`), no llama a Anthropic directamente desde el navegador. |
 | `canarias-ink.html` | Catálogo/e-commerce de consumibles de impresora | HTML/CSS/JS vanilla en un único fichero, sin build. Catálogo de productos embebido como array JS. |
 | `falcontrol.html` | App personal de alertas de radio, sin relación de negocio con Ofipapel | HTML/CSS/JS vanilla en un único fichero, sin build. |
+| `app.html` | Panel de redes sociales de Ofipapel: Almacén (centro de trabajo creativo — crea campañas y el Marketing Engine las produce) y Calendario (solo programa en el tiempo lo que el Almacén ya aprobó) | HTML/CSS/JS vanilla en un único fichero, sin build. Estado compartido en memoria (`CampaignStore`, sin persistencia — se pierde al recargar). Crea campañas vía `netlify/functions/marketing-engine-run.js`; nunca implementa lógica creativa propia, ver `marketing-engine/INTEGRATION.md`. |
 | `privacidad.html` | Política de privacidad (requerida para el review de la app de WhatsApp Cloud API) | HTML estático |
 | `joe-app/` | App personal: agenda, turnos de hospital, música, seguimiento de "Limón", tareas de empresa, "Coisinhas" | React 19 + Vite + TypeScript + Tailwind 4 + Supabase (persistencia real en la nube) |
 | `alquileres/` | Gestión de alquileres vacacionales: reservas, precios, reparaciones, cobros, analítica | React 19 + Vite + TypeScript + Tailwind 4 + Recharts + **Firebase Firestore** (proyecto `ofipapelvv`) como backend real, con login de app y `firestore.rules` (pendiente de activar el proveedor Anonymous y desplegar, ver `.claude/rax/DEUDA_TECNICA.md`). |
 | `netlify/functions/` | Bot de WhatsApp con IA para atención al cliente | Netlify Functions. `whatsapp-webhook.js` (Meta Cloud API) y `twilio-webhook.js` (alternativa Twilio) — cuál de las dos es la canónica sigue sin decidirse, ver deuda técnica. Usa `whatsapp-agent-config.js` (reglas FAQ + prompt) y la API de Anthropic cuando ninguna regla coincide. |
 | `design-studio/` | Estudio de diseño autónomo de RAX: banners, posts, landing pages, edición de imagen | Ver `design-studio/README.md` — plantillas HTML renderizadas con Playwright/Chromium + Adobe for Creativity (MCP) + Adobe Firefly API (opcional, requiere credenciales) |
+| `marketing-engine/` | Motor de Marketing con IA: pipeline de 8 agentes que convierte un brief de producto en una publicación lista — el "cerebro" creativo que consume `app.html` (Almacén) vía `netlify/functions/marketing-engine-run.js` | Node.js (CommonJS) puro, sin dependencias npm. Único proveedor de imagen activo hoy: `simulated` (sin IA real todavía). Ver `marketing-engine/ARCHITECTURE.md` (diseño interno) e `INTEGRATION.md` (cómo se conecta con la app y cómo activar un proveedor real). |
 
-Los tres HTML monolíticos (`Index.html`, `canarias-ink.html`, `falcontrol.html`)
-no tienen proceso de build: se sirven tal cual. Cualquier cambio se hace
-editando el fichero directamente (CSS y JS están embebidos inline).
+Los HTML monolíticos (`Index.html`, `canarias-ink.html`, `falcontrol.html`,
+`app.html`) no tienen proceso de build: se sirven tal cual. Cualquier
+cambio se hace editando el fichero directamente (CSS y JS están embebidos
+inline).
 
 ## Comandos
 
