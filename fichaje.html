@@ -1043,6 +1043,19 @@ let selectedPerson = null;
 let pinBuffer = '';
 let cachedGeo = null;
 
+/* El <optgroup> del desplegable nativo (sobre todo en Android) lo pinta el propio sistema operativo,
+   no la página — un font-weight por CSS no le llega. Para que el nombre del departamento salga en negrita
+   de verdad se sustituyen sus letras por el bloque Unicode "Mathematical Bold" (son otros caracteres, no
+   un estilo), que cualquier selector nativo respeta igual que texto normal. Los acentos y "·" se dejan
+   tal cual (ese bloque Unicode no cubre vocales acentuadas). */
+function boldUnicode(str){
+  return str.replace(/[A-Za-z]/g, ch=>{
+    const code = ch.charCodeAt(0);
+    if(code>=65 && code<=90) return String.fromCodePoint(0x1D400 + (code-65));
+    if(code>=97 && code<=122) return String.fromCodePoint(0x1D41A + (code-97));
+    return ch;
+  });
+}
 function populatePersonSelect(){
   const grid = document.getElementById('deptGrid');
   const groups = peopleGroupedForClock();
@@ -1052,7 +1065,7 @@ function populatePersonSelect(){
       <select class="person-select" data-unit="${g.unitId}">
         <option value="" selected disabled>— Elige tu nombre —</option>
         ${g.subgroups
-          ? g.subgroups.map(sg=>`<optgroup label="${sg.label}">` +
+          ? g.subgroups.map(sg=>`<optgroup label="${boldUnicode(sg.label)}">` +
               sg.people.map(p=>`<option value="${p.id}">${p.name}</option>`).join('') +
               `</optgroup>`).join('')
           : g.people.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
