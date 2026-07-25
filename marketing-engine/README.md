@@ -63,7 +63,19 @@ la señal para crear uno.
 marketing-engine/
 ├── core/           orquestador, contratos compartidos, registro de proveedores
 ├── agents/         los 8 agentes, cada uno autocontenido
+├── knowledge/       el cerebro: criterio creativo reutilizable, sin código ni IA — ver knowledge/README.md
 ├── jobs/           estado + traza por ejecución (generado, no versionado salvo .gitkeep)
 ├── campaigns-input/ briefs de ejemplo para probar el pipeline
 └── cli/            punto de entrada de línea de comandos
 ```
+
+## Conocimiento creativo (`knowledge/`)
+
+Los 6 agentes hoy simulados (todos salvo Guardián de Marca y Maquetador,
+ver arriba) toman decisiones con reglas deterministas simples en su
+`config.js`. **Antes de conectarlos a un LLM real**, ese LLM debe recibir
+como contexto el contenido relevante de `knowledge/` — el criterio de un
+Director Creativo de agencia (cuándo vender/emocionar/sorprender, qué
+estrategia de campaña usar, cómo componer, cómo escribir, qué formato
+elegir). Sin eso, conectar un LLM solo cambia *quién* rellena la plantilla,
+no la calidad de la decisión. Ver `knowledge/README.md`.
