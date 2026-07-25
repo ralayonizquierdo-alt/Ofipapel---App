@@ -8,6 +8,8 @@ marketing-engine/jobs/*
 !marketing-engine/jobs/.gitkeep
 marketing-engine/intelligence/learning-engine/records/*
 !marketing-engine/intelligence/learning-engine/records/.gitkeep
+creative-engine/creative-assets/assets/*
+!creative-engine/creative-assets/assets/.gitkeep
 netlify/functions/node_modules/
 __pycache__/
 *.pyc

@@ -460,3 +460,115 @@ El resto es aditivo: carpeta nueva, dos costuras en `core/orchestrator.js`
 envueltas en `try/catch`, un campo opcional (`intelligence: maybe('object')`)
 en `JOB_SHAPE`. Ningún fichero de `agents/` se modificó — el pipeline de 8
 agentes es, byte a byte, el mismo de antes de este sprint.
+
+### 2026-07-25 — `creative-engine/`: motor de generación, independiente de marketing-engine
+
+**Contexto**: con la capa de inteligencia ya construida y en Shadow Mode,
+el propietario pidió separar por completo el "pensar" del "crear": *"El
+Marketing Engine piensa. El Creative Engine crea."* Nueva carpeta de
+primer nivel `creative-engine/`, explícitamente **completamente
+independiente de `marketing-engine/`**, con 6 componentes (Provider
+Manager, Asset Pipeline, Prompt Composer, Variant Generator, Creative
+Validator, Creative Assets) — solo arquitectura, sin conectar ningún
+proveedor de IA todavía.
+
+Un agente de planificación revisó el diseño contra el código real antes
+de construir y encontró un hallazgo crítico que un diseño superficial no
+habría capturado: `marketing-engine/core/providers/` ya tenía 6 de los 8
+proveedores pedidos aquí (mismos ids, mismo estado `planned`) — construir
+un segundo registro sin resolver por escrito cuál manda habría violado
+"cero duplicidades" (`CLAUDE.md`) y habría dejado al primer proveedor real
+que se active sin saber qué fichero editar.
+
+**Decisión**:
+
+1. **Mecanismo de independencia real, no solo intención**: `CreativeBrief`
+   (`brief/contracts.js`) es el único contrato de entrada — refleja
+   estructuralmente la salida de marketing-engine (director-creativo,
+   director-arte, fotógrafo, Product Intelligence, Campaign Recommender)
+   sin importar ni un fichero de allí. Verificado con
+   `grep -rnE "require\(['\"](\.\./)+marketing-engine" creative-engine/`
+   → vacío. `brief/from-marketing-engine.js` es un mapper puro (cero
+   `require`) que sí se construyó ahora, no se dejó como prosa — es la
+   respuesta ejecutable a "cómo se conectará después", verificada con el
+   flag `--from-marketing-engine` del CLI de demo.
+2. **`creative-engine/provider-manager/` se declara el registro canónico
+   para generación creativa real**; `marketing-engine/core/providers/`
+   queda legado por escrito en `creative-engine/ARCHITECTURE.md` §4 — sin
+   tocar ni un fichero de `marketing-engine/` (`simulated` sigue siendo
+   necesario allí porque el pipeline de 8 agentes lo usa hoy). Cualquier
+   proveedor real futuro se activa en `creative-engine/`.
+3. **Se incluyó un proveedor `simulated` activo** (placeholder SVG
+   determinista, sin red) — sin él, Creative Assets (imágenes/versiones)
+   nunca se habría ejercitado de verdad en la demo. Mismo criterio ya
+   aceptado en `marketing-engine/` y en `intelligence/`.
+4. **Prompt Composer modular con orden declarado**: 9 secciones
+   (`sections/*.js`), producto siempre primero, formato técnico siempre
+   último, las dos secciones de estrategia (inteligencia de producto,
+   campaña) DESPUÉS del lenguaje puramente visual para no diluirlo con
+   vocabulario de negocio que un modelo de imagen no interpreta.
+5. **Principio de "composición posterior"**: ninguna sección pide
+   renderizar texto — `sections/copy.js` solo reserva espacio negativo
+   (mismo patrón que ya usa `07-maquetador` con HTML→PNG). Es lo que hace
+   coherentes 2 de los 6 checks del Validador (`espacioLogo`/
+   `espacioTextos`).
+6. **Variant Generator declarado como eje ORTOGONAL** al de
+   `marketing-engine/intelligence/variant-engine/`: aquel varía QUÉ
+   campaña (estrategia), este varía CÓMO se fotografía una campaña YA
+   elegida (ángulo/luz/composición) — componen multiplicativamente, no se
+   consolidan. "Cada variante realmente distinta" se implementó como
+   invariante forzado (`assertDistinctPrompts()`, lanza si dos variantes
+   comparten el mismo prompt), no como una esperanza.
+7. **Creative Validator con 6 checks, todos `evaluatedOn:'plan'` hoy**
+   (nunca `'pixel'` — no existe ninguna imagen real que inspeccionar,
+   `simulated` es un placeholder abstracto). `regenerationHints` ya
+   existe como mecanismo para que una futura v2 produzca de verdad un
+   prompt distinto, aunque el bucle de regeneración real no se ejecuta
+   este sprint (no hay proveedor real con el que regenerar).
+8. **Bug real encontrado en desarrollo, corregido antes de completar**:
+   `assertSupports` rechazaba de forma dura cualquier `negativePrompt`
+   que un proveedor no soportara — pero Prompt Composer SIEMPRE genera
+   uno, así que cualquier proveedor con `supportsNegativePrompt:false`
+   (p. ej. `openai-images`, fiel a la API real) rompía el pipeline
+   entero. Separado en dos funciones: `assertSupports` (solo
+   `contentClass`, requisito duro, lanza) y `adaptToCapabilities`
+   (negativePrompt/imágenes de referencia, requisito suave, se descartan
+   con aviso en vez de romper) — el Provider Manager ahora adapta la
+   petición al proveedor en vez de exigir que el resto del sistema lo
+   anticipe.
+
+**Verificado**: independencia (grep), sintaxis (35 ficheros), registro (9
+proveedores validan al cargar), demo completa en los dos desenlaces
+(brief completo vía `--from-marketing-engine` → aprueba 6/6; brief
+incompleto → falla 3/6 con `regenerationHints` accionables), fallo de
+proveedor no implementado gestionado con gracia (`pending-provider`,
+sigue guardando `prompt.json`/`metadata.json`), 10 variantes con 10
+prompts únicos, determinismo (mismo brief + misma fecha = mismos prompts
+byte a byte en dos ejecuciones), almacén de versiones con orden numérico
+correcto (v10 no ordena antes que v2), y regresión completa del pipeline
+de `marketing-engine/` sin ningún cambio de comportamiento.
+
+**Alternativas descartadas**:
+- Reutilizar el registro de proveedores de `marketing-engine/` en vez de
+  crear uno nuevo — descartado: habría creado la dependencia cruzada que
+  la independencia exige evitar, y ese registro no soporta vídeo ni
+  proveedores de tipo plantilla (Canva).
+- Dejar `marketing-engine/core/providers/` y `creative-engine/provider-manager/`
+  como dos registros igual de válidos, sin declarar cuál manda —
+  descartado explícitamente: es exactamente la ambigüedad que
+  `CLAUDE.md` pide evitar ("cero duplicidades").
+- Permitir que proveedores como Ideogram (fuerte en texto renderizado)
+  rompan el principio de composición posterior en silencio — descartado:
+  se documentó como decisión pendiente y explícita, no una excepción
+  tácita.
+
+**Quién decide**: propietario (instrucción directa del objetivo del
+sprint); Claude ejecutó diseño (con validación de un agente de
+planificación contra el código real), implementación, verificación y
+documentación dentro de ese marco — sin necesitar ninguna decisión
+adicional del propietario durante la construcción.
+
+**Reversibilidad**: alta — todo el módulo es aditivo, ningún fichero de
+`marketing-engine/` ni de `app.html` se tocó. `creative-engine/creative-assets/assets/`
+es generado y está en `.gitignore` (mismo patrón de dos líneas que
+`marketing-engine/jobs/`).

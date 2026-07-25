@@ -213,3 +213,66 @@ categoría — es la señal que decide si se activa Decision Mode (Fase 3 de
 junto al resultado real) es la pieza que falta para que Shadow Mode
 empiece a acumular comparaciones de campañas reales y no solo de
 ejemplos de CLI.
+
+---
+
+### 2026-07-25 — `creative-engine/`: motor de generación de contenido, independiente
+
+**Resumen**: mismo día, tercer sprint de arquitectura de la sesión. Con
+`marketing-engine/intelligence/` ya construido en Shadow Mode, el
+propietario pidió separar por completo el "pensar" del "crear" — nueva
+carpeta de primer nivel `creative-engine/`, explícitamente independiente
+de `marketing-engine/`, con 6 componentes (Provider Manager, Asset
+Pipeline, Prompt Composer, Variant Generator, Creative Validator,
+Creative Assets), solo arquitectura, sin conectar ningún proveedor de IA.
+Un agente de planificación encontró antes de construir que
+`marketing-engine/core/providers/` ya tenía 6 de los 8 proveedores
+pedidos (mismos ids) — se resolvió declarando el nuevo registro de
+`creative-engine/` como canónico y el de `marketing-engine/` como legado,
+por escrito, en vez de dejar dos registros ambiguos.
+
+**Ejecutado**: los 6 componentes completos (41 ficheros: DSL de
+validación independiente, `CreativeBrief` + mapper puro desde
+marketing-engine, 9 proveedores registrados con capacidades declaradas,
+Asset Pipeline con dimensiones reales verificadas de `app.html` y
+resolución posicional de paleta de marca, Prompt Composer modular de 9
+secciones con orden y principio de "composición posterior" documentados,
+Variant Generator con distinción forzada de prompts
+(`assertDistinctPrompts`), Creative Validator con 6 checks y
+`regenerationHints`, almacén de versiones con numeración correcta);
+`index.js` como fachada única + CLI de demo; `ARCHITECTURE.md` (el
+entregable explícito pedido) documentando la convivencia con
+marketing-engine, los dos ejes ortogonales de variación, y cómo se
+conectará después a OpenAI Images/Canva/vídeo. Un bug real encontrado y
+corregido durante el desarrollo: `assertSupports` rechazaba de forma
+dura cualquier campo que un proveedor no soportara (p. ej.
+`negativePrompt` en `openai-images`, fiel a la API real), rompiendo el
+pipeline entero pese a que Prompt Composer siempre genera uno —
+separado en un requisito duro (`assertSupports`, solo `contentClass`) y
+uno suave (`adaptToCapabilities`, descarta con aviso en vez de romper).
+Verificado: independencia por grep, sintaxis de los 35 ficheros `.js`,
+demo con los dos desenlaces del Validador, fallo de proveedor gestionado
+con gracia, 10/10 variantes con prompts únicos, determinismo, y
+regresión completa de `marketing-engine/` sin cambios.
+
+**No ejecutado, deliberadamente fuera de alcance**: ningún proveedor de
+IA real (ni siquiera parcialmente) — solo arquitectura, tal como se
+pidió explícitamente. El cableado en vivo entre `creative-engine/` y
+`marketing-engine/` (que algo llame a `runCreativePipeline` de verdad
+desde el orquestador o desde una función Netlify) — el mapper existe y
+está probado, pero nada lo invoca automáticamente todavía; es la
+integración del sprint siguiente.
+
+**Decisiones tomadas**: ver `DECISIONES.md`, entrada 2026-07-25
+(`creative-engine/`).
+
+**Siguiente paso recomendado para la próxima sesión**: cuando se decida
+activar el primer proveedor real, seguir la guía de
+`creative-engine/provider-manager/README.md` (un fichero + una línea) —
+el punto de enganche ya está preparado y verificado con `simulated`. Si
+se decide conectar los dos motores en vivo, `brief/from-marketing-engine.js`
+ya define el mapeo exacto; falta decidir desde dónde se llama
+(¿`core/orchestrator.js` de marketing-engine, o una función Netlify
+nueva que orqueste ambos?) — es una decisión de arquitectura real, no
+solo de código, y debería plantearse explícitamente al propietario antes
+de construirla.
