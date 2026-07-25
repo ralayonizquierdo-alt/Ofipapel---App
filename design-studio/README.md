@@ -99,6 +99,14 @@ Cada uno de los tres productos de Ofipapel tiene su propia identidad visual
 ya establecida en el código — úsalas para que cualquier pieza nueva encaje
 con lo existente en vez de inventar una paleta distinta.
 
+**Estos mismos valores existen también en `design-studio/brand-kit.json`**
+(formato machine-readable, un objeto por marca) para que código — no solo
+una sesión de Claude leyendo prosa — pueda validarlos automáticamente (lo
+usa `marketing-engine/agents/03-guardian-marca`). Ambos ficheros se
+actualizan juntos en el mismo commit; si alguna vez divergen, `brand-kit.json`
+es la fuente autoritativa para validación automática y este README es su
+explicación en prosa.
+
 ### Ofipapel (`Index.html`) — control financiero / marca institucional
 - Verde oscuro corporativo: `#1A5C1A` · Verde medio: `#237523` · Verde claro: `#3DAF3D`
 - Acento lima (del logo): `#8DC41E` · Acento oscuro: `#6FA018`

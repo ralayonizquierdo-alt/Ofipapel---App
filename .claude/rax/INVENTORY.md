@@ -14,7 +14,8 @@ Mantenido por la Skill `project-manager`. Refleja el estado real del repo
 | Agente WhatsApp (Meta Cloud API) | Automatización — auto-respuesta con reglas + IA (Claude) | `netlify/functions/whatsapp-webhook.js`, `whatsapp-agent-config.js` | Netlify Functions + Anthropic API | Netlify Functions | Activo (ver `WHATSAPP_SETUP.md`) |
 | Agente WhatsApp (Twilio, alternativa) | Automatización — variante del agente anterior vía Twilio | `netlify/functions/twilio-webhook.js` | Netlify Functions | Netlify Functions | Activo/paralelo — **sigue sin confirmar con el propietario cuál es la vía canónica** |
 | Landing genérica raíz | Redirect a `Index.html` | `index.html` (minúsculas) | HTML estático, `location.replace('Index.html')` | GitHub Pages + Netlify | Activo — confirmado intencional, no es deuda técnica |
-| Design Studio | Estudio de diseño autónomo compartido por las Skills visuales | `design-studio/` | Plantillas HTML + Playwright + Adobe for Creativity (MCP) | No se despliega | Activo — validado con la campaña real "Vuelta al Cole" |
+| Design Studio | Estudio de diseño autónomo compartido por las Skills visuales | `design-studio/` | Plantillas HTML + Playwright + Adobe for Creativity (MCP) + `brand-kit.json` (identidad visual machine-readable) | No se despliega | Activo — validado con la campaña real "Vuelta al Cole" |
+| Motor de Marketing con IA | Orquestación multi-agente (8 agentes) que convierte un brief de producto en una publicación lista, preparado para proveedores de IA reales sin tocar el núcleo | `marketing-engine/` | Node.js (CommonJS) puro, sin dependencias npm — CLI propio (`cli/run-pipeline.js`), usa `design-studio/scripts/render-html.js` y `design-studio/brand-kit.json` por referencia | No se despliega (CLI/script) | Activo — funcional de punta a punta en modo simulado; ningún proveedor de IA real conectado todavía (ver `marketing-engine/ARCHITECTURE.md`) |
 
 ## Skills de RAX (referencia — el detalle vive en `.claude/skills/README.md`)
 
@@ -22,14 +23,31 @@ Mantenido por la Skill `project-manager`. Refleja el estado real del repo
 |---|---|
 | `project-manager` | Activa |
 | `diseno-ofipapel` | Activa — validada con una campaña real |
-| `sales-marketing` | No incorporada — aparcada hasta que `diseno-ofipapel` acumule más piezas reales |
+| `sales-marketing` | No incorporada — aparcada (ver nota) |
+
+**Nota sobre `sales-marketing` vs. `marketing-engine/`**: son cosas
+distintas. `sales-marketing` (rama huérfana `claude/rax-sales-marketing-skill-4raaru`,
+nunca fusionada) era un Skill de calendario comercial/plan anual, sigue sin
+incorporarse. `marketing-engine/` (2026-07-24) es un sistema nuevo,
+construido desde cero por instrucción directa del propietario, que
+sí supera explícitamente la regla de aparcamiento de 2026-07-10 — ver
+`.claude/rax/DECISIONES.md`, entrada 2026-07-24. No confundir ambos al
+decidir si "ya se puede retomar sales-marketing".
 
 ## Infraestructura compartida
 
 - **Despliegue dual**: GitHub Pages (`.github/workflows/pages.yml`) y Netlify (`netlify.toml` + `build.sh`).
 - **Bases de datos**: Supabase (`joe-app`, con RLS + sesión anónima) y Firebase Firestore (`alquileres`, con reglas + sesión anónima). Dos backends distintos por decisión explícita del propietario — no se unifican.
 - **IA**: Anthropic API, usada por el agente de WhatsApp y por el proxy `chat-assistant.js` de `Index.html`.
-- **Diseño**: `design-studio/`, consumido por `diseno-ofipapel`.
+- **Diseño**: `design-studio/`, consumido por `diseno-ofipapel` y por
+  `marketing-engine/` (agentes `guardian-marca` y `maquetador`).
+- **Motor de Marketing con IA**: `marketing-engine/` — pipeline de 8
+  agentes, 6 simulados con costura clara hacia IA real, 2 con integración
+  real hoy (`guardian-marca` valida contra `design-studio/brand-kit.json`,
+  `maquetador` renderiza con `render-html.js`). Sin proveedores de imagen/
+  vídeo por IA conectados — arquitectura preparada para añadirlos (OpenAI
+  Images, Google, Ideogram, Adobe Firefly, Flux, Runway, Veo) sin tocar el
+  núcleo. Ver `marketing-engine/ARCHITECTURE.md`.
 
 ## Pendiente de activación en consolas externas (no ejecutable desde este repo)
 

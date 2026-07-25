@@ -175,3 +175,87 @@ cruzó esas líneas.
 **Reversibilidad**: alta — todos los cambios son aditivos (nuevas reglas,
 nuevo proxy, nuevas sesiones) y revertibles con `git revert`; ninguno
 modifica datos existentes.
+
+---
+
+### 2026-07-24 — `marketing-engine/`: Motor de Marketing con IA, arquitectura de 8 agentes
+
+**Contexto**: el propietario pidió explícitamente construir "los cimientos
+de un sistema profesional de IA para marketing" — no funciones sueltas —
+con filosofía "Claude es el Director General del departamento creativo":
+un pipeline de 8 agentes con responsabilidad única (Director Creativo,
+Director de Arte, Guardián de Marca, Fotógrafo Publicitario, Especialista
+en Prompts, Copywriter, Maquetador, Control de Calidad), preparado para
+incorporar proveedores de IA reales (OpenAI Images, Google, Ideogram, Adobe
+Firefly, Flux, Runway, Veo) sin modificar el núcleo, y sin integrar
+todavía ninguno de esos proveedores. El propietario autorizó explícitamente
+mejorar la arquitectura propuesta durante el desarrollo, documentando el
+motivo.
+
+Esto es, en efecto, la misma idea que motivó la Skill `sales-marketing`
+aparcada el 2026-07-10 (ver esa entrada) — pero no es esa Skill retomada:
+es un sistema nuevo, construido desde cero, evitando explícitamente el
+motivo por el que se descartó la anterior (identidad visual duplicada con
+datos incorrectos). La regla de aparcamiento ("no retomar hasta que
+`diseno-ofipapel` tenga más de una campaña real entregada y usada por el
+negocio") queda superada por esta instrucción directa del propietario —
+no se ignoró en silencio, queda documentada aquí.
+
+**Decisión**:
+
+1. Nueva carpeta de primer nivel `marketing-engine/`, hermana de
+   `design-studio/` (no anidada dentro): `design-studio/` sigue siendo la
+   capa de capacidades (brand kit, plantillas, render, Adobe/Firefly);
+   `marketing-engine/` es la capa de orquestación que la consume por
+   referencia, nunca al revés.
+2. Cada uno de los 8 agentes vive en `marketing-engine/agents/0N-nombre/`
+   con config/README/prompts/state/interface/service — el prefijo
+   numérico refleja el orden real de ejecución (`core/pipeline-config.js`,
+   única fuente de verdad del orden), no al revés.
+3. **Fix de la causa raíz del intento anterior**: se creó
+   `design-studio/brand-kit.json`, machine-readable, verificado línea a
+   línea contra el CSS real de `Index.html`, `canarias-ink.html` y
+   `falcontrol.html` (no transcrito de memoria) — se encontró y corrigió
+   una imprecisión real que tenía el propio README de Canarias INK
+   (fondo documentado como `#1A5C1A`/`#1A1D2E`; el real es `#0F1119`,
+   `#1A5C1A` ni siquiera pertenece a esa marca). El agente
+   `03-guardian-marca` consume ese JSON por `require()` directo — nunca
+   copia colores a su propio `config.js`.
+4. Orquestador sin dependencias (`core/orchestrator.js`): lista + bucle +
+   3 casos de estado, con `returnTo` + `MAX_RETRIES_PER_AGENT=2` para el
+   bucle de vuelta que puede pedir Guardián de Marca o Control de Calidad
+   — verificado con pruebas reales (rebote que se recupera, y rebote que
+   agota reintentos y termina en `failed_needs_human` sin bucle infinito).
+5. Contratos por JSDoc + shape-checker propio (`core/contracts/shapes.js`,
+   sin zod/ajv) y registro de proveedores (`core/providers/registry.js`,
+   7 proveedores en `status:"planned"` + `simulated` activo) — mismo
+   criterio de "cero dependencias hasta que haga falta de verdad" que ya
+   rige `design-studio/` (que tampoco tiene `package.json`).
+6. Dos agentes son integración real hoy, no simulación: Guardián de Marca
+   (valida contra `brand-kit.json`) y Maquetador (renderiza de verdad con
+   `design-studio/scripts/render-html.js`). Los otros 6 son reglas
+   deterministas simuladas con costura documentada hacia IA real.
+
+Documentado en detalle, con ejemplos reales de ejecución, en
+`marketing-engine/ARCHITECTURE.md`.
+
+**Alternativas descartadas**:
+- Anidar `marketing-engine/` dentro de `design-studio/` — descartado: mezclaría
+  commits de dos responsabilidades distintas (capacidades vs. orquestación) y
+  repetiría el patrón de "cosas nuevas dentro de una carpeta ya asentada" que
+  causó la duplicidad de 2026-07-10.
+- zod/ajv para validar contratos — descartado por ahora: cero dependencias de
+  validación existen en todo el repo, volumen de formas pequeño, sin payloads
+  externos poco fiables todavía. Señal concreta para reconsiderarlo: el primer
+  proveedor real con payloads complejos.
+- Motor de workflow de terceros para el loop-back — descartado: 8 pasos
+  conocidos no justifican un motor de grafo genérico.
+
+**Quién decide**: propietario (instrucción directa, incluyendo autorización
+explícita para mejorar la arquitectura documentando el motivo); Claude
+ejecutó el diseño y la implementación dentro de ese marco.
+
+**Reversibilidad**: alta — todo el subsistema es aditivo (carpeta nueva,
+una línea añadida a `design-studio/README.md`, una línea añadida a
+`.gitignore`), no modifica ningún fichero existente de las apps de
+negocio. `marketing-engine/jobs/` es generado y está en `.gitignore`.
