@@ -1920,6 +1920,9 @@ const CONF_SANT_DATA = [
 // ═══════════════════════════════════════════════════════
 const PAG_TOTALES = { total: 2739894.34, ingresado: 2729045.79, en_caja: 10848.55 };
 
+// Horizonte seleccionado para el panel de próximos vencimientos (persiste entre renders)
+let pagaresHorizonte = 5;
+
 // ═══════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════
@@ -2457,10 +2460,14 @@ function renderAlertas(){
   // Caja Siete
   alerts.push({type:'info', ico:'📊', ttl:'Caja Siete — Crecimiento constante', txt:`Saldo actual: ${fmt(last.c7)}. Tendencia alcista sostenida.`});
 
-  // Pagarés vencidos
-  const pagVenc = PAGARES_DATA.filter(p=>p.estado==='vencido');
-  const sumPagVenc = pagVenc.reduce((s,p)=>s+p.importe,0);
-  if(pagVenc.length>0) alerts.push({type:'err', ico:'🔴', ttl:`${pagVenc.length} pagaré(s) vencidos sin cobrar`, txt:`Total pendiente: ${fmt(sumPagVenc)}. El más antiguo vence el ${new Date(pagVenc[0].vto).toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'})}.`});
+  // Pagarés próximos a vencer (próximos 7 días, clasificación automática por fecha)
+  const hoyAlStr = new Date(); hoyAlStr.setHours(0,0,0,0);
+  const hoyAlStrStr = hoyAlStr.toISOString().slice(0,10);
+  const in7AlStr = new Date(hoyAlStr); in7AlStr.setDate(hoyAlStr.getDate()+7);
+  const in7AlStrStr = in7AlStr.toISOString().slice(0,10);
+  const pagProxAl = PAGARES_DATA.filter(p=>p.vto>=hoyAlStrStr&&p.vto<=in7AlStrStr);
+  const sumPagProxAl = pagProxAl.reduce((s,p)=>s+p.importe,0);
+  if(pagProxAl.length>0) alerts.push({type:'warn', ico:'🔴', ttl:`${pagProxAl.length} pagaré(s) vencen en los próximos 7 días`, txt:`Total pendiente: ${fmt(sumPagProxAl)}. Próximo vencimiento: ${new Date(pagProxAl[0].vto+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'})}.`});
 
   // Confirming próximos 7 días
   const today7 = new Date(); const next7 = new Date(); next7.setDate(next7.getDate()+7);
@@ -2668,26 +2675,30 @@ function checkAlertasArrastre(){
   const hoyStr = hoy.toISOString().slice(0,10);
   const alertas = [];
 
-  // 1. Pagarés vencidos (estado === 'vencido')
-  const pagVenc = PAGARES_DATA.filter(p => p.estado === 'vencido');
-  if(pagVenc.length){
-    const sum = pagVenc.reduce((s,p)=>s+p.importe,0);
+  // 1. Pagarés próximos a vencer (próximos 15 días, clasificación automática por fecha)
+  const hoy15Arr = new Date(hoy); hoy15Arr.setDate(hoy15Arr.getDate()+15);
+  const hoy15ArrStr = hoy15Arr.toISOString().slice(0,10);
+  const pagProxArr = PAGARES_DATA.filter(p => p.vto >= hoyStr && p.vto <= hoy15ArrStr);
+  if(pagProxArr.length){
+    const sum = pagProxArr.reduce((s,p)=>s+p.importe,0);
     alertas.push({
       cat:'pagares',
-      titulo:`${pagVenc.length} pagaré(s) vencido(s) sin cobrar`,
-      items: pagVenc.map(p=>`${p.pagare} — ${fmt(p.importe)} · Vto: ${new Date(p.vto+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}`),
-      sumario:`Total pendiente: ${fmt(sum)}`,
+      titulo:`${pagProxArr.length} pagaré(s) vencen en los próximos 15 días`,
+      items: pagProxArr.map(p=>`${p.pagare} — ${fmt(p.importe)} · Vto: ${new Date(p.vto+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}`),
+      sumario:`Total: ${fmt(sum)}`,
       nav:'pagares'
     });
   }
 
-  // 2. Confirming vencidos (vto < hoy)
-  const confVenc = CONF_SANT_DATA.filter(c => c.vto < hoyStr);
+  // 2. Confirming próximo a vencer (próximos 15 días, clasificación automática por fecha)
+  const hoy15ConfDate = new Date(hoy); hoy15ConfDate.setDate(hoy15ConfDate.getDate()+15);
+  const hoy15ConfStr = hoy15ConfDate.toISOString().slice(0,10);
+  const confVenc = CONF_SANT_DATA.filter(c => c.vto >= hoyStr && c.vto <= hoy15ConfStr);
   if(confVenc.length){
     const sum = confVenc.reduce((s,c)=>s+c.importe,0);
     alertas.push({
       cat:'confirming',
-      titulo:`${confVenc.length} Confirming vencido(s) sin liquidar`,
+      titulo:`${confVenc.length} Confirming vence(n) en los próximos 15 días`,
       items: confVenc.map(c=>`${c.proveedor} — ${fmt(c.importe)} · Vto: ${new Date(c.vto+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}`),
       sumario:`Total: ${fmt(sum)}`,
       nav:'pagares'
@@ -5582,81 +5593,66 @@ function installApp(){
 // ═══════════════════════════════════════════════════════
 function renderPagares(){
   const today = new Date(); today.setHours(0,0,0,0);
-  const in7   = new Date(today); in7.setDate(today.getDate()+7);
-  const in30  = new Date(today); in30.setDate(today.getDate()+30);
+  const todayStr = today.toISOString().slice(0,10);
+  const H = pagaresHorizonte;
+  const horizDate = new Date(today); horizDate.setDate(today.getDate()+H);
+  const horizStr  = horizDate.toISOString().slice(0,10);
+  const MS = 86400000;
+  const diasHasta = d => Math.round((new Date(d+'T12:00:00') - today) / MS);
 
-  // Classify pagarés
-  const pag_venc  = PAGARES_DATA.filter(p=>p.estado==='vencido');
-  const pag_prox  = PAGARES_DATA.filter(p=>p.estado==='pendiente');
-  const pag_fut   = PAGARES_DATA.filter(p=>p.estado==='futuro');
-  const pag_cob   = PAGARES_DATA.filter(p=>p.estado==='cobrado');
+  // Auto-classify by date — past vto = cobrado (blue), future = pendiente (red)
+  const pag_pend  = PAGARES_DATA.filter(p => p.vto >= todayStr);
+  const pag_cob   = PAGARES_DATA.filter(p => p.vto <  todayStr);
+  const conf_pend = CONF_SANT_DATA.filter(c => c.vto >= todayStr);
+  const conf_cob  = CONF_SANT_DATA.filter(c => c.vto <  todayStr);
 
-  const sumV  = pag_venc.reduce((s,p)=>s+p.importe,0);
-  const sumPr = pag_prox.reduce((s,p)=>s+p.importe,0);
-  const sumF  = pag_fut.reduce((s,p)=>s+p.importe,0);
-  const sumC  = pag_cob.reduce((s,p)=>s+p.importe,0);
+  // Próximos H días: pagarés AND confirming pendientes dentro del horizonte
+  const pag_hor  = pag_pend.filter(p => p.vto <= horizStr);
+  const conf_hor = conf_pend.filter(c => c.vto <= horizStr);
 
-  // Confirming
-  const conf_venc = CONF_SANT_DATA.filter(c=>new Date(c.vto)<today);
-  const conf_7    = CONF_SANT_DATA.filter(c=>{ const d=new Date(c.vto); return d>=today&&d<=in7; });
-  const conf_30   = CONF_SANT_DATA.filter(c=>{ const d=new Date(c.vto); return d>in7&&d<=in30; });
-  const conf_fut  = CONF_SANT_DATA.filter(c=>new Date(c.vto)>in30);
-  const totalConf = CONF_SANT_DATA.reduce((s,c)=>s+c.importe,0);
-  const totalComis= CONF_SANT_DATA.reduce((s,c)=>s+c.comision,0);
+  const sumPagPend  = pag_pend.reduce((s,p)=>s+p.importe,0);
+  const sumPagCob   = pag_cob.reduce((s,p)=>s+p.importe,0);
+  const sumConfPend = conf_pend.reduce((s,c)=>s+c.importe,0);
+  const comisConf   = conf_pend.reduce((s,c)=>s+c.comision,0);
+  const sumPagHor   = pag_hor.reduce((s,p)=>s+p.importe,0);
+  const sumConfHor  = conf_hor.reduce((s,c)=>s+c.importe,0);
 
-  const fmtDate = d => new Date(d).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
-  const diasHasta = d => { const diff=new Date(d)-today; return Math.ceil(diff/(1000*60*60*24)); };
+  const fmtDate = d => new Date(d+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
 
-  const estadoBadge = p => {
-    const dias = diasHasta(p.vto);
-    if(p.estado==='vencido')   return `<span style="background:#FEE;color:#E74C3C;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🔴 VENCIDO</span>`;
-    if(p.estado==='cobrado')   return `<span style="background:#EFB;color:#27AE60;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">✅ COBRADO</span>`;
-    if(dias<=7)                return `<span style="background:#FFF3CD;color:#856404;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🟡 ${dias}d</span>`;
-    if(dias<=30)               return `<span style="background:#FFF7E6;color:#F0A500;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🟠 ${dias}d</span>`;
-    return `<span style="background:#EBF7EB;color:#27AE60;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🟢 ${dias}d</span>`;
-  };
+  const btnH = n => `<button onclick="pagaresHorizonte=${n};renderPagares();"
+    style="padding:4px 12px;border-radius:20px;border:1px solid ${n===H?'#E74C3C':'#ccc'};cursor:pointer;font-size:11px;font-weight:700;
+    background:${n===H?'#E74C3C':'#fff'};color:${n===H?'#fff':'#555'};margin:0 2px;transition:all .15s;">${n}d</button>`;
 
-  const confBadge = c => {
-    const dias = diasHasta(c.vto);
-    if(dias<0)   return `<span style="background:#FEE;color:#E74C3C;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🔴 VENCIDO</span>`;
-    if(dias<=7)  return `<span style="background:#FFF3CD;color:#856404;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🟡 ${dias}d</span>`;
-    if(dias<=30) return `<span style="background:#FFF7E6;color:#F0A500;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🟠 ${dias}d</span>`;
-    return `<span style="background:#EBF7EB;color:#27AE60;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🟢 ${dias}d</span>`;
-  };
+  // Sort descending (más reciente primero = vto más alto primero)
+  const pagSorted  = [...PAGARES_DATA].sort((a,b)=>b.vto.localeCompare(a.vto));
+  const confSorted = [...CONF_SANT_DATA].sort((a,b)=>b.vto.localeCompare(a.vto));
+  // Horizonte: ascending (el que vence antes, primero)
+  const horSorted = [
+    ...pag_hor.map(p=>({...p, _tipo:'pagaré'})),
+    ...conf_hor.map(c=>({...c, _tipo:'confirming'}))
+  ].sort((a,b)=>a.vto.localeCompare(b.vto));
 
   const html = `
-  <!-- KPIs PAGARÉS -->
+  <!-- KPIs -->
   <div class="kpi-grid" style="margin-bottom:24px;">
     <div class="kpi" style="border-top-color:#E74C3C;background:linear-gradient(135deg,#FEF0EE,#FDE8E4);">
       <div class="kpi-ico">🔴</div>
-      <div class="kpi-lbl">Pagarés Vencidos</div>
-      <div class="kpi-val" style="color:#E74C3C;">${fmt(sumV)}</div>
-      <div class="kpi-delta neg2">${pag_venc.length} pagarés sin cobrar</div>
+      <div class="kpi-lbl">Pagarés Pendientes</div>
+      <div class="kpi-val" style="color:#E74C3C;">${fmt(sumPagPend)}</div>
+      <div class="kpi-delta neg2">${pag_pend.length} pagaré${pag_pend.length!==1?'s':''} por vencer</div>
     </div>
-    <div class="kpi" style="border-top-color:#F0A500;">
-      <div class="kpi-ico">🟡</div>
-      <div class="kpi-lbl">Próximos 30 días</div>
-      <div class="kpi-val">${fmt(sumPr)}</div>
-      <div class="kpi-delta neu">${pag_prox.length} pagarés pendientes</div>
-    </div>
-    <div class="kpi k-caja">
-      <div class="kpi-ico">🟢</div>
-      <div class="kpi-lbl">Pagarés Futuros</div>
-      <div class="kpi-val">${fmt(sumF)}</div>
-      <div class="kpi-delta neu">${pag_fut.length} pagarés programados</div>
-    </div>
-    <div class="kpi k-caja">
-      <div class="kpi-ico">✅</div>
-      <div class="kpi-lbl">Cobrados (período)</div>
-      <div class="kpi-val">${fmt(sumC)}</div>
-      <div class="kpi-delta pos">${pag_cob.length} pagarés ingresados</div>
+    <div class="kpi" style="border-top-color:#4A8FC1;background:linear-gradient(135deg,#EEF5FB,#DDE9F5);">
+      <div class="kpi-ico">🔵</div>
+      <div class="kpi-lbl">Pagarés Cobrados</div>
+      <div class="kpi-val" style="color:#4A8FC1;">${fmt(sumPagCob)}</div>
+      <div class="kpi-delta pos">${pag_cob.length} cobrado${pag_cob.length!==1?'s':''} al vencimiento</div>
     </div>
     <div class="kpi" style="border-top-color:#E31837;background:linear-gradient(135deg,#FFF5F5,#FFE8E8);">
       <div class="kpi-ico">🏦</div>
-      <div class="kpi-lbl">Confirming Santander</div>
-      <div class="kpi-val" style="color:#E31837;">${fmt(totalConf)}</div>
-      <div class="kpi-delta neg2">${CONF_SANT_DATA.length} operaciones pendientes</div>
-      <div class="kpi-sub">Comisiones: ${fmt(totalComis)}</div>
+      <div class="kpi-lbl">Confirming Pendiente</div>
+      <div class="kpi-val" style="color:#E31837;">${fmt(sumConfPend)}</div>
+      <div class="kpi-delta neg2">${conf_pend.length} operación${conf_pend.length!==1?'es':''} por pagar</div>
+      <div class="kpi-sub">Comisiones: ${fmt(comisConf)}</div>
     </div>
     <div class="kpi" style="border-top-color:#1A5C1A;">
       <div class="kpi-ico">📊</div>
@@ -5667,24 +5663,74 @@ function renderPagares(){
     </div>
   </div>
 
-  <!-- GRÁFICO CONFIRMING TIMELINE -->
+  <!-- PANEL PRÓXIMOS N DÍAS -->
+  <div class="tcard" style="margin-bottom:24px;border-top:3px solid #E74C3C;">
+    <div class="tcard-hd" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div>
+        <h3 style="margin:0;">⏰ Próximos vencimientos — ${H} días</h3>
+        <p style="margin:4px 0 0;">Pagarés y Confirming que vencen en los próximos ${H} días</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:2px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:var(--texto2);margin-right:6px;">Horizonte:</span>
+        ${[5,10,15,20,25,30].map(btnH).join('')}
+      </div>
+    </div>
+    ${horSorted.length===0
+      ? `<div style="padding:24px;text-align:center;color:var(--texto2);font-size:13px;">✅ Sin vencimientos en los próximos ${H} días</div>`
+      : `<div class="tscroll">
+    <table>
+      <thead><tr>
+        <th style="text-align:left">Vencimiento</th>
+        <th style="text-align:left">Concepto</th>
+        <th>Importe</th>
+        <th style="text-align:center">Tipo</th>
+        <th style="text-align:center">Días</th>
+      </tr></thead>
+      <tbody>
+        ${horSorted.map(item=>{
+          const d = diasHasta(item.vto);
+          const rb = d<=3?'background:#FFF0F0;':d<=7?'background:#FFFBF0;':'';
+          const concepto = item._tipo==='pagaré' ? item.pagare : item.proveedor;
+          const tipoBadge = item._tipo==='pagaré'
+            ? `<span style="background:#FEE;color:#E74C3C;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">📄 Pagaré</span>`
+            : `<span style="background:#FFE8E8;color:#E31837;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🏦 Confirming</span>`;
+          const col = d<=3?'#E74C3C':d<=7?'#F0A500':'var(--texto)';
+          return `<tr style="${rb}">
+            <td style="text-align:left">${fmtDate(item.vto)}</td>
+            <td style="text-align:left;font-size:12px;font-weight:500">${concepto}</td>
+            <td style="font-weight:700;color:#E74C3C">${fmt(item.importe)}</td>
+            <td style="text-align:center">${tipoBadge}</td>
+            <td style="text-align:center;font-weight:700;color:${col};font-size:12px;">${d}d</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot><tr>
+        <td colspan="2" style="text-align:left;font-weight:700">TOTAL ${H} DÍAS</td>
+        <td style="font-weight:700;color:#E74C3C">${fmt(sumPagHor+sumConfHor)}</td>
+        <td colspan="2"></td>
+      </tr></tfoot>
+    </table>
+    </div>`}
+  </div>
+
+  <!-- GRÁFICOS -->
   <div class="chart-row-2" style="margin-bottom:20px;">
     <div class="chart-card">
-      <div class="chart-ttl">Pagarés — Distribución por estado</div>
-      <div class="chart-desc">Importes activos clasificados por urgencia</div>
+      <div class="chart-ttl">Pagarés — Pendientes vs Cobrados</div>
+      <div class="chart-desc">Clasificación automática por fecha de vencimiento · 🔴 pendiente · 🔵 cobrado</div>
       <canvas id="cPagDona" height="200"></canvas>
     </div>
     <div class="chart-card">
-      <div class="chart-ttl">Confirming Santander — Vencimientos próximos</div>
-      <div class="chart-desc">Pagos programados a proveedores (junio–agosto 2026)</div>
+      <div class="chart-ttl">Confirming Santander — Vencimientos</div>
+      <div class="chart-desc">Pagos a proveedores · 🔴 pendiente · 🔵 pagado</div>
       <canvas id="cConfBar" height="200"></canvas>
     </div>
   </div>
 
-  <!-- TABLA PAGARÉS ACTIVOS -->
-  <div class="sec-title">📄 Pagarés Activos — Detalle</div>
+  <!-- TABLA PAGARÉS -->
+  <div class="sec-title">📄 Pagarés — Detalle completo</div>
   <div class="tcard" style="margin-bottom:20px;">
-    <div class="tcard-hd"><h3>Pagarés en cartera — activos y recientes</h3><p>Ordenados por fecha de vencimiento</p></div>
+    <div class="tcard-hd"><h3>Pagarés en cartera</h3><p>Más reciente primero · 🔴 Pendiente de vencer · 🔵 Cobrado al vencimiento</p></div>
     <div class="tscroll">
     <table>
       <thead><tr>
@@ -5696,32 +5742,38 @@ function renderPagares(){
         <th style="text-align:center">Días</th>
       </tr></thead>
       <tbody>
-        ${PAGARES_DATA.map(p=>`
-        <tr style="${p.estado==='vencido'?'background:#FFF8F8;':''}">
-          <td style="text-align:left;font-family:'Inter',sans-serif">${fmtDate(p.vto)}</td>
-          <td style="text-align:left;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--texto2)">${p.pagare}</td>
-          <td style="font-weight:600;color:${p.estado==='vencido'?'#E74C3C':p.estado==='cobrado'?'#27AE60':'var(--texto)'}">${fmt(p.importe)}</td>
-          <td style="text-align:left;font-family:'Inter',sans-serif;font-size:11px">${p.banco}</td>
-          <td style="text-align:center">${estadoBadge(p)}</td>
-          <td style="text-align:center;font-size:11px;color:var(--texto2)">${p.estado==='cobrado'?'—':diasHasta(p.vto)+'d'}</td>
-        </tr>`).join('')}
+        ${pagSorted.map(p=>{
+          const isPend = p.vto >= todayStr;
+          const d = diasHasta(p.vto);
+          const rb = isPend ? 'background:#FFF8F8;' : 'background:#F0F7FF;';
+          const badge = isPend
+            ? `<span style="background:#FEE;color:#E74C3C;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🔴 PENDIENTE</span>`
+            : `<span style="background:#E8F4FF;color:#4A8FC1;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🔵 COBRADO</span>`;
+          const diaCell = isPend
+            ? `<span style="font-weight:700;color:${d<=7?'#E74C3C':d<=30?'#F0A500':'#555'}">${d}d</span>`
+            : '—';
+          return `<tr style="${rb}">
+            <td style="text-align:left">${fmtDate(p.vto)}</td>
+            <td style="text-align:left;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--texto2)">${p.pagare}</td>
+            <td style="font-weight:600;color:${isPend?'#E74C3C':'#4A8FC1'}">${fmt(p.importe)}</td>
+            <td style="text-align:left;font-size:11px">${p.banco}</td>
+            <td style="text-align:center">${badge}</td>
+            <td style="text-align:center;font-size:11px">${diaCell}</td>
+          </tr>`;
+        }).join('')}
       </tbody>
-      <tfoot>
-        <tr>
-          <td style="text-align:left;font-family:'Inter',sans-serif">TOTAL ACTIVOS</td>
-          <td></td>
-          <td>${fmt(sumV+sumPr+sumF)}</td>
-          <td colspan="3"></td>
-        </tr>
-      </tfoot>
+      <tfoot><tr>
+        <td colspan="2" style="text-align:left">PENDIENTE: ${fmt(sumPagPend)}</td>
+        <td colspan="4" style="text-align:right;color:#4A8FC1">COBRADO: ${fmt(sumPagCob)}</td>
+      </tr></tfoot>
     </table>
     </div>
   </div>
 
   <!-- TABLA CONFIRMING SANTANDER -->
-  <div class="sec-title">🏦 Confirming Santander — Pendiente de Pago</div>
+  <div class="sec-title">🏦 Confirming Santander</div>
   <div class="tcard">
-    <div class="tcard-hd"><h3>Confirming Santander — operaciones pendientes</h3><p>${CONF_SANT_DATA.length} operaciones · Total: ${fmt(totalConf)} · Comisiones: ${fmt(totalComis)}</p></div>
+    <div class="tcard-hd"><h3>Confirming Santander — operaciones</h3><p>Más reciente primero · 🔴 Pendiente de pagar · 🔵 Pagado · Pendiente: ${fmt(sumConfPend)}</p></div>
     <div class="tscroll">
     <table>
       <thead><tr>
@@ -5730,26 +5782,33 @@ function renderPagares(){
         <th>Importe</th>
         <th>Comisión</th>
         <th style="text-align:center">Estado</th>
+        <th style="text-align:center">Días</th>
       </tr></thead>
       <tbody>
-        ${[...CONF_SANT_DATA].sort((a,b)=>a.vto.localeCompare(b.vto)).map(c=>`
-        <tr style="${diasHasta(c.vto)<0?'background:#FFF8F8;':diasHasta(c.vto)<=7?'background:#FFFEF0;':''}">
-          <td style="text-align:left;font-family:'Inter',sans-serif">${fmtDate(c.vto)}</td>
-          <td style="text-align:left;font-family:'Inter',sans-serif;font-size:12px;font-weight:500">${c.proveedor}</td>
-          <td style="font-weight:600">${fmt(c.importe)}</td>
-          <td style="color:var(--texto2);font-size:11px">${fmt(c.comision)}</td>
-          <td style="text-align:center">${confBadge(c)}</td>
-        </tr>`).join('')}
+        ${confSorted.map(c=>{
+          const isPend = c.vto >= todayStr;
+          const d = diasHasta(c.vto);
+          const rb = isPend ? 'background:#FFF8F8;' : 'background:#F0F7FF;';
+          const badge = isPend
+            ? `<span style="background:#FEE;color:#E74C3C;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🔴 PENDIENTE</span>`
+            : `<span style="background:#E8F4FF;color:#4A8FC1;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🔵 PAGADO</span>`;
+          const diaCell = isPend
+            ? `<span style="font-weight:700;color:${d<=7?'#E74C3C':d<=30?'#F0A500':'#555'}">${d}d</span>`
+            : '—';
+          return `<tr style="${rb}">
+            <td style="text-align:left">${fmtDate(c.vto)}</td>
+            <td style="text-align:left;font-size:12px;font-weight:500">${c.proveedor}</td>
+            <td style="font-weight:600;color:${isPend?'#E74C3C':'#4A8FC1'}">${fmt(c.importe)}</td>
+            <td style="color:var(--texto2);font-size:11px">${fmt(c.comision)}</td>
+            <td style="text-align:center">${badge}</td>
+            <td style="text-align:center;font-size:11px">${diaCell}</td>
+          </tr>`;
+        }).join('')}
       </tbody>
-      <tfoot>
-        <tr>
-          <td style="text-align:left;font-family:'Inter',sans-serif">TOTAL</td>
-          <td></td>
-          <td>${fmt(totalConf)}</td>
-          <td>${fmt(totalComis)}</td>
-          <td></td>
-        </tr>
-      </tfoot>
+      <tfoot><tr>
+        <td colspan="2" style="text-align:left">PENDIENTE: ${fmt(sumConfPend)} · Comisiones: ${fmt(comisConf)}</td>
+        <td colspan="4" style="text-align:right;color:#4A8FC1">PAGADO: ${fmt(conf_cob.reduce((s,c)=>s+c.importe,0))}</td>
+      </tr></tfoot>
     </table>
     </div>
   </div>
@@ -5758,33 +5817,33 @@ function renderPagares(){
   document.getElementById('pagaresContent').innerHTML = html;
   destroyChart('cPagDona'); destroyChart('cConfBar');
 
-  // Donut pagarés
+  // Donut pagarés: pendientes vs cobrados
   charts['cPagDona'] = new Chart(document.getElementById('cPagDona'),{
     type:'doughnut',
     data:{
-      labels:['Vencidos sin cobrar','Próximos 30d','Futuros','Cobrados recientes'],
-      datasets:[{ data:[sumV,sumPr,sumF,sumC], backgroundColor:['#E74C3C','#F0A500','#27AE60','#4A8FC1'], borderWidth:2, borderColor:'#fff' }]
+      labels:['Pendientes','Cobrados'],
+      datasets:[{ data:[sumPagPend, sumPagCob], backgroundColor:['#E74C3C','#4A8FC1'], borderWidth:2, borderColor:'#fff' }]
     },
     options:{ responsive:true, cutout:'58%', plugins:{ legend:{ position:'bottom', labels:{font:{size:10},padding:8} }, tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.toLocaleString('es-ES')} €`}} } }
   });
 
-  // Bar confirming próximos 60 días
-  const confSorted = [...CONF_SANT_DATA].sort((a,b)=>a.vto.localeCompare(b.vto)).filter(c=>diasHasta(c.vto)<=60&&diasHasta(c.vto)>=-30);
+  // Bar confirming — ascending, coloured by status
+  const confBar = [...CONF_SANT_DATA].sort((a,b)=>a.vto.localeCompare(b.vto)).filter(c=>{ const d=diasHasta(c.vto); return d>=-90&&d<=120; });
   charts['cConfBar'] = new Chart(document.getElementById('cConfBar'),{
     type:'bar',
     data:{
-      labels: confSorted.map(c=>new Date(c.vto).toLocaleDateString('es-ES',{day:'2-digit',month:'short'})),
+      labels: confBar.map(c=>new Date(c.vto+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short'})),
       datasets:[{
         label:'Importe confirming',
-        data: confSorted.map(c=>c.importe),
-        backgroundColor: confSorted.map(c=>diasHasta(c.vto)<0?'rgba(231,76,60,0.75)':diasHasta(c.vto)<=7?'rgba(240,165,0,0.75)':'rgba(26,92,26,0.65)'),
+        data: confBar.map(c=>c.importe),
+        backgroundColor: confBar.map(c=>c.vto<todayStr ? 'rgba(74,143,193,0.55)' : diasHasta(c.vto)<=7 ? 'rgba(231,76,60,0.9)' : 'rgba(231,76,60,0.5)'),
         borderRadius:4, borderWidth:0
       }]
     },
     options:{
       responsive:true,
       plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toLocaleString('es-ES')} €`}} },
-      scales:{ x:{grid:{display:false},ticks:{color:'#5A7385',font:{size:9}}}, y:{grid:{color:'rgba(26,92,26,0.07)',borderDash:[4,4]},ticks:{color:'#5A7385',font:{size:10},callback:v=>(v/1000).toFixed(0)+'K €'}} }
+      scales:{ x:{grid:{display:false},ticks:{color:'#5A7385',font:{size:9}}}, y:{grid:{color:'rgba(26,92,26,0.07)',borderDash:[4,4]},ticks:{color:'#5A7385',font:{size:10},callback:v=>(v/1000).toFixed(1)+'K €'}} }
     }
   });
 }
