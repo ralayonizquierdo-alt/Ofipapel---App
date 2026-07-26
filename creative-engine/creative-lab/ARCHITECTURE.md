@@ -96,17 +96,24 @@ manifest.json        índice ligero (solo los campos de FILTRADO: ids de
                      se leen para las pocas referencias que hacen match.
 ```
 
-### Importar referencias desde campañas propias (proceso futuro, documentado)
+### Importar referencias desde campañas propias (activo desde 2026-07-26)
 
 `registerEntry()` es el único punto de entrada para dar de alta una
-referencia — lo usa hoy la semilla inicial, y lo usará mañana un
-importador automático: tomar una campaña ya aprobada (con su
-`concept-score` alto) de `creative-assets/store.js`, mapear sus campos de
-concepto a `styleId/compositionId/...` (ya coinciden 1:1 con lo que
-`concept-generator/` produce) y pedir al propietario (o a un agente) que
-rellene manualmente `whatMakesItSpecial`/`whyItWorksOnSocial` (juicio
-cualitativo, no automatizable sin criterio humano). Cero cambios de
-arquitectura — es una llamada más a `registerEntry()`.
+referencia — lo usó la semilla inicial, y ahora lo usa también
+`reference-library/import-from-campaign.js#importFromCampaign(creativeId,
+versionNumber, curation)`: lee `metadata.concept` de la versión ganadora
+ya guardada por `creative-assets/store.js` (los 8 ids de biblioteca
+atómica coinciden 1:1 con lo que `concept-generator/` produce, cero
+mapeo), y exige que el llamador aporte explícitamente los campos
+cualitativos (`idealProducts`, `whenToUse`, `whenToAvoid`,
+`whatMakesItSpecial`, `whyItWorksOnSocial`, `visualImpactLevel`) — juicio
+humano/de agente, nunca inferido solo. Primera entrada real
+(`sourceType: 'campana-propia'`) registrada con la campaña "Ventilador
+Nebulizador MUVIP" (foto lifestyle real del cliente, arquetipo
+`diagonal-dinamico`, score 100/100) — `findRelevantReferences()` ya la
+devuelve para briefs futuros de electrodomésticos/hogar, confirmado por
+prueba directa. Cero cambios de arquitectura — es una llamada más a
+`registerEntry()`.
 
 `performanceSignals` (opcional, vacío hoy) es el enganche reservado con
 `marketing-engine/intelligence/learning-engine/` (ya existente, no se
@@ -359,6 +366,44 @@ concepto ganador real (`compositionId: diagonal-dinamica`) seleccionó
 igual con placeholder (sin foto real) sin lanzar excepción. Regresión de
 `marketing-engine/` y del resto de `creative-engine/` sin cambios de
 comportamiento; independencia `creative-lab/`↔`marketing-engine/` intacta.
+
+### Precio y contacto de marca en la pieza final (2026-07-26)
+
+El layout ya componía foto/título/CTA/logo, pero ningún arquetipo pintaba
+precio ni datos de contacto reales — el propietario los pidió
+explícitamente para la primera pieza terminada sin placeholder. Cambios
+aditivos, mismo patrón de siempre (fuente única de verdad + helpers
+compartidos):
+
+- **`design-studio/brand-kit.json`**: nuevo bloque `ofipapel.contact`
+  (`whatsapp`, `phoneDisplay`, `address` — ya existían hardcodeados en
+  `design-studio/templates/ofipapel-vuelta-al-cole-*.html`, promovidos
+  aquí para no quedar atados a una sola campaña; `website` y
+  `socialIcons: ['facebook','instagram']` confirmados directamente por el
+  propietario — sin handles reales todavía, solo iconos genéricos).
+- **`asset-pipeline/service.js`**: `prepareAssets().brand.contact` lee ese
+  bloque (recarga en caliente, mismo patrón que el resto de `brand-kit.json`).
+- **`brief/contracts.js`**: `copy.price` (`maybe('string')`, aditivo) —
+  ningún agente de `marketing-engine/` tiene noción de precio hoy, así que
+  `brief/from-marketing-engine.js` lo acepta como `overrides.price`
+  explícito (mismo mecanismo que `overrides.postType`/`platform`), nunca
+  inventado.
+- **`layout-composer/archetypes/_shared.js`**: `priceBadge()` (badge fijo
+  esquina superior derecha) y `contactFooter()` (franja inferior con
+  teléfono/web/dirección + iconos SVG inline de Facebook/Instagram —
+  monocromos, sin red externa, coherente con el render `file://` de
+  Playwright). Los 6 arquetipos los invocan igual; posición fija para no
+  competir con el título/CTA del concepto ganador (footer ~5% del alto,
+  verificado sin solape en los 6).
+- **`layout-composer/service.js#composeLayout`**: pasa `brand.contact` y
+  `copy.price` a `buildHtml()` — únicos dos campos nuevos en el objeto
+  `data`, el resto sin cambios.
+
+**Verificado end-to-end**: pipeline completo (marketing-engine →
+`fromMarketingEngine(job, { price: '89,00 €' })` → `runCreativeLab` con la
+foto lifestyle real subida por el propietario, sin placeholder) →
+`diagonal-dinamico`, score 100/100, precio/teléfono/web/dirección/iconos
+visibles y sin solapar con título/CTA/logo.
 
 ## Verificación realizada
 

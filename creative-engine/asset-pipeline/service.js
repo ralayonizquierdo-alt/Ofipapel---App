@@ -27,6 +27,7 @@ function prepareAssets(brief, options = {}) {
       slogan: brandData.slogan || null,
       logoPath: resolveAssetPath(brandData, 'logoTransparent', brief.brand.id, warnings),
       backgroundImagePath: resolveAssetPath(brandData, 'backgroundImage', brief.brand.id, warnings),
+      contact: brandData.contact || null,
     },
     product: {
       name: brief.product.name,

@@ -279,5 +279,24 @@
     "textSpaceId": "minimo-texto-hero",
     "visualImpactLevel": 77,
     "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "campana-ofipapel_ventilador-nebulizador-75w-40cm-con-mand_2026-07-26T11-59-04-716Z_d6405511-v1",
+    "label": "Alto contraste dramático · Estudio, fondo blanco",
+    "idealProducts": [
+      "electrodomesticos",
+      "hogar",
+      "general"
+    ],
+    "styleId": "alto-contraste-drama",
+    "compositionId": "diagonal-dinamica",
+    "artDirectionId": "corporativo-clasico",
+    "lightingId": "softbox-estudio",
+    "scenarioId": "estudio-fondo-blanco",
+    "paletteHarmonyId": "alto-contraste-marca",
+    "angleLensId": "contrapicado-heroico",
+    "textSpaceId": "texto-lateral",
+    "visualImpactLevel": 82,
+    "curatedAt": "2026-07-26"
   }
 ]

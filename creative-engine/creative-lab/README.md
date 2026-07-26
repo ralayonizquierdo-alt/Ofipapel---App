@@ -45,3 +45,8 @@ registerEntry({ id: '...', styleId: '...', /* ver reference-library/schema.js */
 ```
 
 Ver `reference-library/seed-inicial.js` como plantilla de formato.
+
+Para dar de alta una campaña propia ya aprobada (no una referencia
+textual), usa `reference-library/import-from-campaign.js#importFromCampaign(creativeId, versionNumber, curation)`
+— lee el concepto ganador directamente de `creative-assets/store.js` y
+solo pide los campos cualitativos que no se pueden inferir solos.

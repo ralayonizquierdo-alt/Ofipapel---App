@@ -32,6 +32,14 @@
     "assets": {
       "backgroundImage": "design-studio/assets/fondo-corporativo-ofipapel.png",
       "logoTransparent": "design-studio/assets/logo-ofipapel-transparente.png"
+    },
+    "contact": {
+      "_comment": "Teléfono/WhatsApp y dirección ya existían, hardcodeados en design-studio/templates/ofipapel-vuelta-al-cole-*.html — promovidos aquí (2026-07-26) para que sean la fuente de verdad única y lleguen a cualquier pieza generada, no solo a esa campaña concreta. Web y redes confirmadas directamente por el propietario la misma fecha.",
+      "whatsapp": "+34643316614",
+      "phoneDisplay": "643 31 66 14",
+      "address": "C/ Bulevar Chajofe, 4 · 38650 Los Cristianos",
+      "website": "ofipapel.net",
+      "socialIcons": ["facebook", "instagram"]
     }
   },
 

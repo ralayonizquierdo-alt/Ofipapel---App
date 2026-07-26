@@ -2,7 +2,7 @@
 // franja inferior. Compositions que mapean aquí (config.js): simetría
 // centrada, triangular estable, radial desde producto.
 
-const { escapeHtml, titleFontSize, shouldShowTitle, logoChip, ctaButton } = require('./_shared.js');
+const { escapeHtml, titleFontSize, shouldShowTitle, logoChip, ctaButton, priceBadge, contactFooter } = require('./_shared.js');
 
 function buildHtml(data) {
   const { brand, product, copy, heroImagePath, width, height, textEmphasis } = data;
@@ -38,6 +38,8 @@ function buildHtml(data) {
     ${shouldShowTitle(textEmphasis, hasCopy) ? `<div class="title">${escapeHtml(copy.title || product.name)}</div>` : ''}
     ${ctaButton(copy.cta, accent, width)}
   </div>
+  ${priceBadge(copy.price, accent, width)}
+  ${contactFooter(brand.contact, width, height)}
 </div></body></html>`;
 }
 

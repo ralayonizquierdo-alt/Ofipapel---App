@@ -72,6 +72,7 @@ const CREATIVE_BRIEF_SHAPE = {
     body: 'string',
     cta: 'string',
     hashtags: arrayOf('string'),
+    price: maybe('string'),
   },
   format: {
     contentClass: CONTENT_CLASS,

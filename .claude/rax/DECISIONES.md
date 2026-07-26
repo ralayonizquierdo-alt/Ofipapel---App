@@ -824,3 +824,52 @@ alcance tras comparar ambas).
 **Reversibilidad**: alta — módulo aditivo dentro de `creative-lab/`, un
 único fichero fuera tocado (`simulated.provider.js`, cambio aditivo:
 antes solo placeholder, ahora placeholder O foto real).
+
+---
+
+### 2026-07-26 — Precio/contacto reales en la pieza final + primera activación de la memoria de Creative Lab
+
+**Contexto**: tras ver la pieza compuesta con foto real (sprint anterior),
+el propietario pidió un "producto terminado, sin placeholder" con precio
+(89,00€), redes e "contacto de Ofipapel" — dando por hecho que esos datos
+ya estaban fijados en algún sitio. Búsqueda en `brand-kit.json`/HTML
+principales: nada. Búsqueda ampliada en `design-studio/templates/`: sí
+existían teléfono/WhatsApp y dirección reales, hardcodeados en las
+plantillas de la campaña "Vuelta al Cole" (sesión anterior, no esta
+conversación como creía el propietario) — nunca Instagram/Facebook
+(confirmado por grep, cero coincidencias en todo el repo). Se preguntó
+antes de fabricar nada; el propietario confirmó: solo iconos genéricos de
+Facebook/Instagram (sin handles reales) + web `ofipapel.net` (dato nuevo).
+
+**Decisión**: promover teléfono/dirección a `design-studio/brand-kit.json#ofipapel.contact`
+(fuente única de verdad, en vez de quedar atados a una sola plantilla de
+campaña) junto con `website`/`socialIcons` recién confirmados. `copy.price`
+se añade como campo aditivo (`maybe('string')`) en `CreativeBrief` — dato
+de negocio que ningún agente de `marketing-engine/` produce, así que solo
+llega como override explícito, nunca inferido. `layout-composer/` pinta
+ambos en los 6 arquetipos vía dos helpers nuevos en `_shared.js`
+(`priceBadge`, `contactFooter` con iconos SVG inline — sin red externa).
+
+Además, se activó por primera vez el mecanismo de "memoria" documentado
+pero nunca invocado de `reference-library/registerEntry()`:
+`reference-library/import-from-campaign.js#importFromCampaign()` lee el
+concepto ganador ya guardado por `creative-assets/store.js` y registra una
+entrada real (`sourceType: 'campana-propia'`) — la campaña Ventilador
+Muvip con foto lifestyle real es la entrada #16 (las 15 anteriores eran
+semilla textual). Verificado que `findRelevantReferences()` ya la
+devuelve para briefs futuros de electrodomésticos/hogar.
+
+**Alternativas descartadas**: inventar redes/contacto para no interrumpir
+al propietario (descartado explícitamente — viola la regla de no fabricar
+datos de negocio, ya establecida y reafirmada en esta misma sesión);
+automatizar por completo el registro de referencias sin curación humana
+(descartado — `whatMakesItSpecial`/`whyItWorksOnSocial` están documentados
+desde el principio como juicio cualitativo no automatizable).
+
+**Quién decide**: propietario (confirmó precio, alcance de redes/contacto
+y web tras la pregunta explícita de Claude).
+
+**Reversibilidad**: alta — todos los cambios son aditivos (nuevo bloque en
+`brand-kit.json`, campo `maybe()` en el contrato, helpers nuevos, un
+fichero nuevo en `reference-library/`); ninguna interfaz existente cambia
+de forma incompatible.

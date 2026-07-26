@@ -35,7 +35,10 @@ const { createBrief } = require('./contracts.js');
  * @param {object} marketingEngineJob - ver forma documentada arriba
  * @param {object} [overrides] - format.contentClass/postType/platform si el
  *   llamador quiere forzar algo distinto de lo que trae el job (p. ej.
- *   pedir un vídeo aunque marketing-engine solo pensó en foto/carrusel/reel)
+ *   pedir un vídeo aunque marketing-engine solo pensó en foto/carrusel/reel);
+ *   price, un dato de negocio que hoy ningún agente de marketing-engine
+ *   produce (el copywriter no tiene noción de precio), así que solo puede
+ *   llegar como override explícito de quien construye el brief.
  * @returns {object} CreativeBrief
  */
 function fromMarketingEngine(marketingEngineJob, overrides = {}) {
@@ -98,6 +101,7 @@ function fromMarketingEngine(marketingEngineJob, overrides = {}) {
       body: copywriter.body || '',
       cta: copywriter.cta || '',
       hashtags: copywriter.hashtags || [],
+      price: overrides.price || null,
     },
     format: {
       contentClass: overrides.contentClass || 'photo',
