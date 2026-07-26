@@ -42,9 +42,11 @@ creative-lab/
 ├── master-prompt-composer/  extiende prompt-composer/ de creative-engine
 ├── concept-score/            evaluación en dos capas (plan gratis + real con coste)
 ├── art-direction-engine/     decide patrón editorial, qué elementos sobran e iconos — ANTES de calcular el grid, ver su README
-├── layout-intelligence/      calcula y puntúa el grid/jerarquía/equilibrio siguiendo esa decisión — ver su README
+├── editorial-design-engine/  decide tensión/solape/sangre de canvas/banda de color a partir del patrón ya elegido — nunca renderiza ni calcula geometría, ver su README
+├── layout-intelligence/      calcula y puntúa el grid/jerarquía/equilibrio siguiendo esas decisiones — ver su README
 ├── design-director/           revisa la composición con 14 criterios de dirección de arte, veta y puede forzar otro patrón — ver su README
-├── layout-composer/          orquesta los tres anteriores y renderiza la pieza final real
+├── component-library/        2-4 variantes visuales reales por componente (precio, CTA, logo, footer, marco...), selección determinista — ver su README
+├── layout-composer/          orquesta todo lo anterior y renderiza la pieza final real, delegando el tratamiento visual en component-library/
 ├── cli/                      demo de línea de comandos
 ├── config.js                  QUALITY_THRESHOLD / MAX_RETRIES / SHORTLIST_SIZE
 └── index.js                   runCreativeLab() — punto de entrada único

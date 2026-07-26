@@ -3,7 +3,7 @@
 // es su rasgo distintivo) para dejar mucho margen respirado alrededor.
 // compositionId que mapea aquí: espacio-negativo-dominante.
 
-const { stackVertically, footerBleedBox, topRightCorner, headerRowSpan, spanForTier } = require('./_shared.js');
+const { stackVertically, footerBleedBox, footerReservedRows, topRightCorner, headerRowSpan, spanForTier } = require('./_shared.js');
 const { TIER_ORDER } = require('../hierarchy.js');
 
 function downgradeOnceIfDominant(tier) {
@@ -11,16 +11,18 @@ function downgradeOnceIfDominant(tier) {
   return TIER_ORDER[TIER_ORDER.indexOf(tier) - 1];
 }
 
-function computePlan(grid, tierByElement, elementIds, stackOrder, artDirection) {
+function computePlan(grid, tierByElement, elementIds, stackOrder, artDirection, editorial) {
   const startRow = Math.round(grid.rows * 0.16); // respiro superior — parte del rasgo distintivo
-  const { elements } = stackVertically(grid, stackOrder, tierByElement, startRow, downgradeOnceIfDominant, artDirection);
+  const maxRow = grid.rows - footerReservedRows(grid, elementIds.includes('contactFooter'));
+  const { elements } = stackVertically(grid, stackOrder, tierByElement, startRow, downgradeOnceIfDominant, artDirection, editorial, maxRow);
 
   if (elementIds.includes('price')) {
     const span = spanForTier(grid, tierByElement.price);
     // El precio comparte cabecera con el primer elemento del apilado,
     // pero esta estrategia arranca en `startRow` (no en 0) — el límite de
     // altura debe respetar ese mismo desplazamiento.
-    elements.push({ elementId: 'price', kind: 'boxed', box: topRightCorner(grid, span, startRow + headerRowSpan(grid, stackOrder, tierByElement)) });
+    const heroEl = elements.find((el) => el.elementId === 'hero');
+    elements.push({ elementId: 'price', kind: 'boxed', box: topRightCorner(grid, span, startRow + headerRowSpan(grid, stackOrder, tierByElement), heroEl && heroEl.box) });
   }
 
   if (elementIds.includes('contactFooter')) {

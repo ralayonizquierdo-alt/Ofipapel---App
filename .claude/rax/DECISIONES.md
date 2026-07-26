@@ -1100,3 +1100,84 @@ no de copia), instrucción de implementar sin ciclo de aprobación.
 comportamiento por defecto (el bucle de revisión es la única llamada
 nueva en `layout-composer/service.js#composeLayout`); revertible desde
 el historial de git.
+
+### 2026-07-26 — Sprint "Design Evolution v2": Editorial Design Engine + Component Library + 2 patrones nuevos
+
+**Contexto**: instrucción explícita del propietario de ejecutar tres
+sprints CONSECUTIVOS, sin pausa ni aprobación intermedia salvo conflicto
+arquitectónico grave: (1) un motor exclusivamente de decisión editorial
+(romper simetría, solapes deliberados, sangre de canvas, bandas de
+color) — "no renderiza, no genera imágenes, no calcula geometrías"; (2)
+una biblioteca de componentes premium con múltiples variantes reales por
+tipo, "nunca repetir siempre la misma"; (3) que el motor deje de pensar
+en bloques verticales, con composición inteligente y patrones
+editoriales nuevos (Amazon Premium, MediaMarkt Editorial entre otros).
+Reutilizar toda la arquitectura existente, cero duplicidades, cero deuda
+técnica, todo documentado e integrado en el pipeline actual, y al
+finalizar generar campañas de prueba con productos distintos comparando
+antes/después.
+
+**Decisión**: `creative-engine/creative-lab/editorial-design-engine/`
+(nuevo, entre Art Direction Engine y Composition Engine) produce una
+`EditorialDecision` a partir del patrón/alineación ya elegidos —
+`layout-intelligence/` la consume vía nuevas funciones puramente
+aditivas (`strategies/_shared.js#offsetColStart`, `service.js#applyCanvasBleed`
+/`applyColorBand`/`applyDeliberateOverlap`) sin reescribir ninguna
+estrategia existente. `creative-engine/creative-lab/component-library/`
+(nuevo) da 2-4 variantes reales a 9 tipos de componente, seleccionadas
+por hash determinista (mismo patrón `hashString` ya usado en
+`art-direction-engine/` y `concept-generator/`, deliberadamente
+duplicado en vez de crear un util compartido de 3 líneas) —
+`layout-composer/render-helpers.js` deja de tener un único tratamiento
+visual posible por elemento y delega en ella. `art-direction-engine/patterns.js`
+pasa de 15 a 17 patrones (`amazon-premium`, `mediamarkt-editorial`), ya
+referenciados de antemano en `editorial-design-engine/config.js` como
+referencia hacia delante intencionada. El solape deliberado de
+Editorial Design Engine (`allowOverlap`) se propaga a
+`design-director/criteria.js#limpieza` reutilizando (no duplicando)
+`balance-score.js#isAllowedOverlap`.
+
+Verificar los 2 patrones nuevos contra las 6 estrategias (heroes de
+hasta 0.86 de ancho de columna) sacó a la luz **tres bugs reales
+preexistentes al sprint**, documentados con detalle en
+`creative-engine/creative-lab/ARCHITECTURE.md` ("Bugs reales encontrados
+y corregidos"): (1) el badge de precio se solapaba sin declarar con
+heroes anchos y centrados (`product-first`, `apple-style`,
+`hero-product`, `premium-retail`, `luxury-catalogue`, y el nuevo
+`amazon-premium`) — corregido convirtiéndolo en un badge consciente del
+hero real, con fallback a un badge pequeño explícitamente marcado
+(`overlaysHero:true`, mismo lenguaje que un precio superpuesto en retail
+real) cuando no hay hueco; (2) el apilado vertical de 3 de las 6
+estrategias podía invadir el footer de contacto (solo
+`cinematico-fullbleed` reservaba esas filas) — corregido generalizando
+`footerReservedRows` a las otras 3; (3) la banda de color quedaba
+invisible detrás de un hero a sangre completa por compartir `z-index`
+— corregido subiéndola de nivel. Los tres se verificaron con el mismo
+producto/pipeline real que los expuso, antes y después del fix.
+
+**Verificación**: `node --check` en todos los ficheros nuevos/tocados ·
+independencia `creative-lab/`↔`marketing-engine/` intacta · determinismo
+(20 iteraciones, mismo resultado) · barrido sintético 17 patrones × 6
+estrategias sin `NaN` ni caja fuera de canvas · pipeline real completo
+con la foto real del Ventilador Muvip → 92/100 (excelente), sin
+regresión frente al sprint "Design Director Engine" · dos campañas
+adicionales con productos distintos (silla de oficina, auriculares
+Bluetooth) confirman que el sistema no rompe con categorías nuevas y
+sigue siendo honesto cuando no alcanza el umbral · comparación visual
+antes/después forzando `nike-style` y `mediamarkt-editorial` sobre la
+misma foto real: tensión asimétrica, solape deliberado, sangre de canvas
+y banda de color — salto visual evidente frente al `cinematico-fullbleed`
+centrado sin recursos editoriales que producía el sistema antes de este
+sprint.
+
+**Quién decide**: propietario — misión de tres sprints especificada
+explícitamente, con instrucción de ejecutar sin pausa ni aprobación
+intermedia.
+
+**Reversibilidad**: alta — `editorial-design-engine/` y
+`component-library/` son módulos nuevos aditivos (todo consumidor
+existente sigue funcionando sin ellos si se pasa `undefined`), los 2
+patrones nuevos son entradas más en un array ya existente, y los tres
+fixes de bugs son correcciones acotadas en funciones ya existentes
+(`topRightCorner`, `stackVertically`, `decorationMarkup`); revertible
+desde el historial de git.

@@ -72,6 +72,20 @@ function overlaps(a, b) {
   );
 }
 
+/** Área de la intersección entre dos cajas (0 si no se solapan) — usado para medir CUÁNTO se solapan dos elementos, no solo si lo hacen (ver editorial-design-engine/#allowOverlap: un solape deliberado y acotado es un recurso, uno grande sigue siendo desorden). */
+function overlapArea(a, b) {
+  const ix = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
+  const iy = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+  return ix * iy;
+}
+
+/** Fracción del área de `box` que queda cubierta por `other` — 0-1. */
+function overlapRatio(box, other) {
+  const area = boxArea(box);
+  if (area === 0) return 0;
+  return overlapArea(box, other) / area;
+}
+
 /** ¿La caja cabe dentro de la zona interior del grid (respeta el margen)? */
 function withinBounds(box, grid) {
   return (
@@ -106,6 +120,6 @@ function weightedCentroid(boxesWithWeight) {
 }
 
 module.exports = {
-  buildGrid, cellsToBox, fullCanvasBox, boxArea, overlaps, withinBounds,
+  buildGrid, cellsToBox, fullCanvasBox, boxArea, overlaps, overlapArea, overlapRatio, withinBounds,
   whitespaceRatio, weightedCentroid,
 };

@@ -1,4 +1,4 @@
-// Biblioteca de Patrones Editoriales — 15 patrones de composición
+// Biblioteca de Patrones Editoriales — 17 patrones de composición
 // publicitaria premium, cada uno como REGLAS (nunca coordenadas): cómo
 // tratar la fotografía, cuánto aire necesita, cuántos elementos tolera,
 // si usa iconos, cómo se alinea. Analizan PRINCIPIOS de publicidad real
@@ -272,6 +272,38 @@ const PATTERNS = [
     alignment: 'asymmetric-left',
     preferredStrategies: ['cinematico-fullbleed', 'dividido-lifestyle'],
     tags: ['lifestyle', 'hogar-decoracion', 'general'],
+  },
+  {
+    id: 'amazon-premium',
+    label: 'Amazon Premium',
+    inspiration: 'Ficha de marketplace de gama alta — producto grande sobre blanco limpio, especificaciones claras en iconos, precio inconfundible en la esquina, cero ruido visual.',
+    heroTreatment: 'large-borderless',
+    heroSize: { colRatio: 0.80, rowRatio: 0.62 },
+    whitespaceTarget: { min: 0.34, max: 0.52 },
+    marginRatio: 0.055,
+    allowCard: false,
+    maxElements: 6,
+    allowIcons: true,
+    maxIcons: 6,
+    alignment: 'asymmetric-right',
+    preferredStrategies: ['flat-lay-editorial', 'centrado-clasico'],
+    tags: ['tecnologia', 'electrodomesticos', 'general', 'oferta'],
+  },
+  {
+    id: 'mediamarkt-editorial',
+    label: 'MediaMarkt Editorial',
+    inspiration: 'Folleto de electrónica de alto impacto — foto a sangre completa, energía y urgencia, precio y CTA compitiendo por atención inmediata, acento diagonal con banda de color.',
+    heroTreatment: 'full-bleed',
+    heroSize: null,
+    whitespaceTarget: { min: 0.16, max: 0.32 },
+    marginRatio: 0.045,
+    allowCard: false,
+    maxElements: 6,
+    allowIcons: true,
+    maxIcons: 4,
+    alignment: 'asymmetric-right',
+    preferredStrategies: ['diagonal-dinamico', 'cinematico-fullbleed'],
+    tags: ['tecnologia', 'electrodomesticos', 'oferta', 'black-friday'],
   },
 ];
 

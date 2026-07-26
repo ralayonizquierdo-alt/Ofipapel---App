@@ -7,10 +7,12 @@
 
 const { spanForTier, centerColStart, footerBleedBox, footerReservedRows, topRightCorner, fullCanvasBox, cellsToBox } = require('./_shared.js');
 
-// `stackOrder` no se usa aquí — el hero es kind:'background-fill' (no
-// apila con nada) y título/cta/iconos se anclan siempre a la franja
-// inferior.
-function computePlan(grid, tierByElement, elementIds, stackOrder) {
+// `stackOrder`/`editorial` no se usan aquí — el hero es kind:'background-fill'
+// (no apila con nada, ya ocupa el canvas entero, nada que romper de
+// simetría) y título/cta/iconos se anclan siempre a la franja inferior.
+// `editorial` se acepta solo por consistencia de firma con el resto de
+// estrategias (todas reciben las mismas 6 posiciones).
+function computePlan(grid, tierByElement, elementIds, stackOrder, artDirection, editorial) {
   const elements = [];
 
   if (elementIds.includes('hero')) {

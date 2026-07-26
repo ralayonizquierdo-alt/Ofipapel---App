@@ -760,6 +760,177 @@ lanzar excepción. Regresión completa sin cambios de comportamiento:
 de `marketing-engine/` por separado, independencia
 `creative-lab/`↔`marketing-engine/` intacta.
 
+## Sprint "Design Evolution v2" (2026-07-26) — de "corrección" a "dirección de arte"
+
+Misión de tres sprints consecutivos pedida explícitamente por el
+propietario, ejecutados sin pausa: el motor ya sabía evitar solapes,
+respetar márgenes y vetar plantillas — pero **nunca componía como un
+diseñador gráfico real** (romper simetría deliberadamente, superponer
+elementos a propósito, dejar que el producto invada el lienzo, usar
+bandas de color, variar el tratamiento visual de cada componente). Este
+sprint añade esas capacidades reutilizando toda la arquitectura
+existente (`art-direction-engine/` sigue eligiendo el patrón,
+`layout-intelligence/` sigue calculando y puntuando geometría,
+`design-director/` sigue revisando) — nada se sustituye, se extiende.
+
+Orden real del pipeline ahora: Creative Brief → Creative Lab → Art
+Direction Engine → **Editorial Design Engine (nuevo)** → Composition
+Engine (`layout-intelligence/`) → Design Director Engine → Layout
+Composer (render, ahora delegando en **Component Library**, nueva).
+
+### SPRINT 1 — Editorial Design Engine (`editorial-design-engine/`)
+
+Motor nuevo, exclusivamente de DECISIÓN editorial — "no renderiza, no
+genera imágenes, no calcula geometrías" (instrucción explícita). Recibe
+la `ArtDirectionDecision` ya tomada (patrón, alineación) y produce una
+`EditorialDecision`: `{breakSymmetry, tensionZone, allowOverlap,
+canvasBleed, bleedEdge, colorBand}`. Ver `editorial-design-engine/README.md`
+para el detalle de cada campo y las tablas de decisión
+(`config.js`) que deciden qué patrones admiten cada recurso.
+
+Integración en `layout-intelligence/`:
+- `strategies/_shared.js#offsetColStart`: desplaza el apilado vertical
+  hacia la zona de tensión cuando `breakSymmetry` — las 3 estrategias de
+  apilado (`centrado-clasico`, `flotante-minimalista`,
+  `flat-lay-editorial`) dejan de caer siempre en el eje central.
+- `strategies/diagonal-dinamico.js`: reescrita para espejar el hero
+  (izquierda/derecha) según `editorial.tensionZone` — antes siempre
+  anclaba el hero a la derecha, ahora es una decisión real, no fija.
+- `service.js#applyCanvasBleed`: extiende la caja del hero hasta el
+  borde físico del canvas en `editorial.bleedEdge` cuando
+  `editorial.canvasBleed` — "el producto invade el lienzo". Con
+  salvaguarda (ver bugs abajo): si la extensión invadiría otro elemento
+  de negocio no permitido explícitamente, no se aplica.
+- `service.js#applyColorBand` / `applyDeliberateOverlap`: añaden una
+  decoración de banda de color y, cuando hay hueco geométrico real,
+  empujan dos elementos (p.ej. título/hero) a solaparse un poco — un
+  recurso editorial real, no un error.
+- `balance-score.js#isAllowedOverlap` / `isHeroBadgeOverlay`: el solape
+  deja de penalizarse siempre — solo cuando es indeliberado y no
+  declarado. Exportadas y reutilizadas tal cual en
+  `design-director/criteria.js#limpieza` (mismo criterio en un único
+  sitio, nunca duplicado) — cierra SPRINT 1 + el punto pendiente de
+  propagar la excepción a Design Director.
+
+### SPRINT 2 — Component Library (`component-library/`)
+
+"Eliminar definitivamente el aspecto de plantilla automática" — cada
+componente visual (badge de precio, CTA, logo, footer de contacto,
+marco, tarjeta del hero, divisor, sistema de iconos, acento de título)
+tiene ahora 2-4 variantes reales, elegidas de forma determinista por
+`selectVariant(componentType, seed)` (hash de
+`conceptId::patternId`, mismo patrón `hashString` ya usado en
+`art-direction-engine/` y `concept-generator/`) — misma campaña siempre
+produce la misma variante (reproducible), campañas distintas casi nunca
+coinciden. Ver `component-library/README.md` para la tabla completa de
+los 9 tipos y qué parte del encargo original cubre cada uno (incluye
+cómo "cintas", "etiquetas" y "cajas de beneficios" se resuelven como
+variantes de un elemento que YA tiene dato real detrás, nunca como
+contenido inventado).
+
+`layout-composer/render-helpers.js` deja de tener el único tratamiento
+visual posible por elemento: cada función (`heroMarkup`, `logoMarkup`,
+`titleMarkup`, `ctaMarkup`, `priceMarkup`, `contactFooterMarkup`,
+`iconRowMarkup`, `decorationMarkup`) pide su variante a
+`component-library/service.js` y delega el fragmento visual concreto en
+`component-library/renderers.js` — sigue siendo el único sitio que
+posiciona (`positionedDiv`) y escapa texto (`escapeHtml`).
+
+### SPRINT 3 — Layout Evolution (2 patrones nuevos)
+
+`art-direction-engine/patterns.js` pasa de 15 a **17 patrones**:
+`amazon-premium` (ficha de marketplace — blanco limpio, especificaciones
+en iconos, precio inconfundible) y `mediamarkt-editorial` (folleto de
+electrónica de alto impacto — sangre completa, urgencia, banda de color).
+Ambos ya estaban referenciados de antemano en
+`editorial-design-engine/config.js` (`OVERLAP_ALLOWANCE_PATTERNS`,
+`BLEED_PATTERNS`, `COLOR_BAND_PATTERNS`) como referencia hacia delante
+intencionada — este sprint las resuelve.
+
+"El motor deberá dejar de pensar en bloques verticales. [...] Quiero
+composición inteligente" se resuelve reutilizando lo ya construido: no
+se reescriben las 6 estrategias, se les da la capacidad de romper
+simetría (`offsetColStart`), invadir el lienzo (`applyCanvasBleed`),
+usar bandas de color (`applyColorBand`) y solapar a propósito
+(`applyDeliberateOverlap`) — combinadas con 17 patrones distintos, el
+espacio real de composiciones posibles crece sin que ninguna estrategia
+tenga que "saber" de las demás.
+
+### Bugs reales encontrados y corregidos durante la verificación
+
+Verificar los 2 patrones nuevos contra las 6 estrategias (heroSize hasta
+0.86 de ancho de columna) expuso **tres fallos reales, preexistentes al
+sprint, nunca antes ejercitados con heroes tan anchos**:
+
+1. **Precio superpuesto sin declarar al hero** (`strategies/_shared.js#topRightCorner`):
+   la esquina superior derecha para el badge de precio se calculaba
+   ciega al tamaño real del hero — con un hero ancho y centrado
+   (`product-first` 0.86, `apple-style` 0.74, `hero-product` 0.82,
+   `premium-retail` 0.76, `luxury-catalogue` 0.66, y el nuevo
+   `amazon-premium` 0.80), el precio quedaba invadido por la foto sin
+   que nada lo marcara como intencionado. Corregido: `topRightCorner`
+   ahora recibe la caja del hero y (1) usa el hueco real a la derecha si
+   existe, (2) si no, el de la izquierda, (3) si el hero es demasiado
+   ancho para dejar hueco en ningún lado, el precio se convierte en un
+   badge pequeño anclado sobre la esquina de la foto — mismo lenguaje
+   real de retail (Amazon, MediaMarkt: precio/descuento superpuesto en
+   la esquina del producto) — marcado `overlaysHero:true` y reconocido
+   como solape estructural permitido tanto en
+   `balance-score.js#isHeroBadgeOverlay` como en
+   `design-director/criteria.js#limpieza` (misma función, reutilizada).
+2. **Apilado invadiendo el footer de contacto** (`strategies/_shared.js#stackVertically`):
+   solo `cinematico-fullbleed` reservaba filas para el footer
+   (`footerReservedRows`); las otras 3 estrategias que apilan
+   verticalmente no lo hacían, así que un hero muy alto + título + CTA
+   podía terminar por debajo de donde empieza `footerBleedBox()`
+   (confirmado con `product-first`: CTA solapaba ~8px con el footer).
+   Corregido: `stackVertically` acepta un `maxRow` opcional y recorta la
+   altura del último elemento que no cabe entero, en vez de dejarlo
+   desbordar — mismo criterio de "recortar, nunca romper" que
+   `flotante-minimalista.js#downgradeOnceIfDominant`. Las 3 estrategias
+   afectadas (`centrado-clasico`, `flotante-minimalista`,
+   `flat-lay-editorial`) ahora pasan `grid.rows - footerReservedRows(...)`.
+3. **Banda de color invisible tras un hero a sangre completa** (`layout-composer/render-helpers.js#decorationMarkup`):
+   la decoración `color-band` se pintaba con `z-index:1`, EL MISMO nivel
+   que el hero `background-fill` (también `z-index:1`) — al añadirse
+   ANTES en el DOM, el hero (mismo nivel, más tarde) la tapaba por
+   completo. Confirmado renderizando `mediamarkt-editorial` (banda
+   invisible en el primer render). Corregido: `color-band` sube a
+   `z-index:2`, mismo nivel que `gradient-bottom` (ya pensada para
+   pintarse sobre el hero).
+
+Los tres bugs eran preexistentes a este sprint (afectaban ya a
+`product-first`/`apple-style`/`hero-product`/`premium-retail`/
+`luxury-catalogue` con `topRightCorner`, y a cualquier patrón
+`full-bleed` con banda de color), simplemente nunca se habían ejercitado
+con combinaciones tan exigentes — verificar los 2 patrones nuevos contra
+las 6 estrategias fue lo que los sacó a la luz. Ningún cambio de
+comportamiento en composiciones que ya no disparaban estos casos límite
+(confirmado por regresión).
+
+### Verificación de este sprint
+
+`node --check` en los ~20 ficheros nuevos/tocados · independencia
+`creative-lab/`↔`marketing-engine/` intacta (grep) · determinismo (misma
+semilla → mismo resultado, 20 iteraciones) · barrido sintético sobre los
+17 patrones × 6 estrategias (sin `NaN`, sin caja fuera de canvas, sin
+solape indeliberado) · pipeline real completo (`marketing-engine` →
+`fromMarketingEngine` → `runCreativeLab`) con la foto real del
+Ventilador Muvip: **92/100 (excelente)**, `passed:true`, sin regresión
+frente al resultado del sprint "Design Director Engine" — misma calidad,
+ahora con la capacidad de variar. Dos campañas adicionales con productos
+distintos (silla de oficina, auriculares Bluetooth, ambos con foto
+simulada) confirman que el sistema no rompe con productos/categorías
+nuevas y sigue siendo honesto cuando no alcanza el umbral (veto de
+"plantilla automática" correctamente disparado en ambas, mismo
+mecanismo del sprint anterior). Comparación visual antes/después:
+forzando los patrones `nike-style` y `mediamarkt-editorial` (antes
+inalcanzables en la práctica sin foto real de sobra) sobre la misma foto
+del Ventilador se obtienen piezas con tensión asimétrica real,
+solape título/producto deliberado, sangre de canvas y banda de color —
+salto visual evidente frente al `cinematico-fullbleed` centrado y sin
+recursos editoriales que producía el sistema antes de este sprint.
+
 ## Verificación realizada
 
 Independencia por grep · las 9 bibliotecas validan al cargar · 15

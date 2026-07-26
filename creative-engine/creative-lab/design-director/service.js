@@ -12,7 +12,7 @@ const { CRITERIA, centroidDeviation } = require('./criteria.js');
 const { DESIGN_QUALITY_THRESHOLD, TEMPLATE_LOOK, bandFor } = require('./config.js');
 const { boxArea } = require('../layout-intelligence/grid.js');
 
-function buildContext(planned, artDirection, brief, canvas) {
+function buildContext(planned, artDirection, brief, canvas, editorial) {
   const elements = planned.planResult.elements;
   const byId = {};
   for (const el of elements) byId[el.elementId] = el;
@@ -24,6 +24,7 @@ function buildContext(planned, artDirection, brief, canvas) {
     tierByElement: planned.tierByElement,
     strategyId: planned.strategyId,
     artDirection,
+    editorial,
     brief,
     canvas,
     textEmphasis: planned.textEmphasis,
@@ -65,10 +66,11 @@ function detectHardIssues(ctx) {
  * @param {object} artDirection - ArtDirectionDecision usada para producir `planned`
  * @param {object} brief - CreativeBrief
  * @param {{width:number, height:number}} canvas
+ * @param {object} [editorial] - EditorialDecision usada para producir `planned` (editorial-design-engine/service.js#directEditorial) — su `allowOverlap` es lo que hace que `limpieza()` no penalice un solape deliberado y acotado
  * @returns {{total:number, band:string, passed:boolean, looksTemplated:boolean, hardIssues:string[], criteria:object}}
  */
-function reviewComposition(planned, artDirection, brief, canvas) {
-  const ctx = buildContext(planned, artDirection, brief, canvas);
+function reviewComposition(planned, artDirection, brief, canvas, editorial) {
+  const ctx = buildContext(planned, artDirection, brief, canvas, editorial);
 
   const criteria = {};
   for (const [name, fn] of Object.entries(CRITERIA)) criteria[name] = fn(ctx);

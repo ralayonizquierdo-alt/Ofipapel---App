@@ -6,9 +6,12 @@
 
 const { spanForTier, centerColStart, footerBleedBox, topRightCorner, cellsToBox, SPLIT_SCREEN_RATIO } = require('./_shared.js');
 
-// `stackOrder` no se usa aquí — el hero siempre ocupa la banda superior
-// completa (split screen) y el resto se centra en la banda inferior.
-function computePlan(grid, tierByElement, elementIds, stackOrder) {
+// `stackOrder`/`editorial` no se usan aquí — el hero siempre ocupa la
+// banda superior completa (split screen) y el resto se centra en la
+// banda inferior; no hay apilado vertical simétrico que romper.
+// `editorial` se acepta solo por consistencia de firma con el resto de
+// estrategias (todas reciben las mismas 6 posiciones).
+function computePlan(grid, tierByElement, elementIds, stackOrder, artDirection, editorial) {
   const elements = [];
   const splitRow = Math.round(grid.rows * SPLIT_SCREEN_RATIO);
 
@@ -22,8 +25,14 @@ function computePlan(grid, tierByElement, elementIds, stackOrder) {
   }
 
   if (elementIds.includes('price')) {
+    // El hero ocupa aquí SIEMPRE el ancho completo de la banda superior
+    // (pantalla partida) — nunca hay hueco libre a los lados, así que el
+    // precio siempre acaba como badge sobre la esquina de la foto
+    // (ver _shared.js#topRightCorner) — mismo lenguaje que el resto de
+    // estrategias con hero ancho, no un caso especial de esta.
     const span = spanForTier(grid, tierByElement.price);
-    elements.push({ elementId: 'price', kind: 'boxed', box: topRightCorner(grid, span) });
+    const heroEl = elements.find((el) => el.elementId === 'hero');
+    elements.push({ elementId: 'price', kind: 'boxed', box: topRightCorner(grid, span, undefined, heroEl && heroEl.box) });
   }
 
   let cursorRow = splitRow + 1;

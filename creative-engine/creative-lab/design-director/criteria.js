@@ -16,6 +16,7 @@
 const { boxArea, overlaps, weightedCentroid, whitespaceRatio } = require('../layout-intelligence/grid.js');
 const { TIER_ORDER } = require('../layout-intelligence/hierarchy.js');
 const { HIERARCHY_TIER_SPANS } = require('../layout-intelligence/config.js');
+const { isAllowedOverlap, isHeroBadgeOverlay } = require('../layout-intelligence/balance-score.js');
 const { CRITERIA_WEIGHTS, HEALTHY_TENSION_RANGE } = require('./config.js');
 
 // Duplicado deliberado de layout-composer/render-helpers.js#titleFontSize
@@ -211,13 +212,28 @@ function elegancia(ctx) {
   return { points: Math.round(weight * Math.max(0.35, 1 - Math.max(0, count - 5) / 6)), detail: `${count} elementos en la pieza.` };
 }
 
-/** Cero solapes — un error que una campaña profesional real nunca comete. */
+/**
+ * Cero solapes — un error que una campaña profesional real nunca comete,
+ * salvo que sea un recurso EDITORIAL deliberado y acotado
+ * (editorial-design-engine/#allowOverlap, ver también
+ * layout-intelligence/balance-score.js#isAllowedOverlap — misma función
+ * reutilizada aquí, no duplicada, para que "qué solape está permitido" se
+ * decida en un único sitio).
+ */
 function limpieza(ctx) {
   const weight = CRITERIA_WEIGHTS.limpieza;
   const els = foreground(ctx.elements);
+  const allowOverlap = ctx.editorial && ctx.editorial.allowOverlap;
   let collisions = 0;
-  for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) if (overlaps(els[i].box, els[j].box)) collisions++;
-  return { points: Math.max(0, weight - collisions * Math.ceil(weight / 2)), detail: collisions === 0 ? 'Sin solapes entre elementos.' : `${collisions} par(es) de elementos solapados.` };
+  for (let i = 0; i < els.length; i++) {
+    for (let j = i + 1; j < els.length; j++) {
+      if (!overlaps(els[i].box, els[j].box)) continue;
+      if (isAllowedOverlap(els[i], els[j], allowOverlap)) continue;
+      if (isHeroBadgeOverlay(els[i], els[j])) continue;
+      collisions++;
+    }
+  }
+  return { points: Math.max(0, weight - collisions * Math.ceil(weight / 2)), detail: collisions === 0 ? 'Sin solapes entre elementos en primer plano (los deliberados y acotados no cuentan).' : `${collisions} par(es) de elementos solapados.` };
 }
 
 /** Márgenes generosos + pocos elementos se leen como calidad premium — mismo principio de diseño que "menos es más", mismo suelo realista de elementos que `elegancia()`. */

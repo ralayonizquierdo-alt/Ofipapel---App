@@ -3,7 +3,7 @@
 // para que cada estrategia solo tenga que declarar SU regla de equilibrio
 // distintiva, no repetir aritmética de grid 6 veces.
 
-const { cellsToBox, fullCanvasBox } = require('../grid.js');
+const { cellsToBox, fullCanvasBox, overlaps } = require('../grid.js');
 const { HIERARCHY_TIER_SPANS, SPLIT_SCREEN_RATIO, FRAME_INSET_CELLS } = require('../config.js');
 
 /**
@@ -32,6 +32,22 @@ function centerColStart(grid, colSpan) {
   return Math.max(0, Math.round((grid.columns - colSpan) / 2));
 }
 
+/**
+ * Punto de partida horizontal: centrado por defecto, desplazado hacia la
+ * zona de tensión cuando Editorial Design Engine decidió romper la
+ * simetría (`editorial.breakSymmetry`) — "dejar de pensar en bloques
+ * verticales" sin reescribir el apilado: el bloque sigue siendo vertical,
+ * pero ya no cae siempre en el eje central. Desplazamiento acotado
+ * (~12% del ancho del grid) para no salirse del margen.
+ */
+function offsetColStart(grid, colSpan, editorial) {
+  const center = centerColStart(grid, colSpan);
+  if (!editorial || !editorial.breakSymmetry) return center;
+  const shiftCols = Math.max(1, Math.round(grid.columns * 0.12));
+  const direction = editorial.tensionZone && editorial.tensionZone.includes('right') ? 1 : -1;
+  return Math.max(0, Math.min(grid.columns - colSpan, center + direction * shiftCols));
+}
+
 /** Franja inferior a sangre completa (fuera del grid interior, incluye el margen) — altura derivada del tier 'minimo' (misma regla que cualquier otro tamaño, no un `height*0.05` tecleado). */
 function footerBleedBox(grid) {
   const footerHeight = HIERARCHY_TIER_SPANS.minimo.rowRatio * grid.interiorHeight;
@@ -46,10 +62,47 @@ function footerBleedBox(grid) {
  * logo/precio) — sin este límite, un precio con tier propio más alto que
  * el de la cabecera puede solaparse con el hero (detectado con el test
  * sintético antes de tocar layout-composer/, ver ARCHITECTURE.md).
+ *
+ * `heroBox`, si se pasa, hace la colocación consciente del hero real —
+ * bug real encontrado con 'amazon-premium' (heroSize 0.80 centrado) y ya
+ * latente con 'product-first'/'apple-style'/'hero-product'/
+ * 'premium-retail'/'luxury-catalogue': un hero ancho y centrado invade
+ * la esquina superior derecha donde vivía el precio, y la colocación
+ * ciega (siempre la columna más a la derecha) no lo detectaba. Ahora:
+ * 1) si queda hueco real a la derecha del hero, el precio vive ahí
+ *    (nunca se solapa); 2) si no, se prueba el hueco a la izquierda;
+ * 3) si el hero es tan ancho que no queda hueco en ningún lado, el
+ *    precio se convierte en un badge pequeño ANCLADO SOBRE LA ESQUINA
+ *    de la foto — mismo lenguaje que un precio/descuento superpuesto en
+ *    retail real (Amazon, MediaMarkt) — marcado `overlaysHero:true` para
+ *    que balance-score.js/design-director lo traten como solape
+ *    estructural permitido, no como desorden.
  */
-function topRightCorner(grid, span, maxRowSpan) {
+function topRightCorner(grid, span, maxRowSpan, heroBox) {
   const rowSpan = maxRowSpan ? Math.min(span.rowSpan, maxRowSpan) : span.rowSpan;
-  return cellsToBox(grid, grid.columns - span.colSpan, span.colSpan, 0, rowSpan);
+  const naive = cellsToBox(grid, grid.columns - span.colSpan, span.colSpan, 0, rowSpan);
+  if (!heroBox || !overlaps(naive, heroBox)) return naive;
+
+  const gapRight = grid.originX + grid.interiorWidth - (heroBox.x + heroBox.w);
+  if (gapRight >= naive.w * 0.7) {
+    const colsForGap = Math.max(1, Math.floor(gapRight / grid.cellWidth));
+    return cellsToBox(grid, grid.columns - colsForGap, colsForGap, 0, rowSpan);
+  }
+  const gapLeft = heroBox.x - grid.originX;
+  if (gapLeft >= naive.w * 0.7) {
+    const colsForGap = Math.max(1, Math.floor(gapLeft / grid.cellWidth));
+    return cellsToBox(grid, 0, colsForGap, 0, rowSpan);
+  }
+
+  const badgeWidth = naive.w * 0.62;
+  const badgeHeight = naive.h * 0.72;
+  return {
+    x: grid.originX + grid.interiorWidth - badgeWidth,
+    y: grid.originY,
+    w: badgeWidth,
+    h: badgeHeight,
+    overlaysHero: true,
+  };
 }
 
 /** Altura (en filas) de la cabecera reservada por el primer elemento del apilado — el precio en la esquina no debe superar esa altura para no invadir lo que viene después. */
@@ -104,20 +157,23 @@ function heroSpan(grid, tierByElement, artDirection) {
  * @param {number} startRow
  * @param {(tier:string)=>string} [tierTransform] - p.ej. flotante-minimalista rebaja el tier del título
  * @param {object} [artDirection] - ArtDirectionDecision (art-direction-engine/service.js#directArt)
+ * @param {object} [editorial] - EditorialDecision (editorial-design-engine/service.js#directEditorial) — su `breakSymmetry` desplaza el apilado del centro
+ * @param {number} [maxRow] - fila límite que el apilado NUNCA puede cruzar (normalmente `grid.rows - footerReservedRows(...)`) — bug real encontrado con 'product-first' (hero muy alto + título + cta): sin este límite, el último elemento del apilado podía terminar por debajo de donde empieza el footer de contacto, solapándose con él. Si un elemento no cabe entero, se recorta su alto (nunca se le deja invadir la fila límite) — mismo criterio de "recortar, nunca romper" que `downgradeOnceIfDominant`.
  */
-function stackVertically(grid, stackOrder, tierByElement, startRow, tierTransform = (t) => t, artDirection) {
+function stackVertically(grid, stackOrder, tierByElement, startRow, tierTransform = (t) => t, artDirection, editorial, maxRow) {
   const elements = [];
   let cursorRow = startRow;
   for (const elementId of stackOrder) {
     const span = elementId === 'hero' ? heroSpan(grid, tierByElement, artDirection) : spanForTier(grid, tierTransform(tierByElement[elementId], elementId));
+    const rowSpan = maxRow ? Math.max(1, Math.min(span.rowSpan, maxRow - cursorRow)) : span.rowSpan;
     const kind = elementId === 'logo' ? 'chip' : elementId === 'icons' ? 'icon-row' : 'boxed';
-    elements.push({ elementId, kind, box: cellsToBox(grid, centerColStart(grid, span.colSpan), span.colSpan, cursorRow, span.rowSpan) });
-    cursorRow += span.rowSpan;
+    elements.push({ elementId, kind, box: cellsToBox(grid, offsetColStart(grid, span.colSpan, editorial), span.colSpan, cursorRow, rowSpan) });
+    cursorRow += rowSpan;
   }
   return { elements, cursorRow };
 }
 
 module.exports = {
-  spanForTier, heroSpan, centerColStart, footerBleedBox, footerReservedRows, topRightCorner, headerRowSpan, insetGrid,
+  spanForTier, heroSpan, centerColStart, offsetColStart, footerBleedBox, footerReservedRows, topRightCorner, headerRowSpan, insetGrid,
   cellsToBox, fullCanvasBox, stackVertically, SPLIT_SCREEN_RATIO,
 };

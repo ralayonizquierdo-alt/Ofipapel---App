@@ -4,14 +4,16 @@
 // (config.js): simetría centrada, triangular estable, radial desde
 // producto.
 
-const { stackVertically, footerBleedBox, topRightCorner, headerRowSpan, spanForTier } = require('./_shared.js');
+const { stackVertically, footerBleedBox, footerReservedRows, topRightCorner, headerRowSpan, spanForTier } = require('./_shared.js');
 
-function computePlan(grid, tierByElement, elementIds, stackOrder, artDirection) {
-  const { elements } = stackVertically(grid, stackOrder, tierByElement, 0, undefined, artDirection);
+function computePlan(grid, tierByElement, elementIds, stackOrder, artDirection, editorial) {
+  const maxRow = grid.rows - footerReservedRows(grid, elementIds.includes('contactFooter'));
+  const { elements } = stackVertically(grid, stackOrder, tierByElement, 0, undefined, artDirection, editorial, maxRow);
 
   if (elementIds.includes('price')) {
     const span = spanForTier(grid, tierByElement.price);
-    elements.push({ elementId: 'price', kind: 'boxed', box: topRightCorner(grid, span, headerRowSpan(grid, stackOrder, tierByElement)) });
+    const heroEl = elements.find((el) => el.elementId === 'hero');
+    elements.push({ elementId: 'price', kind: 'boxed', box: topRightCorner(grid, span, headerRowSpan(grid, stackOrder, tierByElement), heroEl && heroEl.box) });
   }
 
   if (elementIds.includes('contactFooter')) {

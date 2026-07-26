@@ -4,7 +4,7 @@
 // Todos los checks son de PLAN (números), nunca de píxeles — mismo
 // criterio honesto que `evaluatedOn:'plan'` en creative-validator/.
 
-const { boxArea, overlaps, withinBounds, whitespaceRatio, weightedCentroid } = require('./grid.js');
+const { boxArea, overlaps, overlapRatio, withinBounds, whitespaceRatio, weightedCentroid } = require('./grid.js');
 const { TIER_ORDER } = require('./hierarchy.js');
 const { WHITESPACE_TARGET, CONTRAST_TARGET, BALANCE_MAX_DEVIATION, SCORE_WEIGHTS, bandFor } = require('./config.js');
 
@@ -20,8 +20,11 @@ function isForeground(el) {
 
 function scoreMarginCompliance(elements, grid) {
   // El footer a sangre completa se sale del margen A PROPÓSITO (bleed) —
-  // no es una violación, es su forma de estar.
-  const checkable = elements.filter((el) => el.kind !== 'background-fill' && el.kind !== 'footer-bleed');
+  // no es una violación, es su forma de estar. Un hero marcado `bleeds`
+  // (editorial-design-engine/#canvasBleed, aplicado en
+  // service.js#applyCanvasBleed) igual: "el producto invade el lienzo"
+  // es la decisión editorial, no un fallo de composición.
+  const checkable = elements.filter((el) => el.kind !== 'background-fill' && el.kind !== 'footer-bleed' && !el.bleeds);
   if (checkable.length === 0) return { points: SCORE_WEIGHTS.marginCompliance, detail: 'Sin elementos que comprobar (todo es fondo pleno o franja a sangre).' };
   const compliant = checkable.filter((el) => withinBounds(el.box, grid));
   const ratio = compliant.length / checkable.length;
@@ -88,18 +91,51 @@ function scoreVisualBalance(elements, grid, tierByElement) {
   return { points, detail: `Desviación del centroide ponderado respecto al centro: ${(deviation * 100).toFixed(1)}% (máximo aceptable ${BALANCE_MAX_DEVIATION * 100}%).` };
 }
 
-function scoreOverlap(elements) {
+/** ¿Este par concreto es un solape DELIBERADO permitido por Editorial Design Engine (editorial-design-engine/#allowOverlap), y sigue dentro de su ratio máximo? Un solape "permitido" que se pasa de ratio deja de ser un recurso y vuelve a ser desorden. */
+function isAllowedOverlap(a, b, allowOverlap) {
+  if (!allowOverlap || allowOverlap.length === 0) return false;
+  return allowOverlap.some((rule) => {
+    const matches = (rule.a === a.elementId && rule.b === b.elementId) || (rule.a === b.elementId && rule.b === a.elementId);
+    if (!matches) return false;
+    const ratio = Math.max(overlapRatio(a.box, b.box), overlapRatio(b.box, a.box));
+    return ratio <= rule.maxOverlapRatio;
+  });
+}
+
+/**
+ * ¿Es el badge de precio anclado deliberadamente sobre la esquina del
+ * hero (`_shared.js#topRightCorner`, campo `box.overlaysHero`)? Distinto
+ * de `isAllowedOverlap` (excepción editorial por patrón, par
+ * title/hero): este es un solape ESTRUCTURAL — ocurre cada vez que el
+ * hero es demasiado ancho para dejarle hueco al precio, en cualquier
+ * patrón, no solo en los que Editorial Design Engine curó explícitamente
+ * — mismo lenguaje real de retail (precio/descuento superpuesto en la
+ * esquina de la foto del producto).
+ */
+function isHeroBadgeOverlay(a, b) {
+  const badge = a.box.overlaysHero ? a : (b.box.overlaysHero ? b : null);
+  if (!badge) return false;
+  const other = badge === a ? b : a;
+  return other.elementId === 'hero';
+}
+
+function scoreOverlap(elements, allowOverlap) {
   // El fondo pleno puede solaparse con cualquier overlay a propósito
-  // (es su función); el resto de pares no deberían solaparse.
+  // (es su función); el resto de pares no deberían solaparse salvo que
+  // Editorial Design Engine lo haya permitido explícitamente y acotado,
+  // o sea el badge de precio anclado sobre la esquina del hero.
   const checkable = elements.filter(isForeground);
   let collisions = 0;
   for (let i = 0; i < checkable.length; i++) {
     for (let j = i + 1; j < checkable.length; j++) {
-      if (overlaps(checkable[i].box, checkable[j].box)) collisions++;
+      if (!overlaps(checkable[i].box, checkable[j].box)) continue;
+      if (isAllowedOverlap(checkable[i], checkable[j], allowOverlap)) continue;
+      if (isHeroBadgeOverlay(checkable[i], checkable[j])) continue;
+      collisions++;
     }
   }
   const points = Math.max(0, SCORE_WEIGHTS.overlapPenalty - collisions * 8);
-  return { points, detail: collisions === 0 ? 'Sin solapes entre elementos en primer plano.' : `${collisions} par(es) de elementos solapados.` };
+  return { points, detail: collisions === 0 ? 'Sin solapes entre elementos en primer plano (los deliberados y acotados no cuentan).' : `${collisions} par(es) de elementos solapados.` };
 }
 
 /**
@@ -107,8 +143,9 @@ function scoreOverlap(elements) {
  * @param {object} grid - salida de grid.js#buildGrid
  * @param {Record<string,string>} tierByElement - salida de hierarchy.js#computeHierarchy
  * @param {{min:number,max:number}} [whitespaceTarget] - override por patrón editorial (art-direction-engine/), si no se pasa usa config.js#WHITESPACE_TARGET
+ * @param {Array<{a:string,b:string,maxOverlapRatio:number}>} [allowOverlap] - excepciones deliberadas de editorial-design-engine/#directEditorial
  */
-function scoreLayout(planResult, grid, tierByElement, whitespaceTarget) {
+function scoreLayout(planResult, grid, tierByElement, whitespaceTarget, allowOverlap) {
   const { elements } = planResult;
 
   const checks = {
@@ -116,7 +153,7 @@ function scoreLayout(planResult, grid, tierByElement, whitespaceTarget) {
     whitespaceBalance: scoreWhitespace(elements, grid, whitespaceTarget),
     hierarchyContrast: scoreHierarchyContrast(elements, tierByElement),
     visualBalance: scoreVisualBalance(elements, grid, tierByElement),
-    overlapPenalty: scoreOverlap(elements),
+    overlapPenalty: scoreOverlap(elements, allowOverlap),
   };
 
   const total = Object.values(checks).reduce((sum, c) => sum + c.points, 0);
@@ -124,4 +161,4 @@ function scoreLayout(planResult, grid, tierByElement, whitespaceTarget) {
   return { total, band: bandFor(total), checks };
 }
 
-module.exports = { scoreLayout };
+module.exports = { scoreLayout, isAllowedOverlap, isHeroBadgeOverlay };

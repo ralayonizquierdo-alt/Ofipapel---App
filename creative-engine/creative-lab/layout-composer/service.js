@@ -19,6 +19,7 @@ const { execFileSync } = require('node:child_process');
 const { RENDER_SCRIPT, NODE_PATH_FOR_PLAYWRIGHT, RENDER_SCALE } = require('./config.js');
 const { planLayout } = require('../layout-intelligence/service.js');
 const { directArt } = require('../art-direction-engine/service.js');
+const { directEditorial } = require('../editorial-design-engine/service.js');
 const { reviewComposition } = require('../design-director/service.js');
 const { MAX_DESIGN_RETRIES } = require('../design-director/config.js');
 const { buildHtmlFromPlan } = require('./render-plan.js');
@@ -57,6 +58,13 @@ function isRealPhoto(generationResult) {
  * Igual que el resto de umbrales del sistema, si se agotan los intentos
  * sin aprobar se usa honestamente la mejor puntuación vista, nunca se
  * lanza una excepción por esto.
+ *
+ * Desde "Editorial Design Engine" (Design Evolution v2), cada intento
+ * también pide una EditorialDecision (directEditorial) a partir del
+ * patrón/alineación que Art Direction Engine acaba de elegir — se
+ * recalcula en cada vuelta porque depende del `artDirection` de esa
+ * vuelta (un patrón distinto puede implicar tensión/solape/sangre
+ * distintos), nunca se reutiliza la del intento anterior.
  */
 function reviewLoop(concept, brief, canvas, candidateElementIds, hasRealPhoto) {
   const excludePatternIds = [];
@@ -64,10 +72,11 @@ function reviewLoop(concept, brief, canvas, candidateElementIds, hasRealPhoto) {
 
   for (let attempt = 1; attempt <= Math.max(1, MAX_DESIGN_RETRIES); attempt++) {
     const artDirection = directArt(concept, brief, candidateElementIds, hasRealPhoto, excludePatternIds);
-    const planned = planLayout(concept, brief, canvas, artDirection.keepElementIds, artDirection);
-    const review = reviewComposition(planned, artDirection, brief, canvas);
+    const editorial = directEditorial(concept, artDirection);
+    const planned = planLayout(concept, brief, canvas, artDirection.keepElementIds, artDirection, editorial);
+    const review = reviewComposition(planned, artDirection, brief, canvas, editorial);
 
-    if (!best || review.total > best.review.total) best = { artDirection, planned, review };
+    if (!best || review.total > best.review.total) best = { artDirection, editorial, planned, review };
     if (review.passed) return best;
 
     excludePatternIds.push(artDirection.patternId);
@@ -93,7 +102,7 @@ function composeLayout(concept, brief, preparedAssets, generationResult, outputD
   const candidateElementIds = resolveCandidateElementIds(brief, preparedAssets, generationResult);
   const hasRealPhoto = isRealPhoto(generationResult);
 
-  const { artDirection, planned, review } = reviewLoop(concept, brief, canvas, candidateElementIds, hasRealPhoto);
+  const { artDirection, editorial, planned, review } = reviewLoop(concept, brief, canvas, candidateElementIds, hasRealPhoto);
 
   const html = buildHtmlFromPlan(planned.planResult, {
     brand: {
@@ -110,6 +119,11 @@ function composeLayout(concept, brief, preparedAssets, generationResult, outputD
     textEmphasis: planned.textEmphasis,
     icons: artDirection.icons,
     allowCard: artDirection.allowCard,
+    // Semilla de Component Library (../component-library/service.js#selectVariant):
+    // mismo concepto+patrón siempre eligen la MISMA variante por
+    // componente (reproducible), pero conceptos o patrones distintos casi
+    // nunca coinciden — "nunca repetir siempre la misma".
+    variantSeed: `${concept.conceptId}::${artDirection.patternId}`,
   });
 
   fs.mkdirSync(outputDir, { recursive: true });
