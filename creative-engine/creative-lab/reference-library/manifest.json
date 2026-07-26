@@ -1,0 +1,283 @@
+[
+  {
+    "id": "producto-heroe-estudio-clasico",
+    "label": "Producto héroe de estudio clásico",
+    "idealProducts": [
+      "electrodomesticos",
+      "tecnologia",
+      "general"
+    ],
+    "styleId": "producto-flotante-estudio",
+    "compositionId": "simetria-centrada",
+    "artDirectionId": "minimalismo",
+    "lightingId": "softbox-estudio",
+    "scenarioId": "estudio-fondo-blanco",
+    "paletteHarmonyId": "neutra-con-acento-marca",
+    "angleLensId": "frontal-centrado",
+    "textSpaceId": "titular-dominante",
+    "visualImpactLevel": 78,
+    "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "lifestyle-cocina-calida",
+    "label": "Lifestyle de cocina cálida",
+    "idealProducts": [
+      "electrodomesticos",
+      "alimentacion",
+      "hogar-decoracion",
+      "general"
+    ],
+    "styleId": "lifestyle-documental",
+    "compositionId": "encuadre-abierto-contexto",
+    "artDirectionId": "organico",
+    "lightingId": "ventana-natural",
+    "scenarioId": "cocina-domestica",
+    "paletteHarmonyId": "calida-marca",
+    "angleLensId": "tres-cuartos",
+    "textSpaceId": "texto-superior-cta-inferior",
+    "visualImpactLevel": 71,
+    "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "black-friday-urgencia",
+    "label": "Black Friday / urgencia",
+    "idealProducts": [
+      "general",
+      "electrodomesticos",
+      "tecnologia"
+    ],
+    "styleId": "alto-contraste-drama",
+    "compositionId": "diagonal-dinamica",
+    "artDirectionId": "maximalismo",
+    "lightingId": "dura-direccional",
+    "scenarioId": "estudio-fondo-color-marca",
+    "paletteHarmonyId": "alto-contraste-marca",
+    "angleLensId": "contrapicado-heroico",
+    "textSpaceId": "titular-dominante",
+    "visualImpactLevel": 84,
+    "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "producto-flotante-sombra-premium",
+    "label": "Producto flotante con sombra premium",
+    "idealProducts": [
+      "joyeria",
+      "belleza",
+      "tecnologia",
+      "general"
+    ],
+    "styleId": "producto-heroe-flotante-sombra",
+    "compositionId": "espacio-negativo-dominante",
+    "artDirectionId": "lujo-discreto",
+    "lightingId": "low-key-dramatica",
+    "scenarioId": "flotando-sin-escenario",
+    "paletteHarmonyId": "monocroma-marca",
+    "angleLensId": "altura-producto",
+    "textSpaceId": "logo-dominante",
+    "visualImpactLevel": 80,
+    "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "producto-en-uso-manos-reales",
+    "label": "Producto en uso, manos reales",
+    "idealProducts": [
+      "electrodomesticos",
+      "belleza",
+      "general"
+    ],
+    "styleId": "lifestyle-documental",
+    "compositionId": "encuadre-cerrado-detalle",
+    "artDirectionId": "artesanal-honesto",
+    "lightingId": "ventana-natural",
+    "scenarioId": "en-uso-manos",
+    "paletteHarmonyId": "analoga",
+    "angleLensId": "tres-cuartos",
+    "textSpaceId": "texto-lateral",
+    "visualImpactLevel": 74,
+    "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "flat-lay-desayuno-editorial",
+    "label": "Flat lay editorial",
+    "idealProducts": [
+      "alimentacion",
+      "oficina-papeleria",
+      "general"
+    ],
+    "styleId": "flat-lay-cenital",
+    "compositionId": "flat-lay",
+    "artDirectionId": "minimalismo",
+    "lightingId": "luz-cenital-suave",
+    "scenarioId": "superficie-textil",
+    "paletteHarmonyId": "neutra-con-acento-marca",
+    "angleLensId": "cenital-flat-lay",
+    "textSpaceId": "sin-texto-solo-marca",
+    "visualImpactLevel": 68,
+    "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "tecnologia-neon-futurista",
+    "label": "Tecnología neón futurista",
+    "idealProducts": [
+      "tecnologia",
+      "general"
+    ],
+    "styleId": "tecnologico-futurista",
+    "compositionId": "composicion-en-l",
+    "artDirectionId": "futurista",
+    "lightingId": "neon-color",
+    "scenarioId": "estudio-fondo-blanco",
+    "paletteHarmonyId": "fria-marca",
+    "angleLensId": "dutch-angle-editorial",
+    "textSpaceId": "minimo-texto-hero",
+    "visualImpactLevel": 76,
+    "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "belleza-reflejo-elegante",
+    "label": "Belleza con reflejo elegante",
+    "idealProducts": [
+      "belleza",
+      "joyeria",
+      "general"
+    ],
+    "styleId": "monocromo-elegante",
+    "compositionId": "marco-dentro-del-marco",
+    "artDirectionId": "lujo-discreto",
+    "lightingId": "contraluz-rim-light",
+    "scenarioId": "superficie-piedra-marmol",
+    "paletteHarmonyId": "monocroma-marca",
+    "angleLensId": "macro-detalle",
+    "textSpaceId": "minimo-texto-hero",
+    "visualImpactLevel": 73,
+    "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "oficina-corporativa-limpia",
+    "label": "Oficina corporativa limpia",
+    "idealProducts": [
+      "oficina-papeleria",
+      "general"
+    ],
+    "styleId": "corporativo-limpio",
+    "compositionId": "regla-tercios",
+    "artDirectionId": "corporativo-clasico",
+    "lightingId": "high-key-luminosa",
+    "scenarioId": "escritorio-oficina",
+    "paletteHarmonyId": "neutra-con-acento-marca",
+    "angleLensId": "tres-cuartos",
+    "textSpaceId": "texto-superior-cta-inferior",
+    "visualImpactLevel": 62,
+    "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "exterior-veraniego-canario",
+    "label": "Exterior veraniego canario",
+    "idealProducts": [
+      "electrodomesticos",
+      "alimentacion",
+      "general"
+    ],
+    "styleId": "mediterraneo-canario",
+    "compositionId": "encuadre-abierto-contexto",
+    "artDirectionId": "organico",
+    "lightingId": "golden-hour",
+    "scenarioId": "exterior-canario-mediterraneo",
+    "paletteHarmonyId": "calida-marca",
+    "angleLensId": "gran-angular",
+    "textSpaceId": "texto-superior-cta-inferior",
+    "visualImpactLevel": 75,
+    "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "moda-urbana-street",
+    "label": "Moda urbana street",
+    "idealProducts": [
+      "moda",
+      "general"
+    ],
+    "styleId": "street-style-urbano",
+    "compositionId": "asimetria-equilibrada",
+    "artDirectionId": "experimental-conceptual",
+    "lightingId": "difusa-nublada",
+    "scenarioId": "contexto-urbano",
+    "paletteHarmonyId": "complementaria",
+    "angleLensId": "perfil-lateral",
+    "textSpaceId": "texto-lateral",
+    "visualImpactLevel": 70,
+    "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "infantil-pastel-amable",
+    "label": "Infantil pastel amable",
+    "idealProducts": [
+      "infantil",
+      "general"
+    ],
+    "styleId": "pastel-soft",
+    "compositionId": "triangular-estable",
+    "artDirectionId": "minimalismo",
+    "lightingId": "high-key-luminosa",
+    "scenarioId": "estudio-fondo-color-marca",
+    "paletteHarmonyId": "analoga",
+    "angleLensId": "altura-producto",
+    "textSpaceId": "titular-dominante",
+    "visualImpactLevel": 65,
+    "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "gastronomia-rustica-calida",
+    "label": "Gastronomía rústica cálida",
+    "idealProducts": [
+      "alimentacion",
+      "general"
+    ],
+    "styleId": "rustico-campestre",
+    "compositionId": "capas-primer-segundo-plano",
+    "artDirectionId": "artesanal-honesto",
+    "lightingId": "golden-hour",
+    "scenarioId": "superficie-textil",
+    "paletteHarmonyId": "calida-marca",
+    "angleLensId": "tres-cuartos",
+    "textSpaceId": "sin-texto-solo-marca",
+    "visualImpactLevel": 72,
+    "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "despiece-tecnico-caracteristicas",
+    "label": "Despiece técnico de características",
+    "idealProducts": [
+      "electrodomesticos",
+      "tecnologia",
+      "general"
+    ],
+    "styleId": "despiece-tecnico",
+    "compositionId": "radial-desde-producto",
+    "artDirectionId": "corporativo-clasico",
+    "lightingId": "softbox-estudio",
+    "scenarioId": "estudio-fondo-blanco",
+    "paletteHarmonyId": "neutra-con-acento-marca",
+    "angleLensId": "frontal-centrado",
+    "textSpaceId": "texto-lateral",
+    "visualImpactLevel": 69,
+    "curatedAt": "2026-07-25"
+  },
+  {
+    "id": "unboxing-descubrimiento",
+    "label": "Unboxing / descubrimiento",
+    "idealProducts": [
+      "tecnologia",
+      "general"
+    ],
+    "styleId": "unboxing-experiencial",
+    "compositionId": "encuadre-cerrado-detalle",
+    "artDirectionId": "experimental-conceptual",
+    "lightingId": "dura-direccional",
+    "scenarioId": "punto-de-venta",
+    "paletteHarmonyId": "alto-contraste-marca",
+    "angleLensId": "tres-cuartos",
+    "textSpaceId": "minimo-texto-hero",
+    "visualImpactLevel": 77,
+    "curatedAt": "2026-07-25"
+  }
+]

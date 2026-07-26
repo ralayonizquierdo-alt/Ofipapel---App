@@ -1,0 +1,237 @@
+# Creative Lab — arquitectura
+
+Tercer verbo del ecosistema: **Marketing Engine piensa. Creative Engine
+crea. Creative Lab perfecciona.** Su única misión es investigar y elevar
+la calidad visual — no añade agentes de negocio ni funcionalidades
+nuevas. El objetivo declarado por el propietario:
+
+> "Generar campañas que un diseñador profesional aprobaría sin necesidad
+> de modificarlas."
+
+No es "una IA que hace imágenes" — es un Director Creativo Digital: cada
+resultado viene con su razonamiento (qué conceptos se descartaron, por
+qué ganó el que ganó), mismo principio que ya usan Director Creativo y
+Campaign Recommender de `marketing-engine/`.
+
+## Ubicación: `creative-engine/creative-lab/`, no un módulo top-level
+
+Creative Lab no tiene consumidor externo propio — su trabajo es mejorar
+lo que ya produce `creative-engine/`. Vivir dentro de él permite
+reutilizar sin fricción `provider-manager/`, `brief/contracts.js`,
+`creative-assets/store.js`, `prompt-composer/` y `creative-validator/` —
+cero duplicidades. `creative-lab/` no importa nada de `marketing-engine/`
+(verificado por grep, mismo criterio que el resto de `creative-engine/`).
+
+## El flujo, componente a componente
+
+```
+CreativeBrief (ya existe, sin cambios)
+  → Análisis            analysis/service.js            — filtra Biblioteca de Referencias elegibles
+  → Concepto creativo   concept-generator/service.js    — 8-12 conceptos, mezcla + variación propia
+  → Moodboard           moodboard/service.js            — textual, NUNCA una imagen
+  → Prompt maestro       master-prompt-composer/service.js — extiende prompt-composer/ existente
+  → Concept Score capa 1 concept-score/service.js#scoreConceptPlan — las 8-12, gratis
+  → Shortlist (3-4)      concept-score/service.js#buildShortlist
+  → Proveedor de IA      provider-manager/ (el YA EXISTENTE, reutilizado tal cual)
+  → Concept Score capa 2 concept-score/service.js#scoreConceptPixel — solo el shortlist, real
+  → Umbral + reintento   index.js#runCreativeLab — QUALITY_THRESHOLD, MAX_RETRIES
+```
+
+## Las 9 bibliotecas atómicas (`libraries/`)
+
+El "vocabulario": datos puros (`{id,label,text,tags}`), cero red, cero
+dependencias — mismo criterio que `VISUAL_ANGLES` o `CATEGORY_RULES` ya
+existentes en el repo.
+
+| Biblioteca | Entradas | Nota |
+|---|---|---|
+| `styles.js` | 52 | supera el mínimo de 50 pedido |
+| `compositions.js` | 15 | regla de encuadre |
+| `art-directions.js` | 10 | filosofía visual — eje independiente de "estilo" (un mismo estilo se ejecuta con direcciones distintas) |
+| `lighting.js` | 12 | |
+| `scenarios.js` | 14 | |
+| `typographic-hierarchies.js` | 7 | nunca pide renderizar texto — mismo principio de "composición posterior" que `prompt-composer/sections/copy.js` |
+| `palettes-harmonies.js` | 8 | reglas de armonía SOBRE la paleta real de `brand-kit.json`, no colores propios |
+| `angles-lenses.js` | 12 | 9ª biblioteca, añadida a petición explícita del propietario para la Biblioteca de Referencias |
+| `trends.js` | 12 | estática y fechada (`curatedAt`) — necesita refresco manual, ver "Mantenimiento" más abajo |
+
+`libraries/index.js` valida las 9 al cargar (ids únicos, campos
+obligatorios) — un typo falla en `require()`, no en producción.
+
+## La Biblioteca de Referencias (`reference-library/`) — el pilar
+
+No es una colección de imágenes para copiar. Es un lenguaje visual: cada
+entrada es una **receta curada** que combina, por `id`, una entrada de
+cada una de las 8 bibliotecas de "ejecución visual" (todas menos
+tendencias) + los campos que solo tienen sentido aquí:
+
+- `emotion`, `whenToUse`, `whenToAvoid` (los 12 campos mínimos pedidos)
+- `whatMakesItSpecial`, `whyItWorksOnSocial` (heredados de la propuesta
+  original — "estudiar por qué funcionan", no solo qué son)
+- `visualImpactLevel` (opcional), `sourceType`/`sourceRef` (opcional),
+  `performanceSignals` (opcional, reservado)
+
+Una entrada de referencia **no duplica** el texto de las bibliotecas
+atómicas — solo referencia sus ids (verificado en `registerEntry()`
+contra `libraries/index.js#getEntry`, falla rápido si un id no existe).
+
+### Origen del contenido — decisión explícita del propietario
+
+**Semilla textual, sin imágenes**: 15 entradas iniciales
+(`reference-library/seed-inicial.js`) basadas en principios generales de
+fotografía publicitaria/dirección de arte — `sourceType: 'seed-textual'`
+en todas, ninguna ligada a una campaña real con derechos de terceros.
+Cero riesgo de copyright.
+
+### Escala a decenas de miles sin cambiar arquitectura
+
+```
+entries/<id>.json   un fichero por referencia — añadir la entrada 10.000
+                     es añadir un fichero, cero cambios de código.
+manifest.json        índice ligero (solo los campos de FILTRADO: ids de
+                     biblioteca, idealProducts, visualImpactLevel) — se
+                     lee entero en cada consulta, barato incluso con
+                     miles de filas porque NO lleva los campos de texto
+                     largo (whenToUse, whatMakesItSpecial...). Esos solo
+                     se leen para las pocas referencias que hacen match.
+```
+
+### Importar referencias desde campañas propias (proceso futuro, documentado)
+
+`registerEntry()` es el único punto de entrada para dar de alta una
+referencia — lo usa hoy la semilla inicial, y lo usará mañana un
+importador automático: tomar una campaña ya aprobada (con su
+`concept-score` alto) de `creative-assets/store.js`, mapear sus campos de
+concepto a `styleId/compositionId/...` (ya coinciden 1:1 con lo que
+`concept-generator/` produce) y pedir al propietario (o a un agente) que
+rellene manualmente `whatMakesItSpecial`/`whyItWorksOnSocial` (juicio
+cualitativo, no automatizable sin criterio humano). Cero cambios de
+arquitectura — es una llamada más a `registerEntry()`.
+
+`performanceSignals` (opcional, vacío hoy) es el enganche reservado con
+`marketing-engine/intelligence/learning-engine/` (ya existente, no se
+duplica) para cuando haya datos reales de rendimiento de campañas.
+
+## Concepto creativo — "combinar, no copiar" como invariante forzado
+
+Norma obligatoria del propietario, aplicada como código, no como
+esperanza:
+
+1. **Mezcla de 2-3 referencias**: cada una de las 8 dimensiones atómicas
+   de un concepto se toma de una referencia distinta, elegida por
+   `hash(dimensión, concepto, salt)` — no una ventana deslizante simple
+   (ver "Corrección de diseño" más abajo).
+2. **Variación propia obligatoria del director**: UNA dimensión por
+   concepto (rotando entre las 6 permitidas: encuadre, emoción,
+   narrativa, iluminación, composición, escenario) se sobreescribe con un
+   valor que **ninguna** de las referencias mezcladas usó. Para
+   emoción/narrativa es una frase original de `concept-generator/config.js`
+   (`ORIGINAL_EMOTION_TWISTS`/`ORIGINAL_NARRATIVE_ANGLES`), nunca copiada
+   de una referencia.
+3. **`assertNoReferenceIsFullyCopied`**: si un concepto coincidiera con
+   una de sus referencias fuente en las 8 dimensiones a la vez, lanza —
+   la norma "ningún concepto podrá parecer una copia" es un invariante
+   verificado, no una esperanza.
+4. **`assertDistinctConcepts`**: dos conceptos no pueden compartir la
+   combinación exacta de las 8 dimensiones — red de seguridad final.
+
+### Corrección de diseño durante la implementación
+
+La primera versión asignaba referencia-por-dimensión con módulos simples
+(`(dimIndex + conceptIndex) % refsForConcept.length`). Con pocas
+referencias elegibles (la biblioteca empieza con ~15), esa periodicidad
+coincidía exactamente cada `references.length` conceptos y producía
+conceptos IDÉNTICOS — el propio invariante `assertDistinctConcepts` lo
+detectó al probarlo. Se sustituyó por selección por hash determinista
+(`hash(dimensión/referencia, concepto, salt)`) + un reintento acotado por
+concepto (hasta 25 salts) que solo cambia el barajado, nunca introduce
+aleatoriedad real — mismo brief + misma biblioteca sigue produciendo
+siempre el mismo resultado final (verificado). Documentado aquí porque es
+exactamente el tipo de mejora que el propietario pidió priorizar y
+documentar antes de implementar.
+
+## Moodboard — textual, nunca una imagen
+
+Aprendizaje directo de la demo de creative-engine sin proveedor real: un
+moodboard-imagen sin proveedor sería el mismo "placeholder evidente" ya
+rechazado. Se declara `evaluatedOn: 'plan'` — mismo eje que ya usa
+`creative-validator/`.
+
+## Prompt maestro — extiende, no sustituye
+
+Dos mecanismos, en `master-prompt-composer/service.js`:
+
+1. **`buildEffectiveBrief()`**: las elecciones del concepto para
+   ángulo/lente, iluminación, escenario y composición sobreescriben
+   `brief.photography.*`/`brief.artDirection.composition` ANTES de llamar
+   al `composePrompt()` de `prompt-composer/` ya existente — así las 9
+   secciones base reflejan el concepto sin reescribir su lógica, y sin
+   que dos secciones contradigan el mismo aspecto (ej. "frontal centrado"
+   en una y "dutch angle" en otra).
+2. **6 secciones nuevas** que el compositor base no tiene: estilo,
+   filosofía de dirección artística, armonía de paleta, emoción +
+   narrativa, refinamiento de espacio de texto, y variación propia del
+   director (esta última en fichero aparte — trazabilidad de qué es
+   genuinamente original).
+
+## Concept Score — dos capas, decisión definitiva del propietario
+
+- **Capa 1 (`scoreConceptPlan`, gratis)**: reutiliza los 6 checks de
+  `creative-validator/` (peso 60) + calidad media de las referencias
+  mezcladas vía `visualImpactLevel` (peso 25) + originalidad, siempre al
+  máximo porque ya es un invariante forzado por `concept-generator/`
+  (peso 15, documentado explícitamente para que no parezca un valor
+  arbitrario). Se aplica a los 8-12 conceptos.
+- **Capa 2 (`scoreConceptPixel`, con coste)**: mismos 6 checks pero con
+  el `generationResult` real — es la puntuación DEFINITIVA, la que se
+  compara contra `QUALITY_THRESHOLD`. Solo se llama sobre el shortlist de
+  3-4 (`SHORTLIST_SIZE`) — nunca se pagan 8-12 generaciones reales cuando
+  bastan 3-4.
+
+## Umbral y reintentos — `index.js#runCreativeLab`
+
+`QUALITY_THRESHOLD=85`, `MAX_RETRIES=3`, `SHORTLIST_SIZE=4` —
+configurables por variable de entorno
+(`CREATIVE_LAB_QUALITY_THRESHOLD`/`CREATIVE_LAB_MAX_RETRIES`/`CREATIVE_LAB_SHORTLIST_SIZE`),
+mismo patrón que `MARKETING_ENGINE_JOBS_DIR`. Si el mejor resultado de un
+intento no alcanza el umbral, se genera un lote nuevo (hasta
+`MAX_RETRIES`); agotados los intentos sin superarlo, se devuelve el mejor
+obtenido con `status: 'needsHumanReview'` — nunca un bucle infinito,
+mismo patrón honesto que `failed_needs_human` de `marketing-engine/`.
+
+Cada versión evaluada en capa 2 se guarda en `creative-assets/store.js`
+(reutilizado tal cual — un `creativeId` por ejecución de
+`runCreativeLab`, una versión por elemento del shortlist), y la ganadora
+se marca `markApproved()`.
+
+## Independiente del proveedor de imágenes
+
+Trivial por reutilización: Creative Lab llama a
+`provider-manager/registry.js#getProvider` +
+`provider.interface.js#assertSupports/adaptToCapabilities` — la misma
+capa que ya soporta OpenAI Images, Canva, Adobe Firefly, Ideogram, Flux,
+Runway, Veo, Kling. Cambiar de proveedor no toca ni una línea de
+`creative-lab/`.
+
+## Mantenimiento de bibliotecas
+
+- `trends.js` necesita refresco manual periódico (no hay fuente en vivo,
+  a propósito — cero dependencias de red en todo el repo). No está
+  todavía cableada en `concept-generator/` ni en el prompt maestro —
+  decisión deliberada de alcance: los 12 campos mínimos pedidos para la
+  Biblioteca de Referencias no incluían tendencia, así que se deja
+  validada y disponible pero sin integrar, mismo patrón "un fichero +
+  una línea" que un proveedor nuevo, para cuando se decida activarla.
+- La Biblioteca de Referencias crece con `registerEntry()` — a mano hoy,
+  automatizable mañana (ver "Importar referencias" arriba).
+
+## Verificación realizada
+
+Independencia por grep · las 9 bibliotecas validan al cargar · 15
+referencias sembradas y validadas contra las bibliotecas atómicas ·
+`runCreativeLab` extremo a extremo con brief real (Ventilador Muvip) →
+`approved` en el primer intento, capa 2 = 100/100 · brief deliberadamente
+incompleto → 3 intentos agotados → `needsHumanReview`, sin bucle
+infinito · determinismo (mismo brief + `--json` dos veces, ignorando
+ids/timestamps, diff vacío) · regresión completa de `marketing-engine/`
+y `creative-engine/` sin cambios de comportamiento.

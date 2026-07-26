@@ -609,3 +609,85 @@ ejecutó implementación y verificación dentro de ese marco.
 **Reversibilidad**: alta — 3 ficheros tocados, ninguno de
 `marketing-engine/` ni `app.html`. Sin `OPENAI_API_KEY`, el comportamiento
 es idéntico al de antes de este sprint.
+
+### 2026-07-26 — creative-lab/: investigación y perfeccionamiento de calidad visual
+
+**Contexto**: tras demostrar el pipeline completo con un producto real
+(Ventilador Muvip, sprint anterior), el propietario cambió la prioridad
+del proyecto: dejar de ampliar arquitectura y centrarse exclusivamente en
+alcanzar un nivel visual comparable al de una agencia profesional. Pidió
+un nuevo módulo, Creative Lab, con arquitectura aprobada explícitamente
+antes de implementar (plan revisado y confirmado punto por punto: capas
+de evaluación, umbral/reintentos, ubicación, Biblioteca de Referencias,
+filosofía).
+
+**Decisión**: `creative-lab/` vive dentro de `creative-engine/` (no es un
+módulo top-level — no tiene consumidor externo propio, reutiliza
+Provider Manager/brief/creative-assets/prompt-composer/creative-validator
+existentes). 9 bibliotecas atómicas (8 aprobadas + `angles-lenses.js`
+añadida a petición explícita para la Biblioteca de Referencias). La
+Biblioteca de Referencias es una capa de "recetas" que apunta por id a
+las bibliotecas atómicas (no duplica texto), con 12 campos obligatorios +
+2 heredados de la propuesta original (`whatMakesItSpecial`,
+`whyItWorksOnSocial`). Semilla textual (15 entradas, `sourceType:
+'seed-textual'`), sin ninguna imagen con derechos de terceros — decisión
+explícita del propietario tras planteársela como pregunta con dos
+opciones. Escala a decenas de miles vía `entries/<id>.json` +
+`manifest.json` ligero (solo campos de filtrado).
+
+**Norma obligatoria aplicada como invariante de código, no como
+esperanza**: `concept-generator/` mezcla 2-3 referencias por concepto +
+fuerza una variación propia del director en una de 6 dimensiones
+(encuadre/emoción/narrativa/iluminación/composición/escenario), y
+`assertNoReferenceIsFullyCopied`/`assertDistinctConcepts` lanzan si algún
+concepto coincide con una referencia o con otro concepto.
+
+**Corrección de diseño durante la implementación** (documentada per
+instrucción explícita del propietario: "si encuentras una arquitectura
+mejor... documenta el motivo antes de implementarla"): la primera versión
+de la mezcla usaba módulos simples y producía conceptos idénticos cada
+`references.length` iteraciones (detectado por el propio invariante al
+probarlo) — se sustituyó por selección por hash determinista + salt con
+reintento acotado (25 intentos), sin perder determinismo (verificado:
+mismo brief + misma biblioteca = mismo resultado).
+
+**Evaluación en dos capas** (decisión definitiva del propietario, para no
+pagar 8-12 generaciones reales cuando bastan 3-4): capa 1 gratuita sobre
+todos los conceptos (reutiliza `creative-validator/` + calidad de
+referencias + originalidad fija), capa 2 real y definitiva solo sobre el
+shortlist. `QUALITY_THRESHOLD=85`, `MAX_RETRIES=3`, `SHORTLIST_SIZE=4`,
+configurables por variable de entorno.
+
+**Verificado**: independencia por grep, las 9 bibliotecas + 15
+referencias validan al cargar, `runCreativeLab` extremo a extremo con el
+brief real de Ventilador Muvip (`approved`, capa 2 = 100/100), brief
+deliberadamente incompleto → 3 intentos agotados sin bucle infinito →
+`needsHumanReview`, determinismo confirmado (mismo brief + `--json` dos
+veces, diff vacío ignorando ids/timestamps), regresión completa de
+`marketing-engine/` y `creative-engine/` sin cambios de comportamiento.
+
+**Alternativas descartadas**:
+- Módulo top-level `creative-lab/` en la raíz del repo — descartado: no
+  tiene consumidor externo propio, habría sido un tercer registro/
+  contrato sin necesidad real.
+- Guardar imágenes reales con derechos de terceros en la Biblioteca de
+  Referencias — descartado por decisión explícita del propietario
+  (semilla textual); el campo `sourceRef` queda como referencia, nunca
+  una copia de la imagen.
+- Enviar las 8-12 generaciones al proveedor real — descartado
+  explícitamente por el propietario ("no quiero generar 12 imágenes de
+  pago cuando solo necesito las mejores").
+- Cablear ya la biblioteca de tendencias (`trends.js`) en la mezcla de
+  conceptos — se dejó validada pero sin integrar: no formaba parte de los
+  12 campos mínimos pedidos para la Biblioteca de Referencias: mismo
+  patrón "un fichero + una línea" cuando se decida activarla.
+
+**Quién decide**: propietario (aprobó la arquitectura explícitamente,
+punto por punto, antes de autorizar la implementación); Claude ejecutó
+diseño, implementación, verificación y documentación dentro de ese marco,
+incluida la corrección de diseño de concept-generator/ documentada arriba.
+
+**Reversibilidad**: alta — módulo aditivo dentro de `creative-engine/`,
+ningún fichero de `marketing-engine/` ni de `app.html` tocado. Sin
+`OPENAI_API_KEY`, se comporta igual que el resto de `creative-engine/`
+(fallback a `simulated`).

@@ -1,0 +1,25 @@
+{
+  "id": "flat-lay-desayuno-editorial",
+  "label": "Flat lay editorial",
+  "styleId": "flat-lay-cenital",
+  "compositionId": "flat-lay",
+  "artDirectionId": "minimalismo",
+  "lightingId": "luz-cenital-suave",
+  "scenarioId": "superficie-textil",
+  "paletteHarmonyId": "neutra-con-acento-marca",
+  "angleLensId": "cenital-flat-lay",
+  "emotion": "calma y orden",
+  "textSpaceId": "sin-texto-solo-marca",
+  "idealProducts": [
+    "alimentacion",
+    "oficina-papeleria",
+    "general"
+  ],
+  "whenToUse": "Contenido de estilo de vida donde varios elementos pequeños se presentan juntos de forma ordenada.",
+  "whenToAvoid": "Evitar con un solo producto grande — el flat-lay pierde sentido sin varios elementos que ordenar.",
+  "whatMakesItSpecial": "El orden geométrico desde arriba transmite cuidado y curaduría, no venta directa.",
+  "whyItWorksOnSocial": "Uno de los formatos más guardados/compartidos en Instagram por su valor estético autónomo.",
+  "visualImpactLevel": 68,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}

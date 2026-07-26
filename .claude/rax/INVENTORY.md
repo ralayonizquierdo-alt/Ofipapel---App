@@ -18,6 +18,7 @@ Mantenido por la Skill `project-manager`. Refleja el estado real del repo
 | Motor de Marketing con IA | Orquestación multi-agente (8 agentes) que convierte un brief de producto en una publicación lista, preparado para proveedores de IA reales sin tocar el núcleo. Desde 2026-07-25, `intelligence/` analiza/recomienda/puntúa cada campaña en modo *shadow* (asesora, nunca decide) | `marketing-engine/` | Node.js (CommonJS) puro, sin dependencias npm — CLI propio (`cli/run-pipeline.js`, `cli/run-intelligence.js`) y puente serverless (`netlify/functions/marketing-engine-run.js`, consumido por `app.html`), usa `design-studio/scripts/render-html.js` y `design-studio/brand-kit.json` por referencia | Netlify Functions (además del CLI) | Activo — funcional de punta a punta en modo simulado, integrado con `app.html`; ningún proveedor de IA real conectado todavía (ver `marketing-engine/INTEGRATION.md`, `intelligence/README.md`) |
 | Panel de Redes Sociales | Almacén (crea campañas vía Motor de Marketing) + Calendario (programa lo ya aprobado) | `app.html` | HTML monolítico. Estado (`CampaignStore`) solo en memoria del navegador, sin persistencia | GitHub Pages + Netlify | Activo — integrado con `marketing-engine/` (2026-07-25); sin proveedores de IA reales todavía, ver `marketing-engine/INTEGRATION.md` |
 | Creative Engine | Motor de generación de contenido, completamente independiente de `marketing-engine/` — Provider Manager, Asset Pipeline, Prompt Composer, Variant Generator, Creative Validator, Creative Assets | `creative-engine/` | Node.js (CommonJS) puro, sin dependencias npm. 9 proveedores registrados; `simulated` y `openai-images` activos (`openai-images` requiere `OPENAI_API_KEY`, si no cae a `simulated`) | No se despliega (CLI/script) | Activo — conectado por primera vez a marketing-engine con un proveedor real vía `netlify/functions/marketing-engine-run.js`, ver `FIRST_REAL_GENERATION.md` y `creative-engine/ARCHITECTURE.md` |
+| Creative Lab | Módulo de investigación y perfeccionamiento de calidad visual dentro de Creative Engine — 9 bibliotecas atómicas, Biblioteca de Referencias (combina sin copiar, escalable a decenas de miles), Generador de Conceptos (8-12 por campaña), Moodboard textual, Prompt Maestro, Concept Score en dos capas, umbral de calidad + reintento acotado | `creative-engine/creative-lab/` | Node.js (CommonJS) puro. Reutiliza el Provider Manager de `creative-engine/` sin cambios — independiente del proveedor de imágenes | No se despliega (CLI/script) | Activo — arquitectura completa y verificada (determinismo, invariante de no-copia, umbral+reintentos sin bucle infinito), ver `creative-engine/creative-lab/ARCHITECTURE.md` |
 
 ## Skills de RAX (referencia — el detalle vive en `.claude/skills/README.md`)
 
@@ -74,9 +75,25 @@ decidir si "ya se puede retomar sales-marketing".
   Prompt Composer modular, Variant Generator (eje de variación distinto
   al de `intelligence/variant-engine`: ejecución visual, no estrategia),
   Creative Validator (6 checks) y Creative Assets (imágenes/vídeos/
-  prompts/metadatos/versiones). Sin ningún proveedor de IA real
-  conectado — solo arquitectura, verificada de punta a punta con el
-  proveedor simulado.
+  prompts/metadatos/versiones). Primer proveedor real conectado desde
+  2026-07-25: `openai-images` (activo si hay `OPENAI_API_KEY`, si no cae
+  a `simulated`), ver `creative-engine/FIRST_REAL_GENERATION.md`.
+- **Creative Lab**: `creative-engine/creative-lab/` (2026-07-26) —
+  tercer verbo del ecosistema ("Marketing Engine piensa, Creative Engine
+  crea, Creative Lab perfecciona"), dedicado en exclusiva a la calidad
+  visual. 9 bibliotecas atómicas (52 estilos, composiciones, direcciones
+  artísticas, iluminación, escenarios, jerarquías tipográficas, paletas y
+  armonías, ángulo/lente, tendencias) + una Biblioteca de Referencias
+  (15 entradas semilla textuales, escalable a decenas de miles sin
+  cambiar arquitectura) que el Generador de Conceptos combina —nunca
+  copia una sola referencia, invariante forzado por código— para producir
+  8-12 conceptos por campaña, cada uno con una variación propia
+  obligatoria del director. Evaluación en dos capas (plan gratis sobre
+  los 8-12, real con coste solo sobre el shortlist de 3-4) contra un
+  umbral de calidad (85/100 por defecto) con reintento acotado (máx. 3,
+  nunca bucle infinito). Reutiliza el Provider Manager de
+  `creative-engine/` sin cambios — ver
+  `creative-engine/creative-lab/ARCHITECTURE.md`.
 
 ## Pendiente de activación en consolas externas (no ejecutable desde este repo)
 

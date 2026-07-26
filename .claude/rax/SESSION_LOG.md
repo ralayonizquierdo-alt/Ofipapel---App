@@ -276,3 +276,47 @@ ya define el mapeo exacto; falta decidir desde dónde se llama
 nueva que orqueste ambos?) — es una decisión de arquitectura real, no
 solo de código, y debería plantearse explícitamente al propietario antes
 de construirla.
+
+### 2026-07-26 — creative-lab/: investigación y perfeccionamiento de calidad visual
+
+**Resumen**: cambio de prioridad del propietario — dejar de ampliar
+arquitectura, centrarse en calidad visual comparable a una agencia
+profesional. Arquitectura de `creative-lab/` diseñada, presentada y
+aprobada explícitamente punto por punto antes de implementar (capas de
+evaluación, umbral/reintentos, ubicación, Biblioteca de Referencias,
+filosofía "Director Creativo Digital"), luego construida completa.
+
+**Ejecutado**:
+- 9 bibliotecas atómicas (`libraries/`): 52 estilos, 15 composiciones, 10
+  direcciones artísticas, 12 iluminaciones, 14 escenarios, 7 jerarquías
+  tipográficas, 8 armonías de paleta, 12 ángulos/lentes, 12 tendencias
+  (estática, fechada).
+- Biblioteca de Referencias (`reference-library/`): esquema de 14 campos
+  (12 pedidos + 2 heredados), 15 entradas semilla textuales, manifest
+  ligero escalable a decenas de miles.
+- `analysis/`, `concept-generator/` (8-12 conceptos, mezcla + variación
+  propia obligatoria del director, invariantes de no-copia y diversidad),
+  `moodboard/` (textual), `master-prompt-composer/` (extiende
+  prompt-composer/ existente sin duplicar), `concept-score/` (dos capas),
+  `index.js#runCreativeLab` (umbral + reintento acotado), CLI de demo.
+- Corrección de diseño real durante la implementación (documentada en
+  ARCHITECTURE.md y DECISIONES.md): colisión de conceptos por
+  periodicidad modular, resuelta con hash determinista + salt.
+- `.claude/rax/`, `CLAUDE.md` actualizados. `creative-lab/ARCHITECTURE.md`
+  y `README.md` escritos.
+
+**No ejecutado**: ningún proveedor de IA real invocado de verdad en este
+sprint (mismo `simulated`/`openai-images` ya existentes, sin cambios);
+cableado de la biblioteca de tendencias en la mezcla de conceptos
+(validada pero no integrada, deliberado); importador automático de
+referencias desde campañas propias (solo documentado como extensión
+futura); ninguna conexión con `app.html`/Netlify — sigue siendo CLI.
+
+**Decisiones tomadas**: ver entrada de la misma fecha en `DECISIONES.md`.
+
+**Siguiente paso recomendado**: conectar `runCreativeLab` como opción de
+generación desde el Almacén (misma integración que ya existe para
+`creative-engine/index.js#runCreativePipeline`, pero con el flujo
+completo de conceptos/scoring); o, si el propietario lo prefiere, seguir
+haciendo crecer la Biblioteca de Referencias antes de exponerlo en la
+app.
