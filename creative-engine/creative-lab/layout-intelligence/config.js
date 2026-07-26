@@ -51,12 +51,18 @@ const LAYOUT_MAX_RETRIES = Number(process.env.CREATIVE_LAB_LAYOUT_MAX_RETRIES) |
 // (layout-composer/render-helpers.js, sprint "Visual Quality Revolution")
 // — el titular ahora se pinta más grande; sin este ajuste, la caja se
 // quedaba corta y `legibilidad()` empezaba a penalizar líneas que antes
-// cabían de sobra.
+// cabían de sobra. 'minimo' subido casi al doble (sprint "Design Eye
+// v1": "logo mínimo 2 veces más grande") — el logo es el único elemento
+// visual que usa este tier por defecto (`hierarchy.js#DEFAULT_TIER_BY_ELEMENT`);
+// `footerBleedBox()` (strategies/_shared.js) también lee `minimo.rowRatio`
+// para la altura del footer, así que este mismo ajuste lo hace además
+// más legible en móvil — mismo propósito, dos beneficiarios reales, no
+// una coincidencia forzada.
 const HIERARCHY_TIER_SPANS = {
   dominante: { colRatio: 0.62, rowRatio: 0.46 },
   primario: { colRatio: 0.42, rowRatio: 0.19 },
   secundario: { colRatio: 0.30, rowRatio: 0.12 },
-  minimo: { colRatio: 0.20, rowRatio: 0.06 },
+  minimo: { colRatio: 0.38, rowRatio: 0.10 },
 };
 
 // price/cta/contactFooter no están en el vocabulario de jerarquía de

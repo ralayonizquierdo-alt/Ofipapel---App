@@ -6,6 +6,7 @@
 // plano, línea de horizonte baja.
 
 const { spanForTier, centerColStart, footerBleedBox, footerReservedRows, topRightCorner, fullCanvasBox, cellsToBox } = require('./_shared.js');
+const { overlaps } = require('../grid.js');
 
 // `stackOrder`/`editorial` no se usan aquí — el hero es kind:'background-fill'
 // (no apila con nada, ya ocupa el canvas entero, nada que romper de
@@ -46,8 +47,21 @@ function computePlan(grid, tierByElement, elementIds, stackOrder, artDirection, 
   }
 
   if (elementIds.includes('price')) {
+    // Bug real encontrado tras doblar el tamaño del logo (sprint "Design
+    // Eye v1"): el logo centrado y el precio en la esquina superior
+    // derecha comparten fila 0 — con el logo más ancho, sus columnas
+    // empezaban a invadir las del precio. Si la esquina natural choca
+    // con el logo ya colocado, el precio baja justo debajo de él en vez
+    // de solaparse sin declarar.
     const span = spanForTier(grid, tierByElement.price);
-    elements.push({ elementId: 'price', kind: 'boxed', box: topRightCorner(grid, span) });
+    const naive = topRightCorner(grid, span);
+    const logoEl = elements.find((el) => el.elementId === 'logo');
+    let box = naive;
+    if (logoEl && overlaps(naive, logoEl.box)) {
+      const rowsBelowLogo = Math.ceil((logoEl.box.y + logoEl.box.h - grid.originY) / grid.cellHeight);
+      box = cellsToBox(grid, grid.columns - span.colSpan, span.colSpan, rowsBelowLogo, span.rowSpan);
+    }
+    elements.push({ elementId: 'price', kind: 'boxed', box });
   }
 
   if (elementIds.includes('contactFooter')) {

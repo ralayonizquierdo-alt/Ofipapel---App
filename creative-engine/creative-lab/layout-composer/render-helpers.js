@@ -129,20 +129,32 @@ function titleMarkup(el, text, textEmphasis, canvasWidth, primary, onPhoto, vari
   return accentBar + titleBox;
 }
 
-/** CTA en una de las 4 variantes de `ctaButton` (component-library/) — nunca siempre la misma píldora sólida. */
+/**
+ * CTA en una de las 4 variantes de `ctaButton` (component-library/) —
+ * nunca siempre la misma píldora sólida. Tamaño subido ~30% (sprint
+ * "Design Eye v1", crítica del propietario: "el CTA debe invitar
+ * realmente a pulsarlo" — un botón diminuto no invita a nada).
+ */
 function ctaMarkup(el, cta, accent, primary, canvasWidth, variantSeed) {
   if (!cta) return '';
-  const fontSize = Math.max(14, Math.round(canvasWidth * 0.026));
-  const padding = Math.max(9, Math.round(canvasWidth * 0.011));
+  const fontSize = Math.max(20, Math.round(canvasWidth * 0.034));
+  const padding = Math.max(13, Math.round(canvasWidth * 0.015));
   const variant = selectVariant('ctaButton', variantSeed);
   const inner = ctaButtonMarkup(variant, { text: escapeHtml(cta), accent, primary, fontSize, padding });
   return positionedDiv(el.box, `<div style="display:flex;width:100%;height:100%;align-items:center;justify-content:center;">${inner}</div>`, 'z-index:4;');
 }
 
-/** Badge de precio en una de las 4 variantes de `priceBadge` (component-library/) — cubre también "cintas" (ribbon-corner) y "etiquetas" (outline-tag) como tratamientos visuales del mismo precio real, nunca copy nuevo. */
+/**
+ * Badge de precio en una de las 4 variantes de `priceBadge`
+ * (component-library/) — cubre también "cintas" (ribbon-corner) y
+ * "etiquetas" (outline-tag) como tratamientos visuales del mismo precio
+ * real, nunca copy nuevo. Tamaño ~1.7x el anterior (sprint "Design Eye
+ * v1": "el precio debe detectarse en menos de un segundo" — el tamaño
+ * previo obligaba a fijarse).
+ */
 function priceMarkup(el, price, accent, primary, canvasWidth, variantSeed) {
   if (!price) return '';
-  const fontSize = Math.max(16, Math.round(canvasWidth * 0.03));
+  const fontSize = Math.max(26, Math.round(canvasWidth * 0.05));
   const variant = selectVariant('priceBadge', variantSeed);
   const inner = priceBadgeMarkup(variant, { text: escapeHtml(price), accent, primary, fontSize });
   return positionedDiv(el.box, `<div style="display:flex;width:100%;height:100%;align-items:center;justify-content:center;">${inner}</div>`, 'z-index:5;');
@@ -172,8 +184,11 @@ function socialIconSvg(id, size, color) {
  */
 function contactFooterMarkup(el, contact, primary, canvasWidth, variantSeed) {
   if (!contact) return '';
-  const fontSize = Math.max(12, Math.round(canvasWidth * 0.021));
-  const iconSize = Math.max(15, Math.round(canvasWidth * 0.024));
+  // Legible en móvil de verdad (sprint "Design Eye v1") — el tamaño
+  // anterior obligaba a hacer zoom para leer el teléfono/web en una
+  // pantalla pequeña.
+  const fontSize = Math.max(16, Math.round(canvasWidth * 0.026));
+  const iconSize = Math.max(20, Math.round(canvasWidth * 0.028));
   const parts = [contact.phoneDisplay, contact.website, contact.address].filter(Boolean).map(escapeHtml);
   const text = parts.join('&nbsp;&nbsp;·&nbsp;&nbsp;');
   const icons = (contact.socialIcons || [])
@@ -203,8 +218,11 @@ function contactFooterMarkup(el, contact, primary, canvasWidth, variantSeed) {
  */
 function iconRowMarkup(el, icons, primary, canvasWidth, variantSeed) {
   if (!icons || icons.length === 0) return '';
-  const iconSize = Math.max(20, Math.round(canvasWidth * 0.032));
-  const labelSize = Math.max(10, Math.round(canvasWidth * 0.015));
+  // Suelo absoluto de 32px (sprint "Design Eye v1": "iconos mínimo 32px",
+  // nunca elementos diminutos) — antes el suelo era 20px, insuficiente
+  // en formatos estrechos.
+  const iconSize = Math.max(32, Math.round(canvasWidth * 0.036));
+  const labelSize = Math.max(13, Math.round(canvasWidth * 0.017));
   const variant = selectVariant('iconSystem', variantSeed);
   const wrapperStyle = iconWrapperStyle(variant, primary);
   const items = icons

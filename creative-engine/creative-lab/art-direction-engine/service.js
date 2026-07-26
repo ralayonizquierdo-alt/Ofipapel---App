@@ -23,12 +23,17 @@ const { ICONS } = require('./icons.js');
 const PROTECTED_ELEMENTS = new Set(['hero', 'price', 'contactFooter']);
 
 // Orden de recorte cuando la pieza supera pattern.maxElements — se quita
-// primero lo más prescindible. Los iconos NO encabezan la lista: solo
-// llegan a ser candidatos cuando el patrón ya decidió que encajan
-// (`allowIcons`) y hay señal real en el texto — si el propio patrón los
-// quiso, no son lo primero que sobra. Un CTA de texto es más prescindible
-// que una fila de iconos con información real, y ambos más que el logo.
-const CUT_PRIORITY = ['cta', 'logo', 'icons', 'title'];
+// primero lo más prescindible. Invertido en el sprint "Design Eye v1"
+// (crítica visual del propietario contra el render real): el CTA
+// aparecía descartado con demasiada frecuencia ("¿el CTA invita
+// realmente a pulsarlo?" no puede responderse que sí si no hay CTA) —
+// una fila de iconos informativos es un extra deseable, pero el CTA es
+// la acción de conversión que un anuncio real casi nunca omite. Ahora se
+// recorta primero lo puramente decorativo (iconos), después el logo (la
+// marca sigue presente en el footer de contacto aunque se pierda el
+// logo visual), y el CTA queda protegido casi al mismo nivel que
+// hero/precio/footer.
+const CUT_PRIORITY = ['icons', 'logo', 'cta', 'title'];
 
 function hashString(str) {
   let h = 0;
