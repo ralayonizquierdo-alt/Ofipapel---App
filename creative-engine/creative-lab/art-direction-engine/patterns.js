@@ -31,6 +31,25 @@
 // layout-intelligence/strategies/ — Composition Engine ya no elige por su
 // cuenta a partir de compositionId, adapta el layout a lo que el patrón
 // ya decidió.
+//
+// Visual Pattern Library (sprint "Visual Reference Intelligence", FASE 2)
+// — cada patrón añade además, únicamente como CONCEPTOS reutilizables
+// (nunca píxeles ni coordenadas, mismo criterio que reference-library/):
+//   conceptAliases   — nombres de concepto con los que un director de arte
+//                       humano llamaría a este patrón (algunos se repiten
+//                       entre patrones distintos: el mismo concepto puede
+//                       resolverse con más de una regla de composición).
+//   whenToUse        — cuándo elegirlo.
+//   whenToAvoid       — cuándo NO elegirlo, aunque encaje por tags.
+//   commonMistakes   — errores reales encontrados y corregidos este mismo
+//                       proyecto (sprints "Visual Quality Revolution" y
+//                       "Design Eye v1") que afectan específicamente a las
+//                       preferredStrategies de este patrón — nunca una
+//                       advertencia genérica inventada.
+//   projectExamples  — referencia a entradas reales de
+//                       reference-library/entries/ que usaron este patrón,
+//                       o una nota honesta de que aún no existe ninguna
+//                       (no se inventan ejemplos que no se han generado).
 
 const PATTERNS = [
   {
@@ -48,6 +67,11 @@ const PATTERNS = [
     alignment: 'center',
     preferredStrategies: ['centrado-clasico', 'flotante-minimalista'],
     tags: ['general', 'electrodomesticos', 'tecnologia', 'producto'],
+    conceptAliases: ['Hero dominante'],
+    whenToUse: 'Cuando el producto en sí (forma, material, diseño) es el argumento de venta principal y no hay foto de contexto lifestyle real — el producto flota solo, sin escena, confiando en sí mismo. Es el patrón por defecto (DEFAULT_PATTERN_ID) cuando ningún tag encaja mejor.',
+    whenToAvoid: 'Si el producto es pequeño o poco fotogénico por sí solo, o si el brief pide transmitir un uso/contexto real ("en el salón de casa") — ahí manda lifestyle-premium o ikea-lifestyle, no este patrón.',
+    commonMistakes: 'Comparte preferredStrategies con cinematico-fullbleed, que arrastraba el bug de logo/precio solapados en la esquina superior derecha tras doblar el tamaño del logo (sprint Design Eye v1) — ya corregido (el precio baja debajo del logo si colisionan), pero cualquier ajuste futuro a HIERARCHY_TIER_SPANS.minimo debe re-verificarse contra este patrón con el sweep sintético.',
+    projectExamples: 'Sin entrada registrada aún en reference-library — al ser el patrón por defecto, es el que más fácilmente se elige sin foto real; conviene curar una entrada real la próxima vez que produzca una campaña de calidad.',
   },
   {
     id: 'magazine-editorial',
@@ -64,6 +88,11 @@ const PATTERNS = [
     alignment: 'asymmetric-left',
     preferredStrategies: ['dividido-lifestyle', 'diagonal-dinamico'],
     tags: ['lifestyle', 'editorial', 'moda', 'hogar-decoracion'],
+    conceptAliases: ['Editorial lifestyle'],
+    whenToUse: 'Producto de categoría lifestyle/decoración/moda con foto real disponible y bastante copy (título + varios iconos de beneficio) — el texto necesita su propia columna respirada, no un footer estrecho.',
+    whenToAvoid: 'Productos técnicos con pocos argumentos de texto (la columna se siente vacía) o sin foto real de calidad suficiente — con un placeholder, la mitad "revista" no aporta nada.',
+    commonMistakes: 'Usa dividido-lifestyle como estrategia primaria — antes del sprint Visual Quality Revolution, ese fichero no tenía protección de desbordamiento en su bucle manual de título/cta/iconos (a diferencia de las 3 estrategias basadas en stackVertically) y podía invadir el footer de contacto. Corregido aplicando el mismo algoritmo de presupuesto restante.',
+    projectExamples: 'Sin campaña real registrada aún en reference-library bajo este patrón.',
   },
   {
     id: 'luxury-minimal',
@@ -80,6 +109,11 @@ const PATTERNS = [
     alignment: 'center',
     preferredStrategies: ['flotante-minimalista'],
     tags: ['lujo', 'joyeria', 'belleza', 'general'],
+    conceptAliases: ['Premium minimal'],
+    whenToUse: 'Producto de gama alta (joyería, belleza, un único SKU muy cuidado) donde el silencio visual vende más que cualquier dato — casi todo el lienzo es aire, un máximo de 3 elementos.',
+    whenToAvoid: 'Campañas con urgencia (black-friday, oferta) o productos que necesitan varios iconos de especificación — maxElements:3 no deja sitio para eso.',
+    commonMistakes: 'Antes de Design Eye v1, heroSize (0.46, 0.34) era demasiado pequeño frente a la regla "producto 45-60% del lienzo" — subido a (0.74, 0.62). Cualquier subida futura del hero debe revisar a la vez whitespaceTarget (0.62-0.80), no por separado, o deja de ser coherente con el propio nombre del patrón.',
+    projectExamples: 'Sin campaña real registrada aún.',
   },
   {
     id: 'apple-style',
@@ -96,6 +130,11 @@ const PATTERNS = [
     alignment: 'center',
     preferredStrategies: ['flotante-minimalista', 'centrado-clasico'],
     tags: ['tecnologia', 'general', 'electrodomesticos'],
+    conceptAliases: ['Producto flotante', 'Tecnología limpia'],
+    whenToUse: 'Tecnología/electrodoméstico con diseño fotogénico y fondo limpio, cero decoración — el producto "flota" sin sombra pesada ni tarjeta, la tipografía mínima hace todo el trabajo de jerarquía.',
+    whenToAvoid: 'Cuando hace falta mostrar varios beneficios en iconos (aquí maxIcons:0) o transmitir calidez/hogar — este patrón es frío y quirúrgico a propósito.',
+    commonMistakes: 'Comparte flotante-minimalista con luxury-minimal/negative-space/muji-style — sensible al mismo tipo de ajuste de HIERARCHY_TIER_SPANS.minimo (tier del logo); verificar siempre con el sweep sintético tras tocar esa tabla.',
+    projectExamples: 'Sin campaña real registrada aún.',
   },
   {
     id: 'nike-style',
@@ -112,6 +151,11 @@ const PATTERNS = [
     alignment: 'asymmetric-left',
     preferredStrategies: ['cinematico-fullbleed', 'diagonal-dinamico'],
     tags: ['deporte', 'moda', 'general'],
+    conceptAliases: ['Producto sangrado'],
+    whenToUse: 'Categorías con energía/movimiento (deporte, moda, campañas de impacto) con foto real a sangre completa — el texto se ancla asimétrico a la izquierda sobre la foto, sin miedo a tapar parte de la imagen.',
+    whenToAvoid: 'Productos estáticos de catálogo (electrodomésticos, oficina) donde "energía y movimiento" no encaja con el tono de marca, o sin una foto real de calidad suficiente para ir a sangre completa.',
+    commonMistakes: 'heroTreatment full-bleed + preferredStrategies cinematico-fullbleed/diagonal-dinamico — hereda el bug ya corregido en diagonal-dinamico.js donde un heroSize muy ancho (colRatio ≥0.80, alcanzable por rotación de estrategia) invadía geométricamente la zona de texto; ahora capado con MIN_TEXT_COLUMNS=3.',
+    projectExamples: 'Sin campaña real registrada aún.',
   },
   {
     id: 'muji-style',
@@ -128,6 +172,11 @@ const PATTERNS = [
     alignment: 'center',
     preferredStrategies: ['flat-lay-editorial', 'flotante-minimalista'],
     tags: ['hogar-decoracion', 'oficina-papeleria', 'general'],
+    conceptAliases: ['Premium minimal'],
+    whenToUse: 'Hogar/papelería con estética natural y calmada, sin colores de acento agresivos — mucho respiro alrededor del producto, tono sereno más que quirúrgico.',
+    whenToAvoid: 'Ofertas agresivas, o productos tecnológicos "fríos" donde encaja mejor apple-style — muji-style pide calidez, no minimalismo clínico.',
+    commonMistakes: 'preferredStrategies incluye flat-lay-editorial, cuyo margen interior (FRAME_INSET_CELLS, layout-intelligence/config.js) es un único valor compartido con swiss-grid/premium-retail/luxury-catalogue/amazon-premium — si se ajusta ahí, revisar los 5 patrones a la vez, no solo uno.',
+    projectExamples: 'Sin campaña real registrada aún.',
   },
   {
     id: 'ikea-lifestyle',
@@ -144,6 +193,11 @@ const PATTERNS = [
     alignment: 'asymmetric-right',
     preferredStrategies: ['dividido-lifestyle', 'cinematico-fullbleed'],
     tags: ['hogar-decoracion', 'mobiliario', 'lifestyle'],
+    conceptAliases: ['Producto sangrado', 'Editorial lifestyle'],
+    whenToUse: 'Mobiliario/decoración donde el producto se ve en uso real dentro de una escena de hogar completa — el texto se integra sin robar protagonismo a la escena.',
+    whenToAvoid: 'Sin foto de ambiente real y creíble — con un producto aislado sobre fondo blanco, hero-product aporta más que forzar este patrón.',
+    commonMistakes: 'Mismo riesgo de desbordamiento en dividido-lifestyle que magazine-editorial/lifestyle-premium (ya corregido), agravado porque además reserva espacio para el logo superpuesto al hero (marcado overlaysHero:true) — la estrategia con menos colchón geométrico de las 6.',
+    projectExamples: 'Sin campaña real registrada aún.',
   },
   {
     id: 'product-first',
@@ -160,6 +214,11 @@ const PATTERNS = [
     alignment: 'center',
     preferredStrategies: ['centrado-clasico', 'cinematico-fullbleed'],
     tags: ['electrodomesticos', 'tecnologia', 'general'],
+    conceptAliases: ['Hero dominante'],
+    whenToUse: 'Electrodoméstico/tecnología donde hace falta un pequeño set de datos (iconos) alrededor de un producto muy grande — ficha técnica premium, no lifestyle.',
+    whenToAvoid: 'Si no hay al menos 2-3 argumentos de venta reales para los iconos — sin señal real en el texto del brief, selectIcons() no rellena nada y la pieza queda desequilibrada respecto al espacio pensado para ellos.',
+    commonMistakes: 'heroSize colRatio 0.86 es el más ancho de los 17 patrones — es precisamente el caso que forzó el cap MIN_TEXT_COLUMNS en diagonal-dinamico.js cuando este patrón cae ahí por rotación de estrategia (no es su preferredStrategies primario, pero puede llegar por fallback).',
+    projectExamples: 'Sin campaña real registrada aún.',
   },
   {
     id: 'negative-space',
@@ -176,6 +235,11 @@ const PATTERNS = [
     alignment: 'center',
     preferredStrategies: ['flotante-minimalista'],
     tags: ['belleza', 'lujo', 'general'],
+    conceptAliases: ['Premium minimal'],
+    whenToUse: 'Producto muy pequeño y precioso (belleza, lujo) donde el vacío mismo comunica exclusividad — whitespaceTarget más alto de los 17 patrones (0.68-0.85).',
+    whenToAvoid: 'Cualquier producto que necesite transmitir volumen/tamaño real, o campañas de oferta donde el vacío se lee como "página sin terminar" en vez de lujo.',
+    commonMistakes: 'heroSize (0.36,0.26) original violaba la regla de Design Eye v1 ("producto 45-60% del lienzo") con más margen que ningún otro patrón — subido a (0.76,0.60) manteniendo el whitespace alto vía marginRatio:0.15 (el más alto de los 17) en vez de un hero pequeño, que era la causa real del incumplimiento.',
+    projectExamples: 'Sin campaña real registrada aún.',
   },
   {
     id: 'swiss-grid',
@@ -192,6 +256,11 @@ const PATTERNS = [
     alignment: 'asymmetric-left',
     preferredStrategies: ['flat-lay-editorial', 'centrado-clasico'],
     tags: ['oficina-papeleria', 'tecnologia', 'general'],
+    conceptAliases: ['Tecnología limpia', 'Retail moderno'],
+    whenToUse: 'Papelería/oficina/tecnología donde la propia tipografía y la alineación estricta son el argumento visual — orden absoluto, ideal cuando hay varios datos que mostrar con disciplina.',
+    whenToAvoid: 'Categorías cálidas/lifestyle (hogar-decoracion, moda) donde la rigidez se lee como fría/corporativa en vez de premium.',
+    commonMistakes: 'Igual que muji-style/premium-retail/luxury-catalogue/amazon-premium, depende de FRAME_INSET_CELLS (flat-lay-editorial) — cualquier cambio ahí afecta a los 5 patrones a la vez.',
+    projectExamples: 'Sin campaña real registrada aún.',
   },
   {
     id: 'asymmetric-editorial',
@@ -208,6 +277,11 @@ const PATTERNS = [
     alignment: 'asymmetric-right',
     preferredStrategies: ['diagonal-dinamico', 'dividido-lifestyle'],
     tags: ['moda', 'general', 'deporte'],
+    conceptAliases: ['Split diagonal'],
+    whenToUse: 'Moda/deporte/general con ganas de tensión visual controlada — composición deliberadamente desequilibrada, moderna, con actitud.',
+    whenToAvoid: 'Productos que necesitan transmitir calma/confianza (electrodomésticos, papelería seria) — la asimetría deliberada compite con ese tono.',
+    commonMistakes: 'preferredStrategies primario es diagonal-dinamico, con heroSize colRatio 0.78 cerca del límite que forzó el cap MIN_TEXT_COLUMNS (ver nike-style) — el bug de invasión de la zona de texto le aplica directamente si algún ajuste futuro sube este heroSize.',
+    projectExamples: 'Sin campaña real registrada aún.',
   },
   {
     id: 'poster-design',
@@ -224,6 +298,11 @@ const PATTERNS = [
     alignment: 'center',
     preferredStrategies: ['cinematico-fullbleed'],
     tags: ['general', 'oferta', 'black-friday'],
+    conceptAliases: ['Oferta agresiva'],
+    whenToUse: 'Mensaje único y contundente, alto impacto inmediato — black-friday, ofertas puntuales, cuando el objetivo es parar el scroll en un segundo, no explicar el producto en detalle.',
+    whenToAvoid: 'Productos que necesitan varios argumentos de venta reales (allowIcons:false, el más restrictivo de los full-bleed) — si el brief trae 3+ beneficios, este patrón los pierde todos.',
+    commonMistakes: 'Único preferredStrategies es cinematico-fullbleed, sin alternativa — más expuesto que ningún otro patrón al bug ya corregido de precio/logo solapados en la esquina superior derecha; si ese fichero vuelve a tocarse, probar primero contra este patrón por ser el más dependiente de él.',
+    projectExamples: 'Sin campaña real registrada aún.',
   },
   {
     id: 'premium-retail',
@@ -240,6 +319,11 @@ const PATTERNS = [
     alignment: 'center',
     preferredStrategies: ['flat-lay-editorial', 'centrado-clasico'],
     tags: ['electrodomesticos', 'tecnologia', 'oficina-papeleria'],
+    conceptAliases: ['Retail moderno'],
+    whenToUse: 'Ficha de tienda física de gama alta con datos claros — uno de los dos únicos patrones (junto a luxury-catalogue) donde una tarjeta discretísima (heroTreatment framed-minimal) está permitida.',
+    whenToAvoid: 'Nunca reforzar la tarjeta con sombra pesada o degradado — Design Eye v1 fue explícito en que framed-minimal exige "línea fina, sin degradado ni sombra pesada"; cualquier tentación de "mejorar" la tarjeta rompe el único lenguaje visual que la admite.',
+    commonMistakes: 'Comparte flat-lay-editorial (FRAME_INSET_CELLS) con muji-style/swiss-grid/luxury-catalogue/amazon-premium — ver arriba.',
+    projectExamples: 'Sin campaña real registrada aún.',
   },
   {
     id: 'luxury-catalogue',
@@ -256,6 +340,11 @@ const PATTERNS = [
     alignment: 'center',
     preferredStrategies: ['flat-lay-editorial'],
     tags: ['lujo', 'joyeria', 'moda'],
+    conceptAliases: ['Catálogo premium'],
+    whenToUse: 'Catálogo de alta gama (joyería, moda de lujo) con marco finísimo alrededor del producto, todo muy calmado — el segundo (y último) patrón que admite tarjeta.',
+    whenToAvoid: 'Sin foto de producto realmente cuidada (el marco fino hace más evidente cualquier foto de baja calidad, al contrario que full-bleed, que la disimula) — y nunca con iconos, aquí siempre desactivados.',
+    commonMistakes: 'Mismo riesgo framed-minimal que premium-retail: la tentación de añadir sombra/degradado al marco cuando "no se ve suficiente".',
+    projectExamples: 'Sin campaña real registrada aún.',
   },
   {
     id: 'lifestyle-premium',
@@ -272,6 +361,11 @@ const PATTERNS = [
     alignment: 'asymmetric-left',
     preferredStrategies: ['cinematico-fullbleed', 'dividido-lifestyle'],
     tags: ['lifestyle', 'hogar-decoracion', 'general'],
+    conceptAliases: ['Editorial lifestyle', 'Producto sangrado'],
+    whenToUse: 'Cuando existe una foto lifestyle REAL (no genérica de stock) de calidad — la fotografía manda, todo el texto (título, precio, cta, footer) flota encima con jerarquía marcada, sin bloque de color aparte. Es el patrón que produjo la campaña real del Ventilador Nebulizador Muvip tras el sprint Visual Quality Revolution.',
+    whenToAvoid: 'Con placeholder o foto genérica de stock (selectPattern ya penaliza esto al no sumar el bonus de hasRealPhoto+lifestyle, pero no conviene forzarlo a mano en ese caso) — y cuando hace falta una fila de iconos de especificaciones técnicas, porque solo hay sitio cómodo para titular+precio+cta+footer.',
+    commonMistakes: 'Documentado en detalle en reference-library/entries/campana-ofipapel_ventilador-visual-quality-v2.json — resumen: el título debe compartir zona con decoraciones color-band/diagonal-accent (titleNeedsLightText() decide texto claro/oscuro), y el CTA no debe ser lo primero que se recorte si maxElements se excede (CUT_PRIORITY ya corregido).',
+    projectExamples: 'campana-ofipapel_ventilador-visual-quality-v2 (post Visual Quality Revolution + Design Eye v1) y campana-ofipapel_ventilador-nebulizador-75w-40cm-con-mand_2026-07-26T11-59-04-716Z_d6405511-v1 (versión anterior, aún válida para su propia época) en reference-library/entries/.',
   },
   {
     id: 'amazon-premium',
@@ -288,6 +382,11 @@ const PATTERNS = [
     alignment: 'asymmetric-right',
     preferredStrategies: ['flat-lay-editorial', 'centrado-clasico'],
     tags: ['tecnologia', 'electrodomesticos', 'general', 'oferta'],
+    conceptAliases: ['Precio protagonista', 'Retail moderno'],
+    whenToUse: 'Ficha de marketplace de gama alta — precio inconfundible en la esquina, especificaciones en iconos claros, cero ruido. Ideal cuando el precio es un argumento de venta fuerte (buena relación calidad-precio) y hay datos técnicos reales para 3-4 iconos.',
+    whenToAvoid: 'Productos de lujo/joyería donde mostrar el precio de forma tan directa rompe el tono aspiracional (ahí luxury-catalogue o negative-space) — y sin datos técnicos reales, allowIcons:true no debe rellenarse con relleno.',
+    commonMistakes: 'flat-lay-editorial como estrategia preferida — mismo FRAME_INSET_CELLS compartido con muji-style/swiss-grid/premium-retail/luxury-catalogue.',
+    projectExamples: 'Sin campaña real registrada aún.',
   },
   {
     id: 'mediamarkt-editorial',
@@ -304,6 +403,11 @@ const PATTERNS = [
     alignment: 'asymmetric-right',
     preferredStrategies: ['diagonal-dinamico', 'cinematico-fullbleed'],
     tags: ['tecnologia', 'electrodomesticos', 'oferta', 'black-friday'],
+    conceptAliases: ['Oferta agresiva', 'Split diagonal'],
+    whenToUse: 'Electrónica con urgencia real (black-friday, oferta) — precio y CTA compitiendo por atención inmediata, acento diagonal de color que refuerza la sensación de folleto de alto impacto.',
+    whenToAvoid: 'Fuera de contexto de oferta/urgencia (campañas evergreen, gama alta) — el acento diagonal agresivo se lee como rebajas incluso sin decirlo explícitamente.',
+    commonMistakes: 'preferredStrategies primario diagonal-dinamico + heroTreatment full-bleed — la combinación más expuesta al bug ya corregido de texto ilegible sobre decoración de color (titleNeedsLightText()), porque el título vive justo sobre el acento diagonal por diseño, no por accidente.',
+    projectExamples: 'Sin campaña real registrada aún.',
   },
 ];
 
