@@ -1,9 +1,13 @@
-// Layout Composer — el paso final: toma el LayoutPlan que ya calculó y
-// puntuó layout-intelligence/ (grid + jerarquía + tamaños relativos +
-// márgenes + espacios en blanco + reglas de equilibrio, evaluado ANTES de
-// existir ningún HTML) y lo convierte en la pieza real, renderizada a
-// PNG. Nunca decide una posición por su cuenta — eso ya está resuelto
-// cuando llega aquí.
+// Layout Composer — el paso final: toma la ArtDirectionDecision de
+// art-direction-engine/ (qué patrón editorial, qué elementos sobreviven,
+// cuánto debe crecer la foto) y el LayoutPlan que layout-intelligence/ ya
+// calculó y puntuó a partir de ella, y lo convierte en la pieza real,
+// renderizada a PNG. Nunca decide una posición ni un patrón por su
+// cuenta — eso ya está resuelto cuando llega aquí.
+//
+// Orden real del pipeline (creative-lab/ARCHITECTURE.md, sprint "Art
+// Direction Engine"): Creative Brief → Creative Lab → Art Direction
+// Engine → Composition Engine (layout-intelligence/) → aquí (render).
 //
 // NUNCA reimplementa el render — delega en
 // design-studio/scripts/render-html.js (Playwright/Chromium), mismo
@@ -14,6 +18,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { RENDER_SCRIPT, NODE_PATH_FOR_PLAYWRIGHT, RENDER_SCALE } = require('./config.js');
 const { planLayout } = require('../layout-intelligence/service.js');
+const { directArt } = require('../art-direction-engine/service.js');
 const { buildHtmlFromPlan } = require('./render-plan.js');
 
 function renderHtmlToPng(htmlPath, outputPath, width, height) {
@@ -24,8 +29,8 @@ function renderHtmlToPng(htmlPath, outputPath, width, height) {
   );
 }
 
-/** Qué elementos hay que colocar, según qué datos existen de verdad — nunca se inventa un elemento sin dato detrás. */
-function resolveElementIds(brief, preparedAssets, generationResult) {
+/** Qué elementos tienen dato real detrás — Art Direction Engine decide después cuáles sobreviven de verdad (art-direction-engine/service.js#decideElements). Nunca se inventa un elemento sin dato. */
+function resolveCandidateElementIds(brief, preparedAssets, generationResult) {
   const ids = [];
   if (generationResult && generationResult.assetPath) ids.push('hero');
   if (preparedAssets.brand.logoPath) ids.push('logo');
@@ -36,13 +41,18 @@ function resolveElementIds(brief, preparedAssets, generationResult) {
   return ids;
 }
 
+/** Foto real (png/jpg vía simulated.provider.js#useRealPhoto, o un proveedor real futuro) vs placeholder abstracto (svg) — Art Direction Engine solo maximiza el protagonismo de la fotografía cuando es real de verdad. */
+function isRealPhoto(generationResult) {
+  return Boolean(generationResult && generationResult.format && generationResult.format !== 'svg');
+}
+
 /**
  * @param {object} concept - salida de concept-generator/service.js#generateConcepts (el ganador)
  * @param {object} brief - CreativeBrief
  * @param {object} preparedAssets - salida de asset-pipeline/service.js#prepareAssets
  * @param {object|null} generationResult - GENERATION_RESULT_SHAPE del proveedor (imagen real o placeholder)
  * @param {string} outputDir - directorio de la versión en creative-assets/ donde escribir layout.html + layout-final.png
- * @returns {{strategyId: string, layoutScore: object, layoutAttempts: object[], layoutPassed: boolean, textEmphasis: string, htmlPath: string, outputPath: string}}
+ * @returns {{strategyId: string, patternId: string, layoutScore: object, layoutAttempts: object[], layoutPassed: boolean, textEmphasis: string, htmlPath: string, outputPath: string}}
  */
 function composeLayout(concept, brief, preparedAssets, generationResult, outputDir) {
   if (!generationResult || !generationResult.assetPath) {
@@ -50,9 +60,11 @@ function composeLayout(concept, brief, preparedAssets, generationResult, outputD
   }
 
   const canvas = { width: preparedAssets.dimensions.width, height: preparedAssets.dimensions.height };
-  const elementIds = resolveElementIds(brief, preparedAssets, generationResult);
+  const candidateElementIds = resolveCandidateElementIds(brief, preparedAssets, generationResult);
+  const hasRealPhoto = isRealPhoto(generationResult);
 
-  const planned = planLayout(concept, brief, canvas, elementIds);
+  const artDirection = directArt(concept, brief, candidateElementIds, hasRealPhoto);
+  const planned = planLayout(concept, brief, canvas, artDirection.keepElementIds, artDirection);
 
   const html = buildHtmlFromPlan(planned.planResult, {
     brand: {
@@ -67,6 +79,8 @@ function composeLayout(concept, brief, preparedAssets, generationResult, outputD
     width: canvas.width,
     height: canvas.height,
     textEmphasis: planned.textEmphasis,
+    icons: artDirection.icons,
+    allowCard: artDirection.allowCard,
   });
 
   fs.mkdirSync(outputDir, { recursive: true });
@@ -78,6 +92,9 @@ function composeLayout(concept, brief, preparedAssets, generationResult, outputD
 
   return {
     strategyId: planned.strategyId,
+    patternId: artDirection.patternId,
+    patternLabel: artDirection.patternLabel,
+    droppedElementIds: artDirection.droppedElementIds,
     layoutScore: planned.score,
     layoutAttempts: planned.attempts,
     layoutPassed: planned.passed,

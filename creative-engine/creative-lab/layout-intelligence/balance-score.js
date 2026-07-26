@@ -31,10 +31,24 @@ function scoreMarginCompliance(elements, grid) {
   };
 }
 
-function scoreWhitespace(elements, grid) {
+function scoreWhitespace(elements, grid, whitespaceTarget) {
+  // Con fondo a sangre completa (foto ocupando el 100% del canvas), el
+  // "espacio en blanco" es una propiedad de la propia fotografía (cielo,
+  // pared, aire alrededor del sujeto) — esta métrica solo mide huecos
+  // entre CAJAS, no puede ver dentro de una imagen. Penalizar aquí
+  // convertía toda pieza full-bleed en "demasiado vacía" por definición
+  // (bug real: el hero se excluye del cálculo por ser fondo, así que
+  // logo+título+cta ocupando poco espacio parecía "78% de vacío" aunque
+  // la foto llenara el encuadre entero). Se concede el máximo y se deja
+  // constancia explícita, mismo criterio honesto que el resto de checks.
+  const hasBackgroundFill = elements.some((el) => el.kind === 'background-fill');
+  if (hasBackgroundFill) {
+    return { points: SCORE_WEIGHTS.whitespaceBalance, detail: 'Fondo a sangre completa — el espacio en blanco es una propiedad de la fotografía, no de las cajas superpuestas; no se puede medir ni penalizar aquí.' };
+  }
+
   const boxes = elements.filter(isForeground).map((el) => el.box);
   const ratio = whitespaceRatio(boxes, grid);
-  const { min, max } = WHITESPACE_TARGET;
+  const { min, max } = whitespaceTarget || WHITESPACE_TARGET;
   if (ratio >= min && ratio <= max) {
     return { points: SCORE_WEIGHTS.whitespaceBalance, detail: `Espacio en blanco ${(ratio * 100).toFixed(0)}% — dentro del rango sano (${min * 100}-${max * 100}%).` };
   }
@@ -92,13 +106,14 @@ function scoreOverlap(elements) {
  * @param {{elements: Array<{elementId:string,kind:string,box:object}>, decorations: object[]}} planResult
  * @param {object} grid - salida de grid.js#buildGrid
  * @param {Record<string,string>} tierByElement - salida de hierarchy.js#computeHierarchy
+ * @param {{min:number,max:number}} [whitespaceTarget] - override por patrón editorial (art-direction-engine/), si no se pasa usa config.js#WHITESPACE_TARGET
  */
-function scoreLayout(planResult, grid, tierByElement) {
+function scoreLayout(planResult, grid, tierByElement, whitespaceTarget) {
   const { elements } = planResult;
 
   const checks = {
     marginCompliance: scoreMarginCompliance(elements, grid),
-    whitespaceBalance: scoreWhitespace(elements, grid),
+    whitespaceBalance: scoreWhitespace(elements, grid, whitespaceTarget),
     hierarchyContrast: scoreHierarchyContrast(elements, tierByElement),
     visualBalance: scoreVisualBalance(elements, grid, tierByElement),
     overlapPenalty: scoreOverlap(elements),

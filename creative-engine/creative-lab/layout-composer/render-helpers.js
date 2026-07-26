@@ -1,10 +1,19 @@
 // Helpers de RENDER — convierten una caja ya calculada por
 // layout-intelligence/ (`{x,y,w,h}` en píxeles) en el marcado/estilo
 // visual de cada tipo de elemento. Nunca deciden posición ni tamaño (eso
-// ya lo decidió layout-intelligence/strategies/) — solo cómo se ve dentro
-// de la caja que les toca. Sustituye a archetypes/_shared.js (retirado en
-// el sprint "Layout Intelligence": las posiciones ya no se escriben a
-// mano por arquetipo).
+// ya lo decidió layout-intelligence/strategies/, guiado por
+// art-direction-engine/) — solo cómo se ve dentro de la caja que les
+// toca.
+//
+// Sprint "Art Direction Engine" (2026-07-26): se elimina por completo la
+// "placa" (fondo radial + sombra pesada) que llevaba el hero y la
+// "tarjeta" blanca con sombra del logo — el propietario las prohibió
+// explícitamente ("cajas blancas gigantes", "tarjetas enormes"). El hero
+// ahora se apoya directamente sobre el fondo, con una sombra sutil sobre
+// la propia imagen (no un bloque detrás) salvo que el patrón editorial
+// elegido pida explícitamente un marco (`allowCard`, solo 2 de los 15
+// patrones — "framed-minimal" — y ni siquiera ahí es una tarjeta pesada,
+// es una línea fina).
 
 function escapeHtml(text) {
   return String(text || '')
@@ -23,26 +32,34 @@ function positionedDiv(box, innerHtml, extraStyle = '') {
   return `<div style="position:absolute;left:${box.x}px;top:${box.y}px;width:${box.w}px;height:${box.h}px;${extraStyle}">${innerHtml}</div>`;
 }
 
-/** kind:'background-fill' cubre el canvas entero (cover); kind:'boxed' es una placa clara con sombra y la foto en contain dentro — mismo lenguaje visual que ya tenían los arquetipos retirados. */
-function heroMarkup(el, heroImagePath) {
+/**
+ * kind:'background-fill' cubre el canvas entero (cover, sin marco — es
+ * el fondo). kind:'boxed' es la fotografía directamente sobre el fondo,
+ * SIN placa ni sombra pesada detrás — solo un `drop-shadow` sutil sobre
+ * la propia imagen para que no quede "pegada". `allowCard` (solo 2
+ * patrones, ver art-direction-engine/patterns.js) añade una línea fina
+ * alrededor, nunca una tarjeta con degradado.
+ */
+function heroMarkup(el, heroImagePath, allowCard) {
   if (!heroImagePath) return '';
   if (el.kind === 'background-fill') {
     return positionedDiv(el.box, `<img src="file://${heroImagePath}" style="width:100%;height:100%;object-fit:cover;display:block;">`, 'z-index:1;overflow:hidden;');
   }
+  const frameStyle = allowCard ? 'border:1px solid rgba(0,0,0,0.08);padding:2%;box-sizing:border-box;' : '';
   return positionedDiv(
     el.box,
-    `<div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 42%, #ffffff 0%, #f2f8f2 70%);border-radius:24px;box-shadow:0 24px 60px rgba(0,0,0,0.28);"></div>
-     <img src="file://${heroImagePath}" style="position:relative;width:100%;height:100%;object-fit:contain;display:block;">`,
-    'z-index:2;'
+    `<img src="file://${heroImagePath}" style="width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 18px 34px rgba(0,0,0,0.20));">`,
+    `z-index:2;${frameStyle}`
   );
 }
 
+/** Sin tarjeta blanca — el logo se apoya en el fondo tal cual, con una sombra ligera sobre la propia imagen para legibilidad en cualquier fondo. */
 function logoMarkup(el, brand) {
   if (!brand.logoPath) return '';
   return positionedDiv(
     el.box,
-    `<div style="width:100%;height:100%;background:#fff;border-radius:16px;box-shadow:0 10px 26px rgba(0,0,0,0.22);display:flex;align-items:center;justify-content:center;">
-       <img src="file://${brand.logoPath}" style="max-width:82%;max-height:70%;object-fit:contain;display:block;">
+    `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+       <img src="file://${brand.logoPath}" style="max-width:100%;max-height:100%;object-fit:contain;display:block;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.25));">
      </div>`,
     'z-index:4;'
   );
@@ -71,24 +88,25 @@ function titleMarkup(el, text, textEmphasis, canvasWidth, primary, onPhoto) {
 
 function ctaMarkup(el, cta, accent, canvasWidth) {
   if (!cta) return '';
-  const fontSize = Math.max(14, Math.round(canvasWidth * 0.028));
-  const padding = Math.max(10, Math.round(canvasWidth * 0.013));
+  const fontSize = Math.max(14, Math.round(canvasWidth * 0.026));
+  const padding = Math.max(9, Math.round(canvasWidth * 0.011));
   return positionedDiv(
     el.box,
     `<div style="display:flex;width:100%;height:100%;align-items:center;justify-content:center;">
-       <div style="background:${accent};color:#1a1a1a;font-weight:800;font-size:${fontSize}px;padding:${padding}px ${Math.round(padding * 2.4)}px;border-radius:999px;white-space:nowrap;">${escapeHtml(cta)}</div>
+       <div style="background:${accent};color:#1a1a1a;font-weight:800;font-size:${fontSize}px;padding:${padding}px ${Math.round(padding * 2.2)}px;border-radius:999px;white-space:nowrap;">${escapeHtml(cta)}</div>
      </div>`,
     'z-index:4;'
   );
 }
 
+/** Badge fino — sin la sombra pesada de antes, solo peso tipográfico y el color de acento de marca en el numeral. */
 function priceMarkup(el, price, accent, canvasWidth) {
   if (!price) return '';
-  const fontSize = Math.max(16, Math.round(canvasWidth * 0.032));
+  const fontSize = Math.max(16, Math.round(canvasWidth * 0.03));
   return positionedDiv(
     el.box,
     `<div style="display:flex;width:100%;height:100%;align-items:center;justify-content:center;">
-       <div style="background:${accent};color:#1a1a1a;font-weight:800;font-size:${fontSize}px;padding:0 18px;border-radius:16px;box-shadow:0 10px 24px rgba(0,0,0,0.35);white-space:nowrap;">${escapeHtml(price)}</div>
+       <div style="background:${accent};color:#1a1a1a;font-weight:800;font-size:${fontSize}px;padding:6px 16px;border-radius:10px;white-space:nowrap;">${escapeHtml(price)}</div>
      </div>`,
     'z-index:5;'
   );
@@ -108,10 +126,16 @@ function socialIconSvg(id, size, color) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}">${iconPath}</svg>`;
 }
 
+/**
+ * Franja inferior más ligera que antes: degradado (transparente arriba,
+ * oscuro abajo) en vez de un bloque sólido plano — se lee como un
+ * recurso editorial (mismo lenguaje que `gradient-bottom` en
+ * cinematico-fullbleed), no como una caja pegada encima de la pieza.
+ */
 function contactFooterMarkup(el, contact, canvasWidth) {
   if (!contact) return '';
-  const fontSize = Math.max(12, Math.round(canvasWidth * 0.022));
-  const iconSize = Math.max(16, Math.round(canvasWidth * 0.026));
+  const fontSize = Math.max(12, Math.round(canvasWidth * 0.021));
+  const iconSize = Math.max(15, Math.round(canvasWidth * 0.024));
   const parts = [contact.phoneDisplay, contact.website, contact.address].filter(Boolean).map(escapeHtml);
   const text = parts.join('&nbsp;&nbsp;·&nbsp;&nbsp;');
   const icons = (contact.socialIcons || [])
@@ -119,7 +143,7 @@ function contactFooterMarkup(el, contact, canvasWidth) {
     .join('<span style="display:inline-block;width:10px;"></span>');
   return positionedDiv(
     el.box,
-    `<div style="width:100%;height:100%;background:rgba(0,0,0,0.55);padding:0 ${Math.round(canvasWidth * 0.04)}px;display:flex;align-items:center;justify-content:space-between;gap:16px;box-sizing:border-box;">
+    `<div style="width:100%;height:100%;background:linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.62) 100%);padding:0 ${Math.round(canvasWidth * 0.04)}px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;box-sizing:border-box;padding-bottom:${Math.round(canvasWidth * 0.012)}px;">
        <div style="color:#fff;font-size:${fontSize}px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${text}</div>
        <div style="display:flex;align-items:center;flex-shrink:0;">${icons}</div>
      </div>`,
@@ -127,9 +151,35 @@ function contactFooterMarkup(el, contact, canvasWidth) {
   );
 }
 
+/**
+ * Fila de iconos "documentación técnica premium" (Apple/Bosch/Sony/JBL/
+ * Logitech/Brother): mismo tamaño, mismo grosor de trazo (1.75, fijado
+ * UNA vez aquí para los 6, nunca por icono), misma separación —
+ * estructuralmente imposible que salgan inconsistentes entre sí. Cada
+ * icono lleva su etiqueta corta debajo, perfectamente centrada.
+ */
+function iconRowMarkup(el, icons, primary, canvasWidth) {
+  if (!icons || icons.length === 0) return '';
+  const iconSize = Math.max(20, Math.round(canvasWidth * 0.032));
+  const labelSize = Math.max(10, Math.round(canvasWidth * 0.015));
+  const items = icons
+    .map(
+      (icon) => `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;min-width:0;">
+        <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 24 24" fill="none" stroke="${primary}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${icon.markup}</svg>
+        <span style="font-size:${labelSize}px;font-weight:600;color:${primary};text-align:center;line-height:1.2;">${escapeHtml(icon.label)}</span>
+      </div>`
+    )
+    .join('');
+  return positionedDiv(
+    el.box,
+    `<div style="width:100%;height:100%;display:flex;align-items:flex-start;justify-content:space-between;gap:${Math.round(canvasWidth * 0.02)}px;">${items}</div>`,
+    'z-index:4;'
+  );
+}
+
 function decorationMarkup(deco, primary, accent) {
   if (deco.type === 'frame-border') {
-    return positionedDiv(deco.box, '', `border:3px solid ${accent};border-radius:4px;z-index:1;pointer-events:none;`);
+    return positionedDiv(deco.box, '', `border:1px solid rgba(0,0,0,0.10);z-index:1;pointer-events:none;`);
   }
   if (deco.type === 'gradient-bottom') {
     return `<div style="position:absolute;inset:0;z-index:2;background:linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.12) 45%, rgba(0,0,0,0.75) 100%);pointer-events:none;"></div>`;
@@ -142,5 +192,5 @@ function decorationMarkup(deco, primary, accent) {
 
 module.exports = {
   escapeHtml, titleFontSize,
-  heroMarkup, logoMarkup, titleMarkup, ctaMarkup, priceMarkup, contactFooterMarkup, decorationMarkup,
+  heroMarkup, logoMarkup, titleMarkup, ctaMarkup, priceMarkup, contactFooterMarkup, iconRowMarkup, decorationMarkup,
 };

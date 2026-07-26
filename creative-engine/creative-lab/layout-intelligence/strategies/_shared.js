@@ -6,6 +6,19 @@
 const { cellsToBox, fullCanvasBox } = require('../grid.js');
 const { HIERARCHY_TIER_SPANS, SPLIT_SCREEN_RATIO, FRAME_INSET_CELLS } = require('../config.js');
 
+/**
+ * Filas de grid que hay que reservar para no invadir el footer de
+ * contacto — bug real detectado con un patrón full-bleed + iconos: un
+ * apilado anclado al fondo (cinematico-fullbleed) podía crecer hacia
+ * arriba lo suficiente para que su último bloque terminara por debajo de
+ * donde empieza `footerBleedBox()`, solapándose con ella.
+ */
+function footerReservedRows(grid, hasFooter) {
+  if (!hasFooter) return 0;
+  const footerHeightPx = HIERARCHY_TIER_SPANS.minimo.rowRatio * grid.interiorHeight;
+  return Math.ceil(footerHeightPx / grid.cellHeight);
+}
+
 /** Traduce un tier ('dominante'|'primario'|'secundario'|'minimo') a un span de columnas/filas real para este grid — nunca un número tecleado por elemento. */
 function spanForTier(grid, tier) {
   const ratios = HIERARCHY_TIER_SPANS[tier] || HIERARCHY_TIER_SPANS.secundario;
@@ -60,24 +73,44 @@ function insetGrid(grid, cells = FRAME_INSET_CELLS) {
 }
 
 /**
+ * Tamaño del hero: si Art Direction Engine ya decidió un tamaño concreto
+ * para el patrón elegido (`artDirection.heroSize`), se usa tal cual —
+ * "cuánto puede crecer una fotografía" es una decisión de Art Direction,
+ * no de la estrategia de layout. Sin patrón (rutas legacy/sintéticas),
+ * cae al tier genérico de siempre.
+ */
+function heroSpan(grid, tierByElement, artDirection) {
+  if (artDirection && artDirection.heroSize) {
+    return {
+      colSpan: Math.max(1, Math.round(artDirection.heroSize.colRatio * grid.columns)),
+      rowSpan: Math.max(1, Math.round(artDirection.heroSize.rowRatio * grid.rows)),
+    };
+  }
+  return spanForTier(grid, tierByElement.hero);
+}
+
+/**
  * Apila elementos en columna, centrados horizontalmente, en el ORDEN dado
  * (ver hierarchy.js#computeStackOrder — orden de lectura de arriba a
  * abajo, no de tamaño). Único sitio donde vive esta aritmética: las 3
  * estrategias que apilan verticalmente (centrado-clasico,
  * flotante-minimalista, flat-lay-editorial) la reutilizan en vez de
- * repetir el acumulado de `cursorRow` cada una por su cuenta.
+ * repetir el acumulado de `cursorRow` cada una por su cuenta. El hero usa
+ * siempre `heroSpan()` (tamaño de Art Direction Engine si existe),
+ * `tierTransform` solo afecta al resto de elementos.
  * @param {object} grid
  * @param {string[]} stackOrder - elementos a apilar, ya filtrados a los presentes
  * @param {Record<string,string>} tierByElement
  * @param {number} startRow
- * @param {(tier:string)=>string} [tierTransform] - p.ej. flotante-minimalista rebaja el tier del hero/título
+ * @param {(tier:string)=>string} [tierTransform] - p.ej. flotante-minimalista rebaja el tier del título
+ * @param {object} [artDirection] - ArtDirectionDecision (art-direction-engine/service.js#directArt)
  */
-function stackVertically(grid, stackOrder, tierByElement, startRow, tierTransform = (t) => t) {
+function stackVertically(grid, stackOrder, tierByElement, startRow, tierTransform = (t) => t, artDirection) {
   const elements = [];
   let cursorRow = startRow;
   for (const elementId of stackOrder) {
-    const span = spanForTier(grid, tierTransform(tierByElement[elementId], elementId));
-    const kind = elementId === 'logo' ? 'chip' : 'boxed';
+    const span = elementId === 'hero' ? heroSpan(grid, tierByElement, artDirection) : spanForTier(grid, tierTransform(tierByElement[elementId], elementId));
+    const kind = elementId === 'logo' ? 'chip' : elementId === 'icons' ? 'icon-row' : 'boxed';
     elements.push({ elementId, kind, box: cellsToBox(grid, centerColStart(grid, span.colSpan), span.colSpan, cursorRow, span.rowSpan) });
     cursorRow += span.rowSpan;
   }
@@ -85,6 +118,6 @@ function stackVertically(grid, stackOrder, tierByElement, startRow, tierTransfor
 }
 
 module.exports = {
-  spanForTier, centerColStart, footerBleedBox, topRightCorner, headerRowSpan, insetGrid,
+  spanForTier, heroSpan, centerColStart, footerBleedBox, footerReservedRows, topRightCorner, headerRowSpan, insetGrid,
   cellsToBox, fullCanvasBox, stackVertically, SPLIT_SCREEN_RATIO,
 };

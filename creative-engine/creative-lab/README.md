@@ -41,8 +41,9 @@ creative-lab/
 ├── moodboard/                moodboard textual por concepto
 ├── master-prompt-composer/  extiende prompt-composer/ de creative-engine
 ├── concept-score/            evaluación en dos capas (plan gratis + real con coste)
-├── layout-intelligence/      calcula y puntúa el grid/jerarquía/equilibrio ANTES de renderizar — ver su README
-├── layout-composer/          orquesta layout-intelligence/ y renderiza la pieza final real
+├── art-direction-engine/     decide patrón editorial, qué elementos sobran e iconos — ANTES de calcular el grid, ver su README
+├── layout-intelligence/      calcula y puntúa el grid/jerarquía/equilibrio siguiendo esa decisión — ver su README
+├── layout-composer/          orquesta art-direction-engine/ + layout-intelligence/ y renderiza la pieza final real
 ├── cli/                      demo de línea de comandos
 ├── config.js                  QUALITY_THRESHOLD / MAX_RETRIES / SHORTLIST_SIZE
 └── index.js                   runCreativeLab() — punto de entrada único

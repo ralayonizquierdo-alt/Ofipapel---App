@@ -44,9 +44,10 @@ const HIERARCHY_LABEL_TO_ELEMENT = {
 const DEFAULT_TIER_BY_ELEMENT = { hero: 'dominante', title: 'primario', logo: 'minimo', cta: 'secundario' };
 
 // Orden de apilado por defecto cuando brief.artDirection.hierarchy no
-// cubre algún elemento presente (p.ej. price, que no está en el
-// vocabulario de marketing-engine).
-const DEFAULT_STACK_ORDER = ['logo', 'hero', 'title', 'cta'];
+// cubre algún elemento presente (p.ej. price/icons, que no están en el
+// vocabulario de marketing-engine — icons lo decide Art Direction Engine,
+// ver art-direction-engine/service.js#selectIcons).
+const DEFAULT_STACK_ORDER = ['logo', 'hero', 'title', 'cta', 'icons'];
 
 function clampTierIndex(idx) {
   return Math.max(0, Math.min(TIER_ORDER.length - 1, idx));

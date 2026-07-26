@@ -5,10 +5,11 @@
 // compositionId que mapean aquí: regla de tercios, capas de primer/segundo
 // plano, línea de horizonte baja.
 
-const { spanForTier, centerColStart, footerBleedBox, topRightCorner, fullCanvasBox, cellsToBox } = require('./_shared.js');
+const { spanForTier, centerColStart, footerBleedBox, footerReservedRows, topRightCorner, fullCanvasBox, cellsToBox } = require('./_shared.js');
 
 // `stackOrder` no se usa aquí — el hero es kind:'background-fill' (no
-// apila con nada) y título/cta se anclan siempre a la franja inferior.
+// apila con nada) y título/cta/iconos se anclan siempre a la franja
+// inferior.
 function computePlan(grid, tierByElement, elementIds, stackOrder) {
   const elements = [];
 
@@ -21,12 +22,14 @@ function computePlan(grid, tierByElement, elementIds, stackOrder) {
     elements.push({ elementId: 'logo', kind: 'chip', box: cellsToBox(grid, centerColStart(grid, span.colSpan), span.colSpan, 0, span.rowSpan) });
   }
 
-  // Título/CTA anclados a la franja inferior (por encima del footer de
-  // contacto), no al centro — es lo que da la sensación "cinematográfica".
+  // Título/CTA/iconos anclados a la franja inferior (por encima del
+  // footer de contacto), no al centro — es lo que da la sensación
+  // "cinematográfica".
   const titleSpan = elementIds.includes('title') ? spanForTier(grid, tierByElement.title) : null;
   const ctaSpan = elementIds.includes('cta') ? spanForTier(grid, tierByElement.cta) : null;
-  const stackRows = (titleSpan ? titleSpan.rowSpan : 0) + (ctaSpan ? ctaSpan.rowSpan : 0);
-  let cursorRow = grid.rows - stackRows;
+  const iconsSpan = elementIds.includes('icons') ? spanForTier(grid, tierByElement.icons) : null;
+  const stackRows = (titleSpan ? titleSpan.rowSpan : 0) + (ctaSpan ? ctaSpan.rowSpan : 0) + (iconsSpan ? iconsSpan.rowSpan : 0);
+  let cursorRow = grid.rows - stackRows - footerReservedRows(grid, elementIds.includes('contactFooter'));
 
   if (titleSpan) {
     elements.push({ elementId: 'title', kind: 'boxed', box: cellsToBox(grid, 0, Math.min(titleSpan.colSpan + 2, grid.columns), cursorRow, titleSpan.rowSpan) });
@@ -34,6 +37,10 @@ function computePlan(grid, tierByElement, elementIds, stackOrder) {
   }
   if (ctaSpan) {
     elements.push({ elementId: 'cta', kind: 'boxed', box: cellsToBox(grid, 0, ctaSpan.colSpan, cursorRow, ctaSpan.rowSpan) });
+    cursorRow += ctaSpan.rowSpan;
+  }
+  if (iconsSpan) {
+    elements.push({ elementId: 'icons', kind: 'icon-row', box: cellsToBox(grid, 0, Math.min(iconsSpan.colSpan + 2, grid.columns), cursorRow, iconsSpan.rowSpan) });
   }
 
   if (elementIds.includes('price')) {

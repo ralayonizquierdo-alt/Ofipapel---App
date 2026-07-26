@@ -11,9 +11,9 @@ function downgradeOnceIfDominant(tier) {
   return TIER_ORDER[TIER_ORDER.indexOf(tier) - 1];
 }
 
-function computePlan(grid, tierByElement, elementIds, stackOrder) {
+function computePlan(grid, tierByElement, elementIds, stackOrder, artDirection) {
   const startRow = Math.round(grid.rows * 0.16); // respiro superior — parte del rasgo distintivo
-  const { elements } = stackVertically(grid, stackOrder, tierByElement, startRow, downgradeOnceIfDominant);
+  const { elements } = stackVertically(grid, stackOrder, tierByElement, startRow, downgradeOnceIfDominant, artDirection);
 
   if (elementIds.includes('price')) {
     const span = spanForTier(grid, tierByElement.price);

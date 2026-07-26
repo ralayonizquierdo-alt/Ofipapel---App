@@ -971,3 +971,69 @@ pública de `layout-composer/service.js#composeLayout()` no cambió, así
 que `creative-lab/index.js` solo necesitó actualizar los nombres de los
 campos que expone (`archetype` → `strategyId`, más `layoutScore`/
 `layoutAttempts`/`layoutPassed` nuevos).
+
+---
+
+### 2026-07-26 — Sprint "Art Direction Engine": criterio de diseño antes de calcular el grid
+
+**Contexto**: tras "Layout Intelligence" el propietario fue explícito en
+que no bastaba — pidió un cambio de paradigma, no una evolución: "no
+falla el código, no falla el grid, falla el criterio visual". Instrucción
+directa de implementar sin preguntar ni proponer alternativas, con
+prioridad absoluta en calidad visual sobre cualquier otra cosa.
+
+**Decisión**: nuevo módulo `creative-engine/creative-lab/art-direction-engine/`,
+ejecutado ANTES de Composition Engine (`layout-intelligence/`, que ahora
+obedece sus decisiones en vez de decidir solo desde `compositionId`) —
+15 patrones editoriales (`patterns.js`, reglas de composición inspiradas
+en publicidad premium real — Apple, Nike, Muji, IKEA, retail de lujo —
+nunca coordenadas ni campañas copiadas), selección determinista
+(`selectPattern`), recorte real de elementos prescindibles
+(`decideElements` — "si un elemento no aporta valor, se elimina"), e
+Icon Library (`icons.js`, ~14 iconos con trazo/tamaño/espaciado
+idénticos, seleccionados solo si hay palabras clave reales en el texto
+del brief — nunca relleno). `layout-composer/render-helpers.js` se
+reescribe para eliminar la placa blanca con sombra pesada del hero y la
+tarjeta del logo — prohibidas explícitamente por el propietario.
+
+Al conectar el módulo, un barrido sintético de los 15 patrones × 3
+formatos reales encontró 2 bugs geométricos reales antes de dar el
+sprint por bueno: el check de espacio en blanco reprobaba SIEMPRE los
+patrones de foto a sangre completa (la métrica no puede ver "dentro" de
+una foto, solo huecos entre cajas) y una fila de iconos podía solaparse
+con el footer de contacto en estrategias con apilado anclado al fondo.
+Ambos corregidos (ver `creative-engine/creative-lab/ARCHITECTURE.md`,
+sección del sprint).
+
+**Regla protegida explícita**: `hero`, `price` y `contactFooter` nunca
+se recortan, aunque un patrón sea muy minimalista — son contenido de
+negocio ya exigido por el propietario en el sprint de "precio y contacto
+reales" (2026-07-26, entrada anterior). La eliminación agresiva de este
+sprint se aplica solo al chrome visual (cta/logo/título/iconos), nunca a
+ese contenido — reconciliación explícita entre dos instrucciones del
+mismo propietario en sprints distintos, documentada para que no se lea
+como una contradicción.
+
+**Verificación**: campaña real del Ventilador Muvip regenerada de punta
+a punta y comparada visualmente contra la pieza del sprint anterior — la
+foto pasa de ir en una placa central a ocupar el 100% del encuadre
+(patrón "Lifestyle Premium", elegido por tener fotografía real +
+`campaignType:'Lifestyle'`), aparecen 3 iconos técnicos reales
+(potencia/nebulización/mando, extraídos del texto real del producto), y
+el CTA se descarta solo por no aportar valor en una pieza foto-dominante.
+Score de composición 87/100 (excelente) al primer intento. Regresión
+completa sin cambios de comportamiento en el resto del repo.
+
+**Quién decide**: propietario — especificación explícita y exhaustiva
+del sprint (15 patrones nombrados, reglas de eliminación, comportamiento
+de iconos con referencias de marca reales, prohibición explícita de
+cajas/tarjetas), instrucción de implementar directamente sin ciclo de
+aprobación.
+
+**Reversibilidad**: media — mismo patrón que el sprint anterior: módulo
+nuevo aditivo, `layout-composer/service.js#composeLayout()` mantiene su
+firma pública (añade campos nuevos: `patternId`, `patternLabel`,
+`droppedElementIds`), pero el estilo visual de `render-helpers.js`
+cambió de forma sustancial (placas/tarjetas eliminadas) — revertible
+desde el historial de git si hiciera falta, no desde una variable de
+configuración.

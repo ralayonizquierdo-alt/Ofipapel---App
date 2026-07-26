@@ -62,6 +62,7 @@ const FIXED_TIER_BY_ELEMENT = {
   price: 'secundario',
   cta: 'secundario',
   contactFooter: 'minimo',
+  icons: 'secundario',
 };
 
 // compositionId (15, cobertura completa de libraries/compositions.js) ->

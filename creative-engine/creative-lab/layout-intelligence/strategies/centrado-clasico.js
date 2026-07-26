@@ -6,8 +6,8 @@
 
 const { stackVertically, footerBleedBox, topRightCorner, headerRowSpan, spanForTier } = require('./_shared.js');
 
-function computePlan(grid, tierByElement, elementIds, stackOrder) {
-  const { elements } = stackVertically(grid, stackOrder, tierByElement, 0);
+function computePlan(grid, tierByElement, elementIds, stackOrder, artDirection) {
+  const { elements } = stackVertically(grid, stackOrder, tierByElement, 0, undefined, artDirection);
 
   if (elementIds.includes('price')) {
     const span = spanForTier(grid, tierByElement.price);

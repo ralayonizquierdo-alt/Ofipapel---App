@@ -63,13 +63,16 @@ async function generateForConcept(item, providerId, preparedAssets, versionDir) 
  */
 function composeFinalLayout(item, brief, preparedAssets) {
   if (!item.generation || !item.generation.result || !item.generation.result.assetPath) {
-    return { finalRenderedAssetPath: null, strategyId: null, layoutScore: null, layoutAttempts: null, layoutPassed: null, textEmphasis: null, layoutError: 'Sin asset generado por el proveedor — nada que componer.' };
+    return { finalRenderedAssetPath: null, strategyId: null, patternId: null, patternLabel: null, droppedElementIds: null, layoutScore: null, layoutAttempts: null, layoutPassed: null, textEmphasis: null, layoutError: 'Sin asset generado por el proveedor — nada que componer.' };
   }
   try {
     const layout = composeLayout(item.concept, brief, preparedAssets, item.generation.result, item.dir);
     return {
       finalRenderedAssetPath: layout.outputPath,
       strategyId: layout.strategyId,
+      patternId: layout.patternId,
+      patternLabel: layout.patternLabel,
+      droppedElementIds: layout.droppedElementIds,
       layoutScore: layout.layoutScore,
       layoutAttempts: layout.layoutAttempts,
       layoutPassed: layout.layoutPassed,
@@ -77,7 +80,7 @@ function composeFinalLayout(item, brief, preparedAssets) {
       layoutError: null,
     };
   } catch (err) {
-    return { finalRenderedAssetPath: null, strategyId: null, layoutScore: null, layoutAttempts: null, layoutPassed: null, textEmphasis: null, layoutError: err.message };
+    return { finalRenderedAssetPath: null, strategyId: null, patternId: null, patternLabel: null, droppedElementIds: null, layoutScore: null, layoutAttempts: null, layoutPassed: null, textEmphasis: null, layoutError: err.message };
   }
 }
 

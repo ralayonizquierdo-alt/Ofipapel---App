@@ -523,6 +523,141 @@ Regresión completa sin cambios de comportamiento: `node --check` en todo
 pipeline de `marketing-engine/` por separado, e independencia
 `creative-lab/`↔`marketing-engine/` (grep, cero `require()` cruzados).
 
+## Sprint "Art Direction Engine" (2026-07-26) — de maquetador a criterio de diseño
+
+**Contexto**: "Layout Intelligence" (sprint anterior) calculaba grid,
+jerarquía, márgenes y equilibrio de verdad — pero seguía razonando como
+un maquetador: colocaba todos los elementos disponibles dentro de una
+tarjeta con placa y sombra. El propietario pidió explícitamente un
+cambio de paradigma, no una mejora incremental: que el sistema piense
+como un director de arte ANTES de tocar el grid — qué es el
+protagonista, qué sobra, cuánto puede crecer una fotografía, cuándo
+eliminar cajas y fondos, cuándo usar iconos y cuándo no.
+
+Nuevo módulo **[`art-direction-engine/`](./art-direction-engine/README.md)**,
+que se ejecuta ANTES de Composition Engine (`layout-intelligence/`, que
+pasa a obedecer sus decisiones en vez de partir solo de
+`concept.compositionId`):
+
+- **`patterns.js`**: 15 patrones editoriales (Hero Product, Magazine
+  Editorial, Luxury Minimal, Apple Style, Nike Style, Muji Style, IKEA
+  Lifestyle, Product First, Negative Space, Swiss Grid, Asymmetric
+  Editorial, Poster Design, Premium Retail, Luxury Catalogue, Lifestyle
+  Premium) — cada uno son REGLAS (tratamiento del hero, cuánto puede
+  crecer, rango de espacio en blanco, margen, máximo de elementos, si
+  admite iconos, estrategias de `layout-intelligence/` que prefiere),
+  nunca coordenadas. Analizan principios de publicidad premium real, no
+  copian campañas concretas.
+- **`service.js#selectPattern`**: determinista (hash de desempate, nunca
+  `Math.random`) — puntúa los 15 por solape de tags con el brief
+  (categoría, segmento, objetivo de campaña) y, con fotografía real,
+  prima los patrones que le dejan protagonismo (`heroTreatment` distinto
+  de `'framed-minimal'`, con un bonus extra si además son `'lifestyle'`).
+- **`service.js#decideElements`**: "todo elemento debe justificar su
+  existencia" aplicado como recorte real — si la pieza supera
+  `pattern.maxElements`, se descartan primero `cta`, después `logo`,
+  después `icons`, después `title` (nunca `hero`/`price`/`contactFooter`
+  — contenido de negocio ya exigido explícitamente por el propietario en
+  un sprint anterior, ver más abajo "regla protegida").
+- **`icons.js` + `service.js#selectIcons`**: ~14 iconos de línea con el
+  MISMO trazo/tamaño/espaciado (el estilo se aplica una sola vez en el
+  renderer, nunca por icono — estructuralmente imposible que salgan
+  inconsistentes, inspirado en documentación técnica de Apple/Bosch/
+  Sony/JBL/Logitech/Brother). Solo se seleccionan si el patrón los admite
+  Y hay palabras clave reales en la descripción/beneficios del producto
+  — máximo 6, nunca relleno.
+
+### Regla protegida: negocio nunca se recorta
+
+`hero`, `price` y `contactFooter` están explícitamente excluidos del
+recorte de `decideElements` — el propietario ya exigió en un sprint
+anterior que precio/redes/contacto aparezcan siempre (ver
+`.claude/rax/DECISIONES.md`, 2026-07-26 "precio y contacto reales"). La
+eliminación agresiva de este sprint ("si un elemento no aporta valor, se
+elimina") se aplica al CHROME visual — cta, logo, título, iconos —, nunca
+a contenido de negocio ya decidido explícitamente. Documentado aquí para
+que no se lea como una contradicción entre sprints.
+
+### `layout-intelligence/` (Composition Engine) deja de decidir solo
+
+- `service.js#planLayout` acepta ahora una `ArtDirectionDecision`:
+  `marginRatio`/`whitespaceTarget` sustituyen a los valores globales de
+  `config.js` para esa pieza concreta; el orden de estrategias a probar
+  sale de `artDirection.preferredStrategies` (con fallback al criterio
+  anterior por `compositionId` si no se pasa `artDirection` — no rompe
+  quien todavía no lo use).
+- `strategies/_shared.js#heroSpan()`: si el patrón fijó un tamaño de foto
+  concreto (`artDirection.heroSize`), se usa tal cual — "cuánto puede
+  crecer una fotografía" es una decisión de Art Direction, no de la
+  estrategia de layout.
+- Nuevo elemento `icons` (kind `'icon-row'`): añadido a
+  `hierarchy.js#DEFAULT_STACK_ORDER` y colocado explícitamente en las 3
+  estrategias que no apilan verticalmente (`diagonal-dinamico`,
+  `cinematico-fullbleed`, `dividido-lifestyle`).
+
+### `layout-composer/` (render): fuera las cajas
+
+`render-helpers.js` se reescribe para cumplir la prohibición explícita
+del propietario ("cajas blancas gigantes", "tarjetas enormes"):
+`heroMarkup` ya no dibuja una placa con degradado y sombra pesada detrás
+de la foto — la imagen se apoya directamente sobre el fondo, con un
+`filter:drop-shadow` sutil sobre sí misma (`allowCard`, solo 2 de los 15
+patrones, añade como mucho una línea de 1px, nunca una tarjeta).
+`logoMarkup` pierde la tarjeta blanca con sombra — el logo se apoya en el
+fondo igual que la foto. `priceMarkup`/`contactFooterMarkup` se aligeran
+(badge más fino, footer como degradado en vez de bloque sólido). Nuevo
+`iconRowMarkup`: aplica el trazo/tamaño/espaciado UNA vez para toda la
+fila, con la etiqueta de cada icono perfectamente centrada debajo.
+
+### 2 bugs reales encontrados conectando el módulo — antes de dar el sprint por bueno
+
+1. **El check de espacio en blanco no tenía sentido con fondo a sangre
+   completa.** `whitespaceRatio()` excluye `kind:'background-fill'` del
+   cálculo (correcto: el fondo no es "clutter") — pero eso significaba
+   que, con una foto full-bleed, el resto de elementos (logo, título,
+   precio) parecían ocupar "solo" un 20% del canvas, y el check lo leía
+   como "78% de espacio vacío, composición demasiado vacía" — un patrón
+   `full-bleed` reprobaba SIEMPRE por definición, aunque la foto llenara
+   el encuadre entero. Corregido: con fondo a sangre completa, el espacio
+   en blanco es una propiedad de la fotografía (cielo, pared, aire
+   alrededor del sujeto), no de las cajas superpuestas — no se puede
+   medir geométricamente, así que se concede el máximo y se deja
+   constancia explícita del motivo (mismo criterio honesto que el resto
+   de checks de `evaluatedOn:'plan'`).
+2. **La fila de iconos podía solaparse con el footer de contacto.** En
+   `cinematico-fullbleed` (título + cta + iconos apilados desde abajo),
+   el cálculo de la fila inicial no reservaba la altura del footer —
+   detectado en la prueba sintética con iconos reales. Corregido con
+   `strategies/_shared.js#footerReservedRows()`, reutilizable por
+   cualquier estrategia con apilado anclado al fondo.
+
+Con los 2 fijos, un barrido sintético de los 15 patrones × 3 formatos
+reales (1080×1350, 1080×1920, 1080×1080) aprueba el umbral en el primer
+intento en todos los casos, y — más importante — cada patrón termina
+usando de verdad la familia de estrategias que declaró preferir
+(`nike-style`/`poster-design`/`lifestyle-premium` → `cinematico-fullbleed`;
+`luxury-minimal`/`apple-style`/`negative-space` → `flotante-minimalista`;
+`muji-style`/`swiss-grid`/`premium-retail`/`luxury-catalogue` →
+`flat-lay-editorial`; etc.) — la decisión de Art Direction Engine se
+respeta en la pieza final, no se pierde por el camino.
+
+### Verificado end-to-end con la campaña real — comparación visual directa
+
+Mismo brief (Ventilador Muvip, foto lifestyle real, 89,00€) re-ejecutado
+de punta a punta: Art Direction Engine eligió **Lifestyle Premium**
+(fotografía real + `campaignType:'Lifestyle'` → máxima puntuación),
+descartó `cta` por presupuesto de elementos, y seleccionó 3 iconos reales
+(potencia, nebulización, mando a distancia) a partir del texto real del
+producto. Composition Engine usó `cinematico-fullbleed` (full-bleed, tal
+como pedía el patrón) al primer intento, 87/100 (excelente). El resultado
+frente a la pieza del sprint anterior: la foto pasa de ocupar una placa
+central a ocupar el 100% del encuadre, desaparecen la placa y la sombra
+pesada del logo, aparece la fila de iconos técnicos, y el CTA — que no
+aportaba nada en una pieza foto-dominante — se eliminó solo. Regresión
+completa sin cambios de comportamiento: `node --check` en todo
+`creative-engine/`, demo CLI existente, pipeline de `marketing-engine/`
+por separado, independencia `creative-lab/`↔`marketing-engine/` intacta.
+
 ## Verificación realizada
 
 Independencia por grep · las 9 bibliotecas validan al cargar · 15

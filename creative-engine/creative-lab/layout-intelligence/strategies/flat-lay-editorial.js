@@ -6,9 +6,9 @@
 
 const { stackVertically, footerBleedBox, headerRowSpan, insetGrid, cellsToBox, spanForTier } = require('./_shared.js');
 
-function computePlan(grid, tierByElement, elementIds, stackOrder) {
+function computePlan(grid, tierByElement, elementIds, stackOrder, artDirection) {
   const frame = insetGrid(grid);
-  const { elements } = stackVertically(frame, stackOrder, tierByElement, 0);
+  const { elements } = stackVertically(frame, stackOrder, tierByElement, 0, undefined, artDirection);
 
   if (elementIds.includes('price')) {
     const span = spanForTier(frame, tierByElement.price);

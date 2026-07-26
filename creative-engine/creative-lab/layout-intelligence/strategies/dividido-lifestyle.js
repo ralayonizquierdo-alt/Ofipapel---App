@@ -35,6 +35,11 @@ function computePlan(grid, tierByElement, elementIds, stackOrder) {
   if (elementIds.includes('cta')) {
     const span = spanForTier(grid, tierByElement.cta);
     elements.push({ elementId: 'cta', kind: 'boxed', box: cellsToBox(grid, centerColStart(grid, span.colSpan), span.colSpan, cursorRow, span.rowSpan) });
+    cursorRow += span.rowSpan;
+  }
+  if (elementIds.includes('icons')) {
+    const span = spanForTier(grid, tierByElement.icons);
+    elements.push({ elementId: 'icons', kind: 'icon-row', box: cellsToBox(grid, centerColStart(grid, span.colSpan), span.colSpan, cursorRow, span.rowSpan) });
   }
 
   if (elementIds.includes('contactFooter')) {
