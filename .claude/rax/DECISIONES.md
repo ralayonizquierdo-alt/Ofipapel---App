@@ -691,3 +691,26 @@ incluida la corrección de diseño de concept-generator/ documentada arriba.
 ningún fichero de `marketing-engine/` ni de `app.html` tocado. Sin
 `OPENAI_API_KEY`, se comporta igual que el resto de `creative-engine/`
 (fallback a `simulated`).
+
+### 2026-07-26 — Sprint "Director de Arte Senior": autocrítica obligatoria antes del prompt
+
+**Contexto**: el propietario pidió mejorar solo la calidad creativa de
+`creative-lab/`, sin módulos nuevos: el Director Creativo debe responder
+7 preguntas sobre cada concepto antes de componer ningún prompt, y
+descartar automáticamente lo que no parezca campaña profesional.
+
+**Decisión**: nuevo fichero dentro del módulo ya existente
+`concept-generator/self-critique.js` (no un módulo top-level) —
+determinista, sin IA, reutiliza campos que el concepto ya trae.
+`index.js#runCreativeLab` aplica el filtro entre `generateConcepts()` y
+`composeMasterPrompt()`. `SHORTLIST_SIZE` baja de 4 a 3.
+
+**Verificado**: brief real (Ventilador Muvip) → 0 descartados, mismo
+ganador. Brief con jerarquía sobrecargada → los 10 descartados, error
+claro. Concepto sintético "ficha de catálogo" → descartado correctamente.
+
+**Quién decide**: propietario (norma exacta, 7 preguntas literales).
+
+**Reversibilidad**: alta — un fichero nuevo + una inserción de 3 líneas
+en `index.js` + un valor de configuración. Revertir es quitar el import y
+la llamada a `filterProfessionalConcepts`.

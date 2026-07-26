@@ -18,6 +18,7 @@ const { newCreativeId } = require('../shared/ids.js');
 
 const { analyzeBrief } = require('./analysis/service.js');
 const { generateConcepts } = require('./concept-generator/service.js');
+const { filterProfessionalConcepts } = require('./concept-generator/self-critique.js');
 const { CONCEPT_COUNT_DEFAULT } = require('./concept-generator/config.js');
 const { buildMoodboard } = require('./moodboard/service.js');
 const { composeMasterPrompt } = require('./master-prompt-composer/service.js');
@@ -58,6 +59,7 @@ function summarizeAttemptConcept(item) {
     sourceReferenceIds: item.concept.sourceReferenceIds,
     directorVariation: item.concept.directorVariation,
     planScore: item.planScore.total,
+    veredictoPremiumOFicha: item.selfCritique.answers.veredictoPremiumOFicha,
   };
 }
 
@@ -84,16 +86,28 @@ async function runCreativeLab(brief, options = {}) {
     const analysis = analyzeBrief(brief);
     const concepts = generateConcepts(analysis, { count: conceptCount });
 
-    // Capa 1 — plan, gratis, sobre los 8-12 conceptos.
-    const planned = concepts.map((concept) => {
+    // Director de Arte Senior — autocrítica obligatoria ANTES de componer
+    // ningún prompt: descarta automáticamente cualquier concepto que no
+    // parezca una campaña profesional (self-critique.js). Solo los
+    // supervivientes llegan a master-prompt-composer/.
+    const { survivors, discarded } = filterProfessionalConcepts(concepts, brief);
+    if (survivors.length === 0) {
+      throw new Error(
+        'Director de Arte Senior: los 10 conceptos generados parecen ficha de catálogo o tienen la jerarquía sobrecargada — ' +
+        'ninguno supera el filtro de campaña profesional. Añade más variedad a la Biblioteca de Referencias (reference-library/).'
+      );
+    }
+
+    // Capa 1 — plan, gratis, solo sobre los conceptos que superaron la autocrítica.
+    const planned = survivors.map(({ concept, selfCritique }) => {
       const prompt = composeMasterPrompt(brief, preparedAssets, concept);
       const moodboard = buildMoodboard(concept, preparedAssets);
       const planScore = scoreConceptPlan(concept, prompt, brief, preparedAssets);
-      return { concept, prompt, moodboard, planScore };
+      return { concept, prompt, moodboard, planScore, selfCritique };
     });
 
     const shortlist = buildShortlist(
-      planned.map((p) => ({ concept: p.concept, prompt: p.prompt, moodboard: p.moodboard, planScore: p.planScore, score: p.planScore })),
+      planned.map((p) => ({ concept: p.concept, prompt: p.prompt, moodboard: p.moodboard, planScore: p.planScore, selfCritique: p.selfCritique, score: p.planScore })),
       SHORTLIST_SIZE
     );
 
@@ -117,6 +131,7 @@ async function runCreativeLab(brief, options = {}) {
           generationResult: generation.result,
           planScore: item.planScore,
           pixelScore,
+          selfCritique: item.selfCritique,
           attemptNumber,
         },
       });
@@ -129,7 +144,9 @@ async function runCreativeLab(brief, options = {}) {
 
     attempts.push({
       attemptNumber,
-      conceptsGenerated: planned.length,
+      conceptsGenerated: concepts.length,
+      discardedByArtDirector: discarded.map((d) => ({ conceptId: d.concept.conceptId, reasons: d.selfCritique.discardReasons })),
+      survivedArtDirector: planned.length,
       allConcepts: planned.map(summarizeAttemptConcept),
       shortlist: shortlist.map((s) => s.concept.conceptId),
       bestConceptId: best.concept.conceptId,
@@ -165,6 +182,7 @@ function formatWinner(item) {
     label: item.concept.label,
     sourceReferenceIds: item.concept.sourceReferenceIds,
     directorVariation: item.concept.directorVariation,
+    selfCritique: item.selfCritique,
     moodboard: item.moodboard,
     composedPrompt: item.prompt,
     versionNumber: item.versionNumber,

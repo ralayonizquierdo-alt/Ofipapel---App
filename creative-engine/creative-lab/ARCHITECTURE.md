@@ -225,6 +225,45 @@ Runway, Veo, Kling. Cambiar de proveedor no toca ni una línea de
 - La Biblioteca de Referencias crece con `registerEntry()` — a mano hoy,
   automatizable mañana (ver "Importar referencias" arriba).
 
+## Sprint "Director de Arte Senior" (2026-07-26) — cambios realizados
+
+Sin módulos nuevos, sin ampliar el flujo — solo calidad creativa, dentro
+de `concept-generator/`:
+
+- **`concept-generator/self-critique.js`** (nuevo fichero, mismo módulo
+  existente): responde de forma determinista las 7 preguntas del
+  propietario sobre cada concepto (emoción principal, qué detiene el
+  scroll, protagonista absoluto, qué eliminar para simplificar, dónde
+  vive el texto, qué historia cuenta, ¿campaña o ficha de producto?),
+  usando datos que el concepto ya trae (`emotion`, `narrative`,
+  `textSpaceId`, `directorVariation`) — cero llamada a IA, mismo criterio
+  determinista de todo el repo. Dos de las 7 respuestas son el filtro de
+  descarte real: jerarquía sobrecargada (>4 elementos, mismo umbral que
+  `creative-validator/`) y "ficha de catálogo" (escenario + iluminación +
+  composición simultáneamente neutros, sin ningún matiz de la variación
+  propia del director).
+- **`index.js#runCreativeLab`**: se inserta el filtro justo después de
+  `generateConcepts()` y ANTES de `composeMasterPrompt()` — un concepto
+  descartado nunca llega a tener un prompt compuesto. Si los 10 conceptos
+  de un intento son descartados, lanza un error claro en vez de
+  continuar con material de baja calidad. `attempts[]` ahora registra
+  `discardedByArtDirector` (con sus motivos) y `survivedArtDirector`; el
+  ganador final lleva su `selfCritique` completo para trazabilidad.
+- **`config.js`**: `SHORTLIST_SIZE` 4 → 3 ("conserva solo los 3
+  mejores"), configurable igual que antes por
+  `CREATIVE_LAB_SHORTLIST_SIZE`. Efecto colateral positivo: un 25% menos
+  de generaciones reales de pago por intento.
+
+Verificado: con el brief real de Ventilador Muvip, 0/10 conceptos
+descartados, shortlist de 3, mismo ganador que antes del sprint (el gate
+no penaliza un brief ya sano). Con el brief deliberadamente incompleto
+(jerarquía de 6 elementos), los 10 conceptos son descartados y
+`runCreativeLab` lanza el error correspondiente en vez de generar una
+pieza de baja calidad. Probado también con un concepto sintético
+estudio-fondo-blanco + softbox + simetría-centrada → descartado por
+"ficha de catálogo", confirmando que el filtro tiene efecto real, no solo
+teórico.
+
 ## Verificación realizada
 
 Independencia por grep · las 9 bibliotecas validan al cargar · 15
