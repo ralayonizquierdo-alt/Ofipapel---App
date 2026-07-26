@@ -309,6 +309,57 @@ espacioTextos, composición) · `creative-engine/prompt-composer/` y
 `marketing-engine/` sin cambios de comportamiento (regresión ejecutada) ·
 brief real de Ventilador Muvip → `approved`, capa 2 = 100/100.
 
+## Sprint "Layout Composer" (2026-07-26) — la pieza que faltaba
+
+Hasta este sprint, el concepto ganador de Creative Lab describía un
+prompt cinematográfico, pero el maquetado real de la pieza final era
+ajeno a esa decisión — o bien una plantilla fija de `marketing-engine/`,
+o bien el asset crudo del proveedor sin componer. `layout-composer/`
+(módulo nuevo, aprobado explícitamente por el propietario) cierra ese
+hueco:
+
+- **`config.js`**: `COMPOSITION_TO_ARCHETYPE` — las 15 composiciones de
+  `libraries/compositions.js` agrupadas en 6 arquetipos de layout
+  genuinamente distintos (no una plantilla por composición: agrupa por
+  afinidad visual real). `TEXT_EMPHASIS_BY_TEXTSPACE` — las 7 entradas de
+  `libraries/typographic-hierarchies.js` reducidas a 3 niveles de énfasis
+  tipográfico, eje independiente del arquetipo.
+- **`archetypes/`**: 6 ficheros `buildHtml(data) → string` (mismo patrón
+  que `marketing-engine/07-maquetador/templates/`) — `centrado-clasico`,
+  `diagonal-dinamico`, `flotante-minimalista`, `flat-lay-editorial`,
+  `cinematico-fullbleed`, `dividido-lifestyle`. `archetypes/_shared.js`
+  centraliza `escapeHtml`/tamaño de título/botón CTA (evita repetir CSS
+  del botón 6 veces — se detectó como bug real durante la verificación
+  visual y se corrigió centralizándolo).
+- **`service.js#composeLayout`**: selecciona arquetipo + énfasis a partir
+  del concepto, renderiza con `design-studio/scripts/render-html.js`
+  (reutilizado, nunca reimplementado) y escribe `layout.html` +
+  `layout-final.png` en el mismo directorio de versión de
+  `creative-assets/store.js` — no una ubicación de almacenamiento nueva.
+- **`index.js#runCreativeLab`**: tras decidir el ganador (`approved` o
+  `needsHumanReview`), llama a `composeFinalLayout()` — nunca rompe el
+  pipeline si falla (try/catch, igual que el resto del sistema); el
+  resultado se añade a `winner.layout` sin tocar la forma de ningún otro
+  campo ya existente.
+- **`provider-manager/providers/simulated.provider.js`** (el único
+  fichero fuera de `creative-lab/` tocado en este sprint): ahora usa la
+  foto real del producto si `req.referenceImages[0]` es un data URL —
+  antes solo generaba el placeholder abstracto, así que layout-composer/
+  nunca tenía una foto real que componer aunque existiera. Mismo
+  mecanismo que ya tenía `marketing-engine/core/providers/providers/simulated.provider.js`
+  desde el sprint de integración app↔marketing-engine, ahora también en
+  creative-engine/.
+
+**Verificado**: los 6 arquetipos renderizan PNG real con la foto real del
+Ventilador Muvip — 2 bugs visuales reales encontrados y corregidos
+durante la verificación (botón CTA sin estilo, título solapando el
+producto en 2 arquetipos). Extremo a extremo con `runCreativeLab`: el
+concepto ganador real (`compositionId: diagonal-dinamica`) seleccionó
+`diagonal-dinamico` automáticamente — no un arquetipo fijo. Funciona
+igual con placeholder (sin foto real) sin lanzar excepción. Regresión de
+`marketing-engine/` y del resto de `creative-engine/` sin cambios de
+comportamiento; independencia `creative-lab/`↔`marketing-engine/` intacta.
+
 ## Verificación realizada
 
 Independencia por grep · las 9 bibliotecas validan al cargar · 15

@@ -778,3 +778,49 @@ cinematográfico y la plantilla fija).
 
 **Reversibilidad**: alta — 3 ficheros de `marketing-engine/` modificados,
 1 nuevo; `creative-lab/` no tocado en absoluto.
+
+### 2026-07-26 — layout-composer/: la pieza que faltaba entre decisión y resultado
+
+**Contexto**: tras arreglar la jerarquía sobrecargada y dar al maquetador
+2 plantillas por categoría, el propietario señaló que seguía siendo
+insuficiente ("¿solo hay dos plantillas disponibles?") — con razón: esas
+2 plantillas cubrían las 2 únicas ramas del sistema simple de categorías
+de `marketing-engine/`, no la riqueza combinatoria real de `creative-lab/`
+(52 estilos, 15 composiciones...). Se le presentaron dos caminos
+(ampliar categorías de marketing-engine, o construir un compositor de
+layout real dentro de creative-lab) y eligió el segundo, explícitamente
+aprobando un módulo nuevo.
+
+**Decisión**: `creative-engine/creative-lab/layout-composer/` — 6
+arquetipos de layout genuinamente distintos (no 15, uno por composición;
+agrupados por afinidad visual real), seleccionados por
+`concept.compositionId`, con un eje independiente de énfasis tipográfico
+por `concept.textSpaceId` (3 niveles). Reutiliza
+`design-studio/scripts/render-html.js` (nunca reimplementado) y escribe
+dentro del mismo directorio de versión de `creative-assets/store.js` (sin
+almacenamiento nuevo). `index.js#runCreativeLab` lo invoca automáticamente
+sobre el concepto ganador, nunca rompe el pipeline si falla.
+
+Fix necesario fuera de `creative-lab/`:
+`creative-engine/provider-manager/providers/simulated.provider.js` ahora
+usa la foto real del producto si se le pasa (antes solo generaba el
+placeholder abstracto) — mismo mecanismo que ya tenía el equivalente de
+`marketing-engine/`, solo que nunca se había portado a `creative-engine/`
+porque hasta ahora nada consumía el asset generado de verdad.
+
+**Verificado**: 2 bugs visuales reales encontrados y corregidos durante
+la verificación (botón CTA sin estilo por CSS no declarado; título
+solapando el producto en 2 de los 6 arquetipos por falta de margen) —
+detectados mirando las imágenes generadas, no solo el código. Extremo a
+extremo con el Ventilador Muvip real: el concepto ganador
+(`diagonal-dinamica`) seleccionó automáticamente el arquetipo
+`diagonal-dinamico` — la decisión de Creative Lab por fin se refleja en
+la pieza final. Regresión de `marketing-engine/` y del resto de
+`creative-engine/` sin cambios, independencia intacta.
+
+**Quién decide**: propietario (eligió explícitamente la opción de mayor
+alcance tras comparar ambas).
+
+**Reversibilidad**: alta — módulo aditivo dentro de `creative-lab/`, un
+único fichero fuera tocado (`simulated.provider.js`, cambio aditivo:
+antes solo placeholder, ahora placeholder O foto real).

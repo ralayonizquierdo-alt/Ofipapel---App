@@ -23,6 +23,7 @@ const { CONCEPT_COUNT_DEFAULT } = require('./concept-generator/config.js');
 const { buildMoodboard } = require('./moodboard/service.js');
 const { composeMasterPrompt } = require('./master-prompt-composer/service.js');
 const { scoreConceptPlan, scoreConceptPixel, buildShortlist } = require('./concept-score/service.js');
+const { composeLayout } = require('./layout-composer/service.js');
 const { QUALITY_THRESHOLD, MAX_RETRIES, SHORTLIST_SIZE } = require('./config.js');
 
 /** Genera de verdad con el proveedor para un concepto del shortlist — mismo patrón de captura de error que creative-engine/index.js#runCreativePipeline: PROVIDER_NOT_IMPLEMENTED/PROVIDER_NOT_CONFIGURED se marcan y no rompen el lote; cualquier otro error se propaga. */
@@ -49,6 +50,26 @@ async function generateForConcept(item, providerId, preparedAssets, versionDir) 
       return { status: 'pending-provider', result: null, error: err.message, warnings };
     }
     throw err;
+  }
+}
+
+/**
+ * Convierte el resultado del proveedor (foto real o placeholder) en la
+ * pieza final compuesta — el paso que faltaba entre "Creative Lab
+ * decide" y "se ve en la imagen": antes de layout-composer/, el
+ * concepto ganador nunca influía en el maquetado real. Nunca rompe el
+ * pipeline: si falla, se registra el error y se devuelve el asset del
+ * proveedor tal cual (mismo criterio que el resto del sistema).
+ */
+function composeFinalLayout(item, brief, preparedAssets) {
+  if (!item.generation || !item.generation.result || !item.generation.result.assetPath) {
+    return { finalRenderedAssetPath: null, archetype: null, textEmphasis: null, layoutError: 'Sin asset generado por el proveedor — nada que componer.' };
+  }
+  try {
+    const layout = composeLayout(item.concept, brief, preparedAssets, item.generation.result, item.dir);
+    return { finalRenderedAssetPath: layout.outputPath, archetype: layout.archetype, textEmphasis: layout.textEmphasis, layoutError: null };
+  } catch (err) {
+    return { finalRenderedAssetPath: null, archetype: null, textEmphasis: null, layoutError: err.message };
   }
 }
 
@@ -136,7 +157,7 @@ async function runCreativeLab(brief, options = {}) {
         },
       });
 
-      evaluated.push({ ...item, versionNumber, generation, pixelScore });
+      evaluated.push({ ...item, versionNumber, dir, generation, pixelScore });
     }
 
     const best = evaluated.reduce((a, b) => (b.pixelScore.total > a.pixelScore.total ? b : a));
@@ -159,7 +180,7 @@ async function runCreativeLab(brief, options = {}) {
         status: 'approved',
         creativeId,
         attempts,
-        winner: formatWinner(bestEver),
+        winner: formatWinner(bestEver, composeFinalLayout(bestEver, brief, preparedAssets)),
       };
     }
   }
@@ -172,11 +193,11 @@ async function runCreativeLab(brief, options = {}) {
     status: 'needsHumanReview',
     creativeId,
     attempts,
-    winner: formatWinner(bestEver),
+    winner: formatWinner(bestEver, composeFinalLayout(bestEver, brief, preparedAssets)),
   };
 }
 
-function formatWinner(item) {
+function formatWinner(item, layout) {
   return {
     conceptId: item.concept.conceptId,
     label: item.concept.label,
@@ -191,6 +212,11 @@ function formatWinner(item) {
     assetPath: item.generation.result ? item.generation.result.assetPath : null,
     planScore: item.planScore,
     pixelScore: item.pixelScore,
+    // layout-composer/ — la pieza final compuesta (arquetipo elegido según
+    // la composición del concepto ganador), no solo el asset crudo del
+    // proveedor. Ver layout-composer/ARCHITECTURE.md (sección en
+    // creative-lab/ARCHITECTURE.md).
+    layout,
   };
 }
 
