@@ -15,4 +15,15 @@ const NODE_PATH_FOR_PLAYWRIGHT = '/opt/node22/lib/node_modules';
 
 const RENDER_SCALE = 1;
 
-module.exports = { REPO_ROOT, RENDER_SCRIPT, NODE_PATH_FOR_PLAYWRIGHT, RENDER_SCALE };
+// Registro de plantillas inteligentes por layoutId — el punto de
+// extensión que pieza-generica.js ya documentaba: un fichero nuevo en
+// templates/ + una entrada aquí, cero cambios en service.js más allá de
+// la búsqueda por layoutId (con 'layout-centrado' como default si el
+// layoutId no está registrado, para no romper jobs existentes).
+const TEMPLATES_BY_LAYOUT_ID = {
+  'layout-centrado': require('./templates/pieza-generica.js'),
+  'layout-diagonal': require('./templates/layout-diagonal.js'),
+};
+const DEFAULT_LAYOUT_ID = 'layout-centrado';
+
+module.exports = { REPO_ROOT, RENDER_SCRIPT, NODE_PATH_FOR_PLAYWRIGHT, RENDER_SCALE, TEMPLATES_BY_LAYOUT_ID, DEFAULT_LAYOUT_ID };

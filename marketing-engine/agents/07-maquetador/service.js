@@ -13,8 +13,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { INPUT_SHAPE, OUTPUT_SHAPE } = require('./interface.js');
 const { assertShape } = require('../../core/contracts/shapes.js');
-const { REPO_ROOT, RENDER_SCRIPT, NODE_PATH_FOR_PLAYWRIGHT, RENDER_SCALE } = require('./config.js');
-const { buildHtml } = require('./templates/pieza-generica.js');
+const { REPO_ROOT, RENDER_SCRIPT, NODE_PATH_FOR_PLAYWRIGHT, RENDER_SCALE, TEMPLATES_BY_LAYOUT_ID, DEFAULT_LAYOUT_ID } = require('./config.js');
 const { jobDir: getJobDir } = require('../../core/job-store.js');
 
 const AGENT_ID = 'maquetador';
@@ -27,7 +26,7 @@ async function run(job) {
   const brand = { ...brandKit[job.input.brand], __repoRoot: REPO_ROOT };
 
   const provider = job.state['proveedor-ia'];
-  const { title } = job.state.copywriter;
+  const { title, cta } = job.state.copywriter;
   const width = provider.width || 1080;
   const height = provider.height || 1920;
 
@@ -36,10 +35,17 @@ async function run(job) {
   fs.mkdirSync(tmpDir, { recursive: true });
   fs.mkdirSync(assetsDir, { recursive: true });
 
+  // Plantilla inteligente según lo que decidió 02-director-arte — ya no
+  // una única plantilla fija para todas las campañas (ver
+  // templates/pieza-generica.js, cabecera, y config.js#TEMPLATES_BY_LAYOUT_ID).
+  const layoutId = (job.state['director-arte'] && job.state['director-arte'].layoutId) || DEFAULT_LAYOUT_ID;
+  const { buildHtml } = TEMPLATES_BY_LAYOUT_ID[layoutId] || TEMPLATES_BY_LAYOUT_ID[DEFAULT_LAYOUT_ID];
+
   const html = buildHtml({
     brand,
     productName: job.input.productName,
     title,
+    cta,
     assetPath: provider.assetPath,
     width,
     height,
@@ -53,7 +59,7 @@ async function run(job) {
 
   const output = {
     renderedAssetPath: outputPath,
-    templateUsed: 'pieza-generica',
+    templateUsed: layoutId,
     width,
     height,
   };

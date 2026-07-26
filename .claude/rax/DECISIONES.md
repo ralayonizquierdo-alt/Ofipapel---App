@@ -741,3 +741,40 @@ brief real (Ventilador Muvip) → `approved`, capa 2 = 100/100.
 **Reversibilidad**: alta — cambio contenido en 1 módulo, forma de salida
 idéntica a la anterior (mismos campos), cero cambios en index.js/
 concept-score/CLI.
+
+### 2026-07-26 — Fix: jerarquía sobrecargada + maquetador de plantilla única
+
+**Contexto**: al probar la campaña real del Ventilador Muvip contra el
+nuevo filtro "Director de Arte Senior" de `creative-lab/`, los 10
+conceptos fueron rechazados por jerarquía visual sobrecargada. Investigando
+la causa raíz (no en `creative-lab/`, sino en `marketing-engine/`) se
+encontraron dos problemas reales pre-existentes que arrastrábamos desde
+la primera demo de la sesión: `02-director-arte/config.js` declaraba 6 y 5
+elementos de jerarquía (máximo real: 4) para las dos familias gráficas más
+usadas, y `07-maquetador` solo tenía UNA plantilla fija
+(`templates/pieza-generica.js`) pese a que `02-director-arte` ya decide un
+`layoutId` distinto por categoría — nunca se leía.
+
+**Decisión**: (1) `02-director-arte/config.js`: hierarchy de
+`producto-sobre-fondo-marca` 6→4, de `oferta-destacada` 5→4. (2)
+`07-maquetador/config.js`: nuevo `TEMPLATES_BY_LAYOUT_ID` (registro por
+layoutId, con `layout-centrado` de default) + `templates/layout-diagonal.js`
+nuevo (franja diagonal, producto desplazado, CTA — para `oferta-destacada`).
+`service.js` selecciona la plantilla por `job.state['director-arte'].layoutId`
+en vez de importar `pieza-generica.js` a pelo. Sigue exactamente el
+patrón de extensión que el propio `pieza-generica.js` ya documentaba
+("añadir un fichero + una entrada, sin tocar service.js").
+
+**Verificado**: electrodomésticos → `layout-centrado`, jerarquía 4,
+Creative Lab ya no descarta ningún concepto (antes: 10/10 descartados) →
+`approved`, capa 2 = 100/100. Categoría oferta → `layout-diagonal`,
+jerarquía 4, pieza visualmente distinta (franja diagonal + badge + CTA).
+Regresión de `creative-engine/` sin cambios, independencia
+`creative-lab/`↔`marketing-engine/` intacta (grep vacío).
+
+**Quién decide**: propietario (pidió priorizar esto sobre conectar un
+proveedor de IA real, tras señalar la desconexión entre el prompt
+cinematográfico y la plantilla fija).
+
+**Reversibilidad**: alta — 3 ficheros de `marketing-engine/` modificados,
+1 nuevo; `creative-lab/` no tocado en absoluto.

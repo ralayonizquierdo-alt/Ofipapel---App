@@ -44,3 +44,27 @@ orquestador guarda ahí — ver `05-especialista-prompts/README.md`).
 Integración real y funcional hoy mismo, usando el proveedor `simulated`
 como fuente de imagen (placeholder SVG) mientras no haya un proveedor de IA
 real activado.
+
+### Plantillas inteligentes por layoutId (2026-07-26)
+
+Ya no hay una única plantilla fija — `config.js#TEMPLATES_BY_LAYOUT_ID`
+selecciona `templates/*.js` según `job.state['director-arte'].layoutId`
+(con `layout-centrado` como default si el layoutId no está registrado,
+para no romper jobs existentes):
+
+| layoutId | Fichero | Composición |
+|---|---|---|
+| `layout-centrado` | `templates/pieza-generica.js` | Producto centrado sobre placa, franja inferior de texto |
+| `layout-diagonal` | `templates/layout-diagonal.js` | Franja diagonal de acento, producto desplazado, badge de oferta, botón CTA |
+
+Añadir un layout nuevo = un fichero nuevo con la misma firma
+`buildHtml(data) → string` + una entrada en `TEMPLATES_BY_LAYOUT_ID` —
+cero cambios en `service.js`.
+
+También se corrigió `agents/02-director-arte/config.js`: las jerarquías
+de `producto-sobre-fondo-marca` (6 elementos) y `oferta-destacada` (5)
+superaban el máximo de 4 que ya exigían tanto
+`creative-engine/creative-validator/` como el filtro "Director de Arte
+Senior" de `creative-lab/` — bloqueaban toda campaña de electrodomésticos/
+papelería/ofertas sin que se notara hasta que Creative Lab empezó a
+rechazarlas activamente. Ahora ambas declaran 4 elementos.
