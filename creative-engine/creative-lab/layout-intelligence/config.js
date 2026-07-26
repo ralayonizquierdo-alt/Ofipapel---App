@@ -47,10 +47,15 @@ const LAYOUT_MAX_RETRIES = Number(process.env.CREATIVE_LAB_LAYOUT_MAX_RETRIES) |
 // canvas tecleado a mano por elemento. hierarchy.js resuelve qué tier le
 // toca a cada elemento; grid.js#cellsToBox convierte estos ratios en
 // columnas/filas reales según GRID_COLUMNS y el aspect ratio del canvas.
+// rowRatio de 'primario'/'secundario' subido junto con TITLE_SIZE_FACTOR
+// (layout-composer/render-helpers.js, sprint "Visual Quality Revolution")
+// — el titular ahora se pinta más grande; sin este ajuste, la caja se
+// quedaba corta y `legibilidad()` empezaba a penalizar líneas que antes
+// cabían de sobra.
 const HIERARCHY_TIER_SPANS = {
   dominante: { colRatio: 0.62, rowRatio: 0.46 },
-  primario: { colRatio: 0.42, rowRatio: 0.16 },
-  secundario: { colRatio: 0.30, rowRatio: 0.10 },
+  primario: { colRatio: 0.42, rowRatio: 0.19 },
+  secundario: { colRatio: 0.30, rowRatio: 0.12 },
   minimo: { colRatio: 0.20, rowRatio: 0.06 },
 };
 

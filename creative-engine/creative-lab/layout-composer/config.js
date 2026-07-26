@@ -19,4 +19,12 @@ const RENDER_SCRIPT = path.join(REPO_ROOT, 'design-studio', 'scripts', 'render-h
 const NODE_PATH_FOR_PLAYWRIGHT = '/opt/node22/lib/node_modules';
 const RENDER_SCALE = 1;
 
-module.exports = { REPO_ROOT, RENDER_SCRIPT, NODE_PATH_FOR_PLAYWRIGHT, RENDER_SCALE };
+// Tipografía real (Outfit, OFL) en vez de 'Inter' sin @font-face — el
+// nombre estaba declarado pero nunca cargado, así que todo render caía
+// al sans-serif genérico del sistema (bug real de calidad visual: ver
+// render-plan.js). Rutas absolutas de fichero, mismo criterio que
+// heroImagePath/logoPath (`file://`), no requiere red durante el render.
+const FONT_DISPLAY_PATH = path.join(REPO_ROOT, 'design-studio', 'fonts', 'Outfit-Bold.ttf');
+const FONT_TEXT_PATH = path.join(REPO_ROOT, 'design-studio', 'fonts', 'Outfit-Regular.ttf');
+
+module.exports = { REPO_ROOT, RENDER_SCRIPT, NODE_PATH_FOR_PLAYWRIGHT, RENDER_SCALE, FONT_DISPLAY_PATH, FONT_TEXT_PATH };

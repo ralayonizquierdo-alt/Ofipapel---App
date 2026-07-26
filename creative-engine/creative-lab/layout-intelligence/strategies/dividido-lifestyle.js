@@ -4,7 +4,7 @@
 // compositionId que mapean aquí: encuadre cerrado en el detalle, encuadre
 // abierto con contexto, composición en L, asimetría equilibrada.
 
-const { spanForTier, centerColStart, footerBleedBox, topRightCorner, cellsToBox, SPLIT_SCREEN_RATIO } = require('./_shared.js');
+const { spanForTier, centerColStart, footerBleedBox, footerReservedRows, topRightCorner, cellsToBox, SPLIT_SCREEN_RATIO } = require('./_shared.js');
 
 // `stackOrder`/`editorial` no se usan aquí — el hero siempre ocupa la
 // banda superior completa (split screen) y el resto se centra en la
@@ -20,8 +20,17 @@ function computePlan(grid, tierByElement, elementIds, stackOrder, artDirection, 
   }
 
   if (elementIds.includes('logo')) {
+    // La banda superior ES el hero — el logo colocado en su fila 0 vive
+    // por definición dentro de la foto, nunca al lado (bug real: quedaba
+    // solapado sin declarar). Mismo lenguaje que el precio: un logo
+    // pequeño sobre la esquina de la foto es un recurso real de
+    // publicidad (marca de agua discreta), no desorden — se marca
+    // `overlaysHero` para que balance-score.js/design-director lo traten
+    // como el mismo tipo de solape estructural permitido.
     const span = spanForTier(grid, tierByElement.logo);
-    elements.push({ elementId: 'logo', kind: 'chip', box: cellsToBox(grid, centerColStart(grid, span.colSpan), span.colSpan, 0, span.rowSpan) });
+    const heroEl = elements.find((el) => el.elementId === 'hero');
+    const box = cellsToBox(grid, centerColStart(grid, span.colSpan), span.colSpan, 0, span.rowSpan);
+    elements.push({ elementId: 'logo', kind: 'chip', box: heroEl ? { ...box, overlaysHero: true } : box });
   }
 
   if (elementIds.includes('price')) {
@@ -35,20 +44,38 @@ function computePlan(grid, tierByElement, elementIds, stackOrder, artDirection, 
     elements.push({ elementId: 'price', kind: 'boxed', box: topRightCorner(grid, span, undefined, heroEl && heroEl.box) });
   }
 
-  let cursorRow = splitRow + 1;
-  if (elementIds.includes('title')) {
-    const span = spanForTier(grid, tierByElement.title);
-    elements.push({ elementId: 'title', kind: 'boxed', box: cellsToBox(grid, centerColStart(grid, span.colSpan), span.colSpan, cursorRow, span.rowSpan) });
-    cursorRow += span.rowSpan;
-  }
-  if (elementIds.includes('cta')) {
-    const span = spanForTier(grid, tierByElement.cta);
-    elements.push({ elementId: 'cta', kind: 'boxed', box: cellsToBox(grid, centerColStart(grid, span.colSpan), span.colSpan, cursorRow, span.rowSpan) });
-    cursorRow += span.rowSpan;
-  }
-  if (elementIds.includes('icons')) {
-    const span = spanForTier(grid, tierByElement.icons);
-    elements.push({ elementId: 'icons', kind: 'icon-row', box: cellsToBox(grid, centerColStart(grid, span.colSpan), span.colSpan, cursorRow, span.rowSpan) });
+  // Banda inferior acotada: título+cta+iconos se encogen proporcionalmente
+  // si no caben antes del footer — mismo criterio (y mismo bug real
+  // encontrado en el barrido sintético) que stackVertically en
+  // _shared.js, aplicado aquí porque esta estrategia apila a mano en vez
+  // de reutilizar esa función (su geometría de banda partida no encaja
+  // en su firma).
+  const lowerStack = [];
+  if (elementIds.includes('title')) lowerStack.push({ elementId: 'title', kind: 'boxed', span: spanForTier(grid, tierByElement.title) });
+  if (elementIds.includes('cta')) lowerStack.push({ elementId: 'cta', kind: 'boxed', span: spanForTier(grid, tierByElement.cta) });
+  if (elementIds.includes('icons')) lowerStack.push({ elementId: 'icons', kind: 'icon-row', span: spanForTier(grid, tierByElement.icons) });
+
+  const startRow = splitRow + 1;
+  const maxRow = grid.rows - footerReservedRows(grid, elementIds.includes('contactFooter'));
+  const totalRows = lowerStack.reduce((sum, s) => sum + s.span.rowSpan, 0);
+  const availableRows = Math.max(1, maxRow - startRow);
+  const shrink = totalRows > availableRows ? availableRows / totalRows : 1;
+
+  // Reparto de presupuesto restante, no redondeo independiente por
+  // elemento — mismo criterio (y mismo bug real) que
+  // _shared.js#stackVertically: redondear cada elemento por separado
+  // puede acumular deriva y seguir invadiendo el footer pese al
+  // encogimiento proporcional.
+  let cursorRow = startRow;
+  let remainingBudget = availableRows;
+  let remainingItems = lowerStack.length;
+  for (const { elementId, kind, span } of lowerStack) {
+    remainingItems--;
+    const idealRowSpan = Math.round(span.rowSpan * shrink);
+    const rowSpan = Math.max(1, Math.min(idealRowSpan, remainingBudget - remainingItems));
+    elements.push({ elementId, kind, box: cellsToBox(grid, centerColStart(grid, span.colSpan), span.colSpan, cursorRow, rowSpan) });
+    cursorRow += rowSpan;
+    remainingBudget -= rowSpan;
   }
 
   if (elementIds.includes('contactFooter')) {

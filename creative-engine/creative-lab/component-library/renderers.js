@@ -6,31 +6,41 @@
 // por su cuenta (el texto que recibe ya es seguro) — solo TRATAMIENTO
 // VISUAL, misma frontera que el resto de la Component Library.
 
+// Elevación consistente para los tratamientos de relleno sólido (badge
+// flotando sobre la pieza, mismo lenguaje de profundidad en precio y
+// CTA) — los tratamientos de contorno/texto se quedan planos a
+// propósito, ese contraste plano/elevado es jerarquía visual real, no
+// decoración porque sí. `font-weight:700` en todo el fichero (nunca
+// 800): coincide exactamente con el Outfit-Bold embebido
+// (layout-composer/render-plan.js) — pedir 800 fuerza un negrita
+// sintético sobre un fichero que no lo tiene.
+const ELEVATION = 'box-shadow:0 6px 20px rgba(0,0,0,0.16);';
+
 function priceBadgeMarkup(variantId, { text, accent, primary, fontSize }) {
   switch (variantId) {
     case 'ribbon-corner':
-      return `<div style="background:${accent};color:#1a1a1a;font-weight:800;font-size:${fontSize}px;padding:8px 22px 8px 16px;clip-path:polygon(0 0, 100% 0, 88% 100%, 0 100%);white-space:nowrap;">${text}</div>`;
+      return `<div style="background:${accent};color:#12210f;font-weight:700;font-size:${fontSize}px;letter-spacing:-0.01em;padding:9px 24px 9px 17px;clip-path:polygon(0 0, 100% 0, 88% 100%, 0 100%);white-space:nowrap;${ELEVATION}">${text}</div>`;
     case 'outline-tag':
-      return `<div style="background:transparent;border:2px solid ${accent};color:${primary};font-weight:800;font-size:${fontSize}px;padding:5px 15px;border-radius:6px;white-space:nowrap;">${text}</div>`;
+      return `<div style="background:rgba(255,255,255,0.92);border:1.5px solid ${accent};color:${primary};font-weight:700;font-size:${fontSize}px;letter-spacing:-0.01em;padding:6px 16px;border-radius:8px;white-space:nowrap;">${text}</div>`;
     case 'stacked-mini':
-      return `<div style="background:${accent};color:#1a1a1a;font-weight:800;font-size:${Math.round(fontSize * 0.82)}px;padding:5px 13px;border-radius:999px;white-space:nowrap;letter-spacing:0.02em;">${text}</div>`;
+      return `<div style="background:${accent};color:#12210f;font-weight:700;font-size:${Math.round(fontSize * 0.82)}px;padding:6px 14px;border-radius:999px;white-space:nowrap;letter-spacing:0.01em;${ELEVATION}">${text}</div>`;
     case 'pill-solid':
     default:
-      return `<div style="background:${accent};color:#1a1a1a;font-weight:800;font-size:${fontSize}px;padding:6px 16px;border-radius:10px;white-space:nowrap;">${text}</div>`;
+      return `<div style="background:${accent};color:#12210f;font-weight:700;font-size:${fontSize}px;letter-spacing:-0.01em;padding:8px 20px;border-radius:999px;white-space:nowrap;${ELEVATION}">${text}</div>`;
   }
 }
 
 function ctaButtonMarkup(variantId, { text, accent, primary, fontSize, padding }) {
   switch (variantId) {
     case 'underline-arrow':
-      return `<div style="color:${primary};font-weight:800;font-size:${fontSize}px;border-bottom:2px solid ${accent};padding-bottom:4px;white-space:nowrap;">${text}&nbsp;→</div>`;
+      return `<div style="color:${primary};font-weight:700;font-size:${fontSize}px;letter-spacing:-0.01em;border-bottom:2px solid ${accent};padding-bottom:5px;white-space:nowrap;">${text}&nbsp;&nbsp;→</div>`;
     case 'boxed-outline':
-      return `<div style="background:transparent;border:2px solid ${primary};color:${primary};font-weight:800;font-size:${fontSize}px;padding:${padding}px ${Math.round(padding * 2)}px;white-space:nowrap;">${text}</div>`;
+      return `<div style="background:transparent;border:1.5px solid ${primary};color:${primary};font-weight:700;font-size:${fontSize}px;letter-spacing:-0.01em;padding:${padding}px ${Math.round(padding * 2)}px;white-space:nowrap;">${text}</div>`;
     case 'split-accent':
-      return `<div style="display:flex;font-weight:800;font-size:${fontSize}px;border-radius:999px;overflow:hidden;white-space:nowrap;"><span style="background:${primary};color:#fff;padding:${padding}px ${Math.round(padding * 1.4)}px;">${text}</span><span style="background:${accent};color:#1a1a1a;padding:${padding}px ${Math.round(padding * 0.9)}px;display:flex;align-items:center;">→</span></div>`;
+      return `<div style="display:flex;font-weight:700;font-size:${fontSize}px;letter-spacing:-0.01em;border-radius:999px;overflow:hidden;white-space:nowrap;${ELEVATION}"><span style="background:${primary};color:#fff;padding:${padding}px ${Math.round(padding * 1.4)}px;">${text}</span><span style="background:${accent};color:#12210f;padding:${padding}px ${Math.round(padding * 0.9)}px;display:flex;align-items:center;">→</span></div>`;
     case 'pill-solid':
     default:
-      return `<div style="background:${accent};color:#1a1a1a;font-weight:800;font-size:${fontSize}px;padding:${padding}px ${Math.round(padding * 2.2)}px;border-radius:999px;white-space:nowrap;">${text}</div>`;
+      return `<div style="background:${accent};color:#12210f;font-weight:700;font-size:${fontSize}px;letter-spacing:-0.01em;padding:${padding}px ${Math.round(padding * 2.2)}px;border-radius:999px;white-space:nowrap;${ELEVATION}">${text}</div>`;
   }
 }
 

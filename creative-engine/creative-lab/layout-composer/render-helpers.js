@@ -38,10 +38,33 @@ function escapeHtml(text) {
     .replace(/>/g, '&gt;');
 }
 
-const TITLE_SIZE_FACTOR = { dominante: 0.078, equilibrado: 0.06, minimo: 0.04 };
+// Escala subida y trackeada más apretada (letter-spacing negativo en
+// titleMarkup) frente al 0.078/0.06/0.04 original — pero con mesura: un
+// primer intento a 0.098/0.072/0.05 (crítica dura contra el nombre real
+// del Ventilador Muvip, que es un SKU largo) hacía que el titular de 4
+// líneas TAPARA al producto — rompe "el producto es el único
+// protagonista", el peor pecado posible en esta campaña. `font-weight:700`
+// en todo el fichero (nunca 800): el Outfit-Bold embebido
+// (render-plan.js) ES weight 700 — pedir 800 fuerza un negrita
+// sintético (blur, trazo desigual) en vez del fichero real ya cargado.
+const TITLE_SIZE_FACTOR = { dominante: 0.086, equilibrado: 0.064, minimo: 0.045 };
 
-function titleFontSize(canvasWidth, textEmphasis) {
-  return Math.round(canvasWidth * (TITLE_SIZE_FACTOR[textEmphasis] || TITLE_SIZE_FACTOR.equilibrado));
+// Nombres de producto reales varían muchísimo en longitud (de "AirPods
+// Pro" a un SKU completo tipo "Ventilador Nebulizador 75W 40cm con Mando
+// MUVIP - MV0596") — un solo ratio fijo para cualquier longitud de texto
+// hacía que un titular largo se convirtiera en un bloque de 4 líneas que
+// tapaba al producto, rompiendo "el producto es el único protagonista"
+// (crítica dura contra el render real del Ventilador Muvip). Un titular
+// corto conserva todo su impacto; uno largo se encoge, nunca por debajo
+// de un suelo legible.
+const LONG_TITLE_CHARS = 34;
+const MIN_TITLE_SHRINK = 0.62;
+
+function titleFontSize(canvasWidth, textEmphasis, textLength) {
+  const base = canvasWidth * (TITLE_SIZE_FACTOR[textEmphasis] || TITLE_SIZE_FACTOR.equilibrado);
+  if (!textLength || textLength <= LONG_TITLE_CHARS) return Math.round(base);
+  const shrink = Math.max(MIN_TITLE_SHRINK, LONG_TITLE_CHARS / textLength);
+  return Math.round(base * shrink);
 }
 
 function positionedDiv(box, innerHtml, extraStyle = '') {
@@ -91,7 +114,7 @@ function logoMarkup(el, brand, variantSeed) {
  */
 function titleMarkup(el, text, textEmphasis, canvasWidth, primary, onPhoto, variantSeed) {
   if (!text) return '';
-  const fontSize = titleFontSize(canvasWidth, textEmphasis);
+  const fontSize = titleFontSize(canvasWidth, textEmphasis, text.length);
   const style = onPhoto
     ? `color:#fff;text-shadow:0 4px 18px rgba(0,0,0,0.45);`
     : `color:${primary};text-shadow:none;`;
@@ -100,7 +123,7 @@ function titleMarkup(el, text, textEmphasis, canvasWidth, primary, onPhoto, vari
   const accentBar = titleAccentMarkup(accentVariant, el.box, accentColor);
   const titleBox = positionedDiv(
     el.box,
-    `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;font-size:${fontSize}px;font-weight:800;line-height:1.15;${style}">${escapeHtml(text)}</div>`,
+    `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;font-size:${fontSize}px;font-weight:700;letter-spacing:-0.02em;line-height:1.05;${style}">${escapeHtml(text)}</div>`,
     'z-index:4;'
   );
   return accentBar + titleBox;
@@ -161,7 +184,7 @@ function contactFooterMarkup(el, contact, primary, canvasWidth, variantSeed) {
   return positionedDiv(
     el.box,
     `<div style="width:100%;height:100%;${background}padding:0 ${Math.round(canvasWidth * 0.04)}px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;box-sizing:border-box;padding-bottom:${Math.round(canvasWidth * 0.012)}px;">
-       <div style="color:#fff;font-size:${fontSize}px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${text}</div>
+       <div style="color:#fff;font-size:${fontSize}px;font-weight:400;letter-spacing:0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${text}</div>
        <div style="display:flex;align-items:center;flex-shrink:0;">${icons}</div>
      </div>`,
     'z-index:6;'
@@ -190,7 +213,7 @@ function iconRowMarkup(el, icons, primary, canvasWidth, variantSeed) {
         <div style="display:flex;align-items:center;justify-content:center;${wrapperStyle}">
           <svg width="${iconSize}" height="${iconSize}" viewBox="0 0 24 24" fill="none" stroke="${primary}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${icon.markup}</svg>
         </div>
-        <span style="font-size:${labelSize}px;font-weight:600;color:${primary};text-align:center;line-height:1.2;">${escapeHtml(icon.label)}</span>
+        <span style="font-size:${labelSize}px;font-weight:400;letter-spacing:0.01em;color:${primary};text-align:center;line-height:1.2;">${escapeHtml(icon.label)}</span>
       </div>`
     )
     .join('');

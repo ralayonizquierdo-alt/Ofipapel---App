@@ -8,6 +8,19 @@
 
 const { spanForTier, heroSpan, footerBleedBox, cellsToBox } = require('./_shared.js');
 
+// Mínimo de columnas reservadas al bloque de texto — bug real
+// encontrado en el barrido sintético: con un `heroSize` muy ancho
+// (colRatio ≥ 0.80, p.ej. 'product-first'/'amazon-premium' llegados
+// aquí por rotación de estrategias), el hero ocupaba tantas columnas
+// que invadía directamente la zona de texto (título/cta empezaban DENTRO
+// del hero, no al lado). `MIN_TEXT_COLUMNS` ya existía como suelo de
+// `textColSpan`, pero el hero seguía usando su ancho SIN recortar para
+// su propia posición — la franja de columnas de ambos bloques podía
+// solaparse igualmente. Ahora el ancho de columnas que usa el HERO para
+// posicionarse (`heroColSpan`) también respeta ese mismo suelo para el
+// texto, nunca solo el propio `textColSpan`.
+const MIN_TEXT_COLUMNS = 3;
+
 // `stackOrder` no se usa aquí — esta estrategia coloca por posición
 // izquierda/derecha, no por apilado vertical, así que el orden de
 // lectura no aplica a su geometría. `editorial.tensionZone` sí decide
@@ -19,10 +32,12 @@ function computePlan(grid, tierByElement, elementIds, stackOrder, artDirection, 
   const elements = [];
   const heroOnLeft = Boolean(editorial && editorial.tensionZone === 'top-left');
 
-  const hero = elementIds.includes('hero') ? heroSpan(grid, tierByElement, artDirection) : null;
+  const heroRaw = elementIds.includes('hero') ? heroSpan(grid, tierByElement, artDirection) : null;
+  const heroColSpan = heroRaw ? Math.min(heroRaw.colSpan, grid.columns - MIN_TEXT_COLUMNS - 1) : 0;
+  const hero = heroRaw ? { ...heroRaw, colSpan: heroColSpan } : null;
   const heroColStart = hero ? (heroOnLeft ? 0 : grid.columns - hero.colSpan) : grid.columns;
   const textColStart = heroOnLeft && hero ? hero.colSpan + 1 : 0;
-  const textColSpan = hero ? Math.max(3, grid.columns - hero.colSpan - 1) : grid.columns;
+  const textColSpan = hero ? Math.max(MIN_TEXT_COLUMNS, grid.columns - hero.colSpan - 1) : grid.columns;
 
   if (elementIds.includes('logo')) {
     const span = spanForTier(grid, tierByElement.logo);

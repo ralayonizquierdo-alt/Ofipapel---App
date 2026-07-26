@@ -24,9 +24,18 @@ const { CRITERIA_WEIGHTS, HEALTHY_TENSION_RANGE } = require('./config.js');
 // (layout-composer ya depende de design-director, no al revés). Mismo
 // criterio de duplicación ya documentado varias veces en este repo
 // (shapes.js, rutas de render).
-const TITLE_SIZE_FACTOR = { dominante: 0.078, equilibrado: 0.06, minimo: 0.04 };
-function titleFontSize(canvasWidth, textEmphasis) {
-  return Math.round(canvasWidth * (TITLE_SIZE_FACTOR[textEmphasis] || TITLE_SIZE_FACTOR.equilibrado));
+// Valores y fórmula de encogimiento por longitud sincronizados con
+// render-helpers.js (sprint "Visual Quality Revolution") — si se
+// desincronizan, `legibilidad()` puntúa contra un tamaño de fuente que
+// ya no es el que se renderiza de verdad.
+const TITLE_SIZE_FACTOR = { dominante: 0.086, equilibrado: 0.064, minimo: 0.045 };
+const LONG_TITLE_CHARS = 34;
+const MIN_TITLE_SHRINK = 0.62;
+function titleFontSize(canvasWidth, textEmphasis, textLength) {
+  const base = canvasWidth * (TITLE_SIZE_FACTOR[textEmphasis] || TITLE_SIZE_FACTOR.equilibrado);
+  if (!textLength || textLength <= LONG_TITLE_CHARS) return Math.round(base);
+  const shrink = Math.max(MIN_TITLE_SHRINK, LONG_TITLE_CHARS / textLength);
+  return Math.round(base * shrink);
 }
 
 function foreground(elements) {
@@ -145,7 +154,7 @@ function legibilidad(ctx) {
   const title = ctx.byId.title;
   const text = (ctx.brief.copy && ctx.brief.copy.title) || (ctx.brief.product && ctx.brief.product.name) || '';
   if (!title || !text) return { points: weight, detail: 'Sin título que evaluar.' };
-  const fontSize = titleFontSize(ctx.canvas.width, ctx.textEmphasis);
+  const fontSize = titleFontSize(ctx.canvas.width, ctx.textEmphasis, text.length);
   const charsPerLine = Math.max(1, Math.floor(title.box.w / (fontSize * 0.56)));
   const linesNeeded = Math.ceil(text.length / charsPerLine);
   const linesAvailable = Math.max(1, Math.floor(title.box.h / (fontSize * 1.15)));

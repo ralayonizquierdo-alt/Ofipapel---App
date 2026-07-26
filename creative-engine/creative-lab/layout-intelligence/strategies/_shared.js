@@ -158,17 +158,52 @@ function heroSpan(grid, tierByElement, artDirection) {
  * @param {(tier:string)=>string} [tierTransform] - p.ej. flotante-minimalista rebaja el tier del título
  * @param {object} [artDirection] - ArtDirectionDecision (art-direction-engine/service.js#directArt)
  * @param {object} [editorial] - EditorialDecision (editorial-design-engine/service.js#directEditorial) — su `breakSymmetry` desplaza el apilado del centro
- * @param {number} [maxRow] - fila límite que el apilado NUNCA puede cruzar (normalmente `grid.rows - footerReservedRows(...)`) — bug real encontrado con 'product-first' (hero muy alto + título + cta): sin este límite, el último elemento del apilado podía terminar por debajo de donde empieza el footer de contacto, solapándose con él. Si un elemento no cabe entero, se recorta su alto (nunca se le deja invadir la fila límite) — mismo criterio de "recortar, nunca romper" que `downgradeOnceIfDominant`.
+ * @param {number} [maxRow] - fila límite que el apilado NUNCA puede cruzar (normalmente `grid.rows - footerReservedRows(...)`) — bug real encontrado con 'product-first' (hero muy alto + título + cta): sin este límite, el apilado podía terminar por debajo de donde empieza el footer de contacto, solapándose con él.
+ *
+ * Recortar solo el ÚLTIMO elemento que no cabe (primer intento de este
+ * mismo sprint) no basta: con `maxRow` ya alcanzado, cada elemento
+ * siguiente sigue recibiendo un suelo de 1 fila y el cursor sigue
+ * avanzando MÁS ALLÁ de `maxRow` de todas formas — confirmado con un
+ * barrido sintético de los 17 patrones × 6 estrategias tras subir
+ * `HIERARCHY_TIER_SPANS` (ver ARCHITECTURE.md, "Visual Quality
+ * Revolution"): decenas de combinaciones seguían invadiendo el footer.
+ * El encogimiento proporcional (segundo intento) tampoco basta del
+ * todo: redondear CADA elemento por separado (`Math.round`) puede
+ * acumular deriva — 4 elementos redondeando "hacia arriba" pueden sumar
+ * una fila entera más que `availableRows` aunque el ratio de
+ * encogimiento sea correcto (confirmado con el mismo barrido:
+ * 'product-first'+'flotante-minimalista' seguía invadiendo el footer
+ * por ~8px pese al encogimiento). Corregido con reparto de presupuesto
+ * restante (nunca redondeo independiente): cada elemento se acota a lo
+ * que queda de `availableRows` menos 1 fila reservada para cada
+ * elemento que queda por colocar — garantiza que la suma NUNCA cruza
+ * `maxRow`, mismo principio que el "método del resto mayor" de reparto
+ * proporcional.
  */
 function stackVertically(grid, stackOrder, tierByElement, startRow, tierTransform = (t) => t, artDirection, editorial, maxRow) {
+  const spans = stackOrder.map((elementId) => ({
+    elementId,
+    span: elementId === 'hero' ? heroSpan(grid, tierByElement, artDirection) : spanForTier(grid, tierTransform(tierByElement[elementId], elementId)),
+  }));
+
+  const totalRows = spans.reduce((sum, s) => sum + s.span.rowSpan, 0);
+  const availableRows = maxRow ? Math.max(1, maxRow - startRow) : totalRows;
+  const shrink = totalRows > availableRows ? availableRows / totalRows : 1;
+
   const elements = [];
   let cursorRow = startRow;
-  for (const elementId of stackOrder) {
-    const span = elementId === 'hero' ? heroSpan(grid, tierByElement, artDirection) : spanForTier(grid, tierTransform(tierByElement[elementId], elementId));
-    const rowSpan = maxRow ? Math.max(1, Math.min(span.rowSpan, maxRow - cursorRow)) : span.rowSpan;
+  let remainingBudget = availableRows;
+  let remainingItems = spans.length;
+  for (const { elementId, span } of spans) {
+    remainingItems--;
+    const idealRowSpan = Math.round(span.rowSpan * shrink);
+    const rowSpan = maxRow
+      ? Math.max(1, Math.min(idealRowSpan, remainingBudget - remainingItems))
+      : Math.max(1, idealRowSpan);
     const kind = elementId === 'logo' ? 'chip' : elementId === 'icons' ? 'icon-row' : 'boxed';
     elements.push({ elementId, kind, box: cellsToBox(grid, offsetColStart(grid, span.colSpan, editorial), span.colSpan, cursorRow, rowSpan) });
     cursorRow += rowSpan;
+    remainingBudget -= rowSpan;
   }
   return { elements, cursorRow };
 }
