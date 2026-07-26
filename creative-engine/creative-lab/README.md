@@ -11,6 +11,16 @@ Arquitectura completa, verificada de punta a punta con el proveedor
 `simulated`. Compatible con cualquier proveedor real ya registrado en
 `../provider-manager/` sin cambios de código.
 
+**Objetivo principal del proyecto, todavía sin resolver**: generar
+fotografía de calidad por IA sin depender de una imagen aportada por el
+usuario. `simulated` cubre dos rutas distintas y no deben confundirse:
+placeholder abstracto (sin foto de partida) o foto real del usuario
+compuesta tal cual (sin IA en ningún punto) — ninguna de las dos es
+generación real. Hasta que un proveedor real (`openai-images` u otro)
+esté conectado y verificado con una foto de nivel comparable generada
+desde cero, este objetivo sigue abierto — ver `.claude/rax/ROADMAP_TECNICO.md`
+(RT-09) y `.claude/rax/DECISIONES.md` (2026-07-26).
+
 ## Ejecutar la demo
 
 ```bash

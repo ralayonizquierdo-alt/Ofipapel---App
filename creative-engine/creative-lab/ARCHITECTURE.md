@@ -405,6 +405,19 @@ foto lifestyle real subida por el propietario, sin placeholder) →
 `diagonal-dinamico`, score 100/100, precio/teléfono/web/dirección/iconos
 visibles y sin solapar con título/CTA/logo.
 
+> **Importante — qué NO demuestra esta pieza (2026-07-26, aclaración
+> explícita del propietario)**: la fotografía en sí (mujer, sofá,
+> ventilador con niebla) fue **subida manualmente por el propietario**, no
+> generada. `simulated.provider.js#useRealPhoto()` la usa tal cual — sin
+> ningún modelo de IA de por medio (ver el sprint "Layout Composer" más
+> arriba). Creative Lab decidió el concepto/arquetipo/layout y compuso
+> precio+contacto alrededor de esa foto, pero **la capacidad de generar
+> fotografía de ese nivel sin depender de una imagen del usuario sigue sin
+> demostrarse** — ningún proveedor real (`openai-images` u otro) está
+> conectado en este entorno. Ver `.claude/rax/ROADMAP_TECNICO.md` (RT-09)
+> y `.claude/rax/DECISIONES.md` (entrada 2026-07-26): ese es el objetivo
+> principal del proyecto y sigue abierto.
+
 ## Verificación realizada
 
 Independencia por grep · las 9 bibliotecas validan al cargar · 15

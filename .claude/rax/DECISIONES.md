@@ -873,3 +873,46 @@ y web tras la pregunta explícita de Claude).
 `brand-kit.json`, campo `maybe()` en el contrato, helpers nuevos, un
 fichero nuevo en `reference-library/`); ninguna interfaz existente cambia
 de forma incompatible.
+
+---
+
+### 2026-07-26 — Aclaración explícita: la campaña Muvip NO demuestra generación real de imágenes; el objetivo principal sigue abierto
+
+**Contexto**: tras la entrada anterior (precio/contacto + primera
+activación de memoria), el propietario pidió dejar constancia expresa de
+un matiz importante que la redacción de esa entrada y de
+`creative-lab/ARCHITECTURE.md` no distinguía con suficiente claridad: la
+fotografía principal de la pieza "Ventilador Muvip" fue **aportada
+manualmente por el propietario** (subida como imagen, convertida a data-URL
+y usada tal cual por `simulated.provider.js` — sin ningún modelo de IA de
+por medio, ver `useRealPhoto()` en ese fichero). Creative Lab decidió el
+concepto/arquetipo/layout y compuso precio+contacto alrededor, pero **no
+generó** la fotografía en sí. Ningún proveedor real de generación de
+imágenes está conectado hoy (`OPENAI_API_KEY` sigue sin definir en este
+entorno — ver `FIRST_REAL_GENERATION.md`, sección "Limitaciones
+actuales"), así que esta pieza no es evidencia de que el sistema pueda
+producir fotografía de nivel similar sin depender de una imagen
+proporcionada por el usuario.
+
+**Decisión**: registrar explícitamente que **el objetivo principal del
+proyecto no se considera resuelto** hasta que Creative Lab demuestre
+generar, con un proveedor de IA real (`openai-images` u otro), imágenes de
+calidad equivalente sin foto de partida aportada por el usuario. Se añade
+`RT-09` en `ROADMAP_TECNICO.md` como el ítem técnico que representa
+formalmente este objetivo pendiente, y se matiza la fila de Creative Lab
+en `INVENTORY.md` y las secciones correspondientes de
+`creative-engine/creative-lab/ARCHITECTURE.md`/`README.md` para que
+ninguna sesión futura interprete la campaña Muvip (o cualquier pieza que
+use `simulated.provider.js` con foto real del usuario) como prueba de
+generación de imágenes por IA.
+
+**Alternativas descartadas**: dejar el matiz solo en la conversación con
+el propietario sin registrarlo en la documentación persistente
+(descartado — es exactamente el tipo de ambigüedad que
+`.claude/rax/` existe para prevenir entre sesiones, y `project-manager` lee
+`INVENTORY.md`/`ROADMAP_TECNICO.md` al empezar cada sesión).
+
+**Quién decide**: propietario, explícitamente.
+
+**Reversibilidad**: alta — cambios puramente documentales, ningún fichero
+de código tocado en esta entrada.
