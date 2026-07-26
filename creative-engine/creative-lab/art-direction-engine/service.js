@@ -61,11 +61,15 @@ function tagOverlapScore(pattern, wantedTags) {
  * @param {object} concept
  * @param {object} brief
  * @param {boolean} hasRealPhoto
+ * @param {string[]} [excludePatternIds] - patrones ya probados y rechazados por Design Director Engine (../design-director/) — fuerza una elección genuinamente distinta en vez de repetir la misma.
  */
-function selectPattern(concept, brief, hasRealPhoto) {
+function selectPattern(concept, brief, hasRealPhoto, excludePatternIds) {
+  const excluded = new Set(excludePatternIds || []);
   const wantedTags = normalizedTags(brief);
+  const candidates = PATTERNS.filter((p) => !excluded.has(p.id));
+  const pool = candidates.length > 0 ? candidates : PATTERNS; // si se excluyeron los 15 (no debería pasar con MAX_DESIGN_RETRIES acotado), no bloquear
 
-  const scored = PATTERNS.map((pattern) => {
+  const scored = pool.map((pattern) => {
     let score = tagOverlapScore(pattern, wantedTags) * 10;
     if (hasRealPhoto && pattern.heroTreatment !== 'framed-minimal') score += 5;
     if (hasRealPhoto && pattern.tags.includes('lifestyle')) score += 8;
@@ -123,10 +127,11 @@ function selectIcons(pattern, brief) {
  * @param {object} brief - CreativeBrief
  * @param {string[]} candidateElementIds - elementos con dato real detrás (hero/logo/title/cta/price/contactFooter), ver layout-composer/service.js#resolveElementIds
  * @param {boolean} hasRealPhoto - true si el hero es una fotografía real (no un placeholder abstracto)
+ * @param {string[]} [excludePatternIds] - ver selectPattern() — reintento de Design Director Engine con un patrón distinto
  * @returns {object} ArtDirectionDecision
  */
-function directArt(concept, brief, candidateElementIds, hasRealPhoto) {
-  const pattern = selectPattern(concept, brief, hasRealPhoto);
+function directArt(concept, brief, candidateElementIds, hasRealPhoto, excludePatternIds) {
+  const pattern = selectPattern(concept, brief, hasRealPhoto, excludePatternIds);
   const icons = selectIcons(pattern, brief);
   const withIcons = icons.length > 0 ? [...candidateElementIds, 'icons'] : candidateElementIds;
   const keepElementIds = decideElements(withIcons, pattern);

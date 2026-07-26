@@ -1,13 +1,13 @@
-// Layout Composer — el paso final: toma la ArtDirectionDecision de
-// art-direction-engine/ (qué patrón editorial, qué elementos sobreviven,
-// cuánto debe crecer la foto) y el LayoutPlan que layout-intelligence/ ya
-// calculó y puntuó a partir de ella, y lo convierte en la pieza real,
-// renderizada a PNG. Nunca decide una posición ni un patrón por su
-// cuenta — eso ya está resuelto cuando llega aquí.
+// Layout Composer — el paso final: toma la revisión de Design Director
+// Engine (../design-director/) sobre la combinación ArtDirectionDecision
+// + LayoutPlan, y renderiza la pieza que superó su criterio a PNG. Nunca
+// decide una posición, un patrón, ni si una composición es suficientemente
+// buena por su cuenta — todo eso ya está resuelto cuando llega aquí.
 //
-// Orden real del pipeline (creative-lab/ARCHITECTURE.md, sprint "Art
-// Direction Engine"): Creative Brief → Creative Lab → Art Direction
-// Engine → Composition Engine (layout-intelligence/) → aquí (render).
+// Orden real del pipeline (creative-lab/ARCHITECTURE.md, sprint "Design
+// Director Engine"): Creative Brief → Creative Lab → Art Direction Engine
+// → Composition Engine (layout-intelligence/) → Design Director Engine
+// (revisa, puede forzar un patrón distinto) → aquí (render).
 //
 // NUNCA reimplementa el render — delega en
 // design-studio/scripts/render-html.js (Playwright/Chromium), mismo
@@ -19,6 +19,8 @@ const { execFileSync } = require('node:child_process');
 const { RENDER_SCRIPT, NODE_PATH_FOR_PLAYWRIGHT, RENDER_SCALE } = require('./config.js');
 const { planLayout } = require('../layout-intelligence/service.js');
 const { directArt } = require('../art-direction-engine/service.js');
+const { reviewComposition } = require('../design-director/service.js');
+const { MAX_DESIGN_RETRIES } = require('../design-director/config.js');
 const { buildHtmlFromPlan } = require('./render-plan.js');
 
 function renderHtmlToPng(htmlPath, outputPath, width, height) {
@@ -47,12 +49,40 @@ function isRealPhoto(generationResult) {
 }
 
 /**
+ * Bucle de revisión: Design Director Engine puntúa la composición con
+ * los 14 criterios de crítica de dirección de arte. Si no aprueba (o veta
+ * por regla dura / "parece plantilla"), se pide a Art Direction Engine un
+ * patrón editorial GENUINAMENTE distinto (nunca el mismo dos veces) y se
+ * vuelve a calcular y puntuar — acotado, determinista, nunca bloquea.
+ * Igual que el resto de umbrales del sistema, si se agotan los intentos
+ * sin aprobar se usa honestamente la mejor puntuación vista, nunca se
+ * lanza una excepción por esto.
+ */
+function reviewLoop(concept, brief, canvas, candidateElementIds, hasRealPhoto) {
+  const excludePatternIds = [];
+  let best = null;
+
+  for (let attempt = 1; attempt <= Math.max(1, MAX_DESIGN_RETRIES); attempt++) {
+    const artDirection = directArt(concept, brief, candidateElementIds, hasRealPhoto, excludePatternIds);
+    const planned = planLayout(concept, brief, canvas, artDirection.keepElementIds, artDirection);
+    const review = reviewComposition(planned, artDirection, brief, canvas);
+
+    if (!best || review.total > best.review.total) best = { artDirection, planned, review };
+    if (review.passed) return best;
+
+    excludePatternIds.push(artDirection.patternId);
+  }
+
+  return best;
+}
+
+/**
  * @param {object} concept - salida de concept-generator/service.js#generateConcepts (el ganador)
  * @param {object} brief - CreativeBrief
  * @param {object} preparedAssets - salida de asset-pipeline/service.js#prepareAssets
  * @param {object|null} generationResult - GENERATION_RESULT_SHAPE del proveedor (imagen real o placeholder)
  * @param {string} outputDir - directorio de la versión en creative-assets/ donde escribir layout.html + layout-final.png
- * @returns {{strategyId: string, patternId: string, layoutScore: object, layoutAttempts: object[], layoutPassed: boolean, textEmphasis: string, htmlPath: string, outputPath: string}}
+ * @returns {{strategyId:string, patternId:string, layoutScore:object, layoutAttempts:object[], layoutPassed:boolean, designReview:object, textEmphasis:string, htmlPath:string, outputPath:string}}
  */
 function composeLayout(concept, brief, preparedAssets, generationResult, outputDir) {
   if (!generationResult || !generationResult.assetPath) {
@@ -63,8 +93,7 @@ function composeLayout(concept, brief, preparedAssets, generationResult, outputD
   const candidateElementIds = resolveCandidateElementIds(brief, preparedAssets, generationResult);
   const hasRealPhoto = isRealPhoto(generationResult);
 
-  const artDirection = directArt(concept, brief, candidateElementIds, hasRealPhoto);
-  const planned = planLayout(concept, brief, canvas, artDirection.keepElementIds, artDirection);
+  const { artDirection, planned, review } = reviewLoop(concept, brief, canvas, candidateElementIds, hasRealPhoto);
 
   const html = buildHtmlFromPlan(planned.planResult, {
     brand: {
@@ -98,6 +127,7 @@ function composeLayout(concept, brief, preparedAssets, generationResult, outputD
     layoutScore: planned.score,
     layoutAttempts: planned.attempts,
     layoutPassed: planned.passed,
+    designReview: review,
     textEmphasis: planned.textEmphasis,
     htmlPath, outputPath,
   };

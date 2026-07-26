@@ -1037,3 +1037,66 @@ firma pública (añade campos nuevos: `patternId`, `patternLabel`,
 cambió de forma sustancial (placas/tarjetas eliminadas) — revertible
 desde el historial de git si hiciera falta, no desde una variable de
 configuración.
+
+---
+
+### 2026-07-26 — Sprint "Design Director Engine": crítica de dirección de arte, no más código de layout
+
+**Contexto**: instrucción explícita del propietario de dejar de tocar el
+código del layout y mejorar el CRITERIO de evaluación — una revisión
+final, posterior a Art Direction Engine y Composition Engine, con 14
+criterios de crítica real de dirección de arte (impacto visual,
+equilibrio, tensión visual, ritmo, respiración, punto focal, legibilidad,
+recorrido visual, tamaño relativo, espacio negativo, elegancia, limpieza,
+sensación premium, percepción comercial), rechazo automático de
+composiciones que "parezcan plantilla", y reintento hasta un umbral de
+calidad. Sin preguntar ni proponer alternativas, implementación directa.
+
+**Decisión**: nuevo módulo `creative-engine/creative-lab/design-director/`,
+posterior a Composition Engine. Los 14 criterios son heurísticas
+geométricas deterministas (sin proveedor de IA con visión conectado,
+mismo caveat de RT-09) que reutilizan al máximo `layout-intelligence/grid.js`
+en vez de duplicar matemática. Dos vetos duros que descalifican sin
+importar la puntuación agregada (mismo mecanismo que
+`concept-generator/self-critique.js`): "el título nunca puede competir
+con el producto" (área del título ≥ área del hero) y "parece plantilla
+automática" (estrategia más neutra + centrado + sin recurso editorial).
+El bucle de reintento (`layout-composer/service.js#reviewLoop`) pide a
+Art Direction Engine un patrón editorial genuinamente distinto
+(`excludePatternIds`) cuando no aprueba — `art-direction-engine/service.js#selectPattern`
+se amplía para soportarlo.
+
+Dos hallazgos reales antes de dar el sprint por bueno, ambos documentados
+en `creative-engine/creative-lab/ARCHITECTURE.md`: (1) el umbral del veto
+"parece plantilla" (0.06) era inalcanzable — ni el caso más plantilla
+posible lo disparaba, porque un apilado centrado real tiene ~20% de
+desviación de centroide de forma estructural; corregido a 0.22,
+verificado que ahora sí atrapa el caso sintético neutro. (2) la primera
+versión de `reviewComposition()` puntuó la campaña real del Ventilador
+Muvip (la misma que salió "espectacular" en el sprint anterior) con solo
+69/100 — 4 fórmulas mal calibradas (equilibrio demasiado estricto para
+estilos asimétricos por diseño, respiración/espacio negativo sin
+reconocer que los patrones full-bleed eligen margen mínimo a propósito,
+elegancia/sensación premium penalizando desde 3 elementos cuando 5 es el
+suelo realista con hero/precio/contacto protegidos) — recalibradas contra
+la propia campaña real, que pasó a 83/100 sin cambiar ni un píxel del
+layout.
+
+**Verificación**: campaña real re-ejecutada de punta a punta — Design
+Director Engine aprueba con 92/100 (excelente) al primer intento,
+confirmando que la decisión del sprint anterior ya era sólida. Camino de
+rechazo verificado forzando un umbral imposible
+(`CREATIVE_LAB_DESIGN_QUALITY_THRESHOLD=999`): el sistema agotó los
+reintentos probando patrones distintos y devolvió honestamente el mejor
+visto, sin bloquear. Regresión completa sin cambios de comportamiento.
+
+**Quién decide**: propietario — especificación explícita y exhaustiva
+(14 criterios nombrados, reglas duras de producto/título/precio,
+referencias de campañas premium reales como inspiración de principios,
+no de copia), instrucción de implementar sin ciclo de aprobación.
+
+**Reversibilidad**: alta — módulo nuevo aditivo, ningún fichero de
+`art-direction-engine/` ni `layout-intelligence/` pierde su
+comportamiento por defecto (el bucle de revisión es la única llamada
+nueva en `layout-composer/service.js#composeLayout`); revertible desde
+el historial de git.
