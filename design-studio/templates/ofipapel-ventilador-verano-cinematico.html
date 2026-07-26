@@ -16,7 +16,9 @@ body { position:relative; background:#000; }
 .grad { position:absolute; inset:0; background:linear-gradient(to top, rgba(8,20,8,0.92) 0%, rgba(8,20,8,0.55) 32%, rgba(8,20,8,0.0) 62%); }
 .grad-top { position:absolute; top:0; left:0; right:0; height:320px; background:linear-gradient(to bottom, rgba(6,16,6,0.55) 0%, rgba(6,16,6,0.24) 55%, rgba(6,16,6,0) 100%); }
 .logo { position:absolute; top:56px; left:64px; width:150px; filter:drop-shadow(0 2px 10px rgba(0,0,0,0.55)) drop-shadow(0 0 18px rgba(0,0,0,0.35)); }
-.price-pill { position:absolute; top:64px; right:64px; border:1.5px solid rgba(255,255,255,0.85); border-radius:40px; padding:14px 30px; font-family:'Outfit'; font-weight:700; font-size:30px; color:#fff; letter-spacing:-0.01em; }
+.price-wrap { position:absolute; top:52px; right:64px; text-align:right; }
+.price-label { font-family:'Outfit'; font-weight:400; font-size:20px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.8); margin-bottom:6px; text-shadow:0 2px 10px rgba(0,0,0,0.55); }
+.price { font-family:'Outfit'; font-weight:700; font-size:92px; line-height:0.88; letter-spacing:-0.02em; color:#fff; text-shadow:0 6px 24px rgba(0,0,0,0.5); }
 .headline { position:absolute; left:64px; bottom:420px; width:900px; font-family:'Outfit'; font-weight:700; font-size:98px; line-height:0.94; letter-spacing:-0.03em; color:#fff; }
 .subhead { position:absolute; left:66px; bottom:340px; font-family:'Outfit'; font-weight:400; font-size:26px; color:rgba(255,255,255,0.82); letter-spacing:0.01em; }
 .icon-row { position:absolute; left:64px; bottom:250px; display:flex; gap:52px; }
@@ -33,7 +35,7 @@ body { position:relative; background:#000; }
   <div class="grad-top"></div>
   <div class="grad"></div>
   <img class="logo" src="../assets/logo-ofipapel-transparente.png">
-  <div class="price-pill">89,00 €</div>
+  <div class="price-wrap"><div class="price-label">Precio</div><div class="price">89€</div></div>
   <div class="headline">Tu verano,<br>bajo control.</div>
   <div class="subhead">Ventilador nebulizador MUVIP · 75W · Mando a distancia</div>
   <div class="icon-row">
