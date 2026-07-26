@@ -5,49 +5,45 @@ final". Antes de este módulo, el concepto ganador (estilo, composición,
 iluminación, escenario...) solo describía un prompt — el maquetado real
 seguía siendo una única plantilla fija, sin relación con esa decisión.
 
+Desde el sprint "Layout Intelligence" (2026-07-26), este módulo **solo
+orquesta y renderiza**: la geometría (grid, jerarquía visual, tamaños
+relativos, márgenes, espacios en blanco, reglas de equilibrio) se calcula
+y se puntúa en [`../layout-intelligence/`](../layout-intelligence/) ANTES
+de que exista ningún HTML — ver su `ARCHITECTURE.md`. Aquí ya no vive
+ninguna coordenada escrita a mano; los antiguos 6 "arquetipos" con
+posiciones fijas (`archetypes/*.js`) se retiraron.
+
 ## Qué hace
 
-Toma el concepto ganador de `runCreativeLab` + el asset que devolvió el
-proveedor (foto real si existe, o el placeholder determinista si no) y
-compone una pieza HTML real, renderizada a PNG vía
-`design-studio/scripts/render-html.js` (mismo motor que ya usa
-`marketing-engine/07-maquetador`, nunca reimplementado).
+1. Decide qué elementos hay que colocar según qué datos existen de verdad
+   (`service.js#resolveElementIds` — nunca se inventa un elemento sin
+   dato detrás: sin logo declarado no hay chip de logo, sin precio no hay
+   badge, etc.).
+2. Llama a `layout-intelligence/service.js#planLayout()` — calcula y
+   puntúa la composición, reintentando con otra estrategia si no supera
+   el umbral (ver esa `ARCHITECTURE.md` para el detalle completo).
+3. `render-plan.js#buildHtmlFromPlan()` traduce el `LayoutPlan` ya
+   resuelto (cada elemento con su `{x,y,w,h}` en píxeles) al HTML/CSS
+   final, usando `render-helpers.js` para el estilo visual de cada tipo
+   de elemento (hero, logo, título, cta, precio, footer de contacto).
+4. Renderiza a PNG vía `design-studio/scripts/render-html.js` (mismo
+   motor que ya usa `marketing-engine/07-maquetador`, nunca
+   reimplementado).
 
-## Cómo elige el layout
+## Añadir un elemento nuevo (p.ej. un badge de descuento)
 
-- **Arquetipo** (6, en `archetypes/`): derivado de `concept.compositionId`
-  (las 15 composiciones de `libraries/compositions.js`, agrupadas por
-  afinidad visual real — ver `config.js#COMPOSITION_TO_ARCHETYPE`).
-- **Énfasis tipográfico** (3 niveles): derivado de `concept.textSpaceId`
-  — cuánto protagonismo tiene el titular dentro del arquetipo elegido.
-
-Los dos ejes son independientes: el mismo arquetipo se ve distinto según
-el énfasis, y el mismo énfasis se aplica de forma distinta según el
-arquetipo — sin necesitar 6×7 plantillas hechas a mano.
-
-## Arquetipos
-
-| Arquetipo | Composición | Sensación |
-|---|---|---|
-| `centrado-clasico` | simétrica, triangular, radial | Producto centrado sobre placa, clásico |
-| `diagonal-dinamico` | diagonal | Franja diagonal de acento, producto desplazado |
-| `flotante-minimalista` | espacio negativo dominante | Mucho blanco, producto pequeño y flotante |
-| `flat-lay-editorial` | flat-lay, patrón, marco | Producto enmarcado, sensación de orden |
-| `cinematico-fullbleed` | regla de tercios, capas, horizonte bajo | Imagen a sangre completa, degradado dramático |
-| `dividido-lifestyle` | encuadre cerrado/abierto, L, asimetría | Pantalla partida imagen/texto |
-
-## Añadir un arquetipo nuevo
-
-Un fichero nuevo en `archetypes/` con la firma `buildHtml(data) → string`
-(mismos datos que los 6 existentes: `brand`, `product`, `copy`,
-`heroImagePath`, `width`, `height`, `textEmphasis`) + una entrada en
-`config.js#ARCHETYPES` y en `COMPOSITION_TO_ARCHETYPE` — cero cambios en
-`service.js`.
+No se toca este módulo en el paso 1: se añade el elemento a
+`layout-intelligence/hierarchy.js` (tier por defecto) y a la estrategia
+que corresponda en `layout-intelligence/strategies/` (dónde va su caja).
+Aquí solo hace falta un `render*Markup()` nuevo en `render-helpers.js` y
+una línea en `render-plan.js` que lo invoque si el elemento está presente
+en el plan — la posición ya viene resuelta, este módulo nunca decide
+dónde.
 
 ## Fuera de alcance (por ahora)
 
-- Reglas de armonía de paleta (`paletteHarmonyId`) — todos los
-  arquetipos usan `preparedAssets.brand.palette` directamente, sin
-  aplicar todavía la regla de armonía elegida por el concepto.
-- Tendencias (`trendId`) — biblioteca validada pero no cableada en
-  ningún punto de Creative Lab todavía (ver `creative-lab/ARCHITECTURE.md`).
+- Reglas de armonía de paleta (`paletteHarmonyId`) — se sigue usando
+  `preparedAssets.brand.palette` directamente, sin aplicar todavía la
+  regla de armonía elegida por el concepto.
+- Tendencias (`trendId`) — biblioteca validada pero no cableada en ningún
+  punto de Creative Lab todavía (ver `creative-lab/ARCHITECTURE.md`).

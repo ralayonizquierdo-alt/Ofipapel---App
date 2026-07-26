@@ -418,6 +418,111 @@ visibles y sin solapar con título/CTA/logo.
 > y `.claude/rax/DECISIONES.md` (entrada 2026-07-26): ese es el objetivo
 > principal del proyecto y sigue abierto.
 
+## Sprint "Layout Intelligence" (2026-07-26) — de plantillas fijas a composición calculada
+
+Hasta este sprint, `layout-composer/archetypes/*.js` posicionaba cada
+elemento con coordenadas escritas a mano (`top: 22%; left: 8%; width:
+84%`...) — 6 plantillas fijas, no una composición calculada. El
+propietario pidió invertir el orden causal: antes de generar un solo
+píxel de HTML, el sistema debe calcular una composición completa (grid,
+jerarquía visual, tamaños relativos, márgenes, espacios en blanco,
+reglas de equilibrio), puntuarla, y descartar/recalcular si no supera un
+umbral — mismo patrón "evaluar antes de comprometerse" que ya usa
+`concept-score/` (capa de plan) y este propio `runCreativeLab` (umbral +
+reintento acotado), aplicado ahora a la geometría.
+
+Nuevo módulo **[`layout-intelligence/`](./layout-intelligence/README.md)**,
+hermano de `layout-composer/` (que pasa a ser solo orquestación + render):
+
+- **`grid.js`**: matemática pura — un grid de 12 columnas con
+  `rows = round(columns × height/width)` (celdas ~cuadradas en
+  cualquier formato real, 1080×1350 a 1080×1920), banda de margen
+  estructural descontada ANTES de repartir celdas (no una comprobación a
+  posteriori), más `overlaps`/`whitespaceRatio`/`weightedCentroid`.
+- **`hierarchy.js`**: tier de tamaño (dominante/primario/secundario/mínimo)
+  y orden de apilado por elemento, a partir de datos que YA existían
+  (`brief.artDirection.hierarchy`, `concept.textSpaceId`) — nunca una
+  fuente de verdad nueva. Ver bug corregido más abajo.
+- **`strategies/`**: 6 estrategias (mismos ids que los antiguos
+  arquetipos — `centrado-clasico`, `diagonal-dinamico`,
+  `flotante-minimalista`, `flat-lay-editorial`, `cinematico-fullbleed`,
+  `dividido-lifestyle` — mismo agrupamiento por `compositionId` ya
+  curado, sin renombrar sin motivo), cada una `computePlan()` → geometría
+  pura derivada de spans de grid, cero porcentajes tecleados.
+- **`balance-score.js`**: 5 componentes que suman 100
+  (`marginCompliance`, `whitespaceBalance`, `hierarchyContrast`,
+  `visualBalance`, `overlapPenalty`) — todo evaluado sobre números
+  (geometría de plan), nunca sobre píxeles renderizados, mismo criterio
+  honesto que `evaluatedOn:'plan'` en `creative-validator/`.
+- **`service.js#planLayout`**: si la estrategia primaria (por
+  `compositionId`) no supera `LAYOUT_QUALITY_THRESHOLD` (70 por defecto),
+  prueba la siguiente en rotación determinista hasta
+  `LAYOUT_MAX_RETRIES` (4) intentos, quedándose con la mejor — igual que
+  `bestEver`/`needsHumanReview` en `runCreativeLab`, nunca bucle
+  infinito.
+
+`layout-composer/` se reduce a: decidir qué elementos hay datos para
+colocar (`resolveElementIds` — sin logo declarado no hay chip de logo,
+sin precio no hay badge), llamar a `planLayout()`, y traducir el
+`LayoutPlan` ya resuelto a HTML con `render-plan.js`/`render-helpers.js`
+(sustituyen a `archetypes/*.js`, retirado por completo).
+
+### 3 bugs reales encontrados con un test sintético — antes de tocar el renderer
+
+Se escribió un test directo sobre `planLayout()` (15 `compositionId` × 4
+formatos reales, más comprobación de determinismo y de que el fallback
+por umbral imposible sí prueba otras estrategias) ANTES de conectar
+`layout-composer/` — mismo criterio que "mirar el render real antes de
+darlo por bueno" ya aplicado en sprints anteriores, aquí aplicado un paso
+antes, a los números:
+
+1. **`brief.artDirection.hierarchy` no es un ranking de tamaño, es orden
+   de lectura de arriba a abajo.** Primera versión de `hierarchy.js`
+   asumía índice 0 = elemento más grande → el logo salía más grande que
+   el producto (con `['logo','producto','titular','cta']`, el logo se
+   volvía "dominante"). Verificado contra los 2 presets reales de
+   `agents/02-director-arte/config.js` (`layout-centrado`,
+   `layout-diagonal`): el orden describe la composición de arriba a
+   abajo, no importancia. Corregido: el tamaño usa defaults fijos y
+   sensatos (`hero:dominante`, `logo:mínimo` — el producto es el
+   protagonista de un anuncio, el logo es una marca de agua), y el array
+   se reaprovecha correctamente como `stackOrder` (orden de apilado real)
+   vía `strategies/_shared.js#stackVertically`.
+2. **El badge de precio (esquina superior derecha) podía solaparse con el
+   hero.** Con logo pequeño (1 fila) y precio con tier propio más alto (2
+   filas), el hero — que arranca justo debajo del logo — invadía la
+   franja que el precio todavía ocupaba. Corregido con
+   `topRightCorner(grid, span, maxRowSpan)`: el precio nunca supera la
+   altura de cabecera que reserva el primer elemento del apilado.
+3. **`CONTRAST_TARGET` mal calibrado contra los propios
+   `HIERARCHY_TIER_SPANS`.** Un contraste dominante/mínimo de 24-30x
+   (logo minúsculo junto a un hero grande, correcto y deseable) se
+   penalizaba como "desproporción excesiva" porque el rango sano
+   declarado (`max:8`) no encajaba con la propia geometría del sistema.
+   Corregido subiendo `max` a 40, documentado con el motivo.
+
+Con los 3 fijos, las 60 combinaciones (15 composiciones × 4 formatos) del
+test sintético superan el umbral (scores 73-95), el mecanismo de
+descarte-y-reintento se ejerce de verdad cuando hace falta (verificado
+forzando un umbral imposible), y el determinismo se mantiene (mismo
+brief + mismo formato → mismo plan, sin excepción).
+
+### Verificado end-to-end con la campaña real
+
+Mismo brief (Ventilador Muvip, foto lifestyle real, 89,00€) del sprint
+anterior, re-ejecutado de punta a punta: la estrategia primaria
+(`dividido-lifestyle`, según `compositionId` del concepto ganador) anotó
+57/100 (insuficiente) — se descartó automáticamente y `centrado-clasico`
+anotó 81/100 (bueno), que es la que se renderizó. Se detectó y corrigió
+además un bug de legibilidad real mirando el PNG resultante: el título
+salía en blanco sobre el fondo claro de marca (ilegible) — el blanco solo
+tiene sentido sobre una foto a sangre completa (`kind:'background-fill'`);
+sobre el fondo sólido, el título usa ahora el color primario de marca.
+Regresión completa sin cambios de comportamiento: `node --check` en todo
+`creative-engine/`, demo CLI existente (`run-creative-lab-demo.js`),
+pipeline de `marketing-engine/` por separado, e independencia
+`creative-lab/`↔`marketing-engine/` (grep, cero `require()` cruzados).
+
 ## Verificación realizada
 
 Independencia por grep · las 9 bibliotecas validan al cargar · 15

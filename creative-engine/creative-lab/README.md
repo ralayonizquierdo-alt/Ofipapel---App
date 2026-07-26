@@ -41,7 +41,8 @@ creative-lab/
 ├── moodboard/                moodboard textual por concepto
 ├── master-prompt-composer/  extiende prompt-composer/ de creative-engine
 ├── concept-score/            evaluación en dos capas (plan gratis + real con coste)
-├── layout-composer/          compone la pieza final real (6 arquetipos) según el concepto ganador
+├── layout-intelligence/      calcula y puntúa el grid/jerarquía/equilibrio ANTES de renderizar — ver su README
+├── layout-composer/          orquesta layout-intelligence/ y renderiza la pieza final real
 ├── cli/                      demo de línea de comandos
 ├── config.js                  QUALITY_THRESHOLD / MAX_RETRIES / SHORTLIST_SIZE
 └── index.js                   runCreativeLab() — punto de entrada único

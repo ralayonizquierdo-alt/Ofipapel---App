@@ -916,3 +916,58 @@ el propietario sin registrarlo en la documentación persistente
 
 **Reversibilidad**: alta — cambios puramente documentales, ningún fichero
 de código tocado en esta entrada.
+
+---
+
+### 2026-07-26 — Sprint "Layout Intelligence": composición calculada y puntuada, cero coordenadas fijas
+
+**Contexto**: `layout-composer/archetypes/*.js` posicionaba cada
+elemento con porcentajes escritos a mano por plantilla (6 arquetipos
+fijos). El propietario pidió que, antes de generar cualquier HTML, el
+sistema calcule una composición completa (grid, jerarquía visual,
+tamaños relativos, márgenes, espacios en blanco, reglas de equilibrio) y
+la puntúe — descartando y probando otra si no supera un umbral, sin
+coordenadas fijas en ningún punto.
+
+**Decisión**: nuevo módulo `creative-engine/creative-lab/layout-intelligence/`
+(grid + jerarquía + 6 estrategias de equilibrio + puntuación en 5
+componentes + umbral/reintento acotado, mismo patrón exacto que
+`QUALITY_THRESHOLD`/`MAX_RETRIES` de `runCreativeLab`). `layout-composer/`
+se reduce a orquestar esa geometría ya resuelta y renderizarla —
+`archetypes/*.js` (los 6 ficheros con posiciones fijas) se elimina por
+completo, sustituido por `strategies/` (geometría) + un único
+`render-plan.js` (HTML/CSS a partir de cajas ya calculadas).
+
+Se escribió un test sintético directo sobre `planLayout()` (15
+composiciones × 4 formatos reales) ANTES de tocar el renderer, y encontró
+3 bugs reales corregidos antes de dar el sprint por bueno: (1)
+`brief.artDirection.hierarchy` se interpretó primero como ranking de
+TAMAÑO cuando en realidad es orden de LECTURA (verificado contra los 2
+presets reales de `agents/02-director-arte`) — el logo salía más grande
+que el producto; (2) el badge de precio podía solaparse con el hero
+cuando su tier propio era más alto que el de la cabecera; (3) el rango
+"sano" de contraste de jerarquía estaba mal calibrado contra la propia
+geometría del sistema. Un cuarto bug (título blanco casi invisible sobre
+el fondo claro de marca) se encontró mirando el PNG real de la campaña
+Muvip re-ejecutada de punta a punta — mismo criterio de "verificar
+visualmente, no solo que no lance excepción" ya aplicado en sprints
+anteriores.
+
+**Alternativas descartadas**: mantener `layout-composer/` decidiendo
+posiciones directamente con una función de cálculo interna, sin un
+módulo separado (descartado — mezclaría "calcular composición" con
+"renderizar HTML", y rompería el patrón ya establecido en el repo de
+separar generación/evaluación en módulos hermanos, como
+`concept-generator/`+`concept-score/`).
+
+**Quién decide**: propietario (especificación explícita del sprint:
+grid, jerarquía, tamaños relativos, márgenes, espacios en blanco,
+reglas de equilibrio, puntuación antes de renderizar, descarte si no
+supera el umbral — todos los puntos incorporados literalmente).
+
+**Reversibilidad**: media — módulo nuevo aditivo, pero `archetypes/*.js`
+se eliminó (recuperable del historial de git si hiciera falta). La firma
+pública de `layout-composer/service.js#composeLayout()` no cambió, así
+que `creative-lab/index.js` solo necesitó actualizar los nombres de los
+campos que expone (`archetype` → `strategyId`, más `layoutScore`/
+`layoutAttempts`/`layoutPassed` nuevos).
