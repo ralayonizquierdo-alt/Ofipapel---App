@@ -1,45 +1,22 @@
-// Prompt Maestro — EXTIENDE creative-engine/prompt-composer/, no lo
-// sustituye. Dos mecanismos de extensión:
+// Prompt Composer Cinematográfico — reescritura completa (sprint del
+// mismo nombre, 2026-07-26). Objetivo único del propietario: dejar de
+// describir productos y empezar a describir campañas. Ya no envuelve
+// creative-engine/prompt-composer/ (el compositor de 9 secciones,
+// "producto" primero) — compone su propio prompt de principio a fin, con
+// el orden exacto pedido: historia y emoción abren el briefing, la ficha
+// técnica del producto queda dentro de "Dirección de fotografía" (4º
+// bloque, no el primero).
 //
-//  1. buildEffectiveBrief(): las elecciones del concepto para ángulo/
-//     lente, iluminación, escenario y composición SOBREESCRIBEN los
-//     campos equivalentes del CreativeBrief (brief.photography.*,
-//     brief.artDirection.composition) ANTES de llamar al compositor
-//     base — así las 9 secciones ya existentes (producto, dirección
-//     creativa, fotografía, dirección de arte, marca, inteligencia de
-//     producto, campaña, copy, formato) reflejan el concepto sin
-//     reescribir su lógica, y sin que dos secciones digan cosas
-//     distintas sobre lo mismo (ej. "frontal centrado" en una sección y
-//     "dutch angle" en otra).
-//  2. Las 6 secciones que el compositor base NO tiene (estilo, filosofía
-//     de dirección artística, armonía de paleta, emoción+narrativa,
-//     refinamiento de espacio de texto, variación propia del director)
-//     se AÑADEN al final.
-//
-// El negativePrompt se reutiliza tal cual del compositor base — la
-// misma lista estática (incluye "sin texto renderizado") sigue aplicando
-// sin cambios.
+// No se ha modificado NINGÚN otro componente: creative-engine/prompt-composer/
+// sigue intacto (creative-engine/index.js#runCreativePipeline lo sigue
+// usando tal cual); solo se reutilizan por import de solo lectura
+// NEGATIVE_PROMPT_TERMS/SECTION_JOIN de ahí. El resultado sigue teniendo
+// exactamente la misma forma que antes — {conceptId, sections, fullPrompt,
+// negativePrompt, wordCount, tokensApprox} — así que index.js,
+// concept-score/ y el CLI no necesitan ningún cambio.
 
-const { composePrompt: composeBasePrompt } = require('../../prompt-composer/service.js');
-const { getEntryByField } = require('../libraries/index.js');
 const { buildConceptSections } = require('./sections/from-concept.js');
-const { buildDirectorVariationSection } = require('./sections/director-variation.js');
-
-function buildEffectiveBrief(brief, concept) {
-  return {
-    ...brief,
-    photography: {
-      ...brief.photography,
-      angle: getEntryByField('angleLensId', concept.angleLensId).text,
-      background: getEntryByField('scenarioId', concept.scenarioId).text,
-      lighting: getEntryByField('lightingId', concept.lightingId).text,
-    },
-    artDirection: {
-      ...brief.artDirection,
-      composition: getEntryByField('compositionId', concept.compositionId).text,
-    },
-  };
-}
+const { SECTION_JOIN, NEGATIVE_PROMPT_TERMS } = require('./config.js');
 
 /**
  * @param {object} brief - CreativeBrief
@@ -48,22 +25,19 @@ function buildEffectiveBrief(brief, concept) {
  * @returns {object} { conceptId, sections, fullPrompt, negativePrompt, wordCount, tokensApprox }
  */
 function composeMasterPrompt(brief, preparedAssets, concept) {
-  const effectiveBrief = buildEffectiveBrief(brief, concept);
-  const base = composeBasePrompt(effectiveBrief, preparedAssets);
-
-  const extraSections = [...buildConceptSections(concept), buildDirectorVariationSection(concept)];
-  const sections = [...base.sections, ...extraSections];
-  const fullPrompt = sections.map((s) => s.text).join('. ');
+  const sections = buildConceptSections(concept, brief, preparedAssets);
+  const fullPrompt = sections.map((s) => s.text).join(SECTION_JOIN);
+  const negativePrompt = NEGATIVE_PROMPT_TERMS.join(', ');
   const wordCount = fullPrompt.split(/\s+/).filter(Boolean).length;
 
   return {
     conceptId: concept.conceptId,
     sections,
     fullPrompt,
-    negativePrompt: base.negativePrompt,
+    negativePrompt,
     wordCount,
-    tokensApprox: Math.round(wordCount * 1.3), // misma aproximación explícita que prompt-composer/, no un tokenizador real
+    tokensApprox: Math.round(wordCount * 1.3), // misma aproximación explícita que el resto del repo, no un tokenizador real
   };
 }
 
-module.exports = { composeMasterPrompt, buildEffectiveBrief };
+module.exports = { composeMasterPrompt };

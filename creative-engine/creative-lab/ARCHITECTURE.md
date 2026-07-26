@@ -264,6 +264,51 @@ estudio-fondo-blanco + softbox + simetría-centrada → descartado por
 "ficha de catálogo", confirmando que el filtro tiene efecto real, no solo
 teórico.
 
+## Sprint "Prompt Composer Cinematográfico" (2026-07-26) — cambios realizados
+
+Solo `master-prompt-composer/` — ningún otro componente tocado. Objetivo
+único: dejar de describir productos y empezar a describir campañas.
+
+- **`master-prompt-composer/service.js`** (reescrito): ya NO llama a
+  `creative-engine/prompt-composer/` (el compositor base de 9 secciones,
+  "producto" primero) — compone su propio prompt de principio a fin.
+  Sigue devolviendo exactamente la misma forma de siempre
+  (`{conceptId, sections, fullPrompt, negativePrompt, wordCount,
+  tokensApprox}`), así que `index.js`, `concept-score/` y el CLI no
+  necesitaron ningún cambio.
+- **`master-prompt-composer/sections/from-concept.js`** (reescrito): los
+  12 bloques obligatorios pedidos, en el orden pedido — Historia visual,
+  Emoción principal, Dirección de arte, Dirección de fotografía,
+  Iluminación, Lente y ángulo, Composición, Profundidad de campo,
+  Texturas, Materiales, Ambiente, Espacio reservado para textos (el 13º,
+  Negative prompt, sigue siendo un campo aparte, no una sección). La
+  ficha técnica del producto y sus reglas de fidelidad quedan dentro de
+  "Dirección de fotografía" — 4º bloque, ya no el primero.
+- **`master-prompt-composer/sections/director-variation.js`** (eliminado):
+  su función se pliega como una anotación dentro del bloque que la
+  variación propia del director realmente tocó (`annotateIfDirectorVariation`),
+  en vez de ser un 13º bloque separado que el propietario no pidió.
+- **`master-prompt-composer/config.js`** (nuevo, dentro del módulo ya
+  existente): tablas deterministas para los dos bloques genuinamente
+  nuevos — Profundidad de campo (12 entradas, una por ángulo/lente) y
+  Texturas (10 entradas, una por dirección artística); Materiales deriva
+  del escenario (14 entradas). Reutiliza por import de solo lectura
+  `NEGATIVE_PROMPT_TERMS`/`SECTION_JOIN` del compositor base (no lo
+  modifica) y añade 5 términos negativos propios de un briefing de
+  agencia.
+- **Restricción técnica respetada sin tocar el validador**: el bloque
+  "Espacio reservado para textos" mantiene `id: 'copy'` a propósito — 3
+  de los 6 checks de `creative-validator/` (legibilidad, espacioLogo,
+  espacioTextos) buscan exactamente ese id para confirmar que se reservó
+  espacio de texto; cambiarlo habría roto esos 3 checks sin tocar el
+  fichero del validador.
+
+Verificado: `creative-validator/` sigue dando 6/6 con la nueva
+estructura (branding, legibilidad, presenciaProducto, espacioLogo,
+espacioTextos, composición) · `creative-engine/prompt-composer/` y
+`marketing-engine/` sin cambios de comportamiento (regresión ejecutada) ·
+brief real de Ventilador Muvip → `approved`, capa 2 = 100/100.
+
 ## Verificación realizada
 
 Independencia por grep · las 9 bibliotecas validan al cargar · 15

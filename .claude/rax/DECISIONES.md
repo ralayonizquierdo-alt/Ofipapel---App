@@ -714,3 +714,30 @@ claro. Concepto sintético "ficha de catálogo" → descartado correctamente.
 **Reversibilidad**: alta — un fichero nuevo + una inserción de 3 líneas
 en `index.js` + un valor de configuración. Revertir es quitar el import y
 la llamada a `filterProfessionalConcepts`.
+
+### 2026-07-26 — Sprint "Prompt Composer Cinematográfico": campaña, no producto
+
+**Contexto**: el propietario pidió reescribir el Prompt Composer para que
+deje de describir productos primero y describa campañas primero, con 13
+bloques obligatorios (12 + negative prompt), sin módulos nuevos y sin
+tocar ningún otro componente.
+
+**Decisión**: se reescribió únicamente `creative-lab/master-prompt-composer/`
+(service.js + sections/from-concept.js + config.js nuevo dentro del
+módulo ya existente; se eliminó sections/director-variation.js, plegado
+como anotación). Deja de envolver `creative-engine/prompt-composer/` — el
+compositor base de 9 secciones queda intacto y lo sigue usando
+`creative-engine/index.js#runCreativePipeline` sin cambios. Se mantiene
+`id: 'copy'` en el bloque de espacio de texto a propósito, porque 3 de
+los 6 checks de `creative-validator/` (no modificado) dependen de ese id
+exacto.
+
+**Verificado**: 6/6 checks de creative-validator con la nueva estructura,
+regresión de `creative-engine/` y `marketing-engine/` sin cambios,
+brief real (Ventilador Muvip) → `approved`, capa 2 = 100/100.
+
+**Quién decide**: propietario (los 13 bloques y su orden son literales).
+
+**Reversibilidad**: alta — cambio contenido en 1 módulo, forma de salida
+idéntica a la anterior (mismos campos), cero cambios en index.js/
+concept-score/CLI.

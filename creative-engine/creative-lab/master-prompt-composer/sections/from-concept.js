@@ -1,57 +1,156 @@
-// Secciones NUEVAS que aporta el concepto de Creative Lab y que el
-// prompt-composer/ base de creative-engine no tiene equivalente:
-// estilo, filosofía de dirección artística, armonía de paleta, emoción +
-// narrativa, y un refinamiento del espacio de texto. (Ángulo/lente,
-// iluminación, escenario y composición NO se duplican aquí — ya se
-// inyectan en el prompt base sobreescribiendo brief.photography/
-// brief.artDirection antes de llamar a composeBasePrompt, ver
-// master-prompt-composer/service.js#buildEffectiveBrief — evita que dos
-// secciones digan cosas distintas sobre lo mismo.)
-//
-// Se consolidan en un solo fichero (a diferencia de un fichero por
-// sección como en prompt-composer/) porque las 5 tienen la misma forma
-// trivial "resolver un id de biblioteca + devolver {id,label,text}" —
-// una decisión de simplicidad tomada durante la implementación, sin
-// perder modularidad real (cada builder sigue siendo una función
-// independiente, solo comparten fichero).
+// Los 12 bloques obligatorios del Prompt Composer Cinematográfico (el
+// 13º, negative prompt, se compone aparte en service.js). Cada builder
+// devuelve {id, label, text}. El `id` de "Espacio reservado para
+// textos" es literalmente 'copy' — no es un nombre libre: 3 de los 6
+// checks de creative-engine/creative-validator/ (legibilidad,
+// espacioLogo, espacioTextos) buscan exactamente
+// `sections.some(s => s.id === 'copy')` para confirmar que se reservó
+// espacio de texto. Cambiar ese id rompería esos 3 checks sin haber
+// tocado el fichero del validador — se documenta aquí a propósito.
 
 const { getEntryByField } = require('../../libraries/index.js');
+const { DEPTH_OF_FIELD_BY_ANGLE_LENS, TEXTURES_BY_ART_DIRECTION, MATERIALS_BY_SCENARIO } = require('../config.js');
 
-function buildStyleSection(concept) {
-  const style = getEntryByField('styleId', concept.styleId);
-  return { id: 'lab-style', label: 'Estilo (Creative Lab)', text: style.text };
+// Anota, dentro del bloque que corresponda, la variación propia
+// obligatoria del Director Creativo (concept-generator/self-critique.js
+// y concept-generator/config.js#DIRECTOR_VARIATION_DIMENSIONS) — sin
+// crear un bloque nuevo, solo una frase de trazabilidad en el bloque que
+// esa variación tocó de verdad.
+function annotateIfDirectorVariation(text, concept, dimensionField) {
+  if (concept.directorVariation.dimension !== dimensionField) return text;
+  return `${text} (variación propia del director creativo — no proviene de ninguna referencia mezclada).`;
 }
 
-function buildArtPhilosophySection(concept) {
+function buildStorySection(concept) {
+  const text = annotateIfDirectorVariation(
+    `Historia visual: ${concept.narrative}.`,
+    concept,
+    'narrative'
+  );
+  return { id: 'story', label: 'Historia visual', text };
+}
+
+function buildEmotionSection(concept) {
+  const text = annotateIfDirectorVariation(
+    `Emoción principal a transmitir: ${concept.emotion}.`,
+    concept,
+    'emotion'
+  );
+  return { id: 'emotion', label: 'Emoción principal', text };
+}
+
+function buildArtDirectionSection(concept, brief, preparedAssets) {
   const artDirection = getEntryByField('artDirectionId', concept.artDirectionId);
-  return { id: 'lab-art-philosophy', label: 'Filosofía de dirección artística (Creative Lab)', text: artDirection.text };
-}
-
-function buildPaletteHarmonySection(concept) {
-  const harmony = getEntryByField('paletteHarmonyId', concept.paletteHarmonyId);
-  return { id: 'lab-palette-harmony', label: 'Armonía de paleta (Creative Lab)', text: harmony.text };
-}
-
-function buildEmotionNarrativeSection(concept) {
+  const brand = preparedAssets.brand;
+  const primaryHex = (brand.palette && brand.palette.primary) || '';
   return {
-    id: 'lab-emotion-narrative',
-    label: 'Emoción y narrativa (Creative Lab)',
-    text: `Emoción a transmitir: ${concept.emotion}. Ángulo narrativo: ${concept.narrative}.`,
+    id: 'art-direction',
+    label: 'Dirección de arte',
+    text: `Dirección de arte: ${artDirection.text}. Coherente con la identidad de ${brand.label} (color ancla ${primaryHex}). Tono: ${brief.creativeDirection.tone || 'sin especificar'}.`,
   };
 }
 
-function buildTextSpaceRefinementSection(concept) {
-  const textSpace = getEntryByField('textSpaceId', concept.textSpaceId);
-  return { id: 'lab-text-space', label: 'Refinamiento de espacio de texto (Creative Lab)', text: textSpace.text };
+function buildCinematographySection(concept, brief) {
+  const style = getEntryByField('styleId', concept.styleId);
+  const fidelityRules = brief.photography.fidelityRules || [];
+  const fidelityText = fidelityRules.length > 0
+    ? `Fidelidad obligatoria al producto real: ${fidelityRules.join('; ')}.`
+    : 'Fidelidad obligatoria al producto real: mismas proporciones, materiales y colores, sin inventar piezas.';
+  return {
+    id: 'cinematography',
+    label: 'Dirección de fotografía',
+    text: `Dirección de fotografía: ${style.text}. Sujeto: ${brief.product.name} (${brief.product.category}). ${fidelityText} Calidad de producción profesional, nitidez de campaña, no de foto casera.`,
+  };
 }
 
-function buildConceptSections(concept) {
+function buildLightingSection(concept) {
+  const text = annotateIfDirectorVariation(
+    `Iluminación: ${getEntryByField('lightingId', concept.lightingId).text}.`,
+    concept,
+    'lightingId'
+  );
+  return { id: 'lighting', label: 'Iluminación', text };
+}
+
+function buildLensAngleSection(concept) {
+  const text = annotateIfDirectorVariation(
+    `Lente y ángulo: ${getEntryByField('angleLensId', concept.angleLensId).text}.`,
+    concept,
+    'angleLensId'
+  );
+  return { id: 'lens-angle', label: 'Lente y ángulo', text };
+}
+
+function buildCompositionSection(concept) {
+  const text = annotateIfDirectorVariation(
+    `Composición: ${getEntryByField('compositionId', concept.compositionId).text}.`,
+    concept,
+    'compositionId'
+  );
+  return { id: 'composition', label: 'Composición', text };
+}
+
+function buildDepthOfFieldSection(concept) {
+  return {
+    id: 'depth-of-field',
+    label: 'Profundidad de campo',
+    text: `Profundidad de campo: ${DEPTH_OF_FIELD_BY_ANGLE_LENS[concept.angleLensId]}.`,
+  };
+}
+
+function buildTexturesSection(concept) {
+  return {
+    id: 'textures',
+    label: 'Texturas',
+    text: `Texturas: ${TEXTURES_BY_ART_DIRECTION[concept.artDirectionId]}.`,
+  };
+}
+
+function buildMaterialsSection(concept) {
+  return {
+    id: 'materials',
+    label: 'Materiales',
+    text: `Materiales: ${MATERIALS_BY_SCENARIO[concept.scenarioId]}.`,
+  };
+}
+
+function buildAmbianceSection(concept) {
+  const text = annotateIfDirectorVariation(
+    `Ambiente: ${getEntryByField('scenarioId', concept.scenarioId).text}.`,
+    concept,
+    'scenarioId'
+  );
+  return { id: 'ambiance', label: 'Ambiente', text };
+}
+
+// id: 'copy' a propósito — ver cabecera del fichero.
+function buildTextSpaceSection(concept, brief) {
+  const textSpace = getEntryByField('textSpaceId', concept.textSpaceId);
+  const hasCopy = Boolean(brief.copy.title || brief.copy.cta);
+  const copyNote = hasCopy
+    ? `Titular: "${brief.copy.title || ''}". CTA: "${brief.copy.cta || ''}".`
+    : 'Esta pieza no lleva titular ni CTA.';
+  return {
+    id: 'copy',
+    label: 'Espacio reservado para textos',
+    text: `Espacio reservado para textos: ${textSpace.text}. NO renderizar ningún texto ni letra dentro de la imagen — el texto y el logo se componen después. ${copyNote}`,
+  };
+}
+
+function buildConceptSections(concept, brief, preparedAssets) {
   return [
-    buildStyleSection(concept),
-    buildArtPhilosophySection(concept),
-    buildPaletteHarmonySection(concept),
-    buildEmotionNarrativeSection(concept),
-    buildTextSpaceRefinementSection(concept),
+    buildStorySection(concept),
+    buildEmotionSection(concept),
+    buildArtDirectionSection(concept, brief, preparedAssets),
+    buildCinematographySection(concept, brief),
+    buildLightingSection(concept),
+    buildLensAngleSection(concept),
+    buildCompositionSection(concept),
+    buildDepthOfFieldSection(concept),
+    buildTexturesSection(concept),
+    buildMaterialsSection(concept),
+    buildAmbianceSection(concept),
+    buildTextSpaceSection(concept, brief),
   ];
 }
 
