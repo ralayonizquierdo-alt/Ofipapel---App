@@ -177,10 +177,13 @@ producto para el tratamiento visual exacto.
 
 ```
 design-studio/
-├── README.md              ← este documento
-├── templates/              plantillas HTML fuente (versionadas)
-│   ├── ofipapel-banner.html            demo de banner de marca genérico de Ofipapel
-│   └── ofipapel-vuelta-al-cole-*.html  campaña real (banner/post/story/whatsapp/landing)
+├── README.md                                       ← este documento
+├── OFIPAPEL_VISUAL_DNA.md                          reglas visuales obligatorias de Ofipapel (ver sección 5)
+├── templates/                                       plantillas HTML fuente (versionadas)
+│   ├── ofipapel-banner.html                          demo de banner de marca genérico de Ofipapel
+│   ├── ofipapel-vuelta-al-cole-*.html                campaña real (banner/post/story/whatsapp/landing)
+│   ├── ofipapel-ventilador-verano-cinematico.html    plantilla de referencia "lifestyle" (ver sección 5)
+│   └── ofipapel-afeitadora-x3003-cinematico.html     plantilla de referencia "lifestyle" (ver sección 5)
 ├── campaigns/
 │   └── vuelta-al-cole-2026/COPY.md     copy comercial, CTAs y confirmaciones pendientes de cada campaña
 ├── assets/                 activos de marca fuente reutilizables (logos, etc.), versionados
@@ -189,3 +192,26 @@ design-studio/
 │   └── firefly-generate.js   texto → imagen vía Adobe Firefly API (sin probar, pendiente de credenciales)
 └── output/                 artefactos generados (en .gitignore, no versionar)
 ```
+
+## 5. Plantilla de referencia "lifestyle"
+
+Patrón ya validado (varias rondas de crítica de Director Creativo, ver
+`OFIPAPEL_VISUAL_DNA.md`) para productos con fotografía real de uso —
+foto a sangre completa, precio y logo en esquinas opuestas, titular
+publicitario nunca el nombre de producto, fila de iconos de
+características, CTA protegido, eslogan de marca y footer de contacto.
+Ejemplos completos, listos para copiar como punto de partida de un
+producto nuevo:
+
+- `templates/ofipapel-ventilador-verano-cinematico.html` — Ventilador
+  Nebulizador MUVIP, 89€.
+- `templates/ofipapel-afeitadora-x3003-cinematico.html` — Afeitadora
+  eléctrica Philips X3003, 55€.
+
+Para un producto nuevo con este mismo patrón: copiar uno de los dos
+ficheros, sustituir la foto (`assets/`), el titular, el subtítulo, el
+precio y los 4 iconos (con su etiqueta) — el resto de la hoja de
+estilos (tamaños, posiciones, colores) se queda igual, porque es
+precisamente lo que `OFIPAPEL_VISUAL_DNA.md` fija como invariable. Antes
+de dar la pieza por buena, repasar el capítulo 11 de ese documento
+(prohibiciones) y las proporciones de los capítulos 2-4.
