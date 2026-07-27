@@ -183,7 +183,8 @@ design-studio/
 │   ├── ofipapel-banner.html                          demo de banner de marca genérico de Ofipapel
 │   ├── ofipapel-vuelta-al-cole-*.html                campaña real (banner/post/story/whatsapp/landing)
 │   ├── ofipapel-ventilador-verano-cinematico.html    plantilla de referencia "lifestyle" (ver sección 5)
-│   └── ofipapel-afeitadora-x3003-cinematico.html     plantilla de referencia "lifestyle" (ver sección 5)
+│   ├── ofipapel-afeitadora-x3003-cinematico.html     plantilla de referencia "lifestyle" (ver sección 5)
+│   └── ofipapel-altavoz-a340-foto-producto.html      plantilla de referencia "foto producto" (ver sección 6)
 ├── campaigns/
 │   └── vuelta-al-cole-2026/COPY.md     copy comercial, CTAs y confirmaciones pendientes de cada campaña
 ├── assets/                 activos de marca fuente reutilizables (logos, etc.), versionados
@@ -215,3 +216,31 @@ estilos (tamaños, posiciones, colores) se queda igual, porque es
 precisamente lo que `OFIPAPEL_VISUAL_DNA.md` fija como invariable. Antes
 de dar la pieza por buena, repasar el capítulo 11 de ese documento
 (prohibiciones) y las proporciones de los capítulos 2-4.
+
+## 6. Plantilla de referencia "foto producto"
+
+Segundo patrón, independiente del "lifestyle" — para producto ya
+fotografiado en estudio (fondo blanco/neutro, sin escena de uso), tipo
+ficha de marketplace: gráfico decorativo de marca (banda verde en onda
+con acento lima) en la esquina superior izquierda, producto flotando
+sobre fondo blanco y sobre el gráfico a la vez (recorte conseguido con
+`mix-blend-mode:multiply` sobre el fondo blanco/neutro de la foto
+original — funciona bien cuando el fondo de estudio es blanco puro,
+sin necesidad de un recorte real con canal alfa), titular + subtítulo
+de categoría en dos líneas (nunca el nombre de producto tal cual),
+precio en placa sólida de color, lista vertical de 4 iconos de
+características con separadores finos, logo de marca y franja de pie
+de página con envío/tienda/web.
+
+- `templates/ofipapel-altavoz-a340-foto-producto.html` — Altavoz
+  amplificado A340, 65€.
+
+Diferencia clave con "lifestyle": aquí el precio vive en una placa de
+color sólido (no un numeral flotante sobre foto) y las características
+se leen en columna vertical con icono circular, no en fila horizontal —
+mismo nivel de exigencia de `OFIPAPEL_VISUAL_DNA.md` (una sola
+tipografía, CTA/acción siempre presente — aquí resuelta por el pie de
+página "¡Te esperamos en tienda!" en vez de un enlace con flecha,
+logo/precio sin competir por el mismo cuadrante, etc.), pero un
+lenguaje visual deliberadamente distinto porque el material de origen
+(foto de estudio, no fotografía de ambiente) pide otro tratamiento.
