@@ -87,8 +87,9 @@ cp 404.html _site/ 2>/dev/null || true
 cp -r alquileres/dist/. _site/alquileres/
 cp -r joe-app/dist/. _site/joe/
 
-# SPA routing
+# SPA routing (+ fuerza "/" al hub exacto, ver comentario en netlify.toml)
 {
+  echo "/               /index.html              200"
   echo "/alquileres/*  /alquileres/index.html  200"
   echo "/joe/*         /joe/index.html          200"
 } > _site/_redirects

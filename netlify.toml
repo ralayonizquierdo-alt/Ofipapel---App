@@ -13,6 +13,15 @@
 [functions]
   directory = "netlify/functions"
 
+# Fuerza que "/" sirva el hub exacto (index.html, minúsculas). Sin esta
+# regla, la resolución automática de "documento por defecto" de Netlify para
+# "/" puede confundirse entre index.html e Index.html (Control Financiero) —
+# solo se diferencian por mayúsculas — y servir el fichero equivocado.
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
+
 # SPA routing: cualquier ruta bajo /alquileres/ sirve el index de la app
 [[redirects]]
   from = "/alquileres/*"
