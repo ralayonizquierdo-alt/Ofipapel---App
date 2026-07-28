@@ -351,13 +351,37 @@ body{
   var paths = document.querySelectorAll('.connector-svg path');
 
   // Único sonido: el golpe metálico real (mp3 del propietario), nada más
-  // abrir la app. El navegador puede bloquear la reproducción automática
-  // sin gesto previo del usuario — si play() falla, queda pendiente y se
+  // abrir la app, con un fundido de entrada de .45s (el golpe seco del
+  // principio del audio original sonaba demasiado fuerte) — el fundido se
+  // hace en código con un nodo de ganancia de Web Audio, sin tocar el
+  // fichero. El navegador puede bloquear la reproducción automática sin
+  // gesto previo del usuario — si play() falla, queda pendiente y se
   // reintenta en el primer clic/toque/tecla.
   var openAudio = new Audio('sound-connect.mp3');
   openAudio.preload = 'auto';
   var openAudioPending = false;
+  var fadeCtx = null, fadeGain = null;
+  var FADE_IN = .45;
+  function setupFade(){
+    if (fadeGain) return;
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    try {
+      fadeCtx = new Ctx();
+      var source = fadeCtx.createMediaElementSource(openAudio);
+      fadeGain = fadeCtx.createGain();
+      source.connect(fadeGain).connect(fadeCtx.destination);
+    } catch (e) {}
+  }
   function playOpenSound(){
+    setupFade();
+    if (fadeCtx && fadeCtx.state !== 'running') fadeCtx.resume().catch(function(){});
+    if (fadeGain && fadeCtx) {
+      var now = fadeCtx.currentTime;
+      fadeGain.gain.cancelScheduledValues(now);
+      fadeGain.gain.setValueAtTime(0, now);
+      fadeGain.gain.linearRampToValueAtTime(1, now + FADE_IN);
+    }
     openAudio.currentTime = 0;
     var p = openAudio.play();
     if (p && p.catch) {
@@ -368,8 +392,9 @@ body{
   playOpenSound();
   ['pointerdown', 'keydown'].forEach(function(evt){
     document.addEventListener(evt, function(){
+      if (fadeCtx && fadeCtx.state !== 'running') fadeCtx.resume().catch(function(){});
       if (openAudioPending) {
-        openAudio.play().then(function(){ openAudioPending = false; }).catch(function(){});
+        playOpenSound();
       }
     }, { passive: true });
   });
