@@ -80,6 +80,8 @@ cp logo-ofipapel-transparente.png _site/ 2>/dev/null || true
 cp fondo-ofipapel.jpg _site/ 2>/dev/null || true
 cp fondo-conversaciones.jpg _site/ 2>/dev/null || true
 cp bg-trebol.png _site/ 2>/dev/null || true
+cp hub-coin-*.webp _site/ 2>/dev/null || true
+cp hub-center.webp _site/ 2>/dev/null || true
 cp privacidad.html _site/ 2>/dev/null || true
 cp 404.html _site/ 2>/dev/null || true
 
