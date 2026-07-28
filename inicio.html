@@ -82,10 +82,11 @@ body{
 }
 .connector-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;}
 .connector-svg path{
-  fill:none;stroke-width:.55;stroke-linecap:round;
-  opacity:.55;transition:opacity .25s, stroke-width .25s;
+  fill:none;stroke-width:1;stroke-linecap:round;
+  opacity:.85;transition:opacity .25s, stroke-width .25s;
+  filter:drop-shadow(0 0 1px rgba(0,0,0,.35));
 }
-.connector-svg path.active{opacity:1;stroke-width:1;}
+.connector-svg path.active{opacity:1;stroke-width:1.6;}
 
 /* ─── Aros orbitales decorativos + partículas de datos (efecto tech/IA) ─── */
 .ring{fill:none;stroke-width:.35;transform-origin:50% 50%;transform-box:fill-box;}
