@@ -350,96 +350,32 @@ body{
   var sats = document.querySelectorAll('.satellite');
   var paths = document.querySelectorAll('.connector-svg path');
 
-  // Sonido sintetizado con Web Audio (sin fichero externo): una nota por
-  // cada cable que termina de conectar (escala ascendente) + un acorde
-  // final cuando conecta el último. Los navegadores bloquean el audio sin
-  // gesto previo del usuario — se intenta según avanza la animación y,
-  // si está bloqueado, en cuanto haya el primer clic/toque/tecla las
-  // notas que aún no hayan sonado (o el acorde final) sonarán con normalidad,
-  // porque cada nota comprueba el estado del audio en su propio momento.
-  var audioCtx = null;
-  function ensureAudioCtx(){
-    if (audioCtx) return audioCtx;
-    var Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return null;
-    try { audioCtx = new Ctx(); } catch (e) { return null; }
-    return audioCtx;
+  // Único sonido: el golpe metálico real (mp3 del propietario), nada más
+  // abrir la app. El navegador puede bloquear la reproducción automática
+  // sin gesto previo del usuario — si play() falla, queda pendiente y se
+  // reintenta en el primer clic/toque/tecla.
+  var openAudio = new Audio('sound-connect.mp3');
+  openAudio.preload = 'auto';
+  var openAudioPending = false;
+  function playOpenSound(){
+    openAudio.currentTime = 0;
+    var p = openAudio.play();
+    if (p && p.catch) {
+      p.then(function(){ openAudioPending = false; })
+       .catch(function(){ openAudioPending = true; });
+    }
   }
+  playOpenSound();
   ['pointerdown', 'keydown'].forEach(function(evt){
     document.addEventListener(evt, function(){
-      var ctx = ensureAudioCtx();
-      if (ctx && ctx.state !== 'running') ctx.resume().catch(function(){});
-      if (finalAudioPending && finalAudio) {
-        finalAudio.play().then(function(){ finalAudioPending = false; }).catch(function(){});
+      if (openAudioPending) {
+        openAudio.play().then(function(){ openAudioPending = false; }).catch(function(){});
       }
     }, { passive: true });
   });
-  // Ráfaga de ruido filtrado (buffer de muestras aleatorias + filtro
-  // paso-banda) — la base "industrial/estática" de los efectos de abajo,
-  // en vez de tonos limpios de xilófono.
-  function noiseBurst(ctx, at, duration, peak, filterFreq, q){
-    var size = Math.max(1, Math.floor(ctx.sampleRate * duration));
-    var buffer = ctx.createBuffer(1, size, ctx.sampleRate);
-    var data = buffer.getChannelData(0);
-    for (var i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
-    var src = ctx.createBufferSource();
-    src.buffer = buffer;
-    var filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = filterFreq;
-    filter.Q.value = q || 1;
-    var gain = ctx.createGain();
-    gain.gain.setValueAtTime(0, at);
-    gain.gain.linearRampToValueAtTime(peak, at + .01);
-    gain.gain.exponentialRampToValueAtTime(.001, at + duration);
-    src.connect(filter).connect(gain).connect(ctx.destination);
-    src.start(at); src.stop(at + duration + .02);
-  }
-  // Tick de conexión: pitido cuadrado descendente (tipo consola/escáner) +
-  // micro-chasquido de ruido, con un punto de frecuencia distinto por cable.
-  function playTick(index){
-    var ctx = ensureAudioCtx();
-    if (!ctx || ctx.state !== 'running') return;
-    var now = ctx.currentTime;
-    var startFreq = 1500 - index * 70;
-    var osc = ctx.createOscillator();
-    var filter = ctx.createBiquadFilter();
-    var gain = ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(startFreq, now);
-    osc.frequency.exponentialRampToValueAtTime(startFreq * .5, now + .09);
-    filter.type = 'lowpass';
-    filter.frequency.value = 3400;
-    filter.Q.value = .7;
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(.1, now + .006);
-    gain.gain.exponentialRampToValueAtTime(.001, now + .13);
-    osc.connect(filter).connect(gain).connect(ctx.destination);
-    osc.start(now); osc.stop(now + .15);
-    noiseBurst(ctx, now, .04, .05, 5200, 3);
-  }
-  // Remate final: el mp3 real que eligió el propietario (golpe metálico),
-  // en vez de un sonido sintetizado. Igual que con los ticks, el navegador
-  // puede bloquear la reproducción sin gesto previo — si play() falla,
-  // queda pendiente y se reintenta en el primer clic/toque/tecla.
-  var finalAudio = null;
-  var finalAudioPending = false;
-  function playFinalChord(){
-    if (!finalAudio) {
-      finalAudio = new Audio('sound-connect.mp3');
-      finalAudio.preload = 'auto';
-    }
-    finalAudio.currentTime = 0;
-    var p = finalAudio.play();
-    if (p && p.catch) {
-      p.then(function(){ finalAudioPending = false; })
-       .catch(function(){ finalAudioPending = true; });
-    }
-  }
 
   // Dibuja cada cable de conexión (longitud real vía getTotalLength, más fiable
   // entre navegadores que depender de pathLength+CSS para el efecto de trazo).
-  var lastPath = paths[paths.length - 1];
   paths.forEach(function(path, i){
     var len = path.getTotalLength();
     path.style.strokeDasharray = len;
@@ -447,10 +383,6 @@ body{
     requestAnimationFrame(function(){
       path.style.transition = 'stroke-dashoffset 1.4s cubic-bezier(.4,0,.2,1) ' + (0.3 + i * 0.22) + 's';
       path.style.strokeDashoffset = '0';
-      path.addEventListener('transitionend', function(){
-        playTick(i);
-        if (path === lastPath) playFinalChord();
-      }, { once: true });
     });
   });
 
