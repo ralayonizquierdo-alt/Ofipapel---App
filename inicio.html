@@ -204,17 +204,16 @@ body{
    dimensiona por vh en su lugar y se recorta el texto que sobra. ─── */
 @media (orientation:landscape) and (max-height:700px){
   html,body{height:100%;}
-  body{padding:1.2vh 2vw;justify-content:flex-start;min-height:100svh;}
-  .intro{margin-bottom:.8vh;}
-  .intro-eyebrow{display:none;}
-  .intro h1{font-size:clamp(15px,3vh,22px);}
-  .intro p{display:none;}
+  body{padding:1.6vh 2vw;justify-content:center;min-height:100svh;}
+  /* Se quita el título por completo: sin él la placa gana toda esa altura
+     y la moneda de arriba (Gestión Finanzas, y:8%) deja de asomar fuera. */
+  .intro{display:none;}
   /* Placa ancha de verdad (no un cuadrado grande): el orbit-shell deja de
      ser 1:1 y pasa a un rectángulo ancho — como el conector SVG usa
      preserveAspectRatio="none" (ver HTML), los cables se estiran igual
      que las monedas (posicionadas en %) y siguen encajando perfecto. */
-  .hub-plate{width:min(97vw,1200px);max-width:none;padding:1.4vh 2.4vh;}
-  .orbit-shell{width:100%;height:min(76vh,520px);aspect-ratio:auto;max-width:none;}
+  .hub-plate{width:min(97vw,1200px);max-width:none;padding:1.6vh 2.4vh;}
+  .orbit-shell{width:100%;height:min(90vh,600px);aspect-ratio:auto;max-width:none;}
   .hub-center{width:clamp(74px,17vh,140px);height:clamp(74px,17vh,140px);}
   .sat-badge{width:clamp(42px,10.5vh,76px);height:clamp(42px,10.5vh,76px);}
   .satellite{width:clamp(70px,15vw,130px);}
