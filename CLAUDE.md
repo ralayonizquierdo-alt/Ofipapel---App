@@ -10,21 +10,24 @@ sesión — no dupliques aquí lo que ya vive en otro sitio.
 
 | Ruta | Qué es | Stack |
 |---|---|---|
+| `inicio.html` | **Hub del ecosistema** — pantalla de entrada con los 7 iconos animados (uno por app) para saltar a cualquiera de ellas | HTML/CSS/JS vanilla en un único fichero, sin build ni dependencias externas (solo Google Fonts). Antes era un redirect directo a `Index.html` servido desde `index.html`; ahora `index.html` no existe como fichero — `netlify.toml` hace un rewrite de `/` a `/inicio.html`. Se eligió deliberadamente un nombre sin colisión de mayúsculas con `Index.html`: tenerlos ambos (`index.html`/`Index.html`) en el mismo directorio hacía que Netlify sirviera aleatoriamente el fichero equivocado en `/`, incluso pidiendo la ruta exacta. |
 | `Index.html` | Control financiero de Ofipapel (ventas, caja, informes, asistente IA) | HTML/CSS/JS vanilla en un único fichero, sin build. Supabase como backend (URL + clave `anon` hardcodeadas, es el modelo esperado para clientes frontend). Login 100% client-side (ver seguridad conocida). |
 | `canarias-ink.html` | Catálogo/e-commerce de consumibles de impresora | HTML/CSS/JS vanilla en un único fichero, sin build. Catálogo de productos embebido como array JS. |
 | `falcontrol.html` | App personal de alertas de radio, sin relación de negocio con Ofipapel | HTML/CSS/JS vanilla en un único fichero, sin build. |
 | `vacaciones.html` | Planificador de cuadrante de vacaciones del personal | HTML/CSS/JS vanilla en un único fichero, sin build. |
 | `importacion-pedidos-proveedores.html` | Conversión de facturas PDF de proveedores a Excel 5.0/95 | HTML/CSS/JS vanilla en un único fichero, sin build. |
+| `fichaje.html` | Registro horario del personal (fichajes, exportación mensual, login de gerencia) | HTML/CSS/JS vanilla en un único fichero, sin build. Backend Firebase (ver comentario `SECRETS_SCAN_OMIT_PATHS` en `netlify.toml`). Añadida recientemente — **todavía no tiene icono en el hub de `inicio.html`** (el hub se quedó fijado en las 7 apps ya documentadas aquí; añadir una 8ª entrada es una decisión pendiente del propietario). |
 | `privacidad.html`, `404.html` | Política de privacidad (review de WhatsApp Cloud API) y página 404 propia | HTML estático |
 | `joe-app/` | App personal: agenda, turnos de hospital, música, seguimiento de "Limón", tareas de empresa, "Coisinhas" | React 19 + Vite + TypeScript + Tailwind 4 + Supabase (RLS real vía sesión anónima, ver seguridad). Acceso por PIN + biometría WebAuthn opcional (`PinScreen.tsx`), sin distinguir personas. |
 | `alquileres/` | Gestión de alquileres vacacionales: reservas, precios, reparaciones, cobros, analítica | React 19 + Vite + TypeScript + Tailwind 4 + Recharts. Backend **Firebase Firestore** (`contexts/DataContext.tsx`, tiempo real vía `onSnapshot`) con login por persona (`LoginScreen.tsx`, Luis/Rober) y migración automática de datos antiguos de `localStorage` (`MigrateLocalData.tsx`). `@supabase/supabase-js` sigue como dependencia en `package.json` pero ya no se usa en ningún fichero — dependencia muerta, ver `.claude/rax/DEUDA_TECNICA.md` DT-10. |
 | `netlify/functions/` | Bot de WhatsApp con IA + proxy del Asistente IA de `Index.html` | Netlify Functions. `whatsapp-webhook.js` (Meta Cloud API) y `twilio-webhook.js` (Twilio, alternativa — cuál es la canónica sigue sin decidirse) comparten `whatsapp-agent-core.js` (matching de FAQ + llamada a Claude) y `whatsapp-agent-config.js` (datos del negocio). `chat-assistant.js` es un proxy aparte para el chat de `Index.html`: la API key de Anthropic vive solo aquí, nunca en el navegador. |
 | `design-studio/` | Estudio de diseño autónomo de RAX: banners, posts, flyers, edición de imagen | Ver `design-studio/README.md` — brand kit real por app (verificado contra el CSS de cada una), script de render HTML→PNG/PDF (`render-html.js`, probado), integración con Adobe Firefly API (`firefly-generate.js`, código completo, sin probar — pendiente de credenciales). No se ejecuta como parte de ningún build; es una herramienta que se invoca a demanda. |
 
-Los HTML monolíticos (`Index.html`, `canarias-ink.html`, `falcontrol.html`,
-`vacaciones.html`, `importacion-pedidos-proveedores.html`) no tienen proceso
-de build: se sirven tal cual. Cualquier cambio se hace editando el fichero
-directamente (CSS y JS están embebidos inline).
+Los HTML monolíticos (`inicio.html`, `Index.html`, `canarias-ink.html`,
+`falcontrol.html`, `vacaciones.html`, `importacion-pedidos-proveedores.html`,
+`fichaje.html`) no tienen proceso de build: se sirven tal cual. Cualquier
+cambio se hace editando el fichero directamente (CSS y JS están embebidos
+inline).
 
 ## Comandos
 
