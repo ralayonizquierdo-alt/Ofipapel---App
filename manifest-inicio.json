@@ -5,7 +5,7 @@
   "start_url": "inicio.html",
   "scope": ".",
   "display": "standalone",
-  "background_color": "#0d3d0d",
+  "background_color": "#dfc7a6",
   "theme_color": "#0d3d0d",
   "icons": [
     { "src": "icon-ofipapel-192.png", "sizes": "192x192", "type": "image/png" },
