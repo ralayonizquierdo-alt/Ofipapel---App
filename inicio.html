@@ -203,8 +203,12 @@ body{
    usa vw para dimensionar y se sale de pantalla por abajo/arriba. Aquí se
    dimensiona por vh en su lugar y se recorta el texto que sobra. ─── */
 @media (orientation:landscape) and (max-height:700px){
-  html,body{height:100%;}
-  body{padding:1.6vh 2vw;justify-content:center;min-height:100svh;}
+  /* svh (small viewport height) en vez de vh: en el móvil, vh normal se
+     calcula como si la barra de direcciones estuviera oculta, así que
+     cuando SÍ está visible (como en la captura) todo lo dimensionado con
+     vh se pasaba de la altura real disponible y la moneda de arriba se
+     recortaba contra la barra. svh siempre usa la altura visible mínima. */
+  body{padding:1.4svh 2vw;justify-content:center;min-height:100svh;}
   /* Se quita el título por completo: sin él la placa gana toda esa altura
      y la moneda de arriba (Gestión Finanzas, y:8%) deja de asomar fuera. */
   .intro{display:none;}
@@ -212,13 +216,13 @@ body{
      ser 1:1 y pasa a un rectángulo ancho — como el conector SVG usa
      preserveAspectRatio="none" (ver HTML), los cables se estiran igual
      que las monedas (posicionadas en %) y siguen encajando perfecto. */
-  .hub-plate{width:min(97vw,1200px);max-width:none;padding:1.6vh 2.4vh;}
-  .orbit-shell{width:100%;height:min(90vh,600px);aspect-ratio:auto;max-width:none;}
-  .hub-center{width:clamp(74px,17vh,140px);height:clamp(74px,17vh,140px);}
-  .sat-badge{width:clamp(42px,10.5vh,76px);height:clamp(42px,10.5vh,76px);}
-  .satellite{width:clamp(70px,15vw,130px);}
-  .sat-label{font-size:clamp(10px,2.1vh,14px);margin-top:5px;}
-  .sat-tag{font-size:clamp(7px,1.2vh,8.5px);margin-top:1px;}
+  .hub-plate{width:min(97vw,1200px);max-width:none;padding:1.6svh 2.4svh;}
+  .orbit-shell{width:100%;height:min(84svh,600px);aspect-ratio:auto;max-width:none;}
+  .hub-center{width:clamp(70px,16svh,140px);height:clamp(70px,16svh,140px);}
+  .sat-badge{width:clamp(40px,10svh,76px);height:clamp(40px,10svh,76px);}
+  .satellite{width:clamp(66px,15vw,130px);}
+  .sat-label{font-size:clamp(10px,2svh,14px);margin-top:5px;}
+  .sat-tag{font-size:clamp(7px,1.1svh,8.5px);margin-top:1px;}
   .footer-tag{display:none;}
 }
 
