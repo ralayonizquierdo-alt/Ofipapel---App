@@ -87,9 +87,12 @@ cp 404.html _site/ 2>/dev/null || true
 cp -r alquileres/dist/. _site/alquileres/
 cp -r joe-app/dist/. _site/joe/
 
-# SPA routing (+ fuerza "/" al hub exacto, ver comentario en netlify.toml)
+# SPA routing (+ fuerza "/" al hub exacto, ver comentario en netlify.toml).
+# El "!" tras el 200 es la sintaxis de _redirects para force=true: sin él,
+# Netlify no aplica la regla porque "/" resuelve a Index.html como fichero
+# "existente" (case-insensitive) antes de mirar los redirects.
 {
-  echo "/               /inicio.html              200"
+  echo "/               /inicio.html              200!"
   echo "/alquileres/*  /alquileres/index.html  200"
   echo "/joe/*         /joe/index.html          200"
 } > _site/_redirects

@@ -13,15 +13,19 @@
 [functions]
   directory = "netlify/functions"
 
-# El hub vive en inicio.html (no index.html): Netlify confundía index.html
-# con Index.html (Control Financiero) — solo se diferencian por mayúsculas —
-# y servía siempre el fichero equivocado en "/", incluso pidiendo la ruta
-# exacta "/index.html". Usar un nombre sin colisión de mayúsculas lo evita
-# de raíz sin tocar Index.html (app de uso diario).
+# El hub vive en inicio.html (no index.html). La causa real de que "/"
+# sirviera siempre Index.html no era una colisión de caché ni de nombre:
+# por defecto Netlify NO aplica una regla de redirección si la ruta ya
+# "existe" como fichero, y su resolución del documento por defecto para "/"
+# compara contra "index.html" de forma insensible a mayúsculas — así que
+# encontraba Index.html como "fichero existente" y servía eso directamente,
+# ignorando esta regla por completo, sin importar el nombre del hub ni el
+# destino del redirect. force=true obliga a aplicar siempre la regla.
 [[redirects]]
   from = "/"
   to = "/inicio.html"
   status = 200
+  force = true
 
 # SPA routing: cualquier ruta bajo /alquileres/ sirve el index de la app
 [[redirects]]
