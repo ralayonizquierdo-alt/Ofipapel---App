@@ -105,7 +105,7 @@ body{
   background:linear-gradient(135deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,.06) 30%, transparent 55%);
   pointer-events:none;
 }
-.hub-center svg.clover-art{width:52%;height:52%;filter:drop-shadow(0 3px 4px rgba(0,30,0,.55));position:relative;z-index:1;}
+.hub-center svg.clover-art{width:52%;height:52%;filter:drop-shadow(0 3px 2px rgba(0,20,0,.3)) drop-shadow(0 5px 6px rgba(0,20,0,.4));position:relative;z-index:1;}
 .hub-center .hub-label{
   font-family:'Inter',sans-serif;font-size:clamp(11px,2.2vmin,14px);font-weight:800;line-height:1.05;
   color:#F4FFEA;margin-top:6px;text-transform:uppercase;text-align:center;letter-spacing:.5px;
@@ -167,7 +167,7 @@ body{
 .satellite:nth-child(8) .sat-badge{animation-delay:1.9s;}
 @keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-7px);}}
 
-.sat-badge svg{width:60%;height:60%;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));}
+.sat-badge svg{width:60%;height:60%;filter:drop-shadow(0 1px 1px rgba(0,0,0,.28)) drop-shadow(0 3px 4px rgba(0,0,0,.4));}
 
 .satellite:hover .sat-badge, .satellite:focus-visible .sat-badge{
   transform:translateY(-6px) scale(1.09);
@@ -221,21 +221,26 @@ body{
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
       <linearGradient id="cloverFill" x1="16" y1="6" x2="84" y2="94" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stop-color="#DFF7A6"/>
-        <stop offset="45%" stop-color="#7ED957"/>
-        <stop offset="100%" stop-color="#2E8B2E"/>
+        <stop offset="0%" stop-color="#B9EA7A"/>
+        <stop offset="45%" stop-color="#6BC94A"/>
+        <stop offset="100%" stop-color="#1F6B1F"/>
       </linearGradient>
-      <path id="petalShape" d="M50,54 C50,54 23,43 19,24 C16,10 32,3 45,11 C48,13 50,16 50,21 C50,16 52,13 55,11 C68,3 84,10 81,24 C77,43 50,54 50,54 Z"/>
+      <path id="petalShape" d="M50,55 C50,55 21,44 16,23 C12,6 30,-3 45,9 C48,11 50,14 50,20 C50,14 52,11 55,9 C70,-3 88,6 84,23 C79,44 50,55 50,55 Z"/>
+      <path id="petalVein" d="M50,49 C50,38 50,23 50,10"/>
       <symbol id="cloverArt" viewBox="0 0 100 100">
         <path d="M52,50 C56,60 61,70 65,80" stroke="#C9A227" stroke-width="8" stroke-linecap="round" fill="none"/>
         <path d="M52,50 C56,60 61,70 65,80" stroke="url(#cloverFill)" stroke-width="5" stroke-linecap="round" fill="none"/>
-        <use href="#petalShape" fill="url(#cloverFill)" stroke="#C9A227" stroke-width="2.2"/>
-        <use href="#petalShape" fill="url(#cloverFill)" stroke="#C9A227" stroke-width="2.2" transform="rotate(90 50 50)"/>
-        <use href="#petalShape" fill="url(#cloverFill)" stroke="#C9A227" stroke-width="2.2" transform="rotate(180 50 50)"/>
-        <use href="#petalShape" fill="url(#cloverFill)" stroke="#C9A227" stroke-width="2.2" transform="rotate(270 50 50)"/>
+        <use href="#petalShape" fill="url(#cloverFill)" stroke="#C9A227" stroke-width="2.4"/>
+        <use href="#petalShape" fill="url(#cloverFill)" stroke="#C9A227" stroke-width="2.4" transform="rotate(90 50 50)"/>
+        <use href="#petalShape" fill="url(#cloverFill)" stroke="#C9A227" stroke-width="2.4" transform="rotate(180 50 50)"/>
+        <use href="#petalShape" fill="url(#cloverFill)" stroke="#C9A227" stroke-width="2.4" transform="rotate(270 50 50)"/>
+        <use href="#petalVein" stroke="#1C6B1C" stroke-width="1" stroke-linecap="round" opacity=".5"/>
+        <use href="#petalVein" stroke="#1C6B1C" stroke-width="1" stroke-linecap="round" opacity=".5" transform="rotate(90 50 50)"/>
+        <use href="#petalVein" stroke="#1C6B1C" stroke-width="1" stroke-linecap="round" opacity=".5" transform="rotate(180 50 50)"/>
+        <use href="#petalVein" stroke="#1C6B1C" stroke-width="1" stroke-linecap="round" opacity=".5" transform="rotate(270 50 50)"/>
         <circle cx="50" cy="50" r="6" fill="#5FAF3A" stroke="#C9A227" stroke-width="1.6"/>
-        <ellipse cx="35" cy="17" rx="10" ry="5.5" fill="#fff" opacity=".35" transform="rotate(-24 35 17)"/>
-        <ellipse cx="70" cy="63" rx="7" ry="3.5" fill="#fff" opacity=".18" transform="rotate(56 70 63)"/>
+        <ellipse cx="34" cy="16" rx="9" ry="5" fill="#fff" opacity=".3" transform="rotate(-24 34 16)"/>
+        <ellipse cx="71" cy="64" rx="6" ry="3" fill="#fff" opacity=".15" transform="rotate(56 71 64)"/>
       </symbol>
     </defs>
   </svg>
