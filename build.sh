@@ -63,7 +63,7 @@ mkdir -p _site/alquileres
 mkdir -p _site/joe
 
 # Copy root static files
-cp index.html _site/
+cp inicio.html _site/
 cp Index.html _site/ 2>/dev/null || true
 cp canarias-ink.html _site/ 2>/dev/null || true
 cp falcontrol.html _site/ 2>/dev/null || true
@@ -89,7 +89,7 @@ cp -r joe-app/dist/. _site/joe/
 
 # SPA routing (+ fuerza "/" al hub exacto, ver comentario en netlify.toml)
 {
-  echo "/               /index.html              200"
+  echo "/               /inicio.html              200"
   echo "/alquileres/*  /alquileres/index.html  200"
   echo "/joe/*         /joe/index.html          200"
 } > _site/_redirects
