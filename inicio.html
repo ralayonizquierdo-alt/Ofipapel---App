@@ -83,6 +83,18 @@ body{
 }
 .connector-svg path.active{opacity:1;stroke-width:1;}
 
+/* ─── Aros orbitales decorativos + partículas de datos (efecto tech/IA) ─── */
+.ring{fill:none;stroke-width:.35;transform-origin:50% 50%;transform-box:fill-box;}
+.ring-gold{stroke:#D9A62E;opacity:.5;animation:spinCW 90s linear infinite;}
+.ring-violet{stroke:#8E5CF7;opacity:.4;animation:spinCCW 70s linear infinite;}
+.ring-teal{stroke:#14B8A6;opacity:.4;animation:spinCW 60s linear infinite;}
+@keyframes spinCW{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+@keyframes spinCCW{from{transform:rotate(0deg);}to{transform:rotate(-360deg);}}
+.data-dots circle{opacity:.9;}
+@media (max-width:720px), (max-height:640px){
+  .orbit-rings,.data-dots{display:none;}
+}
+
 .orbit{position:relative;width:100%;height:100%;}
 
 /* ─── Hub center (foto real recortada de la referencia del propietario,
@@ -189,13 +201,41 @@ body{
   <div class="hub-plate">
   <div class="orbit-shell">
     <svg class="connector-svg" viewBox="0 0 100 100">
-      <path d="M50,50 Q58,29 50,8"        stroke="#0C5C20"/>
-      <path d="M50,50 Q71.4,43.2 82.8,23.8" stroke="#0A3D74"/>
-      <path d="M50,50 Q68.7,62.5 91,59.4"  stroke="#B17A00"/>
-      <path d="M50,50 Q51.9,72.4 68.2,87.8" stroke="#CFC6B0"/>
-      <path d="M50,50 Q33.7,65.5 31.8,87.8" stroke="#2C2C2C"/>
-      <path d="M50,50 Q27.7,46.9 9,59.4"   stroke="#6B3A12"/>
-      <path d="M50,50 Q38.6,30.7 17.2,23.8" stroke="#970000"/>
+      <defs>
+        <filter id="orbitGlow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="1.1" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="dotGlow" x="-200%" y="-200%" width="500%" height="500%">
+          <feGaussianBlur stdDeviation="1.4"/>
+        </filter>
+      </defs>
+
+      <!-- Aros orbitales decorativos (el círculo dorado pasa exacto por las 7 monedas) -->
+      <g class="orbit-rings" filter="url(#orbitGlow)">
+        <circle class="ring ring-gold" cx="50" cy="50" r="42"/>
+        <ellipse class="ring ring-violet" cx="50" cy="50" rx="42" ry="27" transform="rotate(21 50 50)"/>
+        <ellipse class="ring ring-teal" cx="50" cy="50" rx="29" ry="42" transform="rotate(-24 50 50)"/>
+      </g>
+
+      <path id="p1" d="M50,50 Q58,29 50,8"        stroke="#0C5C20"/>
+      <path id="p2" d="M50,50 Q71.4,43.2 82.8,23.8" stroke="#0A3D74"/>
+      <path id="p3" d="M50,50 Q68.7,62.5 91,59.4"  stroke="#B17A00"/>
+      <path id="p4" d="M50,50 Q51.9,72.4 68.2,87.8" stroke="#CFC6B0"/>
+      <path id="p5" d="M50,50 Q33.7,65.5 31.8,87.8" stroke="#2C2C2C"/>
+      <path id="p6" d="M50,50 Q27.7,46.9 9,59.4"   stroke="#6B3A12"/>
+      <path id="p7" d="M50,50 Q38.6,30.7 17.2,23.8" stroke="#970000"/>
+
+      <!-- Partículas de datos viajando por los cables (efecto tech/IA) -->
+      <g class="data-dots" filter="url(#dotGlow)">
+        <circle r="1" fill="#EFFFE0"><animateMotion dur="2.6s" begin="0s"   repeatCount="indefinite"><mpath href="#p1"/></animateMotion></circle>
+        <circle r="1" fill="#EFFFE0"><animateMotion dur="2.8s" begin=".3s"  repeatCount="indefinite"><mpath href="#p2"/></animateMotion></circle>
+        <circle r="1" fill="#EFFFE0"><animateMotion dur="2.5s" begin=".6s"  repeatCount="indefinite"><mpath href="#p3"/></animateMotion></circle>
+        <circle r="1" fill="#EFFFE0"><animateMotion dur="2.9s" begin=".9s"  repeatCount="indefinite"><mpath href="#p4"/></animateMotion></circle>
+        <circle r="1" fill="#EFFFE0"><animateMotion dur="2.7s" begin="1.2s" repeatCount="indefinite"><mpath href="#p5"/></animateMotion></circle>
+        <circle r="1" fill="#EFFFE0"><animateMotion dur="3.0s" begin="1.5s" repeatCount="indefinite"><mpath href="#p6"/></animateMotion></circle>
+        <circle r="1" fill="#EFFFE0"><animateMotion dur="2.6s" begin="1.8s" repeatCount="indefinite"><mpath href="#p7"/></animateMotion></circle>
+      </g>
     </svg>
 
     <div class="orbit">
