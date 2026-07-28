@@ -204,18 +204,22 @@ body{
    dimensiona por vh en su lugar y se recorta el texto que sobra. ─── */
 @media (orientation:landscape) and (max-height:700px){
   html,body{height:100%;}
-  body{padding:1.5vh 2vw;justify-content:flex-start;min-height:100svh;}
-  .intro{margin-bottom:1vh;}
+  body{padding:1.2vh 2vw;justify-content:flex-start;min-height:100svh;}
+  .intro{margin-bottom:.8vh;}
   .intro-eyebrow{display:none;}
-  .intro h1{font-size:clamp(16px,3.4vh,24px);}
+  .intro h1{font-size:clamp(15px,3vh,22px);}
   .intro p{display:none;}
-  .hub-plate{width:min(97vw,90vh,900px);max-width:none;padding:1.6vh;}
-  .orbit-shell{max-width:none;}
-  .hub-center{width:clamp(76px,18vh,150px);height:clamp(76px,18vh,150px);}
-  .sat-badge{width:clamp(44px,11vh,80px);height:clamp(44px,11vh,80px);}
-  .satellite{width:clamp(64px,16vh,104px);}
-  .sat-label{font-size:clamp(10px,2.3vh,14px);margin-top:5px;}
-  .sat-tag{font-size:clamp(7px,1.3vh,8.5px);margin-top:1px;}
+  /* Placa ancha de verdad (no un cuadrado grande): el orbit-shell deja de
+     ser 1:1 y pasa a un rectángulo ancho — como el conector SVG usa
+     preserveAspectRatio="none" (ver HTML), los cables se estiran igual
+     que las monedas (posicionadas en %) y siguen encajando perfecto. */
+  .hub-plate{width:min(97vw,1200px);max-width:none;padding:1.4vh 2.4vh;}
+  .orbit-shell{width:100%;height:min(76vh,520px);aspect-ratio:auto;max-width:none;}
+  .hub-center{width:clamp(74px,17vh,140px);height:clamp(74px,17vh,140px);}
+  .sat-badge{width:clamp(42px,10.5vh,76px);height:clamp(42px,10.5vh,76px);}
+  .satellite{width:clamp(70px,15vw,130px);}
+  .sat-label{font-size:clamp(10px,2.1vh,14px);margin-top:5px;}
+  .sat-tag{font-size:clamp(7px,1.2vh,8.5px);margin-top:1px;}
   .footer-tag{display:none;}
 }
 
@@ -236,7 +240,7 @@ body{
 
   <div class="hub-plate">
   <div class="orbit-shell">
-    <svg class="connector-svg" viewBox="0 0 100 100">
+    <svg class="connector-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
       <defs>
         <filter id="orbitGlow" x="-60%" y="-60%" width="220%" height="220%">
           <feGaussianBlur stdDeviation="1.1" result="blur"/>
