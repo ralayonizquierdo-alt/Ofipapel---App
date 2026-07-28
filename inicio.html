@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="theme-color" content="#0d3d0d">
 <meta name="description" content="Ecosistema Ofipapel — accede a todas las aplicaciones desde un único centro de control.">
-<link rel="manifest" href="/manifest-inicio.json">
+<link rel="manifest" href="manifest-inicio.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ofipapel 360°">
@@ -257,7 +257,7 @@ body{
     <div class="orbit">
       <div class="hub-center" aria-hidden="true"></div>
 
-      <a class="satellite" href="/Index.html" style="--x:50;--y:8;--coin:url('hub-coin-green.webp');--c-glow:rgba(12,92,32,.55);" aria-label="Gestión Finanzas">
+      <a class="satellite" href="Index.html" style="--x:50;--y:8;--coin:url('hub-coin-green.webp');--c-glow:rgba(12,92,32,.55);" aria-label="Gestión Finanzas">
         <span class="sat-inner">
           <span class="sat-badge"></span>
           <span class="sat-label">Gestión Finanzas</span>
@@ -265,7 +265,7 @@ body{
         </span>
       </a>
 
-      <a class="satellite" href="/alquileres/" style="--x:82.84;--y:23.81;--coin:url('hub-coin-blue.webp');--c-glow:rgba(10,61,116,.55);" aria-label="Alquileres">
+      <a class="satellite" href="alquileres/" style="--x:82.84;--y:23.81;--coin:url('hub-coin-blue.webp');--c-glow:rgba(10,61,116,.55);" aria-label="Alquileres">
         <span class="sat-inner">
           <span class="sat-badge"></span>
           <span class="sat-label">Alquileres</span>
@@ -273,7 +273,7 @@ body{
         </span>
       </a>
 
-      <a class="satellite" href="/vacaciones.html" style="--x:90.96;--y:59.35;--coin:url('hub-coin-amber.webp');--c-glow:rgba(177,122,0,.55);" aria-label="Vacaciones y Turnos">
+      <a class="satellite" href="vacaciones.html" style="--x:90.96;--y:59.35;--coin:url('hub-coin-amber.webp');--c-glow:rgba(177,122,0,.55);" aria-label="Vacaciones y Turnos">
         <span class="sat-inner">
           <span class="sat-badge"></span>
           <span class="sat-label">Vacaciones y Turnos</span>
@@ -281,7 +281,7 @@ body{
         </span>
       </a>
 
-      <a class="satellite" href="/fichaje.html" style="--x:68.22;--y:87.84;--coin:url('hub-coin-cream.webp');--c-glow:rgba(207,198,176,.55);" aria-label="Fichaje">
+      <a class="satellite" href="fichaje.html" style="--x:68.22;--y:87.84;--coin:url('hub-coin-cream.webp');--c-glow:rgba(207,198,176,.55);" aria-label="Fichaje">
         <span class="sat-inner">
           <span class="sat-badge"></span>
           <span class="sat-label">Fichaje</span>
@@ -305,7 +305,7 @@ body{
         </span>
       </a>
 
-      <a class="satellite" href="/importacion-pedidos-proveedores.html" style="--x:17.16;--y:23.81;--coin:url('hub-coin-red.webp');--c-glow:rgba(151,0,0,.5);" aria-label="Importación Pedidos PDF">
+      <a class="satellite" href="importacion-pedidos-proveedores.html" style="--x:17.16;--y:23.81;--coin:url('hub-coin-red.webp');--c-glow:rgba(151,0,0,.5);" aria-label="Importación Pedidos PDF">
         <span class="sat-inner">
           <span class="sat-badge"></span>
           <span class="sat-label">Importación Pedidos</span>
@@ -351,7 +351,7 @@ body{
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('/sw.js').catch(function () {});
+    navigator.serviceWorker.register('sw.js').catch(function () {});
   });
 }
 </script>
