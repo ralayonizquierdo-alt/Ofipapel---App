@@ -53,10 +53,26 @@ body{
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
 
-/* ─── Orbit shell ─── */
-.orbit-shell{
+/* ─── Placa de piedra crema (como la referencia física del propietario) ─── */
+.hub-plate{
   position:relative;
   width:min(94vw,640px);
+  border-radius:9%;
+  padding:clamp(20px,4vw,40px);
+  background:
+    radial-gradient(circle at 15% 12%, rgba(255,255,255,.5), transparent 40%),
+    radial-gradient(circle at 82% 78%, rgba(120,100,60,.14), transparent 45%),
+    radial-gradient(circle at 30% 85%, rgba(120,100,60,.10), transparent 40%),
+    linear-gradient(155deg, #EFE6CC 0%, #E4D8B4 45%, #D8C89C 100%);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.6) inset,
+    0 -10px 22px rgba(120,95,45,.18) inset,
+    0 22px 45px rgba(30,20,5,.35),
+    0 4px 10px rgba(30,20,5,.25);
+}
+.orbit-shell{
+  position:relative;
+  width:100%;
   aspect-ratio:1/1;
   max-height:78vh;
 }
@@ -77,7 +93,10 @@ body{
   width:clamp(100px,18vmin,136px);height:clamp(100px,18vmin,136px);
   border-radius:24%;
   background:linear-gradient(155deg, #2f8f2f 0%, #1A5C1A 55%, #0d3d0d 100%);
-  box-shadow:0 0 0 1px rgba(141,196,30,.35), 0 0 40px rgba(61,175,61,.5), 0 16px 30px rgba(0,0,0,.5), inset 0 2px 10px rgba(255,255,255,.22), inset 0 -6px 14px rgba(0,0,0,.35);
+  box-shadow:
+    0 0 0 1.5px #4a3509, 0 0 0 5.5px #eec868, 0 0 0 7px #8a6417,
+    0 0 40px rgba(61,175,61,.5), 0 16px 30px rgba(0,0,0,.5),
+    inset 0 2px 10px rgba(255,255,255,.22), inset 0 -6px 14px rgba(0,0,0,.35);
   opacity:0;animation:popIn .6s cubic-bezier(.34,1.56,.64,1) .05s forwards, pulse 3.6s ease-in-out 1.2s infinite;
   z-index:3;overflow:hidden;
 }
@@ -88,12 +107,18 @@ body{
 }
 .hub-center svg.clover-art{width:52%;height:52%;filter:drop-shadow(0 3px 4px rgba(0,30,0,.55));position:relative;z-index:1;}
 .hub-center .hub-label{
-  font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:1.5px;
-  color:#E9FFDA;margin-top:4px;text-transform:uppercase;opacity:.9;position:relative;z-index:1;
+  font-family:'Inter',sans-serif;font-size:clamp(11px,2.2vmin,14px);font-weight:800;line-height:1.05;
+  color:#F4FFEA;margin-top:6px;text-transform:uppercase;text-align:center;letter-spacing:.5px;
+  text-shadow:0 1px 2px rgba(0,0,0,.45);position:relative;z-index:1;
+}
+.hub-center .hub-label small{
+  display:block;font-size:.78em;font-weight:700;letter-spacing:1px;opacity:.92;
 }
 @keyframes popIn{from{opacity:0;transform:translate(-50%,-50%) scale(.3);}to{opacity:1;transform:translate(-50%,-50%) scale(1);}}
-@keyframes pulse{0%,100%{box-shadow:0 0 0 1px rgba(141,196,30,.35), 0 0 40px rgba(61,175,61,.55), 0 12px 30px rgba(0,0,0,.45), inset 0 2px 8px rgba(255,255,255,.25);}
-  50%{box-shadow:0 0 0 1px rgba(141,196,30,.5), 0 0 62px rgba(141,196,30,.75), 0 12px 30px rgba(0,0,0,.45), inset 0 2px 8px rgba(255,255,255,.3);}}
+@keyframes pulse{
+  0%,100%{box-shadow:0 0 0 1.5px #4a3509, 0 0 0 5.5px #eec868, 0 0 0 7px #8a6417, 0 0 40px rgba(61,175,61,.55), 0 12px 30px rgba(0,0,0,.45), inset 0 2px 8px rgba(255,255,255,.25);}
+  50%{box-shadow:0 0 0 1.5px #4a3509, 0 0 0 5.5px #f5d97a, 0 0 0 7px #8a6417, 0 0 62px rgba(141,196,30,.75), 0 12px 30px rgba(0,0,0,.45), inset 0 2px 8px rgba(255,255,255,.3);}
+}
 
 /* ─── Satellites ─── */
 .satellite{
@@ -123,7 +148,10 @@ body{
   width:clamp(52px,12vmin,72px);height:clamp(52px,12vmin,72px);border-radius:50%;
   display:flex;align-items:center;justify-content:center;
   background:radial-gradient(circle at 32% 26%, var(--c-light), var(--c) 60%, var(--c-dark) 100%);
-  box-shadow:0 0 0 1px rgba(255,255,255,.12), 0 0 24px var(--c-glow), 0 10px 22px rgba(0,0,0,.4), inset 0 2px 6px rgba(255,255,255,.3), inset 0 -8px 14px rgba(0,0,0,.25);
+  box-shadow:
+    0 0 0 1px #4a3509, 0 0 0 4.5px #eec868, 0 0 0 5.5px #8a6417,
+    0 0 24px var(--c-glow), 0 10px 22px rgba(0,0,0,.4),
+    inset 0 2px 6px rgba(255,255,255,.3), inset 0 -8px 14px rgba(0,0,0,.25);
   transition:transform .3s cubic-bezier(.34,1.56,.64,1), box-shadow .3s;
   animation:float 5s ease-in-out infinite;
   animation-delay:inherit;
@@ -143,24 +171,27 @@ body{
 
 .satellite:hover .sat-badge, .satellite:focus-visible .sat-badge{
   transform:translateY(-6px) scale(1.09);
-  box-shadow:0 0 0 1.5px rgba(255,255,255,.4), 0 0 34px var(--c-glow), 0 14px 26px rgba(0,0,0,.45), inset 0 2px 6px rgba(255,255,255,.35);
+  box-shadow:
+    0 0 0 1px #4a3509, 0 0 0 4.5px #f5d97a, 0 0 0 5.5px #8a6417,
+    0 0 34px var(--c-glow), 0 14px 26px rgba(0,0,0,.45), inset 0 2px 6px rgba(255,255,255,.35);
 }
 .satellite:focus-visible{outline:none;}
-.satellite:focus-visible .sat-badge{box-shadow:0 0 0 3px #fff, 0 0 34px var(--c-glow);}
+.satellite:focus-visible .sat-badge{box-shadow:0 0 0 1px #4a3509, 0 0 0 4.5px #fff, 0 0 0 5.5px #8a6417, 0 0 34px var(--c-glow);}
 
 .sat-label{
-  font-size:clamp(11.5px,2.4vmin,13.5px);font-weight:600;margin-top:9px;text-align:center;
-  color:#F4FFEC;line-height:1.25;transition:color .25s;
+  font-size:clamp(11.5px,2.4vmin,13.5px);font-weight:700;margin-top:9px;text-align:center;
+  color:#3A2C12;line-height:1.25;transition:color .25s;
 }
 .sat-tag{
   font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:1.2px;
-  text-transform:uppercase;color:var(--c-light);opacity:.75;margin-top:2px;
+  text-transform:uppercase;color:#6B5A38;opacity:.85;margin-top:2px;
 }
-.satellite:hover .sat-label{color:#fff;}
+.satellite:hover .sat-label{color:#1A1006;}
 
 /* ─── Mobile: orbit collapses to a grid ─── */
 @media (max-width:720px), (max-height:640px){
   body{padding:5vh 18px 6vh;}
+  .hub-plate{width:100%;max-width:460px;border-radius:7%;}
   .orbit-shell{width:100%;max-width:460px;aspect-ratio:auto;height:auto;max-height:none;}
   .connector-svg{display:none;}
   .hub-center{position:static;transform:none;margin:0 auto 22px;animation:popIn .6s cubic-bezier(.34,1.56,.64,1) .05s forwards;}
@@ -185,224 +216,105 @@ body{
     <p>Selecciona la aplicación a la que quieres acceder.</p>
   </div>
 
+  <!-- Definición única del trébol (idéntico en el centro y en los 7 satélites,
+       mismo estilo que el brand kit de monedas: relleno verde + contorno dorado) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="cloverFill" x1="16" y1="6" x2="84" y2="94" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#DFF7A6"/>
+        <stop offset="45%" stop-color="#7ED957"/>
+        <stop offset="100%" stop-color="#2E8B2E"/>
+      </linearGradient>
+      <path id="petalShape" d="M50,54 C50,54 23,43 19,24 C16,10 32,3 45,11 C48,13 50,16 50,21 C50,16 52,13 55,11 C68,3 84,10 81,24 C77,43 50,54 50,54 Z"/>
+      <symbol id="cloverArt" viewBox="0 0 100 100">
+        <path d="M52,50 C56,60 61,70 65,80" stroke="#C9A227" stroke-width="8" stroke-linecap="round" fill="none"/>
+        <path d="M52,50 C56,60 61,70 65,80" stroke="url(#cloverFill)" stroke-width="5" stroke-linecap="round" fill="none"/>
+        <use href="#petalShape" fill="url(#cloverFill)" stroke="#C9A227" stroke-width="2.2"/>
+        <use href="#petalShape" fill="url(#cloverFill)" stroke="#C9A227" stroke-width="2.2" transform="rotate(90 50 50)"/>
+        <use href="#petalShape" fill="url(#cloverFill)" stroke="#C9A227" stroke-width="2.2" transform="rotate(180 50 50)"/>
+        <use href="#petalShape" fill="url(#cloverFill)" stroke="#C9A227" stroke-width="2.2" transform="rotate(270 50 50)"/>
+        <circle cx="50" cy="50" r="6" fill="#5FAF3A" stroke="#C9A227" stroke-width="1.6"/>
+        <ellipse cx="35" cy="17" rx="10" ry="5.5" fill="#fff" opacity=".35" transform="rotate(-24 35 17)"/>
+        <ellipse cx="70" cy="63" rx="7" ry="3.5" fill="#fff" opacity=".18" transform="rotate(56 70 63)"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <div class="hub-plate">
   <div class="orbit-shell">
     <svg class="connector-svg" viewBox="0 0 100 100">
-      <defs>
-        <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3DAF3D"/><stop offset="1" stop-color="#1A5C1A"/></linearGradient>
-      </defs>
-      <path d="M50,50 Q58,29 50,8"        stroke="#3DAF3D"/>
-      <path d="M50,50 Q71.4,43.2 82.8,23.8" stroke="#00B4D8"/>
-      <path d="M50,50 Q68.7,62.5 91,59.4"  stroke="#5C6BC0"/>
-      <path d="M50,50 Q51.9,72.4 68.2,87.8" stroke="#F5A623"/>
-      <path d="M50,50 Q33.7,65.5 31.8,87.8" stroke="#8E5CF7"/>
-      <path d="M50,50 Q27.7,46.9 9,59.4"   stroke="#14B8A6"/>
-      <path d="M50,50 Q38.6,30.7 17.2,23.8" stroke="#5C6F7A"/>
+      <path d="M50,50 Q58,29 50,8"        stroke="#0C5C20"/>
+      <path d="M50,50 Q71.4,43.2 82.8,23.8" stroke="#0A3D74"/>
+      <path d="M50,50 Q68.7,62.5 91,59.4"  stroke="#B17A00"/>
+      <path d="M50,50 Q51.9,72.4 68.2,87.8" stroke="#CFC6B0"/>
+      <path d="M50,50 Q33.7,65.5 31.8,87.8" stroke="#2C2C2C"/>
+      <path d="M50,50 Q27.7,46.9 9,59.4"   stroke="#6B3A12"/>
+      <path d="M50,50 Q38.6,30.7 17.2,23.8" stroke="#970000"/>
     </svg>
 
     <div class="orbit">
       <div class="hub-center" aria-hidden="true">
-        <svg viewBox="0 0 100 100" class="clover-art">
-          <defs>
-            <linearGradient id="petalGrad" x1="16" y1="6" x2="84" y2="94" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#C8F28A"/>
-              <stop offset="45%" stop-color="#6FCB4A"/>
-              <stop offset="100%" stop-color="#1C6B1C"/>
-            </linearGradient>
-            <linearGradient id="stemGrad" x1="50" y1="50" x2="68" y2="88" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#3DAF3D"/>
-              <stop offset="100%" stop-color="#0d3d0d"/>
-            </linearGradient>
-            <path id="petal" d="M50,54 C50,54 23,43 19,24 C16,10 32,3 45,11 C48,13 50,16 50,21 C50,16 52,13 55,11 C68,3 84,10 81,24 C77,43 50,54 50,54 Z"/>
-          </defs>
-          <g class="clover-shadow">
-            <path d="M52,50 C57,61 63,73 68,85" stroke="url(#stemGrad)" stroke-width="6" stroke-linecap="round" fill="none"/>
-            <use href="#petal" fill="url(#petalGrad)" stroke="#0f4d0f" stroke-width="1.1" stroke-opacity=".45"/>
-            <use href="#petal" fill="url(#petalGrad)" stroke="#0f4d0f" stroke-width="1.1" stroke-opacity=".45" transform="rotate(90 50 50)"/>
-            <use href="#petal" fill="url(#petalGrad)" stroke="#0f4d0f" stroke-width="1.1" stroke-opacity=".45" transform="rotate(180 50 50)"/>
-            <use href="#petal" fill="url(#petalGrad)" stroke="#0f4d0f" stroke-width="1.1" stroke-opacity=".45" transform="rotate(270 50 50)"/>
-            <circle cx="50" cy="50" r="6.5" fill="#4FAF34"/>
-          </g>
-          <ellipse cx="35" cy="17" rx="10" ry="5.5" fill="#fff" opacity=".4" transform="rotate(-24 35 17)"/>
-          <ellipse cx="70" cy="63" rx="7" ry="3.5" fill="#fff" opacity=".2" transform="rotate(56 70 63)"/>
-        </svg>
-        <div class="hub-label">Ofipapel</div>
+        <svg viewBox="0 0 100 100" class="clover-art"><use href="#cloverArt"/></svg>
+        <div class="hub-label">Ofipapel<small>360°</small></div>
       </div>
 
-      <a class="satellite" href="/Index.html" style="--x:50;--y:8;--c:#3DAF3D;--c-light:#7ED957;--c-dark:#0d3d0d;--c-glow:rgba(61,175,61,.55);" aria-label="Control Financiero">
+      <a class="satellite" href="/Index.html" style="--x:50;--y:8;--c:#0C5C20;--c-light:#3FA84A;--c-dark:#06300F;--c-glow:rgba(12,92,32,.55);" aria-label="Gestión Finanzas">
         <span class="sat-inner">
-          <span class="sat-badge">
-            <svg viewBox="0 0 100 100" class="clover-art">
-              <defs>
-                <linearGradient id="petalGrad-1" x1="16" y1="6" x2="84" y2="94" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#C8F28A"/><stop offset="45%" stop-color="#6FCB4A"/><stop offset="100%" stop-color="#1C6B1C"/>
-                </linearGradient>
-                <path id="petal-1" d="M50,54 C50,54 23,43 19,24 C16,10 32,3 45,11 C48,13 50,16 50,21 C50,16 52,13 55,11 C68,3 84,10 81,24 C77,43 50,54 50,54 Z"/>
-              </defs>
-              <path d="M52,50 C56,60 61,70 65,80" stroke="#1C6B1C" stroke-width="7" stroke-linecap="round" fill="none"/>
-              <use href="#petal-1" fill="url(#petalGrad-1)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4"/>
-              <use href="#petal-1" fill="url(#petalGrad-1)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(90 50 50)"/>
-              <use href="#petal-1" fill="url(#petalGrad-1)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(180 50 50)"/>
-              <use href="#petal-1" fill="url(#petalGrad-1)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(270 50 50)"/>
-              <circle cx="50" cy="50" r="6.5" fill="#4FAF34"/>
-              <ellipse cx="35" cy="17" rx="10" ry="5.5" fill="#fff" opacity=".4" transform="rotate(-24 35 17)"/>
-              <ellipse cx="70" cy="63" rx="7" ry="3.5" fill="#fff" opacity=".2" transform="rotate(56 70 63)"/>
-            </svg>
-          </span>
-          <span class="sat-label">Control Financiero</span>
+          <span class="sat-badge"><svg viewBox="0 0 100 100" class="clover-art"><use href="#cloverArt"/></svg></span>
+          <span class="sat-label">Gestión Finanzas</span>
           <span class="sat-tag">Gestión</span>
         </span>
       </a>
 
-      <a class="satellite" href="/canarias-ink.html" style="--x:82.84;--y:23.81;--c:#00B4D8;--c-light:#7FE8FF;--c-dark:#0088BB;--c-glow:rgba(0,180,216,.55);" aria-label="Canarias INK">
+      <a class="satellite" href="/alquileres/" style="--x:82.84;--y:23.81;--c:#0A3D74;--c-light:#3E7FC9;--c-dark:#051F3C;--c-glow:rgba(10,61,116,.55);" aria-label="Alquileres">
         <span class="sat-inner">
-          <span class="sat-badge">
-            <svg viewBox="0 0 100 100" class="clover-art">
-              <defs>
-                <linearGradient id="petalGrad-2" x1="16" y1="6" x2="84" y2="94" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#C8F28A"/><stop offset="45%" stop-color="#6FCB4A"/><stop offset="100%" stop-color="#1C6B1C"/>
-                </linearGradient>
-                <path id="petal-2" d="M50,54 C50,54 23,43 19,24 C16,10 32,3 45,11 C48,13 50,16 50,21 C50,16 52,13 55,11 C68,3 84,10 81,24 C77,43 50,54 50,54 Z"/>
-              </defs>
-              <path d="M52,50 C56,60 61,70 65,80" stroke="#1C6B1C" stroke-width="7" stroke-linecap="round" fill="none"/>
-              <use href="#petal-2" fill="url(#petalGrad-2)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4"/>
-              <use href="#petal-2" fill="url(#petalGrad-2)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(90 50 50)"/>
-              <use href="#petal-2" fill="url(#petalGrad-2)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(180 50 50)"/>
-              <use href="#petal-2" fill="url(#petalGrad-2)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(270 50 50)"/>
-              <circle cx="50" cy="50" r="6.5" fill="#4FAF34"/>
-              <ellipse cx="35" cy="17" rx="10" ry="5.5" fill="#fff" opacity=".4" transform="rotate(-24 35 17)"/>
-              <ellipse cx="70" cy="63" rx="7" ry="3.5" fill="#fff" opacity=".2" transform="rotate(56 70 63)"/>
-            </svg>
-          </span>
-          <span class="sat-label">Canarias INK</span>
-          <span class="sat-tag">E-commerce</span>
-        </span>
-      </a>
-
-      <a class="satellite" href="/importacion-pedidos-proveedores.html" style="--x:90.96;--y:59.35;--c:#5C6BC0;--c-light:#9FA8E8;--c-dark:#3949AB;--c-glow:rgba(92,107,192,.5);" aria-label="Importación de Pedidos">
-        <span class="sat-inner">
-          <span class="sat-badge">
-            <svg viewBox="0 0 100 100" class="clover-art">
-              <defs>
-                <linearGradient id="petalGrad-3" x1="16" y1="6" x2="84" y2="94" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#C8F28A"/><stop offset="45%" stop-color="#6FCB4A"/><stop offset="100%" stop-color="#1C6B1C"/>
-                </linearGradient>
-                <path id="petal-3" d="M50,54 C50,54 23,43 19,24 C16,10 32,3 45,11 C48,13 50,16 50,21 C50,16 52,13 55,11 C68,3 84,10 81,24 C77,43 50,54 50,54 Z"/>
-              </defs>
-              <path d="M52,50 C56,60 61,70 65,80" stroke="#1C6B1C" stroke-width="7" stroke-linecap="round" fill="none"/>
-              <use href="#petal-3" fill="url(#petalGrad-3)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4"/>
-              <use href="#petal-3" fill="url(#petalGrad-3)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(90 50 50)"/>
-              <use href="#petal-3" fill="url(#petalGrad-3)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(180 50 50)"/>
-              <use href="#petal-3" fill="url(#petalGrad-3)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(270 50 50)"/>
-              <circle cx="50" cy="50" r="6.5" fill="#4FAF34"/>
-              <ellipse cx="35" cy="17" rx="10" ry="5.5" fill="#fff" opacity=".4" transform="rotate(-24 35 17)"/>
-              <ellipse cx="70" cy="63" rx="7" ry="3.5" fill="#fff" opacity=".2" transform="rotate(56 70 63)"/>
-            </svg>
-          </span>
-          <span class="sat-label">Importación Pedidos</span>
-          <span class="sat-tag">Proveedores</span>
-        </span>
-      </a>
-
-      <a class="satellite" href="/alquileres/" style="--x:68.22;--y:87.84;--c:#14B8A6;--c-light:#6EE7D8;--c-dark:#0F8F82;--c-glow:rgba(20,184,166,.5);" aria-label="Alquileres">
-        <span class="sat-inner">
-          <span class="sat-badge">
-            <svg viewBox="0 0 100 100" class="clover-art">
-              <defs>
-                <linearGradient id="petalGrad-4" x1="16" y1="6" x2="84" y2="94" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#C8F28A"/><stop offset="45%" stop-color="#6FCB4A"/><stop offset="100%" stop-color="#1C6B1C"/>
-                </linearGradient>
-                <path id="petal-4" d="M50,54 C50,54 23,43 19,24 C16,10 32,3 45,11 C48,13 50,16 50,21 C50,16 52,13 55,11 C68,3 84,10 81,24 C77,43 50,54 50,54 Z"/>
-              </defs>
-              <path d="M52,50 C56,60 61,70 65,80" stroke="#1C6B1C" stroke-width="7" stroke-linecap="round" fill="none"/>
-              <use href="#petal-4" fill="url(#petalGrad-4)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4"/>
-              <use href="#petal-4" fill="url(#petalGrad-4)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(90 50 50)"/>
-              <use href="#petal-4" fill="url(#petalGrad-4)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(180 50 50)"/>
-              <use href="#petal-4" fill="url(#petalGrad-4)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(270 50 50)"/>
-              <circle cx="50" cy="50" r="6.5" fill="#4FAF34"/>
-              <ellipse cx="35" cy="17" rx="10" ry="5.5" fill="#fff" opacity=".4" transform="rotate(-24 35 17)"/>
-              <ellipse cx="70" cy="63" rx="7" ry="3.5" fill="#fff" opacity=".2" transform="rotate(56 70 63)"/>
-            </svg>
-          </span>
+          <span class="sat-badge"><svg viewBox="0 0 100 100" class="clover-art"><use href="#cloverArt"/></svg></span>
           <span class="sat-label">Alquileres</span>
           <span class="sat-tag">Personal</span>
         </span>
       </a>
 
-      <a class="satellite" href="/joe/" style="--x:31.78;--y:87.84;--c:#8E5CF7;--c-light:#C4A8FF;--c-dark:#6A34D6;--c-glow:rgba(142,92,247,.5);" aria-label="Joe App">
+      <a class="satellite" href="/vacaciones.html" style="--x:90.96;--y:59.35;--c:#B17A00;--c-light:#F0B93D;--c-dark:#5C3F00;--c-glow:rgba(177,122,0,.55);" aria-label="Vacaciones y Turnos">
         <span class="sat-inner">
-          <span class="sat-badge">
-            <svg viewBox="0 0 100 100" class="clover-art">
-              <defs>
-                <linearGradient id="petalGrad-5" x1="16" y1="6" x2="84" y2="94" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#C8F28A"/><stop offset="45%" stop-color="#6FCB4A"/><stop offset="100%" stop-color="#1C6B1C"/>
-                </linearGradient>
-                <path id="petal-5" d="M50,54 C50,54 23,43 19,24 C16,10 32,3 45,11 C48,13 50,16 50,21 C50,16 52,13 55,11 C68,3 84,10 81,24 C77,43 50,54 50,54 Z"/>
-              </defs>
-              <path d="M52,50 C56,60 61,70 65,80" stroke="#1C6B1C" stroke-width="7" stroke-linecap="round" fill="none"/>
-              <use href="#petal-5" fill="url(#petalGrad-5)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4"/>
-              <use href="#petal-5" fill="url(#petalGrad-5)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(90 50 50)"/>
-              <use href="#petal-5" fill="url(#petalGrad-5)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(180 50 50)"/>
-              <use href="#petal-5" fill="url(#petalGrad-5)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(270 50 50)"/>
-              <circle cx="50" cy="50" r="6.5" fill="#4FAF34"/>
-              <ellipse cx="35" cy="17" rx="10" ry="5.5" fill="#fff" opacity=".4" transform="rotate(-24 35 17)"/>
-              <ellipse cx="70" cy="63" rx="7" ry="3.5" fill="#fff" opacity=".2" transform="rotate(56 70 63)"/>
-            </svg>
-          </span>
-          <span class="sat-label">Joe App</span>
-          <span class="sat-tag">Personal</span>
-        </span>
-      </a>
-
-      <a class="satellite" href="/vacaciones.html" style="--x:9.04;--y:59.35;--c:#F5A623;--c-light:#FFCF7A;--c-dark:#C77E0E;--c-glow:rgba(245,166,35,.5);" aria-label="Cuadrante de Vacaciones">
-        <span class="sat-inner">
-          <span class="sat-badge">
-            <svg viewBox="0 0 100 100" class="clover-art">
-              <defs>
-                <linearGradient id="petalGrad-6" x1="16" y1="6" x2="84" y2="94" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#C8F28A"/><stop offset="45%" stop-color="#6FCB4A"/><stop offset="100%" stop-color="#1C6B1C"/>
-                </linearGradient>
-                <path id="petal-6" d="M50,54 C50,54 23,43 19,24 C16,10 32,3 45,11 C48,13 50,16 50,21 C50,16 52,13 55,11 C68,3 84,10 81,24 C77,43 50,54 50,54 Z"/>
-              </defs>
-              <path d="M52,50 C56,60 61,70 65,80" stroke="#1C6B1C" stroke-width="7" stroke-linecap="round" fill="none"/>
-              <use href="#petal-6" fill="url(#petalGrad-6)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4"/>
-              <use href="#petal-6" fill="url(#petalGrad-6)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(90 50 50)"/>
-              <use href="#petal-6" fill="url(#petalGrad-6)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(180 50 50)"/>
-              <use href="#petal-6" fill="url(#petalGrad-6)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(270 50 50)"/>
-              <circle cx="50" cy="50" r="6.5" fill="#4FAF34"/>
-              <ellipse cx="35" cy="17" rx="10" ry="5.5" fill="#fff" opacity=".4" transform="rotate(-24 35 17)"/>
-              <ellipse cx="70" cy="63" rx="7" ry="3.5" fill="#fff" opacity=".2" transform="rotate(56 70 63)"/>
-            </svg>
-          </span>
-          <span class="sat-label">Vacaciones</span>
+          <span class="sat-badge"><svg viewBox="0 0 100 100" class="clover-art"><use href="#cloverArt"/></svg></span>
+          <span class="sat-label">Vacaciones y Turnos</span>
           <span class="sat-tag">Equipo</span>
         </span>
       </a>
 
-      <a class="satellite" href="/falcontrol.html" style="--x:17.16;--y:23.81;--c:#232935;--c-light:#5CFFA0;--c-dark:#0d0d0d;--c-glow:rgba(0,230,118,.45);" aria-label="FalControl">
+      <a class="satellite" href="/fichaje.html" style="--x:68.22;--y:87.84;--c:#CFC6B0;--c-light:#F3EEDF;--c-dark:#9C9179;--c-glow:rgba(207,198,176,.55);" aria-label="Fichaje">
         <span class="sat-inner">
-          <span class="sat-badge">
-            <svg viewBox="0 0 100 100" class="clover-art">
-              <defs>
-                <linearGradient id="petalGrad-7" x1="16" y1="6" x2="84" y2="94" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#C8F28A"/><stop offset="45%" stop-color="#6FCB4A"/><stop offset="100%" stop-color="#1C6B1C"/>
-                </linearGradient>
-                <path id="petal-7" d="M50,54 C50,54 23,43 19,24 C16,10 32,3 45,11 C48,13 50,16 50,21 C50,16 52,13 55,11 C68,3 84,10 81,24 C77,43 50,54 50,54 Z"/>
-              </defs>
-              <path d="M52,50 C56,60 61,70 65,80" stroke="#1C6B1C" stroke-width="7" stroke-linecap="round" fill="none"/>
-              <use href="#petal-7" fill="url(#petalGrad-7)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4"/>
-              <use href="#petal-7" fill="url(#petalGrad-7)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(90 50 50)"/>
-              <use href="#petal-7" fill="url(#petalGrad-7)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(180 50 50)"/>
-              <use href="#petal-7" fill="url(#petalGrad-7)" stroke="#0f4d0f" stroke-width="1.4" stroke-opacity=".4" transform="rotate(270 50 50)"/>
-              <circle cx="50" cy="50" r="6.5" fill="#4FAF34"/>
-              <ellipse cx="35" cy="17" rx="10" ry="5.5" fill="#fff" opacity=".4" transform="rotate(-24 35 17)"/>
-              <ellipse cx="70" cy="63" rx="7" ry="3.5" fill="#fff" opacity=".2" transform="rotate(56 70 63)"/>
-            </svg>
-          </span>
-          <span class="sat-label">FalControl</span>
+          <span class="sat-badge"><svg viewBox="0 0 100 100" class="clover-art"><use href="#cloverArt"/></svg></span>
+          <span class="sat-label">Fichaje</span>
           <span class="sat-tag">Personal</span>
         </span>
       </a>
+
+      <a class="satellite" href="https://spontaneous-lebkuchen-60fa41.netlify.app/.netlify/functions/conversations" style="--x:31.78;--y:87.84;--c:#2C2C2C;--c-light:#5C5C5C;--c-dark:#101010;--c-glow:rgba(30,30,30,.55);" aria-label="WhatsApp BOT">
+        <span class="sat-inner">
+          <span class="sat-badge"><svg viewBox="0 0 100 100" class="clover-art"><use href="#cloverArt"/></svg></span>
+          <span class="sat-label">WhatsApp BOT</span>
+          <span class="sat-tag">Atención</span>
+        </span>
+      </a>
+
+      <a class="satellite" href="https://rax-os.vercel.app/login?next=%2F" style="--x:9.04;--y:59.35;--c:#6B3A12;--c-light:#A9702F;--c-dark:#3A1D08;--c-glow:rgba(107,58,18,.55);" aria-label="Roturas Almacén">
+        <span class="sat-inner">
+          <span class="sat-badge"><svg viewBox="0 0 100 100" class="clover-art"><use href="#cloverArt"/></svg></span>
+          <span class="sat-label">Roturas Almacén</span>
+          <span class="sat-tag">Almacén</span>
+        </span>
+      </a>
+
+      <a class="satellite" href="/importacion-pedidos-proveedores.html" style="--x:17.16;--y:23.81;--c:#970000;--c-light:#D94040;--c-dark:#4A0000;--c-glow:rgba(151,0,0,.5);" aria-label="Importación Pedidos PDF">
+        <span class="sat-inner">
+          <span class="sat-badge"><svg viewBox="0 0 100 100" class="clover-art"><use href="#cloverArt"/></svg></span>
+          <span class="sat-label">Importación Pedidos</span>
+          <span class="sat-tag">Proveedores</span>
+        </span>
+      </a>
     </div>
+  </div>
   </div>
 
   <div class="footer-tag">7 aplicaciones · <b>un solo ecosistema</b></div>
