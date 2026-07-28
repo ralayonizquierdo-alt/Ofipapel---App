@@ -91,7 +91,7 @@ body{
 @keyframes spinCW{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
 @keyframes spinCCW{from{transform:rotate(0deg);}to{transform:rotate(-360deg);}}
 .data-dots circle{opacity:.9;}
-@media (max-width:720px), (max-height:640px){
+@media (max-width:380px){
   .orbit-rings,.data-dots{display:none;}
 }
 
@@ -141,7 +141,7 @@ body{
 .sat-badge{
   position:relative;overflow:hidden;
   width:clamp(52px,12vmin,72px);height:clamp(52px,12vmin,72px);border-radius:50%;
-  background:var(--coin) center/cover;
+  background:var(--coin) center/112% 112%;
   box-shadow:0 0 24px var(--c-glow), 0 10px 22px rgba(0,0,0,.4);
   transition:transform .3s cubic-bezier(.34,1.56,.64,1), box-shadow .3s;
   animation:float 5s ease-in-out infinite;
@@ -170,17 +170,21 @@ body{
 }
 .satellite:hover .sat-label{color:#1A1006;}
 
-/* ─── Mobile: orbit collapses to a grid ─── */
-@media (max-width:720px), (max-height:640px){
-  body{padding:5vh 18px 6vh;}
-  .hub-plate{width:100%;max-width:460px;border-radius:7%;}
-  .orbit-shell{width:100%;max-width:460px;aspect-ratio:auto;height:auto;max-height:none;}
-  .connector-svg{display:none;}
-  .hub-center{position:static;transform:none;margin:0 auto 22px;animation:popIn .6s cubic-bezier(.34,1.56,.64,1) .05s forwards;}
-  .hub-center:nth-child(1){}
-  .orbit{display:grid;grid-template-columns:repeat(2,1fr);gap:22px 14px;}
-  .satellite{position:static;transform:none;width:100%;}
-  .satellite:hover .sat-badge, .satellite:focus-visible .sat-badge{transform:scale(1.06);}
+/* ─── Mobile: se mantiene la órbita con cables y aros, solo se reajusta el
+   tamaño (antes colapsaba a un grid de 2 columnas sin cables) ─── */
+@media (max-width:720px){
+  body{padding:4vh 12px 5vh;}
+  .hub-plate{width:100%;max-width:460px;border-radius:7%;padding:16px;}
+  .orbit-shell{width:100%;max-width:460px;}
+  .hub-center{width:clamp(78px,26vw,110px);height:clamp(78px,26vw,110px);}
+  .sat-badge{width:clamp(40px,11vw,58px);height:clamp(40px,11vw,58px);}
+  .satellite{width:clamp(58px,17vw,80px);}
+  .sat-label{font-size:clamp(9.5px,2.6vw,11.5px);margin-top:6px;}
+  .sat-tag{font-size:7.5px;margin-top:1px;}
+}
+@media (max-width:380px){
+  .sat-label{font-size:8.5px;}
+  .sat-tag{display:none;}
 }
 
 .footer-tag{
