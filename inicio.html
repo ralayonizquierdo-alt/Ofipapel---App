@@ -198,6 +198,24 @@ body{
   .sat-label{font-size:8.5px;}
   .sat-tag{display:none;}
 }
+/* ─── Móvil en horizontal (poca altura, mucho ancho): el layout de arriba
+   usa vw para dimensionar y se sale de pantalla por abajo/arriba. Aquí se
+   dimensiona por vh en su lugar y se recorta el texto que sobra. ─── */
+@media (max-height:560px){
+  body{padding:2vh 16px 2vh;justify-content:center;}
+  .intro{margin-bottom:1.2vh;}
+  .intro-eyebrow{display:none;}
+  .intro h1{font-size:clamp(16px,3.2vh,22px);}
+  .intro p{display:none;}
+  .hub-plate{width:min(90vw,80vh,640px);max-width:none;padding:12px;}
+  .orbit-shell{max-width:none;}
+  .hub-center{width:clamp(64px,16vh,110px);height:clamp(64px,16vh,110px);}
+  .sat-badge{width:clamp(34px,9vh,58px);height:clamp(34px,9vh,58px);}
+  .satellite{width:clamp(50px,13vh,80px);}
+  .sat-label{font-size:clamp(8.5px,2vh,11px);margin-top:4px;}
+  .sat-tag{display:none;}
+  .footer-tag{display:none;}
+}
 
 .footer-tag{
   margin-top:clamp(28px,5vh,48px);font-family:'IBM Plex Mono',monospace;font-size:10.5px;
