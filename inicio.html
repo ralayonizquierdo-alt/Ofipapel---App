@@ -104,15 +104,17 @@ body{
   left:50%;top:50%;transform:translate(-50%,-50%);
   width:clamp(100px,18vmin,136px);height:clamp(100px,18vmin,136px);
   border-radius:22%;
-  background:url('hub-center.webp') center/cover;
-  box-shadow:0 0 40px rgba(61,175,61,.45), 0 16px 30px rgba(0,0,0,.5);
+  background:url('hub-center.webp') center/112% 112%;
+  box-shadow:
+    inset 0 0 0 3px #E9C25C, inset 0 0 0 4.5px #8a6417,
+    0 0 40px rgba(61,175,61,.45), 0 16px 30px rgba(0,0,0,.5);
   opacity:0;animation:popIn .6s cubic-bezier(.34,1.56,.64,1) .05s forwards, pulse 3.6s ease-in-out 1.2s infinite;
   z-index:3;overflow:hidden;
 }
 @keyframes popIn{from{opacity:0;transform:translate(-50%,-50%) scale(.3);}to{opacity:1;transform:translate(-50%,-50%) scale(1);}}
 @keyframes pulse{
-  0%,100%{box-shadow:0 0 40px rgba(61,175,61,.5), 0 12px 30px rgba(0,0,0,.45);}
-  50%{box-shadow:0 0 62px rgba(141,196,30,.75), 0 12px 30px rgba(0,0,0,.45);}
+  0%,100%{box-shadow:inset 0 0 0 3px #E9C25C, inset 0 0 0 4.5px #8a6417, 0 0 40px rgba(61,175,61,.5), 0 12px 30px rgba(0,0,0,.45);}
+  50%{box-shadow:inset 0 0 0 3px #f5d97a, inset 0 0 0 4.5px #8a6417, 0 0 62px rgba(141,196,30,.75), 0 12px 30px rgba(0,0,0,.45);}
 }
 
 /* ─── Satellites ─── */
