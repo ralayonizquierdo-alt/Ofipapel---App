@@ -52,14 +52,42 @@ async function generate(req) {
 
   const { size, width, height } = nearestSupportedSize(req.width, req.height);
 
-  const apiResponse = await fetch(OPENAI_IMAGES_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ model: MODEL, prompt: req.prompt, size, n: 1 }),
-  });
+  // 'auto' (comportamiento por defecto de gpt-image-1 sin este parámetro)
+  // puede elegir calidad alta y tardar 30-60s+ — suficiente para agotar el
+  // límite de ejecución de una función síncrona de Netlify. Configurable
+  // sin tocar código (mismo patrón que CREATIVE_LAB_*): por defecto no se
+  // envía el parámetro (se mantiene el comportamiento ya verificado).
+  const quality = process.env.OPENAI_IMAGES_QUALITY;
+  const body = { model: MODEL, prompt: req.prompt, size, n: 1 };
+  if (quality) body.quality = quality;
+
+  // Sin límite de tiempo propio, un fetch lento se queda con el tiempo de
+  // ejecución completo de la función sin dar ninguna pista de qué ha
+  // pasado. 50s dejan margen para que la función responda con un error
+  // claro antes de que la propia plataforma corte a los 60s sin explicar
+  // nada (mismo caso observado en el sprint "Fase 7 — Conexión OpenAI").
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 50_000);
+
+  let apiResponse;
+  try {
+    apiResponse = await fetch(OPENAI_IMAGES_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error('OpenAI Images no respondió en 50s — abortado para no agotar el tiempo de ejecución de la función.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!apiResponse.ok) {
     const errorBody = await apiResponse.text();
