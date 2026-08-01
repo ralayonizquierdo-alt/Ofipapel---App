@@ -10,8 +10,17 @@ const RENDER_SCRIPT = path.join(REPO_ROOT, 'design-studio', 'scripts', 'render-h
 
 // Mismo NODE_PATH documentado en design-studio/README.md — playwright está
 // instalado globalmente en las sesiones en la nube de Claude Code, no como
-// dependencia local de este repo.
-const NODE_PATH_FOR_PLAYWRIGHT = '/opt/node22/lib/node_modules';
+// dependencia local de este repo. En el Lambda real de Netlify ninguna de
+// esas dos rutas existe (DT-16, `.claude/rax/DEUDA_TECNICA.md`); ahí lo que
+// existe es `netlify/functions/node_modules/` (playwright-core +
+// @sparticuz/chromium, declarados en `netlify/functions/package.json`).
+// Node prueba cada entrada de NODE_PATH en orden y usa la primera que
+// exista en disco — un solo valor válido en cada entorno, sin necesidad de
+// detectar en qué entorno estamos desde aquí.
+const NODE_PATH_FOR_PLAYWRIGHT = [
+  '/opt/node22/lib/node_modules',
+  path.join(REPO_ROOT, 'netlify', 'functions', 'node_modules'),
+].join(path.delimiter);
 
 const RENDER_SCALE = 1;
 

@@ -20,9 +20,18 @@
 # design-studio/brand-kit.json por ruta calculada). Sin esto, el despliegue
 # real fallaría con "fichero no encontrado" aunque todo funcione en local.
 # Ver marketing-engine/INTEGRATION.md para el resto de bloqueantes de
-# despliegue conocidos (Playwright/Chromium en Lambda, no resuelto aún).
+# despliegue conocidos. Los dos últimos globs (node_modules de
+# @sparticuz/chromium/playwright-core, DT-16 — `.claude/rax/DEUDA_TECNICA.md`)
+# empaquetan el Chromium compatible con Lambda: esbuild no bundlea sus
+# binarios por análisis estático (netlify/functions/package.json declara
+# las dependencias; Netlify las instala automáticamente antes de empaquetar).
 [functions."marketing-engine-run"]
-  included_files = ["marketing-engine/**", "design-studio/**", "creative-engine/**"]
+  included_files = [
+    "marketing-engine/**", "design-studio/**", "creative-engine/**",
+    "netlify/functions/node_modules/@sparticuz/chromium/**",
+    "netlify/functions/node_modules/playwright-core/**",
+  ]
+  external_node_modules = ["@sparticuz/chromium", "playwright-core"]
 
 # El hub vive en inicio.html (no index.html). La causa real de que "/"
 # sirviera siempre Index.html no era una colisión de caché ni de nombre:
