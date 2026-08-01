@@ -120,3 +120,52 @@ experimento sin fusionar.
 cubre entera); (2) cerrar PR #61 sin fusionar; (3) borrar las 4 ramas
 "Prueba/obsoleto" confirmadas; (4) `rax-sales-marketing-skill-4raaru` se
 mantiene intacta.
+
+---
+
+### 2026-07-24 / 2026-07-25 — Control financiero: alertas fiscales, colaboración, mejoras UX
+
+**Resumen**: sesión larga de mejoras sobre `Index.html`. (1) Alertas fiscales
+automáticas (IGIC Mod.420/425/415, IS Mod.200/202, libros oficiales y
+cuentas anuales) añadidas en la sección Alertas, con ventana de 30 días
+atrás / 90 días adelante. (2) Entorno colaborativo: `CONTRIBUTING.md`,
+`.env.example`, PR template (`.github/pull_request_template.md`),
+`docs/ONBOARDING.md`, `docs/Calendario_Fiscal_SL_Canarias.docx`.
+(3) Fix de timestamp: zona de carga de Excel y PDF muestra fecha/hora de
+última subida en lugar de número de archivos. (4) Build optimization: CI
+salta `npm ci/build` de `alquileres`/`joe-app` si sus fuentes no
+cambiaron. (5) Mejoras en fichaje: selector en 5 grupos por departamento,
+pestaña "Normativa vigente" en Gerencia, cambio manual de departamento en
+Personas, subgrupos de departamento. Todo fusionado a `main` vía PRs
+`#90–#96`.
+
+**Decisiones tomadas**: ninguna estructural nueva — cambios de UX y
+funcionalidad aprobados y ejecutados directamente.
+
+**Siguiente paso recomendado para la próxima sesión**: decidir canal de
+WhatsApp canónico (Meta vs Twilio, RT-01, pendiente desde julio); activar
+"Allow anonymous sign-ins" en Supabase para `joe-app` y el proveedor
+"Anonymous" + reglas en Firebase para `alquileres`/`fichaje`.
+
+---
+
+### 2026-08-01 — Rediseño Pagarés & Confirming
+
+**Resumen**: rediseño completo de la sección Pagarés & Confirming de
+`Index.html`. Clasificación automática por fecha (sin campo manual):
+`vto` pasado → 🔵 COBRADO (azul), `vto` futuro → 🔴 PENDIENTE (rojo).
+Tablas ordenadas descendente (fecha más reciente primero). KPI "Pagarés
+Pendientes" (antes "Vencidos") y KPI "Confirming Santander" muestran solo
+importes pendientes de pago. Panel nuevo "Próximos N días" combinando
+pagarés y confirming con selector de horizonte 5/10/15/20/25/30 días
+(persiste entre renders). Alertas del dashboard y `checkAlertasArrastre`
+actualizadas a lógica de fechas. `sw.js` v32. Fusionado a `main` vía PR #84.
+Indexación de proyecto realizada (SESSION_LOG + INVENTORY actualizados).
+
+**Ficheros no inventariados detectados**: `sw-ink.js` (SW de Canarias INK),
+`manifest-ink.json` (manifest PWA de Canarias INK), `fichaje-firestore.rules`
+(reglas Firestore de fichaje) — añadidos a `INVENTORY.md`.
+
+**Siguiente paso recomendado**: decidir canal WhatsApp canónico (RT-01,
+pendiente desde julio); actualizar datos de pagarés/confirming en
+`PAGARES_DATA` y `CONF_SANT_DATA` cuando venza agosto.

@@ -1,13 +1,12 @@
 # Inventario de proyectos — RAX
 
 Mantenido por la Skill `project-manager`. Refleja el estado real del repo
-`ralayonizquierdo-alt/Ofipapel---App`. Última revisión completa: 2026-07-12
-(Sprint "RAX v1 Production").
+`ralayonizquierdo-alt/Ofipapel---App`. Última revisión completa: 2026-08-01.
 
 | Proyecto | Tipo | Ruta | Stack | Despliegue | Estado |
 |---|---|---|---|---|---|
 | Ofipapel · Control Financiero | Sitio/app de negocio (papelería) | `Index.html` | HTML monolítico + Chart.js + Supabase JS + SheetJS. Asistente de IA vía proxy server-side (`netlify/functions/chat-assistant.js`) — ya no expone la API key de Anthropic en el navegador | GitHub Pages + Netlify (`_site/`) | Activo |
-| Canarias INK | Microsite de marca (venta de consumibles de impresora) | `canarias-ink.html` | HTML monolítico | GitHub Pages + Netlify | Activo — botón de WhatsApp con número placeholder, ver `ROADMAP_TECNICO.md` |
+| Canarias INK | Microsite de marca (venta de consumibles de impresora) | `canarias-ink.html` + `sw-ink.js` (SW propio, cache `canarias-ink-v1`) + `manifest-ink.json` (PWA manifest) | HTML monolítico + PWA | GitHub Pages + Netlify | Activo — botón de WhatsApp con número placeholder, ver `ROADMAP_TECNICO.md` |
 | FalControl | Microsite/herramienta personal ("Radio Alerta"), sin relación de negocio con Ofipapel | `falcontrol.html` | HTML monolítico | GitHub Pages + Netlify | Activo |
 | Cuadrante de Vacaciones | Planificador de turnos/vacaciones del personal | `vacaciones.html` | HTML monolítico | GitHub Pages + Netlify | Activo — detectado durante la reconciliación de documentación, no auditado en profundidad todavía (ver `ROADMAP_TECNICO.md` RT-11) |
 | Importación de Pedidos a Proveedores | Conversión de facturas PDF a Excel para proveedores | `importacion-pedidos-proveedores.html` | HTML monolítico | GitHub Pages + Netlify | Activo — detectado durante la reconciliación de documentación, no auditado en profundidad todavía (ver `ROADMAP_TECNICO.md` RT-11) |
@@ -18,7 +17,7 @@ Mantenido por la Skill `project-manager`. Refleja el estado real del repo
 | Landing genérica raíz | Redirect a `Index.html` | `index.html` (minúsculas) | HTML estático, `location.replace('Index.html')` | GitHub Pages + Netlify | Activo — confirmado intencional, no es deuda técnica |
 | Página 404 propia | Página de error personalizada | `404.html` | HTML estático | GitHub Pages + Netlify | Activo — integrada en `build.sh` |
 | Design Studio | Estudio de diseño autónomo compartido por las Skills visuales | `design-studio/` | Plantillas HTML + Playwright + Adobe for Creativity (MCP) | No se despliega | Activo — validado con la campaña real "Vuelta al Cole" |
-| Fichaje | Registro horario del personal (RD-ley 8/2019 + preparado para la reforma pendiente) | `fichaje.html` | HTML monolítico + Firestore REST sin SDK. **Proyecto Firebase propio** (`ofipapel-fichaje-63ced`, "Ofipapel Fichaje") separado de Vacaciones/Alquileres a petición del propietario — mantiene una conexión de solo lectura aparte al proyecto `ofipapelvv` únicamente para leer la plantilla de `vacaciones.html` (sin duplicarla). PIN propio por persona (hash SHA-256) + 3 cuentas de gerencia (Luis/Rober/David, cuentas nuevas en el proyecto nuevo) + horario individual por persona (con horario de departamento como valor por defecto); eventos inmutables (nunca se edita/borra, solo se enlaza una corrección) | GitHub Pages + Netlify | Activo — pendiente activar el proveedor "Anonymous" en **ambos** proyectos Firebase (`ofipapel-fichaje-63ced` y `ofipapelvv`, este último ya pendiente también para `alquileres`), crear Firestore Database en el proyecto nuevo, y dar de alta a Luis/Rober/David como usuarios ahí |
+| Fichaje | Registro horario del personal (RD-ley 8/2019 + preparado para la reforma pendiente) | `fichaje.html` + `fichaje-firestore.rules` (reglas de seguridad versionadas) | HTML monolítico + Firestore REST sin SDK. **Proyecto Firebase propio** (`ofipapel-fichaje-63ced`, "Ofipapel Fichaje") separado de Vacaciones/Alquileres a petición del propietario — mantiene una conexión de solo lectura aparte al proyecto `ofipapelvv` únicamente para leer la plantilla de `vacaciones.html` (sin duplicarla). PIN propio por persona (hash SHA-256) + 3 cuentas de gerencia (Luis/Rober/David, cuentas nuevas en el proyecto nuevo) + horario individual por persona (con horario de departamento como valor por defecto); eventos inmutables (nunca se edita/borra, solo se enlaza una corrección) | GitHub Pages + Netlify | Activo — pendiente activar el proveedor "Anonymous" en **ambos** proyectos Firebase (`ofipapel-fichaje-63ced` y `ofipapelvv`, este último ya pendiente también para `alquileres`), crear Firestore Database en el proyecto nuevo, y dar de alta a Luis/Rober/David como usuarios ahí |
 
 ## Skills de RAX (referencia — el detalle vive en `.claude/skills/README.md`)
 
