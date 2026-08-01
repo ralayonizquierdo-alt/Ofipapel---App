@@ -1,0 +1,25 @@
+{
+  "id": "belleza-reflejo-elegante",
+  "label": "Belleza con reflejo elegante",
+  "styleId": "monocromo-elegante",
+  "compositionId": "marco-dentro-del-marco",
+  "artDirectionId": "lujo-discreto",
+  "lightingId": "contraluz-rim-light",
+  "scenarioId": "superficie-piedra-marmol",
+  "paletteHarmonyId": "monocroma-marca",
+  "angleLensId": "macro-detalle",
+  "emotion": "elegancia serena",
+  "textSpaceId": "minimo-texto-hero",
+  "idealProducts": [
+    "belleza",
+    "joyeria",
+    "general"
+  ],
+  "whenToUse": "Producto de belleza o cuidado personal donde la textura y el material importan más que el contexto.",
+  "whenToAvoid": "Evitar en productos funcionales/técnicos donde la elegancia no es el argumento de venta.",
+  "whatMakesItSpecial": "El reflejo en mármol duplica el producto sin añadir ruido — sofisticación por repetición controlada.",
+  "whyItWorksOnSocial": "La textura de mármol es reconocible incluso a baja resolución, genera parada visual inmediata.",
+  "visualImpactLevel": 73,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}

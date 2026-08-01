@@ -120,3 +120,226 @@ experimento sin fusionar.
 cubre entera); (2) cerrar PR #61 sin fusionar; (3) borrar las 4 ramas
 "Prueba/obsoleto" confirmadas; (4) `rax-sales-marketing-skill-4raaru` se
 mantiene intacta.
+### 2026-07-24/25 — Motor de Marketing con IA: construcción + integración con `app.html`
+
+**Resumen**: sesión larga en dos fases. Fase 1 (2026-07-24): construcción
+desde cero de `marketing-engine/`, un pipeline de 8 agentes con
+responsabilidad única (Director Creativo → Director de Arte → Guardián de
+Marca → Fotógrafo Publicitario → Especialista en Prompts → proveedor de
+IA → Copywriter → Maquetador → Control de Calidad), sin dependencias npm,
+con contratos propios por shape-checker, registro de proveedores (7
+"planned" + `simulated` activo), y `brand-kit.json` como fuente de verdad
+de marca verificada línea a línea contra el CSS real (se encontró y
+corrigió una imprecisión heredada de un intento anterior no fusionado,
+`sales-marketing`). Fase 2 (2026-07-25): integración de ese motor con
+`app.html` (el panel de redes sociales — se detectó que ni `CLAUDE.md` ni
+este inventario lo documentaban, corregido en la misma sesión), bajo el
+principio explícito del propietario de que la app nunca debe implementar
+lógica creativa propia. El propietario autorizó trabajo autónomo por el
+resto de su lista de prioridades tras dar el objetivo, sin pausar salvo
+decisión de arquitectura que comprometiera el proyecto — no surgió
+ninguna.
+
+**Ejecutado**: puente serverless nuevo
+(`netlify/functions/marketing-engine-run.js`) + `netlify.toml` con
+`included_files`; 3 bugs reales corregidos antes de construir el puente
+(ruta de almacenamiento de jobs incompatible con `/tmp` de Lambda,
+duplicada en dos escritores independientes; `metadata` sobrescrita en vez
+de fusionada en el orquestador, que habría roto en silencio el paso de
+fotos reales); 4 campos opcionales nuevos en `JOB_INPUT_SHAPE` consumidos
+en un único punto (Director Creativo); proveedor `simulated` capaz de usar
+una foto real de producto en vez de un placeholder abstracto; `app.html`
+reescrito con `CampaignStore` como estado único compartido, Almacén como
+centro de trabajo creativo (crear/aprobar/rechazar/editar) y Calendario
+reducido a solo-organizar (se eliminó su capacidad de crear contenido).
+Verificado de punta a punta con Playwright contra un servidor propio
+mínimo (sin `netlify-cli`): crear campaña con foto real → pipeline
+completo → aprobar → aparece en Calendario → programar, todo confirmado.
+Documentado en `marketing-engine/ARCHITECTURE.md`,
+`marketing-engine/INTEGRATION.md`, y en `CLAUDE.md`/`INVENTORY.md` (gap de
+`app.html` y `marketing-engine/` corregido en ambos).
+
+**No ejecutado, deliberadamente fuera de alcance por instrucción explícita
+del propietario**: ningún proveedor de IA real (OpenAI Images, Canva,
+Runway, Veo...) — sigue activo únicamente `simulated`. Tampoco se resolvió
+el bloqueante de Playwright/Chromium en AWS Lambda real (el maquetador
+solo se ha verificado en este sandbox de desarrollo, no en un despliegue
+real de Netlify) — documentado como bloqueante conocido, no solucionado,
+en `marketing-engine/INTEGRATION.md`.
+
+**Decisiones tomadas**: ver `DECISIONES.md`, entradas 2026-07-24 y
+2026-07-25.
+
+**Siguiente paso recomendado para la próxima sesión**: cuando el
+propietario quiera conectar el primer proveedor de IA real, seguir la guía
+de `marketing-engine/INTEGRATION.md` ("Cómo sustituir `simulated` por un
+proveedor real") — el punto de enganche ya está preparado y no requiere
+tocar `app.html` ni el orquestador. Antes de cualquier despliegue real a
+Netlify, resolver el bloqueante de Chromium en Lambda (empaquetar
+`@sparticuz/chromium` o equivalente). Si se decide persistir
+`CampaignStore` entre recargas, es un cambio ortogonal — hoy vive solo en
+memoria del navegador, igual que el resto del estado de `app.html`.
+
+---
+
+### 2026-07-25 — `marketing-engine/intelligence/`: ventaja competitiva en Shadow Mode
+
+**Resumen**: sprint nuevo, explícitamente distinto del anterior — el
+propietario pidió dejar de añadir funcionalidad técnica y construir en su
+lugar el conocimiento propio del sistema: cinco componentes (Product
+Intelligence, Campaign Recommender, Creative Score, Variant Engine,
+Learning Engine) que analizan cada producto, recomiendan un enfoque de
+campaña con razones, puntúan el resultado 0-100, y preparan la estructura
+para aprender de resultados reales — todo determinista, sin ningún
+proveedor de IA conectado. Al conectarlo con el pipeline, el propietario
+tomó la decisión de arquitectura central del sprint: la capa arranca en
+**Shadow Mode** — analiza, recomienda y compara con la decisión real del
+pipeline sin cambiar nunca esa decisión — y solo pasará a "Decision Mode"
+(un interruptor de una variable de entorno) cuando se demuestre con datos
+propios que sus recomendaciones son mejores o equivalentes.
+
+**Ejecutado**: `marketing-engine/intelligence/` completo (product-
+intelligence, campaign-recommender, creative-score, variant-engine,
+learning-engine, más `contracts.js`, `mode.js`, `clock.js`, `index.js`);
+dos costuras no bloqueantes en `core/orchestrator.js` (antes del primer
+agente, después del último) envueltas en `try/catch`; un campo opcional
+nuevo en `JOB_SHAPE`; `cli/run-intelligence.js` como demo; un bug real de
+coherencia encontrado y corregido durante el desarrollo (objetivo y tipo
+de campaña podían salir de dos señales de calendario distintas y
+contradictorias); documentación completa (`intelligence/README.md`,
+`ROADMAP_V2.md` con 4 fases a 12 meses, nueva sección en
+`ARCHITECTURE.md`, actualización de `INTEGRATION.md`/`CLAUDE.md`/
+`INVENTORY.md`). Verificado: determinismo byte a byte, razonamiento
+estacional real (misma ficha, tres fechas, tres campañas distintas),
+regresión completa del pipeline de 8 agentes sin ningún cambio de
+comportamiento, y resiliencia ante un almacén de aprendizaje no
+escribible.
+
+**No ejecutado, deliberadamente fuera de alcance en este sprint**: activar
+Decision Mode (ni siquiera parcialmente) — el propio propietario fue
+explícito en que primero hay que demostrarlo. Exponer `job.intelligence`
+en la respuesta de la función Netlify o en la UI de `app.html` — habría
+sido la "nueva funcionalidad técnica" que el propietario pidió dejar de
+añadir; queda para la Fase 1 de `ROADMAP_V2.md`. Registro automático de
+resultados reales (clics, ventas) — no hay ningún disparador real todavía,
+así que `recordOutcome()` existe y está probada pero nada la llama.
+
+**Decisiones tomadas**: ver `DECISIONES.md`, entrada 2026-07-25 (Shadow
+Mode).
+
+**Siguiente paso recomendado para la próxima sesión**: cuando haya
+volumen suficiente de campañas reales pasadas por el pipeline, revisar
+`agreementRate` acumulado en `learning-engine/store.js#listRecords()` por
+categoría — es la señal que decide si se activa Decision Mode (Fase 3 de
+`ROADMAP_V2.md`), no una fecha en el calendario. Antes de eso, la Fase 1
+(exponer la recomendación en el Almacén para que el propietario la vea
+junto al resultado real) es la pieza que falta para que Shadow Mode
+empiece a acumular comparaciones de campañas reales y no solo de
+ejemplos de CLI.
+
+---
+
+### 2026-07-25 — `creative-engine/`: motor de generación de contenido, independiente
+
+**Resumen**: mismo día, tercer sprint de arquitectura de la sesión. Con
+`marketing-engine/intelligence/` ya construido en Shadow Mode, el
+propietario pidió separar por completo el "pensar" del "crear" — nueva
+carpeta de primer nivel `creative-engine/`, explícitamente independiente
+de `marketing-engine/`, con 6 componentes (Provider Manager, Asset
+Pipeline, Prompt Composer, Variant Generator, Creative Validator,
+Creative Assets), solo arquitectura, sin conectar ningún proveedor de IA.
+Un agente de planificación encontró antes de construir que
+`marketing-engine/core/providers/` ya tenía 6 de los 8 proveedores
+pedidos (mismos ids) — se resolvió declarando el nuevo registro de
+`creative-engine/` como canónico y el de `marketing-engine/` como legado,
+por escrito, en vez de dejar dos registros ambiguos.
+
+**Ejecutado**: los 6 componentes completos (41 ficheros: DSL de
+validación independiente, `CreativeBrief` + mapper puro desde
+marketing-engine, 9 proveedores registrados con capacidades declaradas,
+Asset Pipeline con dimensiones reales verificadas de `app.html` y
+resolución posicional de paleta de marca, Prompt Composer modular de 9
+secciones con orden y principio de "composición posterior" documentados,
+Variant Generator con distinción forzada de prompts
+(`assertDistinctPrompts`), Creative Validator con 6 checks y
+`regenerationHints`, almacén de versiones con numeración correcta);
+`index.js` como fachada única + CLI de demo; `ARCHITECTURE.md` (el
+entregable explícito pedido) documentando la convivencia con
+marketing-engine, los dos ejes ortogonales de variación, y cómo se
+conectará después a OpenAI Images/Canva/vídeo. Un bug real encontrado y
+corregido durante el desarrollo: `assertSupports` rechazaba de forma
+dura cualquier campo que un proveedor no soportara (p. ej.
+`negativePrompt` en `openai-images`, fiel a la API real), rompiendo el
+pipeline entero pese a que Prompt Composer siempre genera uno —
+separado en un requisito duro (`assertSupports`, solo `contentClass`) y
+uno suave (`adaptToCapabilities`, descarta con aviso en vez de romper).
+Verificado: independencia por grep, sintaxis de los 35 ficheros `.js`,
+demo con los dos desenlaces del Validador, fallo de proveedor gestionado
+con gracia, 10/10 variantes con prompts únicos, determinismo, y
+regresión completa de `marketing-engine/` sin cambios.
+
+**No ejecutado, deliberadamente fuera de alcance**: ningún proveedor de
+IA real (ni siquiera parcialmente) — solo arquitectura, tal como se
+pidió explícitamente. El cableado en vivo entre `creative-engine/` y
+`marketing-engine/` (que algo llame a `runCreativePipeline` de verdad
+desde el orquestador o desde una función Netlify) — el mapper existe y
+está probado, pero nada lo invoca automáticamente todavía; es la
+integración del sprint siguiente.
+
+**Decisiones tomadas**: ver `DECISIONES.md`, entrada 2026-07-25
+(`creative-engine/`).
+
+**Siguiente paso recomendado para la próxima sesión**: cuando se decida
+activar el primer proveedor real, seguir la guía de
+`creative-engine/provider-manager/README.md` (un fichero + una línea) —
+el punto de enganche ya está preparado y verificado con `simulated`. Si
+se decide conectar los dos motores en vivo, `brief/from-marketing-engine.js`
+ya define el mapeo exacto; falta decidir desde dónde se llama
+(¿`core/orchestrator.js` de marketing-engine, o una función Netlify
+nueva que orqueste ambos?) — es una decisión de arquitectura real, no
+solo de código, y debería plantearse explícitamente al propietario antes
+de construirla.
+
+### 2026-07-26 — creative-lab/: investigación y perfeccionamiento de calidad visual
+
+**Resumen**: cambio de prioridad del propietario — dejar de ampliar
+arquitectura, centrarse en calidad visual comparable a una agencia
+profesional. Arquitectura de `creative-lab/` diseñada, presentada y
+aprobada explícitamente punto por punto antes de implementar (capas de
+evaluación, umbral/reintentos, ubicación, Biblioteca de Referencias,
+filosofía "Director Creativo Digital"), luego construida completa.
+
+**Ejecutado**:
+- 9 bibliotecas atómicas (`libraries/`): 52 estilos, 15 composiciones, 10
+  direcciones artísticas, 12 iluminaciones, 14 escenarios, 7 jerarquías
+  tipográficas, 8 armonías de paleta, 12 ángulos/lentes, 12 tendencias
+  (estática, fechada).
+- Biblioteca de Referencias (`reference-library/`): esquema de 14 campos
+  (12 pedidos + 2 heredados), 15 entradas semilla textuales, manifest
+  ligero escalable a decenas de miles.
+- `analysis/`, `concept-generator/` (8-12 conceptos, mezcla + variación
+  propia obligatoria del director, invariantes de no-copia y diversidad),
+  `moodboard/` (textual), `master-prompt-composer/` (extiende
+  prompt-composer/ existente sin duplicar), `concept-score/` (dos capas),
+  `index.js#runCreativeLab` (umbral + reintento acotado), CLI de demo.
+- Corrección de diseño real durante la implementación (documentada en
+  ARCHITECTURE.md y DECISIONES.md): colisión de conceptos por
+  periodicidad modular, resuelta con hash determinista + salt.
+- `.claude/rax/`, `CLAUDE.md` actualizados. `creative-lab/ARCHITECTURE.md`
+  y `README.md` escritos.
+
+**No ejecutado**: ningún proveedor de IA real invocado de verdad en este
+sprint (mismo `simulated`/`openai-images` ya existentes, sin cambios);
+cableado de la biblioteca de tendencias en la mezcla de conceptos
+(validada pero no integrada, deliberado); importador automático de
+referencias desde campañas propias (solo documentado como extensión
+futura); ninguna conexión con `app.html`/Netlify — sigue siendo CLI.
+
+**Decisiones tomadas**: ver entrada de la misma fecha en `DECISIONES.md`.
+
+**Siguiente paso recomendado**: conectar `runCreativeLab` como opción de
+generación desde el Almacén (misma integración que ya existe para
+`creative-engine/index.js#runCreativePipeline`, pero con el flujo
+completo de conceptos/scoring); o, si el propietario lo prefiere, seguir
+haciendo crecer la Biblioteca de Referencias antes de exponerlo en la
+app.

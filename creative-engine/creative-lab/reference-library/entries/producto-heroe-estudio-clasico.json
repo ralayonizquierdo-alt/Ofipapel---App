@@ -1,0 +1,25 @@
+{
+  "id": "producto-heroe-estudio-clasico",
+  "label": "Producto héroe de estudio clásico",
+  "styleId": "producto-flotante-estudio",
+  "compositionId": "simetria-centrada",
+  "artDirectionId": "minimalismo",
+  "lightingId": "softbox-estudio",
+  "scenarioId": "estudio-fondo-blanco",
+  "paletteHarmonyId": "neutra-con-acento-marca",
+  "angleLensId": "frontal-centrado",
+  "emotion": "confianza y claridad",
+  "textSpaceId": "titular-dominante",
+  "idealProducts": [
+    "electrodomesticos",
+    "tecnologia",
+    "general"
+  ],
+  "whenToUse": "Cuando el producto necesita presentarse con máxima claridad — catálogo o primera campaña de lanzamiento.",
+  "whenToAvoid": "Evitar en campañas que buscan cercanía emocional o contexto de uso real.",
+  "whatMakesItSpecial": "La ausencia total de distracción hace que toda la atención recaiga en la forma del producto — funciona porque elimina el ruido, no porque añada nada.",
+  "whyItWorksOnSocial": "Se lee perfectamente incluso en miniatura de feed — alto contraste con fondo blanco puro.",
+  "visualImpactLevel": 78,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "lifestyle-cocina-calida",
+  "label": "Lifestyle de cocina cálida",
+  "styleId": "lifestyle-documental",
+  "compositionId": "encuadre-abierto-contexto",
+  "artDirectionId": "organico",
+  "lightingId": "ventana-natural",
+  "scenarioId": "cocina-domestica",
+  "paletteHarmonyId": "calida-marca",
+  "angleLensId": "tres-cuartos",
+  "emotion": "cercanía y confianza doméstica",
+  "textSpaceId": "texto-superior-cta-inferior",
+  "idealProducts": [
+    "electrodomesticos",
+    "alimentacion",
+    "hogar-decoracion",
+    "general"
+  ],
+  "whenToUse": "Cuando se quiere mostrar el producto integrado en la vida real, no como objeto aislado.",
+  "whenToAvoid": "Evitar si el objetivo es urgencia de venta (Black Friday) — el tono es demasiado calmado.",
+  "whatMakesItSpecial": "La luz de ventana natural hace que la escena se sienta encontrada, no construida — el espectador confía más en lo que parece real.",
+  "whyItWorksOnSocial": "El contexto reconocible (una cocina real) genera identificación inmediata al hacer scroll.",
+  "visualImpactLevel": 71,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}

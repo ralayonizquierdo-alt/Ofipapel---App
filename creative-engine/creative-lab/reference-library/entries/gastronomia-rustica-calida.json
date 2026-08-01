@@ -1,0 +1,24 @@
+{
+  "id": "gastronomia-rustica-calida",
+  "label": "Gastronomía rústica cálida",
+  "styleId": "rustico-campestre",
+  "compositionId": "capas-primer-segundo-plano",
+  "artDirectionId": "artesanal-honesto",
+  "lightingId": "golden-hour",
+  "scenarioId": "superficie-textil",
+  "paletteHarmonyId": "calida-marca",
+  "angleLensId": "tres-cuartos",
+  "emotion": "apetito y calidez",
+  "textSpaceId": "sin-texto-solo-marca",
+  "idealProducts": [
+    "alimentacion",
+    "general"
+  ],
+  "whenToUse": "Producto alimentario donde se busca sensación de tradición/hecho en casa.",
+  "whenToAvoid": "Evitar en producto alimentario industrial/procesado — la estética rústica generaría disonancia con el producto real.",
+  "whatMakesItSpecial": "La luz cálida y la textura de tela envejecen visualmente la escena de forma deliberada y apetecible.",
+  "whyItWorksOnSocial": "El género \"comida casera\" es de los que más engagement genera de forma constante.",
+  "visualImpactLevel": 72,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}

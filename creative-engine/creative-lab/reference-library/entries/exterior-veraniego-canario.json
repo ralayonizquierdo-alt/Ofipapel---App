@@ -1,0 +1,25 @@
+{
+  "id": "exterior-veraniego-canario",
+  "label": "Exterior veraniego canario",
+  "styleId": "mediterraneo-canario",
+  "compositionId": "encuadre-abierto-contexto",
+  "artDirectionId": "organico",
+  "lightingId": "golden-hour",
+  "scenarioId": "exterior-canario-mediterraneo",
+  "paletteHarmonyId": "calida-marca",
+  "angleLensId": "gran-angular",
+  "emotion": "frescor y disfrute",
+  "textSpaceId": "texto-superior-cta-inferior",
+  "idealProducts": [
+    "electrodomesticos",
+    "alimentacion",
+    "general"
+  ],
+  "whenToUse": "Campañas de temporada (verano) con anclaje local — refuerza la conexión con el público canario.",
+  "whenToAvoid": "Evitar fuera de temporada de verano — el anclaje estacional es explícito y perdería sentido.",
+  "whatMakesItSpecial": "La luz dorada de exterior real ancla el producto en un momento y lugar reconocible para el público local.",
+  "whyItWorksOnSocial": "El anclaje geográfico/estacional genera identificación inmediata con la audiencia canaria.",
+  "visualImpactLevel": 75,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}

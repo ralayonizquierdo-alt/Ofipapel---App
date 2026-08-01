@@ -13,6 +13,17 @@
 [functions]
   directory = "netlify/functions"
 
+# El bundler de Netlify traza dependencias por análisis estático de
+# require()/import — no detecta las rutas que arma
+# marketing-engine/agents/07-maquetador en tiempo de ejecución (execFileSync
+# a design-studio/scripts/render-html.js, y la carga de
+# design-studio/brand-kit.json por ruta calculada). Sin esto, el despliegue
+# real fallaría con "fichero no encontrado" aunque todo funcione en local.
+# Ver marketing-engine/INTEGRATION.md para el resto de bloqueantes de
+# despliegue conocidos (Playwright/Chromium en Lambda, no resuelto aún).
+[functions."marketing-engine-run"]
+  included_files = ["marketing-engine/**", "design-studio/**", "creative-engine/**"]
+
 # El hub vive en inicio.html (no index.html). La causa real de que "/"
 # sirviera siempre Index.html no era una colisión de caché ni de nombre:
 # por defecto Netlify NO aplica una regla de redirección si la ruta ya

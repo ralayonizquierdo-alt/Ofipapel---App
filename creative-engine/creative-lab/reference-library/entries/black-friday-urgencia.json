@@ -1,0 +1,25 @@
+{
+  "id": "black-friday-urgencia",
+  "label": "Black Friday / urgencia",
+  "styleId": "alto-contraste-drama",
+  "compositionId": "diagonal-dinamica",
+  "artDirectionId": "maximalismo",
+  "lightingId": "dura-direccional",
+  "scenarioId": "estudio-fondo-color-marca",
+  "paletteHarmonyId": "alto-contraste-marca",
+  "angleLensId": "contrapicado-heroico",
+  "emotion": "urgencia y energía",
+  "textSpaceId": "titular-dominante",
+  "idealProducts": [
+    "general",
+    "electrodomesticos",
+    "tecnologia"
+  ],
+  "whenToUse": "Campañas de oferta flash o urgencia de precio (rebajas, Black Friday).",
+  "whenToAvoid": "Nunca en piezas de marca puras sin oferta real detrás — la urgencia sin motivo real rompe la confianza.",
+  "whatMakesItSpecial": "El contraste y la diagonal generan tensión visual que el ojo lee como \"algo está pasando ahora\".",
+  "whyItWorksOnSocial": "Detiene el scroll por energía visual, no por belleza — la pieza correcta cuando hay 48 horas de oferta.",
+  "visualImpactLevel": 84,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}

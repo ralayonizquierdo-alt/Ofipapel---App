@@ -99,6 +99,14 @@ Cada uno de los tres productos de Ofipapel tiene su propia identidad visual
 ya establecida en el código — úsalas para que cualquier pieza nueva encaje
 con lo existente en vez de inventar una paleta distinta.
 
+**Estos mismos valores existen también en `design-studio/brand-kit.json`**
+(formato machine-readable, un objeto por marca) para que código — no solo
+una sesión de Claude leyendo prosa — pueda validarlos automáticamente (lo
+usa `marketing-engine/agents/03-guardian-marca`). Ambos ficheros se
+actualizan juntos en el mismo commit; si alguna vez divergen, `brand-kit.json`
+es la fuente autoritativa para validación automática y este README es su
+explicación en prosa.
+
 ### Ofipapel (`Index.html`) — control financiero / marca institucional
 - Verde oscuro corporativo: `#1A5C1A` · Verde medio: `#237523` · Verde claro: `#3DAF3D`
 - Acento lima (del logo): `#8DC41E` · Acento oscuro: `#6FA018`
@@ -107,6 +115,40 @@ con lo existente en vez de inventar una paleta distinta.
 - Tipografía: **Inter** (texto general) + **IBM Plex Mono** (etiquetas, datos, acentos técnicos), ambas vía Google Fonts `@import` — así es como ya se cargan en `Index.html`.
   - Nota Adobe Fonts: `Inter` no está en el plan Adobe Fonts conectado (`not_entitled`); `IBM Plex Mono` sí (`IBMPlexMono-Bold`, disponible). Para piezas que vayan a Adobe Express, usa Adobe Fonts cuando puedas y cae a Google Fonts `@import` para igualar la marca exacta cuando el destino sea un archivo standalone.
 - Gradiente de fondo de referencia (pantalla de login): `linear-gradient(135deg,#0d3d0d 0%,#1A5C1A 40%,#237523 70%,#3a8f2a 100%)`
+
+#### Fondo e identidad corporativa oficial para publicaciones (obligatorio)
+
+Proporcionado por el propietario el 2026-07-21 — **usar como fondo/paleta por
+defecto en todas las publicaciones de redes sociales** (posts e imágenes de
+producto), no solo en piezas de `Index.html`, salvo que se pida explícitamente
+otra cosa:
+
+- Imagen fuente versionada: `design-studio/assets/fondo-corporativo-ofipapel.png`
+  (textura de ondas verdes con motivo de trébol — mismo trébol del logo —
+  destellos y una franja azul/turquesa en la esquina inferior izquierda).
+- Colores extraídos de esa imagen (ampliación de la paleta de arriba, no la
+  sustituyen):
+  - Verde brillante (dominante del fondo): `#5FB355` – `#83D084`
+  - Verde claro / highlight: `#9DDD9C` – `#C0E4C3`
+  - Acento azul/turquesa (nuevo, esquina del fondo): `#6DB0AE`
+  - Transición verde-amarillo (borde del fondo): `#C1D48A`
+  - Blanco base: `#FEFEFC`
+- Úsalo como `background-image` (con `background-size:cover`) en piezas donde
+  el fondo verde plano/gradiente quedaría soso — tarjetas de características,
+  pantallas finales de vídeo, posts de producto — en vez de un
+  `linear-gradient` inventado. El acento azul es nuevo respecto a la paleta
+  histórica (solo verdes): úsalo con moderación (detalles, no como color
+  principal) hasta que el propietario confirme si sustituye o complementa el
+  naranja como segundo acento.
+
+#### Eslogan oficial (obligatorio)
+
+**"Mucho más que papel"** — proporcionado por el propietario el 2026-07-21.
+Incluir en todas las publicaciones de redes sociales (junto al logo, o en la
+pantalla/tarjeta final), salvo que se pida explícitamente omitirlo. Estilo de
+referencia: Poppins itálica, semi-bold, acento verde de marca — ver
+`design-studio/templates/` o las piezas ya generadas en sesiones de vídeo de
+producto para el tratamiento visual exacto.
 
 ### Canarias INK (`canarias-ink.html`) — e-commerce de consumibles de impresora
 - Fondo oscuro: `#1A1D2E` / `#12141F` (sidebar)
@@ -135,10 +177,13 @@ con lo existente en vez de inventar una paleta distinta.
 
 ```
 design-studio/
-├── README.md              ← este documento
-├── templates/              plantillas HTML fuente (versionadas)
-│   ├── ofipapel-banner.html            demo de banner de marca genérico de Ofipapel
-│   └── ofipapel-vuelta-al-cole-*.html  campaña real (banner/post/story/whatsapp/landing)
+├── README.md                                       ← este documento
+├── OFIPAPEL_VISUAL_DNA.md                          reglas visuales obligatorias de Ofipapel (ver sección 5)
+├── templates/                                       plantillas HTML fuente (versionadas)
+│   ├── ofipapel-banner.html                          demo de banner de marca genérico de Ofipapel
+│   ├── ofipapel-vuelta-al-cole-*.html                campaña real (banner/post/story/whatsapp/landing)
+│   ├── ofipapel-ventilador-verano-cinematico.html    plantilla de referencia "lifestyle" (ver sección 5)
+│   └── ofipapel-afeitadora-x3003-cinematico.html     plantilla de referencia "lifestyle" (ver sección 5)
 ├── campaigns/
 │   └── vuelta-al-cole-2026/COPY.md     copy comercial, CTAs y confirmaciones pendientes de cada campaña
 ├── assets/                 activos de marca fuente reutilizables (logos, etc.), versionados
@@ -147,3 +192,32 @@ design-studio/
 │   └── firefly-generate.js   texto → imagen vía Adobe Firefly API (sin probar, pendiente de credenciales)
 └── output/                 artefactos generados (en .gitignore, no versionar)
 ```
+
+## 5. Plantilla de referencia "lifestyle"
+
+Patrón ya validado (varias rondas de crítica de Director Creativo, ver
+`OFIPAPEL_VISUAL_DNA.md`) para productos con fotografía real de uso —
+foto a sangre completa, precio y logo en esquinas opuestas, titular
+publicitario nunca el nombre de producto, fila de iconos de
+características, CTA protegido, eslogan de marca y footer de contacto.
+Ejemplos completos, listos para copiar como punto de partida de un
+producto nuevo:
+
+- `templates/ofipapel-ventilador-verano-cinematico.html` — Ventilador
+  Nebulizador MUVIP, 89€.
+- `templates/ofipapel-afeitadora-x3003-cinematico.html` — Afeitadora
+  eléctrica Philips X3003, 55€.
+
+Para un producto nuevo con este mismo patrón: copiar uno de los dos
+ficheros, sustituir la foto (`assets/`), el titular, el subtítulo, el
+precio y los 4 iconos (con su etiqueta) — el resto de la hoja de
+estilos (tamaños, posiciones, colores) se queda igual, porque es
+precisamente lo que `OFIPAPEL_VISUAL_DNA.md` fija como invariable. Antes
+de dar la pieza por buena, repasar el capítulo 11 de ese documento
+(prohibiciones) y las proporciones de los capítulos 2-4.
+
+`templates/ofipapel-altavoz-a340-foto-producto.html` (patrón "foto
+producto", gráfico de onda + producto de estudio + placa de precio)
+existe como borrador en desarrollo — todavía NO está validado como
+plantilla de referencia, no seguirlo como ejemplo hasta que se
+confirme.

@@ -1,0 +1,26 @@
+{
+  "id": "producto-flotante-sombra-premium",
+  "label": "Producto flotante con sombra premium",
+  "styleId": "producto-heroe-flotante-sombra",
+  "compositionId": "espacio-negativo-dominante",
+  "artDirectionId": "lujo-discreto",
+  "lightingId": "low-key-dramatica",
+  "scenarioId": "flotando-sin-escenario",
+  "paletteHarmonyId": "monocroma-marca",
+  "angleLensId": "altura-producto",
+  "emotion": "deseo y aspiración",
+  "textSpaceId": "logo-dominante",
+  "idealProducts": [
+    "joyeria",
+    "belleza",
+    "tecnologia",
+    "general"
+  ],
+  "whenToUse": "Producto premium/ticket alto, donde el precio se justifica por percepción de calidad.",
+  "whenToAvoid": "Evitar en productos de consumo básico — el tono de lujo se sentiría falso.",
+  "whatMakesItSpecial": "La sombra dramática y el espacio negativo comunican valor sin decirlo con palabras.",
+  "whyItWorksOnSocial": "El vacío alrededor del producto hace que destaque incluso entre publicaciones muy cargadas.",
+  "visualImpactLevel": 80,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}

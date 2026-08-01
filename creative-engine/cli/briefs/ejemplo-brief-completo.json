@@ -1,0 +1,59 @@
+{
+  "input": {
+    "productName": "Ventilador Nebulizador MUVIP 75W",
+    "category": "electrodomesticos",
+    "brand": "ofipapel",
+    "description": "Refresca y humedece el ambiente al instante — ideal para el verano en Tenerife.",
+    "channel": "instagram",
+    "images": []
+  },
+  "state": {
+    "director-creativo": {
+      "strategy": "Mostrar el ventilador refrescando la habitación en segundos, incluso en pleno agosto.",
+      "postType": "foto",
+      "tone": "cercano y práctico",
+      "channel": "instagram",
+      "graphicFamily": "producto-sobre-fondo-marca"
+    },
+    "director-arte": {
+      "composition": "producto centrado con ligera regla de tercios, fondo de marca limpio",
+      "hierarchy": ["producto", "titular", "cta"],
+      "structure": "vertical, producto en el tercio superior, texto en el inferior",
+      "layoutId": "layout-centrado"
+    },
+    "fotografo-publicitario": {
+      "photoSpec": {
+        "angle": "frontal, ligeramente elevado",
+        "background": "fondo corporativo verde de Ofipapel",
+        "lighting": "luz suave y uniforme, sin sombras duras",
+        "notes": "realzar el diseño compacto del producto"
+      },
+      "fidelityRules": [
+        "no deformar el producto",
+        "mantener las proporciones reales",
+        "conservar el color exacto de la carcasa"
+      ]
+    },
+    "copywriter": {
+      "title": "Refresca tu casa en segundos",
+      "body": "Ideal para el verano en Tenerife — enciéndelo y nota el cambio al instante.",
+      "cta": "Míralo en tienda",
+      "hashtags": ["#ofipapel", "#loscristianos", "#tenerife"]
+    }
+  },
+  "intelligence": {
+    "productProfile": {
+      "benefits": ["ahorra tiempo o esfuerzo en una tarea del día a día", "mejora el confort del hogar de forma inmediata"],
+      "emotions": ["alivio", "bienestar"],
+      "salesArguments": ["resuelve una molestia concreta del día a día"],
+      "audience": { "segment": "particular-hogar" },
+      "ticket": { "band": "medio" }
+    },
+    "recommendation": {
+      "objective": "emocionar",
+      "campaignType": "Lifestyle",
+      "creativeStyle": "Lifestyle, con un enfoque cercano y emocional",
+      "postingWindow": "martes a jueves, 19:00–21:00 (hora Canarias)"
+    }
+  }
+}

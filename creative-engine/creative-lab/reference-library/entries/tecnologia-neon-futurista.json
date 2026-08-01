@@ -1,0 +1,24 @@
+{
+  "id": "tecnologia-neon-futurista",
+  "label": "Tecnología neón futurista",
+  "styleId": "tecnologico-futurista",
+  "compositionId": "composicion-en-l",
+  "artDirectionId": "futurista",
+  "lightingId": "neon-color",
+  "scenarioId": "estudio-fondo-blanco",
+  "paletteHarmonyId": "fria-marca",
+  "angleLensId": "dutch-angle-editorial",
+  "emotion": "sorpresa e innovación",
+  "textSpaceId": "minimo-texto-hero",
+  "idealProducts": [
+    "tecnologia",
+    "general"
+  ],
+  "whenToUse": "Lanzamiento de producto tecnológico o feature nueva, campañas que buscan sensación de novedad.",
+  "whenToAvoid": "Evitar en categorías tradicionales (alimentación, hogar clásico) — rompe la coherencia de marca.",
+  "whatMakesItSpecial": "El color neón sobre fondo neutro crea una tensión visual que se lee como \"tecnología de verdad\".",
+  "whyItWorksOnSocial": "Estética muy compartida en nichos de tecnología — genera comentarios sobre el propio look.",
+  "visualImpactLevel": 76,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}

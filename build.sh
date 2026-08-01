@@ -67,6 +67,7 @@ cp inicio.html _site/
 cp Index.html _site/ 2>/dev/null || true
 cp canarias-ink.html _site/ 2>/dev/null || true
 cp falcontrol.html _site/ 2>/dev/null || true
+cp app.html _site/ 2>/dev/null || true
 cp vacaciones.html _site/ 2>/dev/null || true
 cp fichaje.html _site/ 2>/dev/null || true
 cp favicon-fichaje.svg _site/ 2>/dev/null || true
