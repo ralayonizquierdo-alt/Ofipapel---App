@@ -20,16 +20,17 @@
 # design-studio/brand-kit.json por ruta calculada). Sin esto, el despliegue
 # real fallaría con "fichero no encontrado" aunque todo funcione en local.
 # Ver marketing-engine/INTEGRATION.md para el resto de bloqueantes de
-# despliegue conocidos. Los dos últimos globs (node_modules de
-# @sparticuz/chromium/playwright-core, DT-16 — `.claude/rax/DEUDA_TECNICA.md`)
-# empaquetan el Chromium compatible con Lambda: esbuild no bundlea sus
-# binarios por análisis estático (netlify/functions/package.json declara
-# las dependencias; Netlify las instala automáticamente antes de empaquetar).
+# despliegue conocidos. El último glob empaqueta TODO
+# netlify/functions/node_modules/ (DT-16 — `.claude/rax/DEUDA_TECNICA.md`,
+# build.sh ya instaló las dependencias antes de esto): @sparticuz/chromium
+# y playwright-core arrastran varios paquetes transitivos propios
+# (follow-redirects, tar-fs, bare-*...) que un glob por paquete concreto
+# deja fuera uno a uno — más simple y robusto empaquetar el árbol entero
+# que perseguir cada dependencia transitiva a mano.
 [functions."marketing-engine-run"]
   included_files = [
     "marketing-engine/**", "design-studio/**", "creative-engine/**",
-    "netlify/functions/node_modules/@sparticuz/chromium/**",
-    "netlify/functions/node_modules/playwright-core/**",
+    "netlify/functions/node_modules/**",
   ]
   external_node_modules = ["@sparticuz/chromium", "playwright-core"]
 
