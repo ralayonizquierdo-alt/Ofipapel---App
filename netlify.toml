@@ -17,7 +17,7 @@
 # Ver marketing-engine/INTEGRATION.md para el resto de bloqueantes de
 # despliegue conocidos (Playwright/Chromium en Lambda, no resuelto aún).
 [functions."marketing-engine-run"]
-  included_files = ["marketing-engine/**", "design-studio/**"]
+  included_files = ["marketing-engine/**", "design-studio/**", "creative-engine/**"]
 
 # SPA routing: cualquier ruta bajo /alquileres/ sirve el index de la app
 [[redirects]]

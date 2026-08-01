@@ -116,10 +116,15 @@ function overlapScore(idealProducts, wanted) {
  * leer sus ficheros individuales es barato.
  *
  * Filtro: coincidencia de tags entre `idealProducts` de la referencia y
- * {categoría del producto, segmento de audiencia, familia gráfica}. Si
- * hay menos de 2 matches (normal con una biblioteca todavía pequeña),
- * se completa con las referencias etiquetadas 'general' — concept-generator/
- * necesita al menos 2 para poder mezclar sin copiar ninguna.
+ * {categoría del producto, segmento de audiencia, familia gráfica},
+ * priorizadas primero. concept-generator/ necesita bastantes más que 2
+ * para poder generar 8-12 conceptos genuinamente distintos (cada uno
+ * mezcla `REFERENCES_PER_CONCEPT` referencias; con solo 2-3 candidatas el
+ * número de combinaciones posibles se agota mucho antes de llegar a 8 —
+ * bug real detectado al conectar esta ruta al flujo de producción,
+ * sprint "Cierre de arquitectura", DT-10) — por eso se completa SIEMPRE
+ * con referencias 'general' hasta alcanzar `limit`, no solo cuando hay
+ * menos de 2 matches directos.
  */
 function findRelevantReferences(brief, { limit = 6 } = {}) {
   const wanted = [
@@ -134,11 +139,15 @@ function findRelevantReferences(brief, { limit = 6 } = {}) {
     .filter((x) => x.score > 0)
     .sort((a, b) => b.score - a.score || (b.row.visualImpactLevel || 0) - (a.row.visualImpactLevel || 0));
 
-  if (scored.length < 2) {
+  if (scored.length < limit) {
     const generalRows = manifest.filter((row) => Array.isArray(row.idealProducts) && row.idealProducts.includes('general'));
     const alreadyIn = new Set(scored.map((x) => x.row.id));
     for (const row of generalRows) {
-      if (!alreadyIn.has(row.id)) scored.push({ row, score: 0 });
+      if (scored.length >= limit) break;
+      if (!alreadyIn.has(row.id)) {
+        scored.push({ row, score: 0 });
+        alreadyIn.add(row.id);
+      }
     }
   }
 

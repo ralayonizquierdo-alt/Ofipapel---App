@@ -139,46 +139,59 @@ exports.handler = async (event) => {
   }
 
   // ============================================================
-  // Primera conexión real: Marketing Engine → Creative Engine → proveedor
-  // real (OpenAI Images) → resultado real. Ver FIRST_REAL_GENERATION.md.
-  // Punto de sustitución de proveedor: una sola variable de entorno
-  // (OPENAI_API_KEY) — sin ella cae a "simulated", sin tocar código.
+  // El cerebro real: Marketing Engine → Creative Lab (Análisis → Concepto
+  // → Art Direction Engine → 4 familias oficiales → Layout Intelligence →
+  // Design Director → Component Library → pieza compuesta final) →
+  // proveedor real (OpenAI Images) o "simulated". Sustituye a
+  // creative-engine/index.js#runCreativePipeline (DT-10, resuelto en el
+  // sprint "Cierre de arquitectura", 2026-08-01): aquel pipeline no
+  // pasaba por ninguno de los motores construidos en esta sesión — este
+  // sí, siempre, con o sin proveedor real conectado. Punto de sustitución
+  // de proveedor: una sola variable de entorno (OPENAI_API_KEY) — sin
+  // ella cae a "simulated", sin tocar código.
   if (finalJob.status === 'completed') {
     try {
-      const { fromMarketingEngine, runCreativePipeline } = require(path.join(REPO_ROOT, 'creative-engine/index.js'));
+      const { fromMarketingEngine, prepareAssets } = require(path.join(REPO_ROOT, 'creative-engine/index.js'));
+      const { runCreativeLab } = require(path.join(REPO_ROOT, 'creative-engine/creative-lab/index.js'));
+      const { PATTERNS } = require(path.join(REPO_ROOT, 'creative-engine/creative-lab/art-direction-engine/patterns.js'));
       if (!process.env.CREATIVE_ENGINE_ASSETS_DIR) {
         process.env.CREATIVE_ENGINE_ASSETS_DIR = path.join(process.env.TMPDIR || '/tmp', 'creative-engine-assets');
       }
       const creativeProviderId = process.env.OPENAI_API_KEY ? 'openai-images' : 'simulated';
       const brief = fromMarketingEngine(finalJob);
-      const creativeResult = await runCreativePipeline(brief, { providerId: creativeProviderId, variantCount: 1 });
-      const variant = creativeResult.variants[0];
+      const labResult = await runCreativeLab(brief, { providerId: creativeProviderId });
+      const winner = labResult.winner;
+      const pattern = PATTERNS.find((p) => p.id === winner.layout.patternId) || null;
 
       response.creative = {
-        creativeId: creativeResult.creativeId,
+        creativeId: labResult.creativeId,
+        status: labResult.status,
         providerId: creativeProviderId,
-        providerStatus: variant.providerStatus,
-        providerError: variant.providerError,
-        validation: variant.validation,
+        providerStatus: winner.providerStatus,
+        patternId: winner.layout.patternId,
+        patternLabel: winner.layout.patternLabel,
+        officialFamily: pattern ? pattern.officialFamily : null,
+        designReview: winner.layout.designReview,
       };
 
-      // Solo se sustituye la pieza del maquetador por la del Creative
-      // Engine cuando hay una generación real de verdad (proveedor
-      // "openai-images" con éxito) — con el fallback "simulated" se
-      // mantiene el renderedAsset ya compuesto por el maquetador (mejor
-      // preview que un placeholder), pero `response.creative` deja
-      // constancia igualmente de que la costura se ejecutó.
-      if (creativeProviderId === 'openai-images' && variant.providerStatus === 'ok' && variant.assetPath) {
-        const buffer = fs.readFileSync(variant.assetPath);
+      // A diferencia del pipeline antiguo (que solo sustituía la pieza
+      // del maquetador cuando había generación real de OpenAI con
+      // éxito), la pieza compuesta de Creative Lab es siempre la mejor
+      // disponible — con "simulated" ya pasa por las 4 familias
+      // oficiales y el Design Director, es mejor que el render simple
+      // del maquetador. Se sustituye siempre que exista.
+      if (winner.layout.finalRenderedAssetPath) {
+        const buffer = fs.readFileSync(winner.layout.finalRenderedAssetPath);
+        const { dimensions } = prepareAssets(brief);
         response.renderedAsset = {
           mimeType: 'image/png',
           base64: buffer.toString('base64'),
-          width: creativeResult.preparedAssets.dimensions.width,
-          height: creativeResult.preparedAssets.dimensions.height,
+          width: dimensions.width,
+          height: dimensions.height,
         };
       }
     } catch (err) {
-      response.errors.push(`Creative Engine no pudo generar la pieza: ${err.message}`);
+      response.errors.push(`Creative Lab no pudo generar la pieza: ${err.message}`);
     }
   }
 
