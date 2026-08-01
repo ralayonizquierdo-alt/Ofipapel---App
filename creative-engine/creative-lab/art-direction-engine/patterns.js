@@ -54,6 +54,7 @@
 const PATTERNS = [
   {
     id: 'hero-product',
+    officialFamily: 'Comercial',
     label: 'Hero Product',
     inspiration: 'Ficha de producto premium — el producto es el único protagonista, todo lo demás es soporte.',
     heroTreatment: 'large-borderless',
@@ -75,6 +76,7 @@ const PATTERNS = [
   },
   {
     id: 'magazine-editorial',
+    officialFamily: 'Premium Editorial',
     label: 'Magazine Editorial',
     inspiration: 'Doble página de revista — foto grande a un lado, bloque de texto respirado al otro.',
     heroTreatment: 'large-borderless',
@@ -96,6 +98,7 @@ const PATTERNS = [
   },
   {
     id: 'luxury-minimal',
+    officialFamily: 'Premium Editorial',
     label: 'Luxury Minimal',
     inspiration: 'Joyería/alta gama — casi todo es espacio en blanco, el producto pequeño concentra toda la atención.',
     heroTreatment: 'large-borderless',
@@ -117,6 +120,7 @@ const PATTERNS = [
   },
   {
     id: 'apple-style',
+    officialFamily: 'Premium Editorial',
     label: 'Apple Style',
     inspiration: 'Producto flotando sobre fondo limpísimo, tipografía mínima, cero decoración.',
     heroTreatment: 'large-borderless',
@@ -138,6 +142,7 @@ const PATTERNS = [
   },
   {
     id: 'nike-style',
+    officialFamily: 'Lifestyle',
     label: 'Nike Style',
     inspiration: 'Imagen a sangre completa, energía y movimiento, texto grande y seguro, mínimo adorno.',
     heroTreatment: 'full-bleed',
@@ -159,6 +164,7 @@ const PATTERNS = [
   },
   {
     id: 'muji-style',
+    officialFamily: 'Premium Editorial',
     label: 'Muji Style',
     inspiration: 'Calma, materiales naturales, nada de color de acento agresivo, mucho respiro alrededor del producto.',
     heroTreatment: 'large-borderless',
@@ -180,6 +186,7 @@ const PATTERNS = [
   },
   {
     id: 'ikea-lifestyle',
+    officialFamily: 'Lifestyle',
     label: 'IKEA Lifestyle',
     inspiration: 'Producto en un hogar real, escena completa, texto integrado sin robarle protagonismo a la escena.',
     heroTreatment: 'full-bleed',
@@ -201,6 +208,7 @@ const PATTERNS = [
   },
   {
     id: 'product-first',
+    officialFamily: 'Comercial',
     label: 'Product First',
     inspiration: 'Ficha técnica de electrodoméstico premium — el producto grande, un pequeño set de datos alrededor.',
     heroTreatment: 'large-borderless',
@@ -222,6 +230,7 @@ const PATTERNS = [
   },
   {
     id: 'negative-space',
+    officialFamily: 'Premium Editorial',
     label: 'Negative Space',
     inspiration: 'El vacío ES el diseño — un objeto diminuto en un mar de espacio en blanco.',
     heroTreatment: 'large-borderless',
@@ -243,6 +252,7 @@ const PATTERNS = [
   },
   {
     id: 'swiss-grid',
+    officialFamily: 'Comercial',
     label: 'Swiss Grid',
     inspiration: 'Tipografía como estructura, alineación estricta, orden absoluto, cero ornamento.',
     heroTreatment: 'large-borderless',
@@ -264,6 +274,7 @@ const PATTERNS = [
   },
   {
     id: 'asymmetric-editorial',
+    officialFamily: 'Premium Editorial',
     label: 'Asymmetric Editorial',
     inspiration: 'Composición asimétrica deliberada, tensión visual controlada, moderno y con actitud.',
     heroTreatment: 'large-borderless',
@@ -285,6 +296,7 @@ const PATTERNS = [
   },
   {
     id: 'poster-design',
+    officialFamily: 'Comercial',
     label: 'Poster Design',
     inspiration: 'Cartel de gran formato, alto impacto inmediato, mensaje único y contundente.',
     heroTreatment: 'full-bleed',
@@ -306,6 +318,7 @@ const PATTERNS = [
   },
   {
     id: 'premium-retail',
+    officialFamily: 'Comercial',
     label: 'Premium Retail',
     inspiration: 'Ficha de tienda física de gama alta — producto grande sobre una tarjeta discretísima, datos claros.',
     heroTreatment: 'framed-minimal',
@@ -327,6 +340,7 @@ const PATTERNS = [
   },
   {
     id: 'luxury-catalogue',
+    officialFamily: 'Premium Editorial',
     label: 'Luxury Catalogue',
     inspiration: 'Catálogo de alta gama, producto enmarcado con una línea finísima, todo muy calmado.',
     heroTreatment: 'framed-minimal',
@@ -348,6 +362,7 @@ const PATTERNS = [
   },
   {
     id: 'lifestyle-premium',
+    officialFamily: 'Lifestyle',
     label: 'Lifestyle Premium',
     inspiration: 'Escena de vida real de alta gama — la fotografía manda, el resto es un susurro.',
     heroTreatment: 'full-bleed',
@@ -369,6 +384,7 @@ const PATTERNS = [
   },
   {
     id: 'amazon-premium',
+    officialFamily: 'Comercial',
     label: 'Amazon Premium',
     inspiration: 'Ficha de marketplace de gama alta — producto grande sobre blanco limpio, especificaciones claras en iconos, precio inconfundible en la esquina, cero ruido visual.',
     heroTreatment: 'large-borderless',
@@ -390,6 +406,7 @@ const PATTERNS = [
   },
   {
     id: 'mediamarkt-editorial',
+    officialFamily: 'Comercial',
     label: 'MediaMarkt Editorial',
     inspiration: 'Folleto de electrónica de alto impacto — foto a sangre completa, energía y urgencia, precio y CTA compitiendo por atención inmediata, acento diagonal con banda de color.',
     heroTreatment: 'full-bleed',
@@ -409,8 +426,47 @@ const PATTERNS = [
     commonMistakes: 'preferredStrategies primario diagonal-dinamico + heroTreatment full-bleed — la combinación más expuesta al bug ya corregido de texto ilegible sobre decoración de color (titleNeedsLightText()), porque el título vive justo sobre el acento diagonal por diseño, no por accidente.',
     projectExamples: 'Sin campaña real registrada aún.',
   },
+  {
+    id: 'problema-solucion',
+    officialFamily: 'Problema-Solución',
+    label: 'Problema → Solución',
+    inspiration: 'Anuncio de utilidad real (limpieza, ergonomía, ventilación) que primero nombra la molestia cotidiana y luego resuelve — la tensión problema/alivio, no el producto en sí, es el argumento.',
+    heroTreatment: 'large-borderless',
+    heroSize: { colRatio: 0.70, rowRatio: 0.58 },
+    whitespaceTarget: { min: 0.34, max: 0.52 },
+    marginRatio: 0.06,
+    allowCard: false,
+    maxElements: 6,
+    allowIcons: true,
+    maxIcons: 3,
+    alignment: 'asymmetric-left',
+    preferredStrategies: ['dividido-lifestyle', 'diagonal-dinamico'],
+    tags: ['limpieza', 'ergonomia', 'ventilacion', 'oficina-papeleria', 'general'],
+    conceptAliases: ['Antes/después', 'Alivio inmediato'],
+    whenToUse: 'Cuando el objetivo comercial real es "resolver un problema" (una molestia física o cotidiana reconocible: calor, mala postura, desorden, ruido) y el producto es la solución — el titular nombra la molestia, el subtítulo/CTA entregan el alivio, dividido-lifestyle separa las dos mitades del mensaje con el mismo peso visual que ya usa para foto/texto.',
+    whenToAvoid: 'Productos de deseo/aspiración (lujo, moda) donde no hay una molestia real que nombrar — forzar un "problema" inventado suena falso. Tampoco si no hay copy real de beneficio funcional para el CTA/subtítulo: sin eso, la mitad "solución" queda vacía.',
+    commonMistakes: 'Es el único patrón de los 18 sin ninguna generación real todavía — a diferencia de lifestyle-premium, no hereda ningún bug ya corregido porque no se ha probado en producción. Antes de confiar en él en una campaña real, correr el mismo sweep sintético que valida el resto (ver DECISIONES.md, sprint "Layout Intelligence").',
+    projectExamples: 'Sin campaña real registrada aún — patrón añadido en el sprint "Cierre de arquitectura" (Fase 3) para cubrir la familia oficial Problema→Solución, que ninguno de los 17 patrones previos representaba honestamente.',
+  },
 ];
+
+// Familias oficiales de plantilla (sprint "Cierre de arquitectura", Fase 3)
+// — las 4 plantillas maestras que el propietario definió a partir de 4
+// imágenes de referencia reales. NO son un 5º sistema paralelo: son una
+// capa de agrupación sobre los patrones ya existentes de PATTERNS (cada
+// patrón declara su officialFamily arriba). Documentación completa
+// (cuándo usarla/cuándo no/objetivo comercial/personalidad/estructura/
+// grid/jerarquía/pesos visuales/restricciones/errores prohibidos/checklist)
+// vive en design-studio/OFIPAPEL_VISUAL_DNA.md — aquí solo el mapeo
+// ejecutable id→familia que Fase 4 (el "cerebro") consumirá para
+// restringir la selección a una única familia antes de elegir el patrón
+// concreto dentro de ella.
+const OFFICIAL_FAMILIES = ['Lifestyle', 'Premium Editorial', 'Comercial', 'Problema-Solución'];
+
+function patternsByFamily(family) {
+  return PATTERNS.filter((p) => p.officialFamily === family);
+}
 
 const DEFAULT_PATTERN_ID = 'hero-product';
 
-module.exports = { PATTERNS, DEFAULT_PATTERN_ID };
+module.exports = { PATTERNS, DEFAULT_PATTERN_ID, OFFICIAL_FAMILIES, patternsByFamily };

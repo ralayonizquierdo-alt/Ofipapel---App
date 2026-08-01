@@ -1181,3 +1181,83 @@ patrones nuevos son entradas más en un array ya existente, y los tres
 fixes de bugs son correcciones acotadas en funciones ya existentes
 (`topRightCorner`, `stackVertically`, `decorationMarkup`); revertible
 desde el historial de git.
+
+### 2026-08-01 — Sprint "Cierre de arquitectura", Fase 3: las 4 familias oficiales de plantilla
+
+**Contexto**: el propietario cerró formalmente la fase de arquitectura del
+ecosistema con una misión de 6 fases (auditoría → congelar arquitectura →
+registrar 4 plantillas maestras a partir de 4 imágenes de referencia
+reales → terminar el "cerebro" de selección automática → dejar el
+proveedor OpenAI listo sin conectar → informe final), con la regla
+explícita de detenerse y proponer una única alternativa si alguna
+instrucción contradecía la simplicidad/modularidad/reutilización del
+sistema, y ejecutar sin preguntar en cualquier otro caso.
+
+**Flag levantado antes de implementar (Fase 3↔Fase 4)**: guardar las 4
+imágenes de referencia como ficheros HTML sueltos en `design-studio/`
+(lectura literal de la Fase 3) las habría dejado inservibles para la Fase
+4, porque `design-studio/templates/` no tiene ningún mecanismo de
+parametrización — nada ahí puede ser "elegido" por un selector automático.
+El sistema que sí es real, parametrizado y ya está integrado en el
+pipeline (`layout-intelligence`/`design-director`/`layout-composer`) es
+`art-direction-engine/patterns.js` (18 patrones editoriales con reglas,
+no coordenadas). Alternativa única propuesta y ejecutada: las 4 familias
+oficiales se registran como una capa de agrupación sobre los patrones ya
+existentes (`officialFamily` en cada patrón), nunca como un quinto sistema
+paralelo — la Fase 4 seleccionará una familia (nunca inventará una
+quinta) y, dentro de ella, el motor de selección por tags ya existente
+(`selectPattern()`) elige el patrón concreto, sin tocar esa lógica.
+
+**Qué se implementó**:
+1. `patterns.js`: campo `officialFamily` añadido a los 17 patrones
+   existentes (Lifestyle: `nike-style`, `ikea-lifestyle`,
+   `lifestyle-premium` · Premium Editorial: `magazine-editorial`,
+   `luxury-minimal`, `apple-style`, `muji-style`, `negative-space`,
+   `asymmetric-editorial`, `luxury-catalogue` · Comercial: `hero-product`,
+   `product-first`, `swiss-grid`, `poster-design`, `premium-retail`,
+   `amazon-premium`, `mediamarkt-editorial`), más `OFFICIAL_FAMILIES` y
+   `patternsByFamily()` exportados para que la Fase 4 los consuma.
+2. Patrón nuevo `problema-solucion` (familia Problema-Solución): ninguno
+   de los 17 patrones previos representaba honestamente un anuncio de
+   "nombra la molestia, entrega el alivio" — se añadió como entrada 18 del
+   mismo array, reutilizando `heroTreatment:'large-borderless'` y las
+   estrategias `dividido-lifestyle`/`diagonal-dinamico` ya existentes
+   (nunca un `heroTreatment` ni una estrategia de layout nuevos — el
+   renderizador de hoy solo soporta una foto hero, así que esta familia
+   se expresa con jerarquía de texto molestia→alivio, no con un
+   verdadero split de dos fotografías, que sí sería una capacidad nueva
+   de `asset-pipeline`/`layout-composer` no construida aquí).
+3. `design-studio/OFIPAPEL_VISUAL_DNA.md`: capítulo 12 nuevo ("Familias
+   Oficiales de Plantilla"), documentando las 4 familias (cuándo
+   usarla/cuándo no/objetivo comercial/personalidad/estructura/grid/
+   jerarquía/pesos visuales/restricciones/errores prohibidos/checklist),
+   con las cifras de cada familia calculadas del rango real de sus
+   patrones (no inventadas aparte) — el código sigue siendo la fuente
+   ejecutable, este capítulo es su traducción legible.
+4. `.claude/rax/INVENTORY.md`: fila de Creative Lab actualizada (17→18
+   patrones, referencia a las 4 familias).
+
+**Verificación**: `node --check` en `patterns.js` · barrido de
+`directArt()`/`selectPattern()` (30 iteraciones con brief sintético)
+confirma que todo `patternId` devuelto sigue siendo válido y que la
+selección sigue siendo determinista · comprobación de recuento (17+1=18
+patrones, cada uno con `officialFamily`, la suma por familia cuadra con
+el total) · invariante de independencia `grep -rn "marketing-engine"
+creative-engine/` sigue en cero `require()` · ningún otro módulo
+(`editorial-design-engine/config.js`, `component-library/`,
+`design-director/`) tiene listas de patrones por nombre que necesitaran
+actualizarse para el patrón nuevo — `problema-solucion` recibe
+tratamiento por defecto (sin solape/sangre/banda de color) hasta que se
+pruebe en producción, documentado como estado real en el propio capítulo
+12 en vez de fingir que ya está validado.
+
+**Quién decide**: propietario — misión de 6 fases especificada
+explícitamente, con la regla de detenerse solo ante contradicciones reales
+de arquitectura (una ya detenida y resuelta arriba) y ejecutar sin
+preguntar en cualquier otro caso.
+
+**Reversibilidad**: alta — todo lo añadido es aditivo sobre un array y un
+documento ya existentes (un campo nuevo por objeto, una entrada nueva en
+el array, un capítulo nuevo al final del documento); ningún consumidor
+existente de `patterns.js` cambia de comportamiento, revertible desde el
+historial de git.

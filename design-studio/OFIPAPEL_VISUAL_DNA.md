@@ -527,3 +527,178 @@ puntos, por sí solo, invalida una pieza para publicación:
 11. Cualquier elemento que no supere la pregunta del principio 1.7: si no
     se entiende o no se siente en el primer instante, antes de leer una
     sola palabra, no se publica.
+
+---
+
+## 12. Familias Oficiales de Plantilla
+
+Cierre de la fase de arquitectura (sprint "Cierre de arquitectura",
+2026-08-01): a partir de 4 imágenes de referencia reales, Ofipapel define
+4 familias visuales oficiales y permanentes. Ninguna pieza puede
+inventarse una quinta — toda campaña nueva pertenece a una de estas
+cuatro, sin excepción.
+
+Esto no es una capa nueva de diseño paralela a los 18 patrones editoriales
+del motor (`creative-engine/creative-lab/art-direction-engine/patterns.js`):
+es una clasificación sobre ellos. Cada patrón ya declara su
+`officialFamily`; las cifras de cada familia de aquí abajo son el rango
+real que cubren los patrones que pertenecen a ella — no una cifra
+inventada aparte. El código es la fuente ejecutable; este capítulo es su
+traducción a reglas legibles por un humano, mismo criterio que el resto
+del documento.
+
+### 12.1 Lifestyle
+
+**Cuándo usarla**: existe una fotografía real (no stock genérico) del
+producto en uso, en una escena de vida real — el argumento de venta es
+la experiencia, no la ficha técnica.
+**Cuándo NO usarla**: sin foto real de calidad, o cuando el producto
+necesita mostrar 4+ argumentos técnicos con iconos (esta familia deja
+sitio para 0-3, nunca más).
+**Objetivo comercial**: emocionar primero, vender después — la foto
+convence, el precio y el CTA cierran.
+**Personalidad**: cálida, cinematográfica, humana.
+**Estructura**: fotografía a sangre completa (`full-bleed`) — nunca una
+foto recortada dentro de un marco. Logo y precio en esquinas opuestas
+superiores. Titular + subtítulo + fila de iconos (si hay) + CTA + eslogan
++ footer, todo flotando sobre la foto con un degradado de oscurecimiento
+dedicado, nunca dependiendo de que la foto ya sea oscura por sí sola.
+**Grid**: alineación asimétrica (izquierda o derecha según dónde respire
+la foto) — nunca centrada, la asimetría es lo que hace que conviva con
+una escena real sin competir con ella.
+**Jerarquía**: foto > titular > precio ≈ logo > CTA > subtítulo/iconos >
+footer.
+**Pesos visuales**: espacio en blanco efectivo 18-40% (la foto ocupa el
+resto), margen estructural 4-5% del lado corto, máximo 5-6 elementos de
+chrome sobre la foto.
+**Restricciones**: nunca tarjeta ni marco alrededor de la foto (contradice
+`full-bleed` por definición). Nunca más de 3 iconos — si hace falta
+explicar 4+ especificaciones técnicas, no es esta familia, es Comercial.
+**Errores prohibidos**: texto sin degradado de contraste dedicado (ilegible
+en las zonas claras de la foto); logo/precio sin `drop-shadow` sobre foto
+(se funden con el fondo); cualquiera de los 11 puntos del capítulo 11.
+**Checklist de validación**: ¿la foto ocupa el 100% del lienzo? ¿logo y
+precio están en esquinas opuestas con sombra propia? ¿el titular es copy,
+no el nombre del producto? ¿hay CTA con subrayado de acento? ¿el footer
+sigue siendo legible sobre la foto?
+**Patrones que la implementan hoy**: `lifestyle-premium` (canónico — produjo
+la campaña real del Ventilador Nebulizador Muvip), `ikea-lifestyle`,
+`nike-style`.
+
+### 12.2 Premium Editorial
+
+**Cuándo usarla**: producto de gama alta o diseño fotogénico por sí
+mismo, sin necesidad de escena de contexto — el silencio visual y el
+espacio en blanco son el argumento, no una foto de uso.
+**Cuándo NO usarla**: campañas de oferta/urgencia (el espacio en blanco
+generoso se lee como lo opuesto a una rebaja), o productos que necesitan
+varios argumentos técnicos en iconos.
+**Objetivo comercial**: posicionar marca — construir percepción de
+calidad, no cerrar una venta inmediata.
+**Personalidad**: calmada, aspiracional, quirúrgica o cálida según el
+producto, nunca ruidosa.
+**Estructura**: foto grande sin sangrar (`large-borderless`) o, en los dos
+únicos casos donde el lenguaje de catálogo de lujo lo pide, con un marco
+finísimo (`framed-minimal` — línea fina, jamás sombra pesada ni
+degradado). El producto flota, nunca sobre una tarjeta gruesa.
+**Grid**: mayoritariamente centrado; alguna variante asimétrica cuando el
+producto convive con una columna de texto tipo revista.
+**Jerarquía**: producto > titular > precio > (CTA si cabe) — esta familia
+es la única donde el precio puede bajar de jerarquía frente al producto
+mismo, nunca frente al titular.
+**Pesos visuales**: espacio en blanco efectivo 30-85% (el rango más alto
+de las 4 familias — a mayor exclusividad del producto, mayor aire),
+margen estructural 5-15%, máximo 3-6 elementos.
+**Restricciones**: máximo un acento de color, nunca una banda sólida de
+canto duro. Sin iconos en la mayoría de sus variantes (0-4 según el
+patrón concreto, nunca relleno decorativo).
+**Errores prohibidos**: tarjeta con sombra o degradado (rompe el único
+lenguaje que admite marco); espacio en blanco por debajo del 30% (deja de
+sentirse premium, empieza a sentirse Comercial).
+**Checklist de validación**: ¿el producto tiene sitio para respirar de
+verdad? ¿el marco, si existe, es una línea fina sin sombra? ¿la tipografía
+hace todo el trabajo de jerarquía sin decoración añadida?
+**Patrones que la implementan hoy**: `apple-style`, `luxury-catalogue`,
+`luxury-minimal`, `muji-style`, `negative-space`, `magazine-editorial`,
+`asymmetric-editorial`.
+
+### 12.3 Comercial
+
+**Cuándo usarla**: el precio y las especificaciones son el argumento de
+venta real — ficha de tienda física o marketplace, datos claros, cero
+ambigüedad sobre qué se compra y por cuánto.
+**Cuándo NO usarla**: productos de lujo/joyería donde mostrar el precio
+tan directamente rompe el tono aspiracional (ahí manda Premium Editorial).
+**Objetivo comercial**: vender — el CTA y el precio compiten por atención
+inmediata con el producto.
+**Personalidad**: clara, directa, confiable — la personalidad de una
+buena ficha de tienda, no de un cartel de rebajas agresivo (eso es un
+matiz dentro de esta familia, no otra familia).
+**Estructura**: producto grande (`large-borderless`, a veces `full-bleed`
+en las variantes de mayor urgencia, o `framed-minimal` en la única
+variante de tienda física con tarjeta discreta), precio en esquina
+inconfundible, fila de 3-4 iconos con datos técnicos reales.
+**Grid**: variable según urgencia — centrado en fichas tranquilas,
+asimétrico cuando precio/CTA necesitan protagonismo propio.
+**Jerarquía**: producto ≈ precio > CTA > iconos de especificación >
+titular > footer.
+**Pesos visuales**: espacio en blanco efectivo 14-58% (el rango más
+amplio de las 4 — desde cartel de alto impacto hasta ficha tranquila),
+margen estructural 4-8%, 5-6 elementos, hasta 4 iconos.
+**Restricciones**: los iconos deben corresponder a datos reales del brief
+— sin al menos 2-3 argumentos técnicos reales, no rellenar con iconos
+decorativos (ver capítulo 11, punto 7).
+**Errores prohibidos**: precio tratado como dato secundario; iconos de
+relleno sin dato real detrás; banda de color con canto duro cortando la
+foto en las variantes con acento de color.
+**Checklist de validación**: ¿el precio es prácticamente lo primero que se
+ve tras el producto? ¿cada icono representa un dato real del brief, no
+relleno? ¿el CTA sigue protegido aunque el resto de chrome se recorte?
+**Patrones que la implementan hoy**: `amazon-premium` (canónico para el
+caso "ficha de marketplace de gama alta"), `hero-product`, `product-first`,
+`swiss-grid`, `poster-design`, `premium-retail`, `mediamarkt-editorial`.
+
+### 12.4 Problema → Solución
+
+**Cuándo usarla**: el objetivo comercial real es resolver una molestia
+cotidiana reconocible (calor, mala postura, desorden, ruido, suciedad) y
+el producto es el alivio — el titular nombra la molestia, el resto de la
+pieza entrega la solución.
+**Cuándo NO usarla**: productos de deseo/aspiración sin una molestia real
+que nombrar (ahí un "problema" inventado suena falso y viola el
+principio 1.1 — nadie se cree un problema que no siente); tampoco sin
+copy real de beneficio funcional para el CTA/subtítulo.
+**Objetivo comercial**: resolver un problema — la tensión molestia/alivio
+es el argumento, no el producto en sí ni el precio.
+**Personalidad**: honesta, práctica, de alivio inmediato — nunca
+alarmista ni catastrofista sobre la molestia que nombra.
+**Estructura**: foto grande sin sangrar (`large-borderless`), composición
+asimétrica que reparte el peso entre la mitad que nombra la molestia y la
+mitad que la resuelve (mismo mecanismo de reparto de peso que ya usan
+`dividido-lifestyle`/`diagonal-dinamico` para foto/texto en otras
+familias — aquí aplicado a molestia/alivio en vez de a foto/columna de
+texto). Titular corto con la molestia, subtítulo y CTA con la solución,
+hasta 3 iconos de beneficio funcional.
+**Grid**: siempre asimétrico a la izquierda — la molestia se lee primero,
+el alivio llega después, nunca al revés.
+**Jerarquía**: titular (molestia) > producto > CTA/subtítulo (alivio) >
+iconos > precio > footer.
+**Pesos visuales**: espacio en blanco efectivo 34-52%, margen estructural
+6%, hasta 6 elementos, hasta 3 iconos de beneficio.
+**Restricciones**: la molestia nombrada en el titular tiene que ser real
+y verificable en el brief del producto — nunca inventada para encajar en
+esta familia.
+**Errores prohibidos**: nombrar una molestia sin ofrecer una solución
+igual de concreta a continuación; usar esta familia para productos de
+deseo puro.
+**Estado real**: es la única de las 4 familias sin ninguna campaña
+generada todavía por el motor — antes de confiarla a producción, correr
+el mismo barrido sintético que valida el resto de patrones (ver
+`.claude/rax/DECISIONES.md`, sprint "Layout Intelligence").
+**Checklist de validación**: ¿el titular nombra una molestia real y
+reconocible? ¿la solución es igual de concreta que la molestia? ¿el
+reparto de peso entre ambas mitades está equilibrado, no aplastado hacia
+un lado?
+**Patrones que la implementan hoy**: `problema-solucion` (único miembro —
+patrón nuevo, añadido en este mismo sprint para cubrir una familia que
+ninguno de los 17 patrones previos representaba honestamente).
