@@ -16,7 +16,17 @@ const path = require('node:path');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const RENDER_SCRIPT = path.join(REPO_ROOT, 'design-studio', 'scripts', 'render-html.js');
-const NODE_PATH_FOR_PLAYWRIGHT = '/opt/node22/lib/node_modules';
+
+// En el Lambda real de Netlify ni '/opt/node22/...' ni el Chromium de las
+// sesiones en la nube existen (DT-16, `.claude/rax/DEUDA_TECNICA.md`) — ahí
+// existe `netlify/functions/node_modules/` (playwright-core +
+// @sparticuz/chromium, `netlify/functions/package.json`). Node prueba cada
+// entrada de NODE_PATH en orden y usa la primera que exista en disco.
+const NODE_PATH_FOR_PLAYWRIGHT = [
+  '/opt/node22/lib/node_modules',
+  path.join(REPO_ROOT, 'netlify', 'functions', 'node_modules'),
+].join(path.delimiter);
+
 const RENDER_SCALE = 1;
 
 // Tipografía real (Outfit, OFL) en vez de 'Inter' sin @font-face — el
