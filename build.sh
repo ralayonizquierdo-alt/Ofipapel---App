@@ -1,6 +1,15 @@
 #!/bin/bash
 set -e
 
+# netlify/functions/ es el único sitio del repo con dependencias npm reales
+# (@sparticuz/chromium + playwright-core, DT-16 — `.claude/rax/DEUDA_TECNICA.md`
+# — Chromium compatible con Lambda para marketing-engine-run.js). Netlify
+# empaqueta las funciones a partir del checkout que deja build.sh, así que
+# node_modules tiene que existir ANTES de que termine este script — Netlify
+# no instala por su cuenta un package.json que no esté en la raíz del sitio.
+echo "== netlify/functions: instalando dependencias (Chromium para Lambda) =="
+(cd netlify/functions && npm ci)
+
 # Netlify preserva /opt/build/cache entre builds del mismo sitio (salvo
 # "Clear cache and deploy"). Lo usamos para no reconstruir alquileres/ o
 # joe-app/ cuando nada ha cambiado en su carpeta desde el último despliegue,
