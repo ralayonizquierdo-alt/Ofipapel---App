@@ -4,6 +4,11 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # fichaje.html incluye la apiKey pública de Firebase (Ofipapel Fichaje) —
+  # es un identificador de proyecto, no un secreto (mismo modelo que el resto
+  # de claves cliente de este repo, ver CLAUDE.md). El escaneo de secretos de
+  # Netlify la detecta como falso positivo y bloquea el deploy.
+  SECRETS_SCAN_OMIT_PATHS = "fichaje.html"
 
 [functions]
   directory = "netlify/functions"
@@ -19,6 +24,20 @@
 [functions."marketing-engine-run"]
   included_files = ["marketing-engine/**", "design-studio/**", "creative-engine/**"]
 
+# El hub vive en inicio.html (no index.html). La causa real de que "/"
+# sirviera siempre Index.html no era una colisión de caché ni de nombre:
+# por defecto Netlify NO aplica una regla de redirección si la ruta ya
+# "existe" como fichero, y su resolución del documento por defecto para "/"
+# compara contra "index.html" de forma insensible a mayúsculas — así que
+# encontraba Index.html como "fichero existente" y servía eso directamente,
+# ignorando esta regla por completo, sin importar el nombre del hub ni el
+# destino del redirect. force=true obliga a aplicar siempre la regla.
+[[redirects]]
+  from = "/"
+  to = "/inicio.html"
+  status = 200
+  force = true
+
 # SPA routing: cualquier ruta bajo /alquileres/ sirve el index de la app
 [[redirects]]
   from = "/alquileres/*"
@@ -32,6 +51,16 @@
 
 [[headers]]
   for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Pragma = "no-cache"
+    Expires = "0"
+
+# La raíz "/" (rewrite a inicio.html) no coincide con el glob "/*.html" de
+# arriba (la ruta pedida es "/", no termina en .html) — sin esta regla el
+# navegador puede quedarse con una copia en caché antigua del hub.
+[[headers]]
+  for = "/"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
     Pragma = "no-cache"

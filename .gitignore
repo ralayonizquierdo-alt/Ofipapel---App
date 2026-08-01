@@ -13,3 +13,6 @@ creative-engine/creative-assets/assets/*
 netlify/functions/node_modules/
 __pycache__/
 *.pyc
+.env.local
+.env.*.local
+.claude/settings.local.json

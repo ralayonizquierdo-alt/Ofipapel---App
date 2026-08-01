@@ -66,6 +66,50 @@ Al activarte por primera vez en una sesión de trabajo real sobre este repo:
 
 No hace falta preguntar permiso para este resumen: es lectura pura.
 
+5. Antes de crear cualquier rama nueva para un trabajo, comprueba primero
+   si ya existe una rama activa para ese mismo trabajo (ver "Disciplina de
+   ramas" más abajo).
+
+## Disciplina de ramas
+
+Regla fija desde 2026-07-13 (ver `DECISIONES.md`), consecuencia directa de
+que 4+ ramas independientes reconstruyeran el mismo sistema de RAX sin
+verse entre sí:
+
+**Ninguna sesión crea una rama nueva sin comprobar antes si ya existe una
+rama activa para ese mismo trabajo.**
+
+1. Antes de hacer `git checkout -b`, revisa `git branch -r` y los PRs
+   abiertos (`.claude/rax/INVENTORY.md` y `DECISIONES.md` deberían tener
+   rastro de las ramas RAX conocidas; si no, hay que mirar en GitHub).
+   Busca específicamente ramas cuyo nombre o commits recientes sugieran el
+   mismo objetivo que la tarea actual.
+2. **Si existe una rama activa para ese trabajo** (con PR abierto, o con
+   commits recientes y sin fusionar): continúa sobre ella
+   (`git checkout <rama>`), no crees una nueva. "Activa" significa: no
+   fusionada, no cerrada, y con actividad o relevancia reciente — una rama
+   ya rescatada y marcada para borrar no cuenta.
+3. **Si no existe ninguna rama activa equivalente**: crea una única rama
+   nueva, y dilo explícitamente en el primer mensaje de la sesión (nombre
+   de la rama y desde qué base se creó) para que quede rastro y cualquier
+   otra sesión pueda encontrarla antes de duplicar el trabajo.
+4. Nunca crear una segunda rama "por si acaso" mientras ya exista una
+   abierta para el mismo objetivo, aunque parezca más limpio empezar de
+   cero — ese exacto razonamiento es el que causó la consolidación de
+   2026-07-12.
+5. **No dupliques trabajo ya iniciado ni recrees funcionalidad ya
+   implementada.** Esto aplica incluso si decides trabajar sobre tu propia
+   rama nueva: antes de escribir código para algo, comprueba si ya existe
+   en `main`, en un PR abierto, o en otra rama — no asumas que hace falta
+   reimplementarlo solo porque tú no lo has visto hacer.
+6. **Si detectas que otra rama contiene trabajo relacionado con la tarea
+   actual, recon­cíliala antes de empezar a implementar**, no después. Eso
+   significa: leer su diff real (no solo el título/mensaje de commit),
+   decidir qué se rescata y qué se descarta con criterio explícito, y
+   dejarlo escrito en `DECISIONES.md` — antes de la primera línea de
+   código, no como limpieza a posteriori. Reconciliar después de implementar
+   por duplicado es exactamente el coste que esta regla existe para evitar.
+
 ## Detección y clasificación automática de proyectos
 
 Cuando encuentres una carpeta de primer nivel o un fichero suelto en la raíz
@@ -77,11 +121,24 @@ explícitamente en el resumen de sesión, no lo des por hecho):
 | `package.json` con `vite`/`react`/`next` | Aplicación (front-end) |
 | `.html` suelto en la raíz | Sitio o microsite de marca |
 | Carpeta dentro de `netlify/functions/` | Automatización / integración serverless |
-| Usa `@supabase/supabase-js` o tiene `*schema*.sql` | Tiene backend en Supabase |
+| Usa `@supabase/supabase-js`, `firebase` o tiene `*schema*.sql` | Tiene backend en la nube |
 | No encaja en nada de lo anterior | "Sin clasificar" — pregunta al propietario, no inventes su propósito |
 
 Añade la fila a `INVENTORY.md` con estado `nuevo — por confirmar` en vez de
 integrarlo silenciosamente como si siempre hubiera estado ahí.
+
+Antes de proponer eliminar, modificar o refactorizar cualquier carpeta,
+rama o recurso existente, clasifícalo primero en una de estas categorías y
+trátalo según corresponda:
+
+| Categoría | Criterio | Qué hacer |
+|---|---|---|
+| **Producción** | Se usa actualmente o puede afectar a una app en funcionamiento | No se elimina ni se modifica sin aprobación expresa del propietario |
+| **Inactivo con valor** | No se usa ahora, pero contiene trabajo aprovechable | Se documenta (aquí o en `DEUDA_TECNICA`/`DECISIONES`) y se conserva |
+| **Prueba/obsoleto** | Vacío, experimento, o abandonado sin dependencias | Antes de proponer borrarlo, verifica que no contiene código, configuración, secretos, documentación o historial que no exista ya en `main` |
+
+Si hay cualquier duda sobre si algo está en uso, asume que sí lo está y no
+lo toques — añádelo al informe de la sesión para que decida el propietario.
 
 ## Priorización — Impacto / Riesgo / ROI
 
@@ -95,6 +152,12 @@ prioridad = (Impacto × 2) + (ROI × 2) − Riesgo
 Un score más alto va primero. Escribe siempre los tres números junto a la
 recomendación (no solo el resultado) para que la priorización sea auditable
 y se pueda discutir, no una caja negra.
+
+Para trabajo propuesto por Skills de dominio (campañas, piezas, iniciativas
+de negocio) usa además `references/cola-prioridades.md`: formato de fila
+más ligero (título, Skill de origen, negocio, impacto, esfuerzo, fecha
+límite, estado) pensado para que cualquier Skill registre una propuesta sin
+decidir en solitario si se ejecuta.
 
 ## Roadmap técnico vs roadmap de negocio
 
@@ -137,7 +200,7 @@ proponer algo, comprueba aquí que no se haya decidido ya lo contrario.
   individuales no se autogestionan en el índice.
 - Para tareas de diseño visual (marcas Ofipapel, Canarias INK, FalControl,
   etc.), esta Skill no diseña: delega a `diseno-ofipapel`, activa desde
-  2026-07-10.
+  2026-07-12.
 
 ## Autonomía vs aprobación explícita
 
@@ -151,8 +214,25 @@ que no toque producción/datos/dinero/credenciales (p. ej. un patrón de
 lista global de acciones arriesgadas (push, despliegue, borrar ramas,
 tocar CI/CD, cambios de esquema de datos, añadir/quitar dependencias,
 tocar secretos o variables de entorno), y cualquier decisión de negocio con
-coste, alcance de producto o compromiso con terceros. En estos casos,
-presenta la recomendación con su score de prioridad y espera confirmación.
+coste, alcance de producto o compromiso con terceros. Trata `main` como
+producción: no modifiques, elimines, sustituyas ni refactorices código que
+pueda afectar a una app en uso salvo que sea un fix de seguridad o un bug
+confirmado con el riesgo ya evaluado. En estos casos, presenta la
+recomendación con su score de prioridad y espera confirmación.
+
+**Modo restringido (vigente desde 2026-07-12, ver `DECISIONES.md`):** el
+ámbito de esta Skill puede acotarse por instrucción explícita del
+propietario a solo arquitectura y organización del repositorio —
+documentación (`CLAUDE.md`, `.claude/skills/`, `.claude/rax/`), inventario,
+clasificación de ramas, propuestas de limpieza, roadmap y deuda técnica.
+Mientras ese modo esté activo: cero cambios en código de producción
+(`Index.html`, `joe-app`, `alquileres`, `canarias-ink.html`, funciones de
+Netlify, bot de WhatsApp), no se abren PRs de código, y no se "rescata"
+código de otras ramas aunque sea funcionalidad ya implementada y de bajo
+riesgo — cualquier cambio de código que se detecte como necesario se anota
+como pendiente en `DEUDA_TECNICA.md`/`ROADMAP_TECNICO.md`, nunca se
+implementa. Este modo se mantiene hasta que el propietario lo levante
+explícitamente.
 
 ## Cierre de sesión
 
@@ -177,8 +257,8 @@ El estado detallado de cada integración vive en `.claude/rax/INTEGRATIONS.md`
   **leer** Issues/PRs/Actions y cruzarlos con el roadmap, pero crear,
   cerrar o comentar Issues/PRs sigue siendo una acción visible a terceros
   que requiere aprobación explícita, igual que cualquier push.
-- Para Supabase, Netlify, Figma, herramientas de IA adicionales, otros MCPs
-  y monitorización: de momento son placeholders documentados en
+- Para Firebase, Supabase, Netlify, Figma, herramientas de IA adicionales,
+  otros MCPs y monitorización: de momento son placeholders documentados en
   `INTEGRATIONS.md` a la espera de credenciales/acceso. No inventes su
   comportamiento; cuando se activen, documenta ahí cómo se usan y qué
   puede automatizarse.

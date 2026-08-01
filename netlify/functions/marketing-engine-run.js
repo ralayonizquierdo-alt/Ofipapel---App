@@ -143,7 +143,7 @@ exports.handler = async (event) => {
   // → Art Direction Engine → 4 familias oficiales → Layout Intelligence →
   // Design Director → Component Library → pieza compuesta final) →
   // proveedor real (OpenAI Images) o "simulated". Sustituye a
-  // creative-engine/index.js#runCreativePipeline (DT-10, resuelto en el
+  // creative-engine/index.js#runCreativePipeline (DT-15, resuelto en el
   // sprint "Cierre de arquitectura", 2026-08-01): aquel pipeline no
   // pasaba por ninguno de los motores construidos en esta sesión — este
   // sí, siempre, con o sin proveedor real conectado. Punto de sustitución

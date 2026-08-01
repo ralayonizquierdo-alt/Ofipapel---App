@@ -255,12 +255,6 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 .tp-table td.tp-a, .tp-table td.tp-b{ font-weight:700; color:#1A5C1A; }
 .tp-footer{ margin-top:6mm; text-align:center; font-size:6.5pt; color:#999; }
 
-/* ── hoja imprimible del planning en escalera (A3 apaisado, reutiliza las clases .p-* de arriba) ── */
-#planningPrintArea{
-  display:none; box-sizing:border-box; width:420mm; min-height:297mm; padding:14mm;
-  background:#fff; font-family:'Inter',sans-serif; color:#1A2E1A;
-}
-
 /* ── modal de vista previa (en pantalla) ── */
 .print-preview-modal{ padding:0; width:auto; max-width:95vw; max-height:92vh; display:flex; flex-direction:column; }
 .ppm-header{ display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-bottom:1px solid var(--borde); flex-shrink:0; gap:12px; flex-wrap:wrap; }
@@ -268,8 +262,6 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 .ppm-scroll{ overflow:auto; background:#ccc; padding:20px; flex:1; display:flex; justify-content:center; align-items:flex-start; }
 #ppmPageWrap{ flex-shrink:0; box-shadow:0 4px 24px rgba(0,0,0,.35); }
 #ppmPageWrap #printArea{ transform-origin:top left; }
-#plmPageWrap{ flex-shrink:0; box-shadow:0 4px 24px rgba(0,0,0,.35); }
-#plmPageWrap #planningPrintArea{ transform-origin:top left; }
 
 /* ── modal "Plan anual" (vista rápida, muy escueta) ── */
 #annualViewList .rules-log-cat{ display:block; font-size:.68rem; text-transform:uppercase; letter-spacing:.5px; color:var(--verde); font-weight:700; margin:14px 0 6px; }
@@ -283,7 +275,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   @page{ size:A3 landscape; margin:0; }
   html, body{ background:#fff !important; }
   body *{ visibility:hidden; }
-  #printArea, #printArea *, #turnosPrintArea, #turnosPrintArea *, #planningPrintArea, #planningPrintArea *{ visibility:visible; }
+  #printArea, #printArea *, #turnosPrintArea, #turnosPrintArea *{ visibility:visible; }
   #printArea{
     position:absolute; top:0; left:0;
     transform:none !important; width:420mm; min-height:297mm;
@@ -291,10 +283,6 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   #turnosPrintArea{
     position:absolute; top:0; left:0;
     transform:none !important; width:210mm; min-height:297mm;
-  }
-  #planningPrintArea{
-    position:absolute; top:0; left:0;
-    transform:none !important; width:420mm; min-height:297mm;
   }
 }
 </style>
@@ -335,7 +323,6 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <button class="secondary" id="btnHolidays">🎉 Festivos</button>
     <button class="secondary" id="btnPermisos">📋 Permisos</button>
     <button class="secondary" id="btnAnnualView">📆 Plan anual</button>
-    <button class="secondary" id="btnPlanning">🪜 Planning</button>
     <button id="btnPrint">🖨 Vista previa</button>
   </header>
   <div id="body">
@@ -604,7 +591,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <div>
         <h3>Vista previa de impresión · A3 apaisado</h3>
         <div style="font-size:.68rem;color:var(--texto2);margin-top:2px;">
-          Ambos abren el cuadro de impresión del navegador (ya en A3 apaisado) — en "Guardar como PDF"
+          Empleados ordenados por fecha de inicio dentro de cada unidad (efecto "escalera", igual que en el Excel de
+          dirección). Ambos abren el cuadro de impresión del navegador (ya en A3 apaisado) — en "Guardar como PDF"
           elige el destino "Guardar como PDF" (o "Microsoft Print to PDF") en ese cuadro.
         </div>
       </div>
@@ -644,32 +632,6 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <div class="ppm-scroll">
       <div id="tpmPageWrap">
         <div id="turnosPrintArea"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="overlay" id="planningPreviewOverlay">
-  <div class="modal print-preview-modal">
-    <div class="ppm-header">
-      <div>
-        <h3>Planning en escalera · A3 apaisado</h3>
-        <div style="font-size:.68rem;color:var(--texto2);margin-top:2px;">
-          Turno normal de vacaciones (15 enero – 15 agosto), un bloque a la vez, ordenado por fecha de
-          inicio para que se vea igual que en el Excel.
-        </div>
-      </div>
-      <div class="left" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <select id="plmBloqueSelect" style="padding:6px 8px;font-size:.8rem;"></select>
-        <button class="btn btn-ghost" id="plmClose">Cerrar</button>
-        <button class="btn btn-ghost" id="plmWhatsapp">📱 WhatsApp</button>
-        <button class="btn btn-ghost" id="plmSavePdf">💾 Guardar como PDF</button>
-        <button class="btn btn-primary" id="plmPrintNow">🖨 Imprimir</button>
-      </div>
-    </div>
-    <div class="ppm-scroll">
-      <div id="plmPageWrap">
-        <div id="planningPrintArea"></div>
       </div>
     </div>
   </div>
@@ -2774,13 +2736,15 @@ function buildPrintArea(){
   grid.appendChild(monthRow);
 
   const gridDayIndices = gridLineDayIndices(y, n);
+  const allDayIndices = Array.from({length:n}, (_,i)=>i);
 
   // regla de números de día, para poder leer el inicio/fin exacto de cada periodo
   const dayRowWrap = document.createElement('div'); dayRowWrap.style.display='flex';
   const daySpacerL = document.createElement('div'); daySpacerL.className='p-namecell';
   dayRowWrap.appendChild(daySpacerL);
   const dayTicks = document.createElement('div'); dayTicks.className='p-dayrow';
-  dayTicks.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#c9c9c9', '%')
+  dayTicks.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#b0b0b0', '%')
+    + ', ' + gridLinesBackground(allDayIndices, n, '#dedede', '%')
     + ', ' + weekendGradient(n, y, '#e2e2e2');
   for(let idx=0; idx<n; idx++){
     const d = dateFromIndex(y, idx);
@@ -2805,9 +2769,15 @@ function buildPrintArea(){
   });
 
   for(const u of UNITS){
-    const emps = filteredEmployees.filter(e=>e.unitId===u.id);
+    let emps = filteredEmployees.filter(e=>e.unitId===u.id);
     if(!emps.length) continue;
     if(onlyConflicts && !unitHasConflict(u.id, y)) continue;
+
+    // orden por fecha de inicio del primer periodo — dibuja el efecto "escalera" del Excel de dirección
+    emps = emps.map(e=>{
+      const firstPeriod = state.periods.filter(p=>p.employeeId===e.id).sort((a,b)=>a.start.localeCompare(b.start))[0];
+      return {emp:e, firstStart: firstPeriod ? isoToIndex(y, firstPeriod.start) : Infinity};
+    }).sort((a,b)=> a.firstStart - b.firstStart || a.emp.name.localeCompare(b.emp.name,'es')).map(x=>x.emp);
 
     const unitDiv = document.createElement('div'); unitDiv.className='p-unit';
     const title = document.createElement('div'); title.className='p-unit-title';
@@ -2822,7 +2792,8 @@ function buildPrintArea(){
       row.appendChild(nameCell);
 
       const track = document.createElement('div'); track.className='p-track';
-      track.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#dcdcdc', '%')
+      track.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#b8b8b8', '%')
+        + ', ' + gridLinesBackground(allDayIndices, n, '#e6e6e6', '%')
         + ', ' + weekendGradient(n, y, '#eee');
       for(const b of state.blockedRanges){
         const segs = blockedSegmentsForYear(b, y, n);
@@ -2868,7 +2839,20 @@ function buildPrintArea(){
   container.appendChild(footer);
 }
 
-let activePrintTarget = 'vacaciones'; // 'vacaciones' | 'turnos' | 'planning' — cuál hoja se imprime con Ctrl+P
+let activePrintTarget = 'vacaciones'; // 'vacaciones' | 'turnos' — cuál hoja se imprime con Ctrl+P
+
+function scalePrintPreview(){
+  const pa = document.getElementById('printArea');
+  const scrollBox = document.querySelector('#printPreviewOverlay .ppm-scroll');
+  const wrap = document.getElementById('ppmPageWrap');
+  pa.style.transform = 'none';
+  const trueW = pa.offsetWidth, trueH = pa.offsetHeight;
+  const availW = scrollBox.clientWidth - 40;
+  const scale = Math.min(1, availW/trueW);
+  pa.style.transform = `scale(${scale})`;
+  wrap.style.width = (trueW*scale)+'px';
+  wrap.style.height = (trueH*scale)+'px';
+}
 
 function openPrintPreview(){
   activePrintTarget = 'vacaciones';
@@ -2878,16 +2862,7 @@ function openPrintPreview(){
   pa.style.display = 'block';
   pa.style.transform = 'none';
   openModal('printPreviewOverlay');
-  requestAnimationFrame(()=>{
-    const scrollBox = document.querySelector('#printPreviewOverlay .ppm-scroll');
-    const wrap = document.getElementById('ppmPageWrap');
-    const trueW = pa.offsetWidth, trueH = pa.offsetHeight;
-    const availW = scrollBox.clientWidth - 40;
-    const scale = Math.min(1, availW/trueW);
-    pa.style.transform = `scale(${scale})`;
-    wrap.style.width = (trueW*scale)+'px';
-    wrap.style.height = (trueH*scale)+'px';
-  });
+  requestAnimationFrame(scalePrintPreview);
 }
 function closePrintPreview(){
   closeModal('printPreviewOverlay');
@@ -2919,45 +2894,6 @@ function closeTurnosPrintPreview(){
   document.getElementById('turnosPrintArea').style.display = 'none';
 }
 
-let planningBloqueId = BLOQUES[0].id;
-function openPlanningPreview(){
-  activePrintTarget = 'planning';
-  document.getElementById('printArea').style.display = 'none';
-  document.getElementById('turnosPrintArea').style.display = 'none';
-  const sel = document.getElementById('plmBloqueSelect');
-  if(!sel.options.length){
-    sel.innerHTML = BLOQUES.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
-    sel.onchange = ()=>{ planningBloqueId = sel.value; renderPlanningPreview(); };
-  }
-  sel.value = planningBloqueId;
-  buildPlanningArea(planningBloqueId);
-  const pa = document.getElementById('planningPrintArea');
-  pa.style.display = 'block';
-  pa.style.transform = 'none';
-  openModal('planningPreviewOverlay');
-  requestAnimationFrame(()=> scalePlanningPreview());
-}
-function renderPlanningPreview(){
-  buildPlanningArea(planningBloqueId);
-  scalePlanningPreview();
-}
-function scalePlanningPreview(){
-  const pa = document.getElementById('planningPrintArea');
-  const scrollBox = document.querySelector('#planningPreviewOverlay .ppm-scroll');
-  const wrap = document.getElementById('plmPageWrap');
-  pa.style.transform = 'none';
-  const trueW = pa.offsetWidth, trueH = pa.offsetHeight;
-  const availW = scrollBox.clientWidth - 40;
-  const scale = Math.min(1, availW/trueW);
-  pa.style.transform = `scale(${scale})`;
-  wrap.style.width = (trueW*scale)+'px';
-  wrap.style.height = (trueH*scale)+'px';
-}
-function closePlanningPreview(){
-  closeModal('planningPreviewOverlay');
-  document.getElementById('planningPrintArea').style.display = 'none';
-}
-
 document.getElementById('btnPrint').onclick = openPrintPreview;
 document.getElementById('ppmClose').onclick = closePrintPreview;
 document.getElementById('ppmPrintNow').onclick = ()=> window.print();
@@ -2970,23 +2906,12 @@ document.getElementById('tpmPrintNow').onclick = ()=> window.print();
 document.getElementById('tpmSavePdf').onclick = ()=> window.print();
 document.getElementById('tpmWhatsapp').onclick = ()=> shareTurnosWhatsapp();
 
-document.getElementById('btnPlanning').onclick = openPlanningPreview;
-document.getElementById('plmClose').onclick = closePlanningPreview;
-document.getElementById('plmPrintNow').onclick = ()=> window.print();
-document.getElementById('plmSavePdf').onclick = ()=> window.print();
-document.getElementById('plmWhatsapp').onclick = ()=> sharePlanningWhatsapp();
-
 window.addEventListener('beforeprint', ()=>{
   document.getElementById('printArea').style.display = 'none';
   document.getElementById('turnosPrintArea').style.display = 'none';
-  document.getElementById('planningPrintArea').style.display = 'none';
   if(activePrintTarget==='turnos'){
     buildTurnosPrintArea();
     const pa = document.getElementById('turnosPrintArea');
-    pa.style.display = 'block'; pa.style.transform = 'none';
-  } else if(activePrintTarget==='planning'){
-    buildPlanningArea(planningBloqueId);
-    const pa = document.getElementById('planningPrintArea');
     pa.style.display = 'block'; pa.style.transform = 'none';
   } else {
     buildPrintArea();
@@ -3000,9 +2925,6 @@ window.addEventListener('afterprint', ()=>{
   }
   if(!document.getElementById('turnosPrintPreviewOverlay').classList.contains('open')){
     document.getElementById('turnosPrintArea').style.display = 'none';
-  }
-  if(!document.getElementById('planningPreviewOverlay').classList.contains('open')){
-    document.getElementById('planningPrintArea').style.display = 'none';
   }
 });
 
@@ -3037,178 +2959,6 @@ function buildTurnosPrintArea(){
   const footer = document.createElement('div'); footer.className='tp-footer';
   footer.textContent = 'Ofipapel · documento interno · turnos de sábado';
   container.appendChild(footer);
-}
-
-/* ═══════════════════ PLANNING EN ESCALERA (turno normal, 15 ene–15 ago, por bloque) ═══════════════════
-   Reutiliza el mismo estilo visual que la hoja de vacaciones (clases .p-*), pero acotado a los meses de
-   enero a agosto y ordenado por fecha de inicio dentro de cada unidad, para que el propio orden de las
-   personas dibuje el efecto "escalera" del Excel de dirección — sin tener que calcular ningún desplazamiento
-   manual, es un efecto natural de turnos consecutivos ordenados por fecha. */
-function buildPlanningArea(bloqueId){
-  const container = document.getElementById('planningPrintArea');
-  container.innerHTML = '';
-  const bloque = BLOQUES.find(b=>b.id===bloqueId) || BLOQUES[0];
-  const y = state.year;
-  const winStart = isoToIndex(y, y+'-01-01');
-  const winEnd = isoToIndex(y, y+'-08-31');
-  const n = winEnd - winStart + 1;
-  const winMonths = 8; // enero..agosto
-
-  const header = document.createElement('div'); header.className='p-header';
-  const now = new Date();
-  header.innerHTML = `<h1>Ofipapel · Planning en escalera — ${bloque.name}</h1>
-    <div class="p-sub">Turno normal (15 ene – 15 ago) · Generado el ${now.toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'})}</div>`;
-  const legend = document.createElement('div'); legend.className='p-legend';
-  let legendHtml='';
-  for(let i=1;i<=4;i++) legendHtml += `<span><span class="sw" style="background:${periodColor(i)}"></span>Periodo ${i}º</span>`;
-  legendHtml += `<span><span class="sw" style="background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 40%,#FBCFCB 40%,#FBCFCB 80%)"></span>Fecha bloqueada</span>`;
-  legend.innerHTML = legendHtml;
-  header.appendChild(legend);
-  container.appendChild(header);
-
-  const grid = document.createElement('div'); grid.className='p-grid';
-
-  const monthRow = document.createElement('div'); monthRow.className='p-monthrow';
-  const nameHead = document.createElement('div'); nameHead.className='p-namecell'; nameHead.textContent='Empleado';
-  monthRow.appendChild(nameHead);
-  const monthsWrap = document.createElement('div'); monthsWrap.className='p-months';
-  const ml = monthLengths(y).slice(0, winMonths);
-  ml.forEach((days,i)=>{
-    const m = document.createElement('div'); m.className='p-month';
-    m.style.width = (days/n*100)+'%';
-    m.textContent = MONTH_NAMES[i];
-    monthsWrap.appendChild(m);
-  });
-  monthRow.appendChild(monthsWrap);
-  const daysHead = document.createElement('div'); daysHead.className='p-daysheadcell'; daysHead.textContent='Días';
-  monthRow.appendChild(daysHead);
-  grid.appendChild(monthRow);
-
-  // cuadrícula de 5 días, acotada a la ventana enero-agosto
-  const gridDayIndices = gridLineDayIndices(y, daysInYear(y))
-    .filter(idx=> idx>=winStart && idx<=winEnd)
-    .map(idx=> idx-winStart);
-
-  const dayRowWrap = document.createElement('div'); dayRowWrap.style.display='flex';
-  const daySpacerL = document.createElement('div'); daySpacerL.className='p-namecell';
-  dayRowWrap.appendChild(daySpacerL);
-  const dayTicks = document.createElement('div'); dayTicks.className='p-dayrow';
-  dayTicks.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#c9c9c9', '%')
-    + ', ' + weekendGradientWindow(winStart, n, y, '#e2e2e2');
-  for(let idx=0; idx<n; idx++){
-    const d = dateFromIndex(y, winStart+idx);
-    const dom = d.getUTCDate();
-    if(dom===1 || dom%5===0){
-      const t = document.createElement('div'); t.className='p-daytick';
-      t.style.left = (idx/n*100)+'%';
-      t.textContent = dom;
-      dayTicks.appendChild(t);
-    }
-  }
-  dayRowWrap.appendChild(dayTicks);
-  const daySpacerR = document.createElement('div'); daySpacerR.className='p-daysheadcell';
-  dayRowWrap.appendChild(daySpacerR);
-  grid.appendChild(dayRowWrap);
-
-  // segmentos bloqueados dentro de la ventania (relativo a winStart)
-  function blockedSegmentsInWindow(b){
-    const segs=[]; let curStart=null;
-    for(let idx=0; idx<n; idx++){
-      const abs = winStart+idx;
-      const blocked = !!isBlockedIndex(y, abs) && isBlockedIndex(y, abs).id===b.id;
-      if(blocked && curStart===null) curStart=idx;
-      if(!blocked && curStart!==null){ segs.push({start:curStart,end:idx-1}); curStart=null; }
-    }
-    if(curStart!==null) segs.push({start:curStart,end:n-1});
-    return segs;
-  }
-
-  for(const unitId of bloque.unitIds){
-    const u = UNITS.find(x=>x.id===unitId);
-    if(!u) continue;
-    let emps = EMPLOYEES.filter(e=>e.active!==false && e.unitId===unitId);
-    if(!emps.length) continue;
-
-    // orden por fecha de inicio del primer periodo dentro de la ventana — dibuja la "escalera" solo
-    emps = emps.map(e=>{
-      const periods = state.periods.filter(p=>p.employeeId===e.id
-        && isoToIndex(y,p.end)>=winStart && isoToIndex(y,p.start)<=winEnd)
-        .sort((a,b)=>a.start.localeCompare(b.start));
-      return {emp:e, firstStart: periods.length ? isoToIndex(y,periods[0].start) : Infinity, periods};
-    }).sort((a,b)=> a.firstStart - b.firstStart || a.emp.name.localeCompare(b.emp.name,'es'));
-
-    const unitDiv = document.createElement('div'); unitDiv.className='p-unit';
-    const title = document.createElement('div'); title.className='p-unit-title';
-    title.textContent = u.name+' · '+emps.length;
-    unitDiv.appendChild(title);
-
-    for(const {emp, periods} of emps){
-      const row = document.createElement('div'); row.className='p-emp-row';
-      const nameCell = document.createElement('div'); nameCell.className='p-name';
-      const pBadges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (hasFixedPref(emp.id)?' 📌':'');
-      nameCell.textContent = emp.name + pBadges;
-      row.appendChild(nameCell);
-
-      const track = document.createElement('div'); track.className='p-track';
-      track.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#dcdcdc', '%')
-        + ', ' + weekendGradientWindow(winStart, n, y, '#eee');
-      for(const b of state.blockedRanges){
-        for(const seg of blockedSegmentsInWindow(b)){
-          const ov = document.createElement('div'); ov.className='p-blocked';
-          ov.style.left = (seg.start/n*100)+'%';
-          ov.style.width = ((seg.end-seg.start+1)/n*100)+'%';
-          track.appendChild(ov);
-        }
-      }
-      const allPeriods = state.periods.filter(p=>p.employeeId===emp.id).sort((a,b)=>a.start.localeCompare(b.start));
-      allPeriods.forEach((p,i)=>{
-        const sAbs = isoToIndex(y,p.start), eAbs = isoToIndex(y,p.end);
-        if(eAbs<winStart || sAbs>winEnd) return; // fuera de la ventana enero-agosto
-        const s = Math.max(0, sAbs-winStart), e = Math.min(n-1, eAbs-winStart);
-        const blk = document.createElement('div'); blk.className='p-block';
-        blk.style.left = (s/n*100)+'%';
-        blk.style.width = ((e-s+1)/n*100)+'%';
-        blk.style.background = periodColor(i+1);
-        const dStart = dateFromIndex(y, winStart+s), dEnd = dateFromIndex(y, winStart+e);
-        blk.textContent = dStart.getUTCMonth()===dEnd.getUTCMonth()
-          ? `${dStart.getUTCDate()}–${dEnd.getUTCDate()}`
-          : `${dStart.getUTCDate()}/${dStart.getUTCMonth()+1}–${dEnd.getUTCDate()}/${dEnd.getUTCMonth()+1}`;
-        blk.title = fmtRange(p.start,p.end);
-        track.appendChild(blk);
-      });
-      row.appendChild(track);
-
-      const used = allPeriods.reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
-      const daysCell = document.createElement('div'); daysCell.className='p-days';
-      daysCell.textContent = used+'/'+effectiveDaysPerYear(emp);
-      row.appendChild(daysCell);
-
-      unitDiv.appendChild(row);
-    }
-    grid.appendChild(unitDiv);
-  }
-  container.appendChild(grid);
-
-  const footer = document.createElement('div'); footer.className='p-footer';
-  footer.textContent = 'Ofipapel · documento interno · planning en escalera';
-  container.appendChild(footer);
-}
-/* Igual que weekendGradient pero desplazado para empezar en winStart en vez de en el día 0 del año. */
-function weekendGradientWindow(winStart, n, y, color){
-  const dow0 = dateFromIndex(y, winStart).getUTCDay();
-  const dayPct = 100/n, weekPct = 7*dayPct;
-  const idxs = [];
-  for(let i=0;i<7;i++){ const dow=(dow0+i)%7; if(dow===0||dow===6) idxs.push(i); }
-  idxs.sort((a,b)=>a-b);
-  const stops = [];
-  let prevEnd = 0;
-  for(const idx of idxs){
-    const start = idx*dayPct, end = (idx+1)*dayPct;
-    stops.push(`transparent ${prevEnd}%`, `transparent ${start}%`, `${color} ${start}%`, `${color} ${end}%`);
-    prevEnd = end;
-  }
-  stops.push(`transparent ${prevEnd}%`, `transparent ${weekPct}%`);
-  return `repeating-linear-gradient(to right, ${stops.join(', ')})`;
 }
 
 /* ═══════════════════ COMPARTIR POR WHATSAPP (resumen de texto) ═══════════════════ */
@@ -3247,28 +2997,6 @@ function shareVacationsWhatsapp(){
   }
   openWhatsapp(text);
 }
-function sharePlanningWhatsapp(){
-  const bloque = BLOQUES.find(b=>b.id===planningBloqueId) || BLOQUES[0];
-  const y = state.year;
-  let text = `🪜 *Planning en escalera — ${bloque.name} (${y})*\n`;
-  for(const unitId of bloque.unitIds){
-    const u = UNITS.find(x=>x.id===unitId);
-    if(!u) continue;
-    const emps = EMPLOYEES.filter(e=>e.active!==false && e.unitId===unitId)
-      .map(e=>{
-        const periods = state.periods.filter(p=>p.employeeId===e.id).sort((a,b)=>a.start.localeCompare(b.start));
-        return {emp:e, firstStart: periods.length ? periods[0].start : '9999', periods};
-      }).sort((a,b)=> a.firstStart.localeCompare(b.firstStart) || a.emp.name.localeCompare(b.emp.name,'es'));
-    if(!emps.length) continue;
-    text += `\n*${u.name.toUpperCase()}*\n`;
-    for(const {emp, periods} of emps){
-      const datesText = periods.length ? periods.map(p=>fmtRange(p.start,p.end)).join(' · ') : 'sin asignar';
-      text += `• ${emp.name} — ${datesText}\n`;
-    }
-  }
-  openWhatsapp(text);
-}
-
 /* ═══════════════════ PLAN ANUAL (vista rápida y escueta del año completo) ═══════════════════ */
 function renderAnnualView(){
   const box = document.getElementById('annualViewList');

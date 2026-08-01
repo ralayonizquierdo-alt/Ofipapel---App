@@ -1,0 +1,16 @@
+{
+  "name": "Ofipapel 360°",
+  "short_name": "Ofipapel 360°",
+  "description": "Ecosistema Ofipapel — todas las aplicaciones en un solo sitio",
+  "start_url": "inicio.html",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0a3018",
+  "theme_color": "#0d3d0d",
+  "icons": [
+    { "src": "icon-ofipapel-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-ofipapel-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-ofipapel-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-ofipapel-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

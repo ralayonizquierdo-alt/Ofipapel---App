@@ -10,22 +10,27 @@ sesión — no dupliques aquí lo que ya vive en otro sitio.
 
 | Ruta | Qué es | Stack |
 |---|---|---|
-| `Index.html` | Control financiero de Ofipapel (ventas, caja, informes) | HTML/CSS/JS vanilla en un único fichero, sin build. Supabase como backend (URL + clave `anon` hardcodeadas en el fichero, es el modelo esperado para clientes frontend). Asistente de IA vía proxy server-side (`netlify/functions/chat-assistant.js`), no llama a Anthropic directamente desde el navegador. |
+| `inicio.html` | **Hub del ecosistema** — pantalla de entrada con 7 monedas animadas estilo trébol dorado (una por app) para saltar a cualquiera de ellas: Gestión Finanzas (`Index.html`), Alquileres, Vacaciones y Turnos, Fichaje, WhatsApp BOT (enlaza a la función Netlify `conversations`), Roturas Almacén (enlaza a `rax-os.vercel.app`, app externa fuera de este repo) e Importación Pedidos. Canarias INK, Joe App y FalControl ya no tienen icono en el hub (siguen existiendo como páginas propias, solo no están enlazadas desde aquí). HTML/CSS/JS vanilla en un único fichero, sin build ni dependencias externas (solo Google Fonts). Antes era un redirect directo a `Index.html` servido desde `index.html`; ahora `index.html` no existe como fichero — `netlify.toml` hace un rewrite de `/` a `/inicio.html`. Se eligió deliberadamente un nombre sin colisión de mayúsculas con `Index.html`: tenerlos ambos (`index.html`/`Index.html`) en el mismo directorio hacía que Netlify sirviera aleatoriamente el fichero equivocado en `/`, incluso pidiendo la ruta exacta. |
+| `Index.html` | Control financiero de Ofipapel (ventas, caja, informes, asistente IA) | HTML/CSS/JS vanilla en un único fichero, sin build. Supabase como backend (URL + clave `anon` hardcodeadas, es el modelo esperado para clientes frontend). Login 100% client-side (ver seguridad conocida). |
 | `canarias-ink.html` | Catálogo/e-commerce de consumibles de impresora | HTML/CSS/JS vanilla en un único fichero, sin build. Catálogo de productos embebido como array JS. |
 | `falcontrol.html` | App personal de alertas de radio, sin relación de negocio con Ofipapel | HTML/CSS/JS vanilla en un único fichero, sin build. |
+| `vacaciones.html` | Planificador de cuadrante de vacaciones del personal | HTML/CSS/JS vanilla en un único fichero, sin build. |
+| `importacion-pedidos-proveedores.html` | Conversión de facturas PDF de proveedores a Excel 5.0/95 | HTML/CSS/JS vanilla en un único fichero, sin build. |
+| `fichaje.html` | Registro horario del personal (fichajes, exportación mensual, login de gerencia) | HTML/CSS/JS vanilla en un único fichero, sin build. Backend Firebase (ver comentario `SECRETS_SCAN_OMIT_PATHS` en `netlify.toml`). Ya tiene icono propio en el hub de `inicio.html` (moneda blanca/crema). |
 | `app.html` | Panel de redes sociales de Ofipapel: Almacén (centro de trabajo creativo — crea campañas y el Marketing Engine las produce) y Calendario (solo programa en el tiempo lo que el Almacén ya aprobó) | HTML/CSS/JS vanilla en un único fichero, sin build. Estado compartido en memoria (`CampaignStore`, sin persistencia — se pierde al recargar). Crea campañas vía `netlify/functions/marketing-engine-run.js`; nunca implementa lógica creativa propia, ver `marketing-engine/INTEGRATION.md`. |
-| `privacidad.html` | Política de privacidad (requerida para el review de la app de WhatsApp Cloud API) | HTML estático |
-| `joe-app/` | App personal: agenda, turnos de hospital, música, seguimiento de "Limón", tareas de empresa, "Coisinhas" | React 19 + Vite + TypeScript + Tailwind 4 + Supabase (persistencia real en la nube) |
-| `alquileres/` | Gestión de alquileres vacacionales: reservas, precios, reparaciones, cobros, analítica | React 19 + Vite + TypeScript + Tailwind 4 + Recharts + **Firebase Firestore** (proyecto `ofipapelvv`) como backend real, con login de app y `firestore.rules` (pendiente de activar el proveedor Anonymous y desplegar, ver `.claude/rax/DEUDA_TECNICA.md`). |
-| `netlify/functions/` | Bot de WhatsApp con IA para atención al cliente | Netlify Functions. `whatsapp-webhook.js` (Meta Cloud API) y `twilio-webhook.js` (alternativa Twilio) — cuál de las dos es la canónica sigue sin decidirse, ver deuda técnica. Usa `whatsapp-agent-config.js` (reglas FAQ + prompt) y la API de Anthropic cuando ninguna regla coincide. |
-| `design-studio/` | Estudio de diseño autónomo de RAX: banners, posts, landing pages, edición de imagen | Ver `design-studio/README.md` — plantillas HTML renderizadas con Playwright/Chromium + Adobe for Creativity (MCP) + Adobe Firefly API (opcional, requiere credenciales) |
-| `marketing-engine/` | Motor de Marketing con IA: pipeline de 8 agentes que convierte un brief de producto en una publicación lista — el "cerebro" creativo que consume `app.html` (Almacén) vía `netlify/functions/marketing-engine-run.js`. Antes del primer agente y al terminar, `marketing-engine/intelligence/` (Product Intelligence, Campaign Recommender, Creative Score, Variant Engine, Learning Engine) analiza, recomienda y puntúa cada campaña en modo *shadow* — nunca cambia una decisión real hasta que se demuestre mejor, ver `intelligence/README.md` y `ROADMAP_V2.md` | Node.js (CommonJS) puro, sin dependencias npm. Único proveedor de imagen activo hoy: `simulated` (sin IA real todavía). Ver `marketing-engine/ARCHITECTURE.md` (diseño interno) e `INTEGRATION.md` (cómo se conecta con la app y cómo activar un proveedor real). |
-| `creative-engine/` | Motor de generación de contenido — "El Marketing Engine piensa, el Creative Engine crea". Completamente independiente de `marketing-engine/` (contrato propio `CreativeBrief`, sin `require()` cruzado): Provider Manager, Asset Pipeline, Prompt Composer (modular), Variant Generator (1/3/5/10 variantes de ejecución visual, eje distinto al de `intelligence/variant-engine`), Creative Validator (6 checks) y Creative Assets (imágenes/vídeos/prompts/metadatos/versiones), ver `creative-engine/ARCHITECTURE.md`. Desde 2026-07-26, `creative-lab/` — "El Marketing Engine piensa, el Creative Engine crea, el Creative Lab perfecciona": 9 bibliotecas atómicas + Biblioteca de Referencias (escalable a decenas de miles, combina sin copiar), 8-12 conceptos por campaña puntuados en dos capas (plan gratis + real con coste) con umbral de calidad y reintento acotado, ver `creative-engine/creative-lab/ARCHITECTURE.md` | Node.js (CommonJS) puro, sin dependencias npm. Primer proveedor real conectado: `openai-images` (activo si hay `OPENAI_API_KEY`; si no, cae a `simulated`), ver `creative-engine/FIRST_REAL_GENERATION.md`. `marketing-engine/core/providers/` queda legado — cualquier otro proveedor real se activa aquí, ver `provider-manager/README.md`. |
+| `privacidad.html`, `404.html` | Política de privacidad (review de WhatsApp Cloud API) y página 404 propia | HTML estático |
+| `joe-app/` | App personal: agenda, turnos de hospital, música, seguimiento de "Limón", tareas de empresa, "Coisinhas" | React 19 + Vite + TypeScript + Tailwind 4 + Supabase (RLS real vía sesión anónima, ver seguridad). Acceso por PIN + biometría WebAuthn opcional (`PinScreen.tsx`), sin distinguir personas. |
+| `alquileres/` | Gestión de alquileres vacacionales: reservas, precios, reparaciones, cobros, analítica | React 19 + Vite + TypeScript + Tailwind 4 + Recharts. Backend **Firebase Firestore** (`contexts/DataContext.tsx`, tiempo real vía `onSnapshot`) con login por persona (`LoginScreen.tsx`, Luis/Rober) y migración automática de datos antiguos de `localStorage` (`MigrateLocalData.tsx`). `@supabase/supabase-js` sigue como dependencia en `package.json` pero ya no se usa en ningún fichero — dependencia muerta, ver `.claude/rax/DEUDA_TECNICA.md` DT-10. |
+| `netlify/functions/` | Bot de WhatsApp con IA + proxy del Asistente IA de `Index.html` | Netlify Functions. `whatsapp-webhook.js` (Meta Cloud API) y `twilio-webhook.js` (Twilio, alternativa — cuál es la canónica sigue sin decidirse) comparten `whatsapp-agent-core.js` (matching de FAQ + llamada a Claude) y `whatsapp-agent-config.js` (datos del negocio). `chat-assistant.js` es un proxy aparte para el chat de `Index.html`: la API key de Anthropic vive solo aquí, nunca en el navegador. `marketing-engine-run.js` conecta `app.html` con el Motor de Marketing/Creative Lab. |
+| `design-studio/` | Estudio de diseño autónomo de RAX: banners, posts, flyers, edición de imagen | Ver `design-studio/README.md` — brand kit real por app (verificado contra el CSS de cada una), script de render HTML→PNG/PDF (`render-html.js`, probado), integración con Adobe Firefly API (`firefly-generate.js`, código completo, sin probar — pendiente de credenciales). No se ejecuta como parte de ningún build; es una herramienta que se invoca a demanda. |
+| `marketing-engine/` | Motor de Marketing con IA: pipeline de 8 agentes que convierte un brief de producto en una publicación lista — el "cerebro" creativo que consume `app.html` (Almacén) vía `netlify/functions/marketing-engine-run.js`, que a su vez delega la generación real en `creative-engine/creative-lab/` (ver esa fila). Antes del primer agente y al terminar, `marketing-engine/intelligence/` (Product Intelligence, Campaign Recommender, Creative Score, Variant Engine, Learning Engine) analiza, recomienda y puntúa cada campaña en modo *shadow* — nunca cambia una decisión real del pipeline de 8 agentes hasta que se demuestre mejor, ver `intelligence/README.md` y `ROADMAP_V2.md`. `marketing-engine/core/providers/` queda legado (sin proveedor real activo) — el proveedor real vive en `creative-engine/provider-manager/`, ver esa fila | Node.js (CommonJS) puro, sin dependencias npm. Ver `marketing-engine/ARCHITECTURE.md` (diseño interno) e `INTEGRATION.md` (cómo se conecta con la app). |
+| `creative-engine/` | Motor de generación de contenido — "El Marketing Engine piensa, el Creative Engine crea". Completamente independiente de `marketing-engine/` (contrato propio `CreativeBrief`, sin `require()` cruzado): Provider Manager, Asset Pipeline, Prompt Composer (modular), Variant Generator, Creative Validator, Creative Assets, ver `creative-engine/ARCHITECTURE.md`. Desde 2026-07-26, `creative-lab/` — "El Marketing Engine piensa, el Creative Engine crea, el Creative Lab perfecciona": 9 bibliotecas atómicas + Biblioteca de Referencias, Art Direction Engine (18 patrones editoriales agrupados en las 4 familias oficiales de Ofipapel — Lifestyle, Premium Editorial, Comercial, Problema → Solución, ver `design-studio/OFIPAPEL_VISUAL_DNA.md` cap. 12), Layout Intelligence, Design Director, Component Library — 8-12 conceptos por campaña puntuados en dos capas con umbral de calidad y reintento acotado, ver `creative-engine/creative-lab/ARCHITECTURE.md`. Desde el sprint "Cierre de arquitectura" (2026-08-01, `.claude/rax/DEUDA_TECNICA.md` DT-15), `netlify/functions/marketing-engine-run.js` usa este pipeline (`creative-lab/`) y no el más simple de `creative-engine/index.js` — es el que sirve `app.html` en producción | Node.js (CommonJS) puro, sin dependencias npm. Proveedor real conectado: `openai-images` (activo si hay `OPENAI_API_KEY`; si no, cae a `simulated`), ver `creative-engine/FIRST_REAL_GENERATION.md` y `provider-manager/README.md`. |
 
-Los HTML monolíticos (`Index.html`, `canarias-ink.html`, `falcontrol.html`,
-`app.html`) no tienen proceso de build: se sirven tal cual. Cualquier
-cambio se hace editando el fichero directamente (CSS y JS están embebidos
-inline).
+Los HTML monolíticos (`inicio.html`, `Index.html`, `canarias-ink.html`,
+`falcontrol.html`, `vacaciones.html`, `importacion-pedidos-proveedores.html`,
+`fichaje.html`, `app.html`) no tienen proceso de build: se sirven tal cual.
+Cualquier cambio se hace editando el fichero directamente (CSS y JS están
+embebidos inline).
 
 ## Comandos
 
@@ -49,12 +54,15 @@ bash build.sh   # compila alquileres y joe-app, y ensambla todo en _site/
   publica `_site/` y sirve las funciones serverless de `netlify/functions/`.
   Rutas: `/alquileres/*` → `alquileres/dist`, `/joe/*` → `joe-app/dist`,
   el resto son los HTML estáticos de la raíz.
-- **GitHub Pages** (`.github/workflows/pages.yml`) es el respaldo: ejecuta el
-  mismo `build.sh` que Netlify y publica `_site/`, así que genera exactamente
-  el mismo resultado en ambas plataformas.
-- No hay CI de verificación (lint/build) antes de desplegar todavía — existe
-  como propuesta escrita (`RT-03` en `.claude/rax/ROADMAP_TECNICO.md`) pero
-  deliberadamente no se ha activado en esta consolidación.
+- **GitHub Pages** (`.github/workflows/pages.yml`) es el respaldo: ejecuta
+  `bash build.sh` (el mismo script que Netlify, sin duplicar la lista de
+  ficheros a mano) y publica `_site/`, así que genera exactamente el mismo
+  resultado en ambas plataformas.
+- **CI** (`.github/workflows/ci.yml`) corre `lint` + `build` (incluye
+  `tsc -b`) para `joe-app` y `alquileres` en cada PR y push a `main`. Los
+  HTML monolíticos no tienen build ni lint automatizado.
+- `.github/dependabot.yml` abre PRs semanales de actualización de
+  dependencias npm para ambas apps y de GitHub Actions.
 
 ## Variables de entorno / secretos
 
@@ -62,65 +70,94 @@ Configurados en Netlify (Site settings → Environment variables), **no** en
 el repo:
 - `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`,
   `WHATSAPP_APP_SECRET` — Meta Cloud API (ver `WHATSAPP_SETUP.md`).
-- `ANTHROPIC_API_KEY` — usada por el bot de WhatsApp y por
-  `netlify/functions/chat-assistant.js` (proxy del asistente de IA de
-  `Index.html`).
-- `CHAT_ASSISTANT_TOKEN` — token compartido para `chat-assistant.js`; debe
-  coincidir exactamente con la constante `APP_CHAT_TOKEN` embebida en
-  `Index.html`. No es un secreto real (Index.html es HTML estático visible
-  con "ver código fuente"), solo evita dejar el endpoint completamente
-  abierto — ver el comentario en `chat-assistant.js`.
-- `OPENAI_API_KEY` (opcional, no configurada todavía) — activa el
-  proveedor real `openai-images` de `creative-engine/` desde
-  `netlify/functions/marketing-engine-run.js`. Sin ella, el sistema sigue
-  funcionando con el proveedor `simulated`, sin ningún cambio de código.
-  Ver `creative-engine/FIRST_REAL_GENERATION.md`.
+- `ANTHROPIC_API_KEY` — usada tanto por el bot de WhatsApp como por
+  `netlify/functions/chat-assistant.js` (proxy del chat de `Index.html`).
+- `CHAT_ASSISTANT_TOKEN` — token compartido para el proxy del chat; debe
+  coincidir con `APP_CHAT_TOKEN` en `Index.html`. No es un secreto real
+  (`Index.html` es HTML estático, visible con "ver código fuente"), solo
+  evita dejar el endpoint completamente abierto.
+- `OPENAI_API_KEY` — activa el proveedor real `openai-images` de
+  `creative-engine/creative-lab/` desde
+  `netlify/functions/marketing-engine-run.js` (marcarla como secreto en
+  Netlify). Sin ella, el sistema sigue funcionando con el proveedor
+  `simulated`, sin ningún cambio de código. Ver
+  `creative-engine/FIRST_REAL_GENERATION.md` y `.claude/rax/DEUDA_TECNICA.md`
+  DT-15.
 - `joe-app` usa `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` vía
-  `.env.local` (no versionado) en desarrollo, e inyectadas por Netlify en
-  producción. Requiere además "Allow anonymous sign-ins" activado en
-  Supabase (Authentication > Sign In / Providers) para que el RLS
-  funcione — sin eso, la app sigue funcionando pero sin el blindaje activo.
-- `alquileres` usa **Firebase Firestore** (proyecto `ofipapelvv`), con la
-  config ya embebida en `alquileres/src/lib/firebase.ts` (no requiere
-  variables de entorno). Requiere activar el proveedor "Anonymous" en
-  Firebase Console > Authentication > Sign-in method y desplegar
-  `alquileres/firestore.rules` para que las reglas de acceso estén
-  realmente activas.
+  `.env.local` (no versionado) en desarrollo, inyectadas por Netlify en
+  producción. Requiere además **"Allow anonymous sign-ins"** activado en
+  Supabase (Authentication → Sign In / Providers) para que la sesión
+  anónima de RLS funcione.
+- `alquileres` usa credenciales de Firebase (ver `alquileres/src/lib/firebase.ts`)
+  para Firestore y Firebase Authentication. Requiere activar el proveedor
+  "Anonymous" en Firebase Console → Authentication → Sign-in method y
+  desplegar `alquileres/firestore.rules` para que las reglas de acceso
+  estén realmente activas.
 - `FIREFLY_CLIENT_ID` / `FIREFLY_CLIENT_SECRET` (opcionales, no configuradas
   todavía) — credenciales OAuth Server-to-Server de Adobe Developer Console
   para `design-studio/scripts/firefly-generate.js`. Ver `design-studio/README.md`.
 
+Los HTML monolíticos llevan la URL y la clave `publishable`/`anon` de
+Supabase **hardcodeadas en el propio fichero** (modelo esperado en Supabase
+para clientes puramente frontend, protegido por RLS — no es una key
+secreta, pero conviene verificar periódicamente que las políticas RLS son
+correctas; la de `Index.html` sigue sin verificar, ver seguridad conocida).
+
+## Seguridad conocida
+
+- `Index.html`: login 100% client-side (hash SHA-256 sin salt, contraseña
+  por defecto compartida entre los 4 usuarios) y estado de RLS de Supabase
+  sin verificar. Abierto, requiere decisión del propietario
+  (`.claude/rax/DEUDA_TECNICA.md` DT-09).
+- `alquileres`: `LoginScreen.tsx` comparte **el mismo hash de contraseña
+  por defecto** que `Index.html` entre sus dos usuarios (Luis/Rober) — no
+  es casualidad, es el mismo valor. Mismo tipo de riesgo, mismo origen
+  (DT-11).
+- `joe-app`: ya resuelto — sesión anónima de Supabase Auth + RLS real
+  (`to authenticated`, no `to anon`).
+- El Asistente IA de `Index.html`: ya resuelto — proxy server-side, la API
+  key de Anthropic ya no vive en el navegador.
+- Dos canales de WhatsApp activos en paralelo (Meta y Twilio) sin decidir
+  cuál es el canónico — ambos comparten ya la misma lógica interna
+  (`whatsapp-agent-core.js`), pero la decisión de negocio sigue abierta.
+
 ## Estudio de diseño (RAX)
 
-`design-studio/README.md` documenta cómo crear banners, posts, landing pages
-y gráficos para Ofipapel de forma autónoma: qué herramientas del conector
-Adobe for Creativity usar para cada tarea, la paleta/tipografía real de cada
-una de las 3 apps (verificada contra el CSS real de cada sitio, no inventada),
-el script de render HTML→PNG/PDF standalone (`design-studio/scripts/render-html.js`,
-usa Playwright/Chromium ya preinstalado en las sesiones en la nube), y la
-integración (preparada, pendiente de credenciales) con Adobe Firefly API.
-Consultar ese documento antes de abordar cualquier encargo visual.
+`design-studio/README.md` documenta cómo crear banners, posts, flyers y
+gráficos para Ofipapel de forma autónoma: qué herramienta usar según la
+tarea, el brand kit real de cada app (colores/tipografía verificados contra
+el CSS real, no inventados), el script de render HTML→PNG/PDF standalone, y
+la integración (preparada, pendiente de credenciales) con Adobe Firefly
+API. Consultar ese documento antes de abordar cualquier encargo visual.
 
 ## Skills de RAX
 
-`.claude/skills/` — sistema modular de Skills de Claude Code para este repo.
-Cada Skill es una carpeta autocontenida con su propio `SKILL.md`; añadir una
-Skill nueva nunca requiere modificar una existente. Catálogo y convenciones
-en `.claude/skills/README.md`.
+`.claude/skills/` — sistema modular de Skills de Claude Code para este
+repo. Cada Skill es una carpeta autocontenida con su propio `SKILL.md`;
+añadir una Skill nueva nunca requiere modificar una existente. Catálogo y
+convenciones en `.claude/skills/README.md`.
 
 `.claude/rax/` es el "cerebro" persistente del ecosistema (inventario,
 roadmaps, deuda técnica, decisiones, historial de sesiones) — independiente
 de cualquier Skill concreta, para que todas puedan leerlo sin acoplarse
-entre sí. La Skill `project-manager` es responsable de mantenerlo al día; al
-empezar una sesión de trabajo real sobre este repo, actívala primero para
-tener contexto antes de tocar código.
+entre sí. La Skill `project-manager` es responsable de mantenerlo al día;
+al empezar una sesión de trabajo real sobre este repo, actívala primero
+para tener contexto antes de tocar código.
 
 ## Convenciones
 
+- **Ramas, PRs y ciclo de vida de las ramas**: ver `CONTRIBUTING.md` —
+  comprobar ramas activas antes de crear una nueva, proceso de
+  reconciliación, y criterio para cerrar o eliminar ramas. No lo dupliques
+  aquí.
 - Nombres de commit descriptivos, en español, estilo `fix:`/`feat:` cuando aplica.
-- No existen tests automatizados todavía en ninguna parte del repo.
+- No existen tests automatizados todavía en ninguna parte del repo (CI
+  cubre lint + build, no tests).
 - `joe-app` y `alquileres` comparten patrón de ESLint flat config
   (`eslint.config.js`) con `typescript-eslint` + `eslint-plugin-react-hooks`.
+  `alquileres` tiene `react-hooks/set-state-in-effect` degradado a warning
+  (deuda conocida, con TODO en el propio fichero) por varios efectos
+  preexistentes en `Reservations.tsx` y `MigrateLocalData.tsx`.
 - Antes de crear un documento, Skill o carpeta nueva, comprueba en
   `.claude/skills/README.md` y `.claude/rax/INVENTORY.md` que no exista ya
   algo equivalente. Máximo impacto · mínimo riesgo · cero duplicidades.

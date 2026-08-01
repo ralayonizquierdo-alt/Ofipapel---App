@@ -1,0 +1,31 @@
+rules_version = '2';
+
+// Reglas de acceso para el proyecto Firebase "Ofipapel Fichaje" (ofipapel-fichaje-63ced),
+// usado exclusivamente por fichaje.html — propio y separado de ofipapelvv (Vacaciones/Alquileres).
+//
+// La pantalla de fichaje no pide login de gerencia para poder fichar con PIN: usa una sesión
+// anónima (ver ensureAnonSession() en fichaje.html) solo para que Firestore exija una sesión,
+// no una identidad real. La verificación del PIN (hash SHA-256) y la separación empleado/gerencia
+// las hace la propia app, no estas reglas — mismo nivel de protección que el resto del ecosistema
+// (RLS de Supabase en joe-app, reglas de alquileres/firestore.rules): bloquea el acceso directo
+// con solo la apiKey pública, pero no distingue entre personas.
+//
+// Firebase crea la base de datos nueva con reglas por defecto que BLOQUEAN todo — sin publicar
+// esto, cualquier lectura/escritura devuelve 403 (se ve en la app como "Sin conexión con el
+// servidor").
+//
+// Despliegue (requiere el CLI de Firebase autenticado con acceso al proyecto
+// "ofipapel-fichaje-63ced" — no se puede aplicar desde este repo sin esas credenciales):
+//   firebase deploy --only firestore:rules --project ofipapel-fichaje-63ced
+// o pegar el contenido de este fichero en Firebase Console > Firestore Database > Rules > Publish.
+//
+// Requiere también activar el proveedor "Anonymous" en Firebase Console > Authentication >
+// Sign-in method — sin eso, ensureAnonSession() nunca obtiene sesión y estas reglas rechazarían
+// todas las peticiones igualmente.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{collection}/{docId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

@@ -122,7 +122,7 @@ function overlapScore(idealProducts, wanted) {
  * mezcla `REFERENCES_PER_CONCEPT` referencias; con solo 2-3 candidatas el
  * número de combinaciones posibles se agota mucho antes de llegar a 8 —
  * bug real detectado al conectar esta ruta al flujo de producción,
- * sprint "Cierre de arquitectura", DT-10) — por eso se completa SIEMPRE
+ * sprint "Cierre de arquitectura", DT-15) — por eso se completa SIEMPRE
  * con referencias 'general' hasta alcanzar `limit`, no solo cuando hay
  * menos de 2 matches directos.
  */
