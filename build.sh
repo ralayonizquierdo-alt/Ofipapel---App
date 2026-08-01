@@ -86,6 +86,8 @@ cp sound-connect.mp3 _site/ 2>/dev/null || true
 cp manifest-inicio.json _site/ 2>/dev/null || true
 cp icon-ofipapel-192.png _site/ 2>/dev/null || true
 cp icon-ofipapel-512.png _site/ 2>/dev/null || true
+cp icon-ofipapel-192-maskable.png _site/ 2>/dev/null || true
+cp icon-ofipapel-512-maskable.png _site/ 2>/dev/null || true
 cp privacidad.html _site/ 2>/dev/null || true
 cp 404.html _site/ 2>/dev/null || true
 
