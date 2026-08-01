@@ -74,10 +74,20 @@ function selectPattern(concept, brief, hasRealPhoto, excludePatternIds) {
   const candidates = PATTERNS.filter((p) => !excluded.has(p.id));
   const pool = candidates.length > 0 ? candidates : PATTERNS; // si se excluyeron los 15 (no debería pasar con MAX_DESIGN_RETRIES acotado), no bloquear
 
+  // Fase 4 ("terminar el cerebro"): cuando el objetivo real ya decidido
+  // es "resolver-problema" (campaign-recommender/service.js#resolveObjective,
+  // señal real: strategyAffinity 'Problema → Solución'), se refuerza la
+  // familia oficial Problema-Solución — mismo mecanismo que el bonus de
+  // "lifestyle" ya existente, nunca una selección forzada: si ningún
+  // patrón de esa familia encaja además por tags, el resto de la
+  // puntuación sigue decidiendo.
+  const wantsProblemSolution = brief.campaign && brief.campaign.objective === 'resolver-problema';
+
   const scored = pool.map((pattern) => {
     let score = tagOverlapScore(pattern, wantedTags) * 10;
     if (hasRealPhoto && pattern.heroTreatment !== 'framed-minimal') score += 5;
     if (hasRealPhoto && pattern.tags.includes('lifestyle')) score += 8;
+    if (wantsProblemSolution && pattern.officialFamily === 'Problema-Solución') score += 12;
     return { pattern, score, tie: hashString(`${pattern.id}::${concept.conceptId}`) };
   });
 

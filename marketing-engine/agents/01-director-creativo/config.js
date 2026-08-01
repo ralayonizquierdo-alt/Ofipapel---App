@@ -20,6 +20,7 @@ const OBJECTIVE_TONE_MAP = {
   emocionar: 'cálido y cercano, construye relación antes que vender',
   sorprender: 'rompe el patrón habitual del feed, con energía',
   minimalista: 'sobrio, preciso, sin adjetivos vacíos',
+  'resolver-problema': 'honesto y resolutivo, nombra la molestia real antes de ofrecer el alivio',
 };
 
 module.exports = { CATEGORY_RULES, DEFAULT_CHANNEL, OBJECTIVE_TONE_MAP };

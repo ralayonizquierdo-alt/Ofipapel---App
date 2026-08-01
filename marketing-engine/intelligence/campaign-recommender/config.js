@@ -38,6 +38,7 @@ const STYLE_BY_OBJECTIVE = {
   emocionar: 'cercano y emocional, construye relación antes que vender',
   sorprender: 'sorprendente, rompe el patrón habitual del feed',
   minimalista: 'sobrio y preciso, sin adjetivos vacíos',
+  'resolver-problema': 'honesto y resolutivo, nombra la molestia real antes de ofrecer el alivio',
 };
 
 // Ejemplos de CTA por objetivo — knowledge/copywriting-playbook.md §4
@@ -50,6 +51,7 @@ const CTA_BY_OBJECTIVE = {
   emocionar: 'Suave, casi opcional — o ausente si la pieza es puramente de marca (p. ej. "Así de bien queda en tu día a día").',
   sorprender: 'De bajo compromiso, invita a descubrir (p. ej. "Descúbrelo").',
   minimalista: 'Informativo, orientado a resolver dudas técnicas (p. ej. "¿Dudas de compatibilidad? Pregúntanos").',
+  'resolver-problema': 'Orientado al alivio inmediato, casi una respuesta a la molestia nombrada (p. ej. "Soluciónalo hoy mismo").',
 };
 
 // Heurística genérica de mejor horario por canal — NINGÚN documento de

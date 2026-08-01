@@ -1261,3 +1261,89 @@ documento ya existentes (un campo nuevo por objeto, una entrada nueva en
 el array, un capítulo nuevo al final del documento); ningún consumidor
 existente de `patterns.js` cambia de comportamiento, revertible desde el
 historial de git.
+
+### 2026-08-01 — Sprint "Cierre de arquitectura", Fase 4: selección real de familia (sin tocar el modo shadow)
+
+**Contexto**: Fase 4 pide que categoría y objetivo se "clasifiquen
+automáticamente" y que esa clasificación conduzca la selección de una de
+las 4 familias oficiales. Antes de implementar se verificó de dónde viene
+hoy cada señal: `job.input.category` es directo (elegido por quien crea
+la campaña, nunca inferido), y `brief.campaign.objective` en
+`creative-engine` ya se alimenta de
+`marketing-engine/intelligence/campaign-recommender` — un dato importante
+descubierto al revisar `creative-engine/brief/from-marketing-engine.js`:
+ese puente (sprint "Primera generación real", 2026-07-25) ya trata la
+`recommendation` de `campaign-recommender` como una entrada real para la
+generación creativa, no como una comparación en shadow — el modo shadow
+(`marketing-engine/intelligence/README.md`) protege específicamente que
+`job.input` del pipeline de `marketing-engine` (`postType`/`tone`/
+`channel` que deciden los 8 agentes) no se sobrescriba sin permiso, no la
+salida de `campaign-recommender` en sí, que YA es un input legítimo del
+lado de `creative-engine` desde antes de esta sesión. Extender esa señal
+no revierte ninguna promesa de shadow mode.
+
+**Qué se implementó**:
+1. **Objetivo nuevo `resolver-problema`** (único genuinamente nuevo de los
+   6 que nombró el propietario — los otros 3, "posicionar marca",
+   "destacar una innovación" y "promocionar una oferta", ya tenían un
+   valor real y suficientemente cercano: `minimalista`, `sorprender` y
+   `vender`+`categoria:oferta`; añadir sinónimos sin una señal real que
+   los distinga habría sido duplicar sin motivo). Añadido a los dos
+   enums reales (`marketing-engine/intelligence/contracts.js#OBJECTIVE`,
+   `marketing-engine/core/contracts/job.contract.js#JOB_INPUT_SHAPE.objective`)
+   y a las 3 tablas de configuración que ya listaban los otros 4 valores
+   (`campaign-recommender/config.js#STYLE_BY_OBJECTIVE`/`CTA_BY_OBJECTIVE`,
+   `agents/01-director-creativo/config.js#OBJECTIVE_TONE_MAP`).
+2. **Señal real, no inventada**: `campaign-recommender/service.js#resolveObjective`
+   ahora comprueba `productProfile.strategyAffinity.includes('Problema →
+   Solución')` — un dato que `product-intelligence/config.js` ya
+   declaraba para `electrodomesticos` desde julio sin que nada lo
+   consumiera. Se comprueba después del evento estacional (una fecha
+   límite activa sigue mandando) y antes de la rama técnica/ticket-alto.
+   Verificado con `recommend()` aislado (sin evento estacional activo):
+   devuelve `resolver-problema` con razón explícita.
+3. **`art-direction-engine/service.js#selectPattern`**: bonus de
+   puntuación (+12, mismo mecanismo que el bonus de +8 ya existente para
+   `lifestyle`) cuando `brief.campaign.objective === 'resolver-problema'`
+   y `pattern.officialFamily === 'Problema-Solución'` — nunca una
+   selección forzada, un refuerzo más en la misma suma. Verificado: 12/12
+   ejecuciones con ese objetivo eligen `problema-solucion`; sin él, el
+   patrón ganador cambia a uno de otra familia con mejor encaje por tags.
+4. **Briefing y prompt de OpenAI Images**: ya estaban completos de
+   extremo a extremo desde sprints anteriores (concept-generator →
+   master-prompt-composer) — Fase 4 no necesitaba construir nada nuevo
+   aquí, solo confirmarlo (hecho, sin cambios de código).
+
+**Gap real, documentado en vez de fingido**: los pasos "revisar la imagen
+generada usando el ADN Visual" y "regenerar si falla" (Fase 4, puntos 8-9)
+siguen sin poder construirse honestamente hoy — el pipeline no tiene
+ningún modelo de visión conectado (`creative-validator/service.js` ya
+documentaba esto: todos sus checks son `evaluatedOn:'plan'`, `'pixel'` es
+un valor futuro sin implementación). Construir un chequeo de dimensiones
+de fichero PNG habría sido una implementación hueca que no cumple lo que
+pide realmente el propietario ("usando el ADN Visual" implica juicio
+semántico: posición del logo, tamaño del precio, tipografía única — no
+solo que el fichero tenga el ancho correcto). Queda documentado como el
+gap real para el informe de Fase 6, no resuelto con una implementación de
+relleno.
+
+**Verificación**: `node --check` en los 6 ficheros tocados · barrido de
+regresión (`directArt()`, 5 objetivos × 6 categorías × 3 repeticiones = 90
+combinaciones) sin `NaN` ni excepción · pipeline real completo (Calefactor
+Cerámico, categoría electrodomésticos) confirma la cadena categoría→
+objetivo real→bonus de familia→patrón, con el matiz correcto de que un
+evento estacional activo (verano-canario, activo en la fecha de esta
+sesión) sigue teniendo prioridad sobre la nueva rama, tal como decide la
+función ya existente · invariante de independencia
+`creative-engine/`↔`marketing-engine/` intacto.
+
+**Quién decide**: propietario — misma misión de 6 fases, regla de
+detenerse solo ante contradicciones reales (ninguna nueva detectada en
+este incremento, ver arriba por qué el puente `campaign.objective` no
+cuenta como una) y ejecutar sin preguntar en cualquier otro caso.
+
+**Reversibilidad**: alta — un valor nuevo en dos enums ya existentes,
+cuatro entradas nuevas en tablas de configuración ya existentes, una rama
+nueva en una función ya existente y un bonus más en una suma ya
+existente; ningún valor ni comportamiento previo cambia, revertible desde
+el historial de git.

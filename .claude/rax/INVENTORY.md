@@ -65,7 +65,15 @@ decidir si "ya se puede retomar sales-marketing".
   (`MARKETING_ENGINE_INTELLIGENCE_MODE`), pendiente de activar hasta que
   el propio Shadow Mode demuestre que las recomendaciones son mejores o
   equivalentes — ver `marketing-engine/intelligence/README.md` y
-  `marketing-engine/ROADMAP_V2.md`.
+  `marketing-engine/ROADMAP_V2.md`. Objetivo `resolver-problema` añadido
+  en Fase 4 del sprint "Cierre de arquitectura" (2026-08-01) — señal real
+  ya existente (`strategyAffinity` incluye `'Problema → Solución'`),
+  alimenta el bonus de familia oficial homónima en
+  `art-direction-engine/service.js#selectPattern`; este campo concreto
+  (`recommendation.objective`) ya fluye como entrada real hacia
+  `creative-engine` desde el puente `from-marketing-engine.js` (no forma
+  parte de lo que el Shadow Mode protege — eso es `job.input` del propio
+  pipeline de `marketing-engine`).
 - **Creative Engine**: `creative-engine/` (2026-07-25) — capa de
   generación de contenido, completamente independiente de
   `marketing-engine/` (contrato propio `CreativeBrief`, sin `require()`

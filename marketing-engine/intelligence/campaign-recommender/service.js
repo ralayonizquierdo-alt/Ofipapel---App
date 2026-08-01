@@ -93,6 +93,20 @@ function resolveObjective(productProfile, input, drivingEvent) {
     };
   }
 
+  // Fase 4 ("terminar el cerebro"): la única señal real y ya existente
+  // para "resolver un problema" — product-intelligence/config.js ya
+  // declaraba 'Problema → Solución' como afinidad de electrodomésticos
+  // antes de que nada la consumiera. Se comprueba antes que
+  // técnico/ticket-alto: un producto puede ser técnico Y resolver una
+  // molestia concreta a la vez, y la molestia es la señal más específica
+  // de las dos.
+  if (productProfile.strategyAffinity.includes('Problema → Solución')) {
+    return {
+      value: 'resolver-problema',
+      reason: `"${productProfile.label}" tiene afinidad real con la estrategia "Problema → Solución" — la molestia que resuelve es un argumento más fuerte que la ficha técnica (knowledge/campaign-strategies.md).`,
+    };
+  }
+
   const technical = /técnic|verificable/i.test(productProfile.audience.decisionDriver);
   if (technical || productProfile.ticket.band === 'alto') {
     return {

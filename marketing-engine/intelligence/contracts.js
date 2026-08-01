@@ -24,7 +24,17 @@ const { assertShape, enumOf, arrayOf, maybe } = require('../core/contracts/shape
 // coincida. Si el vocabulario diverge alguna vez, cada capa lo nota por su
 // cuenta al validar — no hay un import roto en cascada.
 const POST_TYPE = enumOf('foto', 'carrusel', 'reel');
-const OBJECTIVE = enumOf('vender', 'emocionar', 'sorprender', 'minimalista');
+// 'resolver-problema' añadido en el sprint "Cierre de arquitectura" (Fase
+// 4) — único valor genuinamente nuevo entre los 6 objetivos que el
+// propietario nombró para el "cerebro": los otros 3 ('posicionar marca',
+// 'destacar una innovación', 'promocionar una oferta') ya tenían un valor
+// real y suficientemente cercano ('minimalista', 'sorprender', 'vender'
+// + campaignType 'oferta') — añadir sinónimos habría sido duplicar sin
+// una señal real que los distinga. 'resolver-problema' sí tiene señal
+// propia y ya existente: product-intelligence/config.js#strategyAffinity
+// ya incluye 'Problema → Solución' como afinidad real de categoría
+// (electrodomesticos), sin que nada la consumiera todavía.
+const OBJECTIVE = enumOf('vender', 'emocionar', 'sorprender', 'minimalista', 'resolver-problema');
 const CHANNEL = enumOf('instagram', 'facebook', 'whatsapp', 'ambas');
 const TICKET_BAND = enumOf('bajo', 'medio', 'alto');
 

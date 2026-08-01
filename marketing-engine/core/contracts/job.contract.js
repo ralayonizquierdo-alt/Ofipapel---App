@@ -31,7 +31,7 @@ const JOB_INPUT_SHAPE = {
   channel: maybe(enumOf('instagram', 'facebook', 'whatsapp', 'ambas')),
   images: arrayOf('string'),
   postTypeOverride: maybe(enumOf('foto', 'carrusel', 'reel')),
-  objective: maybe(enumOf('vender', 'emocionar', 'sorprender', 'minimalista')),
+  objective: maybe(enumOf('vender', 'emocionar', 'sorprender', 'minimalista', 'resolver-problema')),
   creativeStyleHint: maybe('string'),
   targetDate: maybe('string'),
 };
