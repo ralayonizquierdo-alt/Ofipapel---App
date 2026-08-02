@@ -34,6 +34,18 @@
   ]
   external_node_modules = ["@sparticuz/chromium", "playwright-core"]
 
+# marketing-engine-run-background.js es quien de verdad ejecuta el pipeline
+# ahora (DT-17, `.claude/rax/DEUDA_TECNICA.md`) — necesita exactamente el
+# mismo empaquetado que la función síncrona de arriba. marketing-engine-run
+# se mantiene tal cual para pruebas rápidas con el proveedor "simulated"
+# (sin llamada real a OpenAI, termina dentro del límite síncrono).
+[functions."marketing-engine-run-background"]
+  included_files = [
+    "marketing-engine/**", "design-studio/**", "creative-engine/**",
+    "netlify/functions/node_modules/**",
+  ]
+  external_node_modules = ["@sparticuz/chromium", "playwright-core"]
+
 # El hub vive en inicio.html (no index.html). La causa real de que "/"
 # sirviera siempre Index.html no era una colisión de caché ni de nombre:
 # por defecto Netlify NO aplica una regla de redirección si la ruta ya
