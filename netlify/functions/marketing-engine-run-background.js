@@ -171,7 +171,18 @@ exports.handler = async (event) => {
       // master-prompt-composer/base-photography.js). Opcional, ausente
       // por defecto: sin este campo en el body, cero cambio de
       // comportamiento respecto a antes de este bloque.
-      const labResult = await runCreativeLab(brief, { providerId: creativeProviderId, testMode: payload.testMode });
+      //
+      // productPhotoPath: modo calidad absoluta (2026-08-02) — si el
+      // cliente manda una foto real en payload.images[0] (ruta o
+      // data-URL, mismo campo que ya existía en el contrato del job),
+      // se usa como referencia real para el proveedor (openai-images
+      // ahora soporta /v1/images/edits). Sin imágenes en el payload,
+      // undefined — cero cambio de comportamiento respecto a antes.
+      const labResult = await runCreativeLab(brief, {
+        providerId: creativeProviderId,
+        testMode: payload.testMode,
+        productPhotoPath: finalJob.input.images && finalJob.input.images[0],
+      });
       const winner = labResult.winner;
       const pattern = PATTERNS.find((p) => p.id === winner.layout.patternId) || null;
 
