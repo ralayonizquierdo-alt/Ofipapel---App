@@ -33,6 +33,21 @@ const OPENAI_IMAGES_ENDPOINT = 'https://api.openai.com/v1/images/generations';
 const OPENAI_IMAGES_EDIT_ENDPOINT = 'https://api.openai.com/v1/images/edits';
 const MODEL = 'gpt-image-1';
 
+// DT-18 (`.claude/rax/DEUDA_TECNICA.md`): ningún prompt (por exhaustivo
+// que sea) consiguió que OpenAI dejara de alucinar texto/logos falsos
+// dentro de la fotografía — probado en producción real, en generación
+// directa y usando la foto real como referencia. Prueba única
+// autorizada por el propietario: una segunda pasada de edición sobre la
+// propia foto ya generada, pidiendo EXCLUSIVAMENTE eliminar cualquier
+// marca tipográfica y dejar todo lo demás igual — reutiliza el mismo
+// endpoint de edits que ya se activó para la foto de referencia, sin
+// máscara (gpt-image-1 decide qué tocar según la instrucción).
+const TEXT_CLEANUP_PROMPT =
+  'Elimina por completo cualquier texto, letra, número, palabra, logotipo, marca comercial o carácter tipográfico visible en esta imagen, sea legible o no, incluidas las marcas grabadas o en relieve sobre el propio producto. ' +
+  'Rellena esas zonas de forma perfectamente continua con la textura, el material, el color y la iluminación que las rodea, como si nunca hubiera habido nada ahí. ' +
+  'No modifiques ninguna otra cosa: mismo producto, misma forma, mismas proporciones, mismo color, misma posición, mismo fondo, misma iluminación general. ' +
+  'El único cambio permitido en toda la imagen es la eliminación de marcas tipográficas.';
+
 // gpt-image-1 solo admite tamaños fijos (1024x1024, 1024x1536, 1536x1024,
 // 'auto') — se elige el más cercano a lo pedido por relación de aspecto,
 // no el tamaño exacto de FORMAT_DIMENSIONS.
@@ -74,6 +89,38 @@ async function fetchWithTimeout(url, options) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+// Segunda pasada: /v1/images/edits sobre la foto YA generada, pidiendo
+// solo eliminar texto — nunca lanza, si falla se queda con la imagen
+// original (más vale una foto con texto fantasma conocido que romper
+// toda la generación por un fallo en el paso de limpieza).
+async function removeTextArtifacts(apiKey, pngB64, size, quality) {
+  const form = new FormData();
+  form.append('model', MODEL);
+  form.append('image', new Blob([Buffer.from(pngB64, 'base64')], { type: 'image/png' }), 'source.png');
+  form.append('prompt', TEXT_CLEANUP_PROMPT);
+  form.append('size', size);
+  form.append('n', '1');
+  if (quality) form.append('quality', quality);
+
+  const apiResponse = await fetchWithTimeout(OPENAI_IMAGES_EDIT_ENDPOINT, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
+
+  if (!apiResponse.ok) {
+    const errorBody = await apiResponse.text();
+    throw new Error(`Limpieza de texto respondió ${apiResponse.status}: ${errorBody}`);
+  }
+
+  const json = await apiResponse.json();
+  const cleanedB64 = json.data && json.data[0] && json.data[0].b64_json;
+  if (!cleanedB64) {
+    throw new Error('Limpieza de texto no devolvió b64_json en la respuesta.');
+  }
+  return cleanedB64;
 }
 
 async function generate(req) {
@@ -134,9 +181,21 @@ async function generate(req) {
   }
 
   const json = await apiResponse.json();
-  const b64 = json.data && json.data[0] && json.data[0].b64_json;
+  let b64 = json.data && json.data[0] && json.data[0].b64_json;
   if (!b64) {
     throw new Error('OpenAI Images no devolvió b64_json en la respuesta.');
+  }
+
+  // DT-18: segunda pasada obligatoria de limpieza de texto — ver
+  // comentario de TEXT_CLEANUP_PROMPT. No rompe la generación si falla;
+  // se queda con la foto original y lo deja anotado en rawResponse.
+  let textCleanupApplied = false;
+  let textCleanupError = null;
+  try {
+    b64 = await removeTextArtifacts(apiKey, b64, size, quality);
+    textCleanupApplied = true;
+  } catch (err) {
+    textCleanupError = err.message;
   }
 
   const outputDir = (req.metadata && req.metadata.outputDir) || process.cwd();
@@ -155,6 +214,8 @@ async function generate(req) {
       requestedSize: `${req.width}x${req.height}`,
       usedSize: size,
       usedReferenceImage: hasReferenceImage,
+      textCleanupApplied,
+      textCleanupError,
     },
   };
 }

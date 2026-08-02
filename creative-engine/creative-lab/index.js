@@ -228,6 +228,11 @@ function formatWinner(item, layout) {
     providerId: item.generation && item.generation.result ? item.generation.result.providerId : null,
     providerStatus: item.generation.status,
     assetPath: item.generation.result ? item.generation.result.assetPath : null,
+    // Diagnóstico DT-18: expone tal cual lo que ya devuelve el proveedor
+    // (p.ej. textCleanupApplied/textCleanupError de openai-images) — sin
+    // esto no hay forma de saber si la limpieza de texto se aplicó de
+    // verdad sin adivinarlo mirando los píxeles.
+    providerRawResponse: item.generation.result ? item.generation.result.rawResponse : null,
     planScore: item.planScore,
     pixelScore: item.pixelScore,
     // layout-composer/ — la pieza final compuesta (arquetipo elegido según
