@@ -1437,3 +1437,59 @@ cuatro entradas nuevas en tablas de configuración ya existentes, una rama
 nueva en una función ya existente y un bonus más en una suma ya
 existente; ningún valor ni comportamiento previo cambia, revertible desde
 el historial de git.
+
+### 2026-08-02 — DT-17: `marketing-engine-run` pasa a Background Function + polling
+
+Fase 7 ("Conexión OpenAI") terminó de verificarse en producción real tras
+DT-16: los logs reales de `marketing-engine-run` mostraban ejecuciones de
+36-39s con memoria 700-770MB y **sin ningún error** — el pipeline completo
+(OpenAI Images + render de Chromium + composición de `creative-lab`)
+generaba la pieza final correctamente. Pero el cliente (`curl` del
+propietario) recibía siempre un `504 Inactivity Timeout` de Netlify.
+
+Diagnóstico confirmado con logs reales, no solo con curl: el límite de
+~26s del proxy síncrono que da la cara al cliente en las funciones
+normales de Netlify es independiente y más corto que el límite de
+ejecución de la propia función Lambda (que sí permite hasta 60s) — la
+función termina bien, pero la conexión con el cliente ya se cortó antes.
+Ya se había reducido todo lo posible en el sprint anterior
+(`CREATIVE_LAB_SHORTLIST_SIZE=1`, `MAX_RETRIES=1`,
+`OPENAI_IMAGES_QUALITY=low`) sin bajar de los 36-39s reales — no hay
+margen de optimización adicional dentro del pipeline que resuelva esto:
+es un límite de la plataforma, no un bug de código.
+
+**Decisión**: separar la ejecución de la entrega del resultado.
+`netlify/functions/marketing-engine-run-background.js` es una copia del
+pipeline de `marketing-engine-run.js` con sufijo `-background`
+(convención de Netlify: se ejecuta de forma asíncrona, responde 202 al
+cliente de inmediato, corre hasta 15 min sin el límite de 26s). El
+resultado final se escribe en Netlify Blobs (`@netlify/blobs`, nueva
+dependencia de `netlify/functions/package.json`) bajo la clave
+`trackingId` que el propio cliente genera y envía en el body — necesario
+porque una Background Function no devuelve nada útil al cliente que la
+llama. `netlify/functions/marketing-engine-status.js` (función síncrona
+normal, sin el problema de tiempo porque solo lee Blobs) sirve el
+resultado cuando esté listo, consultando esa misma clave.
+`marketing-engine-run.js` (síncrona) se mantiene sin tocar para pruebas
+rápidas con el proveedor `simulated` (sin llamada real a OpenAI, sí
+termina dentro de los ~26s).
+
+**Verificación**: `node --check` en los ficheros nuevos · `netlify.toml`
+validado con `tomllib` · flujo completo probado en local con
+`@netlify/blobs` mockeado (no existe contexto real de Blobs fuera de
+Netlify) — `marketing-engine-run-background.js` ejecuta el pipeline
+completo con el proveedor `simulated` y escribe primero `status:'running'`
+y luego el resultado final `status:'completed'` con `renderedAsset`;
+`marketing-engine-status.js` responde 400 sin `jobId`, 202
+`not_found_or_running` para una clave inexistente, y 200 con el cuerpo
+completo para una clave ya escrita. **Pendiente confirmar en producción
+real** — mismo patrón de caveat que DT-16 hasta la verificación con
+`ofipapel.netlify.app`, fuera del alcance de red de esta sesión.
+
+**Quién decide**: propietario — autorización explícita a corregir
+cualquier bloqueante real que impidiera "probar a generar" hoy, más allá
+del encargo estrecho de Fase 7.
+
+**Reversibilidad**: alta — dos ficheros nuevos, una dependencia npm
+nueva, una sección nueva en `netlify.toml`; `marketing-engine-run.js`
+original no se modifica.

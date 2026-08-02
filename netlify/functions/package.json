@@ -1,8 +1,9 @@
 {
   "name": "ofipapel-netlify-functions",
   "private": true,
-  "description": "Dependencias exclusivas de netlify/functions/ — el resto del repo no usa npm (ver CLAUDE.md). Solo marketing-engine-run.js las necesita: @sparticuz/chromium + playwright-core para renderizar la pieza final (design-studio/scripts/render-html.js) en el Lambda real, donde no existe el Chromium preinstalado de las sesiones en la nube de Claude Code (DT-16).",
+  "description": "Dependencias exclusivas de netlify/functions/ — el resto del repo no usa npm (ver CLAUDE.md). marketing-engine-run-background.js necesita @sparticuz/chromium + playwright-core para renderizar la pieza final (design-studio/scripts/render-html.js) en el Lambda real, donde no existe el Chromium preinstalado de las sesiones en la nube de Claude Code (DT-16), y @netlify/blobs para persistir el resultado del job entre la invocación en segundo plano y las consultas de estado (DT-17: el proxy síncrono de Netlify corta antes de que termine una generación real, ver .claude/rax/DEUDA_TECNICA.md).",
   "dependencies": {
+    "@netlify/blobs": "^10.7.11",
     "@sparticuz/chromium": "^131.0.1",
     "playwright-core": "^1.49.1"
   }

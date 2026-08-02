@@ -253,11 +253,15 @@ del pipeline (incluida la app) es agnóstico al proveedor.
 - **`included_files` en `netlify.toml`**: ya añadido (ver tabla arriba),
   pero no probado contra un despliegue real de Netlify, solo verificado
   como TOML válido.
-- **Límite de tiempo de función síncrona**: el pipeline completo (8
-  agentes + render con Playwright) puede acercarse al límite por defecto
-  de Netlify Functions (10s en el plan gratuito, hasta 26s en planes de
-  pago) — a vigilar cuando se conecte un proveedor de IA real con latencia
-  de red real (hoy, con `simulated`, el pipeline corre en menos de 1s).
+- **Límite de tiempo de función síncrona — confirmado, no solo un riesgo
+  teórico** (DT-17, `.claude/rax/DEUDA_TECNICA.md`): con el proveedor real
+  (`openai-images`) el pipeline completo tarda 36-39s (confirmado con
+  logs reales de producción), por encima del límite del proxy síncrono de
+  Netlify (~26s, independiente del límite de ejecución de la función
+  Lambda). `marketing-engine-run.js` sigue sirviendo bien para pruebas con
+  `simulated` (sin llamada real, <1s), pero para el proveedor real hay que
+  usar `marketing-engine-run-background.js` (Background Function) +
+  `marketing-engine-status.js` (polling) — ver esos ficheros.
 - **~6MB de payload en la respuesta**: `renderedAsset.base64` va inline en
   el JSON de respuesta porque la app no tiene backend/CDN propio para
   subir el asset y devolver solo una URL. Es el límite práctico de
