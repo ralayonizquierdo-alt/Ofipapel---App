@@ -43,10 +43,19 @@ function buildArtDirectionSection(concept, brief, preparedAssets) {
   const artDirection = getEntryByField('artDirectionId', concept.artDirectionId);
   const brand = preparedAssets.brand;
   const primaryHex = (brand.palette && brand.palette.primary) || '';
+  // FASE 8: brief.creativeDirection.graphicFamily (decidida por
+  // director-creativo, marketing-engine) es un ancla de consistencia
+  // entre campañas distinta de la familia oficial de art-direction-engine
+  // (esa se elige más tarde, sobre la foto ya generada — no existe
+  // todavía en este punto del pipeline) — se menciona aquí solo cuando
+  // hay valor, nunca se inventa uno.
+  const graphicFamily = brief.creativeDirection.graphicFamily
+    ? ` Familia gráfica de campaña: ${brief.creativeDirection.graphicFamily}.`
+    : '';
   return {
     id: 'art-direction',
     label: 'Dirección de arte',
-    text: `Dirección de arte: ${artDirection.text}. Coherente con la identidad de ${brand.label} (color ancla ${primaryHex}). Tono: ${brief.creativeDirection.tone || 'sin especificar'}.`,
+    text: `Dirección de arte: ${artDirection.text}. Coherente con la identidad de ${brand.label} (color ancla ${primaryHex}). Tono: ${brief.creativeDirection.tone || 'sin especificar'}.${graphicFamily}`,
   };
 }
 
@@ -56,10 +65,17 @@ function buildCinematographySection(concept, brief) {
   const fidelityText = fidelityRules.length > 0
     ? `Fidelidad obligatoria al producto real: ${fidelityRules.join('; ')}.`
     : 'Fidelidad obligatoria al producto real: mismas proporciones, materiales y colores, sin inventar piezas.';
+  // FASE 8: brief.product.description es el texto libre real del producto
+  // (lo escribe quien crea la campaña) — antes nunca llegaba al prompt de
+  // imagen, solo nombre+categoría. Es la señal más precisa disponible
+  // sobre el producto concreto, así que se añade tal cual cuando existe.
+  const descriptionText = brief.product.description
+    ? ` Descripción del producto: ${brief.product.description}.`
+    : '';
   return {
     id: 'cinematography',
     label: 'Dirección de fotografía',
-    text: `Dirección de fotografía: ${style.text}. Sujeto: ${brief.product.name} (${brief.product.category}). ${fidelityText} Calidad de producción profesional, nitidez de campaña, no de foto casera.`,
+    text: `Dirección de fotografía: ${style.text}. Sujeto: ${brief.product.name} (${brief.product.category}).${descriptionText} ${fidelityText} Calidad de producción profesional, nitidez de campaña, no de foto casera.`,
   };
 }
 
