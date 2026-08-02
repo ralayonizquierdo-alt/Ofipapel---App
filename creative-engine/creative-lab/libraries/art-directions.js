@@ -12,5 +12,5 @@ module.exports = [
   { id: 'nostalgico-retro', label: 'Nostálgico retro', text: 'dirección artística nostálgica, referencias visuales de otra época', tags: ['general', 'moda'] },
   { id: 'futurista', label: 'Futurista', text: 'dirección artística futurista, anticipa tendencias, sensación de "lo que viene"', tags: ['tecnologia'] },
   { id: 'artesanal-honesto', label: 'Artesanal honesto', text: 'dirección artística artesanal, imperfección deliberada como signo de autenticidad', tags: ['alimentacion', 'hogar-decoracion'] },
-  { id: 'lujo-discreto', label: 'Lujo discreto (quiet luxury)', text: 'dirección artística de lujo discreto, calidad que no necesita gritar', tags: ['joyeria', 'belleza', 'general'] },
+  { id: 'lujo-discreto', label: 'Lujo discreto (quiet luxury)', text: 'dirección artística de lujo discreto, calidad que no necesita gritar — paleta neutra y cálida (blancos rotos, beige, madera clara), texturas naturales de calidad (lino, madera, cerámica), atrezzo mínimo pero real y cuidado, nunca elementos genéricos de foto de stock', tags: ['joyeria', 'belleza', 'general'] },
 ];

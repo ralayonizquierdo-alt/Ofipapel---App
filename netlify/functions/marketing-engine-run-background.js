@@ -184,6 +184,10 @@ exports.handler = async (event) => {
         patternLabel: winner.layout.patternLabel,
         officialFamily: pattern ? pattern.officialFamily : null,
         designReview: winner.layout.designReview,
+        // Diagnóstico "modo calidad absoluta": ya se calculaba, solo se
+        // expone — sin esto no hay forma de saber qué escenario/estilo/
+        // iluminación ganó realmente sin adivinarlo mirando los píxeles.
+        composedPrompt: winner.composedPrompt.fullPrompt,
       };
 
       if (winner.layout.finalRenderedAssetPath) {
