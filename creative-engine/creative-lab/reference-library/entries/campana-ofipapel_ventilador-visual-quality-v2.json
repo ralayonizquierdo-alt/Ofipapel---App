@@ -22,6 +22,6 @@
   "whyItWorksOnSocial": "Funciona parado en el scroll porque no hay nada que \"leer\" para entender qué se vende — la foto real y el precio grande se procesan en el primer medio segundo, y solo si ese primer vistazo engancha, el ojo baja al titular y al CTA. Es la misma lógica que usan las fichas de producto de Apple/Dyson en redes: una sola imagen fuerte, texto mínimo pero grande, nunca una lista de características compitiendo por atención.",
   "visualImpactLevel": 92,
   "sourceType": "campana-propia",
-  "sourceRef": "sprints \"Visual Quality Revolution\" + \"Design Eye v1\" (2026-07-26) — campaña real del Ventilador Nebulizador MUVIP 75W, foto de cliente sin generación por IA, ver creative-engine/creative-lab/ARCHITECTURE.md",
+  "sourceRef": "sprints \"Visual Quality Revolution\" + \"Design Eye v1\" (2026-07-26) — campaña del Ventilador Nebulizador MUVIP 75W. Corrección (2026-08-02, confirmado por el propietario): la foto lifestyle es de una app de IA externa, no una fotografía real del propietario — la foto real de producto es design-studio/assets/producto-ventilador-muvip-foto-real-oficial.jpg. Ver creative-engine/creative-lab/ARCHITECTURE.md",
   "curatedAt": "2026-07-26"
 }
