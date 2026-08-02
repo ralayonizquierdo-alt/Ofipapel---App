@@ -92,6 +92,28 @@ const MATERIALS_BY_SCENARIO = {
   'exterior-canario-mediterraneo': 'piedra volcánica, madera envejecida por el sol, vegetación mediterránea',
 };
 
+// "Fotografía Base" — modo de prueba explícito (base-photography.js), NO
+// el flujo normal de campaña. Lista literal pedida por el propietario
+// para el experimento: prohibir CUALQUIER elemento gráfico superpuesto,
+// solo fotografía pura de producto. Deliberadamente más exhaustiva y
+// literal que NEGATIVE_PROMPT_TERMS (esa es genérica de campaña) — aquí
+// cada término es uno de los pedidos explícitamente, sin resumir.
+const BASE_PHOTOGRAPHY_NEGATIVE_TERMS = [
+  'cualquier texto',
+  'cualquier palabra',
+  'cualquier letra',
+  'cualquier logotipo',
+  'cualquier marca comercial',
+  'cualquier botón',
+  'cualquier CTA o llamada a la acción',
+  'cualquier precio',
+  'cualquier icono',
+  'cualquier cartel',
+  'cualquier rótulo',
+  'cualquier marca de agua',
+  'cualquier elemento gráfico superpuesto',
+];
+
 module.exports = {
   SECTION_ORDER,
   SECTION_JOIN,
@@ -99,4 +121,5 @@ module.exports = {
   DEPTH_OF_FIELD_BY_ANGLE_LENS,
   TEXTURES_BY_ART_DIRECTION,
   MATERIALS_BY_SCENARIO,
+  BASE_PHOTOGRAPHY_NEGATIVE_TERMS,
 };

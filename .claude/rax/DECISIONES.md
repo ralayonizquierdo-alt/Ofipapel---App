@@ -1529,3 +1529,40 @@ gráfica y la cláusula negativa al final · invariante de independencia
 **Quién decide**: propietario, encargo explícito "FASE 8".
 
 **Reversibilidad**: alta — 2 ficheros existentes tocados, ninguno nuevo.
+
+### 2026-08-02 — Experimento "Fotografía Base" (modo de prueba, no sustituye el flujo normal)
+
+Encargo del propietario: aislar si la calidad de imagen depende de la
+fotografía en sí o de la composición completa de campaña — sin tocar
+pipeline, cerebro, Design Director, Layout Composer ni Canva.
+
+**Cambios**: `master-prompt-composer/base-photography.js` (nuevo) —
+`composeBasePhotographyPrompt()` pide EXCLUSIVAMENTE fotografía de
+producto, prohibiendo de forma literal (lista exacta pedida por el
+propietario) texto, palabra, letra, logotipo, marca comercial, botón,
+CTA, precio, icono, cartel, rótulo, marca de agua y cualquier elemento
+gráfico superpuesto. `master-prompt-composer/service.js#composeMasterPrompt()`
+acepta un 4º parámetro opcional `options.testMode` — si es
+`'fotografia-base'`, delega ahí; si no, comportamiento idéntico a antes
+(ningún cambio en el camino por defecto). `creative-lab/index.js#runCreativeLab()`
+solo pasa ese `options.testMode` al componer el prompt — ninguna otra
+línea tocada, Design Director/Layout Composer/Canva sin cambios.
+`marketing-engine-run-background.js` lee `payload.testMode` (opcional)
+y expone también la foto cruda del proveedor sin componer
+(`response.creative.rawPhotoAsset`) — Layout Composer sigue
+ejecutándose igual (no se salta ese paso), solo se añade la foto previa
+a inspección.
+
+**Verificación**: `node --check` en los 5 ficheros · regresión sin
+`testMode` idéntica a antes (317 palabras, 100/100) · prueba directa con
+`testMode:'fotografia-base'` + proveedor `simulated`: prompt de 238
+palabras, `sections` solo con el bloque `base-photography`, lista de
+prohibiciones literal confirmada en el texto real. Nota honesta: con
+`simulated` el resultado cae en `needsHumanReview` (el scoring de
+`concept-score` espera señales de campaña que este modo no produce a
+propósito) — no bloquea nada, la foto y el layout se generan igual.
+
+**Quién decide**: propietario, "PRUEBA CONTROLADA – FOTOGRAFÍA BASE".
+
+**Reversibilidad**: alta — 1 fichero nuevo, 3 puntos de paso opcionales
+(`options.testMode`) que no cambian nada si están ausentes.
