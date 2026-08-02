@@ -42,7 +42,16 @@ exports.handler = async (event) => {
     return;
   }
 
-  await store.setJSON(trackingId, { status: 'running', startedAt: new Date().toISOString() });
+  try {
+    await store.setJSON(trackingId, { status: 'running', startedAt: new Date().toISOString() });
+  } catch (err) {
+    // Si Netlify Blobs ya falla en esta primera escritura (límite de uso
+    // de la cuenta, incidencia del servicio), la escritura final fallará
+    // igual — mejor no gastar 35-40s de pipeline + una llamada real de
+    // pago a OpenAI para un resultado que nunca se va a poder leer.
+    console.error('marketing-engine-run-background: Blobs no disponible, abortando:', err.message);
+    return;
+  }
 
   if (!process.env.MARKETING_ENGINE_JOBS_DIR) {
     process.env.MARKETING_ENGINE_JOBS_DIR = path.join(
