@@ -52,6 +52,16 @@ exports.handler = async (event) => {
       'marketing-engine-jobs'
     );
   }
+  // Igual que MARKETING_ENGINE_JOBS_DIR arriba, pero para
+  // learning-engine/store.js — sin esto cae a una ruta de solo lectura en
+  // Lambda real (`/var/task`, junto al propio módulo) y falla con ENOENT
+  // (visto en producción con marketing-engine-run-background.js, DT-17).
+  if (!process.env.MARKETING_ENGINE_LEARNING_DIR) {
+    process.env.MARKETING_ENGINE_LEARNING_DIR = path.join(
+      process.env.TMPDIR || '/tmp',
+      'marketing-engine-learning'
+    );
+  }
 
   const { createJob } = require(path.join(REPO_ROOT, 'marketing-engine/core/contracts/job.contract.js'));
   const { runPipeline } = require(path.join(REPO_ROOT, 'marketing-engine/core/orchestrator.js'));

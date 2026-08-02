@@ -27,7 +27,20 @@ exports.handler = async (event) => {
 
   connectLambda(event);
   const store = getStore(STORE_NAME);
-  const data = await store.get(trackingId, { type: 'json' });
+
+  let data;
+  try {
+    data = await store.get(trackingId, { type: 'json' });
+  } catch (err) {
+    // Un fallo de Netlify Blobs (límite de uso de la cuenta, incidencia del
+    // servicio, etc.) no debe devolver el error crudo de la API al
+    // cliente — se envuelve para que quede claro que es un problema de la
+    // plataforma, no del pipeline ni del jobId consultado.
+    return {
+      statusCode: 502,
+      body: JSON.stringify({ error: `No se pudo leer Netlify Blobs: ${err.message}` }),
+    };
+  }
 
   if (!data) {
     return { statusCode: 202, body: JSON.stringify({ status: 'not_found_or_running' }) };

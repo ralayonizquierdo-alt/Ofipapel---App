@@ -1493,3 +1493,39 @@ del encargo estrecho de Fase 7.
 **Reversibilidad**: alta — dos ficheros nuevos, una dependencia npm
 nueva, una sección nueva en `netlify.toml`; `marketing-engine-run.js`
 original no se modifica.
+
+### 2026-08-02 — FASE 8: Prompt Composer PRO (enriquecer, no duplicar)
+
+Encargo del propietario: mejorar la calidad de imagen sin nueva
+arquitectura ni tocar agentes/proveedor. `master-prompt-composer/` ya
+ERA el último paso antes de llamar a OpenAI (compone el prompt justo
+antes de `generateForConcept()` en `creative-lab/index.js`) — se
+enriquece en el sitio, no se crea un módulo paralelo.
+
+Hallazgo real durante la revisión: `provider.interface.js#adaptToCapabilities()`
+descarta `negativePrompt` en silencio para cualquier proveedor con
+`supportsNegativePrompt:false` (caso de `openai-images` — la API de
+OpenAI no tiene ese parámetro). Las instrucciones negativas se
+calculaban pero NUNCA llegaban a OpenAI en ninguna forma — coincide
+exactamente con el texto alucinado/ilegible visto en las 3 generaciones
+reales de hoy (DT-18) pese a que "texto renderizado o letras ilegibles"
+ya estaba en la lista.
+
+**Cambios**: `master-prompt-composer/service.js` ahora incrusta
+`negativePrompt` dentro del propio `fullPrompt` (única vía que llega
+siempre a cualquier proveedor); `sections/from-concept.js` añade
+`brief.product.description` (antes solo nombre+categoría) y
+`brief.creativeDirection.graphicFamily` como ancla de consistencia.
+`negativePrompt` se sigue devolviendo igual que antes (compatibilidad).
+
+**Verificación**: `node --check` en los 2 ficheros · CLI real
+(`run-creative-lab-demo.js --from-marketing-engine`, proveedor
+`simulated`) — aprobado 100/100, prompt pasó de ~243 a 317 palabras,
+confirmado en el JSON guardado que incluye descripción, familia
+gráfica y la cláusula negativa al final · invariante de independencia
+`creative-engine/`↔`marketing-engine/` intacto (`grep` solo comentarios)
+· cero llamadas nuevas a OpenAI, cero cambios en agentes/proveedor/DT-10.
+
+**Quién decide**: propietario, encargo explícito "FASE 8".
+
+**Reversibilidad**: alta — 2 ficheros existentes tocados, ninguno nuevo.
