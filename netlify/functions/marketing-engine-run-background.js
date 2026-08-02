@@ -59,6 +59,18 @@ exports.handler = async (event) => {
       'marketing-engine-jobs'
     );
   }
+  // Sin esto, learning-engine/store.js cae a su ruta por defecto
+  // (junto al propio módulo, dentro del paquete de la función) — de solo
+  // lectura en Lambda real (`/var/task`). El registro de aprendizaje no
+  // sobrevive más allá del contenedor de todas formas (documentado en la
+  // cabecera de store.js, limitación conocida hasta migrar a un datastore
+  // real) — esto solo evita el ENOENT, no cambia esa limitación.
+  if (!process.env.MARKETING_ENGINE_LEARNING_DIR) {
+    process.env.MARKETING_ENGINE_LEARNING_DIR = path.join(
+      process.env.TMPDIR || '/tmp',
+      'marketing-engine-learning'
+    );
+  }
 
   const { createJob } = require(path.join(REPO_ROOT, 'marketing-engine/core/contracts/job.contract.js'));
   const { runPipeline } = require(path.join(REPO_ROOT, 'marketing-engine/core/orchestrator.js'));
