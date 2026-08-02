@@ -162,11 +162,27 @@ exports.handler = async (event) => {
       const { fromMarketingEngine, prepareAssets } = require(path.join(REPO_ROOT, 'creative-engine/index.js'));
       const { runCreativeLab } = require(path.join(REPO_ROOT, 'creative-engine/creative-lab/index.js'));
       const { PATTERNS } = require(path.join(REPO_ROOT, 'creative-engine/creative-lab/art-direction-engine/patterns.js'));
+      const { getCanvaAccessToken } = require('./canva-auth.js');
       if (!process.env.CREATIVE_ENGINE_ASSETS_DIR) {
         process.env.CREATIVE_ENGINE_ASSETS_DIR = path.join(process.env.TMPDIR || '/tmp', 'creative-engine-assets');
       }
       const creativeProviderId = process.env.OPENAI_API_KEY ? 'openai-images' : 'simulated';
       const brief = fromMarketingEngine(finalJob);
+
+      // FASE CANVA (2026-08-02, DT-19): access token de Canva Connect ya
+      // resuelto (incluye refresco del refresh_token rotativo, ver
+      // canva-auth.js) — null si Canva no está configurado todavía
+      // (CANVA_CLIENT_ID/SECRET ausentes) o si aún no hay ningún
+      // refresh_token disponible. Nunca bloquea el resto del pipeline: un
+      // fallo real al refrescar se registra en errors y se continúa sin
+      // Canva (composeFinalLayout cae al layout-composer de siempre).
+      let canvaAccessToken = null;
+      try {
+        canvaAccessToken = await getCanvaAccessToken();
+      } catch (err) {
+        response.errors.push(`Canva: no se pudo obtener un token de acceso (se continúa sin composición Canva): ${err.message}`);
+      }
+
       // testMode: 'fotografia-base' — experimento del propietario (ver
       // master-prompt-composer/base-photography.js). Opcional, ausente
       // por defecto: sin este campo en el body, cero cambio de
@@ -182,6 +198,7 @@ exports.handler = async (event) => {
         providerId: creativeProviderId,
         testMode: payload.testMode,
         productPhotoPath: finalJob.input.images && finalJob.input.images[0],
+        canvaAccessToken,
       });
       const winner = labResult.winner;
       const pattern = PATTERNS.find((p) => p.id === winner.layout.patternId) || null;
@@ -200,6 +217,13 @@ exports.handler = async (event) => {
         // expone — sin esto no hay forma de saber qué escenario/estilo/
         // iluminación ganó realmente sin adivinarlo mirando los píxeles.
         composedPrompt: winner.composedPrompt.fullPrompt,
+        // Diagnóstico FASE CANVA: strategyId==='canva' confirma que la
+        // pieza final la compuso Canva (no layout-composer); canvaError
+        // (si no es null) explica por qué se cayó al layout-composer de
+        // siempre pese a haber accessToken — sin esto no hay forma de
+        // saber si Canva se usó de verdad sin adivinarlo mirando los píxeles.
+        layoutStrategyId: winner.layout.strategyId,
+        canvaError: winner.layout.canvaError || null,
       };
 
       if (winner.layout.finalRenderedAssetPath) {

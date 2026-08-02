@@ -10,7 +10,7 @@ para el contrato exacto (`GENERATION_REQUEST_SHAPE`/`GENERATION_RESULT_SHAPE`/
 |---|---|---|---|
 | `simulated` | **active** | image | Placeholder SVG determinista, sin red |
 | `openai-images` | **active** | image | Primer proveedor real conectado (ver `../FIRST_REAL_GENERATION.md`). Requiere `OPENAI_API_KEY` — sin ella lanza `PROVIDER_NOT_CONFIGURED` |
-| `canva` | planned | template | Rellena plantillas de marca, no genera desde cero. Prioridad actual (2026-08-02, "FASE CANVA") — informe técnico completo (10 preguntas del propietario) en `CANVA_CONNECT_ARCHITECTURE.md`; no depende de resolver antes DT-18 (texto fantasma de OpenAI), la foto de referencia actual ya sirve como entrada |
+| `canva` | **active** | template | Rellena plantillas de marca (Autofill + Export), no genera desde cero. Implementado y verificado con la API mockeada (2026-08-02, DT-19) — pendiente solo de credenciales/cuenta real de Canva (Pro/Teams/Enterprise) y de diseñar las 4 plantillas de marca, ver `CANVA_CONNECT_ARCHITECTURE.md` sección "Qué falta para la primera campaña real" |
 | `adobe-firefly` | planned | image | `design-studio/scripts/firefly-generate.js` ya tiene el cliente HTTP |
 | `ideogram` | planned | image | Fuerte en texto renderizado — ver nota en su fichero |
 | `flux` | planned | image | |

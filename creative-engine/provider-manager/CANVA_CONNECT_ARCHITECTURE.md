@@ -201,28 +201,78 @@ modo background (hasta 15 min), y el helper `fetchWithTimeout` ya escrito
 en `openai-images.provider.js` es reutilizable tal cual para las llamadas
 a Canva.
 
-## Qué NO se ha hecho todavía (a propósito)
+## Estado de la implementación (2026-08-02, DT-19)
 
-- Ninguna cuenta ni credencial de Canva Developer creada.
-- Ninguna plantilla de marca diseñada/etiquetada en Canva todavía.
-- `canva.provider.js` sigue siendo el stub `PROVIDER_NOT_IMPLEMENTED`, sin tocar.
-- Ningún cambio en `creative-lab/index.js` ni en `layout-composer/`.
-- Ningún dato de negocio confirmado todavía: qué plan de Canva tiene o
-  necesita la cuenta de Ofipapel, ni límites exactos de rate/tamaño (se
-  verifican contra la documentación oficial vigente en el momento de
-  registrar la app real, no se asumen aquí).
+**Código completo y verificado — pendiente solo de cuenta/credenciales reales.**
+Arquitectura aprobada e implementada tal cual, sin desviaciones:
 
-## Orden de trabajo propuesto
+- `creative-engine/provider-manager/providers/canva.provider.js` —
+  `generate(req)` real: sube la foto (`POST /v1/asset-uploads` + sondeo),
+  rellena la plantilla (`POST /v1/autofills` + sondeo) y exporta
+  (`POST /v1/exports` + sondeo + descarga). `status:'active'`.
+- `netlify/functions/canva-auth.js` (nuevo) — refresco OAuth con
+  persistencia del refresh_token rotativo en Netlify Blobs (confirmado
+  contra la documentación oficial de Canva: cada refresh_token es de un
+  solo uso, la respuesta de refresco siempre incluye uno nuevo que hay que
+  guardar antes de la siguiente invocación — sin esto, la segunda
+  ejecución real habría fallado).
+- `creative-lab/index.js#composeWithCanva` + `composeFinalLayout` (ahora
+  async) — exactamente el punto de conexión que describía la pregunta 10:
+  sustituye a `layout-composer/service.js#composeLayout` cuando hay
+  `canvaAccessToken` y una plantilla configurada para la familia oficial
+  ya elegida por `selectPattern()` (la misma función que usa
+  `layout-composer` — la decisión de familia no cambió). Si Canva falla
+  por cualquier motivo, cae limpiamente al `layout-composer` de siempre
+  sin romper el pipeline (mismo criterio de resiliencia que el resto del
+  sistema), dejando el motivo en `layout.canvaError`.
+- `marketing-engine-run-background.js` — obtiene el `canvaAccessToken` antes
+  de invocar `runCreativeLab`, lo pasa como opción, y expone
+  `creative.layoutStrategyId`/`creative.canvaError` en la respuesta para
+  poder confirmar con datos reales (no adivinando) si una pieza concreta
+  la compuso Canva.
 
-1. **Ahora**: el propietario confirma que tiene (o crea) cuenta de Canva
-   Developer y decide si diseña las 4 plantillas de marca él mismo o pide
-   ayuda para ello — es trabajo de diseño manual en Canva, no de código.
-2. **En paralelo**: una vez exista la app de Canva Developer, se hace el
-   login OAuth interactivo único para obtener el `refresh_token` inicial.
-3. **Entonces**: implementación real de `canva.provider.js` siguiendo
-   este documento, con el punto de conexión descrito en la pregunta 10.
+**Verificado con la API de Canva mockeada** (sin llamada de red real —
+ver más abajo por qué): flujo de éxito completo (subida → autofill →
+exportación → descarga, 3 llamadas `POST` en el orden correcto, cada una
+sondeada hasta `status:'success'`) y flujo de fallo real (Canva responde
+500 en la subida → el pipeline cae a `layout-composer`, produce una pieza
+final igualmente, y `layout.canvaError` registra el motivo exacto) — ambos
+corridos contra el pipeline real de `creative-lab` (concept-generator,
+art-direction-engine, `selectPattern`), no contra un mock del pipeline.
 
-Esta fase no depende de resolver primero el trade-off de fidelidad de la
+**Por qué no hay todavía una prueba con la API real de Canva**: al
+intentar validar el flujo con las herramientas de Canva ya conectadas a
+esta sesión, `list-brand-kits` devolvió cero brand kits y
+`search-brand-templates` respondió "This feature requires a Canva paid
+plan" — Brand Templates + Autofill (el mecanismo central de esta
+arquitectura) no funciona sin Canva Pro/Teams/Enterprise, y esa cuenta
+conectada no lo tiene. El propietario confirmó que la cuenta de
+producción de Ofipapel sí tendrá (o ya tiene) plan de pago, pero es una
+cuenta distinta, sin app de Developer registrada todavía — ver DT-19,
+`.claude/rax/DEUDA_TECNICA.md`.
+
+## Qué falta para la primera campaña real (todo fuera del código)
+
+1. Cuenta de Canva con plan de pago (Pro/Teams/Enterprise) para Ofipapel.
+2. App registrada en Canva Developer Portal → `CANVA_CLIENT_ID` /
+   `CANVA_CLIENT_SECRET` (variables de entorno en Netlify).
+3. Login OAuth interactivo único con esa app → `CANVA_REFRESH_TOKEN`
+   inicial (variable de entorno en Netlify — `canva-auth.js` lo usa como
+   semilla la primera vez y ya no vuelve a necesitarlo, guarda el rotado
+   en Blobs).
+4. Las 4 plantillas de marca (Lifestyle, Premium Editorial, Comercial,
+   Problema-Solución) diseñadas en Canva con el Brand Kit real de
+   Ofipapel, con los campos `titulo`/`cta`/`precio`/`direccion`/
+   `foto_producto` etiquetados para autofill (pregunta 6) → sus
+   `brand_template_id` en `CANVA_TEMPLATE_ID_LIFESTYLE` /
+   `CANVA_TEMPLATE_ID_PREMIUM_EDITORIAL` / `CANVA_TEMPLATE_ID_COMERCIAL` /
+   `CANVA_TEMPLATE_ID_PROBLEMA_SOLUCIÓN` (variables de entorno en Netlify).
+
+Con esas 4 cosas puestas, el flujo ya está implementado y probado — no
+hace falta ningún cambio de código adicional para la primera campaña real.
+
+Esta fase no dependía de resolver primero el trade-off de fidelidad de la
 segunda pasada de limpieza de texto de OpenAI (DT-18) — la fotografía de
 referencia actual ya es válida como entrada para Canva; esa decisión
-sigue abierta y pendiente del propietario, pero no bloquea empezar aquí.
+sigue abierta y pendiente del propietario, pero no bloqueaba esta
+implementación.

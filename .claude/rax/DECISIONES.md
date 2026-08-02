@@ -1566,3 +1566,77 @@ propósito) — no bloquea nada, la foto y el layout se generan igual.
 
 **Reversibilidad**: alta — 1 fichero nuevo, 3 puntos de paso opcionales
 (`options.testMode`) que no cambian nada si están ausentes.
+
+---
+
+### 2026-08-02 — Integración real de Canva Connect (FASE CANVA, DT-19)
+
+**Contexto**: tras validar (a satisfacción del propietario) la fotografía
+de referencia real de OpenAI para el Ventilador Muvip, y con el trade-off
+de la segunda pasada de limpieza de texto (DT-18) documentado pero sin
+resolver, el propietario detuvo temporalmente el desarrollo de la fase
+OpenAI y pidió priorizar la integración real de Canva Connect como paso
+de composición final (sustituyendo a Layout Composer), siguiendo
+exactamente la arquitectura de 10 preguntas ya aprobada en
+`CANVA_CONNECT_ARCHITECTURE.md`, sin abrir ninguna otra línea de
+desarrollo, hasta conseguir un flujo funcional HELIX → OpenAI → Canva →
+Exportación con una de las 4 plantillas oficiales.
+
+**Decisión**: implementar la integración completa siguiendo el diseño
+aprobado, sin desviaciones. `canva.provider.js` (subida de asset vía
+`POST /v1/asset-uploads`, autofill vía `POST /v1/autofills`, exportación
+vía `POST /v1/exports`, todos con sondeo hasta `status:'success'`) +
+`netlify/functions/canva-auth.js` (refresco OAuth con persistencia del
+refresh_token rotativo en Netlify Blobs — confirmado contra la
+documentación oficial de Canva que cada refresh_token es de un solo uso)
++ `creative-lab/index.js#composeWithCanva` (nuevo punto de conexión,
+sustituye a `layout-composer/service.js#composeLayout` cuando hay
+`canvaAccessToken` y una plantilla configurada para la familia oficial
+que `selectPattern()` ya elegiría — misma función que usa
+`layout-composer`, la decisión de familia no cambia).
+
+**Bloqueador real encontrado y comunicado antes de seguir**: al intentar
+validar el flujo con las herramientas de Canva ya conectadas a esta
+sesión, `list-brand-kits` devolvió cero brand kits y
+`search-brand-templates` respondió "This feature requires a Canva paid
+plan" — Brand Templates + Autofill (el mecanismo central de la
+arquitectura aprobada) no funciona sin Canva Pro/Teams/Enterprise. Se
+preguntó al propietario antes de continuar; confirmó que la cuenta de
+producción de Ofipapel tendrá (o ya tiene) plan de pago, distinta de la
+conectada a esta sesión, así que se continuó implementando la
+arquitectura aprobada tal cual (no se buscó una alternativa sin Brand
+Templates).
+
+**Verificación**: `node --check` en los 4 ficheros nuevos/tocados ·
+registro en `registry.js` (`getProvider('canva')`) sin errores ·
+`resolveTemplateId()` devuelve `null` sin las env vars, como se espera ·
+flujo de éxito completo verificado con fetch mockeado, contra el pipeline
+REAL de `creative-lab` (concept-generator, art-direction-engine,
+`selectPattern`, no un mock del pipeline): 3 llamadas `POST` en el orden
+correcto (`asset-uploads` → `autofills` → `exports`), cada una sondeada
+más de una vez antes de `success`, `layout.strategyId === 'canva'`, PNG
+final = el "descargado" de Canva · flujo de fallo real (Canva responde
+500) verificado con el mismo pipeline real: cae limpiamente a
+`layout-composer` (produce PNG real vía Chromium), `layout.canvaError`
+registra el motivo exacto, `status` sigue llegando a `approved` · regresión
+sin Canva configurado (sin `CANVA_CLIENT_ID`): pipeline idéntico a antes de
+este cambio, `run-creative-lab-demo.js` con el brief de ejemplo termina en
+`APROBADO` igual que siempre.
+
+**Qué falta para la primera campaña real** (fuera de código, ver DT-19 y
+`CANVA_CONNECT_ARCHITECTURE.md`): cuenta de pago de Canva para Ofipapel,
+app registrada en Canva Developer Portal, login OAuth interactivo único
+para sembrar `CANVA_REFRESH_TOKEN`, y las 4 plantillas de marca diseñadas
+y etiquetadas para autofill. Con esas 4 cosas puestas como variables de
+entorno en Netlify, el flujo ya implementado funciona sin ningún cambio
+de código adicional.
+
+**Quién decide**: propietario, "NUEVA DIRECTIVA ESTRATÉGICA – INICIO FASE
+CANVA" (arquitectura aprobada) y "Arquitectura aprobada. Procede con la
+implementación completa..." (autorización de implementación); confirmó
+seguir con la arquitectura aprobada (no cambiar de enfoque) al
+preguntársele por el bloqueo del plan de pago de Canva.
+
+**Reversibilidad**: alta — Canva es un paso opcional (`canvaAccessToken`
+ausente por defecto = cero cambio de comportamiento); si algo falla,
+cae solo al `layout-composer` de siempre sin intervención manual.

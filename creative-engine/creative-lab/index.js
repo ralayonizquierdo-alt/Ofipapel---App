@@ -24,6 +24,8 @@ const { buildMoodboard } = require('./moodboard/service.js');
 const { composeMasterPrompt } = require('./master-prompt-composer/service.js');
 const { scoreConceptPlan, scoreConceptPixel, buildShortlist } = require('./concept-score/service.js');
 const { composeLayout } = require('./layout-composer/service.js');
+const { selectPattern } = require('./art-direction-engine/service.js');
+const { resolveTemplateId } = require('../provider-manager/providers/canva.provider.js');
 const { QUALITY_THRESHOLD, MAX_RETRIES, SHORTLIST_SIZE } = require('./config.js');
 
 /** Genera de verdad con el proveedor para un concepto del shortlist — mismo patrón de captura de error que creative-engine/index.js#runCreativePipeline: PROVIDER_NOT_IMPLEMENTED/PROVIDER_NOT_CONFIGURED se marcan y no rompen el lote; cualquier otro error se propaga. */
@@ -54,17 +56,102 @@ async function generateForConcept(item, providerId, preparedAssets, versionDir) 
 }
 
 /**
+ * FASE CANVA (2026-08-02, DT-19): compone la pieza final vía Canva
+ * Connect (Autofill + Export) en vez de layout-composer/ (HTML +
+ * Chromium) — ver provider-manager/CANVA_CONNECT_ARCHITECTURE.md. Usa
+ * selectPattern() para decidir la familia oficial, la MISMA función que
+ * ya usa layout-composer/service.js#reviewLoop — qué familia encaja no
+ * cambia, solo cambia quién compone encima de la fotografía. Sin
+ * plantilla configurada para esa familia (resolveTemplateId() devuelve
+ * null — ver TEMPLATE_ID_BY_FAMILY en canva.provider.js), devuelve null
+ * y composeFinalLayout cae al layout-composer de siempre.
+ * @returns {Promise<object|null>}
+ */
+async function composeWithCanva(item, brief, preparedAssets, canvaAccessToken) {
+  const generationResult = item.generation.result;
+  const hasRealPhoto = Boolean(generationResult.format && generationResult.format !== 'svg');
+  const pattern = selectPattern(item.concept, brief, hasRealPhoto, []);
+  const templateId = resolveTemplateId(pattern.officialFamily);
+  if (!templateId) return null;
+
+  const fields = {};
+  if (brief.copy.title) fields.titulo = { type: 'text', text: brief.copy.title };
+  if (brief.copy.cta) fields.cta = { type: 'text', text: brief.copy.cta };
+  if (brief.copy.price) fields.precio = { type: 'text', text: brief.copy.price };
+  if (preparedAssets.brand.contact) {
+    const contact = preparedAssets.brand.contact;
+    fields.direccion = { type: 'text', text: [contact.phoneDisplay, contact.address].filter(Boolean).join(' · ') };
+  }
+
+  const provider = getProvider('canva');
+  const request = {
+    prompt: '',
+    width: preparedAssets.dimensions.width,
+    height: preparedAssets.dimensions.height,
+    contentClass: 'template',
+    referenceImages: [generationResult.assetPath],
+    metadata: {
+      outputDir: item.dir,
+      accessToken: canvaAccessToken,
+      templateId,
+      fields,
+      title: `${brief.product.name} — HELIX`,
+    },
+  };
+  assertSupports(provider, request);
+
+  const result = await provider.generate(request);
+  return {
+    strategyId: 'canva',
+    patternId: pattern.id,
+    patternLabel: pattern.label,
+    outputPath: result.assetPath,
+  };
+}
+
+/**
  * Convierte el resultado del proveedor (foto real o placeholder) en la
  * pieza final compuesta — el paso que faltaba entre "Creative Lab
  * decide" y "se ve en la imagen": antes de layout-composer/, el
  * concepto ganador nunca influía en el maquetado real. Nunca rompe el
  * pipeline: si falla, se registra el error y se devuelve el asset del
  * proveedor tal cual (mismo criterio que el resto del sistema).
+ *
+ * FASE CANVA: si hay canvaAccessToken, intenta componer con Canva
+ * primero (composeWithCanva) — si falla o no hay plantilla configurada
+ * para la familia elegida, cae al layout-composer de siempre sin dejar
+ * al usuario sin ninguna pieza (mismo criterio de resiliencia que el
+ * resto del pipeline, p.ej. la limpieza de texto de openai-images.provider.js).
  */
-function composeFinalLayout(item, brief, preparedAssets) {
+async function composeFinalLayout(item, brief, preparedAssets, canvaAccessToken) {
+  const emptyLayout = () => ({
+    finalRenderedAssetPath: null, strategyId: null, patternId: null, patternLabel: null,
+    droppedElementIds: null, layoutScore: null, layoutAttempts: null, layoutPassed: null,
+    designReview: null, textEmphasis: null, layoutError: null, canvaError: null,
+  });
+
   if (!item.generation || !item.generation.result || !item.generation.result.assetPath) {
-    return { finalRenderedAssetPath: null, strategyId: null, patternId: null, patternLabel: null, droppedElementIds: null, layoutScore: null, layoutAttempts: null, layoutPassed: null, designReview: null, textEmphasis: null, layoutError: 'Sin asset generado por el proveedor — nada que componer.' };
+    return { ...emptyLayout(), layoutError: 'Sin asset generado por el proveedor — nada que componer.' };
   }
+
+  let canvaError = null;
+  if (canvaAccessToken) {
+    try {
+      const canvaLayout = await composeWithCanva(item, brief, preparedAssets, canvaAccessToken);
+      if (canvaLayout) {
+        return {
+          ...emptyLayout(),
+          finalRenderedAssetPath: canvaLayout.outputPath,
+          strategyId: canvaLayout.strategyId,
+          patternId: canvaLayout.patternId,
+          patternLabel: canvaLayout.patternLabel,
+        };
+      }
+    } catch (err) {
+      canvaError = err.message;
+    }
+  }
+
   try {
     const layout = composeLayout(item.concept, brief, preparedAssets, item.generation.result, item.dir);
     return {
@@ -79,9 +166,10 @@ function composeFinalLayout(item, brief, preparedAssets) {
       designReview: layout.designReview,
       textEmphasis: layout.textEmphasis,
       layoutError: null,
+      canvaError,
     };
   } catch (err) {
-    return { finalRenderedAssetPath: null, strategyId: null, patternId: null, patternLabel: null, droppedElementIds: null, layoutScore: null, layoutAttempts: null, layoutPassed: null, designReview: null, textEmphasis: null, layoutError: err.message };
+    return { ...emptyLayout(), layoutError: err.message, canvaError };
   }
 }
 
@@ -107,6 +195,11 @@ function summarizeAttemptConcept(item) {
  *   propietario, ver esa cabecera) — no cambia nada más de este
  *   orquestador: mismo número de agentes/etapas, mismo Design Director,
  *   mismo Layout Composer. Ausente por defecto: cero cambio de
+ *   comportamiento para cualquier llamada existente.
+ * @param {string} [options.canvaAccessToken] - FASE CANVA (DT-19): access
+ *   token de Canva Connect ya resuelto (ver netlify/functions/canva-auth.js)
+ *   — si está presente, composeFinalLayout intenta componer con Canva
+ *   antes que con layout-composer/. Ausente por defecto: cero cambio de
  *   comportamiento para cualquier llamada existente.
  * @returns {Promise<object>} { status: 'approved'|'needsHumanReview', creativeId, attempts, winner }
  */
@@ -198,7 +291,7 @@ async function runCreativeLab(brief, options = {}) {
         status: 'approved',
         creativeId,
         attempts,
-        winner: formatWinner(bestEver, composeFinalLayout(bestEver, brief, preparedAssets)),
+        winner: formatWinner(bestEver, await composeFinalLayout(bestEver, brief, preparedAssets, options.canvaAccessToken)),
       };
     }
   }
@@ -211,7 +304,7 @@ async function runCreativeLab(brief, options = {}) {
     status: 'needsHumanReview',
     creativeId,
     attempts,
-    winner: formatWinner(bestEver, composeFinalLayout(bestEver, brief, preparedAssets)),
+    winner: formatWinner(bestEver, await composeFinalLayout(bestEver, brief, preparedAssets, options.canvaAccessToken)),
   };
 }
 
