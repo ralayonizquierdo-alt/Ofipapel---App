@@ -102,6 +102,12 @@ function summarizeAttemptConcept(item) {
  * @param {string} [options.providerId='simulated']
  * @param {number} [options.conceptCount=10] - entre 8 y 12
  * @param {string} [options.productPhotoPath]
+ * @param {string} [options.testMode] - 'fotografia-base' pasa directo a
+ *   master-prompt-composer/base-photography.js (experimento del
+ *   propietario, ver esa cabecera) — no cambia nada más de este
+ *   orquestador: mismo número de agentes/etapas, mismo Design Director,
+ *   mismo Layout Composer. Ausente por defecto: cero cambio de
+ *   comportamiento para cualquier llamada existente.
  * @returns {Promise<object>} { status: 'approved'|'needsHumanReview', creativeId, attempts, winner }
  */
 async function runCreativeLab(brief, options = {}) {
@@ -133,7 +139,7 @@ async function runCreativeLab(brief, options = {}) {
 
     // Capa 1 — plan, gratis, solo sobre los conceptos que superaron la autocrítica.
     const planned = survivors.map(({ concept, selfCritique }) => {
-      const prompt = composeMasterPrompt(brief, preparedAssets, concept);
+      const prompt = composeMasterPrompt(brief, preparedAssets, concept, { testMode: options.testMode });
       const moodboard = buildMoodboard(concept, preparedAssets);
       const planScore = scoreConceptPlan(concept, prompt, brief, preparedAssets);
       return { concept, prompt, moodboard, planScore, selfCritique };

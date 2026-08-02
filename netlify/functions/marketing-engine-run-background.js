@@ -167,7 +167,11 @@ exports.handler = async (event) => {
       }
       const creativeProviderId = process.env.OPENAI_API_KEY ? 'openai-images' : 'simulated';
       const brief = fromMarketingEngine(finalJob);
-      const labResult = await runCreativeLab(brief, { providerId: creativeProviderId });
+      // testMode: 'fotografia-base' — experimento del propietario (ver
+      // master-prompt-composer/base-photography.js). Opcional, ausente
+      // por defecto: sin este campo en el body, cero cambio de
+      // comportamiento respecto a antes de este bloque.
+      const labResult = await runCreativeLab(brief, { providerId: creativeProviderId, testMode: payload.testMode });
       const winner = labResult.winner;
       const pattern = PATTERNS.find((p) => p.id === winner.layout.patternId) || null;
 
@@ -191,6 +195,19 @@ exports.handler = async (event) => {
           width: dimensions.width,
           height: dimensions.height,
         };
+      }
+
+      // Foto cruda del proveedor, ANTES de Layout Composer (que no se
+      // toca en el experimento "Fotografía Base" — sigue componiendo
+      // título/CTA/etc. encima igual que siempre). Se expone solo para
+      // poder inspeccionar la fotografía en sí; no sustituye renderedAsset.
+      if (winner.assetPath) {
+        try {
+          const rawBuffer = fs.readFileSync(winner.assetPath);
+          response.creative.rawPhotoAsset = { mimeType: 'image/png', base64: rawBuffer.toString('base64') };
+        } catch (err) {
+          response.errors.push(`No se pudo leer la foto cruda del proveedor: ${err.message}`);
+        }
       }
     } catch (err) {
       response.errors.push(`Creative Lab no pudo generar la pieza: ${err.message}`);

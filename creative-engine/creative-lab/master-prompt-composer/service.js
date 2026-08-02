@@ -16,15 +16,26 @@
 // concept-score/ y el CLI no necesitan ningún cambio.
 
 const { buildConceptSections } = require('./sections/from-concept.js');
+const { composeBasePhotographyPrompt } = require('./base-photography.js');
 const { SECTION_JOIN, NEGATIVE_PROMPT_TERMS } = require('./config.js');
 
 /**
  * @param {object} brief - CreativeBrief
  * @param {object} preparedAssets - salida de asset-pipeline/service.js#prepareAssets
  * @param {object} concept - salida de concept-generator/service.js#generateConcepts (un elemento)
+ * @param {object} [options]
+ * @param {string} [options.testMode] - 'fotografia-base' delega en
+ *   base-photography.js (experimento del propietario: solo fotografía
+ *   pura, sin texto/logo/CTA/precio/iconos). Cualquier otro valor o
+ *   ausencia de options: comportamiento normal, sin cambios — mismo
+ *   prompt cinematográfico de siempre.
  * @returns {object} { conceptId, sections, fullPrompt, negativePrompt, wordCount, tokensApprox }
  */
-function composeMasterPrompt(brief, preparedAssets, concept) {
+function composeMasterPrompt(brief, preparedAssets, concept, options = {}) {
+  if (options.testMode === 'fotografia-base') {
+    return composeBasePhotographyPrompt(brief, preparedAssets, concept);
+  }
+
   const sections = buildConceptSections(concept, brief, preparedAssets);
   const negativePrompt = NEGATIVE_PROMPT_TERMS.join(', ');
 
