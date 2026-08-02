@@ -37,7 +37,37 @@ const CINEMATIC_NEGATIVE_TERMS = [
   'perspectiva distorsionada de forma no intencional',
 ];
 
-const NEGATIVE_PROMPT_TERMS = [...BASE_NEGATIVE_TERMS, ...CINEMATIC_NEGATIVE_TERMS];
+// "Fotografía Base" — modo de prueba explícito (base-photography.js), NO
+// el flujo normal de campaña. Lista literal pedida por el propietario
+// para el experimento: prohibir CUALQUIER elemento gráfico superpuesto,
+// solo fotografía pura de producto. Deliberadamente más exhaustiva y
+// literal que CINEMATIC_NEGATIVE_TERMS — aquí cada término es uno de los
+// pedidos explícitamente, sin resumir.
+const BASE_PHOTOGRAPHY_NEGATIVE_TERMS = [
+  'cualquier texto',
+  'cualquier palabra',
+  'cualquier letra',
+  'cualquier logotipo',
+  'cualquier marca comercial',
+  'cualquier botón',
+  'cualquier CTA o llamada a la acción',
+  'cualquier precio',
+  'cualquier icono',
+  'cualquier cartel',
+  'cualquier rótulo',
+  'cualquier marca de agua',
+  'cualquier elemento gráfico superpuesto',
+];
+
+// Modo calidad absoluta (2026-08-02): probado en producción real que
+// "texto renderizado o letras ilegibles" (único término genérico de
+// antes) NO evita que OpenAI alucine titulares/botones falsos dentro de
+// la foto — la lista exhaustiva y literal de BASE_PHOTOGRAPHY_NEGATIVE_TERMS
+// sí lo consiguió en el experimento "Fotografía Base" con el mismo
+// producto. Se añade también aquí, al flujo normal de campaña — sigue
+// siendo coherente con la regla ya existente de "el texto/logo se
+// componen después" (sections/from-concept.js#buildTextSpaceSection).
+const NEGATIVE_PROMPT_TERMS = [...BASE_NEGATIVE_TERMS, ...CINEMATIC_NEGATIVE_TERMS, ...BASE_PHOTOGRAPHY_NEGATIVE_TERMS];
 
 // Profundidad de campo — derivada del ángulo/lente del concepto (12
 // entradas, una por cada id real de libraries/angles-lenses.js; cobertura
@@ -91,28 +121,6 @@ const MATERIALS_BY_SCENARIO = {
   'punto-de-venta': 'estantería, cartón de packaging, elementos de tienda real',
   'exterior-canario-mediterraneo': 'piedra volcánica, madera envejecida por el sol, vegetación mediterránea',
 };
-
-// "Fotografía Base" — modo de prueba explícito (base-photography.js), NO
-// el flujo normal de campaña. Lista literal pedida por el propietario
-// para el experimento: prohibir CUALQUIER elemento gráfico superpuesto,
-// solo fotografía pura de producto. Deliberadamente más exhaustiva y
-// literal que NEGATIVE_PROMPT_TERMS (esa es genérica de campaña) — aquí
-// cada término es uno de los pedidos explícitamente, sin resumir.
-const BASE_PHOTOGRAPHY_NEGATIVE_TERMS = [
-  'cualquier texto',
-  'cualquier palabra',
-  'cualquier letra',
-  'cualquier logotipo',
-  'cualquier marca comercial',
-  'cualquier botón',
-  'cualquier CTA o llamada a la acción',
-  'cualquier precio',
-  'cualquier icono',
-  'cualquier cartel',
-  'cualquier rótulo',
-  'cualquier marca de agua',
-  'cualquier elemento gráfico superpuesto',
-];
 
 module.exports = {
   SECTION_ORDER,
