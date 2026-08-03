@@ -698,10 +698,14 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
           <!-- CONCILIACIÓN -->
           <div class="subtab-panel active" id="cajat-conciliacion">
             <div id="cajaConcilAlert"></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;margin-top:16px;flex-wrap:wrap;">
+              <span style="font-weight:700;color:var(--azul);">📅 Histórico de Conciliaciones</span>
+              <button onclick="openCajaConcilFiltro()" style="padding:4px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">🔍 Filtrar</button>
+              <span id="cajaConcilFiltroTag" style="font-size:11px;color:var(--texto2);font-style:italic;"></span>
+            </div>
+            <div class="card" id="cajaHistorico" style="padding:0;overflow:hidden;margin-bottom:20px;"></div>
             <div style="font-size:12px;color:var(--texto2);margin-bottom:12px;">Los PDFs se importan desde <strong style="cursor:pointer;color:var(--azul);text-decoration:underline;" onclick="showView('entrada')">Volcado Diario</strong>.</div>
             <div id="cajaReconcilTabla"></div>
-            <div style="font-weight:700;color:var(--azul);margin-bottom:8px;margin-top:16px;">📅 Histórico de Conciliaciones</div>
-            <div class="card" id="cajaHistorico" style="padding:0;overflow:hidden;"></div>
           </div>
 
           <!-- EFECTIVO TIENDAS -->
@@ -938,7 +942,18 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                     <option value="todos">Todos</option>
                   </select>
                 </div>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventWebExcelInput" style="display:none" onchange="importVentasWebExcel(this)"></label>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Mes</div>
+                  <select id="ventWebMesFiltro" onchange="renderVentasWeb()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                    <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                    <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                    <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                    <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                  </select>
+                </div>
+                <button onclick="limpiarFiltrosVentasWeb()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;align-self:flex-end;">✕ Limpiar</button>
+                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;align-self:flex-end;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventWebExcelInput" style="display:none" onchange="importVentasWebExcel(this)"></label>
               </div>
             </div>
             <div id="ventWebKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
@@ -3683,11 +3698,31 @@ function renderCajaConciliacion(){
 function renderCajaHistorico(){
   const el=document.getElementById('cajaHistorico');
   if(!el) return;
+
+  const desde=document.getElementById('cajaConcilFiltroDesde')?.value||'';
+  const hasta=document.getElementById('cajaConcilFiltroHasta')?.value||'';
+  const tag=document.getElementById('cajaConcilFiltroTag');
+  if(tag){
+    if(desde||hasta){
+      const dStr=desde?new Date(desde+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'inicio';
+      const hStr=hasta?new Date(hasta+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'hoy';
+      tag.textContent=`${dStr} → ${hStr}`;
+    } else { tag.textContent=''; }
+  }
+
   if(!cajaCierres.length){
     el.innerHTML='<div class="empty-state"><div class="e-ico">📅</div><h3>Sin histórico</h3></div>';
     return;
   }
-  const sorted=[...cajaCierres].reverse();
+  let sorted=[...cajaCierres].reverse();
+  if(desde) sorted=sorted.filter(c=>(c.fecha||'')>=desde);
+  if(hasta) sorted=sorted.filter(c=>(c.fecha||'')<=hasta);
+
+  if(!sorted.length){
+    el.innerHTML='<div class="empty-state"><div class="e-ico">🔍</div><h3>Sin resultados</h3><p>Prueba a ampliar el rango de fechas.</p></div>';
+    return;
+  }
+
   el.innerHTML=`<div style="overflow-x:auto;"><table class="tabla">
     <thead><tr><th>Fecha</th><th>Archivo</th><th style="text-align:right;">Efectivo</th><th style="text-align:right;">Tarjetas</th><th style="text-align:right;">→Banco</th><th style="text-align:center;">Estado</th><th></th></tr></thead>
     <tbody>
@@ -3775,7 +3810,11 @@ function renderVentasWeb(){
     if(prev&&prev!=='todos') anioFiltEl.value=prev;
   }
   const selAnio=anioFiltEl?.value||'todos';
-  const filtrado=selAnio==='todos'?ventasWeb:ventasWeb.filter(r=>String(r.anio)===selAnio);
+  const selMes=document.getElementById('ventWebMesFiltro')?.value||'todos';
+  const filtrado=ventasWeb.filter(r=>
+    (selAnio==='todos'||String(r.anio)===selAnio) &&
+    (selMes==='todos'||r.mes===parseInt(selMes))
+  );
 
   const totalGeneral=filtrado.reduce((s,r)=>s+r.total,0);
   const totalAnioActual=(()=>{const a=anios[anios.length-1];return ventasWeb.filter(r=>r.anio===a).reduce((s,r)=>s+r.total,0);})();
@@ -5886,6 +5925,60 @@ function clearChat() {
   renderChatMessages();
 }
 
+// ═══════════════════════════════════════════════════════
+// MODAL — FILTRO HISTÓRICO CONCILIACIONES
+// ═══════════════════════════════════════════════════════
+function openCajaConcilFiltro(){
+  document.getElementById('cajaConcilFiltroModal').style.display='flex';
+}
+function closeCajaConcilFiltro(){
+  document.getElementById('cajaConcilFiltroModal').style.display='none';
+}
+function aplicarFiltrosConcil(){
+  closeCajaConcilFiltro();
+  renderCajaHistorico();
+}
+function limpiarFiltrosConcil(){
+  const d=document.getElementById('cajaConcilFiltroDesde');
+  const h=document.getElementById('cajaConcilFiltroHasta');
+  if(d) d.value='';
+  if(h) h.value='';
+  renderCajaHistorico();
+}
+
+// ═══════════════════════════════════════════════════════
+// LIMPIAR FILTROS — VENTAS WEB
+// ═══════════════════════════════════════════════════════
+function limpiarFiltrosVentasWeb(){
+  const a=document.getElementById('ventWebAnioFiltro');
+  const m=document.getElementById('ventWebMesFiltro');
+  if(a) a.value='todos';
+  if(m) m.value='todos';
+  renderVentasWeb();
+}
+
 </script>
+
+<!-- Modal: Filtro histórico de conciliaciones -->
+<div id="cajaConcilFiltroModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9000;align-items:center;justify-content:center;" onclick="if(event.target===this)closeCajaConcilFiltro()">
+  <div style="background:var(--fondo-card,#fff);border-radius:16px;padding:24px;width:360px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,0.22);">
+    <div style="font-weight:700;font-size:15px;margin-bottom:18px;color:var(--azul);">🔍 Filtrar Conciliaciones</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Desde</div>
+        <input type="date" id="cajaConcilFiltroDesde" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;box-sizing:border-box;">
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Hasta</div>
+        <input type="date" id="cajaConcilFiltroHasta" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="limpiarFiltrosConcil()" style="padding:8px 14px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
+      <button onclick="aplicarFiltrosConcil()" style="padding:8px 20px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">✓ Aplicar</button>
+      <button onclick="closeCajaConcilFiltro()" style="padding:8px 14px;background:var(--fondo);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--texto2);">Cerrar</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
