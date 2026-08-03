@@ -35,7 +35,7 @@ body{
 /* ─── Fondo: malla de nodos/partículas generada por canvas, coloreada según
    la cercanía real a cada satélite (ver script) — estático, sin bucle de
    animación continuo por batería. ─── */
-#bg-stars{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+#bg-stars,#bg-pulses{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
 
@@ -132,6 +132,7 @@ body{
 <body>
 
   <canvas id="bg-stars" aria-hidden="true"></canvas>
+  <canvas id="bg-pulses" aria-hidden="true"></canvas>
 
   <div class="orbit-shell">
     <svg class="connector-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -213,6 +214,10 @@ body{
   (function mesh(){
     var cv = document.getElementById('bg-stars');
     var ctx = cv.getContext('2d');
+    var pcv = document.getElementById('bg-pulses');
+    var pctx = pcv.getContext('2d');
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var rafId = null;
 
     function hexToRgb(hex){
       hex = hex.trim();
@@ -270,9 +275,12 @@ body{
         pts.push({ x:x, y:y, c: colorFor(x,y) });
       }
 
-      // líneas finas entre puntos cercanos (efecto malla/constelación)
+      // líneas finas entre puntos cercanos (efecto malla/constelación) —
+      // se guardan en "edges" además de dibujarse, para poder animar
+      // pulsos viajando por una parte de ellas (ver startPulses).
       var MAXD = Math.min(90, Math.max(60, Math.min(w,h)*0.09));
       var cell = MAXD, grid = {};
+      var edges = [];
       pts.forEach(function(p, i){
         var gx = Math.floor(p.x/cell), gy = Math.floor(p.y/cell);
         var key = gx+','+gy;
@@ -296,6 +304,7 @@ body{
                 ctx.beginPath();
                 ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
                 ctx.stroke();
+                edges.push({ p:p, q:q, rgb:[r,g,b], t: Math.max(p.c.t, q.c.t) });
               }
             });
           }
@@ -311,10 +320,68 @@ body{
         ctx.fillStyle = 'rgba('+p.c.rgb[0]+','+p.c.rgb[1]+','+p.c.rgb[2]+','+alpha.toFixed(3)+')';
         ctx.fill();
       });
+
+      return edges;
     }
-    draw();
+
+    // ── Pulsos viajando por una parte de la malla, como sinapsis
+    // disparando (efecto "red neuronal" pedido) — solo se anima este
+    // segundo canvas (pequeño número de puntos), el de arriba es estático
+    // y no se vuelve a tocar, así que el coste por fotograma es mínimo.
+    function startPulses(edges, w, h){
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      pcv.width = w * dpr; pcv.height = h * dpr;
+      pcv.style.width = w + 'px'; pcv.style.height = h + 'px';
+      pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      if (reduceMotion || !edges.length) return;
+
+      var count = Math.min(70, Math.max(18, Math.round(edges.length * 0.05)));
+      var pool = edges.slice().sort(function(){ return Math.random() - .5; }).slice(0, count);
+      var pulses = pool.map(function(e){
+        return {
+          e: e,
+          dur: 1600 + Math.random()*2200,
+          delay: Math.random()*4000,
+          start: null
+        };
+      });
+
+      function frame(now){
+        pctx.clearRect(0, 0, w, h);
+        pulses.forEach(function(pu){
+          if (pu.start === null) pu.start = now + pu.delay;
+          var elapsed = now - pu.start;
+          if (elapsed < 0) return;
+          var t = (elapsed % pu.dur) / pu.dur;
+          var e = pu.e;
+          var x = e.p.x + (e.q.x - e.p.x) * t;
+          var y = e.p.y + (e.q.y - e.p.y) * t;
+          var fade = Math.sin(t * Math.PI); // 0 en los extremos, máximo a mitad de camino
+          var rgb = e.rgb;
+          var rad = 1.3 + e.t*1.2;
+          var grad = pctx.createRadialGradient(x,y,0,x,y,rad*3.2);
+          grad.addColorStop(0, 'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+','+(0.9*fade).toFixed(3)+')');
+          grad.addColorStop(1, 'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+',0)');
+          pctx.fillStyle = grad;
+          pctx.beginPath();
+          pctx.arc(x, y, rad*3.2, 0, Math.PI*2);
+          pctx.fill();
+        });
+        rafId = requestAnimationFrame(frame);
+      }
+      rafId = requestAnimationFrame(frame);
+    }
+
+    function rebuild(){
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      var w = window.innerWidth, h = window.innerHeight;
+      var edges = draw();
+      startPulses(edges, w, h);
+    }
+    rebuild();
     var t;
-    window.addEventListener('resize', function(){ clearTimeout(t); t = setTimeout(draw, 200); });
+    window.addEventListener('resize', function(){ clearTimeout(t); t = setTimeout(rebuild, 200); });
   })();
 
   // ── Conectores tipo "rayo/red neuronal": línea principal quebrada del
