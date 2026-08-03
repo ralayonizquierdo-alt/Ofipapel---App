@@ -1268,6 +1268,13 @@ try{ familias = JSON.parse(localStorage.getItem('op_familias')||'[]'); }catch(e)
 let ventasCaja = { porDia:[], porHora:[], porEmpleado:[], porTipoMov:[], porAlerta:[], porEmpDia:[], porEmpMes:[], meta:{} };
 let ventCajaModo = 'mes';
 try{ const vc=JSON.parse(localStorage.getItem('op_ventascaja')||'null'); if(vc) ventasCaja=vc; }catch(e){}
+let _importStamps = {};
+try{ _importStamps=JSON.parse(localStorage.getItem('op_importstamps')||'{}'); }catch(e){}
+function stampImport(key){
+  _importStamps[key]=new Date().toISOString();
+  try{ localStorage.setItem('op_importstamps',JSON.stringify(_importStamps)); }catch(e){}
+}
+
 let cajaCierres = [];
 try{ const cc=JSON.parse(localStorage.getItem('op_cajacierres')||'null'); if(cc) cajaCierres=cc; }catch(e){}
 let cajaBancoRecibos = [];
@@ -2470,9 +2477,189 @@ function renderAlertas(){
         <div style="font-size:11px;margin-top:4px;opacity:.7">Fecha límite: ${a.dt.toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'})}</div>
       </div>
     </div>`).join('')}
-  </div>` : ''}`;
+  </div>` : ''}
+  ${renderDocStatusHtml()}`;
 
   document.getElementById('alertasContent').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+// ESTADO DE DOCUMENTOS — última subida de cada dataset
+// ═══════════════════════════════════════════════════════
+function _docFallbackDate(key){
+  // Mejor estimación de "hasta cuándo llegan los datos" cuando no hay stamp
+  try{
+    if(key==='cajaCierres') return cajaCierres.length ? cajaCierres[cajaCierres.length-1].fecha : null;
+    if(key==='cajaBancoRecibos') return cajaBancoRecibos.length ? cajaBancoRecibos[cajaBancoRecibos.length-1].fecha : null;
+    if(key==='ventasCaja'){
+      const iso=ventasCaja.meta?.importado; if(iso) return iso.slice(0,10);
+      const dias=(ventasCaja.porDia||[]);
+      return dias.length ? dias[dias.length-1].fecha : null;
+    }
+    if(key==='ventasVendedores'){
+      const anios=ventasVendedores.map(r=>r.anio).filter(Boolean);
+      return anios.length ? `${Math.max(...anios)}-12-31` : null;
+    }
+    if(key==='ventasAnual'){
+      const all=[...(ventasAnual?.conIgic||[]),...(ventasAnual?.sinIgic||[])];
+      const anios=all.map(r=>r.anio).filter(Boolean);
+      return anios.length ? `${Math.max(...anios)}-12-31` : null;
+    }
+    if(key==='ventasTiendas'){
+      const anios=ventasTiendas.map(r=>r.anio).filter(Boolean);
+      return anios.length ? `${Math.max(...anios)}-12-31` : null;
+    }
+    if(key==='ventasClientes'){
+      const anios=ventasClientes.map(r=>r.anio).filter(Boolean);
+      return anios.length ? `${Math.max(...anios)}-12-31` : null;
+    }
+    if(key==='ventasWeb'){
+      if(!ventasWeb.length) return null;
+      const last=ventasWeb[ventasWeb.length-1];
+      return `${last.anio}-${String(last.mes).padStart(2,'0')}-01`;
+    }
+    if(key==='compras'){
+      const fechas=compras.map(c=>c.fecha).filter(Boolean).sort();
+      return fechas.length ? fechas[fechas.length-1] : null;
+    }
+    if(key==='comprasAnual'){
+      const anios=comprasAnual.map(r=>r.anio).filter(Boolean);
+      return anios.length ? `${Math.max(...anios)}-12-31` : null;
+    }
+    if(key==='proveedores'){
+      const fechas=proveedores.map(p=>p.fedoc||p.fecha).filter(Boolean).sort();
+      return fechas.length ? fechas[fechas.length-1] : null;
+    }
+    if(key==='familias'){
+      const anios=familias.map(r=>r.anio).filter(Boolean);
+      return anios.length ? `${Math.max(...anios)}-12-31` : null;
+    }
+  }catch(e){}
+  return null;
+}
+
+function _hasData(key){
+  if(key==='cajaCierres')      return cajaCierres.length>0;
+  if(key==='cajaBancoRecibos') return cajaBancoRecibos.length>0;
+  if(key==='ventasCaja')       return (ventasCaja.porDia||[]).length>0;
+  if(key==='ventasVendedores') return ventasVendedores.length>0;
+  if(key==='ventasAnual')      return (ventasAnual?.conIgic||[]).length>0||(ventasAnual?.sinIgic||[]).length>0;
+  if(key==='ventasTiendas')    return ventasTiendas.length>0;
+  if(key==='ventasClientes')   return ventasClientes.length>0;
+  if(key==='ventasWeb')        return ventasWeb.length>0;
+  if(key==='compras')          return compras.length>0;
+  if(key==='comprasAnual')     return comprasAnual.length>0;
+  if(key==='proveedores')      return proveedores.length>0;
+  if(key==='familias')         return familias.length>0;
+  return false;
+}
+
+function renderDocStatusHtml(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const MS=86400000;
+  const diasDesde=dateStr=>{
+    if(!dateStr) return null;
+    const d=new Date(dateStr.length===10?dateStr+'T12:00:00':dateStr);
+    return Math.floor((today-d)/MS);
+  };
+  const fmtFecha=dateStr=>{
+    if(!dateStr) return '—';
+    const d=new Date(dateStr.length===10?dateStr+'T12:00:00':dateStr);
+    return d.toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+  };
+
+  const DOCS=[
+    {key:'cajaCierres',      lbl:'Cierre de Caja (PDF)',           ico:'📋', nav:'caja',       op:true},
+    {key:'cajaBancoRecibos', lbl:'Resguardos Bancarios (PDF)',      ico:'🏦', nav:'caja',       op:true},
+    {key:'ventasCaja',       lbl:'Ventas por Caja (Excel)',         ico:'🏪', nav:'caja'},
+    {key:'ventasVendedores', lbl:'Ventas por Vendedor (Excel)',     ico:'🧑‍💼', nav:'ventas'},
+    {key:'ventasAnual',      lbl:'Ventas Anuales (Excel)',          ico:'📅', nav:'ventas'},
+    {key:'ventasTiendas',    lbl:'Ventas por Tienda (Excel)',       ico:'🏬', nav:'ventas'},
+    {key:'ventasClientes',   lbl:'Ventas por Cliente (Excel)',      ico:'👥', nav:'ventas'},
+    {key:'ventasWeb',        lbl:'Venta Web (Excel)',               ico:'🌐', nav:'ventas'},
+    {key:'compras',          lbl:'Pedidos a Proveedores (Excel)',   ico:'🛒', nav:'compras'},
+    {key:'comprasAnual',     lbl:'Compras Anuales (Excel)',         ico:'📊', nav:'compras'},
+    {key:'proveedores',      lbl:'Pagos a Proveedores',             ico:'💸', nav:'proveedores'},
+    {key:'familias',         lbl:'Ventas por Familias (Excel)',     ico:'📦', nav:'ventas'},
+  ];
+
+  // Alerta especial: resguardos pendientes del último cierre
+  let resguardoAlert='';
+  if(cajaCierres.length){
+    const lastC=cajaCierres[cajaCierres.length-1];
+    const tieneResguardos=cajaBancoRecibos.some(b=>b.fecha===lastC.fecha);
+    if(!tieneResguardos){
+      const fLabel=lastC.fecha?new Date(lastC.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'}):'—';
+      resguardoAlert=`<div class="alert-card err" style="margin-bottom:12px;cursor:pointer;" onclick="showView('caja')">
+        <div class="alert-ico">🏦</div>
+        <div><div class="alert-ttl">Resguardos bancarios pendientes — ${fLabel}</div>
+        <div class="alert-txt">El cierre de caja de ese día no tiene resguardos bancarios asociados. Accede a <strong>Control de Caja → Volcado Diario</strong> para importar el PDF del banco.</div></div>
+      </div>`;
+    }
+  }
+
+  const rows=DOCS.map(d=>{
+    const stamp=_importStamps[d.key]||null;
+    const fallback=_hasData(d.key)?_docFallbackDate(d.key):null;
+    const dateToUse=stamp||(fallback?fallback:null);
+    const dias=diasDesde(dateToUse);
+    const sinDatos=!_hasData(d.key);
+
+    let dot,dotColor,textoFecha;
+    if(sinDatos){
+      dot='⬜'; dotColor='var(--texto2)';
+      textoFecha='Sin datos';
+    } else if(dias===null){
+      dot='🟡'; dotColor='#e67e22';
+      textoFecha='Con datos (fecha no registrada)';
+    } else if(dias===0){
+      dot='🟢'; dotColor='var(--verde)';
+      textoFecha=`Hoy${stamp?'':' (dato más reciente)'}`;
+    } else if(dias<=1){
+      dot='🟢'; dotColor='var(--verde)';
+      textoFecha=`Ayer — ${fmtFecha(dateToUse)}${stamp?'':' ≈'}`;
+    } else if(dias<=7){
+      dot='🟡'; dotColor='#e67e22';
+      textoFecha=`Hace ${dias} días — ${fmtFecha(dateToUse)}${stamp?'':' ≈'}`;
+    } else if(dias<=30){
+      dot='🟠'; dotColor='#e67e22';
+      textoFecha=`Hace ${dias} días — ${fmtFecha(dateToUse)}${stamp?'':' ≈'}`;
+    } else {
+      dot='🔴'; dotColor='var(--rojo)';
+      textoFecha=`Hace ${dias} días — ${fmtFecha(dateToUse)}${stamp?'':' ≈'}`;
+    }
+
+    return `<tr style="cursor:pointer;" onclick="showView('${d.nav}')">
+      <td style="padding:8px 12px;">${d.ico} ${d.lbl}${d.op?` <span style="font-size:10px;background:var(--azul-pale);color:var(--azul);border-radius:4px;padding:1px 5px;font-weight:600;">diario</span>`:''}
+      </td>
+      <td style="padding:8px 12px;font-size:12px;color:${dotColor};">${dot} ${textoFecha}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="sec-title" style="margin-top:24px">📋 Estado de Documentos</div>
+  ${resguardoAlert}
+  <div class="card" style="padding:0;overflow:hidden;">
+    <table class="tabla" style="margin:0;">
+      <thead><tr><th>Documento</th><th>Última actualización</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="font-size:10px;color:var(--texto2);padding:8px 12px;">≈ estimado a partir del dato más reciente del dataset · Sólo se registra fecha exacta a partir de la próxima importación.</div>
+  </div>`;
+}
+
+// Alerta compacta para el dashboard (resguardos pendientes del último cierre)
+function alertaResguardosPendientes(){
+  if(!cajaCierres.length) return '';
+  const lastC=cajaCierres[cajaCierres.length-1];
+  const tieneResguardos=cajaBancoRecibos.some(b=>b.fecha===lastC.fecha);
+  if(tieneResguardos) return '';
+  const fLabel=lastC.fecha?new Date(lastC.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'—';
+  return `<div class="alert-card err" style="margin-bottom:20px;cursor:pointer;" onclick="showView('caja')">
+    <div class="alert-ico">🏦</div>
+    <div><div class="alert-ttl">Resguardos bancarios pendientes — ${fLabel}</div>
+    <div class="alert-txt">Cierre de caja importado sin resguardos bancarios. Ve a Control de Caja para completar la conciliación.</div></div>
+  </div>`;
 }
 
 function getFiscalAlertas(){
@@ -3142,6 +3329,7 @@ function importProveedoresExcel(input){
         n++;
       });
       saveProveedores(); renderProveedores();
+      stampImport('proveedores');
       alert(n+' registros importados.');
     }catch(err){ alert('Error: '+err.message); }
     input.value='';
@@ -3217,6 +3405,7 @@ function importProveedoresPDF(input){
           }
         });
         saveProveedores(); renderProveedores();
+        stampImport('proveedores');
         alert(n+' registros importados desde PDF.');
       }catch(err){alert('Error al procesar el PDF: '+err.message);}
       input.value='';
@@ -3586,6 +3775,7 @@ function importCierrePDF(input){
         saveCajaCierres();
         const tsC = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
         if(st) st.textContent=`✅ Importado ${tsC}`;
+        if(importados>0) stampImport('cajaCierres');
         renderCajaView();
       }
     });
@@ -3614,6 +3804,7 @@ function importBancoPDF(input){
         saveCajaBanco();
         const tsB = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
         if(st) st.textContent=`✅ Importado ${tsB}`;
+        if(importados>0) stampImport('cajaBancoRecibos');
         renderCajaView();
       }
     });
@@ -3781,6 +3972,7 @@ function importVentasWebExcel(input){
       ventasWeb=Object.values(meses).sort((a,b)=>a.anio-b.anio||a.mes-b.mes);
       if(!ventasWeb.length){ alert('No se encontraron totales mensuales en el Excel.'); input.value=''; return; }
       saveVentasWeb(); renderVentasWeb();
+      stampImport('ventasWeb');
       alert(ventasWeb.length+' meses importados.');
     }catch(err){ alert('Error: '+err.message); }
     input.value='';
@@ -4075,6 +4267,7 @@ function importVentasCajaExcel(input){
         meta:{ importado:new Date().toISOString(), nFilas }
       };
       saveVentasCaja(); renderVentas();
+      stampImport('ventasCaja');
       alert(nFilas+' movimientos procesados desde Excel.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -4276,6 +4469,7 @@ function importVentasAnualExcel(input, tipo){
 
       ventasAnual[tipo]=registros;
       saveVentasAnual(); renderVentasAnual();
+      stampImport('ventasAnual');
       alert(registros.length+' años importados ('+(tipo==='conIgic'?'Con IGIC':'Sin IGIC')+').');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -4348,6 +4542,7 @@ function importVentasVendedoresExcel(input){
       saveVentasVendedores();
       const sel=document.getElementById('ventVendSelect'); if(sel) sel.value='';
       renderVentasVendedores();
+      stampImport('ventasVendedores');
       alert(registros.length+' registros de vendedores importados.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -4511,6 +4706,7 @@ function importVentasTiendasExcel(input){
       saveVentasTiendas();
       const sel=document.getElementById('ventTiendaSelect'); if(sel) sel.value='';
       renderVentasTiendas();
+      stampImport('ventasTiendas');
       alert(registros.length+' registros de tiendas importados. (Terminales 41, 43, 60 y 68 excluidos)');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -4661,6 +4857,7 @@ function importVentasClientesExcel(input){
 
       ventasClientes=registros;
       saveVentasClientes(); renderVentasClientes();
+      stampImport('ventasClientes');
       alert(registros.length+' registros de clientes importados.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -4919,6 +5116,7 @@ function importComprasExcel(input){
 
       compras = compras.concat(nuevos);
       saveCompras(); renderCompras();
+      stampImport('compras');
       alert(nuevos.length+' pedidos importados desde Excel.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -5186,6 +5384,7 @@ function importComprasAnualExcel(input){
 
       comprasAnual=registros;
       saveComprasAnual(); renderComprasAnual();
+      stampImport('comprasAnual');
       alert(registros.length+' años de compras importados.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -5277,7 +5476,8 @@ function importFamiliasExcelPfx(input, pfx){
         const sa=document.getElementById(p+'FiltroAnio'); if(sa) while(sa.options.length>1) sa.remove(1);
         const sc=document.getElementById(p+'FiltroCategoria'); if(sc) while(sc.options.length>1) sc.remove(1);
       });
-      renderFamilias(); renderVentasFamilias();
+      renderVentasFamilias();
+      stampImport('familias');
       alert(registros.length+' registros de familias importados desde Excel.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
