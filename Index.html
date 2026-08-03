@@ -457,7 +457,6 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
       <div class="nav-item" onclick="showView('caja')"><span class="ni">💰</span><span>Caja</span></div>
       <div class="nav-item" onclick="showView('ventas')"><span class="ni">🏪</span><span>Ventas</span></div>
       <div class="nav-item" onclick="showView('compras')"><span class="ni">🛒</span><span>Compras</span></div>
-      <div class="nav-item" onclick="showView('familias')"><span class="ni">📦</span><span>Familias</span></div>
     </div>
 
     <div id="navChat">
@@ -1090,51 +1089,6 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
         </div>
       </div>
 
-      <div class="view" id="v-familias">
-        <div class="page-header"><h1 class="page-title">📦 Ventas por Familias</h1></div>
-        <div class="page-body">
-          <div id="famKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
-          <div class="card" style="margin-bottom:16px;padding:16px;">
-            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
-              <div style="flex:2;min-width:150px;">
-                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Familia / Código</div>
-                <input type="text" id="famFiltroTexto" placeholder="Buscar..." oninput="renderFamilias()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
-              </div>
-              <div>
-                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
-                <select id="famFiltroAnio" onchange="renderFamilias()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
-                  <option value="todos">Todos</option>
-                </select>
-              </div>
-              <div>
-                <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Categoría</div>
-                <select id="famFiltroCategoria" onchange="renderFamilias()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
-                  <option value="todas">Todas</option>
-                </select>
-              </div>
-              <button onclick="limpiarFiltrosFam()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
-              <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="famExcelInput" style="display:none" onchange="importFamiliasExcel(this)"></label>
-            </div>
-          </div>
-          <div class="chart-row-2" style="margin-bottom:16px;">
-            <div class="chart-card">
-              <div class="chart-ttl">Top Categorías</div>
-              <div class="chart-desc">Ventas totales por categoría</div>
-              <canvas id="cFamCat" height="220"></canvas>
-            </div>
-            <div class="chart-card">
-              <div class="chart-ttl">Evolución Anual</div>
-              <div class="chart-desc">Ventas totales por año</div>
-              <canvas id="cFamAnio" height="220"></canvas>
-            </div>
-          </div>
-          <div style="font-weight:700;color:var(--azul);margin-bottom:8px;" id="famCompTtl">📊 Comparativa Mensual y Anual</div>
-          <div id="famCompKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
-          <div class="card" id="famCompTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
-          <div class="card" id="famTabla" style="padding:0;overflow:hidden;"></div>
-        </div>
-      </div>
-
       <div class="view" id="v-chat">
         <div class="page-header"><h1 class="page-title">💬 Asistente IA</h1></div>
         <div class="page-body">
@@ -1264,7 +1218,7 @@ const USERS = {
   monica: 'd086b000c4d69407866d15606d2c5bb9c8f64431bf4f72d1393b9996ca9a3cec'
 };
 // Menús restringidos por usuario (vacío = acceso total)
-const USER_BLOCKED = { monica: ['ventas','compras','familias','chat'] };
+const USER_BLOCKED = { monica: ['ventas','compras','chat'] };
 // Usuarios con acceso a la sección Operaciones (Ventas, Compras, Familias)
 const OPERACIONES_ACCESO = ['admin', 'rober', 'david'];
 // Cargar contraseñas personalizadas guardadas (ya hasheadas)
@@ -1771,7 +1725,7 @@ function doLogout() {
 // ═══════════════════════════════════════════════════════
 // NAV
 // ═══════════════════════════════════════════════════════
-const TITLES = { dashboard:'Dashboard', historico:'Histórico', alertas:'Alertas', entrada:'Volcado Diario', deuda:'Pool de Deuda', pagares:'Pagarés & Confirming', proveedores:'Pagos a Proveedores', caja:'Control de Caja', ventas:'Ventas', compras:'Compras a Proveedores', familias:'Ventas por Familias', chat:'Chat IA' };
+const TITLES = { dashboard:'Dashboard', historico:'Histórico', alertas:'Alertas', entrada:'Volcado Diario', deuda:'Pool de Deuda', pagares:'Pagarés & Confirming', proveedores:'Pagos a Proveedores', caja:'Control de Caja', ventas:'Ventas', compras:'Compras a Proveedores', chat:'Chat IA' };
 function showView(id) {
   const blocked = USER_BLOCKED[currentUser] || [];
   if(blocked.includes(id)){ id='dashboard'; }
@@ -1787,7 +1741,6 @@ function showView(id) {
   if(id==='caja') { showCajaSubTab(document.querySelector('#v-caja .subtab-btn.active')?.dataset.cajaTab||'conciliacion'); }
   if(id==='ventas') showVentasTab(document.querySelector('#v-ventas .subtab-btn.active')?.dataset.vt||'anual');
   if(id==='compras') showComprasTab(document.querySelector('#v-compras .subtab-btn.active')?.dataset.ct||'pedidos');
-  if(id==='familias') renderFamilias();
   if(id==='chat') initChatView();
 }
 
@@ -5231,78 +5184,13 @@ function saveFamilias(){
   syncDatasetToCloud('familias', familias);
 }
 
-function importFamiliasExcel(input){
-  const file=input.files[0]; if(!file) return;
-  if(familias.length && !confirm('Esto reemplazará los datos de Ventas por Familias ya importados. ¿Continuar?')){
-    input.value=''; return;
-  }
-  const reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
-      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
-
-      const catMap={}, famMap={};
-      data.forEach(row=>{
-        if(typeof row[0]!=='string') return;
-        const m=row[0].trim().match(/^(\d+)\s+(.*)$/);
-        if(!m) return;
-        const code=m[1], name=m[2].trim();
-        if(code.length===2) catMap[code]=name;
-        else if(code.length===3 || code.length===4) famMap[code]=name;
-      });
-
-      const seen=new Set();
-      const registros=[];
-      data.forEach(row=>{
-        const code=row[0];
-        if(typeof code!=='number' || code<100) return;
-        const yr=row[1];
-        if(typeof yr!=='number') return;
-        const codeStr=String(Math.round(code));
-        const key=codeStr+'|'+yr;
-        if(seen.has(key)) return;
-        seen.add(key);
-        const total=row[14];
-        if(typeof total!=='number') return;
-        const catCode=codeStr.slice(0,2);
-        registros.push({
-          id:Date.now()+registros.length,
-          codigo:codeStr,
-          nombre: famMap[codeStr] || ('Familia '+codeStr),
-          catCodigo:catCode,
-          catNombre: catMap[catCode] || ('Categoría '+catCode),
-          anio: 2000+Math.round(yr),
-          meses: row.slice(2,14).map(v=>typeof v==='number'?v:0),
-          total
-        });
-      });
-
-      if(!registros.length){ alert('No se encontraron registros de familias en el archivo.'); input.value=''; return; }
-
-      familias = registros;
-      saveFamilias();
-      ['fam','vtfam'].forEach(p=>{
-        const sa=document.getElementById(p+'FiltroAnio'); if(sa) while(sa.options.length>1) sa.remove(1);
-        const sc=document.getElementById(p+'FiltroCategoria'); if(sc) while(sc.options.length>1) sc.remove(1);
-      });
-      renderFamilias(); renderVentasFamilias();
-      alert(registros.length+' registros de familias importados desde Excel.');
-    }catch(err){ alert('Error al procesar el Excel: '+err.message); }
-    input.value='';
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function renderFamilias(){ _renderFamiliasCore('fam','cFam'); }
 function renderVentasFamilias(){ _renderFamiliasCore('vtfam','cVtfam'); }
 
-function limpiarFiltrosFam(){ limpiarFiltrosFamPfx('fam'); }
 function limpiarFiltrosFamPfx(pfx){
   document.getElementById(pfx+'FiltroAnio').value='todos';
   document.getElementById(pfx+'FiltroCategoria').value='todas';
   document.getElementById(pfx+'FiltroTexto').value='';
-  _renderFamiliasCore(pfx, pfx==='fam'?'cFam':'cVtfam');
+  _renderFamiliasCore(pfx, 'cVtfam');
 }
 
 function importFamiliasExcelPfx(input, pfx){
