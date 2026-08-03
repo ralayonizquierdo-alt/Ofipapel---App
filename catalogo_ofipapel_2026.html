@@ -227,7 +227,7 @@
      Guarda tu imagen como "portada.jpg" en la misma carpeta que este HTML
      para que aparezca aquí. Si no se encuentra, se muestra un diseño CSS de respaldo. -->
 <div class="portada">
-  <img class="portada-img" src="portada.jpg"
+  <img class="portada-img" id="portada-img"
     alt="Catálogo Escolar Vuelta al Cole 2026/2027 - Ofipapel"
     onerror="this.style.display='none'; document.getElementById('portada-fallback').style.display='flex';">
   <div class="portada-fallback" id="portada-fallback">
@@ -1313,6 +1313,12 @@ const productos = [
 //   → LOCAL_IMG_BASE = 'http://192.168.X.X:8080/Imagenes/'
 // ============================================================
 const LOCAL_IMG_BASE = 'http://localhost:8080/';
+
+// Portada: carga desde el mismo servidor que las imágenes de productos
+(function() {
+  var img = document.getElementById('portada-img');
+  if (img) img.src = LOCAL_IMG_BASE + 'portada.jpg';
+})();
 
 // Cadena de fechas completa para buscar imágenes en ofipapel.net (fallback)
 const DATE_CHAIN = [
