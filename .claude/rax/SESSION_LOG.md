@@ -343,3 +343,50 @@ generación desde el Almacén (misma integración que ya existe para
 completo de conceptos/scoring); o, si el propietario lo prefiere, seguir
 haciendo crecer la Biblioteca de Referencias antes de exponerlo en la
 app.
+
+---
+
+### 2026-08-03 — Rediseño completo del hub (inicio.html) + PWA + sonido + arranca redesign visual "red neón"
+
+**Resumen**: sesión larga centrada por completo en `inicio.html`. (1) Se
+diagnosticó y corrigió un bug real de Netlify: "/" servía siempre
+`Index.html` (la app financiera) en vez del hub, porque Netlify no aplica
+un redirect si la ruta "existe" como fichero, y esa comprobación es
+insensible a mayúsculas — la causa no era caché ni el navegador. Fix:
+renombrar `index.html` → `inicio.html` + `force=true` en el redirect de
+"/" (`netlify.toml`). (2) Se sustituyeron los 7 iconos originales por las
+7 apps reales del propietario (Gestión Finanzas, Alquileres, Vacaciones y
+Turnos, Fichaje, WhatsApp BOT, Roturas Almacén, Importación Pedidos),
+dejando fuera del hub a Canarias INK/Joe App/FalControl (sus páginas
+siguen existiendo, solo sin icono aquí). (3) Estilo visual "moneda dorada
+fotorrealista" a partir de fotos de referencia del propietario (varias
+iteraciones fallidas por cables/esquinas de la foto original antes de
+llegar a una versión limpia). (4) Hub instalable como PWA: manifest,
+Service Worker, iconos `any`+`maskable`. (5) Sonido real (mp3 del
+propietario) al abrir, con fundido de entrada por código (sin editar el
+audio). (6) Vista dedicada a pantalla completa para móvil en horizontal
+(antes reutilizaba el layout cuadrado de vertical). (7) **Al cierre de la
+sesión, cambio de dirección**: el propietario aporta nuevas referencias
+visuales (estilo "red neuronal/neón" sobre fondo oscuro, iconos planos
+distintos por app en vez de la misma moneda-trébol, línea de conexión
+tipo rayo/raíz en vez de cable simple) y pide además incorporar una 8ª
+app nueva ("RR.SS. Manager", https://ofipapel-social-manager.vercel.app,
+tema morado) — este rediseño queda **en curso**, no cerrado, al terminar
+la sesión.
+
+**Decisiones tomadas**: ninguna registrada en `DECISIONES.md` todavía —
+el redesign visual en curso no se ha decidido de forma definitiva (el
+propietario ha cambiado de estilo visual varias veces en la misma
+sesión); no registrar como decisión final hasta que el nuevo estilo
+"red neón" quede aprobado en producción.
+
+**Siguiente paso recomendado para la próxima sesión**: completar el
+rediseño "red neón" (fondo oscuro, aros neón por color de app, iconos
+planos específicos por app, líneas de conexión tipo rayo/red neuronal,
+animación + sonido de conexión reutilizando la infraestructura ya
+construida) e incorporar "RR.SS. Manager" como 8º nodo. Confirmar con el
+propietario si la moneda morada aportada es el favicon/icono definitivo
+del hub completo o solo de la nueva app RR.SS. Manager (mensaje
+ambiguo). Actualizar `INVENTORY.md` con la entrada de RR.SS. Manager en
+cuanto se confirme su naturaleza (app externa en Vercel, sin código en
+este repo).
