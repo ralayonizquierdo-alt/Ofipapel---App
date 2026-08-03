@@ -73,6 +73,13 @@ mkdir -p _site/joe
 
 # Copy root static files
 cp inicio.html _site/
+# GitHub Pages no soporta netlify.toml/_redirects (eso solo lo lee Netlify),
+# así que su "/" busca "index.html" literal y con inicio.html no existe eso
+# devuelve 404 real (confirmado en producción) — cualquier enlace del hub
+# parece "roto" porque nunca se llega a una página con enlaces sanos. Copia
+# aparte, no symlink: Netlify sigue resolviendo "/" por su propia regla
+# force=true en netlify.toml, esto solo cubre el hueco de GitHub Pages.
+cp inicio.html _site/index.html
 cp Index.html _site/ 2>/dev/null || true
 cp canarias-ink.html _site/ 2>/dev/null || true
 cp falcontrol.html _site/ 2>/dev/null || true
