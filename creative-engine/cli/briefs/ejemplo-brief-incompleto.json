@@ -1,0 +1,35 @@
+{
+  "product": {
+    "name": "Cargador USB-C 120W",
+    "description": "Carga rápida para portátil y móvil a la vez.",
+    "category": "electrodomesticos"
+  },
+  "brand": { "id": "ofipapel" },
+  "creativeDirection": {
+    "strategy": "Mostrar el cargador en uso.",
+    "tone": "directo",
+    "graphicFamily": "producto-sobre-fondo-marca"
+  },
+  "artDirection": {
+    "composition": "",
+    "hierarchy": ["producto", "titular", "cta", "precio", "badge", "logo"],
+    "structure": "",
+    "layoutId": ""
+  },
+  "photography": {
+    "angle": "",
+    "background": "",
+    "lighting": "",
+    "notes": "",
+    "fidelityRules": []
+  },
+  "productIntelligence": null,
+  "campaign": null,
+  "copy": {
+    "title": "Cargador USB-C 120W",
+    "body": "Carga rápida.",
+    "cta": "Más información",
+    "hashtags": []
+  },
+  "format": { "contentClass": "photo", "postType": "foto", "platform": "instagram" }
+}

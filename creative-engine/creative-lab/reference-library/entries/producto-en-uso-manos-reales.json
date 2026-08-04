@@ -1,0 +1,25 @@
+{
+  "id": "producto-en-uso-manos-reales",
+  "label": "Producto en uso, manos reales",
+  "styleId": "lifestyle-documental",
+  "compositionId": "encuadre-cerrado-detalle",
+  "artDirectionId": "artesanal-honesto",
+  "lightingId": "ventana-natural",
+  "scenarioId": "en-uso-manos",
+  "paletteHarmonyId": "analoga",
+  "angleLensId": "tres-cuartos",
+  "emotion": "confianza por demostración",
+  "textSpaceId": "texto-lateral",
+  "idealProducts": [
+    "electrodomesticos",
+    "belleza",
+    "general"
+  ],
+  "whenToUse": "Cuando el beneficio del producto se entiende mejor viéndolo en uso que describiéndolo.",
+  "whenToAvoid": "Evitar si el producto es puramente decorativo/estático — no hay \"uso\" que mostrar.",
+  "whatMakesItSpecial": "Ver una mano real interactuando reduce la fricción de compra — el espectador se imagina usándolo.",
+  "whyItWorksOnSocial": "El formato \"mira cómo funciona\" es de los que más retención genera en redes.",
+  "visualImpactLevel": 74,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}

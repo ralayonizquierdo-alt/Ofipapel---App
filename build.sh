@@ -1,6 +1,15 @@
 #!/bin/bash
 set -e
 
+# netlify/functions/ es el único sitio del repo con dependencias npm reales
+# (@sparticuz/chromium + playwright-core, DT-16 — `.claude/rax/DEUDA_TECNICA.md`
+# — Chromium compatible con Lambda para marketing-engine-run.js). Netlify
+# empaqueta las funciones a partir del checkout que deja build.sh, así que
+# node_modules tiene que existir ANTES de que termine este script — Netlify
+# no instala por su cuenta un package.json que no esté en la raíz del sitio.
+echo "== netlify/functions: instalando dependencias (Chromium para Lambda) =="
+(cd netlify/functions && npm ci)
+
 # Netlify preserva /opt/build/cache entre builds del mismo sitio (salvo
 # "Clear cache and deploy"). Lo usamos para no reconstruir alquileres/ o
 # joe-app/ cuando nada ha cambiado en su carpeta desde el último despliegue,
@@ -63,10 +72,18 @@ mkdir -p _site/alquileres
 mkdir -p _site/joe
 
 # Copy root static files
-cp index.html _site/
+cp inicio.html _site/
+# GitHub Pages no soporta netlify.toml/_redirects (eso solo lo lee Netlify),
+# así que su "/" busca "index.html" literal y con inicio.html no existe eso
+# devuelve 404 real (confirmado en producción) — cualquier enlace del hub
+# parece "roto" porque nunca se llega a una página con enlaces sanos. Copia
+# aparte, no symlink: Netlify sigue resolviendo "/" por su propia regla
+# force=true en netlify.toml, esto solo cubre el hueco de GitHub Pages.
+cp inicio.html _site/index.html
 cp Index.html _site/ 2>/dev/null || true
 cp canarias-ink.html _site/ 2>/dev/null || true
 cp falcontrol.html _site/ 2>/dev/null || true
+cp app.html _site/ 2>/dev/null || true
 cp vacaciones.html _site/ 2>/dev/null || true
 cp fichaje.html _site/ 2>/dev/null || true
 cp favicon-fichaje.svg _site/ 2>/dev/null || true
@@ -80,6 +97,14 @@ cp logo-ofipapel-transparente.png _site/ 2>/dev/null || true
 cp fondo-ofipapel.jpg _site/ 2>/dev/null || true
 cp fondo-conversaciones.jpg _site/ 2>/dev/null || true
 cp bg-trebol.png _site/ 2>/dev/null || true
+cp hub-coin-*.webp _site/ 2>/dev/null || true
+cp hub-center.webp _site/ 2>/dev/null || true
+cp sound-connect.mp3 _site/ 2>/dev/null || true
+cp manifest-inicio.json _site/ 2>/dev/null || true
+cp icon-ofipapel-192.png _site/ 2>/dev/null || true
+cp icon-ofipapel-512.png _site/ 2>/dev/null || true
+cp icon-ofipapel-192-maskable.png _site/ 2>/dev/null || true
+cp icon-ofipapel-512-maskable.png _site/ 2>/dev/null || true
 cp privacidad.html _site/ 2>/dev/null || true
 cp 404.html _site/ 2>/dev/null || true
 
@@ -87,8 +112,12 @@ cp 404.html _site/ 2>/dev/null || true
 cp -r alquileres/dist/. _site/alquileres/
 cp -r joe-app/dist/. _site/joe/
 
-# SPA routing
+# SPA routing (+ fuerza "/" al hub exacto, ver comentario en netlify.toml).
+# El "!" tras el 200 es la sintaxis de _redirects para force=true: sin él,
+# Netlify no aplica la regla porque "/" resuelve a Index.html como fichero
+# "existente" (case-insensitive) antes de mirar los redirects.
 {
+  echo "/               /inicio.html              200!"
   echo "/alquileres/*  /alquileres/index.html  200"
   echo "/joe/*         /joe/index.html          200"
 } > _site/_redirects

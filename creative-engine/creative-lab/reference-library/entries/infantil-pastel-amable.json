@@ -1,0 +1,24 @@
+{
+  "id": "infantil-pastel-amable",
+  "label": "Infantil pastel amable",
+  "styleId": "pastel-soft",
+  "compositionId": "triangular-estable",
+  "artDirectionId": "minimalismo",
+  "lightingId": "high-key-luminosa",
+  "scenarioId": "estudio-fondo-color-marca",
+  "paletteHarmonyId": "analoga",
+  "angleLensId": "altura-producto",
+  "emotion": "ternura y seguridad",
+  "textSpaceId": "titular-dominante",
+  "idealProducts": [
+    "infantil",
+    "general"
+  ],
+  "whenToUse": "Producto dirigido a familias con niños pequeños, donde la seguridad/amabilidad es el argumento.",
+  "whenToAvoid": "Evitar en categorías técnicas o de alto ticket — el tono pastel infantiliza el producto.",
+  "whatMakesItSpecial": "Los colores pastel y la luz alta comunican seguridad sin necesidad de texto explicativo.",
+  "whyItWorksOnSocial": "Alta capacidad de generar \"ternura\" que impulsa guardados y compartidos entre padres.",
+  "visualImpactLevel": 65,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}

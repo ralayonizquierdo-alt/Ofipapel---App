@@ -1,0 +1,24 @@
+{
+  "id": "moda-urbana-street",
+  "label": "Moda urbana street",
+  "styleId": "street-style-urbano",
+  "compositionId": "asimetria-equilibrada",
+  "artDirectionId": "experimental-conceptual",
+  "lightingId": "difusa-nublada",
+  "scenarioId": "contexto-urbano",
+  "paletteHarmonyId": "complementaria",
+  "angleLensId": "perfil-lateral",
+  "emotion": "actitud y personalidad",
+  "textSpaceId": "texto-lateral",
+  "idealProducts": [
+    "moda",
+    "general"
+  ],
+  "whenToUse": "Producto con componente de estilo/identidad, público joven urbano.",
+  "whenToAvoid": "Evitar en productos funcionales de hogar/oficina — el tono urbano no encaja.",
+  "whatMakesItSpecial": "El fondo urbano desenfocado da contexto de vida real sin robar protagonismo al producto.",
+  "whyItWorksOnSocial": "Estética coherente con el feed de moda/lifestyle, genera afinidad de identidad más que de producto.",
+  "visualImpactLevel": 70,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}

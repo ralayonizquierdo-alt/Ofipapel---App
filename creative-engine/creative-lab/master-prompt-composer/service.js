@@ -1,0 +1,68 @@
+// Prompt Composer Cinematográfico — reescritura completa (sprint del
+// mismo nombre, 2026-07-26). Objetivo único del propietario: dejar de
+// describir productos y empezar a describir campañas. Ya no envuelve
+// creative-engine/prompt-composer/ (el compositor de 9 secciones,
+// "producto" primero) — compone su propio prompt de principio a fin, con
+// el orden exacto pedido: historia y emoción abren el briefing, la ficha
+// técnica del producto queda dentro de "Dirección de fotografía" (4º
+// bloque, no el primero).
+//
+// No se ha modificado NINGÚN otro componente: creative-engine/prompt-composer/
+// sigue intacto (creative-engine/index.js#runCreativePipeline lo sigue
+// usando tal cual); solo se reutilizan por import de solo lectura
+// NEGATIVE_PROMPT_TERMS/SECTION_JOIN de ahí. El resultado sigue teniendo
+// exactamente la misma forma que antes — {conceptId, sections, fullPrompt,
+// negativePrompt, wordCount, tokensApprox} — así que index.js,
+// concept-score/ y el CLI no necesitan ningún cambio.
+
+const { buildConceptSections } = require('./sections/from-concept.js');
+const { composeBasePhotographyPrompt } = require('./base-photography.js');
+const { SECTION_JOIN, NEGATIVE_PROMPT_TERMS } = require('./config.js');
+
+/**
+ * @param {object} brief - CreativeBrief
+ * @param {object} preparedAssets - salida de asset-pipeline/service.js#prepareAssets
+ * @param {object} concept - salida de concept-generator/service.js#generateConcepts (un elemento)
+ * @param {object} [options]
+ * @param {string} [options.testMode] - 'fotografia-base' delega en
+ *   base-photography.js (experimento del propietario: solo fotografía
+ *   pura, sin texto/logo/CTA/precio/iconos). Cualquier otro valor o
+ *   ausencia de options: comportamiento normal, sin cambios — mismo
+ *   prompt cinematográfico de siempre.
+ * @returns {object} { conceptId, sections, fullPrompt, negativePrompt, wordCount, tokensApprox }
+ */
+function composeMasterPrompt(brief, preparedAssets, concept, options = {}) {
+  if (options.testMode === 'fotografia-base') {
+    return composeBasePhotographyPrompt(brief, preparedAssets, concept);
+  }
+
+  const sections = buildConceptSections(concept, brief, preparedAssets);
+  const negativePrompt = NEGATIVE_PROMPT_TERMS.join(', ');
+
+  // FASE 8 (Prompt Composer PRO): gpt-image-1 — y cualquier otro proveedor
+  // activo hoy — no tiene un parámetro negative_prompt nativo;
+  // provider.interface.js#adaptToCapabilities() lo descarta en silencio
+  // para todo proveedor con supportsNegativePrompt:false (ver PROVIDER_META
+  // de openai-images.provider.js). Sin esto, las instrucciones negativas
+  // se calculaban pero JAMÁS llegaban a OpenAI en ninguna forma — coincide
+  // con el texto alucinado/ilegible visto en piezas reales pese a que
+  // "texto renderizado o letras ilegibles" ya estaba en la lista (DT-18,
+  // `.claude/rax/DEUDA_TECNICA.md`). Se incrusta aquí, dentro del propio
+  // prompt positivo — el único canal que sí llega siempre, sea cual sea
+  // el proveedor. `negativePrompt` se sigue devolviendo tal cual (por si
+  // algún proveedor futuro sí soporta el campo nativo).
+  const negativeClause = `Evita estrictamente lo siguiente: ${negativePrompt}.`;
+  const fullPrompt = [...sections.map((s) => s.text), negativeClause].join(SECTION_JOIN);
+  const wordCount = fullPrompt.split(/\s+/).filter(Boolean).length;
+
+  return {
+    conceptId: concept.conceptId,
+    sections,
+    fullPrompt,
+    negativePrompt,
+    wordCount,
+    tokensApprox: Math.round(wordCount * 1.3), // misma aproximación explícita que el resto del repo, no un tokenizador real
+  };
+}
+
+module.exports = { composeMasterPrompt };

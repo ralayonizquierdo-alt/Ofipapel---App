@@ -1,0 +1,25 @@
+{
+  "id": "despiece-tecnico-caracteristicas",
+  "label": "Despiece técnico de características",
+  "styleId": "despiece-tecnico",
+  "compositionId": "radial-desde-producto",
+  "artDirectionId": "corporativo-clasico",
+  "lightingId": "softbox-estudio",
+  "scenarioId": "estudio-fondo-blanco",
+  "paletteHarmonyId": "neutra-con-acento-marca",
+  "angleLensId": "frontal-centrado",
+  "emotion": "confianza informada",
+  "textSpaceId": "texto-lateral",
+  "idealProducts": [
+    "electrodomesticos",
+    "tecnologia",
+    "general"
+  ],
+  "whenToUse": "Cuando las características técnicas son el argumento de venta principal (potencia, capacidad, prestaciones).",
+  "whenToAvoid": "Evitar en campañas puramente emocionales/de marca — satura de información un formato que pide sencillez.",
+  "whatMakesItSpecial": "La composición radial permite señalar varias características sin perder al producto como centro.",
+  "whyItWorksOnSocial": "Funciona mejor como pieza informativa (carrusel/story) que como imagen única de feed.",
+  "visualImpactLevel": 69,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}

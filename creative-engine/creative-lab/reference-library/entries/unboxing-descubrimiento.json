@@ -1,0 +1,24 @@
+{
+  "id": "unboxing-descubrimiento",
+  "label": "Unboxing / descubrimiento",
+  "styleId": "unboxing-experiencial",
+  "compositionId": "encuadre-cerrado-detalle",
+  "artDirectionId": "experimental-conceptual",
+  "lightingId": "dura-direccional",
+  "scenarioId": "punto-de-venta",
+  "paletteHarmonyId": "alto-contraste-marca",
+  "angleLensId": "tres-cuartos",
+  "emotion": "anticipación y sorpresa",
+  "textSpaceId": "minimo-texto-hero",
+  "idealProducts": [
+    "tecnologia",
+    "general"
+  ],
+  "whenToUse": "Lanzamiento de producto nuevo — busca sensación de \"momento especial de apertura\".",
+  "whenToAvoid": "Evitar en productos de reposición/consumibles sin momento de \"primera vez\".",
+  "whatMakesItSpecial": "Captura el instante de descubrimiento, un gancho narrativo más que una simple foto de producto.",
+  "whyItWorksOnSocial": "El formato unboxing tiene demanda propia y alta tasa de reproducción completa en vídeo/carrusel.",
+  "visualImpactLevel": 77,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}

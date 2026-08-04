@@ -13,6 +13,53 @@
 [functions]
   directory = "netlify/functions"
 
+# El bundler de Netlify traza dependencias por análisis estático de
+# require()/import — no detecta las rutas que arma
+# marketing-engine/agents/07-maquetador en tiempo de ejecución (execFileSync
+# a design-studio/scripts/render-html.js, y la carga de
+# design-studio/brand-kit.json por ruta calculada). Sin esto, el despliegue
+# real fallaría con "fichero no encontrado" aunque todo funcione en local.
+# Ver marketing-engine/INTEGRATION.md para el resto de bloqueantes de
+# despliegue conocidos. El último glob empaqueta TODO
+# netlify/functions/node_modules/ (DT-16 — `.claude/rax/DEUDA_TECNICA.md`,
+# build.sh ya instaló las dependencias antes de esto): @sparticuz/chromium
+# y playwright-core arrastran varios paquetes transitivos propios
+# (follow-redirects, tar-fs, bare-*...) que un glob por paquete concreto
+# deja fuera uno a uno — más simple y robusto empaquetar el árbol entero
+# que perseguir cada dependencia transitiva a mano.
+[functions."marketing-engine-run"]
+  included_files = [
+    "marketing-engine/**", "design-studio/**", "creative-engine/**",
+    "netlify/functions/node_modules/**",
+  ]
+  external_node_modules = ["@sparticuz/chromium", "playwright-core"]
+
+# marketing-engine-run-background.js es quien de verdad ejecuta el pipeline
+# ahora (DT-17, `.claude/rax/DEUDA_TECNICA.md`) — necesita exactamente el
+# mismo empaquetado que la función síncrona de arriba. marketing-engine-run
+# se mantiene tal cual para pruebas rápidas con el proveedor "simulated"
+# (sin llamada real a OpenAI, termina dentro del límite síncrono).
+[functions."marketing-engine-run-background"]
+  included_files = [
+    "marketing-engine/**", "design-studio/**", "creative-engine/**",
+    "netlify/functions/node_modules/**",
+  ]
+  external_node_modules = ["@sparticuz/chromium", "playwright-core"]
+
+# El hub vive en inicio.html (no index.html). La causa real de que "/"
+# sirviera siempre Index.html no era una colisión de caché ni de nombre:
+# por defecto Netlify NO aplica una regla de redirección si la ruta ya
+# "existe" como fichero, y su resolución del documento por defecto para "/"
+# compara contra "index.html" de forma insensible a mayúsculas — así que
+# encontraba Index.html como "fichero existente" y servía eso directamente,
+# ignorando esta regla por completo, sin importar el nombre del hub ni el
+# destino del redirect. force=true obliga a aplicar siempre la regla.
+[[redirects]]
+  from = "/"
+  to = "/inicio.html"
+  status = 200
+  force = true
+
 # SPA routing: cualquier ruta bajo /alquileres/ sirve el index de la app
 [[redirects]]
   from = "/alquileres/*"
@@ -26,6 +73,16 @@
 
 [[headers]]
   for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Pragma = "no-cache"
+    Expires = "0"
+
+# La raíz "/" (rewrite a inicio.html) no coincide con el glob "/*.html" de
+# arriba (la ruta pedida es "/", no termina en .html) — sin esta regla el
+# navegador puede quedarse con una copia en caché antigua del hub.
+[[headers]]
+  for = "/"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
     Pragma = "no-cache"

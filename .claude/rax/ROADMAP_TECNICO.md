@@ -19,11 +19,16 @@ por ID (`RT-xx` ↔ `RN-xx`) cuando un ítem técnico habilita uno de negocio.
 | RT-11 | Auditar en profundidad `vacaciones.html` e `importacion-pedidos-proveedores.html` (nunca auditados) | 2 / 2 / 2 → 6 | — | Pendiente |
 | RT-12 | Probar `design-studio/scripts/firefly-generate.js` con credenciales reales de Adobe Firefly | 2 / 1 / 2 → 6 | — | Pendiente de `FIREFLY_CLIENT_ID`/`FIREFLY_CLIENT_SECRET` |
 | RT-13 | Añadir observabilidad de errores (Sentry) a `joe-app` y `alquileres` (`DT-14`) — código ya escrito y verificado en `claude/autonomous-dev-environment-8obtv2`, sin rescatar | 3 / 2 / 2 → 8 | — | Pendiente |
+| RT-14 | **Objetivo principal del proyecto Creative Lab**: conectar un proveedor real de generación de imágenes (`openai-images`) y demostrar que produce fotografía de calidad equivalente a la campaña Muvip **sin depender de una imagen aportada por el propietario**. Ver `.claude/rax/DECISIONES.md` 2026-07-26 y `FIRST_REAL_GENERATION.md` | 5 / 2 / 5 → 18 | — | **Confirmado en producción real** (2026-08-01/02) — logs reales de `marketing-engine-run` muestran ejecuciones de 36-39s sin error con el proveedor `openai-images` activo (generación real completa: OpenAI + Chromium + `creative-lab`). El único bloqueante restante para verlo desde el cliente era de plataforma (`DEUDA_TECNICA.md` DT-17), no del proveedor en sí — ver RT-15 |
+| RT-15 | Migrar `app.html` (Almacén) del endpoint síncrono `marketing-engine-run.js` al patrón background+polling (`marketing-engine-run-background.js` + `marketing-engine-status.js`, `DEUDA_TECNICA.md` DT-17) — necesario para que una generación real con `openai-images` llegue alguna vez a la interfaz, no solo a `curl`/logs | 5 / 2 / 4 → 20 | — | Pendiente — backend verificado (local + logs de producción vía DT-16/17), falta el fetch+polling en el propio `app.html` |
 
 ## Próximo paso recomendado (mayor score, sin bloqueo externo)
 
-Con RT-03/RT-05 a RT-08 resueltos, el mayor score pendiente sin bloqueo
+**RT-14** tiene el score más alto y es el objetivo principal declarado del
+proyecto — el código ya está verificado, solo falta la validación real en
+producción tras el despliegue (fuera del alcance de esta sesión). Sin
+contar esa validación pendiente, el mayor score accionable sin bloqueo
 externo es **RT-10** (contraseña compartida de `alquileres`) y **RT-01**
 (canal de WhatsApp canónico) — ambos necesitan una decisión corta del
 propietario, no más trabajo técnico. RT-02 queda reducido de alcance: solo
-aplica ya a `Index.html` (ver `DEUDA_TECNICA.md` DT-05).
+aplica ya a `Index.html`/`joe-app` (ver `DEUDA_TECNICA.md` DT-05).

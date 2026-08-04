@@ -1,0 +1,87 @@
+{
+  "_comment": "Fuente autoritativa machine-readable de identidad visual para las 3 marcas. Ver design-studio/README.md sección 2 para la explicación en prosa del mismo dato — ambos ficheros se actualizan juntos; si divergen, este JSON manda para validación automática (usado por marketing-engine/agents/03-guardian-marca). Todos los valores verificados contra el CSS real de cada app el 2026-07-24, no inventados.",
+
+  "ofipapel": {
+    "label": "Ofipapel",
+    "sourceFile": "Index.html",
+    "colors": {
+      "verdeOscuro": "#1A5C1A",
+      "verdeMedio": "#237523",
+      "verdeClaro": "#3DAF3D",
+      "fondoPalido": "#F2F8F2",
+      "fondoPalidoAlt": "#EBF7EB",
+      "acentoLima": "#8DC41E",
+      "acentoLimaOscuro": "#6FA018",
+      "acentoNaranja": "#F5A623"
+    },
+    "backgroundPalette": {
+      "_comment": "Extraída de design-studio/assets/fondo-corporativo-ofipapel.png (2026-07-21), ampliación de la paleta base — no la sustituye. Acento azul/turquesa es nuevo, usar con moderación.",
+      "verdeBrillante": ["#5FB355", "#83D084"],
+      "verdeClaroHighlight": ["#9DDD9C", "#C0E4C3"],
+      "acentoAzulTurquesa": "#6DB0AE",
+      "transicionVerdeAmarillo": "#C1D48A",
+      "blancoBase": "#FEFEFC"
+    },
+    "fonts": {
+      "body": "Inter",
+      "mono": "IBM Plex Mono",
+      "slogan": "Poppins"
+    },
+    "slogan": "Mucho más que papel",
+    "gradientReference": "linear-gradient(135deg,#0d3d0d 0%,#1A5C1A 40%,#237523 70%,#3a8f2a 100%)",
+    "assets": {
+      "backgroundImage": "design-studio/assets/fondo-corporativo-ofipapel.png",
+      "logoTransparent": "design-studio/assets/logo-ofipapel-transparente.png"
+    },
+    "contact": {
+      "_comment": "Teléfono/WhatsApp y dirección ya existían, hardcodeados en design-studio/templates/ofipapel-vuelta-al-cole-*.html — promovidos aquí (2026-07-26) para que sean la fuente de verdad única y lleguen a cualquier pieza generada, no solo a esa campaña concreta. Web y redes confirmadas directamente por el propietario la misma fecha.",
+      "whatsapp": "+34643316614",
+      "phoneDisplay": "643 31 66 14",
+      "address": "C/ Bulevar Chajofe, 4 · 38650 Los Cristianos",
+      "website": "ofipapel.net",
+      "socialIcons": ["facebook", "instagram"]
+    }
+  },
+
+  "canarias-ink": {
+    "label": "Canarias INK",
+    "sourceFile": "canarias-ink.html",
+    "colors": {
+      "fondo": "#0F1119",
+      "fondoSidebar": "#12141F",
+      "tarjeta": "#1A1D2E",
+      "tarjeta2": "#222538",
+      "acentoPrimarioCian": "#00B4D8",
+      "acentoPrimarioCianOscuro": "#0096BB",
+      "verde": "#2ECC71"
+    },
+    "categoryColors": {
+      "toner": "#E63946",
+      "inkjet": "#2196F3",
+      "botella": "#00BFA5",
+      "cinta": "#FF9800",
+      "etiqueta": "#9C27B0",
+      "ribbon": "#5C6BC0"
+    },
+    "fonts": {
+      "body": "Inter",
+      "mono": "IBM Plex Mono"
+    }
+  },
+
+  "falcontrol": {
+    "label": "FalControl",
+    "sourceFile": "falcontrol.html",
+    "colors": {
+      "fondo": "#0d0d0d",
+      "tarjeta": "#191919",
+      "tarjeta2": "#212121",
+      "verdeEstado": "#00e676",
+      "rojoAlerta": "#ff1744",
+      "naranja": "#ff6d00"
+    },
+    "fonts": {
+      "body": "system-ui"
+    }
+  }
+}

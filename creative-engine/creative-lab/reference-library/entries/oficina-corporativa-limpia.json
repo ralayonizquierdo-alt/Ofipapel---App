@@ -1,0 +1,24 @@
+{
+  "id": "oficina-corporativa-limpia",
+  "label": "Oficina corporativa limpia",
+  "styleId": "corporativo-limpio",
+  "compositionId": "regla-tercios",
+  "artDirectionId": "corporativo-clasico",
+  "lightingId": "high-key-luminosa",
+  "scenarioId": "escritorio-oficina",
+  "paletteHarmonyId": "neutra-con-acento-marca",
+  "angleLensId": "tres-cuartos",
+  "emotion": "confianza profesional",
+  "textSpaceId": "texto-superior-cta-inferior",
+  "idealProducts": [
+    "oficina-papeleria",
+    "general"
+  ],
+  "whenToUse": "Comunicación B2B o de producto de oficina donde la seriedad importa más que la emoción.",
+  "whenToAvoid": "Evitar en campañas dirigidas a público muy joven o de tono desenfadado.",
+  "whatMakesItSpecial": "La limpieza y el orden comunican fiabilidad — el lenguaje visual que un comprador profesional espera.",
+  "whyItWorksOnSocial": "Funciona bien en contextos profesionales, menos viral pero más creíble para ese público.",
+  "visualImpactLevel": 62,
+  "sourceType": "seed-textual",
+  "curatedAt": "2026-07-25"
+}
