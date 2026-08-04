@@ -1285,6 +1285,7 @@ try{ _importStamps=JSON.parse(localStorage.getItem('op_importstamps')||'{}'); }c
 function stampImport(key){
   _importStamps[key]=new Date().toISOString();
   try{ localStorage.setItem('op_importstamps',JSON.stringify(_importStamps)); }catch(e){}
+  syncDatasetToCloud('importstamps', _importStamps);
 }
 
 let cajaCierres = [];
@@ -1497,6 +1498,13 @@ async function syncDatasetToCloud(key, payload){
   }
 }
 
+// Merge de arrays de PDFs sin duplicados por filename
+function mergePorFilename(local, cloud){
+  const map={};
+  [...(cloud||[]), ...(local||[])].forEach(r=>{ if(r&&r.filename) map[r.filename]=r; });
+  return Object.values(map);
+}
+
 function applyCloudDataset(key, payload){
   if(payload==null) return;
   if(key==='proveedores'){
@@ -1543,6 +1551,20 @@ function applyCloudDataset(key, payload){
     cajaEfectivo = payload;
     try{ localStorage.setItem('op_cajaefectivo', JSON.stringify(cajaEfectivo)); }catch(e){}
     renderCajaEfectivo();
+  } else if(key==='cajacierres'){
+    cajaCierres = mergePorFilename(cajaCierres, payload).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+    try{ localStorage.setItem('op_cajacierres', JSON.stringify(cajaCierres)); }catch(e){}
+    if(document.getElementById('cajaHistorico')) renderCajaHistorico();
+  } else if(key==='cajabancorecibos'){
+    cajaBancoRecibos = mergePorFilename(cajaBancoRecibos, payload).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+    try{ localStorage.setItem('op_cajabancorecibos', JSON.stringify(cajaBancoRecibos)); }catch(e){}
+  } else if(key==='ventasweb_det'){
+    ventasWebDetalle = payload;
+    try{ localStorage.setItem('op_ventasweb_det', JSON.stringify(ventasWebDetalle)); }catch(e){}
+  } else if(key==='importstamps'){
+    const cloud = payload || {};
+    Object.entries(cloud).forEach(([k,v])=>{ if(!_importStamps[k]||v>_importStamps[k]) _importStamps[k]=v; });
+    try{ localStorage.setItem('op_importstamps', JSON.stringify(_importStamps)); }catch(e){}
   }
 }
 
@@ -1578,6 +1600,12 @@ async function loadAllSharedDatasets(){
     if(!existing.comprasanual && comprasAnual.length) syncDatasetToCloud('comprasanual', comprasAnual);
     if(!existing.ventasweb && ventasWeb.length) syncDatasetToCloud('ventasweb', ventasWeb);
     if(!existing.cajaefectivo && cajaEfectivo.length) syncDatasetToCloud('cajaefectivo', cajaEfectivo);
+    // Datasets que antes no se sincronizaban — rescate inicial
+    // applyCloudDataset ya hizo el merge de cloud+local; ahora subimos el resultado combinado
+    if(cajaCierres.length) syncDatasetToCloud('cajacierres', cajaCierres);
+    if(cajaBancoRecibos.length) syncDatasetToCloud('cajabancorecibos', cajaBancoRecibos);
+    if(!existing.ventasweb_det && ventasWebDetalle.length) syncDatasetToCloud('ventasweb_det', ventasWebDetalle);
+    if(!existing.importstamps && Object.keys(_importStamps).length) syncDatasetToCloud('importstamps', _importStamps);
   } catch(e){ console.warn('Error cargando datasets compartidos:', e); }
 }
 
@@ -3435,8 +3463,8 @@ function importProveedoresPDF(input){
 // ═══════════════════════════════════════════════════════
 // CAJA — Conciliación de Cierres y Banco
 // ═══════════════════════════════════════════════════════
-function saveCajaCierres(){ try{localStorage.setItem('op_cajacierres',JSON.stringify(cajaCierres));}catch(e){} }
-function saveCajaBanco(){ try{localStorage.setItem('op_cajabancorecibos',JSON.stringify(cajaBancoRecibos));}catch(e){} }
+function saveCajaCierres(){ try{localStorage.setItem('op_cajacierres',JSON.stringify(cajaCierres));}catch(e){} syncDatasetToCloud('cajacierres', cajaCierres); }
+function saveCajaBanco(){ try{localStorage.setItem('op_cajabancorecibos',JSON.stringify(cajaBancoRecibos));}catch(e){} syncDatasetToCloud('cajabancorecibos', cajaBancoRecibos); }
 function saveCajaEfectivo(){ try{localStorage.setItem('op_cajaefectivo',JSON.stringify(cajaEfectivo));}catch(e){} syncDatasetToCloud('cajaefectivo', cajaEfectivo); }
 function saveCajaDetalles(){ try{localStorage.setItem('op_cajadetalles',JSON.stringify(cajaDetalles));}catch(e){} }
 
@@ -3964,7 +3992,7 @@ let ventasWebDetalle = [];
 try{ const vwd=JSON.parse(localStorage.getItem('op_ventasweb_det')||'null'); if(vwd) ventasWebDetalle=vwd; }catch(e){}
 
 function saveVentasWeb(){ try{localStorage.setItem('op_ventasweb',JSON.stringify(ventasWeb));}catch(e){} syncDatasetToCloud('ventasweb', ventasWeb); }
-function saveVentasWebDetalle(){ try{localStorage.setItem('op_ventasweb_det',JSON.stringify(ventasWebDetalle));}catch(e){} }
+function saveVentasWebDetalle(){ try{localStorage.setItem('op_ventasweb_det',JSON.stringify(ventasWebDetalle));}catch(e){} syncDatasetToCloud('ventasweb_det', ventasWebDetalle); }
 
 // Convierte número serial de Excel a 'YYYY-MM-DD'
 function xlSerialToDate(serial){
