@@ -249,6 +249,8 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
   text-align:center;background:var(--azul-pale);cursor:pointer;transition:all .2s;
 }
 .upload-zone:hover,.upload-zone.drag{border-color:var(--azul-claro);background:#E5EEF8;}
+.vdrop-label{transition:outline .1s,opacity .1s;}
+.vdrop-label.drag-over{outline:2px dashed currentColor;opacity:.75;}
 .upload-icon{font-size:40px;margin-bottom:12px;}
 .upload-title{font-size:15px;font-weight:600;color:var(--azul);margin-bottom:6px;}
 .upload-sub{font-size:12px;color:var(--texto2);}
@@ -468,6 +470,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
       <div class="sidebar-user" id="sidebarUser"></div>
       <div id="storageStatus" style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:2px;"></div>
       <div id="syncStatus" style="font-size:10px;margin-bottom:3px;"></div>
+      <button onclick="forzarSyncCompleto(this)" style="width:100%;margin-bottom:5px;padding:5px 8px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:rgba(255,255,255,0.7);font-size:10px;font-weight:600;cursor:pointer;text-align:left;">☁️ Forzar subida de datos</button>
       <div style="font-size:10px;margin-bottom:4px;">Los Cristianos · Playa Américas</div>
       <button id="installBtn" onclick="installApp()" style="display:none;background:var(--acento);color:#0d3d0d;border:none;border-radius:6px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;width:100%;margin-bottom:6px;align-items:center;justify-content:center;gap:6px;">📲 Instalar App</button>
       <button class="btn-logout" onclick="doLogout()">Cerrar sesión</button>
@@ -676,8 +679,8 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               </div>
               <button onclick="limpiarFiltrosProv()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
               <button onclick="showProvModal()" style="padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">+ Añadir</button>
-              <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="provExcelInput" style="display:none" onchange="importProveedoresExcel(this)"></label>
-              <label style="padding:7px 14px;background:#e8f0fe;color:#1a3c8f;border:1px solid #1a3c8f;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📄 PDF<input type="file" accept=".pdf" id="provPdfInput" style="display:none" onchange="importProveedoresPDF(this)"></label>
+              <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importProveedoresExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="provExcelInput" style="display:none" onchange="importProveedoresExcel(this)"></label>
+              <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importProveedoresPDF')" style="padding:7px 14px;background:#e8f0fe;color:#1a3c8f;border:1px solid #1a3c8f;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📄 PDF<input type="file" accept=".pdf" id="provPdfInput" style="display:none" onchange="importProveedoresPDF(this)"></label>
             </div>
           </div>
           <div class="card" id="provTabla" style="padding:0;overflow:hidden;"></div>
@@ -752,7 +755,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                     <option value="todas">Todas</option>
                   </select>
                 </div>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventExcelInput" style="display:none" onchange="importVentasCajaExcel(this)"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importVentasCajaExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventExcelInput" style="display:none" onchange="importVentasCajaExcel(this)"></label>
               </div>
             </div>
             <div class="chart-row-2" style="margin-bottom:16px;">
@@ -822,8 +825,8 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                     <option value="sinIgic">Sin IGIC</option>
                   </select>
                 </div>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel Con IGIC<input type="file" accept=".xlsx,.xls" id="ventAnualConInput" style="display:none" onchange="importVentasAnualExcel(this,'conIgic')"></label>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel Sin IGIC<input type="file" accept=".xlsx,.xls" id="ventAnualSinInput" style="display:none" onchange="importVentasAnualExcel(this,'sinIgic')"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,importVentasAnualExcel,'conIgic')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel Con IGIC<input type="file" accept=".xlsx,.xls" id="ventAnualConInput" style="display:none" onchange="importVentasAnualExcel(this,'conIgic')"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,importVentasAnualExcel,'sinIgic')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel Sin IGIC<input type="file" accept=".xlsx,.xls" id="ventAnualSinInput" style="display:none" onchange="importVentasAnualExcel(this,'sinIgic')"></label>
               </div>
             </div>
             <div id="ventAnualKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
@@ -845,7 +848,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                   </select>
                 </div>
                 <button id="ventVendInformeBtn" onclick="imprimirInformeVendedor()" style="display:none;padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🖨️ Informe individual</button>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventVendExcelInput" style="display:none" onchange="importVentasVendedoresExcel(this)"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importVentasVendedoresExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventVendExcelInput" style="display:none" onchange="importVentasVendedoresExcel(this)"></label>
               </div>
             </div>
             <div id="ventVendKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
@@ -874,7 +877,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                     <option value="">— Ranking general —</option>
                   </select>
                 </div>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventTiendaExcelInput" style="display:none" onchange="importVentasTiendasExcel(this)"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importVentasTiendasExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventTiendaExcelInput" style="display:none" onchange="importVentasTiendasExcel(this)"></label>
               </div>
               <div style="font-size:11px;color:var(--texto2);margin-top:8px;">⚠️ Los terminales 41, 43, 60 y 68 no se contabilizan en los totales (uso interno).</div>
             </div>
@@ -908,7 +911,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                     <option value="todos">Todos</option>
                   </select>
                 </div>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventClienteExcelInput" style="display:none" onchange="importVentasClientesExcel(this)"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importVentasClientesExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventClienteExcelInput" style="display:none" onchange="importVentasClientesExcel(this)"></label>
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button id="btnCliVistaNormal" onclick="setCliVista('normal')" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--azul);background:var(--azul);color:#fff;">👥 Listado</button>
@@ -944,7 +947,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                 </div>
                 <div>
                   <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Mes</div>
-                  <select id="ventWebMesFiltro" onchange="renderVentasWeb()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                  <select id="ventWebMesFiltro" onchange="ventWebMesCambio()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
                     <option value="todos">Todos</option>
                     <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
                     <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
@@ -952,8 +955,14 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                     <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
                   </select>
                 </div>
+                <div id="ventWebDiaWrap" style="display:none;">
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Día</div>
+                  <select id="ventWebDiaFiltro" onchange="renderVentasWeb()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
                 <button onclick="limpiarFiltrosVentasWeb()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;align-self:flex-end;">✕ Limpiar</button>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;align-self:flex-end;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventWebExcelInput" style="display:none" onchange="importVentasWebExcel(this)"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importVentasWebExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;align-self:flex-end;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventWebExcelInput" style="display:none" onchange="importVentasWebExcel(this)"></label>
               </div>
             </div>
             <div id="ventWebKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
@@ -971,6 +980,10 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             </div>
             <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">📊 Resumen Anual por Mes</div>
             <div class="card" id="ventWebTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
+            <div id="ventWebDetalleWrap" style="display:none;margin-bottom:16px;">
+              <div id="ventWebDetalleTtl" style="font-weight:700;color:var(--azul);margin-bottom:8px;"></div>
+              <div class="card" id="ventWebDetalleTabla" style="padding:0;overflow:hidden;"></div>
+            </div>
           </div>
 
           <!-- FAMILIAS EN VENTAS -->
@@ -995,7 +1008,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                   </select>
                 </div>
                 <button onclick="limpiarFiltrosFamPfx('vtfam')" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="vtfamExcelInput" style="display:none" onchange="importFamiliasExcelPfx(this,'vtfam')"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,importFamiliasExcelPfx,'vtfam')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="vtfamExcelInput" style="display:none" onchange="importFamiliasExcelPfx(this,'vtfam')"></label>
               </div>
             </div>
             <div class="chart-row-2" style="margin-bottom:16px;">
@@ -1052,7 +1065,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                 </div>
                 <button onclick="limpiarFiltrosComp()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
                 <button onclick="showCompModal()" style="padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">+ Añadir</button>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="compExcelInput" style="display:none" onchange="importComprasExcel(this)"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importComprasExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="compExcelInput" style="display:none" onchange="importComprasExcel(this)"></label>
               </div>
             </div>
             <div class="chart-card" style="margin-bottom:16px;">
@@ -1066,7 +1079,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
           <div class="subtab-panel" id="ct-anual">
             <div class="card" style="margin-bottom:16px;padding:16px;">
               <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="compAnualExcelInput" style="display:none" onchange="importComprasAnualExcel(this)"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importComprasAnualExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="compAnualExcelInput" style="display:none" onchange="importComprasAnualExcel(this)"></label>
               </div>
             </div>
             <div id="compAnualKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
@@ -1273,6 +1286,7 @@ try{ _importStamps=JSON.parse(localStorage.getItem('op_importstamps')||'{}'); }c
 function stampImport(key){
   _importStamps[key]=new Date().toISOString();
   try{ localStorage.setItem('op_importstamps',JSON.stringify(_importStamps)); }catch(e){}
+  syncDatasetToCloud('importstamps', _importStamps);
 }
 
 let cajaCierres = [];
@@ -1485,6 +1499,13 @@ async function syncDatasetToCloud(key, payload){
   }
 }
 
+// Merge de arrays de PDFs sin duplicados por filename
+function mergePorFilename(local, cloud){
+  const map={};
+  [...(cloud||[]), ...(local||[])].forEach(r=>{ if(r&&r.filename) map[r.filename]=r; });
+  return Object.values(map);
+}
+
 function applyCloudDataset(key, payload){
   if(payload==null) return;
   if(key==='proveedores'){
@@ -1531,6 +1552,20 @@ function applyCloudDataset(key, payload){
     cajaEfectivo = payload;
     try{ localStorage.setItem('op_cajaefectivo', JSON.stringify(cajaEfectivo)); }catch(e){}
     renderCajaEfectivo();
+  } else if(key==='cajacierres'){
+    cajaCierres = mergePorFilename(cajaCierres, payload).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+    try{ localStorage.setItem('op_cajacierres', JSON.stringify(cajaCierres)); }catch(e){}
+    if(document.getElementById('cajaHistorico')) renderCajaHistorico();
+  } else if(key==='cajabancorecibos'){
+    cajaBancoRecibos = mergePorFilename(cajaBancoRecibos, payload).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+    try{ localStorage.setItem('op_cajabancorecibos', JSON.stringify(cajaBancoRecibos)); }catch(e){}
+  } else if(key==='ventasweb_det'){
+    ventasWebDetalle = payload;
+    try{ localStorage.setItem('op_ventasweb_det', JSON.stringify(ventasWebDetalle)); }catch(e){}
+  } else if(key==='importstamps'){
+    const cloud = payload || {};
+    Object.entries(cloud).forEach(([k,v])=>{ if(!_importStamps[k]||v>_importStamps[k]) _importStamps[k]=v; });
+    try{ localStorage.setItem('op_importstamps', JSON.stringify(_importStamps)); }catch(e){}
   }
 }
 
@@ -1566,6 +1601,12 @@ async function loadAllSharedDatasets(){
     if(!existing.comprasanual && comprasAnual.length) syncDatasetToCloud('comprasanual', comprasAnual);
     if(!existing.ventasweb && ventasWeb.length) syncDatasetToCloud('ventasweb', ventasWeb);
     if(!existing.cajaefectivo && cajaEfectivo.length) syncDatasetToCloud('cajaefectivo', cajaEfectivo);
+    // Datasets que antes no se sincronizaban — rescate inicial
+    // applyCloudDataset ya hizo el merge de cloud+local; ahora subimos el resultado combinado
+    if(cajaCierres.length) syncDatasetToCloud('cajacierres', cajaCierres);
+    if(cajaBancoRecibos.length) syncDatasetToCloud('cajabancorecibos', cajaBancoRecibos);
+    if(!existing.ventasweb_det && ventasWebDetalle.length) syncDatasetToCloud('ventasweb_det', ventasWebDetalle);
+    if(!existing.importstamps && Object.keys(_importStamps).length) syncDatasetToCloud('importstamps', _importStamps);
   } catch(e){ console.warn('Error cargando datasets compartidos:', e); }
 }
 
@@ -1599,6 +1640,39 @@ function startSharedDatasetsPolling(){
 
 function stopSharedDatasetsPolling(){
   if(_sharedSyncInterval){ clearInterval(_sharedSyncInterval); _sharedSyncInterval=null; }
+}
+
+async function forzarSyncCompleto(btn){
+  if(!supaReady){ showToast('⚠️ Sin conexión a la nube — comprueba el estado de Supabase','err'); return; }
+  const orig = btn.textContent;
+  btn.textContent = '⏳ Subiendo...';
+  btn.disabled = true;
+  try{
+    const ops = [
+      syncDatasetToCloud('cajacierres', cajaCierres),
+      syncDatasetToCloud('cajabancorecibos', cajaBancoRecibos),
+      syncDatasetToCloud('importstamps', _importStamps),
+    ];
+    if(proveedores.length)      ops.push(syncDatasetToCloud('proveedores', proveedores));
+    if(compras.length)          ops.push(syncDatasetToCloud('compras', compras));
+    if(familias.length)         ops.push(syncDatasetToCloud('familias', familias));
+    if((ventasCaja.porDia||[]).length) ops.push(syncDatasetToCloud('ventascaja', ventasCaja));
+    if((ventasAnual.conIgic||[]).length||(ventasAnual.sinIgic||[]).length) ops.push(syncDatasetToCloud('ventasanual', ventasAnual));
+    if(ventasVendedores.length) ops.push(syncDatasetToCloud('ventasvendedores', ventasVendedores));
+    if(ventasTiendas.length)    ops.push(syncDatasetToCloud('ventastiendas', ventasTiendas));
+    if(ventasClientes.length)   ops.push(syncDatasetToCloud('ventasclientes', ventasClientes));
+    if(comprasAnual.length)     ops.push(syncDatasetToCloud('comprasanual', comprasAnual));
+    if(ventasWeb.length)        ops.push(syncDatasetToCloud('ventasweb', ventasWeb));
+    if(ventasWebDetalle.length) ops.push(syncDatasetToCloud('ventasweb_det', ventasWebDetalle));
+    if(cajaEfectivo.length)     ops.push(syncDatasetToCloud('cajaefectivo', cajaEfectivo));
+    await Promise.all(ops);
+    showToast('✅ Datos subidos a la nube correctamente','ok');
+  } catch(e){
+    showToast('⚠️ Error durante la subida: '+e.message,'err');
+  } finally{
+    btn.textContent = orig;
+    btn.disabled = false;
+  }
 }
 
 function updateSyncStatus(){
@@ -3423,8 +3497,8 @@ function importProveedoresPDF(input){
 // ═══════════════════════════════════════════════════════
 // CAJA — Conciliación de Cierres y Banco
 // ═══════════════════════════════════════════════════════
-function saveCajaCierres(){ try{localStorage.setItem('op_cajacierres',JSON.stringify(cajaCierres));}catch(e){} }
-function saveCajaBanco(){ try{localStorage.setItem('op_cajabancorecibos',JSON.stringify(cajaBancoRecibos));}catch(e){} }
+function saveCajaCierres(){ try{localStorage.setItem('op_cajacierres',JSON.stringify(cajaCierres));}catch(e){} syncDatasetToCloud('cajacierres', cajaCierres); }
+function saveCajaBanco(){ try{localStorage.setItem('op_cajabancorecibos',JSON.stringify(cajaBancoRecibos));}catch(e){} syncDatasetToCloud('cajabancorecibos', cajaBancoRecibos); }
 function saveCajaEfectivo(){ try{localStorage.setItem('op_cajaefectivo',JSON.stringify(cajaEfectivo));}catch(e){} syncDatasetToCloud('cajaefectivo', cajaEfectivo); }
 function saveCajaDetalles(){ try{localStorage.setItem('op_cajadetalles',JSON.stringify(cajaDetalles));}catch(e){} }
 
@@ -3948,7 +4022,18 @@ function deleteCierre(filename){
 let ventasWeb = [];
 try{ const vw=JSON.parse(localStorage.getItem('op_ventasweb')||'null'); if(vw) ventasWeb=vw; }catch(e){}
 
+let ventasWebDetalle = [];
+try{ const vwd=JSON.parse(localStorage.getItem('op_ventasweb_det')||'null'); if(vwd) ventasWebDetalle=vwd; }catch(e){}
+
 function saveVentasWeb(){ try{localStorage.setItem('op_ventasweb',JSON.stringify(ventasWeb));}catch(e){} syncDatasetToCloud('ventasweb', ventasWeb); }
+function saveVentasWebDetalle(){ try{localStorage.setItem('op_ventasweb_det',JSON.stringify(ventasWebDetalle));}catch(e){} syncDatasetToCloud('ventasweb_det', ventasWebDetalle); }
+
+// Convierte número serial de Excel a 'YYYY-MM-DD'
+function xlSerialToDate(serial){
+  const ms=(serial-25569)*86400*1000;
+  const d=new Date(ms);
+  return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+}
 
 function importVentasWebExcel(input){
   const file=input.files[0]; if(!file) return;
@@ -3959,25 +4044,73 @@ function importVentasWebExcel(input){
       const wb=XLSX.read(e.target.result,{type:'array'});
       const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
       const meses={};
+      const detalle=[];
       data.forEach(row=>{
+        // Fila de total mensual (patrón "Total ventas web mes-año" o "TOTAL MM/YYYY")
+        const col4=String(row[4]||'');
         const col0=String(row[0]||'');
-        const tm=col0.match(/TOTAL\s+(\d{2})\/(\d{4})/);
-        if(tm){
-          const mes=parseInt(tm[1]),anio=parseInt(tm[2]);
+        const tmOld=col0.match(/TOTAL\s+(\d{2})\/(\d{4})/);
+        const tmNew=col4.match(/Total ventas web\s+(\w+)[- ](\d{2,4})/i);
+        if(tmOld){
+          const mes=parseInt(tmOld[1]),anio=parseInt(tmOld[2]);
           const total=parseFloat(row[6])||0;
           const key=`${anio}-${String(mes).padStart(2,'0')}`;
           meses[key]={anio,mes,total};
+        } else if(tmNew){
+          // ignorar, los totales los calculamos de los datos de detalle también
+        } else {
+          // Fila de detalle: col2=fecha serial, col4=nombre, col6=total
+          const serial=parseFloat(row[2]);
+          const nombre=String(row[4]||'').trim();
+          const total=parseFloat(row[6]);
+          if(serial>40000 && nombre && !isNaN(total) && total>0){
+            const fecha=xlSerialToDate(serial);
+            const [ay,am,ad]=fecha.split('-').map(Number);
+            detalle.push({fecha,anio:ay,mes:am,dia:ad,nombre,total});
+          }
         }
       });
+      // Si no había filas TOTAL MM/YYYY, reconstruir totales desde detalle
+      if(!Object.keys(meses).length && detalle.length){
+        detalle.forEach(r=>{
+          const key=`${r.anio}-${String(r.mes).padStart(2,'0')}`;
+          if(!meses[key]) meses[key]={anio:r.anio,mes:r.mes,total:0};
+          meses[key].total+=r.total;
+        });
+      }
       ventasWeb=Object.values(meses).sort((a,b)=>a.anio-b.anio||a.mes-b.mes);
-      if(!ventasWeb.length){ alert('No se encontraron totales mensuales en el Excel.'); input.value=''; return; }
-      saveVentasWeb(); renderVentasWeb();
+      ventasWebDetalle=detalle;
+      if(!ventasWeb.length){ alert('No se encontraron datos en el Excel.'); input.value=''; return; }
+      saveVentasWeb(); saveVentasWebDetalle(); renderVentasWeb();
       stampImport('ventasWeb');
-      alert(ventasWeb.length+' meses importados.');
+      alert(ventasWeb.length+' meses importados'+(detalle.length?' con '+detalle.length+' pedidos de detalle.':'.'));
     }catch(err){ alert('Error: '+err.message); }
     input.value='';
   };
   reader.readAsArrayBuffer(file);
+}
+
+function ventWebMesCambio(){
+  const mes=document.getElementById('ventWebMesFiltro')?.value||'todos';
+  const diaWrap=document.getElementById('ventWebDiaWrap');
+  const diaEl=document.getElementById('ventWebDiaFiltro');
+  if(mes==='todos'||!ventasWebDetalle.length){
+    if(diaWrap) diaWrap.style.display='none';
+    if(diaEl) diaEl.value='todos';
+  } else {
+    const anio=document.getElementById('ventWebAnioFiltro')?.value||'todos';
+    const dias=[...new Set(
+      ventasWebDetalle
+        .filter(r=>r.mes===parseInt(mes)&&(anio==='todos'||r.anio===parseInt(anio)))
+        .map(r=>r.dia)
+    )].sort((a,b)=>a-b);
+    if(diaEl){
+      diaEl.innerHTML='<option value="todos">Todos los días</option>'+dias.map(d=>`<option value="${d}">${String(d).padStart(2,'0')}</option>`).join('');
+      diaEl.value='todos';
+    }
+    if(diaWrap) diaWrap.style.display=dias.length?'':'none';
+  }
+  renderVentasWeb();
 }
 
 function renderVentasWeb(){
@@ -4069,6 +4202,62 @@ function renderVentasWeb(){
       ${aniosFilt.map(a=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;">${fmt(totAnioFilt[a])}</td>`).join('')}
     </tr></tfoot>
   </table></div>`;
+
+  // --- Tabla de detalle (día o resumen de días del mes) ---
+  const detalleWrap=document.getElementById('ventWebDetalleWrap');
+  const detalleTtl=document.getElementById('ventWebDetalleTtl');
+  const detalleTabla=document.getElementById('ventWebDetalleTabla');
+  if(!detalleWrap||!detalleTtl||!detalleTabla||!ventasWebDetalle.length||selMes==='todos'){
+    if(detalleWrap) detalleWrap.style.display='none';
+    return;
+  }
+  const selDia=document.getElementById('ventWebDiaFiltro')?.value||'todos';
+  let detFiltrado=ventasWebDetalle.filter(r=>
+    (selAnio==='todos'||r.anio===parseInt(selAnio)) &&
+    r.mes===parseInt(selMes) &&
+    (selDia==='todos'||r.dia===parseInt(selDia))
+  );
+  if(!detFiltrado.length){ detalleWrap.style.display='none'; return; }
+
+  if(selDia!=='todos'){
+    // Vista de pedidos individuales del día
+    detalleTtl.textContent=`🛒 Pedidos del ${String(parseInt(selDia)).padStart(2,'0')}/${String(parseInt(selMes)).padStart(2,'0')} (${detFiltrado.length} pedidos)`;
+    const totalDia=detFiltrado.reduce((s,r)=>s+r.total,0);
+    detalleTabla.innerHTML=`<div style="overflow-x:auto;"><table class="tabla">
+      <thead><tr><th>#</th><th>Cliente</th><th style="text-align:right;">Importe</th></tr></thead>
+      <tbody>
+        ${detFiltrado.map((r,i)=>`<tr><td style="color:var(--texto2);font-size:12px;">${i+1}</td><td>${r.nombre}</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(r.total)}</td></tr>`).join('')}
+      </tbody>
+      <tfoot><tr style="font-weight:700;background:var(--fondo,#f8f9fa);"><td colspan="2">TOTAL DÍA</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(totalDia)}</td></tr></tfoot>
+    </table></div>`;
+  } else {
+    // Vista de totales por día del mes
+    const porDia={};
+    detFiltrado.forEach(r=>{
+      if(!porDia[r.dia]) porDia[r.dia]={dia:r.dia,pedidos:0,total:0};
+      porDia[r.dia].pedidos++;
+      porDia[r.dia].total+=r.total;
+    });
+    const dias=Object.values(porDia).sort((a,b)=>a.dia-b.dia);
+    const totalMes=dias.reduce((s,d)=>s+d.total,0);
+    const mesNom=MESES[parseInt(selMes)-1];
+    detalleTtl.textContent=`📅 Resumen por día — ${mesNom}${selAnio!=='todos'?' '+selAnio:''} (${detFiltrado.length} pedidos)`;
+    detalleTabla.innerHTML=`<div style="overflow-x:auto;"><table class="tabla">
+      <thead><tr><th>Día</th><th style="text-align:right;">Pedidos</th><th style="text-align:right;">Total</th></tr></thead>
+      <tbody>
+        ${dias.map(d=>`<tr>
+          <td style="font-weight:600;cursor:pointer;color:var(--azul);" onclick="ventWebIrDia(${d.dia})">${String(d.dia).padStart(2,'0')}</td>
+          <td style="text-align:right;">${d.pedidos}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(d.total)}</td>
+        </tr>`).join('')}
+      </tbody>
+      <tfoot><tr style="font-weight:700;background:var(--fondo,#f8f9fa);">
+        <td>TOTAL</td><td style="text-align:right;">${detFiltrado.length}</td>
+        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(totalMes)}</td>
+      </tr></tfoot>
+    </table></div>`;
+  }
+  detalleWrap.style.display='';
 }
 
 // ═══════════════════════════════════════════════════════
@@ -6149,11 +6338,32 @@ function limpiarFiltrosConcil(){
 // ═══════════════════════════════════════════════════════
 // LIMPIAR FILTROS — VENTAS WEB
 // ═══════════════════════════════════════════════════════
+function ventWebIrDia(dia){
+  const diaEl=document.getElementById('ventWebDiaFiltro');
+  if(diaEl) diaEl.value=String(dia);
+  renderVentasWeb();
+}
+
+// Drag-and-drop genérico para los botones de subida compactos (label.vdrop-label)
+function vDropFile(e, fnName, extraArg){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const files = e.dataTransfer.files;
+  if(!files || !files.length) return;
+  const fakeInput = { files, value:'' };
+  if(extraArg !== undefined) window[fnName](fakeInput, extraArg);
+  else window[fnName](fakeInput);
+}
+
 function limpiarFiltrosVentasWeb(){
   const a=document.getElementById('ventWebAnioFiltro');
   const m=document.getElementById('ventWebMesFiltro');
+  const d=document.getElementById('ventWebDiaFiltro');
+  const dw=document.getElementById('ventWebDiaWrap');
   if(a) a.value='todos';
   if(m) m.value='todos';
+  if(d) d.value='todos';
+  if(dw) dw.style.display='none';
   renderVentasWeb();
 }
 
