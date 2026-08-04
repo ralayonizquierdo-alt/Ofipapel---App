@@ -249,6 +249,8 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
   text-align:center;background:var(--azul-pale);cursor:pointer;transition:all .2s;
 }
 .upload-zone:hover,.upload-zone.drag{border-color:var(--azul-claro);background:#E5EEF8;}
+.vdrop-label{transition:outline .1s,opacity .1s;}
+.vdrop-label.drag-over{outline:2px dashed currentColor;opacity:.75;}
 .upload-icon{font-size:40px;margin-bottom:12px;}
 .upload-title{font-size:15px;font-weight:600;color:var(--azul);margin-bottom:6px;}
 .upload-sub{font-size:12px;color:var(--texto2);}
@@ -676,8 +678,8 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               </div>
               <button onclick="limpiarFiltrosProv()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
               <button onclick="showProvModal()" style="padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">+ Añadir</button>
-              <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="provExcelInput" style="display:none" onchange="importProveedoresExcel(this)"></label>
-              <label style="padding:7px 14px;background:#e8f0fe;color:#1a3c8f;border:1px solid #1a3c8f;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📄 PDF<input type="file" accept=".pdf" id="provPdfInput" style="display:none" onchange="importProveedoresPDF(this)"></label>
+              <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importProveedoresExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="provExcelInput" style="display:none" onchange="importProveedoresExcel(this)"></label>
+              <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importProveedoresPDF')" style="padding:7px 14px;background:#e8f0fe;color:#1a3c8f;border:1px solid #1a3c8f;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📄 PDF<input type="file" accept=".pdf" id="provPdfInput" style="display:none" onchange="importProveedoresPDF(this)"></label>
             </div>
           </div>
           <div class="card" id="provTabla" style="padding:0;overflow:hidden;"></div>
@@ -752,7 +754,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                     <option value="todas">Todas</option>
                   </select>
                 </div>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventExcelInput" style="display:none" onchange="importVentasCajaExcel(this)"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importVentasCajaExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventExcelInput" style="display:none" onchange="importVentasCajaExcel(this)"></label>
               </div>
             </div>
             <div class="chart-row-2" style="margin-bottom:16px;">
@@ -822,8 +824,8 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                     <option value="sinIgic">Sin IGIC</option>
                   </select>
                 </div>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel Con IGIC<input type="file" accept=".xlsx,.xls" id="ventAnualConInput" style="display:none" onchange="importVentasAnualExcel(this,'conIgic')"></label>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel Sin IGIC<input type="file" accept=".xlsx,.xls" id="ventAnualSinInput" style="display:none" onchange="importVentasAnualExcel(this,'sinIgic')"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,importVentasAnualExcel,'conIgic')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel Con IGIC<input type="file" accept=".xlsx,.xls" id="ventAnualConInput" style="display:none" onchange="importVentasAnualExcel(this,'conIgic')"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,importVentasAnualExcel,'sinIgic')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel Sin IGIC<input type="file" accept=".xlsx,.xls" id="ventAnualSinInput" style="display:none" onchange="importVentasAnualExcel(this,'sinIgic')"></label>
               </div>
             </div>
             <div id="ventAnualKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
@@ -845,7 +847,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                   </select>
                 </div>
                 <button id="ventVendInformeBtn" onclick="imprimirInformeVendedor()" style="display:none;padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🖨️ Informe individual</button>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventVendExcelInput" style="display:none" onchange="importVentasVendedoresExcel(this)"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importVentasVendedoresExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventVendExcelInput" style="display:none" onchange="importVentasVendedoresExcel(this)"></label>
               </div>
             </div>
             <div id="ventVendKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
@@ -874,7 +876,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                     <option value="">— Ranking general —</option>
                   </select>
                 </div>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventTiendaExcelInput" style="display:none" onchange="importVentasTiendasExcel(this)"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importVentasTiendasExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventTiendaExcelInput" style="display:none" onchange="importVentasTiendasExcel(this)"></label>
               </div>
               <div style="font-size:11px;color:var(--texto2);margin-top:8px;">⚠️ Los terminales 41, 43, 60 y 68 no se contabilizan en los totales (uso interno).</div>
             </div>
@@ -908,7 +910,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                     <option value="todos">Todos</option>
                   </select>
                 </div>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventClienteExcelInput" style="display:none" onchange="importVentasClientesExcel(this)"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importVentasClientesExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventClienteExcelInput" style="display:none" onchange="importVentasClientesExcel(this)"></label>
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button id="btnCliVistaNormal" onclick="setCliVista('normal')" style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--azul);background:var(--azul);color:#fff;">👥 Listado</button>
@@ -959,7 +961,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                   </select>
                 </div>
                 <button onclick="limpiarFiltrosVentasWeb()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;align-self:flex-end;">✕ Limpiar</button>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;align-self:flex-end;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventWebExcelInput" style="display:none" onchange="importVentasWebExcel(this)"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importVentasWebExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;align-self:flex-end;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventWebExcelInput" style="display:none" onchange="importVentasWebExcel(this)"></label>
               </div>
             </div>
             <div id="ventWebKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
@@ -1005,7 +1007,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                   </select>
                 </div>
                 <button onclick="limpiarFiltrosFamPfx('vtfam')" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="vtfamExcelInput" style="display:none" onchange="importFamiliasExcelPfx(this,'vtfam')"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,importFamiliasExcelPfx,'vtfam')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="vtfamExcelInput" style="display:none" onchange="importFamiliasExcelPfx(this,'vtfam')"></label>
               </div>
             </div>
             <div class="chart-row-2" style="margin-bottom:16px;">
@@ -1062,7 +1064,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                 </div>
                 <button onclick="limpiarFiltrosComp()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
                 <button onclick="showCompModal()" style="padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">+ Añadir</button>
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="compExcelInput" style="display:none" onchange="importComprasExcel(this)"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importComprasExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="compExcelInput" style="display:none" onchange="importComprasExcel(this)"></label>
               </div>
             </div>
             <div class="chart-card" style="margin-bottom:16px;">
@@ -1076,7 +1078,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
           <div class="subtab-panel" id="ct-anual">
             <div class="card" style="margin-bottom:16px;padding:16px;">
               <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
-                <label style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="compAnualExcelInput" style="display:none" onchange="importComprasAnualExcel(this)"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importComprasAnualExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="compAnualExcelInput" style="display:none" onchange="importComprasAnualExcel(this)"></label>
               </div>
             </div>
             <div id="compAnualKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
@@ -6278,6 +6280,17 @@ function ventWebIrDia(dia){
   const diaEl=document.getElementById('ventWebDiaFiltro');
   if(diaEl) diaEl.value=String(dia);
   renderVentasWeb();
+}
+
+// Drag-and-drop genérico para los botones de subida compactos (label.vdrop-label)
+function vDropFile(e, fnName, extraArg){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const files = e.dataTransfer.files;
+  if(!files || !files.length) return;
+  const fakeInput = { files, value:'' };
+  if(extraArg !== undefined) window[fnName](fakeInput, extraArg);
+  else window[fnName](fakeInput);
 }
 
 function limpiarFiltrosVentasWeb(){
