@@ -825,8 +825,8 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                     <option value="sinIgic">Sin IGIC</option>
                   </select>
                 </div>
-                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,importVentasAnualExcel,'conIgic')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel Con IGIC<input type="file" accept=".xlsx,.xls" id="ventAnualConInput" style="display:none" onchange="importVentasAnualExcel(this,'conIgic')"></label>
-                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,importVentasAnualExcel,'sinIgic')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel Sin IGIC<input type="file" accept=".xlsx,.xls" id="ventAnualSinInput" style="display:none" onchange="importVentasAnualExcel(this,'sinIgic')"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importVentasAnualExcel','conIgic')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel Con IGIC<input type="file" accept=".xlsx,.xls" id="ventAnualConInput" style="display:none" onchange="importVentasAnualExcel(this,'conIgic')"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importVentasAnualExcel','sinIgic')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel Sin IGIC<input type="file" accept=".xlsx,.xls" id="ventAnualSinInput" style="display:none" onchange="importVentasAnualExcel(this,'sinIgic')"></label>
               </div>
             </div>
             <div id="ventAnualKpis" class="kpi-grid" style="margin-bottom:16px;"></div>
@@ -1008,7 +1008,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                   </select>
                 </div>
                 <button onclick="limpiarFiltrosFamPfx('vtfam')" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">✕ Limpiar</button>
-                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,importFamiliasExcelPfx,'vtfam')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="vtfamExcelInput" style="display:none" onchange="importFamiliasExcelPfx(this,'vtfam')"></label>
+                <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importFamiliasExcelPfx','vtfam')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="vtfamExcelInput" style="display:none" onchange="importFamiliasExcelPfx(this,'vtfam')"></label>
               </div>
             </div>
             <div class="chart-row-2" style="margin-bottom:16px;">
