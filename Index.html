@@ -470,6 +470,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
       <div class="sidebar-user" id="sidebarUser"></div>
       <div id="storageStatus" style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:2px;"></div>
       <div id="syncStatus" style="font-size:10px;margin-bottom:3px;"></div>
+      <button onclick="forzarSyncCompleto(this)" style="width:100%;margin-bottom:5px;padding:5px 8px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:rgba(255,255,255,0.7);font-size:10px;font-weight:600;cursor:pointer;text-align:left;">☁️ Forzar subida de datos</button>
       <div style="font-size:10px;margin-bottom:4px;">Los Cristianos · Playa Américas</div>
       <button id="installBtn" onclick="installApp()" style="display:none;background:var(--acento);color:#0d3d0d;border:none;border-radius:6px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;width:100%;margin-bottom:6px;align-items:center;justify-content:center;gap:6px;">📲 Instalar App</button>
       <button class="btn-logout" onclick="doLogout()">Cerrar sesión</button>
@@ -1639,6 +1640,39 @@ function startSharedDatasetsPolling(){
 
 function stopSharedDatasetsPolling(){
   if(_sharedSyncInterval){ clearInterval(_sharedSyncInterval); _sharedSyncInterval=null; }
+}
+
+async function forzarSyncCompleto(btn){
+  if(!supaReady){ showToast('⚠️ Sin conexión a la nube — comprueba el estado de Supabase','err'); return; }
+  const orig = btn.textContent;
+  btn.textContent = '⏳ Subiendo...';
+  btn.disabled = true;
+  try{
+    const ops = [
+      syncDatasetToCloud('cajacierres', cajaCierres),
+      syncDatasetToCloud('cajabancorecibos', cajaBancoRecibos),
+      syncDatasetToCloud('importstamps', _importStamps),
+    ];
+    if(proveedores.length)      ops.push(syncDatasetToCloud('proveedores', proveedores));
+    if(compras.length)          ops.push(syncDatasetToCloud('compras', compras));
+    if(familias.length)         ops.push(syncDatasetToCloud('familias', familias));
+    if((ventasCaja.porDia||[]).length) ops.push(syncDatasetToCloud('ventascaja', ventasCaja));
+    if((ventasAnual.conIgic||[]).length||(ventasAnual.sinIgic||[]).length) ops.push(syncDatasetToCloud('ventasanual', ventasAnual));
+    if(ventasVendedores.length) ops.push(syncDatasetToCloud('ventasvendedores', ventasVendedores));
+    if(ventasTiendas.length)    ops.push(syncDatasetToCloud('ventastiendas', ventasTiendas));
+    if(ventasClientes.length)   ops.push(syncDatasetToCloud('ventasclientes', ventasClientes));
+    if(comprasAnual.length)     ops.push(syncDatasetToCloud('comprasanual', comprasAnual));
+    if(ventasWeb.length)        ops.push(syncDatasetToCloud('ventasweb', ventasWeb));
+    if(ventasWebDetalle.length) ops.push(syncDatasetToCloud('ventasweb_det', ventasWebDetalle));
+    if(cajaEfectivo.length)     ops.push(syncDatasetToCloud('cajaefectivo', cajaEfectivo));
+    await Promise.all(ops);
+    showToast('✅ Datos subidos a la nube correctamente','ok');
+  } catch(e){
+    showToast('⚠️ Error durante la subida: '+e.message,'err');
+  } finally{
+    btn.textContent = orig;
+    btn.disabled = false;
+  }
 }
 
 function updateSyncStatus(){
