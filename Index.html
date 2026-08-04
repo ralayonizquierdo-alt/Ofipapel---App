@@ -5784,13 +5784,11 @@ function forceSWUpdate(){
 }
 
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{
-    window.location.reload(true);
-  });
-  navigator.serviceWorker.addEventListener('message', e=>{
-    if(e.data && e.data.type==='SW_RELOAD') window.location.reload(true);
-  });
-  navigator.serviceWorker.register('/sw.js')
+  // Sin recarga automática en controllerchange/mensaje: el HTML ya se sirve
+  // siempre fresco desde la red (sw.js es network-first para documentos), así
+  // que forzar un reload aquí solo arriesgaba interrumpir una navegación en
+  // curso (p.ej. justo al pulsar un enlace) sin ninguna ganancia real.
+  navigator.serviceWorker.register('sw.js')
     .then(reg=>{ reg.update(); })
     .catch(()=>{});
 }
