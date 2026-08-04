@@ -944,12 +944,18 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                 </div>
                 <div>
                   <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Mes</div>
-                  <select id="ventWebMesFiltro" onchange="renderVentasWeb()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                  <select id="ventWebMesFiltro" onchange="ventWebMesCambio()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
                     <option value="todos">Todos</option>
                     <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
                     <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
                     <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
                     <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                  </select>
+                </div>
+                <div id="ventWebDiaWrap" style="display:none;">
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Día</div>
+                  <select id="ventWebDiaFiltro" onchange="renderVentasWeb()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
                   </select>
                 </div>
                 <button onclick="limpiarFiltrosVentasWeb()" style="padding:7px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;align-self:flex-end;">✕ Limpiar</button>
@@ -971,6 +977,10 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             </div>
             <div style="font-weight:700;color:var(--azul);margin-bottom:8px;">📊 Resumen Anual por Mes</div>
             <div class="card" id="ventWebTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
+            <div id="ventWebDetalleWrap" style="display:none;margin-bottom:16px;">
+              <div id="ventWebDetalleTtl" style="font-weight:700;color:var(--azul);margin-bottom:8px;"></div>
+              <div class="card" id="ventWebDetalleTabla" style="padding:0;overflow:hidden;"></div>
+            </div>
           </div>
 
           <!-- FAMILIAS EN VENTAS -->
@@ -3948,7 +3958,18 @@ function deleteCierre(filename){
 let ventasWeb = [];
 try{ const vw=JSON.parse(localStorage.getItem('op_ventasweb')||'null'); if(vw) ventasWeb=vw; }catch(e){}
 
+let ventasWebDetalle = [];
+try{ const vwd=JSON.parse(localStorage.getItem('op_ventasweb_det')||'null'); if(vwd) ventasWebDetalle=vwd; }catch(e){}
+
 function saveVentasWeb(){ try{localStorage.setItem('op_ventasweb',JSON.stringify(ventasWeb));}catch(e){} syncDatasetToCloud('ventasweb', ventasWeb); }
+function saveVentasWebDetalle(){ try{localStorage.setItem('op_ventasweb_det',JSON.stringify(ventasWebDetalle));}catch(e){} }
+
+// Convierte número serial de Excel a 'YYYY-MM-DD'
+function xlSerialToDate(serial){
+  const ms=(serial-25569)*86400*1000;
+  const d=new Date(ms);
+  return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+}
 
 function importVentasWebExcel(input){
   const file=input.files[0]; if(!file) return;
@@ -3959,25 +3980,73 @@ function importVentasWebExcel(input){
       const wb=XLSX.read(e.target.result,{type:'array'});
       const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
       const meses={};
+      const detalle=[];
       data.forEach(row=>{
+        // Fila de total mensual (patrón "Total ventas web mes-año" o "TOTAL MM/YYYY")
+        const col4=String(row[4]||'');
         const col0=String(row[0]||'');
-        const tm=col0.match(/TOTAL\s+(\d{2})\/(\d{4})/);
-        if(tm){
-          const mes=parseInt(tm[1]),anio=parseInt(tm[2]);
+        const tmOld=col0.match(/TOTAL\s+(\d{2})\/(\d{4})/);
+        const tmNew=col4.match(/Total ventas web\s+(\w+)[- ](\d{2,4})/i);
+        if(tmOld){
+          const mes=parseInt(tmOld[1]),anio=parseInt(tmOld[2]);
           const total=parseFloat(row[6])||0;
           const key=`${anio}-${String(mes).padStart(2,'0')}`;
           meses[key]={anio,mes,total};
+        } else if(tmNew){
+          // ignorar, los totales los calculamos de los datos de detalle también
+        } else {
+          // Fila de detalle: col2=fecha serial, col4=nombre, col6=total
+          const serial=parseFloat(row[2]);
+          const nombre=String(row[4]||'').trim();
+          const total=parseFloat(row[6]);
+          if(serial>40000 && nombre && !isNaN(total) && total>0){
+            const fecha=xlSerialToDate(serial);
+            const [ay,am,ad]=fecha.split('-').map(Number);
+            detalle.push({fecha,anio:ay,mes:am,dia:ad,nombre,total});
+          }
         }
       });
+      // Si no había filas TOTAL MM/YYYY, reconstruir totales desde detalle
+      if(!Object.keys(meses).length && detalle.length){
+        detalle.forEach(r=>{
+          const key=`${r.anio}-${String(r.mes).padStart(2,'0')}`;
+          if(!meses[key]) meses[key]={anio:r.anio,mes:r.mes,total:0};
+          meses[key].total+=r.total;
+        });
+      }
       ventasWeb=Object.values(meses).sort((a,b)=>a.anio-b.anio||a.mes-b.mes);
-      if(!ventasWeb.length){ alert('No se encontraron totales mensuales en el Excel.'); input.value=''; return; }
-      saveVentasWeb(); renderVentasWeb();
+      ventasWebDetalle=detalle;
+      if(!ventasWeb.length){ alert('No se encontraron datos en el Excel.'); input.value=''; return; }
+      saveVentasWeb(); saveVentasWebDetalle(); renderVentasWeb();
       stampImport('ventasWeb');
-      alert(ventasWeb.length+' meses importados.');
+      alert(ventasWeb.length+' meses importados'+(detalle.length?' con '+detalle.length+' pedidos de detalle.':'.'));
     }catch(err){ alert('Error: '+err.message); }
     input.value='';
   };
   reader.readAsArrayBuffer(file);
+}
+
+function ventWebMesCambio(){
+  const mes=document.getElementById('ventWebMesFiltro')?.value||'todos';
+  const diaWrap=document.getElementById('ventWebDiaWrap');
+  const diaEl=document.getElementById('ventWebDiaFiltro');
+  if(mes==='todos'||!ventasWebDetalle.length){
+    if(diaWrap) diaWrap.style.display='none';
+    if(diaEl) diaEl.value='todos';
+  } else {
+    const anio=document.getElementById('ventWebAnioFiltro')?.value||'todos';
+    const dias=[...new Set(
+      ventasWebDetalle
+        .filter(r=>r.mes===parseInt(mes)&&(anio==='todos'||r.anio===parseInt(anio)))
+        .map(r=>r.dia)
+    )].sort((a,b)=>a-b);
+    if(diaEl){
+      diaEl.innerHTML='<option value="todos">Todos los días</option>'+dias.map(d=>`<option value="${d}">${String(d).padStart(2,'0')}</option>`).join('');
+      diaEl.value='todos';
+    }
+    if(diaWrap) diaWrap.style.display=dias.length?'':'none';
+  }
+  renderVentasWeb();
 }
 
 function renderVentasWeb(){
@@ -4069,6 +4138,62 @@ function renderVentasWeb(){
       ${aniosFilt.map(a=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;">${fmt(totAnioFilt[a])}</td>`).join('')}
     </tr></tfoot>
   </table></div>`;
+
+  // --- Tabla de detalle (día o resumen de días del mes) ---
+  const detalleWrap=document.getElementById('ventWebDetalleWrap');
+  const detalleTtl=document.getElementById('ventWebDetalleTtl');
+  const detalleTabla=document.getElementById('ventWebDetalleTabla');
+  if(!detalleWrap||!detalleTtl||!detalleTabla||!ventasWebDetalle.length||selMes==='todos'){
+    if(detalleWrap) detalleWrap.style.display='none';
+    return;
+  }
+  const selDia=document.getElementById('ventWebDiaFiltro')?.value||'todos';
+  let detFiltrado=ventasWebDetalle.filter(r=>
+    (selAnio==='todos'||r.anio===parseInt(selAnio)) &&
+    r.mes===parseInt(selMes) &&
+    (selDia==='todos'||r.dia===parseInt(selDia))
+  );
+  if(!detFiltrado.length){ detalleWrap.style.display='none'; return; }
+
+  if(selDia!=='todos'){
+    // Vista de pedidos individuales del día
+    detalleTtl.textContent=`🛒 Pedidos del ${String(parseInt(selDia)).padStart(2,'0')}/${String(parseInt(selMes)).padStart(2,'0')} (${detFiltrado.length} pedidos)`;
+    const totalDia=detFiltrado.reduce((s,r)=>s+r.total,0);
+    detalleTabla.innerHTML=`<div style="overflow-x:auto;"><table class="tabla">
+      <thead><tr><th>#</th><th>Cliente</th><th style="text-align:right;">Importe</th></tr></thead>
+      <tbody>
+        ${detFiltrado.map((r,i)=>`<tr><td style="color:var(--texto2);font-size:12px;">${i+1}</td><td>${r.nombre}</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(r.total)}</td></tr>`).join('')}
+      </tbody>
+      <tfoot><tr style="font-weight:700;background:var(--fondo,#f8f9fa);"><td colspan="2">TOTAL DÍA</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(totalDia)}</td></tr></tfoot>
+    </table></div>`;
+  } else {
+    // Vista de totales por día del mes
+    const porDia={};
+    detFiltrado.forEach(r=>{
+      if(!porDia[r.dia]) porDia[r.dia]={dia:r.dia,pedidos:0,total:0};
+      porDia[r.dia].pedidos++;
+      porDia[r.dia].total+=r.total;
+    });
+    const dias=Object.values(porDia).sort((a,b)=>a.dia-b.dia);
+    const totalMes=dias.reduce((s,d)=>s+d.total,0);
+    const mesNom=MESES[parseInt(selMes)-1];
+    detalleTtl.textContent=`📅 Resumen por día — ${mesNom}${selAnio!=='todos'?' '+selAnio:''} (${detFiltrado.length} pedidos)`;
+    detalleTabla.innerHTML=`<div style="overflow-x:auto;"><table class="tabla">
+      <thead><tr><th>Día</th><th style="text-align:right;">Pedidos</th><th style="text-align:right;">Total</th></tr></thead>
+      <tbody>
+        ${dias.map(d=>`<tr>
+          <td style="font-weight:600;cursor:pointer;color:var(--azul);" onclick="ventWebIrDia(${d.dia})">${String(d.dia).padStart(2,'0')}</td>
+          <td style="text-align:right;">${d.pedidos}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(d.total)}</td>
+        </tr>`).join('')}
+      </tbody>
+      <tfoot><tr style="font-weight:700;background:var(--fondo,#f8f9fa);">
+        <td>TOTAL</td><td style="text-align:right;">${detFiltrado.length}</td>
+        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(totalMes)}</td>
+      </tr></tfoot>
+    </table></div>`;
+  }
+  detalleWrap.style.display='';
 }
 
 // ═══════════════════════════════════════════════════════
@@ -6149,11 +6274,21 @@ function limpiarFiltrosConcil(){
 // ═══════════════════════════════════════════════════════
 // LIMPIAR FILTROS — VENTAS WEB
 // ═══════════════════════════════════════════════════════
+function ventWebIrDia(dia){
+  const diaEl=document.getElementById('ventWebDiaFiltro');
+  if(diaEl) diaEl.value=String(dia);
+  renderVentasWeb();
+}
+
 function limpiarFiltrosVentasWeb(){
   const a=document.getElementById('ventWebAnioFiltro');
   const m=document.getElementById('ventWebMesFiltro');
+  const d=document.getElementById('ventWebDiaFiltro');
+  const dw=document.getElementById('ventWebDiaWrap');
   if(a) a.value='todos';
   if(m) m.value='todos';
+  if(d) d.value='todos';
+  if(dw) dw.style.display='none';
   renderVentasWeb();
 }
 
