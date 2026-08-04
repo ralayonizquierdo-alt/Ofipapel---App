@@ -1,13 +1,12 @@
 # Inventario de proyectos — RAX
 
 Mantenido por la Skill `project-manager`. Refleja el estado real del repo
-`ralayonizquierdo-alt/Ofipapel---App`. Última revisión completa: 2026-07-12
-(Sprint "RAX v1 Production").
+`ralayonizquierdo-alt/Ofipapel---App`. Última revisión completa: 2026-08-01.
 
 | Proyecto | Tipo | Ruta | Stack | Despliegue | Estado |
 |---|---|---|---|---|---|
 | Ofipapel · Control Financiero | Sitio/app de negocio (papelería) | `Index.html` | HTML monolítico + Chart.js + Supabase JS + SheetJS. Asistente de IA vía proxy server-side (`netlify/functions/chat-assistant.js`) — ya no expone la API key de Anthropic en el navegador | GitHub Pages + Netlify (`_site/`) | Activo |
-| Canarias INK | Microsite de marca (venta de consumibles de impresora) | `canarias-ink.html` | HTML monolítico | GitHub Pages + Netlify | Activo — botón de WhatsApp con número placeholder, ver `ROADMAP_TECNICO.md` |
+| Canarias INK | Microsite de marca (venta de consumibles de impresora) | `canarias-ink.html` + `sw-ink.js` (SW propio, cache `canarias-ink-v1`) + `manifest-ink.json` (PWA manifest) | HTML monolítico + PWA | GitHub Pages + Netlify | Activo — botón de WhatsApp con número placeholder, ver `ROADMAP_TECNICO.md` |
 | FalControl | Microsite/herramienta personal ("Radio Alerta"), sin relación de negocio con Ofipapel | `falcontrol.html` | HTML monolítico | GitHub Pages + Netlify | Activo |
 | Cuadrante de Vacaciones | Planificador de turnos/vacaciones del personal | `vacaciones.html` | HTML monolítico | GitHub Pages + Netlify | Activo — detectado durante la reconciliación de documentación, no auditado en profundidad todavía (ver `ROADMAP_TECNICO.md` RT-11) |
 | Importación de Pedidos a Proveedores | Conversión de facturas PDF a Excel para proveedores | `importacion-pedidos-proveedores.html` | HTML monolítico | GitHub Pages + Netlify | Activo — detectado durante la reconciliación de documentación, no auditado en profundidad todavía (ver `ROADMAP_TECNICO.md` RT-11) |
