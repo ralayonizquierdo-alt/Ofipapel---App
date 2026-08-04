@@ -80,7 +80,8 @@ cp inicio.html _site/
 # aparte, no symlink: Netlify sigue resolviendo "/" por su propia regla
 # force=true en netlify.toml, esto solo cubre el hueco de GitHub Pages.
 cp inicio.html _site/index.html
-cp Index.html _site/ 2>/dev/null || true
+# Index.html → finanzas.html para evitar colisión case-insensitive con index.html en Netlify
+cp Index.html _site/finanzas.html 2>/dev/null || true
 cp canarias-ink.html _site/ 2>/dev/null || true
 cp falcontrol.html _site/ 2>/dev/null || true
 cp app.html _site/ 2>/dev/null || true
@@ -118,6 +119,7 @@ cp -r joe-app/dist/. _site/joe/
 # "existente" (case-insensitive) antes de mirar los redirects.
 {
   echo "/               /inicio.html              200!"
+  echo "/Index.html     /finanzas.html            200!"
   echo "/alquileres/*  /alquileres/index.html  200"
   echo "/joe/*         /joe/index.html          200"
 } > _site/_redirects
