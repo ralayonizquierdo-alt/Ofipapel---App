@@ -525,6 +525,7 @@ body{
   // — ahí no se toca nada y el navegador hace lo suyo tal cual.
   var clickAudio = new Audio('sound-click.mp3');
   clickAudio.preload = 'auto';
+  clickAudio.volume = .35; // a volumen pleno (1) sonaba demasiado fuerte para un sonido tan corto y frecuente
   var CLICK_DELAY = 220;
   sats.forEach(function(sat){
     sat.addEventListener('click', function(evt){
@@ -536,8 +537,8 @@ body{
     });
   });
 
-  // Único sonido: el golpe metálico real (mp3 del propietario), nada más
-  // abrir la app, con un fundido de entrada de .45s (el golpe seco del
+  // Sonido de apertura: el golpe metálico real (mp3 del propietario), nada
+  // más abrir la app, con un fundido de entrada de .45s (el golpe seco del
   // principio del audio original sonaba demasiado fuerte) — el fundido se
   // hace en código con un nodo de ganancia de Web Audio, sin tocar el
   // fichero. Acompaña visualmente a la animación de conexión de arriba. El
