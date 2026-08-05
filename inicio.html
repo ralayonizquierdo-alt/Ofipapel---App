@@ -517,6 +517,25 @@ body{
     sat.addEventListener('blur', off);
   });
 
+  // Sonido al pulsar cada app: se retrasa un poco la navegación real para
+  // que le dé tiempo a oírse (si no, el navegador descarga la página y
+  // corta el audio casi al instante). Se respetan los casos en los que el
+  // usuario claramente NO quiere una navegación normal en la misma
+  // pestaña (clic central/derecho, Ctrl/Cmd/Shift+clic, target="_blank")
+  // — ahí no se toca nada y el navegador hace lo suyo tal cual.
+  var clickAudio = new Audio('sound-click.mp3');
+  clickAudio.preload = 'auto';
+  var CLICK_DELAY = 220;
+  sats.forEach(function(sat){
+    sat.addEventListener('click', function(evt){
+      if (evt.defaultPrevented || evt.button !== 0 || evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey) return;
+      if (sat.target && sat.target !== '_self') return;
+      evt.preventDefault();
+      try { clickAudio.currentTime = 0; clickAudio.play().catch(function(){}); } catch(e){}
+      setTimeout(function(){ window.location.href = sat.href; }, CLICK_DELAY);
+    });
+  });
+
   // Único sonido: el golpe metálico real (mp3 del propietario), nada más
   // abrir la app, con un fundido de entrada de .45s (el golpe seco del
   // principio del audio original sonaba demasiado fuerte) — el fundido se
