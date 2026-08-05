@@ -53,10 +53,16 @@ def leer_excel_proveedor(
     nombre_proveedor: str,
     config_excel: dict,
     columnas_extra: list[str] = None,
+    columnas_mapa: dict = None,
 ) -> pd.DataFrame:
     """Lee el Excel adjunto de un proveedor y lo normaliza a un formato comun."""
     df = pd.read_excel(BytesIO(contenido_bytes), header=config_excel["fila_cabecera"])
     df = _normalizar_columnas(df)
+
+    # Renombrar columnas con nombre distinto al esperado (p.ej. Inforpor llama
+    # "r_precio_actual" a lo que el resto llama "precio").
+    if columnas_mapa:
+        df = df.rename(columns={k.lower(): v.lower() for k, v in columnas_mapa.items()})
 
     columnas_esperadas = [c.lower() for c in config_excel["columnas_esperadas"]]
     faltantes = [c for c in columnas_esperadas if c not in df.columns]

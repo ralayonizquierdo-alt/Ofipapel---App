@@ -107,7 +107,8 @@ def main():
         nombre_archivo, contenido = graph_client.descargar_adjunto_excel(token, mensaje["id"])
         proveedor_cfg = next(p for p in config["proveedores"] if p["nombre"] == nombre)
         columnas_extra = proveedor_cfg.get("columnas_extra", [])
-        dfs[nombre] = excel_logic.leer_excel_proveedor(contenido, nombre, config["excel"], columnas_extra)
+        columnas_mapa = proveedor_cfg.get("columnas_mapa", {})
+        dfs[nombre] = excel_logic.leer_excel_proveedor(contenido, nombre, config["excel"], columnas_extra, columnas_mapa)
 
     # Extraer reglas opcionales de la config
     excluir_marcas_por_proveedor = {
