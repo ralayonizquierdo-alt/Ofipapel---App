@@ -9,6 +9,12 @@
 <meta name="theme-color" content="#000000">
 <meta name="description" content="Ecosistema Ofipapel — accede a todas las aplicaciones desde un único centro de control.">
 <link rel="manifest" href="manifest-inicio.json">
+<!-- Roturas Almacén y WhatsApp BOT son apps externas (Vercel/Netlify) que
+     "duermen" tras un rato sin uso — el preconnect adelanta DNS+TLS y el
+     script de más abajo dispara una petición de aviso en segundo plano
+     nada más abrir el hub, para que ya estén despiertas al pulsarlas. -->
+<link rel="preconnect" href="https://rax-os.vercel.app" crossorigin>
+<link rel="preconnect" href="https://spontaneous-lebkuchen-60fa41.netlify.app" crossorigin>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ofipapel 360°">
@@ -206,6 +212,17 @@ body{
   var svg = document.querySelector('.connector-svg');
   var group = document.getElementById('connectors');
   var NS = 'http://www.w3.org/2000/svg';
+
+  // ── Despierta en segundo plano las apps externas que "duermen" tras un
+  // rato sin uso (Roturas Almacén en Vercel, WhatsApp BOT en una función de
+  // Netlify) — para cuando el usuario pulse el nodo, el servidor ya no
+  // esté frío. 'no-cors' porque no nos hace falta leer la respuesta, solo
+  // que la petición llegue; los fallos se ignoran, es solo un aviso.
+  ['https://rax-os.vercel.app/login?next=%2F',
+   'https://spontaneous-lebkuchen-60fa41.netlify.app/.netlify/functions/conversations'
+  ].forEach(function(url){
+    try { fetch(url, { mode: 'no-cors', credentials: 'omit' }).catch(function(){}); } catch(e){}
+  });
 
   // ── Fondo "red neuronal": malla densa de nodos + líneas finas entre
   // vecinos, coloreada según cercanía a cada satélite (o al verde del
