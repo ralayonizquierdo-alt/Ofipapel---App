@@ -60,6 +60,17 @@ def leer_excel_proveedor(
 
     columnas_esperadas = [c.lower() for c in config_excel["columnas_esperadas"]]
     faltantes = [c for c in columnas_esperadas if c not in df.columns]
+
+    # Rescatar columnas sin cabecera: pandas las nombra "unnamed: N" donde N es
+    # el indice de columna (base 0), que coincide con la posicion en
+    # columnas_esperadas. Util cuando el proveedor no pone titulo en alguna celda.
+    for col_esperada in list(faltantes):
+        idx = columnas_esperadas.index(col_esperada)
+        col_unnamed = f"unnamed: {idx}"
+        if col_unnamed in df.columns:
+            df = df.rename(columns={col_unnamed: col_esperada})
+            faltantes.remove(col_esperada)
+
     if faltantes:
         raise ExcelFormatoInvalidoError(
             f"El Excel de '{nombre_proveedor}' no tiene las columnas esperadas: {faltantes} "
