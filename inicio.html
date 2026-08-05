@@ -549,6 +549,7 @@ body{
   var openAudioPending = false;
   var fadeCtx = null, fadeGain = null;
   var FADE_IN = .45;
+  var PEAK_GAIN = .45; // volumen máximo tras el fundido — sonaba demasiado fuerte a volumen pleno (1)
   function setupFade(){
     if (fadeGain) return;
     var Ctx = window.AudioContext || window.webkitAudioContext;
@@ -567,7 +568,7 @@ body{
       var now = fadeCtx.currentTime;
       fadeGain.gain.cancelScheduledValues(now);
       fadeGain.gain.setValueAtTime(0, now);
-      fadeGain.gain.linearRampToValueAtTime(1, now + FADE_IN);
+      fadeGain.gain.linearRampToValueAtTime(PEAK_GAIN, now + FADE_IN);
     }
     openAudio.currentTime = 0;
     var p = openAudio.play();
