@@ -1050,6 +1050,18 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                   <input type="text" id="compFiltroTexto" placeholder="Buscar..." oninput="renderCompras()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
                 </div>
                 <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
+                  <select id="compFiltroAnio" onchange="renderCompras()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+                <div id="compFiltroMesWrap" style="display:none;">
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Mes</div>
+                  <select id="compFiltroMes" onchange="renderCompras()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+                <div>
                   <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Almacén</div>
                   <select id="compFiltroAlmacen" onchange="renderCompras()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
                     <option value="todos">Todos</option>
@@ -5314,6 +5326,32 @@ function importComprasExcel(input){
 }
 
 function renderCompras(){
+  // Poblar selector de años
+  const selAnio=document.getElementById('compFiltroAnio');
+  if(selAnio){
+    const anios=[...new Set(compras.map(c=>(c.fecha||'').slice(0,4)).filter(a=>a.length===4))].sort().reverse();
+    if(selAnio.options.length<=1) anios.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; selAnio.appendChild(o); });
+  }
+
+  const anio=selAnio?.value||'todos';
+
+  // Poblar selector de meses cuando hay año seleccionado
+  const mesWrap=document.getElementById('compFiltroMesWrap');
+  const selMes=document.getElementById('compFiltroMes');
+  if(mesWrap && selMes){
+    if(anio!=='todos'){
+      mesWrap.style.display='';
+      const mesesNom=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+      const mesesDisp=[...new Set(compras.filter(c=>(c.fecha||'').startsWith(anio)).map(c=>(c.fecha||'').slice(5,7)).filter(Boolean))].sort();
+      selMes.innerHTML='<option value="todos">Todos</option>';
+      mesesDisp.forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=mesesNom[parseInt(m,10)-1]||m; selMes.appendChild(o); });
+    } else {
+      mesWrap.style.display='none';
+      selMes.value='todos';
+    }
+  }
+  const mes=selMes?.value||'todos';
+
   const almacenes=[...new Set(compras.map(c=>c.almacen).filter(Boolean))].sort();
   const selA=document.getElementById('compFiltroAlmacen');
   if(selA && selA.options.length<=1) almacenes.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; selA.appendChild(o); });
@@ -5324,6 +5362,8 @@ function renderCompras(){
 
   let f=compras.filter(c=>{
     if(texto && !c.provNom.toLowerCase().includes(texto) && !String(c.npedido).includes(texto)) return false;
+    if(anio!=='todos' && !(c.fecha||'').startsWith(anio)) return false;
+    if(mes!=='todos' && (c.fecha||'').slice(5,7)!==mes) return false;
     if(almacen!=='todos' && c.almacen!==almacen) return false;
     if(estado==='pendiente' && c.recibido) return false;
     if(estado==='recibido' && !c.recibido) return false;
@@ -5390,6 +5430,8 @@ function deleteCompra(id){
 
 function limpiarFiltrosComp(){
   document.getElementById('compFiltroTexto').value='';
+  document.getElementById('compFiltroAnio').value='todos';
+  document.getElementById('compFiltroMes').value='todos';
   document.getElementById('compFiltroAlmacen').value='todos';
   document.getElementById('compFiltroEstado').value='todos';
   renderCompras();
