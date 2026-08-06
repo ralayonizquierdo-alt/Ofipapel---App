@@ -847,6 +847,22 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                     <option value="">— Ranking general —</option>
                   </select>
                 </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
+                  <select id="ventVendAnio" onchange="renderVentasVendedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+                <div id="ventVendMesWrap" style="display:none;">
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Mes</div>
+                  <select id="ventVendMes" onchange="renderVentasVendedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="">Todos</option>
+                    <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+                    <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+                    <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+                    <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+                  </select>
+                </div>
                 <button id="ventVendInformeBtn" onclick="imprimirInformeVendedor()" style="display:none;padding:7px 14px;background:var(--azul);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">🖨️ Informe individual</button>
                 <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importVentasVendedoresExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventVendExcelInput" style="display:none" onchange="importVentasVendedoresExcel(this)"></label>
               </div>
@@ -875,6 +891,22 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                   <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Tienda</div>
                   <select id="ventTiendaSelect" onchange="renderVentasTiendaDetalle()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
                     <option value="">— Ranking general —</option>
+                  </select>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
+                  <select id="ventTiendaAnio" onchange="renderVentasTiendas()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="todos">Todos</option>
+                  </select>
+                </div>
+                <div id="ventTiendaMesWrap" style="display:none;">
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Mes</div>
+                  <select id="ventTiendaMes" onchange="renderVentasTiendas()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="">Todos</option>
+                    <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+                    <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+                    <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+                    <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
                   </select>
                 </div>
                 <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importVentasTiendasExcel')" style="padding:7px 14px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">📥 Excel<input type="file" accept=".xlsx,.xls" id="ventTiendaExcelInput" style="display:none" onchange="importVentasTiendasExcel(this)"></label>
@@ -1001,6 +1033,16 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                     <option value="todos">Todos</option>
                   </select>
                 </div>
+                <div id="vtfamFiltroMesWrap" style="display:none;">
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Mes</div>
+                  <select id="vtfamFiltroMes" onchange="renderVentasFamilias()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="">Todos</option>
+                    <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+                    <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+                    <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+                    <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+                  </select>
+                </div>
                 <div>
                   <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Categoría</div>
                   <select id="vtfamFiltroCategoria" onchange="renderVentasFamilias()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
@@ -1039,6 +1081,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <button class="subtab-btn active" data-ct="pedidos" onclick="showComprasTab('pedidos')">🛒 Pedidos</button>
             <button class="subtab-btn" data-ct="anual" onclick="showComprasTab('anual')">📅 Histórico Anual</button>
             <button class="subtab-btn" data-ct="proveedores" onclick="showComprasTab('proveedores')">🏭 Por Proveedor</button>
+            <button class="subtab-btn" data-ct="pormes" onclick="showComprasTab('pormes')">📊 Por Mes</button>
           </div>
 
           <div class="subtab-panel active" id="ct-pedidos">
@@ -1100,6 +1143,34 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               <canvas id="cCompAnual" height="200"></canvas>
             </div>
             <div class="card" id="compAnualTabla" style="padding:0;overflow:hidden;"></div>
+          </div>
+
+          <div class="subtab-panel" id="ct-pormes">
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+              <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año (meses del año)</div>
+                  <select id="compMesAnio" onchange="renderComprasMes()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                  </select>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Mes (comparar años)</div>
+                  <select id="compMesMes" onchange="renderComprasMes()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="chart-card" style="margin-bottom:16px;">
+              <div class="chart-ttl">Compras mensuales — <span id="compMesTtlAnio"></span></div>
+              <div class="chart-desc">Total por mes del año seleccionado</div>
+              <canvas id="cCompMesAnual" height="200"></canvas>
+            </div>
+            <div class="chart-card" style="margin-bottom:16px;">
+              <div class="chart-ttl">Comparativa interanual — <span id="compMesTtlMes"></span></div>
+              <div class="chart-desc">Mismo mes en distintos años</div>
+              <canvas id="cCompMesComp" height="180"></canvas>
+            </div>
+            <div class="card" id="compMesTabla" style="padding:0;overflow:hidden;"></div>
           </div>
 
           <div class="subtab-panel" id="ct-proveedores">
@@ -1872,6 +1943,7 @@ function showComprasTab(tab){
   if(tab==='pedidos') renderCompras();
   else if(tab==='anual') renderComprasAnual();
   else if(tab==='proveedores') renderComprasProveedores();
+  else if(tab==='pormes') renderComprasMes();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -4752,6 +4824,7 @@ function importVentasVendedoresExcel(input){
 }
 
 function renderVentasVendedores(){
+  const MESES_LARGO=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const sel=document.getElementById('ventVendSelect');
   if(sel){
     const valorActual=sel.value;
@@ -4761,10 +4834,24 @@ function renderVentasVendedores(){
   }
   const seleccionado=sel?.value||'';
   const btn=document.getElementById('ventVendInformeBtn'); if(btn) btn.style.display=seleccionado?'inline-block':'none';
+
+  // Año / Mes selectors
+  const selAnio=document.getElementById('ventVendAnio');
+  if(selAnio && selAnio.options.length<=1){
+    [...new Set(ventasVendedores.map(r=>r.anio))].sort().reverse().forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;selAnio.appendChild(o);});
+  }
+  const anioFiltro=selAnio?.value||'todos';
+  const mesWrap=document.getElementById('ventVendMesWrap');
+  const selMes=document.getElementById('ventVendMes');
+  if(mesWrap) mesWrap.style.display=anioFiltro!=='todos'?'':'none';
+  if(anioFiltro==='todos' && selMes) selMes.value='';
+  const mesIdx=selMes?.value!==''&&selMes?.value!=null?parseInt(selMes.value,10):-1;
+
   if(seleccionado){ renderVentasVendedorDetalle(); return; }
 
   destroyChart('cVentVend');
-  document.getElementById('ventVendChartTtl').textContent='Ranking de Vendedores';
+  const periodoLbl=anioFiltro!=='todos'?(mesIdx>=0?MESES_LARGO[mesIdx]+' '+anioFiltro:anioFiltro):'Histórico';
+  document.getElementById('ventVendChartTtl').textContent='Ranking de Vendedores — '+periodoLbl;
 
   if(!ventasVendedores.length){
     document.getElementById('ventVendKpis').innerHTML='';
@@ -4772,13 +4859,24 @@ function renderVentasVendedores(){
     return;
   }
 
+  let datos=ventasVendedores;
+  if(anioFiltro!=='todos') datos=datos.filter(r=>String(r.anio)===String(anioFiltro));
+
   const porVendedor={};
-  ventasVendedores.forEach(r=>{ porVendedor[r.vendedor]=(porVendedor[r.vendedor]||0)+r.total; });
-  const ranking=Object.entries(porVendedor).sort((a,b)=>b[1]-a[1]);
+  datos.forEach(r=>{
+    const val=mesIdx>=0?(r.meses?.[mesIdx]||0):r.total;
+    porVendedor[r.vendedor]=(porVendedor[r.vendedor]||0)+val;
+  });
+  const ranking=Object.entries(porVendedor).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if(!ranking.length){
+    document.getElementById('ventVendKpis').innerHTML='';
+    document.getElementById('ventVendTabla').innerHTML='<div class="empty-state"><div class="e-ico">🧑‍💼</div><h3>Sin datos para el período</h3><p>No hay ventas registradas para el filtro seleccionado.</p></div>';
+    return;
+  }
 
   document.getElementById('ventVendKpis').innerHTML=`
     <div class="kpi"><div class="kpi-ico">🧑‍💼</div><div class="kpi-lbl">Vendedores</div><div class="kpi-val">${ranking.length}</div></div>
-    <div class="kpi"><div class="kpi-ico">💶</div><div class="kpi-lbl">Total Vendido</div><div class="kpi-val">${fmt(ranking.reduce((s,r)=>s+r[1],0))}</div></div>
+    <div class="kpi"><div class="kpi-ico">💶</div><div class="kpi-lbl">Total Vendido</div><div class="kpi-val">${fmt(ranking.reduce((s,r)=>s+r[1],0))}</div><div class="kpi-sub">${periodoLbl}</div></div>
     <div class="kpi"><div class="kpi-ico">🥇</div><div class="kpi-lbl">Mejor Vendedor</div><div class="kpi-val" style="font-size:14px;">${ranking[0][0]}</div><div class="kpi-sub">${fmt(ranking[0][1])}</div></div>
   `;
 
@@ -4916,13 +5014,29 @@ function importVentasTiendasExcel(input){
 }
 
 function renderVentasTiendas(){
+  const MESES_LARGO=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const grupo=document.getElementById('ventTiendaGrupo')?.value||'todos';
   const filtradas=grupo==='todos'?ventasTiendas:ventasTiendas.filter(r=>r.grupo===grupo);
+
+  // Año / Mes selectors
+  const selAnio=document.getElementById('ventTiendaAnio');
+  if(selAnio && selAnio.options.length<=1){
+    [...new Set(ventasTiendas.map(r=>r.anio))].sort().reverse().forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;selAnio.appendChild(o);});
+  }
+  const anioFiltro=selAnio?.value||'todos';
+  const mesWrap=document.getElementById('ventTiendaMesWrap');
+  const selMes=document.getElementById('ventTiendaMes');
+  if(mesWrap) mesWrap.style.display=anioFiltro!=='todos'?'':'none';
+  if(anioFiltro==='todos' && selMes) selMes.value='';
+  const mesIdx=selMes?.value!==''&&selMes?.value!=null?parseInt(selMes.value,10):-1;
+
+  // Apply año filter on top of grupo filter
+  const porFiltro=anioFiltro==='todos'?filtradas:filtradas.filter(r=>String(r.anio)===String(anioFiltro));
 
   const sel=document.getElementById('ventTiendaSelect');
   if(sel){
     const valorActual=sel.value;
-    const tiendas=[...new Set(filtradas.map(r=>r.tienda))].sort((a,b)=>{
+    const tiendas=[...new Set(porFiltro.map(r=>r.tienda))].sort((a,b)=>{
       const an=typeof a==='number', bn=typeof b==='number';
       if(an&&bn) return a-b;
       if(an) return -1;
@@ -4941,11 +5055,12 @@ function renderVentasTiendas(){
   }
 
   destroyChart('cVentTienda');
-  document.getElementById('ventTiendaChartTtl').textContent='Ranking de Tiendas'+(grupo!=='todos'?' — '+grupo:'');
+  const periodoLbl=anioFiltro!=='todos'?(mesIdx>=0?MESES_LARGO[mesIdx]+' '+anioFiltro:anioFiltro):'Histórico';
+  document.getElementById('ventTiendaChartTtl').textContent='Ranking de Tiendas — '+periodoLbl+(grupo!=='todos'?' ('+grupo+')':'');
 
-  // Comparativa agregada del grupo (Ofipapel / Aliz-1 / Aliz-2): mejor/peor mes y año
+  // Comparativa agregada del grupo (solo en modo histórico, sin filtro de mes)
   const ttlGrupo=document.getElementById('ventTiendaGrupoTtl');
-  if(grupo!=='todos' && filtradas.length){
+  if(grupo!=='todos' && filtradas.length && anioFiltro==='todos'){
     const anGrupo=buildAnualAnalysis(aggregateAnualRows(filtradas));
     ttlGrupo.style.display='block';
     ttlGrupo.textContent='📊 Comparativa '+grupo;
@@ -4957,19 +5072,28 @@ function renderVentasTiendas(){
     document.getElementById('ventTiendaGrupoTabla').innerHTML='';
   }
 
-  if(!filtradas.length){
+  if(!porFiltro.length){
     document.getElementById('ventTiendaKpis').innerHTML='';
     document.getElementById('ventTiendaTabla').innerHTML='<div class="empty-state"><div class="e-ico">🏬</div><h3>Sin datos</h3><p>Importa el Excel de Ventas por Tiendas para ver el análisis.</p></div>';
     return;
   }
 
   const porTienda={}, grupoMap={};
-  filtradas.forEach(r=>{ porTienda[r.tienda]=(porTienda[r.tienda]||0)+r.total; grupoMap[r.tienda]=r.grupo; });
-  const ranking=Object.entries(porTienda).sort((a,b)=>b[1]-a[1]);
+  porFiltro.forEach(r=>{
+    const val=mesIdx>=0?(r.meses?.[mesIdx]||0):r.total;
+    porTienda[r.tienda]=(porTienda[r.tienda]||0)+val;
+    grupoMap[r.tienda]=r.grupo;
+  });
+  const ranking=Object.entries(porTienda).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if(!ranking.length){
+    document.getElementById('ventTiendaKpis').innerHTML='';
+    document.getElementById('ventTiendaTabla').innerHTML='<div class="empty-state"><div class="e-ico">🏬</div><h3>Sin datos para el período</h3><p>No hay ventas registradas para el filtro seleccionado.</p></div>';
+    return;
+  }
 
   document.getElementById('ventTiendaKpis').innerHTML=`
     <div class="kpi"><div class="kpi-ico">🏬</div><div class="kpi-lbl">Tiendas</div><div class="kpi-val">${ranking.length}</div></div>
-    <div class="kpi"><div class="kpi-ico">💶</div><div class="kpi-lbl">Total Vendido</div><div class="kpi-val">${fmt(ranking.reduce((s,r)=>s+r[1],0))}</div></div>
+    <div class="kpi"><div class="kpi-ico">💶</div><div class="kpi-lbl">Total Vendido</div><div class="kpi-val">${fmt(ranking.reduce((s,r)=>s+r[1],0))}</div><div class="kpi-sub">${periodoLbl}</div></div>
     <div class="kpi"><div class="kpi-ico">🥇</div><div class="kpi-lbl">Mejor Tienda</div><div class="kpi-val" style="font-size:15px;">Tienda ${ranking[0][0]}</div><div class="kpi-sub">${fmt(ranking[0][1])}</div></div>
   `;
 
@@ -5580,6 +5704,155 @@ function renderComprasProveedores(){
 }
 
 // ═══════════════════════════════════════════════════════
+// COMPRAS — POR MES
+// ═══════════════════════════════════════════════════════
+function renderComprasMes(){
+  const MESES_CORTO=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const MESES_LARGO=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const COLORS=['#1a3c8f','#2e7d32','#f57c00','#c62828','#6a1b9a','#00838f','#e65100','#4e342e'];
+
+  // Usar comprasAnual (resumen con meses) si está disponible; si no, agregar desde pedidos individuales
+  const useAnual = comprasAnual.length > 0;
+  let anios;
+  if(useAnual){
+    anios=[...new Set(comprasAnual.map(r=>String(r.anio)))].sort().reverse();
+  } else {
+    anios=[...new Set(compras.map(c=>(c.fecha||'').slice(0,4)).filter(a=>a.length===4))].sort().reverse();
+  }
+
+  if(!anios.length){
+    ['cCompMesAnual','cCompMesComp'].forEach(id=>destroyChart(id));
+    document.getElementById('compMesTabla').innerHTML='<div class="empty-state"><div class="e-ico">📊</div><h3>Sin datos</h3><p>Importa el Excel de Compras Anuales (tab "Anual") para ver la comparativa mensual.</p></div>';
+    return;
+  }
+
+  const selAnio=document.getElementById('compMesAnio');
+  if(selAnio){
+    const prev=selAnio.value;
+    selAnio.innerHTML='';
+    anios.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;selAnio.appendChild(o);});
+    if(anios.includes(prev)) selAnio.value=prev;
+  }
+  const anioSel=selAnio?.value||anios[0];
+
+  const selMes=document.getElementById('compMesMes');
+  if(selMes){
+    const prev=selMes.value;
+    selMes.innerHTML='';
+    MESES_LARGO.forEach((m,i)=>{const o=document.createElement('option');o.value=String(i+1).padStart(2,'0');o.textContent=m;selMes.appendChild(o);});
+    if(selMes.querySelector(`option[value="${prev}"]`)) selMes.value=prev;
+    else selMes.value='01';
+  }
+  const mesSel=selMes?.value||'01';
+  const mesIdx=parseInt(mesSel,10)-1;
+
+  document.getElementById('compMesTtlAnio').textContent=anioSel;
+  document.getElementById('compMesTtlMes').textContent=MESES_LARGO[mesIdx]||'';
+
+  // --- Obtener totMes[12] del año seleccionado ---
+  let totMes, pedMes=new Array(12).fill(0);
+  if(useAnual){
+    const reg=comprasAnual.find(r=>String(r.anio)===String(anioSel));
+    totMes=reg?reg.meses.map(v=>v||0):new Array(12).fill(0);
+  } else {
+    totMes=new Array(12).fill(0);
+    compras.filter(c=>(c.fecha||'').startsWith(anioSel)).forEach(c=>{
+      const m=parseInt((c.fecha||'').slice(5,7),10)-1;
+      if(m>=0&&m<12){ totMes[m]+=c.total; pedMes[m]++; }
+    });
+  }
+
+  destroyChart('cCompMesAnual');
+  charts['cCompMesAnual']=new Chart(document.getElementById('cCompMesAnual'),{
+    type:'bar',
+    data:{
+      labels:MESES_CORTO,
+      datasets:[{
+        label:'Total compras',
+        data:totMes,
+        backgroundColor:totMes.map((_,i)=>i===mesIdx?'rgba(26,60,143,1)':'rgba(26,60,143,0.55)'),
+        borderColor:'#1a3c8f',
+        borderWidth:1.5,
+        borderRadius:4
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>useAnual?fmt(ctx.raw):`${fmt(ctx.raw)} (${pedMes[ctx.dataIndex]} pedidos)`}}
+      },
+      scales:{x:{...G},y:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'},...G}}
+    }
+  });
+
+  // --- GRÁFICO B: comparativa interanual del mes seleccionado ---
+  const totPorAnio=anios.map(a=>{
+    if(useAnual){
+      const reg=comprasAnual.find(r=>String(r.anio)===String(a));
+      return reg?(reg.meses[mesIdx]||0):0;
+    } else {
+      return compras.filter(c=>(c.fecha||'').startsWith(a)&&(c.fecha||'').slice(5,7)===mesSel).reduce((s,c)=>s+c.total,0);
+    }
+  });
+
+  destroyChart('cCompMesComp');
+  charts['cCompMesComp']=new Chart(document.getElementById('cCompMesComp'),{
+    type:'bar',
+    data:{
+      labels:anios,
+      datasets:[{
+        label:MESES_LARGO[mesIdx],
+        data:totPorAnio,
+        backgroundColor:anios.map((_,i)=>COLORS[i%COLORS.length]+'bb'),
+        borderColor:anios.map((_,i)=>COLORS[i%COLORS.length]),
+        borderWidth:1.5,
+        borderRadius:4
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>fmt(ctx.raw)}}},
+      scales:{x:{...G},y:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'},...G}}
+    }
+  });
+
+  // --- TABLA resumen del año seleccionado ---
+  const totalAnio=totMes.reduce((s,v)=>s+v,0);
+  const maxMes=Math.max(...totMes);
+  document.getElementById('compMesTabla').innerHTML=`
+    <div style="overflow-x:auto;">
+    <table class="tabla" style="font-size:13px;">
+      <thead><tr><th>Mes</th><th style="text-align:right;">Total</th>${!useAnual?'<th style="text-align:right;">Pedidos</th>':''}<th style="text-align:right;">% del año</th></tr></thead>
+      <tbody>
+        ${MESES_LARGO.map((m,i)=>{
+          const pct=totalAnio>0?((totMes[i]/totalAnio)*100).toFixed(1):'0.0';
+          const bar=maxMes>0?Math.round((totMes[i]/maxMes)*60):0;
+          const activo=String(i+1).padStart(2,'0')===mesSel;
+          return `<tr style="cursor:pointer;${activo?'background:var(--azul-pale);':''}" onclick="document.getElementById('compMesMes').value='${String(i+1).padStart(2,'0')}';renderComprasMes();">
+            <td style="font-weight:${activo?'700':'500'};color:${activo?'var(--azul)':'var(--texto)'};">${m}</td>
+            <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;">${totMes[i]>0?fmt(totMes[i]):'—'}</td>
+            ${!useAnual?`<td style="text-align:right;color:var(--texto2);">${pedMes[i]||'—'}</td>`:''}
+            <td style="text-align:right;">
+              <span style="font-family:'IBM Plex Mono',monospace;color:var(--texto2);font-size:12px;">${pct}%</span>
+              <span style="display:inline-block;width:${bar}px;height:6px;background:var(--azul);opacity:0.5;border-radius:2px;margin-left:6px;vertical-align:middle;"></span>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="background:var(--azul-pale);">
+          <td style="font-weight:700;color:var(--azul);">TOTAL ${anioSel}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:800;color:var(--azul);">${fmt(totalAnio)}</td>
+          ${!useAnual?`<td style="text-align:right;color:var(--azul);font-weight:700;">${totMes.reduce((s,_,i)=>s+pedMes[i],0)}</td>`:''}
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>${useAnual?'<div style="text-align:right;padding:6px 12px;font-size:11px;color:var(--texto2);">Fuente: Compras Anuales (resumen)</div>':''}`;
+}
+
+// ═══════════════════════════════════════════════════════
 // COMPRAS — HISTÓRICO ANUAL
 // ═══════════════════════════════════════════════════════
 function saveComprasAnual(){
@@ -5659,6 +5932,7 @@ function limpiarFiltrosFamPfx(pfx){
   document.getElementById(pfx+'FiltroAnio').value='todos';
   document.getElementById(pfx+'FiltroCategoria').value='todas';
   document.getElementById(pfx+'FiltroTexto').value='';
+  const selM=document.getElementById(pfx+'FiltroMes'); if(selM) selM.value='';
   _renderFamiliasCore(pfx, 'cVtfam');
 }
 
@@ -5717,6 +5991,7 @@ function importFamiliasExcelPfx(input, pfx){
 }
 
 function _renderFamiliasCore(pfx, cpfx){
+  const MESES_LARGO=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const el = id => document.getElementById(id);
   const anios=[...new Set(familias.map(f=>f.anio))].sort();
   const cats=[...new Map(familias.map(f=>[f.catCodigo,f.catNombre])).entries()].sort((a,b)=>a[0].localeCompare(b[0]));
@@ -5730,12 +6005,19 @@ function _renderFamiliasCore(pfx, cpfx){
   const catFiltro=selC?.value||'todas';
   const texto=(el(pfx+'FiltroTexto')?.value||'').toLowerCase().trim();
 
+  // Mes selector — solo cuando hay año concreto
+  const mesWrap=el(pfx+'FiltroMesWrap');
+  const selM=el(pfx+'FiltroMes');
+  if(mesWrap) mesWrap.style.display=anio!=='todos'?'':'none';
+  if(anio==='todos' && selM) selM.value='';
+  const mesIdx=selM?.value!==''&&selM?.value!=null?parseInt(selM.value,10):-1;
+
   let f=familias.filter(x=>{
     if(anio!=='todos' && String(x.anio)!==anio) return false;
     if(catFiltro!=='todas' && x.catCodigo!==catFiltro) return false;
     if(texto && !x.nombre.toLowerCase().includes(texto) && !String(x.codigo).includes(texto)) return false;
     return true;
-  }).sort((a,b)=>b.total-a.total);
+  }).map(x=>mesIdx>=0?{...x, total:x.meses?.[mesIdx]||0}:x).sort((a,b)=>b.total-a.total);
 
   const fComp=familias.filter(x=>{
     if(catFiltro!=='todas' && x.catCodigo!==catFiltro) return false;
@@ -5743,24 +6025,24 @@ function _renderFamiliasCore(pfx, cpfx){
     return true;
   });
   const compTtlEl=el(pfx+'CompTtl');
-  if(fComp.length && compTtlEl){
+  if(fComp.length && compTtlEl && mesIdx<0){
     const etiqueta = texto ? 'Búsqueda: "'+texto+'"' : (catFiltro!=='todas' ? 'Categoría '+catFiltro : 'Todas las familias');
     compTtlEl.textContent='📊 Comparativa Mensual y Anual — '+etiqueta;
     const anFam=buildAnualAnalysis(aggregateAnualRows(fComp));
     el(pfx+'CompKpis').innerHTML=anualKpisHtml(anFam);
     el(pfx+'CompTabla').innerHTML=renderAnualTabla(anFam);
   } else if(compTtlEl){
-    compTtlEl.textContent='📊 Comparativa Mensual y Anual';
-    el(pfx+'CompKpis').innerHTML='';
-    el(pfx+'CompTabla').innerHTML='';
+    if(mesIdx>=0){ compTtlEl.textContent=''; el(pfx+'CompKpis').innerHTML=''; el(pfx+'CompTabla').innerHTML=''; }
+    else { compTtlEl.textContent='📊 Comparativa Mensual y Anual'; el(pfx+'CompKpis').innerHTML=''; el(pfx+'CompTabla').innerHTML=''; }
   }
 
   const totalVentas=f.reduce((s,x)=>s+x.total,0);
   const nFamilias=new Set(f.map(x=>x.codigo)).size;
   const topCat=(()=>{ const m={}; f.forEach(x=>{ m[x.catNombre]=(m[x.catNombre]||0)+x.total; }); const e=Object.entries(m).sort((a,b)=>b[1]-a[1])[0]; return e?e[0]:'—'; })();
+  const periodoFamLbl=mesIdx>=0?(MESES_LARGO[mesIdx]+(anio!=='todos'?' '+anio:'')):(anio!=='todos'?anio:'Histórico');
 
   el(pfx+'Kpis').innerHTML = `
-    <div class="kpi"><div class="kpi-ico">📦</div><div class="kpi-lbl">Total Ventas</div><div class="kpi-val">${fmt(totalVentas)}</div><div class="kpi-sub">${f.length} registros</div></div>
+    <div class="kpi"><div class="kpi-ico">📦</div><div class="kpi-lbl">Total Ventas</div><div class="kpi-val">${fmt(totalVentas)}</div><div class="kpi-sub">${periodoFamLbl}</div></div>
     <div class="kpi"><div class="kpi-ico">🔢</div><div class="kpi-lbl">Familias Activas</div><div class="kpi-val">${nFamilias}</div></div>
     <div class="kpi"><div class="kpi-ico">🏆</div><div class="kpi-lbl">Mejor Categoría</div><div class="kpi-val" style="font-size:14px;">${topCat}</div></div>
   `;
