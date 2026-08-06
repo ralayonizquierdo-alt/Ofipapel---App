@@ -1252,6 +1252,15 @@ const OPERACIONES_ACCESO = ['admin', 'rober', 'david'];
 // Cargar contraseñas personalizadas guardadas (ya hasheadas)
 try{ Object.assign(USERS, JSON.parse(localStorage.getItem('op_passwords')||'{}')); }catch(e){}
 
+// Escapa HTML antes de insertar texto libre (p. ej. campos "notas") dentro
+// de innerHTML — sin esto, cualquiera de los usuarios (la contraseña es
+// compartida entre los 4, ver DEUDA_TECNICA.md DT-09) podría guardar una
+// nota con HTML/JS que se ejecutaría en el navegador de cualquier otro
+// usuario que abra esa vista (XSS almacenado).
+function escapeHtml(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 // Helper: SHA-256 del texto plano
 async function hashPass(p){
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(p));
@@ -2100,7 +2109,7 @@ function renderDashboard(){
           <div style="font-size:16px;font-weight:700;color:var(--verde);">${fmtV(le.aliz2)}</div>
         </div>
       </div>
-      <div style="text-align:right;font-size:12px;color:var(--texto2);">Total: <strong style="color:var(--texto)">${fmtV(total)}</strong>${le.notas?` · ${le.notas}`:''}</div>
+      <div style="text-align:right;font-size:12px;color:var(--texto2);">Total: <strong style="color:var(--texto)">${fmtV(total)}</strong>${le.notas?` · ${escapeHtml(le.notas)}`:''}</div>
     </div>`;
   })()}
 
@@ -2137,7 +2146,7 @@ function renderDashboard(){
     <canvas id="cCaja" height="70"></canvas>
   </div>
 
-  ${last.notas?`<div class="alert-card info" style="margin-bottom:20px"><div class="alert-ico">📝</div><div><div class="alert-ttl">Nota del último registro</div><div class="alert-txt">${last.notas}</div></div></div>`:''}
+  ${last.notas?`<div class="alert-card info" style="margin-bottom:20px"><div class="alert-ico">📝</div><div><div class="alert-ttl">Nota del último registro</div><div class="alert-txt">${escapeHtml(last.notas)}</div></div></div>`:''}
   `;
 
   document.getElementById('dashContent').innerHTML = html;
@@ -2436,7 +2445,7 @@ function renderHistorico(){
       <td>${fmt(r.caja_central)}</td>
       <td style="font-weight:700;color:var(--azul)">${fmt(t)}</td>
       <td class="${diff==null?'':'diff!=null&&diff>=0?\"td-p\":\"td-n\"'}">${diff==null?'—':(diff>=0?'<span class="td-p">▲ +':'<span class="td-n">▼ ')+fmt(Math.abs(diff))+'</span>'}</td>
-      <td style="font-size:11px;color:var(--texto2)">${r.notas||'—'}</td>
+      <td style="font-size:11px;color:var(--texto2)">${r.notas?escapeHtml(r.notas):'—'}</td>
     </tr>`;
   }).join('');
 
@@ -3706,7 +3715,7 @@ function renderCajaEfectivo(){
         <td style="padding:9px 12px;text-align:right;">${fmtV(e.aliz1)}</td>
         <td style="padding:9px 12px;text-align:right;">${fmtV(e.aliz2)}</td>
         <td style="padding:9px 12px;text-align:right;font-weight:600;">${fmtV(tot)}</td>
-        <td style="padding:9px 12px;color:var(--texto2);">${e.notas||''}</td>
+        <td style="padding:9px 12px;color:var(--texto2);">${e.notas?escapeHtml(e.notas):''}</td>
         <td style="padding:9px 12px;text-align:center;"><button onclick="deleteEfectivo('${e.fecha}')" style="background:none;border:none;cursor:pointer;font-size:14px;" title="Eliminar">🗑️</button></td>
       </tr>`;
     }).join('')}</tbody>
