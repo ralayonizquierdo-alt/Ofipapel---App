@@ -1082,6 +1082,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <button class="subtab-btn" data-ct="anual" onclick="showComprasTab('anual')">📅 Histórico Anual</button>
             <button class="subtab-btn" data-ct="proveedores" onclick="showComprasTab('proveedores')">🏭 Por Proveedor</button>
             <button class="subtab-btn" data-ct="pormes" onclick="showComprasTab('pormes')">📊 Por Mes</button>
+            <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importComprasSmartExcel')" style="margin-left:auto;padding:6px 13px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap;align-self:center;">📥 Excel Compras<input type="file" accept=".xlsx,.xls" id="compSmartInput" style="display:none" onchange="importComprasSmartExcel(this)"></label>
           </div>
 
           <div class="subtab-panel active" id="ct-pedidos">
@@ -1182,12 +1183,23 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                     <option value="todos">Todos</option>
                   </select>
                 </div>
-                <div>
+                <div id="compProvMesWrap" style="display:none;">
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Mes</div>
+                  <select id="compProvMes" onchange="renderComprasProveedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
+                    <option value="">Todos</option>
+                    <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+                    <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+                    <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+                    <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+                  </select>
+                </div>
+                <div id="compProvAlmacenWrap">
                   <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Almacén</div>
                   <select id="compProvAlmacen" onchange="renderComprasProveedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
                     <option value="todos">Todos</option>
                   </select>
                 </div>
+                <div id="compProvFuenteTag" style="align-self:center;font-size:11px;color:var(--texto2);display:none;"></div>
               </div>
             </div>
             <div class="chart-card" style="margin-bottom:16px;">
@@ -1486,6 +1498,8 @@ let ventasClientes = [];
 try{ ventasClientes = JSON.parse(localStorage.getItem('op_ventasclientes')||'[]'); }catch(e){ ventasClientes=[]; }
 let comprasAnual = [];
 try{ comprasAnual = JSON.parse(localStorage.getItem('op_comprasanual')||'[]'); }catch(e){ comprasAnual=[]; }
+let comprasProveedores = [];
+try{ comprasProveedores = JSON.parse(localStorage.getItem('op_comprasprov')||'[]'); }catch(e){ comprasProveedores=[]; }
 
 // ═══════════════════════════════════════════════════════
 // SUPABASE — base de datos en la nube (sincronización real)
@@ -1627,6 +1641,10 @@ function applyCloudDataset(key, payload){
     comprasAnual = payload;
     try{ localStorage.setItem('op_comprasanual', JSON.stringify(comprasAnual)); }catch(e){}
     renderComprasAnual();
+  } else if(key==='comprasprov'){
+    comprasProveedores = payload;
+    try{ localStorage.setItem('op_comprasprov', JSON.stringify(comprasProveedores)); }catch(e){}
+    renderComprasProveedores();
   } else if(key==='ventasweb'){
     ventasWeb = payload;
     try{ localStorage.setItem('op_ventasweb', JSON.stringify(ventasWeb)); }catch(e){}
@@ -1682,6 +1700,7 @@ async function loadAllSharedDatasets(){
     if(!existing.ventastiendas && ventasTiendas.length) syncDatasetToCloud('ventastiendas', ventasTiendas);
     if(!existing.ventasclientes && ventasClientes.length) syncDatasetToCloud('ventasclientes', ventasClientes);
     if(!existing.comprasanual && comprasAnual.length) syncDatasetToCloud('comprasanual', comprasAnual);
+    if(!existing.comprasprov && comprasProveedores.length) syncDatasetToCloud('comprasprov', comprasProveedores);
     if(!existing.ventasweb && ventasWeb.length) syncDatasetToCloud('ventasweb', ventasWeb);
     if(!existing.cajaefectivo && cajaEfectivo.length) syncDatasetToCloud('cajaefectivo', cajaEfectivo);
     // Datasets que antes no se sincronizaban — rescate inicial
@@ -1745,6 +1764,7 @@ async function forzarSyncCompleto(btn){
     if(ventasTiendas.length)    ops.push(syncDatasetToCloud('ventastiendas', ventasTiendas));
     if(ventasClientes.length)   ops.push(syncDatasetToCloud('ventasclientes', ventasClientes));
     if(comprasAnual.length)     ops.push(syncDatasetToCloud('comprasanual', comprasAnual));
+    if(comprasProveedores.length) ops.push(syncDatasetToCloud('comprasprov', comprasProveedores));
     if(ventasWeb.length)        ops.push(syncDatasetToCloud('ventasweb', ventasWeb));
     if(ventasWebDetalle.length) ops.push(syncDatasetToCloud('ventasweb_det', ventasWebDetalle));
     if(cajaEfectivo.length)     ops.push(syncDatasetToCloud('cajaefectivo', cajaEfectivo));
@@ -5593,10 +5613,22 @@ function saveCompModal(){
 function renderComprasProveedores(){
   const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const COLORS=['#1a3c8f','#2e7d32','#f57c00','#c62828','#6a1b9a','#00838f','#558b2f','#4e342e'];
+  const fmtC=v=>v>0?fmt(v):'—';
 
-  // Rebuild year options
-  const anios=[...new Set(compras.map(c=>c.fecha?c.fecha.slice(0,4):null).filter(Boolean))].sort((a,b)=>b-a);
+  const useProvData=comprasProveedores.length>0;
+
+  // Source tag
+  const fuenteTag=document.getElementById('compProvFuenteTag');
+  if(fuenteTag){
+    fuenteTag.style.display=useProvData?'':'none';
+    if(useProvData) fuenteTag.textContent='📂 Fuente: Listado por proveedor (arch.17)';
+  }
+
+  // Year options
   const selAnio=document.getElementById('compProvAnio');
+  const anios=useProvData
+    ?[...new Set(comprasProveedores.map(r=>String(r.anio)))].sort().reverse()
+    :[...new Set(compras.map(c=>c.fecha?c.fecha.slice(0,4):null).filter(Boolean))].sort((a,b)=>b-a);
   if(selAnio){
     const prev=selAnio.value;
     selAnio.innerHTML='<option value="todos">Todos</option>';
@@ -5605,102 +5637,177 @@ function renderComprasProveedores(){
   }
   const anioFiltro=selAnio?.value||'todos';
 
-  // Rebuild almacen options
-  const almacenes=[...new Set(compras.map(c=>c.almacen).filter(Boolean))].sort();
-  const selAlm=document.getElementById('compProvAlmacen');
-  if(selAlm && selAlm.options.length<=1){
-    almacenes.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;selAlm.appendChild(o);});
-  }
-  const almFiltro=selAlm?.value||'todos';
+  // Month filter: only for comprasProveedores when a specific year is selected
+  const mesWrap=document.getElementById('compProvMesWrap');
+  const selMes=document.getElementById('compProvMes');
+  const showMes=useProvData&&anioFiltro!=='todos';
+  if(mesWrap) mesWrap.style.display=showMes?'':'none';
+  if(!showMes&&selMes) selMes.value='';
+  const mesIdx=showMes&&selMes?.value!==''?parseInt(selMes.value,10):-1;
+
+  // Almacen filter: only for compras fallback
+  const almWrap=document.getElementById('compProvAlmacenWrap');
+  if(almWrap) almWrap.style.display=useProvData?'none':'';
 
   destroyChart('cCompProvMes');
 
-  const f=compras.filter(c=>{
-    if(!c.fecha) return false;
-    if(anioFiltro!=='todos' && c.fecha.slice(0,4)!==anioFiltro) return false;
-    if(almFiltro!=='todos' && c.almacen!==almFiltro) return false;
-    return true;
-  });
-
-  if(!f.length){
-    document.getElementById('compProvTabla').innerHTML='<div class="empty-state"><div class="e-ico">🏭</div><h3>Sin datos</h3><p>Importa pedidos de compras para ver el resumen por proveedor y mes.</p></div>';
-    return;
-  }
-
-  // Pivot: proveedor -> mes[0..11]
-  const pivot={};
-  f.forEach(c=>{
-    const mes=parseInt(c.fecha.slice(5,7),10)-1;
-    if(mes<0||mes>11) return;
-    const p=c.provNom||'Sin proveedor';
-    if(!pivot[p]) pivot[p]=new Array(12).fill(0);
-    pivot[p][mes]+=c.total;
-  });
-
-  const provs=Object.entries(pivot).sort((a,b)=>b[1].reduce((s,v)=>s+v,0)-a[1].reduce((s,v)=>s+v,0));
-  const mesTotales=new Array(12).fill(0);
-  provs.forEach(([,m])=>m.forEach((v,i)=>mesTotales[i]+=v));
-  const grandTotal=mesTotales.reduce((s,v)=>s+v,0);
-
-  // Chart — top 8 stacked
-  const top8=provs.slice(0,8);
-  charts['cCompProvMes']=new Chart(document.getElementById('cCompProvMes'),{
-    type:'bar',
-    data:{
-      labels:MESES,
-      datasets:top8.map(([prov,meses],i)=>({
-        label:prov.length>28?prov.slice(0,26)+'…':prov,
-        data:meses,
-        backgroundColor:COLORS[i%COLORS.length]+'cc',
-        borderColor:COLORS[i%COLORS.length],
-        borderWidth:1,
-        borderRadius:2
-      }))
-    },
-    options:{
-      responsive:true,
-      plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},
-      scales:{
-        x:{stacked:true,...G},
-        y:{stacked:true,ticks:{callback:v=>(v/1000).toFixed(0)+'K €'},...G}
-      }
+  if(useProvData){
+    let datos=comprasProveedores;
+    if(anioFiltro!=='todos') datos=datos.filter(r=>String(r.anio)===String(anioFiltro));
+    if(!datos.length){
+      document.getElementById('compProvTabla').innerHTML='<div class="empty-state"><div class="e-ico">🏭</div><h3>Sin datos</h3><p>No hay registros para los filtros seleccionados.</p></div>';
+      return;
     }
-  });
 
-  // Pivot table
-  const fmtC=v=>v>0?fmt(v):'—';
-  document.getElementById('compProvTabla').innerHTML=`
-    <div style="overflow-x:auto;">
-    <table class="tabla" style="font-size:12px;">
-      <thead>
-        <tr>
+    // Pivot: provNom -> meses[12]
+    const pivot={};
+    datos.forEach(r=>{
+      const prov=r.provNom||r.provCod||'Sin proveedor';
+      if(!pivot[prov]) pivot[prov]=new Array(12).fill(0);
+      (mesIdx>=0?[[mesIdx,r.meses?.[mesIdx]||0]]:r.meses?.map((v,i)=>[i,v])||[])
+        .forEach(([i,v])=>pivot[prov][i]+=v);
+    });
+
+    const provs=Object.entries(pivot).sort((a,b)=>b[1].reduce((s,v)=>s+v,0)-a[1].reduce((s,v)=>s+v,0));
+    const mesTotales=new Array(12).fill(0);
+    provs.forEach(([,m])=>m.forEach((v,i)=>mesTotales[i]+=v));
+    const grandTotal=mesTotales.reduce((s,v)=>s+v,0);
+
+    const chartLabels=mesIdx>=0?[MESES[mesIdx]]:MESES;
+    const top8=provs.slice(0,8);
+    charts['cCompProvMes']=new Chart(document.getElementById('cCompProvMes'),{
+      type:'bar',
+      data:{
+        labels:chartLabels,
+        datasets:top8.map(([prov,meses],i)=>({
+          label:prov.length>28?prov.slice(0,26)+'…':prov,
+          data:mesIdx>=0?[meses[mesIdx]]:meses,
+          backgroundColor:COLORS[i%COLORS.length]+'cc',
+          borderColor:COLORS[i%COLORS.length],
+          borderWidth:1,borderRadius:2
+        }))
+      },
+      options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},
+        scales:{x:{stacked:true,...G},y:{stacked:true,ticks:{callback:v=>(v/1000).toFixed(0)+'K €'},...G}}}
+    });
+
+    const colHeaders=mesIdx>=0
+      ?`<th style="text-align:right;white-space:nowrap;">${MESES[mesIdx]}</th>`
+      :MESES.map(m=>`<th style="text-align:right;white-space:nowrap;">${m}</th>`).join('');
+    document.getElementById('compProvTabla').innerHTML=`
+      <div style="overflow-x:auto;">
+      <table class="tabla" style="font-size:12px;">
+        <thead><tr>
+          <th style="white-space:nowrap;min-width:160px;position:sticky;left:0;background:var(--card-bg);z-index:1;">Proveedor</th>
+          ${colHeaders}
+          <th style="text-align:right;white-space:nowrap;background:var(--azul-pale);color:var(--azul);">Total</th>
+        </tr></thead>
+        <tbody>
+          ${provs.map(([prov,meses])=>{
+            const tot=meses.reduce((s,v)=>s+v,0);
+            const cells=mesIdx>=0
+              ?`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;color:${meses[mesIdx]>0?'var(--texto)':'var(--texto2)'};">${fmtC(meses[mesIdx])}</td>`
+              :meses.map(v=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;color:${v>0?'var(--texto)':'var(--texto2)'};">${fmtC(v)}</td>`).join('');
+            return `<tr>
+              <td style="font-weight:500;white-space:nowrap;position:sticky;left:0;background:var(--card-bg);">${prov}</td>
+              ${cells}
+              <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--azul);background:var(--azul-pale);">${fmt(tot)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+        <tfoot><tr style="background:var(--azul-pale);">
+          <td style="font-weight:700;color:var(--azul);position:sticky;left:0;background:var(--azul-pale);">TOTAL</td>
+          ${mesIdx>=0
+            ?`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--azul);">${mesTotales[mesIdx]>0?fmt(mesTotales[mesIdx]):'—'}</td>`
+            :mesTotales.map(v=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--azul);">${v>0?fmt(v):'—'}</td>`).join('')}
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:800;color:var(--azul);">${fmt(grandTotal)}</td>
+        </tr></tfoot>
+      </table>
+      </div>
+      <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
+        ${provs.length} proveedores · ${anios.length} años · Total: <strong style="color:var(--azul);">${fmt(grandTotal)}</strong>
+      </div>`;
+
+  } else {
+    // Fallback: pivot from individual purchase orders
+    const almacenes=[...new Set(compras.map(c=>c.almacen).filter(Boolean))].sort();
+    const selAlm=document.getElementById('compProvAlmacen');
+    if(selAlm&&selAlm.options.length<=1){
+      almacenes.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;selAlm.appendChild(o);});
+    }
+    const almFiltro=selAlm?.value||'todos';
+
+    const f=compras.filter(c=>{
+      if(!c.fecha) return false;
+      if(anioFiltro!=='todos'&&c.fecha.slice(0,4)!==anioFiltro) return false;
+      if(almFiltro!=='todos'&&c.almacen!==almFiltro) return false;
+      return true;
+    });
+
+    if(!f.length){
+      document.getElementById('compProvTabla').innerHTML='<div class="empty-state"><div class="e-ico">🏭</div><h3>Sin datos</h3><p>Importa pedidos de compras para ver el resumen por proveedor y mes.</p></div>';
+      return;
+    }
+
+    const pivot={};
+    f.forEach(c=>{
+      const mes=parseInt(c.fecha.slice(5,7),10)-1;
+      if(mes<0||mes>11) return;
+      const p=c.provNom||'Sin proveedor';
+      if(!pivot[p]) pivot[p]=new Array(12).fill(0);
+      pivot[p][mes]+=c.total;
+    });
+
+    const provs=Object.entries(pivot).sort((a,b)=>b[1].reduce((s,v)=>s+v,0)-a[1].reduce((s,v)=>s+v,0));
+    const mesTotales=new Array(12).fill(0);
+    provs.forEach(([,m])=>m.forEach((v,i)=>mesTotales[i]+=v));
+    const grandTotal=mesTotales.reduce((s,v)=>s+v,0);
+
+    charts['cCompProvMes']=new Chart(document.getElementById('cCompProvMes'),{
+      type:'bar',
+      data:{
+        labels:MESES,
+        datasets:provs.slice(0,8).map(([prov,meses],i)=>({
+          label:prov.length>28?prov.slice(0,26)+'…':prov,
+          data:meses,
+          backgroundColor:COLORS[i%COLORS.length]+'cc',
+          borderColor:COLORS[i%COLORS.length],
+          borderWidth:1,borderRadius:2
+        }))
+      },
+      options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},
+        scales:{x:{stacked:true,...G},y:{stacked:true,ticks:{callback:v=>(v/1000).toFixed(0)+'K €'},...G}}}
+    });
+
+    document.getElementById('compProvTabla').innerHTML=`
+      <div style="overflow-x:auto;">
+      <table class="tabla" style="font-size:12px;">
+        <thead><tr>
           <th style="white-space:nowrap;min-width:160px;position:sticky;left:0;background:var(--card-bg);z-index:1;">Proveedor</th>
           ${MESES.map(m=>`<th style="text-align:right;white-space:nowrap;">${m}</th>`).join('')}
           <th style="text-align:right;white-space:nowrap;background:var(--azul-pale);color:var(--azul);">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${provs.map(([prov,meses])=>{
-          const tot=meses.reduce((s,v)=>s+v,0);
-          return `<tr>
-            <td style="font-weight:500;white-space:nowrap;position:sticky;left:0;background:var(--card-bg);">${prov}</td>
-            ${meses.map(v=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;color:${v>0?'var(--texto)':'var(--texto2)'};">${fmtC(v)}</td>`).join('')}
-            <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--azul);background:var(--azul-pale);">${fmt(tot)}</td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-      <tfoot>
-        <tr style="background:var(--azul-pale);">
+        </tr></thead>
+        <tbody>
+          ${provs.map(([prov,meses])=>{
+            const tot=meses.reduce((s,v)=>s+v,0);
+            return `<tr>
+              <td style="font-weight:500;white-space:nowrap;position:sticky;left:0;background:var(--card-bg);">${prov}</td>
+              ${meses.map(v=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;color:${v>0?'var(--texto)':'var(--texto2)'};">${fmtC(v)}</td>`).join('')}
+              <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--azul);background:var(--azul-pale);">${fmt(tot)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+        <tfoot><tr style="background:var(--azul-pale);">
           <td style="font-weight:700;color:var(--azul);position:sticky;left:0;background:var(--azul-pale);">TOTAL</td>
           ${mesTotales.map(v=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--azul);">${v>0?fmt(v):'—'}</td>`).join('')}
           <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:800;color:var(--azul);">${fmt(grandTotal)}</td>
-        </tr>
-      </tfoot>
-    </table>
-    </div>
-    <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
-      ${provs.length} proveedores · Total: <strong style="color:var(--azul);">${fmt(grandTotal)}</strong>
-    </div>`;
+        </tr></tfoot>
+      </table>
+      </div>
+      <div style="text-align:right;padding:10px 16px;font-size:12px;color:var(--texto2);border-top:1px solid var(--borde);">
+        ${provs.length} proveedores · Total: <strong style="color:var(--azul);">${fmt(grandTotal)}</strong>
+      </div>`;
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5916,6 +6023,94 @@ function renderComprasAnual(){
   });
 
   document.getElementById('compAnualTabla').innerHTML=renderAnualTabla(an);
+}
+
+// ═══════════════════════════════════════════════════════
+// COMPRAS — IMPORTADOR UNIFICADO
+// ═══════════════════════════════════════════════════════
+function saveComprasProveedores(){
+  try{ localStorage.setItem('op_comprasprov', JSON.stringify(comprasProveedores)); }catch(e){}
+  syncDatasetToCloud('comprasprov', comprasProveedores);
+}
+
+function importComprasSmartExcel(input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      const hAnual=data.findIndex(r=>String(r[0]).trim()==='Año');
+      const hProv =data.findIndex(r=>/^Prov\.?$/i.test(String(r[0]).trim()));
+      if(hAnual!==-1){
+        _importComprasAnualData(data,hAnual,input);
+      } else if(hProv!==-1){
+        _importComprasProveedoresData(data,hProv,input);
+      } else {
+        alert('Formato no reconocido.\nSe esperaba cabecera "Año" (resumen anual, arch.19) o "Prov." (por proveedor, arch.17).');
+        input.value='';
+      }
+    }catch(err){ alert('Error al procesar el Excel: '+err.message); input.value=''; }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function _importComprasAnualData(data,hIdx,input){
+  if(comprasAnual.length&&!confirm('Esto reemplazará los datos de Compras Anuales ya importados. ¿Continuar?')){
+    input.value=''; return;
+  }
+  const registros=[];
+  for(let i=hIdx+1;i<data.length;i++){
+    const row=data[i];
+    const anioRaw=row[0];
+    if(anioRaw===''||anioRaw==null||isNaN(Number(anioRaw))) continue;
+    const anio=Number(anioRaw)<100?Number(anioRaw)+2000:Number(anioRaw);
+    const meses=[]; for(let m=0;m<12;m++) meses.push(Number(row[1+m])||0);
+    const total=typeof row[13]==='number'?row[13]:meses.reduce((s,v)=>s+v,0);
+    registros.push({anio,meses,total});
+  }
+  if(!registros.length){ alert('No se encontraron registros válidos.'); input.value=''; return; }
+  comprasAnual=registros;
+  saveComprasAnual(); renderComprasAnual(); renderComprasMes();
+  stampImport('comprasAnual');
+  input.value='';
+  alert(registros.length+' años de compras importados.');
+}
+
+function _importComprasProveedoresData(data,hIdx,input){
+  if(comprasProveedores.length&&!confirm('Esto reemplazará los datos de Compras por Proveedor ya importados. ¿Continuar?')){
+    input.value=''; return;
+  }
+  const registros=[];
+  let i=hIdx+1;
+  while(i<data.length){
+    const row=data[i];
+    const provCodRaw=String(row[0]||'').trim();
+    if(provCodRaw===''){ i++; continue; }
+    if(/^\d+$/.test(provCodRaw)){
+      const provCod=provCodRaw;
+      const anioRaw=row[1];
+      if(anioRaw===''||anioRaw==null||isNaN(Number(anioRaw))){ i++; continue; }
+      const anio=Number(anioRaw)<100?Number(anioRaw)+2000:Number(anioRaw);
+      const meses=[]; for(let m=0;m<12;m++) meses.push(Number(row[2+m])||0);
+      const total=typeof row[14]==='number'?row[14]:meses.reduce((s,v)=>s+v,0);
+      let provNom='';
+      if(i+1<data.length){
+        const nextCol0=String(data[i+1][0]||'').trim();
+        if(nextCol0!==''&&!/^\d+$/.test(nextCol0)){ provNom=nextCol0; i++; }
+      }
+      registros.push({provCod,provNom,anio,meses,total});
+    }
+    i++;
+  }
+  if(!registros.length){ alert('No se encontraron registros válidos.'); input.value=''; return; }
+  comprasProveedores=registros;
+  saveComprasProveedores();
+  renderComprasProveedores();
+  stampImport('comprasProveedores');
+  input.value='';
+  showComprasTab('proveedores');
+  alert(registros.length+' registros de compras por proveedor importados.');
 }
 
 // ═══════════════════════════════════════════════════════
