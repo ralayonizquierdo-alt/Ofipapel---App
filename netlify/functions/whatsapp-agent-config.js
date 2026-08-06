@@ -48,6 +48,15 @@ function findStoreInText(normalizedText) {
 
 const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿En qué puedo ayudarte? Puedes preguntarme por horarios, ubicación, teléfono o lo que necesites.`;
 
+// Aviso de transparencia de IA (Reglamento UE 2024/1689, art. 50): el cliente
+// debe saber que habla con un sistema automático. Se manda una sola vez, al
+// primer mensaje de cada conversación nueva (ver whatsapp-webhook.js), sin
+// importar si el cliente saluda o pregunta directo — antes solo aparecía
+// dentro de GREETING, y GREETING solo se manda si el mensaje es un saludo
+// puro sin nada más detrás, así que la mayoría de conversaciones (las que
+// empiezan con una pregunta real) no lo veían nunca.
+const AI_DISCLOSURE = `🤖 Estás hablando con el asistente automático de ${BUSINESS_NAME} (respuestas generadas por IA). Si prefieres hablar con una persona del equipo, dímelo en cualquier momento.`;
+
 // Detección de saludo robusta: NO cuenta palabras totales (eso rompía con mensajes
 // tipo "Buenas tardes, ¿hacéis escaneados?", que caían justo en 6 palabras y se
 // comían la pregunta real). En vez de eso, quita el saludo del principio del texto
@@ -600,6 +609,7 @@ module.exports = {
   BUSINESS_NAME,
   STORES,
   GREETING,
+  AI_DISCLOSURE,
   AGENTE_INFO_ABIERTO,
   AGENTE_INFO_CERRADO,
   agenteInfo,
