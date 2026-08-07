@@ -1,6 +1,5 @@
-// Lógica compartida del agente de WhatsApp: usada tanto por whatsapp-webhook.js
-// (Meta Cloud API) como por twilio-webhook.js (Twilio), para no duplicar el
-// matching de FAQ ni la llamada a Claude entre los dos canales.
+// Lógica compartida del agente de WhatsApp: matching de FAQ + llamada a
+// Claude, usada por whatsapp-webhook.js (Meta Cloud API, único canal).
 
 const { FAQ_RULES, buildAiSystemPrompt, agenteInfo, isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const conversationStore = require('./conversation-store');
