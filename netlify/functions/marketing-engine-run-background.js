@@ -13,6 +13,13 @@
 // body. marketing-engine-status.js lee esa misma clave para servir el
 // resultado cuando esté listo. Ver INTEGRATION.md para el contrato
 // completo de los dos endpoints.
+//
+// Variables de entorno: MARKETING_ENGINE_TOKEN (opcional pero recomendada,
+// mismo token que marketing-engine-run.js — ver ese fichero para el
+// detalle). Sin ella, este endpoint también queda totalmente abierto: es
+// la versión "background" (hasta 15 min de ejecución, generación real de
+// imagen incluida), así que el coste de un abuso es aún mayor que el de la
+// versión síncrona.
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -22,6 +29,17 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const STORE_NAME = 'marketing-engine-jobs';
 
 exports.handler = async (event) => {
+  const expectedToken = process.env.MARKETING_ENGINE_TOKEN;
+  if (expectedToken) {
+    const token = event.headers['x-marketing-token'] || event.headers['X-Marketing-Token'];
+    if (token !== expectedToken) {
+      console.error('marketing-engine-run-background: token inválido, petición descartada.');
+      return;
+    }
+  } else {
+    console.warn('marketing-engine-run-background: MARKETING_ENGINE_TOKEN no configurada — el endpoint está totalmente abierto, cualquiera puede disparar generación de imagen con coste real (hasta 15 min de ejecución por petición).');
+  }
+
   connectLambda(event);
   const store = getStore(STORE_NAME);
 

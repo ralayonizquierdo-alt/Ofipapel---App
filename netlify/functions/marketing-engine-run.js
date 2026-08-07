@@ -5,10 +5,18 @@
 // el estado de app.html vive en memoria del navegador, igual que el resto
 // de datos de la app hoy).
 //
-// Variables de entorno: ninguna obligatoria — sin OPENAI_API_KEY, el
-// Creative Engine usa el proveedor "simulated". Con OPENAI_API_KEY
-// definida, genera la pieza real con OpenAI Images. Ver
-// creative-engine/FIRST_REAL_GENERATION.md.
+// Variables de entorno:
+//   MARKETING_ENGINE_TOKEN  (opcional pero recomendada) cadena que tú
+//     inventas; debe coincidir con la constante APP_MARKETING_TOKEN
+//     embebida en app.html (mismo patrón que CHAT_ASSISTANT_TOKEN de
+//     Index.html — no es un secreto real, app.html es HTML estático
+//     visible con "ver código fuente", solo evita dejar el endpoint
+//     totalmente abierto). Sin ella configurada, CUALQUIERA puede invocar
+//     este endpoint y disparar generación real de imágenes con OpenAI
+//     (coste real por llamada) sin límite.
+//   OPENAI_API_KEY  opcional — sin ella, el Creative Engine usa el
+//     proveedor "simulated" (sin coste). Con ella definida, genera la
+//     pieza real con OpenAI Images. Ver creative-engine/FIRST_REAL_GENERATION.md.
 //
 // IMPORTANTE — bloqueantes conocidos antes de producción real (ver
 // marketing-engine/INTEGRATION.md para el detalle):
@@ -30,9 +38,51 @@ const path = require('node:path');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
+// Mismo mecanismo de rate limiting best-effort que chat-assistant.js: acota
+// el coste ante uso indebido, no es control de acceso real (se reinicia si
+// la función se "enfría"). Este endpoint es más caro por llamada que el
+// chat (Chromium + posible generación real de imagen), así que el límite es
+// más bajo.
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_MAX_PER_IP = 5;
+const requestsByIp = new Map();
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const entry = requestsByIp.get(ip);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    requestsByIp.set(ip, { windowStart: now, count: 1 });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > RATE_LIMIT_MAX_PER_IP;
+}
+
+function clientIp(event) {
+  return (
+    event.headers['x-nf-client-connection-ip'] ||
+    (event.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
+    'unknown'
+  );
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
+  }
+
+  const expectedToken = process.env.MARKETING_ENGINE_TOKEN;
+  if (expectedToken) {
+    const token = event.headers['x-marketing-token'] || event.headers['X-Marketing-Token'];
+    if (token !== expectedToken) {
+      return { statusCode: 401, body: JSON.stringify({ error: 'Token inválido' }) };
+    }
+  } else {
+    console.warn('marketing-engine-run: MARKETING_ENGINE_TOKEN no configurada — el endpoint está totalmente abierto, cualquiera puede disparar generación de imagen con coste real.');
+  }
+
+  if (isRateLimited(clientIp(event))) {
+    return { statusCode: 429, body: JSON.stringify({ error: 'Demasiadas peticiones, inténtalo más tarde' }) };
   }
 
   let payload;
