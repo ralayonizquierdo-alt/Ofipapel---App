@@ -1219,16 +1219,24 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
 
 <script>
 // ═══════════════════════════════════════════════════════
-// DATOS INICIALES (de los Excel proporcionados)
+// DATOS INICIALES — vacío a propósito (ver seguridad, más abajo)
 // ═══════════════════════════════════════════════════════
-const SEED_DATA = [
-  { fecha:'2026-06-02', bbva_ofip:97085, bbva_caja:220, sant_ico:103087, sant_caja:1879.45, caixa_cta:239767, caixa_pol:-158690, caixa_disp:141310, c7:61804, luis_bbva:9622, luis_sant:1978, caja_central:8515.33, notas:'' },
-  { fecha:'2026-06-03', bbva_ofip:98077, bbva_caja:200, sant_ico:99513, sant_caja:4705.79, caixa_cta:242200, caixa_pol:-158690, caixa_disp:141310, c7:62074, luis_bbva:9502, luis_sant:1978, caja_central:11179.98, notas:'' },
-  { fecha:'2026-06-05', bbva_ofip:99569, bbva_caja:350, sant_ico:114709, sant_caja:2568.65, caixa_cta:247092, caixa_pol:-158690, caixa_disp:140451, c7:62530, luis_bbva:3778, luis_sant:1978, caja_central:11179.98, notas:'' },
-  { fecha:'2026-06-08', bbva_ofip:102829, bbva_caja:280, sant_ico:103467, sant_caja:2045, caixa_cta:249573, caixa_pol:-158690, caixa_disp:140451, c7:62657, luis_bbva:3778, luis_sant:1978, caja_central:11546.29, notas:'' },
-  { fecha:'2026-06-09', bbva_ofip:102195, bbva_caja:100, sant_ico:109080, sant_caja:2895, caixa_cta:202223, caixa_pol:-110000, caixa_disp:190000, c7:63005, luis_bbva:3463, luis_sant:1978, caja_central:11546.29, notas:'Traspaso póliza CaixaBank −48.690€' },
-  { fecha:'2026-06-11', bbva_ofip:103843.04, bbva_caja:50, sant_ico:105229.74, sant_caja:3050.35, caixa_cta:204819.33, caixa_pol:-110000, caixa_disp:190000, c7:67784.84, luis_bbva:6011.49, luis_sant:1978.14, caja_central:10848.55, notas:'Cajas 10/06 · Saldos 11/06' },
-];
+// Hasta ahora este array traía 6 registros reales de saldos bancarios
+// (BBVA/Santander/CaixaBank, junio 2026) escritos en claro. Index.html es
+// HTML estático: ese array viajaba al navegador de CUALQUIER visitante
+// antes de cualquier login, visible con "ver código fuente" sin necesidad
+// de contraseña — no era un problema del login (ver DT-09), era que los
+// datos ya estaban servidos en claro antes de que el login entrara en
+// juego. Verificado antes de vaciarlo (2026-08-07) que no se pierde nada:
+// la tabla `registros` de Supabase ya tiene 45 filas (02/06 a 07/08,
+// incluida la del 11/06 con los mismos valores exactos que traía este
+// array) — loadFromCloud() siempre sustituye este array por los datos
+// reales de la nube en cuanto hay sesión ("Cloud data wins over local
+// seed"), así que estos 6 registros llevaban tiempo sin usarse realmente.
+// Este array solo sirve ahora como valor de arranque antes de que cargue
+// la nube (y como fallback si Supabase no responde) — debe quedar vacío o
+// con datos de ejemplo ficticios, nunca con cifras reales del negocio.
+const SEED_DATA = [];
 
 // ═══════════════════════════════════════════════════════
 // PERSISTENCIA LOCAL — guarda datos entre sesiones
