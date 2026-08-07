@@ -16,3 +16,4 @@ __pycache__/
 .env.local
 .env.*.local
 .claude/settings.local.json
+.claude/worktrees/
