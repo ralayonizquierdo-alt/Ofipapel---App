@@ -6391,9 +6391,12 @@ function _initVersionBar(){
   // Detectar versión de caché del SW (refleja la versión real instalada)
   const showVer=swVer=>{
     const ok=swVer===APP_VERSION;
-    bar.innerHTML=`<span style="color:${ok?'#8bc34a':'#ff9800'};">&#x25cf;</span> `+
-      `${swVer} ·<span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()"> actualizar</span>`;
-    bar.title=ok?'Versión actualizada':'Hay una versión más nueva — pulsa "actualizar"';
+    if(ok){
+      bar.innerHTML=`<span style="color:#8bc34a;">&#x25cf;</span> ${swVer} — estás en la versión correcta`;
+    } else {
+      bar.innerHTML=`<span style="color:#ff9800;">&#x25cf;</span> ${swVer} — hay una versión más nueva · `+
+        `<span style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">pulsa aquí para actualizar</span>`;
+    }
   };
   if('caches' in window){
     caches.keys().then(keys=>{
