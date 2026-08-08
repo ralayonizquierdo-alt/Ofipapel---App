@@ -1342,7 +1342,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
 <script>
 // ── VERSIÓN DE LA APP ─────────────────────────────────
 // ACTUALIZAR en cada deploy junto con CACHE en sw.js
-const APP_VERSION = 'v45';
+const APP_VERSION = 'v4.0';
 // ─────────────────────────────────────────────────────
 
 // ═══════════════════════════════════════════════════════
@@ -6401,7 +6401,7 @@ function _initVersionBar(){
   if('caches' in window){
     caches.keys().then(keys=>{
       const ver=keys.find(k=>k.startsWith('ofipapel-'));
-      showVer(ver?ver.replace('ofipapel-','v'):APP_VERSION);
+      showVer(ver?ver.replace('ofipapel-',''):APP_VERSION);
     }).catch(()=>showVer(APP_VERSION));
   } else {
     showVer(APP_VERSION);
