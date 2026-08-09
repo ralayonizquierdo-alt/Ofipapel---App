@@ -441,15 +441,23 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
       <div class="login-sub" style="margin-bottom:20px;">Es la primera vez que entras, <strong id="ftpUserLabel"></strong>. Crea una contraseña personal — solo tú la conocerás.</div>
       <div class="login-field">
         <label>Nueva contraseña</label>
-        <input type="password" id="ftpNew" placeholder="Mínimo 6 caracteres" autocomplete="new-password"
-          style="width:100%;padding:10px 14px;border:1.5px solid var(--borde);border-radius:8px;font-size:14px;outline:none;"
-          onkeydown="if(event.key==='Enter') doFirstTimeSetup()">
+        <div style="position:relative;">
+          <input type="password" id="ftpNew" placeholder="Mínimo 6 caracteres" autocomplete="new-password"
+            style="width:100%;padding:10px 44px 10px 14px;border:1.5px solid var(--borde);border-radius:8px;font-size:14px;outline:none;"
+            onkeydown="if(event.key==='Enter') doFirstTimeSetup()">
+          <button type="button" onclick="toggleFtpPass()"
+            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;color:var(--texto2);padding:0;line-height:1;" title="Mostrar/ocultar">👁️</button>
+        </div>
       </div>
       <div class="login-field">
         <label>Repite la contraseña</label>
-        <input type="password" id="ftpConfirm" placeholder="Repite la contraseña" autocomplete="new-password"
-          style="width:100%;padding:10px 14px;border:1.5px solid var(--borde);border-radius:8px;font-size:14px;outline:none;"
-          onkeydown="if(event.key==='Enter') doFirstTimeSetup()">
+        <div style="position:relative;">
+          <input type="password" id="ftpConfirm" placeholder="Repite la contraseña" autocomplete="new-password"
+            style="width:100%;padding:10px 44px 10px 14px;border:1.5px solid var(--borde);border-radius:8px;font-size:14px;outline:none;"
+            onkeydown="if(event.key==='Enter') doFirstTimeSetup()">
+          <button type="button" onclick="toggleFtpPass()"
+            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;color:var(--texto2);padding:0;line-height:1;" title="Mostrar/ocultar">👁️</button>
+        </div>
       </div>
       <div class="login-error" id="ftpError"></div>
       <button class="btn-login" onclick="doFirstTimeSetup()">Guardar contraseña →</button>
@@ -1975,6 +1983,12 @@ function doFirstTimeSetup(){
   });
 }
 
+function toggleFtpPass(){
+  ['ftpNew','ftpConfirm'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.type=el.type==='password'?'text':'password';
+  });
+}
 function cancelFirstTime(){
   _ftpUser = null;
   document.getElementById('loginNormal').style.display = '';
@@ -2190,7 +2204,7 @@ function renderDashboard(){
         <div style="text-align:right;">
           <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:4px;">+ Caja Central</div>
           <div style="font-size:22px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:rgba(255,255,255,0.75);">${fmt(totalConCaja(last))}</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:3px;">${new Date(last.fecha).toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}</div>
+          <div style="font-size:14px;font-weight:700;color:#8DC41E;margin-top:8px;letter-spacing:0.3px;">${new Date(last.fecha).toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}</div>
         </div>
       </div>
     </div>
