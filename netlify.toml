@@ -4,6 +4,7 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  VITE_BASE_PATH = "/alquileres/"
   # fichaje.html incluye la apiKey pública de Firebase (Ofipapel Fichaje) —
   # es un identificador de proyecto, no un secreto (mismo modelo que el resto
   # de claves cliente de este repo, ver CLAUDE.md). El escaneo de secretos de

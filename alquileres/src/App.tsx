@@ -174,7 +174,7 @@ export default function App() {
   )
 
   return (
-    <BrowserRouter basename="/Ofipapel---App/alquileres">
+    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
       {showChangePassword && (
         <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
       )}
