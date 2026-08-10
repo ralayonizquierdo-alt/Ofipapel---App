@@ -200,17 +200,19 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
       (p.year === year || p.year === year + 1)
     )
     if (!priceEntry) return
+    const effectNights = checkOut ? getNights(checkIn, checkOut) : 0
+    const months = effectNights > 0 ? Math.max(1, Math.round(effectNights / 30)) : 1
     const priceMap: Record<StayType, number> = {
       '1semana': priceEntry.price1week,
       '2semanas': priceEntry.price2weeks,
       '3semanas': priceEntry.price3weeks,
       '1mes': priceEntry.price1month,
       'directo': priceEntry.price1month * 0.9,
-      'otro': 0,
+      'otro': priceEntry.price1month * months,
     }
     setBasePrice(priceMap[stayType] || 0)
     setCleaningFee(priceEntry.cleaningFee)
-  }, [aptId, stayType, checkIn, autoCalc, prices])
+  }, [aptId, stayType, checkIn, checkOut, autoCalc, prices])
 
   useEffect(() => {
     if (!autoCalc || !checkIn) return
@@ -332,6 +334,11 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
           <div className="mt-3 flex items-center justify-between bg-white rounded p-3 border border-slate-200">
             <div className="text-xs text-slate-500">
               {nights > 0 && <span>{nights} noches · </span>}
+              {stayType === 'otro' && nights > 0 && (
+                <span className="text-indigo-600 font-medium">
+                  {Math.max(1, Math.round(nights / 30))} {Math.max(1, Math.round(nights / 30)) === 1 ? 'mes' : 'meses'} ·{' '}
+                </span>
+              )}
               Base: {basePrice}€ + Limpieza: {cleaningFee}€
               {discountPct > 0 && <span> - {discountPct}% dto</span>}
             </div>
