@@ -4,5 +4,5 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/Ofipapel---App/alquileres/',
+  base: process.env.VITE_BASE_PATH ?? '/Ofipapel---App/alquileres/',
 })
