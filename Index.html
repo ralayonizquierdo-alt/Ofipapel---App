@@ -3148,6 +3148,42 @@ function checkAlertasArrastre(){
     });
   }
 
+  // 4. Calendario fiscal — vencimientos en los próximos 20 días
+  const DIAS_FISCAL = 20;
+  const CAL_FISCAL = [
+    // mes (0-indexed), dia, modelos, descripción
+    { mes:0,  dia:20, mods:['303','111','115','130'],      desc:'Trimestre 4 (oct-dic)' },
+    { mes:0,  dia:30, mods:['390'],                        desc:'Resumen anual IVA' },
+    { mes:0,  dia:31, mods:['190'],                        desc:'Resumen anual retenciones IRPF' },
+    { mes:1,  dia:28, mods:['347'],                        desc:'Operaciones con terceros > 3.005 €' },
+    { mes:3,  dia:20, mods:['303','111','115','130'],      desc:'Trimestre 1 (ene-mar)' },
+    { mes:6,  dia:20, mods:['303','111','115','130'],      desc:'Trimestre 2 (abr-jun)' },
+    { mes:6,  dia:25, mods:['200'],                        desc:'Impuesto sobre Sociedades' },
+    { mes:9,  dia:20, mods:['303','111','115','130'],      desc:'Trimestre 3 (jul-sep)' },
+  ];
+  const fiscalItems = [];
+  const anio = hoy.getFullYear();
+  [anio, anio+1].forEach(y => {
+    CAL_FISCAL.forEach(v => {
+      const f = new Date(y, v.mes, v.dia); f.setHours(0,0,0,0);
+      const diff = Math.round((f - hoy) / 86400000);
+      if(diff >= 0 && diff <= DIAS_FISCAL){
+        const fechaStr = f.toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'});
+        const cuandoStr = diff === 0 ? '¡HOY!' : diff === 1 ? 'mañana' : `en ${diff} días`;
+        fiscalItems.push(`M.${v.mods.join(' / M.')} — ${v.desc} · ${fechaStr} (${cuandoStr})`);
+      }
+    });
+  });
+  if(fiscalItems.length){
+    alertas.push({
+      cat:'fiscal',
+      titulo:`${fiscalItems.length} vencimiento(s) fiscal(es) en los próximos ${DIAS_FISCAL} días`,
+      items: fiscalItems,
+      sumario:'Confirma con tu asesor que los modelos están presentados.',
+      nav:'dashboard'
+    });
+  }
+
   return alertas;
 }
 
@@ -3156,8 +3192,8 @@ function mostrarModalArrastre(input){
   const alertas = checkAlertasArrastre();
   if(!alertas.length){ _ejecutarArrastre(input); return; }
 
-  const iconos = {pagares:'📄',confirming:'🏦',deuda:'🏛️'};
-  const navLabels = {pagares:'Pagarés & Confirming',deuda:'Pool de Deuda'};
+  const iconos = {pagares:'📄',confirming:'🏦',deuda:'🏛️',fiscal:'📅'};
+  const navLabels = {pagares:'Pagarés & Confirming',deuda:'Pool de Deuda',dashboard:'Dashboard'};
 
   document.getElementById('arrastBody').innerHTML = alertas.map(a=>`
     <div class="arrast-section">
