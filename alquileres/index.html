@@ -13,8 +13,11 @@
     <meta name="google" content="notranslate" />
     <title>Ofipapel · Alquileres</title>
   </head>
-  <body>
-    <div id="root"></div>
+  <!-- El meta de arriba no basta: si el traductor ya está activo lo ignora y
+       sigue reescribiendo los nodos de texto por debajo de React. translate="no"
+       + class="notranslate" en el body sí se respetan para todo el árbol. -->
+  <body translate="no" class="notranslate">
+    <div id="root" translate="no" class="notranslate"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
