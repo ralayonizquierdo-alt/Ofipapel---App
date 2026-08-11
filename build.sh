@@ -97,6 +97,7 @@ cp logo-ofipapel.png _site/ 2>/dev/null || true
 cp logo-ofipapel-transparente.png _site/ 2>/dev/null || true
 cp fondo-ofipapel.jpg _site/ 2>/dev/null || true
 cp fondo-conversaciones.jpg _site/ 2>/dev/null || true
+cp fondo-importacion-pedidos.jpg _site/ 2>/dev/null || true
 cp bg-trebol.png _site/ 2>/dev/null || true
 cp hub-coin-*.webp _site/ 2>/dev/null || true
 cp hub-center.webp _site/ 2>/dev/null || true
