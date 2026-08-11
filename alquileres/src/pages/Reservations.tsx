@@ -337,16 +337,23 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
                 className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm" min="0" max="100" />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between bg-white rounded p-3 border border-slate-200">
+          {/* Ojo al tocar este bloque: los hijos deben ser SIEMPRE los mismos
+              elementos, cambiando solo su texto. Si se mezclan nodos de texto
+              sueltos con <span> condicionales, el traductor del navegador
+              reemplaza esos textos y, al insertar React el span, insertBefore
+              falla ("node ... is not a child of this node") y se cae la app
+              entera dejando la pantalla en blanco. translate="no" evita además
+              que el traductor toque estas cifras. */}
+          <div className="mt-3 flex items-center justify-between bg-white rounded p-3 border border-slate-200" translate="no">
             <div className="text-xs text-slate-500">
-              {nights > 0 && <span>{nights} noches · </span>}
-              {stayType === 'otro' && nights > 0 && (
-                <span className="text-indigo-600 font-medium">
-                  {Math.max(1, Math.round(nights / 30))} {Math.max(1, Math.round(nights / 30)) === 1 ? 'mes' : 'meses'} ·{' '}
-                </span>
-              )}
-              Base: {basePrice}€ + Limpieza: {cleaningFee}€
-              {discountPct > 0 && <span> - {discountPct}% dto</span>}
+              <span>{nights > 0 ? `${nights} noches · ` : ''}</span>
+              <span className="text-indigo-600 font-medium">
+                {stayType === 'otro' && nights > 0
+                  ? `${Math.max(1, Math.round(nights / 30))} ${Math.max(1, Math.round(nights / 30)) === 1 ? 'mes' : 'meses'} · `
+                  : ''}
+              </span>
+              <span>{`Base: ${basePrice}€ + Limpieza: ${cleaningFee}€`}</span>
+              <span>{discountPct > 0 ? ` - ${discountPct}% dto` : ''}</span>
             </div>
             <div className="text-lg font-bold text-blue-700">{total.toLocaleString('es-ES')} €</div>
           </div>
