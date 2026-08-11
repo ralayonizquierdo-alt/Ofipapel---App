@@ -185,7 +185,7 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   const [notes, setNotes] = useState(editing?.notes || '')
   const [status, setStatus] = useState(editing?.status || 'confirmada' as Reservation['status'])
   const [guestName, setGuestName] = useState(editing?.guestName || '')
-  const [autoCalc, setAutoCalc] = useState(!editing)
+  const [autoCalc, setAutoCalc] = useState(!editing || (editing.stayType === 'otro' && !editing.basePrice))
 
   const nights = checkOut && checkIn ? getNights(checkIn, checkOut) : 0
   const total = calcTotal(basePrice, cleaningFee, discountPct)
