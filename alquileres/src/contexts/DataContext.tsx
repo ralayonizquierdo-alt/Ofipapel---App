@@ -103,14 +103,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const mark = (k: keyof typeof ready) => setReady(r => ({ ...r, [k]: true }))
 
     const subs = [
-      onSnapshot(collection(db, 'apartments'),   s => { setApartments(s.docs.map(d => d.data() as Apartment));    mark('apartments') }),
-      onSnapshot(collection(db, 'prices'),       s => { setPrices(s.docs.map(d => d.data() as PriceEntry));       mark('prices') }),
-      onSnapshot(collection(db, 'reservations'), s => { setReservations(s.docs.map(d => d.data() as Reservation));mark('reservations') }),
-      onSnapshot(collection(db, 'payments'),     s => { setPayments(s.docs.map(d => d.data() as Payment));        mark('payments') }),
-      onSnapshot(collection(db, 'repairs'),      s => { setRepairs(s.docs.map(d => d.data() as Repair));          mark('repairs') }),
-      onSnapshot(collection(db, 'expenses'),     s => { setExpenses(s.docs.map(d => d.data() as Expense));        mark('expenses') }),
-      onSnapshot(collection(db, 'offerPrices'),  s => { setOfferPrices(s.docs.map(d => d.data() as OfferPrice));  mark('offerPrices') }),
-      onSnapshot(collection(db, 'deletedRepairs'), s => { setDeletedRepairs(s.docs.map(d => d.data() as DeletedRepair)); mark('deletedRepairs') }),
+      onSnapshot(collection(db, 'apartments'),     s => { setApartments(s.docs.map(d => d.data() as Apartment));       mark('apartments') },    () => mark('apartments')),
+      onSnapshot(collection(db, 'prices'),         s => { setPrices(s.docs.map(d => d.data() as PriceEntry));          mark('prices') },         () => mark('prices')),
+      onSnapshot(collection(db, 'reservations'),   s => { setReservations(s.docs.map(d => d.data() as Reservation));   mark('reservations') },   () => mark('reservations')),
+      onSnapshot(collection(db, 'payments'),       s => { setPayments(s.docs.map(d => d.data() as Payment));           mark('payments') },       () => mark('payments')),
+      onSnapshot(collection(db, 'repairs'),        s => { setRepairs(s.docs.map(d => d.data() as Repair));             mark('repairs') },        () => mark('repairs')),
+      onSnapshot(collection(db, 'expenses'),       s => { setExpenses(s.docs.map(d => d.data() as Expense));           mark('expenses') },       () => mark('expenses')),
+      onSnapshot(collection(db, 'offerPrices'),    s => { setOfferPrices(s.docs.map(d => d.data() as OfferPrice));     mark('offerPrices') },    () => mark('offerPrices')),
+      onSnapshot(collection(db, 'deletedRepairs'), s => { setDeletedRepairs(s.docs.map(d => d.data() as DeletedRepair)); mark('deletedRepairs') }, () => mark('deletedRepairs')),
     ]
 
     return () => subs.forEach(u => u())
