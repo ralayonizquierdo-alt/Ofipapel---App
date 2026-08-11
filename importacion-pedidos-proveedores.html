@@ -142,7 +142,9 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
     <h2>1. Cargar factura PDF</h2>
     <div class="campo" style="margin-bottom:14px;max-width:420px;">
       <label>Proveedor</label>
-      <select id="selProveedorPrevio" onchange="onSelProveedorChange()">
+      <input type="text" id="buscarProveedor" placeholder="🔎 Buscar por nombre..." autocomplete="off"
+        oninput="filtrarSelectorProveedores(this.value)" style="margin-bottom:6px;width:100%;box-sizing:border-box;">
+      <select id="selProveedorPrevio" onchange="onSelProveedorChange()" style="width:100%;box-sizing:border-box;">
         <option value="">-- Selecciona un proveedor --</option>
       </select>
     </div>
@@ -652,6 +654,55 @@ function parseMuchoCartucho(lineas){
   return filas;
 }
 
+// POESSA (The Paper & Office Equipment Spain Association): "Código EAN Descripción Unid.
+// Precio % Descuento Importe C. Re. % IVA". El texto de artículos viene mezclado en un único
+// bloque (las descripciones y números a veces se reparten en líneas distintas, y algún artículo
+// trae un valor suelto intercalado antes del precio), así que se ancla por el patrón
+// "CODIGO EAN13" (siempre fiable) y se calcula el importe probando qué combinación de los
+// números sueltos que le siguen (0, 1 o 2 descuentos en cascada) reproduce Unidades×Precio.
+function parsePoessa(lineas){
+  const RE_NOISE_LINEA = /^Nº Registro|^Nº Albar|^Inscrita en el Registro|^Importe Bruto|^Total Fra|^Banco:|^Fecha vencimiento|PAGE BREAK|^Código EAN|^Número :|^Fecha:.*Agente|^The Paper|^AVENIDA|BASAURI|^Tel:|^A4822|^OFIPAPEL|^BULEVAR|^38650|^SANTA CRUZ|^FACTURA$|^AEN-COC/;
+  const limpias = lineas
+    .filter(l=>l.trim()!=='' && !RE_NOISE_LINEA.test(l))
+    .map(l => l.replace(/^Sólo los productos identificados como tales en este documento están certificados FSC®\s*/,''));
+  const blob = limpias.join(' ').replace(/\s+/g,' ');
+
+  const filas = [];
+  const RE_PROD = /(\d{5,7})\s+(\d{13})\s+/g;
+  const matches = [...blob.matchAll(RE_PROD)];
+  matches.forEach((m0,i)=>{
+    const codigo = m0[1], ean = m0[2];
+    const start = m0.index + m0[0].length;
+    const end = (i+1<matches.length) ? matches[i+1].index : blob.length;
+    const chunk = blob.slice(start, end).trim();
+    const m = chunk.match(/^(.+?)\s+([\d.]+)\s+(?:\d+,\d{2}\s+)?(\d+,\d{3})\s+(.*)$/);
+    if(!m) return;
+    const [, desc, unidStr, precioStr, resto] = m;
+    const unidades = parseInt(unidStr.replace(/\./g,''),10);
+    const precio = parseDecComa(precioStr);
+    const bruto = round2_(unidades*precio);
+    const nums = [...resto.matchAll(/\d+,\d{2}/g)].map(x=>parseDecComa(x[0]));
+    let importe = bruto, dto1 = 0;
+    for(let k=0;k<nums.length;k++){
+      let factor=1;
+      for(let j=0;j<k;j++) factor *= (1-nums[j]/100);
+      if(Math.abs(round2_(bruto*factor)-nums[k])<0.02){ importe = nums[k]; dto1 = k>0?nums[0]:0; break; }
+    }
+    filas.push(fila_({codigo, ean, descripcion:desc.trim(), cantidad:unidades, precioUnitario:precio, dto1, importe}));
+  });
+  return filas;
+}
+function totalPoessa(texto){
+  const idx = texto.search(/Base Imp\./i);
+  if(idx<0) return null;
+  const lineas = texto.slice(idx).split('\n');
+  for(let i=1;i<lineas.length && i<8;i++){
+    const nums = [...lineas[i].matchAll(/\d{1,3}(?:\.\d{3})*,\d{2}/g)].map(m=>m[0]);
+    if(nums.length) return parseDecComa(nums[0]);
+  }
+  return null;
+}
+
 // PARDO: "COD.ARTICULO CONCEPTO CANTIDAD PRECIO IMPORTE" (precio a 4 decimales)
 function parsePardo(lineas){
   const filas = [];
@@ -1147,7 +1198,9 @@ const PERFILES_PROVEEDOR = [
   { id:'perfotec', nombre:'PERFOTEC, S.L.', detectar: t => /PERFOTEC/i.test(t), parser: parsePerfotec,
     total: t => totalSimple(t, /B\. IMPONIBLE[\s\S]{0,30}?(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
   { id:'acrilicosvallejo', nombre:'ACRÍLICOS VALLEJO, S.L.U.', detectar: t => /ACRYLICOS VALLEJO|ESB60562956/i.test(desplazarTexto(t, 29)), parser: parseAcrilicosVallejo,
-    total: t => totalAcrilicosVallejo(t) }
+    total: t => totalAcrilicosVallejo(t) },
+  { id:'poessa', nombre:'POESSA (The Paper & Office Equipment Spain)', detectar: t => /The Paper & Office Equipment|A48221998/i.test(t), parser: parsePoessa,
+    total: t => totalPoessa(t) }
 ];
 
 function detectarProveedor(lineas){
@@ -1160,16 +1213,40 @@ function detectarProveedor(lineas){
 // ═══════════════════════════════════════════════════════
 let perfilSeleccionadoId = '';
 
-function poblarSelectorProveedores(){
+function normalizarBusqueda(s){
+  return String(s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().trim();
+}
+
+// Repuebla el desplegable con los proveedores cuyo nombre contiene "filtro"
+// (sin acentos ni mayúsculas), conservando la selección actual si sigue
+// estando entre las opciones visibles. filtro vacío = todos.
+function renderOpcionesProveedor(filtro){
   const sel = document.getElementById('selProveedorPrevio');
-  PERFILES_PROVEEDOR.forEach(p=>{
-    const o = document.createElement('option');
-    o.value = p.id; o.textContent = p.nombre;
-    sel.appendChild(o);
-  });
+  const valorPrevio = sel.value;
+  sel.innerHTML = '';
+  const oVacio = document.createElement('option');
+  oVacio.value = ''; oVacio.textContent = '-- Selecciona un proveedor --';
+  sel.appendChild(oVacio);
+  const f = normalizarBusqueda(filtro);
+  PERFILES_PROVEEDOR
+    .filter(p => !f || normalizarBusqueda(p.nombre).includes(f))
+    .forEach(p=>{
+      const o = document.createElement('option');
+      o.value = p.id; o.textContent = p.nombre;
+      sel.appendChild(o);
+    });
   const oOtro = document.createElement('option');
   oOtro.value = 'otro'; oOtro.textContent = 'Otro proveedor (no está en la lista)';
   sel.appendChild(oOtro);
+  if([...sel.options].some(o=>o.value===valorPrevio)) sel.value = valorPrevio;
+}
+
+function filtrarSelectorProveedores(texto){
+  renderOpcionesProveedor(texto);
+}
+
+function poblarSelectorProveedores(){
+  renderOpcionesProveedor('');
 }
 
 function onSelProveedorChange(){
