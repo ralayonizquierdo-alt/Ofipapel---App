@@ -136,7 +136,17 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
 
   <div class="card">
     <h2>1. Cargar factura PDF</h2>
-    <div class="campo" style="margin-bottom:14px;max-width:420px;">
+    <label class="dropzone" for="pdfInput" id="dropzone">
+      <div class="dz-icono">📄</div>
+      <div class="dz-title" id="dzTitulo">Haz clic o arrastra aquí la factura PDF del proveedor</div>
+      <div class="dz-sub">Solo PDFs de texto (no facturas escaneadas como imagen) — el proveedor se detecta solo si es posible</div>
+      <input type="file" id="pdfInput" accept="application/pdf" onchange="onPdfSelected(this.files[0])">
+    </label>
+    <div class="dz-acciones" id="dzAcciones" style="display:none;">
+      <button type="button" onclick="event.preventDefault(); document.getElementById('pdfInput').value=''; resetDropzone();">✕ Quitar archivo</button>
+    </div>
+    <div id="estadoPdf" class="estado"></div>
+    <div class="campo" style="margin:14px 0 0;max-width:420px;">
       <label>Proveedor</label>
       <input type="text" id="buscarProveedor" placeholder="🔎 Buscar por nombre..." autocomplete="off"
         oninput="filtrarSelectorProveedores(this.value)" style="margin-bottom:6px;width:100%;box-sizing:border-box;">
@@ -145,16 +155,6 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
       </select>
     </div>
     <div id="avisoProveedorPrevio" class="estado"></div>
-    <label class="dropzone dropzone-bloqueada" for="pdfInput" id="dropzone">
-      <div class="dz-icono">📄</div>
-      <div class="dz-title" id="dzTitulo">Haz clic o arrastra aquí la factura PDF del proveedor</div>
-      <div class="dz-sub">Solo PDFs de texto (no facturas escaneadas como imagen)</div>
-      <input type="file" id="pdfInput" accept="application/pdf" onchange="onPdfSelected(this.files[0])">
-    </label>
-    <div class="dz-acciones" id="dzAcciones" style="display:none;">
-      <button type="button" onclick="event.preventDefault(); document.getElementById('pdfInput').value=''; resetDropzone();">✕ Quitar archivo</button>
-    </div>
-    <div id="estadoPdf" class="estado"></div>
   </div>
 
   <div class="card">
@@ -1245,23 +1245,34 @@ function poblarSelectorProveedores(){
   renderOpcionesProveedor('');
 }
 
+// Actualiza el aviso bajo el desplegable según perfilSeleccionadoId.
+// mensajeExtra sustituye el texto por defecto (p.ej. para el caso "detectado automáticamente").
+function actualizarAvisoProveedor(mensajeExtra){
+  const aviso = document.getElementById('avisoProveedorPrevio');
+  if(!perfilSeleccionadoId){
+    aviso.className = mensajeExtra ? 'estado warn' : 'estado';
+    aviso.textContent = mensajeExtra || '';
+  } else if(perfilSeleccionadoId === 'otro'){
+    aviso.className = 'estado warn';
+    aviso.textContent = mensajeExtra || 'Proveedor no homologado: se usará un extractor genérico y tendrás que revisar bien la tabla antes de exportar.';
+  } else {
+    aviso.className = 'estado ok';
+    aviso.textContent = mensajeExtra || '✅ Proveedor homologado — se procesará con su perfil específico.';
+  }
+}
+
 function onSelProveedorChange(){
   const sel = document.getElementById('selProveedorPrevio');
   perfilSeleccionadoId = sel.value;
-  const dropzoneEl = document.getElementById('dropzone');
-  const aviso = document.getElementById('avisoProveedorPrevio');
-  if(!perfilSeleccionadoId){
-    dropzoneEl.classList.add('dropzone-bloqueada');
-    aviso.className = 'estado';
-    return;
-  }
-  dropzoneEl.classList.remove('dropzone-bloqueada');
-  if(perfilSeleccionadoId === 'otro'){
-    aviso.className = 'estado warn';
-    aviso.textContent = 'Proveedor no homologado: se usará un extractor genérico y tendrás que revisar bien la tabla antes de exportar.';
-  } else {
-    aviso.className = 'estado ok';
-    aviso.textContent = '✅ Proveedor homologado — se procesará con su perfil específico.';
+  actualizarAvisoProveedor();
+  // Si ya había una factura cargada (p.ej. no se detectó el proveedor solo,
+  // o el usuario quiere forzar otro distinto), la reprocesamos con el
+  // proveedor recién elegido sin tener que volver a subir el PDF.
+  if(ultimasLineasPDF){
+    const perfil = (perfilSeleccionadoId && perfilSeleccionadoId!=='otro')
+      ? (PERFILES_PROVEEDOR.find(p => p.id === perfilSeleccionadoId) || null)
+      : null;
+    procesarFacturaConPerfil(ultimasLineasPDF, ultimoTextoPDF, perfil);
   }
 }
 
@@ -1367,7 +1378,14 @@ function resetDropzone(){
   document.getElementById('dzAcciones').style.display = 'none';
   mostrarEstado('', '');
   document.getElementById('estadoPdf').className = 'estado';
+  ultimasLineasPDF = null;
+  ultimoTextoPDF = null;
 }
+
+// Texto/líneas de la última factura leída, para poder reprocesarla si el
+// usuario cambia el proveedor a mano (sin tener que volver a subir el PDF).
+let ultimasLineasPDF = null;
+let ultimoTextoPDF = null;
 
 async function onPdfSelected(file){
   if(!file) return;
@@ -1381,53 +1399,69 @@ async function onPdfSelected(file){
   try{
     const lineas = await extraerLineasPDF(file);
     const texto = lineas.join('\n');
+    ultimasLineasPDF = lineas;
+    ultimoTextoPDF = texto;
+
     // El proveedor elegido en el desplegable manda; si es "otro" (o no hay
-    // selección), se recurre a la detección automática y, en su defecto, al genérico.
+    // selección), se intenta detectar automáticamente por el contenido del
+    // PDF y, si acierta, se refleja también en el desplegable.
     let perfil = null;
     if(perfilSeleccionadoId && perfilSeleccionadoId !== 'otro'){
       perfil = PERFILES_PROVEEDOR.find(p => p.id === perfilSeleccionadoId) || null;
     } else if(!perfilSeleccionadoId){
       perfil = detectarProveedor(lineas);
+      if(perfil){
+        perfilSeleccionadoId = perfil.id;
+        const sel = document.getElementById('selProveedorPrevio');
+        if([...sel.options].some(o=>o.value===perfil.id)) sel.value = perfil.id;
+        actualizarAvisoProveedor(`✅ Proveedor detectado automáticamente: ${perfil.nombre}.`);
+      } else {
+        actualizarAvisoProveedor('No se ha reconocido el proveedor automáticamente — selecciónalo abajo para usar su perfil específico, o revisa bien la tabla genérica.');
+      }
     }
-    const parserAUsar = (perfil && perfil.parser) ? perfil.parser : parserGenerico;
-    const filasParseadas = parserAUsar(lineas);
-
-    if(!filasParseadas.length){
-      const pista = (perfil && perfilSeleccionadoId && perfilSeleccionadoId!=='otro')
-        ? ' Revisa que has seleccionado el proveedor correcto en el desplegable.'
-        : '';
-      mostrarEstado('err', 'No se ha podido extraer ninguna línea de artículo de este PDF.' + pista + ' Añade las filas a mano.');
-      return;
-    }
-
-    proveedorDetectado = perfil ? perfil.nombre : '';
-    document.getElementById('cabProveedor').value = proveedorDetectado;
-
-    filas = filasParseadas.map(f => nuevaFila({
-      isbn: f.ean || '',
-      ref: f.codigo,
-      desc: f.descripcion,
-      udes: f.cantidad,
-      precioU: f.precioUnitario,
-      dto1: f.dto1, dto2: f.dto2, dto3: f.dto3, dto4: f.dto4,
-      importe: f.importe
-    }));
-    ordenActual = {campo:null, asc:true};
-    renderFilas();
-    actualizarBotonesOrden();
-
-    if(perfil){
-      mostrarEstado('ok', `Proveedor: ${perfil.nombre}. ${filas.length} líneas extraídas — revisa ISBN/Marca/Familia/Igic antes de exportar.`);
-    } else {
-      mostrarEstado('warn', `Proveedor genérico. ${filas.length} líneas extraídas: revisa bien la tabla, puede haber errores de columnas.`);
-    }
-
-    const sumaCalculada = round2_(filas.reduce((s,f)=>s+(parseFloat(f.importe)||0), 0));
-    const totalFactura = (perfil && perfil.total) ? perfil.total(texto) : null;
-    mostrarModalVerificacion({ perfil, lineas: filas.length, sumaCalculada, totalFactura });
+    procesarFacturaConPerfil(lineas, texto, perfil);
   }catch(err){
     mostrarEstado('err', 'Error al procesar el PDF: ' + err.message);
   }
+}
+
+function procesarFacturaConPerfil(lineas, texto, perfil){
+  const parserAUsar = (perfil && perfil.parser) ? perfil.parser : parserGenerico;
+  const filasParseadas = parserAUsar(lineas);
+
+  if(!filasParseadas.length){
+    const pista = (perfil && perfilSeleccionadoId && perfilSeleccionadoId!=='otro')
+      ? ' Revisa que has seleccionado el proveedor correcto en el desplegable.'
+      : '';
+    mostrarEstado('err', 'No se ha podido extraer ninguna línea de artículo de este PDF.' + pista + ' Añade las filas a mano.');
+    return;
+  }
+
+  proveedorDetectado = perfil ? perfil.nombre : '';
+  document.getElementById('cabProveedor').value = proveedorDetectado;
+
+  filas = filasParseadas.map(f => nuevaFila({
+    isbn: f.ean || '',
+    ref: f.codigo,
+    desc: f.descripcion,
+    udes: f.cantidad,
+    precioU: f.precioUnitario,
+    dto1: f.dto1, dto2: f.dto2, dto3: f.dto3, dto4: f.dto4,
+    importe: f.importe
+  }));
+  ordenActual = {campo:null, asc:true};
+  renderFilas();
+  actualizarBotonesOrden();
+
+  if(perfil){
+    mostrarEstado('ok', `Proveedor: ${perfil.nombre}. ${filas.length} líneas extraídas — revisa ISBN/Marca/Familia/Igic antes de exportar.`);
+  } else {
+    mostrarEstado('warn', `Proveedor genérico. ${filas.length} líneas extraídas: revisa bien la tabla, puede haber errores de columnas.`);
+  }
+
+  const sumaCalculada = round2_(filas.reduce((s,f)=>s+(parseFloat(f.importe)||0), 0));
+  const totalFactura = (perfil && perfil.total) ? perfil.total(texto) : null;
+  mostrarModalVerificacion({ perfil, lineas: filas.length, sumaCalculada, totalFactura });
 }
 
 function mostrarModalVerificacion({ perfil, lineas, sumaCalculada, totalFactura }){
