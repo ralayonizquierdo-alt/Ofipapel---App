@@ -185,7 +185,7 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   const [notes, setNotes] = useState(editing?.notes || '')
   const [status, setStatus] = useState(editing?.status || 'confirmada' as Reservation['status'])
   const [guestName, setGuestName] = useState(editing?.guestName || '')
-  const [autoCalc, setAutoCalc] = useState(!editing)
+  const [autoCalc, setAutoCalc] = useState(!editing || (editing.stayType === 'otro' && !editing.basePrice))
 
   const nights = checkOut && checkIn ? getNights(checkIn, checkOut) : 0
   const total = calcTotal(basePrice, cleaningFee, discountPct)
@@ -200,18 +200,21 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
       (p.year === year || p.year === year + 1)
     )
     if (!priceEntry) return
+    // Los datos vienen de Firestore y pueden traer campos ausentes, nulos o no
+    // numéricos: sin esto acaban propagándose como NaN/undefined al formulario.
+    const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0 }
     const effectNights = checkOut ? getNights(checkIn, checkOut) : 0
     const months = effectNights > 0 ? Math.max(1, Math.round(effectNights / 30)) : 1
     const priceMap: Record<StayType, number> = {
-      '1semana': priceEntry.price1week,
-      '2semanas': priceEntry.price2weeks,
-      '3semanas': priceEntry.price3weeks,
-      '1mes': priceEntry.price1month,
-      'directo': priceEntry.price1month * 0.9,
-      'otro': priceEntry.price1month * months,
+      '1semana': num(priceEntry.price1week),
+      '2semanas': num(priceEntry.price2weeks),
+      '3semanas': num(priceEntry.price3weeks),
+      '1mes': num(priceEntry.price1month),
+      'directo': num(priceEntry.price1month) * 0.9,
+      'otro': num(priceEntry.price1month) * months,
     }
     setBasePrice(priceMap[stayType] || 0)
-    setCleaningFee(priceEntry.cleaningFee)
+    setCleaningFee(Number.isFinite(Number(priceEntry.cleaningFee)) ? Number(priceEntry.cleaningFee) : 40)
   }, [aptId, stayType, checkIn, checkOut, autoCalc, prices])
 
   useEffect(() => {
@@ -222,6 +225,9 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
     const d = daysMap[stayType]
     if (!d) return
     const date = new Date(checkIn)
+    // Una fecha inválida haría que toISOString() lanzara RangeError, y un error
+    // dentro de un efecto tumba todo el árbol de React (pantalla en blanco).
+    if (Number.isNaN(date.getTime())) return
     date.setDate(date.getDate() + d)
     setCheckOut(date.toISOString().split('T')[0])
   }, [stayType, checkIn, autoCalc])
