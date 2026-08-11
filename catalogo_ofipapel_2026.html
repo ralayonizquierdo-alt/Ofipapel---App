@@ -214,6 +214,11 @@
     font-size:9px; color:rgba(255,255,255,0.55);
     letter-spacing:1px; text-transform:uppercase;
   }
+  .page-footer-disclaimer {
+    font-size:7px !important; color:rgba(255,255,255,0.4) !important;
+    letter-spacing:0 !important; text-transform:none !important;
+    font-style:italic; text-align:center; flex:1; padding:0 8px;
+  }
 
   @media print {
     body { background:#fff; }
@@ -1363,6 +1368,7 @@ function startPage() {
     '</div>' +
     '<div class="page-footer">' +
       '<span>OFIPAPEL · Bulevar Chajofe Nº4 · Los Cristianos · Tenerife</span>' +
+      '<span class="page-footer-disclaimer">* Precios sujetos a variaciones por cambios de tarifa del fabricante</span>' +
       '<span>Tel. 922 753 520 · www.ofipapel.net</span>' +
     '</div>';
   document.body.appendChild(pg);
