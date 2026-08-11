@@ -145,7 +145,11 @@ function Drawer({ alerts, open, onClose, onChangePassword, onLogout }: { alerts:
 export default function App() {
   const { loading, reservations, payments } = useData()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [currentUser, setCurrentUser] = useState<string | null>(null)
+  // La sesión se guardaba en localStorage al entrar pero nunca se volvía a
+  // leer, así que cada recarga te echaba a la pantalla de login.
+  const [currentUser, setCurrentUser] = useState<string | null>(
+    () => localStorage.getItem('aq_current_user')
+  )
   const [showChangePassword, setShowChangePassword] = useState(false)
 
   const alertCount = useMemo(() => {
