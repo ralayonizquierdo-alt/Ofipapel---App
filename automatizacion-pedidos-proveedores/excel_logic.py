@@ -239,8 +239,12 @@ def construir_excel_por_proveedor(
     nombre_proveedor: str,
     columnas_salida: list[str],
     columnas_extra: list[str] = None,
+    columna_precio: str = None,
+    columna_cantidad: str = None,
 ) -> bytes:
     """Genera el .xlsx con los articulos en los que nombre_proveedor resulto ganador."""
+    from openpyxl.styles import PatternFill, numbers as xl_numbers
+
     columnas_salida = [c.lower() for c in columnas_salida]
     cols_final = list(columnas_salida)
     if columnas_extra:
@@ -250,14 +254,53 @@ def construir_excel_por_proveedor(
 
     es_ganador = df_consolidado["proveedor_ganador"] == nombre_proveedor
     es_propio = df_consolidado["proveedor"] == nombre_proveedor
-    filtrado = df_consolidado[es_ganador & es_propio][cols_final]
+    filtrado = df_consolidado[es_ganador & es_propio][cols_final].copy()
+
+    # Calcular importe = cantidad × precio si ambas columnas estan disponibles
+    col_precio = columna_precio.lower() if columna_precio else None
+    col_cantidad = columna_cantidad.lower() if columna_cantidad else None
+    tiene_importe = (
+        col_precio and col_cantidad
+        and col_precio in filtrado.columns
+        and col_cantidad in filtrado.columns
+    )
+    if tiene_importe:
+        qty = pd.to_numeric(filtrado[col_cantidad], errors="coerce").fillna(0)
+        prc = pd.to_numeric(filtrado[col_precio], errors="coerce").fillna(0)
+        filtrado["importe"] = qty * prc
+        total_importe = filtrado["importe"].sum()
+    else:
+        total_importe = None
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         filtrado.to_excel(writer, index=False, sheet_name="Ganador")
         hoja = writer.sheets["Ganador"]
+
+        # Cabecera en negrita
         for celda in hoja[1]:
             celda.font = Font(bold=True)
+
+        # Fila TOTAL al final
+        if total_importe is not None:
+            fila_total = hoja.max_row + 1
+            fill_total = PatternFill(fill_type="solid", fgColor="D9D9D9")
+            # Buscar indice de columna "importe" en la cabecera
+            col_importe_idx = None
+            for celda in hoja[1]:
+                if str(celda.value).lower() == "importe":
+                    col_importe_idx = celda.column
+                    break
+            for col_idx in range(1, hoja.max_column + 1):
+                c = hoja.cell(row=fila_total, column=col_idx)
+                c.fill = fill_total
+                c.font = Font(bold=True)
+            hoja.cell(row=fila_total, column=1).value = "TOTAL"
+            if col_importe_idx:
+                celda_total = hoja.cell(row=fila_total, column=col_importe_idx)
+                celda_total.value = total_importe
+                celda_total.number_format = "#,##0.00"
+
         for columna in hoja.columns:
             ancho = max((len(str(c.value)) for c in columna if c.value is not None), default=10) + 2
             hoja.column_dimensions[columna[0].column_letter].width = ancho

@@ -136,7 +136,9 @@ def main():
         proveedor_cfg = next(p for p in config["proveedores"] if p["nombre"] == nombre)
         columnas_extra = proveedor_cfg.get("columnas_extra", [])
         excel_bytes = excel_logic.construir_excel_por_proveedor(
-            df_consolidado, nombre, config["excel"]["columnas_esperadas"], columnas_extra
+            df_consolidado, nombre, config["excel"]["columnas_esperadas"], columnas_extra,
+            columna_precio=config["excel"]["columna_precio"],
+            columna_cantidad=config["excel"].get("columna_cantidad"),
         )
         nombre_archivo_salida = config["salida"]["nombre_archivo_patron"].format(
             proveedor=nombre.replace(" ", "_"), fecha=hoy
