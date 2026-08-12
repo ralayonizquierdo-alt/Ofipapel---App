@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { hashPw, getStoredHash, saveHash } from '../lib/passwordAuth'
+import VersionBadge from './VersionBadge'
 import bgTrebol from '../assets/bg-trebol.png'
 
 type User = 'Luis' | 'Rober'
@@ -140,6 +141,8 @@ export default function LoginScreen({ onLogin }: Props) {
             </form>
           </div>
         )}
+
+        <VersionBadge />
       </div>
     </div>
   )
