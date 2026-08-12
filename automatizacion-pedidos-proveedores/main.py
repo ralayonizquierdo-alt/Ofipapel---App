@@ -117,6 +117,7 @@ def main():
         if p.get("excluir_marcas")
     }
     balance_entre = config.get("reglas", {}).get("balance_entre", [])
+    balance_tolerancia = float(config.get("reglas", {}).get("balance_tolerancia_euros", 0.0))
     columna_descripcion = config["excel"].get("columna_descripcion")
     columna_cantidad = config["excel"].get("columna_cantidad")
 
@@ -128,6 +129,7 @@ def main():
         columna_cantidad=columna_cantidad,
         excluir_marcas_por_proveedor=excluir_marcas_por_proveedor,
         balance_entre=balance_entre,
+        balance_tolerancia=balance_tolerancia,
     )
 
     hoy = date.today().isoformat()

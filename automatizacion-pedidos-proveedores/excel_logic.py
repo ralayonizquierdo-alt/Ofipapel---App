@@ -107,6 +107,7 @@ def cruzar_y_determinar_ganador(
     columna_cantidad: str = None,
     excluir_marcas_por_proveedor: dict[str, list[str]] = None,
     balance_entre: list[str] = None,
+    balance_tolerancia: float = 0.0,
 ) -> tuple[pd.DataFrame, ReporteCruce]:
     """Cruza los Excel de los proveedores por columna_clave y asigna, para cada
     articulo, el proveedor con el precio mas bajo.
@@ -115,6 +116,8 @@ def cruzar_y_determinar_ganador(
       ganar articulos cuya descripcion contenga alguna de las marcas indicadas.
     balance_entre: lista de 2 proveedores cuyo importe total de pedido se intenta
       equilibrar asignando los empates de precio al que lleve menos acumulado.
+    balance_tolerancia: diferencia maxima de precio (en euros) para considerar
+      dos precios como empate a efectos del balanceo. Por defecto 0 (exacto).
     """
     reporte = ReporteCruce()
     proveedores = list(dfs_por_proveedor.keys())
@@ -185,7 +188,9 @@ def cruzar_y_determinar_ganador(
             continue
 
         precio_minimo = validos[columna_precio].min()
-        empatados = validos[validos[columna_precio] == precio_minimo].sort_values("proveedor")
+        empatados = validos[
+            (validos[columna_precio] - precio_minimo).abs() <= balance_tolerancia
+        ].sort_values("proveedor")
         empatados_lista = empatados["proveedor"].tolist()
 
         # Si ambos proveedores de balanceo estan empatados al precio minimo,
