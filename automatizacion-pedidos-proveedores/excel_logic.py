@@ -246,9 +246,14 @@ def construir_excel_por_proveedor(
     columnas_extra: list[str] = None,
     columna_precio: str = None,
     columna_cantidad: str = None,
+    ruta_plantilla: str = None,
 ) -> bytes:
-    """Genera el .xlsx con los articulos en los que nombre_proveedor resulto ganador."""
-    from openpyxl.styles import PatternFill, numbers as xl_numbers
+    """Genera el .xlsx con los articulos en los que nombre_proveedor resulto ganador.
+
+    Si ruta_plantilla apunta al fichero de plantilla de pedido, el Excel de salida
+    respeta el formato de dicha plantilla (cabecera preformateada, datos desde fila 11).
+    """
+    import openpyxl as _opx
 
     columnas_salida = [c.lower() for c in columnas_salida]
     cols_final = list(columnas_salida)
@@ -261,9 +266,15 @@ def construir_excel_por_proveedor(
     es_propio = df_consolidado["proveedor"] == nombre_proveedor
     filtrado = df_consolidado[es_ganador & es_propio][cols_final].copy()
 
-    # Calcular importe = cantidad × precio si ambas columnas estan disponibles
     col_precio = columna_precio.lower() if columna_precio else None
     col_cantidad = columna_cantidad.lower() if columna_cantidad else None
+
+    if ruta_plantilla:
+        return _construir_con_plantilla(filtrado, nombre_proveedor, col_precio, col_cantidad, ruta_plantilla)
+
+    # --- formato simple (sin plantilla) ---
+    from openpyxl.styles import PatternFill
+
     tiene_importe = (
         col_precio and col_cantidad
         and col_precio in filtrado.columns
@@ -281,16 +292,11 @@ def construir_excel_por_proveedor(
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         filtrado.to_excel(writer, index=False, sheet_name="Ganador")
         hoja = writer.sheets["Ganador"]
-
-        # Cabecera en negrita
         for celda in hoja[1]:
             celda.font = Font(bold=True)
-
-        # Fila TOTAL al final
         if total_importe is not None:
             fila_total = hoja.max_row + 1
             fill_total = PatternFill(fill_type="solid", fgColor="D9D9D9")
-            # Buscar indice de columna "importe" en la cabecera
             col_importe_idx = None
             for celda in hoja[1]:
                 if str(celda.value).lower() == "importe":
@@ -305,11 +311,57 @@ def construir_excel_por_proveedor(
                 celda_total = hoja.cell(row=fila_total, column=col_importe_idx)
                 celda_total.value = total_importe
                 celda_total.number_format = "#,##0.00"
-
         for columna in hoja.columns:
             ancho = max((len(str(c.value)) for c in columna if c.value is not None), default=10) + 2
             hoja.column_dimensions[columna[0].column_letter].width = ancho
 
+    return buffer.getvalue()
+
+
+def _construir_con_plantilla(
+    filtrado: pd.DataFrame,
+    nombre_proveedor: str,
+    col_precio: str,
+    col_cantidad: str,
+    ruta_plantilla: str,
+) -> bytes:
+    """Rellena la plantilla corporativa de pedido con los datos del proveedor."""
+    import openpyxl as _opx
+
+    wb = _opx.load_workbook(ruta_plantilla)
+    ws = wb["fichero"]
+
+    # Nombre del proveedor en B6
+    ws["B6"] = nombre_proveedor
+
+    # Datos a partir de fila 11
+    # Columnas de la plantilla:
+    #   B(2)=DESCRIPCION  C(3)=Rfcia.Proveedor  F(6)=Unidades
+    #   G(7)=P.Costo      J(10)=TOTAL           M(13)=Cod.Ofipapel
+    fila = 11
+    for _, row in filtrado.iterrows():
+        descrip = row.get("descrip", "")
+        cod_compra = row.get("cod_compra", "")
+        cantvend = row.get(col_cantidad, "") if col_cantidad else ""
+        precio = row.get(col_precio, "") if col_precio else ""
+        cod_venta_raw = row.get("cod_venta", "")
+
+        # cod_venta puede llegar como float (p.ej. 106205.0) → convertir a int
+        try:
+            cod_venta = int(float(cod_venta_raw)) if cod_venta_raw != "" and pd.notna(cod_venta_raw) else ""
+        except (ValueError, TypeError):
+            cod_venta = cod_venta_raw
+
+        ws.cell(row=fila, column=2).value = descrip
+        ws.cell(row=fila, column=3).value = cod_compra
+        ws.cell(row=fila, column=6).value = cantvend if pd.notna(cantvend) else ""
+        ws.cell(row=fila, column=7).value = precio if pd.notna(precio) else ""
+        ws.cell(row=fila, column=10).value = f"=F{fila}*G{fila}"
+        ws.cell(row=fila, column=13).value = cod_venta
+        fila += 1
+
+    buffer = BytesIO()
+    wb.save(buffer)
     return buffer.getvalue()
 
 

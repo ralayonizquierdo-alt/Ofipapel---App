@@ -137,10 +137,12 @@ def main():
     for nombre, mensaje in correos_por_proveedor.items():
         proveedor_cfg = next(p for p in config["proveedores"] if p["nombre"] == nombre)
         columnas_extra = proveedor_cfg.get("columnas_extra", [])
+        ruta_plantilla = config["salida"].get("plantilla_pedido")
         excel_bytes = excel_logic.construir_excel_por_proveedor(
             df_consolidado, nombre, config["excel"]["columnas_esperadas"], columnas_extra,
             columna_precio=config["excel"]["columna_precio"],
             columna_cantidad=config["excel"].get("columna_cantidad"),
+            ruta_plantilla=ruta_plantilla,
         )
         nombre_archivo_salida = config["salida"]["nombre_archivo_patron"].format(
             proveedor=nombre.replace(" ", "_"), fecha=hoy
