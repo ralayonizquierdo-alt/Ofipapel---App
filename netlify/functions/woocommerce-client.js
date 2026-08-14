@@ -125,18 +125,27 @@ function nombreCoincide(input, order) {
 
 const ESTADO_TRADUCIDO = {
   pending: 'pendiente de pago',
-  processing: 'pagado y en preparación',
   'on-hold': 'en espera',
   completed: 'completado',
   cancelled: 'cancelado',
   refunded: 'reembolsado',
   failed: 'con el pago fallido',
   'checkout-draft': 'sin finalizar',
+  'cancel-request': 'con una solicitud de cancelación en trámite',
 };
+
+// "processing" NO significa siempre "pagado" — con contra reembolso, por ejemplo,
+// el pedido está en preparación pero no se paga hasta la entrega. Se decide la
+// frase con el dato real de pago (date_paid), no solo con el nombre del estado.
+function fraseProcessing(order) {
+  if (order.date_paid) return 'pagado y en preparación';
+  if (order.payment_method === 'cod') return 'en preparación (se paga contra reembolso al recibirlo)';
+  return 'en preparación, pendiente de confirmar el pago';
+}
 
 // Mensaje en español, listo para mandar por WhatsApp, con el estado real del pedido.
 function formatOrderStatus(order) {
-  const estado = ESTADO_TRADUCIDO[order.status] || order.status;
+  const estado = order.status === 'processing' ? fraseProcessing(order) : ESTADO_TRADUCIDO[order.status] || order.status;
   const fecha = order.date_created ? new Date(order.date_created).toLocaleDateString('es-ES') : null;
   const total = order.total ? `${Number(order.total).toFixed(2)}€` : null;
   let msg = `Tu pedido #${order.id}`;
@@ -147,6 +156,13 @@ function formatOrderStatus(order) {
   return msg;
 }
 
+// "spamorder" es un estado interno (pedidos marcados como spam/fraude por un
+// plugin) — si un pedido real cae ahí por error, mejor que lo revise una persona
+// en vez de que el bot le diga al cliente que su pedido está marcado como spam.
+function isSpamOrder(order) {
+  return order?.status === 'spamorder';
+}
+
 module.exports = {
   isConfigured,
   searchProducts,
@@ -154,4 +170,5 @@ module.exports = {
   phoneMatches,
   nombreCoincide,
   formatOrderStatus,
+  isSpamOrder,
 };
