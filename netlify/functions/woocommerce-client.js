@@ -80,4 +80,78 @@ async function searchProducts(query, limit = 3) {
   }));
 }
 
-module.exports = { isConfigured, searchProducts };
+// Pedido concreto por número/id. WooCommerce devuelve 404 para un id que no existe
+// (wcRequest ya lo convierte en null), así que null significa "no existe ese pedido".
+async function getOrder(orderId) {
+  return wcRequest(`/orders/${encodeURIComponent(orderId)}`);
+}
+
+// Compara el teléfono del pedido con el número de WhatsApp desde el que escriben.
+// Se comparan solo los últimos 9 dígitos (formato de móvil/fijo español), para no
+// depender de que ambos lleven o no el prefijo +34.
+function normalizePhone(phone) {
+  return (phone || '').replace(/\D/g, '').slice(-9);
+}
+
+function phoneMatches(order, whatsappFrom) {
+  const orderPhone = normalizePhone(order?.billing?.phone);
+  return Boolean(orderPhone) && orderPhone === normalizePhone(whatsappFrom);
+}
+
+// Segunda comprobación (cuando el teléfono no coincide): nombre comercial o nombre
+// y apellidos con los que se hizo el pedido, en comparación laxa (sin acentos/
+// mayúsculas, coincidencia parcial en cualquier dirección).
+function normalizeNombre(s) {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function nombreCoincide(input, order) {
+  const normInput = normalizeNombre(input);
+  if (!normInput) return false;
+  const candidatos = [
+    order?.billing?.company,
+    `${order?.billing?.first_name || ''} ${order?.billing?.last_name || ''}`,
+  ]
+    .map(normalizeNombre)
+    .filter(Boolean);
+  return candidatos.some((c) => c.includes(normInput) || normInput.includes(c));
+}
+
+const ESTADO_TRADUCIDO = {
+  pending: 'pendiente de pago',
+  processing: 'pagado y en preparación',
+  'on-hold': 'en espera',
+  completed: 'completado',
+  cancelled: 'cancelado',
+  refunded: 'reembolsado',
+  failed: 'con el pago fallido',
+  'checkout-draft': 'sin finalizar',
+};
+
+// Mensaje en español, listo para mandar por WhatsApp, con el estado real del pedido.
+function formatOrderStatus(order) {
+  const estado = ESTADO_TRADUCIDO[order.status] || order.status;
+  const fecha = order.date_created ? new Date(order.date_created).toLocaleDateString('es-ES') : null;
+  const total = order.total ? `${Number(order.total).toFixed(2)}€` : null;
+  let msg = `Tu pedido #${order.id}`;
+  if (fecha) msg += ` (del ${fecha})`;
+  msg += ` está ${estado}`;
+  if (total) msg += `, por un total de ${total}`;
+  msg += '.';
+  return msg;
+}
+
+module.exports = {
+  isConfigured,
+  searchProducts,
+  getOrder,
+  phoneMatches,
+  nombreCoincide,
+  formatOrderStatus,
+};

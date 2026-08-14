@@ -79,9 +79,12 @@ el repo:
 - `WOOCOMMERCE_CONSUMER_KEY` / `WOOCOMMERCE_CONSUMER_SECRET` — claves de la
   API REST de WooCommerce (`ofipapel.net`, WordPress + WooCommerce), usadas
   por `netlify/functions/woocommerce-client.js` desde el bot de WhatsApp
-  para consultar productos/precios/stock reales antes de responder. Sin
-  ellas, el bot nunca confirma ni descarta productos concretos (cae al
-  comportamiento anterior).
+  para consultar productos/precios/stock reales antes de responder, y para
+  el flujo de "estado de mi pedido" (número de pedido + verificación por
+  teléfono, o por nombre comercial/nombre y apellidos si el teléfono no
+  coincide con el del pedido). Sin ellas, el bot nunca confirma ni descarta
+  productos concretos y "estado de mi pedido" da solo el contacto de
+  siempre (cae al comportamiento anterior).
 - `OPENAI_API_KEY` — activa el proveedor real `openai-images` de
   `creative-engine/creative-lab/` desde
   `netlify/functions/marketing-engine-run.js` (marcarla como secreto en
