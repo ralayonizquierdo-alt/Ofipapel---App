@@ -90,6 +90,33 @@ async function getOrder(orderId) {
   return wcRequest(`/orders/${encodeURIComponent(orderId)}`);
 }
 
+// URL pública de la página de una categoría en la web (comprobado contra la
+// estructura real de ofipapel.net — no viene en la respuesta de la API).
+function categoryUrl(slug) {
+  return `https://ofipapel.net/categoria-producto/${slug}/`;
+}
+
+// Busca categorías de producto por texto libre — útil cuando una búsqueda genérica
+// ("grapadoras") tiene demasiados artículos distintos como para adivinar cuál
+// quiere el cliente, y es mejor preguntar por el tipo (Tenaza, Eléctricas...) y
+// enlazar directamente a esa categoría en vez de a un producto suelto.
+async function searchCategories(query, limit = 8) {
+  const cleanQuery = sanitizeQuery(query);
+  if (!cleanQuery) return [];
+
+  const params = new URLSearchParams({ search: cleanQuery, per_page: String(limit) });
+  const categorias = await wcRequest(`/products/categories?${params.toString()}`);
+  if (!Array.isArray(categorias)) return [];
+  return categorias
+    .filter((c) => c.count > 0)
+    .map((c) => ({
+      nombre: c.name,
+      cantidadProductos: c.count,
+      esSubcategoria: Boolean(c.parent),
+      url: categoryUrl(c.slug),
+    }));
+}
+
 // Compara el teléfono del pedido con el número de WhatsApp desde el que escriben.
 // Se comparan solo los últimos 9 dígitos (formato de móvil/fijo español), para no
 // depender de que ambos lleven o no el prefijo +34.
@@ -186,6 +213,7 @@ function isSpamOrder(order) {
 module.exports = {
   isConfigured,
   searchProducts,
+  searchCategories,
   getOrder,
   phoneMatches,
   nombreCoincide,

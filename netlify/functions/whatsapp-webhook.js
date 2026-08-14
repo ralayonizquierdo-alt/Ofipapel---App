@@ -392,20 +392,36 @@ async function handleIncomingMessage(message) {
   // coincidencias, sigue el comportamiento anterior (nunca confirma productos).
   let productContext = null;
   if (woocommerce.isConfigured()) {
-    // Si el mensaje es muy corto (p. ej. "A4", "en fucsia"), lo más probable es que
-    // sea la respuesta a una pregunta de aclaración de la IA sobre tamaño/color/etc.
-    // — se combina con el mensaje anterior del cliente para no perder ese contexto
-    // en la búsqueda (si se buscara solo "A4", encontraría cualquier cosa en A4).
+    // Si el mensaje es muy corto (p. ej. "A4", "en fucsia", "tenaza"), lo más
+    // probable es que sea la respuesta a una pregunta de aclaración de la IA sobre
+    // tamaño/color/tipo — se combina con el mensaje anterior del cliente para no
+    // perder ese contexto en la búsqueda (si se buscara solo "A4", encontraría
+    // cualquier cosa en A4).
     const esRespuestaCorta = text.trim().split(/\s+/).filter(Boolean).length <= 3;
     const lastUserMsg = esRespuestaCorta ? [...history].reverse().find((m) => m.role === 'user') : null;
     const searchQuery = lastUserMsg ? `${lastUserMsg.content} ${text}` : text;
 
-    const productos = await woocommerce.searchProducts(searchQuery, 6);
+    const [productos, categorias] = await Promise.all([
+      woocommerce.searchProducts(searchQuery, 6),
+      woocommerce.searchCategories(searchQuery),
+    ]);
+
+    const bloques = [];
     if (productos.length > 0) {
-      productContext = productos
-        .map((p) => `- ${p.nombre}: ${p.precio || 'precio no disponible'}, ${p.disponible ? 'con stock' : 'sin stock'} (${p.url})`)
-        .join('\n');
+      bloques.push(
+        `PRODUCTOS que coinciden:\n${productos
+          .map((p) => `- ${p.nombre}: ${p.precio || 'precio no disponible'}, ${p.disponible ? 'con stock' : 'sin stock'} (${p.url})`)
+          .join('\n')}`
+      );
     }
+    if (categorias.length > 0) {
+      bloques.push(
+        `CATEGORÍAS que coinciden (útil cuando la pregunta es genérica y hay varios tipos distintos):\n${categorias
+          .map((c) => `- ${c.nombre} (${c.cantidadProductos} productos): ${c.url}`)
+          .join('\n')}`
+      );
+    }
+    if (bloques.length > 0) productContext = bloques.join('\n\n');
   }
 
   const aiReply = await askClaude(text, history, productContext);
