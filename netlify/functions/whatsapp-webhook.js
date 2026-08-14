@@ -392,7 +392,15 @@ async function handleIncomingMessage(message) {
   // coincidencias, sigue el comportamiento anterior (nunca confirma productos).
   let productContext = null;
   if (woocommerce.isConfigured()) {
-    const productos = await woocommerce.searchProducts(text);
+    // Si el mensaje es muy corto (p. ej. "A4", "en fucsia"), lo más probable es que
+    // sea la respuesta a una pregunta de aclaración de la IA sobre tamaño/color/etc.
+    // — se combina con el mensaje anterior del cliente para no perder ese contexto
+    // en la búsqueda (si se buscara solo "A4", encontraría cualquier cosa en A4).
+    const esRespuestaCorta = text.trim().split(/\s+/).filter(Boolean).length <= 3;
+    const lastUserMsg = esRespuestaCorta ? [...history].reverse().find((m) => m.role === 'user') : null;
+    const searchQuery = lastUserMsg ? `${lastUserMsg.content} ${text}` : text;
+
+    const productos = await woocommerce.searchProducts(searchQuery, 6);
     if (productos.length > 0) {
       productContext = productos
         .map((p) => `- ${p.nombre}: ${p.precio || 'precio no disponible'}, ${p.disponible ? 'con stock' : 'sin stock'} (${p.url})`)
