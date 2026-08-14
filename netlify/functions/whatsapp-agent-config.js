@@ -275,7 +275,7 @@ const AGENDAS_INFO = `Tenemos muchísimos modelos y diseños de agendas en stock
 
 const REGALOS_INFO = `Tenemos una campaña de regalos directos según el importe de tu compra. Los regalos disponibles van cambiando cada varias semanas, así que la lista actualizada (con el importe necesario para cada uno) siempre está en la familia de productos "Z-Regalos Promocionales" de la web. Para elegir tu regalo, indícalo en las observaciones del pedido.`;
 
-const COMO_COMPRAR_INFO = `Puedes comprar en https://ofipapel.net: busca el producto por secciones, marcas o con el buscador, añádelo al carrito y ve a "Finalizar Compra" para dejar tus datos y elegir cómo pagar. Ahí mismo puedes elegir "Recogida en tienda" en vez de envío a domicilio.`;
+const COMO_COMPRAR_INFO = `Por este WhatsApp no puedo tomarte el pedido directamente (soy un asistente automático), pero puedes hacerlo tú mismo en la web: entra en https://ofipapel.net, busca el producto por secciones, marcas o con el buscador, añádelo al carrito y ve a "Finalizar Compra" para dejar tus datos y elegir cómo pagar (ahí mismo puedes elegir "Recogida en tienda" en vez de envío a domicilio). Si prefieres que te lo gestionemos nosotros, escribe a pedidos@ofipapelsl.com o llama al ${STORES[0].phone} (extensión 2) indicando qué necesitas.`;
 
 const RECOGIDA_TIENDA_INFO = `Sí, al hacer tu pedido en la web, en el paso de "Finalizar Compra" puedes elegir "Recogida en tienda" en vez de envío a domicilio — a veces resulta más cómodo y rápido pasar a por él, aunque tu pedido ya tenga el envío gratis.`;
 
@@ -509,7 +509,7 @@ const FAQ_RULES = [
     reply: CATALOGO_DESCARGA_INFO,
   },
   {
-    keywords: ['como comprar', 'cómo comprar', 'como hago un pedido', 'cómo hago un pedido', 'hacer un pedido', 'comprar online', 'comprar por internet', 'comprar en la web'],
+    keywords: ['como comprar', 'cómo comprar', 'como hago un pedido', 'cómo hago un pedido', 'hacer un pedido', 'hacer el pedido', 'quiero pedir', 'quiero hacer un pedido', 'pedir por aqui', 'pedir por aquí', 'pedir por whatsapp', 'comprar online', 'comprar por internet', 'comprar en la web'],
     reply: COMO_COMPRAR_INFO,
   },
   {
@@ -517,7 +517,9 @@ const FAQ_RULES = [
     reply: PAGO_INFO,
   },
   {
-    keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'portes', 'cuando llega', 'cuándo llega', 'plazo de entrega', 'mandan a', 'mandais', 'mandáis', 'enviais', 'enviáis', 'envian a', 'envían a'],
+    // "portes" (bare) colisionaba con "transportes" (p. ej. "Transportes Noda",
+    // una empresa de transporte) — se cambia por frases específicas de gastos de envío.
+    keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'gastos de portes', 'coste de portes', 'costo de portes', 'importe de portes', 'cuanto son los portes', 'cuánto son los portes', 'cuanto cuestan los portes', 'cuánto cuestan los portes', 'cuando llega', 'cuándo llega', 'plazo de entrega', 'mandan a', 'mandais', 'mandáis', 'enviais', 'enviáis', 'envian a', 'envían a'],
     reply: enviosReply,
   },
   {
