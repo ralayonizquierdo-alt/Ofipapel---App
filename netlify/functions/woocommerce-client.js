@@ -146,7 +146,7 @@ const ESTADO_TRADUCIDO = {
 function fraseProcessing(order) {
   if (order.date_paid) return { estado: 'pagado y en preparación', extra: '' };
   if (order.payment_method === 'cod') {
-    return { estado: 'en preparación', extra: ' Elegiste pago contra reembolso, así que se paga al recibirlo.' };
+    return { estado: 'en preparación', extra: ' Ha elegido pago contra reembolso, así que se paga al recibirlo.' };
   }
   return { estado: 'en preparación, pendiente de confirmar el pago', extra: '' };
 }
