@@ -46,7 +46,7 @@ function findStoreInText(normalizedText) {
   return STORES.find((s) => s.keywords.some((k) => normalizedText.includes(k)));
 }
 
-const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿En qué puedo ayudarte? Puedes preguntarme por horarios, ubicación, teléfono o lo que necesites.`;
+const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿En qué puedo ayudarte? Puedes preguntarme por horarios, ubicación, teléfono o lo que necesites.\n\nWe also speak English 🇬🇧`;
 
 // Detección de saludo robusta: NO cuenta palabras totales (eso rompía con mensajes
 // tipo "Buenas tardes, ¿hacéis escaneados?", que caían justo en 6 palabras y se
@@ -152,6 +152,16 @@ function agenteInfoOrDecline(normalizedText) {
 }
 
 const PEDIDOS_INFO = `Para el seguimiento de tu pedido o cualquier incidencia relacionada, lo mejor es que contactes directamente con el departamento de Pedidos: ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com.`;
+
+// Cuando preguntan por el estado de un pedido concreto, en vez de dar solo el
+// contacto (PEDIDOS_INFO) se arranca una búsqueda real en WooCommerce — este texto
+// hace de sentinela (como SELLOS_QUESTION) y a la vez es la pregunta real que se le
+// manda al cliente para empezar esa búsqueda (ver whatsapp-webhook.js).
+const PEDIDO_ESTADO_TRIGGER = 'Claro, dime el número de tu pedido (lo tienes en el email de confirmación) y te digo en qué estado está.';
+
+function isPedidoEstadoQuestion(text) {
+  return text === PEDIDO_ESTADO_TRIGGER;
+}
 
 const ADMINISTRACION_INFO = `Para temas administrativos (facturas, pagos, cuentas) contacta directamente con Administración: ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.`;
 
@@ -376,11 +386,18 @@ const FAQ_RULES = [
     reply: REGALOS_INFO,
   },
   {
-    // Colocada antes que las reglas genéricas de horario/dirección/teléfono para que
-    // "teléfono de pedidos", "extensión de pedidos", etc. no caigan en la respuesta
-    // genérica de contacto solo por contener la palabra "teléfono" o "número".
-    keywords: ['estado de mi pedido', 'estado del pedido', 'seguimiento de mi pedido', 'seguimiento del pedido', 'donde esta mi pedido', 'dónde está mi pedido', 'donde está mi pedido', 'cuando llega mi pedido', 'cuándo llega mi pedido', 'numero de pedido', 'número de pedido', 'no me ha llegado mi pedido', 'no me llego mi pedido', 'no me llegó mi pedido', 'mi pedido no ha llegado', 'incidencia con mi pedido', 'incidencia con un pedido', 'incidencia con el pedido', 'telefono de pedidos', 'teléfono de pedidos', 'telefono directo a pedidos', 'teléfono directo a pedidos', 'numero de pedidos', 'número de pedidos', 'extension de pedidos', 'extensión de pedidos', 'extension 2', 'extensión 2'],
+    // Preguntar por el teléfono/extensión de Pedidos (no por el estado de un pedido
+    // concreto) sigue dando el contacto de siempre, sin arrancar la búsqueda real.
+    keywords: ['telefono de pedidos', 'teléfono de pedidos', 'telefono directo a pedidos', 'teléfono directo a pedidos', 'numero de pedidos', 'número de pedidos', 'extension de pedidos', 'extensión de pedidos', 'extension 2', 'extensión 2'],
     reply: PEDIDOS_INFO,
+  },
+  {
+    // Colocada antes que las reglas genéricas de horario/dirección/teléfono para que
+    // estas frases no caigan en la respuesta genérica de contacto. Preguntar por el
+    // estado de un pedido concreto arranca la búsqueda real en WooCommerce (ver
+    // isPedidoEstadoQuestion en whatsapp-webhook.js) en vez de solo dar el contacto.
+    keywords: ['estado de mi pedido', 'estado del pedido', 'seguimiento de mi pedido', 'seguimiento del pedido', 'donde esta mi pedido', 'dónde está mi pedido', 'donde está mi pedido', 'cuando llega mi pedido', 'cuándo llega mi pedido', 'numero de pedido', 'número de pedido', 'no me ha llegado mi pedido', 'no me llego mi pedido', 'no me llegó mi pedido', 'mi pedido no ha llegado', 'incidencia con mi pedido', 'incidencia con un pedido', 'incidencia con el pedido'],
+    reply: PEDIDO_ESTADO_TRIGGER,
   },
   {
     keywords: ['factura', 'facturas', 'administracion', 'administración', 'departamento administrativo', 'telefono de administracion', 'teléfono de administración', 'telefono directo a administracion', 'teléfono directo a administración', 'extension de administracion', 'extensión de administración', 'extension 1', 'extensión 1'],
@@ -543,11 +560,15 @@ const CATALOGO_INFO = `Además de papelería, vendemos: accesorios de telefonía
 // función (no una cadena fija) porque necesita el estado de horario comercial EN EL
 // MOMENTO de cada mensaje: Claude no tiene ni idea de qué hora es "ahora mismo" si no
 // se lo decimos explícitamente en el prompt en cada llamada.
-function buildAiSystemPrompt() {
+function buildAiSystemPrompt(productContext = null) {
   const abierto = isWithinBusinessHours();
   const estadoActual = abierto
     ? `ABIERTO ahora mismo (horario de la sede principal: ${STORES[0].hours}).`
     : `CERRADO ahora mismo (horario de la sede principal: ${STORES[0].hours}) — no hay nadie disponible para atender llamadas ni pasar con un agente hasta que abramos.`;
+
+  const productContextBlock = productContext
+    ? `\nResultado de búsqueda EN TIEMPO REAL en nuestro catálogo (ofipapel.net) para el mensaje que te acaban de escribir — son datos reales, tómalos como ciertos:\n${productContext}\nSi alguno de estos resultados responde a lo que pregunta el cliente, úsalo (nombre, precio, disponibilidad). Si la lista no tiene nada que ver con lo que pregunta, ignórala — no la menciones y sigue las instrucciones de "no sé la respuesta" para ese producto.\n`
+    : '';
 
   return `Eres el asistente de atención al cliente por WhatsApp de ${BUSINESS_NAME}, una tienda en Tenerife de papelería, informática, tecnología y equipamiento de oficina y hogar (no solo papelería).
 
@@ -557,6 +578,7 @@ Información del negocio:
 ${storesSummary()}
 
 Qué vendemos: ${CATALOGO_INFO}
+${productContextBlock}
 
 Qué NO vendemos (dilo con seguridad, no hace falta escalar): sellos de correos/postales (eso lo gestiona Correos, no nosotros — sí hacemos sellos personalizados de goma, que es distinto) ni papel sellado/timbrado para trámites oficiales.
 
@@ -587,7 +609,7 @@ Instrucciones:
 - No hace falta que saludes tú al principio de tu respuesta (ni "Hola", ni "¡Buenas!", ni nada parecido): si el cliente ha saludado, el sistema ya antepone el saludo automáticamente antes de tu respuesta. Ve directa/o a responder la pregunta.
 - Contesta solo a lo que el cliente ha preguntado. Si la información que tienes cubre varios casos (por ejemplo, varias islas de envío) y el cliente solo pregunta por uno, dale únicamente el dato de ese caso concreto; no le sueltes toda la lista si no la ha pedido.
 - Nunca invites a llamar "ahora mismo" si estamos fuera del horario comercial (${STORES[0].hours}) — no habría nadie para atender la llamada. Fuera de horario, en vez de sugerir llamar, deja claro que la atención personal (por teléfono o con un agente) será en cuanto abramos y retomemos la actividad, no al instante.
-- IMPORTANTE — NO TIENES ACCESO A NUESTRO CATÁLOGO NI AL STOCK REAL (todavía no hay conexión con el sistema de inventario). Si te preguntan si vendemos un PRODUCTO CONCRETO (una marca, modelo o artículo específico — no una categoría general de las listadas en "Qué vendemos"), NUNCA confirmes ni descartes que lo tenemos, aunque te suene plausible para una papelería/tienda de informática y te parezca una respuesta razonable ("seguramente sí lo vendemos"). No lo sabes de verdad, así que ese caso ES un "no sé la respuesta" — pasa directamente al punto siguiente.
+- IMPORTANTE — salvo que arriba tengas un "Resultado de búsqueda EN TIEMPO REAL" que responda exactamente a lo que preguntan, NO TIENES ACCESO A NUESTRO CATÁLOGO NI AL STOCK REAL. Si te preguntan si vendemos un PRODUCTO CONCRETO (una marca, modelo o artículo específico — no una categoría general de las listadas en "Qué vendemos") y no tienes ese resultado real, NUNCA confirmes ni descartes que lo tenemos, aunque te suene plausible para una papelería/tienda de informática y te parezca una respuesta razonable ("seguramente sí lo vendemos"). No lo sabes de verdad, así que ese caso ES un "no sé la respuesta" — pasa directamente al punto siguiente.
 - IMPORTANTE — si no sabes la respuesta a algo (un producto concreto, precio o servicio del que no tienes datos fiables, o cualquier pregunta que no puedas responder con seguridad), NO improvises una respuesta ni inventes que vas a "consultarlo" o "pasarlo al equipo". Da la información breve que sí tengas (por ejemplo, el departamento o contacto más adecuado si lo hay, o dónde puede comprobarlo el propio cliente, como buscar en https://ofipapel.net), y SIEMPRE añade al final, en una frase aparte, EXACTAMENTE este texto, tal cual, sin cambiar ni una palabra: "${NO_SE_LA_RESPUESTA}" — aunque ya hayas dado un contacto o departamento, esa frase exacta tiene que aparecer siempre que no tengas la certeza de la respuesta. El sistema la detecta y le ofrece al cliente, en un segundo mensaje aparte, hablar con un agente de verdad (con botones Sí/No reales) — así que no hace falta que tú ofrezcas nada de eso con tus propias palabras, solo incluye la frase exacta.
 - Si preguntan algo concreto sobre un pedido ya hecho (en qué estado está, cuándo llega exactamente, una incidencia, un número de pedido) y no tienes esa información, no inventes nada: indícales que contacten con Pedidos al ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
 - Si es un tema administrativo (facturas, pagos, cuentas) que no puedas resolver, indícales que contacten con Administración al ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
@@ -614,6 +636,9 @@ module.exports = {
   isNoSeLaRespuesta,
   isUnverifiedConfirmation,
   PRODUCTO_NO_VERIFICADO_INFO,
+  PEDIDOS_INFO,
+  PEDIDO_ESTADO_TRIGGER,
+  isPedidoEstadoQuestion,
   FAQ_RULES,
   buildAiSystemPrompt,
 };

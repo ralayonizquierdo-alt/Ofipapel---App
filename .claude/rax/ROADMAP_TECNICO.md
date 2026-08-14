@@ -6,7 +6,7 @@ por ID (`RT-xx` ↔ `RN-xx`) cuando un ítem técnico habilita uno de negocio.
 
 | ID | Ítem | I / R / ROI → score | Vínculo negocio | Estado |
 |---|---|---|---|---|
-| RT-01 | Decidir y documentar cuál es el agente de WhatsApp canónico (Meta Cloud API vs Twilio, `DT-03`) — apagar o eliminar el que no se use | 3 / 1 / 3 → 11 | RN-02 | Pendiente de decisión |
+| RT-01 | Decidir y documentar cuál es el agente de WhatsApp canónico (Meta Cloud API vs Twilio, `DT-03`) — apagar o eliminar el que no se use | 3 / 1 / 3 → 11 | RN-02 | **Resuelto** — Meta Cloud API es la canónica, `twilio-webhook.js` eliminado |
 | RT-02 | Centralizar y versionar el esquema de Supabase de `Index.html` (no existe `supabase-schema.sql` para esa app; ya no aplica a `alquileres/`, que pasó a Firebase — ver `DEUDA_TECNICA.md` DT-05) | 3 / 2 / 2 → 8 | — | Pendiente |
 | RT-03 | Añadir verificación mínima en CI (lint + `tsc` + build) antes de desplegar, para `alquileres/` y `joe-app/` | 3 / 1 / 2 → 9 | — | **Resuelto** — `.github/workflows/ci.yml` |
 | RT-04 | Resolver la duplicidad `index.html` / `Index.html` en la raíz (`DT-02`) una vez confirmado con el propietario cuál es el vigente | 3 / 2 / 2 → 8 | — | Bloqueado — necesita respuesta del propietario |

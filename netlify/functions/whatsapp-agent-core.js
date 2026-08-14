@@ -1,6 +1,5 @@
-// Lógica compartida del agente de WhatsApp: usada tanto por whatsapp-webhook.js
-// (Meta Cloud API) como por twilio-webhook.js (Twilio), para no duplicar el
-// matching de FAQ ni la llamada a Claude entre los dos canales.
+// Lógica compartida del agente de WhatsApp: matching de FAQ + llamada a
+// Claude, usada por whatsapp-webhook.js (Meta Cloud API, único canal).
 
 const { FAQ_RULES, buildAiSystemPrompt, agenteInfo, isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const conversationStore = require('./conversation-store');
@@ -134,7 +133,7 @@ function isRepeatQuestion(text, history) {
   return false;
 }
 
-async function askClaude(userText, history = []) {
+async function askClaude(userText, history = [], productContext = null) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
@@ -151,7 +150,7 @@ async function askClaude(userText, history = []) {
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: 300,
-        system: buildAiSystemPrompt(),
+        system: buildAiSystemPrompt(productContext),
         messages: [...history, { role: 'user', content: userText }],
       }),
     });
