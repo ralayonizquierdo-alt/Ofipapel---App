@@ -135,17 +135,31 @@ const ESTADO_TRADUCIDO = {
 };
 
 // "processing" NO significa siempre "pagado" — con contra reembolso, por ejemplo,
-// el pedido está en preparación pero no se paga hasta la entrega. Se decide la
-// frase con el dato real de pago (date_paid), no solo con el nombre del estado.
+// el pedido está en preparación pero no se paga hasta la entrega. Se decide con el
+// dato real de pago (date_paid), no solo con el nombre del estado. "extra" es una
+// frase aparte (después del total) para no romper la construcción "está X, por un
+// total de Y" a media frase.
 function fraseProcessing(order) {
-  if (order.date_paid) return 'pagado y en preparación';
-  if (order.payment_method === 'cod') return 'en preparación (se paga contra reembolso al recibirlo)';
-  return 'en preparación, pendiente de confirmar el pago';
+  if (order.date_paid) return { estado: 'pagado y en preparación', extra: '' };
+  if (order.payment_method === 'cod') {
+    return { estado: 'en preparación', extra: ' Elegiste pago contra reembolso, así que se paga al recibirlo.' };
+  }
+  return { estado: 'en preparación, pendiente de confirmar el pago', extra: '' };
 }
+
+// El sistema de gestión de las tiendas NO avisa a la web en cuanto se factura o
+// envía un pedido (hace falta un cambio manual) — así que "en preparación" en la
+// web puede ir por detrás de la realidad. Se avisa de eso solo en ese estado
+// concreto (el resto de estados sí son fiables: completado, cancelado, etc.).
+const AVISO_POSIBLE_DESACTUALIZACION =
+  ' Ten en cuenta que si ya se ha facturado o enviado, ese cambio puede tardar en reflejarse aquí — para el dato exacto al momento, escribe a pedidos@ofipapelsl.com o llama al 922 753 520 (extensión 2).';
 
 // Mensaje en español, listo para mandar por WhatsApp, con el estado real del pedido.
 function formatOrderStatus(order) {
-  const estado = order.status === 'processing' ? fraseProcessing(order) : ESTADO_TRADUCIDO[order.status] || order.status;
+  const esProcessing = order.status === 'processing';
+  const { estado, extra } = esProcessing
+    ? fraseProcessing(order)
+    : { estado: ESTADO_TRADUCIDO[order.status] || order.status, extra: '' };
   const fecha = order.date_created ? new Date(order.date_created).toLocaleDateString('es-ES') : null;
   const total = order.total ? `${Number(order.total).toFixed(2)}€` : null;
   let msg = `Tu pedido #${order.id}`;
@@ -153,6 +167,8 @@ function formatOrderStatus(order) {
   msg += ` está ${estado}`;
   if (total) msg += `, por un total de ${total}`;
   msg += '.';
+  if (extra) msg += extra;
+  if (esProcessing) msg += AVISO_POSIBLE_DESACTUALIZACION;
   return msg;
 }
 
