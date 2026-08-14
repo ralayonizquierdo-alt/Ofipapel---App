@@ -133,7 +133,7 @@ function isRepeatQuestion(text, history) {
   return false;
 }
 
-async function askClaude(userText, history = []) {
+async function askClaude(userText, history = [], productContext = null) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
@@ -150,7 +150,7 @@ async function askClaude(userText, history = []) {
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: 300,
-        system: buildAiSystemPrompt(),
+        system: buildAiSystemPrompt(productContext),
         messages: [...history, { role: 'user', content: userText }],
       }),
     });
