@@ -448,6 +448,13 @@ const FAQ_RULES = [
     reply: agenteInfoOrDecline,
   },
   {
+    // "¿Tenéis tienda física?" es una pregunta de confianza/existencia (¿sois una
+    // tienda real, no solo online?), distinta de "dirección" (que por defecto solo
+    // da la sede principal) — aquí sí tiene sentido enseñar las 3 tiendas de golpe.
+    keywords: ['tienda fisica', 'tienda física', 'tiendas fisicas', 'tiendas físicas', 'tienen tienda', 'teneis tienda', 'tenéis tienda', 'hay tienda fisica', 'hay tienda física'],
+    reply: () => `Sí, tenemos 3 tiendas físicas en Tenerife:\n${storesSummary()}`,
+  },
+  {
     // Por defecto solo se da el horario de la sede principal (no las 3 tiendas) —
     // si el cliente nombra una tienda en concreto (Aliz 1, Aliz 2...), se le da la suya.
     // Ojo: 'hora' a secas NO es keyword — coincide con "ahora" ("ahora mismo",
