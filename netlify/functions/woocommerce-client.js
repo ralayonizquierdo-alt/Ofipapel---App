@@ -50,6 +50,10 @@ const STOPWORDS_BUSQUEDA = new Set([
 // Quita acentos, signos de puntuación y palabras vacías del mensaje del cliente,
 // para quedarnos solo con los términos que describen el producto — una frase
 // completa con "¿...?" apenas devuelve resultados en la búsqueda de WordPress.
+// Ojo: se permiten palabras de 2 letras (no solo 3+) porque en referencias de
+// producto abundan las siglas cortas con significado real — "HP", "XL", "A4"...
+// quitarlas dejaba búsquedas como "HP 301 XL" reducidas a solo "301", que ya no
+// encuentra el cartucho concreto entre miles de productos.
 function sanitizeQuery(text) {
   return (text || '')
     .toLowerCase()
@@ -57,7 +61,7 @@ function sanitizeQuery(text) {
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter((w) => w.length > 2 && !STOPWORDS_BUSQUEDA.has(w))
+    .filter((w) => w.length > 1 && !STOPWORDS_BUSQUEDA.has(w))
     .join(' ')
     .trim();
 }
