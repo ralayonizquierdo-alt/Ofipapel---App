@@ -24,6 +24,10 @@
 //     escalado — mismo canal, así te suena la notificación de siempre
 //   UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN  (opcional) para archivar las
 //     conversaciones y verlas en el panel (netlify/functions/conversations.js)
+//   WOOCOMMERCE_CONSUMER_KEY / WOOCOMMERCE_CONSUMER_SECRET  (opcional) claves de la
+//     API REST de WooCommerce (ofipapel.net), para consultar productos/precios/stock
+//     reales antes de responder. Sin ellas, el bot nunca confirma ni descarta
+//     productos concretos (ver woocommerce-client.js)
 
 const crypto = require('crypto');
 const {
@@ -53,6 +57,7 @@ const {
   isUnverifiedConfirmation,
   PRODUCTO_NO_VERIFICADO_INFO,
 } = require('./whatsapp-agent-config');
+const woocommerce = require('./woocommerce-client');
 const { sendWhatsappMessage } = require('./whatsapp-send');
 
 const GRAPH_API_VERSION = 'v20.0';
@@ -278,7 +283,20 @@ async function handleIncomingMessage(message) {
     return;
   }
 
-  const aiReply = await askClaude(text, history);
+  // Búsqueda en tiempo real en el catálogo real (WooCommerce), para que la IA pueda
+  // contestar con datos ciertos en vez de adivinar. Si no está configurado o no hay
+  // coincidencias, sigue el comportamiento anterior (nunca confirma productos).
+  let productContext = null;
+  if (woocommerce.isConfigured()) {
+    const productos = await woocommerce.searchProducts(text);
+    if (productos.length > 0) {
+      productContext = productos
+        .map((p) => `- ${p.nombre}: ${p.precio || 'precio no disponible'}, ${p.disponible ? 'con stock' : 'sin stock'} (${p.url})`)
+        .join('\n');
+    }
+  }
+
+  const aiReply = await askClaude(text, history, productContext);
 
   // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos/hacemos..."
   // en modo libre (sin regla fija detrás), no nos fiamos de esa afirmación — no

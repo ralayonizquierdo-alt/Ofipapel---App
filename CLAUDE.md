@@ -76,6 +76,12 @@ el repo:
   coincidir con `APP_CHAT_TOKEN` en `Index.html`. No es un secreto real
   (`Index.html` es HTML estático, visible con "ver código fuente"), solo
   evita dejar el endpoint completamente abierto.
+- `WOOCOMMERCE_CONSUMER_KEY` / `WOOCOMMERCE_CONSUMER_SECRET` — claves de la
+  API REST de WooCommerce (`ofipapel.net`, WordPress + WooCommerce), usadas
+  por `netlify/functions/woocommerce-client.js` desde el bot de WhatsApp
+  para consultar productos/precios/stock reales antes de responder. Sin
+  ellas, el bot nunca confirma ni descarta productos concretos (cae al
+  comportamiento anterior).
 - `OPENAI_API_KEY` — activa el proveedor real `openai-images` de
   `creative-engine/creative-lab/` desde
   `netlify/functions/marketing-engine-run.js` (marcarla como secreto en
