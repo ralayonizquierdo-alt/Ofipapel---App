@@ -153,6 +153,16 @@ function agenteInfoOrDecline(normalizedText) {
 
 const PEDIDOS_INFO = `Para el seguimiento de tu pedido o cualquier incidencia relacionada, lo mejor es que contactes directamente con el departamento de Pedidos: ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com.`;
 
+// Cuando preguntan por el estado de un pedido concreto, en vez de dar solo el
+// contacto (PEDIDOS_INFO) se arranca una búsqueda real en WooCommerce — este texto
+// hace de sentinela (como SELLOS_QUESTION) y a la vez es la pregunta real que se le
+// manda al cliente para empezar esa búsqueda (ver whatsapp-webhook.js).
+const PEDIDO_ESTADO_TRIGGER = 'Claro, dime el número de tu pedido (lo tienes en el email de confirmación) y te digo en qué estado está.';
+
+function isPedidoEstadoQuestion(text) {
+  return text === PEDIDO_ESTADO_TRIGGER;
+}
+
 const ADMINISTRACION_INFO = `Para temas administrativos (facturas, pagos, cuentas) contacta directamente con Administración: ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.`;
 
 const REPROGRAFIA_INFO = `Imprimimos todo tipo de documentos, en blanco y negro o a color, desde A4 hasta A3 (el tamaño más grande que hacemos). Hay distintos tipos de papel según lo que necesites, y el precio varía según la cantidad y el acabado — por eso, para impresiones, copias, fotocopias, encuadernados, plastificados, folletos, tarjetas de visita, sellos personalizados, talonarios, tarjetas para bodas o cualquier trabajo de imprenta (y sobre todo para precios), lo mejor es contactar directamente con el departamento de Reprografía: ${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com. Los sellos personalizados se piden en la tienda de Los Cristianos o desde la web (indicando el diseño en las observaciones del pedido, o por email si lleva logotipo).`;
@@ -376,11 +386,18 @@ const FAQ_RULES = [
     reply: REGALOS_INFO,
   },
   {
-    // Colocada antes que las reglas genéricas de horario/dirección/teléfono para que
-    // "teléfono de pedidos", "extensión de pedidos", etc. no caigan en la respuesta
-    // genérica de contacto solo por contener la palabra "teléfono" o "número".
-    keywords: ['estado de mi pedido', 'estado del pedido', 'seguimiento de mi pedido', 'seguimiento del pedido', 'donde esta mi pedido', 'dónde está mi pedido', 'donde está mi pedido', 'cuando llega mi pedido', 'cuándo llega mi pedido', 'numero de pedido', 'número de pedido', 'no me ha llegado mi pedido', 'no me llego mi pedido', 'no me llegó mi pedido', 'mi pedido no ha llegado', 'incidencia con mi pedido', 'incidencia con un pedido', 'incidencia con el pedido', 'telefono de pedidos', 'teléfono de pedidos', 'telefono directo a pedidos', 'teléfono directo a pedidos', 'numero de pedidos', 'número de pedidos', 'extension de pedidos', 'extensión de pedidos', 'extension 2', 'extensión 2'],
+    // Preguntar por el teléfono/extensión de Pedidos (no por el estado de un pedido
+    // concreto) sigue dando el contacto de siempre, sin arrancar la búsqueda real.
+    keywords: ['telefono de pedidos', 'teléfono de pedidos', 'telefono directo a pedidos', 'teléfono directo a pedidos', 'numero de pedidos', 'número de pedidos', 'extension de pedidos', 'extensión de pedidos', 'extension 2', 'extensión 2'],
     reply: PEDIDOS_INFO,
+  },
+  {
+    // Colocada antes que las reglas genéricas de horario/dirección/teléfono para que
+    // estas frases no caigan en la respuesta genérica de contacto. Preguntar por el
+    // estado de un pedido concreto arranca la búsqueda real en WooCommerce (ver
+    // isPedidoEstadoQuestion en whatsapp-webhook.js) en vez de solo dar el contacto.
+    keywords: ['estado de mi pedido', 'estado del pedido', 'seguimiento de mi pedido', 'seguimiento del pedido', 'donde esta mi pedido', 'dónde está mi pedido', 'donde está mi pedido', 'cuando llega mi pedido', 'cuándo llega mi pedido', 'numero de pedido', 'número de pedido', 'no me ha llegado mi pedido', 'no me llego mi pedido', 'no me llegó mi pedido', 'mi pedido no ha llegado', 'incidencia con mi pedido', 'incidencia con un pedido', 'incidencia con el pedido'],
+    reply: PEDIDO_ESTADO_TRIGGER,
   },
   {
     keywords: ['factura', 'facturas', 'administracion', 'administración', 'departamento administrativo', 'telefono de administracion', 'teléfono de administración', 'telefono directo a administracion', 'teléfono directo a administración', 'extension de administracion', 'extensión de administración', 'extension 1', 'extensión 1'],
@@ -619,6 +636,9 @@ module.exports = {
   isNoSeLaRespuesta,
   isUnverifiedConfirmation,
   PRODUCTO_NO_VERIFICADO_INFO,
+  PEDIDOS_INFO,
+  PEDIDO_ESTADO_TRIGGER,
+  isPedidoEstadoQuestion,
   FAQ_RULES,
   buildAiSystemPrompt,
 };

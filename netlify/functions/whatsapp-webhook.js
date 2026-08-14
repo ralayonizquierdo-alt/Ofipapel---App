@@ -26,8 +26,10 @@
 //     conversaciones y verlas en el panel (netlify/functions/conversations.js)
 //   WOOCOMMERCE_CONSUMER_KEY / WOOCOMMERCE_CONSUMER_SECRET  (opcional) claves de la
 //     API REST de WooCommerce (ofipapel.net), para consultar productos/precios/stock
-//     reales antes de responder. Sin ellas, el bot nunca confirma ni descarta
-//     productos concretos (ver woocommerce-client.js)
+//     reales antes de responder, y para el flujo de "estado de mi pedido" (número de
+//     pedido + verificación por teléfono o nombre). Sin ellas, el bot nunca confirma
+//     ni descarta productos concretos y "estado de mi pedido" da solo el contacto de
+//     siempre (ver woocommerce-client.js)
 
 const crypto = require('crypto');
 const {
@@ -56,6 +58,9 @@ const {
   NO_SE_LA_RESPUESTA,
   isUnverifiedConfirmation,
   PRODUCTO_NO_VERIFICADO_INFO,
+  PEDIDOS_INFO,
+  PEDIDO_ESTADO_TRIGGER,
+  isPedidoEstadoQuestion,
 } = require('./whatsapp-agent-config');
 const woocommerce = require('./woocommerce-client');
 const { sendWhatsappMessage } = require('./whatsapp-send');
@@ -220,6 +225,91 @@ async function handleSellosReply(message) {
   await appendToHistory(message.from, `[El cliente eligió ${buttonId === 'sellos_web' ? 'web' : 'tienda'} para el sello]`, reply);
 }
 
+// Flujo de "estado de mi pedido": el paso en el que estamos se deduce del propio
+// historial (sin Redis aparte) mirando si la última respuesta del bot llevaba un
+// marcador al principio. Si el cliente se va por otro lado, el flujo se abandona
+// solo (la última respuesta del bot ya no será la del marcador).
+const PEDIDO_MARCA_ESPERANDO_NUMERO = '[PEDIDO:ESPERANDO_NUMERO]';
+const PEDIDO_MARCA_ESPERANDO_NOMBRE_RE = /^\[PEDIDO:ESPERANDO_NOMBRE:(\d+)\]/;
+
+function marcaEsperandoNombre(orderId) {
+  return `[PEDIDO:ESPERANDO_NOMBRE:${orderId}]`;
+}
+
+function detectarPasoPedido(history) {
+  const ultimoBot = [...history].reverse().find((m) => m.role === 'assistant');
+  if (!ultimoBot) return null;
+  if (ultimoBot.content.startsWith(PEDIDO_MARCA_ESPERANDO_NUMERO)) return { paso: 'numero' };
+  const m = PEDIDO_MARCA_ESPERANDO_NOMBRE_RE.exec(ultimoBot.content);
+  if (m) return { paso: 'nombre', orderId: m[1] };
+  return null;
+}
+
+// Continúa una búsqueda de pedido ya empezada. Devuelve true si se ha encargado del
+// mensaje (no hay que seguir con el flujo normal de FAQ/escalado/IA para este turno).
+async function continuarBusquedaPedido(from, text, paso, greeting) {
+  if (paso.paso === 'numero') {
+    const match = text.match(/\d{3,}/);
+    if (!match) return false; // no parece un número de pedido: se abandona el flujo, turno normal
+
+    const orderId = match[0];
+    const order = await woocommerce.getOrder(orderId);
+
+    if (!order) {
+      const prefix = `${greeting}No encuentro ningún pedido con el número ${orderId}. `;
+      await sendEscalateButtons(from, prefix);
+      await appendToHistory(from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
+      return true;
+    }
+
+    if (woocommerce.phoneMatches(order, from)) {
+      const reply = greeting + woocommerce.formatOrderStatus(order);
+      await appendToHistory(from, text, reply);
+      await sendWhatsappMessage(from, reply);
+      return true;
+    }
+
+    // El teléfono del pedido no coincide con el número que escribe (p. ej. compró
+    // con el teléfono de la empresa y escribe desde el personal) — segunda comprobación.
+    const reply = `${greeting}Para confirmar que el pedido es tuyo, dime el nombre comercial o el nombre y apellidos con los que se hizo.`;
+    await appendToHistory(from, text, `${marcaEsperandoNombre(order.id)}${reply}`);
+    await sendWhatsappMessage(from, reply);
+    return true;
+  }
+
+  if (paso.paso === 'nombre') {
+    const order = await woocommerce.getOrder(paso.orderId);
+    if (order && woocommerce.nombreCoincide(text, order)) {
+      const reply = greeting + woocommerce.formatOrderStatus(order);
+      await appendToHistory(from, text, reply);
+      await sendWhatsappMessage(from, reply);
+      return true;
+    }
+
+    const prefix = `${greeting}No he podido confirmar que el pedido sea tuyo. `;
+    await sendEscalateButtons(from, prefix);
+    await appendToHistory(from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
+    return true;
+  }
+
+  return false;
+}
+
+// Primera vez que preguntan por el estado de un pedido concreto. Si WooCommerce no
+// está configurado, cae al comportamiento de siempre (solo dar el contacto).
+async function iniciarBusquedaPedido(from, text, greeting) {
+  if (!woocommerce.isConfigured()) {
+    const reply = greeting + PEDIDOS_INFO;
+    await appendToHistory(from, text, reply);
+    await sendWhatsappMessage(from, reply);
+    return;
+  }
+
+  const reply = greeting + PEDIDO_ESTADO_TRIGGER;
+  await appendToHistory(from, text, `${PEDIDO_MARCA_ESPERANDO_NUMERO}${reply}`);
+  await sendWhatsappMessage(from, reply);
+}
+
 async function handleIncomingMessage(message) {
   if (message.type === 'interactive' && message.interactive?.type === 'button_reply') {
     const buttonId = message.interactive.button_reply.id;
@@ -259,6 +349,15 @@ async function handleIncomingMessage(message) {
   // que ninguna regla individual ni la IA se acuerden de saludar por su cuenta.
   const greeting = startsWithGreeting(text) ? '¡Hola! ' : '';
 
+  // Si la última respuesta del bot fue "dime el número de tu pedido" o "confírmame
+  // el nombre", este mensaje es la continuación de esa búsqueda concreta — se
+  // gestiona aparte de FAQ/escalado/IA (ver detectarPasoPedido más abajo).
+  const pasoPedido = detectarPasoPedido(history);
+  if (pasoPedido) {
+    const gestionado = await continuarBusquedaPedido(message.from, text, pasoPedido, greeting);
+    if (gestionado) return;
+  }
+
   if (wantsEscalation) {
     // Si el cliente pidió expresamente hablar con alguien (o es una queja/
     // presupuesto), no hace falta explicar el motivo. Pero si lo que ha pasado es
@@ -273,6 +372,11 @@ async function handleIncomingMessage(message) {
   if (isSellosQuestion(faqReply || '')) {
     await sendSellosButtons(message.from, greeting);
     await appendToHistory(message.from, text, `[Se preguntó web o tienda para el sello] ${greeting}${SELLOS_QUESTION}`);
+    return;
+  }
+
+  if (isPedidoEstadoQuestion(faqReply || '')) {
+    await iniciarBusquedaPedido(message.from, text, greeting);
     return;
   }
 
