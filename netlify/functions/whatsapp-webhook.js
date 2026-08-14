@@ -255,7 +255,7 @@ async function continuarBusquedaPedido(from, text, paso, greeting) {
     const orderId = match[0];
     const order = await woocommerce.getOrder(orderId);
 
-    if (!order) {
+    if (!order || woocommerce.isSpamOrder(order)) {
       const prefix = `${greeting}No encuentro ningún pedido con el número ${orderId}. `;
       await sendEscalateButtons(from, prefix);
       await appendToHistory(from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
@@ -279,7 +279,7 @@ async function continuarBusquedaPedido(from, text, paso, greeting) {
 
   if (paso.paso === 'nombre') {
     const order = await woocommerce.getOrder(paso.orderId);
-    if (order && woocommerce.nombreCoincide(text, order)) {
+    if (order && !woocommerce.isSpamOrder(order) && woocommerce.nombreCoincide(text, order)) {
       const reply = greeting + woocommerce.formatOrderStatus(order);
       await appendToHistory(from, text, reply);
       await sendWhatsappMessage(from, reply);
