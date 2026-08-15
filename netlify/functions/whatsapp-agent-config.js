@@ -171,6 +171,12 @@ function isPedidoEstadoQuestion(text) {
 
 const ADMINISTRACION_INFO = `Para temas administrativos (facturas, pagos, cuentas) contacta directamente con Administración: ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.`;
 
+// Currículums y ofertas de empleo van SIEMPRE a comercial@ofipapelsl.com. Sin
+// esta regla lo contestaba la IA por su cuenta y se inventaba los detalles
+// (mencionó un departamento de Recursos Humanos y una sección "Trabaja con
+// Nosotros" en la web, y acabó dando el email de pedidos).
+const EMPLEO_INFO = `Para enviar tu currículum o preguntar por ofertas de empleo, escribe a comercial@ofipapelsl.com — es el correo que gestiona las candidaturas. ¡Mucha suerte!`;
+
 const REPROGRAFIA_INFO = `Imprimimos todo tipo de documentos, en blanco y negro o a color, desde A4 hasta A3 (el tamaño más grande que hacemos). Hay distintos tipos de papel según lo que necesites, y el precio varía según la cantidad y el acabado — por eso, para impresiones, copias, fotocopias, encuadernados, plastificados, folletos, tarjetas de visita, sellos personalizados, talonarios, tarjetas para bodas o cualquier trabajo de imprenta (y sobre todo para precios), lo mejor es contactar directamente con el departamento de Reprografía: ${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com. Los sellos personalizados se piden en la tienda de Los Cristianos o desde la web (indicando el diseño en las observaciones del pedido, o por email si lleva logotipo).`;
 
 const REPROGRAFIA_CONTACT = `${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com`;
@@ -424,6 +430,20 @@ const FAQ_RULES = [
     reply: PEDIDO_ESTADO_TRIGGER,
   },
   {
+    // Ojo con las palabras sueltas: 'trabajo' colisiona con "trabajo de
+    // imprenta" (Reprografía) y 'personal' con "sellos personalizados", así que
+    // aquí solo van frases que de verdad solo se dicen buscando empleo.
+    keywords: [
+      'curriculum', 'currículum', 'curriculo', 'currículo', 'mi cv', 'el cv', 'enviar cv', 'mandar cv',
+      'oferta de empleo', 'ofertas de empleo', 'bolsa de empleo', 'solicitud de empleo', 'buscar empleo',
+      'busco trabajo', 'buscando trabajo', 'puesto de trabajo', 'bolsa de trabajo',
+      'trabajar con vosotros', 'trabajar con ustedes', 'trabajar en ofipapel', 'trabajar para ofipapel',
+      'buscan personal', 'buscais personal', 'buscáis personal', 'necesitan personal', 'necesitais personal',
+      'necesitáis personal', 'contratando', 'estan contratando', 'están contratando', 'vacante', 'vacantes',
+    ],
+    reply: EMPLEO_INFO,
+  },
+  {
     keywords: ['factura', 'facturas', 'administracion', 'administración', 'departamento administrativo', 'telefono de administracion', 'teléfono de administración', 'telefono directo a administracion', 'teléfono directo a administración', 'extension de administracion', 'extensión de administración', 'extension 1', 'extensión 1'],
     reply: ADMINISTRACION_INFO,
   },
@@ -658,6 +678,8 @@ Reprografía (impresiones, copias, encuadernados, imprenta): ${REPROGRAFIA_INFO}
 Devoluciones: ${DEVOLUCIONES_INFO}
 
 Contacto general: teléfono ${STORES[0].phone}, email pedidos@ofipapelsl.com (consultas generales, pedidos y devoluciones).
+
+Empleo: ${EMPLEO_INFO} No existe ningún otro canal para esto — no menciones departamentos de recursos humanos, formularios ni secciones de la web de las que no tengas constancia aquí.
 
 Instrucciones:
 - Responde SIEMPRE en el idioma en que esté escrito el mensaje del cliente, desde el primer mensaje, aunque sea muy corto (si escribe "Hi", respondes en inglés; si escribe "Hola", en español; etc.). No respondas en español por defecto ni digas cosas como "respondo en español" — cambia de idioma directamente, sin comentarlo. Hazlo de forma breve, cercana y natural (máximo 3-4 frases), como lo haría una persona real del equipo escribiendo un WhatsApp, no como un robot leyendo una lista de datos.
