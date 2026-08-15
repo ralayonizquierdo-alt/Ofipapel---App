@@ -459,7 +459,12 @@ async function handleIncomingMessage(message) {
     if (productos.length > 0) {
       bloques.push(
         `PRODUCTOS que coinciden:\n${productos
-          .map((p) => `- ${p.nombre}: ${p.precio || 'precio no disponible'}, ${p.disponible ? 'con stock' : 'sin stock'} (${p.url})`)
+          .map(
+            (p) =>
+              `- ${p.nombre}: ${p.precio || 'precio no disponible'}${
+                p.ofertaPorCantidad ? ' por unidad, CON DESCUENTO POR CANTIDAD (el precio baja al comprar más; el escalado completo está en la ficha)' : ''
+              }, ${p.disponible ? 'con stock' : 'sin stock'} (${p.url})`
+          )
           .join('\n')}`
       );
     }

@@ -15,7 +15,19 @@ function isConfigured() {
   return Boolean(process.env.WOOCOMMERCE_CONSUMER_KEY && process.env.WOOCOMMERCE_CONSUMER_SECRET);
 }
 
-async function wcRequest(path) {
+// La búsqueda de WordPress tarda unos 3,5 s por consulta contra el servidor real,
+// y la función tiene un límite de tiempo para contestarle a Meta (si se pasa,
+// Meta reintenta y el cliente recibe respuestas duplicadas). Con este tope, si la
+// web va especialmente lenta se abandona esa consulta y el bot sigue adelante sin
+// datos de catálogo — igual que cuando no hay claves configuradas — en vez de
+// bloquear toda la respuesta.
+const WC_TIMEOUT_MS = 6000;
+// La consulta de ofertas por cantidad es un extra (solo enriquece la respuesta),
+// así que se le da menos margen: si tarda, se prescinde de ese dato y se
+// contesta igual, en vez de arriesgar el tiempo total de la respuesta.
+const WC_TIMEOUT_EXTRA_MS = 3000;
+
+async function wcRequest(path, timeoutMs = WC_TIMEOUT_MS) {
   if (!isConfigured()) return null;
   const auth = Buffer.from(
     `${process.env.WOOCOMMERCE_CONSUMER_KEY}:${process.env.WOOCOMMERCE_CONSUMER_SECRET}`
@@ -24,6 +36,7 @@ async function wcRequest(path) {
   try {
     const resp = await fetch(`${WC_BASE_URL}${path}`, {
       headers: { Authorization: `Basic ${auth}` },
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!resp.ok) {
       console.error('Error de WooCommerce API:', resp.status, await resp.text());
@@ -31,7 +44,7 @@ async function wcRequest(path) {
     }
     return await resp.json();
   } catch (err) {
-    console.error('Fallo llamando a WooCommerce:', err);
+    console.error('Fallo llamando a WooCommerce:', err.name === 'TimeoutError' ? `tiempo agotado (${timeoutMs} ms)` : err);
     return null;
   }
 }
@@ -115,8 +128,19 @@ function sanitizeQuery(text) {
   return sanitizeWords(text).join(' ').trim();
 }
 
+// Se piden SOLO los campos que se usan: la respuesta completa de 40 productos
+// pesa ~1,1 MB (lleva descripciones y caché del maquetador de la web), mientras
+// que con _fields baja a ~8 KB. Medido contra el servidor real — misma consulta,
+// 130 veces menos datos que transferir desde la función de Netlify.
+const CAMPOS_LIGEROS = 'id,name,price,permalink,stock_status';
+
 async function rawProductSearch(term, limit) {
-  const params = new URLSearchParams({ search: term, per_page: String(limit), status: 'publish' });
+  const params = new URLSearchParams({
+    search: term,
+    per_page: String(limit),
+    status: 'publish',
+    _fields: CAMPOS_LIGEROS,
+  });
   const products = await wcRequest(`/products?${params.toString()}`);
   return Array.isArray(products) ? products : [];
 }
@@ -137,7 +161,7 @@ function normalizeForMatch(text) {
 // hace falta y se reordena aquí mismo por cuántas palabras de la búsqueda
 // aparecen de verdad en el nombre del producto, descartando los que no tengan
 // ninguna coincidencia, antes de recortar al límite que se va a usar.
-const FETCH_LIMIT_INTERNO = 15;
+const FETCH_LIMIT_INTERNO = 40;
 
 // Tolerancia básica de plural/singular ("pistolas" debe contar como coincidencia
 // con "PISTOLA") — no es un stemmer completo, solo prueba la palabra tal cual y
@@ -166,7 +190,36 @@ function scoreWordMatch(word, normalizedName) {
   return normalizedName.includes(word) ? 1 : 0;
 }
 
-function rerankByRelevance(products, words) {
+// Señal real de "este producto tiene precio escalado por cantidad" (la "Oferta
+// Cantidad" que se ve en su ficha web): el meta n_tarifas > 0. Comprobado contra
+// el catálogo real — los dos papeles de oferta que el propietario quiere ofrecer
+// (Mattio y Paperline) lo llevan a 6, mientras que otros papeles equivalentes
+// sin oferta (ZOOM, Golden-Star) lo llevan a 0. OJO: los meta pvp_1..pvp_6 NO
+// son ese escalado (no coinciden con la tabla que muestra la web), así que no se
+// usan para calcular precios — solo se avisa de que el escalado existe y se
+// remite a la ficha.
+function tieneOfertaPorCantidad(product) {
+  const meta = product?.meta_data?.find((m) => m.key === 'n_tarifas');
+  return Boolean(meta && Number(meta.value) > 0);
+}
+
+// El dato de oferta por cantidad vive en meta_data, que es lo pesado de la
+// respuesta (~14 KB por producto, frente a ~200 bytes de los campos ligeros).
+// Por eso NO se pide en las búsquedas: se consulta después, en una sola petición
+// y solo para los pocos finalistas que se van a mostrar.
+async function fetchOfertaFlags(ids) {
+  if (ids.length === 0) return new Set();
+  const params = new URLSearchParams({
+    include: ids.join(','),
+    per_page: String(ids.length),
+    _fields: 'id,meta_data',
+  });
+  const productos = await wcRequest(`/products?${params.toString()}`, WC_TIMEOUT_EXTRA_MS);
+  if (!Array.isArray(productos)) return new Set();
+  return new Set(productos.filter(tieneOfertaPorCantidad).map((p) => p.id));
+}
+
+function scoreProducts(products, words) {
   return products
     .map((p) => {
       const nombreNorm = normalizeForMatch(p.name);
@@ -176,9 +229,24 @@ function rerankByRelevance(products, words) {
       }, 0);
       return { p, score };
     })
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map((x) => x.p);
+    .filter((x) => x.score > 0);
+}
+
+// A igualdad de relevancia, se prefiere lo que de verdad le sirve al cliente:
+// primero lo que está en stock, y luego los productos con oferta por cantidad
+// (que son los que el negocio quiere ofrecer). No se toca el orden cuando la
+// relevancia difiere: un producto en oferta nunca adelanta a otro que encaja
+// mejor con lo que ha pedido el cliente.
+function ordenarPorRelevancia(scored, idsConOferta) {
+  return [...scored].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+
+    const stockA = a.p.stock_status === 'instock' ? 1 : 0;
+    const stockB = b.p.stock_status === 'instock' ? 1 : 0;
+    if (stockB !== stockA) return stockB - stockA;
+
+    return (idsConOferta.has(b.p.id) ? 1 : 0) - (idsConOferta.has(a.p.id) ? 1 : 0);
+  });
 }
 
 function dedupeById(lists) {
@@ -203,14 +271,14 @@ function dedupeById(lists) {
 // pero ninguno tiene que ver) — así que no basta con probar "todo junto" solo
 // cuando la frase no encuentra nada; hay que combinar ambas búsquedas siempre
 // que haya más de una palabra, y reordenar todo junto por relevancia real antes
-// de recortar (ver rerankByRelevance).
+// de recortar (ver ordenarPorRelevancia).
 // El singular/plural también se pierde a nivel de la propia búsqueda de
 // WordPress, no solo al comparar después: "pistola silicona" (singular)
 // encuentra las pistolas de pegamento reales, pero "pistolas silicona" (plural,
 // como lo escribe el cliente) no encuentra NINGUNA — no es un problema de orden,
 // esos productos ni siquiera vienen en la respuesta cruda de la API. Por eso hay
 // que generar también una variante en singular de la propia búsqueda, no solo
-// tolerar plural/singular al puntuar después (ver rerankByRelevance).
+// tolerar plural/singular al puntuar después (ver ordenarPorRelevancia).
 function singularize(word) {
   return word.endsWith('s') && word.length > 3 ? word.slice(0, -1) : word;
 }
@@ -220,31 +288,39 @@ async function searchProducts(query, limit = 3) {
   if (words.length === 0) return [];
 
   const fetchLimit = Math.max(limit, FETCH_LIMIT_INTERNO);
-  let raw = await rawProductSearch(words.join(' '), fetchLimit);
 
+  // Las variantes se lanzan EN PARALELO: hechas una tras otra sumaban sus
+  // tiempos (~3,4 s cada una contra el servidor real, hasta 10 s en total), lo
+  // que se acercaba peligrosamente al límite de tiempo de la función. En
+  // paralelo, el total es el de la más lenta.
+  const terminos = [words.join(' ')];
   if (words.length > 1) {
-    const concatResults = await rawProductSearch(words.join(''), fetchLimit);
-    raw = dedupeById([concatResults, raw]);
-
+    terminos.push(words.join(''));
     const singularWords = words.map(singularize);
-    if (singularWords.some((w, i) => w !== words[i])) {
-      const singularResults = await rawProductSearch(singularWords.join(' '), fetchLimit);
-      raw = dedupeById([raw, singularResults]);
-    }
+    if (singularWords.some((w, i) => w !== words[i])) terminos.push(singularWords.join(' '));
   }
+  const [frase, ...otras] = await Promise.all(terminos.map((t) => rawProductSearch(t, fetchLimit)));
+  let raw = dedupeById([...otras, frase]);
 
-  let products = rerankByRelevance(raw, words).slice(0, limit);
+  let scored = scoreProducts(raw, words);
 
-  if (products.length === 0 && words.length > 1) {
+  if (scored.length === 0 && words.length > 1) {
     const porPalabra = await Promise.all(words.map((w) => rawProductSearch(w, fetchLimit)));
-    const combinedRaw = dedupeById(porPalabra);
-    products = rerankByRelevance(combinedRaw, words).slice(0, limit);
+    scored = scoreProducts(dedupeById(porPalabra), words);
   }
 
-  return products.map((p) => ({
+  // Se comprueba la oferta por cantidad de unos cuantos finalistas (no de todos
+  // los candidatos, que sería muchísimo más pesado) y con ese dato se afina el
+  // orden definitivo antes de recortar a lo que se va a mostrar.
+  const preseleccion = ordenarPorRelevancia(scored, new Set()).slice(0, Math.max(limit * 2, 8));
+  const idsConOferta = await fetchOfertaFlags(preseleccion.map((x) => x.p.id));
+  const finalistas = ordenarPorRelevancia(preseleccion, idsConOferta).slice(0, limit);
+
+  return finalistas.map(({ p }) => ({
     nombre: p.name,
     precio: p.price ? `${Number(p.price).toFixed(2)}€` : null,
     disponible: p.stock_status === 'instock',
+    ofertaPorCantidad: idsConOferta.has(p.id),
     url: p.permalink,
   }));
 }
