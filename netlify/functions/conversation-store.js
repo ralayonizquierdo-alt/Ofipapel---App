@@ -113,6 +113,37 @@ async function getLastViewed(phone) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+// Reserva un id de mensaje entrante para procesarlo UNA sola vez. Devuelve true
+// si nadie lo había cogido antes (hay que procesarlo) y false si ya estaba
+// cogido (es un reenvío de Meta y hay que ignorarlo).
+//
+// Va aquí, en el almacén compartido, y no en memoria del proceso: Meta reintenta
+// el envío si la función tarda en contestar, y ese reintento puede caer en otra
+// instancia distinta de la función, que no comparte memoria con la primera — el
+// cliente recibía entonces dos respuestas al mismo mensaje (visto en real). El
+// "NX" hace que la reserva sea atómica: aunque las dos instancias entren a la
+// vez, solo una recibe OK. El "EX" limpia la marca sola pasado un rato.
+async function claimMessage(messageId, ttlSeconds = 600) {
+  if (!isConfigured()) return true; // sin almacén compartido, decide el respaldo en memoria
+
+  // Se usa un contador (INCR) y no un "SET ... NX": ese devuelve null tanto
+  // cuando la reserva ya existía como cuando Redis no responde, y esos dos casos
+  // exigen decisiones opuestas. INCR sí los distingue — devuelve 1 la primera
+  // vez, 2 o más en los reenvíos, y null solo si hay un fallo real.
+  const key = `msg:${messageId}`;
+  const veces = await redisCommand(['INCR', key]);
+
+  // Fallo de Redis: se procesa igualmente. Es peor dejar a un cliente sin
+  // respuesta que arriesgar un duplicado ocasional.
+  if (veces === null) return true;
+
+  if (Number(veces) === 1) {
+    await redisCommand(['EXPIRE', key, String(ttlSeconds)]);
+    return true;
+  }
+  return false;
+}
+
 // Prueba de escritura + lectura contra Upstash, devolviendo el error real (código HTTP
 // y cuerpo de la respuesta) tal cual lo manda Upstash, para poder mostrarlo en el panel
 // sin tener que ir a mirar los logs de Netlify ni la consola de Upstash a mano.
@@ -181,4 +212,5 @@ module.exports = {
   diagnose,
   markAsViewed,
   getLastViewed,
+  claimMessage,
 };

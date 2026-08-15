@@ -64,15 +64,17 @@ const {
 } = require('./whatsapp-agent-config');
 const woocommerce = require('./woocommerce-client');
 const { sendWhatsappMessage } = require('./whatsapp-send');
+const conversationStore = require('./conversation-store');
 
 const GRAPH_API_VERSION = 'v20.0';
 const DEDUP_TTL_MS = 5 * 60 * 1000;
 
-// Deduplicación best-effort de mensajes reenviados por Meta (sobrevive solo mientras
-// la función esté "caliente"; no requiere base de datos para el caso de uso actual).
+// Respaldo en memoria de la deduplicación: solo cubre reintentos que caigan en
+// ESTA misma instancia de la función. Se mantiene porque es instantáneo y porque
+// cubre el caso de que no haya almacén compartido configurado.
 const processedMessageIds = new Map();
 
-function alreadyProcessed(messageId) {
+function yaVistoEnMemoria(messageId) {
   const now = Date.now();
   for (const [id, ts] of processedMessageIds) {
     if (now - ts > DEDUP_TTL_MS) processedMessageIds.delete(id);
@@ -80,6 +82,17 @@ function alreadyProcessed(messageId) {
   if (processedMessageIds.has(messageId)) return true;
   processedMessageIds.set(messageId, now);
   return false;
+}
+
+// Meta reenvía el mensaje si la función tarda en contestar, y ese reenvío puede
+// caer en OTRA instancia de la función, que no comparte memoria con la primera
+// — el cliente recibía entonces dos respuestas distintas al mismo mensaje
+// (visto en real). Por eso, además del respaldo en memoria, se reserva el id en
+// el almacén compartido, que sí es común a todas las instancias.
+async function alreadyProcessed(messageId) {
+  if (yaVistoEnMemoria(messageId)) return true;
+  const esNuevo = await conversationStore.claimMessage(messageId);
+  return !esNuevo;
 }
 
 function verifySignature(event) {
@@ -559,7 +572,7 @@ exports.handler = async (event) => {
       for (const change of changes) {
         const messages = change.value?.messages || [];
         for (const message of messages) {
-          if (alreadyProcessed(message.id)) continue;
+          if (await alreadyProcessed(message.id)) continue;
           await handleIncomingMessage(message);
         }
       }
