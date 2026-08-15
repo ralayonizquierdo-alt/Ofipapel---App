@@ -245,6 +245,13 @@ async function registrarProductoPreguntado(phone, termino) {
   await actualizarFichaCliente(phone, { productos });
 }
 
+// El bot se presenta una sola vez a cada cliente; esta marca es la que evita
+// que se repita. Va en la ficha (no en el historial) para que siga valiendo
+// aunque se borre la conversación desde el panel.
+async function marcarPresentado(phone) {
+  await actualizarFichaCliente(phone, { presentado: true });
+}
+
 async function guardarNotasCliente(phone, notas) {
   await actualizarFichaCliente(phone, { notas: (notas || '').trim().slice(0, 500) });
 }
@@ -360,5 +367,6 @@ module.exports = {
   getFichaCliente,
   registrarPedidoVerificado,
   registrarProductoPreguntado,
+  marcarPresentado,
   guardarNotasCliente,
 };
