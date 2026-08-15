@@ -54,28 +54,71 @@ const STOPWORDS_BUSQUEDA = new Set([
 // producto abundan las siglas cortas con significado real — "HP", "XL", "A4"...
 // quitarlas dejaba búsquedas como "HP 301 XL" reducidas a solo "301", que ya no
 // encuentra el cartucho concreto entre miles de productos.
-function sanitizeQuery(text) {
+function sanitizeWords(text) {
   return (text || '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter((w) => w.length > 1 && !STOPWORDS_BUSQUEDA.has(w))
-    .join(' ')
-    .trim();
+    .filter((w) => w.length > 1 && !STOPWORDS_BUSQUEDA.has(w));
+}
+
+function sanitizeQuery(text) {
+  return sanitizeWords(text).join(' ').trim();
+}
+
+async function rawProductSearch(term, limit) {
+  const params = new URLSearchParams({ search: term, per_page: String(limit), status: 'publish' });
+  const products = await wcRequest(`/products?${params.toString()}`);
+  return Array.isArray(products) ? products : [];
 }
 
 // Busca productos publicados por texto libre (nombre, SKU...). Devuelve un resumen
 // simplificado (no el objeto completo de WooCommerce) para pasarlo a la IA como
 // contexto real de esta consulta concreta.
+//
+// Muchos nombres de artículos de papelería son compuestos, y en el catálogo a
+// veces están como UNA sola palabra pegada (SACAGRAPAS, AFILALAPICES, BORRATINTA)
+// mientras el cliente escribe "saca grapas", "afila lápices", "borra tinta" con
+// espacio. OJO: la búsqueda por frase con espacios no siempre devuelve CERO
+// resultados en estos casos — a veces devuelve varios resultados IRRELEVANTES
+// (comprobado en real: "porta lapices" o "borra tinta" sí devuelven productos,
+// pero ninguno tiene que ver) — así que no basta con probar "todo junto" solo
+// cuando la frase no encuentra nada; hay que combinar ambas búsquedas siempre
+// que haya más de una palabra, dando prioridad a los resultados de "todo junto"
+// (más precisos para estos términos compuestos) sobre los de la frase con espacios.
 async function searchProducts(query, limit = 3) {
-  const cleanQuery = sanitizeQuery(query);
-  if (!cleanQuery) return [];
+  const words = sanitizeWords(query);
+  if (words.length === 0) return [];
 
-  const params = new URLSearchParams({ search: cleanQuery, per_page: String(limit), status: 'publish' });
-  const products = await wcRequest(`/products?${params.toString()}`);
-  if (!Array.isArray(products)) return [];
+  let products = await rawProductSearch(words.join(' '), limit);
+
+  if (words.length > 1) {
+    const concatResults = await rawProductSearch(words.join(''), limit);
+    const vistos = new Set();
+    products = [...concatResults, ...products].filter((p) => {
+      if (vistos.has(p.id)) return false;
+      vistos.add(p.id);
+      return true;
+    });
+  }
+
+  if (products.length === 0 && words.length > 1) {
+    const porPalabra = await Promise.all(words.map((w) => rawProductSearch(w, limit)));
+    const vistos = new Set();
+    products = porPalabra
+      .flat()
+      .filter((p) => {
+        if (vistos.has(p.id)) return false;
+        vistos.add(p.id);
+        return true;
+      })
+      .slice(0, limit);
+  } else {
+    products = products.slice(0, limit);
+  }
+
   return products.map((p) => ({
     nombre: p.name,
     precio: p.price ? `${Number(p.price).toFixed(2)}€` : null,
