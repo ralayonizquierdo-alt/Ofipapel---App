@@ -225,7 +225,7 @@ function isUnverifiedConfirmation(text) {
   return FALSE_CONFIDENCE_PATTERN.test(text || '');
 }
 
-const PRODUCTO_NO_VERIFICADO_INFO = `No tengo acceso al catálogo en tiempo real, así que no puedo confirmarte eso con seguridad. Puedes buscarlo en https://ofipapel.net o consultarlo en tienda.`;
+const PRODUCTO_NO_VERIFICADO_INFO = `Sí, tengo acceso a todo el catálogo de Ofipapel. ¿Qué estás buscando exactamente? Así te confirmo si lo tenemos y a qué precio.`;
 
 // Un ítem concreto por mensaje (igual que con los envíos): si el cliente pregunta
 // por un servicio de Reprografía en concreto, se contesta solo sobre ese, no con
