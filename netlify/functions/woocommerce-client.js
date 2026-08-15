@@ -69,10 +69,33 @@ function sanitizeWords(text) {
 // pretende ser) una lista exhaustiva de entrada; se amplía sobre la marcha).
 //   'block' -> 'bloc': "block de manualidades" no encontraba nada porque en el
 //   catálogo está como "BLOC" (grafía española), no "block" (anglicismo).
+//   'tippex' -> 'corrector': la marca real en el catálogo es "Tipp-Ex" (con
+//   guion), así que buscar "tippex" tal cual no encontraba nada — ni siquiera la
+//   búsqueda cruda de WordPress, el guion rompe la coincidencia — pero
+//   "corrector" sí encuentra el producto real.
 const SINONIMOS_BUSQUEDA = {
   block: 'bloc',
   blocks: 'blocs',
+  tippex: 'corrector',
 };
+
+// Alias de FRASE completa (no palabra por palabra) — para casos donde el
+// término de búsqueda no tiene ninguna palabra en común con el nombre real del
+// producto. "post it" no encontraba nada relevante (ni con la palabra "post"
+// sola, que además coincidía por error con "postre") porque en el catálogo esos
+// artículos están como "notas adhesivas", no como la marca genérica.
+const FRASES_ALIAS = {
+  'post it': 'nota adhesiva',
+  postit: 'nota adhesiva',
+};
+
+function applyPhraseAlias(text) {
+  let result = normalizeForMatch(text || '');
+  for (const [frase, reemplazo] of Object.entries(FRASES_ALIAS)) {
+    if (result.includes(frase)) result = result.split(frase).join(reemplazo);
+  }
+  return result;
+}
 
 function applySynonyms(words) {
   return words.map((w) => SINONIMOS_BUSQUEDA[w] || w);
@@ -116,14 +139,31 @@ function wordVariants(word) {
   return [word, `${word}s`];
 }
 
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Puntúa más una coincidencia de PALABRA COMPLETA que una coincidencia a medias
+// dentro de otra palabra — sin esto, "mesa" contaba igual tanto para una mesa de
+// verdad como para un teléfono "SOBREmesa", y "folio" igual para un folio de
+// papel que para una carpeta "portaFOLIo" (comprobado en real: ambos casos
+// sacaban el producto irrelevante primero). Sigue contando algo la coincidencia
+// parcial (no se pone a 0) porque ahí es donde vive el caso de los compuestos
+// pegados tipo SACAGRAPAS/AFILALAPICES, que si no se romperían.
+function scoreWordMatch(word, normalizedName) {
+  const limite = new RegExp(`(^|[^a-z0-9])${escapeRegExp(word)}([^a-z0-9]|$)`);
+  if (limite.test(normalizedName)) return 2;
+  return normalizedName.includes(word) ? 1 : 0;
+}
+
 function rerankByRelevance(products, words) {
   return products
     .map((p) => {
       const nombreNorm = normalizeForMatch(p.name);
-      const score = words.reduce(
-        (acc, w) => acc + (wordVariants(w).some((v) => nombreNorm.includes(v)) ? 1 : 0),
-        0
-      );
+      const score = words.reduce((acc, w) => {
+        const mejor = Math.max(...wordVariants(w).map((v) => scoreWordMatch(v, nombreNorm)));
+        return acc + mejor;
+      }, 0);
       return { p, score };
     })
     .filter((x) => x.score > 0)
@@ -166,7 +206,7 @@ function singularize(word) {
 }
 
 async function searchProducts(query, limit = 3) {
-  const words = applySynonyms(sanitizeWords(query));
+  const words = applySynonyms(sanitizeWords(applyPhraseAlias(query)));
   if (words.length === 0) return [];
 
   const fetchLimit = Math.max(limit, FETCH_LIMIT_INTERNO);
