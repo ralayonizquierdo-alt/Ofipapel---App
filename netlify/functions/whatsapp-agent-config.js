@@ -588,7 +588,28 @@ const CATALOGO_INFO = `Además de papelería, vendemos: accesorios de telefonía
 // función (no una cadena fija) porque necesita el estado de horario comercial EN EL
 // MOMENTO de cada mensaje: Claude no tiene ni idea de qué hora es "ahora mismo" si no
 // se lo decimos explícitamente en el prompt en cada llamada.
-function buildAiSystemPrompt(productContext = null) {
+// Lo que ya sabemos de quien escribe, para que un cliente habitual no sea
+// tratado como si fuera la primera vez. Son datos duros (nombre salido de un
+// pedido verificado, pedidos que él mismo consultó, productos que escribió y
+// notas del equipo), nunca conclusiones de la IA — ver conversation-store.js.
+function fichaClienteBlock(ficha) {
+  if (!ficha) return '';
+  const lineas = [];
+  if (ficha.empresa) lineas.push(`- Empresa: ${ficha.empresa}`);
+  if (ficha.nombre) lineas.push(`- Nombre: ${ficha.nombre}`);
+  if (Array.isArray(ficha.pedidos) && ficha.pedidos.length) {
+    lineas.push(`- Pedidos que ya ha consultado por aquí: ${ficha.pedidos.map((p) => `#${p.id}`).join(', ')}`);
+  }
+  if (Array.isArray(ficha.productos) && ficha.productos.length) {
+    lineas.push(`- Ha preguntado antes por: ${ficha.productos.join('; ')}`);
+  }
+  if (ficha.notas) lineas.push(`- Notas del equipo sobre este cliente: ${ficha.notas}`);
+  if (lineas.length === 0) return '';
+
+  return `\nLo que ya sabemos de este cliente de conversaciones anteriores (datos reales de nuestro sistema, no suposiciones):\n${lineas.join('\n')}\nÚsalo con naturalidad, como lo haría alguien del equipo que ya le conoce (por ejemplo, si vuelve a preguntar por un pedido que ya consultó, no le hagas repetir el número). No se lo recites de golpe ni le des a entender que tienes una ficha suya, y no des por hecho que hoy quiere lo mismo que la última vez: pregúntaselo.\n`;
+}
+
+function buildAiSystemPrompt(productContext = null, fichaCliente = null) {
   const abierto = isWithinBusinessHours();
   const estadoActual = abierto
     ? `ABIERTO ahora mismo (horario de la sede principal: ${STORES[0].hours}).`
@@ -606,7 +627,7 @@ Información del negocio:
 ${storesSummary()}
 
 Qué vendemos: ${CATALOGO_INFO}
-${productContextBlock}
+${fichaClienteBlock(fichaCliente)}${productContextBlock}
 
 Qué NO vendemos (dilo con seguridad, no hace falta escalar): sellos de correos/postales (eso lo gestiona Correos, no nosotros — sí hacemos sellos personalizados de goma, que es distinto) ni papel sellado/timbrado para trámites oficiales.
 

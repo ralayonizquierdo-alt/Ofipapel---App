@@ -297,6 +297,9 @@ async function continuarBusquedaPedido(from, text, paso, greeting) {
     }
 
     if (woocommerce.phoneMatches(order, from)) {
+      // Pedido ya verificado como suyo: su nombre/empresa salen de WooCommerce,
+      // así que se pueden guardar en su ficha como dato fiable.
+      await conversationStore.registrarPedidoVerificado(from, order);
       const reply = greeting + woocommerce.formatOrderStatus(order);
       await appendToHistory(from, text, reply);
       await sendWhatsappMessage(from, reply);
@@ -314,6 +317,7 @@ async function continuarBusquedaPedido(from, text, paso, greeting) {
   if (paso.paso === 'nombre') {
     const order = await woocommerce.getOrder(paso.orderId);
     if (order && !woocommerce.isSpamOrder(order) && woocommerce.nombreCoincide(text, order)) {
+      await conversationStore.registrarPedidoVerificado(from, order);
       const reply = greeting + woocommerce.formatOrderStatus(order);
       await appendToHistory(from, text, reply);
       await sendWhatsappMessage(from, reply);
@@ -481,6 +485,9 @@ async function handleIncomingMessage(message) {
 
     const bloques = [];
     if (productos.length > 0) {
+      // Se anota en su ficha por qué preguntó (lo que él escribió, no lo que la
+      // IA deduzca), para poder reconocerle en próximas conversaciones.
+      await conversationStore.registrarProductoPreguntado(message.from, text);
       bloques.push(
         `PRODUCTOS que coinciden:\n${productos
           .map(
@@ -502,7 +509,8 @@ async function handleIncomingMessage(message) {
     if (bloques.length > 0) productContext = bloques.join('\n\n');
   }
 
-  const aiReply = await askClaude(text, history, productContext);
+  const fichaCliente = await conversationStore.getFichaCliente(message.from);
+  const aiReply = await askClaude(text, history, productContext, fichaCliente);
 
   // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos..." SIN que
   // hubiera resultados reales de búsqueda para este turno, no nos fiamos de esa

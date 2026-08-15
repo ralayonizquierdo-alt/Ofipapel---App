@@ -11,7 +11,12 @@ const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 // (conversation-store.js), que sobrevive a cold starts y alimenta el panel web.
 // Si no, cae de vuelta a un mapa en memoria (best-effort, se pierde en cold starts).
 const CONVERSATION_TTL_MS = 30 * 60 * 1000; // 30 min de inactividad = conversación nueva
-const MAX_HISTORY_MESSAGES = 10; // últimos mensajes (usuario + bot) que se le pasan a Claude
+// Últimos mensajes (usuario + bot) que se le pasan a Claude. Con 10 el bot
+// "olvidaba" a los 5 turnos y perdía el contexto de conversaciones largas, en
+// las que el cliente explica lo que necesita al principio y pregunta al final
+// (visto en real). Se archivan muchos más (MAX_STORED_MESSAGES en
+// conversation-store.js): esto solo decide cuántos ve la IA en cada respuesta.
+const MAX_HISTORY_MESSAGES = 24;
 const conversations = new Map(); // from -> { messages: [{role, content}], updatedAt } (fallback)
 
 async function getHistory(from) {
@@ -140,7 +145,7 @@ function isRepeatQuestion(text, history) {
   return false;
 }
 
-async function askClaude(userText, history = [], productContext = null) {
+async function askClaude(userText, history = [], productContext = null, fichaCliente = null) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
@@ -157,7 +162,7 @@ async function askClaude(userText, history = [], productContext = null) {
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: 300,
-        system: buildAiSystemPrompt(productContext),
+        system: buildAiSystemPrompt(productContext, fichaCliente),
         messages: [...history, { role: 'user', content: userText }],
       }),
     });

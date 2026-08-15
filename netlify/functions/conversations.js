@@ -25,6 +25,8 @@ const {
   getAliasesBusqueda,
   guardarAliasBusqueda,
   borrarAliasBusqueda,
+  getFichaCliente,
+  guardarNotasCliente,
 } = require('./conversation-store');
 const { isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const { sendWhatsappMessage, uploadWhatsappMedia, sendWhatsappMedia } = require('./whatsapp-send');
@@ -289,6 +291,17 @@ function pageShell(title, body) {
 
   .empty-state { padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 14px; background: var(--card); border-radius: 14px; border: 1px dashed var(--border); }
 
+  /* Ficha del cliente */
+  .ficha { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 12px; }
+  .ficha summary { padding: 11px 14px; cursor: pointer; font-weight: 600; font-size: 14px; }
+  .ficha-cuerpo { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+  .ficha-etq { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-right: 6px; }
+  .ficha-vacio { color: var(--text-muted); font-size: 13px; }
+  .ficha-notas { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .ficha-notas label { color: var(--text-muted); font-size: 12.5px; }
+  .ficha-notas textarea { border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; font-family: inherit; font-size: 13.5px; resize: vertical; }
+  .ficha-notas button { align-self: flex-start; }
+
   /* Aprendizaje del bot */
   .aprende-acceso { margin: 0 0 14px; }
   .aprende-acceso a { display: inline-flex; align-items: center; gap: 8px; }
@@ -522,7 +535,40 @@ function renderAprendizaje(pendientes, aliases) {
   );
 }
 
-function renderThread(phone, messages, { paused, error } = {}) {
+// Tarjeta con lo que sabemos del cliente. Los datos de arriba son automáticos y
+// vienen de hechos comprobados (un pedido verificado contra WooCommerce, lo que
+// el propio cliente escribió); las notas las escribe el equipo.
+function renderFichaCliente(phone, ficha) {
+  const f = ficha || {};
+  const datos = [];
+  if (f.empresa) datos.push(`<div><span class="ficha-etq">Empresa</span> ${escapeHtml(f.empresa)}</div>`);
+  if (f.nombre) datos.push(`<div><span class="ficha-etq">Nombre</span> ${escapeHtml(f.nombre)}</div>`);
+  if (Array.isArray(f.pedidos) && f.pedidos.length) {
+    datos.push(`<div><span class="ficha-etq">Pedidos consultados</span> ${f.pedidos.map((p) => `#${escapeHtml(String(p.id))}`).join(', ')}</div>`);
+  }
+  if (Array.isArray(f.productos) && f.productos.length) {
+    datos.push(`<div><span class="ficha-etq">Ha preguntado por</span> ${escapeHtml(f.productos.join(' · '))}</div>`);
+  }
+  const vacio = datos.length === 0
+    ? '<div class="ficha-vacio">Todavía no sabemos nada de este cliente. Se irá rellenando solo cuando verifique un pedido o pregunte por productos.</div>'
+    : '';
+
+  return `<details class="ficha"${datos.length ? ' open' : ''}>
+  <summary>👤 Ficha del cliente</summary>
+  <div class="ficha-cuerpo">
+    ${datos.join('')}${vacio}
+    <form method="POST" class="ficha-notas">
+      <input type="hidden" name="phone" value="${escapeHtml(phone)}">
+      <input type="hidden" name="action" value="notas">
+      <label for="notas-cliente">Notas del equipo (las verá el bot al responderle)</label>
+      <textarea id="notas-cliente" name="notas" rows="2" placeholder="Ej.: imprenta, siempre pide A3. Tarifa especial.">${escapeHtml(f.notas || '')}</textarea>
+      <button type="submit" class="btn btn-ghost">Guardar notas</button>
+    </form>
+  </div>
+</details>`;
+}
+
+function renderThread(phone, messages, { paused, error, ficha } = {}) {
   const bubbles = messages
     .map((m) => {
       const isCustomer = m.role === 'user';
@@ -599,7 +645,7 @@ function renderThread(phone, messages, { paused, error } = {}) {
   <h2 class="thread-title">${escapeHtml(phone)}</h2>
   ${clearForm}
 </div>
-${pauseBar}${errorBanner}${bubbles || '<div class="empty-thread">Sin mensajes.</div>'}${replyForm}`
+${renderFichaCliente(phone, ficha)}${pauseBar}${errorBanner}${bubbles || '<div class="empty-thread">Sin mensajes.</div>'}${replyForm}`
   );
 }
 
@@ -680,6 +726,9 @@ exports.handler = async (event) => {
         await appendAgentMessage(phone, message);
         await pauseBot(phone, 24); // que no se crucen bot y respuesta manual
       }
+    } else if (phone && action === 'notas') {
+      const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body || '';
+      await guardarNotasCliente(phone, new URLSearchParams(rawBody).get('notas') || '');
     } else if (phone && action === 'resume') {
       await resumeBot(phone);
     } else if (phone && action === 'clear') {
@@ -702,13 +751,17 @@ exports.handler = async (event) => {
   const phone = event.queryStringParameters?.phone;
 
   if (phone) {
-    const [messages, paused] = await Promise.all([loadConversation(phone), isBotPaused(phone)]);
+    const [messages, paused, ficha] = await Promise.all([
+      loadConversation(phone),
+      isBotPaused(phone),
+      getFichaCliente(phone),
+    ]);
     const error = event.queryStringParameters?.error || '';
     await markAsViewed(phone); // abrir el hilo pone a cero el contador de sin leer
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      body: renderThread(phone, messages, { paused, error }),
+      body: renderThread(phone, messages, { paused, error, ficha }),
     };
   }
 
