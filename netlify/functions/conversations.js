@@ -20,6 +20,11 @@ const {
   diagnose,
   markAsViewed,
   getLastViewed,
+  listarBusquedasSinResultado,
+  olvidarBusquedaSinResultado,
+  getAliasesBusqueda,
+  guardarAliasBusqueda,
+  borrarAliasBusqueda,
 } = require('./conversation-store');
 const { isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const { sendWhatsappMessage, uploadWhatsappMedia, sendWhatsappMedia } = require('./whatsapp-send');
@@ -284,6 +289,28 @@ function pageShell(title, body) {
 
   .empty-state { padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 14px; background: var(--card); border-radius: 14px; border: 1px dashed var(--border); }
 
+  /* Aprendizaje del bot */
+  .aprende-acceso { margin: 0 0 14px; }
+  .aprende-acceso a { display: inline-flex; align-items: center; gap: 8px; }
+  .aprende-titulo { font-size: 16px; margin: 22px 0 4px; }
+  .aprende-ayuda { color: var(--text-muted); font-size: 13.5px; margin: 0 0 12px; }
+  .aprende-lista { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+  .aprende-item, .alias-item {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px;
+  }
+  .aprende-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .aprende-termino { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 15px; word-break: break-word; }
+  .aprende-veces { color: var(--text-muted); font-size: 12.5px; white-space: nowrap; }
+  .aprende-form { display: flex; gap: 8px; flex-wrap: wrap; }
+  .aprende-form input[type="text"] {
+    flex: 1; min-width: 180px; padding: 9px 11px; font-size: 14px;
+    border: 1px solid var(--border); border-radius: 10px; font-family: inherit;
+  }
+  .aprende-descartar { margin-top: 6px; }
+  .alias-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .btn-link { background: none; border: none; padding: 0; cursor: pointer; color: var(--green-mid); font-size: 13px; font-weight: 600; font-family: inherit; text-decoration: none; }
+  .btn-primary { padding: 9px 16px; border: none; border-radius: 10px; background: var(--green-mid); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+
   .back-link {
     display: inline-flex; align-items: center; gap: 6px;
     font-size: 13.5px; font-weight: 600; color: var(--green-mid);
@@ -410,7 +437,7 @@ function renderDiagnostic(diagnostic) {
   return `<div class="diagnostic fail">${ICON.alert}<div><strong>Fallo de conexión con Upstash (${escapeHtml(diagnostic.stage)})</strong>${escapeHtml(diagnostic.detail)}</div></div>`;
 }
 
-function renderList(entries, diagnostic) {
+function renderList(entries, diagnostic, pendientesAprendizaje = 0) {
   // Las conversaciones con escalado confirmado van primero, luego por nº de mensajes
   // sin leer (de más a menos), para que salte a la vista lo que falta por revisar.
   const sorted = [...entries].sort((a, b) => Number(b.escalated) - Number(a.escalated) || b.unread - a.unread);
@@ -432,9 +459,66 @@ function renderList(entries, diagnostic) {
   // Auto-refresco cada 30s para que la lista (y el contador de sin leer) se
   // mantenga al día sin tener que recargar a mano.
   const autoRefresh = `<script>setTimeout(function(){ location.reload(); }, 30000);</script>`;
+  const enlaceAprendizaje = `<p class="aprende-acceso"><a class="btn-link" href="?vista=aprendizaje">🧠 Aprendizaje del bot${
+    pendientesAprendizaje > 0 ? ` <span class="unread-badge">${pendientesAprendizaje}</span>` : ''
+  }</a></p>`;
   return pageShell(
     'Conversaciones · Ofipapel',
-    `${renderDiagnostic(diagnostic)}<ul class="convo-list">${items || '<li><div class="empty-state">Todavía no hay conversaciones archivadas.</div></li>'}</ul>${autoRefresh}`
+    `${renderDiagnostic(diagnostic)}${enlaceAprendizaje}<ul class="convo-list">${items || '<li><div class="empty-state">Todavía no hay conversaciones archivadas.</div></li>'}</ul>${autoRefresh}`
+  );
+}
+
+// Página de aprendizaje del bot: lo que los clientes buscaron y no encontramos,
+// y los equivalentes que se le han enseñado. La corrección la hace una persona
+// (el bot no aprende solo) para que un error no se quede fijado para siempre.
+function renderAprendizaje(pendientes, aliases) {
+  const filasPendientes = pendientes.length
+    ? pendientes
+        .map(
+          ({ termino, veces }) => `<li class="aprende-item">
+  <div class="aprende-cab">
+    <span class="aprende-termino">${escapeHtml(termino)}</span>
+    <span class="aprende-veces">${veces} ${veces === 1 ? 'vez' : 'veces'}</span>
+  </div>
+  <form method="POST" class="aprende-form">
+    <input type="hidden" name="action" value="alias-add">
+    <input type="hidden" name="termino" value="${escapeHtml(termino)}">
+    <input type="text" name="equivale" placeholder="¿Cómo se llama en el catálogo? (ej. papel fotocopia)" required>
+    <button type="submit" class="btn-primary">Enseñar</button>
+  </form>
+  <form method="POST" class="aprende-descartar">
+    <input type="hidden" name="action" value="pendiente-del">
+    <input type="hidden" name="termino" value="${escapeHtml(termino)}">
+    <button type="submit" class="btn-link">Descartar</button>
+  </form>
+</li>`
+        )
+        .join('')
+    : '<li><div class="empty-state">Nada pendiente: todas las búsquedas de los clientes encontraron resultados.</div></li>';
+
+  const filasAlias = Object.entries(aliases).length
+    ? Object.entries(aliases)
+        .map(
+          ([termino, equivale]) => `<li class="alias-item">
+  <span><strong>${escapeHtml(termino)}</strong> → ${escapeHtml(equivale)}</span>
+  <form method="POST">
+    <input type="hidden" name="action" value="alias-del">
+    <input type="hidden" name="termino" value="${escapeHtml(termino)}">
+    <button type="submit" class="btn-link">Quitar</button>
+  </form>
+</li>`
+        )
+        .join('')
+    : '<li><div class="empty-state">Todavía no se le ha enseñado ningún equivalente.</div></li>';
+
+  return pageShell(
+    'Aprendizaje del bot · Ofipapel',
+    `<p><a class="btn-link" href="?">← Volver a conversaciones</a></p>
+<h2 class="aprende-titulo">Búsquedas sin resultado</h2>
+<p class="aprende-ayuda">Lo que los clientes pidieron y el bot no encontró en el catálogo. Escribe a qué corresponde y lo tendrá en cuenta a partir de ese momento.</p>
+<ul class="aprende-lista">${filasPendientes}</ul>
+<h2 class="aprende-titulo">Equivalencias aprendidas</h2>
+<ul class="aprende-lista">${filasAlias}</ul>`
   );
 }
 
@@ -555,6 +639,16 @@ exports.handler = async (event) => {
       phone = params.get('phone') || '';
       action = params.get('action') || '';
       message = (params.get('message') || '').trim();
+
+      // Acciones de la página de aprendizaje (no van asociadas a un teléfono).
+      if (action.startsWith('alias-') || action === 'pendiente-del') {
+        const termino = (params.get('termino') || '').trim();
+        const equivale = (params.get('equivale') || '').trim();
+        if (action === 'alias-add' && termino && equivale) await guardarAliasBusqueda(termino, equivale);
+        if (action === 'alias-del' && termino) await borrarAliasBusqueda(termino);
+        if (action === 'pendiente-del' && termino) await olvidarBusquedaSinResultado(termino);
+        return { statusCode: 303, headers: { Location: '?vista=aprendizaje' }, body: '' };
+      }
     }
 
     const redirect = (errorCode) => ({
@@ -596,6 +690,15 @@ exports.handler = async (event) => {
     return redirect();
   }
 
+  if (event.queryStringParameters?.vista === 'aprendizaje') {
+    const [pendientes, aliases] = await Promise.all([listarBusquedasSinResultado(), getAliasesBusqueda()]);
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      body: renderAprendizaje(pendientes, aliases),
+    };
+  }
+
   const phone = event.queryStringParameters?.phone;
 
   if (phone) {
@@ -609,7 +712,11 @@ exports.handler = async (event) => {
     };
   }
 
-  const [phones, diagnostic] = await Promise.all([listConversationPhones(), diagnose()]);
+  const [phones, diagnostic, pendientes] = await Promise.all([
+    listConversationPhones(),
+    diagnose(),
+    listarBusquedasSinResultado(),
+  ]);
   const entries = await Promise.all(
     phones.map(async (phone) => {
       const [messages, lastViewed] = await Promise.all([loadConversation(phone), getLastViewed(phone)]);
@@ -621,6 +728,6 @@ exports.handler = async (event) => {
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    body: renderList(entries, diagnostic),
+    body: renderList(entries, diagnostic, pendientes.length),
   };
 };

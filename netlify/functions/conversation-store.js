@@ -113,6 +113,82 @@ async function getLastViewed(phone) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+// ── Memoria del bot ──────────────────────────────────────────────────────────
+// Dos cosas distintas, ambas guardadas aquí porque ya hay almacén compartido:
+//
+//  1. Caché de búsquedas: la web tarda varios segundos en responder cada
+//     búsqueda (medido: 3,5-6 s, a veces más), así que se guarda el resultado un
+//     rato. Si varios clientes preguntan por lo mismo el mismo día, solo el
+//     primero espera. El plazo es corto a propósito: el precio y el stock
+//     cambian, y es preferible repetir la consulta que dar un dato viejo.
+//
+//  2. Términos que los clientes buscaron y no encontramos, con su número de
+//     veces, para poder revisarlos en el panel y enseñarle al bot a qué
+//     corresponden (ver aliases más abajo).
+
+async function getCachedSearch(key) {
+  const raw = await redisCommand(['GET', `busqueda:${key}`]);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function setCachedSearch(key, value, ttlSeconds = 3600) {
+  await redisCommand(['SET', `busqueda:${key}`, JSON.stringify(value), 'EX', String(ttlSeconds)]);
+}
+
+// Se guarda con contador (ZINCRBY) para poder ordenar por lo más pedido: lo que
+// más veces se busca sin encontrar es lo primero que interesa revisar.
+async function registrarBusquedaSinResultado(termino) {
+  const limpio = (termino || '').trim().slice(0, 120);
+  if (!limpio) return;
+  await redisCommand(['ZINCRBY', 'busquedas_sin_resultado', '1', limpio]);
+}
+
+async function listarBusquedasSinResultado(limite = 50) {
+  const raw = await redisCommand(['ZRANGE', 'busquedas_sin_resultado', '0', String(limite - 1), 'REV', 'WITHSCORES']);
+  if (!Array.isArray(raw)) return [];
+  const salida = [];
+  for (let i = 0; i < raw.length; i += 2) {
+    salida.push({ termino: raw[i], veces: Number(raw[i + 1]) || 0 });
+  }
+  return salida;
+}
+
+async function olvidarBusquedaSinResultado(termino) {
+  await redisCommand(['ZREM', 'busquedas_sin_resultado', termino]);
+}
+
+// Aliases aprendidos: "lo que escribe el cliente" -> "como se llama de verdad en
+// el catálogo" (folios -> papel fotocopia). Los define una persona desde el
+// panel; el bot no los inventa solo, para que un error no se vuelva permanente.
+async function getAliasesBusqueda() {
+  const raw = await redisCommand(['HGETALL', 'alias_busqueda']);
+  if (!raw) return {};
+  // Upstash devuelve HGETALL como lista plana [campo, valor, campo, valor...]
+  if (Array.isArray(raw)) {
+    const obj = {};
+    for (let i = 0; i < raw.length; i += 2) obj[raw[i]] = raw[i + 1];
+    return obj;
+  }
+  return typeof raw === 'object' ? raw : {};
+}
+
+async function guardarAliasBusqueda(termino, equivale) {
+  const t = (termino || '').trim().toLowerCase();
+  const e = (equivale || '').trim();
+  if (!t || !e) return;
+  await redisCommand(['HSET', 'alias_busqueda', t, e]);
+  await olvidarBusquedaSinResultado(t);
+}
+
+async function borrarAliasBusqueda(termino) {
+  await redisCommand(['HDEL', 'alias_busqueda', (termino || '').trim().toLowerCase()]);
+}
+
 // Reserva un id de mensaje entrante para procesarlo UNA sola vez. Devuelve true
 // si nadie lo había cogido antes (hay que procesarlo) y false si ya estaba
 // cogido (es un reenvío de Meta y hay que ignorarlo).
@@ -213,4 +289,12 @@ module.exports = {
   markAsViewed,
   getLastViewed,
   claimMessage,
+  getCachedSearch,
+  setCachedSearch,
+  registrarBusquedaSinResultado,
+  listarBusquedasSinResultado,
+  olvidarBusquedaSinResultado,
+  getAliasesBusqueda,
+  guardarAliasBusqueda,
+  borrarAliasBusqueda,
 };
