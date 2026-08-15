@@ -260,7 +260,16 @@ const REPROGRAFIA_ITEMS = [
   },
 ];
 
+// "láminas/fundas/bolsas/carteras de plastificar" es el PRODUCTO (las fundas que
+// se compran para plastificar uno mismo) — no es lo mismo que "plastificar" como
+// SERVICIO (traer un documento para que se lo plastifiquen en Reprografía). Si
+// preguntan por el producto, se deja pasar la pregunta (sin match) para que la
+// búsqueda real de WooCommerce la responda, en vez de ofrecerles por error el
+// servicio de Reprografía.
+const PLASTIFICAR_PRODUCTO_RE = /\b(lamina|laminas|funda|fundas|bolsa|bolsas|cartera|carteras)\s+(de\s+)?plastificar/;
+
 function reprografiaReply(normalizedText) {
+  if (PLASTIFICAR_PRODUCTO_RE.test(normalizedText)) return null;
   const item = REPROGRAFIA_ITEMS.find((it) => it.keywords.some((k) => normalizedText.includes(k)));
   if (item) {
     if (item.reply) return item.reply;
