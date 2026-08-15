@@ -572,7 +572,7 @@ const FAQ_RULES = [
   },
 ];
 
-const CATALOGO_INFO = `Además de papelería, vendemos: accesorios de telefonía, accesorios de informática, ordenadores, artículos para el hogar, electrodomésticos, mobiliario de oficina, y uno de los mayores stocks de Canarias en consumibles para todo tipo de impresoras (tóner, tinta, etc.), además de impresoras y multifunción láser e inkjet, entre muchos otros artículos. También ofrecemos leasing de impresoras.`;
+const CATALOGO_INFO = `Además de papelería, vendemos: accesorios de telefonía, accesorios de informática, ordenadores, artículos para el hogar, electrodomésticos, y uno de los mayores stocks de Canarias en consumibles para todo tipo de impresoras (tóner, tinta, etc.), además de impresoras y multifunción láser e inkjet, entre muchos otros artículos. También ofrecemos leasing de impresoras. Tenemos además amplia exposición de mobiliario de oficina, con gran variedad de sillas gaming y sillas ergonómicas de oficina.`;
 
 // Prompt de sistema usado como respaldo cuando ninguna regla de FAQ coincide. Es una
 // función (no una cadena fija) porque necesita el estado de horario comercial EN EL
