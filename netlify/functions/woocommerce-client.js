@@ -64,6 +64,20 @@ function sanitizeWords(text) {
     .filter((w) => w.length > 1 && !STOPWORDS_BUSQUEDA.has(w));
 }
 
+// Alias entre cómo pide la gente un producto y cómo está escrito de verdad en el
+// catálogo — SOLO se añaden casos confirmados fallando en real (no es (ni
+// pretende ser) una lista exhaustiva de entrada; se amplía sobre la marcha).
+//   'block' -> 'bloc': "block de manualidades" no encontraba nada porque en el
+//   catálogo está como "BLOC" (grafía española), no "block" (anglicismo).
+const SINONIMOS_BUSQUEDA = {
+  block: 'bloc',
+  blocks: 'blocs',
+};
+
+function applySynonyms(words) {
+  return words.map((w) => SINONIMOS_BUSQUEDA[w] || w);
+}
+
 function sanitizeQuery(text) {
   return sanitizeWords(text).join(' ').trim();
 }
@@ -72,6 +86,58 @@ async function rawProductSearch(term, limit) {
   const params = new URLSearchParams({ search: term, per_page: String(limit), status: 'publish' });
   const products = await wcRequest(`/products?${params.toString()}`);
   return Array.isArray(products) ? products : [];
+}
+
+function normalizeForMatch(text) {
+  return (text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+}
+
+// El buscador nativo de WordPress/WooCommerce es un LIKE en bruto SIN ranking de
+// relevancia (confirmado: no es un fallo nuestro, es una limitación conocida y
+// documentada de la búsqueda por defecto) — por eso el producto correcto puede
+// aparecer en los resultados pero enterrado detrás de coincidencias irrelevantes
+// (comprobado en real: "jabón de manos" traía el jabón correcto en 3er lugar de
+// 3, detrás de un fregadero y un rotulador). Se pide un lote más grande del que
+// hace falta y se reordena aquí mismo por cuántas palabras de la búsqueda
+// aparecen de verdad en el nombre del producto, descartando los que no tengan
+// ninguna coincidencia, antes de recortar al límite que se va a usar.
+const FETCH_LIMIT_INTERNO = 15;
+
+// Tolerancia básica de plural/singular ("pistolas" debe contar como coincidencia
+// con "PISTOLA") — no es un stemmer completo, solo prueba la palabra tal cual y
+// quitando/añadiendo una "s" final. Sin esto, "pistolas de silicona" puntuaba
+// igual (por "silicona") tanto los recambios de silicona como las pistolas de
+// silicona de verdad, y el orden quedaba a la suerte del buscador de WordPress.
+function wordVariants(word) {
+  if (word.endsWith('s') && word.length > 3) return [word, word.slice(0, -1)];
+  return [word, `${word}s`];
+}
+
+function rerankByRelevance(products, words) {
+  return products
+    .map((p) => {
+      const nombreNorm = normalizeForMatch(p.name);
+      const score = words.reduce(
+        (acc, w) => acc + (wordVariants(w).some((v) => nombreNorm.includes(v)) ? 1 : 0),
+        0
+      );
+      return { p, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map((x) => x.p);
+}
+
+function dedupeById(lists) {
+  const vistos = new Set();
+  return lists.flat().filter((p) => {
+    if (vistos.has(p.id)) return false;
+    vistos.add(p.id);
+    return true;
+  });
 }
 
 // Busca productos publicados por texto libre (nombre, SKU...). Devuelve un resumen
@@ -86,37 +152,43 @@ async function rawProductSearch(term, limit) {
 // (comprobado en real: "porta lapices" o "borra tinta" sí devuelven productos,
 // pero ninguno tiene que ver) — así que no basta con probar "todo junto" solo
 // cuando la frase no encuentra nada; hay que combinar ambas búsquedas siempre
-// que haya más de una palabra, dando prioridad a los resultados de "todo junto"
-// (más precisos para estos términos compuestos) sobre los de la frase con espacios.
+// que haya más de una palabra, y reordenar todo junto por relevancia real antes
+// de recortar (ver rerankByRelevance).
+// El singular/plural también se pierde a nivel de la propia búsqueda de
+// WordPress, no solo al comparar después: "pistola silicona" (singular)
+// encuentra las pistolas de pegamento reales, pero "pistolas silicona" (plural,
+// como lo escribe el cliente) no encuentra NINGUNA — no es un problema de orden,
+// esos productos ni siquiera vienen en la respuesta cruda de la API. Por eso hay
+// que generar también una variante en singular de la propia búsqueda, no solo
+// tolerar plural/singular al puntuar después (ver rerankByRelevance).
+function singularize(word) {
+  return word.endsWith('s') && word.length > 3 ? word.slice(0, -1) : word;
+}
+
 async function searchProducts(query, limit = 3) {
-  const words = sanitizeWords(query);
+  const words = applySynonyms(sanitizeWords(query));
   if (words.length === 0) return [];
 
-  let products = await rawProductSearch(words.join(' '), limit);
+  const fetchLimit = Math.max(limit, FETCH_LIMIT_INTERNO);
+  let raw = await rawProductSearch(words.join(' '), fetchLimit);
 
   if (words.length > 1) {
-    const concatResults = await rawProductSearch(words.join(''), limit);
-    const vistos = new Set();
-    products = [...concatResults, ...products].filter((p) => {
-      if (vistos.has(p.id)) return false;
-      vistos.add(p.id);
-      return true;
-    });
+    const concatResults = await rawProductSearch(words.join(''), fetchLimit);
+    raw = dedupeById([concatResults, raw]);
+
+    const singularWords = words.map(singularize);
+    if (singularWords.some((w, i) => w !== words[i])) {
+      const singularResults = await rawProductSearch(singularWords.join(' '), fetchLimit);
+      raw = dedupeById([raw, singularResults]);
+    }
   }
 
+  let products = rerankByRelevance(raw, words).slice(0, limit);
+
   if (products.length === 0 && words.length > 1) {
-    const porPalabra = await Promise.all(words.map((w) => rawProductSearch(w, limit)));
-    const vistos = new Set();
-    products = porPalabra
-      .flat()
-      .filter((p) => {
-        if (vistos.has(p.id)) return false;
-        vistos.add(p.id);
-        return true;
-      })
-      .slice(0, limit);
-  } else {
-    products = products.slice(0, limit);
+    const porPalabra = await Promise.all(words.map((w) => rawProductSearch(w, fetchLimit)));
+    const combinedRaw = dedupeById(porPalabra);
+    products = rerankByRelevance(combinedRaw, words).slice(0, limit);
   }
 
   return products.map((p) => ({
