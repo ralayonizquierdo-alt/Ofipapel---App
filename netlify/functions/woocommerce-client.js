@@ -83,16 +83,26 @@ const SINONIMOS_BUSQUEDA = {
 // término de búsqueda no tiene ninguna palabra en común con el nombre real del
 // producto. "post it" no encontraba nada relevante (ni con la palabra "post"
 // sola, que además coincidía por error con "postre") porque en el catálogo esos
-// artículos están como "notas adhesivas", no como la marca genérica.
+// artículos están como "notas adhesivas", no como la marca genérica. Lo mismo
+// con "folios": en el catálogo no existe ningún producto llamado así — el papel
+// suelto está como "PAPEL Fotocopia A-4 ...", y "folio"/"Fº" solo se usa como
+// abreviatura de tamaño dentro de otros artículos (carpetas, cajas...).
 const FRASES_ALIAS = {
   'post it': 'nota adhesiva',
   postit: 'nota adhesiva',
+  folios: 'papel fotocopia',
+  folio: 'papel fotocopia',
 };
 
+// Los alias se aplican solo sobre PALABRAS COMPLETAS: si se reemplazara por
+// trozos de palabra, "portafolio" se convertiría en "portapapel fotocopia" y
+// "postre" en "nota adhesivare". El límite de cierre va como lookahead para no
+// consumir el separador y poder encajar dos apariciones seguidas.
 function applyPhraseAlias(text) {
   let result = normalizeForMatch(text || '');
   for (const [frase, reemplazo] of Object.entries(FRASES_ALIAS)) {
-    if (result.includes(frase)) result = result.split(frase).join(reemplazo);
+    const re = new RegExp(`(^|[^a-z0-9])${escapeRegExp(frase)}(?=[^a-z0-9]|$)`, 'g');
+    result = result.replace(re, (_m, pre) => `${pre}${reemplazo}`);
   }
   return result;
 }
