@@ -235,6 +235,17 @@ async function handleSellosReply(message) {
   await appendToHistory(message.from, `[El cliente eligió ${buttonId === 'sellos_web' ? 'web' : 'tienda'} para el sello]`, reply);
 }
 
+// Antes de ofrecer un agente por "pregunta repetida" (no por petición explícita),
+// se le da al cliente una oportunidad de reformular — igual que con el flujo de
+// pedidos, el paso se deduce mirando si la última respuesta del bot fue esta.
+const ACLARACION_MARCA = '[Se preguntó si no se entendió bien]';
+const ACLARACION_REPLY = 'Perdona, creo que no te he entendido bien. ¿Puedes explicarme de otra forma qué necesitas?';
+
+function yaSePidioAclaracion(history) {
+  const ultimoBot = [...history].reverse().find((m) => m.role === 'assistant');
+  return Boolean(ultimoBot && ultimoBot.content.startsWith(ACLARACION_MARCA));
+}
+
 // Flujo de "estado de mi pedido": el paso en el que estamos se deduce del propio
 // historial (sin Redis aparte) mirando si la última respuesta del bot llevaba un
 // marcador al principio. Si el cliente se va por otro lado, el flujo se abandona
@@ -380,14 +391,30 @@ async function handleIncomingMessage(message) {
     if (gestionado) return;
   }
 
-  if (wantsEscalation) {
-    // Si el cliente pidió expresamente hablar con alguien (o es una queja/
-    // presupuesto), no hace falta explicar el motivo. Pero si lo que ha pasado es
-    // que ha insistido con una pregunta parecida sin que el bot se la resolviera,
-    // se le dice igual que en el caso de "no sé la respuesta" — mismo motivo real.
-    const prefix = isRepeated ? `${greeting}Veo que no he conseguido resolver tu duda. ` : greeting;
-    await sendEscalateButtons(message.from, prefix);
-    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
+  if (isExplicitRequest) {
+    // El cliente pidió expresamente hablar con alguien (o es una queja/
+    // presupuesto) — no hace falta explicar el motivo, se escala directo.
+    await sendEscalateButtons(message.from, greeting);
+    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${greeting}${escalateQuestion()}`);
+    return;
+  }
+
+  if (isRepeated) {
+    // No se salta directo a ofrecer un agente la primera vez que se detecta una
+    // pregunta parecida a una anterior — puede que el bot simplemente no haya
+    // entendido bien la forma de preguntar. Se da una oportunidad de reformular
+    // primero; solo si INSISTE otra vez después de esa pregunta (ya serían 3
+    // intentos seguidos sin resolver) se ofrece la escalada real.
+    if (yaSePidioAclaracion(history)) {
+      const prefix = `${greeting}Veo que no he conseguido resolver tu duda. `;
+      await sendEscalateButtons(message.from, prefix);
+      await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
+      return;
+    }
+
+    const reply = greeting + ACLARACION_REPLY;
+    await appendToHistory(message.from, text, `${ACLARACION_MARCA}${reply}`);
+    await sendWhatsappMessage(message.from, reply);
     return;
   }
 
