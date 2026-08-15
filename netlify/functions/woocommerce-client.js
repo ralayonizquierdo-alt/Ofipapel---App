@@ -168,9 +168,21 @@ const FETCH_LIMIT_INTERNO = 40;
 // quitando/añadiendo una "s" final. Sin esto, "pistolas de silicona" puntuaba
 // igual (por "silicona") tanto los recambios de silicona como las pistolas de
 // silicona de verdad, y el orden quedaba a la suerte del buscador de WordPress.
+// En referencias de consumibles, la misma pieza aparece con el número y las
+// letras juntos o separados según el producto: los cartuchos originales están
+// como "(603XL)" y los compatibles equivalentes como "603 XL". El cliente
+// escribe una de las dos formas y se pierde la otra — comprobado en real:
+// "603XL" solo encontraba los originales (18-88€) y dejaba fuera los
+// compatibles (4,56€), que era justo lo que buscaba el cliente.
+function splitAlfaNum(word) {
+  return word.replace(/(\d)([a-z])/g, '$1 $2').replace(/([a-z])(\d)/g, '$1 $2');
+}
+
 function wordVariants(word) {
-  if (word.endsWith('s') && word.length > 3) return [word, word.slice(0, -1)];
-  return [word, `${word}s`];
+  const variantes = word.endsWith('s') && word.length > 3 ? [word, word.slice(0, -1)] : [word, `${word}s`];
+  const separada = splitAlfaNum(word);
+  if (separada !== word) variantes.push(separada);
+  return variantes;
 }
 
 function escapeRegExp(s) {
@@ -299,6 +311,10 @@ async function searchProducts(query, limit = 3) {
     const singularWords = words.map(singularize);
     if (singularWords.some((w, i) => w !== words[i])) terminos.push(singularWords.join(' '));
   }
+  // Referencias tipo "603XL" -> "603 XL" (ver splitAlfaNum): hay productos
+  // catalogados de una forma y otros de la otra, así que se busca en las dos.
+  const alfaNumSeparado = words.map(splitAlfaNum).join(' ');
+  if (alfaNumSeparado !== words.join(' ')) terminos.push(alfaNumSeparado);
   const [frase, ...otras] = await Promise.all(terminos.map((t) => rawProductSearch(t, fetchLimit)));
   let raw = dedupeById([...otras, frase]);
 
