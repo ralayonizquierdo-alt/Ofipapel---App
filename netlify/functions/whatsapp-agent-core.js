@@ -105,6 +105,13 @@ const STOPWORDS_COMPARACION = new Set([
   'quiero', 'necesito', 'puedo', 'podeis', 'podéis', 'vosotros', 'ustedes', 'sido',
 ]);
 
+// Ojo: length > 1 (no > 3) — con el umbral anterior, referencias de producto
+// cortas como "HP", "301", "TN" se descartaban por "demasiado cortas", y dos
+// preguntas sobre productos totalmente distintos podían quedarse con una única
+// palabra significativa en común ("compatible") y marcarse como "la misma
+// pregunta" por pura coincidencia (comprobado en real: "tóner TN2420
+// compatible" vs "HP 301 compatible?" — sin HP/301, solo quedaba "compatible"
+// en ambas, 100% de solapamiento).
 function palabrasSignificativas(text) {
   return text
     .toLowerCase()
@@ -112,7 +119,7 @@ function palabrasSignificativas(text) {
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter((w) => w.length > 3 && !STOPWORDS_COMPARACION.has(w));
+    .filter((w) => w.length > 1 && !STOPWORDS_COMPARACION.has(w));
 }
 
 // Detecta si el cliente está insistiendo/repitiendo una pregunta que ya hizo antes
