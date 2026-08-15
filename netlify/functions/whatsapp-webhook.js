@@ -98,6 +98,16 @@ function verifySignature(event) {
   return crypto.timingSafeEqual(a, b);
 }
 
+// A veces la IA saluda por su cuenta pese a la instrucción de no hacerlo ("no hace
+// falta que saludes tú al principio..."). Como el sistema YA antepone "¡Hola! "
+// cuando corresponde (variable greeting), si además la IA saluda queda duplicado
+// ("¡Hola! ¡Hola! Claro..." — visto en real). Se quita el saludo propio de la IA
+// del texto antes de anteponer el nuestro, para que nunca aparezcan los dos.
+const AI_GREETING_RE = /^\s*(¡\s*hola\s*!?|hola\s*!?|buenos\s+d[ií]as|buenas\s+tardes|buenas\s+noches|buenas)[\s,.!¡¿?-]*/i;
+function stripAiOwnGreeting(text) {
+  return text.replace(AI_GREETING_RE, '');
+}
+
 // Fuera de horario, la propia pregunta de "¿quieres que te ponga en contacto...?" ya
 // deja claro que ahora mismo no hay nadie y que la atención será en cuanto abramos —
 // así el cliente no piensa que va a hablar con alguien al instante al pulsar "Sí".
@@ -358,6 +368,18 @@ async function handleIncomingMessage(message) {
     if (gestionado) return;
   }
 
+  // En la práctica, los clientes casi nunca escriben la frase exacta "estado de mi
+  // pedido" — piden "info sobre un pedido" con sus propias palabras y, cuando se
+  // les pregunta (por la IA, con su propia redacción, no siempre por el flujo
+  // determinista), simplemente escriben el número suelto. Si el mensaje ES solo un
+  // número (5 a 8 dígitos, sin nada más), lo más probable con diferencia es que sea
+  // un número de pedido — se intenta la búsqueda real directamente, sin depender de
+  // haber detectado antes la frase exacta que arranca el flujo.
+  if (!pasoPedido && woocommerce.isConfigured() && /^\d{5,8}$/.test(text.trim())) {
+    const gestionado = await continuarBusquedaPedido(message.from, text, { paso: 'numero' }, greeting);
+    if (gestionado) return;
+  }
+
   if (wantsEscalation) {
     // Si el cliente pidió expresamente hablar con alguien (o es una queja/
     // presupuesto), no hace falta explicar el motivo. Pero si lo que ha pasado es
@@ -449,7 +471,7 @@ async function handleIncomingMessage(message) {
   // con la info que sí había, y además con la opción real de hablar con alguien,
   // en vez de depender de que la IA repita una frase exacta sin nada más.
   if (isNoSeLaRespuesta(aiReply)) {
-    const infoPart = aiReply.split(NO_SE_LA_RESPUESTA)[0].trim();
+    const infoPart = stripAiOwnGreeting(aiReply.split(NO_SE_LA_RESPUESTA)[0].trim()).trim();
 
     if (infoPart) {
       const infoReply = greeting + infoPart;
@@ -471,7 +493,7 @@ async function handleIncomingMessage(message) {
     return;
   }
 
-  const reply = greeting + aiReply;
+  const reply = greeting + stripAiOwnGreeting(aiReply);
   await appendToHistory(message.from, text, reply);
   await sendWhatsappMessage(message.from, reply);
 }
