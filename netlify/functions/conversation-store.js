@@ -189,6 +189,66 @@ async function borrarAliasBusqueda(termino) {
   await redisCommand(['HDEL', 'alias_busqueda', (termino || '').trim().toLowerCase()]);
 }
 
+// ── Ficha del cliente ────────────────────────────────────────────────────────
+// Lo que sabemos de quien escribe, para que el bot no trate a un cliente
+// habitual como si fuera la primera vez. A propósito solo guarda DATOS DUROS:
+// el nombre sale de un pedido ya verificado contra WooCommerce, los pedidos son
+// los que él mismo ha consultado y los productos son lo que escribió. Nada de
+// resúmenes generados por la IA — un error suyo se quedaría fijado en la ficha y
+// contaminaría todas las conversaciones futuras con esa persona. Las notas las
+// escribe el equipo a mano desde el panel.
+const CLIENTE_MAX_PRODUCTOS = 8;
+const CLIENTE_MAX_PEDIDOS = 5;
+
+async function getFichaCliente(phone) {
+  const raw = await redisCommand(['GET', `cliente:${phone}`]);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function actualizarFichaCliente(phone, cambios) {
+  const actual = (await getFichaCliente(phone)) || { primerContacto: Date.now() };
+  const ficha = { ...actual, ...cambios, ultimoContacto: Date.now() };
+  await redisCommand(['SET', `cliente:${phone}`, JSON.stringify(ficha)]);
+  return ficha;
+}
+
+// Se llama solo cuando el pedido ya se ha verificado como suyo (por teléfono o
+// por nombre), así que el nombre/empresa vienen de WooCommerce, no del chat.
+async function registrarPedidoVerificado(phone, order) {
+  const ficha = (await getFichaCliente(phone)) || {};
+  const pedidos = Array.isArray(ficha.pedidos) ? ficha.pedidos : [];
+  const yaEsta = pedidos.some((p) => String(p.id) === String(order.id));
+  const nuevos = yaEsta
+    ? pedidos
+    : [...pedidos, { id: order.id, fecha: order.date_created || null }].slice(-CLIENTE_MAX_PEDIDOS);
+
+  const nombre = `${order?.billing?.first_name || ''} ${order?.billing?.last_name || ''}`.trim();
+  await actualizarFichaCliente(phone, {
+    pedidos: nuevos,
+    ...(nombre ? { nombre } : {}),
+    ...(order?.billing?.company ? { empresa: order.billing.company } : {}),
+  });
+}
+
+async function registrarProductoPreguntado(phone, termino) {
+  const limpio = (termino || '').trim().slice(0, 80);
+  if (!limpio) return;
+  const ficha = (await getFichaCliente(phone)) || {};
+  const previos = Array.isArray(ficha.productos) ? ficha.productos : [];
+  if (previos[previos.length - 1] === limpio) return; // no repetir el mismo seguido
+  const productos = [...previos.filter((p) => p !== limpio), limpio].slice(-CLIENTE_MAX_PRODUCTOS);
+  await actualizarFichaCliente(phone, { productos });
+}
+
+async function guardarNotasCliente(phone, notas) {
+  await actualizarFichaCliente(phone, { notas: (notas || '').trim().slice(0, 500) });
+}
+
 // Reserva un id de mensaje entrante para procesarlo UNA sola vez. Devuelve true
 // si nadie lo había cogido antes (hay que procesarlo) y false si ya estaba
 // cogido (es un reenvío de Meta y hay que ignorarlo).
@@ -297,4 +357,8 @@ module.exports = {
   getAliasesBusqueda,
   guardarAliasBusqueda,
   borrarAliasBusqueda,
+  getFichaCliente,
+  registrarPedidoVerificado,
+  registrarProductoPreguntado,
+  guardarNotasCliente,
 };
