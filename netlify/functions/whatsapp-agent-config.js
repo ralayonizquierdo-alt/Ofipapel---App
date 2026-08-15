@@ -48,6 +48,12 @@ function findStoreInText(normalizedText) {
 
 const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿En qué puedo ayudarte? Puedes preguntarme por horarios, ubicación, teléfono o lo que necesites.\n\nWe also speak English 🇬🇧`;
 
+// Presentación que se manda UNA SOLA VEZ a cada cliente, en su primer mensaje
+// (ver ficha del cliente en conversation-store.js). Avisar de que el bot es
+// nuevo hace que un fallo se perdone mejor, pero decirlo y quedarse ahí resta
+// confianza: por eso va acompañado del compromiso de pasar con una persona.
+const PRESENTACION = `¡Hola! 👋 Soy el nuevo asistente virtual de ${BUSINESS_NAME}. Todavía estoy aprendiendo, así que puede que no acierte con todo — si no sé algo, te paso con una persona del equipo.\n\nCuéntame qué necesitas: horarios, tiendas, productos, el estado de tu pedido...\n\nWe also speak English 🇬🇧`;
+
 // Detección de saludo robusta: NO cuenta palabras totales (eso rompía con mensajes
 // tipo "Buenas tardes, ¿hacéis escaneados?", que caían justo en 6 palabras y se
 // comían la pregunta real). En vez de eso, quita el saludo del principio del texto
@@ -671,6 +677,7 @@ module.exports = {
   BUSINESS_NAME,
   STORES,
   GREETING,
+  PRESENTACION,
   AGENTE_INFO_ABIERTO,
   AGENTE_INFO_CERRADO,
   agenteInfo,

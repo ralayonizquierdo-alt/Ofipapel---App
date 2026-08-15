@@ -53,6 +53,7 @@ const {
   isWithinBusinessHours,
   STORES,
   GREETING,
+  PRESENTACION,
   startsWithGreeting,
   isNoSeLaRespuesta,
   NO_SE_LA_RESPUESTA,
@@ -382,10 +383,18 @@ async function handleIncomingMessage(message) {
   const isRepeated = !faqReply && isRepeatQuestion(text, history);
   const wantsEscalation = isExplicitRequest || isRepeated;
 
+  // El bot se presenta UNA sola vez a cada cliente, en su primer mensaje. Va como
+  // prefijo (no como mensaje suelto) para que no reciba dos mensajes seguidos, y
+  // aprovechando que ese prefijo ya se antepone a cualquier respuesta — así vale
+  // igual si el primer mensaje es un saludo, una pregunta o un número de pedido.
+  const fichaCliente = await conversationStore.getFichaCliente(message.from);
+  const debePresentarse = !fichaCliente?.presentado;
+  if (debePresentarse) await conversationStore.marcarPresentado(message.from);
+
   // Si el cliente saluda junto con su pregunta (p. ej. "Buenas tardes, ¿hacéis
   // escaneados?"), se antepone el saludo a la respuesta que sea — así no hace falta
   // que ninguna regla individual ni la IA se acuerden de saludar por su cuenta.
-  const greeting = startsWithGreeting(text) ? '¡Hola! ' : '';
+  const greeting = debePresentarse ? `${PRESENTACION}\n\n` : startsWithGreeting(text) ? '¡Hola! ' : '';
 
   // Si la última respuesta del bot fue "dime el número de tu pedido" o "confírmame
   // el nombre", este mensaje es la continuación de esa búsqueda concreta — se
@@ -447,7 +456,14 @@ async function handleIncomingMessage(message) {
   }
 
   if (faqReply) {
-    const reply = faqReply === GREETING ? faqReply : greeting + faqReply;
+    // Con un saludo a secas, la presentación SUSTITUYE al saludo de siempre (los
+    // dos juntos serían dos bienvenidas seguidas diciendo casi lo mismo).
+    const reply =
+      faqReply === GREETING
+        ? debePresentarse
+          ? PRESENTACION
+          : faqReply
+        : greeting + faqReply;
     await appendToHistory(message.from, text, reply);
     await sendWhatsappMessage(message.from, reply);
     return;
@@ -509,7 +525,6 @@ async function handleIncomingMessage(message) {
     if (bloques.length > 0) productContext = bloques.join('\n\n');
   }
 
-  const fichaCliente = await conversationStore.getFichaCliente(message.from);
   const aiReply = await askClaude(text, history, productContext, fichaCliente);
 
   // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos..." SIN que
