@@ -449,17 +449,17 @@ async function handleIncomingMessage(message) {
   const aiReply = await askClaude(text, history, productContext);
 
   // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos/hacemos..."
-  // en modo libre (sin regla fija detrás), no nos fiamos de esa afirmación — no
-  // tiene acceso a catálogo/stock real, así que puede ser pura invención (se ha
-  // visto en pruebas reales). Se descarta TODO el texto de la IA — podría llevar
-  // el dato inventado mezclado con el resto — y se sustituye por la respuesta
-  // segura de siempre, seguida del segundo mensaje con botones reales de escalado.
+  // en modo libre (sin regla fija detrás), no nos fiamos de esa afirmación — puede
+  // ser pura invención (se ha visto en pruebas reales), sobre todo cuando la
+  // búsqueda real no encontró nada para esta consulta. Se descarta TODO el texto
+  // de la IA — podría llevar el dato inventado mezclado con el resto — y se
+  // sustituye por una pregunta real (sí tenemos acceso al catálogo, solo no hemos
+  // encontrado ESTE artículo con esos términos) en vez de dar por perdida la
+  // conversación y saltar directo a ofrecer un agente.
   if (isUnverifiedConfirmation(aiReply)) {
     const infoReply = greeting + PRODUCTO_NO_VERIFICADO_INFO;
     await appendToHistory(message.from, text, infoReply);
     await sendWhatsappMessage(message.from, infoReply);
-    await sendEscalateButtons(message.from, '');
-    await appendToHistory(message.from, '[continuación automática: se ofreció además hablar con un agente]', escalateQuestion());
     return;
   }
 
