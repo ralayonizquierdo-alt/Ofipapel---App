@@ -268,9 +268,18 @@ const REPROGRAFIA_ITEMS = [
 // servicio de Reprografía.
 const PLASTIFICAR_PRODUCTO_RE = /\b(lamina|laminas|funda|fundas|bolsa|bolsas|cartera|carteras)\s+(de\s+)?plastificar/;
 
+// "Escanear el código" (el QR para registrarse, un código de barras...) no tiene
+// nada que ver con el servicio de escaneado de documentos de Reprografía —
+// comprobado en real: "quiero abrir una cuenta, intento escanear su código pero
+// no funciona" recibía como respuesta que no hacemos escaneado de documentos.
+const ESCANEAR_CODIGO_RE = /\b(codigo|qr)\b/;
+
 function reprografiaReply(normalizedText) {
   if (PLASTIFICAR_PRODUCTO_RE.test(normalizedText)) return null;
   const item = REPROGRAFIA_ITEMS.find((it) => it.keywords.some((k) => normalizedText.includes(k)));
+  if (item && item.name === 'escaneado de documentos' && ESCANEAR_CODIGO_RE.test(normalizedText)) {
+    return null;
+  }
   if (item) {
     if (item.reply) return item.reply;
     return `Sí, hacemos ${item.name}. El precio depende de la cantidad y el acabado, así que para eso o para encargarlo, contacta con Reprografía: ${REPROGRAFIA_CONTACT}.`;
@@ -507,7 +516,8 @@ const FAQ_RULES = [
   },
   {
     keywords: [
-      'registrar', 'registro', 'cuenta de cliente', 'abrir cuenta', 'crear cuenta', 'darme de alta',
+      'registrar', 'registro', 'cuenta de cliente', 'abrir cuenta', 'abrir una cuenta', 'crear cuenta',
+      'crear una cuenta', 'hacerme una cuenta', 'hacer una cuenta', 'darme de alta',
       'darse de alta', 'dar de alta', 'alta de cliente', 'alta nueva', 'nuevo cliente', 'cliente nuevo',
       'nueva cuenta', 'mi cuenta', 'como me registro', 'cómo me registro',
     ],
