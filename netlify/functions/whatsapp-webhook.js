@@ -460,13 +460,24 @@ async function handleIncomingMessage(message) {
     // perder ese contexto en la búsqueda (si se buscara solo "A4", encontraría
     // cualquier cosa en A4).
     const esRespuestaCorta = text.trim().split(/\s+/).filter(Boolean).length <= 3;
-    const lastUserMsg = esRespuestaCorta ? [...history].reverse().find((m) => m.role === 'user') : null;
-    const searchQuery = lastUserMsg ? `${lastUserMsg.content} ${text}` : text;
+    const mensajeAnterior = [...history].reverse().find((m) => m.role === 'user');
+    const searchQuery = esRespuestaCorta && mensajeAnterior ? `${mensajeAnterior.content} ${text}` : text;
 
-    const [productos, categorias] = await Promise.all([
+    let [productos, categorias] = await Promise.all([
       woocommerce.searchProducts(searchQuery, 6),
       woocommerce.searchCategories(searchQuery),
     ]);
+
+    // Una pregunta de seguimiento puede no ser corta y aun así depender del
+    // mensaje anterior — comprobado en real: tras preguntar por cartuchos
+    // "603XL", el cliente escribió "Do you have generics or compatibles?" (6
+    // palabras, así que no entraba por la vía de arriba) y esa frase suelta no
+    // encuentra nada en el catálogo, aunque los compatibles existan. Si la
+    // búsqueda se queda vacía y hay un mensaje anterior, se reintenta con los
+    // dos juntos: es más fiable que fiarlo todo a un número de palabras.
+    if (productos.length === 0 && mensajeAnterior && !esRespuestaCorta) {
+      productos = await woocommerce.searchProducts(`${mensajeAnterior.content} ${text}`, 6);
+    }
 
     const bloques = [];
     if (productos.length > 0) {
