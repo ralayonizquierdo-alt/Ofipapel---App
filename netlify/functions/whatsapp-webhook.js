@@ -53,6 +53,7 @@ const {
   isWithinBusinessHours,
   STORES,
   GREETING,
+  PRESENTACION,
   startsWithGreeting,
   isNoSeLaRespuesta,
   NO_SE_LA_RESPUESTA,
@@ -64,15 +65,17 @@ const {
 } = require('./whatsapp-agent-config');
 const woocommerce = require('./woocommerce-client');
 const { sendWhatsappMessage } = require('./whatsapp-send');
+const conversationStore = require('./conversation-store');
 
 const GRAPH_API_VERSION = 'v20.0';
 const DEDUP_TTL_MS = 5 * 60 * 1000;
 
-// Deduplicación best-effort de mensajes reenviados por Meta (sobrevive solo mientras
-// la función esté "caliente"; no requiere base de datos para el caso de uso actual).
+// Respaldo en memoria de la deduplicación: solo cubre reintentos que caigan en
+// ESTA misma instancia de la función. Se mantiene porque es instantáneo y porque
+// cubre el caso de que no haya almacén compartido configurado.
 const processedMessageIds = new Map();
 
-function alreadyProcessed(messageId) {
+function yaVistoEnMemoria(messageId) {
   const now = Date.now();
   for (const [id, ts] of processedMessageIds) {
     if (now - ts > DEDUP_TTL_MS) processedMessageIds.delete(id);
@@ -80,6 +83,17 @@ function alreadyProcessed(messageId) {
   if (processedMessageIds.has(messageId)) return true;
   processedMessageIds.set(messageId, now);
   return false;
+}
+
+// Meta reenvía el mensaje si la función tarda en contestar, y ese reenvío puede
+// caer en OTRA instancia de la función, que no comparte memoria con la primera
+// — el cliente recibía entonces dos respuestas distintas al mismo mensaje
+// (visto en real). Por eso, además del respaldo en memoria, se reserva el id en
+// el almacén compartido, que sí es común a todas las instancias.
+async function alreadyProcessed(messageId) {
+  if (yaVistoEnMemoria(messageId)) return true;
+  const esNuevo = await conversationStore.claimMessage(messageId);
+  return !esNuevo;
 }
 
 function verifySignature(event) {
@@ -284,6 +298,9 @@ async function continuarBusquedaPedido(from, text, paso, greeting) {
     }
 
     if (woocommerce.phoneMatches(order, from)) {
+      // Pedido ya verificado como suyo: su nombre/empresa salen de WooCommerce,
+      // así que se pueden guardar en su ficha como dato fiable.
+      await conversationStore.registrarPedidoVerificado(from, order);
       const reply = greeting + woocommerce.formatOrderStatus(order);
       await appendToHistory(from, text, reply);
       await sendWhatsappMessage(from, reply);
@@ -301,6 +318,7 @@ async function continuarBusquedaPedido(from, text, paso, greeting) {
   if (paso.paso === 'nombre') {
     const order = await woocommerce.getOrder(paso.orderId);
     if (order && !woocommerce.isSpamOrder(order) && woocommerce.nombreCoincide(text, order)) {
+      await conversationStore.registrarPedidoVerificado(from, order);
       const reply = greeting + woocommerce.formatOrderStatus(order);
       await appendToHistory(from, text, reply);
       await sendWhatsappMessage(from, reply);
@@ -365,10 +383,18 @@ async function handleIncomingMessage(message) {
   const isRepeated = !faqReply && isRepeatQuestion(text, history);
   const wantsEscalation = isExplicitRequest || isRepeated;
 
+  // El bot se presenta UNA sola vez a cada cliente, en su primer mensaje. Va como
+  // prefijo (no como mensaje suelto) para que no reciba dos mensajes seguidos, y
+  // aprovechando que ese prefijo ya se antepone a cualquier respuesta — así vale
+  // igual si el primer mensaje es un saludo, una pregunta o un número de pedido.
+  const fichaCliente = await conversationStore.getFichaCliente(message.from);
+  const debePresentarse = !fichaCliente?.presentado;
+  if (debePresentarse) await conversationStore.marcarPresentado(message.from);
+
   // Si el cliente saluda junto con su pregunta (p. ej. "Buenas tardes, ¿hacéis
   // escaneados?"), se antepone el saludo a la respuesta que sea — así no hace falta
   // que ninguna regla individual ni la IA se acuerden de saludar por su cuenta.
-  const greeting = startsWithGreeting(text) ? '¡Hola! ' : '';
+  const greeting = debePresentarse ? `${PRESENTACION}\n\n` : startsWithGreeting(text) ? '¡Hola! ' : '';
 
   // Si la última respuesta del bot fue "dime el número de tu pedido" o "confírmame
   // el nombre", este mensaje es la continuación de esa búsqueda concreta — se
@@ -430,7 +456,14 @@ async function handleIncomingMessage(message) {
   }
 
   if (faqReply) {
-    const reply = faqReply === GREETING ? faqReply : greeting + faqReply;
+    // Con un saludo a secas, la presentación SUSTITUYE al saludo de siempre (los
+    // dos juntos serían dos bienvenidas seguidas diciendo casi lo mismo).
+    const reply =
+      faqReply === GREETING
+        ? debePresentarse
+          ? PRESENTACION
+          : faqReply
+        : greeting + faqReply;
     await appendToHistory(message.from, text, reply);
     await sendWhatsappMessage(message.from, reply);
     return;
@@ -447,16 +480,30 @@ async function handleIncomingMessage(message) {
     // perder ese contexto en la búsqueda (si se buscara solo "A4", encontraría
     // cualquier cosa en A4).
     const esRespuestaCorta = text.trim().split(/\s+/).filter(Boolean).length <= 3;
-    const lastUserMsg = esRespuestaCorta ? [...history].reverse().find((m) => m.role === 'user') : null;
-    const searchQuery = lastUserMsg ? `${lastUserMsg.content} ${text}` : text;
+    const mensajeAnterior = [...history].reverse().find((m) => m.role === 'user');
+    const searchQuery = esRespuestaCorta && mensajeAnterior ? `${mensajeAnterior.content} ${text}` : text;
 
-    const [productos, categorias] = await Promise.all([
+    let [productos, categorias] = await Promise.all([
       woocommerce.searchProducts(searchQuery, 6),
       woocommerce.searchCategories(searchQuery),
     ]);
 
+    // Una pregunta de seguimiento puede no ser corta y aun así depender del
+    // mensaje anterior — comprobado en real: tras preguntar por cartuchos
+    // "603XL", el cliente escribió "Do you have generics or compatibles?" (6
+    // palabras, así que no entraba por la vía de arriba) y esa frase suelta no
+    // encuentra nada en el catálogo, aunque los compatibles existan. Si la
+    // búsqueda se queda vacía y hay un mensaje anterior, se reintenta con los
+    // dos juntos: es más fiable que fiarlo todo a un número de palabras.
+    if (productos.length === 0 && mensajeAnterior && !esRespuestaCorta) {
+      productos = await woocommerce.searchProducts(`${mensajeAnterior.content} ${text}`, 6);
+    }
+
     const bloques = [];
     if (productos.length > 0) {
+      // Se anota en su ficha por qué preguntó (lo que él escribió, no lo que la
+      // IA deduzca), para poder reconocerle en próximas conversaciones.
+      await conversationStore.registrarProductoPreguntado(message.from, text);
       bloques.push(
         `PRODUCTOS que coinciden:\n${productos
           .map(
@@ -478,7 +525,7 @@ async function handleIncomingMessage(message) {
     if (bloques.length > 0) productContext = bloques.join('\n\n');
   }
 
-  const aiReply = await askClaude(text, history, productContext);
+  const aiReply = await askClaude(text, history, productContext, fichaCliente);
 
   // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos..." SIN que
   // hubiera resultados reales de búsqueda para este turno, no nos fiamos de esa
@@ -559,7 +606,7 @@ exports.handler = async (event) => {
       for (const change of changes) {
         const messages = change.value?.messages || [];
         for (const message of messages) {
-          if (alreadyProcessed(message.id)) continue;
+          if (await alreadyProcessed(message.id)) continue;
           await handleIncomingMessage(message);
         }
       }

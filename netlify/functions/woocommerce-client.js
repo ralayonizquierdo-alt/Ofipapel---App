@@ -9,6 +9,8 @@
 //     devuelve siempre [] — el bot cae de vuelta al comportamiento anterior
 //     (nunca confirma ni descarta productos concretos).
 
+const store = require('./conversation-store');
+
 const WC_BASE_URL = 'https://ofipapel.net/wp-json/wc/v3';
 
 function isConfigured() {
@@ -111,13 +113,32 @@ const FRASES_ALIAS = {
 // trozos de palabra, "portafolio" se convertiría en "portapapel fotocopia" y
 // "postre" en "nota adhesivare". El límite de cierre va como lookahead para no
 // consumir el separador y poder encajar dos apariciones seguidas.
-function applyPhraseAlias(text) {
+function applyPhraseAlias(text, aliasAprendidos = {}) {
   let result = normalizeForMatch(text || '');
-  for (const [frase, reemplazo] of Object.entries(FRASES_ALIAS)) {
-    const re = new RegExp(`(^|[^a-z0-9])${escapeRegExp(frase)}(?=[^a-z0-9]|$)`, 'g');
-    result = result.replace(re, (_m, pre) => `${pre}${reemplazo}`);
+  // Los aprendidos van primero: si una persona ha corregido un término desde el
+  // panel, esa decisión manda sobre la lista fija del código.
+  const todos = { ...aliasAprendidos, ...FRASES_ALIAS, ...aliasAprendidos };
+  for (const [frase, reemplazo] of Object.entries(todos)) {
+    const re = new RegExp(`(^|[^a-z0-9])${escapeRegExp(normalizeForMatch(frase))}(?=[^a-z0-9]|$)`, 'g');
+    result = result.replace(re, (_m, pre) => `${pre}${normalizeForMatch(reemplazo)}`);
   }
   return result;
+}
+
+// Los aliases aprendidos se leen del almacén compartido, pero se guardan unos
+// minutos en memoria del proceso: cambian poquísimo (los edita una persona a
+// mano) y no compensa consultarlos en cada búsqueda.
+const ALIAS_MEMORIA_MS = 5 * 60 * 1000;
+let aliasEnMemoria = { datos: null, ts: 0 };
+
+async function getAliasAprendidos() {
+  if (!store.isConfigured()) return {};
+  if (aliasEnMemoria.datos && Date.now() - aliasEnMemoria.ts < ALIAS_MEMORIA_MS) {
+    return aliasEnMemoria.datos;
+  }
+  const datos = (await store.getAliasesBusqueda()) || {};
+  aliasEnMemoria = { datos, ts: Date.now() };
+  return datos;
 }
 
 function applySynonyms(words) {
@@ -168,9 +189,21 @@ const FETCH_LIMIT_INTERNO = 40;
 // quitando/añadiendo una "s" final. Sin esto, "pistolas de silicona" puntuaba
 // igual (por "silicona") tanto los recambios de silicona como las pistolas de
 // silicona de verdad, y el orden quedaba a la suerte del buscador de WordPress.
+// En referencias de consumibles, la misma pieza aparece con el número y las
+// letras juntos o separados según el producto: los cartuchos originales están
+// como "(603XL)" y los compatibles equivalentes como "603 XL". El cliente
+// escribe una de las dos formas y se pierde la otra — comprobado en real:
+// "603XL" solo encontraba los originales (18-88€) y dejaba fuera los
+// compatibles (4,56€), que era justo lo que buscaba el cliente.
+function splitAlfaNum(word) {
+  return word.replace(/(\d)([a-z])/g, '$1 $2').replace(/([a-z])(\d)/g, '$1 $2');
+}
+
 function wordVariants(word) {
-  if (word.endsWith('s') && word.length > 3) return [word, word.slice(0, -1)];
-  return [word, `${word}s`];
+  const variantes = word.endsWith('s') && word.length > 3 ? [word, word.slice(0, -1)] : [word, `${word}s`];
+  const separada = splitAlfaNum(word);
+  if (separada !== word) variantes.push(separada);
+  return variantes;
 }
 
 function escapeRegExp(s) {
@@ -284,8 +317,16 @@ function singularize(word) {
 }
 
 async function searchProducts(query, limit = 3) {
-  const words = applySynonyms(sanitizeWords(applyPhraseAlias(query)));
+  const aliasAprendidos = await getAliasAprendidos();
+  const words = applySynonyms(sanitizeWords(applyPhraseAlias(query, aliasAprendidos)));
   if (words.length === 0) return [];
+
+  // La consulta ya normalizada es la clave de caché: dos clientes que preguntan
+  // lo mismo con otras palabras ("¿tenéis cartulina fucsia?" / "cartulina
+  // fucsia") comparten resultado.
+  const cacheKey = `${words.join(' ')}|${limit}`;
+  const cacheado = await store.getCachedSearch(cacheKey);
+  if (cacheado) return cacheado;
 
   const fetchLimit = Math.max(limit, FETCH_LIMIT_INTERNO);
 
@@ -299,6 +340,10 @@ async function searchProducts(query, limit = 3) {
     const singularWords = words.map(singularize);
     if (singularWords.some((w, i) => w !== words[i])) terminos.push(singularWords.join(' '));
   }
+  // Referencias tipo "603XL" -> "603 XL" (ver splitAlfaNum): hay productos
+  // catalogados de una forma y otros de la otra, así que se busca en las dos.
+  const alfaNumSeparado = words.map(splitAlfaNum).join(' ');
+  if (alfaNumSeparado !== words.join(' ')) terminos.push(alfaNumSeparado);
   const [frase, ...otras] = await Promise.all(terminos.map((t) => rawProductSearch(t, fetchLimit)));
   let raw = dedupeById([...otras, frase]);
 
@@ -316,13 +361,25 @@ async function searchProducts(query, limit = 3) {
   const idsConOferta = await fetchOfertaFlags(preseleccion.map((x) => x.p.id));
   const finalistas = ordenarPorRelevancia(preseleccion, idsConOferta).slice(0, limit);
 
-  return finalistas.map(({ p }) => ({
+  const resultado = finalistas.map(({ p }) => ({
     nombre: p.name,
     precio: p.price ? `${Number(p.price).toFixed(2)}€` : null,
     disponible: p.stock_status === 'instock',
     ofertaPorCantidad: idsConOferta.has(p.id),
     url: p.permalink,
   }));
+
+  if (resultado.length > 0) {
+    await store.setCachedSearch(cacheKey, resultado);
+  } else {
+    // Sin resultados: se anota lo que pidió el cliente para poder revisarlo en el
+    // panel y enseñarle al bot a qué corresponde. Cada fallo se convierte así en
+    // una mejora, en vez de repetirse con el siguiente cliente. No se cachea el
+    // vacío a propósito: en cuanto alguien defina el alias, debe funcionar ya.
+    await store.registrarBusquedaSinResultado(words.join(' '));
+  }
+
+  return resultado;
 }
 
 // Pedido concreto por número/id. WooCommerce devuelve 404 para un id que no existe

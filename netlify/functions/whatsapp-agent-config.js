@@ -48,6 +48,12 @@ function findStoreInText(normalizedText) {
 
 const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿En qué puedo ayudarte? Puedes preguntarme por horarios, ubicación, teléfono o lo que necesites.\n\nWe also speak English 🇬🇧`;
 
+// Presentación que se manda UNA SOLA VEZ a cada cliente, en su primer mensaje
+// (ver ficha del cliente en conversation-store.js). Avisar de que el bot es
+// nuevo hace que un fallo se perdone mejor, pero decirlo y quedarse ahí resta
+// confianza: por eso va acompañado del compromiso de pasar con una persona.
+const PRESENTACION = `¡Hola! 👋 Soy el nuevo asistente virtual de ${BUSINESS_NAME}. Todavía estoy aprendiendo, así que puede que no acierte con todo — si no sé algo, te paso con una persona del equipo.\n\nCuéntame qué necesitas: horarios, tiendas, productos, el estado de tu pedido...\n\nWe also speak English 🇬🇧`;
+
 // Detección de saludo robusta: NO cuenta palabras totales (eso rompía con mensajes
 // tipo "Buenas tardes, ¿hacéis escaneados?", que caían justo en 6 palabras y se
 // comían la pregunta real). En vez de eso, quita el saludo del principio del texto
@@ -268,9 +274,18 @@ const REPROGRAFIA_ITEMS = [
 // servicio de Reprografía.
 const PLASTIFICAR_PRODUCTO_RE = /\b(lamina|laminas|funda|fundas|bolsa|bolsas|cartera|carteras)\s+(de\s+)?plastificar/;
 
+// "Escanear el código" (el QR para registrarse, un código de barras...) no tiene
+// nada que ver con el servicio de escaneado de documentos de Reprografía —
+// comprobado en real: "quiero abrir una cuenta, intento escanear su código pero
+// no funciona" recibía como respuesta que no hacemos escaneado de documentos.
+const ESCANEAR_CODIGO_RE = /\b(codigo|qr)\b/;
+
 function reprografiaReply(normalizedText) {
   if (PLASTIFICAR_PRODUCTO_RE.test(normalizedText)) return null;
   const item = REPROGRAFIA_ITEMS.find((it) => it.keywords.some((k) => normalizedText.includes(k)));
+  if (item && item.name === 'escaneado de documentos' && ESCANEAR_CODIGO_RE.test(normalizedText)) {
+    return null;
+  }
   if (item) {
     if (item.reply) return item.reply;
     return `Sí, hacemos ${item.name}. El precio depende de la cantidad y el acabado, así que para eso o para encargarlo, contacta con Reprografía: ${REPROGRAFIA_CONTACT}.`;
@@ -507,7 +522,8 @@ const FAQ_RULES = [
   },
   {
     keywords: [
-      'registrar', 'registro', 'cuenta de cliente', 'abrir cuenta', 'crear cuenta', 'darme de alta',
+      'registrar', 'registro', 'cuenta de cliente', 'abrir cuenta', 'abrir una cuenta', 'crear cuenta',
+      'crear una cuenta', 'hacerme una cuenta', 'hacer una cuenta', 'darme de alta',
       'darse de alta', 'dar de alta', 'alta de cliente', 'alta nueva', 'nuevo cliente', 'cliente nuevo',
       'nueva cuenta', 'mi cuenta', 'como me registro', 'cómo me registro',
     ],
@@ -578,14 +594,35 @@ const CATALOGO_INFO = `Además de papelería, vendemos: accesorios de telefonía
 // función (no una cadena fija) porque necesita el estado de horario comercial EN EL
 // MOMENTO de cada mensaje: Claude no tiene ni idea de qué hora es "ahora mismo" si no
 // se lo decimos explícitamente en el prompt en cada llamada.
-function buildAiSystemPrompt(productContext = null) {
+// Lo que ya sabemos de quien escribe, para que un cliente habitual no sea
+// tratado como si fuera la primera vez. Son datos duros (nombre salido de un
+// pedido verificado, pedidos que él mismo consultó, productos que escribió y
+// notas del equipo), nunca conclusiones de la IA — ver conversation-store.js.
+function fichaClienteBlock(ficha) {
+  if (!ficha) return '';
+  const lineas = [];
+  if (ficha.empresa) lineas.push(`- Empresa: ${ficha.empresa}`);
+  if (ficha.nombre) lineas.push(`- Nombre: ${ficha.nombre}`);
+  if (Array.isArray(ficha.pedidos) && ficha.pedidos.length) {
+    lineas.push(`- Pedidos que ya ha consultado por aquí: ${ficha.pedidos.map((p) => `#${p.id}`).join(', ')}`);
+  }
+  if (Array.isArray(ficha.productos) && ficha.productos.length) {
+    lineas.push(`- Ha preguntado antes por: ${ficha.productos.join('; ')}`);
+  }
+  if (ficha.notas) lineas.push(`- Notas del equipo sobre este cliente: ${ficha.notas}`);
+  if (lineas.length === 0) return '';
+
+  return `\nLo que ya sabemos de este cliente de conversaciones anteriores (datos reales de nuestro sistema, no suposiciones):\n${lineas.join('\n')}\nÚsalo con naturalidad, como lo haría alguien del equipo que ya le conoce (por ejemplo, si vuelve a preguntar por un pedido que ya consultó, no le hagas repetir el número). No se lo recites de golpe ni le des a entender que tienes una ficha suya, y no des por hecho que hoy quiere lo mismo que la última vez: pregúntaselo.\n`;
+}
+
+function buildAiSystemPrompt(productContext = null, fichaCliente = null) {
   const abierto = isWithinBusinessHours();
   const estadoActual = abierto
     ? `ABIERTO ahora mismo (horario de la sede principal: ${STORES[0].hours}).`
     : `CERRADO ahora mismo (horario de la sede principal: ${STORES[0].hours}) — no hay nadie disponible para atender llamadas ni pasar con un agente hasta que abramos.`;
 
   const productContextBlock = productContext
-    ? `\nResultado de búsqueda EN TIEMPO REAL en nuestro catálogo (ofipapel.net) para el mensaje que te acaban de escribir — son datos reales, tómalos como ciertos:\n${productContext}\n\nCómo usar estos resultados:\n- Si no tienen nada que ver con lo que pregunta el cliente, ignóralos por completo — no los menciones y sigue las instrucciones de "no sé la respuesta" para ese producto.\n- Si la pregunta es GENÉRICA (un tipo de artículo, no un modelo/marca concreto — p. ej. "grapadoras", "cartuchos de tinta") y hay CATEGORÍAS que coinciden con varios tipos distintos, pregunta por el tipo citando los nombres reales de esas categorías (p. ej. "¿qué tipo buscas: de oficina, eléctricas, de tenaza...?"). En cuanto el cliente concrete el tipo, dale el enlace directo a esa categoría (no hace falta que sea un producto suelto) — así puede ver todas las opciones de ese tipo en la web.\n- Si la pregunta ya es sobre un producto o modelo concreto y hay un solo resultado de PRODUCTOS que responde claramente, confírmalo con su nombre y precio, e incluye el enlace directo de ese producto. Si ese resultado está SIN STOCK, dilo con claridad y, en vez de tratarlo como si se pudiera pedir con normalidad, indica que para consultar disponibilidad o reposición contacte con Compras: compras@ofipapelsl.com o ${STORES[0].phone}.\n- Si hay varios PRODUCTOS que podrían valer y lo que cambia entre ellos es un dato concreto (tamaño, color, marca, presentación...), NO los listes todos ni des ningún enlace todavía: mira qué varía entre los nombres y pregúntaselo directamente al cliente citando las opciones reales que has visto (por ejemplo: "¿qué tamaño necesitas: A4, A3 o 50x65?"), para poder confirmarle el producto exacto en cuanto responda.\n- Si un producto viene marcado como CON DESCUENTO POR CANTIDAD, no des su precio como si fuera un precio único y cerrado: di que ese es el precio por unidad y que baja según la cantidad que se lleve, e invítale a ver el escalado completo en la ficha del producto (el enlace). Nunca te inventes los tramos ni los precios con descuento — no los tienes, solo están en la ficha.\n`
+    ? `\nResultado de búsqueda EN TIEMPO REAL en nuestro catálogo (ofipapel.net) para el mensaje que te acaban de escribir — son datos reales, tómalos como ciertos:\n${productContext}\n\nCómo usar estos resultados:\n- Si no tienen nada que ver con lo que pregunta el cliente, ignóralos por completo — no los menciones y sigue las instrucciones de "no sé la respuesta" para ese producto.\n- Si la pregunta es GENÉRICA (un tipo de artículo, no un modelo/marca concreto — p. ej. "grapadoras", "cartuchos de tinta") y hay CATEGORÍAS que coinciden con varios tipos distintos, pregunta por el tipo citando los nombres reales de esas categorías (p. ej. "¿qué tipo buscas: de oficina, eléctricas, de tenaza...?"). En cuanto el cliente concrete el tipo, dale el enlace directo a esa categoría (no hace falta que sea un producto suelto) — así puede ver todas las opciones de ese tipo en la web.\n- Si la pregunta ya es sobre un producto o modelo concreto y hay un solo resultado de PRODUCTOS que responde claramente, confírmalo con su nombre y precio, e incluye el enlace directo de ese producto. Si ese resultado está SIN STOCK, dilo con claridad y, en vez de tratarlo como si se pudiera pedir con normalidad, indica que para consultar disponibilidad o reposición contacte con Compras: compras@ofipapelsl.com o ${STORES[0].phone}.\n- Si hay varios PRODUCTOS que podrían valer y lo que cambia entre ellos es un dato concreto (tamaño, color, marca, presentación...), NO los listes todos ni des ningún enlace todavía: mira qué varía entre los nombres y pregúntaselo directamente al cliente citando las opciones reales que has visto (por ejemplo: "¿qué tamaño necesitas: A4, A3 o 50x65?"), para poder confirmarle el producto exacto en cuanto responda.\n- Si un producto viene marcado como CON DESCUENTO POR CANTIDAD, no des su precio como si fuera un precio único y cerrado: di que ese es el precio por unidad y que baja según la cantidad que se lleve, e invítale a ver el escalado completo en la ficha del producto (el enlace). Nunca te inventes los tramos ni los precios con descuento — no los tienes, solo están en la ficha.\n- IMPORTANTE con TODOS los precios del catálogo: son SIN IGIC (así se muestran en la web, "Igic No Incluido"). Siempre que des un precio, acláralo en la misma frase (por ejemplo: "4,66€ + IGIC"). Nunca calcules tú el precio con IGIC aplicado.\n`
     : '';
 
   return `Eres el asistente de atención al cliente por WhatsApp de ${BUSINESS_NAME}, una tienda en Tenerife de papelería, informática, tecnología y equipamiento de oficina y hogar (no solo papelería).
@@ -596,7 +633,7 @@ Información del negocio:
 ${storesSummary()}
 
 Qué vendemos: ${CATALOGO_INFO}
-${productContextBlock}
+${fichaClienteBlock(fichaCliente)}${productContextBlock}
 
 Qué NO vendemos (dilo con seguridad, no hace falta escalar): sellos de correos/postales (eso lo gestiona Correos, no nosotros — sí hacemos sellos personalizados de goma, que es distinto) ni papel sellado/timbrado para trámites oficiales.
 
@@ -640,6 +677,7 @@ module.exports = {
   BUSINESS_NAME,
   STORES,
   GREETING,
+  PRESENTACION,
   AGENTE_INFO_ABIERTO,
   AGENTE_INFO_CERRADO,
   agenteInfo,

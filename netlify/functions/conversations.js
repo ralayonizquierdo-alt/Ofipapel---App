@@ -20,6 +20,13 @@ const {
   diagnose,
   markAsViewed,
   getLastViewed,
+  listarBusquedasSinResultado,
+  olvidarBusquedaSinResultado,
+  getAliasesBusqueda,
+  guardarAliasBusqueda,
+  borrarAliasBusqueda,
+  getFichaCliente,
+  guardarNotasCliente,
 } = require('./conversation-store');
 const { isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const { sendWhatsappMessage, uploadWhatsappMedia, sendWhatsappMedia } = require('./whatsapp-send');
@@ -284,6 +291,39 @@ function pageShell(title, body) {
 
   .empty-state { padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 14px; background: var(--card); border-radius: 14px; border: 1px dashed var(--border); }
 
+  /* Ficha del cliente */
+  .ficha { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 12px; }
+  .ficha summary { padding: 11px 14px; cursor: pointer; font-weight: 600; font-size: 14px; }
+  .ficha-cuerpo { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+  .ficha-etq { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-right: 6px; }
+  .ficha-vacio { color: var(--text-muted); font-size: 13px; }
+  .ficha-notas { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .ficha-notas label { color: var(--text-muted); font-size: 12.5px; }
+  .ficha-notas textarea { border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; font-family: inherit; font-size: 13.5px; resize: vertical; }
+  .ficha-notas button { align-self: flex-start; }
+
+  /* Aprendizaje del bot */
+  .aprende-acceso { margin: 0 0 14px; }
+  .aprende-acceso a { display: inline-flex; align-items: center; gap: 8px; }
+  .aprende-titulo { font-size: 16px; margin: 22px 0 4px; }
+  .aprende-ayuda { color: var(--text-muted); font-size: 13.5px; margin: 0 0 12px; }
+  .aprende-lista { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+  .aprende-item, .alias-item {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px;
+  }
+  .aprende-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .aprende-termino { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 15px; word-break: break-word; }
+  .aprende-veces { color: var(--text-muted); font-size: 12.5px; white-space: nowrap; }
+  .aprende-form { display: flex; gap: 8px; flex-wrap: wrap; }
+  .aprende-form input[type="text"] {
+    flex: 1; min-width: 180px; padding: 9px 11px; font-size: 14px;
+    border: 1px solid var(--border); border-radius: 10px; font-family: inherit;
+  }
+  .aprende-descartar { margin-top: 6px; }
+  .alias-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .btn-link { background: none; border: none; padding: 0; cursor: pointer; color: var(--green-mid); font-size: 13px; font-weight: 600; font-family: inherit; text-decoration: none; }
+  .btn-primary { padding: 9px 16px; border: none; border-radius: 10px; background: var(--green-mid); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+
   .back-link {
     display: inline-flex; align-items: center; gap: 6px;
     font-size: 13.5px; font-weight: 600; color: var(--green-mid);
@@ -410,7 +450,7 @@ function renderDiagnostic(diagnostic) {
   return `<div class="diagnostic fail">${ICON.alert}<div><strong>Fallo de conexión con Upstash (${escapeHtml(diagnostic.stage)})</strong>${escapeHtml(diagnostic.detail)}</div></div>`;
 }
 
-function renderList(entries, diagnostic) {
+function renderList(entries, diagnostic, pendientesAprendizaje = 0) {
   // Las conversaciones con escalado confirmado van primero, luego por nº de mensajes
   // sin leer (de más a menos), para que salte a la vista lo que falta por revisar.
   const sorted = [...entries].sort((a, b) => Number(b.escalated) - Number(a.escalated) || b.unread - a.unread);
@@ -432,13 +472,103 @@ function renderList(entries, diagnostic) {
   // Auto-refresco cada 30s para que la lista (y el contador de sin leer) se
   // mantenga al día sin tener que recargar a mano.
   const autoRefresh = `<script>setTimeout(function(){ location.reload(); }, 30000);</script>`;
+  const enlaceAprendizaje = `<p class="aprende-acceso"><a class="btn-link" href="?vista=aprendizaje">🧠 Aprendizaje del bot${
+    pendientesAprendizaje > 0 ? ` <span class="unread-badge">${pendientesAprendizaje}</span>` : ''
+  }</a></p>`;
   return pageShell(
     'Conversaciones · Ofipapel',
-    `${renderDiagnostic(diagnostic)}<ul class="convo-list">${items || '<li><div class="empty-state">Todavía no hay conversaciones archivadas.</div></li>'}</ul>${autoRefresh}`
+    `${renderDiagnostic(diagnostic)}${enlaceAprendizaje}<ul class="convo-list">${items || '<li><div class="empty-state">Todavía no hay conversaciones archivadas.</div></li>'}</ul>${autoRefresh}`
   );
 }
 
-function renderThread(phone, messages, { paused, error } = {}) {
+// Página de aprendizaje del bot: lo que los clientes buscaron y no encontramos,
+// y los equivalentes que se le han enseñado. La corrección la hace una persona
+// (el bot no aprende solo) para que un error no se quede fijado para siempre.
+function renderAprendizaje(pendientes, aliases) {
+  const filasPendientes = pendientes.length
+    ? pendientes
+        .map(
+          ({ termino, veces }) => `<li class="aprende-item">
+  <div class="aprende-cab">
+    <span class="aprende-termino">${escapeHtml(termino)}</span>
+    <span class="aprende-veces">${veces} ${veces === 1 ? 'vez' : 'veces'}</span>
+  </div>
+  <form method="POST" class="aprende-form">
+    <input type="hidden" name="action" value="alias-add">
+    <input type="hidden" name="termino" value="${escapeHtml(termino)}">
+    <input type="text" name="equivale" placeholder="¿Cómo se llama en el catálogo? (ej. papel fotocopia)" required>
+    <button type="submit" class="btn-primary">Enseñar</button>
+  </form>
+  <form method="POST" class="aprende-descartar">
+    <input type="hidden" name="action" value="pendiente-del">
+    <input type="hidden" name="termino" value="${escapeHtml(termino)}">
+    <button type="submit" class="btn-link">Descartar</button>
+  </form>
+</li>`
+        )
+        .join('')
+    : '<li><div class="empty-state">Nada pendiente: todas las búsquedas de los clientes encontraron resultados.</div></li>';
+
+  const filasAlias = Object.entries(aliases).length
+    ? Object.entries(aliases)
+        .map(
+          ([termino, equivale]) => `<li class="alias-item">
+  <span><strong>${escapeHtml(termino)}</strong> → ${escapeHtml(equivale)}</span>
+  <form method="POST">
+    <input type="hidden" name="action" value="alias-del">
+    <input type="hidden" name="termino" value="${escapeHtml(termino)}">
+    <button type="submit" class="btn-link">Quitar</button>
+  </form>
+</li>`
+        )
+        .join('')
+    : '<li><div class="empty-state">Todavía no se le ha enseñado ningún equivalente.</div></li>';
+
+  return pageShell(
+    'Aprendizaje del bot · Ofipapel',
+    `<p><a class="btn-link" href="?">← Volver a conversaciones</a></p>
+<h2 class="aprende-titulo">Búsquedas sin resultado</h2>
+<p class="aprende-ayuda">Lo que los clientes pidieron y el bot no encontró en el catálogo. Escribe a qué corresponde y lo tendrá en cuenta a partir de ese momento.</p>
+<ul class="aprende-lista">${filasPendientes}</ul>
+<h2 class="aprende-titulo">Equivalencias aprendidas</h2>
+<ul class="aprende-lista">${filasAlias}</ul>`
+  );
+}
+
+// Tarjeta con lo que sabemos del cliente. Los datos de arriba son automáticos y
+// vienen de hechos comprobados (un pedido verificado contra WooCommerce, lo que
+// el propio cliente escribió); las notas las escribe el equipo.
+function renderFichaCliente(phone, ficha) {
+  const f = ficha || {};
+  const datos = [];
+  if (f.empresa) datos.push(`<div><span class="ficha-etq">Empresa</span> ${escapeHtml(f.empresa)}</div>`);
+  if (f.nombre) datos.push(`<div><span class="ficha-etq">Nombre</span> ${escapeHtml(f.nombre)}</div>`);
+  if (Array.isArray(f.pedidos) && f.pedidos.length) {
+    datos.push(`<div><span class="ficha-etq">Pedidos consultados</span> ${f.pedidos.map((p) => `#${escapeHtml(String(p.id))}`).join(', ')}</div>`);
+  }
+  if (Array.isArray(f.productos) && f.productos.length) {
+    datos.push(`<div><span class="ficha-etq">Ha preguntado por</span> ${escapeHtml(f.productos.join(' · '))}</div>`);
+  }
+  const vacio = datos.length === 0
+    ? '<div class="ficha-vacio">Todavía no sabemos nada de este cliente. Se irá rellenando solo cuando verifique un pedido o pregunte por productos.</div>'
+    : '';
+
+  return `<details class="ficha"${datos.length ? ' open' : ''}>
+  <summary>👤 Ficha del cliente</summary>
+  <div class="ficha-cuerpo">
+    ${datos.join('')}${vacio}
+    <form method="POST" class="ficha-notas">
+      <input type="hidden" name="phone" value="${escapeHtml(phone)}">
+      <input type="hidden" name="action" value="notas">
+      <label for="notas-cliente">Notas del equipo (las verá el bot al responderle)</label>
+      <textarea id="notas-cliente" name="notas" rows="2" placeholder="Ej.: imprenta, siempre pide A3. Tarifa especial.">${escapeHtml(f.notas || '')}</textarea>
+      <button type="submit" class="btn btn-ghost">Guardar notas</button>
+    </form>
+  </div>
+</details>`;
+}
+
+function renderThread(phone, messages, { paused, error, ficha } = {}) {
   const bubbles = messages
     .map((m) => {
       const isCustomer = m.role === 'user';
@@ -515,7 +645,7 @@ function renderThread(phone, messages, { paused, error } = {}) {
   <h2 class="thread-title">${escapeHtml(phone)}</h2>
   ${clearForm}
 </div>
-${pauseBar}${errorBanner}${bubbles || '<div class="empty-thread">Sin mensajes.</div>'}${replyForm}`
+${renderFichaCliente(phone, ficha)}${pauseBar}${errorBanner}${bubbles || '<div class="empty-thread">Sin mensajes.</div>'}${replyForm}`
   );
 }
 
@@ -555,6 +685,16 @@ exports.handler = async (event) => {
       phone = params.get('phone') || '';
       action = params.get('action') || '';
       message = (params.get('message') || '').trim();
+
+      // Acciones de la página de aprendizaje (no van asociadas a un teléfono).
+      if (action.startsWith('alias-') || action === 'pendiente-del') {
+        const termino = (params.get('termino') || '').trim();
+        const equivale = (params.get('equivale') || '').trim();
+        if (action === 'alias-add' && termino && equivale) await guardarAliasBusqueda(termino, equivale);
+        if (action === 'alias-del' && termino) await borrarAliasBusqueda(termino);
+        if (action === 'pendiente-del' && termino) await olvidarBusquedaSinResultado(termino);
+        return { statusCode: 303, headers: { Location: '?vista=aprendizaje' }, body: '' };
+      }
     }
 
     const redirect = (errorCode) => ({
@@ -586,6 +726,9 @@ exports.handler = async (event) => {
         await appendAgentMessage(phone, message);
         await pauseBot(phone, 24); // que no se crucen bot y respuesta manual
       }
+    } else if (phone && action === 'notas') {
+      const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body || '';
+      await guardarNotasCliente(phone, new URLSearchParams(rawBody).get('notas') || '');
     } else if (phone && action === 'resume') {
       await resumeBot(phone);
     } else if (phone && action === 'clear') {
@@ -596,20 +739,37 @@ exports.handler = async (event) => {
     return redirect();
   }
 
+  if (event.queryStringParameters?.vista === 'aprendizaje') {
+    const [pendientes, aliases] = await Promise.all([listarBusquedasSinResultado(), getAliasesBusqueda()]);
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      body: renderAprendizaje(pendientes, aliases),
+    };
+  }
+
   const phone = event.queryStringParameters?.phone;
 
   if (phone) {
-    const [messages, paused] = await Promise.all([loadConversation(phone), isBotPaused(phone)]);
+    const [messages, paused, ficha] = await Promise.all([
+      loadConversation(phone),
+      isBotPaused(phone),
+      getFichaCliente(phone),
+    ]);
     const error = event.queryStringParameters?.error || '';
     await markAsViewed(phone); // abrir el hilo pone a cero el contador de sin leer
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      body: renderThread(phone, messages, { paused, error }),
+      body: renderThread(phone, messages, { paused, error, ficha }),
     };
   }
 
-  const [phones, diagnostic] = await Promise.all([listConversationPhones(), diagnose()]);
+  const [phones, diagnostic, pendientes] = await Promise.all([
+    listConversationPhones(),
+    diagnose(),
+    listarBusquedasSinResultado(),
+  ]);
   const entries = await Promise.all(
     phones.map(async (phone) => {
       const [messages, lastViewed] = await Promise.all([loadConversation(phone), getLastViewed(phone)]);
@@ -621,6 +781,6 @@ exports.handler = async (event) => {
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    body: renderList(entries, diagnostic),
+    body: renderList(entries, diagnostic, pendientes.length),
   };
 };
