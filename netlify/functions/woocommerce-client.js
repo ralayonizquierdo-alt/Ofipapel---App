@@ -176,11 +176,19 @@ async function rawProductSearch(term, limit) {
   return Array.isArray(products) ? products : [];
 }
 
+// Además de acentos, se neutraliza TODA la puntuación (guiones, paréntesis,
+// barras, puntos) convirtiéndola en espacios. En el catálogo las referencias van
+// casi siempre entre paréntesis y con guion — "(83-A)", "(Nº302-XL)", "TN-3280",
+// "M127FN/M127FW" — mientras el cliente escribe "83a" o "302xl". Sin esto, el
+// guion impedía reconocer la referencia EXACTA y el 83-A puntuaba igual que el
+// 83-X, que es la puerta por la que se coló ofrecerle un 87-A a quien pedía un
+// 83.
 function normalizeForMatch(text) {
   return (text || '')
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '');
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ');
 }
 
 // El buscador nativo de WordPress/WooCommerce es un LIKE en bruto SIN ranking de
@@ -209,10 +217,35 @@ function splitAlfaNum(word) {
   return word.replace(/(\d)([a-z])/g, '$1 $2').replace(/([a-z])(\d)/g, '$1 $2');
 }
 
+// En consumibles, la referencia útil es la MARCA + EL NÚMERO, sin la letra
+// final: el mismo consumible existe como "HP (83-A)" original y "Compatible HP
+// (83-A) CF283A", y buscando "83A" se pierden variantes por el guion o por la
+// letra. Buscando "HP 83" salen los originales y los compatibles a la vez
+// (criterio del propietario, confirmado contra el catálogo).
+// Solo se aplica a referencias con forma NÚMERO+LETRAS (83a, 305xl, 603xl); no
+// a tamaños tipo A4 o A3, que son LETRA+NÚMERO y quedarían reducidos a "4"/"3".
+function soloNumeroDeReferencia(word) {
+  const m = /^(\d+)[a-z]+$/.exec(word);
+  return m ? m[1] : null;
+}
+
+// Variantes con las que se acepta que un nombre de producto "contiene" esta
+// palabra, cada una con lo que vale respecto a la palabra tal cual la escribió
+// el cliente. Singular/plural y la referencia partida ("603XL"/"603 XL") son
+// LA MISMA cosa escrita de otra forma, así que valen igual (1). La referencia
+// sin la letra ("83a" -> "83") vale MENOS: sirve para que aparezcan a la vez el
+// original y el compatible, pero no debe empatar con la referencia exacta.
+// Comprobado en real, y es justo el fallo más grave que se vio: al cliente que
+// pedía un HP 83 se le llegó a ofrecer un 87-A como si fuera el suyo.
+const VALOR_REFERENCIA_APROXIMADA = 0.75;
+
 function wordVariants(word) {
-  const variantes = word.endsWith('s') && word.length > 3 ? [word, word.slice(0, -1)] : [word, `${word}s`];
+  const base = word.endsWith('s') && word.length > 3 ? [word, word.slice(0, -1)] : [word, `${word}s`];
+  const variantes = base.map((v) => ({ v, valor: 1 }));
   const separada = splitAlfaNum(word);
-  if (separada !== word) variantes.push(separada);
+  if (separada !== word) variantes.push({ v: separada, valor: 1 });
+  const numero = soloNumeroDeReferencia(word);
+  if (numero) variantes.push({ v: numero, valor: VALOR_REFERENCIA_APROXIMADA });
   return variantes;
 }
 
@@ -277,7 +310,9 @@ function scoreProducts(products, words) {
     .map((p) => {
       const nombreNorm = normalizeForMatch(p.name);
       const score = words.reduce((acc, w) => {
-        const mejor = Math.max(...wordVariants(w).map((v) => scoreWordMatch(v, nombreNorm)));
+        const mejor = Math.max(
+          ...wordVariants(w).map(({ v, valor }) => scoreWordMatch(v, nombreNorm) * valor)
+        );
         return acc + mejor;
       }, 0);
       return { p, score };
@@ -299,6 +334,21 @@ function ordenarPorRelevancia(scored, idsConOferta) {
     if (stockB !== stockA) return stockB - stockA;
 
     return (idsConOferta.has(b.p.id) ? 1 : 0) - (idsConOferta.has(a.p.id) ? 1 : 0);
+  });
+}
+
+// Tope de variantes de búsqueda por consulta y cuántas van en la primera
+// oleada. Son el equilibrio entre encontrar el producto y no tumbar la web:
+// más allá de esto, las peticiones se estorban entre ellas (ver searchProducts).
+const MAX_TERMINOS_BUSQUEDA = 4;
+const TERMINOS_PRIMERA_OLEADA = 2;
+
+function dedupeScored(scored) {
+  const vistos = new Set();
+  return scored.filter((x) => {
+    if (vistos.has(x.p.id)) return false;
+    vistos.add(x.p.id);
+    return true;
   });
 }
 
@@ -336,6 +386,80 @@ function singularize(word) {
   return word.endsWith('s') && word.length > 3 ? word.slice(0, -1) : word;
 }
 
+// Construye, EN ORDEN DE UTILIDAD DEMOSTRADA, las variantes con las que merece
+// la pena preguntarle al buscador de WordPress. El orden importa porque no se
+// lanzan todas (ver MAX_TERMINOS_BUSQUEDA): las primeras son las que en las
+// pruebas contra el catálogo real resolvieron por sí solas el caso.
+function construirTerminos(words) {
+  const frase = words.join(' ');
+  const terminos = [frase];
+  const añadir = (t) => {
+    if (t && !terminos.includes(t)) terminos.push(t);
+  };
+
+  // Cuantas más palabras lleva la frase, PEOR busca WordPress: comprobado en
+  // real, "cartucho hp 305" encuentra el cartucho correcto, pero añadiendo
+  // "impresora" y "color" ("cartucho de impresora hp número 305 en color
+  // negro") solo devuelve impresoras — las palabras genéricas arrastran la
+  // búsqueda hacia otro tipo de artículo. Por eso, cuando la frase es larga y
+  // contiene una referencia (una palabra con dígitos: 305, 603XL, A4...), se
+  // busca también con la versión reducida: el sustantivo principal + la
+  // referencia, que es lo que de verdad identifica el producto. Va la primera
+  // de las alternativas porque en frases largas la frase entera casi nunca
+  // acierta.
+  const referencias = words.filter((w) => /\d/.test(w));
+  if (referencias.length > 0 && words.length > 3) {
+    añadir([words[0], ...referencias.filter((w) => w !== words[0])].join(' '));
+  }
+
+  // Referencia sin la letra final ("83a" -> "83"), que es como se encuentran a
+  // la vez el original y el compatible (ver soloNumeroDeReferencia). Solo sirve
+  // acompañada de la MARCA o del tipo de artículo ("toner hp 83"), que es como
+  // lo describió el propietario. Si al quitar la letra queda un número suelto
+  // (el cliente escribió únicamente "603XL"), ese término no identifica nada:
+  // comprobado en real, buscar "603" devuelve cables de red, pinturas y lápices
+  // y desplaza a los cartuchos compatibles que sí quería el cliente.
+  const sinLetra = words.map((w) => soloNumeroDeReferencia(w) || w).join(' ');
+  if (sinLetra.includes(' ')) añadir(sinLetra);
+
+  // Plural del cliente -> singular del catálogo. Es la alternativa que más
+  // veces salva la búsqueda en artículos corrientes de papelería: "papeleras
+  // rejilla" devuelve CERO y "papelera rejilla" devuelve las doce papeleras
+  // reales; igual con "pistolas silicona".
+  añadir(words.map(singularize).join(' '));
+
+  // Referencias tipo "603XL" -> "603 XL" (ver splitAlfaNum): hay productos
+  // catalogados de una forma y otros de la otra, así que se busca en las dos.
+  añadir(words.map(splitAlfaNum).join(' '));
+
+  // Compuestos pegados en el catálogo (SACAGRAPAS, AFILALAPICES, BORRATINTA)
+  // que el cliente escribe con espacio. Solo tiene sentido con dos palabras:
+  // pegar una frase larga entera ("papelerasrejillametal") no encuentra nunca
+  // nada y solo gasta una petición.
+  if (words.length === 2) añadir(words.join(''));
+
+  return terminos;
+}
+
+// Puntuación que tendría un producto cuyo nombre contiene TODAS las palabras
+// que escribió el cliente como palabras completas: el techo de scoreProducts.
+// Sirve para saber si ya hemos encontrado lo que buscaba y podemos parar.
+function scoreMaximo(words) {
+  return words.reduce((acc, w) => acc + 2 * pesoDePalabra(w), 0);
+}
+
+async function buscarConTerminos(terminos, words, fetchLimit) {
+  const listas = await Promise.all(terminos.map((t) => rawProductSearch(t, fetchLimit)));
+  // Se juntan del término MÁS afinado al menos afinado (o sea, al revés de como
+  // se generaron): cuando dos productos empatan en puntuación, el orden final
+  // lo decide quién entró antes, y ahí interesa que mande la variante concreta
+  // y no la frase literal del cliente. Comprobado en real con "603XL": los
+  // originales y los compatibles puntúan exactamente igual, y dejando ganar a
+  // la frase literal las seis plazas se las llevaban los originales de 18-88 €,
+  // dejando fuera los compatibles de 4,56 € que era lo que quería el cliente.
+  return scoreProducts(dedupeById([...listas].reverse()), words);
+}
+
 async function searchProducts(query, limit = 3) {
   const aliasAprendidos = await getAliasAprendidos();
   const words = applySynonyms(sanitizeWords(applyPhraseAlias(query, aliasAprendidos)));
@@ -349,43 +473,36 @@ async function searchProducts(query, limit = 3) {
   if (cacheado) return cacheado;
 
   const fetchLimit = Math.max(limit, FETCH_LIMIT_INTERNO);
+  const terminos = construirTerminos(words).slice(0, MAX_TERMINOS_BUSQUEDA);
 
-  // Las variantes se lanzan EN PARALELO: hechas una tras otra sumaban sus
-  // tiempos (~3,4 s cada una contra el servidor real, hasta 10 s en total), lo
-  // que se acercaba peligrosamente al límite de tiempo de la función. En
-  // paralelo, el total es el de la más lenta.
-  const terminos = [words.join(' ')];
-  if (words.length > 1) {
-    terminos.push(words.join(''));
-    const singularWords = words.map(singularize);
-    if (singularWords.some((w, i) => w !== words[i])) terminos.push(singularWords.join(' '));
+  // Las variantes de cada oleada se lanzan EN PARALELO: hechas una tras otra
+  // sumaban sus tiempos (~3,4 s cada una contra el servidor real, hasta 10 s en
+  // total), lo que se acercaba peligrosamente al límite de tiempo de la
+  // función. En paralelo, el total es el de la más lenta.
+  //
+  // Pero tampoco se lanzan TODAS a la vez: cada búsqueda de WordPress es una
+  // consulta pesada, y disparar cinco o seis en paralelo (más la de ofertas y
+  // la de categorías) satura ofipapel.net — comprobado en real, empezaban a
+  // agotarse los tiempos de espera unas búsquedas a otras y el bot se quedaba
+  // sin datos de catálogo, contestando el genérico de "pásate por la tienda"
+  // aunque el producto existiera. Por eso van en dos oleadas: si la primera ya
+  // encuentra el producto exacto, la segunda no llega a lanzarse.
+  let scored = await buscarConTerminos(terminos.slice(0, TERMINOS_PRIMERA_OLEADA), words, fetchLimit);
+
+  const resueltoDeSobra =
+    scored.length >= limit && scored.some((x) => x.score >= scoreMaximo(words));
+  if (!resueltoDeSobra && terminos.length > TERMINOS_PRIMERA_OLEADA) {
+    const segunda = await buscarConTerminos(terminos.slice(TERMINOS_PRIMERA_OLEADA), words, fetchLimit);
+    scored = dedupeScored([...scored, ...segunda]);
   }
-  // Referencias tipo "603XL" -> "603 XL" (ver splitAlfaNum): hay productos
-  // catalogados de una forma y otros de la otra, así que se busca en las dos.
-  const alfaNumSeparado = words.map(splitAlfaNum).join(' ');
-  if (alfaNumSeparado !== words.join(' ')) terminos.push(alfaNumSeparado);
 
-  // Cuantas más palabras lleva la frase, PEOR busca WordPress: comprobado en
-  // real, "cartucho hp 305" encuentra el cartucho correcto, pero añadiendo
-  // "impresora" y "color" ("cartucho de impresora hp número 305 en color
-  // negro") solo devuelve impresoras — las palabras genéricas arrastran la
-  // búsqueda hacia otro tipo de artículo. Por eso, cuando la frase es larga y
-  // contiene una referencia (una palabra con dígitos: 305, 603XL, A4...), se
-  // busca también con la versión reducida: el sustantivo principal + la
-  // referencia, que es lo que de verdad identifica el producto.
-  const referencias = words.filter((w) => /\d/.test(w));
-  if (referencias.length > 0 && words.length > 3) {
-    const reducido = [words[0], ...referencias.filter((w) => w !== words[0])].join(' ');
-    if (!terminos.includes(reducido)) terminos.push(reducido);
-  }
-  const [frase, ...otras] = await Promise.all(terminos.map((t) => rawProductSearch(t, fetchLimit)));
-  let raw = dedupeById([...otras, frase]);
-
-  let scored = scoreProducts(raw, words);
-
+  // Último recurso: palabra a palabra. Solo con las dos palabras de más peso
+  // (las referencias primero), no con todas — buscar cada palabra de una frase
+  // larga era precisamente lo que más carga metía justo cuando el servidor ya
+  // iba mal.
   if (scored.length === 0 && words.length > 1) {
-    const porPalabra = await Promise.all(words.map((w) => rawProductSearch(w, fetchLimit)));
-    scored = scoreProducts(dedupeById(porPalabra), words);
+    const clave = [...words].sort((a, b) => pesoDePalabra(b) - pesoDePalabra(a)).slice(0, 2);
+    scored = await buscarConTerminos(clave, words, fetchLimit);
   }
 
   // Se comprueba la oferta por cantidad de unos cuantos finalistas (no de todos
