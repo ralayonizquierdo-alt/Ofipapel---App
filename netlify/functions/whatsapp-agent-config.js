@@ -171,6 +171,12 @@ function isPedidoEstadoQuestion(text) {
 
 const ADMINISTRACION_INFO = `Para temas administrativos (facturas, pagos, cuentas) contacta directamente con Administración: ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.`;
 
+// Currículums y ofertas de empleo van SIEMPRE a comercial@ofipapelsl.com. Sin
+// esta regla lo contestaba la IA por su cuenta y se inventaba los detalles
+// (mencionó un departamento de Recursos Humanos y una sección "Trabaja con
+// Nosotros" en la web, y acabó dando el email de pedidos).
+const EMPLEO_INFO = `Para enviar tu currículum o preguntar por ofertas de empleo, escribe a comercial@ofipapelsl.com — es el correo que gestiona las candidaturas. ¡Mucha suerte!`;
+
 const REPROGRAFIA_INFO = `Imprimimos todo tipo de documentos, en blanco y negro o a color, desde A4 hasta A3 (el tamaño más grande que hacemos). Hay distintos tipos de papel según lo que necesites, y el precio varía según la cantidad y el acabado — por eso, para impresiones, copias, fotocopias, encuadernados, plastificados, folletos, tarjetas de visita, sellos personalizados, talonarios, tarjetas para bodas o cualquier trabajo de imprenta (y sobre todo para precios), lo mejor es contactar directamente con el departamento de Reprografía: ${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com. Los sellos personalizados se piden en la tienda de Los Cristianos o desde la web (indicando el diseño en las observaciones del pedido, o por email si lleva logotipo).`;
 
 const REPROGRAFIA_CONTACT = `${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com`;
@@ -424,6 +430,20 @@ const FAQ_RULES = [
     reply: PEDIDO_ESTADO_TRIGGER,
   },
   {
+    // Ojo con las palabras sueltas: 'trabajo' colisiona con "trabajo de
+    // imprenta" (Reprografía) y 'personal' con "sellos personalizados", así que
+    // aquí solo van frases que de verdad solo se dicen buscando empleo.
+    keywords: [
+      'curriculum', 'currículum', 'curriculo', 'currículo', 'mi cv', 'el cv', 'enviar cv', 'mandar cv',
+      'oferta de empleo', 'ofertas de empleo', 'bolsa de empleo', 'solicitud de empleo', 'buscar empleo',
+      'busco trabajo', 'buscando trabajo', 'puesto de trabajo', 'bolsa de trabajo',
+      'trabajar con vosotros', 'trabajar con ustedes', 'trabajar en ofipapel', 'trabajar para ofipapel',
+      'buscan personal', 'buscais personal', 'buscáis personal', 'necesitan personal', 'necesitais personal',
+      'necesitáis personal', 'contratando', 'estan contratando', 'están contratando', 'vacante', 'vacantes',
+    ],
+    reply: EMPLEO_INFO,
+  },
+  {
     keywords: ['factura', 'facturas', 'administracion', 'administración', 'departamento administrativo', 'telefono de administracion', 'teléfono de administración', 'telefono directo a administracion', 'teléfono directo a administración', 'extension de administracion', 'extensión de administración', 'extension 1', 'extensión 1'],
     reply: ADMINISTRACION_INFO,
   },
@@ -510,7 +530,15 @@ const FAQ_RULES = [
     // Las llamadas van casi siempre a la central (STORES[0]), así que no hace falta
     // dar el teléfono de las 3 tiendas — y si estamos fuera de horario no se invita
     // a llamar "ahora" porque no habría nadie para atender.
-    keywords: ['telefono', 'teléfono', 'llamar', 'numero', 'número'],
+    // 'numero'/'número' sueltos NO son palabra clave: los clientes los usan
+    // constantemente para referirse a la referencia de un producto ("cartucho hp
+    // número 305 en negro" — visto en real, contestaba con el teléfono de la
+    // tienda). Solo cuentan las frases que de verdad piden un teléfono.
+    keywords: [
+      'telefono', 'teléfono', 'llamar',
+      'numero de contacto', 'número de contacto', 'numero de telefono', 'número de teléfono',
+      'vuestro numero', 'vuestro número', 'su numero', 'su número', 'numero para llamar', 'número para llamar',
+    ],
     reply: (normalizedText) => {
       const found = findStoreInText(normalizedText);
       const store = found || STORES[0];
@@ -622,7 +650,7 @@ function buildAiSystemPrompt(productContext = null, fichaCliente = null) {
     : `CERRADO ahora mismo (horario de la sede principal: ${STORES[0].hours}) — no hay nadie disponible para atender llamadas ni pasar con un agente hasta que abramos.`;
 
   const productContextBlock = productContext
-    ? `\nResultado de búsqueda EN TIEMPO REAL en nuestro catálogo (ofipapel.net) para el mensaje que te acaban de escribir — son datos reales, tómalos como ciertos:\n${productContext}\n\nCómo usar estos resultados:\n- Si no tienen nada que ver con lo que pregunta el cliente, ignóralos por completo — no los menciones y sigue las instrucciones de "no sé la respuesta" para ese producto.\n- Si la pregunta es GENÉRICA (un tipo de artículo, no un modelo/marca concreto — p. ej. "grapadoras", "cartuchos de tinta") y hay CATEGORÍAS que coinciden con varios tipos distintos, pregunta por el tipo citando los nombres reales de esas categorías (p. ej. "¿qué tipo buscas: de oficina, eléctricas, de tenaza...?"). En cuanto el cliente concrete el tipo, dale el enlace directo a esa categoría (no hace falta que sea un producto suelto) — así puede ver todas las opciones de ese tipo en la web.\n- Si la pregunta ya es sobre un producto o modelo concreto y hay un solo resultado de PRODUCTOS que responde claramente, confírmalo con su nombre y precio, e incluye el enlace directo de ese producto. Si ese resultado está SIN STOCK, dilo con claridad y, en vez de tratarlo como si se pudiera pedir con normalidad, indica que para consultar disponibilidad o reposición contacte con Compras: compras@ofipapelsl.com o ${STORES[0].phone}.\n- Si hay varios PRODUCTOS que podrían valer y lo que cambia entre ellos es un dato concreto (tamaño, color, marca, presentación...), NO los listes todos ni des ningún enlace todavía: mira qué varía entre los nombres y pregúntaselo directamente al cliente citando las opciones reales que has visto (por ejemplo: "¿qué tamaño necesitas: A4, A3 o 50x65?"), para poder confirmarle el producto exacto en cuanto responda.\n- Si un producto viene marcado como CON DESCUENTO POR CANTIDAD, no des su precio como si fuera un precio único y cerrado: di que ese es el precio por unidad y que baja según la cantidad que se lleve, e invítale a ver el escalado completo en la ficha del producto (el enlace). Nunca te inventes los tramos ni los precios con descuento — no los tienes, solo están en la ficha.\n- IMPORTANTE con TODOS los precios del catálogo: son SIN IGIC (así se muestran en la web, "Igic No Incluido"). Siempre que des un precio, acláralo en la misma frase (por ejemplo: "4,66€ + IGIC"). Nunca calcules tú el precio con IGIC aplicado.\n`
+    ? `\nResultado de búsqueda EN TIEMPO REAL en nuestro catálogo (ofipapel.net) para el mensaje que te acaban de escribir — son datos reales, tómalos como ciertos:\n${productContext}\n\nCómo usar estos resultados:\n- Si no tienen nada que ver con lo que pregunta el cliente, ignóralos por completo — no los menciones y sigue las instrucciones de "no sé la respuesta" para ese producto.\n- CRÍTICO con las referencias (83A, 305, 603XL, TN2420, CF283A...): un resultado solo vale si su nombre lleva EXACTAMENTE la referencia que ha pedido el cliente. Si pide el 83 y lo que aparece es un 87-A, un 219-X o un 216-A, NO es el suyo: no se lo ofrezcas como si lo fuera ni digas que "es ese" — son piezas distintas que no le servirán, y hacérselo comprar es un problema real para él y para la tienda. En ese caso trátalo como que no lo has encontrado y sigue las instrucciones de "no sé la respuesta". Un número parecido NUNCA es equivalente.\n- Si la pregunta es GENÉRICA (un tipo de artículo, no un modelo/marca concreto — p. ej. "grapadoras", "cartuchos de tinta") y hay CATEGORÍAS que coinciden con varios tipos distintos, pregunta por el tipo citando los nombres reales de esas categorías (p. ej. "¿qué tipo buscas: de oficina, eléctricas, de tenaza...?"). En cuanto el cliente concrete el tipo, dale el enlace directo a esa categoría (no hace falta que sea un producto suelto) — así puede ver todas las opciones de ese tipo en la web.\n- Si la pregunta ya es sobre un producto o modelo concreto y hay un solo resultado de PRODUCTOS que responde claramente, confírmalo con su nombre y precio, e incluye el enlace directo de ese producto. Si ese resultado está SIN STOCK, dilo con claridad y, en vez de tratarlo como si se pudiera pedir con normalidad, indica que para consultar disponibilidad o reposición contacte con Compras: compras@ofipapelsl.com o ${STORES[0].phone}.\n- Si hay varios PRODUCTOS que podrían valer y lo que cambia entre ellos es un dato concreto (tamaño, color, marca, presentación...), NO los listes todos ni des ningún enlace todavía: mira qué varía entre los nombres y pregúntaselo directamente al cliente citando las opciones reales que has visto (por ejemplo: "¿qué tamaño necesitas: A4, A3 o 50x65?"), para poder confirmarle el producto exacto en cuanto responda.\n- Si un producto viene marcado como CON DESCUENTO POR CANTIDAD, no des su precio como si fuera un precio único y cerrado: di que ese es el precio por unidad y que baja según la cantidad que se lleve, e invítale a ver el escalado completo en la ficha del producto (el enlace). Nunca te inventes los tramos ni los precios con descuento — no los tienes, solo están en la ficha.\n- IMPORTANTE con TODOS los precios del catálogo: son SIN IGIC (así se muestran en la web, "Igic No Incluido"). Siempre que des un precio, acláralo en la misma frase (por ejemplo: "4,66€ + IGIC"). Nunca calcules tú el precio con IGIC aplicado.\n`
     : '';
 
   return `Eres el asistente de atención al cliente por WhatsApp de ${BUSINESS_NAME}, una tienda en Tenerife de papelería, informática, tecnología y equipamiento de oficina y hogar (no solo papelería).
@@ -658,6 +686,8 @@ Reprografía (impresiones, copias, encuadernados, imprenta): ${REPROGRAFIA_INFO}
 Devoluciones: ${DEVOLUCIONES_INFO}
 
 Contacto general: teléfono ${STORES[0].phone}, email pedidos@ofipapelsl.com (consultas generales, pedidos y devoluciones).
+
+Empleo: ${EMPLEO_INFO} No existe ningún otro canal para esto — no menciones departamentos de recursos humanos, formularios ni secciones de la web de las que no tengas constancia aquí.
 
 Instrucciones:
 - Responde SIEMPRE en el idioma en que esté escrito el mensaje del cliente, desde el primer mensaje, aunque sea muy corto (si escribe "Hi", respondes en inglés; si escribe "Hola", en español; etc.). No respondas en español por defecto ni digas cosas como "respondo en español" — cambia de idioma directamente, sin comentarlo. Hazlo de forma breve, cercana y natural (máximo 3-4 frases), como lo haría una persona real del equipo escribiendo un WhatsApp, no como un robot leyendo una lista de datos.
