@@ -60,6 +60,16 @@ const STOPWORDS_BUSQUEDA = new Set([
   'sobre', 'quiero', 'necesito', 'puedo', 'podeis', 'podéis', 'vosotros',
   'ustedes', 'sido', 'el', 'la', 'lo', 'un', 'y', 'o', 'de', 'en', 'al', 'se',
   'me', 'mi', 'tu', 'su', 'vendeis', 'vendéis', 'venden',
+  // "cartucho hp NÚMERO 305" — aquí "número" solo introduce la referencia, no
+  // describe el producto, y de paso ensucia la búsqueda.
+  'numero', 'número',
+  // Verbos con los que la gente introduce lo que busca. No describen el
+  // artículo y arrastran la búsqueda: comprobado en real, "Busco tóner HP 83"
+  // devolvía una nevera de 83 litros y tóners 219-X, mientras que sin el
+  // "busco" encuentra los tóner HP 83-A y 83-X correctos.
+  'busco', 'buscaba', 'buscando', 'buscar', 'busca', 'queria', 'quería',
+  'quisiera', 'querria', 'querría', 'tendrian', 'tendrían', 'tendria', 'tendría',
+  'teneis', 'tenéis', 'tienes', 'dispone', 'disponen', 'venderian', 'venderían',
 ]);
 
 // Quita acentos, signos de puntuación y palabras vacías del mensaje del cliente,
@@ -217,10 +227,20 @@ function escapeRegExp(s) {
 // sacaban el producto irrelevante primero). Sigue contando algo la coincidencia
 // parcial (no se pone a 0) porque ahí es donde vive el caso de los compuestos
 // pegados tipo SACAGRAPAS/AFILALAPICES, que si no se romperían.
+// Una palabra con dígitos es casi siempre la referencia del producto ("305",
+// "603XL", "A4", "80gr") y vale mucho más que una palabra genérica: comprobado
+// en real, "cartucho de impresora hp número 305 en color negro" devolvía una
+// IMPRESORA de 78€ porque "impresora" y "color" sumaban tanto como el "305" que
+// de verdad identificaba el cartucho que pedía el cliente.
+function pesoDePalabra(word) {
+  return /\d/.test(word) ? 3 : 1;
+}
+
 function scoreWordMatch(word, normalizedName) {
+  const peso = pesoDePalabra(word);
   const limite = new RegExp(`(^|[^a-z0-9])${escapeRegExp(word)}([^a-z0-9]|$)`);
-  if (limite.test(normalizedName)) return 2;
-  return normalizedName.includes(word) ? 1 : 0;
+  if (limite.test(normalizedName)) return 2 * peso;
+  return normalizedName.includes(word) ? peso : 0;
 }
 
 // Señal real de "este producto tiene precio escalado por cantidad" (la "Oferta
@@ -344,6 +364,20 @@ async function searchProducts(query, limit = 3) {
   // catalogados de una forma y otros de la otra, así que se busca en las dos.
   const alfaNumSeparado = words.map(splitAlfaNum).join(' ');
   if (alfaNumSeparado !== words.join(' ')) terminos.push(alfaNumSeparado);
+
+  // Cuantas más palabras lleva la frase, PEOR busca WordPress: comprobado en
+  // real, "cartucho hp 305" encuentra el cartucho correcto, pero añadiendo
+  // "impresora" y "color" ("cartucho de impresora hp número 305 en color
+  // negro") solo devuelve impresoras — las palabras genéricas arrastran la
+  // búsqueda hacia otro tipo de artículo. Por eso, cuando la frase es larga y
+  // contiene una referencia (una palabra con dígitos: 305, 603XL, A4...), se
+  // busca también con la versión reducida: el sustantivo principal + la
+  // referencia, que es lo que de verdad identifica el producto.
+  const referencias = words.filter((w) => /\d/.test(w));
+  if (referencias.length > 0 && words.length > 3) {
+    const reducido = [words[0], ...referencias.filter((w) => w !== words[0])].join(' ');
+    if (!terminos.includes(reducido)) terminos.push(reducido);
+  }
   const [frase, ...otras] = await Promise.all(terminos.map((t) => rawProductSearch(t, fetchLimit)));
   let raw = dedupeById([...otras, frase]);
 
