@@ -19,6 +19,11 @@
 //   ANTHROPIC_API_KEY       api key de Claude, para responder cuando no hay una regla de FAQ
 //   RESEND_API_KEY / OWNER_EMAIL  para que llegue el aviso por email cuando el cliente
 //     confirma que quiere hablar con una persona (sin esto, el aviso se omite en silencio)
+//   OWNER_ALERT_TEMPLATE    (opcional) nombre de la plantilla aprobada en WhatsApp
+//     Manager con la que avisarte de un escalado. Sin ella el aviso va en texto libre,
+//     que SOLO llega si le has escrito al bot en las últimas 24h (ventana de
+//     mensajería de Meta) — ver notifyOwnerByWhatsapp y WHATSAPP_SETUP.md
+//   OWNER_ALERT_TEMPLATE_LANG  (opcional) idioma de esa plantilla; por defecto "es"
 //   BOT_PAUSADO             (opcional) ponla a "1" para que el bot deje de responder a
 //     TODOS los clientes. Es la parada de emergencia de respaldo: la normal es el botón
 //     "Parar el bot" del panel de conversaciones, que no requiere desplegar. Ésta se usa
@@ -69,7 +74,7 @@ const {
   isPedidoEstadoQuestion,
 } = require('./whatsapp-agent-config');
 const woocommerce = require('./woocommerce-client');
-const { sendWhatsappMessage } = require('./whatsapp-send');
+const { sendWhatsappMessage, sendWhatsappTemplate } = require('./whatsapp-send');
 const conversationStore = require('./conversation-store');
 
 const GRAPH_API_VERSION = 'v20.0';
@@ -171,12 +176,38 @@ async function sendEscalateButtons(to, greetingPrefix = '') {
 
 // Aviso por WhatsApp al número personal del dueño, solo cuando se confirma un
 // escalado (no en cada mensaje, para no saturar). Requiere OWNER_WHATSAPP_NUMBER
-// en Netlify; si no está configurada, se omite en silencio. Ojo: si hace más de
-// 24h que no le escribes tú al bot, Meta puede rechazar este envío (ventana de
-// mensajería) — en ese caso solo falla el aviso, no la conversación con el cliente.
+// en Netlify; si no está configurada, se omite en silencio.
+//
+// OJO CON LA VENTANA DE 24 HORAS, que es lo que decide cómo se manda esto: Meta
+// solo deja escribir texto libre a quien te ha escrito a ti en las últimas 24
+// horas. Para WhatsApp, el dueño es un cliente más del número del bot — así que
+// si hace más de un día que no le escribe al bot, un aviso en texto libre NO le
+// llega, y encima falla en silencio. Y un aviso de escalado salta precisamente
+// cuando no está escribiéndole al bot, o sea: casi siempre fuera de la ventana.
+//
+// La forma correcta de escribir fuera de la ventana es una PLANTILLA aprobada
+// por Meta. Por eso, si OWNER_ALERT_TEMPLATE está configurada se usa esa vía,
+// que funciona a cualquier hora. El texto libre queda solo como respaldo para
+// cuando no hay plantilla configurada todavía, o cuando el envío por plantilla
+// falla por lo que sea.
+//
+// En cualquier caso, el aviso por EMAIL (notifyOwner) va aparte y no depende de
+// nada de esto: es el que hay que considerar fiable.
 async function notifyOwnerByWhatsapp(customerPhone, lastCustomerMessage) {
   const ownerNumber = process.env.OWNER_WHATSAPP_NUMBER;
   if (!ownerNumber) return;
+
+  const plantilla = process.env.OWNER_ALERT_TEMPLATE;
+  if (plantilla) {
+    const enviado = await sendWhatsappTemplate(
+      ownerNumber,
+      plantilla,
+      [customerPhone, lastCustomerMessage],
+      process.env.OWNER_ALERT_TEMPLATE_LANG || 'es'
+    );
+    if (enviado.ok) return;
+    console.error('La plantilla de aviso falló; se intenta en texto libre (solo llegará si la ventana de 24h está abierta).');
+  }
 
   const panelUrl = `${process.env.URL || ''}/.netlify/functions/conversations?phone=${encodeURIComponent(customerPhone)}`;
   const alert = `🔔 *Ofipapel Bot* — un cliente quiere hablar con una persona\n\n📱 ${customerPhone}\n💬 Último mensaje: "${lastCustomerMessage}"\n\n👉 Ver conversación: ${panelUrl}`;
