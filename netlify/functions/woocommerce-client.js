@@ -123,6 +123,26 @@ const FRASES_ALIAS = {
 // trozos de palabra, "portafolio" se convertiría en "portapapel fotocopia" y
 // "postre" en "nota adhesivare". El límite de cierre va como lookahead para no
 // consumir el separador y poder encajar dos apariciones seguidas.
+// "Mochila de color NEGRO": ahí "color" solo introduce el color, no describe el
+// artículo, y ensucia la búsqueda igual que hacía "número" en "cartucho hp
+// número 305" — comprobado en real, con "color" dentro solo aparecía una de las
+// cinco mochilas negras del catálogo. Pero "color" NO se puede meter sin más en
+// las palabras vacías, porque en consumibles sí describe el producto ("cartucho
+// 305 color", "tricolor"). Por eso solo se quita cuando la frase ya trae un
+// color de verdad, que es cuando sobra.
+const COLORES = new Set([
+  'negro', 'negra', 'blanco', 'blanca', 'rojo', 'roja', 'azul', 'verde',
+  'amarillo', 'amarilla', 'gris', 'rosa', 'morado', 'morada', 'naranja',
+  'marron', 'fucsia', 'violeta', 'lila', 'dorado', 'dorada', 'plateado',
+  'plateada', 'beige', 'celeste', 'turquesa', 'burdeos', 'salmon',
+]);
+
+function quitarColorRedundante(words) {
+  if (!words.includes('color')) return words;
+  if (!words.some((w) => COLORES.has(w))) return words;
+  return words.filter((w) => w !== 'color');
+}
+
 function applyPhraseAlias(text, aliasAprendidos = {}) {
   let result = normalizeForMatch(text || '');
   // Los aprendidos van primero: si una persona ha corregido un término desde el
@@ -239,9 +259,32 @@ function soloNumeroDeReferencia(word) {
 // pedía un HP 83 se le llegó a ofrecer un 87-A como si fuera el suyo.
 const VALOR_REFERENCIA_APROXIMADA = 0.75;
 
+// Masculino/femenino de los adjetivos con los que la gente describe un artículo.
+// El cliente escribe "mochila de color NEGRO" y el catálogo la tiene como
+// "MOCHILA ... NEGRA": sin esto solo aparecía una de las cinco mochilas negras
+// reales. NO se aplica una regla general de cambiar la -o final por -a, que
+// emparejaría cosas sin ninguna relación (banco/banca, puerto/puerta): solo
+// estas palabras concretas, que son las que de verdad se usan para describir
+// un producto de papelería.
+const GENERO_ALTERNATIVO = {
+  negro: 'negra', blanco: 'blanca', rojo: 'roja', amarillo: 'amarilla',
+  morado: 'morada', plateado: 'plateada', dorado: 'dorada', claro: 'clara',
+  oscuro: 'oscura', pequeno: 'pequena', mediano: 'mediana', liso: 'lisa',
+  cuadriculado: 'cuadriculada', rayado: 'rayada', adhesivo: 'adhesiva',
+};
+const GENERO_INVERSO = Object.fromEntries(
+  Object.entries(GENERO_ALTERNATIVO).map(([m, f]) => [f, m])
+);
+
+function otroGenero(word) {
+  return GENERO_ALTERNATIVO[word] || GENERO_INVERSO[word] || null;
+}
+
 function wordVariants(word) {
   const base = word.endsWith('s') && word.length > 3 ? [word, word.slice(0, -1)] : [word, `${word}s`];
   const variantes = base.map((v) => ({ v, valor: 1 }));
+  const genero = otroGenero(word.endsWith('s') && word.length > 3 ? word.slice(0, -1) : word);
+  if (genero) variantes.push({ v: genero, valor: 1 }, { v: `${genero}s`, valor: 1 });
   const separada = splitAlfaNum(word);
   if (separada !== word) variantes.push({ v: separada, valor: 1 });
   const numero = soloNumeroDeReferencia(word);
@@ -343,6 +386,25 @@ function ordenarPorRelevancia(scored, idsConOferta) {
 const MAX_TERMINOS_BUSQUEDA = 4;
 const TERMINOS_PRIMERA_OLEADA = 2;
 
+// Un producto que solo coincide con PARTE de lo que pidió el cliente no es un
+// resultado: es ruido. Comprobado en real con "mochila negra", que devolvía una
+// cafetera, un cargador inalámbrico y una carpa de 3x3 metros — los tres por la
+// palabra "negra", ninguno una mochila. Con esa lista delante la IA hace lo
+// prudente (no confirmar nada y mandar a la web) y el cliente se queda sin la
+// única mochila negra que sí tenemos, que estaba ahí con su precio y su enlace.
+//
+// El criterio es relativo al MEJOR resultado de esa misma búsqueda, no un
+// número fijo: si hay algo que encaja con todo lo que pidió el cliente, lo que
+// encaja a medias sobra. Y si lo mejor que hay encaja a medias, se enseña
+// igualmente — más vale una aproximación que nada.
+const UMBRAL_RUIDO = 0.6;
+
+function descartarRuido(scored) {
+  if (scored.length === 0) return scored;
+  const mejor = Math.max(...scored.map((x) => x.score));
+  return scored.filter((x) => x.score >= mejor * UMBRAL_RUIDO);
+}
+
 function dedupeScored(scored) {
   const vistos = new Set();
   return scored.filter((x) => {
@@ -428,6 +490,13 @@ function construirTerminos(words) {
   // reales; igual con "pistolas silicona".
   añadir(words.map(singularize).join(' '));
 
+  // Masculino/femenino, por el mismo motivo que el singular: no basta con
+  // tolerarlo al puntuar después, hay que PEDIRLE a WordPress la otra forma.
+  // "mochila negro" no aparece en ningún título del catálogo (están como
+  // "MOCHILA ... NEGRA"), así que esa búsqueda vuelve casi vacía por mucho que
+  // luego sepamos que negro y negra son lo mismo.
+  añadir(words.map((w) => otroGenero(w) || w).join(' '));
+
   // Referencias tipo "603XL" -> "603 XL" (ver splitAlfaNum): hay productos
   // catalogados de una forma y otros de la otra, así que se busca en las dos.
   añadir(words.map(splitAlfaNum).join(' '));
@@ -462,7 +531,7 @@ async function buscarConTerminos(terminos, words, fetchLimit) {
 
 async function searchProducts(query, limit = 3) {
   const aliasAprendidos = await getAliasAprendidos();
-  const words = applySynonyms(sanitizeWords(applyPhraseAlias(query, aliasAprendidos)));
+  const words = quitarColorRedundante(applySynonyms(sanitizeWords(applyPhraseAlias(query, aliasAprendidos))));
   if (words.length === 0) return [];
 
   // La consulta ya normalizada es la clave de caché: dos clientes que preguntan
@@ -504,6 +573,8 @@ async function searchProducts(query, limit = 3) {
     const clave = [...words].sort((a, b) => pesoDePalabra(b) - pesoDePalabra(a)).slice(0, 2);
     scored = await buscarConTerminos(clave, words, fetchLimit);
   }
+
+  scored = descartarRuido(scored);
 
   // Se comprueba la oferta por cantidad de unos cuantos finalistas (no de todos
   // los candidatos, que sería muchísimo más pesado) y con ese dato se afina el
