@@ -244,6 +244,31 @@ Desde un móvil que **no** sea el del bot:
 - **Calidad**: Meta puntúa la calidad del número según cómo reaccionan los
   clientes (bloqueos, reportes). Si baja mucho, restringe el envío.
 
+## Parada de emergencia
+
+Si el bot empieza a contestar mal a clientes reales, hay dos formas de callarlo,
+y conviene conocer las dos **antes** de necesitarlas:
+
+1. **Botón "Parar el bot"** en el panel de conversaciones
+   (`/.netlify/functions/conversations`). Es la vía normal: dos clics desde el
+   móvil, efecto inmediato, sin desplegar nada.
+2. **Variable `BOT_PAUSADO=1`** en Netlify + un deploy. Es el respaldo, para
+   cuando el panel no está disponible (por ejemplo si Redis está caído, que es
+   justo cuando el botón del panel no se podría leer).
+
+Estando parado:
+
+- El bot **no responde** a nadie.
+- Los mensajes de los clientes **se siguen archivando** en el panel, para
+  contestarlos a mano. Parar el bot no pierde mensajes.
+- Cada cliente recibe **un solo aviso** de que le atenderá una persona — no uno
+  por cada mensaje que mande. Si más adelante se vuelve a parar el bot, se le
+  vuelve a avisar.
+
+La pausa **no caduca sola**: se reanuda a mano desde el mismo botón. Una parada
+de emergencia que se levanta sola sin que nadie se entere es peor que no
+tenerla.
+
 ## Estado actual del agente
 
 Lo que la primera versión de este documento daba por no implementado y hoy sí

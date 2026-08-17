@@ -19,6 +19,10 @@
 //   ANTHROPIC_API_KEY       api key de Claude, para responder cuando no hay una regla de FAQ
 //   RESEND_API_KEY / OWNER_EMAIL  para que llegue el aviso por email cuando el cliente
 //     confirma que quiere hablar con una persona (sin esto, el aviso se omite en silencio)
+//   BOT_PAUSADO             (opcional) ponla a "1" para que el bot deje de responder a
+//     TODOS los clientes. Es la parada de emergencia de respaldo: la normal es el botón
+//     "Parar el bot" del panel de conversaciones, que no requiere desplegar. Ésta se usa
+//     cuando el panel no está disponible (ver getPausaGlobalEfectiva)
 //   OWNER_WHATSAPP_NUMBER   (opcional) tu número personal, en formato internacional sin
 //     "+" (ej. 34600000000), para recibir un WhatsApp de aviso cuando se confirma un
 //     escalado — mismo canal, así te suena la notificación de siempre
@@ -54,6 +58,7 @@ const {
   STORES,
   GREETING,
   PRESENTACION,
+  PAUSA_GLOBAL_REPLY,
   startsWithGreeting,
   isNoSeLaRespuesta,
   NO_SE_LA_RESPUESTA,
@@ -349,7 +354,39 @@ async function iniciarBusquedaPedido(from, text, greeting) {
   await sendWhatsappMessage(from, reply);
 }
 
+// La parada de emergencia puede venir de dos sitios, y se miran los dos:
+//
+//  1. El interruptor del panel de conversaciones (guardado en Redis). Es el
+//     rápido: dos clics desde el móvil, sin entrar en Netlify.
+//  2. La variable de entorno BOT_PAUSADO=1 en Netlify. Es la red de seguridad:
+//     si Redis estuviera caído, el interruptor del panel no se podría leer y el
+//     bot se pondría a contestar solo otra vez — que es exactamente lo que no
+//     debe pasar en una parada de emergencia. Requiere volver a desplegar, así
+//     que es la lenta, pero no depende de nada más.
+async function getPausaGlobalEfectiva() {
+  if (process.env.BOT_PAUSADO === '1') return { desde: 1, motivo: 'BOT_PAUSADO=1 en Netlify' };
+  return conversationStore.getPausaGlobal();
+}
+
 async function handleIncomingMessage(message) {
+  // Bot parado del todo: no contesta a NADIE hasta que se reanude a mano. Los
+  // mensajes se siguen archivando para que aparezcan en el panel y se puedan
+  // contestar desde ahí — pararlo no es perder mensajes.
+  const pausaGlobal = await getPausaGlobalEfectiva();
+  if (pausaGlobal) {
+    const texto = message.type === 'text' ? message.text?.body || '' : `[${message.type}]`;
+    await appendCustomerMessage(message.from, texto);
+
+    // Un único aviso por cliente y por pausa: si manda cinco mensajes seguidos
+    // no recibe cinco veces lo mismo, pero si dentro de un mes se vuelve a
+    // parar el bot, sí se le vuelve a avisar (ver marcarAvisoPausa).
+    if ((await conversationStore.getAvisoPausa(message.from)) !== pausaGlobal.desde) {
+      await sendWhatsappMessage(message.from, PAUSA_GLOBAL_REPLY);
+      await conversationStore.marcarAvisoPausa(message.from, pausaGlobal.desde);
+    }
+    return;
+  }
+
   if (message.type === 'interactive' && message.interactive?.type === 'button_reply') {
     const buttonId = message.interactive.button_reply.id;
     if (buttonId === 'sellos_web' || buttonId === 'sellos_tienda') {
