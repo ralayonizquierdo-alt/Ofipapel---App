@@ -117,6 +117,24 @@ verificación del negocio la revisa Meta a mano y puede tardar.
 4. **Nombre visible** que verán los clientes (p. ej. `Ofipapel`). Lo revisa
    Meta y debe corresponderse con el negocio.
 5. **Política de privacidad** publicada: ya está en `privacidad.html`.
+6. **Campos de la app** en Meta for Developers > Configuración de la app >
+   Básica. Los cuatro que hay que dejar bien (venían vacíos o apuntando a
+   `facebook.com`, que no vale):
+
+   | Campo | Valor |
+   |---|---|
+   | Categoría | `Negocios y páginas` |
+   | URL de Condiciones del servicio | `https://ofipapel.net/terminos-y-condiciones/` |
+   | URL de la política de privacidad | `https://ralayonizquierdo-alt.github.io/Ofipapel---App/privacidad.html` |
+   | Eliminación de datos de usuario | la misma, más `#eliminacion-de-datos` |
+
+   **Ojo con el dominio de Netlify:** el validador de Meta rechaza
+   `https://ofipapel.netlify.app/...` con "Privacy policy URL should
+   represent a valid URL", aunque la página responda 200 y sea HTML válido
+   (comprobado desde fuera). No es un espacio ni un error al pegar: no traga
+   el dominio de primer nivel `.app`. Por eso esos dos campos apuntan a
+   GitHub Pages, que sirve exactamente la misma página y sí acepta. Curioso:
+   el campo de eliminación de datos sí admitía `.app`; el de privacidad no.
 
 ### Paso a paso de la verificación del negocio
 
@@ -243,6 +261,70 @@ Desde un móvil que **no** sea el del bot:
   respuestas. Para el volumen de una papelería no debería notarse.
 - **Calidad**: Meta puntúa la calidad del número según cómo reaccionan los
   clientes (bloqueos, reportes). Si baja mucho, restringe el envío.
+
+## La ventana de 24 horas (y por qué hacen falta plantillas)
+
+Meta solo deja a un negocio mandar texto libre a quien le ha escrito **en las
+últimas 24 horas**, contadas desde el último mensaje del cliente y reiniciadas
+con cada mensaje nuevo suyo. Cada conversación tiene su propia ventana. Fuera de
+ella, el mensaje no se entrega: Meta lo rechaza y el destinatario no ve nada.
+
+**Al bot esto no le afecta nunca**, porque solo responde: cuando contesta, la
+ventana acaba de abrirse en ese mismo segundo.
+
+**Sí afecta a los avisos al dueño.** Para WhatsApp el dueño es un cliente más
+del número del bot, así que si hace más de un día que no le escribe, el aviso de
+escalado en texto libre **no le llega, y falla en silencio**. Y un escalado salta
+justo cuando no está escribiéndole al bot. En pruebas no se nota (se le escribe
+al bot cada dos por tres); en producción falla casi siempre.
+
+La forma correcta de escribir fuera de la ventana es una **plantilla aprobada**.
+
+### Crear la plantilla de aviso de escalado
+
+En WhatsApp Manager > Herramientas de la cuenta > **Plantillas de mensajes** >
+Crear plantilla:
+
+- **Nombre**: `aviso_escalado` (minúsculas y guiones bajos; es lo único que
+  admite Meta)
+- **Categoría**: **Utilidad** (*Utility*). No es marketing — es un aviso de
+  servicio. Elegir marketing haría que la rechazaran o que costara más.
+- **Idioma**: Español (`es`)
+- **Cuerpo**:
+
+  ```
+  🔔 Bot de Ofipapel: un cliente quiere hablar con una persona.
+
+  Su teléfono es {{1}} y su último mensaje fue: "{{2}}".
+
+  Entra en el panel de conversaciones para responderle.
+  ```
+
+- **Ejemplos** que pide Meta para revisar: `34600123456` y
+  `Quiero hablar con alguien sobre mi pedido`
+- **Botón** (opcional pero cómodo): tipo *Visitar sitio web*, texto "Ver panel",
+  URL `https://ofipapel.netlify.app/.netlify/functions/conversations`
+
+Reglas de Meta que conviene respetar al escribir el cuerpo, porque son motivo de
+rechazo: los huecos van numerados y correlativos desde `{{1}}`, no pueden ir dos
+pegados, y es más seguro que el texto no empiece ni termine en un hueco.
+
+Una vez aprobada, en Netlify:
+
+| Variable | Valor |
+|---|---|
+| `OWNER_ALERT_TEMPLATE` | `aviso_escalado` |
+| `OWNER_ALERT_TEMPLATE_LANG` | `es` (opcional, es el valor por defecto) |
+
+Y un deploy nuevo. Sin `OWNER_ALERT_TEMPLATE` el aviso sigue yendo en texto
+libre, igual que hasta ahora; si el envío por plantilla falla, también se cae al
+texto libre. El aviso por **email** (`RESEND_API_KEY` / `OWNER_EMAIL`) va
+siempre aparte y no depende de nada de esto — es el único que se puede
+considerar fiable al 100%.
+
+Los valores que se meten en los huecos se limpian antes de enviarlos (saltos de
+línea, tabuladores, espacios repetidos y longitud): Meta rechaza el envío entero
+si los llevan, y vienen de lo que ha escrito un cliente por WhatsApp.
 
 ## Parada de emergencia
 
