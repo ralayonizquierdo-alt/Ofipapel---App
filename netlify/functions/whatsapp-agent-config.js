@@ -54,6 +54,13 @@ const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿E
 // confianza: por eso va acompañado del compromiso de pasar con una persona.
 const PRESENTACION = `¡Hola! 👋 Soy el nuevo asistente virtual de ${BUSINESS_NAME}. Todavía estoy aprendiendo, así que puede que no acierte con todo — si no sé algo, te paso con una persona del equipo.\n\nCuéntame qué necesitas: horarios, tiendas, productos, el estado de tu pedido...\n\nWe also speak English 🇬🇧`;
 
+// Lo único que contesta el bot cuando está pausado del todo desde el panel (el
+// interruptor de emergencia). Se manda UNA sola vez por cliente y por pausa, no
+// en cada mensaje. A propósito no dice "el bot está caído": el cliente no tiene
+// por qué enterarse de nuestros problemas, solo necesita saber que su mensaje ha
+// llegado y que le va a contestar una persona.
+const PAUSA_GLOBAL_REPLY = `¡Hola! Hemos recibido tu mensaje y en breve te responderá una persona del equipo.\n\nSi es urgente, puedes llamarnos al ${STORES[0].phone} en horario de tienda (${STORES[0].hours}).`;
+
 // Detección de saludo robusta: NO cuenta palabras totales (eso rompía con mensajes
 // tipo "Buenas tardes, ¿hacéis escaneados?", que caían justo en 6 palabras y se
 // comían la pregunta real). En vez de eso, quita el saludo del principio del texto
@@ -708,6 +715,7 @@ module.exports = {
   STORES,
   GREETING,
   PRESENTACION,
+  PAUSA_GLOBAL_REPLY,
   AGENTE_INFO_ABIERTO,
   AGENTE_INFO_CERRADO,
   agenteInfo,
