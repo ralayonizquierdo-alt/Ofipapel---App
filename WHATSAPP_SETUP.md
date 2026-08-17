@@ -105,11 +105,10 @@ Si en ese número hay conversaciones que importan, haz copia antes
 Esta fase no toca el número que está funcionando. Hazla primero porque la
 verificación del negocio la revisa Meta a mano y puede tardar.
 
-1. **Verificación del negocio** en Meta Business Suite
-   (Configuración del negocio > Centro de seguridad > Verificación del
-   negocio). Sin ella el número queda limitado y el nombre visible no se
-   aprueba. Hará falta documentación de Ofipapel S.L. (CIF, domicilio) y que
-   el dato coincida con un registro público.
+1. **Verificación del negocio** en Meta Business Suite. Sin ella el número
+   queda limitado y el nombre visible no se aprueba. Es el paso más largo
+   (días) y el que más se atasca, así que va el primero — ver
+   [Paso a paso de la verificación](#paso-a-paso-de-la-verificación-del-negocio).
 2. **Método de pago** en WhatsApp Manager. Meta lo exige para operar en
    producción aunque no se llegue a pagar nada (ver "Qué cuesta esto" abajo).
 3. **Token permanente**: comprueba que `WHATSAPP_TOKEN` es de un *System User*
@@ -118,6 +117,71 @@ verificación del negocio la revisa Meta a mano y puede tardar.
 4. **Nombre visible** que verán los clientes (p. ej. `Ofipapel`). Lo revisa
    Meta y debe corresponderse con el negocio.
 5. **Política de privacidad** publicada: ya está en `privacidad.html`.
+
+### Paso a paso de la verificación del negocio
+
+El motivo nº 1 de rechazo no es la documentación: es que **el dato tecleado no
+coincide letra por letra con el documento**. Por eso conviene reunir los datos
+antes de abrir el formulario.
+
+**A. Comprobar de dónde cuelga la app (5 minutos, hacer esto primero)**
+
+La verificación no se hace en la app de desarrollador, sino en el *portfolio*
+de negocio del que cuelga. Si la app se creó a título personal y no está
+enlazada a ningún portfolio, no hay nada que verificar todavía.
+
+1. Entra en [developers.facebook.com](https://developers.facebook.com/) > Mis
+   apps > la app de WhatsApp de Ofipapel.
+2. **Configuración de la app > Básica**, y mira el campo de la cuenta o
+   portfolio de empresa asociado.
+3. Si está vacío, enlázala a un portfolio de empresa antes de seguir.
+4. Confirma que entras como **administrador** de ese portfolio (no como
+   "empleado": un empleado no ve la opción de verificar).
+
+**B. Reunir los datos exactos**
+
+Tienen que coincidir con el Registro Mercantil, no con el uso comercial:
+
+- **Razón social** literal, con su puntuación (`OFIPAPEL, S.L.`), no el nombre
+  comercial.
+- **Domicilio social** el que consta en el registro — que puede no ser el de
+  la tienda. Es el error más habitual.
+- **Teléfono** en formato internacional (`+34 ...`). No tiene por qué ser el
+  número que va a llevar el bot.
+- **Web** (`ofipapel.net`) y un correo del propio dominio.
+
+**C. Reunir la documentación**
+
+Meta enseña la lista concreta que acepta para España dentro del propio
+formulario — ésa es la que manda. En la práctica valen:
+
+- Certificado o nota simple del **Registro Mercantil** (mejor reciente).
+- **Modelo 036/037** sellado por la AEAT.
+- Tarjeta de identificación fiscal (**CIF**).
+- Si el teléfono no aparece en ninguno de los anteriores, una **factura de
+  teléfono** a nombre de la empresa.
+
+Requisitos de forma, que también tumban solicitudes: en **color**, documento
+**completo** sin recortar ni tapar nada, legible, y de **menos de un año** de
+antigüedad.
+
+**D. Enviar**
+
+1. [business.facebook.com/settings](https://business.facebook.com/settings)
+2. Selecciona el portfolio > **Configuración**.
+3. **Centro de seguridad** (Security Centre).
+4. En **Verificación del negocio**, pulsa **Iniciar verificación**.
+5. Rellena los datos del punto B, sube los documentos del punto C y confirma
+   el código que Meta envía por teléfono o correo.
+
+**E. Esperar**
+
+El estado se sigue en ese mismo Centro de seguridad: *No verificado* >
+*Pendiente* > *Verificado*. Lo normal son unos días; si la documentación va
+justa puede irse a dos semanas. Si sale rechazado, Meta dice el motivo y se
+puede volver a enviar corrigiendo ese punto.
+
+Mientras tanto **no toques el número del móvil**: la fase 1 va después.
 
 ## Fase 1 — Liberar el número
 
