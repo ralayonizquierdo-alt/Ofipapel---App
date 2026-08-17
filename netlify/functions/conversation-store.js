@@ -100,6 +100,53 @@ async function resumeBot(phone) {
   await redisCommand(['DEL', `paused:${phone}`]);
 }
 
+// ── Interruptor general del bot ──────────────────────────────────────────────
+// Distinto de pauseBot(phone), que silencia UNA conversación porque una persona
+// la ha cogido: esto silencia el bot ENTERO, para todos los clientes a la vez.
+// Es la palanca de "algo va mal, para ya" — el bot deja de responder solo, los
+// mensajes de los clientes se siguen archivando en el panel, y se contesta a
+// mano hasta reanudarlo.
+//
+// No lleva caducidad a propósito: una pausa de emergencia que se levanta sola
+// sin que nadie se entere es peor que no tenerla. Se reanuda a mano.
+const CLAVE_PAUSA_GLOBAL = 'bot:pausado';
+
+async function getPausaGlobal() {
+  const raw = await redisCommand(['GET', CLAVE_PAUSA_GLOBAL]);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // Con que exista la clave ya está pausado; si el contenido está corrupto,
+    // se pausa igual. Ante la duda, callar es lo seguro.
+    return { desde: 0, motivo: '' };
+  }
+}
+
+async function pausarBotGlobal(motivo = '') {
+  const estado = { desde: Date.now(), motivo: String(motivo).slice(0, 200) };
+  await redisCommand(['SET', CLAVE_PAUSA_GLOBAL, JSON.stringify(estado)]);
+  return estado;
+}
+
+async function reanudarBotGlobal() {
+  await redisCommand(['DEL', CLAVE_PAUSA_GLOBAL]);
+}
+
+// Cuándo se le avisó a este cliente de que el bot está en pausa, guardado como
+// el instante en que empezó ESA pausa. Así se le avisa una sola vez por pausa
+// (no en cada mensaje que mande, que sería un bombardeo), pero si más adelante
+// se vuelve a pausar, se le vuelve a avisar.
+async function getAvisoPausa(phone) {
+  const raw = await redisCommand(['GET', `avisopausa:${phone}`]);
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+async function marcarAvisoPausa(phone, desde) {
+  await redisCommand(['SET', `avisopausa:${phone}`, String(desde), 'EX', String(30 * 24 * 3600)]);
+}
+
 // Marca de "última vez que se abrió esta conversación en el panel", para poder
 // contar cuántos mensajes del cliente han llegado desde entonces (mensajes sin
 // leer) en el listado. Se actualiza cada vez que se abre el hilo de un número.
@@ -351,6 +398,11 @@ module.exports = {
   pauseBot,
   isBotPaused,
   resumeBot,
+  getPausaGlobal,
+  pausarBotGlobal,
+  reanudarBotGlobal,
+  getAvisoPausa,
+  marcarAvisoPausa,
   clearConversation,
   diagnose,
   markAsViewed,

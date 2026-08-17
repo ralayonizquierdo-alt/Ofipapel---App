@@ -16,6 +16,9 @@ const {
   pauseBot,
   isBotPaused,
   resumeBot,
+  getPausaGlobal,
+  pausarBotGlobal,
+  reanudarBotGlobal,
   clearConversation,
   diagnose,
   markAsViewed,
@@ -302,6 +305,23 @@ function pageShell(title, body) {
   .ficha-notas textarea { border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; font-family: inherit; font-size: 13.5px; resize: vertical; }
   .ficha-notas button { align-self: flex-start; }
 
+  /* Interruptor general del bot */
+  .kill-switch {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    border-radius: 14px; padding: 12px 14px; margin: 0 0 14px;
+    border: 1px solid var(--border); background: var(--card);
+  }
+  .kill-switch .kill-texto { display: flex; flex-direction: column; gap: 2px; min-width: 200px; flex: 1; }
+  .kill-switch .kill-texto span { color: var(--text-muted); font-size: 13.5px; }
+  .kill-switch form { margin: 0; }
+  .kill-switch.parado { border-color: #d33; background: rgba(221, 51, 51, 0.08); }
+  .kill-switch.parado strong { color: #d33; }
+  .btn-parar {
+    background: transparent; color: #d33; border: 1px solid #d33;
+    border-radius: 10px; padding: 8px 14px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .btn-parar:hover { background: #d33; color: #fff; }
+
   /* Aprendizaje del bot */
   .aprende-acceso { margin: 0 0 14px; }
   .aprende-acceso a { display: inline-flex; align-items: center; gap: 8px; }
@@ -450,7 +470,37 @@ function renderDiagnostic(diagnostic) {
   return `<div class="diagnostic fail">${ICON.alert}<div><strong>Fallo de conexión con Upstash (${escapeHtml(diagnostic.stage)})</strong>${escapeHtml(diagnostic.detail)}</div></div>`;
 }
 
-function renderList(entries, diagnostic, pendientesAprendizaje = 0) {
+// Interruptor general del bot, arriba del todo de la lista. Cuando está parado
+// el aviso es deliberadamente grande y rojo: es un estado en el que hay que
+// contestar a mano a todo el mundo, y olvidarse de que quedó parado sale mucho
+// más caro que cualquier respuesta mala del bot.
+function renderInterruptor(pausa) {
+  if (pausa) {
+    const desde = pausa.desde ? new Date(pausa.desde).toLocaleString('es-ES', { timeZone: 'Atlantic/Canary' }) : '';
+    return `<div class="kill-switch parado">
+  <div class="kill-texto">
+    <strong>⛔ El bot está PARADO</strong>
+    <span>No contesta a nadie${desde ? ` desde ${escapeHtml(desde)}` : ''}. Los mensajes siguen llegando aquí y hay que responderlos a mano.</span>
+  </div>
+  <form method="POST">
+    <input type="hidden" name="action" value="reanudar-global">
+    <button type="submit" class="btn-primary">Reanudar el bot</button>
+  </form>
+</div>`;
+  }
+  return `<div class="kill-switch activo">
+  <div class="kill-texto">
+    <strong>✅ El bot está funcionando</strong>
+    <span>Contesta solo a los clientes.</span>
+  </div>
+  <form method="POST" onsubmit="return confirm('¿Parar el bot para TODOS los clientes? Dejará de contestar hasta que lo reanudes a mano.');">
+    <input type="hidden" name="action" value="pausa-global">
+    <button type="submit" class="btn-parar">Parar el bot</button>
+  </form>
+</div>`;
+}
+
+function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal = null) {
   // Las conversaciones con escalado confirmado van primero, luego por nº de mensajes
   // sin leer (de más a menos), para que salte a la vista lo que falta por revisar.
   const sorted = [...entries].sort((a, b) => Number(b.escalated) - Number(a.escalated) || b.unread - a.unread);
@@ -477,7 +527,7 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0) {
   }</a></p>`;
   return pageShell(
     'Conversaciones · Ofipapel',
-    `${renderDiagnostic(diagnostic)}${enlaceAprendizaje}<ul class="convo-list">${items || '<li><div class="empty-state">Todavía no hay conversaciones archivadas.</div></li>'}</ul>${autoRefresh}`
+    `${renderInterruptor(pausaGlobal)}${renderDiagnostic(diagnostic)}${enlaceAprendizaje}<ul class="convo-list">${items || '<li><div class="empty-state">Todavía no hay conversaciones archivadas.</div></li>'}</ul>${autoRefresh}`
   );
 }
 
@@ -686,6 +736,13 @@ exports.handler = async (event) => {
       action = params.get('action') || '';
       message = (params.get('message') || '').trim();
 
+      // Interruptor general: no va asociado a ningún teléfono, afecta a todos.
+      if (action === 'pausa-global' || action === 'reanudar-global') {
+        if (action === 'pausa-global') await pausarBotGlobal('Parado a mano desde el panel');
+        else await reanudarBotGlobal();
+        return { statusCode: 303, headers: { Location: '?' }, body: '' };
+      }
+
       // Acciones de la página de aprendizaje (no van asociadas a un teléfono).
       if (action.startsWith('alias-') || action === 'pendiente-del') {
         const termino = (params.get('termino') || '').trim();
@@ -765,10 +822,11 @@ exports.handler = async (event) => {
     };
   }
 
-  const [phones, diagnostic, pendientes] = await Promise.all([
+  const [phones, diagnostic, pendientes, pausaGlobal] = await Promise.all([
     listConversationPhones(),
     diagnose(),
     listarBusquedasSinResultado(),
+    getPausaGlobal(),
   ]);
   const entries = await Promise.all(
     phones.map(async (phone) => {
@@ -781,6 +839,6 @@ exports.handler = async (event) => {
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    body: renderList(entries, diagnostic, pendientes.length),
+    body: renderList(entries, diagnostic, pendientes.length, pausaGlobal),
   };
 };
