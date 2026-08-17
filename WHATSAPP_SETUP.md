@@ -117,6 +117,24 @@ verificación del negocio la revisa Meta a mano y puede tardar.
 4. **Nombre visible** que verán los clientes (p. ej. `Ofipapel`). Lo revisa
    Meta y debe corresponderse con el negocio.
 5. **Política de privacidad** publicada: ya está en `privacidad.html`.
+6. **Campos de la app** en Meta for Developers > Configuración de la app >
+   Básica. Los cuatro que hay que dejar bien (venían vacíos o apuntando a
+   `facebook.com`, que no vale):
+
+   | Campo | Valor |
+   |---|---|
+   | Categoría | `Negocios y páginas` |
+   | URL de Condiciones del servicio | `https://ofipapel.net/terminos-y-condiciones/` |
+   | URL de la política de privacidad | `https://ralayonizquierdo-alt.github.io/Ofipapel---App/privacidad.html` |
+   | Eliminación de datos de usuario | la misma, más `#eliminacion-de-datos` |
+
+   **Ojo con el dominio de Netlify:** el validador de Meta rechaza
+   `https://ofipapel.netlify.app/...` con "Privacy policy URL should
+   represent a valid URL", aunque la página responda 200 y sea HTML válido
+   (comprobado desde fuera). No es un espacio ni un error al pegar: no traga
+   el dominio de primer nivel `.app`. Por eso esos dos campos apuntan a
+   GitHub Pages, que sirve exactamente la misma página y sí acepta. Curioso:
+   el campo de eliminación de datos sí admitía `.app`; el de privacidad no.
 
 ### Paso a paso de la verificación del negocio
 
