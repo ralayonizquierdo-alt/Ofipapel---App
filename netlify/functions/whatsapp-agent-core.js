@@ -88,15 +88,46 @@ function matchFaqRule(text) {
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, ''); // quita acentos para comparar con más tolerancia
 
-  for (const rule of FAQ_RULES) {
-    const hit = rule.keywords.some((keyword) => {
+  // Gana la coincidencia MÁS ESPECÍFICA, no la primera de la lista. Antes ganaba
+  // la primera, y el orden del array no es ningún criterio: un colegio escribió
+  // "queria saber si me podian hacer el PRESUPUESTO del material y libros del
+  // alumnado... les ENVIO foto" y se le contestó sobre gastos de envío a
+  // Canarias, porque la regla de envíos está antes en la lista que la de
+  // presupuestos — que es justamente la que le habría pasado con una persona.
+  //
+  // La longitud de la palabra clave que coincide es una buena medida de lo
+  // específica que es: "presupuesto" (11) dice mucho más sobre lo que quiere el
+  // cliente que "envio" (5), que aquí aparecía de pasada. Esto ataca de raíz
+  // toda una familia de choques entre palabras que veníamos parcheando uno a
+  // uno.
+  const candidatas = [];
+  FAQ_RULES.forEach((rule, orden) => {
+    let longitud = 0;
+    for (const keyword of rule.keywords) {
       const normalizedKeyword = keyword
         .toLowerCase()
         .normalize('NFD')
         .replace(/[̀-ͯ]/g, '');
-      return normalized.includes(normalizedKeyword);
-    });
-    if (hit) return typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply;
+      if (normalized.includes(normalizedKeyword)) {
+        longitud = Math.max(longitud, normalizedKeyword.length);
+      }
+    }
+    if (longitud > 0) candidatas.push({ rule, longitud, orden });
+  });
+
+  // A igualdad de longitud manda el orden de la lista, como hasta ahora.
+  candidatas.sort((a, b) => b.longitud - a.longitud || a.orden - b.orden);
+
+  // Varias reglas se descartan a sí mismas cuando miran el mensaje entero: la de
+  // agradecimientos solo contesta si el mensaje es SOLO un gracias, y las de
+  // reprografía se apartan cuando "plastificar" o "escanear" venían de un
+  // producto ("láminas de plastificar") y no de un encargo. Cuando una se
+  // descarta hay que seguir con la siguiente mejor, no rendirse: en el mensaje
+  // del colegio, "muchas gracias" (14) ganaba a "presupuesto" (11), se apartaba
+  // por no ser solo un agradecimiento, y el cliente se quedaba sin respuesta.
+  for (const { rule } of candidatas) {
+    const reply = typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply;
+    if (reply) return reply;
   }
   return null;
 }
