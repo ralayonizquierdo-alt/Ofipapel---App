@@ -100,6 +100,27 @@ async function resumeBot(phone) {
   await redisCommand(['DEL', `paused:${phone}`]);
 }
 
+// ── Contraseña del panel ─────────────────────────────────────────────────────
+// Guardada aquí para poder cambiarla desde el propio panel, sin entrar en
+// Netlify ni desplegar. Se guarda el HASH, nunca la contraseña.
+//
+// DASHBOARD_PASSWORD sigue existiendo y es la de partida: vale mientras no se
+// haya cambiado ninguna vez, y es la vía de recuperación si alguien olvida la
+// nueva (se borra la clave de aquí y vuelve a mandar la del entorno).
+async function getPanelPassword() {
+  const raw = await redisCommand(['GET', 'panel:password']);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function setPanelPassword(record) {
+  await redisCommand(['SET', 'panel:password', JSON.stringify(record)]);
+}
+
 // ── Interruptor general del bot ──────────────────────────────────────────────
 // Distinto de pauseBot(phone), que silencia UNA conversación porque una persona
 // la ha cogido: esto silencia el bot ENTERO, para todos los clientes a la vez.
@@ -398,6 +419,8 @@ module.exports = {
   pauseBot,
   isBotPaused,
   resumeBot,
+  getPanelPassword,
+  setPanelPassword,
   getPausaGlobal,
   pausarBotGlobal,
   reanudarBotGlobal,
