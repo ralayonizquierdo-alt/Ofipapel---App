@@ -194,6 +194,39 @@ const ADMINISTRACION_INFO = `Para temas administrativos (facturas, pagos, cuenta
 // Nosotros" en la web, y acabó dando el email de pedidos).
 const EMPLEO_INFO = `Para enviar tu currículum o preguntar por ofertas de empleo, escribe a comercial@ofipapelsl.com — es el correo que gestiona las candidaturas. ¡Mucha suerte!`;
 
+// Los presupuestos de material escolar y de colegios/cursos NO se atienden por
+// WhatsApp (criterio del propietario): llevan una lista larga, a menudo en foto,
+// y los prepara el departamento de Pedidos. Se remite ahí en vez de escalar a
+// una persona por este canal, que es lo que se hacía con cualquier presupuesto.
+const PRESUPUESTO_ESCOLAR_INFO = `Los presupuestos de material escolar y de material para cursos o colegios no los gestionamos por WhatsApp. Para eso, escribe a pedidos@ofipapelsl.com indicando el centro y el curso — si tienes la lista en papel, puedes adjuntar la foto en el mismo correo y te preparan el presupuesto.`;
+
+// Señales de que un presupuesto es escolar. Se comprueban con límites de palabra
+// para no engancharse dentro de otra: sin eso, "curso" saltaría con "concurso" y
+// "eso" (la etapa) con media frase en español. Por lo mismo, "eso" solo cuenta
+// escrito en mayúsculas o junto a "la/el", que es como se usa de verdad.
+const ESCOLAR_RE = new RegExp(
+  '(^|[^a-z])(' +
+    [
+      'colegio', 'colegios', 'cole', 'escolar', 'escolares', 'instituto', 'institutos',
+      'alumno', 'alumnos', 'alumna', 'alumnas', 'alumnado', 'ampa', 'guarderia',
+      'infantil', 'primaria', 'secundaria', 'bachillerato', 'preescolar',
+      'curso escolar', 'lista de material', 'listado de material', 'libros de texto',
+      'material del cole', 'material para el cole', 'vuelta al cole',
+    ].join('|') +
+    ')([^a-z]|$)',
+  'i'
+);
+
+function isPresupuestoEscolar(normalizedText) {
+  return ESCOLAR_RE.test(normalizedText);
+}
+
+// Un presupuesto escolar va a Pedidos; cualquier otro presupuesto sigue pasando
+// con una persona, como hasta ahora.
+function presupuestoReply(normalizedText) {
+  return isPresupuestoEscolar(normalizedText) ? PRESUPUESTO_ESCOLAR_INFO : agenteInfo();
+}
+
 const REPROGRAFIA_INFO = `Imprimimos todo tipo de documentos, en blanco y negro o a color, desde A4 hasta A3 (el tamaño más grande que hacemos). Hay distintos tipos de papel según lo que necesites, y el precio varía según la cantidad y el acabado — por eso, para impresiones, copias, fotocopias, encuadernados, plastificados, folletos, tarjetas de visita, sellos personalizados, talonarios, tarjetas para bodas o cualquier trabajo de imprenta (y sobre todo para precios), lo mejor es contactar directamente con el departamento de Reprografía: ${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com. Los sellos personalizados se piden en la tienda de Los Cristianos o desde la web (indicando el diseño en las observaciones del pedido, o por email si lleva logotipo).`;
 
 const REPROGRAFIA_CONTACT = `${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com`;
@@ -609,7 +642,21 @@ const FAQ_RULES = [
       'quiero un presupuesto', 'hacer un presupuesto',
       'quote', 'a quote', 'price quote', 'get a quote', 'request a quote', 'need a quote',
     ],
-    reply: agenteInfo,
+    reply: presupuestoReply,
+  },
+  {
+    // La petición de la lista del colegio muchas veces ni siquiera lleva la
+    // palabra "presupuesto" ("necesito el material del cole de mi hija"), así
+    // que estas frases entran por sí solas. Ojo: NO vale con "material escolar"
+    // a secas, que es una pregunta normal de catálogo ("¿tenéis material
+    // escolar?") y ésa sí la contesta el bot.
+    keywords: [
+      'lista de material', 'listado de material', 'lista del material', 'listado del material',
+      'lista de libros', 'listado de libros', 'libros de texto',
+      'material del colegio', 'material para el colegio', 'material del cole',
+      'material para el cole', 'material del curso', 'material para el curso',
+    ],
+    reply: PRESUPUESTO_ESCOLAR_INFO,
   },
   {
     // Igual que el saludo: "gracias"/"perfecto" aparecen también al final de mensajes
@@ -743,6 +790,8 @@ module.exports = {
   PEDIDOS_INFO,
   PEDIDO_ESTADO_TRIGGER,
   isPedidoEstadoQuestion,
+  PRESUPUESTO_ESCOLAR_INFO,
+  isPresupuestoEscolar,
   FAQ_RULES,
   buildAiSystemPrompt,
 };
