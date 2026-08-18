@@ -67,11 +67,21 @@ const PAUSA_GLOBAL_REPLY = `¡Hola! Hemos recibido tu mensaje y en breve te resp
 // y mira si queda algo con contenido detrás.
 const GREETING_PHRASES = ['buenos dias', 'buenos días', 'buenas tardes', 'buenas noches', 'hola', 'buenas'];
 
+// Se quitan los saludos ENCADENADOS, no solo el primero: "Hola buenas" es de lo
+// más corriente aquí, y quitando solo "hola" quedaba "buenas", que se tomaba por
+// contenido real — el mensaje se iba a la IA para acabar contestando un saludo.
 function stripLeadingGreeting(normalizedText) {
-  const trimmed = normalizedText.trim();
-  const phrase = GREETING_PHRASES.find((p) => trimmed.startsWith(p));
-  if (!phrase) return null;
-  return trimmed.slice(phrase.length).replace(/^[\s,.!¡¿?-]+/, '').trim();
+  let resto = normalizedText.trim();
+  let encontrado = false;
+
+  for (;;) {
+    const phrase = GREETING_PHRASES.find((p) => resto.startsWith(p));
+    if (!phrase) break;
+    encontrado = true;
+    resto = resto.slice(phrase.length).replace(/^[\s,.!¡¿?-]+/, '').trim();
+  }
+
+  return encontrado ? resto : null;
 }
 
 // Saludo "puro": el cliente solo saluda, sin ninguna pregunta detrás.
