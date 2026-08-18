@@ -63,6 +63,7 @@ const {
   STORES,
   GREETING,
   PRESENTACION,
+  presentacionPara,
   PAUSA_GLOBAL_REPLY,
   ESPERA_REPLY,
   startsWithGreeting,
@@ -489,6 +490,11 @@ async function handleIncomingMessage(message) {
   // prefijo (no como mensaje suelto) para que no reciba dos mensajes seguidos, y
   // aprovechando que ese prefijo ya se antepone a cualquier respuesta — así vale
   // igual si el primer mensaje es un saludo, una pregunta o un número de pedido.
+  //
+  // Hay dos versiones (ver presentacionPara): la larga invita a preguntar, y solo
+  // tiene sentido con un "hola" a secas; si el primer mensaje ya trae la pregunta,
+  // se usa la corta, porque decirle "cuéntame qué necesitas" a quien acaba de
+  // contarlo queda raro y alarga el mensaje para nada.
   const fichaCliente = await conversationStore.getFichaCliente(message.from);
   const debePresentarse = !fichaCliente?.presentado;
   if (debePresentarse) await conversationStore.marcarPresentado(message.from);
@@ -496,7 +502,11 @@ async function handleIncomingMessage(message) {
   // Si el cliente saluda junto con su pregunta (p. ej. "Buenas tardes, ¿hacéis
   // escaneados?"), se antepone el saludo a la respuesta que sea — así no hace falta
   // que ninguna regla individual ni la IA se acuerden de saludar por su cuenta.
-  const greeting = debePresentarse ? `${PRESENTACION}\n\n` : startsWithGreeting(text) ? '¡Hola! ' : '';
+  const greeting = debePresentarse
+    ? `${presentacionPara(text)}\n\n`
+    : startsWithGreeting(text)
+      ? '¡Hola! '
+      : '';
 
   // Si la última respuesta del bot fue "dime el número de tu pedido" o "confírmame
   // el nombre", este mensaje es la continuación de esa búsqueda concreta — se
@@ -563,7 +573,7 @@ async function handleIncomingMessage(message) {
     const reply =
       faqReply === GREETING
         ? debePresentarse
-          ? PRESENTACION
+          ? PRESENTACION // un saludo a secas: aquí sí toca la larga, que invita a preguntar
           : faqReply
         : greeting + faqReply;
     await appendToHistory(message.from, text, reply);

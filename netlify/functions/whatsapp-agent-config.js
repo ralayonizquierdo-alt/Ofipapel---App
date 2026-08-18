@@ -52,7 +52,22 @@ const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿E
 // (ver ficha del cliente en conversation-store.js). Avisar de que el bot es
 // nuevo hace que un fallo se perdone mejor, pero decirlo y quedarse ahí resta
 // confianza: por eso va acompañado del compromiso de pasar con una persona.
+// El bot se presenta una sola vez a cada cliente, y hay DOS versiones porque no
+// es lo mismo abrir con un "hola" a secas que abrir preguntando.
+//
+// La larga invita a preguntar, que es lo que hace falta cuando el cliente aún no
+// ha dicho qué quiere. La corta se usa cuando el primer mensaje YA trae una
+// pregunta: ahí la presentación va pegada delante de la respuesta, y soltarle
+// "cuéntame qué necesitas" a quien acaba de contarlo queda incoherente y alarga
+// el mensaje sin aportar nada. Visto en real con un cliente que preguntó si
+// seguían necesitando personal para reparto: recibió la invitación a preguntar
+// justo antes de la respuesta a su pregunta.
 const PRESENTACION = `¡Hola! 👋 Soy el nuevo asistente virtual de ${BUSINESS_NAME}. Todavía estoy aprendiendo, así que puede que no acierte con todo — si no sé algo, te paso con una persona del equipo.\n\nCuéntame qué necesitas: horarios, tiendas, productos, el estado de tu pedido...\n\nWe also speak English 🇬🇧`;
+
+// El "We also speak English" se mantiene también en la corta: la mayoría de la
+// gente abre con su pregunta, así que si solo fuera en la larga casi nadie lo
+// llegaría a ver.
+const PRESENTACION_BREVE = `¡Hola! 👋 Soy el nuevo asistente virtual de ${BUSINESS_NAME}, todavía estoy aprendiendo — si no sé algo, te paso con una persona del equipo. We also speak English 🇬🇧`;
 
 // Lo único que contesta el bot cuando está pausado del todo desde el panel (el
 // interruptor de emergencia). Se manda UNA sola vez por cliente y por pausa, no
@@ -101,6 +116,21 @@ function isPureGreeting(normalizedText) {
 function startsWithGreeting(rawText) {
   const normalized = rawText.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   return stripLeadingGreeting(normalized) !== null;
+}
+
+// ¿El mensaje es SOLO un saludo, o ya trae algo que responder? Decide cuál de
+// las dos presentaciones se usa. Un mensaje sin saludo ninguno ("¿hacéis
+// fotocopias?") también cuenta como que trae contenido.
+function esSoloSaludo(rawText) {
+  const normalized = (rawText || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const resto = stripLeadingGreeting(normalized);
+  if (resto === null) return false; // ni siquiera empieza saludando: es una pregunta
+  return resto.replace(/[\s,.!¡¿?-]/g, '') === '';
+}
+
+// La presentación que toca según cómo abra el cliente la conversación.
+function presentacionPara(rawText) {
+  return esSoloSaludo(rawText) ? PRESENTACION : PRESENTACION_BREVE;
 }
 
 // Mismo criterio que el saludo, pero para "gracias"/"perfecto": el mensaje ENTERO
@@ -790,6 +820,9 @@ module.exports = {
   STORES,
   GREETING,
   PRESENTACION,
+  PRESENTACION_BREVE,
+  presentacionPara,
+  esSoloSaludo,
   PAUSA_GLOBAL_REPLY,
   ESPERA_REPLY,
   AGENTE_INFO_ABIERTO,
