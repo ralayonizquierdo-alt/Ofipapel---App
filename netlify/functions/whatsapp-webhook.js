@@ -64,6 +64,7 @@ const {
   GREETING,
   PRESENTACION,
   PAUSA_GLOBAL_REPLY,
+  ESPERA_REPLY,
   startsWithGreeting,
   isNoSeLaRespuesta,
   NO_SE_LA_RESPUESTA,
@@ -75,6 +76,8 @@ const {
 } = require('./whatsapp-agent-config');
 const woocommerce = require('./woocommerce-client');
 const { sendWhatsappMessage, sendWhatsappTemplate } = require('./whatsapp-send');
+const { construirContextoCatalogo } = require('./whatsapp-catalogo');
+const { firmaDeReintento } = require('./whatsapp-firma');
 const conversationStore = require('./conversation-store');
 
 const GRAPH_API_VERSION = 'v20.0';
@@ -385,6 +388,37 @@ async function iniciarBusquedaPedido(from, text, greeting) {
   await sendWhatsappMessage(from, reply);
 }
 
+// Lanza el segundo intento en segundo plano y devuelve si se pudo lanzar. La
+// llamada NO se espera a que termine: las funciones -background de Netlify
+// responden 202 al momento y siguen trabajando por su cuenta, que es justo lo
+// que necesitamos para no agotar el tiempo del webhook.
+async function pedirSegundoIntento(from, text) {
+  const base = process.env.URL;
+  const firma = firmaDeReintento(from, text);
+  if (!base || !firma) {
+    console.error('No se puede delegar el reintento: falta URL del sitio o secreto para firmarlo.');
+    return false;
+  }
+
+  try {
+    const resp = await fetch(`${base}/.netlify/functions/whatsapp-reintento-background`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, text, firma }),
+      signal: AbortSignal.timeout(2000),
+    });
+    // Netlify contesta 202 (aceptado) a las funciones en segundo plano.
+    if (resp.status !== 202 && !resp.ok) {
+      console.error('El reintento en segundo plano no aceptó la petición:', resp.status);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Fallo lanzando el reintento en segundo plano:', err);
+    return false;
+  }
+}
+
 // La parada de emergencia puede venir de dos sitios, y se miran los dos:
 //
 //  1. El interruptor del panel de conversaciones (guardado en Redis). Es el
@@ -540,57 +574,31 @@ async function handleIncomingMessage(message) {
   // Búsqueda en tiempo real en el catálogo real (WooCommerce), para que la IA pueda
   // contestar con datos ciertos en vez de adivinar. Si no está configurado o no hay
   // coincidencias, sigue el comportamiento anterior (nunca confirma productos).
-  let productContext = null;
-  if (woocommerce.isConfigured()) {
-    // Si el mensaje es muy corto (p. ej. "A4", "en fucsia", "tenaza"), lo más
-    // probable es que sea la respuesta a una pregunta de aclaración de la IA sobre
-    // tamaño/color/tipo — se combina con el mensaje anterior del cliente para no
-    // perder ese contexto en la búsqueda (si se buscara solo "A4", encontraría
-    // cualquier cosa en A4).
-    const esRespuestaCorta = text.trim().split(/\s+/).filter(Boolean).length <= 3;
-    const mensajeAnterior = [...history].reverse().find((m) => m.role === 'user');
-    const searchQuery = esRespuestaCorta && mensajeAnterior ? `${mensajeAnterior.content} ${text}` : text;
+  const { productContext, fallo: falloCatalogo } = await construirContextoCatalogo({
+    from: message.from,
+    text,
+    history,
+  });
 
-    let [productos, categorias] = await Promise.all([
-      woocommerce.searchProducts(searchQuery, 6),
-      woocommerce.searchCategories(searchQuery),
-    ]);
-
-    // Una pregunta de seguimiento puede no ser corta y aun así depender del
-    // mensaje anterior — comprobado en real: tras preguntar por cartuchos
-    // "603XL", el cliente escribió "Do you have generics or compatibles?" (6
-    // palabras, así que no entraba por la vía de arriba) y esa frase suelta no
-    // encuentra nada en el catálogo, aunque los compatibles existan. Si la
-    // búsqueda se queda vacía y hay un mensaje anterior, se reintenta con los
-    // dos juntos: es más fiable que fiarlo todo a un número de palabras.
-    if (productos.length === 0 && mensajeAnterior && !esRespuestaCorta) {
-      productos = await woocommerce.searchProducts(`${mensajeAnterior.content} ${text}`, 6);
+  // La web no contestó (lenta, caída, o su protección anti-bots nos bloqueó) y
+  // nos quedamos sin datos. Aquí NO se puede reintentar: el webhook tiene ~10
+  // segundos antes de que Meta dé la respuesta por perdida y reenvíe el mensaje,
+  // y una búsqueda lenta ya se ha comido 6. Así que se le dice al cliente que
+  // espere un momento y se delega en la función de segundo plano, que no tiene
+  // ese límite y puede insistir con calma.
+  //
+  // Solo cuando no hay NINGÚN dato: si la búsqueda trajo algo aunque alguna
+  // consulta fallara, se contesta con lo que hay, que es mejor que hacer
+  // esperar.
+  if (falloCatalogo && !productContext) {
+    const delegado = await pedirSegundoIntento(message.from, text);
+    if (delegado) {
+      await conversationStore.appendCustomerMessage(message.from, text);
+      await sendWhatsappMessage(message.from, greeting + ESPERA_REPLY);
+      return;
     }
-
-    const bloques = [];
-    if (productos.length > 0) {
-      // Se anota en su ficha por qué preguntó (lo que él escribió, no lo que la
-      // IA deduzca), para poder reconocerle en próximas conversaciones.
-      await conversationStore.registrarProductoPreguntado(message.from, text);
-      bloques.push(
-        `PRODUCTOS que coinciden:\n${productos
-          .map(
-            (p) =>
-              `- ${p.nombre}: ${p.precio || 'precio no disponible'}${
-                p.ofertaPorCantidad ? ' por unidad, CON DESCUENTO POR CANTIDAD (el precio baja al comprar más; el escalado completo está en la ficha)' : ''
-              }, ${p.disponible ? 'con stock' : 'sin stock'} (${p.url})`
-          )
-          .join('\n')}`
-      );
-    }
-    if (categorias.length > 0) {
-      bloques.push(
-        `CATEGORÍAS que coinciden (útil cuando la pregunta es genérica y hay varios tipos distintos):\n${categorias
-          .map((c) => `- ${c.nombre} (${c.cantidadProductos} productos): ${c.url}`)
-          .join('\n')}`
-      );
-    }
-    if (bloques.length > 0) productContext = bloques.join('\n\n');
+    // Si no se pudo delegar, se sigue adelante y se contesta sin catálogo: más
+    // vale una respuesta imperfecta que dejar al cliente sin nada.
   }
 
   const aiReply = await askClaude(text, history, productContext, fichaCliente);
