@@ -23,7 +23,15 @@ function isConfigured() {
 // web va especialmente lenta se abandona esa consulta y el bot sigue adelante sin
 // datos de catálogo — igual que cuando no hay claves configuradas — en vez de
 // bloquear toda la respuesta.
-const WC_TIMEOUT_MS = 6000;
+let WC_TIMEOUT_MS = 6000;
+
+// El reintento en segundo plano no tiene el límite de 10 segundos del webhook,
+// así que ahí se le da a la web todo el margen que necesite: si va lenta,
+// esperarla es justo lo que queremos, y es la diferencia entre contestarle al
+// cliente con datos reales o con un genérico.
+function usarTiemposLargos(ms = 20000) {
+  WC_TIMEOUT_MS = ms;
+}
 // La consulta de ofertas por cantidad es un extra (solo enriquece la respuesta),
 // así que se le da menos margen: si tarda, se prescinde de ese dato y se
 // contesta igual, en vez de arriesgar el tiempo total de la respuesta.
@@ -207,7 +215,13 @@ async function rawProductSearch(term, limit) {
     _fields: CAMPOS_LIGEROS,
   });
   const products = await wcRequest(`/products?${params.toString()}`);
-  return Array.isArray(products) ? products : [];
+  // Se distingue "la web no contestó" de "no hay nada con ese nombre". Antes las
+  // dos cosas acababan en una lista vacía y el bot las trataba igual: le decía
+  // al cliente que no encontraba el producto cuando en realidad ni había podido
+  // mirarlo. Encima ensuciaba el panel de aprendizaje con términos que sí
+  // existen. wcRequest ya devuelve null cuando falla, y eso es lo que se
+  // propaga hacia arriba.
+  return { items: Array.isArray(products) ? products : [], fallo: products === null };
 }
 
 // Además de acentos, se neutraliza TODA la puntuación (guiones, paréntesis,
@@ -532,7 +546,9 @@ function scoreMaximo(words) {
 }
 
 async function buscarConTerminos(terminos, words, fetchLimit) {
-  const listas = await Promise.all(terminos.map((t) => rawProductSearch(t, fetchLimit)));
+  const respuestas = await Promise.all(terminos.map((t) => rawProductSearch(t, fetchLimit)));
+  const fallo = respuestas.some((r) => r.fallo);
+  const listas = respuestas.map((r) => r.items);
   // Se juntan del término MÁS afinado al menos afinado (o sea, al revés de como
   // se generaron): cuando dos productos empatan en puntuación, el orden final
   // lo decide quién entró antes, y ahí interesa que mande la variante concreta
@@ -540,20 +556,20 @@ async function buscarConTerminos(terminos, words, fetchLimit) {
   // originales y los compatibles puntúan exactamente igual, y dejando ganar a
   // la frase literal las seis plazas se las llevaban los originales de 18-88 €,
   // dejando fuera los compatibles de 4,56 € que era lo que quería el cliente.
-  return scoreProducts(dedupeById([...listas].reverse()), words);
+  return { scored: scoreProducts(dedupeById([...listas].reverse()), words), fallo };
 }
 
-async function searchProducts(query, limit = 3) {
+async function buscarEnCatalogo(query, limit = 3) {
   const aliasAprendidos = await getAliasAprendidos();
   const words = quitarColorRedundante(applySynonyms(sanitizeWords(applyPhraseAlias(query, aliasAprendidos))));
-  if (words.length === 0) return [];
+  if (words.length === 0) return { productos: [], fallo: false };
 
   // La consulta ya normalizada es la clave de caché: dos clientes que preguntan
   // lo mismo con otras palabras ("¿tenéis cartulina fucsia?" / "cartulina
   // fucsia") comparten resultado.
   const cacheKey = `${words.join(' ')}|${limit}`;
   const cacheado = await store.getCachedSearch(cacheKey);
-  if (cacheado) return cacheado;
+  if (cacheado) return { productos: cacheado, fallo: false };
 
   const fetchLimit = Math.max(limit, FETCH_LIMIT_INTERNO);
   const terminos = construirTerminos(words).slice(0, MAX_TERMINOS_BUSQUEDA);
@@ -570,13 +586,16 @@ async function searchProducts(query, limit = 3) {
   // sin datos de catálogo, contestando el genérico de "pásate por la tienda"
   // aunque el producto existiera. Por eso van en dos oleadas: si la primera ya
   // encuentra el producto exacto, la segunda no llega a lanzarse.
-  let scored = await buscarConTerminos(terminos.slice(0, TERMINOS_PRIMERA_OLEADA), words, fetchLimit);
+  const primera = await buscarConTerminos(terminos.slice(0, TERMINOS_PRIMERA_OLEADA), words, fetchLimit);
+  let scored = primera.scored;
+  let fallo = primera.fallo;
 
   const resueltoDeSobra =
     scored.length >= limit && scored.some((x) => x.score >= scoreMaximo(words));
   if (!resueltoDeSobra && terminos.length > TERMINOS_PRIMERA_OLEADA) {
     const segunda = await buscarConTerminos(terminos.slice(TERMINOS_PRIMERA_OLEADA), words, fetchLimit);
-    scored = dedupeScored([...scored, ...segunda]);
+    scored = dedupeScored([...scored, ...segunda.scored]);
+    fallo = fallo || segunda.fallo;
   }
 
   // Último recurso: palabra a palabra. Solo con las dos palabras de más peso
@@ -585,7 +604,9 @@ async function searchProducts(query, limit = 3) {
   // iba mal.
   if (scored.length === 0 && words.length > 1) {
     const clave = [...words].sort((a, b) => pesoDePalabra(b) - pesoDePalabra(a)).slice(0, 2);
-    scored = await buscarConTerminos(clave, words, fetchLimit);
+    const ultima = await buscarConTerminos(clave, words, fetchLimit);
+    scored = ultima.scored;
+    fallo = fallo || ultima.fallo;
   }
 
   scored = descartarRuido(scored);
@@ -605,17 +626,30 @@ async function searchProducts(query, limit = 3) {
     url: p.permalink,
   }));
 
-  if (resultado.length > 0) {
+  // Solo se guarda en caché lo que salió de una búsqueda COMPLETA. Si alguna
+  // consulta falló, lo que tenemos son las sobras de las que sí respondieron, y
+  // cachearlas serviría ese resultado cojo a todo el mundo durante una hora.
+  if (resultado.length > 0 && !fallo) {
     await store.setCachedSearch(cacheKey, resultado);
-  } else {
+  } else if (resultado.length === 0 && !fallo) {
     // Sin resultados: se anota lo que pidió el cliente para poder revisarlo en el
     // panel y enseñarle al bot a qué corresponde. Cada fallo se convierte así en
     // una mejora, en vez de repetirse con el siguiente cliente. No se cachea el
     // vacío a propósito: en cuanto alguien defina el alias, debe funcionar ya.
+    //
+    // Solo se anota si la web SÍ contestó. Si no llegó a contestar no sabemos
+    // si el producto existe, y apuntarlo llenaría el panel de aprendizaje de
+    // términos que en realidad sí están en el catálogo.
     await store.registrarBusquedaSinResultado(words.join(' '));
   }
 
-  return resultado;
+  return { productos: resultado, fallo };
+}
+
+// Compatibilidad: quien solo quiere los productos y no le importa por qué no
+// hay ninguno (p. ej. una búsqueda de apoyo) sigue llamando a searchProducts.
+async function searchProducts(query, limit = 3) {
+  return (await buscarEnCatalogo(query, limit)).productos;
 }
 
 // Pedido concreto por número/id. WooCommerce devuelve 404 para un id que no existe
@@ -747,6 +781,8 @@ function isSpamOrder(order) {
 module.exports = {
   isConfigured,
   searchProducts,
+  buscarEnCatalogo,
+  usarTiemposLargos,
   searchCategories,
   getOrder,
   phoneMatches,

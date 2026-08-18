@@ -69,6 +69,14 @@ async function appendCustomerMessage(phone, userText) {
   await pushMessages(phone, [{ role: 'user', content: userText }]);
 }
 
+// Guarda SOLO la respuesta del bot, sin mensaje del cliente emparejado. Se usa
+// en el reintento en segundo plano: el mensaje del cliente ya se archivó al
+// recibirlo (para no perderlo si el reintento falla) y aquí solo falta añadir
+// lo que se le acabó contestando.
+async function appendBotReply(phone, botText) {
+  await pushMessages(phone, [{ role: 'assistant', content: botText }]);
+}
+
 // Guarda una respuesta escrita a mano desde el panel de conversaciones (no del bot).
 async function appendAgentMessage(phone, agentText) {
   await pushMessages(phone, [{ role: 'agent', content: agentText }]);
@@ -414,6 +422,7 @@ module.exports = {
   loadConversation,
   appendMessages,
   appendCustomerMessage,
+  appendBotReply,
   appendAgentMessage,
   listConversationPhones,
   pauseBot,

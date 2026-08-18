@@ -61,6 +61,12 @@ const PRESENTACION = `¡Hola! 👋 Soy el nuevo asistente virtual de ${BUSINESS_
 // llegado y que le va a contestar una persona.
 const PAUSA_GLOBAL_REPLY = `¡Hola! Hemos recibido tu mensaje y en breve te responderá una persona del equipo.\n\nSi es urgente, puedes llamarnos al ${STORES[0].phone} en horario de tienda (${STORES[0].hours}).`;
 
+// Lo que se le dice al cliente cuando la web no ha contestado y hay que volver
+// a intentarlo en segundo plano. Deliberadamente corto y sin excusas técnicas:
+// al cliente no le importa si la web va lenta, solo necesita saber que su
+// mensaje ha llegado y que la respuesta viene enseguida.
+const ESPERA_REPLY = 'Un segundo, por favor — estoy consultando el catálogo y te contesto enseguida.';
+
 // Detección de saludo robusta: NO cuenta palabras totales (eso rompía con mensajes
 // tipo "Buenas tardes, ¿hacéis escaneados?", que caían justo en 6 palabras y se
 // comían la pregunta real). En vez de eso, quita el saludo del principio del texto
@@ -785,6 +791,7 @@ module.exports = {
   GREETING,
   PRESENTACION,
   PAUSA_GLOBAL_REPLY,
+  ESPERA_REPLY,
   AGENTE_INFO_ABIERTO,
   AGENTE_INFO_CERRADO,
   agenteInfo,
