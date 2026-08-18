@@ -198,7 +198,15 @@ const EMPLEO_INFO = `Para enviar tu currículum o preguntar por ofertas de emple
 // WhatsApp (criterio del propietario): llevan una lista larga, a menudo en foto,
 // y los prepara el departamento de Pedidos. Se remite ahí en vez de escalar a
 // una persona por este canal, que es lo que se hacía con cualquier presupuesto.
-const PRESUPUESTO_ESCOLAR_INFO = `Los presupuestos de material escolar y de material para cursos o colegios no los gestionamos por WhatsApp. Para eso, escribe a pedidos@ofipapelsl.com indicando el centro y el curso — si tienes la lista en papel, puedes adjuntar la foto en el mismo correo y te preparan el presupuesto.`;
+// Se ofrecen las dos vías reales, y en el orden en que de verdad se usan: lo
+// normal es traer la lista a la tienda, pero mucha gente prefiere no desplazarse
+// y que se lo demos hecho. Lo que Pedidos necesita para no tener que
+// repreguntar es siempre lo mismo: la lista, el centro y el curso.
+const PRESUPUESTO_ESCOLAR_INFO = `Los presupuestos de material escolar no los gestionamos por WhatsApp, pero tienes dos formas fáciles:
+
+📍 *En tienda*: pásate por cualquiera de nuestras tiendas con la lista del colegio y te preparamos el pedido allí mismo.
+
+📧 *Por correo*, si prefieres no desplazarte: manda la lista a pedidos@ofipapelsl.com (vale una foto), indicando el *nombre del centro* y el *curso*. Te preparamos el presupuesto y te contestamos por ahí.`;
 
 // Señales de que un presupuesto es escolar. Se comprueban con límites de palabra
 // para no engancharse dentro de otra: sin eso, "curso" saltaría con "concurso" y
