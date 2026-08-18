@@ -6959,6 +6959,9 @@ let chatHistory = [];
 // fuente"; solo evita que el endpoint quede completamente abierto. Debe
 // coincidir con CHAT_ASSISTANT_TOKEN en las variables de entorno de Netlify.
 const APP_CHAT_TOKEN = 'ofipapel-chat-2026';
+const CHAT_ENDPOINT = window.location.hostname.includes('github.io')
+  ? 'https://spontaneous-lebkuchen-60fa41.netlify.app/.netlify/functions/chat-assistant'
+  : '/.netlify/functions/chat-assistant';
 
 function initChatView() {
   renderChatMessages();
@@ -7068,7 +7071,7 @@ ${buildDataContext()}`;
     // La llamada a Claude va ahora a través de una Netlify Function: la API
     // key vive solo en el servidor, no en este navegador (ver
     // netlify/functions/chat-assistant.js).
-    const resp = await fetch('/.netlify/functions/chat-assistant', {
+    const resp = await fetch(CHAT_ENDPOINT, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
