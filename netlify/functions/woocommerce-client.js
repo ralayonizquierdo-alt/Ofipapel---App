@@ -70,6 +70,20 @@ const STOPWORDS_BUSQUEDA = new Set([
   'busco', 'buscaba', 'buscando', 'buscar', 'busca', 'queria', 'quería',
   'quisiera', 'querria', 'querría', 'tendrian', 'tendrían', 'tendria', 'tendría',
   'teneis', 'tenéis', 'tienes', 'dispone', 'disponen', 'venderian', 'venderían',
+  // Cortesía y rodeos con los que se abre una pregunta. Cuestan caro porque la
+  // búsqueda de WordPress exige que estén TODAS las palabras: comprobado en
+  // real, "Buenas TARDES, SABRÍAN DECIRME si tienen soportes de móvil para
+  // coche" no devolvía nada, mientras que "soportes de móvil para coche" sí
+  // encuentra los seis soportes de coche que hay en el catálogo. Tres palabras
+  // de educación dejaban al cliente sin respuesta.
+  'buenos', 'buen', 'saludos', 'hey', 'tardes', 'dias', 'días', 'noches',
+  'si', 'no', 'me', 'te', 'le', 'nos',
+  'sabrian', 'sabrían', 'sabria', 'sabría', 'sabes', 'sabe', 'saber',
+  'decirme', 'decir', 'indicarme', 'indicar', 'informarme', 'comentarme',
+  'preguntar', 'pregunta', 'consultar', 'consulta', 'mirar', 'ver',
+  'gustaria', 'gustaría', 'podria', 'podría', 'podrian', 'podrían',
+  'seria', 'sería', 'posible', 'porfa', 'porfavor', 'disculpa', 'disculpe',
+  'perdona', 'perdone', 'oye', 'oiga', 'mira', 'vera', 'verá',
 ]);
 
 // Quita acentos, signos de puntuación y palabras vacías del mensaje del cliente,
