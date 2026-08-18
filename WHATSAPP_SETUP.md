@@ -222,6 +222,59 @@ bot.
    sigue suscrito, y que la app está suscrita a la cuenta de WhatsApp Business
    (WABA) donde ha quedado el número nuevo.
 
+### El fallo que cuesta dos horas: la app suscrita a la cuenta
+
+**Si el número está "Conectado" y aun así no llega ni un mensaje, es esto.**
+
+Una app solo recibe los mensajes de las cuentas de WhatsApp Business (WABA) a
+las que está **suscrita**. Ese enlace se hace solo cuando el número se añade
+*desde dentro de la app*; si la cuenta se crea desde Configuración del negocio
+(que es lo que hay que hacer, porque la cuenta de pruebas no admite números
+reales), **el enlace no se crea** y Meta no entrega nada.
+
+Lo peor es que **no se ve en ninguna pantalla de Meta**: solo existe en la API.
+Todo lo demás sale en verde — número Conectado, webhook configurado, campo
+`messages` suscrito, token con permisos — y no funciona nada.
+
+Comprobarlo y arreglarlo, con un token de la app (Paso 1 > "Generar token"):
+
+```bash
+# ¿Qué apps reciben los mensajes de esta cuenta?
+curl -sS "https://graph.facebook.com/v21.0/<WABA_ID>/subscribed_apps" \
+  -H "Authorization: Bearer $TOKEN"
+# {"data":[]}  <- vacío: ahí está el problema
+
+# Suscribir la app
+curl -sS -X POST "https://graph.facebook.com/v21.0/<WABA_ID>/subscribed_apps" \
+  -H "Authorization: Bearer $TOKEN"
+# {"success":true}
+```
+
+Tiene efecto inmediato, sin desplegar nada.
+
+De paso, para ver el estado real del número sin dar vueltas por los menús:
+
+```bash
+curl -sS "https://graph.facebook.com/v21.0/<PHONE_NUMBER_ID>?fields=display_phone_number,verified_name,name_status,code_verification_status,quality_rating,platform_type,status" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+`status: CONNECTED` y `code_verification_status: VERIFIED` es lo que hay que
+ver. `name_status: DECLINED` significa que Meta rechazó el nombre visible —
+molesto, pero **no impide** enviar ni recibir.
+
+### Ojo: puede haber más de un sitio en Netlify
+
+En este proyecto conviven dos sitios apuntando al mismo repositorio:
+`ofipapel.netlify.app` (antiguo, sin las variables del bot) y
+`spontaneous-lebkuchen-60fa41.netlify.app` (el que sirve de verdad). El bot,
+el panel de conversaciones y el webhook viven en el **segundo**.
+
+Los dos sirven el mismo HTML, así que por una página estática no se distinguen.
+Para saber en cuál se está mirando, vale esta prueba: una petición POST sin
+firma al webhook devuelve **401** en el sitio bueno (tiene
+`WHATSAPP_APP_SECRET`) y **200** en el viejo.
+
 ## Fase 3 — Cambiar la configuración
 
 1. En Netlify: **Site settings > Environment variables**, cambia
