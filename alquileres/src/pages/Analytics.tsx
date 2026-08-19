@@ -4,7 +4,7 @@ import { Printer } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { MONTH_NAMES_ES, getDaysInMonth } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
-import { deducibleGasto, deducibleReparacion, nochesOcupadas, redondea } from '../lib/deducible'
+import { deducibleGasto, deducibleReparacion, nochesOcupadas, mapaOcupaciones, redondea } from '../lib/deducible'
 import PageHeader from '../components/ui/PageHeader'
 
 /** Todo el año, un trimestre o un mes suelto: son los tres cortes con los que
@@ -28,7 +28,7 @@ function etiquetaPeriodo(periodo: Periodo, year: number): string {
 }
 
 export default function Analytics() {
-  const { reservations, payments, repairs, expenses, incomes, apartments: allApartments } = useData()
+  const { reservations, payments, repairs, expenses, incomes, occupancies, apartments: allApartments } = useData()
   const [year, setYear] = useState(new Date().getFullYear())
   const [periodo, setPeriodo] = useState<Periodo>('anual')
   const [aptFiltro, setAptFiltro] = useState('')
@@ -36,6 +36,7 @@ export default function Analytics() {
   const activos = allApartments.filter(a => a.active)
   const apartments = aptFiltro ? activos.filter(a => a.id === aptFiltro) : activos
   const meses = mesesDe(periodo)
+  const ocupDeclarada = useMemo(() => mapaOcupaciones(occupancies), [occupancies])
 
   /** Años con algún dato, no solo con cobros. */
   const years = useMemo(() => {
@@ -79,8 +80,14 @@ export default function Analytics() {
 
   // ── Cifras por apartamento ──────────────────────────────────────────────────
   const porApartamento = apartments.map(apt => {
-    const noches = meses.reduce((s, m) => s + nochesOcupadas(reservations, apt.id, year, m), 0)
     const diasPeriodo = meses.reduce((s, m) => s + getDaysInMonth(year, m), 0)
+    // Con ocupación declarada, las noches salen de ella: son las que sustentan
+    // el prorrateo, así que lo que se enseña y lo que se calcula coinciden.
+    const noches = Math.round(meses.reduce((s, m) => {
+      const dias = getDaysInMonth(year, m)
+      const decl = ocupDeclarada.get(`${apt.id}|${year}|${m}`)
+      return s + (decl !== undefined ? decl * dias : nochesOcupadas(reservations, apt.id, year, m))
+    }, 0))
 
     const cobrado = payments
       .filter(p => p.received && enPeriodo(p.paymentDate) && aptDeReserva.get(p.reservationId) === apt.id)
@@ -93,8 +100,8 @@ export default function Analytics() {
 
     const gastos = gastosApt.reduce((s, e) => s + (e.amount || 0), 0)
       + repsApt.reduce((s, r) => s + (r.amount || 0), 0)
-    const deducible = gastosApt.reduce((s, e) => s + deducibleGasto(e, reservations), 0)
-      + repsApt.reduce((s, r) => s + deducibleReparacion(r, reservations), 0)
+    const deducible = gastosApt.reduce((s, e) => s + deducibleGasto(e, reservations, ocupDeclarada), 0)
+      + repsApt.reduce((s, r) => s + deducibleReparacion(r, reservations, ocupDeclarada), 0)
 
     return {
       apt, noches, diasLibres: diasPeriodo - noches,
@@ -129,8 +136,8 @@ export default function Analytics() {
     const repsMes = repairs.filter(r => r.repairDate?.startsWith(clave) && visible(r.apartmentId))
     const gastos = gastosMes.reduce((s, e) => s + (e.amount || 0), 0)
       + repsMes.reduce((s, r) => s + (r.amount || 0), 0)
-    const deducible = gastosMes.reduce((s, e) => s + deducibleGasto(e, reservations), 0)
-      + repsMes.reduce((s, r) => s + deducibleReparacion(r, reservations), 0)
+    const deducible = gastosMes.reduce((s, e) => s + deducibleGasto(e, reservations, ocupDeclarada), 0)
+      + repsMes.reduce((s, r) => s + deducibleReparacion(r, reservations, ocupDeclarada), 0)
 
     return {
       mes: MONTH_NAMES_ES[i], abrev: MONTH_NAMES_ES[i].slice(0, 3), dentro,
