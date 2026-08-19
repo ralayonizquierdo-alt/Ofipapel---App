@@ -4,7 +4,7 @@ import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, getDoc, writ
 import { db, stripUndef, ensureAnonSession } from '../lib/firebase'
 import { nanoid } from '../lib/nanoid'
 import { DEFAULT_PRICES_2026 } from '../lib/priceCalc'
-import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice, DeletedRepair } from '../types'
+import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice, DeletedRepair, IngresoMensual } from '../types'
 
 // ─── Default seed data ────────────────────────────────────────────────────────
 
@@ -33,6 +33,8 @@ interface DataContextValue {
   repairs: Repair[]
   expenses: Expense[]
   offerPrices: OfferPrice[]
+  /** Ingresos brutos declarados (del Excel), por inmueble y mes. */
+  incomes: IngresoMensual[]
 
   addApartment:    (data: Omit<Apartment, 'id'> & { id?: string }) => Apartment
   updateApartment: (id: string, data: Partial<Apartment>) => void
@@ -61,6 +63,7 @@ interface DataContextValue {
   updateExpense: (id: string, data: Partial<Expense>) => void
   deleteExpense: (id: string) => void
   importExpenses: (items: Expense[]) => Promise<number>
+  importIncomes: (items: IngresoMensual[]) => Promise<number>
 
   addOfferPrice:    (data: Omit<OfferPrice, 'id'>) => OfferPrice
   updateOfferPrice: (id: string, data: Partial<OfferPrice>) => void
@@ -87,7 +90,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [expenses,    setExpenses]    = useState<Expense[]>([])
   const [offerPrices, setOfferPrices] = useState<OfferPrice[]>([])
   const [deletedRepairs, setDeletedRepairs] = useState<DeletedRepair[]>([])
-  const [ready, setReady] = useState({ apartments:false, prices:false, reservations:false, payments:false, repairs:false, expenses:false, offerPrices:false, deletedRepairs:false })
+  const [incomes, setIncomes] = useState<IngresoMensual[]>([])
+  const [ready, setReady] = useState({ apartments:false, prices:false, reservations:false, payments:false, repairs:false, expenses:false, offerPrices:false, deletedRepairs:false, incomes:false })
 
   const loading = !Object.values(ready).every(Boolean)
 
@@ -112,6 +116,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       onSnapshot(collection(db, 'expenses'),       s => { setExpenses(s.docs.map(d => d.data() as Expense));           mark('expenses') },       () => mark('expenses')),
       onSnapshot(collection(db, 'offerPrices'),    s => { setOfferPrices(s.docs.map(d => d.data() as OfferPrice));     mark('offerPrices') },    () => mark('offerPrices')),
       onSnapshot(collection(db, 'deletedRepairs'), s => { setDeletedRepairs(s.docs.map(d => d.data() as DeletedRepair)); mark('deletedRepairs') }, () => mark('deletedRepairs')),
+      onSnapshot(collection(db, 'incomes'),        s => { setIncomes(s.docs.map(d => d.data() as IngresoMensual));      mark('incomes') },        () => mark('incomes')),
     ]
 
     return () => subs.forEach(u => u())
@@ -244,6 +249,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
    * (inmueble+mes+concepto), así que reimportar el mismo fichero actualiza los
    * apuntes en lugar de duplicarlos. Firestore limita el lote a 500 escrituras.
    */
+  /** Mismo criterio que los gastos: id estable, reimportar actualiza. */
+  async function importIncomes(items: IngresoMensual[]): Promise<number> {
+    for (let i = 0; i < items.length; i += 400) {
+      const batch = writeBatch(db)
+      for (const item of items.slice(i, i + 400)) {
+        batch.set(doc(db, 'incomes', item.id), stripUndef(item))
+      }
+      await batch.commit()
+    }
+    return items.length
+  }
   async function importExpenses(items: Expense[]): Promise<number> {
     for (let i = 0; i < items.length; i += 400) {
       const batch = writeBatch(db)
@@ -271,14 +287,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      loading, apartments, prices, reservations, payments, repairs, expenses, offerPrices,
+      loading, apartments, prices, reservations, payments, repairs, expenses, offerPrices, incomes,
       deletedRepairs,
       addApartment, updateApartment, deleteApartment,
       addPrice, updatePrice, deletePrice,
       addReservation, updateReservation, deleteReservation,
       addPayment, updatePayment, deletePayment,
       addRepair, updateRepair, deleteRepair, deleteRepairWithAudit,
-      addExpense, updateExpense, deleteExpense, importExpenses,
+      addExpense, updateExpense, deleteExpense, importExpenses, importIncomes,
       addOfferPrice, updateOfferPrice, deleteOfferPrice,
     }}>
       {children}

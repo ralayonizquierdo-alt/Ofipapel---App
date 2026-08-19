@@ -131,6 +131,21 @@ export interface DeletedRepair {
   entryNumber?: string
 }
 
+/**
+ * Ingreso bruto mensual declarado por inmueble, tal y como viene del Excel.
+ * Convive con `payments` sin sustituirlos: los cobros llevan fecha y reserva
+ * detrás y siguen siendo la referencia de tesorería, mientras que esto es la
+ * cifra que se declara. Cuando ambos existen, la app enseña la diferencia.
+ */
+export interface IngresoMensual {
+  id: string
+  apartmentId: string
+  year: number
+  month: number
+  amount: number
+  origen: 'excel'
+}
+
 export interface QuarterSummary {
   quarter: 1 | 2 | 3 | 4
   year: number

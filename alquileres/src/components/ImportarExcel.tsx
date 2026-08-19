@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Upload, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
-import { leerExcel, idGasto, type ResultadoImport } from '../lib/importExcel'
+import { leerExcel, idGasto, idIngreso, type ResultadoImport } from '../lib/importExcel'
 import { EXPENSE_LABELS } from '../lib/deducible'
-import type { Expense, ExpenseType } from '../types'
+import type { Expense, ExpenseType, IngresoMensual } from '../types'
 import Modal from './ui/Modal'
 
 /**
@@ -12,12 +12,13 @@ import Modal from './ui/Modal'
  * conceptos nuevos, y conviene verlo antes de tocar los datos.
  */
 export default function ImportarExcel({ onClose }: { onClose: () => void }) {
-  const { importExpenses, apartments } = useData()
+  const { importExpenses, importIncomes, apartments } = useData()
   const [previo, setPrevio] = useState<ResultadoImport | null>(null)
   const [nombreFichero, setNombreFichero] = useState('')
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [hecho, setHecho] = useState(0)
+  const [ingresosHechos, setIngresosHechos] = useState(0)
 
   async function elegirFichero(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
@@ -51,7 +52,24 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
         createdAt: ahora,
       }))
       await importExpenses(items)
+
+      // Los ingresos brutos del Excel son la cifra que se declara: se guardan
+      // aparte, sin tocar los cobros, y Analítica enseña ambos para comparar.
+      const porMes = new Map<string, number>()
+      for (const i of previo.ingresosPorInmueble) {
+        const k = `${i.apartmentId}|${i.month}`
+        porMes.set(k, (porMes.get(k) || 0) + i.base)
+      }
+      const ingresos: IngresoMensual[] = [...porMes.entries()].map(([k, amount]) => {
+        const [apartmentId, mes] = k.split('|')
+        const month = Number(mes)
+        return { id: idIngreso(previo.year, apartmentId, month), apartmentId,
+                 year: previo.year, month, amount, origen: 'excel' as const }
+      })
+      await importIncomes(ingresos)
+
       setHecho(items.length)
+      setIngresosHechos(ingresos.length)
       setPrevio(null)
     } catch {
       setError('No se han podido guardar los gastos. Revisa la conexión y vuelve a intentarlo.')
@@ -83,7 +101,8 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
             <div>
               <p className="font-semibold text-green-900">{hecho} apuntes cargados</p>
               <p className="text-sm text-green-800 mt-0.5">
-                Ya aparecen en la lista de gastos y en Analítica.
+                Y {ingresosHechos} meses de ingresos brutos. Ya aparecen en la lista de
+                gastos y en Analítica.
               </p>
             </div>
           </div>
@@ -91,9 +110,9 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
           <>
             <p className="text-sm text-slate-600">
               Sube el Excel de «Resumen cobros y gastos». Se cargan los conceptos de gasto
-              (luz, IBI, basura, comunidad, comisiones…). <strong>Las reparaciones no se
-              importan</strong>: ya tienen su propia pantalla con proveedor y factura, y
-              volcarlas aquí duplicaría el gasto.
+              (luz, IBI, basura, comunidad, comisiones…) y los ingresos brutos de cada
+              mes. <strong>Las reparaciones no se importan</strong>: ya tienen su propia
+              pantalla con proveedor y factura, y volcarlas aquí duplicaría el gasto.
             </p>
 
             <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-300 rounded-lg p-6 cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 transition-colors">
@@ -158,6 +177,16 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
             <p className="text-xs text-slate-500">
               Inmuebles detectados: {inmuebles.map(nombreApt).join(', ')}
             </p>
+
+            {previo.ingresosPorInmueble.length > 0 && (
+              <p className="text-xs text-slate-500">
+                Se cargarán además los ingresos brutos del ejercicio:{' '}
+                <strong>
+                  {previo.ingresosPorInmueble.reduce((s, i) => s + i.base, 0)
+                    .toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                </strong>. Los cobros no se tocan; Analítica mostrará ambos.
+              </p>
+            )}
 
             {previo.reparacionesIgnoradas.length > 0 && (
               <p className="text-xs text-slate-500">

@@ -174,3 +174,8 @@ export function idGasto(g: GastoImportado): string {
   const mm = String(g.month).padStart(2, '0')
   return `xls-${g.year}${mm}-${g.apartmentId}-${g.expenseType}`
 }
+
+/** Mismo criterio para los ingresos brutos declarados. */
+export function idIngreso(year: number, apartmentId: string, month: number): string {
+  return `xls-${year}${String(month).padStart(2, '0')}-${apartmentId}`
+}
