@@ -60,6 +60,7 @@ interface DataContextValue {
   addExpense:    (data: Omit<Expense, 'id' | 'createdAt'>) => Expense
   updateExpense: (id: string, data: Partial<Expense>) => void
   deleteExpense: (id: string) => void
+  importExpenses: (items: Expense[]) => Promise<number>
 
   addOfferPrice:    (data: Omit<OfferPrice, 'id'>) => OfferPrice
   updateOfferPrice: (id: string, data: Partial<OfferPrice>) => void
@@ -238,6 +239,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
   function deleteExpense(id: string) {
     deleteDoc(doc(db, 'expenses', id))
   }
+  /**
+   * Alta masiva desde el Excel. Cada apunte trae un id estable
+   * (inmueble+mes+concepto), así que reimportar el mismo fichero actualiza los
+   * apuntes en lugar de duplicarlos. Firestore limita el lote a 500 escrituras.
+   */
+  async function importExpenses(items: Expense[]): Promise<number> {
+    for (let i = 0; i < items.length; i += 400) {
+      const batch = writeBatch(db)
+      for (const item of items.slice(i, i + 400)) {
+        batch.set(doc(db, 'expenses', item.id), stripUndef(item))
+      }
+      await batch.commit()
+    }
+    return items.length
+  }
 
   // ── Offer prices ─────────────────────────────────────────────────────────────
   function addOfferPrice(data: Omit<OfferPrice, 'id'>): OfferPrice {
@@ -262,7 +278,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addReservation, updateReservation, deleteReservation,
       addPayment, updatePayment, deletePayment,
       addRepair, updateRepair, deleteRepair, deleteRepairWithAudit,
-      addExpense, updateExpense, deleteExpense,
+      addExpense, updateExpense, deleteExpense, importExpenses,
       addOfferPrice, updateOfferPrice, deleteOfferPrice,
     }}>
       {children}
