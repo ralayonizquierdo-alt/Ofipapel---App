@@ -36,6 +36,14 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+// NOTA DE DESPLIEGUE (2026-08-19): MARKETING_ENGINE_TOKEN se creó en Netlify
+// pero las funciones seguían viéndola como indefinida — Netlify había
+// reutilizado los paquetes de función del despliegue anterior ("all files
+// already uploaded"), y con ellos el entorno viejo. Si vuelve a pasar tras
+// añadir o cambiar una variable, hay que forzar que las funciones se
+// reconstruyan: tocar este fichero, o "Clear cache and deploy" en Netlify.
+// Comprobación: POST a /.netlify/functions/marketing-engine-run sin la
+// cabecera x-marketing-token debe devolver 401, no 400.
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
 // Mismo mecanismo de rate limiting best-effort que chat-assistant.js: acota
