@@ -145,7 +145,11 @@ function Drawer({ alerts, open, onClose, onChangePassword, onLogout }: { alerts:
 export default function App() {
   const { loading, reservations, payments } = useData()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [loggedIn, setLoggedIn] = useState(false)
+  // La sesión se guardaba en localStorage al entrar pero nunca se volvía a
+  // leer, así que cada recarga te echaba a la pantalla de login.
+  const [currentUser, setCurrentUser] = useState<string | null>(
+    () => localStorage.getItem('aq_current_user')
+  )
   const [showChangePassword, setShowChangePassword] = useState(false)
 
   const alertCount = useMemo(() => {
@@ -166,10 +170,15 @@ export default function App() {
     </div>
   )
 
-  if (!loggedIn) return <LoginScreen onLogin={() => setLoggedIn(true)} />
+  if (!currentUser) return (
+    <LoginScreen onLogin={(user) => {
+      localStorage.setItem('aq_current_user', user)
+      setCurrentUser(user)
+    }} />
+  )
 
   return (
-    <BrowserRouter basename="/Ofipapel---App/alquileres">
+    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
       {showChangePassword && (
         <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
       )}
@@ -179,7 +188,7 @@ export default function App() {
           <Sidebar
             alerts={alertCount}
             onChangePassword={() => setShowChangePassword(true)}
-            onLogout={() => setLoggedIn(false)}
+            onLogout={() => { localStorage.removeItem('aq_current_user'); setCurrentUser(null) }}
           />
         </div>
 
@@ -195,7 +204,7 @@ export default function App() {
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
             onChangePassword={() => setShowChangePassword(true)}
-            onLogout={() => setLoggedIn(false)}
+            onLogout={() => { localStorage.removeItem('aq_current_user'); setCurrentUser(null) }}
           />
 
           <MigrateLocalData />

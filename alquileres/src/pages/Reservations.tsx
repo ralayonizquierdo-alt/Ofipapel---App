@@ -185,7 +185,7 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   const [notes, setNotes] = useState(editing?.notes || '')
   const [status, setStatus] = useState(editing?.status || 'confirmada' as Reservation['status'])
   const [guestName, setGuestName] = useState(editing?.guestName || '')
-  const [autoCalc, setAutoCalc] = useState(!editing)
+  const [autoCalc, setAutoCalc] = useState(!editing || (editing.stayType === 'otro' && !editing.basePrice))
 
   const nights = checkOut && checkIn ? getNights(checkIn, checkOut) : 0
   const total = calcTotal(basePrice, cleaningFee, discountPct)
@@ -200,17 +200,22 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
       (p.year === year || p.year === year + 1)
     )
     if (!priceEntry) return
+    // Los datos vienen de Firestore y pueden traer campos ausentes, nulos o no
+    // numéricos: sin esto acaban propagándose como NaN/undefined al formulario.
+    const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0 }
+    const effectNights = checkOut ? getNights(checkIn, checkOut) : 0
+    const months = effectNights > 0 ? Math.max(1, Math.round(effectNights / 30)) : 1
     const priceMap: Record<StayType, number> = {
-      '1semana': priceEntry.price1week,
-      '2semanas': priceEntry.price2weeks,
-      '3semanas': priceEntry.price3weeks,
-      '1mes': priceEntry.price1month,
-      'directo': priceEntry.price1month * 0.9,
-      'otro': 0,
+      '1semana': num(priceEntry.price1week),
+      '2semanas': num(priceEntry.price2weeks),
+      '3semanas': num(priceEntry.price3weeks),
+      '1mes': num(priceEntry.price1month),
+      'directo': num(priceEntry.price1month) * 0.9,
+      'otro': num(priceEntry.price1month) * months,
     }
     setBasePrice(priceMap[stayType] || 0)
-    setCleaningFee(priceEntry.cleaningFee)
-  }, [aptId, stayType, checkIn, autoCalc, prices])
+    setCleaningFee(Number.isFinite(Number(priceEntry.cleaningFee)) ? Number(priceEntry.cleaningFee) : 40)
+  }, [aptId, stayType, checkIn, checkOut, autoCalc, prices])
 
   useEffect(() => {
     if (!autoCalc || !checkIn) return
@@ -220,6 +225,9 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
     const d = daysMap[stayType]
     if (!d) return
     const date = new Date(checkIn)
+    // Una fecha inválida haría que toISOString() lanzara RangeError, y un error
+    // dentro de un efecto tumba todo el árbol de React (pantalla en blanco).
+    if (Number.isNaN(date.getTime())) return
     date.setDate(date.getDate() + d)
     setCheckOut(date.toISOString().split('T')[0])
   }, [stayType, checkIn, autoCalc])
@@ -329,11 +337,23 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
                 className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm" min="0" max="100" />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between bg-white rounded p-3 border border-slate-200">
+          {/* Ojo al tocar este bloque: los hijos deben ser SIEMPRE los mismos
+              elementos, cambiando solo su texto. Si se mezclan nodos de texto
+              sueltos con <span> condicionales, el traductor del navegador
+              reemplaza esos textos y, al insertar React el span, insertBefore
+              falla ("node ... is not a child of this node") y se cae la app
+              entera dejando la pantalla en blanco. translate="no" evita además
+              que el traductor toque estas cifras. */}
+          <div className="mt-3 flex items-center justify-between bg-white rounded p-3 border border-slate-200" translate="no">
             <div className="text-xs text-slate-500">
-              {nights > 0 && <span>{nights} noches · </span>}
-              Base: {basePrice}€ + Limpieza: {cleaningFee}€
-              {discountPct > 0 && <span> - {discountPct}% dto</span>}
+              <span>{nights > 0 ? `${nights} noches · ` : ''}</span>
+              <span className="text-indigo-600 font-medium">
+                {stayType === 'otro' && nights > 0
+                  ? `${Math.max(1, Math.round(nights / 30))} ${Math.max(1, Math.round(nights / 30)) === 1 ? 'mes' : 'meses'} · `
+                  : ''}
+              </span>
+              <span>{`Base: ${basePrice}€ + Limpieza: ${cleaningFee}€`}</span>
+              <span>{discountPct > 0 ? ` - ${discountPct}% dto` : ''}</span>
             </div>
             <div className="text-lg font-bold text-blue-700">{total.toLocaleString('es-ES')} €</div>
           </div>

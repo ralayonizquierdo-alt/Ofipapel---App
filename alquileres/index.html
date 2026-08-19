@@ -1,15 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#1976D2" />
+    <!-- La app está en español. Con lang="en" el navegador la daba por inglesa
+         y la traducía sola, reescribiendo el DOM por debajo de React: al
+         insertar un elemento, insertBefore fallaba y la app se caía a pantalla
+         en blanco. lang correcto + notranslate lo evitan de raíz. -->
+    <meta name="google" content="notranslate" />
     <title>Ofipapel · Alquileres</title>
   </head>
-  <body>
-    <div id="root"></div>
+  <!-- El meta de arriba no basta: si el traductor ya está activo lo ignora y
+       sigue reescribiendo los nodos de texto por debajo de React. translate="no"
+       + class="notranslate" en el body sí se respetan para todo el árbol. -->
+  <body translate="no" class="notranslate">
+    <div id="root" translate="no" class="notranslate"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

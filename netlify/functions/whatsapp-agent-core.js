@@ -1,6 +1,5 @@
-// Lógica compartida del agente de WhatsApp: usada tanto por whatsapp-webhook.js
-// (Meta Cloud API) como por twilio-webhook.js (Twilio), para no duplicar el
-// matching de FAQ ni la llamada a Claude entre los dos canales.
+// Lógica compartida del agente de WhatsApp: matching de FAQ + llamada a
+// Claude, usada por whatsapp-webhook.js (Meta Cloud API, único canal).
 
 const { FAQ_RULES, buildAiSystemPrompt, agenteInfo, isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const conversationStore = require('./conversation-store');
@@ -12,7 +11,12 @@ const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 // (conversation-store.js), que sobrevive a cold starts y alimenta el panel web.
 // Si no, cae de vuelta a un mapa en memoria (best-effort, se pierde en cold starts).
 const CONVERSATION_TTL_MS = 30 * 60 * 1000; // 30 min de inactividad = conversación nueva
-const MAX_HISTORY_MESSAGES = 10; // últimos mensajes (usuario + bot) que se le pasan a Claude
+// Últimos mensajes (usuario + bot) que se le pasan a Claude. Con 10 el bot
+// "olvidaba" a los 5 turnos y perdía el contexto de conversaciones largas, en
+// las que el cliente explica lo que necesita al principio y pregunta al final
+// (visto en real). Se archivan muchos más (MAX_STORED_MESSAGES en
+// conversation-store.js): esto solo decide cuántos ve la IA en cada respuesta.
+const MAX_HISTORY_MESSAGES = 24;
 const conversations = new Map(); // from -> { messages: [{role, content}], updatedAt } (fallback)
 
 async function getHistory(from) {
@@ -84,15 +88,46 @@ function matchFaqRule(text) {
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, ''); // quita acentos para comparar con más tolerancia
 
-  for (const rule of FAQ_RULES) {
-    const hit = rule.keywords.some((keyword) => {
+  // Gana la coincidencia MÁS ESPECÍFICA, no la primera de la lista. Antes ganaba
+  // la primera, y el orden del array no es ningún criterio: un colegio escribió
+  // "queria saber si me podian hacer el PRESUPUESTO del material y libros del
+  // alumnado... les ENVIO foto" y se le contestó sobre gastos de envío a
+  // Canarias, porque la regla de envíos está antes en la lista que la de
+  // presupuestos — que es justamente la que le habría pasado con una persona.
+  //
+  // La longitud de la palabra clave que coincide es una buena medida de lo
+  // específica que es: "presupuesto" (11) dice mucho más sobre lo que quiere el
+  // cliente que "envio" (5), que aquí aparecía de pasada. Esto ataca de raíz
+  // toda una familia de choques entre palabras que veníamos parcheando uno a
+  // uno.
+  const candidatas = [];
+  FAQ_RULES.forEach((rule, orden) => {
+    let longitud = 0;
+    for (const keyword of rule.keywords) {
       const normalizedKeyword = keyword
         .toLowerCase()
         .normalize('NFD')
         .replace(/[̀-ͯ]/g, '');
-      return normalized.includes(normalizedKeyword);
-    });
-    if (hit) return typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply;
+      if (normalized.includes(normalizedKeyword)) {
+        longitud = Math.max(longitud, normalizedKeyword.length);
+      }
+    }
+    if (longitud > 0) candidatas.push({ rule, longitud, orden });
+  });
+
+  // A igualdad de longitud manda el orden de la lista, como hasta ahora.
+  candidatas.sort((a, b) => b.longitud - a.longitud || a.orden - b.orden);
+
+  // Varias reglas se descartan a sí mismas cuando miran el mensaje entero: la de
+  // agradecimientos solo contesta si el mensaje es SOLO un gracias, y las de
+  // reprografía se apartan cuando "plastificar" o "escanear" venían de un
+  // producto ("láminas de plastificar") y no de un encargo. Cuando una se
+  // descarta hay que seguir con la siguiente mejor, no rendirse: en el mensaje
+  // del colegio, "muchas gracias" (14) ganaba a "presupuesto" (11), se apartaba
+  // por no ser solo un agradecimiento, y el cliente se quedaba sin respuesta.
+  for (const { rule } of candidatas) {
+    const reply = typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply;
+    if (reply) return reply;
   }
   return null;
 }
@@ -106,6 +141,13 @@ const STOPWORDS_COMPARACION = new Set([
   'quiero', 'necesito', 'puedo', 'podeis', 'podéis', 'vosotros', 'ustedes', 'sido',
 ]);
 
+// Ojo: length > 1 (no > 3) — con el umbral anterior, referencias de producto
+// cortas como "HP", "301", "TN" se descartaban por "demasiado cortas", y dos
+// preguntas sobre productos totalmente distintos podían quedarse con una única
+// palabra significativa en común ("compatible") y marcarse como "la misma
+// pregunta" por pura coincidencia (comprobado en real: "tóner TN2420
+// compatible" vs "HP 301 compatible?" — sin HP/301, solo quedaba "compatible"
+// en ambas, 100% de solapamiento).
 function palabrasSignificativas(text) {
   return text
     .toLowerCase()
@@ -113,7 +155,7 @@ function palabrasSignificativas(text) {
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter((w) => w.length > 3 && !STOPWORDS_COMPARACION.has(w));
+    .filter((w) => w.length > 1 && !STOPWORDS_COMPARACION.has(w));
 }
 
 // Detecta si el cliente está insistiendo/repitiendo una pregunta que ya hizo antes
@@ -134,7 +176,7 @@ function isRepeatQuestion(text, history) {
   return false;
 }
 
-async function askClaude(userText, history = []) {
+async function askClaude(userText, history = [], productContext = null, fichaCliente = null) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
@@ -151,7 +193,7 @@ async function askClaude(userText, history = []) {
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: 300,
-        system: buildAiSystemPrompt(),
+        system: buildAiSystemPrompt(productContext, fichaCliente),
         messages: [...history, { role: 'user', content: userText }],
       }),
     });

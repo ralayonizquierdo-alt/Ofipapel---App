@@ -46,16 +46,41 @@ function findStoreInText(normalizedText) {
   return STORES.find((s) => s.keywords.some((k) => normalizedText.includes(k)));
 }
 
-const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿En qué puedo ayudarte? Puedes preguntarme por horarios, ubicación, teléfono o lo que necesites.`;
+const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿En qué puedo ayudarte? Puedes preguntarme por horarios, ubicación, teléfono o lo que necesites.\n\nWe also speak English 🇬🇧`;
 
-// Aviso de transparencia de IA (Reglamento UE 2024/1689, art. 50): el cliente
-// debe saber que habla con un sistema automático. Se manda una sola vez, al
-// primer mensaje de cada conversación nueva (ver whatsapp-webhook.js), sin
-// importar si el cliente saluda o pregunta directo — antes solo aparecía
-// dentro de GREETING, y GREETING solo se manda si el mensaje es un saludo
-// puro sin nada más detrás, así que la mayoría de conversaciones (las que
-// empiezan con una pregunta real) no lo veían nunca.
-const AI_DISCLOSURE = `🤖 Estás hablando con el asistente automático de ${BUSINESS_NAME} (respuestas generadas por IA). Si prefieres hablar con una persona del equipo, dímelo en cualquier momento.`;
+// Presentación que se manda UNA SOLA VEZ a cada cliente, en su primer mensaje
+// (ver ficha del cliente en conversation-store.js). Avisar de que el bot es
+// nuevo hace que un fallo se perdone mejor, pero decirlo y quedarse ahí resta
+// confianza: por eso va acompañado del compromiso de pasar con una persona.
+// El bot se presenta una sola vez a cada cliente, y hay DOS versiones porque no
+// es lo mismo abrir con un "hola" a secas que abrir preguntando.
+//
+// La larga invita a preguntar, que es lo que hace falta cuando el cliente aún no
+// ha dicho qué quiere. La corta se usa cuando el primer mensaje YA trae una
+// pregunta: ahí la presentación va pegada delante de la respuesta, y soltarle
+// "cuéntame qué necesitas" a quien acaba de contarlo queda incoherente y alarga
+// el mensaje sin aportar nada. Visto en real con un cliente que preguntó si
+// seguían necesitando personal para reparto: recibió la invitación a preguntar
+// justo antes de la respuesta a su pregunta.
+const PRESENTACION = `¡Hola! 👋 Soy el nuevo asistente virtual de ${BUSINESS_NAME}. Todavía estoy aprendiendo, así que puede que no acierte con todo — si no sé algo, te paso con una persona del equipo.\n\nCuéntame qué necesitas: horarios, tiendas, productos, el estado de tu pedido...\n\nWe also speak English 🇬🇧`;
+
+// El "We also speak English" se mantiene también en la corta: la mayoría de la
+// gente abre con su pregunta, así que si solo fuera en la larga casi nadie lo
+// llegaría a ver.
+const PRESENTACION_BREVE = `¡Hola! 👋 Soy el nuevo asistente virtual de ${BUSINESS_NAME}, todavía estoy aprendiendo — si no sé algo, te paso con una persona del equipo. We also speak English 🇬🇧`;
+
+// Lo único que contesta el bot cuando está pausado del todo desde el panel (el
+// interruptor de emergencia). Se manda UNA sola vez por cliente y por pausa, no
+// en cada mensaje. A propósito no dice "el bot está caído": el cliente no tiene
+// por qué enterarse de nuestros problemas, solo necesita saber que su mensaje ha
+// llegado y que le va a contestar una persona.
+const PAUSA_GLOBAL_REPLY = `¡Hola! Hemos recibido tu mensaje y en breve te responderá una persona del equipo.\n\nSi es urgente, puedes llamarnos al ${STORES[0].phone} en horario de tienda (${STORES[0].hours}).`;
+
+// Lo que se le dice al cliente cuando la web no ha contestado y hay que volver
+// a intentarlo en segundo plano. Deliberadamente corto y sin excusas técnicas:
+// al cliente no le importa si la web va lenta, solo necesita saber que su
+// mensaje ha llegado y que la respuesta viene enseguida.
+const ESPERA_REPLY = 'Un segundo, por favor — estoy consultando el catálogo y te contesto enseguida.';
 
 // Detección de saludo robusta: NO cuenta palabras totales (eso rompía con mensajes
 // tipo "Buenas tardes, ¿hacéis escaneados?", que caían justo en 6 palabras y se
@@ -63,11 +88,21 @@ const AI_DISCLOSURE = `🤖 Estás hablando con el asistente automático de ${BU
 // y mira si queda algo con contenido detrás.
 const GREETING_PHRASES = ['buenos dias', 'buenos días', 'buenas tardes', 'buenas noches', 'hola', 'buenas'];
 
+// Se quitan los saludos ENCADENADOS, no solo el primero: "Hola buenas" es de lo
+// más corriente aquí, y quitando solo "hola" quedaba "buenas", que se tomaba por
+// contenido real — el mensaje se iba a la IA para acabar contestando un saludo.
 function stripLeadingGreeting(normalizedText) {
-  const trimmed = normalizedText.trim();
-  const phrase = GREETING_PHRASES.find((p) => trimmed.startsWith(p));
-  if (!phrase) return null;
-  return trimmed.slice(phrase.length).replace(/^[\s,.!¡¿?-]+/, '').trim();
+  let resto = normalizedText.trim();
+  let encontrado = false;
+
+  for (;;) {
+    const phrase = GREETING_PHRASES.find((p) => resto.startsWith(p));
+    if (!phrase) break;
+    encontrado = true;
+    resto = resto.slice(phrase.length).replace(/^[\s,.!¡¿?-]+/, '').trim();
+  }
+
+  return encontrado ? resto : null;
 }
 
 // Saludo "puro": el cliente solo saluda, sin ninguna pregunta detrás.
@@ -81,6 +116,21 @@ function isPureGreeting(normalizedText) {
 function startsWithGreeting(rawText) {
   const normalized = rawText.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   return stripLeadingGreeting(normalized) !== null;
+}
+
+// ¿El mensaje es SOLO un saludo, o ya trae algo que responder? Decide cuál de
+// las dos presentaciones se usa. Un mensaje sin saludo ninguno ("¿hacéis
+// fotocopias?") también cuenta como que trae contenido.
+function esSoloSaludo(rawText) {
+  const normalized = (rawText || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const resto = stripLeadingGreeting(normalized);
+  if (resto === null) return false; // ni siquiera empieza saludando: es una pregunta
+  return resto.replace(/[\s,.!¡¿?-]/g, '') === '';
+}
+
+// La presentación que toca según cómo abra el cliente la conversación.
+function presentacionPara(rawText) {
+  return esSoloSaludo(rawText) ? PRESENTACION : PRESENTACION_BREVE;
 }
 
 // Mismo criterio que el saludo, pero para "gracias"/"perfecto": el mensaje ENTERO
@@ -162,7 +212,64 @@ function agenteInfoOrDecline(normalizedText) {
 
 const PEDIDOS_INFO = `Para el seguimiento de tu pedido o cualquier incidencia relacionada, lo mejor es que contactes directamente con el departamento de Pedidos: ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com.`;
 
+// Cuando preguntan por el estado de un pedido concreto, en vez de dar solo el
+// contacto (PEDIDOS_INFO) se arranca una búsqueda real en WooCommerce — este texto
+// hace de sentinela (como SELLOS_QUESTION) y a la vez es la pregunta real que se le
+// manda al cliente para empezar esa búsqueda (ver whatsapp-webhook.js).
+const PEDIDO_ESTADO_TRIGGER = 'Claro, dime el número de tu pedido (lo tienes en el email de confirmación) y te digo en qué estado está.';
+
+function isPedidoEstadoQuestion(text) {
+  return text === PEDIDO_ESTADO_TRIGGER;
+}
+
 const ADMINISTRACION_INFO = `Para temas administrativos (facturas, pagos, cuentas) contacta directamente con Administración: ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.`;
+
+// Currículums y ofertas de empleo van SIEMPRE a comercial@ofipapelsl.com. Sin
+// esta regla lo contestaba la IA por su cuenta y se inventaba los detalles
+// (mencionó un departamento de Recursos Humanos y una sección "Trabaja con
+// Nosotros" en la web, y acabó dando el email de pedidos).
+const EMPLEO_INFO = `Para enviar tu currículum o preguntar por ofertas de empleo, escribe a comercial@ofipapelsl.com — es el correo que gestiona las candidaturas. ¡Mucha suerte!`;
+
+// Los presupuestos de material escolar y de colegios/cursos NO se atienden por
+// WhatsApp (criterio del propietario): llevan una lista larga, a menudo en foto,
+// y los prepara el departamento de Pedidos. Se remite ahí en vez de escalar a
+// una persona por este canal, que es lo que se hacía con cualquier presupuesto.
+// Se ofrecen las dos vías reales, y en el orden en que de verdad se usan: lo
+// normal es traer la lista a la tienda, pero mucha gente prefiere no desplazarse
+// y que se lo demos hecho. Lo que Pedidos necesita para no tener que
+// repreguntar es siempre lo mismo: la lista, el centro y el curso.
+const PRESUPUESTO_ESCOLAR_INFO = `Los presupuestos de material escolar no los gestionamos por WhatsApp, pero tienes dos formas fáciles:
+
+📍 *En tienda*: pásate por cualquiera de nuestras tiendas con la lista del colegio y te preparamos el pedido allí mismo.
+
+📧 *Por correo*, si prefieres no desplazarte: manda la lista a pedidos@ofipapelsl.com (vale una foto), indicando el *nombre del centro* y el *curso*. Te preparamos el presupuesto y te contestamos por ahí.`;
+
+// Señales de que un presupuesto es escolar. Se comprueban con límites de palabra
+// para no engancharse dentro de otra: sin eso, "curso" saltaría con "concurso" y
+// "eso" (la etapa) con media frase en español. Por lo mismo, "eso" solo cuenta
+// escrito en mayúsculas o junto a "la/el", que es como se usa de verdad.
+const ESCOLAR_RE = new RegExp(
+  '(^|[^a-z])(' +
+    [
+      'colegio', 'colegios', 'cole', 'escolar', 'escolares', 'instituto', 'institutos',
+      'alumno', 'alumnos', 'alumna', 'alumnas', 'alumnado', 'ampa', 'guarderia',
+      'infantil', 'primaria', 'secundaria', 'bachillerato', 'preescolar',
+      'curso escolar', 'lista de material', 'listado de material', 'libros de texto',
+      'material del cole', 'material para el cole', 'vuelta al cole',
+    ].join('|') +
+    ')([^a-z]|$)',
+  'i'
+);
+
+function isPresupuestoEscolar(normalizedText) {
+  return ESCOLAR_RE.test(normalizedText);
+}
+
+// Un presupuesto escolar va a Pedidos; cualquier otro presupuesto sigue pasando
+// con una persona, como hasta ahora.
+function presupuestoReply(normalizedText) {
+  return isPresupuestoEscolar(normalizedText) ? PRESUPUESTO_ESCOLAR_INFO : agenteInfo();
+}
 
 const REPROGRAFIA_INFO = `Imprimimos todo tipo de documentos, en blanco y negro o a color, desde A4 hasta A3 (el tamaño más grande que hacemos). Hay distintos tipos de papel según lo que necesites, y el precio varía según la cantidad y el acabado — por eso, para impresiones, copias, fotocopias, encuadernados, plastificados, folletos, tarjetas de visita, sellos personalizados, talonarios, tarjetas para bodas o cualquier trabajo de imprenta (y sobre todo para precios), lo mejor es contactar directamente con el departamento de Reprografía: ${STORES[0].phone} extensión 3010, o impresion.ofipapel@gmail.com. Los sellos personalizados se piden en la tienda de Los Cristianos o desde la web (indicando el diseño en las observaciones del pedido, o por email si lleva logotipo).`;
 
@@ -224,7 +331,7 @@ function isUnverifiedConfirmation(text) {
   return FALSE_CONFIDENCE_PATTERN.test(text || '');
 }
 
-const PRODUCTO_NO_VERIFICADO_INFO = `No tengo acceso al catálogo en tiempo real, así que no puedo confirmarte eso con seguridad. Puedes buscarlo en https://ofipapel.net o consultarlo en tienda.`;
+const PRODUCTO_NO_VERIFICADO_INFO = `Sí, tengo acceso a todo el catálogo de Ofipapel. ¿Qué estás buscando exactamente? Así te confirmo si lo tenemos y a qué precio.`;
 
 // Un ítem concreto por mensaje (igual que con los envíos): si el cliente pregunta
 // por un servicio de Reprografía en concreto, se contesta solo sobre ese, no con
@@ -259,8 +366,26 @@ const REPROGRAFIA_ITEMS = [
   },
 ];
 
+// "láminas/fundas/bolsas/carteras de plastificar" es el PRODUCTO (las fundas que
+// se compran para plastificar uno mismo) — no es lo mismo que "plastificar" como
+// SERVICIO (traer un documento para que se lo plastifiquen en Reprografía). Si
+// preguntan por el producto, se deja pasar la pregunta (sin match) para que la
+// búsqueda real de WooCommerce la responda, en vez de ofrecerles por error el
+// servicio de Reprografía.
+const PLASTIFICAR_PRODUCTO_RE = /\b(lamina|laminas|funda|fundas|bolsa|bolsas|cartera|carteras)\s+(de\s+)?plastificar/;
+
+// "Escanear el código" (el QR para registrarse, un código de barras...) no tiene
+// nada que ver con el servicio de escaneado de documentos de Reprografía —
+// comprobado en real: "quiero abrir una cuenta, intento escanear su código pero
+// no funciona" recibía como respuesta que no hacemos escaneado de documentos.
+const ESCANEAR_CODIGO_RE = /\b(codigo|qr)\b/;
+
 function reprografiaReply(normalizedText) {
+  if (PLASTIFICAR_PRODUCTO_RE.test(normalizedText)) return null;
   const item = REPROGRAFIA_ITEMS.find((it) => it.keywords.some((k) => normalizedText.includes(k)));
+  if (item && item.name === 'escaneado de documentos' && ESCANEAR_CODIGO_RE.test(normalizedText)) {
+    return null;
+  }
   if (item) {
     if (item.reply) return item.reply;
     return `Sí, hacemos ${item.name}. El precio depende de la cantidad y el acabado, así que para eso o para encargarlo, contacta con Reprografía: ${REPROGRAFIA_CONTACT}.`;
@@ -274,7 +399,7 @@ const AGENDAS_INFO = `Tenemos muchísimos modelos y diseños de agendas en stock
 
 const REGALOS_INFO = `Tenemos una campaña de regalos directos según el importe de tu compra. Los regalos disponibles van cambiando cada varias semanas, así que la lista actualizada (con el importe necesario para cada uno) siempre está en la familia de productos "Z-Regalos Promocionales" de la web. Para elegir tu regalo, indícalo en las observaciones del pedido.`;
 
-const COMO_COMPRAR_INFO = `Puedes comprar en https://ofipapel.net: busca el producto por secciones, marcas o con el buscador, añádelo al carrito y ve a "Finalizar Compra" para dejar tus datos y elegir cómo pagar. Ahí mismo puedes elegir "Recogida en tienda" en vez de envío a domicilio.`;
+const COMO_COMPRAR_INFO = `Por este WhatsApp no puedo tomarte el pedido directamente (soy un asistente automático), pero puedes hacerlo tú mismo en la web: entra en https://ofipapel.net, busca el producto por secciones, marcas o con el buscador, añádelo al carrito y ve a "Finalizar Compra" para dejar tus datos y elegir cómo pagar (ahí mismo puedes elegir "Recogida en tienda" en vez de envío a domicilio). Si prefieres que te lo gestionemos nosotros, escribe a pedidos@ofipapelsl.com o llama al ${STORES[0].phone} (extensión 2) indicando qué necesitas.`;
 
 const RECOGIDA_TIENDA_INFO = `Sí, al hacer tu pedido en la web, en el paso de "Finalizar Compra" puedes elegir "Recogida en tienda" en vez de envío a domicilio — a veces resulta más cómodo y rápido pasar a por él, aunque tu pedido ya tenga el envío gratis.`;
 
@@ -282,7 +407,7 @@ const CATALOGO_DESCARGA_INFO = `En la web puedes descargar nuestros catálogos e
 
 const PAGO_INFO = `Formas de pago aceptadas: tarjeta de crédito o débito (Visa, MasterCard, 4B, Euro 6000, Maestro, American Express), transferencia bancaria, contra reembolso, o en tienda (solo para recogidas, con el pedido hecho antes por la web).`;
 
-const ENVIOS_GENERAL_INTRO = `Hacemos envíos a toda Canarias, pero no enviamos a Península ni al extranjero. Los pedidos de lunes a viernes antes de las 11:30h se gestionan ese mismo día (después, al día siguiente; los de fin de semana/festivos, el próximo día laborable).`;
+const ENVIOS_GENERAL_INTRO = `Hacemos envíos a toda Canarias, pero no enviamos a Península ni al extranjero. Los pedidos de lunes a viernes antes de las 13:00h se gestionan ese mismo día (después, al día siguiente; los de fin de semana/festivos, el próximo día laborable).`;
 
 const PENINSULA_EXTRANJERO_KEYWORDS = ['peninsula', 'península', 'espana peninsular', 'españa peninsular', 'extranjero', 'fuera de españa', 'internacional', 'otro pais', 'otro país'];
 
@@ -385,11 +510,32 @@ const FAQ_RULES = [
     reply: REGALOS_INFO,
   },
   {
-    // Colocada antes que las reglas genéricas de horario/dirección/teléfono para que
-    // "teléfono de pedidos", "extensión de pedidos", etc. no caigan en la respuesta
-    // genérica de contacto solo por contener la palabra "teléfono" o "número".
-    keywords: ['estado de mi pedido', 'estado del pedido', 'seguimiento de mi pedido', 'seguimiento del pedido', 'donde esta mi pedido', 'dónde está mi pedido', 'donde está mi pedido', 'cuando llega mi pedido', 'cuándo llega mi pedido', 'numero de pedido', 'número de pedido', 'no me ha llegado mi pedido', 'no me llego mi pedido', 'no me llegó mi pedido', 'mi pedido no ha llegado', 'incidencia con mi pedido', 'incidencia con un pedido', 'incidencia con el pedido', 'telefono de pedidos', 'teléfono de pedidos', 'telefono directo a pedidos', 'teléfono directo a pedidos', 'numero de pedidos', 'número de pedidos', 'extension de pedidos', 'extensión de pedidos', 'extension 2', 'extensión 2'],
+    // Preguntar por el teléfono/extensión de Pedidos (no por el estado de un pedido
+    // concreto) sigue dando el contacto de siempre, sin arrancar la búsqueda real.
+    keywords: ['telefono de pedidos', 'teléfono de pedidos', 'telefono directo a pedidos', 'teléfono directo a pedidos', 'numero de pedidos', 'número de pedidos', 'extension de pedidos', 'extensión de pedidos', 'extension 2', 'extensión 2'],
     reply: PEDIDOS_INFO,
+  },
+  {
+    // Colocada antes que las reglas genéricas de horario/dirección/teléfono para que
+    // estas frases no caigan en la respuesta genérica de contacto. Preguntar por el
+    // estado de un pedido concreto arranca la búsqueda real en WooCommerce (ver
+    // isPedidoEstadoQuestion en whatsapp-webhook.js) en vez de solo dar el contacto.
+    keywords: ['estado de mi pedido', 'estado del pedido', 'seguimiento de mi pedido', 'seguimiento del pedido', 'donde esta mi pedido', 'dónde está mi pedido', 'donde está mi pedido', 'cuando llega mi pedido', 'cuándo llega mi pedido', 'numero de pedido', 'número de pedido', 'no me ha llegado mi pedido', 'no me llego mi pedido', 'no me llegó mi pedido', 'mi pedido no ha llegado', 'incidencia con mi pedido', 'incidencia con un pedido', 'incidencia con el pedido'],
+    reply: PEDIDO_ESTADO_TRIGGER,
+  },
+  {
+    // Ojo con las palabras sueltas: 'trabajo' colisiona con "trabajo de
+    // imprenta" (Reprografía) y 'personal' con "sellos personalizados", así que
+    // aquí solo van frases que de verdad solo se dicen buscando empleo.
+    keywords: [
+      'curriculum', 'currículum', 'curriculo', 'currículo', 'mi cv', 'el cv', 'enviar cv', 'mandar cv',
+      'oferta de empleo', 'ofertas de empleo', 'bolsa de empleo', 'solicitud de empleo', 'buscar empleo',
+      'busco trabajo', 'buscando trabajo', 'puesto de trabajo', 'bolsa de trabajo',
+      'trabajar con vosotros', 'trabajar con ustedes', 'trabajar en ofipapel', 'trabajar para ofipapel',
+      'buscan personal', 'buscais personal', 'buscáis personal', 'necesitan personal', 'necesitais personal',
+      'necesitáis personal', 'contratando', 'estan contratando', 'están contratando', 'vacante', 'vacantes',
+    ],
+    reply: EMPLEO_INFO,
   },
   {
     keywords: ['factura', 'facturas', 'administracion', 'administración', 'departamento administrativo', 'telefono de administracion', 'teléfono de administración', 'telefono directo a administracion', 'teléfono directo a administración', 'extension de administracion', 'extensión de administración', 'extension 1', 'extensión 1'],
@@ -440,6 +586,13 @@ const FAQ_RULES = [
     reply: agenteInfoOrDecline,
   },
   {
+    // "¿Tenéis tienda física?" es una pregunta de confianza/existencia (¿sois una
+    // tienda real, no solo online?), distinta de "dirección" (que por defecto solo
+    // da la sede principal) — aquí sí tiene sentido enseñar las 3 tiendas de golpe.
+    keywords: ['tienda fisica', 'tienda física', 'tiendas fisicas', 'tiendas físicas', 'tienen tienda', 'teneis tienda', 'tenéis tienda', 'hay tienda fisica', 'hay tienda física'],
+    reply: () => `Sí, tenemos 3 tiendas físicas en Tenerife:\n${storesSummary()}`,
+  },
+  {
     // Por defecto solo se da el horario de la sede principal (no las 3 tiendas) —
     // si el cliente nombra una tienda en concreto (Aliz 1, Aliz 2...), se le da la suya.
     // Ojo: 'hora' a secas NO es keyword — coincide con "ahora" ("ahora mismo",
@@ -471,7 +624,15 @@ const FAQ_RULES = [
     // Las llamadas van casi siempre a la central (STORES[0]), así que no hace falta
     // dar el teléfono de las 3 tiendas — y si estamos fuera de horario no se invita
     // a llamar "ahora" porque no habría nadie para atender.
-    keywords: ['telefono', 'teléfono', 'llamar', 'numero', 'número'],
+    // 'numero'/'número' sueltos NO son palabra clave: los clientes los usan
+    // constantemente para referirse a la referencia de un producto ("cartucho hp
+    // número 305 en negro" — visto en real, contestaba con el teléfono de la
+    // tienda). Solo cuentan las frases que de verdad piden un teléfono.
+    keywords: [
+      'telefono', 'teléfono', 'llamar',
+      'numero de contacto', 'número de contacto', 'numero de telefono', 'número de teléfono',
+      'vuestro numero', 'vuestro número', 'su numero', 'su número', 'numero para llamar', 'número para llamar',
+    ],
     reply: (normalizedText) => {
       const found = findStoreInText(normalizedText);
       const store = found || STORES[0];
@@ -483,7 +644,8 @@ const FAQ_RULES = [
   },
   {
     keywords: [
-      'registrar', 'registro', 'cuenta de cliente', 'abrir cuenta', 'crear cuenta', 'darme de alta',
+      'registrar', 'registro', 'cuenta de cliente', 'abrir cuenta', 'abrir una cuenta', 'crear cuenta',
+      'crear una cuenta', 'hacerme una cuenta', 'hacer una cuenta', 'darme de alta',
       'darse de alta', 'dar de alta', 'alta de cliente', 'alta nueva', 'nuevo cliente', 'cliente nuevo',
       'nueva cuenta', 'mi cuenta', 'como me registro', 'cómo me registro',
     ],
@@ -501,7 +663,7 @@ const FAQ_RULES = [
     reply: CATALOGO_DESCARGA_INFO,
   },
   {
-    keywords: ['como comprar', 'cómo comprar', 'como hago un pedido', 'cómo hago un pedido', 'hacer un pedido', 'comprar online', 'comprar por internet', 'comprar en la web'],
+    keywords: ['como comprar', 'cómo comprar', 'como hago un pedido', 'cómo hago un pedido', 'hacer un pedido', 'hacer el pedido', 'quiero pedir', 'quiero hacer un pedido', 'pedir por aqui', 'pedir por aquí', 'pedir por whatsapp', 'comprar online', 'comprar por internet', 'comprar en la web'],
     reply: COMO_COMPRAR_INFO,
   },
   {
@@ -509,7 +671,9 @@ const FAQ_RULES = [
     reply: PAGO_INFO,
   },
   {
-    keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'portes', 'cuando llega', 'cuándo llega', 'plazo de entrega', 'mandan a', 'mandais', 'mandáis', 'enviais', 'enviáis', 'envian a', 'envían a'],
+    // "portes" (bare) colisionaba con "transportes" (p. ej. "Transportes Noda",
+    // una empresa de transporte) — se cambia por frases específicas de gastos de envío.
+    keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'gastos de portes', 'coste de portes', 'costo de portes', 'importe de portes', 'cuanto son los portes', 'cuánto son los portes', 'cuanto cuestan los portes', 'cuánto cuestan los portes', 'cuando llega', 'cuándo llega', 'plazo de entrega', 'mandan a', 'mandais', 'mandáis', 'enviais', 'enviáis', 'envian a', 'envían a'],
     reply: enviosReply,
   },
   {
@@ -522,7 +686,21 @@ const FAQ_RULES = [
       'quiero un presupuesto', 'hacer un presupuesto',
       'quote', 'a quote', 'price quote', 'get a quote', 'request a quote', 'need a quote',
     ],
-    reply: agenteInfo,
+    reply: presupuestoReply,
+  },
+  {
+    // La petición de la lista del colegio muchas veces ni siquiera lleva la
+    // palabra "presupuesto" ("necesito el material del cole de mi hija"), así
+    // que estas frases entran por sí solas. Ojo: NO vale con "material escolar"
+    // a secas, que es una pregunta normal de catálogo ("¿tenéis material
+    // escolar?") y ésa sí la contesta el bot.
+    keywords: [
+      'lista de material', 'listado de material', 'lista del material', 'listado del material',
+      'lista de libros', 'listado de libros', 'libros de texto',
+      'material del colegio', 'material para el colegio', 'material del cole',
+      'material para el cole', 'material del curso', 'material para el curso',
+    ],
+    reply: PRESUPUESTO_ESCOLAR_INFO,
   },
   {
     // Igual que el saludo: "gracias"/"perfecto" aparecen también al final de mensajes
@@ -546,17 +724,46 @@ const FAQ_RULES = [
   },
 ];
 
-const CATALOGO_INFO = `Además de papelería, vendemos: accesorios de telefonía, accesorios de informática, ordenadores, artículos para el hogar, electrodomésticos, mobiliario de oficina, y uno de los mayores stocks de Canarias en consumibles para todo tipo de impresoras (tóner, tinta, etc.), además de impresoras y multifunción láser e inkjet, entre muchos otros artículos. También ofrecemos leasing de impresoras.`;
+const CATALOGO_INFO = `Además de papelería, vendemos: accesorios de telefonía, accesorios de informática, ordenadores, artículos para el hogar, electrodomésticos, y uno de los mayores stocks de Canarias en consumibles para todo tipo de impresoras (tóner, tinta, etc.), además de impresoras y multifunción láser e inkjet, entre muchos otros artículos. También ofrecemos leasing de impresoras. Tenemos además amplia exposición de mobiliario de oficina, con gran variedad de sillas gaming y sillas ergonómicas de oficina.`;
 
 // Prompt de sistema usado como respaldo cuando ninguna regla de FAQ coincide. Es una
 // función (no una cadena fija) porque necesita el estado de horario comercial EN EL
 // MOMENTO de cada mensaje: Claude no tiene ni idea de qué hora es "ahora mismo" si no
 // se lo decimos explícitamente en el prompt en cada llamada.
-function buildAiSystemPrompt() {
+// Lo que ya sabemos de quien escribe, para que un cliente habitual no sea
+// tratado como si fuera la primera vez. Son datos duros (nombre salido de un
+// pedido verificado, pedidos que él mismo consultó, productos que escribió y
+// notas del equipo), nunca conclusiones de la IA — ver conversation-store.js.
+function fichaClienteBlock(ficha) {
+  if (!ficha) return '';
+  const lineas = [];
+  if (ficha.empresa) lineas.push(`- Empresa: ${ficha.empresa}`);
+  if (ficha.nombre) lineas.push(`- Nombre: ${ficha.nombre}`);
+  if (Array.isArray(ficha.pedidos) && ficha.pedidos.length) {
+    lineas.push(`- Pedidos que ya ha consultado por aquí: ${ficha.pedidos.map((p) => `#${p.id}`).join(', ')}`);
+  }
+  if (Array.isArray(ficha.productos) && ficha.productos.length) {
+    lineas.push(`- Ha preguntado antes por: ${ficha.productos.join('; ')}`);
+  }
+  if (ficha.notas) lineas.push(`- Notas del equipo sobre este cliente: ${ficha.notas}`);
+  if (lineas.length === 0) return '';
+
+  return `\nLo que ya sabemos de este cliente de conversaciones anteriores (datos reales de nuestro sistema, no suposiciones):\n${lineas.join('\n')}\nÚsalo con naturalidad, como lo haría alguien del equipo que ya le conoce (por ejemplo, si vuelve a preguntar por un pedido que ya consultó, no le hagas repetir el número). No se lo recites de golpe ni le des a entender que tienes una ficha suya, y no des por hecho que hoy quiere lo mismo que la última vez: pregúntaselo.\n`;
+}
+
+function buildAiSystemPrompt(productContext = null, fichaCliente = null) {
   const abierto = isWithinBusinessHours();
   const estadoActual = abierto
     ? `ABIERTO ahora mismo (horario de la sede principal: ${STORES[0].hours}).`
     : `CERRADO ahora mismo (horario de la sede principal: ${STORES[0].hours}) — no hay nadie disponible para atender llamadas ni pasar con un agente hasta que abramos.`;
+
+  const productContextBlock = productContext
+    ? `\nResultado de búsqueda EN TIEMPO REAL en nuestro catálogo (ofipapel.net) para el mensaje que te acaban de escribir — son datos reales, tómalos como ciertos:\n${productContext}\n\nCómo usar estos resultados:\n- Si no tienen nada que ver con lo que pregunta el cliente, ignóralos por completo — no los menciones y sigue las instrucciones de "no sé la respuesta" para ese producto.\n- CRÍTICO con las referencias (83A, 305, 603XL, TN2420, CF283A...): un resultado solo vale si su nombre lleva EXACTAMENTE la referencia que ha pedido el cliente. Si pide el 83 y lo que aparece es un 87-A, un 219-X o un 216-A, NO es el suyo: no se lo ofrezcas como si lo fuera ni digas que "es ese" — son piezas distintas que no le servirán, y hacérselo comprar es un problema real para él y para la tienda. En ese caso trátalo como que no lo has encontrado y sigue las instrucciones de "no sé la respuesta". Un número parecido NUNCA es equivalente.\n- Si la pregunta es GENÉRICA (un tipo de artículo, no un modelo/marca concreto — p. ej. "grapadoras", "cartuchos de tinta") y hay CATEGORÍAS que coinciden con varios tipos distintos, pregunta por el tipo citando los nombres reales de esas categorías (p. ej. "¿qué tipo buscas: de oficina, eléctricas, de tenaza...?"). En cuanto el cliente concrete el tipo, dale el enlace directo a esa categoría (no hace falta que sea un producto suelto) — así puede ver todas las opciones de ese tipo en la web.\n- Si la pregunta ya es sobre un producto o modelo concreto y hay un solo resultado de PRODUCTOS que responde claramente, confírmalo con su nombre y precio, e incluye el enlace directo de ese producto. Si ese resultado está SIN STOCK, dilo con claridad y, en vez de tratarlo como si se pudiera pedir con normalidad, indica que para consultar disponibilidad o reposición contacte con Compras: compras@ofipapelsl.com o ${STORES[0].phone}.\n- Si hay varios PRODUCTOS que podrían valer y lo que cambia entre ellos es un dato concreto (tamaño, color, marca, presentación...), NO los listes todos ni des ningún enlace todavía: mira qué varía entre los nombres y pregúntaselo directamente al cliente citando las opciones reales que has visto (por ejemplo: "¿qué tamaño necesitas: A4, A3 o 50x65?"), para poder confirmarle el producto exacto en cuanto responda.\n- Si un producto viene marcado como CON DESCUENTO POR CANTIDAD, no des su precio como si fuera un precio único y cerrado: di que ese es el precio por unidad y que baja según la cantidad que se lleve, e invítale a ver el escalado completo en la ficha del producto (el enlace). Nunca te inventes los tramos ni los precios con descuento — no los tienes, solo están en la ficha.\n- IMPORTANTE con TODOS los precios del catálogo: son SIN IGIC (así se muestran en la web, "Igic No Incluido"). Siempre que des un precio, acláralo en la misma frase (por ejemplo: "4,66€ + IGIC"). Nunca calcules tú el precio con IGIC aplicado.\n`
+    // Sin resultados hay que decírselo igual, porque si no la IA se inventa el
+    // motivo. Comprobado en real: preguntaron por soportes de móvil para coche
+    // (tenemos seis) y contestó "no tengo acceso al catálogo en tiempo real",
+    // que además de falso deja al cliente pensando que el bot no sirve.
+    : `\nSe ha buscado EN TIEMPO REAL en nuestro catálogo (ofipapel.net) lo que te acaban de escribir, y NO ha aparecido ningún producto que encaje.\n\nCómo contarlo:\n- Puedes decir que no lo encuentras, pero NUNCA digas que no tienes acceso al catálogo, que no puedes consultar el stock o que no ves los precios: sí has buscado. Decir lo contrario es mentirle al cliente y le hace pensar que no sirves para nada.\n- Que no aparezca no significa que no lo tengamos: puede estar con otro nombre, ser una marca que no está en la web o venderse solo en tienda. Dilo así, sin dar por hecho que no existe, y ofrécele preguntar al equipo (${STORES[0].phone} o pedidos@ofipapelsl.com) o pasarse por la tienda.\n- No te inventes productos, precios ni disponibilidad, y no afirmes que "es probable que lo tengamos".\n`;
 
   return `Eres el asistente de atención al cliente por WhatsApp de ${BUSINESS_NAME}, una tienda en Tenerife de papelería, informática, tecnología y equipamiento de oficina y hogar (no solo papelería).
 
@@ -566,6 +773,7 @@ Información del negocio:
 ${storesSummary()}
 
 Qué vendemos: ${CATALOGO_INFO}
+${fichaClienteBlock(fichaCliente)}${productContextBlock}
 
 Qué NO vendemos (dilo con seguridad, no hace falta escalar): sellos de correos/postales (eso lo gestiona Correos, no nosotros — sí hacemos sellos personalizados de goma, que es distinto) ni papel sellado/timbrado para trámites oficiales.
 
@@ -591,12 +799,14 @@ Devoluciones: ${DEVOLUCIONES_INFO}
 
 Contacto general: teléfono ${STORES[0].phone}, email pedidos@ofipapelsl.com (consultas generales, pedidos y devoluciones).
 
+Empleo: ${EMPLEO_INFO} No existe ningún otro canal para esto — no menciones departamentos de recursos humanos, formularios ni secciones de la web de las que no tengas constancia aquí.
+
 Instrucciones:
 - Responde SIEMPRE en el idioma en que esté escrito el mensaje del cliente, desde el primer mensaje, aunque sea muy corto (si escribe "Hi", respondes en inglés; si escribe "Hola", en español; etc.). No respondas en español por defecto ni digas cosas como "respondo en español" — cambia de idioma directamente, sin comentarlo. Hazlo de forma breve, cercana y natural (máximo 3-4 frases), como lo haría una persona real del equipo escribiendo un WhatsApp, no como un robot leyendo una lista de datos.
 - No hace falta que saludes tú al principio de tu respuesta (ni "Hola", ni "¡Buenas!", ni nada parecido): si el cliente ha saludado, el sistema ya antepone el saludo automáticamente antes de tu respuesta. Ve directa/o a responder la pregunta.
 - Contesta solo a lo que el cliente ha preguntado. Si la información que tienes cubre varios casos (por ejemplo, varias islas de envío) y el cliente solo pregunta por uno, dale únicamente el dato de ese caso concreto; no le sueltes toda la lista si no la ha pedido.
 - Nunca invites a llamar "ahora mismo" si estamos fuera del horario comercial (${STORES[0].hours}) — no habría nadie para atender la llamada. Fuera de horario, en vez de sugerir llamar, deja claro que la atención personal (por teléfono o con un agente) será en cuanto abramos y retomemos la actividad, no al instante.
-- IMPORTANTE — NO TIENES ACCESO A NUESTRO CATÁLOGO NI AL STOCK REAL (todavía no hay conexión con el sistema de inventario). Si te preguntan si vendemos un PRODUCTO CONCRETO (una marca, modelo o artículo específico — no una categoría general de las listadas en "Qué vendemos"), NUNCA confirmes ni descartes que lo tenemos, aunque te suene plausible para una papelería/tienda de informática y te parezca una respuesta razonable ("seguramente sí lo vendemos"). No lo sabes de verdad, así que ese caso ES un "no sé la respuesta" — pasa directamente al punto siguiente.
+- IMPORTANTE — salvo que arriba tengas un "Resultado de búsqueda EN TIEMPO REAL" que responda exactamente a lo que preguntan, NO TIENES ACCESO A NUESTRO CATÁLOGO NI AL STOCK REAL. Si te preguntan si vendemos un PRODUCTO CONCRETO (una marca, modelo o artículo específico — no una categoría general de las listadas en "Qué vendemos") y no tienes ese resultado real, NUNCA confirmes ni descartes que lo tenemos, aunque te suene plausible para una papelería/tienda de informática y te parezca una respuesta razonable ("seguramente sí lo vendemos"). No lo sabes de verdad, así que ese caso ES un "no sé la respuesta" — pasa directamente al punto siguiente.
 - IMPORTANTE — si no sabes la respuesta a algo (un producto concreto, precio o servicio del que no tienes datos fiables, o cualquier pregunta que no puedas responder con seguridad), NO improvises una respuesta ni inventes que vas a "consultarlo" o "pasarlo al equipo". Da la información breve que sí tengas (por ejemplo, el departamento o contacto más adecuado si lo hay, o dónde puede comprobarlo el propio cliente, como buscar en https://ofipapel.net), y SIEMPRE añade al final, en una frase aparte, EXACTAMENTE este texto, tal cual, sin cambiar ni una palabra: "${NO_SE_LA_RESPUESTA}" — aunque ya hayas dado un contacto o departamento, esa frase exacta tiene que aparecer siempre que no tengas la certeza de la respuesta. El sistema la detecta y le ofrece al cliente, en un segundo mensaje aparte, hablar con un agente de verdad (con botones Sí/No reales) — así que no hace falta que tú ofrezcas nada de eso con tus propias palabras, solo incluye la frase exacta.
 - Si preguntan algo concreto sobre un pedido ya hecho (en qué estado está, cuándo llega exactamente, una incidencia, un número de pedido) y no tienes esa información, no inventes nada: indícales que contacten con Pedidos al ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
 - Si es un tema administrativo (facturas, pagos, cuentas) que no puedas resolver, indícales que contacten con Administración al ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
@@ -609,7 +819,12 @@ module.exports = {
   BUSINESS_NAME,
   STORES,
   GREETING,
-  AI_DISCLOSURE,
+  PRESENTACION,
+  PRESENTACION_BREVE,
+  presentacionPara,
+  esSoloSaludo,
+  PAUSA_GLOBAL_REPLY,
+  ESPERA_REPLY,
   AGENTE_INFO_ABIERTO,
   AGENTE_INFO_CERRADO,
   agenteInfo,
@@ -624,6 +839,11 @@ module.exports = {
   isNoSeLaRespuesta,
   isUnverifiedConfirmation,
   PRODUCTO_NO_VERIFICADO_INFO,
+  PEDIDOS_INFO,
+  PEDIDO_ESTADO_TRIGGER,
+  isPedidoEstadoQuestion,
+  PRESUPUESTO_ESCOLAR_INFO,
+  isPresupuestoEscolar,
   FAQ_RULES,
   buildAiSystemPrompt,
 };

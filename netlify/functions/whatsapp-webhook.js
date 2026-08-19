@@ -19,11 +19,26 @@
 //   ANTHROPIC_API_KEY       api key de Claude, para responder cuando no hay una regla de FAQ
 //   RESEND_API_KEY / OWNER_EMAIL  para que llegue el aviso por email cuando el cliente
 //     confirma que quiere hablar con una persona (sin esto, el aviso se omite en silencio)
+//   OWNER_ALERT_TEMPLATE    (opcional) nombre de la plantilla aprobada en WhatsApp
+//     Manager con la que avisarte de un escalado. Sin ella el aviso va en texto libre,
+//     que SOLO llega si le has escrito al bot en las últimas 24h (ventana de
+//     mensajería de Meta) — ver notifyOwnerByWhatsapp y WHATSAPP_SETUP.md
+//   OWNER_ALERT_TEMPLATE_LANG  (opcional) idioma de esa plantilla; por defecto "es"
+//   BOT_PAUSADO             (opcional) ponla a "1" para que el bot deje de responder a
+//     TODOS los clientes. Es la parada de emergencia de respaldo: la normal es el botón
+//     "Parar el bot" del panel de conversaciones, que no requiere desplegar. Ésta se usa
+//     cuando el panel no está disponible (ver getPausaGlobalEfectiva)
 //   OWNER_WHATSAPP_NUMBER   (opcional) tu número personal, en formato internacional sin
 //     "+" (ej. 34600000000), para recibir un WhatsApp de aviso cuando se confirma un
 //     escalado — mismo canal, así te suena la notificación de siempre
 //   UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN  (opcional) para archivar las
 //     conversaciones y verlas en el panel (netlify/functions/conversations.js)
+//   WOOCOMMERCE_CONSUMER_KEY / WOOCOMMERCE_CONSUMER_SECRET  (opcional) claves de la
+//     API REST de WooCommerce (ofipapel.net), para consultar productos/precios/stock
+//     reales antes de responder, y para el flujo de "estado de mi pedido" (número de
+//     pedido + verificación por teléfono o nombre). Sin ellas, el bot nunca confirma
+//     ni descarta productos concretos y "estado de mi pedido" da solo el contacto de
+//     siempre (ver woocommerce-client.js)
 
 const crypto = require('crypto');
 const {
@@ -47,23 +62,34 @@ const {
   isWithinBusinessHours,
   STORES,
   GREETING,
-  AI_DISCLOSURE,
+  PRESENTACION,
+  presentacionPara,
+  PAUSA_GLOBAL_REPLY,
+  ESPERA_REPLY,
   startsWithGreeting,
   isNoSeLaRespuesta,
   NO_SE_LA_RESPUESTA,
   isUnverifiedConfirmation,
   PRODUCTO_NO_VERIFICADO_INFO,
+  PEDIDOS_INFO,
+  PEDIDO_ESTADO_TRIGGER,
+  isPedidoEstadoQuestion,
 } = require('./whatsapp-agent-config');
-const { sendWhatsappMessage } = require('./whatsapp-send');
+const woocommerce = require('./woocommerce-client');
+const { sendWhatsappMessage, sendWhatsappTemplate } = require('./whatsapp-send');
+const { construirContextoCatalogo } = require('./whatsapp-catalogo');
+const { firmaDeReintento } = require('./whatsapp-firma');
+const conversationStore = require('./conversation-store');
 
 const GRAPH_API_VERSION = 'v20.0';
 const DEDUP_TTL_MS = 5 * 60 * 1000;
 
-// Deduplicación best-effort de mensajes reenviados por Meta (sobrevive solo mientras
-// la función esté "caliente"; no requiere base de datos para el caso de uso actual).
+// Respaldo en memoria de la deduplicación: solo cubre reintentos que caigan en
+// ESTA misma instancia de la función. Se mantiene porque es instantáneo y porque
+// cubre el caso de que no haya almacén compartido configurado.
 const processedMessageIds = new Map();
 
-function alreadyProcessed(messageId) {
+function yaVistoEnMemoria(messageId) {
   const now = Date.now();
   for (const [id, ts] of processedMessageIds) {
     if (now - ts > DEDUP_TTL_MS) processedMessageIds.delete(id);
@@ -73,15 +99,25 @@ function alreadyProcessed(messageId) {
   return false;
 }
 
+// Meta reenvía el mensaje si la función tarda en contestar, y ese reenvío puede
+// caer en OTRA instancia de la función, que no comparte memoria con la primera
+// — el cliente recibía entonces dos respuestas distintas al mismo mensaje
+// (visto en real). Por eso, además del respaldo en memoria, se reserva el id en
+// el almacén compartido, que sí es común a todas las instancias.
+async function alreadyProcessed(messageId) {
+  if (yaVistoEnMemoria(messageId)) return true;
+  const esNuevo = await conversationStore.claimMessage(messageId);
+  return !esNuevo;
+}
+
 function verifySignature(event) {
   const secret = process.env.WHATSAPP_APP_SECRET;
   if (!secret) {
     // Sin la variable configurada, CUALQUIERA que conozca esta URL puede
     // simular mensajes de cliente reales (gastando la cuota de Claude,
     // disparando avisos falsos al propietario, etc.) — no hay ninguna otra
-    // verificación en este webhook. Configurar WHATSAPP_APP_SECRET en
-    // Netlify (Meta for Developers > tu app > Configuración básica > App
-    // Secret) es la única forma de cerrar esto sin tocar código.
+    // verificación en este webhook. Hoy sí está configurada en Netlify; este
+    // aviso es la red por si alguna vez se borra.
     console.warn('whatsapp-webhook: WHATSAPP_APP_SECRET no configurada — la petición NO se verifica, cualquiera puede simular un mensaje de WhatsApp real.');
     return true;
   }
@@ -96,6 +132,16 @@ function verifySignature(event) {
   const b = Buffer.from(expected);
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
+}
+
+// A veces la IA saluda por su cuenta pese a la instrucción de no hacerlo ("no hace
+// falta que saludes tú al principio..."). Como el sistema YA antepone "¡Hola! "
+// cuando corresponde (variable greeting), si además la IA saluda queda duplicado
+// ("¡Hola! ¡Hola! Claro..." — visto en real). Se quita el saludo propio de la IA
+// del texto antes de anteponer el nuestro, para que nunca aparezcan los dos.
+const AI_GREETING_RE = /^\s*(¡\s*hola\s*!?|hola\s*!?|buenos\s+d[ií]as|buenas\s+tardes|buenas\s+noches|buenas)[\s,.!¡¿?-]*/i;
+function stripAiOwnGreeting(text) {
+  return text.replace(AI_GREETING_RE, '');
 }
 
 // Fuera de horario, la propia pregunta de "¿quieres que te ponga en contacto...?" ya
@@ -142,12 +188,38 @@ async function sendEscalateButtons(to, greetingPrefix = '') {
 
 // Aviso por WhatsApp al número personal del dueño, solo cuando se confirma un
 // escalado (no en cada mensaje, para no saturar). Requiere OWNER_WHATSAPP_NUMBER
-// en Netlify; si no está configurada, se omite en silencio. Ojo: si hace más de
-// 24h que no le escribes tú al bot, Meta puede rechazar este envío (ventana de
-// mensajería) — en ese caso solo falla el aviso, no la conversación con el cliente.
+// en Netlify; si no está configurada, se omite en silencio.
+//
+// OJO CON LA VENTANA DE 24 HORAS, que es lo que decide cómo se manda esto: Meta
+// solo deja escribir texto libre a quien te ha escrito a ti en las últimas 24
+// horas. Para WhatsApp, el dueño es un cliente más del número del bot — así que
+// si hace más de un día que no le escribe al bot, un aviso en texto libre NO le
+// llega, y encima falla en silencio. Y un aviso de escalado salta precisamente
+// cuando no está escribiéndole al bot, o sea: casi siempre fuera de la ventana.
+//
+// La forma correcta de escribir fuera de la ventana es una PLANTILLA aprobada
+// por Meta. Por eso, si OWNER_ALERT_TEMPLATE está configurada se usa esa vía,
+// que funciona a cualquier hora. El texto libre queda solo como respaldo para
+// cuando no hay plantilla configurada todavía, o cuando el envío por plantilla
+// falla por lo que sea.
+//
+// En cualquier caso, el aviso por EMAIL (notifyOwner) va aparte y no depende de
+// nada de esto: es el que hay que considerar fiable.
 async function notifyOwnerByWhatsapp(customerPhone, lastCustomerMessage) {
   const ownerNumber = process.env.OWNER_WHATSAPP_NUMBER;
   if (!ownerNumber) return;
+
+  const plantilla = process.env.OWNER_ALERT_TEMPLATE;
+  if (plantilla) {
+    const enviado = await sendWhatsappTemplate(
+      ownerNumber,
+      plantilla,
+      [customerPhone, lastCustomerMessage],
+      process.env.OWNER_ALERT_TEMPLATE_LANG || 'es'
+    );
+    if (enviado.ok) return;
+    console.error('La plantilla de aviso falló; se intenta en texto libre (solo llegará si la ventana de 24h está abierta).');
+  }
 
   const panelUrl = `${process.env.URL || ''}/.netlify/functions/conversations?phone=${encodeURIComponent(customerPhone)}`;
   const alert = `🔔 *Ofipapel Bot* — un cliente quiere hablar con una persona\n\n📱 ${customerPhone}\n💬 Último mensaje: "${lastCustomerMessage}"\n\n👉 Ver conversación: ${panelUrl}`;
@@ -225,7 +297,170 @@ async function handleSellosReply(message) {
   await appendToHistory(message.from, `[El cliente eligió ${buttonId === 'sellos_web' ? 'web' : 'tienda'} para el sello]`, reply);
 }
 
+// Antes de ofrecer un agente por "pregunta repetida" (no por petición explícita),
+// se le da al cliente una oportunidad de reformular — igual que con el flujo de
+// pedidos, el paso se deduce mirando si la última respuesta del bot fue esta.
+const ACLARACION_MARCA = '[Se preguntó si no se entendió bien]';
+const ACLARACION_REPLY = 'Perdona, creo que no te he entendido bien. ¿Puedes explicarme de otra forma qué necesitas?';
+
+function yaSePidioAclaracion(history) {
+  const ultimoBot = [...history].reverse().find((m) => m.role === 'assistant');
+  return Boolean(ultimoBot && ultimoBot.content.startsWith(ACLARACION_MARCA));
+}
+
+// Flujo de "estado de mi pedido": el paso en el que estamos se deduce del propio
+// historial (sin Redis aparte) mirando si la última respuesta del bot llevaba un
+// marcador al principio. Si el cliente se va por otro lado, el flujo se abandona
+// solo (la última respuesta del bot ya no será la del marcador).
+const PEDIDO_MARCA_ESPERANDO_NUMERO = '[PEDIDO:ESPERANDO_NUMERO]';
+const PEDIDO_MARCA_ESPERANDO_NOMBRE_RE = /^\[PEDIDO:ESPERANDO_NOMBRE:(\d+)\]/;
+
+function marcaEsperandoNombre(orderId) {
+  return `[PEDIDO:ESPERANDO_NOMBRE:${orderId}]`;
+}
+
+function detectarPasoPedido(history) {
+  const ultimoBot = [...history].reverse().find((m) => m.role === 'assistant');
+  if (!ultimoBot) return null;
+  if (ultimoBot.content.startsWith(PEDIDO_MARCA_ESPERANDO_NUMERO)) return { paso: 'numero' };
+  const m = PEDIDO_MARCA_ESPERANDO_NOMBRE_RE.exec(ultimoBot.content);
+  if (m) return { paso: 'nombre', orderId: m[1] };
+  return null;
+}
+
+// Continúa una búsqueda de pedido ya empezada. Devuelve true si se ha encargado del
+// mensaje (no hay que seguir con el flujo normal de FAQ/escalado/IA para este turno).
+async function continuarBusquedaPedido(from, text, paso, greeting) {
+  if (paso.paso === 'numero') {
+    const match = text.match(/\d{3,}/);
+    if (!match) return false; // no parece un número de pedido: se abandona el flujo, turno normal
+
+    const orderId = match[0];
+    const order = await woocommerce.getOrder(orderId);
+
+    if (!order || woocommerce.isSpamOrder(order)) {
+      const prefix = `${greeting}No encuentro ningún pedido con el número ${orderId}. `;
+      await sendEscalateButtons(from, prefix);
+      await appendToHistory(from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
+      return true;
+    }
+
+    if (woocommerce.phoneMatches(order, from)) {
+      // Pedido ya verificado como suyo: su nombre/empresa salen de WooCommerce,
+      // así que se pueden guardar en su ficha como dato fiable.
+      await conversationStore.registrarPedidoVerificado(from, order);
+      const reply = greeting + woocommerce.formatOrderStatus(order);
+      await appendToHistory(from, text, reply);
+      await sendWhatsappMessage(from, reply);
+      return true;
+    }
+
+    // El teléfono del pedido no coincide con el número que escribe (p. ej. compró
+    // con el teléfono de la empresa y escribe desde el personal) — segunda comprobación.
+    const reply = `${greeting}Para confirmar que el pedido es tuyo, dime el nombre comercial o el nombre y apellidos con los que se hizo.`;
+    await appendToHistory(from, text, `${marcaEsperandoNombre(order.id)}${reply}`);
+    await sendWhatsappMessage(from, reply);
+    return true;
+  }
+
+  if (paso.paso === 'nombre') {
+    const order = await woocommerce.getOrder(paso.orderId);
+    if (order && !woocommerce.isSpamOrder(order) && woocommerce.nombreCoincide(text, order)) {
+      await conversationStore.registrarPedidoVerificado(from, order);
+      const reply = greeting + woocommerce.formatOrderStatus(order);
+      await appendToHistory(from, text, reply);
+      await sendWhatsappMessage(from, reply);
+      return true;
+    }
+
+    const prefix = `${greeting}No he podido confirmar que el pedido sea tuyo. `;
+    await sendEscalateButtons(from, prefix);
+    await appendToHistory(from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
+    return true;
+  }
+
+  return false;
+}
+
+// Primera vez que preguntan por el estado de un pedido concreto. Si WooCommerce no
+// está configurado, cae al comportamiento de siempre (solo dar el contacto).
+async function iniciarBusquedaPedido(from, text, greeting) {
+  if (!woocommerce.isConfigured()) {
+    const reply = greeting + PEDIDOS_INFO;
+    await appendToHistory(from, text, reply);
+    await sendWhatsappMessage(from, reply);
+    return;
+  }
+
+  const reply = greeting + PEDIDO_ESTADO_TRIGGER;
+  await appendToHistory(from, text, `${PEDIDO_MARCA_ESPERANDO_NUMERO}${reply}`);
+  await sendWhatsappMessage(from, reply);
+}
+
+// Lanza el segundo intento en segundo plano y devuelve si se pudo lanzar. La
+// llamada NO se espera a que termine: las funciones -background de Netlify
+// responden 202 al momento y siguen trabajando por su cuenta, que es justo lo
+// que necesitamos para no agotar el tiempo del webhook.
+async function pedirSegundoIntento(from, text) {
+  const base = process.env.URL;
+  const firma = firmaDeReintento(from, text);
+  if (!base || !firma) {
+    console.error('No se puede delegar el reintento: falta URL del sitio o secreto para firmarlo.');
+    return false;
+  }
+
+  try {
+    const resp = await fetch(`${base}/.netlify/functions/whatsapp-reintento-background`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, text, firma }),
+      signal: AbortSignal.timeout(2000),
+    });
+    // Netlify contesta 202 (aceptado) a las funciones en segundo plano.
+    if (resp.status !== 202 && !resp.ok) {
+      console.error('El reintento en segundo plano no aceptó la petición:', resp.status);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Fallo lanzando el reintento en segundo plano:', err);
+    return false;
+  }
+}
+
+// La parada de emergencia puede venir de dos sitios, y se miran los dos:
+//
+//  1. El interruptor del panel de conversaciones (guardado en Redis). Es el
+//     rápido: dos clics desde el móvil, sin entrar en Netlify.
+//  2. La variable de entorno BOT_PAUSADO=1 en Netlify. Es la red de seguridad:
+//     si Redis estuviera caído, el interruptor del panel no se podría leer y el
+//     bot se pondría a contestar solo otra vez — que es exactamente lo que no
+//     debe pasar en una parada de emergencia. Requiere volver a desplegar, así
+//     que es la lenta, pero no depende de nada más.
+async function getPausaGlobalEfectiva() {
+  if (process.env.BOT_PAUSADO === '1') return { desde: 1, motivo: 'BOT_PAUSADO=1 en Netlify' };
+  return conversationStore.getPausaGlobal();
+}
+
 async function handleIncomingMessage(message) {
+  // Bot parado del todo: no contesta a NADIE hasta que se reanude a mano. Los
+  // mensajes se siguen archivando para que aparezcan en el panel y se puedan
+  // contestar desde ahí — pararlo no es perder mensajes.
+  const pausaGlobal = await getPausaGlobalEfectiva();
+  if (pausaGlobal) {
+    const texto = message.type === 'text' ? message.text?.body || '' : `[${message.type}]`;
+    await appendCustomerMessage(message.from, texto);
+
+    // Un único aviso por cliente y por pausa: si manda cinco mensajes seguidos
+    // no recibe cinco veces lo mismo, pero si dentro de un mes se vuelve a
+    // parar el bot, sí se le vuelve a avisar (ver marcarAvisoPausa).
+    if ((await conversationStore.getAvisoPausa(message.from)) !== pausaGlobal.desde) {
+      await sendWhatsappMessage(message.from, PAUSA_GLOBAL_REPLY);
+      await conversationStore.marcarAvisoPausa(message.from, pausaGlobal.desde);
+    }
+    return;
+  }
+
   if (message.type === 'interactive' && message.interactive?.type === 'button_reply') {
     const buttonId = message.interactive.button_reply.id;
     if (buttonId === 'sellos_web' || buttonId === 'sellos_tienda') {
@@ -254,33 +489,78 @@ async function handleIncomingMessage(message) {
   }
 
   const history = await getHistory(message.from);
-
-  // Conversación nueva (nunca ha habido ningún mensaje archivado con este
-  // número): manda el aviso de transparencia de IA como mensaje aparte,
-  // antes de la respuesta que sea. Se manda una sola vez por conversación —
-  // en cuanto haya historial, esta condición ya no se cumple.
-  if (history.length === 0) {
-    await sendWhatsappMessage(message.from, AI_DISCLOSURE);
-  }
-
   const faqReply = matchFaqRule(text);
   const isExplicitRequest = isAgenteInfoMessage(faqReply || ''); // "hablar con alguien", queja, presupuesto...
   const isRepeated = !faqReply && isRepeatQuestion(text, history);
   const wantsEscalation = isExplicitRequest || isRepeated;
 
+  // El bot se presenta UNA sola vez a cada cliente, en su primer mensaje. Va como
+  // prefijo (no como mensaje suelto) para que no reciba dos mensajes seguidos, y
+  // aprovechando que ese prefijo ya se antepone a cualquier respuesta — así vale
+  // igual si el primer mensaje es un saludo, una pregunta o un número de pedido.
+  //
+  // Hay dos versiones (ver presentacionPara): la larga invita a preguntar, y solo
+  // tiene sentido con un "hola" a secas; si el primer mensaje ya trae la pregunta,
+  // se usa la corta, porque decirle "cuéntame qué necesitas" a quien acaba de
+  // contarlo queda raro y alarga el mensaje para nada.
+  const fichaCliente = await conversationStore.getFichaCliente(message.from);
+  const debePresentarse = !fichaCliente?.presentado;
+  if (debePresentarse) await conversationStore.marcarPresentado(message.from);
+
   // Si el cliente saluda junto con su pregunta (p. ej. "Buenas tardes, ¿hacéis
   // escaneados?"), se antepone el saludo a la respuesta que sea — así no hace falta
   // que ninguna regla individual ni la IA se acuerden de saludar por su cuenta.
-  const greeting = startsWithGreeting(text) ? '¡Hola! ' : '';
+  const greeting = debePresentarse
+    ? `${presentacionPara(text)}\n\n`
+    : startsWithGreeting(text)
+      ? '¡Hola! '
+      : '';
 
-  if (wantsEscalation) {
-    // Si el cliente pidió expresamente hablar con alguien (o es una queja/
-    // presupuesto), no hace falta explicar el motivo. Pero si lo que ha pasado es
-    // que ha insistido con una pregunta parecida sin que el bot se la resolviera,
-    // se le dice igual que en el caso de "no sé la respuesta" — mismo motivo real.
-    const prefix = isRepeated ? `${greeting}Veo que no he conseguido resolver tu duda. ` : greeting;
-    await sendEscalateButtons(message.from, prefix);
-    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
+  // Si la última respuesta del bot fue "dime el número de tu pedido" o "confírmame
+  // el nombre", este mensaje es la continuación de esa búsqueda concreta — se
+  // gestiona aparte de FAQ/escalado/IA (ver detectarPasoPedido más abajo).
+  const pasoPedido = detectarPasoPedido(history);
+  if (pasoPedido) {
+    const gestionado = await continuarBusquedaPedido(message.from, text, pasoPedido, greeting);
+    if (gestionado) return;
+  }
+
+  // En la práctica, los clientes casi nunca escriben la frase exacta "estado de mi
+  // pedido" — piden "info sobre un pedido" con sus propias palabras y, cuando se
+  // les pregunta (por la IA, con su propia redacción, no siempre por el flujo
+  // determinista), simplemente escriben el número suelto. Si el mensaje ES solo un
+  // número (5 a 8 dígitos, sin nada más), lo más probable con diferencia es que sea
+  // un número de pedido — se intenta la búsqueda real directamente, sin depender de
+  // haber detectado antes la frase exacta que arranca el flujo.
+  if (!pasoPedido && woocommerce.isConfigured() && /^\d{5,8}$/.test(text.trim())) {
+    const gestionado = await continuarBusquedaPedido(message.from, text, { paso: 'numero' }, greeting);
+    if (gestionado) return;
+  }
+
+  if (isExplicitRequest) {
+    // El cliente pidió expresamente hablar con alguien (o es una queja/
+    // presupuesto) — no hace falta explicar el motivo, se escala directo.
+    await sendEscalateButtons(message.from, greeting);
+    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${greeting}${escalateQuestion()}`);
+    return;
+  }
+
+  if (isRepeated) {
+    // No se salta directo a ofrecer un agente la primera vez que se detecta una
+    // pregunta parecida a una anterior — puede que el bot simplemente no haya
+    // entendido bien la forma de preguntar. Se da una oportunidad de reformular
+    // primero; solo si INSISTE otra vez después de esa pregunta (ya serían 3
+    // intentos seguidos sin resolver) se ofrece la escalada real.
+    if (yaSePidioAclaracion(history)) {
+      const prefix = `${greeting}Veo que no he conseguido resolver tu duda. `;
+      await sendEscalateButtons(message.from, prefix);
+      await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
+      return;
+    }
+
+    const reply = greeting + ACLARACION_REPLY;
+    await appendToHistory(message.from, text, `${ACLARACION_MARCA}${reply}`);
+    await sendWhatsappMessage(message.from, reply);
     return;
   }
 
@@ -290,27 +570,68 @@ async function handleIncomingMessage(message) {
     return;
   }
 
+  if (isPedidoEstadoQuestion(faqReply || '')) {
+    await iniciarBusquedaPedido(message.from, text, greeting);
+    return;
+  }
+
   if (faqReply) {
-    const reply = faqReply === GREETING ? faqReply : greeting + faqReply;
+    // Con un saludo a secas, la presentación SUSTITUYE al saludo de siempre (los
+    // dos juntos serían dos bienvenidas seguidas diciendo casi lo mismo).
+    const reply =
+      faqReply === GREETING
+        ? debePresentarse
+          ? PRESENTACION // un saludo a secas: aquí sí toca la larga, que invita a preguntar
+          : faqReply
+        : greeting + faqReply;
     await appendToHistory(message.from, text, reply);
     await sendWhatsappMessage(message.from, reply);
     return;
   }
 
-  const aiReply = await askClaude(text, history);
+  // Búsqueda en tiempo real en el catálogo real (WooCommerce), para que la IA pueda
+  // contestar con datos ciertos en vez de adivinar. Si no está configurado o no hay
+  // coincidencias, sigue el comportamiento anterior (nunca confirma productos).
+  const { productContext, fallo: falloCatalogo } = await construirContextoCatalogo({
+    from: message.from,
+    text,
+    history,
+  });
 
-  // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos/hacemos..."
-  // en modo libre (sin regla fija detrás), no nos fiamos de esa afirmación — no
-  // tiene acceso a catálogo/stock real, así que puede ser pura invención (se ha
-  // visto en pruebas reales). Se descarta TODO el texto de la IA — podría llevar
-  // el dato inventado mezclado con el resto — y se sustituye por la respuesta
-  // segura de siempre, seguida del segundo mensaje con botones reales de escalado.
-  if (isUnverifiedConfirmation(aiReply)) {
+  // La web no contestó (lenta, caída, o su protección anti-bots nos bloqueó) y
+  // nos quedamos sin datos. Aquí NO se puede reintentar: el webhook tiene ~10
+  // segundos antes de que Meta dé la respuesta por perdida y reenvíe el mensaje,
+  // y una búsqueda lenta ya se ha comido 6. Así que se le dice al cliente que
+  // espere un momento y se delega en la función de segundo plano, que no tiene
+  // ese límite y puede insistir con calma.
+  //
+  // Solo cuando no hay NINGÚN dato: si la búsqueda trajo algo aunque alguna
+  // consulta fallara, se contesta con lo que hay, que es mejor que hacer
+  // esperar.
+  if (falloCatalogo && !productContext) {
+    const delegado = await pedirSegundoIntento(message.from, text);
+    if (delegado) {
+      await conversationStore.appendCustomerMessage(message.from, text);
+      await sendWhatsappMessage(message.from, greeting + ESPERA_REPLY);
+      return;
+    }
+    // Si no se pudo delegar, se sigue adelante y se contesta sin catálogo: más
+    // vale una respuesta imperfecta que dejar al cliente sin nada.
+  }
+
+  const aiReply = await askClaude(text, history, productContext, fichaCliente);
+
+  // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos..." SIN que
+  // hubiera resultados reales de búsqueda para este turno, no nos fiamos de esa
+  // afirmación — puede ser pura invención (se ha visto en pruebas reales). Pero si
+  // SÍ hubo productContext real (la búsqueda encontró algo de verdad), la
+  // confirmación puede ser legítima — se ha comprobado en real que "pistolas de
+  // silicona" existe en el catálogo y la IA contestaba bien, pero esta red de
+  // seguridad lo descartaba igualmente por no mirar si había datos de respaldo.
+  if (!productContext && isUnverifiedConfirmation(aiReply)) {
     const infoReply = greeting + PRODUCTO_NO_VERIFICADO_INFO;
     await appendToHistory(message.from, text, infoReply);
     await sendWhatsappMessage(message.from, infoReply);
-    await sendEscalateButtons(message.from, '');
-    await appendToHistory(message.from, '[continuación automática: se ofreció además hablar con un agente]', escalateQuestion());
     return;
   }
 
@@ -322,7 +643,7 @@ async function handleIncomingMessage(message) {
   // con la info que sí había, y además con la opción real de hablar con alguien,
   // en vez de depender de que la IA repita una frase exacta sin nada más.
   if (isNoSeLaRespuesta(aiReply)) {
-    const infoPart = aiReply.split(NO_SE_LA_RESPUESTA)[0].trim();
+    const infoPart = stripAiOwnGreeting(aiReply.split(NO_SE_LA_RESPUESTA)[0].trim()).trim();
 
     if (infoPart) {
       const infoReply = greeting + infoPart;
@@ -344,7 +665,7 @@ async function handleIncomingMessage(message) {
     return;
   }
 
-  const reply = greeting + aiReply;
+  const reply = greeting + stripAiOwnGreeting(aiReply);
   await appendToHistory(message.from, text, reply);
   await sendWhatsappMessage(message.from, reply);
 }
@@ -379,7 +700,7 @@ exports.handler = async (event) => {
       for (const change of changes) {
         const messages = change.value?.messages || [];
         for (const message of messages) {
-          if (alreadyProcessed(message.id)) continue;
+          if (await alreadyProcessed(message.id)) continue;
           await handleIncomingMessage(message);
         }
       }

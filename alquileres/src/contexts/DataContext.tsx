@@ -4,7 +4,7 @@ import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, getDoc, writ
 import { db, stripUndef, ensureAnonSession } from '../lib/firebase'
 import { nanoid } from '../lib/nanoid'
 import { DEFAULT_PRICES_2026 } from '../lib/priceCalc'
-import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice } from '../types'
+import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice, DeletedRepair } from '../types'
 
 // ─── Default seed data ────────────────────────────────────────────────────────
 
@@ -53,6 +53,9 @@ interface DataContextValue {
   addRepair:    (data: Omit<Repair, 'id' | 'createdAt'>) => Repair
   updateRepair: (id: string, data: Partial<Repair>) => void
   deleteRepair: (id: string) => void
+  deleteRepairWithAudit: (repair: Repair, reason: string, deletedBy: string) => void
+
+  deletedRepairs: DeletedRepair[]
 
   addExpense:    (data: Omit<Expense, 'id' | 'createdAt'>) => Expense
   updateExpense: (id: string, data: Partial<Expense>) => void
@@ -82,7 +85,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [repairs,     setRepairs]     = useState<Repair[]>([])
   const [expenses,    setExpenses]    = useState<Expense[]>([])
   const [offerPrices, setOfferPrices] = useState<OfferPrice[]>([])
-  const [ready, setReady] = useState({ apartments:false, prices:false, reservations:false, payments:false, repairs:false, expenses:false, offerPrices:false })
+  const [deletedRepairs, setDeletedRepairs] = useState<DeletedRepair[]>([])
+  const [ready, setReady] = useState({ apartments:false, prices:false, reservations:false, payments:false, repairs:false, expenses:false, offerPrices:false, deletedRepairs:false })
 
   const loading = !Object.values(ready).every(Boolean)
 
@@ -99,13 +103,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const mark = (k: keyof typeof ready) => setReady(r => ({ ...r, [k]: true }))
 
     const subs = [
-      onSnapshot(collection(db, 'apartments'),   s => { setApartments(s.docs.map(d => d.data() as Apartment));    mark('apartments') }),
-      onSnapshot(collection(db, 'prices'),       s => { setPrices(s.docs.map(d => d.data() as PriceEntry));       mark('prices') }),
-      onSnapshot(collection(db, 'reservations'), s => { setReservations(s.docs.map(d => d.data() as Reservation));mark('reservations') }),
-      onSnapshot(collection(db, 'payments'),     s => { setPayments(s.docs.map(d => d.data() as Payment));        mark('payments') }),
-      onSnapshot(collection(db, 'repairs'),      s => { setRepairs(s.docs.map(d => d.data() as Repair));          mark('repairs') }),
-      onSnapshot(collection(db, 'expenses'),     s => { setExpenses(s.docs.map(d => d.data() as Expense));        mark('expenses') }),
-      onSnapshot(collection(db, 'offerPrices'),  s => { setOfferPrices(s.docs.map(d => d.data() as OfferPrice));  mark('offerPrices') }),
+      onSnapshot(collection(db, 'apartments'),     s => { setApartments(s.docs.map(d => d.data() as Apartment));       mark('apartments') },    () => mark('apartments')),
+      onSnapshot(collection(db, 'prices'),         s => { setPrices(s.docs.map(d => d.data() as PriceEntry));          mark('prices') },         () => mark('prices')),
+      onSnapshot(collection(db, 'reservations'),   s => { setReservations(s.docs.map(d => d.data() as Reservation));   mark('reservations') },   () => mark('reservations')),
+      onSnapshot(collection(db, 'payments'),       s => { setPayments(s.docs.map(d => d.data() as Payment));           mark('payments') },       () => mark('payments')),
+      onSnapshot(collection(db, 'repairs'),        s => { setRepairs(s.docs.map(d => d.data() as Repair));             mark('repairs') },        () => mark('repairs')),
+      onSnapshot(collection(db, 'expenses'),       s => { setExpenses(s.docs.map(d => d.data() as Expense));           mark('expenses') },       () => mark('expenses')),
+      onSnapshot(collection(db, 'offerPrices'),    s => { setOfferPrices(s.docs.map(d => d.data() as OfferPrice));     mark('offerPrices') },    () => mark('offerPrices')),
+      onSnapshot(collection(db, 'deletedRepairs'), s => { setDeletedRepairs(s.docs.map(d => d.data() as DeletedRepair)); mark('deletedRepairs') }, () => mark('deletedRepairs')),
     ]
 
     return () => subs.forEach(u => u())
@@ -199,6 +204,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
   function deleteRepair(id: string) {
     deleteDoc(doc(db, 'repairs', id))
   }
+  function deleteRepairWithAudit(repair: Repair, reason: string, deletedBy: string) {
+    const entry: DeletedRepair = {
+      id: nanoid(),
+      originalId: repair.id,
+      reason,
+      deletedAt: new Date().toISOString(),
+      deletedBy,
+      apartmentId: repair.apartmentId,
+      repairDate: repair.repairDate,
+      item: repair.item,
+      supplier: repair.supplier,
+      document: repair.document,
+      amount: repair.amount,
+      entryNumber: repair.entryNumber,
+    }
+    const batch = writeBatch(db)
+    batch.set(doc(db, 'deletedRepairs', entry.id), stripUndef(entry))
+    batch.delete(doc(db, 'repairs', repair.id))
+    batch.commit()
+  }
 
   // ── Expenses ─────────────────────────────────────────────────────────────────
   function addExpense(data: Omit<Expense, 'id' | 'createdAt'>): Expense {
@@ -231,11 +256,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   return (
     <DataContext.Provider value={{
       loading, apartments, prices, reservations, payments, repairs, expenses, offerPrices,
+      deletedRepairs,
       addApartment, updateApartment, deleteApartment,
       addPrice, updatePrice, deletePrice,
       addReservation, updateReservation, deleteReservation,
       addPayment, updatePayment, deletePayment,
-      addRepair, updateRepair, deleteRepair,
+      addRepair, updateRepair, deleteRepair, deleteRepairWithAudit,
       addExpense, updateExpense, deleteExpense,
       addOfferPrice, updateOfferPrice, deleteOfferPrice,
     }}>

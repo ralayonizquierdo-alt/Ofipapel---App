@@ -820,6 +820,13 @@ const IDENTITY_TOOLKIT_BASE = 'https://identitytoolkit.googleapis.com/v1';
 const SECURE_TOKEN_BASE = 'https://securetoken.googleapis.com/v1';
 let authSession = loadAuthSession();
 
+/* Escapa texto libre antes de insertarlo en innerHTML. Los nombres de empleado
+   y las etiquetas de periodos bloqueados los escribe una persona desde la
+   propia app: sin escapar, se podía guardar HTML/JS en un nombre y ejecutarlo
+   en el navegador de cualquiera que abriera el cuadrante. */
+function escapeHtml(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 function usernameToAuthEmail(username){
   return username.toLowerCase().replace(/[^a-z0-9._-]/g,'') + '@' + AUTH_USER_DOMAIN;
 }
@@ -1286,7 +1293,7 @@ function renderOnLeave(){
       ? ' <span style="color:#8a5a00;font-weight:700;">(permiso)</span>'
       : ' <span style="color:#0a6e4a;font-weight:700;">🏖️ (vacaciones)</span>';
     const motivo = (tipo==='Permiso' && range.motivo) ? ' · '+range.motivo : '';
-    return `<div class="onleave-item"><b>${emp.name}${tag}</b><small>${unit} · ${fmtRange(range.start,range.end)}${motivo}</small></div>`;
+    return `<div class="onleave-item"><b>${escapeHtml(emp.name)}${tag}</b><small>${escapeHtml(unit)} · ${fmtRange(range.start,range.end)}${motivo}</small></div>`;
   }).join('');
 }
 document.getElementById('onLeaveDate').oninput = renderOnLeave;
@@ -1299,11 +1306,11 @@ function renderRulesLog(){
 
   html += '<span class="rules-log-cat">Bloqueos de fecha</span>';
   html += state.blockedRanges.length
-    ? state.blockedRanges.map(b=>`<div class="rules-log-item">${b.label}: ${b.startMD} → ${b.endMD}</div>`).join('')
+    ? state.blockedRanges.map(b=>`<div class="rules-log-item">${escapeHtml(b.label)}: ${escapeHtml(b.startMD)} → ${escapeHtml(b.endMD)}</div>`).join('')
     : '<div class="rules-log-item">Ninguno</div>';
 
   html += '<span class="rules-log-cat">Cobertura por unidad (máx. fuera a la vez)</span>';
-  html += UNITS.map(u=> `<div class="rules-log-item">${u.name}: ${state.unitMax[u.id] ?? u.defaultMax}</div>`).join('');
+  html += UNITS.map(u=> `<div class="rules-log-item">${escapeHtml(u.name)}: ${state.unitMax[u.id] ?? u.defaultMax}</div>`).join('');
   if(state.unitOverrides.length){
     html += state.unitOverrides.map(o=>{
       const uName = (UNITS.find(u=>u.id===o.unitId)||{}).name || o.unitId;
@@ -1332,16 +1339,16 @@ function renderRulesLog(){
   const fixedPrefEmps = EMPLOYEES.filter(e=>e.active!==false && hasFixedPref(e.id));
   html += '<span class="rules-log-cat">Vacaciones fijas cada año 📌</span>';
   html += fixedPrefEmps.length
-    ? fixedPrefEmps.map(e=>`<div class="rules-log-item">${e.name} — ${state.employeePrefs[e.id].preferredText}</div>`).join('')
+    ? fixedPrefEmps.map(e=>`<div class="rules-log-item">${escapeHtml(e.name)} — ${escapeHtml(state.employeePrefs[e.id].preferredText)}</div>`).join('')
     : '<div class="rules-log-item">Ninguna</div>';
 
   const floaters = EMPLOYEES.filter(e=>e.active!==false && e.floater);
   html += '<span class="rules-log-cat">Comodines 🔁</span>';
-  html += floaters.length ? floaters.map(e=>`<div class="rules-log-item">${e.name}</div>`).join('') : '<div class="rules-log-item">Ninguno</div>';
+  html += floaters.length ? floaters.map(e=>`<div class="rules-log-item">${escapeHtml(e.name)}</div>`).join('') : '<div class="rules-log-item">Ninguno</div>';
 
   const noSub = EMPLOYEES.filter(e=>e.active!==false && e.sinSustituto);
   html += '<span class="rules-log-cat">Sin sustituto 🚫</span>';
-  html += noSub.length ? noSub.map(e=>`<div class="rules-log-item">${e.name}</div>`).join('') : '<div class="rules-log-item">Ninguno</div>';
+  html += noSub.length ? noSub.map(e=>`<div class="rules-log-item">${escapeHtml(e.name)}</div>`).join('') : '<div class="rules-log-item">Ninguno</div>';
 
   box.innerHTML = html;
 }
@@ -1381,7 +1388,7 @@ function renderBlockList(){
   box.innerHTML='';
   for(const b of state.blockedRanges){
     const div=document.createElement('div'); div.className='block-item';
-    div.innerHTML = `<span>${b.label}<br><small>${b.startMD} → ${b.endMD}</small></span>`;
+    div.innerHTML = `<span>${escapeHtml(b.label)}<br><small>${escapeHtml(b.startMD)} → ${escapeHtml(b.endMD)}</small></span>`;
     const btn=document.createElement('button'); btn.textContent='✕';
     btn.onclick=()=>{ state.blockedRanges = state.blockedRanges.filter(x=>x.id!==b.id); render(); };
     div.appendChild(btn);
@@ -1392,7 +1399,7 @@ function renderBlockList(){
 function renderUnitLimits(){
   const sel = document.getElementById('covUnitSelect');
   if(!sel.options.length){
-    sel.innerHTML = UNITS.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+    sel.innerHTML = UNITS.map(u=>`<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)}</option>`).join('');
   }
   const u = UNITS.find(x=>x.id===sel.value) || UNITS[0];
   document.getElementById('covUnitMax').value = state.unitMax[u.id] ?? u.defaultMax;
@@ -1513,7 +1520,7 @@ function buildEmployeeRow(emp, y, n, totalW, gridDayIndices){
   const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
   const badges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (hasFixedPref(emp.id)?' 📌':'');
   nameCell.title = emp.note || '';
-  nameCell.innerHTML = `<b>${emp.name}${badges}</b><span>${used}/${effectiveDaysPerYear(emp)} días · ${senLabel}</span>`;
+  nameCell.innerHTML = `<b>${escapeHtml(emp.name)}${badges}</b><span>${used}/${effectiveDaysPerYear(emp)} días · ${escapeHtml(senLabel)}</span>`;
   row.appendChild(nameCell);
 
   const track = document.createElement('div'); track.className='track';
@@ -1781,7 +1788,7 @@ function validateModal(emp){
   for(let idx=sIdx; idx<=eIdx; idx++){
     const b = isBlockedIndex(y, idx);
     if(b){
-      warnBox.innerHTML += `<div class="err-box">Incluye el ${fmtDate(dateFromIndex(y,idx))}, bloqueado por "${b.label}".</div>`;
+      warnBox.innerHTML += `<div class="err-box">Incluye el ${fmtDate(dateFromIndex(y,idx))}, bloqueado por "${escapeHtml(b.label)}".</div>`;
       saveBtn.disabled=true;
       return;
     }
@@ -1804,7 +1811,7 @@ function validateModal(emp){
   const pconf = pairOverlapConflict(emp.id, start, end, editingPeriodId);
   if(pconf){
     const partnerEmp = EMPLOYEES.find(e=>e.id===pconf.partnerId);
-    warnBox.innerHTML = `<div class="err-box">Coincide con ${partnerEmp.name}, que ya tiene vacaciones en ese rango
+    warnBox.innerHTML = `<div class="err-box">Coincide con ${escapeHtml(partnerEmp.name)}, que ya tiene vacaciones en ese rango
       (regla: ${pconf.label}). No pueden coincidir.</div>`;
     saveBtn.disabled=true;
     return;
@@ -1817,7 +1824,7 @@ function validateModal(emp){
   }
   if(overDays.length){
     const unitName = (UNITS.find(u=>u.id===emp.unitId)||{}).name;
-    warnBox.innerHTML = `<div class="warn-box">⚠ Supera la cobertura recomendada de <b>${unitName}</b> en ${overDays.length} día(s)
+    warnBox.innerHTML = `<div class="warn-box">⚠ Supera la cobertura recomendada de <b>${escapeHtml(unitName)}</b> en ${overDays.length} día(s)
       (quedarían ${overDays[0].count} fuera cuando el máximo es ${overDays[0].max}).</div>`;
     overrideRow.style.display='flex';
     saveBtn.disabled = !document.getElementById('pmOverrideCheck').checked;
@@ -1830,7 +1837,7 @@ function validateModal(emp){
     const partnerPeriods = state.periods.filter(p=>p.employeeId===tp.partnerId);
     const matches = partnerPeriods.some(p=> p.start===start && p.end===end);
     if(!matches){
-      warnBox.innerHTML += `<div class="info-box">💑 ${partnerEmp.name} suele salir de vacaciones junto con ${emp.name}
+      warnBox.innerHTML += `<div class="info-box">💑 ${escapeHtml(partnerEmp.name)} suele salir de vacaciones junto con ${escapeHtml(emp.name)}
         (${tp.label}). ${partnerPeriods.length ? 'Sus periodos actuales no coinciden con este rango.' : 'Todavía no tiene periodos asignados.'}</div>`;
     }
   }
@@ -1840,7 +1847,7 @@ function validateModal(emp){
     const matchesFixed = fixedRanges.some(r=> r.start===start && r.end===end);
     if(!matchesFixed && fixedRanges.length){
       const rangesLabel = fixedRanges.map(r=>fmtRange(r.start,r.end)).join(', ');
-      warnBox.innerHTML += `<div class="info-box">📌 ${emp.name} tiene fechas de vacaciones fijas todos los años (${rangesLabel})
+      warnBox.innerHTML += `<div class="info-box">📌 ${escapeHtml(emp.name)} tiene fechas de vacaciones fijas todos los años (${escapeHtml(rangesLabel)})
         y este rango no coincide. Comprueba que esas fechas fijas estén asignadas en otro periodo.</div>`;
     }
   }
@@ -1889,7 +1896,7 @@ function renderEmployeeList(){
     const row = document.createElement('div');
     row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:7px 4px;'
       +'border-bottom:1px solid #f0f0f0;font-size:.78rem;cursor:pointer;';
-    row.innerHTML = `<span>${emp.name}${empBadgeText(emp)}<br><small style="color:var(--texto2);">${unit}</small></span>
+    row.innerHTML = `<span>${escapeHtml(emp.name)}${empBadgeText(emp)}<br><small style="color:var(--texto2);">${escapeHtml(unit)}</small></span>
       <span style="color:var(--verde);">✎</span>`;
     row.onclick = ()=> openEmployeeCard(emp.id);
     box.appendChild(row);
@@ -1911,7 +1918,7 @@ function openEmployeeCard(empId){
   document.getElementById('empCardTitle').textContent = emp ? 'Ficha de empleado' : 'Nuevo empleado';
 
   const unitSel = document.getElementById('ecUnit');
-  unitSel.innerHTML = UNITS.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+  unitSel.innerHTML = UNITS.map(u=>`<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)}</option>`).join('');
 
   document.getElementById('ecName').value = emp ? emp.name : '';
   unitSel.value = emp ? emp.unitId : UNITS[0].id;
@@ -2019,7 +2026,7 @@ function renderSummary(){
       .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
     const row = document.createElement('div'); row.className='summary-row';
     const holWorked = holidaysWorkedBy(emp.id).length;
-    row.innerHTML = `<span>${emp.name}</span><b>${used}/${effectiveDaysPerYear(emp)}${holWorked?` <small style="color:var(--texto2);font-weight:400;">(+${holWorked} festivo${holWorked>1?'s':''})</small>`:''}</b>`;
+    row.innerHTML = `<span>${escapeHtml(emp.name)}</span><b>${used}/${effectiveDaysPerYear(emp)}${holWorked?` <small style="color:var(--texto2);font-weight:400;">(+${holWorked} festivo${holWorked>1?'s':''})</small>`:''}</b>`;
     box.appendChild(row);
   }
 }
@@ -2109,7 +2116,7 @@ function processRulesText(){
       const emp = findEmployeeByFuzzyName(name);
       if(!emp){ results.push({icon:'❌', msg:`No encuentro a "${name}" en la plantilla.`}); continue; }
       emp.daysPerYear = parseInt(daysStr,10);
-      results.push({icon:'✅', msg:`Días de ${emp.name} fijados a ${emp.daysPerYear}.`});
+      results.push({icon:'✅', msg:`Días de ${escapeHtml(emp.name)} fijados a ${emp.daysPerYear}.`});
 
     } else {
       results.push({icon:'ℹ️', msg:`"${line}" — prefijo no reconocido, guardada como nota informativa.`});
@@ -2273,7 +2280,7 @@ function generatePlan(){
         daysPlaced += isoToIndex(y,placed.end)-isoToIndex(y,placed.start)+1;
         if(prefObj.fixed) fromFixed++; else fromPrefs++;
       } else if(prefObj.fixed){
-        fixedFailedLines.push(`${emp.name} — ${fmtRange(r.start,r.end)}`);
+        fixedFailedLines.push(`${escapeHtml(emp.name)} — ${fmtRange(r.start,r.end)}`);
       }
     }
 
@@ -2299,7 +2306,7 @@ function generatePlan(){
       if(fromPartner) parts.push(`${fromPartner} en pareja 💑`);
       if(fromPrefs) parts.push(`${fromPrefs} preferido(s)`);
       if(fromFallback) parts.push(`${fromFallback} automático(s)`);
-      assignedLines.push(`${emp.name} — ${daysPlaced}/${targetDays} días asignados`
+      assignedLines.push(`${escapeHtml(emp.name)} — ${daysPlaced}/${targetDays} días asignados`
         + (parts.length?` (${parts.join(' + ')})`:``)
         + (complete?'.':' — no hay más hueco disponible, revisar a mano.'));
     }
@@ -2361,7 +2368,7 @@ document.getElementById('btnRotation').onclick = ()=>{
     const row = document.createElement('div');
     row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #f0f0f0;font-size:.78rem;';
     row.innerHTML = `<b style="width:22px;color:var(--verde);">${i+1}</b>
-      <span style="flex:1;">${emp.name}<br><small style="color:var(--texto2);">${unit} · ${senLabel}${hijosLabel}</small></span>`;
+      <span style="flex:1;">${escapeHtml(emp.name)}<br><small style="color:var(--texto2);">${escapeHtml(unit)} · ${escapeHtml(senLabel)}${hijosLabel}</small></span>`;
     const chk = document.createElement('input'); chk.type='checkbox';
     chk.checked = !!state.lastYearFlags[emp.id];
     chk.title='Tuvo esta época el año pasado';
@@ -2386,7 +2393,7 @@ function renderSaturdayList(){
   for(const emp of active){
     const post = (emp.saturdayPost||'').replace(/"/g,'&quot;');
     html += `<tr>
-      <td>${emp.name}</td>
+      <td>${escapeHtml(emp.name)}</td>
       <td><input type="text" data-post="${emp.id}" value="${post}" placeholder="—"></td>
       <td class="sat-cell-a"><input type="checkbox" data-groupa="${emp.id}" ${emp.saturdayGroup==='A'?'checked':''}></td>
       <td class="sat-cell-b"><input type="checkbox" data-groupb="${emp.id}" ${emp.saturdayGroup==='B'?'checked':''}></td>
@@ -2440,7 +2447,7 @@ function renderHolidaysList(){
     const selsWrap = document.createElement('div'); selsWrap.style.cssText='display:flex;gap:6px;margin-top:6px;';
     for(let slot=0; slot<2; slot++){
       const sel = document.createElement('select'); sel.style.cssText='flex:1;padding:4px;font-size:.72rem;';
-      sel.innerHTML = '<option value="">— sin asignar —</option>' + activeEmps.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+      sel.innerHTML = '<option value="">— sin asignar —</option>' + activeEmps.map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}</option>`).join('');
       sel.value = h.empIds[slot] || '';
       sel.onchange = ()=>{
         const oldId = h.empIds[slot];
@@ -2464,7 +2471,7 @@ function renderHolidaysList(){
       const row = document.createElement('div');
       row.style.cssText='background:#F7F9F6;border:1px solid #e4e8e1;border-radius:6px;padding:6px 8px;font-size:.72rem;';
       row.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
-        <span>${emp.name}</span>
+        <span>${escapeHtml(emp.name)}</span>
         <label style="display:flex;align-items:center;gap:4px;font-weight:600;white-space:nowrap;color:${c?'#0a6e4a':'#8a5a00'};">
           <input type="checkbox" data-compchk="${key}" ${c?'checked':''}> ${c?'Compensado':'Pendiente'}
         </label>
@@ -2558,10 +2565,10 @@ function renderCompensationsSummary(){
     if(c){
       const tipoLabel = c.tipo==='permiso' ? 'día de permiso' : 'día de vacaciones';
       const compDateLabel = c.fecha ? fmtDate(new Date(c.fecha+'T00:00:00Z')) : '(sin fecha indicada)';
-      return `<div class="onleave-item"><b>${emp.name} <span style="color:#0a6e4a;">✔ Compensado</span></b>
+      return `<div class="onleave-item"><b>${escapeHtml(emp.name)} <span style="color:#0a6e4a;">✔ Compensado</span></b>
         <small>${h.festividad} (${dateLabel}) → se lo llevó como ${tipoLabel} el ${compDateLabel}${c.nota?' · '+c.nota:''}</small></div>`;
     }
-    return `<div class="onleave-item"><b>${emp.name} <span style="color:#8a5a00;">⏳ Pendiente</span></b>
+    return `<div class="onleave-item"><b>${escapeHtml(emp.name)} <span style="color:#8a5a00;">⏳ Pendiente</span></b>
       <small>${h.festividad} (${dateLabel}) — todavía no se ha marcado cómo se compensó</small></div>`;
   }).join('');
 }
@@ -2584,7 +2591,7 @@ document.getElementById('btnAddHoliday').onclick = ()=>{
 function renderPermisosEmpSelect(){
   const sel = document.getElementById('pmzEmp');
   sel.innerHTML = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'))
-    .map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+    .map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}</option>`).join('');
 }
 
 function validatePermisoForm(){
@@ -2627,7 +2634,7 @@ function validatePermisoForm(){
       (máx. recomendado ${maxSeen}) en ${overDays} día(s). No se bloquea, pero revísalo antes de concederlo.</div>`;
   }
   if(hasSat && emp.saturdayGroup){
-    html += `<div class="warn-box">ℹ️ Incluye un sábado y ${emp.name} cubre turno de sábado
+    html += `<div class="warn-box">ℹ️ Incluye un sábado y ${escapeHtml(emp.name)} cubre turno de sábado
       (Grupo ${emp.saturdayGroup}${emp.saturdayPost?', '+emp.saturdayPost:''}) — comprueba quién lo cubriría ese día.</div>`;
   }
   box.innerHTML = html;
@@ -2648,7 +2655,7 @@ function renderPermisosList(){
     const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
     return `<div class="block-item" style="display:block;padding:8px 10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <b>${emp.name}</b>
+        <b>${escapeHtml(emp.name)}</b>
         <button data-delperm="${p.id}" style="background:none;border:none;color:var(--rojo);cursor:pointer;font-size:.85rem;">✕</button>
       </div>
       <small style="color:var(--texto2);">${unit} · ${fmtRange(p.start,p.end)}${p.motivo?' · '+p.motivo:''}</small>
@@ -2948,7 +2955,7 @@ function buildTurnosPrintArea(){
   });
   for(const emp of active){
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${emp.name}</td><td>${emp.saturdayPost||'—'}</td>
+    tr.innerHTML = `<td>${escapeHtml(emp.name)}</td><td>${escapeHtml(emp.saturdayPost||'—')}</td>
       <td class="tp-a">${emp.saturdayGroup==='A'?'●':''}</td>
       <td class="tp-b">${emp.saturdayGroup==='B'?'●':''}</td>`;
     tbody.appendChild(tr);
@@ -3026,7 +3033,7 @@ function annualViewRow(emp, y){
   const datesHtml = periods.length
     ? periods.map(p=>fmtRange(p.start,p.end)).join(' · ')
     : 'Sin vacaciones asignadas todavía';
-  return `<div class="av-item"><b>${emp.name}</b> <small>(${unitName})</small><br><span class="av-dates">${datesHtml}</span></div>`;
+  return `<div class="av-item"><b>${escapeHtml(emp.name)}</b> <small>(${escapeHtml(unitName)})</small><br><span class="av-dates">${datesHtml}</span></div>`;
 }
 function shareAnnualViewWhatsapp(){
   const y = state.year;
