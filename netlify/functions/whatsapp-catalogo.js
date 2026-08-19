@@ -65,13 +65,31 @@ async function construirContextoCatalogo({ from, text, history }) {
   const mensajeAnterior = [...history].reverse().find((m) => m.role === 'user');
   const searchQuery = esRespuestaCorta && mensajeAnterior ? `${mensajeAnterior.content} ${text}` : text;
 
+  // Si sabemos qué impresora tiene, su referencia es MEJOR consulta que la frase
+  // que ha escrito: nadie escribe "TN-248", escribe "tóner para mi Brother" o
+  // directamente "¿tenéis compatibles?". Visto en real las dos veces:
+  //   - "¿me muestras las opciones? necesito los 4" no encuentra nada.
+  //   - "¿tienen compatibles?" encuentra compatibles, sí, pero de cualquier cosa
+  //     del catálogo, no los de su impresora — y con esa lista delante el bot
+  //     contestó "sí tenemos, llama por teléfono" en vez de dar precios.
+  // Por eso, cuando hay referencia, se busca por ella PRIMERO, y solo si no
+  // devuelve nada se recurre a la frase del cliente.
+  const referencia = impresoras.length === 1 ? consumibles.referenciaPrincipal(impresoras[0]) : null;
+  const consultaPrincipal = referencia ? `${impresoras[0].m} ${referencia}` : searchQuery;
+
   const [busqueda, categorias] = await Promise.all([
-    woocommerce.buscarEnCatalogo(searchQuery, 6),
+    woocommerce.buscarEnCatalogo(consultaPrincipal, 6),
     woocommerce.searchCategories(searchQuery),
   ]);
 
   let productos = busqueda.productos;
   let fallo = busqueda.fallo;
+
+  if (productos.length === 0 && referencia) {
+    const porFrase = await woocommerce.buscarEnCatalogo(searchQuery, 6);
+    productos = porFrase.productos;
+    fallo = fallo || porFrase.fallo;
+  }
 
   // Una pregunta de seguimiento puede no ser corta y aun así depender del
   // mensaje anterior — comprobado en real: tras preguntar por cartuchos
@@ -80,17 +98,11 @@ async function construirContextoCatalogo({ from, text, history }) {
   // encuentra nada en el catálogo, aunque los compatibles existan. Si la
   // búsqueda se queda vacía y hay un mensaje anterior, se reintenta con los
   // dos juntos: es más fiable que fiarlo todo a un número de palabras.
-  // Si el cliente nombró su impresora, la referencia del cartucho es una pista
-  // mucho mejor que su frase: nadie escribe "603XL", escribe "tinta para mi
-  // Epson XP-3200". Se busca por la referencia antes que por el contexto del
-  // mensaje anterior — y en vez de él, para no encadenar tres búsquedas dentro
-  // de los 10 segundos que da Meta.
-  const referencia = impresoras.length === 1 ? consumibles.referenciaPrincipal(impresoras[0]) : null;
-  if (productos.length === 0 && referencia) {
-    const porReferencia = await woocommerce.buscarEnCatalogo(`${impresoras[0].m} ${referencia}`, 6);
-    productos = porReferencia.productos;
-    fallo = fallo || porReferencia.fallo;
-  } else if (productos.length === 0 && mensajeAnterior && !esRespuestaCorta) {
+  //
+  // Solo cuando NO hay referencia de impresora: con ella ya se han hecho las dos
+  // búsquedas de arriba, y encadenar una tercera no cabe en los 10 segundos que
+  // da Meta.
+  if (productos.length === 0 && !referencia && mensajeAnterior && !esRespuestaCorta) {
     const conContexto = await woocommerce.buscarEnCatalogo(`${mensajeAnterior.content} ${text}`, 6);
     productos = conContexto.productos;
     fallo = fallo || conContexto.fallo;
