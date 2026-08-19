@@ -24,9 +24,12 @@ async function getHistory(from) {
     const messages = await conversationStore.loadConversation(from);
     // Los mensajes escritos a mano desde el panel se guardan con role "agent"; de
     // cara a Claude se presentan como "assistant" (la API solo admite user/assistant).
+    // Se conserva la marca de tiempo: la necesita isRepeatQuestion para
+    // distinguir "está insistiendo ahora" de "preguntó lo mismo hace semanas".
+    // askClaude la quita antes de llamar a la API, que solo admite role/content.
     return messages
       .slice(-MAX_HISTORY_MESSAGES)
-      .map(({ role, content }) => ({ role: role === 'agent' ? 'assistant' : role, content }));
+      .map(({ role, content, ts }) => ({ role: role === 'agent' ? 'assistant' : role, content, ts }));
   }
 
   const conv = conversations.get(from);
@@ -161,11 +164,29 @@ function palabrasSignificativas(text) {
 // Detecta si el cliente está insistiendo/repitiendo una pregunta que ya hizo antes
 // en la misma conversación (comparando palabras significativas, no texto exacto),
 // para escalar a una persona en vez de darle otra vez la misma respuesta genérica.
+// Cuánto atrás cuenta como "está insistiendo". Pasado ese rato, volver a
+// preguntar lo mismo no es insistir: es un cliente que vuelve.
+const VENTANA_INSISTENCIA_MS = 30 * 60 * 1000;
+
+// Y como mucho los últimos mensajes suyos: insistir es hacerlo seguido.
+const MENSAJES_QUE_CUENTAN_COMO_INSISTENCIA = 4;
+
 function isRepeatQuestion(text, history) {
   const currentWords = new Set(palabrasSignificativas(text));
   if (currentWords.size === 0) return false;
 
-  const previousUserMessages = history.filter((m) => m.role === 'user').map((m) => m.content);
+  // Comprobado en real: preguntar "tengo una Epson XP-4200, necesito tinta" y
+  // repetirlo cinco horas después hacía que el bot contestara "creo que no te he
+  // entendido" y escalara, sin llegar siquiera a buscar. Un cliente que vuelve
+  // al día siguiente con la misma duda merece la misma respuesta, no una
+  // disculpa.
+  const ahora = Date.now();
+  const previousUserMessages = history
+    .filter((m) => m.role === 'user')
+    .filter((m) => !m.ts || ahora - m.ts <= VENTANA_INSISTENCIA_MS)
+    .slice(-MENSAJES_QUE_CUENTAN_COMO_INSISTENCIA)
+    .map((m) => m.content);
+
   for (const prev of previousUserMessages) {
     const prevWords = new Set(palabrasSignificativas(prev));
     if (prevWords.size === 0) continue;
@@ -194,7 +215,10 @@ async function askClaude(userText, history = [], productContext = null, fichaCli
         model: CLAUDE_MODEL,
         max_tokens: 300,
         system: buildAiSystemPrompt(productContext, fichaCliente),
-        messages: [...history, { role: 'user', content: userText }],
+        messages: [
+          ...history.map(({ role, content }) => ({ role, content })),
+          { role: 'user', content: userText },
+        ],
       }),
     });
 
