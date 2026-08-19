@@ -10,9 +10,24 @@
 
 const woocommerce = require('./woocommerce-client');
 const conversationStore = require('./conversation-store');
+const consumibles = require('./whatsapp-consumibles');
+
+// Une lo que sabemos del catálogo y lo que sabemos de la impresora del cliente.
+// Los dos bloques son independientes: uno puede existir sin el otro.
+function unirContexto(contextoConsumibles, productContext) {
+  return [contextoConsumibles, productContext].filter(Boolean).join('\n\n') || null;
+}
 
 async function construirContextoCatalogo({ from, text, history }) {
-  if (!woocommerce.isConfigured()) return { productContext: null, fallo: false };
+  // El índice de consumibles viaja con el bot, así que responde aunque la web
+  // esté caída. Se mira siempre, no solo cuando el cliente pregunta "qué
+  // cartucho lleva": basta con que nombre su impresora en cualquier frase.
+  const impresoras = consumibles.buscarImpresoras(text);
+  const contextoConsumibles = consumibles.bloqueDeConsumibles(impresoras);
+
+  if (!woocommerce.isConfigured()) {
+    return { productContext: null, contextoConsumibles, fallo: false };
+  }
 
   // Si el mensaje es muy corto (p. ej. "A4", "en fucsia", "tenaza"), lo más
   // probable es que sea la respuesta a una pregunta de aclaración de la IA sobre
@@ -38,7 +53,17 @@ async function construirContextoCatalogo({ from, text, history }) {
   // encuentra nada en el catálogo, aunque los compatibles existan. Si la
   // búsqueda se queda vacía y hay un mensaje anterior, se reintenta con los
   // dos juntos: es más fiable que fiarlo todo a un número de palabras.
-  if (productos.length === 0 && mensajeAnterior && !esRespuestaCorta) {
+  // Si el cliente nombró su impresora, la referencia del cartucho es una pista
+  // mucho mejor que su frase: nadie escribe "603XL", escribe "tinta para mi
+  // Epson XP-3200". Se busca por la referencia antes que por el contexto del
+  // mensaje anterior — y en vez de él, para no encadenar tres búsquedas dentro
+  // de los 10 segundos que da Meta.
+  const referencia = impresoras.length === 1 ? consumibles.referenciaPrincipal(impresoras[0]) : null;
+  if (productos.length === 0 && referencia) {
+    const porReferencia = await woocommerce.buscarEnCatalogo(`${impresoras[0].m} ${referencia}`, 6);
+    productos = porReferencia.productos;
+    fallo = fallo || porReferencia.fallo;
+  } else if (productos.length === 0 && mensajeAnterior && !esRespuestaCorta) {
     const conContexto = await woocommerce.buscarEnCatalogo(`${mensajeAnterior.content} ${text}`, 6);
     productos = conContexto.productos;
     fallo = fallo || conContexto.fallo;
@@ -70,7 +95,11 @@ async function construirContextoCatalogo({ from, text, history }) {
     );
   }
 
-  return { productContext: bloques.length > 0 ? bloques.join('\n\n') : null, fallo };
+  return {
+    productContext: bloques.length > 0 ? bloques.join('\n\n') : null,
+    contextoConsumibles,
+    fallo,
+  };
 }
 
-module.exports = { construirContextoCatalogo };
+module.exports = { construirContextoCatalogo, unirContexto };

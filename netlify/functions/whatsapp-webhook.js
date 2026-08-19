@@ -77,7 +77,7 @@ const {
 } = require('./whatsapp-agent-config');
 const woocommerce = require('./woocommerce-client');
 const { sendWhatsappMessage, sendWhatsappTemplate } = require('./whatsapp-send');
-const { construirContextoCatalogo } = require('./whatsapp-catalogo');
+const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo');
 const { firmaDeReintento } = require('./whatsapp-firma');
 const conversationStore = require('./conversation-store');
 
@@ -584,11 +584,11 @@ async function handleIncomingMessage(message) {
   // Búsqueda en tiempo real en el catálogo real (WooCommerce), para que la IA pueda
   // contestar con datos ciertos en vez de adivinar. Si no está configurado o no hay
   // coincidencias, sigue el comportamiento anterior (nunca confirma productos).
-  const { productContext, fallo: falloCatalogo } = await construirContextoCatalogo({
-    from: message.from,
-    text,
-    history,
-  });
+  const {
+    productContext,
+    contextoConsumibles,
+    fallo: falloCatalogo,
+  } = await construirContextoCatalogo({ from: message.from, text, history });
 
   // La web no contestó (lenta, caída, o su protección anti-bots nos bloqueó) y
   // nos quedamos sin datos. Aquí NO se puede reintentar: el webhook tiene ~10
@@ -611,7 +611,12 @@ async function handleIncomingMessage(message) {
     // vale una respuesta imperfecta que dejar al cliente sin nada.
   }
 
-  const aiReply = await askClaude(text, history, productContext, fichaCliente);
+  const aiReply = await askClaude(
+    text,
+    history,
+    unirContexto(contextoConsumibles, productContext),
+    fichaCliente
+  );
 
   // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos..." SIN que
   // hubiera resultados reales de búsqueda para este turno, no nos fiamos de esa

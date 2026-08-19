@@ -24,7 +24,7 @@ const {
   isUnverifiedConfirmation,
   PRODUCTO_NO_VERIFICADO_INFO,
 } = require('./whatsapp-agent-config');
-const { construirContextoCatalogo } = require('./whatsapp-catalogo');
+const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo');
 const { sendWhatsappMessage } = require('./whatsapp-send');
 const woocommerce = require('./woocommerce-client');
 const conversationStore = require('./conversation-store');
@@ -42,18 +42,28 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 async function buscarConPaciencia({ from, text, history }) {
   woocommerce.usarTiemposLargos();
 
+  // Lo que sabemos de la impresora del cliente no depende de la web, así que se
+  // conserva aunque los tres intentos se queden sin catálogo: con eso solo ya se
+  // le puede decir qué referencia necesita.
+  let consumibles = null;
+
   for (let intento = 1; intento <= INTENTOS; intento += 1) {
-    const { productContext, fallo } = await construirContextoCatalogo({ from, text, history });
+    const { productContext, contextoConsumibles, fallo } = await construirContextoCatalogo({
+      from,
+      text,
+      history,
+    });
+    consumibles = contextoConsumibles || consumibles;
 
     // Con datos, o con un "no existe" fiable (la web contestó), ya no hay nada
     // que reintentar.
-    if (productContext || !fallo) return { productContext, fallo };
+    if (productContext || !fallo) return { productContext, contextoConsumibles: consumibles, fallo };
 
     console.warn(`whatsapp-reintento: intento ${intento} de ${INTENTOS} sin respuesta de la web`);
     if (intento < INTENTOS) await dormir(ESPERA_ENTRE_INTENTOS_MS);
   }
 
-  return { productContext: null, fallo: true };
+  return { productContext: null, contextoConsumibles: consumibles, fallo: true };
 }
 
 exports.handler = async (event) => {
@@ -79,9 +89,18 @@ exports.handler = async (event) => {
       conversationStore.getFichaCliente(from),
     ]);
 
-    const { productContext, fallo } = await buscarConPaciencia({ from, text, history });
+    const { productContext, contextoConsumibles, fallo } = await buscarConPaciencia({
+      from,
+      text,
+      history,
+    });
 
-    let reply = await askClaude(text, history, productContext, fichaCliente);
+    let reply = await askClaude(
+      text,
+      history,
+      unirContexto(contextoConsumibles, productContext),
+      fichaCliente
+    );
 
     // Mismas redes de seguridad que en el webhook: sin datos reales de catálogo
     // no nos fiamos de una confirmación de la IA, que puede ser invención.
