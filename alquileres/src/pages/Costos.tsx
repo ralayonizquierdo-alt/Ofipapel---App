@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Plus, Pencil, Trash2, Upload, Wrench } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { Expense, Apartment, ExpenseType } from '../types'
 import { formatDate } from '../lib/dateUtils'
-import { EXPENSE_LABELS, EXPENSE_DEDUCIBILIDAD, deducibleGasto, deducibleReparacion, redondea } from '../lib/deducible'
+import { EXPENSE_LABELS, EXPENSE_DEDUCIBILIDAD, deducibleGasto, deducibleReparacion, mapaOcupaciones, redondea } from '../lib/deducible'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
 import ImportarExcel from '../components/ImportarExcel'
@@ -74,8 +74,9 @@ export default function Costos() {
   const [params, setParams] = useSearchParams()
   const pestana = params.get('tab') === 'reparaciones' ? 'reparaciones' : 'gastos'
 
-  const { expenses, repairs, apartments: allApartments, deleteExpense, reservations } = useData()
+  const { expenses, repairs, apartments: allApartments, deleteExpense, reservations, occupancies } = useData()
   const apartments = sortApartments(allApartments)
+  const ocupDeclarada = useMemo(() => mapaOcupaciones(occupancies), [occupancies])
   const [filterApt, setFilterApt] = useState('')
   const [filterYear, setFilterYear] = useState('')
   const [filterType, setFilterType] = useState<FiltroTipo>('')
@@ -88,7 +89,7 @@ export default function Costos() {
       id: e.id, origen: 'gasto', apartmentId: e.apartmentId, fecha: e.expenseDate,
       tipo: e.expenseType, etiqueta: EXPENSE_LABELS[e.expenseType],
       descripcion: e.description, proveedor: e.supplier,
-      importe: e.amount || 0, deducible: deducibleGasto(e, reservations),
+      importe: e.amount || 0, deducible: deducibleGasto(e, reservations, ocupDeclarada),
       regla: EXPENSE_DEDUCIBILIDAD[e.expenseType] === 'directo' ? '100%' : 'por ocupación',
       asiento: e.entryNumber, gasto: e,
     })),
@@ -96,7 +97,7 @@ export default function Costos() {
       id: r.id, origen: 'reparacion', apartmentId: r.apartmentId, fecha: r.repairDate,
       tipo: 'reparaciones', etiqueta: 'Reparaciones y conservación',
       descripcion: r.item, proveedor: r.supplier,
-      importe: r.amount || 0, deducible: deducibleReparacion(r, reservations),
+      importe: r.amount || 0, deducible: deducibleReparacion(r, reservations, ocupDeclarada),
       regla: 'por ocupación', asiento: r.entryNumber,
     })),
   ]

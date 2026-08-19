@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Upload, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
-import { leerExcel, idGasto, idIngreso, type ResultadoImport } from '../lib/importExcel'
+import { leerExcel, idGasto, idIngreso, idOcupacion, type ResultadoImport } from '../lib/importExcel'
 import { EXPENSE_LABELS } from '../lib/deducible'
-import type { Expense, ExpenseType, IngresoMensual } from '../types'
+import type { Expense, ExpenseType, IngresoMensual, OcupacionMensual } from '../types'
 import Modal from './ui/Modal'
+
+const MESES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
 /**
  * Volcado del Excel «Resumen cobros y gastos». Siempre enseña una vista previa
@@ -12,7 +14,7 @@ import Modal from './ui/Modal'
  * conceptos nuevos, y conviene verlo antes de tocar los datos.
  */
 export default function ImportarExcel({ onClose }: { onClose: () => void }) {
-  const { importExpenses, importIncomes, apartments } = useData()
+  const { importExpenses, importIncomes, importOccupancies, apartments } = useData()
   const [previo, setPrevio] = useState<ResultadoImport | null>(null)
   const [nombreFichero, setNombreFichero] = useState('')
   const [error, setError] = useState('')
@@ -68,6 +70,15 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
       })
       await importIncomes(ingresos)
 
+      // La ocupación declarada es la que prorratea el gasto deducible. Sin ella
+      // se usaría la de las reservas de la app, que pueden estar incompletas.
+      const ocupaciones: OcupacionMensual[] = previo.ocupaciones.map(o => ({
+        id: idOcupacion(previo.year, o.apartmentId, o.month),
+        apartmentId: o.apartmentId, year: previo.year, month: o.month,
+        diasAlquilados: o.diasAlquilados, diasTotales: o.diasTotales, origen: 'excel' as const,
+      }))
+      await importOccupancies(ocupaciones)
+
       setHecho(items.length)
       setIngresosHechos(ingresos.length)
       setPrevio(null)
@@ -91,6 +102,11 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
   const totalPrevio = previo ? previo.gastos.reduce((s, g) => s + g.base, 0) : 0
   const nombreApt = (id: string) => apartments.find(a => a.id === id)?.name || id
   const inmuebles = previo ? [...new Set(previo.gastos.map(g => g.apartmentId))] : []
+  // Un mes no puede tener más noches alquiladas que días: si pasa, el dato de
+  // origen está mal y conviene decirlo en vez de arrastrarlo al deducible.
+  const ocupacionImposible = previo
+    ? previo.ocupaciones.filter(o => o.diasTotales > 0 && o.diasAlquilados > o.diasTotales)
+    : []
 
   return (
     <Modal title="Importar Excel de gastos" onClose={onClose} size="lg">
@@ -101,8 +117,8 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
             <div>
               <p className="font-semibold text-green-900">{hecho} apuntes cargados</p>
               <p className="text-sm text-green-800 mt-0.5">
-                Y {ingresosHechos} meses de ingresos brutos. Ya aparecen en la lista de
-                gastos y en Analítica.
+                Y {ingresosHechos} meses de ingresos brutos y su ocupación. Ya aparecen
+                en la lista de gastos y en Analítica.
               </p>
             </div>
           </div>
@@ -177,6 +193,28 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
             <p className="text-xs text-slate-500">
               Inmuebles detectados: {inmuebles.map(nombreApt).join(', ')}
             </p>
+
+            {previo.ocupaciones.length > 0 && (
+              <p className="text-xs text-slate-500">
+                Se cargará también la ocupación declarada ({previo.ocupaciones.length} meses):
+                es la que reparte el gasto deducible de cada inmueble.
+              </p>
+            )}
+
+            {ocupacionImposible.length > 0 && (
+              <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
+                <p className="text-sm font-semibold text-amber-900 mb-1">
+                  {ocupacionImposible.length} meses con más días alquilados que días tiene el mes
+                </p>
+                <p className="text-sm text-amber-900">
+                  {ocupacionImposible.slice(0, 4).map(o =>
+                    `${nombreApt(o.apartmentId)} ${MESES_CORTOS[o.month - 1]}: ${o.diasAlquilados}/${o.diasTotales}`
+                  ).join(' · ')}
+                  {ocupacionImposible.length > 4 && ' …'}
+                  . Se contarán como 100% de ocupación, pero conviene revisarlos en el Excel.
+                </p>
+              </div>
+            )}
 
             {previo.ingresosPorInmueble.length > 0 && (
               <p className="text-xs text-slate-500">

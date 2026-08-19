@@ -31,11 +31,19 @@ export interface GastoImportado {
   igic: number
 }
 
+export interface OcupacionImportada {
+  apartmentId: string
+  month: number
+  diasAlquilados: number
+  diasTotales: number
+}
+
 export interface ResultadoImport {
   year: number
   gastos: GastoImportado[]
   ingresosPorInmueble: { apartmentId: string; month: number; base: number }[]
   reparacionesIgnoradas: { apartmentId: string; month: number; base: number }[]
+  ocupaciones: OcupacionImportada[]
   inmueblesNoReconocidos: string[]
 }
 
@@ -124,10 +132,29 @@ export function analizaFilas(bruto: unknown): ResultadoImport {
   const reparacionesIgnoradas: ResultadoImport['reparacionesIgnoradas'] = []
   const inmueblesNoReconocidos: string[] = []
 
+  // Los días alquilados y totales de cada mes viven en las filas siguientes a
+  // DIRECCION, con el rótulo en la columna C y el valor en la de al lado. Son
+  // los que dan la ocupación con la que se prorratea el gasto deducible.
+  const diasAlq = new Map<string, number>()
+  const diasTot = new Map<string, number>()
+
   let apartmentId: string | null = null
 
   for (const fila of filas) {
     if (!Array.isArray(fila)) continue
+
+    // Antes del filtro de abajo: la fila de «DIAS TOTALES» trae la columna B
+    // vacía y el rótulo en la C, así que se descartaría por no tener etiqueta.
+    const rotulo = normaliza(fila[COL_DIRECCION])
+    if (apartmentId && (rotulo.startsWith('dias totales') || rotulo.startsWith('dias alquilado'))) {
+      const destino = rotulo.startsWith('dias totales') ? diasTot : diasAlq
+      for (let m = 0; m < 12; m++) {
+        const v = num(fila[COL_IGIC[m]])
+        if (v) destino.set(`${apartmentId}|${m + 1}`, v)
+      }
+      continue
+    }
+
     const etiqueta = normaliza(fila[COL_CONCEPTO])
     if (!etiqueta) continue
 
@@ -163,7 +190,20 @@ export function analizaFilas(bruto: unknown): ResultadoImport {
     }
   }
 
-  return { year, gastos, ingresosPorInmueble, reparacionesIgnoradas, inmueblesNoReconocidos }
+  // Se recorren los días totales, no los alquilados: un mes cerrado (0 noches)
+  // también es un dato: su gasto no se deduce. Si solo miráramos los alquilados
+  // ese mes desaparecería y acabaría prorrateándose con otra ocupación.
+  const ocupaciones: OcupacionImportada[] = []
+  for (const [clave, diasTotales] of diasTot) {
+    if (diasTotales <= 0) continue
+    const [apt, mes] = clave.split('|')
+    ocupaciones.push({
+      apartmentId: apt, month: Number(mes),
+      diasAlquilados: diasAlq.get(clave) || 0, diasTotales,
+    })
+  }
+
+  return { year, gastos, ingresosPorInmueble, reparacionesIgnoradas, ocupaciones, inmueblesNoReconocidos }
 }
 
 /**
@@ -173,6 +213,11 @@ export function analizaFilas(bruto: unknown): ResultadoImport {
 export function idGasto(g: GastoImportado): string {
   const mm = String(g.month).padStart(2, '0')
   return `xls-${g.year}${mm}-${g.apartmentId}-${g.expenseType}`
+}
+
+/** Mismo criterio para la ocupación declarada. */
+export function idOcupacion(year: number, apartmentId: string, month: number): string {
+  return `xls-${year}${String(month).padStart(2, '0')}-${apartmentId}`
 }
 
 /** Mismo criterio para los ingresos brutos declarados. */

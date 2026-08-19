@@ -146,6 +146,21 @@ export interface IngresoMensual {
   origen: 'excel'
 }
 
+/**
+ * Días alquilados y totales de un mes, declarados en el Excel. Cuando existen,
+ * mandan sobre lo que se pueda deducir de las reservas: el Excel es la fuente
+ * oficial del ejercicio y las reservas de la app pueden estar incompletas.
+ */
+export interface OcupacionMensual {
+  id: string
+  apartmentId: string
+  year: number
+  month: number
+  diasAlquilados: number
+  diasTotales: number
+  origen: 'excel'
+}
+
 export interface QuarterSummary {
   quarter: 1 | 2 | 3 | 4
   year: number

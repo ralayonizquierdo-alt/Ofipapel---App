@@ -4,7 +4,7 @@ import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, getDoc, writ
 import { db, stripUndef, ensureAnonSession } from '../lib/firebase'
 import { nanoid } from '../lib/nanoid'
 import { DEFAULT_PRICES_2026 } from '../lib/priceCalc'
-import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice, DeletedRepair, IngresoMensual } from '../types'
+import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice, DeletedRepair, IngresoMensual, OcupacionMensual } from '../types'
 
 // ─── Default seed data ────────────────────────────────────────────────────────
 
@@ -35,6 +35,8 @@ interface DataContextValue {
   offerPrices: OfferPrice[]
   /** Ingresos brutos declarados (del Excel), por inmueble y mes. */
   incomes: IngresoMensual[]
+  /** Ocupación declarada (del Excel), por inmueble y mes. */
+  occupancies: OcupacionMensual[]
 
   addApartment:    (data: Omit<Apartment, 'id'> & { id?: string }) => Apartment
   updateApartment: (id: string, data: Partial<Apartment>) => void
@@ -64,6 +66,7 @@ interface DataContextValue {
   deleteExpense: (id: string) => void
   importExpenses: (items: Expense[]) => Promise<number>
   importIncomes: (items: IngresoMensual[]) => Promise<number>
+  importOccupancies: (items: OcupacionMensual[]) => Promise<number>
 
   addOfferPrice:    (data: Omit<OfferPrice, 'id'>) => OfferPrice
   updateOfferPrice: (id: string, data: Partial<OfferPrice>) => void
@@ -91,7 +94,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [offerPrices, setOfferPrices] = useState<OfferPrice[]>([])
   const [deletedRepairs, setDeletedRepairs] = useState<DeletedRepair[]>([])
   const [incomes, setIncomes] = useState<IngresoMensual[]>([])
-  const [ready, setReady] = useState({ apartments:false, prices:false, reservations:false, payments:false, repairs:false, expenses:false, offerPrices:false, deletedRepairs:false, incomes:false })
+  const [occupancies, setOccupancies] = useState<OcupacionMensual[]>([])
+  const [ready, setReady] = useState({ apartments:false, prices:false, reservations:false, payments:false, repairs:false, expenses:false, offerPrices:false, deletedRepairs:false, incomes:false, occupancies:false })
 
   const loading = !Object.values(ready).every(Boolean)
 
@@ -117,6 +121,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       onSnapshot(collection(db, 'offerPrices'),    s => { setOfferPrices(s.docs.map(d => d.data() as OfferPrice));     mark('offerPrices') },    () => mark('offerPrices')),
       onSnapshot(collection(db, 'deletedRepairs'), s => { setDeletedRepairs(s.docs.map(d => d.data() as DeletedRepair)); mark('deletedRepairs') }, () => mark('deletedRepairs')),
       onSnapshot(collection(db, 'incomes'),        s => { setIncomes(s.docs.map(d => d.data() as IngresoMensual));      mark('incomes') },        () => mark('incomes')),
+      onSnapshot(collection(db, 'occupancies'),    s => { setOccupancies(s.docs.map(d => d.data() as OcupacionMensual)); mark('occupancies') },   () => mark('occupancies')),
     ]
 
     return () => subs.forEach(u => u())
@@ -249,6 +254,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
    * (inmueble+mes+concepto), así que reimportar el mismo fichero actualiza los
    * apuntes en lugar de duplicarlos. Firestore limita el lote a 500 escrituras.
    */
+  async function importOccupancies(items: OcupacionMensual[]): Promise<number> {
+    for (let i = 0; i < items.length; i += 400) {
+      const batch = writeBatch(db)
+      for (const item of items.slice(i, i + 400)) {
+        batch.set(doc(db, 'occupancies', item.id), stripUndef(item))
+      }
+      await batch.commit()
+    }
+    return items.length
+  }
   /** Mismo criterio que los gastos: id estable, reimportar actualiza. */
   async function importIncomes(items: IngresoMensual[]): Promise<number> {
     for (let i = 0; i < items.length; i += 400) {
@@ -287,14 +302,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      loading, apartments, prices, reservations, payments, repairs, expenses, offerPrices, incomes,
+      loading, apartments, prices, reservations, payments, repairs, expenses, offerPrices, incomes, occupancies,
       deletedRepairs,
       addApartment, updateApartment, deleteApartment,
       addPrice, updatePrice, deletePrice,
       addReservation, updateReservation, deleteReservation,
       addPayment, updatePayment, deletePayment,
       addRepair, updateRepair, deleteRepair, deleteRepairWithAudit,
-      addExpense, updateExpense, deleteExpense, importExpenses, importIncomes,
+      addExpense, updateExpense, deleteExpense, importExpenses, importIncomes, importOccupancies,
       addOfferPrice, updateOfferPrice, deleteOfferPrice,
     }}>
       {children}

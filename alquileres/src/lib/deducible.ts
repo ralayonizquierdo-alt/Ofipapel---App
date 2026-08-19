@@ -1,4 +1,4 @@
-import type { ExpenseType, Reservation, Expense, Repair } from '../types'
+import type { ExpenseType, Reservation, Expense, Repair, OcupacionMensual } from '../types'
 import { getDaysInMonth } from './dateUtils'
 
 /**
@@ -75,13 +75,30 @@ export function nochesOcupadas(
   return noches
 }
 
-/** Ocupación 0–1 de un inmueble en un mes. */
+/** Índice de ocupaciones declaradas, listo para consultar por inmueble y mes. */
+export function mapaOcupaciones(ocupaciones: OcupacionMensual[]): Map<string, number> {
+  const m = new Map<string, number>()
+  for (const o of ocupaciones) {
+    if (o.diasTotales > 0) {
+      m.set(`${o.apartmentId}|${o.year}|${o.month}`, Math.min(1, o.diasAlquilados / o.diasTotales))
+    }
+  }
+  return m
+}
+
+/**
+ * Ocupación 0–1 de un inmueble en un mes. Si hay ocupación declarada para ese
+ * mes se usa esa; si no, se calcula desde las reservas de la app.
+ */
 export function ocupacionMes(
   reservations: Reservation[],
   apartmentId: string,
   year: number,
   month: number,
+  declaradas?: Map<string, number>,
 ): number {
+  const declarada = declaradas?.get(`${apartmentId}|${year}|${month}`)
+  if (declarada !== undefined) return declarada
   const dias = getDaysInMonth(year, month)
   if (!dias) return 0
   return Math.min(1, nochesOcupadas(reservations, apartmentId, year, month) / dias)
@@ -97,23 +114,27 @@ function mesDe(fecha: string | undefined): { year: number; month: number } | nul
 }
 
 /** Parte deducible de un gasto, ya aplicada su regla. */
-export function deducibleGasto(gasto: Expense, reservations: Reservation[]): number {
+export function deducibleGasto(
+  gasto: Expense, reservations: Reservation[], declaradas?: Map<string, number>,
+): number {
   const importe = Number(gasto.amount)
   if (!Number.isFinite(importe)) return 0
   if (EXPENSE_DEDUCIBILIDAD[gasto.expenseType] === 'directo') return importe
 
   const periodo = mesDe(gasto.expenseDate)
   if (!periodo) return 0
-  return importe * ocupacionMes(reservations, gasto.apartmentId, periodo.year, periodo.month)
+  return importe * ocupacionMes(reservations, gasto.apartmentId, periodo.year, periodo.month, declaradas)
 }
 
 /** Parte deducible de una reparación (siempre prorrateada). */
-export function deducibleReparacion(rep: Repair, reservations: Reservation[]): number {
+export function deducibleReparacion(
+  rep: Repair, reservations: Reservation[], declaradas?: Map<string, number>,
+): number {
   const importe = Number(rep.amount)
   if (!Number.isFinite(importe)) return 0
   const periodo = mesDe(rep.repairDate)
   if (!periodo) return 0
-  return importe * ocupacionMes(reservations, rep.apartmentId, periodo.year, periodo.month)
+  return importe * ocupacionMes(reservations, rep.apartmentId, periodo.year, periodo.month, declaradas)
 }
 
 export function redondea(n: number): number {
