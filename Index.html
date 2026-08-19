@@ -1382,11 +1382,11 @@ const STORAGE_KEY = 'ofipapel_registros_v1';
 // ESTADO — declarado aquí para evitar TDZ antes de loadData()
 // ═══════════════════════════════════════════════════════
 // Usuarios válidos — SIN contraseñas en el código
-const VALID_USERS = new Set(['rober', 'admin', 'david', 'monica']);
+const VALID_USERS = new Set(['rober', 'admin', 'david', 'monica', 'luis']);
 // Menús restringidos por usuario (vacío = acceso total)
 const USER_BLOCKED = { monica: ['ventas','compras','chat'] };
 // Usuarios con acceso a la sección Operaciones (Ventas, Compras, Familias)
-const OPERACIONES_ACCESO = ['admin', 'rober', 'david'];
+const OPERACIONES_ACCESO = ['admin', 'rober', 'david', 'luis'];
 // Contraseñas: SOLO en localStorage (SHA-256), nunca en el código
 let USERS = {};
 try{ USERS = JSON.parse(localStorage.getItem('op_passwords')||'{}'); }catch(e){}
