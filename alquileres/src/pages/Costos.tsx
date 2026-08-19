@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus, Pencil, Trash2, Upload, Wrench } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { Expense, Apartment, ExpenseType } from '../types'
 import { formatDate } from '../lib/dateUtils'
@@ -8,6 +8,7 @@ import { EXPENSE_LABELS, EXPENSE_DEDUCIBILIDAD, deducibleGasto, deducibleReparac
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
 import ImportarExcel from '../components/ImportarExcel'
+import Repairs from './Repairs'
 
 const EXPENSE_TYPE_LABELS = EXPENSE_LABELS
 
@@ -44,7 +45,35 @@ function sortApartments(apts: Apartment[]): Apartment[] {
   })
 }
 
+/** Declarado fuera del render: si se crea dentro, React lo recrea en cada
+ *  pintado y las pestañas perderían su estado. */
+function Pestanas({ actual, onCambio }: {
+  actual: 'gastos' | 'reparaciones'
+  onCambio: (p: Record<string, string>) => void
+}) {
+  return (
+    <div className="flex gap-1 mb-5 border-b border-slate-200 print:hidden">
+      {([['gastos', 'Todos los gastos'], ['reparaciones', 'Reparaciones']] as const).map(([k, txt]) => (
+        <button key={k}
+          onClick={() => onCambio(k === 'gastos' ? {} : { tab: k })}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            actual === k
+              ? 'border-blue-600 text-blue-700'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}>
+          {txt}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function Costos() {
+  // Reparaciones vive aquí dentro como pestaña: es un gasto más, pero se captura
+  // con sus propios campos (proveedor, factura, asiento) y su auditoría.
+  const [params, setParams] = useSearchParams()
+  const pestana = params.get('tab') === 'reparaciones' ? 'reparaciones' : 'gastos'
+
   const { expenses, repairs, apartments: allApartments, deleteExpense, reservations } = useData()
   const apartments = sortApartments(allApartments)
   const [filterApt, setFilterApt] = useState('')
@@ -94,8 +123,20 @@ export default function Costos() {
     total: filtered.filter(l => l.apartmentId === a.id).reduce((s, l) => s + l.importe, 0)
   })).filter(x => x.total > 0)
 
+  if (pestana === 'reparaciones') {
+    return (
+      <div className="p-6 pb-0">
+        <Pestanas actual={pestana} onCambio={setParams} />
+        <div className="-mx-6 -mt-1">
+          <Repairs />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-6">
+      <Pestanas actual={pestana} onCambio={setParams} />
       <PageHeader
         title="Gastos"
         subtitle={`${filtered.length} registros · Total: ${totalFiltered.toLocaleString('es-ES')} € · Deducible: ${totalDeducible.toLocaleString('es-ES')} €`}
@@ -198,10 +239,11 @@ export default function Costos() {
                           className="p-1.5 text-slate-300 hover:text-red-600 rounded"><Trash2 size={13} /></button>
                       </>
                     ) : (
-                      <Link to="/reparaciones" title="Se edita en Reparaciones"
+                      <button onClick={() => setParams({ tab: 'reparaciones' })}
+                        title="Se edita en la pestaña Reparaciones"
                         className="text-[10px] text-slate-400 hover:text-blue-600 whitespace-nowrap">
                         ver en Reparaciones
-                      </Link>
+                      </button>
                     )}
                   </div>
                 </td>
