@@ -44,7 +44,26 @@ export interface Reservation {
 }
 
 export type PaymentMethod = 'efectivo' | 'transferencia' | 'otro'
-export type ExpenseType = 'lavanderia' | 'limpieza' | 'luz' | 'agua' | 'impuestos' | 'otro'
+
+/**
+ * Conceptos de gasto del modelo fiscal de vivienda vacacional. Los cuatro
+ * primeros van ligados directamente al alquiler; el resto son gastos de la
+ * vivienda que solo se deducen en proporción a los días alquilados
+ * (ver EXPENSE_DEDUCIBILIDAD en lib/deducible.ts).
+ */
+export type ExpenseType =
+  | 'comisiones'      // Airbnb, Booking…
+  | 'comisionAgencia' // agencia intermediaria
+  | 'limpieza'
+  | 'lavanderia'
+  | 'electricidad'
+  | 'agua'
+  | 'internet'        // internet y telefonía fija
+  | 'comunidad'
+  | 'ibi'
+  | 'basura'
+  | 'profesionales'   // abogados, asesorías…
+  | 'otro'            // otros servicios y gastos
 
 export interface Payment {
   id: string
@@ -64,7 +83,10 @@ export interface Expense {
   expenseType: ExpenseType
   description: string
   supplier?: string
+  /** Base imponible, sin IGIC. Es la que se prorratea para el deducible. */
   amount: number
+  /** IGIC soportado, si consta en la factura. */
+  igic?: number
   entryNumber?: string
   createdAt: string
 }

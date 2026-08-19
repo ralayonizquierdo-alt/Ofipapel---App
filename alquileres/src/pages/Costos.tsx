@@ -1,19 +1,14 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Upload } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import type { Expense, Apartment, ExpenseType } from '../types'
 import { formatDate } from '../lib/dateUtils'
+import { EXPENSE_LABELS, EXPENSE_DEDUCIBILIDAD, deducibleGasto, redondea } from '../lib/deducible'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
+import ImportarExcel from '../components/ImportarExcel'
 
-const EXPENSE_TYPE_LABELS: Record<ExpenseType, string> = {
-  lavanderia: 'Lavandería',
-  limpieza: 'Limpieza',
-  luz: 'Luz',
-  agua: 'Agua',
-  impuestos: 'Impuestos',
-  otro: 'Otro',
-}
+const EXPENSE_TYPE_LABELS = EXPENSE_LABELS
 
 const APT_ORDER = ['104', '105', '106', '203', '204', '402', 'P3', 'AP2B', 'JXXIII']
 
@@ -29,12 +24,13 @@ function sortApartments(apts: Apartment[]): Apartment[] {
 }
 
 export default function Costos() {
-  const { expenses, apartments: allApartments, deleteExpense } = useData()
+  const { expenses, apartments: allApartments, deleteExpense, reservations } = useData()
   const apartments = sortApartments(allApartments)
   const [filterApt, setFilterApt] = useState('')
   const [filterYear, setFilterYear] = useState('')
   const [filterType, setFilterType] = useState<ExpenseType | ''>('')
   const [showForm, setShowForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
 
   const years = [...new Set(expenses.map(e => e.expenseDate?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
@@ -46,6 +42,7 @@ export default function Costos() {
     .sort((a, b) => (b.expenseDate || '').localeCompare(a.expenseDate || ''))
 
   const totalFiltered = filtered.reduce((s, e) => s + (e.amount || 0), 0)
+  const totalDeducible = redondea(filtered.reduce((s, e) => s + deducibleGasto(e, reservations), 0))
 
   function getAptName(id: string) { return apartments.find(a => a.id === id)?.name || id }
   function handleDelete(id: string) {
@@ -61,13 +58,19 @@ export default function Costos() {
   return (
     <div className="p-6">
       <PageHeader
-        title="Costes de Producción"
-        subtitle={`${filtered.length} registros · Total: ${totalFiltered.toLocaleString('es-ES')} €`}
+        title="Gastos"
+        subtitle={`${filtered.length} registros · Total: ${totalFiltered.toLocaleString('es-ES')} € · Deducible: ${totalDeducible.toLocaleString('es-ES')} €`}
         actions={
-          <button onClick={() => { setEditing(null); setShowForm(true) }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-            <Plus size={16} /> Nuevo gasto
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => setShowImport(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:border-blue-300 hover:text-blue-700">
+              <Upload size={16} /> Importar Excel
+            </button>
+            <button onClick={() => { setEditing(null); setShowForm(true) }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+              <Plus size={16} /> Nuevo gasto
+            </button>
+          </div>
         }
       />
 
@@ -115,6 +118,7 @@ export default function Costos() {
               <th className="text-left py-3 px-4 font-medium text-slate-600">Descripción</th>
               <th className="text-left py-3 px-4 font-medium text-slate-600">Proveedor</th>
               <th className="text-right py-3 px-4 font-medium text-slate-600">Importe</th>
+              <th className="text-right py-3 px-4 font-medium text-slate-600">Deducible</th>
               <th className="text-left py-3 px-4 font-medium text-slate-600">Nº Asiento</th>
               <th className="py-3 px-4"></th>
             </tr>
@@ -134,6 +138,14 @@ export default function Costos() {
                 <td className="py-2.5 px-4 text-right font-semibold text-orange-700">
                   {e.amount ? `${e.amount.toLocaleString('es-ES')} €` : '—'}
                 </td>
+                <td className="py-2.5 px-4 text-right text-xs">
+                  <span className="font-semibold text-slate-700">
+                    {redondea(deducibleGasto(e, reservations)).toLocaleString('es-ES')} €
+                  </span>
+                  <span className="block text-[10px] text-slate-400">
+                    {EXPENSE_DEDUCIBILIDAD[e.expenseType] === 'directo' ? '100%' : 'por ocupación'}
+                  </span>
+                </td>
                 <td className="py-2.5 px-4 text-slate-400 text-xs">{e.entryNumber || '—'}</td>
                 <td className="py-2.5 px-4">
                   <div className="flex items-center gap-1 justify-end">
@@ -146,7 +158,7 @@ export default function Costos() {
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={8} className="py-8 text-center text-slate-400 text-sm">No hay registros de gastos</td></tr>
+              <tr><td colSpan={9} className="py-8 text-center text-slate-400 text-sm">No hay registros de gastos</td></tr>
             )}
           </tbody>
           {filtered.length > 0 && (
@@ -154,12 +166,15 @@ export default function Costos() {
               <tr>
                 <td colSpan={5} className="py-3 px-4 text-sm font-semibold text-slate-700">TOTAL</td>
                 <td className="py-3 px-4 text-right font-bold text-orange-700">{totalFiltered.toLocaleString('es-ES')} €</td>
+                <td className="py-3 px-4 text-right font-bold text-slate-700">{totalDeducible.toLocaleString('es-ES')} €</td>
                 <td colSpan={2}></td>
               </tr>
             </tfoot>
           )}
         </table>
       </div>
+
+      {showImport && <ImportarExcel onClose={() => setShowImport(false)} />}
 
       {showForm && (
         <ExpenseForm
