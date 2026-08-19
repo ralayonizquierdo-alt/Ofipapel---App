@@ -1331,6 +1331,13 @@ function actualizarBotonesOrden(){
     (ordenActual.campo==='desc' ? flecha : '↕') + ' Ordenar por Descripción';
 }
 
+/* Escapa antes de insertar en atributos/HTML. Los campos de cada fila salen
+   del PDF del proveedor (fichero externo, no controlado por nosotros): sin
+   escapar, una descripción con comillas rompe el atributo value="..." y
+   permite inyectar un manejador de eventos en la tabla. */
+function escapeHtml(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 function fmtNum(v){ return (Math.round(v*100)/100).toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 
 function renderFilas(){
@@ -1338,21 +1345,21 @@ function renderFilas(){
   document.getElementById('emptyState').style.display = filas.length ? 'none' : 'block';
   tbody.innerHTML = filas.map((f,idx)=>`
     <tr>
-      <td><input value="${f.isbn}" oninput="actualizarCelda(${idx},'isbn',this.value)"></td>
-      <td><input value="${f.marca}" oninput="actualizarCelda(${idx},'marca',this.value)"></td>
-      <td><input value="${f.ref}" oninput="actualizarCelda(${idx},'ref',this.value)"></td>
-      <td><input value="${f.desc}" oninput="actualizarCelda(${idx},'desc',this.value)"></td>
-      <td class="col-num"><input value="${f.caja}" oninput="actualizarCelda(${idx},'caja',this.value)"></td>
-      <td class="col-num"><input value="${f.udCaja}" oninput="actualizarCelda(${idx},'udCaja',this.value)"></td>
-      <td class="col-num"><input value="${f.udes}" oninput="actualizarCelda(${idx},'udes',this.value)"></td>
-      <td class="col-num"><input value="${f.precioU}" oninput="actualizarCelda(${idx},'precioU',this.value)"></td>
-      <td class="col-num"><input value="${f.dto1}" oninput="actualizarCelda(${idx},'dto1',this.value)"></td>
-      <td class="col-num"><input value="${f.dto2}" oninput="actualizarCelda(${idx},'dto2',this.value)"></td>
-      <td class="col-num"><input value="${f.dto3}" oninput="actualizarCelda(${idx},'dto3',this.value)"></td>
-      <td class="col-num"><input value="${f.dto4}" oninput="actualizarCelda(${idx},'dto4',this.value)"></td>
-      <td class="col-num"><input value="${f.igic}" oninput="actualizarCelda(${idx},'igic',this.value)"></td>
-      <td class="col-num"><input value="${f.importe}" oninput="actualizarCelda(${idx},'importe',this.value)"></td>
-      <td><input value="${f.familia}" oninput="actualizarCelda(${idx},'familia',this.value)"></td>
+      <td><input value="${escapeHtml(f.isbn)}" oninput="actualizarCelda(${idx},'isbn',this.value)"></td>
+      <td><input value="${escapeHtml(f.marca)}" oninput="actualizarCelda(${idx},'marca',this.value)"></td>
+      <td><input value="${escapeHtml(f.ref)}" oninput="actualizarCelda(${idx},'ref',this.value)"></td>
+      <td><input value="${escapeHtml(f.desc)}" oninput="actualizarCelda(${idx},'desc',this.value)"></td>
+      <td class="col-num"><input value="${escapeHtml(f.caja)}" oninput="actualizarCelda(${idx},'caja',this.value)"></td>
+      <td class="col-num"><input value="${escapeHtml(f.udCaja)}" oninput="actualizarCelda(${idx},'udCaja',this.value)"></td>
+      <td class="col-num"><input value="${escapeHtml(f.udes)}" oninput="actualizarCelda(${idx},'udes',this.value)"></td>
+      <td class="col-num"><input value="${escapeHtml(f.precioU)}" oninput="actualizarCelda(${idx},'precioU',this.value)"></td>
+      <td class="col-num"><input value="${escapeHtml(f.dto1)}" oninput="actualizarCelda(${idx},'dto1',this.value)"></td>
+      <td class="col-num"><input value="${escapeHtml(f.dto2)}" oninput="actualizarCelda(${idx},'dto2',this.value)"></td>
+      <td class="col-num"><input value="${escapeHtml(f.dto3)}" oninput="actualizarCelda(${idx},'dto3',this.value)"></td>
+      <td class="col-num"><input value="${escapeHtml(f.dto4)}" oninput="actualizarCelda(${idx},'dto4',this.value)"></td>
+      <td class="col-num"><input value="${escapeHtml(f.igic)}" oninput="actualizarCelda(${idx},'igic',this.value)"></td>
+      <td class="col-num"><input value="${escapeHtml(f.importe)}" oninput="actualizarCelda(${idx},'importe',this.value)"></td>
+      <td><input value="${escapeHtml(f.familia)}" oninput="actualizarCelda(${idx},'familia',this.value)"></td>
       <td><button class="del-btn" title="Eliminar" onclick="eliminarFila(${idx})">🗑</button></td>
     </tr>`).join('');
   renderTotales();
@@ -1480,7 +1487,7 @@ function mostrarModalVerificacion({ perfil, lineas, sumaCalculada, totalFactura 
     }
   }
   cont.innerHTML = `
-    <div class="modal-check"><span>Proveedor</span><span class="valor">${perfil ? perfil.nombre : 'Genérico'}</span></div>
+    <div class="modal-check"><span>Proveedor</span><span class="valor">${perfil ? escapeHtml(perfil.nombre) : 'Genérico'}</span></div>
     <div class="modal-check"><span>Líneas extraídas</span><span class="valor">${lineas}</span></div>
     <div class="modal-check"><span>Suma calculada</span><span class="valor">${fmt(sumaCalculada)}</span></div>
     <div class="modal-check"><span>Total según factura</span><span class="valor">${totalFactura===null ? '—' : fmt(totalFactura)}</span></div>

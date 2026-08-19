@@ -585,6 +585,14 @@ const IDENTITY_TOOLKIT_BASE = 'https://identitytoolkit.googleapis.com/v1';
 const SECURE_TOKEN_BASE = 'https://securetoken.googleapis.com/v1';
 const AUTH_USER_DOMAIN = 'ofipapel-fichaje.internal';
 
+/* Escapa texto libre antes de insertarlo en innerHTML. Los nombres de empleado
+   (que llegan del proyecto de Vacaciones) y sobre todo el motivo de corrección
+   y el "corregido por" son texto que escribe una persona: sin escapar, se
+   podía guardar HTML/JS en ese campo y ejecutarlo en el navegador de gerencia,
+   que es justo donde vive el token de administración. */
+function escapeHtml(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 function fsBase(cfg){ cfg = cfg || FIREBASE_CONFIG; return `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents`; }
 function fsHeaders(token, withJson){
   const h = {};
@@ -1162,9 +1170,9 @@ function populatePersonSelect(){
         <option value="" selected disabled>— Elige tu nombre —</option>
         ${g.subgroups
           ? g.subgroups.map(sg=>`<optgroup label="${boldUnicode(sg.label)}">` +
-              sg.people.map(p=>`<option value="${p.id}">${p.name}</option>`).join('') +
+              sg.people.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('') +
               `</optgroup>`).join('')
-          : g.people.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
+          : g.people.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('')}
       </select>
     </div>`
   ).join('');
@@ -1524,7 +1532,7 @@ function renderAlertsBlock(flagged, days, {summaryBodyId, listBodyId, summaryElI
   summaryBody.innerHTML = summaryRows.join('') || '<tr><td colspan="4">Sin casos en este periodo.</td></tr>';
 
   const listRows = flagged.slice(0,30).map(e=>`<tr class="flag">
-    <td>${e._name}</td><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td></tr>`);
+    <td>${escapeHtml(e._name)}</td><td>${escapeHtml(e.dateKey)}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${escapeHtml(TYPE_LABEL[e.type])}</td></tr>`);
   listBody.innerHTML = listRows.join('') || '<tr><td colspan="4">Sin casos en este periodo.</td></tr>';
 }
 async function renderTabAlertas(){
@@ -1564,10 +1572,10 @@ async function renderTabAlertas(){
   }
 }
 function fillPersonSelects(){
-  const opts = '<option value="">— Selecciona —</option>' + PEOPLE.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  const opts = '<option value="">— Selecciona —</option>' + PEOPLE.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
   ['histPerson','corrPerson','expPerson'].forEach(id=>{ document.getElementById(id).innerHTML = opts; });
-  document.getElementById('expPerson').innerHTML = '<option value="">Todas</option>' + PEOPLE.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
-  document.getElementById('histPerson').innerHTML = '<option value="">Todas</option>' + PEOPLE.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  document.getElementById('expPerson').innerHTML = '<option value="">Todas</option>' + PEOPLE.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
+  document.getElementById('histPerson').innerHTML = '<option value="">Todas</option>' + PEOPLE.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
   document.getElementById('histUnit').innerHTML = '<option value="">Todos</option>' +
     UNIT_ORDER.filter(u=>PEOPLE.some(p=>effectiveUnitId(p)===u)).map(u=>`<option value="${u}">${UNIT_NAMES[u]}</option>`).join('');
 }
@@ -1583,7 +1591,7 @@ async function renderTabHoy(){
     const evs = (byPerson[p.id]||[]).sort((a,b)=>a.occurredAt.localeCompare(b.occurredAt));
     const last = evs[evs.length-1];
     const noEntrada = !last;
-    return `<tr class="${noEntrada?'warn':''}"><td>${p.name}</td>
+    return `<tr class="${noEntrada?'warn':''}"><td>${escapeHtml(p.name)}</td>
       <td>${last?TYPE_LABEL[last.type]:'—'}</td>
       <td class="mono">${last?canaryTime(last.occurredAt):'—'}</td>
       <td>${noEntrada?'<span class="badge no">Sin fichar</span>':'<span class="badge ok">Al día</span>'}</td></tr>`;
@@ -1603,7 +1611,7 @@ async function renderTabPersonas(){
     const unitEff = effectiveUnitId(p);
     const overridden = !!(cfg && cfg.unitOverride);
     rows.push(`<tr>
-      <td>${p.name}</td>
+      <td>${escapeHtml(p.name)}</td>
       <td>
         <select class="mini-select" data-act="unit" data-id="${p.id}">
           ${UNIT_ORDER.map(u=>`<option value="${u}" ${u===unitEff?'selected':''}>${UNIT_NAMES[u]}</option>`).join('')}
@@ -1724,12 +1732,12 @@ function eventsInRange(events, from, to){
 }
 function renderHistRows(events, showName){
   return events.map(e=>`<tr>
-    ${showName ? `<td>${e._name}</td>` : ''}
-    <td>${e.dateKey}</td>
+    ${showName ? `<td>${escapeHtml(e._name)}</td>` : ''}
+    <td>${escapeHtml(e.dateKey)}</td>
     <td class="mono">${canaryTime(e.occurredAt)}</td>
-    <td>${TYPE_LABEL[e.type]||e.type}</td>
+    <td>${escapeHtml(TYPE_LABEL[e.type]||e.type)}</td>
     <td>${e.correctionOf ? 'Corrección' : 'Fichaje'}</td>
-    <td>${e.correctionReason ? `${e.correctionReason} (${e.correctedBy||'—'})` : '—'}</td>
+    <td>${e.correctionReason ? `${escapeHtml(e.correctionReason)} (${escapeHtml(e.correctedBy||'—')})` : '—'}</td>
   </tr>`).join('');
 }
 document.getElementById('btnHistSearch').onclick = async ()=>{
@@ -1825,7 +1833,7 @@ document.getElementById('btnExpPreview').onclick = async ()=>{
   const flagRow = e => e._outside || e._outsideGeo===true;
   const rows = events.map(e=> personId
     ? `<tr class="${flagRow(e)?'flag':''}"><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td><td>${e.correctionOf?'Corrección':'Fichaje'}</td><td>${avisoCell(e)}</td></tr>`
-    : `<tr class="${flagRow(e)?'flag':''}"><td>${e._name}</td><td>${e.dateKey}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td><td>${avisoCell(e)}</td></tr>`
+    : `<tr class="${flagRow(e)?'flag':''}"><td>${escapeHtml(e._name)}</td><td>${escapeHtml(e.dateKey)}</td><td class="mono">${canaryTime(e.occurredAt)}</td><td>${escapeHtml(TYPE_LABEL[e.type])}</td><td>${avisoCell(e)}</td></tr>`
   ).join('');
   box.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${rows||'<tr><td colspan="5">Sin fichajes en ese rango.</td></tr>'}</tbody></table>`;
   document.getElementById('expActions').classList.remove('hidden');
@@ -1837,9 +1845,9 @@ document.getElementById('btnExpPrint').onclick = ()=>{
   document.getElementById('printBody').innerHTML = lastExport.events.map(e=>{
     const avisos = [e._outside?'⚠️ Fuera de horario':'', e._outsideGeo===true?'📍 Fuera de lugar':(e._outsideGeo==='sin_ubicacion'?'📍 Sin ubicación':'')].filter(Boolean).join(' · ');
     return `<tr>
-    <td>${e.dateKey}</td><td>${canaryTime(e.occurredAt)}</td><td>${TYPE_LABEL[e.type]}</td>
+    <td>${escapeHtml(e.dateKey)}</td><td>${canaryTime(e.occurredAt)}</td><td>${escapeHtml(TYPE_LABEL[e.type])}</td>
     <td>${avisos}</td>
-    <td>${e.correctionReason ? `${e.correctionReason} (${e.correctedBy||'—'})` : '—'}</td></tr>`;
+    <td>${e.correctionReason ? `${escapeHtml(e.correctionReason)} (${escapeHtml(e.correctedBy||'—')})` : '—'}</td></tr>`;
   }).join('');
   window.print();
 };
