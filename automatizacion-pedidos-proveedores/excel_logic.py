@@ -360,6 +360,7 @@ def _construir_con_plantilla(
         ws.cell(row=fila, column=13).value = cod_venta
         fila += 1
 
+    wb.template = False
     buffer = BytesIO()
     wb.save(buffer)
     return buffer.getvalue()
