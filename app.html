@@ -1583,6 +1583,12 @@
         // de Marketing, nunca con lógica creativa propia) y decide
         // aprobar/rechazar/editar sobre el resultado que devuelve.
         const Almacen = (function () {
+            /* Escapa texto libre antes de insertarlo en innerHTML. El título, el
+               estilo y los mensajes de error de una campaña salen del formulario
+               "Nueva Campaña" y de la respuesta del Motor de Marketing. */
+            function escapeHtml(str){
+                return String(str==null?'':str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+            }
             const TIPO_LABELS = { foto: '📷 Foto', carrusel: '🎠 Carrusel', reel: '🎬 Reel' };
             const ESTADO_LABELS = {
                 processing: '⏳ Procesando', ready_for_review: '👀 Por revisar', approved: '✓ Aprobada',
@@ -1647,8 +1653,8 @@
                     const agenteHtml = c.status === 'processing' && c.currentAgent
                         ? `<div class="carrusel-agente">⚙ ${c.currentAgent}</div>` : '';
                     const erroresHtml = c.errors && c.errors.length > 0
-                        ? `<div class="carrusel-errores">⚠ ${c.errors[0]}</div>` : '';
-                    const estiloHtml = c.estilo ? `<div class="carrusel-estilo">🎨 ${c.estilo}</div>` : '';
+                        ? `<div class="carrusel-errores">⚠ ${escapeHtml(c.errors[0])}</div>` : '';
+                    const estiloHtml = c.estilo ? `<div class="carrusel-estilo">🎨 ${escapeHtml(c.estilo)}</div>` : '';
                     const fechaTxt = c.fecha_programada
                         ? `📅 ${c.fecha_programada} ${c.hora_programada || ''}`
                         : (c.targetDate ? `🎯 ${c.targetDate}` : '');
@@ -1660,7 +1666,7 @@
                                 <div class="estado-pill ${c.status}">${ESTADO_LABELS[c.status] || c.status}</div>
                             </div>
                             <div class="carrusel-info">
-                                <div class="carrusel-titulo">${c.titulo}</div>
+                                <div class="carrusel-titulo">${escapeHtml(c.titulo)}</div>
                                 <div class="carrusel-meta">
                                     <div>${TIPO_LABELS[c.tipo] || c.tipo}</div>
                                     <div>${fechaTxt}</div>
@@ -2011,7 +2017,7 @@
                     <div class="pool-card ${c.id === selectedCardId ? 'selected' : ''}" data-id="${c.id}">
                         <div class="type-badge" style="background:${t.color}">${t.icon} ${t.label}</div>
                         ${mediaHtml}
-                        <div class="titulo">${c.titulo}</div>
+                        <div class="titulo">${escapeHtml(c.titulo)}</div>
                         <div class="slides-tag">${subTag} · ${platIcon}</div>
                     </div>
                 `;
@@ -2278,7 +2284,7 @@
                         <div class="modal-item">
                             ${mediaHtml}
                             <div class="info">
-                                <div class="titulo">${c.titulo}</div>
+                                <div class="titulo">${escapeHtml(c.titulo)}</div>
                                 <div class="sub">${sub}</div>
                                 <div class="sub">${subMedida}</div>
                                 ${captionPreview}
