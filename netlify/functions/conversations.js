@@ -468,6 +468,8 @@ function pageShell(title, body) {
     background: #fff7e6; border: 1px solid #f2dca0; color: #8a6416;
     padding: 10px 14px; border-radius: 12px; margin-bottom: 14px; font-size: 13.5px;
   }
+  .convo-cuando { color: var(--text-muted); font-size: 12.5px; margin-top: 2px; }
+
   .pause-bar svg { flex-shrink: 0; }
   /* Cuando el bot SÍ está contestando la barra es informativa, no una alerta:
      en verde discreto para que la naranja siga significando "ojo, está parado". */
@@ -664,18 +666,38 @@ function renderInterruptor(pausa) {
 </div>`;
 }
 
+// "12:34" si es de hoy, "18/8 12:34" si es de otro día. En un listado que se
+// mira de un vistazo, la hora suelta de hoy dice más que una fecha completa.
+function cuandoFue(ts) {
+  if (!ts) return '';
+  const zona = { timeZone: 'Atlantic/Canary' };
+  const fecha = new Date(ts);
+  const dia = (d) => d.toLocaleDateString('es-ES', zona);
+  const hora = fecha.toLocaleTimeString('es-ES', { ...zona, hour: '2-digit', minute: '2-digit' });
+  return dia(fecha) === dia(new Date())
+    ? hora
+    : `${fecha.toLocaleDateString('es-ES', { ...zona, day: 'numeric', month: 'numeric' })} ${hora}`;
+}
+
 function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal = null) {
-  // Las conversaciones con escalado confirmado van primero, luego por nº de mensajes
-  // sin leer (de más a menos), para que salte a la vista lo que falta por revisar.
-  const sorted = [...entries].sort((a, b) => Number(b.escalated) - Number(a.escalated) || b.unread - a.unread);
+  // Por lo más reciente arriba, que es como se lee cualquier bandeja de entrada.
+  // Antes mandaba el escalado y luego los mensajes sin leer, y dentro de eso el
+  // orden lo decidía Redis (o sea, ninguno) — de ahí que pareciera aleatorio.
+  //
+  // El escalado ya no adelanta puestos, pero no se pierde de vista: sigue con su
+  // aviso naranja, y además una conversación en la que alguien acaba de pedir
+  // hablar con una persona es, por definición, de las más recientes.
+  const sorted = [...entries].sort((a, b) => b.ultimo - a.ultimo);
   const items = sorted
-    .map(({ phone, escalated, unread }) => {
+    .map(({ phone, escalated, unread, ultimo }) => {
       const flag = escalated ? `<div class="convo-flag">${ICON.warning} Requiere atención</div>` : '';
       const badge = unread > 0 ? `<span class="unread-badge">${unread}</span>` : '';
+      const cuando = ultimo ? `<div class="convo-cuando">${escapeHtml(cuandoFue(ultimo))}</div>` : '';
       return `<li><a class="convo-card${escalated ? ' escalated' : ''}" href="?phone=${encodeURIComponent(phone)}">
     <div class="convo-avatar">${ICON.chat}</div>
     <div class="convo-info">
       <div class="convo-phone">${escapeHtml(phone)}</div>
+      ${cuando}
       ${badge}
       ${flag}
     </div>
@@ -1100,7 +1122,9 @@ exports.handler = async (event) => {
       const [messages, lastViewed] = await Promise.all([loadConversation(phone), getLastViewed(phone)]);
       const escalated = needsAttention(messages);
       const unread = countUnread(messages, lastViewed);
-      return { phone, escalated, unread };
+      // Momento del último mensaje, para poder ordenar por lo más reciente.
+      const ultimo = messages.length ? Number(messages[messages.length - 1].ts) || 0 : 0;
+      return { phone, escalated, unread, ultimo };
     })
   );
   return {
