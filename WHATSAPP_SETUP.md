@@ -416,8 +416,53 @@ lo está:
 - Consulta el catálogo real de ofipapel.net (productos, precios, stock) y el
   estado de pedidos.
 - Ficha del cliente con datos duros y presentación una sola vez por cliente.
+- Sabe qué consumible lleva cada impresora (ver más abajo).
 
 Limitación que sigue vigente:
 
 - Solo responde a mensajes de **texto**. Los mensajes con audio, imagen, etc.
   reciben una respuesta genérica indicando que el equipo lo revisará.
+
+## Consumibles por modelo de impresora
+
+El cliente no sabe la referencia del cartucho; sabe qué impresora tiene. El bot
+hace de puente: si nombra su modelo en cualquier frase ("tengo una Epson
+XP-4200 y necesito tinta"), reconoce el equipo, sabe que lleva el **604 / 604XL**
+y busca justo esa referencia en el catálogo para darle precio y stock.
+
+Piezas:
+
+| Fichero | Qué hace |
+|---|---|
+| `scripts/datos/Inf_Art_Rel.xlsx` | El Excel del distribuidor: relación equipo → consumible. Es el origen de todo. |
+| `scripts/generar-consumibles.py` | Convierte ese Excel en el índice del bot. Se ejecuta **a mano**, no forma parte de ningún build. |
+| `netlify/functions/data/consumibles-impresora.json` | El índice ya generado: 469 impresoras y 933 consumibles. Va empaquetado con la función. |
+| `netlify/functions/whatsapp-consumibles.js` | Reconoce el modelo en el mensaje y arma el bloque que se le pasa a la IA. |
+
+Cuando el proveedor mande un Excel nuevo:
+
+```bash
+pip install openpyxl                                   # solo la primera vez
+cp <el excel nuevo> scripts/datos/Inf_Art_Rel.xlsx
+python3 scripts/generar-consumibles.py scripts/datos/Inf_Art_Rel.xlsx
+git add scripts/datos/Inf_Art_Rel.xlsx netlify/functions/data/consumibles-impresora.json
+```
+
+Y desplegar. No hay nada que configurar en Netlify: los datos viajan dentro de
+la función, no se consultan por red. Es a propósito — la relación
+equipo-consumible no está publicada en ofipapel.net, y la web se cae o nos
+bloquea con demasiada frecuencia como para depender de ella también para esto.
+
+### Lo que este índice NO resuelve
+
+- **Solo lleva los equipos que el distribuidor vende hoy.** Una MFC-L2710DW o
+  una Lexmark MS431, muy comunes entre clientes, no están en el Excel aunque su
+  tóner siga vendiéndose. Para esas el bot sigue funcionando como antes: si el
+  cliente da la referencia, la busca; si da el modelo, no la deduce.
+- **No dice si lo tenemos ni a qué precio.** Eso sigue saliendo solo del
+  catálogo. El bloque que recibe la IA se lo advierte de forma explícita, y la
+  red de seguridad contra confirmaciones inventadas ("sí, tenemos…") sigue
+  atada al catálogo, no a este índice.
+- **Del Excel solo se usan las familias de tienda** (láser, inkjet,
+  etiquetadoras, cintas). Gran formato, escáneres de producción y plotters
+  quedan fuera a propósito: no es lo que se pregunta por WhatsApp.

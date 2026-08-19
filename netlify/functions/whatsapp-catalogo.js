@@ -10,9 +10,51 @@
 
 const woocommerce = require('./woocommerce-client');
 const conversationStore = require('./conversation-store');
+const consumibles = require('./whatsapp-consumibles');
+
+// Une lo que sabemos del catálogo y lo que sabemos de la impresora del cliente.
+// Los dos bloques son independientes: uno puede existir sin el otro.
+function unirContexto(contextoConsumibles, productContext) {
+  return [contextoConsumibles, productContext].filter(Boolean).join('\n\n') || null;
+}
+
+// Cuántos mensajes atrás se busca el modelo de impresora.
+const MENSAJES_QUE_RECUERDAN_LA_IMPRESORA = 4;
+
+function buscarImpresoraEnConversacion(text, history = []) {
+  const enEsteMensaje = consumibles.buscarImpresoras(text);
+  if (enEsteMensaje.length > 0) return enEsteMensaje;
+
+  const anteriores = history
+    .filter((m) => m.role === 'user')
+    .slice(-MENSAJES_QUE_RECUERDAN_LA_IMPRESORA)
+    .reverse();
+
+  for (const mensaje of anteriores) {
+    const encontradas = consumibles.buscarImpresoras(mensaje.content);
+    if (encontradas.length > 0) return encontradas;
+  }
+  return [];
+}
 
 async function construirContextoCatalogo({ from, text, history }) {
-  if (!woocommerce.isConfigured()) return { productContext: null, fallo: false };
+  // El índice de consumibles viaja con el bot, así que responde aunque la web
+  // esté caída. Se mira siempre, no solo cuando el cliente pregunta "qué
+  // cartucho lleva": basta con que nombre su impresora en cualquier frase.
+  //
+  // Y se mira también en los mensajes anteriores, porque el modelo se dice UNA
+  // vez y luego se da por sabido. Visto en real: "tengo una Epson XP-4200,
+  // necesito tinta" y después "¿me muestras las opciones? necesito los 4" — en
+  // el segundo mensaje ya no hay ni marca ni modelo, y sin esto el bot se
+  // quedaba sin saber de qué impresora hablaban justo cuando tenía que dar los
+  // precios. Solo los últimos mensajes: si nombró una impresora hace media
+  // conversación y ahora pregunta por otra cosa, no viene a cuento.
+  const impresoras = buscarImpresoraEnConversacion(text, history);
+  const contextoConsumibles = consumibles.bloqueDeConsumibles(impresoras);
+
+  if (!woocommerce.isConfigured()) {
+    return { productContext: null, contextoConsumibles, impresoras, fallo: false };
+  }
 
   // Si el mensaje es muy corto (p. ej. "A4", "en fucsia", "tenaza"), lo más
   // probable es que sea la respuesta a una pregunta de aclaración de la IA sobre
@@ -38,7 +80,17 @@ async function construirContextoCatalogo({ from, text, history }) {
   // encuentra nada en el catálogo, aunque los compatibles existan. Si la
   // búsqueda se queda vacía y hay un mensaje anterior, se reintenta con los
   // dos juntos: es más fiable que fiarlo todo a un número de palabras.
-  if (productos.length === 0 && mensajeAnterior && !esRespuestaCorta) {
+  // Si el cliente nombró su impresora, la referencia del cartucho es una pista
+  // mucho mejor que su frase: nadie escribe "603XL", escribe "tinta para mi
+  // Epson XP-3200". Se busca por la referencia antes que por el contexto del
+  // mensaje anterior — y en vez de él, para no encadenar tres búsquedas dentro
+  // de los 10 segundos que da Meta.
+  const referencia = impresoras.length === 1 ? consumibles.referenciaPrincipal(impresoras[0]) : null;
+  if (productos.length === 0 && referencia) {
+    const porReferencia = await woocommerce.buscarEnCatalogo(`${impresoras[0].m} ${referencia}`, 6);
+    productos = porReferencia.productos;
+    fallo = fallo || porReferencia.fallo;
+  } else if (productos.length === 0 && mensajeAnterior && !esRespuestaCorta) {
     const conContexto = await woocommerce.buscarEnCatalogo(`${mensajeAnterior.content} ${text}`, 6);
     productos = conContexto.productos;
     fallo = fallo || conContexto.fallo;
@@ -70,7 +122,12 @@ async function construirContextoCatalogo({ from, text, history }) {
     );
   }
 
-  return { productContext: bloques.length > 0 ? bloques.join('\n\n') : null, fallo };
+  return {
+    productContext: bloques.length > 0 ? bloques.join('\n\n') : null,
+    contextoConsumibles,
+    impresoras,
+    fallo,
+  };
 }
 
-module.exports = { construirContextoCatalogo };
+module.exports = { construirContextoCatalogo, unirContexto };

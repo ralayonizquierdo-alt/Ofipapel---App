@@ -14,6 +14,17 @@
 [functions]
   directory = "netlify/functions"
 
+# El índice de consumibles por impresora se carga con un require() estático de
+# JSON, que el bundler sí traza — pero si alguna vez se quedara fuera, el bot
+# reventaría al arrancar en vez de degradarse, así que se declara explícito.
+# Lo necesitan las dos funciones que construyen el contexto del catálogo: el
+# webhook y el reintento en segundo plano.
+[functions."whatsapp-webhook"]
+  included_files = ["netlify/functions/data/**"]
+
+[functions."whatsapp-reintento-background"]
+  included_files = ["netlify/functions/data/**"]
+
 # El bundler de Netlify traza dependencias por análisis estático de
 # require()/import — no detecta las rutas que arma
 # marketing-engine/agents/07-maquetador en tiempo de ejecución (execFileSync

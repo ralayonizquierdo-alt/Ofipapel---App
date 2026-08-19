@@ -70,6 +70,7 @@ const {
   isNoSeLaRespuesta,
   NO_SE_LA_RESPUESTA,
   isUnverifiedConfirmation,
+  isUnverifiedStockClaim,
   PRODUCTO_NO_VERIFICADO_INFO,
   PEDIDOS_INFO,
   PEDIDO_ESTADO_TRIGGER,
@@ -77,7 +78,8 @@ const {
 } = require('./whatsapp-agent-config');
 const woocommerce = require('./woocommerce-client');
 const { sendWhatsappMessage, sendWhatsappTemplate } = require('./whatsapp-send');
-const { construirContextoCatalogo } = require('./whatsapp-catalogo');
+const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo');
+const { respuestaSinCatalogo } = require('./whatsapp-consumibles');
 const { firmaDeReintento } = require('./whatsapp-firma');
 const conversationStore = require('./conversation-store');
 
@@ -592,11 +594,12 @@ async function handleIncomingMessage(message) {
   // Búsqueda en tiempo real en el catálogo real (WooCommerce), para que la IA pueda
   // contestar con datos ciertos en vez de adivinar. Si no está configurado o no hay
   // coincidencias, sigue el comportamiento anterior (nunca confirma productos).
-  const { productContext, fallo: falloCatalogo } = await construirContextoCatalogo({
-    from: message.from,
-    text,
-    history,
-  });
+  const {
+    productContext,
+    contextoConsumibles,
+    impresoras,
+    fallo: falloCatalogo,
+  } = await construirContextoCatalogo({ from: message.from, text, history });
 
   // La web no contestó (lenta, caída, o su protección anti-bots nos bloqueó) y
   // nos quedamos sin datos. Aquí NO se puede reintentar: el webhook tiene ~10
@@ -619,7 +622,12 @@ async function handleIncomingMessage(message) {
     // vale una respuesta imperfecta que dejar al cliente sin nada.
   }
 
-  const aiReply = await askClaude(text, history, productContext, fichaCliente);
+  const aiReply = await askClaude(
+    text,
+    history,
+    unirContexto(contextoConsumibles, productContext),
+    fichaCliente
+  );
 
   // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos..." SIN que
   // hubiera resultados reales de búsqueda para este turno, no nos fiamos de esa
@@ -628,8 +636,13 @@ async function handleIncomingMessage(message) {
   // confirmación puede ser legítima — se ha comprobado en real que "pistolas de
   // silicona" existe en el catálogo y la IA contestaba bien, pero esta red de
   // seguridad lo descartaba igualmente por no mirar si había datos de respaldo.
-  if (!productContext && isUnverifiedConfirmation(aiReply)) {
-    const infoReply = greeting + PRODUCTO_NO_VERIFICADO_INFO;
+  // Sin datos de catálogo tampoco vale afirmar que algo está en stock: saber
+  // qué cartucho lleva una impresora no es saber si nos queda.
+  if (!productContext && (isUnverifiedConfirmation(aiReply) || isUnverifiedStockClaim(aiReply))) {
+    // Si sabemos de qué impresora habla, la respuesta segura conserva la
+    // referencia en vez de empezar de cero preguntando qué busca.
+    const infoReply =
+      greeting + (respuestaSinCatalogo(impresoras) || PRODUCTO_NO_VERIFICADO_INFO);
     await appendToHistory(message.from, text, infoReply);
     await sendWhatsappMessage(message.from, infoReply);
     return;
