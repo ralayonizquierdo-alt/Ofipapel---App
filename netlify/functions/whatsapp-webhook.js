@@ -297,9 +297,21 @@ async function handleSellosReply(message) {
 const ACLARACION_MARCA = '[Se preguntó si no se entendió bien]';
 const ACLARACION_REPLY = 'Perdona, creo que no te he entendido bien. ¿Puedes explicarme de otra forma qué necesitas?';
 
-function yaSePidioAclaracion(history) {
+// Lo último que dijo el bot fue "explícamelo de otra forma": lo que llegue
+// ahora es la reformulación que se le pidió, no una insistencia.
+function estaReformulando(history) {
   const ultimoBot = [...history].reverse().find((m) => m.role === 'assistant');
   return Boolean(ultimoBot && ultimoBot.content.startsWith(ACLARACION_MARCA));
+}
+
+// Ya se le pidió que reformulara en algún momento cercano. Volver a pedírselo
+// sería marearle en círculos: toca ofrecerle una persona.
+const MENSAJES_QUE_RECUERDAN_LA_ACLARACION = 8;
+
+function yaSePidioAclaracion(history) {
+  return history
+    .slice(-MENSAJES_QUE_RECUERDAN_LA_ACLARACION)
+    .some((m) => m.role === 'assistant' && m.content.startsWith(ACLARACION_MARCA));
 }
 
 // Flujo de "estado de mi pedido": el paso en el que estamos se deduce del propio
@@ -539,19 +551,28 @@ async function handleIncomingMessage(message) {
     return;
   }
 
-  if (isRepeated) {
-    // No se salta directo a ofrecer un agente la primera vez que se detecta una
-    // pregunta parecida a una anterior — puede que el bot simplemente no haya
-    // entendido bien la forma de preguntar. Se da una oportunidad de reformular
-    // primero; solo si INSISTE otra vez después de esa pregunta (ya serían 3
-    // intentos seguidos sin resolver) se ofrece la escalada real.
+  // Si el bot acaba de pedirle que lo explique de otra forma y el cliente lo ha
+  // hecho, NO se le trata como que insiste. Comprobado en real: pidió tinta para
+  // una Epson, el bot dijo "creo que no te he entendido", él lo reformuló tal y
+  // como se le pedía... y el bot le ofreció un agente. Reformular se parece
+  // forzosamente a la pregunta original, así que por similitud siempre salía
+  // "insiste" y la reformulación nunca llegaba a intentarse. Ahora sigue el
+  // camino normal: se busca y se contesta. Si tampoco así se resuelve, la
+  // escalada por "no sé la respuesta" ya está más abajo y sigue funcionando.
+  if (isRepeated && !estaReformulando(history)) {
     if (yaSePidioAclaracion(history)) {
+      // Segunda insistencia después de haber reformulado ya una vez: pedirle
+      // otra vez que lo explique de otra forma sería marearle. Se le ofrece
+      // una persona.
       const prefix = `${greeting}Veo que no he conseguido resolver tu duda. `;
       await sendEscalateButtons(message.from, prefix);
       await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
       return;
     }
 
+    // Tampoco se salta directo a ofrecer un agente la primera vez: puede que el
+    // bot simplemente no haya entendido la forma de preguntar. Se le da una
+    // oportunidad de reformular.
     const reply = greeting + ACLARACION_REPLY;
     await appendToHistory(message.from, text, `${ACLARACION_MARCA}${reply}`);
     await sendWhatsappMessage(message.from, reply);
