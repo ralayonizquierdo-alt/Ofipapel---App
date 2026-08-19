@@ -79,14 +79,23 @@ exports.handler = async (event) => {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
-  const expectedToken = process.env.MARKETING_ENGINE_TOKEN;
-  if (expectedToken) {
-    const token = event.headers['x-marketing-token'] || event.headers['X-Marketing-Token'];
-    if (token !== expectedToken) {
-      return { statusCode: 401, body: JSON.stringify({ error: 'Token inválido' }) };
-    }
-  } else {
-    console.warn('marketing-engine-run: MARKETING_ENGINE_TOKEN no configurada — el endpoint está totalmente abierto, cualquiera puede disparar generación de imagen con coste real.');
+  // Cierra por defecto. La versión anterior solo comprobaba el token SI la
+  // variable de entorno existía, y si no, dejaba pasar a cualquiera — un
+  // "fail open" que en la práctica dejó el endpoint abierto durante días:
+  // la variable se creó en Netlify pero las funciones seguían sin verla, y
+  // como el código no fallaba, nada lo delataba salvo probarlo (comprobado
+  // en vivo: token deliberadamente incorrecto también pasaba).
+  //
+  // Ahora, si falta la variable se usa el mismo valor que app.html lleva
+  // embebido. No añade secreto (app.html es HTML estático y cualquiera lo
+  // ve con "ver código fuente"), pero garantiza que el endpoint nunca queda
+  // abierto de par en par por un fallo de configuración. La variable de
+  // entorno, cuando esté disponible, tiene prioridad y permite cambiar el
+  // token sin tocar código.
+  const expectedToken = process.env.MARKETING_ENGINE_TOKEN || 'ofipapel-marketing-2026';
+  const token = event.headers['x-marketing-token'] || event.headers['X-Marketing-Token'];
+  if (token !== expectedToken) {
+    return { statusCode: 401, body: JSON.stringify({ error: 'Token inválido' }) };
   }
 
   if (isRateLimited(clientIp(event))) {

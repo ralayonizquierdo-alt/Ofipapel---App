@@ -37,15 +37,14 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const STORE_NAME = 'marketing-engine-jobs';
 
 exports.handler = async (event) => {
-  const expectedToken = process.env.MARKETING_ENGINE_TOKEN;
-  if (expectedToken) {
-    const token = event.headers['x-marketing-token'] || event.headers['X-Marketing-Token'];
-    if (token !== expectedToken) {
-      console.error('marketing-engine-run-background: token inválido, petición descartada.');
-      return;
-    }
-  } else {
-    console.warn('marketing-engine-run-background: MARKETING_ENGINE_TOKEN no configurada — el endpoint está totalmente abierto, cualquiera puede disparar generación de imagen con coste real (hasta 15 min de ejecución por petición).');
+  // Cierra por defecto — ver el comentario extenso en marketing-engine-run.js.
+  // Aquí importa aún más: esta función corre hasta 15 minutos y puede lanzar
+  // generación real de imagen de pago.
+  const expectedToken = process.env.MARKETING_ENGINE_TOKEN || 'ofipapel-marketing-2026';
+  const token = event.headers['x-marketing-token'] || event.headers['X-Marketing-Token'];
+  if (token !== expectedToken) {
+    console.error('marketing-engine-run-background: token inválido, petición descartada.');
+    return;
   }
 
   connectLambda(event);
