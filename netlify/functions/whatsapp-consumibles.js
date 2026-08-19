@@ -101,22 +101,45 @@ function consumiblesDe(impresora) {
   return impresora.c.map((i) => datos.consumibles[i]).filter(Boolean);
 }
 
-// La referencia con la que merece la pena buscar en el catálogo: la que más se
-// repite entre los consumibles de esa impresora. En una inkjet suelen ser
-// cuatro colores de la misma referencia ("604"), así que la más repetida es
-// justo la que el cliente necesita.
+// La FAMILIA de una referencia: lo que comparten todos los colores del mismo
+// tóner. TN248BK, TN248C, TN248XLM y TN248VAL son todos "TN248".
+//
+// Hace falta porque en una láser color cada referencia aparece UNA vez (una por
+// color), así que contarlas tal cual no distingue el tóner del cliente de la
+// correa de arrastre. Visto en real con una Brother DCP-L3560CDW: se buscó en
+// el catálogo por "BU229CL" (el cinturón de arrastre) en vez de por el tóner, y
+// no salió ni un precio.
+// También se quita la capacidad (XL/XXL): "604" y "604XL" son el mismo cartucho
+// en dos tamaños, y buscar el catálogo por "604" encuentra los dos, mientras que
+// buscar por "604XL" deja fuera el normal.
+const SUFIJO_DE_COLOR = /(BK|CL|VAL|CMY|[CMYK])$/;
+const SUFIJO_DE_CAPACIDAD = /XX?L$/;
+
+function familiaDeReferencia(ref) {
+  const base = String(ref || '').toUpperCase().replace(SUFIJO_DE_COLOR, '').replace(SUFIJO_DE_CAPACIDAD, '');
+  return base || String(ref || '');
+}
+
+// La referencia con la que merece la pena buscar en el catálogo: la familia que
+// más se repite entre los consumibles de esa impresora. Es la del consumible que
+// se gasta — el tóner o la tinta —, porque de eso hay uno por color y de los
+// tambores y recipientes de residuos hay uno solo.
 function referenciaPrincipal(impresora) {
   const cuenta = new Map();
   for (const consumible of consumiblesDe(impresora)) {
-    const ref = consumible.r;
-    if (!ref) continue;
-    cuenta.set(ref, (cuenta.get(ref) || 0) + 1);
+    if (!consumible.r) continue;
+    const familia = familiaDeReferencia(consumible.r);
+    cuenta.set(familia, (cuenta.get(familia) || 0) + 1);
   }
+
   let mejor = null;
-  for (const [ref, veces] of cuenta) {
-    if (!mejor || veces > mejor.veces) mejor = { ref, veces };
+  for (const [familia, veces] of cuenta) {
+    // A igualdad de apariciones gana la más corta: entre "604" y "604XL", "604"
+    // encuentra las dos en el catálogo y "604XL" solo una.
+    const gana = !mejor || veces > mejor.veces || (veces === mejor.veces && familia.length < mejor.familia.length);
+    if (gana) mejor = { familia, veces };
   }
-  return mejor ? mejor.ref : null;
+  return mejor ? mejor.familia : null;
 }
 
 function bloqueDeConsumibles(impresoras) {
@@ -137,10 +160,15 @@ function bloqueDeConsumibles(impresoras) {
     'Úsalo para decirle QUÉ referencia necesita. Ojo:',
     '- Si arriba aparece más de una impresora, no adivines: pregúntale cuál es la suya.',
     '- Esta lista dice qué consumible es compatible, NO que lo tengamos en tienda ni a',
-    '  qué precio. El precio y el stock solo salen del bloque PRODUCTOS. Si ahí no hay',
-    '  nada, dile la referencia que necesita y ofrécele consultar disponibilidad.',
-    '- Son las referencias ORIGINALES. Si pregunta por compatibles o genéricos, dile',
-    '  que lo consultas, sin prometer que exista.',
+    '  qué precio. NUNCA digas "en stock", "disponibles" ni "tenemos" apoyándote en esta',
+    '  lista: eso solo lo sabes por el bloque PRODUCTOS. Si ahí no hay nada, dile la',
+    '  referencia que necesita y ofrécele consultar precio y disponibilidad.',
+    '- Estas referencias son las ORIGINALES del fabricante. En la tienda solemos tener',
+    '  además COMPATIBLES de la misma referencia, bastante más baratos: en el bloque',
+    '  PRODUCTOS aparecen con la palabra "Compatible" en el nombre. Si los ves ahí,',
+    '  ofrécelos junto al original diciendo cuál es cuál y el precio de cada uno — es lo',
+    '  que la mayoría de los clientes acaba llevándose. Si en PRODUCTOS no hay ningún',
+    '  compatible, no lo des por hecho: di que lo consultas.',
   ].join('\n');
 }
 
@@ -160,15 +188,27 @@ function respuestaSinCatalogo(impresoras) {
   }
 
   const impresora = impresoras[0];
+
+  // Solo las referencias del consumible que se gasta (el tóner o la tinta). El
+  // tambor, el cinturón de arrastre y el recipiente de residuos también salen en
+  // el índice, pero nadie los pide por WhatsApp y alargan el mensaje para nada.
+  const familia = referenciaPrincipal(impresora);
   const referencias = [];
   for (const consumible of consumiblesDe(impresora)) {
-    if (consumible.r && !referencias.includes(consumible.r)) referencias.push(consumible.r);
+    if (!consumible.r || familiaDeReferencia(consumible.r) !== familia) continue;
+    if (!referencias.includes(consumible.r)) referencias.push(consumible.r);
   }
-  const lista = referencias.slice(0, 4).join(', ');
+  if (referencias.length === 0) return null;
+
+  // Se dan todas las referencias, no solo la primera: en una láser color son
+  // cuatro colores y dos capacidades, y quedarse con una sola obliga al cliente
+  // a preguntar otra vez.
+  const lista = referencias.join(', ');
 
   return (
-    `Esa impresora lleva ${referencias.length > 1 ? 'las referencias' : 'la referencia'} ${lista}. ` +
-    `Lo que no puedo confirmarte ahora mismo es el precio ni si nos queda: para eso ${contacto}.`
+    `Esa impresora lleva ${referencias.length > 1 ? 'estas referencias' : 'esta referencia'}: ${lista}. ` +
+    `Lo que no puedo confirmarte ahora mismo es el precio ni si nos queda, ni si hay versión compatible ` +
+    `(que suele salir más barata): para eso ${contacto}.`
   );
 }
 

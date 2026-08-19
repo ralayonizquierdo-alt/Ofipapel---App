@@ -343,7 +343,7 @@ function isUnverifiedConfirmation(text) {
 // confirme la disponibilidad?" no es afirmar nada, por eso no entra
 // "disponibilidad" a secas.
 const STOCK_SIN_DATOS_PATTERN =
-  /\ben stock\b|\b(est[áa]n?|hay|tenemos|quedan)\s+(\w+\s+){0,3}disponibles?\b|\blos\s+(modelos|productos|cartuchos|colores)\s+disponibles\b/i;
+  /\ben stock\b|\b(est[áa]n?|hay|tenemos|tengo|quedan|los|las|varios|varias)\s+(\w+\s+){0,3}disponibles?\b/i;
 
 function isUnverifiedStockClaim(text) {
   return STOCK_SIN_DATOS_PATTERN.test(text || '');

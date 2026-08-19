@@ -265,6 +265,27 @@ function splitAlfaNum(word) {
   return word.replace(/(\d)([a-z])/g, '$1 $2').replace(/([a-z])(\d)/g, '$1 $2');
 }
 
+// El catálogo escribe muchos tóneres con guion donde el fabricante no lo pone:
+// "TN-248", "TK-5490", "DR-2510", y también "415-A" o "219-X". Comprobado en
+// real: buscar "BROTHER TN-248" devuelve los seis productos y buscar "TN248" no
+// devuelve nada. Como la referencia nos llega del proveedor sin guion, hay que
+// pedirla también con él.
+//
+// Dos formas y solo dos, porque son las que usa el catálogo:
+//   LETRAS+NÚMERO  -> TN248 se convierte en TN-248
+//   NÚMERO+1 LETRA -> 415a se convierte en 415-a
+// Las de NÚMERO+VARIAS LETRAS se quedan como están: el catálogo escribe
+// "(603XL)" y "(305XL)" sin guion, y meterlo ahí solo gastaría una petición.
+function guionAlfaNum(word) {
+  const letrasNumero = /^([a-z]{2,4})(\d{2,5}[a-z]{0,3})$/.exec(word);
+  if (letrasNumero) return `${letrasNumero[1]}-${letrasNumero[2]}`;
+
+  const numeroLetra = /^(\d{2,4})([a-z])$/.exec(word);
+  if (numeroLetra) return `${numeroLetra[1]}-${numeroLetra[2]}`;
+
+  return null;
+}
+
 // En consumibles, la referencia útil es la MARCA + EL NÚMERO, sin la letra
 // final: el mismo consumible existe como "HP (83-A)" original y "Compatible HP
 // (83-A) CF283A", y buscando "83A" se pierden variantes por el guion o por la
@@ -486,6 +507,17 @@ function construirTerminos(words) {
   const añadir = (t) => {
     if (t && !terminos.includes(t)) terminos.push(t);
   };
+
+  // Referencias tipo "TN248" -> "TN-248" (ver guionAlfaNum). Va la PRIMERA de
+  // las alternativas, y por tanto en la primera oleada: cuando la referencia
+  // sale del índice de consumibles nos llega sin guion, y con guion es
+  // exactamente como la escribe el catálogo. Comprobado en real: "BROTHER
+  // TN-248" devuelve los seis productos (originales y compatibles) y "TN248" no
+  // devuelve ninguno. En una consulta normal de papelería no se añade nada,
+  // porque ninguna palabra tiene esa forma.
+  if (words.some((w) => guionAlfaNum(w))) {
+    añadir(words.map((w) => guionAlfaNum(w) || w).join(' '));
+  }
 
   // Cuantas más palabras lleva la frase, PEOR busca WordPress: comprobado en
   // real, "cartucho hp 305" encuentra el cartucho correcto, pero añadiendo
