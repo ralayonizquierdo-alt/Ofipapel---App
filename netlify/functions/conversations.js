@@ -469,6 +469,9 @@ function pageShell(title, body) {
     padding: 10px 14px; border-radius: 12px; margin-bottom: 14px; font-size: 13.5px;
   }
   .pause-bar svg { flex-shrink: 0; }
+  /* Cuando el bot SÍ está contestando la barra es informativa, no una alerta:
+     en verde discreto para que la naranja siga significando "ojo, está parado". */
+  .pause-bar.activo { background: var(--bg-soft); border-color: var(--border); color: var(--text-muted); }
 
   .btn {
     display: inline-flex; align-items: center; gap: 7px;
@@ -812,17 +815,33 @@ function renderThread(phone, messages, { paused, error, ficha } = {}) {
     ? `<div class="error-banner">${ICON.alert}<span>${escapeHtml(ERROR_MESSAGES[error] || ERROR_MESSAGES.send)}</span></div>`
     : '';
 
+  // Interruptor del bot para ESTA conversación. Hasta ahora solo se podía
+  // reactivar, porque la pausa se ponía sola al responder a mano desde el panel.
+  // Faltaba lo contrario: callarlo ANTES de escribir nada, para coger uno la
+  // conversación desde el principio o porque se está desviando demasiado.
+  //
+  // Dura 24 horas, alineado con la ventana de mensajería de WhatsApp: pasado ese
+  // plazo el bot vuelve solo. Es a propósito — una conversación que se queda
+  // muda para siempre porque alguien la pausó y se olvidó es peor que el bot.
   const pauseBar = paused
     ? `<div class="pause-bar">
     ${ICON.pause}
-    <span>Bot en pausa — tus mensajes no se cruzarán con los suyos.</span>
+    <span>Bot en pausa aquí — no contestará a este cliente, hablas tú. Se reactiva solo a las 24 h.</span>
     <form method="POST" style="margin-left:auto;">
       <input type="hidden" name="phone" value="${escapeHtml(phone)}">
       <input type="hidden" name="action" value="resume">
       <button type="submit" class="btn btn-ghost">${ICON.play} Reactivar bot</button>
     </form>
   </div>`
-    : '';
+    : `<div class="pause-bar activo">
+    ${ICON.play}
+    <span>El bot está contestando a este cliente.</span>
+    <form method="POST" style="margin-left:auto;">
+      <input type="hidden" name="phone" value="${escapeHtml(phone)}">
+      <input type="hidden" name="action" value="pause">
+      <button type="submit" class="btn btn-ghost">${ICON.pause} Parar el bot aquí</button>
+    </form>
+  </div>`;
 
   const replyForm = `<form class="reply-form" method="POST" enctype="multipart/form-data" onsubmit="
     var ta=this.querySelector('textarea'), fi=this.querySelector('input[type=file]');
@@ -1024,6 +1043,8 @@ exports.handler = async (event) => {
     } else if (phone && action === 'notas') {
       const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body || '';
       await guardarNotasCliente(phone, new URLSearchParams(rawBody).get('notas') || '');
+    } else if (phone && action === 'pause') {
+      await pauseBot(phone, 24);
     } else if (phone && action === 'resume') {
       await resumeBot(phone);
     } else if (phone && action === 'clear') {
