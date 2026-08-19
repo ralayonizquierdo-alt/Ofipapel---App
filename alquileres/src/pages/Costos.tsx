@@ -1,14 +1,35 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Upload } from 'lucide-react'
+import { Plus, Pencil, Trash2, Upload, Wrench } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { Expense, Apartment, ExpenseType } from '../types'
 import { formatDate } from '../lib/dateUtils'
-import { EXPENSE_LABELS, EXPENSE_DEDUCIBILIDAD, deducibleGasto, redondea } from '../lib/deducible'
+import { EXPENSE_LABELS, EXPENSE_DEDUCIBILIDAD, deducibleGasto, deducibleReparacion, redondea } from '../lib/deducible'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
 import ImportarExcel from '../components/ImportarExcel'
 
 const EXPENSE_TYPE_LABELS = EXPENSE_LABELS
+
+/** Las reparaciones se guardan aparte (con proveedor y factura) pero aquí se
+ *  listan como un concepto más, para tener todo el gasto en una sola pantalla. */
+type FiltroTipo = ExpenseType | 'reparaciones' | ''
+
+interface Linea {
+  id: string
+  origen: 'gasto' | 'reparacion'
+  apartmentId: string
+  fecha?: string
+  tipo: ExpenseType | 'reparaciones'
+  etiqueta: string
+  descripcion: string
+  proveedor?: string
+  importe: number
+  deducible: number
+  regla: '100%' | 'por ocupación'
+  asiento?: string
+  gasto?: Expense
+}
 
 const APT_ORDER = ['104', '105', '106', '203', '204', '402', 'P3', 'AP2B', 'JXXIII']
 
@@ -24,25 +45,43 @@ function sortApartments(apts: Apartment[]): Apartment[] {
 }
 
 export default function Costos() {
-  const { expenses, apartments: allApartments, deleteExpense, reservations } = useData()
+  const { expenses, repairs, apartments: allApartments, deleteExpense, reservations } = useData()
   const apartments = sortApartments(allApartments)
   const [filterApt, setFilterApt] = useState('')
   const [filterYear, setFilterYear] = useState('')
-  const [filterType, setFilterType] = useState<ExpenseType | ''>('')
+  const [filterType, setFilterType] = useState<FiltroTipo>('')
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
 
-  const years = [...new Set(expenses.map(e => e.expenseDate?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
+  const lineas: Linea[] = [
+    ...expenses.map((e): Linea => ({
+      id: e.id, origen: 'gasto', apartmentId: e.apartmentId, fecha: e.expenseDate,
+      tipo: e.expenseType, etiqueta: EXPENSE_LABELS[e.expenseType],
+      descripcion: e.description, proveedor: e.supplier,
+      importe: e.amount || 0, deducible: deducibleGasto(e, reservations),
+      regla: EXPENSE_DEDUCIBILIDAD[e.expenseType] === 'directo' ? '100%' : 'por ocupación',
+      asiento: e.entryNumber, gasto: e,
+    })),
+    ...repairs.map((r): Linea => ({
+      id: r.id, origen: 'reparacion', apartmentId: r.apartmentId, fecha: r.repairDate,
+      tipo: 'reparaciones', etiqueta: 'Reparaciones y conservación',
+      descripcion: r.item, proveedor: r.supplier,
+      importe: r.amount || 0, deducible: deducibleReparacion(r, reservations),
+      regla: 'por ocupación', asiento: r.entryNumber,
+    })),
+  ]
 
-  const filtered = expenses
-    .filter(e => !filterApt || e.apartmentId === filterApt)
-    .filter(e => !filterYear || e.expenseDate?.startsWith(filterYear))
-    .filter(e => !filterType || e.expenseType === filterType)
-    .sort((a, b) => (b.expenseDate || '').localeCompare(a.expenseDate || ''))
+  const years = [...new Set(lineas.map(l => l.fecha?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
 
-  const totalFiltered = filtered.reduce((s, e) => s + (e.amount || 0), 0)
-  const totalDeducible = redondea(filtered.reduce((s, e) => s + deducibleGasto(e, reservations), 0))
+  const filtered = lineas
+    .filter(l => !filterApt || l.apartmentId === filterApt)
+    .filter(l => !filterYear || l.fecha?.startsWith(filterYear))
+    .filter(l => !filterType || l.tipo === filterType)
+    .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
+
+  const totalFiltered = filtered.reduce((s, l) => s + l.importe, 0)
+  const totalDeducible = redondea(filtered.reduce((s, l) => s + l.deducible, 0))
 
   function getAptName(id: string) { return apartments.find(a => a.id === id)?.name || id }
   function handleDelete(id: string) {
@@ -52,7 +91,7 @@ export default function Costos() {
 
   const byApt = apartments.map(a => ({
     apt: a,
-    total: filtered.filter(e => e.apartmentId === a.id).reduce((s, e) => s + (e.amount || 0), 0)
+    total: filtered.filter(l => l.apartmentId === a.id).reduce((s, l) => s + l.importe, 0)
   })).filter(x => x.total > 0)
 
   return (
@@ -86,12 +125,13 @@ export default function Costos() {
           <option value="">Todos los años</option>
           {years.map(y => <option key={y} value={y!}>{y}</option>)}
         </select>
-        <select value={filterType} onChange={e => setFilterType(e.target.value as ExpenseType | '')}
+        <select value={filterType} onChange={e => setFilterType(e.target.value as FiltroTipo)}
           className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-          <option value="">Todos los tipos</option>
+          <option value="">Todos los conceptos</option>
           {(Object.keys(EXPENSE_TYPE_LABELS) as ExpenseType[]).map(k => (
             <option key={k} value={k}>{EXPENSE_TYPE_LABELS[k]}</option>
           ))}
+          <option value="reparaciones">Reparaciones y conservación</option>
         </select>
       </div>
 
@@ -124,41 +164,51 @@ export default function Costos() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(e => (
-              <tr key={e.id} className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="py-2.5 px-4 font-medium text-slate-700 text-xs">{getAptName(e.apartmentId)}</td>
-                <td className="py-2.5 px-4 text-slate-500 text-xs whitespace-nowrap">{formatDate(e.expenseDate)}</td>
+            {filtered.map(l => (
+              <tr key={`${l.origen}-${l.id}`} className="border-b border-slate-100 hover:bg-slate-50">
+                <td className="py-2.5 px-4 font-medium text-slate-700 text-xs">{getAptName(l.apartmentId)}</td>
+                <td className="py-2.5 px-4 text-slate-500 text-xs whitespace-nowrap">{formatDate(l.fecha)}</td>
                 <td className="py-2.5 px-4">
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
-                    {EXPENSE_TYPE_LABELS[e.expenseType]}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    l.origen === 'reparacion' ? 'bg-amber-100 text-amber-800' : 'bg-orange-100 text-orange-700'
+                  }`}>
+                    {l.origen === 'reparacion' && <Wrench size={10} className="inline mr-1 -mt-0.5" />}
+                    {l.etiqueta}
                   </span>
                 </td>
-                <td className="py-2.5 px-4 text-slate-700">{e.description}</td>
-                <td className="py-2.5 px-4 text-slate-500 text-xs">{e.supplier || '—'}</td>
+                <td className="py-2.5 px-4 text-slate-700">{l.descripcion}</td>
+                <td className="py-2.5 px-4 text-slate-500 text-xs">{l.proveedor || '—'}</td>
                 <td className="py-2.5 px-4 text-right font-semibold text-orange-700">
-                  {e.amount ? `${e.amount.toLocaleString('es-ES')} €` : '—'}
+                  {l.importe ? `${l.importe.toLocaleString('es-ES')} €` : '—'}
                 </td>
                 <td className="py-2.5 px-4 text-right text-xs">
                   <span className="font-semibold text-slate-700">
-                    {redondea(deducibleGasto(e, reservations)).toLocaleString('es-ES')} €
+                    {redondea(l.deducible).toLocaleString('es-ES')} €
                   </span>
-                  <span className="block text-[10px] text-slate-400">
-                    {EXPENSE_DEDUCIBILIDAD[e.expenseType] === 'directo' ? '100%' : 'por ocupación'}
-                  </span>
+                  <span className="block text-[10px] text-slate-400">{l.regla}</span>
                 </td>
-                <td className="py-2.5 px-4 text-slate-400 text-xs">{e.entryNumber || '—'}</td>
+                <td className="py-2.5 px-4 text-slate-400 text-xs">{l.asiento || '—'}</td>
                 <td className="py-2.5 px-4">
                   <div className="flex items-center gap-1 justify-end">
-                    <button onClick={() => { setEditing(e); setShowForm(true) }}
-                      className="p-1.5 text-slate-300 hover:text-blue-600 rounded"><Pencil size={13} /></button>
-                    <button onClick={() => handleDelete(e.id)}
-                      className="p-1.5 text-slate-300 hover:text-red-600 rounded"><Trash2 size={13} /></button>
+                    {l.origen === 'gasto' ? (
+                      <>
+                        <button onClick={() => { setEditing(l.gasto!); setShowForm(true) }}
+                          className="p-1.5 text-slate-300 hover:text-blue-600 rounded"><Pencil size={13} /></button>
+                        <button onClick={() => handleDelete(l.id)}
+                          className="p-1.5 text-slate-300 hover:text-red-600 rounded"><Trash2 size={13} /></button>
+                      </>
+                    ) : (
+                      <Link to="/reparaciones" title="Se edita en Reparaciones"
+                        className="text-[10px] text-slate-400 hover:text-blue-600 whitespace-nowrap">
+                        ver en Reparaciones
+                      </Link>
+                    )}
                   </div>
                 </td>
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={9} className="py-8 text-center text-slate-400 text-sm">No hay registros de gastos</td></tr>
+              <tr><td colSpan={9} className="py-8 text-center text-slate-400 text-sm">No hay gastos registrados</td></tr>
             )}
           </tbody>
           {filtered.length > 0 && (
