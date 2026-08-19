@@ -114,6 +114,15 @@ correctas; la de `Index.html` sigue sin verificar, ver seguridad conocida).
 
 ## Seguridad conocida
 
+> **Estado real, comprobado en vivo (2026-08-19)**: los datos de Finanzas,
+> Alquileres, Vacaciones y Fichaje son accesibles **sin ninguna contraseña**
+> — en Finanzas incluso con escritura. El login de las apps no protege los
+> datos: se llega a la base de datos sin pasar por él. Ver el informe completo
+> en `.claude/rax/AUDITORIA_SEGURIDAD_2026-08.md` y `DEUDA_TECNICA.md` DT-23.
+> Es el punto abierto más grave del proyecto; el resto de esta sección son
+> problemas menores en comparación.
+
+
 - `Index.html`: login 100% client-side (hash SHA-256 sin salt, contraseña
   por defecto compartida entre los 4 usuarios) y estado de RLS de Supabase
   sin verificar. Abierto, requiere decisión del propietario
