@@ -23,7 +23,23 @@ el propio Firebase concede a quien la pida sin credenciales.
 | Panel de WhatsApp (`conversations`) | Nada — 401 | 🟢 Cerrado |
 | Proxy del asistente IA (`chat-assistant`) | Nada — 401 | 🟢 Cerrado |
 | Reintento del bot (`whatsapp-reintento-background`) | Nada — firma propia | 🟢 Cerrado |
-| Motor de marketing (`marketing-engine-run`) | Disparaba generación con IA | 🟡 Corregido, pendiente de deploy |
+| Motor de marketing (`marketing-engine-run`) | Nada — 401 | 🟢 Cerrado |
+
+### Verificación final (2026-08-19, 08:02 UTC)
+
+Comprobado con peticiones reales, no por inspección de código:
+
+```
+marketing-engine-run  sin token         → 401
+marketing-engine-run  token incorrecto  → 401
+marketing-engine-run  token correcto    → 400 (pasa la puerta, se queja del brief vacío)
+chat-assistant                          → 401
+conversations                           → 401
+Joe's App, las 7 tablas, sin sesión     → 401
+```
+
+Sigue abierto, como estaba previsto: Finanzas (200), Alquileres (200) y por
+la misma causa Vacaciones y Fichaje. Son el trabajo pendiente de DT-23.
 
 ---
 
