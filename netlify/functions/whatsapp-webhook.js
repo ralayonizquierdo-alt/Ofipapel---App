@@ -112,7 +112,15 @@ async function alreadyProcessed(messageId) {
 
 function verifySignature(event) {
   const secret = process.env.WHATSAPP_APP_SECRET;
-  if (!secret) return true; // no configurado: se omite la verificación (ver README de configuración)
+  if (!secret) {
+    // Sin la variable configurada, CUALQUIERA que conozca esta URL puede
+    // simular mensajes de cliente reales (gastando la cuota de Claude,
+    // disparando avisos falsos al propietario, etc.) — no hay ninguna otra
+    // verificación en este webhook. Hoy sí está configurada en Netlify; este
+    // aviso es la red por si alguna vez se borra.
+    console.warn('whatsapp-webhook: WHATSAPP_APP_SECRET no configurada — la petición NO se verifica, cualquiera puede simular un mensaje de WhatsApp real.');
+    return true;
+  }
 
   const header = event.headers['x-hub-signature-256'] || event.headers['X-Hub-Signature-256'];
   if (!header) return false;

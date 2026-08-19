@@ -1354,16 +1354,24 @@ const APP_VERSION = 'v4.0';
 // ─────────────────────────────────────────────────────
 
 // ═══════════════════════════════════════════════════════
-// DATOS INICIALES (de los Excel proporcionados)
+// DATOS INICIALES — vacío a propósito (ver seguridad, más abajo)
 // ═══════════════════════════════════════════════════════
-const SEED_DATA = [
-  { fecha:'2026-06-02', bbva_ofip:97085, bbva_caja:220, sant_ico:103087, sant_caja:1879.45, caixa_cta:239767, caixa_pol:-158690, caixa_disp:141310, c7:61804, luis_bbva:9622, luis_sant:1978, caja_central:8515.33, notas:'' },
-  { fecha:'2026-06-03', bbva_ofip:98077, bbva_caja:200, sant_ico:99513, sant_caja:4705.79, caixa_cta:242200, caixa_pol:-158690, caixa_disp:141310, c7:62074, luis_bbva:9502, luis_sant:1978, caja_central:11179.98, notas:'' },
-  { fecha:'2026-06-05', bbva_ofip:99569, bbva_caja:350, sant_ico:114709, sant_caja:2568.65, caixa_cta:247092, caixa_pol:-158690, caixa_disp:140451, c7:62530, luis_bbva:3778, luis_sant:1978, caja_central:11179.98, notas:'' },
-  { fecha:'2026-06-08', bbva_ofip:102829, bbva_caja:280, sant_ico:103467, sant_caja:2045, caixa_cta:249573, caixa_pol:-158690, caixa_disp:140451, c7:62657, luis_bbva:3778, luis_sant:1978, caja_central:11546.29, notas:'' },
-  { fecha:'2026-06-09', bbva_ofip:102195, bbva_caja:100, sant_ico:109080, sant_caja:2895, caixa_cta:202223, caixa_pol:-110000, caixa_disp:190000, c7:63005, luis_bbva:3463, luis_sant:1978, caja_central:11546.29, notas:'Traspaso póliza CaixaBank −48.690€' },
-  { fecha:'2026-06-11', bbva_ofip:103843.04, bbva_caja:50, sant_ico:105229.74, sant_caja:3050.35, caixa_cta:204819.33, caixa_pol:-110000, caixa_disp:190000, c7:67784.84, luis_bbva:6011.49, luis_sant:1978.14, caja_central:10848.55, notas:'Cajas 10/06 · Saldos 11/06' },
-];
+// Hasta ahora este array traía 6 registros reales de saldos bancarios
+// (BBVA/Santander/CaixaBank, junio 2026) escritos en claro. Index.html es
+// HTML estático: ese array viajaba al navegador de CUALQUIER visitante
+// antes de cualquier login, visible con "ver código fuente" sin necesidad
+// de contraseña — no era un problema del login (ver DT-09), era que los
+// datos ya estaban servidos en claro antes de que el login entrara en
+// juego. Verificado antes de vaciarlo (2026-08-07) que no se pierde nada:
+// la tabla `registros` de Supabase ya tiene 45 filas (02/06 a 07/08,
+// incluida la del 11/06 con los mismos valores exactos que traía este
+// array) — loadFromCloud() siempre sustituye este array por los datos
+// reales de la nube en cuanto hay sesión ("Cloud data wins over local
+// seed"), así que estos 6 registros llevaban tiempo sin usarse realmente.
+// Este array solo sirve ahora como valor de arranque antes de que cargue
+// la nube (y como fallback si Supabase no responde) — debe quedar vacío o
+// con datos de ejemplo ficticios, nunca con cifras reales del negocio.
+const SEED_DATA = [];
 
 // ═══════════════════════════════════════════════════════
 // PERSISTENCIA LOCAL — guarda datos entre sesiones
@@ -1383,6 +1391,15 @@ const OPERACIONES_ACCESO = ['admin', 'rober', 'david'];
 let USERS = {};
 try{ USERS = JSON.parse(localStorage.getItem('op_passwords')||'{}'); }catch(e){}
 let _ftpUser = null; // usuario pendiente de primera configuración
+
+// Escapa HTML antes de insertar texto libre (p. ej. campos "notas") dentro
+// de innerHTML — sin esto, cualquiera de los usuarios (la contraseña es
+// compartida entre los 4, ver DEUDA_TECNICA.md DT-09) podría guardar una
+// nota con HTML/JS que se ejecutaría en el navegador de cualquier otro
+// usuario que abra esa vista (XSS almacenado).
+function escapeHtml(str){
+  return String(str==null?'':str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
 // Helper: SHA-256 del texto plano
 async function hashPass(p){
@@ -2301,7 +2318,7 @@ function renderDashboard(){
           <div style="font-size:16px;font-weight:700;color:var(--verde);">${fmtV(le.aliz2)}</div>
         </div>
       </div>
-      <div style="text-align:right;font-size:12px;color:var(--texto2);">Total: <strong style="color:var(--texto)">${fmtV(total)}</strong>${le.notas?` · ${le.notas}`:''}</div>
+      <div style="text-align:right;font-size:12px;color:var(--texto2);">Total: <strong style="color:var(--texto)">${fmtV(total)}</strong>${le.notas?` · ${escapeHtml(le.notas)}`:''}</div>
     </div>`;
   })()}
 
@@ -2338,7 +2355,7 @@ function renderDashboard(){
     <canvas id="cCaja" height="70"></canvas>
   </div>
 
-  ${last.notas?`<div class="alert-card info" style="margin-bottom:20px"><div class="alert-ico">📝</div><div><div class="alert-ttl">Nota del último registro</div><div class="alert-txt">${last.notas}</div></div></div>`:''}
+  ${last.notas?`<div class="alert-card info" style="margin-bottom:20px"><div class="alert-ico">📝</div><div><div class="alert-ttl">Nota del último registro</div><div class="alert-txt">${escapeHtml(last.notas)}</div></div></div>`:''}
   `;
 
   document.getElementById('dashContent').innerHTML = html;
@@ -2637,7 +2654,7 @@ function renderHistorico(){
       <td>${fmt(r.caja_central)}</td>
       <td style="font-weight:700;color:var(--azul)">${fmt(t)}</td>
       <td class="${diff==null?'':'diff!=null&&diff>=0?\"td-p\":\"td-n\"'}">${diff==null?'—':(diff>=0?'<span class="td-p">▲ +':'<span class="td-n">▼ ')+fmt(Math.abs(diff))+'</span>'}</td>
-      <td style="font-size:11px;color:var(--texto2)">${r.notas||'—'}</td>
+      <td style="font-size:11px;color:var(--texto2)">${r.notas?escapeHtml(r.notas):'—'}</td>
     </tr>`;
   }).join('');
 
@@ -3945,7 +3962,7 @@ function renderCajaEfectivo(){
         <td style="padding:9px 12px;text-align:right;">${fmtV(e.aliz1)}</td>
         <td style="padding:9px 12px;text-align:right;">${fmtV(e.aliz2)}</td>
         <td style="padding:9px 12px;text-align:right;font-weight:600;">${fmtV(tot)}</td>
-        <td style="padding:9px 12px;color:var(--texto2);">${e.notas||''}</td>
+        <td style="padding:9px 12px;color:var(--texto2);">${e.notas?escapeHtml(e.notas):''}</td>
         <td style="padding:9px 12px;text-align:center;"><button onclick="deleteEfectivo('${e.fecha}')" style="background:none;border:none;cursor:pointer;font-size:14px;" title="Eliminar">🗑️</button></td>
       </tr>`;
     }).join('')}</tbody>

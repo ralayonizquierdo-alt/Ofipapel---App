@@ -1859,11 +1859,17 @@
                 ejecutarPipeline(campaign.id, input);
             }
 
+            // app.html es HTML estático y cualquiera puede verlo con "ver código
+            // fuente"; solo evita que el endpoint quede completamente abierto. Debe
+            // coincidir con MARKETING_ENGINE_TOKEN en las variables de entorno de
+            // Netlify (mismo patrón que APP_CHAT_TOKEN en Index.html).
+            const APP_MARKETING_TOKEN = 'ofipapel-marketing-2026';
+
             async function ejecutarPipeline(campaignId, input) {
                 try {
                     const res = await fetch('/.netlify/functions/marketing-engine-run', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'x-marketing-token': APP_MARKETING_TOKEN },
                         body: JSON.stringify(input)
                     });
                     const data = await res.json();

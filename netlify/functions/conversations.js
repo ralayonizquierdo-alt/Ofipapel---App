@@ -187,6 +187,33 @@ async function checkAuth(event) {
   return passwordCorrecta(passwordDeBasicAuth(event), vigente);
 }
 
+// El panel acepta autenticación básica como alternativa a la cookie de sesión
+// (para no romper a quien la tuviera guardada en el navegador). Esa cabecera el
+// navegador la reenvía en CUALQUIER petición al mismo origen, incluida una que
+// dispare una página maliciosa desde otra pestaña (CSRF) — y a diferencia de la
+// cookie, `SameSite=Lax` no la frena. Sin esto, un formulario oculto en otra web
+// podría borrar el historial de un cliente o mandar mensajes en nombre del
+// negocio sin que el admin haga nada. En las acciones que cambian estado (POST)
+// se exige que el Origin (o el Referer, si el navegador no manda Origin)
+// coincida con el propio sitio.
+function isSameOriginRequest(event) {
+  const origin = event.headers['origin'] || event.headers['Origin'];
+  const referer = event.headers['referer'] || event.headers['Referer'];
+  const siteUrl = process.env.URL || process.env.DEPLOY_PRIME_URL || '';
+  if (!siteUrl) return true; // no hay con qué comparar (entorno local/dev): no bloquear
+
+  const expectedOrigin = new URL(siteUrl).origin;
+  if (origin) return origin === expectedOrigin;
+  if (referer) {
+    try {
+      return new URL(referer).origin === expectedOrigin;
+    } catch {
+      return false;
+    }
+  }
+  return false; // POST sin Origin ni Referer: no es un navegador normal, se rechaza
+}
+
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -926,6 +953,10 @@ exports.handler = async (event) => {
   }
 
   if (event.httpMethod === 'POST') {
+    if (!isSameOriginRequest(event)) {
+      return { statusCode: 403, body: 'Forbidden (cross-site request blocked)' };
+    }
+
     const contentType = event.headers['content-type'] || event.headers['Content-Type'] || '';
     let phone = '';
     let action = '';
