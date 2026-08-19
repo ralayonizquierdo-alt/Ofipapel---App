@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Calendar, BedDouble, Tag, Wrench, PiggyBank, Receipt, BarChart3, Settings, Menu, X, KeyRound, LogOut
+  LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, Settings, Menu, X, KeyRound, LogOut
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import bgTrebol from './assets/bg-trebol.png'
@@ -12,7 +12,6 @@ import Dashboard from './pages/Dashboard'
 import Planning from './pages/Planning'
 import Reservations from './pages/Reservations'
 import Prices from './pages/Prices'
-import Repairs from './pages/Repairs'
 import Collections from './pages/Collections'
 import Costos from './pages/Costos'
 import Analytics from './pages/Analytics'
@@ -23,7 +22,6 @@ const NAV = [
   { to: '/planning',     icon: Calendar,        label: 'Planning' },
   { to: '/reservas',     icon: BedDouble,       label: 'Reservas' },
   { to: '/precios',      icon: Tag,             label: 'Precios' },
-  { to: '/reparaciones', icon: Wrench,          label: 'Reparaciones' },
   { to: '/cobros',       icon: PiggyBank,       label: 'Cobros' },
   { to: '/gastos',       icon: Receipt,         label: 'Gastos' },
   { to: '/analitica',    icon: BarChart3,       label: 'Analítica' },
@@ -217,7 +215,7 @@ export default function App() {
               <Route path="/planning" element={<Planning />} />
               <Route path="/reservas" element={<Reservations />} />
               <Route path="/precios" element={<Prices />} />
-              <Route path="/reparaciones" element={<Repairs />} />
+              <Route path="/reparaciones" element={<Navigate to="/gastos?tab=reparaciones" replace />} />
               <Route path="/gastos" element={<Costos />} />
               <Route path="/cobros" element={<Collections />} />
               <Route path="/analitica" element={<Analytics />} />
