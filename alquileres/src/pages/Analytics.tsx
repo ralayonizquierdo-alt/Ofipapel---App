@@ -28,7 +28,7 @@ function etiquetaPeriodo(periodo: Periodo, year: number): string {
 }
 
 export default function Analytics() {
-  const { reservations, payments, repairs, expenses, apartments: allApartments } = useData()
+  const { reservations, payments, repairs, expenses, incomes, apartments: allApartments } = useData()
   const [year, setYear] = useState(new Date().getFullYear())
   const [periodo, setPeriodo] = useState<Periodo>('anual')
   const [aptFiltro, setAptFiltro] = useState('')
@@ -44,8 +44,23 @@ export default function Analytics() {
     for (const r of reservations) if (r.checkIn) s.add(r.checkIn.slice(0, 4))
     for (const e of expenses) if (e.expenseDate) s.add(e.expenseDate.slice(0, 4))
     for (const r of repairs) if (r.repairDate) s.add(r.repairDate.slice(0, 4))
+    for (const i of incomes) s.add(String(i.year))
     return [...s].filter(Boolean).sort((a, b) => b.localeCompare(a))
-  }, [payments, reservations, expenses, repairs])
+  }, [payments, reservations, expenses, repairs, incomes])
+
+  /** Ingresos declarados del Excel, indexados por inmueble y mes. */
+  const declarados = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const i of incomes) {
+      if (i.year !== year) continue
+      m.set(`${i.apartmentId}|${i.month}`, (m.get(`${i.apartmentId}|${i.month}`) || 0) + i.amount)
+    }
+    return m
+  }, [incomes, year])
+
+  /** Si el ejercicio tiene ingresos del Excel, esos mandan y los cobros pasan a
+   *  ser comprobación. Si no los hay, se sigue calculando desde los cobros. */
+  const hayDeclarados = declarados.size > 0
 
   const aptDeReserva = useMemo(() => {
     const m = new Map<string, string>()
@@ -67,9 +82,11 @@ export default function Analytics() {
     const noches = meses.reduce((s, m) => s + nochesOcupadas(reservations, apt.id, year, m), 0)
     const diasPeriodo = meses.reduce((s, m) => s + getDaysInMonth(year, m), 0)
 
-    const ingresos = payments
+    const cobrado = payments
       .filter(p => p.received && enPeriodo(p.paymentDate) && aptDeReserva.get(p.reservationId) === apt.id)
       .reduce((s, p) => s + p.amount, 0)
+    const declarado = meses.reduce((s, m) => s + (declarados.get(`${apt.id}|${m}`) || 0), 0)
+    const ingresos = hayDeclarados ? declarado : cobrado
 
     const gastosApt = expenses.filter(e => e.apartmentId === apt.id && enPeriodo(e.expenseDate))
     const repsApt = repairs.filter(r => r.apartmentId === apt.id && enPeriodo(r.repairDate))
@@ -82,7 +99,7 @@ export default function Analytics() {
     return {
       apt, noches, diasLibres: diasPeriodo - noches,
       ocupacion: diasPeriodo ? Math.round((noches / diasPeriodo) * 100) : 0,
-      ingresos, gastos: redondea(gastos), deducible: redondea(deducible),
+      ingresos: redondea(ingresos), cobrado: redondea(cobrado), gastos: redondea(gastos), deducible: redondea(deducible),
       resultado: redondea(ingresos - deducible), igic: calcIGIC(ingresos),
     }
   })
@@ -91,6 +108,7 @@ export default function Analytics() {
   const totGastos = redondea(porApartamento.reduce((s, a) => s + a.gastos, 0))
   const totDeducible = redondea(porApartamento.reduce((s, a) => s + a.deducible, 0))
   const totResultado = redondea(totIngresos - totDeducible)
+  const totCobrado = redondea(porApartamento.reduce((s, a) => s + a.cobrado, 0))
   const totNoches = porApartamento.reduce((s, a) => s + a.noches, 0)
   const totDiasLibres = porApartamento.reduce((s, a) => s + a.diasLibres, 0)
 
@@ -100,9 +118,13 @@ export default function Analytics() {
     const clave = `${year}-${String(m).padStart(2, '0')}`
     const dentro = meses.includes(m)
 
-    const ingresos = payments
+    const cobrado = payments
       .filter(p => p.received && p.paymentDate?.startsWith(clave) && visible(aptDeReserva.get(p.reservationId) || ''))
       .reduce((s, p) => s + p.amount, 0)
+    const declarado = [...declarados.entries()]
+      .filter(([k]) => k.endsWith(`|${m}`) && visible(k.split('|')[0]))
+      .reduce((s, [, v]) => s + v, 0)
+    const ingresos = hayDeclarados ? declarado : cobrado
     const gastosMes = expenses.filter(e => e.expenseDate?.startsWith(clave) && visible(e.apartmentId))
     const repsMes = repairs.filter(r => r.repairDate?.startsWith(clave) && visible(r.apartmentId))
     const gastos = gastosMes.reduce((s, e) => s + (e.amount || 0), 0)
@@ -112,7 +134,7 @@ export default function Analytics() {
 
     return {
       mes: MONTH_NAMES_ES[i], abrev: MONTH_NAMES_ES[i].slice(0, 3), dentro,
-      ingresos: redondea(ingresos), gastos: redondea(gastos),
+      ingresos: redondea(ingresos), cobrado: redondea(cobrado), gastos: redondea(gastos),
       deducible: redondea(deducible), resultado: redondea(ingresos - deducible),
     }
   })
@@ -174,7 +196,9 @@ export default function Analytics() {
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
           <p className="text-xs text-slate-500">Ingresos {titulo}</p>
           <p className="text-2xl font-bold text-green-700 mt-1">{eur(totIngresos)}</p>
-          <p className="text-xs text-slate-400 mt-0.5">IGIC 7%: {eur(calcIGIC(totIngresos))}</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            IGIC 7%: {eur(calcIGIC(totIngresos))} · {hayDeclarados ? 'según Excel' : 'según cobros'}
+          </p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
           <p className="text-xs text-slate-500">Gastos totales</p>
@@ -199,8 +223,13 @@ export default function Analytics() {
 
       {/* Resumen general mes a mes */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
-        <div className="px-5 py-3 border-b border-slate-200 bg-slate-50">
+        <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-3 flex-wrap">
           <h2 className="font-semibold text-slate-700 text-sm">Resumen general — {year}</h2>
+          <span className="text-xs text-slate-500">
+            {hayDeclarados
+              ? 'Ingresos según el Excel · «Cobrado» es lo registrado en la app'
+              : 'Ingresos calculados a partir de los cobros registrados'}
+          </span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -208,6 +237,12 @@ export default function Analytics() {
               <tr className="border-b border-slate-200">
                 <th className="text-left py-2.5 px-4 font-medium text-slate-600">Mes</th>
                 <th className="text-right py-2.5 px-4 font-medium text-green-700">Ingresos</th>
+                {hayDeclarados && (
+                  <>
+                    <th className="text-right py-2.5 px-4 font-medium text-slate-500">Cobrado</th>
+                    <th className="text-right py-2.5 px-4 font-medium text-slate-500">Dif.</th>
+                  </>
+                )}
                 <th className="text-right py-2.5 px-4 font-medium text-red-700">Gastos</th>
                 <th className="text-right py-2.5 px-4 font-medium text-amber-700">Deducible</th>
                 <th className="text-right py-2.5 px-4 font-medium text-blue-700">Resultado</th>
@@ -219,6 +254,16 @@ export default function Analytics() {
                   className={`border-b border-slate-100 ${m.dentro ? 'hover:bg-slate-50' : 'opacity-40'}`}>
                   <td className="py-2 px-4 text-slate-700">{m.mes}</td>
                   <td className="py-2 px-4 text-right text-green-700 tabular-nums">{eur(m.ingresos)}</td>
+                  {hayDeclarados && (
+                    <>
+                      <td className="py-2 px-4 text-right text-slate-500 tabular-nums">{eur(m.cobrado)}</td>
+                      <td className={`py-2 px-4 text-right tabular-nums ${
+                        Math.abs(m.ingresos - m.cobrado) < 0.005 ? 'text-slate-300' : 'text-amber-700'
+                      }`}>
+                        {Math.abs(m.ingresos - m.cobrado) < 0.005 ? '—' : eur(redondea(m.ingresos - m.cobrado))}
+                      </td>
+                    </>
+                  )}
                   <td className="py-2 px-4 text-right text-red-700 tabular-nums">{eur(m.gastos)}</td>
                   <td className="py-2 px-4 text-right text-amber-700 tabular-nums">{eur(m.deducible)}</td>
                   <td className="py-2 px-4 text-right font-semibold text-blue-700 tabular-nums">{eur(m.resultado)}</td>
@@ -229,6 +274,14 @@ export default function Analytics() {
               <tr>
                 <td className="py-3 px-4 font-bold text-slate-700">TOTAL {titulo}</td>
                 <td className="py-3 px-4 text-right font-bold text-green-700 tabular-nums">{eur(totIngresos)}</td>
+                {hayDeclarados && (
+                  <>
+                    <td className="py-3 px-4 text-right font-semibold text-slate-600 tabular-nums">{eur(totCobrado)}</td>
+                    <td className="py-3 px-4 text-right font-semibold text-amber-700 tabular-nums">
+                      {eur(redondea(totIngresos - totCobrado))}
+                    </td>
+                  </>
+                )}
                 <td className="py-3 px-4 text-right font-bold text-red-700 tabular-nums">{eur(totGastos)}</td>
                 <td className="py-3 px-4 text-right font-bold text-amber-700 tabular-nums">{eur(totDeducible)}</td>
                 <td className="py-3 px-4 text-right font-bold text-blue-700 tabular-nums">{eur(totResultado)}</td>
