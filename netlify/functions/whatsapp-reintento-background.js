@@ -22,9 +22,11 @@ const {
   isNoSeLaRespuesta,
   NO_SE_LA_RESPUESTA,
   isUnverifiedConfirmation,
+  isUnverifiedStockClaim,
   PRODUCTO_NO_VERIFICADO_INFO,
 } = require('./whatsapp-agent-config');
 const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo');
+const { respuestaSinCatalogo } = require('./whatsapp-consumibles');
 const { sendWhatsappMessage } = require('./whatsapp-send');
 const woocommerce = require('./woocommerce-client');
 const conversationStore = require('./conversation-store');
@@ -46,24 +48,25 @@ async function buscarConPaciencia({ from, text, history }) {
   // conserva aunque los tres intentos se queden sin catálogo: con eso solo ya se
   // le puede decir qué referencia necesita.
   let consumibles = null;
+  let equipos = [];
 
   for (let intento = 1; intento <= INTENTOS; intento += 1) {
-    const { productContext, contextoConsumibles, fallo } = await construirContextoCatalogo({
-      from,
-      text,
-      history,
-    });
+    const { productContext, contextoConsumibles, impresoras, fallo } =
+      await construirContextoCatalogo({ from, text, history });
     consumibles = contextoConsumibles || consumibles;
+    equipos = impresoras && impresoras.length > 0 ? impresoras : equipos;
 
     // Con datos, o con un "no existe" fiable (la web contestó), ya no hay nada
     // que reintentar.
-    if (productContext || !fallo) return { productContext, contextoConsumibles: consumibles, fallo };
+    if (productContext || !fallo) {
+      return { productContext, contextoConsumibles: consumibles, impresoras: equipos, fallo };
+    }
 
     console.warn(`whatsapp-reintento: intento ${intento} de ${INTENTOS} sin respuesta de la web`);
     if (intento < INTENTOS) await dormir(ESPERA_ENTRE_INTENTOS_MS);
   }
 
-  return { productContext: null, contextoConsumibles: consumibles, fallo: true };
+  return { productContext: null, contextoConsumibles: consumibles, impresoras: equipos, fallo: true };
 }
 
 exports.handler = async (event) => {
@@ -89,7 +92,7 @@ exports.handler = async (event) => {
       conversationStore.getFichaCliente(from),
     ]);
 
-    const { productContext, contextoConsumibles, fallo } = await buscarConPaciencia({
+    const { productContext, contextoConsumibles, impresoras, fallo } = await buscarConPaciencia({
       from,
       text,
       history,
@@ -104,7 +107,9 @@ exports.handler = async (event) => {
 
     // Mismas redes de seguridad que en el webhook: sin datos reales de catálogo
     // no nos fiamos de una confirmación de la IA, que puede ser invención.
-    if (!productContext && isUnverifiedConfirmation(reply)) reply = PRODUCTO_NO_VERIFICADO_INFO;
+    if (!productContext && (isUnverifiedConfirmation(reply) || isUnverifiedStockClaim(reply))) {
+      reply = respuestaSinCatalogo(impresoras) || PRODUCTO_NO_VERIFICADO_INFO;
+    }
     if (isNoSeLaRespuesta(reply)) reply = NO_SE_LA_RESPUESTA;
 
     await sendWhatsappMessage(from, reply);

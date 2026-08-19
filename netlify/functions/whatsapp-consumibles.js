@@ -144,10 +144,39 @@ function bloqueDeConsumibles(impresoras) {
   ].join('\n');
 }
 
+// Respuesta de seguridad cuando la IA se ha venido arriba con el stock y no
+// había datos de catálogo que lo respaldaran. La genérica ("¿qué estás
+// buscando?") tiraría a la basura lo único cierto que teníamos: la referencia.
+// Esta la conserva y es honesta con lo que no sabemos.
+function respuestaSinCatalogo(impresoras) {
+  if (!impresoras || impresoras.length === 0) return null;
+
+  const { STORES } = require('./whatsapp-agent-config');
+  const contacto = `escribe a pedidos@ofipapelsl.com, llama al ${STORES[0].phone} o pásate por la tienda`;
+
+  if (impresoras.length > 1) {
+    const modelos = impresoras.map((i) => `${i.m} ${i.n}`.trim()).join(', ');
+    return `Para darte la referencia exacta necesito saber cuál es tu modelo: ¿${modelos}? Dímelo y te digo qué cartucho lleva.`;
+  }
+
+  const impresora = impresoras[0];
+  const referencias = [];
+  for (const consumible of consumiblesDe(impresora)) {
+    if (consumible.r && !referencias.includes(consumible.r)) referencias.push(consumible.r);
+  }
+  const lista = referencias.slice(0, 4).join(', ');
+
+  return (
+    `Esa impresora lleva ${referencias.length > 1 ? 'las referencias' : 'la referencia'} ${lista}. ` +
+    `Lo que no puedo confirmarte ahora mismo es el precio ni si nos queda: para eso ${contacto}.`
+  );
+}
+
 module.exports = {
   buscarImpresoras,
   consumiblesDe,
   referenciaPrincipal,
   bloqueDeConsumibles,
+  respuestaSinCatalogo,
   normalizar,
 };

@@ -18,15 +18,42 @@ function unirContexto(contextoConsumibles, productContext) {
   return [contextoConsumibles, productContext].filter(Boolean).join('\n\n') || null;
 }
 
+// Cuántos mensajes atrás se busca el modelo de impresora.
+const MENSAJES_QUE_RECUERDAN_LA_IMPRESORA = 4;
+
+function buscarImpresoraEnConversacion(text, history = []) {
+  const enEsteMensaje = consumibles.buscarImpresoras(text);
+  if (enEsteMensaje.length > 0) return enEsteMensaje;
+
+  const anteriores = history
+    .filter((m) => m.role === 'user')
+    .slice(-MENSAJES_QUE_RECUERDAN_LA_IMPRESORA)
+    .reverse();
+
+  for (const mensaje of anteriores) {
+    const encontradas = consumibles.buscarImpresoras(mensaje.content);
+    if (encontradas.length > 0) return encontradas;
+  }
+  return [];
+}
+
 async function construirContextoCatalogo({ from, text, history }) {
   // El índice de consumibles viaja con el bot, así que responde aunque la web
   // esté caída. Se mira siempre, no solo cuando el cliente pregunta "qué
   // cartucho lleva": basta con que nombre su impresora en cualquier frase.
-  const impresoras = consumibles.buscarImpresoras(text);
+  //
+  // Y se mira también en los mensajes anteriores, porque el modelo se dice UNA
+  // vez y luego se da por sabido. Visto en real: "tengo una Epson XP-4200,
+  // necesito tinta" y después "¿me muestras las opciones? necesito los 4" — en
+  // el segundo mensaje ya no hay ni marca ni modelo, y sin esto el bot se
+  // quedaba sin saber de qué impresora hablaban justo cuando tenía que dar los
+  // precios. Solo los últimos mensajes: si nombró una impresora hace media
+  // conversación y ahora pregunta por otra cosa, no viene a cuento.
+  const impresoras = buscarImpresoraEnConversacion(text, history);
   const contextoConsumibles = consumibles.bloqueDeConsumibles(impresoras);
 
   if (!woocommerce.isConfigured()) {
-    return { productContext: null, contextoConsumibles, fallo: false };
+    return { productContext: null, contextoConsumibles, impresoras, fallo: false };
   }
 
   // Si el mensaje es muy corto (p. ej. "A4", "en fucsia", "tenaza"), lo más
@@ -98,6 +125,7 @@ async function construirContextoCatalogo({ from, text, history }) {
   return {
     productContext: bloques.length > 0 ? bloques.join('\n\n') : null,
     contextoConsumibles,
+    impresoras,
     fallo,
   };
 }

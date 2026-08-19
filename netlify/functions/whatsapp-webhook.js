@@ -70,6 +70,7 @@ const {
   isNoSeLaRespuesta,
   NO_SE_LA_RESPUESTA,
   isUnverifiedConfirmation,
+  isUnverifiedStockClaim,
   PRODUCTO_NO_VERIFICADO_INFO,
   PEDIDOS_INFO,
   PEDIDO_ESTADO_TRIGGER,
@@ -78,6 +79,7 @@ const {
 const woocommerce = require('./woocommerce-client');
 const { sendWhatsappMessage, sendWhatsappTemplate } = require('./whatsapp-send');
 const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo');
+const { respuestaSinCatalogo } = require('./whatsapp-consumibles');
 const { firmaDeReintento } = require('./whatsapp-firma');
 const conversationStore = require('./conversation-store');
 
@@ -587,6 +589,7 @@ async function handleIncomingMessage(message) {
   const {
     productContext,
     contextoConsumibles,
+    impresoras,
     fallo: falloCatalogo,
   } = await construirContextoCatalogo({ from: message.from, text, history });
 
@@ -625,8 +628,13 @@ async function handleIncomingMessage(message) {
   // confirmación puede ser legítima — se ha comprobado en real que "pistolas de
   // silicona" existe en el catálogo y la IA contestaba bien, pero esta red de
   // seguridad lo descartaba igualmente por no mirar si había datos de respaldo.
-  if (!productContext && isUnverifiedConfirmation(aiReply)) {
-    const infoReply = greeting + PRODUCTO_NO_VERIFICADO_INFO;
+  // Sin datos de catálogo tampoco vale afirmar que algo está en stock: saber
+  // qué cartucho lleva una impresora no es saber si nos queda.
+  if (!productContext && (isUnverifiedConfirmation(aiReply) || isUnverifiedStockClaim(aiReply))) {
+    // Si sabemos de qué impresora habla, la respuesta segura conserva la
+    // referencia en vez de empezar de cero preguntando qué busca.
+    const infoReply =
+      greeting + (respuestaSinCatalogo(impresoras) || PRODUCTO_NO_VERIFICADO_INFO);
     await appendToHistory(message.from, text, infoReply);
     await sendWhatsappMessage(message.from, infoReply);
     return;
