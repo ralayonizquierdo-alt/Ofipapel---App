@@ -171,9 +171,22 @@ const VENTANA_INSISTENCIA_MS = 30 * 60 * 1000;
 // Y como mucho los últimos mensajes suyos: insistir es hacerlo seguido.
 const MENSAJES_QUE_CUENTAN_COMO_INSISTENCIA = 4;
 
+// Un mensaje corto NO es una insistencia, es una continuación. "¿Tienen
+// compatibles?" tiene una sola palabra con contenido ("compatibles"), y si esa
+// palabra salió en cualquier mensaje reciente, la proporción da 1 y se marcaba
+// como "la misma pregunta". Visto en real: el cliente escribió "¿Tienen
+// compatibles?" después de haber dicho "compatibles está bien" un rato antes, y
+// se llevó un "creo que no te he entendido" en vez de una respuesta.
+//
+// Por eso hacen falta las dos cosas: bastantes palabras con contenido para que
+// la comparación signifique algo, y bastantes en común para que sea de verdad
+// la misma pregunta y no una coincidencia de vocabulario.
+const MIN_PALABRAS_PARA_COMPARAR = 3;
+const MIN_PALABRAS_EN_COMUN = 3;
+
 function isRepeatQuestion(text, history) {
   const currentWords = new Set(palabrasSignificativas(text));
-  if (currentWords.size === 0) return false;
+  if (currentWords.size < MIN_PALABRAS_PARA_COMPARAR) return false;
 
   // Comprobado en real: preguntar "tengo una Epson XP-4200, necesito tinta" y
   // repetirlo cinco horas después hacía que el bot contestara "creo que no te he
@@ -191,6 +204,7 @@ function isRepeatQuestion(text, history) {
     const prevWords = new Set(palabrasSignificativas(prev));
     if (prevWords.size === 0) continue;
     const overlap = [...currentWords].filter((w) => prevWords.has(w)).length;
+    if (overlap < MIN_PALABRAS_EN_COMUN) continue;
     const ratio = overlap / Math.min(currentWords.size, prevWords.size);
     if (ratio >= 0.6) return true;
   }
