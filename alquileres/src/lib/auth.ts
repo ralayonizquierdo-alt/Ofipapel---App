@@ -55,12 +55,16 @@ export class ErrorAcceso extends Error {
 /** Traduce los códigos de Firebase a algo que se pueda leer en pantalla. */
 function mensajeDe(codigo: string): string {
   switch (codigo) {
+    // Con la protección contra enumeración de correos activada, Firebase
+    // devuelve lo mismo si la contraseña está mal que si la cuenta no existe.
+    // No se puede distinguir, así que el mensaje nombra las dos causas: de otro
+    // modo, alguien sin cuenta creada leería «contraseña incorrecta» y estaría
+    // probando contraseñas para siempre.
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/invalid-login-credentials':
-      return 'Contraseña incorrecta'
     case 'auth/user-not-found':
-      return 'Esta cuenta todavía no está creada en Firebase. Créala en Authentication → Usuarios.'
+      return 'Contraseña incorrecta, o la cuenta aún no está creada en Firebase (Authentication → Usuarios).'
     case 'auth/too-many-requests':
       return 'Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo.'
     case 'auth/network-request-failed':
