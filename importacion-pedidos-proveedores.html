@@ -146,6 +146,11 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
       <button type="button" onclick="event.preventDefault(); document.getElementById('pdfInput').value=''; resetDropzone();">✕ Quitar archivo</button>
     </div>
     <div id="estadoPdf" class="estado"></div>
+    <div id="ocrOfrecido" style="display:none;margin-top:10px;padding:12px 14px;border:1px dashed var(--borde);border-radius:10px;background:var(--verde-claro);">
+      <div style="font-size:12.5px;color:var(--texto2);margin-bottom:8px;">Este PDF parece escaneado o con una fuente que no se puede leer como texto. Puedes probar con reconocimiento de imagen (OCR) — es más lento y menos fiable: revisa cada línea con cuidado antes de exportar.</div>
+      <button type="button" class="btn btn-secundario" id="btnProbarOcr" onclick="probarConOcr()">🔍 Probar con OCR</button>
+      <div id="ocrProgreso" class="estado" style="margin-top:8px;"></div>
+    </div>
     <div class="campo" style="margin:14px 0 0;max-width:420px;">
       <label>Proveedor</label>
       <input type="text" id="buscarProveedor" placeholder="🔎 Buscar por nombre..." autocomplete="off"
@@ -255,6 +260,9 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- Tesseract.js: OCR de apoyo, solo para PDFs escaneados o con fuente ilegible
+     (ver probarConOcr() más abajo) — no se usa en el flujo normal de texto. -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
 // NÚCLEO: extracción de texto posicional del PDF (líneas reconstruidas
@@ -1272,7 +1280,7 @@ function onSelProveedorChange(){
     const perfil = (perfilSeleccionadoId && perfilSeleccionadoId!=='otro')
       ? (PERFILES_PROVEEDOR.find(p => p.id === perfilSeleccionadoId) || null)
       : null;
-    procesarFacturaConPerfil(ultimasLineasPDF, ultimoTextoPDF, perfil);
+    procesarFacturaConPerfil(ultimasLineasPDF, ultimoTextoPDF, perfil, ultimoFueOCR);
   }
 }
 
@@ -1387,12 +1395,24 @@ function resetDropzone(){
   document.getElementById('estadoPdf').className = 'estado';
   ultimasLineasPDF = null;
   ultimoTextoPDF = null;
+  ultimoArchivoPDF = null;
+  ultimoFueOCR = false;
+  document.getElementById('ocrOfrecido').style.display = 'none';
+  document.getElementById('ocrProgreso').textContent = '';
 }
 
 // Texto/líneas de la última factura leída, para poder reprocesarla si el
 // usuario cambia el proveedor a mano (sin tener que volver a subir el PDF).
 let ultimasLineasPDF = null;
 let ultimoTextoPDF = null;
+// Archivo PDF original, guardado por si hace falta reintentar con OCR
+// (extraerLineasPDF solo da texto vectorial; el OCR necesita renderizar
+// las páginas de nuevo desde el propio archivo).
+let ultimoArchivoPDF = null;
+// Si las últimas líneas guardadas vienen de OCR (en vez de texto vectorial
+// normal), para poder mantener el aviso de "revisa con cuidado" al
+// reprocesar tras un cambio manual de proveedor.
+let ultimoFueOCR = false;
 
 async function onPdfSelected(file){
   if(!file) return;
@@ -1400,8 +1420,12 @@ async function onPdfSelected(file){
     mostrarEstado('err', 'El archivo no es un PDF.');
     return;
   }
+  ultimoArchivoPDF = file;
+  ultimoFueOCR = false;
   document.getElementById('dzTitulo').textContent = '📄 ' + file.name;
   document.getElementById('dzAcciones').style.display = 'flex';
+  document.getElementById('ocrOfrecido').style.display = 'none';
+  document.getElementById('ocrProgreso').textContent = '';
   mostrarEstado('warn', 'Leyendo PDF…');
   try{
     const lineas = await extraerLineasPDF(file);
@@ -1432,7 +1456,7 @@ async function onPdfSelected(file){
   }
 }
 
-function procesarFacturaConPerfil(lineas, texto, perfil){
+function procesarFacturaConPerfil(lineas, texto, perfil, viaOCR){
   const parserAUsar = (perfil && perfil.parser) ? perfil.parser : parserGenerico;
   const filasParseadas = parserAUsar(lineas);
 
@@ -1440,9 +1464,16 @@ function procesarFacturaConPerfil(lineas, texto, perfil){
     const pista = (perfil && perfilSeleccionadoId && perfilSeleccionadoId!=='otro')
       ? ' Revisa que has seleccionado el proveedor correcto en el desplegable.'
       : '';
-    mostrarEstado('err', 'No se ha podido extraer ninguna línea de artículo de este PDF.' + pista + ' Añade las filas a mano.');
+    if(viaOCR){
+      mostrarEstado('err', 'El OCR tampoco ha podido extraer líneas de artículo reconocibles de este PDF.' + pista + ' Añade las filas a mano.');
+    } else {
+      mostrarEstado('err', 'No se ha podido extraer ninguna línea de artículo de este PDF.' + pista + ' Añade las filas a mano.');
+      document.getElementById('ocrOfrecido').style.display = 'block';
+    }
     return;
   }
+
+  document.getElementById('ocrOfrecido').style.display = 'none';
 
   proveedorDetectado = perfil ? perfil.nombre : '';
   document.getElementById('cabProveedor').value = proveedorDetectado;
@@ -1460,18 +1491,134 @@ function procesarFacturaConPerfil(lineas, texto, perfil){
   renderFilas();
   actualizarBotonesOrden();
 
+  const sufijoOCR = viaOCR ? ' ⚠️ Extraído por OCR: es menos fiable que la lectura de texto normal, revisa cada línea con cuidado.' : '';
   if(perfil){
-    mostrarEstado('ok', `Proveedor: ${perfil.nombre}. ${filas.length} líneas extraídas — revisa ISBN/Marca/Familia/Igic antes de exportar.`);
+    mostrarEstado('ok', `Proveedor: ${perfil.nombre}. ${filas.length} líneas extraídas — revisa ISBN/Marca/Familia/Igic antes de exportar.${sufijoOCR}`);
   } else {
-    mostrarEstado('warn', `Proveedor genérico. ${filas.length} líneas extraídas: revisa bien la tabla, puede haber errores de columnas.`);
+    mostrarEstado('warn', `Proveedor genérico. ${filas.length} líneas extraídas: revisa bien la tabla, puede haber errores de columnas.${sufijoOCR}`);
   }
 
   const sumaCalculada = round2_(filas.reduce((s,f)=>s+(parseFloat(f.importe)||0), 0));
   const totalFactura = (perfil && perfil.total) ? perfil.total(texto) : null;
-  mostrarModalVerificacion({ perfil, lineas: filas.length, sumaCalculada, totalFactura });
+  mostrarModalVerificacion({ perfil, lineas: filas.length, sumaCalculada, totalFactura, viaOCR });
 }
 
-function mostrarModalVerificacion({ perfil, lineas, sumaCalculada, totalFactura }){
+// OCR de apoyo (Tesseract.js): solo se ofrece cuando la lectura de texto
+// normal (extraerLineasPDF, vía pdf.js) no ha sacado ninguna línea de
+// artículo — PDFs escaneados como imagen o con una fuente rota/sin mapa
+// Unicode. Renderiza cada página a un <canvas> y reconoce las palabras con
+// sus posiciones, para reconstruir "líneas" de texto compatibles con los
+// mismos parsers que ya existen (parserGenerico o el del proveedor).
+async function extraerLineasPDFviaOCR(file, onProgress){
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  const worker = await Tesseract.createWorker('spa', 1, {
+    logger: m => {
+      if(onProgress && m.status === 'recognizing text'){
+        onProgress(m);
+      }
+    }
+  });
+
+  const todasLineas = [];
+  try{
+    for(let p = 1; p <= pdf.numPages; p++){
+      if(onProgress) onProgress({ status: 'renderizando página', paginaActual: p, totalPaginas: pdf.numPages });
+      const page = await pdf.getPage(p);
+      const viewport = page.getViewport({ scale: 2.5 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      const { data } = await worker.recognize(canvas);
+      const palabras = (data.words || []).filter(w => w.text && w.text.trim());
+      todasLineas.push(...agruparPalabrasEnLineas(palabras));
+      todasLineas.push('--- PAGE BREAK ---');
+    }
+  } finally {
+    await worker.terminate();
+  }
+  return todasLineas;
+}
+
+// Agrupa palabras OCR (con bbox en píxeles del canvas) en líneas de texto:
+// a diferencia de extraerLineasPDF (coordenadas exactas de pdf.js), el OCR
+// da cajas ligeramente desalineadas verticalmente entre palabras de una
+// misma línea, así que el agrupado por Y es por proximidad (tolerancia),
+// no por igualdad exacta.
+function agruparPalabrasEnLineas(palabras){
+  if(!palabras.length) return [];
+  const conCentro = palabras.map(w => ({
+    texto: w.text,
+    x: w.bbox.x0,
+    yCentro: (w.bbox.y0 + w.bbox.y1) / 2,
+    alto: w.bbox.y1 - w.bbox.y0
+  })).sort((a, b) => a.yCentro - b.yCentro);
+
+  const grupos = [];
+  conCentro.forEach(w => {
+    const tolerancia = Math.max(6, w.alto * 0.6);
+    let grupo = grupos.find(g => Math.abs(g.yCentro - w.yCentro) <= tolerancia);
+    if(!grupo){
+      grupo = { yCentro: w.yCentro, palabras: [] };
+      grupos.push(grupo);
+    }
+    grupo.palabras.push(w);
+    grupo.yCentro = grupo.palabras.reduce((s, p) => s + p.yCentro, 0) / grupo.palabras.length;
+  });
+
+  return grupos
+    .sort((a, b) => a.yCentro - b.yCentro)
+    .map(g => g.palabras.sort((a, b) => a.x - b.x).map(p => p.texto).join(' ').replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+}
+
+async function probarConOcr(){
+  if(!ultimoArchivoPDF){
+    mostrarEstado('err', 'No hay ningún PDF cargado para reintentar con OCR.');
+    return;
+  }
+  const btn = document.getElementById('btnProbarOcr');
+  const progreso = document.getElementById('ocrProgreso');
+  btn.disabled = true;
+  progreso.textContent = 'Preparando OCR…';
+  try{
+    const lineas = await extraerLineasPDFviaOCR(ultimoArchivoPDF, m => {
+      if(m.status === 'renderizando página'){
+        progreso.textContent = `Renderizando página ${m.paginaActual} de ${m.totalPaginas}…`;
+      } else if(typeof m.progress === 'number'){
+        progreso.textContent = `Reconociendo texto… ${Math.round(m.progress * 100)}%`;
+      }
+    });
+    const texto = lineas.join('\n');
+    ultimasLineasPDF = lineas;
+    ultimoTextoPDF = texto;
+    ultimoFueOCR = true;
+    progreso.textContent = 'OCR completado.';
+
+    let perfil = null;
+    if(perfilSeleccionadoId && perfilSeleccionadoId !== 'otro'){
+      perfil = PERFILES_PROVEEDOR.find(p => p.id === perfilSeleccionadoId) || null;
+    } else {
+      perfil = detectarProveedor(lineas);
+      if(perfil){
+        perfilSeleccionadoId = perfil.id;
+        const sel = document.getElementById('selProveedorPrevio');
+        if([...sel.options].some(o=>o.value===perfil.id)) sel.value = perfil.id;
+      }
+    }
+    procesarFacturaConPerfil(lineas, texto, perfil, true);
+  }catch(err){
+    progreso.textContent = '';
+    mostrarEstado('err', 'Error al procesar el PDF con OCR: ' + err.message);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function mostrarModalVerificacion({ perfil, lineas, sumaCalculada, totalFactura, viaOCR }){
   const cont = document.getElementById('modalContenido');
   const fmt = v => v.toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €';
   let banner;
@@ -1486,12 +1633,16 @@ function mostrarModalVerificacion({ perfil, lineas, sumaCalculada, totalFactura 
       banner = `<div class="modal-banner err">🚨 ¡Atención! La suma calculada NO coincide con el total de la factura (diferencia de ${fmt(Math.abs(diff))}). Puede que se haya perdido alguna línea o que algún importe esté mal leído — revisa la tabla antes de exportar.</div>`;
     }
   }
+  const bannerOCR = viaOCR
+    ? `<div class="modal-banner warn">🔍 Estos datos vienen de OCR (reconocimiento de imagen), no de texto real del PDF — incluso si "todo cuadra" numéricamente, revisa cada línea (código, descripción, importe) a mano antes de exportar: el OCR puede confundir dígitos o cortar palabras.</div>`
+    : '';
   cont.innerHTML = `
     <div class="modal-check"><span>Proveedor</span><span class="valor">${perfil ? escapeHtml(perfil.nombre) : 'Genérico'}</span></div>
     <div class="modal-check"><span>Líneas extraídas</span><span class="valor">${lineas}</span></div>
     <div class="modal-check"><span>Suma calculada</span><span class="valor">${fmt(sumaCalculada)}</span></div>
     <div class="modal-check"><span>Total según factura</span><span class="valor">${totalFactura===null ? '—' : fmt(totalFactura)}</span></div>
     ${banner}
+    ${bannerOCR}
   `;
   document.getElementById('modalVerificacion').classList.add('visible');
 }
