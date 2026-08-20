@@ -3,7 +3,8 @@ import { Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import type { Repair, Apartment, DeletedRepair } from '../types'
 import { formatDate } from '../lib/dateUtils'
-import { hashPw, getStoredHash } from '../lib/passwordAuth'
+import { verificarPassword, usuarioDe } from '../lib/auth'
+import { auth } from '../lib/firebase'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
 
@@ -233,14 +234,15 @@ function DeleteConfirmModal({ repair, onConfirm, onClose }:
     if (!reason.trim()) { setError('Introduce el motivo de la eliminación'); return }
     if (!pw) { setError('Introduce la contraseña'); return }
     setLoading(true)
-    const h = await hashPw(pw)
-    if (h !== getStoredHash()) {
+    if (!(await verificarPassword(pw))) {
       setError('Contraseña incorrecta')
       setPw('')
       setLoading(false)
       return
     }
-    const deletedBy = localStorage.getItem('aq_current_user') || 'Desconocido'
+    // Quién borra sale de la sesión de Firebase, no de un valor del navegador
+    // que se podía cambiar a mano desde las herramientas de desarrollo.
+    const deletedBy = usuarioDe(auth.currentUser) || 'Desconocido'
     onConfirm(reason.trim(), deletedBy)
   }
 

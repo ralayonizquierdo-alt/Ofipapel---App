@@ -2,30 +2,53 @@ rules_version = '2';
 
 // Reglas de acceso para el proyecto Firebase "ofipapelvv" (alquileres/).
 //
-// La app no tiene Firebase Auth con usuario real: la pantalla de login de
-// Luis/Rober (src/components/LoginScreen.tsx) es solo una contraseña
-// comparada en el propio navegador, no un control de acceso a los datos.
-// Antes de estas reglas, cualquiera con la apiKey pública (visible en el
-// bundle de JS servido) podía leer/escribir directamente en Firestore sin
-// pasar por la app. Estas reglas exigen una sesión (aunque sea anónima, ver
-// src/lib/firebase.ts::ensureAnonSession) para cualquier operación — mismo
-// nivel de protección que el RLS de Supabase en joe-app: no distingue entre
-// personas, pero bloquea el acceso directo con solo la clave pública.
+// ─── Qué protegen ────────────────────────────────────────────────────────────
+// La clave apiKey de Firebase es pública: va dentro del JavaScript que sirve la
+// web, así que cualquiera puede leerla. Lo único que impide entrar a los datos
+// desde fuera de la app son estas reglas.
 //
-// Despliegue (requiere el CLI de Firebase autenticado con acceso al
-// proyecto "ofipapelvv" — no se puede aplicar desde este repo sin esas
-// credenciales):
-//   firebase deploy --only firestore:rules --project ofipapelvv
-// o pegar el contenido de este fichero en Firebase Console > Firestore
-// Database > Reglas > Publicar.
+// ─── Por qué ya no basta con "request.auth != null" ──────────────────────────
+// La versión anterior solo exigía tener sesión, y la app abría una sesión
+// anónima al arrancar. Pero una sesión anónima la puede crear cualquiera con
+// la clave pública, así que en la práctica los datos seguían abiertos:
+// comprobado leyendo las 79 reservas sin pasar por el login.
 //
-// Requiere también activar el proveedor "Anonymous" en Firebase Console >
-// Authentication > Sign-in method — sin eso, ensureAnonSession() nunca
-// obtiene sesión y estas reglas rechazarían todas las peticiones.
+// Ahora Luis y Rober entran con Firebase Auth (correo interno + contraseña,
+// ver src/lib/auth.ts) y estas reglas exigen justo eso: sesión iniciada con
+// contraseña. Las sesiones anónimas quedan fuera.
+//
+// ─── Antes de desplegar ──────────────────────────────────────────────────────
+// Estas reglas dejan fuera a todo el mundo hasta que existan las cuentas. El
+// orden correcto es:
+//   1. Crear en Firebase Console > Authentication > Usuarios las dos cuentas:
+//        luis@alquileres.internal   y   rober@alquileres.internal
+//      (la contraseña la eliges tú al crearlas)
+//   2. Desplegar la versión de la app que usa Firebase Auth
+//   3. Comprobar que Luis y Rober entran
+//   4. Y solo entonces desplegar estas reglas:
+//        firebase deploy --only firestore:rules --project ofipapelvv
+//      o pegando este fichero en Firebase Console > Firestore Database > Reglas
+//
+// Si se despliegan antes del paso 3, la app dejará de cargar datos para todos.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{collection}/{docId} {
-      allow read, write: if request.auth != null;
+
+    // Sesión iniciada con contraseña: ni anónima, ni ningún otro proveedor que
+    // se active por error más adelante.
+    function esUsuarioReal() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'password';
     }
+
+    // Cubre todas las colecciones de la app: apartments, prices, reservations,
+    // payments, repairs, deletedRepairs, expenses, offerPrices, incomes,
+    // occupancies y meta. Cualquier colección nueva queda protegida sin tocar
+    // este fichero.
+    match /{collection}/{docId} {
+      allow read, write: if esUsuarioReal();
+    }
+
+    // Todo lo que no encaje arriba (por ejemplo subcolecciones) queda denegado
+    // por defecto, que es el comportamiento que se quiere.
   }
 }

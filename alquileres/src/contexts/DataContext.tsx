@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, getDoc, writeBatch } from 'firebase/firestore'
-import { db, stripUndef, ensureAnonSession } from '../lib/firebase'
+import { db, stripUndef } from '../lib/firebase'
+import { esSesionReal, observarSesion } from '../lib/auth'
 import { nanoid } from '../lib/nanoid'
 import { DEFAULT_PRICES_2026 } from '../lib/priceCalc'
 import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice, DeletedRepair, IngresoMensual, OcupacionMensual } from '../types'
@@ -99,16 +100,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const loading = !Object.values(ready).every(Boolean)
 
-  // ── Sesión anónima (ver firestore.rules) ─────────────────────────────────────
-  // No bloquea las suscripciones de abajo: mientras las reglas sigan en modo
-  // abierto o el proveedor Anonymous no esté activado, esto falla en
-  // silencio y la app sigue leyendo/escribiendo igual que hoy.
-  useEffect(() => {
-    ensureAnonSession().catch((err) => console.error('No se pudo abrir sesión anónima de Firebase:', err))
-  }, [])
+  // ── Sesión ───────────────────────────────────────────────────────────────────
+  // Los datos solo se piden con una sesión de persona. Sin ella no se abre
+  // ninguna suscripción: ni siquiera se intenta leer.
+  const [autenticado, setAutenticado] = useState(false)
+  useEffect(() => observarSesion(u => setAutenticado(esSesionReal(u))), [])
 
   // ── Real-time subscriptions ──────────────────────────────────────────────────
   useEffect(() => {
+    if (!autenticado) return
     const mark = (k: keyof typeof ready) => setReady(r => ({ ...r, [k]: true }))
 
     const subs = [
@@ -125,10 +125,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     ]
 
     return () => subs.forEach(u => u())
-  }, [])
+  }, [autenticado])
 
   // ── Seed defaults on first run ───────────────────────────────────────────────
   useEffect(() => {
+    if (!autenticado) return
     async function seed() {
       const metaRef = doc(db, 'meta', 'config')
       const snap = await getDoc(metaRef)
@@ -141,7 +142,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await batch.commit()
     }
     seed()
-  }, [])
+  }, [autenticado])
 
   // ── Apartments ───────────────────────────────────────────────────────────────
   function addApartment(data: Omit<Apartment, 'id'> & { id?: string }): Apartment {
