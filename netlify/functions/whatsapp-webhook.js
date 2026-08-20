@@ -736,6 +736,32 @@ async function handleIncomingMessage(message) {
   await sendWhatsappMessage(message.from, reply);
 }
 
+// Acuses de recibo de los mensajes que MANDAMOS: entregado y leído. Meta los
+// manda por el mismo webhook que los mensajes entrantes, en un array aparte.
+//
+// De los cuatro estados que existen solo interesan dos. "sent" no aporta nada
+// (si estamos aquí es que se envió) y "failed" ya se detecta al enviar, con la
+// respuesta de la API.
+async function registrarAcusesDeRecibo(statuses) {
+  for (const estado of statuses) {
+    if (estado.status !== 'delivered' && estado.status !== 'read') continue;
+    const telefono = estado.recipient_id;
+    if (!telefono) continue;
+
+    // Meta manda la fecha en segundos; el resto del sistema trabaja en
+    // milisegundos. Si no viniera, se usa la hora de llegada, que para esto es
+    // igual de buena.
+    const segundos = Number(estado.timestamp);
+    const cuando = Number.isFinite(segundos) && segundos > 0 ? segundos * 1000 : Date.now();
+
+    try {
+      await conversationStore.marcarEntrega(telefono, estado.status, cuando);
+    } catch (err) {
+      console.error('No se pudo guardar el acuse de recibo:', err);
+    }
+  }
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'GET') {
     const params = event.queryStringParameters || {};
@@ -764,6 +790,11 @@ exports.handler = async (event) => {
     try {
       const changes = payload?.entry?.flatMap((entry) => entry.changes || []) || [];
       for (const change of changes) {
+        // Por este mismo webhook llegan DOS cosas distintas: los mensajes que
+        // escribe el cliente y los acuses de recibo de los que mandamos
+        // nosotros. Los acuses ya venían llegando; hasta ahora se tiraban.
+        await registrarAcusesDeRecibo(change.value?.statuses || []);
+
         const messages = change.value?.messages || [];
         for (const message of messages) {
           if (await alreadyProcessed(message.id)) continue;

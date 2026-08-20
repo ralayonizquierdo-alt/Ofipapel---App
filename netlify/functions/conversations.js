@@ -22,6 +22,7 @@ const {
   pausarBotGlobal,
   reanudarBotGlobal,
   clearConversation,
+  getEstadoEntrega,
   diagnose,
   markAsViewed,
   getLastViewed,
@@ -231,6 +232,9 @@ const ICON = {
   chevron: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
   clip: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05 12.25 20.24a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.19a1.5 1.5 0 0 1-2.12-2.12l8.49-8.48"/></svg>',
   file: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+  tickUno: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  tickDos: '<svg width="18" height="14" viewBox="0 0 30 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 6 8 17 3 12"/><polyline points="27 6 18 17 15.5 14.5"/></svg>',
+  arriba: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
   trash: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
 };
 
@@ -349,7 +353,23 @@ function pageShell(title, body) {
   .diagnostic strong { display: block; margin-bottom: 2px; }
 
   ul.convo-list { list-style: none; padding: 0; margin: 0; }
-  ul.convo-list li { margin: 0 0 10px; }
+  ul.convo-list li { margin: 0 0 10px; position: relative; }
+
+  /* Borrar desde la lista. Va superpuesto en la esquina de la tarjeta porque la
+     tarjeta entera es un enlace y un formulario no puede ir dentro de un
+     enlace. Discreto hasta que se pasa por encima: borrar no es la acción
+     habitual y no debe competir con abrir la conversación. */
+  .convo-borrar { position: absolute; top: 6px; right: 8px; margin: 0; z-index: 2; }
+  .convo-borrar button {
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; padding: 0;
+    background: none; border: 0; border-radius: 8px; cursor: pointer;
+    color: var(--text-muted); opacity: .45; transition: opacity .15s ease, background .15s ease, color .15s ease;
+  }
+  .convo-borrar button:hover, .convo-borrar button:focus-visible {
+    opacity: 1; color: #b5493c; background: #fdecea; outline: none;
+  }
+  .convo-card { padding-right: 42px; }
 
   .convo-card {
     display: flex; align-items: center; gap: 14px;
@@ -474,6 +494,21 @@ function pageShell(title, body) {
     text-decoration: none; margin-bottom: 14px;
   }
   .back-link:hover { color: var(--green-dark); }
+
+  /* Acuse de recibo de WhatsApp en los mensajes que mandamos nosotros. */
+  .tick { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; vertical-align: -2px; }
+  .tick.leido { color: #2f7fd1; }
+
+  /* En una conversación larga, volver arriba a mano es un fastidio en el móvil. */
+  .volver-arriba {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin: 14px auto 0; padding: 9px 16px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+    box-shadow: var(--shadow);
+    font-size: 13.5px; font-weight: 600; color: var(--green-mid); text-decoration: none;
+  }
+  .volver-arriba:hover { color: var(--green-dark); border-color: var(--green-light); }
+  .pie-hilo { display: flex; justify-content: center; }
 
   .thread-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
   .thread-title {
@@ -729,7 +764,12 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
       ${flag}
     </div>
     <span class="chevron">${ICON.chevron}</span>
-  </a></li>`;
+  </a>
+  <form class="convo-borrar" method="POST" onsubmit="return confirm('¿Borrar la conversación de ${escapeHtml(phone)}? Se pierde todo el historial y no se puede deshacer.');">
+    <input type="hidden" name="phone" value="${escapeHtml(phone)}">
+    <input type="hidden" name="action" value="clear">
+    <button type="submit" title="Borrar esta conversación" aria-label="Borrar la conversación de ${escapeHtml(phone)}">${ICON.trash}</button>
+  </form></li>`;
     })
     .join('');
   // Auto-refresco cada 30s para que la lista (y el contador de sin leer) se
@@ -835,7 +875,26 @@ function renderFichaCliente(phone, ficha) {
 </details>`;
 }
 
-function renderThread(phone, messages, { paused, error, ficha } = {}) {
+// Acuse de recibo de un mensaje nuestro, al estilo de WhatsApp: un tick es
+// enviado, dos grises entregado, dos azules leído.
+//
+// Se decide comparando la hora del mensaje con hasta cuándo llegan los acuses
+// (ver marcarEntrega en conversation-store.js). Si el cliente tiene desactivadas
+// las confirmaciones de lectura, el azul no llega nunca aunque lo haya leído —
+// por eso lo pone el título al pasar por encima, para no dar por hecho que no lo
+// ha visto.
+function acuseDeRecibo(ts, entrega) {
+  if (!ts || !entrega) return '';
+  if (entrega.leido && ts <= entrega.leido) {
+    return `<span class="tick leido" title="Leído por el cliente">${ICON.tickDos}</span>`;
+  }
+  if (entrega.entregado && ts <= entrega.entregado) {
+    return `<span class="tick" title="Entregado en su móvil. Si no pasa a azul puede ser que tenga desactivadas las confirmaciones de lectura.">${ICON.tickDos}</span>`;
+  }
+  return `<span class="tick" title="Enviado">${ICON.tickUno}</span>`;
+}
+
+function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
   const bubbles = messages
     .map((m) => {
       const isCustomer = m.role === 'user';
@@ -843,11 +902,12 @@ function renderThread(phone, messages, { paused, error, ficha } = {}) {
       const kind = isCustomer ? 'customer' : isAgent ? 'agent' : 'bot';
       const time = m.ts ? new Date(m.ts).toLocaleString('es-ES') : '';
       const sender = isAgent ? '<div class="sender">Tú</div>' : '';
+      const acuse = isCustomer ? '' : acuseDeRecibo(m.ts, entrega);
       return `<div class="bubble-row ${isCustomer ? 'left' : 'right'}">
   <div class="bubble ${kind}">
     ${sender}
     <div>${escapeHtml(m.content)}</div>
-    <div class="time">${escapeHtml(time)}</div>
+    <div class="time">${escapeHtml(time)}${acuse}</div>
   </div>
 </div>`;
     })
@@ -923,12 +983,13 @@ function renderThread(phone, messages, { paused, error, ficha } = {}) {
 
   return pageShell(
     `${phone} · Conversaciones Ofipapel`,
-    `<a class="back-link" href="?">${ICON.back} Todas las conversaciones</a>
+    `<a class="back-link" id="arriba" href="?">${ICON.back} Todas las conversaciones</a>
 <div class="thread-header">
   <h2 class="thread-title">${escapeHtml(phone)}</h2>
   ${clearForm}
 </div>
-${renderFichaCliente(phone, ficha)}${pauseBar}${errorBanner}${bubbles || '<div class="empty-thread">Sin mensajes.</div>'}${replyForm}`
+${renderFichaCliente(phone, ficha)}${pauseBar}${errorBanner}${bubbles || '<div class="empty-thread">Sin mensajes.</div>'}${replyForm}
+<div class="pie-hilo"><a class="volver-arriba" href="#arriba">${ICON.arriba} Volver arriba</a></div>`
   );
 }
 
@@ -1128,17 +1189,18 @@ exports.handler = async (event) => {
   const phone = event.queryStringParameters?.phone;
 
   if (phone) {
-    const [messages, paused, ficha] = await Promise.all([
+    const [messages, paused, ficha, entrega] = await Promise.all([
       loadConversation(phone),
       isBotPaused(phone),
       getFichaCliente(phone),
+      getEstadoEntrega(phone),
     ]);
     const error = event.queryStringParameters?.error || '';
     await markAsViewed(phone); // abrir el hilo pone a cero el contador de sin leer
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      body: renderThread(phone, messages, { paused, error, ficha }),
+      body: renderThread(phone, messages, { paused, error, ficha, entrega }),
     };
   }
 

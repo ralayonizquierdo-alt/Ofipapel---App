@@ -423,6 +423,22 @@ Limitación que sigue vigente:
 - Solo responde a mensajes de **texto**. Los mensajes con audio, imagen, etc.
   reciben una respuesta genérica indicando que el equipo lo revisará.
 
+## El panel de conversaciones
+
+`netlify/functions/conversations.js`. Además de leer y contestar, tiene:
+
+- **Acuses de recibo.** Cada mensaje que sale (del bot o escrito a mano) lleva su
+  tick: uno gris enviado, dos grises entregado en el móvil del cliente, dos
+  azules leído. Meta los manda por el mismo webhook que los mensajes entrantes.
+  **Si el cliente tiene desactivadas las confirmaciones de lectura en su
+  WhatsApp, el azul no llega nunca** aunque lo haya leído — se queda en
+  entregado. No es un fallo del bot y no hay forma de saberlo desde aquí.
+- **Borrar una conversación desde la lista**, con el icono de la papelera en la
+  esquina de cada tarjeta (pide confirmación). Borra también el contador de sin
+  leer y los acuses de ese número; el historial no se puede recuperar.
+- **Parada del bot**, general (arriba del todo) o por conversación.
+- **Volver arriba** al final de cada conversación.
+
 ## Cuando ofipapel.net nos bloquea
 
 Es la causa número uno de que el bot conteste "un segundo, por favor" y acabe
