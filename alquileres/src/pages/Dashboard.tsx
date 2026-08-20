@@ -1,9 +1,11 @@
-import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock } from 'lucide-react'
+import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import type { Reservation } from '../types'
 import { formatDate, formatDateShort, today } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
+import { Link } from 'react-router-dom'
 import AlertasDescuadre from '../components/AlertasDescuadre'
+import { tocaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
 
 export default function Dashboard() {
   const { reservations, payments, apartments, repairs } = useData()
@@ -41,6 +43,8 @@ export default function Dashboard() {
     .reduce((s, r) => s + (r.amount || 0), 0)
 
   const netYear = yearIncome - totalRepairs
+  // Se mira una sola vez al pintar: no hace falta vigilarlo en vivo.
+  const copiaPendiente = tocaCopia()
   const isPriceRenewalMonth = currentMonth === 1
 
   function getApartmentName(id: string) {
@@ -71,8 +75,21 @@ export default function Dashboard() {
       <AlertasDescuadre />
 
       {/* Alerts */}
-      {(pendingPayment.length > 0 || isPriceRenewalMonth) && (
+      {(pendingPayment.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
         <div className="mb-6 space-y-2">
+          {copiaPendiente && (
+            <Link to="/config"
+              className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3 hover:bg-amber-100/70 transition-colors">
+              <ShieldAlert size={18} className="text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium text-amber-800 text-sm">Toca copia de seguridad</p>
+                <p className="text-amber-700 text-xs mt-0.5">
+                  Han pasado {DIAS_ENTRE_COPIAS} días o más desde la última. Pincha aquí para
+                  descargarla desde <strong>Apartamentos</strong>.
+                </p>
+              </div>
+            </Link>
+          )}
           {isPriceRenewalMonth && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
               <AlertTriangle size={18} className="text-blue-600 mt-0.5 shrink-0" />

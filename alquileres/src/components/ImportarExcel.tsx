@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Upload, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Upload, AlertTriangle, CheckCircle2, History } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { leerExcel, idGasto, idIngreso, idOcupacion, idReparacionDeclarada, type ResultadoImport } from '../lib/importExcel'
 import { EXPENSE_LABELS } from '../lib/deducible'
@@ -7,6 +7,15 @@ import type { Expense, ExpenseType, IngresoMensual, OcupacionMensual, Reparacion
 import Modal from './ui/Modal'
 
 const MESES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+
+/** Fecha guardada en ISO → algo legible, sin que una fecha rota rompa la lista. */
+function fechaHora(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '¿?'
+  return d.toLocaleString('es-ES', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+}
 
 /**
  * Volcado del Excel «Resumen cobros y gastos». Siempre enseña una vista previa
@@ -16,7 +25,7 @@ const MESES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct
 export default function ImportarExcel({ onClose }: { onClose: () => void }) {
   const {
     importExpenses, importIncomes, importOccupancies, importRepairTotals, purgeImported,
-    apartments, expenses, incomes, occupancies, repairTotals,
+    apartments, expenses, incomes, occupancies, repairTotals, importLogs, anotaVolcado,
   } = useData()
   const [previo, setPrevio] = useState<ResultadoImport | null>(null)
   const [nombreFichero, setNombreFichero] = useState('')
@@ -137,6 +146,18 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
         repairTotals: preparado.reparaciones.map(x => x.id),
       })
 
+      // El registro del volcado va lo último: solo se anota lo que de verdad
+      // ha entrado, nunca un intento que se quedó a medias.
+      anotaVolcado({
+        fileName: nombreFichero || 'sin nombre',
+        year: previo.year,
+        gastos: preparado.gastos.length,
+        ingresos: preparado.ingresos.length,
+        ocupaciones: preparado.ocupaciones.length,
+        reparaciones: preparado.reparaciones.length,
+        borrados: quitados,
+      })
+
       setHecho(preparado.gastos.length)
       setIngresosHechos(preparado.ingresos.length)
       setBorrados(quitados)
@@ -157,6 +178,12 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
         }, {}),
       ).sort((a, b) => b[1].total - a[1].total)
     : []
+
+  // Los últimos volcados, del más reciente al más antiguo.
+  const historial = useMemo(
+    () => [...importLogs].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5),
+    [importLogs],
+  )
 
   const totalPrevio = previo ? previo.gastos.reduce((s, g) => s + g.base, 0) : 0
   const nombreApt = (id: string) => apartments.find(a => a.id === id)?.name || id
@@ -198,6 +225,28 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
               </span>
               <input type="file" accept=".xlsx" className="hidden" onChange={elegirFichero} />
             </label>
+
+            {/* Historial: meses después, saber qué fichero trajo cada cifra y
+                quién lo subió evita tener que reconstruirlo de memoria. */}
+            {!previo && historial.length > 0 && (
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-50 border-b border-slate-200 px-3 py-2">
+                  <History size={13} /> Últimos volcados
+                </p>
+                <ul className="divide-y divide-slate-100">
+                  {historial.map(l => (
+                    <li key={l.id} className="px-3 py-2 text-xs">
+                      <p className="font-medium text-slate-700 truncate">{l.fileName}</p>
+                      <p className="text-slate-500" translate="no">
+                        Ejercicio {l.year} · {fechaHora(l.at)} · {l.by} ·{' '}
+                        {l.gastos} gastos, {l.ingresos} meses de ingresos
+                        {l.borrados > 0 && `, ${l.borrados} retirados`}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </>
         )}
 

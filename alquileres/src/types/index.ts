@@ -175,6 +175,26 @@ export interface ReparacionMensual {
   origen: 'excel'
 }
 
+/**
+ * Un volcado de Excel: qué fichero, cuándo y quién lo subió. Sirve para poder
+ * mirar atrás y saber de dónde salió cada cifra de un ejercicio.
+ */
+export interface ImportLog {
+  id: string
+  fileName: string
+  year: number
+  /** Fecha y hora en ISO. */
+  at: string
+  /** Quién tenía la sesión abierta al subirlo. */
+  by: string
+  gastos: number
+  ingresos: number
+  ocupaciones: number
+  reparaciones: number
+  /** Apuntes del Excel anterior que este fichero ya no traía. */
+  borrados: number
+}
+
 export interface QuarterSummary {
   quarter: 1 | 2 | 3 | 4
   year: number

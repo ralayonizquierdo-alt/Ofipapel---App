@@ -2,10 +2,10 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, getDoc, writeBatch } from 'firebase/firestore'
 import { db, stripUndef } from '../lib/firebase'
-import { esSesionReal, observarSesion } from '../lib/auth'
+import { esSesionReal, observarSesion, usuarioActual } from '../lib/auth'
 import { nanoid } from '../lib/nanoid'
 import { DEFAULT_PRICES_2026 } from '../lib/priceCalc'
-import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice, DeletedRepair, IngresoMensual, OcupacionMensual, ReparacionMensual } from '../types'
+import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice, DeletedRepair, IngresoMensual, OcupacionMensual, ReparacionMensual, ImportLog } from '../types'
 
 // ─── Default seed data ────────────────────────────────────────────────────────
 
@@ -41,6 +41,8 @@ interface DataContextValue {
   /** Reparaciones declaradas en el Excel. Solo para comparar; el gasto real
    *  está en `repairs`, con proveedor y factura. */
   repairTotals: ReparacionMensual[]
+  /** Registro de volcados de Excel: qué fichero, cuándo y quién lo subió. */
+  importLogs: ImportLog[]
 
   addApartment:    (data: Omit<Apartment, 'id'> & { id?: string }) => Apartment
   updateApartment: (id: string, data: Partial<Apartment>) => void
@@ -76,6 +78,8 @@ interface DataContextValue {
   purgeImported: (year: number, conservar: {
     expenses: string[]; incomes: string[]; occupancies: string[]; repairTotals: string[]
   }) => Promise<number>
+  /** Deja constancia de un volcado de Excel. */
+  anotaVolcado: (datos: Omit<ImportLog, 'id' | 'at' | 'by'>) => void
 
   addOfferPrice:    (data: Omit<OfferPrice, 'id'>) => OfferPrice
   updateOfferPrice: (id: string, data: Partial<OfferPrice>) => void
@@ -105,7 +109,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [incomes, setIncomes] = useState<IngresoMensual[]>([])
   const [occupancies, setOccupancies] = useState<OcupacionMensual[]>([])
   const [repairTotals, setRepairTotals] = useState<ReparacionMensual[]>([])
-  const [ready, setReady] = useState({ apartments:false, prices:false, reservations:false, payments:false, repairs:false, expenses:false, offerPrices:false, deletedRepairs:false, incomes:false, occupancies:false, repairTotals:false })
+  const [importLogs, setImportLogs] = useState<ImportLog[]>([])
+  const [ready, setReady] = useState({ apartments:false, prices:false, reservations:false, payments:false, repairs:false, expenses:false, offerPrices:false, deletedRepairs:false, incomes:false, occupancies:false, repairTotals:false, importLogs:false })
 
   const loading = !Object.values(ready).every(Boolean)
 
@@ -132,6 +137,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       onSnapshot(collection(db, 'incomes'),        s => { setIncomes(s.docs.map(d => d.data() as IngresoMensual));      mark('incomes') },        () => mark('incomes')),
       onSnapshot(collection(db, 'occupancies'),    s => { setOccupancies(s.docs.map(d => d.data() as OcupacionMensual)); mark('occupancies') },   () => mark('occupancies')),
       onSnapshot(collection(db, 'repairTotals'),   s => { setRepairTotals(s.docs.map(d => d.data() as ReparacionMensual)); mark('repairTotals') },  () => mark('repairTotals')),
+      onSnapshot(collection(db, 'importLogs'),     s => { setImportLogs(s.docs.map(d => d.data() as ImportLog));           mark('importLogs') },    () => mark('importLogs')),
     ]
 
     return () => subs.forEach(u => u())
@@ -334,6 +340,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     return borrados
   }
+  /**
+   * Deja constancia de cada volcado de Excel. No participa en ningún cálculo:
+   * es el histórico que permite saber, meses después, qué fichero trajo cada
+   * cifra, cuándo entró y quién lo subió.
+   */
+  function anotaVolcado(datos: Omit<ImportLog, 'id' | 'at' | 'by'>) {
+    const id = nanoid()
+    const item: ImportLog = {
+      ...datos,
+      id,
+      at: new Date().toISOString(),
+      by: usuarioActual() ?? '—',
+    }
+    setDoc(doc(db, 'importLogs', id), stripUndef(item))
+  }
   async function importExpenses(items: Expense[]): Promise<number> {
     for (let i = 0; i < items.length; i += 400) {
       const batch = writeBatch(db)
@@ -361,14 +382,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      loading, apartments, prices, reservations, payments, repairs, expenses, offerPrices, incomes, occupancies, repairTotals,
+      loading, apartments, prices, reservations, payments, repairs, expenses, offerPrices, incomes, occupancies, repairTotals, importLogs,
       deletedRepairs,
       addApartment, updateApartment, deleteApartment,
       addPrice, updatePrice, deletePrice,
       addReservation, updateReservation, deleteReservation,
       addPayment, updatePayment, deletePayment,
       addRepair, updateRepair, deleteRepair, deleteRepairWithAudit,
-      addExpense, updateExpense, deleteExpense, importExpenses, importIncomes, importOccupancies, importRepairTotals, purgeImported,
+      addExpense, updateExpense, deleteExpense, importExpenses, importIncomes, importOccupancies, importRepairTotals, purgeImported, anotaVolcado,
       addOfferPrice, updateOfferPrice, deleteOfferPrice,
     }}>
       {children}

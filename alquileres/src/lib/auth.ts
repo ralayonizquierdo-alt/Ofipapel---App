@@ -39,6 +39,11 @@ export function usuarioDe(user: User | null): UsuarioApp | null {
   return USUARIOS.find(u => emailDe(u) === correo) ?? null
 }
 
+/** Quién tiene la sesión abierta ahora mismo, para dejarlo anotado. */
+export function usuarioActual(): UsuarioApp | null {
+  return usuarioDe(auth.currentUser)
+}
+
 /** ¿La sesión es de una persona, o solo una sesión anónima? */
 export function esSesionReal(user: User | null): boolean {
   return !!user && !user.isAnonymous
