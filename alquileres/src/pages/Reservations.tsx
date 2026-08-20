@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { Reservation, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
 import { formatDate, getNights, getSeason, today } from '../lib/dateUtils'
-import { getApartmentType, calcTotal, precioPorNoches, stayTypeDays, lineasPrecio, type Tramo } from '../lib/priceCalc'
+import { getApartmentType, calcTotal, precioPorNoches, stayTypeDays, lineasPrecio, TRAMO_LABEL, type Tramo } from '../lib/priceCalc'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
 
@@ -13,6 +13,8 @@ const STAY_LABELS: Record<StayType, string> = {
   '1mes': '1 Mes', 'directo': 'Directo/Largo', 'otro': 'Otro'
 }
 const TRAMOS: Tramo[] = ['1semana', '2semanas', '3semanas', '1mes']
+const eur = (n: number) =>
+  `${(Number.isFinite(n) ? n : 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
 /** Descuento por pago en efectivo. Se aplica dure lo que dure la estancia. */
 const DTO_EFECTIVO = 10
 const CHANNEL_LABELS: Record<Channel, string> = {
@@ -406,15 +408,15 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
           </label>
 
           <div className="mt-3 flex items-center justify-between bg-white rounded p-3 border border-slate-200" translate="no">
+            {/* El desglose de la cuenta va abajo, en «Cómo se calcula»: aquí
+                solo lo imprescindible para no decir dos veces lo mismo. */}
             <div className="text-xs text-slate-500">
               <span>{nights > 0 ? `${nights} noches · ` : ''}</span>
               <span className="text-indigo-600 font-medium">
-                {!pactado && tarifa
-                  ? `${STAY_LABELS[tarifa.tramo]}: ${tarifa.precioTramo}€ / ${tarifa.diasTramo} × ${nights} · `
-                  : ''}
+                {!pactado && tarifa ? `Tarifa de ${TRAMO_LABEL[tarifa.tramo]} · ` : ''}
               </span>
-              <span>{`Base: ${basePrice}€ + Limpieza: ${cleaningFee}€`}</span>
-              <span>{discountPct > 0 ? ` - ${discountPct}% dto` : ''}</span>
+              <span>{`Base ${eur(basePrice)} + limpieza ${eur(cleaningFee)}`}</span>
+              <span>{discountPct > 0 ? ` − ${discountPct} % dto` : ''}</span>
             </div>
             <div className="text-lg font-bold text-blue-700">{total.toLocaleString('es-ES')} €</div>
           </div>
