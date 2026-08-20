@@ -161,6 +161,20 @@ export interface OcupacionMensual {
   origen: 'excel'
 }
 
+/**
+ * Reparaciones que el Excel da por mes e inmueble. No son gastos de la app: las
+ * reparaciones de verdad viven en `repairs`, con proveedor y factura. Esto se
+ * guarda solo para poder comparar una cifra con la otra y avisar si no cuadran.
+ */
+export interface ReparacionMensual {
+  id: string
+  apartmentId: string
+  year: number
+  month: number
+  amount: number
+  origen: 'excel'
+}
+
 export interface QuarterSummary {
   quarter: 1 | 2 | 3 | 4
   year: number

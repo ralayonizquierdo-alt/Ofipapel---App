@@ -42,7 +42,7 @@ export interface ResultadoImport {
   year: number
   gastos: GastoImportado[]
   ingresosPorInmueble: { apartmentId: string; month: number; base: number }[]
-  reparacionesIgnoradas: { apartmentId: string; month: number; base: number }[]
+  reparaciones: { apartmentId: string; month: number; base: number }[]
   ocupaciones: OcupacionImportada[]
   inmueblesNoReconocidos: string[]
 }
@@ -129,7 +129,7 @@ export function analizaFilas(bruto: unknown): ResultadoImport {
 
   const gastos: GastoImportado[] = []
   const ingresosPorInmueble: ResultadoImport['ingresosPorInmueble'] = []
-  const reparacionesIgnoradas: ResultadoImport['reparacionesIgnoradas'] = []
+  const reparaciones: ResultadoImport['reparaciones'] = []
   const inmueblesNoReconocidos: string[] = []
 
   // Los días alquilados y totales de cada mes viven en las filas siguientes a
@@ -176,9 +176,10 @@ export function analizaFilas(bruto: unknown): ResultadoImport {
 
     if (etiqueta.includes('ingresos brutos')) { registra(ingresosPorInmueble); continue }
 
-    // Las reparaciones ya viven en su propia pantalla con proveedor y factura:
-    // importarlas aquí duplicaría el gasto.
-    if (etiqueta.includes('reparaciones')) { registra(reparacionesIgnoradas); continue }
+    // Las reparaciones no se dan de alta como gasto: ya viven en su propia
+    // pantalla con proveedor y factura, y volcarlas aquí las duplicaría. Se
+    // guardan aparte solo como cifra declarada, para poder compararlas.
+    if (etiqueta.includes('reparaciones')) { registra(reparaciones); continue }
 
     const tipo = reconoceConcepto(etiqueta)
     if (!tipo) continue
@@ -203,7 +204,7 @@ export function analizaFilas(bruto: unknown): ResultadoImport {
     })
   }
 
-  return { year, gastos, ingresosPorInmueble, reparacionesIgnoradas, ocupaciones, inmueblesNoReconocidos }
+  return { year, gastos, ingresosPorInmueble, reparaciones, ocupaciones, inmueblesNoReconocidos }
 }
 
 /**
@@ -222,5 +223,10 @@ export function idOcupacion(year: number, apartmentId: string, month: number): s
 
 /** Mismo criterio para los ingresos brutos declarados. */
 export function idIngreso(year: number, apartmentId: string, month: number): string {
+  return `xls-${year}${String(month).padStart(2, '0')}-${apartmentId}`
+}
+
+/** Mismo criterio para las reparaciones declaradas. */
+export function idReparacionDeclarada(year: number, apartmentId: string, month: number): string {
   return `xls-${year}${String(month).padStart(2, '0')}-${apartmentId}`
 }

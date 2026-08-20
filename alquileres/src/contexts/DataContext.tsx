@@ -5,7 +5,7 @@ import { db, stripUndef } from '../lib/firebase'
 import { esSesionReal, observarSesion } from '../lib/auth'
 import { nanoid } from '../lib/nanoid'
 import { DEFAULT_PRICES_2026 } from '../lib/priceCalc'
-import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice, DeletedRepair, IngresoMensual, OcupacionMensual } from '../types'
+import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice, DeletedRepair, IngresoMensual, OcupacionMensual, ReparacionMensual } from '../types'
 
 // ─── Default seed data ────────────────────────────────────────────────────────
 
@@ -38,6 +38,9 @@ interface DataContextValue {
   incomes: IngresoMensual[]
   /** Ocupación declarada (del Excel), por inmueble y mes. */
   occupancies: OcupacionMensual[]
+  /** Reparaciones declaradas en el Excel. Solo para comparar; el gasto real
+   *  está en `repairs`, con proveedor y factura. */
+  repairTotals: ReparacionMensual[]
 
   addApartment:    (data: Omit<Apartment, 'id'> & { id?: string }) => Apartment
   updateApartment: (id: string, data: Partial<Apartment>) => void
@@ -68,6 +71,7 @@ interface DataContextValue {
   importExpenses: (items: Expense[]) => Promise<number>
   importIncomes: (items: IngresoMensual[]) => Promise<number>
   importOccupancies: (items: OcupacionMensual[]) => Promise<number>
+  importRepairTotals: (items: ReparacionMensual[]) => Promise<number>
 
   addOfferPrice:    (data: Omit<OfferPrice, 'id'>) => OfferPrice
   updateOfferPrice: (id: string, data: Partial<OfferPrice>) => void
@@ -96,7 +100,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [deletedRepairs, setDeletedRepairs] = useState<DeletedRepair[]>([])
   const [incomes, setIncomes] = useState<IngresoMensual[]>([])
   const [occupancies, setOccupancies] = useState<OcupacionMensual[]>([])
-  const [ready, setReady] = useState({ apartments:false, prices:false, reservations:false, payments:false, repairs:false, expenses:false, offerPrices:false, deletedRepairs:false, incomes:false, occupancies:false })
+  const [repairTotals, setRepairTotals] = useState<ReparacionMensual[]>([])
+  const [ready, setReady] = useState({ apartments:false, prices:false, reservations:false, payments:false, repairs:false, expenses:false, offerPrices:false, deletedRepairs:false, incomes:false, occupancies:false, repairTotals:false })
 
   const loading = !Object.values(ready).every(Boolean)
 
@@ -122,6 +127,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       onSnapshot(collection(db, 'deletedRepairs'), s => { setDeletedRepairs(s.docs.map(d => d.data() as DeletedRepair)); mark('deletedRepairs') }, () => mark('deletedRepairs')),
       onSnapshot(collection(db, 'incomes'),        s => { setIncomes(s.docs.map(d => d.data() as IngresoMensual));      mark('incomes') },        () => mark('incomes')),
       onSnapshot(collection(db, 'occupancies'),    s => { setOccupancies(s.docs.map(d => d.data() as OcupacionMensual)); mark('occupancies') },   () => mark('occupancies')),
+      onSnapshot(collection(db, 'repairTotals'),   s => { setRepairTotals(s.docs.map(d => d.data() as ReparacionMensual)); mark('repairTotals') },  () => mark('repairTotals')),
     ]
 
     return () => subs.forEach(u => u())
@@ -276,6 +282,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     return items.length
   }
+  /**
+   * Reparaciones declaradas en el Excel. No se dan de alta como gasto: solo se
+   * guardan para poder compararlas con las de la pantalla de Reparaciones.
+   */
+  async function importRepairTotals(items: ReparacionMensual[]): Promise<number> {
+    for (let i = 0; i < items.length; i += 400) {
+      const batch = writeBatch(db)
+      for (const item of items.slice(i, i + 400)) {
+        batch.set(doc(db, 'repairTotals', item.id), stripUndef(item))
+      }
+      await batch.commit()
+    }
+    return items.length
+  }
   async function importExpenses(items: Expense[]): Promise<number> {
     for (let i = 0; i < items.length; i += 400) {
       const batch = writeBatch(db)
@@ -303,14 +323,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      loading, apartments, prices, reservations, payments, repairs, expenses, offerPrices, incomes, occupancies,
+      loading, apartments, prices, reservations, payments, repairs, expenses, offerPrices, incomes, occupancies, repairTotals,
       deletedRepairs,
       addApartment, updateApartment, deleteApartment,
       addPrice, updatePrice, deletePrice,
       addReservation, updateReservation, deleteReservation,
       addPayment, updatePayment, deletePayment,
       addRepair, updateRepair, deleteRepair, deleteRepairWithAudit,
-      addExpense, updateExpense, deleteExpense, importExpenses, importIncomes, importOccupancies,
+      addExpense, updateExpense, deleteExpense, importExpenses, importIncomes, importOccupancies, importRepairTotals,
       addOfferPrice, updateOfferPrice, deleteOfferPrice,
     }}>
       {children}

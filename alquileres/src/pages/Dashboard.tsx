@@ -3,6 +3,7 @@ import { useData } from '../contexts/DataContext'
 import type { Reservation } from '../types'
 import { formatDate, formatDateShort, today } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
+import AlertasDescuadre from '../components/AlertasDescuadre'
 
 export default function Dashboard() {
   const { reservations, payments, apartments, repairs } = useData()
@@ -64,6 +65,10 @@ export default function Dashboard() {
         <KpiCard icon={<TrendingUp size={20} className="text-purple-600" />} label={`Neto ${currentYear}`} value={`${netYear.toLocaleString('es-ES')} €`} sub={`Ingresos: ${yearIncome.toLocaleString('es-ES')} €`} color="purple" />
         <KpiCard icon={<AlertTriangle size={20} className="text-amber-600" />} label="Pagos pendientes" value={String(pendingPayment.length)} sub="reservas sin cobrar" color="amber" />
       </div>
+
+      {/* Descuadres Excel ↔ app. Van antes que el resto de avisos: son los que
+          pidió el propietario para poder cerrar el ejercicio. */}
+      <AlertasDescuadre />
 
       {/* Alerts */}
       {(pendingPayment.length > 0 || isPriceRenewalMonth) && (

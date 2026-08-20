@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Upload, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
-import { leerExcel, idGasto, idIngreso, idOcupacion, type ResultadoImport } from '../lib/importExcel'
+import { leerExcel, idGasto, idIngreso, idOcupacion, idReparacionDeclarada, type ResultadoImport } from '../lib/importExcel'
 import { EXPENSE_LABELS } from '../lib/deducible'
-import type { Expense, ExpenseType, IngresoMensual, OcupacionMensual } from '../types'
+import type { Expense, ExpenseType, IngresoMensual, OcupacionMensual, ReparacionMensual } from '../types'
 import Modal from './ui/Modal'
 
 const MESES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
@@ -14,7 +14,7 @@ const MESES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct
  * conceptos nuevos, y conviene verlo antes de tocar los datos.
  */
 export default function ImportarExcel({ onClose }: { onClose: () => void }) {
-  const { importExpenses, importIncomes, importOccupancies, apartments } = useData()
+  const { importExpenses, importIncomes, importOccupancies, importRepairTotals, apartments } = useData()
   const [previo, setPrevio] = useState<ResultadoImport | null>(null)
   const [nombreFichero, setNombreFichero] = useState('')
   const [error, setError] = useState('')
@@ -78,6 +78,16 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
         diasAlquilados: o.diasAlquilados, diasTotales: o.diasTotales, origen: 'excel' as const,
       }))
       await importOccupancies(ocupaciones)
+
+      // Las reparaciones del Excel no se dan de alta como gasto —duplicarían
+      // las de la pantalla de Reparaciones—, pero se guarda la cifra declarada
+      // para que el dashboard pueda avisar cuando las dos no cuadren.
+      const reparaciones: ReparacionMensual[] = previo.reparaciones.map(r => ({
+        id: idReparacionDeclarada(previo.year, r.apartmentId, r.month),
+        apartmentId: r.apartmentId, year: previo.year, month: r.month,
+        amount: r.base, origen: 'excel' as const,
+      }))
+      await importRepairTotals(reparaciones)
 
       setHecho(items.length)
       setIngresosHechos(ingresos.length)
@@ -226,11 +236,13 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
               </p>
             )}
 
-            {previo.reparacionesIgnoradas.length > 0 && (
+            {previo.reparaciones.length > 0 && (
               <p className="text-xs text-slate-500">
-                Se omiten {previo.reparacionesIgnoradas.length} líneas de reparaciones
-                ({previo.reparacionesIgnoradas.reduce((s, r) => s + r.base, 0).toLocaleString('es-ES')} €),
-                ya registradas en la pantalla de Reparaciones.
+                Las {previo.reparaciones.length} líneas de reparaciones
+                ({previo.reparaciones.reduce((s, r) => s + r.base, 0).toLocaleString('es-ES')} €)
+                <strong> no se cargan como gasto</strong>: ya están en la pantalla de
+                Reparaciones. Solo se anota la cifra del Excel para poder compararlas y
+                avisar en el dashboard si no cuadran.
               </p>
             )}
 
