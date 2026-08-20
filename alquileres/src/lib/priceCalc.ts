@@ -96,6 +96,50 @@ export function stayTypeDays(stayType: StayType): number {
   }
 }
 
+export const TRAMO_LABEL: Record<Tramo, string> = {
+  '1semana': '1 semana', '2semanas': '2 semanas', '3semanas': '3 semanas', '1mes': '1 mes',
+}
+
+const eur = (n: number) =>
+  `${(Number.isFinite(n) ? n : 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+
+/**
+ * Explica en texto llano de dónde sale el total de una reserva, paso a paso.
+ * Es solo informativo —no interviene en ningún cálculo—, pero deja por escrito
+ * qué tarifa y qué cuentas se aplicaron, que es lo que hace falta el día que
+ * los precios cambien y haya que entender una reserva antigua.
+ */
+export function lineasPrecio(p: {
+  nights: number
+  basePrice: number
+  cleaningFee: number
+  discountPct: number
+  tarifa?: { tramo: Tramo; precioTramo: number; diasTramo: number } | null
+  pactado?: boolean
+}): string[] {
+  const base = Number.isFinite(p.basePrice) ? p.basePrice : 0
+  const limpieza = Number.isFinite(p.cleaningFee) ? p.cleaningFee : 0
+  const dto = Number.isFinite(p.discountPct) ? p.discountPct : 0
+  const conDto = Math.round(base * (1 - dto / 100) * 100) / 100
+  const lineas: string[] = []
+
+  if (p.tarifa) {
+    const { tramo, precioTramo, diasTramo } = p.tarifa
+    lineas.push(
+      `Tarifa de ${TRAMO_LABEL[tramo]} (${eur(precioTramo)}) ÷ ${diasTramo} días × ${p.nights} noches = ${eur(base)}`,
+    )
+  } else if (p.pactado) {
+    lineas.push(`Precio pactado a mano, sin aplicar la tarifa por tramos: ${eur(base)}`)
+  } else {
+    lineas.push(`Precio base: ${eur(base)}`)
+  }
+
+  if (dto > 0) lineas.push(`Descuento del ${dto} %: ${eur(base)} − ${eur(base - conDto)} = ${eur(conDto)}`)
+  lineas.push(`Limpieza: ${eur(conDto)} + ${eur(limpieza)} = ${eur(conDto + limpieza)}`)
+
+  return lineas
+}
+
 export function calcPrices(basePrice: number, cleaning = CLEANING_FEE): PriceCalculation {
   const totalOwner = basePrice + cleaning
   // Commission is applied only on base price (excluding cleaning fee)

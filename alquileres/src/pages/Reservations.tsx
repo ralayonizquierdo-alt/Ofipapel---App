@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { Reservation, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
 import { formatDate, getNights, getSeason, today } from '../lib/dateUtils'
-import { getApartmentType, calcTotal, precioPorNoches, stayTypeDays, type Tramo } from '../lib/priceCalc'
+import { getApartmentType, calcTotal, precioPorNoches, stayTypeDays, lineasPrecio, type Tramo } from '../lib/priceCalc'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
 
@@ -167,6 +167,24 @@ export default function Reservations() {
           onClose={() => setSelectedRes(null)}
         />
       )}
+    </div>
+  )
+}
+
+/**
+ * Nota al pie con las cuentas que dan el total. Meramente informativa: sirve
+ * para que dentro de dos años se pueda ver con qué tarifa se cerró una reserva
+ * sin tener que reconstruirla.
+ *
+ * Va en translate="no" por lo mismo que el resumen de precios: si el traductor
+ * del navegador reemplaza estos textos, React falla al insertar nodos y se cae
+ * la app entera (pantalla en blanco).
+ */
+function MemoriaPrecio({ lineas }: { lineas: string[] }) {
+  return (
+    <div className="mt-2 pt-2 border-t border-slate-200 text-[11px] leading-relaxed text-slate-400" translate="no">
+      <p className="font-medium text-slate-500">Cómo se calcula</p>
+      {lineas.map((l, i) => <p key={i}>{l}</p>)}
     </div>
   )
 }
@@ -400,6 +418,11 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
             </div>
             <div className="text-lg font-bold text-blue-700">{total.toLocaleString('es-ES')} €</div>
           </div>
+
+          <MemoriaPrecio lineas={lineasPrecio({
+            nights, basePrice, cleaningFee, discountPct,
+            tarifa: pactado ? null : tarifa, pactado,
+          })} />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -473,6 +496,19 @@ function PaymentModal({ reservation, aptName, onClose }:
         <div className="text-xs text-slate-500">
           {formatDate(reservation.checkIn)} → {formatDate(reservation.checkOut)} · {reservation.nights} noches · {reservation.notes}
         </div>
+
+        {/* Aquí se parte de lo que quedó guardado en la reserva, no de la tarifa
+            vigente hoy: el precio de una reserva cerrada no puede moverse
+            porque más adelante se cambie la lista de precios. */}
+        <MemoriaPrecio lineas={[
+          `Estancia registrada como «${STAY_LABELS[reservation.stayType]}»`,
+          ...lineasPrecio({
+            nights: reservation.nights,
+            basePrice: reservation.basePrice,
+            cleaningFee: reservation.cleaningFee,
+            discountPct: reservation.discountPct,
+          }),
+        ]} />
 
         <div className="space-y-2">
           <div className="grid gap-2 text-xs font-medium text-slate-500 px-2" style={{gridTemplateColumns: '1fr 3fr 3fr 2fr 2fr 2fr'}}>
