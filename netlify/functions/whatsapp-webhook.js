@@ -341,6 +341,33 @@ function detectarPasoPedido(history) {
 
 // Continúa una búsqueda de pedido ya empezada. Devuelve true si se ha encargado del
 // mensaje (no hay que seguir con el flujo normal de FAQ/escalado/IA para este turno).
+// ¿Este mensaje va de UN pedido concreto, con su número dentro?
+//
+// Las palabras clave no bastan. Comprobado con un cliente real: escribió "pasó
+// algo con el pdido #637491?" — con la errata, ninguna palabra clave coincidió,
+// el bot nunca llegó a consultar WooCommerce y le contestó que no tenía acceso
+// a sus pedidos, teniéndolo. El número, en cambio, estaba ahí desde el primer
+// mensaje.
+//
+// Tres formas de reconocerlo, de más segura a menos:
+//   - El mensaje ES solo un número (contestando a "dime el número de pedido").
+//   - El número va precedido de # o nº: nadie escribe eso salvo para referirse
+//     a un pedido o a una factura.
+//   - Aparece la palabra "pedido" (aunque esté mal escrita) junto a un número
+//     largo. Se piden 5 dígitos o más para no confundirlo con "quiero hacer un
+//     pedido de 500 folios", que también lleva la palabra y un número.
+const SOLO_UN_NUMERO_RE = /^\d{5,8}$/;
+const NUMERO_CON_ALMOHADILLA_RE = /(?:#|n[ºo°]\.?\s?|num\.?\s?)\s?\d{3,8}\b/i;
+const PALABRA_PEDIDO_RE = /\bp[ea]?d[ie]dos?\b/i;
+const NUMERO_LARGO_RE = /\b\d{5,8}\b/;
+
+function mencionaUnPedidoConcreto(text) {
+  const t = String(text || '').trim();
+  if (SOLO_UN_NUMERO_RE.test(t)) return true;
+  if (NUMERO_CON_ALMOHADILLA_RE.test(t)) return true;
+  return PALABRA_PEDIDO_RE.test(t) && NUMERO_LARGO_RE.test(t);
+}
+
 async function continuarBusquedaPedido(from, text, paso, greeting) {
   if (paso.paso === 'numero') {
     const match = text.match(/\d{3,}/);
@@ -543,7 +570,7 @@ async function handleIncomingMessage(message) {
   // número (5 a 8 dígitos, sin nada más), lo más probable con diferencia es que sea
   // un número de pedido — se intenta la búsqueda real directamente, sin depender de
   // haber detectado antes la frase exacta que arranca el flujo.
-  if (!pasoPedido && woocommerce.isConfigured() && /^\d{5,8}$/.test(text.trim())) {
+  if (!pasoPedido && woocommerce.isConfigured() && mencionaUnPedidoConcreto(text)) {
     const gestionado = await continuarBusquedaPedido(message.from, text, { paso: 'numero' }, greeting);
     if (gestionado) return;
   }
