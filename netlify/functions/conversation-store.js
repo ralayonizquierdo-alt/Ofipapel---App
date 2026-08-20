@@ -91,6 +91,12 @@ async function listConversationPhones() {
 async function clearConversation(phone) {
   await redisCommand(['DEL', `conv:${phone}`]);
   await redisCommand(['SREM', 'conversations_index', phone]);
+  // Y lo que cuelga de esa conversación, para no dejar restos que reaparezcan
+  // si el mismo número vuelve a escribir: cuándo se leyó por última vez en el
+  // panel y hasta dónde llegaban los acuses de WhatsApp.
+  await redisCommand(['DEL', `viewed:${phone}`]);
+  await redisCommand(['DEL', `entregado:${phone}`]);
+  await redisCommand(['DEL', `leido:${phone}`]);
 }
 
 // Pausa las respuestas automáticas del bot para un número durante N horas (por
@@ -179,6 +185,31 @@ async function marcarAvisoPausa(phone, desde) {
 // Marca de "última vez que se abrió esta conversación en el panel", para poder
 // contar cuántos mensajes del cliente han llegado desde entonces (mensajes sin
 // leer) en el listado. Se actualiza cada vez que se abre el hilo de un número.
+// ── Acuses de recibo de WhatsApp ─────────────────────────────────────────────
+// Meta avisa por el mismo webhook de cuándo se ENTREGÓ y cuándo se LEYÓ cada
+// mensaje que mandamos. En vez de guardar el estado de cada mensaje uno a uno
+// (habría que ir apuntando el identificador que devuelve Meta al enviar), se
+// guarda "hasta qué momento" está entregado y leído: los acuses llegan en orden
+// y leer un mensaje implica haber leído los anteriores, así que con una fecha
+// por conversación se sabe el estado de todos.
+//
+// Ojo: si el cliente tiene desactivadas las confirmaciones de lectura en su
+// WhatsApp, el acuse de "leído" NO llega nunca — se quedará en "entregado"
+// aunque lo haya leído. Eso es cosa suya, no del bot.
+async function marcarEntrega(phone, estado, ts) {
+  const clave = estado === 'read' ? `leido:${phone}` : `entregado:${phone}`;
+  const previo = Number(await redisCommand(['GET', clave])) || 0;
+  if (ts > previo) await redisCommand(['SET', clave, String(ts)]);
+}
+
+async function getEstadoEntrega(phone) {
+  const [entregado, leido] = await Promise.all([
+    redisCommand(['GET', `entregado:${phone}`]),
+    redisCommand(['GET', `leido:${phone}`]),
+  ]);
+  return { entregado: Number(entregado) || 0, leido: Number(leido) || 0 };
+}
+
 async function markAsViewed(phone) {
   await redisCommand(['SET', `viewed:${phone}`, String(Date.now())]);
 }
@@ -439,6 +470,8 @@ module.exports = {
   diagnose,
   markAsViewed,
   getLastViewed,
+  marcarEntrega,
+  getEstadoEntrega,
   claimMessage,
   getCachedSearch,
   setCachedSearch,
