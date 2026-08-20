@@ -37,6 +37,33 @@ function usarTiemposLargos(ms = 20000) {
 // contesta igual, en vez de arriesgar el tiempo total de la respuesta.
 const WC_TIMEOUT_EXTRA_MS = 3000;
 
+// Con qué se identifica el bot ante ofipapel.net.
+//
+// Hace falta porque la protección anti-bots del hosting va DELANTE de
+// WordPress: corta la petición antes de que WooCommerce llegue a mirar las
+// claves de la API, así que tener claves válidas no sirve de nada frente a
+// ella. Comprobado en real: devuelve una página HTML de "One moment,
+// please..." en vez del JSON, y el bot se queda sin datos de catálogo.
+//
+// Por defecto, Node no manda User-Agent, y una petición sin User-Agent es justo
+// lo que esas protecciones consideran sospechoso. Con este, quien administre la
+// web puede reconocernos y dejarnos pasar sin abrirle la puerta a nadie más.
+const USER_AGENT = 'OfipapelWhatsAppBot/1.0 (+https://ofipapel.net; bot de atencion al cliente)';
+
+// Y si además hace falta una marca que nadie pueda imitar, se configura
+// WOOCOMMERCE_BYPASS_TOKEN en Netlify y el mismo valor en la regla del
+// cortafuegos. Sin la variable no se manda nada y todo sigue igual.
+function cabeceras(auth) {
+  const headers = {
+    Authorization: `Basic ${auth}`,
+    'User-Agent': USER_AGENT,
+    Accept: 'application/json',
+  };
+  const token = process.env.WOOCOMMERCE_BYPASS_TOKEN;
+  if (token) headers['X-Ofipapel-Bot'] = token;
+  return headers;
+}
+
 async function wcRequest(path, timeoutMs = WC_TIMEOUT_MS) {
   if (!isConfigured()) return null;
   const auth = Buffer.from(
@@ -45,13 +72,27 @@ async function wcRequest(path, timeoutMs = WC_TIMEOUT_MS) {
 
   try {
     const resp = await fetch(`${WC_BASE_URL}${path}`, {
-      headers: { Authorization: `Basic ${auth}` },
+      headers: cabeceras(auth),
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!resp.ok) {
       console.error('Error de WooCommerce API:', resp.status, await resp.text());
       return null;
     }
+
+    // Un 200 con HTML no es una respuesta de la API: es la pantalla de "One
+    // moment, please..." del cortafuegos del hosting. Se distingue en el log
+    // porque el arreglo es completamente distinto (una regla en el hosting, no
+    // algo del código) y sin este mensaje parece un fallo nuestro.
+    const tipo = resp.headers.get('content-type') || '';
+    if (!tipo.includes('json')) {
+      console.error(
+        `WooCommerce devolvió "${tipo}" en vez de JSON: la protección anti-bots de ofipapel.net ` +
+          'nos ha bloqueado (ver WHATSAPP_SETUP.md, "Cuando ofipapel.net nos bloquea").'
+      );
+      return null;
+    }
+
     return await resp.json();
   } catch (err) {
     console.error('Fallo llamando a WooCommerce:', err.name === 'TimeoutError' ? `tiempo agotado (${timeoutMs} ms)` : err);

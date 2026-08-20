@@ -423,6 +423,109 @@ Limitación que sigue vigente:
 - Solo responde a mensajes de **texto**. Los mensajes con audio, imagen, etc.
   reciben una respuesta genérica indicando que el equipo lo revisará.
 
+## Cuando ofipapel.net nos bloquea
+
+Es la causa número uno de que el bot conteste "un segundo, por favor" y acabe
+sin dar precios. **No es un fallo del código ni de las claves de WooCommerce.**
+
+### Qué pasa exactamente
+
+La web tiene una protección anti-bots que va **delante de WordPress**, en la
+capa del hosting (el servidor se identifica como `openresty`). Cuando decide
+que una petición es sospechosa, contesta con un **HTTP 200 y una página HTML**
+titulada *"One moment, please…"*, con un JavaScript ofuscado que espera un
+parámetro `wsidchk` y reenvía a una ruta larga en hexadecimal
+(`/z0f76a1d1…`). Es decir: responde una página web donde nosotros esperábamos
+JSON.
+
+Por eso **tener claves válidas de la API no ayuda**: quien corta la petición no
+es WooCommerce, es el portero de la puerta de la calle. WordPress ni se entera
+de que hemos llamado, así que nunca llega a mirar las claves. Es como tener la
+tarjeta de la oficina pero que no te dejen entrar al edificio.
+
+En los registros de Netlify se reconoce por este mensaje:
+
+```
+WooCommerce devolvió "text/html; charset=UTF-8" en vez de JSON:
+la protección anti-bots de ofipapel.net nos ha bloqueado
+```
+
+### Qué pedirle a quien administra la web
+
+Lo que hay que conseguir es una excepción para **una sola ruta**:
+`/wp-json/wc/v3/*`. No hace falta bajar la protección del resto de la web.
+
+**Importante: no vale una lista blanca por IP.** Las funciones de Netlify se
+ejecutan en AWS Lambda y salen por direcciones que cambian en cada ejecución;
+una regla por IP dejaría de valer al día siguiente. La excepción tiene que ir
+por ruta, por cabecera o por las dos.
+
+El bot se identifica en **todas** sus peticiones con:
+
+| Cabecera | Valor |
+|---|---|
+| `User-Agent` | `OfipapelWhatsAppBot/1.0 (+https://ofipapel.net; bot de atencion al cliente)` |
+| `Authorization` | `Basic …` (las claves de la API REST de WooCommerce) |
+| `X-Ofipapel-Bot` | solo si se configura `WOOCOMMERCE_BYPASS_TOKEN` (ver abajo) |
+
+Tres formas de hacer la excepción, de la más sencilla a la más estricta —
+cualquiera de las tres sirve:
+
+1. **Por ruta.** Excluir `/wp-json/wc/v3/` de la protección anti-bots y del
+   límite de peticiones. Es la más simple. Esa ruta ya está protegida por las
+   propias claves de la API: sin ellas devuelve 401.
+2. **Por User-Agent.** Permitir las peticiones cuyo `User-Agent` sea
+   `OfipapelWhatsAppBot/1.0`. Sirve si el panel del hosting permite reglas por
+   agente pero no por ruta.
+3. **Por cabecera secreta.** La más estricta y la que se recomienda si la
+   protección la lleva Cloudflare u otro WAF con reglas propias:
+   - Se genera un valor largo al azar (por ejemplo `openssl rand -hex 24`).
+   - Se pone en Netlify como variable `WOOCOMMERCE_BYPASS_TOKEN` (marcada como
+     secreta) y se despliega.
+   - Se crea una regla que deje pasar las peticiones a `/wp-json/wc/v3/*` que
+     lleven la cabecera `X-Ofipapel-Bot` con ese valor exacto.
+
+   Sin la variable configurada el bot no manda esa cabecera y todo sigue
+   funcionando igual que ahora, así que se puede preparar la regla primero y
+   activar la variable después.
+
+### Volumen real, para dimensionar la regla
+
+Conviene decírselo, porque suele ser la duda: **el bot no hace scraping**.
+
+- Solo llama cuando un cliente escribe por WhatsApp.
+- Por cada mensaje, entre 2 y 7 peticiones (varias formas de escribir la misma
+  búsqueda, más categorías y ofertas), y en dos tandas, no todas a la vez.
+- Con el volumen actual de conversaciones son decenas de peticiones al día, no
+  miles.
+- Cada petición trae ya sus claves de API y solo hace lecturas (`GET`).
+
+### Cómo comprobar que ha funcionado
+
+Desde cualquier terminal, sustituyendo las claves:
+
+```bash
+curl -s -o /dev/null -w "%{http_code} %{content_type}\n" \
+  -H "User-Agent: OfipapelWhatsAppBot/1.0" \
+  -u "ck_LA_CLAVE:cs_EL_SECRETO" \
+  "https://ofipapel.net/wp-json/wc/v3/products?search=toner&per_page=3"
+```
+
+- **Bien:** `200 application/json`
+- **Sigue bloqueado:** `200 text/html…` (esa es la pantalla de "One moment,
+  please…")
+- **Claves mal:** `401 application/json`
+
+Repetirlo cinco o seis veces seguidas: el bloqueo a veces solo salta al
+acumular varias peticiones seguidas, que es exactamente lo que hace el bot.
+
+### Qué se gana
+
+- Se acaban los "un segundo, por favor" y las respuestas sin precio.
+- Se podría descargar el catálogo entero una vez y emparejar las referencias de
+  consumible contra los nombres reales de los productos, en vez de deducir la
+  forma en que están escritos (ver la limitación de los guiones más abajo).
+
 ## Consumibles por modelo de impresora
 
 El cliente no sabe la referencia del cartucho; sabe qué impresora tiene. El bot

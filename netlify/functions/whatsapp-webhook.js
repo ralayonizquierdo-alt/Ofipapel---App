@@ -39,6 +39,11 @@
 //     pedido + verificación por teléfono o nombre). Sin ellas, el bot nunca confirma
 //     ni descarta productos concretos y "estado de mi pedido" da solo el contacto de
 //     siempre (ver woocommerce-client.js)
+//   WOOCOMMERCE_BYPASS_TOKEN  (opcional) valor secreto que el bot manda en la cabecera
+//     X-Ofipapel-Bot al llamar a ofipapel.net, para que la protección anti-bots del
+//     hosting lo reconozca y lo deje pasar. Solo hace falta si quien administra la web
+//     monta la excepción por cabecera en vez de por ruta — ver WHATSAPP_SETUP.md,
+//     "Cuando ofipapel.net nos bloquea". Sin ella, el bot no manda esa cabecera.
 
 const crypto = require('crypto');
 const {

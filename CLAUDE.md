@@ -85,6 +85,13 @@ el repo:
   coincide con el del pedido). Sin ellas, el bot nunca confirma ni descarta
   productos concretos y "estado de mi pedido" da solo el contacto de
   siempre (cae al comportamiento anterior).
+- `WOOCOMMERCE_BYPASS_TOKEN` (opcional) — valor secreto que el bot manda en la
+  cabecera `X-Ofipapel-Bot` para que la protección anti-bots del hosting de
+  ofipapel.net lo reconozca. Esa protección va **delante** de WordPress, así
+  que corta la petición antes de que WooCommerce mire las claves: tener claves
+  válidas no basta. Procedimiento completo (incluidas las instrucciones para
+  quien administra la web) en `WHATSAPP_SETUP.md`, "Cuando ofipapel.net nos
+  bloquea".
 - `OPENAI_API_KEY` — activa el proveedor real `openai-images` de
   `creative-engine/creative-lab/` desde
   `netlify/functions/marketing-engine-run.js` (marcarla como secreto en
