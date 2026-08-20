@@ -72,6 +72,10 @@ interface DataContextValue {
   importIncomes: (items: IngresoMensual[]) => Promise<number>
   importOccupancies: (items: OcupacionMensual[]) => Promise<number>
   importRepairTotals: (items: ReparacionMensual[]) => Promise<number>
+  /** Borra lo importado de un Excel anterior de ese año que ya no está en el nuevo. */
+  purgeImported: (year: number, conservar: {
+    expenses: string[]; incomes: string[]; occupancies: string[]; repairTotals: string[]
+  }) => Promise<number>
 
   addOfferPrice:    (data: Omit<OfferPrice, 'id'>) => OfferPrice
   updateOfferPrice: (id: string, data: Partial<OfferPrice>) => void
@@ -296,6 +300,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     return items.length
   }
+  /**
+   * Borra lo que vino de un Excel anterior de ese mismo ejercicio y ya no está
+   * en el fichero nuevo.
+   *
+   * Sin esto, reimportar solo añade y actualiza: una línea que el propietario
+   * quite del Excel seguiría viva en la app para siempre, y la app dejaría de
+   * decir lo mismo que el fichero que manda.
+   *
+   * Solo toca documentos cuyo id empieza por `xls-<año>`, que es el que pone el
+   * importador. Lo dado de alta a mano lleva un id aleatorio y no se toca nunca.
+   */
+  async function purgeImported(year: number, conservar: {
+    expenses: string[]; incomes: string[]; occupancies: string[]; repairTotals: string[]
+  }): Promise<number> {
+    const prefijo = `xls-${year}`
+    const objetivos: [string, { id: string }[], string[]][] = [
+      ['expenses',     expenses,     conservar.expenses],
+      ['incomes',      incomes,      conservar.incomes],
+      ['occupancies',  occupancies,  conservar.occupancies],
+      ['repairTotals', repairTotals, conservar.repairTotals],
+    ]
+    let borrados = 0
+    for (const [nombre, actuales, mantener] of objetivos) {
+      const vivos = new Set(mantener)
+      const sobran = actuales.filter(d => d.id.startsWith(prefijo) && !vivos.has(d.id))
+      for (let i = 0; i < sobran.length; i += 400) {
+        const batch = writeBatch(db)
+        for (const d of sobran.slice(i, i + 400)) batch.delete(doc(db, nombre, d.id))
+        await batch.commit()
+      }
+      borrados += sobran.length
+    }
+    return borrados
+  }
   async function importExpenses(items: Expense[]): Promise<number> {
     for (let i = 0; i < items.length; i += 400) {
       const batch = writeBatch(db)
@@ -330,7 +368,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addReservation, updateReservation, deleteReservation,
       addPayment, updatePayment, deletePayment,
       addRepair, updateRepair, deleteRepair, deleteRepairWithAudit,
-      addExpense, updateExpense, deleteExpense, importExpenses, importIncomes, importOccupancies, importRepairTotals,
+      addExpense, updateExpense, deleteExpense, importExpenses, importIncomes, importOccupancies, importRepairTotals, purgeImported,
       addOfferPrice, updateOfferPrice, deleteOfferPrice,
     }}>
       {children}
