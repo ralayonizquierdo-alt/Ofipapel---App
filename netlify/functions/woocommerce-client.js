@@ -312,17 +312,27 @@ function splitAlfaNum(word) {
 // devuelve nada. Como la referencia nos llega del proveedor sin guion, hay que
 // pedirla también con él.
 //
-// Dos formas y solo dos, porque son las que usa el catálogo:
+// Tres formas, porque son las que usa el catálogo:
 //   LETRAS+NÚMERO  -> TN248 se convierte en TN-248
 //   NÚMERO+1 LETRA -> 415a se convierte en 415-a
+//   TAMAÑO DIN     -> a4 se convierte en a-4
 // Las de NÚMERO+VARIAS LETRAS se quedan como están: el catálogo escribe
 // "(603XL)" y "(305XL)" sin guion, y meterlo ahí solo gastaría una petición.
+//
+// Lo del tamaño DIN es de los que más daño hace, porque sale en media
+// papelería: el catálogo escribe "PAPEL Fotocopia A-4" y "MARCO PRESENTACION
+// A-4", y el cliente escribe "a4" siempre. Comprobado en real: un cliente pidió
+// "marcos presentación a4", el bot no encontró nada y hubo que atenderle a mano
+// — el producto existía, con A-4.
 function guionAlfaNum(word) {
   const letrasNumero = /^([a-z]{2,4})(\d{2,5}[a-z]{0,3})$/.exec(word);
   if (letrasNumero) return `${letrasNumero[1]}-${letrasNumero[2]}`;
 
   const numeroLetra = /^(\d{2,4})([a-z])$/.exec(word);
   if (numeroLetra) return `${numeroLetra[1]}-${numeroLetra[2]}`;
+
+  const tamañoDin = /^([a-z])([0-9])$/.exec(word);
+  if (tamañoDin) return `${tamañoDin[1]}-${tamañoDin[2]}`;
 
   return null;
 }
@@ -557,7 +567,15 @@ function construirTerminos(words) {
   // devuelve ninguno. En una consulta normal de papelería no se añade nada,
   // porque ninguna palabra tiene esa forma.
   if (words.some((w) => guionAlfaNum(w))) {
-    añadir(words.map((w) => guionAlfaNum(w) || w).join(' '));
+    const conGuion = (lista) => lista.map((w) => guionAlfaNum(w) || w).join(' ');
+    añadir(conGuion(words));
+
+    // Y también en singular, porque los dos arreglos hacen falta A LA VEZ más a
+    // menudo de lo que parece: "marcos presentación a4" contra un catálogo que
+    // dice "MARCO PRESENTACION A-4" falla por el plural Y por el guion, y
+    // corregir solo uno de los dos no encuentra nada igualmente.
+    const singulares = words.map(singularize);
+    if (singulares.join(' ') !== words.join(' ')) añadir(conGuion(singulares));
   }
 
   // Cuantas más palabras lleva la frase, PEOR busca WordPress: comprobado en
