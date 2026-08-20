@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Plus, Pencil, Trash2, CheckCircle, Circle } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { Reservation, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
 import { formatDate, getNights, getSeason, today } from '../lib/dateUtils'
-import { getApartmentType, calcTotal } from '../lib/priceCalc'
+import { getApartmentType, calcTotal, precioPorNoches, stayTypeDays, type Tramo } from '../lib/priceCalc'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
 
@@ -12,6 +12,9 @@ const STAY_LABELS: Record<StayType, string> = {
   '1semana': '1 Semana', '2semanas': '2 Semanas', '3semanas': '3 Semanas',
   '1mes': '1 Mes', 'directo': 'Directo/Largo', 'otro': 'Otro'
 }
+const TRAMOS: Tramo[] = ['1semana', '2semanas', '3semanas', '1mes']
+/** Descuento por pago en efectivo. Se aplica dure lo que dure la estancia. */
+const DTO_EFECTIVO = 10
 const CHANNEL_LABELS: Record<Channel, string> = {
   directo: 'Directo', inmobiliaria: 'Inmobiliaria', booking: 'Booking', web: 'Web'
 }
@@ -177,21 +180,25 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   const [aptId, setAptId] = useState(editing?.apartmentId || apartments[0]?.id || '')
   const [checkIn, setCheckIn] = useState(editing?.checkIn || today())
   const [checkOut, setCheckOut] = useState(editing?.checkOut || '')
-  const [stayType, setStayType] = useState<StayType>(editing?.stayType || '1semana')
+  const [stayTypeManual, setStayType] = useState<StayType>(editing?.stayType || '1semana')
   const [channel, setChannel] = useState<Channel>(editing?.channel || 'inmobiliaria')
-  const [basePrice, setBasePrice] = useState(editing?.basePrice || 0)
-  const [cleaningFee, setCleaningFee] = useState(editing?.cleaningFee || 40)
+  const [basePriceManual, setBasePrice] = useState(editing?.basePrice || 0)
+  const [cleaningFeeManual, setCleaningFee] = useState(editing?.cleaningFee || 40)
   const [discountPct, setDiscountPct] = useState(editing?.discountPct || 0)
   const [notes, setNotes] = useState(editing?.notes || '')
   const [status, setStatus] = useState(editing?.status || 'confirmada' as Reservation['status'])
   const [guestName, setGuestName] = useState(editing?.guestName || '')
-  const [autoCalc, setAutoCalc] = useState(!editing || (editing.stayType === 'otro' && !editing.basePrice))
+  /**
+   * «Precio pactado»: el importe lo pone la persona a mano y la app no lo
+   * recalcula. Es lo que se usa para los acuerdos de larga temporada, que no
+   * siguen la tarifa por tramos. Al editar una reserva ya guardada se entra
+   * siempre en este modo, para no cambiarle el precio a algo ya cerrado.
+   */
+  const [pactado, setPactado] = useState(!!editing)
 
   const nights = checkOut && checkIn ? getNights(checkIn, checkOut) : 0
-  const total = calcTotal(basePrice, cleaningFee, discountPct)
-
-  useEffect(() => {
-    if (!autoCalc || !aptId || !checkIn) return
+  const tarifa = useMemo(() => {
+    if (!aptId || !checkIn || !(nights > 0)) return null
     const season = getSeason(checkIn)
     const aptType = getApartmentType(aptId)
     const year = new Date(checkIn).getFullYear()
@@ -199,38 +206,32 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
       p.apartmentType === aptType && p.season === season &&
       (p.year === year || p.year === year + 1)
     )
-    if (!priceEntry) return
-    // Los datos vienen de Firestore y pueden traer campos ausentes, nulos o no
-    // numéricos: sin esto acaban propagándose como NaN/undefined al formulario.
-    const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0 }
-    const effectNights = checkOut ? getNights(checkIn, checkOut) : 0
-    const months = effectNights > 0 ? Math.max(1, Math.round(effectNights / 30)) : 1
-    const priceMap: Record<StayType, number> = {
-      '1semana': num(priceEntry.price1week),
-      '2semanas': num(priceEntry.price2weeks),
-      '3semanas': num(priceEntry.price3weeks),
-      '1mes': num(priceEntry.price1month),
-      'directo': num(priceEntry.price1month) * 0.9,
-      'otro': num(priceEntry.price1month) * months,
-    }
-    setBasePrice(priceMap[stayType] || 0)
-    setCleaningFee(Number.isFinite(Number(priceEntry.cleaningFee)) ? Number(priceEntry.cleaningFee) : 40)
-  }, [aptId, stayType, checkIn, checkOut, autoCalc, prices])
+    if (!priceEntry) return null
+    return { entry: priceEntry, ...precioPorNoches(priceEntry, nights) }
+  }, [aptId, checkIn, nights, prices])
 
-  useEffect(() => {
-    if (!autoCalc || !checkIn) return
-    const daysMap: Record<StayType, number> = {
-      '1semana': 7, '2semanas': 14, '3semanas': 21, '1mes': 30, 'directo': 30, 'otro': 0
-    }
-    const d = daysMap[stayType]
-    if (!d) return
+  // Tarifa por tramos: el precio del tramo se divide entre sus días y se
+  // multiplica por las noches reales, y el tramo no se elige, sale de las
+  // noches (ver tramoPorNoches en lib/priceCalc.ts). Se calcula aquí en vez de
+  // copiarlo a estado con un efecto: así no hay dos versiones del mismo dato
+  // que puedan quedar desincronizadas.
+  const stayType = pactado || !tarifa ? stayTypeManual : tarifa.tramo
+  const basePrice = pactado || !tarifa ? basePriceManual : tarifa.base
+  const cleaningFee = pactado || !tarifa
+    ? cleaningFeeManual
+    : (Number.isFinite(Number(tarifa.entry.cleaningFee)) ? Number(tarifa.entry.cleaningFee) : 40)
+  const total = calcTotal(basePrice, cleaningFee, discountPct)
+
+  /** Atajo: rellena la fecha de salida a partir de la de entrada. */
+  function rellenarSalida(t: Tramo) {
+    if (!checkIn) return
     const date = new Date(checkIn)
     // Una fecha inválida haría que toISOString() lanzara RangeError, y un error
-    // dentro de un efecto tumba todo el árbol de React (pantalla en blanco).
+    // dentro del render tumba todo el árbol de React (pantalla en blanco).
     if (Number.isNaN(date.getTime())) return
-    date.setDate(date.getDate() + d)
+    date.setDate(date.getDate() + stayTypeDays(t))
     setCheckOut(date.toISOString().split('T')[0])
-  }, [stayType, checkIn, autoCalc])
+  }
 
   function handleSave() {
     if (!aptId || !checkIn || !checkOut) return alert('Completa los campos obligatorios')
@@ -298,10 +299,16 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Tipo de estancia</label>
-            <select value={stayType} onChange={e => setStayType(e.target.value as StayType)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
-              {Object.entries(STAY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
+            {pactado ? (
+              <select value={stayType} onChange={e => setStayType(e.target.value as StayType)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                {Object.entries(STAY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            ) : (
+              <div className="w-full border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-sm text-slate-600">
+                {nights > 0 ? STAY_LABELS[stayType] : 'Según las fechas'}
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Canal</label>
@@ -315,21 +322,51 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
         <div className="bg-slate-50 rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold text-slate-700">Precios</p>
-            <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
-              <input type="checkbox" checked={autoCalc} onChange={e => setAutoCalc(e.target.checked)} />
-              Cálculo automático
-            </label>
+            <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs">
+              {[
+                { v: false, t: 'Tarifa por tramos' },
+                { v: true, t: 'Precio pactado' },
+              ].map(o => (
+                <button key={String(o.v)} type="button"
+                  onClick={() => {
+                    // Al pasar a manual se parte de lo que ya se está viendo,
+                    // no de lo que hubiera antes en el formulario.
+                    if (o.v) { setStayType(stayType); setBasePrice(basePrice); setCleaningFee(cleaningFee) }
+                    setPactado(o.v)
+                  }}
+                  className={`px-2.5 py-1.5 font-medium transition-colors ${
+                    pactado === o.v ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                  }`}>
+                  {o.t}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {!pactado && (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-slate-500">Rellenar salida:</span>
+              {TRAMOS.map(t => (
+                <button key={t} type="button" onClick={() => rellenarSalida(t)}
+                  className="px-2 py-1 rounded border border-slate-200 bg-white text-xs text-slate-600 hover:border-blue-300">
+                  {STAY_LABELS[t]}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-xs text-slate-500 mb-1">Precio base (€)</label>
               <input type="number" value={basePrice} onChange={e => setBasePrice(Number(e.target.value))}
-                className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm" />
+                readOnly={!pactado}
+                className={`w-full border border-slate-200 rounded px-2 py-1.5 text-sm ${!pactado ? 'bg-slate-100 text-slate-600' : ''}`} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Limpieza (€)</label>
               <input type="number" value={cleaningFee} onChange={e => setCleaningFee(Number(e.target.value))}
-                className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm" />
+                readOnly={!pactado}
+                className={`w-full border border-slate-200 rounded px-2 py-1.5 text-sm ${!pactado ? 'bg-slate-100 text-slate-600' : ''}`} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Descuento (%)</label>
@@ -344,12 +381,18 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
               falla ("node ... is not a child of this node") y se cae la app
               entera dejando la pantalla en blanco. translate="no" evita además
               que el traductor toque estas cifras. */}
+          <label className="mt-3 flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+            <input type="checkbox" checked={discountPct === DTO_EFECTIVO}
+              onChange={e => setDiscountPct(e.target.checked ? DTO_EFECTIVO : 0)} />
+            Pago en efectivo (−{DTO_EFECTIVO} %)
+          </label>
+
           <div className="mt-3 flex items-center justify-between bg-white rounded p-3 border border-slate-200" translate="no">
             <div className="text-xs text-slate-500">
               <span>{nights > 0 ? `${nights} noches · ` : ''}</span>
               <span className="text-indigo-600 font-medium">
-                {stayType === 'otro' && nights > 0
-                  ? `${Math.max(1, Math.round(nights / 30))} ${Math.max(1, Math.round(nights / 30)) === 1 ? 'mes' : 'meses'} · `
+                {!pactado && tarifa
+                  ? `${STAY_LABELS[tarifa.tramo]}: ${tarifa.precioTramo}€ / ${tarifa.diasTramo} × ${nights} · `
                   : ''}
               </span>
               <span>{`Base: ${basePrice}€ + Limpieza: ${cleaningFee}€`}</span>

@@ -28,6 +28,63 @@ export function calcExtension(contractedType: StayType, priceEntry: PriceEntry, 
   return (basePrice / baseDays) * extraDays
 }
 
+/** Los cuatro tramos con los que se tarifica. 'directo' y 'otro' no son tramos. */
+export type Tramo = '1semana' | '2semanas' | '3semanas' | '1mes'
+
+/**
+ * Tramo que corresponde a una estancia, según la regla del propietario:
+ * siempre se baja al tramo más cercano por debajo.
+ *
+ *    7 – 13 noches → 1 semana
+ *   14 – 20        → 2 semanas
+ *   21 – 29        → 3 semanas
+ *   30 o más       → 1 mes
+ *
+ * Por debajo de 7 noches no hay tramo definido; se usa el de 1 semana, que es
+ * el mismo criterio (bajar al más cercano) llevado al extremo inferior.
+ */
+export function tramoPorNoches(nights: number): Tramo {
+  if (nights >= 30) return '1mes'
+  if (nights >= 21) return '3semanas'
+  if (nights >= 14) return '2semanas'
+  return '1semana'
+}
+
+export interface PrecioTramo {
+  tramo: Tramo
+  /** Días que cubre el tramo: 7, 14, 21 o 30. */
+  diasTramo: number
+  /** Precio de tarifa del tramo, sin prorratear. */
+  precioTramo: number
+  /** Precio base de la estancia: precioTramo / diasTramo × noches. */
+  base: number
+}
+
+/**
+ * Precio base de una estancia. El precio de tarifa nunca se cobra tal cual: se
+ * divide entre los días del tramo y se multiplica por las noches reales.
+ * Ejemplo del propietario: 10 noches con tarifa de 1 semana de 495 €
+ * → 495 / 7 × 10 = 707,14 €.
+ */
+export function precioPorNoches(priceEntry: PriceEntry, nights: number): PrecioTramo {
+  const tramo = tramoPorNoches(nights)
+  const diasTramo = stayTypeDays(tramo)
+  const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0 }
+  const precioTramo = num({
+    '1semana': priceEntry.price1week,
+    '2semanas': priceEntry.price2weeks,
+    '3semanas': priceEntry.price3weeks,
+    '1mes': priceEntry.price1month,
+  }[tramo])
+  const noches = Number.isFinite(nights) && nights > 0 ? nights : 0
+  return {
+    tramo,
+    diasTramo,
+    precioTramo,
+    base: Math.round((precioTramo / diasTramo) * noches * 100) / 100,
+  }
+}
+
 export function stayTypeDays(stayType: StayType): number {
   switch (stayType) {
     case '1semana': return 7
