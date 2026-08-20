@@ -957,7 +957,10 @@ function parseUtanplas(lineas){
 // líneas distintas (a veces la continuación va DESPUÉS, a veces ANTES de la cabecera del artículo).
 function parsePerfotec(lineas){
   const filas = [];
-  const RE_COMPLETA = /^(\S+)\s+(.+?)\s+(\d+,\d{2})\s+(\d+,\d{3})\s+(\d+,\d{2})(?:\s+(\d+,\d{2}))?\s+(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})$/;
+  // Cantidad e Igic a veces vienen sin decimales ("3", "7") en vez de "3,00"/"7,00"
+  // según la factura (mismo proveedor, formatos de impresión distintos) — ambos
+  // grupos toleran el decimal opcional.
+  const RE_COMPLETA = /^(\S+)\s+(.+?)\s+(\d+(?:,\d{2})?)\s+(\d+,\d{3})\s+(\d+,\d{2})(?:\s+(\d+,\d{2}))?\s+(\d+(?:,\d{2})?)\s+(\d+(?:\.\d{3})*,\d{2})$/;
   const RE_HEADER_PARCIAL = /^(\S+)\s+(.+?)\s+(\d+,\d{2})\s+(\d+,\d{3})\s+(\d+,\d{2})$/;
   const RE_COLA = /^(?:(\d+,\d{2})\s+)?(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})$/;
   const RE_HEADER_SOLO = /^(\S+)\s+(.+?)\s+(\d+,\d{2})$/;
