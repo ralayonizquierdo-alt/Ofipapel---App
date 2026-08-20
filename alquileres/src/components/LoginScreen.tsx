@@ -1,47 +1,31 @@
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
-import { hashPw, getStoredHash, saveHash } from '../lib/passwordAuth'
+import { entrar, USUARIOS, type UsuarioApp } from '../lib/auth'
 import VersionBadge from './VersionBadge'
 import bgTrebol from '../assets/bg-trebol.png'
 
-type User = 'Luis' | 'Rober'
-
-const USERS: User[] = ['Luis', 'Rober']
-
-interface Props { onLogin: (user: User) => void }
+interface Props { onLogin: (user: UsuarioApp) => void }
 
 export default function LoginScreen({ onLogin }: Props) {
-  const [user, setUser] = useState<User>('Luis')
+  const [user, setUser] = useState<UsuarioApp>('Luis')
   const [pw, setPw] = useState('')
   const [show, setShow] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [resetMode, setResetMode] = useState(false)
-  const [resetCode, setResetCode] = useState('')
-  const [resetMsg, setResetMsg] = useState('')
+  const [ayuda, setAyuda] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const h = await hashPw(pw)
-    if (h !== getStoredHash()) {
-      setError('Contraseña incorrecta')
+    try {
+      await entrar(user, pw)
       setPw('')
-    } else {
       onLogin(user)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se ha podido entrar')
+      setPw('')
     }
     setLoading(false)
-  }
-
-  async function handleReset(e: React.FormEvent) {
-    e.preventDefault()
-    const h = await hashPw(resetCode)
-    const DEFAULT_HASH = 'd086b000c4d69407866d15606d2c5bb9c8f64431bf4f72d1393b9996ca9a3cec'
-    if (h !== DEFAULT_HASH) { setResetMsg('Código incorrecto'); return }
-    saveHash(DEFAULT_HASH)
-    setResetMsg('✓ Contraseña restablecida')
-    setResetCode('')
-    setTimeout(() => { setResetMode(false); setResetMsg('') }, 2500)
   }
 
   return (
@@ -64,7 +48,7 @@ export default function LoginScreen({ onLogin }: Props) {
               Usuario
             </label>
             <div className="flex gap-2">
-              {USERS.map(u => (
+              {USUARIOS.map(u => (
                 <button key={u} type="button"
                   onClick={() => { setUser(u); setError('') }}
                   className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${
@@ -107,38 +91,21 @@ export default function LoginScreen({ onLogin }: Props) {
           </button>
 
           <p className="text-center">
-            <button type="button" onClick={() => setResetMode(true)}
+            <button type="button" onClick={() => setAyuda(a => !a)}
               className="text-xs text-slate-400 hover:text-blue-500 transition-colors">
               ¿Olvidaste la contraseña?
             </button>
           </p>
         </form>
 
-        {resetMode && (
+        {ayuda && (
           <div className="mt-4 pt-4 border-t border-slate-100">
-            <form onSubmit={handleReset} className="space-y-3">
-              <p className="text-xs text-slate-500 text-center">Introduce la contraseña predeterminada para restablecer el acceso</p>
-              <input
-                type="password"
-                value={resetCode}
-                onChange={e => { setResetCode(e.target.value); setResetMsg('') }}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Contraseña predeterminada"
-                autoFocus
-              />
-              {resetMsg && (
-                <p className={`text-xs ${resetMsg.startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>{resetMsg}</p>
-              )}
-              <div className="flex gap-2">
-                <button type="submit" className="flex-1 py-2 rounded-lg text-xs font-semibold text-white" style={{ background: '#1976D2' }}>
-                  Restablecer
-                </button>
-                <button type="button" onClick={() => { setResetMode(false); setResetMsg('') }}
-                  className="px-3 py-2 rounded-lg text-xs text-slate-500 border border-slate-200 hover:border-slate-400">
-                  Cancelar
-                </button>
-              </div>
-            </form>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Las cuentas son internas y no tienen buzón de correo, así que no se puede
+              enviar un enlace de recuperación. Para restablecerla, entra en{' '}
+              <b>Firebase Console → Authentication → Usuarios</b>, busca la cuenta y usa
+              «Restablecer contraseña».
+            </p>
           </div>
         )}
 

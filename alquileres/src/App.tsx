@@ -2,12 +2,13 @@ import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 're
 import {
   LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, Settings, Menu, X, KeyRound, LogOut
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import bgTrebol from './assets/bg-trebol.png'
 import LoginScreen from './components/LoginScreen'
 import MigrateLocalData from './components/MigrateLocalData'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import { useData } from './contexts/DataContext'
+import { observarSesion, salir, usuarioDe, type UsuarioApp } from './lib/auth'
 import Dashboard from './pages/Dashboard'
 import Planning from './pages/Planning'
 import Reservations from './pages/Reservations'
@@ -145,11 +146,14 @@ function Drawer({ alerts, open, onClose, onChangePassword, onLogout }: { alerts:
 export default function App() {
   const { loading, reservations, payments } = useData()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  // La sesión se guardaba en localStorage al entrar pero nunca se volvía a
-  // leer, así que cada recarga te echaba a la pantalla de login.
-  const [currentUser, setCurrentUser] = useState<string | null>(
-    () => localStorage.getItem('aq_current_user')
-  )
+  // La sesión la mantiene Firebase Auth: sobrevive a la recarga por sí sola y,
+  // a diferencia del login anterior, es la que da acceso real a los datos.
+  const [currentUser, setCurrentUser] = useState<UsuarioApp | null>(null)
+  const [comprobandoSesion, setComprobandoSesion] = useState(true)
+  useEffect(() => observarSesion(u => {
+    setCurrentUser(usuarioDe(u))
+    setComprobandoSesion(false)
+  }), [])
   const [showChangePassword, setShowChangePassword] = useState(false)
 
   const alertCount = useMemo(() => {
@@ -164,17 +168,20 @@ export default function App() {
     }).length
   }, [reservations, payments])
 
-  if (loading) return (
+  // Primero la sesión y luego los datos: sin sesión no se pide nada, así que
+  // esperar a «loading» antes del login dejaría la pantalla colgada.
+  if (comprobandoSesion) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100">
       <p className="text-slate-500 text-sm">Cargando...</p>
     </div>
   )
 
-  if (!currentUser) return (
-    <LoginScreen onLogin={(user) => {
-      localStorage.setItem('aq_current_user', user)
-      setCurrentUser(user)
-    }} />
+  if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-100">
+      <p className="text-slate-500 text-sm">Cargando...</p>
+    </div>
   )
 
   return (
@@ -188,7 +195,7 @@ export default function App() {
           <Sidebar
             alerts={alertCount}
             onChangePassword={() => setShowChangePassword(true)}
-            onLogout={() => { localStorage.removeItem('aq_current_user'); setCurrentUser(null) }}
+            onLogout={() => { salir() }}
           />
         </div>
 
@@ -204,7 +211,7 @@ export default function App() {
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
             onChangePassword={() => setShowChangePassword(true)}
-            onLogout={() => { localStorage.removeItem('aq_current_user'); setCurrentUser(null) }}
+            onLogout={() => { salir() }}
           />
 
           <MigrateLocalData />
