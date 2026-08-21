@@ -18,6 +18,37 @@ function unirContexto(contextoConsumibles, productContext) {
   return [contextoConsumibles, productContext].filter(Boolean).join('\n\n') || null;
 }
 
+// ORIGINAL o GENÉRICO. Para Ofipapel "genérico" y "compatible" son la misma
+// cosa: el consumible que NO es de la marca de la impresora, y que vale bastante
+// menos. El catálogo lo marca poniendo "Compatible" en el nombre del producto;
+// los originales unas veces llevan "Original" y otras no llevan nada (1.119 de
+// 1.623 consumibles no llevan ninguna de las dos palabras, y son originales).
+// Así que la regla es: lleva "Compatible" = genérico; no lo lleva = original.
+//
+// Esto se decide AQUÍ y no se le deja a la IA, porque la palabra "compatible"
+// tiene dos sentidos y los confundió en real: con los tóneres ORIGINALES de una
+// Brother delante (58-100 €) le dijo al cliente que eran "los compatibles
+// (genéricos), la opción más económica" — cuando los genéricos de verdad
+// estaban a 30,86 €, la mitad, y ni los mencionó.
+function esGenerico(nombre) {
+  return /\bcompatibles?\b/i.test(String(nombre || ''));
+}
+
+// Si de una misma referencia hay de los dos tipos, los dos tienen que llegar a
+// la respuesta. Si no, el cliente que pide "en genérico" se lleva la lista de
+// originales sin enterarse — que es justo lo que pasó.
+function equilibrarTipos(productos, limite) {
+  const genericos = productos.filter((p) => esGenerico(p.nombre));
+  const originales = productos.filter((p) => !esGenerico(p.nombre));
+  if (genericos.length === 0 || originales.length === 0) return productos.slice(0, limite);
+
+  const porTipo = Math.ceil(limite / 2);
+  const elegidos = [...genericos.slice(0, porTipo), ...originales.slice(0, porTipo)];
+  // Se respeta el orden en que venían (que es el de relevancia), no el del
+  // reparto: no queremos que el tipo mande sobre lo bien que encaja.
+  return productos.filter((p) => elegidos.includes(p)).slice(0, limite);
+}
+
 // Cuántos mensajes atrás se busca el modelo de impresora.
 const MENSAJES_QUE_RECUERDAN_LA_IMPRESORA = 4;
 
@@ -77,8 +108,11 @@ async function construirContextoCatalogo({ from, text, history }) {
   const referencia = impresoras.length === 1 ? consumibles.consultaDeCatalogo(impresoras[0]) : null;
   const consultaPrincipal = referencia ? `${impresoras[0].m} ${referencia}` : searchQuery;
 
+  // Buscando por referencia se piden más de los que se van a enseñar: de un
+  // mismo tóner hay hasta diez productos entre colores, capacidades, originales
+  // y genéricos, y con solo seis se llenaba la lista de un solo tipo.
   const [busqueda, categorias] = await Promise.all([
-    woocommerce.buscarEnCatalogo(consultaPrincipal, 6),
+    woocommerce.buscarEnCatalogo(consultaPrincipal, referencia ? 12 : 6),
     woocommerce.searchCategories(searchQuery),
   ]);
 
@@ -108,16 +142,18 @@ async function construirContextoCatalogo({ from, text, history }) {
     fallo = fallo || conContexto.fallo;
   }
 
+  if (referencia) productos = equilibrarTipos(productos, 8);
+
   const bloques = [];
   if (productos.length > 0) {
     // Se anota en su ficha por qué preguntó (lo que él escribió, no lo que la
     // IA deduzca), para poder reconocerle en próximas conversaciones.
     await conversationStore.registrarProductoPreguntado(from, text);
     bloques.push(
-      `PRODUCTOS que coinciden:\n${productos
+      `PRODUCTOS que coinciden (cada uno va marcado como ORIGINAL o GENÉRICO — esa etiqueta la pone el sistema mirando el catálogo, es un dato, no la deduzcas tú del nombre):\n${productos
         .map(
           (p) =>
-            `- ${p.nombre}: ${p.precio || 'precio no disponible'}${
+            `- [${esGenerico(p.nombre) ? 'GENÉRICO' : 'ORIGINAL'}] ${p.nombre}: ${p.precio || 'precio no disponible'}${
               p.ofertaPorCantidad
                 ? ' por unidad, CON DESCUENTO POR CANTIDAD (el precio baja al comprar más; el escalado completo está en la ficha)'
                 : ''
