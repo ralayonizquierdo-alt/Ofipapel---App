@@ -570,7 +570,15 @@ async function handleIncomingMessage(message) {
   // número (5 a 8 dígitos, sin nada más), lo más probable con diferencia es que sea
   // un número de pedido — se intenta la búsqueda real directamente, sin depender de
   // haber detectado antes la frase exacta que arranca el flujo.
-  if (!pasoPedido && woocommerce.isConfigured() && mencionaUnPedidoConcreto(text)) {
+  // ...salvo que el mensaje vaya de otra cosa que lleva su propia respuesta.
+  // Comprobado con un cliente real: "¿es posible pedir la factura? Se trata del
+  // pedido #637636" lleva un número de pedido, sí, pero lo que pide es la
+  // factura — y el atajo se lo comía y le contestaba el estado del pedido, que
+  // no era lo que había preguntado. Si una regla fija ya sabe qué contestar,
+  // manda ella; el atajo solo entra cuando no hay nada mejor, o cuando la regla
+  // que ha coincidido es justo la de "estado de mi pedido".
+  const faqMandaSobreElPedido = Boolean(faqReply) && !isPedidoEstadoQuestion(faqReply);
+  if (!pasoPedido && !faqMandaSobreElPedido && woocommerce.isConfigured() && mencionaUnPedidoConcreto(text)) {
     const gestionado = await continuarBusquedaPedido(message.from, text, { paso: 'numero' }, greeting);
     if (gestionado) return;
   }

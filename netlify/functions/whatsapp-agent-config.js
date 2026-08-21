@@ -222,6 +222,18 @@ function isPedidoEstadoQuestion(text) {
   return text === PEDIDO_ESTADO_TRIGGER;
 }
 
+// Las facturas de un pedido las lleva el repartidor con la mercancía: quien
+// pregunta por la suya normalmente no sabe eso, no le falta nada. Por eso se
+// dice primero, y solo después la vía para pedir una copia.
+//
+// Va a Pedidos, no a Administración: la copia de la factura de un pedido la
+// saca quien gestionó el pedido. Administración es para pagos, cuentas e
+// impagos, que es otra cosa.
+//
+// IMPORTANTE: esto solo se cuenta si el cliente pregunta por la factura. No es
+// información que haya que meter en cualquier respuesta sobre un pedido.
+const FACTURA_INFO = `La factura te la entrega el repartidor junto con la mercancía, dentro del pedido. Si no te la dejó o necesitas otra copia, escribe a pedidos@ofipapelsl.com con el número de pedido y te la mandan — o llama al ${STORES[0].phone} (extensión 2).`;
+
 const ADMINISTRACION_INFO = `Para temas administrativos (facturas, pagos, cuentas) contacta directamente con Administración: ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com.`;
 
 // Currículums y ofertas de empleo van SIEMPRE a comercial@ofipapelsl.com. Sin
@@ -556,6 +568,22 @@ const FAQ_RULES = [
     reply: EMPLEO_INFO,
   },
   {
+    // Antes que la regla de Administración: ahí "factura" a secas manda al
+    // departamento equivocado para lo que casi siempre se pregunta, que es la
+    // copia de la factura de un pedido. Estas frases son más largas, así que
+    // ganan (ver matchFaqRule, que se queda con la coincidencia más específica).
+    keywords: [
+      'la factura', 'una factura', 'mi factura', 'copia de la factura', 'copia de factura',
+      'pedir la factura', 'pedir factura', 'necesito la factura', 'quiero la factura',
+      'mandar la factura', 'mandarme la factura', 'enviar la factura', 'enviarme la factura',
+      'me manden la factura', 'me envien la factura', 'me envíen la factura',
+      'factura del pedido', 'factura de mi pedido', 'factura de la compra',
+      'no me dieron la factura', 'no me dejaron la factura', 'sin factura',
+      'factura simplificada', 'factura con mis datos', 'hacerme una factura',
+    ],
+    reply: FACTURA_INFO,
+  },
+  {
     keywords: ['factura', 'facturas', 'administracion', 'administración', 'departamento administrativo', 'telefono de administracion', 'teléfono de administración', 'telefono directo a administracion', 'teléfono directo a administración', 'extension de administracion', 'extensión de administración', 'extension 1', 'extensión 1'],
     reply: ADMINISTRACION_INFO,
   },
@@ -863,6 +891,7 @@ module.exports = {
   PEDIDO_ESTADO_TRIGGER,
   isPedidoEstadoQuestion,
   PRESUPUESTO_ESCOLAR_INFO,
+  FACTURA_INFO,
   isPresupuestoEscolar,
   FAQ_RULES,
   buildAiSystemPrompt,
