@@ -13,6 +13,22 @@
 
 const datos = require('./data/consumibles-impresora.json');
 
+// Cómo escribe el catálogo cada referencia. El proveedor nos da "TN248"; la web
+// dice "TN-248", y el buscador de WordPress compara letra por letra, así que sin
+// esto hay que adivinar la forma probando variantes (con guion, sin guion...).
+// Se genera con scripts/emparejar-catalogo.py mirando los nombres reales de los
+// productos.
+//
+// Es opcional a propósito: si el fichero no está, el bot sigue funcionando
+// exactamente como antes, adivinando. Así una regeneración a medias nunca deja
+// el bot roto.
+let REFERENCIAS_CATALOGO = {};
+try {
+  REFERENCIAS_CATALOGO = require('./data/referencias-catalogo.json').referencias || {};
+} catch {
+  console.warn('whatsapp-consumibles: sin referencias-catalogo.json, se buscará por la referencia del proveedor.');
+}
+
 // Un alias de 4 caracteres ("C2326") es corto y podría aparecer por casualidad
 // en cualquier frase; solo se acepta si además se nombra la marca. Los de 5 o
 // más ("MFCL2710DW", "SMARTTANK5109") son inconfundibles por sí solos.
@@ -142,6 +158,15 @@ function referenciaPrincipal(impresora) {
   return mejor ? mejor.familia : null;
 }
 
+// Con qué preguntarle al catálogo por el consumible de esta impresora: la forma
+// exacta en que está escrito ahí, si la sabemos, y si no la referencia tal cual
+// viene del proveedor (que es lo que se hacía siempre hasta ahora).
+function consultaDeCatalogo(impresora) {
+  const familia = referenciaPrincipal(impresora);
+  if (!familia) return null;
+  return REFERENCIAS_CATALOGO[familia] || familia;
+}
+
 function bloqueDeConsumibles(impresoras) {
   if (!impresoras || impresoras.length === 0) return null;
 
@@ -216,6 +241,7 @@ module.exports = {
   buscarImpresoras,
   consumiblesDe,
   referenciaPrincipal,
+  consultaDeCatalogo,
   bloqueDeConsumibles,
   respuestaSinCatalogo,
   normalizar,

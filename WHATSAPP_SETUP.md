@@ -572,6 +572,55 @@ la función, no se consultan por red. Es a propósito — la relación
 equipo-consumible no está publicada en ofipapel.net, y la web se cae o nos
 bloquea con demasiada frecuencia como para depender de ella también para esto.
 
+### Cómo lo escribe el catálogo
+
+El proveedor da `TN248`; la web escribe `TN-248`. Y el buscador de WordPress
+compara letra por letra, así que preguntar por `TN248` no encuentra nada aunque
+el producto esté ahí. Igual con `A4` contra `A-4`, o `nº305` contra `305`.
+
+`scripts/emparejar-catalogo.py` descarga el catálogo entero una vez, busca cada
+referencia dentro de los nombres reales y anota la forma exacta en
+`netlify/functions/data/referencias-catalogo.json`. El bot pregunta por lo que
+sabe que existe, en vez de probar variantes.
+
+```bash
+# La primera vez, o cuando cambie el Excel del proveedor (tarda ~30 min):
+python3 scripts/emparejar-catalogo.py catalogo.json
+
+# Repetir el emparejado sin volver a descargar (usa el catalogo.json de antes):
+python3 scripts/emparejar-catalogo.py catalogo.json
+```
+
+Ese fichero es **opcional**: si no está, el bot busca por la referencia del
+proveedor exactamente como antes. Una regeneración a medias no puede dejarlo
+roto.
+
+Requiere que el hosting no nos esté bloqueando — ver "Cuando ofipapel.net nos
+bloquea".
+
+### Cuánto del índice tiene precio en la web
+
+Medido sobre el catálogo entero (18.891 productos), no sobre una muestra:
+
+| Marca | Equipos con precio | Total | |
+|---|---|---|---|
+| EPSON | 23 | 27 | 85% |
+| HP | 80 | 124 | 65% |
+| BROTHER | 72 | 135 | 53% |
+| CANON | 2 | 2 | 100% |
+| KYOCERA | 2 | 64 | 3% |
+| LEXMARK, OKI, DYMO, PANTUM, TOSHIBA, RICOH | 0 | 117 | 0% |
+| **TOTAL** | **179** | **469** | **38%** |
+
+El 38% general engaña: el Excel es el catálogo **completo del distribuidor**
+(Lexmark de empresa, Kyocera TASKalfa, OKI industrial, etiquetadoras Dymo…),
+mientras que la web vende la gama de hogar y pequeña oficina. Donde importa —
+Epson, HP y Brother, que son 286 de los 469 equipos — la cobertura va del 53%
+al 85%.
+
+Para el resto el bot sigue siendo útil: da la referencia correcta, que es la
+pregunta que hace el cliente. Lo que no puede dar es el precio.
+
 ### Lo que este índice NO resuelve
 
 - **Solo lleva los equipos que el distribuidor vende hoy.** Una MFC-L2710DW o
