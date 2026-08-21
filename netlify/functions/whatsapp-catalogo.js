@@ -74,7 +74,7 @@ async function construirContextoCatalogo({ from, text, history }) {
   //     contestó "sí tenemos, llama por teléfono" en vez de dar precios.
   // Por eso, cuando hay referencia, se busca por ella PRIMERO, y solo si no
   // devuelve nada se recurre a la frase del cliente.
-  const referencia = impresoras.length === 1 ? consumibles.referenciaPrincipal(impresoras[0]) : null;
+  const referencia = impresoras.length === 1 ? consumibles.consultaDeCatalogo(impresoras[0]) : null;
   const consultaPrincipal = referencia ? `${impresoras[0].m} ${referencia}` : searchQuery;
 
   const [busqueda, categorias] = await Promise.all([
