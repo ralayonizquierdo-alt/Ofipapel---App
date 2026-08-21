@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Averigua cómo escribe el catálogo de ofipapel.net cada referencia de consumible.
 
-    python3 scripts/emparejar-catalogo.py
+    python3 scripts/emparejar-catalogo.py [catalogo-en-cache.json]
+
+Si se le pasa un fichero, lo usa como catálogo si existe y lo escribe si no —
+así se puede repetir el emparejado sin volver a descargar media hora.
 
 Salida: netlify/functions/data/referencias-catalogo.json
 
@@ -100,41 +103,39 @@ def descargar_catalogo():
 # Emparejado
 # --------------------------------------------------------------------------
 
-def normalizar_con_mapa(texto):
-    """Texto en mayúsculas y sin puntuación, más de dónde salió cada carácter.
-
-    El mapa de posiciones es lo que permite recuperar después cómo estaba
-    escrita la referencia en el nombre original ("TN-248") sabiendo dónde encaja
-    la normalizada ("TN248")."""
-    letras, posiciones = [], []
+def sin_acentos(texto):
     base = unicodedata.normalize('NFD', str(texto or ''))
-    for posicion, caracter in enumerate(base):
-        if unicodedata.combining(caracter):
-            continue
-        mayuscula = caracter.upper()
-        if mayuscula.isalnum():
-            letras.append(mayuscula)
-            posiciones.append(posicion)
-    return ''.join(letras), posiciones, base
+    return ''.join(c for c in base if not unicodedata.combining(c)).upper()
 
 
-def normalizar(texto):
-    return normalizar_con_mapa(texto)[0]
+# Lo que separa las partes de una referencia según quién la escriba: el
+# proveedor pone "TN248", el catálogo "TN-248", y a veces "(Nº305)" o "604-XL".
+SEPARADORES = r'[\s\-.,/()ºN°_]*'
 
 
-def forma_en_catalogo(nombre, referencia_normalizada):
-    """Cómo aparece escrita esa referencia dentro del nombre del producto."""
-    normalizado, posiciones, base = normalizar_con_mapa(nombre)
-    donde = normalizado.find(referencia_normalizada)
-    if donde < 0:
+def patron_de_referencia(referencia):
+    """Regex que encuentra la referencia escrita como sea, pero como PALABRA.
+
+    Buscar por trozos de texto sin más no vale, y se vio en las pruebas:
+      - "120A" encajaba dentro de "OfficeJet Pro 8120 (Amarillo)".
+      - "14A" encajaba dentro de "TAMBOR ... (314-A)".
+      - "207X" encajaba dentro de "W207xA", que es otro producto.
+
+    De ahí las dos condiciones:
+      - Delante no puede haber letra ni dígito.
+      - Detrás no puede haber un dígito. Letras sí: "TN-248XL" y "(603XL)" son
+        la misma familia que "TN-248" y "603", solo que en tamaño grande.
+    """
+    partes = re.findall(r'[A-Z]+|[0-9]+', sin_acentos(referencia))
+    if not partes:
         return None
-    inicio = posiciones[donde]
-    fin = posiciones[donde + len(referencia_normalizada) - 1] + 1
-    return unicodedata.normalize('NFC', base[inicio:fin])
+    cuerpo = SEPARADORES.join(re.escape(parte) for parte in partes)
+    return re.compile(rf'(?<![A-Z0-9]){cuerpo}(?![0-9])')
 
 
-# Mismos criterios que whatsapp-consumibles.js: los colores y las capacidades no
-# distinguen un consumible de otro a efectos de buscarlo en el catálogo.
+# Mismos criterios que whatsapp-consumibles.js: ni el color ni la capacidad
+# distinguen un consumible de otro a la hora de buscarlo en el catálogo.
+# TN248BK, TN248C y TN248XLM son todos "TN248"; 604 y 604XL son "604".
 SUFIJO_DE_COLOR = re.compile(r'(BK|CL|VAL|CMY|[CMYK])$')
 SUFIJO_DE_CAPACIDAD = re.compile(r'XX?L$')
 
@@ -156,38 +157,42 @@ def familias_del_indice(indice):
 
 
 def emparejar(catalogo, familias):
-    nombres = [(producto, normalizar(producto['name'])) for producto in catalogo]
+    nombres = [(producto, sin_acentos(producto['name'])) for producto in catalogo]
     encontradas, perdidas = {}, []
 
     for familia, marcas in sorted(familias.items()):
-        referencia = normalizar(familia)
         # Menos de tres caracteres encaja con demasiadas cosas por casualidad.
-        if len(referencia) < 3:
+        if len(re.sub(r'[^A-Z0-9]', '', familia.upper())) < 3:
+            continue
+        patron = patron_de_referencia(familia)
+        if not patron:
             continue
 
-        marcas_normalizadas = {normalizar(marca)[:4] for marca in marcas}
-        coincidencias = [
-            producto
-            for producto, nombre in nombres
-            if referencia in nombre and any(marca in nombre for marca in marcas_normalizadas)
-        ]
+        marcas_normalizadas = {sin_acentos(marca)[:4] for marca in marcas}
+        coincidencias = []
+        for producto, nombre in nombres:
+            encaje = patron.search(nombre)
+            if not encaje:
+                continue
+            # La marca tiene que estar en el nombre: sin esto, una referencia
+            # corta de una marca acaba encontrando productos de otra.
+            if not any(marca in nombre for marca in marcas_normalizadas):
+                continue
+            coincidencias.append((producto, encaje))
 
         if not coincidencias:
             perdidas.append({'familia': familia, 'marcas': sorted(marcas)})
             continue
 
-        # Puede aparecer escrita de varias formas entre productos distintos; se
-        # queda la más repetida, que es la del grueso del catálogo.
-        formas = collections.Counter()
-        for producto in coincidencias:
-            forma = forma_en_catalogo(producto['name'], referencia)
-            if forma:
-                formas[forma] += 1
-
+        # La forma exacta se saca del nombre original, en la posición donde
+        # encajó. Puede variar entre productos; se queda la más repetida.
+        formas = collections.Counter(
+            producto['name'][encaje.start():encaje.end()] for producto, encaje in coincidencias
+        )
         encontradas[familia] = {
-            'q': formas.most_common(1)[0][0] if formas else familia,
+            'q': formas.most_common(1)[0][0],
             'n': len(coincidencias),
-            'compatibles': sum(1 for p in coincidencias if 'compatible' in p['name'].lower()),
+            'compatibles': sum(1 for p, _ in coincidencias if 'compatible' in p['name'].lower()),
         }
 
     return encontradas, perdidas
@@ -197,9 +202,20 @@ def main():
     with open(INDICE, encoding='utf-8') as fichero:
         indice = json.load(fichero)
 
-    print('Descargando el catálogo de ofipapel.net (tarda ~30 min)...', flush=True)
-    catalogo = descargar_catalogo()
-    print(f'{len(catalogo)} productos descargados.\n', flush=True)
+    # Con un catálogo ya descargado se puede repetir el emparejado sin volver a
+    # bajarlo, que es media hora y una carga innecesaria para la web.
+    cache = sys.argv[1] if len(sys.argv) > 1 else None
+    if cache and os.path.exists(cache):
+        with open(cache, encoding='utf-8') as fichero:
+            catalogo = json.load(fichero)
+        print(f'Catálogo leído de {cache}: {len(catalogo)} productos.\n', flush=True)
+    else:
+        print('Descargando el catálogo de ofipapel.net (tarda ~30 min)...', flush=True)
+        catalogo = descargar_catalogo()
+        print(f'{len(catalogo)} productos descargados.\n', flush=True)
+        if cache:
+            with open(cache, 'w', encoding='utf-8') as fichero:
+                json.dump(catalogo, fichero, ensure_ascii=False)
 
     familias = familias_del_indice(indice)
     encontradas, perdidas = emparejar(catalogo, familias)
