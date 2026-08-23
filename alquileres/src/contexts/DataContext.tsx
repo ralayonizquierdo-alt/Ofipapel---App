@@ -394,13 +394,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await enLotes(nuevas.flatMap(datos => {
       const id = nanoid()
       const reserva: Reservation = { ...datos, id, createdAt: ahora }
-      const pago: Payment = {
-        id: nanoid(), reservationId: id, amount: datos.total, received: false, createdAt: ahora,
-      }
-      return [
+      const escrituras = [
         (b: ReturnType<typeof writeBatch>) => b.set(doc(db, 'reservations', id), stripUndef(reserva)),
-        (b: ReturnType<typeof writeBatch>) => b.set(doc(db, 'payments', pago.id), stripUndef(pago)),
       ]
+      // Una reserva anulada o sin importe no deja nada que cobrar.
+      if (datos.total > 0 && datos.status !== 'cancelada') {
+        const pago: Payment = {
+          id: nanoid(), reservationId: id, amount: datos.total, received: false, createdAt: ahora,
+        }
+        escrituras.push((b: ReturnType<typeof writeBatch>) => b.set(doc(db, 'payments', pago.id), stripUndef(pago)))
+      }
+      return escrituras
     }))
 
     return { borradas: viejas.length, creadas: nuevas.length }

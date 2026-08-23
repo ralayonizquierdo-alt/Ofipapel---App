@@ -37,9 +37,18 @@ export interface ReservaImportada {
   guestName: string
   /** De dónde salen las fechas: de la nota escrita o de la franja de color. */
   origen: 'nota' | 'color'
-  /** Se pisa con otra estancia del mismo inmueble. */
+  /** La nota dice que se anuló. Entra, pero como cancelada. */
+  cancelada: boolean
+  /** Se pisa con otra estancia viva del mismo inmueble. */
   solapada: boolean
 }
+
+/**
+ * Una estancia anulada se queda pintada en el calendario y encima se pinta la
+ * que la sustituye, así que salen dos franjas donde solo hubo una estancia. La
+ * nota es lo único que lo distingue.
+ */
+const ANULADA = /\b(anulad|cancelad)/i
 
 export interface ResultadoCalendario {
   reservas: ReservaImportada[]
@@ -228,15 +237,18 @@ export function analizaCalendario(hoja: HojaXlsx): ResultadoCalendario {
       nights: Math.round((+salida - +entrada) / 86400000),
       guestName: nombres.join(' / ').slice(0, 150),
       origen: mejor ? 'nota' : 'color',
+      cancelada: nombres.some(n => ANULADA.test(n)),
       solapada: false,
     })
   }
 
   reservas.sort((a, b) => a.checkIn.localeCompare(b.checkIn) || a.apartmentId.localeCompare(b.apartmentId))
 
-  // Marcar las que se pisan con otra del mismo inmueble
+  // Marcar las que se pisan con otra del mismo inmueble. Las anuladas no
+  // cuentan: su sitio lo ocupa la que las sustituyó, y por eso se pisaban.
   const porApt = new Map<string, ReservaImportada[]>()
   for (const r of reservas) {
+    if (r.cancelada) continue
     if (!porApt.has(r.apartmentId)) porApt.set(r.apartmentId, [])
     porApt.get(r.apartmentId)!.push(r)
   }

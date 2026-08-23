@@ -57,6 +57,7 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
       porAnio: [...porAnio.entries()].sort(),
       porApt: [...porApt.entries()].sort((a, b) => b[1] - a[1]),
       solapadas: conPrecio.filter(r => r.solapada).length,
+      anuladas: conPrecio.filter(r => r.cancelada).length,
       deColor: conPrecio.filter(r => r.origen === 'color').length,
       sinPrecio: conPrecio.filter(r => r.total === 0).length,
       importe: conPrecio.reduce((s, r) => s + r.total, 0),
@@ -111,7 +112,7 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
         cleaningFee: r.cleaningFee,
         discountPct: 0,
         total: r.total,
-        status: 'completada',
+        status: r.cancelada ? 'cancelada' : 'completada',
         notes: r.origen === 'color' ? 'Del calendario; fechas tomadas del color de la casilla' : 'Del calendario',
       }))
       const { borradas, creadas } = await reemplazaReservas(nuevas, aniosABorrar)
@@ -194,8 +195,14 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
               </div>
             </div>
 
-            {(resumen.solapadas > 0 || resumen.deColor > 0 || resumen.sinPrecio > 0) && (
+            {(resumen.solapadas > 0 || resumen.deColor > 0 || resumen.sinPrecio > 0 || resumen.anuladas > 0) && (
               <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 space-y-1">
+                {resumen.anuladas > 0 && (
+                  <p className="text-sm text-amber-900">
+                    <b>{resumen.anuladas} venían anuladas</b> en el calendario: entran marcadas como
+                    canceladas, así que no cuentan como ocupación ni como ingreso.
+                  </p>
+                )}
                 {resumen.solapadas > 0 && (
                   <p className="text-sm text-amber-900">
                     <b>{resumen.solapadas} se pisan</b> con otra estancia del mismo inmueble. Entran igual,
