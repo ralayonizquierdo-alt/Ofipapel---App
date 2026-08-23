@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Pencil, Trash2, CheckCircle, Circle, ClipboardPaste } from 'lucide-react'
+import { Plus, Pencil, Trash2, CheckCircle, Circle, ClipboardPaste, CalendarRange } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { Reservation, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
@@ -8,6 +8,7 @@ import { calcTotal, buscaTarifa, stayTypeDays, lineasPrecio, TRAMO_LABEL, type T
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
 import PegarWhatsApp from '../components/PegarWhatsApp'
+import ImportarReservas from '../components/ImportarReservas'
 
 const STAY_LABELS: Record<StayType, string> = {
   '1semana': '1 Semana', '2semanas': '2 Semanas', '3semanas': '3 Semanas',
@@ -32,6 +33,7 @@ export default function Reservations() {
   const { reservations, payments, apartments, prices } = useData()
   const [showForm, setShowForm] = useState(false)
   const [showPegar, setShowPegar] = useState(false)
+  const [showCalendario, setShowCalendario] = useState(false)
   const [editing, setEditing] = useState<Reservation | null>(null)
   const [selectedRes, setSelectedRes] = useState<Reservation | null>(null)
   const [filterApt, setFilterApt] = useState('')
@@ -75,6 +77,11 @@ export default function Reservations() {
         subtitle={`${filtered.length} reservas`}
         actions={
           <div className="flex items-center gap-2">
+            <button onClick={() => setShowCalendario(true)}
+              title="Sustituir todas las reservas por las del calendario anual"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100">
+              <CalendarRange size={16} /> Cargar calendario
+            </button>
             <button onClick={() => setShowPegar(true)}
               className="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white text-slate-700 rounded-lg text-sm font-medium hover:border-blue-300">
               <ClipboardPaste size={16} /> Pegar desde WhatsApp
@@ -179,6 +186,8 @@ export default function Reservations() {
       )}
 
       {showPegar && <PegarWhatsApp onClose={() => setShowPegar(false)} />}
+
+      {showCalendario && <ImportarReservas onClose={() => setShowCalendario(false)} />}
     </div>
   )
 }

@@ -80,6 +80,8 @@ interface DataContextValue {
   }) => Promise<number>
   /** Deja constancia de un volcado de Excel. */
   anotaVolcado: (datos: Omit<ImportLog, 'id' | 'at' | 'by'>) => void
+  /** Borra TODAS las reservas y sus cobros, y deja en su sitio las nuevas. */
+  reemplazaReservas: (nuevas: Omit<Reservation, 'id' | 'createdAt'>[]) => Promise<{ borradas: number; creadas: number }>
 
   addOfferPrice:    (data: Omit<OfferPrice, 'id'>) => OfferPrice
   updateOfferPrice: (id: string, data: Partial<OfferPrice>) => void
@@ -355,6 +357,48 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     setDoc(doc(db, 'importLogs', id), stripUndef(item))
   }
+  /**
+   * Cambia el juego de reservas entero: borra las que hay con sus cobros y
+   * mete las nuevas, cada una con su cobro pendiente.
+   *
+   * Es la operación más destructiva de la app, así que va toda en lotes y en
+   * un orden claro: primero se borra, luego se escribe. Quien la llama tiene
+   * que haber avisado antes; aquí ya no se pregunta.
+   */
+  async function reemplazaReservas(
+    nuevas: Omit<Reservation, 'id' | 'createdAt'>[],
+  ): Promise<{ borradas: number; creadas: number }> {
+    const viejas = reservations.map(r => r.id)
+    const cobrosViejos = payments.filter(p => viejas.includes(p.reservationId)).map(p => p.id)
+
+    const enLotes = async (trabajo: ((b: ReturnType<typeof writeBatch>) => void)[]) => {
+      for (let i = 0; i < trabajo.length; i += 400) {
+        const batch = writeBatch(db)
+        for (const t of trabajo.slice(i, i + 400)) t(batch)
+        await batch.commit()
+      }
+    }
+
+    await enLotes([
+      ...cobrosViejos.map(id => (b: ReturnType<typeof writeBatch>) => b.delete(doc(db, 'payments', id))),
+      ...viejas.map(id => (b: ReturnType<typeof writeBatch>) => b.delete(doc(db, 'reservations', id))),
+    ])
+
+    const ahora = new Date().toISOString()
+    await enLotes(nuevas.flatMap(datos => {
+      const id = nanoid()
+      const reserva: Reservation = { ...datos, id, createdAt: ahora }
+      const pago: Payment = {
+        id: nanoid(), reservationId: id, amount: datos.total, received: false, createdAt: ahora,
+      }
+      return [
+        (b: ReturnType<typeof writeBatch>) => b.set(doc(db, 'reservations', id), stripUndef(reserva)),
+        (b: ReturnType<typeof writeBatch>) => b.set(doc(db, 'payments', pago.id), stripUndef(pago)),
+      ]
+    }))
+
+    return { borradas: viejas.length, creadas: nuevas.length }
+  }
   async function importExpenses(items: Expense[]): Promise<number> {
     for (let i = 0; i < items.length; i += 400) {
       const batch = writeBatch(db)
@@ -389,7 +433,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addReservation, updateReservation, deleteReservation,
       addPayment, updatePayment, deletePayment,
       addRepair, updateRepair, deleteRepair, deleteRepairWithAudit,
-      addExpense, updateExpense, deleteExpense, importExpenses, importIncomes, importOccupancies, importRepairTotals, purgeImported, anotaVolcado,
+      addExpense, updateExpense, deleteExpense, importExpenses, importIncomes, importOccupancies, importRepairTotals, purgeImported, anotaVolcado, reemplazaReservas,
       addOfferPrice, updateOfferPrice, deleteOfferPrice,
     }}>
       {children}
