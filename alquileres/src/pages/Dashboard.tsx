@@ -6,6 +6,7 @@ import { calcIGIC } from '../lib/priceCalc'
 import { Link } from 'react-router-dom'
 import AlertasDescuadre from '../components/AlertasDescuadre'
 import { CajaPegar } from '../components/PegarWhatsApp'
+import SoltarGastos from '../components/SoltarGastos'
 import { tocaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
 
 export default function Dashboard() {
@@ -76,11 +77,14 @@ export default function Dashboard() {
       <div className="mb-6 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2">
           <ClipboardPaste size={15} className="text-blue-600" />
-          <p className="text-sm font-semibold text-slate-700">Pegar desde WhatsApp</p>
-          <span className="text-xs text-slate-400">reservas y cobros, sin teclear</span>
+          <p className="text-sm font-semibold text-slate-700">Entrada rápida</p>
+          <span className="text-xs text-slate-400">
+            pega el mensaje de WhatsApp, o suelta el PDF de un cobro o el Excel de gastos
+          </span>
         </div>
-        <div className="p-4">
+        <div className="p-4 space-y-3">
           <CajaPegar compacta />
+          <SoltarGastos />
         </div>
       </div>
 

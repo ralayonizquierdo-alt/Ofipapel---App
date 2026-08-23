@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Upload, AlertTriangle, CheckCircle2, History } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { leerExcel, idGasto, idIngreso, idOcupacion, idReparacionDeclarada, type ResultadoImport } from '../lib/importExcel'
@@ -22,7 +22,9 @@ function fechaHora(iso: string): string {
  * antes de escribir: el fichero puede traer inmuebles que no reconozcamos o
  * conceptos nuevos, y conviene verlo antes de tocar los datos.
  */
-export default function ImportarExcel({ onClose }: { onClose: () => void }) {
+export default function ImportarExcel(
+  { onClose, ficheroInicial }: { onClose: () => void; ficheroInicial?: File },
+) {
   const {
     importExpenses, importIncomes, importOccupancies, importRepairTotals, purgeImported,
     apartments, expenses, incomes, occupancies, repairTotals, importLogs, anotaVolcado,
@@ -35,9 +37,7 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
   const [ingresosHechos, setIngresosHechos] = useState(0)
   const [borrados, setBorrados] = useState(0)
 
-  async function elegirFichero(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    if (!f) return
+  async function lee(f: File) {
     setError(''); setPrevio(null); setHecho(0); setBorrados(0); setNombreFichero(f.name)
     try {
       const r = await leerExcel(f)
@@ -50,6 +50,18 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
       setError('No se ha podido leer el fichero. Debe ser un .xlsx.')
     }
   }
+
+  function elegirFichero(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (f) lee(f)
+    e.target.value = ''   // así se puede volver a elegir el mismo fichero
+  }
+
+  // Cuando se llega soltando el fichero en el dashboard, ya viene elegido: hay
+  // que leerlo al abrirse, que es lo que en la pantalla de Gastos hace el clic.
+  useEffect(() => {
+    if (ficheroInicial) lee(ficheroInicial)
+  }, [ficheroInicial])
 
   /**
    * Lo que se va a escribir, ya con su id definitivo. Se calcula antes de
@@ -218,10 +230,13 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
               pantalla con proveedor y factura, y volcarlas aquí duplicaría el gasto.
             </p>
 
-            <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-300 rounded-lg p-6 cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 transition-colors">
+            <label
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) lee(f) }}
+              className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-300 rounded-lg p-6 cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 transition-colors">
               <Upload size={22} className="text-slate-400" />
               <span className="text-sm font-medium text-slate-600">
-                {nombreFichero || 'Elegir fichero .xlsx'}
+                {nombreFichero || 'Elegir o arrastrar el fichero .xlsx'}
               </span>
               <input type="file" accept=".xlsx" className="hidden" onChange={elegirFichero} />
             </label>
@@ -343,6 +358,17 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
                 Reparaciones. Solo se anota la cifra del Excel para poder compararlas y
                 avisar en el dashboard si no cuadran.
               </p>
+            )}
+
+            {previo.sinJustificante.length > 0 && (
+              <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
+                <p className="text-sm text-amber-900">
+                  <b>{previo.sinJustificante.length} líneas de gastos sin justificante</b>{' '}
+                  ({previo.sinJustificante.reduce((s, g) => s + g.base, 0)
+                    .toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €)
+                  no se cargan: falta decidir si se deducen o no. En cuanto se decida, se añaden.
+                </p>
+              </div>
             )}
 
             {previo.inmueblesNoReconocidos.length > 0 && (
