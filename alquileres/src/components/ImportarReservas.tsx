@@ -12,10 +12,12 @@ const eur = (n: number) =>
 /**
  * Volcado del calendario anual de reservas.
  *
- * Sustituye el juego de reservas entero: el calendario es la fuente buena y lo
- * que hay en la app se queda como estaba solo hasta que alguien confirma. Por
- * eso se enseña todo antes —cuántas entran, cuántas se van, qué se pisa— y el
- * botón no se activa hasta marcar que hay copia de seguridad.
+ * El calendario es la fuente buena, así que sustituye lo que hay en la app —
+ * pero solo de los años que trae el fichero: los calendarios se suben de uno
+ * en uno y subir el de 2026 no puede llevarse por delante lo de 2022 a 2025.
+ *
+ * Se enseña todo antes de tocar nada —cuántas entran, cuántas se van, cuáles
+ * se pisan— y el botón no se activa hasta marcar que hay copia de seguridad.
  */
 export default function ImportarReservas({ onClose }: { onClose: () => void }) {
   const { reservations, payments, prices, apartments, reemplazaReservas } = useData()
@@ -58,7 +60,14 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
     }
   }, [conPrecio])
 
-  const cobrosActuales = payments.filter(p => reservations.some(r => r.id === p.reservationId)).length
+  /** Años que trae el fichero: solo se tocan las reservas de esos años. */
+  const anios = useMemo(() => [...new Set(conPrecio.map(r => r.checkIn.slice(0, 4)))].sort(), [conPrecio])
+  const aRetirar = useMemo(
+    () => reservations.filter(r => anios.includes(r.checkIn.slice(0, 4))),
+    [reservations, anios],
+  )
+  const seQuedan = reservations.length - aRetirar.length
+  const cobrosARetirar = payments.filter(p => aRetirar.some(r => r.id === p.reservationId)).length
 
   async function elegir(f: File) {
     setError(''); setPrevio(null); setHecho(''); setNombreFichero(f.name); setLeyendo(true)
@@ -94,8 +103,8 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
         status: 'completada',
         notes: r.origen === 'color' ? 'Del calendario; fechas tomadas del color de la casilla' : 'Del calendario',
       }))
-      const { borradas, creadas } = await reemplazaReservas(nuevas)
-      setHecho(`${creadas} reservas cargadas. Se han retirado las ${borradas} que había antes.`)
+      const { borradas, creadas } = await reemplazaReservas(nuevas, anios)
+      setHecho(`${creadas} reservas cargadas (${anios.join(', ')}). Se han retirado las ${borradas} que había de esos años.`)
       setPrevio(null)
     } catch {
       setError('No se han podido guardar. Revisa la conexión y vuelve a intentarlo; los datos siguen como estaban.')
@@ -202,9 +211,15 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
                 <AlertTriangle size={16} /> Esto borra lo que hay ahora
               </p>
               <p className="text-sm text-red-900 mt-1">
-                Se retirarán las <b>{reservations.length} reservas</b> y sus <b>{cobrosActuales} cobros</b>,
-                y en su lugar quedarán estas {conPrecio.length}. No se puede deshacer.
+                Solo se tocan los años que trae el fichero (<b>{anios.join(', ')}</b>): se retirarán{' '}
+                <b>{aRetirar.length} reservas</b> y sus <b>{cobrosARetirar} cobros</b>, y en su lugar
+                quedarán estas {conPrecio.length}. No se puede deshacer.
               </p>
+              {seQuedan > 0 && (
+                <p className="text-sm text-red-900 mt-1">
+                  Las <b>{seQuedan}</b> de otros años se quedan como están.
+                </p>
+              )}
               <label className="flex items-center gap-2 mt-3 text-sm text-red-900 cursor-pointer">
                 <input type="checkbox" checked={conCopia} onChange={e => setConCopia(e.target.checked)} />
                 Tengo descargada la copia de seguridad

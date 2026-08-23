@@ -80,8 +80,10 @@ interface DataContextValue {
   }) => Promise<number>
   /** Deja constancia de un volcado de Excel. */
   anotaVolcado: (datos: Omit<ImportLog, 'id' | 'at' | 'by'>) => void
-  /** Borra TODAS las reservas y sus cobros, y deja en su sitio las nuevas. */
-  reemplazaReservas: (nuevas: Omit<Reservation, 'id' | 'createdAt'>[]) => Promise<{ borradas: number; creadas: number }>
+  /** Sustituye las reservas de esos años (y sus cobros) por las nuevas. */
+  reemplazaReservas: (
+    nuevas: Omit<Reservation, 'id' | 'createdAt'>[], anios: string[],
+  ) => Promise<{ borradas: number; creadas: number }>
 
   addOfferPrice:    (data: Omit<OfferPrice, 'id'>) => OfferPrice
   updateOfferPrice: (id: string, data: Partial<OfferPrice>) => void
@@ -358,17 +360,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setDoc(doc(db, 'importLogs', id), stripUndef(item))
   }
   /**
-   * Cambia el juego de reservas entero: borra las que hay con sus cobros y
-   * mete las nuevas, cada una con su cobro pendiente.
+   * Cambia el juego de reservas de unos años concretos: borra las de esos años
+   * con sus cobros y mete las nuevas, cada una con su cobro pendiente.
+   *
+   * Va por años y no de golpe porque los calendarios se suben de uno en uno:
+   * subir el de 2026 no puede llevarse por delante lo de 2022 a 2025.
    *
    * Es la operación más destructiva de la app, así que va toda en lotes y en
    * un orden claro: primero se borra, luego se escribe. Quien la llama tiene
    * que haber avisado antes; aquí ya no se pregunta.
    */
   async function reemplazaReservas(
-    nuevas: Omit<Reservation, 'id' | 'createdAt'>[],
+    nuevas: Omit<Reservation, 'id' | 'createdAt'>[], anios: string[],
   ): Promise<{ borradas: number; creadas: number }> {
-    const viejas = reservations.map(r => r.id)
+    const afectados = new Set(anios)
+    const viejas = reservations.filter(r => afectados.has(r.checkIn.slice(0, 4))).map(r => r.id)
     const cobrosViejos = payments.filter(p => viejas.includes(p.reservationId)).map(p => p.id)
 
     const enLotes = async (trabajo: ((b: ReturnType<typeof writeBatch>) => void)[]) => {
