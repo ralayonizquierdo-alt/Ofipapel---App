@@ -27,6 +27,18 @@ O el justificante de una transferencia, o suelta su PDF.`
  * transferencia (un cobro). Nunca guarda sin enseñar antes qué va a guardar.
  */
 export default function PegarWhatsApp({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal title="Pegar desde WhatsApp" onClose={onClose} size="lg">
+      <CajaPegar onClose={onClose} />
+    </Modal>
+  )
+}
+
+/**
+ * El contenido, sin ventana. Se usa tal cual dentro del dashboard, donde tener
+ * la caja a la vista ahorra un clic: llega el mensaje, se pega y listo.
+ */
+export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void; compacta?: boolean }) {
   const { reservations, payments, apartments, prices, addReservation, addPayment, updatePayment } = useData()
   const [texto, setTexto] = useState('')
   const [leyendoPdf, setLeyendoPdf] = useState(false)
@@ -131,8 +143,7 @@ export default function PegarWhatsApp({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="Pegar desde WhatsApp" onClose={onClose} size="lg">
-      <div className="space-y-4">
+    <div className="space-y-4">
         {hecho && (
           <div className="bg-green-50 border border-green-300 rounded-lg p-3 flex gap-2.5">
             <CheckCircle2 className="text-green-600 shrink-0 mt-0.5" size={18} />
@@ -144,7 +155,7 @@ export default function PegarWhatsApp({ onClose }: { onClose: () => void }) {
           ref={areaRef}
           value={texto}
           onChange={e => { setTexto(e.target.value); setHecho(''); setError('') }}
-          rows={6}
+          rows={compacta ? 3 : 6}
           placeholder={EJEMPLO}
           className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
@@ -231,9 +242,11 @@ export default function PegarWhatsApp({ onClose }: { onClose: () => void }) {
         )}
 
         <div className="flex justify-end gap-3 pt-1">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">
-            Cerrar
-          </button>
+          {onClose && (
+            <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">
+              Cerrar
+            </button>
+          )}
           {cobro ? (
             <button onClick={guardarCobro} disabled={guardando || !reservaDelCobro}
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50">
@@ -247,8 +260,7 @@ export default function PegarWhatsApp({ onClose }: { onClose: () => void }) {
             </button>
           )}
         </div>
-      </div>
-    </Modal>
+    </div>
   )
 }
 

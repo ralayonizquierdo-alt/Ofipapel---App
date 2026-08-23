@@ -1,10 +1,11 @@
-import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert, ClipboardPaste } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import type { Reservation } from '../types'
 import { formatDate, formatDateShort, today } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
 import { Link } from 'react-router-dom'
 import AlertasDescuadre from '../components/AlertasDescuadre'
+import { CajaPegar } from '../components/PegarWhatsApp'
 import { tocaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
 
 export default function Dashboard() {
@@ -68,6 +69,19 @@ export default function Dashboard() {
         <KpiCard icon={<Euro size={20} className="text-green-600" />} label="Cobrado este mes" value={`${monthIncome.toLocaleString('es-ES')} €`} sub={`IGIC: ${calcIGIC(monthIncome).toLocaleString('es-ES')} €`} color="green" />
         <KpiCard icon={<TrendingUp size={20} className="text-purple-600" />} label={`Neto ${currentYear}`} value={`${netYear.toLocaleString('es-ES')} €`} sub={`Ingresos: ${yearIncome.toLocaleString('es-ES')} €`} color="purple" />
         <KpiCard icon={<AlertTriangle size={20} className="text-amber-600" />} label="Pagos pendientes" value={String(pendingPayment.length)} sub="reservas sin cobrar" color="amber" />
+      </div>
+
+      {/* La caja de pegar va arriba del todo y a la vista: es lo que más se usa
+          al abrir la app, según llegan los mensajes de la inmobiliaria. */}
+      <div className="mb-6 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2">
+          <ClipboardPaste size={15} className="text-blue-600" />
+          <p className="text-sm font-semibold text-slate-700">Pegar desde WhatsApp</p>
+          <span className="text-xs text-slate-400">reservas y cobros, sin teclear</span>
+        </div>
+        <div className="p-4">
+          <CajaPegar compacta />
+        </div>
       </div>
 
       {/* Descuadres Excel ↔ app. Van antes que el resto de avisos: son los que
