@@ -254,7 +254,11 @@ export function analizaCalendario(hoja: HojaXlsx): ResultadoCalendario {
   }
   for (const lista of porApt.values()) {
     for (let i = 1; i < lista.length; i++) {
-      if (lista[i].checkIn < lista[i - 1].checkOut) {
+      // Pisarse un solo día es el cambio de huésped de toda la vida: uno sale
+      // por la mañana y el siguiente entra por la tarde, y el calendario pinta
+      // ese día en las dos franjas. Solo molesta a partir de dos días.
+      const dias = (+new Date(lista[i - 1].checkOut) - +new Date(lista[i].checkIn)) / 86400000
+      if (dias >= 2) {
         lista[i].solapada = true
         lista[i - 1].solapada = true
       }
