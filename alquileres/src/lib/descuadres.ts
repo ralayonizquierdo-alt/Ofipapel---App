@@ -11,7 +11,7 @@ import type {
  * se revise, cada pantalla sigue usando su fuente de siempre.
  */
 
-export type TipoDescuadre = 'ingresos' | 'reparaciones' | 'ocupacion' | 'sinFecha'
+export type TipoDescuadre = 'ingresos' | 'reparaciones' | 'ocupacion' | 'sinFecha' | 'solape'
 
 export interface Descuadre {
   id: string
@@ -163,6 +163,38 @@ export function calculaDescuadres(d: DatosDescuadre): Descuadre[] {
           `${nombre(o.apartmentId)} ${MESES[o.month - 1]}: ${o.diasAlquilados} de ${o.diasTotales} días`),
       })
     }
+  }
+
+  // ── Reservas que se pisan ──────────────────────────────────────────────────
+  // Dos estancias a la vez en el mismo piso no pueden ser: o una está mal
+  // apuntada o no llegó a ocurrir. Pisarse un solo día no cuenta: es el cambio
+  // de huésped de siempre, uno sale por la mañana y otro entra por la tarde.
+  const reservasPorInmueble = new Map<string, Reservation[]>()
+  for (const r of d.reservations) {
+    if (r.status === 'cancelada') continue
+    if (!reservasPorInmueble.has(r.apartmentId)) reservasPorInmueble.set(r.apartmentId, [])
+    reservasPorInmueble.get(r.apartmentId)!.push(r)
+  }
+  const solapes: { apt: string; a: Reservation; b: Reservation; dias: number }[] = []
+  for (const [apt, lista] of reservasPorInmueble) {
+    lista.sort((x, y) => x.checkIn.localeCompare(y.checkIn))
+    for (let i = 1; i < lista.length; i++) {
+      const dias = Math.round((+new Date(lista[i - 1].checkOut) - +new Date(lista[i].checkIn)) / 86400000)
+      if (dias >= 2) solapes.push({ apt, a: lista[i - 1], b: lista[i], dias })
+    }
+  }
+  if (solapes.length > 0) {
+    solapes.sort((x, y) => y.dias - x.dias)
+    const dia = (f: string) => f.split('-').reverse().join('/')
+    avisos.push({
+      id: 'solapes',
+      tipo: 'solape',
+      year: 0,
+      titulo: `${plural(solapes.length, 'reserva se pisa', 'reservas se pisan')} con otra del mismo inmueble`,
+      diferencia: 0,
+      detalle: solapes.map(s =>
+        `${nombre(s.apt)}: ${dia(s.a.checkIn)}–${dia(s.a.checkOut)} y ${dia(s.b.checkIn)}–${dia(s.b.checkOut)} (${s.dias} días)`),
+    })
   }
 
   // ── Cobros sin fecha ───────────────────────────────────────────────────────
