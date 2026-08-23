@@ -15,6 +15,8 @@ const eur = (n: number) =>
  * El calendario es la fuente buena, así que sustituye lo que hay en la app —
  * pero solo de los años que trae el fichero: los calendarios se suben de uno
  * en uno y subir el de 2026 no puede llevarse por delante lo de 2022 a 2025.
+ * Si además hay que limpiar otros años (reservas viejas de prueba, por
+ * ejemplo), hay una casilla para llevárselos por delante a propósito.
  *
  * Se enseña todo antes de tocar nada —cuántas entran, cuántas se van, cuáles
  * se pisan— y el botón no se activa hasta marcar que hay copia de seguridad.
@@ -25,6 +27,7 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
   const [nombreFichero, setNombreFichero] = useState('')
   const [leyendo, setLeyendo] = useState(false)
   const [conCopia, setConCopia] = useState(false)
+  const [borrarOtrosAnios, setBorrarOtrosAnios] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [hecho, setHecho] = useState('')
   const [error, setError] = useState('')
@@ -60,11 +63,19 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
     }
   }, [conPrecio])
 
-  /** Años que trae el fichero: solo se tocan las reservas de esos años. */
+  /** Años que trae el fichero: por defecto solo se tocan esos. */
   const anios = useMemo(() => [...new Set(conPrecio.map(r => r.checkIn.slice(0, 4)))].sort(), [conPrecio])
-  const aRetirar = useMemo(
-    () => reservations.filter(r => anios.includes(r.checkIn.slice(0, 4))),
+  const otrosAnios = useMemo(
+    () => [...new Set(reservations.map(r => r.checkIn.slice(0, 4)))].filter(a => !anios.includes(a)).sort(),
     [reservations, anios],
+  )
+  const aniosABorrar = useMemo(
+    () => (borrarOtrosAnios ? [...anios, ...otrosAnios] : anios),
+    [anios, otrosAnios, borrarOtrosAnios],
+  )
+  const aRetirar = useMemo(
+    () => reservations.filter(r => aniosABorrar.includes(r.checkIn.slice(0, 4))),
+    [reservations, aniosABorrar],
   )
   const seQuedan = reservations.length - aRetirar.length
   const cobrosARetirar = payments.filter(p => aRetirar.some(r => r.id === p.reservationId)).length
@@ -103,8 +114,8 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
         status: 'completada',
         notes: r.origen === 'color' ? 'Del calendario; fechas tomadas del color de la casilla' : 'Del calendario',
       }))
-      const { borradas, creadas } = await reemplazaReservas(nuevas, anios)
-      setHecho(`${creadas} reservas cargadas (${anios.join(', ')}). Se han retirado las ${borradas} que había de esos años.`)
+      const { borradas, creadas } = await reemplazaReservas(nuevas, aniosABorrar)
+      setHecho(`${creadas} reservas cargadas (${anios.join(', ')}). Se han retirado las ${borradas} que había de ${aniosABorrar.join(', ')}.`)
       setPrevio(null)
     } catch {
       setError('No se han podido guardar. Revisa la conexión y vuelve a intentarlo; los datos siguen como estaban.')
@@ -215,10 +226,15 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
                 <b>{aRetirar.length} reservas</b> y sus <b>{cobrosARetirar} cobros</b>, y en su lugar
                 quedarán estas {conPrecio.length}. No se puede deshacer.
               </p>
-              {seQuedan > 0 && (
-                <p className="text-sm text-red-900 mt-1">
-                  Las <b>{seQuedan}</b> de otros años se quedan como están.
-                </p>
+              {otrosAnios.length > 0 && (
+                <label className="flex items-start gap-2 mt-2 text-sm text-red-900 cursor-pointer">
+                  <input type="checkbox" className="mt-0.5" checked={borrarOtrosAnios}
+                    onChange={e => setBorrarOtrosAnios(e.target.checked)} />
+                  <span>
+                    Borrar también las de {otrosAnios.join(', ')}, que este fichero no trae
+                    {seQuedan > 0 && !borrarOtrosAnios && <> — ahora mismo <b>{seQuedan}</b> se quedarían</>}
+                  </span>
+                </label>
               )}
               <label className="flex items-center gap-2 mt-3 text-sm text-red-900 cursor-pointer">
                 <input type="checkbox" checked={conCopia} onChange={e => setConCopia(e.target.checked)} />
