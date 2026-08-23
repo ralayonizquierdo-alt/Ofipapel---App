@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Pencil, Trash2, CheckCircle, Circle } from 'lucide-react'
+import { Plus, Pencil, Trash2, CheckCircle, Circle, ClipboardPaste } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { Reservation, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
-import { formatDate, getNights, getSeason, today } from '../lib/dateUtils'
-import { getApartmentType, calcTotal, precioPorNoches, stayTypeDays, lineasPrecio, TRAMO_LABEL, type Tramo } from '../lib/priceCalc'
+import { formatDate, getNights, today } from '../lib/dateUtils'
+import { calcTotal, buscaTarifa, stayTypeDays, lineasPrecio, TRAMO_LABEL, type Tramo } from '../lib/priceCalc'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
+import PegarWhatsApp from '../components/PegarWhatsApp'
 
 const STAY_LABELS: Record<StayType, string> = {
   '1semana': '1 Semana', '2semanas': '2 Semanas', '3semanas': '3 Semanas',
@@ -30,6 +31,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function Reservations() {
   const { reservations, payments, apartments, prices } = useData()
   const [showForm, setShowForm] = useState(false)
+  const [showPegar, setShowPegar] = useState(false)
   const [editing, setEditing] = useState<Reservation | null>(null)
   const [selectedRes, setSelectedRes] = useState<Reservation | null>(null)
   const [filterApt, setFilterApt] = useState('')
@@ -72,10 +74,16 @@ export default function Reservations() {
         title="Reservas"
         subtitle={`${filtered.length} reservas`}
         actions={
-          <button onClick={() => { setEditing(null); setShowForm(true) }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-            <Plus size={16} /> Nueva reserva
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowPegar(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white text-slate-700 rounded-lg text-sm font-medium hover:border-blue-300">
+              <ClipboardPaste size={16} /> Pegar desde WhatsApp
+            </button>
+            <button onClick={() => { setEditing(null); setShowForm(true) }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+              <Plus size={16} /> Nueva reserva
+            </button>
+          </div>
         }
       />
 
@@ -169,6 +177,8 @@ export default function Reservations() {
           onClose={() => setSelectedRes(null)}
         />
       )}
+
+      {showPegar && <PegarWhatsApp onClose={() => setShowPegar(false)} />}
     </div>
   )
 }
@@ -217,18 +227,10 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   const [pactado, setPactado] = useState(!!editing)
 
   const nights = checkOut && checkIn ? getNights(checkIn, checkOut) : 0
-  const tarifa = useMemo(() => {
-    if (!aptId || !checkIn || !(nights > 0)) return null
-    const season = getSeason(checkIn)
-    const aptType = getApartmentType(aptId)
-    const year = new Date(checkIn).getFullYear()
-    const priceEntry = prices.find(p =>
-      p.apartmentType === aptType && p.season === season &&
-      (p.year === year || p.year === year + 1)
-    )
-    if (!priceEntry) return null
-    return { entry: priceEntry, ...precioPorNoches(priceEntry, nights) }
-  }, [aptId, checkIn, nights, prices])
+  const tarifa = useMemo(
+    () => buscaTarifa(prices, aptId, checkIn, nights),
+    [prices, aptId, checkIn, nights],
+  )
 
   // Tarifa por tramos: el precio del tramo se divide entre sus días y se
   // multiplica por las noches reales, y el tramo no se elige, sale de las

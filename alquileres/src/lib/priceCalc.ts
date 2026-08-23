@@ -1,4 +1,5 @@
 import type { PriceEntry, PriceCalculation, ApartmentType, StayType } from '../types'
+import { getSeason } from './dateUtils'
 
 const CHANNEL_FEE = 0.15
 const CLEANING_FEE = 40
@@ -94,6 +95,28 @@ export function stayTypeDays(stayType: StayType): number {
     case 'directo': return 30
     default: return 7
   }
+}
+
+/**
+ * La tarifa que toca aplicar a una estancia: busca en la lista de precios la
+ * del tipo de apartamento y la temporada de la fecha de entrada, y prorratea.
+ * Devuelve null si no hay precios cargados para ese año.
+ */
+export function buscaTarifa(
+  prices: PriceEntry[], apartmentId: string, checkIn: string, nights: number,
+): (PrecioTramo & { entry: PriceEntry }) | null {
+  if (!apartmentId || !checkIn || !(nights > 0)) return null
+  const entrada = new Date(checkIn)
+  if (Number.isNaN(entrada.getTime())) return null
+  const season = getSeason(entrada)
+  const aptType = getApartmentType(apartmentId)
+  const year = entrada.getFullYear()
+  const entry = prices.find(p =>
+    p.apartmentType === aptType && p.season === season &&
+    (p.year === year || p.year === year + 1),
+  )
+  if (!entry) return null
+  return { entry, ...precioPorNoches(entry, nights) }
 }
 
 export const TRAMO_LABEL: Record<Tramo, string> = {
