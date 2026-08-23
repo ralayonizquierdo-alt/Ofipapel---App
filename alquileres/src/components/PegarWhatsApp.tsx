@@ -42,6 +42,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
   const { reservations, payments, apartments, prices, addReservation, addPayment, updatePayment } = useData()
   const [texto, setTexto] = useState('')
   const [leyendoPdf, setLeyendoPdf] = useState(false)
+  const [arrastrando, setArrastrando] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [hecho, setHecho] = useState('')
   const [error, setError] = useState('')
@@ -90,16 +91,26 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
 
   const validas = propuestas.filter(p => !p.linea.problema)
 
-  async function elegirPdf(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    if (!f) return
-    setError(''); setLeyendoPdf(true)
+  /** Único camino para un fichero, venga del botón, de un arrastre o del portapapeles. */
+  async function leeFichero(f: File) {
+    setError(''); setHecho('')
+    if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') {
+      setError(`«${f.name}» no es un PDF. Solo se pueden leer justificantes en PDF.`)
+      return
+    }
+    setLeyendoPdf(true)
     try {
       setTexto(await textoDePdf(f))
     } catch {
       setError('No se ha podido leer el PDF. Prueba a copiar el texto y pegarlo aquí.')
     }
     setLeyendoPdf(false)
+  }
+
+  function elegirPdf(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (f) leeFichero(f)
+    e.target.value = ''   // así se puede volver a elegir el mismo fichero
   }
 
   function guardarReservas() {
@@ -151,24 +162,52 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
           </div>
         )}
 
-        <textarea
-          ref={areaRef}
-          value={texto}
-          onChange={e => { setTexto(e.target.value); setHecho(''); setError('') }}
-          rows={compacta ? 3 : 6}
-          placeholder={EJEMPLO}
-          className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        {/* Se puede escribir, pegar o soltar el PDF encima: las tres cosas
+            acaban en el mismo sitio. Los manejadores van en el envoltorio para
+            que valga soltar en cualquier punto, no solo sobre el recuadro. */}
+        <div
+          onDragOver={e => { e.preventDefault(); setArrastrando(true) }}
+          onDragLeave={e => { e.preventDefault(); setArrastrando(false) }}
+          onDrop={e => {
+            e.preventDefault(); setArrastrando(false)
+            const f = e.dataTransfer.files?.[0]
+            if (f) leeFichero(f)
+          }}
+          className="relative"
+        >
+          <textarea
+            ref={areaRef}
+            value={texto}
+            onChange={e => { setTexto(e.target.value); setHecho(''); setError('') }}
+            onPaste={e => {
+              // Algunos gestores de correo y el propio móvil pegan el PDF como
+              // fichero en vez de como texto.
+              const f = [...e.clipboardData.files][0]
+              if (f) { e.preventDefault(); leeFichero(f) }
+            }}
+            rows={compacta ? 3 : 6}
+            placeholder={EJEMPLO}
+            className={`w-full border rounded-lg px-3 py-2.5 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              arrastrando ? 'border-blue-500 bg-blue-50/60' : 'border-slate-200'
+            }`}
+          />
+          {arrastrando && (
+            <div className="absolute inset-0 rounded-lg bg-blue-50/90 border-2 border-dashed border-blue-400 flex items-center justify-center pointer-events-none">
+              <p className="text-sm font-medium text-blue-700">Suelta aquí el PDF</p>
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg text-xs text-slate-600 cursor-pointer hover:border-blue-400 hover:bg-blue-50/40">
             <FileUp size={15} className="text-slate-400" />
-            {leyendoPdf ? 'Leyendo el PDF…' : 'O suelta aquí el PDF del justificante'}
+            {leyendoPdf ? 'Leyendo el PDF…' : 'Elegir el PDF del justificante'}
             <input type="file" accept=".pdf" className="hidden" onChange={elegirPdf} />
           </label>
+          <span className="text-xs text-slate-400">o arrástralo sobre el recuadro</span>
           {texto && (
             <button onClick={() => { setTexto(''); setHecho(''); areaRef.current?.focus() }}
-              className="text-xs text-slate-400 hover:text-slate-600">Limpiar</button>
+              className="text-xs text-slate-400 hover:text-slate-600 ml-auto">Limpiar</button>
           )}
         </div>
 
