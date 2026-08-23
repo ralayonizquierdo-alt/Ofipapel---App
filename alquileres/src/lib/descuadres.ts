@@ -11,7 +11,7 @@ import type {
  * se revise, cada pantalla sigue usando su fuente de siempre.
  */
 
-export type TipoDescuadre = 'ingresos' | 'reparaciones' | 'ocupacion' | 'sinFecha' | 'solape'
+export type TipoDescuadre = 'ingresos' | 'reparaciones' | 'ocupacion' | 'sinFecha' | 'solape' | 'sinImporte'
 
 export interface Descuadre {
   id: string
@@ -194,6 +194,30 @@ export function calculaDescuadres(d: DatosDescuadre): Descuadre[] {
       diferencia: 0,
       detalle: solapes.map(s =>
         `${nombre(s.apt)}: ${dia(s.a.checkIn)}–${dia(s.a.checkOut)} y ${dia(s.b.checkIn)}–${dia(s.b.checkOut)} (${s.dias} días)`),
+    })
+  }
+
+  // ── Reservas sin importe ───────────────────────────────────────────────────
+  // Pasa con las que vienen del calendario de años para los que no hay lista
+  // de precios cargada: entran con las fechas bien pero a cero, y así no
+  // cuentan en Analítica. Se arregla cargando la tarifa de esos años.
+  const sinImporte = d.reservations.filter(r => r.status !== 'cancelada' && !(r.total > 0))
+  if (sinImporte.length > 0) {
+    const porAnio = new Map<string, number>()
+    for (const r of sinImporte) {
+      const a = r.checkIn.slice(0, 4)
+      porAnio.set(a, (porAnio.get(a) || 0) + 1)
+    }
+    avisos.push({
+      id: 'sin-importe',
+      tipo: 'sinImporte',
+      year: 0,
+      titulo: `${plural(sinImporte.length, 'reserva', 'reservas')} sin importe`,
+      diferencia: 0,
+      detalle: [
+        ...[...porAnio.entries()].sort().map(([a, n]) => `${a}: ${n}`),
+        'Suele ser que falta la lista de precios de esos años: al cargarla en Precios se les puede poner el importe.',
+      ],
     })
   }
 
