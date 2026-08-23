@@ -176,6 +176,14 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
               </div>
             </div>
 
+            {resumen.deColor > 0 && (
+              <p className="text-xs text-slate-500">
+                De las {conPrecio.length}, <b>{resumen.deColor}</b> no llevaban las fechas escritas en la
+                casilla y se han tomado del color: pueden bailar un día. Cada una lo lleva anotado en sus
+                observaciones.
+              </p>
+            )}
+
             <div className="grid grid-cols-2 gap-4 text-sm" translate="no">
               <div className="border border-slate-200 rounded-lg p-3">
                 <p className="text-xs font-semibold text-slate-600 mb-1.5">Por año</p>
@@ -212,7 +220,7 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
-            {(resumen.solapadas > 0 || resumen.deColor > 0 || resumen.sinPrecio > 0 || resumen.anuladas > 0) && (
+            {(resumen.solapadas > 0 || resumen.sinPrecio > 0 || resumen.anuladas > 0) && (
               <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 space-y-1">
                 {resumen.anuladas > 0 && (
                   <p className="text-sm text-amber-900">
@@ -224,12 +232,6 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
                   <p className="text-sm text-amber-900">
                     <b>{resumen.solapadas} se pisan</b> con otra estancia del mismo inmueble. Entran igual,
                     pero conviene repasarlas después.
-                  </p>
-                )}
-                {resumen.deColor > 0 && (
-                  <p className="text-sm text-amber-900">
-                    <b>{resumen.deColor}</b> no llevaban las fechas escritas: se han tomado del color de
-                    las casillas y pueden bailar un día.
                   </p>
                 )}
                 {resumen.sinPrecio > 0 && (
