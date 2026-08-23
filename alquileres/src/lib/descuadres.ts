@@ -190,7 +190,7 @@ export function calculaDescuadres(d: DatosDescuadre): Descuadre[] {
       id: 'solapes',
       tipo: 'solape',
       year: 0,
-      titulo: `${plural(solapes.length, 'reserva se pisa', 'reservas se pisan')} con otra del mismo inmueble`,
+      titulo: `${plural(solapes.length, 'pareja de reservas se pisa', 'parejas de reservas se pisan')} en el mismo inmueble`,
       diferencia: 0,
       detalle: solapes.map(s =>
         `${nombre(s.apt)}: ${dia(s.a.checkIn)}–${dia(s.a.checkOut)} y ${dia(s.b.checkIn)}–${dia(s.b.checkOut)} (${s.dias} días)`),
