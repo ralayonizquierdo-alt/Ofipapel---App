@@ -195,6 +195,23 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
               </div>
             </div>
 
+            {previo.arregladas.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-900">
+                  <b>{previo.arregladas.length} pares de franjas se han unido solas</b>: eran la misma
+                  estancia pintada dos veces, no dos huéspedes.
+                </p>
+                <div className="mt-1.5 space-y-0.5" translate="no">
+                  {previo.arregladas.slice(0, 6).map((l, i) => (
+                    <p key={i} className="text-xs text-blue-800">{l}</p>
+                  ))}
+                  {previo.arregladas.length > 6 && (
+                    <p className="text-xs text-blue-700">y {previo.arregladas.length - 6} más</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {(resumen.solapadas > 0 || resumen.deColor > 0 || resumen.sinPrecio > 0 || resumen.anuladas > 0) && (
               <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 space-y-1">
                 {resumen.anuladas > 0 && (

@@ -50,10 +50,15 @@ export interface ReservaImportada {
  */
 const ANULADA = /\b(anulad|cancelad)/i
 
+/** Una ampliación se pinta como franja aparte dentro de la estancia original. */
+const AMPLIACION = /\bampli/i
+
 export interface ResultadoCalendario {
   reservas: ReservaImportada[]
   /** Meses que se han leído, para poder decir qué abarca el fichero. */
   meses: number
+  /** Franjas que resultaron ser la misma estancia y se han unido solas. */
+  arregladas: string[]
   avisos: string[]
 }
 
@@ -108,7 +113,7 @@ export function analizaCalendario(hoja: HojaXlsx): ResultadoCalendario {
   }
   cabeceras.sort((a, b) => a - b)
   if (cabeceras.length === 0) {
-    return { reservas: [], meses: 0, avisos: ['No se ha reconocido ningún mes: ¿es el calendario de alquileres?'] }
+    return { reservas: [], meses: 0, arregladas: [], avisos: ['No se ha reconocido ningún mes: ¿es el calendario de alquileres?'] }
   }
 
   // Mes de cada bloque, y cuántos años han pasado desde el primero. Los meses
@@ -244,28 +249,66 @@ export function analizaCalendario(hoja: HojaXlsx): ResultadoCalendario {
 
   reservas.sort((a, b) => a.checkIn.localeCompare(b.checkIn) || a.apartmentId.localeCompare(b.apartmentId))
 
-  // Marcar las que se pisan con otra del mismo inmueble. Las anuladas no
-  // cuentan: su sitio lo ocupa la que las sustituyó, y por eso se pisaban.
+  // Unir las franjas que en realidad son una sola estancia. Al calendario se le
+  // repinta encima cuando alguien amplía o cuando se retoca, y eso deja dos
+  // franjas donde solo hubo un huésped. Solo se unen los casos que se pueden
+  // demostrar; lo dudoso se deja como está y se avisa.
+  const arregladas: string[] = []
+  const dia = (f: string) => f.split('-').reverse().join('/')
   const porApt = new Map<string, ReservaImportada[]>()
   for (const r of reservas) {
     if (r.cancelada) continue
     if (!porApt.has(r.apartmentId)) porApt.set(r.apartmentId, [])
     porApt.get(r.apartmentId)!.push(r)
   }
+
+  const fusionadas = new Set<ReservaImportada>()
   for (const lista of porApt.values()) {
     for (let i = 1; i < lista.length; i++) {
+      const a = lista[i - 1], b = lista[i]
+      if (fusionadas.has(a) || fusionadas.has(b)) continue
+      const dias = (+new Date(a.checkOut) - +new Date(b.checkIn)) / 86400000
+      if (dias < 2) continue
+
+      const mismaNota = !!a.guestName && a.guestName === b.guestName
+      const esAmpliacion = AMPLIACION.test(b.guestName) || AMPLIACION.test(a.guestName)
+      const acabanIgual = a.checkOut === b.checkOut
+      if (!mismaNota && !esAmpliacion && !acabanIgual) continue
+
+      // La estancia buena es la unión de las dos franjas: la más temprana de
+      // las entradas y la más tardía de las salidas.
+      const motivo = mismaNota ? 'la misma nota en las dos'
+        : esAmpliacion ? 'una es la ampliación de la otra'
+          : 'acaban el mismo día'
+      arregladas.push(
+        `${a.apartmentId}: ${dia(a.checkIn)}–${dia(a.checkOut)} y ${dia(b.checkIn)}–${dia(b.checkOut)} → ${motivo}`)
+      a.checkOut = a.checkOut > b.checkOut ? a.checkOut : b.checkOut
+      a.nights = Math.round((+new Date(a.checkOut) - +new Date(a.checkIn)) / 86400000)
+      if (b.guestName && !a.guestName.includes(b.guestName)) {
+        a.guestName = [a.guestName, b.guestName].filter(Boolean).join(' / ').slice(0, 150)
+      }
+      fusionadas.add(b)
+    }
+  }
+
+  const finales = reservas.filter(r => !fusionadas.has(r))
+
+  // Y marcar lo que sigue pisándose, que ya no tiene explicación automática.
+  for (const lista of porApt.values()) {
+    const vivas = lista.filter(r => !fusionadas.has(r))
+    for (let i = 1; i < vivas.length; i++) {
       // Pisarse un solo día es el cambio de huésped de toda la vida: uno sale
       // por la mañana y el siguiente entra por la tarde, y el calendario pinta
       // ese día en las dos franjas. Solo molesta a partir de dos días.
-      const dias = (+new Date(lista[i - 1].checkOut) - +new Date(lista[i].checkIn)) / 86400000
+      const dias = (+new Date(vivas[i - 1].checkOut) - +new Date(vivas[i].checkIn)) / 86400000
       if (dias >= 2) {
-        lista[i].solapada = true
-        lista[i - 1].solapada = true
+        vivas[i].solapada = true
+        vivas[i - 1].solapada = true
       }
     }
   }
 
-  return { reservas, meses: bloques.length, avisos }
+  return { reservas: finales, meses: bloques.length, arregladas, avisos }
 }
 
 export async function leeCalendario(fichero: File): Promise<ResultadoCalendario> {
