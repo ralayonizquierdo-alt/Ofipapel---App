@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, ClipboardPaste, FileUp } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
-import { analizaPegado, analizaCobro, type LineaPegada } from '../lib/pegarReservas'
+import { analizaPegado, analizaAirbnb, analizaCobro, type LineaPegada } from '../lib/pegarReservas'
 import { textoDePdf } from '../lib/leePdf'
 import { buscaTarifa, calcTotal, tramoPorNoches } from '../lib/priceCalc'
 import { formatDate } from '../lib/dateUtils'
@@ -15,6 +15,8 @@ const EJEMPLO = `Pega aquí el mensaje, tal cual llega:
 
 ALAYON 104: entra 30/07/2026 y sale 13/08/2026.
 ALAYON 105: entra 31/07/2026 y sale 10/08/2026.
+
+O el aviso de reserva de Airbnb, tal cual lo copias de la aplicación.
 
 O el justificante de una transferencia, o suelta su PDF.`
 
@@ -50,9 +52,15 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
 
   const nombreApt = (id: string | null) => apartments.find(a => a.id === id)?.name || id || '¿?'
 
-  // Un justificante de transferencia trae importe; un aviso de entrada, no.
+  // Tres formatos distintos, y se distinguen solos: un justificante de
+  // transferencia trae importe; un aviso de Airbnb, sus propias señales; y lo
+  // que no sea ninguna de las dos cosas, el mensaje suelto de la inmobiliaria.
   const cobro = useMemo(() => analizaCobro(texto), [texto])
-  const lineas = useMemo(() => (cobro ? [] : analizaPegado(texto)), [texto, cobro])
+  const airbnb = useMemo(() => (cobro ? null : analizaAirbnb(texto)), [texto, cobro])
+  const lineas = useMemo(
+    () => (cobro ? [] : airbnb ? [airbnb] : analizaPegado(texto)),
+    [texto, cobro, airbnb],
+  )
 
   /** Reservas listas para crear, con su precio calculado y sus avisos. */
   const propuestas = useMemo(() => lineas.map(l => {
@@ -66,11 +74,13 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       total: tarifa ? calcTotal(tarifa.base, Number(tarifa.entry.cleaningFee) || 40, 0) : 0,
       limpieza: tarifa ? Number(tarifa.entry.cleaningFee) || 40 : 40,
       base: tarifa?.base ?? 0,
-      aviso: !tarifa
-        ? 'No hay precios cargados para esas fechas: se creará sin importe'
-        : choca
-          ? `Ya hay una reserva del ${formatDate(choca.checkIn)} al ${formatDate(choca.checkOut)}`
-          : '',
+      aviso: [
+        !tarifa ? 'No hay precios cargados para esas fechas: se creará sin importe' : '',
+        choca ? `Ya hay una reserva del ${formatDate(choca.checkIn)} al ${formatDate(choca.checkOut)}` : '',
+        l.nota ?? '',
+        // Airbnb nunca manda el precio, así que conviene decir de dónde sale.
+        l.origen === 'airbnb' && tarifa ? 'El aviso de Airbnb no trae importe: es el de la tarifa' : '',
+      ].filter(Boolean).join('. '),
     }
   }), [lineas, prices, reservations])
 
@@ -119,10 +129,12 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
     for (const p of validas) {
       const l = p.linea
       const res = addReservation({
-        apartmentId: l.apartmentId!, guestName: '', checkIn: l.checkIn!, checkOut: l.checkOut!,
-        nights: l.nights, stayType: tramoPorNoches(l.nights), channel: 'inmobiliaria',
+        apartmentId: l.apartmentId!, guestName: l.guestName ?? '', checkIn: l.checkIn!, checkOut: l.checkOut!,
+        nights: l.nights, stayType: tramoPorNoches(l.nights),
+        channel: l.origen === 'airbnb' ? 'airbnb' : 'inmobiliaria',
         basePrice: p.base ?? 0, cleaningFee: p.limpieza ?? 40, discountPct: 0,
-        total: p.total, status: 'confirmada', notes: `Alta desde el mensaje: ${l.texto}`,
+        total: p.total, status: 'confirmada',
+        notes: `Alta desde ${l.origen === 'airbnb' ? 'el aviso de Airbnb' : 'el mensaje'}: ${l.texto}`,
       })
       addPayment({ reservationId: res.id, amount: p.total, received: false })
       n++
@@ -261,7 +273,10 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
         {/* ── Un aviso de entradas ── */}
         {!cobro && propuestas.length > 0 && (
           <div className="border border-slate-200 rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
+            {/* En el móvil la tabla no cabe: que se pueda arrastrar, porque si
+                solo se recorta el aviso de la fila se queda ilegible. */}
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[30rem]">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="text-left py-2 px-3 font-medium text-slate-600">Apartamento</th>
@@ -277,6 +292,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
@@ -315,7 +331,13 @@ function Fila({ p, nombreApt }: { p: Propuesta; nombreApt: (id: string | null) =
   return (
     <>
       <tr className={`border-b border-slate-100 ${malo ? 'bg-red-50/60' : ''}`}>
-        <td className="py-2 px-3 font-medium text-slate-700">{nombreApt(l.apartmentId)}</td>
+        <td className="py-2 px-3 font-medium text-slate-700">
+          {nombreApt(l.apartmentId)}
+          {l.guestName && <span className="block text-xs font-normal text-slate-500">{l.guestName}</span>}
+          {l.origen === 'airbnb' && (
+            <span className="inline-block mt-0.5 text-[10px] font-medium text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded">Airbnb</span>
+          )}
+        </td>
         <td className="py-2 px-3 text-slate-600">{l.checkIn ? formatDate(l.checkIn) : '—'}</td>
         <td className="py-2 px-3 text-slate-600">{l.checkOut ? formatDate(l.checkOut) : '—'}</td>
         <td className="py-2 px-3 text-right text-slate-600">{l.nights || '—'}</td>

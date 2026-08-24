@@ -1,7 +1,7 @@
 export type Season = 'VERANO' | 'INVIERNO'
 export type ApartmentType = '1BR' | '2BR' | '2BR_ATICO' | '3BR'
 export type StayType = '1semana' | '2semanas' | '3semanas' | '1mes' | 'directo' | 'otro'
-export type Channel = 'directo' | 'inmobiliaria' | 'booking' | 'web'
+export type Channel = 'directo' | 'inmobiliaria' | 'booking' | 'airbnb' | 'web'
 export type ReservationStatus = 'confirmada' | 'cancelada' | 'completada'
 
 export interface Apartment {

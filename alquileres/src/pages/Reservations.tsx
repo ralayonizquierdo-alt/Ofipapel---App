@@ -20,7 +20,7 @@ const eur = (n: number) =>
 /** Descuento por pago en efectivo. Se aplica dure lo que dure la estancia. */
 const DTO_EFECTIVO = 10
 const CHANNEL_LABELS: Record<Channel, string> = {
-  directo: 'Directo', inmobiliaria: 'Inmobiliaria', booking: 'Booking', web: 'Web'
+  directo: 'Directo', inmobiliaria: 'Inmobiliaria', booking: 'Booking', airbnb: 'Airbnb', web: 'Web'
 }
 const STATUS_COLORS: Record<string, string> = {
   confirmada: 'bg-blue-100 text-blue-700',
