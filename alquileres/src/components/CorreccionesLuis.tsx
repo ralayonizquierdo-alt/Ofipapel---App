@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { CheckCircle2, ClipboardCheck, AlertTriangle } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import {
-  altaDe, faltanCobros, parcheDe, planDe, type Paso,
+  altaDe, cobrosDeRelleno, faltanCobros, parcheDe, planDe, type Paso,
 } from '../lib/correccionesLuis'
 
 /**
@@ -18,7 +18,7 @@ import {
 export default function CorreccionesLuis() {
   const {
     reservations, payments, apartments,
-    addReservation, updateReservation, deleteReservation, addPayment,
+    addReservation, updateReservation, deleteReservation, addPayment, deletePayment,
   } = useData()
   const [abierto, setAbierto] = useState(false)
   const [aplicando, setAplicando] = useState(false)
@@ -53,6 +53,8 @@ export default function CorreccionesLuis() {
         if (parche && destino) updateReservation(destino.id, parche)
 
         if (destino) {
+          // Primero fuera el cobro de relleno, o el dinero se contaría dos veces.
+          for (const viejo of cobrosDeRelleno(c, destino, payments)) deletePayment(viejo.id)
           for (const cobro of faltanCobros(c, destino, payments)) {
             addPayment({
               reservationId: destino.id,

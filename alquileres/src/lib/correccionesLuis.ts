@@ -180,14 +180,18 @@ export const CORRECCIONES: Correccion[] = [
   },
 
   // ── 8. Apart. 204, febrero–marzo 2022: Anna Skripeland ─────────────────────
+  // Ya está en la app, solo le faltaba el importe: el volcado la trajo a 0 €
+  // porque 2022 no tiene tarifa cargada. Las fechas se dejan como las dio
+  // Luis (hasta el 26/03); en el calendario hay un «1 día más» apuntado al
+  // lado, pero eso lo decide él, no nosotros.
   {
-    tipo: 'alta', apt: '204', checkIn: '2022-02-08', checkOut: '2022-03-27',
+    tipo: 'corregir', apt: '204', checkIn: '2022-02-08', checkOut: '2022-03-26',
     total: 1635,
     cobros: [
       { amount: 1000, date: '2022-02-08' },
       { amount: 635, date: '2022-03-08' },
     ],
-    motivo: 'Calendario: «ANNA SKRIPELAND 08/02/22 hasta 26/03/22» + «1 día más»',
+    motivo: 'Luis: «ANNA SKRIPELAND 08/02/22 al 26/03/22, PAGO 1.000 + 635 €»',
   },
 ]
 
@@ -213,6 +217,19 @@ function faltanCobros(c: Correccion, r: Reservation | undefined, payments: Payme
   const suyos = payments.filter(p => p.reservationId === r.id)
   return c.cobros.filter(x =>
     !suyos.some(p => Math.abs(p.amount - x.amount) < 0.01 && p.paymentDate === x.date))
+}
+
+/**
+ * Cobros de relleno que dejó el volcado del calendario: sin fecha y sin
+ * cobrar, con el importe que salía de la tarifa. No son cobros de verdad, son
+ * el hueco que abrió la importación para que cuadrara la reserva.
+ *
+ * Cuando Luis nos da los cobros reales hay que quitarlos, o el mismo dinero se
+ * contaría dos veces y la reserva quedaría siempre como pendiente de cobro.
+ */
+function cobrosDeRelleno(c: Correccion, r: Reservation | undefined, payments: Payment[]): Payment[] {
+  if (!r || !('cobros' in c) || !c.cobros?.length) return []
+  return payments.filter(p => p.reservationId === r.id && !p.received && !p.paymentDate)
 }
 
 /**
@@ -258,6 +275,9 @@ export function planDe(reservations: Reservation[], payments: Payment[]): Paso[]
     }
     for (const f of faltanCobros(c, r, payments)) {
       cambios.push(`Cobro que falta: ${eur(f.amount)} del ${dia(f.date)}`)
+    }
+    for (const p of cobrosDeRelleno(c, r, payments)) {
+      cambios.push(`Se quita el cobro provisional de ${eur(p.amount)} que dejó el volcado`)
     }
 
     return { correccion: c, estado: cambios.length ? 'pendiente' : 'hecha', reserva: r, cambios }
@@ -311,4 +331,4 @@ export function altaDe(p: Paso): Omit<Reservation, 'id' | 'createdAt'> | null {
   }
 }
 
-export { faltanCobros }
+export { faltanCobros, cobrosDeRelleno }
