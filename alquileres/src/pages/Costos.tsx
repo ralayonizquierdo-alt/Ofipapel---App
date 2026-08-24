@@ -142,7 +142,7 @@ export default function Costos() {
         title="Gastos"
         subtitle={`${filtered.length} registros · Total: ${totalFiltered.toLocaleString('es-ES')} € · Deducible: ${totalDeducible.toLocaleString('es-ES')} €`}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button onClick={() => setShowImport(true)}
               className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:border-blue-300 hover:text-blue-700">
               <Upload size={16} /> Importar Excel

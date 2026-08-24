@@ -76,26 +76,26 @@ export default function Reservations() {
         title="Reservas"
         subtitle={`${filtered.length} reservas`}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setShowCalendario(true)}
               title="Sustituir todas las reservas por las del calendario anual"
-              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100">
+              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 whitespace-nowrap">
               <CalendarRange size={16} /> Cargar calendario
             </button>
             <button onClick={() => setShowPegar(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white text-slate-700 rounded-lg text-sm font-medium hover:border-blue-300">
-              <ClipboardPaste size={16} /> Pegar desde WhatsApp
+              className="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white text-slate-700 rounded-lg text-sm font-medium hover:border-blue-300 whitespace-nowrap">
+              <ClipboardPaste size={16} /> Pegar<span className="hidden sm:inline"> desde WhatsApp</span>
             </button>
             <button onClick={() => { setEditing(null); setShowForm(true) }}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-              <Plus size={16} /> Nueva reserva
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 whitespace-nowrap">
+              <Plus size={16} /> Nueva<span className="hidden sm:inline"> reserva</span>
             </button>
           </div>
         }
       />
 
       {/* Filters */}
-      <div className="flex gap-3 mb-5">
+      <div className="flex flex-wrap gap-3 mb-5">
         <select value={filterApt} onChange={e => setFilterApt(e.target.value)}
           className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-700">
           <option value="">Todos los apartamentos</option>

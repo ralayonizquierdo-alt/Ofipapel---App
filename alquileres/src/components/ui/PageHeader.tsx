@@ -8,12 +8,14 @@ interface PageHeaderProps {
 
 export default function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
-    <div className="flex items-center justify-between mb-6">
+    // En el móvil los botones no caben al lado del título: se dejan pasar a la
+    // línea de abajo en vez de que se salgan de la pantalla.
+    <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
       <div>
         <h1 className="text-xl font-bold text-slate-800">{title}</h1>
         {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   )
 }
