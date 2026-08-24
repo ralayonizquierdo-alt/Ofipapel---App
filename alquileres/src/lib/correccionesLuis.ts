@@ -65,10 +65,23 @@ export const CORRECCIONES: Correccion[] = [
   },
 
   // ── 2. Piso 3, otoño 2022: solo hubo la larga ──────────────────────────────
+  // Los 1.100 € que dijo Luis son el precio del MES, no el de la estancia: el
+  // calendario lo escribe cuatro veces («precio 1.100 € incluye luz y agua») y
+  // al lado van los pagos mes a mes. Se toman los tres que constan con fecha.
+  //
+  // La salida se adelanta al 23/12: el contrato decía «hasta 31/12», pero ese
+  // mismo día entra otra reserva de Navidad apuntada en la misma fila, en
+  // diciembre no hay pago mensual, y la siguiente estancia larga empieza el
+  // 07/01/2023. Todo apunta a que se fueron el 23.
   {
     tipo: 'corregir', apt: 'P3', checkIn: '2022-09-20', checkOut: '2022-12-31',
-    total: 1100,
-    motivo: 'Luis: «SOLO HAY ESTA RESERVA 1.100 €» (102 noches a 11 €, precio pactado)',
+    nuevoCheckOut: '2022-12-23', total: 3340,
+    cobros: [
+      { amount: 1100, date: '2022-09-23' },
+      { amount: 1100, date: '2022-10-25' },
+      { amount: 1140, date: '2022-11-21' },
+    ],
+    motivo: 'Luis: «SOLO HAY ESTA RESERVA 1.100 €» — 1.100 €/mes, tres mensualidades cobradas',
   },
   {
     tipo: 'borrar', apt: 'P3', checkIn: '2022-12-02', checkOut: '2022-12-22',
