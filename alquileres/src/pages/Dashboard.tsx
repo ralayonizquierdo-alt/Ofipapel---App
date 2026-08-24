@@ -1,8 +1,13 @@
-import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock } from 'lucide-react'
+import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert, ClipboardPaste } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import type { Reservation } from '../types'
 import { formatDate, formatDateShort, today } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
+import { Link } from 'react-router-dom'
+import AlertasDescuadre from '../components/AlertasDescuadre'
+import { CajaPegar } from '../components/PegarWhatsApp'
+import SoltarGastos from '../components/SoltarGastos'
+import { tocaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
 
 export default function Dashboard() {
   const { reservations, payments, apartments, repairs } = useData()
@@ -40,6 +45,8 @@ export default function Dashboard() {
     .reduce((s, r) => s + (r.amount || 0), 0)
 
   const netYear = yearIncome - totalRepairs
+  // Se mira una sola vez al pintar: no hace falta vigilarlo en vivo.
+  const copiaPendiente = tocaCopia()
   const isPriceRenewalMonth = currentMonth === 1
 
   function getApartmentName(id: string) {
@@ -65,9 +72,42 @@ export default function Dashboard() {
         <KpiCard icon={<AlertTriangle size={20} className="text-amber-600" />} label="Pagos pendientes" value={String(pendingPayment.length)} sub="reservas sin cobrar" color="amber" />
       </div>
 
+      {/* La caja de pegar va arriba del todo y a la vista: es lo que más se usa
+          al abrir la app, según llegan los mensajes de la inmobiliaria. */}
+      <div className="mb-6 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2">
+          <ClipboardPaste size={15} className="text-blue-600" />
+          <p className="text-sm font-semibold text-slate-700">Entrada rápida</p>
+          <span className="text-xs text-slate-400">
+            pega el mensaje de WhatsApp, o suelta el PDF de un cobro o el Excel de gastos
+          </span>
+        </div>
+        <div className="p-4 space-y-3">
+          <CajaPegar compacta />
+          <SoltarGastos />
+        </div>
+      </div>
+
+      {/* Descuadres Excel ↔ app. Van antes que el resto de avisos: son los que
+          pidió el propietario para poder cerrar el ejercicio. */}
+      <AlertasDescuadre />
+
       {/* Alerts */}
-      {(pendingPayment.length > 0 || isPriceRenewalMonth) && (
+      {(pendingPayment.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
         <div className="mb-6 space-y-2">
+          {copiaPendiente && (
+            <Link to="/config"
+              className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3 hover:bg-amber-100/70 transition-colors">
+              <ShieldAlert size={18} className="text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium text-amber-800 text-sm">Toca copia de seguridad</p>
+                <p className="text-amber-700 text-xs mt-0.5">
+                  Han pasado {DIAS_ENTRE_COPIAS} días o más desde la última. Pincha aquí para
+                  descargarla desde <strong>Apartamentos</strong>.
+                </p>
+              </div>
+            </Link>
+          )}
           {isPriceRenewalMonth && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
               <AlertTriangle size={18} className="text-blue-600 mt-0.5 shrink-0" />

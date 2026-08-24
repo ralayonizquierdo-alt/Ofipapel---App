@@ -1,4 +1,5 @@
 import type { PriceEntry, PriceCalculation, ApartmentType, StayType } from '../types'
+import { getSeason } from './dateUtils'
 
 const CHANNEL_FEE = 0.15
 const CLEANING_FEE = 40
@@ -28,6 +29,63 @@ export function calcExtension(contractedType: StayType, priceEntry: PriceEntry, 
   return (basePrice / baseDays) * extraDays
 }
 
+/** Los cuatro tramos con los que se tarifica. 'directo' y 'otro' no son tramos. */
+export type Tramo = '1semana' | '2semanas' | '3semanas' | '1mes'
+
+/**
+ * Tramo que corresponde a una estancia, según la regla del propietario:
+ * siempre se baja al tramo más cercano por debajo.
+ *
+ *    7 – 13 noches → 1 semana
+ *   14 – 20        → 2 semanas
+ *   21 – 29        → 3 semanas
+ *   30 o más       → 1 mes
+ *
+ * Por debajo de 7 noches no hay tramo definido; se usa el de 1 semana, que es
+ * el mismo criterio (bajar al más cercano) llevado al extremo inferior.
+ */
+export function tramoPorNoches(nights: number): Tramo {
+  if (nights >= 30) return '1mes'
+  if (nights >= 21) return '3semanas'
+  if (nights >= 14) return '2semanas'
+  return '1semana'
+}
+
+export interface PrecioTramo {
+  tramo: Tramo
+  /** Días que cubre el tramo: 7, 14, 21 o 30. */
+  diasTramo: number
+  /** Precio de tarifa del tramo, sin prorratear. */
+  precioTramo: number
+  /** Precio base de la estancia: precioTramo / diasTramo × noches. */
+  base: number
+}
+
+/**
+ * Precio base de una estancia. El precio de tarifa nunca se cobra tal cual: se
+ * divide entre los días del tramo y se multiplica por las noches reales.
+ * Ejemplo del propietario: 10 noches con tarifa de 1 semana de 495 €
+ * → 495 / 7 × 10 = 707,14 €.
+ */
+export function precioPorNoches(priceEntry: PriceEntry, nights: number): PrecioTramo {
+  const tramo = tramoPorNoches(nights)
+  const diasTramo = stayTypeDays(tramo)
+  const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0 }
+  const precioTramo = num({
+    '1semana': priceEntry.price1week,
+    '2semanas': priceEntry.price2weeks,
+    '3semanas': priceEntry.price3weeks,
+    '1mes': priceEntry.price1month,
+  }[tramo])
+  const noches = Number.isFinite(nights) && nights > 0 ? nights : 0
+  return {
+    tramo,
+    diasTramo,
+    precioTramo,
+    base: Math.round((precioTramo / diasTramo) * noches * 100) / 100,
+  }
+}
+
 export function stayTypeDays(stayType: StayType): number {
   switch (stayType) {
     case '1semana': return 7
@@ -37,6 +95,72 @@ export function stayTypeDays(stayType: StayType): number {
     case 'directo': return 30
     default: return 7
   }
+}
+
+/**
+ * La tarifa que toca aplicar a una estancia: busca en la lista de precios la
+ * del tipo de apartamento y la temporada de la fecha de entrada, y prorratea.
+ * Devuelve null si no hay precios cargados para ese año.
+ */
+export function buscaTarifa(
+  prices: PriceEntry[], apartmentId: string, checkIn: string, nights: number,
+): (PrecioTramo & { entry: PriceEntry }) | null {
+  if (!apartmentId || !checkIn || !(nights > 0)) return null
+  const entrada = new Date(checkIn)
+  if (Number.isNaN(entrada.getTime())) return null
+  const season = getSeason(entrada)
+  const aptType = getApartmentType(apartmentId)
+  const year = entrada.getFullYear()
+  const entry = prices.find(p =>
+    p.apartmentType === aptType && p.season === season &&
+    (p.year === year || p.year === year + 1),
+  )
+  if (!entry) return null
+  return { entry, ...precioPorNoches(entry, nights) }
+}
+
+export const TRAMO_LABEL: Record<Tramo, string> = {
+  '1semana': '1 semana', '2semanas': '2 semanas', '3semanas': '3 semanas', '1mes': '1 mes',
+}
+
+const eur = (n: number) =>
+  `${(Number.isFinite(n) ? n : 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+
+/**
+ * Explica en texto llano de dónde sale el total de una reserva, paso a paso.
+ * Es solo informativo —no interviene en ningún cálculo—, pero deja por escrito
+ * qué tarifa y qué cuentas se aplicaron, que es lo que hace falta el día que
+ * los precios cambien y haya que entender una reserva antigua.
+ */
+export function lineasPrecio(p: {
+  nights: number
+  basePrice: number
+  cleaningFee: number
+  discountPct: number
+  tarifa?: { tramo: Tramo; precioTramo: number; diasTramo: number } | null
+  pactado?: boolean
+}): string[] {
+  const base = Number.isFinite(p.basePrice) ? p.basePrice : 0
+  const limpieza = Number.isFinite(p.cleaningFee) ? p.cleaningFee : 0
+  const dto = Number.isFinite(p.discountPct) ? p.discountPct : 0
+  const conDto = Math.round(base * (1 - dto / 100) * 100) / 100
+  const lineas: string[] = []
+
+  if (p.tarifa) {
+    const { tramo, precioTramo, diasTramo } = p.tarifa
+    lineas.push(
+      `Tarifa de ${TRAMO_LABEL[tramo]} (${eur(precioTramo)}) ÷ ${diasTramo} días × ${p.nights} noches = ${eur(base)}`,
+    )
+  } else if (p.pactado) {
+    lineas.push(`Precio pactado a mano, sin aplicar la tarifa por tramos: ${eur(base)}`)
+  } else {
+    lineas.push(`Precio base: ${eur(base)}`)
+  }
+
+  if (dto > 0) lineas.push(`Descuento del ${dto} %: ${eur(base)} − ${eur(base - conDto)} = ${eur(conDto)}`)
+  lineas.push(`Limpieza: ${eur(conDto)} + ${eur(limpieza)} = ${eur(conDto + limpieza)}`)
+
+  return lineas
 }
 
 export function calcPrices(basePrice: number, cleaning = CLEANING_FEE): PriceCalculation {

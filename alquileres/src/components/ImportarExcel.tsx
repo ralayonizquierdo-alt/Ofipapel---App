@@ -1,31 +1,44 @@
-import { useState } from 'react'
-import { Upload, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Upload, AlertTriangle, CheckCircle2, History } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
-import { leerExcel, idGasto, idIngreso, idOcupacion, type ResultadoImport } from '../lib/importExcel'
+import { leerExcel, idGasto, idIngreso, idOcupacion, idReparacionDeclarada, type ResultadoImport } from '../lib/importExcel'
 import { EXPENSE_LABELS } from '../lib/deducible'
-import type { Expense, ExpenseType, IngresoMensual, OcupacionMensual } from '../types'
+import type { Expense, ExpenseType, IngresoMensual, OcupacionMensual, ReparacionMensual } from '../types'
 import Modal from './ui/Modal'
 
 const MESES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+
+/** Fecha guardada en ISO → algo legible, sin que una fecha rota rompa la lista. */
+function fechaHora(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '¿?'
+  return d.toLocaleString('es-ES', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+}
 
 /**
  * Volcado del Excel «Resumen cobros y gastos». Siempre enseña una vista previa
  * antes de escribir: el fichero puede traer inmuebles que no reconozcamos o
  * conceptos nuevos, y conviene verlo antes de tocar los datos.
  */
-export default function ImportarExcel({ onClose }: { onClose: () => void }) {
-  const { importExpenses, importIncomes, importOccupancies, apartments } = useData()
+export default function ImportarExcel(
+  { onClose, ficheroInicial }: { onClose: () => void; ficheroInicial?: File },
+) {
+  const {
+    importExpenses, importIncomes, importOccupancies, importRepairTotals, purgeImported,
+    apartments, expenses, incomes, occupancies, repairTotals, importLogs, anotaVolcado,
+  } = useData()
   const [previo, setPrevio] = useState<ResultadoImport | null>(null)
   const [nombreFichero, setNombreFichero] = useState('')
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [hecho, setHecho] = useState(0)
   const [ingresosHechos, setIngresosHechos] = useState(0)
+  const [borrados, setBorrados] = useState(0)
 
-  async function elegirFichero(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    if (!f) return
-    setError(''); setPrevio(null); setHecho(0); setNombreFichero(f.name)
+  async function lee(f: File) {
+    setError(''); setPrevio(null); setHecho(0); setBorrados(0); setNombreFichero(f.name)
     try {
       const r = await leerExcel(f)
       if (r.gastos.length === 0) {
@@ -38,49 +51,128 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
     }
   }
 
+  function elegirFichero(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (f) lee(f)
+    e.target.value = ''   // así se puede volver a elegir el mismo fichero
+  }
+
+  // Cuando se llega soltando el fichero en el dashboard, ya viene elegido: hay
+  // que leerlo al abrirse, que es lo que en la pantalla de Gastos hace el clic.
+  useEffect(() => {
+    if (ficheroInicial) lee(ficheroInicial)
+  }, [ficheroInicial])
+
+  /**
+   * Lo que se va a escribir, ya con su id definitivo. Se calcula antes de
+   * confirmar porque la vista previa necesita saber, además de lo que entra,
+   * qué apuntes del Excel anterior van a desaparecer.
+   */
+  const preparado = useMemo(() => {
+    if (!previo) return null
+    const ahora = new Date().toISOString()
+
+    const gastos: Expense[] = previo.gastos.map(g => ({
+      id: idGasto(g),
+      apartmentId: g.apartmentId,
+      expenseDate: `${g.year}-${String(g.month).padStart(2, '0')}-01`,
+      expenseType: g.expenseType,
+      description: `${EXPENSE_LABELS[g.expenseType]} · importado del Excel`,
+      amount: g.base,
+      igic: g.igic || undefined,
+      createdAt: ahora,
+    }))
+
+    // Los ingresos brutos del Excel son la cifra que se declara: se guardan
+    // aparte, sin tocar los cobros, y Analítica enseña ambos para comparar.
+    const porMes = new Map<string, number>()
+    for (const i of previo.ingresosPorInmueble) {
+      const k = `${i.apartmentId}|${i.month}`
+      porMes.set(k, (porMes.get(k) || 0) + i.base)
+    }
+    const ingresos: IngresoMensual[] = [...porMes.entries()].map(([k, amount]) => {
+      const [apartmentId, mes] = k.split('|')
+      const month = Number(mes)
+      return { id: idIngreso(previo.year, apartmentId, month), apartmentId,
+               year: previo.year, month, amount, origen: 'excel' as const }
+    })
+
+    // La ocupación declarada es la que prorratea el gasto deducible. Sin ella
+    // se usaría la de las reservas de la app, que pueden estar incompletas.
+    const ocupaciones: OcupacionMensual[] = previo.ocupaciones.map(o => ({
+      id: idOcupacion(previo.year, o.apartmentId, o.month),
+      apartmentId: o.apartmentId, year: previo.year, month: o.month,
+      diasAlquilados: o.diasAlquilados, diasTotales: o.diasTotales, origen: 'excel' as const,
+    }))
+
+    // Las reparaciones del Excel no se dan de alta como gasto —duplicarían las
+    // de la pantalla de Reparaciones—, pero se guarda la cifra declarada para
+    // que el dashboard pueda avisar cuando las dos no cuadren.
+    const reparaciones: ReparacionMensual[] = previo.reparaciones.map(r => ({
+      id: idReparacionDeclarada(previo.year, r.apartmentId, r.month),
+      apartmentId: r.apartmentId, year: previo.year, month: r.month,
+      amount: r.base, origen: 'excel' as const,
+    }))
+
+    return { gastos, ingresos, ocupaciones, reparaciones }
+  }, [previo])
+
+  /**
+   * Apuntes que vinieron de un Excel anterior del mismo ejercicio y que este
+   * fichero ya no trae. Al reimportar hay que quitarlos: si el propietario
+   * borra una línea del Excel, la app tiene que quedarse igual que el fichero.
+   * Solo cuentan los que llevan id del importador (`xls-<año>…`); lo dado de
+   * alta a mano no entra nunca.
+   */
+  const aBorrar = useMemo(() => {
+    if (!previo || !preparado) return null
+    const prefijo = `xls-${previo.year}`
+    const sobran = <T extends { id: string }>(actuales: T[], nuevos: { id: string }[]) => {
+      const vivos = new Set(nuevos.map(n => n.id))
+      return actuales.filter(a => a.id.startsWith(prefijo) && !vivos.has(a.id))
+    }
+    const g = sobran(expenses, preparado.gastos)
+    const i = sobran(incomes, preparado.ingresos)
+    const o = sobran(occupancies, preparado.ocupaciones)
+    const r = sobran(repairTotals, preparado.reparaciones)
+    return { gastos: g, ingresos: i, ocupaciones: o, reparaciones: r,
+             total: g.length + i.length + o.length + r.length,
+             importe: g.reduce((s, x) => s + (x.amount || 0), 0) }
+  }, [previo, preparado, expenses, incomes, occupancies, repairTotals])
+
   async function confirmar() {
-    if (!previo) return
+    if (!previo || !preparado) return
     setGuardando(true)
     try {
-      const ahora = new Date().toISOString()
-      const items: Expense[] = previo.gastos.map(g => ({
-        id: idGasto(g),
-        apartmentId: g.apartmentId,
-        expenseDate: `${g.year}-${String(g.month).padStart(2, '0')}-01`,
-        expenseType: g.expenseType,
-        description: `${EXPENSE_LABELS[g.expenseType]} · importado del Excel`,
-        amount: g.base,
-        igic: g.igic || undefined,
-        createdAt: ahora,
-      }))
-      await importExpenses(items)
+      await importExpenses(preparado.gastos)
+      await importIncomes(preparado.ingresos)
+      await importOccupancies(preparado.ocupaciones)
+      await importRepairTotals(preparado.reparaciones)
 
-      // Los ingresos brutos del Excel son la cifra que se declara: se guardan
-      // aparte, sin tocar los cobros, y Analítica enseña ambos para comparar.
-      const porMes = new Map<string, number>()
-      for (const i of previo.ingresosPorInmueble) {
-        const k = `${i.apartmentId}|${i.month}`
-        porMes.set(k, (porMes.get(k) || 0) + i.base)
-      }
-      const ingresos: IngresoMensual[] = [...porMes.entries()].map(([k, amount]) => {
-        const [apartmentId, mes] = k.split('|')
-        const month = Number(mes)
-        return { id: idIngreso(previo.year, apartmentId, month), apartmentId,
-                 year: previo.year, month, amount, origen: 'excel' as const }
+      // El borrado va al final, cuando lo nuevo ya está guardado: si algo falla
+      // antes, el ejercicio se queda como estaba y no a medio camino.
+      const quitados = await purgeImported(previo.year, {
+        expenses: preparado.gastos.map(x => x.id),
+        incomes: preparado.ingresos.map(x => x.id),
+        occupancies: preparado.ocupaciones.map(x => x.id),
+        repairTotals: preparado.reparaciones.map(x => x.id),
       })
-      await importIncomes(ingresos)
 
-      // La ocupación declarada es la que prorratea el gasto deducible. Sin ella
-      // se usaría la de las reservas de la app, que pueden estar incompletas.
-      const ocupaciones: OcupacionMensual[] = previo.ocupaciones.map(o => ({
-        id: idOcupacion(previo.year, o.apartmentId, o.month),
-        apartmentId: o.apartmentId, year: previo.year, month: o.month,
-        diasAlquilados: o.diasAlquilados, diasTotales: o.diasTotales, origen: 'excel' as const,
-      }))
-      await importOccupancies(ocupaciones)
+      // El registro del volcado va lo último: solo se anota lo que de verdad
+      // ha entrado, nunca un intento que se quedó a medias.
+      anotaVolcado({
+        fileName: nombreFichero || 'sin nombre',
+        year: previo.year,
+        gastos: preparado.gastos.length,
+        ingresos: preparado.ingresos.length,
+        ocupaciones: preparado.ocupaciones.length,
+        reparaciones: preparado.reparaciones.length,
+        borrados: quitados,
+      })
 
-      setHecho(items.length)
-      setIngresosHechos(ingresos.length)
+      setHecho(preparado.gastos.length)
+      setIngresosHechos(preparado.ingresos.length)
+      setBorrados(quitados)
       setPrevio(null)
     } catch {
       setError('No se han podido guardar los gastos. Revisa la conexión y vuelve a intentarlo.')
@@ -98,6 +190,12 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
         }, {}),
       ).sort((a, b) => b[1].total - a[1].total)
     : []
+
+  // Los últimos volcados, del más reciente al más antiguo.
+  const historial = useMemo(
+    () => [...importLogs].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5),
+    [importLogs],
+  )
 
   const totalPrevio = previo ? previo.gastos.reduce((s, g) => s + g.base, 0) : 0
   const nombreApt = (id: string) => apartments.find(a => a.id === id)?.name || id
@@ -119,6 +217,7 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
               <p className="text-sm text-green-800 mt-0.5">
                 Y {ingresosHechos} meses de ingresos brutos y su ocupación. Ya aparecen
                 en la lista de gastos y en Analítica.
+                {borrados > 0 && ` Se han quitado ${borrados} apuntes del Excel anterior que este fichero ya no traía.`}
               </p>
             </div>
           </div>
@@ -131,13 +230,38 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
               pantalla con proveedor y factura, y volcarlas aquí duplicaría el gasto.
             </p>
 
-            <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-300 rounded-lg p-6 cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 transition-colors">
+            <label
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) lee(f) }}
+              className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-300 rounded-lg p-6 cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 transition-colors">
               <Upload size={22} className="text-slate-400" />
               <span className="text-sm font-medium text-slate-600">
-                {nombreFichero || 'Elegir fichero .xlsx'}
+                {nombreFichero || 'Elegir o arrastrar el fichero .xlsx'}
               </span>
               <input type="file" accept=".xlsx" className="hidden" onChange={elegirFichero} />
             </label>
+
+            {/* Historial: meses después, saber qué fichero trajo cada cifra y
+                quién lo subió evita tener que reconstruirlo de memoria. */}
+            {!previo && historial.length > 0 && (
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-50 border-b border-slate-200 px-3 py-2">
+                  <History size={13} /> Últimos volcados
+                </p>
+                <ul className="divide-y divide-slate-100">
+                  {historial.map(l => (
+                    <li key={l.id} className="px-3 py-2 text-xs">
+                      <p className="font-medium text-slate-700 truncate">{l.fileName}</p>
+                      <p className="text-slate-500" translate="no">
+                        Ejercicio {l.year} · {fechaHora(l.at)} · {l.by} ·{' '}
+                        {l.gastos} gastos, {l.ingresos} meses de ingresos
+                        {l.borrados > 0 && `, ${l.borrados} retirados`}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </>
         )}
 
@@ -226,12 +350,25 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
               </p>
             )}
 
-            {previo.reparacionesIgnoradas.length > 0 && (
+            {previo.reparaciones.length > 0 && (
               <p className="text-xs text-slate-500">
-                Se omiten {previo.reparacionesIgnoradas.length} líneas de reparaciones
-                ({previo.reparacionesIgnoradas.reduce((s, r) => s + r.base, 0).toLocaleString('es-ES')} €),
-                ya registradas en la pantalla de Reparaciones.
+                Las {previo.reparaciones.length} líneas de reparaciones
+                ({previo.reparaciones.reduce((s, r) => s + r.base, 0).toLocaleString('es-ES')} €)
+                <strong> no se cargan como gasto</strong>: ya están en la pantalla de
+                Reparaciones. Solo se anota la cifra del Excel para poder compararlas y
+                avisar en el dashboard si no cuadran.
               </p>
+            )}
+
+            {previo.sinJustificante.length > 0 && (
+              <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
+                <p className="text-sm text-amber-900">
+                  <b>{previo.sinJustificante.length} líneas de gastos sin justificante</b>{' '}
+                  ({previo.sinJustificante.reduce((s, g) => s + g.base, 0)
+                    .toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €)
+                  no se cargan: falta decidir si se deducen o no. En cuanto se decida, se añaden.
+                </p>
+              </div>
             )}
 
             {previo.inmueblesNoReconocidos.length > 0 && (
@@ -243,9 +380,28 @@ export default function ImportarExcel({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
+            {aBorrar && aBorrar.total > 0 && (
+              <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
+                <p className="text-sm font-semibold text-amber-900 mb-1">
+                  Se quitarán {aBorrar.total} apuntes del Excel anterior de {previo.year}
+                </p>
+                <p className="text-sm text-amber-900">
+                  Estaban en el fichero que se subió antes y este ya no los trae, así que la app
+                  se queda igual que el Excel nuevo.
+                  {aBorrar.gastos.length > 0 && ` Gastos: ${aBorrar.gastos.length} (${aBorrar.importe.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €).`}
+                  {aBorrar.ingresos.length > 0 && ` Ingresos: ${aBorrar.ingresos.length} meses.`}
+                  {aBorrar.ocupaciones.length > 0 && ` Ocupación: ${aBorrar.ocupaciones.length} meses.`}
+                  {aBorrar.reparaciones.length > 0 && ` Reparaciones: ${aBorrar.reparaciones.length}.`}
+                </p>
+                <p className="text-xs text-amber-800 mt-1">
+                  Lo dado de alta a mano en la app no se toca: solo se quita lo que vino de un Excel.
+                </p>
+              </div>
+            )}
+
             <p className="text-xs text-slate-500">
               Si ya habías importado este mismo ejercicio, los apuntes se actualizan en vez de
-              duplicarse.
+              duplicarse, y los que ya no estén en el fichero nuevo se quitan.
             </p>
           </>
         )}

@@ -15,12 +15,39 @@ import type { ExpenseType } from '../types'
  * combinadas por meses y no llegan fila a fila.
  */
 
-// Columnas (base 0) de base imponible e IGIC de enero a diciembre.
-const COL_BASE = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24]
-const COL_IGIC = COL_BASE.map(c => c + 1)
-const COL_CONCEPTO = 1
-const COL_DIRECCION = 2
-const COL_NOMBRE = 3
+/**
+ * Dónde está cada cosa dentro de una fila. No son columnas fijas: el fichero
+ * ha cambiado de sitio con el tiempo (en la versión de 2025 todo se corrió una
+ * columna a la derecha), así que se deducen mirando dónde cae el rótulo
+ * DIRECCION y se desplaza todo lo demás con él.
+ */
+interface Columnas {
+  concepto: number
+  direccion: number
+  base: number[]
+  igic: number[]
+}
+
+function columnasDe(desplazamiento: number): Columnas {
+  const base = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24].map(c => c + desplazamiento)
+  return {
+    concepto: 1 + desplazamiento,
+    direccion: 2 + desplazamiento,
+    base,
+    igic: base.map(c => c + 1),
+  }
+}
+
+/** Busca el rótulo DIRECCION para saber cuánto se ha desplazado la tabla. */
+function desplazamientoDe(filas: unknown[][]): number {
+  for (const fila of filas) {
+    if (!Array.isArray(fila)) continue
+    for (let c = 0; c < 6; c++) {
+      if (normaliza(fila[c]) === 'direccion') return c - 1
+    }
+  }
+  return 0
+}
 
 export interface GastoImportado {
   apartmentId: string
@@ -42,7 +69,9 @@ export interface ResultadoImport {
   year: number
   gastos: GastoImportado[]
   ingresosPorInmueble: { apartmentId: string; month: number; base: number }[]
-  reparacionesIgnoradas: { apartmentId: string; month: number; base: number }[]
+  reparaciones: { apartmentId: string; month: number; base: number }[]
+  /** Gastos que el Excel marca como sin justificante: no se cargan. */
+  sinJustificante: { apartmentId: string; month: number; base: number }[]
   ocupaciones: OcupacionImportada[]
   inmueblesNoReconocidos: string[]
 }
@@ -115,21 +144,30 @@ function extraeFilas(bruto: unknown): unknown[][] {
 /** Analiza las filas ya leídas. Separado de la lectura para poder probarlo. */
 export function analizaFilas(bruto: unknown): ResultadoImport {
   const filas = extraeFilas(bruto)
+  const COL = columnasDe(desplazamientoDe(filas))
 
-  // Año: primer número de 4 cifras plausible en la cabecera del documento.
-  let year = new Date().getFullYear()
-  for (const fila of filas.slice(0, 12)) {
+  // Ejercicio: el primer año suelto que aparezca antes de los datos. Se mira
+  // toda la cabecera hasta el primer bloque de inmueble, no unas pocas filas:
+  // en la versión de 2025 el año está bastante más abajo, junto al título.
+  const primerBloque = filas.findIndex(f =>
+    Array.isArray(f) && f.some(c => normaliza(c) === 'direccion'))
+  const hastaDonde = primerBloque > 0 ? primerBloque : 40
+  let year = 0
+  for (const fila of filas.slice(0, hastaDonde)) {
     // Las filas vacías del Excel no siempre llegan como array.
     if (!Array.isArray(fila)) continue
     for (const celda of fila) {
       const n = typeof celda === 'number' ? celda : Number(celda)
       if (Number.isInteger(n) && n >= 2000 && n <= 2100) { year = n; break }
     }
+    if (year) break
   }
+  if (!year) year = new Date().getFullYear()
 
   const gastos: GastoImportado[] = []
   const ingresosPorInmueble: ResultadoImport['ingresosPorInmueble'] = []
-  const reparacionesIgnoradas: ResultadoImport['reparacionesIgnoradas'] = []
+  const reparaciones: ResultadoImport['reparaciones'] = []
+  const sinJustificante: ResultadoImport['sinJustificante'] = []
   const inmueblesNoReconocidos: string[] = []
 
   // Los días alquilados y totales de cada mes viven en las filas siguientes a
@@ -145,23 +183,27 @@ export function analizaFilas(bruto: unknown): ResultadoImport {
 
     // Antes del filtro de abajo: la fila de «DIAS TOTALES» trae la columna B
     // vacía y el rótulo en la C, así que se descartaría por no tener etiqueta.
-    const rotulo = normaliza(fila[COL_DIRECCION])
+    const rotulo = normaliza(fila[COL.direccion])
     if (apartmentId && (rotulo.startsWith('dias totales') || rotulo.startsWith('dias alquilado'))) {
       const destino = rotulo.startsWith('dias totales') ? diasTot : diasAlq
       for (let m = 0; m < 12; m++) {
-        const v = num(fila[COL_IGIC[m]])
+        const v = num(fila[COL.igic[m]])
         if (v) destino.set(`${apartmentId}|${m + 1}`, v)
       }
       continue
     }
 
-    const etiqueta = normaliza(fila[COL_CONCEPTO])
+    const etiqueta = normaliza(fila[COL.concepto])
     if (!etiqueta) continue
 
     if (etiqueta === 'direccion') {
-      apartmentId = reconoceInmueble(fila[COL_NOMBRE], fila[COL_DIRECCION])
+      // El nombre del inmueble no siempre está en la misma casilla —a veces va
+      // pegado a la dirección, a veces unas columnas más allá—, así que se mira
+      // todo el trozo de fila que sigue al rótulo.
+      const trozo = fila.slice(COL.direccion, COL.direccion + 7).map(v => String(v ?? '')).join(' ')
+      apartmentId = reconoceInmueble(trozo, fila[COL.direccion])
       if (!apartmentId) {
-        inmueblesNoReconocidos.push(String(fila[COL_NOMBRE] ?? fila[COL_DIRECCION] ?? '¿?'))
+        inmueblesNoReconocidos.push(String(fila[COL.direccion + 1] ?? fila[COL.direccion] ?? '¿?'))
       }
       continue
     }
@@ -169,23 +211,37 @@ export function analizaFilas(bruto: unknown): ResultadoImport {
 
     const registra = (destino: { apartmentId: string; month: number; base: number }[]) => {
       for (let m = 0; m < 12; m++) {
-        const base = num(fila[COL_BASE[m]])
+        const base = num(fila[COL.base[m]])
         if (base) destino.push({ apartmentId: apartmentId!, month: m + 1, base })
       }
     }
 
-    if (etiqueta.includes('ingresos brutos')) { registra(ingresosPorInmueble); continue }
+    if (etiqueta.includes('ingresos brutos')) {
+      // Desde 2025 hay dos filas con ese nombre: lo que cobra la propiedad y el
+      // precio publicado en la web, que es otra cosa y no se declara como
+      // ingreso. Solo entra la primera.
+      if (!/web|publi/.test(etiqueta)) registra(ingresosPorInmueble)
+      continue
+    }
 
-    // Las reparaciones ya viven en su propia pantalla con proveedor y factura:
-    // importarlas aquí duplicaría el gasto.
-    if (etiqueta.includes('reparaciones')) { registra(reparacionesIgnoradas); continue }
+    // Gastos sin justificante: no se cargan mientras no se decida si se
+    // deducen. Se cuentan para poder decirlo en la vista previa.
+    if (etiqueta.includes('s/justificante') || etiqueta.includes('sin justificante')) {
+      registra(sinJustificante)
+      continue
+    }
+
+    // Las reparaciones no se dan de alta como gasto: ya viven en su propia
+    // pantalla con proveedor y factura, y volcarlas aquí las duplicaría. Se
+    // guardan aparte solo como cifra declarada, para poder compararlas.
+    if (etiqueta.includes('reparaciones')) { registra(reparaciones); continue }
 
     const tipo = reconoceConcepto(etiqueta)
     if (!tipo) continue
 
     for (let m = 0; m < 12; m++) {
-      const base = num(fila[COL_BASE[m]])
-      const igic = num(fila[COL_IGIC[m]])
+      const base = num(fila[COL.base[m]])
+      const igic = num(fila[COL.igic[m]])
       if (base) gastos.push({ apartmentId, year, month: m + 1, expenseType: tipo, base, igic })
     }
   }
@@ -203,7 +259,7 @@ export function analizaFilas(bruto: unknown): ResultadoImport {
     })
   }
 
-  return { year, gastos, ingresosPorInmueble, reparacionesIgnoradas, ocupaciones, inmueblesNoReconocidos }
+  return { year, gastos, ingresosPorInmueble, reparaciones, sinJustificante, ocupaciones, inmueblesNoReconocidos }
 }
 
 /**
@@ -222,5 +278,10 @@ export function idOcupacion(year: number, apartmentId: string, month: number): s
 
 /** Mismo criterio para los ingresos brutos declarados. */
 export function idIngreso(year: number, apartmentId: string, month: number): string {
+  return `xls-${year}${String(month).padStart(2, '0')}-${apartmentId}`
+}
+
+/** Mismo criterio para las reparaciones declaradas. */
+export function idReparacionDeclarada(year: number, apartmentId: string, month: number): string {
   return `xls-${year}${String(month).padStart(2, '0')}-${apartmentId}`
 }
