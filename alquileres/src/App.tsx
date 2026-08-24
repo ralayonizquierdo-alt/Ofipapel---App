@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, Settings, Menu, X, KeyRound, LogOut
+  LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, FileSpreadsheet, Settings, Menu, X, KeyRound, LogOut
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import bgTrebol from './assets/bg-trebol.png'
@@ -16,6 +16,7 @@ import Prices from './pages/Prices'
 import Collections from './pages/Collections'
 import Costos from './pages/Costos'
 import Analytics from './pages/Analytics'
+import Asesoria from './pages/Asesoria'
 import ApartmentsConfig from './pages/ApartmentsConfig'
 
 const NAV = [
@@ -26,6 +27,7 @@ const NAV = [
   { to: '/cobros',       icon: PiggyBank,       label: 'Cobros' },
   { to: '/gastos',       icon: Receipt,         label: 'Gastos' },
   { to: '/analitica',    icon: BarChart3,       label: 'Analítica' },
+  { to: '/asesoria',     icon: FileSpreadsheet, label: 'Asesoría' },
   { to: '/config',       icon: Settings,        label: 'Apartamentos' },
 ]
 
@@ -226,6 +228,7 @@ export default function App() {
               <Route path="/gastos" element={<Costos />} />
               <Route path="/cobros" element={<Collections />} />
               <Route path="/analitica" element={<Analytics />} />
+              <Route path="/asesoria" element={<Asesoria />} />
               <Route path="/config" element={<ApartmentsConfig />} />
             </Routes>
           </main>

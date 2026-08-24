@@ -2,24 +2,11 @@ import { useMemo, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { Printer } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
-import { MONTH_NAMES_ES, getDaysInMonth } from '../lib/dateUtils'
+import { MONTH_NAMES_ES } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
-import { deducibleGasto, deducibleReparacion, nochesOcupadas, mapaOcupaciones, redondea } from '../lib/deducible'
+import { redondea } from '../lib/deducible'
+import { cuentasDe, mesesDe, TRIMESTRES, type Periodo } from '../lib/cuentas'
 import PageHeader from '../components/ui/PageHeader'
-
-/** Todo el año, un trimestre o un mes suelto: son los tres cortes con los que
- *  se mira el negocio (el trimestre, además, es el periodo del IGIC). */
-type Periodo = 'anual' | 'T1' | 'T2' | 'T3' | 'T4' | `M${number}`
-
-const TRIMESTRES: Record<string, number[]> = {
-  T1: [1, 2, 3], T2: [4, 5, 6], T3: [7, 8, 9], T4: [10, 11, 12],
-}
-
-function mesesDe(periodo: Periodo): number[] {
-  if (periodo === 'anual') return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-  if (periodo in TRIMESTRES) return TRIMESTRES[periodo]
-  return [Number(periodo.slice(1))]
-}
 
 function etiquetaPeriodo(periodo: Periodo, year: number): string {
   if (periodo === 'anual') return String(year)
@@ -33,10 +20,11 @@ export default function Analytics() {
   const [periodo, setPeriodo] = useState<Periodo>('anual')
   const [aptFiltro, setAptFiltro] = useState('')
 
-  const activos = allApartments.filter(a => a.active)
-  const apartments = aptFiltro ? activos.filter(a => a.id === aptFiltro) : activos
-  const meses = mesesDe(periodo)
-  const ocupDeclarada = useMemo(() => mapaOcupaciones(occupancies), [occupancies])
+  const activos = useMemo(() => allApartments.filter(a => a.active), [allApartments])
+  const apartments = useMemo(
+    () => (aptFiltro ? activos.filter(a => a.id === aptFiltro) : activos),
+    [activos, aptFiltro],
+  )
 
   /** Años con algún dato, no solo con cobros. */
   const years = useMemo(() => {
@@ -49,102 +37,40 @@ export default function Analytics() {
     return [...s].filter(Boolean).sort((a, b) => b.localeCompare(a))
   }, [payments, reservations, expenses, repairs, incomes])
 
-  /** Ingresos declarados del Excel, indexados por inmueble y mes. */
-  const declarados = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const i of incomes) {
-      if (i.year !== year) continue
-      m.set(`${i.apartmentId}|${i.month}`, (m.get(`${i.apartmentId}|${i.month}`) || 0) + i.amount)
-    }
-    return m
-  }, [incomes, year])
+  /** Los datos que necesitan las cuentas, ya acotados al filtro de apartamento. */
+  const datos = useMemo(
+    () => ({ apartments, reservations, payments, expenses, repairs, incomes, occupancies }),
+    [apartments, reservations, payments, expenses, repairs, incomes, occupancies],
+  )
 
-  /** Si el ejercicio tiene ingresos del Excel, esos mandan y los cobros pasan a
-   *  ser comprobación. Si no los hay, se sigue calculando desde los cobros. */
-  const hayDeclarados = declarados.size > 0
+  // Las cifras las lleva lib/cuentas.ts, el mismo cálculo que sale en la hoja
+  // de la asesoría: así lo que se ve aquí y lo que se manda fuera no divergen.
+  const cuentas = useMemo(() => cuentasDe(datos, year, mesesDe(periodo)), [datos, year, periodo])
+  const { hayDeclarados, total } = cuentas
 
-  const aptDeReserva = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const r of reservations) m.set(r.id, r.apartmentId)
-    return m
-  }, [reservations])
+  const porApartamento = cuentas.porInmueble.map(c => ({ ...c, diasLibres: c.diasPeriodo - c.noches }))
 
-  /** ¿Cae la fecha dentro del año y del periodo elegidos? */
-  const enPeriodo = (fecha?: string) => {
-    if (!fecha) return false
-    const [y, m] = fecha.split('-')
-    return Number(y) === year && meses.includes(Number(m))
-  }
-
-  const visible = (aptId: string) => !aptFiltro || aptId === aptFiltro
-
-  // ── Cifras por apartamento ──────────────────────────────────────────────────
-  const porApartamento = apartments.map(apt => {
-    const diasPeriodo = meses.reduce((s, m) => s + getDaysInMonth(year, m), 0)
-    // Con ocupación declarada, las noches salen de ella: son las que sustentan
-    // el prorrateo, así que lo que se enseña y lo que se calcula coinciden.
-    const noches = Math.round(meses.reduce((s, m) => {
-      const dias = getDaysInMonth(year, m)
-      const decl = ocupDeclarada.get(`${apt.id}|${year}|${m}`)
-      return s + (decl !== undefined ? decl * dias : nochesOcupadas(reservations, apt.id, year, m))
-    }, 0))
-
-    const cobrado = payments
-      .filter(p => p.received && enPeriodo(p.paymentDate) && aptDeReserva.get(p.reservationId) === apt.id)
-      .reduce((s, p) => s + p.amount, 0)
-    const declarado = meses.reduce((s, m) => s + (declarados.get(`${apt.id}|${m}`) || 0), 0)
-    const ingresos = hayDeclarados ? declarado : cobrado
-
-    const gastosApt = expenses.filter(e => e.apartmentId === apt.id && enPeriodo(e.expenseDate))
-    const repsApt = repairs.filter(r => r.apartmentId === apt.id && enPeriodo(r.repairDate))
-
-    const gastos = gastosApt.reduce((s, e) => s + (e.amount || 0), 0)
-      + repsApt.reduce((s, r) => s + (r.amount || 0), 0)
-    const deducible = gastosApt.reduce((s, e) => s + deducibleGasto(e, reservations, ocupDeclarada), 0)
-      + repsApt.reduce((s, r) => s + deducibleReparacion(r, reservations, ocupDeclarada), 0)
-
-    return {
-      apt, noches, diasLibres: diasPeriodo - noches,
-      ocupacion: diasPeriodo ? Math.round((noches / diasPeriodo) * 100) : 0,
-      ingresos: redondea(ingresos), cobrado: redondea(cobrado), gastos: redondea(gastos), deducible: redondea(deducible),
-      resultado: redondea(ingresos - deducible), igic: calcIGIC(ingresos),
-    }
-  })
-
-  const totIngresos = redondea(porApartamento.reduce((s, a) => s + a.ingresos, 0))
-  const totGastos = redondea(porApartamento.reduce((s, a) => s + a.gastos, 0))
-  const totDeducible = redondea(porApartamento.reduce((s, a) => s + a.deducible, 0))
-  const totResultado = redondea(totIngresos - totDeducible)
-  const totCobrado = redondea(porApartamento.reduce((s, a) => s + a.cobrado, 0))
-  const totNoches = porApartamento.reduce((s, a) => s + a.noches, 0)
-  const totDiasLibres = porApartamento.reduce((s, a) => s + a.diasLibres, 0)
+  const totIngresos = total.ingresos
+  const totGastos = total.gastos
+  const totDeducible = total.deducible
+  const totResultado = total.resultado
+  const totCobrado = total.cobrado
+  const totNoches = total.noches
+  const totDiasLibres = total.diasPeriodo - total.noches
 
   // ── Resumen general mes a mes ───────────────────────────────────────────────
-  const resumenMensual = Array.from({ length: 12 }, (_, i) => {
-    const m = i + 1
-    const clave = `${year}-${String(m).padStart(2, '0')}`
-    const dentro = meses.includes(m)
-
-    const cobrado = payments
-      .filter(p => p.received && p.paymentDate?.startsWith(clave) && visible(aptDeReserva.get(p.reservationId) || ''))
-      .reduce((s, p) => s + p.amount, 0)
-    const declarado = [...declarados.entries()]
-      .filter(([k]) => k.endsWith(`|${m}`) && visible(k.split('|')[0]))
-      .reduce((s, [, v]) => s + v, 0)
-    const ingresos = hayDeclarados ? declarado : cobrado
-    const gastosMes = expenses.filter(e => e.expenseDate?.startsWith(clave) && visible(e.apartmentId))
-    const repsMes = repairs.filter(r => r.repairDate?.startsWith(clave) && visible(r.apartmentId))
-    const gastos = gastosMes.reduce((s, e) => s + (e.amount || 0), 0)
-      + repsMes.reduce((s, r) => s + (r.amount || 0), 0)
-    const deducible = gastosMes.reduce((s, e) => s + deducibleGasto(e, reservations, ocupDeclarada), 0)
-      + repsMes.reduce((s, r) => s + deducibleReparacion(r, reservations, ocupDeclarada), 0)
-
-    return {
-      mes: MONTH_NAMES_ES[i], abrev: MONTH_NAMES_ES[i].slice(0, 3), dentro,
-      ingresos: redondea(ingresos), cobrado: redondea(cobrado), gastos: redondea(gastos),
-      deducible: redondea(deducible), resultado: redondea(ingresos - deducible),
-    }
-  })
+  const resumenMensual = useMemo(() => {
+    const dentro = mesesDe(periodo)
+    return Array.from({ length: 12 }, (_, i) => {
+      const m = i + 1
+      const t = cuentasDe(datos, year, [m]).total
+      return {
+        mes: MONTH_NAMES_ES[i], abrev: MONTH_NAMES_ES[i].slice(0, 3), dentro: dentro.includes(m),
+        ingresos: t.ingresos, cobrado: t.cobrado, gastos: t.gastos,
+        deducible: t.deducible, resultado: t.resultado,
+      }
+    })
+  }, [datos, year, periodo])
 
   const grafico = resumenMensual.filter(m => m.dentro).map(m => ({
     month: m.abrev,
