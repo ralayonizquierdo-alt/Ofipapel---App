@@ -5,6 +5,7 @@ import { formatDate, formatDateShort, today } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
 import { Link } from 'react-router-dom'
 import AlertasDescuadre from '../components/AlertasDescuadre'
+import CorreccionesLuis from '../components/CorreccionesLuis'
 import { CajaPegar } from '../components/PegarWhatsApp'
 import SoltarGastos from '../components/SoltarGastos'
 import { tocaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
@@ -87,6 +88,10 @@ export default function Dashboard() {
           <SoltarGastos />
         </div>
       </div>
+
+      {/* Arreglo de una vez de las estancias que se pisaban. Desaparece solo
+          cuando no queda nada pendiente. */}
+      <CorreccionesLuis />
 
       {/* Descuadres Excel ↔ app. Van antes que el resto de avisos: son los que
           pidió el propietario para poder cerrar el ejercicio. */}
