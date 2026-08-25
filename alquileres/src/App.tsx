@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, FileSpreadsheet, History, Settings, Menu, X, KeyRound, LogOut
+  LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, FileSpreadsheet, History, Sparkles, Settings, Menu, X, KeyRound, LogOut
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import bgTrebol from './assets/bg-trebol.png'
@@ -8,7 +8,7 @@ import LoginScreen from './components/LoginScreen'
 import MigrateLocalData from './components/MigrateLocalData'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import { useData } from './contexts/DataContext'
-import { observarSesion, salir, usuarioDe, type UsuarioApp } from './lib/auth'
+import { observarSesion, rolDe, salir, usuarioDe, type Rol, type UsuarioApp } from './lib/auth'
 import Dashboard from './pages/Dashboard'
 import Planning from './pages/Planning'
 import Reservations from './pages/Reservations'
@@ -18,25 +18,37 @@ import Costos from './pages/Costos'
 import Analytics from './pages/Analytics'
 import Asesoria from './pages/Asesoria'
 import Registro from './pages/Registro'
+import SubirLimpieza from './pages/SubirLimpieza'
 import ApartmentsConfig from './pages/ApartmentsConfig'
 
-const NAV = [
-  { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/planning',     icon: Calendar,        label: 'Planning' },
-  { to: '/reservas',     icon: BedDouble,       label: 'Reservas' },
-  { to: '/precios',      icon: Tag,             label: 'Precios' },
-  { to: '/cobros',       icon: PiggyBank,       label: 'Cobros' },
-  { to: '/gastos',       icon: Receipt,         label: 'Gastos' },
-  { to: '/analitica',    icon: BarChart3,       label: 'Analítica' },
-  { to: '/asesoria',     icon: FileSpreadsheet, label: 'Asesoría' },
-  { to: '/registro',     icon: History,         label: 'Registro' },
-  { to: '/config',       icon: Settings,        label: 'Apartamentos' },
+/**
+ * El menú, con el rol que puede ver cada entrada. Quien entra como «gastos»
+ * —Mónica y Cande— solo tiene la pantalla de subir el parte de limpieza: ni ve
+ * el dinero, ni las reservas, ni las cuentas.
+ */
+const NAV: { to: string; icon: typeof LayoutDashboard; label: string; roles: Rol[] }[] = [
+  { to: '/limpieza',     icon: Sparkles,        label: 'Subir limpieza', roles: ['gastos'] },
+  { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard',      roles: ['gestion'] },
+  { to: '/planning',     icon: Calendar,        label: 'Planning',       roles: ['gestion'] },
+  { to: '/reservas',     icon: BedDouble,       label: 'Reservas',       roles: ['gestion'] },
+  { to: '/precios',      icon: Tag,             label: 'Precios',        roles: ['gestion'] },
+  { to: '/cobros',       icon: PiggyBank,       label: 'Cobros',         roles: ['gestion'] },
+  { to: '/gastos',       icon: Receipt,         label: 'Gastos',         roles: ['gestion'] },
+  { to: '/analitica',    icon: BarChart3,       label: 'Analítica',      roles: ['gestion'] },
+  { to: '/asesoria',     icon: FileSpreadsheet, label: 'Asesoría',       roles: ['gestion'] },
+  { to: '/registro',     icon: History,         label: 'Registro',       roles: ['gestion'] },
+  { to: '/config',       icon: Settings,        label: 'Apartamentos',   roles: ['gestion'] },
 ]
 
-function NavItems({ alerts, onClose }: { alerts: number; onClose?: () => void }) {
+const navDe = (rol: Rol) => NAV.filter(n => n.roles.includes(rol))
+
+/** Dónde cae cada uno al entrar, y adónde se le manda si escribe otra ruta. */
+const INICIO: Record<Rol, string> = { gestion: '/dashboard', gastos: '/limpieza' }
+
+function NavItems({ rol, alerts, onClose }: { rol: Rol; alerts: number; onClose?: () => void }) {
   return (
     <>
-      {NAV.map(({ to, icon: Icon, label }) => (
+      {navDe(rol).map(({ to, icon: Icon, label }) => (
         <NavLink
           key={to}
           to={to}
@@ -62,7 +74,7 @@ function NavItems({ alerts, onClose }: { alerts: number; onClose?: () => void })
   )
 }
 
-function Sidebar({ alerts, onChangePassword, onLogout }: { alerts: number; onChangePassword: () => void; onLogout: () => void }) {
+function Sidebar({ rol, alerts, onChangePassword, onLogout }: { rol: Rol; alerts: number; onChangePassword: () => void; onLogout: () => void }) {
   return (
     <aside className="w-56 min-h-screen flex flex-col shrink-0 relative overflow-hidden"
       style={{ backgroundImage: `url(${bgTrebol})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
@@ -72,7 +84,7 @@ function Sidebar({ alerts, onChangePassword, onLogout }: { alerts: number; onCha
         <p className="text-slate-400 text-xs mt-0.5">Gestión vacacional</p>
       </div>
       <nav className="flex-1 py-4 space-y-0.5 px-2 relative z-10">
-        <NavItems alerts={alerts} />
+        <NavItems rol={rol} alerts={alerts} />
       </nav>
       <div className="px-4 py-3 border-t border-slate-700 space-y-1 relative z-10">
         <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>
@@ -111,7 +123,7 @@ function MobileHeader({ alerts, onMenuOpen }: { alerts: number; onMenuOpen: () =
   )
 }
 
-function Drawer({ alerts, open, onClose, onChangePassword, onLogout }: { alerts: number; open: boolean; onClose: () => void; onChangePassword: () => void; onLogout: () => void }) {
+function Drawer({ rol, alerts, open, onClose, onChangePassword, onLogout }: { rol: Rol; alerts: number; open: boolean; onClose: () => void; onChangePassword: () => void; onLogout: () => void }) {
   if (!open) return null
   return (
     <>
@@ -129,7 +141,7 @@ function Drawer({ alerts, open, onClose, onChangePassword, onLogout }: { alerts:
           </button>
         </div>
         <nav className="flex-1 py-4 space-y-0.5 px-2 overflow-y-auto relative z-10">
-          <NavItems alerts={alerts} onClose={onClose} />
+          <NavItems rol={rol} alerts={alerts} onClose={onClose} />
         </nav>
         <div className="px-4 py-3 border-t border-slate-700 space-y-1 relative z-10">
           <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>
@@ -182,6 +194,10 @@ export default function App() {
 
   if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />
 
+  // Con sesión abierta siempre hay rol; el «?? 'gastos'» es solo para que el
+  // tipo case, y además falla del lado seguro: sin rol, el mínimo acceso.
+  const rol = rolDe(currentUser) ?? 'gastos'
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100">
       <p className="text-slate-500 text-sm">Cargando...</p>
@@ -197,6 +213,7 @@ export default function App() {
         {/* Desktop sidebar */}
         <div className="hidden md:flex">
           <Sidebar
+            rol={rol}
             alerts={alertCount}
             onChangePassword={() => setShowChangePassword(true)}
             onLogout={() => { salir() }}
@@ -211,6 +228,7 @@ export default function App() {
 
           {/* Mobile drawer */}
           <Drawer
+            rol={rol}
             alerts={alertCount}
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
@@ -220,19 +238,29 @@ export default function App() {
 
           <MigrateLocalData />
           <main className="flex-1 overflow-auto">
+            {/* Las rutas se montan según el rol: lo que alguien no puede ver
+                no existe para su sesión, así que escribir «/cobros» a mano
+                tampoco lleva a ninguna parte. */}
             <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/planning" element={<Planning />} />
-              <Route path="/reservas" element={<Reservations />} />
-              <Route path="/precios" element={<Prices />} />
-              <Route path="/reparaciones" element={<Navigate to="/gastos?tab=reparaciones" replace />} />
-              <Route path="/gastos" element={<Costos />} />
-              <Route path="/cobros" element={<Collections />} />
-              <Route path="/analitica" element={<Analytics />} />
-              <Route path="/asesoria" element={<Asesoria />} />
-              <Route path="/registro" element={<Registro />} />
-              <Route path="/config" element={<ApartmentsConfig />} />
+              {rol === 'gastos' ? (
+                <Route path="/limpieza" element={<SubirLimpieza />} />
+              ) : (
+                <>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/planning" element={<Planning />} />
+                  <Route path="/reservas" element={<Reservations />} />
+                  <Route path="/precios" element={<Prices />} />
+                  <Route path="/reparaciones" element={<Navigate to="/gastos?tab=reparaciones" replace />} />
+                  <Route path="/gastos" element={<Costos />} />
+                  <Route path="/cobros" element={<Collections />} />
+                  <Route path="/analitica" element={<Analytics />} />
+                  <Route path="/asesoria" element={<Asesoria />} />
+                  <Route path="/registro" element={<Registro />} />
+                  <Route path="/limpieza" element={<SubirLimpieza />} />
+                  <Route path="/config" element={<ApartmentsConfig />} />
+                </>
+              )}
+              <Route path="*" element={<Navigate to={INICIO[rol]} replace />} />
             </Routes>
           </main>
         </div>

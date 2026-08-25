@@ -17,26 +17,53 @@ import { auth } from './firebase'
  * sesión anónima con la clave pública del bundle y leer o escribir toda la
  * base de datos sin pasar por la app.
  *
- * Luis y Rober no tienen correo asociado al negocio, así que se usan
- * direcciones internas que nunca se enseñan: el usuario escribe «Luis» o
- * «Rober» y la app compone el correo. No son buzones reales, de modo que la
- * contraseña se restablece desde Firebase Console (Authentication → Usuarios).
+ * El usuario elige su nombre en la pantalla y la app pone el correo que le
+ * corresponde (ver CUENTAS más abajo), de modo que nadie tiene que acordarse
+ * de ninguna dirección.
  */
 
-export type UsuarioApp = 'Luis' | 'Rober'
+export type UsuarioApp = 'Luis' | 'Rober' | 'Mónica' | 'Cande'
 
-export const USUARIOS: UsuarioApp[] = ['Luis', 'Rober']
+/**
+ * Qué puede hacer cada uno.
+ *
+ *   gestion → todo: reservas, cobros, gastos, analítica, cuentas.
+ *   gastos  → solo subir el parte de limpieza. Ni ve el dinero ni las reservas.
+ *
+ * Lo decidió Luis el 24/08/2026: Mónica y Cande entran únicamente para subir
+ * ese parte cada semana. Los permisos son por rol y no por persona a propósito:
+ * añadir a alguien nuevo no obliga a tocar ninguna pantalla.
+ */
+export type Rol = 'gestion' | 'gastos'
 
-const DOMINIO_INTERNO = 'alquileres.internal'
+interface Cuenta { email: string; rol: Rol }
+
+const CUENTAS: Record<UsuarioApp, Cuenta> = {
+  // Luis y Rober no tienen correo del negocio: se usan direcciones internas que
+  // nunca se enseñan. Al no ser buzones reales, su contraseña solo se puede
+  // restablecer desde Firebase Console.
+  'Luis':   { email: 'luis@alquileres.internal',  rol: 'gestion' },
+  'Rober':  { email: 'rober@alquileres.internal', rol: 'gestion' },
+  // Estos dos sí son correos de verdad, así que ellas sí pueden usar el
+  // «he olvidado mi contraseña» por email.
+  'Mónica': { email: 'conta@ofipapelsl.com',           rol: 'gastos' },
+  'Cande':  { email: 'administracion@ofipapelsl.com',  rol: 'gastos' },
+}
+
+export const USUARIOS = Object.keys(CUENTAS) as UsuarioApp[]
 
 export function emailDe(usuario: UsuarioApp): string {
-  return `${usuario.toLowerCase()}@${DOMINIO_INTERNO}`
+  return CUENTAS[usuario].email
+}
+
+export function rolDe(usuario: UsuarioApp | null): Rol | null {
+  return usuario ? CUENTAS[usuario].rol : null
 }
 
 export function usuarioDe(user: User | null): UsuarioApp | null {
   const correo = user?.email?.toLowerCase()
   if (!correo) return null
-  return USUARIOS.find(u => emailDe(u) === correo) ?? null
+  return USUARIOS.find(u => emailDe(u).toLowerCase() === correo) ?? null
 }
 
 /** Quién tiene la sesión abierta ahora mismo, para dejarlo anotado. */
