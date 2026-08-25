@@ -86,8 +86,17 @@ export async function textoDeImagen(f: File): Promise<string> {
   }
 
   if (!resp.ok) {
+    // Un 404 aquí no es un fallo del lector: es que en esa dirección no hay
+    // funciones de servidor. Pasa cuando la app se sirve desde GitHub Pages,
+    // que solo publica ficheros. Conviene decirlo tal cual en vez de soltar un
+    // «no se ha podido leer», que deja a cualquiera adivinando.
+    if (resp.status === 404) {
+      throw new ErrorImagen(
+        'Leer fotos no funciona en esta dirección, porque no tiene servidor. '
+        + 'Usa «Pegar lo copiado», o entra por la dirección de Netlify.')
+    }
     const { error } = await resp.json().catch(() => ({ error: '' }))
-    throw new ErrorImagen(error || 'No se ha podido leer la imagen')
+    throw new ErrorImagen(error || `No se ha podido leer la imagen (error ${resp.status})`)
   }
 
   const { texto } = await resp.json()
