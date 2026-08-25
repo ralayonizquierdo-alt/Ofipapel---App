@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, ClipboardPaste, FileUp } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clipboard, ClipboardPaste, FileUp } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { analizaPegado, analizaAirbnb, analizaCobro, type LineaPegada } from '../lib/pegarReservas'
 import { textoDePdf } from '../lib/leePdf'
@@ -106,6 +106,26 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
   }, [cobro, reservations])
 
   const validas = propuestas.filter(p => !p.linea.problema)
+
+  /**
+   * Trae de un toque lo que haya copiado.
+   *
+   * En el móvil, y sobre todo en el iPhone, pegar a mano es un acertijo: hay
+   * que tocar el recuadro para poner el cursor y volver a tocar para que
+   * salga «Pegar». Con esto es un botón. Safari pide permiso la primera vez,
+   * y eso no se puede evitar: lo decide el navegador, no la aplicación.
+   */
+  async function pegaDelPortapapeles() {
+    setError(''); setHecho('')
+    try {
+      const t = await navigator.clipboard.readText()
+      if (!t.trim()) { setError('No hay nada copiado.'); return }
+      setTexto(t)
+      areaRef.current?.focus()
+    } catch {
+      setError('El navegador no ha dejado pegar. Toca dentro del recuadro, vuelve a tocar y elige «Pegar».')
+    }
+  }
 
   /**
    * Único camino para un fichero, venga del botón, de un arrastre o del
@@ -243,7 +263,16 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Solo si el navegador sabe leer el portapapeles: si no, el botón
+              prometería algo que no puede cumplir. */}
+          {typeof navigator !== 'undefined' && !!navigator.clipboard?.readText && (
+            <button type="button" onClick={pegaDelPortapapeles}
+              className="flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-lg text-xs font-medium text-slate-700 bg-white hover:border-blue-400 hover:text-blue-700 whitespace-nowrap">
+              <Clipboard size={15} className="text-slate-400" />
+              Pegar lo copiado
+            </button>
+          )}
           <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg text-xs text-slate-600 cursor-pointer hover:border-blue-400 hover:bg-blue-50/40">
             <FileUp size={15} className="text-slate-400" />
             {leyendo === 'pdf' ? 'Leyendo el PDF…'
