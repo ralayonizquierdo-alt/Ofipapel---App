@@ -231,14 +231,26 @@ export function analizaAirbnb(texto: string, hoy = new Date()): LineaPegada | nu
   // Se prefiere el bloque «Llegada … Salida …», que trae el mes de cada una.
   // El resumen de arriba («16–22 sept») comparte mes y engaña si la estancia
   // cambia de mes.
-  const bloque = plano.match(/llegada\b([\s\S]{0,120}?)salida\b([\s\S]{0,120})/i)
-  let par = bloque
-    ? [fechasConMes(bloque[1])[0], fechasConMes(bloque[2])[0]].filter(Boolean)
-    : []
-  if (par.length < 2) par = fechasConMes(plano).slice(0, 2)
+  // 1) El bloque «Llegada … Salida», que es el único que trae el mes de cada
+  //    una. Admite las dos formas en que puede salir transcrito: una fecha a
+  //    cada lado —si se leyó columna por columna— o las dos seguidas después
+  //    de «Salida», si se leyó por filas, que es como está puesto en pantalla.
+  const bloque = plano.match(/llegada\b([\s\S]{0,160}?)salida\b([\s\S]{0,160})/i)
+  let par: { dia: number; mes: number; indice: number }[] = []
+  if (bloque) {
+    const izq = fechasConMes(bloque[1])
+    const der = fechasConMes(bloque[2])
+    if (izq.length && der.length) par = [izq[0], der[0]]
+    else if (der.length >= 2) par = der.slice(0, 2)
+    else if (izq.length >= 2) par = izq.slice(0, 2)
+  }
+
+  // 2) «16–22 sept»: los dos días comparten el mes, que solo se escribe al
+  //    final, así que el primero no se ve como fecha por sí solo. Va antes que
+  //    el barrido de abajo precisamente por eso: ahí el «16» se pierde y la
+  //    primera fecha que aparece es el 22, con lo que entrada y salida salen
+  //    del revés.
   if (par.length < 2) {
-    // «16–22 sept»: los dos días comparten el mes, que solo se escribe al
-    // final, así que el primero no se ve como fecha por sí solo.
     const compacto = plano.match(/(\d{1,2})\s*[–—-]\s*(\d{1,2})\s*(?:de\s+)?([a-záéíóúñ]{3,10})\.?/i)
     if (compacto) {
       const mes = mesDe(compacto[3])
@@ -248,6 +260,10 @@ export function analizaAirbnb(texto: string, hoy = new Date()): LineaPegada | nu
       ]
     }
   }
+
+  // 3) Último recurso: las dos primeras fechas que haya en el texto.
+  if (par.length < 2) par = fechasConMes(plano).slice(0, 2)
+
   if (par.length < 2) {
     return { ...base, apartmentId, guestName, problema: 'No se encuentran las fechas de llegada y salida' }
   }
