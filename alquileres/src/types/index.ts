@@ -175,24 +175,59 @@ export interface ReparacionMensual {
   origen: 'excel'
 }
 
+/** Por dónde entró un dato en la aplicación: el «cómo» del registro. */
+export type OrigenSubida =
+  | 'excel-gastos'      // Excel «Resumen cobros y gastos»
+  | 'excel-calendario'  // calendario anual de reservas en colores
+  | 'pegado-whatsapp'   // aviso de la inmobiliaria, pegado como texto
+  | 'pegado-airbnb'     // aviso de reserva de la aplicación de Airbnb
+  | 'justificante'      // transferencia, pegada o leída de su PDF
+  | 'correcciones'      // arreglo puntual de datos ya cargados
+
+export const ORIGEN_LABEL: Record<OrigenSubida, string> = {
+  'excel-gastos': 'Excel de gastos',
+  'excel-calendario': 'Calendario de reservas',
+  'pegado-whatsapp': 'Pegado de WhatsApp',
+  'pegado-airbnb': 'Aviso de Airbnb',
+  'justificante': 'Justificante de transferencia',
+  'correcciones': 'Corrección de datos',
+}
+
 /**
- * Un volcado de Excel: qué fichero, cuándo y quién lo subió. Sirve para poder
- * mirar atrás y saber de dónde salió cada cifra de un ejercicio.
+ * Una subida de datos: qué entró, cuándo, por dónde y quién la hizo.
+ *
+ * Se anota siempre **después** de guardar, para que en el registro solo figure
+ * lo que de verdad entró y nunca un intento que se quedó a medias. Sirve para
+ * poder mirar atrás y saber de dónde salió cada cifra de un ejercicio.
+ *
+ * Casi todo es opcional a propósito: cada vía trae unas cosas y no otras (un
+ * pegado no tiene fichero, un justificante no tiene año de ejercicio), y los
+ * registros guardados antes de que esto existiera solo llevan lo de gastos.
  */
 export interface ImportLog {
   id: string
-  fileName: string
-  year: number
-  /** Fecha y hora en ISO. */
+  /** Cuándo, en ISO. */
   at: string
-  /** Quién tenía la sesión abierta al subirlo. */
+  /** Quién tenía la sesión abierta. */
   by: string
-  gastos: number
-  ingresos: number
-  ocupaciones: number
-  reparaciones: number
-  /** Apuntes del Excel anterior que este fichero ya no traía. */
-  borrados: number
+  /** Por dónde entró. Los registros antiguos no lo traen: eran de gastos. */
+  origen?: OrigenSubida
+  /** Nombre del fichero, cuando vino de uno. */
+  fileName?: string
+  /** Ejercicio al que afecta, si es uno solo. */
+  year?: number
+  /** Qué pasó, en una línea y en cristiano. */
+  resumen?: string
+
+  // Cuántos apuntes entraron de cada cosa.
+  reservas?: number
+  cobros?: number
+  gastos?: number
+  ingresos?: number
+  ocupaciones?: number
+  reparaciones?: number
+  /** Apuntes que esta subida se llevó por delante. */
+  borrados?: number
 }
 
 export interface QuarterSummary {

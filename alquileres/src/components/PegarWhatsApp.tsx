@@ -41,7 +41,10 @@ export default function PegarWhatsApp({ onClose }: { onClose: () => void }) {
  * la caja a la vista ahorra un clic: llega el mensaje, se pega y listo.
  */
 export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void; compacta?: boolean }) {
-  const { reservations, payments, apartments, prices, addReservation, addPayment, updatePayment } = useData()
+  const {
+    reservations, payments, apartments, prices,
+    addReservation, addPayment, updatePayment, anotaVolcado,
+  } = useData()
   const [texto, setTexto] = useState('')
   const [leyendoPdf, setLeyendoPdf] = useState(false)
   const [arrastrando, setArrastrando] = useState(false)
@@ -139,6 +142,16 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       addPayment({ reservationId: res.id, amount: p.total, received: false })
       n++
     }
+    if (n) {
+      anotaVolcado({
+        origen: validas.some(p => p.linea.origen === 'airbnb') ? 'pegado-airbnb' : 'pegado-whatsapp',
+        resumen: validas
+          .map(p => `${nombreApt(p.linea.apartmentId)} ${formatDate(p.linea.checkIn!)} a ${formatDate(p.linea.checkOut!)}`)
+          .join(' · '),
+        year: Number(validas[0].linea.checkIn!.slice(0, 4)),
+        reservas: n, cobros: n,
+      })
+    }
     setHecho(`${n} ${n === 1 ? 'reserva creada' : 'reservas creadas'}`)
     setTexto(''); setGuardando(false)
   }
@@ -161,6 +174,13 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
         paymentDate: cobro.paymentDate || undefined, paymentMethod: 'transferencia',
       })
     }
+    anotaVolcado({
+      origen: 'justificante',
+      resumen: `${eur(cobro.amount)} en ${nombreApt(cobro.apartmentId)}, reserva del `
+        + `${formatDate(reservaDelCobro.checkIn)} al ${formatDate(reservaDelCobro.checkOut)}`,
+      year: Number((cobro.paymentDate ?? reservaDelCobro.checkIn).slice(0, 4)),
+      cobros: 1,
+    })
     setHecho(`Cobro de ${eur(cobro.amount)} anotado en ${nombreApt(cobro.apartmentId)}`)
     setTexto(''); setGuardando(false)
   }

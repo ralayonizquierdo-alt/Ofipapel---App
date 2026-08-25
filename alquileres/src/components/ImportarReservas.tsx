@@ -22,7 +22,7 @@ const eur = (n: number) =>
  * se pisan— y el botón no se activa hasta marcar que hay copia de seguridad.
  */
 export default function ImportarReservas({ onClose }: { onClose: () => void }) {
-  const { reservations, payments, prices, apartments, reemplazaReservas } = useData()
+  const { reservations, payments, prices, apartments, reemplazaReservas, anotaVolcado } = useData()
   const [previo, setPrevio] = useState<ResultadoCalendario | null>(null)
   const [nombreFichero, setNombreFichero] = useState('')
   const [leyendo, setLeyendo] = useState(false)
@@ -116,6 +116,15 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
         notes: r.origen === 'color' ? 'Del calendario; fechas tomadas del color de la casilla' : 'Del calendario',
       }))
       const { borradas, creadas } = await reemplazaReservas(nuevas, aniosABorrar)
+      // Va después de guardar: solo se anota lo que entró de verdad.
+      anotaVolcado({
+        origen: 'excel-calendario',
+        resumen: `${creadas} reservas de ${anios.join(', ')}`
+          + (borradas ? `, retirando las ${borradas} que había de ${aniosABorrar.join(', ')}` : ''),
+        fileName: nombreFichero || 'sin nombre',
+        year: Number(anios[0]) || undefined,
+        reservas: creadas, cobros: creadas, borrados: borradas,
+      })
       setHecho(`${creadas} reservas cargadas (${anios.join(', ')}). Se han retirado las ${borradas} que había de ${aniosABorrar.join(', ')}.`)
       setPrevio(null)
     } catch {

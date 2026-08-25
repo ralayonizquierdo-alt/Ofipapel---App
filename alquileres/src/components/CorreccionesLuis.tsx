@@ -18,7 +18,7 @@ import {
 export default function CorreccionesLuis() {
   const {
     reservations, payments, apartments,
-    addReservation, updateReservation, deleteReservation, addPayment, deletePayment,
+    addReservation, updateReservation, deleteReservation, addPayment, deletePayment, anotaVolcado,
   } = useData()
   const [abierto, setAbierto] = useState(false)
   const [aplicando, setAplicando] = useState(false)
@@ -66,6 +66,12 @@ export default function CorreccionesLuis() {
           }
         }
       }
+      anotaVolcado({
+        origen: 'correcciones',
+        resumen: `${pendientes.length} cambios en las estancias que se pisaban, según las respuestas de Luis`,
+        reservas: pendientes.filter(p => p.correccion.tipo !== 'borrar').length,
+        borrados: pendientes.filter(p => p.correccion.tipo === 'borrar').length,
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se han podido guardar los cambios')
     } finally {

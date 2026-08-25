@@ -161,6 +161,9 @@ export default function ImportarExcel(
       // El registro del volcado va lo último: solo se anota lo que de verdad
       // ha entrado, nunca un intento que se quedó a medias.
       anotaVolcado({
+        origen: 'excel-gastos',
+        resumen: `${preparado.gastos.length} gastos y ${preparado.ingresos.length} ingresos del ${previo.year}`
+          + (quitados ? `, retirando ${quitados} apuntes del volcado anterior` : ''),
         fileName: nombreFichero || 'sin nombre',
         year: previo.year,
         gastos: preparado.gastos.length,
@@ -247,6 +250,7 @@ export default function ImportarExcel(
               <div className="border border-slate-200 rounded-lg overflow-hidden">
                 <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-50 border-b border-slate-200 px-3 py-2">
                   <History size={13} /> Últimos volcados
+                  <span className="font-normal text-slate-400">— todos están en «Registro»</span>
                 </p>
                 <ul className="divide-y divide-slate-100">
                   {historial.map(l => (
@@ -254,8 +258,8 @@ export default function ImportarExcel(
                       <p className="font-medium text-slate-700 truncate">{l.fileName}</p>
                       <p className="text-slate-500" translate="no">
                         Ejercicio {l.year} · {fechaHora(l.at)} · {l.by} ·{' '}
-                        {l.gastos} gastos, {l.ingresos} meses de ingresos
-                        {l.borrados > 0 && `, ${l.borrados} retirados`}
+                        {l.gastos ?? 0} gastos, {l.ingresos ?? 0} meses de ingresos
+                        {!!l.borrados && `, ${l.borrados} retirados`}
                       </p>
                     </li>
                   ))}
