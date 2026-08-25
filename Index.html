@@ -435,37 +435,6 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
       <div class="login-error" id="loginError"></div>
     </div>
 
-    <!-- ── Primera vez: crear contraseña ── -->
-    <div id="loginFirstTime" style="display:none;">
-      <div class="login-title">Crea tu contraseña</div>
-      <div class="login-sub" style="margin-bottom:20px;">Es la primera vez que entras, <strong id="ftpUserLabel"></strong>. Crea una contraseña personal — solo tú la conocerás.</div>
-      <div class="login-field">
-        <label>Nueva contraseña</label>
-        <div style="position:relative;">
-          <input type="password" id="ftpNew" placeholder="Mínimo 6 caracteres" autocomplete="new-password"
-            style="width:100%;padding:10px 44px 10px 14px;border:1.5px solid var(--borde);border-radius:8px;font-size:14px;outline:none;"
-            onkeydown="if(event.key==='Enter') doFirstTimeSetup()">
-          <button type="button" onclick="toggleFtpPass()"
-            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;color:var(--texto2);padding:0;line-height:1;" title="Mostrar/ocultar">👁️</button>
-        </div>
-      </div>
-      <div class="login-field">
-        <label>Repite la contraseña</label>
-        <div style="position:relative;">
-          <input type="password" id="ftpConfirm" placeholder="Repite la contraseña" autocomplete="new-password"
-            style="width:100%;padding:10px 44px 10px 14px;border:1.5px solid var(--borde);border-radius:8px;font-size:14px;outline:none;"
-            onkeydown="if(event.key==='Enter') doFirstTimeSetup()">
-          <button type="button" onclick="toggleFtpPass()"
-            style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;color:var(--texto2);padding:0;line-height:1;" title="Mostrar/ocultar">👁️</button>
-        </div>
-      </div>
-      <div class="login-error" id="ftpError"></div>
-      <button class="btn-login" onclick="doFirstTimeSetup()">Guardar contraseña →</button>
-      <div style="text-align:center;margin-top:12px;">
-        <span style="font-size:12px;color:var(--texto2);cursor:pointer;text-decoration:underline;" onclick="cancelFirstTime()">← Volver al inicio</span>
-      </div>
-    </div>
-
     <div style="font-size:10px;color:#ccc;text-align:center;margin-top:12px;" id="loginVersionBar">… ·<span id="swStatus" style="cursor:pointer;text-decoration:underline;" onclick="forceSWUpdate()">actualizar</span></div>
   </div>
 </div>
@@ -520,7 +489,9 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
         <div class="topbar-date" id="topbarDate"></div>
         <div style="position:relative;">
           <div class="badge-user" id="topbarUser" onclick="toggleUserMenu()" style="cursor:pointer;user-select:none;" title="Opciones de usuario"></div>
-          <div id="userMenu" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:#fff;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,0.15);min-width:180px;z-index:200;overflow:hidden;border:1px solid var(--borde);">
+          <div id="userMenu" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:#fff;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,0.15);min-width:200px;z-index:200;overflow:hidden;border:1px solid var(--borde);">
+            <button id="btnAdminUsers" onclick="showAdminUsers()" style="display:none;width:100%;padding:12px 16px;background:none;border:none;cursor:pointer;text-align:left;font-size:13px;font-weight:500;color:var(--texto);display:none;align-items:center;gap:10px;transition:background .15s;">👥 Gestión de usuarios</button>
+            <div id="sepAdminUsers" style="display:none;height:1px;background:var(--borde);"></div>
             <button onclick="showChangePass()" style="width:100%;padding:12px 16px;background:none;border:none;cursor:pointer;text-align:left;font-size:13px;font-weight:500;color:var(--texto);display:flex;align-items:center;gap:10px;transition:background .15s;">🔑 Cambiar contraseña</button>
             <div style="height:1px;background:var(--borde);"></div>
             <button onclick="doLogout()" style="width:100%;padding:12px 16px;background:none;border:none;cursor:pointer;text-align:left;font-size:13px;font-weight:500;color:var(--rojo);display:flex;align-items:center;gap:10px;transition:background .15s;">← Cerrar sesión</button>
@@ -674,6 +645,9 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <input type="file" id="cajaBancoInput" accept=".pdf,.Pdf" multiple style="display:none" onchange="importBancoPDF(this)">
           </div>
         </div>
+
+        <div class="sec-title" style="margin-top:24px;">🗂️ Historial de Importaciones</div>
+        <div class="card" style="padding:12px 16px;margin-bottom:16px;"><div id="importLogEntrada"></div></div>
       </div>
 
       <!-- ═══ DEUDA ═══ -->
@@ -835,6 +809,9 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
           <div class="subtab-panel" id="cajat-tabla">
             <div id="tablaJefeContainer"></div>
           </div>
+
+          <div class="sec-title" style="margin-top:24px;">🗂️ Historial de Importaciones de Caja</div>
+          <div class="card" style="padding:12px 16px;margin-bottom:16px;"><div id="importLogCaja"></div></div>
         </div>
       </div>
 
@@ -1106,6 +1083,8 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <div class="card" id="vtfamTabla" style="padding:0;overflow:hidden;margin-bottom:16px;"></div>
           </div>
 
+          <div class="sec-title" style="margin-top:24px;">🗂️ Historial de Importaciones</div>
+          <div class="card" style="padding:12px 16px;margin-bottom:16px;"><div id="importLogVentas"></div></div>
         </div>
       </div>
 
@@ -1244,6 +1223,9 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             </div>
             <div class="card" id="compProvTabla" style="padding:0;overflow:hidden;"></div>
           </div>
+
+          <div class="sec-title" style="margin-top:24px;">🗂️ Historial de Importaciones</div>
+          <div class="card" style="padding:12px 16px;margin-bottom:16px;"><div id="importLogCompras"></div></div>
         </div>
       </div>
 
@@ -1333,7 +1315,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
 <div id="changePassModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;display:none;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:16px;padding:32px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.25);margin:16px;">
     <div style="font-size:16px;font-weight:700;color:var(--azul);margin-bottom:4px;">🔑 Cambiar contraseña</div>
-    <div style="font-size:12px;color:var(--texto2);margin-bottom:20px;">El cambio se guardará en este dispositivo</div>
+    <div style="font-size:12px;color:var(--texto2);margin-bottom:20px;">La contraseña se actualiza en el servidor</div>
     <div class="form-group"><label>Contraseña actual</label><input type="password" id="cpCurrent" placeholder="••••••••"></div>
     <div class="form-group"><label>Nueva contraseña</label><input type="password" id="cpNew" placeholder="••••••••"></div>
     <div class="form-group"><label>Confirmar nueva contraseña</label><input type="password" id="cpConfirm" placeholder="••••••••"></div>
@@ -1341,6 +1323,40 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
     <div style="display:flex;gap:10px;">
       <button onclick="saveNewPass()" class="btn-save" style="flex:1;">Guardar</button>
       <button onclick="closeChangePass()" style="flex:1;padding:11px;background:none;border:1.5px solid var(--borde);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--texto2);">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal gestión de usuarios (solo admin/rober) -->
+<div id="adminUsersModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:28px;width:100%;max-width:520px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);margin:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div style="font-size:16px;font-weight:700;color:var(--azul);">👥 Gestión de usuarios</div>
+      <button onclick="closeAdminUsers()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--texto2);line-height:1;">✕</button>
+    </div>
+    <div id="adminUsersList" style="margin-bottom:20px;"></div>
+    <div style="border-top:1px solid var(--borde);padding-top:18px;">
+      <div style="font-size:13px;font-weight:600;color:var(--texto2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.7px;">Crear nuevo usuario</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div><label style="font-size:11px;font-weight:600;color:var(--texto2);display:block;margin-bottom:4px;">NOMBRE DE USUARIO</label><input type="text" id="auNewUser" placeholder="ej: elena" style="width:100%;padding:9px 11px;border:1.5px solid var(--borde);border-radius:7px;font-size:13px;font-family:inherit;outline:none;"></div>
+        <div><label style="font-size:11px;font-weight:600;color:var(--texto2);display:block;margin-bottom:4px;">CONTRASEÑA</label><input type="password" id="auNewPass" placeholder="mínimo 6 caracteres" style="width:100%;padding:9px 11px;border:1.5px solid var(--borde);border-radius:7px;font-size:13px;font-family:inherit;outline:none;"></div>
+      </div>
+      <div id="auCreateError" style="color:var(--rojo);font-size:12px;margin-bottom:8px;"></div>
+      <button onclick="adminCreateUser()" style="padding:10px 20px;background:var(--azul);color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;">+ Crear usuario</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal resetear contraseña (admin) -->
+<div id="adminResetModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:360px;box-shadow:0 16px 48px rgba(0,0,0,0.25);margin:16px;">
+    <div style="font-size:15px;font-weight:700;color:var(--azul);margin-bottom:4px;">🔐 Resetear contraseña</div>
+    <div id="auResetUserLabel" style="font-size:12px;color:var(--texto2);margin-bottom:16px;"></div>
+    <div class="form-group"><label>Nueva contraseña</label><input type="password" id="auResetPass" placeholder="mínimo 6 caracteres"></div>
+    <div id="auResetError" style="color:var(--rojo);font-size:12px;margin-bottom:10px;"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="adminDoReset()" class="btn-save" style="flex:1;">Guardar</button>
+      <button onclick="closeAdminReset()" style="flex:1;padding:10px;background:none;border:1.5px solid var(--borde);border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;color:var(--texto2);">Cancelar</button>
     </div>
   </div>
 </div>
@@ -1381,16 +1397,12 @@ const STORAGE_KEY = 'ofipapel_registros_v1';
 // ═══════════════════════════════════════════════════════
 // ESTADO — declarado aquí para evitar TDZ antes de loadData()
 // ═══════════════════════════════════════════════════════
-// Usuarios válidos — SIN contraseñas en el código
-const VALID_USERS = new Set(['rober', 'admin', 'david', 'monica', 'luis']);
 // Menús restringidos por usuario (vacío = acceso total)
 const USER_BLOCKED = { monica: ['ventas','compras','chat'] };
 // Usuarios con acceso a la sección Operaciones (Ventas, Compras, Familias)
 const OPERACIONES_ACCESO = ['admin', 'rober', 'david', 'luis'];
-// Contraseñas: SOLO en localStorage (SHA-256), nunca en el código
-let USERS = {};
-try{ USERS = JSON.parse(localStorage.getItem('op_passwords')||'{}'); }catch(e){}
-let _ftpUser = null; // usuario pendiente de primera configuración
+// Usuarios con acceso al panel de administración de usuarios
+const ADMIN_USERS = ['admin', 'rober'];
 
 // Escapa HTML antes de insertar texto libre (p. ej. campos "notas") dentro
 // de innerHTML — sin esto, cualquiera de los usuarios (la contraseña es
@@ -1401,23 +1413,6 @@ function escapeHtml(str){
   return String(str==null?'':str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-// Helper: SHA-256 del texto plano
-async function hashPass(p){
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(p));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
-// Duración de sesión: 8 horas
-const SESSION_HOURS = 8;
-function refreshSessionExpiry(){
-  try{ localStorage.setItem('op_expiry', Date.now() + SESSION_HOURS*3600*1000); }catch(e){}
-}
-function isSessionExpired(){
-  try{
-    const exp = parseInt(localStorage.getItem('op_expiry')||'0');
-    return exp && Date.now() > exp;
-  }catch(e){ return false; }
-}
 let currentUser = null;
 let registros = [...SEED_DATA];
 let charts = {};
@@ -1432,10 +1427,63 @@ let ventCajaModo = 'mes';
 try{ const vc=JSON.parse(localStorage.getItem('op_ventascaja')||'null'); if(vc) ventasCaja=vc; }catch(e){}
 let _importStamps = {};
 try{ _importStamps=JSON.parse(localStorage.getItem('op_importstamps')||'{}'); }catch(e){}
-function stampImport(key){
+
+let importLog = [];
+try{ importLog=JSON.parse(localStorage.getItem('op_importlog')||'[]'); }catch(e){}
+function saveImportLog(){ try{localStorage.setItem('op_importlog',JSON.stringify(importLog));}catch(e){} }
+
+const IMPORT_LOG_LABELS = {
+  volcado:'Volcado Diario (Excel)', cajaCierres:'Cierre de Cajas (PDF)',
+  cajaBancoRecibos:'Banco / Recibos (PDF)', ventasCaja:'Ventas Caja (Excel)',
+  ventasWeb:'Ventas Web (Excel)', ventasAnual:'Ventas Anuales (Excel)',
+  ventasVendedores:'Ventas Vendedores (Excel)', ventasTiendas:'Ventas Tiendas (Excel)',
+  ventasClientes:'Ventas Clientes (Excel)', compras:'Compras (Excel)',
+  comprasAnual:'Compras Anuales (Excel)', comprasProveedores:'Compras Proveedores (Excel)',
+  proveedores:'Pagos Proveedores (Excel/PDF)', familias:'Familias de Productos (Excel)'
+};
+
+const _ILG_ENTRADA  = ['volcado','cajaCierres','cajaBancoRecibos'];
+const _ILG_CAJA     = ['cajaCierres','cajaBancoRecibos'];
+const _ILG_VENTAS   = ['ventasCaja','ventasWeb','ventasAnual','ventasVendedores','ventasTiendas','ventasClientes'];
+const _ILG_COMPRAS  = ['compras','comprasAnual','comprasProveedores','proveedores','familias'];
+
+function logImport(key, archivos){
+  const arch = Array.isArray(archivos) ? archivos.join(', ') : (archivos||'—');
+  importLog.push({ts:new Date().toISOString(), user:currentUser||'—', key, tipo:IMPORT_LOG_LABELS[key]||key, archivos:arch});
+  if(importLog.length>300) importLog.splice(0, importLog.length-300);
+  saveImportLog();
+  if(_ILG_ENTRADA.includes(key)) renderImportLog(_ILG_ENTRADA,'importLogEntrada');
+  if(_ILG_CAJA.includes(key)) renderImportLog(_ILG_CAJA,'importLogCaja');
+  if(_ILG_VENTAS.includes(key)) renderImportLog(_ILG_VENTAS,'importLogVentas');
+  if(_ILG_COMPRAS.includes(key)) renderImportLog(_ILG_COMPRAS,'importLogCompras');
+}
+
+function renderImportLog(tipos, containerId){
+  const el=document.getElementById(containerId); if(!el) return;
+  const tiposSet=new Set(tipos);
+  const entries=importLog.filter(e=>tiposSet.has(e.key)).sort((a,b)=>b.ts.localeCompare(a.ts)).slice(0,30);
+  if(!entries.length){ el.innerHTML='<div style="color:var(--texto2);font-size:12px;padding:10px 0;text-align:center;">Sin importaciones registradas aún.</div>'; return; }
+  el.innerHTML='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'+
+    '<thead><tr style="color:var(--texto2);border-bottom:1px solid var(--borde);">'+
+    '<th style="text-align:left;padding:5px 8px;font-weight:600;white-space:nowrap;">Fecha/Hora</th>'+
+    '<th style="text-align:left;padding:5px 8px;font-weight:600;">Usuario</th>'+
+    '<th style="text-align:left;padding:5px 8px;font-weight:600;">Tipo</th>'+
+    '<th style="text-align:left;padding:5px 8px;font-weight:600;">Archivo(s)</th>'+
+    '</tr></thead><tbody>'+
+    entries.map(e=>'<tr style="border-bottom:1px solid var(--borde);">'+
+      '<td style="padding:5px 8px;white-space:nowrap;">'+new Date(e.ts).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+'</td>'+
+      '<td style="padding:5px 8px;font-weight:500;">'+e.user+'</td>'+
+      '<td style="padding:5px 8px;">'+e.tipo+'</td>'+
+      '<td style="padding:5px 8px;color:var(--texto2);word-break:break-all;">'+e.archivos+'</td>'+
+      '</tr>').join('')+
+    '</tbody></table></div>';
+}
+
+function stampImport(key, archivos){
   _importStamps[key]=new Date().toISOString();
   try{ localStorage.setItem('op_importstamps',JSON.stringify(_importStamps)); }catch(e){}
   syncDatasetToCloud('importstamps', _importStamps);
+  if(archivos !== undefined) logImport(key, archivos);
 }
 
 let cajaCierres = [];
@@ -1564,12 +1612,11 @@ try{ comprasProveedores = JSON.parse(localStorage.getItem('op_comprasprov')||'[]
 // ═══════════════════════════════════════════════════════
 const SUPA_URL = 'https://agjmciudnnginqybnogh.supabase.co';
 const SUPA_KEY = 'sb_publishable_LaJCCCGsN2VIXFDFAxEb6g_eEZHh3j6';
-let supaClient = null;
+const supaClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 let supaReady = false;
 
 async function initSupabase(){
   try{
-    supaClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
     // Test connection
     const { error } = await supaClient.from('registros').select('fecha').limit(1);
     if(error && error.code !== 'PGRST116'){
@@ -1929,20 +1976,17 @@ function applyAccessControl(){
   // Chat IA
   const navChat = document.getElementById('navChat');
   if(navChat) navChat.style.display = blocked.includes('chat') ? 'none' : '';
+  // Panel de administración de usuarios (solo admin/rober)
+  const isAdmin = ADMIN_USERS.includes(currentUser);
+  const btnAdminUsers = document.getElementById('btnAdminUsers');
+  const sepAdminUsers = document.getElementById('sepAdminUsers');
+  if(btnAdminUsers){ btnAdminUsers.style.display = isAdmin ? 'flex' : 'none'; }
+  if(sepAdminUsers){ sepAdminUsers.style.display = isAdmin ? '' : 'none'; }
 }
 
-function _completeLogin(u, hash){
+function _completeLogin(u){
   document.getElementById('loginError').textContent = '';
-  document.getElementById('loginFirstTime').style.display = 'none';
-  document.getElementById('loginNormal').style.display = '';
   currentUser = u;
-  refreshSessionExpiry();
-  if(document.getElementById('rememberMe')?.checked){
-    try{ localStorage.setItem('op_user', u); localStorage.setItem('op_pass_h', hash); }catch(e){}
-  } else {
-    try{ localStorage.removeItem('op_user'); localStorage.removeItem('op_pass_h'); }catch(e){}
-  }
-  try{ localStorage.removeItem('op_pass'); }catch(e){}
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('sidebarUser').textContent = u.charAt(0).toUpperCase()+u.slice(1);
@@ -1955,78 +1999,33 @@ function _completeLogin(u, hash){
   renderDashboard(); renderDeuda(); renderAlertas(); renderHistorico();
 }
 
-function doLogin() {
+async function doLogin() {
   const u = document.getElementById('loginUser').value.trim().toLowerCase();
   const p = document.getElementById('loginPass').value;
   const errEl = document.getElementById('loginError');
-
-  if(!VALID_USERS.has(u)){
-    errEl.textContent = 'Usuario incorrecto.';
-    return;
+  if(!u || !p){ errEl.textContent = 'Introduce usuario y contraseña.'; return; }
+  const btn = document.getElementById('btnLogin');
+  btn.disabled = true; btn.textContent = 'Entrando…';
+  errEl.textContent = '';
+  try{
+    const { error } = await supaClient.auth.signInWithPassword({
+      email: u + '@ofipapel.internal', password: p
+    });
+    if(error){ errEl.textContent = 'Usuario o contraseña incorrectos.'; return; }
+    _completeLogin(u);
+  } catch(e){
+    errEl.textContent = 'Error de conexión. Inténtalo de nuevo.';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Entrar →';
   }
-
-  // Primera vez: este usuario no tiene contraseña configurada
-  if(!USERS[u]){
-    _ftpUser = u;
-    document.getElementById('ftpUserLabel').textContent = u.charAt(0).toUpperCase()+u.slice(1);
-    document.getElementById('loginNormal').style.display = 'none';
-    document.getElementById('loginFirstTime').style.display = '';
-    document.getElementById('ftpNew').focus();
-    return;
-  }
-
-  hashPass(p).then(hash => {
-    if(USERS[u] !== hash){
-      errEl.textContent = 'Contraseña incorrecta.';
-      return;
-    }
-    _completeLogin(u, hash);
-  });
 }
 
-function doFirstTimeSetup(){
-  if(!_ftpUser) return;
-  const nw  = document.getElementById('ftpNew').value;
-  const cf  = document.getElementById('ftpConfirm').value;
-  const err = document.getElementById('ftpError');
-  if(!nw || !cf){ err.textContent = 'Rellena los dos campos.'; return; }
-  if(nw.length < 6){ err.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
-  if(nw !== cf){ err.textContent = 'Las contraseñas no coinciden.'; return; }
-  hashPass(nw).then(hash => {
-    USERS[_ftpUser] = hash;
-    try{
-      const saved = JSON.parse(localStorage.getItem('op_passwords')||'{}');
-      saved[_ftpUser] = hash;
-      localStorage.setItem('op_passwords', JSON.stringify(saved));
-    }catch(e){}
-    const u = _ftpUser; _ftpUser = null;
-    _completeLogin(u, hash);
-  });
-}
-
-function toggleFtpPass(){
-  ['ftpNew','ftpConfirm'].forEach(id=>{
-    const el=document.getElementById(id);
-    el.type=el.type==='password'?'text':'password';
-  });
-}
-function cancelFirstTime(){
-  _ftpUser = null;
-  document.getElementById('loginNormal').style.display = '';
-  document.getElementById('loginFirstTime').style.display = 'none';
-  document.getElementById('ftpNew').value = '';
-  document.getElementById('ftpConfirm').value = '';
-  document.getElementById('ftpError').textContent = '';
-  document.getElementById('loginUser').value = '';
-  document.getElementById('loginPass').value = '';
-  document.getElementById('loginError').textContent = '';
-}
 
 document.addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
-function doLogout() {
+async function doLogout() {
+  try{ await supaClient.auth.signOut(); }catch(e){}
   currentUser=null;
-  try{ localStorage.removeItem('op_user'); localStorage.removeItem('op_pass_h'); localStorage.removeItem('op_expiry'); }catch(e){}
   stopSharedDatasetsPolling();
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('app').style.display='none';
@@ -2051,9 +2050,10 @@ function showView(id) {
   if(id==='alertas') renderAlertas();
   if(id==='pagares') renderPagares();
   if(id==='proveedores') renderProveedores();
-  if(id==='caja') { showCajaSubTab(document.querySelector('#v-caja .subtab-btn.active')?.dataset.cajaTab||'conciliacion'); }
-  if(id==='ventas') showVentasTab(document.querySelector('#v-ventas .subtab-btn.active')?.dataset.vt||'anual');
-  if(id==='compras') showComprasTab(document.querySelector('#v-compras .subtab-btn.active')?.dataset.ct||'pedidos');
+  if(id==='entrada') renderImportLog(_ILG_ENTRADA,'importLogEntrada');
+  if(id==='caja') { showCajaSubTab(document.querySelector('#v-caja .subtab-btn.active')?.dataset.cajaTab||'conciliacion'); renderImportLog(_ILG_CAJA,'importLogCaja'); }
+  if(id==='ventas') { showVentasTab(document.querySelector('#v-ventas .subtab-btn.active')?.dataset.vt||'anual'); renderImportLog(_ILG_VENTAS,'importLogVentas'); }
+  if(id==='compras') { showComprasTab(document.querySelector('#v-compras .subtab-btn.active')?.dataset.ct||'pedidos'); renderImportLog(_ILG_COMPRAS,'importLogCompras'); }
   if(id==='chat') initChatView();
 }
 
@@ -3360,6 +3360,7 @@ function _ejecutarArrastre(input){
 
       const ahoraLabel = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
       statusEl.innerHTML = `<span class="ok">✅ ${fechaLabel} — Total: ${fmt(totalCalc)}${cajaMsg} · Subido ${ahoraLabel}</span>`;
+      stampImport('volcado', file.name);
       renderDashboard(); renderAlertas();
       showToast(`✅ Importado: ${fechaLabel}`,'ok');
 
@@ -3657,7 +3658,7 @@ function importProveedoresExcel(input){
         n++;
       });
       saveProveedores(); renderProveedores();
-      stampImport('proveedores');
+      stampImport('proveedores', file.name);
       alert(n+' registros importados.');
     }catch(err){ alert('Error: '+err.message); }
     input.value='';
@@ -3733,7 +3734,7 @@ function importProveedoresPDF(input){
           }
         });
         saveProveedores(); renderProveedores();
-        stampImport('proveedores');
+        stampImport('proveedores', file.name);
         alert(n+' registros importados desde PDF.');
       }catch(err){alert('Error al procesar el PDF: '+err.message);}
       input.value='';
@@ -4174,7 +4175,7 @@ function importCierrePDF(input){
         saveCajaCierres();
         const tsC = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
         if(st) st.textContent=`✅ Importado ${tsC}`;
-        if(importados>0) stampImport('cajaCierres');
+        if(importados>0) stampImport('cajaCierres', Array.from(files).map(f=>f.name));
         renderCajaView();
       }
     });
@@ -4203,7 +4204,7 @@ function importBancoPDF(input){
         saveCajaBanco();
         const tsB = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
         if(st) st.textContent=`✅ Importado ${tsB}`;
-        if(importados>0) stampImport('cajaBancoRecibos');
+        if(importados>0) stampImport('cajaBancoRecibos', Array.from(files).map(f=>f.name));
         renderCajaView();
       }
     });
@@ -4444,7 +4445,7 @@ function importVentasWebExcel(input){
       ventasWebDetalle=detalle;
       if(!ventasWeb.length){ alert('No se encontraron datos en el Excel.'); input.value=''; return; }
       saveVentasWeb(); saveVentasWebDetalle(); renderVentasWeb();
-      stampImport('ventasWeb');
+      stampImport('ventasWeb', file.name);
       alert(ventasWeb.length+' meses importados'+(detalle.length?' con '+detalle.length+' pedidos de detalle.':'.'));
     }catch(err){ alert('Error: '+err.message); }
     input.value='';
@@ -4818,7 +4819,7 @@ function importVentasCajaExcel(input){
         meta:{ importado:new Date().toISOString(), nFilas }
       };
       saveVentasCaja(); renderVentas();
-      stampImport('ventasCaja');
+      stampImport('ventasCaja', file.name);
       alert(nFilas+' movimientos procesados desde Excel.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -5020,7 +5021,7 @@ function importVentasAnualExcel(input, tipo){
 
       ventasAnual[tipo]=registros;
       saveVentasAnual(); renderVentasAnual();
-      stampImport('ventasAnual');
+      stampImport('ventasAnual', file.name);
       alert(registros.length+' años importados ('+(tipo==='conIgic'?'Con IGIC':'Sin IGIC')+').');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -5093,7 +5094,7 @@ function importVentasVendedoresExcel(input){
       saveVentasVendedores();
       const sel=document.getElementById('ventVendSelect'); if(sel) sel.value='';
       renderVentasVendedores();
-      stampImport('ventasVendedores');
+      stampImport('ventasVendedores', file.name);
       alert(registros.length+' registros de vendedores importados.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -5283,7 +5284,7 @@ function importVentasTiendasExcel(input){
       saveVentasTiendas();
       const sel=document.getElementById('ventTiendaSelect'); if(sel) sel.value='';
       renderVentasTiendas();
-      stampImport('ventasTiendas');
+      stampImport('ventasTiendas', file.name);
       alert(registros.length+' registros de tiendas importados. (Terminales 41, 43, 60 y 68 excluidos)');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -5460,7 +5461,7 @@ function importVentasClientesExcel(input){
 
       ventasClientes=registros;
       saveVentasClientes(); renderVentasClientes();
-      stampImport('ventasClientes');
+      stampImport('ventasClientes', file.name);
       alert(registros.length+' registros de clientes importados.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -5719,7 +5720,7 @@ function importComprasExcel(input){
 
       compras = compras.concat(nuevos);
       saveCompras(); renderCompras();
-      stampImport('compras');
+      stampImport('compras', file.name);
       alert(nuevos.length+' pedidos importados desde Excel.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -6253,7 +6254,7 @@ function importComprasAnualExcel(input){
 
       comprasAnual=registros;
       saveComprasAnual(); renderComprasAnual();
-      stampImport('comprasAnual');
+      stampImport('comprasAnual', file.name);
       alert(registros.length+' años de compras importados.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -6330,7 +6331,7 @@ function _importComprasAnualData(data,hIdx,input){
   if(!registros.length){ alert('No se encontraron registros válidos.'); input.value=''; return; }
   comprasAnual=registros;
   saveComprasAnual(); renderComprasAnual(); renderComprasMes();
-  stampImport('comprasAnual');
+  stampImport('comprasAnual', input.files[0]?.name||'—');
   input.value='';
   alert(registros.length+' años de compras importados.');
 }
@@ -6365,7 +6366,7 @@ function _importComprasProveedoresData(data,hIdx,input){
   comprasProveedores=registros;
   saveComprasProveedores();
   renderComprasProveedores();
-  stampImport('comprasProveedores');
+  stampImport('comprasProveedores', input.files[0]?.name||'—');
   input.value='';
   showComprasTab('proveedores');
   alert(registros.length+' registros de compras por proveedor importados.');
@@ -6435,7 +6436,7 @@ function importFamiliasExcelPfx(input, pfx){
         const sc=document.getElementById(p+'FiltroCategoria'); if(sc) while(sc.options.length>1) sc.remove(1);
       });
       renderVentasFamilias();
-      stampImport('familias');
+      stampImport('familias', file.name);
       alert(registros.length+' registros de familias importados desde Excel.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -6598,33 +6599,23 @@ if('serviceWorker' in navigator){
 }
 
 // Init
-document.addEventListener('DOMContentLoaded',()=>{
+document.addEventListener('DOMContentLoaded', async ()=>{
   _initVersionBar();
-  // Attach login event listeners (more reliable than onclick attributes)
   document.getElementById('btnLogin').addEventListener('click', doLogin);
   document.getElementById('togglePassBtn').addEventListener('click', togglePass);
-
   document.getElementById('entradaFecha').value = new Date().toISOString().split('T')[0];
-  // Auto-login si hay sesión guardada y no ha expirado
+  // Auto-login si hay sesión activa en Supabase Auth
   try{
-    const su = localStorage.getItem('op_user');
-    const sh = localStorage.getItem('op_pass_h');
-    if(su && sh && VALID_USERS.has(su) && USERS[su] && USERS[su]===sh && !isSessionExpired()){
-      currentUser = su;
-      refreshSessionExpiry();
-      document.getElementById('loginScreen').style.display='none';
-      document.getElementById('app').style.display='flex';
-      document.getElementById('sidebarUser').textContent = su.charAt(0).toUpperCase()+su.slice(1);
-      document.getElementById('topbarUser').textContent = su.charAt(0).toUpperCase()+su.slice(1);
-      applyAccessControl();
-      updateStorageStatus();
-      initSupabase().then(() => { loadFromCloud(); loadAllSharedDatasets(); startSharedDatasetsPolling(); });
-      document.getElementById('topbarDate').textContent = new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-      document.getElementById('entradaFecha').value = new Date().toLocaleDateString('en-CA');
-      renderDashboard(); renderDeuda(); renderAlertas(); renderHistorico();
+    const { data: { session } } = await supaClient.auth.getSession();
+    if(session && session.user){
+      const u = session.user.email.replace('@ofipapel.internal','');
+      _completeLogin(u);
     }
   }catch(e){}
-
+  // Detectar expiración / cierre de sesión
+  supaClient.auth.onAuthStateChange((event, session)=>{
+    if(event==='SIGNED_OUT' && currentUser){ doLogout(); }
+  });
   // Cerrar menú usuario al hacer clic fuera
   document.addEventListener('click', e => {
     const menu = document.getElementById('userMenu');
@@ -6658,7 +6649,108 @@ function closeChangePass(){
   document.getElementById('changePassModal').style.display = 'none';
 }
 
-function saveNewPass(){
+// ═══════════════════════════════════════════════════════
+// ADMINISTRACIÓN DE USUARIOS (solo admin/rober)
+// Llama a netlify/functions/admin-users.js con el JWT del usuario actual
+// ═══════════════════════════════════════════════════════
+let _auResetUserId = null;
+
+async function _adminFetch(body){
+  const { data: { session } } = await supaClient.auth.getSession();
+  if(!session) return { error: 'No autenticado' };
+  const res = await fetch('/.netlify/functions/admin-users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+async function showAdminUsers(){
+  document.getElementById('userMenu').style.display = 'none';
+  document.getElementById('adminUsersModal').style.display = 'flex';
+  document.getElementById('auNewUser').value = '';
+  document.getElementById('auNewPass').value = '';
+  document.getElementById('auCreateError').textContent = '';
+  await loadAdminUsers();
+}
+
+function closeAdminUsers(){
+  document.getElementById('adminUsersModal').style.display = 'none';
+}
+
+async function loadAdminUsers(){
+  const el = document.getElementById('adminUsersList');
+  el.innerHTML = '<div style="color:var(--texto2);font-size:13px;">Cargando…</div>';
+  const data = await _adminFetch({ action: 'list' });
+  if(data.error){ el.innerHTML = '<div style="color:var(--rojo);font-size:13px;">Error: ' + escapeHtml(data.error) + '</div>'; return; }
+  const users = (data.users || []).sort((a,b)=>a.username.localeCompare(b.username));
+  if(!users.length){ el.innerHTML = '<div style="color:var(--texto2);font-size:13px;">Sin usuarios.</div>'; return; }
+  el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px;">'+
+    '<thead><tr style="color:var(--texto2);border-bottom:1px solid var(--borde);">'+
+    '<th style="text-align:left;padding:6px 8px;font-weight:600;">Usuario</th>'+
+    '<th style="text-align:left;padding:6px 8px;font-weight:600;">Último acceso</th>'+
+    '<th style="padding:6px 8px;"></th>'+
+    '</tr></thead><tbody>'+
+    users.map(u=>'<tr style="border-bottom:1px solid var(--borde);">'+
+      '<td style="padding:7px 8px;font-weight:600;">'+escapeHtml(u.username)+(u.username===currentUser?' <span style="font-size:10px;color:var(--verde);">(tú)</span>':'')+'</td>'+
+      '<td style="padding:7px 8px;color:var(--texto2);">'+(u.last_sign_in_at?new Date(u.last_sign_in_at).toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'Nunca')+'</td>'+
+      '<td style="padding:7px 8px;text-align:right;white-space:nowrap;">'+
+      '<button onclick="showAdminReset(\''+escapeHtml(u.id)+'\',\''+escapeHtml(u.username)+'\')" style="padding:4px 10px;background:none;border:1.5px solid var(--borde);border-radius:5px;font-size:11px;cursor:pointer;color:var(--texto);margin-right:4px;">🔐 Resetear</button>'+
+      (u.username!==currentUser?'<button onclick="adminDeleteUser(\''+escapeHtml(u.id)+'\',\''+escapeHtml(u.username)+'\')" style="padding:4px 10px;background:none;border:1.5px solid #fcc;border-radius:5px;font-size:11px;cursor:pointer;color:var(--rojo);">🗑 Eliminar</button>':'')+'</td>'+
+      '</tr>').join('')+
+    '</tbody></table>';
+}
+
+async function adminCreateUser(){
+  const un = document.getElementById('auNewUser').value.trim().toLowerCase();
+  const pw = document.getElementById('auNewPass').value;
+  const err = document.getElementById('auCreateError');
+  if(!un || !pw){ err.textContent = 'Rellena nombre y contraseña.'; return; }
+  if(pw.length < 6){ err.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
+  err.textContent = 'Creando…';
+  const data = await _adminFetch({ action: 'create', username: un, password: pw });
+  if(data.error){ err.textContent = 'Error: ' + data.error; return; }
+  err.textContent = '';
+  document.getElementById('auNewUser').value = '';
+  document.getElementById('auNewPass').value = '';
+  showToast('✅ Usuario "' + un + '" creado correctamente', 'ok');
+  await loadAdminUsers();
+}
+
+function showAdminReset(userId, username){
+  _auResetUserId = userId;
+  document.getElementById('auResetUserLabel').textContent = 'Usuario: ' + username;
+  document.getElementById('auResetPass').value = '';
+  document.getElementById('auResetError').textContent = '';
+  document.getElementById('adminResetModal').style.display = 'flex';
+}
+
+function closeAdminReset(){
+  document.getElementById('adminResetModal').style.display = 'none';
+  _auResetUserId = null;
+}
+
+async function adminDoReset(){
+  const pw = document.getElementById('auResetPass').value;
+  const err = document.getElementById('auResetError');
+  if(!pw || pw.length < 6){ err.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
+  err.textContent = 'Guardando…';
+  const data = await _adminFetch({ action: 'resetPassword', userId: _auResetUserId, password: pw });
+  if(data.error){ err.textContent = 'Error: ' + data.error; return; }
+  closeAdminReset();
+  showToast('✅ Contraseña actualizada correctamente', 'ok');
+}
+
+async function adminDeleteUser(userId, username){
+  if(!confirm('¿Eliminar al usuario "' + username + '"? Esta acción no se puede deshacer.')) return;
+  const data = await _adminFetch({ action: 'delete', userId });
+  if(data.error){ showToast('Error: ' + data.error, 'error'); return; }
+  showToast('🗑 Usuario "' + username + '" eliminado', 'ok');
+  await loadAdminUsers();
+}
+
+async function saveNewPass(){
   const cur = document.getElementById('cpCurrent').value;
   const nw  = document.getElementById('cpNew').value;
   const cf  = document.getElementById('cpConfirm').value;
@@ -6666,22 +6758,14 @@ function saveNewPass(){
   if(!cur || !nw || !cf){ err.textContent = 'Rellena todos los campos.'; return; }
   if(nw.length < 6){ err.textContent = 'La nueva contraseña debe tener al menos 6 caracteres.'; return; }
   if(nw !== cf){ err.textContent = 'Las contraseñas nuevas no coinciden.'; return; }
-  hashPass(cur).then(curHash => {
-    if(USERS[currentUser] !== curHash){ err.textContent = 'La contraseña actual no es correcta.'; return; }
-    hashPass(nw).then(newHash => {
-      USERS[currentUser] = newHash;
-      try{
-        const saved = JSON.parse(localStorage.getItem('op_passwords')||'{}');
-        saved[currentUser] = newHash;
-        localStorage.setItem('op_passwords', JSON.stringify(saved));
-        // Actualizar hash guardado en sesión si hay recordar sesión
-        const su = localStorage.getItem('op_user');
-        if(su === currentUser) localStorage.setItem('op_pass_h', newHash);
-      }catch(e){}
-      closeChangePass();
-      showToast('✅ Contraseña actualizada correctamente', 'ok');
-    });
+  const { error: signInErr } = await supaClient.auth.signInWithPassword({
+    email: currentUser + '@ofipapel.internal', password: cur
   });
+  if(signInErr){ err.textContent = 'La contraseña actual no es correcta.'; return; }
+  const { error } = await supaClient.auth.updateUser({ password: nw });
+  if(error){ err.textContent = 'Error al actualizar: ' + error.message; return; }
+  closeChangePass();
+  showToast('✅ Contraseña actualizada correctamente', 'ok');
 }
 </script>
 
