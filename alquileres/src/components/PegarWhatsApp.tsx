@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, ClipboardPaste, FileUp } from 'lucide-reac
 import { useData } from '../contexts/DataContext'
 import { analizaPegado, analizaAirbnb, analizaCobro, type LineaPegada } from '../lib/pegarReservas'
 import { textoDePdf } from '../lib/leePdf'
+import { esImagen, textoDeImagen, ErrorImagen } from '../lib/leeImagen'
 import { buscaTarifa, calcTotal, tramoPorNoches } from '../lib/priceCalc'
 import { formatDate } from '../lib/dateUtils'
 import type { Reservation } from '../types'
@@ -18,7 +19,9 @@ ALAYON 105: entra 31/07/2026 y sale 10/08/2026.
 
 O el aviso de reserva de Airbnb, tal cual lo copias de la aplicación.
 
-O el justificante de una transferencia, o suelta su PDF.`
+O el justificante de una transferencia, o suelta su PDF.
+
+También puedes soltar aquí la foto o captura del aviso: se lee sola.`
 
 /**
  * Caja para dar de alta reservas y cobros pegando el mensaje que llega por
@@ -46,7 +49,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
     addReservation, addPayment, updatePayment, anotaVolcado,
   } = useData()
   const [texto, setTexto] = useState('')
-  const [leyendoPdf, setLeyendoPdf] = useState(false)
+  const [leyendo, setLeyendo] = useState<'pdf' | 'imagen' | null>(null)
   const [arrastrando, setArrastrando] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [hecho, setHecho] = useState('')
@@ -104,23 +107,33 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
 
   const validas = propuestas.filter(p => !p.linea.problema)
 
-  /** Único camino para un fichero, venga del botón, de un arrastre o del portapapeles. */
+  /**
+   * Único camino para un fichero, venga del botón, de un arrastre o del
+   * portapapeles. Dos cosas valen: el PDF de un justificante y la foto o
+   * captura de un aviso de reserva. De las dos sale texto, y a partir de ahí
+   * todo lo demás funciona igual que si se hubiera pegado a mano.
+   */
   async function leeFichero(f: File) {
     setError(''); setHecho('')
-    if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') {
-      setError(`«${f.name}» no es un PDF. Solo se pueden leer justificantes en PDF.`)
+    const esPdf = /\.pdf$/i.test(f.name) || f.type === 'application/pdf'
+    if (!esPdf && !esImagen(f)) {
+      setError(`«${f.name}» no vale: tiene que ser un PDF o una foto.`)
       return
     }
-    setLeyendoPdf(true)
+    setLeyendo(esPdf ? 'pdf' : 'imagen')
     try {
-      setTexto(await textoDePdf(f))
-    } catch {
-      setError('No se ha podido leer el PDF. Prueba a copiar el texto y pegarlo aquí.')
+      setTexto(esPdf ? await textoDePdf(f) : await textoDeImagen(f))
+    } catch (e) {
+      setError(e instanceof ErrorImagen
+        ? e.message
+        : esPdf
+          ? 'No se ha podido leer el PDF. Prueba a copiar el texto y pegarlo aquí.'
+          : 'No se ha podido leer la imagen. Prueba a copiar el texto y pegarlo aquí.')
     }
-    setLeyendoPdf(false)
+    setLeyendo(null)
   }
 
-  function elegirPdf(e: React.ChangeEvent<HTMLInputElement>) {
+  function elegirFichero(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (f) leeFichero(f)
     e.target.value = ''   // así se puede volver a elegir el mismo fichero
@@ -225,7 +238,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
           />
           {arrastrando && (
             <div className="absolute inset-0 rounded-lg bg-blue-50/90 border-2 border-dashed border-blue-400 flex items-center justify-center pointer-events-none">
-              <p className="text-sm font-medium text-blue-700">Suelta aquí el PDF</p>
+              <p className="text-sm font-medium text-blue-700">Suelta aquí el PDF o la foto</p>
             </div>
           )}
         </div>
@@ -233,8 +246,12 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 rounded-lg text-xs text-slate-600 cursor-pointer hover:border-blue-400 hover:bg-blue-50/40">
             <FileUp size={15} className="text-slate-400" />
-            {leyendoPdf ? 'Leyendo el PDF…' : 'Elegir el PDF del justificante'}
-            <input type="file" accept=".pdf" className="hidden" onChange={elegirPdf} />
+            {leyendo === 'pdf' ? 'Leyendo el PDF…'
+              : leyendo === 'imagen' ? 'Leyendo la foto…'
+              : 'Elegir un PDF o una foto'}
+            {/* «capture» hace que en el móvil salga directamente la cámara
+                además del carrete, que es de donde vendrá la captura. */}
+            <input type="file" accept=".pdf,image/*" className="hidden" onChange={elegirFichero} />
           </label>
           <span className="text-xs text-slate-400">o arrástralo sobre el recuadro</span>
           {texto && (
