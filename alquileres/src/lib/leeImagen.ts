@@ -13,6 +13,28 @@
 const TIPOS_OK = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
 /**
+ * Dónde vive la función que lee las fotos.
+ *
+ * La app se publica en dos sitios a la vez: Netlify, que sí ejecuta funciones,
+ * y GitHub Pages, que solo sirve ficheros. La gente entra por el enlace de
+ * Pages y no se va a cambiar en todos los móviles, así que desde ahí hay que
+ * llamar a Netlify por su dirección completa. La función permite el acceso
+ * desde cualquier origen, de modo que funciona igual.
+ *
+ * Desde el propio Netlify se usa la ruta relativa: ni sale a otro dominio ni
+ * paga la petición previa de permiso que exige el navegador al cruzarlo.
+ *
+ * Es el mismo apaño que ya usa inicio.html para el bot de WhatsApp.
+ */
+const NETLIFY = 'https://spontaneous-lebkuchen-60fa41.netlify.app'
+
+export function urlDeLaFuncion(nombre: string): string {
+  const enNetlify = typeof location !== 'undefined' && /(^|\.)netlify\.app$/i.test(location.hostname)
+  const base = import.meta.env?.VITE_FUNCIONES_URL ?? (enNetlify ? '' : NETLIFY)
+  return `${base}/.netlify/functions/${nombre}`
+}
+
+/**
  * Lado mayor al que se reduce la captura antes de mandarla. Con esto el texto
  * de un móvil se sigue leyendo perfectamente y la petición baja de varios
  * megas a unos pocos cientos de kilobytes, que es la diferencia entre que
@@ -76,7 +98,7 @@ export async function textoDeImagen(f: File): Promise<string> {
   const token = import.meta.env.VITE_OCR_TOKEN
   let resp: Response
   try {
-    resp = await fetch('/.netlify/functions/leer-reserva-airbnb', {
+    resp = await fetch(urlDeLaFuncion('leer-reserva-airbnb'), {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...(token ? { 'x-ocr-token': token } : {}) },
       body: JSON.stringify({ imagenBase64: base64, mediaType }),
@@ -86,14 +108,13 @@ export async function textoDeImagen(f: File): Promise<string> {
   }
 
   if (!resp.ok) {
-    // Un 404 aquí no es un fallo del lector: es que en esa dirección no hay
-    // funciones de servidor. Pasa cuando la app se sirve desde GitHub Pages,
-    // que solo publica ficheros. Conviene decirlo tal cual en vez de soltar un
-    // «no se ha podido leer», que deja a cualquiera adivinando.
-    if (resp.status === 404) {
+    // 404 o 405 significan que en esa dirección no hay funciones de servidor:
+    // el sitio contesta con su página de error, que no es JSON. No debería
+    // pasar —siempre se llama a Netlify—, pero si pasa conviene decirlo tal
+    // cual en vez de soltar un «no se ha podido leer» que no explica nada.
+    if (resp.status === 404 || resp.status === 405) {
       throw new ErrorImagen(
-        'Leer fotos no funciona en esta dirección, porque no tiene servidor. '
-        + 'Usa «Pegar lo copiado», o entra por la dirección de Netlify.')
+        'El lector de fotos no responde. Usa «Pegar lo copiado» mientras tanto.')
     }
     const { error } = await resp.json().catch(() => ({ error: '' }))
     throw new ErrorImagen(error || `No se ha podido leer la imagen (error ${resp.status})`)
