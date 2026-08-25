@@ -79,9 +79,14 @@ export function nochesOcupadas(
 export function mapaOcupaciones(ocupaciones: OcupacionMensual[]): Map<string, number> {
   const m = new Map<string, number>()
   for (const o of ocupaciones) {
-    if (o.diasTotales > 0) {
-      m.set(`${o.apartmentId}|${o.year}|${o.month}`, Math.min(1, o.diasAlquilados / o.diasTotales))
-    }
+    if (o.diasTotales <= 0) continue
+    // La ocupación del Excel venía de la aplicación anterior y traía nueve meses
+    // imposibles, de más de un 100 %: más noches alquiladas que días tiene el
+    // mes. Luis eligió (24/08/2026) que en esos casos mande el cálculo de la
+    // app a partir de las reservas, así que un mes imposible no se declara y se
+    // deja que lo resuelva ocupacionMes(). El resto del Excel se respeta.
+    if (o.diasAlquilados > o.diasTotales) continue
+    m.set(`${o.apartmentId}|${o.year}|${o.month}`, o.diasAlquilados / o.diasTotales)
   }
   return m
 }

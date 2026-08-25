@@ -216,6 +216,14 @@ export function analizaFilas(bruto: unknown): ResultadoImport {
       }
     }
 
+    const registraGasto = (tipo: ExpenseType) => {
+      for (let m = 0; m < 12; m++) {
+        const base = num(fila[COL.base[m]])
+        const igic = num(fila[COL.igic[m]])
+        if (base) gastos.push({ apartmentId: apartmentId!, year, month: m + 1, expenseType: tipo, base, igic })
+      }
+    }
+
     if (etiqueta.includes('ingresos brutos')) {
       // Desde 2025 hay dos filas con ese nombre: lo que cobra la propiedad y el
       // precio publicado en la web, que es otra cosa y no se declara como
@@ -224,10 +232,21 @@ export function analizaFilas(bruto: unknown): ResultadoImport {
       continue
     }
 
-    // Gastos sin justificante: no se cargan mientras no se decida si se
-    // deducen. Se cuentan para poder decirlo en la vista previa.
-    if (etiqueta.includes('s/justificante') || etiqueta.includes('sin justificante')) {
+    // Gastos sin justificante. Luis confirmó (24/08/2026) que SÍ se declaran, y
+    // qué es cada letra —está también en la cabecera de la plantilla de
+    // limpieza, columna DESTINO—:
+    //   (A) → limpieza y lavandería de los apartamentos
+    //   (R) → otros servicios y gastos: fontaneros y demás
+    // Antes se descartaban por no saber qué eran. Ahora entran como el gasto
+    // que les corresponde; se siguen contando aparte para poder enseñarlos
+    // marcados en la vista previa, porque no llevan factura detrás.
+    // «just» cubre las tres formas que usa el Excel: «s/just.», «s/justificante»
+    // y «sin justificante». Se exige esa palabra a propósito: buscar solo «(a)»
+    // o «(r)» se llevaría por delante cualquier otra fila que lleve un paréntesis.
+    if (etiqueta.includes('just')) {
       registra(sinJustificante)
+      const suTipo: ExpenseType = /\(\s*a\s*\)/.test(etiqueta) ? 'limpieza' : 'otro'
+      registraGasto(suTipo)
       continue
     }
 
@@ -237,13 +256,7 @@ export function analizaFilas(bruto: unknown): ResultadoImport {
     if (etiqueta.includes('reparaciones')) { registra(reparaciones); continue }
 
     const tipo = reconoceConcepto(etiqueta)
-    if (!tipo) continue
-
-    for (let m = 0; m < 12; m++) {
-      const base = num(fila[COL.base[m]])
-      const igic = num(fila[COL.igic[m]])
-      if (base) gastos.push({ apartmentId, year, month: m + 1, expenseType: tipo, base, igic })
-    }
+    if (tipo) registraGasto(tipo)
   }
 
   // Se recorren los días totales, no los alquilados: un mes cerrado (0 noches)
