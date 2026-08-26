@@ -1685,6 +1685,19 @@ function quitarAcentos(v){
   return v.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[Ññ]/g, m => m==='Ñ' ? 'N' : 'n');
 }
 
+// Gestión solo admite un descuento por línea al importar, pero las facturas
+// de algunos proveedores traen 2, 3 o incluso 4 descuentos encadenados
+// (Dcto., Dcto. X+X, Dcto. Adicional, Dcto. Campaña). Para no perder ese
+// encadenado y que el subtotal siga cuadrando, en el Excel exportado se
+// vuelcan todos en un único descuento equivalente — el que, aplicado solo
+// sobre Precio U. × Udes, reproduce el mismo IMPORTE — en vez de arrastrar
+// los descuentos por separado, que Gestión ignoraría salvo el primero.
+function calcularDtoUnico(precioU, udes, importe){
+  const bruto = round2_((parseFloat(precioU)||0) * (parseFloat(udes)||0));
+  if(bruto === 0) return 0;
+  return round2_(100 * (1 - (parseFloat(importe)||0) / bruto));
+}
+
 function generarExcel(){
   if(!filas.length){ alert('No hay líneas para exportar.'); return; }
 
@@ -1722,7 +1735,8 @@ function generarExcel(){
   aoa.push(['Codigo I.S.B.N.','MARCA/EDITORIAL','Rfcia. Proveedor','DESCRIPCION','Caja','Ud./Caja','Udes','Precio U.','Dcto.','Dcto. (X+X)','Dcto. Adicional','Dcto. Campaña','Igic','IMPORTE','','COD. FAMILIA']);
 
   filas.forEach(f=>{
-    aoa.push([f.isbn, f.marca, f.ref, f.desc, f.caja, f.udCaja, f.udes, f.precioU, f.dto1, f.dto2, f.dto3, f.dto4, f.igic, f.importe, '', f.familia]);
+    const dtoUnico = calcularDtoUnico(f.precioU, f.udes, f.importe);
+    aoa.push([f.isbn, f.marca, f.ref, f.desc, f.caja, f.udCaja, f.udes, f.precioU, dtoUnico, 0, 0, 0, f.igic, f.importe, '', f.familia]);
   });
 
   const total = filas.reduce((s,f)=>s + (parseFloat(f.importe)||0), 0);
