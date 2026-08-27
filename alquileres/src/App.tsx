@@ -127,8 +127,8 @@ function Drawer({ rol, alerts, open, onClose, onChangePassword, onLogout }: { ro
   if (!open) return null
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
-      <div className="fixed inset-y-0 left-0 z-50 w-64 flex flex-col relative overflow-hidden"
+      <div className="fixed inset-0 z-40 bg-black/50 print:hidden!" onClick={onClose} />
+      <div className="fixed inset-y-0 left-0 z-50 w-64 flex flex-col relative overflow-hidden print:hidden!"
         style={{ backgroundImage: `url(${bgTrebol})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
         <div className="absolute inset-0 bg-slate-900/90 pointer-events-none" />
         <div className="px-4 py-5 border-b border-slate-700 flex items-center justify-between relative z-10">
@@ -210,8 +210,9 @@ export default function App() {
         <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
       )}
       <div className="flex min-h-screen bg-slate-100">
-        {/* Desktop sidebar */}
-        <div className="hidden md:flex">
+        {/* Desktop sidebar. En papel no se imprime: la hoja de la asesoría
+            salía con el menú lateral pegado al margen. */}
+        <div className="hidden md:flex print:hidden!">
           <Sidebar
             rol={rol}
             alerts={alertCount}
@@ -222,7 +223,7 @@ export default function App() {
 
         <div className="flex-1 flex flex-col min-w-0">
           {/* Mobile header */}
-          <div className="md:hidden">
+          <div className="md:hidden print:hidden!">
             <MobileHeader alerts={alertCount} onMenuOpen={() => setDrawerOpen(true)} />
           </div>
 

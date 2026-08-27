@@ -1,38 +1,25 @@
 import { useMemo, useState } from 'react'
-import { Printer } from 'lucide-react'
+import { FileSpreadsheet, Printer } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
-import { MONTH_NAMES_ES } from '../lib/dateUtils'
-import { EXPENSE_LABELS } from '../lib/deducible'
-import { cuentasDe, mesesDe, type Periodo } from '../lib/cuentas'
-import type { ExpenseType } from '../types'
+import { rejillaAnual } from '../lib/cuentas'
+import { hojaAsesoria, type FilaHoja, type Formato } from '../lib/hojaAsesoria'
+import { creaXlsx, descarga, ESTILO, type Celda } from '../lib/exportaExcel'
 import PageHeader from '../components/ui/PageHeader'
 
-const eur = (n: number) =>
-  `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
-
-const CONCEPTO_LABEL = (c: ExpenseType | 'reparaciones') =>
-  c === 'reparaciones' ? 'Reparaciones y conservación' : EXPENSE_LABELS[c]
-
-function etiqueta(periodo: Periodo, year: number): string {
-  if (periodo === 'anual') return `Ejercicio ${year}`
-  if (periodo.startsWith('T')) return `${periodo.slice(1)}º trimestre de ${year}`
-  return `${MONTH_NAMES_ES[Number(periodo.slice(1)) - 1]} de ${year}`
-}
-
 /**
- * La hoja que se le manda a la asesoría.
+ * La hoja que se le manda a la asesoría, con la forma del Excel de siempre.
  *
- * Solo las cifras que hacen falta para declarar, por inmueble y por periodo, y
- * pensada para imprimirse o guardarse en PDF tal cual. Nada de gráficas ni de
- * cosas de gestión: eso está en Analítica.
+ * Un bloque por inmueble: ocupación y días arriba, y debajo la rejilla de
+ * conceptos por meses con TOTAL AÑO y TOTAL DEDUCIBLE. Se puede imprimir o
+ * guardar en PDF (sale apaisada, sin el menú de la app) y también descargar
+ * como .xlsx, que es como la asesoría lo trabaja.
  *
- * Las cifras salen de lib/cuentas.ts, las mismas que enseña Analítica, para
- * que lo que se manda fuera y lo que se ve dentro no puedan discrepar.
+ * Las filas las arma lib/hojaAsesoria.ts sobre lib/cuentas.ts: las mismas
+ * cifras que enseña Analítica, y el mismo contenido en papel que en Excel.
  */
 export default function Asesoria() {
   const { reservations, payments, repairs, expenses, incomes, occupancies, apartments } = useData()
   const [year, setYear] = useState(new Date().getFullYear() - 1)
-  const [periodo, setPeriodo] = useState<Periodo>('anual')
 
   const years = useMemo(() => {
     const s = new Set<string>()
@@ -42,207 +29,184 @@ export default function Asesoria() {
     return [...s].filter(Boolean).sort((a, b) => b.localeCompare(a))
   }, [incomes, expenses, reservations])
 
-  const cuentas = useMemo(
-    () => cuentasDe(
-      { apartments: apartments.filter(a => a.active), reservations, payments, expenses, repairs, incomes, occupancies },
-      year, mesesDe(periodo),
+  const filas = useMemo(
+    () => hojaAsesoria(
+      rejillaAnual(
+        { apartments: apartments.filter(a => a.active), reservations, payments, expenses, repairs, incomes, occupancies },
+        year,
+      ),
+      year,
     ),
-    [apartments, reservations, payments, expenses, repairs, incomes, occupancies, year, periodo],
+    [apartments, reservations, payments, expenses, repairs, incomes, occupancies, year],
   )
 
-  const { total } = cuentas
-  const conDatos = cuentas.porInmueble.filter(c => c.ingresos || c.gastos || c.noches)
+  const hayDeclarados = useMemo(() => incomes.some(i => i.year === year), [incomes, year])
 
-  /** Todos los conceptos que aparecen, para que la tabla tenga las mismas filas. */
-  const conceptos = useMemo(() => {
-    const s = new Set<ExpenseType | 'reparaciones'>()
-    for (const c of conDatos) for (const g of c.porConcepto) if (g.gasto) s.add(g.concepto)
-    return [...s]
-  }, [conDatos])
-
-  const gastoDe = (c: typeof conDatos[number], concepto: ExpenseType | 'reparaciones') =>
-    c.porConcepto.find(g => g.concepto === concepto)?.gasto ?? 0
-  const totalConcepto = (concepto: ExpenseType | 'reparaciones') =>
-    conDatos.reduce((s, c) => s + gastoDe(c, concepto), 0)
+  function bajaExcel() {
+    descarga(creaXlsx(hojaXlsx(filas, year)), `Alquileres-asesoria-${year}.xlsx`)
+  }
 
   return (
     <div className="p-6 print:p-0">
-      {/* En el papel manda la cabecera de abajo, con fecha de emisión */}
+      {/* La hoja es ancha: en papel solo cabe apaisada. */}
+      <style>{'@media print { @page { size: A4 landscape; margin: 10mm } }'}</style>
+
       <div className="print:hidden">
-      <PageHeader
-        title="Hoja para la asesoría"
-        subtitle={etiqueta(periodo, year)}
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <select value={year} onChange={e => setYear(Number(e.target.value))}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-              {(years.length ? years : [String(year)]).map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-            <select value={periodo} onChange={e => setPeriodo(e.target.value as Periodo)}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-              <option value="anual">Todo el año</option>
-              <option value="T1">1º trimestre</option>
-              <option value="T2">2º trimestre</option>
-              <option value="T3">3º trimestre</option>
-              <option value="T4">4º trimestre</option>
-            </select>
-            <button onClick={() => window.print()}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 whitespace-nowrap">
-              <Printer size={16} /> Imprimir
-            </button>
-          </div>
-        }
-      />
+        <PageHeader
+          title="Hoja para la asesoría"
+          subtitle={`Ejercicio ${year}`}
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <select value={year} onChange={e => setYear(Number(e.target.value))}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+                {(years.length ? years : [String(year)]).map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+              <button onClick={bajaExcel}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 whitespace-nowrap">
+                <FileSpreadsheet size={16} /> Descargar Excel
+              </button>
+              <button onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 whitespace-nowrap">
+                <Printer size={16} /> Imprimir / PDF
+              </button>
+            </div>
+          }
+        />
       </div>
 
-      {/* Cabecera que solo se ve en el papel */}
-      <div className="hidden print:block mb-4">
-        <h1 className="text-lg font-bold">Alquileres vacacionales · {etiqueta(periodo, year)}</h1>
-        <p className="text-xs text-slate-500">
+      {/* Cabecera que solo sale en el papel */}
+      <div className="hidden print:block mb-3">
+        <h1 className="text-base font-bold">Alquileres vacacionales · Ejercicio {year}</h1>
+        <p className="text-[10px] text-slate-500">
           Emitido el {new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
         </p>
       </div>
 
-      {conDatos.length === 0 ? (
-        <p className="text-slate-400 text-sm">No hay datos de ese periodo.</p>
+      {filas.length === 0 ? (
+        <p className="text-slate-400 text-sm">No hay datos de ese ejercicio.</p>
       ) : (
-        <div className="space-y-6">
-          {/* ── Resumen ── */}
-          <section className="bg-white rounded-xl border border-slate-200 overflow-hidden print:border-slate-400">
-            <p className="px-4 py-2 text-sm font-semibold text-slate-700 border-b border-slate-100 bg-slate-50">
-              Resumen por inmueble
-            </p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm" translate="no">
-                <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-600">
-                  <tr>
-                    <th className="text-left py-2 px-3 font-medium">Inmueble</th>
-                    <th className="text-right py-2 px-3 font-medium whitespace-nowrap">Días alq.</th>
-                    <th className="text-right py-2 px-3 font-medium whitespace-nowrap">Ocupación</th>
-                    <th className="text-right py-2 px-3 font-medium whitespace-nowrap">Ingresos íntegros</th>
-                    <th className="text-right py-2 px-3 font-medium whitespace-nowrap">Gastos</th>
-                    <th className="text-right py-2 px-3 font-medium whitespace-nowrap">Gasto deducible</th>
-                    <th className="text-right py-2 px-3 font-medium whitespace-nowrap">Rendimiento neto</th>
-                  </tr>
-                </thead>
-                <tbody className="tabular-nums">
-                  {conDatos.map(c => (
-                    <tr key={c.apt.id} className="border-b border-slate-100">
-                      <td className="py-2 px-3 font-medium text-slate-700">{c.apt.name}</td>
-                      <td className="py-2 px-3 whitespace-nowrap text-right text-slate-600">{c.noches}</td>
-                      <td className="py-2 px-3 whitespace-nowrap text-right text-slate-600">{c.ocupacion} %</td>
-                      <td className="py-2 px-3 whitespace-nowrap text-right text-slate-800">{eur(c.ingresos)}</td>
-                      <td className="py-2 px-3 whitespace-nowrap text-right text-slate-600">{eur(c.gastos)}</td>
-                      <td className="py-2 px-3 whitespace-nowrap text-right text-slate-800">{eur(c.deducible)}</td>
-                      <td className="py-2 px-3 whitespace-nowrap text-right font-semibold text-slate-900">{eur(c.resultado)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-slate-50 font-semibold tabular-nums">
-                    <td className="py-2 px-3">Total</td>
-                    <td className="py-2 px-3 whitespace-nowrap text-right">{total.noches}</td>
-                    <td className="py-2 px-3 whitespace-nowrap text-right">
-                      {total.diasPeriodo ? Math.round((total.noches / total.diasPeriodo) * 100) : 0} %
-                    </td>
-                    <td className="py-2 px-3 whitespace-nowrap text-right">{eur(total.ingresos)}</td>
-                    <td className="py-2 px-3 whitespace-nowrap text-right">{eur(total.gastos)}</td>
-                    <td className="py-2 px-3 whitespace-nowrap text-right">{eur(total.deducible)}</td>
-                    <td className="py-2 px-3 whitespace-nowrap text-right">{eur(total.resultado)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </section>
+        <>
+          <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto print:border-0 print:rounded-none print:overflow-visible">
+            <table className="text-xs border-collapse w-full print:text-[8px]" translate="no">
+              <tbody className="tabular-nums">
+                {filas.map((f, i) => <Fila key={i} f={f} />)}
+              </tbody>
+            </table>
+          </div>
 
-          {/* ── Gastos por concepto ── */}
-          <section className="bg-white rounded-xl border border-slate-200 overflow-hidden print:border-slate-400 break-inside-avoid">
-            <p className="px-4 py-2 text-sm font-semibold text-slate-700 border-b border-slate-100 bg-slate-50">
-              Gastos por concepto
-            </p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm" translate="no">
-                <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-600">
-                  <tr>
-                    <th className="text-left py-2 px-3 font-medium">Concepto</th>
-                    {conDatos.map(c => (
-                      <th key={c.apt.id} className="text-right py-2 px-3 font-medium whitespace-nowrap">{c.apt.name}</th>
-                    ))}
-                    <th className="text-right py-2 px-3 font-medium whitespace-nowrap">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="tabular-nums">
-                  {conceptos.map(concepto => (
-                    <tr key={concepto} className="border-b border-slate-100">
-                      <td className="py-2 px-3 text-slate-700">{CONCEPTO_LABEL(concepto)}</td>
-                      {conDatos.map(c => (
-                        <td key={c.apt.id} className="py-2 px-3 whitespace-nowrap text-right text-slate-600">
-                          {gastoDe(c, concepto) ? eur(gastoDe(c, concepto)) : '—'}
-                        </td>
-                      ))}
-                      <td className="py-2 px-3 whitespace-nowrap text-right font-medium text-slate-800">{eur(totalConcepto(concepto))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-slate-50 font-semibold tabular-nums">
-                    <td className="py-2 px-3">Total gastos</td>
-                    {conDatos.map(c => (
-                      <td key={c.apt.id} className="py-2 px-3 whitespace-nowrap text-right">{eur(c.gastos)}</td>
-                    ))}
-                    <td className="py-2 px-3 whitespace-nowrap text-right">{eur(total.gastos)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </section>
-
-          {/* ── IGIC ── */}
-          <section className="bg-white rounded-xl border border-slate-200 p-4 print:border-slate-400 break-inside-avoid">
-            <p className="text-sm font-semibold text-slate-700 mb-2">IGIC del periodo</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm tabular-nums" translate="no">
-              <div>
-                <p className="text-xs text-slate-500">Repercutido (7 % de los ingresos)</p>
-                <p className="text-lg font-semibold text-slate-800">{eur(total.igic)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Soportado (según facturas)</p>
-                <p className="text-lg font-semibold text-slate-800">{eur(total.igicSoportado)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Diferencia</p>
-                <p className="text-lg font-semibold text-slate-900">{eur(total.igic - total.igicSoportado)}</p>
-              </div>
-            </div>
-            <p className="text-xs text-slate-400 mt-2">
-              Calculado al 7 %. Si el alquiler está exento por no prestarse servicios de hostelería,
-              esta parte no aplica: la decide la asesoría.
-            </p>
-          </section>
-
-          {/* ── De dónde sale cada cifra ── */}
-          <section className="text-xs text-slate-500 leading-relaxed border-t border-slate-200 pt-3">
-            <p className="font-medium text-slate-600 mb-1">De dónde sale cada cifra</p>
+          <section className="text-[11px] text-slate-500 leading-relaxed mt-4 pt-3 border-t border-slate-200 print:text-[8px]">
             <p>
-              <b>Ingresos íntegros</b>: {cuentas.hayDeclarados
-                ? 'de los ingresos declarados en el Excel del ejercicio.'
-                : 'de los cobros registrados en la aplicación, porque este ejercicio no tiene Excel cargado.'}
+              <b>Ingresos brutos</b>: {hayDeclarados
+                ? 'los ingresos declarados en el Excel del ejercicio.'
+                : 'los cobros registrados en la aplicación, porque este ejercicio no tiene Excel cargado.'}
+              {' '}<b>TOTAL DEDUCIBLE</b>: los gastos ligados al alquiler van al 100 % (comisiones,
+              limpieza, lavandería); los de la vivienda —luz, agua, IBI, basura, comunidad,
+              profesionales, reparaciones— en proporción a los días alquilados de <i>ese</i> inmueble.
+              El IGIC va calculado al 7 %; si el alquiler está exento por no prestarse servicios de
+              hostelería, esa fila no aplica.
             </p>
-            <p>
-              <b>Gasto deducible</b>: los gastos ligados al alquiler van al 100 % (comisiones, limpieza,
-              lavandería); los de la vivienda —luz, agua, IBI, basura, comunidad, profesionales,
-              reparaciones— en proporción a los días alquilados de <i>ese</i> inmueble.
-            </p>
-            <p><b>Rendimiento neto</b>: ingresos íntegros menos gasto deducible.</p>
-            {!cuentas.hayDeclarados && (
-              <p className="text-amber-700 mt-1">
-                Ojo: este ejercicio no tiene Excel cargado, así que los ingresos salen de los cobros de
-                la aplicación y pueden estar incompletos.
-              </p>
-            )}
           </section>
-        </div>
+        </>
       )}
     </div>
   )
+}
+
+/* ───────────────────────── pantalla y papel ───────────────────────── */
+
+const eur = (n: number) =>
+  n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+
+function texto(v: number | string | null, formato: Formato): string {
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'string') return v
+  if (formato === 'porcentaje') return `${Math.round(v * 100)} %`
+  if (formato === 'entero') return v ? String(v) : ''
+  if (formato === 'euros') return v ? eur(v) : '—'
+  return String(v)
+}
+
+function Fila({ f }: { f: FilaHoja }) {
+  if (f.tipo === 'titulo') return (
+    <tr className="break-inside-avoid">
+      <td colSpan={15} className="pt-5 pb-1 font-bold text-sm text-slate-800 print:text-[10px] print:pt-3">
+        {f.etiqueta}
+      </td>
+    </tr>
+  )
+
+  if (f.tipo === 'seccion') return (
+    <tr>
+      <td colSpan={15} className="pt-2 pb-1 font-semibold text-slate-600 border-b border-slate-200">
+        {f.etiqueta}
+      </td>
+    </tr>
+  )
+
+  const cabecera = f.tipo === 'cabecera'
+  const total = f.tipo === 'total'
+  const trClase = cabecera
+    ? 'bg-slate-800 text-white'
+    : total ? 'bg-slate-100 font-semibold' : 'border-b border-slate-100'
+  const tdClase = cabecera ? 'px-1.5 py-1.5 text-center font-medium' : 'px-1.5 py-1 text-right whitespace-nowrap'
+
+  return (
+    <tr className={`${trClase} break-inside-avoid`}>
+      <th scope="row" className={`px-1.5 py-1 text-left font-normal ${cabecera ? 'font-medium' : ''} ${total ? 'font-semibold' : ''}`}>
+        {f.etiqueta}
+      </th>
+      {f.meses.map((v, i) => (
+        <td key={i} className={tdClase}>{texto(v, f.formato)}</td>
+      ))}
+      <td className={`${tdClase} ${cabecera ? '' : 'font-semibold text-slate-800 bg-slate-50'}`}>
+        {texto(f.anio, f.formato)}
+      </td>
+      <td className={`${tdClase} ${cabecera ? '' : 'font-semibold text-slate-800 bg-slate-50'}`}>
+        {texto(f.deducible, f.formato)}
+      </td>
+    </tr>
+  )
+}
+
+/* ───────────────────────────── el .xlsx ───────────────────────────── */
+
+/**
+ * Las mismas filas, pero como celdas de Excel: los números van como números
+ * —no como texto— para que la asesoría pueda sumarlos y filtrarlos.
+ */
+function hojaXlsx(filas: FilaHoja[], year: number) {
+  const estilo = (f: FilaHoja): number => {
+    if (f.tipo === 'cabecera') return ESTILO.cabecera
+    if (f.tipo === 'total') return ESTILO.eurosTotal
+    if (f.formato === 'porcentaje') return ESTILO.porcentaje
+    if (f.formato === 'entero') return ESTILO.entero
+    if (f.formato === 'euros') return ESTILO.euros
+    return ESTILO.normal
+  }
+
+  const celda = (v: number | string | null, f: FilaHoja): Celda => {
+    if (v === null || v === undefined) return { v: null, s: estilo(f) }
+    if (typeof v === 'string') return { v, s: estilo(f) }
+    // El 0 se deja en blanco, igual que en el Excel de siempre.
+    return { v: v || null, s: estilo(f) }
+  }
+
+  const cuerpo: Celda[][] = filas.map(f => {
+    if (f.tipo === 'titulo') return [{ v: f.etiqueta, s: ESTILO.titulo }]
+    if (f.tipo === 'seccion') return [{ v: f.etiqueta, s: ESTILO.total }]
+    const et = f.tipo === 'cabecera'
+      ? { v: f.etiqueta, s: ESTILO.cabecera }
+      : { v: f.etiqueta, s: f.tipo === 'total' ? ESTILO.total : ESTILO.concepto }
+    return [et, ...f.meses.map(v => celda(v, f)), celda(f.anio, f), celda(f.deducible, f)]
+  })
+
+  return {
+    nombre: `Asesoría ${year}`,
+    anchos: [34, ...Array(12).fill(12), 14, 16],
+    filas: [
+      [{ v: `ALQUILERES VACACIONALES · EJERCICIO ${year}`, s: ESTILO.titulo }],
+      [],
+      ...cuerpo,
+    ] as Celda[][],
+  }
 }

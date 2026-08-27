@@ -182,3 +182,109 @@ export function cuentasDe(d: DatosCuentas, year: number, meses: number[]) {
     },
   }
 }
+
+/**
+ * Las cuentas de un año puestas como en el Excel de siempre: una rejilla por
+ * inmueble, con los conceptos en vertical y los doce meses en horizontal.
+ *
+ * Es el formato con el que llevan años trabajando y el que entiende la
+ * asesoría, así que tanto lo que se imprime como lo que se exporta salen de
+ * aquí y no pueden discrepar entre sí ni con lo que enseña Analítica: por
+ * debajo es el mismo cuentasDe(), mes a mes.
+ */
+export interface MesInmueble {
+  mes: number
+  diasTotales: number
+  diasAlquilados: number
+  ocupacion: number
+  ingresos: number
+  /** IGIC repercutido del mes, la columna que el Excel pone junto a la base. */
+  igic: number
+  gastos: number
+  deducible: number
+  porConcepto: Map<ExpenseType | 'reparaciones', { gasto: number; deducible: number }>
+}
+
+export interface RejillaInmueble {
+  apt: Apartment
+  meses: MesInmueble[]
+  /** Los conceptos que de verdad tienen algo en el año, en orden fijo. */
+  conceptos: (ExpenseType | 'reparaciones')[]
+}
+
+/** Orden en el que van los conceptos: fila por fila, el mismo que usa el Excel. */
+export const ORDEN_CONCEPTOS: (ExpenseType | 'reparaciones')[] = [
+  'comisiones', 'comisionAgencia', 'limpieza', 'lavanderia', 'electricidad',
+  'agua', 'internet', 'comunidad', 'ibi', 'basura', 'profesionales', 'otro',
+  'reparaciones',
+]
+
+/**
+ * El texto exacto con el que cada concepto aparece en el Excel de la asesoría.
+ *
+ * No es lo mismo que EXPENSE_LABELS: ahí se busca claridad en pantalla y aquí
+ * que la asesoría reconozca la fila de siempre, letra por letra.
+ */
+export const ETIQUETA_EXCEL: Record<ExpenseType | 'reparaciones', string> = {
+  comisiones:      'Comisiones (Airbnb, Reale State, Booking…)',
+  comisionAgencia: 'Comisión agencia intermediaria',
+  limpieza:        'Limpieza',
+  lavanderia:      'Lavandería',
+  electricidad:    'Electricidad',
+  agua:            'Agua',
+  internet:        'Internet y telefonía fija',
+  comunidad:       'Comunidad',
+  ibi:             'IBI',
+  basura:          'Basura',
+  profesionales:   'Profesionales (abogados, asesorías,…)',
+  otro:            'Otros servicios y gastos',
+  reparaciones:    'Reparaciones y conservación',
+}
+
+export function rejillaAnual(d: DatosCuentas, year: number): RejillaInmueble[] {
+  // Un cálculo por mes: así cada casilla sale exactamente del mismo sitio que
+  // el total del año, en vez de rehacer la cuenta por otro camino.
+  const porMes = Array.from({ length: 12 }, (_, i) => cuentasDe(d, year, [i + 1]))
+
+  return d.apartments.map(apt => {
+    const meses: MesInmueble[] = porMes.map((c, i) => {
+      const x = c.porInmueble.find(p => p.apt.id === apt.id)
+      const dias = getDaysInMonth(year, i + 1)
+      const noches = x?.noches ?? 0
+      return {
+        mes: i + 1,
+        diasTotales: dias,
+        diasAlquilados: noches,
+        ocupacion: dias ? noches / dias : 0,
+        ingresos: x?.ingresos ?? 0,
+        igic: x?.igic ?? 0,
+        gastos: x?.gastos ?? 0,
+        deducible: x?.deducible ?? 0,
+        porConcepto: new Map((x?.porConcepto ?? []).map(g => [g.concepto, { gasto: g.gasto, deducible: g.deducible }])),
+      }
+    })
+    const usados = new Set<ExpenseType | 'reparaciones'>()
+    for (const m of meses) for (const [k, v] of m.porConcepto) if (v.gasto) usados.add(k)
+    return { apt, meses, conceptos: ORDEN_CONCEPTOS.filter(c => usados.has(c)) }
+  })
+}
+
+/** El gasto de un concepto en un mes; 0 si ese mes no tuvo nada. */
+export function gastoMes(m: MesInmueble, c: ExpenseType | 'reparaciones'): number {
+  return m.porConcepto.get(c)?.gasto ?? 0
+}
+
+/** El total del año de un concepto, y lo que de él se deduce. */
+export function totalConcepto(r: RejillaInmueble, c: ExpenseType | 'reparaciones') {
+  let gasto = 0, deducible = 0
+  for (const m of r.meses) {
+    const v = m.porConcepto.get(c)
+    if (v) { gasto += v.gasto; deducible += v.deducible }
+  }
+  return { gasto: redondea(gasto), deducible: redondea(deducible) }
+}
+
+/** Suma de una columna del año (ingresos, gastos, deducible, igic…). */
+export function totalAnual(r: RejillaInmueble, f: (m: MesInmueble) => number): number {
+  return redondea(r.meses.reduce((s, m) => s + f(m), 0))
+}
