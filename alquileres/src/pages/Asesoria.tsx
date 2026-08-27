@@ -187,7 +187,10 @@ function hojaXlsx(filas: FilaHoja[], year: number) {
   const celda = (v: number | string | null, f: FilaHoja): Celda => {
     if (v === null || v === undefined) return { v: null, s: estilo(f) }
     if (typeof v === 'string') return { v, s: estilo(f) }
-    // El 0 se deja en blanco, igual que en el Excel de siempre.
+    // El 0 de un importe se deja en blanco, igual que en el Excel de siempre.
+    // El de la ocupación no: un mes vacío es «0,0 %», y dejarlo en blanco hace
+    // que la fila parezca que falta.
+    if (f.formato === 'porcentaje') return { v, s: estilo(f) }
     return { v: v || null, s: estilo(f) }
   }
 
