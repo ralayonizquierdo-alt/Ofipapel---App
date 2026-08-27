@@ -1,5 +1,5 @@
 import type {
-  Apartment, Expense, ExpenseType, IngresoMensual, OcupacionMensual, Payment, Repair, Reservation,
+  Apartment, Channel, Expense, ExpenseType, IngresoMensual, OcupacionMensual, Payment, Repair, Reservation,
 } from '../types'
 import { getDaysInMonth } from './dateUtils'
 import { calcIGIC } from './priceCalc'
@@ -27,6 +27,36 @@ export function mesesDe(periodo: Periodo): number[] {
   if (periodo === 'anual') return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
   if (periodo in TRIMESTRES) return TRIMESTRES[periodo]
   return [Number(periodo.slice(1))]
+}
+
+/**
+ * Comisiones de las plataformas.
+ *
+ * Luis lo dejó dicho el 24/08/2026: no se teclean, salen del canal de la
+ * propia reserva —«se INDEXARÁ desde pestaña de PRECIOS + Inmobi. (15%) +
+ * Reserva (15%)»—. Quien reserva por Booking o por la inmobiliaria paga el
+ * precio publicado, la plataforma se queda su parte y a la propiedad le llega
+ * el resto; esa parte es gasto del alquiler y se deduce entera.
+ *
+ * Solo desde 2026, y por dos razones. Los ejercicios anteriores se cerraron sin
+ * comisiones —«en el 2025 NO se ha aplicado, ni en años anteriores»—, y además
+ * su canal no es de fiar: el volcado del calendario marcó las 396 reservas
+ * como «inmobiliaria» porque el calendario no dice por dónde entró cada una.
+ * Aplicarlo hacia atrás inventaría miles de euros de gasto que nunca existió.
+ */
+export const COMISIONES_DESDE = 2026
+export const COMISION = 0.15
+
+/** Directo y web no pagan comisión: no hay intermediario que se lleve nada. */
+const CANALES_CON_COMISION: Channel[] = ['inmobiliaria', 'booking', 'airbnb']
+
+/** Lo que se queda la plataforma de una reserva. 0 si no hay intermediario. */
+export function comisionDe(r: Reservation): number {
+  if (r.status === 'cancelada') return 0
+  if (Number(r.checkIn.slice(0, 4)) < COMISIONES_DESDE) return 0
+  if (!CANALES_CON_COMISION.includes(r.channel)) return 0
+  // Sobre el precio base, no sobre el total: la limpieza no lleva comisión.
+  return redondea((r.basePrice || 0) * COMISION)
 }
 
 export interface CuentasInmueble {
@@ -106,8 +136,16 @@ export function cuentasDe(d: DatosCuentas, year: number, meses: number[]) {
     for (const e of gastosApt) anota(e.expenseType, e.amount || 0, deducibleGasto(e, d.reservations, ocupDeclarada))
     for (const r of repsApt) anota('reparaciones', r.amount || 0, deducibleReparacion(r, d.reservations, ocupDeclarada))
 
+    // Las comisiones no están en «expenses»: se sacan del canal de cada reserva.
+    // Van al 100 %, como todo gasto ligado directamente al alquiler.
+    const comisiones = redondea(d.reservations
+      .filter(r => r.apartmentId === apt.id && enPeriodo(r.checkIn))
+      .reduce((s, r) => s + comisionDe(r), 0))
+    if (comisiones) anota('comisiones', comisiones, comisiones)
+
     const gastos = gastosApt.reduce((s, e) => s + (e.amount || 0), 0)
       + repsApt.reduce((s, r) => s + (r.amount || 0), 0)
+      + comisiones
     const deducible = [...porConceptoMap.values()].reduce((s, v) => s + v.deducible, 0)
 
     return {
