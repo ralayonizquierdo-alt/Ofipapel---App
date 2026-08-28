@@ -812,7 +812,7 @@ function palabrasDeBusqueda(consulta) {
 
 function textoBuscable(phone, messages, ficha) {
   const partes = [phone, ...messages.map((m) => m.content)];
-  if (ficha) partes.push(ficha.nombre, ficha.empresa, ficha.notas, ficha.productos);
+  if (ficha) partes.push(ficha.nombre, ficha.nombreWhatsapp, ficha.empresa, ficha.notas, ficha.productos);
   return normalizarBusqueda(partes.filter(Boolean).join(' \n '));
 }
 
@@ -971,6 +971,11 @@ function renderFichaCliente(phone, ficha) {
   const datos = [];
   if (f.empresa) datos.push(`<div><span class="ficha-etq">Empresa</span> ${escapeHtml(f.empresa)}</div>`);
   if (f.nombre) datos.push(`<div><span class="ficha-etq">Nombre</span> ${escapeHtml(f.nombre)}</div>`);
+  // El que el cliente tiene puesto en su WhatsApp. Se enseña aparte del de
+  // arriba porque no está verificado contra nada: se lo pone él.
+  if (f.nombreWhatsapp && f.nombreWhatsapp !== f.nombre) {
+    datos.push(`<div><span class="ficha-etq">En WhatsApp</span> ${escapeHtml(f.nombreWhatsapp)}</div>`);
+  }
   if (Array.isArray(f.pedidos) && f.pedidos.length) {
     datos.push(`<div><span class="ficha-etq">Pedidos consultados</span> ${f.pedidos.map((p) => `#${escapeHtml(String(p.id))}`).join(', ')}</div>`);
   }
@@ -1404,7 +1409,10 @@ exports.handler = async (event) => {
       const ultimo = messages.length ? Number(messages[messages.length - 1].ts) || 0 : 0;
       const fragmento = palabras.length ? fragmentoQueCoincide(messages, palabras) : '';
       const asunto = asuntoDeConversacion(messages, ficha);
-      const quien = (ficha?.empresa || ficha?.nombre || '').trim();
+      // Por orden de fiabilidad: la empresa y el nombre vienen de un pedido
+      // verificado contra WooCommerce; el de WhatsApp se lo pone el propio
+      // cliente. Cualquiera de los tres identifica mejor que un número suelto.
+      const quien = (ficha?.empresa || ficha?.nombre || ficha?.nombreWhatsapp || '').trim();
       return { phone, escalated, unread, ultimo, pausado, fragmento, asunto, quien };
     })
   );

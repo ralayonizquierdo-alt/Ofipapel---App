@@ -342,6 +342,27 @@ async function registrarPedidoVerificado(phone, order) {
   });
 }
 
+// El nombre que el cliente tiene puesto en su WhatsApp. Meta lo manda en cada
+// mensaje entrante y hasta ahora se tiraba.
+//
+// Es lo más parecido a la foto de perfil que se puede tener: la API de Meta NO
+// da la foto de los clientes (solo la del propio negocio), pero el nombre sí, y
+// es justo lo que hace falta para reconocer una conversación sin abrirla.
+//
+// Se guarda aparte de "nombre", que viene de un pedido verificado contra
+// WooCommerce y es el bueno para facturar. Este se lo pone el cliente y puede
+// ser cualquier cosa ("Andy 🌴"), así que no debe pisar al otro.
+//
+// Solo se escribe cuando cambia: llega en CADA mensaje y no tiene sentido
+// reescribir la ficha entera cada vez.
+async function guardarNombreWhatsapp(phone, nombre) {
+  const limpio = (nombre || '').trim().slice(0, 60);
+  if (!limpio) return;
+  const ficha = await getFichaCliente(phone);
+  if (ficha?.nombreWhatsapp === limpio) return;
+  await actualizarFichaCliente(phone, { nombreWhatsapp: limpio });
+}
+
 async function registrarProductoPreguntado(phone, termino) {
   const limpio = (termino || '').trim().slice(0, 80);
   if (!limpio) return;
@@ -484,6 +505,7 @@ module.exports = {
   getFichaCliente,
   registrarPedidoVerificado,
   registrarProductoPreguntado,
+  guardarNombreWhatsapp,
   marcarPresentado,
   guardarNotasCliente,
 };

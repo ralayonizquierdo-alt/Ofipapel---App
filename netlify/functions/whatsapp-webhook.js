@@ -480,7 +480,12 @@ async function getPausaGlobalEfectiva() {
   return conversationStore.getPausaGlobal();
 }
 
-async function handleIncomingMessage(message) {
+async function handleIncomingMessage(message, nombreWhatsapp) {
+  // Se guarda antes que nada, y pase lo que pase después: sirve para reconocer
+  // la conversación en el panel aunque el bot esté parado y no llegue a
+  // contestar. Solo escribe cuando el nombre cambia (ver guardarNombreWhatsapp).
+  await conversationStore.guardarNombreWhatsapp(message.from, nombreWhatsapp);
+
   // Bot parado del todo: no contesta a NADIE hasta que se reanude a mano. Los
   // mensajes se siguen archivando para que aparezcan en el panel y se puedan
   // contestar desde ahí — pararlo no es perder mensajes.
@@ -795,10 +800,20 @@ exports.handler = async (event) => {
         // nosotros. Los acuses ya venían llegando; hasta ahora se tiraban.
         await registrarAcusesDeRecibo(change.value?.statuses || []);
 
+        // Meta manda, junto a los mensajes, quién los escribe: su número y el
+        // nombre que esa persona tiene puesto en su WhatsApp. Es lo más parecido
+        // a una identificación que se puede tener — la API no da la foto de
+        // perfil de los clientes — y hasta ahora se tiraba.
+        const nombres = new Map(
+          (change.value?.contacts || [])
+            .filter((contacto) => contacto?.wa_id && contacto?.profile?.name)
+            .map((contacto) => [contacto.wa_id, contacto.profile.name])
+        );
+
         const messages = change.value?.messages || [];
         for (const message of messages) {
           if (await alreadyProcessed(message.id)) continue;
-          await handleIncomingMessage(message);
+          await handleIncomingMessage(message, nombres.get(message.from));
         }
       }
     } catch (err) {
