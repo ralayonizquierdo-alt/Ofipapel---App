@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, FileSpreadsheet, History, Sparkles, Settings, Menu, X, KeyRound, LogOut
+  LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, FileSpreadsheet, History, Sparkles, ClipboardPaste, Settings, Menu, X, KeyRound, LogOut
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import bgTrebol from './assets/bg-trebol.png'
@@ -19,14 +19,17 @@ import Analytics from './pages/Analytics'
 import Asesoria from './pages/Asesoria'
 import Registro from './pages/Registro'
 import SubirLimpieza from './pages/SubirLimpieza'
+import EntradaRapida from './pages/EntradaRapida'
 import ApartmentsConfig from './pages/ApartmentsConfig'
 
 /**
  * El menú, con el rol que puede ver cada entrada. Quien entra como «gastos»
- * —Mónica y Cande— solo tiene la pantalla de subir el parte de limpieza: ni ve
- * el dinero, ni las reservas, ni las cuentas.
+ * —Mónica y Cande— solo tiene las dos pantallas de subir cosas: el parte de
+ * limpieza y la entrada de reservas, cobros y gastos. Aportan datos, pero no
+ * los consultan: ni el dinero, ni el listado de reservas, ni las cuentas.
  */
 const NAV: { to: string; icon: typeof LayoutDashboard; label: string; roles: Rol[] }[] = [
+  { to: '/subir',        icon: ClipboardPaste,  label: 'Subir reservas y gastos', roles: ['gastos'] },
   { to: '/limpieza',     icon: Sparkles,        label: 'Subir limpieza', roles: ['gastos'] },
   { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard',      roles: ['gestion'] },
   { to: '/planning',     icon: Calendar,        label: 'Planning',       roles: ['gestion'] },
@@ -42,8 +45,12 @@ const NAV: { to: string; icon: typeof LayoutDashboard; label: string; roles: Rol
 
 const navDe = (rol: Rol) => NAV.filter(n => n.roles.includes(rol))
 
-/** Dónde cae cada uno al entrar, y adónde se le manda si escribe otra ruta. */
-const INICIO: Record<Rol, string> = { gestion: '/dashboard', gastos: '/limpieza' }
+/**
+ * Dónde cae cada uno al entrar, y adónde se le manda si escribe otra ruta.
+ * Siempre la primera entrada de su menú: las reservas llegan a diario y el
+ * parte de limpieza es semanal, así que abre por lo que más se usa.
+ */
+const INICIO: Record<Rol, string> = { gestion: '/dashboard', gastos: '/subir' }
 
 function NavItems({ rol, alerts, onClose }: { rol: Rol; alerts: number; onClose?: () => void }) {
   return (
@@ -244,7 +251,10 @@ export default function App() {
                 tampoco lleva a ninguna parte. */}
             <Routes>
               {rol === 'gastos' ? (
-                <Route path="/limpieza" element={<SubirLimpieza />} />
+                <>
+                  <Route path="/subir" element={<EntradaRapida />} />
+                  <Route path="/limpieza" element={<SubirLimpieza />} />
+                </>
               ) : (
                 <>
                   <Route path="/dashboard" element={<Dashboard />} />
