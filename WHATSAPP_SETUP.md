@@ -461,6 +461,11 @@ Limitación que sigue vigente:
 - **Adjuntar pegando**: además del botón del clip, se puede pegar una imagen
   copiada (Ctrl+V) en el cuadro de respuesta, sin tener que guardarla antes en
   el disco. Va al mismo sitio que un adjunto normal.
+- **Perfil del negocio** (enlace en el pie): enseña la foto y los datos que ve un
+  cliente al pulsar en el nombre del contacto, dice cuántos faltan por rellenar,
+  y trae los pasos para cambiarlo en WhatsApp Manager. Solo se lee desde aquí:
+  los textos se podrían cambiar por API, pero subir la foto es una carga en tres
+  pasos que no compensa montar para algo que se toca una vez al año.
 - **Volver arriba** al final de cada conversación.
 
 ## Cuando ofipapel.net nos bloquea

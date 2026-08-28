@@ -165,7 +165,39 @@ async function sendWhatsappMedia(to, mediaId, kind, { caption, filename } = {}) 
   }
 }
 
+// El perfil del negocio: lo que ve un cliente al pulsar en el nombre del
+// contacto. Solo se LEE — cambiarlo se hace desde WhatsApp Manager, porque
+// subir la foto por API es una carga en tres pasos que no compensa montar para
+// algo que se toca una vez al año.
+//
+// Ojo: aquí solo se puede consultar el perfil PROPIO. La API no da el perfil ni
+// la foto de los clientes; eso Meta no lo expone a los negocios.
+async function getBusinessProfile() {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = process.env.WHATSAPP_TOKEN;
+  if (!phoneNumberId || !token) {
+    return { ok: false, error: 'Faltan WHATSAPP_PHONE_NUMBER_ID o WHATSAPP_TOKEN.' };
+  }
+
+  const campos = 'about,address,description,email,profile_picture_url,websites,vertical';
+  try {
+    const resp = await fetch(
+      `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/whatsapp_business_profile?fields=${campos}`,
+      { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) }
+    );
+    const datos = await resp.json();
+    if (!resp.ok) {
+      return { ok: false, error: datos?.error?.message || `Error ${resp.status} de Meta.` };
+    }
+    return { ok: true, perfil: datos?.data?.[0] || {} };
+  } catch (err) {
+    console.error('Fallo consultando el perfil de WhatsApp:', err);
+    return { ok: false, error: String(err) };
+  }
+}
+
 module.exports = {
+  getBusinessProfile,
   sendWhatsappMessage,
   sendWhatsappTemplate,
   limpiarVariablePlantilla,
