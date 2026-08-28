@@ -235,6 +235,7 @@ const ICON = {
   tickUno: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
   tickDos: '<svg width="18" height="14" viewBox="0 0 30 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 6 8 17 3 12"/><polyline points="27 6 18 17 15.5 14.5"/></svg>',
   arriba: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
+  lupa: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>',
   trash: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
 };
 
@@ -351,6 +352,22 @@ function pageShell(title, body) {
   .diagnostic.fail { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); }
   .diagnostic svg { flex-shrink: 0; margin-top: 1px; }
   .diagnostic strong { display: block; margin-bottom: 2px; }
+
+  .buscador { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 10px; }
+  .buscador input[type=search] {
+    flex: 1; min-width: 190px;
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px 13px; font-family: inherit; font-size: 14px;
+    background: var(--card); color: var(--text);
+  }
+  .buscador input[type=search]:focus { outline: none; border-color: var(--green-light); box-shadow: 0 0 0 3px rgba(35,117,35,.12); }
+  .buscador-resultado { font-size: 13px; color: var(--text-muted); margin: -2px 0 10px; }
+  /* El trozo de conversación por el que ha salido en la búsqueda. */
+  .convo-fragmento {
+    width: 100%; margin-top: 3px;
+    font-size: 12.5px; color: var(--text-muted); font-style: italic;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
 
   ul.convo-list { list-style: none; padding: 0; margin: 0; }
   ul.convo-list li { margin: 0 0 10px; position: relative; }
@@ -743,7 +760,48 @@ function cuandoFue(ts) {
     : `${fecha.toLocaleDateString('es-ES', { ...zona, day: 'numeric', month: 'numeric' })} ${hora}`;
 }
 
-function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal = null) {
+// Búsqueda de conversaciones por palabras.
+//
+// Se busca en el teléfono, en TODO lo hablado (del cliente, del bot y de quien
+// contestó a mano) y en la ficha del cliente — que es donde están el nombre y la
+// empresa de quien alguna vez consultó un pedido, y las notas del equipo. Sin
+// eso, buscar "Andy" o "la Tejita" no encontraría nada, que es justo como se
+// acuerda uno de una conversación.
+//
+// Se piden TODAS las palabras, no cualquiera: con una sola bandeja de entrada
+// pequeña, pedir "cualquiera" devuelve media lista y no filtra nada.
+function normalizarBusqueda(texto) {
+  return String(texto || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function palabrasDeBusqueda(consulta) {
+  return normalizarBusqueda(consulta).split(/\s+/).filter(Boolean);
+}
+
+function textoBuscable(phone, messages, ficha) {
+  const partes = [phone, ...messages.map((m) => m.content)];
+  if (ficha) partes.push(ficha.nombre, ficha.empresa, ficha.notas, ficha.productos);
+  return normalizarBusqueda(partes.filter(Boolean).join(' \n '));
+}
+
+// El mensaje por el que ha salido esa conversación, para que se vea POR QUÉ
+// coincide sin tener que abrirla. Se busca de atrás hacia delante: lo reciente
+// es casi siempre lo que se estaba buscando.
+function fragmentoQueCoincide(messages, palabras) {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const contenido = messages[i].content || '';
+    const plano = normalizarBusqueda(contenido);
+    if (palabras.every((palabra) => plano.includes(palabra))) {
+      return contenido.length > 110 ? `${contenido.slice(0, 110)}…` : contenido;
+    }
+  }
+  return '';
+}
+
+function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal = null, consulta = '') {
   // Por lo más reciente arriba, que es como se lee cualquier bandeja de entrada.
   // Antes mandaba el escalado y luego los mensajes sin leer, y dentro de eso el
   // orden lo decidía Redis (o sea, ninguno) — de ahí que pareciera aleatorio.
@@ -753,7 +811,7 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
   // hablar con una persona es, por definición, de las más recientes.
   const sorted = [...entries].sort((a, b) => b.ultimo - a.ultimo);
   const items = sorted
-    .map(({ phone, escalated, unread, ultimo, pausado }) => {
+    .map(({ phone, escalated, unread, ultimo, pausado, fragmento }) => {
       const flag = escalated ? `<div class="convo-flag">${ICON.warning} Requiere atención</div>` : '';
       // Una conversación con el bot parado es una que alguien tiene que atender
       // a mano: si no se ve desde la lista, se queda ahí muerta hasta que la
@@ -771,6 +829,7 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
       ${badge}
       ${flag}
       ${enPausa}
+      ${fragmento ? `<div class="convo-fragmento">${escapeHtml(fragmento)}</div>` : ''}
     </div>
     <span class="chevron">${ICON.chevron}</span>
   </a>
@@ -784,12 +843,29 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
   // Auto-refresco cada 30s para que la lista (y el contador de sin leer) se
   // mantenga al día sin tener que recargar a mano.
   const autoRefresh = `<script>setTimeout(function(){ location.reload(); }, 30000);</script>`;
+  const buscador = `<form class="buscador" method="GET">
+  <input type="search" name="q" value="${escapeHtml(consulta)}" placeholder="Buscar en las conversaciones: teléfono, nombre, producto..." aria-label="Buscar conversaciones">
+  <button type="submit" class="btn btn-ghost">${ICON.lupa} Buscar</button>
+  ${consulta ? '<a class="btn-link" href="?">Quitar filtro</a>' : ''}
+</form>${
+    consulta
+      ? `<p class="buscador-resultado">${sorted.length === 1 ? '1 conversación' : `${sorted.length} conversaciones`} con «${escapeHtml(consulta)}».</p>`
+      : ''
+  }`;
+
   const enlaceAprendizaje = `<p class="aprende-acceso"><a class="btn-link" href="?vista=aprendizaje">🧠 Aprendizaje del bot${
     pendientesAprendizaje > 0 ? ` <span class="unread-badge">${pendientesAprendizaje}</span>` : ''
   }</a></p>`;
   return pageShell(
     'Conversaciones · Ofipapel',
-    `${renderInterruptor(pausaGlobal)}${renderDiagnostic(diagnostic)}${enlaceAprendizaje}<ul class="convo-list">${items || '<li><div class="empty-state">Todavía no hay conversaciones archivadas.</div></li>'}</ul>
+    `${renderInterruptor(pausaGlobal)}${renderDiagnostic(diagnostic)}${enlaceAprendizaje}${buscador}<ul class="convo-list">${
+      items ||
+      `<li><div class="empty-state">${
+        consulta
+          ? `Ninguna conversación coincide con «${escapeHtml(consulta)}».`
+          : 'Todavía no hay conversaciones archivadas.'
+      }</div></li>`
+    }</ul>
 <div class="pie-cuenta">
   <a class="btn-link" href="?vista=password">🔑 Cambiar contraseña</a>
   <form method="POST" style="margin:0;"><input type="hidden" name="action" value="logout"><button type="submit" class="btn-link" style="background:none;border:0;cursor:pointer;padding:0;">Cerrar sesión</button></form>
@@ -1270,26 +1346,40 @@ exports.handler = async (event) => {
     listarBusquedasSinResultado(),
     getPausaGlobal(),
   ]);
+  const consulta = (event.queryStringParameters?.q || '').trim();
+  const palabras = palabrasDeBusqueda(consulta);
+
   const entries = await Promise.all(
     phones.map(async (phone) => {
       // La pausa se pide aquí, junto con lo demás, para que no cueste una vuelta
       // extra: ya se estaban haciendo dos consultas por conversación y estas van
-      // en paralelo con ellas.
-      const [messages, lastViewed, pausado] = await Promise.all([
+      // en paralelo con ellas. La ficha SOLO se pide al buscar, que es cuando
+      // hace falta mirar dentro de ella — así la lista de siempre no se vuelve
+      // más lenta por una función que no se está usando.
+      const [messages, lastViewed, pausado, ficha] = await Promise.all([
         loadConversation(phone),
         getLastViewed(phone),
         isBotPaused(phone),
+        palabras.length ? getFichaCliente(phone) : Promise.resolve(null),
       ]);
+
+      if (palabras.length) {
+        const buscable = textoBuscable(phone, messages, ficha);
+        if (!palabras.every((palabra) => buscable.includes(palabra))) return null;
+      }
+
       const escalated = needsAttention(messages);
       const unread = countUnread(messages, lastViewed);
       // Momento del último mensaje, para poder ordenar por lo más reciente.
       const ultimo = messages.length ? Number(messages[messages.length - 1].ts) || 0 : 0;
-      return { phone, escalated, unread, ultimo, pausado };
+      const fragmento = palabras.length ? fragmentoQueCoincide(messages, palabras) : '';
+      return { phone, escalated, unread, ultimo, pausado, fragmento };
     })
   );
+
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    body: renderList(entries, diagnostic, pendientes.length, pausaGlobal),
+    body: renderList(entries.filter(Boolean), diagnostic, pendientes.length, pausaGlobal, consulta),
   };
 };

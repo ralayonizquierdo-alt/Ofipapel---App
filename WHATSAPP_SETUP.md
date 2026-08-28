@@ -436,6 +436,10 @@ Limitación que sigue vigente:
 - **Borrar una conversación desde la lista**, con el icono de la papelera en la
   esquina de cada tarjeta (pide confirmación). Borra también el contador de sin
   leer y los acuses de ese número; el historial no se puede recuperar.
+- **Buscador** en la lista: busca en el teléfono, en todo lo hablado y en la
+  ficha del cliente (nombre, empresa y notas del equipo), sin distinguir
+  acentos ni mayúsculas. Se piden todas las palabras, y cada resultado enseña
+  el trozo de conversación por el que ha salido.
 - **Parada del bot**, general (arriba del todo) o por conversación. Las
   conversaciones con el bot parado se ven **desde la lista**, con su aviso y la
   tarjeta en ámbar: si no, se quedan ahí muertas hasta que la pausa caduca sola
