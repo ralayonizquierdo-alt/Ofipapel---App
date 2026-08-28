@@ -122,7 +122,7 @@ antes de analizar una.**
 | `ofipapel` | El ecosistema completo (hub + 8 apps + 17 funciones) | Sí | Alto | **Canónico.** La política de privacidad registrada en Meta apunta aquí (`ofipapel.netlify.app`) |
 | `spontaneous-lebkuchen-60fa41` | Exactamente lo mismo, mismo commit, misma hora | Sí | Alto (duplicado) | Duplicado — **pero el webhook de WhatsApp de Meta apunta aquí**, no se puede apagar sin repuntarlo primero (DT-27) |
 | `joesworld` | Exactamente lo mismo, mismo commit, misma hora | Sí | Alto (duplicado) | Duplicado. Nombre heredado de cuando servía solo `joe-app` (DT-27) |
-| `ofipapel-fichaje-test` | Copia congelada de `fichaje.html` de julio, subida a mano | No (`deploy_source: "drop"`) | Ninguno | **Zombi con datos vivos** — sin el arreglo XSS de DT-21 y con las claves de los dos proyectos Firebase reales. Borrar (DT-26) |
+| `ofipapel-fichaje-test` | Una sola URL: `/fichaje-1.html` (la raíz es 404). Copia de julio subida a mano | No (`deploy_source: "drop"`, sin funciones) | Ninguno | **Copia de producción sin mantenimiento** — el propietario cree que es la URL que usa el personal. Le faltan el arreglo XSS, las geocercas, el cambio de departamento y las alertas, y **el arreglo de DT-29 no puede llegarle** porque no tiene funciones. Mover a la gente a `ofipapel.netlify.app/fichaje.html` y borrarlo (DT-26) |
 
 Comprobado: el sitio publicado ocupa 9,4 MB, así que el gasto **no** viene de
 almacenamiento ni de tráfico. Viene de construir el mismo repo tres veces en
@@ -166,9 +166,11 @@ Por orden de urgencia real, a 2026-08-28:
    (p.ej. `fichaje@ofipapel.internal`) y ponerla en Netlify como
    `VACACIONES_FIREBASE_EMAIL` / `VACACIONES_FIREBASE_PASSWORD`. **Devuelve el
    servicio de fichar**, hoy caído para toda la plantilla (DT-29).
-2. **Netlify**: borrar el sitio `ofipapel-fichaje-test` — copia pública y
-   congelada de `fichaje.html` con las claves de los dos proyectos Firebase
-   reales y sin el arreglo de XSS (DT-26).
+2. **Que el personal fiche en `https://ofipapel.netlify.app/fichaje.html`**, no
+   en `ofipapel-fichaje-test`. Mismos fichajes y mismos PIN (mismo proyecto
+   Firebase), pero la de `-test` es de julio, no recibe correcciones y no
+   puede recibir el arreglo del punto 1. Una vez movida la gente, borrar ese
+   sitio en Netlify (DT-26).
 3. **Supabase → "App Bancos"**: sustituir la política `allow_all` del rol
    `public`. Hoy cualquiera lee **y escribe** los saldos bancarios (DT-23).
 4. **Firebase → `ofipapel-fichaje-63ced`**: aplicar el mismo patrón que ya
