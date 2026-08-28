@@ -36,7 +36,7 @@ const {
 } = require('./conversation-store');
 const crypto = require('crypto');
 const { isAgenteInfoMessage } = require('./whatsapp-agent-config');
-const { sendWhatsappMessage, uploadWhatsappMedia, sendWhatsappMedia } = require('./whatsapp-send');
+const { sendWhatsappMessage, uploadWhatsappMedia, sendWhatsappMedia, getBusinessProfile } = require('./whatsapp-send');
 
 // Tipos de adjunto admitidos desde el panel y su tope de tamaño. WhatsApp exige
 // imagen para jpeg/png y "documento" para el resto (pdf); el tope real lo pone
@@ -404,6 +404,20 @@ function pageShell(title, body) {
 
   .convo-card svg.chevron { flex-shrink: 0; color: var(--text-muted); }
   .convo-card.escalated { border-color: #f3c6bd; }
+
+  .perfil-intro { font-size: 13.5px; color: var(--text-muted); margin: 0 0 12px; }
+  .perfil-tarjeta { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); }
+  .perfil-foto { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid var(--border); }
+  .perfil-sinfoto { display: flex; align-items: center; justify-content: center; background: var(--bg-soft); color: var(--text-muted); font-size: 12px; text-align: center; }
+  .perfil-datos { flex: 1; min-width: 240px; border-collapse: collapse; font-size: 13.5px; }
+  .perfil-datos th { text-align: left; vertical-align: top; padding: 5px 12px 5px 0; color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+  .perfil-datos td { padding: 5px 0; }
+  .perfil-vacio { color: var(--text-muted); font-style: italic; }
+  .perfil-comoCambiar { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-top: 12px; font-size: 13.5px; }
+  .perfil-comoCambiar h3 { margin: 0 0 8px; font-size: 15px; color: var(--green-dark); }
+  .perfil-comoCambiar ol { margin: 0; padding-left: 20px; }
+  .perfil-comoCambiar li { margin-bottom: 5px; }
+  .perfil-nota { color: var(--text-muted); font-size: 12.5px; margin: 10px 0 0; }
 
   .empty-state { padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 14px; background: var(--card); border-radius: 14px; border: 1px dashed var(--border); }
 
@@ -903,6 +917,7 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
       }</div></li>`
     }</ul>
 <div class="pie-cuenta">
+  <a class="btn-link" href="?vista=perfil">🖼️ Perfil del negocio</a>
   <a class="btn-link" href="?vista=password">🔑 Cambiar contraseña</a>
   <form method="POST" style="margin:0;"><input type="hidden" name="action" value="logout"><button type="submit" class="btn-link" style="background:none;border:0;cursor:pointer;padding:0;">Cerrar sesión</button></form>
 </div>${autoRefresh}`
@@ -912,6 +927,70 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
 // Página de aprendizaje del bot: lo que los clientes buscaron y no encontramos,
 // y los equivalentes que se le han enseñado. La corrección la hace una persona
 // (el bot no aprende solo) para que un error no se quede fijado para siempre.
+// Cómo ven los clientes a Ofipapel: la foto y los datos que salen al pulsar en
+// el nombre del contacto. Solo para mirar — se cambia en WhatsApp Manager, y la
+// página lleva el enlace y los pasos para no tener que buscarlos.
+const CAMPOS_PERFIL = [
+  ['about', 'Acerca de', 'La frase corta que sale bajo el nombre.'],
+  ['description', 'Descripción', 'Qué es Ofipapel.'],
+  ['address', 'Dirección', 'La de la tienda principal.'],
+  ['email', 'Email', ''],
+  ['websites', 'Sitio web', ''],
+  ['vertical', 'Categoría', 'Para Ofipapel, comercio minorista.'],
+];
+
+function renderPerfil(resultado) {
+  if (!resultado.ok) {
+    return pageShell(
+      'Perfil del negocio · Ofipapel',
+      `<a class="back-link" href="?">${ICON.back} Todas las conversaciones</a>
+<h2 class="thread-title">Perfil del negocio</h2>
+<div class="error-banner">${ICON.alert}<span>No se ha podido consultar el perfil: ${escapeHtml(resultado.error)}</span></div>`
+    );
+  }
+
+  const perfil = resultado.perfil;
+  const foto = perfil.profile_picture_url
+    ? `<img class="perfil-foto" src="${escapeHtml(perfil.profile_picture_url)}" alt="Foto de perfil de Ofipapel">`
+    : `<div class="perfil-foto perfil-sinfoto">Sin foto</div>`;
+
+  const filas = CAMPOS_PERFIL.map(([clave, etiqueta, pista]) => {
+    const bruto = perfil[clave];
+    const valor = Array.isArray(bruto) ? bruto.join(', ') : bruto;
+    return `<tr>
+    <th>${escapeHtml(etiqueta)}</th>
+    <td>${valor ? escapeHtml(String(valor)) : `<span class="perfil-vacio">— vacío${pista ? `. ${escapeHtml(pista)}` : ''}</span>`}</td>
+  </tr>`;
+  }).join('');
+
+  const faltan = CAMPOS_PERFIL.filter(([clave]) => !perfil[clave]).length + (perfil.profile_picture_url ? 0 : 1);
+  const resumen = faltan === 0
+    ? '<div class="diagnostic ok">✔ El perfil está completo.</div>'
+    : `<div class="diagnostic fail">${ICON.alert} Faltan ${faltan} ${faltan === 1 ? 'dato' : 'datos'} por rellenar. Es lo que ve un cliente que no te conoce.</div>`;
+
+  return pageShell(
+    'Perfil del negocio · Ofipapel',
+    `<a class="back-link" href="?">${ICON.back} Todas las conversaciones</a>
+<h2 class="thread-title">Perfil del negocio</h2>
+<p class="perfil-intro">Esto es lo que ve un cliente al pulsar en el nombre del contacto en WhatsApp.</p>
+${resumen}
+<div class="perfil-tarjeta">
+  ${foto}
+  <table class="perfil-datos">${filas}</table>
+</div>
+<div class="perfil-comoCambiar">
+  <h3>Cómo cambiarlo</h3>
+  <ol>
+    <li>Entra en <a href="https://business.facebook.com/wa/manage/phone-numbers/" target="_blank" rel="noopener">WhatsApp Manager &rsaquo; Números de teléfono</a>.</li>
+    <li>Pulsa en el número de Ofipapel y busca la sección del <strong>perfil</strong> (Meta le cambia el nombre cada poco: "Perfil", "Configuración del perfil" o el icono del lápiz).</li>
+    <li>Sube la foto — cuadrada, mínimo 192×192 px — y rellena los datos de arriba.</li>
+    <li>Guarda y vuelve aquí a comprobarlo. El cambio tarda un rato en propagarse.</li>
+  </ol>
+  <p class="perfil-nota">Se hace desde ahí a propósito: los textos se podrían cambiar por API, pero subir la foto es una carga en tres pasos que no compensa montar para algo que se toca una vez al año.</p>
+</div>`
+  );
+}
+
 function renderAprendizaje(pendientes, aliases) {
   const filasPendientes = pendientes.length
     ? pendientes
@@ -1340,6 +1419,14 @@ exports.handler = async (event) => {
     }
 
     return redirect();
+  }
+
+  if (event.queryStringParameters?.vista === 'perfil') {
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      body: renderPerfil(await getBusinessProfile()),
+    };
   }
 
   if (event.queryStringParameters?.vista === 'password') {
