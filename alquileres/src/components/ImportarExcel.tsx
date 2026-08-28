@@ -18,7 +18,7 @@ function fechaHora(iso: string): string {
 }
 
 /**
- * Volcado del Excel «Resumen cobros y gastos». Siempre enseña una vista previa
+ * Volcado del Excel «Resumen anual de ingresos y gastos». Siempre enseña una vista previa
  * antes de escribir: el fichero puede traer inmuebles que no reconozcamos o
  * conceptos nuevos, y conviene verlo antes de tocar los datos.
  */
@@ -42,7 +42,7 @@ export default function ImportarExcel(
     try {
       const r = await leerExcel(f)
       if (r.gastos.length === 0) {
-        setError('No se ha encontrado ningún gasto. ¿Es el Excel de «Resumen cobros y gastos»?')
+        setError('No se ha encontrado ningún gasto. ¿Es el Excel de «Resumen anual de ingresos y gastos»?')
         return
       }
       setPrevio(r)
@@ -227,7 +227,7 @@ export default function ImportarExcel(
         ) : (
           <>
             <p className="text-sm text-slate-600">
-              Sube el Excel de «Resumen cobros y gastos». Se cargan los conceptos de gasto
+              Sube el Excel de «Resumen anual de ingresos y gastos». Se cargan los conceptos de gasto
               (luz, IBI, basura, comunidad, comisiones…) y los ingresos brutos de cada
               mes. <strong>Las reparaciones no se importan</strong>: ya tienen su propia
               pantalla con proveedor y factura, y volcarlas aquí duplicaría el gasto.

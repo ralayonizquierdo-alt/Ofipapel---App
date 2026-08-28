@@ -3,7 +3,7 @@ import readXlsxFile from 'read-excel-file/browser'
 import type { ExpenseType } from '../types'
 
 /**
- * Lector del Excel «Resumen cobros y gastos».
+ * Lector del Excel «Resumen anual de ingresos y gastos».
  *
  * El fichero repite un bloque por inmueble. Dentro de cada bloque:
  *   fila DIRECCION   -> col C dirección, col D nombre del apartamento

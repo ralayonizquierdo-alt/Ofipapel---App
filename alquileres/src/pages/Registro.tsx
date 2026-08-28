@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Download, History } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { ORIGEN_LABEL, type ImportLog, type OrigenSubida } from '../types'
+import { rolDe, usuarioActual } from '../lib/auth'
 import PageHeader from '../components/ui/PageHeader'
 
 /**
@@ -13,6 +14,12 @@ import PageHeader from '../components/ui/PageHeader'
  *
  * Sirve para responder a «¿de dónde salió esta cifra?» meses después, que es
  * justo lo que hace falta cuando el asesor pregunta o algo no cuadra.
+ *
+ * Quien entra con el rol «gastos» lo ve entero salvo una cosa: la frase de
+ * resumen de las subidas ajenas. Ahí es donde asoma algún importe —«1.240,00 €
+ * en APART.104», de un cobro que pegó otro— y ellas no ven el dinero del
+ * negocio. De lo suyo sí lo ven: lo han subido ellas. Lo demás —quién, cuándo,
+ * por dónde y cuántas cosas entraron— no lleva ni un euro y se enseña igual.
  */
 
 /** Las cosas que puede traer una subida, en el orden en que se enseñan. */
@@ -30,6 +37,7 @@ const cuenta = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno
 
 const COLOR_ORIGEN: Record<OrigenSubida, string> = {
   'excel-gastos': 'bg-red-50 text-red-700 border-red-200',
+  'excel-limpieza': 'bg-sky-50 text-sky-700 border-sky-200',
   'excel-calendario': 'bg-blue-50 text-blue-700 border-blue-200',
   'pegado-whatsapp': 'bg-green-50 text-green-700 border-green-200',
   'pegado-airbnb': 'bg-rose-50 text-rose-700 border-rose-200',
@@ -51,6 +59,11 @@ const origenDe = (l: ImportLog): OrigenSubida => l.origen ?? 'excel-gastos'
 export default function Registro() {
   const { importLogs } = useData()
   const [filtro, setFiltro] = useState<'todo' | OrigenSubida>('todo')
+  const yo = usuarioActual()
+  const conImportes = rolDe(yo) !== 'gastos'
+  /** ¿Se le puede enseñar la frase de resumen de esta subida? */
+  const resumenDe = (l: ImportLog) =>
+    conImportes || l.by === yo ? l.resumen : undefined
 
   const ordenados = useMemo(
     () => [...importLogs].sort((a, b) => b.at.localeCompare(a.at)),
@@ -76,7 +89,7 @@ export default function Registro() {
     const cab = ['Fecha', 'Quién', 'Por dónde', 'Fichero', 'Ejercicio', 'Qué entró',
       'Reservas', 'Cobros', 'Gastos', 'Ingresos', 'Ocupaciones', 'Reparaciones', 'Retirados']
     const fila = (l: ImportLog) => [
-      cuando(l.at), l.by, ORIGEN_LABEL[origenDe(l)], l.fileName ?? '', l.year ?? '', l.resumen ?? '',
+      cuando(l.at), l.by, ORIGEN_LABEL[origenDe(l)], l.fileName ?? '', l.year ?? '', resumenDe(l) ?? '',
       l.reservas ?? '', l.cobros ?? '', l.gastos ?? '', l.ingresos ?? '',
       l.ocupaciones ?? '', l.reparaciones ?? '', l.borrados ?? '',
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(';')
@@ -134,14 +147,14 @@ export default function Registro() {
         </div>
       ) : (
         <div className="space-y-2">
-          {visibles.map(l => <Entrada key={l.id} log={l} />)}
+          {visibles.map(l => <Entrada key={l.id} log={l} resumen={resumenDe(l)} />)}
         </div>
       )}
     </div>
   )
 }
 
-function Entrada({ log }: { log: ImportLog }) {
+function Entrada({ log, resumen }: { log: ImportLog; resumen?: string }) {
   const o = origenDe(log)
   const cosas = CONCEPTOS.map(c => ({ ...c, n: Number(log[c.clave]) || 0 })).filter(c => c.n)
 
@@ -166,7 +179,7 @@ function Entrada({ log }: { log: ImportLog }) {
         </div>
       </div>
 
-      {log.resumen && <p className="text-sm text-slate-700 mb-2">{log.resumen}</p>}
+      {resumen && <p className="text-sm text-slate-700 mb-2">{resumen}</p>}
 
       <div className="flex flex-wrap gap-1.5">
         {cosas.map(c => (

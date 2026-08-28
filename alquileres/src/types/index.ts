@@ -177,7 +177,8 @@ export interface ReparacionMensual {
 
 /** Por dónde entró un dato en la aplicación: el «cómo» del registro. */
 export type OrigenSubida =
-  | 'excel-gastos'      // Excel «Resumen cobros y gastos»
+  | 'excel-gastos'      // Excel «Resumen anual de ingresos y gastos», uno por ejercicio
+  | 'excel-limpieza'    // parte semanal de limpieza y reparaciones
   | 'excel-calendario'  // calendario anual de reservas en colores
   | 'pegado-whatsapp'   // aviso de la inmobiliaria, pegado como texto
   | 'pegado-airbnb'     // aviso de reserva de la aplicación de Airbnb
@@ -185,7 +186,8 @@ export type OrigenSubida =
   | 'correcciones'      // arreglo puntual de datos ya cargados
 
 export const ORIGEN_LABEL: Record<OrigenSubida, string> = {
-  'excel-gastos': 'Excel de gastos',
+  'excel-gastos': 'Resumen anual de ingresos y gastos',
+  'excel-limpieza': 'Parte de limpieza',
   'excel-calendario': 'Calendario de reservas',
   'pegado-whatsapp': 'Pegado de WhatsApp',
   'pegado-airbnb': 'Aviso de Airbnb',

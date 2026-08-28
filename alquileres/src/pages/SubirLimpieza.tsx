@@ -120,7 +120,9 @@ export default function SubirLimpieza() {
       }))
       await importExpenses(items)
       anotaVolcado({
-        origen: 'excel-gastos',
+        // Origen propio: en el registro tiene que distinguirse del Excel anual,
+        // que es otro fichero, otra persona y otra periodicidad.
+        origen: 'excel-limpieza',
         fileName: nombreFichero,
         resumen: `${items.length} limpiezas, ${eur(totalNuevos)}`,
         year: Number(nuevos[0].fecha.slice(0, 4)),
