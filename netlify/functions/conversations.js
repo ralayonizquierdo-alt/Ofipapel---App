@@ -373,6 +373,8 @@ function pageShell(title, body) {
   .convo-info { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .convo-phone { font-family: 'IBM Plex Mono', monospace; font-size: 15.5px; font-weight: 600; }
   .convo-flag { display: flex; align-items: center; gap: 5px; color: var(--danger); font-size: 12.5px; font-weight: 600; width: 100%; margin-top: 1px; }
+  .convo-pausa { display: flex; align-items: center; gap: 5px; color: #8a6416; font-size: 12.5px; font-weight: 600; width: 100%; margin-top: 1px; }
+  .convo-card.pausado { border-color: #f2dca0; background: linear-gradient(0deg, #fffdf6, var(--card)); }
   .unread-badge {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
@@ -724,17 +726,24 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
   // hablar con una persona es, por definición, de las más recientes.
   const sorted = [...entries].sort((a, b) => b.ultimo - a.ultimo);
   const items = sorted
-    .map(({ phone, escalated, unread, ultimo }) => {
+    .map(({ phone, escalated, unread, ultimo, pausado }) => {
       const flag = escalated ? `<div class="convo-flag">${ICON.warning} Requiere atención</div>` : '';
+      // Una conversación con el bot parado es una que alguien tiene que atender
+      // a mano: si no se ve desde la lista, se queda ahí muerta hasta que la
+      // pausa caduca sola a las 24 h y el cliente se lleva el silencio.
+      const enPausa = pausado
+        ? `<div class="convo-pausa">${ICON.pause} Bot parado — contestas tú</div>`
+        : '';
       const badge = unread > 0 ? `<span class="unread-badge">${unread}</span>` : '';
       const cuando = ultimo ? `<div class="convo-cuando">${escapeHtml(cuandoFue(ultimo))}</div>` : '';
-      return `<li><a class="convo-card${escalated ? ' escalated' : ''}" href="?phone=${encodeURIComponent(phone)}">
+      return `<li><a class="convo-card${escalated ? ' escalated' : ''}${pausado && !escalated ? ' pausado' : ''}" href="?phone=${encodeURIComponent(phone)}">
     <div class="convo-avatar">${ICON.chat}</div>
     <div class="convo-info">
       <div class="convo-phone">${escapeHtml(phone)}</div>
       ${cuando}
       ${badge}
       ${flag}
+      ${enPausa}
     </div>
     <span class="chevron">${ICON.chevron}</span>
   </a>
@@ -1181,12 +1190,19 @@ exports.handler = async (event) => {
   ]);
   const entries = await Promise.all(
     phones.map(async (phone) => {
-      const [messages, lastViewed] = await Promise.all([loadConversation(phone), getLastViewed(phone)]);
+      // La pausa se pide aquí, junto con lo demás, para que no cueste una vuelta
+      // extra: ya se estaban haciendo dos consultas por conversación y estas van
+      // en paralelo con ellas.
+      const [messages, lastViewed, pausado] = await Promise.all([
+        loadConversation(phone),
+        getLastViewed(phone),
+        isBotPaused(phone),
+      ]);
       const escalated = needsAttention(messages);
       const unread = countUnread(messages, lastViewed);
       // Momento del último mensaje, para poder ordenar por lo más reciente.
       const ultimo = messages.length ? Number(messages[messages.length - 1].ts) || 0 : 0;
-      return { phone, escalated, unread, ultimo };
+      return { phone, escalated, unread, ultimo, pausado };
     })
   );
   return {

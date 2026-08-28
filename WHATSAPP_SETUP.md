@@ -436,7 +436,10 @@ Limitación que sigue vigente:
 - **Borrar una conversación desde la lista**, con el icono de la papelera en la
   esquina de cada tarjeta (pide confirmación). Borra también el contador de sin
   leer y los acuses de ese número; el historial no se puede recuperar.
-- **Parada del bot**, general (arriba del todo) o por conversación.
+- **Parada del bot**, general (arriba del todo) o por conversación. Las
+  conversaciones con el bot parado se ven **desde la lista**, con su aviso y la
+  tarjeta en ámbar: si no, se quedan ahí muertas hasta que la pausa caduca sola
+  a las 24 h y el cliente se lleva el silencio.
 - **Volver arriba** al final de cada conversación.
 
 ## Cuando ofipapel.net nos bloquea
