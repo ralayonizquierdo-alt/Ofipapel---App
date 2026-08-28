@@ -39,7 +39,10 @@ const NAV: { to: string; icon: typeof LayoutDashboard; label: string; roles: Rol
   { to: '/gastos',       icon: Receipt,         label: 'Gastos',         roles: ['gestion'] },
   { to: '/analitica',    icon: BarChart3,       label: 'Analítica',      roles: ['gestion'] },
   { to: '/asesoria',     icon: FileSpreadsheet, label: 'Asesoría',       roles: ['gestion'] },
-  { to: '/registro',     icon: History,         label: 'Registro',       roles: ['gestion'] },
+  // El registro también para «gastos»: no lleva ni un importe —quién, cuándo,
+  // por dónde y cuántas cosas entraron— y les deja comprobar que su subida
+  // llegó sin tener que preguntar.
+  { to: '/registro',     icon: History,         label: 'Registro',       roles: ['gestion', 'gastos'] },
   { to: '/config',       icon: Settings,        label: 'Apartamentos',   roles: ['gestion'] },
 ]
 
@@ -254,6 +257,7 @@ export default function App() {
                 <>
                   <Route path="/subir" element={<EntradaRapida />} />
                   <Route path="/limpieza" element={<SubirLimpieza />} />
+                  <Route path="/registro" element={<Registro />} />
                 </>
               ) : (
                 <>
