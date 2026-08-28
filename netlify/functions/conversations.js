@@ -416,6 +416,8 @@ function pageShell(title, body) {
 
   .convo-info { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .convo-phone { font-family: 'IBM Plex Mono', monospace; font-size: 15.5px; font-weight: 600; }
+  .convo-quien { font-size: 13px; font-weight: 600; color: var(--green-dark); }
+  .convo-asunto { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--text-muted); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .convo-flag { display: flex; align-items: center; gap: 5px; color: var(--danger); font-size: 12.5px; font-weight: 600; width: 100%; margin-top: 1px; }
   .convo-pausa { display: flex; align-items: center; gap: 5px; color: #8a6416; font-size: 12.5px; font-weight: 600; width: 100%; margin-top: 1px; }
   .convo-card.pausado { border-color: #f2dca0; background: linear-gradient(0deg, #fffdf6, var(--card)); }
@@ -760,6 +762,60 @@ function cuandoFue(ts) {
     : `${fecha.toLocaleDateString('es-ES', { ...zona, day: 'numeric', month: 'numeric' })} ${hora}`;
 }
 
+// El ASUNTO de una conversación: dos o tres palabras que digan de qué iba, para
+// reconocerla de un vistazo en la lista. Un número de teléfono no le dice nada a
+// nadie, y aquí no hay foto de perfil ni nombre de contacto como en WhatsApp.
+//
+// Sale de dos sitios, por este orden:
+//   1. La ficha del cliente, donde el bot ya anota por qué producto preguntó
+//      cada vez que una búsqueda encontró algo. Es el dato más fiel.
+//   2. Si no hay ficha (o el cliente preguntó por algo que no está en el
+//      catálogo), su primer mensaje con contenido.
+//
+// En los dos casos hay que limpiar el saludo y los rodeos, o el asunto sería
+// "Hola buenas tardes sabrían decirme si" en todas las conversaciones.
+const RELLENO_ASUNTO = new Set([
+  'hola', 'buenas', 'buenos', 'buen', 'dias', 'tardes', 'noches', 'saludos', 'hey',
+  'gracias', 'porfa', 'porfavor', 'favor', 'disculpa', 'disculpe', 'perdona', 'perdone',
+  'necesito', 'necesitaria', 'quiero', 'queria', 'quisiera', 'busco', 'buscaba', 'buscando',
+  'tienen', 'teneis', 'tiene', 'hay', 'venden', 'vendeis', 'sabrian', 'sabria', 'sabes',
+  'decirme', 'decir', 'indicarme', 'informarme', 'preguntar', 'consultar', 'mirar', 'ver',
+  'podria', 'podrian', 'seria', 'posible', 'gustaria', 'me', 'te', 'le', 'nos', 'si', 'no',
+  'que', 'para', 'con', 'los', 'las', 'del', 'por', 'una', 'uno', 'unos', 'unas', 'el', 'la',
+  'lo', 'un', 'y', 'o', 'de', 'en', 'al', 'se', 'mi', 'tu', 'su', 'es', 'esta', 'este', 'como',
+  'sobre', 'algo', 'alguna', 'alguno', 'tengo', 'tenia', 'sería', 'puede', 'puedo', 'podeis',
+]);
+
+const LARGO_ASUNTO = 34;
+
+function asuntoDeFrase(frase) {
+  const palabras = String(frase || '')
+    .replace(/[¿?¡!.,;:()"]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const utiles = palabras.filter((palabra) => !RELLENO_ASUNTO.has(normalizarBusqueda(palabra)));
+  if (utiles.length === 0) return '';
+
+  const asunto = utiles.join(' ');
+  return asunto.length > LARGO_ASUNTO ? `${asunto.slice(0, LARGO_ASUNTO).trimEnd()}…` : asunto;
+}
+
+function asuntoDeConversacion(messages, ficha) {
+  const preguntados = Array.isArray(ficha?.productos) ? ficha.productos : [];
+  for (let i = preguntados.length - 1; i >= 0; i -= 1) {
+    const asunto = asuntoDeFrase(preguntados[i]);
+    if (asunto) return asunto;
+  }
+
+  for (const mensaje of messages) {
+    if (mensaje.role !== 'user') continue;
+    const asunto = asuntoDeFrase(mensaje.content);
+    if (asunto) return asunto;
+  }
+  return '';
+}
+
 // Búsqueda de conversaciones por palabras.
 //
 // Se busca en el teléfono, en TODO lo hablado (del cliente, del bot y de quien
@@ -811,7 +867,7 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
   // hablar con una persona es, por definición, de las más recientes.
   const sorted = [...entries].sort((a, b) => b.ultimo - a.ultimo);
   const items = sorted
-    .map(({ phone, escalated, unread, ultimo, pausado, fragmento }) => {
+    .map(({ phone, escalated, unread, ultimo, pausado, fragmento, asunto, quien }) => {
       const flag = escalated ? `<div class="convo-flag">${ICON.warning} Requiere atención</div>` : '';
       // Una conversación con el bot parado es una que alguien tiene que atender
       // a mano: si no se ve desde la lista, se queda ahí muerta hasta que la
@@ -821,11 +877,18 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
         : '';
       const badge = unread > 0 ? `<span class="unread-badge">${unread}</span>` : '';
       const cuando = ultimo ? `<div class="convo-cuando">${escapeHtml(cuandoFue(ultimo))}</div>` : '';
+      // A la derecha del número y la hora queda sitio de sobra, y ahí es donde
+      // se reconoce la conversación: quién es (si alguna vez consultó un pedido
+      // y sabemos su nombre) y por qué escribió.
+      const nombre = quien ? `<div class="convo-quien">${escapeHtml(quien)}</div>` : '';
+      const tema = asunto ? `<div class="convo-asunto">«${escapeHtml(asunto)}»</div>` : '';
       return `<li><a class="convo-card${escalated ? ' escalated' : ''}${pausado && !escalated ? ' pausado' : ''}" href="?phone=${encodeURIComponent(phone)}">
     <div class="convo-avatar">${ICON.chat}</div>
     <div class="convo-info">
       <div class="convo-phone">${escapeHtml(phone)}</div>
       ${cuando}
+      ${nombre}
+      ${tema}
       ${badge}
       ${flag}
       ${enPausa}
@@ -1351,16 +1414,14 @@ exports.handler = async (event) => {
 
   const entries = await Promise.all(
     phones.map(async (phone) => {
-      // La pausa se pide aquí, junto con lo demás, para que no cueste una vuelta
-      // extra: ya se estaban haciendo dos consultas por conversación y estas van
-      // en paralelo con ellas. La ficha SOLO se pide al buscar, que es cuando
-      // hace falta mirar dentro de ella — así la lista de siempre no se vuelve
-      // más lenta por una función que no se está usando.
+      // Las cuatro consultas van en paralelo, así que la lista tarda lo que la
+      // más lenta, no la suma. La ficha hace falta siempre: de ahí salen el
+      // nombre y el asunto que se enseñan en la tarjeta.
       const [messages, lastViewed, pausado, ficha] = await Promise.all([
         loadConversation(phone),
         getLastViewed(phone),
         isBotPaused(phone),
-        palabras.length ? getFichaCliente(phone) : Promise.resolve(null),
+        getFichaCliente(phone),
       ]);
 
       if (palabras.length) {
@@ -1373,7 +1434,9 @@ exports.handler = async (event) => {
       // Momento del último mensaje, para poder ordenar por lo más reciente.
       const ultimo = messages.length ? Number(messages[messages.length - 1].ts) || 0 : 0;
       const fragmento = palabras.length ? fragmentoQueCoincide(messages, palabras) : '';
-      return { phone, escalated, unread, ultimo, pausado, fragmento };
+      const asunto = asuntoDeConversacion(messages, ficha);
+      const quien = (ficha?.empresa || ficha?.nombre || '').trim();
+      return { phone, escalated, unread, ultimo, pausado, fragmento, asunto, quien };
     })
   );
 

@@ -436,6 +436,12 @@ Limitación que sigue vigente:
 - **Borrar una conversación desde la lista**, con el icono de la papelera en la
   esquina de cada tarjeta (pide confirmación). Borra también el contador de sin
   leer y los acuses de ese número; el historial no se puede recuperar.
+- **Cada tarjeta dice de qué va**: junto al número y la hora salen el nombre o
+  la empresa del cliente (si alguna vez consultó un pedido) y, entre comillas,
+  por lo que preguntó — «lápiz 3D», «tóner Brother». Sale de lo que el bot
+  anota en la ficha, y si no hay ficha, del primer mensaje con contenido del
+  cliente. Un número de teléfono no identifica a nadie, y aquí no hay foto de
+  perfil como en WhatsApp.
 - **Buscador** en la lista: busca en el teléfono, en todo lo hablado y en la
   ficha del cliente (nombre, empresa y notas del equipo), sin distinguir
   acentos ni mayúsculas. Se piden todas las palabras, y cada resultado enseña
