@@ -783,8 +783,18 @@ const PLANTILLA_CACHE_KEY = 'ofipapel_fichaje_plantilla_v1';
    Las reglas de ese proyecto exigen `sign_in_provider == 'password'` desde que
    se cerró DT-23, así que la sesión anónima de abajo ya no sirve — se conserva
    solo como red de seguridad por si la función aún no está configurada. */
+/* Las funciones de Netlify solo existen en los sitios de Netlify. Esta misma
+   página se sirve también desde GitHub Pages (ralayonizquierdo-alt.github.io),
+   que es la interfaz por la que se entra a todas las aplicaciones y cuyo hub
+   enlaza aquí con ruta relativa. Allí `/.netlify/functions/...` no existe, así
+   que se apunta al sitio de Netlify por su dominio completo. La función
+   permite ese origen explícitamente y devuelve las cabeceras CORS. */
+const FUNCTIONS_BASE = /\.netlify\.app$/.test(location.hostname) || location.hostname === 'localhost'
+  ? ''
+  : 'https://ofipapel.netlify.app';
+
 async function fetchPlantillaViaFuncion(){
-  const res = await fetch('/.netlify/functions/plantilla-vacaciones', {headers:{'Accept':'application/json'}});
+  const res = await fetch(FUNCTIONS_BASE + '/.netlify/functions/plantilla-vacaciones', {headers:{'Accept':'application/json'}});
   if(!res.ok) throw new Error('plantilla-vacaciones respondió '+res.status);
   const json = await res.json();
   if(!Array.isArray(json.employees)) throw new Error('respuesta sin lista de empleados');

@@ -77,11 +77,17 @@ fuera. La lección concreta: `alquileres/firestore.rules` cubre todo el
 proyecto con `match /{collection}/{docId}`, pero el proyecto está compartido
 por tres aplicaciones — y solo se revisó una.
 
-Corregido en código (ver DT-29): `netlify/functions/plantilla-vacaciones.js`
-lee la plantilla en el servidor con una cuenta real y devuelve solo
-`{id, name, unitId}`. Queda pendiente crear esa cuenta y configurar las dos
-variables de entorno; hasta entonces `fichaje.html` se comporta igual que
-ahora, no peor.
+**Resuelto el mismo día** (PR #199): `netlify/functions/plantilla-vacaciones.js`
+lee la plantilla en el servidor con una cuenta real de `ofipapelvv` y devuelve
+solo `{id, name, unitId}`. Verificado en producción — 36 empleados en 11
+departamentos, 403 sin cabecera de origen, 403 desde otro dominio, 405 a un
+POST — y confirmado en pantalla por el propietario.
+
+La regla que queda escrita para el cierre pendiente de
+`ofipapel-fichaje-63ced`: **antes de cerrar las reglas de un proyecto,
+listar todas las aplicaciones que leen de él**, no solo la que motiva el
+cambio. Es la hermana de la regla que salió del barrido de infraestructura
+("contar instancias antes de analizar una").
 
 ---
 

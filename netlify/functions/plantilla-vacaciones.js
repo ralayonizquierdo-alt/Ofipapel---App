@@ -81,38 +81,67 @@ async function getIdToken() {
   return cachedSession.idToken;
 }
 
-// Solo desde el propio sitio: no añade seguridad real (la lista ya la ve
-// cualquiera que abra fichaje.html, es su pantalla de inicio) pero evita que
-// el endpoint acabe siendo una API abierta de nombres de empleados para
-// terceros. Sin `URL` en el entorno no se bloquea nada, para no romper
-// despliegues donde Netlify no la inyecta.
-function isSameOriginRequest(event) {
+// Orígenes permitidos. No añade seguridad real (la lista ya la ve cualquiera
+// que abra fichaje.html, es su pantalla de inicio) pero evita que el endpoint
+// acabe siendo una API abierta de nombres de empleados para terceros.
+//
+// Incluye GitHub Pages a propósito: `ralayonizquierdo-alt.github.io` es la
+// interfaz por la que el propietario entra a todas sus aplicaciones, y el hub
+// (`inicio.html`) enlaza a `fichaje.html` con ruta RELATIVA — así que quien
+// entra por ahí abre el fichaje servido por Pages, donde no existe ninguna
+// función de Netlify. Sin esta entrada, `fichaje.html` en Pages se queda otra
+// vez sin plantilla y solo aparece gerencia. Ese despliegue no es un
+// duplicado prescindible: es producción.
+const ALLOWED_ORIGINS = [
+  'https://ralayonizquierdo-alt.github.io',
+  'https://ofipapel.netlify.app',
+  'https://spontaneous-lebkuchen-60fa41.netlify.app',
+  'https://joesworld.netlify.app',
+];
+
+function allowedOrigin(event) {
   const origin = event.headers['origin'] || event.headers['Origin'];
   const referer = event.headers['referer'] || event.headers['Referer'];
+  // El propio dominio del despliegue, para que las URL de previsualización de
+  // Netlify (deploy previews, con dominio distinto en cada rama) funcionen sin
+  // tener que mantenerlas en la lista.
   const siteUrl = process.env.URL || process.env.DEPLOY_PRIME_URL || '';
-  if (!siteUrl) return true;
-  let expectedOrigin;
-  try {
-    expectedOrigin = new URL(siteUrl).origin;
-  } catch {
-    return true;
-  }
-  if (origin) return origin === expectedOrigin;
+  let own = null;
+  try { own = siteUrl ? new URL(siteUrl).origin : null; } catch { own = null; }
+
+  const isOk = (o) => Boolean(o) && (ALLOWED_ORIGINS.includes(o) || o === own);
+
+  // Una petición del mismo origen (GET normal) no lleva cabecera `Origin`;
+  // sí lleva `Referer`. Se acepta cualquiera de las dos.
+  if (origin) return isOk(origin) ? origin : null;
   if (referer) {
     try {
-      return new URL(referer).origin === expectedOrigin;
-    } catch {
-      return false;
-    }
+      const o = new URL(referer).origin;
+      return isOk(o) ? o : null;
+    } catch { return null; }
   }
-  return false;
+  return null;
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'GET') {
-    return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
+  const origin = allowedOrigin(event);
+  // Cabeceras CORS: sin ellas el navegador descarta la respuesta cuando
+  // fichaje.html se sirve desde GitHub Pages y llama a Netlify (otro dominio).
+  const cors = origin
+    ? { 'Access-Control-Allow-Origin': origin, 'Vary': 'Origin' }
+    : {};
+
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: origin ? 204 : 403,
+      headers: { ...cors, 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Allow-Headers': 'Accept' },
+      body: '',
+    };
   }
-  if (!isSameOriginRequest(event)) {
+  if (event.httpMethod !== 'GET') {
+    return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Método no permitido' }) };
+  }
+  if (!origin) {
     return { statusCode: 403, body: JSON.stringify({ error: 'Origen no permitido' }) };
   }
 
@@ -126,7 +155,7 @@ exports.handler = async (event) => {
     const detalle = err.code === 'NO_CONFIG'
       ? 'Faltan VACACIONES_FIREBASE_EMAIL / VACACIONES_FIREBASE_PASSWORD en Netlify.'
       : 'Las credenciales configuradas no son válidas en el proyecto ofipapelvv.';
-    return { statusCode: 503, body: JSON.stringify({ error: 'Plantilla no disponible', detalle }) };
+    return { statusCode: 503, headers: cors, body: JSON.stringify({ error: 'Plantilla no disponible', detalle }) };
   }
 
   let doc;
@@ -141,12 +170,12 @@ exports.handler = async (event) => {
       // que el siguiente intento vuelva a iniciar sesión desde cero.
       if (res.status === 401 || res.status === 403) cachedSession = null;
       console.error('plantilla-vacaciones: Firestore respondió', res.status);
-      return { statusCode: 502, body: JSON.stringify({ error: 'No se pudo leer la plantilla' }) };
+      return { statusCode: 502, headers: cors, body: JSON.stringify({ error: 'No se pudo leer la plantilla' }) };
     }
     doc = await res.json();
   } catch (err) {
     console.error('plantilla-vacaciones: fallo de red contra Firestore:', err.message);
-    return { statusCode: 502, body: JSON.stringify({ error: 'No se pudo leer la plantilla' }) };
+    return { statusCode: 502, headers: cors, body: JSON.stringify({ error: 'No se pudo leer la plantilla' }) };
   }
 
   // El estado de vacaciones.html se guarda como un único campo `data` con
@@ -158,7 +187,7 @@ exports.handler = async (event) => {
     state = JSON.parse(raw);
   } catch (err) {
     console.error('plantilla-vacaciones: documento con formato inesperado:', err.message);
-    return { statusCode: 502, body: JSON.stringify({ error: 'Plantilla con formato inesperado' }) };
+    return { statusCode: 502, headers: cors, body: JSON.stringify({ error: 'Plantilla con formato inesperado' }) };
   }
 
   const employees = (state.employees || [])
@@ -168,6 +197,7 @@ exports.handler = async (event) => {
   return {
     statusCode: 200,
     headers: {
+      ...cors,
       'Content-Type': 'application/json',
       // La plantilla cambia como mucho un par de veces al mes; 5 min de caché
       // en el navegador evitan una petición por cada recarga de la pantalla de
