@@ -162,31 +162,27 @@ sigue pendiente y **requiere al propietario delante** (DT-27).
 
 Por orden de urgencia real, a 2026-08-28:
 
-1. **Firebase → `ofipapelvv` → Authentication → Usuarios**: crear una cuenta
-   (p.ej. `fichaje@ofipapel.internal`) y ponerla en Netlify como
-   `VACACIONES_FIREBASE_EMAIL` / `VACACIONES_FIREBASE_PASSWORD`. **Devuelve el
-   servicio de fichar**, hoy caído para toda la plantilla (DT-29).
-2. **Que el personal fiche en `https://ofipapel.netlify.app/fichaje.html`**, no
-   en `ofipapel-fichaje-test`. Mismos fichajes y mismos PIN (mismo proyecto
-   Firebase), pero la de `-test` es de julio, no recibe correcciones y no
-   puede recibir el arreglo del punto 1. Una vez movida la gente, borrar ese
-   sitio en Netlify (DT-26).
-3. **Supabase → "App Bancos"**: sustituir la política `allow_all` del rol
-   `public`. Hoy cualquiera lee **y escribe** los saldos bancarios (DT-23).
-4. **Firebase → `ofipapel-fichaje-63ced`**: aplicar el mismo patrón que ya
+1. **Supabase → "App Bancos"**: sustituir la política `allow_all` del rol
+   `public`. Hoy cualquiera lee **y escribe** los saldos bancarios reales
+   (DT-23). Es lo más grave que queda abierto.
+2. **Firebase → `ofipapel-fichaje-63ced`**: aplicar el mismo patrón que ya
    tiene `ofipapelvv` (exigir `sign_in_provider == 'password'`), **después**
    de migrar el login de `fichaje.html` — no antes, o pasa lo de DT-29 otra
    vez (DT-23).
-5. **Vercel**: borrar `ofipapel-social-manager-api` y `nextjs-boilerplate`,
+3. **Netlify**: retirar `ofipapel-fichaje-test`. El propietario confirmó que
+   usa la URL buena (`ofipapel.netlify.app/fichaje.html`), así que no hay
+   nadie que mover: se puede borrar directamente (DT-26).
+4. **Vercel**: borrar `ofipapel-social-manager-api` y `nextjs-boilerplate`,
    proyectos zombis (DT-28).
-6. **Netlify**: consolidar los tres sitios que construyen este repo. Cuidado
-   con el orden — el webhook de WhatsApp vive en
-   `spontaneous-lebkuchen-60fa41` y Meta tiene registrada la política de
-   privacidad en `ofipapel.netlify.app` (DT-27).
+5. **Netlify**: consolidar los tres sitios que construyen este repo — el
+   ahorro grande de créditos. Cuidado con el orden: el webhook de WhatsApp
+   vive en `spontaneous-lebkuchen-60fa41` y Meta tiene registrada la política
+   de privacidad en `ofipapel.netlify.app` (DT-27).
 
 Ya resueltos: Supabase (`joe-app`) con "Allow anonymous sign-ins" activado y
 RLS real; Firebase (`ofipapelvv`) con reglas desplegadas; Netlify con
-`CHAT_ASSISTANT_TOKEN` y `MARKETING_ENGINE_TOKEN` configurados.
+`CHAT_ASSISTANT_TOKEN`, `MARKETING_ENGINE_TOKEN` y las credenciales de
+`plantilla-vacaciones` configuradas.
 
 ## Deliberadamente fuera de alcance de este sprint
 
