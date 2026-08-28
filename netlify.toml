@@ -1,6 +1,13 @@
 [build]
   command = "bash build.sh"
   publish = "_site"
+  # Este repo alimenta TRES sitios de Netlify a la vez, así que cada push
+  # cuesta tres builds completos. netlify-ignore.sh salta el build cuando el
+  # commit solo toca documentación (`.claude/**`, `*.md`, `docs/**`,
+  # `.github/**`) — ficheros que build.sh no copia a `_site/` en ningún caso,
+  # así que reconstruir por ellos no cambia ni un byte de lo publicado.
+  # Ante cualquier duda el script construye; ver su cabecera.
+  ignore = "bash netlify-ignore.sh"
 
 [build.environment]
   NODE_VERSION = "20"

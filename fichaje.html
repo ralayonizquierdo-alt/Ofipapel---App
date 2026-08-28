@@ -773,18 +773,59 @@ const UNIT_NAMES = {
 };
 let PEOPLE = []; // {id, name, unitId?}
 
+/* Última plantilla leída con éxito. Sin esto, cualquier fallo puntual (o el
+   403 de las reglas nuevas de ofipapelvv) deja la pantalla de fichar sin
+   ninguna persona en la lista y nadie puede fichar. */
+const PLANTILLA_CACHE_KEY = 'ofipapel_fichaje_plantilla_v1';
+
+/* Vía preferente: función de Netlify que lee la plantilla en el servidor con
+   una cuenta real de ofipapelvv (ver netlify/functions/plantilla-vacaciones.js).
+   Las reglas de ese proyecto exigen `sign_in_provider == 'password'` desde que
+   se cerró DT-23, así que la sesión anónima de abajo ya no sirve — se conserva
+   solo como red de seguridad por si la función aún no está configurada. */
+async function fetchPlantillaViaFuncion(){
+  const res = await fetch('/.netlify/functions/plantilla-vacaciones', {headers:{'Accept':'application/json'}});
+  if(!res.ok) throw new Error('plantilla-vacaciones respondió '+res.status);
+  const json = await res.json();
+  if(!Array.isArray(json.employees)) throw new Error('respuesta sin lista de empleados');
+  return json.employees;
+}
+
+async function fetchPlantillaViaAnonimo(){
+  const vacToken = await ensureVacacionesAnonSession();
+  const doc = await fsGetDoc('ofipapel_vacaciones', 'shared', vacToken, VACACIONES_FIREBASE_CONFIG);
+  if(!doc || !doc.data) return [];
+  const state = JSON.parse(doc.data);
+  return (state.employees||[]).filter(e=>e.active!==false).map(e=>({id:e.id, name:e.name, unitId:e.unitId}));
+}
+
 async function loadPeople(){
-  let employees = [];
+  let employees = null;
   try{
-    const vacToken = await ensureVacacionesAnonSession();
-    const doc = await fsGetDoc('ofipapel_vacaciones', 'shared', vacToken, VACACIONES_FIREBASE_CONFIG);
-    if(doc && doc.data){
-      const state = JSON.parse(doc.data);
-      employees = (state.employees||[]).filter(e=>e.active!==false).map(e=>({id:e.id, name:e.name, unitId:e.unitId}));
+    employees = await fetchPlantillaViaFuncion();
+  }catch(errFuncion){
+    console.warn('Plantilla vía función no disponible, probando sesión anónima', errFuncion);
+    try{
+      employees = await fetchPlantillaViaAnonimo();
+    }catch(errAnonimo){
+      console.error('No se pudo leer la plantilla de Vacaciones y Turnos', errAnonimo);
     }
-  }catch(err){
-    console.error('No se pudo leer la plantilla de Vacaciones y Turnos', err);
   }
+
+  if(employees && employees.length){
+    saveJSON(PLANTILLA_CACHE_KEY, employees);
+  }else{
+    /* Ninguna de las dos vías funcionó: mejor la última plantilla conocida que
+       una lista vacía. Se avisa en consola para que no pase inadvertido. */
+    const cached = loadJSON(PLANTILLA_CACHE_KEY);
+    if(cached && cached.length){
+      console.warn('Usando la última plantilla guardada en este dispositivo — puede estar desactualizada.');
+      employees = cached;
+    }else{
+      employees = [];
+    }
+  }
+
   PEOPLE = [...employees, ...GERENCIA_PEOPLE];
   try{
     const token = await getActiveToken();

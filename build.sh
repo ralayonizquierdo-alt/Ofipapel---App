@@ -1,20 +1,39 @@
 #!/bin/bash
 set -e
 
+# Netlify preserva /opt/build/cache entre builds del mismo sitio (salvo
+# "Clear cache and deploy"). Lo usamos para no reconstruir alquileres/ o
+# joe-app/ cuando nada ha cambiado en su carpeta desde el último despliegue,
+# ahorrando el npm ci + build de la app que no cambió.
+CACHE_DIR="/opt/build/cache"
+
 # netlify/functions/ es el único sitio del repo con dependencias npm reales
 # (@sparticuz/chromium + playwright-core, DT-16 — `.claude/rax/DEUDA_TECNICA.md`
 # — Chromium compatible con Lambda para marketing-engine-run.js). Netlify
 # empaqueta las funciones a partir del checkout que deja build.sh, así que
 # node_modules tiene que existir ANTES de que termine este script — Netlify
 # no instala por su cuenta un package.json que no esté en la raíz del sitio.
-echo "== netlify/functions: instalando dependencias (Chromium para Lambda) =="
-(cd netlify/functions && npm ci)
-
-# Netlify preserva /opt/build/cache entre builds del mismo sitio (salvo
-# "Clear cache and deploy"). Lo usamos para no reconstruir alquileres/ o
-# joe-app/ cuando nada ha cambiado en su carpeta desde el último despliegue,
-# ahorrando el npm ci + build de la app que no cambió.
-CACHE_DIR="/opt/build/cache"
+#
+# Ese npm ci es además el paso más caro de todo el build:
+# @sparticuz/chromium son ~50 MB comprimidos que se descargan y descomprimen
+# enteros cada vez, en los tres sitios, en cada push. Sus dependencias solo
+# cambian cuando cambia el lockfile, así que se cachea el árbol resuelto y se
+# reinstala únicamente cuando ese lockfile cambia. La huella es el hash del
+# propio package-lock.json: si no coincide con la cacheada, se reinstala.
+FN_CACHE="$CACHE_DIR/netlify-functions-node_modules"
+FN_LOCK_HASH=$(sha256sum netlify/functions/package-lock.json | cut -d' ' -f1)
+if [ -d "$FN_CACHE/node_modules" ] && [ "$(cat "$FN_CACHE/lock.sha256" 2>/dev/null)" = "$FN_LOCK_HASH" ]; then
+  echo "== netlify/functions: dependencias sin cambios, reutilizando caché =="
+  mkdir -p netlify/functions/node_modules
+  cp -a "$FN_CACHE/node_modules/." netlify/functions/node_modules/
+else
+  echo "== netlify/functions: instalando dependencias (Chromium para Lambda) =="
+  (cd netlify/functions && npm ci)
+  rm -rf "$FN_CACHE"
+  mkdir -p "$FN_CACHE/node_modules"
+  cp -a netlify/functions/node_modules/. "$FN_CACHE/node_modules/"
+  echo "$FN_LOCK_HASH" > "$FN_CACHE/lock.sha256"
+fi
 
 # Devuelve 0 (skip) solo si hay build anterior en caché Y no hay diferencias
 # reales en esa carpeta desde el último commit desplegado. Cualquier duda

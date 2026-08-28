@@ -14,10 +14,10 @@ el propio Firebase concede a quien la pida sin credenciales.
 
 | Sistema | Sin ninguna credencial | Estado |
 |---|---|---|
-| **Finanzas** (Supabase "App Bancos") | **Lee y escribe** saldos bancarios | 🔴 Abierto |
-| **Vacaciones** (Firestore `ofipapelvv`) | Lee la plantilla con nombres reales | 🔴 Abierto |
-| **Alquileres** (Firestore `ofipapelvv`) | Lee reservas y pagos | 🔴 Abierto |
-| **Fichaje** (Firestore `ofipapel-fichaje-63ced`) | Lee fichajes y configuración | 🔴 Abierto |
+| **Finanzas** (Supabase "App Bancos") | **Lee y escribe** saldos bancarios | 🔴 Abierto (sigue igual el 2026-08-28) |
+| **Vacaciones** (Firestore `ofipapelvv`) | Lee la plantilla con nombres reales | 🟢 Cerrado el 2026-08-28 — ver re-comprobación |
+| **Alquileres** (Firestore `ofipapelvv`) | Lee reservas y pagos | 🟢 Cerrado el 2026-08-28 — ver re-comprobación |
+| **Fichaje** (Firestore `ofipapel-fichaje-63ced`) | Lee fichajes y configuración | 🔴 Abierto (sigue igual el 2026-08-28) |
 | **Joe's App** (Supabase) | Nada | 🟢 Cerrado |
 | **RAX-OS** (Vercel) | Nada — redirige a `/login` | 🟢 Cerrado |
 | Panel de WhatsApp (`conversations`) | Nada — 401 | 🟢 Cerrado |
@@ -40,6 +40,48 @@ Joe's App, las 7 tablas, sin sesión     → 401
 
 Sigue abierto, como estaba previsto: Finanzas (200), Alquileres (200) y por
 la misma causa Vacaciones y Fichaje. Son el trabajo pendiente de DT-23.
+
+---
+
+## Re-comprobación del 2026-08-28 (barrido de infraestructura)
+
+Vuelto a probar en vivo. **Dos de los cuatro sistemas abiertos ya están
+cerrados**, y aparece un efecto secundario que hay que corregir:
+
+| Sistema | Antes | Ahora | |
+|---|---|---|---|
+| **Alquileres** (`ofipapelvv`) | Lee reservas y pagos | `403 PERMISSION_DENIED` con sesión anónima | 🟢 Cerrado |
+| **Vacaciones** (`ofipapelvv`) | Lee la plantilla | `403 PERMISSION_DENIED` | 🟢 Cerrado |
+| **Fichaje** (`ofipapel-fichaje-63ced`) | Lee fichajes | Sigue devolviendo `200` en `eventos`, `personas`, `config` y `fichajes` con una sesión anónima recién creada | 🔴 Abierto |
+| **Finanzas** (Supabase "App Bancos") | Lee y escribe saldos | Sigue devolviendo `200` con la clave pública — se leen los saldos reales sin credencial | 🔴 Abierto |
+
+El registro anónimo (`accounts:signUp`) sigue abierto en los **dos** proyectos
+Firebase; lo que cambió en `ofipapelvv` son las reglas, que ahora exigen
+`sign_in_provider == 'password'`. Es exactamente el patrón correcto, y es el
+que falta por aplicar en `ofipapel-fichaje-63ced`.
+
+### Efecto secundario: se rompió la pantalla de fichar (DT-29)
+
+`ofipapelvv` no es solo de Alquileres: también guarda el estado de
+`vacaciones.html`, y `fichaje.html` leía de ahí la plantilla de personal —
+con una sesión **anónima**, antes de cualquier login, para poder mostrar la
+lista donde cada persona se elige a sí misma para fichar.
+
+Al cerrar las reglas esa lectura pasó a `403`. `fichaje.html` capturaba el
+error y seguía adelante, así que no fallaba de forma visible: simplemente la
+lista se quedaba con los 3 de gerencia y **el personal no podía fichar**.
+
+Es el mismo aviso de DT-23 cumpliéndose, solo que en el sistema de al lado:
+cerrar las reglas antes de migrar a *todos* los que las usan deja gente
+fuera. La lección concreta: `alquileres/firestore.rules` cubre todo el
+proyecto con `match /{collection}/{docId}`, pero el proyecto está compartido
+por tres aplicaciones — y solo se revisó una.
+
+Corregido en código (ver DT-29): `netlify/functions/plantilla-vacaciones.js`
+lee la plantilla en el servidor con una cuenta real y devuelve solo
+`{id, name, unitId}`. Queda pendiente crear esa cuenta y configurar las dos
+variables de entorno; hasta entonces `fichaje.html` se comporta igual que
+ahora, no peor.
 
 ---
 

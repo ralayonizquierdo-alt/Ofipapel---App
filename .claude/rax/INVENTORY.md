@@ -106,11 +106,85 @@ decidir si "ya se puede retomar sales-marketing".
   `creative-engine/` sin cambios — ver
   `creative-engine/creative-lab/ARCHITECTURE.md`.
 
+## Infraestructura desplegada (barrido completo, 2026-08-28)
+
+Inventario de **todo lo que está corriendo fuera del repo**, comprobado con
+peticiones reales. Se hizo porque las dos auditorías anteriores miraron el
+código proyecto por proyecto y nunca contaron cuántas instancias había de
+cada cosa — de ahí que los tres sitios duplicados de Netlify pasaran
+desapercibidos durante meses. **Regla que sale de aquí: contar instancias
+antes de analizar una.**
+
+### Netlify
+
+| Sitio | Qué sirve | Construye este repo | Coste en minutos | Estado |
+|---|---|---|---|---|
+| `ofipapel` | El ecosistema completo (hub + 8 apps + 17 funciones) | Sí | Alto | **Canónico.** La política de privacidad registrada en Meta apunta aquí (`ofipapel.netlify.app`) |
+| `spontaneous-lebkuchen-60fa41` | Exactamente lo mismo, mismo commit, misma hora | Sí | Alto (duplicado) | Duplicado — **pero el webhook de WhatsApp de Meta apunta aquí**, no se puede apagar sin repuntarlo primero (DT-27) |
+| `joesworld` | Exactamente lo mismo, mismo commit, misma hora | Sí | Alto (duplicado) | Duplicado. Nombre heredado de cuando servía solo `joe-app` (DT-27) |
+| `ofipapel-fichaje-test` | Copia congelada de `fichaje.html` de julio, subida a mano | No (`deploy_source: "drop"`) | Ninguno | **Zombi con datos vivos** — sin el arreglo XSS de DT-21 y con las claves de los dos proyectos Firebase reales. Borrar (DT-26) |
+
+Comprobado: el sitio publicado ocupa 9,4 MB, así que el gasto **no** viene de
+almacenamiento ni de tráfico. Viene de construir el mismo repo tres veces en
+cada push (y tres veces más en cada PR, por los deploy previews). Las dos
+funciones de marketing pesan 85 MB cada una, lo que alarga cada build.
+
+Mitigación ya aplicada en el repo (2026-08-28): `netlify-ignore.sh` (salta el
+build si el commit solo toca documentación) y caché de
+`netlify/functions/node_modules` en `build.sh` (evita reinstalar
+`@sparticuz/chromium` en cada build). La consolidación de los tres sitios
+sigue pendiente y **requiere al propietario delante** (DT-27).
+
+### Vercel
+
+| Proyecto | Estado real comprobado |
+|---|---|
+| `rax-os` | Activo y **cerrado** — `/`, `/dashboard` y `/roturas` redirigen a `/login` |
+| `ofipapel-social-manager` | Activo y **cerrado** — la SPA carga sin claves embebidas; su API vive en el mismo dominio (`/api/health` → `{"ok":true}`, `/api/campaigns` → 401) |
+| `ofipapel-social-manager-api` | **Zombi** — no sirve nada. El backend acabó dentro del proyecto anterior (DT-28) |
+| `nextjs-boilerplate` | **Zombi** — `DEPLOYMENT_NOT_FOUND`. Andamio de `create-next-app` sin relación con el negocio (DT-28) |
+
+### Firebase
+
+| Proyecto | Lo usa | Estado |
+|---|---|---|
+| `ofipapelvv` | `alquileres/`, `vacaciones.html` y (solo lectura de la plantilla) `fichaje.html` | **Cerrado** — las reglas exigen `sign_in_provider == 'password'`, verificado: 403 con sesión anónima. Efecto secundario: rompió la lectura de la plantilla desde `fichaje.html` (DT-29) |
+| `ofipapel-fichaje-63ced` | `fichaje.html` | **Abierto** — `eventos`, `personas`, `config` y `fichajes` se leen con una sesión anónima recién creada (DT-23). Falta aplicarle el mismo patrón que ya tiene `ofipapelvv` |
+
+### Supabase
+
+| Proyecto | Lo usa | Estado |
+|---|---|---|
+| "App Bancos" | `Index.html` (Finanzas) | **Abierto** — política `allow_all` para el rol `public`, lectura y escritura (DT-23) |
+| Joe's App | `joe-app/` | **Cerrado y verificado** — las 7 tablas devuelven 401 sin sesión (DT-07, DT-24) |
+
 ## Pendiente de activación en consolas externas (no ejecutable desde este repo)
 
-- Supabase (`joe-app`): activar "Allow anonymous sign-ins".
-- Firebase (`ofipapelvv`): activar el proveedor "Anonymous" y desplegar `alquileres/firestore.rules`.
-- Netlify: configurar `CHAT_ASSISTANT_TOKEN` (debe coincidir con `APP_CHAT_TOKEN` en `Index.html`).
+Por orden de urgencia real, a 2026-08-28:
+
+1. **Firebase → `ofipapelvv` → Authentication → Usuarios**: crear una cuenta
+   (p.ej. `fichaje@ofipapel.internal`) y ponerla en Netlify como
+   `VACACIONES_FIREBASE_EMAIL` / `VACACIONES_FIREBASE_PASSWORD`. **Devuelve el
+   servicio de fichar**, hoy caído para toda la plantilla (DT-29).
+2. **Netlify**: borrar el sitio `ofipapel-fichaje-test` — copia pública y
+   congelada de `fichaje.html` con las claves de los dos proyectos Firebase
+   reales y sin el arreglo de XSS (DT-26).
+3. **Supabase → "App Bancos"**: sustituir la política `allow_all` del rol
+   `public`. Hoy cualquiera lee **y escribe** los saldos bancarios (DT-23).
+4. **Firebase → `ofipapel-fichaje-63ced`**: aplicar el mismo patrón que ya
+   tiene `ofipapelvv` (exigir `sign_in_provider == 'password'`), **después**
+   de migrar el login de `fichaje.html` — no antes, o pasa lo de DT-29 otra
+   vez (DT-23).
+5. **Vercel**: borrar `ofipapel-social-manager-api` y `nextjs-boilerplate`,
+   proyectos zombis (DT-28).
+6. **Netlify**: consolidar los tres sitios que construyen este repo. Cuidado
+   con el orden — el webhook de WhatsApp vive en
+   `spontaneous-lebkuchen-60fa41` y Meta tiene registrada la política de
+   privacidad en `ofipapel.netlify.app` (DT-27).
+
+Ya resueltos: Supabase (`joe-app`) con "Allow anonymous sign-ins" activado y
+RLS real; Firebase (`ofipapelvv`) con reglas desplegadas; Netlify con
+`CHAT_ASSISTANT_TOKEN` y `MARKETING_ENGINE_TOKEN` configurados.
 
 ## Deliberadamente fuera de alcance de este sprint
 
