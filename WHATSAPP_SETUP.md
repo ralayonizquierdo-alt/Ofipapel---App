@@ -263,6 +263,29 @@ curl -sS "https://graph.facebook.com/v21.0/<PHONE_NUMBER_ID>?fields=display_phon
 ver. `name_status: DECLINED` significa que Meta rechazó el nombre visible —
 molesto, pero **no impide** enviar ni recibir.
 
+### Mientras se revisa el nombre, el perfil entero está bloqueado
+
+Comprobado en real, y cuesta un rato entenderlo porque Meta no lo explica: con
+una verificación de nombre visible **en curso**, la pantalla del perfil no deja
+guardar NADA. Ni la foto, ni el correo, ni el sitio web. El aviso que sale es un
+genérico *"No se pudieron guardar los cambios. Envía los cambios de nuevo y
+vuelve a intentarlo"*, que invita a insistir — y por ahí no se sale.
+
+Se reconoce por el cartel de arriba de la pantalla ("Se rechazó tu nombre
+visible…") y por el diálogo *"La verificación del nombre visible ya está en
+curso. Espera a que esta se complete antes de solicitar otra"*.
+
+Qué hacer: **esperar**. No hay atajo, y reintentar no acelera nada. Solo se
+admite una verificación de nombre a la vez.
+
+Y sobre el nombre en sí: Meta es tiquismiquis con las formas jurídicas.
+`Ofipapel SL` fue rechazado; `Ofipapel` a secas o `Ofipapel Papelería` tienen
+mejor pinta. Si se rechaza una y otra vez, el motivo de fondo suele ser que la
+verificación del NEGOCIO no está completa (ver Fase 0) — hasta que eso no esté,
+los nombres se seguirán cayendo.
+
+Nada de esto afecta al bot: sigue enviando y recibiendo con normalidad.
+
 ### Ojo: puede haber más de un sitio en Netlify
 
 En este proyecto conviven dos sitios apuntando al mismo repositorio:
