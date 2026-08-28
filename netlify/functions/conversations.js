@@ -954,8 +954,59 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
     <span class="attach-filename">${ICON.file}<span></span></span>
     <button type="submit" class="btn btn-primary" style="margin-left:auto;">${ICON.send} Enviar</button>
   </div>
-  <div class="attach-hint">Imágenes (JPG/PNG) o PDF, máximo ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB.</div>
-</form>`;
+  <div class="attach-hint">Imágenes (JPG/PNG) o PDF, máximo ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB. También puedes pegar una imagen copiada (Ctrl+V) sin guardarla antes.</div>
+</form>
+<script>
+// Pegar una imagen copiada (una captura, o una foto copiada desde otra
+// conversación) en vez de tener que guardarla en el disco y buscarla con el
+// botón del clip. Lo que se pega se mete en el mismo campo de archivo de
+// siempre, así que el envío no cambia en nada.
+(function () {
+  var form = document.querySelector('.reply-form');
+  // Sin DataTransfer no se puede rellenar el campo de archivo desde código; en
+  // ese caso no se hace nada y sigue estando el botón del clip de siempre.
+  if (!form || typeof DataTransfer === 'undefined') return;
+
+  var campo = form.querySelector('input[type=file]');
+  var TIPOS = ${JSON.stringify(Object.keys(ALLOWED_ATTACHMENT_TYPES))};
+  var MAXIMO = ${MAX_ATTACHMENT_BYTES};
+  var EXTENSIONES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'application/pdf': 'pdf' };
+
+  form.addEventListener('paste', function (evento) {
+    var pegados = (evento.clipboardData && evento.clipboardData.files) || [];
+    if (!pegados.length) return; // texto pegado: que se comporte como siempre
+
+    var archivo = pegados[0];
+    if (TIPOS.indexOf(archivo.type) === -1) {
+      alert('Solo se pueden pegar imágenes JPG o PNG.');
+      return;
+    }
+    if (archivo.size > MAXIMO) {
+      alert('Esa imagen pesa demasiado (máximo ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB).');
+      return;
+    }
+
+    evento.preventDefault();
+
+    // Las capturas llegan del portapapeles con un nombre genérico o sin él, y
+    // ese nombre es el que acaba viendo el cliente en WhatsApp. Se le pone uno
+    // con la fecha para distinguirlas entre sí.
+    var ahora = new Date();
+    var sello = ahora.toLocaleDateString('es-ES').replace(/\//g, '-') + '_' +
+      String(ahora.getHours()).padStart(2, '0') + String(ahora.getMinutes()).padStart(2, '0');
+    var nombre = 'imagen-' + sello + '.' + (EXTENSIONES[archivo.type] || 'png');
+
+    var traspaso = new DataTransfer();
+    traspaso.items.add(new File([archivo], nombre, { type: archivo.type }));
+    campo.files = traspaso.files;
+
+    // Se avisa al campo de que ha cambiado para que se pinte el nombre del
+    // adjunto, igual que cuando se elige con el botón del clip.
+    campo.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
+})();
+<\/script>`;
 
   const clearForm = `<form method="POST" onsubmit="return confirm('¿Borrar todo el historial de ${escapeHtml(phone)}? No se puede deshacer.');" style="display:inline;">
   <input type="hidden" name="phone" value="${escapeHtml(phone)}">

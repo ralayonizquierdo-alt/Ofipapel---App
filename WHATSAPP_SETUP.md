@@ -440,6 +440,9 @@ Limitación que sigue vigente:
   conversaciones con el bot parado se ven **desde la lista**, con su aviso y la
   tarjeta en ámbar: si no, se quedan ahí muertas hasta que la pausa caduca sola
   a las 24 h y el cliente se lleva el silencio.
+- **Adjuntar pegando**: además del botón del clip, se puede pegar una imagen
+  copiada (Ctrl+V) en el cuadro de respuesta, sin tener que guardarla antes en
+  el disco. Va al mismo sitio que un adjunto normal.
 - **Volver arriba** al final de cada conversación.
 
 ## Cuando ofipapel.net nos bloquea
