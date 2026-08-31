@@ -19,7 +19,13 @@ async function sendWhatsappMessage(to, body) {
         messaging_product: 'whatsapp',
         to,
         type: 'text',
-        text: { body },
+        // preview_url pinta la tarjeta de vista previa (imagen y título) cuando
+        // el mensaje lleva un enlace. Sin esto el enlace se manda igual y
+        // WhatsApp lo deja pinchable — los reconoce solo —, pero llega como una
+        // línea de texto suelta. Con la tarjeta, un enlace a una ficha de
+        // producto llega con su foto y su nombre, que es lo que hace que el
+        // cliente lo abra.
+        text: { body, preview_url: true },
       }),
     });
 

@@ -219,6 +219,31 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// Convierte en enlaces pinchables las direcciones que haya dentro de un mensaje.
+//
+// Se aplica SIEMPRE sobre texto ya escapado, nunca sobre el original: así, si
+// alguien escribiera HTML en un mensaje, ya viene neutralizado, y aquí solo se
+// añaden las etiquetas del enlace. Y solo se reconocen direcciones http/https,
+// de modo que no se puede colar un "javascript:".
+const DIRECCION_EN_TEXTO = /\bhttps?:\/\/[^\s<]+/g;
+
+function conEnlaces(textoEscapado) {
+  return textoEscapado.replace(DIRECCION_EN_TEXTO, (direccion) => {
+    // Dos limpiezas, y las dos hacen falta:
+    //
+    // 1. Si el mensaje llevaba comillas alrededor de la dirección, al escapar se
+    //    han convertido en &quot; o &#39;, que no llevan espacios y por tanto
+    //    entran dentro de la dirección y la rompen. Se corta ahí. (El &amp; NO
+    //    se toca: ese sí es parte de la dirección, separa los parámetros.)
+    // 2. Un punto o un paréntesis al final casi siempre son de la frase, no de
+    //    la dirección: "mira https://ofipapel.net/producto/x." se llevaría el
+    //    punto dentro del enlace.
+    const limpia = direccion.split(/&quot;|&#39;/)[0].replace(/[.,;:!?)\]]+$/, '');
+    const cola = direccion.slice(limpia.length);
+    return `<a class="enlace-mensaje" href="${limpia}" target="_blank" rel="noopener noreferrer">${limpia}</a>${cola}`;
+  });
+}
+
 // --- Iconos SVG (en vez de emojis, para un aspecto más profesional/de marca) ---
 const ICON = {
   warning: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
@@ -432,6 +457,8 @@ function pageShell(title, body) {
   .convo-card svg.chevron { flex-shrink: 0; color: var(--text-muted); }
   .convo-card.escalated { border-color: #f3c6bd; }
 
+  .enlace-mensaje { color: inherit; text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
+  .bubble.customer .enlace-mensaje { color: var(--green-dark); }
   .perfil-intro { font-size: 13.5px; color: var(--text-muted); margin: 0 0 12px; }
   .perfil-tarjeta { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); }
   .perfil-foto { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid var(--border); }
@@ -1138,7 +1165,7 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
       return `<div class="bubble-row ${isCustomer ? 'left' : 'right'}">
   <div class="bubble ${kind}">
     ${sender}
-    <div>${escapeHtml(m.content)}</div>
+    <div>${conEnlaces(escapeHtml(m.content))}</div>
     <div class="time">${escapeHtml(time)}${acuse}</div>
   </div>
 </div>`;
