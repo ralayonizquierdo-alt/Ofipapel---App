@@ -489,6 +489,10 @@ Limitación que sigue vigente:
   y trae los pasos para cambiarlo en WhatsApp Manager. Solo se lee desde aquí:
   los textos se podrían cambiar por API, pero subir la foto es una carga en tres
   pasos que no compensa montar para algo que se toca una vez al año.
+- **Los enlaces se pinchan**, tanto en el panel como en el móvil del cliente.
+  En los mensajes que salen del bot o del panel va activada la vista previa de
+  WhatsApp (`preview_url`), así que un enlace a una ficha de producto llega con
+  su foto y su nombre en vez de como una línea de texto suelta.
 - **Volver arriba** al final de cada conversación.
 
 ## Cuando ofipapel.net nos bloquea
