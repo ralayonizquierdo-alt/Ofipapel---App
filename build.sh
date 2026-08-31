@@ -123,6 +123,16 @@ cp hub-center.webp _site/ 2>/dev/null || true
 cp sound-connect.mp3 _site/ 2>/dev/null || true
 cp sound-click.mp3 _site/ 2>/dev/null || true
 cp manifest-inicio.json _site/ 2>/dev/null || true
+# Manifest e iconos del panel del bot. El panel es una FUNCIÓN de Netlify
+# (/.netlify/functions/conversations), así que no puede servir sus propios
+# ficheros estáticos: los pide por ruta absoluta y tienen que estar aquí, en la
+# raíz del sitio. Sin ellos el manifest da 404 y el icono del móvil vuelve a
+# comportarse como un acceso directo (abre pestaña nueva en cada toque).
+cp manifest-bot.json _site/ 2>/dev/null || true
+cp icon-bot-192.png _site/ 2>/dev/null || true
+cp icon-bot-512.png _site/ 2>/dev/null || true
+cp icon-bot-maskable-192.png _site/ 2>/dev/null || true
+cp icon-bot-maskable-512.png _site/ 2>/dev/null || true
 cp icon-ofipapel-192.png _site/ 2>/dev/null || true
 cp icon-ofipapel-512.png _site/ 2>/dev/null || true
 cp icon-ofipapel-192-maskable.png _site/ 2>/dev/null || true
