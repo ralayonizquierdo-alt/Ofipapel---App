@@ -202,8 +202,46 @@ async function getBusinessProfile() {
   }
 }
 
+// El ESTADO DEL NÚMERO, que es otra cosa que el perfil y vive en otro sitio de
+// la API: el nodo del propio número, no en whatsapp_business_profile.
+//
+// Aquí es donde está la única respuesta fiable a "¿ya me han aprobado el
+// nombre?". Preguntárselo a WhatsApp en el móvil no vale: allí sale el nombre
+// que tenga guardado en su agenda quien mira, no el que Meta tenga aprobado.
+//
+// name_status es el campo que importa:
+//   APPROVED                  — aprobado, ya se ve el nombre
+//   PENDING_REVIEW            — en revisión, hay que esperar
+//   DECLINED                  — rechazado, hay que mandar otro
+//   EXPIRED / NONE            — caducado o sin solicitar
+//   AVAILABLE_WITHOUT_REVIEW  — se puede usar sin revisión
+async function getPhoneNumberStatus() {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = process.env.WHATSAPP_TOKEN;
+  if (!phoneNumberId || !token) {
+    return { ok: false, error: 'Faltan WHATSAPP_PHONE_NUMBER_ID o WHATSAPP_TOKEN.' };
+  }
+
+  const campos = 'verified_name,display_phone_number,name_status,new_name_status,status,code_verification_status,quality_rating';
+  try {
+    const resp = await fetch(
+      `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}?fields=${campos}`,
+      { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) }
+    );
+    const datos = await resp.json();
+    if (!resp.ok) {
+      return { ok: false, error: datos?.error?.message || `Error ${resp.status} de Meta.` };
+    }
+    return { ok: true, numero: datos || {} };
+  } catch (err) {
+    console.error('Fallo consultando el estado del número de WhatsApp:', err);
+    return { ok: false, error: String(err) };
+  }
+}
+
 module.exports = {
   getBusinessProfile,
+  getPhoneNumberStatus,
   sendWhatsappMessage,
   sendWhatsappTemplate,
   limpiarVariablePlantilla,

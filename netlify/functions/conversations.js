@@ -36,7 +36,7 @@ const {
 } = require('./conversation-store');
 const crypto = require('crypto');
 const { isAgenteInfoMessage } = require('./whatsapp-agent-config');
-const { sendWhatsappMessage, uploadWhatsappMedia, sendWhatsappMedia, getBusinessProfile } = require('./whatsapp-send');
+const { sendWhatsappMessage, uploadWhatsappMedia, sendWhatsappMedia, getBusinessProfile, getPhoneNumberStatus } = require('./whatsapp-send');
 
 // Tipos de adjunto admitidos desde el panel y su tope de tamaño. WhatsApp exige
 // imagen para jpeg/png y "documento" para el resto (pdf); el tope real lo pone
@@ -993,13 +993,66 @@ const CAMPOS_PERFIL = [
   ['vertical', 'Categoría', 'Para Ofipapel, comercio minorista.'],
 ];
 
-function renderPerfil(resultado) {
+// Cómo se traduce cada name_status de Meta: qué significa y qué toca hacer.
+// El texto importa tanto como el estado — "PENDING_REVIEW" no le dice nada a
+// nadie, y la diferencia entre esperar y volver a mandar el nombre es justo lo
+// que cuesta averiguar en la interfaz de Meta.
+const ESTADOS_NOMBRE = {
+  APPROVED: ['ok', 'Aprobado', 'Meta ya aceptó el nombre. Es el que ven los clientes que no te tengan guardado en la agenda.'],
+  AVAILABLE_WITHOUT_REVIEW: ['ok', 'Aceptado sin revisión', 'Se puede usar directamente, no hace falta que Meta lo revise.'],
+  PENDING_REVIEW: ['espera', 'En revisión', 'Meta lo está mirando. Hay que esperar: mientras tanto el perfil entero está bloqueado y no deja guardar ni la foto ni los datos. Reintentar no acelera nada.'],
+  DECLINED: ['fail', 'Rechazado', 'Hay que solicitar otro nombre. Meta es tiquismiquis con las formas jurídicas: "Ofipapel SL" se cayó; "Ofipapel" a secas o "Ofipapel Papelería" tienen mejor pinta. Si se cae una y otra vez, lo de fondo suele ser que falte verificar el NEGOCIO.'],
+  EXPIRED: ['fail', 'Caducado', 'La solicitud caducó sin resolverse. Hay que volver a pedirlo.'],
+  NONE: ['espera', 'Sin solicitar', 'No hay ninguna solicitud de nombre en curso.'],
+};
+
+function renderEstadoNumero(resultado) {
+  if (!resultado.ok) {
+    return `<div class="perfil-comoCambiar">
+  <h3>Estado del número</h3>
+  <p class="perfil-nota">No se ha podido consultar: ${escapeHtml(resultado.error)}</p>
+</div>`;
+  }
+
+  const n = resultado.numero;
+  const [clase, titulo, explicacion] = ESTADOS_NOMBRE[n.name_status] || [
+    'espera',
+    n.name_status ? `Estado desconocido (${n.name_status})` : 'Sin datos',
+    'Meta ha devuelto un estado que no conocemos. Míralo en WhatsApp Manager.',
+  ];
+
+  const filas = [
+    ['Nombre visible', n.verified_name],
+    ['Estado del nombre', n.name_status],
+    ['Nombre nuevo pendiente', n.new_name_status],
+    ['Número', n.display_phone_number],
+    ['Conexión', n.status],
+    ['Calidad', n.quality_rating],
+  ]
+    .map(
+      ([etiqueta, valor]) => `<tr>
+    <th>${escapeHtml(etiqueta)}</th>
+    <td>${valor ? escapeHtml(String(valor)) : '<span class="perfil-vacio">—</span>'}</td>
+  </tr>`
+    )
+    .join('');
+
+  return `<h2 class="thread-title" style="margin-top:26px">Estado del número</h2>
+<p class="perfil-intro">Esto lo dice Meta, no WhatsApp. Es la única respuesta fiable a "¿ya me han aprobado el nombre?": en el móvil sale el nombre que tenga guardado en su agenda quien mira, no el que Meta tenga aprobado.</p>
+<div class="diagnostic ${clase === 'ok' ? 'ok' : 'fail'}">${clase === 'ok' ? '✔' : ICON.alert} <strong>${escapeHtml(titulo)}.</strong> ${escapeHtml(explicacion)}</div>
+<div class="perfil-tarjeta">
+  <table class="perfil-datos">${filas}</table>
+</div>`;
+}
+
+function renderPerfil(resultado, estadoNumero) {
   if (!resultado.ok) {
     return pageShell(
       'Perfil del negocio · Ofipapel',
       `<a class="back-link" href="?">${ICON.back} Todas las conversaciones</a>
 <h2 class="thread-title">Perfil del negocio</h2>
-<div class="error-banner">${ICON.alert}<span>No se ha podido consultar el perfil: ${escapeHtml(resultado.error)}</span></div>`
+<div class="error-banner">${ICON.alert}<span>No se ha podido consultar el perfil: ${escapeHtml(resultado.error)}</span></div>
+${renderEstadoNumero(estadoNumero)}`
     );
   }
 
@@ -1040,8 +1093,10 @@ ${resumen}
     <li>Sube la foto — cuadrada, mínimo 192×192 px — y rellena los datos de arriba.</li>
     <li>Guarda y vuelve aquí a comprobarlo. El cambio tarda un rato en propagarse.</li>
   </ol>
+  <p class="perfil-nota">Ojo con la foto: en Meta hay <strong>dos</strong>. La de "Editar foto de la empresa" es la del porfolio de Meta y <strong>no</strong> la ve el cliente; la que sale en el chat es la de esta pantalla, la del número.</p>
   <p class="perfil-nota">Se hace desde ahí a propósito: los textos se podrían cambiar por API, pero subir la foto es una carga en tres pasos que no compensa montar para algo que se toca una vez al año.</p>
-</div>`
+</div>
+${renderEstadoNumero(estadoNumero)}`
   );
 }
 
@@ -1483,7 +1538,10 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      body: renderPerfil(await getBusinessProfile()),
+      // Las dos consultas a la vez: son dos llamadas distintas a Meta (el
+      // perfil y el nodo del número) y en serie se comen 16s de los 10 que
+      // hay. En paralelo, 8.
+      body: renderPerfil(...(await Promise.all([getBusinessProfile(), getPhoneNumberStatus()]))),
     };
   }
 
