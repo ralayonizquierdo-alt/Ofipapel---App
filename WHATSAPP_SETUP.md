@@ -570,6 +570,34 @@ entender el tono ("muchas gracias por la ayuda, se nota") se queda fuera.
   su foto y su nombre en vez de como una línea de texto suelta.
 - **Volver arriba** al final de cada conversación.
 
+### Instalarlo en el móvil (y que no abra una pestaña nueva cada vez)
+
+El panel es instalable: `manifest-bot.json` + `display: standalone`. Eso es lo
+que hace que **el icono recupere la ventana que ya estaba abierta** en vez de
+abrir una pestaña nueva del navegador en cada toque. Un acceso directo creado
+sin manifest es solo un enlace, y Android lo trata como tal.
+
+Para instalarlo, en Chrome en el móvil: menú ⋮ → **"Instalar aplicación"** (o
+"Añadir a pantalla de inicio"). Si aparece como "Añadir acceso directo" en vez de
+"Instalar", es que el navegador todavía no ha visto el manifest — recarga la
+página una vez y vuelve a mirar.
+
+**Importante si ya tenías un icono de antes**: el acceso directo viejo NO se
+convierte solo. Hay que **borrarlo y volver a añadirlo**, o seguirá abriendo
+pestañas nuevas para siempre.
+
+Detalles que conviene no romper:
+
+- El manifest y los iconos son ficheros **estáticos de la raíz** del sitio y se
+  piden por ruta absoluta. El panel es una función (`/.netlify/functions/
+  conversations`) y no puede servir ficheros propios; una ruta relativa buscaría
+  el manifest dentro de esa carpeta y daría 404. Se copian en `build.sh`.
+- El `scope` es `/.netlify/functions/`, no la raíz. Así los enlaces de los avisos
+  (que apuntan a esta misma función con `?phone=...`) se abren **dentro** de la
+  app y no en el navegador.
+- El icono es propio (burbuja de chat sobre verde Ofipapel) para no confundirlo
+  en la pantalla de inicio con el del hub, que es negro.
+
 ## Cuando ofipapel.net nos bloquea
 
 Es la causa número uno de que el bot conteste "un segundo, por favor" y acabe

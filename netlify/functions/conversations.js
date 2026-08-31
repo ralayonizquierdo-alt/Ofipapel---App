@@ -272,8 +272,26 @@ function pageShell(title, body) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(title)}</title>
+<!-- Instalable en el móvil. Sin esto, "añadir a pantalla de inicio" crea un
+     acceso directo tonto: cada toque abre una PESTAÑA NUEVA del navegador en
+     vez de volver a la que ya estaba abierta. Con el manifest y
+     display:standalone, Android le da su propia tarea y el icono RECUPERA la
+     ventana existente.
+     Ojo: el manifest y los iconos son ficheros estáticos servidos desde la raíz
+     del sitio, no desde esta función; van con rutas absolutas a propósito,
+     porque esta página vive en /.netlify/functions/ y una ruta relativa
+     buscaría el manifest dentro de esa carpeta. Y el "scope" tiene que cubrir
+     /.netlify/functions/ para que los enlaces de los avisos (que apuntan a esta
+     misma función con ?phone=...) se abran DENTRO de la app y no en el
+     navegador. -->
+<link rel="manifest" href="/manifest-bot.json">
+<meta name="theme-color" content="#1A5C1A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BOT Ofipapel">
+<link rel="apple-touch-icon" href="/icon-bot-192.png">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI1MCIgZmlsbD0iIzAwMDAwMCIvPjx0ZXh0IHg9IjUwIiB5PSI3MiIgZm9udC1zaXplPSI2NSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+8J+NgDwvdGV4dD48L3N2Zz4=">
-<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI1MCIgZmlsbD0iIzAwMDAwMCIvPjx0ZXh0IHg9IjUwIiB5PSI3MiIgZm9udC1zaXplPSI2NSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+8J+NgDwvdGV4dD48L3N2Zz4=">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
