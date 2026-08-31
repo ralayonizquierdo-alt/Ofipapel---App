@@ -263,6 +263,24 @@ curl -sS "https://graph.facebook.com/v21.0/<PHONE_NUMBER_ID>?fields=display_phon
 ver. `name_status: DECLINED` significa que Meta rechazó el nombre visible —
 molesto, pero **no impide** enviar ni recibir.
 
+### Hay DOS fotos distintas, y la que se toca por error es la que no es
+
+Meta llama "empresa" a dos cosas, y las pantallas se parecen:
+
+| Pantalla | Qué foto es | ¿La ve el cliente? |
+|---|---|---|
+| **Editar foto de la empresa** — "imagen principal de tu **porfolio empresarial**… visible en las tecnologías de Meta" | La del porfolio de Meta (Business Manager) | **No** |
+| **WhatsApp Manager > Cuentas > Números de teléfono > [el número] > Perfil** | La del número de WhatsApp | **Sí**, es la del chat |
+
+La primera **no tiene botón de guardar**: se guarda sola al elegir la imagen, y
+lo confirma un aviso abajo del todo ("Se ha cambiado la foto de la empresa").
+Si después de cambiarla el cliente sigue viendo la de antes, no es que no se
+haya guardado — es que se cambió la que no era.
+
+La que se ve en el chat es la segunda, y va mejor desde el ordenador
+(`business.facebook.com/wa/manage/phone-numbers/`) que desde la app del móvil,
+donde está enterrada.
+
 ### Mientras se revisa el nombre, el perfil entero está bloqueado
 
 Comprobado en real, y cuesta un rato entenderlo porque Meta no lo explica: con
