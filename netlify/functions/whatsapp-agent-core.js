@@ -1,7 +1,13 @@
 // Lógica compartida del agente de WhatsApp: matching de FAQ + llamada a
 // Claude, usada por whatsapp-webhook.js (Meta Cloud API, único canal).
 
-const { FAQ_RULES, buildAiSystemPrompt, agenteInfo, isAgenteInfoMessage } = require('./whatsapp-agent-config');
+const {
+  FAQ_RULES,
+  buildAiSystemPrompt,
+  agenteInfo,
+  isAgenteInfoMessage,
+  pareceConsultaDeProducto,
+} = require('./whatsapp-agent-config');
 const conversationStore = require('./conversation-store');
 
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
@@ -118,8 +124,29 @@ function matchFaqRule(text) {
     if (longitud > 0) candidatas.push({ rule, longitud, orden });
   });
 
+  // Hay palabras que la gente nombra DE PASADA, no como pregunta. "Tienda
+  // física" es el caso claro: "sé que la vendéis porque he ido a la tienda
+  // física" no es "¿tenéis tienda física?", pero por longitud ganaba a todo lo
+  // demás. Las reglas marcadas como de contexto (ver `contexto: true` en
+  // FAQ_RULES) se apartan en dos situaciones:
+  //
+  //   1. Si hay otra regla que también encaja. Preguntar "¿la mandáis a
+  //      domicilio o solo se compra en tienda física?" es una pregunta de
+  //      envíos, con la tienda nombrada de refilón.
+  //   2. Si el mensaje trae una referencia de producto ("305XL", "TN-248").
+  //      Entonces la consulta es del producto, y contestarla toca al catálogo,
+  //      no a una respuesta fija.
+  //
+  // Las dos salieron de la misma conversación real, en la que un cliente
+  // preguntó dos veces por una tinta HP 305XL y se llevó dos veces la lista de
+  // direcciones, hasta que pidió hablar con una persona.
+  const deContexto = (candidata) => Boolean(candidata.rule.contexto);
+  const concretas = candidatas.filter((c) => !deContexto(c));
+  const utiles =
+    concretas.length > 0 || pareceConsultaDeProducto(text) ? concretas : candidatas;
+
   // A igualdad de longitud manda el orden de la lista, como hasta ahora.
-  candidatas.sort((a, b) => b.longitud - a.longitud || a.orden - b.orden);
+  utiles.sort((a, b) => b.longitud - a.longitud || a.orden - b.orden);
 
   // Varias reglas se descartan a sí mismas cuando miran el mensaje entero: la de
   // agradecimientos solo contesta si el mensaje es SOLO un gracias, y las de
@@ -128,7 +155,7 @@ function matchFaqRule(text) {
   // descarta hay que seguir con la siguiente mejor, no rendirse: en el mensaje
   // del colegio, "muchas gracias" (14) ganaba a "presupuesto" (11), se apartaba
   // por no ser solo un agradecimiento, y el cliente se quedaba sin respuesta.
-  for (const { rule } of candidatas) {
+  for (const { rule } of utiles) {
     const reply = typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply;
     if (reply) return reply;
   }

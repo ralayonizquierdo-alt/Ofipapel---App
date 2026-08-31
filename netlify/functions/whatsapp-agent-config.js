@@ -339,6 +339,16 @@ function isNoSeLaRespuesta(text) {
 // ENVIOS_INFO, no una invención) y daba falsos positivos.
 const FALSE_CONFIDENCE_PATTERN = /\bs[ií],?\s+(vendemos|tenemos)\b/i;
 
+// ¿El mensaje trae una referencia de producto? ("305XL", "TN-248", "nº305",
+// "XP-4200"...). Sirve para no dejar que una regla de contexto se coma una
+// consulta de producto — ver reglaDeContexto más abajo.
+const REFERENCIA_DE_PRODUCTO =
+  /(?<![a-z0-9])(?:\d{2,4}\s?xx?l|[a-z]{2,4}-?\d{2,5}[a-z]{0,3}|n[ºo°]\s?\d{2,4})(?![a-z0-9])/i;
+
+function pareceConsultaDeProducto(text) {
+  return REFERENCIA_DE_PRODUCTO.test(String(text || ''));
+}
+
 function isUnverifiedConfirmation(text) {
   return FALSE_CONFIDENCE_PATTERN.test(text || '');
 }
@@ -635,6 +645,15 @@ const FAQ_RULES = [
     // "¿Tenéis tienda física?" es una pregunta de confianza/existencia (¿sois una
     // tienda real, no solo online?), distinta de "dirección" (que por defecto solo
     // da la sede principal) — aquí sí tiene sentido enseñar las 3 tiendas de golpe.
+    //
+    // Va marcada DE CONTEXTO porque "tienda física" se nombra muchas veces de
+    // pasada, no como pregunta. Visto en real, y costó un cliente: "he intentado
+    // buscar por vuestra web la tinta HP 305XL... y sé que la vendéis porque he
+    // ido a la tienda física" se llevó de respuesta las tres direcciones, y su
+    // siguiente mensaje ("¿la mandáis a domicilio?"), otra vez lo mismo. Acabó
+    // pidiendo hablar con una persona. Ver reglaDeContexto en
+    // whatsapp-agent-core.js.
+    contexto: true,
     keywords: ['tienda fisica', 'tienda física', 'tiendas fisicas', 'tiendas físicas', 'tienen tienda', 'teneis tienda', 'tenéis tienda', 'hay tienda fisica', 'hay tienda física'],
     reply: () => `Sí, tenemos 3 tiendas físicas en Tenerife:\n${storesSummary()}`,
   },
@@ -719,7 +738,7 @@ const FAQ_RULES = [
   {
     // "portes" (bare) colisionaba con "transportes" (p. ej. "Transportes Noda",
     // una empresa de transporte) — se cambia por frases específicas de gastos de envío.
-    keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'gastos de portes', 'coste de portes', 'costo de portes', 'importe de portes', 'cuanto son los portes', 'cuánto son los portes', 'cuanto cuestan los portes', 'cuánto cuestan los portes', 'cuando llega', 'cuándo llega', 'plazo de entrega', 'mandan a', 'mandais', 'mandáis', 'enviais', 'enviáis', 'envian a', 'envían a'],
+    keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'gastos de portes', 'coste de portes', 'costo de portes', 'importe de portes', 'cuanto son los portes', 'cuánto son los portes', 'cuanto cuestan los portes', 'cuánto cuestan los portes', 'cuando llega', 'cuándo llega', 'plazo de entrega', 'mandan a', 'mandais', 'mandáis', 'enviais', 'enviáis', 'envian a', 'envían a', 'a domicilio', 'domicilio', 'mandarla', 'mandarlo', 'mandarmelo', 'mandármelo', 'enviarla', 'enviarlo', 'enviarmelo', 'enviármelo', 'me lo mandan', 'me la mandan', 'lo mandan a', 'la mandan a', 'contra reembolso'],
     reply: enviosReply,
   },
   {
@@ -886,6 +905,7 @@ module.exports = {
   isNoSeLaRespuesta,
   isUnverifiedConfirmation,
   isUnverifiedStockClaim,
+  pareceConsultaDeProducto,
   PRODUCTO_NO_VERIFICADO_INFO,
   PEDIDOS_INFO,
   PEDIDO_ESTADO_TRIGGER,
