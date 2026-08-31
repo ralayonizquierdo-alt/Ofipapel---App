@@ -342,8 +342,15 @@ const FALSE_CONFIDENCE_PATTERN = /\bs[ií],?\s+(vendemos|tenemos)\b/i;
 // ¿El mensaje trae una referencia de producto? ("305XL", "TN-248", "nº305",
 // "XP-4200"...). Sirve para no dejar que una regla de contexto se coma una
 // consulta de producto — ver reglaDeContexto más abajo.
-const REFERENCIA_DE_PRODUCTO =
-  /(?<![a-z0-9])(?:\d{2,4}\s?xx?l|[a-z]{2,4}-?\d{2,5}[a-z]{0,3}|n[ºo°]\s?\d{2,4})(?![a-z0-9])/i;
+const REFERENCIA_DE_PRODUCTO = new RegExp(
+  [
+    '\\d{2,4}\\s?xx?l', //          603XL, 305XXL
+    '\\d{2,4}-?[ax]', //             219X, 415-A, 212A — el formato de los tóneres HP
+    '[a-z]{2,4}-?\\d{2,5}[a-z]{0,3}', // TN-248, TK5490, XP-4200
+    'n[ºo°]\\s?\\d{2,4}', //          nº305
+  ].map((forma) => `(?<![a-z0-9])(?:${forma})(?![a-z0-9])`).join('|'),
+  'i'
+);
 
 function pareceConsultaDeProducto(text) {
   return REFERENCIA_DE_PRODUCTO.test(String(text || ''));
@@ -578,12 +585,22 @@ const FAQ_RULES = [
     reply: EMPLEO_INFO,
   },
   {
-    // Antes que la regla de Administración: ahí "factura" a secas manda al
-    // departamento equivocado para lo que casi siempre se pregunta, que es la
-    // copia de la factura de un pedido. Estas frases son más largas, así que
-    // ganan (ver matchFaqRule, que se queda con la coincidencia más específica).
+    // De contexto: la factura se nombra de pasada muy a menudo ("en la factura
+    // del mes pasado venía un 305XL, ¿me mandan otro?" es un pedido, no una
+    // pregunta de facturación). Lo que contesta esta regla está también en el
+    // prompt de la IA, así que apartarla no pierde nada.
+    contexto: true,
+    // Esta es la ÚNICA regla que contesta sobre facturas: la de Administración
+    // ya no lleva "factura" entre sus palabras clave. Antes sí, y ganaba a esta
+    // en cuanto esta se apartaba por contexto, mandando al departamento
+    // equivocado justo lo que casi siempre se pregunta — la copia de la factura
+    // de un pedido, que lleva Pedidos.
     keywords: [
       'la factura', 'una factura', 'mi factura', 'copia de la factura', 'copia de factura',
+      // En plural: "las facturas" no contiene "la factura" (la 's' va en medio),
+      // así que sin estas el plural se quedaba sin regla al quitar 'facturas'
+      // de Administración.
+      'las facturas', 'mis facturas', 'copia de las facturas',
       'pedir la factura', 'pedir factura', 'necesito la factura', 'quiero la factura',
       'mandar la factura', 'mandarme la factura', 'enviar la factura', 'enviarme la factura',
       'me manden la factura', 'me envien la factura', 'me envíen la factura',
@@ -594,7 +611,11 @@ const FAQ_RULES = [
     reply: FACTURA_INFO,
   },
   {
-    keywords: ['factura', 'facturas', 'administracion', 'administración', 'departamento administrativo', 'telefono de administracion', 'teléfono de administración', 'telefono directo a administracion', 'teléfono directo a administración', 'extension de administracion', 'extensión de administración', 'extension 1', 'extensión 1'],
+    // Sin 'factura' ni 'facturas': las lleva la regla de arriba, que manda a
+    // Pedidos (que es quien tiene la factura del pedido) en vez de a
+    // Administración. Aquí solo quedan las palabras que sí son de este
+    // departamento — pagos, cuentas, la extensión 1.
+    keywords: ['administracion', 'administración', 'departamento administrativo', 'telefono de administracion', 'teléfono de administración', 'telefono directo a administracion', 'teléfono directo a administración', 'extension de administracion', 'extensión de administración', 'extension 1', 'extensión 1'],
     reply: ADMINISTRACION_INFO,
   },
   {
@@ -663,7 +684,13 @@ const FAQ_RULES = [
     // Ojo: 'hora' a secas NO es keyword — coincide con "ahora" ("ahora mismo",
     // "¿podéis ayudarme ahora?"), una de las palabras más comunes del español, y
     // disparaba esta regla en mensajes que no tenían nada que ver con el horario.
-    keywords: ['horario', 'a que hora', 'a qué hora', 'que hora abren', 'qué hora abren', 'que hora cierran', 'qué hora cierran', 'hasta que hora', 'hasta qué hora', 'desde que hora', 'desde qué hora', 'abierto', 'abren', 'cierran', 'cierra'],
+    // De contexto: todo lo que contesta esta regla está también en el prompt de
+    // la IA, así que cuando el cliente pregunta por un producto CONCRETO no se
+    // pierde nada apartándola — al revés, la IA puede contestar las dos mitades
+    // ("el 305XL cuesta X, y sí, te lo mandamos a casa"), que es lo que quería
+    // el cliente. Ver reglaDeContexto en whatsapp-agent-core.js.
+    contexto: true,
+    keywords: ['horario', 'a que hora', 'a qué hora', 'que hora abren', 'qué hora abren', 'que hora cierran', 'qué hora cierran', 'hasta que hora', 'hasta qué hora', 'desde que hora', 'desde qué hora', 'abierto', 'abren', 'cierran', 'cierra', 'abris', 'abrís', 'cerrais', 'cerráis'],
     reply: (normalizedText) => {
       const found = findStoreInText(normalizedText);
       const store = found || STORES[0];
@@ -677,6 +704,12 @@ const FAQ_RULES = [
     // keyword — coincide con "mapamundi" o "mapa de Tenerife" (productos que se
     // pueden vender en la tienda), y disparaba la dirección de la tienda en vez de
     // dejar pasar la pregunta sobre el producto.
+    // De contexto: todo lo que contesta esta regla está también en el prompt de
+    // la IA, así que cuando el cliente pregunta por un producto CONCRETO no se
+    // pierde nada apartándola — al revés, la IA puede contestar las dos mitades
+    // ("el 305XL cuesta X, y sí, te lo mandamos a casa"), que es lo que quería
+    // el cliente. Ver reglaDeContexto en whatsapp-agent-core.js.
+    contexto: true,
     keywords: ['direccion', 'dirección', 'donde estan', 'donde estáis', 'dónde están', 'dónde estáis', 'ubicacion', 'ubicación', 'como llegar', 'cómo llegar', 'como llego', 'cómo llego'],
     reply: (normalizedText) => {
       const found = findStoreInText(normalizedText);
@@ -728,6 +761,12 @@ const FAQ_RULES = [
     reply: CATALOGO_DESCARGA_INFO,
   },
   {
+    // De contexto: todo lo que contesta esta regla está también en el prompt de
+    // la IA, así que cuando el cliente pregunta por un producto CONCRETO no se
+    // pierde nada apartándola — al revés, la IA puede contestar las dos mitades
+    // ("el 305XL cuesta X, y sí, te lo mandamos a casa"), que es lo que quería
+    // el cliente. Ver reglaDeContexto en whatsapp-agent-core.js.
+    contexto: true,
     keywords: ['como comprar', 'cómo comprar', 'como hago un pedido', 'cómo hago un pedido', 'hacer un pedido', 'hacer el pedido', 'quiero pedir', 'quiero hacer un pedido', 'pedir por aqui', 'pedir por aquí', 'pedir por whatsapp', 'comprar online', 'comprar por internet', 'comprar en la web'],
     reply: COMO_COMPRAR_INFO,
   },
@@ -738,6 +777,12 @@ const FAQ_RULES = [
   {
     // "portes" (bare) colisionaba con "transportes" (p. ej. "Transportes Noda",
     // una empresa de transporte) — se cambia por frases específicas de gastos de envío.
+    // De contexto: todo lo que contesta esta regla está también en el prompt de
+    // la IA, así que cuando el cliente pregunta por un producto CONCRETO no se
+    // pierde nada apartándola — al revés, la IA puede contestar las dos mitades
+    // ("el 305XL cuesta X, y sí, te lo mandamos a casa"), que es lo que quería
+    // el cliente. Ver reglaDeContexto en whatsapp-agent-core.js.
+    contexto: true,
     keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'gastos de portes', 'coste de portes', 'costo de portes', 'importe de portes', 'cuanto son los portes', 'cuánto son los portes', 'cuanto cuestan los portes', 'cuánto cuestan los portes', 'cuando llega', 'cuándo llega', 'plazo de entrega', 'mandan a', 'mandais', 'mandáis', 'enviais', 'enviáis', 'envian a', 'envían a', 'a domicilio', 'domicilio', 'mandarla', 'mandarlo', 'mandarmelo', 'mandármelo', 'enviarla', 'enviarlo', 'enviarmelo', 'enviármelo', 'me lo mandan', 'me la mandan', 'lo mandan a', 'la mandan a', 'contra reembolso'],
     reply: enviosReply,
   },
@@ -859,6 +904,8 @@ Agendas: ${AGENDAS_INFO}
 Campaña de regalos directos: ${REGALOS_INFO}
 
 Reprografía (impresiones, copias, encuadernados, imprenta): ${REPROGRAFIA_INFO}
+
+Facturas: ${FACTURA_INFO}
 
 Devoluciones: ${DEVOLUCIONES_INFO}
 
