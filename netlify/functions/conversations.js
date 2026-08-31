@@ -36,6 +36,7 @@ const {
 } = require('./conversation-store');
 const crypto = require('crypto');
 const { isAgenteInfoMessage } = require('./whatsapp-agent-config');
+const { esHistorialMolesto } = require('./whatsapp-hostilidad');
 const { sendWhatsappMessage, uploadWhatsappMedia, sendWhatsappMedia, getBusinessProfile, getPhoneNumberStatus } = require('./whatsapp-send');
 
 // Tipos de adjunto admitidos desde el panel y su tope de tamaño. WhatsApp exige
@@ -677,7 +678,9 @@ function pageShell(title, body) {
 function needsAttention(messages) {
   let pending = false;
   for (const m of messages) {
-    if (m.role === 'assistant' && isAgenteInfoMessage(m.content)) pending = true;
+    // Un cliente molesto cuenta igual que un escalado: hay alguien esperando a
+    // una persona, y hasta que no se le conteste desde el panel sigue pendiente.
+    if (m.role === 'assistant' && (isAgenteInfoMessage(m.content) || esHistorialMolesto(m.content))) pending = true;
     else if (m.role === 'agent') pending = false;
   }
   return pending;

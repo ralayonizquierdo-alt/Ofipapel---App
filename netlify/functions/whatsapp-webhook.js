@@ -85,6 +85,7 @@ const woocommerce = require('./woocommerce-client');
 const { sendWhatsappMessage, sendWhatsappTemplate } = require('./whatsapp-send');
 const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo');
 const { respuestaSinCatalogo } = require('./whatsapp-consumibles');
+const { detectarHostilidad, mensajeClienteMolesto } = require('./whatsapp-hostilidad');
 const { firmaDeReintento } = require('./whatsapp-firma');
 const conversationStore = require('./conversation-store');
 
@@ -536,6 +537,39 @@ async function handleIncomingMessage(message, nombreWhatsapp) {
   // se guarda el mensaje para que lo vea la persona, pero no se contesta automático.
   if (await isBotPaused(message.from)) {
     await appendCustomerMessage(message.from, text);
+    return;
+  }
+
+  // CLIENTE ENFADADO: antes que cualquier otra cosa.
+  //
+  // Va aquí arriba a propósito, delante de las FAQ, del catálogo y de la IA.
+  // Un "sois unos ladrones, quiero el 305XL" es primero un cliente furioso y
+  // después una consulta de producto: contestarle con el precio del cartucho,
+  // por correcto que sea el precio, es no haberle escuchado.
+  //
+  // Tampoco se le enseñan los botones de "¿quieres hablar con una persona?"
+  // como en el escalado normal. Quien acaba de llamarnos inútiles ya ha
+  // contestado a esa pregunta; ponerle un botón más que pulsar es otro aro por
+  // el que pasar. Se escala directo.
+  //
+  // Y no se le antepone la presentación del bot ("¡Hola! 👋 Soy el asistente
+  // virtual..."): saludar alegremente a alguien que está insultando es la
+  // forma más rápida de encenderlo más.
+  const hostilidad = detectarHostilidad(text);
+  if (hostilidad) {
+    const reply = mensajeClienteMolesto();
+    await sendWhatsappMessage(message.from, reply);
+    await appendToHistory(message.from, text, `[Cliente molesto — ${hostilidad.familia}] ${reply}`);
+    // Se para el bot igual que en un escalado confirmado: a partir de aquí
+    // contesta una persona, y el bot hablando por encima solo estorbaría.
+    await pauseBot(message.from, 24);
+    await notifyOwner({
+      channel: 'Meta',
+      from: message.from,
+      customerMessage: `⚠️ CLIENTE MOLESTO (${hostilidad.familia}, por "${hostilidad.frase}"): ${text}`,
+      botReply: reply,
+    });
+    await notifyOwnerByWhatsapp(message.from, `⚠️ Cliente molesto (${hostilidad.familia}): ${text}`);
     return;
   }
 
