@@ -464,6 +464,63 @@ Limitación que sigue vigente:
 - Solo responde a mensajes de **texto**. Los mensajes con audio, imagen, etc.
   reciben una respuesta genérica indicando que el equipo lo revisará.
 
+## Cuando el cliente está enfadado
+
+Un cliente que insulta, acusa de estafa o amenaza con el abogado **no quiere que
+le conteste un bot**, y cada respuesta automática de más empeora la situación.
+`whatsapp-hostilidad.js` lo detecta y se aparta: el bot manda un único mensaje
+diciendo que deja de contestar él, se **para 24 h** en esa conversación, avisa al
+dueño por email y por WhatsApp, y la conversación queda marcada como "requiere
+atención" en el panel.
+
+Unas 375 expresiones repartidas en seis familias, que son las que se ven de
+verdad en atención al cliente (con las equivalentes en inglés, que es el otro
+idioma del bot):
+
+| Familia | Ejemplo |
+|---|---|
+| Incompetencia | "Sois unos inútiles", "Hablo con la pared", "Nadie me contesta", "Me estáis mareando", "Cada uno me dice una cosa" |
+| Fraude o engaño | "Sois unos ladrones", "Esto es una estafa", "Una tomadura de pelo", "Es una vergüenza", "Me habéis cobrado y no…" |
+| Ataque a la plataforma | "Vuestra web es una basura", "El robot este es imbécil", "El formulario no funciona", "Estoy en un bucle" |
+| Insulto directo | "Sois unos payasos", "Menuda mierda de servicio", "Me cago en…", "Estoy hasta las narices", "Menuda chapuza" |
+| Sarcasmo | "Gracias por nada", "Menos mal que sois los expertos", "Esto es de traca", "Tiene delito", "Lo que faltaba" |
+| Amenaza de represalia | "Os voy a poner a parir en redes", "Mi abogado", "Hoja de reclamaciones", "Reseña de una estrella", "Me lo compro en Amazon" |
+
+Tres decisiones que conviene no deshacer sin pensarlo:
+
+- **Se comprueba antes que nada**, delante de las FAQ, del catálogo y de la IA.
+  "Sois unos ladrones, quiero el 305XL" es primero un cliente furioso y después
+  una consulta de producto: contestarle con el precio del cartucho, por correcto
+  que sea, es no haberle escuchado.
+- **No se le enseñan los botones de "¿quieres hablar con una persona?"**. Quien
+  acaba de llamarnos inútiles ya ha contestado a esa pregunta.
+- **No lo decide la IA**, sino reglas fijas. Hace falta certeza (el coste de
+  tratar a un cliente furioso como si preguntara por un bolígrafo es perderlo),
+  y además la IA es justo lo que le molesta en la mitad de los casos.
+
+### Por qué la lista es corta a propósito
+
+El error no cuesta lo mismo en las dos direcciones. Que se escape un insulto es
+recuperable; marcar como hostil a un cliente contento le corta la conversación,
+le para el bot 24 h y llena de avisos el móvil del dueño.
+
+Por eso ninguna expresión de la lista es una palabra suelta: todas van dirigidas
+a nosotros de forma inequívoca. Importa especialmente en una papelería, **donde
+media lista de insultos posibles son productos reales**: bolsas de *basura*,
+*papelera* de rejilla, *ladrón* de tres enchufes. Por eso se exige "sois unos
+ladrones" y no "ladrones", "es una basura" y no "basura".
+
+Un caso real de la primera prueba: "una estrella" (por la reseña) saltaba con
+*"quiero un cuaderno de una estrella para mi hija"*. Ahora se pide "una estrella
+en Google". Cada vez que se añada una expresión conviene pasarle la lista de
+clientes contentos y de productos, no solo la de insultos.
+
+El sarcasmo es la familia que menos cubre, también a propósito: se construye con
+palabras amables ("gracias", "menos mal", "qué rápido"), así que cualquier regla
+suelta sobre ellas convertiría a todos los clientes educados en hostiles. Solo
+entran frases hechas que nadie dice en serio. Lo que no se puede distinguir sin
+entender el tono ("muchas gracias por la ayuda, se nota") se queda fuera.
+
 ## El panel de conversaciones
 
 `netlify/functions/conversations.js`. Además de leer y contestar, tiene:
