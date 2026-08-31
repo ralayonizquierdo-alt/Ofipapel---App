@@ -232,6 +232,20 @@ export interface ImportLog {
   borrados?: number
 }
 
+/**
+ * Un aviso de descuadre que alguien ha mirado y ha dado por bueno. Se guarda
+ * con la diferencia que tenía al darlo por bueno: si más adelante cambia, el
+ * aviso vuelve a salir, porque ya no es el mismo asunto.
+ */
+export interface AvisoRevisado {
+  id: string
+  /** Identificador del aviso, p. ej. «ingresos-2025». */
+  descuadreId: string
+  diferencia: number
+  at: string
+  by: string
+}
+
 export interface QuarterSummary {
   quarter: 1 | 2 | 3 | 4
   year: number
