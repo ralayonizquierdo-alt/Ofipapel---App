@@ -37,7 +37,7 @@ const {
 const crypto = require('crypto');
 const { isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const { esHistorialMolesto } = require('./whatsapp-hostilidad');
-const { sendWhatsappMessage, uploadWhatsappMedia, sendWhatsappMedia, getBusinessProfile, getPhoneNumberStatus } = require('./whatsapp-send');
+const { sendWhatsappMessage, sendWhatsappTemplate, uploadWhatsappMedia, sendWhatsappMedia, getBusinessProfile, getPhoneNumberStatus } = require('./whatsapp-send');
 
 // Tipos de adjunto admitidos desde el panel y su tope de tamaño. WhatsApp exige
 // imagen para jpeg/png y "documento" para el resto (pdf); el tope real lo pone
@@ -1229,6 +1229,51 @@ function acuseDeRecibo(ts, entrega) {
   return `<span class="tick" title="Enviado">${ICON.tickUno}</span>`;
 }
 
+// LA VENTANA DE 24 HORAS.
+//
+// Meta solo deja mandar texto libre a quien te ha escrito en las últimas 24
+// horas, contadas desde SU último mensaje. Fuera de esa ventana el envío se
+// rechaza y el cliente no ve nada.
+//
+// Hasta ahora eso solo se descubría DESPUÉS de escribir la respuesta y darle a
+// enviar: salía un aviso diciendo que "puede que" hubieran pasado 24 horas. Se
+// calcula aquí para poder enseñarlo ANTES, que es cuando sirve de algo.
+const VENTANA_MS = 24 * 60 * 60 * 1000;
+
+// Qué ha pasado de verdad cuando Meta rechaza un envío.
+//
+// Antes todos los fallos daban el mismo aviso, que decía que "puede que" fuera
+// la ventana de 24 horas. Meta manda el motivo exacto en el cuerpo del error;
+// leerlo es la diferencia entre saber qué hacer y adivinar.
+//
+//   131047 — fuera de la ventana de 24 h (el caso habitual)
+//   132001 — la plantilla no existe con ese nombre + idioma
+//   132000 — el número de huecos no coincide con el de la plantilla
+function motivoDeFallo(resultado) {
+  const bruto = String(resultado?.error || '');
+  if (bruto.includes('131047') || /24 hours/i.test(bruto)) return 'ventana';
+  if (bruto.includes('132001') || /template.*not exist/i.test(bruto)) return 'plantillaNoExiste';
+  if (bruto.includes('132000')) return 'plantillaHuecos';
+  return 'send';
+}
+
+function estadoVentana(messages) {
+  // Cuenta el último mensaje DEL CLIENTE. Ni el del bot ni el nuestro reabren
+  // nada: la ventana la abre siempre él escribiendo.
+  const ultimoCliente = [...(messages || [])].reverse().find((m) => m.role === 'user' && m.ts);
+  if (!ultimoCliente) return { abierta: false, sinDatos: true };
+
+  const restante = ultimoCliente.ts + VENTANA_MS - Date.now();
+  return { abierta: restante > 0, restante, desde: ultimoCliente.ts };
+}
+
+function textoRestante(ms) {
+  const horas = Math.floor(ms / 3600000);
+  const minutos = Math.floor((ms % 3600000) / 60000);
+  if (horas > 0) return `${horas} h ${minutos} min`;
+  return `${minutos} min`;
+}
+
 function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
   const bubbles = messages
     .map((m) => {
@@ -1250,14 +1295,26 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
 
   const ERROR_MESSAGES = {
     send: 'No se pudo enviar el mensaje. Puede que hayan pasado más de 24h desde el último mensaje del cliente — en ese caso WhatsApp exige una plantilla aprobada en vez de texto libre.',
+    // Códigos concretos de Meta, para no dejarlo en "puede que". Salen del
+    // propio error que devuelve la API al intentar enviar.
+    ventana: 'No le ha llegado: han pasado más de 24 h desde su último mensaje y WhatsApp no admite texto libre fuera de esa ventana. Mándale la plantilla con el botón de arriba.',
+    plantillaNoExiste: 'Meta dice que esa plantilla no existe. Comprueba en WhatsApp Manager que está APROBADA y que el nombre y el idioma coinciden con CUSTOMER_TEMPLATE y CUSTOMER_TEMPLATE_LANG (ojo: "Spanish (SPA)" es es_ES, no es).',
+    plantillaHuecos: 'Meta ha rechazado la plantilla porque el número de huecos no coincide. La plantilla debe tener exactamente dos: {{1}} y {{2}}.',
+    plantillaFalta: 'Falta configurar CUSTOMER_TEMPLATE en Netlify con el nombre de la plantilla aprobada.',
     size: `El archivo pesa demasiado (máximo ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB).`,
     type: 'Solo se admiten imágenes (JPG/PNG) o PDF como adjunto.',
     upload: 'No se pudo subir el adjunto a WhatsApp. Inténtalo de nuevo.',
     empty: 'Escribe un mensaje o adjunta un archivo antes de enviar.',
   };
-  const errorBanner = error
-    ? `<div class="error-banner">${ICON.alert}<span>${escapeHtml(ERROR_MESSAGES[error] || ERROR_MESSAGES.send)}</span></div>`
-    : '';
+  // "enviada" no es un error, es la confirmación de que la plantilla salió: se
+  // pinta en verde y no en rojo. Va por el mismo parámetro de la URL porque el
+  // envío responde con un redirect (patrón POST-redirect-GET de toda la página).
+  const errorBanner =
+    error === 'enviada'
+      ? `<div class="diagnostic ok">✔ Plantilla enviada. En cuanto el cliente conteste podrás escribirle con normalidad.</div>`
+      : error
+        ? `<div class="error-banner">${ICON.alert}<span>${escapeHtml(ERROR_MESSAGES[error] || ERROR_MESSAGES.send)}</span></div>`
+        : '';
 
   // Interruptor del bot para ESTA conversación. Hasta ahora solo se podía
   // reactivar, porque la pausa se ponía sola al responder a mano desde el panel.
@@ -1286,6 +1343,31 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
       <button type="submit" class="btn btn-ghost">${ICON.pause} Parar el bot aquí</button>
     </form>
   </div>`;
+
+  // Estado de la ventana, ANTES de escribir. Cuando está cerrada, el texto libre
+  // no sirve de nada, así que en vez de dejar escribir un mensaje que se va a
+  // rechazar se ofrece lo único que sí llega: la plantilla aprobada. En cuanto
+  // el cliente conteste a esa plantilla, la ventana se reabre sola y ya se le
+  // puede escribir con normalidad.
+  const ventana = estadoVentana(messages);
+  const plantillaCliente = process.env.CUSTOMER_TEMPLATE;
+  const ventanaBar = ventana.sinDatos
+    ? ''
+    : ventana.abierta
+      ? `<div class="pause-bar activo">${ICON.play}<span>Ventana de WhatsApp <strong>abierta</strong> — puedes escribirle con normalidad. Quedan ${escapeHtml(textoRestante(ventana.restante))}.</span></div>`
+      : `<div class="pause-bar">${ICON.alert}<span>Ventana de WhatsApp <strong>cerrada</strong>: hace más de 24 h que no te escribe, así que <strong>un mensaje normal no le llegaría</strong>. ${
+          plantillaCliente
+            ? 'Mándale la plantilla aprobada y, en cuanto conteste, podrás escribirle normal.'
+            : 'Falta configurar <code>CUSTOMER_TEMPLATE</code> en Netlify con el nombre de la plantilla aprobada.'
+        }</span>${
+          plantillaCliente
+            ? `<form method="POST" style="margin-left:auto;">
+      <input type="hidden" name="phone" value="${escapeHtml(phone)}">
+      <input type="hidden" name="action" value="plantilla">
+      <button type="submit" class="btn btn-ghost">✉️ Enviar plantilla</button>
+    </form>`
+            : ''
+        }</div>`;
 
   const replyForm = `<form class="reply-form" method="POST" enctype="multipart/form-data" onsubmit="
     var ta=this.querySelector('textarea'), fi=this.querySelector('input[type=file]');
@@ -1374,7 +1456,7 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
   <h2 class="thread-title">${escapeHtml(phone)}</h2>
   ${clearForm}
 </div>
-${renderFichaCliente(phone, ficha)}${pauseBar}${errorBanner}${bubbles || '<div class="empty-thread">Sin mensajes.</div>'}${replyForm}
+${renderFichaCliente(phone, ficha)}${pauseBar}${ventanaBar}${errorBanner}${bubbles || '<div class="empty-thread">Sin mensajes.</div>'}${replyForm}
 <div class="pie-hilo"><a class="volver-arriba" href="#arriba">${ICON.arriba} Volver arriba</a></div>`
   );
 }
@@ -1536,10 +1618,39 @@ exports.handler = async (event) => {
         await pauseBot(phone, 24);
       } else {
         const result = await sendWhatsappMessage(phone, message);
-        if (!result.ok) return redirect('send');
+        if (!result.ok) return redirect(motivoDeFallo(result));
         await appendAgentMessage(phone, message);
         await pauseBot(phone, 24); // que no se crucen bot y respuesta manual
       }
+    } else if (phone && action === 'plantilla') {
+      // Reabrir una conversación fuera de la ventana de 24 h. Es lo ÚNICO que
+      // Meta entrega ahí, así que no hay alternativa en texto libre.
+      const plantilla = process.env.CUSTOMER_TEMPLATE;
+      if (!plantilla) return redirect('plantillaFalta');
+
+      const mensajes = await loadConversation(phone);
+      const ficha = await getFichaCliente(phone);
+      const ultimo = [...mensajes].reverse().find((m) => m.role === 'user');
+
+      // Los dos huecos de la plantilla: a quién y sobre qué. Si no sabemos el
+      // nombre se pone algo neutro — un hueco vacío hace que Meta rechace el
+      // envío entero.
+      const nombre = ficha?.nombre || ficha?.nombreWhatsapp || 'buenos días';
+      const asunto = ultimo?.content || 'tu consulta';
+
+      const enviado = await sendWhatsappTemplate(
+        phone,
+        plantilla,
+        [nombre, asunto],
+        // es_ES, no es: en WhatsApp Manager el idioma elegido es "Spanish (SPA)",
+        // y para Meta son plantillas distintas.
+        process.env.CUSTOMER_TEMPLATE_LANG || 'es_ES'
+      );
+      if (!enviado.ok) return redirect(motivoDeFallo(enviado));
+
+      await appendAgentMessage(phone, `✉️ [Plantilla ${plantilla}] Hola ${nombre}, te escribimos desde Ofipapel sobre tu consulta: "${asunto}".`);
+      await pauseBot(phone, 24);
+      return redirect('enviada');
     } else if (phone && action === 'notas') {
       const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body || '';
       await guardarNotasCliente(phone, new URLSearchParams(rawBody).get('notas') || '');

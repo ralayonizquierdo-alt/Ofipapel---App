@@ -408,7 +408,48 @@ Una vez aprobada, en Netlify:
 | Variable | Valor |
 |---|---|
 | `OWNER_ALERT_TEMPLATE` | `aviso_escalado` |
-| `OWNER_ALERT_TEMPLATE_LANG` | `es` (opcional, es el valor por defecto) |
+| `OWNER_ALERT_TEMPLATE_LANG` | `es_ES` (opcional, es el valor por defecto) |
+
+### La plantilla para escribir a un CLIENTE fuera de la ventana
+
+La de arriba es para avisarte a ti. Hace falta otra para lo contrario: cuando
+quieres contestarle a un cliente y hace más de 24 h que no escribe. Es el fallo
+que se veía como "mando el mensaje desde el panel y no le llega".
+
+Se crea igual (Utilidad, mismo idioma), con nombre `respuesta_consulta` y este
+cuerpo:
+
+```
+Hola {{1}}, te escribimos desde Ofipapel sobre tu consulta: "{{2}}".
+
+Respóndenos por aquí y seguimos ayudándote.
+```
+
+Los huecos los rellena el panel solo: `{{1}}` con el nombre del cliente (el de
+su ficha, o el de su WhatsApp) y `{{2}}` con su último mensaje. Tiene que tener
+**exactamente dos**.
+
+| Variable | Valor |
+|---|---|
+| `CUSTOMER_TEMPLATE` | `respuesta_consulta` |
+| `CUSTOMER_TEMPLATE_LANG` | `es_ES` (opcional, es el valor por defecto) |
+
+### Ojo con el idioma: "Spanish (SPA)" NO es `es`
+
+En WhatsApp Manager el desplegable ofrece varios españoles, y para Meta cada uno
+es una plantilla **distinta**:
+
+| Lo que se elige en la pantalla | Código de la API |
+|---|---|
+| Spanish | `es` |
+| **Spanish (SPA)** | **`es_ES`** |
+| Spanish (MEX) | `es_MX` |
+| Spanish (ARG) | `es_AR` |
+
+Las plantillas de Ofipapel están en **Spanish (SPA)**, así que el código por
+defecto es `es_ES`. Con el código equivocado Meta responde *"template does not
+exist"* aunque la plantilla esté aprobada y se llame exactamente igual — un
+error que despista mucho, porque en la pantalla se ve ahí, en verde.
 
 Y un deploy nuevo. Sin `OWNER_ALERT_TEMPLATE` el aviso sigue yendo en texto
 libre, igual que hasta ahora; si el envío por plantilla falla, también se cae al
@@ -569,6 +610,13 @@ entender el tono ("muchas gracias por la ayuda, se nota") se queda fuera.
   WhatsApp (`preview_url`), así que un enlace a una ficha de producto llega con
   su foto y su nombre en vez de como una línea de texto suelta.
 - **Volver arriba** al final de cada conversación.
+- **Estado de la ventana de 24 h**, en cada conversación y **antes** de escribir:
+  si está abierta dice cuánto queda; si está cerrada avisa de que un mensaje
+  normal no llegaría y ofrece mandar la plantilla aprobada con un botón. Antes
+  esto solo se descubría después de redactar la respuesta y darle a enviar, y el
+  aviso decía "puede que" — ahora el motivo se lee del propio error de Meta
+  (131047 fuera de ventana, 132001 plantilla inexistente, 132000 huecos que no
+  cuadran) y se dice exactamente qué ha pasado.
 
 ### Instalarlo en el móvil (y que no abra una pestaña nueva cada vez)
 
