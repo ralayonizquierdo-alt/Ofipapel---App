@@ -223,7 +223,11 @@ async function notifyOwnerByWhatsapp(customerPhone, lastCustomerMessage) {
       ownerNumber,
       plantilla,
       [customerPhone, lastCustomerMessage],
-      process.env.OWNER_ALERT_TEMPLATE_LANG || 'es'
+      // 'es_ES', no 'es': en WhatsApp Manager el idioma que se eligió es
+      // "Spanish (SPA)", y su código de API es es_ES. Son plantillas DISTINTAS
+      // para Meta — mandar con el código equivocado falla con "template does
+      // not exist", aunque la plantilla esté aprobada y se llame igual.
+      process.env.OWNER_ALERT_TEMPLATE_LANG || 'es_ES'
     );
     if (enviado.ok) return;
     console.error('La plantilla de aviso falló; se intenta en texto libre (solo llegará si la ventana de 24h está abierta).');
