@@ -1435,7 +1435,13 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
     // ese nombre es el que acaba viendo el cliente en WhatsApp. Se le pone uno
     // con la fecha para distinguirlas entre sí.
     var ahora = new Date();
-    var sello = ahora.toLocaleDateString('es-ES').replace(/\//g, '-') + '_' +
+    // split/join en vez de una expresión regular: este script viaja dentro de
+    // una plantilla de texto, y la plantilla se COME la barra invertida — al
+    // navegador le llegaba "replace(///g" y lo leía como un comentario. Error
+    // de sintaxis, y con él se caía el bloque ENTERO: el pegado no llegaba a
+    // engancharse nunca. Escrito así no hay nada que escapar.
+    // Lo comprueba scripts/probar-panel-js.js.
+    var sello = ahora.toLocaleDateString('es-ES').split('/').join('-') + '_' +
       String(ahora.getHours()).padStart(2, '0') + String(ahora.getMinutes()).padStart(2, '0');
     var nombre = 'imagen-' + sello + '.' + (EXTENSIONES[archivo.type] || 'png');
 
