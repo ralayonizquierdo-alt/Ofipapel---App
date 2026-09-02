@@ -647,6 +647,14 @@ function pageShell(title, body) {
     max-width: 78%; padding: 10px 14px; border-radius: 16px;
     box-shadow: var(--shadow); font-size: 14.5px; line-height: 1.45;
   }
+  /* Los saltos de línea se respetan. Sin esto el HTML se los come y un mensaje
+     escrito en varios párrafos se lee de corrido, en un solo renglón — que no es
+     como le llega al cliente (WhatsApp sí los respeta), así que el panel estaba
+     enseñando algo distinto de lo que se envió.
+     pre-wrap y no pre: los saltos se conservan, pero las líneas largas siguen
+     ajustándose al ancho de la burbuja en vez de salirse. */
+  .bubble > div { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .bubble .time { white-space: normal; }
   .bubble.customer { background: #fff; border: 1px solid var(--border); border-bottom-left-radius: 4px; }
   .bubble.bot { background: var(--bg-soft); border: 1px solid #cdeacd; border-bottom-right-radius: 4px; }
   .bubble.agent { background: #e7f0fd; border: 1px solid #c6dbf9; border-bottom-right-radius: 4px; }
