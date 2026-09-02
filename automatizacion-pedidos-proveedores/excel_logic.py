@@ -390,8 +390,11 @@ def _construir_con_plantilla(
         # Código interno Inforpor en columna N (14)
         if nombre_proveedor == "Inforpor":
             cod_interno = row.get("r_codinforpor", row.get("R_CODINFORPOR", ""))
-            if pd.notna(cod_interno):
-                ws.cell(row=fila, column=14).value = str(cod_interno)
+            if pd.notna(cod_interno) and cod_interno != "":
+                try:
+                    ws.cell(row=fila, column=14).value = int(float(cod_interno))
+                except (ValueError, TypeError):
+                    ws.cell(row=fila, column=14).value = str(cod_interno)
 
         fila += 1
 
