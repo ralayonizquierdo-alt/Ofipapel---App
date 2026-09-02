@@ -244,6 +244,63 @@ def cruzar_y_determinar_ganador(
     return consolidado, reporte
 
 
+def construir_xls_gestion_por_proveedor(
+    df_consolidado: pd.DataFrame,
+    nombre_proveedor: str,
+    columnas_salida: list[str],
+    columna_precio: str = None,
+    columna_cantidad: str = None,
+) -> bytes:
+    """Genera el .xls (Excel 5.0/95 via xlwt) para subir al programa de gestion.
+    Columnas secuenciales: cod_compra, descrip, cantvend, precio, importe, cod_venta.
+    """
+    import xlwt
+
+    columnas_salida_lower = [c.lower() for c in columnas_salida]
+    col_precio = columna_precio.lower() if columna_precio else None
+    col_cantidad = columna_cantidad.lower() if columna_cantidad else None
+
+    es_ganador = df_consolidado["proveedor_ganador"] == nombre_proveedor
+    es_propio = df_consolidado["proveedor"] == nombre_proveedor
+    filtrado = df_consolidado[es_ganador & es_propio][columnas_salida_lower].copy()
+
+    wb = xlwt.Workbook(encoding="utf-8")
+    ws = wb.add_sheet("Pedido")
+    bold = xlwt.easyxf("font: bold true")
+    num_fmt = xlwt.easyxf(num_format_str="#,##0.00")
+
+    cols_xls = list(columnas_salida_lower)
+    if col_precio and col_cantidad:
+        cols_xls = cols_xls + ["importe"]
+
+    for c, nombre_col in enumerate(cols_xls):
+        ws.write(0, c, nombre_col.upper(), bold)
+
+    total_importe = 0.0
+    for r, (_, row) in enumerate(filtrado.iterrows(), start=1):
+        for c, col in enumerate(columnas_salida_lower):
+            val = row[col]
+            ws.write(r, c, "" if pd.isna(val) else val)
+        if col_precio and col_cantidad:
+            try:
+                qty = float(row[col_cantidad]) if pd.notna(row.get(col_cantidad)) else 0.0
+                prc = float(row[col_precio]) if pd.notna(row.get(col_precio)) else 0.0
+                importe = qty * prc
+                total_importe += importe
+                ws.write(r, len(columnas_salida_lower), importe, num_fmt)
+            except (ValueError, TypeError):
+                ws.write(r, len(columnas_salida_lower), "")
+
+    fila_total = len(filtrado) + 1
+    ws.write(fila_total, 0, "TOTAL", bold)
+    if col_precio and col_cantidad:
+        ws.write(fila_total, len(columnas_salida_lower), total_importe, xlwt.easyxf("font: bold true", num_format_str="#,##0.00"))
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
 def construir_excel_por_proveedor(
     df_consolidado: pd.DataFrame,
     nombre_proveedor: str,

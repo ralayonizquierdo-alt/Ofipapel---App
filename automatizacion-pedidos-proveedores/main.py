@@ -154,6 +154,20 @@ def main():
             f.write(excel_bytes)
         print(f"Excel generado: {ruta_local}")
 
+        try:
+            xls_bytes = excel_logic.construir_xls_gestion_por_proveedor(
+                df_consolidado, nombre, config["excel"]["columnas_esperadas"],
+                columna_precio=config["excel"]["columna_precio"],
+                columna_cantidad=config["excel"].get("columna_cantidad"),
+            )
+            nombre_xls = nombre_archivo_salida.rsplit(".", 1)[0] + "_gestion.xls"
+            ruta_xls = os.path.join(config["salida"]["carpeta"], nombre_xls)
+            with open(ruta_xls, "wb") as f:
+                f.write(xls_bytes)
+            print(f"XLS gestion generado: {ruta_xls}")
+        except ImportError:
+            print(f"AVISO: xlwt no instalado, omitiendo XLS de gestion para {nombre}")
+
         if not args.dry_run:
             draft_id = graph_client.crear_borrador_respuesta_con_adjunto(
                 token,
