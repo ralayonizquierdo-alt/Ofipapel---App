@@ -149,24 +149,33 @@ def main():
         nombre_archivo_salida = config["salida"]["nombre_archivo_patron"].format(
             proveedor=nombre.replace(" ", "_"), fecha=hoy
         )
-        ruta_local = os.path.join(config["salida"]["carpeta"], nombre_archivo_salida)
-        with open(ruta_local, "wb") as f:
+        # Guardar xlsx temporal y convertir a .xls con Excel via pywin32
+        ruta_xlsx_tmp = os.path.join(config["salida"]["carpeta"], nombre_archivo_salida)
+        with open(ruta_xlsx_tmp, "wb") as f:
             f.write(excel_bytes)
-        print(f"Excel generado: {ruta_local}")
 
+        nombre_xls = os.path.splitext(nombre_archivo_salida)[0] + ".xls"
+        ruta_xls = os.path.join(config["salida"]["carpeta"], nombre_xls)
         try:
-            xls_bytes = excel_logic.construir_xls_gestion_por_proveedor(
-                df_consolidado, nombre, config["excel"]["columnas_esperadas"],
-                columna_precio=config["excel"]["columna_precio"],
-                columna_cantidad=config["excel"].get("columna_cantidad"),
-            )
-            nombre_xls = nombre_archivo_salida.rsplit(".", 1)[0] + "_gestion.xls"
-            ruta_xls = os.path.join(config["salida"]["carpeta"], nombre_xls)
-            with open(ruta_xls, "wb") as f:
-                f.write(xls_bytes)
-            print(f"XLS gestion generado: {ruta_xls}")
+            import win32com.client
+            import pythoncom
+            pythoncom.CoInitialize()
+            xl = win32com.client.Dispatch("Excel.Application")
+            xl.Visible = False
+            xl.DisplayAlerts = False
+            wb_com = xl.Workbooks.Open(os.path.abspath(ruta_xlsx_tmp))
+            wb_com.SaveAs(os.path.abspath(ruta_xls), FileFormat=56)
+            wb_com.Close(False)
+            xl.Quit()
+            pythoncom.CoUninitialize()
+            os.remove(ruta_xlsx_tmp)
+            ruta_local = ruta_xls
+            nombre_archivo_salida = nombre_xls
+            print(f"XLS generado (plantilla, Excel 97-2003): {ruta_local}")
         except ImportError:
-            print(f"AVISO: xlwt no instalado, omitiendo XLS de gestion para {nombre}")
+            ruta_local = ruta_xlsx_tmp
+            print(f"Excel generado (xlsx): {ruta_local}")
+            print("AVISO: instala pywin32 para obtener el .xls")
 
         if not args.dry_run:
             draft_id = graph_client.crear_borrador_respuesta_con_adjunto(
