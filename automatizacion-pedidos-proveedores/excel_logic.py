@@ -325,24 +325,21 @@ def _construir_con_plantilla(
     col_cantidad: str,
     ruta_plantilla: str,
 ) -> bytes:
-    """Genera Excel 5.0/95 (.xls) con la estructura de la plantilla corporativa.
+    """Rellena la plantilla corporativa con los datos del proveedor (openpyxl).
 
-    Columnas (base 0): B=1 DESCRIPCION, C=2 Rfcia.Proveedor, F=5 Unidades,
-    G=6 P.Costo, J=9 TOTAL, M=12 Cod.Ofipapel, N=13 Cod.Interno (solo Inforpor).
+    Columnas: B=2 DESCRIPCION, C=3 Rfcia.Proveedor, F=6 Unidades,
+    G=7 P.Costo, J=10 TOTAL, M=13 Cod.Ofipapel, N=14 Cod.Interno (solo Inforpor).
     Datos desde Excel fila 11. Fila TOTAL al final con suma de importes.
     """
-    import xlwt
+    import openpyxl as _opx
+    from openpyxl.styles import Font as _Font
 
-    estilo_bold = xlwt.easyxf("font: bold true")
+    wb = _opx.load_workbook(ruta_plantilla)
+    ws = wb["fichero"]
 
-    wb = xlwt.Workbook(encoding="utf-8")
-    ws = wb.add_sheet("fichero")
+    ws["B6"] = nombre_proveedor
 
-    # Nombre del proveedor en B6 (fila 5, col 1 — índice base 0)
-    ws.write(5, 1, nombre_proveedor)
-
-    # Datos desde Excel fila 11 → índice 10 (base 0)
-    fila = 10
+    fila = 11
     total_importe = 0.0
 
     for _, row in filtrado.iterrows():
@@ -360,43 +357,48 @@ def _construir_con_plantilla(
         cantvend_val = cantvend if pd.notna(cantvend) else ""
         precio_val = precio if pd.notna(precio) else ""
 
-        ws.write(fila, 1, str(descrip))
-        ws.write(fila, 2, str(cod_compra))
+        ws.cell(row=fila, column=2).value = str(descrip)
+        ws.cell(row=fila, column=3).value = str(cod_compra)
 
         if cantvend_val != "":
             try:
-                ws.write(fila, 5, float(cantvend_val))
+                ws.cell(row=fila, column=6).value = float(cantvend_val)
             except (ValueError, TypeError):
-                ws.write(fila, 5, cantvend_val)
+                ws.cell(row=fila, column=6).value = cantvend_val
 
         if precio_val != "":
             try:
-                ws.write(fila, 6, float(precio_val))
+                ws.cell(row=fila, column=7).value = float(precio_val)
             except (ValueError, TypeError):
-                ws.write(fila, 6, precio_val)
+                ws.cell(row=fila, column=7).value = precio_val
 
         if cantvend_val != "" and precio_val != "":
             try:
                 importe = float(cantvend_val) * float(precio_val)
-                ws.write(fila, 9, importe)
+                ws.cell(row=fila, column=10).value = importe
                 total_importe += importe
             except (ValueError, TypeError):
                 pass
 
-        ws.write(fila, 12, cod_venta)
+        ws.cell(row=fila, column=13).value = cod_venta
 
-        # Código interno Inforpor en columna N (índice 13)
+        # Código interno Inforpor en columna N (14)
         if nombre_proveedor == "Inforpor":
             cod_interno = row.get("r_codinforpor", row.get("R_CODINFORPOR", ""))
             if pd.notna(cod_interno):
-                ws.write(fila, 13, str(cod_interno))
+                ws.cell(row=fila, column=14).value = str(cod_interno)
 
         fila += 1
 
     # Fila TOTAL
-    ws.write(fila, 8, "TOTAL", estilo_bold)
-    ws.write(fila, 9, total_importe, estilo_bold)
+    celda_label = ws.cell(row=fila, column=9)
+    celda_label.value = "TOTAL"
+    celda_label.font = _Font(bold=True)
+    celda_total = ws.cell(row=fila, column=10)
+    celda_total.value = total_importe
+    celda_total.font = _Font(bold=True)
 
+    wb.template = False
     buffer = BytesIO()
     wb.save(buffer)
     return buffer.getvalue()

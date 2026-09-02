@@ -147,8 +147,6 @@ def main():
         nombre_archivo_salida = config["salida"]["nombre_archivo_patron"].format(
             proveedor=nombre.replace(" ", "_"), fecha=hoy
         )
-        if ruta_plantilla:
-            nombre_archivo_salida = nombre_archivo_salida.rsplit(".", 1)[0] + ".xls"
         ruta_local = os.path.join(config["salida"]["carpeta"], nombre_archivo_salida)
         with open(ruta_local, "wb") as f:
             f.write(excel_bytes)
