@@ -35,6 +35,59 @@ if [ $? -ne 0 ] || [ -z "$CHANGED" ]; then
   exit 1
 fi
 
+# ── Regla por sitio ────────────────────────────────────────────────────────
+# Los tres sitios construyen este mismo repositorio, pero cada uno se usa para
+# UNA cosa concreta (comprobado buscando quién enlaza a cada dominio):
+#
+#   ofipapel                      la interfaz principal y las funciones que usa
+#                                 el hub (fichaje, finanzas...). Construye
+#                                 siempre.
+#   spontaneous-lebkuchen-60fa41  el webhook de WhatsApp de Meta y el resto de
+#                                 funciones que llaman inicio.html, Index.html
+#                                 y alquileres. Solo necesita reconstruirse
+#                                 cuando cambian las funciones.
+#   joesworld                     Joe's App, y nada más. Solo necesita
+#                                 reconstruirse cuando cambia joe-app/.
+#
+# Antes los tres reconstruían TODO en cada push: 356 builds en un mes según los
+# datos de uso de Netlify, tres veces el mismo trabajo. Esto lo recorta sin
+# mover ninguna URL y sin tocar el webhook de Meta, que es lo que no se puede
+# arriesgar: si Meta apunta a un sitio que ya no existe, el bot deja de
+# responder a los clientes.
+#
+# CONTRAPARTIDA, explícita: la copia que los sitios secundarios tienen del
+# resto de páginas (fichaje.html, finanzas...) se quedará atrás. Es aceptable
+# porque nadie entra a esas páginas por esos dominios — el hub las sirve desde
+# GitHub Pages y las funciones desde `ofipapel`. Si alguna vez se empieza a
+# usar `joesworld/fichaje.html` o similar, hay que quitar su regla de aquí. Es
+# el mismo tipo de trampa que dejó `ofipapel-fichaje-test` congelado y sin los
+# arreglos de seguridad (DT-26), así que conviene no olvidarlo.
+#
+# Netlify expone el nombre del sitio en SITE_NAME. Si no llega (o es un sitio
+# que no esté en esta lista), se aplica la regla general de abajo, que es la
+# conservadora.
+case "${SITE_NAME:-}" in
+  joesworld)
+    if git diff --quiet "$CACHED_COMMIT_REF" "$COMMIT_REF" -- \
+         joe-app/ build.sh netlify.toml netlify-ignore.sh 2>/dev/null; then
+      echo "ignore: joesworld solo sirve Joe's App y joe-app/ no ha cambiado — build saltado."
+      exit 0
+    fi
+    echo "ignore: joesworld — cambios en joe-app/ o en la configuración del build."
+    exit 1
+    ;;
+  spontaneous-lebkuchen-60fa41)
+    if git diff --quiet "$CACHED_COMMIT_REF" "$COMMIT_REF" -- \
+         netlify/ build.sh netlify.toml netlify-ignore.sh 2>/dev/null; then
+      echo "ignore: spontaneous-lebkuchen solo sirve funciones y netlify/ no ha cambiado — build saltado."
+      exit 0
+    fi
+    echo "ignore: spontaneous-lebkuchen — cambios en netlify/ o en la configuración del build."
+    exit 1
+    ;;
+esac
+
+# ── Regla general (sitio principal, y cualquier sitio no listado arriba) ───
 # Un fichero cuenta como "solo documentación" si build.sh no lo publica nunca:
 #   .claude/**       cerebro RAX y Skills (nunca se copian a _site/)
 #   docs/**          documentación suelta
