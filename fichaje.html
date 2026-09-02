@@ -917,6 +917,45 @@ async function setPersonPin(personId, pin, token){
 async function setPersonActive(personId, active, token){
   await fsPatchDoc('ofipapel_fichaje_config', personId, {active, updatedAt:new Date().toISOString(), updatedBy:adminDisplayName()}, token);
 }
+/* ═══════════════════ FICHAR A TRAVÉS DEL SERVIDOR ═══════════════════
+   El PIN nunca vuelve a compararse en el navegador: se manda a la función de
+   Netlify, que lee el hash con una cuenta real y responde sí o no. Así el
+   dispositivo deja de necesitar acceso a la colección de configuración, que es
+   lo que permitirá cerrar las reglas de Firebase del todo.
+   Se guarda el PIN validado en memoria porque la pantalla tiene dos pasos
+   (teclear el PIN y luego elegir la acción) y el servidor lo revalida en el
+   segundo — no se fía de que ya se comprobara antes. */
+let pinVerificado = null;
+
+async function llamarFichar(cuerpo){
+  const res = await fetch(FUNCTIONS_BASE + '/.netlify/functions/fichar', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(cuerpo),
+  });
+  let json = {};
+  try{ json = await res.json(); }catch(e){}
+  /* 503 significa "aún no configurada": eso SÍ debe caer a la vía antigua.
+     Un 403 es una respuesta legítima (PIN incorrecto) y no debe hacerlo, o el
+     método antiguo volvería a intentarlo y confundiría al usuario. */
+  if(res.status === 503 || res.status === 404) throw new Error('funcion-no-disponible');
+  return {status: res.status, json};
+}
+
+async function comprobarPinEnServidor(personId, pin){
+  const {status, json} = await llamarFichar({personId, pin});
+  if(status === 200) return {ok:true};
+  if(status === 429) return {ok:false, reason:'DEMASIADOS'};
+  if(status === 403) return {ok:false, reason: json.reason || 'INCORRECTO'};
+  throw new Error(json.error || ('respuesta '+status));
+}
+
+async function ficharEnServidor(personId, type, pin, geo){
+  const cuerpo = {personId, type, pin};
+  if(geo && typeof geo.lat === 'number') cuerpo.geo = {lat: geo.lat, lng: geo.lng};
+  const {status, json} = await llamarFichar(cuerpo);
+  if(status === 200) return json;
+  throw new Error(json.error || ('no se pudo registrar ('+status+')'));
+}
+
 async function verifyPin(personId, pin, token){
   const cfg = await getPersonConfig(personId, token);
   if(!cfg || !cfg.pinHash) return {ok:false, reason:'SIN_PIN'};
@@ -1260,13 +1299,27 @@ async function submitPin(){
   const errBox = document.getElementById('pinError');
   errBox.textContent = 'Comprobando…';
   try{
-    clockToken = await getActiveToken();
-    setCloudStatus('clockCloudStatus','synced');
-    const result = await verifyPin(selectedPerson.id, pinBuffer, clockToken);
+    /* El PIN se comprueba en el SERVIDOR (netlify/functions/fichar.js). Antes se
+       descargaba el hash al móvil y se comparaba aquí, lo que obligaba a que
+       cualquiera pudiera leer los hashes de todos los PIN — 4 dígitos con sal
+       conocida, o sea reventables en segundos. Si la función no está
+       disponible todavía (falta configurarla), se cae a la comprobación local
+       de siempre para no dejar a nadie sin fichar. */
+    let result;
+    try{
+      result = await comprobarPinEnServidor(selectedPerson.id, pinBuffer);
+    }catch(errServidor){
+      console.warn('Comprobación de PIN en servidor no disponible, usando la local', errServidor);
+      clockToken = await getActiveToken();
+      setCloudStatus('clockCloudStatus','synced');
+      result = await verifyPin(selectedPerson.id, pinBuffer, clockToken);
+    }
+    if(result.ok) pinVerificado = pinBuffer;
     if(!result.ok){
       document.getElementById('pinDots').classList.add('err');
       errBox.textContent = result.reason==='SIN_PIN' ? 'Aún no tienes PIN asignado — pídeselo a gerencia.'
         : result.reason==='INACTIVO' ? 'Tu acceso de fichaje está desactivado — habla con gerencia.'
+        : result.reason==='DEMASIADOS' ? 'Demasiados intentos. Espera unos minutos.'
         : 'PIN incorrecto.';
       pinBuffer=''; renderPinDots();
       return;
@@ -1315,7 +1368,16 @@ async function refreshActionStep(){
 }
 async function doClockAction(type){
   try{
-    await createEvent(selectedPerson.id, type, clockToken, {geo: cachedGeo});
+    /* El fichaje lo registra el servidor, que revalida el PIN y pone la hora
+       él mismo: si la marcase el móvil, bastaría con cambiar el reloj del
+       teléfono para falsear la jornada. Red de seguridad igual que arriba. */
+    try{
+      await ficharEnServidor(selectedPerson.id, type, pinVerificado, cachedGeo);
+    }catch(errServidor){
+      console.warn('Registro en servidor no disponible, usando la vía anterior', errServidor);
+      clockToken = clockToken || await getActiveToken();
+      await createEvent(selectedPerson.id, type, clockToken, {geo: cachedGeo});
+    }
     document.getElementById('actionSuccess').innerHTML =
       `<div class="toast-ok">${TYPE_LABEL[type]} registrada a las ${canaryTime(new Date().toISOString())} ✔</div>`;
     await refreshActionStep();
