@@ -710,7 +710,9 @@ const FAQ_RULES = [
     // ("el 305XL cuesta X, y sí, te lo mandamos a casa"), que es lo que quería
     // el cliente. Ver reglaDeContexto en whatsapp-agent-core.js.
     contexto: true,
-    keywords: ['direccion', 'dirección', 'donde estan', 'donde estáis', 'dónde están', 'dónde estáis', 'ubicacion', 'ubicación', 'como llegar', 'cómo llegar', 'como llego', 'cómo llego'],
+    // Ojo con "donde esta" a secas: encajaría con "¿dónde está mi pedido?", que
+    // es una consulta de pedido y no de dirección. Por eso se nombra la tienda.
+    keywords: ['direccion', 'dirección', 'donde estan', 'donde estáis', 'dónde están', 'dónde estáis', 'ubicacion', 'ubicación', 'como llegar', 'cómo llegar', 'como llego', 'cómo llego', 'donde esta la tienda', 'dónde está la tienda', 'donde estan las tiendas', 'dónde están las tiendas'],
     reply: (normalizedText) => {
       const found = findStoreInText(normalizedText);
       const store = found || STORES[0];
@@ -767,7 +769,7 @@ const FAQ_RULES = [
     // ("el 305XL cuesta X, y sí, te lo mandamos a casa"), que es lo que quería
     // el cliente. Ver reglaDeContexto en whatsapp-agent-core.js.
     contexto: true,
-    keywords: ['como comprar', 'cómo comprar', 'como hago un pedido', 'cómo hago un pedido', 'hacer un pedido', 'hacer el pedido', 'quiero pedir', 'quiero hacer un pedido', 'pedir por aqui', 'pedir por aquí', 'pedir por whatsapp', 'comprar online', 'comprar por internet', 'comprar en la web'],
+    keywords: ['como comprar', 'cómo comprar', 'como hago un pedido', 'cómo hago un pedido', 'como hago el pedido', 'cómo hago el pedido', 'como puedo pedir', 'cómo puedo pedir', 'hacer un pedido', 'hacer el pedido', 'quiero pedir', 'quiero hacer un pedido', 'pedir por aqui', 'pedir por aquí', 'pedir por whatsapp', 'comprar online', 'comprar por internet', 'comprar en la web'],
     reply: COMO_COMPRAR_INFO,
   },
   {
@@ -906,6 +908,8 @@ Campaña de regalos directos: ${REGALOS_INFO}
 Reprografía (impresiones, copias, encuadernados, imprenta): ${REPROGRAFIA_INFO}
 
 Facturas: ${FACTURA_INFO}
+
+Presupuestos de material escolar: ${PRESUPUESTO_ESCOLAR_INFO}
 
 Devoluciones: ${DEVOLUCIONES_INFO}
 
