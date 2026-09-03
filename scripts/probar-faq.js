@@ -49,6 +49,25 @@ const CASOS = [
   // La misma trampa con otras dos reglas de contexto.
   ['¿Cuál es vuestro horario? Muchas gracias', 'faq:horario'],
   ['¿Me lo mandáis a casa? Muchas gracias de antemano', 'faq:'],
+
+  // --- Dos preguntas en el mismo mensaje ---
+  // Una regla fija contesta una cosa y se acaba, así que la otra mitad se
+  // perdía en silencio. Cuando el mensaje toca dos temas se deja pasar a la IA,
+  // que tiene todas estas respuestas en su prompt y sí puede contestar las dos.
+  ['¿A qué hora abrís? ¿Hacéis fotocopias?', 'catalogo'],
+  ['¿Dónde estáis y cuál es vuestro horario?', 'catalogo'],
+  ['Necesito la factura del pedido 637966. ¿Y hacéis envíos a La Palma?', 'catalogo'],
+  ['¿Cuánto cuestan los portes? ¿Y cómo hago el pedido?', 'catalogo'],
+  ['¿Hacéis presupuestos para colegios? ¿A qué hora abrís?', 'catalogo'],
+  ['¿Puedo devolver un producto? ¿Dónde está la tienda?', 'catalogo'],
+
+  // --- Y que UNA sola pregunta siga contestándose con su texto fijo ---
+  // "¿dónde está mi pedido?" no es la dirección de la tienda: va al flujo de
+  // pedidos. Es la razón de que "donde esta" a secas no sea palabra clave.
+  ['¿Dónde está mi pedido?', 'faq:número de tu pedido'],
+  ['¿Dónde está la tienda?', 'faq:Chajofe'],
+  ['¿Cómo hago el pedido?', 'faq:'],
+  ['¿Puedo devolver un producto?', 'faq:14 días'],
 ];
 
 let ok = 0;

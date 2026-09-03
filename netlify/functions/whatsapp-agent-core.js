@@ -162,6 +162,32 @@ function matchFaqRule(text) {
     return null;
   };
 
+  // SI EL CLIENTE PREGUNTA DOS COSAS, LAS DOS MERECEN RESPUESTA.
+  //
+  // Una regla fija contesta con su texto y ahí se acaba, así que un mensaje con
+  // dos temas se llevaba media respuesta y la otra mitad se perdía en silencio.
+  // Medido sobre mensajes normales, fallaba SIEMPRE:
+  //
+  //   "¿A qué hora abrís? ¿Hacéis fotocopias?"      -> solo las fotocopias
+  //   "¿Dónde estáis y cuál es vuestro horario?"    -> solo la dirección
+  //   "¿Cuánto cuestan los portes? ¿Y cómo pido?"   -> solo los portes
+  //
+  // Cuando encajan DOS reglas distintas que además contestarían de verdad, el
+  // mensaje toca dos temas y ninguna de las dos vale por sí sola. Se deja pasar
+  // a la IA, que tiene todas estas respuestas en su prompt (ver
+  // buildAiSystemPrompt) y sí puede contestar las dos mitades en un mensaje.
+  //
+  // Se mide por reglas que CONTESTAN, no por candidatas: media docena de reglas
+  // pueden encajar de refilón y luego descartarse solas, y eso no es preguntar
+  // dos cosas.
+  // Se cuentan TODAS, las concretas y las de contexto: horario, dirección y
+  // envíos son de contexto, y son justo los temas que más se combinan con otro
+  // en el mismo mensaje.
+  const contestarian = candidatas.filter(({ rule }) =>
+    Boolean(typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply)
+  );
+  if (contestarian.length > 1) return null;
+
   // Mandan las concretas, y solo si NINGUNA llega a contestar entran las de
   // contexto.
   //
