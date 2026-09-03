@@ -142,11 +142,7 @@ function matchFaqRule(text) {
   // direcciones, hasta que pidió hablar con una persona.
   const deContexto = (candidata) => Boolean(candidata.rule.contexto);
   const concretas = candidatas.filter((c) => !deContexto(c));
-  const utiles =
-    concretas.length > 0 || pareceConsultaDeProducto(text) ? concretas : candidatas;
-
-  // A igualdad de longitud manda el orden de la lista, como hasta ahora.
-  utiles.sort((a, b) => b.longitud - a.longitud || a.orden - b.orden);
+  const contextuales = candidatas.filter(deContexto);
 
   // Varias reglas se descartan a sí mismas cuando miran el mensaje entero: la de
   // agradecimientos solo contesta si el mensaje es SOLO un gracias, y las de
@@ -155,11 +151,37 @@ function matchFaqRule(text) {
   // descarta hay que seguir con la siguiente mejor, no rendirse: en el mensaje
   // del colegio, "muchas gracias" (14) ganaba a "presupuesto" (11), se apartaba
   // por no ser solo un agradecimiento, y el cliente se quedaba sin respuesta.
-  for (const { rule } of utiles) {
-    const reply = typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply;
-    if (reply) return reply;
-  }
-  return null;
+  //
+  // A igualdad de longitud manda el orden de la lista, como hasta ahora.
+  const primeraQueConteste = (lista) => {
+    lista.sort((a, b) => b.longitud - a.longitud || a.orden - b.orden);
+    for (const { rule } of lista) {
+      const reply = typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply;
+      if (reply) return reply;
+    }
+    return null;
+  };
+
+  // Mandan las concretas, y solo si NINGUNA llega a contestar entran las de
+  // contexto.
+  //
+  // Ese "llega a contestar" es la parte que importa, y costó un cliente real:
+  // antes bastaba con que otra regla APARECIERA entre las candidatas para
+  // apartar a la de contexto, sin mirar si luego iba a contestar. Un cliente
+  // escribió "mi pedido #637966 ha sido entregado. ¿Dónde puedo encontrar la
+  // factura? Muchas gracias." y se quedó sin respuesta a lo que preguntaba:
+  // "muchas gracias" (14) le ganaba a "la factura" (10), apartaba la regla de
+  // facturas por ser de contexto... y acto seguido se descartaba a sí misma por
+  // no ser el mensaje solo un agradecimiento. No quedaba nadie.
+  const respuesta = primeraQueConteste(concretas);
+  if (respuesta) return respuesta;
+
+  // Ninguna concreta ha contestado. Si el mensaje trae una referencia de
+  // producto, la consulta es del producto y le toca al catálogo, no a una
+  // respuesta fija.
+  if (pareceConsultaDeProducto(text)) return null;
+
+  return primeraQueConteste(contextuales);
 }
 
 // Palabras demasiado comunes como para servir de pista de que dos preguntas son
