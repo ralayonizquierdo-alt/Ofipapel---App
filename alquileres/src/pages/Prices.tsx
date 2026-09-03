@@ -16,6 +16,14 @@ const APT_TYPE_LABELS: Record<ApartmentType, string> = {
 
 const CURRENT_YEAR = new Date().getFullYear()
 
+/** La tarifa del mismo tipo y temporada del año anterior, si la hay. */
+function tarifaAnterior(prices: PriceEntry[], entry: PriceEntry): PriceEntry | undefined {
+  return prices.find(p =>
+    p.year === entry.year - 1
+    && p.season === entry.season
+    && p.apartmentType === entry.apartmentType)
+}
+
 export default function Prices() {
   const { prices, offerPrices, addPrice, deleteOfferPrice } = useData()
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR)
@@ -23,8 +31,32 @@ export default function Prices() {
   const [showOfferForm, setShowOfferForm] = useState(false)
   const [editingOffer, setEditingOffer] = useState<OfferPrice | null>(null)
 
-  const availableYears = [...new Set(prices.map(p => p.year))].sort()
+  // El año que viene siempre está en la lista aunque no tenga tarifa todavía:
+  // es en enero cuando se prepara, y hay que poder llegar hasta él.
+  const availableYears = [...new Set([
+    ...prices.map(p => p.year), CURRENT_YEAR, CURRENT_YEAR + 1,
+  ])].sort()
   const pricesBySeason = (season: Season) => prices.filter(p => p.season === season && p.year === selectedYear)
+
+  /**
+   * Crea la tarifa de un año partiendo de la del anterior.
+   *
+   * Es lo que pidió el propietario: un año nuevo nunca arranca en blanco, sino
+   * con lo del año pasado ya puesto, para no teclear nada que no cambie. Si no
+   * hay año anterior —el primero de todos— sí arranca a cero.
+   */
+  function creaTarifa(season: Season, aptType: ApartmentType) {
+    const previa = prices.find(p =>
+      p.year === selectedYear - 1 && p.season === season && p.apartmentType === aptType)
+    setEditing(addPrice({
+      year: selectedYear, season, apartmentType: aptType,
+      price1week: previa?.price1week ?? 0,
+      price2weeks: previa?.price2weeks ?? 0,
+      price3weeks: previa?.price3weeks ?? 0,
+      price1month: previa?.price1month ?? 0,
+      cleaningFee: previa?.cleaningFee ?? 40,
+    }))
+  }
 
   function handleDeleteOffer(id: string) {
     if (!confirm('¿Eliminar tarifa de oferta?')) return
@@ -74,20 +106,19 @@ export default function Prices() {
               <div className="space-y-4">
                 {(['1BR', '2BR', '2BR_ATICO', '3BR'] as ApartmentType[]).map(aptType => {
                   const entry = filtered.find(p => p.apartmentType === aptType)
-                  if (!entry) return (
-                    <div key={aptType} className="bg-white rounded-xl border border-dashed border-slate-300 p-4 text-center">
-                      <p className="text-slate-400 text-sm">{APT_TYPE_LABELS[aptType]} — Sin precios para {season} {selectedYear}</p>
-                      <button
-                        onClick={() => {
-                          const newEntry = addPrice({
-                            year: selectedYear, season, apartmentType: aptType,
-                            price1week: 0, price2weeks: 0, price3weeks: 0, price1month: 0, cleaningFee: 40
-                          })
-                          setEditing(newEntry)
-                        }}
-                        className="mt-2 text-sm text-blue-600 hover:underline">+ Añadir precios</button>
-                    </div>
-                  )
+                  if (!entry) {
+                    const hayPrevia = prices.some(p =>
+                      p.year === selectedYear - 1 && p.season === season && p.apartmentType === aptType)
+                    return (
+                      <div key={aptType} className="bg-white rounded-xl border border-dashed border-slate-300 p-4 text-center">
+                        <p className="text-slate-400 text-sm">{APT_TYPE_LABELS[aptType]} — Sin precios para {season} {selectedYear}</p>
+                        <button onClick={() => creaTarifa(season, aptType)}
+                          className="mt-2 text-sm text-blue-600 hover:underline">
+                          {hayPrevia ? `Cargar la tarifa de ${selectedYear - 1} y editarla` : '+ Añadir precios'}
+                        </button>
+                      </div>
+                    )
+                  }
                   return <PriceTable key={aptType} entry={entry} onEdit={() => setEditing(entry)} />
                 })}
               </div>
@@ -216,13 +247,38 @@ function PriceTable({ entry, onEdit }: { entry: PriceEntry; onEdit: () => void }
   )
 }
 
+/**
+ * «+5,9 %» o «−3 %» respecto del año anterior. Cadena vacía cuando el precio
+ * no ha cambiado: al abrir el editor lo normal es que no haya cambiado nada
+ * todavía, y una fila de «=» solo sería ruido.
+ */
+function variacion(actual: number, anterior: number): string {
+  if (!anterior) return ''
+  const pct = ((actual - anterior) / anterior) * 100
+  if (Math.abs(pct) < 0.05) return ''
+  const txt = Math.abs(pct).toLocaleString('es-ES', { maximumFractionDigits: 1 })
+  return `${pct > 0 ? '+' : '−'}${txt} %`
+}
+
+/**
+ * Editor de la tarifa de un año.
+ *
+ * Está pensado para lo que se hace de verdad cada enero: coger la tarifa del
+ * año pasado y subirla un tanto por ciento. Por eso el año anterior está
+ * presente todo el rato —debajo de cada casilla, en pequeño— y hay una casilla
+ * de subida que rellena las cuatro de golpe. Cambiar un precio a mano sigue
+ * valiendo: el porcentaje de esa línea se recalcula solo.
+ */
 function PriceEditModal({ entry, onClose }: { entry: PriceEntry; onClose: () => void }) {
-  const { updatePrice } = useData()
+  const { prices, updatePrice } = useData()
+  const anterior = tarifaAnterior(prices, entry)
+
   const [p1w, setP1w] = useState(entry.price1week)
   const [p2w, setP2w] = useState(entry.price2weeks)
   const [p3w, setP3w] = useState(entry.price3weeks)
   const [p1m, setP1m] = useState(entry.price1month)
   const [cleaning, setCleaning] = useState(entry.cleaningFee)
+  const [subida, setSubida] = useState('')
 
   function save() {
     updatePrice(entry.id, {
@@ -232,46 +288,90 @@ function PriceEditModal({ entry, onClose }: { entry: PriceEntry; onClose: () => 
     onClose()
   }
 
-  function apply10Increase() {
-    setP1w(Math.round(p1w * 1.1))
-    setP2w(Math.round(p2w * 1.1))
-    setP3w(Math.round(p3w * 1.1))
-    setP1m(Math.round(p1m * 1.1))
+  /**
+   * Aplica el porcentaje a los cuatro precios base. Siempre sobre la tarifa
+   * del año anterior, no sobre lo que haya en pantalla: así se puede teclear
+   * 5, ver el resultado, probar con 7 y no ir acumulando subida sobre subida.
+   * Sin año anterior, el punto de partida es lo que había al abrir.
+   */
+  function aplicaSubida() {
+    const pct = Number(subida.replace(',', '.'))
+    if (!Number.isFinite(pct)) return
+    const base = anterior ?? entry
+    const sube = (v: number) => Math.round(v * (1 + pct / 100))
+    setP1w(sube(base.price1week))
+    setP2w(sube(base.price2weeks))
+    setP3w(sube(base.price3weeks))
+    setP1m(sube(base.price1month))
   }
+
+  const campos: [string, number, (v: number) => void, number | undefined][] = [
+    ['1 Semana (7 días)', p1w, setP1w, anterior?.price1week],
+    ['2 Semanas (14 días)', p2w, setP2w, anterior?.price2weeks],
+    ['3 Semanas (21 días)', p3w, setP3w, anterior?.price3weeks],
+    ['1 Mes (30 días)', p1m, setP1m, anterior?.price1month],
+    ['Limpieza (€)', cleaning, setCleaning, anterior?.cleaningFee],
+  ]
 
   return (
     <Modal title={`Editar precios — ${APT_TYPE_LABELS[entry.apartmentType]}`} onClose={onClose}>
       <div className="space-y-4">
-        <p className="text-xs text-slate-500">{entry.season} {entry.year}</p>
+        <p className="text-xs text-slate-500">
+          {entry.season} {entry.year}
+          {anterior && <> · comparado con <b className="text-slate-600">{entry.season} {anterior.year}</b></>}
+        </p>
+
+        {/* Casilla de subida: lo que se usa en enero para el año siguiente. */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex flex-wrap items-center gap-2">
+          <label htmlFor="subida" className="text-sm text-blue-800">
+            Subida sobre {anterior ? anterior.year : 'los precios actuales'}:
+          </label>
+          <div className="flex items-center gap-1">
+            <input id="subida" type="number" step="0.5" value={subida} placeholder="0"
+              onChange={e => setSubida(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') aplicaSubida() }}
+              className="w-20 border border-blue-200 rounded-lg px-2 py-1.5 text-sm text-right bg-white" />
+            <span className="text-sm text-blue-800">%</span>
+          </div>
+          <button onClick={aplicaSubida} disabled={subida.trim() === ''}
+            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40">
+            Aplicar
+          </button>
+          <span className="text-xs text-blue-700/80 w-full sm:w-auto">
+            rellena las cuatro duraciones; la limpieza no se toca
+          </span>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
-          {[
-            ['1 Semana (7 días)', p1w, setP1w],
-            ['2 Semanas (14 días)', p2w, setP2w],
-            ['3 Semanas (21 días)', p3w, setP3w],
-            ['1 Mes (30 días)', p1m, setP1m],
-            ['Limpieza (€)', cleaning, setCleaning],
-          ].map(([label, val, setter]) => (
-            <div key={label as string}>
-              <label className="block text-xs font-medium text-slate-600 mb-1">{label as string}</label>
-              <input type="number" value={val as number}
-                onChange={e => (setter as (v: number) => void)(Number(e.target.value))}
+          {campos.map(([label, val, setter, previo]) => (
+            <div key={label}>
+              <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
+              <input type="number" value={val}
+                onChange={e => setter(Number(e.target.value))}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              {/* La referencia del año pasado, justo debajo y en pequeño. */}
+              {previo !== undefined && previo > 0 && (
+                <p className="text-[11px] text-slate-400 mt-1 tabular-nums">
+                  {anterior!.year}: {previo.toLocaleString('es-ES')} €
+                  {variacion(val, previo) && (
+                    <span className={`ml-1.5 font-medium ${val > previo ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {variacion(val, previo)}
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
           ))}
         </div>
+
         <div className="bg-slate-50 rounded-lg p-3">
           <p className="text-xs text-slate-500 mb-2">Directo/Largo plazo (−10%):</p>
           <p className="text-sm font-medium text-slate-700">{(p1m * 0.9).toFixed(0)} € (mes) · {(p1w * 0.9).toFixed(0)} € (semana)</p>
         </div>
-        <div className="flex justify-between items-center pt-2">
-          <button onClick={apply10Increase}
-            className="text-sm text-slate-500 hover:text-slate-700 underline underline-offset-2">
-            Aplicar subida del 10%
-          </button>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-            <button onClick={save} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Guardar</button>
-          </div>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+          <button onClick={save} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Guardar</button>
         </div>
       </div>
     </Modal>
