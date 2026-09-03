@@ -90,6 +90,22 @@ export interface DatosCuentas {
   occupancies: OcupacionMensual[]
 }
 
+/**
+ * El primer ejercicio que se lleva de verdad en la aplicación.
+ *
+ * De 2026 en adelante, lo que hay en la app —reservas, cobros, gastos— es la
+ * contabilidad del año y se enseña tal cual. De los ejercicios anteriores solo
+ * cuenta el Excel: se cargaron para tener el histórico de estancias, y el
+ * propietario dejó dicho que de esos años «solo iban a estar las reservas, no
+ * tenía que haber cobros ni gastos ni nada».
+ *
+ * Por eso un año anterior a este sin Excel no tiene cuentas, y no se le
+ * inventan a partir de los cuatro cobros sueltos que puedan haber quedado: eso
+ * es justo lo que hacía que la plataforma enseñara cifras que no salían de
+ * ningún sitio y no cuadraban con nada.
+ */
+export const EJERCICIO_APP = 2026
+
 export function cuentasDe(d: DatosCuentas, year: number, meses: number[]) {
   const ocupDeclarada = mapaOcupaciones(d.occupancies)
 
@@ -100,6 +116,9 @@ export function cuentasDe(d: DatosCuentas, year: number, meses: number[]) {
     declarados.set(k, (declarados.get(k) || 0) + i.amount)
   }
   const hayDeclarados = declarados.size > 0
+
+  /** Año viejo sin Excel: solo tiene reservas, no tiene contabilidad. */
+  const soloReservas = !hayDeclarados && year < EJERCICIO_APP
 
   const aptDeReserva = new Map(d.reservations.map(r => [r.id, r.apartmentId]))
   const enPeriodo = (fecha?: string) => {
@@ -122,7 +141,9 @@ export function cuentasDe(d: DatosCuentas, year: number, meses: number[]) {
       .filter(p => p.received && enPeriodo(p.paymentDate) && aptDeReserva.get(p.reservationId) === apt.id)
       .reduce((s, p) => s + p.amount, 0)
     const declarado = meses.reduce((s, m) => s + (declarados.get(`${apt.id}|${m}`) || 0), 0)
-    const ingresos = hayDeclarados ? declarado : cobrado
+    // Con Excel manda el Excel. Sin Excel, solo los ejercicios que se llevan en
+    // la app tienen ingresos; los viejos no declaran nada.
+    const ingresos = hayDeclarados ? declarado : (soloReservas ? 0 : cobrado)
 
     const gastosApt = d.expenses.filter(e => e.apartmentId === apt.id && enPeriodo(e.expenseDate))
     const repsApt = d.repairs.filter(r => r.apartmentId === apt.id && enPeriodo(r.repairDate))
@@ -148,11 +169,27 @@ export function cuentasDe(d: DatosCuentas, year: number, meses: number[]) {
       + comisiones
     const deducible = [...porConceptoMap.values()].reduce((s, v) => s + v.deducible, 0)
 
-    return {
+    const base = {
       apt, noches, diasPeriodo,
       ocupacion: diasPeriodo ? Math.round((noches / diasPeriodo) * 100) : 0,
-      ingresos: redondea(ingresos),
       cobrado: redondea(cobrado),
+    }
+
+    // Ejercicio viejo sin Excel: se queda en las estancias y nada más. Alguna
+    // reparación suelta puede llevar fecha de esos años, pero enseñarla como el
+    // gasto de un ejercicio del que no hay ingresos daría un resultado negativo
+    // que no significa nada. La reparación sigue en su pantalla, intacta.
+    if (soloReservas) {
+      return {
+        ...base,
+        ingresos: 0, gastos: 0, deducible: 0, resultado: 0,
+        igic: 0, igicSoportado: 0, porConcepto: [],
+      }
+    }
+
+    return {
+      ...base,
+      ingresos: redondea(ingresos),
       gastos: redondea(gastos),
       deducible: redondea(deducible),
       resultado: redondea(ingresos - deducible),
@@ -168,6 +205,8 @@ export function cuentasDe(d: DatosCuentas, year: number, meses: number[]) {
 
   return {
     hayDeclarados,
+    /** Ejercicio viejo del que solo se guardó el histórico de estancias. */
+    soloReservas,
     porInmueble,
     total: {
       noches: porInmueble.reduce((s, c) => s + c.noches, 0),

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { FileSpreadsheet, Printer } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
-import { rejillaAnual } from '../lib/cuentas'
+import { EJERCICIO_APP, rejillaAnual } from '../lib/cuentas'
 import { hojaAsesoria, type FilaHoja, type Formato } from '../lib/hojaAsesoria'
 import { creaXlsx, descarga, ESTILO, type Celda } from '../lib/exportaExcel'
 import PageHeader from '../components/ui/PageHeader'
@@ -41,6 +41,9 @@ export default function Asesoria() {
   )
 
   const hayDeclarados = useMemo(() => incomes.some(i => i.year === year), [incomes, year])
+  // Ejercicio viejo del que solo se guardó el histórico de estancias: no tiene
+  // cuentas que mandar, y enseñar una rejilla en blanco haría creer que sí.
+  const soloReservas = !hayDeclarados && year < EJERCICIO_APP
 
   function bajaExcel() {
     descarga(creaXlsx(hojaXlsx(filas, year)), `Alquileres-asesoria-${year}.xlsx`)
@@ -61,8 +64,8 @@ export default function Asesoria() {
                 className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
                 {(years.length ? years : [String(year)]).map(y => <option key={y} value={y}>{y}</option>)}
               </select>
-              <button onClick={bajaExcel}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 whitespace-nowrap">
+              <button onClick={bajaExcel} disabled={soloReservas}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-40 whitespace-nowrap">
                 <FileSpreadsheet size={16} /> Descargar Excel
               </button>
               <button onClick={() => window.print()}
@@ -82,7 +85,21 @@ export default function Asesoria() {
         </p>
       </div>
 
-      {filas.length === 0 ? (
+      {soloReservas ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 max-w-2xl">
+          <p className="text-sm font-semibold text-amber-900">
+            El ejercicio {year} no tiene cuentas en la aplicación
+          </p>
+          <p className="text-sm text-amber-800 mt-1.5 leading-relaxed">
+            De los años anteriores a {EJERCICIO_APP} solo se cargó el histórico de estancias, para
+            tener el calendario. Los ingresos y los gastos de {year} están en el Excel de ese
+            ejercicio, que es el que hay que mandar a la asesoría.
+          </p>
+          <p className="text-sm text-amber-800 mt-2">
+            Si se sube aquí el Excel de {year}, esta hoja se rellena sola.
+          </p>
+        </div>
+      ) : filas.length === 0 ? (
         <p className="text-slate-400 text-sm">No hay datos de ese ejercicio.</p>
       ) : (
         <>

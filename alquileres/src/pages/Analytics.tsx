@@ -5,7 +5,7 @@ import { useData } from '../contexts/DataContext'
 import { MONTH_NAMES_ES } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
 import { redondea } from '../lib/deducible'
-import { cuentasDe, mesesDe, TRIMESTRES, type Periodo } from '../lib/cuentas'
+import { cuentasDe, EJERCICIO_APP, mesesDe, TRIMESTRES, type Periodo } from '../lib/cuentas'
 import PageHeader from '../components/ui/PageHeader'
 
 function etiquetaPeriodo(periodo: Periodo, year: number): string {
@@ -46,7 +46,7 @@ export default function Analytics() {
   // Las cifras las lleva lib/cuentas.ts, el mismo cálculo que sale en la hoja
   // de la asesoría: así lo que se ve aquí y lo que se manda fuera no divergen.
   const cuentas = useMemo(() => cuentasDe(datos, year, mesesDe(periodo)), [datos, year, periodo])
-  const { hayDeclarados, total } = cuentas
+  const { hayDeclarados, soloReservas, total } = cuentas
 
   const porApartamento = cuentas.porInmueble.map(c => ({ ...c, diasLibres: c.diasPeriodo - c.noches }))
 
@@ -124,13 +124,29 @@ export default function Analytics() {
         }
       />
 
+      {/* Ejercicio viejo del que solo se guardaron las estancias: se dice, en vez
+          de enseñar ceros que parecen un error de la aplicación. */}
+      {soloReservas && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+          <p className="text-sm font-semibold text-amber-900">
+            De {year} solo hay reservas, no cuentas
+          </p>
+          <p className="text-sm text-amber-800 mt-1 leading-relaxed">
+            De los ejercicios anteriores a {EJERCICIO_APP} se cargó únicamente el histórico de
+            estancias, para tener el calendario y la ocupación. Los ingresos y los gastos de esos
+            años están en su Excel. Lo que se ve abajo son las estancias; el dinero sale en cuanto
+            se suba el Excel de {year}.
+          </p>
+        </div>
+      )}
+
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
           <p className="text-xs text-slate-500">Ingresos {titulo}</p>
           <p className="text-2xl font-bold text-green-700 mt-1">{eur(totIngresos)}</p>
           <p className="text-xs text-slate-400 mt-0.5">
-            IGIC 7%: {eur(calcIGIC(totIngresos))} · {hayDeclarados ? 'según Excel' : 'según cobros'}
+            IGIC 7%: {eur(calcIGIC(totIngresos))} · {hayDeclarados ? 'según Excel' : soloReservas ? 'sin Excel de este año' : 'según cobros'}
           </p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -161,7 +177,9 @@ export default function Analytics() {
           <span className="text-xs text-slate-500">
             {hayDeclarados
               ? 'Ingresos según el Excel · «Cobrado» es lo registrado en la app'
-              : 'Ingresos calculados a partir de los cobros registrados'}
+              : soloReservas
+                ? 'Este ejercicio no tiene Excel cargado: solo se guardaron las estancias'
+                : 'Ingresos calculados a partir de los cobros registrados'}
           </span>
         </div>
         <div className="overflow-x-auto">
