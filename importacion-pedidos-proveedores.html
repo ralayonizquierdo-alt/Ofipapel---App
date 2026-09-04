@@ -1068,6 +1068,129 @@ function parseAcrilicosVallejo(lineasCrudas){
   return filas;
 }
 
+// SGEL LIBROS: la factura mete una tabla ROTADA (para verse en vertical al
+// imprimir) además del texto normal de cabecera. Al reconstruir "líneas" por
+// coordenada Y (extraerLineasPDF), cada COLUMNA de esa tabla rotada (EAN,
+// cantidad, PVP, %Dto, Neto Euros) sale como su propia línea de N valores en
+// el orden correcto de fila — pero el título/descripción se desmenuza en
+// palabras sueltas sin alinear (no todos los títulos tienen el mismo número
+// de palabras) y por eso no es recuperable: se deja en blanco. Cada página
+// se procesa por separado y se combinan con matemáticas de verificación
+// (Neto = Cantidad × Precio × (1-Dto/100)) para emparejar con seguridad qué
+// línea es cuál — si no encaja para todas las filas de la página, esa
+// página no se extrae (mejor no dar nada que dar datos cruzados).
+function extraerColaEnteros(linea, n){
+  const tokens = linea.trim().split(/\s+/);
+  if(tokens.length < n) return null;
+  const cola = tokens.slice(-n);
+  if(cola.every(t => /^\d{1,4}$/.test(t))) return cola.map(t => parseInt(t,10));
+  return null;
+}
+function parseSgelPagina(lineasPagina){
+  // EAN: la línea con más coincidencias de código de 13 dígitos, ignorando
+  // las líneas "-VENTA EN FIRME" — a veces arrastran el código del ÚLTIMO
+  // artículo de la página ANTERIOR (la etiqueta queda partida entre páginas).
+  let mejorEans = [];
+  lineasPagina.forEach(l=>{
+    if(/VENTA/.test(l)) return;
+    const eans = [...l.matchAll(/\d{13}/g)].map(m=>m[0]);
+    if(eans.length > mejorEans.length) mejorEans = eans;
+  });
+  const n = mejorEans.length;
+  if(n === 0) return [];
+
+  let cantidades = null;
+  for(const l of lineasPagina){
+    const cola = extraerColaEnteros(l, n);
+    if(cola){ cantidades = cola; break; }
+  }
+  if(!cantidades) return [];
+
+  // Candidatas de precio/%dto/neto: normalmente una línea con los N valores,
+  // pero algún valor suelto puede caer en su propia línea (redondeo de
+  // posición al reconstruir la tabla rotada) así que se admiten fragmentos
+  // más cortos combinados entre sí (en ambos órdenes) hasta sumar N.
+  const RE_FRAGMENTO = /^(?:\d{1,3}(?:\.\d{3})*,\d{2}\s*)+$/;
+  const fragmentos = [];
+  lineasPagina.forEach(l=>{
+    const t = l.trim();
+    if(RE_FRAGMENTO.test(t)) fragmentos.push(t.split(/\s+/).map(parseDecComa));
+  });
+  const candidatas = [];
+  fragmentos.forEach(f=>{ if(f.length === n) candidatas.push(f); });
+  for(let i=0;i<fragmentos.length;i++){
+    for(let j=0;j<fragmentos.length;j++){
+      if(i===j) continue;
+      if(fragmentos[i].length + fragmentos[j].length === n) candidatas.push(fragmentos[i].concat(fragmentos[j]));
+    }
+  }
+
+  for(const precio of candidatas){
+    for(const dto of candidatas){
+      if(dto === precio) continue;
+      for(const neto of candidatas){
+        if(neto === precio || neto === dto) continue;
+        let ok = true;
+        for(let i=0;i<n;i++){
+          if(Math.abs(round2_(cantidades[i]*precio[i]*(1-dto[i]/100)) - neto[i]) > 0.02){ ok = false; break; }
+        }
+        if(ok){
+          const filas = [];
+          for(let i=0;i<n;i++){
+            filas.push(fila_({codigo:mejorEans[i], ean:mejorEans[i], descripcion:'', cantidad:cantidades[i],
+              precioUnitario:precio[i], dto1:dto[i], importe:neto[i]}));
+          }
+          return filas;
+        }
+      }
+    }
+  }
+  return [];
+}
+// extraerLineasPDF no marca dónde acaba cada página del PDF, así que las
+// páginas se delimitan solas: la línea de EANs "limpios" (ver más arriba)
+// sale una única vez por página, justo hacia el final de su bloque de
+// datos — se usa como ancla de fin de página en vez de depender de un
+// marcador que no existe en el extractor compartido por todos los
+// proveedores (tocarlo ahí sería un cambio de alto riesgo para el resto).
+function indicesFinDePagina(lineas){
+  const idxs = [];
+  lineas.forEach((l,i)=>{
+    if(/VENTA/.test(l)) return;
+    if([...l.matchAll(/\d{13}/g)].length >= 1 && /SGEL|logista\.com/i.test(l)) idxs.push(i);
+  });
+  return idxs;
+}
+function parseSgel(lineas){
+  const finales = indicesFinDePagina(lineas);
+  if(!finales.length) return [];
+  const filas = [];
+  let inicio = 0;
+  finales.forEach(fin=>{
+    filas.push(...parseSgelPagina(lineas.slice(inicio, fin+1)));
+    inicio = fin+1;
+  });
+  return filas;
+}
+// Solo la ÚLTIMA página trae el resumen con Importe Bruto/Neto reales (en
+// las páginas anteriores esa caja sale en blanco). Igual que las filas, ese
+// resumen también queda scrambleado por la rotación; el valor buscado
+// (Importe Neto, el que cuadra con la suma de líneas) es el MENOR de los
+// totales sueltos que aparecen en esa última página, ya que el Bruto es
+// siempre mayor o igual que el Neto tras aplicar el descuento.
+function totalSgel(texto){
+  const lineas = texto.split('\n');
+  const finales = indicesFinDePagina(lineas);
+  if(!finales.length) return null;
+  const inicio = finales.length>=2 ? finales[finales.length-2]+1 : 0;
+  const ultimaPagina = lineas.slice(inicio);
+  const candidatos = ultimaPagina
+    .filter(l => /^\d{1,3}(?:\.\d{3})*,\d{2}$/.test(l.trim()))
+    .map(l => parseDecComa(l.trim()));
+  if(!candidatos.length) return null;
+  return Math.min(...candidatos);
+}
+
 // ═══════════════════════════════════════════════════════
 // PERFILES DE PROVEEDOR: detección automática + parser propio.
 // Para añadir un proveedor nuevo: aportar una factura de muestra y
@@ -1209,6 +1332,8 @@ const PERFILES_PROVEEDOR = [
     total: t => ultimoNumeroTrasLinea(t, 'IMPORTE\\s+TOTAL\\s+FACT') },
   { id:'senfor', nombre:'SENFORT S.A.', detectar: t => /SENFORT|A08795809/i.test(t), parser: parseSenfor,
     total: t => /IMP\. BRUTO/i.test(t) ? totalSenfortPedido(t) : totalSimple(t, /Total \(Euros\)\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
+  { id:'sgel', nombre:'SGEL LIBROS, S.L.', detectar: t => /\bSGEL\b/i.test(t), parser: parseSgel,
+    total: t => totalSgel(t) },
   { id:'pryse', nombre:'PRYSE S.A.', detectar: t => /PRYSE|A58276254/i.test(t), parser: parsePryse,
     total: t => totalSimple(t, /Base imponible\s+(?:Base imponible\s+)?(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
   { id:'mandatelo', nombre:'INTEGRAL INFORMATICA IMPORT (Mandatelo)', detectar: t => /INTEGRAL INFORMATICA|MANDATELO|B-?76539642/i.test(t), parser: parseMandatelo,
