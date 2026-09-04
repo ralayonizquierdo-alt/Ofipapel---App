@@ -47,8 +47,21 @@ export function mesesDe(periodo: Periodo): number[] {
 export const COMISIONES_DESDE = 2026
 export const COMISION = 0.15
 
-/** Directo y web no pagan comisión: no hay intermediario que se lleve nada. */
-const CANALES_CON_COMISION: Channel[] = ['inmobiliaria', 'booking', 'airbnb']
+/**
+ * Comisión de la plataforma que sí se apunta como gasto.
+ *
+ * Con la inmobiliaria y con Booking, el huésped paga el precio publicado, la
+ * plataforma se queda su parte y a la propiedad le llega el resto: la comisión
+ * es un gasto del alquiler y se deduce entera.
+ *
+ * Airbnb **no** está aquí, y no es un olvido. El recibo de Airbnb que se sube
+ * llega ya neto —Airbnb descuenta lo suyo antes de transferir—, así que su
+ * parte no se ve nunca y lo que se apunta como ingreso ya viene descontado.
+ * Apuntarla además como gasto sería contarla dos veces: se deduciría una
+ * comisión que ya está restada del ingreso. Además Airbnb pone el precio, no
+ * la propiedad, así que tampoco hay tarifa de la que sacar el bruto.
+ */
+const CANALES_CON_COMISION: Channel[] = ['inmobiliaria', 'booking']
 
 /** Lo que se queda la plataforma de una reserva. 0 si no hay intermediario. */
 export function comisionDe(r: Reservation): number {
