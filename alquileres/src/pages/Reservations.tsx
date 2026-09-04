@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Pencil, Trash2, CheckCircle, Circle, ClipboardPaste, CalendarRange } from 'lucide-react'
+import { Plus, Pencil, Trash2, CheckCircle, Circle, ClipboardPaste, CalendarRange, Paperclip } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { Reservation, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
@@ -552,7 +552,15 @@ function PaymentModal({ reservation, aptName, onClose }:
               <input defaultValue={p.entryNumber || ''}
                 onBlur={e => handleUpdateField(p.id, 'entryNumber', e.target.value)}
                 className="w-full border border-slate-200 rounded px-2 py-1 text-sm" placeholder="Nº asiento" />
-              <div className="flex justify-end gap-1">
+              <div className="flex justify-end items-center gap-1">
+                {/* El justificante del que salió el cobro, si se subió uno. */}
+                {p.justificanteUrl && (
+                  <a href={p.justificanteUrl} target="_blank" rel="noopener noreferrer"
+                    title={`Ver el justificante: ${p.justificanteNombre ?? 'documento'}`}
+                    className="text-violet-500 hover:text-violet-700 p-0.5">
+                    <Paperclip size={14} />
+                  </a>
+                )}
                 <span className="text-xs text-slate-400">P{i + 1}</span>
                 <button onClick={() => deletePayment(p.id)} className="text-slate-300 hover:text-red-500 p-0.5">
                   <Trash2 size={13} />

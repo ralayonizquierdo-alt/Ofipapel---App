@@ -74,6 +74,13 @@ export interface Payment {
   received: boolean
   paymentMethod?: PaymentMethod
   createdAt: string
+  /**
+   * El justificante del que salió este cobro, guardado tal cual se subió.
+   * Opcional porque los cobros anotados a mano no tienen papel detrás, y los
+   * de antes de que esto existiera tampoco.
+   */
+  justificanteUrl?: string
+  justificanteNombre?: string
 }
 
 export interface Expense {
@@ -230,6 +237,10 @@ export interface ImportLog {
   reparaciones?: number
   /** Apuntes que esta subida se llevó por delante. */
   borrados?: number
+
+  /** El documento que se subió, guardado. Solo lo tienen los justificantes. */
+  justificanteUrl?: string
+  justificanteNombre?: string
 }
 
 export interface QuarterSummary {

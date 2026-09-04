@@ -105,10 +105,13 @@ el repo:
   Supabase (Authentication → Sign In / Providers) para que la sesión
   anónima de RLS funcione.
 - `alquileres` usa credenciales de Firebase (ver `alquileres/src/lib/firebase.ts`)
-  para Firestore y Firebase Authentication. Requiere activar el proveedor
-  "Anonymous" en Firebase Console → Authentication → Sign-in method y
+  para Firestore, Firebase Authentication y Firebase Storage. Requiere activar el
+  proveedor "Anonymous" en Firebase Console → Authentication → Sign-in method y
   desplegar `alquileres/firestore.rules` para que las reglas de acceso
-  estén realmente activas.
+  estén realmente activas. Para archivar los justificantes de cobro hace falta
+  además **activar Storage** (Build → Storage → Comenzar) y desplegar
+  `alquileres/storage.rules`; sin eso la app funciona igual, solo avisa de que
+  el documento no se ha podido guardar y el cobro se anota sin papel.
 - `FIREFLY_CLIENT_ID` / `FIREFLY_CLIENT_SECRET` (opcionales, no configuradas
   todavía) — credenciales OAuth Server-to-Server de Adobe Developer Console
   para `design-studio/scripts/firefly-generate.js`. Ver `design-studio/README.md`.

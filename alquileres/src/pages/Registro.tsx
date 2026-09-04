@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Download, History } from 'lucide-react'
+import { Download, History, Paperclip } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { ORIGEN_LABEL, type ImportLog, type OrigenSubida } from '../types'
 import { rolDe, usuarioActual } from '../lib/auth'
@@ -87,11 +87,12 @@ export default function Registro() {
   /** El registro entero en CSV, por si hay que enseñárselo a alguien de fuera. */
   function descargar() {
     const cab = ['Fecha', 'Quién', 'Por dónde', 'Fichero', 'Ejercicio', 'Qué entró',
-      'Reservas', 'Cobros', 'Gastos', 'Ingresos', 'Ocupaciones', 'Reparaciones', 'Retirados']
+      'Reservas', 'Cobros', 'Gastos', 'Ingresos', 'Ocupaciones', 'Reparaciones', 'Retirados',
+      'Justificante']
     const fila = (l: ImportLog) => [
       cuando(l.at), l.by, ORIGEN_LABEL[origenDe(l)], l.fileName ?? '', l.year ?? '', resumenDe(l) ?? '',
       l.reservas ?? '', l.cobros ?? '', l.gastos ?? '', l.ingresos ?? '',
-      l.ocupaciones ?? '', l.reparaciones ?? '', l.borrados ?? '',
+      l.ocupaciones ?? '', l.reparaciones ?? '', l.borrados ?? '', l.justificanteUrl ?? '',
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(';')
 
     // El punto y coma y el BOM son para que Excel en español lo abra bien.
@@ -170,6 +171,15 @@ function Entrada({ log, resumen }: { log: ImportLog; resumen?: string }) {
             <span className="text-xs text-slate-500 truncate max-w-[16rem]" title={log.fileName}>
               {log.fileName}
             </span>
+          )}
+          {/* El documento guardado. Se abre en otra pestaña, no se descarga a
+              la fuerza: casi siempre es un PDF y el navegador ya lo enseña. */}
+          {log.justificanteUrl && (
+            <a href={log.justificanteUrl} target="_blank" rel="noopener noreferrer"
+              className="text-xs inline-flex items-center gap-1 px-2 py-0.5 rounded border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100">
+              <Paperclip size={11} />
+              {log.justificanteNombre ? log.justificanteNombre.slice(0, 28) : 'ver justificante'}
+            </a>
           )}
         </div>
         <div className="text-xs text-slate-500 text-right shrink-0">

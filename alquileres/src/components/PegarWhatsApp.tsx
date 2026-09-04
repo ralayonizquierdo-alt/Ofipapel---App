@@ -4,6 +4,7 @@ import { useData } from '../contexts/DataContext'
 import { analizaPegado, analizaAirbnb, analizaCobro, type LineaPegada } from '../lib/pegarReservas'
 import { textoDePdf } from '../lib/leePdf'
 import { esImagen, textoDeImagen, ErrorImagen } from '../lib/leeImagen'
+import { subeJustificante, ErrorJustificante, tamanoLegible } from '../lib/justificantes'
 import { buscaTarifa, calcTotal, tramoPorNoches } from '../lib/priceCalc'
 import { formatDate } from '../lib/dateUtils'
 import type { Reservation } from '../types'
@@ -50,6 +51,8 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
   } = useData()
   const [texto, setTexto] = useState('')
   const [leyendo, setLeyendo] = useState<'pdf' | 'imagen' | null>(null)
+  /** El PDF o la foto de la que salió el texto, para poder archivarla. */
+  const [fichero, setFichero] = useState<File | null>(null)
   const [arrastrando, setArrastrando] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [hecho, setHecho] = useState('')
@@ -134,7 +137,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
    * todo lo demás funciona igual que si se hubiera pegado a mano.
    */
   async function leeFichero(f: File) {
-    setError(''); setHecho('')
+    setError(''); setHecho(''); setFichero(null)
     const esPdf = /\.pdf$/i.test(f.name) || f.type === 'application/pdf'
     if (!esPdf && !esImagen(f)) {
       setError(`«${f.name}» no vale: tiene que ser un PDF o una foto.`)
@@ -143,6 +146,9 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
     setLeyendo(esPdf ? 'pdf' : 'imagen')
     try {
       setTexto(esPdf ? await textoDePdf(f) : await textoDeImagen(f))
+      // Se guarda el fichero, no solo lo que se ha leído de él: si resulta ser
+      // un justificante, al anotar el cobro se sube y queda el papel.
+      setFichero(f)
     } catch (e) {
       setError(e instanceof ErrorImagen
         ? e.message
@@ -186,12 +192,28 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       })
     }
     setHecho(`${n} ${n === 1 ? 'reserva creada' : 'reservas creadas'}`)
-    setTexto(''); setGuardando(false)
+    setTexto(''); setFichero(null); setGuardando(false)
   }
 
-  function guardarCobro() {
+  async function guardarCobro() {
     if (!cobro || !reservaDelCobro) return
     setGuardando(true)
+
+    // El papel primero: si falla la subida, se dice y el cobro se anota igual.
+    // Perder el documento es malo; perder también el cobro sería peor.
+    let papel: { url: string; nombre: string } | null = null
+    if (fichero) {
+      try {
+        const j = await subeJustificante(fichero, cobro.paymentDate || undefined)
+        papel = { url: j.url, nombre: j.nombre }
+      } catch (e) {
+        setError(e instanceof ErrorJustificante ? e.message
+          : 'No se ha podido guardar el justificante; el cobro sí se anota.')
+      }
+    }
+    const conPapel = papel
+      ? { justificanteUrl: papel.url, justificanteNombre: papel.nombre }
+      : {}
     // Si la reserva tiene un cobro pendiente, se aprovecha ese en vez de
     // añadir uno nuevo: si no, quedaría el pendiente por un lado y el cobrado
     // por otro, y la reserva parecería pagada de más.
@@ -199,12 +221,14 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
     if (pendiente && Math.abs(pendiente.amount - cobro.amount) < 0.01) {
       updatePayment(pendiente.id, {
         received: true, paymentDate: cobro.paymentDate || undefined, paymentMethod: 'transferencia',
+        ...conPapel,
       })
     } else {
       if (pendiente) updatePayment(pendiente.id, { amount: Math.max(0, pendiente.amount - cobro.amount) })
       addPayment({
         reservationId: reservaDelCobro.id, amount: cobro.amount, received: true,
         paymentDate: cobro.paymentDate || undefined, paymentMethod: 'transferencia',
+        ...conPapel,
       })
     }
     anotaVolcado({
@@ -213,9 +237,11 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
         + `${formatDate(reservaDelCobro.checkIn)} al ${formatDate(reservaDelCobro.checkOut)}`,
       year: Number((cobro.paymentDate ?? reservaDelCobro.checkIn).slice(0, 4)),
       cobros: 1,
+      ...conPapel,
     })
-    setHecho(`Cobro de ${eur(cobro.amount)} anotado en ${nombreApt(cobro.apartmentId)}`)
-    setTexto(''); setGuardando(false)
+    setHecho(`Cobro de ${eur(cobro.amount)} anotado en ${nombreApt(cobro.apartmentId)}`
+      + (papel ? ` · justificante guardado (${papel.nombre})` : ''))
+    setTexto(''); setFichero(null); setGuardando(false)
   }
 
   return (
@@ -318,6 +344,20 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
               <p className="flex justify-between gap-4">
                 <span className="text-slate-500 shrink-0">Concepto</span>
                 <span className="text-slate-500 text-xs text-right">{cobro.concepto}</span>
+              </p>
+              {/* El papel que se va a archivar. Solo lo hay si el texto vino de
+                  un fichero: lo pegado a mano no tiene documento detrás. */}
+              <p className="flex justify-between gap-4">
+                <span className="text-slate-500 shrink-0">Justificante</span>
+                {fichero ? (
+                  <span className="text-emerald-700 text-xs text-right">
+                    se guardará <b>{fichero.name}</b> ({tamanoLegible(fichero.size)})
+                  </span>
+                ) : (
+                  <span className="text-amber-700 text-xs text-right">
+                    no hay documento: se anota solo la cifra
+                  </span>
+                )}
               </p>
               <div className="pt-2 mt-1 border-t border-slate-100">
                 {reservaDelCobro ? (

@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
+import { getStorage } from 'firebase/storage'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyDLqPoqiMgiqbk5Uv-4RoYrbA-5Yfc1A_s',
@@ -14,6 +15,11 @@ const firebaseConfig = {
 export const firebaseApp = initializeApp(firebaseConfig)
 export const db = getFirestore(firebaseApp)
 export const auth = getAuth(firebaseApp)
+
+// Donde se guardan los justificantes de cobro. Antes se leía el PDF y se
+// tiraba: la cifra quedaba y el papel no, que para unas cuentas que van a la
+// asesoría es justo lo que no puede pasar.
+export const storage = getStorage(firebaseApp)
 
 // El acceso real vive en lib/auth.ts: Luis y Rober entran con Firebase Auth
 // (email interno + contraseña). Antes se abría aquí una sesión anónima para

@@ -1,0 +1,54 @@
+rules_version = '2';
+
+// Reglas del almacén de ficheros del proyecto Firebase "ofipapelvv".
+//
+// ─── Qué guarda ──────────────────────────────────────────────────────────────
+// Los justificantes de cobro: el PDF o la foto de la transferencia de la que
+// salió cada apunte. Antes se leía el documento y se tiraba; la cifra quedaba
+// anotada y el papel no quedaba en ninguna parte, que es justo lo que no puede
+// pasar en unas cuentas que van a la asesoría.
+//
+// ─── Qué protegen ────────────────────────────────────────────────────────────
+// La apiKey de Firebase es pública: va dentro del JavaScript que sirve la web.
+// Lo único que impide que cualquiera lea o suba ficheros son estas reglas.
+//
+// Se exige el mismo criterio que en firestore.rules: sesión iniciada **con
+// contraseña**. Las sesiones anónimas quedan fuera, porque una sesión anónima
+// la puede crear cualquiera con la clave pública del bundle.
+//
+// ─── Antes de desplegar ──────────────────────────────────────────────────────
+//   1. Activar Storage en Firebase Console (Build → Storage → Comenzar)
+//   2. Desplegar estas reglas:
+//        firebase deploy --only storage --project ofipapelvv
+//      o pegando este fichero en Firebase Console > Storage > Reglas
+//
+// Mientras Storage no esté activado, la aplicación sigue funcionando: el cobro
+// se anota igual y solo avisa de que el documento no se ha podido guardar.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function esUsuarioReal() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+
+    // Un justificante de verdad es un PDF o una foto, y no ocupa más de 15 MB.
+    // El mismo límite que comprueba la aplicación antes de subirlo.
+    function esJustificante() {
+      return request.resource.size < 15 * 1024 * 1024
+        && (request.resource.contentType.matches('application/pdf')
+            || request.resource.contentType.matches('image/.*'));
+    }
+
+    match /justificantes/{anio}/{fichero} {
+      allow read: if esUsuarioReal();
+      allow create: if esUsuarioReal() && esJustificante();
+      // No se reescriben: un justificante ya subido es un documento contable.
+      // Para sustituirlo hay que borrarlo antes, a propósito.
+      allow update: if false;
+      allow delete: if esUsuarioReal();
+    }
+
+    // Todo lo demás queda denegado, que es el comportamiento que se quiere.
+  }
+}
