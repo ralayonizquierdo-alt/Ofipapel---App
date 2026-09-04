@@ -590,18 +590,55 @@ function parseTalens(lineas){
   return filas;
 }
 
-// SENFORT: "CODIGO DESCRIPCION CANTIDAD PRECIO IMPORTE IVA(entero)" — sin descuentos
+// SENFORT: dos formatos. El "clásico" (factura tabular, con descripción e
+// importe por línea, sin descuentos) usa RE_CLASICA. El de "Pedido"
+// (confirmación visual con foto de cada artículo, sin texto de descripción
+// — va dentro de la imagen) dispone los códigos en cuadrícula: una línea con
+// varios códigos y la siguiente con "cantidad precio €" de cada uno, mismo
+// orden; el descuento es GLOBAL para todo el pedido (DTO. LINEAS / IMP.
+// BRUTO), no hay descuento por línea.
 function parseSenfor(lineas){
-  const filas = [];
-  const RE = /^(\d{4,10})\s+(.*?)\s+(\d{1,3}(?:\.\d{3})*)\s+(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})\s+\d+$/;
+  const RE_CLASICA = /^(\d{4,10})\s+(.*?)\s+(\d{1,3}(?:\.\d{3})*)\s+(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})\s+\d+$/;
+  const filasClasica = [];
   lineas.forEach(l=>{
-    const m = l.match(RE);
+    const m = l.match(RE_CLASICA);
     if(!m) return;
     const [,codigo,desc,cant,precio,importe] = m;
-    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:parseInt(cant.replace(/\./g,''),10),
+    filasClasica.push(fila_({codigo, descripcion:desc.trim(), cantidad:parseInt(cant.replace(/\./g,''),10),
       precioUnitario:parseDecComa(precio), importe:parseDecComa(importe)}));
   });
+  if(filasClasica.length) return filasClasica;
+  return parseSenfortPedido(lineas);
+}
+function parseSenfortPedido(lineas){
+  const texto = lineas.join('\n');
+  let dtoGlobal = 0;
+  const gm = texto.match(/IMP\. BRUTO[\s\S]{0,20}DTO\. LINEAS[\s\S]{0,200}?(\d{1,3}(?:\.\d{3})*,\d{2})\s?€\s+(\d{1,3}(?:\.\d{3})*,\d{2})\s?€/i);
+  if(gm){
+    const impBruto = parseDecComa(gm[1]);
+    const dtoLineas = parseDecComa(gm[2]);
+    if(impBruto>0) dtoGlobal = round2_(100*dtoLineas/impBruto);
+  }
+  const filas = [];
+  const RE_CODIGOS = /^\d{4,10}(?:\s+\d{4,10})*$/;
+  const RE_PAR = /(\d+(?:\.\d{3})*)\s+(\d+,\d{2})\s?€/g;
+  for(let i=0;i<lineas.length-1;i++){
+    if(!RE_CODIGOS.test(lineas[i])) continue;
+    const codigos = lineas[i].split(/\s+/);
+    const pares = [...lineas[i+1].matchAll(RE_PAR)];
+    if(pares.length !== codigos.length) continue;
+    codigos.forEach((codigo, idx)=>{
+      const cantidad = parseInt(pares[idx][1].replace(/\./g,''),10);
+      const precioUnitario = parseDecComa(pares[idx][2]);
+      const importe = round2_(cantidad*precioUnitario*(1-dtoGlobal/100));
+      filas.push(fila_({codigo, descripcion:'', cantidad, precioUnitario, dto1:dtoGlobal, importe}));
+    });
+  }
   return filas;
+}
+function totalSenfortPedido(texto){
+  const m = texto.match(/(\d{1,3}(?:\.\d{3})*,\d{2})\s?€\s+(\d{1,3}(?:\.\d{3})*,\d{2})\s?€\s+(\d{1,3}(?:\.\d{3})*,\d{2})\s?€\s+\d+,\d{2}\s?%/);
+  return m ? parseDecComa(m[3]) : null;
 }
 
 // PRYSE: "[CODIGO] DESCRIPCION CANTIDAD,000 PRECIO,00000 DTO,00 No sujeto IMPORTE,00 €"
@@ -1171,7 +1208,7 @@ const PERFILES_PROVEEDOR = [
   { id:'talens', nombre:'TALENS ESPAÑA, S.A.U.', detectar: t => /TALENS\s+ESPA|A08542771/i.test(t), parser: parseTalens,
     total: t => ultimoNumeroTrasLinea(t, 'IMPORTE\\s+TOTAL\\s+FACT') },
   { id:'senfor', nombre:'SENFORT S.A.', detectar: t => /SENFORT|A08795809/i.test(t), parser: parseSenfor,
-    total: t => totalSimple(t, /Total \(Euros\)\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
+    total: t => /IMP\. BRUTO/i.test(t) ? totalSenfortPedido(t) : totalSimple(t, /Total \(Euros\)\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
   { id:'pryse', nombre:'PRYSE S.A.', detectar: t => /PRYSE|A58276254/i.test(t), parser: parsePryse,
     total: t => totalSimple(t, /Base imponible\s+(?:Base imponible\s+)?(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
   { id:'mandatelo', nombre:'INTEGRAL INFORMATICA IMPORT (Mandatelo)', detectar: t => /INTEGRAL INFORMATICA|MANDATELO|B-?76539642/i.test(t), parser: parseMandatelo,
