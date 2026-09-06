@@ -725,12 +725,20 @@ Conviene decírselo, porque suele ser la duda: **el bot no hace scraping**.
 
 ### Cómo comprobar que ha funcionado
 
-Desde cualquier terminal, sustituyendo las claves:
+Desde cualquier terminal. Las claves van en variables y no dentro del propio
+comando, por dos razones: no se quedan escritas en el historial del terminal, y
+así el ejemplo no tiene la forma `-u "usuario:contraseña"` — que los detectores
+de secretos (GitGuardian) marcan como fuga aunque lo que haya ahí sea un
+marcador de relleno. Ya pasó una vez y el aviso hay que investigarlo entero
+antes de poder descartarlo.
 
 ```bash
+read -rsp "Clave (ck_...): " WC_KEY; echo
+read -rsp "Secreto (cs_...): " WC_SECRET; echo
+
 curl -s -o /dev/null -w "%{http_code} %{content_type}\n" \
   -H "User-Agent: OfipapelWhatsAppBot/1.0" \
-  -u "ck_LA_CLAVE:cs_EL_SECRETO" \
+  --user "$WC_KEY:$WC_SECRET" \
   "https://ofipapel.net/wp-json/wc/v3/products?search=toner&per_page=3"
 ```
 
