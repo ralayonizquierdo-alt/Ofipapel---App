@@ -785,7 +785,19 @@ const FAQ_RULES = [
     // ("el 305XL cuesta X, y sí, te lo mandamos a casa"), que es lo que quería
     // el cliente. Ver reglaDeContexto en whatsapp-agent-core.js.
     contexto: true,
-    keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'gastos de portes', 'coste de portes', 'costo de portes', 'importe de portes', 'cuanto son los portes', 'cuánto son los portes', 'cuanto cuestan los portes', 'cuánto cuestan los portes', 'cuando llega', 'cuándo llega', 'plazo de entrega', 'mandan a', 'mandais', 'mandáis', 'enviais', 'enviáis', 'envian a', 'envían a', 'a domicilio', 'domicilio', 'mandarla', 'mandarlo', 'mandarmelo', 'mandármelo', 'enviarla', 'enviarlo', 'enviarmelo', 'enviármelo', 'me lo mandan', 'me la mandan', 'lo mandan a', 'la mandan a', 'contra reembolso'],
+    keywords: ['envio', 'envío', 'envios', 'envíos', 'gastos de envio', 'gastos de envío', 'gastos de portes', 'coste de portes', 'costo de portes', 'importe de portes', 'cuanto son los portes', 'cuánto son los portes', 'cuanto cuestan los portes', 'cuánto cuestan los portes', 'cuando llega', 'cuándo llega', 'plazo de entrega',
+      // "¿cuánto tardan en entregarlo?" es LA forma de preguntar por el plazo, y
+      // no la cogía ninguna regla: solo estaba "cuánto tarda el envío", que
+      // funcionaba de casualidad por la palabra "envío". Sin regla, la pregunta
+      // se iba a la IA y de paso arrastraba una búsqueda en el catálogo que no
+      // pintaba nada — con la web lenta, tres minutos de espera para un dato
+      // que es fijo. Visto en real (8/9/2026).
+      'cuanto tarda', 'cuánto tarda', 'cuanto tardan', 'cuánto tardan',
+      'cuanto tardais', 'cuánto tardáis', 'cuanto se tarda', 'cuánto se tarda',
+      'cuanto tiempo tarda', 'cuánto tiempo tarda', 'cuanto tiempo llega',
+      'en entregarlo', 'en entregarla', 'en entregarmelo', 'en entregármelo',
+      'en entregar', 'en llegar', 'tarda en llegar', 'tardan en llegar',
+      'plazo de reparto', 'tiempo de entrega', 'plazos de entrega', 'mandan a', 'mandais', 'mandáis', 'enviais', 'enviáis', 'envian a', 'envían a', 'a domicilio', 'domicilio', 'mandarla', 'mandarlo', 'mandarmelo', 'mandármelo', 'enviarla', 'enviarlo', 'enviarmelo', 'enviármelo', 'me lo mandan', 'me la mandan', 'lo mandan a', 'la mandan a', 'contra reembolso'],
     reply: enviosReply,
   },
   {

@@ -11,6 +11,20 @@
 const woocommerce = require('./woocommerce-client');
 const conversationStore = require('./conversation-store');
 const consumibles = require('./whatsapp-consumibles');
+const { pareceConsultaDeProducto } = require('./whatsapp-agent-config');
+
+// Las formas con las que se pregunta por un ARTÍCULO, para no ir al catálogo
+// cuando la pregunta va de horarios, plazos o facturas.
+//
+// La lista tira a generosa a propósito: sobra consultar de más (cuesta tiempo)
+// y falta consultar de menos (el bot se queda sin precios y sin stock). Ante la
+// duda, se consulta.
+const PREGUNTA_POR_ARTICULO =
+  /\b(ten[eé]is|tienen|tiene|hay|vend[eé]is|venden|vende|dispon(?:ible|éis|eis)|stock|precio|precios|cuesta|cuestan|vale|valen|busco|buscando|necesito|necesitaba|quiero|quisiera|me hace falta|modelo|marca|referencia|cart?ucho|t[oó]ner|tinta|papel|folios)\b/i;
+
+function preguntaPorUnArticulo(texto) {
+  return PREGUNTA_POR_ARTICULO.test(String(texto || ''));
+}
 
 // Une lo que sabemos del catálogo y lo que sabemos de la impresora del cliente.
 // Los dos bloques son independientes: uno puede existir sin el otro.
@@ -84,6 +98,27 @@ async function construirContextoCatalogo({ from, text, history }) {
   const contextoConsumibles = consumibles.bloqueDeConsumibles(impresoras);
 
   if (!woocommerce.isConfigured()) {
+    return { productContext: null, contextoConsumibles, impresoras, fallo: false };
+  }
+
+  // ¿De verdad hace falta preguntarle al catálogo?
+  //
+  // Hasta ahora se consultaba SIEMPRE, incluso para "¿cuánto tardan en
+  // entregarlo?". Eso no solo es trabajo en balde: ofipapel.net es lento y a
+  // ratos nos bloquea, así que cuando la consulta falla el cliente se lleva un
+  // "un segundo, por favor" y la respuesta se va a la función de segundo plano.
+  // Visto en real el 8/9/2026: tres minutos de reloj para decir un plazo de
+  // entrega que es un dato fijo y que no está en el catálogo.
+  //
+  // El criterio se equivoca a propósito hacia el lado seguro. Saltarse el
+  // catálogo cuando SÍ era una consulta de producto es caro (el bot se queda
+  // sin precios); consultarlo de más solo cuesta tiempo, que es justo lo que
+  // había antes. Así que solo se salta cuando NO hay ninguna señal de producto:
+  //   - ninguna impresora reconocida en la conversación,
+  //   - ninguna referencia ("305XL", "TN-248"),
+  //   - y ninguna de las formas con las que se pregunta por un artículo.
+  // "¿Tenéis grapadoras? ¿Y las mandáis a casa?" lleva "tenéis": se consulta.
+  if (!impresoras.length && !pareceConsultaDeProducto(text) && !preguntaPorUnArticulo(text)) {
     return { productContext: null, contextoConsumibles, impresoras, fallo: false };
   }
 
