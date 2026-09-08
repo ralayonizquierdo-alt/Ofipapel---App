@@ -53,7 +53,12 @@ bash build.sh   # compila alquileres y joe-app, y ensambla todo en _site/
 - **Netlify** (`netlify.toml`) es la fuente de verdad: ejecuta `build.sh`,
   publica `_site/` y sirve las funciones serverless de `netlify/functions/`.
   Rutas: `/alquileres/*` → `alquileres/dist`, `/joe/*` → `joe-app/dist`,
-  el resto son los HTML estáticos de la raíz.
+  el resto son los HTML estáticos de la raíz. **`/joe/` solo se publica en el
+  sitio que tenga `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`** (hoy solo
+  `joesworld`): Vite mete esas variables dentro del bundle en tiempo de build
+  y sin ellas compila igual, dejando una app que se abre y no conecta con
+  nada. Donde faltan, `/joe/` da 404 a propósito — un 404 se ve, una app sin
+  backend parece que funciona. Comprobable con `scripts/comprobar-copias.sh`.
 - **GitHub Pages** (`.github/workflows/pages.yml`) es el respaldo: ejecuta
   `bash build.sh` (el mismo script que Netlify, sin duplicar la lista de
   ficheros a mano) y publica `_site/`, así que genera exactamente el mismo

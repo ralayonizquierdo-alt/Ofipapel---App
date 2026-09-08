@@ -78,17 +78,44 @@ else
   build_alquileres
 fi
 
-if should_skip_build "joe-app/" "$CACHE_DIR/joe-dist"; then
-  echo "== joe-app: sin cambios desde el último deploy, reutilizando build anterior =="
-  mkdir -p joe-app/dist
-  cp -r "$CACHE_DIR/joe-dist/." joe-app/dist/
+# ── Joe's App solo se publica donde puede funcionar ────────────────────────
+# Vite mete VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY DENTRO del bundle en
+# tiempo de build. Si no están en el entorno no falla nada: compila igual y
+# deja `createClient(void 0, void 0)`, o sea una app que se abre y no conecta
+# con nada.
+#
+# Esas variables solo están puestas en el sitio `joesworld` de Netlify. Los
+# otros dos sitios y GitHub Pages llevaban meses publicando ese bundle vacío
+# en /joe/ — comprobado el 2026-09-08 descargando los cuatro y mirando dentro:
+# tres de las cuatro copias estaban rotas y las cuatro devolvían 200, así que
+# por fuera no se distinguían.
+#
+# Publicar algo roto es peor que no publicarlo: quien abra una de esas URL ve
+# la app, mete su PIN y no entiende por qué no hay datos. Así que si faltan
+# las credenciales, /joe/ simplemente no se publica ahí — y de paso se ahorra
+# el `npm ci` + build de una app que no iba a servir para nada.
+if [ -n "${VITE_SUPABASE_URL:-}" ] && [ -n "${VITE_SUPABASE_ANON_KEY:-}" ]; then
+  PUBLICAR_JOE=1
 else
-  build_joe_app
+  PUBLICAR_JOE=0
+  echo "== joe-app: NO se publica aquí — faltan VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY =="
+  echo "   (es lo correcto en todo sitio que no sea 'joesworld'; sin ellas el"
+  echo "    bundle se compila sin backend y la app no conecta con nada)"
+fi
+
+if [ "$PUBLICAR_JOE" = "1" ]; then
+  if should_skip_build "joe-app/" "$CACHE_DIR/joe-dist"; then
+    echo "== joe-app: sin cambios desde el último deploy, reutilizando build anterior =="
+    mkdir -p joe-app/dist
+    cp -r "$CACHE_DIR/joe-dist/." joe-app/dist/
+  else
+    build_joe_app
+  fi
 fi
 
 # Assemble _site: static root files + built apps
 mkdir -p _site/alquileres
-mkdir -p _site/joe
+if [ "$PUBLICAR_JOE" = "1" ]; then mkdir -p _site/joe; fi
 
 # Copy root static files
 cp inicio.html _site/
@@ -142,7 +169,7 @@ cp 404.html _site/ 2>/dev/null || true
 
 # Copy the built apps
 cp -r alquileres/dist/. _site/alquileres/
-cp -r joe-app/dist/. _site/joe/
+if [ "$PUBLICAR_JOE" = "1" ]; then cp -r joe-app/dist/. _site/joe/; fi
 
 # SPA routing (+ fuerza "/" al hub exacto, ver comentario en netlify.toml).
 # El "!" tras el 200 es la sintaxis de _redirects para force=true: sin él,
@@ -152,5 +179,9 @@ cp -r joe-app/dist/. _site/joe/
   echo "/               /inicio.html              200!"
   echo "/Index.html     /finanzas.html            200!"
   echo "/alquileres/*  /alquileres/index.html  200"
-  echo "/joe/*         /joe/index.html          200"
+  # Sin la regla, /joe/ da 404 en vez de servir una app sin backend. Es lo que
+  # se quiere: un 404 se ve, una app que no conecta parece que funciona.
+  if [ "$PUBLICAR_JOE" = "1" ]; then
+    echo "/joe/*         /joe/index.html          200"
+  fi
 } > _site/_redirects
