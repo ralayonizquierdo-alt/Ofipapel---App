@@ -11,6 +11,7 @@
 const {
   isConfigured,
   loadConversation,
+  loadListaConversaciones,
   appendAgentMessage,
   listConversationPhones,
   pauseBot,
@@ -973,9 +974,36 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
   </form></li>`;
     })
     .join('');
-  // Auto-refresco cada 30s para que la lista (y el contador de sin leer) se
-  // mantenga al día sin tener que recargar a mano.
-  const autoRefresh = `<script>setTimeout(function(){ location.reload(); }, 30000);</script>`;
+  // Auto-refresco, para que la lista y el contador de sin leer se mantengan al
+  // día sin recargar a mano. Con tres frenos, y los tres hacen falta:
+  //
+  //   1. Solo si la pestaña se está VIENDO. Antes recargaba igual con el móvil
+  //      en el bolsillo y el navegador de fondo, que es como se gastó el cupo.
+  //   2. Cada 2 minutos, no cada 30 segundos. Esto es una papelería: nadie
+  //      necesita ver el mensaje en el segundo 30.
+  //   3. Se para solo a la media hora sin tocar nada. Una pestaña olvidada deja
+  //      de contar; en cuanto se vuelve a ella, se recarga y arranca de nuevo.
+  //
+  // Sin esto, el 8/9/2026 se agotó el cupo mensual de Upstash (500.000
+  // comandos) en un día con una sola pestaña abierta, y el bot se quedó sin
+  // poder guardar conversaciones.
+  const autoRefresh = `<script>
+(function () {
+  var CADA = 120000, LIMITE = 30 * 60 * 1000, desde = Date.now();
+  ['click', 'keydown', 'touchstart', 'scroll'].forEach(function (e) {
+    document.addEventListener(e, function () { desde = Date.now(); }, { passive: true });
+  });
+  // Al volver a la pestaña se refresca ya: es cuando de verdad quieres el dato.
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && Date.now() - desde > CADA) location.reload();
+  });
+  setInterval(function () {
+    if (document.hidden) return;
+    if (Date.now() - desde > LIMITE) return;
+    location.reload();
+  }, CADA);
+})();
+</script>`;
   const buscador = `<form class="buscador" method="GET">
   <input type="search" name="q" value="${escapeHtml(consulta)}" placeholder="Buscar en las conversaciones: teléfono, nombre, producto..." aria-label="Buscar conversaciones">
   <button type="submit" class="btn btn-ghost">${ICON.lupa} Buscar</button>
@@ -1726,27 +1754,31 @@ exports.handler = async (event) => {
     };
   }
 
-  const [phones, diagnostic, pendientes, pausaGlobal] = await Promise.all([
+  // El diagnóstico escribe, lee y borra una clave de prueba: 3 comandos en cada
+  // carga, que con la recarga automática es mucho para algo que casi siempre
+  // sale bien. Se hace solo cuando falla de verdad algo (la lista viene vacía
+  // pudiendo no estarlo) o cuando se pide a mano con ?diagnostico=1.
+  //
+  // No se pierde el aviso: si Upstash está caído o sin cupo, listConversationPhones
+  // falla y devuelve vacío, que es justo el caso en que sí se diagnostica.
+  const [phones, pendientes, pausaGlobal] = await Promise.all([
     listConversationPhones(),
-    diagnose(),
     listarBusquedasSinResultado(),
     getPausaGlobal(),
   ]);
+  const pedidoAMano = event.queryStringParameters?.diagnostico === '1';
+  const diagnostic = pedidoAMano || phones.length === 0 ? await diagnose() : { ok: true };
   const consulta = (event.queryStringParameters?.q || '').trim();
   const palabras = palabrasDeBusqueda(consulta);
 
-  const entries = await Promise.all(
-    phones.map(async (phone) => {
-      // Las cuatro consultas van en paralelo, así que la lista tarda lo que la
-      // más lenta, no la suma. La ficha hace falta siempre: de ahí salen el
-      // nombre y el asunto que se enseñan en la tarjeta.
-      const [messages, lastViewed, pausado, ficha] = await Promise.all([
-        loadConversation(phone),
-        getLastViewed(phone),
-        isBotPaused(phone),
-        getFichaCliente(phone),
-      ]);
+  // Todo de golpe: 4 comandos en total, no 4 por conversación. Antes esta línea
+  // era un Promise.all por teléfono y con 40 conversaciones hacía 160 comandos
+  // en cada carga — con la recarga automática, el cupo mensual de Upstash en un
+  // solo día. Ver loadListaConversaciones en conversation-store.js.
+  const datos = await loadListaConversaciones(phones);
 
+  const entries = await Promise.all(
+    datos.map(async ({ phone, messages, lastViewed, pausado, ficha }) => {
       if (palabras.length) {
         const buscable = textoBuscable(phone, messages, ficha);
         if (!palabras.every((palabra) => buscable.includes(palabra))) return null;
