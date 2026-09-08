@@ -59,6 +59,18 @@ def leer_excel_proveedor(
     df = pd.read_excel(BytesIO(contenido_bytes), header=config_excel["fila_cabecera"])
     df = _normalizar_columnas(df)
 
+    # Si hay columnas con el mismo nombre, añadir sufijo _1, _2, ...
+    seen: dict[str, int] = {}
+    new_cols = []
+    for col in df.columns:
+        if col in seen:
+            seen[col] += 1
+            new_cols.append(f"{col}_{seen[col]}")
+        else:
+            seen[col] = 0
+            new_cols.append(col)
+    df.columns = new_cols
+
     # Renombrar columnas con nombre distinto al esperado (p.ej. Inforpor llama
     # "r_precio_actual" a lo que el resto llama "precio").
     if columnas_mapa:
