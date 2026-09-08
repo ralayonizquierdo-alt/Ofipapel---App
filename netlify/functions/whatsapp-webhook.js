@@ -121,13 +121,21 @@ async function alreadyProcessed(messageId) {
 function verifySignature(event) {
   const secret = process.env.WHATSAPP_APP_SECRET;
   if (!secret) {
-    // Sin la variable configurada, CUALQUIERA que conozca esta URL puede
-    // simular mensajes de cliente reales (gastando la cuota de Claude,
-    // disparando avisos falsos al propietario, etc.) — no hay ninguna otra
-    // verificación en este webhook. Hoy sí está configurada en Netlify; este
-    // aviso es la red por si alguna vez se borra.
-    console.warn('whatsapp-webhook: WHATSAPP_APP_SECRET no configurada — la petición NO se verifica, cualquiera puede simular un mensaje de WhatsApp real.');
-    return true;
+    // CIERRA POR DEFECTO. Antes esto devolvía `true`: sin la variable, el
+    // webhook aceptaba cualquier petición y solo dejaba un aviso en unos logs
+    // que nadie mira. Cualquiera que conociera la URL podía simular mensajes
+    // de cliente reales — gastando cuota de Claude, disparando avisos falsos
+    // al propietario y metiendo conversaciones inventadas en el panel.
+    //
+    // Es el mismo patrón que ya mordió dos veces en este repositorio
+    // (`marketing-engine-run`, DT-25; y `leer-reserva-airbnb`): un descuido de
+    // configuración no debe abrir un endpoint en silencio.
+    //
+    // El intercambio, explícito: si la variable desaparece, el bot deja de
+    // responder a los clientes. Eso se nota en horas y se arregla poniendo la
+    // variable. Lo contrario —aceptar mensajes de cualquiera— no se nota nunca.
+    console.error('whatsapp-webhook: falta WHATSAPP_APP_SECRET. Se rechazan TODAS las peticiones hasta que se configure: sin ella no hay forma de distinguir a Meta de un impostor.');
+    return false;
   }
 
   const header = event.headers['x-hub-signature-256'] || event.headers['X-Hub-Signature-256'];
