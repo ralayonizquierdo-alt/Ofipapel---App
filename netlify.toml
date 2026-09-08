@@ -17,6 +17,23 @@
   # de claves cliente de este repo, ver CLAUDE.md). El escaneo de secretos de
   # Netlify la detecta como falso positivo y bloquea el deploy.
   SECRETS_SCAN_OMIT_PATHS = "fichaje.html"
+  # Netlify tiene DOS escaneos y esta variable solo silencia el primero. El
+  # segundo ("smart detection") no mira rutas sino valores, y tiene su propia
+  # lista: SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES. Es el que tumbó el deploy
+  # de fichar.js con `Build script returned non-zero exit code: 2`, señalando
+  # la misma apiKey ya declarada arriba como falso positivo.
+  #
+  # Las dos claves de abajo son apiKeys web de Firebase (Ofipapel Fichaje y
+  # ofipapelvv). Van dentro de fichaje.html y vacaciones.html, que se sirven
+  # tal cual a cualquier navegador: publicarlas no añade exposición ninguna,
+  # es como se distribuye siempre un cliente Firebase. Las credenciales de
+  # verdad de estas funciones son FICHAJE_FIREBASE_PASSWORD y
+  # VACACIONES_FIREBASE_PASSWORD, y esas viven solo en el entorno.
+  #
+  # Si alguna vez aparece aquí algo que NO sea una apiKey web de Firebase,
+  # es que se está silenciando un secreto real: el arreglo es sacarlo del
+  # código, no alargar esta lista.
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyCZ7cBQXZkw-VB0vnJE4m8lj3mscyiIMEc,AIzaSyDLqPoqiMgiqbk5Uv-4RoYrbA-5Yfc1A_s"
 
 [functions]
   directory = "netlify/functions"

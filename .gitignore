@@ -17,3 +17,17 @@ __pycache__/
 .env.*.local
 .claude/settings.local.json
 .claude/worktrees/
+
+# Informes de auditoría de infraestructura (.claude/rax/auditoria-*.md)
+#
+# Se quedan FUERA de git a propósito. Este repositorio es público (DT-30) y
+# esos informes describen, paso a paso, cómo entrar en sistemas que a fecha de
+# hoy siguen abiertos: el proyecto Firebase de fichaje admite escritura anónima
+# y la tabla `usuarios` de Supabase guarda contraseñas en claro. Subirlos aquí
+# sería publicar el manual de ataque junto al fallo.
+#
+# Viven solo en la máquina de trabajo. Cuando los agujeros que describen estén
+# cerrados y verificados, se puede publicar una versión resumida —sin claves,
+# rutas ni pasos reproducibles— en AUDITORIA_SEGURIDAD_*.md, que es el
+# documento pensado para ser público.
+.claude/rax/auditoria-*.md

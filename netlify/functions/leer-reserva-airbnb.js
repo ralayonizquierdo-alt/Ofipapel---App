@@ -85,11 +85,20 @@ exports.handler = async (event) => {
     return { statusCode: 405, headers: CORS_HEADERS, body: 'Method Not Allowed' };
   }
 
-  const esperado = process.env.OCR_TOKEN;
-  if (esperado) {
-    const token = event.headers['x-ocr-token'] || event.headers['X-Ocr-Token'];
-    if (token !== esperado) return responde(401, { error: 'Token inválido' });
-  }
+  // Cierra por defecto. Antes la comprobación solo se aplicaba SI la variable
+  // existía: sin ella, el endpoint quedaba abierto de par en par y nada lo
+  // delataba. Comprobado en producción el 2026-09-08 — un token deliberadamente
+  // incorrecto pasaba la puerta y llegaba a validar el cuerpo (400 en vez de
+  // 401), lo que significa que cualquiera con la dirección podía disparar
+  // llamadas de pago a Anthropic.
+  //
+  // Es exactamente el mismo fallo que ya se corrigió en marketing-engine-run
+  // (DT-25): un descuido de configuración no debe abrir un endpoint. Sin
+  // OCR_TOKEN se usa el mismo valor que lleva embebido el cliente, que no es
+  // un secreto real (viaja en el bundle) pero impide que quede abierto.
+  const esperado = process.env.OCR_TOKEN || 'ofipapel-ocr-2026';
+  const token = event.headers['x-ocr-token'] || event.headers['X-Ocr-Token'];
+  if (token !== esperado) return responde(401, { error: 'Token inválido' });
 
   if (isRateLimited(clientIp(event))) {
     return responde(429, { error: 'Demasiadas imágenes seguidas. Espera un momento.' });
