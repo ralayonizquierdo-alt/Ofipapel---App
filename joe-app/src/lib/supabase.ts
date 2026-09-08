@@ -35,10 +35,28 @@ export class SinSesionError extends Error {
   }
 }
 
-/** ¿Hay una sesión guardada y válida en este dispositivo? */
+/**
+ * ¿Hay una sesión guardada y válida en este dispositivo?
+ *
+ * No basta con que exista: los dispositivos que ya venían usando la app
+ * tienen guardada una sesión ANÓNIMA de antes de este cambio. Si se diera
+ * por buena, esos móviles —que son justo los que hay que migrar— nunca
+ * verían la pantalla de conectar, todo parecería correcto, y al desactivar
+ * "Allow anonymous sign-ins" se quedarían fuera sin previo aviso. Es la
+ * trampa de DT-29 otra vez, pero silenciosa.
+ *
+ * Así que una sesión anónima se descarta y se cierra, para que el
+ * dispositivo pida credenciales igual que uno nuevo.
+ */
 export async function haySesion(): Promise<boolean> {
   const { data } = await supabase.auth.getSession()
-  return Boolean(data.session)
+  if (!data.session) return false
+
+  if (data.session.user.is_anonymous) {
+    await supabase.auth.signOut()
+    return false
+  }
+  return true
 }
 
 /**
