@@ -135,6 +135,23 @@ def main():
     )
 
     hoy = date.today().isoformat()
+
+    # Inicializar Excel COM una sola vez para todos los proveedores
+    xl = None
+    usar_com = False
+    try:
+        import win32com.client
+        import pythoncom
+        pythoncom.CoInitialize()
+        xl = win32com.client.Dispatch("Excel.Application")
+        xl.Visible = False
+        xl.DisplayAlerts = False
+        usar_com = True
+    except ImportError:
+        print("AVISO: pywin32 no instalado, se generaran .xlsx en lugar de .xls")
+    except Exception as e:
+        print(f"AVISO: no se pudo iniciar Excel COM ({e}), se generaran .xlsx")
+
     drafts_creados = {}
     for nombre, mensaje in correos_por_proveedor.items():
         print(f"\n--- Procesando {nombre} ---")
@@ -155,32 +172,22 @@ def main():
             with open(ruta_xlsx_tmp, "wb") as f:
                 f.write(excel_bytes)
 
-            nombre_xls = os.path.splitext(nombre_archivo_salida)[0] + ".xls"
-            ruta_xls = os.path.join(config["salida"]["carpeta"], nombre_xls)
-            try:
-                import win32com.client
-                import pythoncom
-                pythoncom.CoInitialize()
-                xl = win32com.client.Dispatch("Excel.Application")
-                xl.Visible = False
-                xl.DisplayAlerts = False
-                wb_com = xl.Workbooks.Open(os.path.abspath(ruta_xlsx_tmp))
-                wb_com.SaveAs(os.path.abspath(ruta_xls), FileFormat=56)
-                wb_com.Close(False)
-                xl.Quit()
-                pythoncom.CoUninitialize()
-                os.remove(ruta_xlsx_tmp)
-                ruta_local = ruta_xls
-                nombre_archivo_salida = nombre_xls
-                print(f"XLS generado: {ruta_local}")
-            except ImportError:
-                ruta_local = ruta_xlsx_tmp
-                print(f"Excel generado (xlsx): {ruta_local}")
-            except Exception as e:
-                import traceback
-                print(f"ERROR convirtiendo a XLS: {e}")
-                traceback.print_exc()
-                ruta_local = ruta_xlsx_tmp
+            if usar_com:
+                nombre_xls = os.path.splitext(nombre_archivo_salida)[0] + ".xls"
+                ruta_xls = os.path.join(config["salida"]["carpeta"], nombre_xls)
+                try:
+                    wb_com = xl.Workbooks.Open(os.path.abspath(ruta_xlsx_tmp))
+                    wb_com.SaveAs(os.path.abspath(ruta_xls), FileFormat=56)
+                    wb_com.Close(False)
+                    os.remove(ruta_xlsx_tmp)
+                    nombre_archivo_salida = nombre_xls
+                    print(f"XLS generado: {ruta_xls}")
+                except Exception as e:
+                    import traceback
+                    print(f"ERROR convirtiendo a XLS: {e}")
+                    traceback.print_exc()
+            else:
+                print(f"Excel generado (xlsx): {ruta_xlsx_tmp}")
 
             if not args.dry_run:
                 draft_id = graph_client.crear_borrador_respuesta_con_adjunto(
@@ -197,6 +204,13 @@ def main():
             import traceback
             print(f"ERROR GRAVE procesando {nombre}:")
             traceback.print_exc()
+
+    if usar_com:
+        try:
+            xl.Quit()
+            pythoncom.CoUninitialize()
+        except Exception:
+            pass
 
     excel_bytes_no_stock = excel_logic.construir_excel_no_stock(
         df_consolidado,
