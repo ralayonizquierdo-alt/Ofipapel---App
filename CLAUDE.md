@@ -101,9 +101,11 @@ el repo:
   DT-15.
 - `joe-app` usa `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` vía
   `.env.local` (no versionado) en desarrollo, inyectadas por Netlify en
-  producción. Requiere además **"Allow anonymous sign-ins"** activado en
-  Supabase (Authentication → Sign In / Providers) para que la sesión
-  anónima de RLS funcione.
+  producción. Ya **no** usa sesión anónima: cada dispositivo se conecta una
+  sola vez con una cuenta real de Supabase Auth (`ConectarCuenta.tsx`), y
+  supabase-js guarda y renueva esa sesión. Hace falta crear esa cuenta a
+  mano en Supabase (Authentication → Users → Add user), porque el registro
+  público está cerrado.
 - `alquileres` usa credenciales de Firebase (ver `alquileres/src/lib/firebase.ts`)
   para Firestore y Firebase Authentication. Requiere activar el proveedor
   "Anonymous" en Firebase Console → Authentication → Sign-in method y
@@ -138,8 +140,17 @@ correctas; la de `Index.html` sigue sin verificar, ver seguridad conocida).
   por defecto** que `Index.html` entre sus dos usuarios (Luis/Rober) — no
   es casualidad, es el mismo valor. Mismo tipo de riesgo, mismo origen
   (DT-11).
-- `joe-app`: ya resuelto — sesión anónima de Supabase Auth + RLS real
-  (`to authenticated`, no `to anon`).
+- `joe-app`: **estuvo mal dado por resuelto**. Decía "sesión anónima de
+  Supabase Auth + RLS real (`to authenticated`, no `to anon`)", y las
+  políticas RLS sí son correctas — pero la sesión anónima la abre
+  cualquiera con la clave pública del bundle, así que `authenticated` no
+  exigía nada. Comprobado en vivo el 2026-09-08: con una sesión anónima
+  recién creada se leen enteras las 7 tablas. El código ya está corregido
+  (`ConectarCuenta.tsx` + `lib/supabase.ts`: cuenta real, una vez por
+  dispositivo). Queda **pendiente en Supabase**, y en este orden: crear la
+  cuenta → conectar los dispositivos → recién entonces desactivar "Allow
+  anonymous sign-ins" y el registro público. Al revés deja la app
+  inservible, que es exactamente lo que pasó con `fichaje.html` (DT-29).
 - El Asistente IA de `Index.html`: ya resuelto — proxy server-side, la API
   key de Anthropic ya no vive en el navegador.
 - Dos canales de WhatsApp en paralelo (Meta y Twilio): ya resuelto — se
