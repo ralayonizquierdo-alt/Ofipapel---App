@@ -19,7 +19,7 @@ sesión — no dupliques aquí lo que ya vive en otro sitio.
 | `fichaje.html` | Registro horario del personal (fichajes, exportación mensual, login de gerencia) | HTML/CSS/JS vanilla en un único fichero, sin build. Backend Firebase (ver comentario `SECRETS_SCAN_OMIT_PATHS` en `netlify.toml`). Ya tiene icono propio en el hub de `inicio.html` (nodo blanco/plata, "Fichajes"). |
 | `app.html` | Panel de redes sociales de Ofipapel: Almacén (centro de trabajo creativo — crea campañas y el Marketing Engine las produce) y Calendario (solo programa en el tiempo lo que el Almacén ya aprobó) | HTML/CSS/JS vanilla en un único fichero, sin build. Estado compartido en memoria (`CampaignStore`, sin persistencia — se pierde al recargar). Crea campañas vía `netlify/functions/marketing-engine-run.js`; nunca implementa lógica creativa propia, ver `marketing-engine/INTEGRATION.md`. |
 | `privacidad.html`, `404.html` | Política de privacidad (review de WhatsApp Cloud API) y página 404 propia | HTML estático |
-| `joe-app/` | App personal: agenda, turnos de hospital, música, seguimiento de "Limón", tareas de empresa, "Coisinhas" | React 19 + Vite + TypeScript + Tailwind 4 + Supabase (RLS real vía sesión anónima, ver seguridad). Acceso por PIN + biometría WebAuthn opcional (`PinScreen.tsx`), sin distinguir personas. |
+| `joe-app/` | App personal: agenda, turnos de hospital, música, seguimiento de "Limón", tareas de empresa, "Coisinhas" | React 19 + Vite + TypeScript + Tailwind 4 + Supabase con RLS real y **cuenta real** (no sesión anónima): cada dispositivo se conecta una vez con correo y contraseña (`components/ConectarCuenta.tsx`), y la sesión queda guardada. El PIN + biometría WebAuthn opcional (`PinScreen.tsx`) sigue bloqueando la pantalla en el día a día, sin distinguir personas — son dos cosas distintas: el PIN bloquea la pantalla, la cuenta da acceso a los datos. |
 | `alquileres/` | Gestión de alquileres vacacionales: reservas, precios, reparaciones, cobros, analítica | React 19 + Vite + TypeScript + Tailwind 4 + Recharts. Backend **Firebase Firestore** (`contexts/DataContext.tsx`, tiempo real vía `onSnapshot`) con login por persona (`LoginScreen.tsx`, Luis/Rober) y migración automática de datos antiguos de `localStorage` (`MigrateLocalData.tsx`). `@supabase/supabase-js` sigue como dependencia en `package.json` pero ya no se usa en ningún fichero — dependencia muerta, ver `.claude/rax/DEUDA_TECNICA.md` DT-10. |
 | `netlify/functions/` | Bot de WhatsApp con IA + proxy del Asistente IA de `Index.html` | Netlify Functions. `whatsapp-webhook.js` (Meta Cloud API, único canal — la alternativa por Twilio se eliminó) usa `whatsapp-agent-core.js` (matching de FAQ + llamada a Claude) y `whatsapp-agent-config.js` (datos del negocio). `whatsapp-consumibles.js` responde "qué cartucho lleva mi impresora" a partir de un índice propio (`data/consumibles-impresora.json`, generado con `scripts/generar-consumibles.py` desde el Excel del distribuidor en `scripts/datos/`) — va empaquetado con la función, no se consulta por red, y de él sale la referencia comercial con la que luego se busca precio en el catálogo — escrita como la escribe la web (`TN-248`, no `TN248`) gracias a `data/referencias-catalogo.json`, que genera `scripts/emparejar-catalogo.py` descargando el catálogo entero una vez; ese fichero es opcional y sin él se busca por la referencia del proveedor. Ver `WHATSAPP_SETUP.md`. `chat-assistant.js` es un proxy aparte para el chat de `Index.html`: la API key de Anthropic vive solo aquí, nunca en el navegador. `marketing-engine-run.js` conecta `app.html` con el Motor de Marketing/Creative Lab — solo válida con el proveedor `simulated` (termina dentro del límite síncrono de Netlify, ~26s). Con el proveedor real (`openai-images`) usar en su lugar `marketing-engine-run-background.js` (Background Function, hasta 15 min, sin ese límite) + `marketing-engine-status.js` (consulta el resultado por `trackingId` vía Netlify Blobs) — DT-17, `.claude/rax/DEUDA_TECNICA.md`. `app.html` todavía llama al endpoint síncrono antiguo, pendiente de migrar al patrón background+polling. |
 | `design-studio/` | Estudio de diseño autónomo de RAX: banners, posts, flyers, edición de imagen | Ver `design-studio/README.md` — brand kit real por app (verificado contra el CSS de cada una), script de render HTML→PNG/PDF (`render-html.js`, probado), integración con Adobe Firefly API (`firefly-generate.js`, código completo, sin probar — pendiente de credenciales). No se ejecuta como parte de ningún build; es una herramienta que se invoca a demanda. |
@@ -143,18 +143,16 @@ correctas; la de `Index.html` sigue sin verificar, ver seguridad conocida).
   por defecto** que `Index.html` entre sus dos usuarios (Luis/Rober) — no
   es casualidad, es el mismo valor. Mismo tipo de riesgo, mismo origen
   (DT-11).
-- `joe-app`: **estuvo mal dado por resuelto**. Decía "sesión anónima de
-  Supabase Auth + RLS real (`to authenticated`, no `to anon`)", y las
-  políticas RLS sí son correctas — pero la sesión anónima la abre
-  cualquiera con la clave pública del bundle, así que `authenticated` no
-  exigía nada. Comprobado en vivo el 2026-09-08: con una sesión anónima
-  recién creada se leen enteras las 7 tablas. El código ya está corregido
-  (`ConectarCuenta.tsx` + `lib/supabase.ts`: cuenta real, una vez por
-  dispositivo). Queda **pendiente en Supabase**, y en este orden: crear la
-  cuenta → conectar los dispositivos → recién entonces desactivar "Allow
-  anonymous sign-ins" y el registro público. Al revés deja la app
-  inservible, que es exactamente lo que pasó con `fichaje.html` (DT-29).
-  Detalle completo en `.claude/rax/DEUDA_TECNICA.md` DT-33.
+- `joe-app`: **ya resuelto (2026-09-08), y esta vez verificado**. Estuvo
+  mal dado por cerrado antes: decía "sesión anónima de Supabase Auth + RLS
+  real", y las políticas RLS sí eran correctas — pero la sesión anónima la
+  abre cualquiera con la clave pública del bundle, así que `authenticated`
+  no exigía nada y las 7 tablas se leían enteras. Ahora cada dispositivo se
+  conecta una vez con una cuenta real (`ConectarCuenta.tsx`), y el acceso
+  anónimo y el registro público están desactivados. Comprobado con
+  peticiones reales: alta anónima → `422 anonymous_provider_disabled`, y
+  las tablas → 401 sin credencial. Detalle en
+  `.claude/rax/DEUDA_TECNICA.md` DT-33.
 - El Asistente IA de `Index.html`: ya resuelto — proxy server-side, la API
   key de Anthropic ya no vive en el navegador.
 - Dos canales de WhatsApp en paralelo (Meta y Twilio): ya resuelto — se
