@@ -176,6 +176,11 @@ def main():
             ruta_local = ruta_xlsx_tmp
             print(f"Excel generado (xlsx): {ruta_local}")
             print("AVISO: instala pywin32 para obtener el .xls")
+        except Exception as e:
+            import traceback
+            print(f"ERROR convirtiendo a XLS ({nombre}): {e}")
+            traceback.print_exc()
+            ruta_local = ruta_xlsx_tmp
 
         if not args.dry_run:
             draft_id = graph_client.crear_borrador_respuesta_con_adjunto(
