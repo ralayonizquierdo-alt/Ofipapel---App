@@ -95,12 +95,18 @@ export async function textoDeImagen(f: File): Promise<string> {
   const { base64, mediaType } = await preparaImagen(f)
   if (!TIPOS_OK.includes(mediaType)) throw new ErrorImagen('Formato de imagen no admitido')
 
-  const token = import.meta.env.VITE_OCR_TOKEN
+  // El mismo valor por defecto que usa la función si no hay OCR_TOKEN en el
+  // entorno. No es un secreto de verdad —viaja dentro de este bundle, que es
+  // público— pero permite que el endpoint cierre por defecto en vez de quedar
+  // abierto a cualquiera que conozca su dirección. Antes el cliente no mandaba
+  // nada cuando VITE_OCR_TOKEN no estaba puesta, así que cerrar el servidor sin
+  // tocar esto habría dejado el lector de reservas sin funcionar.
+  const token = import.meta.env.VITE_OCR_TOKEN || 'ofipapel-ocr-2026'
   let resp: Response
   try {
     resp = await fetch(urlDeLaFuncion('leer-reserva-airbnb'), {
       method: 'POST',
-      headers: { 'content-type': 'application/json', ...(token ? { 'x-ocr-token': token } : {}) },
+      headers: { 'content-type': 'application/json', 'x-ocr-token': token },
       body: JSON.stringify({ imagenBase64: base64, mediaType }),
     })
   } catch {

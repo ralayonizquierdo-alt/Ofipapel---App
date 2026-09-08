@@ -30,9 +30,26 @@ exports.handler = async (event) => {
   const jwt = (event.headers.authorization || '').replace('Bearer ', '');
   if (!jwt) return respond(401, { error: 'Sin token de autenticación' });
 
-  const anonClient = createClient(SUPA_URL, SUPA_ANON);
-  const { data: { user }, error: authErr } = await anonClient.auth.getUser(jwt);
-  if (authErr || !user) return respond(401, { error: 'Token inválido o expirado' });
+  // Verificación por REST en vez de con el SDK. Comprobado en producción: al
+  // crear el cliente con createClient(), la función revienta con "Node.js
+  // detected but native WebSocket not found" — el SDK arrastra su capa de
+  // Realtime, que en el Lambda empaquetado no encuentra WebSocket. Resultado:
+  // el panel de gestión de usuarios de Finanzas no funcionaba en absoluto.
+  // Falla cerrado, así que no era un agujero, pero sí una función rota.
+  // Para validar un token basta un GET a /auth/v1/user; el SDK no aporta nada
+  // aquí y sí trae el problema.
+  let user;
+  try {
+    const resUser = await fetch(`${SUPA_URL}/auth/v1/user`, {
+      headers: { apikey: SUPA_ANON, Authorization: `Bearer ${jwt}` },
+    });
+    if (!resUser.ok) return respond(401, { error: 'Token inválido o expirado' });
+    user = await resUser.json();
+  } catch (err) {
+    console.error('admin-users: no se pudo verificar el token:', err.message);
+    return respond(401, { error: 'Token inválido o expirado' });
+  }
+  if (!user || !user.email) return respond(401, { error: 'Token inválido o expirado' });
 
   const callerUsername = user.email.replace('@ofipapel.internal', '');
   if (!ADMIN_USERNAMES.has(callerUsername)) return respond(403, { error: 'Sin permisos de administración' });
