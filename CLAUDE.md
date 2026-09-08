@@ -151,6 +151,7 @@ correctas; la de `Index.html` sigue sin verificar, ver seguridad conocida).
   cuenta → conectar los dispositivos → recién entonces desactivar "Allow
   anonymous sign-ins" y el registro público. Al revés deja la app
   inservible, que es exactamente lo que pasó con `fichaje.html` (DT-29).
+  Detalle completo en `.claude/rax/DEUDA_TECNICA.md` DT-33.
 - El Asistente IA de `Index.html`: ya resuelto — proxy server-side, la API
   key de Anthropic ya no vive en el navegador.
 - Dos canales de WhatsApp en paralelo (Meta y Twilio): ya resuelto — se
