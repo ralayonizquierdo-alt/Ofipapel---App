@@ -1,7 +1,16 @@
 name: Deploy to GitHub Pages
+# GitHub Pages sirve producción (el propietario entra a sus apps por
+# ralayonizquierdo-alt.github.io), así que esto NO es un respaldo prescindible.
+# Pero ejecuta el mismo `build.sh` que Netlify, y `build.sh` no copia a `_site/`
+# ni `.claude/**`, ni `docs/**`, ni los `.md`: reconstruir por ellos publica un
+# resultado idéntico byte a byte. Se saltan, igual que en `netlify-ignore.sh`.
+#
+# `workflow_dispatch` se conserva a propósito: si alguna vez hace falta
+# republicar sin tocar código, se lanza a mano desde la pestaña Actions.
 on:
   push:
     branches: [main]
+    paths-ignore: ['.claude/**', 'docs/**', '**.md']
   workflow_dispatch:
 
 permissions:
