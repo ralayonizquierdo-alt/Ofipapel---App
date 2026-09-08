@@ -86,6 +86,46 @@ async function listConversationPhones() {
   return (await redisCommand(['SMEMBERS', 'conversations_index'])) || [];
 }
 
+// Todo lo que la LISTA del panel necesita de cada conversación, en 4 comandos
+// en total en vez de 4 POR CONVERSACIÓN.
+//
+// Esto no es una optimización de lujo, es lo que reventó la cuenta: con 40
+// conversaciones eran 160 comandos por carga de la lista, y el panel se
+// recargaba solo cada 30 segundos. Salen ~487.000 comandos al día — el cupo
+// mensual entero de Upstash (500.000) consumido por UNA pestaña abierta en un
+// día. Pasó de verdad el 8/9/2026: el bot se quedó sin poder guardar nada.
+//
+// MGET pide N claves y cuenta como UN comando, así que el coste deja de
+// depender del número de conversaciones. Se usan solo claves de texto plano
+// (conv:, viewed:, paused:, cliente:), que es lo que MGET admite.
+async function loadListaConversaciones(phones) {
+  if (!phones.length) return [];
+
+  const [convs, vistas, pausas, fichas] = await Promise.all([
+    redisCommand(['MGET', ...phones.map((p) => `conv:${p}`)]),
+    redisCommand(['MGET', ...phones.map((p) => `viewed:${p}`)]),
+    redisCommand(['MGET', ...phones.map((p) => `paused:${p}`)]),
+    redisCommand(['MGET', ...phones.map((p) => `cliente:${p}`)]),
+  ]);
+
+  const json = (raw) => {
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  };
+
+  return phones.map((phone, i) => ({
+    phone,
+    messages: json(convs?.[i]) || [],
+    lastViewed: Number(vistas?.[i]) || 0,
+    pausado: pausas?.[i] === '1',
+    ficha: json(fichas?.[i]),
+  }));
+}
+
 // Borra por completo el historial archivado de un número (usado desde el panel,
 // sobre todo para limpiar números de prueba). No se puede deshacer.
 async function clearConversation(phone) {
@@ -472,6 +512,7 @@ async function diagnose() {
 module.exports = {
   isConfigured,
   loadConversation,
+  loadListaConversaciones,
   appendMessages,
   appendCustomerMessage,
   appendBotReply,
