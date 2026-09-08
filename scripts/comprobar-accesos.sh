@@ -115,9 +115,49 @@ for p in d['paths']:
   printf '%s' "$aj" | grep -q '"disable_signup":true' \
     && ok "alta de usuarios cerrada" \
     || mal "alta de usuarios ABIERTA — cualquiera se registra y pasa a ser 'authenticated'"
-  printf '%s' "$aj" | grep -q '"anonymous_users":false' \
-    && ok "registro anónimo desactivado" \
-    || mal "registro anónimo ACTIVADO — 'exigir sesión' no distingue a nadie"
+
+  local anonAbierto=0
+  if printf '%s' "$aj" | grep -q '"anonymous_users":false'; then
+    ok "registro anónimo desactivado"
+  else
+    mal "registro anónimo ACTIVADO — 'exigir sesión' no distingue a nadie"
+    anonAbierto=1
+  fi
+
+  # ── Segunda pasada: CON una sesión que cualquiera puede crear ─────────────
+  # Las pruebas de arriba usan solo la clave pública, o sea el rol `anon`. Con
+  # políticas `to authenticated` eso da 401 y parece cerrado — pero si el
+  # registro anónimo está abierto, cualquiera obtiene en un segundo una sesión
+  # `authenticated` y esas mismas tablas se abren de par en par.
+  #
+  # Este fallo lo tenía el propio script: daba las 7 tablas de Joe's App por
+  # cerradas en el mismo informe donde avisaba de que el registro anónimo
+  # estaba abierto. Dos frases que se contradicen, y solo una era la verdad.
+  [ "$anonAbierto" -eq 0 ] && return
+
+  local sesionTok
+  sesionTok=$($CURL -X POST "$url/auth/v1/signup" -H "apikey: $key" \
+        -H 'Content-Type: application/json' -d '{}' | python3 -c "
+import sys, json
+try: print(json.load(sys.stdin).get('access_token','') or '')
+except Exception: pass
+" 2>/dev/null)
+
+  if [ -z "$sesionTok" ]; then
+    aviso "el registro anónimo figura activo pero no devolvió sesión — sin comprobar la segunda pasada"
+    PARCIAL=$((PARCIAL+1)); return
+  fi
+
+  printf '  \033[1m  …y ahora lo mismo CON una sesión anónima recién creada:\033[0m\n'
+  while IFS= read -r t; do
+    [ -z "$t" ] && continue
+    local c2
+    c2=$($CURL -o /dev/null -w '%{http_code}' "$url/rest/v1/$t?limit=1" \
+          -H "apikey: $key" -H "Authorization: Bearer $sesionTok")
+    [ "$c2" = "200" ] \
+      && mal "$t · se LEE con una sesión que cualquiera crea" \
+      || ok "$t · lectura $c2 incluso con sesión"
+  done <<< "$tablas"
 }
 
 # ───────────────────────────────────────────────────────────────────────────
