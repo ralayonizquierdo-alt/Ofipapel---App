@@ -68,6 +68,20 @@ const CASOS = [
   ['¿Dónde está la tienda?', 'faq:Chajofe'],
   ['¿Cómo hago el pedido?', 'faq:'],
   ['¿Puedo devolver un producto?', 'faq:14 días'],
+
+  // --- Pedir una persona ---
+  // La presentación del bot dice "dímelo y te paso", así que estas formas TIENEN
+  // que escalar: si no, el bot invita a una frase que luego no reconoce.
+  ['Pásame con una persona', 'faq:equipo'],
+  ['Pásame con alguien', 'faq:equipo'],
+  ['¿Me pasas con una persona?', 'faq:equipo'],
+  ['Quiero que me atienda una persona', 'faq:equipo'],
+  ['Prefiero una persona', 'faq:equipo'],
+
+  // Y estas NO, aunque lleven "pásame" o "una persona".
+  ['¿Me pasas el precio del 305XL?', 'catalogo'],
+  ['Pásame la dirección de la tienda', 'faq:Chajofe'],
+  ['No quiero hablar con una persona', 'catalogo'],
 ];
 
 let ok = 0;

@@ -62,12 +62,16 @@ const GREETING = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. ¿E
 // el mensaje sin aportar nada. Visto en real con un cliente que preguntó si
 // seguían necesitando personal para reparto: recibió la invitación a preguntar
 // justo antes de la respuesta a su pregunta.
-const PRESENTACION = `¡Hola! 👋 Soy el nuevo asistente virtual de ${BUSINESS_NAME}. Todavía estoy aprendiendo, así que puede que no acierte con todo — si no sé algo, te paso con una persona del equipo.\n\nCuéntame qué necesitas: horarios, tiendas, productos, el estado de tu pedido...\n\nWe also speak English 🇬🇧`;
+// Se quitó lo de "nuevo" y "todavía estoy aprendiendo" (8/9/2026). Tenía sentido
+// el primer mes; a estas alturas juega en contra, porque le pide desconfianza al
+// cliente justo antes de darle un precio que es correcto. Lo que sí se conserva
+// es la salida a una persona, que era lo único importante de aquella frase.
+const PRESENTACION = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. Puedo consultarte precios, disponibilidad y el estado de tu pedido — y si prefieres hablar con una persona del equipo, dímelo y te paso.\n\nCuéntame qué necesitas: horarios, tiendas, productos, el estado de tu pedido...\n\nWe also speak English 🇬🇧`;
 
 // El "We also speak English" se mantiene también en la corta: la mayoría de la
 // gente abre con su pregunta, así que si solo fuera en la larga casi nadie lo
 // llegaría a ver.
-const PRESENTACION_BREVE = `¡Hola! 👋 Soy el nuevo asistente virtual de ${BUSINESS_NAME}, todavía estoy aprendiendo — si no sé algo, te paso con una persona del equipo. We also speak English 🇬🇧`;
+const PRESENTACION_BREVE = `¡Hola! 👋 Soy el asistente virtual de ${BUSINESS_NAME}. Puedo consultarte precios, disponibilidad y el estado de tu pedido — y si prefieres hablar con una persona del equipo, dímelo y te paso. We also speak English 🇬🇧`;
 
 // Lo único que contesta el bot cuando está pausado del todo desde el panel (el
 // interruptor de emergencia). Se manda UNA sola vez por cliente y por pausa, no
@@ -638,6 +642,16 @@ const FAQ_RULES = [
     keywords: [
       // español
       'hablar con alguien', 'hablar con una persona', 'hablar con un agente', 'hablar con agente',
+      // "Pásame con una persona" es LA forma de pedirlo, y no la cogía nadie:
+      // solo estaba "hablar con...". Importa el doble desde que la presentación
+      // dice "dímelo y te paso" — el bot estaría invitando a una frase que luego
+      // no reconoce. Van con y sin acento porque la comparación quita acentos,
+      // pero se dejan las dos formas por legibilidad.
+      'pasame con', 'pásame con', 'pasame a', 'pásame a', 'pasamelo a', 'pasame para',
+      'me pasas con', 'me pasa con', 'me pasas a', 'puedes pasarme con', 'pasarme con',
+      'me atienda una persona', 'me atienda alguien', 'que me atienda',
+      'prefiero una persona', 'prefiero hablar con', 'con una persona por favor',
+      'quiero una persona', 'necesito una persona', 'una persona del equipo',
       'atencion humana', 'atención humana', 'persona real', 'no me sirve', 'no me ayuda', 'quiero hablar con',
       'queja', 'quejarme', 'poner una queja', 'reclamacion', 'reclamación', 'reclamar', 'denuncia', 'denunciar',
       'estoy harto', 'estoy harta', 'estoy cansado de', 'estoy cansada de', 'mal servicio', 'pesimo', 'pésimo',
