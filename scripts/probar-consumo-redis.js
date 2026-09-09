@@ -50,7 +50,8 @@ Module.prototype.require = function (p) {
       getPanelPassword: async () => { comandos.push('GET password'); return null; },
       listarBusquedasSinResultado: async () => { comandos.push('ZRANGE'); return []; },
       diagnose: async () => { ['SET diag', 'GET diag', 'DEL diag'].forEach((c) => comandos.push(c)); return { ok: true }; },
-      getEstadoEntrega: async () => { comandos.push('MGET entrega'); return {}; },
+      getEstadoEntrega: async () => { comandos.push('GET entrega'); return {}; },
+      markAsViewed: async () => { comandos.push('SET viewed'); },
       getNotasCliente: async () => { comandos.push('GET notas'); return ''; },
       marcarVista: async () => { comandos.push('SET viewed'); },
     };
@@ -71,23 +72,46 @@ Module.prototype.require = orig;
   comandos = [];
   await conv.handler({ httpMethod: 'GET', queryStringParameters: {}, headers: { cookie } });
   const porCarga = comandos.length;
+  const detalleLista = comandos.slice();
 
-  const recargasDia = (24 * 60 * 60) / 120; // cada 2 min...
-  const visible = 8 * 60 * 60 / 120;        // ...y solo con la pestaña a la vista (8 h generosas)
-  const alDia = porCarga * visible;
+  // La CONVERSACIÓN abierta también se refresca sola (cada 30 s), así que su
+  // coste cuenta igual. Va aparte porque el intervalo es distinto y porque es
+  // la vista que se deja abierta mientras se atiende a alguien.
+  comandos = [];
+  await conv.handler({ httpMethod: 'GET', queryStringParameters: { phone: telefonos[0] }, headers: { cookie } });
+  const porHilo = comandos.length;
+
+  // El peor caso realista de un día de trabajo: 8 h con el panel a la vista.
+  // La lista refresca cada 2 min; la conversación, cada 30 s. Se suman como si
+  // se tuvieran las dos abiertas todo ese rato, que es pasarse a propósito.
+  const HORAS = 8;
+  const listaDia = porCarga * ((HORAS * 3600) / 120);
+  const hiloDia = porHilo * ((HORAS * 3600) / 30);
+  const alDia = listaDia + hiloDia;
 
   console.log(`Conversaciones simuladas: ${CONVERSACIONES}`);
-  console.log(`Comandos por carga de la lista: ${porCarga}`);
+  console.log(`\nComandos por carga de la LISTA: ${porCarga}`);
+  detalleLista.forEach((c, i) => console.log(`   ${i + 1}. ${c}`));
+  console.log(`\nComandos por carga de una CONVERSACIÓN: ${porHilo}`);
   comandos.forEach((c, i) => console.log(`   ${i + 1}. ${c}`));
-  console.log(`\nGasto estimado con la pestaña a la vista 8 h al día: ${Math.round(alDia).toLocaleString('es-ES')} comandos/día`);
-  console.log(`El cupo de ${TOPE_MENSUAL.toLocaleString('es-ES')} daría para ${(TOPE_MENSUAL / alDia).toFixed(0)} días así.`);
+
+  console.log(`\nPeor caso, ${HORAS} h al día con las dos vistas abiertas:`);
+  console.log(`   lista        (cada 2 min): ${Math.round(listaDia).toLocaleString('es-ES')} comandos/día`);
+  console.log(`   conversación (cada 30 s) : ${Math.round(hiloDia).toLocaleString('es-ES')} comandos/día`);
+  console.log(`   TOTAL                    : ${Math.round(alDia).toLocaleString('es-ES')} comandos/día`);
+  console.log(`\nEl cupo de ${TOPE_MENSUAL.toLocaleString('es-ES')} daría para ${(TOPE_MENSUAL / alDia).toFixed(0)} días así.`);
 
   // El fallo real: 4 comandos por conversación y recarga cada 30 s sin mirar si
   // la pestaña se ve.
   const antes = 4 + 3 + 4 * CONVERSACIONES;
   const antesDia = antes * ((24 * 60 * 60) / 30);
-  console.log(`\nAntes: ${antes} por carga → ${antesDia.toLocaleString('es-ES')}/día (cupo agotado en ${(TOPE_MENSUAL / antesDia).toFixed(1)} días)`);
-  console.log(`Ahora: ${porCarga} por carga → mejora de ${(antesDia / alDia).toFixed(0)}x`);
+  console.log(`\nAntes: ${antes} comandos por carga, recargando siempre → ${antesDia.toLocaleString('es-ES')}/día`);
+  console.log(`       (cupo agotado en ${(TOPE_MENSUAL / antesDia).toFixed(1)} días)`);
+  console.log(`Ahora: ${porCarga} en la lista y ${porHilo} en la conversación → mejora de ${(antesDia / alDia).toFixed(0)}x`);
 
-  process.exit(porCarga <= 12 ? 0 : 1);
+  // El umbral vigila las DOS vistas. La de la conversación importa especialmente
+  // porque refresca cada 30 s: lo que ahí cueste, se multiplica por 960 al día.
+  const dentro = porCarga <= 12 && porHilo <= 10;
+  if (!dentro) console.log('\n✗ Una carga cuesta más de lo aceptable — revisa qué se ha añadido.');
+  process.exit(dentro ? 0 : 1);
 })();
