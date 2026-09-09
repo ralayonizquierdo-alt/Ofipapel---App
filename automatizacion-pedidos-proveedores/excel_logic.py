@@ -28,7 +28,7 @@ class ReporteCruce:
 
 def _normalizar_columnas(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    df.columns = [str(c).strip().lower() for c in df.columns]
+    df.columns = [re.sub(r'[\s\xa0]+', ' ', str(c)).strip().lower() for c in df.columns]
     return df
 
 
