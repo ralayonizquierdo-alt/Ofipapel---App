@@ -88,6 +88,7 @@ const { sendWhatsappMessage, sendWhatsappTemplate } = require('./whatsapp-send')
 const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo');
 const { respuestaSinCatalogo } = require('./whatsapp-consumibles');
 const { detectarHostilidad, mensajeClienteMolesto } = require('./whatsapp-hostilidad');
+const { guardarAdjuntoDeCliente, MARCA_ADJUNTO } = require('./whatsapp-media');
 const { firmaDeReintento } = require('./whatsapp-firma');
 const conversationStore = require('./conversation-store');
 
@@ -557,9 +558,24 @@ async function handleIncomingMessage(message, nombreWhatsapp) {
     const reply = `Gracias por tu mensaje. No puedo leer ${queEs} por aquí, así que le paso tu conversación a una persona del equipo y te contesta directamente.`;
     await sendWhatsappMessage(message.from, reply);
 
+    // Se trae la foto para que se VEA en el panel. Meta no da una URL pública:
+    // da un identificador con el que se pide una URL temporal que caduca en
+    // minutos, así que guardar el enlace no serviría de nada — hay que copiar el
+    // fichero. Va a Netlify Blobs, no a Upstash (ver whatsapp-media.js).
+    //
+    // Si falla no pasa nada grave: el mensaje se registra igual y el aviso sale
+    // igual, solo que sin la foto. Nunca se deja al cliente sin respuesta por
+    // culpa de una descarga.
+    const mediaId = message[message.type]?.id;
+    let adjunto = null;
+    if (mediaId && (message.type === 'image' || message.type === 'document')) {
+      adjunto = await guardarAdjuntoDeCliente(event, message.from, mediaId);
+    }
+
     // Se guarda con el pie de foto si lo trae: muchas veces ahí está la pregunta
-    // ("¿tenéis este?"), y es lo único de la foto que el panel puede enseñar.
-    const registro = `[El cliente envió ${queEs}]${pieDeFoto ? ` — "${pieDeFoto}"` : ''}`;
+    // ("¿tenéis este?"), y es lo que da sentido a la imagen.
+    const marca = adjunto ? `${MARCA_ADJUNTO}${adjunto.mediaId}]` : '';
+    const registro = `${marca}[El cliente envió ${queEs}]${pieDeFoto ? ` — "${pieDeFoto}"` : ''}`;
     await appendToHistory(message.from, registro, reply);
     await pauseBot(message.from, 24);
     await notifyOwner({

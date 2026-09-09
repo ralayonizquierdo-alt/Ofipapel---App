@@ -38,6 +38,7 @@ const {
 const crypto = require('crypto');
 const { isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const { esHistorialMolesto } = require('./whatsapp-hostilidad');
+const { leer: leerMedia, adjuntoDelHistorial } = require('./whatsapp-media');
 const { sendWhatsappMessage, sendWhatsappTemplate, uploadWhatsappMedia, sendWhatsappMedia, getBusinessProfile, getPhoneNumberStatus } = require('./whatsapp-send');
 
 // Tipos de adjunto admitidos desde el panel y su tope de tamaño. WhatsApp exige
@@ -655,6 +656,11 @@ function pageShell(title, body) {
      pre-wrap y no pre: los saltos se conservan, pero las líneas largas siguen
      ajustándose al ancho de la burbuja en vez de salirse. */
   .bubble > div { white-space: pre-wrap; overflow-wrap: anywhere; }
+  /* Las fotos que manda el cliente. Se ven de golpe pero sin comerse el hilo:
+     al pulsarlas se abren a tamaño completo en otra pestaña. */
+  .adjunto-foto { display: block; margin: 2px 0 6px; }
+  .adjunto-foto img { display: block; max-width: 100%; max-height: 320px; border-radius: 10px; border: 1px solid var(--border); }
+  .adjunto-pie { white-space: pre-wrap; }
   .bubble .time { white-space: normal; }
   .bubble.customer { background: #fff; border: 1px solid var(--border); border-bottom-left-radius: 4px; }
   .bubble.bot { background: var(--bg-soft); border: 1px solid #cdeacd; border-bottom-right-radius: 4px; }
@@ -1334,6 +1340,25 @@ function guionDeRefresco(cada) {
 </script>`;
 }
 
+// El contenido de una burbuja. Casi siempre es texto, pero si el mensaje trae
+// una foto del cliente se pinta la foto — que es de lo que va la conversación:
+// "¿tenéis este?" no significa nada sin la imagen al lado.
+//
+// La imagen se pide al propio panel (?vista=media), que la sirve tras comprobar
+// la sesión. Se enseña en pequeño y se abre a tamaño completo al pulsarla, para
+// no reventar la lectura del hilo en el móvil.
+function cuerpoDeBurbuja(phone, contenido) {
+  const adjunto = adjuntoDelHistorial(contenido);
+  if (!adjunto) return conEnlaces(escapeHtml(contenido));
+
+  const src = `?vista=media&phone=${encodeURIComponent(phone)}&id=${encodeURIComponent(adjunto.mediaId)}`;
+  // El texto que acompaña ya viene con el pie de foto si lo había.
+  const pie = adjunto.texto ? `<div class="adjunto-pie">${conEnlaces(escapeHtml(adjunto.texto))}</div>` : '';
+  return `<a class="adjunto-foto" href="${src}" target="_blank" rel="noopener">
+    <img src="${src}" alt="Foto enviada por el cliente" loading="lazy">
+  </a>${pie}`;
+}
+
 function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
   const bubbles = messages
     .map((m) => {
@@ -1346,7 +1371,7 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
       return `<div class="bubble-row ${isCustomer ? 'left' : 'right'}">
   <div class="bubble ${kind}">
     ${sender}
-    <div>${conEnlaces(escapeHtml(m.content))}</div>
+    <div>${cuerpoDeBurbuja(phone, m.content)}</div>
     <div class="time">${escapeHtml(time)}${acuse}</div>
   </div>
 </div>`;
@@ -1731,6 +1756,39 @@ exports.handler = async (event) => {
     }
 
     return redirect();
+  }
+
+  // Las fotos que mandan los clientes. Se sirven DESDE AQUÍ, y no desde una
+  // función aparte, por una razón concreta: así heredan el checkAuth del panel
+  // sin duplicarlo. Son fotos de clientes reales — un endpoint propio y abierto
+  // las dejaría a la vista de cualquiera que acertara la dirección.
+  //
+  // Hace falta el teléfono además del identificador porque la clave del almacén
+  // los lleva a los dos: no basta con adivinar un id suelto.
+  if (event.queryStringParameters?.vista === 'media') {
+    const telefono = event.queryStringParameters?.phone || '';
+    const mediaId = event.queryStringParameters?.id || '';
+    if (!telefono || !mediaId) return { statusCode: 400, body: 'Faltan phone o id.' };
+
+    let fichero = null;
+    try {
+      fichero = await leerMedia(event, telefono, mediaId);
+    } catch (err) {
+      console.error('conversations: no se pudo leer el adjunto:', err.message);
+      return { statusCode: 502, body: 'No se pudo leer el adjunto.' };
+    }
+    if (!fichero) return { statusCode: 404, body: 'Ese adjunto ya no está.' };
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': fichero.tipo,
+        // Privado y sin caché compartida: son fotos de clientes.
+        'Cache-Control': 'private, max-age=3600',
+      },
+      body: fichero.buffer.toString('base64'),
+      isBase64Encoded: true,
+    };
   }
 
   if (event.queryStringParameters?.vista === 'perfil') {
