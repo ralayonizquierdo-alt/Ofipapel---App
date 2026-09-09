@@ -537,11 +537,38 @@ async function handleIncomingMessage(message, nombreWhatsapp) {
     return;
   }
 
+  // FOTOS, AUDIOS Y DEMÁS: el bot no los lee, así que van derechos a una persona.
+  //
+  // Antes solo contestaba "un miembro del equipo revisará esto en breve" y hacía
+  // return: NO guardaba el mensaje ni avisaba a nadie. O sea que la conversación
+  // no aparecía en el panel, al dueño no le llegaba nada, y el bot acababa de
+  // prometer una revisión que no iba a ocurrir nunca.
+  //
+  // Es de los casos más frecuentes que hay — "¿tenéis este?" con la foto del
+  // cartucho —, así que se trata como lo que es: algo que solo puede atender una
+  // persona. Se registra, se avisa y se para el bot, igual que en un escalado.
   if (message.type !== 'text') {
-    await sendWhatsappMessage(
-      message.from,
-      'Gracias por tu mensaje. Por ahora solo puedo leer texto, pero un miembro del equipo revisará esto en breve.'
-    );
+    const QUE_ES = { image: 'una foto', audio: 'un audio', video: 'un vídeo', document: 'un documento', sticker: 'un sticker', location: 'una ubicación' };
+    const queEs = QUE_ES[message.type] || `un mensaje de tipo ${message.type}`;
+    const pieDeFoto = (message.image?.caption || message.video?.caption || message.document?.caption || '').trim();
+
+    // Sin pronombre ("no LA puedo leer") a propósito: con "un audio" salía
+    // "un audio no la puedo leer". Así la frase vale para cualquier tipo.
+    const reply = `Gracias por tu mensaje. No puedo leer ${queEs} por aquí, así que le paso tu conversación a una persona del equipo y te contesta directamente.`;
+    await sendWhatsappMessage(message.from, reply);
+
+    // Se guarda con el pie de foto si lo trae: muchas veces ahí está la pregunta
+    // ("¿tenéis este?"), y es lo único de la foto que el panel puede enseñar.
+    const registro = `[El cliente envió ${queEs}]${pieDeFoto ? ` — "${pieDeFoto}"` : ''}`;
+    await appendToHistory(message.from, registro, reply);
+    await pauseBot(message.from, 24);
+    await notifyOwner({
+      channel: 'Meta',
+      from: message.from,
+      customerMessage: `📎 ${registro} (el bot no puede leerlo)`,
+      botReply: reply,
+    });
+    await notifyOwnerByWhatsapp(message.from, `📎 ${registro}`);
     return;
   }
 
