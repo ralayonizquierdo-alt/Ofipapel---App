@@ -987,23 +987,7 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
   // Sin esto, el 8/9/2026 se agotó el cupo mensual de Upstash (500.000
   // comandos) en un día con una sola pestaña abierta, y el bot se quedó sin
   // poder guardar conversaciones.
-  const autoRefresh = `<script>
-(function () {
-  var CADA = 120000, LIMITE = 30 * 60 * 1000, desde = Date.now();
-  ['click', 'keydown', 'touchstart', 'scroll'].forEach(function (e) {
-    document.addEventListener(e, function () { desde = Date.now(); }, { passive: true });
-  });
-  // Al volver a la pestaña se refresca ya: es cuando de verdad quieres el dato.
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && Date.now() - desde > CADA) location.reload();
-  });
-  setInterval(function () {
-    if (document.hidden) return;
-    if (Date.now() - desde > LIMITE) return;
-    location.reload();
-  }, CADA);
-})();
-</script>`;
+  const autoRefresh = guionDeRefresco(120000);
   const buscador = `<form class="buscador" method="GET">
   <input type="search" name="q" value="${escapeHtml(consulta)}" placeholder="Buscar en las conversaciones: teléfono, nombre, producto..." aria-label="Buscar conversaciones">
   <button type="submit" class="btn btn-ghost">${ICON.lupa} Buscar</button>
@@ -1310,6 +1294,46 @@ function textoRestante(ms) {
   return `${minutos} min`;
 }
 
+// El refresco automático, compartido por la lista y por la conversación.
+//
+// Con tres frenos, y los tres hacen falta (el 8/9/2026 una sola pestaña abierta
+// se comió el cupo mensual de Upstash en un día, recargando cada 30 segundos con
+// el móvil en el bolsillo):
+//   1. Solo si la pestaña se está VIENDO.
+//   2. Cada `cada` milisegundos.
+//   3. Se para a la media hora sin tocar nada, y arranca de nuevo al volver.
+//
+// Y un cuarto, solo en la conversación: NUNCA recargar si hay una respuesta a
+// medio escribir o un adjunto puesto. Recargar borraría el cuadro de texto, y
+// perder una respuesta escrita a mano es mucho peor que verla un minuto tarde.
+function guionDeRefresco(cada) {
+  return `<script>
+(function () {
+  var CADA = ${cada}, LIMITE = 30 * 60 * 1000, desde = Date.now();
+  ['click', 'keydown', 'touchstart', 'scroll'].forEach(function (e) {
+    document.addEventListener(e, function () { desde = Date.now(); }, { passive: true });
+  });
+
+  function escribiendo() {
+    var ta = document.querySelector('.reply-form textarea');
+    if (ta && (ta.value.trim() || document.activeElement === ta)) return true;
+    var fi = document.querySelector('.reply-form input[type=file]');
+    return Boolean(fi && fi.files && fi.files.length);
+  }
+
+  function toca() {
+    return !document.hidden && !escribiendo() && Date.now() - desde <= LIMITE;
+  }
+
+  // Al volver a la pestaña se refresca ya: es cuando de verdad quieres el dato.
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && !escribiendo() && Date.now() - desde > CADA) location.reload();
+  });
+  setInterval(function () { if (toca()) location.reload(); }, CADA);
+})();
+</script>`;
+}
+
 function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
   const bubbles = messages
     .map((m) => {
@@ -1499,7 +1523,8 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
   ${clearForm}
 </div>
 ${renderFichaCliente(phone, ficha)}${pauseBar}${ventanaBar}${errorBanner}${bubbles || '<div class="empty-thread">Sin mensajes.</div>'}${replyForm}
-<div class="pie-hilo"><a class="volver-arriba" href="#arriba">${ICON.arriba} Volver arriba</a></div>`
+<div class="pie-hilo"><a class="volver-arriba" href="#arriba">${ICON.arriba} Volver arriba</a></div>
+${guionDeRefresco(30000)}`
   );
 }
 
