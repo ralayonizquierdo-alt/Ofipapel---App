@@ -35,7 +35,9 @@ Module.prototype.require=function(p){
 };
 const wh=require(require('path').join(__dirname,'..','netlify/functions/whatsapp-webhook.js'));
 Module.prototype.require=orig;
-global.fetch=async(url)=>{
+global.fetch=async(url,opts)=>{
+  try{ const b=JSON.parse(opts?.body||'{}');
+       if(b.type==='interactive') log.push({t:'botones',m:b.interactive?.body?.text}); }catch{}
   if(String(url).includes('graph.facebook.com/v20.0/')) return {ok:true,json:async()=>({url:'https://lookaside.meta/x',mime_type:'image/jpeg',file_size:PNG.length})};
   if(String(url).includes('lookaside')) return {ok:true,arrayBuffer:async()=>PNG.buffer.slice(PNG.byteOffset,PNG.byteOffset+PNG.length)};
   return {ok:true,json:async()=>({}),text:async()=>'{}'};
@@ -60,10 +62,15 @@ let fallos=0;
     // foto se guarde es deseable, pero puede fallar (Meta lento) sin que eso
     // deje al cliente sin atención.
     const tiene=(t)=>log.some(l=>l.t===t);
-    for(const obligatorio of ['respuesta','guardado en el panel','bot en pausa','email al dueño']){
+    // Se PREGUNTA si quiere una persona; no se pausa ni se avisa por cuenta
+    // propia. Eso pasa solo si el cliente pulsa "Sí" (ver handleEscalateReply).
+    for(const obligatorio of ['botones','guardado en el panel']){
       if(!tiene(obligatorio)){ fallos++; console.log(`   ✗ FALTA: ${obligatorio}`); }
     }
     if(msg.type==='image' && !tiene('foto guardada')){ fallos++; console.log('   ✗ FALTA: la foto no se guardó'); }
+    for(const prohibido of ['bot en pausa','email al dueño']){
+      if(tiene(prohibido)){ fallos++; console.log(`   ✗ NO debería: ${prohibido} (se pregunta antes)`); }
+    }
     console.log();
   }
   console.log(fallos===0 ? '✔ Sin fallos' : `✗ ${fallos} fallos`);

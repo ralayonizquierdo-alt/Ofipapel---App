@@ -558,11 +558,6 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     const queEs = QUE_ES[message.type] || `un mensaje de tipo ${message.type}`;
     const pieDeFoto = (message.image?.caption || message.video?.caption || message.document?.caption || '').trim();
 
-    // Sin pronombre ("no LA puedo leer") a propósito: con "un audio" salía
-    // "un audio no la puedo leer". Así la frase vale para cualquier tipo.
-    const reply = `Gracias por tu mensaje. No puedo leer ${queEs} por aquí, así que le paso tu conversación a una persona del equipo y te contesta directamente.`;
-    await sendWhatsappMessage(message.from, reply);
-
     // Se trae la foto para que se VEA en el panel. Meta no da una URL pública:
     // da un identificador con el que se pide una URL temporal que caduca en
     // minutos, así que guardar el enlace no serviría de nada — hay que copiar el
@@ -585,15 +580,25 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     const legible = `[El cliente envió ${queEs}]${pieDeFoto ? ` — "${pieDeFoto}"` : ''}`;
     const marca = adjunto ? `${MARCA_ADJUNTO}${adjunto.mediaId}]` : '';
     const registro = `${marca}${legible}`;
-    await appendToHistory(message.from, registro, reply);
-    await pauseBot(message.from, 24);
-    await notifyOwner({
-      channel: 'Meta',
-      from: message.from,
-      customerMessage: `📎 ${legible}${adjunto ? ' — la foto se ve en el panel' : ''} (el bot no puede leerlo)`,
-      botReply: reply,
-    });
-    await notifyOwnerByWhatsapp(message.from, `📎 ${legible}`);
+
+    // Se PREGUNTA si quiere una persona, no se da por hecho.
+    //
+    // Antes decía "le paso tu conversación a una persona del equipo" — y eso es
+    // afirmar algo que el cliente no ha pedido. Mandar una foto no significa
+    // querer hablar con alguien: puede estar simplemente enseñando lo que busca.
+    // Con los botones decide él, y el aviso al equipo sale cuando dice que sí
+    // (ver handleEscalateReply), no antes.
+    //
+    // Sin pronombre ("no LA puedo leer") a propósito: con "un audio" salía "un
+    // audio no la puedo leer". Así la frase vale para cualquier tipo.
+    // Sin `greeting`: esta rama va ANTES de que se calcule (línea ~667). Usarlo
+    // aquí sería el mismo ReferenceError que ya se coló una vez con `event`.
+    const prefijo = `Gracias por tu mensaje. No puedo leer ${queEs} por aquí. `;
+    await sendEscalateButtons(message.from, prefijo);
+
+    // El registro se guarda SIEMPRE, diga lo que diga después: es lo que hace
+    // que la foto aparezca en el panel aunque el cliente no toque ningún botón.
+    await appendToHistory(message.from, registro, `${prefijo}${escalateQuestion()}`);
     return;
   }
 
