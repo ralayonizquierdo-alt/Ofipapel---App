@@ -229,7 +229,25 @@ function esProblemaDeCuenta(texto) {
 //
 // Sigue enganchado al escalado, pero con botones: si esta explicación le
 // resuelve la duda, dice que no y sigue con el bot; si no, pide la persona.
-const CUENTA_PREFIJO = `Entiendo, y siento el lío. Lo más habitual cuando pasa esto es que el pedido se hiciera como invitado, sin llegar a crear cuenta: en ese caso no hay contraseña que recuperar, y por eso no te llega el correo. Puedes comprar igual sin cuenta (en "Finalizar compra" solo te pide tus datos), o crearte una nueva con tu email. Y si prefieres que te lo gestionemos nosotros, escribe a pedidos@ofipapelsl.com o llama al ${STORES[0].phone} (extensión 2). `;
+// Aquí NO se ofrecen atajos ni se le manda a hacer nada: pasa a una persona,
+// directo y sin preguntar.
+//
+// Es criterio del dueño, y tiene razón: quien no puede entrar en su cuenta ya
+// ha intentado resolverlo solo y ha fallado. Decirle "mándanos el pedido por
+// email" es darle MÁS trabajo a quien viene precisamente porque algo no le
+// funciona. Y ponerle un botón de "¿quieres hablar con una persona?" es un aro
+// más: la respuesta es obviamente sí.
+//
+// Se le dice la causa probable porque es información útil de verdad (casi
+// siempre pidió como invitado y no hay cuenta que recuperar), pero como dato,
+// no como tarea.
+const CUENTA_ABIERTO = `Entiendo, y siento el lío. Lo más habitual cuando pasa esto es que el pedido se hiciera como invitado, sin llegar a crear cuenta: en ese caso no hay contraseña que recuperar, y por eso no te llega el correo. En cualquier caso, esto lo mira una persona del equipo — le paso tu conversación ahora mismo y te contesta directamente. Si prefieres llamar, estamos en el ${STORES[0].phone} (${STORES[0].hours}).`;
+
+const CUENTA_CERRADO = `Entiendo, y siento el lío. Lo más habitual cuando pasa esto es que el pedido se hiciera como invitado, sin llegar a crear cuenta: en ese caso no hay contraseña que recuperar, y por eso no te llega el correo. Le paso tu conversación a una persona del equipo. Ahora mismo estamos cerrados (${STORES[0].hours}), así que te contestará en cuanto abramos.`;
+
+function mensajeProblemaDeCuenta() {
+  return isWithinBusinessHours() ? CUENTA_ABIERTO : CUENTA_CERRADO;
+}
 
 const AGENTE_INFO_ABIERTO = `Claro, ahora mismo un miembro del equipo revisará tu conversación y te atenderá personalmente. Si es urgente, también puedes llamarnos directamente al ${STORES[0].phone} en horario de tienda (${STORES[0].hours}).`;
 
@@ -1033,7 +1051,7 @@ module.exports = {
   AGENTE_INFO_CERRADO,
   agenteInfo,
   esProblemaDeCuenta,
-  CUENTA_PREFIJO,
+  mensajeProblemaDeCuenta,
   isAgenteInfoMessage,
   isWithinBusinessHours,
   SELLOS_QUESTION,

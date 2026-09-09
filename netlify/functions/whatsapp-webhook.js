@@ -66,7 +66,7 @@ const {
   isSellosQuestion,
   isWithinBusinessHours,
   esProblemaDeCuenta,
-  CUENTA_PREFIJO,
+  mensajeProblemaDeCuenta,
   STORES,
   GREETING,
   PRESENTACION,
@@ -644,19 +644,36 @@ async function handleIncomingMessage(message, nombreWhatsapp) {
     if (gestionado) return;
   }
 
+  // PROBLEMA DE CUENTA: a una persona, directo y sin preguntar.
+  //
+  // Ni botones ni atajos. Quien no puede entrar en su cuenta ya ha intentado
+  // resolverlo solo y ha fallado: ofrecerle "mándanos el pedido por email" es
+  // darle MÁS trabajo, y preguntarle "¿quieres hablar con una persona?" es un
+  // aro más cuando la respuesta es obviamente sí.
+  //
+  // Se le dice la causa probable (casi siempre pidió como invitado y no hay
+  // cuenta que recuperar) porque es información útil, pero como dato, no como
+  // tarea. Y se avisa al equipo igual que con un cliente molesto.
+  if (esProblemaDeCuenta(text)) {
+    const reply = greeting + mensajeProblemaDeCuenta();
+    await sendWhatsappMessage(message.from, reply);
+    await appendToHistory(message.from, text, `[Problema de cuenta — pasado a una persona] ${reply}`);
+    await pauseBot(message.from, 24);
+    await notifyOwner({
+      channel: 'Meta',
+      from: message.from,
+      customerMessage: `🔑 PROBLEMA DE CUENTA (no puede entrar / no le llega el correo): ${text}`,
+      botReply: reply,
+    });
+    await notifyOwnerByWhatsapp(message.from, `🔑 Problema de cuenta: ${text}`);
+    return;
+  }
+
   if (isExplicitRequest) {
     // El cliente pidió expresamente hablar con alguien (o es una queja/
     // presupuesto) — no hace falta explicar el motivo, se escala directo.
-    //
-    // Salvo si el problema es de CUENTA (contraseña, acceso, el correo de
-    // restablecimiento que no llega): ahí se le antepone la salida práctica,
-    // porque lo que necesita no es solo una persona mañana, es poder hacer su
-    // pedido esta noche. Visto en real: un cliente que no podía entrar en la
-    // web insistió tres veces y acabó preguntando si se podía pedir por
-    // WhatsApp, sin que nadie le dijera que bastaba con un email.
-    const prefijo = esProblemaDeCuenta(text) ? `${greeting}${CUENTA_PREFIJO}` : greeting;
-    await sendEscalateButtons(message.from, prefijo);
-    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${prefijo}${escalateQuestion()}`);
+    await sendEscalateButtons(message.from, greeting);
+    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${greeting}${escalateQuestion()}`);
     return;
   }
 
