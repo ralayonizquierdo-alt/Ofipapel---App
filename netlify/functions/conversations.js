@@ -1004,6 +1004,36 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
       : ''
   }`;
 
+  // EL GLOBO DEL ICONO, como el de WhatsApp.
+  //
+  // Se hace con la Badging API (navigator.setAppBadge), que es la misma que usa
+  // cualquier app instalada. Solo funciona si el panel está INSTALADO como
+  // aplicación (ver manifest-bot.json); en una pestaña normal del navegador no
+  // hay icono donde pintar nada, y la llamada se ignora sin dar error.
+  //
+  // El límite, y es importante: el globo se actualiza mientras el panel está
+  // ABIERTO (aunque sea de fondo, con cada refresco). Con la aplicación cerrada
+  // del todo nadie ejecuta este código, así que el número se queda como estaba.
+  // Para que cambiara con la app cerrada haría falta un service worker con
+  // notificaciones push, que es bastante más que esto.
+  //
+  // Por eso se pone TAMBIÉN en el título de la pestaña: eso se ve siempre, en
+  // cualquier navegador, esté instalado o no.
+  const sinLeer = sorted.reduce((n, c) => n + (c.unread || 0), 0);
+  const globo = `<script>
+(function () {
+  var N = ${sinLeer};
+  document.title = (N > 0 ? '(' + N + ') ' : '') + 'Conversaciones · Ofipapel';
+  if (!('setAppBadge' in navigator)) return;
+  try {
+    if (N > 0) navigator.setAppBadge(N); else navigator.clearAppBadge();
+  } catch (e) {
+    // Algunos sistemas la anuncian y luego la rechazan. No es motivo para
+    // romper nada: el número sigue estando en el título y en cada tarjeta.
+  }
+})();
+</script>`;
+
   const enlaceAprendizaje = `<p class="aprende-acceso"><a class="btn-link" href="?vista=aprendizaje">🧠 Aprendizaje del bot${
     pendientesAprendizaje > 0 ? ` <span class="unread-badge">${pendientesAprendizaje}</span>` : ''
   }</a></p>`;
@@ -1021,7 +1051,7 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
   <a class="btn-link" href="?vista=perfil">🖼️ Perfil del negocio</a>
   <a class="btn-link" href="?vista=password">🔑 Cambiar contraseña</a>
   <form method="POST" style="margin:0;"><input type="hidden" name="action" value="logout"><button type="submit" class="btn-link" style="background:none;border:0;cursor:pointer;padding:0;">Cerrar sesión</button></form>
-</div>${autoRefresh}`
+</div>${globo}${autoRefresh}`
   );
 }
 
