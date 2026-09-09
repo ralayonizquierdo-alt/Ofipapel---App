@@ -214,7 +214,22 @@ function esProblemaDeCuenta(texto) {
 // cuenta. Va como prefijo de los botones de escalado (ver whatsapp-webhook.js):
 // así el cliente se lleva la salida práctica en el acto y, además, el aviso al
 // equipo se dispara de verdad.
-const CUENTA_PREFIJO = `Entiendo, y siento el lío. Eso no lo puedo arreglar yo desde aquí, pero que no te frene el pedido: no necesitas la web ni la contraseña para comprar — mándanos lo que necesitas a pedidos@ofipapelsl.com o llama al ${STORES[0].phone} (extensión 2) y te lo gestionamos nosotros. `;
+// LA CAUSA REAL, casi siempre: el pedido se hizo COMO INVITADO.
+//
+// El primer caso (8/9/2026) se cerró creyendo que la web tenía algo roto en el
+// envío de correos. No era eso: el cliente había pedido como invitado, así que
+// nunca llegó a existir una cuenta con su email — y el correo de
+// restablecimiento no llega porque no hay nada que restablecer.
+//
+// Es una confusión que se va a repetir con cualquiera que pida como invitado y
+// luego intente entrar, así que el bot la explica en vez de limitarse a pasar
+// el marrón. Se dice como lo MÁS PROBABLE, no como un hecho: desde aquí no se
+// puede comprobar si esa persona tiene cuenta o no. Y se dan las dos salidas
+// (comprar sin cuenta, o crearse una), más la de siempre por email o teléfono.
+//
+// Sigue enganchado al escalado, pero con botones: si esta explicación le
+// resuelve la duda, dice que no y sigue con el bot; si no, pide la persona.
+const CUENTA_PREFIJO = `Entiendo, y siento el lío. Lo más habitual cuando pasa esto es que el pedido se hiciera como invitado, sin llegar a crear cuenta: en ese caso no hay contraseña que recuperar, y por eso no te llega el correo. Puedes comprar igual sin cuenta (en "Finalizar compra" solo te pide tus datos), o crearte una nueva con tu email. Y si prefieres que te lo gestionemos nosotros, escribe a pedidos@ofipapelsl.com o llama al ${STORES[0].phone} (extensión 2). `;
 
 const AGENTE_INFO_ABIERTO = `Claro, ahora mismo un miembro del equipo revisará tu conversación y te atenderá personalmente. Si es urgente, también puedes llamarnos directamente al ${STORES[0].phone} en horario de tienda (${STORES[0].hours}).`;
 
@@ -978,6 +993,8 @@ Campaña de regalos directos: ${REGALOS_INFO}
 Reprografía (impresiones, copias, encuadernados, imprenta): ${REPROGRAFIA_INFO}
 
 Facturas: ${FACTURA_INFO}
+
+Cuentas de la web (contraseña, acceso, correos que no llegan): si a alguien no le llega el correo de restablecimiento de contraseña, lo más probable NO es que la web falle: es que hizo su pedido COMO INVITADO y nunca llegó a crear cuenta, así que no hay contraseña que recuperar ni email al que mandar nada. Dilo como lo más probable, no como un hecho — desde aquí no puedes comprobar si esa persona tiene cuenta. Y recuérdale que no necesita cuenta para comprar: en "Finalizar compra" se puede pedir como invitado, o puede crearse una cuenta nueva con su email. Si aun así no lo resuelve, que escriba a pedidos@ofipapelsl.com o llame al ${STORES[0].phone} (extensión 2). Nunca le digas que revise la carpeta de spam como si eso fuera a resolverlo: si no hay cuenta, ese correo no existe.
 
 Presupuestos de material escolar: ${PRESUPUESTO_ESCOLAR_INFO}
 
