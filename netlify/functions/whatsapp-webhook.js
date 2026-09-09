@@ -504,7 +504,12 @@ async function getPausaGlobalEfectiva() {
   return conversationStore.getPausaGlobal();
 }
 
-async function handleIncomingMessage(message, nombreWhatsapp) {
+// `event` hace falta para Netlify Blobs (connectLambda), donde se guardan las
+// fotos de los clientes. Se pasa explícitamente en vez de dejarlo suelto: sin
+// él, la rama de adjuntos reventaba con un ReferenceError DESPUÉS de contestar
+// al cliente y ANTES de registrar y avisar — o sea, el mismo agujero que se
+// acababa de tapar, pero peor, porque además parecía que funcionaba.
+async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // Se guarda antes que nada, y pase lo que pase después: sirve para reconocer
   // la conversación en el panel aunque el bot esté parado y no llegue a
   // contestar. Solo escribe cuando el nombre cambia (ver guardarNombreWhatsapp).
@@ -574,17 +579,21 @@ async function handleIncomingMessage(message, nombreWhatsapp) {
 
     // Se guarda con el pie de foto si lo trae: muchas veces ahí está la pregunta
     // ("¿tenéis este?"), y es lo que da sentido a la imagen.
+    // La marca solo va al historial, que es donde el panel la lee para pintar la
+    // imagen. En el aviso al dueño sobra: se lee en un email o en WhatsApp, y
+    // ahí "[ADJUNTO:1]" no significa nada.
+    const legible = `[El cliente envió ${queEs}]${pieDeFoto ? ` — "${pieDeFoto}"` : ''}`;
     const marca = adjunto ? `${MARCA_ADJUNTO}${adjunto.mediaId}]` : '';
-    const registro = `${marca}[El cliente envió ${queEs}]${pieDeFoto ? ` — "${pieDeFoto}"` : ''}`;
+    const registro = `${marca}${legible}`;
     await appendToHistory(message.from, registro, reply);
     await pauseBot(message.from, 24);
     await notifyOwner({
       channel: 'Meta',
       from: message.from,
-      customerMessage: `📎 ${registro} (el bot no puede leerlo)`,
+      customerMessage: `📎 ${legible}${adjunto ? ' — la foto se ve en el panel' : ''} (el bot no puede leerlo)`,
       botReply: reply,
     });
-    await notifyOwnerByWhatsapp(message.from, `📎 ${registro}`);
+    await notifyOwnerByWhatsapp(message.from, `📎 ${legible}`);
     return;
   }
 
@@ -937,7 +946,7 @@ exports.handler = async (event) => {
         const messages = change.value?.messages || [];
         for (const message of messages) {
           if (await alreadyProcessed(message.id)) continue;
-          await handleIncomingMessage(message, nombres.get(message.from));
+          await handleIncomingMessage(event, message, nombres.get(message.from));
         }
       }
     } catch (err) {
