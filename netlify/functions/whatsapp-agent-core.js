@@ -183,9 +183,26 @@ function matchFaqRule(text) {
   // Se cuentan TODAS, las concretas y las de contexto: horario, dirección y
   // envíos son de contexto, y son justo los temas que más se combinan con otro
   // en el mismo mensaje.
-  const contestarian = candidatas.filter(({ rule }) =>
-    Boolean(typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply)
-  );
+  const contestarian = candidatas
+    .map(({ rule }) => (typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply))
+    .filter(Boolean);
+
+  // ESCALAR A UNA PERSONA MANDA SOBRE TODO LO DEMÁS.
+  //
+  // No es "un tema más" que compita con otro: es la señal de que el bot no
+  // pinta nada aquí. Si además de pedir una persona el mensaje toca otro tema,
+  // eso NO es motivo para mandarlo a la IA — al revés, hace más falta la
+  // persona.
+  //
+  // Visto en real (8/9/2026, 23:03): "soy cliente de ustedes pero al hacer el
+  // pedido no recuerdo la contraseña y no se envía el correo de
+  // restablecimiento". Encajaban el escalado (por la contraseña) y CÓMO
+  // COMPRAR (por "hacer el pedido"), así que la regla de dos temas lo mandaba
+  // a la IA... que le explicó cómo comprar en la web a quien acababa de decir
+  // que la web no le deja entrar.
+  const escalado = contestarian.find((reply) => isAgenteInfoMessage(reply));
+  if (escalado) return escalado;
+
   if (contestarian.length > 1) return null;
 
   // Mandan las concretas, y solo si NINGUNA llega a contestar entran las de

@@ -78,6 +78,26 @@ const CASOS = [
   ['Quiero que me atienda una persona', 'faq:equipo'],
   ['Prefiero una persona', 'faq:equipo'],
 
+  // --- Problemas de cuenta en la web ---
+  // El bot no puede arreglar que no salga el correo de restablecimiento: tiene
+  // que escalar. Caso real (8/9/2026): la frase lleva "hacer el pedido", así que
+  // saltaba CÓMO COMPRAR y se le explicaba cómo comprar en la web a quien
+  // acababa de decir que la web no le deja entrar.
+  ['Hola, soy cliente de ustedes pero al hacer el pedido no recuerdo la contraseña y no se envía el correo de restablecimiento', 'faq:equipo'],
+  ['No recuerdo mi contraseña', 'faq:equipo'],
+  ['No me llega el correo de restablecimiento', 'faq:equipo'],
+  ['No puedo entrar en mi cuenta', 'faq:equipo'],
+  ['He olvidado la contraseña de la web', 'faq:equipo'],
+  ['No me deja hacer el pedido en la web', 'faq:equipo'],
+
+  // Y que pedir una persona GANE aunque el mensaje toque otro tema: escalar no
+  // es "un tema más" que competir, es la señal de que el bot no pinta nada.
+  ['Quiero hablar con una persona, ¿y cuál es vuestro horario?', 'faq:equipo'],
+
+  // Estas siguen siendo de "cómo comprar", no de cuenta.
+  ['¿Cómo hago un pedido?', 'faq:WhatsApp'],
+  ['¿Cómo me registro?', 'faq:registrarte'],
+
   // Y estas NO, aunque lleven "pásame" o "una persona".
   ['¿Me pasas el precio del 305XL?', 'catalogo'],
   ['Pásame la dirección de la tienda', 'faq:Chajofe'],
