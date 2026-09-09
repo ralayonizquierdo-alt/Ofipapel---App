@@ -70,6 +70,7 @@ const {
   STORES,
   GREETING,
   PRESENTACION,
+  PRESENTACION_BREVE,
   presentacionPara,
   PAUSA_GLOBAL_REPLY,
   ESPERA_REPLY,
@@ -591,9 +592,22 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     //
     // Sin pronombre ("no LA puedo leer") a propósito: con "un audio" salía "un
     // audio no la puedo leer". Así la frase vale para cualquier tipo.
-    // Sin `greeting`: esta rama va ANTES de que se calcule (línea ~667). Usarlo
-    // aquí sería el mismo ReferenceError que ya se coló una vez con `event`.
-    const prefijo = `Gracias por tu mensaje. No puedo leer ${queEs} por aquí. `;
+    // El cliente tiene que saber que habla con un bot, TAMBIÉN si su primer
+    // mensaje es una foto.
+    //
+    // Esta rama va antes de donde se calcula el saludo (línea ~667), así que
+    // quien empezaba mandando una foto no recibía la presentación nunca: leía
+    // "no puedo leer una foto" sin saber quién se lo decía. Se presenta aquí con
+    // la misma lógica y se marca igual, para que no se le presente dos veces si
+    // luego escribe.
+    const fichaFoto = await conversationStore.getFichaCliente(message.from);
+    const presentarse = !fichaFoto?.presentado;
+    if (presentarse) await conversationStore.marcarPresentado(message.from);
+
+    // La versión breve, no la larga: la larga invita a contar qué necesitas, y
+    // este cliente acaba de hacerlo mandando la foto.
+    const presentacion = presentarse ? `${PRESENTACION_BREVE}\n\n` : '';
+    const prefijo = `${presentacion}Gracias por tu mensaje. No puedo leer ${queEs} por aquí. `;
     await sendEscalateButtons(message.from, prefijo);
 
     // El registro se guarda SIEMPRE, diga lo que diga después: es lo que hace

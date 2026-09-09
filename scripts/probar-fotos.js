@@ -30,7 +30,7 @@ Module.prototype.require=function(p){
     getHistory:async()=>[], appendToHistory:async(f,u,a)=>{log.push({t:'guardado en el panel',m:u});},
     appendCustomerMessage:async()=>{}, isBotPaused:async()=>false,
     pauseBot:async(f,h)=>{log.push({t:'bot en pausa',m:h+' h'});}, askClaude:async()=>'x'};
-  if(p==='./conversation-store') return {...m, isConfigured:()=>true, claimMessage:async()=>true, getFichaCliente:async()=>({presentado:true}), getPausaGlobal:async()=>null, marcarPresentado:async()=>{}};
+  if(p==='./conversation-store') return {...m, isConfigured:()=>true, claimMessage:async()=>true, getFichaCliente:async()=>({presentado:PRESENTADO}), getPausaGlobal:async()=>null, marcarPresentado:async()=>{}};
   return m;
 };
 const wh=require(require('path').join(__dirname,'..','netlify/functions/whatsapp-webhook.js'));
@@ -47,6 +47,7 @@ const ev=(msg)=>{ const body=JSON.stringify({entry:[{changes:[{value:{messages:[
   return {httpMethod:'POST',headers:{'x-hub-signature-256':'sha256='+crypto.createHmac('sha256',SECRETO).update(Buffer.from(body,'utf8')).digest('hex')},body}; };
 
 let fallos=0;
+global.PRESENTADO=true;
 (async()=>{
   for(const [etiqueta,msg] of [
     ['Foto con pregunta', {type:'image', image:{id:'1', caption:'¿Tenéis este cartucho?'}}],
@@ -73,6 +74,19 @@ let fallos=0;
     }
     console.log();
   }
+  // Cliente NUEVO cuya primera interacción es una foto: tiene que enterarse de
+  // que habla con un bot. Antes esta rama iba antes de la presentación y no se
+  // presentaba nunca.
+  global.PRESENTADO=false;
+  log=[];
+  await wh.handler(ev({type:'image', image:{id:'99'}}));
+  const botones=(log.find(l=>l.t==='botones')||{}).m||'';
+  console.log('=== Cliente nuevo (primera vez, manda foto)');
+  console.log('   ', botones.slice(0,150));
+  if(!/asistente virtual/i.test(botones)){ fallos++; console.log('   ✗ NO se presenta como bot'); }
+  else console.log('    ✔ se presenta como bot');
+  console.log();
+
   console.log(fallos===0 ? '✔ Sin fallos' : `✗ ${fallos} fallos`);
   process.exit(fallos===0?0:1);
 })();
