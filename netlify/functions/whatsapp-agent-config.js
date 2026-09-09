@@ -189,6 +189,33 @@ function isWithinBusinessHours(date = new Date()) {
 // Dos variantes del mensaje de escalado a persona: en horario dice que se revisa
 // "ahora mismo"; fuera de horario deja claro que hasta que abra la tienda solo
 // puede seguir ayudando el bot, para no generar una falsa expectativa.
+// PROBLEMAS DE CUENTA EN LA WEB: contraseña, acceso, correos que no llegan.
+//
+// Es una categoría que faltaba entera, y falla de la peor manera posible.
+// Visto en real (8/9/2026, 23:03): "soy cliente de ustedes pero al hacer el
+// pedido no recuerdo la contraseña y no se envía el correo de restablecimiento".
+// Como la frase lleva "hacer el pedido", saltó la regla de CÓMO COMPRAR y se le
+// explicó cómo comprar en la web... a quien acababa de decir que la web no le
+// deja entrar. El cliente insistió dos veces más y acabó preguntando si podía
+// hacer el pedido por WhatsApp.
+//
+// Esto el bot NO lo puede resolver: si el correo de restablecimiento no sale,
+// hay un problema en la web que toca mirar a una persona. Lo único útil que
+// puede hacer es (a) desatascar al cliente ahora, diciéndole que no necesita la
+// web para comprar, y (b) avisar al equipo. Por eso engancha con el escalado
+// real en vez de contestar con un texto fijo.
+function esProblemaDeCuenta(texto) {
+  return /\b(contrase[nñ]a|password|restablec|recuperar (?:mi )?(?:cuenta|acceso)|iniciar sesi[oó]n|login|no puedo (?:entrar|acceder)|no me deja (?:entrar|acceder)|mi cuenta|correo de confirmaci[oó]n|no me llega (?:el|ning[uú]n) (?:correo|email|mail))\b/i.test(
+    String(texto || '')
+  );
+}
+
+// Lo que se le dice ANTES de ofrecerle la persona, cuando el problema es de
+// cuenta. Va como prefijo de los botones de escalado (ver whatsapp-webhook.js):
+// así el cliente se lleva la salida práctica en el acto y, además, el aviso al
+// equipo se dispara de verdad.
+const CUENTA_PREFIJO = `Entiendo, y siento el lío. Eso no lo puedo arreglar yo desde aquí, pero que no te frene el pedido: no necesitas la web ni la contraseña para comprar — mándanos lo que necesitas a pedidos@ofipapelsl.com o llama al ${STORES[0].phone} (extensión 2) y te lo gestionamos nosotros. `;
+
 const AGENTE_INFO_ABIERTO = `Claro, ahora mismo un miembro del equipo revisará tu conversación y te atenderá personalmente. Si es urgente, también puedes llamarnos directamente al ${STORES[0].phone} en horario de tienda (${STORES[0].hours}).`;
 
 const AGENTE_INFO_CERRADO = `Ahora mismo estamos fuera del horario comercial (${STORES[0].hours}). Un miembro del equipo atenderá tu petición en cuanto retomemos la actividad.`;
@@ -641,6 +668,23 @@ const FAQ_RULES = [
     // (que LE llamen a él). Con "llamar" a secas más abajo, esta regla nunca ganaba.
     keywords: [
       // español
+      // Problemas de cuenta en la web. Van AQUÍ, en la regla de escalado, y no
+      // como respuesta fija, porque el bot no puede arreglarlos: si el correo de
+      // restablecimiento no sale, hay algo roto que tiene que mirar una persona.
+      // Las frases son largas a propósito, para ganarle a "hacer el pedido" de
+      // la regla de CÓMO COMPRAR, que es la que se comía estos mensajes.
+      'no recuerdo la contraseña', 'no recuerdo mi contraseña', 'olvide la contraseña',
+      'olvidé la contraseña', 'olvide mi contraseña', 'olvidé mi contraseña',
+      'olvidado la contraseña', 'olvidado mi contraseña', 'perdi la contraseña', 'perdí la contraseña', 'perdido la contraseña', 'perdido mi contraseña',
+      'no se mi contraseña', 'no sé mi contraseña', 'no tengo la contraseña',
+      'restablecer la contraseña', 'restablecer mi contraseña', 'correo de restablecimiento',
+      'recuperar la contraseña', 'recuperar mi contraseña', 'cambiar la contraseña',
+      'no me llega el correo', 'no me llega el email', 'no me llega ningun correo',
+      'no se envia el correo', 'no se envía el correo', 'no me ha llegado el correo',
+      'no puedo entrar en mi cuenta', 'no puedo acceder a mi cuenta', 'no me deja entrar',
+      'no me deja acceder', 'no puedo iniciar sesion', 'no puedo iniciar sesión',
+      'problema con mi cuenta', 'problemas con mi cuenta', 'mi cuenta no funciona',
+      'no me deja hacer el pedido', 'no me deja finalizar', 'no puedo hacer el pedido',
       'hablar con alguien', 'hablar con una persona', 'hablar con un agente', 'hablar con agente',
       // "Pásame con una persona" es LA forma de pedirlo, y no la cogía nadie:
       // solo estaba "hablar con...". Importa el doble desde que la presentación
@@ -971,6 +1015,8 @@ module.exports = {
   AGENTE_INFO_ABIERTO,
   AGENTE_INFO_CERRADO,
   agenteInfo,
+  esProblemaDeCuenta,
+  CUENTA_PREFIJO,
   isAgenteInfoMessage,
   isWithinBusinessHours,
   SELLOS_QUESTION,

@@ -65,6 +65,8 @@ const {
   SELLOS_TIENDA_INFO,
   isSellosQuestion,
   isWithinBusinessHours,
+  esProblemaDeCuenta,
+  CUENTA_PREFIJO,
   STORES,
   GREETING,
   PRESENTACION,
@@ -645,8 +647,16 @@ async function handleIncomingMessage(message, nombreWhatsapp) {
   if (isExplicitRequest) {
     // El cliente pidió expresamente hablar con alguien (o es una queja/
     // presupuesto) — no hace falta explicar el motivo, se escala directo.
-    await sendEscalateButtons(message.from, greeting);
-    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${greeting}${escalateQuestion()}`);
+    //
+    // Salvo si el problema es de CUENTA (contraseña, acceso, el correo de
+    // restablecimiento que no llega): ahí se le antepone la salida práctica,
+    // porque lo que necesita no es solo una persona mañana, es poder hacer su
+    // pedido esta noche. Visto en real: un cliente que no podía entrar en la
+    // web insistió tres veces y acabó preguntando si se podía pedir por
+    // WhatsApp, sin que nadie le dijera que bastaba con un email.
+    const prefijo = esProblemaDeCuenta(text) ? `${greeting}${CUENTA_PREFIJO}` : greeting;
+    await sendEscalateButtons(message.from, prefijo);
+    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${prefijo}${escalateQuestion()}`);
     return;
   }
 
