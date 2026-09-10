@@ -9,6 +9,7 @@ const STORES = [
     name: 'Los Cristianos (sede principal)',
     address: 'C/ Bulevar Chajofe, n.º 4, 38650 Los Cristianos, Santa Cruz de Tenerife, España',
     hours: 'Lunes a viernes 9:00 a 14:00 y 16:00 a 19:00, sábados 9:00 a 13:00',
+    hoursEn: 'Monday to Friday 9:00-14:00 and 16:00-19:00, Saturdays 9:00-13:00',
     phone: '922 753 520',
     mapsUrl: 'https://maps.app.goo.gl/Sx5yVAos3Ltjyuiv8',
     keywords: ['sede principal', 'tienda principal', 'central', 'bulevar chajofe'],
@@ -17,6 +18,7 @@ const STORES = [
     name: 'Aliz 1 (Los Cristianos)',
     address: 'Av. de Suecia, n.º 7, 38650 Los Cristianos, Santa Cruz de Tenerife, España',
     hours: 'Lunes a viernes 9:00 a 14:00 y 16:30 a 19:30, sábados 9:00 a 13:00',
+    hoursEn: 'Monday to Friday 9:00-14:00 and 16:30-19:30, Saturdays 9:00-13:00',
     phone: '922 792 001',
     mapsUrl: 'https://maps.google.com/?q=Av+de+Suecia+7+Los+Cristianos+Tenerife',
     keywords: ['aliz 1', 'aliz1', 'av. de suecia', 'avenida de suecia'],
@@ -25,6 +27,7 @@ const STORES = [
     name: 'Aliz 2 (Playa de las Américas)',
     address: 'Res. Las Viñas, C/ Noelia Afonso Cabrera, 38660 Playa de las Américas, Santa Cruz de Tenerife, España',
     hours: 'Lunes a viernes 9:00 a 14:00 y 16:30 a 19:30, sábados 9:00 a 13:00',
+    hoursEn: 'Monday to Friday 9:00-14:00 and 16:30-19:30, Saturdays 9:00-13:00',
     phone: '922 791 029',
     mapsUrl: 'https://maps.google.com/?q=Calle+Noelia+Afonso+Cabrera+Playa+de+las+Americas+Tenerife',
     keywords: ['aliz 2', 'aliz2', 'playa de las americas', 'noelia afonso'],
@@ -133,6 +136,24 @@ function esSoloSaludo(rawText) {
 }
 
 // La presentación que toca según cómo abra el cliente la conversación.
+// Las mismas, en inglés. El bot promete "We also speak English" y hasta ahora
+// esa promesa la cumplía solo la IA: los textos fijos iban en español pasara lo
+// que pasara. Un cliente inglés recibía la presentación en español justo debajo
+// de la frase que le decía que hablamos su idioma.
+//
+// Ojo: aquí NO se repite "We also speak English" — a quien ya le estás hablando
+// en inglés, decírselo sobra.
+const PRESENTACION_EN = `Hi! 👋 I'm ${BUSINESS_NAME}'s virtual assistant. I can check prices, availability and the status of your order — and if you'd rather talk to someone from the team, just say so and I'll pass you on.\n\nTell me what you need: opening hours, shops, products, your order status...`;
+
+const PRESENTACION_BREVE_EN = `Hi! 👋 I'm ${BUSINESS_NAME}'s virtual assistant. I can check prices, availability and the status of your order — and if you'd rather talk to someone from the team, just say so and I'll pass you on.`;
+
+// La presentación que toca: por idioma y por si el cliente solo ha saludado.
+function presentacionEn(idioma, rawText) {
+  const soloSaludo = esSoloSaludo(rawText);
+  if (idioma === 'en') return soloSaludo ? PRESENTACION_EN : PRESENTACION_BREVE_EN;
+  return soloSaludo ? PRESENTACION : PRESENTACION_BREVE;
+}
+
 function presentacionPara(rawText) {
   return esSoloSaludo(rawText) ? PRESENTACION : PRESENTACION_BREVE;
 }
@@ -245,13 +266,36 @@ const CUENTA_ABIERTO = `Entiendo, y siento el lío. Lo más habitual cuando pasa
 
 const CUENTA_CERRADO = `Entiendo, y siento el lío. Lo más habitual cuando pasa esto es que el pedido se hiciera como invitado, sin llegar a crear cuenta: en ese caso no hay contraseña que recuperar, y por eso no te llega el correo. Le paso tu conversación a una persona del equipo. Ahora mismo estamos cerrados (${STORES[0].hours}), así que te contestará en cuanto abramos.`;
 
-function mensajeProblemaDeCuenta() {
+const CUENTA_ABIERTO_EN = `I understand, and I'm sorry about the trouble. The most common reason for this is that the order was placed as a guest, without ever creating an account: in that case there's no password to recover, which is why the email never arrives. Either way, someone from the team will look at this — I'm passing your conversation on right now and they'll get back to you directly. If you'd rather call, we're on ${STORES[0].phone} (${STORES[0].hoursEn}).`;
+
+const CUENTA_CERRADO_EN = `I understand, and I'm sorry about the trouble. The most common reason for this is that the order was placed as a guest, without ever creating an account: in that case there's no password to recover, which is why the email never arrives. I'm passing your conversation on to someone from the team. We're closed at the moment (${STORES[0].hoursEn}), so they'll get back to you as soon as we're open.`;
+
+function mensajeProblemaDeCuenta(idioma = 'es') {
+  if (idioma === 'en') return isWithinBusinessHours() ? CUENTA_ABIERTO_EN : CUENTA_CERRADO_EN;
   return isWithinBusinessHours() ? CUENTA_ABIERTO : CUENTA_CERRADO;
 }
 
 const AGENTE_INFO_ABIERTO = `Claro, ahora mismo un miembro del equipo revisará tu conversación y te atenderá personalmente. Si es urgente, también puedes llamarnos directamente al ${STORES[0].phone} en horario de tienda (${STORES[0].hours}).`;
 
 const AGENTE_INFO_CERRADO = `Ahora mismo estamos fuera del horario comercial (${STORES[0].hours}). Un miembro del equipo atenderá tu petición en cuanto retomemos la actividad.`;
+
+// En inglés. El escalado es lo ÚNICO que se le sigue permitiendo a una regla
+// fija cuando el cliente escribe en inglés (ver el webhook), porque poner en
+// contacto con una persona importa más que el idioma — así que tiene que estar
+// traducido, o se acaba escalando en español a quien no lo entiende.
+const AGENTE_INFO_ABIERTO_EN = `Of course — someone from the team will look at your conversation right now and get back to you personally. If it's urgent, you can also call us on ${STORES[0].phone} during shop hours (${STORES[0].hoursEn}).`;
+
+const AGENTE_INFO_CERRADO_EN = `We're closed at the moment (${STORES[0].hoursEn}). Someone from the team will get back to you as soon as we're open again.`;
+
+function agenteInfoEn(idioma) {
+  if (idioma === 'en') return isWithinBusinessHours() ? AGENTE_INFO_ABIERTO_EN : AGENTE_INFO_CERRADO_EN;
+  return agenteInfo();
+}
+
+// Para reconocer el mensaje de escalado en cualquiera de los dos idiomas.
+function isAgenteInfoEnCualquierIdioma(text) {
+  return isAgenteInfoMessage(text) || text === AGENTE_INFO_ABIERTO_EN || text === AGENTE_INFO_CERRADO_EN;
+}
 
 function agenteInfo() {
   return isWithinBusinessHours() ? AGENTE_INFO_ABIERTO : AGENTE_INFO_CERRADO;
@@ -284,6 +328,23 @@ const PEDIDO_ESTADO_TRIGGER = 'Claro, dime el número de tu pedido (lo tienes en
 
 function isPedidoEstadoQuestion(text) {
   return text === PEDIDO_ESTADO_TRIGGER;
+}
+
+// Las dos en inglés. El flujo de "estado de mi pedido" es el único camino de
+// reglas fijas que un cliente en inglés recorre entero (lo arranca la IA o el
+// atajo del número suelto, no una regla de FAQ), así que sus textos tienen que
+// estar traducidos o la conversación vuelve al español a mitad — que es
+// exactamente lo que se vio en real el 10/9/2026.
+const PEDIDOS_INFO_EN = `To track your order or for any issue related to it, the best thing is to contact our Orders department directly: ${STORES[0].phone} (extension 2) or pedidos@ofipapelsl.com.`;
+
+const PEDIDO_ESTADO_TRIGGER_EN = "Sure — tell me your order number (it's in your confirmation email) and I'll check its status for you.";
+
+function pedidosInfo(idioma = 'es') {
+  return idioma === 'en' ? PEDIDOS_INFO_EN : PEDIDOS_INFO;
+}
+
+function pedidoEstadoTrigger(idioma = 'es') {
+  return idioma === 'en' ? PEDIDO_ESTADO_TRIGGER_EN : PEDIDO_ESTADO_TRIGGER;
 }
 
 // Las facturas de un pedido las lleva el repartidor con la mercancía: quien
@@ -1043,6 +1104,9 @@ module.exports = {
   GREETING,
   PRESENTACION,
   PRESENTACION_BREVE,
+  PRESENTACION_EN,
+  PRESENTACION_BREVE_EN,
+  presentacionEn,
   presentacionPara,
   esSoloSaludo,
   PAUSA_GLOBAL_REPLY,
@@ -1050,6 +1114,8 @@ module.exports = {
   AGENTE_INFO_ABIERTO,
   AGENTE_INFO_CERRADO,
   agenteInfo,
+  agenteInfoEn,
+  isAgenteInfoEnCualquierIdioma,
   esProblemaDeCuenta,
   mensajeProblemaDeCuenta,
   isAgenteInfoMessage,
@@ -1067,6 +1133,8 @@ module.exports = {
   PRODUCTO_NO_VERIFICADO_INFO,
   PEDIDOS_INFO,
   PEDIDO_ESTADO_TRIGGER,
+  pedidosInfo,
+  pedidoEstadoTrigger,
   isPedidoEstadoQuestion,
   PRESUPUESTO_ESCOLAR_INFO,
   FACTURA_INFO,

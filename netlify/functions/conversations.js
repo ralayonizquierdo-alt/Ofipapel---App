@@ -36,7 +36,11 @@ const {
   guardarNotasCliente,
 } = require('./conversation-store');
 const crypto = require('crypto');
-const { isAgenteInfoMessage } = require('./whatsapp-agent-config');
+// En cualquiera de los dos idiomas: si se escala en inglés, el aviso guardado en
+// el historial es el texto inglés, y comparando solo contra el español la
+// conversación no se marcaría como pendiente en el panel — el escalado existiría
+// y nadie lo vería.
+const { isAgenteInfoEnCualquierIdioma: isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const { esHistorialMolesto } = require('./whatsapp-hostilidad');
 const { leer: leerMedia, adjuntoDelHistorial } = require('./whatsapp-media');
 const { sendWhatsappMessage, sendWhatsappTemplate, uploadWhatsappMedia, sendWhatsappMedia, getBusinessProfile, getPhoneNumberStatus } = require('./whatsapp-send');

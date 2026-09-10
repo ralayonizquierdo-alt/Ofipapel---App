@@ -844,8 +844,58 @@ function fraseProcessing(order) {
 const AVISO_POSIBLE_DESACTUALIZACION =
   ' Ten en cuenta que si ya se ha facturado o enviado, ese cambio puede tardar en reflejarse aquí — para el dato exacto al momento, escribe a pedidos@ofipapelsl.com o llama al 922 753 520 (extensión 2).';
 
-// Mensaje en español, listo para mandar por WhatsApp, con el estado real del pedido.
-function formatOrderStatus(order) {
+
+// Lo mismo en inglés. Este texto NO se puede dejar en manos de la IA: se
+// construye con datos reales del pedido (número, fecha, importe, estado), y
+// esos no se traducen "a ojo" — se generan aquí o no se generan.
+const ESTADO_TRADUCIDO_EN = {
+  pending: 'pending payment',
+  'on-hold': 'on hold',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  refunded: 'refunded',
+  failed: 'with a failed payment',
+  'checkout-draft': 'unfinished',
+  'cancel-request': 'with a cancellation request in progress',
+};
+
+function fraseProcessingEn(order) {
+  if (order.date_paid) return { estado: 'paid and being prepared', extra: '' };
+  if (order.payment_method === 'cod') {
+    return { estado: 'being prepared', extra: ' You chose cash on delivery, so you pay when it arrives.' };
+  }
+  return { estado: 'being prepared, pending payment confirmation', extra: '' };
+}
+
+const AVISO_POSIBLE_DESACTUALIZACION_EN =
+  ' Bear in mind that if it has already been invoiced or dispatched, that change can take a while to show up here — for the exact status right now, email pedidos@ofipapelsl.com or call 922 753 520 (ext. 2).';
+
+// El estado real del pedido, listo para mandar por WhatsApp, en el idioma del
+// cliente. Un cliente inglés recibía esto en español: era el segundo texto fijo
+// que rompía la promesa de "We also speak English" (visto en real, 10/9/2026).
+function formatOrderStatus(order, idioma = 'es') {
+  if (idioma === 'en') return formatOrderStatusEn(order);
+  return formatOrderStatusEs(order);
+}
+
+function formatOrderStatusEn(order) {
+  const esProcessing = order.status === 'processing';
+  const { estado, extra } = esProcessing
+    ? fraseProcessingEn(order)
+    : { estado: ESTADO_TRADUCIDO_EN[order.status] || order.status, extra: '' };
+  const fecha = order.date_created ? new Date(order.date_created).toLocaleDateString('en-GB') : null;
+  const total = order.total ? `€${Number(order.total).toFixed(2)}` : null;
+  let msg = `Your order #${order.id}`;
+  if (fecha) msg += ` (${fecha})`;
+  msg += ` is ${estado}`;
+  if (total) msg += `, for a total of ${total}`;
+  msg += '.';
+  if (extra) msg += extra;
+  if (esProcessing) msg += AVISO_POSIBLE_DESACTUALIZACION_EN;
+  return msg;
+}
+
+function formatOrderStatusEs(order) {
   const esProcessing = order.status === 'processing';
   const { estado, extra } = esProcessing
     ? fraseProcessing(order)
