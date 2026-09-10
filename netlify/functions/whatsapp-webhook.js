@@ -56,7 +56,6 @@ const {
   isRepeatQuestion,
   isBotPaused,
   pauseBot,
-  agenteInfo,
   isAgenteInfoMessage,
 } = require('./whatsapp-agent-core');
 const {
@@ -71,7 +70,11 @@ const {
   GREETING,
   PRESENTACION,
   PRESENTACION_BREVE,
+  PRESENTACION_BREVE_EN,
   presentacionPara,
+  presentacionEn,
+  agenteInfoEn,
+  isAgenteInfoEnCualquierIdioma,
   PAUSA_GLOBAL_REPLY,
   ESPERA_REPLY,
   startsWithGreeting,
@@ -80,8 +83,8 @@ const {
   isUnverifiedConfirmation,
   isUnverifiedStockClaim,
   PRODUCTO_NO_VERIFICADO_INFO,
-  PEDIDOS_INFO,
-  PEDIDO_ESTADO_TRIGGER,
+  pedidosInfo,
+  pedidoEstadoTrigger,
   isPedidoEstadoQuestion,
 } = require('./whatsapp-agent-config');
 const woocommerce = require('./woocommerce-client');
@@ -90,6 +93,7 @@ const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo
 const { respuestaSinCatalogo } = require('./whatsapp-consumibles');
 const { detectarHostilidad, mensajeClienteMolesto } = require('./whatsapp-hostilidad');
 const { guardarAdjuntoDeCliente, MARCA_ADJUNTO } = require('./whatsapp-media');
+const { idiomaDeRespuesta } = require('./whatsapp-idioma');
 const { firmaDeReintento } = require('./whatsapp-firma');
 const conversationStore = require('./conversation-store');
 
@@ -167,14 +171,24 @@ function stripAiOwnGreeting(text) {
 // Fuera de horario, la propia pregunta de "¿quieres que te ponga en contacto...?" ya
 // deja claro que ahora mismo no hay nadie y que la atención será en cuanto abramos —
 // así el cliente no piensa que va a hablar con alguien al instante al pulsar "Sí".
-function escalateQuestion() {
+function escalateQuestion(idioma = 'es') {
+  if (idioma === 'en') {
+    return isWithinBusinessHours()
+      ? 'Would you like me to put you in touch with someone from the team?'
+      : `We're closed at the moment (${STORES[0].hoursEn}), so nobody can help you right away. Would you still like me to put you in touch? Someone will look at your conversation as soon as we're open.`;
+  }
   return isWithinBusinessHours()
     ? '¿Quieres que te ponga en contacto con una persona del equipo?'
     : `Ahora mismo estamos fuera del horario comercial (${STORES[0].hours}), así que nadie puede atenderte al instante. ¿Quieres que igualmente te pongamos en contacto? Un agente revisará tu conversación en cuanto retomemos la actividad.`;
 }
 const ESCALATE_DECLINE_REPLY = 'Entendido, sigo por aquí. Cuéntame otra vez qué necesitas e intento ayudarte.';
+const ESCALATE_DECLINE_REPLY_EN = "Understood, I'm still here. Tell me again what you need and I'll try to help.";
 
-async function sendEscalateButtons(to, greetingPrefix = '') {
+function escalateDeclineReply(idioma = 'es') {
+  return idioma === 'en' ? ESCALATE_DECLINE_REPLY_EN : ESCALATE_DECLINE_REPLY;
+}
+
+async function sendEscalateButtons(to, greetingPrefix = '', idioma = 'es') {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const token = process.env.WHATSAPP_TOKEN;
 
@@ -190,11 +204,11 @@ async function sendEscalateButtons(to, greetingPrefix = '') {
       type: 'interactive',
       interactive: {
         type: 'button',
-        body: { text: greetingPrefix + escalateQuestion() },
+        body: { text: greetingPrefix + escalateQuestion(idioma) },
         action: {
           buttons: [
-            { type: 'reply', reply: { id: 'escalate_yes', title: '✅ Sí' } },
-            { type: 'reply', reply: { id: 'escalate_no', title: '✖️ No' } },
+            { type: 'reply', reply: { id: 'escalate_yes', title: idioma === 'en' ? '✅ Yes' : '✅ Sí' } },
+            { type: 'reply', reply: { id: 'escalate_no', title: idioma === 'en' ? '✖️ No' : '✖️ No' } },
           ],
         },
       },
@@ -256,9 +270,14 @@ async function notifyOwnerByWhatsapp(customerPhone, lastCustomerMessage) {
 // conversaciones (que detecta el aviso con isAgenteInfoMessage sobre el historial).
 async function handleEscalateReply(message) {
   const buttonId = message.interactive.button_reply.id;
+  // El botón no dice nada del idioma ("Yes"/"Sí" son un id fijo), así que se
+  // usa el que se recordó de la conversación. Es una lectura más de la ficha,
+  // pero solo al pulsar un botón: no mueve el consumo.
+  const ficha = await conversationStore.getFichaCliente(message.from);
+  const idioma = ficha?.idioma || 'es';
 
   if (buttonId === 'escalate_yes') {
-    const reply = agenteInfo();
+    const reply = agenteInfoEn(idioma);
     await sendWhatsappMessage(message.from, reply);
     await appendToHistory(message.from, '[El cliente confirmó que quiere hablar con una persona]', reply);
     await pauseBot(message.from, 24);
@@ -275,8 +294,9 @@ async function handleEscalateReply(message) {
   }
 
   if (buttonId === 'escalate_no') {
-    await sendWhatsappMessage(message.from, ESCALATE_DECLINE_REPLY);
-    await appendToHistory(message.from, '[El cliente prefirió seguir con el bot]', ESCALATE_DECLINE_REPLY);
+    const reply = escalateDeclineReply(idioma);
+    await sendWhatsappMessage(message.from, reply);
+    await appendToHistory(message.from, '[El cliente prefirió seguir con el bot]', reply);
   }
 }
 
@@ -326,6 +346,11 @@ async function handleSellosReply(message) {
 // pedidos, el paso se deduce mirando si la última respuesta del bot fue esta.
 const ACLARACION_MARCA = '[Se preguntó si no se entendió bien]';
 const ACLARACION_REPLY = 'Perdona, creo que no te he entendido bien. ¿Puedes explicarme de otra forma qué necesitas?';
+const ACLARACION_REPLY_EN = "Sorry, I don't think I've understood you properly. Could you tell me what you need in another way?";
+
+function aclaracionReply(idioma = 'es') {
+  return idioma === 'en' ? ACLARACION_REPLY_EN : ACLARACION_REPLY;
+}
 
 // Lo último que dijo el bot fue "explícamelo de otra forma": lo que llegue
 // ahora es la reformulación que se le pidió, no una insistencia.
@@ -393,7 +418,7 @@ function mencionaUnPedidoConcreto(text) {
   return PALABRA_PEDIDO_RE.test(t) && NUMERO_LARGO_RE.test(t);
 }
 
-async function continuarBusquedaPedido(from, text, paso, greeting) {
+async function continuarBusquedaPedido(from, text, paso, greeting, idioma = 'es') {
   if (paso.paso === 'numero') {
     const match = text.match(/\d{3,}/);
     if (!match) return false; // no parece un número de pedido: se abandona el flujo, turno normal
@@ -402,9 +427,11 @@ async function continuarBusquedaPedido(from, text, paso, greeting) {
     const order = await woocommerce.getOrder(orderId);
 
     if (!order || woocommerce.isSpamOrder(order)) {
-      const prefix = `${greeting}No encuentro ningún pedido con el número ${orderId}. `;
-      await sendEscalateButtons(from, prefix);
-      await appendToHistory(from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
+      const prefix = idioma === 'en'
+        ? `${greeting}I can't find any order with the number ${orderId}. `
+        : `${greeting}No encuentro ningún pedido con el número ${orderId}. `;
+      await sendEscalateButtons(from, prefix, idioma);
+      await appendToHistory(from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion(idioma)}`);
       return true;
     }
 
@@ -412,7 +439,7 @@ async function continuarBusquedaPedido(from, text, paso, greeting) {
       // Pedido ya verificado como suyo: su nombre/empresa salen de WooCommerce,
       // así que se pueden guardar en su ficha como dato fiable.
       await conversationStore.registrarPedidoVerificado(from, order);
-      const reply = greeting + woocommerce.formatOrderStatus(order);
+      const reply = greeting + woocommerce.formatOrderStatus(order, idioma);
       await appendToHistory(from, text, reply);
       await sendWhatsappMessage(from, reply);
       return true;
@@ -420,7 +447,9 @@ async function continuarBusquedaPedido(from, text, paso, greeting) {
 
     // El teléfono del pedido no coincide con el número que escribe (p. ej. compró
     // con el teléfono de la empresa y escribe desde el personal) — segunda comprobación.
-    const reply = `${greeting}Para confirmar que el pedido es tuyo, dime el nombre comercial o el nombre y apellidos con los que se hizo.`;
+    const reply = idioma === 'en'
+      ? `${greeting}To confirm the order is yours, tell me the company name or the full name it was placed under.`
+      : `${greeting}Para confirmar que el pedido es tuyo, dime el nombre comercial o el nombre y apellidos con los que se hizo.`;
     await appendToHistory(from, text, `${marcaEsperandoNombre(order.id)}${reply}`);
     await sendWhatsappMessage(from, reply);
     return true;
@@ -430,15 +459,17 @@ async function continuarBusquedaPedido(from, text, paso, greeting) {
     const order = await woocommerce.getOrder(paso.orderId);
     if (order && !woocommerce.isSpamOrder(order) && woocommerce.nombreCoincide(text, order)) {
       await conversationStore.registrarPedidoVerificado(from, order);
-      const reply = greeting + woocommerce.formatOrderStatus(order);
+      const reply = greeting + woocommerce.formatOrderStatus(order, idioma);
       await appendToHistory(from, text, reply);
       await sendWhatsappMessage(from, reply);
       return true;
     }
 
-    const prefix = `${greeting}No he podido confirmar que el pedido sea tuyo. `;
-    await sendEscalateButtons(from, prefix);
-    await appendToHistory(from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
+    const prefix = idioma === 'en'
+      ? `${greeting}I haven't been able to confirm the order is yours. `
+      : `${greeting}No he podido confirmar que el pedido sea tuyo. `;
+    await sendEscalateButtons(from, prefix, idioma);
+    await appendToHistory(from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion(idioma)}`);
     return true;
   }
 
@@ -447,15 +478,15 @@ async function continuarBusquedaPedido(from, text, paso, greeting) {
 
 // Primera vez que preguntan por el estado de un pedido concreto. Si WooCommerce no
 // está configurado, cae al comportamiento de siempre (solo dar el contacto).
-async function iniciarBusquedaPedido(from, text, greeting) {
+async function iniciarBusquedaPedido(from, text, greeting, idioma = 'es') {
   if (!woocommerce.isConfigured()) {
-    const reply = greeting + PEDIDOS_INFO;
+    const reply = greeting + pedidosInfo(idioma);
     await appendToHistory(from, text, reply);
     await sendWhatsappMessage(from, reply);
     return;
   }
 
-  const reply = greeting + PEDIDO_ESTADO_TRIGGER;
+  const reply = greeting + pedidoEstadoTrigger(idioma);
   await appendToHistory(from, text, `${PEDIDO_MARCA_ESPERANDO_NUMERO}${reply}`);
   await sendWhatsappMessage(from, reply);
 }
@@ -606,13 +637,22 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
 
     // La versión breve, no la larga: la larga invita a contar qué necesitas, y
     // este cliente acaba de hacerlo mandando la foto.
-    const presentacion = presentarse ? `${PRESENTACION_BREVE}\n\n` : '';
-    const prefijo = `${presentacion}Gracias por tu mensaje. No puedo leer ${queEs} por aquí. `;
-    await sendEscalateButtons(message.from, prefijo);
+    // El idioma recordado de la ficha: una foto no trae texto del que deducirlo,
+    // así que se usa el de la conversación. Y esta rama va antes de donde se
+    // calcula `idioma` más abajo, así que se lee aquí de su propia ficha.
+    const idiomaFoto = fichaFoto?.idioma === 'en' ? 'en' : 'es';
+    const presentacion = presentarse
+      ? `${idiomaFoto === 'en' ? PRESENTACION_BREVE_EN : PRESENTACION_BREVE}\n\n`
+      : '';
+    const QUE_ES_EN = { image: 'a photo', audio: 'a voice note', video: 'a video', document: 'a document', sticker: 'a sticker', location: 'a location' };
+    const prefijo = idiomaFoto === 'en'
+      ? `${presentacion}Thanks for your message. I can't read ${QUE_ES_EN[message.type] || 'that'} here. `
+      : `${presentacion}Gracias por tu mensaje. No puedo leer ${queEs} por aquí. `;
+    await sendEscalateButtons(message.from, prefijo, idiomaFoto);
 
     // El registro se guarda SIEMPRE, diga lo que diga después: es lo que hace
     // que la foto aparezca en el panel aunque el cliente no toque ningún botón.
-    await appendToHistory(message.from, registro, `${prefijo}${escalateQuestion()}`);
+    await appendToHistory(message.from, registro, `${prefijo}${escalateQuestion(idiomaFoto)}`);
     return;
   }
 
@@ -640,9 +680,26 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // Y no se le antepone la presentación del bot ("¡Hola! 👋 Soy el asistente
   // virtual..."): saludar alegremente a alguien que está insultando es la
   // forma más rápida de encenderlo más.
+  // EN QUÉ IDIOMA SE LE CONTESTA.
+  //
+  // Se RECUERDA en la ficha, no se decide mensaje a mensaje. Visto en real
+  // (10/9/2026): un cliente preguntó en inglés, luego mandó "643539" y luego
+  // "yes" — ninguno de esos dos dice nada del idioma, y mirando solo el mensaje
+  // actual volvía al español a mitad de conversación. Que es lo que pasó: se le
+  // dio el estado del pedido en español.
+  //
+  // Se decide aquí arriba, ANTES que nada, porque hasta el mensaje de cliente
+  // molesto (que corta el turno y no llega a ver el resto del flujo) tiene que
+  // salir en su idioma.
+  const fichaCliente = await conversationStore.getFichaCliente(message.from);
+  const idioma = idiomaDeRespuesta(text, fichaCliente?.idioma);
+  if (idioma !== fichaCliente?.idioma) {
+    await conversationStore.actualizarFichaCliente(message.from, { idioma });
+  }
+
   const hostilidad = detectarHostilidad(text);
   if (hostilidad) {
-    const reply = mensajeClienteMolesto();
+    const reply = mensajeClienteMolesto(idioma);
     await sendWhatsappMessage(message.from, reply);
     await appendToHistory(message.from, text, `[Cliente molesto — ${hostilidad.familia}] ${reply}`);
     // Se para el bot igual que en un escalado confirmado: a partir de aquí
@@ -658,9 +715,32 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     return;
   }
 
+  const debePresentarse = !fichaCliente?.presentado;
+  if (debePresentarse) await conversationStore.marcarPresentado(message.from);
+
   const history = await getHistory(message.from);
-  const faqReply = matchFaqRule(text);
-  const isExplicitRequest = isAgenteInfoMessage(faqReply || ''); // "hablar con alguien", queja, presupuesto...
+
+  // LAS REGLAS FIJAS SOLO VALEN EN ESPAÑOL.
+  //
+  // Son 48 respuestas escritas a mano en español. Traducirlas todas sería mucho
+  // trabajo y se desincronizarían con el tiempo; pero dejarlas puestas significa
+  // contestarle en español a quien escribe en inglés, que es justo lo que se vio
+  // en real (10/9/2026).
+  //
+  // La salida buena ya existía: TODA esa información está también en el prompt
+  // de la IA, y la IA sí contesta en el idioma del cliente. Así que en inglés se
+  // dejan pasar y contesta ella. Es el mismo razonamiento que con las reglas de
+  // contexto y con los mensajes de dos temas.
+  //
+  // La ÚNICA excepción es el escalado: poner en contacto con una persona importa
+  // más que el idioma, y además ya está traducido (agenteInfoEn). Si se dejara
+  // pasar, un "I want to talk to someone" acabaría en la IA en vez de en una
+  // persona.
+  const faqEnEspanol = matchFaqRule(text);
+  const esEscalado = isAgenteInfoMessage(faqEnEspanol || '');
+  const faqReply = idioma === 'en' ? (esEscalado ? agenteInfoEn(idioma) : null) : faqEnEspanol;
+
+  const isExplicitRequest = isAgenteInfoEnCualquierIdioma(faqReply || ''); // "hablar con alguien", queja, presupuesto...
   const isRepeated = !faqReply && isRepeatQuestion(text, history);
   const wantsEscalation = isExplicitRequest || isRepeated;
 
@@ -673,17 +753,13 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // tiene sentido con un "hola" a secas; si el primer mensaje ya trae la pregunta,
   // se usa la corta, porque decirle "cuéntame qué necesitas" a quien acaba de
   // contarlo queda raro y alarga el mensaje para nada.
-  const fichaCliente = await conversationStore.getFichaCliente(message.from);
-  const debePresentarse = !fichaCliente?.presentado;
-  if (debePresentarse) await conversationStore.marcarPresentado(message.from);
-
   // Si el cliente saluda junto con su pregunta (p. ej. "Buenas tardes, ¿hacéis
   // escaneados?"), se antepone el saludo a la respuesta que sea — así no hace falta
   // que ninguna regla individual ni la IA se acuerden de saludar por su cuenta.
   const greeting = debePresentarse
-    ? `${presentacionPara(text)}\n\n`
+    ? `${presentacionEn(idioma, text)}\n\n`
     : startsWithGreeting(text)
-      ? '¡Hola! '
+      ? (idioma === 'en' ? 'Hi! ' : '¡Hola! ')
       : '';
 
   // Si la última respuesta del bot fue "dime el número de tu pedido" o "confírmame
@@ -691,7 +767,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // gestiona aparte de FAQ/escalado/IA (ver detectarPasoPedido más abajo).
   const pasoPedido = detectarPasoPedido(history);
   if (pasoPedido) {
-    const gestionado = await continuarBusquedaPedido(message.from, text, pasoPedido, greeting);
+    const gestionado = await continuarBusquedaPedido(message.from, text, pasoPedido, greeting, idioma);
     if (gestionado) return;
   }
 
@@ -711,7 +787,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // que ha coincidido es justo la de "estado de mi pedido".
   const faqMandaSobreElPedido = Boolean(faqReply) && !isPedidoEstadoQuestion(faqReply);
   if (!pasoPedido && !faqMandaSobreElPedido && woocommerce.isConfigured() && mencionaUnPedidoConcreto(text)) {
-    const gestionado = await continuarBusquedaPedido(message.from, text, { paso: 'numero' }, greeting);
+    const gestionado = await continuarBusquedaPedido(message.from, text, { paso: 'numero' }, greeting, idioma);
     if (gestionado) return;
   }
 
@@ -726,7 +802,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // cuenta que recuperar) porque es información útil, pero como dato, no como
   // tarea. Y se avisa al equipo igual que con un cliente molesto.
   if (esProblemaDeCuenta(text)) {
-    const reply = greeting + mensajeProblemaDeCuenta();
+    const reply = greeting + mensajeProblemaDeCuenta(idioma);
     await sendWhatsappMessage(message.from, reply);
     await appendToHistory(message.from, text, `[Problema de cuenta — pasado a una persona] ${reply}`);
     await pauseBot(message.from, 24);
@@ -743,8 +819,8 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   if (isExplicitRequest) {
     // El cliente pidió expresamente hablar con alguien (o es una queja/
     // presupuesto) — no hace falta explicar el motivo, se escala directo.
-    await sendEscalateButtons(message.from, greeting);
-    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${greeting}${escalateQuestion()}`);
+    await sendEscalateButtons(message.from, greeting, idioma);
+    await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${greeting}${escalateQuestion(idioma)}`);
     return;
   }
 
@@ -761,16 +837,18 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
       // Segunda insistencia después de haber reformulado ya una vez: pedirle
       // otra vez que lo explique de otra forma sería marearle. Se le ofrece
       // una persona.
-      const prefix = `${greeting}Veo que no he conseguido resolver tu duda. `;
-      await sendEscalateButtons(message.from, prefix);
-      await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion()}`);
+      const prefix = idioma === 'en'
+        ? `${greeting}I can see I haven't managed to answer your question. `
+        : `${greeting}Veo que no he conseguido resolver tu duda. `;
+      await sendEscalateButtons(message.from, prefix, idioma);
+      await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion(idioma)}`);
       return;
     }
 
     // Tampoco se salta directo a ofrecer un agente la primera vez: puede que el
     // bot simplemente no haya entendido la forma de preguntar. Se le da una
     // oportunidad de reformular.
-    const reply = greeting + ACLARACION_REPLY;
+    const reply = greeting + aclaracionReply(idioma);
     await appendToHistory(message.from, text, `${ACLARACION_MARCA}${reply}`);
     await sendWhatsappMessage(message.from, reply);
     return;
@@ -783,7 +861,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   }
 
   if (isPedidoEstadoQuestion(faqReply || '')) {
-    await iniciarBusquedaPedido(message.from, text, greeting);
+    await iniciarBusquedaPedido(message.from, text, greeting, idioma);
     return;
   }
 
@@ -879,11 +957,11 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     // escalado ("¿quieres que te ponga en contacto...?") ya funciona como sugerencia
     // aparte sin sonar redundante.
     const prefix = infoPart ? '' : `${greeting}No tengo la respuesta exacta a eso. `;
-    await sendEscalateButtons(message.from, prefix);
+    await sendEscalateButtons(message.from, prefix, idioma);
     await appendToHistory(
       message.from,
       infoPart ? '[continuación automática: se ofreció además hablar con un agente]' : text,
-      `${prefix}${escalateQuestion()}`
+      `${prefix}${escalateQuestion(idioma)}`
     );
     return;
   }

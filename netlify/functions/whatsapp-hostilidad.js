@@ -292,10 +292,26 @@ const MOLESTO_ABIERTO = (telefono, horario) =>
 const MOLESTO_CERRADO = (telefono, horario) =>
   `Siento que hayamos llegado a esto. Dejo de contestarte yo y le paso tu conversación a una persona del equipo. Ahora mismo estamos cerrados (${horario}), así que te contestará en cuanto abramos. Si lo prefieres, también puedes llamarnos al ${telefono} en ese horario.`;
 
-function mensajeClienteMolesto() {
+// En inglés. Las expresiones que se detectan son casi todas españolas, pero
+// unas cuantas no lo son ("you are useless", "stupid bot", "nobody answers"),
+// así que un cliente inglés SÍ puede llegar hasta aquí — y contestarle en
+// español al que acaba de enfadarse es la peor versión posible de este mensaje.
+const MOLESTO_ABIERTO_EN = (telefono, horario) =>
+  `I'm sorry it's come to this. I'll stop replying myself: I'm alerting someone from the team right now so they can look at your case and get back to you personally. If you'd rather sort it out by phone, call us on ${telefono} (${horario}).`;
+
+const MOLESTO_CERRADO_EN = (telefono, horario) =>
+  `I'm sorry it's come to this. I'll stop replying myself and I'm passing your conversation on to someone from the team. We're closed at the moment (${horario}), so they'll get back to you as soon as we're open. If you prefer, you can also call us on ${telefono} during those hours.`;
+
+function mensajeClienteMolesto(idioma = 'es') {
   const { STORES, isWithinBusinessHours } = require('./whatsapp-agent-config');
   const telefono = STORES[0].phone;
   const horario = STORES[0].hours;
+  if (idioma === 'en') {
+    const horarioEn = STORES[0].hoursEn;
+    return isWithinBusinessHours()
+      ? MOLESTO_ABIERTO_EN(telefono, horarioEn)
+      : MOLESTO_CERRADO_EN(telefono, horarioEn);
+  }
   return isWithinBusinessHours()
     ? MOLESTO_ABIERTO(telefono, horario)
     : MOLESTO_CERRADO(telefono, horario);
