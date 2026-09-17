@@ -1258,10 +1258,17 @@ function renderAprendizaje(pendientes, aliases) {
 const INICIO_SEMANA_MUDA = Date.UTC(2026, 8, 10, 9, 20); // el despliegue que lo rompió
 const FIN_SEMANA_MUDA = Date.UTC(2026, 8, 17, 9, 56); // el despliegue que lo arregló
 
-function renderPerdidos(clientes, desde, hasta) {
+function renderPerdidos(clientes, desde, hasta, error, descartados = 0) {
   const fecha = (ts) => new Date(ts).toLocaleString('es-ES', {
     day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary',
   });
+
+  // El botón de plantilla va AQUÍ, en cada fila, y no solo dentro de la
+  // conversación: estos clientes no tienen conversación ninguna (no se llegó a
+  // guardar nada), así que entrar en su hilo para mandarles la plantilla es dar
+  // un rodeo por una pantalla vacía. Y son varios seguidos: lo que se quiere es
+  // recorrer la lista dándole al botón, no abrir y volver treinta veces.
+  const plantillaCliente = process.env.CUSTOMER_TEMPLATE;
 
   const filas = clientes.length
     ? clientes
@@ -1274,6 +1281,16 @@ function renderPerdidos(clientes, desde, hasta) {
   <div class="perdido-tel">
     <a href="https://wa.me/${encodeURIComponent(c.phone)}" target="_blank" rel="noopener">+${escapeHtml(c.phone)}</a>
     <a class="btn-link" href="?phone=${encodeURIComponent(c.phone)}">Ver en el panel</a>
+    ${
+      plantillaCliente
+        ? `<form method="POST" style="margin-left:auto;">
+      <input type="hidden" name="phone" value="${escapeHtml(c.phone)}">
+      <input type="hidden" name="action" value="plantilla">
+      <input type="hidden" name="volver" value="perdidos">
+      <button type="submit" class="btn btn-ghost">✉️ Enviar plantilla</button>
+    </form>`
+        : ''
+    }
   </div>
 </li>`
         )
@@ -1285,9 +1302,15 @@ function renderPerdidos(clientes, desde, hasta) {
   return pageShell(
     'Clientes perdidos · Ofipapel',
     `<p><a class="btn-link" href="?">← Volver a conversaciones</a></p>
+${renderAvisoEnvio(error)}
 <h2 class="aprende-titulo">Clientes de la semana muda</h2>
-<p class="aprende-ayuda">Del ${fecha(desde)} al ${fecha(hasta)} el bot no contestó a nadie por un fallo. Aquí están los <strong>${cuantos}</strong> que escribieron por primera vez en esos días y se quedaron sin respuesta.</p>
+<p class="aprende-ayuda">Del ${fecha(desde)} al ${fecha(hasta)} el bot dejó de contestar los mensajes de texto por un fallo. Aquí están los <strong>${cuantos}</strong> que escribieron por primera vez en esos días y no llegaron a aparecer en el panel.</p>
 <p class="aprende-ayuda"><strong>No se guardó lo que escribieron</strong>, solo quiénes eran. Y ojo: han pasado más de 24 horas, así que para escribirles hay que usar una plantilla aprobada, no un mensaje normal.</p>
+${
+  descartados > 0
+    ? `<p class="aprende-ayuda">Se ${descartados === 1 ? 'ha quitado 1 número que sí tiene' : `han quitado ${descartados} números que sí tienen`} conversación en el panel. El fallo no afectaba a las fotos, los audios ni los botones, así que esa gente sí se vio y no toca disculparse con ${descartados === 1 ? 'ella' : 'ellos'}.</p>`
+    : ''
+}
 <ul class="aprende-lista">${filas}</ul>`
   );
 }
@@ -1453,6 +1476,32 @@ function cuerpoDeBurbuja(phone, contenido) {
   </a>${pie}`;
 }
 
+// Los avisos de envío, compartidos por la conversación y por la lista de
+// clientes de la semana muda: desde las dos se manda la misma plantilla, y
+// un fallo de Meta tiene que explicarse igual de bien en las dos.
+const ERROR_MESSAGES = {
+  send: 'No se pudo enviar el mensaje. Puede que hayan pasado más de 24h desde el último mensaje del cliente — en ese caso WhatsApp exige una plantilla aprobada en vez de texto libre.',
+  // Códigos concretos de Meta, para no dejarlo en "puede que". Salen del
+  // propio error que devuelve la API al intentar enviar.
+  ventana: 'No le ha llegado: han pasado más de 24 h desde su último mensaje y WhatsApp no admite texto libre fuera de esa ventana. Mándale la plantilla con el botón de arriba.',
+  plantillaNoExiste: 'Meta dice que esa plantilla no existe. Comprueba en WhatsApp Manager que está APROBADA y que el nombre y el idioma coinciden con CUSTOMER_TEMPLATE y CUSTOMER_TEMPLATE_LANG (ojo: "Spanish (SPA)" es es_ES, no es).',
+  plantillaHuecos: 'Meta ha rechazado la plantilla porque el número de huecos no coincide. La plantilla debe tener exactamente dos: {{1}} y {{2}}.',
+  plantillaFalta: 'Falta configurar CUSTOMER_TEMPLATE en Netlify con el nombre de la plantilla aprobada.',
+  size: `El archivo pesa demasiado (máximo ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB).`,
+  type: 'Solo se admiten imágenes (JPG/PNG) o PDF como adjunto.',
+  upload: 'No se pudo subir el adjunto a WhatsApp. Inténtalo de nuevo.',
+  empty: 'Escribe un mensaje o adjunta un archivo antes de enviar.',
+};
+
+function renderAvisoEnvio(error) {
+  // "enviada" no es un error, es la confirmación de que la plantilla salió: se
+  // pinta en verde y no en rojo. Va por el mismo parámetro de la URL porque el
+  // envío responde con un redirect (patrón POST-redirect-GET de toda la página).
+  if (error === 'enviada') return `<div class="diagnostic ok">✔ Plantilla enviada. En cuanto el cliente conteste podrás escribirle con normalidad.</div>`;
+  if (!error) return '';
+  return `<div class="error-banner">${ICON.alert}<span>${escapeHtml(ERROR_MESSAGES[error] || ERROR_MESSAGES.send)}</span></div>`;
+}
+
 function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
   const bubbles = messages
     .map((m) => {
@@ -1472,28 +1521,7 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
     })
     .join('');
 
-  const ERROR_MESSAGES = {
-    send: 'No se pudo enviar el mensaje. Puede que hayan pasado más de 24h desde el último mensaje del cliente — en ese caso WhatsApp exige una plantilla aprobada en vez de texto libre.',
-    // Códigos concretos de Meta, para no dejarlo en "puede que". Salen del
-    // propio error que devuelve la API al intentar enviar.
-    ventana: 'No le ha llegado: han pasado más de 24 h desde su último mensaje y WhatsApp no admite texto libre fuera de esa ventana. Mándale la plantilla con el botón de arriba.',
-    plantillaNoExiste: 'Meta dice que esa plantilla no existe. Comprueba en WhatsApp Manager que está APROBADA y que el nombre y el idioma coinciden con CUSTOMER_TEMPLATE y CUSTOMER_TEMPLATE_LANG (ojo: "Spanish (SPA)" es es_ES, no es).',
-    plantillaHuecos: 'Meta ha rechazado la plantilla porque el número de huecos no coincide. La plantilla debe tener exactamente dos: {{1}} y {{2}}.',
-    plantillaFalta: 'Falta configurar CUSTOMER_TEMPLATE en Netlify con el nombre de la plantilla aprobada.',
-    size: `El archivo pesa demasiado (máximo ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB).`,
-    type: 'Solo se admiten imágenes (JPG/PNG) o PDF como adjunto.',
-    upload: 'No se pudo subir el adjunto a WhatsApp. Inténtalo de nuevo.',
-    empty: 'Escribe un mensaje o adjunta un archivo antes de enviar.',
-  };
-  // "enviada" no es un error, es la confirmación de que la plantilla salió: se
-  // pinta en verde y no en rojo. Va por el mismo parámetro de la URL porque el
-  // envío responde con un redirect (patrón POST-redirect-GET de toda la página).
-  const errorBanner =
-    error === 'enviada'
-      ? `<div class="diagnostic ok">✔ Plantilla enviada. En cuanto el cliente conteste podrás escribirle con normalidad.</div>`
-      : error
-        ? `<div class="error-banner">${ICON.alert}<span>${escapeHtml(ERROR_MESSAGES[error] || ERROR_MESSAGES.send)}</span></div>`
-        : '';
+  const errorBanner = renderAvisoEnvio(error);
 
   // Interruptor del bot para ESTA conversación. Hasta ahora solo se podía
   // reactivar, porque la pausa se ponía sola al responder a mano desde el panel.
@@ -1530,8 +1558,22 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
   // puede escribir con normalidad.
   const ventana = estadoVentana(messages);
   const plantillaCliente = process.env.CUSTOMER_TEMPLATE;
+  // Sin ningún mensaje del cliente guardado, antes se ocultaba la barra entera
+  // — y con ella el botón de plantilla. Eso dejaba sin salida justo el caso de
+  // los clientes de la semana muda: su ficha existe pero su conversación está
+  // vacía, así que se abría su hilo y no había forma de escribirles. Sin datos
+  // la ventana no está "abierta": está sin confirmar, y lo único que seguro
+  // llega es la plantilla.
   const ventanaBar = ventana.sinDatos
-    ? ''
+    ? `<div class="pause-bar">${ICON.alert}<span>No hay ningún mensaje suyo guardado, así que <strong>no se sabe si la ventana de 24 h sigue abierta</strong>. Lo único que llega seguro es la plantilla.</span>${
+        plantillaCliente
+          ? `<form method="POST" style="margin-left:auto;">
+      <input type="hidden" name="phone" value="${escapeHtml(phone)}">
+      <input type="hidden" name="action" value="plantilla">
+      <button type="submit" class="btn btn-ghost">✉️ Enviar plantilla</button>
+    </form>`
+          : ''
+      }</div>`
     : ventana.abierta
       ? `<div class="pause-bar activo">${ICON.play}<span>Ventana de WhatsApp <strong>abierta</strong> — puedes escribirle con normalidad. Quedan ${escapeHtml(textoRestante(ventana.restante))}.</span></div>`
       : `<div class="pause-bar">${ICON.alert}<span>Ventana de WhatsApp <strong>cerrada</strong>: hace más de 24 h que no te escribe, así que <strong>un mensaje normal no le llegaría</strong>. ${
@@ -1779,9 +1821,21 @@ exports.handler = async (event) => {
       }
     }
 
+    // Con "volver=perdidos" se regresa a la lista de clientes de la semana
+    // muda en vez de al hilo del cliente. Ahí se van a mandar varias plantillas
+    // seguidas, y acabar cada envío en una conversación vacía obliga a volver
+    // atrás a mano una y otra vez.
+    const volverA = new URLSearchParams(
+      event.isBase64Encoded ? Buffer.from(event.body || '', 'base64').toString('utf8') : event.body || ''
+    ).get('volver');
+
     const redirect = (errorCode) => ({
       statusCode: 303,
-      headers: { Location: `?phone=${encodeURIComponent(phone)}${errorCode ? `&error=${errorCode}` : ''}` },
+      headers: {
+        Location: volverA === 'perdidos'
+          ? `?vista=perdidos${errorCode ? `&error=${errorCode}` : ''}`
+          : `?phone=${encodeURIComponent(phone)}${errorCode ? `&error=${errorCode}` : ''}`,
+      },
       body: '',
     });
 
@@ -1920,11 +1974,29 @@ exports.handler = async (event) => {
   if (event.queryStringParameters?.vista === 'perdidos') {
     const desde = Number(event.queryStringParameters?.desde) || INICIO_SEMANA_MUDA;
     const hasta = Number(event.queryStringParameters?.hasta) || FIN_SEMANA_MUDA;
-    const clientes = await listarFichasPorPrimerContacto(desde, hasta);
+    // Se quitan los que SÍ tienen conversación en el panel.
+    //
+    // El fallo no dejó al bot mudo del todo: reventaba después de atender las
+    // fotos, los audios y los botones, y después de guardar los mensajes de las
+    // conversaciones en pausa. Todo eso siguió llegando. Solo se perdieron los
+    // mensajes de texto normales.
+    //
+    // Así que entre las fichas del tramo hay gente a la que sí se vio y quizá
+    // se atendió (un cliente que mandó una foto el 14/9 aparece en el panel con
+    // normalidad). Meterlos en esta lista sería mandarles una plantilla de
+    // disculpa por un mensaje que sí se leyó.
+    const [fichas, conConversacion] = await Promise.all([
+      listarFichasPorPrimerContacto(desde, hasta),
+      listConversationPhones(),
+    ]);
+    const vistos = new Set(conConversacion || []);
+    const clientes = fichas.filter((c) => !vistos.has(c.phone));
+    const descartados = fichas.length - clientes.length;
+
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      body: renderPerdidos(clientes, desde, hasta),
+      body: renderPerdidos(clientes, desde, hasta, event.queryStringParameters?.error || '', descartados),
     };
   }
 
