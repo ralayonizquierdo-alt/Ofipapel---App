@@ -679,7 +679,12 @@ function pageShell(title, body) {
      la burbuja. En el móvil no hay "pasar por encima", así que en pantalla
      pequeña se quedan siempre visibles — un botón que no se puede enseñar es
      un botón que no existe. */
-  .msg-acciones { display: flex; gap: 6px; margin-top: 4px; opacity: 0; transition: opacity .12s; }
+  /* white-space: normal es OBLIGATORIO aquí. La regla ".bubble > div" de arriba
+     pone pre-wrap para respetar los saltos de línea de los mensajes, y esta fila
+     también es un div hijo de la burbuja: sin esto, los saltos y la indentación
+     del HTML de los botones se pintan como espacio de verdad y la burbuja se
+     estira medio palmo. Le pasó lo mismo a .time en su día. */
+  .msg-acciones { display: flex; gap: 6px; margin-top: 4px; opacity: 0; transition: opacity .12s; white-space: normal; }
   .bubble:hover .msg-acciones, .bubble:focus-within .msg-acciones { opacity: 1; }
   .msg-borrar { display: inline; }
   .msg-accion { background: none; border: 0; padding: 2px 4px; font-size: 11.5px; color: var(--text-muted); cursor: pointer; border-radius: 6px; font-family: inherit; }
@@ -1530,7 +1535,27 @@ function guionDeRefresco(cada) {
 // La imagen se pide al propio panel (?vista=media), que la sirve tras comprobar
 // la sesión. Se enseña en pequeño y se abre a tamaño completo al pulsarla, para
 // no reventar la lectura del hilo en el móvil.
-function cuerpoDeBurbuja(phone, contenido) {
+// Marcas de andar por casa que el bot se deja a sí mismo al principio de una
+// respuesta para saber por dónde iba (ver detectarPasoPedido en el webhook: el
+// paso de una búsqueda de pedido se deduce de aquí, sin guardar estado aparte).
+//
+// No son para nadie más. Visto en real en el panel: una respuesta del bot
+// empezaba con "[PEDIDO:ESPERANDO_NOMBRE:643514]Para confirmar que el pedido es
+// tuyo..." — al cliente le llegó bien, pero en el panel parecía un error.
+//
+// Se quitan solo al PINTAR. En el archivo tienen que seguir estando: si se
+// borraran de ahí, el bot perdería el hilo de la conversación a medias.
+//
+// Las otras marcas ("[Se ofreció escalar a una persona]", "[Cliente molesto —
+// amenaza]") se dejan a propósito: ésas sí dicen algo a quien lee el panel.
+const MARCAS_INTERNAS = /^(\[PEDIDO:ESPERANDO_NUMERO\]|\[PEDIDO:ESPERANDO_NOMBRE:\d+\])/;
+
+function sinMarcasInternas(contenido) {
+  return String(contenido || '').replace(MARCAS_INTERNAS, '');
+}
+
+function cuerpoDeBurbuja(phone, contenidoBruto) {
+  const contenido = sinMarcasInternas(contenidoBruto);
   const adjunto = adjuntoDelHistorial(contenido);
   if (!adjunto) return conEnlaces(escapeHtml(contenido));
 
@@ -1596,27 +1621,36 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
       // API de Meta no tiene forma de retirar un mensaje ya enviado. El texto
       // del botón lo dice, porque la diferencia importa y de otro modo se
       // supone lo contrario.
+      // "Copiar" es lo que resuelve el reenviar sin depender de nada: se copia
+      // el texto y se pega donde haga falta (el WhatsApp de un compañero, un
+      // email, el sistema de gestión). Reenviar de verdad desde aquí obligaría
+      // a que el destinatario estuviera dentro de su ventana de 24 h; copiar
+      // funciona siempre.
+      //
+      // De un mensaje con foto se copia lo que se puede leer, no el marcador
+      // "[ADJUNTO:...]" que solo significa algo dentro de este panel.
+      const contenidoLimpio = sinMarcasInternas(m.content);
+      const adjuntoDelMensaje = adjuntoDelHistorial(contenidoLimpio);
+      const paraCopiar = adjuntoDelMensaje ? adjuntoDelMensaje.texto : contenidoLimpio;
+
       const puedeCitarse = isCustomer && m.wamid;
-      const resumen = (m.content || '').replace(/\s+/g, ' ').slice(0, 80);
+      const resumen = sinMarcasInternas(m.content).replace(/\s+/g, ' ').slice(0, 80);
+      // Sin saltos de línea dentro de estas etiquetas: van dentro de la burbuja,
+      // que respeta los espacios tal cual (ver .msg-acciones en el CSS).
       const responder = puedeCitarse
-        ? `<button type="button" class="msg-accion" title="Responder a este mensaje"
-      data-wamid="${escapeHtml(m.wamid)}" data-resumen="${escapeHtml(resumen)}"
-      onclick="citarMensaje(this)">↩︎ Responder</button>`
+        ? `<button type="button" class="msg-accion" title="Responder a este mensaje" data-wamid="${escapeHtml(m.wamid)}" data-resumen="${escapeHtml(resumen)}" onclick="citarMensaje(this)">↩︎ Responder</button>`
         : '';
-      const eliminar = `<form method="POST" class="msg-borrar" onsubmit="return confirm('Se quita de tu panel. Al cliente le sigue apareciendo en su WhatsApp: Meta no permite borrarlo de su lado.');">
-      <input type="hidden" name="phone" value="${escapeHtml(phone)}">
-      <input type="hidden" name="action" value="borrar-mensaje">
-      <input type="hidden" name="indice" value="${indice}">
-      <input type="hidden" name="huella" value="${escapeHtml(huellaDeMensaje(m))}">
-      <button type="submit" class="msg-accion" title="Quitar del panel (no del WhatsApp del cliente)">🗑 Quitar</button>
-    </form>`;
+      const copiar = paraCopiar.trim()
+        ? `<button type="button" class="msg-accion" title="Copiar el texto para pegarlo donde quieras" data-copiar="${escapeHtml(paraCopiar)}" onclick="copiarMensaje(this)">⧉ Copiar</button>`
+        : '';
+      const eliminar = `<form method="POST" class="msg-borrar" onsubmit="return confirm('Se quita de tu panel. Al cliente le sigue apareciendo en su WhatsApp: Meta no permite borrarlo de su lado.');"><input type="hidden" name="phone" value="${escapeHtml(phone)}"><input type="hidden" name="action" value="borrar-mensaje"><input type="hidden" name="indice" value="${indice}"><input type="hidden" name="huella" value="${escapeHtml(huellaDeMensaje(m))}"><button type="submit" class="msg-accion" title="Quitar del panel (no del WhatsApp del cliente)">🗑 Quitar</button></form>`;
 
       return `<div class="bubble-row ${isCustomer ? 'left' : 'right'}">
   <div class="bubble ${kind}">
     ${sender}
     <div>${cuerpoDeBurbuja(phone, m.content)}</div>
     <div class="time">${escapeHtml(time)}${acuse}</div>
-    <div class="msg-acciones">${responder}${eliminar}</div>
+    <div class="msg-acciones">${responder}${copiar}${eliminar}</div>
   </div>
 </div>`;
     })
@@ -1743,6 +1777,47 @@ function quitarCita() {
   var aviso = document.getElementById('cita-activa');
   if (campo) campo.value = '';
   if (aviso) aviso.hidden = true;
+}
+
+// Copiar el texto de un mensaje, para pegarlo donde haga falta.
+//
+// Dos caminos a propósito: navigator.clipboard es el bueno, pero no está en
+// todas partes y algunos navegadores lo rechazan aunque exista (permisos, o
+// una WebView antigua de Android). El respaldo con textarea + execCommand es
+// feo y está obsoleto, pero funciona donde el otro no — y un botón de copiar
+// que a veces no copia, sin decirlo, es peor que no tenerlo.
+function copiarMensaje(boton) {
+  var texto = boton.getAttribute('data-copiar') || '';
+  if (!texto) return;
+
+  function avisar(ok) {
+    var antes = boton.textContent;
+    boton.textContent = ok ? '✓ Copiado' : '✗ No se pudo';
+    setTimeout(function () { boton.textContent = antes; }, 1500);
+  }
+
+  function porLasBravas() {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = texto;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      avisar(ok);
+    } catch (e) {
+      avisar(false);
+    }
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto).then(function () { avisar(true); }, porLasBravas);
+  } else {
+    porLasBravas();
+  }
 }
 </script>
 <script>
