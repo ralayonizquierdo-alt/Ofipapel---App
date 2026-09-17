@@ -59,6 +59,27 @@ bash build.sh   # compila alquileres y joe-app, y ensambla todo en _site/
   y sin ellas compila igual, dejando una app que se abre y no conecta con
   nada. Donde faltan, `/joe/` da 404 a propósito — un 404 se ve, una app sin
   backend parece que funciona. Comprobable con `scripts/comprobar-copias.sh`.
+- **OJO: hay VARIOS sitios de Netlify sirviendo este mismo repositorio**, con
+  variables de entorno distintas cada uno. Los dos que importan:
+
+  | Sitio | Qué sirve | Variables que solo están ahí |
+  |---|---|---|
+  | `spontaneous-lebkuchen-60fa41` | **El bot de WhatsApp y su panel.** Es a donde apunta el webhook de Meta | `WHATSAPP_*`, `UPSTASH_*`, `CUSTOMER_TEMPLATE*` |
+  | `ofipapel` | Las apps estáticas y el resto de funciones | `OPENAI_API_KEY`, `SUPABASE_*`, `CHAT_ASSISTANT_TOKEN`, `VACACIONES_*` |
+
+  El nombre del primero es el aleatorio que le puso Netlify al crearlo y no se
+  ha cambiado nunca, así que **no se parece en nada a lo que hace**. El 17/9/2026
+  eso costó una mañana de diagnóstico con el bot caído, y estuvo a punto de
+  costar más: se llegó a proponer mover el webhook de Meta a `ofipapel`, que
+  no tiene ninguna variable de WhatsApp y habría dejado el bot mudo del todo.
+
+  Antes de tocar nada de despliegue, **mira en qué sitio estás**: el panel lo
+  dice abajo del todo (`pieDeSitio` en `conversations.js`, sale de `SITE_NAME`),
+  junto al commit desplegado — que además avisa si un sitio se ha quedado atrás.
+
+  Consolidarlos en uno es lo deseable, pero mover las credenciales de WhatsApp
+  de sitio implica reconfigurar el webhook en Meta: mientras no se haga, lo
+  importante es no confundirlos.
 - **GitHub Pages** (`.github/workflows/pages.yml`) es el respaldo: ejecuta
   `bash build.sh` (el mismo script que Netlify, sin duplicar la lista de
   ficheros a mano) y publica `_site/`, así que genera exactamente el mismo
