@@ -53,6 +53,10 @@ global.PRESENTADO=true;
     ['Foto con pregunta', {type:'image', image:{id:'1', caption:'¿Tenéis este cartucho?'}}],
     ['Foto sin texto',    {type:'image', image:{id:'2'}}],
     ['Audio',             {type:'audio', audio:{id:'3'}}],
+    // Un sticker es un webp y se ve en el panel igual que una foto. Quedaba
+    // fuera de la descarga por olvido: en el panel salía "[El cliente envió un
+    // sticker]" y nada más, que es tanto como no haberlo recibido.
+    ['Sticker',           {type:'sticker', sticker:{id:'4'}}],
   ]){
     log=[];
     await wh.handler(ev(msg));
@@ -68,7 +72,7 @@ global.PRESENTADO=true;
     for(const obligatorio of ['botones','guardado en el panel']){
       if(!tiene(obligatorio)){ fallos++; console.log(`   ✗ FALTA: ${obligatorio}`); }
     }
-    if(msg.type==='image' && !tiene('foto guardada')){ fallos++; console.log('   ✗ FALTA: la foto no se guardó'); }
+    if((msg.type==='image'||msg.type==='sticker') && !tiene('foto guardada')){ fallos++; console.log(`   ✗ FALTA: el adjunto (${msg.type}) no se guardó, no se verá en el panel`); }
     for(const prohibido of ['bot en pausa','email al dueño']){
       if(tiene(prohibido)){ fallos++; console.log(`   ✗ NO debería: ${prohibido} (se pregunta antes)`); }
     }

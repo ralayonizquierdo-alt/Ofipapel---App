@@ -671,6 +671,7 @@ function pageShell(title, body) {
      al pulsarlas se abren a tamaño completo en otra pestaña. */
   .adjunto-foto { display: block; margin: 2px 0 6px; }
   .adjunto-foto img { display: block; max-width: 100%; max-height: 320px; border-radius: 10px; border: 1px solid var(--border); }
+  .adjunto-enlace { display: inline-block; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); font-size: 14px; }
   .adjunto-pie { white-space: pre-wrap; }
   .bubble .time { white-space: normal; }
   .bubble.customer { background: #fff; border: 1px solid var(--border); border-bottom-left-radius: 4px; }
@@ -1471,8 +1472,12 @@ function cuerpoDeBurbuja(phone, contenido) {
   const src = `?vista=media&phone=${encodeURIComponent(phone)}&id=${encodeURIComponent(adjunto.mediaId)}`;
   // El texto que acompaña ya viene con el pie de foto si lo había.
   const pie = adjunto.texto ? `<div class="adjunto-pie">${conEnlaces(escapeHtml(adjunto.texto))}</div>` : '';
+  // Se pinta como imagen porque casi siempre lo es (una foto o un sticker),
+  // pero por aquí también pasan PDF, y un PDF dentro de un <img> sale como
+  // icono roto. Si el navegador no puede pintarlo, la imagen se cambia sola por
+  // un enlace: el <a> de fuera ya lleva a abrirlo.
   return `<a class="adjunto-foto" href="${src}" target="_blank" rel="noopener">
-    <img src="${src}" alt="Foto enviada por el cliente" loading="lazy">
+    <img src="${src}" alt="Adjunto enviado por el cliente" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'adjunto-enlace',textContent:'📎 Abrir el archivo'}))">
   </a>${pie}`;
 }
 
