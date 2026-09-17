@@ -34,6 +34,10 @@ let CONVERSACION = [
   { role: 'user', content: '¿Tenéis folios A4?', ts: Date.now() - 60000, wamid: WAMID },
   { role: 'assistant', content: 'Sí, tenemos varios formatos.', ts: Date.now() - 59000 },
   { role: 'user', content: 'Mensaje viejo sin identificador', ts: Date.now() - 58000 },
+  // Una respuesta del bot con la marca interna con la que se acuerda de por
+  // dónde iba una búsqueda de pedido. Al cliente le llegó sin ella; en el panel
+  // salía tal cual, y parecía un error.
+  { role: 'assistant', content: '[PEDIDO:ESPERANDO_NOMBRE:643514]Para confirmar que el pedido es tuyo, dime el nombre.', ts: Date.now() - 57000 },
 ];
 
 const enviados = [];
@@ -97,6 +101,36 @@ Module.prototype.require = orig;
   /Meta no permite borrarlo de su lado/.test(html)
     ? bien('avisa de que al cliente le sigue apareciendo')
     : mal('no avisa: se daría por hecho que se borra para los dos, y no es así');
+
+  console.log('\n=== Copiar (lo que hace de "reenviar")');
+  (html.match(/⧉ Copiar/g) || []).length === CONVERSACION.length
+    ? bien('todos los mensajes se pueden copiar')
+    : mal('faltan botones de copiar');
+  html.includes('data-copiar="¿Tenéis folios A4?"')
+    ? bien('copia el texto del mensaje, listo para pegar')
+    : mal('el texto a copiar no llega bien al botón');
+
+  console.log('\n=== Las marcas internas del bot');
+  html.includes('PEDIDO:ESPERANDO_NOMBRE')
+    ? mal('se enseña "[PEDIDO:ESPERANDO_NOMBRE:...]" en el panel: parece un error del bot')
+    : bien('las marcas internas no se enseñan');
+  html.includes('Para confirmar que el pedido es tuyo')
+    ? bien('pero el mensaje sí se lee entero')
+    : mal('al quitar la marca se ha comido el mensaje');
+  CONVERSACION.some((m) => String(m.content).startsWith('[PEDIDO:ESPERANDO_NOMBRE'))
+    ? bien('en el archivo la marca sigue estando (el bot la necesita para seguir el hilo)')
+    : mal('se ha borrado del archivo: el bot perdería el hilo de la conversación');
+
+  console.log('\n=== El hueco que dejaban los botones');
+  // La burbuja respeta los espacios tal cual (white-space: pre-wrap), así que
+  // los saltos de línea del HTML de los botones se pintaban como espacio de
+  // verdad y estiraban la burbuja media pantalla. Visto en real.
+  /<div class="msg-acciones">[^\n]*<\/div>/.test(html)
+    ? bien('los botones van en una sola línea de HTML, sin espacio de más')
+    : mal('el HTML de los botones lleva saltos de línea: estiran la burbuja');
+  /\.msg-acciones \{[^}]*white-space: normal/.test(html)
+    ? bien('y además el CSS los saca del pre-wrap de la burbuja')
+    : mal('sin white-space: normal, cualquier espacio del HTML vuelve a estirar la burbuja');
 
   console.log('\n=== Responder citando');
   enviados.length = 0;
