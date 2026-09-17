@@ -1131,6 +1131,81 @@ function totalSgel(texto){
   return m ? parseDecComa(m[2]) : null;
 }
 
+// JÚPITER EDICIONES: proveedor marcado como "baja confianza" (ver el campo
+// bajaConfianza en PERFILES_PROVEEDOR) — homologado a petición expresa,
+// asumiendo que puede salir descuadrado. Sus facturas llegan escaneadas y
+// pasadas por el propio OCR del escáner (no el de esta app), con errores
+// típicos de reconocimiento (coma/punto confundidos, palabras cortadas) Y
+// además cada artículo queda repartido entre 2 líneas de texto que no
+// siempre van seguidas — a veces la línea con el ISBN trae ya el importe
+// completo, a veces le falta un trozo que aparece suelto antes o después,
+// mezclado con el trozo del artículo vecino. No hay forma fiable de saber
+// por posición a qué artículo pertenece cada número suelto, así que cada
+// hueco de números entre dos ISBN se ofrece a los DOS artículos vecinos y
+// se deja que las matemáticas decidan (Importe = Uds × Precio × (1-Dto/100))
+// — pero como esa comprobación es por línea, una línea puede "cuadrar"
+// consigo misma usando por error un número que en realidad era de la línea
+// de al lado. Por eso, aunque cada fila cuadre suelta, el total final no
+// tiene por qué cuadrar (visto en pruebas reales) — de ahí bajaConfianza.
+function parseJupiter(lineas){
+  const parseDecFlex = s => parseFloat(String(s).replace(',', '.'));
+  const RE_ISBN_ANCHOR = /^(\d{3}(?:-[\dX]+){3,6})\s+(\d+)\s+(.*)$/;
+  const RE_NUM = /\d+[.,]\d{2}/g;
+
+  function buscarTriple(nums, uds){
+    for(let i=0;i<nums.length;i++){
+      for(let j=0;j<nums.length;j++){
+        if(j===i) continue;
+        for(let k=0;k<nums.length;k++){
+          if(k===i||k===j) continue;
+          const precio=nums[i], dto=nums[j], importe=nums[k];
+          if(dto<0||dto>100) continue;
+          const esperado = round2_(uds*precio*(1-dto/100));
+          if(Math.abs(esperado-importe) <= 0.02) return {precio, dto, importe};
+        }
+      }
+    }
+    return null;
+  }
+
+  const anclas = [];
+  const huecos = [];
+  let huecoActual = [];
+  lineas.forEach(l=>{
+    const m = l.match(RE_ISBN_ANCHOR);
+    if(m){
+      huecos.push(huecoActual);
+      huecoActual = [];
+      anclas.push({isbn:m[1], uds:parseInt(m[2],10), resto:m[3], propios:[...l.matchAll(RE_NUM)].map(x=>x[0])});
+    } else {
+      huecoActual.push(...[...l.matchAll(RE_NUM)].map(x=>x[0]));
+    }
+  });
+  huecos.push(huecoActual);
+
+  const filas = [];
+  anclas.forEach((a,i)=>{
+    const pool = [...a.propios, ...huecos[i], ...huecos[i+1]].map(parseDecFlex);
+    const match = buscarTriple(pool, a.uds);
+    if(!match) return;
+    // "resto" trae el título (y a veces autor/editorial pegados detrás,
+    // sin forma fiable de separarlos) — se deja tal cual como descripción.
+    const desc = a.resto.replace(/(?:\s+\d[\d.,]*%?)+\s*$/,'').trim();
+    filas.push(fila_({codigo:a.isbn, ean:a.isbn, descripcion:desc, cantidad:a.uds,
+      precioUnitario:match.precio, dto1:match.dto, importe:match.importe}));
+  });
+  return filas;
+}
+// Solo aparece en la ÚLTIMA página de un depósito de varias — si el PDF
+// subido es solo esa página, se puede leer; si es una página anterior (sin
+// el resumen final) no hay total que comparar y el aviso de "revisa a
+// mano" ya avisa de que no se ha podido leer.
+function totalJupiter(texto){
+  const m = texto.match(/(\d{1,3}(?:\.\d{3})*[.,]\d{2})\s+(\d{1,3}(?:\.\d{3})*[.,]\d{2})\s+\d+[.,]\d{2}%\s+\d+[.,]\d{2}\s*\n\s*(\d{1,3}(?:\.\d{3})*[.,]\d{2})\s*€/);
+  if(!m) return null;
+  return parseFloat(m[2].replace(',', '.'));
+}
+
 // ═══════════════════════════════════════════════════════
 // PERFILES DE PROVEEDOR: detección automática + parser propio.
 // Para añadir un proveedor nuevo: aportar una factura de muestra y
@@ -1274,6 +1349,8 @@ const PERFILES_PROVEEDOR = [
     total: t => /IMP\. BRUTO/i.test(t) ? totalSenfortPedido(t) : totalSimple(t, /Total \(Euros\)\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
   { id:'sgel', nombre:'SGEL LIBROS, S.L.', detectar: t => /\bSGEL\b/i.test(t), parser: parseSgel,
     total: t => totalSgel(t), extraccion: file => extraerLineasPDFRotado(file) },
+  { id:'jupiter', nombre:'JÚPITER EDICIONES', detectar: t => /jupiterediciones/i.test(t), parser: parseJupiter,
+    total: t => totalJupiter(t), bajaConfianza: true },
   { id:'pryse', nombre:'PRYSE S.A.', detectar: t => /PRYSE|A58276254/i.test(t), parser: parsePryse,
     total: t => totalSimple(t, /Base imponible\s+(?:Base imponible\s+)?(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
   { id:'mandatelo', nombre:'INTEGRAL INFORMATICA IMPORT (Mandatelo)', detectar: t => /INTEGRAL INFORMATICA|MANDATELO|B-?76539642/i.test(t), parser: parseMandatelo,
@@ -1613,7 +1690,10 @@ function procesarFacturaConPerfil(lineas, texto, perfil, viaOCR){
   renderFilas();
   actualizarBotonesOrden();
 
-  const sufijoOCR = viaOCR ? ' ⚠️ Extraído por OCR: es menos fiable que la lectura de texto normal, revisa cada línea con cuidado.' : '';
+  const bajaConfianza = !!(perfil && perfil.bajaConfianza);
+  const sufijoOCR = viaOCR ? ' ⚠️ Extraído por OCR: es menos fiable que la lectura de texto normal, revisa cada línea con cuidado.'
+    : bajaConfianza ? ' ⚠️ Proveedor de baja confianza: revisa cada línea con cuidado antes de exportar.'
+    : '';
   if(perfil){
     mostrarEstado('ok', `Proveedor: ${perfil.nombre}. ${filas.length} líneas extraídas — revisa ISBN/Marca/Familia/Igic antes de exportar.${sufijoOCR}`);
   } else {
@@ -1622,7 +1702,7 @@ function procesarFacturaConPerfil(lineas, texto, perfil, viaOCR){
 
   const sumaCalculada = round2_(filas.reduce((s,f)=>s+(parseFloat(f.importe)||0), 0));
   const totalFactura = (perfil && perfil.total) ? perfil.total(texto) : null;
-  mostrarModalVerificacion({ perfil, lineas: filas.length, sumaCalculada, totalFactura, viaOCR });
+  mostrarModalVerificacion({ perfil, lineas: filas.length, sumaCalculada, totalFactura, viaOCR, bajaConfianza });
 }
 
 // OCR de apoyo (Tesseract.js): solo se ofrece cuando la lectura de texto
@@ -1740,7 +1820,7 @@ async function probarConOcr(){
   }
 }
 
-function mostrarModalVerificacion({ perfil, lineas, sumaCalculada, totalFactura, viaOCR }){
+function mostrarModalVerificacion({ perfil, lineas, sumaCalculada, totalFactura, viaOCR, bajaConfianza }){
   const cont = document.getElementById('modalContenido');
   const fmt = v => v.toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €';
   let banner;
@@ -1757,6 +1837,8 @@ function mostrarModalVerificacion({ perfil, lineas, sumaCalculada, totalFactura,
   }
   const bannerOCR = viaOCR
     ? `<div class="modal-banner warn">🔍 Estos datos vienen de OCR (reconocimiento de imagen), no de texto real del PDF — incluso si "todo cuadra" numéricamente, revisa cada línea (código, descripción, importe) a mano antes de exportar: el OCR puede confundir dígitos o cortar palabras.</div>`
+    : bajaConfianza
+    ? `<div class="modal-banner warn">⚠️ Este proveedor está marcado como de baja confianza: el escaneo original está tan revuelto que el precio/descuento/importe de alguna línea puede estar mal emparejado aunque la cuenta de esa línea cuadre por sí sola — incluso si "todo cuadra" en el total, revisa cada línea contra la factura original antes de exportar.</div>`
     : '';
   cont.innerHTML = `
     <div class="modal-check"><span>Proveedor</span><span class="valor">${perfil ? escapeHtml(perfil.nombre) : 'Genérico'}</span></div>
