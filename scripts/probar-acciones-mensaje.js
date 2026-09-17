@@ -111,6 +111,17 @@ Module.prototype.require = orig;
     ? bien('avisa de que al cliente le sigue apareciendo')
     : mal('no avisa: se daría por hecho que se borra para los dos, y no es así');
 
+  console.log('\n=== Salir de la conversación');
+  // El enlace de volver estaba solo arriba del todo: para cambiar de cliente
+  // había que subirse el hilo entero primero, que en el móvil y con una
+  // conversación larga es un fastidio.
+  (html.match(/Todas las conversaciones/g) || []).length >= 2
+    ? bien('se puede salir desde abajo, sin subir el hilo entero')
+    : mal('solo se puede salir desde arriba del todo');
+  html.indexOf('pie-hilo') < html.lastIndexOf('Todas las conversaciones')
+    ? bien('el de abajo está en el pie, junto al de volver arriba')
+    : mal('el enlace de abajo no está donde se busca');
+
   console.log('\n=== Copiar (lo que hace de "reenviar")');
   (html.match(/⧉ Copiar/g) || []).length === CONVERSACION.length
     ? bien('todos los mensajes se pueden copiar')

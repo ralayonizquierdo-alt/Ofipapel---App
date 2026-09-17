@@ -597,7 +597,11 @@ function pageShell(title, body) {
   .tick { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; vertical-align: -2px; }
   .tick.leido { color: #2f7fd1; }
 
-  /* En una conversación larga, volver arriba a mano es un fastidio en el móvil. */
+  /* En una conversación larga, volver arriba a mano es un fastidio en el móvil.
+     Y salir de la conversación, más: el enlace de volver está solo arriba del
+     todo, así que para cambiar de cliente había que subirse el hilo entero
+     primero. Por eso abajo van los dos, y el de salir primero — es el que más
+     se usa. */
   .volver-arriba {
     display: inline-flex; align-items: center; gap: 6px;
     margin: 14px auto 0; padding: 9px 16px;
@@ -606,7 +610,7 @@ function pageShell(title, body) {
     font-size: 13.5px; font-weight: 600; color: var(--green-mid); text-decoration: none;
   }
   .volver-arriba:hover { color: var(--green-dark); border-color: var(--green-light); }
-  .pie-hilo { display: flex; justify-content: center; }
+  .pie-hilo { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
 
   .thread-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
   .thread-title {
@@ -1900,7 +1904,10 @@ function copiarMensaje(boton) {
   ${clearForm}
 </div>
 ${renderFichaCliente(phone, ficha)}${pauseBar}${ventanaBar}${errorBanner}${bubbles || '<div class="empty-thread">Sin mensajes.</div>'}${replyForm}
-<div class="pie-hilo"><a class="volver-arriba" href="#arriba">${ICON.arriba} Volver arriba</a></div>
+<div class="pie-hilo">
+  <a class="volver-arriba" href="?">${ICON.back} Todas las conversaciones</a>
+  <a class="volver-arriba" href="#arriba">${ICON.arriba} Volver arriba</a>
+</div>
 ${guionDeRefresco(30000)}`
   );
 }
