@@ -1054,6 +1054,24 @@ exports.handler = async (event) => {
       }
     } catch (err) {
       console.error('Error procesando webhook de WhatsApp:', err);
+
+      // Y ADEMÁS se deja constancia donde se mire todos los días.
+      //
+      // Aquí solo caen errores inesperados: los fallos normales (Meta lento,
+      // WooCommerce caído, Upstash sin responder) los captura cada módulo por
+      // su cuenta y no llegan. Lo que llega aquí es, casi siempre, un error de
+      // programación — y ésos dejan al cliente sin respuesta.
+      //
+      // Se sigue devolviendo 200 a Meta a propósito: un 500 haría que
+      // reintentara el mismo mensaje una y otra vez, y si el fallo es del
+      // código el reintento va a fallar igual. Pero devolver 200 y callarse es
+      // lo que costó una semana de bot muerto sin que nadie se enterara
+      // (10-17/9/2026), así que se anota para que el panel lo enseñe en rojo.
+      try {
+        await conversationStore.registrarFalloDelBot(err?.message || String(err));
+      } catch (err2) {
+        console.error('Encima falló al registrar el fallo:', err2);
+      }
     }
 
     // Meta espera un 200 rápido; los errores ya se han registrado arriba.

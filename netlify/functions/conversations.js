@@ -29,6 +29,8 @@ const {
   getLastViewed,
   listarBusquedasSinResultado,
   listarFichasPorPrimerContacto,
+  getUltimoFallo,
+  borrarUltimoFallo,
   olvidarBusquedaSinResultado,
   getAliasesBusqueda,
   guardarAliasBusqueda,
@@ -671,6 +673,7 @@ function pageShell(title, body) {
      al pulsarlas se abren a tamaño completo en otra pestaña. */
   .adjunto-foto { display: block; margin: 2px 0 6px; }
   .adjunto-foto img { display: block; max-width: 100%; max-height: 320px; border-radius: 10px; border: 1px solid var(--border); }
+  .pie-sitio { text-align: center; padding: 18px 12px 26px; color: var(--text-muted); font-size: 11.5px; font-family: 'IBM Plex Mono', monospace; opacity: .7; }
   .adjunto-enlace { display: inline-block; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); font-size: 14px; }
   .adjunto-pie { white-space: pre-wrap; }
   .bubble .time { white-space: normal; }
@@ -713,8 +716,26 @@ function pageShell(title, body) {
   <h1>WhatsApp <span>BOT</span></h1>
 </div>
 <main>${body}</main>
+${pieDeSitio()}
 </body>
 </html>`;
+}
+
+// EN QUÉ SITIO ESTÁS.
+//
+// Hay DOS sitios de Netlify sirviendo este mismo repositorio, con variables de
+// entorno distintas: el del bot (con las credenciales de WhatsApp) y el de las
+// demás apps. El 17/9/2026 eso costó una mañana de diagnóstico y estuvo a punto
+// de costar algo peor — se llegó a plantear cambiar la URL del webhook al sitio
+// equivocado, que habría dejado el bot mudo del todo.
+//
+// Esta línea es la vacuna: cuesta nada y quita para siempre la duda de "¿cuál
+// de los dos estoy mirando?". El commit sirve para lo mismo con el código: si
+// un sitio deja de desplegarse y se queda atrás, aquí se ve.
+function pieDeSitio() {
+  const sitio = process.env.SITE_NAME || 'sitio desconocido';
+  const commit = (process.env.COMMIT_REF || '').slice(0, 7);
+  return `<footer class="pie-sitio">${escapeHtml(sitio)}${commit ? ` · ${escapeHtml(commit)}` : ''}</footer>`;
 }
 
 // "Requiere atención" solo si el escalado más reciente todavía no ha tenido
@@ -735,6 +756,36 @@ function needsAttention(messages) {
 // el panel — para saber de un vistazo si queda algo por revisar en cada conversación.
 function countUnread(messages, lastViewed) {
   return messages.filter((m) => m.role === 'user' && (m.ts || 0) > lastViewed).length;
+}
+
+// EL AVISO DE QUE EL BOT SE HA ROTO.
+//
+// Va arriba del todo del panel y en rojo, porque el problema que resuelve no es
+// que el bot falle —eso pasará— sino que falle SIN QUE NADIE SE ENTERE: el
+// 10/9/2026 empezó a reventar en cada mensaje y se descubrió el día 17, de
+// casualidad. Siete días sin contestar a un cliente.
+//
+// Dice la hora y el error tal cual. "Algo ha ido mal" no serviría de nada: lo
+// que hace falta es poder pegármelo y que yo sepa dónde mirar.
+//
+// Se puede descartar a mano porque si no, un fallo viejo ya arreglado se queda
+// gritando en el panel y en dos días se deja de mirar — que es exactamente lo
+// que no puede pasar con este aviso.
+function renderFalloDelBot(fallo) {
+  if (!fallo) return '';
+  const cuando = new Date(fallo.cuando).toLocaleString('es-ES', { timeZone: 'Atlantic/Canary' });
+  const horas = Math.round((Date.now() - fallo.cuando) / 3600000);
+  const hace = horas < 1 ? 'hace menos de una hora' : horas < 48 ? `hace ${horas} h` : `hace ${Math.round(horas / 24)} días`;
+
+  return `<div class="diagnostic fail">${ICON.alert}<div style="flex:1;">
+  <strong>El bot falló al atender un mensaje (${escapeHtml(hace)})</strong>
+  <div style="margin-top:4px;">${escapeHtml(cuando)} — <code>${escapeHtml(fallo.mensaje)}</code></div>
+  <div style="margin-top:6px; opacity:.85;">Mientras esto salga, es posible que haya clientes escribiendo sin recibir respuesta. Pásame el texto de arriba.</div>
+  <form method="POST" style="margin-top:8px;">
+    <input type="hidden" name="action" value="fallo-visto">
+    <button type="submit" class="btn-link">Ya está resuelto, quitar el aviso</button>
+  </form>
+</div></div>`;
 }
 
 function renderDiagnostic(diagnostic) {
@@ -946,7 +997,7 @@ function fragmentoQueCoincide(messages, palabras) {
   return '';
 }
 
-function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal = null, consulta = '') {
+function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal = null, consulta = '', falloDelBot = null) {
   // Por lo más reciente arriba, que es como se lee cualquier bandeja de entrada.
   // Antes mandaba el escalado y luego los mensajes sin leer, y dentro de eso el
   // orden lo decidía Redis (o sea, ninguno) — de ahí que pareciera aleatorio.
@@ -1051,7 +1102,7 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
   }</a> <a class="btn-link" href="?vista=perdidos">📋 Clientes de la semana muda</a></p>`;
   return pageShell(
     'Conversaciones · Ofipapel',
-    `${renderInterruptor(pausaGlobal)}${renderDiagnostic(diagnostic)}${enlaceAprendizaje}${buscador}<ul class="convo-list">${
+    `${renderFalloDelBot(falloDelBot)}${renderInterruptor(pausaGlobal)}${renderDiagnostic(diagnostic)}${enlaceAprendizaje}${buscador}<ul class="convo-list">${
       items ||
       `<li><div class="empty-state">${
         consulta
@@ -1815,6 +1866,14 @@ exports.handler = async (event) => {
         return { statusCode: 303, headers: { Location: '?' }, body: '' };
       }
 
+      // Quitar el aviso de fallo, una vez resuelto. Existe porque un aviso que
+      // no se puede quitar se convierte en parte del decorado y se deja de
+      // mirar — y éste es justo el que no puede pasar desapercibido.
+      if (action === 'fallo-visto') {
+        await borrarUltimoFallo();
+        return { statusCode: 303, headers: { Location: '?' }, body: '' };
+      }
+
       // Acciones de la página de aprendizaje (no van asociadas a un teléfono).
       if (action.startsWith('alias-') || action === 'pendiente-del') {
         const termino = (params.get('termino') || '').trim();
@@ -2037,10 +2096,14 @@ exports.handler = async (event) => {
   //
   // No se pierde el aviso: si Upstash está caído o sin cupo, listConversationPhones
   // falla y devuelve vacío, que es justo el caso en que sí se diagnostica.
-  const [phones, pendientes, pausaGlobal] = await Promise.all([
+  // El último fallo del bot va en el mismo lote: un comando más por carga de la
+  // lista (de 8 a 9), y es el que evita que un bot muerto pase una semana
+  // desapercibido. Barato para lo que vale.
+  const [phones, pendientes, pausaGlobal, falloDelBot] = await Promise.all([
     listConversationPhones(),
     listarBusquedasSinResultado(),
     getPausaGlobal(),
+    getUltimoFallo(),
   ]);
   const pedidoAMano = event.queryStringParameters?.diagnostico === '1';
   const diagnostic = pedidoAMano || phones.length === 0 ? await diagnose() : { ok: true };
@@ -2077,6 +2140,6 @@ exports.handler = async (event) => {
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    body: renderList(entries.filter(Boolean), diagnostic, pendientes.length, pausaGlobal, consulta),
+    body: renderList(entries.filter(Boolean), diagnostic, pendientes.length, pausaGlobal, consulta, falloDelBot),
   };
 };

@@ -47,6 +47,10 @@ Module.prototype.require = function (p) {
       isBotPaused: async () => { comandos.push('GET paused'); return false; },
       getFichaCliente: async () => { comandos.push('GET cliente'); return null; },
       getPausaGlobal: async () => { comandos.push('GET pausa'); return null; },
+      // El aviso de "el bot se ha roto" que sale arriba del panel. Un comando
+      // más por carga de la lista: es lo que evita que un bot muerto pase una
+      // semana sin que nadie lo note (10-17/9/2026).
+      getUltimoFallo: async () => { comandos.push('GET fallo'); return null; },
       getPanelPassword: async () => { comandos.push('GET password'); return null; },
       listarBusquedasSinResultado: async () => { comandos.push('ZRANGE'); return []; },
       diagnose: async () => { ['SET diag', 'GET diag', 'DEL diag'].forEach((c) => comandos.push(c)); return { ok: true }; },

@@ -82,6 +82,47 @@ async function appendAgentMessage(phone, agentText) {
   await pushMessages(phone, [{ role: 'agent', content: agentText }]);
 }
 
+// EL ÚLTIMO FALLO DEL BOT, PARA QUE SE VEA.
+//
+// El bot estuvo una semana sin contestar a nadie (10-17/9/2026) por un
+// TypeError en cada mensaje. El error se capturaba, se escribía en unos logs
+// que nadie mira, y se le devolvía 200 a Meta — o sea que Meta lo daba por
+// entregado y no reintentaba. Desde fuera no se distinguía de "hoy no ha
+// escrito nadie". Se descubrió a los siete días, y de casualidad.
+//
+// Que el bot se rompa alguna vez es inevitable. Que se rompa EN SILENCIO no.
+// Aquí se anota el último fallo y el panel lo enseña en rojo, que es donde se
+// mira todos los días.
+//
+// Caduca solo a los 30 días: un fallo de hace un mes ya no dice nada y no debe
+// quedarse asustando en el panel para siempre.
+const FALLO_TTL_SEGUNDOS = 30 * 24 * 3600;
+
+async function registrarFalloDelBot(mensaje, telefono) {
+  if (!isConfigured()) return;
+  const dato = {
+    cuando: Date.now(),
+    mensaje: String(mensaje || 'error desconocido').slice(0, 300),
+    telefono: telefono || null,
+  };
+  await redisCommand(['SET', 'ultimo_fallo', JSON.stringify(dato), 'EX', String(FALLO_TTL_SEGUNDOS)]);
+}
+
+async function getUltimoFallo() {
+  const raw = await redisCommand(['GET', 'ultimo_fallo']);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function borrarUltimoFallo() {
+  if (!isConfigured()) return;
+  await redisCommand(['DEL', 'ultimo_fallo']);
+}
+
 // CLIENTES QUE ESCRIBIERON Y SE PERDIERON.
 //
 // Del 10 al 17 de septiembre de 2026 el bot reventaba en cada mensaje (ver
@@ -580,6 +621,9 @@ module.exports = {
   appendAgentMessage,
   listConversationPhones,
   listarFichasPorPrimerContacto,
+  registrarFalloDelBot,
+  getUltimoFallo,
+  borrarUltimoFallo,
   pauseBot,
   isBotPaused,
   resumeBot,
