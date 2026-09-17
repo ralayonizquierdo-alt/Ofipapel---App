@@ -544,6 +544,12 @@ module.exports = {
   guardarAliasBusqueda,
   borrarAliasBusqueda,
   getFichaCliente,
+  // Se quedó sin exportar al añadir el idioma del cliente (10/9/2026) y tumbó
+  // el bot entero durante una semana: el webhook la llamaba en CADA mensaje,
+  // saltaba un TypeError antes de contestar, y como el error se captura y se
+  // devuelve 200, Meta lo daba por entregado. Ni respuesta al cliente, ni
+  // registro en el panel, ni un solo aviso. Ver scripts/probar-arranque-real.js.
+  actualizarFichaCliente,
   registrarPedidoVerificado,
   registrarProductoPreguntado,
   guardarNombreWhatsapp,
