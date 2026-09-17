@@ -78,6 +78,13 @@ global.fetch = async (url, opts) => {
     return { ok: true, json: async () => ({ result: ['34600000002'] }) };
   }
 
+  // Una ficha suelta. Hace falta para que el envío de la plantilla lea el
+  // nombre de verdad: es lo que rellena el primer hueco.
+  if (cmd === 'GET' && !estricto) {
+    const v = BASE[args[1]];
+    return { ok: true, json: async () => ({ result: v === undefined ? null : typeof v === 'string' ? v : JSON.stringify(v) }) };
+  }
+
   if (cmd === 'MGET') {
     const valores = args.slice(1).map((k) => {
       const v = BASE[k];
@@ -100,11 +107,17 @@ Module.prototype.require = orig;
 // El panel se carga aparte, con el envío a WhatsApp anulado (aquí no se manda
 // nada de verdad) pero con conversation-store REAL, para que la vista lea los
 // mismos datos que acaba de comprobar la primera mitad de esta prueba.
+const plantillasEnviadas = [];
+
 function cargarPanel() {
   Module.prototype.require = function (p) {
     if (p === './whatsapp-send') {
       return {
-        sendWhatsappMessage: async () => ({ ok: true }), sendWhatsappTemplate: async () => ({ ok: true }),
+        sendWhatsappMessage: async () => ({ ok: true }),
+        sendWhatsappTemplate: async (to, plantilla, huecos) => {
+          plantillasEnviadas.push({ to, plantilla, huecos });
+          return { ok: true };
+        },
         uploadWhatsappMedia: async () => ({}), sendWhatsappMedia: async () => ({}),
         getBusinessProfile: async () => ({ ok: true, perfil: {} }), getPhoneNumberStatus: async () => ({ ok: true, numero: {} }),
       };
@@ -225,6 +238,36 @@ function cargarPanel() {
   (hilo.body || '').includes('Enviar plantilla')
     ? bien('el hilo vacío de un cliente perdido también deja mandar la plantilla')
     : mal('en el hilo vacío no hay forma de mandar la plantilla');
+
+  // QUÉ LE LLEGA AL CLIENTE, que es lo único que importa de verdad.
+  //
+  // El segundo hueco de la plantilla va dentro de «...sobre tu consulta:
+  // "{{2}}"». Como estos clientes no tienen ningún mensaje guardado, siempre
+  // cae en el texto de respaldo — y el primero que se usó era 'tu consulta',
+  // así que al cliente le llegó, literalmente, «sobre tu consulta: "tu
+  // consulta"».
+  console.log('\n=== Lo que recibe el cliente');
+  await conv.handler({
+    httpMethod: 'POST',
+    headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+    queryStringParameters: {},
+    body: 'phone=34600000001&action=plantilla&volver=perdidos',
+  });
+
+  const envio = plantillasEnviadas[0];
+  if (!envio) {
+    mal('no se llegó a mandar ninguna plantilla');
+  } else {
+    const [quien, sobreQue] = envio.huecos;
+    console.log(`       «Hola ${quien}, te escribimos desde Ofipapel sobre tu consulta: "${sobreQue}".»`);
+    /^tu consulta$/i.test(sobreQue)
+      ? mal('el segundo hueco es "tu consulta": al cliente le llega «sobre tu consulta: "tu consulta"»')
+      : bien('el segundo hueco encaja en la frase, sin repetirla');
+    envio.huecos.every((h) => h && String(h).trim())
+      ? bien('ningún hueco va vacío (Meta rechazaría el envío entero)')
+      : mal('algún hueco va vacío y Meta rechazaría el envío');
+    quien === 'Lucía' ? bien('saluda por su nombre de WhatsApp') : mal(`saluda mal: "${quien}"`);
+  }
 
   console.log(fallos === 0 ? '\n✔ Sin fallos' : `\n✗ ${fallos} fallos`);
   process.exit(fallos === 0 ? 0 : 1);
