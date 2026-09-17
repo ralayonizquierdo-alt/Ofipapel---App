@@ -118,8 +118,8 @@ async function appendBotReply(phone, botText) {
 }
 
 // Guarda una respuesta escrita a mano desde el panel de conversaciones (no del bot).
-async function appendAgentMessage(phone, agentText) {
-  await pushMessages(phone, [{ role: 'agent', content: agentText }]);
+async function appendAgentMessage(phone, agentText, wamid) {
+  await pushMessages(phone, [{ role: 'agent', content: agentText, ...(wamid ? { wamid } : {}) }]);
 }
 
 // EL ÚLTIMO FALLO DEL BOT, PARA QUE SE VEA.

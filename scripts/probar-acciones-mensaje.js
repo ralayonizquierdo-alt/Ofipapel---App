@@ -55,7 +55,10 @@ global.fetch = async (url, opts) => {
   }
   if (u.includes('graph.facebook.com')) {
     enviados.push(JSON.parse(opts.body));
-    return { ok: true, json: async () => ({}), text: async () => '{}' };
+    // Meta contesta con el identificador del mensaje que acaba de enviar. Sin
+    // devolverlo aquí no se probaría que se guarda, que es lo que permite
+    // responder después a un mensaje propio.
+    return { ok: true, json: async () => ({ messages: [{ id: 'wamid.ENVIADO1' }] }), text: async () => '{}' };
   }
   return { ok: true, json: async () => ({}), text: async () => '{}' };
 };
@@ -91,6 +94,12 @@ Module.prototype.require = orig;
   console.log('\n=== Los botones en la conversación');
   const html = (await abrir()).body || '';
   html.includes('↩︎ Responder') ? bien('el mensaje del cliente trae botón de responder') : mal('no hay botón de responder');
+  // El recuadro "Respondiendo a:" solo debe verse al pulsar Responder. Lleva el
+  // atributo hidden, pero el CSS le daba display:flex — que gana — y salía
+  // siempre, y encima vacío. Visto en real.
+  /\.cita-activa\[hidden\] \{ display: none/.test(html)
+    ? bien('el recuadro de "Respondiendo a:" empieza escondido de verdad')
+    : mal('el recuadro "Respondiendo a:" sale siempre y vacío: el display del CSS pisa al hidden');
   html.includes(WAMID) ? bien('lleva el identificador del mensaje que se va a citar') : mal('no lleva el identificador: la cita no llegaría');
   (html.match(/↩︎ Responder/g) || []).length === 1
     ? bien('solo se puede citar el mensaje que sí tiene identificador')
@@ -139,6 +148,17 @@ Module.prototype.require = orig;
   conCita?.context?.message_id === WAMID
     ? bien('se le manda a Meta con context.message_id: llega enganchado al original')
     : mal(`no se manda la cita (context: ${JSON.stringify(conCita?.context)})`);
+
+  // Y lo que se acaba de enviar tiene que quedar citable a su vez: en WhatsApp
+  // se puede responder a lo que uno mismo escribió, y si no, en una
+  // conversación en la que acabas de contestar tú no sale el botón por ningún
+  // lado (fue justo lo que se vio al probarlo).
+  CONVERSACION.some((m) => m.role === 'agent' && m.wamid === 'wamid.ENVIADO1')
+    ? bien('el mensaje propio guarda su identificador: se le puede responder después')
+    : mal('el mensaje propio no guarda identificador: no se podrá citar');
+  (((await abrir()).body || '').match(/↩︎ Responder/g) || []).length >= 2
+    ? bien('y ya aparece el botón también en los mensajes propios')
+    : mal('sigue sin salir el botón en los mensajes propios');
 
   enviados.length = 0;
   await postear(`phone=${TEL}&action=reply&message=${encodeURIComponent('Un mensaje suelto')}`);

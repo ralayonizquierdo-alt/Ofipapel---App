@@ -690,6 +690,10 @@ function pageShell(title, body) {
   .msg-accion { background: none; border: 0; padding: 2px 4px; font-size: 11.5px; color: var(--text-muted); cursor: pointer; border-radius: 6px; font-family: inherit; }
   .msg-accion:hover { background: rgba(0,0,0,.06); color: inherit; }
   @media (hover: none) { .msg-acciones { opacity: .75; } }
+  /* El [hidden] tiene que ganar al display de abajo. Sin esta línea el recuadro
+     "Respondiendo a:" sale SIEMPRE, y encima vacío: display:flex pisa al
+     [hidden]{display:none} del navegador, que es más débil. Visto en real. */
+  .cita-activa[hidden] { display: none; }
   .cita-activa { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 8px 10px; border-left: 3px solid var(--brand, #2e7d32); background: rgba(0,0,0,.04); border-radius: 6px; font-size: 13px; }
   .cita-texto { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pie-sitio { text-align: center; padding: 18px 12px 26px; color: var(--text-muted); font-size: 11.5px; font-family: 'IBM Plex Mono', monospace; opacity: .7; }
@@ -1611,11 +1615,15 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
 
       // ACCIONES SOBRE UN MENSAJE CONCRETO, como en WhatsApp.
       //
-      // "Responder" solo aparece en los mensajes del CLIENTE que traigan wamid:
-      // es el identificador que le da Meta, y es lo que permite engancharle la
-      // respuesta. Los mensajes archivados antes de que se empezara a guardar
-      // no lo tienen, y los del bot no se pueden citar (WhatsApp solo deja
-      // citar mensajes del otro lado).
+      // "Responder" aparece en los mensajes que traigan wamid: el identificador
+      // que le da Meta, y lo que permite engancharle la respuesta. Vale tanto
+      // para los del cliente como para los que se mandan desde aquí — en
+      // WhatsApp también se puede citar lo que uno mismo escribió, y sin eso el
+      // botón no sale por ningún lado en una conversación en la que acabas de
+      // contestar tú.
+      //
+      // Lo archivado antes de este cambio no tiene identificador, así que ahí
+      // no sale el botón: ofrecerlo daría un envío fallido.
       //
       // "Eliminar" lo quita del PANEL, no del WhatsApp del cliente: la Cloud
       // API de Meta no tiene forma de retirar un mensaje ya enviado. El texto
@@ -1633,7 +1641,7 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
       const adjuntoDelMensaje = adjuntoDelHistorial(contenidoLimpio);
       const paraCopiar = adjuntoDelMensaje ? adjuntoDelMensaje.texto : contenidoLimpio;
 
-      const puedeCitarse = isCustomer && m.wamid;
+      const puedeCitarse = Boolean(m.wamid);
       const resumen = sinMarcasInternas(m.content).replace(/\s+/g, ' ').slice(0, 80);
       // Sin saltos de línea dentro de estas etiquetas: van dentro de la burbuja,
       // que respeta los espacios tal cual (ver .msg-acciones en el CSS).
@@ -2092,7 +2100,7 @@ exports.handler = async (event) => {
         // cliente sepa de qué le hablas y que no.
         const result = await sendWhatsappMessage(phone, message, citando || undefined);
         if (!result.ok) return redirect(motivoDeFallo(result));
-        await appendAgentMessage(phone, message);
+        await appendAgentMessage(phone, message, result.wamid);
         await pauseBot(phone, 24); // que no se crucen bot y respuesta manual
       }
     } else if (phone && action === 'borrar-mensaje') {
