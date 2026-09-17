@@ -38,7 +38,21 @@ async function sendWhatsappMessage(to, body, citando) {
       console.error('Error enviando mensaje de WhatsApp:', resp.status, errText);
       return { ok: false, status: resp.status, error: errText };
     }
-    return { ok: true };
+
+    // Meta devuelve el identificador del mensaje que acaba de enviar. Se saca
+    // para poder CITARLO después desde el panel: sin guardarlo, a los mensajes
+    // propios no se les puede responder, y en WhatsApp sí se puede.
+    //
+    // Si la respuesta no trae lo esperado no pasa nada: el mensaje ya salió, y
+    // lo único que se pierde es la posibilidad de citar ese en concreto.
+    let wamid;
+    try {
+      const datos = await resp.json();
+      wamid = datos?.messages?.[0]?.id;
+    } catch {
+      wamid = undefined;
+    }
+    return { ok: true, wamid };
   } catch (err) {
     console.error('Fallo llamando a la API de WhatsApp:', err);
     return { ok: false, error: String(err) };
