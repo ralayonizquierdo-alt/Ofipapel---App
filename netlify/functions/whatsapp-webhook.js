@@ -598,9 +598,15 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     // Si falla no pasa nada grave: el mensaje se registra igual y el aviso sale
     // igual, solo que sin la foto. Nunca se deja al cliente sin respuesta por
     // culpa de una descarga.
+    // Los STICKERS cuentan como imagen: son un webp, whatsapp-media.js ya los
+    // admite, y en el panel se ven igual de bien. Quedaban fuera de esta lista
+    // por olvido, así que en el panel salía "[El cliente envió un sticker]" y
+    // nada más — que es tanto como no haberlo recibido. Un sticker dice algo
+    // (un pulgar arriba cierra una conversación, una cara de enfado la abre) y
+    // quien lea el panel tiene que poder verlo.
     const mediaId = message[message.type]?.id;
     let adjunto = null;
-    if (mediaId && (message.type === 'image' || message.type === 'document')) {
+    if (mediaId && (message.type === 'image' || message.type === 'document' || message.type === 'sticker')) {
       adjunto = await guardarAdjuntoDeCliente(event, message.from, mediaId);
     }
 
