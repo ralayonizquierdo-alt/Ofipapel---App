@@ -5,6 +5,8 @@
 // todas las funciones devuelven valores vacíos sin lanzar error, para que el
 // resto del bot siga funcionando igual aunque no se haya activado el archivado.
 
+const crypto = require('crypto');
+
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 const MAX_STORED_MESSAGES = 200; // mensajes por conversación que se conservan archivados
@@ -56,17 +58,55 @@ async function pushMessages(phone, newMessages) {
   await redisCommand(['SADD', 'conversations_index', phone]);
 }
 
-async function appendMessages(phone, userText, botReply) {
+// El `wamid` es el identificador que le pone Meta al mensaje del cliente. Se
+// guarda para poder CITARLO al contestar (el "responder" de WhatsApp, que en la
+// API es `context.message_id`). Es opcional: sin él todo sigue igual, solo que
+// a ese mensaje no se le puede responder citando.
+async function appendMessages(phone, userText, botReply, wamid) {
   await pushMessages(phone, [
-    { role: 'user', content: userText },
+    { role: 'user', content: userText, ...(wamid ? { wamid } : {}) },
     { role: 'assistant', content: botReply },
   ]);
 }
 
+// Identifica un mensaje por su contenido, no por su posición.
+//
+// Hace falta para borrar sin equivocarse: el índice de un mensaje en la lista
+// cambia si mientras tanto llega otro, o si la conversación se recorta al pasar
+// de MAX_STORED_MESSAGES. Borrar "el número 7" a ciegas es borrar cualquier
+// cosa. Con la huella, si lo que hay en esa posición no es lo que se estaba
+// mirando, no se borra nada.
+function huellaDeMensaje(m) {
+  return crypto
+    .createHash('sha1')
+    .update(`${m?.role || ''}|${m?.content || ''}`)
+    .digest('hex')
+    .slice(0, 12);
+}
+
+// Quita UN mensaje del archivo del panel.
+//
+// OJO CON LO QUE ESTO NO ES: no lo borra del WhatsApp del cliente. La Cloud API
+// de Meta no tiene forma de retirar un mensaje ya enviado — no existe ese
+// endpoint —, así que lo de "eliminar para todos" de la app de WhatsApp aquí no
+// se puede hacer. Esto solo limpia lo que se ve en el panel.
+async function borrarMensaje(phone, indice, huella) {
+  if (!isConfigured()) return { ok: false, motivo: 'sin-almacen' };
+
+  const messages = await loadConversation(phone);
+  const m = messages[indice];
+  if (!m) return { ok: false, motivo: 'no-esta' };
+  if (huellaDeMensaje(m) !== huella) return { ok: false, motivo: 'cambiado' };
+
+  messages.splice(indice, 1);
+  await redisCommand(['SET', `conv:${phone}`, JSON.stringify(messages)]);
+  return { ok: true };
+}
+
 // Guarda solo el mensaje del cliente, sin respuesta del bot emparejada — se usa
 // cuando el bot está en pausa y es una persona quien va a responder desde el panel.
-async function appendCustomerMessage(phone, userText) {
-  await pushMessages(phone, [{ role: 'user', content: userText }]);
+async function appendCustomerMessage(phone, userText, wamid) {
+  await pushMessages(phone, [{ role: 'user', content: userText, ...(wamid ? { wamid } : {}) }]);
 }
 
 // Guarda SOLO la respuesta del bot, sin mensaje del cliente emparejado. Se usa
@@ -624,6 +664,8 @@ module.exports = {
   registrarFalloDelBot,
   getUltimoFallo,
   borrarUltimoFallo,
+  huellaDeMensaje,
+  borrarMensaje,
   pauseBot,
   isBotPaused,
   resumeBot,

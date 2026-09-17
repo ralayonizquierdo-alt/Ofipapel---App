@@ -4,7 +4,10 @@
 
 const GRAPH_API_VERSION = 'v20.0';
 
-async function sendWhatsappMessage(to, body) {
+// `citando` es el wamid del mensaje del cliente al que se responde. Con él,
+// WhatsApp pinta la respuesta enganchada al mensaje original, igual que cuando
+// uno usa "Responder" en la app. Sin él se manda suelto, como siempre.
+async function sendWhatsappMessage(to, body, citando) {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const token = process.env.WHATSAPP_TOKEN;
 
@@ -26,6 +29,7 @@ async function sendWhatsappMessage(to, body) {
         // producto llega con su foto y su nombre, que es lo que hace que el
         // cliente lo abra.
         text: { body, preview_url: true },
+        ...(citando ? { context: { message_id: citando } } : {}),
       }),
     });
 

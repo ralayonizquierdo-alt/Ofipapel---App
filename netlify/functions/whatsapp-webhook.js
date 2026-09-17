@@ -51,7 +51,7 @@ const {
   askClaude,
   notifyOwner,
   getHistory,
-  appendToHistory,
+  appendToHistory: appendToHistoryBase,
   appendCustomerMessage,
   isRepeatQuestion,
   isBotPaused,
@@ -96,6 +96,13 @@ const { guardarAdjuntoDeCliente, MARCA_ADJUNTO } = require('./whatsapp-media');
 const { idiomaDeRespuesta } = require('./whatsapp-idioma');
 const { firmaDeReintento } = require('./whatsapp-firma');
 const conversationStore = require('./conversation-store');
+
+// Para todo lo que archiva desde FUERA de handleIncomingMessage (los botones,
+// la búsqueda de pedido): ahí no hay mensaje entrante del que sacar el wamid,
+// así que se archiva sin él. Dentro de handleIncomingMessage hay otra con el
+// mismo nombre que sí lo lleva y tapa a ésta.
+const appendToHistory = (from, userText, botReply, wamid) =>
+  appendToHistoryBase(from, userText, botReply, wamid);
 
 const GRAPH_API_VERSION = 'v20.0';
 const DEDUP_TTL_MS = 5 * 60 * 1000;
@@ -542,6 +549,17 @@ async function getPausaGlobalEfectiva() {
 // al cliente y ANTES de registrar y avisar — o sea, el mismo agujero que se
 // acababa de tapar, pero peor, porque además parecía que funcionaba.
 async function handleIncomingMessage(event, message, nombreWhatsapp) {
+  // El identificador del mensaje entrante viaja hasta el archivo SIN tocar las
+  // veintitantas llamadas de más abajo: se define aquí una appendToHistory que
+  // lo lleva puesto y tapa a la importada durante toda esta función. Se guarda
+  // para poder responder citando ese mensaje desde el panel, como el
+  // "Responder" de WhatsApp.
+  //
+  // Tocar veintidós llamadas a mano para colar un argumento es justo la clase
+  // de cambio que rompió el bot el 10/9, así que se hace en un solo sitio.
+  const appendToHistory = (from, userText, botReply) =>
+    appendToHistoryBase(from, userText, botReply, message.id);
+
   // Se guarda antes que nada, y pase lo que pase después: sirve para reconocer
   // la conversación en el panel aunque el bot esté parado y no llegue a
   // contestar. Solo escribe cuando el nombre cambia (ver guardarNombreWhatsapp).
@@ -667,7 +685,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // Bot en pausa (escalado confirmado o respuesta manual reciente desde el panel):
   // se guarda el mensaje para que lo vea la persona, pero no se contesta automático.
   if (await isBotPaused(message.from)) {
-    await appendCustomerMessage(message.from, text);
+    await appendCustomerMessage(message.from, text, message.id);
     return;
   }
 
@@ -908,7 +926,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   if (falloCatalogo && !productContext) {
     const delegado = await pedirSegundoIntento(message.from, text);
     if (delegado) {
-      await conversationStore.appendCustomerMessage(message.from, text);
+      await conversationStore.appendCustomerMessage(message.from, text, message.id);
       await sendWhatsappMessage(message.from, greeting + ESPERA_REPLY);
       return;
     }

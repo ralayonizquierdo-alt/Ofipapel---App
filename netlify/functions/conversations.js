@@ -14,6 +14,8 @@ const {
   loadListaConversaciones,
   appendAgentMessage,
   listConversationPhones,
+  huellaDeMensaje,
+  borrarMensaje,
   pauseBot,
   isBotPaused,
   resumeBot,
@@ -673,6 +675,18 @@ function pageShell(title, body) {
      al pulsarlas se abren a tamaño completo en otra pestaña. */
   .adjunto-foto { display: block; margin: 2px 0 6px; }
   .adjunto-foto img { display: block; max-width: 100%; max-height: 320px; border-radius: 10px; border: 1px solid var(--border); }
+  /* Acciones por mensaje: discretas, y visibles al pasar por encima o al tocar
+     la burbuja. En el móvil no hay "pasar por encima", así que en pantalla
+     pequeña se quedan siempre visibles — un botón que no se puede enseñar es
+     un botón que no existe. */
+  .msg-acciones { display: flex; gap: 6px; margin-top: 4px; opacity: 0; transition: opacity .12s; }
+  .bubble:hover .msg-acciones, .bubble:focus-within .msg-acciones { opacity: 1; }
+  .msg-borrar { display: inline; }
+  .msg-accion { background: none; border: 0; padding: 2px 4px; font-size: 11.5px; color: var(--text-muted); cursor: pointer; border-radius: 6px; font-family: inherit; }
+  .msg-accion:hover { background: rgba(0,0,0,.06); color: inherit; }
+  @media (hover: none) { .msg-acciones { opacity: .75; } }
+  .cita-activa { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 8px 10px; border-left: 3px solid var(--brand, #2e7d32); background: rgba(0,0,0,.04); border-radius: 6px; font-size: 13px; }
+  .cita-texto { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pie-sitio { text-align: center; padding: 18px 12px 26px; color: var(--text-muted); font-size: 11.5px; font-family: 'IBM Plex Mono', monospace; opacity: .7; }
   .adjunto-enlace { display: inline-block; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); font-size: 14px; }
   .adjunto-pie { white-space: pre-wrap; }
@@ -1547,6 +1561,8 @@ const ERROR_MESSAGES = {
   type: 'Solo se admiten imágenes (JPG/PNG) o PDF como adjunto.',
   upload: 'No se pudo subir el adjunto a WhatsApp. Inténtalo de nuevo.',
   empty: 'Escribe un mensaje o adjunta un archivo antes de enviar.',
+  borradoCambiado: 'No se ha borrado nada: la conversación cambió mientras mirabas (llegó otro mensaje). Vuelve a intentarlo sobre el mensaje que quieres quitar.',
+  borradoNoEsta: 'Ese mensaje ya no está en la conversación.',
 };
 
 function renderAvisoEnvio(error) {
@@ -1560,18 +1576,47 @@ function renderAvisoEnvio(error) {
 
 function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
   const bubbles = messages
-    .map((m) => {
+    .map((m, indice) => {
       const isCustomer = m.role === 'user';
       const isAgent = m.role === 'agent';
       const kind = isCustomer ? 'customer' : isAgent ? 'agent' : 'bot';
       const time = m.ts ? new Date(m.ts).toLocaleString('es-ES') : '';
       const sender = isAgent ? '<div class="sender">Tú</div>' : '';
       const acuse = isCustomer ? '' : acuseDeRecibo(m.ts, entrega);
+
+      // ACCIONES SOBRE UN MENSAJE CONCRETO, como en WhatsApp.
+      //
+      // "Responder" solo aparece en los mensajes del CLIENTE que traigan wamid:
+      // es el identificador que le da Meta, y es lo que permite engancharle la
+      // respuesta. Los mensajes archivados antes de que se empezara a guardar
+      // no lo tienen, y los del bot no se pueden citar (WhatsApp solo deja
+      // citar mensajes del otro lado).
+      //
+      // "Eliminar" lo quita del PANEL, no del WhatsApp del cliente: la Cloud
+      // API de Meta no tiene forma de retirar un mensaje ya enviado. El texto
+      // del botón lo dice, porque la diferencia importa y de otro modo se
+      // supone lo contrario.
+      const puedeCitarse = isCustomer && m.wamid;
+      const resumen = (m.content || '').replace(/\s+/g, ' ').slice(0, 80);
+      const responder = puedeCitarse
+        ? `<button type="button" class="msg-accion" title="Responder a este mensaje"
+      data-wamid="${escapeHtml(m.wamid)}" data-resumen="${escapeHtml(resumen)}"
+      onclick="citarMensaje(this)">↩︎ Responder</button>`
+        : '';
+      const eliminar = `<form method="POST" class="msg-borrar" onsubmit="return confirm('Se quita de tu panel. Al cliente le sigue apareciendo en su WhatsApp: Meta no permite borrarlo de su lado.');">
+      <input type="hidden" name="phone" value="${escapeHtml(phone)}">
+      <input type="hidden" name="action" value="borrar-mensaje">
+      <input type="hidden" name="indice" value="${indice}">
+      <input type="hidden" name="huella" value="${escapeHtml(huellaDeMensaje(m))}">
+      <button type="submit" class="msg-accion" title="Quitar del panel (no del WhatsApp del cliente)">🗑 Quitar</button>
+    </form>`;
+
       return `<div class="bubble-row ${isCustomer ? 'left' : 'right'}">
   <div class="bubble ${kind}">
     ${sender}
     <div>${cuerpoDeBurbuja(phone, m.content)}</div>
     <div class="time">${escapeHtml(time)}${acuse}</div>
+    <div class="msg-acciones">${responder}${eliminar}</div>
   </div>
 </div>`;
     })
@@ -1653,6 +1698,11 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
   ">
   <input type="hidden" name="phone" value="${escapeHtml(phone)}">
   <input type="hidden" name="action" value="reply">
+  <input type="hidden" name="citando" id="citando" value="">
+  <div class="cita-activa" id="cita-activa" hidden>
+    <div class="cita-texto"><strong>Respondiendo a:</strong> <span id="cita-resumen"></span></div>
+    <button type="button" class="btn-link" onclick="quitarCita()">Quitar</button>
+  </div>
   <textarea name="message" rows="3" placeholder="Escribe tu respuesta..."></textarea>
   <div class="reply-toolbar">
     <label class="attach-btn" title="Adjuntar imagen o PDF">
@@ -1668,6 +1718,33 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
   </div>
   <div class="attach-hint">Imágenes (JPG/PNG) o PDF, máximo ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB. También puedes pegar una imagen copiada (Ctrl+V) sin guardarla antes.</div>
 </form>
+<script>
+// El "Responder" de cada mensaje. Guarda el identificador del mensaje citado en
+// el campo oculto del formulario y enseña arriba a quién se está respondiendo,
+// para que no se mande una cita a ciegas sin saber de qué.
+//
+// Sin barras invertidas ni expresiones regulares en este bloque: va dentro de
+// una plantilla de JavaScript y la plantilla se las come, dejando el script
+// entero roto (pasó con el pegado de imágenes, lo vigila probar-panel-js.js).
+function citarMensaje(boton) {
+  var campo = document.getElementById('citando');
+  var aviso = document.getElementById('cita-activa');
+  var resumen = document.getElementById('cita-resumen');
+  if (!campo || !aviso || !resumen) return;
+  campo.value = boton.getAttribute('data-wamid') || '';
+  resumen.textContent = boton.getAttribute('data-resumen') || '';
+  aviso.hidden = false;
+  var ta = document.querySelector('.reply-form textarea');
+  if (ta) ta.focus();
+}
+
+function quitarCita() {
+  var campo = document.getElementById('citando');
+  var aviso = document.getElementById('cita-activa');
+  if (campo) campo.value = '';
+  if (aviso) aviso.hidden = true;
+}
+</script>
 <script>
 // Pegar una imagen copiada (una captura, o una foto copiada desde otra
 // conversación) en vez de tener que guardarla en el disco y buscarla con el
@@ -1816,6 +1893,13 @@ exports.handler = async (event) => {
     let action = '';
     let message = '';
     let file = null;
+    // Campos de las acciones por mensaje. Se recogen aquí arriba porque el
+    // formulario de respuesta llega como multipart (lleva adjunto) y el de
+    // borrar como formulario normal: sin esto, cada uno solo se veía desde una
+    // de las dos ramas.
+    let citando = '';
+    let indice = '';
+    let huella = '';
 
     if (contentType.includes('multipart/form-data')) {
       const rawBuffer = event.isBase64Encoded
@@ -1826,12 +1910,18 @@ exports.handler = async (event) => {
       action = fields.action || '';
       message = (fields.message || '').trim();
       file = files.find((f) => f.fieldName === 'attachment' && f.data && f.data.length > 0) || null;
+      citando = (fields.citando || '').trim();
+      indice = fields.indice || '';
+      huella = (fields.huella || '').trim();
     } else {
       const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body || '';
       const params = new URLSearchParams(rawBody);
       phone = params.get('phone') || '';
       action = params.get('action') || '';
       message = (params.get('message') || '').trim();
+      citando = (params.get('citando') || '').trim();
+      indice = params.get('indice') || '';
+      huella = (params.get('huella') || '').trim();
 
       if (action === 'password-cambiar') {
         const actual = params.get('actual') || '';
@@ -1921,11 +2011,25 @@ exports.handler = async (event) => {
         await appendAgentMessage(phone, `${label} ${file.filename}${message ? ` — ${message}` : ''}`);
         await pauseBot(phone, 24);
       } else {
-        const result = await sendWhatsappMessage(phone, message);
+        // Si se está respondiendo a un mensaje concreto, se manda citándolo:
+        // WhatsApp lo pinta enganchado al original, igual que el "Responder"
+        // de la app. En una conversación larga es la diferencia entre que el
+        // cliente sepa de qué le hablas y que no.
+        const result = await sendWhatsappMessage(phone, message, citando || undefined);
         if (!result.ok) return redirect(motivoDeFallo(result));
         await appendAgentMessage(phone, message);
         await pauseBot(phone, 24); // que no se crucen bot y respuesta manual
       }
+    } else if (phone && action === 'borrar-mensaje') {
+      // Quitar un mensaje del panel. NO lo borra del WhatsApp del cliente: la
+      // Cloud API de Meta no tiene endpoint para eso, así que "eliminar para
+      // todos" no existe aquí. El botón y la confirmación lo dicen.
+      //
+      // Se manda la posición Y una huella del contenido: si mientras tanto ha
+      // llegado otro mensaje y la posición ya no es la que se estaba mirando,
+      // no se borra nada en vez de borrar el equivocado.
+      const res = await borrarMensaje(phone, Number(indice), huella);
+      if (!res.ok) return redirect(res.motivo === 'cambiado' ? 'borradoCambiado' : 'borradoNoEsta');
     } else if (phone && action === 'plantilla') {
       // Reabrir una conversación fuera de la ventana de 24 h. Es lo ÚNICO que
       // Meta entrega ahí, así que no hay alternativa en texto libre.

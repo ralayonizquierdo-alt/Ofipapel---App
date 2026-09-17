@@ -47,9 +47,12 @@ async function getHistory(from) {
   return conv.messages;
 }
 
-async function appendToHistory(from, userText, botReply) {
+// `wamid` (opcional): el identificador que Meta le da al mensaje del cliente.
+// Se guarda para poder responderle CITÁNDOLO desde el panel, como el
+// "Responder" de la app de WhatsApp. Sin él todo funciona igual.
+async function appendToHistory(from, userText, botReply, wamid) {
   if (conversationStore.isConfigured()) {
-    await conversationStore.appendMessages(from, userText, botReply);
+    await conversationStore.appendMessages(from, userText, botReply, wamid);
     return;
   }
 
@@ -66,9 +69,9 @@ async function appendToHistory(from, userText, botReply) {
 
 // Guarda solo el mensaje del cliente (sin respuesta), para cuando el bot está en
 // pausa porque una persona está atendiendo esa conversación desde el panel.
-async function appendCustomerMessage(from, userText) {
+async function appendCustomerMessage(from, userText, wamid) {
   if (conversationStore.isConfigured()) {
-    await conversationStore.appendCustomerMessage(from, userText);
+    await conversationStore.appendCustomerMessage(from, userText, wamid);
     return;
   }
   const now = Date.now();
