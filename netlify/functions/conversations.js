@@ -28,6 +28,7 @@ const {
   markAsViewed,
   getLastViewed,
   listarBusquedasSinResultado,
+  listarFichasPorPrimerContacto,
   olvidarBusquedaSinResultado,
   getAliasesBusqueda,
   guardarAliasBusqueda,
@@ -565,6 +566,12 @@ function pageShell(title, body) {
   .aprende-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
   .aprende-termino { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 15px; word-break: break-word; }
   .aprende-veces { color: var(--text-muted); font-size: 12.5px; white-space: nowrap; }
+  .perdido-item { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .perdido-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+  .perdido-nombre { font-weight: 600; font-size: 15px; word-break: break-word; }
+  .perdido-fecha { color: var(--text-muted); font-size: 12.5px; white-space: nowrap; }
+  .perdido-tel { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .perdido-tel a:first-child { font-family: 'IBM Plex Mono', monospace; font-size: 14px; }
   .aprende-form { display: flex; gap: 8px; flex-wrap: wrap; }
   .aprende-form input[type="text"] {
     flex: 1; min-width: 180px; padding: 9px 11px; font-size: 14px;
@@ -1040,7 +1047,7 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
 
   const enlaceAprendizaje = `<p class="aprende-acceso"><a class="btn-link" href="?vista=aprendizaje">🧠 Aprendizaje del bot${
     pendientesAprendizaje > 0 ? ` <span class="unread-badge">${pendientesAprendizaje}</span>` : ''
-  }</a></p>`;
+  }</a> <a class="btn-link" href="?vista=perdidos">📋 Clientes de la semana muda</a></p>`;
   return pageShell(
     'Conversaciones · Ofipapel',
     `${renderInterruptor(pausaGlobal)}${renderDiagnostic(diagnostic)}${enlaceAprendizaje}${buscador}<ul class="convo-list">${
@@ -1229,6 +1236,59 @@ function renderAprendizaje(pendientes, aliases) {
 <ul class="aprende-lista">${filasPendientes}</ul>
 <h2 class="aprende-titulo">Equivalencias aprendidas</h2>
 <ul class="aprende-lista">${filasAlias}</ul>`
+  );
+}
+
+// LOS CLIENTES QUE SE PERDIERON EN LA SEMANA MUDA.
+//
+// Del 10 al 17 de septiembre de 2026 el bot reventaba en cada mensaje y no
+// contestó a nadie ni guardó ninguna conversación. Lo que SÍ quedó, porque se
+// escribe en la primera línea del webhook (antes del punto donde reventaba),
+// es la ficha de quien escribía por primera vez: su número, el nombre que
+// tiene puesto en WhatsApp y el día.
+//
+// Esta vista los saca para poder escribirles. No están en el listado normal
+// del panel porque nunca llegaron a tener conversación — si no fuera por
+// aquí, no existirían para nadie.
+//
+// Lo que NO hay, y conviene tenerlo claro al mirar esta lista:
+//   - Lo que escribieron. Ni una palabra.
+//   - Los clientes que ya habían escrito antes: su ficha ya existía y no se
+//     reescribió, así que no se distinguen de los de siempre.
+const INICIO_SEMANA_MUDA = Date.UTC(2026, 8, 10, 9, 20); // el despliegue que lo rompió
+const FIN_SEMANA_MUDA = Date.UTC(2026, 8, 17, 9, 56); // el despliegue que lo arregló
+
+function renderPerdidos(clientes, desde, hasta) {
+  const fecha = (ts) => new Date(ts).toLocaleString('es-ES', {
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary',
+  });
+
+  const filas = clientes.length
+    ? clientes
+        .map(
+          (c) => `<li class="perdido-item">
+  <div class="perdido-cab">
+    <span class="perdido-nombre">${escapeHtml(c.nombre || '(sin nombre)')}</span>
+    <span class="perdido-fecha">${fecha(c.primerContacto)}</span>
+  </div>
+  <div class="perdido-tel">
+    <a href="https://wa.me/${encodeURIComponent(c.phone)}" target="_blank" rel="noopener">+${escapeHtml(c.phone)}</a>
+    <a class="btn-link" href="?phone=${encodeURIComponent(c.phone)}">Ver en el panel</a>
+  </div>
+</li>`
+        )
+        .join('')
+    : `<li><div class="empty-state">No hay ningún cliente nuevo registrado entre el ${fecha(desde)} y el ${fecha(hasta)}. Es una buena noticia: significa que en esos días no escribió nadie por primera vez.</div></li>`;
+
+  const cuantos = clientes.length === 1 ? '1 cliente nuevo' : `${clientes.length} clientes nuevos`;
+
+  return pageShell(
+    'Clientes perdidos · Ofipapel',
+    `<p><a class="btn-link" href="?">← Volver a conversaciones</a></p>
+<h2 class="aprende-titulo">Clientes de la semana muda</h2>
+<p class="aprende-ayuda">Del ${fecha(desde)} al ${fecha(hasta)} el bot no contestó a nadie por un fallo. Aquí están los <strong>${cuantos}</strong> que escribieron por primera vez en esos días y se quedaron sin respuesta.</p>
+<p class="aprende-ayuda"><strong>No se guardó lo que escribieron</strong>, solo quiénes eran. Y ojo: han pasado más de 24 horas, así que para escribirles hay que usar una plantilla aprobada, no un mensaje normal.</p>
+<ul class="aprende-lista">${filas}</ul>`
   );
 }
 
@@ -1850,6 +1910,21 @@ exports.handler = async (event) => {
       statusCode: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
       body: renderAprendizaje(pendientes, aliases),
+    };
+  }
+
+  // Los clientes que escribieron durante la semana en que el bot estuvo mudo.
+  // Las fechas se pueden cambiar por la URL (?desde=...&hasta=..., en
+  // milisegundos) para poder mirar otro tramo si algún día hace falta, pero por
+  // defecto son las de aquel fallo.
+  if (event.queryStringParameters?.vista === 'perdidos') {
+    const desde = Number(event.queryStringParameters?.desde) || INICIO_SEMANA_MUDA;
+    const hasta = Number(event.queryStringParameters?.hasta) || FIN_SEMANA_MUDA;
+    const clientes = await listarFichasPorPrimerContacto(desde, hasta);
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      body: renderPerdidos(clientes, desde, hasta),
     };
   }
 

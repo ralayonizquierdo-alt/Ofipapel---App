@@ -82,6 +82,67 @@ async function appendAgentMessage(phone, agentText) {
   await pushMessages(phone, [{ role: 'agent', content: agentText }]);
 }
 
+// CLIENTES QUE ESCRIBIERON Y SE PERDIERON.
+//
+// Del 10 al 17 de septiembre de 2026 el bot reventaba en cada mensaje (ver
+// scripts/probar-arranque-real.js). No se guardó ninguna conversación ni se
+// contestó a nadie... con una excepción afortunada: guardarNombreWhatsapp se
+// ejecuta en la PRIMERA línea del webhook, antes del punto donde reventaba, y
+// escribe la ficha del cliente con su nombre y la fecha del primer contacto.
+//
+// Así que de quien escribió por primera vez esos días queda su número y su
+// nombre, aunque no lo que dijo. De quien ya había escrito antes no queda
+// nada: guardarNombreWhatsapp no reescribe la ficha si el nombre no ha
+// cambiado, así que ni siquiera se actualizó la fecha.
+//
+// Se recorre con SCAN y no con KEYS: KEYS bloquea el servidor entero mientras
+// recorre, y esto se lanza desde el panel a demanda. Cada vuelta del cursor es
+// un comando, y los valores se piden en bloques con MGET (un comando por
+// bloque, no por clave).
+const FICHAS_POR_BLOQUE = 200;
+const MAX_VUELTAS_SCAN = 100; // tope de seguridad: 20.000 fichas
+
+async function listarFichasPorPrimerContacto(desde, hasta) {
+  if (!isConfigured()) return [];
+
+  const claves = [];
+  let cursor = '0';
+  let vueltas = 0;
+  do {
+    const res = await redisCommand(['SCAN', cursor, 'MATCH', 'cliente:*', 'COUNT', String(FICHAS_POR_BLOQUE)]);
+    if (!Array.isArray(res)) break;
+    cursor = String(res[0]);
+    if (Array.isArray(res[1])) claves.push(...res[1]);
+  } while (cursor !== '0' && ++vueltas < MAX_VUELTAS_SCAN);
+
+  const encontradas = [];
+  for (let i = 0; i < claves.length; i += FICHAS_POR_BLOQUE) {
+    const bloque = claves.slice(i, i + FICHAS_POR_BLOQUE);
+    const valores = (await redisCommand(['MGET', ...bloque])) || [];
+    bloque.forEach((clave, j) => {
+      let ficha = null;
+      try {
+        ficha = valores[j] ? JSON.parse(valores[j]) : null;
+      } catch {
+        return; // una ficha corrupta no debe tumbar el listado entero
+      }
+      if (!ficha) return;
+      const cuando = Number(ficha.primerContacto);
+      if (!cuando || cuando < desde || cuando > hasta) return;
+      encontradas.push({
+        phone: clave.replace(/^cliente:/, ''),
+        nombre: ficha.nombreWhatsapp || '',
+        primerContacto: cuando,
+        ultimoContacto: Number(ficha.ultimoContacto) || cuando,
+      });
+    });
+  }
+
+  // Del más reciente al más antiguo: el que escribió ayer sigue caliente, el
+  // de hace una semana ya se ha ido a otro sitio.
+  return encontradas.sort((a, b) => b.primerContacto - a.primerContacto);
+}
+
 async function listConversationPhones() {
   return (await redisCommand(['SMEMBERS', 'conversations_index'])) || [];
 }
@@ -518,6 +579,7 @@ module.exports = {
   appendBotReply,
   appendAgentMessage,
   listConversationPhones,
+  listarFichasPorPrimerContacto,
   pauseBot,
   isBotPaused,
   resumeBot,
