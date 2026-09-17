@@ -1876,7 +1876,14 @@ exports.handler = async (event) => {
       // nombre se pone algo neutro — un hueco vacío hace que Meta rechace el
       // envío entero.
       const nombre = ficha?.nombre || ficha?.nombreWhatsapp || 'buenos días';
-      const asunto = ultimo?.content || 'tu consulta';
+
+      // El hueco {{2}} va DENTRO de la frase «...sobre tu consulta: "{{2}}"»,
+      // así que el texto de respaldo tiene que encajar ahí. El anterior era
+      // 'tu consulta', y al cliente le llegaba «sobre tu consulta: "tu
+      // consulta"» — visto en real al escribir a los clientes de la semana
+      // muda, que por definición NO tienen ningún mensaje guardado y caen
+      // siempre en el respaldo.
+      const asunto = ultimo?.content || 'el mensaje que nos enviaste';
 
       const enviado = await sendWhatsappTemplate(
         phone,
