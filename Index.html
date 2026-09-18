@@ -3308,8 +3308,9 @@ function _ejecutarArrastre(input){
       }
 
       // ── SALDOS: celdas fuente directas (sin fórmulas) + cached Q cells ──
-      // Verificado en XML: H8, H9, H13, K13, J15, K15, H17, I18, H20 son valores directos
+      // Verificado en XML: H8, H9, H13, K13, J15, K15, H17, O17, I18, H20 son valores directos
       // Q23 es fórmula externa pero tiene valor cacheado
+      // O17 = DEBE CaixaBank Cuenta (disposición póliza, negativo cuando hay salida)
       const rec = {
         fecha,
         luis_bbva:    v('H8'),
@@ -3318,7 +3319,7 @@ function _ejecutarArrastre(input){
         bbva_caja:    v('K13'),
         sant_ico:     v('J15') + v('K15'),
         sant_caja:    v('K15'),
-        caixa_cta:    v('H17'),
+        caixa_cta:    v('H17') + v('O17'),
         caixa_pol:    v('I18'),
         caixa_disp:   v('J18'),
         c7:           v('H20'),
