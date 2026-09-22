@@ -1206,6 +1206,32 @@ function totalJupiter(texto){
   return parseFloat(m[2].replace(',', '.'));
 }
 
+// DOHE: "CODIGO(5 díg.) CONCEPTO CANTIDAD PRECIO [%DTO] [IMPORTE]" — factura
+// de texto normal, sin descuadres. Algunas líneas (artículos a precio 0, o
+// las de transporte/Incoterm al final) solo traen Cantidad+Precio, sin
+// Dto ni Importe — según cuántos números de cola tenga la línea se
+// interpretan como (cant,precio) / (cant,precio,importe) / (cant,precio,dto,importe).
+function parseDohe(lineas){
+  const filas = [];
+  const RE = /^(\d{5})\s+(.+?)\s+((?:\d+,\d{2}\s*){2,4})$/;
+  lineas.forEach(l=>{
+    const m = l.match(RE);
+    if(!m) return;
+    const [,codigo,desc,cola] = m;
+    const nums = cola.trim().split(/\s+/);
+    let cantidad, precio, dto='0', importe='0';
+    if(nums.length===2){ [cantidad,precio] = nums; }
+    else if(nums.length===3){ [cantidad,precio,importe] = nums; }
+    else { [cantidad,precio,dto,importe] = nums; }
+    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:parseDecComa(cantidad),
+      precioUnitario:parseDecComa(precio), dto1:parseDecComa(dto), importe:parseDecComa(importe)}));
+  });
+  return filas;
+}
+function totalDohe(texto){
+  return totalSimple(texto, /Base Imponible[\s\S]{0,80}?\n(\d{1,3}(?:\.\d{3})*,\d{2})/i);
+}
+
 // ═══════════════════════════════════════════════════════
 // PERFILES DE PROVEEDOR: detección automática + parser propio.
 // Para añadir un proveedor nuevo: aportar una factura de muestra y
@@ -1351,6 +1377,8 @@ const PERFILES_PROVEEDOR = [
     total: t => totalSgel(t), extraccion: file => extraerLineasPDFRotado(file) },
   { id:'jupiter', nombre:'JÚPITER EDICIONES', detectar: t => /jupiterediciones/i.test(t), parser: parseJupiter,
     total: t => totalJupiter(t), bajaConfianza: true },
+  { id:'dohe', nombre:'DOHE, S.A.', detectar: t => /\bDohe\b/i.test(t), parser: parseDohe,
+    total: t => totalDohe(t) },
   { id:'pryse', nombre:'PRYSE S.A.', detectar: t => /PRYSE|A58276254/i.test(t), parser: parsePryse,
     total: t => totalSimple(t, /Base imponible\s+(?:Base imponible\s+)?(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
   { id:'mandatelo', nombre:'INTEGRAL INFORMATICA IMPORT (Mandatelo)', detectar: t => /INTEGRAL INFORMATICA|MANDATELO|B-?76539642/i.test(t), parser: parseMandatelo,
