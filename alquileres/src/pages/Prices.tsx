@@ -24,6 +24,26 @@ function tarifaAnterior(prices: PriceEntry[], entry: PriceEntry): PriceEntry | u
     && p.apartmentType === entry.apartmentType)
 }
 
+/** A qué temporada pertenece un mes: verano es de mayo a septiembre. */
+function temporadaDe(month: number): Season {
+  return month >= 5 && month <= 9 ? 'VERANO' : 'INVIERNO'
+}
+
+/**
+ * La tarifa general vigente para ese mes, tipo y año.
+ *
+ * Si el año pedido todavía no tiene tarifa, se coge la del año más reciente que
+ * sí la tenga: una oferta se hace siempre sobre un precio que ya existe, y
+ * arrancar en blanco obliga a ir a buscar las cifras a otra pantalla.
+ */
+function tarifaGeneral(prices: PriceEntry[], year: number, month: number, aptType: ApartmentType) {
+  const season = temporadaDe(month)
+  const candidatas = prices
+    .filter(p => p.season === season && p.apartmentType === aptType && p.year <= year)
+    .sort((a, b) => b.year - a.year)
+  return candidatas[0]
+}
+
 export default function Prices() {
   const { prices, offerPrices, addPrice, deleteOfferPrice } = useData()
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR)
@@ -378,17 +398,72 @@ function PriceEditModal({ entry, onClose }: { entry: PriceEntry; onClose: () => 
   )
 }
 
+/**
+ * Alta y edición de una tarifa de oferta.
+ *
+ * Una oferta nunca se inventa desde cero: sale de la tarifa general de ese mes
+ * y ese tipo de apartamento, subida o bajada un tanto por ciento. Por eso la
+ * ventana abre con esa tarifa ya puesta, la enseña debajo de cada casilla como
+ * referencia, y trae una casilla de ajuste con los atajos de ±10 %. Cambiar un
+ * precio a mano sigue valiendo, y el porcentaje de esa línea se recalcula solo.
+ *
+ * Al cambiar el año, el mes o el tipo se vuelve a cargar la tarifa general que
+ * corresponde: los precios que había dejarían de tener nada que ver.
+ */
 function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onClose: () => void }) {
-  const { addOfferPrice, updateOfferPrice } = useData()
-  const [label, setLabel] = useState(editing?.label || '')
-  const [year, setYear] = useState(editing?.year || new Date().getFullYear())
-  const [month, setMonth] = useState(editing?.month || new Date().getMonth() + 1)
-  const [aptType, setAptType] = useState<ApartmentType>(editing?.apartmentType || '1BR')
-  const [p1w, setP1w] = useState(editing?.price1week || 0)
-  const [p2w, setP2w] = useState(editing?.price2weeks || 0)
-  const [p3w, setP3w] = useState(editing?.price3weeks || 0)
-  const [p1m, setP1m] = useState(editing?.price1month || 0)
-  const [cleaning, setCleaning] = useState(editing?.cleaningFee || 40)
+  const { prices, addOfferPrice, updateOfferPrice } = useData()
+
+  const hoy = new Date()
+  const anioInicial = editing?.year ?? hoy.getFullYear()
+  const mesInicial = editing?.month ?? hoy.getMonth() + 1
+  const tipoInicial = editing?.apartmentType ?? '1BR'
+  // Al editar se enseña lo guardado; al crear, la tarifa general de partida.
+  const partida = tarifaGeneral(prices, anioInicial, mesInicial, tipoInicial)
+
+  const [general, setGeneral] = useState(partida)
+  const [label, setLabel] = useState(editing?.label ?? '')
+  const [year, setYear] = useState(anioInicial)
+  const [month, setMonth] = useState(mesInicial)
+  const [aptType, setAptType] = useState<ApartmentType>(tipoInicial)
+  const [p1w, setP1w] = useState(editing?.price1week ?? partida?.price1week ?? 0)
+  const [p2w, setP2w] = useState(editing?.price2weeks ?? partida?.price2weeks ?? 0)
+  const [p3w, setP3w] = useState(editing?.price3weeks ?? partida?.price3weeks ?? 0)
+  const [p1m, setP1m] = useState(editing?.price1month ?? partida?.price1month ?? 0)
+  const [cleaning, setCleaning] = useState(editing?.cleaningFee ?? partida?.cleaningFee ?? 40)
+  const [ajuste, setAjuste] = useState('')
+
+  /** Trae la tarifa general que toca y la vuelca en las casillas. */
+  function cargaGeneral(y: number, m: number, t: ApartmentType) {
+    const g = tarifaGeneral(prices, y, m, t)
+    setGeneral(g)
+    setAjuste('')
+    if (!g) return
+    setP1w(g.price1week)
+    setP2w(g.price2weeks)
+    setP3w(g.price3weeks)
+    setP1m(g.price1month)
+    setCleaning(g.cleaningFee)
+  }
+
+  /**
+   * Aplica el porcentaje a los cuatro precios. Siempre sobre la tarifa general,
+   * no sobre lo que haya en pantalla: así se puede probar con un 10, mirarlo,
+   * probar con un 15 y no ir acumulando subida sobre subida. La limpieza no se
+   * toca, que no es un precio de alquiler.
+   */
+  function aplicaAjuste(pct: number) {
+    if (!general || !Number.isFinite(pct)) return
+    const ap = (v: number) => Math.round(v * (1 + pct / 100))
+    setP1w(ap(general.price1week))
+    setP2w(ap(general.price2weeks))
+    setP3w(ap(general.price3weeks))
+    setP1m(ap(general.price1month))
+  }
+
+  function atajo(pct: number) {
+    setAjuste(String(pct))
+    aplicaAjuste(pct)
+  }
 
   function handleSave() {
     if (!label.trim()) return alert('Introduce una etiqueta')
@@ -404,8 +479,16 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
     onClose()
   }
 
+  const campos: [string, number, (v: number) => void, number | undefined][] = [
+    ['1 Semana (€)', p1w, setP1w, general?.price1week],
+    ['2 Semanas (€)', p2w, setP2w, general?.price2weeks],
+    ['3 Semanas (€)', p3w, setP3w, general?.price3weeks],
+    ['1 Mes (€)', p1m, setP1m, general?.price1month],
+    ['Limpieza (€)', cleaning, setCleaning, general?.cleaningFee],
+  ]
+
   return (
-    <Modal title={editing ? 'Editar tarifa de oferta' : 'Nueva tarifa de oferta'} onClose={onClose}>
+    <Modal title={editing ? 'Editar tarifa de oferta' : 'Nueva tarifa de oferta'} onClose={onClose} size="lg">
       <div className="space-y-4">
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Etiqueta *</label>
@@ -416,17 +499,22 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
         <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Año</label>
-            <input type="number" value={year} onChange={e => setYear(Number(e.target.value))}
+            <input type="number" value={year}
+              onChange={e => { const v = Number(e.target.value); setYear(v); cargaGeneral(v, month, aptType) }}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Mes (1-12)</label>
-            <input type="number" value={month} onChange={e => setMonth(Number(e.target.value))}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" min="1" max="12" />
+            <label className="block text-xs font-medium text-slate-600 mb-1">Mes</label>
+            <select value={month}
+              onChange={e => { const v = Number(e.target.value); setMonth(v); cargaGeneral(year, v, aptType) }}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+              {MONTH_NAMES_ES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Tipo apartamento</label>
-            <select value={aptType} onChange={e => setAptType(e.target.value as ApartmentType)}
+            <select value={aptType}
+              onChange={e => { const v = e.target.value as ApartmentType; setAptType(v); cargaGeneral(year, month, v) }}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
               {(Object.keys(APT_TYPE_LABELS) as ApartmentType[]).map(k => (
                 <option key={k} value={k}>{APT_TYPE_LABELS[k]}</option>
@@ -434,22 +522,74 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
             </select>
           </div>
         </div>
+
+        {/* La tarifa general de la que sale la oferta, y el ajuste en %. */}
+        {general ? (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+            <p className="text-xs text-blue-800">
+              Partiendo de la tarifa general de <b>{general.season} {general.year}</b>
+              {general.year !== year && <> (el año {year} todavía no tiene tarifa propia)</>}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <label htmlFor="ajuste" className="text-sm text-blue-800">Ajuste:</label>
+              <div className="flex items-center gap-1">
+                <input id="ajuste" type="number" step="0.5" value={ajuste} placeholder="0"
+                  onChange={e => setAjuste(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') aplicaAjuste(Number(e.currentTarget.value.replace(',', '.'))) }}
+                  className="w-20 border border-blue-200 rounded-lg px-2 py-1.5 text-sm text-right bg-white" />
+                <span className="text-sm text-blue-800">%</span>
+              </div>
+              <button onClick={() => aplicaAjuste(Number(ajuste.replace(',', '.')))} disabled={ajuste.trim() === ''}
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40">
+                Aplicar
+              </button>
+              <button onClick={() => atajo(10)}
+                className="px-3 py-1.5 text-sm border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-100">
+                +10 %
+              </button>
+              <button onClick={() => atajo(-10)}
+                className="px-3 py-1.5 text-sm border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-100">
+                −10 %
+              </button>
+              <button onClick={() => cargaGeneral(year, month, aptType)}
+                className="px-3 py-1.5 text-sm text-blue-700 rounded-lg hover:bg-blue-100">
+                Volver a la general
+              </button>
+            </div>
+            <p className="text-xs text-blue-700/80">
+              El porcentaje se aplica siempre sobre la tarifa general, nunca sobre lo que ya hay
+              en pantalla. La limpieza no se toca, y cualquier precio se puede corregir a mano.
+            </p>
+          </div>
+        ) : (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            No hay tarifa general de {temporadaDe(month)} para {APT_TYPE_LABELS[aptType]}, así que
+            esta oferta arranca en blanco y hay que teclear los precios.
+          </p>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
-          {[
-            ['1 Semana (€)', p1w, setP1w],
-            ['2 Semanas (€)', p2w, setP2w],
-            ['3 Semanas (€)', p3w, setP3w],
-            ['1 Mes (€)', p1m, setP1m],
-            ['Limpieza (€)', cleaning, setCleaning],
-          ].map(([lbl, val, setter]) => (
-            <div key={lbl as string}>
-              <label className="block text-xs font-medium text-slate-600 mb-1">{lbl as string}</label>
-              <input type="number" value={val as number}
-                onChange={e => (setter as (v: number) => void)(Number(e.target.value))}
+          {campos.map(([lbl, val, setter, ref]) => (
+            <div key={lbl}>
+              <label className="block text-xs font-medium text-slate-600 mb-1">{lbl}</label>
+              <input type="number" value={val}
+                onChange={e => setter(Number(e.target.value))}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              {/* La general, justo debajo y en pequeño, con la diferencia. */}
+              {ref !== undefined && ref > 0 && (
+                <p className="text-[11px] text-slate-400 mt-1 tabular-nums">
+                  General: {ref.toLocaleString('es-ES')} €
+                  {variacion(val, ref) && (
+                    <span className={`ml-1.5 font-medium ${val > ref ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {variacion(val, ref)}
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
           ))}
         </div>
+
         <div className="flex justify-end gap-3 pt-2">
           <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
           <button onClick={handleSave} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
