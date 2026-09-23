@@ -72,7 +72,7 @@ global.fetch = async (url, opts) => {
     if (cmd === 'GET') return responder(BASE.get(clave) ?? null);
     if (cmd === 'DEL') { BASE.delete(clave); return responder(1); }
     if (cmd === 'INCR') { const n = Number(BASE.get(clave) || 0) + 1; BASE.set(clave, n); return responder(n); }
-    if (cmd === 'SMEMBERS') return responder([]);
+    if (cmd === 'SMEMBERS') return responder([TEL]);
     if (cmd === 'ZRANGE') return responder([]);
     // La lista de notas de clientes recorre todas las fichas con SCAN + MGET.
     if (cmd === 'SCAN') return responder(['0', [...BASE.keys()].filter((c) => c.startsWith('cliente:'))]);
@@ -307,6 +307,35 @@ const evento = (texto) => {
   /Ha pedido una plastificadora/.test(html)
     ? bien('y todas las notas de clientes se pueden consultar juntas')
     : mal('solo se ven abriendo la conversación de esa persona');
+
+  console.log('\n=== La nota, a la vista');
+  const cuerpoHilo = hilo.body || '';
+  // Dentro del cuadro de escribir se lee mal y no se distingue de un cuadro
+  // vacío con su texto de ejemplo. Fue lo que pasó: se dio una nota por perdida
+  // mirando un cuadro que parecía vacío.
+  /ficha-nota/.test(cuerpoHilo)
+    ? bien('se lee como dato en la ficha, no solo dentro del cuadro')
+    : mal('solo está dentro del cuadro de escribir: parece vacío de un vistazo');
+  /con notas/.test(cuerpoHilo)
+    ? bien('y la ficha avisa de que hay notas aunque esté plegada')
+    : mal('con la ficha plegada no hay forma de saber que hay algo apuntado');
+
+  const listado = (await panel.handler({ httpMethod: 'GET', queryStringParameters: {}, headers: { cookie } })).body || '';
+  /convo-nota/.test(listado) && /Ha pedido una plastificadora/.test(listado)
+    ? bien('y en el listado se ve qué clientes tienen nota, sin entrar')
+    : mal('desde el listado no se sabe quién tiene notas');
+
+  console.log('\n=== Lo que se recargaba solo y borraba lo escrito');
+  // La página se refresca sola cada medio minuto. Miraba solo el cuadro de
+  // responder para no interrumpir, así que escribir una nota en la ficha y
+  // tardar treinta segundos en darle a Guardar acababa con la página
+  // recargándose y lo escrito en la basura. Varias notas se perdieron así.
+  /querySelectorAll\('textarea, input\[type=text\]'\)/.test(cuerpoHilo)
+    ? bien('ahora mira todos los cuadros de la página, no solo el de responder')
+    : mal('sigue mirando solo el de responder: lo que escribas en la ficha se pierde');
+  /data-inicial/.test(cuerpoHilo)
+    ? bien('y compara con lo que había al cargar, para no dejar de refrescar nunca')
+    : mal('un cuadro con texto guardado dejaría la página sin refrescarse jamás');
 
   console.log('\n=== Lo que cuesta');
   // El prompt se manda en CADA mensaje, así que si esto se leyera de Upstash
