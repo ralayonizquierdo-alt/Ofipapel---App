@@ -62,6 +62,8 @@ def buscar_correos_candidatos(token: str, dias_atras: int) -> list[dict]:
 
 
 def _remitente_coincide(remitente_email: str, patron: str) -> bool:
+    if patron == "*":
+        return True
     remitente_email = remitente_email.lower()
     patron = patron.lower()
     if patron.startswith("@"):
