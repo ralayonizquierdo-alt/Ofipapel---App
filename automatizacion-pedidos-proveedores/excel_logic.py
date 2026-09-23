@@ -349,7 +349,7 @@ def _construir_con_plantilla(
     Datos desde Excel fila 11. Fila TOTAL al final con suma de importes.
     """
     import openpyxl as _opx
-    from openpyxl.styles import Font as _Font
+    from openpyxl.styles import Alignment as _Alignment, Font as _Font
 
     wb = _opx.load_workbook(ruta_plantilla)
     ws = wb["fichero"]
@@ -374,7 +374,9 @@ def _construir_con_plantilla(
         cantvend_val = cantvend if pd.notna(cantvend) else ""
         precio_val = precio if pd.notna(precio) else ""
 
-        ws.cell(row=fila, column=2).value = str(descrip)
+        cell_b = ws.cell(row=fila, column=2)
+        cell_b.value = str(descrip)
+        cell_b.alignment = _Alignment(horizontal='left')
         ws.cell(row=fila, column=3).value = str(cod_compra)
 
         if cantvend_val != "":
@@ -397,7 +399,13 @@ def _construir_con_plantilla(
             except (ValueError, TypeError):
                 pass
 
-        ws.cell(row=fila, column=13).value = cod_venta
+        if cod_venta_raw != "" and pd.notna(cod_venta_raw):
+            cod_venta_str = str(int(cod_venta_raw)) if isinstance(cod_venta_raw, float) else str(cod_venta_raw)
+        else:
+            cod_venta_str = ""
+        cell_m = ws.cell(row=fila, column=13)
+        cell_m.value = cod_venta_str
+        cell_m.number_format = '@'
 
         # Código interno Inforpor en columna N (14)
         if nombre_proveedor == "Inforpor":

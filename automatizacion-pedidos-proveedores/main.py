@@ -165,7 +165,7 @@ def main():
                 "xl = win32com.client.Dispatch('Excel.Application'); "
                 "xl.Visible = False; xl.DisplayAlerts = False; "
                 f"wb = xl.Workbooks.Open(r'{os.path.abspath(ruta_xlsx_tmp)}'); "
-                f"wb.SaveAs(r'{os.path.abspath(ruta_xls)}', FileFormat=56); "
+                f"wb.SaveAs(r'{os.path.abspath(ruta_xls)}', FileFormat=39); "
                 "wb.Close(False); xl.Quit(); pythoncom.CoUninitialize(); "
                 f"os.remove(r'{os.path.abspath(ruta_xlsx_tmp)}')"
             )
