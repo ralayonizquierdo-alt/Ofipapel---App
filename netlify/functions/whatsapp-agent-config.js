@@ -1,6 +1,13 @@
 // Datos del negocio y reglas de respuesta rápida para el agente de WhatsApp de Ofipapel.
 // Edita este archivo (sin tocar whatsapp-webhook.js) para actualizar horarios,
 // direcciones, teléfonos o añadir nuevas preguntas frecuentes.
+//
+// Lo que NO hace falta editar aquí son los hechos sueltos del día a día ("tal
+// producto ya no se vende", "cuando pidan X, ofrece Y"): eso son NOTAS, se
+// escriben desde el panel sin desplegar nada, y se cuelan en el prompt por
+// buildAiSystemPrompt. Ver whatsapp-notas.js.
+
+const { bloqueDeNotas } = require('./whatsapp-notas');
 
 const BUSINESS_NAME = 'Ofipapel';
 
@@ -544,7 +551,16 @@ const REPROGRAFIA_ITEMS = [
 // preguntan por el producto, se deja pasar la pregunta (sin match) para que la
 // búsqueda real de WooCommerce la responda, en vez de ofrecerles por error el
 // servicio de Reprografía.
-const PLASTIFICAR_PRODUCTO_RE = /\b(lamina|laminas|funda|fundas|bolsa|bolsas|cartera|carteras)\s+(de\s+)?plastificar/;
+//
+// Y la PLASTIFICADORA es la máquina, que también se vende. Se coló por la puerta
+// de atrás: "plastificadora" contiene "plastificado", que era una de las
+// palabras clave del servicio. Costó dos veces el mismo cliente real
+// (23/9/2026), que escribió "les escribo para saber si finalmente hoy van a
+// llevar la plastificadora o es para mañana, dado que hoy todavía no he recibido
+// nada en el local" — estaba esperando una entrega, y se le contestó con el
+// precio de los plastificados y el teléfono de Reprografía.
+const PLASTIFICAR_PRODUCTO_RE =
+  /\b(lamina|laminas|funda|fundas|bolsa|bolsas|cartera|carteras)\s+(de\s+)?plastificar|\bplastificadoras?\b/;
 
 // "Escanear el código" (el QR para registrarse, un código de barras...) no tiene
 // nada que ver con el servicio de escaneado de documentos de Reprografía —
@@ -1027,7 +1043,12 @@ function fichaClienteBlock(ficha) {
   return `\nLo que ya sabemos de este cliente de conversaciones anteriores (datos reales de nuestro sistema, no suposiciones):\n${lineas.join('\n')}\nÚsalo con naturalidad, como lo haría alguien del equipo que ya le conoce (por ejemplo, si vuelve a preguntar por un pedido que ya consultó, no le hagas repetir el número). No se lo recites de golpe ni le des a entender que tienes una ficha suya, y no des por hecho que hoy quiere lo mismo que la última vez: pregúntaselo.\n`;
 }
 
-function buildAiSystemPrompt(productContext = null, fichaCliente = null) {
+// `notas`: lo que el equipo le ha enseñado al bot (ver whatsapp-notas.js). Va
+// aparte del resto del prompt a propósito: esto lo escribe una persona de la
+// tienda desde el panel, sin tocar código ni desplegar, y tiene que poder
+// contradecir lo que hay aquí escrito — el negocio cambia y el prompt no.
+// `textoDelCliente` solo sirve para marcar cuáles vienen a cuento ahora.
+function buildAiSystemPrompt(productContext = null, fichaCliente = null, notas = [], textoDelCliente = '') {
   const abierto = isWithinBusinessHours();
   const estadoActual = abierto
     ? `ABIERTO ahora mismo (horario de la sede principal: ${STORES[0].hours}).`
@@ -1082,7 +1103,7 @@ Devoluciones: ${DEVOLUCIONES_INFO}
 Contacto general: teléfono ${STORES[0].phone}, email pedidos@ofipapelsl.com (consultas generales, pedidos y devoluciones).
 
 Empleo: ${EMPLEO_INFO} No existe ningún otro canal para esto — no menciones departamentos de recursos humanos, formularios ni secciones de la web de las que no tengas constancia aquí.
-
+${bloqueDeNotas(notas, textoDelCliente)}
 Instrucciones:
 - Responde SIEMPRE en el idioma en que esté escrito el mensaje del cliente, desde el primer mensaje, aunque sea muy corto (si escribe "Hi", respondes en inglés; si escribe "Hola", en español; etc.). No respondas en español por defecto ni digas cosas como "respondo en español" — cambia de idioma directamente, sin comentarlo. Hazlo de forma breve, cercana y natural (máximo 3-4 frases), como lo haría una persona real del equipo escribiendo un WhatsApp, no como un robot leyendo una lista de datos.
 - No hace falta que saludes tú al principio de tu respuesta (ni "Hola", ni "¡Buenas!", ni nada parecido): si el cliente ha saludado, el sistema ya antepone el saludo automáticamente antes de tu respuesta. Ve directa/o a responder la pregunta.

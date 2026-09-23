@@ -92,6 +92,7 @@ const { sendWhatsappMessage, sendWhatsappTemplate } = require('./whatsapp-send')
 const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo');
 const { respuestaSinCatalogo } = require('./whatsapp-consumibles');
 const { detectarHostilidad, mensajeClienteMolesto } = require('./whatsapp-hostilidad');
+const { todasLasNotas, notasQueAplican, notaDeFicha } = require('./whatsapp-notas');
 const { guardarAdjuntoDeCliente, MARCA_ADJUNTO } = require('./whatsapp-media');
 const { idiomaDeRespuesta } = require('./whatsapp-idioma');
 const { firmaDeReintento } = require('./whatsapp-firma');
@@ -762,7 +763,25 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // persona.
   const faqEnEspanol = matchFaqRule(text);
   const esEscalado = isAgenteInfoMessage(faqEnEspanol || '');
-  const faqReply = idioma === 'en' ? (esEscalado ? agenteInfoEn(idioma) : null) : faqEnEspanol;
+  const faqDeSiempre = idioma === 'en' ? (esEscalado ? agenteInfoEn(idioma) : null) : faqEnEspanol;
+
+  // LO QUE SE LE HA ENSEÑADO GANA A LA RESPUESTA FIJA.
+  //
+  // Las respuestas fijas se escribieron antes de saber lo que dice la nota, así
+  // que si alguien enseña que las cajas registradoras de siempre ya no son
+  // legales y el mensaje toca ese tema, contestar con el texto de siempre es
+  // contestar con lo que ya sabemos que está mal. Se deja pasar a la IA, que sí
+  // lleva la nota en el prompt.
+  //
+  // El escalado es la excepción, como en todo lo demás de aquí: poner al
+  // cliente con una persona importa más que cualquier dato.
+  // Cuenta también lo que el equipo haya apuntado en la ficha de ESTE cliente:
+  // esa nota ya viaja en el prompt, pero de nada sirve si una respuesta fija
+  // contesta antes de que la IA llegue a leerla (ver notaDeFicha).
+  const notas = todasLasNotas(await conversationStore.listarNotasNegocio());
+  const deLaFicha = notaDeFicha(fichaCliente);
+  const hayNotaParaEsto = notasQueAplican(text, deLaFicha ? [...notas, deLaFicha] : notas).length > 0;
+  const faqReply = hayNotaParaEsto && !esEscalado ? null : faqDeSiempre;
 
   const isExplicitRequest = isAgenteInfoEnCualquierIdioma(faqReply || ''); // "hablar con alguien", queja, presupuesto...
   const isRepeated = !faqReply && isRepeatQuestion(text, history);
@@ -938,7 +957,8 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     text,
     history,
     unirContexto(contextoConsumibles, productContext),
-    fichaCliente
+    fichaCliente,
+    notas
   );
 
   // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos..." SIN que

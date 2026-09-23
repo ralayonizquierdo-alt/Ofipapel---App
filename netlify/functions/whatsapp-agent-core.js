@@ -306,7 +306,11 @@ function isRepeatQuestion(text, history) {
   return false;
 }
 
-async function askClaude(userText, history = [], productContext = null, fichaCliente = null) {
+// `notas`: lo que el equipo le ha enseñado al bot desde el panel, más las que
+// van escritas en el código (whatsapp-notas.js). Quien llama es responsable de
+// traerlas — aquí no se leen solas, para no meter una consulta a Upstash dentro
+// de una función que hasta ahora solo hablaba con la API de Claude.
+async function askClaude(userText, history = [], productContext = null, fichaCliente = null, notas = []) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
@@ -323,7 +327,7 @@ async function askClaude(userText, history = [], productContext = null, fichaCli
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: 300,
-        system: buildAiSystemPrompt(productContext, fichaCliente),
+        system: buildAiSystemPrompt(productContext, fichaCliente, notas, userText),
         messages: [
           ...history.map(({ role, content }) => ({ role, content })),
           { role: 'user', content: userText },
