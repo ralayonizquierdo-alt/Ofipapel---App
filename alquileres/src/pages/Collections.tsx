@@ -20,6 +20,8 @@ export default function Collections() {
   const apartments = allApartments.filter(a => a.active)
   const [year, setYear] = useState(new Date().getFullYear())
   const [filterQ, setFilterQ] = useState<number>(0)
+  /** 0 = todos. Al elegir mes, el trimestre se ajusta solo al que lo contiene. */
+  const [filterMes, setFilterMes] = useState<number>(0)
   const [sortBy, setSortBy] = useState<SortBy>('nombre')
 
   const years = [...new Set(payments.map(p => p.paymentDate?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
@@ -102,7 +104,14 @@ export default function Collections() {
     rows.push([`Cobros por Trimestres — ${year}`])
     rows.push([])
 
-    const visibleQuarters = filterQ ? QUARTERS.filter(qt => qt.q === filterQ) : QUARTERS
+    // Con un mes elegido solo se enseña su trimestre, y dentro solo ese mes: el
+  // resto de columnas sobran y hacían falta para poder mirar un mes suelto.
+  const visibleQuarters = (filterMes
+    ? QUARTERS.filter(qt => qt.months.includes(filterMes))
+    : filterQ ? QUARTERS.filter(qt => qt.q === filterQ) : QUARTERS
+  ).map(qt => filterMes
+    ? { ...qt, months: [filterMes], label: `${MONTH_NAMES_ES[filterMes - 1]} ${year}` }
+    : qt)
 
     for (const { months, label } of visibleQuarters) {
       rows.push([label])
@@ -148,7 +157,14 @@ export default function Collections() {
     window.print()
   }
 
-  const visibleQuarters = filterQ ? QUARTERS.filter(qt => qt.q === filterQ) : QUARTERS
+  // Con un mes elegido solo se enseña su trimestre, y dentro solo ese mes: el
+  // resto de columnas sobran y hacían falta para poder mirar un mes suelto.
+  const visibleQuarters = (filterMes
+    ? QUARTERS.filter(qt => qt.months.includes(filterMes))
+    : filterQ ? QUARTERS.filter(qt => qt.q === filterQ) : QUARTERS
+  ).map(qt => filterMes
+    ? { ...qt, months: [filterMes], label: `${MONTH_NAMES_ES[filterMes - 1]} ${year}` }
+    : qt)
 
   return (
     <div className="p-6">
@@ -170,10 +186,15 @@ export default function Collections() {
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
               {(years.length ? years : [String(year)]).map(y => <option key={y} value={y!}>{y}</option>)}
             </select>
-            <select value={filterQ} onChange={e => setFilterQ(Number(e.target.value))}
+            <select value={filterQ} onChange={e => { setFilterQ(Number(e.target.value)); setFilterMes(0) }}
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
               <option value={0}>Todos los trimestres</option>
               {QUARTERS.map(qt => <option key={qt.q} value={qt.q}>{qt.label}</option>)}
+            </select>
+            <select value={filterMes} onChange={e => { setFilterMes(Number(e.target.value)); setFilterQ(0) }}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+              <option value={0}>Todos los meses</option>
+              {MONTH_NAMES_ES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
             </select>
             <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)}
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
@@ -267,7 +288,9 @@ export default function Collections() {
                           {MONTH_NAMES_ES[m - 1]}
                         </th>
                       ))}
-                      <th className="text-right py-2.5 px-4 font-semibold text-slate-700 bg-slate-100">TRIMESTRE</th>
+                      <th className="text-right py-2.5 px-4 font-semibold text-slate-700 bg-slate-100">
+                        {filterMes ? 'TOTAL MES' : 'TRIMESTRE'}
+                      </th>
                       <th className="text-right py-2.5 px-4 font-medium text-slate-500">IGIC 7%</th>
                       <th className="text-right py-2.5 px-4 font-medium text-slate-700 bg-amber-50">TOTAL</th>
                     </tr>

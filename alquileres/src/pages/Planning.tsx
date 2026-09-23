@@ -51,6 +51,10 @@ export default function Planning() {
   const colorMap: Record<string, string> = {}
   apartments.forEach((a, i) => { colorMap[a.id] = APT_COLORS[i % APT_COLORS.length] })
 
+  /** El importe con sus céntimos, que es como se compara con el Excel. */
+  const eur = (n: number) =>
+    `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+
   function fmtD(iso: string, withYear = false): string {
     const d = new Date(iso)
     const day = d.getDate()
@@ -124,7 +128,13 @@ export default function Planning() {
                     spanDays = Math.max(1, lastInView - d + 1)
                   }
 
-                  const label = res ? `${apt.id}, ${fmtD(res.checkIn)} al ${fmtD(res.checkOut, true)}, ${res.basePrice}+${res.cleaningFee} ${res.nights}-N` : ''
+                  // Orden fijo, el que pidió el propietario: apartamento, fechas,
+                  // noches e importe total. Antes iba el desglose precio+limpieza,
+                  // que en una franja estrecha no se lee y no es lo que se mira.
+                  const label = res
+                    ? `${apt.id} — ${fmtD(res.checkIn)} al ${fmtD(res.checkOut, true)}, `
+                      + `${res.nights}-N, ${eur(res.total)}`
+                    : ''
                   return (
                     <td
                       key={d}
