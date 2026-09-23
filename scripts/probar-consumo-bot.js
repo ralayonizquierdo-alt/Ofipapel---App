@@ -40,7 +40,7 @@ Module.prototype.require = function (p) {
       'appendBotReply', 'appendAgentMessage', 'listConversationPhones', 'pauseBot',
       'isBotPaused', 'getFichaCliente', 'actualizarFichaCliente', 'guardarNombreWhatsapp',
       'marcarPresentado', 'claimMessage', 'getPausaGlobal', 'marcarEntrega', 'getAvisoPausa',
-      'marcarAvisoPausa', 'registrarBusquedaSinResultado', 'leerAliasBusqueda', 'getEstadoEntrega',
+      'marcarAvisoPausa', 'leerAliasBusqueda', 'getEstadoEntrega',
     ];
     const envuelto = { ...m, isConfigured: () => true };
     for (const f of tocanRedis) {

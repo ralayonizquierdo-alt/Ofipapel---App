@@ -29,13 +29,10 @@ const {
   diagnose,
   markAsViewed,
   getLastViewed,
-  listarBusquedasSinResultado,
   listarFichasPorPrimerContacto,
   getUltimoFallo,
   borrarUltimoFallo,
-  olvidarBusquedaSinResultado,
   getAliasesBusqueda,
-  guardarAliasBusqueda,
   borrarAliasBusqueda,
   listarNotasNegocio,
   guardarNotaNegocio,
@@ -1038,7 +1035,7 @@ function fragmentoQueCoincide(messages, palabras) {
   return '';
 }
 
-function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal = null, consulta = '', falloDelBot = null) {
+function renderList(entries, diagnostic, pausaGlobal = null, consulta = '', falloDelBot = null) {
   // Por lo más reciente arriba, que es como se lee cualquier bandeja de entrada.
   // Antes mandaba el escalado y luego los mensajes sin leer, y dentro de eso el
   // orden lo decidía Redis (o sea, ninguno) — de ahí que pareciera aleatorio.
@@ -1138,9 +1135,7 @@ function renderList(entries, diagnostic, pendientesAprendizaje = 0, pausaGlobal 
 })();
 </script>`;
 
-  const enlaceAprendizaje = `<p class="aprende-acceso"><a class="btn-link" href="?vista=aprendizaje">🧠 Aprendizaje del bot${
-    pendientesAprendizaje > 0 ? ` <span class="unread-badge">${pendientesAprendizaje}</span>` : ''
-  }</a> <a class="btn-link" href="?vista=perdidos">📋 Clientes de la semana muda</a></p>`;
+  const enlaceAprendizaje = `<p class="aprende-acceso"><a class="btn-link" href="?vista=aprendizaje">🧠 Aprendizaje del bot</a> <a class="btn-link" href="?vista=perdidos">📋 Clientes de la semana muda</a></p>`;
   return pageShell(
     'Conversaciones · Ofipapel',
     `${renderFalloDelBot(falloDelBot)}${renderInterruptor(pausaGlobal)}${renderDiagnostic(diagnostic)}${enlaceAprendizaje}${buscador}<ul class="convo-list">${
@@ -1342,31 +1337,13 @@ function renderNotasDeClientes(clientes) {
 <ul class="aprende-lista">${filas}</ul>`;
 }
 
-function renderAprendizaje(pendientes, aliases, notas = [], notasDeClientes = []) {
-  const filasPendientes = pendientes.length
-    ? pendientes
-        .map(
-          ({ termino, veces }) => `<li class="aprende-item">
-  <div class="aprende-cab">
-    <span class="aprende-termino">${escapeHtml(termino)}</span>
-    <span class="aprende-veces">${veces} ${veces === 1 ? 'vez' : 'veces'}</span>
-  </div>
-  <form method="POST" class="aprende-form">
-    <input type="hidden" name="action" value="alias-add">
-    <input type="hidden" name="termino" value="${escapeHtml(termino)}">
-    <input type="text" name="equivale" placeholder="¿Cómo se llama en el catálogo? (ej. papel fotocopia)" required>
-    <button type="submit" class="btn-primary">Enseñar</button>
-  </form>
-  <form method="POST" class="aprende-descartar">
-    <input type="hidden" name="action" value="pendiente-del">
-    <input type="hidden" name="termino" value="${escapeHtml(termino)}">
-    <button type="submit" class="btn-link">Descartar</button>
-  </form>
-</li>`
-        )
-        .join('')
-    : '<li><div class="empty-state">Nada pendiente: todas las búsquedas de los clientes encontraron resultados.</div></li>';
-
+function renderAprendizaje(aliases, notas = [], notasDeClientes = []) {
+  // Los ALIAS ya no se crean desde aquí: se creaban desde la lista de
+  // "búsquedas sin resultado", que se quitó el 23/9/2026 porque lo que salía
+  // eran trozos de frase inconexos que no se parecían a lo que había preguntado
+  // el cliente. Los que se enseñaron entonces siguen aplicándose, así que el
+  // apartado aparece SOLO si queda alguno — y sirve para quitarlos. Lo que se
+  // enseña ahora son notas, aquí arriba.
   const filasAlias = Object.entries(aliases).length
     ? Object.entries(aliases)
         .map(
@@ -1386,12 +1363,14 @@ function renderAprendizaje(pendientes, aliases, notas = [], notasDeClientes = []
     'Aprendizaje del bot · Ofipapel',
     `<p><a class="btn-link" href="?">← Volver a conversaciones</a></p>
 ${renderNotas(notas)}
-${renderNotasDeClientes(notasDeClientes)}
-<h2 class="aprende-titulo">Búsquedas sin resultado</h2>
-<p class="aprende-ayuda">Lo que los clientes pidieron y el bot no encontró en el catálogo. Escribe a qué corresponde y lo tendrá en cuenta a partir de ese momento.</p>
-<ul class="aprende-lista">${filasPendientes}</ul>
-<h2 class="aprende-titulo">Equivalencias aprendidas</h2>
+${renderNotasDeClientes(notasDeClientes)}${
+      Object.entries(aliases).length
+        ? `
+<h2 class="aprende-titulo">Equivalencias de búsqueda</h2>
+<p class="aprende-ayuda">Palabras que se le enseñaron en su día para que encontrara el producto en el catálogo. Se siguen aplicando; ya no se añaden nuevas desde aquí — para eso están las notas de arriba.</p>
 <ul class="aprende-lista">${filasAlias}</ul>`
+        : ''
+    }`
   );
 }
 
@@ -2148,13 +2127,11 @@ exports.handler = async (event) => {
         return { statusCode: 303, headers: { Location: '?vista=aprendizaje' }, body: '' };
       }
 
-      // Acciones de la página de aprendizaje (no van asociadas a un teléfono).
-      if (action.startsWith('alias-') || action === 'pendiente-del') {
+      // Quitar una equivalencia de búsqueda de las que se enseñaron en su día.
+      // Añadir ya no se puede: ver renderAprendizaje.
+      if (action === 'alias-del') {
         const termino = (params.get('termino') || '').trim();
-        const equivale = (params.get('equivale') || '').trim();
-        if (action === 'alias-add' && termino && equivale) await guardarAliasBusqueda(termino, equivale);
-        if (action === 'alias-del' && termino) await borrarAliasBusqueda(termino);
-        if (action === 'pendiente-del' && termino) await olvidarBusquedaSinResultado(termino);
+        if (termino) await borrarAliasBusqueda(termino);
         return { statusCode: 303, headers: { Location: '?vista=aprendizaje' }, body: '' };
       }
     }
@@ -2323,8 +2300,7 @@ exports.handler = async (event) => {
     // memoria, pero quien acaba de escribir una en esta misma página tiene que
     // verla aparecer, no enterarse de que "tarda un poco" mirando una lista que
     // no la trae.
-    const [pendientes, aliases, notasDelPanel, notasDeClientes] = await Promise.all([
-      listarBusquedasSinResultado(),
+    const [aliases, notasDelPanel, notasDeClientes] = await Promise.all([
       getAliasesBusqueda(),
       listarNotasNegocio({ frescas: true }),
       listarNotasDeClientes(),
@@ -2332,7 +2308,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      body: renderAprendizaje(pendientes, aliases, todasLasNotas(notasDelPanel), notasDeClientes),
+      body: renderAprendizaje(aliases, todasLasNotas(notasDelPanel), notasDeClientes),
     };
   }
 
@@ -2397,9 +2373,8 @@ exports.handler = async (event) => {
   // El último fallo del bot va en el mismo lote: un comando más por carga de la
   // lista (de 8 a 9), y es el que evita que un bot muerto pase una semana
   // desapercibido. Barato para lo que vale.
-  const [phones, pendientes, pausaGlobal, falloDelBot] = await Promise.all([
+  const [phones, pausaGlobal, falloDelBot] = await Promise.all([
     listConversationPhones(),
-    listarBusquedasSinResultado(),
     getPausaGlobal(),
     getUltimoFallo(),
   ]);
@@ -2438,6 +2413,6 @@ exports.handler = async (event) => {
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    body: renderList(entries.filter(Boolean), diagnostic, pendientes.length, pausaGlobal, consulta, falloDelBot),
+    body: renderList(entries.filter(Boolean), diagnostic, pausaGlobal, consulta, falloDelBot),
   };
 };

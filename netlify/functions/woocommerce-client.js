@@ -738,18 +738,18 @@ async function buscarEnCatalogo(query, limit = 3) {
   // Solo se guarda en caché lo que salió de una búsqueda COMPLETA. Si alguna
   // consulta falló, lo que tenemos son las sobras de las que sí respondieron, y
   // cachearlas serviría ese resultado cojo a todo el mundo durante una hora.
+  //
+  // El vacío NO se cachea, y eso sigue siendo a propósito: en cuanto se le
+  // enseñe algo que lo arregle (una nota, un alias), debe funcionar ya.
+  //
+  // Antes, además, cuando la búsqueda volvía vacía se apuntaba la frase del
+  // cliente —ya troceada y normalizada— para revisarla en el panel. Se quitó el
+  // 23/9/2026: lo que aparecía en esa lista eran trozos de frase inconexos que
+  // casi nunca se parecían a la pregunta, así que no había forma de saber qué
+  // enseñarle. De paso, una escritura menos a Upstash cada vez que una búsqueda
+  // no encuentra nada. Lo que se enseña ahora son notas (whatsapp-notas.js).
   if (resultado.length > 0 && !fallo) {
     await store.setCachedSearch(cacheKey, resultado);
-  } else if (resultado.length === 0 && !fallo) {
-    // Sin resultados: se anota lo que pidió el cliente para poder revisarlo en el
-    // panel y enseñarle al bot a qué corresponde. Cada fallo se convierte así en
-    // una mejora, en vez de repetirse con el siguiente cliente. No se cachea el
-    // vacío a propósito: en cuanto alguien defina el alias, debe funcionar ya.
-    //
-    // Solo se anota si la web SÍ contestó. Si no llegó a contestar no sabemos
-    // si el producto existe, y apuntarlo llenaría el panel de aprendizaje de
-    // términos que en realidad sí están en el catálogo.
-    await store.registrarBusquedaSinResultado(words.join(' '));
   }
 
   return { productos: resultado, fallo };

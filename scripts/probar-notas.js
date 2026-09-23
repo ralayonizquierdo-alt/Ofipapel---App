@@ -335,10 +335,27 @@ const evento = (texto) => {
     : mal('"papel normal" sigue buscando papel a secas: vuelve el "tenemos muchas opciones"');
 
   busquedasAlCatalogo = [];
+  comandosRedis = [];
   await wc.buscarEnCatalogo('papel fotográfico brillo', 3);
   !busquedasAlCatalogo.some((u) => /mattio/i.test(decodeURIComponent(u)))
     ? bien('y pedir otro papel distinto no se convierte en Mattio')
     : mal('cualquier papel acaba en Mattio: se le cuela a quien pide otra cosa');
+
+  console.log('\n=== Lo que se ha quitado: "búsquedas sin resultado"');
+  // Apuntaba la frase del cliente cada vez que una búsqueda volvía vacía, para
+  // revisarla luego. Lo que salía en la lista eran trozos de frase inconexos que
+  // casi nunca se parecían a la pregunta, así que no había forma de saber qué
+  // enseñarle. Se quitó entera: ahora se enseña con notas.
+  !comandosRedis.some((c) => c.startsWith('ZINCRBY'))
+    ? bien('una búsqueda sin resultado ya no escribe nada (una petición menos)')
+    : mal('sigue apuntando trozos de frase en cada búsqueda vacía');
+  const aprendizaje = await verAprendizaje();
+  !/Búsquedas sin resultado/.test(aprendizaje)
+    ? bien('y el apartado ya no está en el panel')
+    : mal('el apartado sigue ahí');
+  /Cosas que le has enseñado/.test(aprendizaje)
+    ? bien('lo que queda es enseñarle cosas en cristiano')
+    : mal('se ha llevado por delante el apartado de notas');
 
   console.log(fallos === 0 ? '\n✔ Al bot se le puede enseñar' : `\n✗ ${fallos} fallos`);
   process.exit(fallos === 0 ? 0 : 1);

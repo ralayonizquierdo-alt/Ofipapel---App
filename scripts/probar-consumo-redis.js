@@ -52,7 +52,6 @@ Module.prototype.require = function (p) {
       // semana sin que nadie lo note (10-17/9/2026).
       getUltimoFallo: async () => { comandos.push('GET fallo'); return null; },
       getPanelPassword: async () => { comandos.push('GET password'); return null; },
-      listarBusquedasSinResultado: async () => { comandos.push('ZRANGE'); return []; },
       diagnose: async () => { ['SET diag', 'GET diag', 'DEL diag'].forEach((c) => comandos.push(c)); return { ok: true }; },
       getEstadoEntrega: async () => { comandos.push('GET entrega'); return {}; },
       markAsViewed: async () => { comandos.push('SET viewed'); },

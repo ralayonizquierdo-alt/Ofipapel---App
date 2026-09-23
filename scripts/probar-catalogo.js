@@ -28,7 +28,7 @@ Module.prototype.require = function (p) {
     };
   }
   if (p === './conversation-store') {
-    return { ...orig.apply(this, arguments), registrarBusquedaSinResultado: async () => {}, leerAliasBusqueda: async () => null };
+    return { ...orig.apply(this, arguments), leerAliasBusqueda: async () => null };
   }
   return orig.apply(this, arguments);
 };
