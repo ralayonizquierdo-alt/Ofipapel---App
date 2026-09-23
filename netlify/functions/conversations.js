@@ -37,6 +37,10 @@ const {
   getAliasesBusqueda,
   guardarAliasBusqueda,
   borrarAliasBusqueda,
+  listarNotasNegocio,
+  guardarNotaNegocio,
+  borrarNotaNegocio,
+  listarNotasDeClientes,
   getFichaCliente,
   guardarNotasCliente,
 } = require('./conversation-store');
@@ -47,6 +51,7 @@ const crypto = require('crypto');
 // y nadie lo vería.
 const { isAgenteInfoEnCualquierIdioma: isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const { esHistorialMolesto } = require('./whatsapp-hostilidad');
+const { todasLasNotas } = require('./whatsapp-notas');
 const { leer: leerMedia, adjuntoDelHistorial } = require('./whatsapp-media');
 const { sendWhatsappMessage, sendWhatsappTemplate, uploadWhatsappMedia, sendWhatsappMedia, getBusinessProfile, getPhoneNumberStatus } = require('./whatsapp-send');
 
@@ -582,6 +587,15 @@ function pageShell(title, body) {
     border: 1px solid var(--border); border-radius: 10px; font-family: inherit;
   }
   .aprende-descartar { margin-top: 6px; }
+  .nota-alta { display: flex; flex-direction: column; gap: 8px; margin: 0 0 16px; }
+  .nota-alta textarea, .nota-alta input[type="text"] {
+    width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    font: inherit; resize: vertical;
+  }
+  .nota-alta button { align-self: flex-start; }
+  .nota-texto { white-space: pre-wrap; line-height: 1.45; }
+  .nota-tema { color: var(--text-muted); font-size: 12.5px; margin-top: 6px; }
   .alias-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
   .btn-link { background: none; border: none; padding: 0; cursor: pointer; color: var(--green-mid); font-size: 13px; font-weight: 600; font-family: inherit; text-decoration: none; }
   .btn-primary { padding: 9px 16px; border: none; border-radius: 10px; background: var(--green-mid); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
@@ -1267,7 +1281,68 @@ ${renderEstadoNumero(estadoNumero)}`
   );
 }
 
-function renderAprendizaje(pendientes, aliases) {
+// Las NOTAS son la parte del aprendizaje que no va de búsquedas: hechos del
+// negocio en cristiano ("las cajas registradoras de siempre ya no son legales"),
+// que se le cuelan al bot en el prompt. Ver whatsapp-notas.js.
+//
+// Van las primeras de la página a propósito: es lo que de verdad se usa a
+// diario. Los alias siguen debajo, que para lo suyo (una búsqueda que no
+// encuentra nada) no hay nada mejor.
+function renderNotas(notas) {
+  const deCasa = notas.filter((n) => String(n.id).startsWith('casa:'));
+  const delPanel = notas.filter((n) => !String(n.id).startsWith('casa:'));
+
+  const fila = (n, quitable) => `<li class="aprende-item">
+  <div class="nota-texto">${escapeHtml(n.texto)}</div>
+  ${n.tema ? `<div class="nota-tema">Sale cuando el cliente dice: ${escapeHtml(n.tema)}</div>` : '<div class="nota-tema">Sin palabras clave: el bot la tiene en cuenta siempre.</div>'}
+  ${
+    quitable
+      ? `<form method="POST" class="aprende-descartar">
+    <input type="hidden" name="action" value="nota-del">
+    <input type="hidden" name="id" value="${escapeHtml(n.id)}">
+    <button type="submit" class="btn-link">Quitar</button>
+  </form>`
+      : '<div class="nota-tema">Ésta viene escrita dentro del bot y no se quita desde aquí.</div>'
+  }
+</li>`;
+
+  const filas = [...delPanel.map((n) => fila(n, true)), ...deCasa.map((n) => fila(n, false))].join('');
+
+  return `<h2 class="aprende-titulo">Cosas que le has enseñado</h2>
+<p class="aprende-ayuda">Escríbelo como se lo contarías a alguien que entra a trabajar hoy. El bot lo tendrá en cuenta en todas las conversaciones, y manda sobre lo que él crea saber y sobre lo que vea en el catálogo. Tarda como mucho un minuto en enterarse.</p>
+<form method="POST" class="nota-alta">
+  <input type="hidden" name="action" value="nota-add">
+  <textarea name="texto" rows="3" placeholder="Ej.: Las cajas registradoras de siempre ya no son legales. Con Verifactu tienen que estar conectadas con Hacienda, así que vendemos las homologadas." required></textarea>
+  <input type="text" name="tema" placeholder="¿Cuándo viene a cuento? Palabras del cliente, separadas por comas (ej.: caja registradora, verifactu)">
+  <button type="submit" class="btn-primary">Enseñárselo</button>
+</form>
+<ul class="aprende-lista">${filas}</ul>`;
+}
+
+// Las notas que el equipo escribe sobre un cliente concreto, todas juntas.
+// Hasta ahora solo se veían abriendo su conversación: si no te acordabas de a
+// quién le pusiste qué, era como si no existieran.
+function renderNotasDeClientes(clientes) {
+  const filas = clientes.length
+    ? clientes
+        .map(
+          (c) => `<li class="aprende-item">
+  <div class="aprende-cab">
+    <span class="aprende-termino">${escapeHtml(c.nombre || c.phone)}</span>
+    <a class="btn-link" href="?phone=${encodeURIComponent(c.phone)}">Abrir conversación</a>
+  </div>
+  <div class="nota-texto">${escapeHtml(c.notas)}</div>
+</li>`
+        )
+        .join('')
+    : '<li><div class="empty-state">Todavía no hay notas sobre ningún cliente. Se escriben en su conversación, en "Ficha del cliente".</div></li>';
+
+  return `<h2 class="aprende-titulo">Notas sobre clientes</h2>
+<p class="aprende-ayuda">Lo que habéis apuntado sobre alguien en concreto. El bot lo tiene delante al contestarle, y no le suelta la respuesta de siempre cuando el cliente pregunta por algo que hay apuntado aquí.</p>
+<ul class="aprende-lista">${filas}</ul>`;
+}
+
+function renderAprendizaje(pendientes, aliases, notas = [], notasDeClientes = []) {
   const filasPendientes = pendientes.length
     ? pendientes
         .map(
@@ -1310,6 +1385,8 @@ function renderAprendizaje(pendientes, aliases) {
   return pageShell(
     'Aprendizaje del bot · Ofipapel',
     `<p><a class="btn-link" href="?">← Volver a conversaciones</a></p>
+${renderNotas(notas)}
+${renderNotasDeClientes(notasDeClientes)}
 <h2 class="aprende-titulo">Búsquedas sin resultado</h2>
 <p class="aprende-ayuda">Lo que los clientes pidieron y el bot no encontró en el catálogo. Escribe a qué corresponde y lo tendrá en cuenta a partir de ese momento.</p>
 <ul class="aprende-lista">${filasPendientes}</ul>
@@ -1603,6 +1680,13 @@ function renderAvisoEnvio(error) {
   // pinta en verde y no en rojo. Va por el mismo parámetro de la URL porque el
   // envío responde con un redirect (patrón POST-redirect-GET de toda la página).
   if (error === 'enviada') return `<div class="diagnostic ok">✔ Plantilla enviada. En cuanto el cliente conteste podrás escribirle con normalidad.</div>`;
+  // Guardar las notas de un cliente no decía nada: la página se recargaba igual
+  // que estaba y no había forma de saber si se había guardado o si te habías
+  // dejado el botón sin pulsar. Con una nota escrita y el bot contestando como
+  // si no existiera, lo lógico es pensar que no se guardó.
+  if (error === 'notasGuardadas') {
+    return `<div class="diagnostic ok">✔ Notas guardadas. El bot las tendrá en cuenta al contestarle, y las tienes todas juntas en <a href="?vista=aprendizaje">Aprendizaje del bot</a>.</div>`;
+  }
   if (!error) return '';
   return `<div class="error-banner">${ICON.alert}<span>${escapeHtml(ERROR_MESSAGES[error] || ERROR_MESSAGES.send)}</span></div>`;
 }
@@ -2054,6 +2138,16 @@ exports.handler = async (event) => {
         return { statusCode: 303, headers: { Location: '?' }, body: '' };
       }
 
+      // Notas: lo que el equipo le enseña al bot, en texto libre.
+      if (action === 'nota-add' || action === 'nota-del') {
+        if (action === 'nota-add') {
+          await guardarNotaNegocio(params.get('tema') || '', params.get('texto') || '');
+        } else {
+          await borrarNotaNegocio(params.get('id') || '');
+        }
+        return { statusCode: 303, headers: { Location: '?vista=aprendizaje' }, body: '' };
+      }
+
       // Acciones de la página de aprendizaje (no van asociadas a un teléfono).
       if (action.startsWith('alias-') || action === 'pendiente-del') {
         const termino = (params.get('termino') || '').trim();
@@ -2159,6 +2253,7 @@ exports.handler = async (event) => {
     } else if (phone && action === 'notas') {
       const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body || '';
       await guardarNotasCliente(phone, new URLSearchParams(rawBody).get('notas') || '');
+      return redirect('notasGuardadas');
     } else if (phone && action === 'pause') {
       await pauseBot(phone, 24);
     } else if (phone && action === 'resume') {
@@ -2224,11 +2319,20 @@ exports.handler = async (event) => {
   }
 
   if (event.queryStringParameters?.vista === 'aprendizaje') {
-    const [pendientes, aliases] = await Promise.all([listarBusquedasSinResultado(), getAliasesBusqueda()]);
+    // Las notas se piden FRESCAS: el resto del bot se las guarda un minuto en
+    // memoria, pero quien acaba de escribir una en esta misma página tiene que
+    // verla aparecer, no enterarse de que "tarda un poco" mirando una lista que
+    // no la trae.
+    const [pendientes, aliases, notasDelPanel, notasDeClientes] = await Promise.all([
+      listarBusquedasSinResultado(),
+      getAliasesBusqueda(),
+      listarNotasNegocio({ frescas: true }),
+      listarNotasDeClientes(),
+    ]);
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      body: renderAprendizaje(pendientes, aliases),
+      body: renderAprendizaje(pendientes, aliases, todasLasNotas(notasDelPanel), notasDeClientes),
     };
   }
 

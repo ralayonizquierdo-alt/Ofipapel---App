@@ -183,6 +183,55 @@ async function borrarUltimoFallo() {
 const FICHAS_POR_BLOQUE = 200;
 const MAX_VUELTAS_SCAN = 100; // tope de seguridad: 20.000 fichas
 
+// Recorre TODAS las fichas de cliente. Es una operación cara (un SCAN entero
+// más varios MGET), así que solo la usan páginas del panel que se abren a mano
+// — nunca el bot al contestar.
+async function escanearFichas() {
+  if (!isConfigured()) return [];
+
+  const claves = [];
+  let cursor = '0';
+  let vueltas = 0;
+  do {
+    const res = await redisCommand(['SCAN', cursor, 'MATCH', 'cliente:*', 'COUNT', String(FICHAS_POR_BLOQUE)]);
+    if (!Array.isArray(res)) break;
+    cursor = String(res[0]);
+    if (Array.isArray(res[1])) claves.push(...res[1]);
+  } while (cursor !== '0' && ++vueltas < MAX_VUELTAS_SCAN);
+
+  const fichas = [];
+  for (let i = 0; i < claves.length; i += FICHAS_POR_BLOQUE) {
+    const bloque = claves.slice(i, i + FICHAS_POR_BLOQUE);
+    const valores = (await redisCommand(['MGET', ...bloque])) || [];
+    bloque.forEach((clave, j) => {
+      let ficha = null;
+      try {
+        ficha = valores[j] ? JSON.parse(valores[j]) : null;
+      } catch {
+        return; // una ficha corrupta no debe tumbar el listado entero
+      }
+      if (ficha) fichas.push({ phone: clave.replace(/^cliente:/, ''), ficha });
+    });
+  }
+  return fichas;
+}
+
+// Lo que el equipo ha escrito a mano sobre clientes concretos, todo junto.
+// Hasta ahora una nota solo se veía abriendo la conversación de esa persona: si
+// no te acordabas de a quién se la pusiste, era como si no existiera.
+async function listarNotasDeClientes() {
+  const fichas = await escanearFichas();
+  return fichas
+    .filter(({ ficha }) => String(ficha.notas || '').trim())
+    .map(({ phone, ficha }) => ({
+      phone,
+      nombre: ficha.nombre || ficha.nombreWhatsapp || '',
+      notas: String(ficha.notas).trim(),
+      ultimoContacto: Number(ficha.ultimoContacto) || 0,
+    }))
+    .sort((a, b) => b.ultimoContacto - a.ultimoContacto);
+}
+
 async function listarFichasPorPrimerContacto(desde, hasta) {
   if (!isConfigured()) return [];
 
@@ -478,6 +527,78 @@ async function borrarAliasBusqueda(termino) {
   await redisCommand(['HDEL', 'alias_busqueda', (termino || '').trim().toLowerCase()]);
 }
 
+// ── Notas: lo que el equipo le enseña al bot ─────────────────────────────────
+// Un alias arregla una búsqueda; una nota le enseña un HECHO ("las cajas
+// registradoras de siempre ya no son legales"). Ver whatsapp-notas.js para el
+// porqué y para las que van escritas en el propio código.
+//
+// Guardadas como un hash: campo = id, valor = JSON {tema, texto, ts}. Así
+// quitar una no depende de reescribir la lista entera, que es donde se pierden
+// cosas cuando dos personas tocan el panel a la vez.
+const NOTAS_CLAVE = 'notas_negocio';
+
+// Se leen en CADA mensaje que atiende el bot, y las cambia una persona a mano
+// una vez cada mucho: no tiene sentido preguntarle a Upstash cada vez. Un
+// minuto es el compromiso — lo bastante corto para que quien acaba de escribir
+// una nota la vea funcionar enseguida, y lo bastante largo para que no cuente
+// como una petición más por mensaje.
+const NOTAS_MEMORIA_MS = 60 * 1000;
+let notasEnMemoria = { datos: null, ts: 0 };
+
+function olvidarNotasEnMemoria() {
+  notasEnMemoria = { datos: null, ts: 0 };
+}
+
+async function listarNotasNegocio({ frescas = false } = {}) {
+  if (!isConfigured()) return [];
+  if (!frescas && notasEnMemoria.datos && Date.now() - notasEnMemoria.ts < NOTAS_MEMORIA_MS) {
+    return notasEnMemoria.datos;
+  }
+  const raw = await redisCommand(['HGETALL', NOTAS_CLAVE]);
+  const pares = [];
+  if (Array.isArray(raw)) {
+    for (let i = 0; i < raw.length; i += 2) pares.push([raw[i], raw[i + 1]]);
+  } else if (raw && typeof raw === 'object') {
+    pares.push(...Object.entries(raw));
+  }
+
+  const notas = [];
+  for (const [id, valor] of pares) {
+    try {
+      const { tema, texto, ts } = JSON.parse(valor);
+      if (texto) notas.push({ id, tema: tema || '', texto, ts: ts || 0 });
+    } catch {
+      // Una nota ilegible no debe tumbar a las demás.
+    }
+  }
+  notas.sort((a, b) => b.ts - a.ts);
+
+  // El vacío también se recuerda: si no, un bot sin ninguna nota preguntaría a
+  // Upstash en cada mensaje para que le dijeran otra vez que no hay ninguna.
+  notasEnMemoria = { datos: notas, ts: Date.now() };
+  return notas;
+}
+
+async function guardarNotaNegocio(tema, texto) {
+  const t = String(texto || '').trim();
+  if (!t) return null;
+  const id = crypto.randomBytes(6).toString('hex');
+  await redisCommand([
+    'HSET',
+    NOTAS_CLAVE,
+    id,
+    JSON.stringify({ tema: String(tema || '').trim(), texto: t, ts: Date.now() }),
+  ]);
+  olvidarNotasEnMemoria();
+  return id;
+}
+
+async function borrarNotaNegocio(id) {
+  if (!id) return;
+  await redisCommand(['HDEL', NOTAS_CLAVE, String(id)]);
+  olvidarNotasEnMemoria();
+}
+
 // ── Ficha del cliente ────────────────────────────────────────────────────────
 // Lo que sabemos de quien escribe, para que el bot no trate a un cliente
 // habitual como si fuera la primera vez. A propósito solo guarda DATOS DUROS:
@@ -661,6 +782,7 @@ module.exports = {
   appendAgentMessage,
   listConversationPhones,
   listarFichasPorPrimerContacto,
+  listarNotasDeClientes,
   registrarFalloDelBot,
   getUltimoFallo,
   borrarUltimoFallo,
@@ -691,6 +813,9 @@ module.exports = {
   getAliasesBusqueda,
   guardarAliasBusqueda,
   borrarAliasBusqueda,
+  listarNotasNegocio,
+  guardarNotaNegocio,
+  borrarNotaNegocio,
   getFichaCliente,
   // Se quedó sin exportar al añadir el idioma del cliente (10/9/2026) y tumbó
   // el bot entero durante una semana: el webhook la llamaba en CADA mensaje,

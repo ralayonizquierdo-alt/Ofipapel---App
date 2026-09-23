@@ -27,6 +27,7 @@ const {
 } = require('./whatsapp-agent-config');
 const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo');
 const { respuestaSinCatalogo } = require('./whatsapp-consumibles');
+const { todasLasNotas } = require('./whatsapp-notas');
 const { sendWhatsappMessage } = require('./whatsapp-send');
 const woocommerce = require('./woocommerce-client');
 const conversationStore = require('./conversation-store');
@@ -87,10 +88,12 @@ exports.handler = async (event) => {
   }
 
   try {
-    const [history, fichaCliente] = await Promise.all([
+    const [history, fichaCliente, notasDelPanel] = await Promise.all([
       getHistory(from),
       conversationStore.getFichaCliente(from),
+      conversationStore.listarNotasNegocio(),
     ]);
+    const notas = todasLasNotas(notasDelPanel);
 
     const { productContext, contextoConsumibles, impresoras, fallo } = await buscarConPaciencia({
       from,
@@ -102,7 +105,8 @@ exports.handler = async (event) => {
       text,
       history,
       unirContexto(contextoConsumibles, productContext),
-      fichaCliente
+      fichaCliente,
+      notas
     );
 
     // Mismas redes de seguridad que en el webhook: sin datos reales de catálogo

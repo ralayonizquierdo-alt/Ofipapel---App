@@ -175,11 +175,29 @@ const SINONIMOS_BUSQUEDA = {
 // con "folios": en el catálogo no existe ningún producto llamado así — el papel
 // suelto está como "PAPEL Fotocopia A-4 ...", y "folio"/"Fº" solo se usa como
 // abreviatura de tamaño dentro de otros artículos (carpetas, cajas...).
+//
+// EL PAPEL "NORMAL". Un cliente escribió "papel de oficina. Normal" y se llevó
+// un "tenemos muchas opciones y marcas" sin un solo producto ni un precio: la
+// búsqueda devuelve medio catálogo (hay papel en cuadernos, en blocs, en
+// etiquetas...) y con esa lista delante no hay forma de elegir. Pero sí hay
+// respuesta buena, y es siempre la misma: el papel de batalla es el Mattio de
+// oferta. Así que cuando piden el papel de todos los días se busca ÉSE, en vez
+// de buscar "papel" a secas y dejar que gane cualquier cosa.
 const FRASES_ALIAS = {
   'post it': 'nota adhesiva',
   postit: 'nota adhesiva',
   folios: 'papel fotocopia',
   folio: 'papel fotocopia',
+  'papel normal': 'papel fotocopia mattio',
+  'papel corriente': 'papel fotocopia mattio',
+  'papel economico': 'papel fotocopia mattio',
+  'papel barato': 'papel fotocopia mattio',
+  'papel de batalla': 'papel fotocopia mattio',
+  'papel del dia a dia': 'papel fotocopia mattio',
+  'papel de oficina': 'papel fotocopia',
+  'papel de impresora': 'papel fotocopia',
+  'papel de impresion': 'papel fotocopia',
+  'papel de fotocopiadora': 'papel fotocopia',
 };
 
 // Los alias se aplican solo sobre PALABRAS COMPLETAS: si se reemplazara por
