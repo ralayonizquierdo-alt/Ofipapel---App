@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react'
-import { FileSpreadsheet, Printer } from 'lucide-react'
+import { FileSpreadsheet, Printer, AlertTriangle } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { calcIGIC } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
-import { MONTH_NAMES_ES } from '../lib/dateUtils'
+import { MONTH_NAMES_ES, formatDate, today } from '../lib/dateUtils'
 import type { Apartment } from '../types'
 
 const QUARTERS = [
@@ -45,6 +45,33 @@ export default function Collections() {
 
   const yearTotal = apartments.reduce((s, a) =>
     s + QUARTERS.reduce((q, qt) => q + getQuarterTotal(a.id, qt.months), 0), 0)
+
+  /**
+   * Lo que falta por cobrar del ejercicio.
+   *
+   * Esta pantalla contaba solo el dinero que ha entrado, así que una reserva
+   * cobrada a medias no aparecía por ningún lado — es lo que dejó pasar el
+   * pago parcial del 105. Se mira reserva a reserva: total menos lo cobrado.
+   */
+  const hoy = today()
+  const porCobrar = reservations
+    .filter(r => r.status !== 'cancelada' && r.checkIn.startsWith(String(year)))
+    .map(r => {
+      const cobrado = payments
+        .filter(p => p.reservationId === r.id && p.received)
+        .reduce((s, p) => s + p.amount, 0)
+      return { r, cobrado, falta: Math.round((r.total - cobrado) * 100) / 100 }
+    })
+    // Medio céntimo de margen: un redondeo no es un impago.
+    .filter(x => x.falta > 0.005)
+    .sort((a, b) => a.r.checkOut.localeCompare(b.r.checkOut))
+
+  const totalPorCobrar = Math.round(porCobrar.reduce((s, x) => s + x.falta, 0) * 100) / 100
+  const vencidas = porCobrar.filter(x => x.r.checkOut < hoy)
+  const totalVencido = Math.round(vencidas.reduce((s, x) => s + x.falta, 0) * 100) / 100
+  const nombreApt = (id: string) => allApartments.find(a => a.id === id)?.name ?? id
+  const eur = (n: number) =>
+    `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
 
   function getAnnualBreakdown(aptId: string): { transferencia: number; efectivo: number; total: number } {
     const aptResIds = reservations
@@ -164,6 +191,56 @@ export default function Collections() {
           </div>
         }
       />
+
+      {/* Lo que falta por cobrar va antes que lo cobrado: es lo que hay que
+          mirar, y si está vacío ni siquiera aparece. */}
+      {porCobrar.length > 0 && (
+        <div className="mb-6 bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden print:hidden">
+          <div className="bg-amber-50 border-b border-amber-200 px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+              <p className="text-sm font-semibold text-amber-900">
+                Falta por cobrar de {year}: {eur(totalPorCobrar)}
+              </p>
+            </div>
+            {totalVencido > 0 && (
+              <p className="text-sm font-semibold text-red-700">
+                {eur(totalVencido)} de estancias ya terminadas
+              </p>
+            )}
+          </div>
+          <table className="w-full text-sm" translate="no">
+            <thead>
+              <tr className="border-b border-slate-200 text-xs text-slate-500">
+                <th className="text-left py-2 px-5 font-medium">Apartamento</th>
+                <th className="text-left py-2 px-4 font-medium">Estancia</th>
+                <th className="text-right py-2 px-4 font-medium">Total</th>
+                <th className="text-right py-2 px-4 font-medium">Cobrado</th>
+                <th className="text-right py-2 px-5 font-medium">Falta</th>
+              </tr>
+            </thead>
+            <tbody className="tabular-nums">
+              {porCobrar.map(({ r, cobrado, falta }) => {
+                const vencida = r.checkOut < hoy
+                return (
+                  <tr key={r.id} className="border-b border-slate-100 last:border-0">
+                    <td className="py-2 px-5 font-medium text-slate-700">{nombreApt(r.apartmentId)}</td>
+                    <td className="py-2 px-4 text-slate-500 text-xs">
+                      {formatDate(r.checkIn)} → {formatDate(r.checkOut)}
+                      {vencida && <span className="ml-2 text-red-600 font-semibold">ya terminó</span>}
+                    </td>
+                    <td className="py-2 px-4 text-right text-slate-700">{eur(r.total)}</td>
+                    <td className="py-2 px-4 text-right text-slate-500">{eur(cobrado)}</td>
+                    <td className={`py-2 px-5 text-right font-semibold ${vencida ? 'text-red-600' : 'text-amber-700'}`}>
+                      {eur(falta)}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="space-y-6" id="collections-screen">
         {visibleQuarters.map(({ q, months, label }) => {
