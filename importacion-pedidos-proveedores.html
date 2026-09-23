@@ -1919,6 +1919,19 @@ function calcularDtoUnico(precioU, udes, importe){
   return round2_(100 * (1 - (parseFloat(importe)||0) / bruto));
 }
 
+// Cuando la línea solo trae UN descuento (dto2/dto3/dto4 vacíos), ese
+// número ya es el que hay que exportar tal cual: recalcularlo desde
+// Precio×Udes vs Importe solo introduce ruido de redondeo (la factura
+// solo imprime 2 decimales en Precio e Importe), convirtiendo un "30,00"
+// limpio en un "29,98" o "30,06" que Gestión puede llegar a rechazar.
+// El recálculo (colapsar en un único equivalente) solo hace falta cuando
+// de verdad hay 2 o más descuentos encadenados que fundir en uno.
+function dtoParaExportar(f){
+  const hayVarios = (parseFloat(f.dto2)||0) || (parseFloat(f.dto3)||0) || (parseFloat(f.dto4)||0);
+  if(hayVarios) return calcularDtoUnico(f.precioU, f.udes, f.importe);
+  return round2_(parseFloat(f.dto1)||0);
+}
+
 function generarExcel(){
   if(!filas.length){ alert('No hay líneas para exportar.'); return; }
 
@@ -1958,8 +1971,7 @@ function generarExcel(){
   aoa.push(['Codigo I.S.B.N.','MARCA/EDITORIAL','Rfcia. Proveedor','DESCRIPCION','Caja','Ud./Caja','Udes','Precio U.','Dcto','Igic','IMPORTE','','COD. FAMILIA','']);
 
   filas.forEach(f=>{
-    const dtoUnico = calcularDtoUnico(f.precioU, f.udes, f.importe);
-    aoa.push([f.isbn, f.marca, f.ref, f.desc, f.caja, f.udCaja, f.udes, f.precioU, dtoUnico, f.igic, f.importe, '', f.familia, '']);
+    aoa.push([f.isbn, f.marca, f.ref, f.desc, f.caja, f.udCaja, f.udes, f.precioU, dtoParaExportar(f), f.igic, f.importe, '', f.familia, '']);
   });
 
   const total = filas.reduce((s,f)=>s + (parseFloat(f.importe)||0), 0);
