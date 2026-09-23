@@ -517,6 +517,9 @@ function pageShell(title, body) {
   .ficha-notas label { color: var(--text-muted); font-size: 12.5px; }
   .ficha-notas textarea { border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; font-family: inherit; font-size: 13.5px; resize: vertical; }
   .ficha-notas button { align-self: flex-start; }
+  .ficha-aviso { color: var(--text-muted); font-size: 12px; }
+  .ficha-nota > div { white-space: pre-wrap; line-height: 1.45; margin-top: 3px; }
+  .convo-nota { color: var(--text-muted); font-size: 12.5px; margin-top: 3px; }
 
   /* Pantalla de acceso y cambio de contraseña */
   .acceso { max-width: 380px; margin: 8vh auto 0; }
@@ -1045,7 +1048,7 @@ function renderList(entries, diagnostic, pausaGlobal = null, consulta = '', fall
   // hablar con una persona es, por definición, de las más recientes.
   const sorted = [...entries].sort((a, b) => b.ultimo - a.ultimo);
   const items = sorted
-    .map(({ phone, escalated, unread, ultimo, pausado, fragmento, asunto, quien }) => {
+    .map(({ phone, escalated, unread, ultimo, pausado, fragmento, asunto, quien, nota }) => {
       const flag = escalated ? `<div class="convo-flag">${ICON.warning} Requiere atención</div>` : '';
       // Una conversación con el bot parado es una que alguien tiene que atender
       // a mano: si no se ve desde la lista, se queda ahí muerta hasta que la
@@ -1060,6 +1063,7 @@ function renderList(entries, diagnostic, pausaGlobal = null, consulta = '', fall
       // y sabemos su nombre) y por qué escribió.
       const nombre = quien ? `<div class="convo-quien">${escapeHtml(quien)}</div>` : '';
       const tema = asunto ? `<div class="convo-asunto">«${escapeHtml(asunto)}»</div>` : '';
+      const notaDelEquipo = nota ? `<div class="convo-nota">📝 ${escapeHtml(nota)}</div>` : '';
       return `<li><a class="convo-card${escalated ? ' escalated' : ''}${pausado && !escalated ? ' pausado' : ''}" href="?phone=${encodeURIComponent(phone)}">
     <div class="convo-avatar">${ICON.chat}</div>
     <div class="convo-info">
@@ -1070,6 +1074,7 @@ function renderList(entries, diagnostic, pausaGlobal = null, consulta = '', fall
       ${badge}
       ${flag}
       ${enPausa}
+      ${notaDelEquipo}
       ${fragmento ? `<div class="convo-fragmento">${escapeHtml(fragmento)}</div>` : ''}
     </div>
     <span class="chevron">${ICON.chevron}</span>
@@ -1469,20 +1474,30 @@ function renderFichaCliente(phone, ficha) {
   if (Array.isArray(f.productos) && f.productos.length) {
     datos.push(`<div><span class="ficha-etq">Ha preguntado por</span> ${escapeHtml(f.productos.join(' · '))}</div>`);
   }
+  // La nota, como DATO y no solo como el contenido de un cuadro de escribir.
+  // Dentro del formulario se lee mal y no se distingue de un campo vacío con
+  // su texto de ejemplo — que es exactamente lo que pasó: se dio por perdida
+  // una nota mirando un cuadro que parecía vacío.
+  const notaGuardada = String(f.notas || '').trim();
+  if (notaGuardada) {
+    datos.push(`<div class="ficha-nota"><span class="ficha-etq">📝 Notas del equipo</span><div>${escapeHtml(notaGuardada)}</div></div>`);
+  }
+
   const vacio = datos.length === 0
     ? '<div class="ficha-vacio">Todavía no sabemos nada de este cliente. Se irá rellenando solo cuando verifique un pedido o pregunte por productos.</div>'
     : '';
 
   return `<details class="ficha"${datos.length ? ' open' : ''}>
-  <summary>👤 Ficha del cliente</summary>
+  <summary>👤 Ficha del cliente${notaGuardada ? ' · 📝 con notas' : ''}</summary>
   <div class="ficha-cuerpo">
     ${datos.join('')}${vacio}
     <form method="POST" class="ficha-notas">
       <input type="hidden" name="phone" value="${escapeHtml(phone)}">
       <input type="hidden" name="action" value="notas">
-      <label for="notas-cliente">Notas del equipo (las verá el bot al responderle)</label>
-      <textarea id="notas-cliente" name="notas" rows="2" placeholder="Ej.: imprenta, siempre pide A3. Tarifa especial.">${escapeHtml(f.notas || '')}</textarea>
+      <label for="notas-cliente">${notaGuardada ? 'Cambiar las notas' : 'Notas del equipo'} (las verá el bot al responderle)</label>
+      <textarea id="notas-cliente" name="notas" rows="3" placeholder="Ej.: imprenta, siempre pide A3. Tarifa especial.">${escapeHtml(f.notas || '')}</textarea>
       <button type="submit" class="btn btn-ghost">Guardar notas</button>
+      <span class="ficha-aviso">Escribe y pulsa <strong>Guardar notas</strong>: con Enter solo haces un salto de línea.</span>
     </form>
   </div>
 </details>`;
@@ -1572,9 +1587,32 @@ function guionDeRefresco(cada) {
     document.addEventListener(e, function () { desde = Date.now(); }, { passive: true });
   });
 
+  // TODOS los cuadros de texto de la página, no solo el de responder.
+  //
+  // Antes esto solo miraba el de responder, y por eso se perdieron varias
+  // notas de un cliente (23/9/2026): se escribía la nota en la ficha, se
+  // tardaba más de medio minuto en darle a Guardar, la página se recargaba
+  // sola por su cuenta y se llevaba por delante lo escrito. Desde fuera parecía
+  // que las notas "no se guardaban"; en realidad no llegaban a enviarse nunca.
+  // Se apunta con qué valor llegó cada cuadro al cargar la página. Lo que
+  // importa no es que tengan texto (el de las notas del cliente viene ya
+  // relleno con lo que hubiera guardado), sino que alguien lo haya TOCADO.
+  var campos = document.querySelectorAll('textarea, input[type=text]');
+  for (var i = 0; i < campos.length; i++) campos[i].setAttribute('data-inicial', campos[i].value);
+
+  // TODOS los cuadros de la página, no solo el de responder.
+  //
+  // Antes esto solo miraba el de responder, y por eso se perdieron varias notas
+  // de un cliente (23/9/2026): se escribía la nota en su ficha, se tardaba más
+  // de medio minuto en darle a Guardar, la página se recargaba sola por su
+  // cuenta y se llevaba por delante lo escrito. Desde fuera parecía que las
+  // notas "no se guardaban"; en realidad no llegaban a enviarse nunca.
   function escribiendo() {
-    var ta = document.querySelector('.reply-form textarea');
-    if (ta && (ta.value.trim() || document.activeElement === ta)) return true;
+    var cs = document.querySelectorAll('textarea, input[type=text]');
+    for (var j = 0; j < cs.length; j++) {
+      if (document.activeElement === cs[j]) return true;
+      if (cs[j].value !== cs[j].getAttribute('data-inicial')) return true;
+    }
     var fi = document.querySelector('.reply-form input[type=file]');
     return Boolean(fi && fi.files && fi.files.length);
   }
@@ -2406,7 +2444,11 @@ exports.handler = async (event) => {
       // verificado contra WooCommerce; el de WhatsApp se lo pone el propio
       // cliente. Cualquiera de los tres identifica mejor que un número suelto.
       const quien = (ficha?.empresa || ficha?.nombre || ficha?.nombreWhatsapp || '').trim();
-      return { phone, escalated, unread, ultimo, pausado, fragmento, asunto, quien };
+      // Lo que el equipo haya apuntado sobre él. Se enseña en la propia tarjeta
+      // para saber desde la lista con quién hay algo pendiente, sin entrar uno
+      // por uno. No cuesta ni una petición más: la ficha ya venía cargada.
+      const nota = String(ficha?.notas || '').trim();
+      return { phone, escalated, unread, ultimo, pausado, fragmento, asunto, quien, nota };
     })
   );
 
