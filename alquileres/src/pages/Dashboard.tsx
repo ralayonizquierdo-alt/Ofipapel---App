@@ -22,11 +22,25 @@ export default function Dashboard() {
     .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
     .slice(0, 5)
 
-  const pendingPayment = reservations.filter(r => {
-    if (r.status === 'cancelada') return false
-    const paid = payments.filter(p => p.reservationId === r.id && p.received).reduce((s, p) => s + p.amount, 0)
-    return paid < r.total && new Date(r.checkOut) >= now
-  })
+  /**
+   * Reservas que no están cobradas del todo.
+   *
+   * Antes solo se miraban las que aún no habían terminado, y por ahí se coló lo
+   * peor que puede pasar: una estancia acabada, cobrada de menos y sin que
+   * saltara nada. Ahora entran también las vencidas, y van las primeras: una
+   * estancia terminada y a medio pagar es un descubierto, no una previsión.
+   */
+  const pendingPayment = reservations
+    .filter(r => {
+      if (r.status === 'cancelada') return false
+      const paid = payments.filter(p => p.reservationId === r.id && p.received).reduce((s, p) => s + p.amount, 0)
+      // Medio céntimo de margen: los redondeos no son un impago.
+      return r.total - paid > 0.005
+    })
+    .sort((a, b) => a.checkOut.localeCompare(b.checkOut))
+
+  /** Las que ya terminaron y siguen sin cobrarse enteras. */
+  const vencidas = pendingPayment.filter(r => new Date(r.checkOut) < now)
 
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
@@ -70,7 +84,7 @@ export default function Dashboard() {
         <KpiCard icon={<CalendarCheck size={20} className="text-blue-600" />} label="Activas hoy" value={String(active.length)} sub={`de ${apartments.filter(a => a.active).length} aptos.`} color="blue" />
         <KpiCard icon={<Euro size={20} className="text-green-600" />} label="Cobrado este mes" value={`${monthIncome.toLocaleString('es-ES')} €`} sub={`IGIC: ${calcIGIC(monthIncome).toLocaleString('es-ES')} €`} color="green" />
         <KpiCard icon={<TrendingUp size={20} className="text-purple-600" />} label={`Neto ${currentYear}`} value={`${netYear.toLocaleString('es-ES')} €`} sub={`Ingresos: ${yearIncome.toLocaleString('es-ES')} €`} color="purple" />
-        <KpiCard icon={<AlertTriangle size={20} className="text-amber-600" />} label="Pagos pendientes" value={String(pendingPayment.length)} sub="reservas sin cobrar" color="amber" />
+        <KpiCard icon={<AlertTriangle size={20} className="text-amber-600" />} label="Pagos pendientes" value={String(pendingPayment.length)} sub={vencidas.length ? `${vencidas.length} ya vencidos` : 'reservas sin cobrar'} color="amber" />
       </div>
 
       {/* La caja de pegar va arriba del todo y a la vista: es lo que más se usa
@@ -122,21 +136,28 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-          {pendingPayment.slice(0, 3).map(r => {
+          {pendingPayment.slice(0, 5).map(r => {
             const paid = getPaidAmount(r)
             const pending = r.total - paid
+            const vencida = new Date(r.checkOut) < now
             return (
-              <div key={r.id} className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-3">
-                <Clock size={16} className="text-amber-600 shrink-0" />
+              <div key={r.id} className={`rounded-lg p-3 flex items-center gap-3 border ${
+                vencida ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+                <Clock size={16} className={`shrink-0 ${vencida ? 'text-red-600' : 'text-amber-600'}`} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-amber-800">{getApartmentName(r.apartmentId)} — {formatDateShort(r.checkIn)} al {formatDateShort(r.checkOut)}</p>
-                  <p className="text-xs text-amber-700">Pendiente: <strong>{pending.toFixed(2)} €</strong> (cobrado {paid.toFixed(2)} de {r.total.toFixed(2)} €)</p>
+                  <p className={`text-sm font-medium ${vencida ? 'text-red-800' : 'text-amber-800'}`}>
+                    {getApartmentName(r.apartmentId)} — {formatDateShort(r.checkIn)} al {formatDateShort(r.checkOut)}
+                    {vencida && <span className="ml-2 text-xs font-bold">ya terminó y no está cobrada del todo</span>}
+                  </p>
+                  <p className={`text-xs ${vencida ? 'text-red-700' : 'text-amber-700'}`}>
+                    Falta por cobrar: <strong>{pending.toFixed(2)} €</strong> · cobrado {paid.toFixed(2)} de {r.total.toFixed(2)} €
+                  </p>
                 </div>
               </div>
             )
           })}
-          {pendingPayment.length > 3 && (
-            <p className="text-xs text-slate-500 pl-1">+{pendingPayment.length - 3} pagos más pendientes</p>
+          {pendingPayment.length > 5 && (
+            <p className="text-xs text-slate-500 pl-1">+{pendingPayment.length - 5} pagos más pendientes</p>
           )}
         </div>
       )}

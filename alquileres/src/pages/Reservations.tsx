@@ -39,6 +39,7 @@ export default function Reservations() {
   const [filterApt, setFilterApt] = useState('')
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()))
   const [searchParams, setSearchParams] = useSearchParams()
+  const hoy = today()
 
   useEffect(() => {
     const editId = searchParams.get('edit')
@@ -120,6 +121,7 @@ export default function Reservations() {
               <th className="text-left py-3 px-4 font-medium text-slate-600">Tipo</th>
               <th className="text-right py-3 px-4 font-medium text-slate-600">Total</th>
               <th className="text-right py-3 px-4 font-medium text-slate-600">Cobrado</th>
+              <th className="text-right py-3 px-4 font-medium text-slate-600">Pendiente</th>
               <th className="text-left py-3 px-4 font-medium text-slate-600">Forma pago</th>
               <th className="text-left py-3 px-4 font-medium text-slate-600">Estado</th>
               <th className="py-3 px-4"></th>
@@ -129,6 +131,9 @@ export default function Reservations() {
             {filtered.map(r => {
               const paid = getPaid(r)
               const pending = r.total - paid
+              // Estancia terminada y sin cobrar del todo: eso ya no es «queda
+              // por cobrar», es un descubierto. Se pinta en rojo.
+              const vencida = r.status !== 'cancelada' && r.checkOut < hoy
               const displayStatus = (r.status === 'confirmada' && r.total > 0 && paid >= r.total) ? 'cobrada' : r.status
               return (
                 <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
@@ -138,12 +143,22 @@ export default function Reservations() {
                   <td className="py-3 px-4 text-slate-600">{formatDate(r.checkOut)}</td>
                   <td className="py-3 px-4 text-slate-600">{r.nights}N</td>
                   <td className="py-3 px-4 text-slate-500 text-xs">{STAY_LABELS[r.stayType]}</td>
-                  <td className="py-3 px-4 text-right font-semibold text-slate-800">{r.total.toLocaleString('es-ES')} €</td>
-                  <td className="py-3 px-4 text-right">
-                    <span className={`text-xs font-medium ${pending > 0 ? 'text-amber-700' : 'text-green-700'}`}>
-                      {paid.toLocaleString('es-ES')} €
-                      {pending > 0 && <span className="ml-1 text-amber-500">(-{pending.toFixed(0)})</span>}
-                    </span>
+                  <td className="py-3 px-4 text-right font-semibold text-slate-800 tabular-nums">{eur(r.total)}</td>
+                  <td className="py-3 px-4 text-right text-slate-600 tabular-nums">
+                    {eur(paid)}
+                  </td>
+                  {/* Lo que falta por cobrar, en su propia columna y con su
+                      color. Antes iba de refilón entre paréntesis junto a lo
+                      cobrado y se pasaba por alto: una estancia pagada de menos
+                      parecía pagada. */}
+                  <td className="py-3 px-4 text-right tabular-nums">
+                    {pending > 0.005 ? (
+                      <span className={`font-semibold ${vencida && pending > 0.005 ? 'text-red-600' : 'text-amber-700'}`}>
+                        {eur(pending)}
+                      </span>
+                    ) : (
+                      <span className="text-green-600">—</span>
+                    )}
                   </td>
                   <td className="py-3 px-4 text-slate-500 text-xs">{getPaymentMethods(r)}</td>
                   <td className="py-3 px-4">
