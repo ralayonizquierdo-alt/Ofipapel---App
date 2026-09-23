@@ -478,31 +478,24 @@ async function setCachedSearch(key, value, ttlSeconds = 3600) {
   await redisCommand(['SET', `busqueda:${key}`, JSON.stringify(value), 'EX', String(ttlSeconds)]);
 }
 
-// Se guarda con contador (ZINCRBY) para poder ordenar por lo más pedido: lo que
-// más veces se busca sin encontrar es lo primero que interesa revisar.
-async function registrarBusquedaSinResultado(termino) {
-  const limpio = (termino || '').trim().slice(0, 120);
-  if (!limpio) return;
-  await redisCommand(['ZINCRBY', 'busquedas_sin_resultado', '1', limpio]);
-}
-
-async function listarBusquedasSinResultado(limite = 50) {
-  const raw = await redisCommand(['ZRANGE', 'busquedas_sin_resultado', '0', String(limite - 1), 'REV', 'WITHSCORES']);
-  if (!Array.isArray(raw)) return [];
-  const salida = [];
-  for (let i = 0; i < raw.length; i += 2) {
-    salida.push({ termino: raw[i], veces: Number(raw[i + 1]) || 0 });
-  }
-  return salida;
-}
-
-async function olvidarBusquedaSinResultado(termino) {
-  await redisCommand(['ZREM', 'busquedas_sin_resultado', termino]);
-}
+// LO QUE HABÍA AQUÍ: "búsquedas sin resultado".
+//
+// Cada vez que una búsqueda en el catálogo volvía vacía se apuntaba la frase
+// del cliente, ya troceada y normalizada, para revisarla luego en el panel y
+// decir a qué correspondía. La idea era buena; el resultado, no: lo que salía
+// en la lista eran trozos de frase inconexos que casi nunca se parecían a lo
+// que la persona había preguntado, así que no había forma de saber qué
+// enseñarle. Quitado el 23/9/2026 a petición del propietario, junto con la
+// escritura en cada búsqueda vacía (una petición menos a Upstash).
+//
+// Lo que se enseña ahora son NOTAS (ver whatsapp-notas.js): una frase escrita
+// por una persona, con sentido, en vez de un trozo de búsqueda fallida.
 
 // Aliases aprendidos: "lo que escribe el cliente" -> "como se llama de verdad en
-// el catálogo" (folios -> papel fotocopia). Los define una persona desde el
-// panel; el bot no los inventa solo, para que un error no se vuelva permanente.
+// el catálogo" (folios -> papel fotocopia). Ya no se crean nuevos desde el panel
+// (se creaban desde la lista de arriba, que ya no existe); los que haya
+// guardados de antes se siguen aplicando y se pueden quitar. Para casos nuevos,
+// o una nota, o la lista fija de `FRASES_ALIAS` en woocommerce-client.js.
 async function getAliasesBusqueda() {
   const raw = await redisCommand(['HGETALL', 'alias_busqueda']);
   if (!raw) return {};
@@ -513,14 +506,6 @@ async function getAliasesBusqueda() {
     return obj;
   }
   return typeof raw === 'object' ? raw : {};
-}
-
-async function guardarAliasBusqueda(termino, equivale) {
-  const t = (termino || '').trim().toLowerCase();
-  const e = (equivale || '').trim();
-  if (!t || !e) return;
-  await redisCommand(['HSET', 'alias_busqueda', t, e]);
-  await olvidarBusquedaSinResultado(t);
 }
 
 async function borrarAliasBusqueda(termino) {
@@ -807,11 +792,7 @@ module.exports = {
   claimMessage,
   getCachedSearch,
   setCachedSearch,
-  registrarBusquedaSinResultado,
-  listarBusquedasSinResultado,
-  olvidarBusquedaSinResultado,
   getAliasesBusqueda,
-  guardarAliasBusqueda,
   borrarAliasBusqueda,
   listarNotasNegocio,
   guardarNotaNegocio,

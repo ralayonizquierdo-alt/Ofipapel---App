@@ -43,7 +43,6 @@ Module.prototype.require = function (p) {
       getNotasCliente: async () => '',
       marcarVista: async () => {},
       listarAliasBusqueda: async () => [],
-      listarBusquedasSinResultado: async () => [],
     };
   }
   return m;

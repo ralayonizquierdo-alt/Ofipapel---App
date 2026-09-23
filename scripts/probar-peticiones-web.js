@@ -63,7 +63,7 @@ Module.prototype.require = function (p) {
       getFichaCliente: async () => ({ presentado: true }), actualizarFichaCliente: async () => {},
       marcarPresentado: async () => {}, isBotPaused: async () => false, pauseBot: async () => {},
       getPausaGlobal: async () => null, guardarNombreWhatsapp: async () => {},
-      registrarBusquedaSinResultado: async () => {}, leerAliasBusqueda: async () => null,
+      leerAliasBusqueda: async () => null,
       registrarPedidoVerificado: async () => {}, getEstadoEntrega: async () => null,
       marcarEntrega: async () => {}, getAvisoPausa: async () => null, marcarAvisoPausa: async () => {},
     };
