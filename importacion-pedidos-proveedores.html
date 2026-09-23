@@ -181,14 +181,6 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
         <label>Almacén</label>
         <input type="text" id="cabAlmacen">
       </div>
-      <div class="campo">
-        <label>Contactar con</label>
-        <input type="text" id="cabContacto">
-      </div>
-      <div class="campo">
-        <label>E-mail</label>
-        <input type="text" id="cabEmail">
-      </div>
     </div>
   </div>
 
@@ -242,8 +234,8 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
     </div>
     <div class="footer-note">
       El Cod. Familia, Caja y Ud./Caja casi nunca vienen en la factura del proveedor: revísalos y complétalos a mano en la tabla antes de generar el Excel. La columna "Codigo ISBN / EAN" se rellena sola con el código de barras (EAN) siempre que la factura del proveedor lo traiga (APLI no lo trae; COFRAP/MAPED, HAMELIN, FILA IBERIA, CABERO/FINOCAN, JOUMMA BAGS e INTEGRAL INFORMÁTICA/MANDATELO sí). La Marca/Editorial sigue siendo un campo solo de proveedores de libros: se rellenará sola cuando demos de alta el perfil de uno. El Igic tampoco viene desglosado por línea en la mayoría de facturas: complétalo si tu Gestión lo necesita.<br>
-      El Excel generado incluye las mismas casillas de cabecera que la plantilla (Proveedor, Nº Pedido, Fecha, Almacén, Contacto, E-mail) en la misma posición, y las mismas columnas de datos — pero sin colores ni bordes, porque la librería que usamos no puede conservarlos al exportar a .xls (a Gestión no le afecta: solo lee los datos).<br>
-      Las 4 columnas de descuento se rellenan solo cuando la factura del proveedor las trae — cada proveedor usa como mucho 1 o 2, el resto quedan en 0.<br>
+      El Excel generado incluye las mismas casillas de cabecera que la plantilla (Proveedor, Nº Pedido, Fecha, Almacén) en la misma posición, y las mismas columnas de datos — pero sin colores ni bordes, porque la librería que usamos no puede conservarlos al exportar a .xls (a Gestión no le afecta: solo lee los datos).<br>
+      La plantilla solo admite una columna de descuento (Dcto): cuando la factura del proveedor trae varios descuentos encadenados, se convierten automáticamente en el descuento único equivalente que da el mismo importe final.<br>
       <em>Roymart tiene un formato de factura especialmente irregular: revísalo con más cuidado que el resto.</em> Las facturas escaneadas como imagen (sin texto seleccionable) no se pueden procesar todavía — necesitarían OCR.<br>
       <strong>Nota de compatibilidad:</strong> el Excel se genera en formato Excel 5.0/95 real (BIFF5), el que necesita tu Gestión. Esa librería no admite letras con tilde ni la Ñ, así que se sustituyen automáticamente por su versión sin tilde (p.ej. "ESTÁNDAR" → "ESTANDAR", "Ñoño" → "Nono") para que quede legible en vez de aparecer como "_".
     </div>
@@ -1934,47 +1926,49 @@ function generarExcel(){
   const pedido = document.getElementById('cabPedido').value.trim();
   const fecha = document.getElementById('cabFecha').value;
   const almacen = document.getElementById('cabAlmacen').value.trim();
-  const contacto = document.getElementById('cabContacto').value.trim();
-  const email = document.getElementById('cabEmail').value.trim();
 
-  const NCOLS = 16; // A..P
+  const NCOLS = 14; // A..N
   const aoa = [];
   const fila = ()=> filaVacia(NCOLS);
 
-  // Filas 1-10: cabecera del pedido + panel de referencia de códigos de
+  // Filas 1-11: cabecera del pedido + panel de referencia de códigos de
   // familia más usados, reproduciendo exactamente la misma disposición
-  // (mismas filas/columnas y textos) que la plantilla oficial de Gestión.
-  // Los datos de línea deben empezar en la fila 12, igual que en la plantilla.
+  // (mismas filas/columnas y textos) que la plantilla oficial de Gestión
+  // (PLANTILLA_PEDIDOS_PROGRAMACION_NUEVA_APLICACION_PDF). Ya no lleva
+  // Contactar con / E-mail: esa plantilla nueva los quitó. Los datos de
+  // línea deben empezar en la fila 13, igual que en la plantilla.
   let r;
-  r = fila(); r[10]=1001; r[11]='< L} LIBROS DE TEXTOS     '; r[14]='Para otros dieños consultar el arbol de FAMILIAS'; aoa.push(r);
-  r = fila(); r[2]='PROPUESTA    DE     PEDIDO'; r[4]='ALMACEN'; r[5]=almacen;
-    r[9]='L}'; r[10]=100125; r[11]='LIBRO TEXTOS (L} 25%)         '; r[14]=20; r[15]='-} ARTICULOS de DISEÑO (Escolar)'; aoa.push(r);
-  r = fila(); r[9]='L}'; r[10]=100130; r[11]='LIBRO TEXTOS (L} 30%)         '; r[13]='Para incluir'; aoa.push(r);
-  r = fila(); r[2]='PROVEEDOR;'; r[3]=proveedor;
-    r[10]=1002; r[11]='<< L< LIBROS DE LECTURAS '; r[13]='Referencias'; r[14]=209102; r[15]='ARTICULOS DISEÑO (Varios)     '; aoa.push(r);
-  r = fila(); r[9]='L<'; r[10]=100225; r[11]='LIBRO Lecturas (25% L<)       '; r[13]='en un mismo'; r[14]=209162; r[15]='MOCHILAS (Diseño)                            '; aoa.push(r);
-  r = fila(); r[0]='922-75.35.20'; r[2]='Nº Pedido'; r[3]=pedido; r[4]='FECHA'; r[5]=fecha;
-    r[9]='L<'; r[10]=100230; r[11]='LIBRO Lecturas (30% L<)       '; r[13]='codigo'; r[14]=209160; r[15]='Macutos Bolsas y Bandoleras (Diseño)'; aoa.push(r);
-  r = fila(); r[0]='Compras@ofipapelsl.com'; r[13]='el padre no '; r[14]=209163; r[15]='Monederos Billeteras (Diseño)'; aoa.push(r);
-  r = fila(); r[2]='Contactar con:'; r[3]=contacto; r[4]='E-mail'; r[5]=email;
-    r[10]=209102; r[11]='ARTICULOS DISEÑO (Varios)     '; r[13]='lleva '; r[14]=209166; r[15]='Neceser Escolar (Diseño)'; aoa.push(r);
-  r = fila(); r[10]=209162; r[11]='MOCHILAS (Diseño) SOLO  ALTA EN WEB                           '; r[14]=209176; r[15]='Plumier (Diseño)'; aoa.push(r);
-  r = fila(); r[1]='MARCA'; r[2]='Rfecia. Compra'; r[11]='CODIGO  A'; r[12]='Margen'; r[14]=209179; r[15]='Portatodo (Diseño)'; aoa.push(r);
+  r = fila(); r[7]='RECORDATORIO DE FAMILIAS '; aoa.push(r);
+  r = fila(); r[4]='ALMACEN'; r[5]=almacen; r[6]=1001; r[7]='L} LIBROS DE TEXTOS';
+    r[11]=20; r[12]='-} ARTICULOS de DISENO (Escolar)'; aoa.push(r);
+  r = fila(); r[6]=100100; r[7]='Libros de Textos Pvp Fijo'; aoa.push(r);
+  r = fila(); r[2]='PROVEEDOR;'; r[3]=proveedor; r[6]=100125; r[7]='Libros de Textos L} (-25%) '; aoa.push(r);
+  r = fila(); r[6]=100130; r[7]='Libros de Textos L} (-30%) ';
+    r[11]=209102; r[12]='ARTICULOS DISENO (Varios)     '; r[13]='NO WEB'; aoa.push(r);
+  r = fila(); r[2]='N_ Pedido'; r[3]=pedido; r[4]='FECHA'; r[5]=fecha; r[6]=1002; r[7]='Libros SINLI';
+    r[11]=209162; r[12]='MOCHILAS (Diseno)                            '; r[13]='NO WEB'; aoa.push(r);
+  r = fila(); r[6]=100200; r[7]='Libros SINLI Pvp Fijo';
+    r[11]=209155; r[12]='Artículos Diseño (SUBEN A Web)               '; r[13]='SUBE A WEB'; aoa.push(r);
+  r = fila(); r[6]=100225; r[7]='Libros SINLI  (-25%) ';
+    r[11]=209162; r[12]='MOCHILAS (Diseño) SOLO  ALTA EN WEB                           '; r[13]='SUBE A WEB'; aoa.push(r);
+  r = fila(); r[6]=100230; r[7]='Libros SINLI  (-30%) '; aoa.push(r);
+  r = fila(); r[6]=100235; r[7]='Libros SINLI  (-35%) '; aoa.push(r);
+  r = fila(); r[2]='Rfecia. Compra'; aoa.push(r);
 
-  aoa.push(['Codigo I.S.B.N.','MARCA/EDITORIAL','Rfcia. Proveedor','DESCRIPCION','Caja','Ud./Caja','Udes','Precio U.','Dcto.','Dcto. (X+X)','Dcto. Adicional','Dcto. Campaña','Igic','IMPORTE','','COD. FAMILIA']);
+  aoa.push(['Codigo I.S.B.N.','MARCA/EDITORIAL','Rfcia. Proveedor','DESCRIPCION','Caja','Ud./Caja','Udes','Precio U.','Dcto','Igic','IMPORTE','','COD. FAMILIA','']);
 
   filas.forEach(f=>{
     const dtoUnico = calcularDtoUnico(f.precioU, f.udes, f.importe);
-    aoa.push([f.isbn, f.marca, f.ref, f.desc, f.caja, f.udCaja, f.udes, f.precioU, dtoUnico, 0, 0, 0, f.igic, f.importe, '', f.familia]);
+    aoa.push([f.isbn, f.marca, f.ref, f.desc, f.caja, f.udCaja, f.udes, f.precioU, dtoUnico, f.igic, f.importe, '', f.familia, '']);
   });
 
   const total = filas.reduce((s,f)=>s + (parseFloat(f.importe)||0), 0);
-  r = fila(); r[12]='TOTAL'; r[13]=Math.round(total*100)/100; aoa.push(r);
+  r = fila(); r[9]='TOTAL'; r[10]=Math.round(total*100)/100; aoa.push(r);
 
   const aoaSinAcentos = aoa.map(fila => fila.map(quitarAcentos));
 
   const ws = XLSX.utils.aoa_to_sheet(aoaSinAcentos);
-  ws['!cols'] = [{wch:14},{wch:16},{wch:16},{wch:40},{wch:7},{wch:9},{wch:8},{wch:10},{wch:8},{wch:10},{wch:10},{wch:10},{wch:8},{wch:12},{wch:2},{wch:12}];
+  ws['!cols'] = [{wch:14},{wch:16},{wch:16},{wch:40},{wch:7},{wch:9},{wch:8},{wch:10},{wch:8},{wch:8},{wch:12},{wch:2},{wch:12},{wch:10}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
 
