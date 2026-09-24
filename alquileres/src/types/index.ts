@@ -75,6 +75,24 @@ export interface Payment {
   paymentMethod?: PaymentMethod
   createdAt: string
   /**
+   * Apartamento al que pertenece el cobro.
+   *
+   * Los cobros que entran por la app cuelgan de una reserva y el apartamento
+   * sale de ella. Los que vienen del Excel van por apartamento y mes —así los
+   * lleva Luis— y pueden no tener una estancia identificable detrás: sin este
+   * campo, ese dinero no aparecería en ninguna parte.
+   */
+  apartmentId?: string
+  /**
+   * Mes contable, «AAAA-MM»: la hoja del Excel en la que figura el cobro.
+   *
+   * No siempre coincide con `paymentDate`. El alquiler de enero del 106 se
+   * pagó el 31 de diciembre y en el Excel cuenta en enero; agrupar por la
+   * fecha del movimiento lo mandaría a diciembre y descuadraría los dos meses.
+   * Cuando falta, manda `paymentDate`.
+   */
+  mes?: string
+  /**
    * El justificante del que salió este cobro, guardado tal cual se subió.
    * Opcional porque los cobros anotados a mano no tienen papel detrás, y los
    * de antes de que esto existiera tampoco.

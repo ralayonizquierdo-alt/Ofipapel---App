@@ -4,7 +4,7 @@ import { useData } from '../contexts/DataContext'
 import { calcIGIC } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
 import { MONTH_NAMES_ES, formatDate, today } from '../lib/dateUtils'
-import type { Apartment } from '../types'
+import type { Apartment, Payment } from '../types'
 
 const QUARTERS = [
   { q: 1, months: [1, 2, 3], label: '1T (Ene–Mar)' },
@@ -32,17 +32,33 @@ export default function Collections() {
   /** '' = todos. Un solo apartamento es como se cuadra contra el Excel. */
   const [filterApt, setFilterApt] = useState('')
 
-  const years = [...new Set(payments.map(p => p.paymentDate?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
+  /**
+   * Mes al que pertenece un cobro, «AAAA-MM».
+   *
+   * Manda el mes contable del Excel cuando lo trae: el alquiler de enero del
+   * 106 se pagó el 31 de diciembre y cuenta en enero. Si no, la fecha del
+   * movimiento, que es lo único que tienen los cobros metidos por la app.
+   */
+  const mesDe = useCallback((p: Payment) => p.mes || p.paymentDate?.slice(0, 7), [])
+
+  /**
+   * Apartamento de un cobro: el suyo propio si lo lleva —los del Excel van por
+   * apartamento— y si no, el de la estancia de la que cuelga.
+   */
+  const aptDe = useCallback((p: Payment) => {
+    if (p.apartmentId) return p.apartmentId
+    const r = reservations.find(x => x.id === p.reservationId)
+    return r && r.status !== 'cancelada' ? r.apartmentId : undefined
+  }, [reservations])
+
+  const years = [...new Set(payments.map(p => mesDe(p)?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
 
   const getMonthAmount = useCallback((aptId: string, month: number): number => {
     const monthStr = `${year}-${String(month).padStart(2, '0')}`
-    const aptResIds = reservations
-      .filter(r => r.apartmentId === aptId && r.status !== 'cancelada')
-      .map(r => r.id)
     return payments
-      .filter(p => p.received && p.paymentDate?.startsWith(monthStr) && aptResIds.includes(p.reservationId))
+      .filter(p => p.received && mesDe(p) === monthStr && aptDe(p) === aptId)
       .reduce((s, p) => s + p.amount, 0)
-  }, [year, reservations, payments])
+  }, [year, payments, mesDe, aptDe])
 
   const getQuarterTotal = useCallback((aptId: string, months: number[]): number =>
     months.reduce((s, m) => s + getMonthAmount(aptId, m), 0),
@@ -100,12 +116,9 @@ export default function Collections() {
     `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
 
   function getAnnualBreakdown(aptId: string): { transferencia: number; efectivo: number; total: number } {
-    const aptResIds = reservations
-      .filter(r => r.apartmentId === aptId && r.status !== 'cancelada')
-      .map(r => r.id)
     const yearStr = String(year)
     const aptPayments = payments.filter(p =>
-      p.received && p.paymentDate?.startsWith(yearStr) && aptResIds.includes(p.reservationId)
+      p.received && mesDe(p)?.startsWith(yearStr) && aptDe(p) === aptId
     )
     let efectivo = 0
     let transferencia = 0

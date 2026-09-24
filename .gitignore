@@ -31,3 +31,7 @@ __pycache__/
 # rutas ni pasos reproducibles— en AUDITORIA_SEGURIDAD_*.md, que es el
 # documento pensado para ser público.
 .claude/rax/auditoria-*.md
+
+# Excel real de alquileres: datos de inquilinos e importes. El repo es PÚBLICO.
+*.xlsx
+!scripts/datos/*.xlsx
