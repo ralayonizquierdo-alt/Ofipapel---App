@@ -1449,6 +1449,19 @@ function renderOpcionesProveedor(filtro){
 
 function filtrarSelectorProveedores(texto){
   renderOpcionesProveedor(texto);
+  const t = texto.trim();
+  if(!t) return;
+  const sel = document.getElementById('selProveedorPrevio');
+  // Opciones reales encontradas con ese texto (sin contar "-- Selecciona --" ni "Otro proveedor").
+  const opciones = [...sel.options].filter(o => o.value && o.value !== 'otro');
+  if(opciones.length === 0){
+    perfilSeleccionadoId = '';
+    sel.value = '';
+    actualizarAvisoProveedor('❌ No se ha encontrado ningún proveedor homologado con ese nombre. Revisa cómo lo has escrito, o elige "Otro proveedor" en la lista.');
+  } else if(opciones.length === 1 && sel.value !== opciones[0].value){
+    sel.value = opciones[0].value;
+    onSelProveedorChange();
+  }
 }
 
 function poblarSelectorProveedores(){
