@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Eye, Pencil } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
+import Modal from '../components/ui/Modal'
 import type { Reservation } from '../types'
 import { MONTH_NAMES_ES, DAY_NAMES_ES, getDaysInMonth, getSeason } from '../lib/dateUtils'
 
@@ -11,12 +12,14 @@ const APT_COLORS = [
 ]
 
 export default function Planning() {
-  const { reservations, apartments: allApartments } = useData()
+  const { reservations, payments, apartments: allApartments } = useData()
   const apartments = allApartments.filter(a => a.active)
   const navigate = useNavigate()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
+  /** La reserva que se está mirando con el ojo. */
+  const [mirando, setMirando] = useState<Reservation | null>(null)
 
   const daysInMonth = getDaysInMonth(year, month)
   const season = getSeason(new Date(year, month - 1, 1))
@@ -39,13 +42,27 @@ export default function Planning() {
     ) || null
   }
 
+  /**
+   * La reserva cuya franja arranca ese día **en esta pantalla**.
+   *
+   * Incluye el día 1 para las que vienen del mes anterior: antes esas no
+   * arrancaban en ninguna casilla, así que se pintaban como cuadraditos
+   * sueltos y sin una sola letra — justo las estancias largas, que son las
+   * que más importa reconocer de un vistazo.
+   */
   function getResStart(aptId: string, day: number): Reservation | null {
     const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     return reservations.find(r =>
       r.apartmentId === aptId &&
       r.status !== 'cancelada' &&
-      r.checkIn === date
+      (r.checkIn === date || (day === 1 && r.checkIn < date && r.checkOut > date))
     ) || null
+  }
+
+  /** Lo cobrado de una reserva, para el detalle del ojo. */
+  function cobradoDe(r: Reservation): number {
+    return payments.filter(p => p.reservationId === r.id && p.received)
+      .reduce((s, p) => s + p.amount, 0)
   }
 
   const colorMap: Record<string, string> = {}
@@ -127,12 +144,15 @@ export default function Planning() {
                       : daysInMonth
                     spanDays = Math.max(1, lastInView - d + 1)
                   }
+                  // Viene de antes del día 1: se marca con una flecha para no
+                  // confundirla con una entrada de ese día.
+                  const vieneDeAntes = isStart && !!res && res.checkIn < `${year}-${String(month).padStart(2, '0')}-01`
 
                   // Orden fijo, el que pidió el propietario: apartamento, fechas,
                   // noches e importe total. Antes iba el desglose precio+limpieza,
                   // que en una franja estrecha no se lee y no es lo que se mira.
                   const label = res
-                    ? `${apt.id} — ${fmtD(res.checkIn)} al ${fmtD(res.checkOut, true)}, `
+                    ? `${vieneDeAntes ? '◀ ' : ''}${apt.id} — ${fmtD(res.checkIn)} al ${fmtD(res.checkOut, true)}, `
                       + `${res.nights}-N, ${eur(res.total)}`
                     : ''
                   return (
@@ -149,10 +169,21 @@ export default function Planning() {
                             : { left: '0', right: '0' }}
                           onClick={isStart && res ? () => navigate(`/reservas?edit=${res.id}`) : undefined}
                         >
-                          {isStart && (
-                            <span className="text-white font-semibold px-1 text-xs leading-none whitespace-nowrap">
-                              {label}
-                            </span>
+                          {isStart && res && (
+                            <>
+                              <span className="text-white font-semibold px-1 text-xs leading-none whitespace-nowrap overflow-hidden flex-1">
+                                {label}
+                              </span>
+                              {/* El ojo: la franja estrecha no cabe entera y el
+                                  aviso amarillo solo sale si aciertas a parar el
+                                  ratón encima. Esto se pincha y se queda. */}
+                              <button
+                                onClick={e => { e.stopPropagation(); setMirando(res) }}
+                                title="Ver los datos de esta reserva"
+                                className="shrink-0 h-full px-1 flex items-center text-white/90 hover:text-white hover:bg-black/20">
+                                <Eye size={13} />
+                              </button>
+                            </>
                           )}
                         </div>
                       )}
@@ -165,6 +196,17 @@ export default function Planning() {
         </table>
       </div>
 
+      {mirando && (
+        <DetalleReserva
+          res={mirando}
+          nombre={allApartments.find(a => a.id === mirando.apartmentId)?.name ?? mirando.apartmentId}
+          cobrado={cobradoDe(mirando)}
+          eur={eur}
+          onEditar={() => navigate(`/reservas?edit=${mirando.id}`)}
+          onClose={() => setMirando(null)}
+        />
+      )}
+
       {/* Legend */}
       <div className="mt-4 flex flex-wrap gap-3">
         {apartments.map(apt => (
@@ -175,5 +217,79 @@ export default function Planning() {
         ))}
       </div>
     </div>
+  )
+}
+
+/**
+ * Los datos de una reserva, al pinchar el ojo de su franja.
+ *
+ * Enseña lo que no cabe en la franja y lo que de verdad se pregunta uno
+ * mirando el planning: qué días, cuántas noches, cuánto vale y si está
+ * cobrada. Cuando han pagado de más, lo dice como saldo a favor en vez de
+ * enseñar un «pendiente» en negativo, que no se entiende.
+ */
+function DetalleReserva({ res, nombre, cobrado, eur, onEditar, onClose }: {
+  res: Reservation
+  nombre: string
+  cobrado: number
+  eur: (n: number) => string
+  onEditar: () => void
+  onClose: () => void
+}) {
+  const saldo = Math.round((res.total - cobrado) * 100) / 100
+  const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-ES',
+    { day: 'numeric', month: 'long', year: 'numeric' })
+
+  const filas: [string, string][] = [
+    ['Apartamento', nombre],
+    ['Entrada', fecha(res.checkIn)],
+    ['Salida', fecha(res.checkOut)],
+    ['Noches', `${res.nights}`],
+    ['Canal', res.channel],
+    ['Importe', eur(res.total)],
+    ['Cobrado', eur(cobrado)],
+  ]
+
+  return (
+    <Modal title={`Reserva · ${nombre}`} onClose={onClose}>
+      <div className="space-y-4">
+        <table className="w-full text-sm">
+          <tbody>
+            {filas.map(([k, v]) => (
+              <tr key={k} className="border-b border-slate-100 last:border-0">
+                <th scope="row" className="text-left py-2 font-normal text-slate-500 capitalize">{k}</th>
+                <td className="py-2 text-right font-medium text-slate-800 tabular-nums">{v}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {saldo > 0.005 && (
+          <p className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 text-sm font-semibold text-amber-800">
+            Falta por cobrar {eur(saldo)}
+          </p>
+        )}
+        {saldo < -0.005 && (
+          <p className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-sm font-semibold text-blue-800">
+            Pagado de más {eur(-saldo)} · queda a favor del cliente
+          </p>
+        )}
+        {Math.abs(saldo) <= 0.005 && res.total > 0 && (
+          <p className="bg-green-50 border border-green-200 rounded-lg px-4 py-2.5 text-sm font-semibold text-green-800">
+            Cobrada del todo
+          </p>
+        )}
+
+        {res.notes && <p className="text-xs text-slate-400 leading-relaxed">{res.notes}</p>}
+
+        <div className="flex justify-end gap-3 pt-1">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cerrar</button>
+          <button onClick={onEditar}
+            className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+            <Pencil size={15} /> Abrir la reserva
+          </button>
+        </div>
+      </div>
+    </Modal>
   )
 }

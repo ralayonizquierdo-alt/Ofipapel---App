@@ -95,7 +95,7 @@ export default function Collections() {
    * pago parcial del 105. Se mira reserva a reserva: total menos lo cobrado.
    */
   const hoy = today()
-  const porCobrar = reservations
+  const saldos = reservations
     .filter(r => r.status !== 'cancelada' && r.checkIn.startsWith(String(year))
       && (!filterApt || r.apartmentId === filterApt))
     .map(r => {
@@ -104,9 +104,17 @@ export default function Collections() {
         .reduce((s, p) => s + p.amount, 0)
       return { r, cobrado, falta: Math.round((r.total - cobrado) * 100) / 100 }
     })
-    // Medio céntimo de margen: un redondeo no es un impago.
-    .filter(x => x.falta > 0.005)
     .sort((a, b) => a.r.checkOut.localeCompare(b.r.checkOut))
+  // Medio céntimo de margen: un redondeo no es un impago.
+  const porCobrar = saldos.filter(x => x.falta > 0.005)
+  /**
+   * Lo cobrado de más. Pasa a menudo —se paga un mes redondo, se adelanta de
+   * más— y hasta ahora no se veía en ninguna parte: la pantalla solo miraba
+   * lo que faltaba. Ese dinero está cobrado y es del cliente hasta que se le
+   * devuelve o se le descuenta de la siguiente estancia.
+   */
+  const aFavor = saldos.filter(x => x.falta < -0.005)
+  const totalAFavor = Math.round(aFavor.reduce((s, x) => s - x.falta, 0) * 100) / 100
 
   const totalPorCobrar = Math.round(porCobrar.reduce((s, x) => s + x.falta, 0) * 100) / 100
   const vencidas = porCobrar.filter(x => x.r.checkOut < hoy)
@@ -283,6 +291,35 @@ export default function Collections() {
                   </tr>
                 )
               })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {aFavor.length > 0 && (
+        <div className="mb-6 bg-white rounded-xl shadow-sm border border-blue-200 overflow-hidden print:hidden">
+          <div className="bg-blue-50 border-b border-blue-200 px-5 py-3">
+            <p className="text-sm font-semibold text-blue-900">
+              Cobrado de más en {year}: {eur(totalAFavor)} · queda a favor del cliente
+            </p>
+            <p className="text-xs text-blue-800/80 mt-0.5">
+              Para devolver, o para descontar de la siguiente estancia. El dinero ya entró y cuenta
+              en el mes en que se cobró; esto solo recuerda que sobra.
+            </p>
+          </div>
+          <table className="w-full text-sm" translate="no">
+            <tbody className="tabular-nums">
+              {aFavor.map(({ r, cobrado, falta }) => (
+                <tr key={r.id} className="border-b border-slate-100 last:border-0">
+                  <td className="py-2 px-5 font-medium text-slate-700">{nombreApt(r.apartmentId)}</td>
+                  <td className="py-2 px-4 text-slate-500 text-xs">
+                    {formatDate(r.checkIn)} → {formatDate(r.checkOut)}
+                  </td>
+                  <td className="py-2 px-4 text-right text-slate-700">{eur(r.total)}</td>
+                  <td className="py-2 px-4 text-right text-slate-500">{eur(cobrado)}</td>
+                  <td className="py-2 px-5 text-right font-semibold text-blue-700">+{eur(-falta)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

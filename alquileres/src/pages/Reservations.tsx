@@ -62,17 +62,26 @@ export default function Reservations() {
   // Sumas de lo que se está viendo, no del total de la base: el filtro de
   // apartamento y año está justo encima, y lo que se quiere es cuadrar ese
   // trozo contra el Excel sin ir sumando las filas a mano.
+  // Lo que falta por cobrar y lo cobrado de más se suman por separado: si se
+  // netean, 900 € sin cobrar de una y 900 € de más en otra dan cero y parece
+  // que no hay nada que hacer, cuando hay dos cosas que hacer.
   const suma = filtered.reduce((a, r) => {
+    if (r.status === 'cancelada') return a
     const cobrado = payments
       .filter(p => p.reservationId === r.id && p.received)
       .reduce((x, p) => x + p.amount, 0)
+    const saldo = r.total - cobrado
     return {
-      noches: a.noches + (r.status === 'cancelada' ? 0 : r.nights),
-      total: a.total + (r.status === 'cancelada' ? 0 : r.total),
+      noches: a.noches + r.nights,
+      total: a.total + r.total,
       cobrado: a.cobrado + cobrado,
+      falta: a.falta + (saldo > 0.005 ? saldo : 0),
+      aFavor: a.aFavor + (saldo < -0.005 ? -saldo : 0),
     }
-  }, { noches: 0, total: 0, cobrado: 0 })
-  const sumaPendiente = Math.round((suma.total - suma.cobrado) * 100) / 100
+  }, { noches: 0, total: 0, cobrado: 0, falta: 0, aFavor: 0 })
+  const redondea = (n: number) => Math.round(n * 100) / 100
+  const sumaFalta = redondea(suma.falta)
+  const sumaAFavor = redondea(suma.aFavor)
 
   function getAptName(id: string) { return apartments.find(a => a.id === id)?.name || id }
   function getPaid(r: Reservation) {
@@ -91,7 +100,9 @@ export default function Reservations() {
       <PageHeader
         title="Reservas"
         subtitle={`${filtered.length} reservas · ${suma.noches} noches · ${eur(suma.total)}`
-          + (sumaPendiente > 0.005 ? ` · falta por cobrar ${eur(sumaPendiente)}` : ' · todo cobrado')}
+          + (sumaFalta > 0 ? ` · falta por cobrar ${eur(sumaFalta)}` : '')
+          + (sumaAFavor > 0 ? ` · ${eur(sumaAFavor)} cobrados de más` : '')
+          + (!sumaFalta && !sumaAFavor ? ' · todo cobrado' : '')}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setShowCalendario(true)}
@@ -172,6 +183,13 @@ export default function Reservations() {
                       <span className={`font-semibold ${vencida && pending > 0.005 ? 'text-red-600' : 'text-amber-700'}`}>
                         {eur(pending)}
                       </span>
+                    ) : pending < -0.005 ? (
+                      /* Han pagado de más: no es un pendiente en negativo, es
+                         dinero que queda a favor del cliente y hay que devolver
+                         o descontar de la siguiente. Se dice con esas palabras. */
+                      <span className="font-semibold text-blue-700" title="Cobrado de más: queda a favor del cliente">
+                        +{eur(-pending)} a favor
+                      </span>
                     ) : (
                       <span className="text-green-600">—</span>
                     )}
@@ -205,9 +223,10 @@ export default function Reservations() {
                 <td className="py-3 px-4 text-right tabular-nums">{eur(suma.total)}</td>
                 <td className="py-3 px-4 text-right tabular-nums text-slate-600">{eur(suma.cobrado)}</td>
                 <td className="py-3 px-4 text-right tabular-nums">
-                  {sumaPendiente > 0.005
-                    ? <span className="text-amber-700">{eur(sumaPendiente)}</span>
-                    : <span className="text-green-600">—</span>}
+                  {sumaFalta > 0 && <span className="text-amber-700">{eur(sumaFalta)}</span>}
+                  {sumaFalta > 0 && sumaAFavor > 0 && <br />}
+                  {sumaAFavor > 0 && <span className="text-blue-700 text-xs">+{eur(sumaAFavor)} a favor</span>}
+                  {!sumaFalta && !sumaAFavor && <span className="text-green-600">—</span>}
                 </td>
                 <td className="py-3 px-4" colSpan={3}></td>
               </tr>
