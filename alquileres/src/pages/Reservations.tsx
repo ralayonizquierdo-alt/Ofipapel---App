@@ -59,6 +59,21 @@ export default function Reservations() {
 
   const years = [...new Set(reservations.map(r => r.checkIn.slice(0, 4)))].sort((a, b) => b.localeCompare(a))
 
+  // Sumas de lo que se está viendo, no del total de la base: el filtro de
+  // apartamento y año está justo encima, y lo que se quiere es cuadrar ese
+  // trozo contra el Excel sin ir sumando las filas a mano.
+  const suma = filtered.reduce((a, r) => {
+    const cobrado = payments
+      .filter(p => p.reservationId === r.id && p.received)
+      .reduce((x, p) => x + p.amount, 0)
+    return {
+      noches: a.noches + (r.status === 'cancelada' ? 0 : r.nights),
+      total: a.total + (r.status === 'cancelada' ? 0 : r.total),
+      cobrado: a.cobrado + cobrado,
+    }
+  }, { noches: 0, total: 0, cobrado: 0 })
+  const sumaPendiente = Math.round((suma.total - suma.cobrado) * 100) / 100
+
   function getAptName(id: string) { return apartments.find(a => a.id === id)?.name || id }
   function getPaid(r: Reservation) {
     return payments.filter(p => p.reservationId === r.id && p.received).reduce((s, p) => s + p.amount, 0)
@@ -75,7 +90,8 @@ export default function Reservations() {
     <div className="p-6">
       <PageHeader
         title="Reservas"
-        subtitle={`${filtered.length} reservas`}
+        subtitle={`${filtered.length} reservas · ${suma.noches} noches · ${eur(suma.total)}`
+          + (sumaPendiente > 0.005 ? ` · falta por cobrar ${eur(sumaPendiente)}` : ' · todo cobrado')}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setShowCalendario(true)}
@@ -176,9 +192,27 @@ export default function Reservations() {
               )
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={10} className="py-8 text-center text-slate-400 text-sm">No hay reservas</td></tr>
+              <tr><td colSpan={11} className="py-8 text-center text-slate-400 text-sm">No hay reservas</td></tr>
             )}
           </tbody>
+          {filtered.length > 0 && (
+            <tfoot className="border-t-2 border-slate-300 bg-slate-50">
+              <tr className="font-semibold text-slate-800">
+                <td className="py-3 px-4">TOTAL · {filtered.length} reservas</td>
+                <td className="py-3 px-4" colSpan={2}></td>
+                <td className="py-3 px-4 text-slate-600">{suma.noches}N</td>
+                <td className="py-3 px-4"></td>
+                <td className="py-3 px-4 text-right tabular-nums">{eur(suma.total)}</td>
+                <td className="py-3 px-4 text-right tabular-nums text-slate-600">{eur(suma.cobrado)}</td>
+                <td className="py-3 px-4 text-right tabular-nums">
+                  {sumaPendiente > 0.005
+                    ? <span className="text-amber-700">{eur(sumaPendiente)}</span>
+                    : <span className="text-green-600">—</span>}
+                </td>
+                <td className="py-3 px-4" colSpan={3}></td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 

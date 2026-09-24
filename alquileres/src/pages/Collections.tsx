@@ -13,7 +13,13 @@ const QUARTERS = [
   { q: 4, months: [10, 11, 12], label: '4T (Oct–Dic)' },
 ]
 
+const TODOS_LOS_MESES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+/** Valor del selector de periodo que enseña los doce meses en una sola tabla. */
+const ANUAL = -1
+
 type SortBy = 'nombre' | 'importe'
+/** Un bloque de la pantalla: un trimestre, un mes suelto o el año entero. */
+type Bloque = { key: string; months: number[]; label: string; corto: string; totalLabel: string }
 
 export default function Collections() {
   const { reservations, payments, apartments: allApartments } = useData()
@@ -23,6 +29,8 @@ export default function Collections() {
   /** 0 = todos. Al elegir mes, el trimestre se ajusta solo al que lo contiene. */
   const [filterMes, setFilterMes] = useState<number>(0)
   const [sortBy, setSortBy] = useState<SortBy>('nombre')
+  /** '' = todos. Un solo apartamento es como se cuadra contra el Excel. */
+  const [filterApt, setFilterApt] = useState('')
 
   const years = [...new Set(payments.map(p => p.paymentDate?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
 
@@ -45,7 +53,22 @@ export default function Collections() {
     return [...apts].sort((a, b) => getQuarterTotal(b.id, months) - getQuarterTotal(a.id, months))
   }
 
-  const yearTotal = apartments.reduce((s, a) =>
+  // Todo lo que se enseña y se suma respeta el apartamento elegido: si se está
+  // mirando el 104, el total de abajo tiene que ser el del 104 y no el de la casa.
+  const visibleApts = filterApt ? apartments.filter(a => a.id === filterApt) : apartments
+
+  // Qué tablas se pintan. Un mes elegido manda sobre el trimestre, y «todos los
+  // meses» pone los doce en una sola fila, que es como está el Excel.
+  const bloques: Bloque[] = filterMes
+    ? [{ key: `m${filterMes}`, months: [filterMes], label: `${MONTH_NAMES_ES[filterMes - 1]} ${year}`,
+         corto: MONTH_NAMES_ES[filterMes - 1], totalLabel: 'TOTAL MES' }]
+    : filterQ === ANUAL
+      ? [{ key: 'anual', months: TODOS_LOS_MESES, label: `Todos los meses de ${year}`,
+           corto: 'AÑO', totalLabel: 'TOTAL AÑO' }]
+      : (filterQ ? QUARTERS.filter(qt => qt.q === filterQ) : QUARTERS).map(qt => ({
+          key: `q${qt.q}`, months: qt.months, label: qt.label, corto: `${qt.q}T`, totalLabel: 'TRIMESTRE' }))
+
+  const yearTotal = visibleApts.reduce((s, a) =>
     s + QUARTERS.reduce((q, qt) => q + getQuarterTotal(a.id, qt.months), 0), 0)
 
   /**
@@ -57,7 +80,8 @@ export default function Collections() {
    */
   const hoy = today()
   const porCobrar = reservations
-    .filter(r => r.status !== 'cancelada' && r.checkIn.startsWith(String(year)))
+    .filter(r => r.status !== 'cancelada' && r.checkIn.startsWith(String(year))
+      && (!filterApt || r.apartmentId === filterApt))
     .map(r => {
       const cobrado = payments
         .filter(p => p.reservationId === r.id && p.received)
@@ -104,19 +128,10 @@ export default function Collections() {
     rows.push([`Cobros por Trimestres — ${year}`])
     rows.push([])
 
-    // Con un mes elegido solo se enseña su trimestre, y dentro solo ese mes: el
-  // resto de columnas sobran y hacían falta para poder mirar un mes suelto.
-  const visibleQuarters = (filterMes
-    ? QUARTERS.filter(qt => qt.months.includes(filterMes))
-    : filterQ ? QUARTERS.filter(qt => qt.q === filterQ) : QUARTERS
-  ).map(qt => filterMes
-    ? { ...qt, months: [filterMes], label: `${MONTH_NAMES_ES[filterMes - 1]} ${year}` }
-    : qt)
-
-    for (const { months, label } of visibleQuarters) {
+    for (const { months, label, corto } of bloques) {
       rows.push([label])
       rows.push(['Apartamento', ...months.map(m => MONTH_NAMES_ES[m - 1]), 'Total trimestre', 'IGIC 7%', 'Total con IGIC'])
-      const sorted = sortApartments(apartments, months)
+      const sorted = sortApartments(visibleApts, months)
       for (const apt of sorted) {
         const monthAmounts = months.map(m => getMonthAmount(apt.id, m))
         const total = monthAmounts.reduce((s, a) => s + a, 0)
@@ -124,17 +139,17 @@ export default function Collections() {
         const igic = calcIGIC(total)
         rows.push([apt.name, ...monthAmounts.map(fmt), fmt(total), fmt(igic), fmt(total + igic)])
       }
-      const qTotal = apartments.reduce((s, a) => s + getQuarterTotal(a.id, months), 0)
+      const qTotal = visibleApts.reduce((s, a) => s + getQuarterTotal(a.id, months), 0)
       const qIGIC = calcIGIC(qTotal)
-      rows.push(['TOTAL ' + label.split(' ')[0],
-        ...months.map(m => fmt(apartments.reduce((s, a) => s + getMonthAmount(a.id, m), 0))),
+      rows.push(['TOTAL ' + corto,
+        ...months.map(m => fmt(visibleApts.reduce((s, a) => s + getMonthAmount(a.id, m), 0))),
         fmt(qTotal), fmt(qIGIC), fmt(qTotal + qIGIC)])
       rows.push([])
     }
 
     rows.push(['Resumen anual ' + year])
     rows.push(['Apartamento', 'Transferencia', 'Efectivo', 'Total', 'IGIC 7%', 'Total con IGIC'])
-    for (const apt of apartments) {
+    for (const apt of visibleApts) {
       const { transferencia, efectivo, total } = getAnnualBreakdown(apt.id)
       if (total === 0) continue
       const igic = calcIGIC(total)
@@ -148,7 +163,7 @@ export default function Collections() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `cobros_${year}${filterQ ? `_${filterQ}T` : ''}.csv`
+    a.download = `cobros_${year}${filterQ > 0 ? `_${filterQ}T` : ''}${filterMes ? `_${MONTH_NAMES_ES[filterMes - 1]}` : ''}${filterApt ? `_${filterApt}` : ''}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -156,15 +171,6 @@ export default function Collections() {
   function handlePrint() {
     window.print()
   }
-
-  // Con un mes elegido solo se enseña su trimestre, y dentro solo ese mes: el
-  // resto de columnas sobran y hacían falta para poder mirar un mes suelto.
-  const visibleQuarters = (filterMes
-    ? QUARTERS.filter(qt => qt.months.includes(filterMes))
-    : filterQ ? QUARTERS.filter(qt => qt.q === filterQ) : QUARTERS
-  ).map(qt => filterMes
-    ? { ...qt, months: [filterMes], label: `${MONTH_NAMES_ES[filterMes - 1]} ${year}` }
-    : qt)
 
   return (
     <div className="p-6">
@@ -188,13 +194,19 @@ export default function Collections() {
             </select>
             <select value={filterQ} onChange={e => { setFilterQ(Number(e.target.value)); setFilterMes(0) }}
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-              <option value={0}>Todos los trimestres</option>
+              <option value={0}>Trimestres (4 tablas)</option>
+              <option value={ANUAL}>Todos los meses (una tabla)</option>
               {QUARTERS.map(qt => <option key={qt.q} value={qt.q}>{qt.label}</option>)}
             </select>
             <select value={filterMes} onChange={e => { setFilterMes(Number(e.target.value)); setFilterQ(0) }}
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
               <option value={0}>Todos los meses</option>
               {MONTH_NAMES_ES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            </select>
+            <select value={filterApt} onChange={e => setFilterApt(e.target.value)}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+              <option value="">Todos los apartamentos</option>
+              {apartments.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
             <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)}
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
@@ -264,13 +276,13 @@ export default function Collections() {
       )}
 
       <div className="space-y-6" id="collections-screen">
-        {visibleQuarters.map(({ q, months, label }) => {
-          const sorted = sortApartments(apartments, months)
-          const qTotal = apartments.reduce((s, a) => s + getQuarterTotal(a.id, months), 0)
+        {bloques.map(({ key, months, label, corto, totalLabel }) => {
+          const sorted = sortApartments(visibleApts, months)
+          const qTotal = visibleApts.reduce((s, a) => s + getQuarterTotal(a.id, months), 0)
           const qIGIC = calcIGIC(qTotal)
           const qWithIGIC = qTotal + qIGIC
           return (
-            <div key={q} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div key={key} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
                 <h3 className="font-semibold text-white">{label}</h3>
                 <div className="text-right">
@@ -289,7 +301,7 @@ export default function Collections() {
                         </th>
                       ))}
                       <th className="text-right py-2.5 px-4 font-semibold text-slate-700 bg-slate-100">
-                        {filterMes ? 'TOTAL MES' : 'TRIMESTRE'}
+                        {totalLabel}
                       </th>
                       <th className="text-right py-2.5 px-4 font-medium text-slate-500">IGIC 7%</th>
                       <th className="text-right py-2.5 px-4 font-medium text-slate-700 bg-amber-50">TOTAL</th>
@@ -324,9 +336,9 @@ export default function Collections() {
                   </tbody>
                   <tfoot className="border-t-2 border-slate-300 bg-slate-50">
                     <tr>
-                      <td className="py-3 px-4 font-semibold text-slate-700">TOTAL {label.split(' ')[0]}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-700">TOTAL {corto}</td>
                       {months.map(m => {
-                        const mTotal = apartments.reduce((s, a) => s + getMonthAmount(a.id, m), 0)
+                        const mTotal = visibleApts.reduce((s, a) => s + getMonthAmount(a.id, m), 0)
                         return (
                           <td key={m} className="py-3 px-4 text-right font-semibold text-slate-700 whitespace-nowrap">
                             {mTotal > 0 ? `${mTotal.toLocaleString('es-ES')} €` : '—'}
@@ -368,7 +380,7 @@ export default function Collections() {
                 </tr>
               </thead>
               <tbody>
-                {apartments.map(apt => {
+                {visibleApts.map(apt => {
                   const { transferencia, efectivo, total } = getAnnualBreakdown(apt.id)
                   if (total === 0) return null
                   const igic = calcIGIC(total)
@@ -388,10 +400,10 @@ export default function Collections() {
                 <tr>
                   <td className="py-3 px-4 font-semibold text-slate-700">TOTAL ANUAL</td>
                   <td className="py-3 px-4 text-right font-bold text-blue-700 whitespace-nowrap">
-                    {apartments.reduce((s, a) => s + getAnnualBreakdown(a.id).transferencia, 0).toLocaleString('es-ES')} €
+                    {visibleApts.reduce((s, a) => s + getAnnualBreakdown(a.id).transferencia, 0).toLocaleString('es-ES')} €
                   </td>
                   <td className="py-3 px-4 text-right font-bold text-green-700 whitespace-nowrap">
-                    {apartments.reduce((s, a) => s + getAnnualBreakdown(a.id).efectivo, 0).toLocaleString('es-ES')} €
+                    {visibleApts.reduce((s, a) => s + getAnnualBreakdown(a.id).efectivo, 0).toLocaleString('es-ES')} €
                   </td>
                   <td className="py-3 px-4 text-right font-bold text-slate-900 whitespace-nowrap">{yearTotal.toLocaleString('es-ES')} €</td>
                   <td className="py-3 px-4 text-right font-semibold text-slate-600 whitespace-nowrap">{calcIGIC(yearTotal).toLocaleString('es-ES')} €</td>
