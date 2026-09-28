@@ -1,5 +1,5 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
-import { storage } from './firebase'
+import { doc, getDoc, deleteDoc, writeBatch } from 'firebase/firestore'
+import { db } from './firebase'
 
 /**
  * Guarda el papel, no solo la cifra.
@@ -9,81 +9,188 @@ import { storage } from './firebase'
  * documento no quedaba en ninguna parte, así que el día que la asesoría o
  * Hacienda pidan el respaldo de un cobro no había nada que enseñar.
  *
- * Aquí el fichero se sube tal cual a Firebase Storage y se devuelve un enlace
- * permanente que se guarda junto al cobro y en el registro de subidas.
+ * ─── Por qué en Firestore y no en Firebase Storage ──────────────────────────
+ * Storage sería lo natural, pero Google dejó de darlo en el plan gratuito: al
+ * activarlo pide tarjeta. Firestore, que es donde ya viven las reservas y los
+ * cobros, sí entra en el plan de siempre, así que el justificante se guarda
+ * ahí mismo. No hace falta activar nada, ni desplegar reglas nuevas, ni pagar.
+ *
+ * ─── Cómo ───────────────────────────────────────────────────────────────────
+ * Un documento de Firestore admite 1 MB, y una foto de móvil pesa más, así que:
+ *
+ *   · Las fotos se encogen antes de guardarlas (1.600 px de lado y JPEG). Una
+ *     foto de 4 MB se queda en 150-300 KB y el recibo se sigue leyendo.
+ *   · El fichero se parte en trozos de 700.000 caracteres, cada uno en su
+ *     propio documento. Los trozos van en la MISMA colección, no en una
+ *     subcolección: las reglas de Firestore ya cubren las colecciones de
+ *     primer nivel y así no hay que volver a desplegarlas.
+ *
+ * Lo que se guarda junto al cobro es `firestore:<id>`, no una URL: el fichero
+ * se arma al vuelo cuando alguien lo pide, con `abreJustificante`.
  */
 
 /** Lo que se guarda del justificante, tanto en el cobro como en el registro. */
 export interface Justificante {
-  /** Enlace de descarga, permanente mientras el fichero exista. */
+  /** Dónde está: `firestore:<id>`. No es una URL, se abre con abreJustificante. */
   url: string
-  /** Ruta dentro del almacén, para poder borrarlo si hiciera falta. */
+  /** El id, para poder borrarlo si hiciera falta. */
   ruta: string
   /** Nombre original, que es como lo reconoce quien lo subió. */
   nombre: string
-  /** Bytes, para poder avisar si algo viene raro. */
+  /** Bytes que ocupa ya guardado (después de encoger, si era una foto). */
   tamano: number
   tipo: string
 }
 
-/** Más de esto no es un justificante, es otra cosa. */
-export const TAMANO_MAXIMO = 15 * 1024 * 1024
+/** Más de esto no es un justificante de una transferencia, es otra cosa. */
+export const TAMANO_MAXIMO = 8 * 1024 * 1024
+
+/** Trozo de texto que cabe de sobra en un documento de Firestore (límite: 1 MB). */
+const TROZO = 700_000
+
+/** A partir de aquí una foto se encoge antes de guardarla. */
+const LADO_MAXIMO = 1600
+const CALIDAD = 0.72
+
+export const COLECCION = 'justificantes'
 
 export class ErrorJustificante extends Error {}
 
-/** Quita acentos, espacios y todo lo que dé guerra en una URL. */
-function nombreLimpio(nombre: string): string {
-  return nombre
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^A-Za-z0-9._-]+/g, '-')
-    .replace(/-+/g, '-')
-    .slice(-80)
+/**
+ * Encoge una foto hasta que quepa sin dejar de leerse.
+ *
+ * Solo toca imágenes; un PDF se guarda tal cual, que ya viene ligero y
+ * recomprimirlo no se puede hacer en el navegador sin estropearlo.
+ */
+async function encoge(fichero: File): Promise<Blob> {
+  if (!fichero.type.startsWith('image/')) return fichero
+  try {
+    const bitmap = await createImageBitmap(fichero)
+    const escala = Math.min(1, LADO_MAXIMO / Math.max(bitmap.width, bitmap.height))
+    const ancho = Math.round(bitmap.width * escala)
+    const alto = Math.round(bitmap.height * escala)
+    const lienzo = document.createElement('canvas')
+    lienzo.width = ancho
+    lienzo.height = alto
+    lienzo.getContext('2d')!.drawImage(bitmap, 0, 0, ancho, alto)
+    const jpeg = await new Promise<Blob | null>(r => lienzo.toBlob(r, 'image/jpeg', CALIDAD))
+    bitmap.close()
+    // Si encoger no mejora nada (un JPEG ya pequeño), se deja el original.
+    return jpeg && jpeg.size < fichero.size ? jpeg : fichero
+  } catch {
+    return fichero
+  }
+}
+
+/** El contenido en base64, que es como viaja dentro de un documento. */
+function aBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader()
+    lector.onerror = () => reject(new ErrorJustificante('No se ha podido leer el fichero.'))
+    lector.onload = () => {
+      const s = String(lector.result)
+      resolve(s.slice(s.indexOf(',') + 1))
+    }
+    lector.readAsDataURL(blob)
+  })
+}
+
+function troceado(texto: string): string[] {
+  const trozos: string[] = []
+  for (let i = 0; i < texto.length; i += TROZO) trozos.push(texto.slice(i, i + TROZO))
+  return trozos
 }
 
 /**
- * Sube un justificante y devuelve dónde ha quedado.
+ * Guarda un justificante y devuelve dónde ha quedado.
  *
- * La ruta lleva el año delante para que el almacén quede ordenado por
- * ejercicio, que es como se buscan estas cosas cuando las piden.
+ * Se escribe todo de una vez: si algo falla a mitad no queda un justificante
+ * cojo, con la ficha guardada y los trozos a medias.
  */
 export async function subeJustificante(fichero: File, fecha?: string): Promise<Justificante> {
   if (fichero.size > TAMANO_MAXIMO) {
     throw new ErrorJustificante(
-      `«${fichero.name}» ocupa ${(fichero.size / 1024 / 1024).toFixed(1)} MB y el máximo son 15 MB.`)
+      `«${fichero.name}» ocupa ${tamanoLegible(fichero.size)} y el máximo son ${tamanoLegible(TAMANO_MAXIMO)}.`)
   }
+
+  const contenido = await encoge(fichero)
+  const tipo = contenido === (fichero as Blob) ? (fichero.type || 'application/octet-stream') : 'image/jpeg'
+  const datos = await aBase64(contenido)
+  const trozos = troceado(datos)
+
+  const id = `j${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
   const anio = (fecha || new Date().toISOString()).slice(0, 4)
-  const sello = Date.now().toString(36)
-  const ruta = `justificantes/${anio}/${sello}-${nombreLimpio(fichero.name)}`
+
   try {
-    const destino = ref(storage, ruta)
-    await uploadBytes(destino, fichero, { contentType: fichero.type || 'application/octet-stream' })
-    return {
-      url: await getDownloadURL(destino),
-      ruta,
-      nombre: fichero.name,
-      tamano: fichero.size,
-      tipo: fichero.type || '',
-    }
-  } catch (e) {
-    // El caso más probable es que Storage no esté activado todavía en el
-    // proyecto de Firebase. Se dice tal cual en vez de un error de librería.
-    const codigo = (e as { code?: string })?.code ?? ''
-    if (codigo.includes('unauthorized') || codigo.includes('unauthenticated')) {
-      throw new ErrorJustificante(
-        'El almacén de justificantes no acepta la subida. Hay que activar Storage en Firebase '
-        + 'y desplegar storage.rules.')
-    }
+    const lote = writeBatch(db)
+    lote.set(doc(db, COLECCION, id), {
+      id, nombre: fichero.name, tipo, anio,
+      tamano: contenido.size, partes: trozos.length,
+      creado: new Date().toISOString(),
+    })
+    trozos.forEach((t, i) => lote.set(doc(db, COLECCION, `${id}__p${i}`), { datos: t }))
+    await lote.commit()
+  } catch {
     throw new ErrorJustificante(
       'No se ha podido guardar el justificante. El cobro sí se ha anotado; el documento no.')
   }
+
+  return { url: `firestore:${id}`, ruta: id, nombre: fichero.name, tamano: contenido.size, tipo }
 }
 
-/** Borra un justificante del almacén. Solo se usa al deshacer una subida. */
-export async function borraJustificante(ruta: string): Promise<void> {
+/** Rearma el fichero guardado. Devuelve null si ya no está. */
+export async function leeJustificante(idOUrl: string): Promise<{ blob: Blob; nombre: string } | null> {
+  const id = idOUrl.replace(/^firestore:/, '')
+  const ficha = await getDoc(doc(db, COLECCION, id))
+  if (!ficha.exists()) return null
+  const { nombre, tipo, partes } = ficha.data() as { nombre: string; tipo: string; partes: number }
+
+  const trozos = await Promise.all(
+    Array.from({ length: partes }, (_, i) => getDoc(doc(db, COLECCION, `${id}__p${i}`))))
+  if (trozos.some(t => !t.exists())) return null
+
+  const base64 = trozos.map(t => (t.data() as { datos: string }).datos).join('')
+  const binario = atob(base64)
+  const bytes = new Uint8Array(binario.length)
+  for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i)
+  return { blob: new Blob([bytes], { type: tipo }), nombre }
+}
+
+/**
+ * Abre el justificante en otra pestaña; si el navegador lo bloquea, lo descarga.
+ *
+ * Es lo que hay detrás del enlace del registro: el fichero no vive en una URL,
+ * se arma aquí con los trozos guardados.
+ */
+export async function abreJustificante(idOUrl: string): Promise<void> {
+  const doc_ = await leeJustificante(idOUrl)
+  if (!doc_) throw new ErrorJustificante('Ese justificante ya no está guardado.')
+  const url = URL.createObjectURL(doc_.blob)
+  const ventana = window.open(url, '_blank', 'noopener')
+  if (!ventana) {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = doc_.nombre
+    a.click()
+  }
+  // Se suelta tarde a propósito: si se revoca al momento, la pestaña recién
+  // abierta se queda sin nada que enseñar.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
+/** Borra un justificante y sus trozos. Solo se usa al deshacer una subida. */
+export async function borraJustificante(idOUrl: string): Promise<void> {
+  const id = idOUrl.replace(/^firestore:/, '')
   try {
-    await deleteObject(ref(storage, ruta))
+    const ficha = await getDoc(doc(db, COLECCION, id))
+    const partes = ficha.exists() ? (ficha.data() as { partes?: number }).partes ?? 0 : 0
+    const lote = writeBatch(db)
+    lote.delete(doc(db, COLECCION, id))
+    for (let i = 0; i < partes; i++) lote.delete(doc(db, COLECCION, `${id}__p${i}`))
+    await lote.commit()
   } catch {
-    // Que no exista ya es el resultado que se buscaba.
+    // Que no esté ya es el resultado que se buscaba.
+    await deleteDoc(doc(db, COLECCION, id)).catch(() => {})
   }
 }
 

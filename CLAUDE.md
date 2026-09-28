@@ -136,10 +136,13 @@ el repo:
   para Firestore, Firebase Authentication y Firebase Storage. Requiere activar el
   proveedor "Anonymous" en Firebase Console → Authentication → Sign-in method y
   desplegar `alquileres/firestore.rules` para que las reglas de acceso
-  estén realmente activas. Para archivar los justificantes de cobro hace falta
-  además **activar Storage** (Build → Storage → Comenzar) y desplegar
-  `alquileres/storage.rules`; sin eso la app funciona igual, solo avisa de que
-  el documento no se ha podido guardar y el cobro se anota sin papel.
+  estén realmente activas. Los justificantes de cobro **no** usan Firebase
+  Storage: Google lo sacó del plan gratuito y al activarlo pide tarjeta. Se
+  guardan en Firestore, troceados en documentos de la colección
+  `justificantes` (`alquileres/src/lib/justificantes.ts`), así que no hay nada
+  que activar ni reglas nuevas que desplegar — los trozos van en la misma
+  colección de primer nivel a propósito, porque `firestore.rules` no cubre
+  subcolecciones.
 - `FIREFLY_CLIENT_ID` / `FIREFLY_CLIENT_SECRET` (opcionales, no configuradas
   todavía) — credenciales OAuth Server-to-Server de Adobe Developer Console
   para `design-studio/scripts/firefly-generate.js`. Ver `design-studio/README.md`.

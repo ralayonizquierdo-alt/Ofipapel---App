@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Download, History, Paperclip } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { ORIGEN_LABEL, type ImportLog, type OrigenSubida } from '../types'
+import { abreJustificante } from '../lib/justificantes'
 import { rolDe, usuarioActual } from '../lib/auth'
 import PageHeader from '../components/ui/PageHeader'
 
@@ -172,14 +173,17 @@ function Entrada({ log, resumen }: { log: ImportLog; resumen?: string }) {
               {log.fileName}
             </span>
           )}
-          {/* El documento guardado. Se abre en otra pestaña, no se descarga a
-              la fuerza: casi siempre es un PDF y el navegador ya lo enseña. */}
+          {/* El documento guardado. No es una URL: el fichero vive troceado
+              en la base de datos y se arma al pincharlo. */}
           {log.justificanteUrl && (
-            <a href={log.justificanteUrl} target="_blank" rel="noopener noreferrer"
-              className="text-xs inline-flex items-center gap-1 px-2 py-0.5 rounded border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100">
+            <button
+              onClick={() => abreJustificante(log.justificanteUrl!)
+                .catch(e => alert(e instanceof Error ? e.message : 'No se ha podido abrir el justificante.'))}
+              title="Abrir el documento guardado"
+              className="text-xs inline-flex items-center gap-1 px-2 py-0.5 rounded border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 cursor-pointer">
               <Paperclip size={11} />
               {log.justificanteNombre ? log.justificanteNombre.slice(0, 28) : 'ver justificante'}
-            </a>
+            </button>
           )}
         </div>
         <div className="text-xs text-slate-500 text-right shrink-0">
