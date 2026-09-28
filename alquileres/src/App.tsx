@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, FileSpreadsheet, History, Sparkles, ClipboardPaste, Settings, Menu, X, KeyRound, LogOut
+  LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, FileSpreadsheet, History, Sparkles, ClipboardPaste, Settings, Menu, X, KeyRound, LogOut,
+  PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import bgTrebol from './assets/bg-trebol.png'
@@ -55,7 +56,7 @@ const navDe = (rol: Rol) => NAV.filter(n => n.roles.includes(rol))
  */
 const INICIO: Record<Rol, string> = { gestion: '/dashboard', gastos: '/subir' }
 
-function NavItems({ rol, alerts, onClose }: { rol: Rol; alerts: number; onClose?: () => void }) {
+function NavItems({ rol, alerts, onClose, plegado }: { rol: Rol; alerts: number; onClose?: () => void; plegado?: boolean }) {
   return (
     <>
       {navDe(rol).map(({ to, icon: Icon, label }) => (
@@ -63,18 +64,21 @@ function NavItems({ rol, alerts, onClose }: { rol: Rol; alerts: number; onClose?
           key={to}
           to={to}
           onClick={onClose}
+          title={plegado ? label : undefined}
           className={({ isActive }) =>
-            `flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-              isActive
+            `flex items-center gap-2.5 py-2.5 rounded-lg text-sm transition-colors ${
+              plegado ? 'px-0 justify-center' : 'px-3'
+            } ${isActive
                 ? 'bg-blue-600 text-white'
                 : 'text-slate-300 hover:bg-slate-800 hover:text-white'
             }`
           }
         >
-          <Icon size={16} />
-          {label}
+          <Icon size={16} className="shrink-0" />
+          {!plegado && label}
           {label === 'Dashboard' && alerts > 0 && (
-            <span className="ml-auto bg-amber-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+            <span className={`bg-amber-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold ${
+              plegado ? 'absolute top-1 right-1 w-4 h-4 text-[10px]' : 'ml-auto'}`}>
               {alerts}
             </span>
           )}
@@ -84,27 +88,47 @@ function NavItems({ rol, alerts, onClose }: { rol: Rol; alerts: number; onClose?
   )
 }
 
-function Sidebar({ rol, alerts, onChangePassword, onLogout }: { rol: Rol; alerts: number; onChangePassword: () => void; onLogout: () => void }) {
+/**
+ * El menú lateral, que se pliega a una tira de iconos.
+ *
+ * La pantalla de Cobros con los doce meses no cabe en un portátil con el menú
+ * abierto, y había que irse a la barra de desplazamiento para ver el último
+ * trimestre. Plegado quedan los iconos: se sigue viendo dónde estás y se sigue
+ * navegando con un clic, que es más de lo que daría esconderlo del todo.
+ */
+function Sidebar({ rol, alerts, plegado, onPlegar, onChangePassword, onLogout }: {
+  rol: Rol; alerts: number; plegado: boolean; onPlegar: () => void
+  onChangePassword: () => void; onLogout: () => void
+}) {
   return (
-    <aside className="w-56 min-h-screen flex flex-col shrink-0 relative overflow-hidden"
+    <aside className={`${plegado ? 'w-14' : 'w-56'} min-h-screen flex flex-col shrink-0 relative overflow-hidden transition-[width] duration-150`}
       style={{ backgroundImage: `url(${bgTrebol})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <div className="absolute inset-0 bg-slate-900/90 pointer-events-none" />
-      <div className="px-4 py-5 border-b border-slate-700 relative z-10">
-        <h1 className="text-white font-bold text-lg leading-tight">🏠 Alquileres</h1>
-        <p className="text-slate-400 text-xs mt-0.5">Gestión vacacional</p>
-      </div>
-      <nav className="flex-1 py-4 space-y-0.5 px-2 relative z-10">
-        <NavItems rol={rol} alerts={alerts} />
-      </nav>
-      <div className="px-4 py-3 border-t border-slate-700 space-y-1 relative z-10">
-        <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>
-        <button onClick={onChangePassword}
-          className="flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
-          <KeyRound size={13} /> Cambiar contraseña
+      <div className={`${plegado ? 'px-2' : 'px-4'} py-5 border-b border-slate-700 relative z-10 flex items-start gap-2`}>
+        {!plegado && (
+          <div className="flex-1 min-w-0">
+            <h1 className="text-white font-bold text-lg leading-tight">🏠 Alquileres</h1>
+            <p className="text-slate-400 text-xs mt-0.5">Gestión vacacional</p>
+          </div>
+        )}
+        <button onClick={onPlegar}
+          title={plegado ? 'Ver el menú' : 'Ocultar el menú (se gana sitio a lo ancho)'}
+          className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors mx-auto">
+          {plegado ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </button>
-        <button onClick={onLogout}
-          className="flex items-center gap-2 text-slate-400 hover:text-red-400 text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
-          <LogOut size={13} /> Cerrar sesión
+      </div>
+      <nav className={`flex-1 py-4 space-y-0.5 ${plegado ? 'px-1.5' : 'px-2'} relative z-10`}>
+        <NavItems rol={rol} alerts={alerts} plegado={plegado} />
+      </nav>
+      <div className={`${plegado ? 'px-1.5' : 'px-4'} py-3 border-t border-slate-700 space-y-1 relative z-10`}>
+        {!plegado && <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>}
+        <button onClick={onChangePassword} title="Cambiar contraseña"
+          className={`flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 rounded-lg hover:bg-slate-800 transition-colors ${plegado ? 'justify-center px-0' : 'px-2'}`}>
+          <KeyRound size={13} /> {!plegado && 'Cambiar contraseña'}
+        </button>
+        <button onClick={onLogout} title="Cerrar sesión"
+          className={`flex items-center gap-2 text-slate-400 hover:text-red-400 text-xs w-full py-1.5 rounded-lg hover:bg-slate-800 transition-colors ${plegado ? 'justify-center px-0' : 'px-2'}`}>
+          <LogOut size={13} /> {!plegado && 'Cerrar sesión'}
         </button>
       </div>
     </aside>
@@ -172,6 +196,14 @@ function Drawer({ rol, alerts, open, onClose, onChangePassword, onLogout }: { ro
 export default function App() {
   const { loading, reservations, payments } = useData()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  // Plegar el menú es una preferencia de quien usa el equipo, no del momento:
+  // quien trabaja en un portátil lo quiere plegado siempre, así que se recuerda.
+  const [menuPlegado, setMenuPlegado] = useState(() => {
+    try { return localStorage.getItem('alquileres:menu-plegado') === '1' } catch { return false }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('alquileres:menu-plegado', menuPlegado ? '1' : '0') } catch { /* modo privado */ }
+  }, [menuPlegado])
   // La sesión la mantiene Firebase Auth: sobrevive a la recarga por sí sola y,
   // a diferencia del login anterior, es la que da acceso real a los datos.
   const [currentUser, setCurrentUser] = useState<UsuarioApp | null>(null)
@@ -226,6 +258,8 @@ export default function App() {
           <Sidebar
             rol={rol}
             alerts={alertCount}
+            plegado={menuPlegado}
+            onPlegar={() => setMenuPlegado(v => !v)}
             onChangePassword={() => setShowChangePassword(true)}
             onLogout={() => { salir() }}
           />

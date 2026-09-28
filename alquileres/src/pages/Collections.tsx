@@ -327,6 +327,16 @@ export default function Collections() {
 
       <div className="space-y-6" id="collections-screen">
         {bloques.map(({ key, months, label, corto, totalLabel }) => {
+          // Doce meses no caben en un portátil con el ancho de siempre: se
+          // aprietan las celdas, se abrevian los meses y el apartamento pasa a
+          // su número, que es como lo llama todo el mundo y como está el Excel.
+          const apretada = months.length > 6
+          const celda = apretada ? 'py-2 px-1 text-xs' : 'py-2.5 px-4'
+          // Apretada, el € se repetiría doce veces por fila y es lo primero que
+          // sobra: se queda en los totales y se avisa en la cabecera.
+          const imp = (n: number) => apretada
+            ? n.toLocaleString('es-ES')
+            : `${n.toLocaleString('es-ES')} €`
           const sorted = sortApartments(visibleApts, months)
           const qTotal = visibleApts.reduce((s, a) => s + getQuarterTotal(a.id, months), 0)
           const qIGIC = calcIGIC(qTotal)
@@ -344,17 +354,19 @@ export default function Collections() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50">
-                      <th className="text-left py-2.5 px-4 font-medium text-slate-600 w-40">Apartamento</th>
+                      <th className={`text-left font-medium text-slate-600 ${celda} ${apretada ? 'w-16' : 'w-40'}`}>
+                        {apretada ? 'Apto. €' : 'Apartamento'}
+                      </th>
                       {months.map(m => (
-                        <th key={m} className="text-right py-2.5 px-4 font-medium text-slate-600">
-                          {MONTH_NAMES_ES[m - 1]}
+                        <th key={m} className={`text-right font-medium text-slate-600 ${celda}`}>
+                          {apretada ? MONTH_NAMES_ES[m - 1].slice(0, 3) : MONTH_NAMES_ES[m - 1]}
                         </th>
                       ))}
-                      <th className="text-right py-2.5 px-4 font-semibold text-slate-700 bg-slate-100">
-                        {totalLabel}
+                      <th className={`text-right font-semibold text-slate-700 bg-slate-100 ${celda}`}>
+                        {apretada ? totalLabel.replace('TOTAL ', '') : totalLabel}
                       </th>
-                      <th className="text-right py-2.5 px-4 font-medium text-slate-500">IGIC 7%</th>
-                      <th className="text-right py-2.5 px-4 font-medium text-slate-700 bg-amber-50">TOTAL</th>
+                      <th className={`text-right font-medium text-slate-500 ${celda}`}>IGIC</th>
+                      <th className={`text-right font-medium text-slate-700 bg-amber-50 ${celda}`}>TOTAL</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -365,44 +377,46 @@ export default function Collections() {
                       const igic = calcIGIC(total)
                       return (
                         <tr key={apt.id} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="py-2.5 px-4 font-medium text-slate-700 text-xs">{apt.name}</td>
+                          <td className={`font-medium text-slate-700 text-xs ${celda}`} title={apt.name}>
+                            {apretada ? apt.id : apt.name}
+                          </td>
                           {monthAmounts.map((amount, i) => (
-                            <td key={i} className="py-2.5 px-4 text-right text-slate-600 whitespace-nowrap">
-                              {amount > 0 ? `${amount.toLocaleString('es-ES')} €` : <span className="text-slate-300">—</span>}
+                            <td key={i} className={`text-right text-slate-600 whitespace-nowrap tabular-nums ${celda}`}>
+                              {amount > 0 ? imp(amount) : <span className="text-slate-300">—</span>}
                             </td>
                           ))}
-                          <td className="py-2.5 px-4 text-right font-bold text-slate-800 bg-slate-50 whitespace-nowrap">
-                            {total.toLocaleString('es-ES')} €
+                          <td className={`text-right font-bold text-slate-800 bg-slate-50 whitespace-nowrap tabular-nums ${celda}`}>
+                            {imp(total)}
                           </td>
-                          <td className="py-2.5 px-4 text-right text-slate-500 text-xs whitespace-nowrap">
-                            {igic.toLocaleString('es-ES')} €
+                          <td className={`text-right text-slate-500 text-xs whitespace-nowrap tabular-nums ${celda}`}>
+                            {imp(igic)}
                           </td>
-                          <td className="py-2.5 px-4 text-right font-semibold text-amber-700 bg-amber-50 text-xs whitespace-nowrap">
-                            {(total + igic).toLocaleString('es-ES')} €
+                          <td className={`text-right font-semibold text-amber-700 bg-amber-50 text-xs whitespace-nowrap tabular-nums ${celda}`}>
+                            {imp(total + igic)}
                           </td>
                         </tr>
                       )
                     })}
                   </tbody>
                   <tfoot className="border-t-2 border-slate-300 bg-slate-50">
-                    <tr>
-                      <td className="py-3 px-4 font-semibold text-slate-700">TOTAL {corto}</td>
+                    <tr className={apretada ? 'text-xs' : ''}>
+                      <td className={`font-semibold text-slate-700 ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>TOTAL{!apretada && ` ${corto}`}</td>
                       {months.map(m => {
                         const mTotal = visibleApts.reduce((s, a) => s + getMonthAmount(a.id, m), 0)
                         return (
-                          <td key={m} className="py-3 px-4 text-right font-semibold text-slate-700 whitespace-nowrap">
-                            {mTotal > 0 ? `${mTotal.toLocaleString('es-ES')} €` : '—'}
+                          <td key={m} className={`text-right font-semibold text-slate-700 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
+                            {mTotal > 0 ? imp(mTotal) : '—'}
                           </td>
                         )
                       })}
-                      <td className="py-3 px-4 text-right font-bold text-slate-900 bg-slate-100 whitespace-nowrap">
-                        {qTotal.toLocaleString('es-ES')} €
+                      <td className={`text-right font-bold text-slate-900 bg-slate-100 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
+                        {imp(qTotal)}
                       </td>
-                      <td className="py-3 px-4 text-right font-semibold text-slate-600 whitespace-nowrap">
-                        {qIGIC.toLocaleString('es-ES')} €
+                      <td className={`text-right font-semibold text-slate-600 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
+                        {imp(qIGIC)}
                       </td>
-                      <td className="py-3 px-4 text-right font-bold text-amber-700 bg-amber-50 whitespace-nowrap">
-                        {qWithIGIC.toLocaleString('es-ES')} €
+                      <td className={`text-right font-bold text-amber-700 bg-amber-50 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
+                        {imp(qWithIGIC)}
                       </td>
                     </tr>
                   </tfoot>
