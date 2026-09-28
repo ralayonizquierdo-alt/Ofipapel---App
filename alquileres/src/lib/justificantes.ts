@@ -42,8 +42,17 @@ export interface Justificante {
   tipo: string
 }
 
-/** Más de esto no es un justificante de una transferencia, es otra cosa. */
+/** Más de esto, ya guardado, no es un justificante de una transferencia. */
 export const TAMANO_MAXIMO = 8 * 1024 * 1024
+
+/**
+ * Tope de lo que se acepta leer de disco.
+ *
+ * Una foto se mide DESPUÉS de encogerla, no antes: los móviles sacan fotos de
+ * 9 o 12 MB y encogidas se quedan en unos cientos de KB. Medir antes rechazaba
+ * justo el caso más común.
+ */
+const TAMANO_MAXIMO_ORIGEN = 40 * 1024 * 1024
 
 /** Trozo de texto que cabe de sobra en un documento de Firestore (límite: 1 MB). */
 const TROZO = 700_000
@@ -62,7 +71,7 @@ export class ErrorJustificante extends Error {}
  * Solo toca imágenes; un PDF se guarda tal cual, que ya viene ligero y
  * recomprimirlo no se puede hacer en el navegador sin estropearlo.
  */
-async function encoge(fichero: File): Promise<Blob> {
+export async function encogeFoto(fichero: File): Promise<Blob> {
   if (!fichero.type.startsWith('image/')) return fichero
   try {
     const bitmap = await createImageBitmap(fichero)
@@ -108,12 +117,19 @@ function troceado(texto: string): string[] {
  * cojo, con la ficha guardada y los trozos a medias.
  */
 export async function subeJustificante(fichero: File, fecha?: string): Promise<Justificante> {
-  if (fichero.size > TAMANO_MAXIMO) {
+  const esFoto = fichero.type.startsWith('image/')
+  const tope = esFoto ? TAMANO_MAXIMO_ORIGEN : TAMANO_MAXIMO
+  if (fichero.size > tope) {
     throw new ErrorJustificante(
-      `«${fichero.name}» ocupa ${tamanoLegible(fichero.size)} y el máximo son ${tamanoLegible(TAMANO_MAXIMO)}.`)
+      `«${fichero.name}» ocupa ${tamanoLegible(fichero.size)} y el máximo son ${tamanoLegible(tope)}.`)
   }
 
-  const contenido = await encoge(fichero)
+  const contenido = await encogeFoto(fichero)
+  if (contenido.size > TAMANO_MAXIMO) {
+    throw new ErrorJustificante(
+      `«${fichero.name}» sigue ocupando ${tamanoLegible(contenido.size)} después de encogerlo `
+      + `y el máximo son ${tamanoLegible(TAMANO_MAXIMO)}.`)
+  }
   const tipo = contenido === (fichero as Blob) ? (fichero.type || 'application/octet-stream') : 'image/jpeg'
   const datos = await aBase64(contenido)
   const trozos = troceado(datos)
