@@ -368,7 +368,9 @@ function parserGenerico(lineas){
     if(!descripcion) return;
 
     const dtoEfectivo = precTarifa > 0 ? round2_((1 - precNeto/precTarifa) * 100) : 0;
-    filas.push(fila_({codigo, descripcion, cantidad, precioUnitario:precNeto, dto1:dtoEfectivo, importe:impTotal}));
+    // Precio U. siempre el de tarifa (el que trae la factura sin tocar);
+    // el descuento real hasta llegar al precio neto se guarda aparte.
+    filas.push(fila_({codigo, descripcion, cantidad, precioUnitario:precTarifa, dto1:dtoEfectivo, importe:impTotal}));
   });
   return filas;
 }
@@ -391,7 +393,9 @@ function parseApli(lineas){
     const last = tokens[n-1], prevLast = tokens[n-2];
     if(!DEC_RE.test(last) || !DEC_RE.test(prevLast)) return;
     const importe = parseDecComa(last);
-    const precioNeto = parseDecComa(prevLast);
+    // precioNeto (Prec.Neto de la factura) no se exporta: solo sirve para
+    // saber que esta línea es válida. Precio U. es siempre precTarifa, el
+    // precio de tarifa sin descontar, tal cual lo imprime la factura.
     let i = n-3;
     const decimales = [];
     while(i >= 0 && DEC_RE.test(tokens[i])){ decimales.unshift(tokens[i]); i--; }
@@ -402,9 +406,10 @@ function parseApli(lineas){
     if(descTokens.length && descTokens[descTokens.length-1] === '=') descTokens.pop();
     const descripcion = descTokens.join(' ').trim();
     if(!descripcion) return;
+    const precTarifa = parseDecComa(decimales[0]);
     const dtoPct = parseDecComa(decimales[1]);
     const dtoAdPct = decimales.length===3 ? parseDecComa(decimales[2]) : 0;
-    filas.push(fila_({codigo, descripcion, cantidad, precioUnitario:precioNeto, dto1:dtoPct, dto3:dtoAdPct, importe}));
+    filas.push(fila_({codigo, descripcion, cantidad, precioUnitario:precTarifa, dto1:dtoPct, dto3:dtoAdPct, importe}));
   });
   return filas;
 }
