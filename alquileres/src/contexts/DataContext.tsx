@@ -5,7 +5,7 @@ import { db, stripUndef } from '../lib/firebase'
 import { esSesionReal, observarSesion, usuarioActual } from '../lib/auth'
 import { nanoid } from '../lib/nanoid'
 import { DEFAULT_PRICES_2026 } from '../lib/priceCalc'
-import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice, DeletedRepair, IngresoMensual, OcupacionMensual, ReparacionMensual, ImportLog } from '../types'
+import type { Apartment, PriceEntry, Reservation, Payment, Repair, Expense, OfferPrice, DeletedRepair, IngresoMensual, OcupacionMensual, ReparacionMensual, ImportLog, AvisoRevisado } from '../types'
 
 // ─── Default seed data ────────────────────────────────────────────────────────
 
@@ -43,6 +43,8 @@ interface DataContextValue {
   repairTotals: ReparacionMensual[]
   /** Registro de volcados de Excel: qué fichero, cuándo y quién lo subió. */
   importLogs: ImportLog[]
+  /** Avisos de descuadre que ya se han mirado y dado por buenos. */
+  avisosRevisados: AvisoRevisado[]
 
   addApartment:    (data: Omit<Apartment, 'id'> & { id?: string }) => Apartment
   updateApartment: (id: string, data: Partial<Apartment>) => void
@@ -80,6 +82,8 @@ interface DataContextValue {
   }) => Promise<number>
   /** Deja constancia de un volcado de Excel. */
   anotaVolcado: (datos: Omit<ImportLog, 'id' | 'at' | 'by'>) => void
+  darPorBueno: (descuadreId: string, diferencia: number) => void
+  volverAAvisar: (descuadreId: string) => void
   /** Sustituye las reservas de esos años (y sus cobros) por las nuevas. */
   reemplazaReservas: (
     nuevas: Omit<Reservation, 'id' | 'createdAt'>[], anios: string[],
@@ -114,7 +118,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [occupancies, setOccupancies] = useState<OcupacionMensual[]>([])
   const [repairTotals, setRepairTotals] = useState<ReparacionMensual[]>([])
   const [importLogs, setImportLogs] = useState<ImportLog[]>([])
-  const [ready, setReady] = useState({ apartments:false, prices:false, reservations:false, payments:false, repairs:false, expenses:false, offerPrices:false, deletedRepairs:false, incomes:false, occupancies:false, repairTotals:false, importLogs:false })
+  const [avisosRevisados, setAvisosRevisados] = useState<AvisoRevisado[]>([])
+  const [ready, setReady] = useState({ apartments:false, prices:false, reservations:false, payments:false, repairs:false, expenses:false, offerPrices:false, deletedRepairs:false, incomes:false, occupancies:false, repairTotals:false, importLogs:false, avisosRevisados:false })
 
   const loading = !Object.values(ready).every(Boolean)
 
@@ -142,6 +147,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       onSnapshot(collection(db, 'occupancies'),    s => { setOccupancies(s.docs.map(d => d.data() as OcupacionMensual)); mark('occupancies') },   () => mark('occupancies')),
       onSnapshot(collection(db, 'repairTotals'),   s => { setRepairTotals(s.docs.map(d => d.data() as ReparacionMensual)); mark('repairTotals') },  () => mark('repairTotals')),
       onSnapshot(collection(db, 'importLogs'),     s => { setImportLogs(s.docs.map(d => d.data() as ImportLog));           mark('importLogs') },    () => mark('importLogs')),
+      onSnapshot(collection(db, 'reviewedAlerts'), s => { setAvisosRevisados(s.docs.map(d => d.data() as AvisoRevisado)); mark('avisosRevisados') }, () => mark('avisosRevisados')),
     ]
 
     return () => subs.forEach(u => u())
@@ -370,6 +376,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
    * un orden claro: primero se borra, luego se escribe. Quien la llama tiene
    * que haber avisado antes; aquí ya no se pregunta.
    */
+  /**
+   * Da por bueno un aviso de descuadre. Se guarda con la diferencia que tenía
+   * en ese momento: si cambia más adelante, vuelve a salir, porque ya no es el
+   * mismo asunto que alguien revisó.
+   */
+  function darPorBueno(descuadreId: string, diferencia: number) {
+    const item: AvisoRevisado = {
+      id: descuadreId,          // uno por aviso: darlo por bueno otra vez lo actualiza
+      descuadreId,
+      diferencia: Math.round(diferencia * 100) / 100,
+      at: new Date().toISOString(),
+      by: usuarioActual() ?? '¿?',
+    }
+    setDoc(doc(db, 'reviewedAlerts', item.id), stripUndef(item))
+  }
+
+  function volverAAvisar(descuadreId: string) {
+    deleteDoc(doc(db, 'reviewedAlerts', descuadreId))
+  }
+
   async function reemplazaReservas(
     nuevas: Omit<Reservation, 'id' | 'createdAt'>[], anios: string[],
   ): Promise<{ borradas: number; creadas: number }> {
@@ -436,14 +462,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      loading, apartments, prices, reservations, payments, repairs, expenses, offerPrices, incomes, occupancies, repairTotals, importLogs,
+      loading, apartments, prices, reservations, payments, repairs, expenses, offerPrices, incomes, occupancies, repairTotals, importLogs, avisosRevisados,
       deletedRepairs,
       addApartment, updateApartment, deleteApartment,
       addPrice, updatePrice, deletePrice,
       addReservation, updateReservation, deleteReservation,
       addPayment, updatePayment, deletePayment,
       addRepair, updateRepair, deleteRepair, deleteRepairWithAudit,
-      addExpense, updateExpense, deleteExpense, importExpenses, importIncomes, importOccupancies, importRepairTotals, purgeImported, anotaVolcado, reemplazaReservas,
+      addExpense, updateExpense, deleteExpense, importExpenses, importIncomes, importOccupancies, importRepairTotals, purgeImported, anotaVolcado, reemplazaReservas, darPorBueno, volverAAvisar,
       addOfferPrice, updateOfferPrice, deleteOfferPrice,
     }}>
       {children}
