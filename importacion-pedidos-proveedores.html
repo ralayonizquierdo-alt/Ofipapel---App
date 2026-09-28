@@ -1232,24 +1232,23 @@ function totalDohe(texto){
 // PAPERBLANKS: "Nº ISBN(13d) DESCRIPCION Pedidos Enviados Pendientes P.V.P
 // Precio.Neto Importe". La cantidad facturada es la de "Enviados" (no
 // "Pedidos": si hay pendientes de servir, Enviados puede ser menor o 0,
-// con Importe a 0 en ese caso). Precio U. es siempre el P.V.P. (precio de
-// tarifa sin descontar); el descuento se calcula aparte hasta llegar al
-// Precio Neto — igual que en el resto de proveedores, nunca se exporta el
-// precio ya descontado como si fuera el precio real.
+// con Importe a 0 en ese caso). El P.V.P. de esta factura NO es un precio
+// de tarifa con descuento negociado (como en APLI) — es solo el precio de
+// venta al público recomendado para revender, sin relación con lo que paga
+// Ofipapel. El precio real es el Precio Neto tal cual lo imprime la
+// factura, sin ningún descuento que calcular (Dto queda a 0).
 // La descripción a veces se parte en una línea extra sin números (p.ej.
 // "time", "/ Horizontal") cuando es muy larga — se pega a la fila anterior.
 function parsePaperblanks(lineas){
   const filas = [];
-  const RE = /^\d{1,3}\s+(\d{13})\s+(.+?)\s+\d+\s+(\d+)\s+\d+\s+(\d+,\d{2})\s+(\d+,\d{2})\s+(\d+,\d{2})$/;
+  const RE = /^\d{1,3}\s+(\d{13})\s+(.+?)\s+\d+\s+(\d+)\s+\d+\s+\d+,\d{2}\s+(\d+,\d{2})\s+(\d+,\d{2})$/;
   let ultimaFila = null;
   lineas.forEach(l=>{
     const m = l.match(RE);
     if(m){
-      const [,isbn,desc,enviados,pvp,precioNeto,importe] = m;
-      const p = parseDecComa(pvp), neto = parseDecComa(precioNeto);
-      const dto = p>0 ? round2_((1-neto/p)*100) : 0;
+      const [,isbn,desc,enviados,precioNeto,importe] = m;
       ultimaFila = fila_({codigo:isbn, ean:isbn, descripcion:desc.trim(), cantidad:parseInt(enviados,10),
-        precioUnitario:p, dto1:dto, importe:parseDecComa(importe)});
+        precioUnitario:parseDecComa(precioNeto), dto1:0, importe:parseDecComa(importe)});
       filas.push(ultimaFila);
     } else if(ultimaFila && l !== '--- PAGE BREAK ---' && !/\d/.test(l)){
       ultimaFila.descripcion = (ultimaFila.descripcion + ' ' + l.trim()).trim();
