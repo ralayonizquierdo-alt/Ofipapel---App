@@ -3311,18 +3311,20 @@ function _ejecutarArrastre(input){
       // Verificado en XML: H8, H9, H13, K13, J15, K15, H17, O17, I18, H20 son valores directos
       // Q23 es fórmula externa pero tiene valor cacheado
       // O17 = DEBE CaixaBank Cuenta (disposición póliza, negativo cuando hay salida)
+      // Columna M = HABER (traspasos entrantes), columna O = DEBE (traspasos salientes, negativo)
+      // v() devuelve 0 para celdas vacías, por lo que es seguro incluirlas siempre
       const rec = {
         fecha,
         luis_bbva:    v('H8'),
-        luis_sant:    v('H9'),
+        luis_sant:    v('H9')  + v('M9'),                    // M9 = HABER (traspaso recibido)
         bbva_ofip:    v('H13') + v('K13'),
         bbva_caja:    v('K13'),
-        sant_ico:     v('J15') + v('K15'),
+        sant_ico:     v('J15') + v('K15') + v('M15') + v('O15'), // M15 = HABER, O15 = DEBE
         sant_caja:    v('K15'),
-        caixa_cta:    v('H17') + v('O17'),
+        caixa_cta:    v('H17') + v('O17'),                   // O17 = DEBE (disposición póliza)
         caixa_pol:    v('I18'),
         caixa_disp:   v('J18'),
-        c7:           v('H20'),
+        c7:           v('H20') + v('O20'),                   // O20 = DEBE (traspaso saliente)
         caja_central: v('Q23'),
         notas: 'Importado desde Excel',
       };
