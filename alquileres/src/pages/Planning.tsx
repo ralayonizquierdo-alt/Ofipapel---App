@@ -225,8 +225,9 @@ export default function Planning() {
  *
  * Enseña lo que no cabe en la franja y lo que de verdad se pregunta uno
  * mirando el planning: qué días, cuántas noches, cuánto vale y si está
- * cobrada. Cuando han pagado de más, lo dice como saldo a favor en vez de
- * enseñar un «pendiente» en negativo, que no se entiende.
+ * cobrada. Cuando han pagado de más lo dice con esas palabras, en vez de
+ * enseñar un «pendiente» en negativo, que no se entiende. El sobrante no se
+ * devuelve ni se descuenta de nada: la estancia queda cuadrada.
  */
 function DetalleReserva({ res, nombre, cobrado, eur, onEditar, onClose }: {
   res: Reservation
@@ -271,7 +272,7 @@ function DetalleReserva({ res, nombre, cobrado, eur, onEditar, onClose }: {
         )}
         {saldo < -0.005 && (
           <p className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-sm font-semibold text-blue-800">
-            Pagado de más {eur(-saldo)} · queda a favor del cliente
+            Cuadrada, y pagaron {eur(-saldo)} de más
           </p>
         )}
         {Math.abs(saldo) <= 0.005 && res.total > 0 && (

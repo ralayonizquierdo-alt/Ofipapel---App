@@ -109,9 +109,10 @@ export default function Collections() {
   const porCobrar = saldos.filter(x => x.falta > 0.005)
   /**
    * Lo cobrado de más. Pasa a menudo —se paga un mes redondo, se adelanta de
-   * más— y hasta ahora no se veía en ninguna parte: la pantalla solo miraba
-   * lo que faltaba. Ese dinero está cobrado y es del cliente hasta que se le
-   * devuelve o se le descuenta de la siguiente estancia.
+   * más— y hasta ahora no se veía en ninguna parte, porque la pantalla solo
+   * miraba lo que faltaba. No se devuelve ni se descuenta de nada: la estancia
+   * queda cuadrada y el sobrante se queda en casa. Se enseña solo para saber
+   * de dónde salió cada euro cuando no cuadre con una reserva.
    */
   const aFavor = saldos.filter(x => x.falta < -0.005)
   const totalAFavor = Math.round(aFavor.reduce((s, x) => s - x.falta, 0) * 100) / 100
@@ -300,11 +301,11 @@ export default function Collections() {
         <div className="mb-6 bg-white rounded-xl shadow-sm border border-blue-200 overflow-hidden print:hidden">
           <div className="bg-blue-50 border-b border-blue-200 px-5 py-3">
             <p className="text-sm font-semibold text-blue-900">
-              Cobrado de más en {year}: {eur(totalAFavor)} · queda a favor del cliente
+              Cobrado de más en {year}: {eur(totalAFavor)}
             </p>
             <p className="text-xs text-blue-800/80 mt-0.5">
-              Para devolver, o para descontar de la siguiente estancia. El dinero ya entró y cuenta
-              en el mes en que se cobró; esto solo recuerda que sobra.
+              Estancias que se pagaron por encima de su importe. Están cuadradas y el sobrante se
+              queda; esto es solo para saber de dónde salió.
             </p>
           </div>
           <table className="w-full text-sm" translate="no">

@@ -184,11 +184,11 @@ export default function Reservations() {
                         {eur(pending)}
                       </span>
                     ) : pending < -0.005 ? (
-                      /* Han pagado de más: no es un pendiente en negativo, es
-                         dinero que queda a favor del cliente y hay que devolver
-                         o descontar de la siguiente. Se dice con esas palabras. */
-                      <span className="font-semibold text-blue-700" title="Cobrado de más: queda a favor del cliente">
-                        +{eur(-pending)} a favor
+                      /* Han pagado de más: no es un pendiente en negativo. La
+                         estancia está cuadrada y el sobrante se queda; se
+                         enseña para saber de dónde salió ese euro de más. */
+                      <span className="font-semibold text-blue-700" title="La estancia está cuadrada: esto es lo que pagaron de más">
+                        +{eur(-pending)} de más
                       </span>
                     ) : (
                       <span className="text-green-600">—</span>
@@ -225,7 +225,7 @@ export default function Reservations() {
                 <td className="py-3 px-4 text-right tabular-nums">
                   {sumaFalta > 0 && <span className="text-amber-700">{eur(sumaFalta)}</span>}
                   {sumaFalta > 0 && sumaAFavor > 0 && <br />}
-                  {sumaAFavor > 0 && <span className="text-blue-700 text-xs">+{eur(sumaAFavor)} a favor</span>}
+                  {sumaAFavor > 0 && <span className="text-blue-700 text-xs">+{eur(sumaAFavor)} de más</span>}
                   {!sumaFalta && !sumaAFavor && <span className="text-green-600">—</span>}
                 </td>
                 <td className="py-3 px-4" colSpan={3}></td>
