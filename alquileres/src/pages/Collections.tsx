@@ -4,6 +4,7 @@ import { useData } from '../contexts/DataContext'
 import { calcIGIC } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
 import { MONTH_NAMES_ES, formatDate, today } from '../lib/dateUtils'
+import { EJERCICIO_APP } from '../lib/cuentas'
 import type { Apartment, Payment } from '../types'
 
 const QUARTERS = [
@@ -95,8 +96,19 @@ export default function Collections() {
    * pago parcial del 105. Se mira reserva a reserva: total menos lo cobrado.
    */
   const hoy = today()
+  /**
+  * Lo que falta por cobrar y lo cobrado de más, estancia a estancia.
+  *
+  * Solo de {EJERCICIO_APP} en adelante. De los años anteriores la app tiene dos
+  * cosas que no se pueden restar entre sí: las estancias, que vinieron del
+  * calendario de colores y llevan un importe estimado —muchas, cero—, y los
+  * cobros, que salen del Excel y son los de verdad. Compararlos daba
+  * disparates: 25.776 € «cobrados de más» en 2025, que eran estancias con
+  * importe cero a las que se les había enganchado su cobro real.
+  */
   const saldos = reservations
     .filter(r => r.status !== 'cancelada' && r.checkIn.startsWith(String(year))
+      && year >= EJERCICIO_APP
       && (!filterApt || r.apartmentId === filterApt))
     .map(r => {
       const cobrado = payments

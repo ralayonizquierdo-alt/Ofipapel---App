@@ -1,4 +1,5 @@
 import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert, ClipboardPaste } from 'lucide-react'
+import { EJERCICIO_APP } from '../lib/cuentas'
 import { useData } from '../contexts/DataContext'
 import type { Reservation } from '../types'
 import { formatDate, formatDateShort, today } from '../lib/dateUtils'
@@ -33,6 +34,10 @@ export default function Dashboard() {
   const pendingPayment = reservations
     .filter(r => {
       if (r.status === 'cancelada') return false
+      // Nada de años cerrados: sus estancias llevan el importe estimado del
+      // calendario de colores y sus cobros son los reales del Excel, así que
+      // la resta no significa nada. Ver lib/cuentas.ts, EJERCICIO_APP.
+      if (Number(r.checkIn.slice(0, 4)) < EJERCICIO_APP) return false
       const paid = payments.filter(p => p.reservationId === r.id && p.received).reduce((s, p) => s + p.amount, 0)
       // Medio céntimo de margen: los redondeos no son un impago.
       return r.total - paid > 0.005

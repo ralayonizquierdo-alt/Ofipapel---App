@@ -5,6 +5,7 @@ import { useData } from '../contexts/DataContext'
 import type { Reservation, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
 import { formatDate, getNights, today } from '../lib/dateUtils'
 import { calcTotal, buscaTarifa, stayTypeDays, lineasPrecio, TRAMO_LABEL, type Tramo } from '../lib/priceCalc'
+import { EJERCICIO_APP } from '../lib/cuentas'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
 import PegarWhatsApp from '../components/PegarWhatsApp'
@@ -40,6 +41,8 @@ export default function Reservations() {
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()))
   const [searchParams, setSearchParams] = useSearchParams()
   const hoy = today()
+  /** De los años cerrados no se cuadra nada: ver el comentario de `suma`. */
+  const cuadra = (r: Reservation) => Number(r.checkIn.slice(0, 4)) >= EJERCICIO_APP
 
   useEffect(() => {
     const editId = searchParams.get('edit')
@@ -65,8 +68,13 @@ export default function Reservations() {
   // Lo que falta por cobrar y lo cobrado de más se suman por separado: si se
   // netean, 900 € sin cobrar de una y 900 € de más en otra dan cero y parece
   // que no hay nada que hacer, cuando hay dos cosas que hacer.
+  //
+  // Y solo cuentan las estancias del ejercicio en curso: las de años anteriores
+  // llevan el importe estimado que trajo el calendario de colores —muchas,
+  // cero— mientras que sus cobros son los reales del Excel. Restar lo uno de lo
+  // otro no significa nada.
   const suma = filtered.reduce((a, r) => {
-    if (r.status === 'cancelada') return a
+    if (r.status === 'cancelada' || !cuadra(r)) return a
     const cobrado = payments
       .filter(p => p.reservationId === r.id && p.received)
       .reduce((x, p) => x + p.amount, 0)
@@ -80,6 +88,7 @@ export default function Reservations() {
     }
   }, { noches: 0, total: 0, cobrado: 0, falta: 0, aFavor: 0 })
   const redondea = (n: number) => Math.round(n * 100) / 100
+  
   const sumaFalta = redondea(suma.falta)
   const sumaAFavor = redondea(suma.aFavor)
 
@@ -157,7 +166,7 @@ export default function Reservations() {
           <tbody>
             {filtered.map(r => {
               const paid = getPaid(r)
-              const pending = r.total - paid
+              const pending = cuadra(r) ? r.total - paid : 0
               // Estancia terminada y sin cobrar del todo: eso ya no es «queda
               // por cobrar», es un descubierto. Se pinta en rojo.
               const vencida = r.status !== 'cancelada' && r.checkOut < hoy
