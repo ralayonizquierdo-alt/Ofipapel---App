@@ -97,6 +97,13 @@ const CASOS = [
   // Estas siguen siendo de "cómo comprar", no de cuenta.
   ['¿Cómo hago un pedido?', 'faq:WhatsApp'],
   ['¿Cómo me registro?', 'faq:registrarte'],
+  // El apartado de la web se llama "Acceder o Registrarse". La dirección es
+  // /mi-cuenta/ (nombre interno de WooCommerce), y la IA leía la dirección y
+  // mandaba al cliente a "Mi cuenta", que ya no existe con ese nombre.
+  ['¿Dónde me doy de alta?', 'faq:Acceder o Registrarse'],
+  // Y la pregunta que se quedó sin contestar en real (25/9/2026): se le mandó
+  // a llamar a Administración para algo que se ve entrando en el formulario.
+  ['Buenas tarde, me puede decir qué datos le hacen falta para abrir un cuenta de empresa, gracias', 'faq:DNI/NIF/NIE'],
 
   // Y estas NO, aunque lleven "pásame" o "una persona".
   ['¿Me pasas el precio del 305XL?', 'catalogo'],

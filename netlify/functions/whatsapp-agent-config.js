@@ -180,8 +180,24 @@ function isPureThanks(normalizedText) {
   return parts.length > 0 && parts.every((part) => THANKS_PHRASES.includes(part));
 }
 
+// El apartado de la web se llama "Acceder o Registrarse", no "Mi cuenta".
+//
+// La dirección sí es ésa (/mi-cuenta/, que es como la nombra WooCommerce por
+// dentro), y de ahí venía el lío: la IA leía la dirección y le decía al cliente
+// que entrara en "Mi cuenta", un apartado que ya no se llama así. Visto en real
+// el 25/9/2026. Por eso el nombre del apartado va escrito aparte del enlace, y
+// no se deduce de la dirección.
 const REGISTRO_URL = 'https://ofipapel.net/mi-cuenta/';
-const REGISTRO_INFO = `Puedes registrarte aquí: ${REGISTRO_URL}\nEl mismo registro sirve tanto para comprar en la web como en cualquiera de nuestras tiendas. Al registrarte, tienes una tarifa de precios mejorada. Además, si es tu primer pedido en la web, puedes usar el código B1ENVEN1DA para un 10% extra de descuento.`;
+const REGISTRO_APARTADO = 'Acceder o Registrarse';
+
+// QUÉ DATOS PIDE EL FORMULARIO. Comprobado contra el formulario real de
+// ofipapel.net (25/9/2026). Estaba sin poner, y a la pregunta más normal del
+// mundo —"¿qué datos hacen falta para abrir una cuenta de empresa?"— el bot
+// contestaba mandando a llamar a Administración para algo que se ve entrando.
+const REGISTRO_DATOS =
+  'nombre y apellidos, empresa, teléfono, dirección, población, país, código postal, DNI/NIF/NIE, un nombre de usuario, el email y una contraseña';
+
+const REGISTRO_INFO = `Puedes registrarte aquí: ${REGISTRO_URL} — es el apartado "${REGISTRO_APARTADO}" de la web.\nTe pide ${REGISTRO_DATOS}. Para una cuenta de empresa, los datos que importan son el nombre de la empresa y el NIF.\nEl mismo registro sirve tanto para comprar en la web como en cualquiera de nuestras tiendas. Al registrarte, tienes una tarifa de precios mejorada. Además, si es tu primer pedido en la web, puedes usar el código B1ENVEN1DA para un 10% extra de descuento.`;
 
 // Horario comercial estructurado (mismo horario que STORES[0].hours, la sede
 // principal, en texto), para poder comprobar por código si ahora mismo hay
@@ -916,6 +932,13 @@ const FAQ_RULES = [
       'crear una cuenta', 'hacerme una cuenta', 'hacer una cuenta', 'darme de alta',
       'darse de alta', 'dar de alta', 'alta de cliente', 'alta nueva', 'nuevo cliente', 'cliente nuevo',
       'nueva cuenta', 'mi cuenta', 'como me registro', 'cómo me registro',
+      // "¿Dónde me doy de alta?" se iba al catálogo: estaban 'darme', 'darse' y
+      // 'dar' de alta, pero no la forma conjugada, que es como se dice.
+      'doy de alta', 'das de alta',
+      // Y "abrir un cuenta de EMPRESA" también, que es la pregunta más normal
+      // que nos hacen (25/9/2026). Esta cubre el caso aunque la frase venga con
+      // una errata, que es como venía.
+      'cuenta de empresa', 'cuenta para empresa', 'alta de empresa', 'cuenta empresa',
     ],
     reply: REGISTRO_INFO,
   },
@@ -1074,7 +1097,7 @@ ${fichaClienteBlock(fichaCliente)}${productContextBlock}
 
 Qué NO vendemos (dilo con seguridad, no hace falta escalar): sellos de correos/postales (eso lo gestiona Correos, no nosotros — sí hacemos sellos personalizados de goma, que es distinto) ni papel sellado/timbrado para trámites oficiales.
 
-Registro de clientes: ${REGISTRO_INFO}
+Registro de clientes: ${REGISTRO_INFO} El apartado de la web se llama "${REGISTRO_APARTADO}": llámalo así y NUNCA "Mi cuenta", aunque la dirección lleve esas palabras — ese apartado ya no existe con ese nombre y mandas al cliente a buscar algo que no va a encontrar. Y si te preguntan qué datos hacen falta, contéstalo con la lista de arriba en vez de mandarles a Administración: es un dato que tienes.
 
 Cómo comprar: ${COMO_COMPRAR_INFO}
 
