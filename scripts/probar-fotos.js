@@ -28,9 +28,10 @@ Module.prototype.require=function(p){
     notifyOwner:async(a)=>{log.push({t:'email al dueño',m:a.customerMessage});},
     notifyOwnerByWhatsapp:async(f,x)=>{log.push({t:'wapp al dueño',m:x});},
     getHistory:async()=>[], appendToHistory:async(f,u,a)=>{log.push({t:'guardado en el panel',m:u});},
-    appendCustomerMessage:async()=>{}, isBotPaused:async()=>false,
+    appendCustomerMessage:async(f,u)=>{log.push({t:'guardado sin contestar',m:u});}, isBotPaused:async()=>PAUSADO,
     pauseBot:async(f,h)=>{log.push({t:'bot en pausa',m:h+' h'});}, askClaude:async()=>'x'};
-  if(p==='./conversation-store') return {...m, isConfigured:()=>true, claimMessage:async()=>true, getFichaCliente:async()=>({presentado:PRESENTADO}), getPausaGlobal:async()=>null, marcarPresentado:async()=>{}};
+  if(p==='./conversation-store') return {...m, isConfigured:()=>true, claimMessage:async()=>true, getFichaCliente:async()=>({presentado:PRESENTADO}), getPausaGlobal:async()=>null, marcarPresentado:async()=>{},
+    appendCustomerMessage:async(f,u)=>{log.push({t:'guardado sin contestar',m:u});}};
   return m;
 };
 const wh=require(require('path').join(__dirname,'..','netlify/functions/whatsapp-webhook.js'));
@@ -48,6 +49,7 @@ const ev=(msg)=>{ const body=JSON.stringify({entry:[{changes:[{value:{messages:[
 
 let fallos=0;
 global.PRESENTADO=true;
+global.PAUSADO=false;
 (async()=>{
   for(const [etiqueta,msg] of [
     ['Foto con pregunta', {type:'image', image:{id:'1', caption:'¿Tenéis este cartucho?'}}],
@@ -89,6 +91,47 @@ global.PRESENTADO=true;
   console.log('   ', botones.slice(0,150));
   if(!/asistente virtual/i.test(botones)){ fallos++; console.log('   ✗ NO se presenta como bot'); }
   else console.log('    ✔ se presenta como bot');
+  console.log();
+
+  // UNA REACCIÓN NO ES UNA PREGUNTA.
+  //
+  // Un 👍 sobre un mensaje llega como type:'reaction' y caía en la rama de
+  // fotos: el cliente recibía "No puedo leer un mensaje de tipo reaction por
+  // aquí" y los botones de hablar con una persona. Visto en real el 30/9/2026,
+  // fuera de horario y acabando en un escalado. Por dar las gracias.
+  global.PRESENTADO=true;
+  log=[];
+  await wh.handler(ev({type:'reaction', reaction:{message_id:'wamid.X', emoji:'👍'}}));
+  console.log('=== Una reacción (👍)');
+  log.forEach(l=>console.log(`   [${l.t}] ${l.m}`));
+  const tieneR=(t)=>log.some(l=>l.t===t);
+  for(const prohibido of ['botones','respuesta']){
+    if(tieneR(prohibido)){ fallos++; console.log(`   ✗ NO debería contestar a una reacción: ${prohibido}`); }
+  }
+  if(!tieneR('guardado sin contestar')){ fallos++; console.log('   ✗ FALTA: no queda constancia en el panel de que reaccionó'); }
+  else if(!log.some(l=>String(l.m).includes('👍'))){ fallos++; console.log('   ✗ se guarda sin el emoji: no se sabe qué puso'); }
+  else console.log('    ✔ se archiva con su emoji y no se contesta');
+  console.log();
+
+  // CON EL BOT EN PAUSA NO HABLA, MANDE LO QUE MANDE.
+  //
+  // La comprobación de la pausa estaba DESPUÉS de esta rama, así que solo
+  // valía para el texto: con una persona atendiendo la conversación, una foto
+  // hacía que el bot se metiera por medio a preguntar si quería hablar con
+  // alguien. Visto en real el 30/9/2026.
+  global.PAUSADO=true;
+  log=[];
+  await wh.handler(ev({type:'image', image:{id:'7', caption:'la máquina es ésta'}}));
+  console.log('=== Foto con el bot en pausa (contesta una persona)');
+  log.forEach(l=>console.log(`   [${l.t}] ${l.m}`));
+  const tieneP=(t)=>log.some(l=>l.t===t);
+  for(const prohibido of ['botones','respuesta']){
+    if(tieneP(prohibido)){ fallos++; console.log(`   ✗ el bot habla por encima de quien está atendiendo: ${prohibido}`); }
+  }
+  if(!tieneP('guardado sin contestar')){ fallos++; console.log('   ✗ FALTA: la foto no llega al panel'); }
+  else console.log('    ✔ la foto llega al panel y el bot se calla');
+  if(!tieneP('foto guardada')){ fallos++; console.log('   ✗ FALTA: el adjunto no se descargó, no se verá la foto'); }
+  global.PAUSADO=false;
   console.log();
 
   console.log(fallos===0 ? '✔ Sin fallos' : `✗ ${fallos} fallos`);

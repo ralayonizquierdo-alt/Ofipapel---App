@@ -604,6 +604,37 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // Es de los casos más frecuentes que hay — "¿tenéis este?" con la foto del
   // cartucho —, así que se trata como lo que es: algo que solo puede atender una
   // persona. Se registra, se avisa y se para el bot, igual que en un escalado.
+  // UNA REACCIÓN NO ES UNA PREGUNTA. No se contesta.
+  //
+  // Cuando alguien le da a un emoji sobre un mensaje, Meta manda un mensaje de
+  // tipo `reaction`. Caía en la rama de abajo, que está pensada para fotos y
+  // audios, y el cliente recibía un "Gracias por tu mensaje. No puedo leer un
+  // mensaje de tipo reaction por aquí" y los botones de hablar con una persona.
+  // Visto en real el 30/9/2026: un cliente puso un 👍 para dar las gracias y
+  // acabó escalado a una persona, fuera de horario.
+  //
+  // Se archiva para que en el panel se vea que reaccionó (dice algo: un pulgar
+  // arriba cierra una conversación), pero no se contesta, no se pregunta y no
+  // se escala. Como en WhatsApp de toda la vida.
+  if (message.type === 'reaction') {
+    const emoji = message.reaction?.emoji || '';
+    await conversationStore.appendCustomerMessage(
+      message.from,
+      `[El cliente reaccionó${emoji ? ` con ${emoji}` : ''}]`,
+      message.id
+    );
+    return;
+  }
+
+  // EL BOT EN PAUSA NO HABLA, MANDE EL CLIENTE LO QUE MANDE.
+  //
+  // Esta comprobación estaba más abajo, después de la rama de fotos y audios,
+  // así que solo protegía a los mensajes de TEXTO. Con el bot parado porque una
+  // persona estaba atendiendo la conversación, una foto (o una reacción) hacía
+  // que el bot se metiera por medio a preguntar si quería hablar con alguien —
+  // justo mientras ya estaba hablando con alguien. Visto en real el 30/9/2026.
+  const enPausa = await isBotPaused(message.from);
+
   if (message.type !== 'text') {
     const QUE_ES = { image: 'una foto', audio: 'un audio', video: 'un vídeo', document: 'un documento', sticker: 'un sticker', location: 'una ubicación' };
     const queEs = QUE_ES[message.type] || `un mensaje de tipo ${message.type}`;
@@ -656,6 +687,13 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     // "no puedo leer una foto" sin saber quién se lo decía. Se presenta aquí con
     // la misma lógica y se marca igual, para que no se le presente dos veces si
     // luego escribe.
+    // Con el bot en pausa se archiva la foto (que es lo que hay que ver en el
+    // panel) y se calla. Quien está atendiendo ya la tiene delante.
+    if (enPausa) {
+      await conversationStore.appendCustomerMessage(message.from, registro, message.id);
+      return;
+    }
+
     const fichaFoto = await conversationStore.getFichaCliente(message.from);
     const presentarse = !fichaFoto?.presentado;
     if (presentarse) await conversationStore.marcarPresentado(message.from);
@@ -685,7 +723,9 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
 
   // Bot en pausa (escalado confirmado o respuesta manual reciente desde el panel):
   // se guarda el mensaje para que lo vea la persona, pero no se contesta automático.
-  if (await isBotPaused(message.from)) {
+  // Se preguntó arriba, antes de la rama de fotos, para que la pausa valga
+  // también para lo que no es texto.
+  if (enPausa) {
     await appendCustomerMessage(message.from, text, message.id);
     return;
   }
