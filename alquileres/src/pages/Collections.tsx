@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react'
-import { FileSpreadsheet, Printer, AlertTriangle } from 'lucide-react'
+import { FileSpreadsheet, Printer, AlertTriangle, Plus, Banknote } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
+import Modal from '../components/ui/Modal'
 import { calcIGIC } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
 import { MONTH_NAMES_ES, formatDate, today } from '../lib/dateUtils'
 import { EJERCICIO_APP } from '../lib/cuentas'
-import type { Apartment, Payment } from '../types'
+import type { Apartment, Payment, PaymentMethod } from '../types'
 
 const QUARTERS = [
   { q: 1, months: [1, 2, 3], label: '1T (Ene–Mar)' },
@@ -22,8 +23,18 @@ type SortBy = 'nombre' | 'importe'
 /** Un bloque de la pantalla: un trimestre, un mes suelto o el año entero. */
 type Bloque = { key: string; months: number[]; label: string; corto: string; totalLabel: string }
 
+/**
+ * Un cobro en efectivo cuenta como tal cuando lo dice su forma de pago, y —para
+ * los apuntes viejos que no la llevan— cuando la reserva era directa, que es
+ * como se cobraban. El mismo criterio que el resumen anual de abajo.
+ */
+function esEfectivo(p: Payment, canalDirecto: boolean): boolean {
+  return p.paymentMethod ? p.paymentMethod === 'efectivo' : canalDirecto
+}
+
 export default function Collections() {
   const { reservations, payments, apartments: allApartments } = useData()
+  const [nuevoCobro, setNuevoCobro] = useState(false)
   const apartments = allApartments.filter(a => a.active)
   const [year, setYear] = useState(new Date().getFullYear())
   const [filterQ, setFilterQ] = useState<number>(0)
@@ -65,14 +76,31 @@ export default function Collections() {
     months.reduce((s, m) => s + getMonthAmount(aptId, m), 0),
   [getMonthAmount])
 
+  // Todo lo que se enseña y se suma respeta el apartamento elegido: si se está
+  // mirando el 104, el total de abajo tiene que ser el del 104 y no el de la casa.
+  const visibleApts = filterApt ? apartments.filter(a => a.id === filterApt) : apartments
+  const visibleAptIds = visibleApts.map(a => a.id)
+
+  /** De lo cobrado ese mes, lo que entró en mano. */
+  function getMonthEfectivo(month: number): number {
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`
+    return payments
+      .filter(p => {
+        if (!p.received || mesDe(p) !== monthStr) return false
+        const apt = aptDe(p)
+        if (!apt || !visibleAptIds.includes(apt)) return false
+        const r = reservations.find(x => x.id === p.reservationId)
+        return esEfectivo(p, r?.channel === 'directo')
+      })
+      .reduce((s, p) => s + p.amount, 0)
+  }
+
+
   function sortApartments(apts: Apartment[], months: number[]): Apartment[] {
     if (sortBy === 'nombre') return [...apts].sort((a, b) => a.name.localeCompare(b.name))
     return [...apts].sort((a, b) => getQuarterTotal(b.id, months) - getQuarterTotal(a.id, months))
   }
 
-  // Todo lo que se enseña y se suma respeta el apartamento elegido: si se está
-  // mirando el 104, el total de abajo tiene que ser el del 104 y no el de la casa.
-  const visibleApts = filterApt ? apartments.filter(a => a.id === filterApt) : apartments
 
   // Qué tablas se pintan. Un mes elegido manda sobre el trimestre, y «todos los
   // meses» pone los doce en una sola fila, que es como está el Excel.
@@ -144,14 +172,9 @@ export default function Collections() {
     let efectivo = 0
     let transferencia = 0
     for (const p of aptPayments) {
-      if (p.paymentMethod) {
-        if (p.paymentMethod === 'efectivo') efectivo += p.amount
-        else transferencia += p.amount
-      } else {
-        const res = reservations.find(r => r.id === p.reservationId)
-        if (res?.channel === 'directo') efectivo += p.amount
-        else transferencia += p.amount
-      }
+      const res = reservations.find(r => r.id === p.reservationId)
+      if (esEfectivo(p, res?.channel === 'directo')) efectivo += p.amount
+      else transferencia += p.amount
     }
     return { transferencia, efectivo, total: efectivo + transferencia }
   }
@@ -178,6 +201,11 @@ export default function Collections() {
       rows.push(['TOTAL ' + corto,
         ...months.map(m => fmt(visibleApts.reduce((s, a) => s + getMonthAmount(a.id, m), 0))),
         fmt(qTotal), fmt(qIGIC), fmt(qTotal + qIGIC)])
+      // De ese total, lo cobrado en mano. Va en su propia fila, igual que en
+      // pantalla: no es dinero aparte, es una parte de lo ya contado.
+      rows.push(['DE ESO, EN EFECTIVO',
+        ...months.map(m => fmt(getMonthEfectivo(m))),
+        fmt(months.reduce((s, m) => s + getMonthEfectivo(m), 0)), '', ''])
       rows.push([])
     }
 
@@ -247,6 +275,10 @@ export default function Collections() {
               <option value="nombre">Ordenar por nombre</option>
               <option value="importe">Ordenar por importe</option>
             </select>
+            <button onClick={() => setNuevoCobro(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+              <Plus size={15} /> Nuevo cobro
+            </button>
             <button onClick={exportCSV}
               className="flex items-center gap-1.5 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
               <FileSpreadsheet size={15} /> Excel
@@ -309,6 +341,8 @@ export default function Collections() {
         </div>
       )}
 
+      {nuevoCobro && <NuevoCobro onClose={() => setNuevoCobro(false)} />}
+
       {aFavor.length > 0 && (
         <div className="mb-6 bg-white rounded-xl shadow-sm border border-blue-200 overflow-hidden print:hidden">
           <div className="bg-blue-50 border-b border-blue-200 px-5 py-3">
@@ -352,6 +386,7 @@ export default function Collections() {
             : `${n.toLocaleString('es-ES')} €`
           const sorted = sortApartments(visibleApts, months)
           const qTotal = visibleApts.reduce((s, a) => s + getQuarterTotal(a.id, months), 0)
+          const qEfectivo = months.reduce((s, m) => s + getMonthEfectivo(m), 0)
           const qIGIC = calcIGIC(qTotal)
           const qWithIGIC = qTotal + qIGIC
           return (
@@ -432,6 +467,30 @@ export default function Collections() {
                         {imp(qWithIGIC)}
                       </td>
                     </tr>
+                    {/* De lo de arriba, lo que entró en mano. Va debajo del
+                        total y no en una columna aparte: el efectivo no es
+                        dinero distinto, es una parte de lo ya contado. */}
+                    {qEfectivo > 0 && (
+                      <tr className={`text-green-700 ${apretada ? 'text-xs' : 'text-sm'}`}>
+                        <td className={`font-medium ${apretada ? 'py-1.5 px-1.5' : 'py-2 px-4'}`}>
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                            <Banknote size={13} className="shrink-0" /> {apretada ? 'Efectivo' : 'En efectivo'}
+                          </span>
+                        </td>
+                        {months.map(m => {
+                          const e = getMonthEfectivo(m)
+                          return (
+                            <td key={m} className={`text-right whitespace-nowrap tabular-nums ${apretada ? 'py-1.5 px-1.5' : 'py-2 px-4'}`}>
+                              {e > 0 ? imp(e) : <span className="text-slate-300">—</span>}
+                            </td>
+                          )
+                        })}
+                        <td className={`text-right font-semibold whitespace-nowrap tabular-nums bg-green-50 ${apretada ? 'py-1.5 px-1.5' : 'py-2 px-4'}`}>
+                          {imp(qEfectivo)}
+                        </td>
+                        <td colSpan={2} />
+                      </tr>
+                    )}
                   </tfoot>
                 </table>
               </div>
@@ -506,3 +565,139 @@ export default function Collections() {
     </div>
   )
 }
+
+/**
+ * Alta de un cobro a mano, pensada para el dinero en efectivo.
+ *
+ * Lo que entra por transferencia llega solo, con su PDF o con el Excel de
+ * Luis. El efectivo no deja rastro en ninguna parte, así que si no se anota
+ * aquí, la caja no cuadra y nadie sabe por qué.
+ *
+ * El cobro se puede colgar de una estancia o quedarse suelto a nombre del
+ * apartamento, igual que los del Excel: no todo lo que se cobra en mano
+ * corresponde a una reserva identificable.
+ */
+function NuevoCobro({ onClose }: { onClose: () => void }) {
+  const { apartments: todos, reservations, addPayment, anotaVolcado } = useData()
+  const apartments = todos.filter(a => a.active)
+  const hoy = today()
+
+  const [apartmentId, setApartmentId] = useState(apartments[0]?.id ?? '')
+  const [importe, setImporte] = useState('')
+  const [fecha, setFecha] = useState(hoy)
+  const [metodo, setMetodo] = useState<PaymentMethod>('efectivo')
+  const [reservationId, setReservationId] = useState('')
+  const [asiento, setAsiento] = useState('')
+  const [mes, setMes] = useState(hoy.slice(0, 7))
+  const [guardando, setGuardando] = useState(false)
+
+  // Las estancias de ese apartamento que tocan la fecha del cobro, y las de
+  // alrededor: se cobra al entrar, al salir y a veces semanas después.
+  const candidatas = reservations
+    .filter(r => r.apartmentId === apartmentId && r.status !== 'cancelada')
+    .filter(r => r.checkOut >= fecha.slice(0, 4) + '-01-01')
+    .sort((a, b) => b.checkIn.localeCompare(a.checkIn))
+    .slice(0, 40)
+
+  const cantidad = Number(importe.replace(',', '.'))
+  const vale = apartmentId && Number.isFinite(cantidad) && cantidad > 0 && /^\d{4}-\d{2}$/.test(mes)
+
+  async function guardar() {
+    if (!vale || guardando) return
+    setGuardando(true)
+    addPayment({
+      reservationId, apartmentId, mes,
+      amount: Math.round(cantidad * 100) / 100,
+      paymentDate: fecha || undefined,
+      entryNumber: asiento.trim() || undefined,
+      received: true,
+      paymentMethod: metodo,
+    })
+    const apt = apartments.find(a => a.id === apartmentId)
+    anotaVolcado({
+      origen: 'correcciones',
+      year: Number(mes.slice(0, 4)),
+      cobros: 1,
+      resumen: `Cobro a mano · ${apt?.name ?? apartmentId} · `
+        + `${cantidad.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € en ${metodo}`,
+    })
+    onClose()
+  }
+
+  const campo = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm'
+
+  return (
+    <Modal title="Nuevo cobro" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Apartamento *</label>
+            <select value={apartmentId} onChange={e => { setApartmentId(e.target.value); setReservationId('') }} className={campo}>
+              {apartments.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Importe (€) *</label>
+            <input value={importe} onChange={e => setImporte(e.target.value)} inputMode="decimal"
+              placeholder="0,00" className={`${campo} text-right tabular-nums`} autoFocus />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Fecha del cobro</label>
+            <input type="date" value={fecha}
+              onChange={e => { setFecha(e.target.value); if (e.target.value) setMes(e.target.value.slice(0, 7)) }}
+              className={campo} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Forma de pago</label>
+            <select value={metodo} onChange={e => setMetodo(e.target.value as PaymentMethod)} className={campo}>
+              <option value="efectivo">Efectivo</option>
+              <option value="transferencia">Transferencia</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Estancia (opcional)</label>
+          <select value={reservationId} onChange={e => setReservationId(e.target.value)} className={campo}>
+            <option value="">Sin estancia — solo a nombre del apartamento</option>
+            {candidatas.map(r => (
+              <option key={r.id} value={r.id}>
+                {formatDate(r.checkIn)} → {formatDate(r.checkOut)} · {eurLargo(r.total)}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Colgarlo de una estancia hace que cuente como cobrada. Sin estancia, el dinero
+            se ve igual en esta pantalla, por apartamento y por mes.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Cuenta en el mes de</label>
+            <input type="month" value={mes} onChange={e => setMes(e.target.value)} className={campo} />
+            <p className="text-[11px] text-slate-400 mt-1">
+              Normalmente el de la fecha. Se cambia cuando el cobro es de otro mes, como en el Excel.
+            </p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Nº de asiento (opcional)</label>
+            <input value={asiento} onChange={e => setAsiento(e.target.value)} className={campo} placeholder="Ej: 150326104" />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+          <button onClick={guardar} disabled={!vale || guardando}
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-40">
+            {guardando ? 'Guardando…' : 'Anotar el cobro'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+const eurLargo = (n: number) =>
+  `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
