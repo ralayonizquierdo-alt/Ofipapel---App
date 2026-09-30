@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { Fragment, useState, useCallback } from 'react'
 import { FileSpreadsheet, Printer, AlertTriangle, Plus, Banknote } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import Modal from '../components/ui/Modal'
@@ -6,7 +6,7 @@ import { calcIGIC } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
 import { MONTH_NAMES_ES, formatDate, today } from '../lib/dateUtils'
 import { EJERCICIO_APP } from '../lib/cuentas'
-import type { Apartment, Payment, PaymentMethod } from '../types'
+import type { Apartment, Payment, PaymentMethod, Reservation } from '../types'
 
 const QUARTERS = [
   { q: 1, months: [1, 2, 3], label: '1T (Ene–Mar)' },
@@ -18,6 +18,8 @@ const QUARTERS = [
 const TODOS_LOS_MESES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 /** Valor del selector de periodo que enseña los doce meses en una sola tabla. */
 const ANUAL = -1
+/** El que enseña los cobros uno a uno, colgando de su reserva. */
+const POR_RESERVA = -2
 
 type SortBy = 'nombre' | 'importe'
 /** Un bloque de la pantalla: un trimestre, un mes suelto o el año entero. */
@@ -82,6 +84,26 @@ export default function Collections() {
   const visibleAptIds = visibleApts.map(a => a.id)
 
   /** De lo cobrado ese mes, lo que entró en mano. */
+  /**
+   * Lo cobrado en un bloque de meses por un apartamento, partido en dos: lo
+   * que llegó por banco y lo que llegó en mano. Es la contabilidad de la casa:
+   * la transferencia se cuadra con el extracto y el efectivo con el recibo que
+   * se le hizo al cliente, y sin separarlos no se puede cuadrar ninguna.
+   */
+  function desglose(aptId: string, months: number[]): { transf: number; efectivo: number } {
+    let transf = 0, efectivo = 0
+    for (const m of months) {
+      const monthStr = `${year}-${String(m).padStart(2, '0')}`
+      for (const p of payments) {
+        if (!p.received || mesDe(p) !== monthStr || aptDe(p) !== aptId) continue
+        const r = reservations.find(x => x.id === p.reservationId)
+        if (esEfectivo(p, r?.channel === 'directo')) efectivo += p.amount
+        else transf += p.amount
+      }
+    }
+    return { transf, efectivo }
+  }
+
   function getMonthEfectivo(month: number): number {
     const monthStr = `${year}-${String(month).padStart(2, '0')}`
     return payments
@@ -104,10 +126,11 @@ export default function Collections() {
 
   // Qué tablas se pintan. Un mes elegido manda sobre el trimestre, y «todos los
   // meses» pone los doce en una sola fila, que es como está el Excel.
+  const porReserva = filterQ === POR_RESERVA && !filterMes
   const bloques: Bloque[] = filterMes
     ? [{ key: `m${filterMes}`, months: [filterMes], label: `${MONTH_NAMES_ES[filterMes - 1]} ${year}`,
          corto: MONTH_NAMES_ES[filterMes - 1], totalLabel: 'TOTAL MES' }]
-    : filterQ === ANUAL
+    : filterQ === ANUAL || porReserva
       ? [{ key: 'anual', months: TODOS_LOS_MESES, label: `Todos los meses de ${year}`,
            corto: 'AÑO', totalLabel: 'TOTAL AÑO' }]
       : (filterQ ? QUARTERS.filter(qt => qt.q === filterQ) : QUARTERS).map(qt => ({
@@ -182,30 +205,66 @@ export default function Collections() {
   function exportCSV() {
     const fmt = (n: number) => n > 0 ? n.toLocaleString('es-ES', { minimumFractionDigits: 2 }) : '0,00'
     const rows: string[][] = []
+
+    // En la vista por reserva se baja lo que se está viendo: el detalle de cada
+    // cobro. Es con lo que se cuadra contra el extracto o contra los recibos.
+    if (porReserva) {
+      rows.push([`Cobros según reserva — ${year}`])
+      rows.push([])
+      rows.push(['Apartamento', 'Entrada', 'Salida', 'Importe reserva',
+        'Fecha del cobro', 'Mes', 'Forma de pago', 'Nº asiento', 'Importe cobrado'])
+      const forma = (p: Payment) => p.paymentMethod === 'efectivo' ? 'Efectivo'
+        : p.paymentMethod === 'transferencia' ? 'Transferencia'
+        : p.paymentMethod === 'otro' ? 'Otro' : ''
+      const delAnio = payments.filter(p => p.received && mesDe(p)?.startsWith(String(year))
+        && (!filterApt || aptDe(p) === filterApt))
+      const usados = new Set<string>()
+      for (const r of reservations
+        .filter(r => r.status !== 'cancelada' && (!filterApt || r.apartmentId === filterApt))
+        .sort((a, b) => a.checkIn.localeCompare(b.checkIn))) {
+        for (const p of delAnio.filter(p => p.reservationId === r.id)) {
+          usados.add(p.id)
+          rows.push([nombreApt(r.apartmentId), formatDate(r.checkIn), formatDate(r.checkOut),
+            fmt(r.total), p.paymentDate ? formatDate(p.paymentDate) : '', p.mes ?? '',
+            forma(p), p.entryNumber ?? '', fmt(p.amount)])
+        }
+      }
+      for (const p of delAnio.filter(p => !usados.has(p.id))) {
+        rows.push([nombreApt(aptDe(p) ?? ''), '', '', '',
+          p.paymentDate ? formatDate(p.paymentDate) : '', p.mes ?? '',
+          forma(p), p.entryNumber ?? '', fmt(p.amount)])
+      }
+      rows.push([])
+      rows.push(['TOTAL', '', '', '', '', '', '', '', fmt(delAnio.reduce((s, p) => s + p.amount, 0))])
+      descarga(rows, `cobros_por_reserva_${year}${filterApt ? `_${filterApt}` : ''}.csv`)
+      return
+    }
     rows.push([`Cobros por Trimestres — ${year}`])
     rows.push([])
 
-    for (const { months, label, corto } of bloques) {
+    for (const { months, label, corto, totalLabel } of bloques) {
       rows.push([label])
-      rows.push(['Apartamento', ...months.map(m => MONTH_NAMES_ES[m - 1]), 'Total trimestre', 'IGIC 7%', 'Total con IGIC'])
+      rows.push(['Apartamento', ...months.map(m => MONTH_NAMES_ES[m - 1]),
+        'Transferencia', 'Efectivo', 'IGIC 7%', totalLabel])
       const sorted = sortApartments(visibleApts, months)
       for (const apt of sorted) {
         const monthAmounts = months.map(m => getMonthAmount(apt.id, m))
         const total = monthAmounts.reduce((s, a) => s + a, 0)
         if (total === 0) continue
-        const igic = calcIGIC(total)
-        rows.push([apt.name, ...monthAmounts.map(fmt), fmt(total), fmt(igic), fmt(total + igic)])
+        const { transf, efectivo } = desglose(apt.id, months)
+        rows.push([apt.name, ...monthAmounts.map(fmt),
+          fmt(transf), fmt(efectivo), fmt(calcIGIC(total)), fmt(total)])
       }
       const qTotal = visibleApts.reduce((s, a) => s + getQuarterTotal(a.id, months), 0)
       const qIGIC = calcIGIC(qTotal)
+      const qEfec = months.reduce((s, m) => s + getMonthEfectivo(m), 0)
       rows.push(['TOTAL ' + corto,
         ...months.map(m => fmt(visibleApts.reduce((s, a) => s + getMonthAmount(a.id, m), 0))),
-        fmt(qTotal), fmt(qIGIC), fmt(qTotal + qIGIC)])
+        fmt(qTotal - qEfec), fmt(qEfec), fmt(qIGIC), fmt(qTotal)])
       // De ese total, lo cobrado en mano. Va en su propia fila, igual que en
       // pantalla: no es dinero aparte, es una parte de lo ya contado.
       rows.push(['DE ESO, EN EFECTIVO',
-        ...months.map(m => fmt(getMonthEfectivo(m))),
-        fmt(months.reduce((s, m) => s + getMonthEfectivo(m), 0)), '', ''])
+        ...months.map(m => fmt(getMonthEfectivo(m))), '', fmt(qEfec), '', ''])
       rows.push([])
     }
 
@@ -220,12 +279,17 @@ export default function Collections() {
     const igicTotal = calcIGIC(yearTotal)
     rows.push(['TOTAL ANUAL', '', '', fmt(yearTotal), fmt(igicTotal), fmt(yearTotal + igicTotal)])
 
+    descarga(rows, `cobros_${year}${filterQ > 0 ? `_${filterQ}T` : ''}${filterMes ? `_${MONTH_NAMES_ES[filterMes - 1]}` : ''}${filterApt ? `_${filterApt}` : ''}.csv`)
+  }
+
+  /** El punto y coma y el BOM son lo que hace que Excel lo abra en columnas. */
+  function descarga(rows: string[][], nombre: string) {
     const csv = rows.map(r => r.map(c => `"${c}"`).join(';')).join('\r\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `cobros_${year}${filterQ > 0 ? `_${filterQ}T` : ''}${filterMes ? `_${MONTH_NAMES_ES[filterMes - 1]}` : ''}${filterApt ? `_${filterApt}` : ''}.csv`
+    a.download = nombre
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -258,6 +322,7 @@ export default function Collections() {
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
               <option value={0}>Trimestres (4 tablas)</option>
               <option value={ANUAL}>Todos los meses (una tabla)</option>
+              <option value={POR_RESERVA}>Cobros según reserva</option>
               {QUARTERS.map(qt => <option key={qt.q} value={qt.q}>{qt.label}</option>)}
             </select>
             <select value={filterMes} onChange={e => { setFilterMes(Number(e.target.value)); setFilterQ(0) }}
@@ -373,7 +438,15 @@ export default function Collections() {
       )}
 
       <div className="space-y-6" id="collections-screen">
-        {bloques.map(({ key, months, label, corto, totalLabel }) => {
+        {porReserva && (
+          <CobrosPorReserva
+            year={year} filterApt={filterApt}
+            reservations={reservations} payments={payments}
+            nombreApt={nombreApt} eur={eur} mesDe={mesDe} aptDe={aptDe}
+          />
+        )}
+
+        {!porReserva && bloques.map(({ key, months, label, corto, totalLabel }) => {
           // Doce meses no caben en un portátil con el ancho de siempre: se
           // aprietan las celdas, se abrevian los meses y el apartamento pasa a
           // su número, que es como lo llama todo el mundo y como está el Excel.
@@ -387,8 +460,8 @@ export default function Collections() {
           const sorted = sortApartments(visibleApts, months)
           const qTotal = visibleApts.reduce((s, a) => s + getQuarterTotal(a.id, months), 0)
           const qEfectivo = months.reduce((s, m) => s + getMonthEfectivo(m), 0)
+          const qTransf = Math.round((qTotal - qEfectivo) * 100) / 100
           const qIGIC = calcIGIC(qTotal)
-          const qWithIGIC = qTotal + qIGIC
           return (
             <div key={key} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
@@ -410,11 +483,16 @@ export default function Collections() {
                           {apretada ? MONTH_NAMES_ES[m - 1].slice(0, 3) : MONTH_NAMES_ES[m - 1]}
                         </th>
                       ))}
-                      <th className={`text-right font-semibold text-slate-700 bg-slate-100 ${celda}`}>
-                        {apretada ? totalLabel.replace('TOTAL ', '') : totalLabel}
-                      </th>
+                      {/* Lo cobrado, partido en dos: banco y mano. Es lo que
+                          hace falta para cuadrar la contabilidad de la casa —
+                          la transferencia contra el extracto, el efectivo
+                          contra el recibo que se le hizo al cliente. */}
+                      <th className={`text-right font-medium text-blue-700 bg-blue-50/60 ${celda}`}>Transf.</th>
+                      <th className={`text-right font-medium text-red-600 bg-red-50/60 ${celda}`}>Efectivo</th>
                       <th className={`text-right font-medium text-slate-500 ${celda}`}>IGIC</th>
-                      <th className={`text-right font-medium text-slate-700 bg-amber-50 ${celda}`}>TOTAL</th>
+                      <th className={`text-right font-semibold text-slate-700 bg-slate-100 ${celda}`}>
+                        {totalLabel}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -423,6 +501,7 @@ export default function Collections() {
                       const total = monthAmounts.reduce((s, a) => s + a, 0)
                       if (total === 0) return null
                       const igic = calcIGIC(total)
+                      const { transf, efectivo } = desglose(apt.id, months)
                       return (
                         <tr key={apt.id} className="border-b border-slate-100 hover:bg-slate-50">
                           <td className={`font-medium text-slate-700 text-xs ${celda}`} title={apt.name}>
@@ -433,14 +512,17 @@ export default function Collections() {
                               {amount > 0 ? imp(amount) : <span className="text-slate-300">—</span>}
                             </td>
                           ))}
-                          <td className={`text-right font-bold text-slate-800 bg-slate-50 whitespace-nowrap tabular-nums ${celda}`}>
-                            {imp(total)}
+                          <td className={`text-right text-blue-700 bg-blue-50/60 whitespace-nowrap tabular-nums ${celda}`}>
+                            {transf > 0 ? imp(transf) : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className={`text-right font-medium text-red-600 bg-red-50/60 whitespace-nowrap tabular-nums ${celda}`}>
+                            {efectivo > 0 ? imp(efectivo) : <span className="text-slate-300">—</span>}
                           </td>
                           <td className={`text-right text-slate-500 text-xs whitespace-nowrap tabular-nums ${celda}`}>
                             {imp(igic)}
                           </td>
-                          <td className={`text-right font-semibold text-amber-700 bg-amber-50 text-xs whitespace-nowrap tabular-nums ${celda}`}>
-                            {imp(total + igic)}
+                          <td className={`text-right font-bold text-slate-800 bg-slate-100 whitespace-nowrap tabular-nums ${celda}`}>
+                            {imp(total)}
                           </td>
                         </tr>
                       )
@@ -457,21 +539,24 @@ export default function Collections() {
                           </td>
                         )
                       })}
-                      <td className={`text-right font-bold text-slate-900 bg-slate-100 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
-                        {imp(qTotal)}
+                      <td className={`text-right font-bold text-blue-700 bg-blue-50/60 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
+                        {imp(qTransf)}
+                      </td>
+                      <td className={`text-right font-bold text-red-600 bg-red-50/60 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
+                        {imp(qEfectivo)}
                       </td>
                       <td className={`text-right font-semibold text-slate-600 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
                         {imp(qIGIC)}
                       </td>
-                      <td className={`text-right font-bold text-amber-700 bg-amber-50 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
-                        {imp(qWithIGIC)}
+                      <td className={`text-right font-bold text-slate-900 bg-slate-100 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
+                        {imp(qTotal)}
                       </td>
                     </tr>
                     {/* De lo de arriba, lo que entró en mano. Va debajo del
                         total y no en una columna aparte: el efectivo no es
                         dinero distinto, es una parte de lo ya contado. */}
                     {qEfectivo > 0 && (
-                      <tr className={`text-green-700 ${apretada ? 'text-xs' : 'text-sm'}`}>
+                      <tr className={`text-red-600 ${apretada ? 'text-xs' : 'text-sm'}`}>
                         <td className={`font-medium ${apretada ? 'py-1.5 px-1.5' : 'py-2 px-4'}`}>
                           <span className="inline-flex items-center gap-1 whitespace-nowrap">
                             <Banknote size={13} className="shrink-0" /> {apretada ? 'Efectivo' : 'En efectivo'}
@@ -485,7 +570,8 @@ export default function Collections() {
                             </td>
                           )
                         })}
-                        <td className={`text-right font-semibold whitespace-nowrap tabular-nums bg-green-50 ${apretada ? 'py-1.5 px-1.5' : 'py-2 px-4'}`}>
+                        <td />
+                        <td className={`text-right font-semibold whitespace-nowrap tabular-nums bg-red-50/60 ${apretada ? 'py-1.5 px-1.5' : 'py-2 px-4'}`}>
                           {imp(qEfectivo)}
                         </td>
                         <td colSpan={2} />
@@ -701,3 +787,133 @@ function NuevoCobro({ onClose }: { onClose: () => void }) {
 
 const eurLargo = (n: number) =>
   `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+
+/**
+ * Los cobros uno a uno, colgando de la reserva que los pagó.
+ *
+ * Las tablas de meses dicen cuánto entró; esta dice de dónde. Es la vista con
+ * la que se cuadra contra el Excel o contra el extracto del banco: cada cobro
+ * con su fecha, su forma de pago y su número de asiento, y debajo de cada
+ * estancia lo que suma.
+ *
+ * Al final van los cobros que no cuelgan de ninguna estancia. No son un error:
+ * el Arenal cobra de Airbnb en remesas que no casan una a una con cada
+ * reserva, y un cobro en mano puede no corresponder a una reserva concreta.
+ */
+function CobrosPorReserva({ year, filterApt, reservations, payments, nombreApt, eur, mesDe, aptDe }: {
+  year: number
+  filterApt: string
+  reservations: Reservation[]
+  payments: Payment[]
+  nombreApt: (id: string) => string
+  eur: (n: number) => string
+  mesDe: (p: Payment) => string | undefined
+  aptDe: (p: Payment) => string | undefined
+}) {
+  const delAnio = payments.filter(p => p.received && mesDe(p)?.startsWith(String(year))
+    && (!filterApt || aptDe(p) === filterApt))
+
+  const conEstancia = reservations
+    .filter(r => r.status !== 'cancelada' && (!filterApt || r.apartmentId === filterApt))
+    .map(r => ({ r, cobros: delAnio.filter(p => p.reservationId === r.id) }))
+    .filter(x => x.cobros.length > 0)
+    .sort((a, b) => a.r.checkIn.localeCompare(b.r.checkIn))
+
+  const sueltos = delAnio.filter(p => !conEstancia.some(x => x.cobros.includes(p)))
+    .sort((a, b) => (a.mes || '').localeCompare(b.mes || ''))
+
+  const total = delAnio.reduce((s, p) => s + p.amount, 0)
+  const forma = (p: Payment) => p.paymentMethod === 'efectivo' ? 'Efectivo'
+    : p.paymentMethod === 'transferencia' ? 'Transferencia'
+    : p.paymentMethod === 'otro' ? 'Otro' : '—'
+
+  const Cobro = ({ p }: { p: Payment }) => (
+    <tr className="border-b border-slate-50 last:border-0">
+      <td className="py-1.5 px-4 pl-10 text-slate-500 text-xs">
+        {p.paymentDate ? formatDate(p.paymentDate) : 'sin fecha'}
+      </td>
+      <td className="py-1.5 px-4 text-slate-400 text-xs">{p.mes ?? ''}</td>
+      <td className={`py-1.5 px-4 text-xs ${p.paymentMethod === 'efectivo' ? 'text-red-600 font-medium' : 'text-blue-700'}`}>
+        {forma(p)}
+      </td>
+      <td className="py-1.5 px-4 text-slate-400 text-xs tabular-nums">{p.entryNumber ?? ''}</td>
+      <td className="py-1.5 px-5 text-right text-slate-700 tabular-nums">{eur(p.amount)}</td>
+    </tr>
+  )
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
+        <h3 className="font-semibold text-white">Cobros según reserva · {year}</h3>
+        <span className="text-white font-bold">{eur(total)}</span>
+      </div>
+      <div className="overflow-auto">
+        <table className="w-full text-sm" translate="no">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
+              <th className="text-left py-2 px-4 font-medium">Fecha del cobro</th>
+              <th className="text-left py-2 px-4 font-medium">Mes</th>
+              <th className="text-left py-2 px-4 font-medium">Forma de pago</th>
+              <th className="text-left py-2 px-4 font-medium">Nº asiento</th>
+              <th className="text-right py-2 px-5 font-medium">Importe</th>
+            </tr>
+          </thead>
+          <tbody>
+            {conEstancia.map(({ r, cobros }) => {
+              const cobrado = cobros.reduce((s, p) => s + p.amount, 0)
+              return (
+                <Fragment key={r.id}>
+                  <tr className="bg-slate-50/70 border-y border-slate-200">
+                    <td colSpan={4} className="py-2 px-4 font-medium text-slate-700 text-xs">
+                      {nombreApt(r.apartmentId)} · {formatDate(r.checkIn)} → {formatDate(r.checkOut)}
+                      <span className="text-slate-400 font-normal"> · {r.nights}N</span>
+                      {r.total > 0 && (
+                        <span className="text-slate-400 font-normal"> · reserva de {eur(r.total)}</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-5 text-right font-semibold text-slate-800 tabular-nums">{eur(cobrado)}</td>
+                  </tr>
+                  {cobros.map(p => <Cobro key={p.id} p={p} />)}
+                </Fragment>
+              )
+            })}
+
+            {sueltos.length > 0 && (
+              <>
+                <tr className="bg-amber-50 border-y border-amber-200">
+                  <td colSpan={4} className="py-2 px-4 font-medium text-amber-900 text-xs">
+                    Cobros sin estancia asociada — a nombre del apartamento
+                  </td>
+                  <td className="py-2 px-5 text-right font-semibold text-amber-900 tabular-nums">
+                    {eur(sueltos.reduce((s, p) => s + p.amount, 0))}
+                  </td>
+                </tr>
+                {sueltos.map(p => (
+                  <Fragment key={p.id}>
+                    <tr className="border-b border-slate-50">
+                      <td className="py-1.5 px-4 pl-10 text-slate-500 text-xs">
+                        {p.paymentDate ? formatDate(p.paymentDate) : 'sin fecha'}
+                      </td>
+                      <td className="py-1.5 px-4 text-slate-400 text-xs">{p.mes ?? ''}</td>
+                      <td className={`py-1.5 px-4 text-xs ${p.paymentMethod === 'efectivo' ? 'text-red-600 font-medium' : 'text-blue-700'}`}>
+                        {forma(p)} · {nombreApt(aptDe(p) ?? '')}
+                      </td>
+                      <td className="py-1.5 px-4 text-slate-400 text-xs tabular-nums">{p.entryNumber ?? ''}</td>
+                      <td className="py-1.5 px-5 text-right text-slate-700 tabular-nums">{eur(p.amount)}</td>
+                    </tr>
+                  </Fragment>
+                ))}
+              </>
+            )}
+
+            {delAnio.length === 0 && (
+              <tr><td colSpan={5} className="py-8 text-center text-slate-400 text-sm">
+                No hay cobros anotados en {year}.
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
