@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, getDoc, writeBatch } from 'firebase/firestore'
 import { db, stripUndef } from '../lib/firebase'
+import { ordenaApartamentos } from '../lib/apartamentos'
 import { esSesionReal, observarSesion, usuarioActual } from '../lib/auth'
 import { nanoid } from '../lib/nanoid'
 import { DEFAULT_PRICES_2026 } from '../lib/priceCalc'
@@ -130,7 +131,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const mark = (k: keyof typeof ready) => setReady(r => ({ ...r, [k]: true }))
 
     const subs = [
-      onSnapshot(collection(db, 'apartments'),     s => { setApartments(s.docs.map(d => d.data() as Apartment));       mark('apartments') },    () => mark('apartments')),
+      // Se ordenan aquí una sola vez, con el orden de la casa: así sale igual en
+      // todas las pantallas sin que cada una tenga que acordarse.
+      onSnapshot(collection(db, 'apartments'),     s => { setApartments(ordenaApartamentos(s.docs.map(d => d.data() as Apartment))); mark('apartments') },    () => mark('apartments')),
       onSnapshot(collection(db, 'prices'),         s => { setPrices(s.docs.map(d => d.data() as PriceEntry));          mark('prices') },         () => mark('prices')),
       onSnapshot(collection(db, 'reservations'),   s => { setReservations(s.docs.map(d => d.data() as Reservation));   mark('reservations') },   () => mark('reservations')),
       onSnapshot(collection(db, 'payments'),       s => { setPayments(s.docs.map(d => d.data() as Payment));           mark('payments') },       () => mark('payments')),

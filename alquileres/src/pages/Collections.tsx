@@ -6,6 +6,7 @@ import { calcIGIC } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
 import { MONTH_NAMES_ES, formatDate, today } from '../lib/dateUtils'
 import { EJERCICIO_APP } from '../lib/cuentas'
+import { ordenaApartamentos } from '../lib/apartamentos'
 import type { Apartment, Payment, PaymentMethod, Reservation } from '../types'
 
 const QUARTERS = [
@@ -119,7 +120,7 @@ export default function Collections() {
 
 
   function sortApartments(apts: Apartment[], months: number[]): Apartment[] {
-    if (sortBy === 'nombre') return [...apts].sort((a, b) => a.name.localeCompare(b.name))
+    if (sortBy === 'nombre') return ordenaApartamentos(apts)
     return [...apts].sort((a, b) => getQuarterTotal(b.id, months) - getQuarterTotal(a.id, months))
   }
 
@@ -209,34 +210,46 @@ export default function Collections() {
     // En la vista por reserva se baja lo que se está viendo: el detalle de cada
     // cobro. Es con lo que se cuadra contra el extracto o contra los recibos.
     if (porReserva) {
-      rows.push([`Cobros según reserva — ${year}`])
+      rows.push([`Reservas y cobros — ${year}`])
       rows.push([])
-      rows.push(['Apartamento', 'Entrada', 'Salida', 'Importe reserva',
-        'Fecha del cobro', 'Mes', 'Forma de pago', 'Nº asiento', 'Importe cobrado'])
+      rows.push(['Mes', 'Apto.', 'Fecha reserva', 'Noches', 'Importe', 'Limpieza', 'Total',
+        'Fecha cobro', 'Nº asiento', 'Forma de pago', 'Cobrado'])
+      const corto = (iso: string) => formatDate(iso).replace(/\/\d{2}(\d{2})$/, '/$1')
       const forma = (p: Payment) => p.paymentMethod === 'efectivo' ? 'Efectivo'
         : p.paymentMethod === 'transferencia' ? 'Transferencia'
         : p.paymentMethod === 'otro' ? 'Otro' : ''
       const delAnio = payments.filter(p => p.received && mesDe(p)?.startsWith(String(year))
         && (!filterApt || aptDe(p) === filterApt))
-      const usados = new Set<string>()
-      for (const r of reservations
-        .filter(r => r.status !== 'cancelada' && (!filterApt || r.apartmentId === filterApt))
-        .sort((a, b) => a.checkIn.localeCompare(b.checkIn))) {
-        for (const p of delAnio.filter(p => p.reservationId === r.id)) {
-          usados.add(p.id)
-          rows.push([nombreApt(r.apartmentId), formatDate(r.checkIn), formatDate(r.checkOut),
-            fmt(r.total), p.paymentDate ? formatDate(p.paymentDate) : '', p.mes ?? '',
-            forma(p), p.entryNumber ?? '', fmt(p.amount)])
+      for (let m = 1; m <= 12; m++) {
+        const mm = `${year}-${String(m).padStart(2, '0')}`
+        const usados = new Set<string>()
+        for (const apt of visibleApts) {
+          const reservas = reservations
+            .filter(r => r.apartmentId === apt.id && r.status !== 'cancelada' && r.checkIn.startsWith(mm))
+            .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
+          if (reservas.length === 0) {
+            rows.push([MONTH_NAMES_ES[m - 1], apt.id, 'sin reservas', '', '', '', '', '', '', '', ''])
+            continue
+          }
+          for (const r of reservas) {
+            const cobros = delAnio.filter(p => p.reservationId === r.id)
+            cobros.forEach(p => usados.add(p.id))
+            const base = [MONTH_NAMES_ES[m - 1], apt.id, `${corto(r.checkIn)} al ${corto(r.checkOut)}`,
+              `${r.nights}-N`, fmt(r.total - r.cleaningFee), fmt(r.cleaningFee), fmt(r.total)]
+            if (cobros.length === 0) { rows.push([...base, '', '', '', 'sin cobrar']); continue }
+            cobros.forEach((p, k2) => rows.push([
+              ...(k2 === 0 ? base : [MONTH_NAMES_ES[m - 1], apt.id, '', '', '', '', '']),
+              p.paymentDate ? corto(p.paymentDate) : '', p.entryNumber ?? '', forma(p), fmt(p.amount)]))
+          }
+        }
+        for (const p of delAnio.filter(p => mesDe(p) === mm && !usados.has(p.id))) {
+          rows.push([MONTH_NAMES_ES[m - 1], aptDe(p) ?? '', 'cobro sin reserva asociada', '', '', '', '',
+            p.paymentDate ? corto(p.paymentDate) : '', p.entryNumber ?? '', forma(p), fmt(p.amount)])
         }
       }
-      for (const p of delAnio.filter(p => !usados.has(p.id))) {
-        rows.push([nombreApt(aptDe(p) ?? ''), '', '', '',
-          p.paymentDate ? formatDate(p.paymentDate) : '', p.mes ?? '',
-          forma(p), p.entryNumber ?? '', fmt(p.amount)])
-      }
       rows.push([])
-      rows.push(['TOTAL', '', '', '', '', '', '', '', fmt(delAnio.reduce((s, p) => s + p.amount, 0))])
-      descarga(rows, `cobros_por_reserva_${year}${filterApt ? `_${filterApt}` : ''}.csv`)
+      rows.push(['TOTAL', '', '', '', '', '', '', '', '', '', fmt(delAnio.reduce((s, p) => s + p.amount, 0))])
+      descarga(rows, `reservas_y_cobros_${year}${filterApt ? `_${filterApt}` : ''}.csv`)
       return
     }
     rows.push([`Cobros por Trimestres — ${year}`])
@@ -337,7 +350,7 @@ export default function Collections() {
             </select>
             <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)}
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-              <option value="nombre">Ordenar por nombre</option>
+              <option value="nombre">Orden de la casa</option>
               <option value="importe">Ordenar por importe</option>
             </select>
             <button onClick={() => setNuevoCobro(true)}
@@ -440,9 +453,9 @@ export default function Collections() {
       <div className="space-y-6" id="collections-screen">
         {porReserva && (
           <CobrosPorReserva
-            year={year} filterApt={filterApt}
+            year={year} filterApt={filterApt} apartments={apartments}
             reservations={reservations} payments={payments}
-            nombreApt={nombreApt} eur={eur} mesDe={mesDe} aptDe={aptDe}
+            eur={eur} mesDe={mesDe} aptDe={aptDe}
           />
         )}
 
@@ -789,128 +802,161 @@ const eurLargo = (n: number) =>
   `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
 
 /**
- * Los cobros uno a uno, colgando de la reserva que los pagó.
+ * El listado del año: mes, apartamento, reserva y lo que se cobró de ella.
  *
- * Las tablas de meses dicen cuánto entró; esta dice de dónde. Es la vista con
- * la que se cuadra contra el Excel o contra el extracto del banco: cada cobro
- * con su fecha, su forma de pago y su número de asiento, y debajo de cada
- * estancia lo que suma.
+ * Es el formato que pidió el propietario y el orden en que mira las cuentas:
+ * primero el mes, dentro el apartamento —en el orden de la casa, no el
+ * alfabético— y de cada reserva sus fechas, sus noches, el importe, la
+ * limpieza y el total, y al lado el cobro con el que se pagó: fecha, número de
+ * asiento e importe.
  *
- * Al final van los cobros que no cuelgan de ninguna estancia. No son un error:
- * el Arenal cobra de Airbnb en remesas que no casan una a una con cada
- * reserva, y un cobro en mano puede no corresponder a una reserva concreta.
+ * Una reserva con varios cobros ocupa varias líneas: la primera lleva los
+ * datos de la estancia y las siguientes solo el cobro, para no repetir lo
+ * mismo cuatro veces. Un apartamento sin reservas ese mes aparece igual, con
+ * un «sin reservas», porque un hueco también es información.
+ *
+ * El mes es el de ENTRADA de la reserva, no el del cobro: así una estancia
+ * que se paga en marzo sigue contando donde se ocupó el piso. Los cobros que
+ * no cuelgan de ninguna reserva van al final del mes en el que se cobraron.
  */
-function CobrosPorReserva({ year, filterApt, reservations, payments, nombreApt, eur, mesDe, aptDe }: {
+function CobrosPorReserva({ year, filterApt, apartments, reservations, payments, eur, mesDe, aptDe }: {
   year: number
   filterApt: string
+  apartments: Apartment[]
   reservations: Reservation[]
   payments: Payment[]
-  nombreApt: (id: string) => string
   eur: (n: number) => string
   mesDe: (p: Payment) => string | undefined
   aptDe: (p: Payment) => string | undefined
 }) {
+  const visibles = filterApt ? apartments.filter(a => a.id === filterApt) : apartments
   const delAnio = payments.filter(p => p.received && mesDe(p)?.startsWith(String(year))
     && (!filterApt || aptDe(p) === filterApt))
 
-  const conEstancia = reservations
-    .filter(r => r.status !== 'cancelada' && (!filterApt || r.apartmentId === filterApt))
-    .map(r => ({ r, cobros: delAnio.filter(p => p.reservationId === r.id) }))
-    .filter(x => x.cobros.length > 0)
-    .sort((a, b) => a.r.checkIn.localeCompare(b.r.checkIn))
+  /** dd/mm/aa, como lo escribe el propietario en el Excel. */
+  const fecha = (iso: string) => formatDate(iso).replace(/\/\d{2}(\d{2})$/, '/$1')
+  const num = (n: number) => n ? n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''
 
-  const sueltos = delAnio.filter(p => !conEstancia.some(x => x.cobros.includes(p)))
-    .sort((a, b) => (a.mes || '').localeCompare(b.mes || ''))
+  /** Las reservas de ese apartamento que entran en ese mes. */
+  const reservasDe = (aptId: string, mes: number) => reservations
+    .filter(r => r.apartmentId === aptId && r.status !== 'cancelada'
+      && r.checkIn.startsWith(`${year}-${String(mes).padStart(2, '0')}`))
+    .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
 
+  const celda = 'py-1.5 px-3 text-xs whitespace-nowrap'
   const total = delAnio.reduce((s, p) => s + p.amount, 0)
-  const forma = (p: Payment) => p.paymentMethod === 'efectivo' ? 'Efectivo'
-    : p.paymentMethod === 'transferencia' ? 'Transferencia'
-    : p.paymentMethod === 'otro' ? 'Otro' : '—'
-
-  const Cobro = ({ p }: { p: Payment }) => (
-    <tr className="border-b border-slate-50 last:border-0">
-      <td className="py-1.5 px-4 pl-10 text-slate-500 text-xs">
-        {p.paymentDate ? formatDate(p.paymentDate) : 'sin fecha'}
-      </td>
-      <td className="py-1.5 px-4 text-slate-400 text-xs">{p.mes ?? ''}</td>
-      <td className={`py-1.5 px-4 text-xs ${p.paymentMethod === 'efectivo' ? 'text-red-600 font-medium' : 'text-blue-700'}`}>
-        {forma(p)}
-      </td>
-      <td className="py-1.5 px-4 text-slate-400 text-xs tabular-nums">{p.entryNumber ?? ''}</td>
-      <td className="py-1.5 px-5 text-right text-slate-700 tabular-nums">{eur(p.amount)}</td>
-    </tr>
-  )
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
-        <h3 className="font-semibold text-white">Cobros según reserva · {year}</h3>
+        <h3 className="font-semibold text-white">Reservas y cobros · {year}</h3>
         <span className="text-white font-bold">{eur(total)}</span>
       </div>
       <div className="overflow-auto">
         <table className="w-full text-sm" translate="no">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
-              <th className="text-left py-2 px-4 font-medium">Fecha del cobro</th>
-              <th className="text-left py-2 px-4 font-medium">Mes</th>
-              <th className="text-left py-2 px-4 font-medium">Forma de pago</th>
-              <th className="text-left py-2 px-4 font-medium">Nº asiento</th>
-              <th className="text-right py-2 px-5 font-medium">Importe</th>
+              <th className="text-left py-2 px-3 font-medium">Mes</th>
+              <th className="text-left py-2 px-3 font-medium">Apto.</th>
+              <th className="text-left py-2 px-3 font-medium">Fecha reserva</th>
+              <th className="text-right py-2 px-3 font-medium">Noches</th>
+              <th className="text-right py-2 px-3 font-medium">Importe</th>
+              <th className="text-right py-2 px-3 font-medium">Limpieza</th>
+              <th className="text-right py-2 px-3 font-medium">Total</th>
+              <th className="text-left py-2 px-3 font-medium">Fecha cobro</th>
+              <th className="text-left py-2 px-3 font-medium">Nº asiento</th>
+              <th className="text-right py-2 px-3 font-medium">Cobrado</th>
             </tr>
           </thead>
-          <tbody>
-            {conEstancia.map(({ r, cobros }) => {
-              const cobrado = cobros.reduce((s, p) => s + p.amount, 0)
-              return (
-                <Fragment key={r.id}>
-                  <tr className="bg-slate-50/70 border-y border-slate-200">
-                    <td colSpan={4} className="py-2 px-4 font-medium text-slate-700 text-xs">
-                      {nombreApt(r.apartmentId)} · {formatDate(r.checkIn)} → {formatDate(r.checkOut)}
-                      <span className="text-slate-400 font-normal"> · {r.nights}N</span>
-                      {r.total > 0 && (
-                        <span className="text-slate-400 font-normal"> · reserva de {eur(r.total)}</span>
-                      )}
+          <tbody className="tabular-nums">
+            {MONTH_NAMES_ES.map((nombreMes, i) => {
+              const mes = i + 1
+              const mm = `${year}-${String(mes).padStart(2, '0')}`
+              const usados = new Set<string>()
+              const filas: React.ReactNode[] = []
+
+              for (const apt of visibles) {
+                const reservas = reservasDe(apt.id, mes)
+                if (reservas.length === 0) {
+                  filas.push(
+                    <tr key={`${mm}-${apt.id}-vacio`} className="border-b border-slate-50">
+                      <td className={celda} />
+                      <td className={`${celda} font-medium text-slate-700`}>{apt.id}</td>
+                      <td className={`${celda} text-slate-400 italic`} colSpan={8}>sin reservas</td>
+                    </tr>)
+                  continue
+                }
+                for (const r of reservas) {
+                  const cobros = delAnio.filter(p => p.reservationId === r.id)
+                  cobros.forEach(p => usados.add(p.id))
+                  const primera = (
+                    <>
+                      <td className={`${celda} font-medium text-slate-700`}>{apt.id}</td>
+                      <td className={`${celda} text-slate-600`}>
+                        {fecha(r.checkIn)} al {fecha(r.checkOut)}
+                      </td>
+                      <td className={`${celda} text-right text-slate-600`}>{r.nights}-N</td>
+                      <td className={`${celda} text-right text-slate-600`}>{num(r.total - r.cleaningFee)}</td>
+                      <td className={`${celda} text-right text-slate-500`}>{num(r.cleaningFee)}</td>
+                      <td className={`${celda} text-right font-semibold text-slate-800`}>{num(r.total)}</td>
+                    </>
+                  )
+                  if (cobros.length === 0) {
+                    filas.push(
+                      <tr key={r.id} className="border-b border-slate-50">
+                        <td className={celda} />
+                        {primera}
+                        <td className={`${celda} text-amber-700`} colSpan={3}>sin cobrar</td>
+                      </tr>)
+                    continue
+                  }
+                  cobros.forEach((p, k) => filas.push(
+                    <tr key={p.id} className="border-b border-slate-50">
+                      <td className={celda} />
+                      {k === 0 ? primera : <td className={celda} colSpan={6} />}
+                      <td className={`${celda} text-slate-600`}>
+                        {p.paymentDate ? fecha(p.paymentDate) : <span className="text-slate-400">sin fecha</span>}
+                      </td>
+                      <td className={`${celda} ${p.paymentMethod === 'efectivo' ? 'text-red-600 font-medium' : 'text-slate-500'}`}>
+                        {p.entryNumber || (p.paymentMethod === 'efectivo' ? 'efectivo' : '')}
+                      </td>
+                      <td className={`${celda} text-right font-medium ${p.paymentMethod === 'efectivo' ? 'text-red-600' : 'text-slate-800'}`}>
+                        {num(p.amount)}
+                      </td>
+                    </tr>))
+                }
+              }
+
+              // Lo cobrado ese mes que no cuelga de ninguna reserva.
+              for (const p of delAnio.filter(p => mesDe(p) === mm && !usados.has(p.id))) {
+                filas.push(
+                  <tr key={p.id} className="border-b border-slate-50 bg-amber-50/40">
+                    <td className={celda} />
+                    <td className={`${celda} font-medium text-slate-700`}>{aptDe(p)}</td>
+                    <td className={`${celda} text-amber-800 italic`} colSpan={5}>cobro sin reserva asociada</td>
+                    <td className={`${celda} text-slate-600`}>
+                      {p.paymentDate ? fecha(p.paymentDate) : <span className="text-slate-400">sin fecha</span>}
                     </td>
-                    <td className="py-2 px-5 text-right font-semibold text-slate-800 tabular-nums">{eur(cobrado)}</td>
+                    <td className={`${celda} ${p.paymentMethod === 'efectivo' ? 'text-red-600 font-medium' : 'text-slate-500'}`}>
+                      {p.entryNumber || (p.paymentMethod === 'efectivo' ? 'efectivo' : '')}
+                    </td>
+                    <td className={`${celda} text-right font-medium ${p.paymentMethod === 'efectivo' ? 'text-red-600' : 'text-slate-800'}`}>
+                      {num(p.amount)}
+                    </td>
+                  </tr>)
+              }
+
+              const delMes = delAnio.filter(p => mesDe(p) === mm).reduce((s, p) => s + p.amount, 0)
+              return (
+                <Fragment key={mm}>
+                  <tr className="bg-slate-100 border-y border-slate-200">
+                    <td className="py-2 px-3 font-bold text-slate-800 capitalize" colSpan={9}>{nombreMes}</td>
+                    <td className="py-2 px-3 text-right font-bold text-slate-800">{num(delMes)}</td>
                   </tr>
-                  {cobros.map(p => <Cobro key={p.id} p={p} />)}
+                  {filas}
                 </Fragment>
               )
             })}
-
-            {sueltos.length > 0 && (
-              <>
-                <tr className="bg-amber-50 border-y border-amber-200">
-                  <td colSpan={4} className="py-2 px-4 font-medium text-amber-900 text-xs">
-                    Cobros sin estancia asociada — a nombre del apartamento
-                  </td>
-                  <td className="py-2 px-5 text-right font-semibold text-amber-900 tabular-nums">
-                    {eur(sueltos.reduce((s, p) => s + p.amount, 0))}
-                  </td>
-                </tr>
-                {sueltos.map(p => (
-                  <Fragment key={p.id}>
-                    <tr className="border-b border-slate-50">
-                      <td className="py-1.5 px-4 pl-10 text-slate-500 text-xs">
-                        {p.paymentDate ? formatDate(p.paymentDate) : 'sin fecha'}
-                      </td>
-                      <td className="py-1.5 px-4 text-slate-400 text-xs">{p.mes ?? ''}</td>
-                      <td className={`py-1.5 px-4 text-xs ${p.paymentMethod === 'efectivo' ? 'text-red-600 font-medium' : 'text-blue-700'}`}>
-                        {forma(p)} · {nombreApt(aptDe(p) ?? '')}
-                      </td>
-                      <td className="py-1.5 px-4 text-slate-400 text-xs tabular-nums">{p.entryNumber ?? ''}</td>
-                      <td className="py-1.5 px-5 text-right text-slate-700 tabular-nums">{eur(p.amount)}</td>
-                    </tr>
-                  </Fragment>
-                ))}
-              </>
-            )}
-
-            {delAnio.length === 0 && (
-              <tr><td colSpan={5} className="py-8 text-center text-slate-400 text-sm">
-                No hay cobros anotados en {year}.
-              </td></tr>
-            )}
           </tbody>
         </table>
       </div>
