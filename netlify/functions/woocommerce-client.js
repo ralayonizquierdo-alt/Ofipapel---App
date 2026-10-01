@@ -711,8 +711,27 @@ async function buscarEnCatalogo(query, limit = 3) {
   // (las referencias primero), no con todas — buscar cada palabra de una frase
   // larga era precisamente lo que más carga metía justo cuando el servidor ya
   // iba mal.
+  //
+  // Y EN SINGULAR. Aquí estaba el agujero: todas las alternativas de arriba
+  // prueban el singular de la FRASE, pero este último recurso buscaba las
+  // palabras tal cual las escribió el cliente. Como el catálogo está casi
+  // entero en singular ("MAQUINA ETIQUETADORA ..."), un plural se quedaba sin
+  // nada: comprobado contra el catálogo real, "etiquetadoras de precios" no
+  // devolvía ni un producto y "etiquetadora de precios" devolvía once. El
+  // cliente preguntó en plural, que es como se pregunta, y se le contestó que
+  // no teníamos (1/10/2026).
+  //
+  // Se sustituye, no se añade: WordPress busca por trozo de palabra, así que el
+  // singular encuentra también los productos que en el catálogo están en plural
+  // ("cinta" encuentra "CINTAS"). Y así no cuesta ni una petición más, que es
+  // lo que importa cuando se llega hasta aquí con la web ya cargada.
   if (scored.length === 0 && words.length > 1) {
-    const clave = [...words].sort((a, b) => pesoDePalabra(b) - pesoDePalabra(a)).slice(0, 2);
+    const clave = [...new Set(
+      [...words]
+        .sort((a, b) => pesoDePalabra(b) - pesoDePalabra(a))
+        .slice(0, 2)
+        .map((w) => singularize(w) || w)
+    )];
     const ultima = await buscarConTerminos(clave, words, fetchLimit);
     scored = ultima.scored;
     fallo = fallo || ultima.fallo;
