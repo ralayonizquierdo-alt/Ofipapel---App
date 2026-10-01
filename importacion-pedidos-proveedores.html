@@ -672,16 +672,44 @@ function totalSenfortPedido(texto){
   return m ? parseDecComa(m[3]) : null;
 }
 
-// PRYSE: "[CODIGO] DESCRIPCION CANTIDAD,000 PRECIO,00000 DTO,00 No sujeto IMPORTE,00 €"
+// PRYSE: dos formatos distintos según el tipo de documento del mismo proveedor.
+// a) Factura: "[CODIGO] DESCRIPCION CANTIDAD,000 PRECIO,00000 DTO,00 No sujeto IMPORTE,00 €"
+// b) Presupuesto/Orden de venta: "CODIGO DESCRIPCION Pend,000 Entregada,000
+//    Precio,00000 [€] DtoPP,00000 Dto,00000 Importe,00 [€]" — la cantidad a
+//    usar es "Pend" (lo pedido), no "Entregada": en un presupuesto nada se ha
+//    servido todavía, así que Entregada siempre sale a 0 aunque sí haya un
+//    importe calculado sobre lo pedido. La descripción a veces se parte en
+//    una línea aparte (texto suelto, o solo "€" cuando el símbolo de Precio
+//    se desborda a la línea siguiente) que se pega a la fila anterior —
+//    salvo que sea el pie de página fijo que repite cada hoja ("R.M.B...").
 function parsePryse(lineas){
   const filas = [];
-  const RE = /^\[([A-Z0-9]{4,10})\]\s+(.*?)\s+(\d{1,3}(?:\.\d{3})*),(\d{3})\s+(\d+),(\d{5})\s+(\d+),(\d{2})\s+No sujeto\s+(\d+(?:\.\d{3})*),(\d{2})\s*€$/;
+  const RE_FACTURA = /^\[([A-Z0-9]{4,10})\]\s+(.*?)\s+(\d{1,3}(?:\.\d{3})*),(\d{3})\s+(\d+),(\d{5})\s+(\d+),(\d{2})\s+No sujeto\s+(\d+(?:\.\d{3})*),(\d{2})\s*€$/;
+  const RE_PRESUPUESTO = /^([A-Z0-9#-]{4,14})\s+(.+?)\s+(\d+),\d{3}\s+\d+,\d{3}\s+(\d+),(\d{5})\s*€?\s+\d+,\d{5}\s+(\d+),(\d{5})\s+(\d{1,3}(?:\.\d{3})*),(\d{2})\s*€?$/;
+  let ultimaFila = null, esperandoContinuacion = false;
   lineas.forEach(l=>{
-    const m = l.match(RE);
-    if(!m) return;
-    const desc = m[2].replace(/\(Bienes\)\s*$/,'').trim();
-    filas.push(fila_({codigo:m[1], descripcion:desc, cantidad:parseInt(m[3].replace(/\./g,''),10),
-      precioUnitario:parseFloat(m[5]+'.'+m[6]), dto1:parseFloat(m[7]+'.'+m[8]), importe:parseDecComa(m[9]+','+m[10])}));
+    const mf = l.match(RE_FACTURA);
+    if(mf){
+      const desc = mf[2].replace(/\(Bienes\)\s*$/,'').trim();
+      ultimaFila = fila_({codigo:mf[1], descripcion:desc, cantidad:parseInt(mf[3].replace(/\./g,''),10),
+        precioUnitario:parseFloat(mf[5]+'.'+mf[6]), dto1:parseFloat(mf[7]+'.'+mf[8]), importe:parseDecComa(mf[9]+','+mf[10])});
+      filas.push(ultimaFila);
+      esperandoContinuacion = false;
+      return;
+    }
+    const mp = l.match(RE_PRESUPUESTO);
+    if(mp){
+      ultimaFila = fila_({codigo:mp[1], descripcion:mp[2].trim(), cantidad:parseInt(mp[3],10),
+        precioUnitario:parseFloat(mp[4]+'.'+mp[5]), dto1:parseFloat(mp[6]+'.'+mp[7]), importe:parseDecComa(mp[8]+','+mp[9])});
+      filas.push(ultimaFila);
+      esperandoContinuacion = true;
+      return;
+    }
+    if(esperandoContinuacion && ultimaFila && l !== '--- PAGE BREAK ---' && !/^R\.M\.B\b/.test(l)){
+      const extra = l.replace(/\s*€\s*$/,'').trim();
+      if(extra) ultimaFila.descripcion = (ultimaFila.descripcion + ' ' + extra).trim();
+    }
+    esperandoContinuacion = false;
   });
   return filas;
 }
