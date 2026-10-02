@@ -212,12 +212,17 @@ export default function Collections() {
     if (porReserva) {
       rows.push([`Reservas y cobros — ${year}`])
       rows.push([])
-      rows.push(['Mes', 'Apto.', 'Fecha reserva', 'Noches', 'Importe', 'Limpieza', 'Total',
-        'Fecha cobro', 'Nº asiento', 'Forma de pago', 'Cobrado'])
+      rows.push(['Mes', 'Apto.', 'Fecha reserva', 'Noches', 'Importe', 'Limpieza',
+        'Transferencia', 'Efectivo', 'Fecha cobro', 'Nº asiento', 'Cobrado'])
       const corto = (iso: string) => formatDate(iso).replace(/\/\d{2}(\d{2})$/, '/$1')
-      const forma = (p: Payment) => p.paymentMethod === 'efectivo' ? 'Efectivo'
-        : p.paymentMethod === 'transferencia' ? 'Transferencia'
-        : p.paymentMethod === 'otro' ? 'Otro' : ''
+      const enMano = (p: Payment) => {
+        const r = reservations.find(x => x.id === p.reservationId)
+        return esEfectivo(p, r?.channel === 'directo')
+      }
+      /** El importe en la columna que toca: banco o mano. */
+      const movimiento = (p: Payment) => enMano(p)
+        ? ['', fmt(p.amount), p.paymentDate ? corto(p.paymentDate) : '', p.entryNumber ?? 'efectivo']
+        : [fmt(p.amount), '', p.paymentDate ? corto(p.paymentDate) : '', p.entryNumber ?? '']
       const delAnio = payments.filter(p => p.received && mesDe(p)?.startsWith(String(year))
         && (!filterApt || aptDe(p) === filterApt))
       for (let m = 1; m <= 12; m++) {
@@ -235,16 +240,17 @@ export default function Collections() {
             const cobros = delAnio.filter(p => p.reservationId === r.id)
             cobros.forEach(p => usados.add(p.id))
             const base = [MONTH_NAMES_ES[m - 1], apt.id, `${corto(r.checkIn)} al ${corto(r.checkOut)}`,
-              `${r.nights}-N`, fmt(r.total - r.cleaningFee), fmt(r.cleaningFee), fmt(r.total)]
-            if (cobros.length === 0) { rows.push([...base, '', '', '', 'sin cobrar']); continue }
+              `${r.nights}-N`, fmt(r.total - r.cleaningFee), fmt(r.cleaningFee)]
+            if (cobros.length === 0) { rows.push([...base, '', '', '', '', 'sin cobrar']); continue }
+            const cobrado = cobros.reduce((x, p) => x + p.amount, 0)
             cobros.forEach((p, k2) => rows.push([
-              ...(k2 === 0 ? base : [MONTH_NAMES_ES[m - 1], apt.id, '', '', '', '', '']),
-              p.paymentDate ? corto(p.paymentDate) : '', p.entryNumber ?? '', forma(p), fmt(p.amount)]))
+              ...(k2 === 0 ? base : [MONTH_NAMES_ES[m - 1], apt.id, '', '', '', '']),
+              ...movimiento(p), k2 === 0 ? fmt(cobrado) : '']))
           }
         }
         for (const p of delAnio.filter(p => mesDe(p) === mm && !usados.has(p.id))) {
-          rows.push([MONTH_NAMES_ES[m - 1], aptDe(p) ?? '', 'cobro sin reserva asociada', '', '', '', '',
-            p.paymentDate ? corto(p.paymentDate) : '', p.entryNumber ?? '', forma(p), fmt(p.amount)])
+          rows.push([MONTH_NAMES_ES[m - 1], aptDe(p) ?? '', 'cobro sin reserva asociada', '', '', '',
+            ...movimiento(p), ''])
         }
       }
       rows.push([])
@@ -844,6 +850,27 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
     .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
 
   const celda = 'py-1.5 px-3 text-xs whitespace-nowrap'
+  const esEfectivoDe = (p: Payment) => {
+    const r = reservations.find(x => x.id === p.reservationId)
+    return esEfectivo(p, r?.channel === 'directo')
+  }
+
+  /** Un cobro: su importe en la columna que toca, su fecha y su asiento. */
+  const Movimiento = ({ p }: { p: Payment }) => {
+    const enMano = esEfectivoDe(p)
+    return (
+      <>
+        <td className={`${celda} text-right text-blue-700`}>{enMano ? '' : num(p.amount)}</td>
+        <td className={`${celda} text-right font-medium text-red-600`}>{enMano ? num(p.amount) : ''}</td>
+        <td className={`${celda} text-slate-600`}>
+          {p.paymentDate ? fecha(p.paymentDate) : <span className="text-slate-400">sin fecha</span>}
+        </td>
+        <td className={`${celda} text-slate-500`}>
+          {p.entryNumber || (enMano ? 'efectivo' : '')}
+        </td>
+      </>
+    )
+  }
   const total = delAnio.reduce((s, p) => s + p.amount, 0)
 
   return (
@@ -862,7 +889,8 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
               <th className="text-right py-2 px-3 font-medium">Noches</th>
               <th className="text-right py-2 px-3 font-medium">Importe</th>
               <th className="text-right py-2 px-3 font-medium">Limpieza</th>
-              <th className="text-right py-2 px-3 font-medium">Total</th>
+              <th className="text-right py-2 px-3 font-medium text-blue-700">Transferencia</th>
+              <th className="text-right py-2 px-3 font-medium text-red-600">Efectivo</th>
               <th className="text-left py-2 px-3 font-medium">Fecha cobro</th>
               <th className="text-left py-2 px-3 font-medium">Nº asiento</th>
               <th className="text-right py-2 px-3 font-medium">Cobrado</th>
@@ -898,7 +926,6 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                       <td className={`${celda} text-right text-slate-600`}>{r.nights}-N</td>
                       <td className={`${celda} text-right text-slate-600`}>{num(r.total - r.cleaningFee)}</td>
                       <td className={`${celda} text-right text-slate-500`}>{num(r.cleaningFee)}</td>
-                      <td className={`${celda} text-right font-semibold text-slate-800`}>{num(r.total)}</td>
                     </>
                   )
                   if (cobros.length === 0) {
@@ -906,22 +933,18 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                       <tr key={r.id} className="border-b border-slate-50">
                         <td className={celda} />
                         {primera}
-                        <td className={`${celda} text-amber-700`} colSpan={3}>sin cobrar</td>
+                        <td className={`${celda} text-amber-700`} colSpan={5}>sin cobrar</td>
                       </tr>)
                     continue
                   }
+                  const cobrado = cobros.reduce((x, p) => x + p.amount, 0)
                   cobros.forEach((p, k) => filas.push(
                     <tr key={p.id} className="border-b border-slate-50">
                       <td className={celda} />
-                      {k === 0 ? primera : <td className={celda} colSpan={6} />}
-                      <td className={`${celda} text-slate-600`}>
-                        {p.paymentDate ? fecha(p.paymentDate) : <span className="text-slate-400">sin fecha</span>}
-                      </td>
-                      <td className={`${celda} ${p.paymentMethod === 'efectivo' ? 'text-red-600 font-medium' : 'text-slate-500'}`}>
-                        {p.entryNumber || (p.paymentMethod === 'efectivo' ? 'efectivo' : '')}
-                      </td>
-                      <td className={`${celda} text-right font-medium ${p.paymentMethod === 'efectivo' ? 'text-red-600' : 'text-slate-800'}`}>
-                        {num(p.amount)}
+                      {k === 0 ? primera : <td className={celda} colSpan={5} />}
+                      <Movimiento p={p} />
+                      <td className={`${celda} text-right font-semibold text-slate-800`}>
+                        {k === 0 ? num(cobrado) : ''}
                       </td>
                     </tr>))
                 }
@@ -933,24 +956,22 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                   <tr key={p.id} className="border-b border-slate-50 bg-amber-50/40">
                     <td className={celda} />
                     <td className={`${celda} font-medium text-slate-700`}>{aptDe(p)}</td>
-                    <td className={`${celda} text-amber-800 italic`} colSpan={5}>cobro sin reserva asociada</td>
-                    <td className={`${celda} text-slate-600`}>
-                      {p.paymentDate ? fecha(p.paymentDate) : <span className="text-slate-400">sin fecha</span>}
-                    </td>
-                    <td className={`${celda} ${p.paymentMethod === 'efectivo' ? 'text-red-600 font-medium' : 'text-slate-500'}`}>
-                      {p.entryNumber || (p.paymentMethod === 'efectivo' ? 'efectivo' : '')}
-                    </td>
-                    <td className={`${celda} text-right font-medium ${p.paymentMethod === 'efectivo' ? 'text-red-600' : 'text-slate-800'}`}>
-                      {num(p.amount)}
-                    </td>
+                    <td className={`${celda} text-amber-800 italic`} colSpan={4}>cobro sin reserva asociada</td>
+                    <Movimiento p={p} />
+                    <td className={celda} />
                   </tr>)
               }
 
-              const delMes = delAnio.filter(p => mesDe(p) === mm).reduce((s, p) => s + p.amount, 0)
+              const cobrosMes = delAnio.filter(p => mesDe(p) === mm)
+              const delMes = cobrosMes.reduce((s, p) => s + p.amount, 0)
+              const efecMes = cobrosMes.filter(esEfectivoDe).reduce((s, p) => s + p.amount, 0)
               return (
                 <Fragment key={mm}>
                   <tr className="bg-slate-100 border-y border-slate-200">
-                    <td className="py-2 px-3 font-bold text-slate-800 capitalize" colSpan={9}>{nombreMes}</td>
+                    <td className="py-2 px-3 font-bold text-slate-800 capitalize" colSpan={6}>{nombreMes}</td>
+                    <td className="py-2 px-3 text-right font-bold text-blue-700">{num(delMes - efecMes)}</td>
+                    <td className="py-2 px-3 text-right font-bold text-red-600">{num(efecMes)}</td>
+                    <td colSpan={2} />
                     <td className="py-2 px-3 text-right font-bold text-slate-800">{num(delMes)}</td>
                   </tr>
                   {filas}
