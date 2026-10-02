@@ -251,7 +251,14 @@ export default function Collections() {
             const base = [MONTH_NAMES_ES[m - 1], apt.id,
               `${antes}${corto(r.checkIn)} al ${corto(r.checkOut)}`,
               `${r.nights}-N`, fmt(r.total - r.cleaningFee), fmt(r.cleaningFee)]
-            if (cobros.length === 0) { rows.push([...base, '', '', '', '', 'sin cobro este mes']); continue }
+            if (cobros.length === 0) {
+              const otros = delAnio.filter(x => x.reservationId === r.id)
+              const donde = otros.length === 0 ? 'sin cobrar en todo el año'
+                : `se cobró en ${[...new Set(otros.map(x => x.mes))].sort()
+                    .map(x => MONTH_NAMES_ES[Number(x!.slice(5, 7)) - 1].toLowerCase()).join(' y ')}`
+              rows.push([...base, '', '', '', '', donde])
+              continue
+            }
             const cobrado = cobros.reduce((x, p) => x + p.amount, 0)
             cobros.forEach((p, k2) => rows.push([
               ...(k2 === 0 ? base : [MONTH_NAMES_ES[m - 1], apt.id, '', '', '', '']),
@@ -880,6 +887,24 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
     return `de ${MONTH_NAMES_ES[Number(r.checkIn.slice(5, 7)) - 1].toLowerCase()}`
   }
 
+  /**
+   * Qué poner cuando una reserva no tiene cobros en ese mes.
+   *
+   * «Sin cobro este mes» mezclaba dos cosas que no se parecen en nada: una
+   * estancia que se paga de una vez y por eso los demás meses están vacíos —lo
+   * normal, y no hay nada que mirar— y una estancia que no se ha cobrado en
+   * todo el año, que sí es un aviso. Ahora la primera dice dónde se cobró y la
+   * segunda avisa de verdad.
+   */
+  const dondeSeCobro = (r: Reservation): { texto: string; aviso: boolean } => {
+    const suyos = delAnio.filter(p => p.reservationId === r.id)
+    if (suyos.length === 0) return { texto: 'sin cobrar en todo el año', aviso: true }
+    const meses = [...new Set(suyos.map(p => mesDe(p)).filter(Boolean))]
+      .sort()
+      .map(m => MONTH_NAMES_ES[Number(m!.slice(5, 7)) - 1].toLowerCase())
+    return { texto: `se cobró en ${meses.join(' y ')}`, aviso: false }
+  }
+
   /** Una línea del listado: una reserva con sus cobros de ese mes, o un hueco. */
   type Linea = { mes: number; apt: string; r?: Reservation; vieneDeAntes: boolean; cobros: Payment[] }
 
@@ -1013,13 +1038,18 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                         <td className={`${celda} text-right ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-500'}`}>{num(r.cleaningFee)}</td>
                       </>
                     )
-                    if (cobros.length === 0) return (
-                      <tr key={clave} className="border-b border-slate-50">
-                        <Cruce l={l} />
-                        {datos}
-                        <td className={`${celda} text-amber-700`} colSpan={5}>sin cobro este mes</td>
-                      </tr>
-                    )
+                    if (cobros.length === 0) {
+                      const { texto, aviso } = dondeSeCobro(r)
+                      return (
+                        <tr key={clave} className="border-b border-slate-50">
+                          <Cruce l={l} />
+                          {datos}
+                          <td className={`${celda} ${aviso ? 'text-amber-700 font-medium' : 'text-slate-400 italic'}`} colSpan={5}>
+                            {texto}
+                          </td>
+                        </tr>
+                      )
+                    }
                     return cobros.map((p, k) => (
                       <tr key={`${clave}-${p.id}`} className="border-b border-slate-50">
                         {k === 0 ? <Cruce l={l} /> : <td className={celda} />}
