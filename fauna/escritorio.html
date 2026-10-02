@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#122b36" />
+    <title>Parte diario · Control de fauna · Escritorio</title>
+    <meta name="description" content="Registro de actuaciones, fauna e incidencias para el parte diario de control de fauna." />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23122b36'/%3E%3Cpath d='M13 39q18-24 38-15-12 4-18 14-10-4-20 1Z' fill='%23d6ef92'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="escritorio.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand"><span class="mark">✦</span><span>Control de fauna <small>Parte diario · Escritorio</small></span></div>
+      <div class="top-actions"><span class="status">Prueba · los datos se quedan en este ordenador</span></div>
+    </header>
+
+    <main class="layout">
+      <section class="hero">
+        <div><p class="eyebrow">REGISTRO DE JORNADA</p><h1>Parte diario</h1><p>Registra los hechos del día y, al terminar, revisa el parte, descárgalo en PDF y envíalo.</p></div>
+        <div class="date-card"><label for="report-date">Fecha del parte</label><input id="report-date" type="date" /></div>
+      </section>
+
+      <nav class="tabs" aria-label="Secciones">
+        <a href="#registro" id="tab-registro" class="tab">1 · Registro</a>
+        <a href="#procesar" id="tab-procesar" class="tab">2 · Procesar y enviar el parte</a>
+      </nav>
+
+      <div id="view-registro">
+      <section class="setup card" aria-labelledby="setup-title">
+        <div class="section-heading"><h2 id="setup-title">Datos del turno</h2><span>Se guardan en este dispositivo</span></div>
+        <p id="carry-note" class="carry-note" hidden></p>
+        <div class="setup-grid">
+          <label>Halconero(s) de turno<select id="agent"><option value="">Seleccionar</option><option>Pedro</option><option>Rayco</option><option>Cristo</option><option>Pedro/Rayco</option><option>Pedro/Cristo</option><option>Rayco/Cristo</option></select></label>
+          <label>Hora de inicio<input id="start-time" type="time" /></label>
+          <label>Hora de fin<input id="end-time" type="time" /></label>
+          <label>Climatología<input id="weather" type="text" placeholder="Ej.: despejado" /></label>
+          <label>Viento (nudos)<input id="wind" type="text" inputmode="decimal" placeholder="Ej.: 0–5" /></label>
+        </div>
+      </section>
+
+      <section class="work-grid">
+        <div class="card composer" aria-labelledby="entry-title">
+          <div class="section-heading"><h2 id="entry-title">Nuevo registro</h2><span id="clock"></span></div>
+          <label class="field-label" for="entry-kind">Sección del parte <span class="kind-hint">— cada sección muestra sus propios campos</span></label>
+          <select id="entry-kind">
+            <option value="actuacion">Actuación / actividad</option>
+            <option value="fauna">Fauna observada / actuación</option>
+            <option value="captura">Captura / trampeo</option>
+            <option value="retirada">Retirada de animal muerto</option>
+            <option value="impacto">Impacto con aeronave</option>
+            <option value="aviso">Aviso recibido / realizado</option>
+          </select>
+          <div id="preset-field"><label class="field-label" for="entry-preset">Actuación habitual</label>
+          <select id="entry-preset"></select>
+          <p class="hint">Elige una actuación y añade los detalles que cambian cada vez.</p></div>
+          <label class="field-label" id="entry-text-label" for="entry-text">Descripción</label>
+          <textarea id="entry-text" rows="5" placeholder="Describe lo ocurrido o pulsa el micrófono para dictarlo"></textarea>
+          <div id="detail-fields" class="detail-grid"></div>
+          <div class="entry-tools">
+            <button id="voice-button" class="voice-button" type="button" aria-label="Dictar descripción"><span class="mic" aria-hidden="true">🎙</span><span id="voice-label">Dictar registro</span></button>
+            <label class="time-field">Hora del hecho<input id="entry-time" type="time" required /></label>
+          </div>
+          <p id="time-note" class="hint time-note"></p>
+          <p id="voice-note" class="hint" role="status">Solo se guardará el texto. Revisa la transcripción antes de añadirla.</p>
+          <button id="save-entry" class="button primary" type="button">Añadir al parte</button>
+          <button id="cancel-edit" class="button secondary cancel-edit" type="button" hidden>Cancelar edición</button>
+        </div>
+
+        <div class="card timeline" aria-labelledby="timeline-title">
+          <div class="section-heading"><h2 id="timeline-title">Registros del día</h2><span id="entry-count">0 registros</span></div>
+          <div id="entry-list" class="entry-list"></div>
+        </div>
+      </section>
+
+      </div>
+
+      <section id="view-procesar" hidden>
+        <div class="card proc-bar">
+          <div>
+            <h2>Parte del <span id="proc-date"></span></h2>
+            <p id="proc-status" class="hint" role="status"></p>
+          </div>
+          <div class="proc-actions">
+            <button id="proc-reload" class="button secondary" type="button">Recargar desde los registros</button>
+            <button id="proc-pdf" class="button primary" type="button">Descargar PDF</button>
+          </div>
+        </div>
+        <p class="hint proc-help">Revisa el parte y corrige lo que haga falta: todas las casillas se pueden editar y los cambios se guardan solos en este ordenador. Los cambios aquí no modifican los registros del día.</p>
+        <div id="parte" class="parte-doc" aria-label="Parte diario editable"></div>
+
+        <div class="card envio" aria-labelledby="envio-title">
+          <div class="section-heading"><h2 id="envio-title">Envío por correo</h2><span>Los destinatarios se recuerdan en este ordenador</span></div>
+          <div class="envio-grid">
+            <label>Para (separa varias direcciones con comas)<input id="mail-to" type="text" inputmode="email" autocomplete="email" placeholder="correo@ejemplo.com" /></label>
+            <label>Asunto<input id="mail-subject" type="text" /></label>
+            <label class="envio-body">Mensaje<textarea id="mail-body" rows="4"></textarea></label>
+          </div>
+          <div class="envio-actions">
+            <button id="mail-send" class="button primary" type="button">Enviar por correo</button>
+            <button id="mail-share" class="button secondary" type="button" hidden>Compartir PDF (adjunto automático)</button>
+          </div>
+          <p id="mail-status" class="hint" role="status">«Enviar por correo» descarga el PDF y abre tu programa de correo con el destinatario, el asunto y el mensaje ya puestos: solo tienes que adjuntar el PDF descargado y enviar.</p>
+        </div>
+      </section>
+    </main>
+    <script src="app.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/5.0.8/jspdf.plugin.autotable.min.js" defer></script>
+    <script src="escritorio.js" defer></script>
+  </body>
+</html>
