@@ -15,3 +15,5 @@
 .entry-actions{display:flex;gap:2px}
 .entry-details{margin-top:4px!important;color:#5f7470;font-size:12px!important}
 .entry.is-editing{border-color:#e2b04a;background:#fffaf0}
+.kind-hint{font-weight:500;color:#738581;font-size:12px}
+#entry-kind{font-weight:800;border-color:#2f8f6a;background:#eef8f2}

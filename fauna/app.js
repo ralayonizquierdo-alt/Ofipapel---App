@@ -4,13 +4,17 @@
 
 const usualActions = ['Escribir libremente', 'Inicio de servicio', 'Ronda perimetral', 'Revisión de rodadura y pista', 'Revisión de trampas de conejos', 'Revisión de las trampas', 'Revisión de vegetación', 'Presencia y vuelos en Cab.07', 'Presencia y vuelos en Cab.25', 'Presencia en P. Sur', 'Revisión de trampas (CMD, terminal de carga, bomberos, helipuerto y halconera)', 'Halconera', 'Fin de servicio'];
 const labels = {actuacion:'Actuación',fauna:'Fauna',captura:'Captura / trampeo',retirada:'Retirada',impacto:'Impacto',aviso:'Aviso'};
+// Códigos tal como vienen en las leyendas de la plantilla Word del parte.
+const actionCodes = ['','VI – Vigilancia','V – Vuelos con rapaces','V.M – Vuelos de marcaje','V.Z – Vuelos de caza','V.Z.C – Vuelos de caza con captura','A – Aves rapaces (vuelos y capturas)','P – Perro','S – Sonidos','P.I – Pirotecnia','T – Trampa','R – Red'];
+const captureMethods = ['','T – Trampa','L – Lazo','A – Ave de cetrería','P – Perro adiestrado','O – Otro medio (indicar en observaciones)'];
+const captureDestinations = ['','A – Alimento para las rapaces','C – C. Recuperación «La Tahonilla»','E – Eutanasia','M – Agente de Medio Ambiente','P – Albergue de animales','L – Liberado'];
 const detailFields = {
   actuacion: [['wind','Viento (nudos)'],['observations','Observaciones']],
-  fauna: [['species','Nombre común'],['count','Número'],['behavior','Comportamiento'],['altitude','Altitud de vuelo'],['origin','Procedencia'],['destination','Destino'],['action','Actuación / código'],['threat','Coincide con operaciones','select',['','Sí','No']],['observations','Observaciones']],
-  captura: [['species','Nombre común'],['method','Método de captura','select',['','T','L','A','P','O']],['count','Número'],['location','Localización'],['destination','Destino'],['observations','Observaciones']],
+  fauna: [['species','Nombre común'],['count','Número'],['behavior','Comportamiento'],['altitude','Altitud de vuelo','select',['','0-20','20-100']],['origin','Procedencia (dónde está)'],['destination','Destino (hacia dónde va)'],['action','Actuación','select',actionCodes],['threat','Amenaza / coincide con operaciones','select',['','Sí','No']],['observations','Observaciones']],
+  captura: [['species','Nombre común'],['method','Método de captura','select',captureMethods],['count','Número'],['location','Localización'],['destination','Destino del animal','select',captureDestinations],['observations','Observaciones']],
   retirada: [['species','Nombre común'],['count','Número'],['location','Zona de incidencia'],['impact','Procede de impacto','select',['','Sí','No']],['observations','Observaciones']],
   impacto: [['species','Nombre común'],['location','Zona de incidencia'],['aircraft','Matrícula aeronave'],['severity','Severidad'],['observations','Observaciones']],
-  aviso: [['direction','Recibido / realizado','select',['Recibido','Realizado']],['source','Procedencia / destino del aviso'],['response','Actuación derivada','textarea'],['observations','Observaciones']]
+  aviso: [['direction','Recibido / realizado','select',['Recibido','Realizado']],['source','Procedencia / destino del aviso'],['response','Actuación del SCF / derivada','textarea'],['observations','Observaciones']]
 };
 const textLabels = {actuacion:'Actuación',fauna:'Descripción breve',captura:'Descripción breve',retirada:'Descripción breve',impacto:'Descripción breve',aviso:'Asunto del aviso'};
 const storageKey = 'fauna-parte-prototipo-v1';
@@ -136,7 +140,10 @@ function renderDetailFields(values = {}) {
     if (type === 'select') for (const choice of options) { const option = document.createElement('option'); option.value = choice; option.textContent = choice || 'Seleccionar'; input.append(option); }
     if (type === 'textarea') input.rows = 3;
     if (key === 'count') input.inputMode = 'numeric';
-    if (values[key]) input.value = values[key];
+    if (values[key]) {
+      if (type === 'select' && ![...input.options].some(option => option.value === values[key])) { const option = document.createElement('option'); option.value = option.textContent = values[key]; input.append(option); }
+      input.value = values[key];
+    }
     label.append(input); container.append(label);
   }
 }
