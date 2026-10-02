@@ -31,14 +31,16 @@ function save() {
   catch { $('voice-note').textContent = 'No se pudo guardar en este dispositivo (¿navegación privada?). No cierres la página.'; }
 }
 
-const fields = ['agent','author','start-time','end-time','weather','wind'];
+const fields = ['agent','start-time','end-time','weather','wind'];
 const dateInput = $('report-date');
 dateInput.value = today();
 function currentEntries() { return state.reports[dateInput.value] || []; }
 function dayFields() { return (state.fields[dateInput.value] ||= {}); }
 
-// Halconero y autor: desplegables. Los turnos compartidos («Pedro/Rayco», como
-// aparece en los partes reales) son opciones propias del desplegable.
+// Halconero: desplegable. Es siempre quien rellena el parte, así que no hay
+// campo de autor. Los turnos compartidos («Pedro/Rayco», como aparece en los
+// partes reales) son opciones propias del desplegable.
+
 // ── Hora del hecho ──────────────────────────────────────────────────────
 // Antes se rellenaba al cargar la página o al guardar el registro anterior,
 // así que con la página abierta un rato se guardaba una hora vieja. Ahora:
@@ -115,7 +117,7 @@ function loadFields() {
   if (!values) {
     previousDate = Object.keys(state.fields).filter(day => day < dateInput.value).sort().at(-1);
     const previous = previousDate ? state.fields[previousDate] : {};
-    values = previousDate ? {agent: previous.agent || '', author: previous.author || '', 'start-time': previous['start-time'] || '', 'end-time': previous['end-time'] || ''} : {};
+    values = previousDate ? {agent: previous.agent || '', 'start-time': previous['start-time'] || '', 'end-time': previous['end-time'] || ''} : {};
     state.fields[dateInput.value] = values;
     save();
   }

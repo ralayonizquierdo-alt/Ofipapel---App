@@ -17,3 +17,6 @@
 .entry.is-editing{border-color:#e2b04a;background:#fffaf0}
 .kind-hint{font-weight:500;color:#738581;font-size:12px}
 #entry-kind{font-weight:800;border-color:#2f8f6a;background:#eef8f2}
+/* Sin «Parte cumplimentado por» (lo rellena siempre el halconero de turno):
+   climatología y viento quedan juntos en la misma fila en el móvil. */
+@media(max-width:560px){.setup-grid label:last-child{grid-column:auto}}
