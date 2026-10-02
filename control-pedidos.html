@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Pedidos · Ofipapel</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="control-pedidos-logica.js"></script>
+<!--
+  Control de pedidos del comercial: compara lo que el comercial apuntó a mano
+  con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
+  deja en RESTOS lo que el cliente pidió y no llega, y reconoce esos restos
+  cuando aparecen en un pedido posterior. Exporta el Excel 5.0/95 para Géminis.
+
+  Las reglas viven en control-pedidos-logica.js (con pruebas en
+  scripts/probar-control-pedidos.js); aquí solo hay interfaz.
+
+  Los datos se guardan en este navegador (localStorage). Es una app de un solo
+  usuario por ahora: si se borra el navegador se pierde todo, así que la
+  pestaña «Datos» descarga una copia de seguridad. Pasar a una base de datos
+  compartida es el siguiente paso cuando haga falta usarla desde dos equipos.
+-->
+<style>
+:root{
+  --verde-oscuro:#145c26; --verde:#1e7d32; --verde-claro:#eaf7ec; --acento:#8bc34a;
+  --texto:#1c2b1f; --texto2:#5d6b5f; --borde:#dfe8e1; --fondo:#f6f9f7; --tarjeta:#fff;
+  --rojo:#b3261e; --rojo-claro:#fdecea; --ambar:#8a5a00; --ambar-claro:#fff4dc; --azul-claro:#e8f0fe; --azul:#1a56b0;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;color:var(--texto);background:var(--fondo);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:15px}
+header{background:linear-gradient(135deg,var(--verde-oscuro),var(--verde));color:#fff;padding:18px 16px 0}
+header h1{margin:0 0 4px;font-size:22px}
+header p{margin:0 0 14px;opacity:.85;font-size:13px}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav button{background:transparent;border:0;color:#fff;opacity:.75;padding:10px 14px;font-size:14px;cursor:pointer;border-radius:8px 8px 0 0}
+nav button.activa{background:var(--fondo);color:var(--verde-oscuro);opacity:1;font-weight:600}
+nav .cuenta{background:#fff3;border-radius:10px;padding:1px 7px;margin-left:4px;font-size:12px}
+main{max-width:1180px;margin:0 auto;padding:16px}
+.tarjeta{background:var(--tarjeta);border:1px solid var(--borde);border-radius:12px;padding:16px;margin-bottom:14px}
+.tarjeta h2{margin:0 0 12px;font-size:17px;color:var(--verde-oscuro)}
+.tarjeta h3{margin:14px 0 8px;font-size:15px}
+.fila{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--texto2);gap:3px}
+input,select,textarea{font:inherit;padding:7px 9px;border:1px solid #c8d4cb;border-radius:8px;background:#fff;color:var(--texto)}
+input[type=number]{width:80px}
+textarea{width:100%;min-height:110px;font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.btn{font:inherit;border:1px solid var(--verde);background:#fff;color:var(--verde-oscuro);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600}
+.btn:hover{background:var(--verde-claro)}
+.btn.primario{background:var(--verde);color:#fff}
+.btn.primario:hover{background:var(--verde-oscuro)}
+.btn.peligro{border-color:var(--rojo);color:var(--rojo)}
+.btn.peque{padding:4px 9px;font-size:13px;font-weight:500}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.tabla-scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{text-align:left;font-size:12px;color:var(--texto2);font-weight:600;border-bottom:2px solid var(--borde);padding:6px}
+td{border-bottom:1px solid var(--borde);padding:5px 6px;vertical-align:top}
+td.num,th.num{text-align:right;white-space:nowrap}
+tr.clic{cursor:pointer} tr.clic:hover{background:var(--verde-claro)}
+td input{padding:4px 6px;width:100%} td input.cant{width:64px} td input.precio{width:82px}
+.chip{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600;white-space:nowrap}
+.chip.ok{background:var(--verde-claro);color:var(--verde-oscuro)}
+.chip.mal{background:var(--rojo-claro);color:var(--rojo)}
+.chip.aviso{background:var(--ambar-claro);color:var(--ambar)}
+.chip.info{background:var(--azul-claro);color:var(--azul)}
+.chip.gris{background:#eef0ef;color:var(--texto2)}
+.motivo{font-size:12px;color:var(--texto2)}
+.motivo.revisar{color:var(--rojo)}
+.duda{background:var(--ambar-claro)}
+.fuera-catalogo input.ref{border-color:var(--rojo);background:var(--rojo-claro)}
+.sugerencia{font-size:12px;margin-top:3px}
+.sugerencia button{font-size:12px;border:1px dashed var(--azul);background:var(--azul-claro);color:var(--azul);border-radius:6px;padding:1px 6px;cursor:pointer;margin:2px 3px 0 0}
+.aviso-caja{padding:10px 12px;border-radius:8px;margin:10px 0;font-size:14px}
+.aviso-caja.mal{background:var(--rojo-claro);color:var(--rojo)}
+.aviso-caja.aviso{background:var(--ambar-claro);color:var(--ambar)}
+.aviso-caja.ok{background:var(--verde-claro);color:var(--verde-oscuro)}
+.aviso-caja.info{background:var(--azul-claro);color:var(--azul)}
+.resumen{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.vacio{color:var(--texto2);font-style:italic;padding:8px 0}
+.pequeno{font-size:12px;color:var(--texto2)}
+.oculto{display:none!important}
+.progreso{font-size:13px;color:var(--texto2);margin-top:6px}
+@media (max-width:640px){main{padding:10px}.tarjeta{padding:12px}nav button{padding:8px 10px}}
+@media print{header,nav,.no-imprimir{display:none!important}body{background:#fff}.tarjeta{border:0}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Control de Pedidos</h1>
+  <p>Pedidos del comercial ↔ propuesta del proveedor · restos pendientes · Excel para Géminis</p>
+  <nav id="nav">
+    <button data-vista="pedidos" class="activa">Pedidos</button>
+    <button data-vista="restos">Restos <span class="cuenta" id="cuentaRestos">0</span></button>
+    <button data-vista="notas">Notas de facturación <span class="cuenta" id="cuentaNotas">0</span></button>
+    <button data-vista="datos">Datos</button>
+  </nav>
+</header>
+<main id="main"></main>
+
+<script>
+'use strict';
+const CP = window.ControlPedidos;
+const CLAVE = 'ofipapel.controlPedidos.v1';
+const OCR_TOKEN = 'ofipapel-ocr-2026'; // el mismo que leer-reserva-airbnb; no es un secreto (ver la función)
+const FN = '/.netlify/functions/';
+
+// ── Estado ───────────────────────────────────────────────────────────────────
+// pedidos:  [{id, proveedor, campana, numero, cliente, fecha, notas, lineas:[{ref,desc,cant,precio,exp,duda}],
+//             propuesta:{archivo,fecha,cabecera,lineas}, decisiones:{ref:{accion,cant,precio,nota}}, validado, final}]
+// restos:   [{id, pedidoId, proveedor, cliente, numero, ref, desc, ean, precio, cant, pendiente, fecha, asignaciones:[{fecha,cant,origen}], anulado}]
+// notas:    [{id, pedidoId, cliente, numero, proveedor, ref, desc, texto, fecha, resuelta}]
+// catalogos:{PROVEEDOR: {fecha, archivo, items:{ref:{d,p,ean}}}}
+let E = cargar();
+let vista = 'pedidos';
+let pedidoAbierto = null;
+let soloDiscordancias = true;
+
+function cargar() {
+  const base = { pedidos: [], restos: [], notas: [], catalogos: {} };
+  try {
+    const raw = localStorage.getItem(CLAVE);
+    return raw ? Object.assign(base, JSON.parse(raw)) : base;
+  } catch { return base; }
+}
+function guardar() {
+  try { localStorage.setItem(CLAVE, JSON.stringify(E)); }
+  catch (e) { alert('No se han podido guardar los cambios en este navegador (' + e.message + '). Descarga una copia en «Datos».'); }
+  pintarCuentas();
+}
+
+const h = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/** Valor seguro dentro de un onclick="…": literal JSON escapado para atributo. */
+const js = (v) => h(JSON.stringify(String(v == null ? '' : v)));
+const nuevoId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+const hoy = () => new Date().toISOString().slice(0, 10);
+const fmt = (n) => CP.fmt(n);
+const fmtFecha = (f) => (f && /^\d{4}-\d{2}-\d{2}/.test(f)) ? f.slice(8, 10) + '/' + f.slice(5, 7) + '/' + f.slice(0, 4) : (f || '');
+const prov = (s) => String(s || '').trim().toUpperCase();
+const pedidoPorId = (id) => E.pedidos.find((p) => p.id === id);
+const catalogoDe = (proveedor) => (E.catalogos[prov(proveedor)] || {}).items || null;
+
+// ── Navegación ───────────────────────────────────────────────────────────────
+document.getElementById('nav').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button[data-vista]');
+  if (!b) return;
+  vista = b.dataset.vista;
+  pedidoAbierto = null;
+  pintar();
+});
+
+function pintarCuentas() {
+  document.getElementById('cuentaRestos').textContent = E.restos.filter((r) => r.pendiente > 0 && !r.anulado).length;
+  document.getElementById('cuentaNotas').textContent = E.notas.filter((n) => !n.resuelta).length;
+}
+
+function pintar() {
+  document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('activa', b.dataset.vista === vista));
+  const main = document.getElementById('main');
+  if (vista === 'pedidos') main.innerHTML = pedidoAbierto ? vistaDetalle(pedidoPorId(pedidoAbierto)) : vistaLista();
+  else if (vista === 'restos') main.innerHTML = vistaRestos();
+  else if (vista === 'notas') main.innerHTML = vistaNotas();
+  else main.innerHTML = vistaDatos();
+  pintarCuentas();
+}
+
+// ── Estado de un pedido ──────────────────────────────────────────────────────
+function comparar(p) {
+  if (!p.propuesta) return null;
+  return CP.compararPedido(p.lineas, p.propuesta.lineas, { catalogo: catalogoDe(p.proveedor) });
+}
+function estadoPedido(p) {
+  if (p.validado) return { chip: 'ok', texto: 'Validado' };
+  if (!p.lineas.length) return { chip: 'gris', texto: 'Sin líneas' };
+  if (!p.propuesta) return { chip: 'gris', texto: 'Sin propuesta' };
+  const pend = CP.sinDecidir(comparar(p), p.decisiones).length;
+  return pend ? { chip: 'aviso', texto: pend + ' por decidir' } : { chip: 'info', texto: 'Listo para validar' };
+}
+
+// ── Vista: lista de pedidos ──────────────────────────────────────────────────
+function vistaLista() {
+  const ps = E.pedidos.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }));
+  const proveedores = [...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean);
+  return `
+  <div class="tarjeta">
+    <h2>Nuevo pedido del comercial</h2>
+    <div class="fila">
+      <label>Proveedor<input id="npProv" list="listaProv" placeholder="FINOCAM" value="${h(proveedores[0] || '')}"></label>
+      <datalist id="listaProv">${proveedores.map((x) => `<option value="${h(x)}">`).join('')}</datalist>
+      <label>Campaña<input id="npCamp" placeholder="2027"></label>
+      <label>Nº pedido<input id="npNum" style="width:90px"></label>
+      <label>Cliente<input id="npCli" placeholder="Nombre del cliente"></label>
+      <label>Fecha<input id="npFecha" type="date" value="${hoy()}"></label>
+      <button class="btn primario" onclick="crearPedido()">Crear</button>
+    </div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Pedidos</h2>
+    <div class="fila no-imprimir" style="margin-bottom:10px">
+      <label>Cargar propuestas del proveedor (varios Excel a la vez)
+        <input type="file" multiple accept=".xlsx,.xlsm,.xls,.csv" onchange="cargarPropuestasVarias(this.files); this.value=''">
+      </label>
+      <span class="pequeno" style="max-width:420px">Cada Excel se asigna a su pedido por el proveedor y el nº que trae en «Observaciones» (p. ej. «PEDIDO Nº3 …»). Si no lo encuentra, cárgalo desde el propio pedido.</span>
+    </div>
+    <div id="avisoCarga"></div>
+    ${ps.length ? `<div class="tabla-scroll"><table>
+      <tr><th class="no-imprimir"><input type="checkbox" title="Seleccionar todos" onchange="document.querySelectorAll('.selPed').forEach(c=>c.checked=this.checked)"></th>
+        <th>Fecha</th><th>Proveedor</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th>Propuesta</th><th>Estado</th></tr>
+      ${ps.map((p) => { const e = estadoPedido(p); return `
+      <tr class="clic" onclick="if(event.target.type!=='checkbox')abrirPedido('${p.id}')">
+        <td class="no-imprimir"><input type="checkbox" class="selPed" value="${p.id}"></td>
+        <td>${h(fmtFecha(p.fecha))}</td><td>${h(p.proveedor)}</td><td>${h(p.numero)}</td><td>${h(p.cliente)}</td>
+        <td class="num">${p.lineas.length}</td>
+        <td>${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
+        <td><span class="chip ${e.chip}">${h(e.texto)}</span></td>
+      </tr>`; }).join('')}
+    </table></div>
+    <div class="fila no-imprimir" style="margin-top:12px">
+      <button class="btn" onclick="exportarSeleccionados()">Excel Géminis de los seleccionados</button>
+      <span class="pequeno">Solo pedidos validados. Varias selecciones se suman por referencia en un único pedido.</span>
+    </div>` : `<div class="vacio">Todavía no hay pedidos. Crea el primero arriba.</div>`}
+  </div>`;
+}
+
+function crearPedido() {
+  const v = (id) => document.getElementById(id).value.trim();
+  if (!v('npProv') || !v('npNum') || !v('npCli')) { alert('Proveedor, nº de pedido y cliente son obligatorios.'); return; }
+  const p = { id: nuevoId(), proveedor: prov(v('npProv')), campana: v('npCamp'), numero: v('npNum'), cliente: v('npCli').toUpperCase(),
+    fecha: v('npFecha') || hoy(), notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
+  if (E.pedidos.some((x) => x.proveedor === p.proveedor && String(x.numero) === String(p.numero) && x.campana === p.campana)) {
+    if (!confirm(`Ya hay un pedido ${p.proveedor} nº ${p.numero}. ¿Crear otro igualmente?`)) return;
+  }
+  E.pedidos.push(p);
+  guardar();
+  abrirPedido(p.id);
+}
+function abrirPedido(id) { pedidoAbierto = id; vista = 'pedidos'; pintar(); window.scrollTo(0, 0); }
+
+// ── Vista: detalle de un pedido ──────────────────────────────────────────────
+function vistaDetalle(p) {
+  if (!p) { pedidoAbierto = null; return vistaLista(); }
+  const cat = catalogoDe(p.proveedor);
+  const filas = comparar(p);
+  return `
+  <div class="no-imprimir" style="margin-bottom:10px"><button class="btn peque" onclick="pedidoAbierto=null;pintar()">← Todos los pedidos</button></div>
+  <div class="tarjeta">
+    <h2>Pedido ${h(p.proveedor)} nº ${h(p.numero)} · ${h(p.cliente)}</h2>
+    <div class="fila">
+      <label>Proveedor<input value="${h(p.proveedor)}" onchange="cambiaCampo('proveedor', this.value.trim().toUpperCase())"></label>
+      <label>Campaña<input value="${h(p.campana)}" onchange="cambiaCampo('campana', this.value.trim())"></label>
+      <label>Nº<input value="${h(p.numero)}" style="width:80px" onchange="cambiaCampo('numero', this.value.trim())"></label>
+      <label>Cliente<input value="${h(p.cliente)}" onchange="cambiaCampo('cliente', this.value.trim().toUpperCase())"></label>
+      <label>Fecha<input type="date" value="${h(p.fecha)}" onchange="cambiaCampo('fecha', this.value)"></label>
+      <button class="btn peque peligro" onclick="borrarPedido()">Borrar pedido</button>
+    </div>
+    ${p.notas ? `<div class="aviso-caja info">Notas: ${h(p.notas)}</div>` : ''}
+    ${p.validado ? `<div class="aviso-caja ok">Validado el ${h(fmtFecha(p.final && p.final.fecha))}. Si cambias líneas o propuesta tendrás que volver a validar.</div>` : ''}
+  </div>
+
+  <div class="tarjeta">
+    <h2>1 · Lo que pidió el comercial</h2>
+    <div class="fila no-imprimir">
+      <label>Leer fotos del pedido manuscrito
+        <input type="file" accept="image/*" multiple onchange="leerFotos(this.files); this.value=''">
+      </label>
+      <button class="btn peque" onclick="document.getElementById('pegar').classList.toggle('oculto')">Pegar o escribir líneas</button>
+      <button class="btn peque" onclick="anadirLinea()">+ Línea</button>
+    </div>
+    <div id="progresoFotos" class="progreso"></div>
+    <div id="pegar" class="oculto" style="margin-top:10px">
+      <textarea id="txtPegar" placeholder="Una línea por artículo: cantidad  referencia  precio  (descripción opcional)&#10;4  780100027  3,25  CALENDARIO&#10;1EXP 883840127 180,14"></textarea>
+      <button class="btn peque" onclick="pegarLineas()">Añadir estas líneas</button>
+    </div>
+    ${!cat ? `<div class="aviso-caja aviso">Aún no hay catálogo de ${h(p.proveedor)}: carga una propuesta suya para poder comprobar que cada referencia existe.</div>` : ''}
+    ${tablaLineas(p, cat)}
+  </div>
+
+  <div class="tarjeta">
+    <h2>2 · Propuesta del proveedor</h2>
+    <div class="fila no-imprimir">
+      <label>Excel de la propuesta<input type="file" accept=".xlsx,.xlsm,.xls,.csv" onchange="cargarPropuestaEn('${p.id}', this.files[0]); this.value=''"></label>
+    </div>
+    ${p.propuesta ? `<div class="resumen">
+        <span class="chip info">${h(p.propuesta.archivo)}</span>
+        <span class="chip gris">${p.propuesta.lineas.length} líneas</span>
+        ${p.propuesta.cabecera.dtoGlobal != null ? `<span class="chip gris">Dto. global ${h(p.propuesta.cabecera.dtoGlobal)} %</span>` : ''}
+        ${p.propuesta.cabecera.importeNeto != null ? `<span class="chip gris">Neto ${fmt(p.propuesta.cabecera.importeNeto)} €</span>` : ''}
+        ${p.propuesta.cabecera.observaciones ? `<span class="chip gris">${h(p.propuesta.cabecera.observaciones)}</span>` : ''}
+      </div>` : `<div class="vacio">Sin propuesta todavía.</div>`}
+    ${avisoRestosEnPropuesta(p)}
+  </div>
+
+  ${filas ? vistaComparacion(p, filas) : ''}`;
+}
+
+function tablaLineas(p, cat) {
+  if (!p.lineas.length) return `<div class="vacio">Sin líneas. Lee las fotos, pégalas o añádelas a mano.</div>`;
+  const fueraCat = cat ? p.lineas.filter((l) => l.ref && !cat[CP.normRef(l.ref)]).length : 0;
+  const dudas = p.lineas.filter((l) => l.duda).length;
+  return `
+  <div class="resumen">
+    <span class="chip gris">${p.lineas.length} líneas</span>
+    ${dudas ? `<span class="chip aviso">${dudas} con dudas de lectura</span>` : ''}
+    ${cat ? (fueraCat ? `<span class="chip mal">${fueraCat} referencias no existen en el catálogo</span>` : `<span class="chip ok">Todas las referencias existen en el catálogo</span>`) : ''}
+  </div>
+  <div class="tabla-scroll"><table>
+    <tr><th class="num">Cant.</th><th>Exp.</th><th>Referencia</th><th>Descripción</th><th class="num">Precio</th><th>Duda de lectura</th><th></th></tr>
+    ${p.lineas.map((l, i) => {
+      const ref = CP.normRef(l.ref);
+      const fuera = cat && ref && !cat[ref];
+      const sug = fuera ? CP.sugerenciasCatalogo(ref, cat, 4) : [];
+      const enCat = cat && cat[ref];
+      return `<tr class="${fuera ? 'fuera-catalogo' : ''} ${l.duda ? 'duda' : ''}">
+        <td><input class="cant" value="${h(l.cant)}" onchange="cambiaLinea(${i},'cant',this.value)"></td>
+        <td><input type="checkbox" ${l.exp ? 'checked' : ''} onchange="cambiaLinea(${i},'exp',this.checked)"></td>
+        <td><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value)">
+          ${fuera ? `<div class="sugerencia">No está en el catálogo.${sug.length ? ' ¿Quizá…? ' + sug.map((s) => `<button onclick="cambiaLinea(${i},'ref',${js(s.ref)})" title="${h(s.desc)}">${h(s.ref)} · ${h(s.desc.slice(0, 24))}${s.precio != null ? ' · ' + fmt(s.precio) : ''}</button>`).join('') : ''}</div>` : ''}</td>
+        <td><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value)">${enCat && enCat.d ? `<div class="pequeno">${h(enCat.d)}</div>` : ''}</td>
+        <td><input class="precio" value="${l.precio == null ? '' : h(fmt(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value)">
+          ${enCat && enCat.p != null && l.precio != null && CP.red2(enCat.p) !== CP.red2(l.precio) ? `<div class="pequeno">Tarifa ${fmt(enCat.p)}</div>` : ''}</td>
+        <td><input value="${h(l.duda)}" onchange="cambiaLinea(${i},'duda',this.value)" placeholder="—"></td>
+        <td><button class="btn peque peligro" onclick="borrarLinea(${i})" title="Quitar línea">✕</button></td>
+      </tr>`;
+    }).join('')}
+  </table></div>
+  ${dudas ? `<div class="pequeno" style="margin-top:6px">Las filas en ámbar tienen una duda de lectura: compruébalas con la foto y borra el texto de la duda cuando estén bien.</div>` : ''}`;
+}
+
+function vistaComparacion(p, filas) {
+  const pend = CP.sinDecidir(filas, p.decisiones);
+  const n = {
+    ok: filas.filter((f) => f.estado === 'ok').length,
+    info: filas.filter((f) => !f.revisar && f.motivos.some((m) => m.informativo)).length,
+    revisar: filas.filter((f) => f.revisar).length,
+  };
+  const mostrar = soloDiscordancias ? filas.filter((f) => f.motivos.length) : filas;
+  const nombres = { resto: 'Dejar en restos', anular: 'Anular (ya no lo quiere)', aceptar: 'Aceptar propuesta', mantener: 'Mantener lo pedido', manual: 'Cantidad/precio a mano', excluir: 'Excluir línea' };
+  return `
+  <div class="tarjeta">
+    <h2>3 · Comparación y decisiones</h2>
+    <div class="resumen">
+      <span class="chip ok">${n.ok} cuadran</span>
+      ${n.info ? `<span class="chip info">${n.info} con cambio de precio ≤ 0,25 € (informativo)</span>` : ''}
+      <span class="chip ${n.revisar ? 'mal' : 'ok'}">${n.revisar} discordancias</span>
+      ${pend.length ? `<span class="chip aviso">${pend.length} sin decidir</span>` : ''}
+    </div>
+    <label class="no-imprimir" style="flex-direction:row;align-items:center;gap:6px;margin:6px 0">
+      <input type="checkbox" ${soloDiscordancias ? 'checked' : ''} onchange="soloDiscordancias=this.checked;pintar()"> Ver solo lo que no cuadra
+    </label>
+    ${mostrar.length ? `<div class="tabla-scroll"><table>
+      <tr><th>Referencia</th><th>Descripción</th><th class="num">Pedido</th><th class="num">Propuesta</th><th class="num">Precio pedido</th><th class="num">Precio propuesta</th><th>Qué pasa</th><th>Decisión</th></tr>
+      ${mostrar.map((f) => {
+        const d = p.decisiones[f.ref] || {};
+        const acciones = CP.accionesPara(f);
+        return `<tr>
+          <td><b>${h(f.ref)}</b>${f.sugerencias.length ? `<div class="sugerencia">¿Quizá ${f.sugerencias.map((s) => h(s.ref)).join(', ')}? Corrígela arriba.</div>` : ''}</td>
+          <td>${h(f.desc)}</td>
+          <td class="num">${f.cantPedida || '—'}</td><td class="num">${f.cantPropuesta || '—'}</td>
+          <td class="num">${f.precioPedido == null ? '—' : fmt(f.precioPedido)}</td>
+          <td class="num">${f.precioPropuesta == null ? '—' : fmt(f.precioPropuesta)}${f.difPrecio != null ? `<div class="motivo ${Math.abs(f.difPrecio) > CP.TOLERANCIA_PRECIO ? 'revisar' : ''}">${f.difPrecio > 0 ? '+' : ''}${fmt(f.difPrecio)} € (${f.difPrecioPct > 0 ? '+' : ''}${fmt(f.difPrecioPct)} %)</div>` : ''}</td>
+          <td>${f.motivos.length ? f.motivos.map((m) => `<div class="motivo ${m.revisar ? 'revisar' : ''}">${h(m.texto)}</div>`).join('') : '<span class="chip ok">Cuadra</span>'}</td>
+          <td class="no-imprimir">${f.revisar ? `
+            <select onchange="decide(${js(f.ref)},'accion',this.value)">
+              <option value="">— decidir —</option>
+              ${acciones.map((a) => `<option value="${a}" ${d.accion === a ? 'selected' : ''}>${nombres[a]}</option>`).join('')}
+            </select>
+            ${d.accion === 'manual' ? `<div class="fila" style="margin-top:4px"><input class="cant" placeholder="Cant." value="${h(d.cant)}" onchange="decide(${js(f.ref)},'cant',this.value)"><input class="precio" placeholder="Precio" value="${h(d.precio)}" onchange="decide(${js(f.ref)},'precio',this.value)"></div>` : ''}
+            <input style="margin-top:4px" placeholder="Nota de facturación (opcional)" value="${h(d.nota)}" onchange="decide(${js(f.ref)},'nota',this.value)">
+          ` : ''}</td>
+        </tr>`;
+      }).join('')}
+    </table></div>` : `<div class="aviso-caja ok">Todo cuadra.</div>`}
+    <div class="fila no-imprimir" style="margin-top:14px">
+      <button class="btn primario" ${pend.length ? 'disabled' : ''} onclick="validarPedido()">Validar pedido</button>
+      ${pend.length ? `<span class="pequeno">Decide las ${pend.length} discordancias pendientes para poder validar.</span>` : `<span class="pequeno">Al validar, lo que no llega pasa a Restos y las notas a Notas de facturación.</span>`}
+    </div>
+    ${p.validado ? `<div class="fila no-imprimir" style="margin-top:10px">
+      <button class="btn" onclick="imprimirListado('${p.id}')">Imprimir listado del cliente</button>
+      <button class="btn" onclick="exportarPedidos(['${p.id}'])">Excel Géminis de este pedido</button>
+    </div>` : ''}
+  </div>`;
+}
+
+/** Si la propuesta trae algo que otro cliente tiene pendiente en restos, se avisa. */
+function avisoRestosEnPropuesta(p) {
+  if (!p.propuesta) return '';
+  const refs = new Set(p.propuesta.lineas.map((l) => CP.normRef(l.ref)));
+  const r = E.restos.filter((x) => x.pendiente > 0 && !x.anulado && x.pedidoId !== p.id && x.proveedor === p.proveedor && refs.has(CP.normRef(x.ref)));
+  if (!r.length) return '';
+  return `<div class="aviso-caja info"><b>Esta propuesta trae artículos que están en restos de otros clientes:</b><br>${r.map((x) =>
+    `${h(x.ref)} ${h(x.desc)} — ${x.pendiente} ud. de <b>${h(x.cliente)}</b> (pedido ${h(x.numero)}, ${h(fmtFecha(x.fecha))})`).join('<br>')}
+    <br><span class="pequeno">Cuando llegue la mercancía, regístralo en «Restos → Registrar llegada» para asignárselo.</span></div>`;
+}
+
+// ── Edición ──────────────────────────────────────────────────────────────────
+function pedidoActual() { return pedidoPorId(pedidoAbierto); }
+function invalidar(p) { p.validado = false; }
+function cambiaCampo(campo, valor) { const p = pedidoActual(); p[campo] = valor; invalidar(p); guardar(); pintar(); }
+function cambiaLinea(i, campo, valor) {
+  const p = pedidoActual();
+  const l = p.lineas[i];
+  if (campo === 'precio') l.precio = CP.parseNum(valor);
+  else if (campo === 'cant') l.cant = CP.parseNum(valor) || 0;
+  else if (campo === 'ref') l.ref = CP.normRef(valor);
+  else l[campo] = valor;
+  invalidar(p); guardar(); pintar();
+}
+function borrarLinea(i) { const p = pedidoActual(); p.lineas.splice(i, 1); invalidar(p); guardar(); pintar(); }
+function anadirLinea() { const p = pedidoActual(); p.lineas.push({ ref: '', desc: '', cant: 1, precio: null, exp: false, duda: '' }); guardar(); pintar(); }
+function borrarPedido() {
+  const p = pedidoActual();
+  const asignados = E.restos.some((r) => r.pedidoId === p.id && r.asignaciones.length);
+  if (!confirm(`¿Borrar el pedido nº ${p.numero} de ${p.cliente}?` + (asignados ? '\nSus restos con llegadas registradas se conservan.' : ''))) return;
+  E.pedidos = E.pedidos.filter((x) => x.id !== p.id);
+  E.restos = E.restos.filter((r) => r.pedidoId !== p.id || r.asignaciones.length);
+  E.notas = E.notas.filter((n) => n.pedidoId !== p.id);
+  pedidoAbierto = null; guardar(); pintar();
+}
+function decide(ref, campo, valor) {
+  const p = pedidoActual();
+  p.decisiones[ref] = Object.assign({}, p.decisiones[ref], { [campo]: valor });
+  invalidar(p); guardar(); pintar();
+}
+
+/** «4 780100027 3,25 CALENDARIO» · «1EXP 883840127 180,14» · también separado por tabuladores (copiado de Excel). */
+function pegarLineas() {
+  const p = pedidoActual();
+  const txt = document.getElementById('txtPegar').value;
+  let n = 0;
+  const malas = [];
+  for (const crudo of txt.split(/\r?\n/)) {
+    const linea = crudo.trim();
+    if (!linea) continue;
+    const m = linea.match(/^(\d+(?:[.,]\d+)?)\s*(EXP\.?|EX\.?)?\s+(\S+)\s*(.*)$/i);
+    if (!m) { malas.push(linea); continue; }
+    let resto = m[4].trim();
+    let precio = null;
+    const mp = resto.match(/(?:^|\s)(\d+(?:[.,']\d{1,2})?)\s*€?\s*(.*)$/);
+    if (mp) { precio = CP.parseNum(mp[1]); resto = (resto.slice(0, mp.index) + ' ' + mp[2]).trim(); }
+    p.lineas.push({ cant: CP.parseNum(m[1]), exp: Boolean(m[2]), ref: CP.normRef(m[3]), precio, desc: resto, duda: '' });
+    n++;
+  }
+  invalidar(p); guardar(); pintar();
+  if (malas.length) alert(`Añadidas ${n}. No he entendido ${malas.length}:\n` + malas.slice(0, 8).join('\n'));
+}
+
+// ── Fotos → lectura con IA ───────────────────────────────────────────────────
+async function reducirImagen(file) {
+  const bmp = await createImageBitmap(file);
+  const lado = 1600;
+  const k = Math.min(1, lado / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.85).split(',')[1];
+}
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function leerUnaFoto(file) {
+  const jobId = nuevoId();
+  const imagenBase64 = await reducirImagen(file);
+  const r = await fetch(FN + 'leer-pedido-manuscrito-background', {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-ocr-token': OCR_TOKEN },
+    body: JSON.stringify({ jobId, imagenBase64, mediaType: 'image/jpeg' }),
+  });
+  if (r.status !== 202 && !r.ok) throw new Error('El lector no responde (' + r.status + '). ¿Estás en la web de Netlify?');
+  const limite = Date.now() + 5 * 60 * 1000;
+  while (Date.now() < limite) {
+    await espera(3000);
+    const e = await fetch(FN + 'leer-pedido-manuscrito-estado?jobId=' + encodeURIComponent(jobId), { headers: { 'x-ocr-token': OCR_TOKEN } });
+    if (e.status === 202) continue;
+    const data = await e.json().catch(() => ({}));
+    if (!e.ok) throw new Error(data.error || 'Error consultando la lectura');
+    if (data.status === 'error') throw new Error(data.error);
+    if (data.status === 'done') return data.resultado;
+  }
+  throw new Error('La lectura ha tardado más de 5 minutos');
+}
+
+async function leerFotos(files) {
+  const p = pedidoActual();
+  const caja = document.getElementById('progresoFotos');
+  const lista = [...files];
+  let total = 0;
+  for (let i = 0; i < lista.length; i++) {
+    caja.textContent = `Leyendo foto ${i + 1} de ${lista.length} (${lista[i].name})… puede tardar un minuto.`;
+    try {
+      const res = await leerUnaFoto(lista[i]);
+      let descAnterior = '';
+      for (const l of res.lineas || []) {
+        const desc = (l.descripcion || '').trim();
+        descAnterior = desc && !/^[-–"'`,.~]+$/.test(desc) ? desc : descAnterior;
+        p.lineas.push({ cant: CP.parseNum(l.cantidad) || 0, exp: Boolean(l.esExpositor), ref: CP.normRef(l.referencia),
+          precio: CP.parseNum(l.precio), desc: descAnterior, duda: (l.duda || '').trim(), foto: lista[i].name });
+        total++;
+      }
+      if (!p.cliente && res.cliente) p.cliente = res.cliente.toUpperCase();
+      const extra = [res.hoja && `hoja ${res.hoja}`, res.notas].filter(Boolean).join(' · ');
+      if (extra) p.notas = [p.notas, `${lista[i].name}: ${extra}`].filter(Boolean).join(' | ');
+      if (res.numeroPedido && String(res.numeroPedido).replace(/\D/g, '') !== String(p.numero).replace(/\D/g, '')) {
+        p.notas = [p.notas, `${lista[i].name} dice pedido nº ${res.numeroPedido}`].filter(Boolean).join(' | ');
+      }
+      invalidar(p); guardar(); pintar();
+    } catch (err) {
+      alert(`No se ha podido leer ${lista[i].name}: ${err.message}`);
+    }
+  }
+  const c2 = document.getElementById('progresoFotos');
+  if (c2) c2.textContent = total ? `Leídas ${total} líneas. Revísalas con las fotos antes de comparar.` : '';
+}
+
+// ── Propuestas (Excel) ───────────────────────────────────────────────────────
+async function leerExcel(file) {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array' });
+  const hoja = wb.Sheets[wb.SheetNames[0]];
+  return CP.leerPropuesta(XLSX.utils.sheet_to_json(hoja, { header: 1, defval: '', raw: true }));
+}
+function guardarCatalogo(proveedor, archivo, catalogo) {
+  const n = Object.keys(catalogo).length;
+  // Solo cuenta como catálogo si trae bastante más que lo pedido: el
+  // formulario de Finocam lleva la tarifa entera; una propuesta corta no.
+  if (n < 50) return;
+  E.catalogos[prov(proveedor)] = { fecha: hoy(), archivo, items: catalogo };
+}
+function asignarPropuesta(p, archivo, prop) {
+  p.propuesta = { archivo, fecha: hoy(), cabecera: prop.cabecera, lineas: prop.lineas };
+  guardarCatalogo(p.proveedor, archivo, prop.catalogo);
+  invalidar(p);
+}
+async function cargarPropuestaEn(id, file) {
+  if (!file) return;
+  const p = pedidoPorId(id);
+  try {
+    const prop = await leerExcel(file);
+    const n = prop.cabecera.numeroPedido;
+    if (n != null && String(n) !== String(p.numero).replace(/\D/g, '') &&
+        !confirm(`El Excel dice «${prop.cabecera.observaciones}» y este es el pedido nº ${p.numero}. ¿Cargarlo aquí igualmente?`)) return;
+    asignarPropuesta(p, file.name, prop);
+    guardar(); pintar();
+  } catch (err) { alert('No he podido leer la propuesta: ' + err.message); }
+}
+async function cargarPropuestasVarias(files) {
+  const ok = [], mal = [];
+  for (const f of files) {
+    try {
+      const prop = await leerExcel(f);
+      const n = prop.cabecera.numeroPedido;
+      const candidatos = E.pedidos.filter((p) => n != null && String(p.numero).replace(/\D/g, '') === String(n));
+      if (candidatos.length === 1) { asignarPropuesta(candidatos[0], f.name, prop); ok.push(`${f.name} → nº ${n} ${candidatos[0].cliente}`); }
+      else mal.push(`${f.name}: ${n == null ? 'no trae nº de pedido en Observaciones' : candidatos.length ? `hay ${candidatos.length} pedidos nº ${n}` : `no hay pedido nº ${n}`}`);
+    } catch (err) { mal.push(`${f.name}: ${err.message}`); }
+  }
+  guardar(); pintar();
+  document.getElementById('avisoCarga').innerHTML =
+    (ok.length ? `<div class="aviso-caja ok">${ok.map(h).join('<br>')}</div>` : '') +
+    (mal.length ? `<div class="aviso-caja mal">Sin asignar:<br>${mal.map(h).join('<br>')}</div>` : '');
+}
+
+// ── Validar: restos y notas ──────────────────────────────────────────────────
+function validarPedido() {
+  const p = pedidoActual();
+  let r;
+  try { r = CP.aplicarDecisiones(comparar(p), p.decisiones); }
+  catch (err) { alert(err.message); return; }
+
+  // Los restos de este pedido que ya tienen llegadas registradas no se tocan;
+  // el resto se regenera desde las decisiones actuales.
+  const conLlegadas = E.restos.filter((x) => x.pedidoId === p.id && x.asignaciones.length);
+  E.restos = E.restos.filter((x) => x.pedidoId !== p.id || x.asignaciones.length);
+  for (const x of r.restos) {
+    if (conLlegadas.some((c) => c.ref === x.ref)) continue;
+    E.restos.push({ id: nuevoId(), pedidoId: p.id, proveedor: p.proveedor, cliente: p.cliente, numero: p.numero, ref: x.ref, desc: x.desc, ean: x.ean,
+      precio: x.precio, cant: x.cant, pendiente: x.cant, fecha: p.fecha, asignaciones: [], anulado: false });
+  }
+  E.notas = E.notas.filter((n) => n.pedidoId !== p.id || n.resuelta);
+  for (const n of r.notas) {
+    E.notas.push({ id: nuevoId(), pedidoId: p.id, cliente: p.cliente, numero: p.numero, proveedor: p.proveedor, ref: n.ref, desc: n.desc, texto: n.texto, fecha: hoy(), resuelta: false });
+  }
+  p.final = { fecha: hoy(), lineas: r.lineas, dto: p.propuesta.cabecera.dtoGlobal };
+  p.validado = true;
+  guardar(); pintar();
+  alert(`Pedido validado: ${r.lineas.length} líneas, ${r.restos.length} a restos, ${r.notas.length} notas de facturación.`);
+}
+
+// ── Vista: restos ────────────────────────────────────────────────────────────
+let filtroRestos = { proveedor: '', cliente: '', estado: 'abiertos' };
+let llegada = null; // {proveedor, origen, lineas, propuesta:{asignaciones,sobrante}}
+
+function vistaRestos() {
+  const f = filtroRestos;
+  const lista = E.restos.filter((r) =>
+    (!f.proveedor || r.proveedor === f.proveedor) &&
+    (!f.cliente || r.cliente === f.cliente) &&
+    (f.estado === 'todos' || (f.estado === 'abiertos' ? r.pendiente > 0 && !r.anulado : (r.pendiente <= 0 || r.anulado))))
+    .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || a.proveedor.localeCompare(b.proveedor) || a.cliente.localeCompare(b.cliente));
+  const provs = [...new Set(E.restos.map((r) => r.proveedor))].sort();
+  const clis = [...new Set(E.restos.map((r) => r.cliente))].sort();
+  const opc = (vals, sel) => vals.map((v) => `<option ${v === sel ? 'selected' : ''}>${h(v)}</option>`).join('');
+  return `
+  <div class="tarjeta">
+    <h2>Restos de pedidos del comercial</h2>
+    <p class="pequeno">Lo que un cliente pidió y no ha llegado. Cuando venga en un pedido posterior, regístralo abajo y se asigna al cliente que lo esperaba (primero al más antiguo).</p>
+    <div class="fila no-imprimir">
+      <label>Proveedor<select onchange="filtroRestos.proveedor=this.value;pintar()"><option value="">Todos</option>${opc(provs, f.proveedor)}</select></label>
+      <label>Cliente<select onchange="filtroRestos.cliente=this.value;pintar()"><option value="">Todos</option>${opc(clis, f.cliente)}</select></label>
+      <label>Estado<select onchange="filtroRestos.estado=this.value;pintar()">
+        <option value="abiertos" ${f.estado === 'abiertos' ? 'selected' : ''}>Pendientes</option>
+        <option value="cerrados" ${f.estado === 'cerrados' ? 'selected' : ''}>Servidos / anulados</option>
+        <option value="todos" ${f.estado === 'todos' ? 'selected' : ''}>Todos</option></select></label>
+      <button class="btn peque" onclick="window.print()">Imprimir</button>
+    </div>
+    ${lista.length ? `<div class="tabla-scroll"><table style="margin-top:10px">
+      <tr><th>Fecha</th><th>Proveedor</th><th>Cliente</th><th>Pedido</th><th>Referencia</th><th>Descripción</th><th class="num">Pedidas</th><th class="num">Pendientes</th><th>Llegadas</th><th class="no-imprimir"></th></tr>
+      ${lista.map((r) => `<tr>
+        <td>${h(fmtFecha(r.fecha))}</td><td>${h(r.proveedor)}</td><td><b>${h(r.cliente)}</b></td><td>${h(r.numero)}</td>
+        <td>${h(r.ref)}</td><td>${h(r.desc)}</td><td class="num">${r.cant}</td>
+        <td class="num">${r.anulado ? '<span class="chip gris">Anulado</span>' : r.pendiente > 0 ? `<span class="chip aviso">${r.pendiente}</span>` : '<span class="chip ok">Servido</span>'}</td>
+        <td class="pequeno">${r.asignaciones.map((a) => `${h(fmtFecha(a.fecha))}: ${a.cant} (${h(a.origen)})`).join('<br>') || '—'}</td>
+        <td class="no-imprimir">${r.pendiente > 0 && !r.anulado ? `<button class="btn peque peligro" onclick="anularResto('${r.id}')">Anular</button>` : ''}</td>
+      </tr>`).join('')}
+    </table></div>` : `<div class="vacio">No hay restos con este filtro.</div>`}
+  </div>
+
+  <div class="tarjeta no-imprimir">
+    <h2>Registrar llegada</h2>
+    <p class="pequeno">Mercancía que llega en un pedido o albarán posterior. Sube el Excel o pega «referencia cantidad» por línea.</p>
+    <div class="fila">
+      <label>Proveedor<select id="llProv">${opc([...new Set(E.restos.filter((r) => r.pendiente > 0 && !r.anulado).map((r) => r.proveedor))].sort(), llegada && llegada.proveedor)}</select></label>
+      <label>Origen<input id="llOrigen" placeholder="Albarán 1234 / Pedido 5" value="${h(llegada ? llegada.origen : '')}"></label>
+      <label>Excel<input type="file" accept=".xlsx,.xlsm,.xls,.csv" onchange="llegadaDesdeExcel(this.files[0]); this.value=''"></label>
+    </div>
+    <textarea id="llTexto" style="margin-top:8px" placeholder="785100027 2&#10;742776027 1"></textarea>
+    <button class="btn peque" onclick="llegadaDesdeTexto()">Buscar en restos</button>
+    ${llegada ? vistaPropuestaLlegada() : ''}
+  </div>`;
+}
+
+function prepararLlegada(lineas) {
+  const proveedor = document.getElementById('llProv').value;
+  if (!proveedor) { alert('No hay restos pendientes de ningún proveedor.'); return; }
+  const origen = document.getElementById('llOrigen').value.trim() || 'Llegada ' + fmtFecha(hoy());
+  const abiertos = E.restos.filter((r) => !r.anulado);
+  llegada = { proveedor, origen, lineas, propuesta: CP.sugerirAsignacion(abiertos, lineas, proveedor) };
+  pintar();
+}
+async function llegadaDesdeExcel(file) {
+  if (!file) return;
+  try { const p = await leerExcel(file); prepararLlegada(p.lineas.map((l) => ({ ref: l.ref, cant: l.cant }))); }
+  catch (err) { alert('No he podido leer el Excel: ' + err.message); }
+}
+function llegadaDesdeTexto() {
+  const lineas = [];
+  for (const t of document.getElementById('llTexto').value.split(/\r?\n/)) {
+    const m = t.trim().match(/^(\S+)\s+(\d+(?:[.,]\d+)?)/);
+    if (m) lineas.push({ ref: m[1], cant: CP.parseNum(m[2]) });
+  }
+  if (!lineas.length) { alert('Escribe «referencia cantidad» en cada línea.'); return; }
+  prepararLlegada(lineas);
+}
+function vistaPropuestaLlegada() {
+  const { asignaciones, sobrante } = llegada.propuesta;
+  const resto = (id) => E.restos.find((r) => r.id === id);
+  return `
+    <h3>Reparto propuesto (${h(llegada.origen)})</h3>
+    ${asignaciones.length ? `<table>
+      <tr><th>Cliente</th><th>Pedido</th><th>Fecha resto</th><th>Referencia</th><th>Descripción</th><th class="num">Pendiente</th><th class="num">Se le asigna</th></tr>
+      ${asignaciones.map((a, i) => { const r = resto(a.restoId); return `<tr>
+        <td><b>${h(r.cliente)}</b></td><td>${h(r.numero)}</td><td>${h(fmtFecha(r.fecha))}</td><td>${h(r.ref)}</td><td>${h(r.desc)}</td>
+        <td class="num">${r.pendiente}</td>
+        <td class="num"><input class="cant" value="${a.cant}" onchange="llegada.propuesta.asignaciones[${i}].cant=CP.parseNum(this.value)||0"></td></tr>`; }).join('')}
+    </table>` : `<div class="aviso-caja aviso">Nada de lo que llega está en restos de ${h(llegada.proveedor)}.</div>`}
+    ${sobrante.length ? `<div class="aviso-caja info">Sin cliente esperándolo (va a stock): ${sobrante.map((s) => `${h(s.ref)} × ${s.cant}`).join(', ')}</div>` : ''}
+    <div class="fila" style="margin-top:10px">
+      ${asignaciones.length ? `<button class="btn primario" onclick="confirmarLlegada()">Confirmar reparto</button>` : ''}
+      <button class="btn" onclick="llegada=null;pintar()">Cancelar</button>
+    </div>`;
+}
+function confirmarLlegada() {
+  for (const a of llegada.propuesta.asignaciones) {
+    const r = E.restos.find((x) => x.id === a.restoId);
+    const cant = Math.min(a.cant || 0, r.pendiente);
+    if (cant <= 0) continue;
+    r.asignaciones.push({ fecha: hoy(), cant, origen: llegada.origen });
+    r.pendiente -= cant;
+  }
+  const resumen = llegada.propuesta.asignaciones.filter((a) => a.cant > 0).map((a) => `${a.cliente}: ${a.ref} × ${a.cant}`).join('\n');
+  llegada = null; guardar(); pintar();
+  alert('Reparto guardado. Entregar a:\n' + resumen);
+}
+function anularResto(id) {
+  const r = E.restos.find((x) => x.id === id);
+  if (!confirm(`¿Anular el resto de ${r.cliente}: ${r.ref} × ${r.pendiente}? (el cliente ya no lo espera)`)) return;
+  r.anulado = true; guardar(); pintar();
+}
+
+// ── Vista: notas de facturación ──────────────────────────────────────────────
+function vistaNotas() {
+  const ns = E.notas.slice().sort((a, b) => Number(a.resuelta) - Number(b.resuelta) || String(b.fecha).localeCompare(String(a.fecha)));
+  return `<div class="tarjeta">
+    <h2>Notas de facturación</h2>
+    <p class="pequeno">Las que escribiste al decidir una discordancia (p. ej. «facturar al cliente la versión que reciba»). Márcalas cuando estén hechas.</p>
+    ${ns.length ? `<table>
+      <tr><th>Hecha</th><th>Fecha</th><th>Cliente</th><th>Pedido</th><th>Referencia</th><th>Nota</th></tr>
+      ${ns.map((n) => `<tr style="${n.resuelta ? 'opacity:.55' : ''}">
+        <td><input type="checkbox" ${n.resuelta ? 'checked' : ''} onchange="marcarNota('${n.id}', this.checked)"></td>
+        <td>${h(fmtFecha(n.fecha))}</td><td><b>${h(n.cliente)}</b></td><td>${h(n.proveedor)} ${h(n.numero)}</td>
+        <td>${h(n.ref)}<div class="pequeno">${h(n.desc)}</div></td><td>${h(n.texto)}</td></tr>`).join('')}
+    </table>` : `<div class="vacio">No hay notas.</div>`}
+  </div>`;
+}
+function marcarNota(id, v) { E.notas.find((n) => n.id === id).resuelta = v; guardar(); pintar(); }
+
+// ── Vista: datos ─────────────────────────────────────────────────────────────
+function vistaDatos() {
+  const cats = Object.entries(E.catalogos);
+  return `<div class="tarjeta">
+    <h2>Copia de seguridad</h2>
+    <p class="pequeno">Todo se guarda solo en este navegador. Descarga una copia de vez en cuando: si se borran los datos del navegador, es la única forma de recuperarlo.</p>
+    <div class="fila">
+      <button class="btn primario" onclick="descargarCopia()">Descargar copia</button>
+      <label>Restaurar una copia<input type="file" accept=".json" onchange="restaurarCopia(this.files[0]); this.value=''"></label>
+    </div>
+  </div>
+  <div class="tarjeta">
+    <h2>Catálogos de proveedor</h2>
+    <p class="pequeno">Se guardan solos al cargar una propuesta que trae la tarifa completa (como el formulario de Finocam). Sirven para detectar referencias mal leídas.</p>
+    ${cats.length ? `<table><tr><th>Proveedor</th><th class="num">Referencias</th><th>Archivo</th><th>Fecha</th></tr>
+      ${cats.map(([k, c]) => `<tr><td>${h(k)}</td><td class="num">${Object.keys(c.items).length}</td><td>${h(c.archivo)}</td><td>${h(fmtFecha(c.fecha))}</td></tr>`).join('')}</table>`
+      : `<div class="vacio">Ninguno todavía.</div>`}
+  </div>
+  <div class="tarjeta">
+    <h2>Excel para Géminis</h2>
+    <p class="pequeno">Formato Excel 5.0/95 (.xls), artículos desde la fila 11, columnas A–N de la plantilla «Propuesta de pedido». Las tildes y la Ñ se quitan porque ese formato no las admite (igual que en la herramienta de PDF). <b>Pendiente:</b> comprobar la cabecera (filas 1–10) con un fichero que Géminis haya aceptado.</p>
+    <div class="fila">
+      <label>Almacén<input id="cfgAlmacen" value="${h(localStorage.getItem('cp.almacen') || '')}" onchange="localStorage.setItem('cp.almacen', this.value)"></label>
+      <label>IGIC %<input id="cfgIgic" type="number" step="0.5" value="${h(localStorage.getItem('cp.igic') || '7')}" onchange="localStorage.setItem('cp.igic', this.value)"></label>
+    </div>
+  </div>`;
+}
+function descargarCopia() {
+  const blob = new Blob([JSON.stringify(E, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `control-pedidos-copia-${hoy()}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+async function restaurarCopia(file) {
+  if (!file) return;
+  try {
+    const d = JSON.parse(await file.text());
+    if (!Array.isArray(d.pedidos) || !Array.isArray(d.restos)) throw new Error('no parece una copia de esta app');
+    if (!confirm(`La copia tiene ${d.pedidos.length} pedidos y ${d.restos.length} restos. Sustituye TODO lo que hay ahora. ¿Seguir?`)) return;
+    E = Object.assign({ pedidos: [], restos: [], notas: [], catalogos: {} }, d);
+    guardar(); pintar();
+  } catch (err) { alert('No he podido restaurar: ' + err.message); }
+}
+
+// ── Salidas: listado imprimible y Excel ──────────────────────────────────────
+function imprimirListado(id) {
+  const p = pedidoPorId(id);
+  const lineas = p.final.lineas;
+  const dto = p.final.dto || 0;
+  const restos = E.restos.filter((r) => r.pedidoId === p.id && r.pendiente > 0 && !r.anulado);
+  const bruto = lineas.reduce((s, l) => s + (l.precio || 0) * l.cant, 0);
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Pedido ${h(p.numero)} ${h(p.cliente)}</title>
+  <style>body{font-family:system-ui,sans-serif;margin:24px;color:#111}table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left}td.n,th.n{text-align:right}h1{font-size:20px;margin:0}h2{font-size:15px;margin-top:24px}</style></head><body>
+  <h1>${h(p.cliente)}</h1><p>${h(p.proveedor)} · pedido nº ${h(p.numero)} · ${h(fmtFecha(p.fecha))}${p.campana ? ' · campaña ' + h(p.campana) : ''}</p>
+  <table><tr><th>Cant.</th><th>Referencia</th><th>Descripción</th><th class="n">Precio</th><th class="n">Importe</th></tr>
+  ${lineas.map((l) => `<tr><td>${l.cant}</td><td>${h(l.ref)}</td><td>${h(l.desc)}</td><td class="n">${fmt(l.precio)}</td><td class="n">${fmt(CP.red2((l.precio || 0) * l.cant))}</td></tr>`).join('')}
+  <tr><td colspan="4" class="n"><b>Total bruto</b></td><td class="n"><b>${fmt(CP.red2(bruto))}</b></td></tr>
+  ${dto ? `<tr><td colspan="4" class="n">Dto. ${h(dto)} %</td><td class="n">${fmt(CP.red2(bruto * (1 - dto / 100)))}</td></tr>` : ''}</table>
+  ${restos.length ? `<h2>Pendiente de recibir</h2><table><tr><th>Cant.</th><th>Referencia</th><th>Descripción</th></tr>
+  ${restos.map((r) => `<tr><td>${r.pendiente}</td><td>${h(r.ref)}</td><td>${h(r.desc)}</td></tr>`).join('')}</table>` : ''}
+  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+function exportarSeleccionados() {
+  const ids = [...document.querySelectorAll('.selPed:checked')].map((c) => c.value);
+  if (!ids.length) { alert('Marca los pedidos que quieres exportar.'); return; }
+  exportarPedidos(ids);
+}
+function exportarPedidos(ids) {
+  const ps = ids.map(pedidoPorId).filter(Boolean);
+  const sinValidar = ps.filter((p) => !p.validado);
+  if (sinValidar.length) { alert('No se puede exportar con discordancias sin resolver. Sin validar: ' + sinValidar.map((p) => 'nº ' + p.numero).join(', ')); return; }
+  const provs = [...new Set(ps.map((p) => p.proveedor))];
+  if (provs.length > 1) { alert('Exporta los pedidos de un proveedor cada vez.'); return; }
+  // Varias selecciones: se suman por referencia (y por descuento, que va por línea).
+  const suma = new Map();
+  for (const p of ps) for (const l of p.final.lineas) {
+    const k = l.ref + '|' + (p.final.dto || 0);
+    if (!suma.has(k)) suma.set(k, Object.assign({}, l, { cant: 0, dto: p.final.dto || 0 }));
+    suma.get(k).cant += l.cant;
+  }
+  const quitar = (v) => typeof v === 'string' ? v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[Ññ]/g, (m) => (m === 'Ñ' ? 'N' : 'n')) : v;
+  const numero = ps.length === 1 ? ps[0].numero : ps.map((p) => p.numero).join('+');
+  const aoa = CP.filasGeminis([...suma.values()], {
+    proveedor: provs[0], fecha: fmtFecha(hoy()), numero, almacen: localStorage.getItem('cp.almacen') || '',
+    observaciones: ps.map((p) => `${p.numero} ${p.cliente}`).join(', '),
+  }, { igic: CP.parseNum(localStorage.getItem('cp.igic') || '7') }).map((f) => f.map(quitar));
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 15 }, { wch: 38 }, { wch: 14 }, { wch: 6 }, { wch: 8 }, { wch: 8 }, { wch: 9 }, { wch: 7 }, { wch: 6 }, { wch: 10 }, { wch: 9 }, { wch: 9 }, { wch: 12 }, { wch: 14 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'fichero');
+  XLSX.writeFile(wb, `PEDIDO_${quitar(provs[0]).replace(/\W+/g, '_')}_${String(numero).replace(/\W+/g, '_')}.xls`, { bookType: 'biff5' });
+}
+
+pintar();
+</script>
+</body>
+</html>
