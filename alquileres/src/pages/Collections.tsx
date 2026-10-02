@@ -38,6 +38,8 @@ function esEfectivo(p: Payment, canalDirecto: boolean): boolean {
 export default function Collections() {
   const { reservations, payments, apartments: allApartments } = useData()
   const [nuevoCobro, setNuevoCobro] = useState(false)
+  /** Cómo se agrupa el listado por reserva: por mes o por apartamento. */
+  const [agrupaPor, setAgrupaPor] = useState<'mes' | 'apartamento'>('mes')
   const apartments = allApartments.filter(a => a.active)
   const [year, setYear] = useState(new Date().getFullYear())
   const [filterQ, setFilterQ] = useState<number>(0)
@@ -229,8 +231,11 @@ export default function Collections() {
         const mm = `${year}-${String(m).padStart(2, '0')}`
         const usados = new Set<string>()
         for (const apt of visibleApts) {
+          // Las que ocupan el mes, empiecen cuando empiecen: igual que en
+          // pantalla, para que el papel y la pantalla digan lo mismo.
           const reservas = reservations
-            .filter(r => r.apartmentId === apt.id && r.status !== 'cancelada' && r.checkIn.startsWith(mm))
+            .filter(r => r.apartmentId === apt.id && r.status !== 'cancelada'
+              && r.checkIn <= `${mm}-31` && r.checkOut > `${mm}-01`)
             .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
           if (reservas.length === 0) {
             rows.push([MONTH_NAMES_ES[m - 1], apt.id, 'sin reservas', '', '', '', '', '', '', '', ''])
@@ -239,9 +244,10 @@ export default function Collections() {
           for (const r of reservas) {
             const cobros = delAnio.filter(p => p.reservationId === r.id)
             cobros.forEach(p => usados.add(p.id))
-            const base = [MONTH_NAMES_ES[m - 1], apt.id, `${corto(r.checkIn)} al ${corto(r.checkOut)}`,
+            const base = [MONTH_NAMES_ES[m - 1], apt.id,
+              `${r.checkIn.startsWith(mm) ? '' : '◀ '}${corto(r.checkIn)} al ${corto(r.checkOut)}`,
               `${r.nights}-N`, fmt(r.total - r.cleaningFee), fmt(r.cleaningFee)]
-            if (cobros.length === 0) { rows.push([...base, '', '', '', '', 'sin cobrar']); continue }
+            if (cobros.length === 0) { rows.push([...base, '', '', '', '', 'sin cobro este mes']); continue }
             const cobrado = cobros.reduce((x, p) => x + p.amount, 0)
             cobros.forEach((p, k2) => rows.push([
               ...(k2 === 0 ? base : [MONTH_NAMES_ES[m - 1], apt.id, '', '', '', '']),
@@ -354,6 +360,13 @@ export default function Collections() {
               <option value="">Todos los apartamentos</option>
               {apartments.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
+            {porReserva && (
+              <select value={agrupaPor} onChange={e => setAgrupaPor(e.target.value as 'mes' | 'apartamento')}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+                <option value="mes">Agrupar por mes</option>
+                <option value="apartamento">Agrupar por apartamento</option>
+              </select>
+            )}
             <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)}
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
               <option value="nombre">Orden de la casa</option>
@@ -461,7 +474,7 @@ export default function Collections() {
           <CobrosPorReserva
             year={year} filterApt={filterApt} apartments={apartments}
             reservations={reservations} payments={payments}
-            eur={eur} mesDe={mesDe} aptDe={aptDe}
+            eur={eur} mesDe={mesDe} aptDe={aptDe} agrupaPor={agrupaPor}
           />
         )}
 
@@ -808,24 +821,23 @@ const eurLargo = (n: number) =>
   `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
 
 /**
- * El listado del año: mes, apartamento, reserva y lo que se cobró de ella.
+ * El listado del año: reservas y cobros, agrupados por mes o por apartamento.
  *
  * Es el formato que pidió el propietario y el orden en que mira las cuentas:
- * primero el mes, dentro el apartamento —en el orden de la casa, no el
- * alfabético— y de cada reserva sus fechas, sus noches, el importe, la
- * limpieza y el total, y al lado el cobro con el que se pagó: fecha, número de
- * asiento e importe.
+ * de cada reserva sus fechas, sus noches, el importe y la limpieza, y al lado
+ * el cobro con el que se pagó, en la columna de banco o en la de mano.
  *
- * Una reserva con varios cobros ocupa varias líneas: la primera lleva los
- * datos de la estancia y las siguientes solo el cobro, para no repetir lo
- * mismo cuatro veces. Un apartamento sin reservas ese mes aparece igual, con
- * un «sin reservas», porque un hueco también es información.
+ * Una reserva aparece en TODOS los meses que ocupa, no solo en el que empieza.
+ * El 106 entró el 30/11/25 y salió el 27/02/26: en enero ese piso está
+ * alquilado y cobra, así que decir «sin reservas» era falso — y además mandaba
+ * su cobro al cajón de los huérfanos. Las que vienen de antes se marcan con
+ * «◀» para no confundirlas con una entrada de ese mes.
  *
- * El mes es el de ENTRADA de la reserva, no el del cobro: así una estancia
- * que se paga en marzo sigue contando donde se ocupó el piso. Los cobros que
- * no cuelgan de ninguna reserva van al final del mes en el que se cobraron.
+ * Se puede agrupar por mes (y dentro, los apartamentos en el orden de la casa)
+ * o por apartamento (y dentro, los meses). Es la misma tabla mirada por sus dos
+ * lados: una sirve para cuadrar el mes, la otra para seguir un piso.
  */
-function CobrosPorReserva({ year, filterApt, apartments, reservations, payments, eur, mesDe, aptDe }: {
+function CobrosPorReserva({ year, filterApt, apartments, reservations, payments, eur, mesDe, aptDe, agrupaPor }: {
   year: number
   filterApt: string
   apartments: Apartment[]
@@ -834,6 +846,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
   eur: (n: number) => string
   mesDe: (p: Payment) => string | undefined
   aptDe: (p: Payment) => string | undefined
+  agrupaPor: 'mes' | 'apartamento'
 }) {
   const visibles = filterApt ? apartments.filter(a => a.id === filterApt) : apartments
   const delAnio = payments.filter(p => p.received && mesDe(p)?.startsWith(String(year))
@@ -842,18 +855,49 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
   /** dd/mm/aa, como lo escribe el propietario en el Excel. */
   const fecha = (iso: string) => formatDate(iso).replace(/\/\d{2}(\d{2})$/, '/$1')
   const num = (n: number) => n ? n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''
-
-  /** Las reservas de ese apartamento que entran en ese mes. */
-  const reservasDe = (aptId: string, mes: number) => reservations
-    .filter(r => r.apartmentId === aptId && r.status !== 'cancelada'
-      && r.checkIn.startsWith(`${year}-${String(mes).padStart(2, '0')}`))
-    .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
-
   const celda = 'py-1.5 px-3 text-xs whitespace-nowrap'
+
   const esEfectivoDe = (p: Payment) => {
     const r = reservations.find(x => x.id === p.reservationId)
     return esEfectivo(p, r?.channel === 'directo')
   }
+
+  /** Una línea del listado: una reserva con sus cobros de ese mes, o un hueco. */
+  type Linea = { mes: number; apt: string; r?: Reservation; vieneDeAntes: boolean; cobros: Payment[] }
+
+  const lineas: Linea[] = []
+  for (let mes = 1; mes <= 12; mes++) {
+    const mm = `${year}-${String(mes).padStart(2, '0')}`
+    for (const apt of visibles) {
+      // Las que ocupan el mes, empiecen cuando empiecen.
+      const ocupan = reservations
+        .filter(r => r.apartmentId === apt.id && r.status !== 'cancelada'
+          && r.checkIn <= `${mm}-31` && r.checkOut > `${mm}-01`)
+        .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
+      const cobrosMes = delAnio.filter(p => mesDe(p) === mm && aptDe(p) === apt.id)
+      const colocados = new Set<string>()
+
+      for (const r of ocupan) {
+        const suyos = cobrosMes.filter(p => p.reservationId === r.id)
+        suyos.forEach(p => colocados.add(p.id))
+        lineas.push({ mes, apt: apt.id, r, cobros: suyos, vieneDeAntes: !r.checkIn.startsWith(mm) })
+      }
+      // Lo cobrado ese mes que no cuelga de ninguna de ellas.
+      const sueltos = cobrosMes.filter(p => !colocados.has(p.id))
+      if (sueltos.length > 0) lineas.push({ mes, apt: apt.id, cobros: sueltos, vieneDeAntes: false })
+      if (ocupan.length === 0 && sueltos.length === 0) {
+        lineas.push({ mes, apt: apt.id, cobros: [], vieneDeAntes: false })
+      }
+    }
+  }
+
+  const porMes = agrupaPor === 'mes'
+  const grupos = porMes
+    ? MONTH_NAMES_ES.map((n, i) => ({ clave: `m${i + 1}`, titulo: n, lineas: lineas.filter(l => l.mes === i + 1) }))
+    : visibles.map(a => ({ clave: a.id, titulo: a.name, lineas: lineas.filter(l => l.apt === a.id) }))
+
+  const suma = (ls: Linea[], filtro?: (p: Payment) => boolean) =>
+    ls.reduce((s, l) => s + l.cobros.filter(p => !filtro || filtro(p)).reduce((x, p) => x + p.amount, 0), 0)
 
   /** Un cobro: su importe en la columna que toca, su fecha y su asiento. */
   const Movimiento = ({ p }: { p: Payment }) => {
@@ -865,26 +909,29 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
         <td className={`${celda} text-slate-600`}>
           {p.paymentDate ? fecha(p.paymentDate) : <span className="text-slate-400">sin fecha</span>}
         </td>
-        <td className={`${celda} text-slate-500`}>
-          {p.entryNumber || (enMano ? 'efectivo' : '')}
-        </td>
+        <td className={`${celda} text-slate-500`}>{p.entryNumber || (enMano ? 'efectivo' : '')}</td>
       </>
     )
   }
-  const total = delAnio.reduce((s, p) => s + p.amount, 0)
+
+  /** La primera columna: el apartamento si se agrupa por mes, y al revés. */
+  const Cruce = ({ l }: { l: Linea }) => (
+    <td className={`${celda} ${porMes ? 'font-medium text-slate-700 pl-6' : 'text-slate-500 pl-6 capitalize'}`}>
+      {porMes ? l.apt : MONTH_NAMES_ES[l.mes - 1]}
+    </td>
+  )
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
         <h3 className="font-semibold text-white">Reservas y cobros · {year}</h3>
-        <span className="text-white font-bold">{eur(total)}</span>
+        <span className="text-white font-bold">{eur(suma(lineas))}</span>
       </div>
       <div className="overflow-auto">
         <table className="w-full text-sm" translate="no">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
-              <th className="text-left py-2 px-3 font-medium">Mes</th>
-              <th className="text-left py-2 px-3 font-medium">Apto.</th>
+              <th className="text-left py-2 px-3 font-medium">{porMes ? 'Apto.' : 'Mes'}</th>
               <th className="text-left py-2 px-3 font-medium">Fecha reserva</th>
               <th className="text-right py-2 px-3 font-medium">Noches</th>
               <th className="text-right py-2 px-3 font-medium">Importe</th>
@@ -897,84 +944,69 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
             </tr>
           </thead>
           <tbody className="tabular-nums">
-            {MONTH_NAMES_ES.map((nombreMes, i) => {
-              const mes = i + 1
-              const mm = `${year}-${String(mes).padStart(2, '0')}`
-              const usados = new Set<string>()
-              const filas: React.ReactNode[] = []
-
-              for (const apt of visibles) {
-                const reservas = reservasDe(apt.id, mes)
-                if (reservas.length === 0) {
-                  filas.push(
-                    <tr key={`${mm}-${apt.id}-vacio`} className="border-b border-slate-50">
-                      <td className={celda} />
-                      <td className={`${celda} font-medium text-slate-700`}>{apt.id}</td>
-                      <td className={`${celda} text-slate-400 italic`} colSpan={8}>sin reservas</td>
-                    </tr>)
-                  continue
-                }
-                for (const r of reservas) {
-                  const cobros = delAnio.filter(p => p.reservationId === r.id)
-                  cobros.forEach(p => usados.add(p.id))
-                  const primera = (
-                    <>
-                      <td className={`${celda} font-medium text-slate-700`}>{apt.id}</td>
-                      <td className={`${celda} text-slate-600`}>
-                        {fecha(r.checkIn)} al {fecha(r.checkOut)}
-                      </td>
-                      <td className={`${celda} text-right text-slate-600`}>{r.nights}-N</td>
-                      <td className={`${celda} text-right text-slate-600`}>{num(r.total - r.cleaningFee)}</td>
-                      <td className={`${celda} text-right text-slate-500`}>{num(r.cleaningFee)}</td>
-                    </>
-                  )
-                  if (cobros.length === 0) {
-                    filas.push(
-                      <tr key={r.id} className="border-b border-slate-50">
-                        <td className={celda} />
-                        {primera}
-                        <td className={`${celda} text-amber-700`} colSpan={5}>sin cobrar</td>
-                      </tr>)
-                    continue
-                  }
-                  const cobrado = cobros.reduce((x, p) => x + p.amount, 0)
-                  cobros.forEach((p, k) => filas.push(
-                    <tr key={p.id} className="border-b border-slate-50">
-                      <td className={celda} />
-                      {k === 0 ? primera : <td className={celda} colSpan={5} />}
-                      <Movimiento p={p} />
-                      <td className={`${celda} text-right font-semibold text-slate-800`}>
-                        {k === 0 ? num(cobrado) : ''}
-                      </td>
-                    </tr>))
-                }
-              }
-
-              // Lo cobrado ese mes que no cuelga de ninguna reserva.
-              for (const p of delAnio.filter(p => mesDe(p) === mm && !usados.has(p.id))) {
-                filas.push(
-                  <tr key={p.id} className="border-b border-slate-50 bg-amber-50/40">
-                    <td className={celda} />
-                    <td className={`${celda} font-medium text-slate-700`}>{aptDe(p)}</td>
-                    <td className={`${celda} text-amber-800 italic`} colSpan={4}>cobro sin reserva asociada</td>
-                    <Movimiento p={p} />
-                    <td className={celda} />
-                  </tr>)
-              }
-
-              const cobrosMes = delAnio.filter(p => mesDe(p) === mm)
-              const delMes = cobrosMes.reduce((s, p) => s + p.amount, 0)
-              const efecMes = cobrosMes.filter(esEfectivoDe).reduce((s, p) => s + p.amount, 0)
+            {grupos.map(g => {
+              const efec = suma(g.lineas, esEfectivoDe)
+              const todo = suma(g.lineas)
               return (
-                <Fragment key={mm}>
+                <Fragment key={g.clave}>
                   <tr className="bg-slate-100 border-y border-slate-200">
-                    <td className="py-2 px-3 font-bold text-slate-800 capitalize" colSpan={6}>{nombreMes}</td>
-                    <td className="py-2 px-3 text-right font-bold text-blue-700">{num(delMes - efecMes)}</td>
-                    <td className="py-2 px-3 text-right font-bold text-red-600">{num(efecMes)}</td>
+                    <td className="py-2 px-3 font-bold text-slate-800 capitalize" colSpan={5}>{g.titulo}</td>
+                    <td className="py-2 px-3 text-right font-bold text-blue-700">{num(todo - efec)}</td>
+                    <td className="py-2 px-3 text-right font-bold text-red-600">{num(efec)}</td>
                     <td colSpan={2} />
-                    <td className="py-2 px-3 text-right font-bold text-slate-800">{num(delMes)}</td>
+                    <td className="py-2 px-3 text-right font-bold text-slate-800">{num(todo)}</td>
                   </tr>
-                  {filas}
+
+                  {g.lineas.map((l, i) => {
+                    const { r, cobros } = l
+                    const clave = `${g.clave}-${i}`
+                    if (!r && cobros.length === 0) return (
+                      <tr key={clave} className="border-b border-slate-50">
+                        <Cruce l={l} />
+                        <td className={`${celda} text-slate-400 italic`} colSpan={9}>sin reservas</td>
+                      </tr>
+                    )
+                    if (!r) return cobros.map((p, k) => (
+                      <tr key={`${clave}-${p.id}`} className="border-b border-slate-50 bg-amber-50/40">
+                        {k === 0 ? <Cruce l={l} /> : <td className={celda} />}
+                        <td className={`${celda} text-amber-800 italic`} colSpan={4}>cobro sin reserva asociada</td>
+                        <Movimiento p={p} />
+                        <td className={celda} />
+                      </tr>
+                    ))
+
+                    const cobrado = cobros.reduce((x, p) => x + p.amount, 0)
+                    const datos = (
+                      <>
+                        <td className={`${celda} ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}>
+                          {l.vieneDeAntes && '◀ '}{fecha(r.checkIn)} al {fecha(r.checkOut)}
+                        </td>
+                        {/* En los meses de continuación los importes van en
+                            gris: son los de la misma reserva, no dinero nuevo,
+                            y a peso normal invitan a sumarlos dos veces. */}
+                        <td className={`${celda} text-right ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}>{r.nights}-N</td>
+                        <td className={`${celda} text-right ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}>{num(r.total - r.cleaningFee)}</td>
+                        <td className={`${celda} text-right ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-500'}`}>{num(r.cleaningFee)}</td>
+                      </>
+                    )
+                    if (cobros.length === 0) return (
+                      <tr key={clave} className="border-b border-slate-50">
+                        <Cruce l={l} />
+                        {datos}
+                        <td className={`${celda} text-amber-700`} colSpan={5}>sin cobro este mes</td>
+                      </tr>
+                    )
+                    return cobros.map((p, k) => (
+                      <tr key={`${clave}-${p.id}`} className="border-b border-slate-50">
+                        {k === 0 ? <Cruce l={l} /> : <td className={celda} />}
+                        {k === 0 ? datos : <td className={celda} colSpan={4} />}
+                        <Movimiento p={p} />
+                        <td className={`${celda} text-right font-semibold text-slate-800`}>
+                          {k === 0 ? num(cobrado) : ''}
+                        </td>
+                      </tr>
+                    ))
+                  })}
                 </Fragment>
               )
             })}
