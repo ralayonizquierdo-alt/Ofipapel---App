@@ -1,5 +1,6 @@
 import type { PriceEntry, PriceCalculation, ApartmentType, StayType } from '../types'
 import { getSeason } from './dateUtils'
+import { num } from './formato'
 
 const CHANNEL_FEE = 0.15
 const CLEANING_FEE = 40
@@ -124,7 +125,7 @@ export const TRAMO_LABEL: Record<Tramo, string> = {
 }
 
 const eur = (n: number) =>
-  `${(Number.isFinite(n) ? n : 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+  `${(Number.isFinite(n) ? n : num(0), 2)} €`
 
 /**
  * Explica en texto llano de dónde sale el total de una reserva, paso a paso.

@@ -5,6 +5,7 @@ import { leerExcel, idGasto, idIngreso, idOcupacion, idReparacionDeclarada, type
 import { EXPENSE_LABELS } from '../lib/deducible'
 import type { Expense, ExpenseType, IngresoMensual, OcupacionMensual, ReparacionMensual } from '../types'
 import Modal from './ui/Modal'
+import { num, numSuelto } from '../lib/formato'
 
 const MESES_CORTOS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
@@ -290,7 +291,7 @@ export default function ImportarExcel(
               <div>
                 <p className="text-xs text-slate-500">Total</p>
                 <p className="text-xl font-bold text-blue-700">
-                  {totalPrevio.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                  {num(totalPrevio)} €
                 </p>
               </div>
             </div>
@@ -310,7 +311,7 @@ export default function ImportarExcel(
                       <td className="py-2 px-3 text-slate-700">{EXPENSE_LABELS[tipo as ExpenseType]}</td>
                       <td className="py-2 px-3 text-right text-slate-500">{v.n}</td>
                       <td className="py-2 px-3 text-right font-semibold text-slate-800">
-                        {v.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        {num(v.total)} €
                       </td>
                     </tr>
                   ))}
@@ -348,8 +349,7 @@ export default function ImportarExcel(
               <p className="text-xs text-slate-500">
                 Se cargarán además los ingresos brutos del ejercicio:{' '}
                 <strong>
-                  {previo.ingresosPorInmueble.reduce((s, i) => s + i.base, 0)
-                    .toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                  {num(previo.ingresosPorInmueble.reduce((s, i) => s + i.base, 0))} €
                 </strong>. Los cobros no se tocan; Analítica mostrará ambos.
               </p>
             )}
@@ -357,7 +357,7 @@ export default function ImportarExcel(
             {previo.reparaciones.length > 0 && (
               <p className="text-xs text-slate-500">
                 Las {previo.reparaciones.length} líneas de reparaciones
-                ({previo.reparaciones.reduce((s, r) => s + r.base, 0).toLocaleString('es-ES')} €)
+                ({previo.reparaciones.reduce((s, r) => s + r.base, numSuelto(0))} €)
                 <strong> no se cargan como gasto</strong>: ya están en la pantalla de
                 Reparaciones. Solo se anota la cifra del Excel para poder compararlas y
                 avisar en el dashboard si no cuadran.
@@ -368,8 +368,7 @@ export default function ImportarExcel(
               <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
                 <p className="text-sm text-amber-900">
                   <b>{previo.sinJustificante.length} líneas de gastos sin justificante</b>{' '}
-                  ({previo.sinJustificante.reduce((s, g) => s + g.base, 0)
-                    .toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €)
+                  ({num(previo.sinJustificante.reduce((s, g) => s + g.base, 0))} €)
                   no se cargan: falta decidir si se deducen o no. En cuanto se decida, se añaden.
                 </p>
               </div>
@@ -392,7 +391,7 @@ export default function ImportarExcel(
                 <p className="text-sm text-amber-900">
                   Estaban en el fichero que se subió antes y este ya no los trae, así que la app
                   se queda igual que el Excel nuevo.
-                  {aBorrar.gastos.length > 0 && ` Gastos: ${aBorrar.gastos.length} (${aBorrar.importe.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €).`}
+                  {aBorrar.gastos.length > 0 && ` Gastos: ${aBorrar.gastos.length} (${num(aBorrar.importe)} €).`}
                   {aBorrar.ingresos.length > 0 && ` Ingresos: ${aBorrar.ingresos.length} meses.`}
                   {aBorrar.ocupaciones.length > 0 && ` Ocupación: ${aBorrar.ocupaciones.length} meses.`}
                   {aBorrar.reparaciones.length > 0 && ` Reparaciones: ${aBorrar.reparaciones.length}.`}

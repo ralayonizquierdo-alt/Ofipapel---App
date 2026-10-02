@@ -5,6 +5,7 @@ import { useData } from '../contexts/DataContext'
 import Modal from '../components/ui/Modal'
 import type { Reservation } from '../types'
 import { MONTH_NAMES_ES, DAY_NAMES_ES, getDaysInMonth, getSeason } from '../lib/dateUtils'
+import { num } from '../lib/formato'
 
 const APT_COLORS = [
   'bg-blue-400', 'bg-emerald-400', 'bg-violet-400', 'bg-amber-400',
@@ -70,7 +71,7 @@ export default function Planning() {
 
   /** El importe con sus céntimos, que es como se compara con el Excel. */
   const eur = (n: number) =>
-    `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+    `${num(n, 2)} €`
 
   function fmtD(iso: string, withYear = false): string {
     const d = new Date(iso)

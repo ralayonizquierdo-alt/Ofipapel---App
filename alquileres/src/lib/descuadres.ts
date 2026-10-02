@@ -1,6 +1,7 @@
 import type {
   IngresoMensual, OcupacionMensual, Payment, Repair, Reservation, ReparacionMensual,
 } from '../types'
+import { num } from './formato'
 
 /**
  * Descuadres entre el Excel (la fuente oficial del ejercicio) y lo que hay
@@ -28,7 +29,7 @@ export interface Descuadre {
 const UMBRAL = 1
 
 const eur = (n: number) =>
-  `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+  `${num(n, 2)} €`
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 

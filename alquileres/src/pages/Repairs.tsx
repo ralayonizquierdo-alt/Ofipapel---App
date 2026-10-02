@@ -7,6 +7,7 @@ import { verificarPassword, usuarioDe } from '../lib/auth'
 import { auth } from '../lib/firebase'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
+import { num, numSuelto } from '../lib/formato'
 
 const APT_ORDER = ['104', '105', '106', '203', '204', '402', 'P3', 'AP2B', 'JXXIII']
 
@@ -58,7 +59,7 @@ export default function Repairs() {
     <div className="p-6">
       <PageHeader
         title="Reparaciones y Mantenimiento"
-        subtitle={`${filtered.length} registros · Total: ${totalFiltered.toLocaleString('es-ES')} €`}
+        subtitle={`${filtered.length} registros · Total: ${numSuelto(totalFiltered)} €`}
         actions={
           <button onClick={() => { setEditing(null); setShowForm(true) }}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
@@ -97,12 +98,12 @@ export default function Repairs() {
           {byApt.map(({ apt, total }) => (
             <div key={apt.id} className="bg-white rounded-lg border border-slate-200 p-3">
               <p className="text-xs text-slate-500">{apt.name}</p>
-              <p className="text-lg font-bold text-red-700 mt-0.5">{total.toLocaleString('es-ES')} €</p>
+              <p className="text-lg font-bold text-red-700 mt-0.5">{numSuelto(total)} €</p>
             </div>
           ))}
           <div className="col-span-2 bg-blue-50 rounded-lg border-2 border-blue-300 p-4 flex flex-col justify-center">
             <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">{totalLabel}</p>
-            <p className="text-2xl font-bold text-blue-800 mt-1">{totalFiltered.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</p>
+            <p className="text-2xl font-bold text-blue-800 mt-1">{num(totalFiltered, 2)} €</p>
             <p className="text-xs text-blue-500 mt-0.5">{filtered.length} reparaciones</p>
           </div>
         </div>
@@ -132,7 +133,7 @@ export default function Repairs() {
                 <td className="py-2.5 px-4 text-slate-500 text-xs">{r.supplier || '—'}</td>
                 <td className="py-2.5 px-4 text-slate-500 text-xs">{r.document || '—'}</td>
                 <td className="py-2.5 px-4 text-right font-semibold text-red-700 whitespace-nowrap">
-                  {r.amount ? `${r.amount.toLocaleString('es-ES')} €` : '—'}
+                  {r.amount ? `${numSuelto(r.amount)} €` : '—'}
                 </td>
                 <td className="py-2.5 px-4 text-slate-400 text-xs">{r.entryNumber || '—'}</td>
                 <td className="py-2.5 px-4">
@@ -153,7 +154,7 @@ export default function Repairs() {
             <tfoot className="border-t-2 border-slate-200 bg-slate-50">
               <tr>
                 <td colSpan={5} className="py-3 px-4 text-sm font-semibold text-slate-700">TOTAL</td>
-                <td className="py-3 px-4 text-right font-bold text-red-700 whitespace-nowrap">{totalFiltered.toLocaleString('es-ES')} €</td>
+                <td className="py-3 px-4 text-right font-bold text-red-700 whitespace-nowrap">{numSuelto(totalFiltered)} €</td>
                 <td colSpan={2}></td>
               </tr>
             </tfoot>
@@ -190,7 +191,7 @@ export default function Repairs() {
                     <td className="py-2 px-4 text-xs text-slate-500 whitespace-nowrap">{formatDate(d.repairDate)}</td>
                     <td className="py-2 px-4 text-xs text-slate-700">{d.item}</td>
                     <td className="py-2 px-4 text-xs text-right font-semibold text-red-700 whitespace-nowrap">
-                      {d.amount ? `${d.amount.toLocaleString('es-ES')} €` : '—'}
+                      {d.amount ? `${numSuelto(d.amount)} €` : '—'}
                     </td>
                     <td className="py-2 px-4 text-xs text-amber-700 italic">{d.reason}</td>
                   </tr>
@@ -253,7 +254,7 @@ function DeleteConfirmModal({ repair, onConfirm, onClose }:
           <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
           <div className="text-sm text-red-700">
             <p className="font-semibold">{repair.item}</p>
-            {repair.amount && <p className="text-xs mt-0.5">{repair.amount.toLocaleString('es-ES')} €</p>}
+            {repair.amount && <p className="text-xs mt-0.5">{numSuelto(repair.amount)} €</p>}
           </div>
         </div>
         <div>

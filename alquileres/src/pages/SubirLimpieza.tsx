@@ -6,6 +6,7 @@ import { EXPENSE_LABELS } from '../lib/deducible'
 import { formatDate } from '../lib/dateUtils'
 import type { Expense } from '../types'
 import PageHeader from '../components/ui/PageHeader'
+import { num } from '../lib/formato'
 
 /**
  * Subida del parte de limpieza, la pantalla de Mónica y Cande.
@@ -21,7 +22,7 @@ import PageHeader from '../components/ui/PageHeader'
  */
 
 const eur = (n: number) =>
-  `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+  `${num(n, 2)} €`
 
 /** Los años anteriores ya están cerrados: por defecto solo entra lo nuevo. */
 const DESDE = 2026

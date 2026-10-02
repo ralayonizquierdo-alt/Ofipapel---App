@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Download, ShieldCheck, AlertTriangle } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { descargaCopia, diasDesde, ultimaCopia, apuntaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
+import { numSuelto } from '../lib/formato'
 
 export default function CopiaSeguridad() {
   const datos = useData()
@@ -65,7 +66,7 @@ export default function CopiaSeguridad() {
             ? 'Última copia: hoy.'
             : `Última copia: hace ${dias} ${dias === 1 ? 'día' : 'días'}.`}
         {toca && ' Toca hacer una.'}
-        {` Se guardarían ${total.toLocaleString('es-ES')} registros.`}
+        {` Se guardarían ${numSuelto(total)} registros.`}
       </div>
 
       {nombre && (

@@ -1,5 +1,6 @@
 import { doc, getDoc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { db } from './firebase'
+import { num } from './formato'
 
 /**
  * Guarda el papel, no solo la cifra.
@@ -212,6 +213,6 @@ export async function borraJustificante(idOUrl: string): Promise<void> {
 
 /** «2,3 MB» / «812 KB», para enseñarlo al lado del enlace. */
 export function tamanoLegible(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toLocaleString('es-ES', { maximumFractionDigits: 1 })} MB`
+  if (bytes >= 1024 * 1024) return `${num(bytes / 1024 / 1024, 1)} MB`
   return `${Math.round(bytes / 1024)} KB`
 }

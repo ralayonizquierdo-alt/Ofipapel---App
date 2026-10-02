@@ -5,6 +5,7 @@ import { EJERCICIO_APP, rejillaAnual } from '../lib/cuentas'
 import { hojaAsesoria, type FilaHoja, type Formato } from '../lib/hojaAsesoria'
 import { creaXlsx, descarga, ESTILO, type Celda } from '../lib/exportaExcel'
 import PageHeader from '../components/ui/PageHeader'
+import { num } from '../lib/formato'
 
 /**
  * La hoja que se le manda a la asesoría, con la forma del Excel de siempre.
@@ -132,7 +133,7 @@ export default function Asesoria() {
 /* ───────────────────────── pantalla y papel ───────────────────────── */
 
 const eur = (n: number) =>
-  n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+  num(n, 2) + ' €'
 
 function texto(v: number | string | null, formato: Formato): string {
   if (v === null || v === undefined) return ''

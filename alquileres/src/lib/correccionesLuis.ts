@@ -1,5 +1,6 @@
 import type { Payment, Reservation } from '../types'
 import { getNights } from './dateUtils'
+import { num } from './formato'
 
 /**
  * Las siete estancias que se pisaban, tal y como las resolvió Luis.
@@ -222,7 +223,7 @@ export interface Paso {
 
 const dia = (iso: string) => iso.split('-').reverse().join('/')
 const eur = (n: number) =>
-  `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+  `${num(n, 2)} €`
 
 /** ¿Están ya los cobros que pide la corrección? */
 function faltanCobros(c: Correccion, r: Reservation | undefined, payments: Payment[]): Cobro[] {

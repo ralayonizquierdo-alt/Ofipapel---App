@@ -8,6 +8,7 @@ import { MONTH_NAMES_ES, formatDate, today } from '../lib/dateUtils'
 import { EJERCICIO_APP } from '../lib/cuentas'
 import { ordenaApartamentos } from '../lib/apartamentos'
 import type { Apartment, Payment, PaymentMethod, Reservation } from '../types'
+import { num, numSuelto } from '../lib/formato'
 
 const QUARTERS = [
   { q: 1, months: [1, 2, 3], label: '1T (Ene–Mar)' },
@@ -188,7 +189,7 @@ export default function Collections() {
   const totalVencido = Math.round(vencidas.reduce((s, x) => s + x.falta, 0) * 100) / 100
   const nombreApt = (id: string) => allApartments.find(a => a.id === id)?.name ?? id
   const eur = (n: number) =>
-    `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+    `${num(n, 2)} €`
 
   function getAnnualBreakdown(aptId: string): { transferencia: number; efectivo: number; total: number } {
     const yearStr = String(year)
@@ -206,7 +207,7 @@ export default function Collections() {
   }
 
   function exportCSV() {
-    const fmt = (n: number) => n > 0 ? n.toLocaleString('es-ES', { minimumFractionDigits: 2 }) : '0,00'
+    const fmt = (n: number) => n > 0 ? num(n, 2) : '0,00'
     const rows: string[][] = []
 
     // En la vista por reserva se baja lo que se está viendo: el detalle de cada
@@ -248,9 +249,16 @@ export default function Collections() {
               : Number(r.checkIn.slice(0, 4)) < year
                 ? `viene de ${r.checkIn.slice(0, 4)} · `
                 : `viene de ${MONTH_NAMES_ES[Number(r.checkIn.slice(5, 7)) - 1].toLowerCase()} · `
+            // De una reserva que viene de antes, lo que queda por pagar: el
+            // total ya se cobró en parte en los meses anteriores.
+            const pagadoAntes = delAnio
+              .filter(p => p.reservationId === r.id && (p.mes ?? '') < mm)
+              .reduce((x, p) => x + p.amount, 0)
             const base = [MONTH_NAMES_ES[m - 1], apt.id,
               `${antes}${corto(r.checkIn)} al ${corto(r.checkOut)}`,
-              `${r.nights}-N`, fmt(r.total - r.cleaningFee), fmt(r.cleaningFee)]
+              `${r.nights}-N`,
+              antes ? fmt(r.total - pagadoAntes) : fmt(r.total - r.cleaningFee),
+              antes ? '' : fmt(r.cleaningFee)]
             if (cobros.length === 0) {
               const otros = delAnio.filter(x => x.reservationId === r.id)
               const donde = otros.length === 0 ? 'sin cobrar en todo el año'
@@ -497,9 +505,9 @@ export default function Collections() {
           const celda = apretada ? 'py-2 px-1 text-xs' : 'py-2.5 px-4'
           // Apretada, el € se repetiría doce veces por fila y es lo primero que
           // sobra: se queda en los totales y se avisa en la cabecera.
-          const imp = (n: number) => apretada
-            ? n.toLocaleString('es-ES')
-            : `${n.toLocaleString('es-ES')} €`
+          // Siempre con los dos decimales: una columna con «470,5» al lado de
+          // «13.406,89» no se lee, se descifra.
+          const imp = (n: number) => apretada ? num(n) : `${num(n)} €`
           const sorted = sortApartments(visibleApts, months)
           const qTotal = visibleApts.reduce((s, a) => s + getQuarterTotal(a.id, months), 0)
           const qEfectivo = months.reduce((s, m) => s + getMonthEfectivo(m), 0)
@@ -510,8 +518,8 @@ export default function Collections() {
               <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
                 <h3 className="font-semibold text-white">{label}</h3>
                 <div className="text-right">
-                  <span className="text-white font-bold">{qTotal.toLocaleString('es-ES')} €</span>
-                  <span className="text-slate-300 text-xs ml-3">IGIC: {qIGIC.toLocaleString('es-ES')} €</span>
+                  <span className="text-white font-bold">{numSuelto(qTotal)} €</span>
+                  <span className="text-slate-300 text-xs ml-3">IGIC: {numSuelto(qIGIC)} €</span>
                 </div>
               </div>
               <div className="overflow-auto">
@@ -652,11 +660,11 @@ export default function Collections() {
                   return (
                     <tr key={apt.id} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="py-2.5 px-4 font-medium text-slate-700 text-xs">{apt.name}</td>
-                      <td className="py-2.5 px-4 text-right text-blue-700 whitespace-nowrap">{transferencia > 0 ? `${transferencia.toLocaleString('es-ES')} €` : '—'}</td>
-                      <td className="py-2.5 px-4 text-right text-green-700 whitespace-nowrap">{efectivo > 0 ? `${efectivo.toLocaleString('es-ES')} €` : '—'}</td>
-                      <td className="py-2.5 px-4 text-right font-bold text-slate-800 whitespace-nowrap">{total.toLocaleString('es-ES')} €</td>
-                      <td className="py-2.5 px-4 text-right text-slate-500 text-xs whitespace-nowrap">{igic.toLocaleString('es-ES')} €</td>
-                      <td className="py-2.5 px-4 text-right font-semibold text-amber-700 bg-amber-50 whitespace-nowrap">{(total + igic).toLocaleString('es-ES')} €</td>
+                      <td className="py-2.5 px-4 text-right text-blue-700 whitespace-nowrap">{transferencia > 0 ? `${numSuelto(transferencia)} €` : '—'}</td>
+                      <td className="py-2.5 px-4 text-right text-green-700 whitespace-nowrap">{efectivo > 0 ? `${numSuelto(efectivo)} €` : '—'}</td>
+                      <td className="py-2.5 px-4 text-right font-bold text-slate-800 whitespace-nowrap">{numSuelto(total)} €</td>
+                      <td className="py-2.5 px-4 text-right text-slate-500 text-xs whitespace-nowrap">{numSuelto(igic)} €</td>
+                      <td className="py-2.5 px-4 text-right font-semibold text-amber-700 bg-amber-50 whitespace-nowrap">{(total + numSuelto(igic))} €</td>
                     </tr>
                   )
                 })}
@@ -665,14 +673,14 @@ export default function Collections() {
                 <tr>
                   <td className="py-3 px-4 font-semibold text-slate-700">TOTAL ANUAL</td>
                   <td className="py-3 px-4 text-right font-bold text-blue-700 whitespace-nowrap">
-                    {visibleApts.reduce((s, a) => s + getAnnualBreakdown(a.id).transferencia, 0).toLocaleString('es-ES')} €
+                    {visibleApts.reduce((s, a) => s + getAnnualBreakdown(a.id).transferencia, numSuelto(0))} €
                   </td>
                   <td className="py-3 px-4 text-right font-bold text-green-700 whitespace-nowrap">
-                    {visibleApts.reduce((s, a) => s + getAnnualBreakdown(a.id).efectivo, 0).toLocaleString('es-ES')} €
+                    {visibleApts.reduce((s, a) => s + getAnnualBreakdown(a.id).efectivo, numSuelto(0))} €
                   </td>
-                  <td className="py-3 px-4 text-right font-bold text-slate-900 whitespace-nowrap">{yearTotal.toLocaleString('es-ES')} €</td>
-                  <td className="py-3 px-4 text-right font-semibold text-slate-600 whitespace-nowrap">{calcIGIC(yearTotal).toLocaleString('es-ES')} €</td>
-                  <td className="py-3 px-4 text-right font-bold text-amber-700 bg-amber-50 whitespace-nowrap">{(yearTotal + calcIGIC(yearTotal)).toLocaleString('es-ES')} €</td>
+                  <td className="py-3 px-4 text-right font-bold text-slate-900 whitespace-nowrap">{numSuelto(yearTotal)} €</td>
+                  <td className="py-3 px-4 text-right font-semibold text-slate-600 whitespace-nowrap">{numSuelto(calcIGIC(yearTotal))} €</td>
+                  <td className="py-3 px-4 text-right font-bold text-amber-700 bg-amber-50 whitespace-nowrap">{numSuelto(yearTotal + calcIGIC(yearTotal))} €</td>
                 </tr>
               </tfoot>
             </table>
@@ -683,11 +691,11 @@ export default function Collections() {
         <div className="bg-slate-900 rounded-xl p-5 flex items-center justify-between print:hidden">
           <div>
             <p className="text-slate-300 text-sm">Total anual {year}</p>
-            <p className="text-white text-3xl font-bold mt-1">{yearTotal.toLocaleString('es-ES')} €</p>
+            <p className="text-white text-3xl font-bold mt-1">{numSuelto(yearTotal)} €</p>
           </div>
           <div className="text-right">
             <p className="text-slate-400 text-xs">IGIC 7% a declarar</p>
-            <p className="text-amber-400 text-xl font-bold mt-1">{calcIGIC(yearTotal).toLocaleString('es-ES')} €</p>
+            <p className="text-amber-400 text-xl font-bold mt-1">{numSuelto(calcIGIC(yearTotal))} €</p>
           </div>
         </div>
       </div>
@@ -748,7 +756,7 @@ function NuevoCobro({ onClose }: { onClose: () => void }) {
       year: Number(mes.slice(0, 4)),
       cobros: 1,
       resumen: `Cobro a mano · ${apt?.name ?? apartmentId} · `
-        + `${cantidad.toLocaleString('es-ES', { minimumFractionDigits: 2 })} € en ${metodo}`,
+        + `${num(cantidad, 2)} € en ${metodo}`,
     })
     onClose()
   }
@@ -829,7 +837,7 @@ function NuevoCobro({ onClose }: { onClose: () => void }) {
 }
 
 const eurLargo = (n: number) =>
-  `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+  `${num(n, 2)} €`
 
 /**
  * El listado del año: reservas y cobros, agrupados por mes o por apartamento.
@@ -865,7 +873,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
 
   /** dd/mm/aa, como lo escribe el propietario en el Excel. */
   const fecha = (iso: string) => formatDate(iso).replace(/\/\d{2}(\d{2})$/, '/$1')
-  const num = (n: number) => n ? n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''
+  const imp = (n: number) => n ? num(n, 2) : ''
   const celda = 'py-1.5 px-3 text-xs whitespace-nowrap'
 
   const esEfectivoDe = (p: Payment) => {
@@ -885,6 +893,22 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
     const anio = Number(r.checkIn.slice(0, 4))
     if (anio < year) return `de ${anio}`
     return `de ${MONTH_NAMES_ES[Number(r.checkIn.slice(5, 7)) - 1].toLowerCase()}`
+  }
+
+  /**
+   * Lo que falta por pagar de una reserva al empezar ese mes.
+   *
+   * Una estancia larga se paga por meses, así que repetir su importe total en
+   * cada mes que ocupa es engañoso: en octubre ya han pagado agosto y
+   * septiembre. En los meses de continuación se enseña lo que queda, no el
+   * total, que es lo que pidió el propietario.
+   */
+  const restante = (r: Reservation, mes: number): number => {
+    const hasta = `${year}-${String(mes).padStart(2, '0')}`
+    const pagado = delAnio
+      .filter(p => p.reservationId === r.id && (mesDe(p) ?? '') < hasta)
+      .reduce((x, p) => x + p.amount, 0)
+    return Math.round((r.total - pagado) * 100) / 100
   }
 
   /**
@@ -947,8 +971,8 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
     const enMano = esEfectivoDe(p)
     return (
       <>
-        <td className={`${celda} text-right text-blue-700`}>{enMano ? '' : num(p.amount)}</td>
-        <td className={`${celda} text-right font-medium text-red-600`}>{enMano ? num(p.amount) : ''}</td>
+        <td className={`${celda} text-right text-blue-700`}>{enMano ? '' : imp(p.amount)}</td>
+        <td className={`${celda} text-right font-medium text-red-600`}>{enMano ? imp(p.amount) : ''}</td>
         <td className={`${celda} text-slate-600`}>
           {p.paymentDate ? fecha(p.paymentDate) : <span className="text-slate-400">sin fecha</span>}
         </td>
@@ -977,7 +1001,9 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
               <th className="text-left py-2 px-3 font-medium">{porMes ? 'Apto.' : 'Mes'}</th>
               <th className="text-left py-2 px-3 font-medium">Fecha reserva</th>
               <th className="text-right py-2 px-3 font-medium">Noches</th>
-              <th className="text-right py-2 px-3 font-medium">Importe</th>
+              <th className="text-right py-2 px-3 font-medium" title="De una reserva que viene de antes, lo que queda por pagar">
+                Importe
+              </th>
               <th className="text-right py-2 px-3 font-medium">Limpieza</th>
               <th className="text-right py-2 px-3 font-medium text-blue-700">Transferencia</th>
               <th className="text-right py-2 px-3 font-medium text-red-600">Efectivo</th>
@@ -994,10 +1020,10 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                 <Fragment key={g.clave}>
                   <tr className="bg-slate-100 border-y border-slate-200">
                     <td className="py-2 px-3 font-bold text-slate-800 capitalize" colSpan={5}>{g.titulo}</td>
-                    <td className="py-2 px-3 text-right font-bold text-blue-700">{num(todo - efec)}</td>
-                    <td className="py-2 px-3 text-right font-bold text-red-600">{num(efec)}</td>
+                    <td className="py-2 px-3 text-right font-bold text-blue-700">{imp(todo - efec)}</td>
+                    <td className="py-2 px-3 text-right font-bold text-red-600">{imp(efec)}</td>
                     <td colSpan={2} />
-                    <td className="py-2 px-3 text-right font-bold text-slate-800">{num(todo)}</td>
+                    <td className="py-2 px-3 text-right font-bold text-slate-800">{imp(todo)}</td>
                   </tr>
 
                   {g.lineas.map((l, i) => {
@@ -1030,12 +1056,18 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                           )}
                           {fecha(r.checkIn)} al {fecha(r.checkOut)}
                         </td>
-                        {/* En los meses de continuación los importes van en
-                            gris: son los de la misma reserva, no dinero nuevo,
-                            y a peso normal invitan a sumarlos dos veces. */}
+                        {/* En los meses de continuación no se repite el importe
+                            de la reserva: se enseña lo que queda por pagar, que
+                            es lo único que tiene sentido mirar ahí. La limpieza
+                            se cobra una vez, en el mes de entrada. */}
                         <td className={`${celda} text-right ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}>{r.nights}-N</td>
-                        <td className={`${celda} text-right ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}>{num(r.total - r.cleaningFee)}</td>
-                        <td className={`${celda} text-right ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-500'}`}>{num(r.cleaningFee)}</td>
+                        <td className={`${celda} text-right ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}
+                          title={l.vieneDeAntes ? `Queda por pagar de los ${imp(r.total)} € de la reserva` : undefined}>
+                          {l.vieneDeAntes ? imp(restante(r, l.mes)) : imp(r.total - r.cleaningFee)}
+                        </td>
+                        <td className={`${celda} text-right text-slate-500`}>
+                          {l.vieneDeAntes ? '' : imp(r.cleaningFee)}
+                        </td>
                       </>
                     )
                     if (cobros.length === 0) {
@@ -1056,7 +1088,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                         {k === 0 ? datos : <td className={celda} colSpan={4} />}
                         <Movimiento p={p} />
                         <td className={`${celda} text-right font-semibold text-slate-800`}>
-                          {k === 0 ? num(cobrado) : ''}
+                          {k === 0 ? imp(cobrado) : ''}
                         </td>
                       </tr>
                     ))

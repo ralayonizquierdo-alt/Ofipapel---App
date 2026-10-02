@@ -9,6 +9,7 @@ import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
 import ImportarExcel from '../components/ImportarExcel'
 import Repairs from './Repairs'
+import { numSuelto } from '../lib/formato'
 
 const EXPENSE_TYPE_LABELS = EXPENSE_LABELS
 
@@ -140,7 +141,7 @@ export default function Costos() {
       <Pestanas actual={pestana} onCambio={setParams} />
       <PageHeader
         title="Gastos"
-        subtitle={`${filtered.length} registros · Total: ${totalFiltered.toLocaleString('es-ES')} € · Deducible: ${totalDeducible.toLocaleString('es-ES')} €`}
+        subtitle={`${filtered.length} registros · Total: ${numSuelto(totalFiltered)} € · Deducible: ${numSuelto(totalDeducible)} €`}
         actions={
           <div className="flex flex-wrap gap-2">
             <button onClick={() => setShowImport(true)}
@@ -183,7 +184,7 @@ export default function Costos() {
           {byApt.map(({ apt, total }) => (
             <div key={apt.id} className="bg-white rounded-lg border border-slate-200 p-3">
               <p className="text-xs text-slate-500">{apt.name}</p>
-              <p className="text-lg font-bold text-orange-700 mt-0.5">{total.toLocaleString('es-ES')} €</p>
+              <p className="text-lg font-bold text-orange-700 mt-0.5">{numSuelto(total)} €</p>
             </div>
           ))}
         </div>
@@ -221,11 +222,11 @@ export default function Costos() {
                 <td className="py-2.5 px-4 text-slate-700">{l.descripcion}</td>
                 <td className="py-2.5 px-4 text-slate-500 text-xs">{l.proveedor || '—'}</td>
                 <td className="py-2.5 px-4 text-right font-semibold text-orange-700">
-                  {l.importe ? `${l.importe.toLocaleString('es-ES')} €` : '—'}
+                  {l.importe ? `${numSuelto(l.importe)} €` : '—'}
                 </td>
                 <td className="py-2.5 px-4 text-right text-xs">
                   <span className="font-semibold text-slate-700">
-                    {redondea(l.deducible).toLocaleString('es-ES')} €
+                    {numSuelto(redondea(l.deducible))} €
                   </span>
                   <span className="block text-[10px] text-slate-400">{l.regla}</span>
                 </td>
@@ -258,8 +259,8 @@ export default function Costos() {
             <tfoot className="border-t-2 border-slate-200 bg-slate-50">
               <tr>
                 <td colSpan={5} className="py-3 px-4 text-sm font-semibold text-slate-700">TOTAL</td>
-                <td className="py-3 px-4 text-right font-bold text-orange-700">{totalFiltered.toLocaleString('es-ES')} €</td>
-                <td className="py-3 px-4 text-right font-bold text-slate-700">{totalDeducible.toLocaleString('es-ES')} €</td>
+                <td className="py-3 px-4 text-right font-bold text-orange-700">{numSuelto(totalFiltered)} €</td>
+                <td className="py-3 px-4 text-right font-bold text-slate-700">{numSuelto(totalDeducible)} €</td>
                 <td colSpan={2}></td>
               </tr>
             </tfoot>

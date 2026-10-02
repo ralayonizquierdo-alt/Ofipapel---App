@@ -10,6 +10,7 @@ import CorreccionesLuis from '../components/CorreccionesLuis'
 import { CajaPegar } from '../components/PegarWhatsApp'
 import SoltarGastos from '../components/SoltarGastos'
 import { tocaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
+import { numSuelto } from '../lib/formato'
 
 export default function Dashboard() {
   const { reservations, payments, apartments, repairs } = useData()
@@ -87,8 +88,8 @@ export default function Dashboard() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <KpiCard icon={<CalendarCheck size={20} className="text-blue-600" />} label="Activas hoy" value={String(active.length)} sub={`de ${apartments.filter(a => a.active).length} aptos.`} color="blue" />
-        <KpiCard icon={<Euro size={20} className="text-green-600" />} label="Cobrado este mes" value={`${monthIncome.toLocaleString('es-ES')} €`} sub={`IGIC: ${calcIGIC(monthIncome).toLocaleString('es-ES')} €`} color="green" />
-        <KpiCard icon={<TrendingUp size={20} className="text-purple-600" />} label={`Neto ${currentYear}`} value={`${netYear.toLocaleString('es-ES')} €`} sub={`Ingresos: ${yearIncome.toLocaleString('es-ES')} €`} color="purple" />
+        <KpiCard icon={<Euro size={20} className="text-green-600" />} label="Cobrado este mes" value={`${numSuelto(monthIncome)} €`} sub={`IGIC: ${numSuelto(calcIGIC(monthIncome))} €`} color="green" />
+        <KpiCard icon={<TrendingUp size={20} className="text-purple-600" />} label={`Neto ${currentYear}`} value={`${numSuelto(netYear)} €`} sub={`Ingresos: ${numSuelto(yearIncome)} €`} color="purple" />
         <KpiCard icon={<AlertTriangle size={20} className="text-amber-600" />} label="Pagos pendientes" value={String(pendingPayment.length)} sub={vencidas.length ? `${vencidas.length} ya vencidos` : 'reservas sin cobrar'} color="amber" />
       </div>
 
@@ -183,7 +184,7 @@ export default function Dashboard() {
                     <p className="text-sm font-medium text-slate-700">{getApartmentName(r.apartmentId)}</p>
                     <p className="text-xs text-slate-500">Sale {formatDate(r.checkOut)} · {r.nights} noches</p>
                   </div>
-                  <span className="text-sm font-semibold text-green-700">{r.total.toLocaleString('es-ES')} €</span>
+                  <span className="text-sm font-semibold text-green-700">{numSuelto(r.total)} €</span>
                 </div>
               ))}
             </div>

@@ -5,9 +5,10 @@ import { leeCalendario, type ResultadoCalendario } from '../lib/importarCalendar
 import { buscaTarifa, calcTotal, tramoPorNoches } from '../lib/priceCalc'
 import type { Reservation } from '../types'
 import Modal from './ui/Modal'
+import { num } from '../lib/formato'
 
 const eur = (n: number) =>
-  `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+  `${num(n, 2)} €`
 
 /**
  * Volcado del calendario anual de reservas.

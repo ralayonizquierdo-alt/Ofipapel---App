@@ -9,9 +9,10 @@ import { buscaTarifa, calcTotal, tramoPorNoches } from '../lib/priceCalc'
 import { formatDate } from '../lib/dateUtils'
 import type { Reservation } from '../types'
 import Modal from './ui/Modal'
+import { num } from '../lib/formato'
 
 const eur = (n: number) =>
-  `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+  `${num(n, 2)} €`
 
 const EJEMPLO = `Pega aquí el mensaje, tal cual llega:
 

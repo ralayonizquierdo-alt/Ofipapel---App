@@ -6,6 +6,7 @@ import PageHeader from '../components/ui/PageHeader'
 import Modal from '../components/ui/Modal'
 import { Pencil, Info, Printer, Plus, Trash2 } from 'lucide-react'
 import { MONTH_NAMES_ES } from '../lib/dateUtils'
+import { num, numSuelto } from '../lib/formato'
 
 const APT_TYPE_LABELS: Record<ApartmentType, string> = {
   '1BR': '1 Dormitorio (104, 105)',
@@ -241,13 +242,13 @@ function PriceTable({ entry, onEdit }: { entry: PriceEntry; onEdit: () => void }
                     {row.label}
                     {(row as { isDirect?: boolean }).isDirect && <span className="ml-1 text-xs font-normal text-green-600">(contado/efectivo)</span>}
                   </td>
-                  <td className={`py-3 px-4 text-right ${(row as { isDirect?: boolean }).isDirect ? 'text-green-700 font-semibold' : 'text-slate-600'}`}>{row.base.toLocaleString('es-ES')} €</td>
+                  <td className={`py-3 px-4 text-right ${(row as { isDirect?: boolean }).isDirect ? 'text-green-700 font-semibold' : 'text-slate-600'}`}>{numSuelto(row.base)} €</td>
                   <td className="py-3 px-4 text-right text-slate-500 text-xs">{entry.cleaningFee} €</td>
-                  <td className="py-3 px-4 text-right text-slate-700 font-semibold">{calc.totalOwner.toLocaleString('es-ES')} €</td>
-                  <td className="py-3 px-4 text-right text-amber-700 font-medium">{calc.realEstate.toLocaleString('es-ES')} €</td>
-                  <td className="py-3 px-4 text-right text-violet-700 font-medium">{calc.booking.toLocaleString('es-ES')} €</td>
+                  <td className="py-3 px-4 text-right text-slate-700 font-semibold">{numSuelto(calc.totalOwner)} €</td>
+                  <td className="py-3 px-4 text-right text-amber-700 font-medium">{numSuelto(calc.realEstate)} €</td>
+                  <td className="py-3 px-4 text-right text-violet-700 font-medium">{numSuelto(calc.booking)} €</td>
                   <td className="py-3 px-4 text-right font-bold text-green-700 bg-green-50">
-                    {(row as { isDirect?: boolean }).isDirect ? '0' : calc.webPrice.toLocaleString('es-ES')} €
+                    {(row as { isDirect?: boolean }).isDirect ? '0' : numSuelto(calc.webPrice)} €
                   </td>
                   <td className="py-3 px-4 text-right text-slate-400 text-xs">{perNight} €</td>
                 </tr>
@@ -276,7 +277,7 @@ function variacion(actual: number, anterior: number): string {
   if (!anterior) return ''
   const pct = ((actual - anterior) / anterior) * 100
   if (Math.abs(pct) < 0.05) return ''
-  const txt = Math.abs(pct).toLocaleString('es-ES', { maximumFractionDigits: 1 })
+  const txt = num(Math.abs(pct), 1)
   return `${pct > 0 ? '+' : '−'}${txt} %`
 }
 
@@ -372,7 +373,7 @@ function PriceEditModal({ entry, onClose }: { entry: PriceEntry; onClose: () => 
               {/* La referencia del año pasado, justo debajo y en pequeño. */}
               {previo !== undefined && previo > 0 && (
                 <p className="text-[11px] text-slate-400 mt-1 tabular-nums">
-                  {anterior!.year}: {previo.toLocaleString('es-ES')} €
+                  {anterior!.year}: {numSuelto(previo)} €
                   {variacion(val, previo) && (
                     <span className={`ml-1.5 font-medium ${val > previo ? 'text-emerald-600' : 'text-red-500'}`}>
                       {variacion(val, previo)}
@@ -578,7 +579,7 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
               {/* La general, justo debajo y en pequeño, con la diferencia. */}
               {ref !== undefined && ref > 0 && (
                 <p className="text-[11px] text-slate-400 mt-1 tabular-nums">
-                  General: {ref.toLocaleString('es-ES')} €
+                  General: {numSuelto(ref)} €
                   {variacion(val, ref) && (
                     <span className={`ml-1.5 font-medium ${val > ref ? 'text-emerald-600' : 'text-red-500'}`}>
                       {variacion(val, ref)}

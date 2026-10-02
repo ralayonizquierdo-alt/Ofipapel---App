@@ -7,6 +7,7 @@ import { calcIGIC } from '../lib/priceCalc'
 import { redondea } from '../lib/deducible'
 import { cuentasDe, EJERCICIO_APP, mesesDe, TRIMESTRES, type Periodo } from '../lib/cuentas'
 import PageHeader from '../components/ui/PageHeader'
+import { num, numSuelto } from '../lib/formato'
 
 function etiquetaPeriodo(periodo: Periodo, year: number): string {
   if (periodo === 'anual') return String(year)
@@ -79,7 +80,7 @@ export default function Analytics() {
     resultado: Math.round(m.resultado),
   }))
 
-  const eur = (n: number) => `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+  const eur = (n: number) => `${num(n, 2)} €`
   const titulo = etiquetaPeriodo(periodo, year)
 
   return (
@@ -250,7 +251,7 @@ export default function Analytics() {
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} />
             <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
-            <Tooltip formatter={(v) => `${Number(v).toLocaleString('es-ES')} €`} />
+            <Tooltip formatter={(v) => `${numSuelto(Number(v))} €`} />
             <Legend />
             <Bar dataKey="ingresos" name="Ingresos" fill="#22c55e" radius={[3, 3, 0, 0]} />
             <Bar dataKey="gastos" name="Gastos" fill="#ef4444" radius={[3, 3, 0, 0]} />

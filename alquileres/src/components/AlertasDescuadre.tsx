@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { calculaDescuadres, type Descuadre } from '../lib/descuadres'
+import { num } from '../lib/formato'
 
 /**
  * Avisos de descuadre entre el Excel y la app. Solo señalan; no corrigen nada.
@@ -52,7 +53,7 @@ function Fila({ d, abierto, onToggle }: { d: Descuadre; abierto: boolean; onTogg
         {d.diferencia !== 0 && (
           <span className="text-sm font-semibold text-amber-700 shrink-0" translate="no">
             {d.diferencia > 0 ? '+' : ''}
-            {d.diferencia.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+            {num(d.diferencia, 2)} €
           </span>
         )}
       </button>

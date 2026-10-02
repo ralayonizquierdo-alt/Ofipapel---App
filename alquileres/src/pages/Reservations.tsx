@@ -10,6 +10,7 @@ import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
 import PegarWhatsApp from '../components/PegarWhatsApp'
 import ImportarReservas from '../components/ImportarReservas'
+import { num, numSuelto } from '../lib/formato'
 
 const STAY_LABELS: Record<StayType, string> = {
   '1semana': '1 Semana', '2semanas': '2 Semanas', '3semanas': '3 Semanas',
@@ -17,7 +18,7 @@ const STAY_LABELS: Record<StayType, string> = {
 }
 const TRAMOS: Tramo[] = ['1semana', '2semanas', '3semanas', '1mes']
 const eur = (n: number) =>
-  `${(Number.isFinite(n) ? n : 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`
+  `${(Number.isFinite(n) ? n : num(0), 2)} €`
 /** Descuento por pago en efectivo. Se aplica dure lo que dure la estancia. */
 const DTO_EFECTIVO = 10
 const CHANNEL_LABELS: Record<Channel, string> = {
@@ -506,7 +507,7 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
               <span>{`Base ${eur(basePrice)} + limpieza ${eur(cleaningFee)}`}</span>
               <span>{discountPct > 0 ? ` − ${discountPct} % dto` : ''}</span>
             </div>
-            <div className="text-lg font-bold text-blue-700">{total.toLocaleString('es-ES')} €</div>
+            <div className="text-lg font-bold text-blue-700">{numSuelto(total)} €</div>
           </div>
 
           <MemoriaPrecio lineas={lineasPrecio({
@@ -569,16 +570,16 @@ function PaymentModal({ reservation, aptName, onClose }:
         <div className="bg-slate-50 rounded-lg p-4 grid grid-cols-3 gap-4 text-center">
           <div>
             <p className="text-xs text-slate-500">Total reserva</p>
-            <p className="text-xl font-bold text-slate-800">{reservation.total.toLocaleString('es-ES')} €</p>
+            <p className="text-xl font-bold text-slate-800">{numSuelto(reservation.total)} €</p>
           </div>
           <div>
             <p className="text-xs text-slate-500">Cobrado</p>
-            <p className="text-xl font-bold text-green-700">{totalPaid.toLocaleString('es-ES')} €</p>
+            <p className="text-xl font-bold text-green-700">{numSuelto(totalPaid)} €</p>
           </div>
           <div>
             <p className="text-xs text-slate-500">Pendiente</p>
             <p className={`text-xl font-bold ${pending > 0 ? 'text-amber-600' : 'text-green-600'}`}>
-              {pending.toLocaleString('es-ES')} €
+              {numSuelto(pending)} €
             </p>
           </div>
         </div>
