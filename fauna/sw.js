@@ -1,0 +1,15 @@
+// Service worker de la prueba de control de fauna (vive en /fauna/).
+// Rutas RELATIVAS a propósito: en la raíz del sitio hay otro sw.js (Ofipapel).
+// Red primero y caché solo como respaldo sin cobertura: es una prueba que se
+// va a ir cambiando y la versión antigua no debe quedarse pegada en el móvil.
+const CACHE = 'fauna-prueba-v6';
+const FILES = ['./','index.html','styles.css','app.js','manifest.webmanifest','icon.svg'];
+self.addEventListener('install', event => { self.skipWaiting(); event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES))); });
+self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('fauna-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET' || new URL(event.request.url).origin !== location.origin) return;
+  event.respondWith(fetch(event.request).then(response => {
+    if (response.ok) { const copy = response.clone(); caches.open(CACHE).then(cache => cache.put(event.request, copy)); }
+    return response;
+  }).catch(() => caches.match(event.request, {ignoreSearch: true})));
+});
