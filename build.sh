@@ -166,6 +166,11 @@ cp icon-ofipapel-192-maskable.png _site/ 2>/dev/null || true
 cp icon-ofipapel-512-maskable.png _site/ 2>/dev/null || true
 cp privacidad.html _site/ 2>/dev/null || true
 cp 404.html _site/ 2>/dev/null || true
+# Prueba móvil del parte de control de fauna (proyecto aparte, sin relación
+# con Ofipapel): estática, sin build, todo en localStorage del teléfono.
+# Carpeta propia porque lleva su propio sw.js con scope /fauna/.
+mkdir -p _site/fauna
+cp -r fauna/. _site/fauna/
 
 # Copy the built apps
 cp -r alquileres/dist/. _site/alquileres/
