@@ -35,15 +35,21 @@ test('detecta falta, extra, cambio de cantidad y de precio', () => {
   assert.equal(f['770140327'].revisar, true);
 });
 
-test('todo cambio de precio se enseña; hasta 0,25 € es informativo', () => {
+test('pedido del comercial: tolerancia cero, cualquier cambio de precio hay que decidirlo', () => {
   const f = porRef(CP.compararPedido(pedido, propuesta));
   const m = f['781350027'].motivos.find((x) => x.tipo === 'precio');
   assert.ok(m, 'el cambio de 0,17 € tiene que aparecer');
-  assert.equal(m.informativo, true);
-  assert.equal(f['781350027'].revisar, false);
-  const justo = CP.compararPedido([{ ref: 'A', cant: 1, precio: 1 }], [{ ref: 'A', cant: 1, precio: 1.25 }]);
+  assert.equal(f['781350027'].revisar, true, 'sin opciones se aplica la del comercial (cero)');
+  const centimo = CP.compararPedido([{ ref: 'A', cant: 1, precio: 1 }], [{ ref: 'A', cant: 1, precio: 1.01 }], { tolerancia: CP.TOLERANCIA.comercial });
+  assert.equal(centimo[0].revisar, true);
+});
+
+test('reposición: hasta 0,25 € es informativo, por encima hay que revisarlo', () => {
+  const tol = CP.TOLERANCIA.reposicion;
+  const justo = CP.compararPedido([{ ref: 'A', cant: 1, precio: 1 }], [{ ref: 'A', cant: 1, precio: 1.25 }], { tolerancia: tol });
   assert.equal(justo[0].revisar, false, '0,25 € exactos todavía es informativo');
-  const pasa = CP.compararPedido([{ ref: 'A', cant: 1, precio: 1 }], [{ ref: 'A', cant: 1, precio: 1.26 }]);
+  assert.equal(justo[0].motivos[0].informativo, true, 'pero se enseña');
+  const pasa = CP.compararPedido([{ ref: 'A', cant: 1, precio: 1 }], [{ ref: 'A', cant: 1, precio: 1.26 }], { tolerancia: tol });
   assert.equal(pasa[0].revisar, true);
 });
 
@@ -59,13 +65,14 @@ test('las faltas y la cantidad que no llega pasan a restos', () => {
     '780070027': { accion: 'resto' },
     '770140327': { accion: 'aceptar', nota: 'Facturar al cliente la versión que reciba' },
     '999999927': { accion: 'excluir' },
+    '781350027': { accion: 'aceptar' },
   });
   assert.deepEqual(r.restos.map((x) => [x.ref, x.cant]), [['742776027', 1], ['780070027', 2]]);
   const lin = porRef(r.lineas);
   assert.equal(lin['780070027'].cant, 4, 'se acepta lo que viene');
   assert.equal(lin['770140327'].precio, 8.76);
   assert.equal(lin['999999927'], undefined);
-  assert.equal(lin['781350027'].precio, 4.30, 'cambio informativo: precio del proveedor');
+  assert.equal(lin['781350027'].precio, 4.30, 'aceptado: precio del proveedor');
   assert.equal(r.notas.length, 1);
 });
 

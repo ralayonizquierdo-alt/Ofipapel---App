@@ -166,7 +166,8 @@ function pintar() {
 // ── Estado de un pedido ──────────────────────────────────────────────────────
 function comparar(p) {
   if (!p.propuesta) return null;
-  return CP.compararPedido(p.lineas, p.propuesta.lineas, { catalogo: catalogoDe(p.proveedor) });
+  // Pedido del comercial: tolerancia cero en precio (la de 0,25 € es solo para reposición).
+  return CP.compararPedido(p.lineas, p.propuesta.lineas, { catalogo: catalogoDe(p.proveedor), tolerancia: CP.TOLERANCIA.comercial });
 }
 function estadoPedido(p) {
   if (p.validado) return { chip: 'ok', texto: 'Validado' };
@@ -340,7 +341,7 @@ function vistaComparacion(p, filas) {
     <h2>3 · Comparación y decisiones</h2>
     <div class="resumen">
       <span class="chip ok">${n.ok} cuadran</span>
-      ${n.info ? `<span class="chip info">${n.info} con cambio de precio ≤ 0,25 € (informativo)</span>` : ''}
+      ${n.info ? `<span class="chip info">${n.info} con cambio de precio informativo</span>` : ''}
       <span class="chip ${n.revisar ? 'mal' : 'ok'}">${n.revisar} discordancias</span>
       ${pend.length ? `<span class="chip aviso">${pend.length} sin decidir</span>` : ''}
     </div>
@@ -357,7 +358,7 @@ function vistaComparacion(p, filas) {
           <td>${h(f.desc)}</td>
           <td class="num">${f.cantPedida || '—'}</td><td class="num">${f.cantPropuesta || '—'}</td>
           <td class="num">${f.precioPedido == null ? '—' : fmt(f.precioPedido)}</td>
-          <td class="num">${f.precioPropuesta == null ? '—' : fmt(f.precioPropuesta)}${f.difPrecio != null ? `<div class="motivo ${Math.abs(f.difPrecio) > CP.TOLERANCIA_PRECIO ? 'revisar' : ''}">${f.difPrecio > 0 ? '+' : ''}${fmt(f.difPrecio)} € (${f.difPrecioPct > 0 ? '+' : ''}${fmt(f.difPrecioPct)} %)</div>` : ''}</td>
+          <td class="num">${f.precioPropuesta == null ? '—' : fmt(f.precioPropuesta)}${f.difPrecio != null ? `<div class="motivo ${Math.abs(f.difPrecio) > CP.TOLERANCIA.comercial ? 'revisar' : ''}">${f.difPrecio > 0 ? '+' : ''}${fmt(f.difPrecio)} € (${f.difPrecioPct > 0 ? '+' : ''}${fmt(f.difPrecioPct)} %)</div>` : ''}</td>
           <td>${f.motivos.length ? f.motivos.map((m) => `<div class="motivo ${m.revisar ? 'revisar' : ''}">${h(m.texto)}</div>`).join('') : '<span class="chip ok">Cuadra</span>'}</td>
           <td class="no-imprimir">${f.revisar ? `
             <select onchange="decide(${js(f.ref)},'accion',this.value)">

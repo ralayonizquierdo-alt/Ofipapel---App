@@ -6,8 +6,9 @@
 //
 // Reglas que salen de lo hablado con el propietario (ver el informe de
 // migración del prototipo, 2026-10-02) y que NO se deben relajar:
-//   - Todo cambio de precio se enseña. Hasta 0,25 € (incluido) es informativo;
-//     por encima, hay que revisarlo.
+//   - Todo cambio de precio se enseña. En pedidos del COMERCIAL la tolerancia
+//     es cero: cualquier diferencia hay que decidirla (2026-10-02). La de
+//     0,25 € (incluido, informativo) es solo para pedidos de REPOSICIÓN.
 //   - Nada se exporta mientras quede una discordancia sin decidir.
 //   - Lo que el cliente pidió y no llega queda en RESTOS, ligado a ese cliente,
 //     para reconocerlo cuando aparezca en un pedido posterior.
@@ -16,7 +17,7 @@
 (function (raiz) {
   'use strict';
 
-  const TOLERANCIA_PRECIO = 0.25;
+  const TOLERANCIA = { comercial: 0, reposicion: 0.25 };
 
   // ── Normalización ─────────────────────────────────────────────────────────
 
@@ -71,7 +72,8 @@
    * obliga a decidir, salvo que haya además otro motivo.
    */
   function compararPedido(lineasPedido, lineasPropuesta, opciones) {
-    const tol = (opciones && opciones.tolerancia != null) ? opciones.tolerancia : TOLERANCIA_PRECIO;
+    // Por defecto, la del comercial (cero): la más estricta si alguien olvida pasarla.
+    const tol = (opciones && opciones.tolerancia != null) ? opciones.tolerancia : TOLERANCIA.comercial;
     const catalogo = (opciones && opciones.catalogo) || null;
     const ped = agrupar(lineasPedido);
     const pro = agrupar(lineasPropuesta);
@@ -414,7 +416,7 @@
   }
 
   const api = {
-    TOLERANCIA_PRECIO, PLANTILLA_GEMINIS,
+    TOLERANCIA, PLANTILLA_GEMINIS,
     normRef, parseNum, red2, fmt, agrupar,
     compararPedido, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
