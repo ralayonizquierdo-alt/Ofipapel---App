@@ -37,9 +37,8 @@ dateInput.value = today();
 function currentEntries() { return state.reports[dateInput.value] || []; }
 function dayFields() { return (state.fields[dateInput.value] ||= {}); }
 
-// Halconero: desplegable. Es siempre quien rellena el parte, así que no hay
-// campo de autor. Los turnos compartidos («Pedro/Rayco», como aparece en los
-// partes reales) son opciones propias del desplegable.
+// Halconero: desplegable con un solo nombre. Es siempre quien rellena el parte,
+// así que no hay campo de autor.
 
 // ── Hora del hecho ──────────────────────────────────────────────────────
 // Antes se rellenaba al cargar la página o al guardar el registro anterior,
