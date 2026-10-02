@@ -246,16 +246,6 @@ $('voice-button').addEventListener('click', () => {
 });
 if (!Recognition) $('voice-note').textContent = 'En este navegador se dicta con el micrófono del teclado.';
 
-// ── CSV ─────────────────────────────────────────────────────────────────
-function csvCell(value) { return '"' + String(value ?? '').replaceAll('"','""') + '"'; }
-$('download-button').addEventListener('click', () => {
-  const day = state.fields[dateInput.value] || {};
-  const rows = [['Fecha','Hora','Halconero(s) de turno','Parte cumplimentado por','Sección','Descripción','Detalles'],
-    ...[...currentEntries()].sort((a,b) => a.time.localeCompare(b.time)).map(e => [dateInput.value,e.time,day.agent || '',day.author || '',labels[e.kind] || e.kind,e.text,detailSummary(e)])];
-  const blob = new Blob(['﻿' + rows.map(r => r.map(csvCell).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'});
-  const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `parte-fauna-${dateInput.value}.csv`; link.click(); setTimeout(() => URL.revokeObjectURL(link.href),1000);
-});
-
 updatePresets(); loadFields(); tick(); setInterval(tick, 15000);
 // Al volver a la pestaña tras horas en segundo plano, refrescar el reloj ya
 // (los intervalos se congelan en móvil).
