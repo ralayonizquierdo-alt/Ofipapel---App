@@ -244,8 +244,12 @@ export default function Collections() {
           for (const r of reservas) {
             const cobros = delAnio.filter(p => p.reservationId === r.id)
             cobros.forEach(p => usados.add(p.id))
+            const antes = r.checkIn.startsWith(mm) ? ''
+              : Number(r.checkIn.slice(0, 4)) < year
+                ? `viene de ${r.checkIn.slice(0, 4)} · `
+                : `viene de ${MONTH_NAMES_ES[Number(r.checkIn.slice(5, 7)) - 1].toLowerCase()} · `
             const base = [MONTH_NAMES_ES[m - 1], apt.id,
-              `${r.checkIn.startsWith(mm) ? '' : '◀ '}${corto(r.checkIn)} al ${corto(r.checkOut)}`,
+              `${antes}${corto(r.checkIn)} al ${corto(r.checkOut)}`,
               `${r.nights}-N`, fmt(r.total - r.cleaningFee), fmt(r.cleaningFee)]
             if (cobros.length === 0) { rows.push([...base, '', '', '', '', 'sin cobro este mes']); continue }
             const cobrado = cobros.reduce((x, p) => x + p.amount, 0)
@@ -862,6 +866,20 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
     return esEfectivo(p, r?.channel === 'directo')
   }
 
+  /**
+   * De dónde viene una reserva que ya estaba en marcha: «de 2025» si arrancó el
+   * año pasado, «de noviembre» si fue un mes anterior de este año. Una flecha
+   * sola no dice nada; con el mes o el año delante se entiende de un vistazo
+   * que ese piso no se alquiló ese mes, que seguía alquilado.
+   */
+  const vieneDe = (r: Reservation, mes: number): string => {
+    const mm = `${year}-${String(mes).padStart(2, '0')}`
+    if (r.checkIn.startsWith(mm)) return ''
+    const anio = Number(r.checkIn.slice(0, 4))
+    if (anio < year) return `de ${anio}`
+    return `de ${MONTH_NAMES_ES[Number(r.checkIn.slice(5, 7)) - 1].toLowerCase()}`
+  }
+
   /** Una línea del listado: una reserva con sus cobros de ese mes, o un hueco. */
   type Linea = { mes: number; apt: string; r?: Reservation; vieneDeAntes: boolean; cobros: Payment[] }
 
@@ -979,7 +997,13 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                     const datos = (
                       <>
                         <td className={`${celda} ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}>
-                          {l.vieneDeAntes && '◀ '}{fecha(r.checkIn)} al {fecha(r.checkOut)}
+                          {l.vieneDeAntes && (
+                            <span className="mr-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-medium"
+                              title="La reserva no empieza en este mes: ya estaba en marcha">
+                              ◀ {vieneDe(r, l.mes)}
+                            </span>
+                          )}
+                          {fecha(r.checkIn)} al {fecha(r.checkOut)}
                         </td>
                         {/* En los meses de continuación los importes van en
                             gris: son los de la misma reserva, no dinero nuevo,
