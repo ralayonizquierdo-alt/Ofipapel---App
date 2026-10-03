@@ -16,6 +16,7 @@ sesión — no dupliques aquí lo que ya vive en otro sitio.
 | `falcontrol.html` | App personal de alertas de radio, sin relación de negocio con Ofipapel | HTML/CSS/JS vanilla en un único fichero, sin build. |
 | `vacaciones.html` | Planificador de cuadrante de vacaciones del personal | HTML/CSS/JS vanilla en un único fichero, sin build. |
 | `importacion-pedidos-proveedores.html` | Conversión de facturas PDF de proveedores a Excel 5.0/95 | HTML/CSS/JS vanilla en un único fichero, sin build. |
+| `control-pedidos.html` | **Control de pedidos del comercial** (2026-10-02): compara lo que el comercial apunta a mano en campaña (Finocam la primera) con la propuesta Excel del proveedor, obliga a decidir cada discordancia antes de validar (en precio, **tolerancia cero**; la de 0,25 € es solo para reposición), deja en **Restos** lo que el cliente pidió y no llega (solo pedidos del comercial, nunca reposición) y lo asigna al cliente original cuando aparece en una llegada posterior (el más antiguo primero). Exporta el Excel **5.0/95** (BIFF5) para Géminis con los artículos desde la **fila 11** — la cabecera (filas 1–10) está pendiente de comprobar con un fichero que Géminis haya aceptado (`PLANTILLA_GEMINIS` en la lógica). Las fotos manuscritas las lee `netlify/functions/leer-pedido-manuscrito-background.js` (Claude, en segundo plano + `leer-pedido-manuscrito-estado.js`, Netlify Blobs) y cada referencia se contrasta con el catálogo del proveedor, que se guarda al cargar su propuesta. | HTML/CSS/JS vanilla, sin build, **excepto** que la lógica vive en `control-pedidos-logica.js` para poder probarla: `node --test scripts/probar-control-pedidos.js`. Datos en `localStorage` de un solo navegador, con copia de seguridad descargable — no hay backend todavía. Sustituye al prototipo Python local (`ofipapel-pedidos/`, nunca subido al repo). Reposición (pedido de Ofipapel ↔ propuesta) aún no está: reutilizará esta comparación y los lectores PDF de `importacion-pedidos-proveedores.html`. |
 | `fichaje.html` | Registro horario del personal (fichajes, exportación mensual, login de gerencia) | HTML/CSS/JS vanilla en un único fichero, sin build. Backend Firebase (ver comentario `SECRETS_SCAN_OMIT_PATHS` en `netlify.toml`). Ya tiene icono propio en el hub de `inicio.html` (nodo blanco/plata, "Fichajes"). |
 | `app.html` | Panel de redes sociales de Ofipapel: Almacén (centro de trabajo creativo — crea campañas y el Marketing Engine las produce) y Calendario (solo programa en el tiempo lo que el Almacén ya aprobó) | HTML/CSS/JS vanilla en un único fichero, sin build. Estado compartido en memoria (`CampaignStore`, sin persistencia — se pierde al recargar). Crea campañas vía `netlify/functions/marketing-engine-run.js`; nunca implementa lógica creativa propia, ver `marketing-engine/INTEGRATION.md`. |
 | `privacidad.html`, `404.html` | Política de privacidad (review de WhatsApp Cloud API) y página 404 propia | HTML estático |
@@ -28,7 +29,7 @@ sesión — no dupliques aquí lo que ya vive en otro sitio.
 
 Los HTML monolíticos (`inicio.html`, `Index.html`, `canarias-ink.html`,
 `falcontrol.html`, `vacaciones.html`, `importacion-pedidos-proveedores.html`,
-`fichaje.html`, `app.html`) no tienen proceso de build: se sirven tal cual.
+`fichaje.html`, `app.html`, `control-pedidos.html`) no tienen proceso de build: se sirven tal cual.
 Cualquier cambio se hace editando el fichero directamente (CSS y JS están
 embebidos inline).
 
@@ -217,8 +218,8 @@ para tener contexto antes de tocar código.
   reconciliación, y criterio para cerrar o eliminar ramas. No lo dupliques
   aquí.
 - Nombres de commit descriptivos, en español, estilo `fix:`/`feat:` cuando aplica.
-- No existen tests automatizados todavía en ninguna parte del repo (CI
-  cubre lint + build, no tests).
+- Casi no hay tests automatizados (CI cubre lint + build). La excepción es
+  `scripts/probar-control-pedidos.js` (`node --test`), que no corre en CI.
 - `joe-app` y `alquileres` comparten patrón de ESLint flat config
   (`eslint.config.js`) con `typescript-eslint` + `eslint-plugin-react-hooks`.
   `alquileres` tiene `react-hooks/set-state-in-effect` degradado a warning
