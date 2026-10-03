@@ -486,6 +486,70 @@
     return { lineas, catalogo, cabecera };
   }
 
+  // ── Documentos leídos con IA (PDF o foto de un proveedor) ─────────────────
+
+  /**
+   * Convierte lo que devuelve la función de lectura en modo 'documento' en
+   * líneas como las de leerPropuesta, y comprueba lo leído sin fiarse de ello:
+   *  - cada línea cuyo importe no sale de precio × cantidad − descuentos (o
+   *    sin referencia, o sin cantidad) queda con `duda` para revisarla;
+   *  - la suma de los importes se compara con la base imponible del propio
+   *    documento: `control.cuadra` = false → falta o sobra alguna línea, o
+   *    hay un importe mal leído.
+   */
+  function lineasDeDocumento(res) {
+    const r = res || {};
+    const lineas = (r.lineas || []).map((l) => ({
+      ref: normRef(l.referencia),
+      ean: String(l.ean || '').replace(/\s+/g, ''),
+      desc: String(l.descripcion || '').trim(),
+      cant: parseNum(l.cantidad),
+      udsCaja: parseNum(l.udsCaja),
+      precio: parseNum(l.precio),
+      dtos: parseDtos(l.descuentos),
+      importe: parseNum(l.importe),
+      duda: String(l.duda || '').trim(),
+    })).filter((l) => l.ref || l.desc);
+
+    for (const l of lineas) {
+      const avisos = [];
+      if (!l.ref) avisos.push('sin referencia');
+      if (!l.cant) avisos.push('sin cantidad');
+      if (l.importe != null && l.precio != null && l.cant) {
+        const calc = red2(l.precio * l.cant * l.dtos.reduce((x, d) => x * (1 - d / 100), 1));
+        // Hay proveedores que redondean el neto unitario antes de multiplicar:
+        // se admite un céntimo por unidad.
+        if (Math.abs(calc - l.importe) > 0.02 + 0.01 * l.cant) {
+          avisos.push(`el importe ${fmt(l.importe)} no sale de precio × cantidad − descuentos (${fmt(calc)})`);
+        }
+      }
+      if (avisos.length) l.duda = [l.duda, ...avisos].filter(Boolean).join(' · ');
+    }
+
+    const suma = red2(lineas.reduce((t, l) => t + (l.importe || 0), 0));
+    const base = parseNum(r.baseImponible);
+    let dtoGlobal = parseNum(r.dtoGlobal);
+    if (dtoGlobal != null && dtoGlobal > 0 && dtoGlobal < 1) dtoGlobal = red2(dtoGlobal * 100);
+    let cuadra = null;
+    if (base != null) {
+      // La base puede ir antes o después del descuento global del documento.
+      cuadra = Math.abs(suma - base) <= 0.02 || Boolean(dtoGlobal && Math.abs(red2(suma * (1 - dtoGlobal / 100)) - base) <= 0.02);
+    }
+    return {
+      lineas,
+      catalogo: {},
+      cabecera: {
+        proveedor: String(r.proveedor || '').trim(),
+        tipoDocumento: String(r.tipoDocumento || '').trim(),
+        numero: String(r.numero || '').trim(),
+        fecha: String(r.fecha || '').trim(),
+        dtoGlobal: dtoGlobal || null,
+        observaciones: String(r.notas || '').trim(),
+      },
+      control: { sumaLineas: suma, base, cuadra, sinImporte: lineas.filter((l) => l.importe == null).length },
+    };
+  }
+
   // ── Excel para Géminis ────────────────────────────────────────────────────
 
   /**
@@ -553,7 +617,7 @@
   const api = {
     TOLERANCIA, PLANTILLA_GEMINIS,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, compararPedido, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis,
+    parseDtos, precioNeto, compararPedido, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -385,8 +385,9 @@ function vistaDetalle(p) {
   <div class="tarjeta">
     <h2>2 · Propuesta del proveedor</h2>
     <div class="fila no-imprimir">
-      <label>Excel de la propuesta<input type="file" accept=".xlsx,.xlsm,.xls,.csv" onchange="cargarPropuestaEn('${p.id}', this.files[0]); this.value=''"></label>
+      <label>Propuesta del proveedor (PDF, Excel o foto)<input type="file" accept=".pdf,.xlsx,.xlsm,.xls,.csv,image/*" onchange="cargarPropuestaEn('${p.id}', this.files[0]); this.value=''"></label>
     </div>
+    <div id="progresoProp" class="progreso"></div>
     ${p.propuesta ? `<div class="resumen">
         <span class="chip info" title="${h(p.propuesta.archivo)}">${h(p.propuesta.archivo)}</span>
         <span class="chip gris">${p.propuesta.lineas.length} líneas</span>
@@ -394,6 +395,8 @@ function vistaDetalle(p) {
         ${p.propuesta.cabecera.importeNeto != null ? `<span class="chip gris">Neto ${fmt(p.propuesta.cabecera.importeNeto)} €</span>` : ''}
         ${p.propuesta.cabecera.observaciones ? `<span class="chip gris">${h(p.propuesta.cabecera.observaciones)}</span>` : ''}
       </div>` : `<div class="vacio">Sin propuesta todavía.</div>`}
+    ${p.propuesta && p.propuesta.control ? avisoControl(p.propuesta) : ''}
+    ${p.propuesta ? tablaPropuesta(p, cat) : ''}
     ${avisoRestosEnPropuesta(p)}
   </div>
 
@@ -415,10 +418,7 @@ function celdaPrecio(p, base, dtos, neto) {
 function vistaDetalleRepo(p) {
   const cat = catalogoDe(p.proveedor);
   const filas = comparar(p);
-  const ayudaPdf = `<div class="aviso-caja info pequeno" style="color:var(--azul)">
-      <b>PDF:</b> cada proveedor se homologa con sus muestras (pedido + factura), uno a uno. Hasta que el suyo lo esté:
-      convierte la factura con la herramienta <a href="importacion-pedidos-proveedores.html" target="_blank">«PDF's»</a> (36 proveedores),
-      genera su Excel y súbelo aquí, o pega las líneas.</div>`;
+  const ayudaPdf = `<div class="pequeno" style="margin-top:6px">El PDF o la foto se leen con IA, de cualquier proveedor: la app comprueba que las líneas sumen la base imponible del documento y marca en ámbar lo dudoso. Revísalo siempre antes de comparar.</div>`;
   return `
   <div class="no-imprimir" style="margin-bottom:10px"><button class="btn peque" onclick="pedidoAbierto=null;pintar()">← Todos los pedidos</button></div>
   <div class="tarjeta">
@@ -436,7 +436,7 @@ function vistaDetalleRepo(p) {
   <div class="tarjeta">
     <h2>1 · El pedido que enviamos al proveedor</h2>
     <div class="fila no-imprimir">
-      <label>Excel del pedido<input type="file" accept=".xlsx,.xlsm,.xls,.csv" onchange="cargarEnvio(this.files[0]); this.value=''"></label>
+      <label>Nuestro pedido (PDF, Excel o foto)<input type="file" accept=".pdf,.xlsx,.xlsm,.xls,.csv,image/*" onchange="cargarEnvio(this.files[0]); this.value=''"></label>
       <button class="btn peque" onclick="document.getElementById('pegar').classList.toggle('oculto')">Pegar o escribir líneas</button>
       <button class="btn peque" onclick="anadirLinea()">+ Línea</button>
     </div>
@@ -444,13 +444,15 @@ function vistaDetalleRepo(p) {
       <textarea id="txtPegar" placeholder="Una línea por artículo: cantidad  referencia  precio  descuentos  (descripción opcional)&#10;Los descuentos con % o con +:  10%   ·   10+5&#10;12  01234  5,50  10+5  ETIQUETAS A4"></textarea>
       <button class="btn peque" onclick="pegarLineas('pedido')">Añadir estas líneas</button>
     </div>
-    ${tablaLineasRepo(p, cat)}
+    <div id="progresoEnvio" class="progreso"></div>
+    ${p.envioControl ? avisoControl({ control: p.envioControl, lineas: p.lineas }) : ''}
+    ${tablaLineasRepo(p, cat, 'pedido')}
   </div>
 
   <div class="tarjeta">
     <h2>2 · Propuesta, albarán o factura del proveedor</h2>
     <div class="fila no-imprimir">
-      <label>Excel<input type="file" accept=".xlsx,.xlsm,.xls,.csv" onchange="cargarPropuestaEn('${p.id}', this.files[0]); this.value=''"></label>
+      <label>Factura, albarán o propuesta (PDF, Excel o foto)<input type="file" accept=".pdf,.xlsx,.xlsm,.xls,.csv,image/*" onchange="cargarPropuestaEn('${p.id}', this.files[0]); this.value=''"></label>
       <button class="btn peque" onclick="document.getElementById('pegarProp').classList.toggle('oculto')">Pegar o escribir líneas</button>
       ${p.propuesta ? `<button class="btn peque peligro" onclick="quitarPropuesta()">Quitar</button>` : ''}
     </div>
@@ -458,40 +460,56 @@ function vistaDetalleRepo(p) {
       <textarea id="txtPegarProp" placeholder="Mismo formato: cantidad  referencia  precio  descuentos  (descripción)"></textarea>
       <button class="btn peque" onclick="pegarLineas('propuesta')">Usar estas líneas como propuesta</button>
     </div>
+    <div id="progresoProp" class="progreso"></div>
     ${ayudaPdf}
     ${p.propuesta ? `<div class="resumen">
         <span class="chip info" title="${h(p.propuesta.archivo)}">${h(p.propuesta.archivo)}</span>
         <span class="chip gris">${p.propuesta.lineas.length} líneas</span>
         ${p.propuesta.cabecera && p.propuesta.cabecera.dtoGlobal != null ? `<span class="chip gris">Dto. global ${h(p.propuesta.cabecera.dtoGlobal)} %</span>` : ''}
       </div>` : `<div class="vacio">Sin propuesta todavía.</div>`}
+    ${p.propuesta && p.propuesta.control ? avisoControl(p.propuesta) : ''}
+    ${p.propuesta ? tablaPropuesta(p, cat) : ''}
     ${avisoRestosEnPropuesta(p)}
   </div>
 
   ${filas ? vistaComparacion(p, filas) : ''}`;
 }
 
-function tablaLineasRepo(p, cat) {
-  if (!p.lineas.length) return `<div class="vacio">Sin líneas. Sube el Excel del pedido, pégalas o añádelas a mano.</div>`;
-  const fueraCat = cat ? p.lineas.filter((l) => l.ref && !cat[CP.normRef(l.ref)]).length : 0;
+/** Las líneas de la propuesta, plegadas salvo que haya algo que revisar
+ *  (dudas de lectura o un documento que no cuadra con su base). */
+function tablaPropuesta(p, cat) {
+  const pr = p.propuesta;
+  const revisar = pr.lineas.some((l) => l.duda) || (pr.control && pr.control.cuadra === false);
+  return `<details ${revisar ? 'open' : ''} style="margin-top:8px"><summary class="pequeno" style="cursor:pointer">Ver y corregir las ${pr.lineas.length} líneas de la propuesta</summary>
+    ${tablaLineasRepo(p, cat, 'propuesta')}</details>`;
+}
+
+function tablaLineasRepo(p, cat, lado) {
+  const arr = lado === 'propuesta' ? p.propuesta.lineas : p.lineas;
+  const L = lado === 'propuesta' ? ",'propuesta'" : '';
+  if (!arr.length) return `<div class="vacio">Sin líneas. Súbelo en PDF, Excel o foto, pégalas o añádelas a mano.</div>`;
+  const fueraCat = cat ? arr.filter((l) => l.ref && !cat[CP.normRef(l.ref)]).length : 0;
   return `
   <div class="resumen">
-    <span class="chip gris">${p.lineas.length} líneas</span>
+    <span class="chip gris">${arr.length} líneas</span>
     ${cat && fueraCat ? `<span class="chip mal">${fueraCat} referencias no existen en el catálogo</span>` : ''}
   </div>
   <div class="tabla-scroll"><table>
-    <tr><th class="num">Cant.</th><th>Referencia</th><th>Descripción</th><th class="num">Precio base</th><th>Descuentos</th><th class="num">Uds/caja</th><th class="num">Neto</th><th></th></tr>
-    ${p.lineas.map((l, i) => {
+    <tr><th class="num">Cant.</th><th>Referencia</th><th>Descripción</th><th class="num">Precio base</th><th>Descuentos</th><th class="num">Uds/caja</th><th class="num">Importe</th><th class="num">Neto</th><th>Duda</th><th></th></tr>
+    ${arr.map((l, i) => {
       const fuera = cat && l.ref && !cat[CP.normRef(l.ref)];
-      const neto = CP.precioNeto({ cant: l.cant, precio: l.precio, dtos: l.dtos });
-      return `<tr class="${fuera ? 'fuera-catalogo' : ''}">
-        <td><input class="cant" value="${h(l.cant)}" onchange="cambiaLinea(${i},'cant',this.value)"></td>
-        <td><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value)"></td>
-        <td><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value)"></td>
-        <td><input class="precio" value="${l.precio == null ? '' : h(fmt(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value)"></td>
-        <td><input class="precio" value="${h(Array.isArray(l.dtos) ? l.dtos.join('+') : l.dtos)}" placeholder="—" title="Descuentos encadenados, p. ej. 10+5" onchange="cambiaLinea(${i},'dtos',this.value)"></td>
-        <td><input class="cant" value="${h(l.udsCaja)}" onchange="cambiaLinea(${i},'udsCaja',this.value)"></td>
+      const neto = CP.precioNeto({ cant: l.cant, precio: l.precio, dtos: l.dtos, importe: l.importe });
+      return `<tr class="${fuera ? 'fuera-catalogo' : ''} ${l.duda ? 'duda' : ''}">
+        <td><input class="cant" value="${h(l.cant)}" onchange="cambiaLinea(${i},'cant',this.value${L})"></td>
+        <td><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value${L})"></td>
+        <td><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value${L})"></td>
+        <td><input class="precio" value="${l.precio == null ? '' : h(fmt(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value${L})"></td>
+        <td><input class="precio" value="${h(Array.isArray(l.dtos) ? l.dtos.join('+') : l.dtos)}" placeholder="—" title="Descuentos encadenados, p. ej. 10+5" onchange="cambiaLinea(${i},'dtos',this.value${L})"></td>
+        <td><input class="cant" value="${h(l.udsCaja)}" onchange="cambiaLinea(${i},'udsCaja',this.value${L})"></td>
+        <td class="num">${l.importe == null ? '—' : fmt(l.importe)}</td>
         <td class="num">${neto == null ? '—' : fmt(neto)}</td>
-        <td><button class="btn peque peligro" onclick="borrarLinea(${i})" title="Quitar línea">✕</button></td>
+        <td><input value="${h(l.duda)}" placeholder="—" onchange="cambiaLinea(${i},'duda',this.value${L})"></td>
+        <td><button class="btn peque peligro" onclick="borrarLinea(${i}${L})" title="Quitar línea">✕</button></td>
       </tr>`;
     }).join('')}
   </table></div>
@@ -502,10 +520,11 @@ async function cargarEnvio(file) {
   if (!file) return;
   const p = pedidoActual();
   try {
-    const prop = await leerExcel(file);
+    const prop = await leerFicheroProveedor(file, 'progresoEnvio');
     if (p.lineas.length && !confirm(`El pedido ya tiene ${p.lineas.length} líneas. ¿Sustituirlas por las ${prop.lineas.length} del Excel?`)) return;
-    p.lineas = prop.lineas.map((l) => ({ ref: l.ref, desc: l.desc, ean: l.ean, cant: l.cant, precio: l.precio, dtos: l.dtos || [], udsCaja: l.udsCaja, importe: l.importe }));
+    p.lineas = prop.lineas.map((l) => ({ ref: l.ref, desc: l.desc, ean: l.ean, cant: l.cant, precio: l.precio, dtos: l.dtos || [], udsCaja: l.udsCaja, importe: l.importe, duda: l.duda || '' }));
     p.envio = file.name;
+    p.envioControl = prop.control || null;
     guardarCatalogo(p.proveedor, file.name, prop.catalogo);
     invalidar(p); guardar(); pintar();
   } catch (err) { alert('No he podido leer el pedido: ' + err.message); }
@@ -620,9 +639,9 @@ function avisoRestosEnPropuesta(p) {
 function pedidoActual() { return pedidoPorId(pedidoAbierto); }
 function invalidar(p) { p.validado = false; }
 function cambiaCampo(campo, valor) { const p = pedidoActual(); p[campo] = valor; invalidar(p); guardar(); pintar(); }
-function cambiaLinea(i, campo, valor) {
+function cambiaLinea(i, campo, valor, lado) {
   const p = pedidoActual();
-  const l = p.lineas[i];
+  const l = (lado === 'propuesta' ? p.propuesta.lineas : p.lineas)[i];
   if (campo === 'precio') l.precio = CP.parseNum(valor);
   else if (campo === 'cant') l.cant = CP.parseNum(valor) || 0;
   else if (campo === 'ref') l.ref = CP.normRef(valor);
@@ -632,7 +651,7 @@ function cambiaLinea(i, campo, valor) {
   if (['cant', 'precio', 'dtos'].includes(campo)) l.importe = null; // el importe del Excel ya no vale
   invalidar(p); guardar(); pintar();
 }
-function borrarLinea(i) { const p = pedidoActual(); p.lineas.splice(i, 1); invalidar(p); guardar(); pintar(); }
+function borrarLinea(i, lado) { const p = pedidoActual(); (lado === 'propuesta' ? p.propuesta.lineas : p.lineas).splice(i, 1); invalidar(p); guardar(); pintar(); }
 function anadirLinea() { const p = pedidoActual(); p.lineas.push({ ref: '', desc: '', cant: 1, precio: null, exp: false, duda: '' }); guardar(); pintar(); }
 function borrarPedido() {
   const p = pedidoActual();
@@ -694,12 +713,28 @@ async function reducirImagen(file) {
 }
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function leerUnaFoto(file) {
+const esPdf = (f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+const esImagen = (f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic)$/i.test(f.name);
+function base64DeFichero(file) {
+  return new Promise((ok, mal) => {
+    const fr = new FileReader();
+    fr.onload = () => ok(String(fr.result).split(',')[1]);
+    fr.onerror = () => mal(new Error('No se ha podido leer el fichero'));
+    fr.readAsDataURL(file);
+  });
+}
+const leerUnaFoto = (file) => leerConIA(file, 'manuscrito');
+
+/** Manda una foto (reducida) o un PDF (tal cual) a la función de lectura y
+ *  espera el resultado. modo: 'manuscrito' | 'documento'. */
+async function leerConIA(file, modo) {
   const jobId = nuevoId();
-  const imagenBase64 = await reducirImagen(file);
+  const pdf = esPdf(file);
+  const imagenBase64 = pdf ? await base64DeFichero(file) : await reducirImagen(file);
+  if (imagenBase64.length > 4 * 1024 * 1024) throw new Error('El PDF es demasiado grande (máximo unos 3 MB). Si es un escaneado, prueba a reducirlo o haz una foto de cada página.');
   const r = await fetch(FN + 'leer-pedido-manuscrito-background', {
     method: 'POST', headers: { 'content-type': 'application/json', 'x-ocr-token': OCR_TOKEN },
-    body: JSON.stringify({ jobId, imagenBase64, mediaType: 'image/jpeg' }),
+    body: JSON.stringify({ jobId, imagenBase64, mediaType: pdf ? 'application/pdf' : 'image/jpeg', modo }),
   });
   if (r.status !== 202 && !r.ok) throw new Error('El lector no responde (' + r.status + '). ¿Estás en la web de Netlify?');
   const limite = Date.now() + 5 * 60 * 1000;
@@ -756,6 +791,33 @@ async function leerExcel(file) {
   const hoja = wb.Sheets[wb.SheetNames[0]];
   return CP.leerPropuesta(XLSX.utils.sheet_to_json(hoja, { header: 1, defval: '', raw: true }));
 }
+/** Excel → lector de columnas; PDF o foto → lectura con IA + comprobaciones. */
+async function leerFicheroProveedor(file, idProgreso) {
+  if (!esPdf(file) && !esImagen(file)) return leerExcel(file);
+  const caja = idProgreso && document.getElementById(idProgreso);
+  if (caja) caja.textContent = `Leyendo ${file.name}… puede tardar uno o dos minutos.`;
+  try {
+    return CP.lineasDeDocumento(await leerConIA(file, 'documento'));
+  } finally {
+    const c = idProgreso && document.getElementById(idProgreso);
+    if (c) c.textContent = '';
+  }
+}
+
+/** Resumen de las comprobaciones de un documento leído con IA. */
+function avisoControl(doc) {
+  if (!doc || !doc.control) return '';
+  const c = doc.control;
+  const dudas = (doc.lineas || []).filter((l) => l.duda).length;
+  const base = c.base == null
+    ? `<div class="aviso-caja aviso">No se ha encontrado la base imponible del documento: no puedo comprobar que estén todas las líneas (suma leída ${fmt(c.sumaLineas)} €). Revísalas con el PDF.</div>`
+    : c.cuadra
+      ? `<div class="aviso-caja ok">Las líneas leídas suman ${fmt(c.sumaLineas)} €, igual que la base del documento (${fmt(c.base)} €).</div>`
+      : `<div class="aviso-caja mal"><b>No cuadra:</b> las líneas leídas suman ${fmt(c.sumaLineas)} € y la base del documento es ${fmt(c.base)} €. Falta o sobra alguna línea, o hay un importe mal leído: revísalo con el PDF antes de comparar.</div>`;
+  return base + (dudas ? `<div class="aviso-caja aviso">${dudas} línea(s) con duda de lectura (en ámbar abajo).</div>` : '') +
+    (doc.cabecera && doc.cabecera.observaciones ? `<div class="pequeno">Notas del documento: ${h(doc.cabecera.observaciones)}</div>` : '');
+}
+
 function guardarCatalogo(proveedor, archivo, catalogo) {
   const n = Object.keys(catalogo).length;
   // Solo cuenta como catálogo si trae bastante más que lo pedido: el
@@ -764,7 +826,7 @@ function guardarCatalogo(proveedor, archivo, catalogo) {
   E.catalogos[prov(proveedor)] = { fecha: hoy(), archivo, items: catalogo };
 }
 function asignarPropuesta(p, archivo, prop) {
-  p.propuesta = { archivo, fecha: hoy(), cabecera: prop.cabecera, lineas: prop.lineas };
+  p.propuesta = { archivo, fecha: hoy(), cabecera: prop.cabecera, lineas: prop.lineas, control: prop.control || null };
   guardarCatalogo(p.proveedor, archivo, prop.catalogo);
   invalidar(p);
 }
@@ -772,13 +834,13 @@ async function cargarPropuestaEn(id, file) {
   if (!file) return;
   const p = pedidoPorId(id);
   try {
-    const prop = await leerExcel(file);
+    const prop = await leerFicheroProveedor(file, 'progresoProp');
     const n = prop.cabecera.numeroPedido;
     if (n != null && String(n) !== String(p.numero).replace(/\D/g, '') &&
         !confirm(`El Excel dice «${prop.cabecera.observaciones}» y este es el pedido nº ${p.numero}. ¿Cargarlo aquí igualmente?`)) return;
     asignarPropuesta(p, file.name, prop);
     guardar(); pintar();
-  } catch (err) { alert('No he podido leer la propuesta: ' + err.message); }
+  } catch (err) { alert('No he podido leer ' + file.name + ': ' + err.message); }
 }
 async function cargarPropuestasVarias(files) {
   const ok = [], mal = [];
@@ -880,8 +942,9 @@ function vistaRestos() {
     <div class="fila">
       <label>Proveedor<select id="llProv">${opc([...new Set(E.restos.filter((r) => r.pendiente > 0 && !r.anulado).map((r) => r.proveedor))].sort(), llegada && llegada.proveedor)}</select></label>
       <label>Origen<input id="llOrigen" placeholder="Albarán 1234 / Pedido 5" value="${h(llegada ? llegada.origen : '')}"></label>
-      <label>Excel<input type="file" accept=".xlsx,.xlsm,.xls,.csv" onchange="llegadaDesdeExcel(this.files[0]); this.value=''"></label>
+      <label>Albarán (PDF, Excel o foto)<input type="file" accept=".pdf,.xlsx,.xlsm,.xls,.csv,image/*" onchange="llegadaDesdeExcel(this.files[0]); this.value=''"></label>
     </div>
+    <div id="progresoLlegada" class="progreso"></div>
     <textarea id="llTexto" style="margin-top:8px" placeholder="785100027 2&#10;742776027 1"></textarea>
     <button class="btn peque" onclick="llegadaDesdeTexto()">Buscar en restos</button>
     ${llegada ? vistaPropuestaLlegada() : ''}
@@ -898,8 +961,11 @@ function prepararLlegada(lineas) {
 }
 async function llegadaDesdeExcel(file) {
   if (!file) return;
-  try { const p = await leerExcel(file); prepararLlegada(p.lineas.map((l) => ({ ref: l.ref, cant: l.cant }))); }
-  catch (err) { alert('No he podido leer el Excel: ' + err.message); }
+  try {
+    const p = await leerFicheroProveedor(file, 'progresoLlegada');
+    if (p.control && p.control.cuadra === false) alert(`Ojo: las líneas leídas de ${file.name} no cuadran con su base imponible. Revisa el reparto antes de confirmarlo.`);
+    prepararLlegada(p.lineas.map((l) => ({ ref: l.ref, cant: l.cant })));
+  } catch (err) { alert('No he podido leer ' + file.name + ': ' + err.message); }
 }
 function llegadaDesdeTexto() {
   const lineas = [];
