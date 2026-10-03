@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Control de Pedidos · Ofipapel</title>
+<meta name="theme-color" content="#1e7d32">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest-pedidos.json">
+<link rel="icon" type="image/png" href="icon-ofipapel-192.png">
+<link rel="apple-touch-icon" href="icon-ofipapel-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="control-pedidos-logica.js"></script>
 <!--
@@ -58,7 +63,11 @@ td{border-bottom:1px solid var(--borde);padding:5px 6px;vertical-align:top}
 td.num,th.num{text-align:right;white-space:nowrap}
 tr.clic{cursor:pointer} tr.clic:hover{background:var(--verde-claro)}
 td input{padding:4px 6px;width:100%} td input.cant{width:64px} td input.precio{width:82px}
-.chip{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600;white-space:nowrap}
+.chip{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600;white-space:nowrap;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+/* Un nombre de fichero o una referencia muy larga sin espacios no puede
+   ensanchar la página: en Android eso hace que Chrome la aleje entera. */
+main{overflow-wrap:anywhere}
 .chip.ok{background:var(--verde-claro);color:var(--verde-oscuro)}
 .chip.mal{background:var(--rojo-claro);color:var(--rojo)}
 .chip.aviso{background:var(--ambar-claro);color:var(--ambar)}
@@ -80,7 +89,44 @@ td input{padding:4px 6px;width:100%} td input.cant{width:64px} td input.precio{w
 .pequeno{font-size:12px;color:var(--texto2)}
 .oculto{display:none!important}
 .progreso{font-size:13px;color:var(--texto2);margin-top:6px}
-@media (max-width:640px){main{padding:10px}.tarjeta{padding:12px}nav button{padding:8px 10px}}
+/* ── Móvil (Android) ──────────────────────────────────────────────────────
+   Por debajo de 700px las tablas se convierten en tarjetas: cada fila es una
+   tarjeta y cada celda lleva delante el nombre de su columna (data-th, que
+   pone ponerEtiquetas() al pintar). Controles de al menos 44px para el dedo y
+   letra de 16px en los campos para que el navegador no haga zoom al tocarlos. */
+@media (max-width:700px){
+  html,body{font-size:15px}
+  header{padding:12px 12px 0}
+  header h1{font-size:19px} header p{font-size:12px;margin-bottom:8px}
+  nav{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  nav button{flex:0 0 auto;padding:10px 12px}
+  main{padding:10px}
+  .tarjeta{padding:12px;border-radius:10px}
+  .fila{gap:8px}
+  .fila > label{flex:1 1 140px}
+  .fila > .btn{flex:1 1 auto}
+  input,select,textarea{font-size:16px;min-height:44px}
+  input[type=checkbox]{min-height:0;width:22px;height:22px}
+  input[type=file]{min-height:0;font-size:14px;max-width:100%}
+  .btn{min-height:44px;padding:10px 14px}
+  .btn.peque{min-height:40px;font-size:14px}
+  .tabla-scroll{overflow:visible}
+  table,tbody,tr,td{display:block;width:100%}
+  tr:has(> th){display:none}
+  tr{border:1px solid var(--borde);border-radius:10px;padding:8px 10px;margin-bottom:10px;background:#fff}
+  tr.duda{background:var(--ambar-claro)}
+  td{border:0;padding:4px 0;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;justify-content:space-between;text-align:right}
+  td::before{content:attr(data-th);font-size:12px;color:var(--texto2);text-align:left;flex:0 0 34%}
+  td[data-th=""]::before{display:none}
+  td[data-th=""]{justify-content:flex-end}
+  td input,td select{flex:1 1 55%;width:auto;min-width:0}
+  td input.cant,td input.precio{flex:0 1 120px}
+  td > div,td .fila{flex:1 1 100%;text-align:left}
+  td.num{text-align:right}
+  .resumen{gap:6px}
+  .chip{font-size:12px}
+  .sugerencia button{padding:6px 8px;margin:4px 4px 0 0}
+}
 @media print{header,nav,.no-imprimir{display:none!important}body{background:#fff}.tarjeta{border:0}}
 </style>
 </head>
@@ -165,7 +211,22 @@ function pintar() {
   else if (vista === 'restos') main.innerHTML = vistaRestos();
   else if (vista === 'notas') main.innerHTML = vistaNotas();
   else main.innerHTML = vistaDatos();
+  ponerEtiquetas(main);
   pintarCuentas();
+}
+
+/** Copia el título de cada columna a sus celdas (data-th) para que en el
+ *  móvil, donde la tabla se ve como tarjetas, cada dato lleve su nombre. */
+function ponerEtiquetas(raiz) {
+  raiz.querySelectorAll('table').forEach((t) => {
+    const cab = [...t.rows].find((f) => f.querySelector('th'));
+    if (!cab) return;
+    const nombres = [...cab.cells].map((c) => c.textContent.trim());
+    for (const fila of t.rows) {
+      if (fila === cab) continue;
+      [...fila.cells].forEach((c, i) => { if (!c.hasAttribute('data-th')) c.setAttribute('data-th', nombres[i] || ''); });
+    }
+  });
 }
 
 // ── Estado de un pedido ──────────────────────────────────────────────────────
@@ -206,6 +267,15 @@ function vistaLista() {
       <label class="soloComercial">Cliente<input id="npCli" placeholder="Nombre del cliente"></label>
       <label>Fecha<input id="npFecha" type="date" value="${hoy()}"></label>
       <button class="btn primario" onclick="crearPedido()">Crear</button>
+    </div>
+    <div class="soloComercial" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--borde)">
+      <p class="pequeno" style="margin:0 0 8px">¿Tienes las fotos de la hoja del comercial? Empieza por ahí: la app lee el nº de pedido, el cliente y las líneas, y crea el pedido sola. Lo que rellenes arriba manda sobre lo leído.</p>
+      <div class="fila">
+        <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📷 Hacer foto
+          <input type="file" accept="image/*" capture="environment" class="oculto" onchange="nuevoDesdeFotos(this.files); this.value=''"></label>
+        <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🖼️ Elegir de la galería
+          <input type="file" accept="image/*" multiple class="oculto" onchange="nuevoDesdeFotos(this.files); this.value=''"></label>
+      </div>
     </div>
   </div>
 
@@ -254,6 +324,19 @@ function crearPedido() {
   guardar();
   abrirPedido(p.id);
 }
+/** Pedido del comercial empezando por las fotos: se crea con lo que haya
+ *  escrito en el formulario y el resto (nº, cliente, proveedor) lo completa la
+ *  lectura. Si la lectura falla, el pedido queda creado y se puede rellenar. */
+function nuevoDesdeFotos(files) {
+  if (!files || !files.length) return;
+  const v = (id) => document.getElementById(id).value.trim();
+  const p = { id: nuevoId(), tipo: 'comercial', proveedor: prov(v('npProv')), campana: v('npCamp'), numero: v('npNum'), cliente: v('npCli').toUpperCase(),
+    fecha: v('npFecha') || hoy(), notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
+  E.pedidos.push(p);
+  guardar();
+  abrirPedido(p.id);
+  leerFotos(files);
+}
 function abrirPedido(id) { pedidoAbierto = id; vista = 'pedidos'; pintar(); window.scrollTo(0, 0); }
 
 // ── Vista: detalle de un pedido ──────────────────────────────────────────────
@@ -281,8 +364,11 @@ function vistaDetalle(p) {
   <div class="tarjeta">
     <h2>1 · Lo que pidió el comercial</h2>
     <div class="fila no-imprimir">
-      <label>Leer fotos del pedido manuscrito
-        <input type="file" accept="image/*" multiple onchange="leerFotos(this.files); this.value=''">
+      <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📷 Hacer foto
+        <input type="file" accept="image/*" capture="environment" class="oculto" onchange="leerFotos(this.files); this.value=''">
+      </label>
+      <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🖼️ Elegir de la galería
+        <input type="file" accept="image/*" multiple class="oculto" onchange="leerFotos(this.files); this.value=''">
       </label>
       <button class="btn peque" onclick="document.getElementById('pegar').classList.toggle('oculto')">Pegar o escribir líneas</button>
       <button class="btn peque" onclick="anadirLinea()">+ Línea</button>
@@ -302,7 +388,7 @@ function vistaDetalle(p) {
       <label>Excel de la propuesta<input type="file" accept=".xlsx,.xlsm,.xls,.csv" onchange="cargarPropuestaEn('${p.id}', this.files[0]); this.value=''"></label>
     </div>
     ${p.propuesta ? `<div class="resumen">
-        <span class="chip info">${h(p.propuesta.archivo)}</span>
+        <span class="chip info" title="${h(p.propuesta.archivo)}">${h(p.propuesta.archivo)}</span>
         <span class="chip gris">${p.propuesta.lineas.length} líneas</span>
         ${p.propuesta.cabecera.dtoGlobal != null ? `<span class="chip gris">Dto. global ${h(p.propuesta.cabecera.dtoGlobal)} %</span>` : ''}
         ${p.propuesta.cabecera.importeNeto != null ? `<span class="chip gris">Neto ${fmt(p.propuesta.cabecera.importeNeto)} €</span>` : ''}
@@ -374,7 +460,7 @@ function vistaDetalleRepo(p) {
     </div>
     ${ayudaPdf}
     ${p.propuesta ? `<div class="resumen">
-        <span class="chip info">${h(p.propuesta.archivo)}</span>
+        <span class="chip info" title="${h(p.propuesta.archivo)}">${h(p.propuesta.archivo)}</span>
         <span class="chip gris">${p.propuesta.lineas.length} líneas</span>
         ${p.propuesta.cabecera && p.propuesta.cabecera.dtoGlobal != null ? `<span class="chip gris">Dto. global ${h(p.propuesta.cabecera.dtoGlobal)} %</span>` : ''}
       </div>` : `<div class="vacio">Sin propuesta todavía.</div>`}
@@ -647,6 +733,8 @@ async function leerFotos(files) {
         total++;
       }
       if (!p.cliente && res.cliente) p.cliente = res.cliente.toUpperCase();
+      if (!p.numero && res.numeroPedido) p.numero = String(res.numeroPedido).replace(/^\D+/, '').trim() || String(res.numeroPedido);
+      if (!p.proveedor && res.proveedor) p.proveedor = prov(res.proveedor);
       const extra = [res.hoja && `hoja ${res.hoja}`, res.notas].filter(Boolean).join(' · ');
       if (extra) p.notas = [p.notas, `${lista[i].name}: ${extra}`].filter(Boolean).join(' | ');
       if (res.numeroPedido && String(res.numeroPedido).replace(/\D/g, '') !== String(p.numero).replace(/\D/g, '')) {
@@ -988,6 +1076,11 @@ function exportarPedidos(ids) {
 }
 
 pintar();
+
+// El mismo service worker del resto del ecosistema: sirve el HTML siempre
+// fresco desde la red (no deja la app atascada en una versión vieja) y basta
+// para que Android ofrezca instalarla como app.
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
 </html>

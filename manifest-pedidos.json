@@ -1,0 +1,18 @@
+{
+  "id": "control-pedidos.html",
+  "name": "Control de Pedidos · Ofipapel",
+  "short_name": "Pedidos",
+  "description": "Pedidos del comercial y de reposición contra la propuesta del proveedor, restos y Excel para Géminis",
+  "start_url": "control-pedidos.html",
+  "scope": "./control-pedidos",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f6f9f7",
+  "theme_color": "#1e7d32",
+  "icons": [
+    { "src": "icon-ofipapel-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-ofipapel-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-ofipapel-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-ofipapel-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

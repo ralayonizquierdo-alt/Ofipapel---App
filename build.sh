@@ -139,6 +139,7 @@ cp control-pedidos.html _site/ 2>/dev/null || true
 # La lógica de control-pedidos va aparte (y no inline) para poder probarla con
 # node: sin este fichero la página carga vacía.
 cp control-pedidos-logica.js _site/ 2>/dev/null || true
+cp manifest-pedidos.json _site/ 2>/dev/null || true
 cp sw.js _site/ 2>/dev/null || true
 cp sw-ink.js _site/ 2>/dev/null || true
 cp hero-productos.jpg _site/ 2>/dev/null || true
