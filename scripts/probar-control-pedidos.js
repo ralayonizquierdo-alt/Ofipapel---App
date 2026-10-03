@@ -87,7 +87,8 @@ test('manual exige una cantidad válida', () => {
   const filas = CP.compararPedido([{ ref: 'A', cant: 2, precio: 1 }], [{ ref: 'A', cant: 3, precio: 1 }]);
   assert.throws(() => CP.aplicarDecisiones(filas, { A: { accion: 'manual', cant: '' } }), /Cantidad manual/);
   const r = CP.aplicarDecisiones(filas, { A: { accion: 'manual', cant: '2', precio: '0,95' } });
-  assert.deepEqual([r.lineas[0].cant, r.lineas[0].precio], [2, 0.95]);
+  // El precio a mano es el neto: el base no se toca y se cuadra con el importe.
+  assert.deepEqual([r.lineas[0].cant, r.lineas[0].precio, r.lineas[0].importe], [2, 1, 1.9]);
 });
 
 test('una llegada posterior se asigna al cliente original, el más antiguo primero', () => {
@@ -157,4 +158,95 @@ test('parseNum entiende los precios escritos a mano', () => {
   assert.equal(CP.parseNum('1.234,56'), 1234.56);
   assert.equal(CP.parseNum(''), null);
   assert.equal(CP.parseNum('abc'), null);
+});
+
+// ── Reposición ──────────────────────────────────────────────────────────────
+const REPO = { comparar: 'neto', tolerancia: CP.TOLERANCIA.reposicion };
+
+test('reposición: se compara el precio NETO, después de todos los descuentos', () => {
+  // Pedido: 10 € con 10+5 → 8,55 neto. Proveedor: 10 € con 10 → 9,00 neto.
+  // El precio base es el mismo; la subida está en el descuento.
+  const [f] = CP.compararPedido(
+    [{ ref: 'A', cant: 1, precio: 10, dtos: '10+5' }],
+    [{ ref: 'A', cant: 1, precio: 10, dtos: [10], importe: 9 }], REPO);
+  assert.equal(f.netoPedido, 8.55);
+  assert.equal(f.netoPropuesta, 9);
+  assert.equal(f.difPrecio, 0.45);
+  assert.equal(f.revisar, true);
+  assert.match(f.motivos.find((m) => m.tipo === 'precio').texto, /neto/);
+  const [g] = CP.compararPedido([{ ref: 'A', cant: 1, precio: 10, dtos: '10' }], [{ ref: 'A', cant: 1, precio: 9.2 }], REPO);
+  assert.equal(g.revisar, false, '0,20 € en reposición es informativo');
+  assert.equal(g.motivos[0].informativo, true);
+});
+
+test('reposición: cambio de formato (unidades por caja) y posible sustitución', () => {
+  const f = porRef(CP.compararPedido(
+    [{ ref: 'A', cant: 12, precio: 1, udsCaja: 12 }, { ref: 'VIEJA', cant: 5, precio: 2, ean: '8410000000017', desc: 'Bolígrafo azul caja 50' }],
+    [{ ref: 'A', cant: 12, precio: 1, udsCaja: 10 }, { ref: 'NUEVA', cant: 5, precio: 2, ean: '8410000000017', desc: 'Otro texto' }], REPO));
+  assert.ok(f.A.motivos.some((m) => m.tipo === 'formato'));
+  assert.equal(f.NUEVA.sustituyeA, 'VIEJA');
+  assert.equal(f.VIEJA.sustituidaPor, 'NUEVA');
+});
+
+test('reposición: sin precio en el pedido se compara con el último precio aceptado', () => {
+  const [f] = CP.compararPedido([{ ref: 'A', cant: 1 }], [{ ref: 'A', cant: 1, precio: 5 }], { ...REPO, preciosAnteriores: { A: 4.5 } });
+  assert.equal(f.precioDeHistorial, true);
+  assert.equal(f.difPrecio, 0.5);
+  assert.equal(f.revisar, true);
+});
+
+test('reposición: nunca ofrece restos; «mantener» conserva precio base y descuentos del pedido', () => {
+  const filas = CP.compararPedido(
+    [{ ref: 'A', cant: 4, precio: 10, dtos: '10+5' }, { ref: 'B', cant: 2, precio: 3 }],
+    [{ ref: 'A', cant: 4, precio: 11, dtos: [10, 5] }], REPO);
+  for (const f of filas) assert.ok(!CP.accionesPara(f, 'reposicion').includes('resto'));
+  const r = CP.aplicarDecisiones(filas, { A: { accion: 'mantener' }, B: { accion: 'excluir' } });
+  assert.equal(r.restos.length, 0);
+  assert.deepEqual([r.lineas[0].precio, r.lineas[0].dtos], [10, [10, 5]]);
+});
+
+test('Géminis: un solo descuento equivalente, precio base intacto, cuadrando con el importe del proveedor', () => {
+  const [l] = CP.lineasParaGeminis([{ ref: 'A', cant: 2, precio: 100, dtos: [10, 5], importe: 170.99 }], { decimales: 4 });
+  assert.deepEqual([l.precio, l.dto, l.total, l.residuo], [100, 14.505, 170.99, 0]);
+  const [l2] = CP.lineasParaGeminis([{ ref: 'A', cant: 2, precio: 100, dtos: [10, 5], importe: 170.99 }], { decimales: 2 });
+  assert.notEqual(l2.residuo, 0, 'con 2 decimales no cuadra al céntimo y hay que avisar');
+  const [c] = CP.lineasParaGeminis([{ ref: 'A', cant: 2, precio: 4.35, dtos: [] }], { dtoGlobal: 30 });
+  assert.deepEqual([c.dto, c.total], [30, 6.09], 'comercial: el descuento global de la campaña');
+});
+
+test('lee el Excel que genera la herramienta de PDF (referencia en «Rfcia. Proveedor», no en el ISBN)', () => {
+  const hoja = [
+    ['', '', 'PROVEEDOR;', 'APLI'],
+    ['Codigo I.S.B.N.', 'MARCA/EDITORIAL', 'Rfcia. Proveedor', 'DESCRIPCION', 'Caja', 'Ud./Caja', 'Udes', 'Precio U.', 'Dcto', 'Igic', 'IMPORTE', '', 'COD. FAMILIA', ''],
+    ['8410782012345', 'APLI', '01234', 'ETIQUETAS A4', '', 10, 20, 5.5, 12.5, 7, 96.25, '', 209102, ''],
+    ['', '', '', '', '', '', '', '', '', 'TOTAL', 96.25],
+  ];
+  const p = CP.leerPropuesta(hoja);
+  assert.equal(p.lineas.length, 1);
+  const l = p.lineas[0];
+  assert.deepEqual([l.ref, l.ean, l.cant, l.precio, l.dtos, l.importe, l.udsCaja], ['01234', '8410782012345', 20, 5.5, [12.5], 96.25, 10]);
+  const r = CP.aplicarDecisiones(CP.compararPedido([{ ref: '01234', cant: 20, precio: 5.5, dtos: '12,5%' }], p.lineas, REPO), {});
+  assert.deepEqual([r.lineas[0].ean, r.lineas[0].udsCaja, r.lineas[0].importe], ['8410782012345', 10, 96.25], 'llegan al Excel de Géminis');
+});
+
+test('factura leída con IA: líneas, dudas automáticas y cuadre con la base imponible', () => {
+  const res = {
+    proveedor: 'Proveedor X', tipoDocumento: 'factura', numero: 'F-77', fecha: '01/10/2026', baseImponible: '82,43', dtoGlobal: '', notas: 'Portes 6,00',
+    lineas: [
+      { referencia: '01234', ean: '8410000000017', descripcion: 'ETIQUETAS', cantidad: '12', udsCaja: '10', precio: '5,50', descuentos: '10+5', importe: '56,43', duda: '' },
+      { referencia: '05555', ean: '', descripcion: 'CARPETA', cantidad: '6', udsCaja: '', precio: '2,00', descuentos: '', importe: '12,00', duda: '' },
+      { referencia: '09999', ean: '', descripcion: 'GRAPAS', cantidad: '5', udsCaja: '', precio: '3,00', descuentos: '', importe: '14,00', duda: '' },
+    ],
+  };
+  const d = CP.lineasDeDocumento(res);
+  assert.deepEqual(d.lineas.map((l) => [l.ref, l.cant, l.precio, l.dtos, l.importe]),
+    [['01234', 12, 5.5, [10, 5], 56.43], ['05555', 6, 2, [], 12], ['09999', 5, 3, [], 14]]);
+  assert.equal(d.lineas[0].duda, '', '56,43 sale de 5,50 × 12 − 10+5 (con el redondeo del proveedor)');
+  assert.match(d.lineas[2].duda, /no sale de precio/, '5 × 3,00 son 15,00, no 14,00');
+  assert.deepEqual([d.control.sumaLineas, d.control.base, d.control.cuadra], [82.43, 82.43, true]);
+  const falta = CP.lineasDeDocumento({ ...res, lineas: res.lineas.slice(0, 2) });
+  assert.equal(falta.control.cuadra, false, 'si se salta una línea, la suma no llega a la base');
+  // Y la comparación de reposición funciona con lo leído
+  const f = CP.compararPedido([{ ref: '01234', cant: 12, precio: 5.5, dtos: '10+5' }], d.lineas, REPO);
+  assert.equal(f.find((x) => x.ref === '01234').estado, 'ok');
 });

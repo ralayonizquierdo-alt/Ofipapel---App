@@ -44,42 +44,87 @@
 
   // ── Comparación pedido ↔ propuesta ────────────────────────────────────────
 
+  /** «10+5», «10%+5%», [10, 5], 10 → [10, 5]. Los ceros no cuentan. */
+  function parseDtos(v) {
+    if (v == null || v === '') return [];
+    if (Array.isArray(v)) return v.map(parseNum).filter((n) => n);
+    if (typeof v === 'number') return v ? [v] : [];
+    return String(v).split('+').map((x) => parseNum(x.replace('%', ''))).filter((n) => n);
+  }
+
+  /** Precio neto unitario, después de TODOS los descuentos. Si la línea trae
+   *  importe, manda el importe: lleva dentro los redondeos del proveedor. */
+  function precioNeto(l) {
+    const cant = parseNum(l.cant);
+    const imp = parseNum(l.importe);
+    if (imp != null && cant) return Math.round((imp / cant) * 10000) / 10000;
+    const p = parseNum(l.precio);
+    if (p == null) return null;
+    return Math.round(parseDtos(l.dtos).reduce((x, d) => x * (1 - d / 100), p) * 10000) / 10000;
+  }
+
   function agrupar(lineas) {
     const m = new Map();
     for (const l of lineas || []) {
       const ref = normRef(l.ref);
       if (!ref) continue;
-      const cant = parseNum(l.cant) || 0;
-      if (!m.has(ref)) m.set(ref, { ref, desc: l.desc || '', ean: l.ean || '', cant: 0, precio: parseNum(l.precio), veces: 0 });
+      if (!m.has(ref)) {
+        m.set(ref, { ref, desc: '', ean: '', cant: 0, precio: null, dtos: [], importe: 0, sinImporte: false, udsCaja: null, unidad: '', veces: 0 });
+      }
       const g = m.get(ref);
-      g.cant += cant;
+      g.cant += parseNum(l.cant) || 0;
       g.veces += 1;
-      if (!g.desc && l.desc) g.desc = l.desc;
-      if (!g.ean && l.ean) g.ean = l.ean;
-      if (g.precio == null) g.precio = parseNum(l.precio);
+      if (!g.desc && l.desc) g.desc = String(l.desc);
+      if (!g.ean && l.ean) g.ean = String(l.ean);
+      if (g.precio == null && parseNum(l.precio) != null) { g.precio = parseNum(l.precio); g.dtos = parseDtos(l.dtos); }
+      const imp = parseNum(l.importe);
+      if (imp == null) g.sinImporte = true; else g.importe += imp;
+      if (g.udsCaja == null && parseNum(l.udsCaja)) g.udsCaja = parseNum(l.udsCaja);
+      if (!g.unidad && l.unidad) g.unidad = String(l.unidad).trim().toUpperCase();
+    }
+    for (const g of m.values()) {
+      g.importe = g.sinImporte ? null : red2(g.importe);
+      delete g.sinImporte;
+      g.neto = precioNeto(g);
     }
     return m;
   }
+
+  /** Descripción reducida para emparejar posibles sustituciones. */
+  const claveDesc = (d) => String(d || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Z0-9]/g, '').slice(0, 14);
 
   /**
    * Una fila por referencia (unión de pedido y propuesta), en el orden del
    * pedido y después las que solo trae el proveedor.
    *
+   * opciones:
+   *   tolerancia        € por debajo de los cuales (incluido) un cambio de
+   *                     precio es informativo. Por defecto la del comercial (0).
+   *   comparar          'bruto' (comercial: precio de tarifa contra precio de
+   *                     tarifa) o 'neto' (reposición: después de todos los
+   *                     descuentos). Por defecto 'bruto'.
+   *   catalogo          {ref: {d, p, ean}} para marcar referencias inexistentes.
+   *   preciosAnteriores {ref: neto} último precio aceptado; se usa si el pedido
+   *                     no trae precio.
+   *
    * estado: 'ok' | 'falta' (pedida, no viene) | 'extra' (viene sin pedirse)
-   *         | 'cambio' (viene, pero con cantidad y/o precio distintos)
+   *         | 'cambio' (viene, pero con cantidad, precio o formato distintos)
    * Cada fila lleva `motivos` con el detalle y `revisar` (true si hace falta
-   * decisión). Un cambio de precio dentro de la tolerancia se enseña pero no
+   * decisión). Todo cambio de precio se enseña; dentro de la tolerancia no
    * obliga a decidir, salvo que haya además otro motivo.
    */
   function compararPedido(lineasPedido, lineasPropuesta, opciones) {
+    const o = opciones || {};
     // Por defecto, la del comercial (cero): la más estricta si alguien olvida pasarla.
-    const tol = (opciones && opciones.tolerancia != null) ? opciones.tolerancia : TOLERANCIA.comercial;
-    const catalogo = (opciones && opciones.catalogo) || null;
+    const tol = o.tolerancia != null ? o.tolerancia : TOLERANCIA.comercial;
+    const neto = o.comparar === 'neto';
+    const catalogo = o.catalogo || null;
+    const anteriores = o.preciosAnteriores || {};
     const ped = agrupar(lineasPedido);
     const pro = agrupar(lineasPropuesta);
     const refs = [...ped.keys(), ...[...pro.keys()].filter((r) => !ped.has(r))];
 
-    return refs.map((ref) => {
+    const filas = refs.map((ref) => {
       const a = ped.get(ref);
       const b = pro.get(ref);
       const fila = {
@@ -90,6 +135,14 @@
         cantPropuesta: b ? b.cant : 0,
         precioPedido: a ? a.precio : null,
         precioPropuesta: b ? b.precio : null,
+        dtosPedido: a ? a.dtos : [],
+        dtosPropuesta: b ? b.dtos : [],
+        netoPedido: a ? a.neto : null,
+        netoPropuesta: b ? b.neto : null,
+        importePropuesta: b ? b.importe : null,
+        udsCajaPedido: a ? a.udsCaja : null,
+        udsCajaPropuesta: b ? b.udsCaja : null,
+        precioDeHistorial: false,
         difPrecio: null,
         difPrecioPct: null,
         motivos: [],
@@ -113,15 +166,28 @@
           fila.estado = 'cambio';
           fila.motivos.push({ tipo: 'cantidad', texto: `Cantidad ${a.cant} → ${b.cant}`, revisar: true });
         }
-        if (a.precio != null && b.precio != null && red2(a.precio) !== red2(b.precio)) {
-          const dif = red2(b.precio - a.precio);
+        if (a.udsCaja && b.udsCaja && a.udsCaja !== b.udsCaja) {
+          fila.estado = 'cambio';
+          fila.motivos.push({ tipo: 'formato', texto: `Unidades por caja ${a.udsCaja} → ${b.udsCaja}`, revisar: true });
+        }
+        if (a.unidad && b.unidad && a.unidad !== b.unidad) {
+          fila.estado = 'cambio';
+          fila.motivos.push({ tipo: 'unidad', texto: `Unidad de venta ${a.unidad} → ${b.unidad}`, revisar: true });
+        }
+        let antes = neto ? a.neto : a.precio;
+        const ahora = neto ? b.neto : b.precio;
+        if (antes == null && anteriores[ref] != null) { antes = anteriores[ref]; fila.precioDeHistorial = true; }
+        fila.precioReferencia = antes;
+        if (antes != null && ahora != null && red2(antes) !== red2(ahora)) {
+          const dif = red2(ahora - antes);
           fila.difPrecio = dif;
-          fila.difPrecioPct = a.precio ? red2((dif / a.precio) * 100) : null;
+          fila.difPrecioPct = antes ? red2((dif / antes) * 100) : null;
           const fuera = Math.abs(dif) > tol + 1e-9;
           fila.estado = 'cambio';
           fila.motivos.push({
             tipo: 'precio',
-            texto: `Precio ${fmt(a.precio)} → ${fmt(b.precio)} (${dif > 0 ? '+' : ''}${fmt(dif)})`,
+            texto: `${neto ? 'Precio neto' : 'Precio'} ${fmt(antes)} → ${fmt(ahora)} (${dif > 0 ? '+' : ''}${fmt(dif)})` +
+              (fila.precioDeHistorial ? ' respecto al último precio aceptado' : ''),
             revisar: fuera,
             informativo: !fuera,
           });
@@ -132,10 +198,23 @@
         fila.sugerencias = sugerenciasCatalogo(ref, catalogo);
         fila.motivos.push({ tipo: 'no_catalogo', texto: 'La referencia no existe en el catálogo del proveedor: posible error de lectura', revisar: true });
       }
-
-      fila.revisar = fila.motivos.some((m) => m.revisar);
       return fila;
     });
+
+    // Posibles sustituciones: una falta y un extra con el mismo EAN o una
+    // descripción casi igual. Solo se señala; decidir sigue siendo del usuario.
+    const faltas = filas.filter((f) => f.estado === 'falta');
+    for (const x of filas.filter((f) => f.estado === 'extra')) {
+      const par = faltas.find((f) => (f.ean && f.ean === x.ean) || (claveDesc(f.desc).length >= 6 && claveDesc(f.desc) === claveDesc(x.desc)));
+      if (!par) continue;
+      x.sustituyeA = par.ref;
+      par.sustituidaPor = x.ref;
+      x.motivos.push({ tipo: 'sustitucion', texto: `¿Sustituye a ${par.ref}?`, revisar: true });
+      par.motivos.push({ tipo: 'sustitucion', texto: `¿Sustituida por ${x.ref}?`, revisar: true });
+    }
+
+    for (const f of filas) f.revisar = f.motivos.some((m) => m.revisar);
+    return filas;
   }
 
   function fmt(n) {
@@ -162,15 +241,24 @@
   // ── Decisiones ────────────────────────────────────────────────────────────
 
   /**
-   * Acciones posibles por tipo de fila. La primera es la sugerida.
-   *  - resto:    no viene (o viene menos) y el cliente lo sigue esperando → RESTOS
-   *  - anular:   no viene y ya no se espera (el cliente renuncia)
+   * Acciones posibles por fila. La primera es la sugerida.
+   *  - resto:    (solo comercial) no viene o viene menos, y el cliente lo
+   *              sigue esperando → RESTOS
+   *  - anular:   (solo comercial) no viene y ya no se espera
    *  - aceptar:  se acepta lo que trae el proveedor
-   *  - mantener: se mantiene lo pedido (cantidad y precio del pedido)
+   *  - mantener: se mantiene lo pedido (cantidad, precio y descuentos del pedido)
    *  - excluir:  la línea no entra en el pedido final
-   *  - manual:   cantidad y/o precio a mano
+   *  - manual:   cantidad y/o precio neto a mano
+   *
+   * En reposición no hay restos: las faltas se ven en la comparación y
+   * se deciden ahí, pero nunca entran en el almacén de faltas del comercial.
    */
-  function accionesPara(fila) {
+  function accionesPara(fila, tipo) {
+    if (tipo === 'reposicion') {
+      if (fila.estado === 'falta') return ['excluir', 'mantener', 'manual'];
+      if (fila.estado === 'extra') return ['aceptar', 'excluir'];
+      return ['aceptar', 'mantener', 'manual', 'excluir'];
+    }
     if (fila.estado === 'falta') return ['resto', 'anular'];
     if (fila.estado === 'extra') return ['aceptar', 'excluir'];
     const menos = fila.cantPropuesta < fila.cantPedida;
@@ -182,12 +270,13 @@
   }
 
   /**
-   * Aplica las decisiones. Devuelve las líneas finales del pedido (lo que
-   * llega y se factura) y los restos (lo que el cliente espera y no viene).
+   * Aplica las decisiones. Devuelve las líneas finales del pedido y los
+   * restos (solo los genera la acción `resto`, que reposición no ofrece).
    * Lanza error si queda algo por decidir: no hay pedido final a medias.
    *
-   * `resto` sobre una fila con cantidad menor = se acepta lo que viene y la
-   * diferencia queda en restos. Sobre una falta = toda la cantidad a restos.
+   * Cada línea final lleva el precio BASE (nunca se toca), sus descuentos y,
+   * si se conoce, el importe al que tiene que cuadrar (el del proveedor, o
+   * el que sale del precio neto escrito a mano).
    */
   function aplicarDecisiones(filas, decisiones) {
     const pendientes = sinDecidir(filas, decisiones);
@@ -203,28 +292,42 @@
       const d = (decisiones && decisiones[f.ref]) || { accion: f.estado === 'falta' ? 'resto' : 'aceptar' };
       if (d.nota) notas.push({ ref: f.ref, desc: f.desc, texto: d.nota });
       const base = { ref: f.ref, desc: f.desc, ean: f.ean };
+      const propuesta = (cant) => ({ ...base, cant, precio: f.precioPropuesta, dtos: f.dtosPropuesta,
+        importe: cant === f.cantPropuesta ? f.importePropuesta : null, udsCaja: f.udsCajaPropuesta || f.udsCajaPedido });
+      const pedido = (cant) => (f.precioPedido != null
+        ? { ...base, cant, precio: f.precioPedido, dtos: f.dtosPedido, importe: null, udsCaja: f.udsCajaPedido || f.udsCajaPropuesta }
+        : propuesta(cant));
       switch (d.accion) {
         case 'excluir':
         case 'anular':
           break;
         case 'resto':
-          if (f.cantPropuesta > 0) lineas.push({ ...base, cant: f.cantPropuesta, precio: f.precioPropuesta });
+          if (f.cantPropuesta > 0) lineas.push(propuesta(f.cantPropuesta));
           if (f.cantPedida > f.cantPropuesta) {
             restos.push({ ...base, cant: f.cantPedida - f.cantPropuesta, precio: f.precioPedido != null ? f.precioPedido : f.precioPropuesta });
           }
           break;
         case 'mantener':
-          lineas.push({ ...base, cant: f.cantPedida, precio: f.precioPedido != null ? f.precioPedido : f.precioPropuesta });
+          if (f.cantPedida > 0) lineas.push(pedido(f.cantPedida));
           break;
         case 'manual': {
           const cant = parseNum(d.cant);
           if (cant == null || cant < 0) throw new Error(`Cantidad manual no válida en ${f.ref}`);
-          const precio = parseNum(d.precio);
-          if (cant > 0) lineas.push({ ...base, cant, precio: precio != null ? precio : f.precioPropuesta });
+          if (cant === 0) break;
+          const netoManual = parseNum(d.precio);
+          const l = f.cantPropuesta > 0 ? propuesta(cant) : pedido(cant);
+          if (netoManual != null) {
+            // El precio a mano es el neto final. El base no se toca: se cuadra
+            // con el descuento. Solo si el neto supera al base (no hay
+            // descuento posible) pasa a ser el precio base.
+            if (l.precio == null || netoManual > l.precio) { l.precio = netoManual; l.dtos = []; }
+            l.importe = red2(netoManual * cant);
+          }
+          lineas.push(l);
           break;
         }
         default: // aceptar
-          if (f.cantPropuesta > 0) lineas.push({ ...base, cant: f.cantPropuesta, precio: f.precioPropuesta });
+          if (f.cantPropuesta > 0) lineas.push(propuesta(f.cantPropuesta));
       }
     }
     return { lineas, restos, notas };
@@ -306,23 +409,36 @@
    * cabecera que haya.
    */
   function leerPropuesta(filas) {
-    const hallar = (cab, pruebas) => cab.findIndex((c) => pruebas.some((p) => p.test(clave(c))));
+    // Por prioridad de patrón, no de columna: en el Excel de la herramienta de
+    // PDF la primera columna es «Codigo I.S.B.N.» y la referencia buena es
+    // «Rfcia. Proveedor», más a la derecha.
+    const hallar = (cab, pruebas) => {
+      for (const p of pruebas) {
+        const i = cab.findIndex((c) => p.test(clave(c)));
+        if (i >= 0) return i;
+      }
+      return -1;
+    };
+    const hallarTodas = (cab, pruebas) => cab.map((c, i) => (pruebas.some((p) => p.test(clave(c))) ? i : -1)).filter((i) => i >= 0);
     let iCab = -1;
     let col = null;
     for (let i = 0; i < Math.min(filas.length, 60); i++) {
       const cab = filas[i] || [];
-      const ref = hallar(cab, [/^REFERENCIA\b/, /^REF\.?\b/, /^REFCIA/, /^RFCIA/, /^CODIGO\b/, /^ARTICULO\b/]);
-      const cant = hallar(cab, [/^CANT/, /^UDS\b/, /^UNIDADES\b/, /^PEDIDAS\b/]);
+      const ref = hallar(cab, [/^REFERENCIA\b/, /^RFCIA/, /^REFCIA/, /^REF\.?\b/, /^ARTICULO\b/, /^CODIGO\b/]);
+      const cant = hallar(cab, [/^CANT/, /^PEDIDAS\b/, /^UDES\b/, /^UDS\b/, /^UNIDADES\b/]);
       if (ref >= 0 && cant >= 0) {
         iCab = i;
         col = {
           ref,
           cant,
           desc: hallar(cab, [/^DESCRIPCION/, /^DENOMINACION/, /^CONCEPTO/]),
-          ean: hallar(cab, [/^EAN/, /^COD\.? ?BARRAS/]),
-          precio: hallar(cab, [/^PTD\b/, /^PRECIO\b/, /^P\.? ?UNIT/, /^COSTE?\b/, /^TARIFA\b/]),
-          dto: hallar(cab, [/^DESC\.? ?LIN/, /^DTO\b/, /^DCTO\b/, /^% ?DTO\b/]),
+          ean: hallar(cab, [/^EAN/, /^COD\.? ?BARRAS/, /^CODIGO\s*I\.?\s*S\.?\s*B\.?\s*N/, /^ISBN\b/]),
+          precio: hallar(cab, [/^PTD\b/, /^PRECIO\b/, /^P\.? ?UNIT/, /^P\.? ?COSTO/, /^COSTE?\b/, /^COSTO\b/, /^TARIFA\b/, /^UNIDAD$/]),
+          // Puede haber varias columnas de descuento encadenadas (Dto. 1, Dto. 2…).
+          dtos: hallarTodas(cab, [/^DESC\.? ?LIN/, /^DTO\b/, /^DCTO\b/, /^% ?DTO\b/, /^DESCUENTO\b/]),
           iva: hallar(cab, [/^IVA\b/, /^IGIC\b/]),
+          importe: hallar(cab, [/^IMPORTE\b/, /^SUBTOTAL\b/, /^TOTAL\b/, /^NETO\b/]),
+          udsCaja: hallar(cab, [/^UDS?\.?\s*(\/|X)\s*CA?JA/, /^UNID\w*\s*(\/|POR)\s*CAJA/]),
         };
         break;
       }
@@ -361,13 +477,77 @@
       catalogo[ref] = { d: desc, p: precio, ean };
       const cant = parseNum(val(f, col.cant));
       if (cant) {
-        const dtoLin = parseNum(val(f, col.dto));
+        const dtos = col.dtos.map((i) => parseNum(f[i])).filter((n) => n).map((n) => (n > 0 && n < 1 ? red2(n * 100) : n));
         let iva = parseNum(val(f, col.iva));
         if (iva != null && iva > 0 && iva < 1) iva = red2(iva * 100);
-        lineas.push({ ref, desc, ean, cant, precio, dtoLinea: dtoLin, iva });
+        lineas.push({ ref, desc, ean, cant, precio, dtos, iva, importe: parseNum(val(f, col.importe)), udsCaja: parseNum(val(f, col.udsCaja)) });
       }
     }
     return { lineas, catalogo, cabecera };
+  }
+
+  // ── Documentos leídos con IA (PDF o foto de un proveedor) ─────────────────
+
+  /**
+   * Convierte lo que devuelve la función de lectura en modo 'documento' en
+   * líneas como las de leerPropuesta, y comprueba lo leído sin fiarse de ello:
+   *  - cada línea cuyo importe no sale de precio × cantidad − descuentos (o
+   *    sin referencia, o sin cantidad) queda con `duda` para revisarla;
+   *  - la suma de los importes se compara con la base imponible del propio
+   *    documento: `control.cuadra` = false → falta o sobra alguna línea, o
+   *    hay un importe mal leído.
+   */
+  function lineasDeDocumento(res) {
+    const r = res || {};
+    const lineas = (r.lineas || []).map((l) => ({
+      ref: normRef(l.referencia),
+      ean: String(l.ean || '').replace(/\s+/g, ''),
+      desc: String(l.descripcion || '').trim(),
+      cant: parseNum(l.cantidad),
+      udsCaja: parseNum(l.udsCaja),
+      precio: parseNum(l.precio),
+      dtos: parseDtos(l.descuentos),
+      importe: parseNum(l.importe),
+      duda: String(l.duda || '').trim(),
+    })).filter((l) => l.ref || l.desc);
+
+    for (const l of lineas) {
+      const avisos = [];
+      if (!l.ref) avisos.push('sin referencia');
+      if (!l.cant) avisos.push('sin cantidad');
+      if (l.importe != null && l.precio != null && l.cant) {
+        const calc = red2(l.precio * l.cant * l.dtos.reduce((x, d) => x * (1 - d / 100), 1));
+        // Hay proveedores que redondean el neto unitario antes de multiplicar:
+        // se admite un céntimo por unidad.
+        if (Math.abs(calc - l.importe) > 0.02 + 0.01 * l.cant) {
+          avisos.push(`el importe ${fmt(l.importe)} no sale de precio × cantidad − descuentos (${fmt(calc)})`);
+        }
+      }
+      if (avisos.length) l.duda = [l.duda, ...avisos].filter(Boolean).join(' · ');
+    }
+
+    const suma = red2(lineas.reduce((t, l) => t + (l.importe || 0), 0));
+    const base = parseNum(r.baseImponible);
+    let dtoGlobal = parseNum(r.dtoGlobal);
+    if (dtoGlobal != null && dtoGlobal > 0 && dtoGlobal < 1) dtoGlobal = red2(dtoGlobal * 100);
+    let cuadra = null;
+    if (base != null) {
+      // La base puede ir antes o después del descuento global del documento.
+      cuadra = Math.abs(suma - base) <= 0.02 || Boolean(dtoGlobal && Math.abs(red2(suma * (1 - dtoGlobal / 100)) - base) <= 0.02);
+    }
+    return {
+      lineas,
+      catalogo: {},
+      cabecera: {
+        proveedor: String(r.proveedor || '').trim(),
+        tipoDocumento: String(r.tipoDocumento || '').trim(),
+        numero: String(r.numero || '').trim(),
+        fecha: String(r.fecha || '').trim(),
+        dtoGlobal: dtoGlobal || null,
+        observaciones: String(r.notas || '').trim(),
+      },
+      control: { sumaLineas: suma, base, cuadra, sinImporte: lineas.filter((l) => l.importe == null).length },
+    };
   }
 
   // ── Excel para Géminis ────────────────────────────────────────────────────
@@ -384,6 +564,25 @@
     columnas: ['ean', 'desc', 'ref', 'cajas', 'udsCaja', 'cant', 'precio', 'dto', 'igic', 'total', 'bonif', 'sinStock', 'codOfipapel', 'refProveedor'],
     titulos: ['Cod.Barras EAN13', 'DESCRIPCION', 'Rfcia. Proveedor', 'Cajas', 'UdsXCja', 'Pedidas', 'UNIDAD', 'Dcto', 'Igic', 'TOTAL', 'U/Bonifica', 'Sin STOCK', 'Cod. Ofipapel', 'Code/rfcia Provee.'],
   };
+
+  /**
+   * Prepara las líneas finales para Géminis: un único descuento por línea
+   * (el equivalente a todos los encadenados más el global, si lo hay) sin
+   * tocar el precio base, cuadrando contra el importe del proveedor cuando se
+   * conoce. `residuo` ≠ 0 en una línea = con esos decimales no cuadra al
+   * céntimo, y la página lo enseña antes de exportar.
+   */
+  function lineasParaGeminis(lineas, opciones) {
+    const o = opciones || {};
+    const global = parseNum(o.dtoGlobal) || 0;
+    return (lineas || []).map((l) => {
+      const precio = parseNum(l.precio) || 0;
+      const dtos = parseDtos(l.dtos).concat(global ? [global] : []);
+      const objetivo = l.importe != null ? red2(l.importe * (global ? 1 - global / 100 : 1)) : null;
+      const eq = descuentoEquivalente(precio, l.cant, dtos, { decimales: o.decimales, subtotalObjetivo: objetivo });
+      return { ...l, precio, dto: eq.descuento, total: eq.subtotal, residuo: eq.residuo };
+    });
+  }
 
   /** Matriz lista para SheetJS (aoa_to_sheet) con cabecera en 1–10 y datos desde la 11. */
   function filasGeminis(lineas, cab, opciones) {
@@ -405,10 +604,10 @@
     for (const l of lineas) {
       const precio = l.precio == null ? 0 : l.precio;
       const dtoLinea = l.dto != null ? l.dto : dto;
-      const total = red2(precio * l.cant * (1 - dtoLinea / 100));
+      const total = l.total != null ? l.total : red2(precio * l.cant * (1 - dtoLinea / 100));
       const v = {
-        ean: l.ean || '', desc: l.desc || '', ref: l.ref, cajas: '', udsCaja: '', cant: l.cant,
-        precio, dto: dtoLinea, igic, total, bonif: '', sinStock: '', codOfipapel: '', refProveedor: l.ref,
+        ean: l.ean || '', desc: l.desc || '', ref: l.ref, cajas: '', udsCaja: l.udsCaja || '', cant: l.cant,
+        precio, dto: dtoLinea, igic: l.igic != null ? l.igic : igic, total, bonif: '', sinStock: '', codOfipapel: '', refProveedor: l.ref,
       };
       aoa.push(P.columnas.map((c) => v[c]));
     }
@@ -418,7 +617,7 @@
   const api = {
     TOLERANCIA, PLANTILLA_GEMINIS,
     normRef, parseNum, red2, fmt, agrupar,
-    compararPedido, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones,
+    parseDtos, precioNeto, compararPedido, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
