@@ -210,7 +210,11 @@ exports.handler = async (event) => {
     return;
   }
 
-  const { jobId, imagenBase64, mediaType } = payload;
+  // El fichero normalmente NO viene aquí: esta función rechaza cuerpos de más
+  // de ~256 KB, así que la página lo sube antes con leer-pedido-manuscrito-subir.js
+  // y aquí llega solo el jobId. Se sigue aceptando dentro del cuerpo si cabe.
+  let { imagenBase64, mediaType } = payload;
+  const { jobId } = payload;
   const modo = payload.modo === 'documento' ? 'documento' : 'manuscrito';
   if (typeof jobId !== 'string' || !JOB_ID_OK.test(jobId)) {
     // Sin jobId válido no hay dónde dejar el resultado: solo queda el log.
@@ -229,9 +233,20 @@ exports.handler = async (event) => {
     return;
   }
 
+  if (!imagenBase64) {
+    try {
+      const entrada = await store.get('entrada-' + jobId, { type: 'json' });
+      if (entrada) ({ imagenBase64, mediaType } = entrada);
+      // Lleva la foto o la factura: no se guarda más de lo necesario.
+      await store.delete('entrada-' + jobId).catch(() => {});
+    } catch (err) {
+      return fallo(`No se pudo recuperar el fichero subido: ${err.message}`);
+    }
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return fallo('Lector no configurado (falta ANTHROPIC_API_KEY en Netlify)');
-  if (typeof imagenBase64 !== 'string' || !imagenBase64) return fallo('Falta la imagen');
+  if (typeof imagenBase64 !== 'string' || !imagenBase64) return fallo('No ha llegado el fichero (la subida no se completó)');
   if (!TIPOS_OK.includes(mediaType)) return fallo(`Formato no admitido: ${mediaType || 'desconocido'}`);
   if (imagenBase64.length > MAX_BASE64) return fallo('El fichero es demasiado grande (máximo unos 3 MB). Si es un PDF escaneado, prueba a reducirlo o a hacer una foto de cada página.');
 

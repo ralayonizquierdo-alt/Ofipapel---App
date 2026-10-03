@@ -269,7 +269,7 @@ function vistaLista() {
       <button class="btn primario" onclick="crearPedido()">Crear</button>
     </div>
     <div class="soloComercial" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--borde)">
-      <p class="pequeno" style="margin:0 0 8px">¿Tienes las fotos de la hoja del comercial? Empieza por ahí: la app lee el nº de pedido, el cliente y las líneas, y crea el pedido sola. Lo que rellenes arriba manda sobre lo leído.</p>
+      <p class="pequeno" style="margin:0 0 8px">¿Tienes las fotos de las hojas del comercial? Empieza por ahí: puedes elegir las de <b>varios pedidos a la vez</b>. La app lee en cada hoja el nº de pedido, el cliente y las líneas, y las reparte: un pedido por nº (las hojas del mismo nº se juntan). Si escribes un nº arriba, todas van a ese pedido.</p>
       <div class="fila">
         <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📷 Hacer foto
           <input type="file" accept="image/*" capture="environment" class="oculto" onchange="nuevoDesdeFotos(this.files); this.value=''"></label>
@@ -287,6 +287,7 @@ function vistaLista() {
       </label>
       <span class="pequeno" style="max-width:420px">Cada Excel se asigna a su pedido por el proveedor y el nº que trae en «Observaciones» (p. ej. «PEDIDO Nº3 …»). Si no lo encuentra, cárgalo desde el propio pedido.</span>
     </div>
+    <div id="progresoLote" class="progreso"></div>
     <div id="avisoCarga"></div>
     ${ps.length ? `<div class="tabla-scroll"><table>
       <tr><th class="no-imprimir"><input type="checkbox" title="Seleccionar todos" onchange="document.querySelectorAll('.selPed').forEach(c=>c.checked=this.checked)"></th>
@@ -330,12 +331,19 @@ function crearPedido() {
 function nuevoDesdeFotos(files) {
   if (!files || !files.length) return;
   const v = (id) => document.getElementById(id).value.trim();
-  const p = { id: nuevoId(), tipo: 'comercial', proveedor: prov(v('npProv')), campana: v('npCamp'), numero: v('npNum'), cliente: v('npCli').toUpperCase(),
-    fecha: v('npFecha') || hoy(), notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
-  E.pedidos.push(p);
-  guardar();
-  abrirPedido(p.id);
-  leerFotos(files);
+  const base = { proveedor: prov(v('npProv')), campana: v('npCamp'), fecha: v('npFecha') || hoy() };
+  if (v('npNum')) {
+    // Nº escrito a mano: todas las fotos son de ese pedido.
+    const p = { id: nuevoId(), tipo: 'comercial', ...base, numero: v('npNum'), cliente: v('npCli').toUpperCase(),
+      notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
+    E.pedidos.push(p);
+    guardar();
+    abrirPedido(p.id);
+    leerFotos(files, p);
+  } else {
+    // Sin nº: cada foto a su pedido según lo que se lea en ella.
+    leerFotos(files, null, base);
+  }
 }
 function abrirPedido(id) { pedidoAbierto = id; vista = 'pedidos'; pintar(); window.scrollTo(0, 0); }
 
@@ -365,10 +373,10 @@ function vistaDetalle(p) {
     <h2>1 · Lo que pidió el comercial</h2>
     <div class="fila no-imprimir">
       <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📷 Hacer foto
-        <input type="file" accept="image/*" capture="environment" class="oculto" onchange="leerFotos(this.files); this.value=''">
+        <input type="file" accept="image/*" capture="environment" class="oculto" onchange="leerFotos(this.files, pedidoActual()); this.value=''">
       </label>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🖼️ Elegir de la galería
-        <input type="file" accept="image/*" multiple class="oculto" onchange="leerFotos(this.files); this.value=''">
+        <input type="file" accept="image/*" multiple class="oculto" onchange="leerFotos(this.files, pedidoActual()); this.value=''">
       </label>
       <button class="btn peque" onclick="document.getElementById('pegar').classList.toggle('oculto')">Pegar o escribir líneas</button>
       <button class="btn peque" onclick="anadirLinea()">+ Línea</button>
@@ -732,10 +740,19 @@ async function leerConIA(file, modo) {
   const pdf = esPdf(file);
   const imagenBase64 = pdf ? await base64DeFichero(file) : await reducirImagen(file);
   if (imagenBase64.length > 4 * 1024 * 1024) throw new Error('El PDF es demasiado grande (máximo unos 3 MB). Si es un escaneado, prueba a reducirlo o haz una foto de cada página.');
-  const r = await fetch(FN + 'leer-pedido-manuscrito-background', {
-    method: 'POST', headers: { 'content-type': 'application/json', 'x-ocr-token': OCR_TOKEN },
-    body: JSON.stringify({ jobId, imagenBase64, mediaType: pdf ? 'application/pdf' : 'image/jpeg', modo }),
+  // 1) Subida (función normal, admite hasta 6 MB). 2) Lectura en segundo plano,
+  // que solo recibe el jobId: Netlify corta a 256 KB lo que se le manda a una
+  // Background Function, y una foto o un PDF pasan de eso (error 413).
+  const cab = { 'content-type': 'application/json', 'x-ocr-token': OCR_TOKEN };
+  const sub = await fetch(FN + 'leer-pedido-manuscrito-subir', {
+    method: 'POST', headers: cab,
+    body: JSON.stringify({ jobId, imagenBase64, mediaType: pdf ? 'application/pdf' : 'image/jpeg' }),
   });
+  if (!sub.ok) {
+    const e = await sub.json().catch(() => ({}));
+    throw new Error(e.error || 'No se ha podido subir (' + sub.status + '). ¿Estás en la web de Netlify?');
+  }
+  const r = await fetch(FN + 'leer-pedido-manuscrito-background', { method: 'POST', headers: cab, body: JSON.stringify({ jobId, modo }) });
   if (r.status !== 202 && !r.ok) throw new Error('El lector no responde (' + r.status + '). ¿Estás en la web de Netlify?');
   const limite = Date.now() + 5 * 60 * 1000;
   while (Date.now() < limite) {
@@ -750,38 +767,81 @@ async function leerConIA(file, modo) {
   throw new Error('La lectura ha tardado más de 5 minutos');
 }
 
-async function leerFotos(files) {
-  const p = pedidoActual();
-  const caja = document.getElementById('progresoFotos');
+/** Nº de pedido de una hoja: el que pone «añadir al pedido nº 4» en las notas
+ *  manda sobre el del encabezado (es una hoja suelta que va a otro pedido). */
+function numeroDeHoja(res) {
+  const nota = String(res.notas || '').match(/pedido\s*n\S*\s*(\d+)/i);
+  const n = nota ? nota[1] : String(res.numeroPedido || '').replace(/\D/g, '');
+  return n || '';
+}
+
+function anadirLecturaA(p, res, nombre) {
+  let descAnterior = '';
+  let n = 0;
+  for (const l of res.lineas || []) {
+    const desc = (l.descripcion || '').trim();
+    descAnterior = desc && !/^[-–"'`,.~]+$/.test(desc) ? desc : descAnterior;
+    p.lineas.push({ cant: CP.parseNum(l.cantidad) || 0, exp: Boolean(l.esExpositor), ref: CP.normRef(l.referencia),
+      precio: CP.parseNum(l.precio), desc: descAnterior, duda: (l.duda || '').trim(), foto: nombre });
+    n++;
+  }
+  if (!p.cliente && res.cliente) p.cliente = res.cliente.toUpperCase();
+  if (!p.numero && numeroDeHoja(res)) p.numero = numeroDeHoja(res);
+  if (!p.proveedor && res.proveedor) p.proveedor = prov(res.proveedor);
+  const extra = [res.hoja && `hoja ${res.hoja}`, res.notas].filter(Boolean).join(' · ');
+  if (extra) p.notas = [p.notas, `${nombre}: ${extra}`].filter(Boolean).join(' | ');
+  if (numeroDeHoja(res) && numeroDeHoja(res) !== String(p.numero).replace(/\D/g, '')) {
+    p.notas = [p.notas, `${nombre} dice pedido nº ${res.numeroPedido}`].filter(Boolean).join(' | ');
+  }
+  invalidar(p);
+  return n;
+}
+
+/**
+ * Lee varias fotos de pedidos del comercial.
+ *  - destino: el pedido al que van TODAS (cuando se leen desde dentro de un
+ *    pedido, o si en el formulario se escribió el nº).
+ *  - sin destino: cada foto va al pedido con el nº que se lea en ella; las
+ *    hojas 1/4…4/4 del mismo nº se juntan en uno, y lo que no trae nº va a un
+ *    pedido «sin número» para revisarlo.
+ * Un solo resumen al final en vez de un aviso por foto.
+ */
+async function leerFotos(files, destino, base) {
   const lista = [...files];
+  const lote = new Map(); // nº leído → pedido creado en esta tanda
+  const tocados = new Set();
+  const errores = [];
   let total = 0;
+  const progreso = (txt) => { const c = document.getElementById('progresoFotos') || document.getElementById('progresoLote'); if (c) c.textContent = txt; };
   for (let i = 0; i < lista.length; i++) {
-    caja.textContent = `Leyendo foto ${i + 1} de ${lista.length} (${lista[i].name})… puede tardar un minuto.`;
+    progreso(`Leyendo foto ${i + 1} de ${lista.length} (${lista[i].name})… puede tardar un minuto por foto.`);
     try {
       const res = await leerUnaFoto(lista[i]);
-      let descAnterior = '';
-      for (const l of res.lineas || []) {
-        const desc = (l.descripcion || '').trim();
-        descAnterior = desc && !/^[-–"'`,.~]+$/.test(desc) ? desc : descAnterior;
-        p.lineas.push({ cant: CP.parseNum(l.cantidad) || 0, exp: Boolean(l.esExpositor), ref: CP.normRef(l.referencia),
-          precio: CP.parseNum(l.precio), desc: descAnterior, duda: (l.duda || '').trim(), foto: lista[i].name });
-        total++;
+      let p = destino || null;
+      if (!p) {
+        const num = numeroDeHoja(res);
+        p = lote.get(num);
+        if (!p) {
+          p = { id: nuevoId(), tipo: 'comercial', proveedor: (base && base.proveedor) || prov(res.proveedor), campana: (base && base.campana) || '', numero: num,
+            cliente: '', fecha: (base && base.fecha) || hoy(), notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
+          E.pedidos.push(p);
+          lote.set(num, p);
+        }
       }
-      if (!p.cliente && res.cliente) p.cliente = res.cliente.toUpperCase();
-      if (!p.numero && res.numeroPedido) p.numero = String(res.numeroPedido).replace(/^\D+/, '').trim() || String(res.numeroPedido);
-      if (!p.proveedor && res.proveedor) p.proveedor = prov(res.proveedor);
-      const extra = [res.hoja && `hoja ${res.hoja}`, res.notas].filter(Boolean).join(' · ');
-      if (extra) p.notas = [p.notas, `${lista[i].name}: ${extra}`].filter(Boolean).join(' | ');
-      if (res.numeroPedido && String(res.numeroPedido).replace(/\D/g, '') !== String(p.numero).replace(/\D/g, '')) {
-        p.notas = [p.notas, `${lista[i].name} dice pedido nº ${res.numeroPedido}`].filter(Boolean).join(' | ');
-      }
-      invalidar(p); guardar(); pintar();
+      total += anadirLecturaA(p, res, lista[i].name);
+      tocados.add(p);
+      guardar(); pintar();
     } catch (err) {
-      alert(`No se ha podido leer ${lista[i].name}: ${err.message}`);
+      errores.push(`${lista[i].name}: ${err.message}`);
     }
   }
-  const c2 = document.getElementById('progresoFotos');
-  if (c2) c2.textContent = total ? `Leídas ${total} líneas. Revísalas con las fotos antes de comparar.` : '';
+  const ps = [...tocados];
+  if (!destino && ps.length === 1) abrirPedido(ps[0].id); else pintar();
+  progreso(total ? `Leídas ${total} líneas. Revísalas con las fotos antes de comparar.` : '');
+  let msg = ps.length ? `Leídas ${lista.length - errores.length} de ${lista.length} fotos:\n` +
+    ps.map((p) => `· Pedido nº ${p.numero || '(sin número)'} ${p.cliente || ''} — ${p.lineas.length} líneas`).join('\n') : 'No se ha podido leer ninguna foto.';
+  if (errores.length) msg += `\n\nNo se han podido leer ${errores.length}:\n` + errores.slice(0, 6).join('\n');
+  if (lista.length > 1 || errores.length) alert(msg);
 }
 
 // ── Propuestas (Excel) ───────────────────────────────────────────────────────
