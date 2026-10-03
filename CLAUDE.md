@@ -218,6 +218,16 @@ para tener contexto antes de tocar código.
   reconciliación, y criterio para cerrar o eliminar ramas. No lo dupliques
   aquí.
 - Nombres de commit descriptivos, en español, estilo `fix:`/`feat:` cuando aplica.
+- **Fusión de PRs de Control de Pedidos** (autorización permanente del
+  propietario, 2026-10-03): Claude fusiona él mismo sus PRs de
+  `control-pedidos.html` y sus piezas (`control-pedidos-logica.js`,
+  `manifest-pedidos.json`, `netlify/functions/leer-pedido-manuscrito-*.js`,
+  `scripts/probar-control-pedidos.js` y su documentación) **solo cuando pasan
+  todas las pruebas** (`node --test scripts/probar-control-pedidos.js` y los
+  recorridos en navegador) y la previsualización de Netlify está lista, y
+  después comprueba que `ofipapel.netlify.app/control-pedidos.html` sirve la
+  versión nueva. Cualquier PR que toque otras apps del repo lo sigue
+  fusionando el propietario.
 - Casi no hay tests automatizados (CI cubre lint + build). La excepción es
   `scripts/probar-control-pedidos.js` (`node --test`), que no corre en CI.
 - `joe-app` y `alquileres` comparten patrón de ESLint flat config
