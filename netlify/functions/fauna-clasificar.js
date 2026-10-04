@@ -19,6 +19,7 @@
 // acota el abuso de la cuota gratuita, no es control de acceso.
 
 const MODELO_POR_DEFECTO = 'gemini-2.5-flash';
+const MODELO_RESPALDO = 'gemini-flash-latest';
 const MAX_TEXTO = 1500;
 
 const CORS = {
@@ -133,17 +134,24 @@ exports.handler = async (event) => {
   if (dictado.length > MAX_TEXTO) return responder(400, { error: 'Texto demasiado largo' });
 
   const modelo = process.env.GEMINI_MODEL || MODELO_POR_DEFECTO;
+  const llamar = m => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': clave },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: INSTRUCCIONES }] },
+      contents: [{ role: 'user', parts: [{ text: dictado }] }],
+      generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: ESQUEMA },
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelo)}:generateContent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': clave },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: INSTRUCCIONES }] },
-        contents: [{ role: 'user', parts: [{ text: dictado }] }],
-        generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: ESQUEMA },
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
+    let res = await llamar(modelo);
+    // Google retira modelos con el tiempo: si el configurado ya no existe, se
+    // usa su alias «flash» más reciente en vez de dejar la función rota.
+    if (res.status === 404 && modelo !== MODELO_RESPALDO) {
+      console.error(`fauna-clasificar: el modelo ${modelo} ya no existe; se usa ${MODELO_RESPALDO}`);
+      res = await llamar(MODELO_RESPALDO);
+    }
     if (!res.ok) {
       const detalle = (await res.text()).slice(0, 300);
       console.error('fauna-clasificar: Gemini respondió', res.status, detalle);
