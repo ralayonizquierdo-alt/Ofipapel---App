@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#122b36" />
+<title>Guía rápida · Parte de fauna</title>
+<meta name="description" content="Cómo usar la app del parte diario de control de fauna durante la prueba." />
+<link rel="icon" type="image/svg+xml" href="icon.svg" />
+<style>
+  :root{--ink:#162c35;--soft:#5d7176;--line:#e1e9e5;--bg:#f3f6f4;--card:#fff;--brand:#122b36;--green:#156c53;--amber:#fff3c4;--amber-ink:#7a4b00;--violet:#eef0ff;--violet-ink:#3b3f9e;
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg)}
+  header{background:var(--brand);color:#fff;padding:22px 16px 20px}
+  header div{max-width:640px;margin:auto}
+  header small{display:block;color:#bad2d1;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+  header h1{margin:4px 0 0;font-size:26px;letter-spacing:-.02em}
+  main{max-width:640px;margin:auto;padding:16px 16px 48px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 18px 14px;margin-bottom:14px}
+  h2{font-size:18px;margin:0 0 10px;display:flex;align-items:center;gap:10px}
+  h2 .n{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#d6ef92;color:#244232;font-size:15px;flex:none}
+  ol,ul{margin:0;padding-left:20px;line-height:1.55}
+  li{margin-bottom:6px}
+  p{margin:0 0 8px;line-height:1.5}
+  .say{background:var(--violet);color:var(--violet-ink);border-radius:10px;padding:10px 12px;margin:8px 0 10px;font-style:italic;line-height:1.45}
+  .tag{display:inline-block;border-radius:6px;padding:1px 7px;font-size:13px;font-weight:700;white-space:nowrap}
+  .t-ok{background:var(--violet);color:var(--violet-ink)}
+  .t-falta{background:var(--amber);color:var(--amber-ink)}
+  .t-sin{background:#fde7df;color:#9a4a12}
+  .btn{display:inline-block;background:#e6f4ed;color:var(--green);font-weight:800;border-radius:8px;padding:1px 8px;white-space:nowrap}
+  .links a{display:block;background:var(--green);color:#fff;text-decoration:none;font-weight:800;text-align:center;border-radius:12px;padding:14px;margin-top:10px}
+  .links a.sec{background:#e6f4ed;color:var(--green)}
+  .warn{background:var(--amber);border-color:#f0dc9a}
+  .warn h2{color:var(--amber-ink)}
+  .muted{color:var(--soft);font-size:14px}
+</style>
+</head>
+<body>
+<header><div><small>Control de fauna · Prueba</small><h1>Guía rápida del parte</h1></div></header>
+<main>
+
+  <section class="links">
+    <a href="./">📱 Abrir la app (móvil)</a>
+    <a class="sec" href="escritorio.html">💻 Abrir la versión de ordenador</a>
+    <p class="muted" style="margin-top:12px">Consejo: añade la app a la pantalla de inicio. <b>iPhone:</b> Safari → Compartir → «Añadir a pantalla de inicio». <b>Android:</b> Chrome → ⋮ → «Añadir a pantalla de inicio».</p>
+  </section>
+
+  <section>
+    <h2><span class="n">1</span>Al empezar el turno</h2>
+    <ul>
+      <li>Revisa <b>fecha</b>, <b>halconero</b> y <b>horario</b> (se copian del día anterior).</li>
+      <li>Pon <b>climatología</b> y <b>viento</b>.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="n">2</span>Apuntar algo (lo normal)</h2>
+    <ol>
+      <li>Pulsa <span class="btn">🎙 Dictar registro</span> y cuéntalo <b>todo de una vez</b>: qué, cuántos, dónde, qué hiciste y quién avisó.</li>
+      <li>Pulsa <span class="btn">Añadir al parte</span>. <b>Ya está</b>, puedes seguir con lo tuyo.</li>
+    </ol>
+    <div class="say">«Aviso de la torre: gaviota en el exterior de la terminal, acudimos y la ahuyentamos con vuelo de rapaz.»</div>
+    <p>La app lo coloca sola en su sección y casillas en unos segundos.</p>
+    <p class="muted">Si en el iPhone el botón abre el teclado, pulsa el 🎤 del teclado y dicta. La hora se pone sola al empezar; si apuntas algo que pasó antes, cambia «Hora del hecho».</p>
+  </section>
+
+  <section>
+    <h2><span class="n">3</span>Rondas y tareas de siempre</h2>
+    <p>Elige la tarea en <b>«Actuación habitual»</b> (ronda perimetral, revisión de pista, trampas…) y pulsa <span class="btn">Añadir al parte</span>.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">4</span>Mirar la lista «Registros del día»</h2>
+    <ul>
+      <li><span class="tag t-ok">✨ Ordenado por IA</span> Comprueba que está bien. Si no, <b>Deshacer</b>.</li>
+      <li><span class="tag t-falta">Faltan: …</span> Datos que no dijiste. Complétalos con <b>✎</b> ahora o al final del turno.</li>
+      <li><span class="tag t-sin">Sin ordenar</span> No había cobertura. Se arregla solo al volver la señal (o pulsa <b>Reintentar</b>).</li>
+      <li><b>✎</b> corregir · <b>×</b> borrar.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="n">5</span>Al final del turno (ordenador)</h2>
+    <p class="muted">De momento el ordenador solo ve lo que se apunta <b>en ese mismo ordenador</b>. Para probar el envío, apunta allí unos registros.</p>
+    <ol>
+      <li>Abre la <b>versión de ordenador</b> → pestaña <b>«2 · Procesar y enviar el parte»</b>.</li>
+      <li>Si aparece <span class="btn">✨ Ordenar con IA … pendientes</span>, púlsalo.</li>
+      <li>Rellena las casillas en <span class="tag t-falta">amarillo</span>. Todo se puede editar.</li>
+      <li><span class="btn">Descargar PDF</span> o <span class="btn">Enviar por correo</span> (adjunta el PDF descargado y envía).</li>
+    </ol>
+  </section>
+
+  <section class="warn">
+    <h2>⚠ Importante en esta prueba</h2>
+    <ul>
+      <li>Los datos se guardan <b>solo en el aparato donde se apuntan</b>: lo del móvil <b>no</b> aparece todavía en el ordenador.</li>
+      <li>No uses modo incógnito ni borres los datos del navegador: se perderían los registros.</li>
+      <li>Si algo falla, avisa con: <b>qué hiciste</b>, <b>qué móvil y navegador</b> y, si puedes, <b>una captura</b>.</li>
+    </ul>
+  </section>
+
+</main>
+</body>
+</html>
