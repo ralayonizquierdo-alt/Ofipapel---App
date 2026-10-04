@@ -19,7 +19,8 @@
 // acota el abuso de la cuota gratuita, no es control de acceso.
 
 const MODELO_POR_DEFECTO = 'gemini-2.5-flash';
-const MODELO_RESPALDO = 'gemini-flash-latest';
+// Si el principal está saturado o sin cuota, se prueban estos (también gratuitos).
+const MODELOS_RESPALDO = ['gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest'];
 const MAX_TEXTO = 1500;
 
 const CORS = {
@@ -133,8 +134,12 @@ exports.handler = async (event) => {
   if (!dictado) return responder(400, { error: 'Falta el texto' });
   if (dictado.length > MAX_TEXTO) return responder(400, { error: 'Texto demasiado largo' });
 
-  const modelo = process.env.GEMINI_MODEL || MODELO_POR_DEFECTO;
-  const llamar = m => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
+  // Plan gratuito: cada modelo tiene su propia cuota y a veces Google lo da por
+  // saturado (503). Si el primero no está disponible, se prueba el siguiente,
+  // siempre dentro del tiempo que Netlify da a una función (~10 s).
+  const modelos = [...new Set([process.env.GEMINI_MODEL || MODELO_POR_DEFECTO, ...MODELOS_RESPALDO])];
+  const limite = Date.now() + 9000;
+  const llamar = (m, ms) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': clave },
     body: JSON.stringify({
@@ -142,16 +147,19 @@ exports.handler = async (event) => {
       contents: [{ role: 'user', parts: [{ text: dictado }] }],
       generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: ESQUEMA },
     }),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(ms),
   });
   try {
-    let res = await llamar(modelo);
-    // Google retira modelos con el tiempo: si el configurado ya no existe, se
-    // usa su alias «flash» más reciente en vez de dejar la función rota.
-    if (res.status === 404 && modelo !== MODELO_RESPALDO) {
-      console.error(`fauna-clasificar: el modelo ${modelo} ya no existe; se usa ${MODELO_RESPALDO}`);
-      res = await llamar(MODELO_RESPALDO);
+    let res;
+    for (const m of modelos) {
+      const quedan = limite - Date.now();
+      if (quedan < 1500) break;
+      try { res = await llamar(m, Math.min(6000, quedan)); }
+      catch (e) { console.error(`fauna-clasificar: ${m} no respondió (${e && e.name})`); continue; }
+      if (res.ok || ![404, 429, 500, 503].includes(res.status)) break;
+      console.error(`fauna-clasificar: ${m} respondió ${res.status}; se prueba el siguiente modelo`);
     }
+    if (!res) return responder(502, { error: 'La IA no ha respondido a tiempo.' });
     if (!res.ok) {
       const detalle = (await res.text()).slice(0, 300);
       console.error('fauna-clasificar: Gemini respondió', res.status, detalle);
