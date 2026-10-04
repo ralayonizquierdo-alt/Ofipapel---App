@@ -155,7 +155,12 @@ exports.handler = async (event) => {
     if (!res.ok) {
       const detalle = (await res.text()).slice(0, 300);
       console.error('fauna-clasificar: Gemini respondió', res.status, detalle);
-      return responder(502, { error: res.status === 429 ? 'Se ha agotado la cuota gratuita de la IA por ahora.' : 'La IA no ha podido clasificar el texto.' });
+      // El motivo que da Google (clave no válida, API no activada, cuota…) se
+      // devuelve para poder diagnosticar sin mirar los registros. Nunca
+      // incluye la clave.
+      let motivo = '';
+      try { motivo = String(JSON.parse(detalle).error?.message || '').slice(0, 200); } catch { /* no era JSON */ }
+      return responder(502, { error: res.status === 429 ? 'Se ha agotado la cuota gratuita de la IA por ahora.' : 'La IA no ha podido clasificar el texto.', gemini: { status: res.status, motivo } });
     }
     const datos = await res.json();
     const salida = datos?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
