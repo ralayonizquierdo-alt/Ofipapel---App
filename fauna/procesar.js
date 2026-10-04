@@ -1,5 +1,5 @@
-// Versión de escritorio: misma pantalla de registro que el móvil (app.js) más
-// la sección «Procesar y enviar el parte»: abre el parte del día con el formato
+// Pestaña «Procesar y enviar el parte» (móvil y ordenador, misma página que el
+// registro de app.js): abre el parte del día con el formato
 // de la plantilla Word, rellenado con los registros, con todas las casillas
 // editables; lo exporta a PDF y prepara el correo.
 //
@@ -84,7 +84,7 @@ let parte = null;
 function guardarBorrador() {
   const borradores = leer(BORRADOR_KEY);
   borradores[parte.fecha] = parte;
-  if (!guardar(BORRADOR_KEY, borradores)) setEstado('No se pudo guardar el borrador en este ordenador.', true);
+  if (!guardar(BORRADOR_KEY, borradores)) setEstado('No se pudo guardar el borrador en este dispositivo.', true);
 }
 function abrirParte({regenerar = false} = {}) {
   const fecha = fechaActual();
@@ -104,7 +104,7 @@ function actualizarEstado() {
   const {entradas} = datosDelDia(parte.fecha);
   const desfasado = parte.huella !== huella(parte.fecha);
   if (desfasado) setEstado(`Ojo: los registros del día han cambiado desde que se abrió este parte${parte.editado ? ' y has hecho correcciones a mano' : ''}. Pulsa «Recargar desde los registros» para incorporarlos${parte.editado ? ' (se perderán tus correcciones)' : ''}.`, true);
-  else if (parte.editado) setEstado(`Parte con correcciones a mano (última a las ${new Date(parte.editado).toTimeString().slice(0,5)}). Guardado en este ordenador.`);
+  else if (parte.editado) setEstado(`Parte con correcciones a mano (última a las ${new Date(parte.editado).toTimeString().slice(0,5)}). Guardado en este dispositivo.`);
   else setEstado(entradas.length ? `Parte rellenado con ${entradas.length} ${entradas.length === 1 ? 'registro' : 'registros'} del día. Revísalo antes de enviarlo.` : 'No hay registros para este día: el parte sale vacío. Puedes rellenarlo aquí directamente.');
 }
 function setEstado(texto, aviso = false) { const p = $('proc-status'); p.textContent = texto; p.classList.toggle('warn', aviso); }
@@ -199,6 +199,17 @@ function pintarParte() {
 }
 
 // ── PDF (A4, mismo orden y columnas que la plantilla) ──────────────────────
+// El generador (~450 KB) solo se descarga al abrir esta pestaña, no al abrir la
+// app en pista, que es donde importan los datos móviles.
+const LIBRERIAS_PDF = ['https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/5.0.8/jspdf.plugin.autotable.min.js'];
+let cargaPDF = null;
+function cargarPDF() {
+  cargaPDF ||= LIBRERIAS_PDF.reduce((previa, src) => previa.then(() => new Promise((ok, mal) => {
+    const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => mal(new Error('No se ha podido descargar el generador de PDF. Comprueba la conexión a internet.'));
+    document.head.append(s);
+  })), Promise.resolve()).catch(e => { cargaPDF = null; throw e; });
+  return cargaPDF;
+}
 function generarPDF() {
   if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('No se ha podido cargar el generador de PDF. Comprueba la conexión a internet y recarga la página.');
   const pdf = new window.jspdf.jsPDF({unit:'mm', format:'a4'});
@@ -232,9 +243,9 @@ function descargar(blob, nombre) {
   document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 function pdfBlob() { return generarPDF().output('blob'); }
-$('proc-pdf').addEventListener('click', () => {
+$('proc-pdf').addEventListener('click', async () => {
   if (!confirmarPendientes()) return;
-  try { descargar(pdfBlob(), nombrePDF()); setEstado(`PDF descargado: ${nombrePDF()}`); }
+  try { await cargarPDF(); descargar(pdfBlob(), nombrePDF()); setEstado(`PDF descargado: ${nombrePDF()}`); }
   catch (e) { setEstado(e.message, true); }
 });
 $('proc-reload').addEventListener('click', () => {
@@ -259,23 +270,24 @@ function destinatarios() {
   const malas = lista.filter(d => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d));
   return {lista, malas};
 }
-$('mail-send').addEventListener('click', () => {
+$('mail-send').addEventListener('click', async () => {
   const {lista, malas} = destinatarios();
   if (!lista.length) { $('mail-status').textContent = 'Escribe al menos una dirección de correo en «Para».'; $('mail-to').focus(); return; }
   if (malas.length) { $('mail-status').textContent = `Revisa esta dirección: ${malas.join(', ')}`; $('mail-to').focus(); return; }
   if (!confirmarPendientes()) return;
   let blob;
-  try { blob = pdfBlob(); } catch (e) { $('mail-status').textContent = e.message; return; }
+  try { await cargarPDF(); blob = pdfBlob(); } catch (e) { $('mail-status').textContent = e.message; return; }
   descargar(blob, nombrePDF());
   const url = `mailto:${lista.join(',')}?subject=${encodeURIComponent($('mail-subject').value)}&body=${encodeURIComponent($('mail-body').value)}`;
   setTimeout(() => { window.location.href = url; }, 400);
-  $('mail-status').textContent = `PDF descargado (${nombrePDF()}) y correo abierto. Adjunta el PDF desde la carpeta de descargas y pulsa enviar. Si no se abre ningún programa de correo, este ordenador no tiene uno configurado.`;
+  $('mail-status').textContent = `PDF descargado (${nombrePDF()}) y correo abierto. Adjunta el PDF desde la carpeta de descargas y pulsa enviar. Si no se abre ningún programa de correo, este dispositivo no tiene uno configurado.`;
 });
 const puedeCompartir = (() => { try { return !!(navigator.canShare && navigator.canShare({files:[new File([''], 'x.pdf', {type:'application/pdf'})]})); } catch { return false; } })();
 $('mail-share').hidden = !puedeCompartir;
 $('mail-share').addEventListener('click', async () => {
   try {
     if (!confirmarPendientes()) return;
+    await cargarPDF();
     const file = new File([pdfBlob()], nombrePDF(), {type:'application/pdf'});
     await navigator.share({files:[file], title:$('mail-subject').value, text:$('mail-body').value});
     $('mail-status').textContent = 'PDF compartido. Comprueba en tu correo que el destinatario es el correcto antes de enviar.';
@@ -312,7 +324,7 @@ function mostrarVista() {
   $('view-procesar').hidden = !procesar;
   $('tab-registro').classList.toggle('active', !procesar);
   $('tab-procesar').classList.toggle('active', procesar);
-  if (procesar) abrirParte();
+  if (procesar) { abrirParte(); cargarPDF().catch(() => {}); }
 }
 window.addEventListener('hashchange', mostrarVista);
 $('report-date').addEventListener('change', () => { if (location.hash === '#procesar') abrirParte(); });

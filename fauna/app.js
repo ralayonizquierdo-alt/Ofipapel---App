@@ -287,7 +287,7 @@ if (!Recognition) $('voice-note').textContent = 'En este navegador se dicta con 
 //   - En segundo plano (lo normal): el agente guarda el dictado al momento y
 //     sigue trabajando; la IA ordena el registro guardado un par de segundos
 //     después. Si no hay cobertura o falla, queda «Sin ordenar» y se reintenta
-//     al volver la conexión, al abrir la app o desde el ordenador.
+//     al volver la conexión, al abrir la app o desde la pestaña «Procesar».
 //   - Con el botón del formulario, para verlo ordenado antes de guardar.
 // Lo que la IA no detecta queda en blanco y marcado «Faltan: …».
 const CLASSIFY_URL = '/.netlify/functions/fauna-clasificar';
@@ -384,7 +384,7 @@ async function classify() {
     $('entry-text').value = data.text || dictated;
     if (data.time) { $('entry-time').value = data.time; timeMode = 'manual'; renderTimeNote(); }
     const pending = markPending();
-    aiNote(`Ordenado como «${labels[data.kind] || data.kind}». ${pending === 1 ? '1 casilla ha quedado en blanco (en amarillo): complétala ahora o más tarde en el ordenador. ' : pending ? `${pending} casillas han quedado en blanco (en amarillo): complétalas ahora o más tarde en el ordenador. ` : ''}Revisa y pulsa «Añadir al parte».`, true);
+    aiNote(`Ordenado como «${labels[data.kind] || data.kind}». ${pending === 1 ? '1 casilla ha quedado en blanco (en amarillo): complétala ahora o al procesar el parte. ' : pending ? `${pending} casillas han quedado en blanco (en amarillo): complétalas ahora o al procesar el parte. ` : ''}Revisa y pulsa «Añadir al parte».`, true);
   } catch {
     if (run === classifyRun) aiNote('Sin conexión con la IA. Puedes completar las casillas a mano.');
   } finally {
