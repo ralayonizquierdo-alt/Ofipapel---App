@@ -92,7 +92,20 @@ Reglas:
 - "details": rellena solo las casillas de la sección elegida; el resto, vacías.
 - En las casillas con lista, usa EXACTAMENTE uno de los valores dados o "".
 - "time": solo si el agente dice una hora ("a las diez y cuarto" → "10:15"); si no, "".
-- Si hay duda entre secciones: un aviso de otra persona/dependencia es "aviso"; un animal muerto es "retirada"; un golpe con un avión es "impacto"; animales vivos vistos es "fauna"; lo demás, "actuacion".`;
+- Si hay duda entre secciones: un aviso de otra persona/dependencia es "aviso"; un animal muerto es "retirada"; un golpe con un avión es "impacto"; animales vivos vistos es "fauna"; lo demás, "actuacion".
+
+MUY IMPORTANTE — no deduzcas, solo transcribe lo dicho:
+- "altitude": solo si se dice una altura o rango ("a unos 50 metros" → "20-100"). Un animal posado o "volando" sin altura → "".
+- "threat": solo si se dice expresamente si coincide o no con operaciones o si es un riesgo. Si no se dice → "".
+- "severity": las palabras que use el agente ("sin daños", "daños en el motor"…). Nunca pongas una valoración tuya como "Leve".
+- "action": si se describe la actuación, elige el código que corresponde ("vigilancia" → VI; "vuelo con rapaz", "vuelo con el halcón" → V; "vuelos de caza" sin captura → V.Z; "vuelos de caza" con captura → V.Z.C; "pirotecnia", "petardos" → P.I; "perro" → P; "sonidos", "cañón" → S). Si no se describe → "".
+- Lugares: "sobre/en la cabecera 07" es la procedencia (dónde está): escríbela como "Cab.07"; las cabeceras se escriben "Cab.07", "Cab.25"; pistas "Pista 03"; calles de rodaje "TWY B" si se dice la letra.
+- Lo que se diga y no tenga casilla propia (p. ej. "sin novedad", "sin captura") va en "observations" de forma breve.
+
+Ejemplos:
+«doce gaviotas volando sobre la cabecera cero siete hacia el mar no coinciden con operaciones se hace vigilancia» → kind "fauna", text "Grupo de gaviotas volando sobre Cab.07", species "Gaviota", count "12", behavior "Volando", origin "Cab.07", destination "Mar", action "VI – Vigilancia", threat "No", altitude "".
+«dos milanos posados en la valla cerca del helipuerto vuelos de caza con el halcón sin captura» → kind "fauna", species "Milano", count "2", behavior "Posados", origin "Valla perimetral, junto al helipuerto", action "V.Z – Vuelos de caza", observations "Sin captura", altitude "", threat "".
+«el piloto informa de impacto con un cernícalo en pista cero tres sin daños matrícula EI DCL» → kind "impacto", species "Cernícalo", location "Pista 03", aircraft "EI-DCL", severity "Sin daños", observations "Informa el piloto".`;
 
 const peticionesPorIp = new Map();
 function limitado(ip) {
