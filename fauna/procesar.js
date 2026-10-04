@@ -179,12 +179,13 @@ function pintarParte() {
     if (s.titulo) { const h = document.createElement('div'); h.className = 'pd-titulo'; h.textContent = s.titulo; bloque.append(h); }
     const scroll = document.createElement('div'); scroll.className = 'pd-scroll';
     const tabla = document.createElement('table'); tabla.className = `pd-tabla pd-${s.key}`;
-    // La última columna (botones para mover y quitar filas) solo existe en pantalla:
-    // el PDF se genera desde parte.filas y no la ve.
-    const cg = document.createElement('colgroup'); for (const a of s.anchos) { const col = document.createElement('col'); col.style.width = (a * 0.93) + '%'; cg.append(col); }
-    const colCtrl = document.createElement('col'); colCtrl.style.width = '7%'; cg.append(colCtrl); tabla.append(cg);
+    // La última columna (botón para quitar la fila) solo existe en pantalla: el
+    // PDF se genera desde parte.filas y no la ve.
+    const cg = document.createElement('colgroup'); for (const a of s.anchos) { const col = document.createElement('col'); col.style.width = (a * 0.95) + '%'; cg.append(col); }
+    const colCtrl = document.createElement('col'); colCtrl.style.width = '5%'; cg.append(colCtrl); tabla.append(cg);
     const th = tabla.createTHead().insertRow(); for (const nombre of s.cols) { const h = document.createElement('th'); h.textContent = nombre; th.append(h); }
-    const thCtrl = document.createElement('th'); thCtrl.className = 'pd-ctrl'; thCtrl.setAttribute('aria-label', 'Mover o quitar fila'); th.append(thCtrl);
+    const thCtrl = document.createElement('th'); thCtrl.className = 'pd-ctrl'; thCtrl.setAttribute('aria-label', 'Quitar fila'); th.append(thCtrl);
+    const colHora = s.cols.indexOf('HORA');
     const cuerpo = tabla.createTBody();
     const filas = parte.filas[s.key];
     filas.forEach((fila, i) => {
@@ -192,25 +193,20 @@ function pintarParte() {
       fila.forEach((valor, j) => {
         const t = casilla(valor, v => { parte.filas[s.key][i][j] = v; marcarEditado(); }, `${s.titulo || 'Cronología'}, fila ${i + 1}, ${s.cols[j]}`);
         Object.assign(t.dataset, {sec:s.key, fila:i, col:j});
+        // Al terminar de cambiar una hora (al salir de la casilla), la fila se
+        // recoloca sola en su sitio.
+        // setTimeout: se espera a que el foco haya pasado a la casilla que se tocó.
+        if (j === colHora) t.addEventListener('change', () => setTimeout(() => ordenarPorHora(s), 0));
         tr.insertCell().append(t);
       });
       const ctrl = tr.insertCell(); ctrl.className = 'pd-ctrl';
-      ctrl.append(
-        botonFila('↑', `Subir fila ${i + 1}`, i === 0, () => moverFila(s, i, -1)),
-        botonFila('↓', `Bajar fila ${i + 1}`, i === filas.length - 1, () => moverFila(s, i, 1)),
-        botonFila('×', `Quitar fila ${i + 1}`, false, () => quitarFila(s, i)),
-      );
+      ctrl.append(botonFila('×', `Quitar fila ${i + 1}`, () => quitarFila(s, i)));
     });
     scroll.append(tabla); bloque.append(scroll);
     const herramientas = document.createElement('div'); herramientas.className = 'pd-herramientas';
     const mas = document.createElement('button'); mas.type = 'button'; mas.className = 'pd-mas'; mas.textContent = '+ Añadir fila';
     mas.addEventListener('click', () => { parte.filas[s.key].push(s.cols.map(() => '')); marcarEditado(); pintarParte(); });
     herramientas.append(mas);
-    if (s.cols.includes('HORA')) {
-      const ordenar = document.createElement('button'); ordenar.type = 'button'; ordenar.className = 'pd-mas'; ordenar.textContent = '⇅ Ordenar por hora';
-      ordenar.addEventListener('click', () => ordenarPorHora(s));
-      herramientas.append(ordenar);
-    }
     bloque.append(herramientas);
     if (s.leyenda) { const l = document.createElement('div'); l.className = 'pd-leyenda'; l.textContent = s.leyenda; bloque.append(l); }
     doc.append(bloque);
@@ -219,27 +215,14 @@ function pintarParte() {
   requestAnimationFrame(ajustarAltos);
 }
 
-// ── Mover, quitar y ordenar filas ──────────────────────────────────────────
-// Botones y no arrastrar: en el móvil, arrastrar una fila se confunde con
-// desplazar la página.
-function botonFila(texto, etiqueta, desactivado, accion) {
+// ── Quitar filas y recolocarlas por hora ───────────────────────────────────
+function botonFila(texto, etiqueta, accion) {
   const b = document.createElement('button'); b.type = 'button'; b.className = 'pd-btn'; b.textContent = texto;
-  b.title = etiqueta; b.setAttribute('aria-label', etiqueta); b.disabled = desactivado;
+  b.title = etiqueta; b.setAttribute('aria-label', etiqueta);
   b.addEventListener('click', accion);
   return b;
 }
 function tieneDatos(fila) { return fila.some(v => String(v).trim()); }
-function repintarConservando(selector) {
-  pintarParte();
-  if (selector) requestAnimationFrame(() => $('parte').querySelector(selector)?.focus());
-}
-function moverFila(s, i, delta) {
-  const filas = parte.filas[s.key], j = i + delta;
-  if (j < 0 || j >= filas.length) return;
-  [filas[i], filas[j]] = [filas[j], filas[i]];
-  marcarEditado();
-  repintarConservando(`.pd-${s.key} tbody tr:nth-child(${j + 1}) .pd-btn:nth-child(${delta < 0 ? 1 : 2})`);
-}
 function quitarFila(s, i) {
   const filas = parte.filas[s.key];
   if (tieneDatos(filas[i]) && !confirm('¿Quitar esta fila del parte? Sus datos se borrarán del parte (no de los registros del día).')) return;
@@ -247,7 +230,7 @@ function quitarFila(s, i) {
   pintarParte(); // primero redibujar: las casillas viejas apuntan a filas que ya no existen
   marcarEditado();
 }
-// Hora válida → minutos desde las 00:00; admite «9:05», «09.05» o «0905».
+// Hora válida → minutos desde las 00:00; admite «9:05», «09.05», «9h05» o «0905».
 function minutos(hora) {
   const m = String(hora || '').trim().match(/^(\d{1,2})[:.h]?(\d{2})$/);
   return m && +m[1] < 24 && +m[2] < 60 ? +m[1] * 60 + +m[2] : null;
@@ -255,13 +238,27 @@ function minutos(hora) {
 function ordenarPorHora(s) {
   const col = s.cols.indexOf('HORA');
   const filas = parte.filas[s.key];
+  // Si el cursor ya está en otra casilla, se le devuelve allí tras recolocar.
+  const activa = document.activeElement?.dataset?.sec ? document.activeElement : null;
+  const filaActiva = activa && parte.filas[activa.dataset.sec][+activa.dataset.fila];
   const conHora = [], sinHora = [], vacias = [];
   for (const f of filas) (!tieneDatos(f) ? vacias : minutos(f[col]) === null ? sinHora : conHora).push(f);
   conHora.sort((a, b) => minutos(a[col]) - minutos(b[col])); // sort es estable: a igual hora, se respeta el orden
-  for (const f of conHora) { const m = minutos(f[col]); f[col] = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
-  parte.filas[s.key] = [...conHora, ...sinHora, ...vacias];
-  marcarEditado();
+  let formatoCambiado = false;
+  for (const f of conHora) {
+    const m = minutos(f[col]), bonita = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    if (f[col] !== bonita) { f[col] = bonita; formatoCambiado = true; }
+  }
+  const nuevas = [...conHora, ...sinHora, ...vacias];
+  // Si nada se mueve ni cambia de formato, no se redibuja (no se pierde el cursor).
+  if (!formatoCambiado && nuevas.every((f, i) => f === filas[i])) return;
+  parte.filas[s.key] = nuevas;
   pintarParte();
+  marcarEditado();
+  if (activa) {
+    const nueva = parte.filas[activa.dataset.sec].indexOf(filaActiva);
+    $('parte').querySelector(`textarea[data-sec="${activa.dataset.sec}"][data-fila="${nueva}"][data-col="${activa.dataset.col}"]`)?.focus();
+  }
   if (sinHora.length) setEstado(`${sinHora.length} ${sinHora.length === 1 ? 'fila no tiene' : 'filas no tienen'} una hora válida (formato 09:30) y ${sinHora.length === 1 ? 'se ha dejado' : 'se han dejado'} detrás de las demás.`, true);
 }
 

@@ -61,18 +61,17 @@
   .envio-actions .button{width:100%}
 }
 
-/* Mover / quitar filas (solo en pantalla, no salen en el PDF) */
+/* Quitar filas (solo en pantalla, no sale en el PDF) */
 .parte-doc .pd-ctrl{border:0;border-left:1px solid #111;background:#f6f8f7;padding:2px;vertical-align:middle;text-align:center}
 .parte-doc thead .pd-ctrl{background:#f6f8f7}
 .pd-btn{display:block;width:100%;min-height:26px;border:0;background:none;color:#156c53;font:700 15px/1 system-ui,sans-serif;cursor:pointer;border-radius:6px}
-.pd-btn:hover:not(:disabled),.pd-btn:focus-visible{background:#e6f4ed;outline:none}
-.pd-btn:disabled{color:#c5cfcb;cursor:default}
-.pd-btn:last-child{color:#a2463a}
+.pd-btn{color:#a2463a}
+.pd-btn:hover,.pd-btn:focus-visible{background:#fde7df;outline:none}
 .pd-herramientas{display:flex;gap:18px;flex-wrap:wrap}
 @media(max-width:560px){.pd-btn{min-height:32px;font-size:17px}}
 .pd-vacia .pd-btn{display:none}
 /* Móvil: cada tabla con un ancho mínimo legible (la hora no se parte) y
    desplazamiento lateral dentro de la propia tabla, no de la página. */
 @media(max-width:560px){.pd-tabla{min-width:600px}.pd-fauna{min-width:900px}}
-/* Los botones quedan pegados al borde derecho visible aunque la tabla se desplace de lado */
+/* El botón queda pegado al borde derecho visible aunque la tabla se desplace de lado */
 .parte-doc .pd-ctrl{position:sticky;right:0;z-index:1;box-shadow:-4px 0 6px -4px #0003}
