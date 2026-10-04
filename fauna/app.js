@@ -73,6 +73,25 @@ function tick() {
 
 // ── Lista del día ───────────────────────────────────────────────────────
 let editingId = null;
+// Casillas que deben ir rellenas en el parte final (observaciones y viento no:
+// en los partes reales casi siempre van vacías). Lo que falte se señala para
+// completarlo antes de enviar.
+const requiredFields = {actuacion:[], fauna:['species','count','behavior','altitude','origin','destination','action','threat'], captura:['species','method','count','location','destination'], retirada:['species','count','location','impact'], impacto:['species','location','aircraft','severity'], aviso:['direction','source','response']};
+function missingFields(entry) {
+  const titles = Object.fromEntries((detailFields[entry.kind] || []).map(([key,title]) => [key,title]));
+  return (requiredFields[entry.kind] || []).filter(key => !entry.details?.[key]).map(key => titles[key] || key);
+}
+function markPending() {
+  const required = requiredFields[$('entry-kind').value] || [];
+  let count = 0;
+  for (const input of $('detail-fields').querySelectorAll('[data-key]')) {
+    const pending = required.includes(input.dataset.key) && !input.value.trim();
+    input.classList.toggle('pendiente', pending); if (pending) count++;
+  }
+  return count;
+}
+$('detail-fields').addEventListener('input', event => { if (event.target.value.trim()) event.target.classList.remove('pendiente'); });
+$('detail-fields').addEventListener('change', event => { if (event.target.value.trim()) event.target.classList.remove('pendiente'); });
 function detailSummary(entry) {
   const definitions = detailFields[entry.kind] || [];
   return definitions.map(([key,title]) => entry.details?.[key] ? `${title}: ${entry.details[key]}` : '').filter(Boolean).join(' · ');
@@ -91,6 +110,8 @@ function renderEntries() {
     body.append(kind,description);
     const summary = detailSummary(entry);
     if (summary) { const extra = document.createElement('p'); extra.className = 'entry-details'; extra.textContent = summary; body.append(extra); }
+    const missing = missingFields(entry);
+    if (missing.length) { const warn = document.createElement('p'); warn.className = 'entry-missing'; warn.textContent = `Faltan: ${missing.join(', ')}`; body.append(warn); }
     const actions = document.createElement('div'); actions.className = 'entry-actions';
     const edit = document.createElement('button'); edit.type = 'button'; edit.title = 'Editar registro'; edit.setAttribute('aria-label','Editar registro de las ' + entry.time); edit.textContent = '✎';
     edit.addEventListener('click', () => beginEdit(entry));
@@ -226,8 +247,6 @@ if (Recognition) {
     if (!voiceTarget.isConnected) voiceTarget = $('entry-text');
     voiceTarget.value = [voiceTarget.value.trim(),text].filter(Boolean).join(' ');
     $('voice-note').textContent = 'Transcripción añadida al campo seleccionado. Revísala antes de guardar.';
-    // Dictado en la descripción de un registro nuevo: se ordena solo con la IA.
-    if (voiceTarget === $('entry-text') && !editingId) classify();
   };
   recognition.onerror = event => {
     stopListening();
@@ -252,6 +271,7 @@ $('voice-button').addEventListener('click', () => {
 if (!Recognition) $('voice-note').textContent = 'En este navegador se dicta con el micrófono del teclado.';
 
 // ── Ordenar con IA ──────────────────────────────────────────────────────
+// Solo al pulsar el botón: el dictado siempre queda tal cual, como antes.
 // Manda el texto dictado (nunca audio) a la función fauna-clasificar, que
 // devuelve sección, casillas y, si se dijo, la hora. Solo RELLENA el
 // formulario: el agente revisa y pulsa «Añadir al parte» como siempre. Si la
@@ -287,7 +307,8 @@ async function classify() {
     $('entry-kind').value = data.kind; updatePresets(data.details || {});
     $('entry-text').value = data.text || dictated;
     if (data.time) { $('entry-time').value = data.time; timeMode = 'manual'; renderTimeNote(); }
-    aiNote(`Ordenado como «${labels[data.kind] || data.kind}». Revisa las casillas y pulsa «Añadir al parte».`, true);
+    const pending = markPending();
+    aiNote(`Ordenado como «${labels[data.kind] || data.kind}». ${pending === 1 ? '1 casilla ha quedado en blanco (en amarillo): complétala ahora o más tarde en el ordenador. ' : pending ? `${pending} casillas han quedado en blanco (en amarillo): complétalas ahora o más tarde en el ordenador. ` : ''}Revisa y pulsa «Añadir al parte».`, true);
   } catch {
     if (run === classifyRun) aiNote('Sin conexión con la IA. Puedes completar las casillas a mano.');
   } finally {

@@ -107,7 +107,37 @@ function actualizarEstado() {
   else setEstado(entradas.length ? `Parte rellenado con ${entradas.length} ${entradas.length === 1 ? 'registro' : 'registros'} del día. Revísalo antes de enviarlo.` : 'No hay registros para este día: el parte sale vacío. Puedes rellenarlo aquí directamente.');
 }
 function setEstado(texto, aviso = false) { const p = $('proc-status'); p.textContent = texto; p.classList.toggle('warn', aviso); }
-function marcarEditado() { parte.editado = Date.now(); guardarBorrador(); actualizarEstado(); }
+function marcarEditado() { parte.editado = Date.now(); guardarBorrador(); actualizarEstado(); marcarPendientes(); }
+
+// ── Casillas pendientes ────────────────────────────────────────────────────
+// En cada fila con algún dato, las casillas vacías se señalan para completarlas
+// antes de enviar; las filas vacías de relleno de la plantilla no cuentan.
+// Observaciones y el viento de la cronología no son obligatorias: en los partes
+// reales casi siempre van vacías.
+function opcional(s, j) { return s.cols[j] === 'OBSERVACIONES' || (s.key === 'crono' && j === 1); }
+function contarPendientes() {
+  let n = ['fecha','halconero','clima','horario'].filter(k => !String(parte.cabecera[k] || '').trim()).length;
+  for (const s of SECCIONES) for (const fila of parte.filas[s.key]) {
+    if (!fila.some(v => String(v).trim())) continue;
+    n += fila.filter((v, j) => !opcional(s, j) && !String(v).trim()).length;
+  }
+  return n;
+}
+function marcarPendientes() {
+  for (const t of $('parte').querySelectorAll('textarea[data-sec]')) {
+    const s = SECCIONES.find(x => x.key === t.dataset.sec), fila = parte.filas[s.key][+t.dataset.fila], j = +t.dataset.col;
+    t.classList.toggle('pendiente', fila.some(v => String(v).trim()) && !opcional(s, j) && !t.value.trim());
+  }
+  for (const t of $('parte').querySelectorAll('textarea[data-cab]')) t.classList.toggle('pendiente', ['fecha','halconero','clima','horario'].includes(t.dataset.cab) && !t.value.trim());
+  const n = contarPendientes(), p = $('proc-pendientes');
+  p.textContent = n ? `⚠ Quedan ${n} ${n === 1 ? 'casilla' : 'casillas'} por completar, marcadas en amarillo.` : '✓ No queda ninguna casilla obligatoria por completar.';
+  p.classList.toggle('ok', !n);
+  return n;
+}
+function confirmarPendientes() {
+  const n = contarPendientes();
+  return !n || confirm(`Quedan ${n} ${n === 1 ? 'casilla' : 'casillas'} por completar (marcadas en amarillo). ¿Generar el PDF igualmente?`);
+}
 
 // ── Editor: réplica de la plantilla con casillas editables ─────────────────
 function autoAlto(t) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }
@@ -130,7 +160,8 @@ function pintarParte() {
     const td = fila.insertCell(); td.colSpan = colSpan; if (fuerte) td.className = 'fuerte';
     const wrap = document.createElement('div'); wrap.className = 'pd-campo';
     if (prefijo) { const b = document.createElement('span'); b.textContent = prefijo; wrap.append(b); }
-    wrap.append(casilla(c[campo], v => { c[campo] = v; marcarEditado(); }, prefijo || campo));
+    const t = casilla(c[campo], v => { c[campo] = v; marcarEditado(); }, prefijo || campo); t.dataset.cab = campo;
+    wrap.append(t);
     td.append(wrap);
   };
   celda(fila1, '', 'empresa', 1, true);
@@ -149,7 +180,11 @@ function pintarParte() {
     const cuerpo = tabla.createTBody();
     parte.filas[s.key].forEach((fila, i) => {
       const tr = cuerpo.insertRow();
-      fila.forEach((valor, j) => tr.insertCell().append(casilla(valor, v => { parte.filas[s.key][i][j] = v; marcarEditado(); }, `${s.titulo || 'Cronología'}, fila ${i + 1}, ${s.cols[j]}`)));
+      fila.forEach((valor, j) => {
+        const t = casilla(valor, v => { parte.filas[s.key][i][j] = v; marcarEditado(); }, `${s.titulo || 'Cronología'}, fila ${i + 1}, ${s.cols[j]}`);
+        Object.assign(t.dataset, {sec:s.key, fila:i, col:j});
+        tr.insertCell().append(t);
+      });
     });
     scroll.append(tabla); bloque.append(scroll);
     const mas = document.createElement('button'); mas.type = 'button'; mas.className = 'pd-mas'; mas.textContent = '+ Añadir fila';
@@ -158,6 +193,7 @@ function pintarParte() {
     if (s.leyenda) { const l = document.createElement('div'); l.className = 'pd-leyenda'; l.textContent = s.leyenda; bloque.append(l); }
     doc.append(bloque);
   }
+  marcarPendientes();
   requestAnimationFrame(ajustarAltos);
 }
 
@@ -196,6 +232,7 @@ function descargar(blob, nombre) {
 }
 function pdfBlob() { return generarPDF().output('blob'); }
 $('proc-pdf').addEventListener('click', () => {
+  if (!confirmarPendientes()) return;
   try { descargar(pdfBlob(), nombrePDF()); setEstado(`PDF descargado: ${nombrePDF()}`); }
   catch (e) { setEstado(e.message, true); }
 });
@@ -225,6 +262,7 @@ $('mail-send').addEventListener('click', () => {
   const {lista, malas} = destinatarios();
   if (!lista.length) { $('mail-status').textContent = 'Escribe al menos una dirección de correo en «Para».'; $('mail-to').focus(); return; }
   if (malas.length) { $('mail-status').textContent = `Revisa esta dirección: ${malas.join(', ')}`; $('mail-to').focus(); return; }
+  if (!confirmarPendientes()) return;
   let blob;
   try { blob = pdfBlob(); } catch (e) { $('mail-status').textContent = e.message; return; }
   descargar(blob, nombrePDF());
@@ -236,6 +274,7 @@ const puedeCompartir = (() => { try { return !!(navigator.canShare && navigator.
 $('mail-share').hidden = !puedeCompartir;
 $('mail-share').addEventListener('click', async () => {
   try {
+    if (!confirmarPendientes()) return;
     const file = new File([pdfBlob()], nombrePDF(), {type:'application/pdf'});
     await navigator.share({files:[file], title:$('mail-subject').value, text:$('mail-body').value});
     $('mail-status').textContent = 'PDF compartido. Comprueba en tu correo que el destinatario es el correcto antes de enviar.';
