@@ -29,3 +29,6 @@
 /* Casillas por completar */
 .detail-grid .pendiente{background:#fff3c4;border-color:#e2b04a;box-shadow:0 0 0 2px #e2b04a40}
 .entry-missing{margin-top:4px!important;color:#9a4a12;font-size:12px!important;font-weight:700}
+.entry-ai{margin-top:4px!important;font-size:12px!important;color:#5a5f9e}
+.entry-ai.ai-error{color:#9a4a12;font-weight:700}
+.entry-ai .link-button{font-size:12px}

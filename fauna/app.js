@@ -111,7 +111,8 @@ function renderEntries() {
     const summary = detailSummary(entry);
     if (summary) { const extra = document.createElement('p'); extra.className = 'entry-details'; extra.textContent = summary; body.append(extra); }
     const missing = missingFields(entry);
-    if (missing.length) { const warn = document.createElement('p'); warn.className = 'entry-missing'; warn.textContent = `Faltan: ${missing.join(', ')}`; body.append(warn); }
+    if (missing.length && !['pendiente','ordenando','error'].includes(entry.ai)) { const warn = document.createElement('p'); warn.className = 'entry-missing'; warn.textContent = `Faltan: ${missing.join(', ')}`; body.append(warn); }
+    if (entry.ai) body.append(aiStatus(entry));
     const actions = document.createElement('div'); actions.className = 'entry-actions';
     const edit = document.createElement('button'); edit.type = 'button'; edit.title = 'Editar registro'; edit.setAttribute('aria-label','Editar registro de las ' + entry.time); edit.textContent = '✎';
     edit.addEventListener('click', () => beginEdit(entry));
@@ -181,7 +182,7 @@ $('entry-kind').addEventListener('change', () => { const selectedPreset = $('ent
 $('entry-preset').addEventListener('change', () => { if ($('entry-preset').value) $('entry-text').value = $('entry-preset').value; $('entry-text').focus(); });
 
 function clearComposer() {
-  classifyRun++; undoSnapshot = null; // descarta una clasificación que aún no haya llegado
+  classifyRun++; undoSnapshot = null; composerOrdered = false; // descarta una clasificación que aún no haya llegado
   if ($('classify-button')) { $('classify-button').disabled = false; $('classify-button').textContent = '✨ Ordenar con IA'; }
   // Si se guarda con el dictado abierto, que no siga escribiendo en el registro siguiente.
   if (recognition && $('voice-button').classList.contains('listening')) { try { recognition.abort(); } catch { /* ya parado */ } stopListening(); }
@@ -218,11 +219,21 @@ $('save-entry').addEventListener('click', () => {
   const time = $('entry-time').value || now();
   state.reports[dateInput.value] ||= [];
   const existing = editingId && state.reports[dateInput.value].find(item => item.id === editingId);
-  if (existing) Object.assign(existing, {time,kind,text:value,details,edited:Date.now()});
-  else state.reports[dateInput.value].push({id:newId(),created:Date.now(),time,kind,text:value,details});
+  // Texto libre = no se eligió actuación habitual, no se ordenó ya en el
+  // formulario y no hay ninguna casilla rellena («Recibido» es solo el valor
+  // por defecto del desplegable de avisos). Eso es lo que ordena la IA.
+  const freeText = !composerOrdered && !$('entry-preset').value && !Object.entries(details).some(([key,v]) => v && key !== 'direction');
+  const aiFields = freeText ? {ai:'pendiente', seccion: kind === 'actuacion' ? '' : kind, dictado:value} : {};
+  if (existing) {
+    const keepAi = existing.ai === 'ordenado' ? {ai:'ordenado'} : aiFields;
+    delete existing.ai; delete existing.seccion;
+    Object.assign(existing, {time,kind,text:value,details,edited:Date.now()}, keepAi);
+  }
+  else state.reports[dateInput.value].push({id:newId(),created:Date.now(),time,kind,text:value,details,...aiFields});
   save();
-  $('voice-note').textContent = existing ? 'Registro actualizado.' : `Registro añadido a las ${time}. Solo se ha guardado el texto.`;
+  $('voice-note').textContent = existing ? 'Registro actualizado.' : `Registro añadido a las ${time}.${freeText ? ' La IA lo ordena ahora en segundo plano; puedes seguir con el siguiente.' : ''}`;
   clearComposer(); renderEntries();
+  if (freeText) orderPending();
 });
 function newId() { return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
@@ -271,14 +282,78 @@ $('voice-button').addEventListener('click', () => {
 if (!Recognition) $('voice-note').textContent = 'En este navegador se dicta con el micrófono del teclado.';
 
 // ── Ordenar con IA ──────────────────────────────────────────────────────
-// Solo al pulsar el botón: el dictado siempre queda tal cual, como antes.
-// Manda el texto dictado (nunca audio) a la función fauna-clasificar, que
-// devuelve sección, casillas y, si se dijo, la hora. Solo RELLENA el
-// formulario: el agente revisa y pulsa «Añadir al parte» como siempre. Si la
-// IA no está configurada, no hay cobertura o falla, todo queda como estaba.
+// La IA recibe el texto ya transcrito (nunca audio) y devuelve sección,
+// casillas y, si se dijo, la hora. Dos formas de usarla:
+//   - En segundo plano (lo normal): el agente guarda el dictado al momento y
+//     sigue trabajando; la IA ordena el registro guardado un par de segundos
+//     después. Si no hay cobertura o falla, queda «Sin ordenar» y se reintenta
+//     al volver la conexión, al abrir la app o desde el ordenador.
+//   - Con el botón del formulario, para verlo ordenado antes de guardar.
+// Lo que la IA no detecta queda en blanco y marcado «Faltan: …».
 const CLASSIFY_URL = '/.netlify/functions/fauna-clasificar';
 let classifyRun = 0;
 let undoSnapshot = null;
+let composerOrdered = false;
+async function requestOrdering(texto, seccion) {
+  const res = await fetch(CLASSIFY_URL, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({texto, seccion: seccion || undefined}), signal: AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined});
+  const data = await res.json().catch(() => ({}));
+  return {ok: res.ok, status: res.status, data};
+}
+
+// Registros guardados como texto libre → ordenados por la IA, uno tras otro.
+let ordering = false;
+function findEntry(id) {
+  for (const [date, list] of Object.entries(state.reports)) { const entry = list.find(item => item.id === id); if (entry) return {date, entry}; }
+  return {};
+}
+function notifyChange() { save(); renderEntries(); window.dispatchEvent(new Event('fauna-registros')); }
+async function orderPending({retryErrors = false} = {}) {
+  if (ordering) return;
+  ordering = true;
+  try {
+    // La cola se revisa en cada vuelta: lo que se guarde mientras la IA trabaja
+    // también entra. `tried` evita repetir en esta pasada uno que acaba de fallar.
+    const tried = new Set();
+    for (;;) {
+      let entry = Object.values(state.reports).flat().find(e => !tried.has(e.id) && e.id !== editingId && (e.ai === 'pendiente' || (retryErrors && e.ai === 'error')));
+      if (!entry) break;
+      const id = entry.id; tried.add(id);
+      entry.ai = 'ordenando'; notifyChange();
+      let result;
+      try { result = await requestOrdering(entry.dictado || entry.text, entry.seccion); }
+      catch { result = {ok:false, status:0, data:{}}; }
+      ({entry} = findEntry(id));
+      if (!entry) continue; // borrado mientras tanto
+      if (entry.id === editingId) { entry.ai = 'pendiente'; notifyChange(); continue; }
+      if (result.ok && result.data.kind) {
+        const {data} = result;
+        entry.dictado ||= entry.text;
+        Object.assign(entry, {kind:data.kind, text:data.text || entry.dictado, details:data.details || {}, ai:'ordenado'});
+        if (data.time && data.time !== entry.time) { entry.horaGuardada = entry.time; entry.time = data.time; }
+        notifyChange();
+      } else {
+        entry.ai = 'error'; entry.aiError = result.status === 0 ? 'sin conexión' : (result.data.error || 'la IA no respondió');
+        notifyChange();
+        // Sin conexión o IA no configurada: no tiene sentido seguir con el resto ahora.
+        if (result.status === 0 || result.status === 503) break;
+      }
+    }
+  } finally { ordering = false; }
+}
+function aiStatus(entry) {
+  const p = document.createElement('p'); p.className = 'entry-ai ai-' + entry.ai;
+  const link = (text, onClick) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'link-button'; b.textContent = text; b.addEventListener('click', onClick); return b; };
+  if (entry.ai === 'ordenando') p.textContent = '⏳ Ordenando con IA…';
+  else if (entry.ai === 'pendiente') p.textContent = '⏳ Pendiente de ordenar con IA';
+  else if (entry.ai === 'error') p.append(`Sin ordenar (${entry.aiError || 'la IA no respondió'}). `, link('Reintentar', () => { entry.ai = 'pendiente'; notifyChange(); orderPending(); }));
+  else if (entry.ai === 'ordenado') p.append('✨ Ordenado por IA · ', link('Deshacer', () => {
+    // Vuelve al texto tal como se dictó, en la sección que eligió el agente.
+    Object.assign(entry, {text: entry.dictado || entry.text, kind: entry.seccion || 'actuacion', details: {}, time: entry.horaGuardada || entry.time});
+    delete entry.ai; delete entry.dictado; delete entry.seccion; delete entry.aiError; delete entry.horaGuardada;
+    notifyChange();
+  }));
+  return p;
+}
 function snapshot() { return {kind:$('entry-kind').value, text:$('entry-text').value, details:collectDetails(), time:$('entry-time').value, timeMode}; }
 function restore(snap) {
   $('entry-kind').value = snap.kind; updatePresets(snap.details);
@@ -288,7 +363,7 @@ function aiNote(message, withUndo) {
   const note = $('voice-note'); note.replaceChildren(message);
   if (withUndo && undoSnapshot) {
     const undo = document.createElement('button'); undo.type = 'button'; undo.className = 'link-button'; undo.textContent = 'Deshacer';
-    undo.addEventListener('click', () => { restore(undoSnapshot); undoSnapshot = null; aiNote('Se ha recuperado el texto dictado tal cual.'); });
+    undo.addEventListener('click', () => { restore(undoSnapshot); undoSnapshot = null; composerOrdered = false; aiNote('Se ha recuperado el texto dictado tal cual.'); });
     note.append(' ', undo);
   }
 }
@@ -299,11 +374,12 @@ async function classify() {
   const button = $('classify-button'); button.disabled = true; button.textContent = 'Ordenando…';
   aiNote('Ordenando con IA…');
   try {
-    const res = await fetch(CLASSIFY_URL, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({texto:dictated})});
-    const data = await res.json().catch(() => ({}));
+    const kindChosen = $('entry-kind').value;
+    const res = await requestOrdering(dictated, kindChosen === 'actuacion' ? '' : kindChosen);
+    const data = res.data;
     if (run !== classifyRun) return; // se guardó o se borró el registro mientras tanto
     if (!res.ok) { aiNote((data.error || 'La IA no ha podido ordenar el texto.') + ' Puedes completar las casillas a mano.'); return; }
-    undoSnapshot = snapshot();
+    undoSnapshot = snapshot(); composerOrdered = true;
     $('entry-kind').value = data.kind; updatePresets(data.details || {});
     $('entry-text').value = data.text || dictated;
     if (data.time) { $('entry-time').value = data.time; timeMode = 'manual'; renderTimeNote(); }
@@ -318,6 +394,11 @@ async function classify() {
 $('classify-button').addEventListener('click', () => { startEntry(); classify(); });
 
 updatePresets(); loadFields(); tick(); setInterval(tick, 15000);
+// Si se cerró la app mientras la IA ordenaba, ese registro vuelve a la cola.
+for (const entry of Object.values(state.reports).flat()) if (entry.ai === 'ordenando') entry.ai = 'pendiente';
+save();
+orderPending({retryErrors:true});
+window.addEventListener('online', () => orderPending({retryErrors:true}));
 // Al volver a la pestaña tras horas en segundo plano, refrescar el reloj ya
 // (los intervalos se congelan en móvil).
 document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });

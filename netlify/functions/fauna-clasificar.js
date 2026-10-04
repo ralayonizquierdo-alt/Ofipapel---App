@@ -121,8 +121,9 @@ const responder = (statusCode, body) => ({ statusCode, headers: CORS, body: JSON
 
 // Deja solo lo que la app sabe pintar: sección válida, casillas de esa
 // sección, y en los desplegables solo valores de su lista.
-function sanear(r) {
-  const kind = Object.hasOwn(CAMPOS, r?.kind) ? r.kind : 'actuacion';
+// `seccion`: la que eligió el agente a mano, si eligió alguna; manda sobre la IA.
+function sanear(r, seccion) {
+  const kind = Object.hasOwn(CAMPOS, seccion) ? seccion : Object.hasOwn(CAMPOS, r?.kind) ? r.kind : 'actuacion';
   const details = {};
   for (const campo of CAMPOS[kind]) {
     let v = String(r?.details?.[campo] ?? '').trim().slice(0, 300);
@@ -144,8 +145,12 @@ exports.handler = async (event) => {
   const ip = event.headers['x-nf-client-connection-ip'] || (event.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'desconocida';
   if (limitado(ip)) return responder(429, { error: 'Demasiadas peticiones; prueba en unos minutos.' });
 
-  let dictado;
-  try { dictado = String(JSON.parse(event.body || '{}').texto || '').trim(); } catch { return responder(400, { error: 'Petición no válida' }); }
+  let dictado, seccion;
+  try {
+    const peticion = JSON.parse(event.body || '{}');
+    dictado = String(peticion.texto || '').trim();
+    seccion = Object.hasOwn(CAMPOS, peticion.seccion) ? peticion.seccion : '';
+  } catch { return responder(400, { error: 'Petición no válida' }); }
   if (!dictado) return responder(400, { error: 'Falta el texto' });
   if (dictado.length > MAX_TEXTO) return responder(400, { error: 'Texto demasiado largo' });
 
@@ -159,7 +164,7 @@ exports.handler = async (event) => {
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': clave },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: INSTRUCCIONES }] },
-      contents: [{ role: 'user', parts: [{ text: dictado }] }],
+      contents: [{ role: 'user', parts: [{ text: seccion ? `Sección elegida por el agente (obligatoria, úsala como "kind"): ${seccion}\n\nDictado: ${dictado}` : dictado }] }],
       generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: ESQUEMA },
     }),
     signal: AbortSignal.timeout(ms),
@@ -190,7 +195,7 @@ exports.handler = async (event) => {
     }
     const datos = await res.json();
     const salida = datos?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
-    return responder(200, { ...sanear(JSON.parse(salida)), modelo: usado, intentos });
+    return responder(200, { ...sanear(JSON.parse(salida), seccion), modelo: usado, intentos });
   } catch (e) {
     console.error('fauna-clasificar:', e && e.message);
     return responder(502, { error: 'La IA no ha respondido a tiempo.' });

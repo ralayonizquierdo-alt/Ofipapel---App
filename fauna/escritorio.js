@@ -98,6 +98,7 @@ function abrirParte({regenerar = false} = {}) {
   pintarParte();
   actualizarEstado();
   prepararCorreo();
+  actualizarBotonOrdenar();
 }
 function actualizarEstado() {
   const {entradas} = datosDelDia(parte.fecha);
@@ -279,6 +280,29 @@ $('mail-share').addEventListener('click', async () => {
     await navigator.share({files:[file], title:$('mail-subject').value, text:$('mail-body').value});
     $('mail-status').textContent = 'PDF compartido. Comprueba en tu correo que el destinatario es el correcto antes de enviar.';
   } catch (e) { if (e.name !== 'AbortError') $('mail-status').textContent = 'No se pudo compartir: usa «Enviar por correo».'; }
+});
+
+// ── Registros sin ordenar por la IA ────────────────────────────────────────
+// Los que se guardaron sin cobertura o en los que la IA falló se ordenan aquí
+// de una vez, antes de revisar el parte. La cola es la de app.js.
+function sinOrdenar() { return datosDelDia(fechaActual()).entradas.filter(e => ['pendiente','ordenando','error'].includes(e.ai)).length; }
+function actualizarBotonOrdenar() {
+  const n = sinOrdenar(), b = $('proc-ordenar');
+  b.hidden = !n; b.textContent = `✨ Ordenar con IA ${n} ${n === 1 ? 'registro pendiente' : 'registros pendientes'}`;
+}
+$('proc-ordenar').addEventListener('click', async () => {
+  const b = $('proc-ordenar'); b.disabled = true; b.textContent = 'Ordenando…';
+  await orderPending({retryErrors:true});
+  b.disabled = false;
+  const n = sinOrdenar();
+  if (n) setEstado(`${n} ${n === 1 ? 'registro no se ha podido' : 'registros no se han podido'} ordenar (sin conexión o la IA no responde). Puedes reintentarlo o completarlos a mano.`, true);
+  // Si no hay correcciones a mano, el parte se rehace con los registros ya ordenados.
+  if (parte && !parte.editado) abrirParte({regenerar:true});
+  actualizarBotonOrdenar();
+});
+window.addEventListener('fauna-registros', () => {
+  if (location.hash !== '#procesar' || !parte) return;
+  actualizarBotonOrdenar(); actualizarEstado();
 });
 
 // ── Pestañas ───────────────────────────────────────────────────────────────
