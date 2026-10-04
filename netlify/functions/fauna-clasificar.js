@@ -12,15 +12,17 @@
 //   GEMINI_API_KEY  clave creada en https://aistudio.google.com/apikey con la
 //                   cuenta de Google del CLIENTE. Sin ella la función responde
 //                   503 y la app sigue funcionando como antes (solo transcribe).
-//   GEMINI_MODEL    opcional; por defecto gemini-2.5-flash. Si Google retira
+//   GEMINI_MODEL    opcional; por defecto gemini-flash-lite-latest (el único que
+//                   respondió en la prueba del 4/10/2026: 36 de 36, ver
+//                   commit). Si Google retira
 //                   ese modelo, se cambia aquí sin tocar código.
 //
 // Límite de peticiones best-effort en memoria (como chat-assistant.js): solo
 // acota el abuso de la cuota gratuita, no es control de acceso.
 
-const MODELO_POR_DEFECTO = 'gemini-2.5-flash';
+const MODELO_POR_DEFECTO = 'gemini-flash-lite-latest';
 // Si el principal está saturado o sin cuota, se prueban estos (también gratuitos).
-const MODELOS_RESPALDO = ['gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest'];
+const MODELOS_RESPALDO = ['gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'];
 const MAX_TEXTO = 1500;
 
 const CORS = {
