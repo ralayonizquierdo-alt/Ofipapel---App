@@ -163,16 +163,19 @@ exports.handler = async (event) => {
     signal: AbortSignal.timeout(ms),
   });
   try {
-    let res;
+    let res, usado = '';
+    const intentos = []; // «modelo:estado» de cada intento, para diagnosticar
     for (const m of modelos) {
       const quedan = limite - Date.now();
       if (quedan < 1500) break;
+      usado = m;
       try { res = await llamar(m, Math.min(6000, quedan)); }
-      catch (e) { console.error(`fauna-clasificar: ${m} no respondió (${e && e.name})`); continue; }
+      catch (e) { intentos.push(`${m}:sin respuesta`); console.error(`fauna-clasificar: ${m} no respondió (${e && e.name})`); continue; }
+      intentos.push(`${m}:${res.status}`);
       if (res.ok || ![404, 429, 500, 503].includes(res.status)) break;
       console.error(`fauna-clasificar: ${m} respondió ${res.status}; se prueba el siguiente modelo`);
     }
-    if (!res) return responder(502, { error: 'La IA no ha respondido a tiempo.' });
+    if (!res) return responder(502, { error: 'La IA no ha respondido a tiempo.', intentos });
     if (!res.ok) {
       const detalle = (await res.text()).slice(0, 300);
       console.error('fauna-clasificar: Gemini respondió', res.status, detalle);
@@ -181,11 +184,11 @@ exports.handler = async (event) => {
       // incluye la clave.
       let motivo = '';
       try { motivo = String(JSON.parse(detalle).error?.message || '').slice(0, 200); } catch { /* no era JSON */ }
-      return responder(502, { error: res.status === 429 ? 'Se ha agotado la cuota gratuita de la IA por ahora.' : 'La IA no ha podido clasificar el texto.', gemini: { status: res.status, motivo } });
+      return responder(502, { error: res.status === 429 ? 'Se ha agotado la cuota gratuita de la IA por ahora.' : 'La IA no ha podido clasificar el texto.', gemini: { status: res.status, motivo }, intentos });
     }
     const datos = await res.json();
     const salida = datos?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
-    return responder(200, sanear(JSON.parse(salida)));
+    return responder(200, { ...sanear(JSON.parse(salida)), modelo: usado, intentos });
   } catch (e) {
     console.error('fauna-clasificar:', e && e.message);
     return responder(502, { error: 'La IA no ha respondido a tiempo.' });
