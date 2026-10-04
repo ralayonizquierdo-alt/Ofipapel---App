@@ -160,6 +160,8 @@ $('entry-kind').addEventListener('change', () => { const selectedPreset = $('ent
 $('entry-preset').addEventListener('change', () => { if ($('entry-preset').value) $('entry-text').value = $('entry-preset').value; $('entry-text').focus(); });
 
 function clearComposer() {
+  classifyRun++; undoSnapshot = null; // descarta una clasificación que aún no haya llegado
+  if ($('classify-button')) { $('classify-button').disabled = false; $('classify-button').textContent = '✨ Ordenar con IA'; }
   // Si se guarda con el dictado abierto, que no siga escribiendo en el registro siguiente.
   if (recognition && $('voice-button').classList.contains('listening')) { try { recognition.abort(); } catch { /* ya parado */ } stopListening(); }
   editingId = null;
@@ -224,6 +226,8 @@ if (Recognition) {
     if (!voiceTarget.isConnected) voiceTarget = $('entry-text');
     voiceTarget.value = [voiceTarget.value.trim(),text].filter(Boolean).join(' ');
     $('voice-note').textContent = 'Transcripción añadida al campo seleccionado. Revísala antes de guardar.';
+    // Dictado en la descripción de un registro nuevo: se ordena solo con la IA.
+    if (voiceTarget === $('entry-text') && !editingId) classify();
   };
   recognition.onerror = event => {
     stopListening();
@@ -246,6 +250,51 @@ $('voice-button').addEventListener('click', () => {
   } catch { keyboardFallback(); }
 });
 if (!Recognition) $('voice-note').textContent = 'En este navegador se dicta con el micrófono del teclado.';
+
+// ── Ordenar con IA ──────────────────────────────────────────────────────
+// Manda el texto dictado (nunca audio) a la función fauna-clasificar, que
+// devuelve sección, casillas y, si se dijo, la hora. Solo RELLENA el
+// formulario: el agente revisa y pulsa «Añadir al parte» como siempre. Si la
+// IA no está configurada, no hay cobertura o falla, todo queda como estaba.
+const CLASSIFY_URL = '/.netlify/functions/fauna-clasificar';
+let classifyRun = 0;
+let undoSnapshot = null;
+function snapshot() { return {kind:$('entry-kind').value, text:$('entry-text').value, details:collectDetails(), time:$('entry-time').value, timeMode}; }
+function restore(snap) {
+  $('entry-kind').value = snap.kind; updatePresets(snap.details);
+  $('entry-text').value = snap.text; $('entry-time').value = snap.time; timeMode = snap.timeMode; renderTimeNote();
+}
+function aiNote(message, withUndo) {
+  const note = $('voice-note'); note.replaceChildren(message);
+  if (withUndo && undoSnapshot) {
+    const undo = document.createElement('button'); undo.type = 'button'; undo.className = 'link-button'; undo.textContent = 'Deshacer';
+    undo.addEventListener('click', () => { restore(undoSnapshot); undoSnapshot = null; aiNote('Se ha recuperado el texto dictado tal cual.'); });
+    note.append(' ', undo);
+  }
+}
+async function classify() {
+  const dictated = $('entry-text').value.trim();
+  if (!dictated) { $('entry-text').focus(); aiNote('Dicta o escribe primero lo ocurrido en la descripción.'); return; }
+  const run = ++classifyRun;
+  const button = $('classify-button'); button.disabled = true; button.textContent = 'Ordenando…';
+  aiNote('Ordenando con IA…');
+  try {
+    const res = await fetch(CLASSIFY_URL, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({texto:dictated})});
+    const data = await res.json().catch(() => ({}));
+    if (run !== classifyRun) return; // se guardó o se borró el registro mientras tanto
+    if (!res.ok) { aiNote((data.error || 'La IA no ha podido ordenar el texto.') + ' Puedes completar las casillas a mano.'); return; }
+    undoSnapshot = snapshot();
+    $('entry-kind').value = data.kind; updatePresets(data.details || {});
+    $('entry-text').value = data.text || dictated;
+    if (data.time) { $('entry-time').value = data.time; timeMode = 'manual'; renderTimeNote(); }
+    aiNote(`Ordenado como «${labels[data.kind] || data.kind}». Revisa las casillas y pulsa «Añadir al parte».`, true);
+  } catch {
+    if (run === classifyRun) aiNote('Sin conexión con la IA. Puedes completar las casillas a mano.');
+  } finally {
+    if (run === classifyRun) { button.disabled = false; button.textContent = '✨ Ordenar con IA'; }
+  }
+}
+$('classify-button').addEventListener('click', () => { startEntry(); classify(); });
 
 updatePresets(); loadFields(); tick(); setInterval(tick, 15000);
 // Al volver a la pestaña tras horas en segundo plano, refrescar el reloj ya

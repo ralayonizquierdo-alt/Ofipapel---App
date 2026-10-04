@@ -20,3 +20,9 @@
 /* Sin «Parte cumplimentado por» (lo rellena siempre el halconero de turno):
    climatología y viento quedan juntos en la misma fila en el móvil. */
 @media(max-width:560px){.setup-grid label:last-child{grid-column:auto}}
+/* Ordenar con IA */
+.ai-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+.ai-row .hint{margin:0;flex:1;min-width:180px}
+.ai-button{background:#eef0ff;color:#3b3f9e}
+.ai-button:disabled{opacity:.6;cursor:wait}
+.link-button{border:0;background:none;color:#156c53;font:inherit;font-weight:800;text-decoration:underline;cursor:pointer;padding:0}
