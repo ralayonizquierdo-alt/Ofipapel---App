@@ -211,6 +211,7 @@ document.getElementById('nav').addEventListener('click', (ev) => {
   if (!b) return;
   vista = b.dataset.vista;
   pedidoAbierto = null;
+  prefijoNuevo = null; // desde la pestaña, sin campaña impuesta
   pintar();
 });
 
@@ -380,7 +381,10 @@ function vistaGrupo(g, i) {
       </tr>`; }).join('')}
     </table></div>
     <div class="fila no-imprimir" style="margin-top:10px">
-      ${esRepo(ej) ? '' : `<button class="btn primario" onclick="otroPedidoCampana(${js(ej.proveedor)}, ${js(ej.campana || '')})">➕ Nuevo pedido en esta campaña</button>`}
+      ${esRepo(ej) ? '' : `<label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📷 Añadir pedidos por foto a esta campaña
+        <input type="file" accept="image/*" multiple class="oculto" onchange="subirFotosCampana(this.files, ${js(ej.proveedor)}, ${js(ej.campana || '')}); this.value=''"></label>
+      <button class="btn" onclick="otroPedidoCampana(${js(ej.proveedor)}, ${js(ej.campana || '')})">✍️ Añadir pedido a mano a esta campaña</button>
+      <button class="btn peque" onclick="renombrarCampana(${js(g.clave)})">✏️ ${ej.campana ? 'Renombrar' : 'Poner nombre a'} la campaña</button>`}
       <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">Excel Géminis de los seleccionados</button>
       ${esRepo(ej) ? '' : `<label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales
         <input type="file" multiple class="oculto" onchange="cargarFacturasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
@@ -506,6 +510,11 @@ function vistaNuevo() {
   return `
   <div class="tarjeta">
     <h2>✍️ Nuevo pedido del comercial</h2>
+    ${prefijoNuevo ? `<div class="aviso-caja info" style="margin-top:0">Se añade a la campaña <b>${h(pre.proveedor)} · ${h(pre.campana || 'sin campaña')}</b>, que ya está en curso.
+      <div class="fila" style="margin-top:8px">
+        <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📷 Mejor subir fotos de pedidos a esta campaña
+          <input type="file" accept="image/*" multiple class="oculto" onchange="subirFotosCampana(this.files, ${js(pre.proveedor)}, ${js(pre.campana || '')}); this.value=''"></label>
+      </div></div>` : ''}
     <p class="pequeno" style="margin:0 0 10px">Sin fotos: creas el pedido y escribes sus artículos. Entra en su campaña igual que los que llegan por foto.</p>
     <div class="fila">
       <label>Proveedor<input id="npProv" list="listaProv" placeholder="FINOCAM" value="${h(pre.proveedor || proveedores[0] || '')}"></label>
@@ -520,6 +529,27 @@ function vistaNuevo() {
   </div>`;
 }
 /** Desde un pedido (o una campaña): crear el siguiente de la misma campaña. */
+/** Fotos de pedidos nuevos directamente a una campaña ya creada. */
+function subirFotosCampana(files, proveedor, campana) {
+  if (!files || !files.length) return;
+  (gruposAbiertos = gruposAbiertos || new Set()).add('C|' + prov(proveedor) + '|' + claveTexto(campana));
+  vista = 'pedidos'; pedidoAbierto = null; pintar(); window.scrollTo(0, 0);
+  leerFotos(files, null, { proveedor: prov(proveedor), campana: campana || '', fecha: hoy() });
+}
+/** Cambia el nombre de una campaña en todos sus pedidos (p. ej. la que quedó
+ *  «sin campaña» o «2027» → «Agendas todo año 2027»). Si el nombre nuevo ya
+ *  existe para ese proveedor, las dos campañas se juntan. */
+function renombrarCampana(clave) {
+  const ps = E.pedidos.filter((p) => claveGrupo(p) === clave);
+  if (!ps.length) return;
+  const nuevo = prompt(`Nombre de la campaña (${ps.length} pedido(s) de ${ps[0].proveedor}):`, ps[0].campana || '');
+  if (nuevo == null || !nuevo.trim()) return;
+  const nombre = campanaCanonica(ps[0].proveedor, nuevo);
+  ps.forEach((p) => { p.campana = nombre; });
+  gruposAbiertos = gruposAbiertos || new Set();
+  gruposAbiertos.add(claveGrupo(ps[0]));
+  guardar(); pintar();
+}
 function otroPedidoCampana(proveedor, campana) {
   prefijoNuevo = { proveedor, campana };
   vista = 'nuevo'; pedidoAbierto = null; pintar(); window.scrollTo(0, 0);
