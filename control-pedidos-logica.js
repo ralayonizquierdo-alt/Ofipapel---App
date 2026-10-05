@@ -69,11 +69,12 @@
       const ref = normRef(l.ref);
       if (!ref) continue;
       if (!m.has(ref)) {
-        m.set(ref, { ref, desc: '', ean: '', cant: 0, precio: null, dtos: [], importe: 0, sinImporte: false, udsCaja: null, unidad: '', veces: 0 });
+        m.set(ref, { ref, desc: '', ean: '', exp: false, cant: 0, precio: null, dtos: [], importe: 0, sinImporte: false, udsCaja: null, unidad: '', veces: 0 });
       }
       const g = m.get(ref);
       g.cant += parseNum(l.cant) || 0;
       g.veces += 1;
+      if (l.exp) g.exp = true;
       if (!g.desc && l.desc) g.desc = String(l.desc);
       if (!g.ean && l.ean) g.ean = String(l.ean);
       if (g.precio == null && parseNum(l.precio) != null) { g.precio = parseNum(l.precio); g.dtos = parseDtos(l.dtos); }
@@ -131,6 +132,7 @@
         ref,
         desc: (b && b.desc) || (catalogo && catalogo[ref] && catalogo[ref].d) || (a && a.desc) || '',
         ean: (b && b.ean) || (a && a.ean) || (catalogo && catalogo[ref] && catalogo[ref].ean) || '',
+        exp: Boolean(a && a.exp),
         cantPedida: a ? a.cant : 0,
         cantPropuesta: b ? b.cant : 0,
         precioPedido: a ? a.precio : null,
@@ -366,7 +368,7 @@
     for (const f of filas) {
       const d = (decisiones && decisiones[f.ref]) || { accion: f.estado === 'falta' ? 'resto' : 'aceptar' };
       if (d.nota) notas.push({ ref: f.ref, desc: f.desc, texto: d.nota });
-      const base = { ref: f.ref, desc: f.desc, ean: f.ean };
+      const base = { ref: f.ref, desc: f.desc, ean: f.ean, exp: Boolean(f.exp) };
       const propuesta = (cant) => ({ ...base, cant, precio: f.precioPropuesta, dtos: f.dtosPropuesta,
         importe: cant === f.cantPropuesta ? f.importePropuesta : null, udsCaja: f.udsCajaPropuesta || f.udsCajaPedido });
       const pedido = (cant) => (f.precioPedido != null
