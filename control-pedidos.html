@@ -86,6 +86,9 @@ main{overflow-wrap:anywhere}
 .aviso-caja.info{background:var(--azul-claro);color:var(--azul)}
 .resumen{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
 .vacio{color:var(--texto2);font-style:italic;padding:8px 0}
+.entrada-rapida{background:var(--fondo);border:1px solid var(--borde);border-radius:10px;padding:10px 12px;margin:10px 0}
+.entrada-rapida input{font-size:17px}
+.casilla{flex-direction:row!important;align-items:center;gap:6px;align-self:flex-end;padding-bottom:8px}
 details.grupo{border:1px solid var(--borde,#ddd);border-radius:10px;padding:10px 12px;margin-top:12px}
 details.grupo>summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:16px}
 details.grupo>summary .resumen{margin:0}
@@ -466,6 +469,7 @@ function crearPedido() {
   E.pedidos.push(p);
   guardar();
   abrirPedido(p.id);
+  const c = document.getElementById('qaCant'); if (c) c.focus();
 }
 /** Pedido del comercial empezando por las fotos: se crea con lo que haya
  *  escrito en el formulario y el resto (nº, cliente, proveedor) lo completa la
@@ -525,6 +529,7 @@ function vistaDetalle(p) {
       <textarea id="txtPegar" placeholder="Una línea por artículo: cantidad  referencia  precio  (descripción opcional)&#10;4  780100027  3,25  CALENDARIO&#10;1EXP 883840127 180,14"></textarea>
       <button class="btn peque" onclick="pegarLineas('pedido')">Añadir estas líneas</button>
     </div>
+    ${entradaRapida()}
     ${!cat ? `<div class="aviso-caja aviso">Aún no hay catálogo de ${h(p.proveedor)}: carga una propuesta suya para poder comprobar que cada referencia existe.</div>` : ''}
     ${tablaLineas(p, cat)}
   </div>
@@ -825,6 +830,56 @@ function cambiaLinea(i, campo, valor, lado) {
 }
 function borrarLinea(i, lado) { const p = pedidoActual(); (lado === 'propuesta' ? p.propuesta.lineas : p.lineas).splice(i, 1); invalidar(p); guardar(); pintar(); }
 function anadirLinea() { const p = pedidoActual(); p.lineas.push({ ref: '', desc: '', cant: 1, precio: null, exp: false, duda: '' }); guardar(); pintar(); }
+/** Entrada de artículos casilla a casilla, pensada para tableta: Enter pasa a
+ *  la siguiente (cantidad → referencia → descripción → precio) y en el precio
+ *  añade la línea y vuelve a la cantidad. Si la referencia está en el
+ *  catálogo del proveedor, rellena descripción y precio (se pueden cambiar). */
+const CAMPOS_RAPIDA = ['qaCant', 'qaRef', 'qaDesc', 'qaPrecio'];
+function entradaRapida() {
+  const campo = (id, etiqueta, extra, estiloEtiqueta) => `<label${estiloEtiqueta ? ` style="${estiloEtiqueta}"` : ''}>${etiqueta}<input id="${id}" autocomplete="off" onkeydown="teclaRapida(event, '${id}')" ${extra}></label>`;
+  return `
+    <div class="entrada-rapida no-imprimir">
+      <div class="pequeno" style="margin-bottom:6px"><b>Añadir artículo</b> · escribe y pulsa <b>Enter</b> para pasar a la siguiente casilla; en el precio, Enter añade la línea.</div>
+      <div class="fila">
+        ${campo('qaCant', 'Cantidad', 'style="width:80px" inputmode="decimal" enterkeyhint="next" placeholder="1"')}
+        <label class="casilla"><input type="checkbox" id="qaExp"> Expositor</label>
+        ${campo('qaRef', 'Referencia', 'style="width:140px" enterkeyhint="next"')}
+        ${campo('qaDesc', 'Descripción', 'enterkeyhint="next"', 'flex:1 1 200px')}
+        ${campo('qaPrecio', 'Precio', 'style="width:90px" inputmode="decimal" enterkeyhint="done"')}
+        <button class="btn primario" onclick="anadirRapida()">Añadir</button>
+      </div>
+    </div>`;
+}
+function teclaRapida(ev, id) {
+  if (ev.key !== 'Enter' && ev.keyCode !== 13) return;
+  ev.preventDefault();
+  if (id === 'qaRef') completarDesdeCatalogo();
+  if (id === 'qaPrecio') { anadirRapida(); return; }
+  const sig = document.getElementById(CAMPOS_RAPIDA[CAMPOS_RAPIDA.indexOf(id) + 1]);
+  sig.focus(); sig.select();
+}
+function completarDesdeCatalogo() {
+  const cat = catalogoDe(pedidoActual().proveedor);
+  const ref = CP.normRef(document.getElementById('qaRef').value);
+  const it = cat && ref && cat[ref];
+  if (!it) return;
+  const desc = document.getElementById('qaDesc');
+  const precio = document.getElementById('qaPrecio');
+  if (!desc.value.trim() && it.d) desc.value = it.d;
+  if (!precio.value.trim() && it.p != null) precio.value = fmt(it.p);
+}
+function anadirRapida() {
+  const v = (id) => document.getElementById(id).value.trim();
+  // «1EXP» o «1 exp» en la cantidad también marca expositor.
+  const mc = v('qaCant').match(/^(\d+(?:[.,]\d+)?)\s*(EXP\.?|EX\.?)?$/i);
+  if (!mc) { const c = document.getElementById('qaCant'); c.focus(); c.select(); return; }
+  if (!v('qaRef')) { document.getElementById('qaRef').focus(); return; }
+  const p = pedidoActual();
+  p.lineas.push({ cant: CP.parseNum(mc[1]), exp: Boolean(mc[2]) || document.getElementById('qaExp').checked, ref: CP.normRef(v('qaRef')),
+    desc: v('qaDesc').toUpperCase(), precio: v('qaPrecio') ? CP.parseNum(v('qaPrecio')) : null, dtos: [], duda: '' });
+  invalidar(p); guardar(); pintar();
+  document.getElementById('qaCant').focus();
+}
 function borrarPedido() {
   const p = pedidoActual();
   const asignados = E.restos.some((r) => r.pedidoId === p.id && r.asignaciones.length);
