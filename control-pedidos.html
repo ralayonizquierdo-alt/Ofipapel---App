@@ -297,12 +297,13 @@ function vistaLista() {
   <div class="tarjeta">
     <h2>Pedidos</h2>
     <div class="fila no-imprimir" style="margin-bottom:10px">
-      <label>Cargar propuestas del proveedor (varios Excel a la vez)
-        <input type="file" multiple accept=".xlsx,.xlsm,.xls,.csv" onchange="cargarPropuestasVarias(this.files); this.value=''">
+      <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📄 Cargar propuestas o facturas del proveedor (varias a la vez)
+        <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files); this.value=''">
       </label>
-      <span class="pequeno" style="max-width:420px">Cada Excel se asigna a su pedido por el proveedor y el nº que trae en «Observaciones» (p. ej. «PEDIDO Nº3 …»). Si no lo encuentra, cárgalo desde el propio pedido.</span>
+      <span class="pequeno" style="max-width:460px">PDF, Excel o foto, todas de golpe. Cada una se asigna a su pedido por el nº de pedido o el cliente que traiga; las que no, te las pregunto.</span>
     </div>
-    <div id="avisoCarga"></div>
+    <div id="progresoProps" class="progreso"></div>
+    <div id="avisoCarga">${vistaSinAsignar()}</div>
     ${ps.length ? `<div class="tabla-scroll"><table>
       <tr><th class="no-imprimir"><input type="checkbox" title="Seleccionar todos" onchange="document.querySelectorAll('.selPed').forEach(c=>c.checked=this.checked)"></th>
         <th>Fecha</th><th>Tipo</th><th>Proveedor</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th>Propuesta</th><th>Estado</th></tr>
@@ -1000,36 +1001,78 @@ async function cargarPropuestaEn(id, file) {
     guardar(); pintar();
   } catch (err) { alert('No he podido leer ' + file.name + ': ' + err.message); }
 }
+/** Documentos del proveedor leídos pero sin pedido claro: se quedan aquí
+ *  (solo en memoria) hasta que el usuario elige a qué pedido van. */
+let sinAsignar = [];
+let ultimaCarga = [];
+
+/** Pedido al que va una propuesta/factura: por nº y, si no, por el cliente
+ *  que aparezca en Observaciones / «su pedido». Solo si hay uno claro. */
+function pedidoParaPropuesta(prop) {
+  const n = prop.cabecera.numeroPedido;
+  const abiertos = E.pedidos.filter((p) => !p.validado);
+  let c = abiertos.filter((p) => n != null && String(p.numero).replace(/\D/g, '') === String(n));
+  if (c.length !== 1) {
+    const obs = claveCliente(prop.cabecera.observaciones);
+    const porCliente = abiertos.filter((p) => claveCliente(p.cliente).length >= 4 && obs.includes(claveCliente(p.cliente)));
+    if (porCliente.length === 1) c = porCliente;
+  }
+  return c.length === 1 ? c[0] : null;
+}
+
 async function cargarPropuestasVarias(files) {
-  const ok = [], mal = [];
   // Copia antes del primer await: el onchange hace this.value='' justo después
   // de llamar, y eso vacía la FileList original (solo se procesaba el primero).
-  for (const f of [...files]) {
+  const lista = [...files];
+  ultimaCarga = [];
+  const progreso = (t) => { const c = document.getElementById('progresoProps'); if (c) c.textContent = t; };
+  for (let i = 0; i < lista.length; i++) {
+    const f = lista[i];
+    progreso(`Leyendo ${i + 1} de ${lista.length}: ${f.name}${esPdf(f) || esImagen(f) ? ' (PDF/foto: hasta un minuto)' : ''}…`);
     try {
-      const prop = await leerExcel(f);
-      const n = prop.cabecera.numeroPedido;
-      const comerciales = E.pedidos.filter((p) => !esRepo(p) && !p.validado);
-      let candidatos = comerciales.filter((p) => n != null && String(p.numero).replace(/\D/g, '') === String(n));
-      // Si no casa por nº (p. ej. la hoja no lo traía), por el cliente que
-      // también viene en Observaciones: «PEDIDO Nº6 BAZAR REINA».
-      if (candidatos.length !== 1) {
-        const obs = claveCliente(prop.cabecera.observaciones);
-        const porCliente = comerciales.filter((p) => claveCliente(p.cliente).length >= 4 && obs.includes(claveCliente(p.cliente)));
-        if (porCliente.length === 1) candidatos = porCliente;
-      }
-      if (candidatos.length === 1) {
-        const p = candidatos[0];
-        if (!p.numero && n != null) p.numero = String(n);
+      const prop = await leerFicheroProveedor(f);
+      const p = pedidoParaPropuesta(prop);
+      if (p) {
+        if (!p.numero && prop.cabecera.numeroPedido != null) p.numero = String(prop.cabecera.numeroPedido);
         asignarPropuesta(p, f.name, prop);
-        ok.push(`${f.name} → nº ${p.numero} ${p.cliente}`);
-      } else mal.push(`${f.name}: ${n == null ? 'no trae nº de pedido en Observaciones' : candidatos.length ? `hay ${candidatos.length} pedidos nº ${n}` : `no hay pedido nº ${n} ni cliente que coincida`}`);
-    } catch (err) { mal.push(`${f.name}: ${err.message}`); }
+        const aviso = prop.control && prop.control.cuadra === false ? ' — ⚠️ no cuadra con su base imponible, revísalo' : '';
+        ultimaCarga.push({ ok: true, texto: `${f.name} → nº ${p.numero} ${p.cliente || ''}${aviso}` });
+      } else {
+        sinAsignar.push({ id: nuevoId(), archivo: f.name, prop });
+      }
+    } catch (err) { ultimaCarga.push({ ok: false, texto: `${f.name}: ${err.message}` }); }
+    guardar(); pintar();
   }
-  guardar(); pintar();
-  document.getElementById('avisoCarga').innerHTML =
-    (ok.length ? `<div class="aviso-caja ok">${ok.map(h).join('<br>')}</div>` : '') +
-    (mal.length ? `<div class="aviso-caja mal">Sin asignar:<br>${mal.map(h).join('<br>')}</div>` : '');
+  progreso('');
+  pintar();
 }
+
+function vistaSinAsignar() {
+  const ok = ultimaCarga.filter((x) => x.ok), mal = ultimaCarga.filter((x) => !x.ok);
+  const opciones = E.pedidos.filter((p) => !p.validado)
+    .sort((a, b) => Number(Boolean(a.propuesta)) - Number(Boolean(b.propuesta)) || String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }))
+    .map((p) => `<option value="${p.id}">${esRepo(p) ? 'Repo.' : 'Nº'} ${h(p.numero || '—')} ${h(p.cliente || p.proveedor)}${p.propuesta ? ' (ya tiene propuesta)' : ''}</option>`).join('');
+  return (ok.length ? `<div class="aviso-caja ok">${ok.map((x) => h(x.texto)).join('<br>')}</div>` : '') +
+    (mal.length ? `<div class="aviso-caja mal">No se han podido leer:<br>${mal.map((x) => h(x.texto)).join('<br>')}</div>` : '') +
+    (sinAsignar.length ? `<div class="aviso-caja aviso"><b>¿A qué pedido va cada uno?</b> No traen un nº de pedido ni un cliente que casen con uno solo.
+      ${sinAsignar.map((x) => `<div class="fila" style="margin-top:8px">
+        <span style="flex:1 1 200px"><b>${h(x.archivo)}</b>${x.prop.cabecera.observaciones ? `<div class="pequeno">${h(x.prop.cabecera.observaciones)}</div>` : ''}<div class="pequeno">${x.prop.lineas.length} líneas</div></span>
+        <select id="asig-${x.id}"><option value="">— elegir pedido —</option>${opciones}</select>
+        <button class="btn peque" onclick="asignarManual('${x.id}')">Asignar</button>
+        <button class="btn peque peligro" onclick="descartarSinAsignar('${x.id}')">Descartar</button></div>`).join('')}</div>` : '');
+}
+function asignarManual(id) {
+  const x = sinAsignar.find((y) => y.id === id);
+  const pid = document.getElementById('asig-' + id).value;
+  if (!x || !pid) { alert('Elige el pedido.'); return; }
+  const p = pedidoPorId(pid);
+  if (p.propuesta && !confirm(`El pedido nº ${p.numero} ya tiene propuesta (${p.propuesta.archivo}). ¿Sustituirla?`)) return;
+  asignarPropuesta(p, x.archivo, x.prop);
+  sinAsignar = sinAsignar.filter((y) => y.id !== id);
+  ultimaCarga.push({ ok: true, texto: `${x.archivo} → nº ${p.numero} ${p.cliente || ''}` });
+  guardar(); pintar();
+}
+function descartarSinAsignar(id) { sinAsignar = sinAsignar.filter((y) => y.id !== id); pintar(); }
 
 // ── Validar: restos y notas ──────────────────────────────────────────────────
 function validarPedido() {

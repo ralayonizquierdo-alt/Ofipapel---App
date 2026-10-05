@@ -564,7 +564,12 @@
         numero: String(r.numero || '').trim(),
         fecha: String(r.fecha || '').trim(),
         dtoGlobal: dtoGlobal || null,
-        observaciones: String(r.notas || '').trim(),
+        observaciones: [r.pedidoCliente, r.notas].map((x) => String(x || '').trim()).filter(Boolean).join(' · '),
+        // «su pedido nº 5» → 5, para asignarlo solo al pedido que toca.
+        numeroPedido: (() => {
+          const m = String(r.pedidoCliente || '').match(/pedido\D{0,12}?(\d+)/i) || String(r.pedidoCliente || '').match(/^\D*(\d+)\D*$/);
+          return m ? Number(m[1]) : null;
+        })(),
       },
       control: { sumaLineas: suma, base, cuadra, sinImporte: lineas.filter((l) => l.importe == null).length },
     };
