@@ -360,6 +360,49 @@
     return { fotos: lista.length, hojas: [...leidas].sort((x, y) => x - y), total, faltan };
   }
 
+  /**
+   * Cuánto se parecen dos listas de líneas por sus REFERENCIAS: sirve para
+   * saber a qué pedido va una propuesta que no trae nº de pedido ni cliente
+   * reconocible (p. ej. las de Miquelrius, con su propio nº «MR23636»).
+   * score = referencias comunes / referencias del mayor de los dos (0..1).
+   */
+  function parecidoLineas(a, b) {
+    const ra = new Set([...agrupar(a).keys()]);
+    const rb = new Set([...agrupar(b).keys()]);
+    let comunes = 0;
+    for (const r of ra) if (rb.has(r)) comunes++;
+    const mayor = Math.max(ra.size, rb.size);
+    return { comunes, deDoc: ra.size, dePedido: rb.size, score: mayor ? comunes / mayor : 0 };
+  }
+
+  /**
+   * Reparte documentos entre pedidos por contenido, sin repetir pedido:
+   * primero las parejas que más se parecen. Solo se asigna con score ≥ 0.5;
+   * para el resto devuelve la mejor sugerencia (o ninguna).
+   * docs: [{ id, lineas }] · pedidos: [{ id, lineas }]
+   * → { asignados: [{docId, pedidoId, ...parecido}], sugerencias: {docId: {pedidoId, ...parecido}} }
+   */
+  function repartirPorContenido(docs, pedidos, umbral) {
+    const minimo = umbral == null ? 0.5 : umbral;
+    const pares = [];
+    for (const d of docs || []) for (const p of pedidos || []) {
+      const x = parecidoLineas(d.lineas, p.lineas);
+      if (x.comunes) pares.push({ docId: d.id, pedidoId: p.id, ...x });
+    }
+    pares.sort((x, y) => y.score - x.score || y.comunes - x.comunes);
+    const usadosD = new Set(); const usadosP = new Set();
+    const asignados = [];
+    const sugerencias = {};
+    for (const x of pares) {
+      if (!sugerencias[x.docId]) sugerencias[x.docId] = x;
+      if (x.score < minimo || usadosD.has(x.docId) || usadosP.has(x.pedidoId)) continue;
+      usadosD.add(x.docId); usadosP.add(x.pedidoId);
+      asignados.push(x);
+    }
+    for (const id of usadosD) delete sugerencias[id];
+    return { asignados, sugerencias };
+  }
+
   // ── Decisiones ────────────────────────────────────────────────────────────
 
   /**
@@ -775,7 +818,7 @@
   const api = {
     TOLERANCIA, PLANTILLA_GEMINIS,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, hojasDelPedido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, hojasDelPedido, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
