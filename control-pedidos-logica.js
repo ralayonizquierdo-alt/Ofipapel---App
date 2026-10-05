@@ -258,6 +258,32 @@
     return { faltan, sobran };
   }
 
+  /**
+   * Texto para reclamar al proveedor lo que falta, separado por cliente (o por
+   * pedido de reposición). Texto plano, para pegarlo en un correo tal cual.
+   * grupos: [{ numero, cliente, faltan: [{ref, desc, cant, de, total}] }]
+   */
+  function textoReclamacion(proveedor, grupos, opciones) {
+    const o = opciones || {};
+    const conFaltas = (grupos || []).filter((g) => g.faltan && g.faltan.length);
+    if (!conFaltas.length) return '';
+    const uds = (n) => `${n} ud${n === 1 ? '' : 's'}.`;
+    const out = [
+      `Buenos días${proveedor ? ', ' + proveedor : ''}:`,
+      '',
+      `En ${o.campana ? 'la campaña ' + o.campana : 'los pedidos'} faltan las siguientes referencias que no vienen en vuestra propuesta o factura.`,
+      '¿Podéis indicarnos si están descatalogadas, agotadas o si ha sido un error, y cuándo las enviaríais?',
+    ];
+    for (const g of conFaltas) {
+      out.push('', `Pedido nº ${g.numero}${g.cliente ? ' · ' + g.cliente : ''}`);
+      for (const x of g.faltan) {
+        out.push(`  - ${x.ref}  ${x.desc || ''}  →  faltan ${uds(x.cant)}${x.total ? '' : ` (de ${x.de} pedidas)`}`.replace(/ {2,}→/, '  →'));
+      }
+    }
+    out.push('', 'Gracias.');
+    return out.join('\n');
+  }
+
   // ── Decisiones ────────────────────────────────────────────────────────────
 
   /**
@@ -664,7 +690,7 @@
   const api = {
     TOLERANCIA, PLANTILLA_GEMINIS,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, compararPedido, faltasYSobras, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, compararPedido, faltasYSobras, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

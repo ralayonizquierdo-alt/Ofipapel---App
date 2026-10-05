@@ -280,3 +280,16 @@ test('comercial: «mantener lo pedido» fija el precio al cliente; el coste para
   // Reposición no cambia: «mantener» es nuestro precio de compra
   assert.equal(CP.aplicarDecisiones(filas, { 770140327: { accion: 'mantener' } }).lineas[0].precio, 12.67);
 });
+
+test('reclamación de faltas: separada por cliente, con faltas totales y parciales', () => {
+  const t = CP.textoReclamacion('FINOCAM', [
+    { numero: '2', cliente: 'CLIENTE A', faltan: [{ ref: '785100027', desc: 'CALENDARIO', cant: 2, de: 2, total: true }] },
+    { numero: '3', cliente: 'CLIENTE B', faltan: [] },
+    { numero: '4', cliente: 'CLIENTE C', faltan: [{ ref: '782000327', desc: 'AGENDA', cant: 1, de: 3, total: false }] },
+  ], { campana: '2027' });
+  assert.match(t, /Pedido nº 2 · CLIENTE A\n  - 785100027  CALENDARIO  →  faltan 2 uds\./);
+  assert.match(t, /782000327  AGENDA  →  faltan 1 ud\. \(de 3 pedidas\)/);
+  assert.doesNotMatch(t, /CLIENTE B/, 'un pedido sin faltas no sale');
+  assert.match(t, /campaña 2027/);
+  assert.equal(CP.textoReclamacion('X', [{ numero: '1', faltan: [] }]), '');
+});

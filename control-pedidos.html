@@ -333,8 +333,10 @@ function resumenFaltasSobras() {
   const grupos = [...new Set(conProp.map(grupo))];
   const sel = grupos.includes(filtroResumen) ? filtroResumen : grupos[0];
   const filasRes = [];
+  const reclamar = [];
   for (const p of conProp.filter((x) => grupo(x) === sel)) {
     const { faltan, sobran } = CP.faltasYSobras(comparar(p));
+    if (faltan.length) reclamar.push({ numero: p.numero, cliente: esRepo(p) ? 'Reposición' : p.cliente, faltan });
     faltan.forEach((x) => filasRes.push({ p, x, tipo: 'falta' }));
     sobran.forEach((x) => filasRes.push({ p, x, tipo: 'sobra' }));
   }
@@ -360,7 +362,42 @@ function resumenFaltasSobras() {
         <td>${h(p.numero)}</td><td>${h(p.cliente)}</td><td><b>${h(x.ref)}</b></td><td>${h(x.desc)}</td>
         <td class="num">${tipo === 'falta' ? '−' : '+'}${x.cant}${x.total ? '' : ' de ' + x.de}</td></tr>`).join('')}
     </table></div>` : `<div class="aviso-caja ok">En los pedidos comparados no falta ni sobra ninguna referencia.</div>`}
+    ${reclamar.length ? vistaReclamacion(sel, reclamar, conProp.find((x) => grupo(x) === sel)) : ''}
   </div>`;
+}
+/** Reclamación de faltas al proveedor, separada por cliente. De momento no se
+ *  envía desde aquí: se copia o se imprime/guarda en PDF y se manda a mano. */
+let textoReclamacionActual = '';
+function vistaReclamacion(sel, grupos, p) {
+  textoReclamacionActual = CP.textoReclamacion(p.proveedor, grupos, { campana: esRepo(p) ? '' : p.campana });
+  const n = grupos.reduce((s, g) => s + g.faltan.length, 0);
+  return `
+    <details class="no-imprimir" style="margin-top:12px">
+      <summary><b>✉️ Reclamar las faltas al proveedor</b> · ${n} referencia(s) de ${grupos.length} pedido(s), separadas por cliente</summary>
+      <p class="pequeno">Revisa el texto, cópialo y pégalo en el correo al proveedor (o imprímelo / guárdalo en PDF y adjúntalo).</p>
+      <textarea id="txtReclamacion" rows="14" style="width:100%;font-family:ui-monospace,monospace;font-size:13px" oninput="textoReclamacionActual=this.value">${h(textoReclamacionActual)}</textarea>
+      <div class="fila" style="margin-top:6px">
+        <button class="btn primario" onclick="copiarReclamacion()">Copiar texto</button>
+        <button class="btn" onclick="imprimirReclamacion(${js(sel)})">Imprimir / PDF</button>
+      </div>
+    </details>`;
+}
+function copiarReclamacion() {
+  const t = textoReclamacionActual;
+  const hecho = () => alert('Texto copiado. Pégalo en el correo al proveedor.');
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(hecho, copiarAntiguo);
+  else copiarAntiguo();
+  function copiarAntiguo() {
+    const el = document.getElementById('txtReclamacion');
+    el.select(); document.execCommand('copy'); hecho();
+  }
+}
+function imprimirReclamacion(sel) {
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Reclamación de faltas · ${h(sel)}</title>
+  <style>body{font-family:system-ui,sans-serif;margin:24px;font-size:14px}pre{white-space:pre-wrap;font-family:inherit}</style></head>
+  <body><h1 style="font-size:18px">Reclamación de faltas · ${h(sel)} · ${h(fmtFecha(hoy()))}</h1><pre>${h(textoReclamacionActual)}</pre><script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
 }
 function imprimirResumen() {
   const t = document.getElementById('tablaResumen');
