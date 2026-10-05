@@ -255,7 +255,23 @@ function vistaLista() {
   const proveedores = [...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean);
   return `
   <div class="tarjeta">
-    <h2>Nuevo pedido</h2>
+    <h2>📷 Subir los pedidos de una campaña</h2>
+    <p class="pequeno" style="margin:0 0 10px">Elige a la vez <b>todas las fotos de todos los clientes</b>. La app lee en cada hoja el <b>nº de pedido y el cliente</b> y crea un pedido por cada uno; las hojas del mismo pedido se juntan, y si añades más fotos después se suman al pedido que ya exista con ese nº.</p>
+    <div class="fila">
+      <label>Proveedor<input id="lotProv" list="listaProv" placeholder="FINOCAM" value="${h(proveedores[0] || '')}"></label>
+      <label>Campaña<input id="lotCamp" placeholder="2027" value="${h(ultimaCampana())}"></label>
+    </div>
+    <div class="fila" style="margin-top:10px">
+      <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">🖼️ Elegir fotos (varias)
+        <input type="file" accept="image/*" multiple class="oculto" onchange="subirCampana(this.files); this.value=''"></label>
+      <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📷 Hacer foto
+        <input type="file" accept="image/*" capture="environment" class="oculto" onchange="subirCampana(this.files); this.value=''"></label>
+    </div>
+    <div id="progresoLote" class="progreso"></div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Nuevo pedido a mano</h2>
     <div class="fila">
       <label>Tipo<select id="npTipo" onchange="document.querySelectorAll('.soloComercial').forEach(e=>e.classList.toggle('oculto', this.value!=='comercial'))">
         <option value="comercial">Del comercial (campaña)</option>
@@ -268,15 +284,6 @@ function vistaLista() {
       <label>Fecha<input id="npFecha" type="date" value="${hoy()}"></label>
       <button class="btn primario" onclick="crearPedido()">Crear</button>
     </div>
-    <div class="soloComercial" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--borde)">
-      <p class="pequeno" style="margin:0 0 8px">¿Tienes las fotos de las hojas del comercial? Empieza por ahí: puedes elegir las de <b>varios pedidos a la vez</b>. La app lee en cada hoja el nº de pedido, el cliente y las líneas, y las reparte: un pedido por nº (las hojas del mismo nº se juntan). Si escribes un nº arriba, todas van a ese pedido.</p>
-      <div class="fila">
-        <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📷 Hacer foto
-          <input type="file" accept="image/*" capture="environment" class="oculto" onchange="nuevoDesdeFotos(this.files); this.value=''"></label>
-        <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🖼️ Elegir de la galería
-          <input type="file" accept="image/*" multiple class="oculto" onchange="nuevoDesdeFotos(this.files); this.value=''"></label>
-      </div>
-    </div>
   </div>
 
   <div class="tarjeta">
@@ -287,7 +294,6 @@ function vistaLista() {
       </label>
       <span class="pequeno" style="max-width:420px">Cada Excel se asigna a su pedido por el proveedor y el nº que trae en «Observaciones» (p. ej. «PEDIDO Nº3 …»). Si no lo encuentra, cárgalo desde el propio pedido.</span>
     </div>
-    <div id="progresoLote" class="progreso"></div>
     <div id="avisoCarga"></div>
     ${ps.length ? `<div class="tabla-scroll"><table>
       <tr><th class="no-imprimir"><input type="checkbox" title="Seleccionar todos" onchange="document.querySelectorAll('.selPed').forEach(c=>c.checked=this.checked)"></th>
@@ -328,22 +334,15 @@ function crearPedido() {
 /** Pedido del comercial empezando por las fotos: se crea con lo que haya
  *  escrito en el formulario y el resto (nº, cliente, proveedor) lo completa la
  *  lectura. Si la lectura falla, el pedido queda creado y se puede rellenar. */
-function nuevoDesdeFotos(files) {
+function ultimaCampana() {
+  const c = E.pedidos.filter((p) => !esRepo(p) && p.campana).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)))[0];
+  return c ? c.campana : '';
+}
+/** Fotos de una campaña entera: cada hoja va a su pedido por el nº leído. */
+function subirCampana(files) {
   if (!files || !files.length) return;
   const v = (id) => document.getElementById(id).value.trim();
-  const base = { proveedor: prov(v('npProv')), campana: v('npCamp'), fecha: v('npFecha') || hoy() };
-  if (v('npNum')) {
-    // Nº escrito a mano: todas las fotos son de ese pedido.
-    const p = { id: nuevoId(), tipo: 'comercial', ...base, numero: v('npNum'), cliente: v('npCli').toUpperCase(),
-      notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
-    E.pedidos.push(p);
-    guardar();
-    abrirPedido(p.id);
-    leerFotos(files, p);
-  } else {
-    // Sin nº: cada foto a su pedido según lo que se lea en ella.
-    leerFotos(files, null, base);
-  }
+  leerFotos(files, null, { proveedor: prov(v('lotProv')), campana: v('lotCamp'), fecha: hoy() });
 }
 function abrirPedido(id) { pedidoAbierto = id; vista = 'pedidos'; pintar(); window.scrollTo(0, 0); }
 
@@ -771,9 +770,15 @@ async function leerConIA(file, modo) {
  *  manda sobre el del encabezado (es una hoja suelta que va a otro pedido). */
 function numeroDeHoja(res) {
   const nota = String(res.notas || '').match(/pedido\s*n\S*\s*(\d+)/i);
-  const n = nota ? nota[1] : String(res.numeroPedido || '').replace(/\D/g, '');
-  return n || '';
+  if (nota) return nota[1];
+  const crudo = String(res.numeroPedido || '');
+  // «1/4» es la hoja del talonario, no el pedido; y de «Pedido Nº 12» vale el
+  // primer número entero (antes se pegaban todas las cifras: «1/4» → «14»).
+  if (/\d\s*\/\s*\d/.test(crudo)) return '';
+  const m = crudo.match(/\d+/);
+  return m ? m[0] : '';
 }
+const claveCliente = (c) => String(c || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]/g, '');
 
 function anadirLecturaA(p, res, nombre) {
   let descAnterior = '';
@@ -815,19 +820,37 @@ async function leerFotos(files, destino, base) {
   const progreso = (txt) => { const c = document.getElementById('progresoFotos') || document.getElementById('progresoLote'); if (c) c.textContent = txt; };
   for (let i = 0; i < lista.length; i++) {
     progreso(`Leyendo foto ${i + 1} de ${lista.length} (${lista[i].name})… puede tardar un minuto por foto.`);
+    // Una foto ya leída (mismo nombre de fichero) no se vuelve a pagar ni a sumar.
+    const yaEn = !destino && E.pedidos.find((x) => x.lineas.some((l) => l.foto === lista[i].name));
+    if (yaEn) { errores.push(`${lista[i].name}: ya estaba leída en el pedido nº ${yaEn.numero}, no se repite`); continue; }
     try {
       const res = await leerUnaFoto(lista[i]);
       let p = destino || null;
+      let clave = null;
       if (!p) {
         const num = numeroDeHoja(res);
-        p = lote.get(num);
+        const cli = claveCliente(res.cliente);
+        // Agrupar por nº de pedido; si la hoja no lo trae, por cliente; y si
+        // tampoco, la hoja va sola a su propio pedido. NUNCA se juntan hojas
+        // «sin nada» en un mismo pedido: eso mezclaba clientes distintos.
+        clave = num ? 'n:' + num : cli ? 'c:' + cli : 'f:' + lista[i].name;
+        const proveedorHoja = (base && base.proveedor) || prov(res.proveedor);
+        const mismaCampana = (x) => !esRepo(x) && !x.validado && x.proveedor === proveedorHoja && (x.campana || '') === ((base && base.campana) || '');
+        // Un pedido ya creado (p. ej. fotos hechas de una en una con la cámara)
+        // con ese nº —o, sin nº, con ese cliente— recibe la hoja.
+        p = lote.get(clave) || E.pedidos.find((x) => mismaCampana(x) &&
+          (num ? String(x.numero) === num : (cli && !x.numero && claveCliente(x.cliente) === cli)));
         if (!p) {
           p = { id: nuevoId(), tipo: 'comercial', proveedor: (base && base.proveedor) || prov(res.proveedor), campana: (base && base.campana) || '', numero: num,
             cliente: '', fecha: (base && base.fecha) || hoy(), notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
           E.pedidos.push(p);
-          lote.set(num, p);
         }
       }
+      if (p.lineas.some((l) => l.foto === lista[i].name)) {
+        errores.push(`${lista[i].name}: ya estaba leída en el pedido nº ${p.numero}, no se repite`);
+        continue;
+      }
+      if (clave) lote.set(clave, p);
       total += anadirLecturaA(p, res, lista[i].name);
       tocados.add(p);
       guardar(); pintar();
@@ -904,13 +927,27 @@ async function cargarPropuestaEn(id, file) {
 }
 async function cargarPropuestasVarias(files) {
   const ok = [], mal = [];
-  for (const f of files) {
+  // Copia antes del primer await: el onchange hace this.value='' justo después
+  // de llamar, y eso vacía la FileList original (solo se procesaba el primero).
+  for (const f of [...files]) {
     try {
       const prop = await leerExcel(f);
       const n = prop.cabecera.numeroPedido;
-      const candidatos = E.pedidos.filter((p) => n != null && String(p.numero).replace(/\D/g, '') === String(n));
-      if (candidatos.length === 1) { asignarPropuesta(candidatos[0], f.name, prop); ok.push(`${f.name} → nº ${n} ${candidatos[0].cliente}`); }
-      else mal.push(`${f.name}: ${n == null ? 'no trae nº de pedido en Observaciones' : candidatos.length ? `hay ${candidatos.length} pedidos nº ${n}` : `no hay pedido nº ${n}`}`);
+      const comerciales = E.pedidos.filter((p) => !esRepo(p) && !p.validado);
+      let candidatos = comerciales.filter((p) => n != null && String(p.numero).replace(/\D/g, '') === String(n));
+      // Si no casa por nº (p. ej. la hoja no lo traía), por el cliente que
+      // también viene en Observaciones: «PEDIDO Nº6 BAZAR REINA».
+      if (candidatos.length !== 1) {
+        const obs = claveCliente(prop.cabecera.observaciones);
+        const porCliente = comerciales.filter((p) => claveCliente(p.cliente).length >= 4 && obs.includes(claveCliente(p.cliente)));
+        if (porCliente.length === 1) candidatos = porCliente;
+      }
+      if (candidatos.length === 1) {
+        const p = candidatos[0];
+        if (!p.numero && n != null) p.numero = String(n);
+        asignarPropuesta(p, f.name, prop);
+        ok.push(`${f.name} → nº ${p.numero} ${p.cliente}`);
+      } else mal.push(`${f.name}: ${n == null ? 'no trae nº de pedido en Observaciones' : candidatos.length ? `hay ${candidatos.length} pedidos nº ${n}` : `no hay pedido nº ${n} ni cliente que coincida`}`);
     } catch (err) { mal.push(`${f.name}: ${err.message}`); }
   }
   guardar(); pintar();

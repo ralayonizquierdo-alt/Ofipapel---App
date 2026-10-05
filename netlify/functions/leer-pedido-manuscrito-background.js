@@ -50,7 +50,8 @@ const INSTRUCCIONES = `Esta foto es un pedido escrito a mano por un comercial de
 
 Cómo suelen ser estas hojas:
 - La foto puede estar girada 90°: léela en la orientación en que el texto tiene sentido.
-- Arriba suele poner el número de pedido, el proveedor (p. ej. «Pedido Nº 5 · Finocam»), el cliente y la fecha.
+- Arriba, escrito a mano, suele poner el número de pedido y el proveedor (p. ej. «Pedido Nº 5 · Finocam»); el cliente va en la casilla CLIENTE y la fecha en la de fecha.
+- OJO: el talonario trae impreso un recuadro «FACTURA Nº» donde se escribe la HOJA (p. ej. «1/4», «2/4»). Eso va en «hoja», NUNCA en numeroPedido. numeroPedido es solo el número de «Pedido Nº …» (p. ej. «5»); si no aparece, déjalo vacío.
 - Columnas: CANTIDAD, CONCEPTO-REFERENCIA y un importe a la derecha. Ese importe es el PRECIO UNITARIO aunque la columna se llame «IMPORTE»: 5 unidades a 4,13 se escriben «4,13», no «20,65».
 - En CONCEPTO va primero la referencia (código numérico) y a veces una descripción breve («CALENDARIO», «AG. HAIKU»).
 - Un guion, una coma o unas comillas en lugar de la descripción significan «lo mismo que arriba»: repite la descripción de la línea anterior.
@@ -119,7 +120,7 @@ const ESQUEMA_DOCUMENTO = {
 const ESQUEMA = {
   type: 'object',
   properties: {
-    numeroPedido: { type: 'string' },
+    numeroPedido: { type: 'string', description: 'solo el número de «Pedido Nº …»; nunca la hoja del talonario (1/4)' },
     proveedor: { type: 'string' },
     cliente: { type: 'string' },
     fecha: { type: 'string' },
