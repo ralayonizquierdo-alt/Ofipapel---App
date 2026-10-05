@@ -178,7 +178,12 @@ function updatePresets(values) {
   if (isAction) for (const value of usualActions) { const option = document.createElement('option'); option.value = value === 'Escribir libremente' ? '' : value; option.textContent = value; select.append(option); }
   renderDetailFields(values);
 }
-$('entry-kind').addEventListener('change', () => { const selectedPreset = $('entry-preset').value; if (selectedPreset && $('entry-text').value.trim() === selectedPreset) $('entry-text').value = ''; updatePresets(); });
+// Solo cuenta como «sección elegida por el agente» si la cambia a mano en este
+// registro; tras guardar vuelve a «Actuación» (antes se quedaba la del registro
+// anterior y la IA quedaba obligada a usarla: unas gaviotas acabaron en «Retirada»).
+let kindChosenByUser = false;
+$('entry-kind').addEventListener('change', () => {
+  kindChosenByUser = true; const selectedPreset = $('entry-preset').value; if (selectedPreset && $('entry-text').value.trim() === selectedPreset) $('entry-text').value = ''; updatePresets(); });
 $('entry-preset').addEventListener('change', () => { if ($('entry-preset').value) $('entry-text').value = $('entry-preset').value; $('entry-text').focus(); });
 
 function clearComposer() {
@@ -187,8 +192,9 @@ function clearComposer() {
   // Si se guarda con el dictado abierto, que no siga escribiendo en el registro siguiente.
   if (recognition && $('voice-button').classList.contains('listening')) { try { recognition.abort(); } catch { /* ya parado */ } stopListening(); }
   editingId = null;
+  kindChosenByUser = false;
+  $('entry-kind').value = 'actuacion'; updatePresets();
   $('entry-text').value = ''; $('entry-preset').value = '';
-  renderDetailFields();
   document.querySelector('.composer').classList.remove('editing');
   $('entry-title').textContent = 'Nuevo registro';
   $('save-entry').textContent = 'Añadir al parte';
@@ -198,6 +204,7 @@ function clearComposer() {
 function beginEdit(entry) {
   editingId = entry.id;
   $('entry-kind').value = entry.kind;
+  kindChosenByUser = true; // al editar, la sección que ya tiene el registro se respeta
   updatePresets(entry.details || {});
   $('entry-text').value = entry.text;
   $('entry-time').value = entry.time; timeMode = 'manual'; renderTimeNote();
@@ -223,7 +230,11 @@ $('save-entry').addEventListener('click', () => {
   // formulario y no hay ninguna casilla rellena («Recibido» es solo el valor
   // por defecto del desplegable de avisos). Eso es lo que ordena la IA.
   const freeText = !composerOrdered && !$('entry-preset').value && !Object.entries(details).some(([key,v]) => v && key !== 'direction');
-  const aiFields = freeText ? {ai:'pendiente', seccion: kind === 'actuacion' ? '' : kind, dictado:value} : {};
+  const seccionElegida = kindChosenByUser && kind !== 'actuacion' ? kind : '';
+  const aiFields = freeText ? {ai:'pendiente', seccion: seccionElegida, dictado:value}
+    // Ordenado con el botón antes de guardar: también lleva su marca y «Deshacer».
+    : composerOrdered && undoSnapshot ? {ai:'ordenado', seccion: undoSnapshot.seccion || '', dictado: undoSnapshot.text}
+    : {};
   if (existing) {
     const keepAi = existing.ai === 'ordenado' ? {ai:'ordenado'} : aiFields;
     delete existing.ai; delete existing.seccion;
@@ -354,7 +365,7 @@ function aiStatus(entry) {
   }));
   return p;
 }
-function snapshot() { return {kind:$('entry-kind').value, text:$('entry-text').value, details:collectDetails(), time:$('entry-time').value, timeMode}; }
+function snapshot() { return {kind:$('entry-kind').value, seccion: kindChosenByUser && $('entry-kind').value !== 'actuacion' ? $('entry-kind').value : '', text:$('entry-text').value, details:collectDetails(), time:$('entry-time').value, timeMode}; }
 function restore(snap) {
   $('entry-kind').value = snap.kind; updatePresets(snap.details);
   $('entry-text').value = snap.text; $('entry-time').value = snap.time; timeMode = snap.timeMode; renderTimeNote();
@@ -375,7 +386,7 @@ async function classify() {
   aiNote('Ordenando con IA…');
   try {
     const kindChosen = $('entry-kind').value;
-    const res = await requestOrdering(dictated, kindChosen === 'actuacion' ? '' : kindChosen);
+    const res = await requestOrdering(dictated, kindChosenByUser && kindChosen !== 'actuacion' ? kindChosen : '');
     const data = res.data;
     if (run !== classifyRun) return; // se guardó o se borró el registro mientras tanto
     if (!res.ok) { aiNote((data.error || 'La IA no ha podido ordenar el texto.') + ' Puedes completar las casillas a mano.'); return; }
