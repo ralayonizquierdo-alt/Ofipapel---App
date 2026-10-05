@@ -376,13 +376,15 @@ function vistaGrupo(g, i) {
         <td>${h(fmtFecha(p.fecha))}</td><td>${h(p.numero)}</td><td>${h(esRepo(p) ? '—' : p.cliente)}</td>
         <td class="num">${p.lineas.length}</td>
         <td>${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
-        <td><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}</td>
+        <td><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</td>
       </tr>`; }).join('')}
     </table></div>
     <div class="fila no-imprimir" style="margin-top:10px">
       ${esRepo(ej) ? '' : `<button class="btn primario" onclick="otroPedidoCampana(${js(ej.proveedor)}, ${js(ej.campana || '')})">➕ Nuevo pedido en esta campaña</button>`}
       <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">Excel Géminis de los seleccionados</button>
-      ${esRepo(ej) ? '' : `<button class="btn" onclick="imprimirGuiaFacturacion(${js(g.clave)})">🧾 Imprimir guía de facturación</button>`}
+      ${esRepo(ej) ? '' : `<label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales
+        <input type="file" multiple class="oculto" onchange="cargarFacturasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
+      <button class="btn" onclick="imprimirGuiaFacturacion(${js(g.clave)})">🧾 Imprimir guía de facturación</button>`}
       <span class="pequeno">Solo pedidos validados. Varias selecciones se suman por referencia en un único pedido.</span>
     </div>
     ${comparados.length ? `
@@ -401,9 +403,10 @@ function vistaGrupo(g, i) {
   </details>`;
 }
 /** Guía para facturar a mano en nuestro sistema: un bloque por cliente con
- *  lo validado a precio de cliente (lo que apuntó el comercial, sin el
- *  descuento de la propuesta), sus notas de facturación y lo que queda en
- *  restos. Los pedidos sin validar no entran: se avisa arriba. */
+ *  SOLO lo que se factura — lo validado a precio de cliente (lo que apuntó el
+ *  comercial, sin el descuento de la propuesta), menos lo que no haya venido
+ *  en la factura final — y sus notas de facturación. Nada de restos. Los
+ *  pedidos sin validar no entran: se avisa arriba. */
 function imprimirGuiaFacturacion(clave) {
   const ps = E.pedidos.filter((p) => claveGrupo(p) === clave)
     .sort((a, b) => String(a.cliente).localeCompare(String(b.cliente), 'es') || String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }));
@@ -415,18 +418,25 @@ function imprimirGuiaFacturacion(clave) {
   const pc = (l) => (l.precioCliente != null ? l.precioCliente : l.precio) || 0;
   let totalCampana = 0;
   const bloques = validados.map((p) => {
-    const lineas = p.final.lineas.filter((l) => l.cant > 0);
+    // Si ya está la factura final, solo se factura al cliente lo que ha venido.
+    const rf = revisarFactura(p);
+    const noVino = new Map(((rf && rf.faltan) || []).map((x) => [CP.normRef(x.ref), x.cant]));
+    const lineas = p.final.lineas.map((l) => {
+      const menos = noVino.get(CP.normRef(l.ref)) || 0;
+      if (!menos) return l;
+      const quitar = Math.min(menos, l.cant);
+      noVino.set(CP.normRef(l.ref), menos - quitar);
+      return Object.assign({}, l, { cant: CP.red2(l.cant - quitar) });
+    }).filter((l) => l.cant > 0);
     const total = CP.red2(lineas.reduce((s, l) => s + pc(l) * l.cant, 0));
     totalCampana += total;
     const notas = E.notas.filter((n) => n.pedidoId === p.id && !n.resuelta);
-    const restos = E.restos.filter((x) => x.pedidoId === p.id && x.pendiente > 0 && !x.anulado);
     return `<section>
       <h2><span class="caja"></span> ${h(p.cliente)} <small>· pedido nº ${h(p.numero)} · ${h(fmtFecha(p.fecha))}</small></h2>
       <table><tr><th class="n">Cant.</th><th>Referencia</th><th>Descripción</th><th class="n">Precio</th><th class="n">Importe</th></tr>
       ${lineas.map((l) => `<tr><td class="n">${l.cant}${l.exp ? ' EXP' : ''}</td><td>${h(l.ref)}</td><td>${h(l.desc)}</td><td class="n">${fmt(pc(l))}</td><td class="n">${fmt(CP.red2(pc(l) * l.cant))}</td></tr>`).join('')}
       <tr class="tot"><td colspan="4" class="n">Total (sin impuestos)</td><td class="n">${fmt(total)}</td></tr></table>
       ${notas.length ? `<p class="nota"><b>Notas de facturación:</b> ${notas.map((n) => `${h(n.ref)} — ${h(n.texto)}`).join(' · ')}</p>` : ''}
-      ${restos.length ? `<p class="resto"><b>No facturar todavía (en restos, sin stock):</b> ${restos.map((x) => `${x.pendiente} × ${h(x.ref)} ${h(x.desc)}`).join(' · ')}</p>` : ''}
     </section>`;
   }).join('');
   const w = window.open('', '_blank');
@@ -437,7 +447,7 @@ function imprimirGuiaFacturacion(clave) {
   table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ccc;padding:3px 5px;text-align:left}td.n,th.n{text-align:right}
   tr.tot td{font-weight:bold;border-bottom:0}.nota{background:#eef4ff;padding:4px 6px}.resto{background:#fff6e0;padding:4px 6px}.aviso{background:#fde8e8;padding:6px}</style></head><body>
   <h1>Guía de facturación · ${h(nombre)}</h1>
-  <p>${h(fmtFecha(hoy()))} · ${validados.length} cliente(s) · total ${fmt(CP.red2(totalCampana))} € sin impuestos · marca la casilla de cada cliente al facturarlo.</p>
+  <p>${h(fmtFecha(hoy()))} · ${validados.length} cliente(s)${validados.some((p) => !p.factura) ? ' · <b>aún sin factura final del proveedor:</b> ' + validados.filter((p) => !p.factura).map((p) => 'nº ' + h(p.numero)).join(', ') : ''} · total ${fmt(CP.red2(totalCampana))} € sin impuestos · marca la casilla de cada cliente al facturarlo.</p>
   ${sinValidar.length ? `<p class="aviso"><b>Sin validar, no incluidos:</b> ${sinValidar.map((p) => `nº ${h(p.numero)} ${h(p.cliente)}`).join(', ')}</p>` : ''}
   ${bloques}
   <script>window.onload=()=>window.print()<\/script></body></html>`);
@@ -639,7 +649,8 @@ function vistaDetalle(p) {
     ${avisoRestosEnPropuesta(p)}
   </div>
 
-  ${filas ? vistaComparacion(p, filas) : ''}`;
+  ${filas ? vistaComparacion(p, filas) : ''}
+  ${vistaFacturaFinal(p)}`;
 }
 
 /** Precio en la comparación: en reposición, el neto con el base y los descuentos debajo. */
@@ -1286,9 +1297,10 @@ let ultimaCarga = [];
 
 /** Pedido al que va una propuesta/factura: por nº y, si no, por el cliente
  *  que aparezca en Observaciones / «su pedido». Solo si hay uno claro. */
-function pedidoParaPropuesta(prop) {
+function pedidoParaPropuesta(prop) { return pedidoParaDocumento(prop, (p) => !p.validado); }
+function pedidoParaDocumento(prop, filtro) {
   const n = prop.cabecera.numeroPedido;
-  const abiertos = E.pedidos.filter((p) => !p.validado);
+  const abiertos = E.pedidos.filter(filtro);
   let c = abiertos.filter((p) => n != null && String(p.numero).replace(/\D/g, '') === String(n));
   if (c.length !== 1) {
     const obs = claveCliente(prop.cabecera.observaciones);
@@ -1327,15 +1339,16 @@ async function cargarPropuestasVarias(files) {
 
 function vistaSinAsignar() {
   const ok = ultimaCarga.filter((x) => x.ok), mal = ultimaCarga.filter((x) => !x.ok);
-  const opciones = E.pedidos.filter((p) => !p.validado)
-    .sort((a, b) => Number(Boolean(a.propuesta)) - Number(Boolean(b.propuesta)) || String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }))
-    .map((p) => `<option value="${p.id}">${esRepo(p) ? 'Repo.' : 'Nº'} ${h(p.numero || '—')} ${h(p.cliente || p.proveedor)}${p.propuesta ? ' (ya tiene propuesta)' : ''}</option>`).join('');
+  const opcionesDe = (x) => (x.destino === 'factura'
+    ? E.pedidos.filter((p) => p.validado && claveGrupo(p) === x.clave)
+    : E.pedidos.filter((p) => !p.validado).sort((a, b) => Number(Boolean(a.propuesta)) - Number(Boolean(b.propuesta))))
+    .map((p) => `<option value="${p.id}">${esRepo(p) ? 'Repo.' : 'Nº'} ${h(p.numero || '—')} ${h(p.cliente || p.proveedor)}${x.destino === 'factura' ? (p.factura ? ' (ya tiene factura)' : '') : p.propuesta ? ' (ya tiene propuesta)' : ''}</option>`).join('');
   return (ok.length ? `<div class="aviso-caja ok">${ok.map((x) => h(x.texto)).join('<br>')}</div>` : '') +
     (mal.length ? `<div class="aviso-caja mal">No se han podido leer:<br>${mal.map((x) => h(x.texto)).join('<br>')}</div>` : '') +
     (sinAsignar.length ? `<div class="aviso-caja aviso"><b>¿A qué pedido va cada uno?</b> No traen un nº de pedido ni un cliente que casen con uno solo.
       ${sinAsignar.map((x) => `<div class="fila" style="margin-top:8px">
-        <span style="flex:1 1 200px"><b>${h(x.archivo)}</b>${x.prop.cabecera.observaciones ? `<div class="pequeno">${h(x.prop.cabecera.observaciones)}</div>` : ''}<div class="pequeno">${x.prop.lineas.length} líneas</div></span>
-        <select id="asig-${x.id}"><option value="">— elegir pedido —</option>${opciones}</select>
+        <span style="flex:1 1 200px">${x.destino === 'factura' ? '<span class="chip info">Factura final</span> ' : ''}<b>${h(x.archivo)}</b>${x.prop.cabecera.observaciones ? `<div class="pequeno">${h(x.prop.cabecera.observaciones)}</div>` : ''}<div class="pequeno">${x.prop.lineas.length} líneas</div></span>
+        <select id="asig-${x.id}"><option value="">— elegir pedido —</option>${opcionesDe(x)}</select>
         <button class="btn peque" onclick="asignarManual('${x.id}')">Asignar</button>
         <button class="btn peque peligro" onclick="descartarSinAsignar('${x.id}')">Descartar</button></div>`).join('')}</div>` : '');
 }
@@ -1344,13 +1357,103 @@ function asignarManual(id) {
   const pid = document.getElementById('asig-' + id).value;
   if (!x || !pid) { alert('Elige el pedido.'); return; }
   const p = pedidoPorId(pid);
-  if (p.propuesta && !confirm(`El pedido nº ${p.numero} ya tiene propuesta (${p.propuesta.archivo}). ¿Sustituirla?`)) return;
-  asignarPropuesta(p, x.archivo, x.prop);
+  if (x.destino === 'factura') {
+    if (p.factura && !confirm(`El pedido nº ${p.numero} ya tiene factura (${p.factura.archivo}). ¿Sustituirla?`)) return;
+    asignarFactura(p, x.archivo, x.prop);
+  } else {
+    if (p.propuesta && !confirm(`El pedido nº ${p.numero} ya tiene propuesta (${p.propuesta.archivo}). ¿Sustituirla?`)) return;
+    asignarPropuesta(p, x.archivo, x.prop);
+  }
   sinAsignar = sinAsignar.filter((y) => y.id !== id);
   ultimaCarga.push({ ok: true, texto: `${x.archivo} → nº ${p.numero} ${p.cliente || ''}` });
   guardar(); pintar();
 }
 function descartarSinAsignar(id) { sinAsignar = sinAsignar.filter((y) => y.id !== id); pintar(); }
+
+// ── Último control: la factura final del proveedor ───────────────────────────
+// Se compara con lo VALIDADO (no con la propuesta): pasa que se confirma una
+// propuesta y luego facturan otra cosa porque en ese momento algo se agotó.
+function revisarFactura(p) {
+  if (!p.factura || !p.final) return null;
+  return CP.controlFactura(p.final.lineas, p.factura.lineas, { dtoValidado: p.final.dto, dtoFactura: (p.factura.cabecera || {}).dtoGlobal });
+}
+function chipFactura(p) {
+  const r = revisarFactura(p);
+  if (!r) return '';
+  if (r.cuadra) return ' <span class="chip ok">Factura ✓</span>';
+  const partes = [];
+  if (r.faltan.length) partes.push(r.faltan.length + ' no vienen');
+  if (r.sobran.length) partes.push(r.sobran.length + ' de más');
+  if (r.precios.length) partes.push(r.precios.length + ' precio');
+  return ` <span class="chip mal">Factura: ${partes.join(' · ')}</span>`;
+}
+function vistaFacturaFinal(p) {
+  if (!p.validado || !p.final) {
+    return p.propuesta ? `<div class="tarjeta"><h2>4 · Factura final del proveedor</h2><div class="vacio">Cuando valides el pedido podrás subir aquí la factura final para el último control.</div></div>` : '';
+  }
+  const r = revisarFactura(p);
+  const lista = (xs, f) => `<ul style="margin:6px 0 0;padding-left:18px">${xs.map(f).join('')}</ul>`;
+  return `
+  <div class="tarjeta">
+    <h2>4 · Factura final del proveedor <span class="pequeno">(último control)</span></h2>
+    <p class="pequeno" style="margin:0 0 8px">Sube la factura definitiva: la comparo con lo que validaste y te digo si falta alguna referencia, si viene algo de más o si cambia algún precio.</p>
+    <div class="fila no-imprimir">
+      <label>Factura final (PDF, Excel o foto)<input type="file" onchange="cargarFacturaEn('${p.id}', this.files[0]); this.value=''"></label>
+    </div>
+    <div id="progresoFactura" class="progreso"></div>
+    ${!p.factura ? '<div class="vacio">Sin factura todavía.</div>' : `
+    <div class="resumen"><span class="chip info">${h(p.factura.archivo)}</span><span class="chip gris">${p.factura.lineas.length} líneas</span></div>
+    ${p.factura.control ? avisoControl(p.factura) : ''}
+    ${r.cuadra ? `<div class="aviso-caja ok"><b>✅ La factura cuadra con lo validado:</b> están todas las referencias, en la misma cantidad y al mismo precio.</div>` : `
+    <div class="aviso-caja ${r.faltan.length ? 'mal' : 'ok'}"><b>${r.faltan.length ? `❌ No vienen en la factura ${r.faltan.length} referencia(s)` : '✅ No falta nada de lo validado'}</b>
+      ${r.faltan.length ? lista(r.faltan, (x) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — faltan ${x.cant}${x.total ? '' : ` de ${x.de}`} ud.</li>`) : ''}</div>
+    ${r.sobran.length ? `<div class="aviso-caja aviso"><b>⚠️ Facturado sin estar en lo validado (${r.sobran.length})</b>${lista(r.sobran, (x) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — +${x.cant} ud.</li>`)}</div>` : ''}
+    ${r.precios.length ? `<div class="aviso-caja aviso"><b>Precio neto distinto al validado (${r.precios.length})</b>${lista(r.precios, (x) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — validado ${fmt(x.validado)} → facturado ${fmt(x.facturado)}</li>`)}</div>` : ''}
+    ${r.faltan.length ? '<p class="pequeno">Lo que no viene en la factura no sale en la guía de facturación del cliente.</p>' : ''}`}`}
+  </div>`;
+}
+function asignarFactura(p, archivo, doc) {
+  p.factura = { archivo, fecha: hoy(), cabecera: doc.cabecera || {}, lineas: doc.lineas, control: doc.control || null };
+}
+async function cargarFacturaEn(id, file) {
+  if (!file) return;
+  const p = pedidoPorId(id);
+  try {
+    const doc = await leerFicheroProveedor(file, 'progresoFactura');
+    const n = doc.cabecera.numeroPedido;
+    if (n != null && String(n) !== String(p.numero).replace(/\D/g, '') &&
+        !confirm(`La factura parece del pedido ${n} y este es el nº ${p.numero}. ¿Cargarla aquí igualmente?`)) return;
+    if (p.factura && !confirm(`Este pedido ya tiene factura (${p.factura.archivo}). ¿Sustituirla?`)) return;
+    asignarFactura(p, file.name, doc);
+    guardar(); pintar();
+  } catch (err) { alert('No he podido leer ' + file.name + ': ' + err.message); }
+}
+/** Varias facturas finales de una campaña a la vez: cada una a su pedido
+ *  validado por nº o cliente; las que no casan se preguntan. */
+async function cargarFacturasVarias(files, clave) {
+  const lista = [...files];
+  ultimaCarga = [];
+  const progreso = (t) => { const c = document.getElementById('progresoProps'); if (c) c.textContent = t; };
+  for (let i = 0; i < lista.length; i++) {
+    const f = lista[i];
+    progreso(`Leyendo factura ${i + 1} de ${lista.length}: ${f.name}…`);
+    try {
+      const doc = await leerFicheroProveedor(f);
+      const p = pedidoParaDocumento(doc, (x) => x.validado && claveGrupo(x) === clave);
+      if (p) {
+        asignarFactura(p, f.name, doc);
+        const r = revisarFactura(p);
+        ultimaCarga.push({ ok: true, texto: `Factura ${f.name} → nº ${p.numero} ${p.cliente || ''}${r && r.faltan.length ? ` — ❌ no vienen ${r.faltan.length} referencia(s)` : r && !r.cuadra ? ' — ⚠️ revisar diferencias' : ' — ✅ cuadra'}` });
+      } else {
+        sinAsignar.push({ id: nuevoId(), archivo: f.name, prop: doc, destino: 'factura', clave });
+      }
+    } catch (err) { ultimaCarga.push({ ok: false, texto: `${f.name}: ${err.message}` }); }
+    guardar(); pintar();
+  }
+  progreso('');
+  pintar();
+  window.scrollTo(0, 0);
+}
 
 // ── Validar: restos y notas ──────────────────────────────────────────────────
 function validarPedido() {
