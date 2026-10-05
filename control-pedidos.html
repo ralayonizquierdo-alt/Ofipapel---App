@@ -241,6 +241,12 @@ function comparar(p) {
   // Comercial: tolerancia cero en precio.
   return CP.compararPedido(p.lineas, p.propuesta.lineas, { catalogo: catalogoDe(p.proveedor), tolerancia: CP.TOLERANCIA.comercial });
 }
+function chipsFaltasSobras(p) {
+  const filas = comparar(p);
+  if (!filas) return '';
+  const { faltan, sobran } = CP.faltasYSobras(filas);
+  return ` <span class="chip ${faltan.length ? 'mal' : 'ok'}">${faltan.length} faltan</span> <span class="chip ${sobran.length ? 'aviso' : 'ok'}">${sobran.length} sobran</span>`;
+}
 function estadoPedido(p) {
   if (p.validado) return { chip: 'ok', texto: 'Validado' };
   if (!p.lineas.length) return { chip: 'gris', texto: 'Sin líneas' };
@@ -286,6 +292,8 @@ function vistaLista() {
     </div>
   </div>
 
+  ${resumenFaltasSobras()}
+
   <div class="tarjeta">
     <h2>Pedidos</h2>
     <div class="fila no-imprimir" style="margin-bottom:10px">
@@ -305,7 +313,7 @@ function vistaLista() {
         <td>${h(p.proveedor)}</td><td>${h(p.numero)}</td><td>${h(p.cliente)}</td>
         <td class="num">${p.lineas.length}</td>
         <td>${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
-        <td><span class="chip ${e.chip}">${h(e.texto)}</span></td>
+        <td><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}</td>
       </tr>`; }).join('')}
     </table></div>
     <div class="fila no-imprimir" style="margin-top:12px">
@@ -313,6 +321,53 @@ function vistaLista() {
       <span class="pequeno">Solo pedidos validados. Varias selecciones se suman por referencia en un único pedido.</span>
     </div>` : `<div class="vacio">Todavía no hay pedidos. Crea el primero arriba.</div>`}
   </div>`;
+}
+
+/** Todas las faltas y sobras de todos los pedidos con propuesta, por campaña. */
+let filtroResumen = '';
+function resumenFaltasSobras() {
+  const conProp = E.pedidos.filter((p) => p.propuesta && p.lineas.length);
+  if (!conProp.length) return '';
+  const grupo = (p) => esRepo(p) ? `Reposición ${p.proveedor}` : `${p.proveedor}${p.campana ? ' · campaña ' + p.campana : ''}`;
+  const grupos = [...new Set(conProp.map(grupo))];
+  const sel = grupos.includes(filtroResumen) ? filtroResumen : grupos[0];
+  const filasRes = [];
+  for (const p of conProp.filter((x) => grupo(x) === sel)) {
+    const { faltan, sobran } = CP.faltasYSobras(comparar(p));
+    faltan.forEach((x) => filasRes.push({ p, x, tipo: 'falta' }));
+    sobran.forEach((x) => filasRes.push({ p, x, tipo: 'sobra' }));
+  }
+  filasRes.sort((a, b) => (a.tipo === b.tipo ? String(a.p.numero).localeCompare(String(b.p.numero), 'es', { numeric: true }) : a.tipo === 'falta' ? -1 : 1));
+  const nF = filasRes.filter((r) => r.tipo === 'falta').length;
+  const nS = filasRes.length - nF;
+  return `
+  <div class="tarjeta">
+    <h2>Faltas y sobras</h2>
+    <div class="fila no-imprimir">
+      ${grupos.length > 1 ? `<label>Campaña / proveedor<select onchange="filtroResumen=this.value;pintar()">${grupos.map((g) => `<option ${g === sel ? 'selected' : ''}>${h(g)}</option>`).join('')}</select></label>` : `<span class="chip gris">${h(sel)}</span>`}
+      <button class="btn peque" onclick="imprimirResumen()">Imprimir</button>
+    </div>
+    <div class="resumen">
+      <span class="chip ${nF ? 'mal' : 'ok'}">${nF} faltan</span>
+      <span class="chip ${nS ? 'aviso' : 'ok'}">${nS} sobran</span>
+      <span class="chip gris">${conProp.filter((x) => grupo(x) === sel).length} pedidos comparados</span>
+    </div>
+    ${filasRes.length ? `<div class="tabla-scroll" id="tablaResumen"><table>
+      <tr><th>Qué pasa</th><th>Pedido</th><th>Cliente</th><th>Referencia</th><th>Descripción</th><th class="num">Uds.</th></tr>
+      ${filasRes.map(({ p, x, tipo }) => `<tr class="clic" onclick="abrirPedido('${p.id}')">
+        <td>${tipo === 'falta' ? '<span class="chip mal">Falta</span>' : '<span class="chip aviso">Sobra</span>'}${x.total ? '' : ' <span class="pequeno">parcial</span>'}</td>
+        <td>${h(p.numero)}</td><td>${h(p.cliente)}</td><td><b>${h(x.ref)}</b></td><td>${h(x.desc)}</td>
+        <td class="num">${tipo === 'falta' ? '−' : '+'}${x.cant}${x.total ? '' : ' de ' + x.de}</td></tr>`).join('')}
+    </table></div>` : `<div class="aviso-caja ok">En los pedidos comparados no falta ni sobra ninguna referencia.</div>`}
+  </div>`;
+}
+function imprimirResumen() {
+  const t = document.getElementById('tablaResumen');
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Faltas y sobras</title>
+  <style>body{font-family:system-ui,sans-serif;margin:24px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left}</style></head>
+  <body><h1 style="font-size:18px">Faltas y sobras · ${h(fmtFecha(hoy()))}</h1>${t ? t.innerHTML : '<p>No falta ni sobra nada.</p>'}<script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
 }
 
 function crearPedido() {
@@ -582,11 +637,15 @@ function vistaComparacion(p, filas) {
     info: filas.filter((f) => !f.revisar && f.motivos.some((m) => m.informativo)).length,
     revisar: filas.filter((f) => f.revisar).length,
   };
-  const mostrar = soloDiscordancias ? filas.filter((f) => f.motivos.length) : filas;
+  // Lo esencial primero: lo que falta, luego lo que sobra, luego el resto.
+  const peso = (f) => (f.cantPropuesta < f.cantPedida ? 0 : f.cantPropuesta > f.cantPedida ? 1 : 2);
+  const mostrar = (soloDiscordancias ? filas.filter((f) => f.motivos.length) : filas).slice().sort((a, b) => peso(a) - peso(b));
   const nombres = { resto: 'Dejar en restos', anular: 'Anular (ya no lo quiere)', aceptar: 'Aceptar propuesta', mantener: 'Mantener lo pedido', manual: 'Cantidad/precio a mano', excluir: 'Excluir línea' };
   return `
   <div class="tarjeta">
     <h2>3 · Comparación y decisiones</h2>
+    ${bloqueFaltasSobras(p, filas)}
+    <h3 style="margin-top:16px">Todas las diferencias</h3>
     <div class="resumen">
       <span class="chip ok">${n.ok} cuadran</span>
       ${n.info ? `<span class="chip info">${n.info} con cambio de precio informativo</span>` : ''}
@@ -629,6 +688,22 @@ function vistaComparacion(p, filas) {
       <button class="btn" onclick="exportarPedidos(['${p.id}'])">Excel Géminis de este pedido</button>
     </div>` : ''}
   </div>`;
+}
+
+/** Lo que de verdad importa de un pedido: qué falta y qué sobra. */
+function bloqueFaltasSobras(p, filas) {
+  const { faltan, sobran } = CP.faltasYSobras(filas);
+  const doc = esRepo(p) ? 'la factura/propuesta' : 'la propuesta';
+  const linea = (x, signo) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — ${signo}${x.cant}${x.total ? '' : ` de ${x.de}`} ud.${x.total ? '' : ' (parcial)'}${x.sustitucion ? ` <span class="pequeno">¿sustitución ${h(x.sustitucion)}?</span>` : ''}</li>`;
+  return `
+    <div class="aviso-caja ${faltan.length ? 'mal' : 'ok'}" style="margin-top:0">
+      <b>${faltan.length ? `❌ Faltan ${faltan.length} referencia(s)` : '✅ No falta nada'}</b> — pedido que no viene en ${doc}
+      ${faltan.length ? `<ul style="margin:6px 0 0;padding-left:18px">${faltan.map((x) => linea(x, '')).join('')}</ul>` : ''}
+    </div>
+    <div class="aviso-caja ${sobran.length ? 'aviso' : 'ok'}">
+      <b>${sobran.length ? `⚠️ Sobran ${sobran.length} referencia(s)` : '✅ No sobra nada'}</b> — vienen en ${doc} sin haberse pedido (o de más)
+      ${sobran.length ? `<ul style="margin:6px 0 0;padding-left:18px">${sobran.map((x) => linea(x, '+')).join('')}</ul>` : ''}
+    </div>`;
 }
 
 /** Si la propuesta trae algo que otro cliente tiene pendiente en restos, se avisa. */

@@ -250,3 +250,12 @@ test('factura leída con IA: líneas, dudas automáticas y cuadre con la base im
   const f = CP.compararPedido([{ ref: '01234', cant: 12, precio: 5.5, dtos: '10+5' }], d.lineas, REPO);
   assert.equal(f.find((x) => x.ref === '01234').estado, 'ok');
 });
+
+test('faltas y sobras: lo pedido que no viene y lo que viene sin pedirse, aparte de precios', () => {
+  const filas = CP.compararPedido(pedido, propuesta);
+  const { faltan, sobran } = CP.faltasYSobras(filas);
+  assert.deepEqual(faltan.map((x) => [x.ref, x.cant, x.de, x.total]), [['742776027', 1, 1, true], ['780070027', 2, 6, false]]);
+  assert.deepEqual(sobran.map((x) => [x.ref, x.cant, x.total]), [['999999927', 2, true]]);
+  // Un cambio solo de precio no es ni falta ni sobra
+  assert.ok(!faltan.concat(sobran).some((x) => x.ref === '770140327'));
+});

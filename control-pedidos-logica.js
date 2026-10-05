@@ -238,6 +238,26 @@
     return out;
   }
 
+  /**
+   * Lo esencial de la comparación, separado de todo lo demás (precios,
+   * formato, duplicados…):
+   *  - faltan: pedido que no viene, entero (no está en la propuesta/factura)
+   *            o en parte (viene menos cantidad).
+   *  - sobran: viene sin haberse pedido, o en más cantidad de la pedida.
+   * Cada entrada lleva cuánto (`cant`), sobre cuánto (`de`) y si es total.
+   */
+  function faltasYSobras(filas) {
+    const faltan = [];
+    const sobran = [];
+    for (const f of filas || []) {
+      const dif = f.cantPropuesta - f.cantPedida;
+      const base = { ref: f.ref, desc: f.desc, precio: f.precioPedido != null ? f.precioPedido : f.precioPropuesta, sustitucion: f.sustituyeA || f.sustituidaPor || null };
+      if (dif < 0) faltan.push({ ...base, cant: -dif, de: f.cantPedida, total: f.cantPropuesta === 0 });
+      else if (dif > 0) sobran.push({ ...base, cant: dif, de: f.cantPropuesta, total: f.cantPedida === 0 });
+    }
+    return { faltan, sobran };
+  }
+
   // ── Decisiones ────────────────────────────────────────────────────────────
 
   /**
@@ -617,7 +637,7 @@
   const api = {
     TOLERANCIA, PLANTILLA_GEMINIS,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, compararPedido, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, compararPedido, faltasYSobras, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
