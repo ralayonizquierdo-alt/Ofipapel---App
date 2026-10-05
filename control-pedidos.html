@@ -647,6 +647,7 @@ function vistaComparacion(p, filas) {
     <h2>3 · Comparación y decisiones</h2>
     ${bloqueFaltasSobras(p, filas)}
     <h3 style="margin-top:16px">Todas las diferencias</h3>
+    ${esRepo(p) ? '' : `<div class="pequeno" style="margin-bottom:6px">En un cambio de precio, tu decisión fija el <b>precio al cliente</b> (listado imprimible): «Mantener lo pedido» = el que apuntó el comercial. El Excel de Géminis lleva siempre el <b>coste que factura el proveedor</b>.</div>`}
     <div class="resumen">
       <span class="chip ok">${n.ok} cuadran</span>
       ${n.info ? `<span class="chip info">${n.info} con cambio de precio informativo</span>` : ''}
@@ -1078,7 +1079,7 @@ function descartarSinAsignar(id) { sinAsignar = sinAsignar.filter((y) => y.id !=
 function validarPedido() {
   const p = pedidoActual();
   let r;
-  try { r = CP.aplicarDecisiones(comparar(p), p.decisiones); }
+  try { r = CP.aplicarDecisiones(comparar(p), p.decisiones, { comercial: !esRepo(p) }); }
   catch (err) { alert(err.message); return; }
 
   // Los restos de este pedido que ya tienen llegadas registradas no se tocan;
@@ -1299,14 +1300,15 @@ function imprimirListado(id) {
   const lineas = p.final.lineas;
   const dto = p.final.dto || 0;
   const restos = E.restos.filter((r) => r.pedidoId === p.id && r.pendiente > 0 && !r.anulado);
-  const bruto = lineas.reduce((s, l) => s + (l.precio || 0) * l.cant, 0);
+  const pc = (l) => (l.precioCliente != null ? l.precioCliente : l.precio) || 0; // precio al cliente, no el coste
+  const bruto = lineas.reduce((s, l) => s + pc(l) * l.cant, 0);
   const w = window.open('', '_blank');
   w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Pedido ${h(p.numero)} ${h(p.cliente)}</title>
   <style>body{font-family:system-ui,sans-serif;margin:24px;color:#111}table{border-collapse:collapse;width:100%;font-size:13px}
   th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left}td.n,th.n{text-align:right}h1{font-size:20px;margin:0}h2{font-size:15px;margin-top:24px}</style></head><body>
   <h1>${h(p.cliente)}</h1><p>${h(p.proveedor)} · pedido nº ${h(p.numero)} · ${h(fmtFecha(p.fecha))}${p.campana ? ' · campaña ' + h(p.campana) : ''}</p>
   <table><tr><th>Cant.</th><th>Referencia</th><th>Descripción</th><th class="n">Precio</th><th class="n">Importe</th></tr>
-  ${lineas.map((l) => `<tr><td>${l.cant}</td><td>${h(l.ref)}</td><td>${h(l.desc)}</td><td class="n">${fmt(l.precio)}</td><td class="n">${fmt(CP.red2((l.precio || 0) * l.cant))}</td></tr>`).join('')}
+  ${lineas.map((l) => `<tr><td>${l.cant}</td><td>${h(l.ref)}</td><td>${h(l.desc)}</td><td class="n">${fmt(pc(l))}</td><td class="n">${fmt(CP.red2(pc(l) * l.cant))}</td></tr>`).join('')}
   <tr><td colspan="4" class="n"><b>Total bruto</b></td><td class="n"><b>${fmt(CP.red2(bruto))}</b></td></tr>
   ${dto ? `<tr><td colspan="4" class="n">Dto. ${h(dto)} %</td><td class="n">${fmt(CP.red2(bruto * (1 - dto / 100)))}</td></tr>` : ''}</table>
   ${restos.length ? `<h2>Pendiente de recibir</h2><table><tr><th>Cant.</th><th>Referencia</th><th>Descripción</th></tr>

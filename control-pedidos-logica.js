@@ -297,8 +297,17 @@
    * Cada línea final lleva el precio BASE (nunca se toca), sus descuentos y,
    * si se conoce, el importe al que tiene que cuadrar (el del proveedor, o
    * el que sale del precio neto escrito a mano).
+   *
+   * Pedidos del COMERCIAL (opciones.comercial): hay dos precios distintos.
+   *  - precioCliente: el que se decide aquí («Mantener lo pedido» = lo que
+   *    apuntó el comercial, «Aceptar propuesta» = el del proveedor, «a mano»
+   *    = el escrito). Es el del listado del cliente.
+   *  - precio / dtos / importe: el COSTE, siempre el que factura el proveedor
+   *    cuando lo trae. Es el que va al Excel de Géminis (pedido de compra):
+   *    meter ahí el precio al cliente falsearía el coste y el margen.
    */
-  function aplicarDecisiones(filas, decisiones) {
+  function aplicarDecisiones(filas, decisiones, opciones) {
+    const comercial = Boolean(opciones && opciones.comercial);
     const pendientes = sinDecidir(filas, decisiones);
     if (pendientes.length) {
       const e = new Error('Quedan referencias sin validar: ' + pendientes.map((f) => f.ref).join(', '));
@@ -317,6 +326,8 @@
       const pedido = (cant) => (f.precioPedido != null
         ? { ...base, cant, precio: f.precioPedido, dtos: f.dtosPedido, importe: null, udsCaja: f.udsCajaPedido || f.udsCajaPropuesta }
         : propuesta(cant));
+      const desde = lineas.length;
+      let precioClienteManual = null;
       switch (d.accion) {
         case 'excluir':
         case 'anular':
@@ -335,6 +346,7 @@
           if (cant == null || cant < 0) throw new Error(`Cantidad manual no válida en ${f.ref}`);
           if (cant === 0) break;
           const netoManual = parseNum(d.precio);
+          precioClienteManual = netoManual;
           const l = f.cantPropuesta > 0 ? propuesta(cant) : pedido(cant);
           if (netoManual != null) {
             // El precio a mano es el neto final. El base no se toca: se cuadra
@@ -348,6 +360,16 @@
         }
         default: // aceptar
           if (f.cantPropuesta > 0) lineas.push(propuesta(f.cantPropuesta));
+      }
+      if (comercial) {
+        for (const l of lineas.slice(desde)) {
+          l.precioCliente = precioClienteManual != null ? precioClienteManual : l.precio;
+          if (f.precioPropuesta != null) {
+            l.precio = f.precioPropuesta;
+            l.dtos = f.dtosPropuesta;
+            l.importe = l.cant === f.cantPropuesta ? f.importePropuesta : null;
+          }
+        }
       }
     }
     return { lineas, restos, notas };
