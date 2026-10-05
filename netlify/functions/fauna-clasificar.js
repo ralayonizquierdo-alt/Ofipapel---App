@@ -50,7 +50,6 @@ const CAMPOS = {
 };
 // Casillas que son desplegables: solo se acepta un valor de su lista.
 function opcionesDe(seccion, campo) {
-  if (campo === 'altitude') return ['0-20','20-100'];
   if (campo === 'action') return ACCIONES;
   if (campo === 'threat' || campo === 'impact') return ['Sí','No'];
   if (campo === 'method') return METODOS;
@@ -83,7 +82,7 @@ const INSTRUCCIONES = `Eres el asistente del parte diario del servicio de contro
 
 Secciones (campo "kind"):
 - "actuacion": actividad rutinaria del servicio (rondas, revisiones, inicio/fin de servicio, halconera…). En "text" va la actuación. Si coincide con una de estas, usa su texto exacto: ${ACTUACIONES_HABITUALES.join(' | ')}. Casillas: wind (viento en nudos), observations.
-- "fauna": avistamiento de animales vivos y la actuación sobre ellos. Casillas: species (nombre común, en singular, p. ej. "Gaviota patiamarilla"), count (número, solo cifras), behavior (comportamiento: volando, posado, alimentándose…), altitude ("0-20" o "20-100" metros), origin (dónde está/de dónde viene), destination (hacia dónde va), action (una de: ${ACCIONES.join(' | ')}), threat ("Sí"/"No": si coincide con operaciones o supone amenaza), observations.
+- "fauna": avistamiento de animales vivos y la actuación sobre ellos. Casillas: species (nombre común, en singular, p. ej. "Gaviota patiamarilla"), count (número, solo cifras), behavior (comportamiento: volando, posado, alimentándose…), altitude (la altura tal como se dice, con su unidad), origin (dónde está/de dónde viene), destination (hacia dónde va), action (una de: ${ACCIONES.join(' | ')}), threat ("Sí"/"No": si coincide con operaciones o supone amenaza), observations.
 - "captura": captura o trampeo de un animal. Casillas: species, method (una de: ${METODOS.join(' | ')}), count, location, destination (destino del animal, una de: ${DESTINOS_CAPTURA.join(' | ')}), observations.
 - "retirada": retirada de un animal MUERTO (FOD). Casillas: species, count, location (zona), impact ("Sí"/"No": si procede de un impacto con aeronave), observations.
 - "impacto": impacto/colisión de fauna con una aeronave. Casillas: species, location, aircraft (matrícula), severity, observations.
@@ -97,7 +96,7 @@ Reglas:
 - Si hay duda entre secciones: un aviso de otra persona/dependencia es "aviso"; un animal muerto es "retirada"; un golpe con un avión es "impacto"; animales vivos vistos es "fauna"; lo demás, "actuacion".
 
 MUY IMPORTANTE — no deduzcas, solo transcribe lo dicho:
-- "altitude": solo si se dice una altura o rango ("a unos 50 metros" → "20-100"). La tabla va en METROS: si se dice en pies, conviértelo (1 pie ≈ 0,3 m; "50 pies" ≈ 15 m → "0-20"; "200 pies" ≈ 60 m → "20-100"). Un animal posado o "volando" sin altura → "".
+- "altitude": solo si se dice una altura, y TAL COMO SE DICE, con su unidad y sin convertir: "a unos cincuenta pies" → "50 pies"; "a quince metros" → "15 metros"; si se dice uno de los rangos de la plantilla ("entre 0 y 20", "de 20 a 100") → "0-20" o "20-100". Si no se dice la unidad, el número solo ("a unos 50" → "50"). Un animal posado o "volando" sin altura → "".
 - "threat": solo si se dice expresamente si coincide o no con operaciones o si es un riesgo. Si no se dice → "".
 - "severity": las palabras que use el agente ("sin daños", "daños en el motor"…). Nunca pongas una valoración tuya como "Leve".
 - "action": si se describe la actuación, elige el código que corresponde ("vigilancia" → VI; "vuelo con rapaz", "vuelo con el halcón" → V; "vuelos de caza" sin captura → V.Z; "vuelos de caza" con captura → V.Z.C; "pirotecnia", "petardos" → P.I; "perro" → P; "sonidos", "cañón" → S). Si no se describe → "".
