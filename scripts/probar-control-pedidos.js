@@ -293,3 +293,17 @@ test('reclamación de faltas: separada por cliente, con faltas totales y parcial
   assert.match(t, /campaña 2027/);
   assert.equal(CP.textoReclamacion('X', [{ numero: '1', faltan: [] }]), '');
 });
+
+test('faltas pendientes: solo las sin decidir y las que se reclaman; reclamar deja resto marcado', () => {
+  const filas = CP.compararPedido(
+    [{ ref: 'A', cant: 2, precio: 1 }, { ref: 'B', cant: 1, precio: 1 }, { ref: 'C', cant: 3, precio: 1 }, { ref: 'D', cant: 1, precio: 1 }],
+    [{ ref: 'C', cant: 1, precio: 1 }]);
+  assert.ok(CP.accionesPara(filas.find((f) => f.ref === 'A'), 'comercial').includes('reclamar'));
+  assert.ok(!CP.accionesPara(filas.find((f) => f.ref === 'A'), 'reposicion').includes('reclamar'));
+  const dec = { A: { accion: 'reclamar' }, B: { accion: 'anular' }, C: { accion: 'aceptar' } };
+  const pend = CP.faltasPendientes(filas, dec);
+  assert.deepEqual(pend.map((x) => [x.ref, x.pendiente]), [['A', 'reclamar'], ['D', 'decidir']]);
+  const r = CP.aplicarDecisiones(filas, { ...dec, D: { accion: 'resto' } }, { comercial: true });
+  assert.deepEqual(r.restos.map((x) => [x.ref, x.cant, x.reclamar]), [['A', 2, true], ['D', 1, false]]);
+  assert.deepEqual(CP.faltasPendientes(filas, { ...dec, D: { accion: 'resto' } }).map((x) => x.ref), ['A']);
+});

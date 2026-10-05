@@ -86,6 +86,7 @@ main{overflow-wrap:anywhere}
 .aviso-caja.info{background:var(--azul-claro);color:var(--azul)}
 .resumen{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
 .vacio{color:var(--texto2);font-style:italic;padding:8px 0}
+li.descartada{text-decoration:line-through;opacity:.65}
 .entrada-rapida{background:var(--fondo);border:1px solid var(--borde);border-radius:10px;padding:10px 12px;margin:10px 0}
 .entrada-rapida input{font-size:17px}
 details.bloc{background:#fffdf3;border:1px solid #eadfa8;border-radius:10px;padding:8px 12px;margin:0 0 10px}
@@ -259,7 +260,8 @@ function comparar(p) {
 function chipsFaltasSobras(p) {
   const filas = comparar(p);
   if (!filas) return '';
-  const { faltan, sobran } = CP.faltasYSobras(filas);
+  const { sobran } = CP.faltasYSobras(filas);
+  const faltan = CP.faltasPendientes(filas, p.decisiones);
   return ` <span class="chip ${faltan.length ? 'mal' : 'ok'}">${faltan.length} faltan</span> <span class="chip ${sobran.length ? 'aviso' : 'ok'}">${sobran.length} sobran</span>`;
 }
 function estadoPedido(p) {
@@ -328,6 +330,7 @@ function vistaLista() {
     </div>
     <div id="progresoProps" class="progreso"></div>
     <div id="avisoCarga">${vistaSinAsignar()}</div>
+    ${vistaNuevaReposicion()}
     ${grupos.size ? [...grupos.values()].map(vistaGrupo).join('') : `<div class="vacio">Todavía no hay pedidos. Sube las fotos de una campaña arriba o crea uno en «✍️ Pedido a mano».</div>`}
   </div>`;
 }
@@ -339,8 +342,11 @@ function vistaGrupo(g, i) {
   const filasRes = [];
   const reclamar = [];
   for (const p of comparados) {
-    const { faltan, sobran } = CP.faltasYSobras(comparar(p));
-    if (faltan.length) reclamar.push({ numero: p.numero, cliente: esRepo(p) ? 'Reposición' : p.cliente, faltan });
+    const filas = comparar(p);
+    const { sobran } = CP.faltasYSobras(filas);
+    const faltan = CP.faltasPendientes(filas, p.decisiones);
+    const aReclamar = faltan.filter((x) => x.pendiente === 'reclamar');
+    if (aReclamar.length) reclamar.push({ numero: p.numero, cliente: esRepo(p) ? 'Reposición' : p.cliente, faltan: aReclamar });
     faltan.forEach((x) => filasRes.push({ p, x, tipo: 'falta' }));
     sobran.forEach((x) => filasRes.push({ p, x, tipo: 'sobra' }));
   }
@@ -374,6 +380,7 @@ function vistaGrupo(g, i) {
       </tr>`; }).join('')}
     </table></div>
     <div class="fila no-imprimir" style="margin-top:10px">
+      ${esRepo(ej) ? '' : `<button class="btn primario" onclick="otroPedidoCampana(${js(ej.proveedor)}, ${js(ej.campana || '')})">➕ Nuevo pedido en esta campaña</button>`}
       <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">Excel Géminis de los seleccionados</button>
       <span class="pequeno">Solo pedidos validados. Varias selecciones se suman por referencia en un único pedido.</span>
     </div>
@@ -382,13 +389,14 @@ function vistaGrupo(g, i) {
     ${filasRes.length ? `<div class="tabla-scroll" id="tablaResumen${i}"><table>
       <tr><th>Qué pasa</th><th>Pedido</th><th>Cliente</th><th>Referencia</th><th>Descripción</th><th class="num">Uds.</th></tr>
       ${filasRes.map(({ p, x, tipo }) => `<tr class="clic" onclick="abrirPedido('${p.id}')">
-        <td>${tipo === 'falta' ? '<span class="chip mal">Falta</span>' : '<span class="chip aviso">Sobra</span>'}${x.total ? '' : ' <span class="pequeno">parcial</span>'}</td>
+        <td>${tipo === 'falta' ? '<span class="chip mal">Falta</span>' : '<span class="chip aviso">Sobra</span>'}${x.total ? '' : ' <span class="pequeno">parcial</span>'}${x.pendiente === 'reclamar' ? ' <span class="chip info">✉️ a reclamar</span>' : x.pendiente === 'decidir' ? ' <span class="pequeno">por decidir</span>' : ''}</td>
         <td>${h(p.numero)}</td><td>${h(esRepo(p) ? '—' : p.cliente)}</td><td><b>${h(x.ref)}</b></td><td>${h(x.desc)}</td>
         <td class="num">${tipo === 'falta' ? '−' : '+'}${x.cant}${x.total ? '' : ' de ' + x.de}</td></tr>`).join('')}
     </table></div>
     <div class="fila no-imprimir" style="margin-top:6px"><button class="btn peque" onclick="imprimirResumen(${i}, ${js(g.nombre)})">Imprimir faltas y sobras</button></div>`
     : `<div class="aviso-caja ok">En los pedidos comparados no falta ni sobra ninguna referencia.</div>`}
-    ${reclamar.length ? vistaReclamacion(g.clave, i, reclamar) : ''}` : ''}
+    ${reclamar.length ? vistaReclamacion(g.clave, i, reclamar)
+      : nF ? `<div class="pequeno no-imprimir" style="margin-top:8px">Para reclamar una falta al proveedor, ábrela y elige «✉️ Reclamar al proveedor» en su decisión.</div>` : ''}` : ''}
   </details>`;
 }
 function marcarGrupo(clave, abierto) {
@@ -437,40 +445,68 @@ function imprimirReclamacion(clave) {
 
 // ── Vista: pedido a mano ─────────────────────────────────────────────────────
 // Pestaña propia: aquí crecerá la entrada de pedidos del comercial sin fotos.
+let prefijoNuevo = null; // {proveedor, campana} al pulsar «otro pedido de esta campaña»
 function vistaNuevo() {
   const proveedores = [...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean);
+  const pre = prefijoNuevo || {};
   return `
   <div class="tarjeta">
-    <h2>✍️ Nuevo pedido a mano</h2>
-    <p class="pequeno" style="margin:0 0 10px">Sin fotos: creas el pedido y escribes sus líneas. Un pedido del comercial entra en su campaña igual que los que llegan por foto.</p>
+    <h2>✍️ Nuevo pedido del comercial</h2>
+    <p class="pequeno" style="margin:0 0 10px">Sin fotos: creas el pedido y escribes sus artículos. Entra en su campaña igual que los que llegan por foto.</p>
     <div class="fila">
-      <label>Tipo<select id="npTipo" onchange="document.querySelectorAll('.soloComercial').forEach(e=>e.classList.toggle('oculto', this.value!=='comercial'))">
-        <option value="comercial">Del comercial (campaña)</option>
-        <option value="reposicion">Reposición (nuestro pedido al proveedor)</option></select></label>
-      <label>Proveedor<input id="npProv" list="listaProv" placeholder="FINOCAM" value="${h(proveedores[0] || '')}"></label>
+      <label>Proveedor<input id="npProv" list="listaProv" placeholder="FINOCAM" value="${h(pre.proveedor || proveedores[0] || '')}"></label>
       <datalist id="listaProv">${proveedores.map((x) => `<option value="${h(x)}">`).join('')}</datalist>
-      <label class="soloComercial">Campaña<input id="npCamp" list="listaCamp" placeholder="Elige una o escribe una nueva" value="${h(ultimaCampana())}"></label>
+      <label>Campaña<input id="npCamp" list="listaCamp" placeholder="Elige una o escribe una nueva" value="${h(pre.campana != null ? pre.campana : ultimaCampana())}"></label>
       <datalist id="listaCamp">${campanasExistentes().map((x) => `<option value="${h(x)}">`).join('')}</datalist>
-      <label>Nº pedido<input id="npNum" style="width:90px"></label>
-      <label class="soloComercial">Cliente<input id="npCli" placeholder="Nombre del cliente"></label>
+      <label>Nº pedido<input id="npNum" style="width:90px" enterkeyhint="next" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('npCli').focus()}"></label>
+      <label>Cliente<input id="npCli" placeholder="Nombre del cliente" enterkeyhint="go" onkeydown="if(event.key==='Enter'){event.preventDefault();crearPedido()}"></label>
       <label>Fecha<input id="npFecha" type="date" value="${hoy()}"></label>
       <button class="btn primario" onclick="crearPedido()">Crear</button>
     </div>
   </div>`;
 }
+/** Desde un pedido (o una campaña): crear el siguiente de la misma campaña. */
+function otroPedidoCampana(proveedor, campana) {
+  prefijoNuevo = { proveedor, campana };
+  vista = 'nuevo'; pedidoAbierto = null; pintar(); window.scrollTo(0, 0);
+  document.getElementById('npNum').focus();
+}
+/** Reposición: nuestro pedido al proveedor. No pasa por «Pedido a mano». */
+function vistaNuevaReposicion() {
+  const proveedores = [...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean);
+  return `
+    <details class="no-imprimir" style="margin-bottom:10px">
+      <summary class="pequeno" style="cursor:pointer"><b>+ Nueva reposición</b> (nuestro pedido al proveedor)</summary>
+      <div class="fila" style="margin-top:8px">
+        <label>Proveedor<input id="rpProv" list="listaProv" placeholder="PROVEEDOR" value="${h(proveedores[0] || '')}"></label>
+        <label>Nº pedido<input id="rpNum" style="width:110px"></label>
+        <label>Fecha<input id="rpFecha" type="date" value="${hoy()}"></label>
+        <button class="btn primario" onclick="crearReposicion()">Crear</button>
+      </div>
+    </details>`;
+}
+function crearReposicion() {
+  const v = (id) => document.getElementById(id).value.trim();
+  if (!v('rpProv') || !v('rpNum')) { alert('Proveedor y nº de pedido son obligatorios.'); return; }
+  const p = { id: nuevoId(), tipo: 'reposicion', proveedor: prov(v('rpProv')), campana: '', numero: v('rpNum'), cliente: '',
+    fecha: v('rpFecha') || hoy(), notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
+  if (E.pedidos.some((x) => esRepo(x) && x.proveedor === p.proveedor && String(x.numero) === String(p.numero))) {
+    if (!confirm(`Ya hay una reposición ${p.proveedor} nº ${p.numero}. ¿Crear otra igualmente?`)) return;
+  }
+  E.pedidos.push(p); guardar(); abrirPedido(p.id);
+}
 
 function crearPedido() {
   const v = (id) => document.getElementById(id).value.trim();
-  const tipo = v('npTipo') === 'reposicion' ? 'reposicion' : 'comercial';
-  if (!v('npProv') || !v('npNum') || (tipo === 'comercial' && !v('npCli'))) {
-    alert(tipo === 'comercial' ? 'Proveedor, nº de pedido y cliente son obligatorios.' : 'Proveedor y nº de pedido son obligatorios.'); return;
-  }
-  const p = { id: nuevoId(), tipo, proveedor: prov(v('npProv')), campana: tipo === 'comercial' ? campanaCanonica(v('npProv'), v('npCamp')) : '', numero: v('npNum'),
-    cliente: tipo === 'comercial' ? v('npCli').toUpperCase() : '',
+  const tipo = 'comercial'; // los pedidos a mano son siempre del comercial
+  if (!v('npProv') || !v('npNum') || !v('npCli')) { alert('Proveedor, nº de pedido y cliente son obligatorios.'); return; }
+  const p = { id: nuevoId(), tipo, proveedor: prov(v('npProv')), campana: campanaCanonica(v('npProv'), v('npCamp')), numero: v('npNum'),
+    cliente: v('npCli').toUpperCase(),
     fecha: v('npFecha') || hoy(), notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
   if (E.pedidos.some((x) => x.proveedor === p.proveedor && String(x.numero) === String(p.numero) && x.campana === p.campana)) {
     if (!confirm(`Ya hay un pedido ${p.proveedor} nº ${p.numero}. ¿Crear otro igualmente?`)) return;
   }
+  prefijoNuevo = null;
   E.pedidos.push(p);
   guardar();
   abrirPedido(p.id);
@@ -511,6 +547,7 @@ function vistaDetalle(p) {
       <label>Nº<input value="${h(p.numero)}" style="width:80px" onchange="cambiaCampo('numero', this.value.trim())"></label>
       <label>Cliente<input value="${h(p.cliente)}" onchange="cambiaCampo('cliente', this.value.trim().toUpperCase())"></label>
       <label>Fecha<input type="date" value="${h(p.fecha)}" onchange="cambiaCampo('fecha', this.value)"></label>
+      <button class="btn primario" onclick="otroPedidoCampana(${js(p.proveedor)}, ${js(p.campana || '')})">➕ Otro pedido de esta campaña</button>
       <button class="btn peque peligro" onclick="borrarPedido()">Borrar pedido</button>
     </div>
     ${p.notas ? `<div class="aviso-caja info">Notas: ${h(p.notas)}</div>` : ''}
@@ -736,7 +773,7 @@ function vistaComparacion(p, filas) {
   // Lo esencial primero: lo que falta, luego lo que sobra, luego el resto.
   const peso = (f) => (f.cantPropuesta < f.cantPedida ? 0 : f.cantPropuesta > f.cantPedida ? 1 : 2);
   const mostrar = (soloDiscordancias ? filas.filter((f) => f.motivos.length) : filas).slice().sort((a, b) => peso(a) - peso(b));
-  const nombres = { resto: 'Dejar en restos', anular: 'Anular (ya no lo quiere)', aceptar: 'Aceptar propuesta', mantener: 'Mantener lo pedido', manual: 'Cantidad/precio a mano', excluir: 'Excluir línea' };
+  const nombres = { reclamar: '✉️ Reclamar al proveedor', resto: 'Dejar en restos (sin reclamar)', anular: 'Anular (ya no lo quiere)', aceptar: 'Aceptar propuesta', mantener: 'Mantener lo pedido', manual: 'Cantidad/precio a mano', excluir: 'Excluir línea' };
   return `
   <div class="tarjeta">
     <h2>3 · Comparación y decisiones</h2>
@@ -790,12 +827,19 @@ function vistaComparacion(p, filas) {
 /** Lo que de verdad importa de un pedido: qué falta y qué sobra. */
 function bloqueFaltasSobras(p, filas) {
   const { faltan, sobran } = CP.faltasYSobras(filas);
+  const pendientes = esRepo(p) ? faltan : CP.faltasPendientes(filas, p.decisiones);
+  const pend = new Set(pendientes.map((x) => x.ref));
   const doc = esRepo(p) ? 'la factura/propuesta' : 'la propuesta';
-  const linea = (x, signo) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — ${signo}${x.cant}${x.total ? '' : ` de ${x.de}`} ud.${x.total ? '' : ' (parcial)'}${x.sustitucion ? ` <span class="pequeno">¿sustitución ${h(x.sustitucion)}?</span>` : ''}</li>`;
+  const decidido = { reclamar: '✉️ se reclama al proveedor', resto: 'en restos, sin reclamar', anular: 'descartada: ya no lo quiere', excluir: 'descartada', aceptar: 'aceptada la propuesta', mantener: 'se mantiene lo pedido', manual: 'a mano' };
+  const linea = (x, signo, falta) => {
+    const acc = falta && !esRepo(p) && (p.decisiones[x.ref] || {}).accion;
+    const fuera = falta && !esRepo(p) && !pend.has(x.ref);
+    return `<li${fuera ? ' class="descartada"' : ''}><b>${h(x.ref)}</b> ${h(x.desc)} — ${signo}${x.cant}${x.total ? '' : ` de ${x.de}`} ud.${x.total ? '' : ' (parcial)'}${x.sustitucion ? ` <span class="pequeno">¿sustitución ${h(x.sustitucion)}?</span>` : ''}${acc ? ` <span class="pequeno">· ${h(decidido[acc] || acc)}</span>` : ''}</li>`;
+  };
   return `
-    <div class="aviso-caja ${faltan.length ? 'mal' : 'ok'}" style="margin-top:0">
-      <b>${faltan.length ? `❌ Faltan ${faltan.length} referencia(s)` : '✅ No falta nada'}</b> — pedido que no viene en ${doc}
-      ${faltan.length ? `<ul style="margin:6px 0 0;padding-left:18px">${faltan.map((x) => linea(x, '')).join('')}</ul>` : ''}
+    <div class="aviso-caja ${pendientes.length ? 'mal' : 'ok'}" style="margin-top:0">
+      <b>${pendientes.length ? `❌ Faltan ${pendientes.length} referencia(s)` : faltan.length ? '✅ Ninguna falta pendiente' : '✅ No falta nada'}</b> — pedido que no viene en ${doc}${faltan.length > pendientes.length ? ` <span class="pequeno">(${faltan.length - pendientes.length} ya decidida(s): no cuentan)</span>` : ''}
+      ${faltan.length ? `<ul style="margin:6px 0 0;padding-left:18px">${faltan.map((x) => linea(x, '', true)).join('')}</ul>` : ''}
     </div>
     <div class="aviso-caja ${sobran.length ? 'aviso' : 'ok'}">
       <b>${sobran.length ? `⚠️ Sobran ${sobran.length} referencia(s)` : '✅ No sobra nada'}</b> — vienen en ${doc} sin haberse pedido (o de más)
@@ -1279,7 +1323,7 @@ function validarPedido() {
   for (const x of r.restos) {
     if (conLlegadas.some((c) => c.ref === x.ref)) continue;
     E.restos.push({ id: nuevoId(), pedidoId: p.id, proveedor: p.proveedor, cliente: p.cliente, numero: p.numero, ref: x.ref, desc: x.desc, ean: x.ean,
-      precio: x.precio, cant: x.cant, pendiente: x.cant, fecha: p.fecha, asignaciones: [], anulado: false });
+      precio: x.precio, cant: x.cant, pendiente: x.cant, fecha: p.fecha, asignaciones: [], anulado: false, reclamado: Boolean(x.reclamar) });
   }
   E.notas = E.notas.filter((n) => n.pedidoId !== p.id || n.resuelta);
   for (const n of r.notas) {
@@ -1333,7 +1377,7 @@ function vistaRestos() {
       <tr><th>Fecha</th><th>Proveedor</th><th>Cliente</th><th>Pedido</th><th>Referencia</th><th>Descripción</th><th class="num">Pedidas</th><th class="num">Pendientes</th><th>Llegadas</th><th class="no-imprimir"></th></tr>
       ${lista.map((r) => `<tr>
         <td>${h(fmtFecha(r.fecha))}</td><td>${h(r.proveedor)}</td><td><b>${h(r.cliente)}</b></td><td>${h(r.numero)}</td>
-        <td>${h(r.ref)}</td><td>${h(r.desc)}</td><td class="num">${r.cant}</td>
+        <td>${h(r.ref)}${r.reclamado ? ' <span class="chip info">✉️ reclamado</span>' : ''}</td><td>${h(r.desc)}</td><td class="num">${r.cant}</td>
         <td class="num">${r.anulado ? '<span class="chip gris">Anulado</span>' : r.pendiente > 0 ? `<span class="chip aviso">${r.pendiente}</span>` : '<span class="chip ok">Servido</span>'}</td>
         <td class="pequeno">${r.asignaciones.map((a) => `${h(fmtFecha(a.fecha))}: ${a.cant} (${h(a.origen)})`).join('<br>') || '—'}</td>
         <td class="no-imprimir">${r.pendiente > 0 && !r.anulado ? `<button class="btn peque peligro" onclick="anularResto('${r.id}')">Anular</button>` : ''}</td>
