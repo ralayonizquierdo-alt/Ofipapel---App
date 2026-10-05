@@ -274,7 +274,8 @@ function avisoFotos(p) {
   if (!r.fotos) return '';
   return `<div class="aviso-caja ${r.faltan.length ? 'mal' : 'info'}">📷 <b>${r.fotos} foto(s)</b>${r.total ? ` · hojas leídas ${r.hojas.join(', ')} de ${r.total}` : ''}
     ${r.faltan.length ? `<br><b>⚠️ Falta la hoja ${r.faltan.join(', ')} de ${r.total}:</b> súbela con «Hacer foto» o «Elegir de la galería».` : ''}
-    <div class="pequeno" style="margin-top:4px">${fotos.map((f) => `${h(f.nombre)}${f.hoja ? ` (hoja ${h(f.hoja)})` : ''}${f.lineas != null ? ` · ${f.lineas} línea(s)` : ''}`).join(' · ')}</div></div>`;
+    <div class="pequeno" style="margin-top:4px">${fotos.map((f) => `<span style="display:inline-block;margin:2px 8px 2px 0">${h(f.nombre)}${f.hoja ? ` (hoja ${h(f.hoja)})` : ''}${f.lineas != null ? ` · ${f.lineas} línea(s)` : ''}
+      <button class="btn peque peligro no-imprimir" style="padding:1px 6px" onclick="quitarFoto(${js(f.nombre)})" title="Quitar esta foto y sus líneas">quitar</button></span>`).join('')}</div></div>`;
 }
 function chipsFaltasSobras(p) {
   const filas = comparar(p);
@@ -323,18 +324,18 @@ function vistaLista() {
   return `
   <div class="tarjeta">
     <h2>📷 Subir los pedidos de una campaña</h2>
-    <p class="pequeno" style="margin:0 0 10px">Elige a la vez <b>todas las fotos de todos los clientes</b>. La app lee en cada hoja el <b>nº de pedido y el cliente</b> y crea un pedido por cada uno dentro de la campaña que elijas; las hojas del mismo pedido se juntan, y si añades más fotos después se suman al pedido que ya exista con ese nº.</p>
+    <p class="pequeno" style="margin:0 0 10px">Para pedidos <b>nuevos</b>. Escribe el proveedor y la campaña y elige a la vez <b>todas las fotos de todos los clientes</b>: la app lee en cada hoja el <b>nº de pedido y el cliente</b> y crea un pedido por cada uno; las hojas del mismo pedido se juntan. Aquí nunca se añaden fotos a un pedido que ya existía: para completar uno, ábrelo y usa «Hacer foto».</p>
     <div class="fila">
-      <label>Proveedor<input id="lotProv" list="listaProv" placeholder="FINOCAM" value="${h(proveedores[0] || '')}"></label>
-      <label>Campaña<input id="lotCamp" list="listaCamp" placeholder="Elige una o escribe una nueva" value="${h(ultimaCampana())}"></label>
+      <label>Proveedor<input id="lotProv" list="listaProv" placeholder="Escribe o elige el proveedor"></label>
+      <label>Campaña<input id="lotCamp" list="listaCamp" placeholder="Escribe o elige la campaña"></label>
       <datalist id="listaProv">${proveedores.map((x) => `<option value="${h(x)}">`).join('')}</datalist>
       <datalist id="listaCamp">${campanasExistentes().map((x) => `<option value="${h(x)}">`).join('')}</datalist>
     </div>
     <div class="fila" style="margin-top:10px">
-      <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">🖼️ Elegir fotos (varias)
-        <input type="file" accept="image/*" multiple class="oculto" onchange="subirCampana(this.files); this.value=''"></label>
-      <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📷 Hacer foto
-        <input type="file" accept="image/*" capture="environment" class="oculto" onchange="subirCampana(this.files); this.value=''"></label>
+      <button class="btn primario" onclick="pedirFotosNuevas('lotGaleria')">🖼️ Elegir fotos (varias)</button>
+      <input id="lotGaleria" type="file" accept="image/*" multiple class="oculto" onchange="subirCampana(this.files); this.value=''">
+      <button class="btn" onclick="pedirFotosNuevas('lotCamara')">📷 Hacer foto</button>
+      <input id="lotCamara" type="file" accept="image/*" capture="environment" class="oculto" onchange="subirCampana(this.files); this.value=''">
     </div>
     <div id="progresoLote" class="progreso"></div>
   </div>
@@ -626,7 +627,32 @@ function ultimaCampana() {
 function subirCampana(files) {
   if (!files || !files.length) return;
   const v = (id) => document.getElementById(id).value.trim();
-  leerFotos(files, null, { proveedor: prov(v('lotProv')), campana: campanaCanonica(v('lotProv'), v('lotCamp')), fecha: hoy() });
+  leerFotos(files, null, { proveedor: prov(v('lotProv')), campana: campanaCanonica(v('lotProv'), v('lotCamp')), fecha: hoy(), soloNuevos: true });
+}
+/** Antes de abrir la galería o la cámara: proveedor y campaña escritos, y
+ *  confirmación de a qué campaña van. Sin valores por defecto, para que las
+ *  fotos no acaben en FINOCAM (o en otra campaña) sin querer. */
+function pedirFotosNuevas(idInput) {
+  const v = (id) => document.getElementById(id).value.trim();
+  if (!v('lotProv') || !v('lotCamp')) { alert('Escribe primero el proveedor y la campaña de estas fotos.'); (v('lotProv') ? document.getElementById('lotCamp') : document.getElementById('lotProv')).focus(); return; }
+  const proveedor = prov(v('lotProv'));
+  const campana = campanaCanonica(proveedor, v('lotCamp'));
+  const ya = E.pedidos.filter((p) => !esRepo(p) && p.proveedor === proveedor && claveTexto(p.campana) === claveTexto(campana)).length;
+  const texto = ya
+    ? `Las fotos irán a la campaña «${proveedor} · ${campana}», que ya tiene ${ya} pedido(s), como pedidos NUEVOS.\n\nPara completar un pedido que ya existe, ábrelo y usa «Hacer foto».\n\n¿Seguir?`
+    : `Se creará la campaña nueva «${proveedor} · ${campana}». ¿Seguir?`;
+  if (!confirm(texto)) return;
+  document.getElementById(idInput).click();
+}
+/** Quita una foto del pedido junto con las líneas que se leyeron de ella
+ *  (p. ej. si se subió al pedido equivocado). */
+function quitarFoto(nombre) {
+  const p = pedidoActual();
+  const n = p.lineas.filter((l) => l.foto === nombre).length;
+  if (!confirm(`¿Quitar la foto ${nombre} y sus ${n} línea(s) de este pedido?`)) return;
+  p.lineas = p.lineas.filter((l) => l.foto !== nombre);
+  p.fotos = (p.fotos || []).filter((f) => f.nombre !== nombre);
+  invalidar(p); guardar(); pintar();
 }
 function abrirPedido(id) {
   // Al volver a la lista, la campaña de este pedido queda desplegada.
@@ -1242,6 +1268,7 @@ async function leerFotos(files, destino, base) {
   const errores = [];
   let total = 0;
   let sinSaldo = 0; // fotos que quedan sin leer por falta de saldo
+  const avisos = [];
   const progreso = (txt) => { const c = document.getElementById('progresoFotos') || document.getElementById('progresoLote'); if (c) c.textContent = txt; };
   for (let i = 0; i < lista.length; i++) {
     progreso(`Leyendo foto ${i + 1} de ${lista.length} (${lista[i].name})… puede tardar un minuto por foto.`);
@@ -1263,8 +1290,14 @@ async function leerFotos(files, destino, base) {
         const mismaCampana = (x) => !esRepo(x) && !x.validado && x.proveedor === proveedorHoja && (x.campana || '') === ((base && base.campana) || '');
         // Un pedido ya creado (p. ej. fotos hechas de una en una con la cámara)
         // con ese nº —o, sin nº, con ese cliente— recibe la hoja.
-        p = lote.get(clave) || E.pedidos.find((x) => mismaCampana(x) &&
+        const existente = E.pedidos.find((x) => mismaCampana(x) &&
           (num ? String(x.numero) === num : (cli && !x.numero && claveCliente(x.cliente) === cli)));
+        // Desde «Subir los pedidos de una campaña» (soloNuevos) nunca se toca
+        // un pedido que ya existía: se crea uno nuevo y se avisa.
+        p = lote.get(clave) || (base && base.soloNuevos ? null : existente);
+        if (!p && existente && base && base.soloNuevos && !lote.has(clave)) {
+          avisos.push(`${lista[i].name}: ya había un pedido nº ${existente.numero || '—'} ${existente.cliente || ''} en esta campaña; se ha creado otro aparte — si es el mismo, quita la foto del nuevo y súbela dentro del existente`);
+        }
         if (!p) {
           p = { id: nuevoId(), tipo: 'comercial', proveedor: (base && base.proveedor) || prov(res.proveedor), campana: (base && base.campana) || '', numero: num,
             cliente: '', fecha: (base && base.fecha) || hoy(), notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
@@ -1290,8 +1323,9 @@ async function leerFotos(files, destino, base) {
   let msg = ps.length ? `Leídas ${lista.length - errores.length} de ${lista.length} fotos:\n` +
     ps.map((p) => `· Pedido nº ${p.numero || '(sin número)'} ${p.cliente || ''} — ${p.lineas.length} líneas`).join('\n') : 'No se ha podido leer ninguna foto.';
   if (errores.length) msg += `\n\nNo se han podido leer ${errores.length}:\n` + errores.slice(0, 6).join('\n');
+  if (avisos.length) msg += `\n\n⚠️ Revisa:\n` + avisos.slice(0, 6).join('\n');
   if (sinSaldo) msg = `⚠️ ${MSG_SIN_SALDO}\n\nQuedan ${sinSaldo} foto(s) sin leer.` + (ps.length ? '\n\n' + msg : '');
-  if (lista.length > 1 || errores.length || sinSaldo) alert(msg);
+  if (lista.length > 1 || errores.length || avisos.length || sinSaldo) alert(msg);
 }
 
 // ── Propuestas (Excel) ───────────────────────────────────────────────────────
