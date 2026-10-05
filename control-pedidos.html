@@ -86,6 +86,11 @@ main{overflow-wrap:anywhere}
 .aviso-caja.info{background:var(--azul-claro);color:var(--azul)}
 .resumen{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
 .vacio{color:var(--texto2);font-style:italic;padding:8px 0}
+details.grupo{border:1px solid var(--borde,#ddd);border-radius:10px;padding:10px 12px;margin-top:12px}
+details.grupo>summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:16px}
+details.grupo>summary .resumen{margin:0}
+details.grupo>summary::before{content:"▸";color:var(--texto2)}
+details.grupo[open]>summary::before{content:"▾"}
 .pequeno{font-size:12px;color:var(--texto2)}
 .oculto{display:none!important}
 .progreso{font-size:13px;color:var(--texto2);margin-top:6px}
@@ -136,6 +141,7 @@ main{overflow-wrap:anywhere}
   <p>Pedidos del comercial y de reposición ↔ propuesta del proveedor · restos pendientes · Excel para Géminis</p>
   <nav id="nav">
     <button data-vista="pedidos" class="activa">Pedidos</button>
+    <button data-vista="nuevo">✍️ Pedido a mano</button>
     <button data-vista="restos">Restos <span class="cuenta" id="cuentaRestos">0</span></button>
     <button data-vista="notas">Notas de facturación <span class="cuenta" id="cuentaNotas">0</span></button>
     <button data-vista="datos">Datos</button>
@@ -208,6 +214,7 @@ function pintar() {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('activa', b.dataset.vista === vista));
   const main = document.getElementById('main');
   if (vista === 'pedidos') main.innerHTML = pedidoAbierto ? vistaDetalle(pedidoPorId(pedidoAbierto)) : vistaLista();
+  else if (vista === 'nuevo') main.innerHTML = vistaNuevo();
   else if (vista === 'restos') main.innerHTML = vistaRestos();
   else if (vista === 'notas') main.innerHTML = vistaNotas();
   else main.innerHTML = vistaDatos();
@@ -255,17 +262,44 @@ function estadoPedido(p) {
   return pend ? { chip: 'aviso', texto: pend + ' por decidir' } : { chip: 'info', texto: 'Listo para validar' };
 }
 
+// ── Campañas ─────────────────────────────────────────────────────────────────
+// Los pedidos del comercial se agrupan por proveedor + campaña; las
+// reposiciones, por proveedor. La campaña se escribe a mano, así que se busca
+// una ya existente que solo cambie en mayúsculas, tildes o espacios
+// («agendas  2027» → «Agendas 2027»): si no, saldrían dos campañas distintas.
+const claveTexto = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+function campanaCanonica(proveedor, texto) {
+  const t = String(texto || '').replace(/\s+/g, ' ').trim();
+  if (!t) return '';
+  const igual = E.pedidos.find((p) => !esRepo(p) && p.campana && prov(p.proveedor) === prov(proveedor) && claveTexto(p.campana) === claveTexto(t));
+  return igual ? igual.campana : t;
+}
+const campanasExistentes = () => [...new Set(E.pedidos.filter((p) => !esRepo(p) && p.campana).map((p) => p.campana))].sort((a, b) => a.localeCompare(b, 'es'));
+const claveGrupo = (p) => esRepo(p) ? 'R|' + prov(p.proveedor) : 'C|' + prov(p.proveedor) + '|' + claveTexto(p.campana);
+const nombreGrupo = (p) => esRepo(p) ? `Reposición · ${p.proveedor}` : `${p.proveedor} · ${p.campana || 'sin campaña'}`;
+let gruposAbiertos = null; // claves de campaña desplegadas (por defecto, la más reciente)
+const reclamaciones = {};  // texto de reclamación por campaña
+
 // ── Vista: lista de pedidos ──────────────────────────────────────────────────
 function vistaLista() {
   const ps = E.pedidos.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }));
   const proveedores = [...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean);
+  const grupos = new Map();
+  for (const p of ps) {
+    const k = claveGrupo(p);
+    if (!grupos.has(k)) grupos.set(k, { clave: k, nombre: nombreGrupo(p), pedidos: [] });
+    grupos.get(k).pedidos.push(p);
+  }
+  if (!gruposAbiertos && grupos.size) gruposAbiertos = new Set([grupos.keys().next().value]);
   return `
   <div class="tarjeta">
     <h2>📷 Subir los pedidos de una campaña</h2>
-    <p class="pequeno" style="margin:0 0 10px">Elige a la vez <b>todas las fotos de todos los clientes</b>. La app lee en cada hoja el <b>nº de pedido y el cliente</b> y crea un pedido por cada uno; las hojas del mismo pedido se juntan, y si añades más fotos después se suman al pedido que ya exista con ese nº.</p>
+    <p class="pequeno" style="margin:0 0 10px">Elige a la vez <b>todas las fotos de todos los clientes</b>. La app lee en cada hoja el <b>nº de pedido y el cliente</b> y crea un pedido por cada uno dentro de la campaña que elijas; las hojas del mismo pedido se juntan, y si añades más fotos después se suman al pedido que ya exista con ese nº.</p>
     <div class="fila">
       <label>Proveedor<input id="lotProv" list="listaProv" placeholder="FINOCAM" value="${h(proveedores[0] || '')}"></label>
-      <label>Campaña<input id="lotCamp" placeholder="2027" value="${h(ultimaCampana())}"></label>
+      <label>Campaña<input id="lotCamp" list="listaCamp" placeholder="Elige una o escribe una nueva" value="${h(ultimaCampana())}"></label>
+      <datalist id="listaProv">${proveedores.map((x) => `<option value="${h(x)}">`).join('')}</datalist>
+      <datalist id="listaCamp">${campanasExistentes().map((x) => `<option value="${h(x)}">`).join('')}</datalist>
     </div>
     <div class="fila" style="margin-top:10px">
       <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">🖼️ Elegir fotos (varias)
@@ -277,25 +311,7 @@ function vistaLista() {
   </div>
 
   <div class="tarjeta">
-    <h2>Nuevo pedido a mano</h2>
-    <div class="fila">
-      <label>Tipo<select id="npTipo" onchange="document.querySelectorAll('.soloComercial').forEach(e=>e.classList.toggle('oculto', this.value!=='comercial'))">
-        <option value="comercial">Del comercial (campaña)</option>
-        <option value="reposicion">Reposición (nuestro pedido al proveedor)</option></select></label>
-      <label>Proveedor<input id="npProv" list="listaProv" placeholder="FINOCAM" value="${h(proveedores[0] || '')}"></label>
-      <datalist id="listaProv">${proveedores.map((x) => `<option value="${h(x)}">`).join('')}</datalist>
-      <label class="soloComercial">Campaña<input id="npCamp" placeholder="2027"></label>
-      <label>Nº pedido<input id="npNum" style="width:90px"></label>
-      <label class="soloComercial">Cliente<input id="npCli" placeholder="Nombre del cliente"></label>
-      <label>Fecha<input id="npFecha" type="date" value="${hoy()}"></label>
-      <button class="btn primario" onclick="crearPedido()">Crear</button>
-    </div>
-  </div>
-
-  ${resumenFaltasSobras()}
-
-  <div class="tarjeta">
-    <h2>Pedidos</h2>
+    <h2>Campañas y pedidos</h2>
     <div class="fila no-imprimir" style="margin-bottom:10px">
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📄 Cargar propuestas o facturas del proveedor (varias a la vez)
         <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files); this.value=''">
@@ -304,37 +320,17 @@ function vistaLista() {
     </div>
     <div id="progresoProps" class="progreso"></div>
     <div id="avisoCarga">${vistaSinAsignar()}</div>
-    ${ps.length ? `<div class="tabla-scroll"><table>
-      <tr><th class="no-imprimir"><input type="checkbox" title="Seleccionar todos" onchange="document.querySelectorAll('.selPed').forEach(c=>c.checked=this.checked)"></th>
-        <th>Fecha</th><th>Tipo</th><th>Proveedor</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th>Propuesta</th><th>Estado</th></tr>
-      ${ps.map((p) => { const e = estadoPedido(p); return `
-      <tr class="clic" onclick="if(event.target.type!=='checkbox')abrirPedido('${p.id}')">
-        <td class="no-imprimir"><input type="checkbox" class="selPed" value="${p.id}"></td>
-        <td>${h(fmtFecha(p.fecha))}</td><td>${esRepo(p) ? '<span class="chip info">Reposición</span>' : '<span class="chip gris">Comercial</span>'}</td>
-        <td>${h(p.proveedor)}</td><td>${h(p.numero)}</td><td>${h(p.cliente)}</td>
-        <td class="num">${p.lineas.length}</td>
-        <td>${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
-        <td><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}</td>
-      </tr>`; }).join('')}
-    </table></div>
-    <div class="fila no-imprimir" style="margin-top:12px">
-      <button class="btn" onclick="exportarSeleccionados()">Excel Géminis de los seleccionados</button>
-      <span class="pequeno">Solo pedidos validados. Varias selecciones se suman por referencia en un único pedido.</span>
-    </div>` : `<div class="vacio">Todavía no hay pedidos. Crea el primero arriba.</div>`}
+    ${grupos.size ? [...grupos.values()].map(vistaGrupo).join('') : `<div class="vacio">Todavía no hay pedidos. Sube las fotos de una campaña arriba o crea uno en «✍️ Pedido a mano».</div>`}
   </div>`;
 }
 
-/** Todas las faltas y sobras de todos los pedidos con propuesta, por campaña. */
-let filtroResumen = '';
-function resumenFaltasSobras() {
-  const conProp = E.pedidos.filter((p) => p.propuesta && p.lineas.length);
-  if (!conProp.length) return '';
-  const grupo = (p) => esRepo(p) ? `Reposición ${p.proveedor}` : `${p.proveedor}${p.campana ? ' · campaña ' + p.campana : ''}`;
-  const grupos = [...new Set(conProp.map(grupo))];
-  const sel = grupos.includes(filtroResumen) ? filtroResumen : grupos[0];
+/** Una campaña (o las reposiciones de un proveedor): recuento, sus pedidos,
+ *  sus faltas y sobras y la reclamación al proveedor. */
+function vistaGrupo(g, i) {
+  const comparados = g.pedidos.filter((p) => p.propuesta && p.lineas.length);
   const filasRes = [];
   const reclamar = [];
-  for (const p of conProp.filter((x) => grupo(x) === sel)) {
+  for (const p of comparados) {
     const { faltan, sobran } = CP.faltasYSobras(comparar(p));
     if (faltan.length) reclamar.push({ numero: p.numero, cliente: esRepo(p) ? 'Reposición' : p.cliente, faltan });
     faltan.forEach((x) => filasRes.push({ p, x, tipo: 'falta' }));
@@ -343,69 +339,116 @@ function resumenFaltasSobras() {
   filasRes.sort((a, b) => (a.tipo === b.tipo ? String(a.p.numero).localeCompare(String(b.p.numero), 'es', { numeric: true }) : a.tipo === 'falta' ? -1 : 1));
   const nF = filasRes.filter((r) => r.tipo === 'falta').length;
   const nS = filasRes.length - nF;
+  const validados = g.pedidos.filter((p) => p.validado).length;
+  const ej = g.pedidos[0];
+  reclamaciones[g.clave] = reclamar.length ? CP.textoReclamacion(ej.proveedor, reclamar, { campana: esRepo(ej) ? '' : ej.campana }) : '';
+  const abierto = Boolean(gruposAbiertos && gruposAbiertos.has(g.clave));
   return `
-  <div class="tarjeta">
-    <h2>Faltas y sobras</h2>
-    <div class="fila no-imprimir">
-      ${grupos.length > 1 ? `<label>Campaña / proveedor<select onchange="filtroResumen=this.value;pintar()">${grupos.map((g) => `<option ${g === sel ? 'selected' : ''}>${h(g)}</option>`).join('')}</select></label>` : `<span class="chip gris">${h(sel)}</span>`}
-      <button class="btn peque" onclick="imprimirResumen()">Imprimir</button>
+  <details class="grupo" ${abierto ? 'open' : ''} ontoggle="marcarGrupo(${js(g.clave)}, this.open)">
+    <summary>
+      <b>${h(g.nombre)}</b>
+      <span class="resumen">
+        <span class="chip gris">${g.pedidos.length} pedido(s)</span>
+        <span class="chip ${validados === g.pedidos.length ? 'ok' : 'info'}">${validados} validado(s)</span>
+        ${comparados.length ? `<span class="chip ${nF ? 'mal' : 'ok'}">${nF} faltan</span><span class="chip ${nS ? 'aviso' : 'ok'}">${nS} sobran</span>` : ''}
+      </span>
+    </summary>
+    <div class="tabla-scroll"><table>
+      <tr><th class="no-imprimir"><input type="checkbox" title="Seleccionar todos" onchange="this.closest('table').querySelectorAll('.selPed').forEach(c=>c.checked=this.checked)"></th>
+        <th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th>Propuesta</th><th>Estado</th></tr>
+      ${g.pedidos.map((p) => { const e = estadoPedido(p); return `
+      <tr class="clic" onclick="if(event.target.type!=='checkbox')abrirPedido('${p.id}')">
+        <td class="no-imprimir"><input type="checkbox" class="selPed" value="${p.id}"></td>
+        <td>${h(fmtFecha(p.fecha))}</td><td>${h(p.numero)}</td><td>${h(esRepo(p) ? '—' : p.cliente)}</td>
+        <td class="num">${p.lineas.length}</td>
+        <td>${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
+        <td><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}</td>
+      </tr>`; }).join('')}
+    </table></div>
+    <div class="fila no-imprimir" style="margin-top:10px">
+      <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">Excel Géminis de los seleccionados</button>
+      <span class="pequeno">Solo pedidos validados. Varias selecciones se suman por referencia en un único pedido.</span>
     </div>
-    <div class="resumen">
-      <span class="chip ${nF ? 'mal' : 'ok'}">${nF} faltan</span>
-      <span class="chip ${nS ? 'aviso' : 'ok'}">${nS} sobran</span>
-      <span class="chip gris">${conProp.filter((x) => grupo(x) === sel).length} pedidos comparados</span>
-    </div>
-    ${filasRes.length ? `<div class="tabla-scroll" id="tablaResumen"><table>
+    ${comparados.length ? `
+    <h3 style="margin-top:14px">Faltas y sobras</h3>
+    ${filasRes.length ? `<div class="tabla-scroll" id="tablaResumen${i}"><table>
       <tr><th>Qué pasa</th><th>Pedido</th><th>Cliente</th><th>Referencia</th><th>Descripción</th><th class="num">Uds.</th></tr>
       ${filasRes.map(({ p, x, tipo }) => `<tr class="clic" onclick="abrirPedido('${p.id}')">
         <td>${tipo === 'falta' ? '<span class="chip mal">Falta</span>' : '<span class="chip aviso">Sobra</span>'}${x.total ? '' : ' <span class="pequeno">parcial</span>'}</td>
-        <td>${h(p.numero)}</td><td>${h(p.cliente)}</td><td><b>${h(x.ref)}</b></td><td>${h(x.desc)}</td>
+        <td>${h(p.numero)}</td><td>${h(esRepo(p) ? '—' : p.cliente)}</td><td><b>${h(x.ref)}</b></td><td>${h(x.desc)}</td>
         <td class="num">${tipo === 'falta' ? '−' : '+'}${x.cant}${x.total ? '' : ' de ' + x.de}</td></tr>`).join('')}
-    </table></div>` : `<div class="aviso-caja ok">En los pedidos comparados no falta ni sobra ninguna referencia.</div>`}
-    ${reclamar.length ? vistaReclamacion(sel, reclamar, conProp.find((x) => grupo(x) === sel)) : ''}
-  </div>`;
+    </table></div>
+    <div class="fila no-imprimir" style="margin-top:6px"><button class="btn peque" onclick="imprimirResumen(${i}, ${js(g.nombre)})">Imprimir faltas y sobras</button></div>`
+    : `<div class="aviso-caja ok">En los pedidos comparados no falta ni sobra ninguna referencia.</div>`}
+    ${reclamar.length ? vistaReclamacion(g.clave, i, reclamar) : ''}` : ''}
+  </details>`;
+}
+function marcarGrupo(clave, abierto) {
+  gruposAbiertos = gruposAbiertos || new Set();
+  if (abierto) gruposAbiertos.add(clave); else gruposAbiertos.delete(clave);
+}
+function imprimirResumen(i, nombre) {
+  const t = document.getElementById('tablaResumen' + i);
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Faltas y sobras · ${h(nombre)}</title>
+  <style>body{font-family:system-ui,sans-serif;margin:24px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left}</style></head>
+  <body><h1 style="font-size:18px">Faltas y sobras · ${h(nombre)} · ${h(fmtFecha(hoy()))}</h1>${t ? t.innerHTML : '<p>No falta ni sobra nada.</p>'}<script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
 }
 /** Reclamación de faltas al proveedor, separada por cliente. De momento no se
  *  envía desde aquí: se copia o se imprime/guarda en PDF y se manda a mano. */
-let textoReclamacionActual = '';
-function vistaReclamacion(sel, grupos, p) {
-  textoReclamacionActual = CP.textoReclamacion(p.proveedor, grupos, { campana: esRepo(p) ? '' : p.campana });
+function vistaReclamacion(clave, i, grupos) {
   const n = grupos.reduce((s, g) => s + g.faltan.length, 0);
   return `
     <details class="no-imprimir" style="margin-top:12px">
       <summary><b>✉️ Reclamar las faltas al proveedor</b> · ${n} referencia(s) de ${grupos.length} pedido(s), separadas por cliente</summary>
       <p class="pequeno">Revisa el texto, cópialo y pégalo en el correo al proveedor (o imprímelo / guárdalo en PDF y adjúntalo).</p>
-      <textarea id="txtReclamacion" rows="14" style="width:100%;font-family:ui-monospace,monospace;font-size:13px" oninput="textoReclamacionActual=this.value">${h(textoReclamacionActual)}</textarea>
+      <textarea id="txtReclamacion${i}" rows="14" style="width:100%;font-family:ui-monospace,monospace;font-size:13px" oninput="reclamaciones[${js(clave)}]=this.value">${h(reclamaciones[clave])}</textarea>
       <div class="fila" style="margin-top:6px">
-        <button class="btn primario" onclick="copiarReclamacion()">Copiar texto</button>
-        <button class="btn" onclick="imprimirReclamacion(${js(sel)})">Imprimir / PDF</button>
+        <button class="btn primario" onclick="copiarReclamacion(${js(clave)}, ${i})">Copiar texto</button>
+        <button class="btn" onclick="imprimirReclamacion(${js(clave)})">Imprimir / PDF</button>
       </div>
     </details>`;
 }
-function copiarReclamacion() {
-  const t = textoReclamacionActual;
+function copiarReclamacion(clave, i) {
+  const t = reclamaciones[clave];
   const hecho = () => alert('Texto copiado. Pégalo en el correo al proveedor.');
+  const copiarAntiguo = () => { const el = document.getElementById('txtReclamacion' + i); el.select(); document.execCommand('copy'); hecho(); };
   if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(hecho, copiarAntiguo);
   else copiarAntiguo();
-  function copiarAntiguo() {
-    const el = document.getElementById('txtReclamacion');
-    el.select(); document.execCommand('copy'); hecho();
-  }
 }
-function imprimirReclamacion(sel) {
+function imprimirReclamacion(clave) {
+  const ej = E.pedidos.find((p) => claveGrupo(p) === clave);
+  const nombre = ej ? nombreGrupo(ej) : '';
   const w = window.open('', '_blank');
-  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Reclamación de faltas · ${h(sel)}</title>
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Reclamación de faltas · ${h(nombre)}</title>
   <style>body{font-family:system-ui,sans-serif;margin:24px;font-size:14px}pre{white-space:pre-wrap;font-family:inherit}</style></head>
-  <body><h1 style="font-size:18px">Reclamación de faltas · ${h(sel)} · ${h(fmtFecha(hoy()))}</h1><pre>${h(textoReclamacionActual)}</pre><script>window.onload=()=>window.print()<\/script></body></html>`);
+  <body><h1 style="font-size:18px">Reclamación de faltas · ${h(nombre)} · ${h(fmtFecha(hoy()))}</h1><pre>${h(reclamaciones[clave])}</pre><script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
 }
-function imprimirResumen() {
-  const t = document.getElementById('tablaResumen');
-  const w = window.open('', '_blank');
-  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Faltas y sobras</title>
-  <style>body{font-family:system-ui,sans-serif;margin:24px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left}</style></head>
-  <body><h1 style="font-size:18px">Faltas y sobras · ${h(fmtFecha(hoy()))}</h1>${t ? t.innerHTML : '<p>No falta ni sobra nada.</p>'}<script>window.onload=()=>window.print()<\/script></body></html>`);
-  w.document.close();
+
+// ── Vista: pedido a mano ─────────────────────────────────────────────────────
+// Pestaña propia: aquí crecerá la entrada de pedidos del comercial sin fotos.
+function vistaNuevo() {
+  const proveedores = [...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean);
+  return `
+  <div class="tarjeta">
+    <h2>✍️ Nuevo pedido a mano</h2>
+    <p class="pequeno" style="margin:0 0 10px">Sin fotos: creas el pedido y escribes sus líneas. Un pedido del comercial entra en su campaña igual que los que llegan por foto.</p>
+    <div class="fila">
+      <label>Tipo<select id="npTipo" onchange="document.querySelectorAll('.soloComercial').forEach(e=>e.classList.toggle('oculto', this.value!=='comercial'))">
+        <option value="comercial">Del comercial (campaña)</option>
+        <option value="reposicion">Reposición (nuestro pedido al proveedor)</option></select></label>
+      <label>Proveedor<input id="npProv" list="listaProv" placeholder="FINOCAM" value="${h(proveedores[0] || '')}"></label>
+      <datalist id="listaProv">${proveedores.map((x) => `<option value="${h(x)}">`).join('')}</datalist>
+      <label class="soloComercial">Campaña<input id="npCamp" list="listaCamp" placeholder="Elige una o escribe una nueva" value="${h(ultimaCampana())}"></label>
+      <datalist id="listaCamp">${campanasExistentes().map((x) => `<option value="${h(x)}">`).join('')}</datalist>
+      <label>Nº pedido<input id="npNum" style="width:90px"></label>
+      <label class="soloComercial">Cliente<input id="npCli" placeholder="Nombre del cliente"></label>
+      <label>Fecha<input id="npFecha" type="date" value="${hoy()}"></label>
+      <button class="btn primario" onclick="crearPedido()">Crear</button>
+    </div>
+  </div>`;
 }
 
 function crearPedido() {
@@ -414,7 +457,7 @@ function crearPedido() {
   if (!v('npProv') || !v('npNum') || (tipo === 'comercial' && !v('npCli'))) {
     alert(tipo === 'comercial' ? 'Proveedor, nº de pedido y cliente son obligatorios.' : 'Proveedor y nº de pedido son obligatorios.'); return;
   }
-  const p = { id: nuevoId(), tipo, proveedor: prov(v('npProv')), campana: tipo === 'comercial' ? v('npCamp') : '', numero: v('npNum'),
+  const p = { id: nuevoId(), tipo, proveedor: prov(v('npProv')), campana: tipo === 'comercial' ? campanaCanonica(v('npProv'), v('npCamp')) : '', numero: v('npNum'),
     cliente: tipo === 'comercial' ? v('npCli').toUpperCase() : '',
     fecha: v('npFecha') || hoy(), notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
   if (E.pedidos.some((x) => x.proveedor === p.proveedor && String(x.numero) === String(p.numero) && x.campana === p.campana)) {
@@ -435,9 +478,13 @@ function ultimaCampana() {
 function subirCampana(files) {
   if (!files || !files.length) return;
   const v = (id) => document.getElementById(id).value.trim();
-  leerFotos(files, null, { proveedor: prov(v('lotProv')), campana: v('lotCamp'), fecha: hoy() });
+  leerFotos(files, null, { proveedor: prov(v('lotProv')), campana: campanaCanonica(v('lotProv'), v('lotCamp')), fecha: hoy() });
 }
-function abrirPedido(id) { pedidoAbierto = id; vista = 'pedidos'; pintar(); window.scrollTo(0, 0); }
+function abrirPedido(id) {
+  // Al volver a la lista, la campaña de este pedido queda desplegada.
+  const p = pedidoPorId(id);
+  if (p) (gruposAbiertos = gruposAbiertos || new Set()).add(claveGrupo(p));
+  pedidoAbierto = id; vista = 'pedidos'; pintar(); window.scrollTo(0, 0); }
 
 // ── Vista: detalle de un pedido ──────────────────────────────────────────────
 function vistaDetalle(p) {
@@ -759,7 +806,11 @@ function avisoRestosEnPropuesta(p) {
 // ── Edición ──────────────────────────────────────────────────────────────────
 function pedidoActual() { return pedidoPorId(pedidoAbierto); }
 function invalidar(p) { p.validado = false; }
-function cambiaCampo(campo, valor) { const p = pedidoActual(); p[campo] = valor; invalidar(p); guardar(); pintar(); }
+function cambiaCampo(campo, valor) {
+  const p = pedidoActual();
+  p[campo] = campo === 'campana' ? campanaCanonica(p.proveedor, valor) : valor;
+  invalidar(p); guardar(); pintar();
+}
 function cambiaLinea(i, campo, valor, lado) {
   const p = pedidoActual();
   const l = (lado === 'propuesta' ? p.propuesta.lineas : p.lineas)[i];
@@ -1335,7 +1386,9 @@ async function restaurarCopia(file) {
 function imprimirListado(id) {
   const p = pedidoPorId(id);
   const lineas = p.final.lineas;
-  const dto = p.final.dto || 0;
+  // El cliente paga lo que apuntó el comercial, tal cual: sin el descuento
+  // global de la propuesta (ese es entre el proveedor y nosotros).
+  const dto = esRepo(p) ? (p.final.dto || 0) : 0;
   const restos = E.restos.filter((r) => r.pedidoId === p.id && r.pendiente > 0 && !r.anulado);
   const pc = (l) => (l.precioCliente != null ? l.precioCliente : l.precio) || 0; // precio al cliente, no el coste
   const bruto = lineas.reduce((s, l) => s + pc(l) * l.cant, 0);
@@ -1354,8 +1407,8 @@ function imprimirListado(id) {
   w.document.close();
 }
 
-function exportarSeleccionados() {
-  const ids = [...document.querySelectorAll('.selPed:checked')].map((c) => c.value);
+function exportarSeleccionados(raiz) {
+  const ids = [...(raiz || document).querySelectorAll('.selPed:checked')].map((c) => c.value);
   if (!ids.length) { alert('Marca los pedidos que quieres exportar.'); return; }
   exportarPedidos(ids);
 }
