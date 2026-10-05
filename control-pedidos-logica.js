@@ -284,12 +284,28 @@
     return out.join('\n');
   }
 
+  /**
+   * Faltas que siguen PENDIENTES tras las decisiones: las aún sin decidir y
+   * las que se ha decidido reclamar al proveedor. Las descartadas (anular,
+   * excluir, aceptar menos, mantener…) o dejadas solo en restos ya no cuentan.
+   * Cada una lleva `pendiente`: 'decidir' | 'reclamar'.
+   */
+  function faltasPendientes(filas, decisiones) {
+    const accion = (ref) => (decisiones && decisiones[ref] && decisiones[ref].accion) || '';
+    const porRef = new Map((filas || []).map((f) => [f.ref, f]));
+    return faltasYSobras(filas).faltan
+      .map((x) => ({ ...x, pendiente: accion(x.ref) === 'reclamar' ? 'reclamar' : accion(x.ref) ? '' : 'decidir' }))
+      .filter((x) => x.pendiente && !(x.pendiente === 'decidir' && porRef.get(x.ref) && !porRef.get(x.ref).revisar));
+  }
+
   // ── Decisiones ────────────────────────────────────────────────────────────
 
   /**
    * Acciones posibles por fila. La primera es la sugerida.
    *  - resto:    (solo comercial) no viene o viene menos, y el cliente lo
    *              sigue esperando → RESTOS
+   *  - reclamar: (solo comercial) como «resto», y además se reclama al
+   *              proveedor: es lo único que sigue contando como falta pendiente
    *  - anular:   (solo comercial) no viene y ya no se espera
    *  - aceptar:  se acepta lo que trae el proveedor
    *  - mantener: se mantiene lo pedido (cantidad, precio y descuentos del pedido)
@@ -305,10 +321,10 @@
       if (fila.estado === 'extra') return ['aceptar', 'excluir'];
       return ['aceptar', 'mantener', 'manual', 'excluir'];
     }
-    if (fila.estado === 'falta') return ['resto', 'anular'];
+    if (fila.estado === 'falta') return ['reclamar', 'resto', 'anular'];
     if (fila.estado === 'extra') return ['aceptar', 'excluir'];
     const menos = fila.cantPropuesta < fila.cantPedida;
-    return menos ? ['aceptar', 'resto', 'mantener', 'manual', 'excluir'] : ['aceptar', 'mantener', 'manual', 'excluir'];
+    return menos ? ['aceptar', 'reclamar', 'resto', 'mantener', 'manual', 'excluir'] : ['aceptar', 'mantener', 'manual', 'excluir'];
   }
 
   function sinDecidir(filas, decisiones) {
@@ -359,9 +375,11 @@
         case 'anular':
           break;
         case 'resto':
+        case 'reclamar':
           if (f.cantPropuesta > 0) lineas.push(propuesta(f.cantPropuesta));
           if (f.cantPedida > f.cantPropuesta) {
-            restos.push({ ...base, cant: f.cantPedida - f.cantPropuesta, precio: f.precioPedido != null ? f.precioPedido : f.precioPropuesta });
+            restos.push({ ...base, cant: f.cantPedida - f.cantPropuesta, precio: f.precioPedido != null ? f.precioPedido : f.precioPropuesta,
+              reclamar: d.accion === 'reclamar' });
           }
           break;
         case 'mantener':
@@ -690,7 +708,7 @@
   const api = {
     TOLERANCIA, PLANTILLA_GEMINIS,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, compararPedido, faltasYSobras, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
