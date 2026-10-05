@@ -10,7 +10,7 @@ const captureMethods = ['','T – Trampa','L – Lazo','A – Ave de cetrería',
 const captureDestinations = ['','A – Alimento para las rapaces','C – C. Recuperación «La Tahonilla»','E – Eutanasia','M – Agente de Medio Ambiente','P – Albergue de animales','L – Liberado'];
 const detailFields = {
   actuacion: [['wind','Viento (nudos)'],['observations','Observaciones']],
-  fauna: [['species','Nombre común'],['count','Número'],['behavior','Comportamiento'],['altitude','Altitud de vuelo','select',['','0-20','20-100']],['origin','Procedencia (dónde está)'],['destination','Destino (hacia dónde va)'],['action','Actuación','select',actionCodes],['threat','Amenaza / coincide con operaciones','select',['','Sí','No']],['observations','Observaciones']],
+  fauna: [['species','Nombre común'],['count','Número'],['behavior','Comportamiento'],['altitude','Altitud de vuelo','sugerencias',['0-20','20-100']],['origin','Procedencia (dónde está)'],['destination','Destino (hacia dónde va)'],['action','Actuación','select',actionCodes],['threat','Amenaza / coincide con operaciones','select',['','Sí','No']],['observations','Observaciones']],
   captura: [['species','Nombre común'],['method','Método de captura','select',captureMethods],['count','Número'],['location','Localización'],['destination','Destino del animal','select',captureDestinations],['observations','Observaciones']],
   retirada: [['species','Nombre común'],['count','Número'],['location','Zona de incidencia'],['impact','Procede de impacto','select',['','Sí','No']],['observations','Observaciones']],
   impacto: [['species','Nombre común'],['location','Zona de incidencia'],['aircraft','Matrícula aeronave'],['severity','Severidad'],['observations','Observaciones']],
@@ -162,6 +162,14 @@ function renderDetailFields(values = {}) {
     input.dataset.key = key;
     if (type === 'select') for (const choice of options) { const option = document.createElement('option'); option.value = choice; option.textContent = choice || 'Seleccionar'; input.append(option); }
     if (type === 'textarea') input.rows = 3;
+    // Texto libre con sugerencias: la altitud se apunta tal como se dice, con su
+    // unidad («50 pies», «15 metros»), o eligiendo el rango de la plantilla.
+    if (type === 'sugerencias') {
+      const lista = document.createElement('datalist'); lista.id = `sugerencias-${key}`;
+      for (const choice of options) { const option = document.createElement('option'); option.value = choice; lista.append(option); }
+      input.setAttribute('list', lista.id); input.placeholder = options.join(' · ') + ' o lo que se diga';
+      label.append(lista);
+    }
     if (key === 'count') input.inputMode = 'numeric';
     if (values[key]) {
       if (type === 'select' && ![...input.options].some(option => option.value === values[key])) { const option = document.createElement('option'); option.value = option.textContent = values[key]; input.append(option); }
