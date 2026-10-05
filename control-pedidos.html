@@ -1149,6 +1149,14 @@ const leerUnaFoto = (file) => leerConIA(file, 'manuscrito');
 
 /** Manda una foto (reducida) o un PDF (tal cual) a la función de lectura y
  *  espera el resultado. modo: 'manuscrito' | 'documento'. */
+/** Sin saldo en la cuenta de la API no se lee nada: se avisa en claro y los
+ *  bucles de varias fotos/documentos se paran en vez de fallar uno a uno. */
+const MSG_SIN_SALDO = 'Se ha acabado el saldo de la cuenta de la IA (Anthropic). Hay que recargarlo en console.anthropic.com → Plans & Billing; las fotos no se han perdido, súbelas otra vez después.';
+function errorDeLectura(msg) {
+  const e = new Error(/credit balance|billing|purchase credits/i.test(String(msg)) ? MSG_SIN_SALDO : msg);
+  if (e.message === MSG_SIN_SALDO) e.sinSaldo = true;
+  return e;
+}
 async function leerConIA(file, modo) {
   const jobId = nuevoId();
   const pdf = esPdf(file);
@@ -1175,7 +1183,7 @@ async function leerConIA(file, modo) {
     if (e.status === 202) continue;
     const data = await e.json().catch(() => ({}));
     if (!e.ok) throw new Error(data.error || 'Error consultando la lectura');
-    if (data.status === 'error') throw new Error(data.error);
+    if (data.status === 'error') throw errorDeLectura(data.error);
     if (data.status === 'done') return data.resultado;
   }
   throw new Error('La lectura ha tardado más de 5 minutos');
@@ -1233,6 +1241,7 @@ async function leerFotos(files, destino, base) {
   const tocados = new Set();
   const errores = [];
   let total = 0;
+  let sinSaldo = 0; // fotos que quedan sin leer por falta de saldo
   const progreso = (txt) => { const c = document.getElementById('progresoFotos') || document.getElementById('progresoLote'); if (c) c.textContent = txt; };
   for (let i = 0; i < lista.length; i++) {
     progreso(`Leyendo foto ${i + 1} de ${lista.length} (${lista[i].name})… puede tardar un minuto por foto.`);
@@ -1271,6 +1280,7 @@ async function leerFotos(files, destino, base) {
       tocados.add(p);
       guardar(); pintar();
     } catch (err) {
+      if (err.sinSaldo) { sinSaldo = lista.length - i; break; }
       errores.push(`${lista[i].name}: ${err.message}`);
     }
   }
@@ -1280,7 +1290,8 @@ async function leerFotos(files, destino, base) {
   let msg = ps.length ? `Leídas ${lista.length - errores.length} de ${lista.length} fotos:\n` +
     ps.map((p) => `· Pedido nº ${p.numero || '(sin número)'} ${p.cliente || ''} — ${p.lineas.length} líneas`).join('\n') : 'No se ha podido leer ninguna foto.';
   if (errores.length) msg += `\n\nNo se han podido leer ${errores.length}:\n` + errores.slice(0, 6).join('\n');
-  if (lista.length > 1 || errores.length) alert(msg);
+  if (sinSaldo) msg = `⚠️ ${MSG_SIN_SALDO}\n\nQuedan ${sinSaldo} foto(s) sin leer.` + (ps.length ? '\n\n' + msg : '');
+  if (lista.length > 1 || errores.length || sinSaldo) alert(msg);
 }
 
 // ── Propuestas (Excel) ───────────────────────────────────────────────────────
@@ -1381,7 +1392,10 @@ async function cargarPropuestasVarias(files) {
       } else {
         sinAsignar.push({ id: nuevoId(), archivo: f.name, prop });
       }
-    } catch (err) { ultimaCarga.push({ ok: false, texto: `${f.name}: ${err.message}` }); }
+    } catch (err) {
+      if (err.sinSaldo) { ultimaCarga.push({ ok: false, texto: MSG_SIN_SALDO }); break; }
+      ultimaCarga.push({ ok: false, texto: `${f.name}: ${err.message}` });
+    }
     guardar(); pintar();
   }
   progreso('');
@@ -1498,7 +1512,10 @@ async function cargarFacturasVarias(files, clave) {
       } else {
         sinAsignar.push({ id: nuevoId(), archivo: f.name, prop: doc, destino: 'factura', clave });
       }
-    } catch (err) { ultimaCarga.push({ ok: false, texto: `${f.name}: ${err.message}` }); }
+    } catch (err) {
+      if (err.sinSaldo) { ultimaCarga.push({ ok: false, texto: MSG_SIN_SALDO }); break; }
+      ultimaCarga.push({ ok: false, texto: `${f.name}: ${err.message}` });
+    }
     guardar(); pintar();
   }
   progreso('');
