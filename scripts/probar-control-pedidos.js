@@ -266,3 +266,17 @@ test('factura leída con IA: el nº de «su pedido» sirve para asignarla sola',
   assert.match(d.cabecera.observaciones, /Abona/);
   assert.equal(CP.lineasDeDocumento({ pedidoCliente: '', lineas: [] }).cabecera.numeroPedido, null);
 });
+
+test('comercial: «mantener lo pedido» fija el precio al cliente; el coste para Géminis sigue siendo el del proveedor', () => {
+  const filas = CP.compararPedido([{ ref: '770140327', cant: 1, precio: 12.67 }], [{ ref: '770140327', cant: 1, precio: 8.76 }]);
+  const m = CP.aplicarDecisiones(filas, { 770140327: { accion: 'mantener' } }, { comercial: true }).lineas[0];
+  assert.deepEqual([m.precioCliente, m.precio], [12.67, 8.76]);
+  const a = CP.aplicarDecisiones(filas, { 770140327: { accion: 'aceptar' } }, { comercial: true }).lineas[0];
+  assert.deepEqual([a.precioCliente, a.precio], [8.76, 8.76]);
+  const x = CP.aplicarDecisiones(filas, { 770140327: { accion: 'manual', cant: '1', precio: '11' } }, { comercial: true }).lineas[0];
+  assert.deepEqual([x.precioCliente, x.precio], [11, 8.76]);
+  const [g] = CP.lineasParaGeminis([m], { dtoGlobal: 30 });
+  assert.deepEqual([g.precio, g.total], [8.76, 6.13], 'Géminis: coste del proveedor con su 30 %');
+  // Reposición no cambia: «mantener» es nuestro precio de compra
+  assert.equal(CP.aplicarDecisiones(filas, { 770140327: { accion: 'mantener' } }).lineas[0].precio, 12.67);
+});
