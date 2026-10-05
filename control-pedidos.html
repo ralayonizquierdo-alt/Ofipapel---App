@@ -338,6 +338,7 @@ function vistaLista() {
       <input id="lotCamara" type="file" accept="image/*" capture="environment" class="oculto" onchange="subirCampana(this.files); this.value=''">
     </div>
     <div id="progresoLote" class="progreso"></div>
+    ${vistaFallidas()}
   </div>
 
   <div class="tarjeta">
@@ -374,6 +375,9 @@ function vistaGrupo(g, i) {
   const nF = filasRes.filter((r) => r.tipo === 'falta').length;
   const nS = filasRes.length - nF;
   const validados = g.pedidos.filter((p) => p.validado).length;
+  const hojasG = g.pedidos.filter((p) => !esRepo(p)).map((p) => CP.hojasDelPedido(fotosDe(p)));
+  const nFotos = hojasG.reduce((s, x) => s + x.fotos, 0);
+  const hojasFaltan = hojasG.reduce((s, x) => s + x.faltan.length, 0);
   const ej = g.pedidos[0];
   reclamaciones[g.clave] = reclamar.length ? CP.textoReclamacion(ej.proveedor, reclamar, { campana: esRepo(ej) ? '' : ej.campana }) : '';
   const abierto = Boolean(gruposAbiertos && gruposAbiertos.has(g.clave));
@@ -383,6 +387,8 @@ function vistaGrupo(g, i) {
       <b>${h(g.nombre)}</b>
       <span class="resumen">
         <span class="chip gris">${g.pedidos.length} pedido(s)</span>
+        ${nFotos ? `<span class="chip gris">📷 ${nFotos} foto(s)</span>` : ''}
+        ${hojasFaltan ? `<span class="chip mal">⚠️ ${hojasFaltan} hoja(s) sin subir</span>` : ''}
         <span class="chip ${validados === g.pedidos.length ? 'ok' : 'info'}">${validados} validado(s)</span>
         ${comparados.length ? `<span class="chip ${nF ? 'mal' : 'ok'}">${nF} faltan</span><span class="chip ${nS ? 'aviso' : 'ok'}">${nS} sobran</span>` : ''}
       </span>
@@ -696,6 +702,7 @@ function vistaDetalle(p) {
       <button class="btn peque" onclick="anadirLinea()">+ Línea</button>
     </div>
     <div id="progresoFotos" class="progreso"></div>
+    ${fotosFallidas && fotosFallidas.destinoId === p.id ? vistaFallidas() : ''}
     ${avisoFotos(p)}
     <div id="pegar" class="oculto" style="margin-top:10px">
       <textarea id="txtPegar" placeholder="Una línea por artículo: cantidad  referencia  precio  (descripción opcional)&#10;4  780100027  3,25  CALENDARIO&#10;1EXP 883840127 180,14"></textarea>
@@ -1150,13 +1157,33 @@ function pegarLineas(destino) {
 }
 
 // ── Fotos → lectura con IA ───────────────────────────────────────────────────
+/** Abre la imagen para reducirla. createImageBitmap falla en algunos móviles
+ *  («The source image could not be decoded»): se prueba con <img>, y si
+ *  tampoco, un JPEG no muy grande se manda tal cual. */
+function imagenPorImg(file) {
+  return new Promise((ok, mal) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); ok(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); mal(new Error('no decodifica')); };
+    img.src = url;
+  });
+}
 async function reducirImagen(file) {
-  const bmp = await createImageBitmap(file);
+  let src;
+  try { src = await createImageBitmap(file); } catch {
+    try { src = await imagenPorImg(file); } catch {
+      if (/jpe?g/i.test(file.type || file.name) && file.size && file.size < 3 * 1024 * 1024) return base64DeFichero(file);
+      throw new Error('el móvil no puede abrir esta imagen. Si está solo en la nube (Google Fotos), ábrela antes en la galería para que se descargue, o hazle una captura y sube la captura');
+    }
+  }
+  const ancho = src.width || src.naturalWidth;
+  const alto = src.height || src.naturalHeight;
   const lado = 1600;
-  const k = Math.min(1, lado / Math.max(bmp.width, bmp.height));
+  const k = Math.min(1, lado / Math.max(ancho, alto));
   const c = document.createElement('canvas');
-  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
-  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  c.width = Math.round(ancho * k); c.height = Math.round(alto * k);
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
   return c.toDataURL('image/jpeg', 0.85).split(',')[1];
 }
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -1261,6 +1288,23 @@ function anadirLecturaA(p, res, nombre) {
  *    pedido «sin número» para revisarlo.
  * Un solo resumen al final en vez de un aviso por foto.
  */
+/** Las fotos de la última subida que no se han podido leer (solo en memoria):
+ *  se enseñan con su nombre y un botón para volver a intentarlas. */
+let fotosFallidas = null;
+function vistaFallidas() {
+  const f = fotosFallidas;
+  if (!f || !f.files.length) return '';
+  return `<div class="aviso-caja mal no-imprimir"><b>⚠️ ${f.files.length} foto(s) de la última subida sin leer:</b>
+    <div class="pequeno" style="margin:4px 0">${f.files.map((x) => h(x.name)).join(' · ')}</div>
+    <div class="fila"><button class="btn primario" onclick="reintentarFallidas()">🔁 Volver a intentar esas ${f.files.length}</button>
+    <button class="btn peque" onclick="fotosFallidas=null;pintar()">Olvidarlas</button></div></div>`;
+}
+function reintentarFallidas() {
+  const f = fotosFallidas;
+  if (!f) return;
+  const destino = f.destinoId ? pedidoPorId(f.destinoId) : null;
+  leerFotos(f.files, destino, f.base);
+}
 async function leerFotos(files, destino, base) {
   const lista = [...files];
   const lote = new Map(); // nº leído → pedido creado en esta tanda
@@ -1269,6 +1313,7 @@ async function leerFotos(files, destino, base) {
   let total = 0;
   let sinSaldo = 0; // fotos que quedan sin leer por falta de saldo
   const avisos = [];
+  const fallidas = []; // File de las que no se han podido leer, para reintentarlas
   const progreso = (txt) => { const c = document.getElementById('progresoFotos') || document.getElementById('progresoLote'); if (c) c.textContent = txt; };
   for (let i = 0; i < lista.length; i++) {
     progreso(`Leyendo foto ${i + 1} de ${lista.length} (${lista[i].name})… puede tardar un minuto por foto.`);
@@ -1313,11 +1358,13 @@ async function leerFotos(files, destino, base) {
       tocados.add(p);
       guardar(); pintar();
     } catch (err) {
-      if (err.sinSaldo) { sinSaldo = lista.length - i; break; }
+      if (err.sinSaldo) { sinSaldo = lista.length - i; fallidas.push(...lista.slice(i)); break; }
       errores.push(`${lista[i].name}: ${err.message}`);
+      fallidas.push(lista[i]);
     }
   }
   const ps = [...tocados];
+  fotosFallidas = fallidas.length ? { files: fallidas, destinoId: destino ? destino.id : null, base, fecha: new Date() } : null;
   if (!destino && ps.length === 1) abrirPedido(ps[0].id); else pintar();
   progreso(total ? `Leídas ${total} líneas. Revísalas con las fotos antes de comparar.` : '');
   let msg = ps.length ? `Leídas ${lista.length - errores.length} de ${lista.length} fotos:\n` +
