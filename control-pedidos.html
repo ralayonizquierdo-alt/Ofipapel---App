@@ -1453,34 +1453,78 @@ function pedidoParaDocumento(prop, filtro) {
   return c.length === 1 ? c[0] : null;
 }
 
+/** Importe de un documento leído: suma de sus líneas (importe del proveedor
+ *  o, si no lo trae, precio neto × cantidad). */
+function importeDoc(prop) {
+  return CP.red2((prop.lineas || []).reduce((t, l) => {
+    const imp = CP.parseNum(l.importe);
+    if (imp != null) return t + imp;
+    const neto = CP.precioNeto(l);
+    return t + (neto != null ? neto * (CP.parseNum(l.cant) || 0) : 0);
+  }, 0));
+}
+const textoParecido = (x) => `${x.comunes} de ${x.deDoc} referencias coinciden`;
+
 async function cargarPropuestasVarias(files) {
   // Copia antes del primer await: el onchange hace this.value='' justo después
   // de llamar, y eso vacía la FileList original (solo se procesaba el primero).
   const lista = [...files];
   ultimaCarga = [];
   const progreso = (t) => { const c = document.getElementById('progresoProps'); if (c) c.textContent = t; };
+  // 1) Leer todos.
+  const leidos = [];
   for (let i = 0; i < lista.length; i++) {
     const f = lista[i];
     progreso(`Leyendo ${i + 1} de ${lista.length}: ${f.name}${esPdf(f) || esImagen(f) ? ' (PDF/foto: hasta un minuto)' : ''}…`);
     try {
-      const prop = await leerFicheroProveedor(f);
-      const p = pedidoParaPropuesta(prop);
-      if (p) {
-        if (!p.numero && prop.cabecera.numeroPedido != null) p.numero = String(prop.cabecera.numeroPedido);
-        asignarPropuesta(p, f.name, prop);
-        const aviso = prop.control && prop.control.cuadra === false ? ' — ⚠️ no cuadra con su base imponible, revísalo' : '';
-        ultimaCarga.push({ ok: true, texto: `${f.name} → nº ${p.numero} ${p.cliente || ''}${aviso}` });
-      } else {
-        sinAsignar.push({ id: nuevoId(), archivo: f.name, prop });
-      }
+      leidos.push({ id: nuevoId(), archivo: f.name, prop: await leerFicheroProveedor(f) });
     } catch (err) {
       if (err.sinSaldo) { ultimaCarga.push({ ok: false, texto: MSG_SIN_SALDO }); break; }
       ultimaCarga.push({ ok: false, texto: `${f.name}: ${err.message}` });
     }
-    guardar(); pintar();
+  }
+  progreso('Emparejando cada documento con su pedido…');
+  const usados = new Set();
+  const asignar = (x, p, como) => {
+    if (!p.numero && x.prop.cabecera.numeroPedido != null) p.numero = String(x.prop.cabecera.numeroPedido);
+    asignarPropuesta(p, x.archivo, x.prop);
+    usados.add(p.id);
+    const aviso = x.prop.control && x.prop.control.cuadra === false ? ' — ⚠️ no cuadra con su base imponible, revísalo' : '';
+    ultimaCarga.push({ ok: true, importe: importeDoc(x.prop), texto: `${x.archivo} → nº ${p.numero || '—'} ${p.cliente || ''} · ${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} €${como ? ` (${como})` : ''}${aviso}` });
+  };
+  // 2) Por nº de pedido o cliente que traiga el documento.
+  const resto = [];
+  for (const x of leidos) {
+    const p = pedidoParaDocumento(x.prop, (q) => !q.validado && !usados.has(q.id));
+    if (p) asignar(x, p, ''); else resto.push(x);
+  }
+  // 3) Los que no: por las referencias que coinciden con pedidos sin propuesta
+  //    (también los que quedaron pendientes de otra carga).
+  const pendientesAntes = sinAsignar.filter((y) => y.destino !== 'factura');
+  const porContenido = resto.concat(pendientesAntes);
+  if (porContenido.length) {
+    const candidatos = E.pedidos.filter((q) => !q.validado && !q.propuesta && q.lineas.length && !usados.has(q.id));
+    const rep = CP.repartirPorContenido(porContenido.map((x) => ({ id: x.id, lineas: x.prop.lineas })), candidatos);
+    const asignadosIds = new Set();
+    for (const a of rep.asignados) {
+      const x = porContenido.find((y) => y.id === a.docId);
+      asignar(x, pedidoPorId(a.pedidoId), 'por contenido: ' + textoParecido(a));
+      asignadosIds.add(x.id);
+    }
+    sinAsignar = sinAsignar.filter((y) => !asignadosIds.has(y.id));
+    for (const x of resto) {
+      if (asignadosIds.has(x.id)) continue;
+      sinAsignar.push(Object.assign(x, { sugerencia: rep.sugerencias[x.id] || null }));
+    }
+    for (const y of sinAsignar) if (!asignadosIds.has(y.id) && rep.sugerencias[y.id]) y.sugerencia = rep.sugerencias[y.id];
+  }
+  // 4) Sumatorio de la carga.
+  const okk = ultimaCarga.filter((x) => x.ok);
+  if (leidos.length > 1) {
+    ultimaCarga.push({ ok: true, texto: `Total: ${leidos.length} documento(s) leídos · ${leidos.reduce((t, x) => t + x.prop.lineas.length, 0)} líneas · ${fmt(CP.red2(leidos.reduce((t, x) => t + importeDoc(x.prop), 0)))} € · ${okk.length} asignado(s) a su pedido${sinAsignar.length ? ` · ${sinAsignar.length} por confirmar abajo` : ''}` });
   }
   progreso('');
-  pintar();
+  guardar(); pintar();
 }
 
 function vistaSinAsignar() {
@@ -1491,12 +1535,13 @@ function vistaSinAsignar() {
     .map((p) => `<option value="${p.id}">${esRepo(p) ? 'Repo.' : 'Nº'} ${h(p.numero || '—')} ${h(p.cliente || p.proveedor)}${x.destino === 'factura' ? (p.factura ? ' (ya tiene factura)' : '') : p.propuesta ? ' (ya tiene propuesta)' : ''}</option>`).join('');
   return (ok.length ? `<div class="aviso-caja ok">${ok.map((x) => h(x.texto)).join('<br>')}</div>` : '') +
     (mal.length ? `<div class="aviso-caja mal">No se han podido leer:<br>${mal.map((x) => h(x.texto)).join('<br>')}</div>` : '') +
-    (sinAsignar.length ? `<div class="aviso-caja aviso"><b>¿A qué pedido va cada uno?</b> No traen un nº de pedido ni un cliente que casen con uno solo.
-      ${sinAsignar.map((x) => `<div class="fila" style="margin-top:8px">
-        <span style="flex:1 1 200px">${x.destino === 'factura' ? '<span class="chip info">Factura final</span> ' : ''}<b>${h(x.archivo)}</b>${x.prop.cabecera.observaciones ? `<div class="pequeno">${h(x.prop.cabecera.observaciones)}</div>` : ''}<div class="pequeno">${x.prop.lineas.length} líneas</div></span>
-        <select id="asig-${x.id}"><option value="">— elegir pedido —</option>${opcionesDe(x)}</select>
+    (sinAsignar.length ? `<div class="aviso-caja aviso"><b>Confirma a qué pedido va cada uno</b> (${sinAsignar.length}). No traen un nº de pedido ni un cliente reconocible, y sus referencias no coinciden lo bastante con ningún pedido${sinAsignar.some((x) => x.sugerencia) ? '; donde hay un pedido parecido ya está elegido' : ''}. Si no hay pedido para alguno, sube antes el pedido del comercial.
+      ${sinAsignar.map((x) => `<div class="fila" style="margin-top:8px;align-items:center">
+        <span style="flex:1 1 200px">${x.destino === 'factura' ? '<span class="chip info">Factura final</span> ' : ''}<b>${h(x.archivo)}</b>${x.prop.cabecera.observaciones ? `<div class="pequeno">${h(x.prop.cabecera.observaciones)}</div>` : ''}<div class="pequeno">${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} €${x.sugerencia ? ` · parecido a nº ${h((pedidoPorId(x.sugerencia.pedidoId) || {}).numero || '—')}: ${textoParecido(x.sugerencia)}` : ''}</div></span>
+        <select id="asig-${x.id}" style="flex:1 1 160px"><option value="">— elegir pedido —</option>${opcionesDe(x).replace(x.sugerencia ? `value="${x.sugerencia.pedidoId}"` : '\u0000', `value="${x.sugerencia ? x.sugerencia.pedidoId : ''}" selected`)}</select>
         <button class="btn peque" onclick="asignarManual('${x.id}')">Asignar</button>
-        <button class="btn peque peligro" onclick="descartarSinAsignar('${x.id}')">Descartar</button></div>`).join('')}</div>` : '');
+        <button class="btn peque peligro" onclick="descartarSinAsignar('${x.id}')">✕</button></div>`).join('')}
+      <div class="fila" style="margin-top:10px"><button class="btn primario" onclick="asignarTodasElegidas()">Asignar todas las elegidas</button></div></div>` : '');
 }
 function asignarManual(id) {
   const x = sinAsignar.find((y) => y.id === id);
@@ -1512,6 +1557,20 @@ function asignarManual(id) {
   }
   sinAsignar = sinAsignar.filter((y) => y.id !== id);
   ultimaCarga.push({ ok: true, texto: `${x.archivo} → nº ${p.numero} ${p.cliente || ''}` });
+  guardar(); pintar();
+}
+function asignarTodasElegidas() {
+  const elegidas = sinAsignar.filter((x) => (document.getElementById('asig-' + x.id) || {}).value);
+  if (!elegidas.length) { alert('Elige el pedido de al menos uno.'); return; }
+  const ids = elegidas.map((x) => document.getElementById('asig-' + x.id).value);
+  if (new Set(ids).size !== ids.length && !confirm('Has elegido el mismo pedido para dos documentos: el segundo sustituirá al primero. ¿Seguir?')) return;
+  for (const x of elegidas) {
+    const p = pedidoPorId(document.getElementById('asig-' + x.id).value);
+    if (x.destino === 'factura') asignarFactura(p, x.archivo, x.prop); else asignarPropuesta(p, x.archivo, x.prop);
+    ultimaCarga.push({ ok: true, texto: `${x.archivo} → nº ${p.numero || '—'} ${p.cliente || ''} · ${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} €` });
+  }
+  const hechos = new Set(elegidas.map((x) => x.id));
+  sinAsignar = sinAsignar.filter((x) => !hechos.has(x.id));
   guardar(); pintar();
 }
 function descartarSinAsignar(id) { sinAsignar = sinAsignar.filter((y) => y.id !== id); pintar(); }

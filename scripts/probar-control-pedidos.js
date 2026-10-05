@@ -338,3 +338,20 @@ test('hojas del pedido: cuenta fotos y avisa de la hoja que falta', () => {
   assert.equal(CP.hojasDelPedido([{ hoja: '' }, { hoja: 'pedido 5' }]).total, null, 'sin numeración no se adivina');
   assert.equal(CP.hojasDelPedido([]).fotos, 0);
 });
+
+test('propuestas sin nº ni cliente: se reparten por las referencias que coinciden', () => {
+  const pedidos = [
+    { id: 'p1', lineas: [{ ref: 'A', cant: 1 }, { ref: 'B', cant: 1 }, { ref: 'C', cant: 1 }] },
+    { id: 'p2', lineas: [{ ref: 'X', cant: 1 }, { ref: 'Y', cant: 1 }] },
+    { id: 'p3', lineas: [{ ref: 'Q', cant: 1 }] },
+  ];
+  const docs = [
+    { id: 'd2', lineas: [{ ref: 'X', cant: 1 }, { ref: 'Y', cant: 2 }, { ref: 'Z', cant: 1 }] },
+    { id: 'd1', lineas: [{ ref: 'A', cant: 1 }, { ref: 'B', cant: 1 }] },
+    { id: 'd3', lineas: [{ ref: 'A', cant: 1 }, { ref: 'M', cant: 1 }, { ref: 'N', cant: 1 }] },
+  ];
+  const r = CP.repartirPorContenido(docs, pedidos);
+  assert.deepEqual(r.asignados.map((x) => [x.docId, x.pedidoId]).sort(), [['d1', 'p1'], ['d2', 'p2']]);
+  assert.equal(r.sugerencias.d3.pedidoId, 'p1', 'd3 se parece poco: solo sugerencia, y p1 ya está cogido');
+  assert.deepEqual(CP.parecidoLineas(docs[1].lineas, pedidos[0].lineas), { comunes: 2, deDoc: 2, dePedido: 3, score: 2 / 3 });
+});
