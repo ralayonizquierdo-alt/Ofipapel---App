@@ -312,3 +312,21 @@ test('la marca de expositor del pedido llega a las líneas finales', () => {
   const filas = CP.compararPedido([{ ref: 'E1', cant: 1, exp: true, precio: 100 }], [{ ref: 'E1', cant: 1, precio: 100 }]);
   assert.equal(CP.aplicarDecisiones(filas, {}, { comercial: true }).lineas[0].exp, true);
 });
+
+test('control de la factura final: lo que no ha venido, lo que sobra y los cambios de precio', () => {
+  const validadas = [{ ref: 'A', cant: 2, precio: 10, dtos: [30] }, { ref: 'B', cant: 5, precio: 4 }, { ref: 'C', cant: 1, precio: 3 }];
+  const factura = [{ ref: 'A', cant: 2, precio: 10, dtos: [30] }, { ref: 'B', cant: 3, precio: 4 }, { ref: 'C', cant: 1, precio: 3.5 }, { ref: 'D', cant: 1, precio: 1 }];
+  const r = CP.controlFactura(validadas, factura);
+  assert.deepEqual(r.faltan.map((x) => [x.ref, x.cant, x.total]), [['B', 2, false]]);
+  assert.deepEqual(r.sobran.map((x) => [x.ref, x.cant]), [['D', 1]]);
+  assert.deepEqual(r.precios.map((x) => [x.ref, x.validado, x.facturado]), [['C', 3, 3.5]]);
+  assert.equal(r.cuadra, false);
+  assert.equal(CP.controlFactura(validadas, validadas).cuadra, true);
+  assert.equal(CP.controlFactura(validadas, factura.slice(1)).faltan[0].total, true, 'A no viene nada');
+  // 30 % global en la propuesta validada y aplicado línea a línea en la factura: no es cambio de precio
+  const r2 = CP.controlFactura([{ ref: 'X', cant: 1, precio: 10 }], [{ ref: 'X', cant: 1, precio: 10, dtos: [30] }], { dtoValidado: 30 });
+  assert.equal(r2.cuadra, true);
+  // la factura no trae el 30 % (ni en línea ni leído en cabecera): mismo precio base, no es cambio
+  assert.equal(CP.controlFactura([{ ref: 'X', cant: 1, precio: 10 }], [{ ref: 'X', cant: 1, precio: 10 }], { dtoValidado: 30 }).cuadra, true);
+  assert.equal(CP.controlFactura([{ ref: 'X', cant: 1, precio: 10 }], [{ ref: 'X', cant: 1, precio: 11 }], { dtoValidado: 30 }).precios.length, 1);
+});

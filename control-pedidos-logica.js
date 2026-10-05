@@ -300,6 +300,44 @@
       .filter((x) => x.pendiente && !(x.pendiente === 'decidir' && porRef.get(x.ref) && !porRef.get(x.ref).revisar));
   }
 
+  /**
+   * Último control: la FACTURA FINAL del proveedor frente a lo que se validó.
+   * Pasa a menudo que se confirma una propuesta y luego facturan otra cosa
+   * (agotados en ese momento): aquí sale qué no ha venido, qué viene sin
+   * estar confirmado y qué cambia de precio neto (a partir de 1 céntimo).
+   * El descuento global de cabecera (el 30 % de Finocam) se aplica a cada
+   * lado por separado: { dtoValidado, dtoFactura } en %.
+   */
+  function controlFactura(lineasValidadas, lineasFactura, opciones) {
+    const o = opciones || {};
+    const val = agrupar(lineasValidadas);
+    const fac = agrupar(lineasFactura);
+    const conGlobal = (neto, dto) => (neto == null ? null : neto * (1 - (parseNum(dto) || 0) / 100));
+    const faltan = [];
+    const sobran = [];
+    const precios = [];
+    for (const [ref, a] of val) {
+      const b = fac.get(ref);
+      const cb = b ? b.cant : 0;
+      if (cb < a.cant) faltan.push({ ref, desc: a.desc || (b && b.desc) || '', cant: red2(a.cant - cb), de: a.cant, total: cb === 0 });
+      const na = conGlobal(a.neto, o.dtoValidado);
+      const nb = b ? conGlobal(b.neto, o.dtoFactura) : null;
+      // El descuento global puede venir en la cabecera o ya aplicado en cada
+      // línea, y la lectura no siempre lo encuentra: si el precio coincide
+      // por cualquiera de los dos caminos, no es un cambio de precio.
+      const igual = (x, y) => x != null && y != null && Math.abs(x - y) < 0.01;
+      const mismo = b && (igual(na, nb) || igual(a.neto, b.neto) || igual(na, conGlobal(b.neto, o.dtoValidado)));
+      if (na != null && nb != null && !mismo) {
+        precios.push({ ref, desc: a.desc || b.desc, validado: red2(na), facturado: red2(nb) });
+      }
+    }
+    for (const [ref, b] of fac) {
+      const ca = val.has(ref) ? val.get(ref).cant : 0;
+      if (b.cant > ca) sobran.push({ ref, desc: b.desc, cant: red2(b.cant - ca), de: b.cant, total: ca === 0 });
+    }
+    return { faltan, sobran, precios, cuadra: !faltan.length && !sobran.length && !precios.length };
+  }
+
   // ── Decisiones ────────────────────────────────────────────────────────────
 
   /**
@@ -715,7 +753,7 @@
   const api = {
     TOLERANCIA, PLANTILLA_GEMINIS,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
