@@ -97,7 +97,7 @@ Reglas:
 - Si hay duda entre secciones: un aviso de otra persona/dependencia es "aviso"; un animal muerto es "retirada"; un golpe con un avión es "impacto"; animales vivos vistos es "fauna"; lo demás, "actuacion".
 
 MUY IMPORTANTE — no deduzcas, solo transcribe lo dicho:
-- "altitude": solo si se dice una altura o rango ("a unos 50 metros" → "20-100"). Un animal posado o "volando" sin altura → "".
+- "altitude": solo si se dice una altura o rango ("a unos 50 metros" → "20-100"). La tabla va en METROS: si se dice en pies, conviértelo (1 pie ≈ 0,3 m; "50 pies" ≈ 15 m → "0-20"; "200 pies" ≈ 60 m → "20-100"). Un animal posado o "volando" sin altura → "".
 - "threat": solo si se dice expresamente si coincide o no con operaciones o si es un riesgo. Si no se dice → "".
 - "severity": las palabras que use el agente ("sin daños", "daños en el motor"…). Nunca pongas una valoración tuya como "Leve".
 - "action": si se describe la actuación, elige el código que corresponde ("vigilancia" → VI; "vuelo con rapaz", "vuelo con el halcón" → V; "vuelos de caza" sin captura → V.Z; "vuelos de caza" con captura → V.Z.C; "pirotecnia", "petardos" → P.I; "perro" → P; "sonidos", "cañón" → S). Si no se describe → "".
