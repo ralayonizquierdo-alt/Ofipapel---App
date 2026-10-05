@@ -22,7 +22,8 @@
 
 const MODELO_POR_DEFECTO = 'gemini-flash-lite-latest';
 // Si el principal está saturado o sin cuota, se prueban estos (también gratuitos).
-const MODELOS_RESPALDO = ['gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'];
+// gemini-2.5-flash y -lite ya devuelven 404 con esta clave (5/10/2026): fuera.
+const MODELOS_RESPALDO = ['gemini-flash-latest'];
 const MAX_TEXTO = 1500;
 
 const CORS = {
@@ -157,14 +158,18 @@ exports.handler = async (event) => {
   // saturado (503). Si el primero no está disponible, se prueba el siguiente,
   // siempre dentro del tiempo que Netlify da a una función (~10 s).
   const modelos = [...new Set([process.env.GEMINI_MODEL || MODELO_POR_DEFECTO, ...MODELOS_RESPALDO])];
-  const limite = Date.now() + 9000;
-  const llamar = (m, ms) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
+  const limite = Date.now() + 9300;
+  // Sin «pensar»: para colocar un texto en casillas no hace falta y lo hace más
+  // lento (el 5/10/2026 el modelo principal dejó de responder en 6 s). Si un
+  // modelo no admite la opción (400), se repite la petición sin ella.
+  const sinPensar = { thinkingConfig: { thinkingBudget: 0 } };
+  const llamar = (m, ms, extra = sinPensar) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': clave },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: INSTRUCCIONES }] },
       contents: [{ role: 'user', parts: [{ text: seccion ? `Sección elegida por el agente (obligatoria, úsala como "kind"): ${seccion}\n\nDictado: ${dictado}` : dictado }] }],
-      generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: ESQUEMA },
+      generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: ESQUEMA, ...extra },
     }),
     signal: AbortSignal.timeout(ms),
   });
@@ -175,9 +180,14 @@ exports.handler = async (event) => {
       const quedan = limite - Date.now();
       if (quedan < 1500) break;
       usado = m;
-      try { res = await llamar(m, Math.min(6000, quedan)); }
-      catch (e) { intentos.push(`${m}:sin respuesta`); console.error(`fauna-clasificar: ${m} no respondió (${e && e.name})`); continue; }
-      intentos.push(`${m}:${res.status}`);
+      const t0 = Date.now();
+      // El primero puede usar casi todo el margen; si falla, al siguiente le queda el resto.
+      try {
+        res = await llamar(m, Math.min(m === modelos[0] ? 7000 : quedan, quedan));
+        if (res.status === 400) { intentos.push(`${m}:400 con sinPensar`); res = await llamar(m, Math.max(1000, limite - Date.now()), {}); }
+      }
+      catch (e) { intentos.push(`${m}:sin respuesta ${((Date.now() - t0) / 1000).toFixed(1)}s`); console.error(`fauna-clasificar: ${m} no respondió (${e && e.name})`); continue; }
+      intentos.push(`${m}:${res.status} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
       if (res.ok || ![404, 429, 500, 503].includes(res.status)) break;
       console.error(`fauna-clasificar: ${m} respondió ${res.status}; se prueba el siguiente modelo`);
     }
