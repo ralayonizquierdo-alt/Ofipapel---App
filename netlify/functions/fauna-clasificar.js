@@ -159,17 +159,15 @@ exports.handler = async (event) => {
   // siempre dentro del tiempo que Netlify da a una función (~10 s).
   const modelos = [...new Set([process.env.GEMINI_MODEL || MODELO_POR_DEFECTO, ...MODELOS_RESPALDO])];
   const limite = Date.now() + 9300;
-  // Sin «pensar»: para colocar un texto en casillas no hace falta y lo hace más
-  // lento (el 5/10/2026 el modelo principal dejó de responder en 6 s). Si un
-  // modelo no admite la opción (400), se repite la petición sin ella.
-  const sinPensar = { thinkingConfig: { thinkingBudget: 0 } };
-  const llamar = (m, ms, extra = sinPensar) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
+  // (Se probó pedir thinkingBudget 0 para que respondiera antes: este modelo lo
+  // rechaza con 400, así que no se usa.)
+  const llamar = (m, ms) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': clave },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: INSTRUCCIONES }] },
       contents: [{ role: 'user', parts: [{ text: seccion ? `Sección elegida por el agente (obligatoria, úsala como "kind"): ${seccion}\n\nDictado: ${dictado}` : dictado }] }],
-      generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: ESQUEMA, ...extra },
+      generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: ESQUEMA },
     }),
     signal: AbortSignal.timeout(ms),
   });
@@ -184,7 +182,6 @@ exports.handler = async (event) => {
       // El primero puede usar casi todo el margen; si falla, al siguiente le queda el resto.
       try {
         res = await llamar(m, Math.min(m === modelos[0] ? 7000 : quedan, quedan));
-        if (res.status === 400) { intentos.push(`${m}:400 con sinPensar`); res = await llamar(m, Math.max(1000, limite - Date.now()), {}); }
       }
       catch (e) { intentos.push(`${m}:sin respuesta ${((Date.now() - t0) / 1000).toFixed(1)}s`); console.error(`fauna-clasificar: ${m} no respondió (${e && e.name})`); continue; }
       intentos.push(`${m}:${res.status} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
