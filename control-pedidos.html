@@ -396,7 +396,7 @@ function vistaGrupo(g, i) {
     <div class="fila no-imprimir" style="margin-top:6px"><button class="btn peque" onclick="imprimirResumen(${i}, ${js(g.nombre)})">Imprimir faltas y sobras</button></div>`
     : `<div class="aviso-caja ok">En los pedidos comparados no falta ni sobra ninguna referencia.</div>`}
     ${reclamar.length ? vistaReclamacion(g.clave, i, reclamar)
-      : nF ? `<div class="pequeno no-imprimir" style="margin-top:8px">Para reclamar una falta al proveedor, ábrela y elige «✉️ Reclamar al proveedor» en su decisión.</div>` : ''}` : ''}
+      : nF ? `<div class="pequeno no-imprimir" style="margin-top:8px">Para reclamar una falta al proveedor, abre el pedido y elige «✉️ Reclamar al proveedor» en su decisión. Si luego el proveedor la añade, carga su propuesta nueva y vuelve a validar; si está descatalogada, cambia la decisión a «Descartar».</div>` : ''}` : ''}
   </details>`;
 }
 function marcarGrupo(clave, abierto) {
@@ -773,7 +773,7 @@ function vistaComparacion(p, filas) {
   // Lo esencial primero: lo que falta, luego lo que sobra, luego el resto.
   const peso = (f) => (f.cantPropuesta < f.cantPedida ? 0 : f.cantPropuesta > f.cantPedida ? 1 : 2);
   const mostrar = (soloDiscordancias ? filas.filter((f) => f.motivos.length) : filas).slice().sort((a, b) => peso(a) - peso(b));
-  const nombres = { reclamar: '✉️ Reclamar al proveedor', resto: 'Dejar en restos (sin reclamar)', anular: 'Anular (ya no lo quiere)', aceptar: 'Aceptar propuesta', mantener: 'Mantener lo pedido', manual: 'Cantidad/precio a mano', excluir: 'Excluir línea' };
+  const nombres = { reclamar: '✉️ Reclamar al proveedor (esperar respuesta)', resto: 'Sin stock: dejar en restos', anular: 'Descartar (descatalogado o ya no lo quiere)', aceptar: 'Aceptar propuesta', mantener: 'Mantener lo pedido', manual: 'Cantidad/precio a mano', excluir: 'Excluir línea' };
   return `
   <div class="tarjeta">
     <h2>3 · Comparación y decisiones</h2>
@@ -830,7 +830,7 @@ function bloqueFaltasSobras(p, filas) {
   const pendientes = esRepo(p) ? faltan : CP.faltasPendientes(filas, p.decisiones);
   const pend = new Set(pendientes.map((x) => x.ref));
   const doc = esRepo(p) ? 'la factura/propuesta' : 'la propuesta';
-  const decidido = { reclamar: '✉️ se reclama al proveedor', resto: 'en restos, sin reclamar', anular: 'descartada: ya no lo quiere', excluir: 'descartada', aceptar: 'aceptada la propuesta', mantener: 'se mantiene lo pedido', manual: 'a mano' };
+  const decidido = { reclamar: '✉️ reclamada, esperando respuesta del proveedor', resto: 'sin stock: en restos', anular: 'descartada definitivamente', excluir: 'descartada', aceptar: 'aceptada la propuesta', mantener: 'se mantiene lo pedido', manual: 'a mano' };
   const linea = (x, signo, falta) => {
     const acc = falta && !esRepo(p) && (p.decisiones[x.ref] || {}).accion;
     const fuera = falta && !esRepo(p) && !pend.has(x.ref);
@@ -1323,7 +1323,7 @@ function validarPedido() {
   for (const x of r.restos) {
     if (conLlegadas.some((c) => c.ref === x.ref)) continue;
     E.restos.push({ id: nuevoId(), pedidoId: p.id, proveedor: p.proveedor, cliente: p.cliente, numero: p.numero, ref: x.ref, desc: x.desc, ean: x.ean,
-      precio: x.precio, cant: x.cant, pendiente: x.cant, fecha: p.fecha, asignaciones: [], anulado: false, reclamado: Boolean(x.reclamar) });
+      precio: x.precio, cant: x.cant, pendiente: x.cant, fecha: p.fecha, asignaciones: [], anulado: false });
   }
   E.notas = E.notas.filter((n) => n.pedidoId !== p.id || n.resuelta);
   for (const n of r.notas) {
@@ -1377,7 +1377,7 @@ function vistaRestos() {
       <tr><th>Fecha</th><th>Proveedor</th><th>Cliente</th><th>Pedido</th><th>Referencia</th><th>Descripción</th><th class="num">Pedidas</th><th class="num">Pendientes</th><th>Llegadas</th><th class="no-imprimir"></th></tr>
       ${lista.map((r) => `<tr>
         <td>${h(fmtFecha(r.fecha))}</td><td>${h(r.proveedor)}</td><td><b>${h(r.cliente)}</b></td><td>${h(r.numero)}</td>
-        <td>${h(r.ref)}${r.reclamado ? ' <span class="chip info">✉️ reclamado</span>' : ''}</td><td>${h(r.desc)}</td><td class="num">${r.cant}</td>
+        <td>${h(r.ref)}</td><td>${h(r.desc)}</td><td class="num">${r.cant}</td>
         <td class="num">${r.anulado ? '<span class="chip gris">Anulado</span>' : r.pendiente > 0 ? `<span class="chip aviso">${r.pendiente}</span>` : '<span class="chip ok">Servido</span>'}</td>
         <td class="pequeno">${r.asignaciones.map((a) => `${h(fmtFecha(a.fecha))}: ${a.cant} (${h(a.origen)})`).join('<br>') || '—'}</td>
         <td class="no-imprimir">${r.pendiente > 0 && !r.anulado ? `<button class="btn peque peligro" onclick="anularResto('${r.id}')">Anular</button>` : ''}</td>
