@@ -307,3 +307,8 @@ test('faltas pendientes: solo las sin decidir y las que se reclaman; lo reclamad
   assert.deepEqual(r.restos.map((x) => [x.ref, x.cant]), [['D', 1]], 'solo el «sin stock» va a restos; lo reclamado no');
   assert.deepEqual(CP.faltasPendientes(filas, { ...dec, D: { accion: 'resto' } }).map((x) => x.ref), ['A']);
 });
+
+test('la marca de expositor del pedido llega a las líneas finales', () => {
+  const filas = CP.compararPedido([{ ref: 'E1', cant: 1, exp: true, precio: 100 }], [{ ref: 'E1', cant: 1, precio: 100 }]);
+  assert.equal(CP.aplicarDecisiones(filas, {}, { comercial: true }).lineas[0].exp, true);
+});

@@ -382,6 +382,7 @@ function vistaGrupo(g, i) {
     <div class="fila no-imprimir" style="margin-top:10px">
       ${esRepo(ej) ? '' : `<button class="btn primario" onclick="otroPedidoCampana(${js(ej.proveedor)}, ${js(ej.campana || '')})">➕ Nuevo pedido en esta campaña</button>`}
       <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">Excel Géminis de los seleccionados</button>
+      ${esRepo(ej) ? '' : `<button class="btn" onclick="imprimirGuiaFacturacion(${js(g.clave)})">🧾 Imprimir guía de facturación</button>`}
       <span class="pequeno">Solo pedidos validados. Varias selecciones se suman por referencia en un único pedido.</span>
     </div>
     ${comparados.length ? `
@@ -398,6 +399,49 @@ function vistaGrupo(g, i) {
     ${reclamar.length ? vistaReclamacion(g.clave, i, reclamar)
       : nF ? `<div class="pequeno no-imprimir" style="margin-top:8px">Para reclamar una falta al proveedor, abre el pedido y elige «✉️ Reclamar al proveedor» en su decisión. Si luego el proveedor la añade, carga su propuesta nueva y vuelve a validar; si está descatalogada, cambia la decisión a «Descartar».</div>` : ''}` : ''}
   </details>`;
+}
+/** Guía para facturar a mano en nuestro sistema: un bloque por cliente con
+ *  lo validado a precio de cliente (lo que apuntó el comercial, sin el
+ *  descuento de la propuesta), sus notas de facturación y lo que queda en
+ *  restos. Los pedidos sin validar no entran: se avisa arriba. */
+function imprimirGuiaFacturacion(clave) {
+  const ps = E.pedidos.filter((p) => claveGrupo(p) === clave)
+    .sort((a, b) => String(a.cliente).localeCompare(String(b.cliente), 'es') || String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }));
+  if (!ps.length) return;
+  const nombre = nombreGrupo(ps[0]);
+  const validados = ps.filter((p) => p.validado && p.final);
+  const sinValidar = ps.filter((p) => !(p.validado && p.final));
+  if (!validados.length) { alert('Todavía no hay ningún pedido validado en esta campaña.'); return; }
+  const pc = (l) => (l.precioCliente != null ? l.precioCliente : l.precio) || 0;
+  let totalCampana = 0;
+  const bloques = validados.map((p) => {
+    const lineas = p.final.lineas.filter((l) => l.cant > 0);
+    const total = CP.red2(lineas.reduce((s, l) => s + pc(l) * l.cant, 0));
+    totalCampana += total;
+    const notas = E.notas.filter((n) => n.pedidoId === p.id && !n.resuelta);
+    const restos = E.restos.filter((x) => x.pedidoId === p.id && x.pendiente > 0 && !x.anulado);
+    return `<section>
+      <h2><span class="caja"></span> ${h(p.cliente)} <small>· pedido nº ${h(p.numero)} · ${h(fmtFecha(p.fecha))}</small></h2>
+      <table><tr><th class="n">Cant.</th><th>Referencia</th><th>Descripción</th><th class="n">Precio</th><th class="n">Importe</th></tr>
+      ${lineas.map((l) => `<tr><td class="n">${l.cant}${l.exp ? ' EXP' : ''}</td><td>${h(l.ref)}</td><td>${h(l.desc)}</td><td class="n">${fmt(pc(l))}</td><td class="n">${fmt(CP.red2(pc(l) * l.cant))}</td></tr>`).join('')}
+      <tr class="tot"><td colspan="4" class="n">Total (sin impuestos)</td><td class="n">${fmt(total)}</td></tr></table>
+      ${notas.length ? `<p class="nota"><b>Notas de facturación:</b> ${notas.map((n) => `${h(n.ref)} — ${h(n.texto)}`).join(' · ')}</p>` : ''}
+      ${restos.length ? `<p class="resto"><b>No facturar todavía (en restos, sin stock):</b> ${restos.map((x) => `${x.pendiente} × ${h(x.ref)} ${h(x.desc)}`).join(' · ')}</p>` : ''}
+    </section>`;
+  }).join('');
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Guía de facturación · ${h(nombre)}</title>
+  <style>body{font-family:system-ui,sans-serif;margin:20px;color:#111;font-size:13px}h1{font-size:18px;margin:0 0 4px}
+  section{break-inside:avoid;page-break-inside:avoid;border-top:2px solid #333;padding-top:6px;margin-top:16px}
+  h2{font-size:15px;margin:0 0 6px}h2 small{font-weight:normal;color:#555}.caja{display:inline-block;width:12px;height:12px;border:1.5px solid #333;margin-right:4px;vertical-align:-1px}
+  table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ccc;padding:3px 5px;text-align:left}td.n,th.n{text-align:right}
+  tr.tot td{font-weight:bold;border-bottom:0}.nota{background:#eef4ff;padding:4px 6px}.resto{background:#fff6e0;padding:4px 6px}.aviso{background:#fde8e8;padding:6px}</style></head><body>
+  <h1>Guía de facturación · ${h(nombre)}</h1>
+  <p>${h(fmtFecha(hoy()))} · ${validados.length} cliente(s) · total ${fmt(CP.red2(totalCampana))} € sin impuestos · marca la casilla de cada cliente al facturarlo.</p>
+  ${sinValidar.length ? `<p class="aviso"><b>Sin validar, no incluidos:</b> ${sinValidar.map((p) => `nº ${h(p.numero)} ${h(p.cliente)}`).join(', ')}</p>` : ''}
+  ${bloques}
+  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
 }
 function marcarGrupo(clave, abierto) {
   gruposAbiertos = gruposAbiertos || new Set();
