@@ -259,3 +259,10 @@ test('faltas y sobras: lo pedido que no viene y lo que viene sin pedirse, aparte
   // Un cambio solo de precio no es ni falta ni sobra
   assert.ok(!faltan.concat(sobran).some((x) => x.ref === '770140327'));
 });
+
+test('factura leída con IA: el nº de «su pedido» sirve para asignarla sola', () => {
+  const d = CP.lineasDeDocumento({ pedidoCliente: 'S/ref. Su pedido nº 5 Librería Abona', notas: '', lineas: [] });
+  assert.equal(d.cabecera.numeroPedido, 5);
+  assert.match(d.cabecera.observaciones, /Abona/);
+  assert.equal(CP.lineasDeDocumento({ pedidoCliente: '', lineas: [] }).cabecera.numeroPedido, null);
+});
