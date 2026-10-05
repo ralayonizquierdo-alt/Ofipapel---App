@@ -88,6 +88,11 @@ main{overflow-wrap:anywhere}
 .vacio{color:var(--texto2);font-style:italic;padding:8px 0}
 .entrada-rapida{background:var(--fondo);border:1px solid var(--borde);border-radius:10px;padding:10px 12px;margin:10px 0}
 .entrada-rapida input{font-size:17px}
+details.bloc{background:#fffdf3;border:1px solid #eadfa8;border-radius:10px;padding:8px 12px;margin:0 0 10px}
+details.bloc summary{cursor:pointer}
+details.bloc ol{margin:8px 0;padding-left:26px;max-height:260px;overflow:auto;font-size:15px;line-height:1.6}
+details.bloc .baja{text-decoration:line-through;color:var(--texto2)}
+details.bloc .hora{color:var(--texto2);font-size:12px;margin-right:4px}
 .casilla{flex-direction:row!important;align-items:center;gap:6px;align-self:flex-end;padding-bottom:8px}
 details.grupo{border:1px solid var(--borde,#ddd);border-radius:10px;padding:10px 12px;margin-top:12px}
 details.grupo>summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:16px}
@@ -530,6 +535,7 @@ function vistaDetalle(p) {
       <button class="btn peque" onclick="pegarLineas('pedido')">Añadir estas líneas</button>
     </div>
     ${entradaRapida()}
+    ${vistaBloc(p)}
     ${!cat ? `<div class="aviso-caja aviso">Aún no hay catálogo de ${h(p.proveedor)}: carga una propuesta suya para poder comprobar que cada referencia existe.</div>` : ''}
     ${tablaLineas(p, cat)}
   </div>
@@ -828,7 +834,44 @@ function cambiaLinea(i, campo, valor, lado) {
   if (['cant', 'precio', 'dtos'].includes(campo)) l.importe = null; // el importe del Excel ya no vale
   invalidar(p); guardar(); pintar();
 }
-function borrarLinea(i, lado) { const p = pedidoActual(); (lado === 'propuesta' ? p.propuesta.lineas : p.lineas).splice(i, 1); invalidar(p); guardar(); pintar(); }
+function borrarLinea(i, lado) {
+  const p = pedidoActual();
+  const lista = lado === 'propuesta' ? p.propuesta.lineas : p.lineas;
+  if (lado !== 'propuesta' && p.registro && p.registro.length) apuntar(p, 'baja', lista[i]);
+  lista.splice(i, 1); invalidar(p); guardar(); pintar();
+}
+/** Bloc del pedido: queda constancia, con la hora, de cada artículo que se
+ *  mete a mano casilla a casilla (y de los que se borran después). */
+const textoLinea = (l) => `${fmt(l.cant).replace(',00', '')}${l.exp ? ' EXP' : ''} × ${l.ref}${l.desc ? ' ' + l.desc : ''}${l.precio != null ? ' · ' + fmt(l.precio) + ' €' : ''}`;
+function apuntar(p, accion, l) {
+  const reg = (p.registro = p.registro || []);
+  const ahora = new Date().toISOString();
+  const texto = textoLinea(l);
+  // Al borrar, se tacha la apuntada (no se apunta otra vez).
+  const previa = accion === 'baja' && [...reg].reverse().find((x) => x.accion === 'alta' && !x.borrada && x.texto === texto);
+  if (previa) previa.borrada = ahora;
+  else reg.push({ hora: ahora, accion, texto });
+}
+function vistaBloc(p) {
+  const reg = p.registro || [];
+  if (!reg.length) return '';
+  const hora = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${fmtFecha(iso.slice(0, 10))} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  const borradas = reg.filter((x) => x.borrada || x.accion === 'baja').length;
+  return `
+    <details class="bloc no-imprimir" open>
+      <summary><b>📝 Bloc del pedido</b> · ${reg.length} artículo(s) apuntado(s)${borradas ? ` · ${borradas} borrado(s)` : ''}</summary>
+      <ol>${reg.map((x) => `<li><span class="hora">${h(hora(x.hora))}</span> <span class="${x.borrada || x.accion === 'baja' ? 'baja' : ''}">${h(x.texto)}</span>${x.borrada ? ` <span class="pequeno">borrada ${h(hora(x.borrada))}</span>` : x.accion === 'baja' ? ' <span class="pequeno">(borrada)</span>' : ''}</li>`).join('')}</ol>
+      <button class="btn peque" onclick="copiarBloc()">Copiar el bloc</button>
+    </details>`;
+}
+function copiarBloc() {
+  const p = pedidoActual();
+  const t = [`Pedido ${p.proveedor} nº ${p.numero}${p.cliente ? ' · ' + p.cliente : ''}`]
+    .concat((p.registro || []).map((x, i) => `${i + 1}. ${x.texto}${x.borrada || x.accion === 'baja' ? ' (borrada)' : ''}`)).join('\n');
+  const hecho = () => alert('Bloc copiado.');
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(hecho, () => prompt('Copia el texto:', t));
+  else prompt('Copia el texto:', t);
+}
 function anadirLinea() { const p = pedidoActual(); p.lineas.push({ ref: '', desc: '', cant: 1, precio: null, exp: false, duda: '' }); guardar(); pintar(); }
 /** Entrada de artículos casilla a casilla, pensada para tableta: Enter pasa a
  *  la siguiente (cantidad → referencia → descripción → precio) y en el precio
@@ -875,9 +918,12 @@ function anadirRapida() {
   if (!mc) { const c = document.getElementById('qaCant'); c.focus(); c.select(); return; }
   if (!v('qaRef')) { document.getElementById('qaRef').focus(); return; }
   const p = pedidoActual();
-  p.lineas.push({ cant: CP.parseNum(mc[1]), exp: Boolean(mc[2]) || document.getElementById('qaExp').checked, ref: CP.normRef(v('qaRef')),
-    desc: v('qaDesc').toUpperCase(), precio: v('qaPrecio') ? CP.parseNum(v('qaPrecio')) : null, dtos: [], duda: '' });
+  const l = { cant: CP.parseNum(mc[1]), exp: Boolean(mc[2]) || document.getElementById('qaExp').checked, ref: CP.normRef(v('qaRef')),
+    desc: v('qaDesc').toUpperCase(), precio: v('qaPrecio') ? CP.parseNum(v('qaPrecio')) : null, dtos: [], duda: '' };
+  p.lineas.push(l);
+  apuntar(p, 'alta', l);
   invalidar(p); guardar(); pintar();
+  const ol = document.querySelector('details.bloc ol'); if (ol) ol.scrollTop = ol.scrollHeight;
   document.getElementById('qaCant').focus();
 }
 function borrarPedido() {
