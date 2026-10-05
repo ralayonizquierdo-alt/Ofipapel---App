@@ -338,6 +338,28 @@
     return { faltan, sobran, precios, cuadra: !faltan.length && !sobran.length && !precios.length };
   }
 
+  /**
+   * Fotos de un pedido y hojas del talonario: «1/4», «hoja 2 de 4», «3-4»…
+   * Devuelve cuántas fotos hay, las hojas leídas, el total que dicen (el
+   * mayor) y las que faltan, para avisar si alguna foto se quedó atrás.
+   */
+  function hojasDelPedido(fotos) {
+    const lista = fotos || [];
+    const leidas = new Set();
+    let total = null;
+    for (const f of lista) {
+      const m = String(f.hoja || '').match(/(\d+)\s*(?:\/|-|de)\s*(\d+)/i);
+      if (!m) continue;
+      const n = Number(m[1]); const t = Number(m[2]);
+      if (!n || !t || n > t || t > 50) continue;
+      leidas.add(n);
+      total = Math.max(total || 0, t);
+    }
+    const faltan = [];
+    if (total) for (let k = 1; k <= total; k++) if (!leidas.has(k)) faltan.push(k);
+    return { fotos: lista.length, hojas: [...leidas].sort((x, y) => x - y), total, faltan };
+  }
+
   // ── Decisiones ────────────────────────────────────────────────────────────
 
   /**
@@ -753,7 +775,7 @@
   const api = {
     TOLERANCIA, PLANTILLA_GEMINIS,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, hojasDelPedido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

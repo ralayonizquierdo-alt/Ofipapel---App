@@ -330,3 +330,11 @@ test('control de la factura final: lo que no ha venido, lo que sobra y los cambi
   assert.equal(CP.controlFactura([{ ref: 'X', cant: 1, precio: 10 }], [{ ref: 'X', cant: 1, precio: 10 }], { dtoValidado: 30 }).cuadra, true);
   assert.equal(CP.controlFactura([{ ref: 'X', cant: 1, precio: 10 }], [{ ref: 'X', cant: 1, precio: 11 }], { dtoValidado: 30 }).precios.length, 1);
 });
+
+test('hojas del pedido: cuenta fotos y avisa de la hoja que falta', () => {
+  const r = CP.hojasDelPedido([{ hoja: '1/4' }, { hoja: 'Hoja 2 de 4' }, { hoja: '4-4' }, { hoja: '' }]);
+  assert.deepEqual([r.fotos, r.hojas, r.total, r.faltan], [4, [1, 2, 4], 4, [3]]);
+  assert.deepEqual(CP.hojasDelPedido([{ hoja: '1/1' }]).faltan, []);
+  assert.equal(CP.hojasDelPedido([{ hoja: '' }, { hoja: 'pedido 5' }]).total, null, 'sin numeración no se adivina');
+  assert.equal(CP.hojasDelPedido([]).fotos, 0);
+});

@@ -258,6 +258,24 @@ function comparar(p) {
   // Comercial: tolerancia cero en precio.
   return CP.compararPedido(p.lineas, p.propuesta.lineas, { catalogo: catalogoDe(p.proveedor), tolerancia: CP.TOLERANCIA.comercial });
 }
+/** Fotos del pedido (las antiguas, sin registro, se deducen de sus líneas). */
+function fotosDe(p) {
+  if (p.fotos && p.fotos.length) return p.fotos;
+  return [...new Set(p.lineas.map((l) => l.foto).filter(Boolean))].map((nombre) => ({ nombre, hoja: '' }));
+}
+function celdaFotos(p) {
+  const r = CP.hojasDelPedido(fotosDe(p));
+  if (!r.fotos) return '—';
+  return `${r.fotos}${r.total ? ` <span class="pequeno">(${r.hojas.length} de ${r.total} hojas)</span>` : ''}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}`;
+}
+function avisoFotos(p) {
+  const fotos = fotosDe(p);
+  const r = CP.hojasDelPedido(fotos);
+  if (!r.fotos) return '';
+  return `<div class="aviso-caja ${r.faltan.length ? 'mal' : 'info'}">📷 <b>${r.fotos} foto(s)</b>${r.total ? ` · hojas leídas ${r.hojas.join(', ')} de ${r.total}` : ''}
+    ${r.faltan.length ? `<br><b>⚠️ Falta la hoja ${r.faltan.join(', ')} de ${r.total}:</b> súbela con «Hacer foto» o «Elegir de la galería».` : ''}
+    <div class="pequeno" style="margin-top:4px">${fotos.map((f) => `${h(f.nombre)}${f.hoja ? ` (hoja ${h(f.hoja)})` : ''}${f.lineas != null ? ` · ${f.lineas} línea(s)` : ''}`).join(' · ')}</div></div>`;
+}
 function chipsFaltasSobras(p) {
   const filas = comparar(p);
   if (!filas) return '';
@@ -370,12 +388,13 @@ function vistaGrupo(g, i) {
     </summary>
     <div class="tabla-scroll"><table>
       <tr><th class="no-imprimir"><input type="checkbox" title="Seleccionar todos" onchange="this.closest('table').querySelectorAll('.selPed').forEach(c=>c.checked=this.checked)"></th>
-        <th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th>Propuesta</th><th>Estado</th></tr>
+        <th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th>Fotos</th><th>Propuesta</th><th>Estado</th></tr>
       ${g.pedidos.map((p) => { const e = estadoPedido(p); return `
       <tr class="clic" onclick="if(event.target.type!=='checkbox')abrirPedido('${p.id}')">
         <td class="no-imprimir"><input type="checkbox" class="selPed" value="${p.id}"></td>
         <td>${h(fmtFecha(p.fecha))}</td><td>${h(p.numero)}</td><td>${h(esRepo(p) ? '—' : p.cliente)}</td>
         <td class="num">${p.lineas.length}</td>
+        <td>${esRepo(p) ? '—' : celdaFotos(p)}</td>
         <td>${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
         <td><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</td>
       </tr>`; }).join('')}
@@ -651,6 +670,7 @@ function vistaDetalle(p) {
       <button class="btn peque" onclick="anadirLinea()">+ Línea</button>
     </div>
     <div id="progresoFotos" class="progreso"></div>
+    ${avisoFotos(p)}
     <div id="pegar" class="oculto" style="margin-top:10px">
       <textarea id="txtPegar" placeholder="Una línea por artículo: cantidad  referencia  precio  (descripción opcional)&#10;4  780100027  3,25  CALENDARIO&#10;1EXP 883840127 180,14"></textarea>
       <button class="btn peque" onclick="pegarLineas('pedido')">Añadir estas líneas</button>
@@ -1185,6 +1205,7 @@ function anadirLecturaA(p, res, nombre) {
       precio: CP.parseNum(l.precio), desc: descAnterior, duda: (l.duda || '').trim(), foto: nombre });
     n++;
   }
+  (p.fotos = p.fotos || []).push({ nombre, hoja: (res.hoja || '').trim(), lineas: n, fecha: new Date().toISOString() });
   if (!p.cliente && res.cliente) p.cliente = res.cliente.toUpperCase();
   if (!p.numero && numeroDeHoja(res)) p.numero = numeroDeHoja(res);
   if (!p.proveedor && res.proveedor) p.proveedor = prov(res.proveedor);
@@ -1216,7 +1237,7 @@ async function leerFotos(files, destino, base) {
   for (let i = 0; i < lista.length; i++) {
     progreso(`Leyendo foto ${i + 1} de ${lista.length} (${lista[i].name})… puede tardar un minuto por foto.`);
     // Una foto ya leída (mismo nombre de fichero) no se vuelve a pagar ni a sumar.
-    const yaEn = !destino && E.pedidos.find((x) => x.lineas.some((l) => l.foto === lista[i].name));
+    const yaEn = !destino && E.pedidos.find((x) => x.lineas.some((l) => l.foto === lista[i].name) || (x.fotos || []).some((f) => f.nombre === lista[i].name));
     if (yaEn) { errores.push(`${lista[i].name}: ya estaba leída en el pedido nº ${yaEn.numero}, no se repite`); continue; }
     try {
       const res = await leerUnaFoto(lista[i]);
@@ -1241,7 +1262,7 @@ async function leerFotos(files, destino, base) {
           E.pedidos.push(p);
         }
       }
-      if (p.lineas.some((l) => l.foto === lista[i].name)) {
+      if (p.lineas.some((l) => l.foto === lista[i].name) || (p.fotos || []).some((f) => f.nombre === lista[i].name)) {
         errores.push(`${lista[i].name}: ya estaba leída en el pedido nº ${p.numero}, no se repite`);
         continue;
       }
