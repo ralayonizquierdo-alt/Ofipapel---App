@@ -176,6 +176,26 @@ function stripAiOwnGreeting(text) {
   return text.replace(AI_GREETING_RE, '');
 }
 
+// ¿Ya le hemos soltado esta misma frase hace nada?
+//
+// Las respuestas de seguridad son fijas, palabra por palabra. Dichas una vez
+// son razonables; repetidas, son un bot colgado. El 5/10/2026 un cliente
+// recibió "¿Qué estás buscando exactamente?" CUATRO veces seguidas mientras le
+// iba diciendo exactamente qué buscaba.
+//
+// Se mira solo lo reciente: que hace tres semanas se le dijera lo mismo no
+// significa que ahora esté en bucle.
+const MENSAJES_QUE_CUENTAN_COMO_REPETIR = 6;
+
+function yaSeDijo(history = [], frase) {
+  const limpio = String(frase || '').trim();
+  if (!limpio) return false;
+  return history
+    .slice(-MENSAJES_QUE_CUENTAN_COMO_REPETIR)
+    .filter((m) => m.role === 'assistant' || m.role === 'agent')
+    .some((m) => String(m.content || '').includes(limpio));
+}
+
 // Fuera de horario, la propia pregunta de "¿quieres que te ponga en contacto...?" ya
 // deja claro que ahora mismo no hay nadie y que la atención será en cuanto abramos —
 // así el cliente no piensa que va a hablar con alguien al instante al pulsar "Sí".
@@ -970,6 +990,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     contextoConsumibles,
     impresoras,
     fallo: falloCatalogo,
+    consultado,
   } = await construirContextoCatalogo({ from: message.from, text, history });
 
   // La web no contestó (lenta, caída, o su protección anti-bots nos bloqueó) y
@@ -1001,6 +1022,59 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     notas
   );
 
+  // SI LA IA INTENTA CONFIRMAR UN PRODUCTO, ERA UNA CONSULTA DE PRODUCTO.
+  //
+  // Antes de buscar hay un filtro que se salta el catálogo cuando el mensaje no
+  // parece ir de un artículo, para no gastar segundos en un "¿a qué hora
+  // abrís?". El filtro es una lista de formas de preguntar ("¿tenéis...?",
+  // "busco...", "necesito...") y, como toda lista de palabras, tiene agujeros.
+  //
+  // Se vio en real el 5/10/2026, y salió caro: un cliente escribió "Queria
+  // saber si tenes boligrafos o plumas estilograficas". "Tenes" no estaba en la
+  // lista, así que NO se miró el catálogo; la IA contestó de memoria, la red de
+  // seguridad de abajo le quitó la respuesta por no tener datos, y le soltó
+  // "¿Qué estás buscando exactamente?" a quien acababa de decirlo. Lo repitió
+  // con "Pluma estilografica" (sin verbo, tampoco entraba) y con dos mensajes
+  // más: cuatro veces la misma frase. En el catálogo hay nueve plumas
+  // estilográficas.
+  //
+  // En vez de seguir añadiendo palabras a la lista, se usa la mejor señal que
+  // hay, y encima gratis: que la IA haya intentado confirmar un producto. Si lo
+  // intentó, era eso. Entonces se busca de verdad y se le vuelve a preguntar
+  // con los datos delante.
+  //
+  // Cabe de sobra en el tiempo de Meta: si se llega aquí sin haber consultado,
+  // este turno no ha gastado los ~3,4 s de la búsqueda, así que queda margen
+  // para hacerla ahora y repreguntar.
+  let respuesta = aiReply;
+  let datosDeCatalogo = productContext;
+  let impresorasVistas = impresoras;
+
+  if (!datosDeCatalogo && !consultado && (isUnverifiedConfirmation(respuesta) || isUnverifiedStockClaim(respuesta))) {
+    const segunda = await construirContextoCatalogo({ from: message.from, text, history, forzar: true });
+    if (segunda.fallo && !segunda.productContext) {
+      // La web no contestó. Igual que arriba: se delega en segundo plano en vez
+      // de hacer esperar al cliente dentro del webhook.
+      const delegado = await pedirSegundoIntento(message.from, text);
+      if (delegado) {
+        await conversationStore.appendCustomerMessage(message.from, text, message.id);
+        await sendWhatsappMessage(message.from, greeting + ESPERA_REPLY);
+        return;
+      }
+    }
+    if (segunda.productContext) {
+      datosDeCatalogo = segunda.productContext;
+      impresorasVistas = segunda.impresoras;
+      respuesta = await askClaude(
+        text,
+        history,
+        unirContexto(segunda.contextoConsumibles, segunda.productContext),
+        fichaCliente,
+        notas
+      );
+    }
+  }
+
   // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos..." SIN que
   // hubiera resultados reales de búsqueda para este turno, no nos fiamos de esa
   // afirmación — puede ser pura invención (se ha visto en pruebas reales). Pero si
@@ -1010,11 +1084,31 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // seguridad lo descartaba igualmente por no mirar si había datos de respaldo.
   // Sin datos de catálogo tampoco vale afirmar que algo está en stock: saber
   // qué cartucho lleva una impresora no es saber si nos queda.
-  if (!productContext && (isUnverifiedConfirmation(aiReply) || isUnverifiedStockClaim(aiReply))) {
+  if (!datosDeCatalogo && (isUnverifiedConfirmation(respuesta) || isUnverifiedStockClaim(respuesta))) {
     // Si sabemos de qué impresora habla, la respuesta segura conserva la
     // referencia en vez de empezar de cero preguntando qué busca.
-    const infoReply =
-      greeting + (respuestaSinCatalogo(impresoras) || PRODUCTO_NO_VERIFICADO_INFO);
+    const segura = respuestaSinCatalogo(impresorasVistas) || PRODUCTO_NO_VERIFICADO_INFO;
+
+    // Y SI YA SE LO DIJIMOS, NO SE LO REPETIMOS.
+    //
+    // "¿Qué estás buscando exactamente?" es una pregunta razonable UNA vez. A la
+    // segunda, el cliente ya la contestó y se la estás volviendo a hacer: desde
+    // su lado, el bot se ha quedado colgado. El 5/10/2026 salió cuatro veces
+    // seguidas, palabra por palabra, y hubo que pedirle perdón al cliente.
+    //
+    // Si vuelve a tocar, es que por esta vía no se sale: se le ofrece una
+    // persona, que es lo que de verdad le resuelve.
+    if (yaSeDijo(history, segura)) {
+      await sendEscalateButtons(message.from, `${greeting}Disculpa, no estoy dando con lo que buscas. `, idioma);
+      await appendToHistory(
+        message.from,
+        text,
+        `${greeting}Disculpa, no estoy dando con lo que buscas. ${escalateQuestion(idioma)}`
+      );
+      return;
+    }
+
+    const infoReply = greeting + segura;
     await appendToHistory(message.from, text, infoReply);
     await sendWhatsappMessage(message.from, infoReply);
     return;
@@ -1027,8 +1121,8 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // segundo mensaje con los botones reales de escalado — así el cliente se queda
   // con la info que sí había, y además con la opción real de hablar con alguien,
   // en vez de depender de que la IA repita una frase exacta sin nada más.
-  if (isNoSeLaRespuesta(aiReply)) {
-    const infoPart = stripAiOwnGreeting(aiReply.split(NO_SE_LA_RESPUESTA)[0].trim()).trim();
+  if (isNoSeLaRespuesta(respuesta)) {
+    const infoPart = stripAiOwnGreeting(respuesta.split(NO_SE_LA_RESPUESTA)[0].trim()).trim();
 
     if (infoPart) {
       const infoReply = greeting + infoPart;
@@ -1050,7 +1144,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     return;
   }
 
-  const reply = greeting + stripAiOwnGreeting(aiReply);
+  const reply = greeting + stripAiOwnGreeting(respuesta);
   await appendToHistory(message.from, text, reply);
   await sendWhatsappMessage(message.from, reply);
 }
