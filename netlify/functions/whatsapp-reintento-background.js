@@ -52,8 +52,13 @@ async function buscarConPaciencia({ from, text, history }) {
   let equipos = [];
 
   for (let intento = 1; intento <= INTENTOS; intento += 1) {
+    // `forzar`: aquí no hay que decidir si la pregunta va de un producto. Si el
+    // webhook ha delegado en esta función es porque ya quería buscar y la web no
+    // contestó; volver a aplicar el filtro de palabras solo puede hacer que esta
+    // función no busque NADA y conteste de memoria, que es lo que se vino a
+    // evitar.
     const { productContext, contextoConsumibles, impresoras, fallo } =
-      await construirContextoCatalogo({ from, text, history });
+      await construirContextoCatalogo({ from, text, history, forzar: true });
     consumibles = contextoConsumibles || consumibles;
     equipos = impresoras && impresoras.length > 0 ? impresoras : equipos;
 

@@ -485,7 +485,15 @@ function isNoSeLaRespuesta(text) {
 // también sale en confirmaciones legítimas de SERVICIOS que la IA sí conoce de
 // verdad (p. ej. "sí, hacemos entregas a otras islas", que es un hecho real de
 // ENVIOS_INFO, no una invención) y daba falsos positivos.
-const FALSE_CONFIDENCE_PATTERN = /\bs[ií],?\s+(vendemos|tenemos)\b/i;
+// Sin datos de catálogo, cualquier "sí, tenemos" es inventado. El patrón era
+// demasiado estrecho — solo pillaba "sí tenemos" y "sí vendemos" pegados — y
+// "Sí, claro que tenemos plumas estilográficas" se le colaba entero al cliente
+// como si fuera un dato (5/10/2026). Ampliarlo no tiene coste: esto solo se
+// mira cuando NO hay resultados de catálogo, así que una confirmación aquí es
+// inventada por definición, y lo que dispara ahora es buscar de verdad antes de
+// contestar (ver whatsapp-webhook.js).
+const FALSE_CONFIDENCE_PATTERN =
+  /\b(s[ií]|claro|por supuesto|desde luego|efectivamente)\b[,!]?\s+(?:que\s+)?(vendemos|tenemos|disponemos|contamos)\b/i;
 
 // ¿El mensaje trae una referencia de producto? ("305XL", "TN-248", "nº305",
 // "XP-4200"...). Sirve para no dejar que una regla de contexto se coma una

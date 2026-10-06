@@ -19,8 +19,16 @@ const { pareceConsultaDeProducto } = require('./whatsapp-agent-config');
 // La lista tira a generosa a propósito: sobra consultar de más (cuesta tiempo)
 // y falta consultar de menos (el bot se queda sin precios y sin stock). Ante la
 // duda, se consulta.
+//
+// Aun así, una lista de palabras SIEMPRE tiene agujeros, y éstos costaron una
+// conversación real (5/10/2026): "Queria saber si tenes boligrafos o plumas
+// estilograficas" no entraba por ninguna ("tenes" es el voseo, y no estaba), y
+// "Pluma estilografica" a secas no lleva verbo ninguno. Por eso el webhook ya
+// no depende solo de esto: si la IA intenta confirmar un producto, se busca
+// igual (ver `forzar` abajo y la red de seguridad de whatsapp-webhook.js). Esta
+// lista es el atajo rápido, no la única puerta.
 const PREGUNTA_POR_ARTICULO =
-  /\b(ten[eé]is|tienen|tiene|hay|vend[eé]is|venden|vende|dispon(?:ible|éis|eis)|stock|precio|precios|cuesta|cuestan|vale|valen|busco|buscando|necesito|necesitaba|quiero|quisiera|me hace falta|modelo|marca|referencia|cart?ucho|t[oó]ner|tinta|papel|folios)\b/i;
+  /\b(ten[eé]is|tienen|tiene|tenes|ten[eé]s|hay|vend[eé]is|venden|vende|dispon(?:ible|éis|eis)|stock|precio|precios|cuesta|cuestan|vale|valen|busco|buscando|necesito|necesitaba|quiero|quisiera|quer[ií]a|me interesa|interesa|regalar|regalo|recomend[aá]is|recomiendas|recomiendan|me hace falta|modelo|marca|referencia|cart?ucho|t[oó]ner|tinta|papel|folios)\b/i;
 
 function preguntaPorUnArticulo(texto) {
   return PREGUNTA_POR_ARTICULO.test(String(texto || ''));
@@ -82,7 +90,7 @@ function buscarImpresoraEnConversacion(text, history = []) {
   return [];
 }
 
-async function construirContextoCatalogo({ from, text, history }) {
+async function construirContextoCatalogo({ from, text, history, forzar = false }) {
   // El índice de consumibles viaja con el bot, así que responde aunque la web
   // esté caída. Se mira siempre, no solo cuando el cliente pregunta "qué
   // cartucho lleva": basta con que nombre su impresora en cualquier frase.
@@ -98,7 +106,7 @@ async function construirContextoCatalogo({ from, text, history }) {
   const contextoConsumibles = consumibles.bloqueDeConsumibles(impresoras);
 
   if (!woocommerce.isConfigured()) {
-    return { productContext: null, contextoConsumibles, impresoras, fallo: false };
+    return { productContext: null, contextoConsumibles, impresoras, fallo: false, consultado: false };
   }
 
   // ¿De verdad hace falta preguntarle al catálogo?
@@ -118,8 +126,12 @@ async function construirContextoCatalogo({ from, text, history }) {
   //   - ninguna referencia ("305XL", "TN-248"),
   //   - y ninguna de las formas con las que se pregunta por un artículo.
   // "¿Tenéis grapadoras? ¿Y las mandáis a casa?" lleva "tenéis": se consulta.
-  if (!impresoras.length && !pareceConsultaDeProducto(text) && !preguntaPorUnArticulo(text)) {
-    return { productContext: null, contextoConsumibles, impresoras, fallo: false };
+  //
+  // `forzar` se salta este descarte. Lo usa el webhook cuando la IA ya ha
+  // intentado confirmar un producto: si lo ha intentado, era una consulta de
+  // producto, por mucho que las palabras no lo parecieran. Ver whatsapp-webhook.js.
+  if (!forzar && !impresoras.length && !pareceConsultaDeProducto(text) && !preguntaPorUnArticulo(text)) {
+    return { productContext: null, contextoConsumibles, impresoras, fallo: false, consultado: false };
   }
 
   // Si el mensaje es muy corto (p. ej. "A4", "en fucsia", "tenaza"), lo más
@@ -210,6 +222,11 @@ async function construirContextoCatalogo({ from, text, history }) {
     contextoConsumibles,
     impresoras,
     fallo,
+    // Si se llegó hasta aquí, al catálogo SÍ se le preguntó. No es lo mismo
+    // "hemos mirado y no está" que "ni siquiera hemos mirado": el webhook usa
+    // esta diferencia para no soltar un "¿qué estás buscando?" sin haber
+    // buscado.
+    consultado: true,
   };
 }
 
