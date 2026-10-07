@@ -377,3 +377,100 @@ test('la factura final manda: lo validado que no viene en ella queda como resto,
   ]);
   assert.deepEqual(CP.restosDeFactura(validadas, validadas), [], 'si cuadra, no hay restos');
 });
+
+// ── Nube ─────────────────────────────────────────────────────────────────────
+const estado = () => ({
+  pedidos: [{ id: 'p1', numero: '1', lineas: [{ ref: 'A', cant: 1 }] }, { id: 'p2', numero: '2', lineas: [] }],
+  restos: [{ id: 'r1', ref: 'A', pendiente: 1 }], notas: [],
+  catalogos: { FINOCAM: { items: { A: { d: 'Agenda' } } } }, historial: {},
+});
+/** Una nube de mentira con las mismas reglas que cp_guardar. */
+function nubeFalsa() {
+  const filas = new Map();
+  let reloj = 0;
+  return {
+    filas,
+    guardar(docs, autor) {
+      return docs.map((d) => {
+        const k = d.coleccion + '/' + d.id;
+        const f = filas.get(k);
+        const base = { coleccion: d.coleccion, id: d.id };
+        if (d.version == null ? f : (!f || f.version !== d.version)) return f ? { ...base, ok: false, version: f.version, datos: f.datos, borrado: f.borrado, autor: f.autor } : { ...base, ok: false, version: null };
+        const n = { coleccion: d.coleccion, id: d.id, datos: JSON.parse(JSON.stringify(d.datos)), borrado: d.borrado, version: f ? f.version + 1 : 1, autor, actualizado: ++reloj };
+        filas.set(k, n);
+        return { ...base, ok: true, version: n.version };
+      });
+    },
+    bajar(desde) { return [...filas.values()].filter((f) => f.actualizado > (desde || 0)).map((f) => JSON.parse(JSON.stringify(f))); },
+  };
+}
+function sincronizar(E, meta, nube, autor) {
+  const conflictos = [];
+  const b = CP.integrarBajada(E, meta, nube.bajar(0)); conflictos.push(...b.conflictos);
+  const env = CP.cambiosPendientes(E, meta);
+  const s = CP.integrarSubida(E, meta, env, nube.guardar(env, autor)); conflictos.push(...s.conflictos);
+  return conflictos;
+}
+
+test('nube: la firma no depende del orden de las claves (la nube lo cambia)', () => {
+  assert.equal(CP.firma({ b: 1, a: [1, { y: 2, x: null }] }), CP.firma({ a: [1, { x: null, y: 2 }], b: 1 }));
+  assert.notEqual(CP.firma({ a: 1 }), CP.firma({ a: 2 }));
+  assert.equal(CP.firma({ a: undefined, b: 1 }), CP.firma({ b: 1 }));
+});
+
+test('nube: el primer dispositivo lo sube todo; otro vacío lo recibe igual', () => {
+  const nube = nubeFalsa();
+  const A = estado(); const mA = {};
+  assert.equal(CP.cambiosPendientes(A, mA).length, 4, '2 pedidos, 1 resto, 1 catálogo');
+  assert.deepEqual(sincronizar(A, mA, nube, 'admin'), []);
+  assert.equal(CP.cambiosPendientes(A, mA).length, 0, 'ya no queda nada por subir');
+  const B = { pedidos: [], restos: [], notas: [], catalogos: {}, historial: {} }; const mB = {};
+  assert.deepEqual(sincronizar(B, mB, nube, 'luis'), []);
+  assert.equal(CP.firma(B), CP.firma(A));
+  assert.equal(CP.cambiosPendientes(B, mB).length, 0);
+});
+
+test('nube: cambios en pedidos distintos se juntan; borrar llega a los demás', () => {
+  const nube = nubeFalsa();
+  const A = estado(); const mA = {}; sincronizar(A, mA, nube, 'admin');
+  const B = { pedidos: [], restos: [], notas: [], catalogos: {}, historial: {} }; const mB = {}; sincronizar(B, mB, nube, 'luis');
+  A.pedidos[0].numero = '1-A';
+  B.pedidos.find((p) => p.id === 'p2').numero = '2-B';
+  B.restos = [];
+  assert.deepEqual(sincronizar(A, mA, nube, 'admin'), []);
+  assert.deepEqual(sincronizar(B, mB, nube, 'luis'), []);
+  assert.deepEqual(sincronizar(A, mA, nube, 'admin'), []);
+  assert.deepEqual(A.pedidos.map((p) => p.numero).sort(), ['1-A', '2-B']);
+  assert.deepEqual(B.pedidos.map((p) => p.numero).sort(), ['1-A', '2-B']);
+  assert.equal(A.restos.length, 0, 'el resto borrado en B desaparece en A');
+});
+
+test('nube: el mismo pedido cambiado en dos sitios no se pisa en silencio', () => {
+  const nube = nubeFalsa();
+  const A = estado(); const mA = {}; sincronizar(A, mA, nube, 'admin');
+  const B = { pedidos: [], restos: [], notas: [], catalogos: {}, historial: {} }; const mB = {}; sincronizar(B, mB, nube, 'luis');
+  A.pedidos[0].numero = 'de A';
+  B.pedidos.find((p) => p.id === 'p1').numero = 'de B';
+  assert.deepEqual(sincronizar(A, mA, nube, 'admin'), [], 'A sube primero');
+  const c = sincronizar(B, mB, nube, 'luis');
+  assert.equal(c.length, 1, 'B se entera del choque');
+  assert.equal(c[0].nuestro.numero, 'de B', 'lo de B queda apartado, no perdido');
+  assert.equal(c[0].autor, 'admin');
+  assert.equal(B.pedidos.find((p) => p.id === 'p1').numero, 'de A', 'manda lo que ya estaba en la nube');
+  assert.equal(CP.cambiosPendientes(B, mB).length, 0);
+});
+
+test('nube: sin cobertura se acumula y sube al volver; un borrado sin subir no resucita', () => {
+  const nube = nubeFalsa();
+  const A = estado(); const mA = {}; sincronizar(A, mA, nube, 'admin');
+  A.pedidos.push({ id: 'p3', numero: '3', lineas: [] });
+  A.pedidos[0].numero = 'otro';
+  A.pedidos = A.pedidos.filter((p) => p.id !== 'p2');
+  const pend = CP.cambiosPendientes(A, mA);
+  assert.deepEqual(pend.map((d) => [d.id, d.borrado]).sort(), [['p1', false], ['p2', true], ['p3', false]]);
+  assert.deepEqual(sincronizar(A, mA, nube, 'admin'), []);
+  assert.equal(nube.filas.get('pedidos/p2').borrado, true);
+  assert.equal(CP.cambiosPendientes(A, mA).length, 0);
+  sincronizar(A, mA, nube, 'admin');
+  assert.equal(A.pedidos.some((p) => p.id === 'p2'), false);
+});

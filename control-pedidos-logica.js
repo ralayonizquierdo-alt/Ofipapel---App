@@ -846,8 +846,122 @@
     return aoa;
   }
 
+  // ── Nube: datos compartidos entre dispositivos ────────────────────────────
+  // El estado se reparte en documentos (uno por pedido, resto, nota, catálogo
+  // de proveedor e historial de proveedor). Cada dispositivo recuerda, por
+  // documento, la versión de la nube que tiene y su firma en ese momento: si
+  // la firma actual es otra, hay un cambio suyo pendiente de subir.
+
+  const COLECCIONES_LISTA = ['pedidos', 'restos', 'notas'];
+  const COLECCIONES_MAPA = ['catalogos', 'historial'];
+
+  /** JSON con las claves ordenadas: la nube (jsonb) no conserva su orden. */
+  function firma(v) {
+    if (v === undefined) return 'null';
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) return '[' + v.map((x) => (x === undefined ? 'null' : firma(x))).join(',') + ']';
+    return '{' + Object.keys(v).filter((k) => v[k] !== undefined).sort().map((k) => JSON.stringify(k) + ':' + firma(v[k])).join(',') + '}';
+  }
+
+  /** Map 'coleccion/id' → {coleccion, id, datos}. */
+  function documentosDe(E) {
+    const docs = new Map();
+    for (const c of COLECCIONES_LISTA) for (const x of (E[c] || [])) if (x && x.id) docs.set(c + '/' + x.id, { coleccion: c, id: String(x.id), datos: x });
+    for (const c of COLECCIONES_MAPA) for (const [k, v] of Object.entries(E[c] || {})) docs.set(c + '/' + k, { coleccion: c, id: k, datos: v });
+    return docs;
+  }
+
+  /** Pone (o quita, con datos null) un documento en el estado. */
+  function aplicarDocumento(E, coleccion, id, datos) {
+    if (COLECCIONES_LISTA.includes(coleccion)) {
+      const lista = E[coleccion] = E[coleccion] || [];
+      const i = lista.findIndex((x) => String(x.id) === String(id));
+      if (datos == null) { if (i >= 0) lista.splice(i, 1); }
+      else if (i >= 0) lista[i] = datos;
+      else lista.push(datos);
+    } else if (COLECCIONES_MAPA.includes(coleccion)) {
+      const mapa = E[coleccion] = E[coleccion] || {};
+      if (datos == null) delete mapa[id]; else mapa[id] = datos;
+    }
+  }
+
+  /**
+   * Lo que hay que subir: documentos nuevos o cambiados desde la última vez
+   * que coincidieron con la nube, y los borrados (estaban y ya no están).
+   * meta: {'col/id': {v: versión en la nube, f: firma entonces, borrado}}
+   */
+  function cambiosPendientes(E, meta) {
+    const m = meta || {};
+    const docs = documentosDe(E);
+    const out = [];
+    for (const [k, d] of docs) {
+      const f = firma(d.datos);
+      const prev = m[k];
+      if (!prev || prev.borrado || prev.f !== f) out.push({ coleccion: d.coleccion, id: d.id, datos: d.datos, version: prev ? prev.v : null, borrado: false, firma: f });
+    }
+    for (const [k, prev] of Object.entries(m)) {
+      if (docs.has(k) || prev.borrado) continue;
+      const i = k.indexOf('/');
+      out.push({ coleccion: k.slice(0, i), id: k.slice(i + 1), datos: null, version: prev.v, borrado: true, firma: 'null' });
+    }
+    return out;
+  }
+
+  /**
+   * Respuesta de la nube a una subida: lo aceptado queda al día; si otro
+   * dispositivo lo cambió antes, manda la nube y lo nuestro se aparta como
+   * conflicto (no se pierde). Devuelve {cambiado, conflictos}.
+   */
+  function integrarSubida(E, meta, enviados, respuestas) {
+    const porClave = new Map(enviados.map((d) => [d.coleccion + '/' + d.id, d]));
+    let cambiado = false;
+    const conflictos = [];
+    for (const r of respuestas || []) {
+      const k = r.coleccion + '/' + r.id;
+      const d = porClave.get(k);
+      if (!d) continue;
+      if (r.ok) { meta[k] = { v: r.version, f: d.firma, borrado: d.borrado }; continue; }
+      if (r.version == null) { delete meta[k]; continue; } // ya no existe en la nube: se sube como nuevo en la próxima vuelta
+      // Si lo que hay en la nube es justo lo nuestro (subida repetida), no hay conflicto.
+      if (firma(r.borrado ? null : r.datos) === d.firma) { meta[k] = { v: r.version, f: d.firma, borrado: !!r.borrado }; continue; }
+      conflictos.push({ coleccion: r.coleccion, id: r.id, nuestro: d.datos, suyo: r.borrado ? null : r.datos, autor: r.autor || '', fecha: r.actualizado || '' });
+      aplicarDocumento(E, r.coleccion, r.id, r.borrado ? null : r.datos);
+      meta[k] = { v: r.version, f: firma(r.borrado ? null : r.datos), borrado: !!r.borrado };
+      cambiado = true;
+    }
+    return { cambiado, conflictos };
+  }
+
+  /**
+   * Lo que llega de la nube (filas de cp_docs). Si ese documento no tiene
+   * cambios nuestros sin subir, se aplica; si los tiene, también manda la
+   * nube y lo nuestro se aparta como conflicto. Devuelve {cambiado, conflictos}.
+   */
+  function integrarBajada(E, meta, filas) {
+    let cambiado = false;
+    const conflictos = [];
+    const actuales = documentosDe(E);
+    for (const r of filas || []) {
+      const k = r.coleccion + '/' + r.id;
+      const prev = meta[k];
+      if (prev && prev.v >= r.version) continue; // ya la teníamos
+      const local = actuales.get(k);
+      const fLocal = local ? firma(local.datos) : 'null';
+      const remoto = r.borrado ? null : r.datos;
+      const fRemoto = firma(remoto);
+      const pendiente = prev ? (prev.borrado ? !!local : prev.f !== fLocal) : !!local;
+      if (pendiente && fLocal !== fRemoto) {
+        conflictos.push({ coleccion: r.coleccion, id: r.id, nuestro: local ? local.datos : null, suyo: remoto, autor: r.autor || '', fecha: r.actualizado || '' });
+      }
+      if (fLocal !== fRemoto) { aplicarDocumento(E, r.coleccion, r.id, remoto); cambiado = true; }
+      meta[k] = { v: r.version, f: fRemoto, borrado: !!r.borrado };
+    }
+    return { cambiado, conflictos };
+  }
+
   const api = {
     TOLERANCIA, PLANTILLA_GEMINIS,
+    firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
     parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
