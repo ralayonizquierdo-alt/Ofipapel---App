@@ -151,6 +151,7 @@ details.grupo[open]>summary::before{content:"▾"}
   <nav id="nav">
     <button data-vista="pedidos" class="activa">Pedidos</button>
     <button data-vista="nuevo">✍️ Pedido a mano</button>
+    <button data-vista="reposicion">🔄 Reposición</button>
     <button data-vista="restos">Restos <span class="cuenta" id="cuentaRestos">0</span></button>
     <button data-vista="notas">Notas de facturación <span class="cuenta" id="cuentaNotas">0</span></button>
     <button data-vista="datos">Datos</button>
@@ -225,6 +226,7 @@ function pintar() {
   const main = document.getElementById('main');
   if (vista === 'pedidos') main.innerHTML = pedidoAbierto ? vistaDetalle(pedidoPorId(pedidoAbierto)) : vistaLista();
   else if (vista === 'nuevo') main.innerHTML = vistaNuevo();
+  else if (vista === 'reposicion') main.innerHTML = pedidoAbierto ? vistaDetalle(pedidoPorId(pedidoAbierto)) : vistaReposicion();
   else if (vista === 'restos') main.innerHTML = vistaRestos();
   else if (vista === 'notas') main.innerHTML = vistaNotas();
   else main.innerHTML = vistaDatos();
@@ -311,16 +313,49 @@ let gruposAbiertos = null; // claves de campaña desplegadas (por defecto, la m�
 const reclamaciones = {};  // texto de reclamación por campaña
 
 // ── Vista: lista de pedidos ──────────────────────────────────────────────────
-function vistaLista() {
-  const ps = E.pedidos.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }));
-  const proveedores = [...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean);
+/** Grupos (campañas o reposiciones de un proveedor) de los pedidos dados. */
+function agruparPedidos(lista) {
+  const ps = lista.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }));
   const grupos = new Map();
   for (const p of ps) {
     const k = claveGrupo(p);
     if (!grupos.has(k)) grupos.set(k, { clave: k, nombre: nombreGrupo(p), pedidos: [] });
     grupos.get(k).pedidos.push(p);
   }
-  if (!gruposAbiertos && grupos.size) gruposAbiertos = new Set([grupos.keys().next().value]);
+  if (grupos.size) {
+    gruposAbiertos = gruposAbiertos || new Set();
+    // la más reciente de esta pestaña, desplegada la primera vez
+    if (![...grupos.keys()].some((k) => gruposAbiertos.has(k))) gruposAbiertos.add(grupos.keys().next().value);
+  }
+  return grupos;
+}
+/** Carga de propuestas/facturas varias, común a Pedidos y Reposición. */
+function bloqueCargaDocumentos() {
+  return `
+    <div class="fila no-imprimir" style="margin-bottom:10px">
+      <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📄 Cargar propuestas o facturas del proveedor (varias a la vez)
+        <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files); this.value=''">
+      </label>
+      <span class="pequeno" style="max-width:460px">PDF, Excel o foto, todas de golpe. Cada una se asigna a su pedido por el nº de pedido, el cliente o las referencias que coinciden; las que no, te las pregunto.</span>
+    </div>
+    <div id="progresoProps" class="progreso"></div>
+    <div id="avisoCarga">${vistaSinAsignar()}</div>`;
+}
+// ── Vista: reposición (nuestros pedidos al proveedor) ────────────────────────
+function vistaReposicion() {
+  const grupos = agruparPedidos(E.pedidos.filter(esRepo));
+  return `
+  ${vistaNuevaReposicion()}
+  <div class="tarjeta">
+    <h2>Pedidos de reposición</h2>
+    ${bloqueCargaDocumentos()}
+    ${grupos.size ? [...grupos.values()].map(vistaGrupo).join('') : '<div class="vacio">Todavía no hay pedidos de reposición. Crea el primero arriba.</div>'}
+  </div>`;
+}
+function vistaLista() {
+  const ps = E.pedidos.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }));
+  const proveedores = [...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean);
+  const grupos = agruparPedidos(ps.filter((p) => !esRepo(p)));
   return `
   <div class="tarjeta">
     <h2>📷 Subir los pedidos de una campaña</h2>
@@ -342,17 +377,9 @@ function vistaLista() {
   </div>
 
   <div class="tarjeta">
-    <h2>Campañas y pedidos</h2>
-    <div class="fila no-imprimir" style="margin-bottom:10px">
-      <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📄 Cargar propuestas o facturas del proveedor (varias a la vez)
-        <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files); this.value=''">
-      </label>
-      <span class="pequeno" style="max-width:460px">PDF, Excel o foto, todas de golpe. Cada una se asigna a su pedido por el nº de pedido o el cliente que traiga; las que no, te las pregunto.</span>
-    </div>
-    <div id="progresoProps" class="progreso"></div>
-    <div id="avisoCarga">${vistaSinAsignar()}</div>
-    ${vistaNuevaReposicion()}
-    ${grupos.size ? [...grupos.values()].map(vistaGrupo).join('') : `<div class="vacio">Todavía no hay pedidos. Sube las fotos de una campaña arriba o crea uno en «✍️ Pedido a mano».</div>`}
+    <h2>Campañas del comercial</h2>
+    ${bloqueCargaDocumentos()}
+    ${grupos.size ? [...grupos.values()].map(vistaGrupo).join('') : `<div class="vacio">Todavía no hay pedidos del comercial. Sube las fotos de una campaña arriba o crea uno en «✍️ Pedido a mano». Los pedidos de reposición están en su pestaña «🔄 Reposición».</div>`}
   </div>`;
 }
 
@@ -585,15 +612,16 @@ function otroPedidoCampana(proveedor, campana) {
 function vistaNuevaReposicion() {
   const proveedores = [...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean);
   return `
-    <details class="no-imprimir" style="margin-bottom:10px">
-      <summary class="pequeno" style="cursor:pointer"><b>+ Nueva reposición</b> (nuestro pedido al proveedor)</summary>
-      <div class="fila" style="margin-top:8px">
+    <div class="tarjeta no-imprimir">
+      <h2>🔄 Nueva reposición</h2>
+      <p class="pequeno" style="margin:0 0 10px">Nuestro pedido al proveedor: créalo, mete sus líneas (pegadas, a mano, PDF, Excel o foto) y compáralo con su propuesta, albarán o factura.</p>
+      <div class="fila">
         <label>Proveedor<input id="rpProv" list="listaProv" placeholder="PROVEEDOR" value="${h(proveedores[0] || '')}"></label>
         <label>Nº pedido<input id="rpNum" style="width:110px"></label>
         <label>Fecha<input id="rpFecha" type="date" value="${hoy()}"></label>
         <button class="btn primario" onclick="crearReposicion()">Crear</button>
       </div>
-    </details>`;
+    </div>`;
 }
 function crearReposicion() {
   const v = (id) => document.getElementById(id).value.trim();
@@ -664,11 +692,11 @@ function abrirPedido(id) {
   // Al volver a la lista, la campaña de este pedido queda desplegada.
   const p = pedidoPorId(id);
   if (p) (gruposAbiertos = gruposAbiertos || new Set()).add(claveGrupo(p));
-  pedidoAbierto = id; vista = 'pedidos'; pintar(); window.scrollTo(0, 0); }
+  pedidoAbierto = id; vista = p && esRepo(p) ? 'reposicion' : 'pedidos'; pintar(); window.scrollTo(0, 0); }
 
 // ── Vista: detalle de un pedido ──────────────────────────────────────────────
 function vistaDetalle(p) {
-  if (!p) { pedidoAbierto = null; return vistaLista(); }
+  if (!p) { pedidoAbierto = null; return vista === 'reposicion' ? vistaReposicion() : vistaLista(); }
   if (esRepo(p)) return vistaDetalleRepo(p);
   const cat = catalogoDe(p.proveedor);
   const filas = comparar(p);
