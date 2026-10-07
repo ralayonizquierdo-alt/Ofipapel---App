@@ -333,6 +333,11 @@ function fila_(o){
 }
 function parseDecComa(s){ return parseFloat(String(s).replace(/\./g,'').replace(',','.')); }
 function parseDecPunto(s){ return parseFloat(String(s).replace(/,/g,'')); }
+// Para proveedores que a veces usan coma y a veces punto como separador
+// decimal según la tanda de factura (ambos sin cambiar de un día para otro
+// dentro de la misma factura): si termina en ",XX" es formato español
+// (coma decimal, punto de miles); si no, formato con punto decimal.
+function parseDecFlex(s){ return /,\d{2}$/.test(String(s)) ? parseDecComa(s) : parseDecPunto(s); }
 const round2_ = v => Math.round(v*100)/100;
 
 // ═══════════════════════════════════════════════════════
@@ -719,25 +724,53 @@ function parsePryse(lineas){
   return filas;
 }
 
-// INTEGRAL INFORMÁTICA IMPORT (Mandatelo.com): "CODIGO EAN13 DESCRIPCION UNID PRECIO [%DTO1 %DTO2] IGIC IMPORTE"
+// INTEGRAL INFORMÁTICA IMPORT (Mandatelo.com): dos formatos de línea según
+// la tanda de factura del mismo proveedor.
+// a) "CODIGO EAN13 DESCRIPCION CANT,00 PRECIO,00 [%DTO1,00 %DTO2,00] IGIC IMPORTE,00"
+//    — decimales con coma, con un entero sin decimales (Igic) justo antes
+//    del Importe final.
+// b) "CODIGO [EAN13] DESCRIPCION CANT PRECIO.00 [%DTO1.00 %DTO2.00] IMPORTE.00 IGIC.00"
+//    — decimales con punto, con el Importe antes del Igic (orden
+//    invertido respecto al formato (a)); el EAN a veces falta del todo en
+//    líneas de servicio (portes, tickets RMA) que no son artículos reales.
 // Cuando la descripción queda vacía en la línea (a veces el texto del PDF la
 // deja en la línea anterior), se recupera de ahí.
 function parseMandatelo(lineas){
   const filas = [];
-  const RE = /^([A-Z0-9]{4,10})\s+(\d{13})\s+(.*?)\s*(\d+,\d{2})\s+(\d+,\d{2})\s+(?:(\d+,\d{2})\s+(\d+,\d{2})\s+)?(\d+)\s+(\d+(?:\.\d{3})*,\d{2})$/;
+  const RE_A = /^([A-Z0-9]{4,10})\s+(\d{13})\s+(.*?)\s*(\d+,\d{2})\s+(\d+,\d{2})\s+(?:(\d+,\d{2})\s+(\d+,\d{2})\s+)?(\d+)\s+(\d+(?:\.\d{3})*,\d{2})$/;
+  const RE_B = /^([A-Z0-9.\-]{4,16})\s+(?:(\d{13})\s+)?(.*?)\s*(\d+(?:[.,]\d{2})?)\s+(\d+(?:[.,]\d{2}))\s+(?:(\d+(?:[.,]\d{2}))\s+(\d+(?:[.,]\d{2}))\s+)?(\d+(?:\.\d{3})*(?:[.,]\d{2}))(?:\s+\d+(?:[.,]\d{2}))?$/;
   let prevLine = '';
   lineas.forEach(l=>{
-    const m = l.match(RE);
-    if(m){
-      let desc = m[3].trim();
+    const ma = l.match(RE_A);
+    if(ma){
+      let desc = ma[3].trim();
       if(!desc) desc = prevLine;
-      filas.push(fila_({codigo:m[1], descripcion:desc, cantidad:Math.round(parseDecComa(m[4])),
-        precioUnitario:parseDecComa(m[5]), dto1: m[6]?parseDecComa(m[6]):0, dto2: m[7]?parseDecComa(m[7]):0,
-        importe:parseDecComa(m[9]), ean:m[2]}));
+      filas.push(fila_({codigo:ma[1], descripcion:desc, cantidad:Math.round(parseDecComa(ma[4])),
+        precioUnitario:parseDecComa(ma[5]), dto1: ma[6]?parseDecComa(ma[6]):0, dto2: ma[7]?parseDecComa(ma[7]):0,
+        importe:parseDecComa(ma[9]), ean:ma[2]}));
+      prevLine = l;
+      return;
+    }
+    const mb = l.match(RE_B);
+    if(mb && !/^\d+\.\d+$/.test(mb[1])){
+      let desc = mb[3].trim();
+      if(!desc) desc = prevLine;
+      filas.push(fila_({codigo:mb[1], descripcion:desc, cantidad:Math.round(parseDecFlex(mb[4])),
+        precioUnitario:parseDecFlex(mb[5]), dto1: mb[6]?parseDecFlex(mb[6]):0, dto2: mb[7]?parseDecFlex(mb[7]):0,
+        importe:parseDecFlex(mb[8]), ean:mb[2]||''}));
     }
     prevLine = l;
   });
   return filas;
+}
+// El total de Mandatelo viene duplicado con decimales de coma en el
+// formato (a) ("786,65 786,65"); en el formato (b) (decimales de punto)
+// aparece una sola vez, en la línea siguiente a la cabecera "SUBTOTAL".
+function totalMandatelo(texto){
+  const viejo = totalRepetidoComa(texto, 'SUBTOTAL');
+  if(viejo !== null) return viejo;
+  const m = texto.match(/SUBTOTAL[\s\S]{0,200}?\n\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/i);
+  return m ? parseDecFlex(m[1]) : null;
 }
 
 function parseMuchoCartucho(lineas){
@@ -1447,7 +1480,7 @@ const PERFILES_PROVEEDOR = [
   { id:'pryse', nombre:'PRYSE S.A.', detectar: t => /PRYSE|A58276254/i.test(t), parser: parsePryse,
     total: t => totalSimple(t, /Base imponible\s+(?:Base imponible\s+)?(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
   { id:'mandatelo', nombre:'INTEGRAL INFORMATICA IMPORT (Mandatelo)', detectar: t => /INTEGRAL INFORMATICA|MANDATELO|B-?76539642/i.test(t), parser: parseMandatelo,
-    total: t => totalRepetidoComa(t, 'SUBTOTAL') },
+    total: t => totalMandatelo(t) },
   { id:'muchocartucho', nombre:'MUCHO CARTUCHO (ATRAMENTUM S.L.)', detectar: t => /Atramentum\s+S\.?L\.?|ESB54685573/i.test(t), parser: parseMuchoCartucho,
     total: t => totalSiguienteLinea(t, 'Total\\s+factura') },
   { id:'pardo', nombre:'PARDO', detectar: t => /CIF:\s*B75062927/i.test(t), parser: parsePardo,
