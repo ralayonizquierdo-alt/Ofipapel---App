@@ -2269,6 +2269,7 @@ async function sincronizar() {
     nube.estado = 'ok';
     nube.error = '';
     nube.ultima = new Date();
+    irAWebBuenaSiSePuede();
   } catch (err) {
     const msg = String((err && (err.message || err.msg)) || err);
     nube.estado = navigator.onLine && !/fetch|network|Load failed/i.test(msg) ? 'error' : 'offline';
@@ -2337,6 +2338,14 @@ async function salir() {
   mostrarLogin();
 }
 
+/** Fuera de Netlify (la copia de GitHub) las fotos no se pueden leer: en cuanto
+ *  no queda nada sin subir a la nube, se pasa sola a la web buena. Con cambios
+ *  sin subir no se va (se perderían): se queda el aviso con el botón. */
+function irAWebBuenaSiSePuede() {
+  if (EN_NETLIFY) return;
+  if (CP.cambiosPendientes(E, nube.meta.docs).length) return;
+  location.replace(WEB_BUENA);
+}
 async function arrancar() {
   if (!EN_NETLIFY) {
     document.getElementById('avisoWeb').innerHTML = `<div class="aviso-caja aviso" style="margin:0"><b>Esta es una copia de la app que no puede leer fotos ni PDF.</b> Usa la de siempre: tus datos ya están en la nube y salen igual.
@@ -2362,6 +2371,7 @@ async function arrancar() {
     if (evento === 'SIGNED_OUT' && nube.usuario) { nube.usuario = null; nube.estado = 'local'; pintar(); mostrarLogin('La sesión se ha cerrado: vuelve a entrar.'); }
   });
   pintar();
+  if (!EN_NETLIFY && !E.pedidos.length && !E.restos.length && !E.notas.length) { location.replace(WEB_BUENA); return; }
   try { await empezarSesion(false); } catch (e) { nube.estado = 'offline'; pintar(); }
   setInterval(() => { if (nube.usuario && document.visibilityState === 'visible') sincronizar(); }, 20000);
   window.addEventListener('online', () => sincronizar());
