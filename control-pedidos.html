@@ -152,10 +152,10 @@ details.grupo[open]>summary::before{content:"▾"}
   <h1>Control de Pedidos</h1>
   <p>Pedidos del comercial y de reposición ↔ propuesta del proveedor · restos pendientes · Excel para Géminis</p>
   <nav id="nav">
+    <button data-vista="importar">📄 PDF a Excel</button>
     <button data-vista="pedidos" class="activa">Pedidos</button>
     <button data-vista="nuevo">✍️ Pedido a mano</button>
     <button data-vista="reposicion">🔄 Reposición</button>
-    <button data-vista="importar">📄 Importar factura (Gestión)</button>
     <button data-vista="restos">Restos <span class="cuenta" id="cuentaRestos">0</span></button>
     <button data-vista="notas">Notas de facturación <span class="cuenta" id="cuentaNotas">0</span></button>
     <button data-vista="datos">Datos</button>
@@ -2020,7 +2020,9 @@ function exportarPedidos(ids) {
   const decimales = CP.parseNum(localStorage.getItem('cp.decimales') || '2');
   const suma = new Map();
   for (const p of ps) {
-    for (const l of CP.lineasParaGeminis(p.final.lineas, { dtoGlobal: p.final.dto, decimales })) {
+    // En el orden en que factura el proveedor (el de su propuesta).
+    const enOrden = CP.ordenarComoPropuesta(p.final.lineas, p.propuesta && p.propuesta.lineas);
+    for (const l of CP.lineasParaGeminis(enOrden, { dtoGlobal: p.final.dto, decimales })) {
       const k = [l.ref, l.precio, l.dto].join('|');
       if (!suma.has(k)) { suma.set(k, Object.assign({}, l)); continue; }
       const g = suma.get(k);

@@ -403,6 +403,18 @@
     return { asignados, sugerencias };
   }
 
+  /**
+   * Ordena las líneas como vienen en la propuesta/factura del proveedor (el
+   * orden en que factura), que es como se quieren subir a Gestión. Las que no
+   * están en la propuesta van al final, en su orden de antes.
+   */
+  function ordenarComoPropuesta(lineas, lineasPropuesta) {
+    const pos = new Map();
+    (lineasPropuesta || []).forEach((l, i) => { const r = normRef(l.ref); if (r && !pos.has(r)) pos.set(r, i); });
+    return (lineas || []).map((l, i) => ({ l, i, p: pos.has(normRef(l.ref)) ? pos.get(normRef(l.ref)) : Infinity }))
+      .sort((x, y) => x.p - y.p || x.i - y.i).map((x) => x.l);
+  }
+
   // ── Decisiones ────────────────────────────────────────────────────────────
 
   /**
@@ -822,7 +834,7 @@
   const api = {
     TOLERANCIA, PLANTILLA_GEMINIS,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, hojasDelPedido, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

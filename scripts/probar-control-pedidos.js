@@ -356,3 +356,10 @@ test('propuestas sin nº ni cliente: se reparten por las referencias que coincid
   assert.equal(r.sugerencias.d3.pedidoId, 'p1', 'd3 se parece poco: solo sugerencia, y p1 ya está cogido');
   assert.deepEqual(CP.parecidoLineas(docs[1].lineas, pedidos[0].lineas), { comunes: 2, deDoc: 2, dePedido: 3, score: 2 / 3 });
 });
+
+test('el Excel de Géminis va en el orden de la propuesta del proveedor; lo que no viene en ella, al final', () => {
+  const finales = [{ ref: 'A' }, { ref: 'X' }, { ref: 'B' }, { ref: 'C' }, { ref: 'Y' }];
+  const propuesta = [{ ref: 'C' }, { ref: 'A' }, { ref: 'B' }];
+  assert.deepEqual(CP.ordenarComoPropuesta(finales, propuesta).map((l) => l.ref), ['C', 'A', 'B', 'X', 'Y']);
+  assert.deepEqual(CP.ordenarComoPropuesta(finales, null).map((l) => l.ref), ['A', 'X', 'B', 'C', 'Y'], 'sin propuesta, se queda como está');
+});
