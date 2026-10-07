@@ -346,22 +346,16 @@ function vistaReposicion() {
   const grupos = agruparPedidos(E.pedidos.filter(esRepo));
   return `
   <div class="tarjeta no-imprimir">
-    <h2>📤 Subir nuestros pedidos al proveedor</h2>
-    <p class="pequeno" style="margin:0 0 10px">Varios a la vez (PDF, Excel o foto): <b>cada fichero crea su pedido de reposición</b> con sus líneas. Luego sube las propuestas del proveedor abajo y cada una se empareja con su pedido para validarlo.</p>
-    <div class="fila">
-      <label>Proveedor <span class="pequeno">(si el documento no lo dice)</span><input id="envProv" list="listaProv" placeholder="Escribe o elige"></label>
-      <datalist id="listaProv">${[...new Set(E.pedidos.map((x) => prov(x.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean).map((x) => `<option value="${h(x)}">`).join('')}</datalist>
-      <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📤 Elegir nuestros pedidos (varios)
-        <input type="file" multiple class="oculto" onchange="subirEnviosVarios(this.files); this.value=''"></label>
-    </div>
+    <h2>🔄 Nuevo pedido de reposición</h2>
+    <p class="pequeno" style="margin:0 0 10px">Sube el pedido que enviaste al proveedor (PDF, Excel o foto). El proveedor sale del propio documento. Después, dentro del pedido, sube su propuesta o factura para compararlas y validarlo.</p>
+    <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📤 Subir nuestro pedido al proveedor
+      <input type="file" class="oculto" onchange="subirEnvio(this.files[0]); this.value=''"></label>
     <div id="progresoEnvios" class="progreso"></div>
-    ${resultadoEnvios.length ? `<div class="aviso-caja ${resultadoEnvios.some((x) => !x.ok) ? 'aviso' : 'ok'}">${resultadoEnvios.map((x) => h(x.texto)).join('<br>')}</div>` : ''}
+    <div class="pequeno" style="margin-top:8px">¿Sin documento? <a href="#" onclick="crearReposicionVacia();return false">Créalo vacío y escribe las líneas</a>.</div>
   </div>
-  ${vistaNuevaReposicion()}
   <div class="tarjeta">
     <h2>Pedidos de reposición</h2>
-    ${bloqueCargaDocumentos()}
-    ${grupos.size ? [...grupos.values()].map(vistaGrupo).join('') : '<div class="vacio">Todavía no hay pedidos de reposición. Crea el primero arriba.</div>'}
+    ${grupos.size ? [...grupos.values()].map(vistaGrupo).join('') : '<div class="vacio">Todavía no hay pedidos de reposición.</div>'}
   </div>`;
 }
 function vistaLista() {
@@ -621,63 +615,50 @@ function otroPedidoCampana(proveedor, campana) {
   document.getElementById('npNum').focus();
 }
 /** Reposición: nuestro pedido al proveedor. No pasa por «Pedido a mano». */
-function vistaNuevaReposicion() {
-  const proveedores = [...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean);
-  return `
-    <div class="tarjeta no-imprimir">
-      <h2>🔄 Nueva reposición</h2>
-      <p class="pequeno" style="margin:0 0 10px">Nuestro pedido al proveedor: créalo, mete sus líneas (pegadas, a mano, PDF, Excel o foto) y compáralo con su propuesta, albarán o factura.</p>
-      <div class="fila">
-        <label>Proveedor<input id="rpProv" list="listaProv" placeholder="PROVEEDOR" value="${h(proveedores[0] || '')}"></label>
-        <label>Nº pedido<input id="rpNum" style="width:110px"></label>
-        <label>Fecha<input id="rpFecha" type="date" value="${hoy()}"></label>
-        <button class="btn primario" onclick="crearReposicion()">Crear</button>
-      </div>
-    </div>`;
+/** Nombre del proveedor tal como ya lo tenemos («Miquelrius, S.A.» →
+ *  «MIQUELRIUS» si ya existe). Ofipapel nunca es el proveedor. */
+function proveedorCanonico(texto) {
+  const t = prov(texto).replace(/[.,]/g, ' ').replace(/\b(S\s*A\s*U|S\s*L\s*U|S\s*A|S\s*L)\b/g, '').replace(/\s+/g, ' ').trim();
+  if (!t || /OFIPAPEL/.test(t)) return '';
+  const conocidos = [...new Set(E.pedidos.map((x) => prov(x.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean);
+  return conocidos.find((c) => t === c || t.includes(c) || c.includes(t)) || t;
 }
-let resultadoEnvios = [];
-/** Varios pedidos nuestros de golpe: cada fichero es un pedido de reposición. */
-async function subirEnviosVarios(files) {
-  const lista = [...files];
-  resultadoEnvios = [];
-  const provForm = prov((document.getElementById('envProv') || {}).value || '');
-  const progreso = (t) => { const c = document.getElementById('progresoEnvios'); if (c) c.textContent = t; };
-  let total = 0, lineas = 0;
-  for (let i = 0; i < lista.length; i++) {
-    const f = lista[i];
-    if (E.pedidos.some((x) => esRepo(x) && x.envio === f.name)) { resultadoEnvios.push({ ok: false, texto: `${f.name}: ya estaba subido, no se repite` }); continue; }
-    progreso(`Leyendo ${i + 1} de ${lista.length}: ${f.name}${esPdf(f) || esImagen(f) ? ' (PDF/foto: hasta un minuto)' : ''}…`);
-    try {
-      const doc = await leerFicheroProveedor(f);
-      const proveedor = prov(doc.cabecera.proveedor) || provForm;
-      if (!proveedor) { resultadoEnvios.push({ ok: false, texto: `${f.name}: no dice de qué proveedor es; escríbelo arriba y vuelve a subirlo` }); continue; }
-      const numero = String(doc.cabecera.numero || doc.cabecera.numeroPedido || f.name.replace(/\.[^.]+$/, ''));
-      const p = { id: nuevoId(), tipo: 'reposicion', proveedor, campana: '', numero, cliente: '', fecha: hoy(), notas: '',
-        lineas: doc.lineas.map((l) => ({ ref: l.ref, desc: l.desc, ean: l.ean, cant: l.cant, precio: l.precio, dtos: l.dtos || [], udsCaja: l.udsCaja, importe: l.importe, duda: l.duda || '' })),
-        envio: f.name, envioControl: doc.control || null, propuesta: null, decisiones: {}, validado: false, final: null };
-      guardarCatalogo(proveedor, f.name, doc.catalogo || {});
-      E.pedidos.push(p);
-      const imp = importeDoc(doc);
-      total += imp; lineas += p.lineas.length;
-      resultadoEnvios.push({ ok: true, texto: `${f.name} → reposición ${proveedor} nº ${numero} · ${p.lineas.length} líneas · ${fmt(imp)} €${doc.control && doc.control.cuadra === false ? ' — ⚠️ no cuadra con su base, revísalo' : ''}` });
-      guardar(); pintar();
-    } catch (err) {
-      if (err.sinSaldo) { resultadoEnvios.push({ ok: false, texto: MSG_SIN_SALDO }); break; }
-      resultadoEnvios.push({ ok: false, texto: `${f.name}: ${err.message}` });
+function ultimoProveedorRepo() {
+  const r = E.pedidos.filter(esRepo).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)))[0];
+  return r ? r.proveedor : '';
+}
+/** Un pedido nuestro al proveedor → un pedido de reposición, y se abre. */
+async function subirEnvio(file) {
+  if (!file) return;
+  if (E.pedidos.some((x) => esRepo(x) && x.envio === file.name) && !confirm(`${file.name} ya está subido. ¿Crear otro pedido con él?`)) return;
+  const caja = document.getElementById('progresoEnvios');
+  if (caja) caja.textContent = `Leyendo ${file.name}${esPdf(file) || esImagen(file) ? '… puede tardar un minuto' : '…'}`;
+  try {
+    const doc = await leerFicheroProveedor(file);
+    let proveedor = proveedorCanonico(doc.cabecera.proveedor);
+    if (!proveedor) {
+      const r = prompt('El documento no dice de qué proveedor es. Escríbelo:', ultimoProveedorRepo());
+      if (r == null || !r.trim()) { if (caja) caja.textContent = ''; return; }
+      proveedor = proveedorCanonico(r) || prov(r);
     }
+    const p = { id: nuevoId(), tipo: 'reposicion', proveedor, campana: '', numero: String(doc.cabecera.numero || doc.cabecera.numeroPedido || ''),
+      cliente: '', fecha: hoy(), notas: '',
+      lineas: doc.lineas.map((l) => ({ ref: l.ref, desc: l.desc, ean: l.ean, cant: l.cant, precio: l.precio, dtos: l.dtos || [], udsCaja: l.udsCaja, importe: l.importe, duda: l.duda || '' })),
+      envio: file.name, envioControl: doc.control || null, propuesta: null, decisiones: {}, validado: false, final: null };
+    guardarCatalogo(proveedor, file.name, doc.catalogo);
+    E.pedidos.push(p);
+    guardar();
+    abrirPedido(p.id);
+  } catch (err) {
+    if (caja) caja.textContent = '';
+    alert(err.sinSaldo ? MSG_SIN_SALDO : 'No he podido leer el pedido: ' + err.message);
   }
-  if (resultadoEnvios.filter((x) => x.ok).length > 1) resultadoEnvios.push({ ok: true, texto: `Total: ${resultadoEnvios.filter((x) => x.ok).length} pedidos · ${lineas} líneas · ${fmt(CP.red2(total))} €` });
-  progreso('');
-  pintar();
 }
-function crearReposicion() {
-  const v = (id) => document.getElementById(id).value.trim();
-  if (!v('rpProv') || !v('rpNum')) { alert('Proveedor y nº de pedido son obligatorios.'); return; }
-  const p = { id: nuevoId(), tipo: 'reposicion', proveedor: prov(v('rpProv')), campana: '', numero: v('rpNum'), cliente: '',
-    fecha: v('rpFecha') || hoy(), notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
-  if (E.pedidos.some((x) => esRepo(x) && x.proveedor === p.proveedor && String(x.numero) === String(p.numero))) {
-    if (!confirm(`Ya hay una reposición ${p.proveedor} nº ${p.numero}. ¿Crear otra igualmente?`)) return;
-  }
+function crearReposicionVacia() {
+  const r = prompt('¿De qué proveedor es el pedido?', ultimoProveedorRepo());
+  if (r == null || !r.trim()) return;
+  const p = { id: nuevoId(), tipo: 'reposicion', proveedor: proveedorCanonico(r) || prov(r), campana: '', numero: '', cliente: '',
+    fecha: hoy(), notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
   E.pedidos.push(p); guardar(); abrirPedido(p.id);
 }
 
@@ -830,10 +811,10 @@ function vistaDetalleRepo(p) {
   return `
   <div class="no-imprimir" style="margin-bottom:10px"><button class="btn peque" onclick="pedidoAbierto=null;pintar()">← Todos los pedidos</button></div>
   <div class="tarjeta">
-    <h2>Reposición ${h(p.proveedor)} nº ${h(p.numero)}</h2>
+    <h2>Reposición ${h(p.proveedor)}${p.numero ? ` nº ${h(p.numero)}` : ""}${p.envio ? ` <span class="pequeno">· ${h(p.envio)}</span>` : ""}</h2>
     <div class="fila">
       <label>Proveedor<input value="${h(p.proveedor)}" onchange="cambiaCampo('proveedor', this.value.trim().toUpperCase())"></label>
-      <label>Nº<input value="${h(p.numero)}" style="width:100px" onchange="cambiaCampo('numero', this.value.trim())"></label>
+      <label>Nº <span class="pequeno">(opcional)</span><input value="${h(p.numero)}" style="width:100px" onchange="cambiaCampo('numero', this.value.trim())"></label>
       <label>Fecha<input type="date" value="${h(p.fecha)}" onchange="cambiaCampo('fecha', this.value)"></label>
       <button class="btn peque peligro" onclick="borrarPedido()">Borrar pedido</button>
     </div>
