@@ -34,10 +34,11 @@
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;color:var(--texto);background:var(--fondo);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:15px}
 header{background:linear-gradient(135deg,var(--verde-oscuro),var(--verde));color:#fff;padding:18px 16px 0}
-header h1{margin:0 0 4px;font-size:22px}
-header p{margin:0 0 14px;opacity:.85;font-size:13px}
-nav{display:flex;gap:4px;flex-wrap:wrap}
-nav button{background:transparent;border:0;color:#fff;opacity:.75;padding:10px 14px;font-size:14px;cursor:pointer;border-radius:8px 8px 0 0}
+header h1{margin:0 0 10px;font-size:22px}
+/* Las pestañas, siempre en una sola línea: si no caben, se desliza la barra (nunca la página). */
+nav{display:flex;gap:2px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{flex:0 0 auto;white-space:nowrap;background:transparent;border:0;color:#fff;opacity:.75;padding:10px 12px;font-size:14px;cursor:pointer;border-radius:8px 8px 0 0}
 nav button.activa{background:var(--fondo);color:var(--verde-oscuro);opacity:1;font-weight:600}
 nav .cuenta{background:#fff3;border-radius:10px;padding:1px 7px;margin-left:4px;font-size:12px}
 main{max-width:1180px;margin:0 auto;padding:16px}
@@ -114,9 +115,8 @@ details.grupo[open]>summary::before{content:"▾"}
 @media (max-width:700px){
   html,body{font-size:15px}
   header{padding:12px 12px 0}
-  header h1{font-size:19px} header p{font-size:12px;margin-bottom:8px}
-  nav{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-  nav button{flex:0 0 auto;padding:10px 12px}
+  header h1{font-size:19px;margin-bottom:8px}
+  nav button{padding:10px 10px}
   main{padding:10px}
   .tarjeta{padding:12px;border-radius:10px}
   .fila{gap:8px}
@@ -150,14 +150,13 @@ details.grupo[open]>summary::before{content:"▾"}
 <body>
 <header>
   <h1>Control de Pedidos</h1>
-  <p>Pedidos del comercial y de reposición ↔ propuesta del proveedor · restos pendientes · Excel para Géminis</p>
   <nav id="nav">
-    <button data-vista="importar">📄 PDF a Excel</button>
-    <button data-vista="pedidos" class="activa">Pedidos</button>
+    <button data-vista="importar" class="activa">📄 PDF a Excel</button>
+    <button data-vista="pedidos">Pedidos</button>
     <button data-vista="nuevo">✍️ Pedido a mano</button>
     <button data-vista="reposicion">🔄 Reposición</button>
     <button data-vista="restos">Restos <span class="cuenta" id="cuentaRestos">0</span></button>
-    <button data-vista="notas">Notas de facturación <span class="cuenta" id="cuentaNotas">0</span></button>
+    <button data-vista="notas" title="Notas de facturación">Notas <span class="cuenta" id="cuentaNotas">0</span></button>
     <button data-vista="datos">Datos</button>
   </nav>
 </header>
@@ -189,7 +188,7 @@ const FN = '/.netlify/functions/';
 // catalogos:{PROVEEDOR: {fecha, archivo, items:{ref:{d,p,ean}}}}
 // historial:{PROVEEDOR: {REF: {neto, fecha}}}  último precio neto aceptado en una reposición validada
 let E = cargar();
-let vista = 'pedidos';
+let vista = 'importar'; // la app arranca siempre en «PDF a Excel», la primera pestaña
 let pedidoAbierto = null;
 let soloDiscordancias = true;
 
