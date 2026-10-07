@@ -10,6 +10,7 @@
 <link rel="icon" type="image/png" href="icon-ofipapel-192.png">
 <link rel="apple-touch-icon" href="icon-ofipapel-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="control-pedidos-logica.js"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
@@ -34,7 +35,18 @@
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;color:var(--texto);background:var(--fondo);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;font-size:15px}
 header{background:linear-gradient(135deg,var(--verde-oscuro),var(--verde));color:#fff;padding:18px 16px 0}
-header h1{margin:0 0 10px;font-size:22px}
+header h1{margin:0 0 10px;font-size:22px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* Estado de la nube, junto al título. */
+.nube{font-size:12px;font-weight:500;background:#fff2;border-radius:12px;padding:3px 9px;white-space:nowrap;cursor:pointer;border:0;color:#fff}
+.nube.mal{background:#b3261e}
+#avisoNube{max-width:1180px;margin:0 auto;padding:10px 16px 0}
+#avisoNube:empty{display:none}
+/* Entrada con usuario: tapa toda la app hasta que hay sesión. */
+#login{position:fixed;inset:0;z-index:50;background:linear-gradient(135deg,var(--verde-oscuro),var(--verde));display:flex;align-items:center;justify-content:center;padding:16px}
+#login form{background:#fff;border-radius:14px;padding:22px;width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 40px #0004}
+#login h2{margin:0;color:var(--verde-oscuro);font-size:20px}
+#login input{font-size:16px}
+#login .error{color:var(--rojo);font-size:14px;min-height:1em}
 /* Las pestañas, siempre en una sola línea: si no caben, se desliza la barra (nunca la página). */
 nav{display:flex;gap:2px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 nav::-webkit-scrollbar{display:none}
@@ -149,7 +161,7 @@ details.grupo[open]>summary::before{content:"▾"}
 </head>
 <body>
 <header>
-  <h1>Control de Pedidos</h1>
+  <h1>Control de Pedidos <button id="estadoNube" class="nube oculto" onclick="vista='datos';pedidoAbierto=null;pintar()" title="Ver el estado de la nube"></button></h1>
   <nav id="nav">
     <button data-vista="importar" class="activa">📄 PDF a Excel</button>
     <button data-vista="pedidos">Pedidos</button>
@@ -160,14 +172,24 @@ details.grupo[open]>summary::before{content:"▾"}
     <button data-vista="datos">Datos</button>
   </nav>
 </header>
+<div id="avisoNube" class="no-imprimir"></div>
 <main id="main"></main>
+<div id="login" class="oculto">
+  <form onsubmit="event.preventDefault(); entrarConUsuario()">
+    <h2>Control de Pedidos</h2>
+    <p class="pequeno" style="margin:0">Entra con tu usuario una vez en este dispositivo: se queda guardado.</p>
+    <label>Usuario<input id="loginUsuario" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="luis, rober, miguel…"></label>
+    <label>Contraseña<input id="loginClave" type="password" autocomplete="current-password"></label>
+    <div class="error" id="loginError"></div>
+    <button class="btn primario" id="loginBoton" type="submit">Entrar</button>
+  </form>
+</div>
 <!-- «Importación Pedidos Proveedores» tal cual, sin tocar: es otra página del
      mismo sitio (importacion-pedidos-proveedores.html) mostrada en un iframe.
      Va fuera de #main para que no se recargue (ni pierda la factura cargada)
      al cambiar de pestaña. -->
 <section id="vistaImportar" class="oculto">
   <div class="importar-barra no-imprimir">
-    <span class="pequeno">Convierte la factura PDF de un proveedor homologado en el Excel 5.0/95 de Gestión. Es la herramienta de siempre, sin cambios.</span>
     <a class="btn peque" href="importacion-pedidos-proveedores.html" target="_blank" rel="noopener">Abrir en pestaña aparte ↗</a>
   </div>
 </section>
@@ -200,9 +222,13 @@ function cargar() {
   } catch { return base; }
 }
 function guardar() {
+  guardarLocal();
+  pintarCuentas();
+  programarSubida();
+}
+function guardarLocal() {
   try { localStorage.setItem(CLAVE, JSON.stringify(E)); }
   catch (e) { alert('No se han podido guardar los cambios en este navegador (' + e.message + '). Descarga una copia en «Datos».'); }
-  pintarCuentas();
 }
 
 const h = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -235,6 +261,8 @@ function pintarCuentas() {
 }
 
 function pintar() {
+  if (pedidoAbierto && !pedidoPorId(pedidoAbierto)) pedidoAbierto = null; // lo borró otro dispositivo
+  pintarNube();
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('activa', b.dataset.vista === vista));
   const main = document.getElementById('main');
   const importar = document.getElementById('vistaImportar');
@@ -449,7 +477,7 @@ function vistaGrupo(g, i) {
     </summary>
     <div class="tabla-scroll"><table>
       <tr><th class="no-imprimir"><input type="checkbox" title="Seleccionar todos" onchange="this.closest('table').querySelectorAll('.selPed').forEach(c=>c.checked=this.checked)"></th>
-        <th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th>Fotos</th><th>Propuesta</th><th>Estado</th></tr>
+        <th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th>Fotos</th><th>Propuesta</th><th>Estado</th><th class="no-imprimir"></th></tr>
       ${g.pedidos.map((p) => { const e = estadoPedido(p); return `
       <tr class="clic" onclick="if(event.target.type!=='checkbox')abrirPedido('${p.id}')">
         <td class="no-imprimir"><input type="checkbox" class="selPed" value="${p.id}"></td>
@@ -458,6 +486,7 @@ function vistaGrupo(g, i) {
         <td>${esRepo(p) ? '—' : celdaFotos(p)}</td>
         <td>${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
         <td><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</td>
+        <td class="no-imprimir"><button class="btn peque peligro" title="Borrar este pedido" onclick="event.stopPropagation(); borrarPedido('${p.id}')">🗑️</button></td>
       </tr>`; }).join('')}
     </table></div>
     <div class="fila no-imprimir" style="margin-top:10px">
@@ -471,6 +500,7 @@ function vistaGrupo(g, i) {
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales${esRepo(ej) ? ' (opcional)' : ''}
         <input type="file" multiple class="oculto" onchange="cargarFacturasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
       ${esRepo(ej) ? '' : `<button class="btn" onclick="imprimirGuiaFacturacion(${js(g.clave)})">🧾 Imprimir guía de facturación</button>`}
+      <button class="btn peque peligro" onclick="borrarCampana(${js(g.clave)})">🗑️ Borrar ${esRepo(ej) ? 'estas reposiciones' : 'la campaña'}</button>
       <span class="pequeno">El Excel es la <b>compra al proveedor</b>: lo que nos factura, a su precio y descuento y en su orden, no el pedido del cliente; si ya está la factura final, sale de ella. Sin marcar ninguno, sale toda la campaña; marcando pedidos, solo esos. Solo pedidos validados; varios se suman por referencia.</span>
     </div>
     ${comparados.length ? `
@@ -599,9 +629,9 @@ function vistaNuevo() {
       </div></div>` : ''}
     <p class="pequeno" style="margin:0 0 10px">Sin fotos: creas el pedido y escribes sus artículos. Entra en su campaña igual que los que llegan por foto.</p>
     <div class="fila">
-      <label>Proveedor<input id="npProv" list="listaProv" placeholder="FINOCAM" value="${h(pre.proveedor || proveedores[0] || '')}"></label>
+      <label>Proveedor<input id="npProv" list="listaProv" placeholder="Escribe o elige el proveedor" value="${h(pre.proveedor || '')}"></label>
       <datalist id="listaProv">${proveedores.map((x) => `<option value="${h(x)}">`).join('')}</datalist>
-      <label>Campaña<input id="npCamp" list="listaCamp" placeholder="Elige una o escribe una nueva" value="${h(pre.campana != null ? pre.campana : ultimaCampana())}"></label>
+      <label>Campaña<input id="npCamp" list="listaCamp" placeholder="Elige una o escribe una nueva" value="${h(pre.campana || '')}"></label>
       <datalist id="listaCamp">${campanasExistentes().map((x) => `<option value="${h(x)}">`).join('')}</datalist>
       <label>Nº pedido<input id="npNum" style="width:90px" enterkeyhint="next" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('npCli').focus()}"></label>
       <label>Cliente<input id="npCli" placeholder="Nombre del cliente" enterkeyhint="go" onkeydown="if(event.key==='Enter'){event.preventDefault();crearPedido()}"></label>
@@ -646,10 +676,6 @@ function proveedorCanonico(texto) {
   const conocidos = [...new Set(E.pedidos.map((x) => prov(x.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean);
   return conocidos.find((c) => t === c || t.includes(c) || c.includes(t)) || t;
 }
-function ultimoProveedorRepo() {
-  const r = E.pedidos.filter(esRepo).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)))[0];
-  return r ? r.proveedor : '';
-}
 /** Un pedido nuestro al proveedor → un pedido de reposición, y se abre. */
 async function subirEnvio(file) {
   if (!file) return;
@@ -660,7 +686,7 @@ async function subirEnvio(file) {
     const doc = await leerFicheroProveedor(file);
     let proveedor = proveedorCanonico(doc.cabecera.proveedor);
     if (!proveedor) {
-      const r = prompt('El documento no dice de qué proveedor es. Escríbelo:', ultimoProveedorRepo());
+      const r = prompt('El documento no dice de qué proveedor es. Escríbelo:', '');
       if (r == null || !r.trim()) { if (caja) caja.textContent = ''; return; }
       proveedor = proveedorCanonico(r) || prov(r);
     }
@@ -678,7 +704,7 @@ async function subirEnvio(file) {
   }
 }
 function crearReposicionVacia() {
-  const r = prompt('¿De qué proveedor es el pedido?', ultimoProveedorRepo());
+  const r = prompt('¿De qué proveedor es el pedido?', '');
   if (r == null || !r.trim()) return;
   const p = { id: nuevoId(), tipo: 'reposicion', proveedor: proveedorCanonico(r) || prov(r), campana: '', numero: '', cliente: '',
     fecha: hoy(), notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
@@ -704,10 +730,6 @@ function crearPedido() {
 /** Pedido del comercial empezando por las fotos: se crea con lo que haya
  *  escrito en el formulario y el resto (nº, cliente, proveedor) lo completa la
  *  lectura. Si la lectura falla, el pedido queda creado y se puede rellenar. */
-function ultimaCampana() {
-  const c = E.pedidos.filter((p) => !esRepo(p) && p.campana).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)))[0];
-  return c ? c.campana : '';
-}
 /** Fotos de una campaña entera: cada hoja va a su pedido por el nº leído. */
 function subirCampana(files) {
   if (!files || !files.length) return;
@@ -1112,7 +1134,7 @@ function apuntar(p, accion, l) {
   // Al borrar, se tacha la apuntada (no se apunta otra vez).
   const previa = accion === 'baja' && [...reg].reverse().find((x) => x.accion === 'alta' && !x.borrada && x.texto === texto);
   if (previa) previa.borrada = ahora;
-  else reg.push({ hora: ahora, accion, texto });
+  else reg.push({ hora: ahora, accion, texto, quien: nube.usuario || '' });
 }
 function vistaBloc(p) {
   const reg = p.registro || [];
@@ -1122,7 +1144,7 @@ function vistaBloc(p) {
   return `
     <details class="bloc no-imprimir" open>
       <summary><b>📝 Bloc del pedido</b> · ${reg.length} artículo(s) apuntado(s)${borradas ? ` · ${borradas} borrado(s)` : ''}</summary>
-      <ol>${reg.map((x) => `<li><span class="hora">${h(hora(x.hora))}</span> <span class="${x.borrada || x.accion === 'baja' ? 'baja' : ''}">${h(x.texto)}</span>${x.borrada ? ` <span class="pequeno">borrada ${h(hora(x.borrada))}</span>` : x.accion === 'baja' ? ' <span class="pequeno">(borrada)</span>' : ''}</li>`).join('')}</ol>
+      <ol>${reg.map((x) => `<li><span class="hora">${h(hora(x.hora))}${x.quien ? ' · ' + h(x.quien) : ''}</span> <span class="${x.borrada || x.accion === 'baja' ? 'baja' : ''}">${h(x.texto)}</span>${x.borrada ? ` <span class="pequeno">borrada ${h(hora(x.borrada))}</span>` : x.accion === 'baja' ? ' <span class="pequeno">(borrada)</span>' : ''}</li>`).join('')}</ol>
       <button class="btn peque" onclick="copiarBloc()">Copiar el bloc</button>
     </details>`;
 }
@@ -1188,13 +1210,30 @@ function anadirRapida() {
   const ol = document.querySelector('details.bloc ol'); if (ol) ol.scrollTop = ol.scrollHeight;
   document.getElementById('qaCant').focus();
 }
-function borrarPedido() {
-  const p = pedidoActual();
+function borrarPedido(id) {
+  const p = id ? pedidoPorId(id) : pedidoActual();
+  if (!p) return;
   const asignados = E.restos.some((r) => r.pedidoId === p.id && r.asignaciones.length);
-  if (!confirm(`¿Borrar el pedido nº ${p.numero} de ${p.cliente}?` + (asignados ? '\nSus restos con llegadas registradas se conservan.' : ''))) return;
-  E.pedidos = E.pedidos.filter((x) => x.id !== p.id);
-  E.restos = E.restos.filter((r) => r.pedidoId !== p.id || r.asignaciones.length);
-  E.notas = E.notas.filter((n) => n.pedidoId !== p.id);
+  const quien = esRepo(p) ? `la reposición de ${p.proveedor}${p.numero ? ' nº ' + p.numero : ''}` : `el pedido nº ${p.numero} de ${p.cliente}`;
+  if (!confirm(`¿Borrar ${quien}? Se borra para todos los dispositivos.` + (asignados ? '\nSus restos con llegadas registradas se conservan.' : ''))) return;
+  quitarPedidos([p.id]);
+  pedidoAbierto = null; guardar(); pintar();
+}
+function quitarPedidos(ids) {
+  const fuera = new Set(ids);
+  E.pedidos = E.pedidos.filter((x) => !fuera.has(x.id));
+  E.restos = E.restos.filter((r) => !fuera.has(r.pedidoId) || r.asignaciones.length);
+  E.notas = E.notas.filter((n) => !fuera.has(n.pedidoId));
+}
+/** Una campaña entera (o todas las reposiciones de un proveedor), con doble confirmación. */
+function borrarCampana(clave) {
+  const ps = E.pedidos.filter((p) => claveGrupo(p) === clave);
+  if (!ps.length) return;
+  const nombre = nombreGrupo(ps[0]);
+  if (!confirm(`¿Borrar «${nombre}» entera? Son ${ps.length} pedido(s), con sus restos y notas. Se borra para todos los dispositivos y no se puede deshacer.`)) return;
+  const r = prompt(`Para confirmar, escribe BORRAR:`);
+  if (r == null || r.trim().toUpperCase() !== 'BORRAR') { alert('No se ha borrado nada.'); return; }
+  quitarPedidos(ps.map((p) => p.id));
   pedidoAbierto = null; guardar(); pintar();
 }
 function decide(ref, campo, valor) {
@@ -1948,9 +1987,28 @@ function marcarNota(id, v) { E.notas.find((n) => n.id === id).resuelta = v; guar
 // ── Vista: datos ─────────────────────────────────────────────────────────────
 function vistaDatos() {
   const cats = Object.entries(E.catalogos);
+  const conf = conflictosGuardados();
+  const pend = nube.cli && nube.usuario ? CP.cambiosPendientes(E, nube.meta.docs).length : 0;
   return `<div class="tarjeta">
+    <h2>Cuenta y nube</h2>
+    ${nube.usuario ? `<p>Has entrado como <b>${h(nube.usuario)}</b>. Los pedidos se guardan en este dispositivo y en la nube, y se ven igual desde cualquier dispositivo con usuario.</p>
+    <div class="resumen">
+      <span class="chip ${nube.estado === 'ok' ? 'ok' : nube.estado === 'error' ? 'mal' : 'aviso'}">${h(textoEstadoNube())}</span>
+      ${nube.ultima ? `<span class="chip gris">Última sincronización: ${h(nube.ultima.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }))}</span>` : ''}
+      <span class="chip ${pend ? 'aviso' : 'ok'}">${pend} cambio(s) sin subir</span>
+    </div>
+    ${nube.error && nube.estado === 'error' ? `<p class="pequeno" style="color:var(--rojo)">${h(nube.error)}</p>` : ''}
+    <div class="fila" style="margin-top:8px">
+      <button class="btn" onclick="sincronizar()">🔄 Sincronizar ahora</button>
+      <button class="btn peque peligro" onclick="salir()">Cerrar sesión</button>
+    </div>` : `<p>Sin conexión con la nube: ${h(textoEstadoNube())}. Lo que hagas se guarda en este dispositivo.</p>`}
+    ${conf.length ? `<div class="aviso-caja aviso" style="margin-top:10px"><b>${conf.length} cambio(s) tuyos apartados</b>: tocaste un pedido a la vez que otra persona y se quedó su versión. Los tuyos no se han perdido.
+      <div class="fila" style="margin-top:6px"><button class="btn peque" onclick="descargarConflictos()">Descargar los apartados</button>
+      <button class="btn peque peligro" onclick="borrarConflictos()">Ya los he revisado: borrar</button></div></div>` : ''}
+  </div>
+  <div class="tarjeta">
     <h2>Copia de seguridad</h2>
-    <p class="pequeno">Todo se guarda solo en este navegador. Descarga una copia de vez en cuando: si se borran los datos del navegador, es la única forma de recuperarlo.</p>
+    <p class="pequeno">Los datos ya están en la nube; esta copia es un extra por si acaso. Restaurar una copia sustituye todo <b>también en la nube, para todos</b>.</p>
     <div class="fila">
       <button class="btn primario" onclick="descargarCopia()">Descargar copia</button>
       <label>Restaurar una copia<input type="file" accept=".json" onchange="restaurarCopia(this.files[0]); this.value=''"></label>
@@ -1988,8 +2046,8 @@ async function restaurarCopia(file) {
   try {
     const d = JSON.parse(await file.text());
     if (!Array.isArray(d.pedidos) || !Array.isArray(d.restos)) throw new Error('no parece una copia de esta app');
-    if (!confirm(`La copia tiene ${d.pedidos.length} pedidos y ${d.restos.length} restos. Sustituye TODO lo que hay ahora. ¿Seguir?`)) return;
-    E = Object.assign({ pedidos: [], restos: [], notas: [], catalogos: {} }, d);
+    if (!confirm(`La copia tiene ${d.pedidos.length} pedidos y ${d.restos.length} restos. Sustituye TODO lo que hay ahora, también en la nube para todos los dispositivos. ¿Seguir?`)) return;
+    E = Object.assign({ pedidos: [], restos: [], notas: [], catalogos: {}, historial: {} }, d);
     guardar(); pintar();
   } catch (err) { alert('No he podido restaurar: ' + err.message); }
 }
@@ -2066,7 +2124,220 @@ function exportarPedidos(ids) {
   XLSX.writeFile(wb, `PEDIDO_${quitar(provs[0]).replace(/\W+/g, '_')}_${String(numero).replace(/\W+/g, '_')}.xls`, { bookType: 'biff5' });
 }
 
-pintar();
+// ── Nube (Supabase, proyecto «App Bancos», tablas cp_*) ──────────────────────
+// Cada dispositivo trabaja sobre su copia local (localStorage) y la sincroniza:
+// baja lo que han cambiado los demás y sube lo suyo. Sin cobertura se sigue
+// trabajando y se sube al volver. Si dos personas tocan el MISMO documento
+// a la vez, manda la nube y lo nuestro se aparta (Datos → apartados).
+// La clave es la pública (como en Index.html): lo que protege los datos son
+// las reglas de cp_docs, que solo dejan entrar a las cuentas de cp_miembros.
+// La sesión se guarda con su propia clave para NO compartirla con Index.html,
+// que está en el mismo sitio y usa el mismo proyecto.
+const SUPA_URL = 'https://agjmciudnnginqybnogh.supabase.co';
+const SUPA_KEY = 'sb_publishable_LaJCCCGsN2VIXFDFAxEb6g_eEZHh3j6';
+const DOMINIO = '@ofipapel.internal';
+const CLAVE_NUBE = 'ofipapel.controlPedidos.nube';
+const CLAVE_CONFLICTOS = 'ofipapel.controlPedidos.conflictos';
+const leerJSON = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) || def; } catch { return def; } };
+const nube = {
+  cli: null, usuario: null, estado: 'local', error: '', ultima: null,
+  meta: leerJSON(CLAVE_NUBE, { desde: null, docs: {} }),
+  ocupada: false, otraVez: false, temporizador: null, repintar: false,
+};
+if (!nube.meta.docs) nube.meta.docs = {};
+
+function textoEstadoNube() {
+  return { local: 'sin conectar', ok: 'al día', sincronizando: 'sincronizando…', offline: 'sin conexión: se subirá al volver',
+    error: 'error al sincronizar', 'sin-libreria': 'no se pudo cargar la conexión (recarga con cobertura)' }[nube.estado] || nube.estado;
+}
+function pintarNube() {
+  const b = document.getElementById('estadoNube');
+  if (!b) return;
+  const pend = nube.usuario ? CP.cambiosPendientes(E, nube.meta.docs).length : 0;
+  const icono = { ok: '☁️', sincronizando: '🔄', offline: '📴', error: '⚠️' }[nube.estado] || '💾';
+  b.textContent = nube.usuario
+    ? `${icono} ${nube.usuario} · ${nube.estado === 'ok' && !pend ? 'al día' : pend ? pend + ' sin subir' : textoEstadoNube()}`
+    : `💾 ${textoEstadoNube()}`;
+  b.classList.toggle('mal', nube.estado === 'error');
+  b.classList.remove('oculto');
+  const aviso = document.getElementById('avisoNube');
+  const conf = conflictosGuardados().length;
+  if (aviso) aviso.innerHTML = conf ? `<div class="aviso-caja aviso" style="margin:0"><b>⚠️ ${conf} cambio(s) tuyos coincidieron con cambios de otra persona en el mismo pedido.</b> Se ha quedado la versión de la nube; los tuyos están apartados en <a href="#" onclick="vista='datos';pedidoAbierto=null;pintar();return false">Datos</a>.</div>` : '';
+}
+
+function conflictosGuardados() { return leerJSON(CLAVE_CONFLICTOS, []); }
+function apartarConflictos(lista) {
+  if (!lista.length) return;
+  const todos = conflictosGuardados().concat(lista.map((c) => Object.assign({ apartado: new Date().toISOString(), usuario: nube.usuario }, c)));
+  try { localStorage.setItem(CLAVE_CONFLICTOS, JSON.stringify(todos)); } catch { /* sin sitio: al menos se avisa */ }
+  alert(`${lista.length} cambio(s) tuyos coincidieron con cambios de otra persona en el mismo documento (${lista.map((c) => c.coleccion === 'pedidos' ? 'pedido nº ' + ((c.suyo || c.nuestro || {}).numero || '—') : c.coleccion).join(', ')}).\nSe ha quedado la versión de la nube. Los tuyos están apartados en «Datos».`);
+}
+function descargarConflictos() {
+  const blob = new Blob([JSON.stringify(conflictosGuardados(), null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `control-pedidos-apartados-${hoy()}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function borrarConflictos() {
+  if (!confirm('¿Borrar los cambios apartados? Descárgalos antes si los necesitas.')) return;
+  localStorage.removeItem(CLAVE_CONFLICTOS);
+  pintar();
+}
+
+function programarSubida(ms) {
+  if (!nube.cli || !nube.usuario) { pintarNube(); return; }
+  clearTimeout(nube.temporizador);
+  nube.temporizador = setTimeout(sincronizar, ms == null ? 1200 : ms);
+  pintarNube();
+}
+/** No repinta mientras se escribe en una casilla (perdería el foco y lo tecleado). */
+function editando() {
+  const a = document.activeElement;
+  return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.closest('#main'));
+}
+function repintarCuandoSePueda() {
+  if (editando()) { nube.repintar = true; return; }
+  nube.repintar = false;
+  pintar();
+}
+document.addEventListener('focusout', () => setTimeout(() => { if (nube.repintar && !editando()) repintarCuandoSePueda(); }, 250));
+
+async function sincronizar() {
+  if (!nube.cli || !nube.usuario) return;
+  if (nube.ocupada) { nube.otraVez = true; return; }
+  if (!navigator.onLine) { nube.estado = 'offline'; pintarNube(); return; }
+  nube.ocupada = true;
+  nube.estado = 'sincronizando';
+  pintarNube();
+  const conflictos = [];
+  let cambiado = false;
+  try {
+    // 1) Bajar lo que han cambiado los demás (con 2 minutos de margen: el
+    //    orden de llegada no es exacto; lo repetido se descarta por versión).
+    const margen = nube.meta.desde ? new Date(new Date(nube.meta.desde).getTime() - 120000).toISOString() : null;
+    let desde = nube.meta.desde;
+    for (let off = 0; ; off += 500) {
+      let q = nube.cli.from('cp_docs').select('coleccion,id,datos,borrado,version,actualizado,autor')
+        .order('actualizado').order('coleccion').order('id').range(off, off + 499);
+      if (margen) q = q.gte('actualizado', margen);
+      const { data, error } = await q;
+      if (error) throw error;
+      const filas = (data || []).map((r) => Object.assign(r, { autor: String(r.autor || '').replace(DOMINIO, '') }));
+      const r = CP.integrarBajada(E, nube.meta.docs, filas);
+      cambiado = cambiado || r.cambiado;
+      conflictos.push(...r.conflictos);
+      for (const f of filas) if (!desde || f.actualizado > desde) desde = f.actualizado;
+      if (filas.length < 500) break;
+    }
+    nube.meta.desde = desde;
+    // 2) Subir lo nuestro, por tandas.
+    const pendientes = CP.cambiosPendientes(E, nube.meta.docs);
+    for (let i = 0; i < pendientes.length; i += 100) {
+      const tanda = pendientes.slice(i, i + 100);
+      const { data, error } = await nube.cli.rpc('cp_guardar_lote', {
+        p_docs: tanda.map((d) => ({ coleccion: d.coleccion, id: d.id, datos: d.datos, version: d.version, borrado: d.borrado })),
+      });
+      if (error) throw error;
+      const r = CP.integrarSubida(E, nube.meta.docs, tanda, (data || []).map((x) => Object.assign(x, { autor: String(x.autor || '').replace(DOMINIO, '') })));
+      cambiado = cambiado || r.cambiado;
+      conflictos.push(...r.conflictos);
+      for (const x of data || []) if (x.ok && x.actualizado && (!nube.meta.desde || x.actualizado > nube.meta.desde)) nube.meta.desde = x.actualizado;
+    }
+    nube.estado = 'ok';
+    nube.error = '';
+    nube.ultima = new Date();
+  } catch (err) {
+    const msg = String((err && (err.message || err.msg)) || err);
+    nube.estado = navigator.onLine && !/fetch|network|Load failed/i.test(msg) ? 'error' : 'offline';
+    nube.error = msg;
+    if (/JWT|token|42501|permission|no tiene acceso/i.test(msg)) {
+      const { data } = await nube.cli.auth.getSession().catch(() => ({ data: {} }));
+      if (!data || !data.session) { nube.usuario = null; mostrarLogin('La sesión ha caducado: vuelve a entrar.'); }
+    }
+  } finally {
+    try { localStorage.setItem(CLAVE_NUBE, JSON.stringify(nube.meta)); } catch { /* el siguiente intento lo reescribe */ }
+    if (cambiado) { guardarLocal(); repintarCuandoSePueda(); }
+    apartarConflictos(conflictos);
+    nube.ocupada = false;
+    pintarNube();
+    if (vista === 'datos' && !editando()) pintar();
+    if (nube.otraVez) { nube.otraVez = false; programarSubida(300); }
+  }
+}
+
+function mostrarLogin(mensaje) {
+  document.getElementById('login').classList.remove('oculto');
+  document.getElementById('loginError').textContent = mensaje || '';
+  setTimeout(() => document.getElementById('loginUsuario').focus(), 50);
+}
+async function entrarConUsuario() {
+  const u = document.getElementById('loginUsuario').value.trim().toLowerCase().replace(DOMINIO, '');
+  const clave = document.getElementById('loginClave').value;
+  const error = document.getElementById('loginError');
+  const boton = document.getElementById('loginBoton');
+  if (!u || !clave) { error.textContent = 'Escribe usuario y contraseña.'; return; }
+  boton.disabled = true; boton.textContent = 'Entrando…'; error.textContent = '';
+  try {
+    const { error: e } = await nube.cli.auth.signInWithPassword({ email: u + DOMINIO, password: clave });
+    if (e) { error.textContent = /fetch|network/i.test(e.message) ? 'Sin conexión: hace falta cobertura para entrar la primera vez.' : 'Usuario o contraseña incorrectos.'; return; }
+    await empezarSesion(true);
+  } catch (e) {
+    error.textContent = 'Sin conexión: hace falta cobertura para entrar la primera vez.';
+  } finally { boton.disabled = false; boton.textContent = 'Entrar'; }
+}
+/** Con sesión: comprueba (si hay red) que la cuenta es de Control de Pedidos y arranca. */
+async function empezarSesion(recienEntrado) {
+  const { data } = await nube.cli.auth.getSession();
+  const s = data && data.session;
+  if (!s) { mostrarLogin(); return; }
+  if (navigator.onLine) {
+    const { data: miembro, error } = await nube.cli.rpc('cp_es_miembro');
+    if (!error && miembro === false) {
+      await nube.cli.auth.signOut();
+      mostrarLogin('Esta cuenta no tiene acceso a Control de Pedidos.');
+      return;
+    }
+  }
+  nube.usuario = String(s.user.email || '').replace(DOMINIO, '');
+  document.getElementById('login').classList.add('oculto');
+  document.getElementById('loginClave').value = '';
+  pintar();
+  if (recienEntrado || true) sincronizar();
+}
+async function salir() {
+  const pend = CP.cambiosPendientes(E, nube.meta.docs).length;
+  if (!confirm(pend ? `Hay ${pend} cambio(s) sin subir a la nube. Si cierras la sesión, se suben cuando alguien vuelva a entrar en este dispositivo. ¿Cerrar sesión?` : '¿Cerrar la sesión en este dispositivo?')) return;
+  try { await nube.cli.auth.signOut(); } catch { /* sin red: la sesión local se borra igual */ }
+  nube.usuario = null;
+  nube.estado = 'local';
+  pintar();
+  mostrarLogin();
+}
+
+async function arrancar() {
+  if (!window.supabase || !window.supabase.createClient) {
+    // Sin la librería (sin cobertura al abrir): se trabaja en local.
+    nube.estado = 'sin-libreria';
+    pintar();
+    return;
+  }
+  nube.cli = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
+    auth: { storageKey: 'ofipapel-control-pedidos-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+  });
+  nube.cli.auth.onAuthStateChange((evento) => {
+    if (evento === 'SIGNED_OUT' && nube.usuario) { nube.usuario = null; nube.estado = 'local'; pintar(); mostrarLogin('La sesión se ha cerrado: vuelve a entrar.'); }
+  });
+  pintar();
+  try { await empezarSesion(false); } catch (e) { nube.estado = 'offline'; pintar(); }
+  setInterval(() => { if (nube.usuario && document.visibilityState === 'visible') sincronizar(); }, 20000);
+  window.addEventListener('online', () => sincronizar());
+  window.addEventListener('offline', () => { nube.estado = 'offline'; pintarNube(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sincronizar(); });
+}
+
+arrancar();
 
 // El mismo service worker del resto del ecosistema: sirve el HTML siempre
 // fresco desde la red (no deja la app atascada en una versión vieja) y basta
