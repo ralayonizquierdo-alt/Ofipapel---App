@@ -81,13 +81,14 @@ Reglas:
 - Copia los números tal como están (coma decimal). No calcules ni corrijas nada: si un importe no cuadra con precio × cantidad, cópialo igualmente.
 - No incluyas como líneas los portes, recargos, ecotasas ni totales: anótalos en «notas» con su importe.
 - baseImponible: la suma de las líneas o base imponible del documento antes de impuestos (si hay varias bases, su suma), tal como figura. dtoGlobal: un descuento que se aplique a todo el documento («Dto. pronto pago», «Descuento global»), en porcentaje; si no hay, vacío.
+- proveedor: la empresa que VENDE el material (Finocam, Miquelrius…). Si el documento es un pedido que hace Ofipapel / Suministros de Oficina Ofipapel, el proveedor es el DESTINATARIO del pedido, nunca Ofipapel.
 - pedidoCliente: a qué pedido nuestro corresponde el documento, tal como figure: «su pedido nº 5», «s/ref. PEDIDO Nº3 METALICA», observaciones con el nombre de un cliente final… Copia el texto tal cual; si no aparece, vacío.
 - Los campos que no aparezcan, vacíos.`;
 
 const ESQUEMA_DOCUMENTO = {
   type: 'object',
   properties: {
-    proveedor: { type: 'string' },
+    proveedor: { type: 'string', description: 'quien vende el material; nunca Ofipapel' },
     tipoDocumento: { type: 'string', description: 'pedido, propuesta, albarán, factura u otro' },
     numero: { type: 'string' },
     fecha: { type: 'string' },
