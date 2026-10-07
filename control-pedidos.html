@@ -86,6 +86,9 @@ main{overflow-wrap:anywhere}
 .aviso-caja.info{background:var(--azul-claro);color:var(--azul)}
 .resumen{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
 .vacio{color:var(--texto2);font-style:italic;padding:8px 0}
+#vistaImportar{padding:0 12px 12px}
+#vistaImportar iframe{display:block;width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid var(--borde);border-radius:12px;background:#fff}
+.importar-barra{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:10px 0}
 li.descartada{text-decoration:line-through;opacity:.65}
 .entrada-rapida{background:var(--fondo);border:1px solid var(--borde);border-radius:10px;padding:10px 12px;margin:10px 0}
 .entrada-rapida input{font-size:17px}
@@ -152,12 +155,23 @@ details.grupo[open]>summary::before{content:"▾"}
     <button data-vista="pedidos" class="activa">Pedidos</button>
     <button data-vista="nuevo">✍️ Pedido a mano</button>
     <button data-vista="reposicion">🔄 Reposición</button>
+    <button data-vista="importar">📄 Importar factura (Gestión)</button>
     <button data-vista="restos">Restos <span class="cuenta" id="cuentaRestos">0</span></button>
     <button data-vista="notas">Notas de facturación <span class="cuenta" id="cuentaNotas">0</span></button>
     <button data-vista="datos">Datos</button>
   </nav>
 </header>
 <main id="main"></main>
+<!-- «Importación Pedidos Proveedores» tal cual, sin tocar: es otra página del
+     mismo sitio (importacion-pedidos-proveedores.html) mostrada en un iframe.
+     Va fuera de #main para que no se recargue (ni pierda la factura cargada)
+     al cambiar de pestaña. -->
+<section id="vistaImportar" class="oculto">
+  <div class="importar-barra no-imprimir">
+    <span class="pequeno">Convierte la factura PDF de un proveedor homologado en el Excel 5.0/95 de Gestión. Es la herramienta de siempre, sin cambios.</span>
+    <a class="btn peque" href="importacion-pedidos-proveedores.html" target="_blank" rel="noopener">Abrir en pestaña aparte ↗</a>
+  </div>
+</section>
 
 <script>
 'use strict';
@@ -224,6 +238,20 @@ function pintarCuentas() {
 function pintar() {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('activa', b.dataset.vista === vista));
   const main = document.getElementById('main');
+  const importar = document.getElementById('vistaImportar');
+  main.classList.toggle('oculto', vista === 'importar');
+  importar.classList.toggle('oculto', vista !== 'importar');
+  if (vista === 'importar') {
+    // El iframe se crea la primera vez y se conserva después.
+    if (!importar.querySelector('iframe')) {
+      const f = document.createElement('iframe');
+      f.src = 'importacion-pedidos-proveedores.html';
+      f.title = 'Importación Pedidos Proveedores';
+      importar.appendChild(f);
+    }
+    pintarCuentas();
+    return;
+  }
   if (vista === 'pedidos') main.innerHTML = pedidoAbierto ? vistaDetalle(pedidoPorId(pedidoAbierto)) : vistaLista();
   else if (vista === 'nuevo') main.innerHTML = vistaNuevo();
   else if (vista === 'reposicion') main.innerHTML = pedidoAbierto ? vistaDetalle(pedidoPorId(pedidoAbierto)) : vistaReposicion();
