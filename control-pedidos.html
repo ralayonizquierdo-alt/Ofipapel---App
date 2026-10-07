@@ -43,7 +43,8 @@ header h1{margin:0 0 10px;font-size:22px;display:flex;align-items:center;gap:10p
 .nube{font-size:12px;font-weight:500;background:#fff2;border-radius:12px;padding:3px 9px;white-space:nowrap;cursor:pointer;border:0;color:#fff}
 .nube.mal{background:#b3261e}
 #avisoNube{max-width:1180px;margin:0 auto;padding:10px 16px 0}
-#avisoNube:empty,#avisoFallo:empty{display:none}
+#avisoNube:empty,#avisoFallo:empty,#avisoWeb:empty{display:none}
+#avisoWeb{max-width:1180px;margin:0 auto;padding:10px 16px 0}
 #avisoFallo{max-width:1180px;margin:0 auto;padding:10px 16px 0}
 /* Entrada con usuario: tapa toda la app hasta que hay sesión. */
 #login{position:fixed;inset:0;z-index:50;background:linear-gradient(135deg,var(--verde-oscuro),var(--verde));display:flex;align-items:center;justify-content:center;padding:16px}
@@ -176,6 +177,7 @@ details.grupo[open]>summary::before{content:"▾"}
     <button data-vista="datos">Datos</button>
   </nav>
 </header>
+<div id="avisoWeb" class="no-imprimir"></div>
 <div id="avisoFallo" class="no-imprimir"></div>
 <div id="avisoNube" class="no-imprimir"></div>
 <main id="main"></main>
@@ -213,6 +215,11 @@ function mostrarFallo(msg) {
 const CLAVE = 'ofipapel.controlPedidos.v1';
 const OCR_TOKEN = 'ofipapel-ocr-2026'; // el mismo que leer-reserva-airbnb; no es un secreto (ver la función)
 const FN = '/.netlify/functions/';
+// La lectura de fotos y PDF vive en las funciones de Netlify: la copia de
+// GitHub Pages (y cualquier otra web) no las tiene y daba «405». Los datos
+// están en la nube, así que basta con abrir la app en la web buena.
+const WEB_BUENA = 'https://ofipapel.netlify.app/control-pedidos.html';
+const EN_NETLIFY = /(^|\.)netlify\.app$/.test(location.hostname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 
 // ── Estado ───────────────────────────────────────────────────────────────────
 // pedidos:  [{id, tipo:'comercial'|'reposicion', proveedor, campana, numero, cliente, fecha, notas,
@@ -1343,6 +1350,7 @@ function errorDeLectura(msg) {
   return e;
 }
 async function leerConIA(file, modo) {
+  if (!EN_NETLIFY) throw new Error('aquí no se pueden leer fotos ni PDF: abre la app en ofipapel.netlify.app (tus datos ya están en la nube y salen igual)');
   const jobId = nuevoId();
   const pdf = esPdf(file);
   const imagenBase64 = pdf ? await base64DeFichero(file) : await reducirImagen(file);
@@ -2330,6 +2338,10 @@ async function salir() {
 }
 
 async function arrancar() {
+  if (!EN_NETLIFY) {
+    document.getElementById('avisoWeb').innerHTML = `<div class="aviso-caja aviso" style="margin:0"><b>Esta es una copia de la app que no puede leer fotos ni PDF.</b> Usa la de siempre: tus datos ya están en la nube y salen igual.
+      <div class="fila" style="margin-top:8px"><a class="btn primario" href="${WEB_BUENA}">Abrir en ofipapel.netlify.app</a></div></div>`;
+  }
   if (typeof CP.cambiosPendientes !== 'function') {
     // Lógica vieja con HTML nuevo: no se sincroniza (no se arriesga nada) y se avisa.
     nube.estado = 'error';
