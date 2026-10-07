@@ -1041,13 +1041,13 @@ function vistaComparacion(p, filas) {
 /** Lo que de verdad importa de un pedido: qué falta y qué sobra. */
 function bloqueFaltasSobras(p, filas) {
   const { faltan, sobran } = CP.faltasYSobras(filas);
-  const pendientes = esRepo(p) ? faltan : CP.faltasPendientes(filas, p.decisiones);
+  const pendientes = CP.faltasPendientes(filas, p.decisiones);
   const pend = new Set(pendientes.map((x) => x.ref));
   const doc = esRepo(p) ? 'la factura/propuesta' : 'la propuesta';
   const decidido = { reclamar: '✉️ reclamada, esperando respuesta del proveedor', resto: 'sin stock: en restos', anular: 'descartada definitivamente', excluir: 'descartada', aceptar: 'aceptada la propuesta', mantener: 'se mantiene lo pedido', manual: 'a mano' };
   const linea = (x, signo, falta) => {
-    const acc = falta && !esRepo(p) && (p.decisiones[x.ref] || {}).accion;
-    const fuera = falta && !esRepo(p) && !pend.has(x.ref);
+    const acc = falta && (p.decisiones[x.ref] || {}).accion;
+    const fuera = falta && !pend.has(x.ref);
     return `<li${fuera ? ' class="descartada"' : ''}><b>${h(x.ref)}</b> ${h(x.desc)} — ${signo}${x.cant}${x.total ? '' : ` de ${x.de}`} ud.${x.total ? '' : ' (parcial)'}${x.sustitucion ? ` <span class="pequeno">¿sustitución ${h(x.sustitucion)}?</span>` : ''}${acc ? ` <span class="pequeno">· ${h(decidido[acc] || acc)}</span>` : ''}</li>`;
   };
   return `

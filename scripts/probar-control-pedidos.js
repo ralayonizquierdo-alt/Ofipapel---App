@@ -299,7 +299,8 @@ test('faltas pendientes: solo las sin decidir y las que se reclaman; lo reclamad
     [{ ref: 'A', cant: 2, precio: 1 }, { ref: 'B', cant: 1, precio: 1 }, { ref: 'C', cant: 3, precio: 1 }, { ref: 'D', cant: 1, precio: 1 }],
     [{ ref: 'C', cant: 1, precio: 1 }]);
   assert.ok(CP.accionesPara(filas.find((f) => f.ref === 'A'), 'comercial').includes('reclamar'));
-  assert.ok(!CP.accionesPara(filas.find((f) => f.ref === 'A'), 'reposicion').includes('reclamar'));
+  const repo = CP.accionesPara(filas.find((f) => f.ref === 'A'), 'reposicion');
+  assert.ok(repo.includes('reclamar') && !repo.includes('resto'), 'reposición: se reclama, nunca va a restos');
   const dec = { A: { accion: 'reclamar' }, B: { accion: 'anular' }, C: { accion: 'aceptar' } };
   const pend = CP.faltasPendientes(filas, dec);
   assert.deepEqual(pend.map((x) => [x.ref, x.pendiente]), [['A', 'reclamar'], ['D', 'decidir']]);
