@@ -322,11 +322,9 @@ function agruparPedidos(lista) {
     if (!grupos.has(k)) grupos.set(k, { clave: k, nombre: nombreGrupo(p), pedidos: [] });
     grupos.get(k).pedidos.push(p);
   }
-  if (grupos.size) {
-    gruposAbiertos = gruposAbiertos || new Set();
-    // la más reciente de esta pestaña, desplegada la primera vez
-    if (![...grupos.keys()].some((k) => gruposAbiertos.has(k))) gruposAbiertos.add(grupos.keys().next().value);
-  }
+  // Todas minimizadas por defecto; solo se despliega la que abre el usuario
+  // (o la del pedido del que vuelve).
+  gruposAbiertos = gruposAbiertos || new Set();
   return grupos;
 }
 /** Resultado de la última carga de propuestas o facturas (y las que hay que
