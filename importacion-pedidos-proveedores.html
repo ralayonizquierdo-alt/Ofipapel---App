@@ -230,6 +230,12 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
   <div class="card">
     <h2>4. Exportar</h2>
     <div class="toolbar">
+      <label style="display:flex;align-items:center;gap:6px">Plantilla
+        <select id="plantillaExcel">
+          <option value="luis" selected>Plantilla Luis (por defecto)</option>
+          <option value="rober">Plantilla Rober</option>
+        </select>
+      </label>
       <button class="btn btn-primary" onclick="generarExcel()">📥 Generar Excel 5.0/95 (.xls)</button>
     </div>
     <div class="footer-note">
@@ -2015,6 +2021,8 @@ function dtoParaExportar(f){
 
 function generarExcel(){
   if(!filas.length){ alert('No hay líneas para exportar.'); return; }
+  const selPlantilla = document.getElementById('plantillaExcel');
+  if(selPlantilla && selPlantilla.value === 'rober'){ generarExcelRober(); return; }
 
   const proveedor = document.getElementById('cabProveedor').value.trim();
   const pedido = document.getElementById('cabPedido').value.trim();
@@ -2067,6 +2075,42 @@ function generarExcel(){
 
   const fechaHoy = new Date().toISOString().slice(0,10);
   const nombreArchivo = 'PEDIDO_' + (proveedor||'PROVEEDOR').replace(/[^\w]+/g,'_') + '_' + fechaHoy + '.xls';
+  XLSX.writeFile(wb, nombreArchivo, {bookType:'biff5'});
+}
+
+// Plantilla «Rober»: la misma que exporta Control de Pedidos
+// (control-pedidos-logica.js, filasGeminis): cabecera en las filas 1-9,
+// títulos en la 10 y artículos desde la fila 11. Mismas reglas que la de
+// Luis: precio tal cual de la factura y un solo descuento (dtoParaExportar).
+function generarExcelRober(){
+  const proveedor = document.getElementById('cabProveedor').value.trim();
+  const pedido = document.getElementById('cabPedido').value.trim();
+  const fechaIso = document.getElementById('cabFecha').value;
+  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(fechaIso) ? fechaIso.slice(8,10)+'/'+fechaIso.slice(5,7)+'/'+fechaIso.slice(0,4) : fechaIso;
+  const almacen = document.getElementById('cabAlmacen').value.trim();
+
+  const NCOLS = 14; // A..N
+  const aoa = [];
+  for(let i=0;i<9;i++) aoa.push(filaVacia(NCOLS));
+  aoa[1][1] = 'PROPUESTA DE PEDIDO';
+  aoa[1][2] = 'ALMACEN ' + almacen;
+  aoa[3][1] = 'PROVEEDOR; ' + proveedor;
+  aoa[3][2] = 'FECHA: ' + fecha;
+  aoa[5][2] = 'N PEDIDO: ' + pedido;
+  aoa.push(['Cod.Barras EAN13','DESCRIPCION','Rfcia. Proveedor','Cajas','UdsXCja','Pedidas','UNIDAD','Dcto','Igic','TOTAL','U/Bonifica','Sin STOCK','Cod. Ofipapel','Code/rfcia Provee.']);
+
+  filas.forEach(f=>{
+    aoa.push([f.isbn, f.desc, f.ref, f.caja, f.udCaja, f.udes, f.precioU, dtoParaExportar(f), f.igic, f.importe, '', '', '', f.ref]);
+  });
+
+  const aoaSinAcentos = aoa.map(fila => fila.map(quitarAcentos));
+  const ws = XLSX.utils.aoa_to_sheet(aoaSinAcentos);
+  ws['!cols'] = [{wch:15},{wch:38},{wch:14},{wch:6},{wch:8},{wch:8},{wch:9},{wch:7},{wch:6},{wch:10},{wch:9},{wch:9},{wch:12},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'fichero');
+
+  const fechaHoy = new Date().toISOString().slice(0,10);
+  const nombreArchivo = 'PEDIDO_' + (proveedor||'PROVEEDOR').replace(/[^\w]+/g,'_') + '_' + fechaHoy + '_ROBER.xls';
   XLSX.writeFile(wb, nombreArchivo, {bookType:'biff5'});
 }
 
