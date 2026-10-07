@@ -426,9 +426,13 @@
    */
   function accionesPara(fila, tipo) {
     if (tipo === 'reposicion') {
-      if (fila.estado === 'falta') return ['excluir', 'mantener', 'manual'];
+      // Como en el comercial, una falta se puede reclamar al proveedor; lo
+      // que nunca hay en reposición es «resto».
+      if (fila.estado === 'falta') return ['reclamar', 'excluir', 'mantener', 'manual'];
       if (fila.estado === 'extra') return ['aceptar', 'excluir'];
-      return ['aceptar', 'mantener', 'manual', 'excluir'];
+      return fila.cantPropuesta < fila.cantPedida
+        ? ['aceptar', 'reclamar', 'mantener', 'manual', 'excluir']
+        : ['aceptar', 'mantener', 'manual', 'excluir'];
     }
     if (fila.estado === 'falta') return ['reclamar', 'resto', 'anular'];
     if (fila.estado === 'extra') return ['aceptar', 'excluir'];
