@@ -185,6 +185,7 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
 
   <div class="card">
     <h2>3. Vista previa (revisa y completa antes de exportar)</h2>
+    <div id="notasFactura" class="estado" style="display:none;margin-bottom:10px;"></div>
     <div class="toolbar">
       <button class="btn btn-secundario" id="btnOrdenRef" onclick="ordenarPor('ref')">↕ Ordenar por Rfcia. Proveedor</button>
       <button class="btn btn-secundario" id="btnOrdenDesc" onclick="ordenarPor('desc')">↕ Ordenar por Descripción</button>
@@ -732,11 +733,13 @@ function parsePryse(lineas){
 // b) "CODIGO [EAN13] DESCRIPCION CANT PRECIO.00 [%DTO1.00 %DTO2.00] IMPORTE.00 IGIC.00"
 //    — decimales con punto, con el Importe antes del Igic (orden
 //    invertido respecto al formato (a)); el EAN a veces falta del todo en
-//    líneas de servicio (portes, tickets RMA) que no son artículos reales.
+//    líneas de servicio (portes, tickets RMA) que no son artículos reales
+//    — esas se devuelven aparte en filas.notas, no como líneas de producto.
 // Cuando la descripción queda vacía en la línea (a veces el texto del PDF la
 // deja en la línea anterior), se recupera de ahí.
 function parseMandatelo(lineas){
   const filas = [];
+  const notas = [];
   const RE_A = /^([A-Z0-9]{4,10})\s+(\d{13})\s+(.*?)\s*(\d+,\d{2})\s+(\d+,\d{2})\s+(?:(\d+,\d{2})\s+(\d+,\d{2})\s+)?(\d+)\s+(\d+(?:\.\d{3})*,\d{2})$/;
   const RE_B = /^([A-Z0-9.\-]{4,16})\s+(?:(\d{13})\s+)?(.*?)\s*(\d+(?:[.,]\d{2})?)\s+(\d+(?:[.,]\d{2}))\s+(?:(\d+(?:[.,]\d{2}))\s+(\d+(?:[.,]\d{2}))\s+)?(\d+(?:\.\d{3})*(?:[.,]\d{2}))(?:\s+(\d+(?:[.,]\d{2})))?$/;
   let prevLine = '';
@@ -755,12 +758,20 @@ function parseMandatelo(lineas){
     if(mb && !/^\d+\.\d+$/.test(mb[1])){
       let desc = mb[3].trim();
       if(!desc) desc = prevLine;
-      filas.push(fila_({codigo:mb[1], descripcion:desc, cantidad:Math.round(parseDecFlex(mb[4])),
-        precioUnitario:parseDecFlex(mb[5]), dto1: mb[6]?parseDecFlex(mb[6]):0, dto2: mb[7]?parseDecFlex(mb[7]):0,
-        importe:parseDecFlex(mb[8]), ean:mb[2]||'', igic: mb[9]?parseDecFlex(mb[9]):''}));
+      if(mb[2]){
+        filas.push(fila_({codigo:mb[1], descripcion:desc, cantidad:Math.round(parseDecFlex(mb[4])),
+          precioUnitario:parseDecFlex(mb[5]), dto1: mb[6]?parseDecFlex(mb[6]):0, dto2: mb[7]?parseDecFlex(mb[7]):0,
+          importe:parseDecFlex(mb[8]), ean:mb[2], igic: mb[9]?parseDecFlex(mb[9]):''}));
+      } else {
+        // Sin código de barras: no es un artículo real, sino un concepto
+        // administrativo de la propia factura (portes, aviso de ticket
+        // RMA...) — se recoge como nota en vez de como línea de producto.
+        notas.push(`${mb[1]} — ${desc}`.trim());
+      }
     }
     prevLine = l;
   });
+  filas.notas = notas;
   return filas;
 }
 // El total de Mandatelo viene duplicado con decimales de coma en el
@@ -1812,6 +1823,15 @@ function procesarFacturaConPerfil(lineas, texto, perfil, viaOCR){
   }
 
   document.getElementById('ocrOfrecido').style.display = 'none';
+
+  const notasFactura = document.getElementById('notasFactura');
+  if(filasParseadas.notas && filasParseadas.notas.length){
+    notasFactura.style.display = 'block';
+    notasFactura.innerHTML = '<strong>Notas de la factura (no son artículos, no se exportan):</strong><br>' + filasParseadas.notas.map(escapeHtml).join('<br>');
+  } else {
+    notasFactura.style.display = 'none';
+    notasFactura.innerHTML = '';
+  }
 
   proveedorDetectado = perfil ? perfil.nombre : '';
   document.getElementById('cabProveedor').value = proveedorDetectado;
