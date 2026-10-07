@@ -345,6 +345,18 @@ function bloqueCargaDocumentos() {
 function vistaReposicion() {
   const grupos = agruparPedidos(E.pedidos.filter(esRepo));
   return `
+  <div class="tarjeta no-imprimir">
+    <h2>📤 Subir nuestros pedidos al proveedor</h2>
+    <p class="pequeno" style="margin:0 0 10px">Varios a la vez (PDF, Excel o foto): <b>cada fichero crea su pedido de reposición</b> con sus líneas. Luego sube las propuestas del proveedor abajo y cada una se empareja con su pedido para validarlo.</p>
+    <div class="fila">
+      <label>Proveedor <span class="pequeno">(si el documento no lo dice)</span><input id="envProv" list="listaProv" placeholder="Escribe o elige"></label>
+      <datalist id="listaProv">${[...new Set(E.pedidos.map((x) => prov(x.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean).map((x) => `<option value="${h(x)}">`).join('')}</datalist>
+      <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📤 Elegir nuestros pedidos (varios)
+        <input type="file" multiple class="oculto" onchange="subirEnviosVarios(this.files); this.value=''"></label>
+    </div>
+    <div id="progresoEnvios" class="progreso"></div>
+    ${resultadoEnvios.length ? `<div class="aviso-caja ${resultadoEnvios.some((x) => !x.ok) ? 'aviso' : 'ok'}">${resultadoEnvios.map((x) => h(x.texto)).join('<br>')}</div>` : ''}
+  </div>
   ${vistaNuevaReposicion()}
   <div class="tarjeta">
     <h2>Pedidos de reposición</h2>
@@ -439,9 +451,9 @@ function vistaGrupo(g, i) {
       <button class="btn" onclick="otroPedidoCampana(${js(ej.proveedor)}, ${js(ej.campana || '')})">✍️ Añadir pedido a mano a esta campaña</button>
       <button class="btn peque" onclick="renombrarCampana(${js(g.clave)})">✏️ ${ej.campana ? 'Renombrar' : 'Poner nombre a'} la campaña</button>`}
       <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">Excel Géminis de los seleccionados</button>
-      ${esRepo(ej) ? '' : `<label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales
+      <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales${esRepo(ej) ? ' (opcional)' : ''}
         <input type="file" multiple class="oculto" onchange="cargarFacturasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
-      <button class="btn" onclick="imprimirGuiaFacturacion(${js(g.clave)})">🧾 Imprimir guía de facturación</button>`}
+      ${esRepo(ej) ? '' : `<button class="btn" onclick="imprimirGuiaFacturacion(${js(g.clave)})">🧾 Imprimir guía de facturación</button>`}
       <span class="pequeno">Solo pedidos validados. Varias selecciones se suman por referencia en un único pedido.</span>
     </div>
     ${comparados.length ? `
@@ -622,6 +634,41 @@ function vistaNuevaReposicion() {
         <button class="btn primario" onclick="crearReposicion()">Crear</button>
       </div>
     </div>`;
+}
+let resultadoEnvios = [];
+/** Varios pedidos nuestros de golpe: cada fichero es un pedido de reposición. */
+async function subirEnviosVarios(files) {
+  const lista = [...files];
+  resultadoEnvios = [];
+  const provForm = prov((document.getElementById('envProv') || {}).value || '');
+  const progreso = (t) => { const c = document.getElementById('progresoEnvios'); if (c) c.textContent = t; };
+  let total = 0, lineas = 0;
+  for (let i = 0; i < lista.length; i++) {
+    const f = lista[i];
+    if (E.pedidos.some((x) => esRepo(x) && x.envio === f.name)) { resultadoEnvios.push({ ok: false, texto: `${f.name}: ya estaba subido, no se repite` }); continue; }
+    progreso(`Leyendo ${i + 1} de ${lista.length}: ${f.name}${esPdf(f) || esImagen(f) ? ' (PDF/foto: hasta un minuto)' : ''}…`);
+    try {
+      const doc = await leerFicheroProveedor(f);
+      const proveedor = prov(doc.cabecera.proveedor) || provForm;
+      if (!proveedor) { resultadoEnvios.push({ ok: false, texto: `${f.name}: no dice de qué proveedor es; escríbelo arriba y vuelve a subirlo` }); continue; }
+      const numero = String(doc.cabecera.numero || doc.cabecera.numeroPedido || f.name.replace(/\.[^.]+$/, ''));
+      const p = { id: nuevoId(), tipo: 'reposicion', proveedor, campana: '', numero, cliente: '', fecha: hoy(), notas: '',
+        lineas: doc.lineas.map((l) => ({ ref: l.ref, desc: l.desc, ean: l.ean, cant: l.cant, precio: l.precio, dtos: l.dtos || [], udsCaja: l.udsCaja, importe: l.importe, duda: l.duda || '' })),
+        envio: f.name, envioControl: doc.control || null, propuesta: null, decisiones: {}, validado: false, final: null };
+      guardarCatalogo(proveedor, f.name, doc.catalogo || {});
+      E.pedidos.push(p);
+      const imp = importeDoc(doc);
+      total += imp; lineas += p.lineas.length;
+      resultadoEnvios.push({ ok: true, texto: `${f.name} → reposición ${proveedor} nº ${numero} · ${p.lineas.length} líneas · ${fmt(imp)} €${doc.control && doc.control.cuadra === false ? ' — ⚠️ no cuadra con su base, revísalo' : ''}` });
+      guardar(); pintar();
+    } catch (err) {
+      if (err.sinSaldo) { resultadoEnvios.push({ ok: false, texto: MSG_SIN_SALDO }); break; }
+      resultadoEnvios.push({ ok: false, texto: `${f.name}: ${err.message}` });
+    }
+  }
+  if (resultadoEnvios.filter((x) => x.ok).length > 1) resultadoEnvios.push({ ok: true, texto: `Total: ${resultadoEnvios.filter((x) => x.ok).length} pedidos · ${lineas} líneas · ${fmt(CP.red2(total))} €` });
+  progreso('');
+  pintar();
 }
 function crearReposicion() {
   const v = (id) => document.getElementById(id).value.trim();
@@ -833,7 +880,8 @@ function vistaDetalleRepo(p) {
     ${avisoRestosEnPropuesta(p)}
   </div>
 
-  ${filas ? vistaComparacion(p, filas) : ''}`;
+  ${filas ? vistaComparacion(p, filas) : ''}
+  ${vistaFacturaFinal(p)}`;
 }
 
 /** Las líneas de la propuesta, plegadas salvo que haya algo que revisar
@@ -1438,6 +1486,7 @@ function avisoControl(doc) {
 }
 
 function guardarCatalogo(proveedor, archivo, catalogo) {
+  if (!catalogo) return;
   const n = Object.keys(catalogo).length;
   // Solo cuenta como catálogo si trae bastante más que lo pedido: el
   // formulario de Finocam lleva la tarifa entera; una propuesta corta no.
@@ -1628,7 +1677,7 @@ function vistaFacturaFinal(p) {
   const lista = (xs, f) => `<ul style="margin:6px 0 0;padding-left:18px">${xs.map(f).join('')}</ul>`;
   return `
   <div class="tarjeta">
-    <h2>4 · Factura final del proveedor <span class="pequeno">(último control)</span></h2>
+    <h2>4 · Factura final del proveedor <span class="pequeno">(último control${esRepo(p) ? ', opcional' : ''})</span></h2>
     <p class="pequeno" style="margin:0 0 8px">Sube la factura definitiva: la comparo con lo que validaste y te digo si falta alguna referencia, si viene algo de más o si cambia algún precio.</p>
     <div class="fila no-imprimir">
       <label>Factura final (PDF, Excel o foto)<input type="file" onchange="cargarFacturaEn('${p.id}', this.files[0]); this.value=''"></label>
@@ -1667,27 +1716,39 @@ async function cargarFacturasVarias(files, clave) {
   const lista = [...files];
   ultimaCarga = [];
   const progreso = (t) => { const c = document.getElementById('progresoProps'); if (c) c.textContent = t; };
+  const leidos = [];
   for (let i = 0; i < lista.length; i++) {
     const f = lista[i];
     progreso(`Leyendo factura ${i + 1} de ${lista.length}: ${f.name}…`);
-    try {
-      const doc = await leerFicheroProveedor(f);
-      const p = pedidoParaDocumento(doc, (x) => x.validado && claveGrupo(x) === clave);
-      if (p) {
-        asignarFactura(p, f.name, doc);
-        const r = revisarFactura(p);
-        ultimaCarga.push({ ok: true, texto: `Factura ${f.name} → nº ${p.numero} ${p.cliente || ''}${r && r.faltan.length ? ` — ❌ no vienen ${r.faltan.length} referencia(s)` : r && !r.cuadra ? ' — ⚠️ revisar diferencias' : ' — ✅ cuadra'}` });
-      } else {
-        sinAsignar.push({ id: nuevoId(), archivo: f.name, prop: doc, destino: 'factura', clave });
-      }
-    } catch (err) {
+    try { leidos.push({ id: nuevoId(), archivo: f.name, prop: await leerFicheroProveedor(f) }); }
+    catch (err) {
       if (err.sinSaldo) { ultimaCarga.push({ ok: false, texto: MSG_SIN_SALDO }); break; }
       ultimaCarga.push({ ok: false, texto: `${f.name}: ${err.message}` });
     }
-    guardar(); pintar();
   }
+  const usados = new Set();
+  const asignar = (x, p, como) => {
+    asignarFactura(p, x.archivo, x.prop);
+    usados.add(p.id);
+    const r = revisarFactura(p);
+    ultimaCarga.push({ ok: true, texto: `Factura ${x.archivo} → nº ${p.numero} ${p.cliente || ''} · ${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} €${como ? ` (${como})` : ''}${r && r.faltan.length ? ` — ❌ no vienen ${r.faltan.length} referencia(s)` : r && !r.cuadra ? ' — ⚠️ revisar diferencias' : ' — ✅ cuadra'}` });
+  };
+  // 1) por nº de pedido o cliente; 2) por las referencias que coinciden con lo validado
+  const resto = [];
+  for (const x of leidos) {
+    const p = pedidoParaDocumento(x.prop, (q) => q.validado && claveGrupo(q) === clave && !usados.has(q.id));
+    if (p) asignar(x, p, ''); else resto.push(x);
+  }
+  if (resto.length) {
+    const candidatos = E.pedidos.filter((q) => q.validado && q.final && claveGrupo(q) === clave && !q.factura && !usados.has(q.id));
+    const rep = CP.repartirPorContenido(resto.map((x) => ({ id: x.id, lineas: x.prop.lineas })), candidatos.map((q) => ({ id: q.id, lineas: q.final.lineas })));
+    const hechos = new Set();
+    for (const a of rep.asignados) { const x = resto.find((y) => y.id === a.docId); asignar(x, pedidoPorId(a.pedidoId), 'por contenido: ' + textoParecido(a)); hechos.add(x.id); }
+    for (const x of resto) if (!hechos.has(x.id)) sinAsignar.push(Object.assign(x, { destino: 'factura', clave, sugerencia: rep.sugerencias[x.id] || null }));
+  }
+  if (leidos.length > 1) ultimaCarga.push({ ok: true, texto: `Total: ${leidos.length} factura(s) · ${leidos.reduce((t, x) => t + x.prop.lineas.length, 0)} líneas · ${fmt(CP.red2(leidos.reduce((t, x) => t + importeDoc(x.prop), 0)))} €` });
   progreso('');
-  pintar();
+  guardar(); pintar();
   window.scrollTo(0, 0);
 }
 
