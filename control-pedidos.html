@@ -123,6 +123,7 @@ details.grupo>summary::before{content:"▸";color:var(--texto2)}
 details.grupo[open]>summary::before{content:"▾"}
 .pequeno{font-size:12px;color:var(--texto2)}
 .oculto{display:none!important}
+table.lista-pedidos .c-movil{display:none}
 .progreso{font-size:13px;color:var(--texto2);margin-top:6px}
 /* ── Móvil (Android) ──────────────────────────────────────────────────────
    Por debajo de 700px las tablas se convierten en tarjetas: cada fila es una
@@ -160,6 +161,18 @@ details.grupo[open]>summary::before{content:"▾"}
   .resumen{gap:6px}
   .chip{font-size:12px}
   .sugerencia button{padding:6px 8px;margin:4px 4px 0 0}
+  /* Pedidos de una campaña: lista compacta de dos líneas por pedido. */
+  table.lista-pedidos tr{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:0 8px;padding:8px 8px;margin-bottom:6px}
+  table.lista-pedidos tr:has(> th){display:none}
+  table.lista-pedidos td.c-d{display:none}
+  table.lista-pedidos td.c-movil{display:block;text-align:left;padding:0;min-width:0}
+  table.lista-pedidos td::before{display:none}
+  table.lista-pedidos td.c-sel,table.lista-pedidos td.c-borrar{display:block;padding:0;width:auto}
+  table.lista-pedidos td.c-borrar .btn{min-height:38px;padding:4px 10px}
+  table.lista-pedidos .m-tit{font-weight:600;font-size:15px;overflow-wrap:anywhere}
+  table.lista-pedidos .m-dat{font-size:12px;color:var(--texto2);margin-top:2px}
+  table.lista-pedidos .m-est{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+  table.lista-pedidos .m-est .chip{font-size:11px;padding:1px 7px}
 }
 @media print{header,nav,.no-imprimir{display:none!important}body{background:#fff}.tarjeta{border:0}}
 </style>
@@ -340,6 +353,15 @@ function fotosDe(p) {
   if (p.fotos && p.fotos.length) return p.fotos;
   return [...new Set(p.lineas.map((l) => l.foto).filter(Boolean))].map((nombre) => ({ nombre, hoja: '' }));
 }
+/** En el móvil, cada pedido de la campaña en dos líneas: nº y cliente, y debajo
+ *  lo demás en pequeño (en vez de una ficha con una fila por dato). */
+function filaMovil(p, e) {
+  const r = CP.hojasDelPedido(fotosDe(p));
+  const datos = [fmtFecha(p.fecha).slice(0, 5), p.lineas.length + ' lín.', esRepo(p) ? '' : r.fotos ? '📷 ' + r.fotos + (r.total ? '/' + r.total : '') : ''].filter(Boolean).join(' · ');
+  return `<div class="m-tit">${esRepo(p) ? h(p.proveedor) + (p.numero ? ' · nº ' + h(p.numero) : '') : `nº ${h(p.numero)} · ${h(p.cliente)}`}</div>
+    <div class="m-dat">${h(datos)}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}</div>
+    <div class="m-est"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</div>`;
+}
 function celdaFotos(p) {
   const r = CP.hojasDelPedido(fotosDe(p));
   if (!r.fotos) return '—';
@@ -495,18 +517,19 @@ function vistaGrupo(g, i) {
         ${comparados.length ? `<span class="chip ${nF ? 'mal' : 'ok'}">${nF} faltan</span><span class="chip ${nS ? 'aviso' : 'ok'}">${nS} sobran</span>` : ''}
       </span>
     </summary>
-    <div class="tabla-scroll"><table>
+    <div class="tabla-scroll"><table class="lista-pedidos">
       <tr><th class="no-imprimir"><input type="checkbox" title="Seleccionar todos" onchange="this.closest('table').querySelectorAll('.selPed').forEach(c=>c.checked=this.checked)"></th>
-        <th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th>Fotos</th><th>Propuesta</th><th>Estado</th><th class="no-imprimir"></th></tr>
+        <th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th>Fotos</th><th>Propuesta</th><th>Estado</th><th class="c-movil"></th><th class="no-imprimir"></th></tr>
       ${g.pedidos.map((p) => { const e = estadoPedido(p); return `
       <tr class="clic" onclick="if(event.target.type!=='checkbox')abrirPedido('${p.id}')">
-        <td class="no-imprimir"><input type="checkbox" class="selPed" value="${p.id}"></td>
-        <td>${h(fmtFecha(p.fecha))}</td><td>${h(p.numero)}</td><td>${h(esRepo(p) ? '—' : p.cliente)}</td>
-        <td class="num">${p.lineas.length}</td>
-        <td>${esRepo(p) ? '—' : celdaFotos(p)}</td>
-        <td>${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
-        <td><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</td>
-        <td class="no-imprimir"><button class="btn peque peligro" title="Borrar este pedido" onclick="event.stopPropagation(); borrarPedido('${p.id}')">🗑️</button></td>
+        <td class="no-imprimir c-sel"><input type="checkbox" class="selPed" value="${p.id}"></td>
+        <td class="c-d">${h(fmtFecha(p.fecha))}</td><td class="c-d">${h(p.numero)}</td><td class="c-d">${h(esRepo(p) ? '—' : p.cliente)}</td>
+        <td class="num c-d">${p.lineas.length}</td>
+        <td class="c-d">${esRepo(p) ? '—' : celdaFotos(p)}</td>
+        <td class="c-d">${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
+        <td class="c-d"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</td>
+        <td class="c-movil">${filaMovil(p, e)}</td>
+        <td class="no-imprimir c-borrar"><button class="btn peque peligro" title="Borrar este pedido" onclick="event.stopPropagation(); borrarPedido('${p.id}')">🗑️</button></td>
       </tr>`; }).join('')}
     </table></div>
     <div class="fila no-imprimir" style="margin-top:10px">
