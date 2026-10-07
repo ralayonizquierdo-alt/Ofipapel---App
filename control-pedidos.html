@@ -329,15 +329,10 @@ function agruparPedidos(lista) {
   }
   return grupos;
 }
-/** Carga de propuestas/facturas varias, común a Pedidos y Reposición. */
-function bloqueCargaDocumentos() {
+/** Resultado de la última carga de propuestas o facturas (y las que hay que
+ *  confirmar). Las cargas se lanzan desde cada campaña o grupo. */
+function bloqueResultadosCarga() {
   return `
-    <div class="fila no-imprimir" style="margin-bottom:10px">
-      <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📄 Cargar propuestas o facturas del proveedor (varias a la vez)
-        <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files); this.value=''">
-      </label>
-      <span class="pequeno" style="max-width:460px">PDF, Excel o foto, todas de golpe. Cada una se asigna a su pedido por el nº de pedido, el cliente o las referencias que coinciden; las que no, te las pregunto.</span>
-    </div>
     <div id="progresoProps" class="progreso"></div>
     <div id="avisoCarga">${vistaSinAsignar()}</div>`;
 }
@@ -355,6 +350,7 @@ function vistaReposicion() {
   </div>
   <div class="tarjeta">
     <h2>Pedidos de reposición</h2>
+    ${bloqueResultadosCarga()}
     ${grupos.size ? [...grupos.values()].map(vistaGrupo).join('') : '<div class="vacio">Todavía no hay pedidos de reposición.</div>'}
   </div>`;
 }
@@ -384,7 +380,7 @@ function vistaLista() {
 
   <div class="tarjeta">
     <h2>Campañas del comercial</h2>
-    ${bloqueCargaDocumentos()}
+    ${bloqueResultadosCarga()}
     ${grupos.size ? [...grupos.values()].map(vistaGrupo).join('') : `<div class="vacio">Todavía no hay pedidos del comercial. Sube las fotos de una campaña arriba o crea uno en «✍️ Pedido a mano». Los pedidos de reposición están en su pestaña «🔄 Reposición».</div>`}
   </div>`;
 }
@@ -443,6 +439,8 @@ function vistaGrupo(g, i) {
       ${esRepo(ej) ? '' : `<label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📷 Añadir pedidos por foto a esta campaña
         <input type="file" accept="image/*" multiple class="oculto" onchange="subirFotosCampana(this.files, ${js(ej.proveedor)}, ${js(ej.campana || '')}); this.value=''"></label>
       <button class="btn" onclick="otroPedidoCampana(${js(ej.proveedor)}, ${js(ej.campana || '')})">✍️ Añadir pedido a mano a esta campaña</button>
+      <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📄 Cargar propuestas del proveedor de esta campaña
+        <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
       <button class="btn peque" onclick="renombrarCampana(${js(g.clave)})">✏️ ${ej.campana ? 'Renombrar' : 'Poner nombre a'} la campaña</button>`}
       <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">Excel Géminis de los seleccionados</button>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales${esRepo(ej) ? ' (opcional)' : ''}
@@ -1523,7 +1521,8 @@ function importeDoc(prop) {
 }
 const textoParecido = (x) => `${x.comunes} de ${x.deDoc} referencias coinciden`;
 
-async function cargarPropuestasVarias(files) {
+async function cargarPropuestasVarias(files, clave) {
+  const enCampana = (q) => !clave || claveGrupo(q) === clave;
   // Copia antes del primer await: el onchange hace this.value='' justo después
   // de llamar, y eso vacía la FileList original (solo se procesaba el primero).
   const lista = [...files];
@@ -1553,15 +1552,15 @@ async function cargarPropuestasVarias(files) {
   // 2) Por nº de pedido o cliente que traiga el documento.
   const resto = [];
   for (const x of leidos) {
-    const p = pedidoParaDocumento(x.prop, (q) => !q.validado && !usados.has(q.id));
+    const p = pedidoParaDocumento(x.prop, (q) => !q.validado && enCampana(q) && !usados.has(q.id));
     if (p) asignar(x, p, ''); else resto.push(x);
   }
   // 3) Los que no: por las referencias que coinciden con pedidos sin propuesta
   //    (también los que quedaron pendientes de otra carga).
-  const pendientesAntes = sinAsignar.filter((y) => y.destino !== 'factura');
+  const pendientesAntes = sinAsignar.filter((y) => y.destino !== 'factura' && (y.clave || null) === (clave || null));
   const porContenido = resto.concat(pendientesAntes);
   if (porContenido.length) {
-    const candidatos = E.pedidos.filter((q) => !q.validado && !q.propuesta && q.lineas.length && !usados.has(q.id));
+    const candidatos = E.pedidos.filter((q) => !q.validado && enCampana(q) && !q.propuesta && q.lineas.length && !usados.has(q.id));
     const rep = CP.repartirPorContenido(porContenido.map((x) => ({ id: x.id, lineas: x.prop.lineas })), candidatos);
     const asignadosIds = new Set();
     for (const a of rep.asignados) {
@@ -1572,7 +1571,7 @@ async function cargarPropuestasVarias(files) {
     sinAsignar = sinAsignar.filter((y) => !asignadosIds.has(y.id));
     for (const x of resto) {
       if (asignadosIds.has(x.id)) continue;
-      sinAsignar.push(Object.assign(x, { sugerencia: rep.sugerencias[x.id] || null }));
+      sinAsignar.push(Object.assign(x, { clave: clave || null, sugerencia: rep.sugerencias[x.id] || null }));
     }
     for (const y of sinAsignar) if (!asignadosIds.has(y.id) && rep.sugerencias[y.id]) y.sugerencia = rep.sugerencias[y.id];
   }
@@ -1583,13 +1582,14 @@ async function cargarPropuestasVarias(files) {
   }
   progreso('');
   guardar(); pintar();
+  const caja = document.getElementById('avisoCarga'); if (caja) caja.scrollIntoView({ block: 'start' });
 }
 
 function vistaSinAsignar() {
   const ok = ultimaCarga.filter((x) => x.ok), mal = ultimaCarga.filter((x) => !x.ok);
   const opcionesDe = (x) => (x.destino === 'factura'
     ? E.pedidos.filter((p) => p.validado && claveGrupo(p) === x.clave)
-    : E.pedidos.filter((p) => !p.validado).sort((a, b) => Number(Boolean(a.propuesta)) - Number(Boolean(b.propuesta))))
+    : E.pedidos.filter((p) => !p.validado && (!x.clave || claveGrupo(p) === x.clave)).sort((a, b) => Number(Boolean(a.propuesta)) - Number(Boolean(b.propuesta))))
     .map((p) => `<option value="${p.id}">${esRepo(p) ? 'Repo.' : 'Nº'} ${h(p.numero || '—')} ${h(p.cliente || p.proveedor)}${x.destino === 'factura' ? (p.factura ? ' (ya tiene factura)' : '') : p.propuesta ? ' (ya tiene propuesta)' : ''}</option>`).join('');
   return (ok.length ? `<div class="aviso-caja ok">${ok.map((x) => h(x.texto)).join('<br>')}</div>` : '') +
     (mal.length ? `<div class="aviso-caja mal">No se han podido leer:<br>${mal.map((x) => h(x.texto)).join('<br>')}</div>` : '') +
@@ -1730,7 +1730,7 @@ async function cargarFacturasVarias(files, clave) {
   if (leidos.length > 1) ultimaCarga.push({ ok: true, texto: `Total: ${leidos.length} factura(s) · ${leidos.reduce((t, x) => t + x.prop.lineas.length, 0)} líneas · ${fmt(CP.red2(leidos.reduce((t, x) => t + importeDoc(x.prop), 0)))} €` });
   progreso('');
   guardar(); pintar();
-  window.scrollTo(0, 0);
+  const caja = document.getElementById('avisoCarga'); if (caja) caja.scrollIntoView({ block: 'start' });
 }
 
 // ── Validar: restos y notas ──────────────────────────────────────────────────
