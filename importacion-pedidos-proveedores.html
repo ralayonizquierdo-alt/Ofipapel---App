@@ -324,7 +324,7 @@ async function extraerLineasPDFRotado(file){
 // salvo parseDecPunto, que es al revés, para proveedores como NOGUERA).
 // ═══════════════════════════════════════════════════════
 function fila_(o){
-  return Object.assign({codigo:'', descripcion:'', cantidad:0, precioUnitario:0, dto1:0, dto2:0, dto3:0, dto4:0, importe:0, ean:''}, o);
+  return Object.assign({codigo:'', descripcion:'', cantidad:0, precioUnitario:0, dto1:0, dto2:0, dto3:0, dto4:0, importe:0, ean:'', igic:''}, o);
 }
 function parseDecComa(s){ return parseFloat(String(s).replace(/\./g,'').replace(',','.')); }
 function parseDecPunto(s){ return parseFloat(String(s).replace(/,/g,'')); }
@@ -733,7 +733,7 @@ function parsePryse(lineas){
 function parseMandatelo(lineas){
   const filas = [];
   const RE_A = /^([A-Z0-9]{4,10})\s+(\d{13})\s+(.*?)\s*(\d+,\d{2})\s+(\d+,\d{2})\s+(?:(\d+,\d{2})\s+(\d+,\d{2})\s+)?(\d+)\s+(\d+(?:\.\d{3})*,\d{2})$/;
-  const RE_B = /^([A-Z0-9.\-]{4,16})\s+(?:(\d{13})\s+)?(.*?)\s*(\d+(?:[.,]\d{2})?)\s+(\d+(?:[.,]\d{2}))\s+(?:(\d+(?:[.,]\d{2}))\s+(\d+(?:[.,]\d{2}))\s+)?(\d+(?:\.\d{3})*(?:[.,]\d{2}))(?:\s+\d+(?:[.,]\d{2}))?$/;
+  const RE_B = /^([A-Z0-9.\-]{4,16})\s+(?:(\d{13})\s+)?(.*?)\s*(\d+(?:[.,]\d{2})?)\s+(\d+(?:[.,]\d{2}))\s+(?:(\d+(?:[.,]\d{2}))\s+(\d+(?:[.,]\d{2}))\s+)?(\d+(?:\.\d{3})*(?:[.,]\d{2}))(?:\s+(\d+(?:[.,]\d{2})))?$/;
   let prevLine = '';
   lineas.forEach(l=>{
     const ma = l.match(RE_A);
@@ -742,7 +742,7 @@ function parseMandatelo(lineas){
       if(!desc) desc = prevLine;
       filas.push(fila_({codigo:ma[1], descripcion:desc, cantidad:Math.round(parseDecComa(ma[4])),
         precioUnitario:parseDecComa(ma[5]), dto1: ma[6]?parseDecComa(ma[6]):0, dto2: ma[7]?parseDecComa(ma[7]):0,
-        importe:parseDecComa(ma[9]), ean:ma[2]}));
+        importe:parseDecComa(ma[9]), ean:ma[2], igic:ma[8]}));
       prevLine = l;
       return;
     }
@@ -752,7 +752,7 @@ function parseMandatelo(lineas){
       if(!desc) desc = prevLine;
       filas.push(fila_({codigo:mb[1], descripcion:desc, cantidad:Math.round(parseDecFlex(mb[4])),
         precioUnitario:parseDecFlex(mb[5]), dto1: mb[6]?parseDecFlex(mb[6]):0, dto2: mb[7]?parseDecFlex(mb[7]):0,
-        importe:parseDecFlex(mb[8]), ean:mb[2]||''}));
+        importe:parseDecFlex(mb[8]), ean:mb[2]||'', igic: mb[9]?parseDecFlex(mb[9]):''}));
     }
     prevLine = l;
   });
@@ -1818,7 +1818,8 @@ function procesarFacturaConPerfil(lineas, texto, perfil, viaOCR){
     udes: f.cantidad,
     precioU: f.precioUnitario,
     dto1: f.dto1, dto2: f.dto2, dto3: f.dto3, dto4: f.dto4,
-    importe: f.importe
+    importe: f.importe,
+    igic: f.igic || ''
   }));
   ordenActual = {campo:null, asc:true};
   renderFilas();
