@@ -11,7 +11,10 @@
 <link rel="apple-touch-icon" href="icon-ofipapel-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="control-pedidos-logica.js"></script>
+<!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
+     nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
+     vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
+<script src="control-pedidos-logica.js?v=2026-10-07-2"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -40,7 +43,8 @@ header h1{margin:0 0 10px;font-size:22px;display:flex;align-items:center;gap:10p
 .nube{font-size:12px;font-weight:500;background:#fff2;border-radius:12px;padding:3px 9px;white-space:nowrap;cursor:pointer;border:0;color:#fff}
 .nube.mal{background:#b3261e}
 #avisoNube{max-width:1180px;margin:0 auto;padding:10px 16px 0}
-#avisoNube:empty{display:none}
+#avisoNube:empty,#avisoFallo:empty{display:none}
+#avisoFallo{max-width:1180px;margin:0 auto;padding:10px 16px 0}
 /* Entrada con usuario: tapa toda la app hasta que hay sesión. */
 #login{position:fixed;inset:0;z-index:50;background:linear-gradient(135deg,var(--verde-oscuro),var(--verde));display:flex;align-items:center;justify-content:center;padding:16px}
 #login form{background:#fff;border-radius:14px;padding:22px;width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 40px #0004}
@@ -172,6 +176,7 @@ details.grupo[open]>summary::before{content:"▾"}
     <button data-vista="datos">Datos</button>
   </nav>
 </header>
+<div id="avisoFallo" class="no-imprimir"></div>
 <div id="avisoNube" class="no-imprimir"></div>
 <main id="main"></main>
 <div id="login" class="oculto">
@@ -197,6 +202,14 @@ details.grupo[open]>summary::before{content:"▾"}
 <script>
 'use strict';
 const CP = window.ControlPedidos;
+// Cualquier fallo, a la vista: mejor un aviso rojo que una app que no responde.
+window.addEventListener('error', (ev) => mostrarFallo(ev.message));
+window.addEventListener('unhandledrejection', (ev) => mostrarFallo(ev.reason && (ev.reason.message || ev.reason)));
+function mostrarFallo(msg) {
+  const c = document.getElementById('avisoFallo');
+  if (!c || !msg) return;
+  c.innerHTML = `<div class="aviso-caja mal" style="margin:0"><b>⚠️ Algo ha fallado:</b> ${String(msg).replace(/[<>&]/g, '')}. Recarga la página; si se repite, haz captura de este aviso.</div>`;
+}
 const CLAVE = 'ofipapel.controlPedidos.v1';
 const OCR_TOKEN = 'ofipapel-ocr-2026'; // el mismo que leer-reserva-airbnb; no es un secreto (ver la función)
 const FN = '/.netlify/functions/';
@@ -262,7 +275,7 @@ function pintarCuentas() {
 
 function pintar() {
   if (pedidoAbierto && !pedidoPorId(pedidoAbierto)) pedidoAbierto = null; // lo borró otro dispositivo
-  pintarNube();
+  try { pintarNube(); } catch (e) { mostrarFallo('estado de la nube: ' + e.message); }
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('activa', b.dataset.vista === vista));
   const main = document.getElementById('main');
   const importar = document.getElementById('vistaImportar');
@@ -2317,6 +2330,13 @@ async function salir() {
 }
 
 async function arrancar() {
+  if (typeof CP.cambiosPendientes !== 'function') {
+    // Lógica vieja con HTML nuevo: no se sincroniza (no se arriesga nada) y se avisa.
+    nube.estado = 'error';
+    mostrarFallo('se ha cargado una versión vieja de la app. Recarga la página (sin borrar los datos del navegador)');
+    pintar();
+    return;
+  }
   if (!window.supabase || !window.supabase.createClient) {
     // Sin la librería (sin cobertura al abrir): se trabaja en local.
     nube.estado = 'sin-libreria';
