@@ -363,3 +363,17 @@ test('el Excel de Géminis va en el orden de la propuesta del proveedor; lo que 
   assert.deepEqual(CP.ordenarComoPropuesta(finales, propuesta).map((l) => l.ref), ['C', 'A', 'B', 'X', 'Y']);
   assert.deepEqual(CP.ordenarComoPropuesta(finales, null).map((l) => l.ref), ['A', 'X', 'B', 'C', 'Y'], 'sin propuesta, se queda como está');
 });
+
+test('la factura final manda: lo validado que no viene en ella queda como resto, a precio de cliente', () => {
+  const validadas = [
+    { ref: 'A', desc: 'Agenda', cant: 3, precio: 4, precioCliente: 9 },
+    { ref: 'B', desc: 'Bloc', cant: 2, precio: 1 },
+    { ref: 'C', desc: 'Carpeta', cant: 1, precio: 2 },
+  ];
+  const factura = [{ ref: 'A', cant: 1, precio: 4 }, { ref: 'C', cant: 1, precio: 2 }, { ref: 'Z', cant: 5, precio: 1 }];
+  assert.deepEqual(CP.restosDeFactura(validadas, factura), [
+    { ref: 'A', desc: 'Agenda', ean: '', cant: 2, precio: 9 },
+    { ref: 'B', desc: 'Bloc', ean: '', cant: 2, precio: 1 },
+  ]);
+  assert.deepEqual(CP.restosDeFactura(validadas, validadas), [], 'si cuadra, no hay restos');
+});

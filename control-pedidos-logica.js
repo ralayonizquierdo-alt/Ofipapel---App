@@ -339,6 +339,21 @@
   }
 
   /**
+   * La factura final manda: lo validado que no viene en ella queda en RESTOS
+   * del cliente, como si el proveedor no lo tuviera en stock. Devuelve las
+   * líneas de resto (cant = lo que falta) con el precio al cliente.
+   */
+  function restosDeFactura(lineasValidadas, lineasFactura, opciones) {
+    const r = controlFactura(lineasValidadas, lineasFactura, opciones);
+    const porRef = new Map((lineasValidadas || []).map((l) => [normRef(l.ref), l]));
+    return r.faltan.map((x) => {
+      const l = porRef.get(normRef(x.ref)) || {};
+      return { ref: x.ref, desc: x.desc || l.desc || '', ean: l.ean || '', cant: x.cant,
+        precio: l.precioCliente != null ? l.precioCliente : (l.precio != null ? l.precio : null) };
+    });
+  }
+
+  /**
    * Fotos de un pedido y hojas del talonario: «1/4», «hoja 2 de 4», «3-4»…
    * Devuelve cuántas fotos hay, las hojas leídas, el total que dicen (el
    * mayor) y las que faltan, para avisar si alguna foto se quedó atrás.
@@ -834,7 +849,7 @@
   const api = {
     TOLERANCIA, PLANTILLA_GEMINIS,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
