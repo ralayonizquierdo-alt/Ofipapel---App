@@ -468,11 +468,11 @@ function vistaGrupo(g, i) {
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📄 Cargar propuestas del proveedor de esta campaña
         <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
       <button class="btn peque" onclick="renombrarCampana(${js(g.clave)})">✏️ ${ej.campana ? 'Renombrar' : 'Poner nombre a'} la campaña</button>`}
-      <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">Excel Géminis de los seleccionados</button>
+      <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel de la compra al proveedor (Géminis)</button>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales${esRepo(ej) ? ' (opcional)' : ''}
         <input type="file" multiple class="oculto" onchange="cargarFacturasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
       ${esRepo(ej) ? '' : `<button class="btn" onclick="imprimirGuiaFacturacion(${js(g.clave)})">🧾 Imprimir guía de facturación</button>`}
-      <span class="pequeno">Solo pedidos validados. Varias selecciones se suman por referencia en un único pedido.</span>
+      <span class="pequeno">El Excel es la <b>compra al proveedor</b>: lo que nos factura, a su precio y descuento y en su orden, no el pedido del cliente. Sin marcar ninguno, sale toda la campaña; marcando pedidos, solo esos. Solo pedidos validados; varios se suman por referencia.</span>
     </div>
     ${comparados.length ? `
     <h3 style="margin-top:14px">Faltas y sobras</h3>
@@ -1038,7 +1038,7 @@ function vistaComparacion(p, filas) {
     </div>
     ${p.validado ? `<div class="fila no-imprimir" style="margin-top:10px">
       ${esRepo(p) ? `<button class="btn" onclick="window.print()">Imprimir comparación</button>` : `<button class="btn" onclick="imprimirListado('${p.id}')">Imprimir listado del cliente</button>`}
-      <button class="btn" onclick="exportarPedidos(['${p.id}'])">Excel Géminis de este pedido</button>
+      <button class="btn" onclick="exportarPedidos(['${p.id}'])">📥 Excel de la compra al proveedor (Géminis)</button>
     </div>` : ''}
   </div>`;
 }
@@ -2004,8 +2004,10 @@ function imprimirListado(id) {
 }
 
 function exportarSeleccionados(raiz) {
-  const ids = [...(raiz || document).querySelectorAll('.selPed:checked')].map((c) => c.value);
-  if (!ids.length) { alert('Marca los pedidos que quieres exportar.'); return; }
+  // Sin marcar ninguno: la compra entera de la campaña.
+  let ids = [...(raiz || document).querySelectorAll('.selPed:checked')].map((c) => c.value);
+  if (!ids.length) ids = [...(raiz || document).querySelectorAll('.selPed')].map((c) => c.value);
+  if (!ids.length) { alert('No hay pedidos que exportar.'); return; }
   exportarPedidos(ids);
 }
 function exportarPedidos(ids) {
