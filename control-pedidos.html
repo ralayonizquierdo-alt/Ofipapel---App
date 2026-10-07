@@ -472,7 +472,7 @@ function vistaGrupo(g, i) {
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales${esRepo(ej) ? ' (opcional)' : ''}
         <input type="file" multiple class="oculto" onchange="cargarFacturasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
       ${esRepo(ej) ? '' : `<button class="btn" onclick="imprimirGuiaFacturacion(${js(g.clave)})">🧾 Imprimir guía de facturación</button>`}
-      <span class="pequeno">El Excel es la <b>compra al proveedor</b>: lo que nos factura, a su precio y descuento y en su orden, no el pedido del cliente. Sin marcar ninguno, sale toda la campaña; marcando pedidos, solo esos. Solo pedidos validados; varios se suman por referencia.</span>
+      <span class="pequeno">El Excel es la <b>compra al proveedor</b>: lo que nos factura, a su precio y descuento y en su orden, no el pedido del cliente; si ya está la factura final, sale de ella. Sin marcar ninguno, sale toda la campaña; marcando pedidos, solo esos. Solo pedidos validados; varios se suman por referencia.</span>
     </div>
     ${comparados.length ? `
     <h3 style="margin-top:14px">Faltas y sobras</h3>
@@ -1685,7 +1685,7 @@ function vistaFacturaFinal(p) {
   return `
   <div class="tarjeta">
     <h2>4 · Factura final del proveedor <span class="pequeno">(último control${esRepo(p) ? ', opcional' : ''})</span></h2>
-    <p class="pequeno" style="margin:0 0 8px">Sube la factura definitiva: la comparo con lo que validaste y te digo si falta alguna referencia, si viene algo de más o si cambia algún precio.</p>
+    <p class="pequeno" style="margin:0 0 8px">Sube la factura definitiva: la comparo con lo que validaste y te digo si falta alguna referencia, si viene algo de más o si cambia algún precio. <b>Manda la factura:</b> en cuanto está, el Excel de Géminis sale de ella.</p>
     <div class="fila no-imprimir">
       <label>Factura final (PDF, Excel o foto)<input type="file" onchange="cargarFacturaEn('${p.id}', this.files[0]); this.value=''"></label>
     </div>
@@ -1698,11 +1698,27 @@ function vistaFacturaFinal(p) {
       ${r.faltan.length ? lista(r.faltan, (x) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — faltan ${x.cant}${x.total ? '' : ` de ${x.de}`} ud.</li>`) : ''}</div>
     ${r.sobran.length ? `<div class="aviso-caja aviso"><b>⚠️ Facturado sin estar en lo validado (${r.sobran.length})</b>${lista(r.sobran, (x) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — +${x.cant} ud.</li>`)}</div>` : ''}
     ${r.precios.length ? `<div class="aviso-caja aviso"><b>Precio neto distinto al validado (${r.precios.length})</b>${lista(r.precios, (x) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — validado ${fmt(x.validado)} → facturado ${fmt(x.facturado)}</li>`)}</div>` : ''}
-    ${r.faltan.length ? '<p class="pequeno">Lo que no viene en la factura no sale en la guía de facturación del cliente.</p>' : ''}`}`}
+    ${r.faltan.length ? `<p class="pequeno">${esRepo(p) ? 'Lo que no viene en la factura no entra en el Excel de Géminis: reclámalo al proveedor si hace falta.' : 'La factura manda: lo que no viene <b>pasa a Restos del cliente</b> (como si no hubiera stock), no sale en su guía de facturación ni en el Excel de Géminis.'}</p>` : ''}`}`}
   </div>`;
 }
 function asignarFactura(p, archivo, doc) {
   p.factura = { archivo, fecha: hoy(), cabecera: doc.cabecera || {}, lineas: doc.lineas, control: doc.control || null };
+  restosPorFactura(p);
+}
+/** La factura final manda: lo validado que no viene en ella pasa a Restos del
+ *  cliente (solo pedidos del comercial; la reposición nunca va a Restos). Se
+ *  regenera cada vez; los que ya tienen llegadas registradas no se tocan. */
+function restosPorFactura(p) {
+  if (esRepo(p)) return;
+  const conLlegadas = E.restos.filter((x) => x.pedidoId === p.id && x.deFactura && x.asignaciones.length);
+  E.restos = E.restos.filter((x) => x.pedidoId !== p.id || !x.deFactura || x.asignaciones.length);
+  if (!p.factura || !p.final) return;
+  const opc = { dtoValidado: p.final.dto, dtoFactura: (p.factura.cabecera || {}).dtoGlobal };
+  for (const x of CP.restosDeFactura(p.final.lineas, p.factura.lineas, opc)) {
+    if (conLlegadas.some((c) => CP.normRef(c.ref) === CP.normRef(x.ref))) continue;
+    E.restos.push({ id: nuevoId(), pedidoId: p.id, proveedor: p.proveedor, cliente: p.cliente, numero: p.numero, ref: x.ref, desc: x.desc, ean: x.ean,
+      precio: x.precio, cant: x.cant, pendiente: x.cant, fecha: p.fecha, asignaciones: [], anulado: false, deFactura: true });
+  }
 }
 async function cargarFacturaEn(id, file) {
   if (!file) return;
@@ -1782,6 +1798,7 @@ function validarPedido() {
   }
   p.final = { fecha: hoy(), lineas: r.lineas, dto: (p.propuesta.cabecera || {}).dtoGlobal };
   p.validado = true;
+  restosPorFactura(p);
   if (esRepo(p)) {
     // Precio neto aceptado → historial del proveedor, para comparar los próximos.
     const hist = E.historial[p.proveedor] = E.historial[p.proveedor] || {};
@@ -1827,7 +1844,7 @@ function vistaRestos() {
     ${lista.length ? `<div class="tabla-scroll"><table style="margin-top:10px">
       <tr><th>Fecha</th><th>Proveedor</th><th>Cliente</th><th>Pedido</th><th>Referencia</th><th>Descripción</th><th class="num">Pedidas</th><th class="num">Pendientes</th><th>Llegadas</th><th class="no-imprimir"></th></tr>
       ${lista.map((r) => `<tr>
-        <td>${h(fmtFecha(r.fecha))}</td><td>${h(r.proveedor)}</td><td><b>${h(r.cliente)}</b></td><td>${h(r.numero)}</td>
+        <td>${h(fmtFecha(r.fecha))}</td><td>${h(r.proveedor)}</td><td><b>${h(r.cliente)}</b></td><td>${h(r.numero)}${r.deFactura ? ' <span class="chip gris">no vino en la factura</span>' : ''}</td>
         <td>${h(r.ref)}</td><td>${h(r.desc)}</td><td class="num">${r.cant}</td>
         <td class="num">${r.anulado ? '<span class="chip gris">Anulado</span>' : r.pendiente > 0 ? `<span class="chip aviso">${r.pendiente}</span>` : '<span class="chip ok">Servido</span>'}</td>
         <td class="pequeno">${r.asignaciones.map((a) => `${h(fmtFecha(a.fecha))}: ${a.cant} (${h(a.origen)})`).join('<br>') || '—'}</td>
@@ -2022,9 +2039,11 @@ function exportarPedidos(ids) {
   const decimales = CP.parseNum(localStorage.getItem('cp.decimales') || '2');
   const suma = new Map();
   for (const p of ps) {
-    // En el orden en que factura el proveedor (el de su propuesta).
-    const enOrden = CP.ordenarComoPropuesta(p.final.lineas, p.propuesta && p.propuesta.lineas);
-    for (const l of CP.lineasParaGeminis(enOrden, { dtoGlobal: p.final.dto, decimales })) {
+    // La factura final manda: si está, el Excel es ella tal cual (su orden,
+    // precio y descuento). Si no, lo validado en el orden de la propuesta.
+    const enOrden = p.factura ? p.factura.lineas : CP.ordenarComoPropuesta(p.final.lineas, p.propuesta && p.propuesta.lineas);
+    const dtoGlobal = p.factura ? (p.factura.cabecera || {}).dtoGlobal : p.final.dto;
+    for (const l of CP.lineasParaGeminis(enOrden, { dtoGlobal, decimales })) {
       const k = [l.ref, l.precio, l.dto].join('|');
       if (!suma.has(k)) { suma.set(k, Object.assign({}, l)); continue; }
       const g = suma.get(k);
