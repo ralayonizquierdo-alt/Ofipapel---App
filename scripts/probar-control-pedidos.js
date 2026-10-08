@@ -503,3 +503,12 @@ test('pedido de Géminis («Propuesta de Pedido»): la cantidad es «Unidades»,
   assert.deepEqual(d.lineas.map((l) => l.cant), [30, 12, 6, 20]);
   assert.equal(CP.leerPedidoGeminis(['FACTURA', 'Ref Cantidad Precio', 'A 1 2,00']), null, 'otro documento: a la IA');
 });
+
+test('Excel de Géminis: la columna UdsXCja va en la plantilla pero en blanco; la cantidad, en «Pedidas»', () => {
+  const aoa = CP.filasGeminis([{ ref: 'A', desc: 'X', cant: 30, udsCaja: 10, precio: 1.065, dto: 0 }], {}, {});
+  const P = CP.PLANTILLA_GEMINIS;
+  const fila = aoa[P.primeraFila - 1];
+  assert.equal(aoa[P.primeraFila - 2][P.columnas.indexOf('udsCaja')], 'UdsXCja', 'la columna sigue en la plantilla');
+  assert.equal(fila[P.columnas.indexOf('udsCaja')], '');
+  assert.equal(fila[P.columnas.indexOf('cant')], 30);
+});
