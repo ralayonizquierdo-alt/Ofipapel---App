@@ -512,3 +512,16 @@ test('Excel de Géminis: la columna UdsXCja va en la plantilla pero en blanco; l
   assert.equal(fila[P.columnas.indexOf('udsCaja')], '');
   assert.equal(fila[P.columnas.indexOf('cant')], 30);
 });
+
+test('envío al proveedor: un bloque por pedido (nº y cliente), sin precios, por orden de nº', () => {
+  const r = CP.pedidosParaProveedor([
+    { numero: '10', cliente: 'CLIENTE B', lineas: [{ ref: 'A1', desc: 'AGENDA', cant: 2, precio: 3.5 }, { ref: '', desc: '', cant: 1 }] },
+    { numero: '9', cliente: 'CLIENTE A', lineas: [{ ref: 'E1', desc: 'EXPOSITOR', cant: 1, exp: true, precio: 0 }, { ref: 'Z', cant: 0 }] },
+    { numero: '11', cliente: 'VACÍO', lineas: [] },
+  ]);
+  assert.deepEqual(r, [
+    { numero: '9', cliente: 'CLIENTE A', lineas: [{ cant: 1, exp: true, ref: 'E1', desc: 'EXPOSITOR' }] },
+    { numero: '10', cliente: 'CLIENTE B', lineas: [{ cant: 2, exp: false, ref: 'A1', desc: 'AGENDA' }] },
+  ]);
+  assert.ok(!JSON.stringify(r).includes('precio'), 'sin precios');
+});

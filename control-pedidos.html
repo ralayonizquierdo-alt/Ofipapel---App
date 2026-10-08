@@ -15,7 +15,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-08-2"></script>
+<script src="control-pedidos-logica.js?v=2026-10-08-3"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -109,6 +109,11 @@ main{overflow-wrap:anywhere}
 #vistaImportar iframe{display:block;width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid var(--borde);border-radius:12px;background:#fff}
 .importar-barra{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:10px 0}
 li.descartada{text-decoration:line-through;opacity:.65}
+.dlg{border:0;border-radius:14px;padding:18px;width:min(560px,94vw);box-shadow:0 10px 40px #0005}
+.dlg::backdrop{background:#0006}
+.dlg h2{margin:0 0 10px;color:var(--verde-oscuro);font-size:18px}
+.dlg label{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+.dlg textarea{min-height:110px}
 .libreta{margin:10px 0}
 .libreta-cab{margin-bottom:6px}
 /* Hoja de libreta: renglones azules de 36px, margen rojo y columnas como el talonario. */
@@ -212,6 +217,7 @@ table.lista-pedidos .c-movil{display:none}
 <div id="avisoFallo" class="no-imprimir"></div>
 <div id="avisoNube" class="no-imprimir"></div>
 <main id="main"></main>
+<dialog id="dlgEnvio" class="dlg"></dialog>
 <div id="login" class="oculto">
   <form onsubmit="event.preventDefault(); entrarConUsuario()">
     <h2>Control de Pedidos</h2>
@@ -534,6 +540,7 @@ function vistaGrupo(g, i) {
         <span class="chip gris">${g.pedidos.length} pedido(s)</span>
         ${nFotos ? `<span class="chip gris">📷 ${nFotos} foto(s)</span>` : ''}
         ${hojasFaltan ? `<span class="chip mal">⚠️ ${hojasFaltan} hoja(s) sin subir</span>` : ''}
+        ${esRepo(ej) ? '' : chipEnvio(g.pedidos)}
         <span class="chip ${validados === g.pedidos.length ? 'ok' : 'info'}">${validados} validado(s)</span>
         ${comparados.length ? `<span class="chip ${nF ? 'mal' : 'ok'}">${nF} faltan</span><span class="chip ${nS ? 'aviso' : 'ok'}">${nS} sobran</span>` : ''}
       </span>
@@ -548,7 +555,7 @@ function vistaGrupo(g, i) {
         <td class="num c-d">${p.lineas.length}</td>
         <td class="c-d">${esRepo(p) ? '—' : celdaFotos(p)}</td>
         <td class="c-d">${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
-        <td class="c-d"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</td>
+        <td class="c-d"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}${p.envio ? ` <span class="chip info" title="Enviado a ${h(p.envio.para || '')}">📧 ${h(fmtFecha(String(p.envio.fecha).slice(0, 10)).slice(0, 5))}</span>` : ''}</td>
         <td class="c-movil">${filaMovil(p, e)}</td>
         <td class="no-imprimir c-borrar"><button class="btn peque peligro" title="Borrar este pedido" onclick="event.stopPropagation(); borrarPedido('${p.id}')">🗑️</button></td>
       </tr>`; }).join('')}
@@ -557,6 +564,7 @@ function vistaGrupo(g, i) {
       ${esRepo(ej) ? '' : `<label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📷 Añadir pedidos por foto a esta campaña
         <input type="file" accept="image/*" multiple class="oculto" onchange="subirFotosCampana(this.files, ${js(ej.proveedor)}, ${js(ej.campana || '')}); this.value=''"></label>
       <button class="btn" onclick="otroPedidoCampana(${js(ej.proveedor)}, ${js(ej.campana || '')})">✍️ Añadir pedido a mano a esta campaña</button>
+      <button class="btn primario" onclick="prepararEnvio(${js(g.clave)}, this.closest('details'))">📧 Enviar pedidos al proveedor</button>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📄 Cargar propuestas del proveedor de esta campaña
         <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
       <button class="btn peque" onclick="renombrarCampana(${js(g.clave)})">✏️ ${ej.campana ? 'Renombrar' : 'Poner nombre a'} la campaña</button>`}
@@ -2200,6 +2208,143 @@ function imprimirListado(id) {
   ${restos.map((r) => `<tr><td>${r.pendiente}</td><td>${h(r.ref)}</td><td>${h(r.desc)}</td></tr>`).join('')}</table>` : ''}
   <script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
+}
+
+// ── Enviar los pedidos de una campaña al proveedor ───────────────────────────
+// Un PDF sin precios con un bloque por pedido (nº y cliente) y el correo listo
+// en el programa de correo de cada uno (sale de compras@ y queda en Enviados).
+// Sin servidor de correo: en móvil/tableta el PDF se adjunta solo (compartir);
+// donde no se puede, se descarga y se abre el correo para adjuntarlo a mano.
+const MENSAJE_ENVIO = 'Hola, muy buenas\n\nAdjunto un nuevo pedido para valorar indicando posibles faltas de stock\n\nSaludos';
+const JSPDF = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+const JSPDF_TABLA = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js';
+let envio = null; // {ids, proveedor, campana, file, nombre}
+const cargarScript = (src) => new Promise((ok, mal) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => mal(new Error('no se pudo cargar ' + src.split('/').pop())); document.head.appendChild(s); });
+function chipEnvio(ps) {
+  const env = ps.filter((p) => p.envio);
+  if (!env.length) return '';
+  const ult = env.map((p) => String(p.envio.fecha)).sort().pop();
+  return env.length === ps.length
+    ? `<span class="chip ok">📧 enviada ${h(fmtFecha(ult.slice(0, 10)).slice(0, 5))}</span>`
+    : `<span class="chip aviso">📧 ${env.length} de ${ps.length} enviados</span>`;
+}
+function correoProveedor(proveedor) {
+  const conEnvio = E.pedidos.filter((p) => prov(p.proveedor) === prov(proveedor) && p.envio && p.envio.para)
+    .sort((a, b) => String(b.envio.fecha).localeCompare(String(a.envio.fecha)));
+  return conEnvio.length ? conEnvio[0].envio.para : '';
+}
+async function prepararEnvio(clave, raiz) {
+  let ids = [...(raiz || document).querySelectorAll('.selPed:checked')].map((c) => c.value);
+  if (!ids.length) ids = E.pedidos.filter((p) => claveGrupo(p) === clave).map((p) => p.id);
+  const ps = ids.map(pedidoPorId).filter(Boolean);
+  const bloques = CP.pedidosParaProveedor(ps);
+  if (!bloques.length) { alert('Estos pedidos no tienen líneas que enviar.'); return; }
+  const ej = ps[0];
+  const yaEnviados = ps.filter((p) => p.envio).length;
+  envio = { ids: ps.map((p) => p.id), proveedor: ej.proveedor, campana: ej.campana || '', file: null, nombre: '' };
+  const nLineas = bloques.reduce((s, b) => s + b.lineas.length, 0);
+  const dlg = document.getElementById('dlgEnvio');
+  dlg.innerHTML = `
+    <h2>📧 Enviar pedidos a ${h(ej.proveedor)}</h2>
+    <p class="pequeno" style="margin-top:0">${bloques.length} pedido(s) · ${nLineas} línea(s) · campaña ${h(ej.campana || 'sin nombre')}. El PDF va sin precios, un bloque por cliente.${yaEnviados ? ` <b>Ojo: ${yaEnviados} ya se habían enviado.</b>` : ''}</p>
+    <label>Para (correo del proveedor)<input id="envPara" type="email" value="${h(correoProveedor(ej.proveedor))}" placeholder="pedidos@proveedor.com"></label>
+    <label>Asunto<input id="envAsunto" value="${h(`Pedido Ofipapel · ${ej.proveedor}${ej.campana ? ' · ' + ej.campana : ''}`)}"></label>
+    <label>Mensaje<textarea id="envMensaje">${h(MENSAJE_ENVIO)}</textarea></label>
+    <div id="envEstado" class="pequeno">Preparando el PDF…</div>
+    <div class="fila" style="margin-top:10px">
+      <button class="btn primario" id="envBtnEnviar" disabled onclick="enviarConMiCorreo()">📤 Enviar con mi correo</button>
+      <button class="btn" id="envBtnPdf" disabled onclick="descargarPdfEnvio()">⬇️ Descargar el PDF</button>
+      <button class="btn" onclick="marcarEnviado()">✅ Ya lo he enviado</button>
+      <button class="btn peque" onclick="document.getElementById('dlgEnvio').close()">Cerrar</button>
+    </div>`;
+  dlg.showModal();
+  // El PDF se hace ya, al abrir: así «Enviar» comparte al instante (el navegador
+  // solo deja compartir justo después de pulsar).
+  try {
+    envio.file = await pdfPedidosProveedor(ej.proveedor, ej.campana, bloques);
+    envio.nombre = envio.file.name;
+    document.getElementById('envEstado').innerHTML = `PDF listo: <b>${h(envio.nombre)}</b>`;
+    document.getElementById('envBtnEnviar').disabled = false;
+    document.getElementById('envBtnPdf').disabled = false;
+  } catch (e) {
+    document.getElementById('envEstado').innerHTML = `<span style="color:var(--rojo)">No se pudo preparar el PDF (${h(e.message)}). Revisa la conexión y vuelve a intentarlo.</span>`;
+  }
+}
+async function pdfPedidosProveedor(proveedor, campana, bloques) {
+  if (!window.jspdf) await cargarScript(JSPDF);
+  if (!window.jspdf.jsPDF.API.autoTable) await cargarScript(JSPDF_TABLA);
+  const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+  const ancho = doc.internal.pageSize.getWidth();
+  const alto = doc.internal.pageSize.getHeight();
+  const nLineas = bloques.reduce((s, b) => s + b.lineas.length, 0);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
+  doc.text(`Pedido · ${proveedor}`, 14, 18);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+  doc.text(`OFIPAPEL, S.L. · ${campana ? 'Campaña: ' + campana + ' · ' : ''}${fmtFecha(hoy())}`, 14, 25);
+  doc.text(`${bloques.length} pedido(s) · ${nLineas} línea(s) · Rogamos indiquen las posibles faltas de stock.`, 14, 31);
+  let y = 38;
+  for (const b of bloques) {
+    if (y > alto - 40) { doc.addPage(); y = 18; }
+    doc.setFillColor(30, 125, 50); doc.rect(14, y, ancho - 28, 8, 'F');
+    doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text(`Pedido nº ${b.numero || '—'}${b.cliente ? ' — ' + b.cliente : ''}`, 16, y + 5.5);
+    doc.setTextColor(0);
+    doc.autoTable({
+      startY: y + 8, margin: { left: 14, right: 14 },
+      head: [['Cant.', 'Referencia', 'Descripción']],
+      body: b.lineas.map((l) => [fmt(l.cant).replace(',00', '') + (l.exp ? ' EXP' : ''), l.ref, l.desc]),
+      styles: { fontSize: 10, cellPadding: 1.8 }, headStyles: { fillColor: [234, 247, 236], textColor: 20 },
+      columnStyles: { 0: { cellWidth: 22, halign: 'right' }, 1: { cellWidth: 42 } },
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  }
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) {
+    doc.setPage(i); doc.setFontSize(8); doc.setTextColor(120);
+    doc.text(`Ofipapel, S.L. · compras@ofipapelsl.com · página ${i} de ${n}`, ancho / 2, alto - 8, { align: 'center' });
+  }
+  const limpio = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const nombre = `Pedido_Ofipapel_${limpio(proveedor)}${campana ? '_' + limpio(campana) : ''}_${hoy()}.pdf`;
+  return new File([doc.output('blob')], nombre, { type: 'application/pdf' });
+}
+function descargarPdfEnvio() {
+  if (!envio || !envio.file) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(envio.file); a.download = envio.nombre; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function enviarConMiCorreo() {
+  if (!envio || !envio.file) return;
+  const v = (id) => document.getElementById(id).value.trim();
+  const para = v('envPara'), asunto = v('envAsunto'), mensaje = document.getElementById('envMensaje').value;
+  const estado = document.getElementById('envEstado');
+  envio.para = para;
+  // Compartir con archivo (móvil, tableta y Windows): el correo se abre con el PDF adjunto.
+  // Compartir no permite poner el destinatario: se copia para pegarlo.
+  if (navigator.canShare && navigator.canShare({ files: [envio.file] })) {
+    try { if (para && navigator.clipboard) await navigator.clipboard.writeText(para); } catch { /* sin portapapeles: se escribe a mano */ }
+    try {
+      await navigator.share({ files: [envio.file], title: asunto, text: mensaje });
+      estado.innerHTML = `Elige tu correo (el de compras@) y comprueba el destinatario${para ? ` (<b>${h(para)}</b>, ya copiado: pégalo)` : ''}. Cuando lo envíes, pulsa «✅ Ya lo he enviado».`;
+      return;
+    } catch (e) {
+      if (e && e.name === 'AbortError') { estado.textContent = 'Envío cancelado.'; return; }
+      // si falla compartir, se sigue con descargar + correo
+    }
+  }
+  descargarPdfEnvio();
+  location.href = `mailto:${encodeURIComponent(para)}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(mensaje)}`;
+  estado.innerHTML = `Se ha descargado <b>${h(envio.nombre)}</b> y se ha abierto tu correo: <b>adjunta ese PDF</b> y envíalo. Después pulsa «✅ Ya lo he enviado».`;
+}
+function marcarEnviado() {
+  if (!envio) return;
+  const para = document.getElementById('envPara').value.trim() || envio.para || '';
+  const ahora = new Date().toISOString();
+  for (const id of envio.ids) { const p = pedidoPorId(id); if (p) p.envio = { fecha: ahora, para, por: nube.usuario || '' }; }
+  guardar();
+  document.getElementById('dlgEnvio').close();
+  envio = null;
+  pintar();
 }
 
 function exportarSeleccionados(raiz) {
