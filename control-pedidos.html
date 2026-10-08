@@ -15,7 +15,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-08-3"></script>
+<script src="control-pedidos-logica.js?v=2026-10-08-4"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -124,6 +124,9 @@ li.descartada{text-decoration:line-through;opacity:.65}
 .renglon{display:grid;grid-template-columns:44px 104px 150px 1fr 96px;height:36px;align-items:end;margin:0}
 .renglon > span{padding:0 8px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:1px solid #f0c9c9;height:100%;display:flex;align-items:flex-end}
 .renglon > .l-num{border-left:0;justify-content:center;color:#c98a8a;font-size:14px}
+.renglon.titulos{position:sticky;top:0;z-index:1;background:#fffef4}
+.renglon.titulos .t-corto{display:none}
+.renglon.titulos .exp-toggle{margin-left:6px;letter-spacing:0;text-transform:none}
 .renglon.titulos > span{font-family:'Segoe UI',system-ui,sans-serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#a55;align-items:center}
 .renglon.escrito{color:#1c3f94;font-size:20px;line-height:1}
 .renglon .l-precio{justify-content:flex-end}
@@ -137,6 +140,7 @@ li.descartada{text-decoration:line-through;opacity:.65}
 .renglon.nuevo .l-cant input{min-width:0;flex:1 1 auto}
 .exp-toggle{flex:0 0 auto;font:600 11px/1 system-ui,sans-serif;padding:5px 6px;border:1px solid #9fb3d6;border-radius:999px;background:#fff;color:#1c3f94;cursor:pointer;min-height:0}
 .exp-toggle[aria-pressed=true]{background:#c33;border-color:#c33;color:#fff}
+#qaRefModo[aria-pressed=true]{background:#1c3f94;border-color:#1c3f94}
 .renglon .l-cant small{margin-left:4px;color:#c33;font-size:12px}
 .casilla{flex-direction:row!important;align-items:center;gap:6px;align-self:flex-end;padding-bottom:8px}
 details.grupo{border:1px solid var(--borde,#ddd);border-radius:10px;padding:10px 12px;margin-top:12px}
@@ -197,6 +201,8 @@ table.lista-pedidos .c-movil{display:none}
   table.lista-pedidos .m-est{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
   table.lista-pedidos .m-est .chip{font-size:11px;padding:1px 7px}
   .renglon{grid-template-columns:28px 82px 92px 1fr 64px}
+  .renglon.titulos .t-largo{display:none}
+  .renglon.titulos .t-corto{display:inline}
   /* Líneas de artículos: tarjetas compactas (cantidad, exp., referencia y
      precio en una fila; descripción debajo; la duda solo si la hay). */
   table.t-lineas tr,table.t-repo tr{display:grid;gap:2px 6px;padding:6px 8px;margin-bottom:6px}
@@ -400,8 +406,10 @@ function comparar(p) {
     return CP.compararPedido(p.lineas, p.propuesta.lineas, { catalogo: catalogoDe(p.proveedor), comparar: 'neto',
       tolerancia: CP.TOLERANCIA.reposicion, preciosAnteriores: preciosAnteriores(p.proveedor) });
   }
-  // Comercial: tolerancia cero en precio.
-  return CP.compararPedido(p.lineas, p.propuesta.lineas, { catalogo: catalogoDe(p.proveedor), tolerancia: CP.TOLERANCIA.comercial });
+  // Comercial: tolerancia cero en precio. El comercial apunta siempre el precio
+  // NETO (nunca descuentos): se compara con el neto de cada línea del proveedor
+  // (tras sus descuentos, sin el global, que es entre el proveedor y nosotros).
+  return CP.compararPedido(p.lineas, p.propuesta.lineas, { catalogo: catalogoDe(p.proveedor), comparar: 'neto', tolerancia: CP.TOLERANCIA.comercial });
 }
 /** Fotos del pedido (las antiguas, sin registro, se deducen de sus líneas). */
 function fotosDe(p) {
@@ -912,7 +920,6 @@ function vistaDetalle(p) {
       <button class="btn peque" onclick="pegarLineas('pedido')">Añadir estas líneas</button>
     </div>
     ${libreta(p)}
-    ${!cat ? `<div class="aviso-caja aviso">Aún no hay catálogo de ${h(p.proveedor)}: carga una propuesta suya para poder comprobar que cada referencia existe.</div>` : ''}
     ${tablaLineas(p, cat)}
   </div>
 
@@ -1271,9 +1278,9 @@ function libreta(p) {
   return `
     <div class="libreta no-imprimir">
       <div class="libreta-cab"><b>📝 Bloc del pedido</b>${reg.length ? ` · ${reg.length} apuntado(s)${borradas ? ` · ${borradas} tachado(s)` : ''}` : ''}
-        <span class="pequeno">· escribe y pulsa <b>Enter</b>: cantidad → referencia → descripción → precio; en el precio, Enter apunta la línea. Junto a la cantidad, <b>ud</b>/<b>EXP</b> (toca para cambiar) dice si son unidades o expositores. La referencia abre el teclado de números: si lleva letras, pulsa <b>ABC</b>.</span></div>
+        <span class="pequeno">· escribe y pulsa <b>Enter</b>: cantidad → referencia → descripción → precio; en el precio, Enter apunta la línea. <b>ud</b>/<b>EXP</b>: unidades o expositores. <b>ABC</b>: teclado de letras para la referencia.</span></div>
       <div class="hoja" id="hojaLibreta">
-        <div class="renglon titulos"><span class="l-num"></span><span class="l-cant">Cant.</span><span class="l-ref">Referencia</span><span class="l-desc">Descripción</span><span class="l-precio">Precio</span></div>
+        <div class="renglon titulos"><span class="l-num"></span><span class="l-cant">Cant.</span><span class="l-ref"><span class="t-largo">Referencia</span><span class="t-corto">Ref.</span> <button type="button" id="qaRefModo" class="exp-toggle" title="Teclado de letras o de números para la referencia" onclick="modoRef()">ABC</button></span><span class="l-desc">Descripción</span><span class="l-precio">Precio</span></div>
         ${escritas}
         <form class="renglon nuevo" onsubmit="event.preventDefault(); envioRapida()">
           <span class="l-num">${reg.length + 1}</span>
@@ -1290,6 +1297,16 @@ function libreta(p) {
         ${reg.length ? '<button class="btn peque" onclick="copiarBloc()">Copiar el bloc</button>' : ''}
       </div>
     </div>`;
+}
+/** Teclado de números ↔ de letras para la referencia del renglón (en cada línea nueva vuelve a números). */
+function modoRef() {
+  const i = document.getElementById('qaRef');
+  const b = document.getElementById('qaRefModo');
+  const letras = i.getAttribute('inputmode') !== 'text';
+  i.setAttribute('inputmode', letras ? 'text' : 'decimal');
+  b.textContent = letras ? '123' : 'ABC';
+  b.setAttribute('aria-pressed', String(letras));
+  i.blur(); setTimeout(() => i.focus(), 0); // Android solo cambia de teclado al volver a enfocar
 }
 /** Unidades ↔ expositor de la línea que se está escribiendo (vuelve a «ud» en cada línea nueva). */
 function alternarExp(b) {

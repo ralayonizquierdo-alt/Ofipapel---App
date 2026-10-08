@@ -281,6 +281,20 @@ test('comercial: «mantener lo pedido» fija el precio al cliente; el coste para
   assert.equal(CP.aplicarDecisiones(filas, { 770140327: { accion: 'mantener' } }).lineas[0].precio, 12.67);
 });
 
+test('comercial: su precio es NETO; se compara con el neto del proveedor y al cliente va el neto', () => {
+  const COM = { comparar: 'neto', tolerancia: CP.TOLERANCIA.comercial };
+  // El proveedor trae tarifa 10 con un 20 %: neto 8, el mismo que apuntó el comercial.
+  const filas = CP.compararPedido([{ ref: 'A', cant: 3, precio: 8 }], [{ ref: 'A', cant: 3, precio: 10, dtos: [20], importe: 24 }], COM);
+  assert.equal(filas[0].estado, 'ok', 'no es un cambio de precio');
+  const a = CP.aplicarDecisiones(filas, {}, { comercial: true }).lineas[0];
+  assert.deepEqual([a.precioCliente, a.precio, a.dtos, a._neto], [8, 10, [20], undefined], 'al cliente 8; a Géminis, la tarifa y su descuento');
+  // Si el neto del proveedor no cuadra, sí es un cambio, y «aceptar» lleva al cliente el neto, no la tarifa.
+  const g = CP.compararPedido([{ ref: 'A', cant: 1, precio: 7.5 }], [{ ref: 'A', cant: 1, precio: 10, dtos: [20] }], COM);
+  assert.ok(g[0].revisar);
+  assert.equal(CP.aplicarDecisiones(g, { A: { accion: 'aceptar' } }, { comercial: true }).lineas[0].precioCliente, 8);
+  assert.equal(CP.aplicarDecisiones(g, { A: { accion: 'mantener' } }, { comercial: true }).lineas[0].precioCliente, 7.5);
+});
+
 test('reclamación de faltas: separada por cliente, con faltas totales y parciales', () => {
   const t = CP.textoReclamacion('FINOCAM', [
     { numero: '2', cliente: 'CLIENTE A', faltan: [{ ref: '785100027', desc: 'CALENDARIO', cant: 2, de: 2, total: true }] },
