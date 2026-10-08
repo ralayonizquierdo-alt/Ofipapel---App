@@ -374,7 +374,7 @@ function pintar() {
     return;
   }
   if (vista === 'pedidos') main.innerHTML = pedidoAbierto ? vistaDetalle(pedidoPorId(pedidoAbierto)) : vistaLista();
-  else if (vista === 'nuevo') main.innerHTML = vistaNuevo();
+  else if (vista === 'nuevo') { main.innerHTML = vistaNuevo(); ponerCampanas(); }
   else if (vista === 'reposicion') main.innerHTML = pedidoAbierto ? vistaDetalle(pedidoPorId(pedidoAbierto)) : vistaReposicion();
   else if (vista === 'restos') main.innerHTML = vistaRestos();
   else if (vista === 'notas') main.innerHTML = vistaNotas();
@@ -727,7 +727,8 @@ function imprimirReclamacion(clave) {
 // Pestaña propia: aquí crecerá la entrada de pedidos del comercial sin fotos.
 let prefijoNuevo = null; // {proveedor, campana} al pulsar «otro pedido de esta campaña»
 function vistaNuevo() {
-  const proveedores = [...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean);
+  // Los proveedores que ya tienen campaña (pedidos del comercial), sin los de reposición.
+  const proveedores = [...new Set(E.pedidos.filter((p) => !esRepo(p)).map((p) => prov(p.proveedor)))].filter(Boolean).sort((x, y) => x.localeCompare(y, 'es'));
   const pre = prefijoNuevo || {};
   return `
   <div class="tarjeta">
@@ -739,16 +740,56 @@ function vistaNuevo() {
       </div></div>` : ''}
     <p class="pequeno" style="margin:0 0 10px">Sin fotos: creas el pedido y escribes sus artículos. Entra en su campaña igual que los que llegan por foto.</p>
     <div class="fila">
-      <label>Proveedor<input id="npProv" list="listaProv" placeholder="Escribe o elige el proveedor" value="${h(pre.proveedor || '')}" oninput="ponerNumero()"></label>
-      <datalist id="listaProv">${proveedores.map((x) => `<option value="${h(x)}">`).join('')}</datalist>
-      <label>Campaña<input id="npCamp" list="listaCamp" placeholder="Elige una o escribe una nueva" value="${h(pre.campana || '')}" oninput="ponerNumero()"></label>
-      <datalist id="listaCamp">${campanasExistentes().map((x) => `<option value="${h(x)}">`).join('')}</datalist>
+      <label>Proveedor<select id="npProvSel" onchange="elegirProveedorNuevo()">
+          <option value="">Elige el proveedor…</option>
+          ${proveedores.map((x) => `<option value="${h(x)}" ${x === prov(pre.proveedor) ? 'selected' : ''}>${h(x)}</option>`).join('')}
+          <option value="${NUEVO}" ${pre.proveedor && !proveedores.includes(prov(pre.proveedor)) ? 'selected' : ''}>➕ Otro proveedor (nuevo)</option>
+        </select>
+        <input id="npProv" class="${pre.proveedor && !proveedores.includes(prov(pre.proveedor)) ? '' : 'oculto'}" placeholder="Nombre del proveedor nuevo" value="${h(pre.proveedor || '')}" oninput="ponerCampanas()"></label>
+      <label>Campaña<select id="npCampSel" onchange="elegirCampanaNueva()"></select>
+        <input id="npCamp" class="oculto" placeholder="Nombre de la campaña nueva" value="${h(pre.campana || '')}" oninput="ponerNumero()"></label>
       <label>Nº pedido<input id="npNum" style="width:90px" readonly tabindex="-1" placeholder="auto" title="Sale solo: el siguiente de la campaña" value="${h(nPed(siguienteNumero(pre.proveedor, pre.campana)))}"></label>
       <label>Cliente<input id="npCli" placeholder="Nombre del cliente" enterkeyhint="go" onkeydown="if(event.key==='Enter'){event.preventDefault();crearPedido()}"></label>
       <label>Fecha<input id="npFecha" type="date" value="${hoy()}"></label>
       <button class="btn primario" onclick="crearPedido()">Crear</button>
     </div>
   </div>`;
+}
+const NUEVO = '__nuevo__';
+/** Pedido a mano: desplegables de proveedor y campaña (las de ese proveedor);
+ *  «nuevo» abre la casilla para escribirlo. Se llama tras pintar la vista. */
+function elegirProveedorNuevo() {
+  const sel = document.getElementById('npProvSel');
+  const txt = document.getElementById('npProv');
+  const nuevo = sel.value === NUEVO;
+  txt.classList.toggle('oculto', !nuevo);
+  if (nuevo) { if (sel.dataset.ultimo !== NUEVO) txt.value = ''; txt.focus(); } else txt.value = sel.value;
+  sel.dataset.ultimo = sel.value;
+  ponerCampanas();
+}
+function ponerCampanas() {
+  const proveedor = document.getElementById('npProv').value;
+  const sel = document.getElementById('npCampSel');
+  const txt = document.getElementById('npCamp');
+  const camps = [...new Set(E.pedidos.filter((p) => !esRepo(p) && p.campana && prov(p.proveedor) === prov(proveedor)).map((p) => p.campana))]
+    .sort((x, y) => x.localeCompare(y, 'es'));
+  const actual = camps.find((c) => claveTexto(c) === claveTexto(txt.value));
+  const nueva = !camps.length || (txt.value.trim() && !actual);
+  sel.innerHTML = `<option value="">${camps.length ? 'Elige la campaña…' : 'Sin campañas: escribe una nueva'}</option>`
+    + camps.map((c) => `<option value="${h(c)}" ${c === actual ? 'selected' : ''}>${h(c)}</option>`).join('')
+    + `<option value="${NUEVO}" ${nueva ? 'selected' : ''}>➕ Campaña nueva</option>`;
+  sel.disabled = !prov(proveedor);
+  if (!nueva && !actual) txt.value = '';
+  txt.classList.toggle('oculto', !(nueva && prov(proveedor)));
+  ponerNumero();
+}
+function elegirCampanaNueva() {
+  const sel = document.getElementById('npCampSel');
+  const txt = document.getElementById('npCamp');
+  const nueva = sel.value === NUEVO;
+  txt.classList.toggle('oculto', !nueva);
+  if (nueva) { txt.value = ''; txt.focus(); } else txt.value = sel.value;
+  ponerNumero();
 }
 /** Nº del siguiente pedido a mano: correlativo dentro de su campaña (proveedor
  *  + campaña), el mayor nº que ya haya más uno. Los nº con letras (p. ej. los
@@ -761,7 +802,8 @@ function siguienteNumero(proveedor, campana) {
   return String((nums.length ? Math.max(...nums) : 0) + 1);
 }
 function ponerNumero() {
-  const n = siguienteNumero(document.getElementById('npProv').value, document.getElementById('npCamp').value);
+  const camp = document.getElementById('npCamp').value;
+  const n = camp.trim() ? siguienteNumero(document.getElementById('npProv').value, camp) : ''; // sin campaña aún, sin nº
   document.getElementById('npNum').value = n ? nPed(n) : '';
 }
 /** Desde un pedido (o una campaña): crear el siguiente de la misma campaña. */
@@ -838,7 +880,7 @@ function crearReposicionVacia() {
 function crearPedido() {
   const v = (id) => document.getElementById(id).value.trim();
   const tipo = 'comercial'; // los pedidos a mano son siempre del comercial
-  if (!v('npProv') || !v('npCli')) { alert('Proveedor y cliente son obligatorios.'); return; }
+  if (!v('npProv') || !v('npCamp') || !v('npCli')) { alert('Proveedor, campaña y cliente son obligatorios.'); return; }
   // El nº se calcula aquí, al crear (no el que se veía), por si entretanto llegó otro de la nube.
   const p = { id: nuevoId(), tipo, proveedor: prov(v('npProv')), campana: campanaCanonica(v('npProv'), v('npCamp')), numero: siguienteNumero(v('npProv'), v('npCamp')),
     cliente: v('npCli').toUpperCase(),
