@@ -846,6 +846,44 @@
     return aoa;
   }
 
+  /**
+   * «Propuesta de Pedido» de Géminis (nuestro programa): el pedido que mandamos
+   * al proveedor. Se lee sin IA, línea a línea del texto del PDF, porque la IA
+   * confundía las columnas de números seguidas (Bultos, cajas, Udes. x Caja,
+   * Unidades). Columnas: Cod.Venta (nuestro código) · R · Rfc.Compra (la del
+   * proveedor, la que se compara) · Descripción · Bultos · cajas · Udes. x Caja
+   * · **Unidades** (la cantidad, siempre; no sale de cajas × uds: un 0 × 60
+   * puede ser 12) · Precio · Desc.Bon · Cod. Barras.
+   * Devuelve lo mismo que la lectura con IA (para lineasDeDocumento) o null si
+   * el texto no es de este formato.
+   */
+  function leerPedidoGeminis(lineasTexto) {
+    const filas = (lineasTexto || []).map((x) => String(x).replace(/\s+/g, ' ').trim()).filter(Boolean);
+    const todo = filas.join('\n');
+    if (!/Propuesta de Pedido/i.test(todo) || !/Rfc\.?\s*Compra/i.test(todo) || !/Unidades/i.test(todo)) return null;
+    const NUM = '(\\d{1,3}(?:\\.\\d{3})*,\\d{2,4})';
+    const re = new RegExp('^(\\S+) (?:([A-Z]) )?(\\S+) (.+?) (\\d+) (\\d+) (\\d+) (\\d+) ' + NUM + '(?: (\\d{1,2}(?:,\\d+)?)(?= |$))?(?: (\\S+))?(?: .*)?$');
+    const lineas = [];
+    for (const f of filas) {
+      const m = f.match(re);
+      if (!m || !/\d/.test(m[1])) continue;
+      const [, codVenta, , rfc, desc, , cajas, udsCaja, unidades, precio, dto, ean] = m;
+      lineas.push({
+        referencia: rfc, codVenta, ean: ean && !/^\d{1,2},/.test(ean) ? ean : '', descripcion: desc.trim(),
+        cantidad: unidades, udsCaja: Number(udsCaja) ? udsCaja : '', cajas, precio, descuentos: dto && Number(dto.replace(',', '.')) ? dto : '',
+        importe: '', duda: '',
+      });
+    }
+    if (!lineas.length) return null;
+    const prov = filas.map((x) => x.match(/^\(\s*\d+\s*\)\s*(.+?)(?: \d{2}\/\d{2}\/\d{4}.*)?$/)).find(Boolean);
+    const num = filas.map((x) => x.match(/^Almac[eé]n (\d+)$/i)).find(Boolean);
+    const fecha = todo.match(/\b(\d{2}\/\d{2}\/\d{4})\b/);
+    return {
+      proveedor: prov ? prov[1].trim() : '', tipoDocumento: 'Propuesta de Pedido (Géminis)', numero: num ? num[1] : '',
+      fecha: fecha ? fecha[1] : '', baseImponible: '', dtoGlobal: '', pedidoCliente: '', notas: '', lineas,
+    };
+  }
+
   // ── Nube: datos compartidos entre dispositivos ────────────────────────────
   // El estado se reparte en documentos (uno por pedido, resto, nota, catálogo
   // de proveedor e historial de proveedor). Cada dispositivo recuerda, por
@@ -961,7 +999,7 @@
 
   const api = {
     TOLERANCIA, PLANTILLA_GEMINIS,
-    firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
+    leerPedidoGeminis, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
     parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
