@@ -1249,14 +1249,14 @@ function libreta(p) {
   return `
     <div class="libreta no-imprimir">
       <div class="libreta-cab"><b>📝 Bloc del pedido</b>${reg.length ? ` · ${reg.length} apuntado(s)${borradas ? ` · ${borradas} tachado(s)` : ''}` : ''}
-        <span class="pequeno">· escribe y pulsa <b>Enter</b>: cantidad → referencia → descripción → precio; en el precio, Enter apunta la línea.</span></div>
+        <span class="pequeno">· escribe y pulsa <b>Enter</b>: cantidad → referencia → descripción → precio; en el precio, Enter apunta la línea. La referencia abre el teclado de números: si lleva letras, pulsa <b>ABC</b>.</span></div>
       <div class="hoja" id="hojaLibreta">
         <div class="renglon titulos"><span class="l-num"></span><span class="l-cant">Cant.</span><span class="l-ref">Referencia</span><span class="l-desc">Descripción</span><span class="l-precio">Precio</span></div>
         ${escritas}
         <form class="renglon nuevo" onsubmit="event.preventDefault(); envioRapida()">
           <span class="l-num">${reg.length + 1}</span>
           <span class="l-cant">${campo('qaCant', 'inputmode="decimal" enterkeyhint="next" placeholder="1" aria-label="Cantidad"')}</span>
-          <span class="l-ref">${campo('qaRef', 'enterkeyhint="next" aria-label="Referencia"')}</span>
+          <span class="l-ref">${campo('qaRef', 'inputmode="decimal" enterkeyhint="next" aria-label="Referencia"')}</span>
           <span class="l-desc">${campo('qaDesc', 'enterkeyhint="next" aria-label="Descripción"')}</span>
           <span class="l-precio">${campo('qaPrecio', 'inputmode="decimal" enterkeyhint="done" aria-label="Precio"')}</span>
           <button type="submit" class="oculto" tabindex="-1">Apuntar</button>
