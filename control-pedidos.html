@@ -739,16 +739,30 @@ function vistaNuevo() {
       </div></div>` : ''}
     <p class="pequeno" style="margin:0 0 10px">Sin fotos: creas el pedido y escribes sus artículos. Entra en su campaña igual que los que llegan por foto.</p>
     <div class="fila">
-      <label>Proveedor<input id="npProv" list="listaProv" placeholder="Escribe o elige el proveedor" value="${h(pre.proveedor || '')}"></label>
+      <label>Proveedor<input id="npProv" list="listaProv" placeholder="Escribe o elige el proveedor" value="${h(pre.proveedor || '')}" oninput="ponerNumero()"></label>
       <datalist id="listaProv">${proveedores.map((x) => `<option value="${h(x)}">`).join('')}</datalist>
-      <label>Campaña<input id="npCamp" list="listaCamp" placeholder="Elige una o escribe una nueva" value="${h(pre.campana || '')}"></label>
+      <label>Campaña<input id="npCamp" list="listaCamp" placeholder="Elige una o escribe una nueva" value="${h(pre.campana || '')}" oninput="ponerNumero()"></label>
       <datalist id="listaCamp">${campanasExistentes().map((x) => `<option value="${h(x)}">`).join('')}</datalist>
-      <label>Nº pedido<input id="npNum" style="width:90px" enterkeyhint="next" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('npCli').focus()}"></label>
+      <label>Nº pedido<input id="npNum" style="width:90px" readonly tabindex="-1" placeholder="auto" title="Sale solo: el siguiente de la campaña" value="${h(nPed(siguienteNumero(pre.proveedor, pre.campana)))}"></label>
       <label>Cliente<input id="npCli" placeholder="Nombre del cliente" enterkeyhint="go" onkeydown="if(event.key==='Enter'){event.preventDefault();crearPedido()}"></label>
       <label>Fecha<input id="npFecha" type="date" value="${hoy()}"></label>
       <button class="btn primario" onclick="crearPedido()">Crear</button>
     </div>
   </div>`;
+}
+/** Nº del siguiente pedido a mano: correlativo dentro de su campaña (proveedor
+ *  + campaña), el mayor nº que ya haya más uno. Los nº con letras (p. ej. los
+ *  del proveedor, «MR23636») no cuentan. */
+function siguienteNumero(proveedor, campana) {
+  if (!prov(proveedor)) return '';
+  const clave = claveTexto(campanaCanonica(proveedor, campana));
+  const nums = E.pedidos.filter((x) => !esRepo(x) && prov(x.proveedor) === prov(proveedor) && claveTexto(x.campana) === clave)
+    .map((x) => String(x.numero || '').trim()).filter((n) => /^\d{1,6}$/.test(n)).map(Number);
+  return String((nums.length ? Math.max(...nums) : 0) + 1);
+}
+function ponerNumero() {
+  const n = siguienteNumero(document.getElementById('npProv').value, document.getElementById('npCamp').value);
+  document.getElementById('npNum').value = n ? nPed(n) : '';
 }
 /** Desde un pedido (o una campaña): crear el siguiente de la misma campaña. */
 /** Fotos de pedidos nuevos directamente a una campaña ya creada. */
@@ -775,7 +789,7 @@ function renombrarCampana(clave) {
 function otroPedidoCampana(proveedor, campana) {
   prefijoNuevo = { proveedor, campana };
   vista = 'nuevo'; pedidoAbierto = null; pintar(); window.scrollTo(0, 0);
-  document.getElementById('npNum').focus();
+  document.getElementById('npCli').focus();
 }
 /** Reposición: nuestro pedido al proveedor. No pasa por «Pedido a mano». */
 /** Nombre del proveedor tal como ya lo tenemos («Miquelrius, S.A.» →
@@ -824,8 +838,9 @@ function crearReposicionVacia() {
 function crearPedido() {
   const v = (id) => document.getElementById(id).value.trim();
   const tipo = 'comercial'; // los pedidos a mano son siempre del comercial
-  if (!v('npProv') || !v('npNum') || !v('npCli')) { alert('Proveedor, nº de pedido y cliente son obligatorios.'); return; }
-  const p = { id: nuevoId(), tipo, proveedor: prov(v('npProv')), campana: campanaCanonica(v('npProv'), v('npCamp')), numero: v('npNum'),
+  if (!v('npProv') || !v('npCli')) { alert('Proveedor y cliente son obligatorios.'); return; }
+  // El nº se calcula aquí, al crear (no el que se veía), por si entretanto llegó otro de la nube.
+  const p = { id: nuevoId(), tipo, proveedor: prov(v('npProv')), campana: campanaCanonica(v('npProv'), v('npCamp')), numero: siguienteNumero(v('npProv'), v('npCamp')),
     cliente: v('npCli').toUpperCase(),
     fecha: v('npFecha') || hoy(), notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null };
   if (E.pedidos.some((x) => x.proveedor === p.proveedor && String(x.numero) === String(p.numero) && x.campana === p.campana)) {
