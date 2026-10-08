@@ -886,6 +886,23 @@
     };
   }
 
+  /**
+   * Pedidos de una campaña tal como se mandan al proveedor: uno por cliente
+   * (nº y cliente), con cantidad, referencia y descripción — sin precios.
+   * Ordenados por nº de pedido; las líneas sin referencia ni descripción, fuera.
+   */
+  function pedidosParaProveedor(pedidos) {
+    return (pedidos || [])
+      .map((p) => ({
+        numero: String(p.numero || ''),
+        cliente: String(p.cliente || ''),
+        lineas: (p.lineas || []).filter((l) => (l.ref || l.desc) && Number(l.cant) > 0)
+          .map((l) => ({ cant: Number(l.cant), exp: !!l.exp, ref: String(l.ref || ''), desc: String(l.desc || '') })),
+      }))
+      .filter((p) => p.lineas.length)
+      .sort((a, b) => a.numero.localeCompare(b.numero, 'es', { numeric: true }) || a.cliente.localeCompare(b.cliente, 'es'));
+  }
+
   // ── Nube: datos compartidos entre dispositivos ────────────────────────────
   // El estado se reparte en documentos (uno por pedido, resto, nota, catálogo
   // de proveedor e historial de proveedor). Cada dispositivo recuerda, por
@@ -1001,7 +1018,7 @@
 
   const api = {
     TOLERANCIA, PLANTILLA_GEMINIS,
-    leerPedidoGeminis, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
+    leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
     parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
