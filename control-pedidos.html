@@ -14,7 +14,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-07-2"></script>
+<script src="control-pedidos-logica.js?v=2026-10-08-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -1546,8 +1546,48 @@ async function leerExcel(file) {
   return CP.leerPropuesta(XLSX.utils.sheet_to_json(hoja, { header: 1, defval: '', raw: true }));
 }
 /** Excel → lector de columnas; PDF o foto → lectura con IA + comprobaciones. */
+/** Texto de un PDF, línea a línea (por posición), con el mismo pdf.js que la
+ *  herramienta de importación. Se carga solo cuando hace falta. */
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+async function textoDePdf(file) {
+  if (!window.pdfjsLib) {
+    await new Promise((ok, mal) => { const s = document.createElement('script'); s.src = PDFJS + 'pdf.min.js'; s.onload = ok; s.onerror = () => mal(new Error('no se pudo cargar el lector de PDF')); document.head.appendChild(s); });
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js';
+  }
+  const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const lineas = [];
+  for (let n = 1; n <= pdf.numPages; n++) {
+    const items = (await (await pdf.getPage(n)).getTextContent()).items.filter((it) => it.str && it.str.trim());
+    const filas = [];
+    for (const it of items) {
+      const y = it.transform[5];
+      let f = filas.find((x) => Math.abs(x.y - y) < 3);
+      if (!f) filas.push(f = { y, items: [] });
+      f.items.push(it);
+    }
+    filas.sort((a, b) => b.y - a.y);
+    for (const f of filas) {
+      f.items.sort((a, b) => a.transform[4] - b.transform[4]);
+      let texto = '', fin = null;
+      for (const it of f.items) {
+        const x = it.transform[4];
+        texto += (fin != null && x - fin > 1 ? ' ' : '') + it.str;
+        fin = x + (it.width || 0);
+      }
+      lineas.push(texto);
+    }
+  }
+  return lineas;
+}
 async function leerFicheroProveedor(file, idProgreso) {
   if (!esPdf(file) && !esImagen(file)) return leerExcel(file);
+  // Nuestro pedido de Géminis («Propuesta de Pedido»): se lee exacto, sin IA.
+  if (esPdf(file)) {
+    try {
+      const g = CP.leerPedidoGeminis(await textoDePdf(file));
+      if (g) { const doc = CP.lineasDeDocumento(g); doc.control = Object.assign({}, doc.control, { exacto: true }); return doc; }
+    } catch (e) { /* si no se puede, lo lee la IA como siempre */ }
+  }
   const caja = idProgreso && document.getElementById(idProgreso);
   if (caja) caja.textContent = `Leyendo ${file.name}… puede tardar uno o dos minutos.`;
   try {
@@ -1562,6 +1602,7 @@ async function leerFicheroProveedor(file, idProgreso) {
 function avisoControl(doc) {
   if (!doc || !doc.control) return '';
   const c = doc.control;
+  if (c.exacto) return `<div class="aviso-caja ok">Pedido de Géminis leído directamente del PDF, sin IA: ${(doc.lineas || []).length} líneas, con la columna «Unidades» como cantidad y «Rfc.Compra» como referencia.</div>`;
   const dudas = (doc.lineas || []).filter((l) => l.duda).length;
   const base = c.base == null
     ? `<div class="aviso-caja aviso">No se ha encontrado la base imponible del documento: no puedo comprobar que estén todas las líneas (suma leída ${fmt(c.sumaLineas)} €). Revísalas con el PDF.</div>`

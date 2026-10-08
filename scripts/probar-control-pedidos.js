@@ -474,3 +474,32 @@ test('nube: sin cobertura se acumula y sube al volver; un borrado sin subir no r
   sincronizar(A, mA, nube, 'admin');
   assert.equal(A.pedidos.some((p) => p.id === 'p2'), false);
 });
+
+test('pedido de Géminis («Propuesta de Pedido»): la cantidad es «Unidades», la referencia «Rfc.Compra»', () => {
+  // Datos inventados con el mismo diseño de columnas que el PDF real.
+  const texto = [
+    'SUMINISTROS DE OFICINA Propuesta de Pedido',
+    'Proveedor N.I.F. X Fecha Pedido Fecha llegada',
+    '( 01234 ) PROVEEDOR PRUEBA 08/10/2026 20/10/2026',
+    'Almacén 12345',
+    'Cod.Venta R Rfc.Compra Descripción Bultos cajas',
+    'Caja Unidades Precio Desc.Bon Cod. Barras Imágen',
+    '111 AB-1 BANDEJA APILABLE (Azul) 0 3 10 30 1,065 8400000000017',
+    '222 XY-9 PORTA-Folleto 1-Cajetin 1/3 C-104 0 0 60 12 2,209 8400000000024',
+    '333 Z-5 PIZARRA 120x150 0 0 0 6 67,808 10,00 8400000000031',
+    '444 RE-1 SIN CODIGO DE BARRAS 0 0 0 20 0,000',
+    '08/10/20 Pág. 1',
+  ];
+  const r = CP.leerPedidoGeminis(texto);
+  assert.equal(r.proveedor, 'PROVEEDOR PRUEBA');
+  assert.equal(r.numero, '12345');
+  assert.deepEqual(r.lineas.map((l) => [l.referencia, l.cantidad, l.precio, l.descuentos, l.ean]), [
+    ['AB-1', '30', '1,065', '', '8400000000017'],
+    ['XY-9', '12', '2,209', '', '8400000000024'], // 0 cajas × 60 por caja, pero son 12 unidades
+    ['Z-5', '6', '67,808', '10,00', '8400000000031'],
+    ['RE-1', '20', '0,000', '', ''],
+  ]);
+  const d = CP.lineasDeDocumento(r);
+  assert.deepEqual(d.lineas.map((l) => l.cant), [30, 12, 6, 20]);
+  assert.equal(CP.leerPedidoGeminis(['FACTURA', 'Ref Cantidad Precio', 'A 1 2,00']), null, 'otro documento: a la IA');
+});
