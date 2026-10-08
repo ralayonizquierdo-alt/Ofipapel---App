@@ -302,6 +302,12 @@ const prov = (s) => String(s || '').trim().toUpperCase();
 const pedidoPorId = (id) => E.pedidos.find((p) => p.id === id);
 const catalogoDe = (proveedor) => (E.catalogos[prov(proveedor)] || {}).items || null;
 const esRepo = (p) => p.tipo === 'reposicion';
+/** Nº de pedido con el cero delante (08, 09, 10) para que se lea en orden. Solo
+ *  se ve así: lo guardado no cambia (las propuestas lo buscan tal cual). */
+const nPed = (n) => { const s = String(n == null ? '' : n).trim(); return /^\d$/.test(s) ? '0' + s : s; };
+/** Marca de «enviado al proveedor» (p.enviado). Los primeros envíos se guardaron
+ *  en p.envio, que en reposición es el nombre del fichero subido: solo vale si es un objeto. */
+const envioDe = (p) => p.enviado || (p.envio && typeof p.envio === 'object' ? p.envio : null);
 const preciosAnteriores = (proveedor) => Object.fromEntries(Object.entries(E.historial[prov(proveedor)] || {}).map(([k, v]) => [k, v.neto]));
 const fmtDtos = (d) => (CP.parseDtos(d).length ? CP.parseDtos(d).map((x) => fmt(x).replace(',00', '')).join('+') + ' %' : '');
 
@@ -385,7 +391,7 @@ function fotosDe(p) {
 function filaMovil(p, e) {
   const r = CP.hojasDelPedido(fotosDe(p));
   const datos = [fmtFecha(p.fecha).slice(0, 5), p.lineas.length + ' lín.', esRepo(p) ? '' : r.fotos ? '📷 ' + r.fotos + (r.total ? '/' + r.total : '') : ''].filter(Boolean).join(' · ');
-  return `<div class="m-tit">${esRepo(p) ? h(p.proveedor) + (p.numero ? ' · nº ' + h(p.numero) : '') : `nº ${h(p.numero)} · ${h(p.cliente)}`}</div>
+  return `<div class="m-tit">${esRepo(p) ? h(p.proveedor) + (p.numero ? ' · nº ' + h(p.numero) : '') : `nº ${h(nPed(p.numero))} · ${h(p.cliente)}`}</div>
     <div class="m-dat">${h(datos)}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}</div>
     <div class="m-est"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</div>`;
 }
@@ -446,6 +452,8 @@ function agruparPedidos(lista) {
     if (!grupos.has(k)) grupos.set(k, { clave: k, nombre: nombreGrupo(p), pedidos: [] });
     grupos.get(k).pedidos.push(p);
   }
+  // Dentro de cada campaña, por nº de pedido (01, 02… 10), no por fecha.
+  for (const g of grupos.values()) g.pedidos.sort((a, b) => String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }) || (a.fecha || '').localeCompare(b.fecha || ''));
   // Todas minimizadas por defecto; solo se despliega la que abre el usuario
   // (o la del pedido del que vuelve).
   gruposAbiertos = gruposAbiertos || new Set();
@@ -551,11 +559,11 @@ function vistaGrupo(g, i) {
       ${g.pedidos.map((p) => { const e = estadoPedido(p); return `
       <tr class="clic" onclick="if(event.target.type!=='checkbox')abrirPedido('${p.id}')">
         <td class="no-imprimir c-sel"><input type="checkbox" class="selPed" value="${p.id}"></td>
-        <td class="c-d">${h(fmtFecha(p.fecha))}</td><td class="c-d">${h(p.numero)}</td><td class="c-d">${h(esRepo(p) ? '—' : p.cliente)}</td>
+        <td class="c-d">${h(fmtFecha(p.fecha))}</td><td class="c-d">${h(nPed(p.numero))}</td><td class="c-d">${h(esRepo(p) ? '—' : p.cliente)}</td>
         <td class="num c-d">${p.lineas.length}</td>
         <td class="c-d">${esRepo(p) ? '—' : celdaFotos(p)}</td>
         <td class="c-d">${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
-        <td class="c-d"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}${p.envio ? ` <span class="chip info" title="Enviado a ${h(p.envio.para || '')}">📧 ${h(fmtFecha(String(p.envio.fecha).slice(0, 10)).slice(0, 5))}</span>` : ''}</td>
+        <td class="c-d"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}${envioDe(p) ? ` <span class="chip info" title="Enviado a ${h(envioDe(p).para || '')}">📧 ${h(fmtFecha(String(envioDe(p).fecha).slice(0, 10)).slice(0, 5))}</span>` : ''}</td>
         <td class="c-movil">${filaMovil(p, e)}</td>
         <td class="no-imprimir c-borrar"><button class="btn peque peligro" title="Borrar este pedido" onclick="event.stopPropagation(); borrarPedido('${p.id}')">🗑️</button></td>
       </tr>`; }).join('')}
@@ -581,7 +589,7 @@ function vistaGrupo(g, i) {
       <tr><th>Qué pasa</th><th>Pedido</th><th>Cliente</th><th>Referencia</th><th>Descripción</th><th class="num">Uds.</th></tr>
       ${filasRes.map(({ p, x, tipo }) => `<tr class="clic" onclick="abrirPedido('${p.id}')">
         <td>${tipo === 'falta' ? '<span class="chip mal">Falta</span>' : '<span class="chip aviso">Sobra</span>'}${x.total ? '' : ' <span class="pequeno">parcial</span>'}${x.pendiente === 'reclamar' ? ' <span class="chip info">✉️ a reclamar</span>' : x.pendiente === 'decidir' ? ' <span class="pequeno">por decidir</span>' : ''}</td>
-        <td>${h(p.numero)}</td><td>${h(esRepo(p) ? '—' : p.cliente)}</td><td><b>${h(x.ref)}</b></td><td>${h(x.desc)}</td>
+        <td>${h(nPed(p.numero))}</td><td>${h(esRepo(p) ? '—' : p.cliente)}</td><td><b>${h(x.ref)}</b></td><td>${h(x.desc)}</td>
         <td class="num">${tipo === 'falta' ? '−' : '+'}${x.cant}${x.total ? '' : ' de ' + x.de}</td></tr>`).join('')}
     </table></div>
     <div class="fila no-imprimir" style="margin-top:6px"><button class="btn peque" onclick="imprimirResumen(${i}, ${js(g.nombre)})">Imprimir faltas y sobras</button></div>`
@@ -620,7 +628,7 @@ function imprimirGuiaFacturacion(clave) {
     totalCampana += total;
     const notas = E.notas.filter((n) => n.pedidoId === p.id && !n.resuelta);
     return `<section>
-      <h2><span class="caja"></span> ${h(p.cliente)} <small>· pedido nº ${h(p.numero)} · ${h(fmtFecha(p.fecha))}</small></h2>
+      <h2><span class="caja"></span> ${h(p.cliente)} <small>· pedido nº ${h(nPed(p.numero))} · ${h(fmtFecha(p.fecha))}</small></h2>
       <table><tr><th class="n">Cant.</th><th>Referencia</th><th>Descripción</th><th class="n">Precio</th><th class="n">Importe</th></tr>
       ${lineas.map((l) => `<tr><td class="n">${l.cant}${l.exp ? ' EXP' : ''}</td><td>${h(l.ref)}</td><td>${h(l.desc)}</td><td class="n">${fmt(pc(l))}</td><td class="n">${fmt(CP.red2(pc(l) * l.cant))}</td></tr>`).join('')}
       <tr class="tot"><td colspan="4" class="n">Total (sin impuestos)</td><td class="n">${fmt(total)}</td></tr></table>
@@ -635,8 +643,8 @@ function imprimirGuiaFacturacion(clave) {
   table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ccc;padding:3px 5px;text-align:left}td.n,th.n{text-align:right}
   tr.tot td{font-weight:bold;border-bottom:0}.nota{background:#eef4ff;padding:4px 6px}.resto{background:#fff6e0;padding:4px 6px}.aviso{background:#fde8e8;padding:6px}</style></head><body>
   <h1>Guía de facturación · ${h(nombre)}</h1>
-  <p>${h(fmtFecha(hoy()))} · ${validados.length} cliente(s)${validados.some((p) => !p.factura) ? ' · <b>aún sin factura final del proveedor:</b> ' + validados.filter((p) => !p.factura).map((p) => 'nº ' + h(p.numero)).join(', ') : ''} · total ${fmt(CP.red2(totalCampana))} € sin impuestos · marca la casilla de cada cliente al facturarlo.</p>
-  ${sinValidar.length ? `<p class="aviso"><b>Sin validar, no incluidos:</b> ${sinValidar.map((p) => `nº ${h(p.numero)} ${h(p.cliente)}`).join(', ')}</p>` : ''}
+  <p>${h(fmtFecha(hoy()))} · ${validados.length} cliente(s)${validados.some((p) => !p.factura) ? ' · <b>aún sin factura final del proveedor:</b> ' + validados.filter((p) => !p.factura).map((p) => 'nº ' + h(nPed(p.numero))).join(', ') : ''} · total ${fmt(CP.red2(totalCampana))} € sin impuestos · marca la casilla de cada cliente al facturarlo.</p>
+  ${sinValidar.length ? `<p class="aviso"><b>Sin validar, no incluidos:</b> ${sinValidar.map((p) => `nº ${h(nPed(p.numero))} ${h(p.cliente)}`).join(', ')}</p>` : ''}
   ${bloques}
   <script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
@@ -848,7 +856,7 @@ function vistaDetalle(p) {
   return `
   <div class="no-imprimir" style="margin-bottom:10px"><button class="btn peque" onclick="pedidoAbierto=null;pintar()">← Todos los pedidos</button></div>
   <div class="tarjeta">
-    <h2>Pedido ${h(p.proveedor)} nº ${h(p.numero)} · ${h(p.cliente)}</h2>
+    <h2>Pedido ${h(p.proveedor)} nº ${h(nPed(p.numero))} · ${h(p.cliente)}</h2>
     <div class="fila">
       <label>Proveedor<input value="${h(p.proveedor)}" onchange="cambiaCampo('proveedor', this.value.trim().toUpperCase())"></label>
       <label>Campaña<input value="${h(p.campana)}" onchange="cambiaCampo('campana', this.value.trim())"></label>
@@ -2199,7 +2207,7 @@ function imprimirListado(id) {
   w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Pedido ${h(p.numero)} ${h(p.cliente)}</title>
   <style>body{font-family:system-ui,sans-serif;margin:24px;color:#111}table{border-collapse:collapse;width:100%;font-size:13px}
   th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left}td.n,th.n{text-align:right}h1{font-size:20px;margin:0}h2{font-size:15px;margin-top:24px}</style></head><body>
-  <h1>${h(p.cliente)}</h1><p>${h(p.proveedor)} · pedido nº ${h(p.numero)} · ${h(fmtFecha(p.fecha))}${p.campana ? ' · campaña ' + h(p.campana) : ''}</p>
+  <h1>${h(p.cliente)}</h1><p>${h(p.proveedor)} · pedido nº ${h(nPed(p.numero))} · ${h(fmtFecha(p.fecha))}${p.campana ? ' · campaña ' + h(p.campana) : ''}</p>
   <table><tr><th>Cant.</th><th>Referencia</th><th>Descripción</th><th class="n">Precio</th><th class="n">Importe</th></tr>
   ${lineas.map((l) => `<tr><td>${l.cant}</td><td>${h(l.ref)}</td><td>${h(l.desc)}</td><td class="n">${fmt(pc(l))}</td><td class="n">${fmt(CP.red2(pc(l) * l.cant))}</td></tr>`).join('')}
   <tr><td colspan="4" class="n"><b>Total bruto</b></td><td class="n"><b>${fmt(CP.red2(bruto))}</b></td></tr>
@@ -2221,17 +2229,17 @@ const JSPDF_TABLA = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.
 let envio = null; // {ids, proveedor, campana, file, nombre}
 const cargarScript = (src) => new Promise((ok, mal) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => mal(new Error('no se pudo cargar ' + src.split('/').pop())); document.head.appendChild(s); });
 function chipEnvio(ps) {
-  const env = ps.filter((p) => p.envio);
+  const env = ps.filter(envioDe);
   if (!env.length) return '';
-  const ult = env.map((p) => String(p.envio.fecha)).sort().pop();
+  const ult = env.map((p) => String(envioDe(p).fecha)).sort().pop();
   return env.length === ps.length
     ? `<span class="chip ok">📧 enviada ${h(fmtFecha(ult.slice(0, 10)).slice(0, 5))}</span>`
     : `<span class="chip aviso">📧 ${env.length} de ${ps.length} enviados</span>`;
 }
 function correoProveedor(proveedor) {
-  const conEnvio = E.pedidos.filter((p) => prov(p.proveedor) === prov(proveedor) && p.envio && p.envio.para)
-    .sort((a, b) => String(b.envio.fecha).localeCompare(String(a.envio.fecha)));
-  return conEnvio.length ? conEnvio[0].envio.para : '';
+  const conEnvio = E.pedidos.filter((p) => prov(p.proveedor) === prov(proveedor) && envioDe(p) && envioDe(p).para)
+    .sort((a, b) => String(envioDe(b).fecha).localeCompare(String(envioDe(a).fecha)));
+  return conEnvio.length ? envioDe(conEnvio[0]).para : '';
 }
 async function prepararEnvio(clave, raiz) {
   let ids = [...(raiz || document).querySelectorAll('.selPed:checked')].map((c) => c.value);
@@ -2240,7 +2248,7 @@ async function prepararEnvio(clave, raiz) {
   const bloques = CP.pedidosParaProveedor(ps);
   if (!bloques.length) { alert('Estos pedidos no tienen líneas que enviar.'); return; }
   const ej = ps[0];
-  const yaEnviados = ps.filter((p) => p.envio).length;
+  const yaEnviados = ps.filter(envioDe).length;
   envio = { ids: ps.map((p) => p.id), proveedor: ej.proveedor, campana: ej.campana || '', file: null, nombre: '' };
   const nLineas = bloques.reduce((s, b) => s + b.lineas.length, 0);
   const dlg = document.getElementById('dlgEnvio');
@@ -2287,7 +2295,7 @@ async function pdfPedidosProveedor(proveedor, campana, bloques) {
     if (y > alto - 40) { doc.addPage(); y = 18; }
     doc.setFillColor(30, 125, 50); doc.rect(14, y, ancho - 28, 8, 'F');
     doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-    doc.text(`Pedido nº ${b.numero || '—'}${b.cliente ? ' — ' + b.cliente : ''}`, 16, y + 5.5);
+    doc.text(`Pedido nº ${nPed(b.numero) || '—'}${b.cliente ? ' — ' + b.cliente : ''}`, 16, y + 5.5);
     doc.setTextColor(0);
     doc.autoTable({
       startY: y + 8, margin: { left: 14, right: 14 },
@@ -2340,7 +2348,7 @@ function marcarEnviado() {
   if (!envio) return;
   const para = document.getElementById('envPara').value.trim() || envio.para || '';
   const ahora = new Date().toISOString();
-  for (const id of envio.ids) { const p = pedidoPorId(id); if (p) p.envio = { fecha: ahora, para, por: nube.usuario || '' }; }
+  for (const id of envio.ids) { const p = pedidoPorId(id); if (p) p.enviado = { fecha: ahora, para, por: nube.usuario || '' }; }
   guardar();
   document.getElementById('dlgEnvio').close();
   envio = null;
