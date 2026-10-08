@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#1e7d32">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest-pedidos.json">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="icon-ofipapel-192.png">
 <link rel="apple-touch-icon" href="icon-ofipapel-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -108,13 +109,25 @@ main{overflow-wrap:anywhere}
 #vistaImportar iframe{display:block;width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid var(--borde);border-radius:12px;background:#fff}
 .importar-barra{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:10px 0}
 li.descartada{text-decoration:line-through;opacity:.65}
-.entrada-rapida{background:var(--fondo);border:1px solid var(--borde);border-radius:10px;padding:10px 12px;margin:10px 0}
-.entrada-rapida input{font-size:17px}
-details.bloc{background:#fffdf3;border:1px solid #eadfa8;border-radius:10px;padding:8px 12px;margin:0 0 10px}
-details.bloc summary{cursor:pointer}
-details.bloc ol{margin:8px 0;padding-left:26px;max-height:260px;overflow:auto;font-size:15px;line-height:1.6}
-details.bloc .baja{text-decoration:line-through;color:var(--texto2)}
-details.bloc .hora{color:var(--texto2);font-size:12px;margin-right:4px}
+.libreta{margin:10px 0}
+.libreta-cab{margin-bottom:6px}
+/* Hoja de libreta: renglones azules de 36px, margen rojo y columnas como el talonario. */
+.hoja{--r:36px;position:relative;background-color:#fffef4;border:1px solid #e6dfbf;border-radius:6px;box-shadow:0 2px 6px #0001;
+  background-image:linear-gradient(to right,transparent 42px,#e79a9a 42px,#e79a9a 44px,transparent 44px),
+    repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--r) - 1px),#bcd4ec calc(var(--r) - 1px),#bcd4ec var(--r));
+  max-height:60vh;overflow:auto;font-family:'Kalam','Segoe Print','Comic Sans MS',cursive}
+.renglon{display:grid;grid-template-columns:44px 74px 150px 1fr 96px;height:36px;align-items:end;margin:0}
+.renglon > span{padding:0 8px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:1px solid #f0c9c9;height:100%;display:flex;align-items:flex-end}
+.renglon > .l-num{border-left:0;justify-content:center;color:#c98a8a;font-size:14px}
+.renglon.titulos > span{font-family:'Segoe UI',system-ui,sans-serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#a55;align-items:center}
+.renglon.escrito{color:#1c3f94;font-size:20px;line-height:1}
+.renglon .l-precio{justify-content:flex-end}
+.renglon .l-todo{grid-column:2 / -1}
+.renglon.tachado > span:not(.l-num){text-decoration:line-through;text-decoration-color:#c33;color:#7c8aa8}
+.renglon.nuevo input{all:unset;box-sizing:border-box;width:100%;height:34px;padding-top:12px;line-height:20px;font:inherit;font-size:20px;color:#1c3f94;caret-color:#c33}
+.renglon.nuevo input:focus{background:#fff3b0aa}
+.renglon.nuevo input::placeholder{color:#9fb3d6}
+.renglon.nuevo .l-precio input{text-align:right}
 .casilla{flex-direction:row!important;align-items:center;gap:6px;align-self:flex-end;padding-bottom:8px}
 details.grupo{border:1px solid var(--borde,#ddd);border-radius:10px;padding:10px 12px;margin-top:12px}
 details.grupo>summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:16px}
@@ -173,6 +186,11 @@ table.lista-pedidos .c-movil{display:none}
   table.lista-pedidos .m-dat{font-size:12px;color:var(--texto2);margin-top:2px}
   table.lista-pedidos .m-est{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
   table.lista-pedidos .m-est .chip{font-size:11px;padding:1px 7px}
+  .renglon{grid-template-columns:30px 48px 96px 1fr 70px}
+  .renglon > span{padding:0 4px 2px}
+  .renglon.escrito,.renglon.nuevo input{font-size:18px}
+  .hoja{background-image:linear-gradient(to right,transparent 28px,#e79a9a 28px,#e79a9a 30px,transparent 30px),
+    repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--r) - 1px),#bcd4ec calc(var(--r) - 1px),#bcd4ec var(--r))}
 }
 @media print{header,nav,.no-imprimir{display:none!important}body{background:#fff}.tarjeta{border:0}}
 </style>
@@ -855,8 +873,7 @@ function vistaDetalle(p) {
       <textarea id="txtPegar" placeholder="Una línea por artículo: cantidad  referencia  precio  (descripción opcional)&#10;4  780100027  3,25  CALENDARIO&#10;1EXP 883840127 180,14"></textarea>
       <button class="btn peque" onclick="pegarLineas('pedido')">Añadir estas líneas</button>
     </div>
-    ${entradaRapida()}
-    ${vistaBloc(p)}
+    ${libreta(p)}
     ${!cat ? `<div class="aviso-caja aviso">Aún no hay catálogo de ${h(p.proveedor)}: carga una propuesta suya para poder comprobar que cada referencia existe.</div>` : ''}
     ${tablaLineas(p, cat)}
   </div>
@@ -1180,19 +1197,7 @@ function apuntar(p, accion, l) {
   // Al borrar, se tacha la apuntada (no se apunta otra vez).
   const previa = accion === 'baja' && [...reg].reverse().find((x) => x.accion === 'alta' && !x.borrada && x.texto === texto);
   if (previa) previa.borrada = ahora;
-  else reg.push({ hora: ahora, accion, texto, quien: nube.usuario || '' });
-}
-function vistaBloc(p) {
-  const reg = p.registro || [];
-  if (!reg.length) return '';
-  const hora = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${fmtFecha(iso.slice(0, 10))} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
-  const borradas = reg.filter((x) => x.borrada || x.accion === 'baja').length;
-  return `
-    <details class="bloc no-imprimir" open>
-      <summary><b>📝 Bloc del pedido</b> · ${reg.length} artículo(s) apuntado(s)${borradas ? ` · ${borradas} borrado(s)` : ''}</summary>
-      <ol>${reg.map((x) => `<li><span class="hora">${h(hora(x.hora))}${x.quien ? ' · ' + h(x.quien) : ''}</span> <span class="${x.borrada || x.accion === 'baja' ? 'baja' : ''}">${h(x.texto)}</span>${x.borrada ? ` <span class="pequeno">borrada ${h(hora(x.borrada))}</span>` : x.accion === 'baja' ? ' <span class="pequeno">(borrada)</span>' : ''}</li>`).join('')}</ol>
-      <button class="btn peque" onclick="copiarBloc()">Copiar el bloc</button>
-    </details>`;
+  else reg.push({ hora: ahora, accion, texto, quien: nube.usuario || '', cant: l.cant, exp: !!l.exp, ref: l.ref, desc: l.desc || '', precio: l.precio == null ? null : l.precio });
 }
 function copiarBloc() {
   const p = pedidoActual();
@@ -1208,20 +1213,52 @@ function anadirLinea() { const p = pedidoActual(); p.lineas.push({ ref: '', desc
  *  añade la línea y vuelve a la cantidad. Si la referencia está en el
  *  catálogo del proveedor, rellena descripción y precio (se pueden cambiar). */
 const CAMPOS_RAPIDA = ['qaCant', 'qaRef', 'qaDesc', 'qaPrecio'];
-function entradaRapida() {
-  const campo = (id, etiqueta, extra, estiloEtiqueta) => `<label${estiloEtiqueta ? ` style="${estiloEtiqueta}"` : ''}>${etiqueta}<input id="${id}" autocomplete="off" onkeydown="teclaRapida(event, '${id}')" ${extra}></label>`;
+/** El bloc del pedido como una hoja de libreta (como los talonarios de las
+ *  fotos): renglones, margen rojo y columnas Cantidad · Referencia ·
+ *  Descripción · Precio. Arriba, lo apuntado a mano (lo borrado, tachado);
+ *  el último renglón es donde se escribe. */
+function libreta(p) {
+  const reg = p.registro || [];
+  const hora = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${fmtFecha(iso.slice(0, 10))} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  const borradas = reg.filter((x) => x.borrada || x.accion === 'baja').length;
+  const escritas = reg.map((x, n) => {
+    const tachada = x.borrada || x.accion === 'baja';
+    const titulo = `${hora(x.hora)}${x.quien ? ' · ' + x.quien : ''}${x.borrada ? ' · borrada ' + hora(x.borrada) : ''}`;
+    const celdas = x.ref != null
+      ? `<span class="l-cant">${h(fmt(x.cant).replace(',00', ''))}${x.exp ? ' <small>EXP</small>' : ''}</span><span class="l-ref">${h(x.ref)}</span><span class="l-desc">${h(x.desc)}</span><span class="l-precio">${x.precio == null ? '' : h(fmtPrecio(x.precio))}</span>`
+      : `<span class="l-todo">${h(x.texto)}</span>`; // apuntes de antes, sin columnas
+    return `<div class="renglon escrito${tachada ? ' tachado' : ''}" title="${h(titulo)}"><span class="l-num">${n + 1}</span>${celdas}</div>`;
+  }).join('');
+  const campo = (id, extra) => `<input id="${id}" autocomplete="off" autocapitalize="characters" onkeydown="teclaRapida(event, '${id}')" ${extra}>`;
   return `
-    <div class="entrada-rapida no-imprimir">
-      <div class="pequeno" style="margin-bottom:6px"><b>Añadir artículo</b> · escribe y pulsa <b>Enter</b> para pasar a la siguiente casilla; en el precio, Enter añade la línea.</div>
-      <div class="fila">
-        ${campo('qaCant', 'Cantidad', 'style="width:80px" inputmode="decimal" enterkeyhint="next" placeholder="1"')}
+    <div class="libreta no-imprimir">
+      <div class="libreta-cab"><b>📝 Bloc del pedido</b>${reg.length ? ` · ${reg.length} apuntado(s)${borradas ? ` · ${borradas} tachado(s)` : ''}` : ''}
+        <span class="pequeno">· escribe y pulsa <b>Enter</b>: cantidad → referencia → descripción → precio; en el precio, Enter apunta la línea.</span></div>
+      <div class="hoja" id="hojaLibreta">
+        <div class="renglon titulos"><span class="l-num"></span><span class="l-cant">Cant.</span><span class="l-ref">Referencia</span><span class="l-desc">Descripción</span><span class="l-precio">Precio</span></div>
+        ${escritas}
+        <form class="renglon nuevo" onsubmit="event.preventDefault(); envioRapida()">
+          <span class="l-num">${reg.length + 1}</span>
+          <span class="l-cant">${campo('qaCant', 'inputmode="decimal" enterkeyhint="next" placeholder="1" aria-label="Cantidad"')}</span>
+          <span class="l-ref">${campo('qaRef', 'enterkeyhint="next" aria-label="Referencia"')}</span>
+          <span class="l-desc">${campo('qaDesc', 'enterkeyhint="next" aria-label="Descripción"')}</span>
+          <span class="l-precio">${campo('qaPrecio', 'inputmode="decimal" enterkeyhint="done" aria-label="Precio"')}</span>
+          <button type="submit" class="oculto" tabindex="-1">Apuntar</button>
+        </form>
+        <div class="renglon"></div><div class="renglon"></div>
+      </div>
+      <div class="fila" style="margin-top:8px">
         <label class="casilla"><input type="checkbox" id="qaExp"> Expositor</label>
-        ${campo('qaRef', 'Referencia', 'style="width:140px" enterkeyhint="next"')}
-        ${campo('qaDesc', 'Descripción', 'enterkeyhint="next"', 'flex:1 1 200px')}
-        ${campo('qaPrecio', 'Precio', 'style="width:90px" inputmode="decimal" enterkeyhint="done"')}
-        <button class="btn primario" onclick="anadirRapida()">Añadir</button>
+        <button class="btn primario" onclick="anadirRapida()">Apuntar línea</button>
+        ${reg.length ? '<button class="btn peque" onclick="copiarBloc()">Copiar el bloc</button>' : ''}
       </div>
     </div>`;
+}
+/** Si el teclado (Android) no manda la tecla Enter, el formulario se envía igual: se sigue por aquí. */
+function envioRapida() {
+  const id = document.activeElement && document.activeElement.id;
+  if (CAMPOS_RAPIDA.includes(id)) teclaRapida({ key: 'Enter', preventDefault() {} }, id);
+  else anadirRapida();
 }
 function teclaRapida(ev, id) {
   if (ev.key !== 'Enter' && ev.keyCode !== 13) return;
@@ -1253,7 +1290,7 @@ function anadirRapida() {
   p.lineas.push(l);
   apuntar(p, 'alta', l);
   invalidar(p); guardar(); pintar();
-  const ol = document.querySelector('details.bloc ol'); if (ol) ol.scrollTop = ol.scrollHeight;
+  const hoja = document.getElementById('hojaLibreta'); if (hoja) hoja.scrollTop = hoja.scrollHeight;
   document.getElementById('qaCant').focus();
 }
 function borrarPedido(id) {
