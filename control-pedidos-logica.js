@@ -482,8 +482,9 @@
    *
    * Pedidos del COMERCIAL (opciones.comercial): hay dos precios distintos.
    *  - precioCliente: el que se decide aquí («Mantener lo pedido» = lo que
-   *    apuntó el comercial, «Aceptar propuesta» = el del proveedor, «a mano»
-   *    = el escrito). Es el del listado del cliente.
+   *    apuntó el comercial, «Aceptar propuesta» = el NETO del proveedor, tras
+   *    los descuentos de cada línea y sin el global; «a mano» = el escrito).
+   *    Es el del listado del cliente: el comercial nunca trabaja con descuentos.
    *  - precio / dtos / importe: el COSTE, siempre el que factura el proveedor
    *    cuando lo trae. Es el que va al Excel de Géminis (pedido de compra):
    *    meter ahí el precio al cliente falsearía el coste y el margen.
@@ -503,10 +504,11 @@
       const d = (decisiones && decisiones[f.ref]) || { accion: f.estado === 'falta' ? 'resto' : 'aceptar' };
       if (d.nota) notas.push({ ref: f.ref, desc: f.desc, texto: d.nota });
       const base = { ref: f.ref, desc: f.desc, ean: f.ean, exp: Boolean(f.exp) };
+      // _neto: el precio neto de esa línea (tras sus descuentos), para el precio al cliente.
       const propuesta = (cant) => ({ ...base, cant, precio: f.precioPropuesta, dtos: f.dtosPropuesta,
-        importe: cant === f.cantPropuesta ? f.importePropuesta : null, udsCaja: f.udsCajaPropuesta || f.udsCajaPedido });
+        importe: cant === f.cantPropuesta ? f.importePropuesta : null, udsCaja: f.udsCajaPropuesta || f.udsCajaPedido, _neto: f.netoPropuesta });
       const pedido = (cant) => (f.precioPedido != null
-        ? { ...base, cant, precio: f.precioPedido, dtos: f.dtosPedido, importe: null, udsCaja: f.udsCajaPedido || f.udsCajaPropuesta }
+        ? { ...base, cant, precio: f.precioPedido, dtos: f.dtosPedido, importe: null, udsCaja: f.udsCajaPedido || f.udsCajaPropuesta, _neto: f.netoPedido }
         : propuesta(cant));
       const desde = lineas.length;
       let precioClienteManual = null;
@@ -546,14 +548,17 @@
         default: // aceptar
           if (f.cantPropuesta > 0) lineas.push(propuesta(f.cantPropuesta));
       }
-      if (comercial) {
-        for (const l of lineas.slice(desde)) {
-          l.precioCliente = precioClienteManual != null ? precioClienteManual : l.precio;
-          if (f.precioPropuesta != null) {
-            l.precio = f.precioPropuesta;
-            l.dtos = f.dtosPropuesta;
-            l.importe = l.cant === f.cantPropuesta ? f.importePropuesta : null;
-          }
+      for (const l of lineas.slice(desde)) {
+        // El comercial trabaja siempre con precio NETO (sin descuentos): al
+        // cliente va el neto, nunca el precio de tarifa del proveedor.
+        const neto = l._neto != null ? l._neto : l.precio;
+        delete l._neto;
+        if (!comercial) continue;
+        l.precioCliente = precioClienteManual != null ? precioClienteManual : neto;
+        if (f.precioPropuesta != null) {
+          l.precio = f.precioPropuesta;
+          l.dtos = f.dtosPropuesta;
+          l.importe = l.cant === f.cantPropuesta ? f.importePropuesta : null;
         }
       }
     }
