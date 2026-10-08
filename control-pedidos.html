@@ -121,7 +121,7 @@ li.descartada{text-decoration:line-through;opacity:.65}
   background-image:linear-gradient(to right,transparent 42px,#e79a9a 42px,#e79a9a 44px,transparent 44px),
     repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--r) - 1px),#bcd4ec calc(var(--r) - 1px),#bcd4ec var(--r));
   max-height:60vh;overflow:auto;font-family:'Kalam','Segoe Print','Comic Sans MS',cursive}
-.renglon{display:grid;grid-template-columns:44px 74px 150px 1fr 96px;height:36px;align-items:end;margin:0}
+.renglon{display:grid;grid-template-columns:44px 104px 150px 1fr 96px;height:36px;align-items:end;margin:0}
 .renglon > span{padding:0 8px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:1px solid #f0c9c9;height:100%;display:flex;align-items:flex-end}
 .renglon > .l-num{border-left:0;justify-content:center;color:#c98a8a;font-size:14px}
 .renglon.titulos > span{font-family:'Segoe UI',system-ui,sans-serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#a55;align-items:center}
@@ -133,6 +133,11 @@ li.descartada{text-decoration:line-through;opacity:.65}
 .renglon.nuevo input:focus{background:#fff3b0aa}
 .renglon.nuevo input::placeholder{color:#9fb3d6}
 .renglon.nuevo .l-precio input{text-align:right}
+.renglon.nuevo .l-cant{gap:4px;align-items:center;padding-bottom:0}
+.renglon.nuevo .l-cant input{min-width:0;flex:1 1 auto}
+.exp-toggle{flex:0 0 auto;font:600 11px/1 system-ui,sans-serif;padding:5px 6px;border:1px solid #9fb3d6;border-radius:999px;background:#fff;color:#1c3f94;cursor:pointer;min-height:0}
+.exp-toggle[aria-pressed=true]{background:#c33;border-color:#c33;color:#fff}
+.renglon .l-cant small{margin-left:4px;color:#c33;font-size:12px}
 .casilla{flex-direction:row!important;align-items:center;gap:6px;align-self:flex-end;padding-bottom:8px}
 details.grupo{border:1px solid var(--borde,#ddd);border-radius:10px;padding:10px 12px;margin-top:12px}
 details.grupo>summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:16px}
@@ -191,7 +196,24 @@ table.lista-pedidos .c-movil{display:none}
   table.lista-pedidos .m-dat{font-size:12px;color:var(--texto2);margin-top:2px}
   table.lista-pedidos .m-est{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
   table.lista-pedidos .m-est .chip{font-size:11px;padding:1px 7px}
-  .renglon{grid-template-columns:30px 48px 96px 1fr 70px}
+  .renglon{grid-template-columns:28px 82px 92px 1fr 64px}
+  /* Líneas de artículos: tarjetas compactas (cantidad, exp., referencia y
+     precio en una fila; descripción debajo; la duda solo si la hay). */
+  table.t-lineas tr,table.t-repo tr{display:grid;gap:2px 6px;padding:6px 8px;margin-bottom:6px}
+  table.t-lineas tr{grid-template-columns:62px 34px 1fr 86px;grid-template-areas:"cant exp ref precio" "desc desc desc x" "duda duda duda duda"}
+  table.t-repo tr{grid-template-columns:62px 1fr 86px 76px;grid-template-areas:"cant ref precio dtos" "desc desc desc x" "imp imp neto neto" "duda duda duda duda"}
+  table.t-lineas tr:has(> th),table.t-repo tr:has(> th){display:none}
+  table.t-lineas td,table.t-repo td{display:block;padding:0;min-width:0;text-align:left}
+  table.t-lineas td::before,table.t-repo td::before{display:block;font-size:10px;line-height:1.3;margin:0}
+  table.t-lineas td input:not([type=checkbox]),table.t-repo td input{width:100%;min-height:36px;padding:4px 6px}
+  table.t-lineas td.c-exp input{margin-top:6px}
+  .c-cant{grid-area:cant}.c-exp{grid-area:exp}.c-ref{grid-area:ref}.c-precio{grid-area:precio}.c-desc{grid-area:desc}
+  .c-duda{grid-area:duda}.c-x{grid-area:x;align-self:end}.c-dtos{grid-area:dtos}.c-imp{grid-area:imp}.c-neto{grid-area:neto}
+  table.t-repo td.c-imp,table.t-repo td.c-neto{display:flex;gap:6px;font-size:13px}
+  table.t-repo td.c-imp::before,table.t-repo td.c-neto::before{font-size:12px}
+  td.c-duda.vacia{display:none}
+  td.c-duda .btn{margin-top:4px}
+  td.c-x .btn{min-height:36px;padding:4px 12px}
   .renglon > span{padding:0 4px 2px}
   .renglon.escrito,.renglon.nuevo input{font-size:18px}
   .hoja{background-image:linear-gradient(to right,transparent 28px,#e79a9a 28px,#e79a9a 30px,transparent 30px),
@@ -1008,21 +1030,21 @@ function tablaLineasRepo(p, cat, lado) {
     <span class="chip gris">${arr.length} líneas</span>
     ${cat && fueraCat ? `<span class="chip mal">${fueraCat} referencias no existen en el catálogo</span>` : ''}
   </div>
-  <div class="tabla-scroll"><table>
+  <div class="tabla-scroll"><table class="t-repo">
     <tr><th class="num">Cant.</th><th>Referencia</th><th>Descripción</th><th class="num">Precio base</th><th>Descuentos</th><th class="num">Importe</th><th class="num">Neto</th><th>Duda</th><th></th></tr>
     ${arr.map((l, i) => {
       const fuera = cat && l.ref && !cat[CP.normRef(l.ref)];
       const neto = CP.precioNeto({ cant: l.cant, precio: l.precio, dtos: l.dtos, importe: l.importe });
       return `<tr class="${fuera ? 'fuera-catalogo' : ''} ${l.duda ? 'duda' : ''}">
-        <td><input class="cant" value="${h(l.cant)}" onchange="cambiaLinea(${i},'cant',this.value${L})"></td>
-        <td><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value${L})"></td>
-        <td><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value${L})"></td>
-        <td><input class="precio" value="${l.precio == null ? '' : h(fmtPrecio(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value${L})"></td>
-        <td><input class="precio" value="${h(Array.isArray(l.dtos) ? l.dtos.join('+') : l.dtos)}" placeholder="—" title="Descuentos encadenados, p. ej. 10+5" onchange="cambiaLinea(${i},'dtos',this.value${L})"></td>
-        <td class="num">${l.importe == null ? '—' : fmt(l.importe)}</td>
-        <td class="num">${neto == null ? '—' : fmtPrecio(CP.red2(neto * 1000) / 1000)}</td>
-        <td><input value="${h(l.duda)}" placeholder="—" onchange="cambiaLinea(${i},'duda',this.value${L})">${l.duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda',''${L})">✓ Está bien</button>` : ''}</td>
-        <td><button class="btn peque peligro" onclick="borrarLinea(${i}${L})" title="Borrar la línea entera">✕</button></td>
+        <td class="c-cant"><input class="cant" inputmode="decimal" value="${h(l.cant)}" onchange="cambiaLinea(${i},'cant',this.value${L})"></td>
+        <td class="c-ref"><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value${L})"></td>
+        <td class="c-desc"><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value${L})"></td>
+        <td class="c-precio"><input class="precio" inputmode="decimal" value="${l.precio == null ? '' : h(fmtPrecio(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value${L})"></td>
+        <td class="c-dtos"><input class="precio" inputmode="decimal" value="${h(Array.isArray(l.dtos) ? l.dtos.join('+') : l.dtos)}" placeholder="—" title="Descuentos encadenados, p. ej. 10+5" onchange="cambiaLinea(${i},'dtos',this.value${L})"></td>
+        <td class="num c-imp">${l.importe == null ? '—' : fmt(l.importe)}</td>
+        <td class="num c-neto">${neto == null ? '—' : fmtPrecio(CP.red2(neto * 1000) / 1000)}</td>
+        <td class="c-duda${l.duda ? '' : ' vacia'}"><input value="${h(l.duda)}" placeholder="—" onchange="cambiaLinea(${i},'duda',this.value${L})">${l.duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda',''${L})">✓ Está bien</button>` : ''}</td>
+        <td class="c-x"><button class="btn peque peligro" onclick="borrarLinea(${i}${L})" title="Borrar la línea entera">✕</button></td>
       </tr>`;
     }).join('')}
   </table></div>
@@ -1058,7 +1080,7 @@ function tablaLineas(p, cat) {
     ${dudas ? `<span class="chip aviso">${dudas} con dudas de lectura</span>` : ''}
     ${cat ? (fueraCat ? `<span class="chip mal">${fueraCat} referencias no existen en el catálogo</span>` : `<span class="chip ok">Todas las referencias existen en el catálogo</span>`) : ''}
   </div>
-  <div class="tabla-scroll"><table>
+  <div class="tabla-scroll"><table class="t-lineas">
     <tr><th class="num">Cant.</th><th>Exp.</th><th>Referencia</th><th>Descripción</th><th class="num">Precio</th><th>Duda de lectura</th><th></th></tr>
     ${p.lineas.map((l, i) => {
       const ref = CP.normRef(l.ref);
@@ -1066,15 +1088,15 @@ function tablaLineas(p, cat) {
       const sug = fuera ? CP.sugerenciasCatalogo(ref, cat, 4) : [];
       const enCat = cat && cat[ref];
       return `<tr class="${fuera ? 'fuera-catalogo' : ''} ${l.duda ? 'duda' : ''}">
-        <td><input class="cant" value="${h(l.cant)}" onchange="cambiaLinea(${i},'cant',this.value)"></td>
-        <td><input type="checkbox" ${l.exp ? 'checked' : ''} onchange="cambiaLinea(${i},'exp',this.checked)"></td>
-        <td><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value)">
+        <td class="c-cant"><input class="cant" inputmode="decimal" value="${h(l.cant)}" onchange="cambiaLinea(${i},'cant',this.value)"></td>
+        <td class="c-exp"><input type="checkbox" ${l.exp ? 'checked' : ''} onchange="cambiaLinea(${i},'exp',this.checked)"></td>
+        <td class="c-ref"><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value)">
           ${fuera ? `<div class="sugerencia">No está en el catálogo.${sug.length ? ' ¿Quizá…? ' + sug.map((s) => `<button onclick="cambiaLinea(${i},'ref',${js(s.ref)})" title="${h(s.desc)}">${h(s.ref)} · ${h(s.desc.slice(0, 24))}${s.precio != null ? ' · ' + fmt(s.precio) : ''}</button>`).join('') : ''}</div>` : ''}</td>
-        <td><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value)">${enCat && enCat.d ? `<div class="pequeno">${h(enCat.d)}</div>` : ''}</td>
-        <td><input class="precio" value="${l.precio == null ? '' : h(fmtPrecio(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value)">
+        <td class="c-desc"><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value)">${enCat && enCat.d ? `<div class="pequeno">${h(enCat.d)}</div>` : ''}</td>
+        <td class="c-precio"><input class="precio" inputmode="decimal" value="${l.precio == null ? '' : h(fmtPrecio(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value)">
           ${enCat && enCat.p != null && l.precio != null && CP.red2(enCat.p) !== CP.red2(l.precio) ? `<div class="pequeno">Tarifa ${fmt(enCat.p)}</div>` : ''}</td>
-        <td><input value="${h(l.duda)}" onchange="cambiaLinea(${i},'duda',this.value)" placeholder="—">${l.duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda','')">✓ Está bien</button>` : ''}</td>
-        <td><button class="btn peque peligro" onclick="borrarLinea(${i})" title="Borrar la línea entera">✕</button></td>
+        <td class="c-duda${l.duda ? '' : ' vacia'}"><input value="${h(l.duda)}" onchange="cambiaLinea(${i},'duda',this.value)" placeholder="—">${l.duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda','')">✓ Está bien</button>` : ''}</td>
+        <td class="c-x"><button class="btn peque peligro" onclick="borrarLinea(${i})" title="Borrar la línea entera">✕</button></td>
       </tr>`;
     }).join('')}
   </table></div>
@@ -1249,13 +1271,13 @@ function libreta(p) {
   return `
     <div class="libreta no-imprimir">
       <div class="libreta-cab"><b>📝 Bloc del pedido</b>${reg.length ? ` · ${reg.length} apuntado(s)${borradas ? ` · ${borradas} tachado(s)` : ''}` : ''}
-        <span class="pequeno">· escribe y pulsa <b>Enter</b>: cantidad → referencia → descripción → precio; en el precio, Enter apunta la línea. La referencia abre el teclado de números: si lleva letras, pulsa <b>ABC</b>.</span></div>
+        <span class="pequeno">· escribe y pulsa <b>Enter</b>: cantidad → referencia → descripción → precio; en el precio, Enter apunta la línea. Junto a la cantidad, <b>ud</b>/<b>EXP</b> (toca para cambiar) dice si son unidades o expositores. La referencia abre el teclado de números: si lleva letras, pulsa <b>ABC</b>.</span></div>
       <div class="hoja" id="hojaLibreta">
         <div class="renglon titulos"><span class="l-num"></span><span class="l-cant">Cant.</span><span class="l-ref">Referencia</span><span class="l-desc">Descripción</span><span class="l-precio">Precio</span></div>
         ${escritas}
         <form class="renglon nuevo" onsubmit="event.preventDefault(); envioRapida()">
           <span class="l-num">${reg.length + 1}</span>
-          <span class="l-cant">${campo('qaCant', 'inputmode="decimal" enterkeyhint="next" placeholder="1" aria-label="Cantidad"')}</span>
+          <span class="l-cant">${campo('qaCant', 'inputmode="decimal" enterkeyhint="next" placeholder="1" aria-label="Cantidad"')}<button type="button" id="qaExp" class="exp-toggle" aria-pressed="false" title="Unidades o expositor: toca para cambiar" onclick="alternarExp(this)">ud</button></span>
           <span class="l-ref">${campo('qaRef', 'inputmode="decimal" enterkeyhint="next" aria-label="Referencia"')}</span>
           <span class="l-desc">${campo('qaDesc', 'enterkeyhint="next" aria-label="Descripción"')}</span>
           <span class="l-precio">${campo('qaPrecio', 'inputmode="decimal" enterkeyhint="done" aria-label="Precio"')}</span>
@@ -1264,11 +1286,16 @@ function libreta(p) {
         <div class="renglon"></div><div class="renglon"></div>
       </div>
       <div class="fila" style="margin-top:8px">
-        <label class="casilla"><input type="checkbox" id="qaExp"> Expositor</label>
         <button class="btn primario" onclick="anadirRapida()">Apuntar línea</button>
         ${reg.length ? '<button class="btn peque" onclick="copiarBloc()">Copiar el bloc</button>' : ''}
       </div>
     </div>`;
+}
+/** Unidades ↔ expositor de la línea que se está escribiendo (vuelve a «ud» en cada línea nueva). */
+function alternarExp(b) {
+  const exp = b.getAttribute('aria-pressed') !== 'true';
+  b.setAttribute('aria-pressed', String(exp));
+  b.textContent = exp ? 'EXP' : 'ud';
 }
 /** Si el teclado (Android) no manda la tecla Enter, el formulario se envía igual: se sigue por aquí. */
 function envioRapida() {
@@ -1301,7 +1328,7 @@ function anadirRapida() {
   if (!mc) { const c = document.getElementById('qaCant'); c.focus(); c.select(); return; }
   if (!v('qaRef')) { document.getElementById('qaRef').focus(); return; }
   const p = pedidoActual();
-  const l = { cant: CP.parseNum(mc[1]), exp: Boolean(mc[2]) || document.getElementById('qaExp').checked, ref: CP.normRef(v('qaRef')),
+  const l = { cant: CP.parseNum(mc[1]), exp: Boolean(mc[2]) || document.getElementById('qaExp').getAttribute('aria-pressed') === 'true', ref: CP.normRef(v('qaRef')),
     desc: v('qaDesc').toUpperCase(), precio: v('qaPrecio') ? CP.parseNum(v('qaPrecio')) : null, dtos: [], duda: '' };
   p.lineas.push(l);
   apuntar(p, 'alta', l);
