@@ -50,3 +50,17 @@
 ::selection{background:#e79a4055}
 @media(max-width:560px){.topbar{height:72px}.logo{height:46px}
   .composer .voice-button{border-color:#212121;box-shadow:0 10px 30px #21212170}}
+/* Añadir por voz a un registro ya guardado */
+.entry-ampliado{margin-top:6px;border-left:3px solid #e79a40;padding-left:8px}
+.entry-ampliado p{margin:2px 0!important;font-size:12px!important;color:#6e665f}
+.entry-ampliado .pendiente-ampliar{color:#8a4b0c;font-weight:700}
+.ampliar{border:0;border-radius:18px;padding:22px;width:min(560px,calc(100vw - 32px));box-shadow:0 20px 60px #0006;background:#fff;color:#1f1d1b}
+.ampliar::backdrop{background:#212121aa}
+.ampliar h2{margin:0 0 6px;font-size:19px}
+.ampliar-resumen{margin:0 0 4px;color:#6e665f;font-size:13px;line-height:1.4}
+.ampliar textarea{display:block;width:100%;margin-top:7px;border:1px solid #ddd3c8;border-radius:10px;background:#fffdfa;padding:11px 12px;font:inherit;min-height:110px;resize:vertical}
+.ampliar-botones{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.ampliar-botones .button.primary{width:auto;margin-top:0;min-height:46px;flex:1}
+.ampliar .voice-button{position:static;width:auto;min-height:46px;flex:1;justify-content:center;border:0;box-shadow:none}
+.entry-actions button{font-size:16px}
+.entry .entry-ampliado .link-button,.entry .entry-ai .link-button{font-size:12px;line-height:1.4;color:#a85e12;padding:0;font-weight:800}

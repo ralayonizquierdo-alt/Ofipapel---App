@@ -112,6 +112,19 @@
         </div>
       </section>
     </main>
+    <!-- Añadir por voz a un registro ya guardado (p. ej. completar un aviso al acudir) -->
+    <dialog id="ampliar" class="ampliar" aria-labelledby="ampliar-titulo">
+      <h2 id="ampliar-titulo">Añadir al registro de las <span id="ampliar-hora"></span></h2>
+      <p id="ampliar-resumen" class="ampliar-resumen"></p>
+      <label class="field-label" for="ampliar-texto">Lo nuevo</label>
+      <textarea id="ampliar-texto" rows="4" placeholder="Ej.: «Ya hemos acudido, era una garza, la ahuyentamos con vuelo de rapaz»"></textarea>
+      <p id="ampliar-nota" class="hint" role="status"></p>
+      <div class="ampliar-botones">
+        <button id="ampliar-dictar" class="voice-button" type="button"><span class="mic" aria-hidden="true">🎙</span><span id="ampliar-dictar-label">Dictar</span></button>
+        <button id="ampliar-guardar" class="button primary" type="button">Añadir</button>
+        <button id="ampliar-cancelar" class="button secondary" type="button">Cancelar</button>
+      </div>
+    </dialog>
     <script src="app.js" defer></script>
     <script src="procesar.js" defer></script>
   </body>

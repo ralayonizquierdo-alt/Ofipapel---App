@@ -109,6 +109,18 @@ Ejemplos:
 «dos milanos posados en la valla cerca del helipuerto vuelos de caza con el halcón sin captura» → kind "fauna", species "Milano", count "2", behavior "Posados", origin "Valla perimetral, junto al helipuerto", action "V.Z – Vuelos de caza", observations "Sin captura", altitude "", threat "".
 «el piloto informa de impacto con un cernícalo en pista cero tres sin daños matrícula EI DCL» → kind "impacto", species "Cernícalo", location "Pista 03", aircraft "EI-DCL", severity "Sin daños", observations "Informa el piloto".`;
 
+// Ampliar un registro ya guardado con un dictado nuevo sobre el MISMO hecho
+// (p. ej. un aviso: primero llega, luego «ya hemos acudido y la ahuyentamos»).
+const INSTRUCCIONES_AMPLIAR = `
+MODO AMPLIAR: ahora recibes un REGISTRO YA GUARDADO (JSON) y un DICTADO NUEVO del agente sobre ese mismo hecho. Devuelve el registro completo actualizado, con las mismas reglas de casillas:
+- Conserva todo lo que ya había. No borres ni vacíes ninguna casilla.
+- Rellena las casillas vacías con lo que aporte el dictado nuevo.
+- Si el dictado nuevo añade información a una casilla de texto que ya tiene contenido (p. ej. "response" u "observations"), añádela detrás, separada por ". ", sin repetir lo que ya pone.
+- Cambia un dato que ya existía SOLO si el agente lo corrige expresamente ("no eran doce, eran ocho", "era una garza, no una gaviota").
+- "time": SOLO si en el dictado nuevo se dice expresamente la hora del hecho ("el aviso fue a las diez y cinco" → "10:05"); si no, "".
+- "text": mantenlo igual salvo que el dictado nuevo lo corrija o lo complete de forma clara.
+- La sección ("kind") no cambia.`;
+
 const peticionesPorIp = new Map();
 function limitado(ip) {
   const ahora = Date.now();
@@ -145,11 +157,17 @@ exports.handler = async (event) => {
   const ip = event.headers['x-nf-client-connection-ip'] || (event.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'desconocida';
   if (limitado(ip)) return responder(429, { error: 'Demasiadas peticiones; prueba en unos minutos.' });
 
-  let dictado, seccion;
+  let dictado, seccion, registro = null;
   try {
     const peticion = JSON.parse(event.body || '{}');
     dictado = String(peticion.texto || '').trim();
     seccion = Object.hasOwn(CAMPOS, peticion.seccion) ? peticion.seccion : '';
+    // Modo ampliar: el registro ya guardado manda su sección.
+    if (peticion.registro && typeof peticion.registro === 'object') {
+      const r = peticion.registro;
+      seccion = Object.hasOwn(CAMPOS, r.kind) ? r.kind : seccion || 'actuacion';
+      registro = sanear({ kind: seccion, time: r.time, text: r.text, details: r.details }, seccion);
+    }
   } catch { return responder(400, { error: 'Petición no válida' }); }
   if (!dictado) return responder(400, { error: 'Falta el texto' });
   if (dictado.length > MAX_TEXTO) return responder(400, { error: 'Texto demasiado largo' });
@@ -165,8 +183,10 @@ exports.handler = async (event) => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': clave },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: INSTRUCCIONES }] },
-      contents: [{ role: 'user', parts: [{ text: seccion ? `Sección elegida por el agente (obligatoria, úsala como "kind"): ${seccion}\n\nDictado: ${dictado}` : dictado }] }],
+      systemInstruction: { parts: [{ text: registro ? INSTRUCCIONES + INSTRUCCIONES_AMPLIAR : INSTRUCCIONES }] },
+      contents: [{ role: 'user', parts: [{ text: registro
+        ? `Registro ya guardado:\n${JSON.stringify(registro)}\n\nDictado nuevo: ${dictado}`
+        : seccion ? `Sección elegida por el agente (obligatoria, úsala como "kind"): ${seccion}\n\nDictado: ${dictado}` : dictado }] }],
       generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: ESQUEMA },
     }),
     signal: AbortSignal.timeout(ms),
@@ -201,11 +221,19 @@ exports.handler = async (event) => {
     }
     const datos = await res.json();
     const salida = datos?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
-    return responder(200, { ...sanear(JSON.parse(salida), seccion), modelo: usado, intentos });
+    let resultado = sanear(JSON.parse(salida), seccion);
+    // Red de seguridad del modo ampliar: lo que la IA deje vacío se queda como
+    // estaba; nunca se pierde un dato ya guardado.
+    if (registro) {
+      const details = { ...registro.details };
+      for (const [k, v] of Object.entries(resultado.details)) if (v) details[k] = v;
+      resultado = { kind: seccion, time: resultado.time, text: resultado.text || registro.text, details };
+    }
+    return responder(200, { ...resultado, modelo: usado, intentos });
   } catch (e) {
     console.error('fauna-clasificar:', e && e.message);
     return responder(502, { error: 'La IA no ha respondido a tiempo.' });
   }
 };
 
-exports._internos = { sanear, ESQUEMA, INSTRUCCIONES };
+exports._internos = { sanear, ESQUEMA, INSTRUCCIONES, INSTRUCCIONES_AMPLIAR };
