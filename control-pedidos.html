@@ -976,7 +976,7 @@ function tablaLineasRepo(p, cat, lado) {
     ${cat && fueraCat ? `<span class="chip mal">${fueraCat} referencias no existen en el catálogo</span>` : ''}
   </div>
   <div class="tabla-scroll"><table>
-    <tr><th class="num">Cant.</th><th>Referencia</th><th>Descripción</th><th class="num">Precio base</th><th>Descuentos</th><th class="num">Uds/caja</th><th class="num">Importe</th><th class="num">Neto</th><th>Duda</th><th></th></tr>
+    <tr><th class="num">Cant.</th><th>Referencia</th><th>Descripción</th><th class="num">Precio base</th><th>Descuentos</th><th class="num">Importe</th><th class="num">Neto</th><th>Duda</th><th></th></tr>
     ${arr.map((l, i) => {
       const fuera = cat && l.ref && !cat[CP.normRef(l.ref)];
       const neto = CP.precioNeto({ cant: l.cant, precio: l.precio, dtos: l.dtos, importe: l.importe });
@@ -986,7 +986,6 @@ function tablaLineasRepo(p, cat, lado) {
         <td><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value${L})"></td>
         <td><input class="precio" value="${l.precio == null ? '' : h(fmtPrecio(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value${L})"></td>
         <td><input class="precio" value="${h(Array.isArray(l.dtos) ? l.dtos.join('+') : l.dtos)}" placeholder="—" title="Descuentos encadenados, p. ej. 10+5" onchange="cambiaLinea(${i},'dtos',this.value${L})"></td>
-        <td><input class="cant" value="${h(l.udsCaja)}" onchange="cambiaLinea(${i},'udsCaja',this.value${L})"></td>
         <td class="num">${l.importe == null ? '—' : fmt(l.importe)}</td>
         <td class="num">${neto == null ? '—' : fmtPrecio(CP.red2(neto * 1000) / 1000)}</td>
         <td><input value="${h(l.duda)}" placeholder="—" onchange="cambiaLinea(${i},'duda',this.value${L})">${l.duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda',''${L})">✓ Está bien</button>` : ''}</td>
