@@ -113,7 +113,10 @@ function renderEntries() {
     const missing = missingFields(entry);
     if (missing.length && !['pendiente','ordenando','error'].includes(entry.ai)) { const warn = document.createElement('p'); warn.className = 'entry-missing'; warn.textContent = `Faltan: ${missing.join(', ')}`; body.append(warn); }
     if (entry.ai) body.append(aiStatus(entry));
+    if (entry.historial?.length || entry.porAmpliar?.length) body.append(ampliarStatus(entry));
     const actions = document.createElement('div'); actions.className = 'entry-actions';
+    const add = document.createElement('button'); add.type = 'button'; add.title = 'Añadir por voz'; add.setAttribute('aria-label','Añadir por voz al registro de las ' + entry.time); add.textContent = '🎙';
+    add.addEventListener('click', () => abrirAmpliar(entry));
     const edit = document.createElement('button'); edit.type = 'button'; edit.title = 'Editar registro'; edit.setAttribute('aria-label','Editar registro de las ' + entry.time); edit.textContent = '✎';
     edit.addEventListener('click', () => beginEdit(entry));
     const remove = document.createElement('button'); remove.type = 'button'; remove.title = 'Eliminar registro'; remove.setAttribute('aria-label','Eliminar registro de las ' + entry.time); remove.textContent = '×';
@@ -123,7 +126,7 @@ function renderEntries() {
       if (editingId === entry.id) clearComposer();
       save(); renderEntries();
     });
-    actions.append(edit,remove);
+    actions.append(add,edit,remove);
     row.append(time,body,actions); list.append(row);
   }
 }
@@ -269,14 +272,18 @@ function keyboardFallback(message) {
   target.focus();
   $('voice-note').textContent = message || 'Pulsa el micrófono del teclado para dictar en este campo.';
 }
-function stopListening() { $('voice-button').classList.remove('listening'); $('voice-label').textContent = 'Dictar registro'; }
+function stopListening() {
+  $('voice-button').classList.remove('listening'); $('voice-label').textContent = 'Dictar registro';
+  $('ampliar-dictar')?.classList.remove('listening'); if ($('ampliar-dictar-label')) $('ampliar-dictar-label').textContent = 'Dictar';
+}
 if (Recognition) {
   recognition = new Recognition(); recognition.lang = 'es-ES'; recognition.continuous = false; recognition.interimResults = false;
   recognition.onresult = event => {
     const text = event.results[0][0].transcript.trim();
     if (!voiceTarget.isConnected) voiceTarget = $('entry-text');
     voiceTarget.value = [voiceTarget.value.trim(),text].filter(Boolean).join(' ');
-    $('voice-note').textContent = 'Transcripción añadida al campo seleccionado. Revísala antes de guardar.';
+    if (voiceTarget === $('ampliar-texto')) $('ampliar-nota').textContent = 'Revisa el texto y pulsa «Añadir».';
+    else $('voice-note').textContent = 'Transcripción añadida al campo seleccionado. Revísala antes de guardar.';
   };
   recognition.onerror = event => {
     stopListening();
@@ -335,7 +342,16 @@ async function orderPending({retryErrors = false} = {}) {
     const tried = new Set();
     for (;;) {
       let entry = Object.values(state.reports).flat().find(e => !tried.has(e.id) && e.id !== editingId && (e.ai === 'pendiente' || (retryErrors && e.ai === 'error')));
-      if (!entry) break;
+      if (!entry) {
+        // Añadidos por voz a registros ya ordenados (uno cada vez, en su orden).
+        const amp = Object.values(state.reports).flat().find(e => e.porAmpliar?.length && e.id !== editingId
+          && !tried.has('a' + e.id + ':' + (e.historial?.length || 0)) && !['pendiente','ordenando','error'].includes(e.ai)
+          && (e.ampliarEstado === 'pendiente' || (retryErrors && e.ampliarEstado === 'error')));
+        if (!amp) break;
+        tried.add('a' + amp.id + ':' + (amp.historial?.length || 0));
+        if (!(await ampliarUno(amp))) break;
+        continue;
+      }
       const id = entry.id; tried.add(id);
       entry.ai = 'ordenando'; notifyChange();
       let result;
@@ -359,12 +375,116 @@ async function orderPending({retryErrors = false} = {}) {
     }
   } finally { ordering = false; }
 }
+// ── Añadir por voz a un registro ya guardado ───────────────────────────
+// Un aviso se completa en varios pasos («ya hemos acudido…»): lo nuevo se manda
+// a la IA junto con el registro y vuelve el mismo registro completado. No se
+// crea una línea nueva ni cambia la hora, salvo que el agente la diga.
+async function requestAmpliar(entry, texto) {
+  const registro = {kind:entry.kind, time:entry.time, text:entry.text, details:entry.details || {}};
+  const res = await fetch(CLASSIFY_URL, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({texto, registro}), signal: AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined});
+  return {ok: res.ok, status: res.status, data: await res.json().catch(() => ({}))};
+}
+// Devuelve false si conviene parar la cola (sin conexión o IA sin configurar).
+async function ampliarUno(entry) {
+  const id = entry.id;
+  const nuevo = entry.porAmpliar[0];
+  entry.ampliarEstado = 'ordenando'; notifyChange();
+  let result;
+  try { result = await requestAmpliar(entry, nuevo.texto); }
+  catch { result = {ok:false, status:0, data:{}}; }
+  ({entry} = findEntry(id));
+  if (!entry || !entry.porAmpliar?.length) return true;
+  if (entry.id === editingId) { entry.ampliarEstado = 'pendiente'; notifyChange(); return true; }
+  if (result.ok && result.data.details) {
+    const {data} = result;
+    (entry.historial ||= []).push({hora: nuevo.hora, texto: nuevo.texto, antes: {text: entry.text, time: entry.time, details: {...(entry.details || {})}}});
+    entry.text = data.text || entry.text;
+    entry.details = {...(entry.details || {}), ...Object.fromEntries(Object.entries(data.details).filter(([, v]) => v))};
+    if (data.time) entry.time = data.time;
+    entry.porAmpliar.shift();
+    if (entry.porAmpliar.length) entry.ampliarEstado = 'pendiente'; else { delete entry.ampliarEstado; delete entry.porAmpliar; }
+    delete entry.ampliarError;
+    notifyChange();
+    return true;
+  }
+  entry.ampliarEstado = 'error'; entry.ampliarError = result.status === 0 ? 'sin conexión' : (result.data.error || 'la IA no respondió');
+  notifyChange();
+  return !(result.status === 0 || result.status === 503);
+}
+function ampliarStatus(entry) {
+  const box = document.createElement('div'); box.className = 'entry-ampliado';
+  const link = (text, onClick) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'link-button'; b.textContent = text; b.addEventListener('click', onClick); return b; };
+  for (const h of entry.historial || []) { const p = document.createElement('p'); p.textContent = `＋ ${h.hora} «${h.texto}»`; box.append(p); }
+  if (entry.historial?.length && !entry.porAmpliar?.length) {
+    const p = document.createElement('p');
+    p.append(link('Deshacer el último añadido', () => {
+      const ultimo = entry.historial.pop();
+      Object.assign(entry, {text: ultimo.antes.text, time: ultimo.antes.time, details: ultimo.antes.details});
+      if (!entry.historial.length) delete entry.historial;
+      notifyChange();
+    }));
+    box.append(p);
+  }
+  for (const [i, a] of (entry.porAmpliar || []).entries()) {
+    const p = document.createElement('p'); p.className = 'pendiente-ampliar';
+    if (i === 0 && entry.ampliarEstado === 'ordenando') p.textContent = `⏳ Añadiendo «${a.texto}»…`;
+    else if (i === 0 && entry.ampliarEstado === 'error') p.append(`Sin añadir (${entry.ampliarError || 'la IA no respondió'}): «${a.texto}». `, link('Reintentar', () => { entry.ampliarEstado = 'pendiente'; notifyChange(); orderPending(); }));
+    else p.textContent = `⏳ Pendiente de añadir «${a.texto}»`;
+    box.append(p);
+  }
+  return box;
+}
+let ampliandoId = null;
+function abrirAmpliar(entry) {
+  ampliandoId = entry.id;
+  $('ampliar-hora').textContent = entry.time;
+  $('ampliar-resumen').textContent = `${labels[entry.kind] || entry.kind}: ${entry.text}`;
+  $('ampliar-texto').value = ''; $('ampliar-nota').textContent = '';
+  $('ampliar').showModal();
+  voiceTarget = $('ampliar-texto');
+  if (recognition) dictarAmpliar();
+  else { $('ampliar-texto').focus(); $('ampliar-nota').textContent = 'Pulsa el micrófono del teclado para dictar.'; }
+}
+function dictarAmpliar() {
+  voiceTarget = $('ampliar-texto');
+  if (!recognition) { $('ampliar-texto').focus(); $('ampliar-nota').textContent = 'Pulsa el micrófono del teclado para dictar.'; return; }
+  if ($('ampliar-dictar').classList.contains('listening')) { recognition.stop(); return; }
+  try {
+    recognition.start();
+    $('ampliar-dictar').classList.add('listening'); $('ampliar-dictar-label').textContent = 'Detener';
+    $('ampliar-nota').textContent = 'Escuchando… Pulsa otra vez para detener.';
+  } catch { $('ampliar-texto').focus(); }
+}
+function cerrarAmpliar() {
+  if ($('ampliar-dictar').classList.contains('listening') && recognition) { try { recognition.abort(); } catch { /* ya parado */ } }
+  stopListening();
+  voiceTarget = $('entry-text'); ampliandoId = null;
+  if ($('ampliar').open) $('ampliar').close();
+}
+$('ampliar-dictar').addEventListener('click', dictarAmpliar);
+$('ampliar-cancelar').addEventListener('click', cerrarAmpliar);
+$('ampliar').addEventListener('cancel', () => cerrarAmpliar());
+$('ampliar-guardar').addEventListener('click', () => {
+  const texto = $('ampliar-texto').value.trim();
+  if (!texto) { $('ampliar-nota').textContent = 'Dicta o escribe primero lo nuevo.'; $('ampliar-texto').focus(); return; }
+  const {entry} = findEntry(ampliandoId);
+  if (entry) {
+    (entry.porAmpliar ||= []).push({hora: now(), texto});
+    if (entry.ampliarEstado !== 'ordenando') entry.ampliarEstado = 'pendiente';
+    notifyChange();
+  }
+  cerrarAmpliar();
+  orderPending();
+});
+
 function aiStatus(entry) {
   const p = document.createElement('p'); p.className = 'entry-ai ai-' + entry.ai;
   const link = (text, onClick) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'link-button'; b.textContent = text; b.addEventListener('click', onClick); return b; };
   if (entry.ai === 'ordenando') p.textContent = '⏳ Ordenando con IA…';
   else if (entry.ai === 'pendiente') p.textContent = '⏳ Pendiente de ordenar con IA';
   else if (entry.ai === 'error') p.append(`Sin ordenar (${entry.aiError || 'la IA no respondió'}). `, link('Reintentar', () => { entry.ai = 'pendiente'; notifyChange(); orderPending(); }));
+  // Con añadidos, deshacer el ordenado inicial los borraría: ahí solo se deshace el último añadido.
+  else if (entry.ai === 'ordenado' && entry.historial?.length) p.textContent = '✨ Ordenado por IA';
   else if (entry.ai === 'ordenado') p.append('✨ Ordenado por IA · ', link('Deshacer', () => {
     // Vuelve al texto tal como se dictó, en la sección que eligió el agente.
     Object.assign(entry, {text: entry.dictado || entry.text, kind: entry.seccion || 'actuacion', details: {}, time: entry.horaGuardada || entry.time});

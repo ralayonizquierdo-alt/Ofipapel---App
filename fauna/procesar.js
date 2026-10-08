@@ -361,7 +361,7 @@ $('mail-share').addEventListener('click', async () => {
 // ── Registros sin ordenar por la IA ────────────────────────────────────────
 // Los que se guardaron sin cobertura o en los que la IA falló se ordenan aquí
 // de una vez, antes de revisar el parte. La cola es la de app.js.
-function sinOrdenar() { return datosDelDia(fechaActual()).entradas.filter(e => ['pendiente','ordenando','error'].includes(e.ai)).length; }
+function sinOrdenar() { return datosDelDia(fechaActual()).entradas.filter(e => ['pendiente','ordenando','error'].includes(e.ai) || ['pendiente','ordenando','error'].includes(e.ampliarEstado)).length; }
 function actualizarBotonOrdenar() {
   const n = sinOrdenar(), b = $('proc-ordenar');
   b.hidden = !n; b.textContent = `✨ Ordenar con IA ${n} ${n === 1 ? 'registro pendiente' : 'registros pendientes'}`;
