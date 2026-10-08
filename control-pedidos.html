@@ -270,6 +270,9 @@ const js = (v) => h(JSON.stringify(String(v == null ? '' : v)));
 const nuevoId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 const hoy = () => new Date().toISOString().slice(0, 10);
 const fmt = (n) => CP.fmt(n);
+/** Precio unitario sin perder decimales: 1,065 se ve 1,065 (no 1,07); si no hay más de 2, como siempre. */
+const fmtPrecio = (n) => (n == null || Math.abs(n * 100 - Math.round(n * 100)) < 1e-9 ? fmt(n)
+  : Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 4 }));
 const fmtFecha = (f) => (f && /^\d{4}-\d{2}-\d{2}/.test(f)) ? f.slice(8, 10) + '/' + f.slice(5, 7) + '/' + f.slice(0, 4) : (f || '');
 const prov = (s) => String(s || '').trim().toUpperCase();
 const pedidoPorId = (id) => E.pedidos.find((p) => p.id === id);
@@ -981,13 +984,13 @@ function tablaLineasRepo(p, cat, lado) {
         <td><input class="cant" value="${h(l.cant)}" onchange="cambiaLinea(${i},'cant',this.value${L})"></td>
         <td><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value${L})"></td>
         <td><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value${L})"></td>
-        <td><input class="precio" value="${l.precio == null ? '' : h(fmt(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value${L})"></td>
+        <td><input class="precio" value="${l.precio == null ? '' : h(fmtPrecio(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value${L})"></td>
         <td><input class="precio" value="${h(Array.isArray(l.dtos) ? l.dtos.join('+') : l.dtos)}" placeholder="—" title="Descuentos encadenados, p. ej. 10+5" onchange="cambiaLinea(${i},'dtos',this.value${L})"></td>
         <td><input class="cant" value="${h(l.udsCaja)}" onchange="cambiaLinea(${i},'udsCaja',this.value${L})"></td>
         <td class="num">${l.importe == null ? '—' : fmt(l.importe)}</td>
-        <td class="num">${neto == null ? '—' : fmt(neto)}</td>
-        <td><input value="${h(l.duda)}" placeholder="—" onchange="cambiaLinea(${i},'duda',this.value${L})"></td>
-        <td><button class="btn peque peligro" onclick="borrarLinea(${i}${L})" title="Quitar línea">✕</button></td>
+        <td class="num">${neto == null ? '—' : fmtPrecio(CP.red2(neto * 1000) / 1000)}</td>
+        <td><input value="${h(l.duda)}" placeholder="—" onchange="cambiaLinea(${i},'duda',this.value${L})">${l.duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda',''${L})">✓ Está bien</button>` : ''}</td>
+        <td><button class="btn peque peligro" onclick="borrarLinea(${i}${L})" title="Borrar la línea entera">✕</button></td>
       </tr>`;
     }).join('')}
   </table></div>
@@ -1036,10 +1039,10 @@ function tablaLineas(p, cat) {
         <td><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value)">
           ${fuera ? `<div class="sugerencia">No está en el catálogo.${sug.length ? ' ¿Quizá…? ' + sug.map((s) => `<button onclick="cambiaLinea(${i},'ref',${js(s.ref)})" title="${h(s.desc)}">${h(s.ref)} · ${h(s.desc.slice(0, 24))}${s.precio != null ? ' · ' + fmt(s.precio) : ''}</button>`).join('') : ''}</div>` : ''}</td>
         <td><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value)">${enCat && enCat.d ? `<div class="pequeno">${h(enCat.d)}</div>` : ''}</td>
-        <td><input class="precio" value="${l.precio == null ? '' : h(fmt(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value)">
+        <td><input class="precio" value="${l.precio == null ? '' : h(fmtPrecio(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value)">
           ${enCat && enCat.p != null && l.precio != null && CP.red2(enCat.p) !== CP.red2(l.precio) ? `<div class="pequeno">Tarifa ${fmt(enCat.p)}</div>` : ''}</td>
-        <td><input value="${h(l.duda)}" onchange="cambiaLinea(${i},'duda',this.value)" placeholder="—"></td>
-        <td><button class="btn peque peligro" onclick="borrarLinea(${i})" title="Quitar línea">✕</button></td>
+        <td><input value="${h(l.duda)}" onchange="cambiaLinea(${i},'duda',this.value)" placeholder="—">${l.duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda','')">✓ Está bien</button>` : ''}</td>
+        <td><button class="btn peque peligro" onclick="borrarLinea(${i})" title="Borrar la línea entera">✕</button></td>
       </tr>`;
     }).join('')}
   </table></div>
@@ -1159,7 +1162,8 @@ function cambiaLinea(i, campo, valor, lado) {
   else if (campo === 'udsCaja') l.udsCaja = CP.parseNum(valor);
   else l[campo] = valor;
   if (['cant', 'precio', 'dtos'].includes(campo)) l.importe = null; // el importe del Excel ya no vale
-  invalidar(p); guardar(); pintar();
+  if (campo !== 'duda') invalidar(p); // quitar o anotar una duda no cambia el pedido
+  guardar(); pintar();
 }
 function borrarLinea(i, lado) {
   const p = pedidoActual();
