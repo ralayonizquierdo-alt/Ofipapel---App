@@ -838,7 +838,9 @@
       const dtoLinea = l.dto != null ? l.dto : dto;
       const total = l.total != null ? l.total : red2(precio * l.cant * (1 - dtoLinea / 100));
       const v = {
-        ean: l.ean || '', desc: l.desc || '', ref: l.ref, cajas: '', udsCaja: l.udsCaja || '', cant: l.cant,
+        // UdsXCja va en la plantilla pero siempre en blanco (propietario, 2026-10-08):
+        // la cantidad es solo «Pedidas», y un valor ahí daba lugar a errores.
+        ean: l.ean || '', desc: l.desc || '', ref: l.ref, cajas: '', udsCaja: '', cant: l.cant,
         precio, dto: dtoLinea, igic: l.igic != null ? l.igic : igic, total, bonif: '', sinStock: '', codOfipapel: '', refProveedor: l.ref,
       };
       aoa.push(P.columnas.map((c) => v[c]));
