@@ -2,6 +2,7 @@ import type {
   IngresoMensual, OcupacionMensual, Payment, Repair, Reservation, ReparacionMensual,
 } from '../types'
 import { num } from './formato'
+import { EJERCICIO_APP } from './cuentas'
 
 /**
  * Descuadres entre el Excel (la fuente oficial del ejercicio) y lo que hay
@@ -10,6 +11,14 @@ import { num } from './formato'
  * No corrigen nada ni cambian ningún cálculo: solo señalan la diferencia para
  * que alguien la revise, que es justo lo que pidió el propietario. Mientras no
  * se revise, cada pantalla sigue usando su fuente de siempre.
+ *
+ * ─── Solo el ejercicio en curso ─────────────────────────────────────────────
+ * De 2022 a 2025 no se avisa de nada, por decisión del propietario: esos años
+ * están cerrados y no se van a tocar. Sus estancias llevan el importe estimado
+ * que trajo el calendario de colores —muchas, cero— mientras que sus cobros
+ * son los reales del Excel, así que la resta no significa nada. Mezclarlos
+ * llenaba el panel de avisos que nadie iba a mirar y tapaba los del año en
+ * curso, que son los únicos accionables. Ver `cuentas.ts`, EJERCICIO_APP.
  */
 
 export type TipoDescuadre = 'ingresos' | 'reparaciones' | 'ocupacion' | 'sinFecha' | 'solape' | 'sinImporte'
@@ -72,7 +81,10 @@ export function calculaDescuadres(d: DatosDescuadre): Descuadre[] {
     ...d.incomes.map(i => i.year),
     ...d.repairTotals.map(r => r.year),
     ...d.occupancies.map(o => o.year),
-  ])].sort((a, b) => b - a)
+  ])].filter(y => y >= EJERCICIO_APP).sort((a, b) => b - a)
+
+  /** Del ejercicio en curso en adelante. */
+  const delEjercicio = (fecha?: string) => Number((fecha ?? '').slice(0, 4)) >= EJERCICIO_APP
 
   for (const year of years) {
     // ── Ingresos: lo declarado en el Excel contra lo cobrado en la app ────────
@@ -172,7 +184,7 @@ export function calculaDescuadres(d: DatosDescuadre): Descuadre[] {
   // de huésped de siempre, uno sale por la mañana y otro entra por la tarde.
   const reservasPorInmueble = new Map<string, Reservation[]>()
   for (const r of d.reservations) {
-    if (r.status === 'cancelada') continue
+    if (r.status === 'cancelada' || !delEjercicio(r.checkIn)) continue
     if (!reservasPorInmueble.has(r.apartmentId)) reservasPorInmueble.set(r.apartmentId, [])
     reservasPorInmueble.get(r.apartmentId)!.push(r)
   }
@@ -202,7 +214,8 @@ export function calculaDescuadres(d: DatosDescuadre): Descuadre[] {
   // Pasa con las que vienen del calendario de años para los que no hay lista
   // de precios cargada: entran con las fechas bien pero a cero, y así no
   // cuentan en Analítica. Se arregla cargando la tarifa de esos años.
-  const sinImporte = d.reservations.filter(r => r.status !== 'cancelada' && !(r.total > 0))
+  const sinImporte = d.reservations.filter(
+    r => r.status !== 'cancelada' && !(r.total > 0) && delEjercicio(r.checkIn))
   if (sinImporte.length > 0) {
     const porAnio = new Map<string, number>()
     for (const r of sinImporte) {
@@ -225,7 +238,7 @@ export function calculaDescuadres(d: DatosDescuadre): Descuadre[] {
   // ── Cobros sin fecha ───────────────────────────────────────────────────────
   // Un cobro sin fecha no entra en ningún ejercicio, así que desaparece de
   // cualquier comparación por años. Hay que decir a qué año pertenece.
-  const sinFecha = cobrados.filter(p => !p.paymentDate)
+  const sinFecha = cobrados.filter(p => !p.paymentDate && delEjercicio(p.mes))
   if (sinFecha.length > 0) {
     const total = suma(sinFecha, p => p.amount)
     avisos.push({
