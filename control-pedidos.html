@@ -15,7 +15,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-08-4"></script>
+<script src="control-pedidos-logica.js?v=2026-10-09-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -1778,10 +1778,20 @@ function guardarCatalogo(proveedor, archivo, catalogo) {
   if (n < 50) return;
   E.catalogos[prov(proveedor)] = { fecha: hoy(), archivo, items: catalogo };
 }
+/** Pone la propuesta del proveedor en el pedido. Si ya tenía una, la nueva la
+ *  sustituye: se mantienen las decisiones de lo que no cambia y se quitan las
+ *  demás (hay que volver a decidirlas). Devuelve un texto para avisar, o ''. */
 function asignarPropuesta(p, archivo, prop) {
+  let aviso = '';
+  if (p.propuesta) {
+    const r = CP.decisionesQueSiguen(p.propuesta.lineas, prop.lineas, p.decisiones);
+    p.decisiones = r.decisiones;
+    aviso = `sustituye a ${p.propuesta.archivo}` + (r.quitadas.length ? `; ${r.quitadas.length} decisión(es) a revisar de nuevo` : '') + (p.validado ? '; hay que volver a validar' : '');
+  }
   p.propuesta = { archivo, fecha: hoy(), cabecera: prop.cabecera, lineas: prop.lineas, control: prop.control || null };
   guardarCatalogo(p.proveedor, archivo, prop.catalogo);
   invalidar(p);
+  return aviso;
 }
 async function cargarPropuestaEn(id, file) {
   if (!file) return;
@@ -1791,8 +1801,10 @@ async function cargarPropuestaEn(id, file) {
     const n = prop.cabecera.numeroPedido;
     if (n != null && String(n) !== String(p.numero).replace(/\D/g, '') &&
         !confirm(`El Excel dice «${prop.cabecera.observaciones}» y este es el pedido nº ${p.numero}. ¿Cargarlo aquí igualmente?`)) return;
-    asignarPropuesta(p, file.name, prop);
+    if (p.propuesta && !confirm(`Este pedido ya tiene la propuesta ${p.propuesta.archivo}. ¿Sustituirla por ${file.name}?\nLas decisiones de lo que no cambia se mantienen; lo que cambie hay que volver a decidirlo.`)) return;
+    const aviso = asignarPropuesta(p, file.name, prop);
     guardar(); pintar();
+    if (aviso) alert(`Propuesta nueva cargada (${aviso}).`);
   } catch (err) { alert('No he podido leer ' + file.name + ': ' + err.message); }
 }
 /** Documentos del proveedor leídos pero sin pedido claro: se quedan aquí
@@ -1850,9 +1862,9 @@ async function cargarPropuestasVarias(files, clave) {
   const usados = new Set();
   const asignar = (x, p, como) => {
     if (!p.numero && x.prop.cabecera.numeroPedido != null) p.numero = String(x.prop.cabecera.numeroPedido);
-    asignarPropuesta(p, x.archivo, x.prop);
+    const sustituye = asignarPropuesta(p, x.archivo, x.prop);
     usados.add(p.id);
-    const aviso = x.prop.control && x.prop.control.cuadra === false ? ' — ⚠️ no cuadra con su base imponible, revísalo' : '';
+    const aviso = (sustituye ? ` — 🔁 ${sustituye}` : '') + (x.prop.control && x.prop.control.cuadra === false ? ' — ⚠️ no cuadra con su base imponible, revísalo' : '');
     ultimaCarga.push({ ok: true, importe: importeDoc(x.prop), texto: `${x.archivo} → nº ${p.numero || '—'} ${p.cliente || ''} · ${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} €${como ? ` (${como})` : ''}${aviso}` });
   };
   // 2) Por nº de pedido o cliente que traiga el documento.
@@ -1912,15 +1924,16 @@ function asignarManual(id) {
   const pid = document.getElementById('asig-' + id).value;
   if (!x || !pid) { alert('Elige el pedido.'); return; }
   const p = pedidoPorId(pid);
+  let extra = '';
   if (x.destino === 'factura') {
     if (p.factura && !confirm(`El pedido nº ${p.numero} ya tiene factura (${p.factura.archivo}). ¿Sustituirla?`)) return;
     asignarFactura(p, x.archivo, x.prop);
   } else {
     if (p.propuesta && !confirm(`El pedido nº ${p.numero} ya tiene propuesta (${p.propuesta.archivo}). ¿Sustituirla?`)) return;
-    asignarPropuesta(p, x.archivo, x.prop);
+    extra = asignarPropuesta(p, x.archivo, x.prop);
   }
   sinAsignar = sinAsignar.filter((y) => y.id !== id);
-  ultimaCarga.push({ ok: true, texto: `${x.archivo} → nº ${p.numero} ${p.cliente || ''}` });
+  ultimaCarga.push({ ok: true, texto: `${x.archivo} → nº ${p.numero} ${p.cliente || ''}${extra ? ` — 🔁 ${extra}` : ''}` });
   guardar(); pintar();
 }
 function asignarTodasElegidas() {
@@ -1930,8 +1943,8 @@ function asignarTodasElegidas() {
   if (new Set(ids).size !== ids.length && !confirm('Has elegido el mismo pedido para dos documentos: el segundo sustituirá al primero. ¿Seguir?')) return;
   for (const x of elegidas) {
     const p = pedidoPorId(document.getElementById('asig-' + x.id).value);
-    if (x.destino === 'factura') asignarFactura(p, x.archivo, x.prop); else asignarPropuesta(p, x.archivo, x.prop);
-    ultimaCarga.push({ ok: true, texto: `${x.archivo} → nº ${p.numero || '—'} ${p.cliente || ''} · ${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} €` });
+    const extra = x.destino === 'factura' ? (asignarFactura(p, x.archivo, x.prop), '') : asignarPropuesta(p, x.archivo, x.prop);
+    ultimaCarga.push({ ok: true, texto: `${x.archivo} → nº ${p.numero || '—'} ${p.cliente || ''} · ${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} €${extra ? ` — 🔁 ${extra}` : ''}` });
   }
   const hechos = new Set(elegidas.map((x) => x.id));
   sinAsignar = sinAsignar.filter((x) => !hechos.has(x.id));
