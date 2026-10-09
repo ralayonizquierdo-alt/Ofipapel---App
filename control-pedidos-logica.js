@@ -467,6 +467,29 @@
     return menos ? ['aceptar', 'reclamar', 'resto', 'mantener', 'manual', 'excluir'] : ['aceptar', 'mantener', 'manual', 'excluir'];
   }
 
+  /**
+   * Al sustituir la propuesta por otra nueva del proveedor: las decisiones de
+   * las referencias cuya línea del proveedor no cambia (misma cantidad y mismo
+   * precio neto, o ausente en las dos) se mantienen; las demás se quitan para
+   * volver a decidirlas (un «Descartar» de algo que ahora sí viene, o una
+   * cantidad a mano de antes, ya no valen). La nota de facturación se conserva.
+   * Devuelve { decisiones, quitadas: [ref] }.
+   */
+  function decisionesQueSiguen(lineasAntes, lineasAhora, decisiones) {
+    const a = agrupar(lineasAntes);
+    const b = agrupar(lineasAhora);
+    const igual = (x, y) => (!x && !y) || (x && y && x.cant === y.cant && red2(x.neto) === red2(y.neto));
+    const salida = {};
+    const quitadas = [];
+    for (const [ref, d] of Object.entries(decisiones || {})) {
+      const k = normRef(ref);
+      if (!d || !d.accion || igual(a.get(k), b.get(k))) { salida[ref] = d; continue; }
+      quitadas.push(ref);
+      if (d.nota) salida[ref] = { nota: d.nota };
+    }
+    return { decisiones: salida, quitadas };
+  }
+
   function sinDecidir(filas, decisiones) {
     return filas.filter((f) => f.revisar && !(decisiones && decisiones[f.ref] && decisiones[f.ref].accion));
   }
@@ -1025,7 +1048,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

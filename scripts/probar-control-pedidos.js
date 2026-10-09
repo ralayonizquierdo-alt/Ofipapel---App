@@ -295,6 +295,16 @@ test('comercial: su precio es NETO; se compara con el neto del proveedor y al cl
   assert.equal(CP.aplicarDecisiones(g, { A: { accion: 'mantener' } }, { comercial: true }).lineas[0].precioCliente, 7.5);
 });
 
+test('propuesta nueva: se mantienen las decisiones de lo que no cambia; lo demás se vuelve a decidir', () => {
+  const antes = [{ ref: 'A', cant: 2, precio: 5 }, { ref: 'B', cant: 1, precio: 3 }, { ref: 'C', cant: 4, precio: 10, dtos: [10] }];
+  const ahora = [{ ref: 'A', cant: 2, precio: 5 }, { ref: 'B', cant: 3, precio: 3 }, { ref: 'C', cant: 4, precio: 9 }, { ref: 'D', cant: 1, precio: 1 }];
+  const dec = { A: { accion: 'aceptar' }, B: { accion: 'manual', cant: '1', nota: 'factura aparte' }, C: { accion: 'mantener' }, D: { accion: 'anular' }, E: { accion: 'resto' }, F: { nota: 'solo nota' } };
+  const r = CP.decisionesQueSiguen(antes, ahora, dec);
+  // A igual; C: 10 − 10 % = 9 neto, igual; E no viene ni antes ni ahora; F sin acción.
+  assert.deepEqual(r.quitadas, ['B', 'D']);
+  assert.deepEqual(r.decisiones, { A: { accion: 'aceptar' }, B: { nota: 'factura aparte' }, C: { accion: 'mantener' }, E: { accion: 'resto' }, F: { nota: 'solo nota' } });
+});
+
 test('reclamación de faltas: separada por cliente, con faltas totales y parciales', () => {
   const t = CP.textoReclamacion('FINOCAM', [
     { numero: '2', cliente: 'CLIENTE A', faltan: [{ ref: '785100027', desc: 'CALENDARIO', cant: 2, de: 2, total: true }] },
