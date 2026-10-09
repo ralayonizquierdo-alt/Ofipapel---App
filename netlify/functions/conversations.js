@@ -566,6 +566,7 @@ function pageShell(title, body) {
   /* Aprendizaje del bot */
   .aprende-acceso { margin: 0 0 14px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   .aprende-acceso a, .aprende-acceso button { display: inline-flex; align-items: center; gap: 8px; }
+  .aprende-cuando { color: var(--text-muted); font-size: 12.5px; margin-left: auto; }
   .aprende-titulo { font-size: 16px; margin: 22px 0 4px; }
   .aprende-ayuda { color: var(--text-muted); font-size: 13.5px; margin: 0 0 12px; }
   .aprende-lista { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -1149,7 +1150,14 @@ function renderList(entries, diagnostic, pausaGlobal = null, consulta = '', fall
   // En su lugar, actualizar a mano. La página se refresca sola cada dos minutos,
   // pero desde el ordenador uno quiere mirar AHORA si ha contestado alguien, sin
   // esperar y sin tener que buscar el botón del navegador.
-  const enlaceAprendizaje = `<p class="aprende-acceso"><a class="btn-link" href="?vista=aprendizaje">🧠 Aprendizaje del bot</a> <button type="button" class="btn-link" onclick="location.reload()">⟳ Actualizar</button></p>`;
+  //
+  // CON LA HORA AL LADO, Y NO ES UN ADORNO. Sin ella el botón parecía roto: le
+  // dabas, la página se recargaba, y como casi siempre no hay nada nuevo que
+  // enseñar, quedaba exactamente igual que antes. La hora es lo único que
+  // demuestra que ha ido a mirar — y de paso dice de cuándo es lo que estás
+  // viendo, que en una pantalla que se refresca sola conviene saber.
+  const horaDeCarga = new Date().toLocaleTimeString('es-ES', { timeZone: 'Atlantic/Canary' });
+  const enlaceAprendizaje = `<p class="aprende-acceso"><a class="btn-link" href="?vista=aprendizaje">🧠 Aprendizaje del bot</a> <button type="button" class="btn-link" onclick="this.textContent='Actualizando…'; this.disabled = true; location.reload();">⟳ Actualizar</button> <span class="aprende-cuando">Actualizado a las ${escapeHtml(horaDeCarga)}</span></p>`;
   return pageShell(
     'Conversaciones · Ofipapel',
     `${renderFalloDelBot(falloDelBot)}${renderInterruptor(pausaGlobal)}${renderDiagnostic(diagnostic)}${enlaceAprendizaje}${buscador}<ul class="convo-list">${
@@ -2060,7 +2068,27 @@ async function manejarAcceso(event) {
   };
 }
 
+// El panel enseña datos que cambian cada minuto, así que su HTML no se guarda
+// en caché NUNCA.
+//
+// Antes no mandaba ninguna cabecera de caché, y sin instrucciones el navegador
+// decide por su cuenta: puede volver a enseñar la copia que ya tenía. En una
+// página que se sirve desde una función (la ruta no acaba en .html, así que las
+// reglas de netlify.toml tampoco le llegaban) eso se nota justo donde más
+// molesta — le das a Actualizar y te devuelve lo mismo que ya estabas viendo.
+//
+// Solo el HTML: las fotos de los clientes (?vista=media) sí conviene que se
+// queden guardadas, que pesan y no cambian.
 exports.handler = async (event) => {
+  const respuesta = await manejarPanel(event);
+  const tipo = respuesta?.headers?.['Content-Type'] || '';
+  if (tipo.includes('text/html')) {
+    respuesta.headers = { ...respuesta.headers, 'Cache-Control': 'no-store, must-revalidate' };
+  }
+  return respuesta;
+};
+
+const manejarPanel = async (event) => {
   const respuestaAcceso = await manejarAcceso(event);
   if (respuestaAcceso) return respuestaAcceso;
 
