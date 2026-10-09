@@ -207,6 +207,7 @@ export type OrigenSubida =
   | 'excel-calendario'  // calendario anual de reservas en colores
   | 'pegado-whatsapp'   // aviso de la inmobiliaria, pegado como texto
   | 'pegado-airbnb'     // aviso de reserva de la aplicación de Airbnb
+  | 'informe-airbnb'    // informe anual de la gestora del Arenal (Airbnb)
   | 'justificante'      // transferencia, pegada o leída de su PDF
   | 'correcciones'      // arreglo puntual de datos ya cargados
 
@@ -216,6 +217,7 @@ export const ORIGEN_LABEL: Record<OrigenSubida, string> = {
   'excel-calendario': 'Calendario de reservas',
   'pegado-whatsapp': 'Pegado de WhatsApp',
   'pegado-airbnb': 'Aviso de Airbnb',
+  'informe-airbnb': 'Informe anual de Airbnb',
   'justificante': 'Justificante de transferencia',
   'correcciones': 'Corrección de datos',
 }
