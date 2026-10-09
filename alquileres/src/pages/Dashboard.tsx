@@ -45,8 +45,16 @@ export default function Dashboard() {
     })
     .sort((a, b) => a.checkOut.localeCompare(b.checkOut))
 
-  /** Las que ya terminaron y siguen sin cobrarse enteras. */
+  /**
+   * Las que ya terminaron y siguen sin cobrarse enteras: lo único que se
+   * avisa aquí.
+   *
+   * Una estancia que todavía no ha empezado y no está cobrada no es una
+   * alerta, es lo normal — y mezclarlas tapaba las que sí importan. Las que
+   * están por venir se siguen viendo en Reservas, con su columna «falta».
+   */
   const vencidas = pendingPayment.filter(r => new Date(r.checkOut) < now)
+  const porVenir = pendingPayment.length - vencidas.length
 
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
@@ -90,7 +98,7 @@ export default function Dashboard() {
         <KpiCard icon={<CalendarCheck size={20} className="text-blue-600" />} label="Activas hoy" value={String(active.length)} sub={`de ${apartments.filter(a => a.active).length} aptos.`} color="blue" />
         <KpiCard icon={<Euro size={20} className="text-green-600" />} label="Cobrado este mes" value={`${numSuelto(monthIncome)} €`} sub={`IGIC: ${numSuelto(calcIGIC(monthIncome))} €`} color="green" />
         <KpiCard icon={<TrendingUp size={20} className="text-purple-600" />} label={`Neto ${currentYear}`} value={`${numSuelto(netYear)} €`} sub={`Ingresos: ${numSuelto(yearIncome)} €`} color="purple" />
-        <KpiCard icon={<AlertTriangle size={20} className="text-amber-600" />} label="Pagos pendientes" value={String(pendingPayment.length)} sub={vencidas.length ? `${vencidas.length} ya vencidos` : 'reservas sin cobrar'} color="amber" />
+        <KpiCard icon={<AlertTriangle size={20} className="text-amber-600" />} label="Cobros vencidos" value={String(vencidas.length)} sub={porVenir ? `${porVenir} más por venir` : 'estancias ya terminadas'} color="amber" />
       </div>
 
       {/* La caja de pegar va arriba del todo y a la vista: es lo que más se usa
@@ -118,7 +126,7 @@ export default function Dashboard() {
       <AlertasDescuadre />
 
       {/* Alerts */}
-      {(pendingPayment.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
+      {(vencidas.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
         <div className="mb-6 space-y-2">
           {copiaPendiente && (
             <Link to="/config"
@@ -142,10 +150,10 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-          {pendingPayment.slice(0, 5).map(r => {
+          {vencidas.slice(0, 5).map(r => {
             const paid = getPaidAmount(r)
             const pending = r.total - paid
-            const vencida = new Date(r.checkOut) < now
+            const vencida = true
             return (
               <div key={r.id} className={`rounded-lg p-3 flex items-center gap-3 border ${
                 vencida ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
@@ -162,8 +170,8 @@ export default function Dashboard() {
               </div>
             )
           })}
-          {pendingPayment.length > 5 && (
-            <p className="text-xs text-slate-500 pl-1">+{pendingPayment.length - 5} pagos más pendientes</p>
+          {vencidas.length > 5 && (
+            <p className="text-xs text-slate-500 pl-1">+{vencidas.length - 5} cobros vencidos más</p>
           )}
         </div>
       )}
