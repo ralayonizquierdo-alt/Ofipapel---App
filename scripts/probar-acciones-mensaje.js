@@ -122,6 +122,21 @@ Module.prototype.require = orig;
     ? bien('el de abajo está en el pie, junto al de volver arriba')
     : mal('el enlace de abajo no está donde se busca');
 
+  console.log('\n=== La cabecera del listado');
+  // El botón de "Clientes de la semana muda" era para recuperar a la gente de
+  // la semana que el bot estuvo caído (10-17/9/2026). Eso ya está hecho, y
+  // ocupaba sitio en la pantalla que se mira todos los días.
+  const listado = (await panel.handler({ httpMethod: 'GET', queryStringParameters: {}, headers: { cookie } })).body || '';
+  listado.includes('Clientes de la semana muda')
+    ? mal('sigue el botón de la semana muda, que ya no hace falta')
+    : bien('fuera el botón de la semana muda');
+  /onclick="location.reload\(\)"/.test(listado)
+    ? bien('y hay un botón para actualizar la página a mano')
+    : mal('no se puede actualizar sin esperar a que se refresque sola');
+  listado.includes('Aprendizaje del bot')
+    ? bien('el de aprendizaje sigue donde estaba')
+    : mal('se ha llevado por delante el de aprendizaje');
+
   console.log('\n=== Copiar (lo que hace de "reenviar")');
   (html.match(/⧉ Copiar/g) || []).length === CONVERSACION.length
     ? bien('todos los mensajes se pueden copiar')

@@ -564,8 +564,8 @@ function pageShell(title, body) {
   .btn-parar:hover { background: #d33; color: #fff; }
 
   /* Aprendizaje del bot */
-  .aprende-acceso { margin: 0 0 14px; }
-  .aprende-acceso a { display: inline-flex; align-items: center; gap: 8px; }
+  .aprende-acceso { margin: 0 0 14px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .aprende-acceso a, .aprende-acceso button { display: inline-flex; align-items: center; gap: 8px; }
   .aprende-titulo { font-size: 16px; margin: 22px 0 4px; }
   .aprende-ayuda { color: var(--text-muted); font-size: 13.5px; margin: 0 0 12px; }
   .aprende-lista { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -1140,7 +1140,16 @@ function renderList(entries, diagnostic, pausaGlobal = null, consulta = '', fall
 })();
 </script>`;
 
-  const enlaceAprendizaje = `<p class="aprende-acceso"><a class="btn-link" href="?vista=aprendizaje">🧠 Aprendizaje del bot</a> <a class="btn-link" href="?vista=perdidos">📋 Clientes de la semana muda</a></p>`;
+  // El botón de "Clientes de la semana muda" se quitó de aquí el 9/10/2026: era
+  // para recuperar a la gente que escribió durante la semana que el bot estuvo
+  // caído (10-17/9/2026), y eso ya está hecho. La vista sigue existiendo por si
+  // alguna vez hiciera falta otra vez (?vista=perdidos), solo que no ocupa sitio
+  // en la pantalla que se mira todos los días.
+  //
+  // En su lugar, actualizar a mano. La página se refresca sola cada dos minutos,
+  // pero desde el ordenador uno quiere mirar AHORA si ha contestado alguien, sin
+  // esperar y sin tener que buscar el botón del navegador.
+  const enlaceAprendizaje = `<p class="aprende-acceso"><a class="btn-link" href="?vista=aprendizaje">🧠 Aprendizaje del bot</a> <button type="button" class="btn-link" onclick="location.reload()">⟳ Actualizar</button></p>`;
   return pageShell(
     'Conversaciones · Ofipapel',
     `${renderFalloDelBot(falloDelBot)}${renderInterruptor(pausaGlobal)}${renderDiagnostic(diagnostic)}${enlaceAprendizaje}${buscador}<ul class="convo-list">${
