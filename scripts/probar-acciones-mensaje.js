@@ -130,12 +130,30 @@ Module.prototype.require = orig;
   listado.includes('Clientes de la semana muda')
     ? mal('sigue el botón de la semana muda, que ya no hace falta')
     : bien('fuera el botón de la semana muda');
-  /onclick="location.reload\(\)"/.test(listado)
+  /location\.reload\(\)/.test(listado)
     ? bien('y hay un botón para actualizar la página a mano')
     : mal('no se puede actualizar sin esperar a que se refresque sola');
+  // Sin esto el botón PARECE roto: recarga, pero como casi nunca hay nada
+  // nuevo que enseñar la página queda idéntica y no hay forma de saber que
+  // ha hecho algo. La hora es la única prueba de que ha ido a mirar.
+  /Actualizado a las \d{1,2}:\d{2}/.test(listado)
+    ? bien('y dice a qué hora se cargó, que es lo que demuestra que hizo algo')
+    : mal('el botón recarga pero no se nota: la página queda igual y parece roto');
+  /Actualizando/.test(listado)
+    ? bien('y el propio botón avisa mientras tanto')
+    : mal('al pulsarlo no da ninguna señal');
   listado.includes('Aprendizaje del bot')
     ? bien('el de aprendizaje sigue donde estaba')
     : mal('se ha llevado por delante el de aprendizaje');
+
+  // El panel se sirve desde una función, así que la ruta no acaba en .html y
+  // las reglas de caché de netlify.toml no le llegaban. Sin cabecera, el
+  // navegador decide por su cuenta y puede devolver la copia que ya tenía —
+  // justo al darle a Actualizar.
+  const cabeceras = (await panel.handler({ httpMethod: 'GET', queryStringParameters: {}, headers: { cookie } })).headers || {};
+  /no-store/.test(cabeceras['Cache-Control'] || '')
+    ? bien('y el panel pide que no se guarde en caché: actualizar trae datos de verdad')
+    : mal('sin cabecera de caché, actualizar puede devolver la página vieja');
 
   console.log('\n=== Copiar (lo que hace de "reenviar")');
   (html.match(/⧉ Copiar/g) || []).length === CONVERSACION.length
