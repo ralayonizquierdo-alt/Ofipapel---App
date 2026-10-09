@@ -125,7 +125,7 @@ export const TRAMO_LABEL: Record<Tramo, string> = {
 }
 
 const eur = (n: number) =>
-  `${(Number.isFinite(n) ? n : num(0), 2)} €`
+  `${num(Number.isFinite(n) ? n : 0, 2)} €`
 
 /**
  * Explica en texto llano de dónde sale el total de una reserva, paso a paso.

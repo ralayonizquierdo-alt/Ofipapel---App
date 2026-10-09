@@ -42,6 +42,7 @@ const COLOR_ORIGEN: Record<OrigenSubida, string> = {
   'excel-calendario': 'bg-blue-50 text-blue-700 border-blue-200',
   'pegado-whatsapp': 'bg-green-50 text-green-700 border-green-200',
   'pegado-airbnb': 'bg-rose-50 text-rose-700 border-rose-200',
+  'informe-airbnb': 'bg-rose-50 text-rose-800 border-rose-300',
   'justificante': 'bg-violet-50 text-violet-700 border-violet-200',
   'correcciones': 'bg-amber-50 text-amber-800 border-amber-200',
 }

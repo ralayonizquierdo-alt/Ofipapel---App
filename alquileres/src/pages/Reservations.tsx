@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Pencil, Trash2, CheckCircle, Circle, ClipboardPaste, CalendarRange, Paperclip } from 'lucide-react'
+import { Plus, Pencil, Trash2, CheckCircle, Circle, ClipboardPaste, CalendarRange, Paperclip, FileText } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { Reservation, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
@@ -10,6 +10,7 @@ import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
 import PegarWhatsApp from '../components/PegarWhatsApp'
 import ImportarReservas from '../components/ImportarReservas'
+import ImportarAirbnb from '../components/ImportarAirbnb'
 import { num, numSuelto } from '../lib/formato'
 
 const STAY_LABELS: Record<StayType, string> = {
@@ -18,7 +19,7 @@ const STAY_LABELS: Record<StayType, string> = {
 }
 const TRAMOS: Tramo[] = ['1semana', '2semanas', '3semanas', '1mes']
 const eur = (n: number) =>
-  `${(Number.isFinite(n) ? n : num(0), 2)} €`
+  `${num(Number.isFinite(n) ? n : 0, 2)} €`
 /** Descuento por pago en efectivo. Se aplica dure lo que dure la estancia. */
 const DTO_EFECTIVO = 10
 const CHANNEL_LABELS: Record<Channel, string> = {
@@ -36,6 +37,7 @@ export default function Reservations() {
   const [showForm, setShowForm] = useState(false)
   const [showPegar, setShowPegar] = useState(false)
   const [showCalendario, setShowCalendario] = useState(false)
+  const [showAirbnb, setShowAirbnb] = useState(false)
   const [editing, setEditing] = useState<Reservation | null>(null)
   const [selectedRes, setSelectedRes] = useState<Reservation | null>(null)
   const [filterApt, setFilterApt] = useState('')
@@ -119,6 +121,11 @@ export default function Reservations() {
               title="Sustituir todas las reservas por las del calendario anual"
               className="flex items-center gap-2 px-3 py-2 text-sm text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 whitespace-nowrap">
               <CalendarRange size={16} /> Cargar calendario
+            </button>
+            <button onClick={() => setShowAirbnb(true)}
+              title="Informe anual de la gestora del Arenal: pone el importe neto a las reservas de Airbnb"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 whitespace-nowrap">
+              <FileText size={16} /> Informe<span className="hidden sm:inline"> de Airbnb</span>
             </button>
             <button onClick={() => setShowPegar(true)}
               className="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white text-slate-700 rounded-lg text-sm font-medium hover:border-blue-300 whitespace-nowrap">
@@ -266,6 +273,8 @@ export default function Reservations() {
       {showPegar && <PegarWhatsApp onClose={() => setShowPegar(false)} />}
 
       {showCalendario && <ImportarReservas onClose={() => setShowCalendario(false)} />}
+
+      {showAirbnb && <ImportarAirbnb onClose={() => setShowAirbnb(false)} />}
     </div>
   )
 }
