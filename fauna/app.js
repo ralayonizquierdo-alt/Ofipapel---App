@@ -201,7 +201,7 @@ function clearComposer() {
   classifyRun++; undoSnapshot = null; composerOrdered = false; // descarta una clasificación que aún no haya llegado
   if ($('classify-button')) { $('classify-button').disabled = false; $('classify-button').textContent = '✨ Ordenar con IA'; }
   // Si se guarda con el dictado abierto, que no siga escribiendo en el registro siguiente.
-  if (recognition && $('voice-button').classList.contains('listening')) { try { recognition.abort(); } catch { /* ya parado */ } stopListening(); }
+  if (recognition && $('voice-button').classList.contains('listening')) pararDictado();
   editingId = null;
   kindChosenByUser = false;
   $('entry-kind').value = 'actuacion'; updatePresets();
@@ -272,9 +272,25 @@ function keyboardFallback(message) {
   target.focus();
   $('voice-note').textContent = message || 'Pulsa el micrófono del teclado para dictar en este campo.';
 }
+// Tope de seguridad: ningún dictado se queda abierto más de esto aunque el
+// navegador no avise del final (pasa en iPhone, que a veces ignora
+// continuous=false y deja el micrófono encendido).
+const DICTADO_MAX_MS = 25000;
+let dictadoTimer = null;
 function stopListening() {
+  clearTimeout(dictadoTimer); dictadoTimer = null;
+  for (const id of ['voice-note','ampliar-nota']) if ($(id)?.textContent.startsWith('Escuchando')) $(id).textContent = '';
   $('voice-button').classList.remove('listening'); $('voice-label').textContent = 'Dictar registro';
   $('ampliar-dictar')?.classList.remove('listening'); if ($('ampliar-dictar-label')) $('ampliar-dictar-label').textContent = 'Dictar';
+}
+// Corta el micrófono de verdad (abort) y deja los botones como «Dictar».
+function pararDictado() {
+  if (recognition) { try { recognition.abort(); } catch { /* ya parado */ } }
+  stopListening();
+}
+function empezarDictado() {
+  recognition.start();
+  clearTimeout(dictadoTimer); dictadoTimer = setTimeout(pararDictado, DICTADO_MAX_MS);
 }
 if (Recognition) {
   recognition = new Recognition(); recognition.lang = 'es-ES'; recognition.continuous = false; recognition.interimResults = false;
@@ -282,12 +298,16 @@ if (Recognition) {
     const text = event.results[0][0].transcript.trim();
     if (!voiceTarget.isConnected) voiceTarget = $('entry-text');
     voiceTarget.value = [voiceTarget.value.trim(),text].filter(Boolean).join(' ');
+    // Con la frase ya recibida no hace falta seguir escuchando: se cierra el
+    // micrófono sin esperar a que el navegador decida hacerlo.
+    try { recognition.stop(); } catch { /* ya parado */ }
     if (voiceTarget === $('ampliar-texto')) $('ampliar-nota').textContent = 'Revisa el texto y pulsa «Añadir».';
     else $('voice-note').textContent = 'Transcripción añadida al campo seleccionado. Revísala antes de guardar.';
   };
   recognition.onerror = event => {
     stopListening();
-    if (event.error === 'no-speech' || event.error === 'aborted') { $('voice-note').textContent = 'No se ha oído nada. Vuelve a pulsar y habla cerca del teléfono.'; return; }
+    if (event.error === 'aborted') return; // lo cortó la propia app (guardar, cerrar, bloquear el móvil)
+    if (event.error === 'no-speech') { $('voice-note').textContent = 'No se ha oído nada. Vuelve a pulsar y habla cerca del teléfono.'; return; }
     if (event.error === 'not-allowed') { $('voice-note').textContent = 'El navegador no tiene permiso de micrófono. Actívalo en los ajustes o usa el micrófono del teclado.'; return; }
     // service-not-allowed, network, etc.: el dictado del navegador no sirve aquí.
     recognition = null;
@@ -300,10 +320,10 @@ $('voice-button').addEventListener('click', () => {
   if (!recognition) { keyboardFallback(); return; }
   if ($('voice-button').classList.contains('listening')) { recognition.stop(); return; }
   try {
-    recognition.start();
+    empezarDictado();
     $('voice-button').classList.add('listening'); $('voice-label').textContent = 'Detener dictado';
     $('voice-note').textContent = 'Escuchando… Pulsa otra vez para detener.';
-  } catch { keyboardFallback(); }
+  } catch { pararDictado(); keyboardFallback(); }
 });
 if (!Recognition) $('voice-note').textContent = 'En este navegador se dicta con el micrófono del teclado.';
 
@@ -450,14 +470,15 @@ function dictarAmpliar() {
   if (!recognition) { $('ampliar-texto').focus(); $('ampliar-nota').textContent = 'Pulsa el micrófono del teclado para dictar.'; return; }
   if ($('ampliar-dictar').classList.contains('listening')) { recognition.stop(); return; }
   try {
-    recognition.start();
+    empezarDictado();
     $('ampliar-dictar').classList.add('listening'); $('ampliar-dictar-label').textContent = 'Detener';
     $('ampliar-nota').textContent = 'Escuchando… Pulsa otra vez para detener.';
-  } catch { $('ampliar-texto').focus(); }
+  } catch { pararDictado(); $('ampliar-texto').focus(); }
 }
 function cerrarAmpliar() {
-  if ($('ampliar-dictar').classList.contains('listening') && recognition) { try { recognition.abort(); } catch { /* ya parado */ } }
-  stopListening();
+  // Siempre abort, aunque el botón no marque «escuchando»: si el navegador no
+  // avisó del final, el micrófono podría seguir abierto con el diálogo cerrado.
+  pararDictado();
   voiceTarget = $('entry-text'); ampliandoId = null;
   if ($('ampliar').open) $('ampliar').close();
 }
@@ -540,7 +561,10 @@ orderPending({retryErrors:true});
 window.addEventListener('online', () => orderPending({retryErrors:true}));
 // Al volver a la pestaña tras horas en segundo plano, refrescar el reloj ya
 // (los intervalos se congelan en móvil).
-document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+// Al bloquear el móvil o cambiar de app, el micrófono se cierra: si no, el
+// sistema puede seguir mostrando el aviso de micrófono en uso.
+document.addEventListener('visibilitychange', () => { if (document.hidden) pararDictado(); else tick(); });
+window.addEventListener('pagehide', pararDictado);
 // Ruta relativa: la app vive en /fauna/ y en la raíz hay OTRO sw.js (el de
 // Ofipapel) que no debe registrarse desde aquí.
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
