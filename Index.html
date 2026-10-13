@@ -4094,10 +4094,11 @@ function parseCierreTerminalLines(lines){
     if(tm){
       if(cur&&cur.codigo)result.terminales.push(cur);
       const cod=tm[1].toUpperCase();
-      cur={codigo:cod,nombre:TNAMES[cod]||cod,fondoApertura:null,arqueo:null,sobrante:null,totalRetirado:null,fondoCierre:null};
+      cur={codigo:cod,nombre:TNAMES[cod]||cod,fondoApertura:null,arqueo:null,sobrante:null,totalRetirado:null,fondoCierre:null,_l:[]};
       consumed.clear(); continue;
     }
     if(!cur) continue;
+    cur._l.push(line);
     const onData=isDataLine(line);
     if(/Fondo\s+Apertura\s*:/i.test(line)&&cur.fondoApertura===null){
       const n=afterLabel(line,/Fondo\s+Apertura\s*:/i);
@@ -4118,9 +4119,30 @@ function parseCierreTerminalLines(lines){
     }
   }
   if(cur&&cur.codigo)result.terminales.push(cur);
+  const nums2=l=>[...l.matchAll(/(-?[\d]{1,3}(?:\.[\d]{3})*,[\d]{2})/g)].map(m=>parseNum(m[1]));
+  const r2=v=>Math.round(v*100)/100;
   result.terminales.forEach(t=>{
-    if(t.arqueo!==null&&t.totalRetirado!==null&&t.fondoCierre===null)
-      t.fondoCierre=Math.round((t.arqueo-t.totalRetirado)*100)/100;
+    const L=t._l||[]; delete t._l;
+    const all=[]; L.forEach(l=>nums2(l).forEach(n=>all.push(r2(n))));
+    const has=v=>all.some(x=>Math.abs(x-v)<0.005);
+    const efl=L.find(l=>/Efectivo\.\.:/.test(l));
+    let E=null; if(efl){const n=nums2(efl); E=n.length>=3?n[2]:n.length?n[0]:null;}
+    let R=null;
+    for(let k=0;k<L.length&&R===null;k++){
+      const l=L[k];
+      const m=l.match(/Total\s+Retirado\s*:\s*(-?[\d]{1,3}(?:\.[\d]{3})*,[\d]{2})/i);
+      if(m){R=parseNum(m[1]);break;}
+      if(/Total\s+Ej\.?\s*:/i.test(l)){const n=nums2(l); if(n.length>=4){R=n[3];break;}}
+      if(/Total\s+Retirado\s*:\s*$/i.test(l)){const nx=L[k+1]; if(nx&&isStandalone(nx)){R=parseNum(nx.trim());break;}}
+    }
+    let ok=false;
+    if(E!==null&&t.fondoApertura!==null&&R!==null){
+      for(const S0 of [0,...all.filter(x=>Math.abs(x)<=50),...all.filter(x=>Math.abs(x)>50)]){
+        const S=r2(S0), Q=r2(E+t.fondoApertura+S), F=r2(Q-R);
+        if(has(Q)&&has(F)){t.sobrante=S;t.arqueo=Q;t.totalRetirado=R;t.fondoCierre=F;ok=true;break;}
+      }
+    }
+    if(!ok){t.arqueo=null;t.sobrante=null;t.totalRetirado=null;t.fondoCierre=null;t.sinCuadrar=true;}
   });
   return result;
 }
@@ -4377,14 +4399,16 @@ function renderCajaConciliacion(){
       <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${t.totalRetirado!==null?fmt(t.totalRetirado):'—'}</td>
       <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--verde,#1A5C1A);">${t.fondoCierre!==null?fmt(t.fondoCierre):'—'}</td>
     </tr>`).join('');
-    const candidatasTD=cajaTotalesDiarios.filter(c=>c.fecha&&c.fecha===activaFecha);
-    const totT=candidatasTD.length?candidatasTD[candidatasTD.length-1]:null;
-    const totRow=totT?`<tr style="border-top:2px solid var(--borde);font-weight:700;background:var(--fondo,#f8f9fa);">
-      <td colspan="2" style="font-size:12px;color:var(--texto2);font-style:italic;">Total (CajaAyC4)</td>
-      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${totT.fondoApertura!==null?fmt(totT.fondoApertura):'—'}</td>
-      <td colspan="3"></td>
-      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;color:var(--verde,#1A5C1A);">${totT.fondoCierre!==null?fmt(totT.fondoCierre):'—'}</td>
-    </tr>`:'';
+    const _sum=k=>lastT.terminales.reduce((s,t)=>s+(t[k]||0),0);
+    const _mono="text-align:right;font-family:'IBM Plex Mono',monospace;";
+    const totRow=`<tr style="border-top:2px solid var(--borde);font-weight:700;background:var(--fondo,#f8f9fa);">
+      <td colspan="2" style="font-size:12px;color:var(--texto2);font-style:italic;">Total terminales</td>
+      <td style="${_mono}">${fmt(_sum('fondoApertura'))}</td>
+      <td style="${_mono}">${fmt(_sum('arqueo'))}</td>
+      <td style="${_mono}">${fmt(_sum('sobrante'))}</td>
+      <td style="${_mono}">${fmt(_sum('totalRetirado'))}</td>
+      <td style="${_mono}color:var(--verde,#1A5C1A);">${fmt(_sum('fondoCierre'))}</td>
+    </tr>`;
     return `<div class="card" style="padding:16px;margin-bottom:16px;">
       <div style="font-weight:700;color:var(--azul);margin-bottom:12px;">💼 Fondos de Caja por Terminal — ${fechaLabel} <span style="font-size:11px;color:var(--texto2);font-weight:400;">${lastT.filename||''}</span></div>
       <div style="overflow-x:auto;"><table class="tabla">
