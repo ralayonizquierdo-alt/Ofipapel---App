@@ -4137,11 +4137,13 @@ function parseTotalesCajaLines(lines){
 }
 
 function parseCierreCentralLines(lines){
-  const r={fecha:null,fechaApertura:null,stores:[],bancoPagos:[],efectivoTotal:0,tarjetasTotal:0,chequesTotal:0,efectivoBancoDeposit:0,tarjetasBancoDeposit:0,filename:''};
+  const r={fecha:null,fechaApertura:null,stores:[],bancoPagos:[],efectivoTotal:0,tarjetasTotal:0,chequesTotal:0,efectivoBancoDeposit:0,tarjetasBancoDeposit:0,filename:'',abierto:false};
   const firstNum=line=>{const m=line.match(/([\d]{1,3}(?:\.[\d]{3})*,[\d]{2})/); return m?parseNumES2(m[1]):null;};
+  let tieneCerrado=false;
   for(const line of lines){
     if(!r.fecha){const fd=parseFechaES2(line); if(fd) r.fecha=fd;}
     if(/Apertura:/.test(line)&&!r.fechaApertura){const fd=parseFechaES2(line); if(fd){r.fechaApertura=fd; if(!r.fecha) r.fecha=fd;}}
+    if(/\d[\d.]*\s+Cerrado/i.test(line)) tieneCerrado=true;
     const cm=line.match(/Cierre Caja (Efectivo|Tarjetas)\s+(\w+)-(.+)/i);
     if(cm){
       const tipo=cm[1],codigo=cm[2];
@@ -4161,6 +4163,7 @@ function parseCierreCentralLines(lines){
     if(/Efectivo\.{2}:/.test(line)){const n=firstNum(line); if(n) r.efectivoTotal=n;}
     if(/Cheques\.{2}:/.test(line)){const n=firstNum(line); if(n) r.chequesTotal=n;}
   }
+  if(!tieneCerrado) r.abierto=true;
   if(!r.efectivoTotal) r.efectivoTotal=r.stores.filter(s=>s.tipo==='Efectivo').reduce((s,x)=>s+x.haber,0);
   if(!r.tarjetasTotal) r.tarjetasTotal=r.stores.filter(s=>s.tipo==='Tarjetas').reduce((s,x)=>s+x.haber,0);
   r.efectivoBancoDeposit=r.bancoPagos.filter(p=>!/Tarjetas/i.test(p.banco)).reduce((s,x)=>s+x.importe,0);
@@ -4405,7 +4408,9 @@ function renderCajaConciliacion(){
   const pendiente=bd.length===0;
   const fechaLabel=last.fecha?new Date(last.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'}):'—';
 
-  if(descuadre){
+  if(last.abierto){
+    alertEl.innerHTML=`<div style="background:#B9770E;color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">⚠️</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">EJERCICIO ABIERTO — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Este PDF solo trae un ejercicio sin cerrar: los importes son provisionales y se repetirán en otros días hasta que se cierre.</div></div></div>`;
+  } else if(descuadre){
     alertEl.innerHTML=`<div style="background:#c0392b;color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">⚠️</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">DESCUADRE DETECTADO — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Sistema: <strong>${fmt(last.efectivoBancoDeposit||0)}</strong> · Banco: <strong>${fmt(totalBEf)}</strong> · Diferencia: <strong>${fmt(diff)}</strong></div></div></div>`;
   } else if(cuadra){
     alertEl.innerHTML=`<div style="background:#27AE60;color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">✅</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">CAJA CUADRADA — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Efectivo depositado: <strong>${fmt(last.efectivoBancoDeposit||0)}</strong></div></div></div>`;
@@ -4492,7 +4497,7 @@ function renderCajaHistorico(){
       const bd=cajaBancoRecibos.filter(b=>b.fecha===c.fecha);
       const tbef=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
       const diff=Math.abs((c.efectivoBancoDeposit||0)-tbef);
-      const ico=bd.length===0?'⏳':diff<0.05?'✅':'❌';
+      const ico=c.abierto?'<span title="Ejercicio abierto: aún sin cerrar, datos provisionales" style="font-size:12px;font-weight:700;color:#B9770E;">⚠ Abierto</span>':bd.length===0?'⏳':diff<0.05?'✅':'❌';
       const cKey=(c.fecha||'')+'|'+(c.filename||'');
       const acKey=_selectedCierreKey||((cajaCierres.length?(cajaCierres[cajaCierres.length-1].fecha||'')+'|'+(cajaCierres[cajaCierres.length-1].filename||''):null));
       const isSel=cKey===acKey;
