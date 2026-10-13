@@ -1487,7 +1487,7 @@ function stampImport(key, archivos){
 }
 
 let cajaCierres = [];
-try{ const cc=JSON.parse(localStorage.getItem('op_cajacierres')||'null'); if(cc) cajaCierres=cc; }catch(e){}
+try{ const cc=JSON.parse(localStorage.getItem('op_cajacierres')||'null'); if(cc) cajaCierres=cc.filter(c=>!c.abierto); }catch(e){}
 let cajaBancoRecibos = [];
 try{ const cb=JSON.parse(localStorage.getItem('op_cajabancorecibos')||'null'); if(cb) cajaBancoRecibos=cb; }catch(e){}
 // Seed: CajaAyCC_Z8_140726 (Ej.2183 cerrado + Ej.2184 abierto) + resguardos bancarios 16/07
@@ -1759,7 +1759,7 @@ function applyCloudDataset(key, payload){
     try{ localStorage.setItem('op_cajaefectivo', JSON.stringify(cajaEfectivo)); }catch(e){}
     renderCajaEfectivo();
   } else if(key==='cajacierres'){
-    cajaCierres = mergePorFilename(cajaCierres, payload).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+    cajaCierres = mergePorFilename(cajaCierres, payload).filter(c=>!c.abierto).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
     try{ localStorage.setItem('op_cajacierres', JSON.stringify(cajaCierres)); }catch(e){}
     if(document.getElementById('cajaHistorico')) renderCajaHistorico();
   } else if(key==='cajabancorecibos'){
@@ -4214,7 +4214,9 @@ function importCierrePDF(input){
         } else if(/Cierres\s+de\s+Cajas\s+Centrales/i.test(joined)){
           // CajaAyCC: Cierres de Cajas Centrales (Z8) — va ANTES que CajaAyC porque también tiene "Tienda:" y "Fondo Apertura:"
           const data=parseCierreCentralLines(lines); data.filename=f.name; if(f._sourceZip) data.sourceZip=f._sourceZip;
-          if(data.fecha||data.stores.length){
+          if(data.abierto){
+            cnt.types.push('Abierto'); cnt.n++; parsed=true;
+          } else if(data.fecha||data.stores.length){
             const _kCC=r=>(r.fecha||'')+'|'+r.filename;
             const idx=cajaCierres.findIndex(c=>_kCC(c)===_kCC(data));
             if(idx>=0) cajaCierres[idx]=data; else cajaCierres.push(data);
@@ -4255,10 +4257,11 @@ function importCierrePDF(input){
   }
 
   function _finalize(importados, total, types){
+    cajaCierres=cajaCierres.filter(c=>!c.abierto);
     cajaCierres.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
     saveCajaCierres();
     const tsC=new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    const _typeLabels={Totales:'Totales diarios',Cierres:'Cierres centrales',Terminales:'Fondos terminales'};
+    const _typeLabels={Totales:'Totales diarios',Cierres:'Cierres centrales',Terminales:'Fondos terminales',Abierto:'Cierres sin cerrar (omitidos)'};
     const typeStr=types.length?' · '+[...new Set(types)].map(t=>_typeLabels[t]||t).join(', '):'';
     const countStr=total>0?`${importados}/${total} PDFs`:importados>0?`${importados} importados`:'0 importados';
     if(st) st.textContent=`✅ ${countStr}${typeStr} · ${tsC}`;
