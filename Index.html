@@ -1448,7 +1448,7 @@ const _ILG_VENTAS   = ['ventasCaja','ventasWeb','ventasAnual','ventasVendedores'
 const _ILG_COMPRAS  = ['compras','comprasAnual','comprasProveedores','proveedores','familias'];
 
 function logImport(key, archivos){
-  const arch = Array.isArray(archivos) ? archivos.join(', ') : (archivos||'—');
+  const arch = Array.isArray(archivos) ? (archivos.filter(Boolean).join(', ')||'—') : (archivos||'—');
   importLog.push({ts:new Date().toISOString(), user:currentUser||'—', key, tipo:IMPORT_LOG_LABELS[key]||key, archivos:arch});
   if(importLog.length>300) importLog.splice(0, importLog.length-300);
   saveImportLog();
@@ -4326,6 +4326,20 @@ function importBancoPDF(input){
   if(input.value!==undefined) input.value='';
 }
 
+let _selectedCierreKey=null; // null = usar el último
+function selectCierre(fecha,filename){
+  _selectedCierreKey=(fecha||'')+'|'+(filename||'');
+  renderCajaView();
+}
+function _activeCierre(){
+  if(!cajaCierres.length) return null;
+  if(_selectedCierreKey){
+    const f=cajaCierres.find(c=>((c.fecha||'')+'|'+(c.filename||''))===_selectedCierreKey);
+    if(f) return f;
+  }
+  return cajaCierres[cajaCierres.length-1];
+}
+
 function renderCajaView(){
   renderCajaConciliacion();
   renderCajaHistorico();
@@ -4335,10 +4349,11 @@ function renderCajaConciliacion(){
   const alertEl=document.getElementById('cajaConcilAlert');
   const tablaEl=document.getElementById('cajaReconcilTabla');
   if(!alertEl||!tablaEl) return;
+  const _ac=_activeCierre();
   const _fondosSection=(()=>{
     // Buscar por la misma fecha que el cierre activo; excluir entradas con solo código Z8
     // (residuos de cuando CajaAyCC se enrutaba erróneamente a cajaTerminales)
-    const activaFecha=cajaCierres.length?cajaCierres[cajaCierres.length-1].fecha:null;
+    const activaFecha=_ac?_ac.fecha:null;
     const candidatasT=cajaTerminales.filter(c=>c.fecha&&c.fecha===activaFecha&&c.terminales&&c.terminales.some(t=>t.codigo!=='Z8'));
     const lastT=candidatasT.length?candidatasT[candidatasT.length-1]:null;
     if(!lastT) return '';
@@ -4376,12 +4391,12 @@ function renderCajaConciliacion(){
     </div>`;
   })();
 
-  if(!cajaCierres.length){
+  if(!cajaCierres.length||!_ac){
     alertEl.innerHTML='';
     tablaEl.innerHTML=_fondosSection||`<div class="empty-state"><div class="e-ico">📋</div><h3>Sin datos</h3><p>Importa los PDFs de Caja (CajaAyCC Z8, CajaAyC, CajaAyC4) para ver la conciliación.</p></div>`;
     return;
   }
-  const last=cajaCierres[cajaCierres.length-1];
+  const last=_ac;
   const bd=cajaBancoRecibos.filter(b=>b.fecha===last.fecha);
   const totalBEf=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
   const diff=Math.abs((last.efectivoBancoDeposit||0)-totalBEf);
@@ -4478,14 +4493,17 @@ function renderCajaHistorico(){
       const tbef=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
       const diff=Math.abs((c.efectivoBancoDeposit||0)-tbef);
       const ico=bd.length===0?'⏳':diff<0.05?'✅':'❌';
-      return `<tr>
-        <td>${c.fecha?new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td>
-        <td style="font-size:11px;color:var(--texto2);" title="${c.filename||''}">${c.sourceZip||c.filename||'—'}</td>
-        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoTotal||0)}</td>
-        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.tarjetasTotal||0)}</td>
-        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoBancoDeposit||0)}</td>
-        <td style="text-align:center;font-size:16px;">${ico}</td>
-        <td><button onclick="deleteCierre('${c.filename}')" style="background:none;border:none;color:var(--rojo,#E74C3C);cursor:pointer;font-size:12px;padding:2px 6px;">✕</button></td>
+      const cKey=(c.fecha||'')+'|'+(c.filename||'');
+      const acKey=_selectedCierreKey||((cajaCierres.length?(cajaCierres[cajaCierres.length-1].fecha||'')+'|'+(cajaCierres[cajaCierres.length-1].filename||''):null));
+      const isSel=cKey===acKey;
+      return `<tr onclick="selectCierre('${(c.fecha||'').replace(/'/g,"\\'")}','${(c.filename||'').replace(/'/g,"\\'")}')" style="cursor:pointer;border-bottom:1px solid var(--borde);${isSel?'background:rgba(26,92,26,0.07);font-weight:600;':''}" title="Ver conciliación de este día">
+        <td style="padding:6px 8px;">${c.fecha?new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td>
+        <td style="padding:6px 8px;font-size:11px;color:var(--texto2);" title="${c.filename||''}">${c.sourceZip||c.filename||'—'}</td>
+        <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoTotal||0)}</td>
+        <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.tarjetasTotal||0)}</td>
+        <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoBancoDeposit||0)}</td>
+        <td style="padding:6px 8px;text-align:center;font-size:16px;">${ico}</td>
+        <td style="padding:6px 8px;"><button onclick="event.stopPropagation();deleteCierre('${(c.filename||'').replace(/'/g,"\\'")}')" style="background:none;border:none;color:var(--rojo,#E74C3C);cursor:pointer;font-size:12px;padding:2px 6px;">✕</button></td>
       </tr>`;
     }).join('')}
     </tbody>
@@ -4494,6 +4512,8 @@ function renderCajaHistorico(){
 
 function deleteCierre(filename){
   if(!confirm('¿Eliminar este cierre?')) return;
+  const c=cajaCierres.find(c=>c.filename===filename);
+  if(c&&_selectedCierreKey===((c.fecha||'')+'|'+(c.filename||''))) _selectedCierreKey=null;
   cajaCierres=cajaCierres.filter(c=>c.filename!==filename);
   saveCajaCierres(); renderCajaView();
 }
