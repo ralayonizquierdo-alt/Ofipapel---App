@@ -1701,10 +1701,10 @@ async function syncDatasetToCloud(key, payload){
   }
 }
 
-// Merge de arrays de PDFs sin duplicados por filename
+// Merge de arrays de PDFs sin duplicados por fecha+filename (ZIPs distintos tienen mismo nombre interno)
 function mergePorFilename(local, cloud){
   const map={};
-  [...(cloud||[]), ...(local||[])].forEach(r=>{ if(r&&r.filename) map[r.filename]=r; });
+  [...(cloud||[]), ...(local||[])].forEach(r=>{ if(r&&r.filename){ const k=(r.fecha||'')+'|'+r.filename; map[k]=r; } });
   return Object.values(map);
 }
 
@@ -1765,6 +1765,12 @@ function applyCloudDataset(key, payload){
   } else if(key==='cajabancorecibos'){
     cajaBancoRecibos = mergePorFilename(cajaBancoRecibos, payload).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
     try{ localStorage.setItem('op_cajabancorecibos', JSON.stringify(cajaBancoRecibos)); }catch(e){}
+  } else if(key==='cajaterminales'){
+    cajaTerminales = mergePorFilename(cajaTerminales, payload).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+    try{ localStorage.setItem('op_cajaterminales', JSON.stringify(cajaTerminales)); }catch(e){}
+  } else if(key==='cajatotalesdiarios'){
+    cajaTotalesDiarios = mergePorFilename(cajaTotalesDiarios, payload).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+    try{ localStorage.setItem('op_cajatotalesdiarios', JSON.stringify(cajaTotalesDiarios)); }catch(e){}
   } else if(key==='ventasweb_det'){
     ventasWebDetalle = payload;
     try{ localStorage.setItem('op_ventasweb_det', JSON.stringify(ventasWebDetalle)); }catch(e){}
@@ -3759,8 +3765,8 @@ function saveCajaCierres(){ try{localStorage.setItem('op_cajacierres',JSON.strin
 function saveCajaBanco(){ try{localStorage.setItem('op_cajabancorecibos',JSON.stringify(cajaBancoRecibos));}catch(e){} syncDatasetToCloud('cajabancorecibos', cajaBancoRecibos); }
 function saveCajaEfectivo(){ try{localStorage.setItem('op_cajaefectivo',JSON.stringify(cajaEfectivo));}catch(e){} syncDatasetToCloud('cajaefectivo', cajaEfectivo); }
 function saveCajaDetalles(){ try{localStorage.setItem('op_cajadetalles',JSON.stringify(cajaDetalles));}catch(e){} }
-function saveCajaTerminales(){ try{localStorage.setItem('op_cajaterminales',JSON.stringify(cajaTerminales));}catch(e){} }
-function saveCajaTotalesDiarios(){ try{localStorage.setItem('op_cajatotalesdiarios',JSON.stringify(cajaTotalesDiarios));}catch(e){} }
+function saveCajaTerminales(){ try{localStorage.setItem('op_cajaterminales',JSON.stringify(cajaTerminales));}catch(e){} syncDatasetToCloud('cajaterminales', cajaTerminales); }
+function saveCajaTotalesDiarios(){ try{localStorage.setItem('op_cajatotalesdiarios',JSON.stringify(cajaTotalesDiarios));}catch(e){} syncDatasetToCloud('cajatotalesdiarios', cajaTotalesDiarios); }
 
 function showCajaSubTab(tab){
   document.querySelectorAll('#v-caja .subtab-btn').forEach(b=>b.classList.toggle('active', b.dataset.cajaTab===tab));
@@ -4044,40 +4050,74 @@ function parseCierreTerminalLines(lines){
     '53':'Reparto','A2':'T-2 (Izq)','A3':'T-3 (Der)','AA':'T-1 (Aliz-2)'};
   const result={fecha:null,terminales:[],filename:''};
   let cur=null;
-  const firstNum=l=>{const m=l.match(/([\d]{1,3}(?:\.[\d]{3})*,[\d]{2})/);return m?parseNumES2(m[1]):null;};
-  // Extrae el número que viene DESPUÉS de la etiqueta (ignora números previos en la misma línea)
-  const afterLabel=(l,rx)=>{const m=l.match(rx);if(!m)return null;const after=l.slice(m.index+m[0].length);return firstNum(after);};
+  const parseNum=s=>{const n=parseFloat(String(s).replace(/\s/g,'').replace(/\./g,'').replace(',','.'));return isNaN(n)?null:n;};
+  // lastNum: último número en la línea (puede ser negativo — Sobrante)
+  const lastNum=l=>{const m=l.match(/(-?[\d]{1,3}(?:\.[\d]{3})*,[\d]{2})\s*$/);return m?parseNum(m[1]):null;};
+  // afterLabel: primer número tras la etiqueta (admite negativo)
+  const afterLabel=(l,rx)=>{const m=l.match(rx);if(!m)return null;const after=l.slice(m.index+m[0].length);const nm=after.match(/(-?[\d]{1,3}(?:\.[\d]{3})*,[\d]{2})/);return nm?parseNum(nm[1]):null;};
+  const isDataLine=l=>/Contado|Bancos|Efectos|Crédito|Efectivo|Cheques|Tarjetas|Total\s+Ej|Ef\.\s+Pdtes|Total\.\.\.\./i.test(l);
+  const isKeyLine=l=>/Fondo\s+Apertura|Sobrante|Arqueo|Fondo\s+al\s+Cierre|Total\s+Retirado|Total\s+Efectivo/i.test(l);
+  const isStandalone=l=>/^\s*-?[\d.,]+\s*$/.test(l);
+  // consumed: índices de líneas ya usados como fuente de un valor — evita leer el mismo número dos veces
+  const consumed=new Set();
+  // findNear: busca el valor en líneas adyacentes cuando no está inline con la etiqueta
+  const findNear=(i,onData)=>{
+    const cands=[];
+    for(const d of[-1,-2,1,2]){
+      const j=i+d; if(j<0||j>=lines.length) continue;
+      if(consumed.has(j)) continue;
+      const l=lines[j];
+      if(/Tienda\s*:/i.test(l)) break;
+      if(isKeyLine(l)) continue;
+      const standalone=isStandalone(l);
+      const n=lastNum(l);
+      if(n!==null) cands.push({j,d,n,standalone});
+    }
+    if(!cands.length) return null;
+    const standalones=cands.filter(c=>c.standalone);
+    if(standalones.length){
+      standalones.sort((a,b)=>Math.abs(a.d)-Math.abs(b.d));
+      const ch=standalones[0]; consumed.add(ch.j); return ch.n;
+    }
+    const dataC=cands.filter(c=>!c.standalone);
+    if(!dataC.length) return null;
+    dataC.sort((a,b)=>Math.abs(a.d)-Math.abs(b.d));
+    // si estamos en una línea de datos, preferir líneas siguientes; si es etiqueta sola, líneas anteriores
+    const pref=dataC.filter(c=>onData?c.d>0:c.d<0);
+    const fall=dataC.filter(c=>onData?c.d<0:c.d>0);
+    const ch=pref[0]||fall[0]; consumed.add(ch.j); return ch.n;
+  };
   for(let i=0;i<lines.length;i++){
     const line=lines[i];
     if(!result.fecha){const fd=parseFechaES2(line);if(fd)result.fecha=fd;}
     const tm=line.match(/Tienda\s*:\s*(\w+)/i);
     if(tm){
-      if(cur&&cur.codigo) result.terminales.push(cur);
+      if(cur&&cur.codigo)result.terminales.push(cur);
       const cod=tm[1].toUpperCase();
       cur={codigo:cod,nombre:TNAMES[cod]||cod,fondoApertura:null,arqueo:null,sobrante:null,totalRetirado:null,fondoCierre:null};
-      continue;
+      consumed.clear(); continue;
     }
     if(!cur) continue;
-    // "Fondo Apertura:" puede tener otros números ANTES en la misma línea → coger el número DESPUÉS de la etiqueta
+    const onData=isDataLine(line);
     if(/Fondo\s+Apertura\s*:/i.test(line)&&cur.fondoApertura===null){
       const n=afterLabel(line,/Fondo\s+Apertura\s*:/i);
-      cur.fondoApertura=n!==null?n:(firstNum(lines[i+1]||'')||null);
-    }
-    else if(/^Arqueo\s*:/i.test(line)&&cur.arqueo===null){
-      const n=firstNum(line); cur.arqueo=n!==null?n:(firstNum(lines[i+1]||'')||null);
-    }
-    else if(/Sobrante\s*:/i.test(line)&&cur.sobrante===null){
-      const n=firstNum(line); if(n!==null) cur.sobrante=n;
-    }
-    // Columnas intercambiadas por PDF.js: la etiqueta "Fondo al Cierre:" extrae el Total Retirado y viceversa
-    else if(/Fondo\s+al\s+Cierre\s*:/i.test(line)&&cur.totalRetirado===null){
-      const n=firstNum(line); cur.totalRetirado=n!==null?n:(firstNum(lines[i+1]||'')||null);
-    }
-    else if(/Total\s+Retirado\s*:/i.test(line)&&cur.fondoCierre===null){
-      const n=firstNum(line); cur.fondoCierre=n!==null?n:(firstNum(lines[i+1]||'')||null);
+      cur.fondoApertura=n!==null?n:findNear(i,onData);
+    } else if(/Sobrante\s*:/i.test(line)&&cur.sobrante===null){
+      const n=afterLabel(line,/Sobrante\s*:/i);
+      cur.sobrante=n!==null?n:findNear(i,onData);
+    } else if(/Arqueo\s*:/i.test(line)&&cur.arqueo===null){
+      const n=afterLabel(line,/Arqueo\s*:/i);
+      cur.arqueo=n!==null?n:findNear(i,onData);
+    // Columnas intercambiadas por PDF.js: "Fondo al Cierre:" lleva el valor de totalRetirado y viceversa
+    } else if(/Fondo\s+al\s+Cierre\s*:/i.test(line)&&cur.totalRetirado===null){
+      const n=afterLabel(line,/Fondo\s+al\s+Cierre\s*:/i);
+      cur.totalRetirado=n!==null?n:findNear(i,onData);
+    } else if(/Total\s+Retirado\s*:/i.test(line)&&cur.fondoCierre===null){
+      const n=afterLabel(line,/Total\s+Retirado\s*:/i);
+      cur.fondoCierre=n!==null?n:findNear(i,onData);
     }
   }
-  if(cur&&cur.codigo) result.terminales.push(cur);
+  if(cur&&cur.codigo)result.terminales.push(cur);
   result.terminales.forEach(t=>{
     if(t.arqueo!==null&&t.totalRetirado!==null&&t.fondoCierre===null)
       t.fondoCierre=Math.round((t.arqueo-t.totalRetirado)*100)/100;
@@ -4162,7 +4202,8 @@ function importCierrePDF(input){
           // CajaAyC4: Totales de cierres y Salidas de la Central
           const data=parseTotalesCajaLines(lines); data.filename=f.name;
           if(data.fondoApertura!==null||data.fondoCierre!==null){
-            const idx=cajaTotalesDiarios.findIndex(c=>c.filename===f.name);
+            const _kTD=r=>(r.fecha||'')+'|'+r.filename;
+            const idx=cajaTotalesDiarios.findIndex(c=>_kTD(c)===_kTD(data));
             if(idx>=0) cajaTotalesDiarios[idx]=data; else cajaTotalesDiarios.push(data);
             cajaTotalesDiarios.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
             saveCajaTotalesDiarios(); cnt.n++; parsed=true;
@@ -4171,7 +4212,8 @@ function importCierrePDF(input){
           // CajaAyCC: Cierres de Cajas Centrales (Z8) — va ANTES que CajaAyC porque también tiene "Tienda:" y "Fondo Apertura:"
           const data=parseCierreCentralLines(lines); data.filename=f.name;
           if(data.fecha||data.stores.length){
-            const idx=cajaCierres.findIndex(c=>c.filename===f.name);
+            const _kCC=r=>(r.fecha||'')+'|'+r.filename;
+            const idx=cajaCierres.findIndex(c=>_kCC(c)===_kCC(data));
             if(idx>=0) cajaCierres[idx]=data; else cajaCierres.push(data);
             cnt.n++; parsed=true;
           }
@@ -4179,7 +4221,8 @@ function importCierrePDF(input){
           // CajaAyC: Ficha o Formulario de cada Ejercicio (terminales)
           const data=parseCierreTerminalLines(lines); data.filename=f.name;
           if(data.terminales.length){
-            const idx=cajaTerminales.findIndex(c=>c.filename===f.name);
+            const _kCT=r=>(r.fecha||'')+'|'+r.filename;
+            const idx=cajaTerminales.findIndex(c=>_kCT(c)===_kCT(data));
             if(idx>=0) cajaTerminales[idx]=data; else cajaTerminales.push(data);
             cajaTerminales.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
             saveCajaTerminales(); cnt.n++; parsed=true;
@@ -4189,7 +4232,8 @@ function importCierrePDF(input){
           // Fallback: parseCierreCentralLines para cualquier otro formato no reconocido
           const data=parseCierreCentralLines(lines); data.filename=f.name;
           if(data.fecha||data.stores.length){
-            const idx=cajaCierres.findIndex(c=>c.filename===f.name);
+            const _kFB=r=>(r.fecha||'')+'|'+r.filename;
+            const idx=cajaCierres.findIndex(c=>_kFB(c)===_kFB(data));
             if(idx>=0) cajaCierres[idx]=data; else cajaCierres.push(data);
             cnt.n++;
           }
