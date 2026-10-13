@@ -4537,18 +4537,26 @@ function renderCajaHistorico(){
         <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.tarjetasTotal||0)}</td>
         <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;" title="Confirmado con resguardos del banco. Según el PDF de caja: ${fmt(c.efectivoBancoDeposit||0)}">${fmt(tbef)}</td>
         <td style="padding:6px 8px;text-align:center;font-size:16px;">${ico}</td>
-        <td style="padding:6px 8px;"><button onclick="event.stopPropagation();deleteCierre('${(c.filename||'').replace(/'/g,"\\'")}')" style="background:none;border:none;color:var(--rojo,#E74C3C);cursor:pointer;font-size:12px;padding:2px 6px;">✕</button></td>
+        <td style="padding:6px 8px;"><button onclick="event.stopPropagation();deleteCierre('${(c.fecha||'').replace(/'/g,"\\'")}','${(c.filename||'').replace(/'/g,"\\'")}')" style="background:none;border:none;color:var(--rojo,#E74C3C);cursor:pointer;font-size:12px;padding:2px 6px;">✕</button></td>
       </tr>`;
     }).join('')}
     </tbody>
   </table></div>`;
 }
 
-function deleteCierre(filename){
-  if(!confirm('¿Eliminar este cierre?')) return;
-  const c=cajaCierres.find(c=>c.filename===filename);
-  if(c&&_selectedCierreKey===((c.fecha||'')+'|'+(c.filename||''))) _selectedCierreKey=null;
-  cajaCierres=cajaCierres.filter(c=>c.filename!==filename);
+function deleteCierre(fecha,filename){
+  const c=cajaCierres.find(x=>(x.fecha||'')===(fecha||'')&&x.filename===filename);
+  if(!c) return;
+  const zip=c.sourceZip||'';
+  const dia=c.fecha?new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'—';
+  if(!confirm('¿Eliminar la subida del '+dia+(zip?' ('+zip+')':'')+'?')) return;
+  if(_selectedCierreKey===((c.fecha||'')+'|'+(c.filename||''))) _selectedCierreKey=null;
+  cajaCierres=cajaCierres.filter(x=>x!==c);
+  if(zip){
+    cajaTerminales=cajaTerminales.filter(x=>x.sourceZip!==zip);
+    cajaTotalesDiarios=cajaTotalesDiarios.filter(x=>x.sourceZip!==zip);
+    saveCajaTerminales(); saveCajaTotalesDiarios();
+  }
   saveCajaCierres(); renderCajaView();
 }
 
