@@ -4200,42 +4200,42 @@ function importCierrePDF(input){
         let parsed=false;
         if(/Fondo\s+Caja\s+en\s+(Apertura|Cierre)/i.test(joined)){
           // CajaAyC4: Totales de cierres y Salidas de la Central
-          const data=parseTotalesCajaLines(lines); data.filename=f.name;
+          const data=parseTotalesCajaLines(lines); data.filename=f.name; if(f._sourceZip) data.sourceZip=f._sourceZip;
           if(data.fondoApertura!==null||data.fondoCierre!==null){
             const _kTD=r=>(r.fecha||'')+'|'+r.filename;
             const idx=cajaTotalesDiarios.findIndex(c=>_kTD(c)===_kTD(data));
             if(idx>=0) cajaTotalesDiarios[idx]=data; else cajaTotalesDiarios.push(data);
             cajaTotalesDiarios.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
-            saveCajaTotalesDiarios(); cnt.n++; parsed=true;
+            saveCajaTotalesDiarios(); cnt.types.push('Totales'); cnt.n++; parsed=true;
           }
         } else if(/Cierres\s+de\s+Cajas\s+Centrales/i.test(joined)){
           // CajaAyCC: Cierres de Cajas Centrales (Z8) — va ANTES que CajaAyC porque también tiene "Tienda:" y "Fondo Apertura:"
-          const data=parseCierreCentralLines(lines); data.filename=f.name;
+          const data=parseCierreCentralLines(lines); data.filename=f.name; if(f._sourceZip) data.sourceZip=f._sourceZip;
           if(data.fecha||data.stores.length){
             const _kCC=r=>(r.fecha||'')+'|'+r.filename;
             const idx=cajaCierres.findIndex(c=>_kCC(c)===_kCC(data));
             if(idx>=0) cajaCierres[idx]=data; else cajaCierres.push(data);
-            cnt.n++; parsed=true;
+            cnt.types.push('Cierres'); cnt.n++; parsed=true;
           }
         } else if(/Tienda\s*:/i.test(joined)&&/Fondo\s+Apertura/i.test(joined)){
           // CajaAyC: Ficha o Formulario de cada Ejercicio (terminales)
-          const data=parseCierreTerminalLines(lines); data.filename=f.name;
+          const data=parseCierreTerminalLines(lines); data.filename=f.name; if(f._sourceZip) data.sourceZip=f._sourceZip;
           if(data.terminales.length){
             const _kCT=r=>(r.fecha||'')+'|'+r.filename;
             const idx=cajaTerminales.findIndex(c=>_kCT(c)===_kCT(data));
             if(idx>=0) cajaTerminales[idx]=data; else cajaTerminales.push(data);
             cajaTerminales.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
-            saveCajaTerminales(); cnt.n++; parsed=true;
+            saveCajaTerminales(); cnt.types.push('Terminales'); cnt.n++; parsed=true;
           }
         }
         if(!parsed&&!/Listado\s+de\s+Caja/i.test(joined)){
           // Fallback: parseCierreCentralLines para cualquier otro formato no reconocido
-          const data=parseCierreCentralLines(lines); data.filename=f.name;
+          const data=parseCierreCentralLines(lines); data.filename=f.name; if(f._sourceZip) data.sourceZip=f._sourceZip;
           if(data.fecha||data.stores.length){
             const _kFB=r=>(r.fecha||'')+'|'+r.filename;
             const idx=cajaCierres.findIndex(c=>_kFB(c)===_kFB(data));
             if(idx>=0) cajaCierres[idx]=data; else cajaCierres.push(data);
-            cnt.n++;
+            cnt.types.push('Cierres'); cnt.n++;
           }
         }
       }
@@ -4244,19 +4244,22 @@ function importCierrePDF(input){
   }
 
   function _processPDFs(pdfsToProcess){
-    if(!pdfsToProcess.length){ _finalize(0); return; }
-    const cnt={n:0}; let remaining=pdfsToProcess.length;
+    if(!pdfsToProcess.length){ _finalize(0, 0, []); return; }
+    const cnt={n:0, types:[]}; let remaining=pdfsToProcess.length;
     for(const f of pdfsToProcess){
-      _parsePDF(f, cnt, ()=>{ if(--remaining===0) _finalize(cnt.n); });
+      _parsePDF(f, cnt, ()=>{ if(--remaining===0) _finalize(cnt.n, pdfsToProcess.length, cnt.types); });
     }
   }
 
-  function _finalize(importados){
+  function _finalize(importados, total, types){
     cajaCierres.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
     saveCajaCierres();
     const tsC=new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    if(st) st.textContent=`✅ Importado ${tsC}`;
-    if(importados>0) stampImport('cajaCierres', origNames);
+    const _typeLabels={Totales:'Totales diarios',Cierres:'Cierres centrales',Terminales:'Fondos terminales'};
+    const typeStr=types.length?' · '+[...new Set(types)].map(t=>_typeLabels[t]||t).join(', '):'';
+    const countStr=total>0?`${importados}/${total} PDFs`:importados>0?`${importados} importados`:'0 importados';
+    if(st) st.textContent=`✅ ${countStr}${typeStr} · ${tsC}`;
+    if(importados>0) stampImport('cajaCierres', origNames.join(', ')+` (${importados}/${total} PDFs)`);
     renderCajaView();
   }
 
@@ -4271,7 +4274,9 @@ function importCierrePDF(input){
         let n=entries.length;
         for(const e of entries){
           e.async('blob').then(blob=>{
-            allPDFs.push(new File([blob],e.name,{type:'application/pdf'}));
+            const file=new File([blob],e.name,{type:'application/pdf'});
+            file._sourceZip=z.name;
+            allPDFs.push(file);
             if(--n===0&&--zipsLeft===0) _processPDFs(allPDFs);
           }).catch(()=>{ if(--n===0&&--zipsLeft===0) _processPDFs(allPDFs); });
         }
@@ -4475,7 +4480,7 @@ function renderCajaHistorico(){
       const ico=bd.length===0?'⏳':diff<0.05?'✅':'❌';
       return `<tr>
         <td>${c.fecha?new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td>
-        <td style="font-size:11px;color:var(--texto2);">${c.filename||'—'}</td>
+        <td style="font-size:11px;color:var(--texto2);" title="${c.filename||''}">${c.sourceZip||c.filename||'—'}</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoTotal||0)}</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.tarjetasTotal||0)}</td>
         <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoBancoDeposit||0)}</td>
