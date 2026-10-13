@@ -1487,7 +1487,7 @@ function stampImport(key, archivos){
 }
 
 let cajaCierres = [];
-try{ const cc=JSON.parse(localStorage.getItem('op_cajacierres')||'null'); if(cc) cajaCierres=cc.filter(c=>!_esDomingo(c.fecha)); }catch(e){}
+try{ const cc=JSON.parse(localStorage.getItem('op_cajacierres')||'null'); if(cc) cajaCierres=cc.filter(c=>!c.abierto&&!_esDomingo(c.fecha)); }catch(e){}
 let cajaBancoRecibos = [];
 try{ const cb=JSON.parse(localStorage.getItem('op_cajabancorecibos')||'null'); if(cb) cajaBancoRecibos=cb; }catch(e){}
 // Seed: CajaAyCC_Z8_140726 (Ej.2183 cerrado + Ej.2184 abierto) + resguardos bancarios 16/07
@@ -1759,7 +1759,7 @@ function applyCloudDataset(key, payload){
     try{ localStorage.setItem('op_cajaefectivo', JSON.stringify(cajaEfectivo)); }catch(e){}
     renderCajaEfectivo();
   } else if(key==='cajacierres'){
-    cajaCierres = mergePorFilename(cajaCierres, payload).filter(c=>!_esDomingo(c.fecha)).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+    cajaCierres = mergePorFilename(cajaCierres, payload).filter(c=>!c.abierto&&!_esDomingo(c.fecha)).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
     try{ localStorage.setItem('op_cajacierres', JSON.stringify(cajaCierres)); }catch(e){}
     if(document.getElementById('cajaHistorico')) renderCajaHistorico();
   } else if(key==='cajabancorecibos'){
@@ -4139,11 +4139,13 @@ function parseTotalesCajaLines(lines){
 function parseCierreCentralLines(lines){
   const r={fecha:null,fechaApertura:null,stores:[],bancoPagos:[],efectivoTotal:0,tarjetasTotal:0,chequesTotal:0,efectivoBancoDeposit:0,tarjetasBancoDeposit:0,filename:'',abierto:false};
   const firstNum=line=>{const m=line.match(/([\d]{1,3}(?:\.[\d]{3})*,[\d]{2})/); return m?parseNumES2(m[1]):null;};
-  let tieneCerrado=false;
+  let tieneCerrado=false, enAbierto=false;
   for(const line of lines){
     if(!r.fecha){const fd=parseFechaES2(line); if(fd) r.fecha=fd;}
     if(/Apertura:/.test(line)&&!r.fechaApertura){const fd=parseFechaES2(line); if(fd){r.fechaApertura=fd; if(!r.fecha) r.fecha=fd;}}
     if(/\d[\d.]*\s+Cerrado/i.test(line)) tieneCerrado=true;
+    if(/\d[\d.]*\s+Abierto/i.test(line)) enAbierto=true;
+    if(enAbierto) continue;
     const cm=line.match(/Cierre Caja (Efectivo|Tarjetas)\s+(\w+)-(.+)/i);
     if(cm){
       const tipo=cm[1],codigo=cm[2];
@@ -4214,8 +4216,8 @@ function importCierrePDF(input){
         } else if(/Cierres\s+de\s+Cajas\s+Centrales/i.test(joined)){
           // CajaAyCC: Cierres de Cajas Centrales (Z8) — va ANTES que CajaAyC porque también tiene "Tienda:" y "Fondo Apertura:"
           const data=parseCierreCentralLines(lines); data.filename=f.name; if(f._sourceZip) data.sourceZip=f._sourceZip;
-          if(_esDomingo(data.fecha)){
-            cnt.types.push('Domingo'); cnt.n++; parsed=true;
+          if(data.abierto||_esDomingo(data.fecha)){
+            cnt.types.push('Omitido'); cnt.n++; parsed=true;
           } else if(data.fecha||data.stores.length){
             const _kCC=r=>(r.fecha||'')+'|'+r.filename;
             const idx=cajaCierres.findIndex(c=>_kCC(c)===_kCC(data));
@@ -4257,11 +4259,11 @@ function importCierrePDF(input){
   }
 
   function _finalize(importados, total, types){
-    cajaCierres=cajaCierres.filter(c=>!_esDomingo(c.fecha));
+    cajaCierres=cajaCierres.filter(c=>!c.abierto&&!_esDomingo(c.fecha));
     cajaCierres.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
     saveCajaCierres();
     const tsC=new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    const _typeLabels={Totales:'Totales diarios',Cierres:'Cierres centrales',Terminales:'Fondos terminales',Domingo:'Domingos omitidos (no hay caja)'};
+    const _typeLabels={Totales:'Totales diarios',Cierres:'Cierres centrales',Terminales:'Fondos terminales',Omitido:'Omitidos (ejercicio aún abierto o domingo: llegan al cerrarse)'};
     const typeStr=types.length?' · '+[...new Set(types)].map(t=>_typeLabels[t]||t).join(', '):'';
     const countStr=total>0?`${importados}/${total} PDFs`:importados>0?`${importados} importados`:'0 importados';
     if(st) st.textContent=`✅ ${countStr}${typeStr} · ${tsC}`;
