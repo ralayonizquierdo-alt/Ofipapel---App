@@ -3,6 +3,8 @@
 
 const {
   FAQ_RULES,
+  FACTURA_INFO,
+  isPedidoEstadoQuestion,
   buildAiSystemPrompt,
   agenteInfo,
   isAgenteInfoMessage,
@@ -205,6 +207,36 @@ function matchFaqRule(text) {
   // que la web no le deja entrar.
   const escalado = contestarian.find((reply) => isAgenteInfoMessage(reply));
   if (escalado) return escalado;
+
+  // LA FACTURA MANDA SOBRE EL ESTADO DEL PEDIDO.
+  //
+  // Casi nadie pide una factura sin decir de qué pedido. Y en cuanto dice el
+  // número, el mensaje toca dos temas y la regla de abajo lo manda a la IA...
+  // solo que antes de llegar, el número dispara por su cuenta la consulta del
+  // estado del pedido y el turno se acaba ahí.
+  //
+  // Visto en real (13/10/2026). Una clienta escribió: "me gustaría saber si me
+  // pueden reenviar una factura de junio. El número de pedido es el 621370", y
+  // se le contestó que su pedido "está pagado y en preparación, por un total de
+  // 31,19 €". No preguntaba eso, y encima le sonó a que su pedido de junio
+  // seguía sin salir.
+  //
+  // El número de pedido ahí no es la pregunta: es un DATO de su petición. Y la
+  // respuesta de facturas ya lo aprovecha ("escribe a pedidos@ofipapelsl.com
+  // con el número de pedido"), así que contestarla no deja nada sin responder.
+  // Solo cuando están LOS DOS TEMAS y nada más: si la factura es la única que
+  // contesta, manda el camino de siempre (que, si el mensaje trae una
+  // referencia de producto, lo deja pasar al catálogo — "en la factura del mes
+  // pasado venía un 305XL, ¿me pueden mandar otro?" es una consulta de
+  // producto, no una petición de factura).
+  const porLaFactura = contestarian.find((reply) => reply === FACTURA_INFO);
+  if (
+    porLaFactura &&
+    contestarian.length > 1 &&
+    contestarian.every((r) => r === FACTURA_INFO || isPedidoEstadoQuestion(r))
+  ) {
+    return porLaFactura;
+  }
 
   if (contestarian.length > 1) return null;
 
