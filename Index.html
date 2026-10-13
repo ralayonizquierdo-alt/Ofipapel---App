@@ -4041,11 +4041,14 @@ function parseFechaES2(s){
 function parseCierreTerminalLines(lines){
   const TNAMES={'43':'Admin (Adm)','44':'T-4 (Detall)','45':'T-5 (Detall)',
     '46':'T-6 (Copistería)','47':'Admin (Conta)','48':'T-8 (Mayor)',
-    'A2':'T-2 (Izq)','A3':'T-3 (Der)','AA':'T-1 (Aliz-2)'};
+    '53':'Reparto','A2':'T-2 (Izq)','A3':'T-3 (Der)','AA':'T-1 (Aliz-2)'};
   const result={fecha:null,terminales:[],filename:''};
   let cur=null;
   const firstNum=l=>{const m=l.match(/([\d]{1,3}(?:\.[\d]{3})*,[\d]{2})/);return m?parseNumES2(m[1]):null;};
-  for(const line of lines){
+  // Extrae el número que viene DESPUÉS de la etiqueta (ignora números previos en la misma línea)
+  const afterLabel=(l,rx)=>{const m=l.match(rx);if(!m)return null;const after=l.slice(m.index+m[0].length);return firstNum(after);};
+  for(let i=0;i<lines.length;i++){
+    const line=lines[i];
     if(!result.fecha){const fd=parseFechaES2(line);if(fd)result.fecha=fd;}
     const tm=line.match(/Tienda\s*:\s*(\w+)/i);
     if(tm){
@@ -4055,12 +4058,24 @@ function parseCierreTerminalLines(lines){
       continue;
     }
     if(!cur) continue;
-    if(/Fondo\s+Apertura\s*:/i.test(line)&&cur.fondoApertura===null){const n=firstNum(line);if(n!==null)cur.fondoApertura=n;}
-    else if(/^Arqueo\s*:/i.test(line)&&cur.arqueo===null){const n=firstNum(line);if(n!==null)cur.arqueo=n;}
-    else if(/Sobrante\s*:/i.test(line)&&cur.sobrante===null){const n=firstNum(line);if(n!==null)cur.sobrante=n;}
+    // "Fondo Apertura:" puede tener otros números ANTES en la misma línea → coger el número DESPUÉS de la etiqueta
+    if(/Fondo\s+Apertura\s*:/i.test(line)&&cur.fondoApertura===null){
+      const n=afterLabel(line,/Fondo\s+Apertura\s*:/i);
+      cur.fondoApertura=n!==null?n:(firstNum(lines[i+1]||'')||null);
+    }
+    else if(/^Arqueo\s*:/i.test(line)&&cur.arqueo===null){
+      const n=firstNum(line); cur.arqueo=n!==null?n:(firstNum(lines[i+1]||'')||null);
+    }
+    else if(/Sobrante\s*:/i.test(line)&&cur.sobrante===null){
+      const n=firstNum(line); if(n!==null) cur.sobrante=n;
+    }
     // Columnas intercambiadas por PDF.js: la etiqueta "Fondo al Cierre:" extrae el Total Retirado y viceversa
-    else if(/Fondo\s+al\s+Cierre\s*:/i.test(line)&&cur.totalRetirado===null){const n=firstNum(line);if(n!==null)cur.totalRetirado=n;}
-    else if(/Total\s+Retirado\s*:/i.test(line)&&cur.fondoCierre===null){const n=firstNum(line);if(n!==null)cur.fondoCierre=n;}
+    else if(/Fondo\s+al\s+Cierre\s*:/i.test(line)&&cur.totalRetirado===null){
+      const n=firstNum(line); cur.totalRetirado=n!==null?n:(firstNum(lines[i+1]||'')||null);
+    }
+    else if(/Total\s+Retirado\s*:/i.test(line)&&cur.fondoCierre===null){
+      const n=firstNum(line); cur.fondoCierre=n!==null?n:(firstNum(lines[i+1]||'')||null);
+    }
   }
   if(cur&&cur.codigo) result.terminales.push(cur);
   result.terminales.forEach(t=>{
@@ -4138,46 +4153,57 @@ function importCierrePDF(input){
   const zipFiles=files.filter(f=>f.name.toLowerCase().endsWith('.zip'));
   const pdfFiles=files.filter(f=>!f.name.toLowerCase().endsWith('.zip'));
 
-  function _parsePDF(f, importados, cb){
+  function _parsePDF(f, cnt, cb){
     parsePDFTextCaja(f,(err,lines)=>{
       if(!err&&lines){
         const joined=lines.join(' ');
         let parsed=false;
         if(/Fondo\s+Caja\s+en\s+(Apertura|Cierre)/i.test(joined)){
+          // CajaAyC4: Totales de cierres y Salidas de la Central
           const data=parseTotalesCajaLines(lines); data.filename=f.name;
           if(data.fondoApertura!==null||data.fondoCierre!==null){
             const idx=cajaTotalesDiarios.findIndex(c=>c.filename===f.name);
             if(idx>=0) cajaTotalesDiarios[idx]=data; else cajaTotalesDiarios.push(data);
             cajaTotalesDiarios.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
-            saveCajaTotalesDiarios(); importados++; parsed=true;
+            saveCajaTotalesDiarios(); cnt.n++; parsed=true;
+          }
+        } else if(/Cierres\s+de\s+Cajas\s+Centrales/i.test(joined)){
+          // CajaAyCC: Cierres de Cajas Centrales (Z8) — va ANTES que CajaAyC porque también tiene "Tienda:" y "Fondo Apertura:"
+          const data=parseCierreCentralLines(lines); data.filename=f.name;
+          if(data.fecha||data.stores.length){
+            const idx=cajaCierres.findIndex(c=>c.filename===f.name);
+            if(idx>=0) cajaCierres[idx]=data; else cajaCierres.push(data);
+            cnt.n++; parsed=true;
           }
         } else if(/Tienda\s*:/i.test(joined)&&/Fondo\s+Apertura/i.test(joined)){
+          // CajaAyC: Ficha o Formulario de cada Ejercicio (terminales)
           const data=parseCierreTerminalLines(lines); data.filename=f.name;
           if(data.terminales.length){
             const idx=cajaTerminales.findIndex(c=>c.filename===f.name);
             if(idx>=0) cajaTerminales[idx]=data; else cajaTerminales.push(data);
             cajaTerminales.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
-            saveCajaTerminales(); importados++; parsed=true;
+            saveCajaTerminales(); cnt.n++; parsed=true;
           }
         }
         if(!parsed&&!/Listado\s+de\s+Caja/i.test(joined)){
+          // Fallback: parseCierreCentralLines para cualquier otro formato no reconocido
           const data=parseCierreCentralLines(lines); data.filename=f.name;
           if(data.fecha||data.stores.length){
             const idx=cajaCierres.findIndex(c=>c.filename===f.name);
             if(idx>=0) cajaCierres[idx]=data; else cajaCierres.push(data);
-            importados++;
+            cnt.n++;
           }
         }
       }
-      cb(importados);
+      cb();
     });
   }
 
   function _processPDFs(pdfsToProcess){
     if(!pdfsToProcess.length){ _finalize(0); return; }
-    let remaining=pdfsToProcess.length, importados=0;
+    const cnt={n:0}; let remaining=pdfsToProcess.length;
     for(const f of pdfsToProcess){
-      _parsePDF(f, importados, n=>{ importados=n; if(--remaining===0) _finalize(importados); });
+      _parsePDF(f, cnt, ()=>{ if(--remaining===0) _finalize(cnt.n); });
     }
   }
 
