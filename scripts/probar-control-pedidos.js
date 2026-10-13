@@ -305,6 +305,25 @@ test('propuesta nueva: se mantienen las decisiones de lo que no cambia; lo demá
   assert.deepEqual(r.decisiones, { A: { accion: 'aceptar' }, B: { nota: 'factura aparte' }, C: { accion: 'mantener' }, E: { accion: 'resto' }, F: { nota: 'solo nota' } });
 });
 
+test('factura final: la misma mercancía con otra referencia no es falta ni sobra', () => {
+  const val = [{ ref: '93-07', desc: 'BANDEJA MATTIO AZUL -REF. MTT4220101A-', cant: 20, precio: 2 },
+    { ref: '93-08', desc: 'BANDEJA MATTIO GRIS -REF. MTT4220101G-', cant: 40, precio: 2 },
+    { ref: 'X1', desc: 'OTRA COSA', cant: 5, precio: 1 }];
+  const fac = [{ ref: '93M-07', desc: 'BANDEJA MATTIO AZUL -REF. MTT4220101A-', cant: 20, precio: 2 },
+    { ref: '93M-08', desc: 'BANDEJA MATTIO GRIS -REF. MTT4220101G-', cant: 40, precio: 2.5 },
+    { ref: 'Y9', desc: 'NADA QUE VER', cant: 5, precio: 1 }];
+  const r = CP.controlFactura(val, fac);
+  assert.deepEqual(r.cambiosRef.map((x) => [x.ref, x.refFactura, x.cant]), [['93-07', '93M-07', 20], ['93-08', '93M-08', 40]]);
+  assert.deepEqual(r.faltan.map((x) => x.ref), ['X1'], 'descripción distinta: sigue siendo falta');
+  assert.deepEqual(r.sobran.map((x) => x.ref), ['Y9']);
+  assert.deepEqual(r.precios.map((x) => [x.ref, x.validado, x.facturado]), [['93-08 → 93M-08', 2, 2.5]]);
+  // Con cantidad distinta no se empareja
+  const r2 = CP.controlFactura([val[0]], [{ ...fac[0], cant: 10 }]);
+  assert.equal(r2.cambiosRef.length, 0);
+  // Y lo que cambia de referencia no va a Restos
+  assert.deepEqual(CP.restosDeFactura(val.slice(0, 2), fac.slice(0, 2)), []);
+});
+
 test('reclamación de faltas: separada por cliente, con faltas totales y parciales', () => {
   const t = CP.textoReclamacion('FINOCAM', [
     { numero: '2', cliente: 'CLIENTE A', faltan: [{ ref: '785100027', desc: 'CALENDARIO', cant: 2, de: 2, total: true }] },
