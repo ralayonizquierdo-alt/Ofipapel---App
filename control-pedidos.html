@@ -15,7 +15,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-09-1"></script>
+<script src="control-pedidos-logica.js?v=2026-10-13-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -75,6 +75,9 @@ textarea{width:100%;min-height:110px;font-family:ui-monospace,Consolas,monospace
 .btn.peligro{border-color:var(--rojo);color:var(--rojo)}
 .btn.peque{padding:4px 9px;font-size:13px;font-weight:500}
 .btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ok,.btn.ok:disabled{opacity:1;background:var(--verde-claro);border-color:var(--verde);color:var(--verde-oscuro);cursor:default}
+details.decididas{margin-top:8px}
+details.decididas>summary{cursor:pointer;color:var(--texto2);font-size:13px}
 .tabla-scroll{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:14px}
 th{text-align:left;font-size:12px;color:var(--texto2);font-weight:600;border-bottom:2px solid var(--borde);padding:6px}
@@ -207,7 +210,8 @@ table.lista-pedidos .c-movil{display:none}
      precio en una fila; descripción debajo; la duda solo si la hay). */
   table.t-lineas tr,table.t-repo tr{display:grid;gap:2px 6px;padding:6px 8px;margin-bottom:6px}
   table.t-lineas tr{grid-template-columns:62px 34px 1fr 86px;grid-template-areas:"cant exp ref precio" "desc desc desc x" "duda duda duda duda"}
-  table.t-repo tr{grid-template-columns:62px 1fr 86px 76px;grid-template-areas:"cant ref precio dtos" "desc desc desc x" "imp imp neto neto" "duda duda duda duda"}
+  table.t-repo tr{grid-template-columns:58px 1fr 84px 84px;grid-template-areas:"cant ref ref precio" "desc desc desc dtos" "imp imp neto x" "duda duda duda duda"}
+  .duda-txt{font-size:13px;line-height:1.35;color:#7a5a00;white-space:normal;overflow-wrap:anywhere}
   table.t-lineas tr:has(> th),table.t-repo tr:has(> th){display:none}
   table.t-lineas td,table.t-repo td{display:block;padding:0;min-width:0;text-align:left}
   table.t-lineas td::before,table.t-repo td::before{display:block;font-size:10px;line-height:1.3;margin:0}
@@ -385,6 +389,8 @@ function pintar() {
 
 /** Copia el título de cada columna a sus celdas (data-th) para que en el
  *  móvil, donde la tabla se ve como tarjetas, cada dato lleve su nombre. */
+// Al imprimir, lo plegado (decisiones ya tomadas) también sale.
+window.addEventListener('beforeprint', () => document.querySelectorAll('details.decididas').forEach((d) => { d.open = true; }));
 function ponerEtiquetas(raiz) {
   raiz.querySelectorAll('table').forEach((t) => {
     const cab = [...t.rows].find((f) => f.querySelector('th'));
@@ -1107,7 +1113,7 @@ function tablaLineasRepo(p, cat, lado) {
         <td class="c-dtos"><input class="precio" inputmode="decimal" value="${h(Array.isArray(l.dtos) ? l.dtos.join('+') : l.dtos)}" placeholder="—" title="Descuentos encadenados, p. ej. 10+5" onchange="cambiaLinea(${i},'dtos',this.value${L})"></td>
         <td class="num c-imp">${l.importe == null ? '—' : fmt(l.importe)}</td>
         <td class="num c-neto">${neto == null ? '—' : fmtPrecio(CP.red2(neto * 1000) / 1000)}</td>
-        <td class="c-duda${l.duda ? '' : ' vacia'}"><input value="${h(l.duda)}" placeholder="—" onchange="cambiaLinea(${i},'duda',this.value${L})">${l.duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda',''${L})">✓ Está bien</button>` : ''}</td>
+        <td class="c-duda${l.duda ? '' : ' vacia'}">${l.duda ? `<div class="duda-txt">${h(l.duda)}</div>` : `<input value="" placeholder="—" onchange="cambiaLinea(${i},'duda',this.value${L})">`}${l.duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda',''${L})">✓ Está bien</button>` : ''}</td>
         <td class="c-x"><button class="btn peque peligro" onclick="borrarLinea(${i}${L})" title="Borrar la línea entera">✕</button></td>
       </tr>`;
     }).join('')}
@@ -1159,7 +1165,7 @@ function tablaLineas(p, cat) {
         <td class="c-desc"><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value)">${enCat && enCat.d ? `<div class="pequeno">${h(enCat.d)}</div>` : ''}</td>
         <td class="c-precio"><input class="precio" inputmode="decimal" value="${l.precio == null ? '' : h(fmtPrecio(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value)">
           ${enCat && enCat.p != null && l.precio != null && CP.red2(enCat.p) !== CP.red2(l.precio) ? `<div class="pequeno">Tarifa ${fmt(enCat.p)}</div>` : ''}</td>
-        <td class="c-duda${l.duda ? '' : ' vacia'}"><input value="${h(l.duda)}" onchange="cambiaLinea(${i},'duda',this.value)" placeholder="—">${l.duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda','')">✓ Está bien</button>` : ''}</td>
+        <td class="c-duda${l.duda ? '' : ' vacia'}">${l.duda ? `<div class="duda-txt">${h(l.duda)}</div>` : `<input value="" onchange="cambiaLinea(${i},'duda',this.value)" placeholder="—">`}${l.duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda','')">✓ Está bien</button>` : ''}</td>
         <td class="c-x"><button class="btn peque peligro" onclick="borrarLinea(${i})" title="Borrar la línea entera">✕</button></td>
       </tr>`;
     }).join('')}
@@ -1176,26 +1182,16 @@ function vistaComparacion(p, filas) {
   };
   // Lo esencial primero: lo que falta, luego lo que sobra, luego el resto.
   const peso = (f) => (f.cantPropuesta < f.cantPedida ? 0 : f.cantPropuesta > f.cantPedida ? 1 : 2);
-  const mostrar = (soloDiscordancias ? filas.filter((f) => f.motivos.length) : filas).slice().sort((a, b) => peso(a) - peso(b));
+  const orden = (xs) => xs.slice().sort((a, b) => peso(a) - peso(b));
+  // Por defecto solo lo que falta decidir; lo ya decidido y los cambios
+  // informativos quedan plegados debajo (se pueden abrir para cambiarlos).
+  const porDecidir = (f) => { const d = p.decisiones[f.ref] || {}; return f.revisar && (!d.accion || (d.accion === 'manual' && !String(d.cant || '').trim())); };
+  const mostrar = orden(soloDiscordancias ? filas.filter(porDecidir) : filas);
+  const plegadas = soloDiscordancias ? orden(filas.filter((f) => f.motivos.length && !porDecidir(f))) : [];
   const nombres = { reclamar: '✉️ Reclamar al proveedor (esperar respuesta)', resto: 'Sin stock: dejar en restos', anular: 'Descartar (descatalogado o ya no lo quiere)', aceptar: 'Aceptar propuesta', mantener: 'Mantener lo pedido', manual: 'Cantidad/precio a mano', excluir: 'Excluir línea' };
-  return `
-  <div class="tarjeta">
-    <h2>3 · Comparación y decisiones</h2>
-    ${bloqueFaltasSobras(p, filas)}
-    <h3 style="margin-top:16px">Todas las diferencias</h3>
-    ${esRepo(p) ? '' : `<div class="pequeno" style="margin-bottom:6px">En un cambio de precio, tu decisión fija el <b>precio al cliente</b> (listado imprimible): «Mantener lo pedido» = el que apuntó el comercial. El Excel de Géminis lleva siempre el <b>coste que factura el proveedor</b>.</div>`}
-    <div class="resumen">
-      <span class="chip ok">${n.ok} cuadran</span>
-      ${n.info ? `<span class="chip info">${n.info} con cambio de precio informativo</span>` : ''}
-      <span class="chip ${n.revisar ? 'mal' : 'ok'}">${n.revisar} discordancias</span>
-      ${pend.length ? `<span class="chip aviso">${pend.length} sin decidir</span>` : ''}
-    </div>
-    <label class="no-imprimir" style="flex-direction:row;align-items:center;gap:6px;margin:6px 0">
-      <input type="checkbox" ${soloDiscordancias ? 'checked' : ''} onchange="soloDiscordancias=this.checked;pintar()"> Ver solo lo que no cuadra
-    </label>
-    ${mostrar.length ? `<div class="tabla-scroll"><table>
+  const tabla = (xs) => `<div class="tabla-scroll"><table>
       <tr><th>Referencia</th><th>Descripción</th><th class="num">Pedido</th><th class="num">Propuesta</th><th class="num">${esRepo(p) ? 'Neto pedido' : 'Precio pedido'}</th><th class="num">${esRepo(p) ? 'Neto propuesta' : 'Precio propuesta'}</th><th>Qué pasa</th><th>Decisión</th></tr>
-      ${mostrar.map((f) => {
+      ${xs.map((f) => {
         const d = p.decisiones[f.ref] || {};
         const acciones = CP.accionesPara(f, p.tipo);
         return `<tr>
@@ -1215,10 +1211,28 @@ function vistaComparacion(p, filas) {
           ` : ''}</td>
         </tr>`;
       }).join('')}
-    </table></div>` : `<div class="aviso-caja ok">Todo cuadra.</div>`}
+    </table></div>`;
+  return `
+  <div class="tarjeta">
+    <h2>3 · Comparación y decisiones</h2>
+    ${bloqueFaltasSobras(p, filas)}
+    <h3 style="margin-top:16px">Todas las diferencias</h3>
+    ${esRepo(p) ? '' : `<div class="pequeno" style="margin-bottom:6px">En un cambio de precio, tu decisión fija el <b>precio al cliente</b> (listado imprimible): «Mantener lo pedido» = el que apuntó el comercial. El Excel de Géminis lleva siempre el <b>coste que factura el proveedor</b>.</div>`}
+    <div class="resumen">
+      <span class="chip ok">${n.ok} cuadran</span>
+      ${n.info ? `<span class="chip info">${n.info} con cambio de precio informativo</span>` : ''}
+      <span class="chip ${n.revisar ? 'mal' : 'ok'}">${n.revisar} discordancias</span>
+      ${pend.length ? `<span class="chip aviso">${pend.length} sin decidir</span>` : ''}
+    </div>
+    <label class="no-imprimir" style="flex-direction:row;align-items:center;gap:6px;margin:6px 0">
+      <input type="checkbox" ${soloDiscordancias ? 'checked' : ''} onchange="soloDiscordancias=this.checked;pintar()"> Ver solo lo que falta decidir
+    </label>
+    ${mostrar.length ? tabla(mostrar) : `<div class="aviso-caja ok">${n.revisar ? '✅ Todas las discordancias están decididas.' : 'Todo cuadra.'}</div>`}
+    ${plegadas.length ? `<details class="decididas"><summary>Ya decididas o solo informativas (${plegadas.length}) — abrir para ver o cambiar</summary>${tabla(plegadas)}</details>` : ''}
     <div class="fila no-imprimir" style="margin-top:14px">
-      <button class="btn primario" ${pend.length ? 'disabled' : ''} onclick="validarPedido()">Validar pedido</button>
-      ${pend.length ? `<span class="pequeno">Decide las ${pend.length} discordancias pendientes para poder validar.</span>` : (esRepo(p) ? `<span class="pequeno">Al validar se guardan los precios netos aceptados para comparar los próximos pedidos. Las faltas de reposición no van a Restos.</span>`
+      ${p.validado ? `<button class="btn ok" disabled>✅ Pedido validado</button><span class="pequeno">Si cambias una decisión o una línea, vuelve a «Validar pedido».</span>`
+        : `<button class="btn primario" ${pend.length ? 'disabled' : ''} onclick="validarPedido()">Validar pedido</button>`}
+      ${p.validado ? '' : pend.length ? `<span class="pequeno">Decide las ${pend.length} discordancias pendientes para poder validar.</span>` : (esRepo(p) ? `<span class="pequeno">Al validar se guardan los precios netos aceptados para comparar los próximos pedidos. Las faltas de reposición no van a Restos.</span>`
         : `<span class="pequeno">Al validar, lo que no llega pasa a Restos y las notas a Notas de facturación.</span>`)}
     </div>
     ${p.validado ? `<div class="fila no-imprimir" style="margin-top:10px">
@@ -1236,18 +1250,26 @@ function bloqueFaltasSobras(p, filas) {
   const doc = esRepo(p) ? 'la factura/propuesta' : 'la propuesta';
   const decidido = { reclamar: '✉️ reclamada, esperando respuesta del proveedor', resto: 'sin stock: en restos', anular: 'descartada definitivamente', excluir: 'descartada', aceptar: 'aceptada la propuesta', mantener: 'se mantiene lo pedido', manual: 'a mano' };
   const linea = (x, signo, falta) => {
-    const acc = falta && (p.decisiones[x.ref] || {}).accion;
-    const fuera = falta && !pend.has(x.ref);
+    const acc = (p.decisiones[x.ref] || {}).accion;
+    const fuera = false;
     return `<li${fuera ? ' class="descartada"' : ''}><b>${h(x.ref)}</b> ${h(x.desc)} — ${signo}${x.cant}${x.total ? '' : ` de ${x.de}`} ud.${x.total ? '' : ' (parcial)'}${x.sustitucion ? ` <span class="pequeno">¿sustitución ${h(x.sustitucion)}?</span>` : ''}${acc ? ` <span class="pequeno">· ${h(decidido[acc] || acc)}</span>` : ''}</li>`;
   };
+  // Lo ya decidido sale de la lista (queda plegado aparte, por si hay que revisarlo).
+  const sobraDecidida = (x) => Boolean((p.decisiones[x.ref] || {}).accion);
+  const faltanVer = faltan.filter((x) => pend.has(x.ref));
+  const faltanYa = faltan.filter((x) => !pend.has(x.ref));
+  const sobranVer = sobran.filter((x) => !sobraDecidida(x));
+  const sobranYa = sobran.filter(sobraDecidida);
+  const lista = (xs, signo, falta) => xs.length ? `<ul style="margin:6px 0 0;padding-left:18px">${xs.map((x) => linea(x, signo, falta)).join('')}</ul>` : '';
+  const plegado = (xs, signo, falta) => xs.length ? `<details class="decididas"><summary>${xs.length} ya decidida(s)</summary>${lista(xs, signo, falta)}</details>` : '';
   return `
     <div class="aviso-caja ${pendientes.length ? 'mal' : 'ok'}" style="margin-top:0">
-      <b>${pendientes.length ? `❌ Faltan ${pendientes.length} referencia(s)` : faltan.length ? '✅ Ninguna falta pendiente' : '✅ No falta nada'}</b> — pedido que no viene en ${doc}${faltan.length > pendientes.length ? ` <span class="pequeno">(${faltan.length - pendientes.length} ya decidida(s): no cuentan)</span>` : ''}
-      ${faltan.length ? `<ul style="margin:6px 0 0;padding-left:18px">${faltan.map((x) => linea(x, '', true)).join('')}</ul>` : ''}
+      <b>${pendientes.length ? `❌ Faltan ${pendientes.length} referencia(s)` : faltan.length ? '✅ Ninguna falta pendiente' : '✅ No falta nada'}</b> — pedido que no viene en ${doc}
+      ${lista(faltanVer, '', true)}${plegado(faltanYa, '', true)}
     </div>
-    <div class="aviso-caja ${sobran.length ? 'aviso' : 'ok'}">
-      <b>${sobran.length ? `⚠️ Sobran ${sobran.length} referencia(s)` : '✅ No sobra nada'}</b> — vienen en ${doc} sin haberse pedido (o de más)
-      ${sobran.length ? `<ul style="margin:6px 0 0;padding-left:18px">${sobran.map((x) => linea(x, '+')).join('')}</ul>` : ''}
+    <div class="aviso-caja ${sobranVer.length ? 'aviso' : 'ok'}">
+      <b>${sobranVer.length ? `⚠️ Sobran ${sobranVer.length} referencia(s)` : sobran.length ? '✅ Ninguna sobra pendiente' : '✅ No sobra nada'}</b> — vienen en ${doc} sin haberse pedido (o de más)
+      ${lista(sobranVer, '+')}${plegado(sobranYa, '+')}
     </div>`;
 }
 
@@ -1986,10 +2008,12 @@ function vistaFacturaFinal(p) {
     ${!p.factura ? '<div class="vacio">Sin factura todavía.</div>' : `
     <div class="resumen"><span class="chip info">${h(p.factura.archivo)}</span><span class="chip gris">${p.factura.lineas.length} líneas</span></div>
     ${p.factura.control ? avisoControl(p.factura) : ''}
-    ${r.cuadra ? `<div class="aviso-caja ok"><b>✅ La factura cuadra con lo validado:</b> están todas las referencias, en la misma cantidad y al mismo precio.</div>` : `
+    ${r.cuadra ? `<div class="aviso-caja ok"><b>✅ La factura cuadra con lo validado:</b> están todas las referencias, en la misma cantidad y al mismo precio.</div>
+    ${r.cambiosRef && r.cambiosRef.length ? `<div class="aviso-caja info"><b>🔁 Misma mercancía facturada con otra referencia (${r.cambiosRef.length})</b>${lista(r.cambiosRef, (x) => `<li><b>${h(x.ref)}</b> → <b>${h(x.refFactura)}</b> ${h(x.desc)} — ${x.cant} ud.</li>`)}</div>` : ''}` : `
     <div class="aviso-caja ${r.faltan.length ? 'mal' : 'ok'}"><b>${r.faltan.length ? `❌ No vienen en la factura ${r.faltan.length} referencia(s)` : '✅ No falta nada de lo validado'}</b>
       ${r.faltan.length ? lista(r.faltan, (x) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — faltan ${x.cant}${x.total ? '' : ` de ${x.de}`} ud.</li>`) : ''}</div>
     ${r.sobran.length ? `<div class="aviso-caja aviso"><b>⚠️ Facturado sin estar en lo validado (${r.sobran.length})</b>${lista(r.sobran, (x) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — +${x.cant} ud.</li>`)}</div>` : ''}
+    ${r.cambiosRef && r.cambiosRef.length ? `<div class="aviso-caja info"><b>🔁 Misma mercancía facturada con otra referencia (${r.cambiosRef.length})</b> — mismo artículo y cantidad: no falta ni sobra nada${lista(r.cambiosRef, (x) => `<li><b>${h(x.ref)}</b> → <b>${h(x.refFactura)}</b> ${h(x.desc)} — ${x.cant} ud.</li>`)}</div>` : ''}
     ${r.precios.length ? `<div class="aviso-caja aviso"><b>Precio neto distinto al validado (${r.precios.length})</b>${lista(r.precios, (x) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — validado ${fmt(x.validado)} → facturado ${fmt(x.facturado)}</li>`)}</div>` : ''}
     ${r.faltan.length ? `<p class="pequeno">${esRepo(p) ? 'Lo que no viene en la factura no entra en el Excel de Géminis: reclámalo al proveedor si hace falta.' : 'La factura manda: lo que no viene <b>pasa a Restos del cliente</b> (como si no hubiera stock), no sale en su guía de facturación ni en el Excel de Géminis.'}</p>` : ''}`}`}
   </div>`;

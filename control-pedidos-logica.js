@@ -335,7 +335,33 @@
       const ca = val.has(ref) ? val.get(ref).cant : 0;
       if (b.cant > ca) sobran.push({ ref, desc: b.desc, cant: red2(b.cant - ca), de: b.cant, total: ca === 0 });
     }
-    return { faltan, sobran, precios, cuadra: !faltan.length && !sobran.length && !precios.length };
+    // Misma mercancía facturada con otra referencia (93-07 → 93M-07): si una
+    // que no viene y una de más tienen el mismo EAN o la misma descripción
+    // completa y la misma cantidad, no es una falta ni una sobra, es un cambio
+    // de referencia (solo si el emparejamiento es único).
+    const descLarga = (d) => String(d || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]/g, '');
+    const misma = (x, y) => {
+      const ea = (val.get(x.ref) || {}).ean; const eb = (fac.get(y.ref) || {}).ean;
+      if (ea && eb) return String(ea) === String(eb);
+      const da = descLarga(x.desc); return da.length >= 8 && da === descLarga(y.desc);
+    };
+    const cambiosRef = [];
+    for (const x of faltan.slice()) {
+      if (!x.total) continue;
+      const cand = sobran.filter((y) => y.total && y.cant === x.cant && misma(x, y));
+      if (cand.length !== 1 || faltan.filter((z) => z.total && z.cant === x.cant && misma(z, cand[0])).length !== 1) continue;
+      const y = cand[0];
+      faltan.splice(faltan.indexOf(x), 1);
+      sobran.splice(sobran.indexOf(y), 1);
+      cambiosRef.push({ ref: x.ref, refFactura: y.ref, desc: x.desc || y.desc, cant: x.cant });
+      const na = conGlobal(val.get(x.ref).neto, o.dtoValidado);
+      const nb = conGlobal(fac.get(y.ref).neto, o.dtoFactura);
+      const igual = (p, q) => p != null && q != null && Math.abs(p - q) < 0.01;
+      if (na != null && nb != null && !(igual(na, nb) || igual(val.get(x.ref).neto, fac.get(y.ref).neto) || igual(na, conGlobal(fac.get(y.ref).neto, o.dtoValidado)))) {
+        precios.push({ ref: `${x.ref} → ${y.ref}`, desc: x.desc || y.desc, validado: red2(na), facturado: red2(nb) });
+      }
+    }
+    return { faltan, sobran, precios, cambiosRef, cuadra: !faltan.length && !sobran.length && !precios.length };
   }
 
   /**
