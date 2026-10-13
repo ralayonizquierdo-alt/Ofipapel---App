@@ -1487,7 +1487,7 @@ function stampImport(key, archivos){
 }
 
 let cajaCierres = [];
-try{ const cc=JSON.parse(localStorage.getItem('op_cajacierres')||'null'); if(cc) cajaCierres=cc.filter(c=>!c.abierto); }catch(e){}
+try{ const cc=JSON.parse(localStorage.getItem('op_cajacierres')||'null'); if(cc) cajaCierres=cc.filter(c=>!_esDomingo(c.fecha)); }catch(e){}
 let cajaBancoRecibos = [];
 try{ const cb=JSON.parse(localStorage.getItem('op_cajabancorecibos')||'null'); if(cb) cajaBancoRecibos=cb; }catch(e){}
 // Seed: CajaAyCC_Z8_140726 (Ej.2183 cerrado + Ej.2184 abierto) + resguardos bancarios 16/07
@@ -1759,7 +1759,7 @@ function applyCloudDataset(key, payload){
     try{ localStorage.setItem('op_cajaefectivo', JSON.stringify(cajaEfectivo)); }catch(e){}
     renderCajaEfectivo();
   } else if(key==='cajacierres'){
-    cajaCierres = mergePorFilename(cajaCierres, payload).filter(c=>!c.abierto).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+    cajaCierres = mergePorFilename(cajaCierres, payload).filter(c=>!_esDomingo(c.fecha)).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
     try{ localStorage.setItem('op_cajacierres', JSON.stringify(cajaCierres)); }catch(e){}
     if(document.getElementById('cajaHistorico')) renderCajaHistorico();
   } else if(key==='cajabancorecibos'){
@@ -4214,8 +4214,8 @@ function importCierrePDF(input){
         } else if(/Cierres\s+de\s+Cajas\s+Centrales/i.test(joined)){
           // CajaAyCC: Cierres de Cajas Centrales (Z8) — va ANTES que CajaAyC porque también tiene "Tienda:" y "Fondo Apertura:"
           const data=parseCierreCentralLines(lines); data.filename=f.name; if(f._sourceZip) data.sourceZip=f._sourceZip;
-          if(data.abierto){
-            cnt.types.push('Abierto'); cnt.n++; parsed=true;
+          if(_esDomingo(data.fecha)){
+            cnt.types.push('Domingo'); cnt.n++; parsed=true;
           } else if(data.fecha||data.stores.length){
             const _kCC=r=>(r.fecha||'')+'|'+r.filename;
             const idx=cajaCierres.findIndex(c=>_kCC(c)===_kCC(data));
@@ -4257,11 +4257,11 @@ function importCierrePDF(input){
   }
 
   function _finalize(importados, total, types){
-    cajaCierres=cajaCierres.filter(c=>!c.abierto);
+    cajaCierres=cajaCierres.filter(c=>!_esDomingo(c.fecha));
     cajaCierres.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
     saveCajaCierres();
     const tsC=new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    const _typeLabels={Totales:'Totales diarios',Cierres:'Cierres centrales',Terminales:'Fondos terminales',Abierto:'Cierres sin cerrar (omitidos)'};
+    const _typeLabels={Totales:'Totales diarios',Cierres:'Cierres centrales',Terminales:'Fondos terminales',Domingo:'Domingos omitidos (no hay caja)'};
     const typeStr=types.length?' · '+[...new Set(types)].map(t=>_typeLabels[t]||t).join(', '):'';
     const countStr=total>0?`${importados}/${total} PDFs`:importados>0?`${importados} importados`:'0 importados';
     if(st) st.textContent=`✅ ${countStr}${typeStr} · ${tsC}`;
@@ -4332,6 +4332,7 @@ function importBancoPDF(input){
   if(input.value!==undefined) input.value='';
 }
 
+function _esDomingo(f){ return !!f && new Date(f+'T12:00:00').getDay()===0; }
 let _selectedCierreKey=null; // null = usar el último
 function selectCierre(fecha,filename){
   _selectedCierreKey=(fecha||'')+'|'+(filename||'');
@@ -4411,9 +4412,7 @@ function renderCajaConciliacion(){
   const pendiente=bd.length===0;
   const fechaLabel=last.fecha?new Date(last.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'}):'—';
 
-  if(last.abierto){
-    alertEl.innerHTML=`<div style="background:#B9770E;color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">⚠️</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">CAJA SIN CERRAR — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Este PDF solo trae un ejercicio que el sistema de caja aún no ha cerrado (p. ej. domingo). Sus importes se repiten en otros días y no corresponden a esta fecha: el real llegará con el cierre posterior.</div></div></div>`;
-  } else if(descuadre){
+  if(descuadre){
     alertEl.innerHTML=`<div style="background:#c0392b;color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">⚠️</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">DESCUADRE DETECTADO — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Sistema: <strong>${fmt(last.efectivoBancoDeposit||0)}</strong> · Banco: <strong>${fmt(totalBEf)}</strong> · Diferencia: <strong>${fmt(diff)}</strong></div></div></div>`;
   } else if(cuadra){
     alertEl.innerHTML=`<div style="background:#27AE60;color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">✅</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">CAJA CUADRADA — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Efectivo depositado: <strong>${fmt(last.efectivoBancoDeposit||0)}</strong></div></div></div>`;
@@ -4500,16 +4499,16 @@ function renderCajaHistorico(){
       const bd=cajaBancoRecibos.filter(b=>b.fecha===c.fecha);
       const tbef=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
       const diff=Math.abs((c.efectivoBancoDeposit||0)-tbef);
-      const ico=c.abierto?'<span title="El sistema de caja aún no ha cerrado este ejercicio (p. ej. domingo): sus importes se repiten y no son de este día" style="font-size:12px;font-weight:700;color:#B9770E;">⚠ Caja sin cerrar</span>':bd.length===0?'⏳':diff<0.05?'✅':'❌';
+      const ico=bd.length===0?'⏳':diff<0.05?'✅':'❌';
       const cKey=(c.fecha||'')+'|'+(c.filename||'');
       const acKey=_selectedCierreKey||((cajaCierres.length?(cajaCierres[cajaCierres.length-1].fecha||'')+'|'+(cajaCierres[cajaCierres.length-1].filename||''):null));
       const isSel=cKey===acKey;
       return `<tr onclick="selectCierre('${(c.fecha||'').replace(/'/g,"\\'")}','${(c.filename||'').replace(/'/g,"\\'")}')" style="cursor:pointer;border-bottom:1px solid var(--borde);${isSel?'background:rgba(26,92,26,0.07);font-weight:600;':''}" title="Ver conciliación de este día">
         <td style="padding:6px 8px;">${c.fecha?new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td>
         <td style="padding:6px 8px;font-size:11px;color:var(--texto2);" title="${c.filename||''}">${c.sourceZip||c.filename||'—'}</td>
-        <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${c.abierto?'—':fmt(c.efectivoTotal||0)}</td>
-        <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${c.abierto?'—':fmt(c.tarjetasTotal||0)}</td>
-        <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${c.abierto?'—':fmt(c.efectivoBancoDeposit||0)}</td>
+        <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoTotal||0)}</td>
+        <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.tarjetasTotal||0)}</td>
+        <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoBancoDeposit||0)}</td>
         <td style="padding:6px 8px;text-align:center;font-size:16px;">${ico}</td>
         <td style="padding:6px 8px;"><button onclick="event.stopPropagation();deleteCierre('${(c.filename||'').replace(/'/g,"\\'")}')" style="background:none;border:none;color:var(--rojo,#E74C3C);cursor:pointer;font-size:12px;padding:2px 6px;">✕</button></td>
       </tr>`;
