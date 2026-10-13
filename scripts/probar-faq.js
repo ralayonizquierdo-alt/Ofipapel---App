@@ -105,6 +105,19 @@ const CASOS = [
   // a llamar a Administración para algo que se ve entrando en el formulario.
   ['Buenas tarde, me puede decir qué datos le hacen falta para abrir un cuenta de empresa, gracias', 'faq:DNI/NIF/NIE'],
 
+  // PEDIR LA FACTURA NO ES PREGUNTAR POR EL ESTADO DEL PEDIDO.
+  //
+  // Casi nadie pide una factura sin decir de qué pedido, y en cuanto dice el
+  // número el mensaje toca dos temas. Antes eso lo mandaba a la IA... y por el
+  // camino el número disparaba la consulta del estado y se acababa el turno.
+  // Visto en real (13/10/2026): una clienta pidió que le reenviaran una
+  // factura de junio y se le contestó que su pedido "está pagado y en
+  // preparación", que ni era la respuesta ni daba buena impresión.
+  ['Buenas tardes!\nMi nombre es Pilar Ruiz.\nNormalmente hago pedidos por la web y me gustaría saber si me pueden reenviar una factura de junio.\nEl número de pedido es el 621370.\nMuchas gracias de antemano', 'faq:pedidos@ofipapelsl.com'],
+  ['¿Me podéis mandar la factura del pedido 621370?', 'faq:repartidor'],
+  // Y preguntar de verdad por el estado sigue yendo donde iba.
+  ['Quiero saber el estado de mi pedido', 'faq:dime el número'],
+
   // Y estas NO, aunque lleven "pásame" o "una persona".
   ['¿Me pasas el precio del 305XL?', 'catalogo'],
   ['Pásame la dirección de la tienda', 'faq:Chajofe'],
