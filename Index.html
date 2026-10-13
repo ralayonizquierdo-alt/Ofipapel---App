@@ -627,10 +627,10 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               ondrop="cajaCierreDrop(event)">
               <div class="upload-icon">📋</div>
               <div class="upload-title">Cierre de Cajas (PDF del sistema)</div>
-              <div class="upload-sub">CajaAyCC Z8 · CajaAyC · CajaAyC4 · Admite varios a la vez</div>
+              <div class="upload-sub">CajaAyCC Z8 · CajaAyC · CajaAyC4 · Admite PDFs y ZIPs · Varios a la vez</div>
               <div class="upload-status" id="cajaCierreStatus"></div>
             </div>
-            <input type="file" id="cajaCierreInput" accept=".pdf,.Pdf" multiple style="display:none" onchange="importCierrePDF(this)">
+            <input type="file" id="cajaCierreInput" accept=".pdf,.Pdf,.zip" multiple style="display:none" onchange="importCierrePDF(this)">
           </div>
           <div>
             <div class="upload-zone" id="cajaBancoZone" onclick="document.getElementById('cajaBancoInput').click()"
@@ -4131,20 +4131,20 @@ function parseBancoPDFLines(lines, filename){
 }
 
 function importCierrePDF(input){
-  const files=input.files; if(!files||!files.length) return;
-  let remaining=files.length; let importados=0;
+  const files=Array.from(input.files||[]); if(!files.length) return;
   const st=document.getElementById('cajaCierreStatus');
   if(st) st.textContent='Procesando...';
-  for(const f of files){
+  const origNames=files.map(f=>f.name);
+  const zipFiles=files.filter(f=>f.name.toLowerCase().endsWith('.zip'));
+  const pdfFiles=files.filter(f=>!f.name.toLowerCase().endsWith('.zip'));
+
+  function _parsePDF(f, importados, cb){
     parsePDFTextCaja(f,(err,lines)=>{
-      remaining--;
       if(!err&&lines){
         const joined=lines.join(' ');
         let parsed=false;
         if(/Fondo\s+Caja\s+en\s+(Apertura|Cierre)/i.test(joined)){
-          // CajaAyC4: totales diarios
-          const data=parseTotalesCajaLines(lines);
-          data.filename=f.name;
+          const data=parseTotalesCajaLines(lines); data.filename=f.name;
           if(data.fondoApertura!==null||data.fondoCierre!==null){
             const idx=cajaTotalesDiarios.findIndex(c=>c.filename===f.name);
             if(idx>=0) cajaTotalesDiarios[idx]=data; else cajaTotalesDiarios.push(data);
@@ -4152,9 +4152,7 @@ function importCierrePDF(input){
             saveCajaTotalesDiarios(); importados++; parsed=true;
           }
         } else if(/Tienda\s*:/i.test(joined)&&/Fondo\s+Apertura/i.test(joined)){
-          // CajaAyC: fondos por terminal
-          const data=parseCierreTerminalLines(lines);
-          data.filename=f.name;
+          const data=parseCierreTerminalLines(lines); data.filename=f.name;
           if(data.terminales.length){
             const idx=cajaTerminales.findIndex(c=>c.filename===f.name);
             if(idx>=0) cajaTerminales[idx]=data; else cajaTerminales.push(data);
@@ -4163,9 +4161,7 @@ function importCierrePDF(input){
           }
         }
         if(!parsed&&!/Listado\s+de\s+Caja/i.test(joined)){
-          // CajaAyCC: cierre central Z8 (comportamiento original)
-          const data=parseCierreCentralLines(lines);
-          data.filename=f.name;
+          const data=parseCierreCentralLines(lines); data.filename=f.name;
           if(data.fecha||data.stores.length){
             const idx=cajaCierres.findIndex(c=>c.filename===f.name);
             if(idx>=0) cajaCierres[idx]=data; else cajaCierres.push(data);
@@ -4173,16 +4169,56 @@ function importCierrePDF(input){
           }
         }
       }
-      if(remaining===0){
-        cajaCierres.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
-        saveCajaCierres();
-        const tsC = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-        if(st) st.textContent=`✅ Importado ${tsC}`;
-        if(importados>0) stampImport('cajaCierres', Array.from(files).map(f=>f.name));
-        renderCajaView();
-      }
+      cb(importados);
     });
   }
+
+  function _processPDFs(pdfsToProcess){
+    if(!pdfsToProcess.length){ _finalize(0); return; }
+    let remaining=pdfsToProcess.length, importados=0;
+    for(const f of pdfsToProcess){
+      _parsePDF(f, importados, n=>{ importados=n; if(--remaining===0) _finalize(importados); });
+    }
+  }
+
+  function _finalize(importados){
+    cajaCierres.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+    saveCajaCierres();
+    const tsC=new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    if(st) st.textContent=`✅ Importado ${tsC}`;
+    if(importados>0) stampImport('cajaCierres', origNames);
+    renderCajaView();
+  }
+
+  function _extractAndProcess(){
+    const allPDFs=[...pdfFiles];
+    let zipsLeft=zipFiles.length;
+    if(!zipsLeft){ _processPDFs(allPDFs); return; }
+    for(const z of zipFiles){
+      JSZip.loadAsync(z).then(zip=>{
+        const entries=Object.values(zip.files).filter(e=>!e.dir&&/\.pdf$/i.test(e.name));
+        if(!entries.length){ if(--zipsLeft===0) _processPDFs(allPDFs); return; }
+        let n=entries.length;
+        for(const e of entries){
+          e.async('blob').then(blob=>{
+            allPDFs.push(new File([blob],e.name,{type:'application/pdf'}));
+            if(--n===0&&--zipsLeft===0) _processPDFs(allPDFs);
+          }).catch(()=>{ if(--n===0&&--zipsLeft===0) _processPDFs(allPDFs); });
+        }
+      }).catch(()=>{ if(--zipsLeft===0) _processPDFs(allPDFs); });
+    }
+  }
+
+  if(zipFiles.length){
+    if(!window.JSZip){
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload=_extractAndProcess;
+      s.onerror=()=>{ if(st) st.textContent='❌ Error cargando librería ZIP'; };
+      document.head.appendChild(s);
+    } else { _extractAndProcess(); }
+  } else { _processPDFs(pdfFiles); }
+
   if(input.value!==undefined) input.value='';
 }
 
