@@ -4511,7 +4511,7 @@ function renderCajaHistorico(){
         <td style="padding:6px 8px;font-size:11px;color:var(--texto2);" title="${c.filename||''}">${c.sourceZip||c.filename||'—'}</td>
         <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoTotal||0)}</td>
         <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.tarjetasTotal||0)}</td>
-        <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoBancoDeposit||0)}</td>
+        <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;" title="Confirmado con resguardos del banco. Según el PDF de caja: ${fmt(c.efectivoBancoDeposit||0)}">${fmt(tbef)}</td>
         <td style="padding:6px 8px;text-align:center;font-size:16px;">${ico}</td>
         <td style="padding:6px 8px;"><button onclick="event.stopPropagation();deleteCierre('${(c.filename||'').replace(/'/g,"\\'")}')" style="background:none;border:none;color:var(--rojo,#E74C3C);cursor:pointer;font-size:12px;padding:2px 6px;">✕</button></td>
       </tr>`;
