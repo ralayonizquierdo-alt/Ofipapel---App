@@ -4469,7 +4469,7 @@ function renderCajaConciliacion(){
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
       <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">💵</div><div class="kpi-lbl">Efectivo Tiendas</div><div class="kpi-val" style="font-size:18px;">${fmt(last.efectivoTotal||0)}</div><div class="kpi-sub">del sistema</div></div>
       <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">💳</div><div class="kpi-lbl">Tarjetas Tiendas</div><div class="kpi-val" style="font-size:18px;">${fmt(last.tarjetasTotal||0)}</div><div class="kpi-sub">del sistema</div></div>
-      <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">🏦</div><div class="kpi-lbl">Depósito Banco</div><div class="kpi-val" style="font-size:18px;">${fmt(last.efectivoBancoDeposit||0)}</div><div class="kpi-sub">efectivo→banco</div></div>
+      <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">🏦</div><div class="kpi-lbl">Ingreso según sistema</div><div class="kpi-val" style="font-size:18px;">${fmt(last.efectivoBancoDeposit||0)}</div><div class="kpi-sub">estimado del PDF · sin confirmar con el banco</div></div>
       ${bd.length?`<div class="kpi" style="background:${cuadra?'#e8f5e9':'#fdecea'};"><div class="kpi-ico">${cuadra?'✅':'❌'}</div><div class="kpi-lbl">Banco (resguardos)</div><div class="kpi-val" style="font-size:18px;">${fmt(totalBEf)}</div><div class="kpi-sub">confirmado</div></div>`:''}
     </div>
     <table class="tabla" style="margin-bottom:0;">
