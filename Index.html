@@ -4331,8 +4331,12 @@ function renderCajaConciliacion(){
   const tablaEl=document.getElementById('cajaReconcilTabla');
   if(!alertEl||!tablaEl) return;
   const _fondosSection=(()=>{
-    const lastT=cajaTerminales.length?cajaTerminales[cajaTerminales.length-1]:null;
-    if(!lastT||!lastT.terminales||!lastT.terminales.length) return '';
+    // Buscar por la misma fecha que el cierre activo; excluir entradas con solo código Z8
+    // (residuos de cuando CajaAyCC se enrutaba erróneamente a cajaTerminales)
+    const activaFecha=cajaCierres.length?cajaCierres[cajaCierres.length-1].fecha:null;
+    const candidatasT=cajaTerminales.filter(c=>c.fecha&&c.fecha===activaFecha&&c.terminales&&c.terminales.some(t=>t.codigo!=='Z8'));
+    const lastT=candidatasT.length?candidatasT[candidatasT.length-1]:null;
+    if(!lastT) return '';
     const fechaLabel=lastT.fecha?new Date(lastT.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'}):'—';
     const rows=lastT.terminales.map(t=>`<tr>
       <td style="font-weight:600;font-family:'IBM Plex Mono',monospace;">${t.codigo}</td>
@@ -4343,7 +4347,8 @@ function renderCajaConciliacion(){
       <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${t.totalRetirado!==null?fmt(t.totalRetirado):'—'}</td>
       <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--verde,#1A5C1A);">${t.fondoCierre!==null?fmt(t.fondoCierre):'—'}</td>
     </tr>`).join('');
-    const totT=cajaTotalesDiarios.length?cajaTotalesDiarios[cajaTotalesDiarios.length-1]:null;
+    const candidatasTD=cajaTotalesDiarios.filter(c=>c.fecha&&c.fecha===activaFecha);
+    const totT=candidatasTD.length?candidatasTD[candidatasTD.length-1]:null;
     const totRow=totT?`<tr style="border-top:2px solid var(--borde);font-weight:700;background:var(--fondo,#f8f9fa);">
       <td colspan="2" style="font-size:12px;color:var(--texto2);font-style:italic;">Total (CajaAyC4)</td>
       <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${totT.fondoApertura!==null?fmt(totT.fondoApertura):'—'}</td>
