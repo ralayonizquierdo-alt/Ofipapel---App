@@ -47,7 +47,7 @@ export default function PegarWhatsApp({ onClose }: { onClose: () => void }) {
  */
 export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void; compacta?: boolean }) {
   const {
-    reservations, payments, apartments, prices,
+    reservations, payments, apartments, prices, offerPrices,
     addReservation, addPayment, updatePayment, anotaVolcado,
   } = useData()
   const [texto, setTexto] = useState('')
@@ -75,7 +75,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
   /** Reservas listas para crear, con su precio calculado y sus avisos. */
   const propuestas = useMemo(() => lineas.map(l => {
     if (l.problema || !l.apartmentId || !l.checkIn || !l.checkOut) return { linea: l, total: 0, aviso: l.problema }
-    const tarifa = buscaTarifa(prices, l.apartmentId, l.checkIn, l.nights)
+    const tarifa = buscaTarifa(prices, l.apartmentId, l.checkIn, l.nights, offerPrices)
     const choca = reservations.find(r =>
       r.apartmentId === l.apartmentId && r.status !== 'cancelada' &&
       r.checkIn < l.checkOut! && l.checkIn! < r.checkOut)
@@ -92,7 +92,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
         l.origen === 'airbnb' && tarifa ? 'El aviso de Airbnb no trae importe: es el de la tarifa' : '',
       ].filter(Boolean).join('. '),
     }
-  }), [lineas, prices, reservations])
+  }), [lineas, prices, offerPrices, reservations])
 
   /** Reserva a la que le corresponde el cobro: misma vivienda y fechas que pisan. */
   const reservaDelCobro = useMemo((): Reservation | null => {

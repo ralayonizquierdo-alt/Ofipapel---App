@@ -170,8 +170,13 @@ export default function Prices() {
                 <div>
                   <p className="font-semibold text-slate-800">{op.label}</p>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {MONTH_NAMES_ES[op.month - 1]} {op.year} · {APT_TYPE_LABELS[op.apartmentType]} ·
+                    Se aplica en <b className="text-slate-700">{MONTH_NAMES_ES[op.month - 1]} {op.year}</b> ·
+                    {' '}{APT_TYPE_LABELS[op.apartmentType]} ·
                     1S: {op.price1week}€ · 2S: {op.price2weeks}€ · 3S: {op.price3weeks}€ · 1M: {op.price1month}€ · Limp: {op.cleaningFee}€
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Manda sobre la tarifa general en ese mes
+                    {op.sourceYear && op.sourceYear !== op.year && <> · con los precios de {op.sourceYear}</>}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -419,8 +424,12 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
   const mesInicial = editing?.month ?? hoy.getMonth() + 1
   const tipoInicial = editing?.apartmentType ?? '1BR'
   // Al editar se enseña lo guardado; al crear, la tarifa general de partida.
-  const partida = tarifaGeneral(prices, anioInicial, mesInicial, tipoInicial)
+  const partida = tarifaGeneral(prices, editing?.sourceYear ?? anioInicial, mesInicial, tipoInicial)
 
+  // De qué tarifa se copian los precios. Empieza en el año de aplicación, que
+  // es lo normal; se baja a mano cuando se quiere ofrecer el precio de otro año
+  // —como octubre de 2026 al precio de 2025—.
+  const [origen, setOrigen] = useState(editing?.sourceYear ?? anioInicial)
   const [general, setGeneral] = useState(partida)
   const [label, setLabel] = useState(editing?.label ?? '')
   const [year, setYear] = useState(anioInicial)
@@ -433,7 +442,7 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
   const [cleaning, setCleaning] = useState(editing?.cleaningFee ?? partida?.cleaningFee ?? 40)
   const [ajuste, setAjuste] = useState('')
 
-  /** Trae la tarifa general que toca y la vuelca en las casillas. */
+  /** Trae la tarifa general del año de origen y la vuelca en las casillas. */
   function cargaGeneral(y: number, m: number, t: ApartmentType) {
     const g = tarifaGeneral(prices, y, m, t)
     setGeneral(g)
@@ -469,7 +478,7 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
   function handleSave() {
     if (!label.trim()) return alert('Introduce una etiqueta')
     const data = {
-      label, year, month, apartmentType: aptType,
+      label, year, month, apartmentType: aptType, sourceYear: origen,
       price1week: p1w, price2weeks: p2w, price3weeks: p3w, price1month: p1m, cleaningFee: cleaning
     }
     if (editing) {
@@ -499,15 +508,15 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
         </div>
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Año</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Se aplica en el año</label>
             <input type="number" value={year}
-              onChange={e => { const v = Number(e.target.value); setYear(v); cargaGeneral(v, month, aptType) }}
+              onChange={e => setYear(Number(e.target.value))}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Mes</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">y en el mes</label>
             <select value={month}
-              onChange={e => { const v = Number(e.target.value); setMonth(v); cargaGeneral(year, v, aptType) }}
+              onChange={e => { const v = Number(e.target.value); setMonth(v); cargaGeneral(origen, v, aptType) }}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
               {MONTH_NAMES_ES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
             </select>
@@ -515,7 +524,7 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Tipo apartamento</label>
             <select value={aptType}
-              onChange={e => { const v = e.target.value as ApartmentType; setAptType(v); cargaGeneral(year, month, v) }}
+              onChange={e => { const v = e.target.value as ApartmentType; setAptType(v); cargaGeneral(origen, month, v) }}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
               {(Object.keys(APT_TYPE_LABELS) as ApartmentType[]).map(k => (
                 <option key={k} value={k}>{APT_TYPE_LABELS[k]}</option>
@@ -527,10 +536,14 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
         {/* La tarifa general de la que sale la oferta, y el ajuste en %. */}
         {general ? (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
-            <p className="text-xs text-blue-800">
-              Partiendo de la tarifa general de <b>{general.season} {general.year}</b>
-              {general.year !== year && <> (el año {year} todavía no tiene tarifa propia)</>}
-            </p>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-blue-800">
+              <span>Con los precios de la tarifa general de</span>
+              <input type="number" value={origen}
+                onChange={e => { const v = Number(e.target.value); setOrigen(v); cargaGeneral(v, month, aptType) }}
+                className="w-20 border border-blue-200 rounded-lg px-2 py-1 text-sm text-right bg-white" />
+              <span><b>({general.season} {general.year})</b></span>
+              {general.year !== origen && <span>— {origen} no tiene tarifa propia, se usa la de {general.year}</span>}
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <label htmlFor="ajuste" className="text-sm text-blue-800">Ajuste:</label>
               <div className="flex items-center gap-1">
@@ -552,7 +565,7 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
                 className="px-3 py-1.5 text-sm border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-100">
                 −10 %
               </button>
-              <button onClick={() => cargaGeneral(year, month, aptType)}
+              <button onClick={() => cargaGeneral(origen, month, aptType)}
                 className="px-3 py-1.5 text-sm text-blue-700 rounded-lg hover:bg-blue-100">
                 Volver a la general
               </button>

@@ -1,4 +1,4 @@
-import type { PriceEntry, PriceCalculation, ApartmentType, StayType } from '../types'
+import type { PriceEntry, PriceCalculation, ApartmentType, StayType, OfferPrice, Season } from '../types'
 import { getSeason } from './dateUtils'
 import { num } from './formato'
 
@@ -102,22 +102,46 @@ export function stayTypeDays(stayType: StayType): number {
  * La tarifa que toca aplicar a una estancia: busca en la lista de precios la
  * del tipo de apartamento y la temporada de la fecha de entrada, y prorratea.
  * Devuelve null si no hay precios cargados para ese año.
+ *
+ * **La tarifa de oferta manda.** Si hay una para el mes de entrada y ese tipo
+ * de apartamento, se aplica esa y no la general: para eso se crea. Es lo que
+ * decidió el propietario —«si hay oferta para un mes, siempre la oferta»— y
+ * recoge lo que ya se hacía a mano, como ofrecer octubre al precio del año
+ * anterior. El mes que manda es el de **entrada**, igual que la temporada.
  */
 export function buscaTarifa(
   prices: PriceEntry[], apartmentId: string, checkIn: string, nights: number,
-): (PrecioTramo & { entry: PriceEntry }) | null {
+  offerPrices: OfferPrice[] = [],
+): (PrecioTramo & { entry: PriceEntry; oferta?: OfferPrice }) | null {
   if (!apartmentId || !checkIn || !(nights > 0)) return null
   const entrada = new Date(checkIn)
   if (Number.isNaN(entrada.getTime())) return null
   const season = getSeason(entrada)
   const aptType = getApartmentType(apartmentId)
   const year = entrada.getFullYear()
+
+  const oferta = offerPrices.find(o =>
+    o.apartmentType === aptType && o.year === year && o.month === entrada.getMonth() + 1)
+  if (oferta) {
+    const comoGeneral = comoTarifa(oferta, season)
+    return { entry: comoGeneral, oferta, ...precioPorNoches(comoGeneral, nights) }
+  }
+
   const entry = prices.find(p =>
     p.apartmentType === aptType && p.season === season &&
     (p.year === year || p.year === year + 1),
   )
   if (!entry) return null
   return { entry, ...precioPorNoches(entry, nights) }
+}
+
+/** Una oferta vista como tarifa, para que el resto del código no note nada. */
+function comoTarifa(o: OfferPrice, season: Season): PriceEntry {
+  return {
+    id: o.id, year: o.year, season, apartmentType: o.apartmentType,
+    price1week: o.price1week, price2weeks: o.price2weeks, price3weeks: o.price3weeks,
+    price1month: o.price1month, cleaningFee: o.cleaningFee,
+  }
 }
 
 export const TRAMO_LABEL: Record<Tramo, string> = {
@@ -140,6 +164,8 @@ export function lineasPrecio(p: {
   discountPct: number
   tarifa?: { tramo: Tramo; precioTramo: number; diasTramo: number } | null
   pactado?: boolean
+  /** La oferta que se aplicó, si fue una y no la tarifa general. */
+  oferta?: { label: string; sourceYear?: number } | null
 }): string[] {
   const base = Number.isFinite(p.basePrice) ? p.basePrice : 0
   const limpieza = Number.isFinite(p.cleaningFee) ? p.cleaningFee : 0
@@ -149,6 +175,11 @@ export function lineasPrecio(p: {
 
   if (p.tarifa) {
     const { tramo, precioTramo, diasTramo } = p.tarifa
+    if (p.oferta) {
+      lineas.push(`Tarifa de oferta «${p.oferta.label}»`
+        + (p.oferta.sourceYear ? `, con los precios de ${p.oferta.sourceYear}` : '')
+        + ' — se aplica en vez de la general')
+    }
     lineas.push(
       `Tarifa de ${TRAMO_LABEL[tramo]} (${eur(precioTramo)}) ÷ ${diasTramo} días × ${p.nights} noches = ${eur(base)}`,
     )
