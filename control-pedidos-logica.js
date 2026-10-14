@@ -27,6 +27,13 @@
   function normRef(ref) {
     return String(ref == null ? '' : ref).toUpperCase().replace(/\s+/g, '');
   }
+  /** Clave para EMPAREJAR referencias: una referencia solo de cifras vale lo
+   *  mismo con o sin ceros delante (Géminis «00839» = factura «000000839»).
+   *  Solo para comparar: lo que se guarda y se exporta sigue siendo normRef. */
+  function claveRef(ref) {
+    const r = normRef(ref);
+    return /^\d+$/.test(r) ? (r.replace(/^0+/, '') || '0') : r;
+  }
 
   /** Acepta 4,13 · 4'13 · 4.13 · 1.234,56 · números. Vacío o ilegible → null. */
   function parseNum(v) {
@@ -66,10 +73,10 @@
   function agrupar(lineas) {
     const m = new Map();
     for (const l of lineas || []) {
-      const ref = normRef(l.ref);
+      const ref = claveRef(l.ref);
       if (!ref) continue;
       if (!m.has(ref)) {
-        m.set(ref, { ref, desc: '', ean: '', exp: false, cant: 0, precio: null, dtos: [], importe: 0, sinImporte: false, udsCaja: null, unidad: '', veces: 0 });
+        m.set(ref, { ref: normRef(l.ref), desc: '', ean: '', exp: false, cant: 0, precio: null, dtos: [], importe: 0, sinImporte: false, udsCaja: null, unidad: '', veces: 0 });
       }
       const g = m.get(ref);
       g.cant += parseNum(l.cant) || 0;
@@ -123,15 +130,21 @@
     const anteriores = o.preciosAnteriores || {};
     const ped = agrupar(lineasPedido);
     const pro = agrupar(lineasPropuesta);
-    const refs = [...ped.keys(), ...[...pro.keys()].filter((r) => !ped.has(r))];
+    const claves = [...ped.keys(), ...[...pro.keys()].filter((r) => !ped.has(r))];
+    // Catálogo e historial por clave (sin ceros delante en las numéricas).
+    const cat = catalogo ? new Map(Object.keys(catalogo).map((k) => [claveRef(k), catalogo[k]])) : null;
+    const ant = new Map(Object.keys(anteriores).map((k) => [claveRef(k), anteriores[k]]));
 
-    const filas = refs.map((ref) => {
-      const a = ped.get(ref);
-      const b = pro.get(ref);
+    const filas = claves.map((clave) => {
+      const a = ped.get(clave);
+      const b = pro.get(clave);
+      // La referencia que se enseña y con la que se decide es la de nuestro pedido.
+      const ref = (a || b).ref;
+      const enCat = cat && cat.get(clave);
       const fila = {
         ref,
-        desc: (b && b.desc) || (catalogo && catalogo[ref] && catalogo[ref].d) || (a && a.desc) || '',
-        ean: (b && b.ean) || (a && a.ean) || (catalogo && catalogo[ref] && catalogo[ref].ean) || '',
+        desc: (b && b.desc) || (enCat && enCat.d) || (a && a.desc) || '',
+        ean: (b && b.ean) || (a && a.ean) || (enCat && enCat.ean) || '',
         exp: Boolean(a && a.exp),
         cantPedida: a ? a.cant : 0,
         cantPropuesta: b ? b.cant : 0,
@@ -150,7 +163,7 @@
         motivos: [],
         estado: 'ok',
         revisar: false,
-        enCatalogo: catalogo ? Boolean(catalogo[ref]) : null,
+        enCatalogo: catalogo ? Boolean(enCat) : null,
         sugerencias: [],
       };
 
@@ -178,7 +191,7 @@
         }
         let antes = neto ? a.neto : a.precio;
         const ahora = neto ? b.neto : b.precio;
-        if (antes == null && anteriores[ref] != null) { antes = anteriores[ref]; fila.precioDeHistorial = true; }
+        if (antes == null && ant.get(clave) != null) { antes = ant.get(clave); fila.precioDeHistorial = true; }
         fila.precioReferencia = antes;
         if (antes != null && ahora != null && red2(antes) !== red2(ahora)) {
           const dif = red2(ahora - antes);
@@ -316,10 +329,11 @@
     const faltan = [];
     const sobran = [];
     const precios = [];
-    for (const [ref, a] of val) {
-      const b = fac.get(ref);
+    for (const [k, a] of val) {
+      const ref = a.ref;
+      const b = fac.get(k);
       const cb = b ? b.cant : 0;
-      if (cb < a.cant) faltan.push({ ref, desc: a.desc || (b && b.desc) || '', cant: red2(a.cant - cb), de: a.cant, total: cb === 0 });
+      if (cb < a.cant) faltan.push({ ref, k, desc: a.desc || (b && b.desc) || '', cant: red2(a.cant - cb), de: a.cant, total: cb === 0 });
       const na = conGlobal(a.neto, o.dtoValidado);
       const nb = b ? conGlobal(b.neto, o.dtoFactura) : null;
       // El descuento global puede venir en la cabecera o ya aplicado en cada
@@ -331,9 +345,10 @@
         precios.push({ ref, desc: a.desc || b.desc, validado: red2(na), facturado: red2(nb) });
       }
     }
-    for (const [ref, b] of fac) {
-      const ca = val.has(ref) ? val.get(ref).cant : 0;
-      if (b.cant > ca) sobran.push({ ref, desc: b.desc, cant: red2(b.cant - ca), de: b.cant, total: ca === 0 });
+    for (const [k, b] of fac) {
+      const ref = b.ref;
+      const ca = val.has(k) ? val.get(k).cant : 0;
+      if (b.cant > ca) sobran.push({ ref, k, desc: b.desc, cant: red2(b.cant - ca), de: b.cant, total: ca === 0 });
     }
     // Misma mercancía facturada con otra referencia (93-07 → 93M-07): si una
     // que no viene y una de más tienen el mismo EAN o la misma descripción
@@ -341,7 +356,7 @@
     // de referencia (solo si el emparejamiento es único).
     const descLarga = (d) => String(d || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]/g, '');
     const misma = (x, y) => {
-      const ea = (val.get(x.ref) || {}).ean; const eb = (fac.get(y.ref) || {}).ean;
+      const ea = (val.get(x.k) || {}).ean; const eb = (fac.get(y.k) || {}).ean;
       if (ea && eb) return String(ea) === String(eb);
       const da = descLarga(x.desc); return da.length >= 8 && da === descLarga(y.desc);
     };
@@ -354,10 +369,10 @@
       faltan.splice(faltan.indexOf(x), 1);
       sobran.splice(sobran.indexOf(y), 1);
       cambiosRef.push({ ref: x.ref, refFactura: y.ref, desc: x.desc || y.desc, cant: x.cant });
-      const na = conGlobal(val.get(x.ref).neto, o.dtoValidado);
-      const nb = conGlobal(fac.get(y.ref).neto, o.dtoFactura);
+      const na = conGlobal(val.get(x.k).neto, o.dtoValidado);
+      const nb = conGlobal(fac.get(y.k).neto, o.dtoFactura);
       const igual = (p, q) => p != null && q != null && Math.abs(p - q) < 0.01;
-      if (na != null && nb != null && !(igual(na, nb) || igual(val.get(x.ref).neto, fac.get(y.ref).neto) || igual(na, conGlobal(fac.get(y.ref).neto, o.dtoValidado)))) {
+      if (na != null && nb != null && !(igual(na, nb) || igual(val.get(x.k).neto, fac.get(y.k).neto) || igual(na, conGlobal(fac.get(y.k).neto, o.dtoValidado)))) {
         precios.push({ ref: `${x.ref} → ${y.ref}`, desc: x.desc || y.desc, validado: red2(na), facturado: red2(nb) });
       }
     }
@@ -371,9 +386,9 @@
    */
   function restosDeFactura(lineasValidadas, lineasFactura, opciones) {
     const r = controlFactura(lineasValidadas, lineasFactura, opciones);
-    const porRef = new Map((lineasValidadas || []).map((l) => [normRef(l.ref), l]));
+    const porRef = new Map((lineasValidadas || []).map((l) => [claveRef(l.ref), l]));
     return r.faltan.map((x) => {
-      const l = porRef.get(normRef(x.ref)) || {};
+      const l = porRef.get(claveRef(x.ref)) || {};
       return { ref: x.ref, desc: x.desc || l.desc || '', ean: l.ean || '', cant: x.cant,
         precio: l.precioCliente != null ? l.precioCliente : (l.precio != null ? l.precio : null) };
     });
@@ -451,8 +466,8 @@
    */
   function ordenarComoPropuesta(lineas, lineasPropuesta) {
     const pos = new Map();
-    (lineasPropuesta || []).forEach((l, i) => { const r = normRef(l.ref); if (r && !pos.has(r)) pos.set(r, i); });
-    return (lineas || []).map((l, i) => ({ l, i, p: pos.has(normRef(l.ref)) ? pos.get(normRef(l.ref)) : Infinity }))
+    (lineasPropuesta || []).forEach((l, i) => { const r = claveRef(l.ref); if (r && !pos.has(r)) pos.set(r, i); });
+    return (lineas || []).map((l, i) => ({ l, i, p: pos.has(claveRef(l.ref)) ? pos.get(claveRef(l.ref)) : Infinity }))
       .sort((x, y) => x.p - y.p || x.i - y.i).map((x) => x.l);
   }
 
@@ -508,7 +523,7 @@
     const salida = {};
     const quitadas = [];
     for (const [ref, d] of Object.entries(decisiones || {})) {
-      const k = normRef(ref);
+      const k = claveRef(ref);
       if (!d || !d.accion || igual(a.get(k), b.get(k))) { salida[ref] = d; continue; }
       quitadas.push(ref);
       if (d.nota) salida[ref] = { nota: d.nota };
@@ -632,11 +647,12 @@
       .sort((x, y) => String(x.fecha).localeCompare(String(y.fecha)) || String(x.id).localeCompare(String(y.id)));
     const asignaciones = [];
     const sobrante = [];
-    for (const [ref, g] of agrupar(llegada)) {
+    for (const [k, g] of agrupar(llegada)) {
+      const ref = g.ref;
       let queda = g.cant;
       for (const r of abiertos) {
         if (queda <= 0) break;
-        if (normRef(r.ref) !== ref) continue;
+        if (claveRef(r.ref) !== k) continue;
         const ya = asignaciones.filter((a) => a.restoId === r.id).reduce((s, a) => s + a.cant, 0);
         const cabe = Math.min(queda, r.pendiente - ya);
         if (cabe <= 0) continue;
@@ -1074,7 +1090,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, claveRef, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

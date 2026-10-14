@@ -15,7 +15,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-13-1"></script>
+<script src="control-pedidos-logica.js?v=2026-10-14-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -334,6 +334,14 @@ const prov = (s) => String(s || '').trim().toUpperCase();
 const pedidoPorId = (id) => E.pedidos.find((p) => p.id === id);
 const catalogoDe = (proveedor) => (E.catalogos[prov(proveedor)] || {}).items || null;
 const esRepo = (p) => p.tipo === 'reposicion';
+/** Artículo del catálogo por referencia; las numéricas casan con o sin ceros delante (00839 = 000000839). */
+const indicesCat = new WeakMap();
+function enCatalogo(cat, ref) {
+  if (!cat || !ref) return null;
+  if (cat[CP.normRef(ref)]) return cat[CP.normRef(ref)];
+  if (!indicesCat.has(cat)) indicesCat.set(cat, new Map(Object.keys(cat).map((k) => [CP.claveRef(k), cat[k]])));
+  return indicesCat.get(cat).get(CP.claveRef(ref)) || null;
+}
 /** Nº de pedido con el cero delante (08, 09, 10) para que se lea en orden. Solo
  *  se ve así: lo guardado no cambia (las propuestas lo buscan tal cual). */
 const nPed = (n) => { const s = String(n == null ? '' : n).trim(); return /^\d$/.test(s) ? '0' + s : s; };
@@ -653,12 +661,12 @@ function imprimirGuiaFacturacion(clave) {
   const bloques = validados.map((p) => {
     // Si ya está la factura final, solo se factura al cliente lo que ha venido.
     const rf = revisarFactura(p);
-    const noVino = new Map(((rf && rf.faltan) || []).map((x) => [CP.normRef(x.ref), x.cant]));
+    const noVino = new Map(((rf && rf.faltan) || []).map((x) => [CP.claveRef(x.ref), x.cant]));
     const lineas = p.final.lineas.map((l) => {
-      const menos = noVino.get(CP.normRef(l.ref)) || 0;
+      const menos = noVino.get(CP.claveRef(l.ref)) || 0;
       if (!menos) return l;
       const quitar = Math.min(menos, l.cant);
-      noVino.set(CP.normRef(l.ref), menos - quitar);
+      noVino.set(CP.claveRef(l.ref), menos - quitar);
       return Object.assign({}, l, { cant: CP.red2(l.cant - quitar) });
     }).filter((l) => l.cant > 0);
     const total = CP.red2(lineas.reduce((s, l) => s + pc(l) * l.cant, 0));
@@ -1095,7 +1103,7 @@ function tablaLineasRepo(p, cat, lado) {
   const arr = lado === 'propuesta' ? p.propuesta.lineas : p.lineas;
   const L = lado === 'propuesta' ? ",'propuesta'" : '';
   if (!arr.length) return `<div class="vacio">Sin líneas. Súbelo en PDF, Excel o foto, pégalas o añádelas a mano.</div>`;
-  const fueraCat = cat ? arr.filter((l) => l.ref && !cat[CP.normRef(l.ref)]).length : 0;
+  const fueraCat = cat ? arr.filter((l) => l.ref && !enCatalogo(cat, l.ref)).length : 0;
   return `
   <div class="resumen">
     <span class="chip gris">${arr.length} líneas</span>
@@ -1104,7 +1112,7 @@ function tablaLineasRepo(p, cat, lado) {
   <div class="tabla-scroll"><table class="t-repo">
     <tr><th class="num">Cant.</th><th>Referencia</th><th>Descripción</th><th class="num">Precio base</th><th>Descuentos</th><th class="num">Importe</th><th class="num">Neto</th><th>Duda</th><th></th></tr>
     ${arr.map((l, i) => {
-      const fuera = cat && l.ref && !cat[CP.normRef(l.ref)];
+      const fuera = cat && l.ref && !enCatalogo(cat, l.ref);
       const neto = CP.precioNeto({ cant: l.cant, precio: l.precio, dtos: l.dtos, importe: l.importe });
       return `<tr class="${fuera ? 'fuera-catalogo' : ''} ${l.duda ? 'duda' : ''}">
         <td class="c-cant"><input class="cant" inputmode="decimal" value="${h(l.cant)}" onchange="cambiaLinea(${i},'cant',this.value${L})"></td>
@@ -1143,7 +1151,7 @@ function quitarPropuesta() {
 
 function tablaLineas(p, cat) {
   if (!p.lineas.length) return `<div class="vacio">Sin líneas. Lee las fotos, pégalas o añádelas a mano.</div>`;
-  const fueraCat = cat ? p.lineas.filter((l) => l.ref && !cat[CP.normRef(l.ref)]).length : 0;
+  const fueraCat = cat ? p.lineas.filter((l) => l.ref && !enCatalogo(cat, l.ref)).length : 0;
   const dudas = p.lineas.filter((l) => l.duda).length;
   return `
   <div class="resumen">
@@ -1155,9 +1163,9 @@ function tablaLineas(p, cat) {
     <tr><th class="num">Cant.</th><th>Exp.</th><th>Referencia</th><th>Descripción</th><th class="num">Precio</th><th>Duda de lectura</th><th></th></tr>
     ${p.lineas.map((l, i) => {
       const ref = CP.normRef(l.ref);
-      const fuera = cat && ref && !cat[ref];
+      const fuera = cat && ref && !enCatalogo(cat, ref);
       const sug = fuera ? CP.sugerenciasCatalogo(ref, cat, 4) : [];
-      const enCat = cat && cat[ref];
+      const enCat = enCatalogo(cat, ref);
       return `<tr class="${fuera ? 'fuera-catalogo' : ''} ${l.duda ? 'duda' : ''}">
         <td class="c-cant"><input class="cant" inputmode="decimal" value="${h(l.cant)}" onchange="cambiaLinea(${i},'cant',this.value)"></td>
         <td class="c-exp"><input type="checkbox" ${l.exp ? 'checked' : ''} onchange="cambiaLinea(${i},'exp',this.checked)"></td>
@@ -1277,8 +1285,8 @@ function bloqueFaltasSobras(p, filas) {
 /** Si la propuesta trae algo que otro cliente tiene pendiente en restos, se avisa. */
 function avisoRestosEnPropuesta(p) {
   if (!p.propuesta) return '';
-  const refs = new Set(p.propuesta.lineas.map((l) => CP.normRef(l.ref)));
-  const r = E.restos.filter((x) => x.pendiente > 0 && !x.anulado && x.pedidoId !== p.id && x.proveedor === p.proveedor && refs.has(CP.normRef(x.ref)));
+  const refs = new Set(p.propuesta.lineas.map((l) => CP.claveRef(l.ref)));
+  const r = E.restos.filter((x) => x.pendiente > 0 && !x.anulado && x.pedidoId !== p.id && x.proveedor === p.proveedor && refs.has(CP.claveRef(x.ref)));
   if (!r.length) return '';
   return `<div class="aviso-caja info"><b>Esta propuesta trae artículos que están en restos de otros clientes:</b><br>${r.map((x) =>
     `${h(x.ref)} ${h(x.desc)} — ${x.pendiente} ud. de <b>${h(x.cliente)}</b> (pedido ${h(x.numero)}, ${h(fmtFecha(x.fecha))})`).join('<br>')}
@@ -1411,7 +1419,7 @@ function teclaRapida(ev, id) {
 function completarDesdeCatalogo() {
   const cat = catalogoDe(pedidoActual().proveedor);
   const ref = CP.normRef(document.getElementById('qaRef').value);
-  const it = cat && ref && cat[ref];
+  const it = enCatalogo(cat, ref);
   if (!it) return;
   const desc = document.getElementById('qaDesc');
   const precio = document.getElementById('qaPrecio');
@@ -2095,7 +2103,7 @@ function restosPorFactura(p) {
   if (!p.factura || !p.final) return;
   const opc = { dtoValidado: p.final.dto, dtoFactura: (p.factura.cabecera || {}).dtoGlobal };
   for (const x of CP.restosDeFactura(p.final.lineas, p.factura.lineas, opc)) {
-    if (conLlegadas.some((c) => CP.normRef(c.ref) === CP.normRef(x.ref))) continue;
+    if (conLlegadas.some((c) => CP.claveRef(c.ref) === CP.claveRef(x.ref))) continue;
     E.restos.push({ id: nuevoId(), pedidoId: p.id, proveedor: p.proveedor, cliente: p.cliente, numero: p.numero, ref: x.ref, desc: x.desc, ean: x.ean,
       precio: x.precio, cant: x.cant, pendiente: x.cant, fecha: p.fecha, asignaciones: [], anulado: false, deFactura: true });
   }
