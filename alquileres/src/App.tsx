@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, FileSpreadsheet, History, Sparkles, ClipboardPaste, Settings, Menu, X, KeyRound, LogOut,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, Building2,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import bgTrebol from './assets/bg-trebol.png'
@@ -12,6 +12,7 @@ import { useData } from './contexts/DataContext'
 import { observarSesion, rolDe, salir, usuarioDe, type Rol, type UsuarioApp } from './lib/auth'
 import Dashboard from './pages/Dashboard'
 import Planning from './pages/Planning'
+import Edificios from './pages/Edificios'
 import Reservations from './pages/Reservations'
 import Prices from './pages/Prices'
 import Collections from './pages/Collections'
@@ -34,6 +35,7 @@ const NAV: { to: string; icon: typeof LayoutDashboard; label: string; roles: Rol
   { to: '/limpieza',     icon: Sparkles,        label: 'Subir limpieza', roles: ['gastos'] },
   { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard',      roles: ['gestion'] },
   { to: '/planning',     icon: Calendar,        label: 'Planning',       roles: ['gestion'] },
+  { to: '/edificios',    icon: Building2,       label: 'Edificios',      roles: ['gestion'] },
   { to: '/reservas',     icon: BedDouble,       label: 'Reservas',       roles: ['gestion'] },
   { to: '/precios',      icon: Tag,             label: 'Precios',        roles: ['gestion'] },
   { to: '/cobros',       icon: PiggyBank,       label: 'Cobros',         roles: ['gestion'] },
@@ -297,6 +299,7 @@ export default function App() {
                 <>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/planning" element={<Planning />} />
+                  <Route path="/edificios" element={<Edificios />} />
                   <Route path="/reservas" element={<Reservations />} />
                   <Route path="/precios" element={<Prices />} />
                   <Route path="/reparaciones" element={<Navigate to="/gastos?tab=reparaciones" replace />} />
