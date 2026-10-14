@@ -4329,27 +4329,32 @@ function importCierrePDF(input){
 }
 
 function importBancoPDF(input){
-  const files=input.files; if(!files||!files.length) return;
-  let remaining=files.length; let importados=0;
+  const files=Array.from(input.files||[]); if(!files.length) return;
+  let remaining=files.length; let importados=0; const noLeidos=[];
   const st=document.getElementById('cajaBancoStatus');
   if(st) st.textContent='Procesando...';
   for(const f of files){
     parsePDFTextCaja(f,(err,lines)=>{
       remaining--;
+      let ok=false;
       if(!err&&lines){
         const data=parseBancoPDFLines(lines,f.name);
         if(data.importe>0){
           const idx=cajaBancoRecibos.findIndex(c=>c.filename===f.name);
           if(idx>=0) cajaBancoRecibos[idx]=data; else cajaBancoRecibos.push(data);
-          importados++;
+          importados++; ok=true;
         }
       }
+      if(!ok) noLeidos.push(f.name);
       if(remaining===0){
         cajaBancoRecibos.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
         saveCajaBanco();
         const tsB = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-        if(st) st.textContent=`✅ Importado ${tsB}`;
-        if(importados>0) stampImport('cajaBancoRecibos', Array.from(files).map(f=>f.name));
+        if(st) st.textContent=noLeidos.length
+          ? `⚠️ ${importados} de ${files.length} recibos leídos · NO se pudo leer el importe de: ${noLeidos.join(', ')} · ${tsB}`
+          : `✅ ${importados} recibos importados · ${tsB}`;
+        if(noLeidos.length) showToast(`⚠️ ${noLeidos.length} recibo(s) no se pudieron leer y NO se han guardado`,'err');
+        if(importados>0) stampImport('cajaBancoRecibos', files.map(f=>f.name));
         renderCajaView();
       }
     });
