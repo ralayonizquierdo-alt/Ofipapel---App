@@ -324,6 +324,21 @@ test('factura final: la misma mercancía con otra referencia no es falta ni sobr
   assert.deepEqual(CP.restosDeFactura(val.slice(0, 2), fac.slice(0, 2)), []);
 });
 
+test('referencias numéricas: con o sin ceros delante son la misma (Géminis 00839 = factura 000000839)', () => {
+  const REPO = { comparar: 'neto', tolerancia: CP.TOLERANCIA.reposicion };
+  const pedido = [{ ref: '00839', cant: 10, precio: 1 }, { ref: '11330', cant: 144, precio: 0.5 }, { ref: 'BLC-025', cant: 1, precio: 1 }];
+  const factura = [{ ref: '000000839', cant: 10, precio: 1 }, { ref: '000011330', cant: 144, precio: 0.5 }, { ref: 'BLC-25', cant: 1, precio: 1 }];
+  const filas = CP.compararPedido(pedido, factura, REPO);
+  assert.deepEqual(filas.filter((f) => f.estado === 'ok').map((f) => f.ref), ['00839', '11330'], 'se enseña la referencia de nuestro pedido');
+  // Con letras no se tocan los ceros: BLC-025 y BLC-25 siguen siendo distintas
+  assert.deepEqual(filas.filter((f) => f.estado !== 'ok').map((f) => [f.ref, f.estado]), [['BLC-025', 'falta'], ['BLC-25', 'extra']]);
+  const c = CP.controlFactura(pedido.slice(0, 2), factura.slice(0, 2));
+  assert.equal(c.cuadra, true);
+  assert.equal(CP.claveRef(' 000 '), '0');
+  // El orden de la propuesta también casa sin los ceros
+  assert.deepEqual(CP.ordenarComoPropuesta(pedido.slice(0, 2).reverse(), factura).map((l) => l.ref), ['00839', '11330']);
+});
+
 test('reclamación de faltas: separada por cliente, con faltas totales y parciales', () => {
   const t = CP.textoReclamacion('FINOCAM', [
     { numero: '2', cliente: 'CLIENTE A', faltan: [{ ref: '785100027', desc: 'CALENDARIO', cant: 2, de: 2, total: true }] },
