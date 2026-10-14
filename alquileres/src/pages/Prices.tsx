@@ -37,8 +37,7 @@ function temporadaDe(month: number): Season {
  * sí la tenga: una oferta se hace siempre sobre un precio que ya existe, y
  * arrancar en blanco obliga a ir a buscar las cifras a otra pantalla.
  */
-function tarifaGeneral(prices: PriceEntry[], year: number, month: number, aptType: ApartmentType) {
-  const season = temporadaDe(month)
+function tarifaGeneral(prices: PriceEntry[], year: number, season: Season, aptType: ApartmentType) {
   const candidatas = prices
     .filter(p => p.season === season && p.apartmentType === aptType && p.year <= year)
     .sort((a, b) => b.year - a.year)
@@ -509,6 +508,11 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
   const [year, setYear] = useState(anioInicial)
   const [month, setMonth] = useState(mesInicial)
   const [origen, setOrigen] = useState(origenInicial)
+  // La temporada de la que se copian los precios. Normalmente la del mes en que
+  // se aplica, pero se puede cambiar: nada impide ofrecer octubre al precio de
+  // verano, y antes no había manera de pedirlo.
+  const [origenTemporada, setOrigenTemporada] = useState<Season>(
+    editing?.sourceSeason ?? temporadaDe(mesInicial))
   const [seleccion, setSeleccion] = useState<string[]>(seleccionInicial)
   const [ajuste, setAjuste] = useState('')
 
@@ -523,19 +527,19 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
         cleaningFee: editing.cleaningFee ?? 40,
       } }
     }
-    return desdeGeneral(prices, origenInicial, mesInicial, seleccionInicial)
+    return desdeGeneral(prices, origenInicial, editing?.sourceSeason ?? temporadaDe(mesInicial), seleccionInicial)
   })
 
   /** Los tipos que hay entre los apartamentos marcados, en el orden de la casa. */
   const tipos = tiposDe(seleccion, apartments)
   /** La tarifa general de cada tipo, para enseñarla debajo de cada casilla. */
   const generales = Object.fromEntries(tipos.map(t =>
-    [t, tarifaGeneral(prices, origen, month, t)])) as Partial<Record<ApartmentType, PriceEntry>>
+    [t, tarifaGeneral(prices, origen, origenTemporada, t)])) as Partial<Record<ApartmentType, PriceEntry>>
 
-  /** Vuelca la tarifa general del año de origen en las casillas. */
-  function cargaGeneral(y: number, m: number, ids: string[]) {
+  /** Vuelca la tarifa general de origen en las casillas. */
+  function cargaGeneral(y: number, temporada: Season, ids: string[]) {
     setAjuste('')
-    setPrecios(desdeGeneral(prices, y, m, ids))
+    setPrecios(desdeGeneral(prices, y, temporada, ids))
   }
 
   /** Marca o desmarca un apartamento; los tipos nuevos entran con su general. */
@@ -544,7 +548,7 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
     setSeleccion(ids)
     const tipo = getApartmentType(id)
     if (!seleccion.includes(id) && !precios[tipo]) {
-      const g = tarifaGeneral(prices, origen, month, tipo)
+      const g = tarifaGeneral(prices, origen, origenTemporada, tipo)
       if (g) setPrecios(p => ({ ...p, [tipo]: tarifaDe(g) }))
     }
   }
@@ -589,7 +593,7 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
     // van con él y no quedan colgando en la ficha.
     const byType = Object.fromEntries(
       tipos.map(t => [t, precios[t] ?? VACIA])) as Partial<Record<ApartmentType, OfferTarifa>>
-    const data = { label, year, month, sourceYear: origen, apartments: seleccion, byType }
+    const data = { label, year, month, sourceYear: origen, sourceSeason: origenTemporada, apartments: seleccion, byType }
     if (editing) updateOfferPrice(editing.id, data)
     else addOfferPrice(data)
     onClose()
@@ -619,7 +623,15 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">y en el mes</label>
             <select value={month}
-              onChange={e => { const v = Number(e.target.value); setMonth(v); cargaGeneral(origen, v, seleccion) }}
+              onChange={e => {
+                const v = Number(e.target.value)
+                setMonth(v)
+                // Al cambiar de mes se sigue a la temporada que le toca, salvo
+                // que ya se haya elegido otra a mano.
+                const t = temporadaDe(v)
+                if (temporadaDe(month) === origenTemporada) setOrigenTemporada(t)
+                cargaGeneral(origen, temporadaDe(month) === origenTemporada ? t : origenTemporada, seleccion)
+              }}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
               {MONTH_NAMES_ES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
             </select>
@@ -633,7 +645,7 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
               Apartamentos a los que se aplica
             </label>
             <div className="flex gap-2 text-xs">
-              <button onClick={() => { const ids = apartments.map(a => a.id); setSeleccion(ids); cargaGeneral(origen, month, ids) }}
+              <button onClick={() => { const ids = apartments.map(a => a.id); setSeleccion(ids); cargaGeneral(origen, origenTemporada, ids) }}
                 className="text-blue-600 hover:underline">Todos</button>
               <button onClick={() => setSeleccion([])} className="text-slate-400 hover:underline">Ninguno</button>
             </div>
@@ -657,10 +669,22 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
           <div className="flex flex-wrap items-center gap-2 text-xs text-blue-800">
             <span>Con los precios de la tarifa general de</span>
-            <input type="number" value={origen}
-              onChange={e => { const v = Number(e.target.value); setOrigen(v); cargaGeneral(v, month, seleccion) }}
-              className="w-20 border border-blue-200 rounded-lg px-2 py-1 text-sm text-right bg-white" />
-            <span><b>({temporadaDe(month)})</b></span>
+            <select value={origen}
+              onChange={e => { const v = Number(e.target.value); setOrigen(v); cargaGeneral(v, origenTemporada, seleccion) }}
+              className="border border-blue-200 rounded-lg px-2 py-1 text-sm bg-white">
+              {aniosConTarifa(prices, year).map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <select value={origenTemporada}
+              onChange={e => { const v = e.target.value as Season; setOrigenTemporada(v); cargaGeneral(origen, v, seleccion) }}
+              className="border border-blue-200 rounded-lg px-2 py-1 text-sm bg-white">
+              <option value="INVIERNO">Invierno (Oct–Abr)</option>
+              <option value="VERANO">Verano (May–Sep)</option>
+            </select>
+            {origenTemporada !== temporadaDe(month) && (
+              <span className="text-blue-700">
+                — ojo: {MONTH_NAMES_ES[month - 1].toLowerCase()} es de {temporadaDe(month).toLowerCase()}
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <label htmlFor="ajuste" className="text-sm text-blue-800">Ajuste:</label>
@@ -679,7 +703,7 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
               className="px-3 py-1.5 text-sm border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-100">+10 %</button>
             <button onClick={() => atajo(-10)}
               className="px-3 py-1.5 text-sm border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-100">−10 %</button>
-            <button onClick={() => cargaGeneral(origen, month, seleccion)}
+            <button onClick={() => cargaGeneral(origen, origenTemporada, seleccion)}
               className="px-3 py-1.5 text-sm text-blue-700 rounded-lg hover:bg-blue-100">Volver a la general</button>
           </div>
           <p className="text-xs text-blue-700/80">
@@ -708,7 +732,7 @@ function OfferPriceModal({ editing, onClose }: { editing: OfferPrice | null; onC
               </p>
               {!g && (
                 <p className="text-xs text-amber-700 mb-2">
-                  No hay tarifa general de {temporadaDe(month)} para este tipo: hay que teclear los precios.
+                  No hay tarifa general de {origenTemporada} {origen} para este tipo: hay que teclear los precios.
                 </p>
               )}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -761,6 +785,11 @@ function tarifaDe(g: PriceEntry): OfferTarifa {
   }
 }
 
+/** Los años que tienen tarifa cargada, de nuevo a viejo, y el de la oferta. */
+function aniosConTarifa(prices: PriceEntry[], year: number): number[] {
+  return [...new Set([...prices.map(p => p.year), year])].sort((a, b) => b - a)
+}
+
 /** Los tipos de apartamento que hay entre unos ids, sin repetir. */
 function tiposDe(ids: string[], apartments: { id: string }[]): ApartmentType[] {
   const orden: ApartmentType[] = ['1BR', '2BR', '2BR_ATICO', '3BR']
@@ -770,11 +799,11 @@ function tiposDe(ids: string[], apartments: { id: string }[]): ApartmentType[] {
 
 /** Un juego de precios por tipo, sacado de la tarifa general de ese año. */
 function desdeGeneral(
-  prices: PriceEntry[], year: number, month: number, ids: string[],
+  prices: PriceEntry[], year: number, season: Season, ids: string[],
 ): Partial<Record<ApartmentType, OfferTarifa>> {
   const salida: Partial<Record<ApartmentType, OfferTarifa>> = {}
   for (const t of new Set(ids.map(getApartmentType))) {
-    const g = tarifaGeneral(prices, year, month, t)
+    const g = tarifaGeneral(prices, year, season, t)
     if (g) salida[t] = tarifaDe(g)
   }
   return salida

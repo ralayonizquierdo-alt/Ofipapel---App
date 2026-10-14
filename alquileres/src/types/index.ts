@@ -159,6 +159,8 @@ export interface OfferPrice {
   byType?: Partial<Record<ApartmentType, OfferTarifa>>
   /** Año de la tarifa general de la que se copiaron los precios. Informativo. */
   sourceYear?: number
+  /** Temporada de esa tarifa: puede no ser la del mes en que se aplica. */
+  sourceSeason?: Season
 
   // ── Ofertas de antes de octubre de 2026: una por tipo ──────────────────────
   /** @deprecated Usar `apartments` + `byType`. */
