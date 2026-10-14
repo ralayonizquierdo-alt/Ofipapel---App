@@ -92,8 +92,25 @@ export default function Prices() {
   const [editing, setEditing] = useState<PriceEntry | null>(null)
   const [showOfferForm, setShowOfferForm] = useState(false)
   const [editingOffer, setEditingOffer] = useState<OfferPrice | null>(null)
-  /** La oferta desplegada, si hay alguna. Solo una a la vez. */
-  const [abierta, setAbierta] = useState<string | null>(null)
+  /**
+   * Las ofertas van desplegadas: son pocas —un mes suelto de temporada baja— y
+   * lo que se quiere ver de ellas es la tabla, no el titular. Aquí solo se
+   * apuntan las que se han plegado a mano.
+   */
+  const [plegadas, setPlegadas] = useState<string[]>([])
+  /** Mientras se imprime una oferta sola, el resto de la pantalla no sale. */
+  const [soloOferta, setSoloOferta] = useState<string | null>(null)
+
+  /**
+   * Imprime una oferta sola, que es como se le presenta a la agencia: se
+   * esconde todo lo demás, se manda a imprimir y se vuelve a dejar como estaba.
+   */
+  function imprimeOferta(id: string) {
+    setSoloOferta(id)
+    setPlegadas(p => p.filter(x => x !== id))
+    // Un respiro para que React pinte antes de abrir el diálogo del navegador.
+    setTimeout(() => { window.print(); setSoloOferta(null) }, 80)
+  }
 
   // El año que viene siempre está en la lista aunque no tenga tarifa todavía:
   // es en enero cuando se prepara, y hay que poder llegar hasta él.
@@ -139,7 +156,8 @@ export default function Prices() {
         }
       />
 
-      <div className="print:hidden bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+      <div className={`print:hidden bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start gap-3 ${
+        soloOferta ? 'hidden' : ''}`}>
         <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
         <div className="text-sm text-blue-700">
           <strong>Reglas de precio:</strong> Vacacional incluye 40€ limpieza. Prolongaciones = precio_contratado ÷ días × días_extra.
@@ -149,7 +167,7 @@ export default function Prices() {
       </div>
 
       {/* Year selector */}
-      <div className="print:hidden flex gap-4 mb-6">
+      <div className={`print:hidden flex gap-4 mb-6 ${soloOferta ? 'hidden' : ''}`}>
         <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}
           className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-700">
           {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
@@ -157,7 +175,7 @@ export default function Prices() {
       </div>
 
       {/* Price tables — both seasons */}
-      <div className="space-y-8">
+      <div className={`space-y-8 ${soloOferta ? 'hidden' : ''}`}>
         {(['VERANO', 'INVIERNO'] as Season[]).map(season => {
           const filtered = pricesBySeason(season)
           return (
@@ -193,7 +211,7 @@ export default function Prices() {
 
       {/* Offer Prices section */}
       <div className="mt-8">
-        <div className="flex items-center justify-between mb-4">
+        <div className={`flex items-center justify-between mb-4 ${soloOferta ? 'hidden' : ''}`}>
           <h2 className="text-lg font-semibold text-slate-800">Tarifas de Oferta</h2>
           <button
             onClick={() => { setEditingOffer(null); setShowOfferForm(true) }}
@@ -208,25 +226,37 @@ export default function Prices() {
           </div>
         ) : (
           <div className="space-y-3">
-            {offerPrices.map(op => (
-              <div key={op.id} className="bg-white rounded-xl border border-slate-200">
-               <div className="p-4 flex items-center justify-between">
+            {offerPrices.map(op => {
+              const plegada = plegadas.includes(op.id)
+              return (
+              <div key={op.id}
+                className={`bg-white rounded-xl border-2 border-amber-300 ${
+                  soloOferta && soloOferta !== op.id ? 'hidden' : ''}`}>
+               <div className="p-4 flex items-start justify-between gap-3 bg-amber-50 rounded-t-lg">
                 <div>
-                  <p className="font-semibold text-slate-800">{op.label}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Se aplica en <b className="text-slate-700">{MONTH_NAMES_ES[op.month - 1]} {op.year}</b> ·
-                    {' '}{nombresDe(op, apartments)}
+                  {/* El distintivo de oferta, bien visible: en el papel que se
+                      le lleva a la agencia no puede confundirse con la general. */}
+                  <p className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold tracking-wide px-2 py-0.5 rounded bg-amber-500 text-white">
+                      TARIFA OFERTA
+                    </span>
+                    <span className="text-base font-bold text-amber-900 uppercase">
+                      {MONTH_NAMES_ES[op.month - 1]} {op.year}
+                    </span>
                   </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Manda sobre la tarifa general en ese mes
+                  <p className="text-sm font-medium text-slate-700 mt-1">{op.label}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {nombresDe(op, apartments)} · manda sobre la tarifa general en ese mes
                     {op.sourceYear && op.sourceYear !== op.year && <> · con los precios de {op.sourceYear}</>}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setAbierta(abierta === op.id ? null : op.id)}
-                    title={abierta === op.id ? 'Plegar' : 'Ver la tabla completa'}
-                    className="print:hidden p-1.5 text-slate-400 hover:text-blue-600 rounded">
-                    {abierta === op.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                <div className="print:hidden flex items-center gap-2 shrink-0">
+                  <button onClick={() => imprimeOferta(op.id)} title="Imprimir solo esta tarifa"
+                    className="p-1.5 text-amber-700 hover:text-amber-900 rounded"><Printer size={15} /></button>
+                  <button onClick={() => setPlegadas(p => plegada ? p.filter(x => x !== op.id) : [...p, op.id])}
+                    title={plegada ? 'Ver la tabla' : 'Plegar'}
+                    className="p-1.5 text-slate-400 hover:text-blue-600 rounded">
+                    {plegada ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
                   </button>
                   <button onClick={() => { setEditingOffer(op); setShowOfferForm(true) }}
                     className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Pencil size={14} /></button>
@@ -235,24 +265,27 @@ export default function Prices() {
                 </div>
                </div>
 
-               {/* Plegada enseña una línea por tipo; desplegada, la misma tabla
-                   que las tarifas generales de arriba, con los canales. */}
-               {abierta === op.id ? (
-                 <div className="px-4 pb-4 space-y-4">
-                   {tarifasDeOferta(op, apartments).map(({ tipo, entry, quien }) => (
-                     <PriceTable key={tipo} entry={entry}
-                       titulo={`${APT_TYPE_LABELS[tipo]} · ${quien}`} />
-                   ))}
-                 </div>
-               ) : (
-                 <div className="px-4 pb-4 -mt-2">
+               {/* Desplegada por defecto: la misma tabla que las generales de
+                   arriba, con los canales y el precio por noche. */}
+               {plegada ? (
+                 <div className="px-4 py-3">
                    {lineasDeOferta(op, apartments).map(l => (
                      <p key={l} className="text-xs text-slate-500 tabular-nums">{l}</p>
                    ))}
                  </div>
+               ) : (
+                 <div className="p-4 space-y-4">
+                   {tarifasDeOferta(op, apartments).map(({ tipo, entry, quien }) => (
+                     <PriceTable key={tipo} entry={entry}
+                       // «1 Dormitorio (104, 105) · 104, 105» decía lo mismo
+                       // dos veces: el tipo va sin su lista y manda la de la oferta.
+                       titulo={`${APT_TYPE_LABELS[tipo].replace(/\s*\(.*\)/, '')} · ${quien}`} />
+                   ))}
+                 </div>
                )}
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
