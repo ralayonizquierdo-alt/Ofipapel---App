@@ -301,7 +301,7 @@ function MemoriaPrecio({ lineas }: { lineas: string[] }) {
 function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   { apartments: Apartment[]; prices: PriceEntry[]; editing: Reservation | null; onClose: () => void; onSave: () => void }) {
 
-  const { addReservation, updateReservation, deleteReservation, addPayment, updatePayment, payments } = useData()
+  const { addReservation, updateReservation, deleteReservation, addPayment, updatePayment, payments, offerPrices } = useData()
 
   const [aptId, setAptId] = useState(editing?.apartmentId || apartments[0]?.id || '')
   const [checkIn, setCheckIn] = useState(editing?.checkIn || today())
@@ -324,8 +324,8 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
 
   const nights = checkOut && checkIn ? getNights(checkIn, checkOut) : 0
   const tarifa = useMemo(
-    () => buscaTarifa(prices, aptId, checkIn, nights),
-    [prices, aptId, checkIn, nights],
+    () => buscaTarifa(prices, aptId, checkIn, nights, offerPrices),
+    [prices, aptId, checkIn, nights, offerPrices],
   )
 
   // Tarifa por tramos: el precio del tramo se divide entre sus días y se
@@ -522,6 +522,7 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
           <MemoriaPrecio lineas={lineasPrecio({
             nights, basePrice, cleaningFee, discountPct,
             tarifa: pactado ? null : tarifa, pactado,
+            oferta: pactado ? null : tarifa?.oferta,
           })} />
         </div>
 

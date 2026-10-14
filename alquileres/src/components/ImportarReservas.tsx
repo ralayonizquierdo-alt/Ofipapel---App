@@ -23,7 +23,7 @@ const eur = (n: number) =>
  * se pisan— y el botón no se activa hasta marcar que hay copia de seguridad.
  */
 export default function ImportarReservas({ onClose }: { onClose: () => void }) {
-  const { reservations, payments, prices, apartments, reemplazaReservas, anotaVolcado } = useData()
+  const { reservations, payments, prices, offerPrices, apartments, reemplazaReservas, anotaVolcado } = useData()
   const [previo, setPrevio] = useState<ResultadoCalendario | null>(null)
   const [nombreFichero, setNombreFichero] = useState('')
   const [leyendo, setLeyendo] = useState(false)
@@ -37,7 +37,7 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
 
   /** Cada reserva del calendario, ya con el precio que le toca por tarifa. */
   const conPrecio = useMemo(() => (previo?.reservas ?? []).map(r => {
-    const tarifa = buscaTarifa(prices, r.apartmentId, r.checkIn, r.nights)
+    const tarifa = buscaTarifa(prices, r.apartmentId, r.checkIn, r.nights, offerPrices)
     const limpieza = tarifa ? Number(tarifa.entry.cleaningFee) || 40 : 40
     return {
       ...r,
@@ -45,7 +45,7 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
       cleaningFee: tarifa ? limpieza : 0,
       total: tarifa ? calcTotal(tarifa.base, limpieza, 0) : 0,
     }
-  }), [previo, prices])
+  }), [previo, prices, offerPrices])
 
   const resumen = useMemo(() => {
     const porAnio = new Map<string, number>()

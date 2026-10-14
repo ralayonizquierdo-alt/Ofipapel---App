@@ -116,9 +116,25 @@ export interface Expense {
   createdAt: string
 }
 
+/**
+ * Tarifa de oferta: la que se aplica en un mes concreto en lugar de la general.
+ *
+ * Nace de algo muy real: en octubre de 2026 el propietario ofreció por Airbnb
+ * el precio del año anterior. Eso no es la tarifa general del año —no se puede
+ * tocar, rige para todo lo demás— pero tampoco es un precio pactado a mano con
+ * un inquilino: es una oferta para un mes entero y un tipo de apartamento.
+ *
+ * `year` y `month` son **cuándo se aplica**, no de dónde salieron los precios.
+ * De dónde salieron se guarda aparte, en `sourceYear`, y es solo memoria: sirve
+ * para saber, dentro de dos años, que aquella oferta de octubre era «el precio
+ * de 2025». Antes los dos sentidos compartían el mismo campo y las primeras
+ * tarifas se guardaron con el año de origen, no con el de aplicación.
+ */
 export interface OfferPrice {
   id: string
+  /** Año en el que se aplica. */
   year: number
+  /** Mes en el que se aplica, 1-12. */
   month: number
   apartmentType: ApartmentType
   price1week: number
@@ -127,6 +143,8 @@ export interface OfferPrice {
   price1month: number
   cleaningFee: number
   label: string
+  /** Año de la tarifa general de la que se copiaron los precios. Informativo. */
+  sourceYear?: number
 }
 
 export interface Repair {
