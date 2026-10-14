@@ -339,6 +339,26 @@ test('referencias numéricas: con o sin ceros delante son la misma (Géminis 008
   assert.deepEqual(CP.ordenarComoPropuesta(pedido.slice(0, 2).reverse(), factura).map((l) => l.ref), ['00839', '11330']);
 });
 
+test('lo que viene de más o sin pedir también se puede reclamar', () => {
+  const filas = CP.compararPedido([{ ref: 'A', cant: 2, precio: 1 }, { ref: 'B', cant: 5, precio: 1 }],
+    [{ ref: 'A', cant: 2, precio: 1 }, { ref: 'B', cant: 8, precio: 1 }, { ref: 'X', cant: 1, precio: 3, desc: 'NO PEDIDA' }]);
+  const B = filas.find((f) => f.ref === 'B');
+  const X = filas.find((f) => f.ref === 'X');
+  for (const tipo of ['comercial', 'reposicion']) {
+    assert.ok(CP.accionesPara(X, tipo).includes('reclamar'), 'no pedida: ' + tipo);
+    assert.ok(CP.accionesPara(B, tipo).includes('reclamar'), 'de más: ' + tipo);
+  }
+  // Reclamada: entra solo lo pedido (5 de B; nada de X)
+  const r = CP.aplicarDecisiones(filas, { B: { accion: 'reclamar' }, X: { accion: 'reclamar' } });
+  assert.deepEqual(r.lineas.map((l) => [l.ref, l.cant]), [['A', 2], ['B', 5]]);
+  const { sobran } = CP.faltasYSobras(filas);
+  const t = CP.textoReclamacion('APLI', [{ numero: '7', cliente: 'Reposición', faltan: [], sobran }]);
+  assert.match(t, /no hemos pedido/);
+  assert.match(t, /B .*de más: 3 uds\. \(pedimos 5\)/);
+  assert.match(t, /X\s+NO PEDIDA\s+→\s+de más: 1 ud\. sin pedir/);
+  assert.doesNotMatch(t, /faltan las siguientes/);
+});
+
 test('reclamación de faltas: separada por cliente, con faltas totales y parciales', () => {
   const t = CP.textoReclamacion('FINOCAM', [
     { numero: '2', cliente: 'CLIENTE A', faltan: [{ ref: '785100027', desc: 'CALENDARIO', cant: 2, de: 2, total: true }] },

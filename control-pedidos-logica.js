@@ -280,19 +280,27 @@
    */
   function textoReclamacion(proveedor, grupos, opciones) {
     const o = opciones || {};
-    const conFaltas = (grupos || []).filter((g) => g.faltan && g.faltan.length);
+    const conFaltas = (grupos || []).filter((g) => (g.faltan && g.faltan.length) || (g.sobran && g.sobran.length));
     if (!conFaltas.length) return '';
+    const hayFaltas = conFaltas.some((g) => g.faltan && g.faltan.length);
+    const haySobras = conFaltas.some((g) => g.sobran && g.sobran.length);
     const uds = (n) => `${n} ud${n === 1 ? '' : 's'}.`;
-    const out = [
-      `Buenos días${proveedor ? ', ' + proveedor : ''}:`,
-      '',
-      `En ${o.campana ? 'la campaña ' + o.campana : 'los pedidos'} faltan las siguientes referencias que no vienen en vuestra propuesta o factura.`,
-      '¿Podéis indicarnos si están descatalogadas, agotadas o si ha sido un error, y cuándo las enviaríais?',
-    ];
+    const donde = o.campana ? 'la campaña ' + o.campana : 'los pedidos';
+    const out = [`Buenos días${proveedor ? ', ' + proveedor : ''}:`, ''];
+    if (hayFaltas) {
+      out.push(`En ${donde} faltan las siguientes referencias que no vienen en vuestra propuesta o factura.`,
+        '¿Podéis indicarnos si están descatalogadas, agotadas o si ha sido un error, y cuándo las enviaríais?');
+    }
+    if (haySobras) {
+      out.push(`${hayFaltas ? 'Además, en' : 'En'} ${donde} vienen referencias que no hemos pedido, o en más cantidad de la pedida (marcadas «de más»). Por favor, no las incluyáis o corregidlas.`);
+    }
     for (const g of conFaltas) {
       out.push('', `Pedido nº ${g.numero}${g.cliente ? ' · ' + g.cliente : ''}`);
-      for (const x of g.faltan) {
+      for (const x of g.faltan || []) {
         out.push(`  - ${x.ref}  ${x.desc || ''}  →  faltan ${uds(x.cant)}${x.total ? '' : ` (de ${x.de} pedidas)`}`.replace(/ {2,}→/, '  →'));
+      }
+      for (const x of g.sobran || []) {
+        out.push(`  - ${x.ref}  ${x.desc || ''}  →  de más: ${x.total ? `${uds(x.cant)} sin pedir` : `${uds(x.cant)} (pedimos ${x.de - x.cant})`}`.replace(/ {2,}→/, '  →'));
       }
     }
     out.push('', 'Gracias.');
@@ -497,15 +505,17 @@
       // Como en el comercial, una falta se puede reclamar al proveedor; lo
       // que nunca hay en reposición es «resto».
       if (fila.estado === 'falta') return ['reclamar', 'excluir', 'mantener', 'manual'];
-      if (fila.estado === 'extra') return ['aceptar', 'excluir'];
-      return fila.cantPropuesta < fila.cantPedida
+      if (fila.estado === 'extra') return ['aceptar', 'reclamar', 'excluir'];
+      return fila.cantPropuesta !== fila.cantPedida
         ? ['aceptar', 'reclamar', 'mantener', 'manual', 'excluir']
         : ['aceptar', 'mantener', 'manual', 'excluir'];
     }
     if (fila.estado === 'falta') return ['reclamar', 'resto', 'anular'];
-    if (fila.estado === 'extra') return ['aceptar', 'excluir'];
+    // Lo que viene sin pedirse, o de más, también se puede reclamar al proveedor.
+    if (fila.estado === 'extra') return ['aceptar', 'reclamar', 'excluir'];
     const menos = fila.cantPropuesta < fila.cantPedida;
-    return menos ? ['aceptar', 'reclamar', 'resto', 'mantener', 'manual', 'excluir'] : ['aceptar', 'mantener', 'manual', 'excluir'];
+    if (menos) return ['aceptar', 'reclamar', 'resto', 'mantener', 'manual', 'excluir'];
+    return fila.cantPropuesta > fila.cantPedida ? ['aceptar', 'reclamar', 'mantener', 'manual', 'excluir'] : ['aceptar', 'mantener', 'manual', 'excluir'];
   }
 
   /**
@@ -586,9 +596,12 @@
             restos.push({ ...base, cant: f.cantPedida - f.cantPropuesta, precio: f.precioPedido != null ? f.precioPedido : f.precioPropuesta });
           }
           break;
-        case 'reclamar': // a la espera del proveedor: entra lo que trae, sin restos
-          if (f.cantPropuesta > 0) lineas.push(propuesta(f.cantPropuesta));
+        case 'reclamar': { // a la espera del proveedor: entra lo que trae, sin restos;
+          // si trae de más (o algo no pedido), solo entra lo pedido.
+          const cant = Math.min(f.cantPropuesta, f.cantPedida || 0);
+          if (cant > 0) lineas.push(propuesta(cant));
           break;
+        }
         case 'mantener':
           if (f.cantPedida > 0) lineas.push(pedido(f.cantPedida));
           break;
