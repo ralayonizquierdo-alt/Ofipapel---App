@@ -150,8 +150,10 @@ export default function Prices() {
         title="Tabla de Precios"
         subtitle="Los precios se actualizan en Enero para el año siguiente"
         actions={
-          <button onClick={() => window.print()} className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
-            <Printer size={16} /> Imprimir
+          <button onClick={() => window.print()}
+            title="Abre el diálogo de impresión; ahí mismo se puede elegir «Guardar como PDF»"
+            className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
+            <Printer size={16} /> Imprimir / PDF
           </button>
         }
       />
@@ -251,7 +253,8 @@ export default function Prices() {
                   </p>
                 </div>
                 <div className="print:hidden flex items-center gap-2 shrink-0">
-                  <button onClick={() => imprimeOferta(op.id)} title="Imprimir solo esta tarifa"
+                  <button onClick={() => imprimeOferta(op.id)}
+                    title="Imprimir solo esta tarifa, o guardarla en PDF desde el mismo diálogo"
                     className="p-1.5 text-amber-700 hover:text-amber-900 rounded"><Printer size={15} /></button>
                   <button onClick={() => setPlegadas(p => plegada ? p.filter(x => x !== op.id) : [...p, op.id])}
                     title={plegada ? 'Ver la tabla' : 'Plegar'}
