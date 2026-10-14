@@ -265,18 +265,89 @@ function Palmera({ x, y, escala = 1 }: { x: number; y: number; escala?: number }
   )
 }
 
-/** La furgoneta de la limpieza, aparcada el día que hay salidas. */
-function Furgoneta({ x, y }: { x: number; y: number }) {
+/** Un gato que cruza la acera como si tal cosa. */
+function Gato({ y }: { y: number }) {
   return (
-    <g transform={`translate(${x},${y})`}>
+    <g transform={`translate(0,${y})`}>
+     <g className="cruza-gato">
+      <g fill="#475569">
+        <ellipse cx="14" cy="-7" rx="13" ry="6" />
+        <circle cx="26" cy="-13" r="5.5" />
+        <path d="M22 -17 l 2 -6 l 4 4 z" /><path d="M29 -17 l 4 -5 l 1 6 z" />
+        <path d="M1 -9 q -9 -4 -8 -14 q 5 7 9 11 z" />
+        <rect x="6" y="-4" width="2.5" height="6" rx="1" /><rect x="12" y="-4" width="2.5" height="6" rx="1" />
+        <rect x="18" y="-4" width="2.5" height="6" rx="1" /><rect x="23" y="-4" width="2.5" height="6" rx="1" />
+      </g>
+     </g>
+    </g>
+  )
+}
+
+/** Y el perro que va detrás, que nunca lo alcanza. */
+function Perro({ y }: { y: number }) {
+  return (
+    <g transform={`translate(0,${y})`}>
+     <g className="cruza-perro">
+      <g fill="#92400e">
+        <ellipse cx="18" cy="-10" rx="17" ry="8" />
+        <circle cx="35" cy="-17" r="7" />
+        <path d="M31 -23 l -1 -8 l 6 5 z" />
+        <ellipse cx="41" cy="-16" rx="4" ry="3" fill="#78350f" />
+        <path d="M2 -13 q -10 -6 -6 -16 q 4 8 8 13 z" />
+        <rect x="7" y="-4" width="3.5" height="8" rx="1.5" /><rect x="14" y="-4" width="3.5" height="8" rx="1.5" />
+        <rect x="23" y="-4" width="3.5" height="8" rx="1.5" /><rect x="29" y="-4" width="3.5" height="8" rx="1.5" />
+      </g>
+     </g>
+    </g>
+  )
+}
+
+/** Alguien bajando la acera en patinete. */
+function Patinete({ y }: { y: number }) {
+  return (
+    <g transform={`translate(0,${y})`}>
+     <g className="cruza-patinete">
+      <g>
+        {/* Patinete: dos ruedas, plataforma, mástil y manillar */}
+        <circle cx="2" cy="-5" r="5" fill="#1e293b" /><circle cx="2" cy="-5" r="2" fill="#94a3b8" />
+        <circle cx="40" cy="-5" r="5" fill="#1e293b" /><circle cx="40" cy="-5" r="2" fill="#94a3b8" />
+        <path d="M2 -10 h 38" stroke="#334155" strokeWidth="4" strokeLinecap="round" />
+        <path d="M40 -10 v -42" stroke="#64748b" strokeWidth="4" strokeLinecap="round" />
+        <path d="M31 -52 h 16" stroke="#334155" strokeWidth="4.5" strokeLinecap="round" />
+        {/* Quien lo lleva, de pie */}
+        <circle cx="22" cy="-72" r="8" fill="#f1c27d" />
+        <path d="M14 -80 q 8 -7 16 0 q -8 -3 -16 0 z" fill="#1e293b" />
+        <path d="M22 -64 q -11 1 -10 20 l 20 0 q 1 -19 -10 -20 z" fill="#2563eb" />
+        <path d="M17 -45 l -4 35 l 7 0 l 3 -30 z" fill="#1e293b" />
+        <path d="M26 -45 l 2 35 l 6 0 l -2 -32 z" fill="#1e293b" />
+        <path d="M28 -60 q 11 3 13 8" stroke="#f1c27d" strokeWidth="4" fill="none" strokeLinecap="round" />
+      </g>
+     </g>
+    </g>
+  )
+}
+
+/** La furgoneta de la limpieza, aparcada siempre al pie del edificio. */
+function Furgoneta({ x, y, salidas, onClick }: {
+  x: number; y: number; salidas: number; onClick: () => void
+}) {
+  return (
+    <g transform={`translate(${x},${y})`} onClick={onClick} style={{ cursor: 'pointer' }}>
      <g className="furgo">
-      <title>Hay salidas: toca limpieza</title>
+      <title>La limpieza · pincha para ver qué toca</title>
       <rect x="0" y="-34" width="86" height="34" rx="5" fill="#f59e0b" />
       <rect x="54" y="-30" width="30" height="16" rx="3" fill="#bae6fd" />
       <rect x="6" y="-26" width="40" height="16" rx="2" fill="#fff" opacity="0.65" />
       <text x="26" y="-14" textAnchor="middle" fontSize="9" fontWeight="700" fill="#b45309">LIMPIEZA</text>
       <circle cx="20" cy="2" r="7" fill="#1e293b" /><circle cx="20" cy="2" r="3" fill="#94a3b8" />
       <circle cx="68" cy="2" r="7" fill="#1e293b" /><circle cx="68" cy="2" r="3" fill="#94a3b8" />
+      {/* Cuántas salidas hay ese día, en la chapa de siempre */}
+      {salidas > 0 && (
+        <g transform="translate(86,-34)">
+          <circle r="11" fill="#dc2626" /><circle r="11" fill="none" stroke="#fff" strokeWidth="2" />
+          <text y="4" textAnchor="middle" fontSize="12" fontWeight="700" fill="#fff">{salidas}</text>
+        </g>
+      )}
      </g>
     </g>
   )
@@ -288,6 +359,7 @@ export default function Edificios() {
   const { apartments, reservations, payments } = useData()
   const [dia, setDia] = useState(today())
   const [abierto, setAbierto] = useState<EstadoApto | null>(null)
+  const [limpieza, setLimpieza] = useState(false)
 
   const hora = new Date().getHours()
   const noche = hora >= 20 || hora < 7
@@ -350,7 +422,7 @@ export default function Edificios() {
       />
 
       <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white">
-        <svg viewBox="0 0 1240 620" className="w-full block" role="img"
+        <svg viewBox="0 0 1240 700" className="w-full block" role="img"
           aria-label="Los tres edificios con sus apartamentos">
           <defs>
             {/* Cielo: de día tira a azul claro; de noche, a azul marino */}
@@ -387,7 +459,7 @@ export default function Edificios() {
           </defs>
 
           {/* Cielo, sol o luna, y nubes */}
-          <rect width="1240" height="620" fill="url(#cielo)" />
+          <rect width="1240" height="700" fill="url(#cielo)" />
           {noche
             ? <g><circle cx="1105" cy="86" r="26" fill="#fef9c3" /><circle cx="1094" cy="78" r="22" fill="#1e3a8a" /></g>
             : <circle cx="1105" cy="86" r="34" fill="#fde047" opacity="0.95" />}
@@ -409,71 +481,113 @@ export default function Edificios() {
           </g>
 
           {/* El mar al fondo, a la altura del horizonte */}
-          <path d="M842 472 L 872 408 H 1240 v 64 z" fill="url(#mar)" />
-          <line x1="872" y1="408" x2="1240" y2="408" stroke="#bae6fd" strokeWidth="2" opacity="0.6" />
+          <path d="M842 552 L 872 488 H 1240 v 64 z" fill="url(#mar)" />
+          <line x1="872" y1="488" x2="1240" y2="488" stroke="#bae6fd" strokeWidth="2" opacity="0.6" />
           {/* La orilla, que si no el mar acaba en un corte recto */}
-          <path d="M842 472 L 872 408 l 16 0 L 862 472 z" fill="#fef3c7" opacity="0.8" />
+          <path d="M842 552 L 872 488 l 16 0 L 862 552 z" fill="#fef3c7" opacity="0.8" />
           <g stroke="#e0f2fe" strokeWidth="2" opacity="0.55" fill="none">
-            <path d="M884 428 q 12 -6 24 0 t 24 0" /><path d="M1150 424 q 12 -6 24 0 t 24 0" />
-            <path d="M1176 448 q 12 -6 24 0 t 24 0" /><path d="M886 452 q 12 -6 24 0 t 24 0" />
+            <path d="M884 508 q 12 -6 24 0 t 24 0" /><path d="M1150 504 q 12 -6 24 0 t 24 0" />
+            <path d="M1176 528 q 12 -6 24 0 t 24 0" /><path d="M886 532 q 12 -6 24 0 t 24 0" />
           </g>
           {/* Un barquito en el horizonte */}
           <g className="barco">
-            <path d="M1186 404 l 16 0 l -3 6 l -10 0 z" fill="#f8fafc" />
-            <path d="M1194 404 v -10 l 8 10 z" fill="#f8fafc" />
+            <path d="M1186 484 l 16 0 l -3 6 l -10 0 z" fill="#f8fafc" />
+            <path d="M1194 484 v -10 l 8 10 z" fill="#f8fafc" />
           </g>
 
           {/* Suelo: acera y calle */}
-          <rect y="470" width="1240" height="150" fill="#cbd5e1" />
-          <rect y="516" width="1240" height="104" fill="#475569" />
+          <rect y="550" width="1240" height="150" fill="#cbd5e1" />
+          <rect y="596" width="1240" height="104" fill="#475569" />
           <g stroke="#e2e8f0" strokeWidth="4" strokeDasharray="34 26" opacity="0.8">
-            <line x1="0" y1="570" x2="1240" y2="570" />
+            <line x1="0" y1="650" x2="1240" y2="650" />
           </g>
           {/* Arena, delante del Arenal */}
-          <path d="M856 470 h 384 v 46 h -384 z" fill="#fde68a" opacity="0.8" />
+          <path d="M856 550 h 384 v 46 h -384 z" fill="#fde68a" opacity="0.8" />
 
           {/* ── Edificio principal: 104, 105, 106 · 203, 204 · ático 402 ── */}
-          <Fachada x={70} y={120} ancho={360} alto={350} nombre="EDIFICIO PRINCIPAL" color="#e7e5e4" />
+          <Fachada x={70} y={80} ancho={360} alto={470} nombre="EDIFICIO ALIZ" color="#e7e5e4" />
+          {/* El local comercial de la planta baja */}
+          <g>
+            <rect x={92} y={470} width={230} height={80} rx="2" fill="#0f172a" opacity="0.75" />
+            <rect x={98} y={476} width={218} height={74} fill="#fef3c7" opacity="0.92" />
+            {/* Lo que se ve dentro del escaparate */}
+            <g opacity="0.45" fill="#92400e">
+              <rect x={112} y={500} width="30" height="46" rx="2" />
+              <rect x={150} y={512} width="34" height="34" rx="2" />
+              <rect x={192} y="494" width="26" height="52" rx="2" />
+              <circle cx={246} cy={520} r="13" />
+              <rect x={272} y={506} width="30" height="40" rx="2" />
+            </g>
+            {/* La puerta, a un lado */}
+            <rect x={286} y={494} width={30} height={56} fill="#1e293b" opacity="0.5" />
+            {/* Toldo a rayas */}
+            {Array.from({ length: 10 }, (_, i) => (
+              <path key={i} d={`M${92 + i * 23} 470 l 23 0 l -5 -18 l -23 0 z`}
+                fill={i % 2 ? '#dc2626' : '#f8fafc'} />
+            ))}
+            <path d="M86 470 h 242 v 6 h -242 z" fill="#e2e8f0" />
+            <rect x={116} y={424} width={182} height={24} rx="4" fill="#1e293b" />
+            <text x={207} y={441} textAnchor="middle" fontSize="13" fontWeight="700"
+              fill="#fde68a" letterSpacing="2">LOCAL</text>
+          </g>
+
           {dePlano('principal').map(e => {
-            const p = sitio(e, { x: 96, suelo: 470 })
+            const p = sitio(e, { x: 96, suelo: 440 })
             return <Ventana key={e.apt.id} e={e} x={p.x} y={p.y} noche={noche}
               onClick={() => setAbierto(e)} />
           })}
-          {/* La terraza del ático */}
+          {/* La terraza del ático: sombrilla, mesa y un par de macetas. Antes
+              había una palmera plantada en el tejado, que no se sostenía. */}
           <g>
-            <rect x="330" y="112" width="96" height="8" rx="2" fill="#cbd5e1" />
-            <Palmera x={352} y={112} escala={0.42} />
-            <rect x="382" y="92" width="26" height="20" rx="3" fill="#fb923c" opacity="0.9" />
+            <rect x="322" y="72" width="104" height="8" rx="2" fill="#cbd5e1" />
+            <g>
+              <path d="M352 72 v -26" stroke="#94a3b8" strokeWidth="3" />
+              <path d="M330 46 q 22 -16 44 0 z" fill="#fb923c" />
+              <path d="M330 46 q 11 -8 22 0 z" fill="#fdba74" />
+              <rect x="344" y="64" width="16" height="4" rx="2" fill="#e2e8f0" />
+            </g>
+            <g>
+              <rect x="394" y="60" width="12" height="12" rx="2" fill="#b45309" />
+              <circle cx="400" cy="57" r="7" fill="#15803d" />
+              <rect x="412" y="64" width="10" height="8" rx="2" fill="#b45309" />
+              <circle cx="417" cy="61" r="5" fill="#15803d" />
+            </g>
           </g>
 
           {/* ── Piso 3 ── */}
-          <Fachada x={520} y={230} ancho={210} alto={240} nombre="PISO 3" color="#fde8d7" />
+          <Fachada x={520} y={300} ancho={210} alto={250} nombre="PISO 3" color="#fde8d7" />
           {dePlano('piso3').map(e => {
-            const p = sitio(e, { x: 588, suelo: 470 })
+            const p = sitio(e, { x: 588, suelo: 550 })
             return <Ventana key={e.apt.id} e={e} x={p.x} y={p.y} noche={noche}
               onClick={() => setAbierto(e)} />
           })}
 
           {/* ── Arenal 2B ── */}
-          <Fachada x={930} y={250} ancho={210} alto={220} nombre="ARENAL 2B" color="#dbeafe" />
+          <Fachada x={930} y={290} ancho={210} alto={260} nombre="ARENAL 2B" color="#dbeafe" />
           {dePlano('arenal').map(e => {
-            const p = sitio(e, { x: 998, suelo: 470 })
+            const p = sitio(e, { x: 998, suelo: 550 })
             return <Ventana key={e.apt.id} e={e} x={p.x} y={p.y} noche={noche}
               onClick={() => setAbierto(e)} />
           })}
 
           {/* Vegetación y mobiliario de calle */}
-          <Palmera x={470} y={500} escala={1.15} />
-          <Palmera x={790} y={496} />
-          <Palmera x={900} y={504} escala={0.9} />
-          <Palmera x={1190} y={500} escala={1.05} />
+          <Palmera x={468} y={582} escala={1.15} />
+          <Palmera x={790} y={578} />
+          <Palmera x={898} y={586} escala={0.9} />
+          <Palmera x={1190} y={582} escala={1.05} />
           <g>
-            <rect x="760" y="430" width="5" height="76" fill="#64748b" />
-            <circle cx="762" cy="426" r="9" fill={noche ? '#fde68a' : '#cbd5e1'} className={noche ? 'farol' : ''} />
+            <rect x="760" y="510" width="5" height="76" fill="#64748b" />
+            <circle cx="762" cy="506" r="9" fill={noche ? '#fde68a' : '#cbd5e1'} className={noche ? 'farol' : ''} />
           </g>
 
-          {/* La furgoneta solo aparece el día que hay que limpiar algo */}
-          {salen > 0 && <Furgoneta x={600} y={596} />}
+          {/* La furgoneta está siempre aparcada; la chapa roja dice cuántas
+              salidas hay ese día, y al pincharla se abre lo que toca limpiar. */}
+          <Furgoneta x={596} y={676} salidas={salen} onClick={() => setLimpieza(true)} />
+
+          {/* La calle, con lo que pasa por ella */}
+          <Gato y={590} />
+          <Perro y={590} />
+          <Patinete y={582} />
 
           {/* Cartel con el día que se está mirando */}
           <g transform="translate(40, 36)">
@@ -501,6 +615,11 @@ export default function Edificios() {
         <FichaVentana estado={abierto} dia={dia} payments={payments} onClose={() => setAbierto(null)} />
       )}
 
+      {limpieza && (
+        <FichaLimpieza dia={dia} apartments={apartments} reservations={reservations}
+          onClose={() => setLimpieza(false)} />
+      )}
+
       {/* Lo que no cabe en el dibujo: el parpadeo de la luz, la nube que pasa
           y la silueta que se mueve. Va aquí porque es parte del dibujo, no del
           diseño de la aplicación. */}
@@ -516,7 +635,14 @@ export default function Edificios() {
         .nube.lenta { animation-duration: 110s; }
         @keyframes nube { from { transform: translateX(-160px) } to { transform: translateX(1300px) } }
         .palmera { transform-origin: bottom center; animation: brisa 7s ease-in-out infinite; }
-        @keyframes brisa { 0%,100% { transform: rotate(-1.2deg) } 50% { transform: rotate(1.6deg) } }
+        @keyframes brisa { 0%,100% { transform: rotate(-0.6deg) } 50% { transform: rotate(0.8deg) } }
+        .cruza-gato { animation: cruza 19s linear infinite; }
+        .cruza-perro { animation: cruza 19s linear infinite; animation-delay: .9s; }
+        .cruza-patinete { animation: cruza-vuelta 26s linear infinite; }
+        @keyframes cruza { from { transform: translateX(-80px) } to { transform: translateX(1320px) } }
+        @keyframes cruza-vuelta {
+          from { transform: translateX(1320px) scaleX(-1) } to { transform: translateX(-80px) scaleX(-1) }
+        }
         .furgo { animation: llega 1.2s ease-out; }
         .aves { animation: vuela 34s linear infinite; }
         @keyframes vuela { from { transform: translate(-120px, 20px) } to { transform: translate(760px, -10px) } }
@@ -524,7 +650,8 @@ export default function Edificios() {
         @keyframes navega { from { transform: translateX(40px) } to { transform: translateX(-330px) } }
         @keyframes llega { from { transform: translateX(-260px) } to { transform: translateX(0) } }
         @media (prefers-reduced-motion: reduce) {
-          .persona, .tele, .farol, .nube, .palmera, .furgo, .aves, .barco { animation: none; }
+          .persona, .tele, .farol, .nube, .palmera, .furgo, .aves, .barco,
+          .cruza-gato, .cruza-perro, .cruza-patinete { animation: none; }
         }
       `}</style>
     </div>
@@ -595,6 +722,85 @@ function FichaVentana({ estado, dia, payments, onClose }: {
             Este apartamento tiene <b>{eur(estado.debe)}</b> sin cobrar de estancias ya terminadas.
           </p>
         )}
+      </div>
+    </Modal>
+  )
+}
+
+/**
+ * Lo que toca limpiar, que es lo que se pregunta al ver la furgoneta.
+ *
+ * Las salidas son las limpiezas: cuando alguien se va, el piso hay que
+ * dejarlo listo para el siguiente. Se enseña el día que se está mirando y la
+ * semana siguiente, para poder avisar con tiempo.
+ *
+ * El gasto de limpieza sale del parte semanal («LIMPIEZA Y REPARACIONES
+ * OFIPAPEL.xlsx», pantalla «Subir limpieza»). Mientras ese parte no se suba
+ * no hay cifras que enseñar, y decirlo aquí es más útil que un cero.
+ */
+function FichaLimpieza({ dia, apartments, reservations, onClose }: {
+  dia: string
+  apartments: Apartment[]
+  reservations: Reservation[]
+  onClose: () => void
+}) {
+  const nombre = (id: string) => apartments.find(a => a.id === id)?.name ?? id
+  const activas = reservations.filter(r => r.status !== 'cancelada')
+  const hoy = activas.filter(r => r.checkOut === dia)
+
+  const masTarde = (d: string, n: number) => {
+    const x = new Date(d + 'T12:00:00')
+    x.setDate(x.getDate() + n)
+    return x.toISOString().slice(0, 10)
+  }
+  const semana = activas
+    .filter(r => r.checkOut > dia && r.checkOut <= masTarde(dia, 7))
+    .sort((a, b) => a.checkOut.localeCompare(b.checkOut))
+
+  return (
+    <Modal title="Limpieza" onClose={onClose}>
+      <div className="space-y-4 text-sm">
+        <div>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+            Salidas del {formatDate(dia)}
+          </p>
+          {hoy.length === 0 ? (
+            <p className="text-slate-500">Ninguna. Hoy no hay que limpiar nada.</p>
+          ) : (
+            <ul className="space-y-1">
+              {hoy.map(r => (
+                <li key={r.id} className="flex justify-between gap-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+                  <span className="font-medium text-amber-900">{nombre(r.apartmentId)}</span>
+                  <span className="text-amber-800">{r.guestName || 'sale hoy'}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+            Los siete días siguientes
+          </p>
+          {semana.length === 0 ? (
+            <p className="text-slate-500">Sin salidas esta semana.</p>
+          ) : (
+            <ul className="space-y-1">
+              {semana.map(r => (
+                <li key={r.id} className="flex justify-between gap-3 text-slate-600 border-b border-slate-100 pb-1">
+                  <span>{formatDate(r.checkOut)}</span>
+                  <span className="font-medium text-slate-800">{nombre(r.apartmentId)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+          El coste de la limpieza no sale aquí porque el parte semanal todavía no se ha
+          subido nunca. En cuanto se suelte en <b>Subir limpieza</b> el fichero
+          <i> LIMPIEZA Y REPARACIONES OFIPAPEL.xlsx</i>, se puede enseñar lo que cuesta cada piso.
+        </p>
       </div>
     </Modal>
   )
