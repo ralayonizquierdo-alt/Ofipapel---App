@@ -514,6 +514,7 @@ function vistaReposicion() {
     <div id="progresoEnvios" class="progreso"></div>
     <div class="pequeno" style="margin-top:8px">¿Sin documento? <a href="#" onclick="crearReposicionVacia();return false">Créalo vacío y escribe las líneas</a>.</div>
   </div>
+  ${vistaDirecta()}
   <div class="tarjeta">
     <h2>Pedidos de reposición</h2>
     ${bloqueResultadosCarga()}
@@ -1831,6 +1832,68 @@ async function cargarPropuestaEn(id, file) {
 }
 /** Documentos del proveedor leídos pero sin pedido claro: se quedan aquí
  *  (solo en memoria) hasta que el usuario elige a qué pedido van. */
+// ── Factura del proveedor directa a Géminis (sin pedido ni comparación) ──────
+// Para cuando solo hace falta pasar la factura (Excel, PDF o foto) a nuestra
+// plantilla. No se guarda: es una conversión al momento.
+let directa = null; // { archivo, proveedor, doc }
+function vistaDirecta() {
+  const d = directa;
+  const lineas = d ? d.doc.lineas : [];
+  const total = d ? lineas.reduce((t, l) => t + (CP.parseNum(l.importe) != null ? CP.parseNum(l.importe) : (CP.precioNeto(l) || 0) * (CP.parseNum(l.cant) || 0)), 0) : 0;
+  return `
+  <div class="tarjeta no-imprimir">
+    <h2>⚡ Factura del proveedor → Excel de Géminis</h2>
+    <p class="pequeno" style="margin:0 0 10px">Sin pedido ni comparación: subes la factura (mejor en <b>Excel</b>; también PDF o foto) y descargas el Excel en nuestra plantilla. No se guarda nada.</p>
+    <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📄 Subir la factura del proveedor
+      <input type="file" class="oculto" onchange="cargarDirecta(this.files[0]); this.value=''"></label>
+    <div id="progresoDirecta" class="progreso"></div>
+    ${d ? `
+    <div class="resumen" style="margin-top:10px"><span class="chip info">${h(d.archivo)}</span><span class="chip gris">${lineas.length} líneas</span><span class="chip gris">${fmt(CP.red2(total))} €</span>
+      <span class="chip ${d.proveedor ? 'ok' : 'aviso'}">${d.proveedor ? h(d.proveedor) : 'sin proveedor'}</span></div>
+    ${d.doc.control ? avisoControl(d.doc) : `<div class="pequeno">Comprueba que <b>${fmt(CP.red2(total))} €</b> es la base imponible de la factura (sin IGIC).</div>`}
+    <details style="margin-top:6px"><summary>Ver las ${lineas.length} líneas</summary>
+      <div class="tabla-scroll"><table><tr><th class="num">Cant.</th><th>Referencia</th><th>Descripción</th><th class="num">Precio</th><th>Dtos.</th><th class="num">Importe</th></tr>
+      ${lineas.map((l) => `<tr${l.duda ? ' class="duda"' : ''}><td class="num">${h(fmt(l.cant).replace(',00', ''))}</td><td>${h(l.ref)}</td><td>${h(l.desc)}</td><td class="num">${l.precio == null ? '—' : h(fmtPrecio(l.precio))}</td><td>${h(fmtDtos(l.dtos))}</td><td class="num">${l.importe == null ? '—' : fmt(l.importe)}</td></tr>`).join('')}
+      </table></div></details>
+    <div class="fila" style="margin-top:10px">
+      <label>Proveedor<input id="dirProv" value="${h(d.proveedor)}" placeholder="Nombre del proveedor" onchange="directa.proveedor = proveedorCanonico(this.value) || prov(this.value)"></label>
+      <label>Nº factura (opcional)<input id="dirNum" value="${h(d.numero || '')}" onchange="directa.numero = this.value.trim()"></label>
+    </div>
+    <div class="fila" style="margin-top:8px">
+      <button class="btn primario" onclick="exportarDirecta()">📥 Descargar Excel de Géminis</button>
+      <button class="btn peque" onclick="directa = null; pintar()">Quitar</button>
+    </div>` : ''}
+  </div>`;
+}
+async function cargarDirecta(file) {
+  if (!file) return;
+  const caja = document.getElementById('progresoDirecta');
+  if (caja) caja.textContent = `Leyendo ${file.name}…`;
+  try {
+    const doc = await leerFicheroProveedor(file, 'progresoDirecta');
+    if (!doc.lineas.length) throw new Error('no he encontrado ninguna línea con cantidad');
+    const cab = doc.cabecera || {};
+    directa = { archivo: file.name, doc, proveedor: proveedorCanonico(cab.proveedor || '') || '', numero: cab.numeroFactura || cab.numero || '' };
+  } catch (err) {
+    alert(`No he podido leer ${file.name}: ${err.message}.` + (esPdf(file) || esImagen(file) ? '' : '\nEl Excel tiene que tener una fila de títulos con «Referencia» (o Código/Artículo) y «Cantidad» (o Unidades). Si es así y aun así falla, pásamelo.'));
+  } finally {
+    const c = document.getElementById('progresoDirecta'); if (c) c.textContent = '';
+  }
+  pintar();
+}
+function exportarDirecta() {
+  const d = directa;
+  if (!d) return;
+  const v = (document.getElementById('dirProv') || {}).value || d.proveedor;
+  d.proveedor = proveedorCanonico(v) || prov(v);
+  d.numero = ((document.getElementById('dirNum') || {}).value || d.numero || '').trim();
+  if (!d.proveedor) { alert('Escribe el proveedor.'); document.getElementById('dirProv').focus(); return; }
+  if (d.doc.lineas.some((l) => l.duda) && !confirm('Hay líneas con duda de lectura (en ámbar). ¿Exportar igualmente?')) return;
+  const decimales = CP.parseNum(localStorage.getItem('cp.decimales') || '2');
+  const lineas = CP.lineasParaGeminis(d.doc.lineas, { dtoGlobal: (d.doc.cabecera || {}).dtoGlobal, decimales });
+  descargarGeminis(lineas, { proveedor: d.proveedor, numero: d.numero, observaciones: d.archivo, decimales });
+}
+
 let sinAsignar = [];
 let ultimaCarga = [];
 
@@ -2523,21 +2586,29 @@ function exportarPedidos(ids) {
       g.cant += l.cant; g.total = CP.red2(g.total + l.total); g.residuo = CP.red2(g.residuo + l.residuo);
     }
   }
+  descargarGeminis([...suma.values()], { proveedor: provs[0], numero: ps.length === 1 ? ps[0].numero : ps.map((p) => p.numero).join('+'),
+    observaciones: ps.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales });
+}
+/** Escribe el Excel 5.0/95 de Géminis (artículos desde la fila 11) con líneas ya pasadas por lineasParaGeminis. */
+function descargarGeminis(lineas, o) {
+  const decimales = o.decimales;
+  const suma = new Map(lineas.map((l, i) => [i, l]));
+  const provs = [o.proveedor];
+  const numero = o.numero || '';
   const descuadres = [...suma.values()].filter((l) => l.residuo);
   if (descuadres.length && !confirm(`Con ${decimales} decimales en el descuento, ${descuadres.length} línea(s) no cuadran al céntimo con el importe del proveedor:\n` +
     descuadres.slice(0, 8).map((l) => `${l.ref}: ${l.residuo > 0 ? '+' : ''}${fmt(l.residuo)} €`).join('\n') +
     '\n\nPuedes subir los decimales en «Datos». ¿Exportar igualmente?')) return;
   const quitar = (v) => typeof v === 'string' ? v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[Ññ]/g, (m) => (m === 'Ñ' ? 'N' : 'n')) : v;
-  const numero = ps.length === 1 ? ps[0].numero : ps.map((p) => p.numero).join('+');
   const aoa = CP.filasGeminis([...suma.values()], {
     proveedor: provs[0], fecha: fmtFecha(hoy()), numero, almacen: localStorage.getItem('cp.almacen') || '',
-    observaciones: ps.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '),
+    observaciones: o.observaciones || '',
   }, { igic: CP.parseNum(localStorage.getItem('cp.igic') || '7') }).map((f) => f.map(quitar));
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [{ wch: 15 }, { wch: 38 }, { wch: 14 }, { wch: 6 }, { wch: 8 }, { wch: 8 }, { wch: 9 }, { wch: 7 }, { wch: 6 }, { wch: 10 }, { wch: 9 }, { wch: 9 }, { wch: 12 }, { wch: 14 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
-  XLSX.writeFile(wb, `PEDIDO_${quitar(provs[0]).replace(/\W+/g, '_')}_${String(numero).replace(/\W+/g, '_')}.xls`, { bookType: 'biff5' });
+  XLSX.writeFile(wb, `PEDIDO_${quitar(provs[0]).replace(/\W+/g, '_')}${numero ? '_' + String(numero).replace(/\W+/g, '_') : ''}.xls`, { bookType: 'biff5' });
 }
 
 // ── Nube (Supabase, proyecto «App Bancos», tablas cp_*) ──────────────────────
