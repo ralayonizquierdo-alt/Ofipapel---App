@@ -4,7 +4,7 @@ import type { PriceEntry, ApartmentType, Season, OfferPrice, OfferTarifa } from 
 import { calcPrices, getApartmentType, tarifaDeOferta } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
 import Modal from '../components/ui/Modal'
-import { Pencil, Info, Printer, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Info, Printer, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import { MONTH_NAMES_ES } from '../lib/dateUtils'
 import { num, numSuelto } from '../lib/formato'
 
@@ -67,12 +67,34 @@ function lineasDeOferta(op: OfferPrice, apartments: { id: string; name: string }
   return [...vistos.values()]
 }
 
+/**
+ * Las tarifas de una oferta vistas como tarifas normales, una por tipo, para
+ * poder enseñarlas con la misma tabla que las generales (con sus canales y su
+ * precio por noche). El año y la temporada son los de aplicación de la oferta.
+ */
+function tarifasDeOferta(op: OfferPrice, apartments: { id: string; name: string }[]) {
+  const salida: { tipo: ApartmentType; entry: PriceEntry; quien: string }[] = []
+  for (const tipo of ['1BR', '2BR', '2BR_ATICO', '3BR'] as ApartmentType[]) {
+    const suyos = apartments.filter(a => getApartmentType(a.id) === tipo && tarifaDeOferta(op, a.id))
+    if (suyos.length === 0) continue
+    const p = tarifaDeOferta(op, suyos[0].id)!
+    salida.push({
+      tipo,
+      entry: { id: `${op.id}-${tipo}`, year: op.year, season: temporadaDe(op.month), apartmentType: tipo, ...p },
+      quien: suyos.map(a => a.name.replace(/^Apartamento /, '')).join(', '),
+    })
+  }
+  return salida
+}
+
 export default function Prices() {
   const { prices, offerPrices, apartments, addPrice, deleteOfferPrice } = useData()
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR)
   const [editing, setEditing] = useState<PriceEntry | null>(null)
   const [showOfferForm, setShowOfferForm] = useState(false)
   const [editingOffer, setEditingOffer] = useState<OfferPrice | null>(null)
+  /** La oferta desplegada, si hay alguna. Solo una a la vez. */
+  const [abierta, setAbierta] = useState<string | null>(null)
 
   // El año que viene siempre está en la lista aunque no tenga tarifa todavía:
   // es en enero cuando se prepara, y hay que poder llegar hasta él.
@@ -188,29 +210,48 @@ export default function Prices() {
         ) : (
           <div className="space-y-3">
             {offerPrices.map(op => (
-              <div key={op.id} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between">
+              <div key={op.id} className="bg-white rounded-xl border border-slate-200">
+               <div className="p-4 flex items-center justify-between">
                 <div>
                   <p className="font-semibold text-slate-800">{op.label}</p>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Se aplica en <b className="text-slate-700">{MONTH_NAMES_ES[op.month - 1]} {op.year}</b> ·
                     {' '}{nombresDe(op, apartments)}
                   </p>
-                  {/* Un precio por tipo: la misma oferta vale distinto en un
-                      estudio que en el ático. */}
-                  {lineasDeOferta(op, apartments).map(l => (
-                    <p key={l} className="text-xs text-slate-500 tabular-nums">{l}</p>
-                  ))}
                   <p className="text-xs text-slate-400 mt-0.5">
                     Manda sobre la tarifa general en ese mes
                     {op.sourceYear && op.sourceYear !== op.year && <> · con los precios de {op.sourceYear}</>}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button onClick={() => setAbierta(abierta === op.id ? null : op.id)}
+                    title={abierta === op.id ? 'Plegar' : 'Ver la tabla completa'}
+                    className="print:hidden p-1.5 text-slate-400 hover:text-blue-600 rounded">
+                    {abierta === op.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
                   <button onClick={() => { setEditingOffer(op); setShowOfferForm(true) }}
                     className="p-1.5 text-slate-400 hover:text-blue-600 rounded"><Pencil size={14} /></button>
                   <button onClick={() => handleDeleteOffer(op.id)}
                     className="p-1.5 text-slate-400 hover:text-red-600 rounded"><Trash2 size={14} /></button>
                 </div>
+               </div>
+
+               {/* Plegada enseña una línea por tipo; desplegada, la misma tabla
+                   que las tarifas generales de arriba, con los canales. */}
+               {abierta === op.id ? (
+                 <div className="px-4 pb-4 space-y-4">
+                   {tarifasDeOferta(op, apartments).map(({ tipo, entry, quien }) => (
+                     <PriceTable key={tipo} entry={entry}
+                       titulo={`${APT_TYPE_LABELS[tipo]} · ${quien}`} />
+                   ))}
+                 </div>
+               ) : (
+                 <div className="px-4 pb-4 -mt-2">
+                   {lineasDeOferta(op, apartments).map(l => (
+                     <p key={l} className="text-xs text-slate-500 tabular-nums">{l}</p>
+                   ))}
+                 </div>
+               )}
               </div>
             ))}
           </div>
@@ -231,7 +272,12 @@ export default function Prices() {
   )
 }
 
-function PriceTable({ entry, onEdit }: { entry: PriceEntry; onEdit: () => void }) {
+function PriceTable({ entry, onEdit, titulo }: {
+  entry: PriceEntry
+  /** Sin esto no sale el botón: las tarifas de oferta se editan en su ficha. */
+  onEdit?: () => void
+  titulo?: string
+}) {
   const rows = [
     { label: '1 Semana (7d)', days: 7, base: entry.price1week },
     { label: '2 Semanas (14d)', days: 14, base: entry.price2weeks },
@@ -243,10 +289,12 @@ function PriceTable({ entry, onEdit }: { entry: PriceEntry; onEdit: () => void }
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden break-inside-avoid">
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50">
-        <h3 className="font-semibold text-slate-700 text-sm">{APT_TYPE_LABELS[entry.apartmentType]}</h3>
-        <button onClick={onEdit} className="print:hidden flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium">
-          <Pencil size={13} /> Editar precios base
-        </button>
+        <h3 className="font-semibold text-slate-700 text-sm">{titulo ?? APT_TYPE_LABELS[entry.apartmentType]}</h3>
+        {onEdit && (
+          <button onClick={onEdit} className="print:hidden flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium">
+            <Pencil size={13} /> Editar precios base
+          </button>
+        )}
       </div>
       <div className="overflow-auto">
         <table className="w-full text-sm">
