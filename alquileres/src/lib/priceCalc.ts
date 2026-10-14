@@ -1,4 +1,4 @@
-import type { PriceEntry, PriceCalculation, ApartmentType, StayType, OfferPrice, Season } from '../types'
+import type { PriceEntry, PriceCalculation, ApartmentType, StayType, OfferPrice, OfferTarifa, Season } from '../types'
 import { getSeason } from './dateUtils'
 import { num } from './formato'
 
@@ -120,11 +120,13 @@ export function buscaTarifa(
   const aptType = getApartmentType(apartmentId)
   const year = entrada.getFullYear()
 
-  const oferta = offerPrices.find(o =>
-    o.apartmentType === aptType && o.year === year && o.month === entrada.getMonth() + 1)
-  if (oferta) {
-    const comoGeneral = comoTarifa(oferta, season)
-    return { entry: comoGeneral, oferta, ...precioPorNoches(comoGeneral, nights) }
+  const mes = entrada.getMonth() + 1
+  for (const o of offerPrices) {
+    if (o.year !== year || o.month !== mes) continue
+    const suya = tarifaDeOferta(o, apartmentId)
+    if (!suya) continue
+    const comoGeneral = comoTarifa(o, suya, season, year, aptType)
+    return { entry: comoGeneral, oferta: o, ...precioPorNoches(comoGeneral, nights) }
   }
 
   const entry = prices.find(p =>
@@ -135,13 +137,34 @@ export function buscaTarifa(
   return { entry, ...precioPorNoches(entry, nights) }
 }
 
-/** Una oferta vista como tarifa, para que el resto del código no note nada. */
-function comoTarifa(o: OfferPrice, season: Season): PriceEntry {
-  return {
-    id: o.id, year: o.year, season, apartmentType: o.apartmentType,
-    price1week: o.price1week, price2weeks: o.price2weeks, price3weeks: o.price3weeks,
-    price1month: o.price1month, cleaningFee: o.cleaningFee,
+/**
+ * Los precios que una oferta le pone a un apartamento concreto, o null si esa
+ * oferta no va con él.
+ *
+ * Entiende los dos formatos: el de ahora —apartamentos marcados y un juego de
+ * precios por tipo— y el de antes, una oferta por tipo de apartamento con los
+ * precios sueltos. Las ofertas viejas no se migran al vuelo: se leen tal cual.
+ */
+export function tarifaDeOferta(o: OfferPrice, apartmentId: string): OfferTarifa | null {
+  const tipo = getApartmentType(apartmentId)
+  if (o.apartments) {
+    if (!o.apartments.includes(apartmentId)) return null
+    return o.byType?.[tipo] ?? null
   }
+  // Formato antiguo: valía para todos los apartamentos de su tipo.
+  if (o.apartmentType !== tipo) return null
+  return {
+    price1week: o.price1week ?? 0, price2weeks: o.price2weeks ?? 0,
+    price3weeks: o.price3weeks ?? 0, price1month: o.price1month ?? 0,
+    cleaningFee: o.cleaningFee ?? 0,
+  }
+}
+
+/** Una oferta vista como tarifa, para que el resto del código no note nada. */
+function comoTarifa(
+  o: OfferPrice, t: OfferTarifa, season: Season, year: number, apartmentType: ApartmentType,
+): PriceEntry {
+  return { id: o.id, year, season, apartmentType, ...t }
 }
 
 export const TRAMO_LABEL: Record<Tramo, string> = {

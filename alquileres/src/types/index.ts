@@ -116,19 +116,35 @@ export interface Expense {
   createdAt: string
 }
 
+/** Los cuatro precios y la limpieza de un tipo de apartamento. */
+export interface OfferTarifa {
+  price1week: number
+  price2weeks: number
+  price3weeks: number
+  price1month: number
+  cleaningFee: number
+}
+
 /**
  * Tarifa de oferta: la que se aplica en un mes concreto en lugar de la general.
  *
  * Nace de algo muy real: en octubre de 2026 el propietario ofreció por Airbnb
  * el precio del año anterior. Eso no es la tarifa general del año —no se puede
  * tocar, rige para todo lo demás— pero tampoco es un precio pactado a mano con
- * un inquilino: es una oferta para un mes entero y un tipo de apartamento.
+ * un inquilino: es una oferta para un mes entero y unos apartamentos.
  *
  * `year` y `month` son **cuándo se aplica**, no de dónde salieron los precios.
  * De dónde salieron se guarda aparte, en `sourceYear`, y es solo memoria: sirve
  * para saber, dentro de dos años, que aquella oferta de octubre era «el precio
  * de 2025». Antes los dos sentidos compartían el mismo campo y las primeras
  * tarifas se guardaron con el año de origen, no con el de aplicación.
+ *
+ * Una oferta cubre **los apartamentos que se marquen** (`apartments`) y guarda
+ * un juego de precios por cada tipo que haya entre ellos (`byType`), porque un
+ * ático no vale lo mismo que un estudio. Antes era una oferta por tipo: la
+ * misma oferta de octubre eran cuatro fichas idénticas salvo el precio, y había
+ * que crearlas y mantenerlas una por una. Las de entonces siguen leyéndose
+ * (`apartmentType` y los precios sueltos, ver `tarifaDeOferta`).
  */
 export interface OfferPrice {
   id: string
@@ -136,16 +152,24 @@ export interface OfferPrice {
   year: number
   /** Mes en el que se aplica, 1-12. */
   month: number
-  apartmentType: ApartmentType
-  price1week: number
-  price2weeks: number
-  price3weeks: number
-  price1month: number
-  cleaningFee: number
   label: string
+  /** Apartamentos a los que se aplica, por id. */
+  apartments?: string[]
+  /** Los precios de cada tipo de apartamento de los marcados. */
+  byType?: Partial<Record<ApartmentType, OfferTarifa>>
   /** Año de la tarifa general de la que se copiaron los precios. Informativo. */
   sourceYear?: number
+
+  // ── Ofertas de antes de octubre de 2026: una por tipo ──────────────────────
+  /** @deprecated Usar `apartments` + `byType`. */
+  apartmentType?: ApartmentType
+  /** @deprecated */ price1week?: number
+  /** @deprecated */ price2weeks?: number
+  /** @deprecated */ price3weeks?: number
+  /** @deprecated */ price1month?: number
+  /** @deprecated */ cleaningFee?: number
 }
+
 
 export interface Repair {
   id: string
