@@ -15,7 +15,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-14-1"></script>
+<script src="control-pedidos-logica.js?v=2026-10-14-2"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -571,7 +571,8 @@ function vistaGrupo(g, i) {
     const { sobran } = CP.faltasYSobras(filas);
     const faltan = CP.faltasPendientes(filas, p.decisiones);
     const aReclamar = faltan.filter((x) => x.pendiente === 'reclamar');
-    if (aReclamar.length) reclamar.push({ numero: p.numero, cliente: esRepo(p) ? 'Reposición' : p.cliente, faltan: aReclamar });
+    const sobranReclamar = sobran.filter((x) => (p.decisiones[x.ref] || {}).accion === 'reclamar');
+    if (aReclamar.length || sobranReclamar.length) reclamar.push({ numero: p.numero, cliente: esRepo(p) ? 'Reposición' : p.cliente, faltan: aReclamar, sobran: sobranReclamar });
     faltan.forEach((x) => filasRes.push({ p, x, tipo: 'falta' }));
     sobran.forEach((x) => filasRes.push({ p, x, tipo: 'sobra' }));
   }
@@ -1264,7 +1265,8 @@ function bloqueFaltasSobras(p, filas) {
     return `<li${fuera ? ' class="descartada"' : ''}><b>${h(x.ref)}</b> ${h(x.desc)} — ${signo}${x.cant}${x.total ? '' : ` de ${x.de}`} ud.${x.total ? '' : ' (parcial)'}${x.sustitucion ? ` <span class="pequeno">¿sustitución ${h(x.sustitucion)}?</span>` : ''}${acc ? ` <span class="pequeno">· ${h(decidido[acc] || acc)}</span>` : ''}</li>`;
   };
   // Lo ya decidido sale de la lista (queda plegado aparte, por si hay que revisarlo).
-  const sobraDecidida = (x) => Boolean((p.decisiones[x.ref] || {}).accion);
+  // Una sobra reclamada sigue a la vista (como las faltas reclamadas) hasta que el proveedor conteste.
+  const sobraDecidida = (x) => { const a = (p.decisiones[x.ref] || {}).accion; return Boolean(a) && a !== 'reclamar'; };
   const faltanVer = faltan.filter((x) => pend.has(x.ref));
   const faltanYa = faltan.filter((x) => !pend.has(x.ref));
   const sobranVer = sobran.filter((x) => !sobraDecidida(x));
