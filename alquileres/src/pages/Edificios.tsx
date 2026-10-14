@@ -335,17 +335,49 @@ function Furgoneta({ x, y, salidas, onClick }: {
     <g transform={`translate(${x},${y})`} onClick={onClick} style={{ cursor: 'pointer' }}>
      <g className="furgo">
       <title>La limpieza · pincha para ver qué toca</title>
-      <rect x="0" y="-34" width="86" height="34" rx="5" fill="#f59e0b" />
-      <rect x="54" y="-30" width="30" height="16" rx="3" fill="#bae6fd" />
-      <rect x="6" y="-26" width="40" height="16" rx="2" fill="#fff" opacity="0.65" />
-      <text x="26" y="-14" textAnchor="middle" fontSize="9" fontWeight="700" fill="#b45309">LIMPIEZA</text>
-      <circle cx="20" cy="2" r="7" fill="#1e293b" /><circle cx="20" cy="2" r="3" fill="#94a3b8" />
-      <circle cx="68" cy="2" r="7" fill="#1e293b" /><circle cx="68" cy="2" r="3" fill="#94a3b8" />
-      {/* Cuántas salidas hay ese día, en la chapa de siempre */}
+      {/* Sombra en el asfalto */}
+      <ellipse cx="72" cy="4" rx="76" ry="7" fill="#0f172a" opacity="0.2" />
+
+      {/* Carrocería: morro bajo delante, caja alta detrás */}
+      <path d="M4 -30 q 0 -14 14 -18 l 26 -16 q 6 -4 14 -4 h 58 q 14 0 14 14 v 44 q 0 6 -6 6 h -114 q -6 0 -6 -6 z"
+        fill="#f59e0b" />
+      <path d="M118 -68 h 12 q 14 0 14 14 v 44 q 0 6 -6 6 h -20 z" fill="#d97706" />
+      {/* Franja lateral */}
+      <rect x="18" y="-26" width="96" height="9" rx="4" fill="#fff" opacity="0.6" />
+
+      {/* Cabina: parabrisas y ventanilla */}
+      <path d="M22 -48 l 22 -14 q 4 -3 9 -3 h 9 v 17 z" fill="#bae6fd" />
+      <rect x="66" y="-65" width="30" height="17" rx="2" fill="#bae6fd" />
+      <rect x="62" y="-65" width="3" height="17" fill="#d97706" />
+      {/* Retrovisor y manilla */}
+      <path d="M20 -50 l -8 -3" stroke="#334155" strokeWidth="3" strokeLinecap="round" />
+      <rect x="74" y="-44" width="10" height="3" rx="1.5" fill="#92400e" opacity="0.6" />
+      {/* Faro y pilotos */}
+      <rect x="4" y="-30" width="9" height="8" rx="3" fill="#fef9c3" />
+      <rect x="138" y="-30" width="6" height="8" rx="2" fill="#dc2626" />
+
+      {/* El rótulo */}
+      <rect x="86" y="-44" width="54" height="20" rx="3" fill="#fff" opacity="0.92" />
+      <text x="113" y="-30" textAnchor="middle" fontSize="11" fontWeight="800"
+        fill="#b45309" letterSpacing="0.5">LIMPIEZA</text>
+
+      {/* Ruedas con su paso y su tapacubos */}
+      <g>
+        <path d="M22 -2 a 16 16 0 0 1 32 0 z" fill="#1e293b" opacity="0.25" />
+        <circle cx="38" cy="-2" r="13" fill="#1e293b" />
+        <circle cx="38" cy="-2" r="6" fill="#cbd5e1" />
+        <circle cx="38" cy="-2" r="2" fill="#64748b" />
+        <path d="M100 -2 a 16 16 0 0 1 32 0 z" fill="#1e293b" opacity="0.25" />
+        <circle cx="116" cy="-2" r="13" fill="#1e293b" />
+        <circle cx="116" cy="-2" r="6" fill="#cbd5e1" />
+        <circle cx="116" cy="-2" r="2" fill="#64748b" />
+      </g>
+
+      {/* Cuántas salidas hay ese día */}
       {salidas > 0 && (
-        <g transform="translate(86,-34)">
-          <circle r="11" fill="#dc2626" /><circle r="11" fill="none" stroke="#fff" strokeWidth="2" />
-          <text y="4" textAnchor="middle" fontSize="12" fontWeight="700" fill="#fff">{salidas}</text>
+        <g transform="translate(146,-72)">
+          <circle r="13" fill="#dc2626" /><circle r="13" fill="none" stroke="#fff" strokeWidth="2.5" />
+          <text y="5" textAnchor="middle" fontSize="14" fontWeight="700" fill="#fff">{salidas}</text>
         </g>
       )}
      </g>
@@ -582,7 +614,7 @@ export default function Edificios() {
 
           {/* La furgoneta está siempre aparcada; la chapa roja dice cuántas
               salidas hay ese día, y al pincharla se abre lo que toca limpiar. */}
-          <Furgoneta x={596} y={676} salidas={salen} onClick={() => setLimpieza(true)} />
+          <Furgoneta x={560} y={664} salidas={salen} onClick={() => setLimpieza(true)} />
 
           {/* La calle, con lo que pasa por ella */}
           <Gato y={590} />
@@ -612,7 +644,8 @@ export default function Edificios() {
       </div>
 
       {abierto && (
-        <FichaVentana estado={abierto} dia={dia} payments={payments} onClose={() => setAbierto(null)} />
+        <FichaVentana estado={abierto} dia={dia} payments={payments} reservations={reservations}
+          onClose={() => setAbierto(null)} />
       )}
 
       {limpieza && (
@@ -668,10 +701,17 @@ function Leyenda({ color, children }: { color: string; children: React.ReactNode
 }
 
 /** La ficha de la ventana que se ha pinchado: quién está y cómo va el cobro. */
-function FichaVentana({ estado, dia, payments, onClose }: {
-  estado: EstadoApto; dia: string; payments: Payment[]; onClose: () => void
+function FichaVentana({ estado, dia, payments, reservations, onClose }: {
+  estado: EstadoApto; dia: string; payments: Payment[]; reservations: Reservation[]; onClose: () => void
 }) {
   const { reserva, sale, apt } = estado
+  // Lo que viene después: con el piso vacío es justo lo que se pregunta.
+  const suyas = reservations
+    .filter(r => r.apartmentId === apt.id && r.status !== 'cancelada')
+    .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
+  const proxima = suyas.find(r => r.checkIn > dia)
+  const anterior = [...suyas].reverse().find(r => r.checkOut <= dia)
+  const dias = proxima ? getNights(dia, proxima.checkIn) : 0
   const r = reserva ?? sale
   const cobrado = r
     ? payments.filter(p => p.reservationId === r.id && p.received).reduce((s, p) => s + p.amount, 0)
@@ -682,7 +722,33 @@ function FichaVentana({ estado, dia, payments, onClose }: {
     <Modal title={apt.name} onClose={onClose}>
       <div className="space-y-3 text-sm">
         {!r ? (
-          <p className="text-slate-500">Libre el {formatDate(dia)}. No hay ninguna estancia ese día.</p>
+          <div className="space-y-2">
+            <p className="text-slate-500">Libre el {formatDate(dia)}.</p>
+            {proxima ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-green-900">
+                  <b>Próxima entrada: {formatDate(proxima.checkIn)}</b>
+                  {dias > 0 && <> · dentro de {dias} {dias === 1 ? 'día' : 'días'}</>}
+                </p>
+                <p className="text-xs text-green-800 mt-0.5">
+                  {proxima.guestName ? `${proxima.guestName} · ` : ''}
+                  hasta el {formatDate(proxima.checkOut)}
+                  {proxima.nights ? ` · ${proxima.nights} noches` : ''}
+                  {proxima.total ? ` · ${eur(proxima.total)}` : ''}
+                </p>
+              </div>
+            ) : (
+              <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                No hay ninguna reserva por delante. Está libre a partir de esa fecha.
+              </p>
+            )}
+            {anterior && (
+              <p className="text-xs text-slate-500">
+                La última estancia salió el {formatDate(anterior.checkOut)}
+                {anterior.guestName ? ` (${anterior.guestName})` : ''}.
+              </p>
+            )}
+          </div>
         ) : (
           <>
             <div className="flex flex-wrap gap-2">
