@@ -4452,6 +4452,19 @@ function guardarReciboManual(i){
   saveCajaBanco(); stampImport('cajaBancoRecibos',[p.clave]); renderCajaView();
 }
 function descartarReciboPendiente(i){ recibosPendientes.splice(i,1); renderCajaBancoLista(); }
+function corregirReciboBanco(i){
+  const r=cajaBancoRecibos[i]; if(!r) return;
+  const sg=conciliarRecibos().sugerencias.get(r); if(!sg) return;
+  r.importe=sg.importe; r.origen='manual'; saveCajaBanco(); renderCajaView();
+}
+function editarReciboBanco(i){
+  const r=cajaBancoRecibos[i]; if(!r) return;
+  const v=prompt('Importe correcto de este recibo (€):',String(r.importe).replace('.',','));
+  if(v===null) return;
+  const raw=String(v).replace(/[^\d.,]/g,''), n=/,\d{1,2}$/.test(raw)?parseNumES2(raw):parseFloat(raw);
+  if(!(n>0)){ showToast('Importe no válido','err'); return; }
+  r.importe=Math.round(n*100)/100; r.origen='manual'; saveCajaBanco(); renderCajaView();
+}
 function deleteReciboBanco(i){
   const r=cajaBancoRecibos[i]; if(!r) return;
   if(!confirm('¿Eliminar el recibo de '+fmt(r.importe)+' ('+r.filename+')?')) return;
@@ -4486,8 +4499,8 @@ function renderCajaBancoLista(){
       <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(r.importe||0)}</td>
       <td style="padding:6px 8px;font-size:11px;color:var(--texto2);">${r.filename||''}</td>
       <td style="padding:6px 8px;font-size:12px;">${orig[r.origen]||'—'}</td>
-      <td style="padding:6px 8px;font-size:12px;">${donde.has(r)?'✅ cierre del '+new Date(donde.get(r)+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short'}):'<span style="color:#c0392b;">sin cierre que coincida</span>'}</td>
-      <td style="padding:6px 8px;"><button onclick="deleteReciboBanco(${i})" style="background:none;border:none;color:var(--rojo,#E74C3C);cursor:pointer;font-size:12px;padding:2px 6px;">✕</button></td></tr>`).join('')}
+      <td style="padding:6px 8px;font-size:12px;">${donde.has(r)?'✅ cierre del '+new Date(donde.get(r)+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short'}):'<span style="color:#c0392b;">sin cierre que coincida</span>'+(conc.sugerencias.has(r)?`<br><span style="color:#B9770E;">¿Será <b>${fmt(conc.sugerencias.get(r).importe)}</b>? (cierre del ${new Date(conc.sugerencias.get(r).fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short'})}) <button onclick="corregirReciboBanco(${i})" style="border:1px solid var(--borde);border-radius:6px;background:#fff;cursor:pointer;font-size:11px;padding:1px 8px;">Corregir</button></span>`:'')}</td>
+      <td style="padding:6px 8px;white-space:nowrap;"><button title="Corregir el importe" onclick="editarReciboBanco(${i})" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px 6px;">✏️</button><button onclick="deleteReciboBanco(${i})" style="background:none;border:none;color:var(--rojo,#E74C3C);cursor:pointer;font-size:12px;padding:2px 6px;">✕</button></td></tr>`).join('')}
     </tbody></table></div></div>`:'';
 }
 
@@ -4529,7 +4542,18 @@ function conciliarRecibos(){
     });
     if(mejor){ mejor.l.recibo=r; mejor.l.cierreFecha=mejor.e.cierre.fecha; } else sinCierre.push(r);
   });
-  return {por,sinCierre,clave};
+  // Un recibo sin pareja al que solo le queda una línea libre del mismo banco y tipo: seguramente el importe se leyó o tecleó mal.
+  const sugerencias=new Map();
+  sinCierre.forEach(r=>{
+    const cat=r.tipo==='cheque'?'cheque':'efectivo', cands=[];
+    por.forEach(e=>{
+      if(!e.cierre.fecha) return;
+      const d=dias(r.fecha,e.cierre.fecha); if(d<0||d>7) return;
+      e.lineas.forEach(l=>{ if(!l.recibo&&l.cat===cat&&String(l.banco).toUpperCase().includes(String(r.banco||'#').toUpperCase())) cands.push({importe:l.importe,fecha:e.cierre.fecha}); });
+    });
+    if(cands.length===1) sugerencias.set(r,cands[0]);
+  });
+  return {por,sinCierre,clave,sugerencias};
 }
 function estadoBancoDeCierre(c,conc){
   conc=conc||conciliarRecibos();
