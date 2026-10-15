@@ -153,6 +153,10 @@ details.grupo>summary::before{content:"▸";color:var(--texto2)}
 details.grupo[open]>summary::before{content:"▾"}
 .pequeno{font-size:12px;color:var(--texto2)}
 .oculto{display:none!important}
+details.archivados{margin-top:14px;font-size:13px;color:var(--texto2)}
+details.archivados>summary{cursor:pointer}
+.fila-archivo{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:4px 0;border-bottom:1px solid var(--borde)}
+.fila-archivo .btn.peque{min-height:0;padding:2px 8px;font-size:12px;margin-left:auto}
 table.lista-pedidos .c-movil{display:none}
 .progreso{font-size:13px;color:var(--texto2);margin-top:6px}
 /* ── Móvil (Android) ──────────────────────────────────────────────────────
@@ -512,7 +516,9 @@ function bloqueResultadosCarga() {
 }
 // ── Vista: reposición (nuestros pedidos al proveedor) ────────────────────────
 function vistaReposicion() {
-  const grupos = agruparPedidos(E.pedidos.filter(esRepo));
+  const grupos = agruparPedidos(E.pedidos.filter((p) => esRepo(p) && !p.archivado));
+  const archivados = E.pedidos.filter((p) => esRepo(p) && p.archivado)
+    .sort((a, b) => String(b.archivado.fecha || '').localeCompare(String(a.archivado.fecha || '')));
   return `
   <div class="tarjeta no-imprimir">
     <h2>🔄 Nuevo pedido de reposición</h2>
@@ -526,8 +532,24 @@ function vistaReposicion() {
   <div class="tarjeta">
     <h2>Pedidos de reposición</h2>
     ${bloqueResultadosCarga()}
-    ${grupos.size ? [...grupos.values()].map(vistaGrupo).join('') : '<div class="vacio">Todavía no hay pedidos de reposición.</div>'}
+    ${grupos.size ? [...grupos.values()].map(vistaGrupo).join('') : `<div class="vacio">${archivados.length ? 'No hay pedidos de reposición abiertos.' : 'Todavía no hay pedidos de reposición.'}</div>`}
+    ${archivados.length ? `<details class="archivados no-imprimir">
+      <summary>📦 Archivados (${archivados.length})</summary>
+      ${archivados.map((p) => `<div class="fila-archivo">
+        <a href="#" onclick="abrirPedido('${p.id}');return false">${h(p.proveedor)}${p.numero ? ' nº ' + h(p.numero) : ''}</a>
+        <span class="pequeno">${h(fmtFecha(p.fecha))} · ${p.lineas.length} líneas${p.validado ? ' · validado' : ''}</span>
+        <button class="btn peque" onclick="archivarPedido('${p.id}', false)">Desarchivar</button></div>`).join('')}
+    </details>` : ''}
   </div>`;
+}
+/** Reposición: archivar saca el pedido de la lista (queda abajo, plegado, en «Archivados»). No borra nada. */
+function archivarPedido(id, si) {
+  const p = pedidoPorId(id);
+  if (!p) return;
+  if (si) p.archivado = { fecha: new Date().toISOString(), por: nube.usuario || '' };
+  else delete p.archivado;
+  if (si && pedidoAbierto === id) pedidoAbierto = null;
+  guardar(); pintar();
 }
 function vistaLista() {
   const ps = E.pedidos.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }));
@@ -611,7 +633,7 @@ function vistaGrupo(g, i) {
         <td class="c-d">${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
         <td class="c-d"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}${envioDe(p) ? ` <span class="chip info" title="Enviado a ${h(envioDe(p).para || '')}">📧 ${h(fmtFecha(String(envioDe(p).fecha).slice(0, 10)).slice(0, 5))}</span>` : ''}</td>
         <td class="c-movil">${filaMovil(p, e)}</td>
-        <td class="no-imprimir c-borrar"><button class="btn peque peligro" title="Borrar este pedido" onclick="event.stopPropagation(); borrarPedido('${p.id}')">🗑️</button></td>
+        <td class="no-imprimir c-borrar">${esRepo(p) ? `<button class="btn peque" title="Archivar este pedido (queda abajo, en Archivados)" onclick="event.stopPropagation(); archivarPedido('${p.id}', true)">📦</button> ` : ''}<button class="btn peque peligro" title="Borrar este pedido" onclick="event.stopPropagation(); borrarPedido('${p.id}')">🗑️</button></td>
       </tr>`; }).join('')}
     </table></div>
     <div class="fila no-imprimir" style="margin-top:10px">
@@ -1062,8 +1084,10 @@ function vistaDetalleRepo(p) {
       <label>Proveedor<input value="${h(p.proveedor)}" onchange="cambiaCampo('proveedor', this.value.trim().toUpperCase())"></label>
       <label>Nº <span class="pequeno">(opcional)</span><input value="${h(p.numero)}" style="width:100px" onchange="cambiaCampo('numero', this.value.trim())"></label>
       <label>Fecha<input type="date" value="${h(p.fecha)}" onchange="cambiaCampo('fecha', this.value)"></label>
+      ${p.archivado ? `<button class="btn peque" onclick="archivarPedido('${p.id}', false)">Desarchivar</button>` : `<button class="btn peque" onclick="archivarPedido('${p.id}', true)">📦 Archivar</button>`}
       <button class="btn peque peligro" onclick="borrarPedido()">Borrar pedido</button>
     </div>
+    ${p.archivado ? `<div class="aviso-caja info">📦 Archivado el ${h(fmtFecha(String(p.archivado.fecha).slice(0, 10)))}${p.archivado.por ? ' por ' + h(p.archivado.por) : ''}.</div>` : ''}
     ${p.notas ? `<div class="aviso-caja info">Notas: ${h(p.notas)}</div>` : ''}
     ${p.validado ? `<div class="aviso-caja ok">Validado el ${h(fmtFecha(p.final && p.final.fecha))}. Si cambias líneas o propuesta tendrás que volver a validar.</div>` : ''}
   </div>
