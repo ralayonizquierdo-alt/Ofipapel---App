@@ -639,12 +639,15 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               ondrop="cajaBancoDrop(event)">
               <div class="upload-icon">🏦</div>
               <div class="upload-title">Resguardos del Banco (PDF)</div>
-              <div class="upload-sub">Ingresos Santander / BBVA / CaixaBank · Admite varios</div>
+              <div class="upload-sub">Ingresos, talones y pagarés Santander / BBVA · PDF o escaneo · Admite varios</div>
               <div class="upload-status" id="cajaBancoStatus"></div>
             </div>
             <input type="file" id="cajaBancoInput" accept=".pdf,.Pdf" multiple style="display:none" onchange="importBancoPDF(this)">
           </div>
         </div>
+
+        <div id="cajaBancoPendientes"></div>
+        <div id="cajaBancoLista"></div>
 
         <div class="sec-title" style="margin-top:24px;">🗂️ Historial de Importaciones</div>
         <div class="card" style="padding:12px 16px;margin-bottom:16px;"><div id="importLogEntrada"></div></div>
@@ -2002,7 +2005,7 @@ function _completeLogin(u){
   initSupabase().then(() => { loadFromCloud(); loadAllSharedDatasets(); startSharedDatasetsPolling(); });
   document.getElementById('topbarDate').textContent = new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   document.getElementById('entradaFecha').value = new Date().toLocaleDateString('en-CA');
-  renderDashboard(); renderDeuda(); renderAlertas(); renderHistorico();
+  renderDashboard(); renderDeuda(); renderAlertas(); renderHistorico(); renderCajaBancoLista();
 }
 
 async function doLogin() {
@@ -2291,14 +2294,10 @@ function renderDashboard(){
   ${(() => {
     if(!cajaCierres.length) return '';
     const lc=cajaCierres[cajaCierres.length-1];
-    const bd=cajaBancoRecibos.filter(b=>b.fecha===lc.fecha);
-    const totalBEf=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
-    const diff=Math.abs((lc.efectivoBancoDeposit||0)-totalBEf);
-    const cuadra=bd.length>0&&diff<0.05;
-    const descuadre=bd.length>0&&diff>=0.05;
-    const ico=cuadra?'✅':descuadre?'❌':'⏳';
-    const tipo=cuadra?'ok':descuadre?'warn':'info';
-    const txt=cuadra?`Conciliado ✔ Efectivo depositado: ${fmt(lc.efectivoBancoDeposit||0)}`:descuadre?`DESCUADRE: sistema ${fmt(lc.efectivoBancoDeposit||0)} vs banco ${fmt(totalBEf)} · Dif: ${fmt(diff)}`:`Resguardos bancarios pendientes · Efectivo sistema: ${fmt(lc.efectivoBancoDeposit||0)}`;
+    const es=estadoBancoDeCierre(lc);
+    const ico=iconoBanco(es);
+    const tipo=es.estado==='ok'?'ok':es.estado==='parcial'?'warn':'info';
+    const txt=es.estado==='ok'?`Conciliado ✔ Efectivo depositado: ${fmt(es.bancoEf)}`:es.estado==='sin'?'Sin ingresos al banco en este cierre':es.estado==='parcial'?`Faltan recibos: ${textoFaltan(es)}`:`Resguardos bancarios pendientes · Efectivo sistema: ${fmt(es.sistemaEf)}`;
     return `<div class="alert-card ${tipo}" style="margin-bottom:20px;cursor:pointer;" onclick="showView('caja')"><div class="alert-ico">${ico}</div><div><div class="alert-ttl">💰 Control de Caja — ${new Date((lc.fecha||'')+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}</div><div class="alert-txt">${txt}</div></div></div>`;
   })()}
 
@@ -2885,7 +2884,8 @@ function renderDocStatusHtml(){
   let resguardoAlert='';
   if(cajaCierres.length){
     const lastC=cajaCierres[cajaCierres.length-1];
-    const tieneResguardos=cajaBancoRecibos.some(b=>b.fecha===lastC.fecha);
+    const _es=estadoBancoDeCierre(lastC);
+    const tieneResguardos=_es.estado==='ok'||_es.estado==='sin';
     if(!tieneResguardos){
       const fLabel=lastC.fecha?new Date(lastC.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'}):'—';
       resguardoAlert=`<div class="alert-card err" style="margin-bottom:12px;cursor:pointer;" onclick="showView('caja')">
@@ -2950,8 +2950,8 @@ function renderDocStatusHtml(){
 function alertaResguardosPendientes(){
   if(!cajaCierres.length) return '';
   const lastC=cajaCierres[cajaCierres.length-1];
-  const tieneResguardos=cajaBancoRecibos.some(b=>b.fecha===lastC.fecha);
-  if(tieneResguardos) return '';
+  const _es=estadoBancoDeCierre(lastC);
+  if(_es.estado==='ok'||_es.estado==='sin') return '';
   const fLabel=lastC.fecha?new Date(lastC.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'—';
   return `<div class="alert-card err" style="margin-bottom:20px;cursor:pointer;" onclick="showView('caja')">
     <div class="alert-ico">🏦</div>
@@ -4198,18 +4198,36 @@ function parseCierreCentralLines(lines){
 
 function parseBancoPDFLines(lines, filename){
   const r={fecha:null,tipo:'efectivo',importe:0,banco:'Santander',legible:false,filename};
-  for(const line of lines){
-    const em=line.match(/Ingreso en efectivo de\s+([\d.,]+)\s*€/i);
-    if(em){r.importe=parseNumES2(em[1]);r.tipo='efectivo';r.legible=true;}
-    if(/Entrega.*Negociaci[oó]n de documentos/i.test(line)) r.tipo='cheque';
-    if(/CHEQUES/i.test(line)) r.tipo='cheque';
-    const im=line.match(/importe[:\s]+([\d.,]+)\s*€/i);
-    if(im&&!r.importe){r.importe=parseNumES2(im[1]);if(r.importe) r.legible=true;}
-    const fd=parseFechaES2(line); if(fd&&!r.fecha) r.fecha=fd;
-    if(/Santander/i.test(line)) r.banco='Santander';
-    else if(/BBVA/i.test(line)) r.banco='BBVA';
-    else if(/CaixaBank|La Caixa/i.test(line)) r.banco='CaixaBank';
+  const MON=/(\d{1,3}(?:\.\d{3})*,\d{2})/;
+  const aNum=t=>{ t=String(t||'').replace(/[^\d.,]/g,''); if(/,\d{2}$/.test(t)) return parseNumES2(t)||0; const n=parseFloat(t); return isNaN(n)?0:n; };
+  const valida=f=>{ const m=String(f||'').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m&&+m[1]>=2020&&+m[1]<=2040&&+m[2]>=1&&+m[2]<=12&&+m[3]>=1&&+m[3]<=31?f:null; };
+  const fechaDe=l=>{
+    let m=String(l).match(/(\d{4})-(\d{2})-(\d{2})/); if(m) return valida(`${m[1]}-${m[2]}-${m[3]}`);
+    m=String(l).match(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/); if(m) return valida(`${m[3]}-${m[2]}-${m[1]}`);
+    m=String(l).match(/\b(\d{2})\/(\d{2})\/(\d{2})\b/); if(m) return valida(`20${m[3]}-${m[2]}-${m[1]}`);
+    return null;
+  };
+  const txt=lines.join('\n');
+  r.banco=/BBVA/i.test(txt)?'BBVA':/CaixaBank|La Caixa/i.test(txt)?'CaixaBank':'Santander';
+  if(/Negociaci[oó]n de documentos/i.test(txt)) r.tipo='cheque';
+  if(r.banco==='BBVA'&&r.tipo==='efectivo'){
+    const cuenta={};
+    lines.forEach((l,i)=>{ if(/importe\s*(total\s*)?eur/i.test(l)) for(let k=i;k<Math.min(lines.length,i+4);k++){ const mm=lines[k].match(MON); if(mm){ const v=aNum(mm[1]); cuenta[v]=(cuenta[v]||0)+1; break; } } });
+    const orden=Object.entries(cuenta).sort((a,b)=>b[1]-a[1]);
+    if(orden.length) r.importe=+orden[0][0];
   }
+  for(let i=0;i<lines.length&&!r.importe;i++){
+    const l=lines[i]; let m;
+    if((m=l.match(/Ingreso en efectivo de\s+([\d.,]+)/i))){ r.importe=aNum(m[1]); continue; }
+    if((m=l.match(/Importe en EUR:?\s*([\d.,]+)/i))){ r.importe=aNum(m[1]); continue; }
+    if(/Importe en EUR:?\s*$/i.test(l)&&lines[i+1]&&(m=lines[i+1].match(/^([\d.,]+)\s*€?\s*$/))){ r.importe=aNum(m[1]); continue; }
+    if(r.tipo==='cheque'&&(m=l.match(/Importe Total\D{0,40}?(\d{1,3}(?:\.\d{3})*,\d{2})\s*EUR/i))){ r.importe=aNum(m[1]); continue; }
+    if(/importe\s*(total\s*)?eur/i.test(l)){ for(let k=i;k<Math.min(lines.length,i+4);k++){ const mm=lines[k].match(MON); if(mm){ r.importe=aNum(mm[1]); break; } } continue; }
+    if((m=l.match(/importe[:\s]+([\d.,]+)\s*€/i))) r.importe=aNum(m[1]);
+  }
+  for(const l of lines){ const m=l.match(/Fecha[^\d]{0,20}(\d{4}-\d{2}-\d{2}|\d{2}[\/\-]\d{2}[\/\-]\d{4})/i); if(m){ const f=fechaDe(m[1]); if(f){ r.fecha=f; break; } } }
+  if(!r.fecha) for(const l of lines){ const f=fechaDe(l); if(f){ r.fecha=f; break; } }
+  r.legible=r.importe>0;
   return r;
 }
 
@@ -4328,38 +4346,149 @@ function importCierrePDF(input){
   if(input.value!==undefined) input.value='';
 }
 
-function importBancoPDF(input){
-  const files=Array.from(input.files||[]); if(!files.length) return;
-  let remaining=files.length; let importados=0; const noLeidos=[];
-  const st=document.getElementById('cajaBancoStatus');
-  if(st) st.textContent='Procesando...';
-  for(const f of files){
-    parsePDFTextCaja(f,(err,lines)=>{
-      remaining--;
-      let ok=false;
-      if(!err&&lines){
-        const data=parseBancoPDFLines(lines,f.name);
-        if(data.importe>0){
-          const idx=cajaBancoRecibos.findIndex(c=>c.filename===f.name);
-          if(idx>=0) cajaBancoRecibos[idx]=data; else cajaBancoRecibos.push(data);
-          importados++; ok=true;
-        }
-      }
-      if(!ok) noLeidos.push(f.name);
-      if(remaining===0){
-        cajaBancoRecibos.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
-        saveCajaBanco();
-        const tsB = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-        if(st) st.textContent=noLeidos.length
-          ? `⚠️ ${importados} de ${files.length} recibos leídos · NO se pudo leer el importe de: ${noLeidos.join(', ')} · ${tsB}`
-          : `✅ ${importados} recibos importados · ${tsB}`;
-        if(noLeidos.length) showToast(`⚠️ ${noLeidos.length} recibo(s) no se pudieron leer y NO se han guardado`,'err');
-        if(importados>0) stampImport('cajaBancoRecibos', files.map(f=>f.name));
-        renderCajaView();
-      }
-    });
+function _cargarScript(nombre,url){
+  return new Promise((ok,ko)=>{
+    if(window[nombre]) return ok();
+    const sc=document.createElement('script'); sc.src=url; sc.onload=()=>ok();
+    sc.onerror=()=>ko(new Error('No se pudo cargar '+url)); document.head.appendChild(sc);
+  });
+}
+let _ocrWorker=null;
+async function _ocrPagina(page){
+  await _cargarScript('Tesseract','https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+  if(!_ocrWorker) _ocrWorker=await Tesseract.createWorker('spa');
+  const vp=page.getViewport({scale:3});
+  const cv=document.createElement('canvas'); cv.width=Math.ceil(vp.width); cv.height=Math.ceil(vp.height);
+  await page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+  const {data}=await _ocrWorker.recognize(cv);
+  return data.text.split('\n').map(l=>l.replace(/\s+/g,' ').trim()).filter(Boolean);
+}
+// Devuelve una entrada por página: texto del PDF si lo tiene; si es un escaneo, lectura por imagen (OCR).
+async function leerPaginasRecibo(file,onMsg){
+  await _cargarScript('pdfjsLib','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+  const out=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const content=await page.getTextContent();
+    const rowMap={};
+    content.items.forEach(it=>{ const y=Math.round(it.transform[5]/2)*2; (rowMap[y]=rowMap[y]||[]).push({x:it.transform[4],str:it.str}); });
+    let lines=Object.keys(rowMap).sort((a,b)=>b-a).map(y=>rowMap[y].sort((a,b)=>a.x-b.x).map(i=>i.str).join(' ').replace(/\s+/g,' ').trim()).filter(Boolean);
+    let ocr=false;
+    if(lines.join('').replace(/\s/g,'').length<20){
+      if(onMsg) onMsg(`leyendo la imagen (página ${p}/${pdf.numPages}), puede tardar…`);
+      lines=await _ocrPagina(page); ocr=true;
+    }
+    out.push({pagina:p,total:pdf.numPages,lines,ocr});
   }
+  return out;
+}
+function pistaRecibo(nombre){
+  const n=String(nombre||''), hoy=new Date(); let fecha='';
+  const m=n.match(/(\d{2})-(\d{2})/);
+  if(m){ let y=hoy.getFullYear(); if(new Date(`${y}-${m[2]}-${m[1]}T12:00:00`)>hoy) y--; fecha=`${y}-${m[2]}-${m[1]}`; }
+  return {fecha,tipo:/TALON|PAGAR|CHEQUE/i.test(n)?'cheque':'efectivo',banco:/BBVA/i.test(n)?'BBVA':/CAIXA/i.test(n)?'CaixaBank':'Santander'};
+}
+let recibosPendientes=[];
+async function importBancoPDF(input){
+  const files=Array.from(input.files||[]); if(!files.length) return;
   if(input.value!==undefined) input.value='';
+  const st=document.getElementById('cajaBancoStatus');
+  let importados=0, porImagen=0; const noLeidos=[];
+  const aPendiente=(clave,extra)=>{ recibosPendientes=recibosPendientes.filter(p=>p.clave!==clave); recibosPendientes.push(Object.assign({clave,archivo:clave,fecha:'',tipo:'efectivo',banco:'Santander',importe:''},extra)); noLeidos.push(clave); };
+  for(let i=0;i<files.length;i++){
+    const f=files[i];
+    if(st) st.textContent=`Leyendo ${i+1}/${files.length}: ${f.name}…`;
+    let paginas=[];
+    try{ paginas=await leerPaginasRecibo(f,m=>{ if(st) st.textContent=`${i+1}/${files.length}: ${f.name} · ${m}`; }); }
+    catch(e){ console.warn('Recibo no legible',f.name,e); }
+    if(!paginas.length){ aPendiente(f.name,pistaRecibo(f.name)); continue; }
+    const h=pistaRecibo(f.name);
+    const res=paginas.map(p=>({p,data:parseBancoPDFLines(p.lines,f.name)}));
+    const buenas=res.filter(x=>x.data.importe>0&&x.data.fecha);
+    const guardar=(clave,data,ocr)=>{
+      data.filename=clave; data.origen=ocr?'ocr':'pdf';
+      const idx=cajaBancoRecibos.findIndex(c=>c.filename===clave);
+      if(idx>=0) cajaBancoRecibos[idx]=data; else cajaBancoRecibos.push(data);
+      recibosPendientes=recibosPendientes.filter(x=>x.clave!==clave);
+      importados++; if(ocr) porImagen++;
+    };
+    const pendientePagina=x=>aPendiente(paginas.length>1?`${f.name} · pág. ${x.p.pagina}`:f.name,{fecha:x.data.fecha||h.fecha,tipo:/Negociaci/i.test(x.p.lines.join(' '))?'cheque':h.tipo,banco:x.data.banco!=='Santander'?x.data.banco:h.banco,importe:x.data.importe||''});
+    const escaneosSinLeer=res.filter(x=>x.p.ocr&&!buenas.includes(x));
+    if(buenas.length){
+      // Una página sin importe de un PDF de texto es continuación (un correo impreso en varias hojas); un escaneo sin leer puede ser otro recibo.
+      const sufijo=buenas.length>1||escaneosSinLeer.length>0;
+      buenas.forEach(x=>guardar(sufijo?`${f.name} · pág. ${x.p.pagina}`:f.name,x.data,x.p.ocr));
+      escaneosSinLeer.forEach(pendientePagina);
+    } else {
+      const todo=parseBancoPDFLines(paginas.flatMap(p=>p.lines),f.name);
+      if(!paginas.some(p=>p.ocr)&&todo.importe>0&&todo.fecha) guardar(f.name,todo,false);
+      else if(paginas.every(p=>p.ocr)) res.forEach(pendientePagina);
+      else aPendiente(f.name,{fecha:todo.fecha||h.fecha,tipo:todo.tipo==='cheque'?'cheque':h.tipo,banco:todo.banco!=='Santander'?todo.banco:h.banco,importe:todo.importe||''});
+    }
+  }
+  cajaBancoRecibos.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  saveCajaBanco();
+  const tsB=new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  if(st) st.textContent=noLeidos.length
+    ? `⚠️ ${importados} recibos leídos · ${noLeidos.length} NO se han podido leer: rellénalos a mano en el cuadro de abajo · ${tsB}`
+    : `✅ ${importados} recibos importados${porImagen?` (${porImagen} leídos de imagen: revisa el importe en la lista)`:''} · ${tsB}`;
+  if(noLeidos.length) showToast(`⚠️ ${noLeidos.length} recibo(s) sin leer: rellénalos a mano`,'err');
+  if(importados>0) stampImport('cajaBancoRecibos', files.map(f=>f.name));
+  renderCajaView();
+}
+function guardarReciboManual(i){
+  const p=recibosPendientes[i]; if(!p) return;
+  const g=id=>document.getElementById(id+i);
+  const fecha=g('rp_f_').value, raw=String(g('rp_i_').value||'').replace(/[^\d.,]/g,'');
+  const importe=/,\d{1,2}$/.test(raw)?parseNumES2(raw):parseFloat(raw);
+  if(!fecha||!(importe>0)){ showToast('Falta la fecha o el importe','err'); return; }
+  const data={fecha,tipo:g('rp_t_').value,importe:Math.round(importe*100)/100,banco:g('rp_b_').value,legible:true,filename:p.clave,origen:'manual'};
+  const idx=cajaBancoRecibos.findIndex(c=>c.filename===p.clave);
+  if(idx>=0) cajaBancoRecibos[idx]=data; else cajaBancoRecibos.push(data);
+  recibosPendientes.splice(i,1);
+  cajaBancoRecibos.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  saveCajaBanco(); stampImport('cajaBancoRecibos',[p.clave]); renderCajaView();
+}
+function descartarReciboPendiente(i){ recibosPendientes.splice(i,1); renderCajaBancoLista(); }
+function deleteReciboBanco(i){
+  const r=cajaBancoRecibos[i]; if(!r) return;
+  if(!confirm('¿Eliminar el recibo de '+fmt(r.importe)+' ('+r.filename+')?')) return;
+  cajaBancoRecibos.splice(i,1); saveCajaBanco(); renderCajaView();
+}
+function renderCajaBancoLista(){
+  const pe=document.getElementById('cajaBancoPendientes'), li=document.getElementById('cajaBancoLista');
+  const inp='padding:5px 8px;border:1px solid var(--borde);border-radius:8px;font:inherit;';
+  if(pe) pe.innerHTML=recibosPendientes.length?`<div class="card" style="padding:14px 16px;margin:12px 0;border-left:4px solid #F5A623;">
+    <div style="font-weight:700;margin-bottom:8px;">✍️ Recibos que no se han podido leer (${recibosPendientes.length}) — rellena los datos mirando el documento</div>
+    ${recibosPendientes.map((p,i)=>`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--borde);">
+      <span style="font-size:12px;min-width:220px;flex:1;">📄 ${p.archivo}</span>
+      <input type="date" id="rp_f_${i}" value="${p.fecha||''}" style="${inp}">
+      <select id="rp_t_${i}" style="${inp}"><option value="efectivo"${p.tipo==='efectivo'?' selected':''}>Efectivo</option><option value="cheque"${p.tipo==='cheque'?' selected':''}>Cheques / pagarés</option></select>
+      <select id="rp_b_${i}" style="${inp}">${['Santander','BBVA','CaixaBank'].map(b=>`<option${p.banco===b?' selected':''}>${b}</option>`).join('')}</select>
+      <input type="text" inputmode="decimal" id="rp_i_${i}" value="${p.importe||''}" placeholder="Importe €" style="${inp}width:110px;">
+      <button onclick="guardarReciboManual(${i})" style="${inp}background:var(--verde,#1A5C1A);color:#fff;cursor:pointer;font-weight:600;">Guardar</button>
+      <button onclick="descartarReciboPendiente(${i})" style="${inp}background:#fff;color:var(--rojo,#E74C3C);cursor:pointer;">Descartar</button>
+    </div>`).join('')}</div>`:'';
+  if(!li) return;
+  const conc=conciliarRecibos(), donde=new Map();
+  conc.por.forEach(e=>e.lineas.forEach(l=>{ if(l.recibo) donde.set(l.recibo,l.cierreFecha); }));
+  const orig={pdf:'PDF',ocr:'<span title="Leído de una imagen: comprueba que el importe es correcto" style="color:#B9770E;font-weight:700;">⚠ imagen</span>',manual:'a mano'};
+  const filas=cajaBancoRecibos.map((r,i)=>({r,i})).sort((a,b)=>(b.r.fecha||'').localeCompare(a.r.fecha||''));
+  li.innerHTML=filas.length?`<div class="sec-title" style="margin-top:20px;">🏦 Recibos del banco guardados (${filas.length})</div>
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;"><div style="overflow-x:auto;"><table class="tabla">
+    <thead><tr><th>Fecha</th><th>Banco</th><th>Tipo</th><th style="text-align:right;">Importe</th><th>Archivo</th><th>Lectura</th><th>Cierre</th><th></th></tr></thead><tbody>
+    ${filas.map(({r,i})=>`<tr>
+      <td style="padding:6px 8px;">${r.fecha?new Date(r.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td>
+      <td style="padding:6px 8px;">${r.banco||'—'}</td>
+      <td style="padding:6px 8px;">${r.tipo==='cheque'?'Cheques / pagarés':'Efectivo'}</td>
+      <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(r.importe||0)}</td>
+      <td style="padding:6px 8px;font-size:11px;color:var(--texto2);">${r.filename||''}</td>
+      <td style="padding:6px 8px;font-size:12px;">${orig[r.origen]||'—'}</td>
+      <td style="padding:6px 8px;font-size:12px;">${donde.has(r)?'✅ cierre del '+new Date(donde.get(r)+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short'}):'<span style="color:#c0392b;">sin cierre que coincida</span>'}</td>
+      <td style="padding:6px 8px;"><button onclick="deleteReciboBanco(${i})" style="background:none;border:none;color:var(--rojo,#E74C3C);cursor:pointer;font-size:12px;padding:2px 6px;">✕</button></td></tr>`).join('')}
+    </tbody></table></div></div>`:'';
 }
 
 function _esDomingo(f){ return !!f && new Date(f+'T12:00:00').getDay()===0; }
@@ -4377,9 +4506,48 @@ function _activeCierre(){
   return cajaCierres[cajaCierres.length-1];
 }
 
+// ── Recibos del banco ↔ cierres: se cruzan por IMPORTE, no por fecha ──
+// El ingreso se hace uno o dos días antes de que llegue el PDF del cierre, así que la fecha del
+// recibo y la del cierre no coinciden. Cada recibo se asigna a la línea «Ingresos Banco…» del
+// cierre que tenga su mismo importe (de 0 a 7 días después del recibo); cada línea se usa una vez.
+function _catPago(banco){ return /Talon|Cheque|Pagar/i.test(banco||'')?'cheque':/Tarjetas/i.test(banco||'')?'tarjeta':'efectivo'; }
+function conciliarRecibos(){
+  const dias=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000);
+  const clave=c=>(c.fecha||'')+'|'+(c.filename||'');
+  const por=new Map();
+  cajaCierres.forEach(c=>por.set(clave(c),{cierre:c,lineas:(c.bancoPagos||[]).filter(p=>_catPago(p.banco)!=='tarjeta').map(p=>({banco:p.banco,numPago:p.numPago,importe:p.importe,cat:_catPago(p.banco),recibo:null}))}));
+  const sinCierre=[];
+  [...cajaBancoRecibos].filter(r=>r&&r.importe>0&&r.fecha).sort((a,b)=>a.fecha.localeCompare(b.fecha)).forEach(r=>{
+    const cat=r.tipo==='cheque'?'cheque':'efectivo';
+    let mejor=null;
+    por.forEach(e=>{
+      if(!e.cierre.fecha) return;
+      const d=dias(r.fecha,e.cierre.fecha);
+      if(d<0||d>7) return;
+      const l=e.lineas.find(x=>!x.recibo&&x.cat===cat&&Math.abs(x.importe-r.importe)<0.005);
+      if(l&&(!mejor||d<mejor.d)) mejor={d,l,e};
+    });
+    if(mejor){ mejor.l.recibo=r; mejor.l.cierreFecha=mejor.e.cierre.fecha; } else sinCierre.push(r);
+  });
+  return {por,sinCierre,clave};
+}
+function estadoBancoDeCierre(c,conc){
+  conc=conc||conciliarRecibos();
+  const e=conc.por.get(conc.clave(c))||{lineas:[]};
+  const L=e.lineas, ef=L.filter(x=>x.cat==='efectivo');
+  const hechas=L.filter(x=>x.recibo), faltan=L.filter(x=>!x.recibo);
+  return {lineas:L,faltan,
+    bancoEf:ef.filter(x=>x.recibo).reduce((s,x)=>s+x.importe,0),
+    sistemaEf:ef.reduce((s,x)=>s+x.importe,0),
+    estado:!L.length?'sin':faltan.length===0?'ok':hechas.length?'parcial':'pendiente'};
+}
+function iconoBanco(es){ return {ok:'✅',parcial:'🟡',pendiente:'⏳',sin:'➖'}[es.estado]; }
+function textoFaltan(es){ return es.faltan.map(x=>x.banco+' '+fmt(x.importe)).join(' · '); }
+
 function renderCajaView(){
   renderCajaConciliacion();
   renderCajaHistorico();
+  renderCajaBancoLista();
 }
 
 function renderCajaConciliacion(){
@@ -4436,21 +4604,14 @@ function renderCajaConciliacion(){
     return;
   }
   const last=_ac;
-  const bd=cajaBancoRecibos.filter(b=>b.fecha===last.fecha);
-  const totalBEf=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
-  const diff=Math.abs((last.efectivoBancoDeposit||0)-totalBEf);
-  const cuadra=bd.length>0&&diff<0.05;
-  const descuadre=bd.length>0&&diff>=0.05;
-  const pendiente=bd.length===0;
+  const conc=conciliarRecibos();
+  const es=estadoBancoDeCierre(last,conc);
   const fechaLabel=last.fecha?new Date(last.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'}):'—';
-
-  if(descuadre){
-    alertEl.innerHTML=`<div style="background:#c0392b;color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">⚠️</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">DESCUADRE DETECTADO — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Sistema: <strong>${fmt(last.efectivoBancoDeposit||0)}</strong> · Banco: <strong>${fmt(totalBEf)}</strong> · Diferencia: <strong>${fmt(diff)}</strong></div></div></div>`;
-  } else if(cuadra){
-    alertEl.innerHTML=`<div style="background:#27AE60;color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">✅</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">CAJA CUADRADA — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Efectivo depositado: <strong>${fmt(last.efectivoBancoDeposit||0)}</strong></div></div></div>`;
-  } else {
-    alertEl.innerHTML=`<div style="background:var(--naranja,#F5A623);color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">⏳</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">PENDIENTE — ${fechaLabel}</div><div style="font-size:13px;opacity:0.9;">Cierre cargado. Añade los resguardos bancarios para completar la conciliación.</div></div></div>`;
-  }
+  const _banner=(bg,ico,tit,txt)=>`<div style="background:${bg};color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">${ico}</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">${tit}</div><div style="font-size:13px;opacity:0.9;">${txt}</div></div></div>`;
+  if(es.estado==='ok') alertEl.innerHTML=_banner('#27AE60','✅',`CAJA CUADRADA — ${fechaLabel}`,`Los ${es.lineas.length} ingresos del cierre tienen su recibo del banco. Efectivo depositado: <strong>${fmt(es.bancoEf)}</strong>`);
+  else if(es.estado==='parcial') alertEl.innerHTML=_banner('#c0392b','⚠️',`FALTAN RECIBOS — ${fechaLabel}`,`Hay recibo de ${es.lineas.length-es.faltan.length} de ${es.lineas.length} ingresos. Faltan: <strong>${textoFaltan(es)}</strong>`);
+  else if(es.estado==='sin') alertEl.innerHTML=_banner('#7f8c8d','➖',`SIN INGRESOS AL BANCO — ${fechaLabel}`,'El cierre no trae ingresos de efectivo ni cheques que justificar.');
+  else alertEl.innerHTML=_banner('var(--naranja,#F5A623)','⏳',`PENDIENTE — ${fechaLabel}`,`Cierre cargado. Faltan los recibos de: <strong>${textoFaltan(es)}</strong>`);
 
   const storeRows=(()=>{
     if(!last.stores||!last.stores.length) return '';
@@ -4475,20 +4636,18 @@ function renderCajaConciliacion(){
       <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">💵</div><div class="kpi-lbl">Efectivo Tiendas</div><div class="kpi-val" style="font-size:18px;">${fmt(last.efectivoTotal||0)}</div><div class="kpi-sub">del sistema</div></div>
       <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">💳</div><div class="kpi-lbl">Tarjetas Tiendas</div><div class="kpi-val" style="font-size:18px;">${fmt(last.tarjetasTotal||0)}</div><div class="kpi-sub">del sistema</div></div>
       <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">🏦</div><div class="kpi-lbl">Ingreso según sistema</div><div class="kpi-val" style="font-size:18px;">${fmt(last.efectivoBancoDeposit||0)}</div><div class="kpi-sub">estimado del PDF · sin confirmar con el banco</div></div>
-      ${bd.length?`<div class="kpi" style="background:${cuadra?'#e8f5e9':'#fdecea'};"><div class="kpi-ico">${cuadra?'✅':'❌'}</div><div class="kpi-lbl">Banco (resguardos)</div><div class="kpi-val" style="font-size:18px;">${fmt(totalBEf)}</div><div class="kpi-sub">confirmado</div></div>`:''}
+      <div class="kpi" style="background:${es.estado==='ok'?'#e8f5e9':'#fff8e1'};"><div class="kpi-ico">${iconoBanco(es)}</div><div class="kpi-lbl">Banco (resguardos)</div><div class="kpi-val" style="font-size:18px;">${fmt(es.bancoEf)}</div><div class="kpi-sub">efectivo confirmado con recibos</div></div>
     </div>
     <table class="tabla" style="margin-bottom:0;">
-      <thead><tr><th>Concepto</th><th style="text-align:right;">Sistema</th><th style="text-align:right;">Banco</th><th style="text-align:right;">Diferencia</th><th style="text-align:center;">Estado</th></tr></thead>
+      <thead><tr><th>Ingreso que dice el sistema</th><th>Nº pago</th><th style="text-align:right;">Importe</th><th>Recibo del banco</th><th style="text-align:center;">Estado</th></tr></thead>
       <tbody>
-        <tr>
-          <td style="font-weight:600;">Efectivo depositado en banco</td>
-          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(last.efectivoBancoDeposit||0)}</td>
-          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${bd.length?fmt(totalBEf):'—'}</td>
-          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;color:${diff>0.05&&bd.length?'#c0392b':'inherit'};">${bd.length?fmt(diff):'—'}</td>
-          <td style="text-align:center;">${bd.length?(diff<0.05?'✅':'❌'):'⏳'}</td>
-        </tr>
-        ${last.bancoPagos&&last.bancoPagos.length?`<tr style="background:var(--fondo,#f8f9fa);"><td colspan="5" style="font-size:11px;color:var(--texto2);padding:8px 12px;"><strong>Detalle pagos sistema:</strong> ${last.bancoPagos.map(p=>`${p.banco} ${fmt(p.importe)} (${p.numPago||'—'})`).join(' · ')}</td></tr>`:''}
-        ${bd.length?`<tr style="background:var(--fondo,#f8f9fa);"><td colspan="5" style="font-size:11px;color:var(--texto2);padding:8px 12px;"><strong>Resguardos bancarios:</strong> ${bd.map(b=>`${b.banco} ${fmt(b.importe)} [${b.tipo}] ${b.filename}`).join(' · ')}</td></tr>`:''}
+        ${es.lineas.length?es.lineas.map(x=>`<tr>
+          <td style="font-weight:600;">${x.banco}</td>
+          <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;">${x.numPago||'—'}</td>
+          <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(x.importe)}</td>
+          <td style="font-size:11px;">${x.recibo?`${x.recibo.filename} <span style="color:var(--texto2);">(${x.recibo.fecha?new Date(x.recibo.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short'}):'—'})</span>`:'<span style="color:#c0392b;font-weight:600;">falta el recibo</span>'}</td>
+          <td style="text-align:center;">${x.recibo?'✅':'⏳'}</td></tr>`).join(''):'<tr><td colspan="5" style="color:var(--texto2);padding:10px 12px;">El cierre no trae ingresos al banco.</td></tr>'}
+        ${es.lineas.length?`<tr style="background:var(--fondo,#f8f9fa);font-weight:700;"><td colspan="2">Efectivo</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(es.sistemaEf)}</td><td style="font-size:11px;">con recibo: ${fmt(es.bancoEf)}</td><td></td></tr>`:''}
       </tbody>
     </table>
   </div>
@@ -4524,14 +4683,14 @@ function renderCajaHistorico(){
     return;
   }
 
+  const _conc=conciliarRecibos();
   el.innerHTML=`<div style="overflow-x:auto;"><table class="tabla">
     <thead><tr><th>Fecha</th><th>Archivo</th><th style="text-align:right;">Efectivo</th><th style="text-align:right;">Tarjetas</th><th style="text-align:right;">→Banco</th><th style="text-align:center;">Estado</th><th></th></tr></thead>
     <tbody>
     ${sorted.map(c=>{
-      const bd=cajaBancoRecibos.filter(b=>b.fecha===c.fecha);
-      const tbef=bd.filter(b=>b.tipo==='efectivo').reduce((s,x)=>s+x.importe,0);
-      const diff=Math.abs((c.efectivoBancoDeposit||0)-tbef);
-      const ico=bd.length===0?'⏳':diff<0.05?'✅':'❌';
+      const es=estadoBancoDeCierre(c,_conc);
+      const tbef=es.bancoEf;
+      const ico=`<span title="${es.estado==='sin'?'El cierre no trae ingresos al banco':es.faltan.length?'Faltan recibos: '+textoFaltan(es):'Todos los ingresos tienen su recibo'}">${iconoBanco(es)}</span>`;
       const cKey=(c.fecha||'')+'|'+(c.filename||'');
       const acKey=_selectedCierreKey||((cajaCierres.length?(cajaCierres[cajaCierres.length-1].fecha||'')+'|'+(cajaCierres[cajaCierres.length-1].filename||''):null));
       const isSel=cKey===acKey;
