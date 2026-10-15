@@ -15,7 +15,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-14-2"></script>
+<script src="control-pedidos-logica.js?v=2026-10-15-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -640,7 +640,7 @@ function vistaGrupo(g, i) {
     </table></div>
     <div class="fila no-imprimir" style="margin-top:6px"><button class="btn peque" onclick="imprimirResumen(${i}, ${js(g.nombre)})">Imprimir faltas y sobras</button></div>`
     : `<div class="aviso-caja ok">En los pedidos comparados no falta ni sobra ninguna referencia.</div>`}
-    ${reclamar.length ? vistaReclamacion(g.clave, i, reclamar)
+    ${reclamar.length ? vistaReclamacion(g.clave, i, reclamar, { proveedor: ej.proveedor, asunto: `Reclamación ${esRepo(ej) ? 'pedidos de reposición' : 'campaña ' + (ej.campana || '')} · Ofipapel` })
       : nF ? `<div class="pequeno no-imprimir" style="margin-top:8px">Para reclamar una falta al proveedor, abre el pedido y elige «✉️ Reclamar al proveedor» en su decisión. Si luego el proveedor la añade, carga su propuesta nueva y vuelve a validar; si está descatalogada, cambia la decisión a «Descartar».</div>` : ''}` : ''}
   </details>`;
 }
@@ -709,18 +709,38 @@ function imprimirResumen(i, nombre) {
 }
 /** Reclamación de faltas al proveedor, separada por cliente. De momento no se
  *  envía desde aquí: se copia o se imprime/guarda en PDF y se manda a mano. */
-function vistaReclamacion(clave, i, grupos) {
-  const n = grupos.reduce((s, g) => s + g.faltan.length, 0);
+function vistaReclamacion(clave, i, grupos, o) {
+  const op = o || {};
+  const n = grupos.reduce((s, g) => s + (g.faltan || []).length + (g.sobran || []).length, 0);
   return `
-    <details class="no-imprimir" style="margin-top:12px">
-      <summary><b>✉️ Reclamar las faltas al proveedor</b> · ${n} referencia(s) de ${grupos.length} pedido(s), separadas por cliente</summary>
-      <p class="pequeno">Revisa el texto, cópialo y pégalo en el correo al proveedor (o imprímelo / guárdalo en PDF y adjúntalo).</p>
-      <textarea id="txtReclamacion${i}" rows="14" style="width:100%;font-family:ui-monospace,monospace;font-size:13px" oninput="reclamaciones[${js(clave)}]=this.value">${h(reclamaciones[clave])}</textarea>
+    <details class="no-imprimir reclamacion" style="margin-top:12px" ${op.abierto ? 'open' : ''}>
+      <summary><b>✉️ Reclamar al proveedor</b> · ${n} referencia(s)${grupos.length > 1 ? ` de ${grupos.length} pedidos, separadas por cliente` : ''}</summary>
+      <p class="pequeno">Lo que has marcado «✉️ Reclamar al proveedor» (faltas y lo que viene de más). Revisa el texto y mándalo por correo, o cópialo / imprímelo.</p>
+      <textarea id="txtReclamacion${i}" rows="12" style="width:100%;font-family:ui-monospace,monospace;font-size:13px" oninput="reclamaciones[${js(clave)}]=this.value">${h(reclamaciones[clave])}</textarea>
       <div class="fila" style="margin-top:6px">
-        <button class="btn primario" onclick="copiarReclamacion(${js(clave)}, ${i})">Copiar texto</button>
+        ${op.proveedor != null ? `<button class="btn primario" onclick="correoReclamacion(${js(clave)}, ${js(op.proveedor)}, ${js(op.asunto || '')})">📧 Enviar por correo</button>` : ''}
+        <button class="btn ${op.proveedor != null ? '' : 'primario'}" onclick="copiarReclamacion(${js(clave)}, ${js(i)})">Copiar texto</button>
         <button class="btn" onclick="imprimirReclamacion(${js(clave)})">Imprimir / PDF</button>
       </div>
     </details>`;
+}
+/** Abre el programa de correo del usuario con la reclamación ya escrita (al
+ *  último correo usado para ese proveedor, si lo hay). */
+function correoReclamacion(clave, proveedor, asunto) {
+  const para = correoProveedor(proveedor);
+  location.href = `mailto:${encodeURIComponent(para)}?subject=${encodeURIComponent(asunto || 'Reclamación de pedido')}&body=${encodeURIComponent(reclamaciones[clave] || '')}`;
+}
+/** Reclamación de UN pedido (dentro del pedido): sus faltas y sobras marcadas «Reclamar». */
+function bloqueReclamacionPedido(p, filas) {
+  const acc = (ref) => (p.decisiones[ref] || {}).accion;
+  const faltan = CP.faltasPendientes(filas, p.decisiones).filter((x) => x.pendiente === 'reclamar');
+  const sobran = CP.faltasYSobras(filas).sobran.filter((x) => acc(x.ref) === 'reclamar');
+  if (!faltan.length && !sobran.length) return '';
+  const clave = 'P|' + p.id;
+  const grupos = [{ numero: p.numero || '—', cliente: esRepo(p) ? 'Reposición' : p.cliente, faltan, sobran }];
+  reclamaciones[clave] = CP.textoReclamacion(p.proveedor, grupos, { campana: esRepo(p) ? '' : p.campana });
+  const asunto = `Reclamación ${esRepo(p) ? 'pedido de reposición' : 'pedido'}${p.numero ? ' nº ' + p.numero : ''} · Ofipapel`;
+  return vistaReclamacion(clave, 'P', grupos, { abierto: true, proveedor: p.proveedor, asunto });
 }
 function copiarReclamacion(clave, i) {
   const t = reclamaciones[clave];
@@ -730,12 +750,12 @@ function copiarReclamacion(clave, i) {
   else copiarAntiguo();
 }
 function imprimirReclamacion(clave) {
-  const ej = E.pedidos.find((p) => claveGrupo(p) === clave);
-  const nombre = ej ? nombreGrupo(ej) : '';
+  const ej = E.pedidos.find((p) => claveGrupo(p) === clave || 'P|' + p.id === clave);
+  const nombre = ej ? nombreGrupo(ej) + (clave.startsWith('P|') && ej.numero ? ' · nº ' + ej.numero : '') : '';
   const w = window.open('', '_blank');
-  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Reclamación de faltas · ${h(nombre)}</title>
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Reclamación · ${h(nombre)}</title>
   <style>body{font-family:system-ui,sans-serif;margin:24px;font-size:14px}pre{white-space:pre-wrap;font-family:inherit}</style></head>
-  <body><h1 style="font-size:18px">Reclamación de faltas · ${h(nombre)} · ${h(fmtFecha(hoy()))}</h1><pre>${h(reclamaciones[clave])}</pre><script>window.onload=()=>window.print()<\/script></body></html>`);
+  <body><h1 style="font-size:18px">Reclamación al proveedor · ${h(nombre)} · ${h(fmtFecha(hoy()))}</h1><pre>${h(reclamaciones[clave])}</pre><script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
 }
 
@@ -1226,6 +1246,7 @@ function vistaComparacion(p, filas) {
   <div class="tarjeta">
     <h2>3 · Comparación y decisiones</h2>
     ${bloqueFaltasSobras(p, filas)}
+    ${bloqueReclamacionPedido(p, filas)}
     <h3 style="margin-top:16px">Todas las diferencias</h3>
     ${esRepo(p) ? '' : `<div class="pequeno" style="margin-bottom:6px">En un cambio de precio, tu decisión fija el <b>precio al cliente</b> (listado imprimible): «Mantener lo pedido» = el que apuntó el comercial. El Excel de Géminis lleva siempre el <b>coste que factura el proveedor</b>.</div>`}
     <div class="resumen">

@@ -285,7 +285,7 @@
     const hayFaltas = conFaltas.some((g) => g.faltan && g.faltan.length);
     const haySobras = conFaltas.some((g) => g.sobran && g.sobran.length);
     const uds = (n) => `${n} ud${n === 1 ? '' : 's'}.`;
-    const donde = o.campana ? 'la campaña ' + o.campana : 'los pedidos';
+    const donde = o.campana ? 'la campaña ' + o.campana : conFaltas.length === 1 ? 'nuestro pedido' : 'los pedidos';
     const out = [`Buenos días${proveedor ? ', ' + proveedor : ''}:`, ''];
     if (hayFaltas) {
       out.push(`En ${donde} faltan las siguientes referencias que no vienen en vuestra propuesta o factura.`,
@@ -295,7 +295,8 @@
       out.push(`${hayFaltas ? 'Además, en' : 'En'} ${donde} vienen referencias que no hemos pedido, o en más cantidad de la pedida (marcadas «de más»). Por favor, no las incluyáis o corregidlas.`);
     }
     for (const g of conFaltas) {
-      out.push('', `Pedido nº ${g.numero}${g.cliente ? ' · ' + g.cliente : ''}`);
+      const num = g.numero && g.numero !== '—' ? `Pedido nº ${g.numero}` : 'Pedido';
+      out.push('', `${num}${g.cliente ? ' · ' + g.cliente : ''}`);
       for (const x of g.faltan || []) {
         out.push(`  - ${x.ref}  ${x.desc || ''}  →  faltan ${uds(x.cant)}${x.total ? '' : ` (de ${x.de} pedidas)`}`.replace(/ {2,}→/, '  →'));
       }
