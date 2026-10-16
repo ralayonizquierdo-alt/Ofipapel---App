@@ -82,6 +82,7 @@ const {
   NO_SE_LA_RESPUESTA,
   isUnverifiedConfirmation,
   isUnverifiedStockClaim,
+  preciosSinRespaldo,
   PRODUCTO_NO_VERIFICADO_INFO,
   pedidosInfo,
   pedidoEstadoTrigger,
@@ -1050,7 +1051,19 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   let datosDeCatalogo = productContext;
   let impresorasVistas = impresoras;
 
-  if (!datosDeCatalogo && !consultado && (isUnverifiedConfirmation(respuesta) || isUnverifiedStockClaim(respuesta))) {
+  // UN PRECIO QUE NO SALE DE NINGÚN SITIO es la tercera señal, y la más clara
+  // de todas: si la IA se arranca con una cifra que no está en lo que le hemos
+  // dado, es que está rellenando huecos. Y un precio inventado no es un fallo
+  // de estilo — el cliente se entera en la tienda, con el paquete en la mano.
+  // Visto en real el 16/10/2026: "12,95€ + IGIC" por unos folios de 3,94€.
+  const seInventaUnPrecio = (texto, datos) =>
+    preciosSinRespaldo(texto, unirContexto(contextoConsumibles, datos), fichaCliente, notas, text).length > 0;
+
+  if (
+    !datosDeCatalogo &&
+    !consultado &&
+    (isUnverifiedConfirmation(respuesta) || isUnverifiedStockClaim(respuesta) || seInventaUnPrecio(respuesta, productContext))
+  ) {
     const segunda = await construirContextoCatalogo({ from: message.from, text, history, forzar: true });
     if (segunda.fallo && !segunda.productContext) {
       // La web no contestó. Igual que arriba: se delega en segundo plano en vez
@@ -1084,7 +1097,10 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // seguridad lo descartaba igualmente por no mirar si había datos de respaldo.
   // Sin datos de catálogo tampoco vale afirmar que algo está en stock: saber
   // qué cartucho lleva una impresora no es saber si nos queda.
-  if (!datosDeCatalogo && (isUnverifiedConfirmation(respuesta) || isUnverifiedStockClaim(respuesta))) {
+  if (
+    !datosDeCatalogo &&
+    (isUnverifiedConfirmation(respuesta) || isUnverifiedStockClaim(respuesta) || seInventaUnPrecio(respuesta, datosDeCatalogo))
+  ) {
     // Si sabemos de qué impresora habla, la respuesta segura conserva la
     // referencia en vez de empezar de cero preguntando qué busca.
     const segura = respuestaSinCatalogo(impresorasVistas) || PRODUCTO_NO_VERIFICADO_INFO;
