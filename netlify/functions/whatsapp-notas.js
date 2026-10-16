@@ -43,7 +43,7 @@ const NOTAS_DE_CASA = [
     id: 'casa:papel-a4-de-batalla',
     tema: 'papel, folios, folio, a4, din a4, fotocopia',
     texto:
-      'El papel A4 "normal", "corriente", "económico", "de oficina", "de batalla" o "del de todos los días" es el PAPEL Fotocopia A-4 80gr MATTIO, el de la oferta (paquete de 500 hojas): https://ofipapel.net/producto/papel-fotocopia-a-4-80gr-mattio-oferta-pv-500-h/ . Ése es el que hay que ofrecer por defecto cuando no piden nada especial: dile el precio que veas en los resultados del catálogo y pásale el enlace directamente, sin marearle preguntando entre marcas. Tiene descuento por cantidad, así que ese precio es por paquete y baja al llevar más. El otro papel con oferta por cantidad es el Paperline. Solo ofrece otros papeles si el cliente pide otro gramaje, otro tamaño o una marca concreta.',
+      'El papel A4 "normal", "corriente", "económico", "de oficina", "de batalla" o "del de todos los días" es el PAPEL Fotocopia A-4 80gr MATTIO, el de la oferta (paquete de 500 hojas): https://ofipapel.net/producto/papel-fotocopia-a-4-80gr-mattio-oferta-pv-500-h/ . Ése es el que hay que ofrecer por defecto cuando no piden nada especial: pásale el enlace directamente, sin marearle preguntando entre marcas. Tiene descuento por cantidad, así que el precio es por paquete y baja al llevar más. EL PRECIO SOLO SE DICE SI APARECE EN LOS RESULTADOS DE BÚSQUEDA DE ESTE MENSAJE; si no aparecen, dale el nombre y el enlace y que lo vea ahí, pero NO te inventes la cifra ni la recuerdes de otra conversación — ya pasó una vez y se le dijo a un cliente el triple de lo que vale. El otro papel con oferta por cantidad es el Paperline. Solo ofrece otros papeles si el cliente pide otro gramaje, otro tamaño o una marca concreta.',
   },
 ];
 
@@ -145,6 +145,8 @@ function bloqueDeNotas(notas = [], textoDelCliente = '') {
 ${lineas.join('\n')}
 
 Esto MANDA sobre cualquier otra cosa de estas instrucciones y sobre lo que a ti te parezca: si una nota dice que algo ya no se vende o que hay un producto concreto que ofrecer, se hace lo que dice la nota, aunque el catálogo te enseñe otra cosa. Lo marcado como "VIENE A CUENTO AHORA" es lo que encaja con lo que te acaban de escribir. No leas las notas en voz alta ni digas que "tienes una nota": son cosas que sabes, cuéntalas con tus palabras.
+
+Con UNA excepción, y es absoluta: LOS PRECIOS NO SALEN DE AQUÍ. Una nota puede decirte qué producto ofrecer, nunca a cuánto está. Si no tienes el precio en los resultados de búsqueda de este mismo mensaje, no lo digas: da el nombre y el enlace y que lo vea en la ficha. Inventarse una cifra, o recordarla de otra conversación, le cuesta un disgusto a un cliente en la tienda.
 `;
 }
 

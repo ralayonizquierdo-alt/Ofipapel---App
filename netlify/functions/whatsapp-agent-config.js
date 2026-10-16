@@ -534,6 +534,46 @@ function isUnverifiedStockClaim(text) {
   return STOCK_SIN_DATOS_PATTERN.test(text || '');
 }
 
+// UN PRECIO QUE NO SALE DE NINGÚN SITIO.
+//
+// El 16/10/2026 un cliente preguntó por folios A-4 y se le dijo que costaban
+// "12,95€ + IGIC". Valen 3,94€. La búsqueda en el catálogo había vuelto vacía
+// (ver los alias de "Dina 4" en woocommerce-client.js), la IA se quedó con el
+// nombre del producto —que sí sabía, porque está en una nota— y se inventó la
+// cifra. Decirle mal un precio a un cliente es de lo peor que puede hacer este
+// bot: se entera en la tienda, con el paquete en la mano.
+//
+// Esto no se arregla pidiéndole a la IA que no invente (ya se le pide). Se
+// arregla COMPROBÁNDOLO: cada cifra con € que diga tiene que aparecer en lo que
+// le hemos dado de comer. Si no aparece, es suya.
+const PRECIO_EN_TEXTO = /(?:€\s*)?(\d{1,5}(?:[.,]\d{1,2})?)\s*(?:€|eur\b|euros\b)/gi;
+
+function normalizarCifras(texto) {
+  // 12,95 y 12.95 son la misma cifra; el catálogo las escribe con punto y la
+  // gente (y la IA, en español) con coma.
+  return String(texto || '').replace(/(\d)[.,](\d)/g, '$1.$2');
+}
+
+function preciosDe(texto) {
+  const limpio = normalizarCifras(texto);
+  const encontrados = [];
+  let m;
+  PRECIO_EN_TEXTO.lastIndex = 0;
+  while ((m = PRECIO_EN_TEXTO.exec(limpio)) !== null) encontrados.push(m[1]);
+  return [...new Set(encontrados)];
+}
+
+// Los precios de la respuesta que NO aparecen en el prompt que se le pasó (y el
+// prompt lleva dentro los resultados del catálogo de este turno, los envíos por
+// isla y todo lo demás). Se reconstruye el prompt con los mismos datos: es solo
+// juntar cadenas, no cuesta nada.
+function preciosSinRespaldo(respuesta, productContext = null, fichaCliente = null, notas = [], textoDelCliente = '') {
+  const precios = preciosDe(respuesta);
+  if (precios.length === 0) return [];
+  const respaldo = normalizarCifras(buildAiSystemPrompt(productContext, fichaCliente, notas, textoDelCliente));
+  return precios.filter((p) => !respaldo.includes(p));
+}
+
 const PRODUCTO_NO_VERIFICADO_INFO = `Sí, tengo acceso a todo el catálogo de Ofipapel. ¿Qué estás buscando exactamente? Así te confirmo si lo tenemos y a qué precio.`;
 
 // Un ítem concreto por mensaje (igual que con los envíos): si el cliente pregunta
@@ -1181,6 +1221,8 @@ module.exports = {
   isNoSeLaRespuesta,
   isUnverifiedConfirmation,
   isUnverifiedStockClaim,
+  preciosDe,
+  preciosSinRespaldo,
   pareceConsultaDeProducto,
   PRODUCTO_NO_VERIFICADO_INFO,
   PEDIDOS_INFO,

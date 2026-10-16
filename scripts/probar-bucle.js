@@ -50,6 +50,7 @@ const CATALOGO = [
   'PLUMA ESTILOGRAFICA ESCOLAR CLASSIC X1 (Blíster)',
   'BOLIGRAFO BIC Cristal Azul',
   'CALCULADORA CASIO MS-20UC Azul',
+  'PAPEL Fotocopia A-4 80gr -MATTIO "Oferta" (Pv-500-H)',
 ];
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ');
 const comoWordpress = (term) => {
@@ -68,9 +69,17 @@ global.fetch = async (url, opts) => {
     // contesta de memoria confirmando que sí lo tenemos. Si se los dan, los usa.
     const cuerpo = JSON.parse(opts.body);
     const tieneDatos = /PRODUCTOS que coinciden/.test(cuerpo.system || '');
+    const ultimo = (cuerpo.messages || []).slice(-1)[0]?.content || '';
+    const dePapel = /folio|papel|dina/i.test(ultimo);
     const texto = tieneDatos
-      ? 'Tenemos la PLUMA ESTILOGRAFICA Faber-Castell SPARKLE OCEANO por 9,90€ + IGIC. Te paso el enlace.'
-      : 'Sí, claro que tenemos bolígrafos y plumas estilográficas en nuestra tienda.';
+      ? (dePapel
+        ? 'El papel A4 normal es el PAPEL Fotocopia A-4 80gr MATTIO: 9,90€ + IGIC. Aquí lo tienes: https://ofipapel.net/p/6'
+        : 'Tenemos la PLUMA ESTILOGRAFICA Faber-Castell SPARKLE OCEANO por 9,90€ + IGIC. Te paso el enlace.')
+      // Sin datos, exactamente lo que hizo en real el 16/10/2026: se sacó una
+      // cifra de la manga.
+      : (dePapel
+        ? 'El papel A4 "normal" de oficina que vendemos es el Papel Fotocopia A-4 80gr MATTIO (paquete de 500 hojas): 12,95€ + IGIC.'
+        : 'Sí, claro que tenemos bolígrafos y plumas estilográficas en nuestra tienda.');
     return { ok: true, json: async () => ({ content: [{ type: 'text', text: texto }] }), text: async () => '{}' };
   }
   // Los botones de "¿quieres hablar con una persona?" no pasan por
@@ -196,6 +205,37 @@ const evento = (texto) => {
   /ESTILOGRAFICA/i.test(dos.dicho)
     ? bien('y contesta con el producto')
     : mal('no le da ningún producto');
+
+  console.log('\n=== El precio que se sacó de la manga');
+  // 16/10/2026. "Sabes la referencia para pedir folios de Dina 4?" no devolvía
+  // NADA del catálogo ("Dina 4" no se parece a "A-4" en ningún título, y
+  // "referencia" y "pedir" acababan de rematar la búsqueda). La IA se quedó con
+  // el nombre del producto —que sabe, porque está en una nota— y se inventó el
+  // precio: 12,95€ por unos folios que valen 3,94€.
+  conversacion = [];
+  const papel = await escribe('Sabes la referencia para pedir folios de Dina 4?');
+  console.log('      busca:', papel.buscado.map((t) => `"${t}"`).join(' ') || '(no buscó)');
+  console.log('      dice :', papel.dicho.slice(0, 170));
+  papel.buscado.some((t) => /a.?4/i.test(t))
+    ? bien('"Dina 4" se busca como A-4, que es como lo escribe el catálogo')
+    : mal('"Dina 4" sigue sin buscarse: la consulta vuelve vacía');
+  /MATTIO/i.test(papel.dicho)
+    ? bien('y le contesta con el papel de verdad')
+    : mal('no le da el producto');
+  !/12[.,]95/.test(papel.dicho)
+    ? bien('y NO con el precio inventado')
+    : mal('le vuelve a decir 12,95€ por unos folios de 3,94€');
+
+  // Y la red de seguridad, por si algún día la búsqueda vuelve a fallar: un
+  // precio que no esté en lo que le hemos dado no sale de aquí.
+  const { preciosSinRespaldo } = require(path.join(RAIZ, 'netlify/functions/whatsapp-agent-config.js'));
+  const notasDeCasa = require(path.join(RAIZ, 'netlify/functions/whatsapp-notas.js')).NOTAS_DE_CASA;
+  preciosSinRespaldo('Vale 12,95€ + IGIC.', null, null, notasDeCasa, 'folios').length === 1
+    ? bien('un precio sin respaldo se detecta aunque el producto sí se sepa')
+    : mal('un precio inventado pasa el control');
+  preciosSinRespaldo('Vale 3,94€ + IGIC.', 'PRODUCTOS: - PAPEL A-4 MATTIO: 3.94€, con stock', null, notasDeCasa, 'folios').length === 0
+    ? bien('y el precio que sí viene del catálogo pasa sin problema')
+    : mal('bloquea precios buenos: el bot se quedaría sin poder dar ninguno');
 
   console.log('\n=== Y si aun así no hay nada que ofrecer, no se repite');
   // Se simula el peor caso: la frase de seguridad ya se dijo en el mensaje

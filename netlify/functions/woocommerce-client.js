@@ -112,6 +112,10 @@ const STOPWORDS_BUSQUEDA = new Set([
   // "cartucho hp NÚMERO 305" — aquí "número" solo introduce la referencia, no
   // describe el producto, y de paso ensucia la búsqueda.
   'numero', 'número',
+  // "¿Sabes la REFERENCIA para PEDIR folios de Dina 4?" — ninguna de las dos
+  // describe el artículo, y WordPress exige que estén TODAS las palabras, así
+  // que entre las dos dejaban la búsqueda a cero (visto en real el 16/10/2026).
+  'referencia', 'referencias', 'pedir', 'pedirme', 'encargar', 'comprar',
   // Verbos con los que la gente introduce lo que busca. No describen el
   // artículo y arrastran la búsqueda: comprobado en real, "Busco tóner HP 83"
   // devolvía una nevera de 83 litros y tóners 219-X, mientras que sin el
@@ -198,6 +202,18 @@ const FRASES_ALIAS = {
   'papel de impresora': 'papel fotocopia',
   'papel de impresion': 'papel fotocopia',
   'papel de fotocopiadora': 'papel fotocopia',
+  // "Dina 4" / "DIN A4" es como se dice A-4 de toda la vida, y en el catálogo
+  // no aparece así en ningún sitio: "folios de Dina 4" no devolvía NADA
+  // (16/10/2026) y el bot acabó inventándose un precio. Lo mismo con A3 y A5.
+  'dina 4': 'a4',
+  dina4: 'a4',
+  'din a4': 'a4',
+  'dina 3': 'a3',
+  dina3: 'a3',
+  'din a3': 'a3',
+  'dina 5': 'a5',
+  dina5: 'a5',
+  'din a5': 'a5',
 };
 
 // Los alias se aplican solo sobre PALABRAS COMPLETAS: si se reemplazara por
