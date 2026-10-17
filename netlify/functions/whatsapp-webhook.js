@@ -89,7 +89,37 @@ const {
   isPedidoEstadoQuestion,
 } = require('./whatsapp-agent-config');
 const woocommerce = require('./woocommerce-client');
-const { sendWhatsappMessage, sendWhatsappTemplate } = require('./whatsapp-send');
+const { sendWhatsappMessage: entregarAlCliente, sendWhatsappTemplate } = require('./whatsapp-send');
+
+// EL BOT TIENE QUE ENTERARSE DE QUE NO LE LLEGA AL CLIENTE.
+//
+// Las 19 llamadas de envío de este fichero ignoraban el resultado: el bot
+// recibía el mensaje, preparaba la respuesta, intentaba mandarla, FALLABA, y
+// archivaba la respuesta en el panel como si hubiera salido. Desde el panel se
+// veía una conversación contestada; el cliente no había recibido nada.
+//
+// Eso es exactamente la forma del apagón de septiembre: fallar en silencio. Y
+// volvió a pasar el 17/10/2026, cuando caducó el token de Meta — el bot estuvo
+// horas "contestando" al vacío.
+//
+// Se envuelve el envío una sola vez, con el mismo nombre, para no tocar los 19
+// sitios. Si falla, se anota como fallo del bot y el panel lo grita en rojo
+// arriba del todo, con el motivo que haya dado Meta y a quién no le llegó.
+async function sendWhatsappMessage(to, body, citando) {
+  const resultado = await entregarAlCliente(to, body, citando);
+  if (!resultado?.ok) {
+    try {
+      const motivo = String(resultado?.error || 'sin detalle').slice(0, 300);
+      await conversationStore.registrarFalloDelBot(
+        `No se pudo ENTREGAR la respuesta a ${to}. WhatsApp dijo: ${motivo}`,
+        to
+      );
+    } catch {
+      // Avisar del fallo no puede provocar otro fallo.
+    }
+  }
+  return resultado;
+}
 const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo');
 const { respuestaSinCatalogo } = require('./whatsapp-consumibles');
 const { detectarHostilidad, mensajeClienteMolesto } = require('./whatsapp-hostilidad');

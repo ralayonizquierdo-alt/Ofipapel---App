@@ -82,6 +82,34 @@ function cargarWebhook() {
   return wh;
 }
 
+// EL OTRO FALLO SILENCIOSO: el bot funciona, pero no le llega al cliente.
+//
+// Aquí no revienta nada. El bot recibe, procesa, contesta... y Meta rechaza el
+// envío (el 17/10/2026, porque el token había caducado). Antes el resultado del
+// envío se ignoraba: la respuesta se archivaba como si hubiera salido y en el
+// panel se veía una conversación contestada que el cliente nunca recibió.
+function cargarWebhookQueNoPuedeEnviar() {
+  Module.prototype.require = function (p) {
+    if (p === './whatsapp-send') {
+      return {
+        sendWhatsappMessage: async () => ({ ok: false, status: 401, error: '{"error":{"code":190,"message":"Error validating access token: Session has expired"}}' }),
+        sendWhatsappTemplate: async () => ({ ok: true }),
+        uploadWhatsappMedia: async () => ({}), sendWhatsappMedia: async () => ({}),
+      };
+    }
+    const m = orig.apply(this, arguments);
+    if (p === './whatsapp-agent-core') return { ...m, askClaude: async () => 'Claro, te lo miro.' };
+    if (p === './whatsapp-catalogo') {
+      return { ...m, construirContextoCatalogo: async () => ({ productContext: null, contextoConsumibles: null, impresoras: [], fallo: false, consultado: true }) };
+    }
+    return m;
+  };
+  delete require.cache[require.resolve(path.join(RAIZ, 'netlify/functions/whatsapp-webhook.js'))];
+  const wh = require(path.join(RAIZ, 'netlify/functions/whatsapp-webhook.js'));
+  Module.prototype.require = orig;
+  return wh;
+}
+
 function cargarPanel() {
   Module.prototype.require = function (p) {
     if (p === './whatsapp-send') {
@@ -165,6 +193,27 @@ const evento = (texto) => {
   /El bot falló al atender un mensaje/.test(limpia.body || '')
     ? mal('el aviso no se puede quitar: en dos días se convierte en decorado y se deja de mirar')
     : bien('el aviso se quita al darle a "ya está resuelto"');
+
+  console.log('\n=== Cuando el bot contesta pero no le llega al cliente');
+  BASE.delete('ultimo_fallo');
+  const mudo = cargarWebhookQueNoPuedeEnviar();
+  await mudo.handler(evento('¿tenéis folios?'));
+
+  BASE.has('ultimo_fallo')
+    ? bien('un envío fallido también queda anotado')
+    : mal('el bot contesta al vacío y no se entera nadie: es el apagón de septiembre otra vez');
+
+  const paginaMuda = await panel.handler({ httpMethod: 'GET', queryStringParameters: {}, headers: { cookie } });
+  const htmlMudo = paginaMuda.body || '';
+  /No se pudo ENTREGAR la respuesta/.test(htmlMudo)
+    ? bien('y el panel lo grita en rojo')
+    : mal('el panel no dice nada: desde fuera parece una conversación contestada');
+  /Session has expired/.test(htmlMudo)
+    ? bien('con el motivo que dio WhatsApp, que es lo que lo arregla')
+    : mal('no dice por qué falló');
+  /Ver la conversación de 34600111222/.test(htmlMudo)
+    ? bien('y con enlace al cliente que se quedó sin respuesta')
+    : mal('no dice a quién no le llegó');
 
   console.log(fallos === 0 ? '\n✔ Un bot roto ya no pasa desapercibido' : `\n✗ ${fallos} fallos`);
   process.exit(fallos === 0 ? 0 : 1);
