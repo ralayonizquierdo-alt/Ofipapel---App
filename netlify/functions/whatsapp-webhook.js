@@ -647,6 +647,29 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     return;
   }
 
+  // UN AVISO DE WHATSAPP TAMPOCO ES UNA PREGUNTA.
+  //
+  // Los mensajes de tipo `system` no los escribe el cliente: los manda Meta
+  // cuando pasa algo con su cuenta, y el caso normal es que haya CAMBIADO DE
+  // NÚMERO. Caían en la rama de fotos y audios, así que al cliente le llegaba
+  // un "Gracias por tu mensaje. No puedo leer un mensaje de tipo system por
+  // aquí. ¿Quieres que te ponga en contacto con una persona?" — a un aviso
+  // automático. Visto en real el 17/10/2026.
+  //
+  // No se contesta, pero SÍ se anota, y en cristiano: que alguien se cambie de
+  // número es justo lo que hay que saber al mirar esa conversación, porque a
+  // partir de ahí escribe desde otro sitio.
+  if (message.type === 'system') {
+    const nuevo = message.system?.wa_id || message.system?.new_wa_id || '';
+    const dice = (message.system?.body || '').trim();
+    const esCambioDeNumero = message.system?.type === 'user_changed_number' || /number/i.test(message.system?.type || '');
+    const texto = esCambioDeNumero
+      ? `[WhatsApp avisa: este cliente ha cambiado de número${nuevo ? `. El nuevo es ${nuevo}` : ''}]`
+      : `[Aviso de WhatsApp${dice ? `: ${dice}` : ''}]`;
+    await conversationStore.appendCustomerMessage(message.from, texto, message.id);
+    return;
+  }
+
   // EL BOT EN PAUSA NO HABLA, MANDE EL CLIENTE LO QUE MANDE.
   //
   // Esta comprobación estaba más abajo, después de la rama de fotos y audios,
