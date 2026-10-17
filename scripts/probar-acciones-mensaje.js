@@ -41,6 +41,8 @@ let CONVERSACION = [
 ];
 
 const enviados = [];
+const OTRAS = new Map();
+let fallarEnvio = null;
 
 global.fetch = async (url, opts) => {
   const u = String(url);
@@ -50,11 +52,16 @@ global.fetch = async (url, opts) => {
     const responder = (result) => ({ ok: true, json: async () => ({ result }), text: async () => JSON.stringify({ result }) });
     if (cmd === 'GET' && clave === `conv:${TEL}`) return responder(JSON.stringify(CONVERSACION));
     if (cmd === 'SET' && clave === `conv:${TEL}`) { CONVERSACION = JSON.parse(args[2]); return responder('OK'); }
+    // El resto de claves (p. ej. el motivo del último envío fallido) se guardan
+    // de verdad: el panel las escribe en un sitio y las lee en otro.
+    if (cmd === 'SET') { OTRAS.set(clave, args[2]); return responder('OK'); }
+    if (cmd === 'GET') return responder(OTRAS.get(clave) ?? null);
     if (cmd === 'SMEMBERS') return responder([TEL]);
     return responder(null);
   }
   if (u.includes('graph.facebook.com')) {
     enviados.push(JSON.parse(opts.body));
+    if (fallarEnvio) return { ok: false, status: 400, json: async () => ({}), text: async () => fallarEnvio.error };
     // Meta contesta con el identificador del mensaje que acaba de enviar. Sin
     // devolverlo aquí no se probaría que se guarda, que es lo que permite
     // responder después a un mensaje propio.
@@ -154,6 +161,47 @@ Module.prototype.require = orig;
   /no-store/.test(cabeceras['Cache-Control'] || '')
     ? bien('y el panel pide que no se guarde en caché: actualizar trae datos de verdad')
     : mal('sin cabecera de caché, actualizar puede devolver la página vieja');
+
+  console.log('\n=== Cuando un envío falla');
+  // 17/10/2026: el panel decía "Ventana de WhatsApp ABIERTA, quedan 13 h 14
+  // min" y JUSTO DEBAJO, en rojo, "puede que hayan pasado más de 24h". Las dos
+  // cosas no pueden ser ciertas, y con eso delante no hay por dónde empezar.
+  fallarEnvio = { error: JSON.stringify({ error: { message: 'Something went wrong', code: 131000 } }) };
+  await postear(`phone=${TEL}&action=reply&message=${encodeURIComponent('a ver si sale')}`);
+  fallarEnvio = null;
+  const conFallo = (await panel.handler({
+    httpMethod: 'GET', queryStringParameters: { phone: TEL, error: 'send' }, headers: { cookie },
+  })).body || '';
+  !/puede que hayan pasado más de 24h/i.test(conFallo.replace(/<[^>]+>/g, ' '))
+    ? bien('con la ventana abierta ya no echa la culpa a las 24 h')
+    : mal('sigue diciendo lo de las 24 h debajo del cartel que dice que la ventana está abierta');
+  /NO es por las 24 h/i.test(conFallo)
+    ? bien('y lo dice con todas las letras')
+    : mal('no aclara que la ventana sigue abierta');
+  /Something went wrong/.test(conFallo)
+    ? bien('y enseña lo que contestó WhatsApp, que es lo único que sirve para arreglarlo')
+    : mal('el motivo real sigue tirándose a unos logs que nadie mira');
+
+  // Y los motivos que sí se reconocen se explican solos, en vez de caer todos
+  // en el mismo "puede que hayan pasado 24h".
+  for (const [codigo, bruto, espera, etiqueta] of [
+    ['190', '{"error":{"code":190,"message":"Error validating access token"}}', /token de Meta/i, 'el token caducado'],
+    ['131026', '{"error":{"code":131026,"message":"Message undeliverable"}}', /no tenga WhatsApp/i, 'un número sin WhatsApp'],
+    ['131049', '{"error":{"code":131049,"message":"healthy ecosystem engagement"}}', /calidad/i, 'el freno por calidad'],
+  ]) {
+    fallarEnvio = { error: bruto };
+    const salida = await postear(`phone=${TEL}&action=reply&message=${encodeURIComponent('prueba ' + codigo)}`);
+    fallarEnvio = null;
+    const destino = String(salida.headers?.Location || '');
+    const pagina = (await panel.handler({
+      httpMethod: 'GET',
+      queryStringParameters: { phone: TEL, error: destino.split('error=')[1] || '' },
+      headers: { cookie },
+    })).body || '';
+    espera.test(pagina)
+      ? bien(`${etiqueta} se explica solo`)
+      : mal(`${etiqueta} (código ${codigo}) cae en el mensaje genérico`);
+  }
 
   console.log('\n=== Copiar (lo que hace de "reenviar")');
   (html.match(/⧉ Copiar/g) || []).length === CONVERSACION.length

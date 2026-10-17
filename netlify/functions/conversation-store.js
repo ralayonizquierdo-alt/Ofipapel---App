@@ -158,6 +158,41 @@ async function getUltimoFallo() {
   }
 }
 
+// POR QUÉ NO SALIÓ UN MENSAJE QUE SE ESCRIBIÓ A MANO.
+//
+// Cuando un envío falla, Meta contesta con un motivo concreto (un código y una
+// frase). Eso se escribía en los logs y se tiraba: al panel solo llegaba un
+// código nuestro por la URL, y si no era uno de los conocidos se enseñaba "puede
+// que hayan pasado más de 24 h" — una suposición, que el 17/10/2026 salió
+// JUSTO DEBAJO del cartel que decía que la ventana estaba abierta y quedaban
+// 13 h 14 min. Las dos cosas no pueden ser ciertas, y con eso delante no hay
+// manera de saber qué pasó.
+//
+// Se guarda lo que dijo Meta, tal cual, para poder enseñarlo. Caduca solo: es
+// el fallo de un envío concreto, no un estado.
+const FALLO_ENVIO_TTL_SEGUNDOS = 24 * 3600;
+
+async function guardarFalloDeEnvio(phone, detalle) {
+  if (!isConfigured() || !phone) return;
+  await redisCommand([
+    'SET',
+    `fallo_envio:${phone}`,
+    JSON.stringify({ cuando: Date.now(), detalle: String(detalle || '').slice(0, 600) }),
+    'EX',
+    String(FALLO_ENVIO_TTL_SEGUNDOS),
+  ]);
+}
+
+async function getFalloDeEnvio(phone) {
+  const raw = await redisCommand(['GET', `fallo_envio:${phone}`]);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 async function borrarUltimoFallo() {
   if (!isConfigured()) return;
   await redisCommand(['DEL', 'ultimo_fallo']);
@@ -771,6 +806,8 @@ module.exports = {
   registrarFalloDelBot,
   getUltimoFallo,
   borrarUltimoFallo,
+  guardarFalloDeEnvio,
+  getFalloDeEnvio,
   huellaDeMensaje,
   borrarMensaje,
   pauseBot,
