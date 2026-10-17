@@ -113,6 +113,26 @@ global.PAUSADO=false;
   else console.log('    ✔ se archiva con su emoji y no se contesta');
   console.log();
 
+  // UN AVISO DE WHATSAPP NO ES UNA PREGUNTA.
+  //
+  // Los `system` no los escribe el cliente: los manda Meta, y lo normal es que
+  // sea un cambio de número. Al cliente le llegó "No puedo leer un mensaje de
+  // tipo system por aquí. ¿Quieres que te ponga en contacto con una persona?"
+  // — a un aviso automático. Visto en real el 17/10/2026.
+  log=[];
+  await wh.handler(ev({type:'system', system:{type:'user_changed_number', wa_id:'34611000111', body:'Cambió a 34611000111'}}));
+  console.log('=== Un aviso de WhatsApp (cambio de número)');
+  log.forEach(l=>console.log(`   [${l.t}] ${l.m}`));
+  const tieneS=(t)=>log.some(l=>l.t===t);
+  for(const prohibido of ['botones','respuesta']){
+    if(tieneS(prohibido)){ fallos++; console.log(`   ✗ NO debería contestar a un aviso del sistema: ${prohibido}`); }
+  }
+  if(!tieneS('guardado sin contestar')){ fallos++; console.log('   ✗ FALTA: no queda constancia del aviso'); }
+  else if(!log.some(l=>/cambiado de n/i.test(String(l.m)))){ fallos++; console.log('   ✗ no dice que cambió de número: es el dato que importa'); }
+  else if(!log.some(l=>String(l.m).includes('34611000111'))){ fallos++; console.log('   ✗ no apunta el número nuevo'); }
+  else console.log('    ✔ se anota el cambio de número y no se contesta');
+  console.log();
+
   // CON EL BOT EN PAUSA NO HABLA, MANDE LO QUE MANDE.
   //
   // La comprobación de la pausa estaba DESPUÉS de esta rama, así que solo
