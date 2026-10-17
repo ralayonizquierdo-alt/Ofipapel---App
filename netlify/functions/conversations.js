@@ -32,6 +32,8 @@ const {
   listarFichasPorPrimerContacto,
   getUltimoFallo,
   borrarUltimoFallo,
+  guardarFalloDeEnvio,
+  getFalloDeEnvio,
   getAliasesBusqueda,
   borrarAliasBusqueda,
   listarNotasNegocio,
@@ -518,6 +520,9 @@ function pageShell(title, body) {
   .ficha-notas textarea { border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; font-family: inherit; font-size: 13.5px; resize: vertical; }
   .ficha-notas button { align-self: flex-start; }
   .ficha-aviso { color: var(--text-muted); font-size: 12px; }
+  .fallo-detalle { margin-top: 8px; font-size: 12.5px; }
+  .fallo-detalle summary { cursor: pointer; font-weight: 600; }
+  .fallo-detalle pre { white-space: pre-wrap; word-break: break-word; margin: 6px 0 0; font-size: 11.5px; line-height: 1.4; }
   .ficha-nota > div { white-space: pre-wrap; line-height: 1.45; margin-top: 3px; }
   .convo-nota { color: var(--text-muted); font-size: 12.5px; margin-top: 3px; }
 
@@ -1564,6 +1569,13 @@ function motivoDeFallo(resultado) {
   if (bruto.includes('131047') || /24 hours/i.test(bruto)) return 'ventana';
   if (bruto.includes('132001') || /template.*not exist/i.test(bruto)) return 'plantillaNoExiste';
   if (bruto.includes('132000')) return 'plantillaHuecos';
+  // Los demás motivos por los que Meta rechaza un envío. Antes todos acababan
+  // en 'send', que dice "puede que hayan pasado más de 24 h" — y eso mandaba a
+  // mirar al sitio equivocado. Cada uno se arregla de una forma distinta.
+  if (/"code":\s*190\b/.test(bruto) || /access token/i.test(bruto)) return 'token';
+  if (bruto.includes('131026') || /undeliverable/i.test(bruto)) return 'noEntregable';
+  if (bruto.includes('131049') || bruto.includes('131048')) return 'calidad';
+  if (bruto.includes('130429') || bruto.includes('80007') || /rate limit/i.test(bruto)) return 'demasiados';
   return 'send';
 }
 
@@ -1707,9 +1719,13 @@ const ERROR_MESSAGES = {
   empty: 'Escribe un mensaje o adjunta un archivo antes de enviar.',
   borradoCambiado: 'No se ha borrado nada: la conversación cambió mientras mirabas (llegó otro mensaje). Vuelve a intentarlo sobre el mensaje que quieres quitar.',
   borradoNoEsta: 'Ese mensaje ya no está en la conversación.',
+  token: 'WhatsApp ha rechazado nuestras credenciales: el token de Meta ha caducado o se ha revocado. Hasta que se renueve en Netlify (WHATSAPP_TOKEN), ni tú ni el bot podéis escribir a nadie.',
+  noEntregable: 'WhatsApp dice que no puede entregar el mensaje a ese número. Lo más probable es que no tenga WhatsApp, o que lo tenga con otro número.',
+  calidad: 'WhatsApp ha frenado este envío por su control de calidad (demasiados mensajes no leídos o marcados como spam últimamente). Mira la calidad del número en WhatsApp Manager.',
+  demasiados: 'Demasiados mensajes seguidos para lo que WhatsApp nos permite ahora mismo. Espera un poco y vuelve a intentarlo.',
 };
 
-function renderAvisoEnvio(error) {
+function renderAvisoEnvio(error, { detalle = null, ventana = null } = {}) {
   // "enviada" no es un error, es la confirmación de que la plantilla salió: se
   // pinta en verde y no en rojo. Va por el mismo parámetro de la URL porque el
   // envío responde con un redirect (patrón POST-redirect-GET de toda la página).
@@ -1722,10 +1738,29 @@ function renderAvisoEnvio(error) {
     return `<div class="diagnostic ok">✔ Notas guardadas. El bot las tendrá en cuenta al contestarle, y las tienes todas juntas en <a href="?vista=aprendizaje">Aprendizaje del bot</a>.</div>`;
   }
   if (!error) return '';
-  return `<div class="error-banner">${ICON.alert}<span>${escapeHtml(ERROR_MESSAGES[error] || ERROR_MESSAGES.send)}</span></div>`;
+  // NO CULPAR A LAS 24 H CUANDO SABEMOS QUE LA VENTANA ESTÁ ABIERTA.
+  //
+  // El mensaje de 'send' es una suposición ("puede que hayan pasado más de
+  // 24h"), y el 17/10/2026 salió justo debajo del cartel verde que decía que la
+  // ventana estaba abierta y quedaban 13 h 14 min. Las dos cosas no pueden ser
+  // ciertas a la vez, y con eso delante no hay por dónde empezar a mirar.
+  const laVentanaEstaAbierta = Boolean(ventana && ventana.abierta && !ventana.sinDatos);
+  const texto =
+    error === 'send' && laVentanaEstaAbierta
+      ? 'No se pudo enviar el mensaje, y NO es por las 24 h: la ventana sigue abierta. El motivo lo da WhatsApp aquí abajo.'
+      : ERROR_MESSAGES[error] || ERROR_MESSAGES.send;
+
+  // Y lo que dijo Meta, tal cual. Antes se quedaba en unos logs que nadie mira:
+  // sin esto, un fallo que no esté en la lista de arriba es indistinguible de
+  // cualquier otro.
+  const loQueDijoWhatsapp = detalle?.detalle
+    ? `<details class="fallo-detalle"><summary>Qué contestó WhatsApp</summary><pre>${escapeHtml(detalle.detalle)}</pre></details>`
+    : '';
+
+  return `<div class="error-banner">${ICON.alert}<span>${escapeHtml(texto)}${loQueDijoWhatsapp}</span></div>`;
 }
 
-function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
+function renderThread(phone, messages, { paused, error, ficha, entrega, falloDeEnvio } = {}) {
   const bubbles = messages
     .map((m, indice) => {
       const isCustomer = m.role === 'user';
@@ -1786,7 +1821,6 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
     })
     .join('');
 
-  const errorBanner = renderAvisoEnvio(error);
 
   // Interruptor del bot para ESTA conversación. Hasta ahora solo se podía
   // reactivar, porque la pausa se ponía sola al responder a mano desde el panel.
@@ -1822,6 +1856,10 @@ function renderThread(phone, messages, { paused, error, ficha, entrega } = {}) {
   // el cliente conteste a esa plantilla, la ventana se reabre sola y ya se le
   // puede escribir con normalidad.
   const ventana = estadoVentana(messages);
+
+  // Va DESPUÉS de saber cómo está la ventana, a propósito: el aviso de fallo
+  // necesita ese dato para no contradecir al cartel que tiene justo encima.
+  const errorBanner = renderAvisoEnvio(error, { detalle: falloDeEnvio, ventana });
   const plantillaCliente = process.env.CUSTOMER_TEMPLATE;
   // Sin ningún mensaje del cliente guardado, antes se ocultaba la barra entera
   // — y con ella el botón de plantilla. Eso dejaba sin salida justo el caso de
@@ -2252,7 +2290,13 @@ const manejarPanel = async (event) => {
         // de la app. En una conversación larga es la diferencia entre que el
         // cliente sepa de qué le hablas y que no.
         const result = await sendWhatsappMessage(phone, message, citando || undefined);
-        if (!result.ok) return redirect(motivoDeFallo(result));
+        if (!result.ok) {
+          // Lo que contestó Meta se guarda para poder enseñarlo: por la URL
+          // solo viaja un código nuestro, y si el motivo no es de los conocidos
+          // el aviso acaba suponiendo. Ver guardarFalloDeEnvio.
+          await guardarFalloDeEnvio(phone, result.error);
+          return redirect(motivoDeFallo(result));
+        }
         await appendAgentMessage(phone, message, result.wamid);
         await pauseBot(phone, 24); // que no se crucen bot y respuesta manual
       }
@@ -2297,7 +2341,10 @@ const manejarPanel = async (event) => {
         // y para Meta son plantillas distintas.
         process.env.CUSTOMER_TEMPLATE_LANG || 'es_ES'
       );
-      if (!enviado.ok) return redirect(motivoDeFallo(enviado));
+      if (!enviado.ok) {
+        await guardarFalloDeEnvio(phone, enviado.error);
+        return redirect(motivoDeFallo(enviado));
+      }
 
       await appendAgentMessage(phone, `✉️ [Plantilla ${plantilla}] Hola ${nombre}, te escribimos desde Ofipapel sobre tu consulta: "${asunto}".`);
       await pauseBot(phone, 24);
@@ -2423,18 +2470,21 @@ const manejarPanel = async (event) => {
   const phone = event.queryStringParameters?.phone;
 
   if (phone) {
-    const [messages, paused, ficha, entrega] = await Promise.all([
+    const error = event.queryStringParameters?.error || '';
+    const [messages, paused, ficha, entrega, falloDeEnvio] = await Promise.all([
       loadConversation(phone),
       isBotPaused(phone),
       getFichaCliente(phone),
       getEstadoEntrega(phone),
+      // Solo cuando venimos de un envío fallido: en una visita normal esto no
+      // cuesta ni una petición más.
+      error && error !== 'enviada' && error !== 'notasGuardadas' ? getFalloDeEnvio(phone) : null,
     ]);
-    const error = event.queryStringParameters?.error || '';
     await markAsViewed(phone); // abrir el hilo pone a cero el contador de sin leer
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      body: renderThread(phone, messages, { paused, error, ficha, entrega }),
+      body: renderThread(phone, messages, { paused, error, ficha, entrega, falloDeEnvio }),
     };
   }
 
