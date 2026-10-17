@@ -827,7 +827,11 @@ function renderFalloDelBot(fallo) {
   return `<div class="diagnostic fail">${ICON.alert}<div style="flex:1;">
   <strong>El bot falló al atender un mensaje (${escapeHtml(hace)})</strong>
   <div style="margin-top:4px;">${escapeHtml(cuando)} — <code>${escapeHtml(fallo.mensaje)}</code></div>
-  <div style="margin-top:6px; opacity:.85;">Mientras esto salga, es posible que haya clientes escribiendo sin recibir respuesta. Pásame el texto de arriba.</div>
+  <div style="margin-top:6px; opacity:.85;">Mientras esto salga, es posible que haya clientes escribiendo sin recibir respuesta. Pásame el texto de arriba.</div>${
+    fallo.telefono
+      ? `\n  <div style="margin-top:6px;"><a class="btn-link" href="?phone=${encodeURIComponent(fallo.telefono)}">Ver la conversación de ${escapeHtml(fallo.telefono)}</a></div>`
+      : ''
+  }
   <form method="POST" style="margin-top:8px;">
     <input type="hidden" name="action" value="fallo-visto">
     <button type="submit" class="btn-link">Ya está resuelto, quitar el aviso</button>
