@@ -1114,7 +1114,7 @@ function vistaDetalleRepo(p) {
     </div>
     <div id="progresoEnvio" class="progreso"></div>
     ${p.envioControl ? avisoControl({ control: p.envioControl, lineas: p.lineas }) : ''}
-    ${tablaLineasRepo(p, cat, 'pedido')}
+    ${tablaPedidoRepo(p, cat)}
   </div>
 
   <div class="tarjeta">
@@ -1149,8 +1149,24 @@ function vistaDetalleRepo(p) {
 function tablaPropuesta(p, cat) {
   const pr = p.propuesta;
   const revisar = pr.lineas.some((l) => l.duda) || (pr.control && pr.control.cuadra === false);
-  return `<details ${revisar ? 'open' : ''} style="margin-top:8px"><summary class="pequeno" style="cursor:pointer">Ver y corregir las ${pr.lineas.length} líneas de la propuesta</summary>
-    ${tablaLineasRepo(p, cat, 'propuesta')}</details>`;
+  return plegableLineas(p, 'propuesta', revisar, `Ver y corregir las ${pr.lineas.length} líneas de la propuesta`, tablaLineasRepo(p, cat, 'propuesta'));
+}
+/** Las líneas de nuestro pedido de reposición, plegables (en el móvil ocupan
+ *  mucho): abiertas mientras no hay propuesta o si alguna tiene duda. */
+function tablaPedidoRepo(p, cat) {
+  if (!p.lineas.length) return tablaLineasRepo(p, cat, 'pedido');
+  const abrir = !p.propuesta || p.lineas.some((l) => l.duda);
+  return plegableLineas(p, 'pedido', abrir, `Ver y corregir las ${p.lineas.length} líneas de nuestro pedido`, tablaLineasRepo(p, cat, 'pedido'));
+}
+// Lo que el usuario abre o cierra a mano (clic en el título; «toggle» salta
+// también al pintar abierto) se respeta al repintar (si no, al
+// corregir una línea la lista se volvía a plegar sola). Solo en memoria.
+const plegadoAMano = new Map();
+function plegableLineas(p, lado, abrirPorDefecto, titulo, contenido) {
+  const k = p.id + ':' + lado;
+  const abierto = plegadoAMano.has(k) ? plegadoAMano.get(k) : abrirPorDefecto;
+  return `<details ${abierto ? 'open' : ''} style="margin-top:8px"><summary class="pequeno" style="cursor:pointer" onclick="plegadoAMano.set(${js(k)}, !this.parentNode.open)">${titulo}</summary>
+    ${contenido}</details>`;
 }
 
 function tablaLineasRepo(p, cat, lado) {
@@ -1398,7 +1414,7 @@ function copiarBloc() {
   if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(hecho, () => prompt('Copia el texto:', t));
   else prompt('Copia el texto:', t);
 }
-function anadirLinea() { const p = pedidoActual(); p.lineas.push({ ref: '', desc: '', cant: 1, precio: null, exp: false, duda: '' }); guardar(); pintar(); }
+function anadirLinea() { const p = pedidoActual(); p.lineas.push({ ref: '', desc: '', cant: 1, precio: null, exp: false, duda: '' }); plegadoAMano.set(p.id + ':pedido', true); guardar(); pintar(); }
 /** Entrada de artículos casilla a casilla, pensada para tableta: Enter pasa a
  *  la siguiente (cantidad → referencia → descripción → precio) y en el precio
  *  añade la línea y vuelve a la cantidad. Si la referencia está en el
