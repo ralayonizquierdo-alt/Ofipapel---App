@@ -35,6 +35,59 @@
     return /^\d+$/.test(r) ? (r.replace(/^0+/, '') || '0') : r;
   }
 
+  // ── Altas nuevas ──────────────────────────────────────────────────────────
+  // Lo que aún no está dado de alta en Géminis va con la referencia «2 ALTA
+  // NUEVA» y, en la descripción, la referencia del proveedor seguida de «>»
+  // («UA000570>MALETIN…», «UA000710 / UA000720>TRAVEL SET», «VL000011 Caja…»).
+  // Para comparar se usa ese código (o la suma de varios); al Excel de Géminis
+  // vuelve a salir «2 ALTA NUEVA» con la descripción tal cual.
+  const REF_ALTA = '2 ALTA NUEVA';
+  function codigosAlta(desc) {
+    const d = String(desc || '');
+    const cabeza = d.includes('>') ? d.split('>')[0] : d.trim().split(/\s+/)[0];
+    return cabeza.split('/').map((t) => normRef(t)).filter((t) => /^[A-Z0-9][A-Z0-9.-]{2,}$/.test(t) && /\d/.test(t) && /[A-Z]/.test(t));
+  }
+  /** Una línea con «2 ALTA NUEVA» → ref = código(s) del proveedor (unidos con «+»), alta = true y descAlta = la descripción original. */
+  function marcarAlta(l) {
+    if (!l || l.alta) return l;
+    let r = normRef(l.ref);
+    let desc = String(l.desc || '');
+    // Leídas antes del arreglo: referencia «2» y la descripción empezando por «ALTA NUEVA».
+    if (r === '2' && /^\s*ALTA\s*NUEVA\b/i.test(desc)) { desc = desc.replace(/^\s*ALTA\s*NUEVA\s*/i, ''); r = '2ALTANUEVA'; }
+    if (!/^2?ALTANUEVA$/.test(r)) return l;
+    const cods = codigosAlta(desc);
+    return { ...l, ref: cods.length ? cods.join('+') : 'ALTA-' + claveDesc(desc), desc, alta: true, descAlta: desc };
+  }
+  /** Código del proveedor → clave de la línea de alta que lo agrupa (para las que juntan varios). */
+  function aliasAltas(lineas) {
+    const m = new Map();
+    for (const l of lineas || []) {
+      if (!l || !l.alta || !String(l.ref).includes('+')) continue;
+      for (const c of String(l.ref).split('+')) m.set(claveRef(c), claveRef(l.ref));
+    }
+    return m;
+  }
+  /** Líneas de un documento del proveedor con las de nuestras altas que juntan varios códigos fundidas en una (para el Excel de la factura final). */
+  function fusionarAltas(lineasDoc, lineasNuestras) {
+    const alias = aliasAltas(lineasNuestras);
+    const info = new Map((lineasNuestras || []).filter((l) => l && l.alta).map((l) => [claveRef(l.ref), l]));
+    const out = [];
+    const grupos = new Map();
+    for (const l of lineasDoc || []) {
+      const k = alias.get(claveRef(l.ref)) || claveRef(l.ref);
+      const nuestra = info.get(k);
+      if (!nuestra) { out.push(l); continue; }
+      if (!grupos.has(k)) {
+        const g = { ...l, ref: nuestra.ref, alta: true, descAlta: nuestra.descAlta, cant: parseNum(l.cant) || 0, importe: parseNum(l.importe) };
+        grupos.set(k, g); out.push(g); continue;
+      }
+      const g = grupos.get(k);
+      g.cant += parseNum(l.cant) || 0;
+      g.importe = g.importe != null && parseNum(l.importe) != null ? red2(g.importe + parseNum(l.importe)) : null;
+    }
+    return out;
+  }
+
   /** Acepta 4,13 · 4'13 · 4.13 · 1.234,56 · números. Vacío o ilegible → null. */
   function parseNum(v) {
     if (v == null || v === '') return null;
@@ -70,10 +123,11 @@
     return Math.round(parseDtos(l.dtos).reduce((x, d) => x * (1 - d / 100), p) * 10000) / 10000;
   }
 
-  function agrupar(lineas) {
+  function agrupar(lineas, alias) {
     const m = new Map();
     for (const l of lineas || []) {
-      const ref = claveRef(l.ref);
+      let ref = claveRef(l.ref);
+      if (alias && alias.has(ref)) ref = alias.get(ref);
       if (!ref) continue;
       if (!m.has(ref)) {
         m.set(ref, { ref: normRef(l.ref), desc: '', ean: '', exp: false, cant: 0, precio: null, dtos: [], importe: 0, sinImporte: false, udsCaja: null, unidad: '', veces: 0 });
@@ -82,6 +136,7 @@
       g.cant += parseNum(l.cant) || 0;
       g.veces += 1;
       if (l.exp) g.exp = true;
+      if (l.alta) { g.alta = true; g.descAlta = l.descAlta; }
       if (!g.desc && l.desc) g.desc = String(l.desc);
       if (!g.ean && l.ean) g.ean = String(l.ean);
       if (g.precio == null && parseNum(l.precio) != null) { g.precio = parseNum(l.precio); g.dtos = parseDtos(l.dtos); }
@@ -129,7 +184,7 @@
     const catalogo = o.catalogo || null;
     const anteriores = o.preciosAnteriores || {};
     const ped = agrupar(lineasPedido);
-    const pro = agrupar(lineasPropuesta);
+    const pro = agrupar(lineasPropuesta, aliasAltas(lineasPedido));
     const claves = [...ped.keys(), ...[...pro.keys()].filter((r) => !ped.has(r))];
     // Catálogo e historial por clave (sin ceros delante en las numéricas).
     const cat = catalogo ? new Map(Object.keys(catalogo).map((k) => [claveRef(k), catalogo[k]])) : null;
@@ -146,6 +201,8 @@
         desc: (b && b.desc) || (enCat && enCat.d) || (a && a.desc) || '',
         ean: (b && b.ean) || (a && a.ean) || (enCat && enCat.ean) || '',
         exp: Boolean(a && a.exp),
+        alta: Boolean(a && a.alta),
+        descAlta: (a && a.descAlta) || '',
         cantPedida: a ? a.cant : 0,
         cantPropuesta: b ? b.cant : 0,
         precioPedido: a ? a.precio : null,
@@ -168,7 +225,8 @@
       };
 
       if (a && a.veces > 1) fila.motivos.push({ tipo: 'duplicada_pedido', texto: `Aparece ${a.veces} veces en el pedido (se suman)`, revisar: true });
-      if (b && b.veces > 1) fila.motivos.push({ tipo: 'duplicada_propuesta', texto: `Aparece ${b.veces} veces en la propuesta (se suman)`, revisar: true });
+      // Un alta que junta varios códigos del proveedor viene, a propósito, en varias líneas.
+      if (b && b.veces > 1 && !(a && a.alta && String(a.ref).includes('+'))) fila.motivos.push({ tipo: 'duplicada_propuesta', texto: `Aparece ${b.veces} veces en la propuesta (se suman)`, revisar: true });
 
       if (a && !b) {
         fila.estado = 'falta';
@@ -333,7 +391,7 @@
   function controlFactura(lineasValidadas, lineasFactura, opciones) {
     const o = opciones || {};
     const val = agrupar(lineasValidadas);
-    const fac = agrupar(lineasFactura);
+    const fac = agrupar(lineasFactura, aliasAltas(lineasValidadas));
     const conGlobal = (neto, dto) => (neto == null ? null : neto * (1 - (parseNum(dto) || 0) / 100));
     const faltan = [];
     const sobran = [];
@@ -475,7 +533,8 @@
    */
   function ordenarComoPropuesta(lineas, lineasPropuesta) {
     const pos = new Map();
-    (lineasPropuesta || []).forEach((l, i) => { const r = claveRef(l.ref); if (r && !pos.has(r)) pos.set(r, i); });
+    const alias = aliasAltas(lineas);
+    (lineasPropuesta || []).forEach((l, i) => { let r = claveRef(l.ref); if (alias.has(r)) r = alias.get(r); if (r && !pos.has(r)) pos.set(r, i); });
     return (lineas || []).map((l, i) => ({ l, i, p: pos.has(claveRef(l.ref)) ? pos.get(claveRef(l.ref)) : Infinity }))
       .sort((x, y) => x.p - y.p || x.i - y.i).map((x) => x.l);
   }
@@ -578,7 +637,7 @@
     for (const f of filas) {
       const d = (decisiones && decisiones[f.ref]) || { accion: f.estado === 'falta' ? 'resto' : 'aceptar' };
       if (d.nota) notas.push({ ref: f.ref, desc: f.desc, texto: d.nota });
-      const base = { ref: f.ref, desc: f.desc, ean: f.ean, exp: Boolean(f.exp) };
+      const base = { ref: f.ref, desc: f.desc, ean: f.ean, exp: Boolean(f.exp), ...(f.alta ? { alta: true, descAlta: f.descAlta } : {}) };
       // _neto: el precio neto de esa línea (tras sus descuentos), para el precio al cliente.
       const propuesta = (cant) => ({ ...base, cant, precio: f.precioPropuesta, dtos: f.dtosPropuesta,
         importe: cant === f.cantPropuesta ? f.importePropuesta : null, udsCaja: f.udsCajaPropuesta || f.udsCajaPedido, _neto: f.netoPropuesta });
@@ -791,7 +850,7 @@
         const dtos = col.dtos.map((i) => parseNum(f[i])).filter((n) => n).map((n) => (n > 0 && n < 1 ? red2(n * 100) : n));
         let iva = parseNum(val(f, col.iva));
         if (iva != null && iva > 0 && iva < 1) iva = red2(iva * 100);
-        lineas.push({ ref, desc, ean, cant, precio, dtos, iva, importe: parseNum(val(f, col.importe)), udsCaja: parseNum(val(f, col.udsCaja)) });
+        lineas.push(marcarAlta({ ref, desc, ean, cant, precio, dtos, iva, importe: parseNum(val(f, col.importe)), udsCaja: parseNum(val(f, col.udsCaja)) }));
       }
     }
     return { lineas, catalogo, cabecera };
@@ -820,7 +879,7 @@
       dtos: parseDtos(l.descuentos),
       importe: parseNum(l.importe),
       duda: String(l.duda || '').trim(),
-    })).filter((l) => l.ref || l.desc);
+    })).filter((l) => l.ref || l.desc).map(marcarAlta);
 
     for (const l of lineas) {
       const avisos = [];
@@ -924,8 +983,8 @@
       const v = {
         // UdsXCja va en la plantilla pero siempre en blanco (propietario, 2026-10-08):
         // la cantidad es solo «Pedidas», y un valor ahí daba lugar a errores.
-        ean: l.ean || '', desc: l.desc || '', ref: l.ref, cajas: '', udsCaja: '', cant: l.cant,
-        precio, dto: dtoLinea, igic: l.igic != null ? l.igic : igic, total, bonif: '', sinStock: '', codOfipapel: '', refProveedor: l.ref,
+        ean: l.ean || '', desc: l.alta ? (l.descAlta || l.desc || '') : (l.desc || ''), ref: l.alta ? REF_ALTA : l.ref, cajas: '', udsCaja: '', cant: l.cant,
+        precio, dto: dtoLinea, igic: l.igic != null ? l.igic : igic, total, bonif: '', sinStock: '', codOfipapel: '', refProveedor: l.alta ? REF_ALTA : l.ref,
       };
       aoa.push(P.columnas.map((c) => v[c]));
     }
@@ -950,10 +1009,12 @@
     const NUM = '(\\d{1,3}(?:\\.\\d{3})*,\\d{2,4})';
     const re = new RegExp('^(\\S+) (?:([A-Z]) )?(\\S+) (.+?) (\\d+) (\\d+) (\\d+) (\\d+) ' + NUM + '(?: (\\d{1,2}(?:,\\d+)?)(?= |$))?(?: (\\S+))?(?: .*)?$');
     const lineas = [];
-    for (const f of filas) {
+    for (const f0 of filas) {
+      const f = f0.replace(/^(\S+ (?:[A-Z] )?)2 ALTA NUEVA /i, '$12_ALTA_NUEVA ');
       const m = f.match(re);
       if (!m || !/\d/.test(m[1])) continue;
-      const [, codVenta, , rfc, desc, , cajas, udsCaja, unidades, precio, dto, ean] = m;
+      let [, codVenta, , rfc, desc, , cajas, udsCaja, unidades, precio, dto, ean] = m;
+      if (rfc === '2_ALTA_NUEVA') rfc = REF_ALTA;
       lineas.push({
         referencia: rfc, codVenta, ean: ean && !/^\d{1,2},/.test(ean) ? ean : '', descripcion: desc.trim(),
         cantidad: unidades, udsCaja: Number(udsCaja) ? udsCaja : '', cajas, precio, descuentos: dto && Number(dto.replace(',', '.')) ? dto : '',
@@ -1104,7 +1165,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, claveRef, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
