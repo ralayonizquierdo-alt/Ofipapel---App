@@ -83,6 +83,7 @@ const {
   isUnverifiedConfirmation,
   isUnverifiedStockClaim,
   preciosSinRespaldo,
+  pideLaFotoOtraVez,
   PRODUCTO_NO_VERIFICADO_INFO,
   pedidosInfo,
   pedidoEstadoTrigger,
@@ -124,14 +125,30 @@ const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo
 const { respuestaSinCatalogo } = require('./whatsapp-consumibles');
 const { detectarHostilidad, mensajeClienteMolesto } = require('./whatsapp-hostilidad');
 const { todasLasNotas, notasQueAplican, notaDeFicha } = require('./whatsapp-notas');
-const { guardarAdjuntoDeCliente, MARCA_ADJUNTO } = require('./whatsapp-media');
+const { guardarAdjuntoDeCliente, MARCA_ADJUNTO, adjuntoDelHistorial } = require('./whatsapp-media');
 const {
   leerFoto,
   sePuedeLeer: sePuedeLeerLaFoto,
   textoParaBuscar,
   comoSeLeDiceALaIA,
   paraElPanel: lecturaParaElPanel,
+  ultimaFotoDelHistorial,
 } = require('./whatsapp-vision');
+
+// EL HISTORIAL, VISTO POR LA IA.
+//
+// Lo archivado lleva marcas que son fontanería del panel ("[ADJUNTO:wamid...]",
+// que es con lo que se pinta la imagen). Para la IA eso es ruido, y encima ruido
+// con pinta de identificador. Se quita, y lo que queda sí se entiende solo:
+// "[El cliente envió una foto] — "¿tenéis este?"" con, debajo, lo que se vio en
+// ella. Ese apunte es la memoria de la foto cuando la pregunta llega después,
+// en un mensaje aparte.
+function historialParaLaIA(history = []) {
+  return history.map((m) => {
+    const adjunto = adjuntoDelHistorial(m.content);
+    return adjunto ? { ...m, content: adjunto.texto } : m;
+  });
+}
 const { idiomaDeRespuesta } = require('./whatsapp-idioma');
 const { firmaDeReintento } = require('./whatsapp-firma');
 const conversationStore = require('./conversation-store');
@@ -760,6 +777,34 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     return;
   }
 
+  // UN STICKER ES UN GESTO, NO UNA PREGUNTA.
+  //
+  // Es exactamente el mismo caso que la reacción de aquí arriba, pero entrando
+  // por otra puerta: un sticker de pulgar arriba cierra una conversación igual
+  // que el 👍 pegado a un mensaje. Y hasta hoy se llevaba "no puedo leer un
+  // sticker por aquí, ¿quieres que te ponga en contacto con una persona?" — que
+  // es el mismo disparate que se arregló el 30/9/2026 con las reacciones:
+  // escalar a alguien, a lo mejor de madrugada, a quien solo estaba dando las
+  // gracias.
+  //
+  // Tampoco se lee: un sticker es un emoji grande, nadie pregunta por un
+  // producto con uno, y mirarlo sería pagar por nada.
+  //
+  // Sí se descarga y se archiva, porque en el panel dice algo: un pulgar arriba
+  // cierra una conversación y una cara de enfado la abre.
+  if (message.type === 'sticker') {
+    const sticker = message.sticker?.id
+      ? await guardarAdjuntoDeCliente(event, message.from, message.sticker.id)
+      : null;
+    const marcaSticker = sticker?.mediaId ? `${MARCA_ADJUNTO}${sticker.mediaId}]` : '';
+    await conversationStore.appendCustomerMessage(
+      message.from,
+      `${marcaSticker}[El cliente envió un sticker]`,
+      message.id
+    );
+    return;
+  }
+
   // EL BOT EN PAUSA NO HABLA, MANDE EL CLIENTE LO QUE MANDE.
   //
   // Esta comprobación estaba más abajo, después de la rama de fotos y audios,
@@ -782,15 +827,10 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     // Si falla no pasa nada grave: el mensaje se registra igual y el aviso sale
     // igual, solo que sin la foto. Nunca se deja al cliente sin respuesta por
     // culpa de una descarga.
-    // Los STICKERS cuentan como imagen: son un webp, whatsapp-media.js ya los
-    // admite, y en el panel se ven igual de bien. Quedaban fuera de esta lista
-    // por olvido, así que en el panel salía "[El cliente envió un sticker]" y
-    // nada más — que es tanto como no haberlo recibido. Un sticker dice algo
-    // (un pulgar arriba cierra una conversación, una cara de enfado la abre) y
-    // quien lea el panel tiene que poder verlo.
+    // Los stickers no llegan aquí: se atienden más arriba, como una reacción.
     const mediaId = message[message.type]?.id;
     let adjunto = null;
-    if (mediaId && (message.type === 'image' || message.type === 'document' || message.type === 'sticker')) {
+    if (mediaId && (message.type === 'image' || message.type === 'document')) {
       adjunto = await guardarAdjuntoDeCliente(event, message.from, mediaId);
     }
 
@@ -873,7 +913,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
         from: message.from,
         lectura,
         pieDeFoto,
-        history: await getHistory(message.from),
+        history: historialParaLaIA(await getHistory(message.from)),
         fichaCliente: fichaFoto,
         notas: notasFoto,
         idioma: idiomaFoto,
@@ -972,7 +1012,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   const debePresentarse = !fichaCliente?.presentado;
   if (debePresentarse) await conversationStore.marcarPresentado(message.from);
 
-  const history = await getHistory(message.from);
+  const history = historialParaLaIA(await getHistory(message.from));
 
   // LAS REGLAS FIJAS SOLO VALEN EN ESPAÑOL.
   //
@@ -1253,6 +1293,51 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
         fichaCliente,
         notas
       );
+    }
+  }
+
+  // LA FOTO SÍ LLEGÓ: NO SE LE PIDE OTRA VEZ.
+  //
+  // En WhatsApp la imagen y la pregunta vienen como DOS mensajes: primero la
+  // foto y un segundo después "¿y este papel?". El primero se contesta por la
+  // rama de fotos; el segundo entra por aquí, por el camino del texto, SIN
+  // ninguna imagen en la mano. Y como el prompt ahora dice que sí ve fotos, la
+  // IA ató cabos al revés y contestó "No veo una foto adjunta en ese mensaje.
+  // ¿Puedes enviarla de nuevo?" — a un cliente al que se le acababa de dar el
+  // precio y el enlace de lo que salía en su foto. Visto en real el 19/10/2026,
+  // el mismo día de estrenarlo.
+  //
+  // La foto no se ha perdido: está apuntada en el historial con lo que se vio en
+  // ella. Así que se rescata y se contesta como lo que es — esa foto, con esta
+  // frase — por el mismo camino que la rama de fotos, con sus mismas redes de
+  // seguridad. Si de verdad no hubiera ninguna foto detrás, la respuesta sería
+  // correcta y se deja pasar.
+  if (pideLaFotoOtraVez(respuesta)) {
+    const fotoPrevia = ultimaFotoDelHistorial(history);
+    if (fotoPrevia) {
+      const conLaFoto = await contestarAUnaFoto({
+        from: message.from,
+        lectura: fotoPrevia,
+        pieDeFoto: text,
+        history,
+        fichaCliente,
+        notas,
+        idioma,
+      });
+      if (conLaFoto) {
+        const reply = greeting + conLaFoto;
+        await appendToHistory(message.from, text, reply);
+        await sendWhatsappMessage(message.from, reply);
+        return;
+      }
+      // No se pudo respaldar nada de lo que diría. Mejor una persona que
+      // pedirle otra vez una foto que ya tenemos.
+      const prefijo = idioma === 'en'
+        ? `${greeting}Thanks — I've seen the photo, but I can't confirm from here whether we have it. `
+        : `${greeting}Gracias, he visto la foto, pero no te puedo confirmar desde aquí si lo tenemos. `;
+      await sendEscalateButtons(message.from, prefijo, idioma);
+      await appendToHistory(message.from, text, `${prefijo}${escalateQuestion(idioma)}`);
+      return;
     }
   }
 

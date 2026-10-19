@@ -55,10 +55,6 @@ global.PAUSADO=false;
     ['Foto con pregunta', {type:'image', image:{id:'1', caption:'¿Tenéis este cartucho?'}}],
     ['Foto sin texto',    {type:'image', image:{id:'2'}}],
     ['Audio',             {type:'audio', audio:{id:'3'}}],
-    // Un sticker es un webp y se ve en el panel igual que una foto. Quedaba
-    // fuera de la descarga por olvido: en el panel salía "[El cliente envió un
-    // sticker]" y nada más, que es tanto como no haberlo recibido.
-    ['Sticker',           {type:'sticker', sticker:{id:'4'}}],
   ]){
     log=[];
     await wh.handler(ev(msg));
@@ -74,7 +70,7 @@ global.PAUSADO=false;
     for(const obligatorio of ['botones','guardado en el panel']){
       if(!tiene(obligatorio)){ fallos++; console.log(`   ✗ FALTA: ${obligatorio}`); }
     }
-    if((msg.type==='image'||msg.type==='sticker') && !tiene('foto guardada')){ fallos++; console.log(`   ✗ FALTA: el adjunto (${msg.type}) no se guardó, no se verá en el panel`); }
+    if(msg.type==='image' && !tiene('foto guardada')){ fallos++; console.log(`   ✗ FALTA: el adjunto (${msg.type}) no se guardó, no se verá en el panel`); }
     for(const prohibido of ['bot en pausa','email al dueño']){
       if(tiene(prohibido)){ fallos++; console.log(`   ✗ NO debería: ${prohibido} (se pregunta antes)`); }
     }
@@ -111,6 +107,26 @@ global.PAUSADO=false;
   if(!tieneR('guardado sin contestar')){ fallos++; console.log('   ✗ FALTA: no queda constancia en el panel de que reaccionó'); }
   else if(!log.some(l=>String(l.m).includes('👍'))){ fallos++; console.log('   ✗ se guarda sin el emoji: no se sabe qué puso'); }
   else console.log('    ✔ se archiva con su emoji y no se contesta');
+  console.log();
+
+  // UN STICKER TAMPOCO ES UNA PREGUNTA, y es el mismo caso que la reacción
+  // entrando por otra puerta: un sticker de pulgar arriba cierra una
+  // conversación igual que el 👍 pegado a un mensaje. Se llevaba "no puedo leer
+  // un sticker por aquí, ¿quieres que te ponga en contacto con una persona?" —
+  // el mismo disparate que se arregló el 30/9/2026 con las reacciones.
+  //
+  // Sí se descarga y se archiva: en el panel un sticker dice algo.
+  log=[];
+  await wh.handler(ev({type:'sticker', sticker:{id:'4'}}));
+  console.log('=== Un sticker');
+  log.forEach(l=>console.log(`   [${l.t}] ${l.m}`));
+  const tieneK=(t)=>log.some(l=>l.t===t);
+  for(const prohibido of ['botones','respuesta']){
+    if(tieneK(prohibido)){ fallos++; console.log(`   ✗ NO debería contestar a un sticker: ${prohibido}`); }
+  }
+  if(!tieneK('guardado sin contestar')){ fallos++; console.log('   ✗ FALTA: el sticker no llega al panel'); }
+  else if(!tieneK('foto guardada')){ fallos++; console.log('   ✗ FALTA: el sticker no se descargó, no se verá'); }
+  else console.log('    ✔ se archiva con su imagen y no se contesta');
   console.log();
 
   // UN AVISO DE WHATSAPP NO ES UNA PREGUNTA.

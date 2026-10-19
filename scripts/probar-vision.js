@@ -19,7 +19,11 @@ const crypto = require('crypto');
 const Module = require('module');
 
 const vision = require(path.join(__dirname, '..', 'netlify/functions/whatsapp-vision.js'));
-const { interpretarLectura, textoParaBuscar, comoSeLeDiceALaIA, sePuedeLeer, MARCA_FOTO } = vision;
+const {
+  interpretarLectura, textoParaBuscar, comoSeLeDiceALaIA, sePuedeLeer, MARCA_FOTO,
+  paraElPanel, lecturaDelHistorial, ultimaFotoDelHistorial,
+} = vision;
+const { pideLaFotoOtraVez } = require(path.join(__dirname, '..', 'netlify/functions/whatsapp-agent-config.js'));
 
 let fallos = 0;
 const comprobar = (etiqueta, fn) => {
@@ -109,6 +113,81 @@ comprobar('el prompt de la IA explica esa misma marca', () => {
   assert.ok(/no puedes ver/i.test(prompt) || /NO puedes/.test(prompt), 'sigue haciendo falta decir qué NO ve (audio, vídeo, PDF)');
 });
 
+console.log('\n=== La memoria de la foto\n');
+
+// EN WHATSAPP LA FOTO Y LA PREGUNTA SON DOS MENSAJES.
+//
+// Primero la imagen, y un segundo después "¿y este papel?". Para el webhook son
+// dos turnos, y en el segundo ya no hay ninguna foto en la mano: solo lo que
+// quedó apuntado del primero. Por eso lo que se escribe en el panel y lo que se
+// lee de vuelta tienen que ser la misma cosa — si una mitad cambia y la otra
+// no, la memoria se pierde en silencio y el bot vuelve a pedir la foto.
+comprobar('lo escrito en el panel se puede volver a leer', () => {
+  const original = { seVe: 'paquete de folios A4', textoLeido: 'MATTIO, 80gr' };
+  const vuelta = lecturaDelHistorial(`[El cliente envió una foto]\n${paraElPanel(original)}`);
+  assert.strictEqual(vuelta.seVe, original.seVe);
+  assert.strictEqual(vuelta.textoLeido, original.textoLeido);
+});
+
+comprobar('también cuando no se leyó ningún texto', () => {
+  const vuelta = lecturaDelHistorial(paraElPanel({ seVe: 'mochila escolar', textoLeido: '' }));
+  assert.strictEqual(vuelta.seVe, 'mochila escolar');
+  assert.strictEqual(vuelta.textoLeido, '');
+});
+
+comprobar('un mensaje normal no tiene foto detrás', () => {
+  assert.strictEqual(lecturaDelHistorial('¿A qué hora abrís?'), null);
+  assert.strictEqual(ultimaFotoDelHistorial([{ role: 'user', content: 'hola' }]), null);
+});
+
+comprobar('se coge la foto más reciente, no la primera', () => {
+  const historial = [
+    { role: 'user', content: paraElPanel({ seVe: 'grapadora', textoLeido: '' }) },
+    { role: 'assistant', content: 'te cuento' },
+    { role: 'user', content: paraElPanel({ seVe: 'cartucho de tinta', textoLeido: 'HP 305XL' }) },
+    { role: 'assistant', content: 'te cuento' },
+    { role: 'user', content: 'Y este papel?' },
+  ];
+  assert.strictEqual(ultimaFotoDelHistorial(historial).textoLeido, 'HP 305XL');
+});
+
+// Una foto de hace media conversación no tiene nada que ver con lo que se
+// pregunta ahora.
+comprobar('una foto vieja ya no cuenta', () => {
+  const historial = [
+    { role: 'user', content: paraElPanel({ seVe: 'cartucho', textoLeido: 'HP 305XL' }) },
+    ...Array.from({ length: 5 }, () => ({ role: 'user', content: 'otra cosa' })),
+  ];
+  assert.strictEqual(ultimaFotoDelHistorial(historial), null);
+});
+
+console.log('\n=== "No me llega la foto" cuando sí llegó\n');
+
+// Las frases son las de la conversación real del 19/10/2026, copiadas tal cual.
+for (const frase of [
+  'No veo una foto adjunta en ese mensaje. ¿Puedes enviarla de nuevo? Así te confirmo si lo tenemos.',
+  '¡Hola! no me llega la foto. ¿Puedes intentar enviarla de nuevo? Una vez la vea, te digo si tenemos la caja que buscas.',
+  'No me ha llegado la imagen, ¿me la mandas otra vez?',
+  'La foto no me llega, inténtalo de nuevo.',
+]) {
+  comprobar(`se reconoce: "${frase.slice(0, 42)}…"`, () => {
+    assert.ok(pideLaFotoOtraVez(frase));
+  });
+}
+
+// Y que no se lleve por delante una respuesta normal: si el bot dice algo de
+// una foto sin pedirla, no hay nada que corregir.
+for (const frase of [
+  'Sí, mándamela: la miro y te busco lo que se vea en ella.',
+  'Por la foto parece un HP 305XL. ¿Te lo confirmo?',
+  'No tenemos ese modelo, pero sí uno equivalente.',
+  'Te mando una foto del producto en cuanto la tenga.',
+]) {
+  comprobar(`no se confunde con: "${frase.slice(0, 42)}…"`, () => {
+    assert.ok(!pideLaFotoOtraVez(frase));
+  });
+}
+
 console.log('\n=== Qué NO se intenta leer\n');
 
 comprobar('un PDF no se lee: es otro problema', () => {
@@ -143,6 +222,7 @@ const escenario = {
   respuestaIA: 'El HP 305XL negro lo tenemos a 24,95 €. ¿Te lo preparo?',
   catalogo: { productContext: 'Resultado de búsqueda EN TIEMPO REAL: HP 305XL negro — 24,95 €', fallo: false },
   pausado: false,
+  historial: [],
 };
 let log = [];
 let buscadoCon = null;
@@ -190,7 +270,7 @@ Module.prototype.require = function (p) {
       ...m,
       notifyOwner: async () => {},
       notifyOwnerByWhatsapp: async () => {},
-      getHistory: async () => [],
+      getHistory: async () => escenario.historial || [],
       appendToHistory: async (f, u) => {
         log.push({ t: 'guardado en el panel', m: u });
       },
@@ -201,7 +281,7 @@ Module.prototype.require = function (p) {
       pauseBot: async () => {},
       askClaude: async (texto) => {
         log.push({ t: 'se le pregunta a la IA', m: texto });
-        return escenario.respuestaIA;
+        return typeof escenario.respuestaIA === 'function' ? escenario.respuestaIA(texto) : escenario.respuestaIA;
       },
     };
   }
@@ -274,6 +354,8 @@ const ev = (msg) => {
 const foto = (caption) => ({ type: 'image', image: { id: String(Math.random()), ...(caption ? { caption } : {}) } });
 const tiene = (t) => log.some((l) => l.t === t);
 const texto = (t) => (log.find((l) => l.t === t) || {}).m || '';
+
+const texto_ = (t) => ({ type: 'text', text: { body: t } });
 
 async function caso(etiqueta, msg, revisar) {
   log = [];
@@ -371,11 +453,67 @@ async function caso(etiqueta, msg, revisar) {
 
   // UN STICKER TAMPOCO, y este sí es una imagen (un webp), así que había que
   // dejarlo fuera a mano. Un sticker es un emoji grande: nadie pregunta por un
-  // producto con un sticker, y leerlo sería pagar por nada.
+  // producto con un sticker, y leerlo sería pagar por nada. Además es un gesto,
+  // no una pregunta: se archiva y el bot se calla, como con una reacción.
   await caso('Un sticker', { type: 'sticker', sticker: { id: '10' } }, () => {
     assert.strictEqual(lecturasPedidas, 0, 'se gastó una lectura en un sticker');
-    assert.ok(tiene('botones'));
+    assert.ok(!tiene('botones') && !tiene('respuesta'), 'un sticker no se contesta');
+    assert.ok(tiene('guardado sin contestar'), 'el sticker tiene que verse en el panel');
   });
+
+  // LA FOTO Y LA PREGUNTA SON DOS MENSAJES, Y LA SEGUNDA NO PUEDE DECIR QUE LA
+  // PRIMERA NO LLEGÓ.
+  //
+  // Caso real del 19/10/2026, el mismo día de estrenarlo: el cliente mandó la
+  // captura del papel MATTIO y el bot contestó perfecto — precio, descuentos y
+  // enlace. Un segundo después llegó su "Y este papel?" por el camino del
+  // texto, sin ninguna imagen encima, y el bot le soltó "No veo una foto
+  // adjunta en ese mensaje. ¿Puedes enviarla de nuevo?".
+  const elPanelDiceLaFoto = {
+    role: 'user',
+    content: `[El cliente envió una foto]\n${paraElPanel({ seVe: 'paquete de folios A4', textoLeido: 'MATTIO, 80gr' })}`,
+  };
+  escenario.historial = [elPanelDiceLaFoto, { role: 'assistant', content: 'Ese es el papel que buscas.' }];
+  escenario.catalogo = { productContext: 'Resultado EN TIEMPO REAL: PAPEL Fotocopia A-4 80gr MATTIO — 3,94 €', fallo: false };
+  escenario.respuestaIA = (t) =>
+    t.startsWith(MARCA_FOTO)
+      ? 'Ese es el MATTIO A4 de 80gr, a 3,94 € + IGIC el paquete de 500 hojas.'
+      : 'No veo una foto adjunta en ese mensaje. ¿Puedes enviarla de nuevo? Así te confirmo si lo tenemos.';
+  await caso('Pregunta por la foto que mandó hace un segundo', texto_('Y este papel?'), () => {
+    const contestado = texto('respuesta');
+    assert.ok(contestado, 'se quedó sin respuesta');
+    assert.ok(!pideLaFotoOtraVez(contestado), `le volvió a pedir la foto: "${contestado}"`);
+    assert.ok(/MATTIO/.test(contestado), 'no contestó por la foto que ya tenía apuntada');
+    assert.ok(/MATTIO/.test(buscadoCon || ''), `no buscó con lo que vio en la foto: ${buscadoCon}`);
+  });
+
+  // Si no se puede respaldar nada, una persona. Pero NUNCA volver a pedir la
+  // foto que ya tenemos.
+  escenario.catalogo = { productContext: null, fallo: false };
+  escenario.respuestaIA = (t) =>
+    t.startsWith(MARCA_FOTO)
+      ? 'Sí, ese papel lo tenemos a 12,95 €.'
+      : '¡Hola! no me llega la foto. ¿Puedes intentar enviarla de nuevo?';
+  await caso('No hay con qué respaldarlo: una persona, no otra foto', texto_('Y este papel?'), () => {
+    assert.ok(!tiene('respuesta'), 'mandó un precio sin respaldo');
+    assert.ok(tiene('botones'), 'tenía que ofrecer una persona');
+    assert.ok(!pideLaFotoOtraVez(texto('botones')), 'le volvió a pedir la foto');
+  });
+
+  // Y AL REVÉS: si de verdad no ha llegado ninguna foto, decirlo es correcto.
+  // La red no puede tragarse también los casos en los que la IA tiene razón.
+  escenario.historial = [];
+  escenario.catalogo = { productContext: null, fallo: false };
+  escenario.respuestaIA = 'No me llega ninguna foto, ¿puedes enviarla de nuevo?';
+  await caso('Habla de una foto que nunca mandó', texto_('¿has visto la foto que te mandé?'), () => {
+    assert.ok(tiene('respuesta'), 'se quedó sin contestar');
+    assert.strictEqual(
+      log.filter((l) => l.t === 'se le pregunta a la IA').length,
+      1,
+      'intentó rescatar una foto que no existe'
+    );
+  });
+  escenario.historial = [];
 
   console.log(fallos === 0 ? '✔ Sin fallos' : `✗ ${fallos} fallos`);
   process.exit(fallos === 0 ? 0 : 1);

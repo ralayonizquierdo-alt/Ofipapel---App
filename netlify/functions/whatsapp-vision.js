@@ -144,9 +144,49 @@ function comoSeLeDiceALaIA(lectura, pieDeFoto = '', idioma = 'es') {
 
 // Cómo queda en el panel, debajo de la foto. Es para el equipo, no para el
 // cliente: con esto se ve si una respuesta rara vino de leer mal la foto.
+//
+// Y de paso es la MEMORIA de la foto: queda escrito en el historial, así que
+// cuando el cliente escribe después "¿y este papel?" se puede recuperar lo que
+// se vio sin volver a mirar la imagen (ver ultimaFotoDelHistorial).
+const ENCABEZADO_PANEL = '   ↳ el bot ve en la foto: ';
+const SEPARADOR_LEIDO = ' · se lee: ';
+
 function paraElPanel(lectura) {
-  const leido = lectura.textoLeido ? ` · se lee: ${lectura.textoLeido}` : '';
-  return `   ↳ el bot ve en la foto: ${lectura.seVe}${leido}`;
+  const leido = lectura.textoLeido ? `${SEPARADOR_LEIDO}${lectura.textoLeido}` : '';
+  return `${ENCABEZADO_PANEL}${lectura.seVe}${leido}`;
+}
+
+// Lo contrario de paraElPanel. Van juntas a propósito: si una cambia y la otra
+// no, la memoria de las fotos se pierde en silencio y nadie se entera hasta que
+// el bot vuelve a pedir una foto que ya tenía.
+function lecturaDelHistorial(contenido) {
+  const linea = new RegExp(`${ENCABEZADO_PANEL.trim()}(.+)$`, 'm').exec(String(contenido || ''));
+  if (!linea) return null;
+  const [seVe, textoLeido = ''] = linea[1].split(SEPARADOR_LEIDO.trim()).map((t) => t.trim());
+  if (!seVe) return null;
+  return { seVe, textoLeido, buscar: true };
+}
+
+// LA FOTO MÁS RECIENTE QUE EL CLIENTE HAYA MANDADO, Y QUE SE PUDO LEER.
+//
+// Hace falta porque en WhatsApp la foto y la pregunta llegan como DOS mensajes
+// distintos: primero la imagen, y un segundo después "¿y este papel?". Para el
+// webhook son dos turnos, y en el segundo ya no hay ninguna foto en la mano —
+// solo lo que quedó apuntado del primero.
+//
+// Solo se mira lo reciente: una foto de hace media conversación no tiene nada
+// que ver con lo que se pregunta ahora.
+const MENSAJES_QUE_CUENTAN_COMO_LA_MISMA_FOTO = 4;
+
+function ultimaFotoDelHistorial(history = []) {
+  const recientes = history
+    .filter((m) => m.role === 'user')
+    .slice(-MENSAJES_QUE_CUENTAN_COMO_LA_MISMA_FOTO);
+  for (let i = recientes.length - 1; i >= 0; i -= 1) {
+    const lectura = lecturaDelHistorial(recientes[i].content);
+    if (lectura) return lectura;
+  }
+  return null;
 }
 
 // Lee la foto. Devuelve null ante cualquier problema (sin clave, tipo que no se
@@ -216,6 +256,8 @@ module.exports = {
   textoParaBuscar,
   comoSeLeDiceALaIA,
   paraElPanel,
+  lecturaDelHistorial,
+  ultimaFotoDelHistorial,
   MARCA_FOTO,
   TIPOS_QUE_SE_LEEN,
   MAXIMO_PARA_LEER,
