@@ -114,6 +114,11 @@ main{overflow-wrap:anywhere}
 .importar-barra{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:10px 0}
 li.descartada{text-decoration:line-through;opacity:.65}
 .dlg{border:0;border-radius:14px;padding:18px;width:min(560px,94vw);box-shadow:0 10px 40px #0005}
+.campana{position:relative;font-size:22px;line-height:1;background:#fff;border:0;border-radius:50%;width:42px;height:42px;cursor:pointer;box-shadow:0 2px 6px #0003;margin-left:auto}
+.campana .globo{position:absolute;top:-6px;right:-6px;background:var(--rojo);color:#fff;font-size:12px;font-weight:700;border-radius:11px;min-width:22px;height:22px;padding:0 5px;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+.campana.hay{animation:sonar 1.6s ease-in-out infinite}
+@keyframes sonar{0%,60%,100%{transform:rotate(0)}10%,30%{transform:rotate(-14deg)}20%,40%{transform:rotate(14deg)}}
+.aviso-nuevo{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--borde,#ddd)}
 .dlg::backdrop{background:#0006}
 .dlg h2{margin:0 0 10px;color:var(--verde-oscuro);font-size:18px}
 .dlg label{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
@@ -239,7 +244,8 @@ table.lista-pedidos .c-movil{display:none}
 </head>
 <body>
 <header>
-  <h1>Control de Pedidos <button id="estadoNube" class="nube oculto" onclick="vista='datos';pedidoAbierto=null;pintar()" title="Ver el estado de la nube"></button></h1>
+  <h1>Control de Pedidos <button id="estadoNube" class="nube oculto" onclick="vista='datos';pedidoAbierto=null;pintar()" title="Ver el estado de la nube"></button>
+    <button id="campana" class="campana no-imprimir" onclick="abrirAvisos()" title="Pedidos y campañas nuevos">🔔<span class="globo oculto" id="globoAvisos">0</span></button></h1>
   <nav id="nav">
     <button data-vista="importar" class="activa">📄 PDF a Excel</button>
     <button data-vista="pedidos">Campañas</button>
@@ -255,6 +261,7 @@ table.lista-pedidos .c-movil{display:none}
 <div id="avisoNube" class="no-imprimir"></div>
 <main id="main"></main>
 <dialog id="dlgEnvio" class="dlg"></dialog>
+<dialog id="dlgAvisos" class="dlg"></dialog>
 <div id="login" class="oculto">
   <form onsubmit="event.preventDefault(); entrarConUsuario()">
     <h2>Control de Pedidos</h2>
@@ -379,6 +386,7 @@ function pintarCuentas() {
 function pintar() {
   if (pedidoAbierto && !pedidoPorId(pedidoAbierto)) pedidoAbierto = null; // lo borró otro dispositivo
   try { pintarNube(); } catch (e) { mostrarFallo('estado de la nube: ' + e.message); }
+  try { pintarCampana(); } catch (e) { mostrarFallo('avisos: ' + e.message); }
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('activa', b.dataset.vista === vista));
   const main = document.getElementById('main');
   const importar = document.getElementById('vistaImportar');
@@ -1000,7 +1008,64 @@ function quitarFoto(nombre) {
   p.fotos = (p.fotos || []).filter((f) => f.nombre !== nombre);
   invalidar(p); guardar(); pintar();
 }
+// ── Campana de avisos: pedidos (y campañas) nuevos que han subido OTROS ─────
+// Se apuntan al bajar de la nube los pedidos que no teníamos y que ha creado
+// otra persona; se quitan al abrirlos o con «Marcar todo como visto». Cada
+// dispositivo lleva sus avisos (localStorage); la primera sincronización de un
+// dispositivo no avisa de nada (sería todo).
+const CLAVE_AVISOS = 'ofipapel-control-pedidos-avisos';
+let avisos = (() => { try { return JSON.parse(localStorage.getItem(CLAVE_AVISOS)) || []; } catch { return []; } })();
+function guardarAvisos() { try { localStorage.setItem(CLAVE_AVISOS, JSON.stringify(avisos)); } catch { /* solo en memoria */ } }
+function avisosVivos() {
+  const vivos = avisos.filter((a) => pedidoPorId(a.id));
+  if (vivos.length !== avisos.length) { avisos = vivos; guardarAvisos(); }
+  return avisos;
+}
+function pintarCampana() {
+  const n = avisosVivos().length;
+  const b = document.getElementById('campana');
+  const g = document.getElementById('globoAvisos');
+  if (!b || !g) return;
+  b.classList.toggle('hay', n > 0);
+  g.classList.toggle('oculto', !n);
+  g.textContent = n > 99 ? '99+' : String(n);
+  b.title = n ? `${n} pedido(s) nuevo(s)` : 'Sin pedidos nuevos';
+}
+function quitarAviso(id) {
+  const antes = avisos.length;
+  avisos = avisos.filter((a) => a.id !== id);
+  if (avisos.length !== antes) { guardarAvisos(); pintarCampana(); }
+}
+function abrirAvisos() {
+  const lista = avisosVivos();
+  const dlg = document.getElementById('dlgAvisos');
+  // Agrupados por campaña; «campaña nueva» si todos sus pedidos son nuevos.
+  const grupos = new Map();
+  for (const a of lista) {
+    const p = pedidoPorId(a.id);
+    const k = claveGrupo(p);
+    if (!grupos.has(k)) grupos.set(k, { nombre: nombreGrupo(p), clave: k, items: [] });
+    grupos.get(k).items.push({ a, p });
+  }
+  const nuevaCampana = (g) => !esRepo(g.items[0].p) && E.pedidos.filter((p) => claveGrupo(p) === g.clave).length === g.items.length;
+  dlg.innerHTML = `
+    <h2>🔔 Novedades</h2>
+    ${lista.length ? [...grupos.values()].map((g) => `
+      <h3 style="margin:14px 0 4px">${h(g.nombre)} ${nuevaCampana(g) ? '<span class="chip mal">🆕 campaña nueva</span>' : ''}</h3>
+      ${g.items.map(({ a, p }) => `<div class="aviso-nuevo">
+        <div><b>${esRepo(p) ? (p.numero ? 'nº ' + h(p.numero) : 'Pedido de reposición') : `nº ${h(nPed(p.numero))} · ${h(p.cliente)}`}</b>
+          <div class="pequeno">${p.lineas.length} línea(s) · subido por ${h(a.autor || '¿?')}${a.cuando ? ' · ' + h(fmtFecha(String(a.cuando).slice(0, 10))) : ''}</div></div>
+        <button class="btn peque primario" onclick="document.getElementById('dlgAvisos').close(); quitarAviso(${js(p.id)}); abrirPedido(${js(p.id)})">Abrir</button>
+      </div>`).join('')}`).join('')
+    : '<div class="vacio">No hay pedidos nuevos.</div>'}
+    <div class="fila" style="margin-top:14px">
+      ${lista.length ? `<button class="btn" onclick="avisos = []; guardarAvisos(); pintarCampana(); document.getElementById('dlgAvisos').close()">✓ Marcar todo como visto</button>` : ''}
+      <button class="btn peque" onclick="document.getElementById('dlgAvisos').close()">Cerrar</button>
+    </div>`;
+  dlg.showModal();
+}
 function abrirPedido(id) {
+  quitarAviso(id);
   // Al volver a la lista, la campaña de este pedido queda desplegada.
   const p = pedidoPorId(id);
   if (p) (gruposAbiertos = gruposAbiertos || new Set()).add(claveGrupo(p));
@@ -2820,7 +2885,18 @@ async function sincronizar() {
       const { data, error } = await q;
       if (error) throw error;
       const filas = (data || []).map((r) => Object.assign(r, { autor: String(r.autor || '').replace(DOMINIO, '') }));
+      const teniamos = new Set(E.pedidos.map((p) => String(p.id)));
       const r = CP.integrarBajada(E, nube.meta.docs, filas);
+      // Pedidos nuevos de otra persona → campana (no en la primera sincronización).
+      if (nube.meta.desde) {
+        for (const f of filas) {
+          if (f.coleccion !== 'pedidos' || f.borrado || teniamos.has(f.id) || !f.autor || f.autor === nube.usuario) continue;
+          const p = E.pedidos.find((x) => String(x.id) === f.id);
+          if (!p || avisos.some((a) => a.id === p.id)) continue;
+          avisos.push({ id: p.id, autor: f.autor, cuando: f.actualizado });
+        }
+        guardarAvisos();
+      }
       cambiado = cambiado || r.cambiado;
       conflictos.push(...r.conflictos);
       for (const f of filas) if (!desde || f.actualizado > desde) desde = f.actualizado;
@@ -2858,6 +2934,7 @@ async function sincronizar() {
     apartarConflictos(conflictos);
     nube.ocupada = false;
     pintarNube();
+    pintarCampana();
     if (vista === 'datos' && !editando()) pintar();
     if (nube.otraVez) { nube.otraVez = false; programarSubida(300); }
   }
