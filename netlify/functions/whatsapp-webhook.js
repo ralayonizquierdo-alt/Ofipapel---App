@@ -132,6 +132,7 @@ const {
   sePuedeLeer: sePuedeLeerLaFoto,
   paraElPanel: lecturaParaElPanel,
   ultimaFotoDelHistorial,
+  preguntaJustoAntesDeLaFoto,
 } = require('./whatsapp-vision');
 const { responderAUnaFoto } = require('./whatsapp-foto-responder');
 
@@ -856,16 +857,24 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
       // llegar significaba además soltarle dos mensajes, uno por cada mensaje
       // suyo.
       //
-      // Con pie de foto NO se espera: ahí la pregunta ya viene puesta, que es
-      // justamente lo que estaríamos esperando.
+      // NO se espera cuando la pregunta ya está dicha, y puede estar dicha de
+      // dos maneras:
       //
-      // Sin él, la foto leída se deja en espera y se avisa a la función de
-      // segundo plano. Si el cliente pregunta en los próximos segundos, se la
-      // lleva su mensaje (ver más abajo, en la rama de texto); si no pregunta,
-      // se la lleva esa función y contesta con la foto sola.
+      //   - En el pie de foto, que es lo más directo.
+      //   - En un mensaje de hace un momento, porque el cliente también
+      //     pregunta primero y manda la foto después ("busco una caja como
+      //     esta" y acto seguido la imagen). Entonces esa frase es la pregunta
+      //     de esta foto, igual que si la hubiera puesto de pie.
+      //
+      // Sin ninguna de las dos, la foto leída se deja en espera y se avisa a la
+      // función de segundo plano. Si el cliente pregunta en los próximos
+      // segundos, se la lleva su mensaje (ver más abajo, en la rama de texto);
+      // si no pregunta, se la lleva esa función y contesta con la foto sola.
       const notasFoto = todasLasNotas(await conversationStore.listarNotasNegocio());
+      const historialFoto = historialParaLaIA(await getHistory(message.from));
+      const pregunta = pieDeFoto || preguntaJustoAntesDeLaFoto(historialFoto);
 
-      if (!pieDeFoto) {
+      if (!pregunta) {
         await conversationStore.guardarFotoPendiente(message.from, lectura);
         const esperando = await dejarLaFotoEsperandoLaPregunta(
           message.from,
@@ -887,8 +896,8 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
       const enviado = await responderAUnaFoto({
         from: message.from,
         lecturas: [lectura],
-        pregunta: pieDeFoto,
-        history: historialParaLaIA(await getHistory(message.from)),
+        pregunta,
+        history: historialFoto,
         fichaCliente: fichaFoto,
         notas: notasFoto,
         idioma: idiomaFoto,

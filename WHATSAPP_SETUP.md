@@ -552,9 +552,16 @@ las dos vías corren a la vez y solo una puede llevársela. Sin eso el cliente
 recibiría dos respuestas a lo mismo. Si el cliente manda **varias fotos** antes
 de preguntar, se acumulan y la respuesta sale con todas delante.
 
-Excepciones: una foto **con pie de foto** se contesta al momento (la pregunta ya
-viene puesta), y si no se puede avisar a la función de segundo plano también se
-contesta al momento, porque lo único que no vale es dejar al cliente sin nada.
+**No se espera cuando la pregunta ya está dicha**, y puede estarlo de dos
+maneras: en el **pie de foto**, o en un mensaje **de hace un momento** — el
+cliente también pregunta primero y manda la foto después ("busco una caja como
+esta" y acto seguido la imagen). En ese caso esa frase es la pregunta de la
+foto, igual que si fuera el pie, y se contesta al momento con las dos cosas. La
+ventana son 90 segundos: una frase más vieja es otra conversación, y colgársela
+a la foto sería contestar a algo que nadie preguntó.
+
+Tampoco se espera si no se puede avisar a la función de segundo plano: nadie
+despertaría a contestar, y lo único que no vale es dejar al cliente sin nada.
 
 Antes de esto el segundo mensaje entraba por el camino del texto SIN ninguna
 imagen encima, y la IA concluía que no había llegado — "No veo una foto adjunta

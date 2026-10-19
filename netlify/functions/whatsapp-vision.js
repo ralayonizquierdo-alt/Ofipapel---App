@@ -186,6 +186,42 @@ function lecturaDelHistorial(contenido) {
 // que ver con lo que se pregunta ahora.
 const MENSAJES_QUE_CUENTAN_COMO_LA_MISMA_FOTO = 4;
 
+// Y EL ORDEN AL REVÉS: PRIMERO LA PREGUNTA Y DESPUÉS LA FOTO.
+//
+// "Luego también está el caso en que primero pregunta y luego envía la foto"
+// (propietario, 19/10/2026). Y es el mismo problema por la otra puerta: el
+// cliente escribe "busco una caja como esta", el bot contesta a ciegas porque
+// todavía no hay nada que mirar, y cuando llega la imagen contesta otra vez.
+//
+// Aquí la espera no sirve de nada —la pregunta YA está dicha—, así que lo que
+// toca es recogerla: si el cliente acaba de escribir, esa frase es la pregunta
+// de la foto que está llegando, igual que si la hubiera puesto de pie de foto.
+//
+// La ventana es corta a propósito. Una frase de hace cinco minutos no es la
+// pregunta de esta foto; es otra conversación.
+const VENTANA_PREGUNTA_ANTERIOR_MS = 90 * 1000;
+
+// Y no vale cualquier mensaje suyo: lo apuntado de una foto anterior ("[El
+// cliente envió una foto]") es nuestro, no suyo, y tomarlo por su pregunta
+// haría que una foto se contestara con la descripción de otra.
+function esApunteNuestro(contenido) {
+  return /^\s*\[/.test(String(contenido || '')) || Boolean(lecturaDelHistorial(contenido));
+}
+
+function preguntaJustoAntesDeLaFoto(history = [], ahora = Date.now()) {
+  const suyos = history.filter((m) => m.role === 'user');
+  for (let i = suyos.length - 1; i >= 0; i -= 1) {
+    const m = suyos[i];
+    if (esApunteNuestro(m.content)) continue;
+    // Sin marca de tiempo no se puede saber si es de hace un segundo o de la
+    // semana pasada, y ante la duda no se usa: colgarle a una foto una pregunta
+    // que no era es peor que no tener pregunta.
+    if (!m.ts || ahora - m.ts > VENTANA_PREGUNTA_ANTERIOR_MS) return '';
+    return String(m.content || '').trim();
+  }
+  return '';
+}
+
 // VARIAS FOTOS Y UNA SOLA PREGUNTA.
 //
 // Lo normal es mandar dos o tres fotos seguidas y preguntar después ("¿tenéis
@@ -283,7 +319,9 @@ module.exports = {
   paraElPanel,
   lecturaDelHistorial,
   ultimaFotoDelHistorial,
+  preguntaJustoAntesDeLaFoto,
   juntarLecturas,
+  VENTANA_PREGUNTA_ANTERIOR_MS,
   MARCA_FOTO,
   TIPOS_QUE_SE_LEEN,
   MAXIMO_PARA_LEER,

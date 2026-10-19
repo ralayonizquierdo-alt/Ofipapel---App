@@ -21,7 +21,8 @@ const Module = require('module');
 const vision = require(path.join(__dirname, '..', 'netlify/functions/whatsapp-vision.js'));
 const {
   interpretarLectura, textoParaBuscar, comoSeLeDiceALaIA, sePuedeLeer, MARCA_FOTO,
-  paraElPanel, lecturaDelHistorial, ultimaFotoDelHistorial,
+  paraElPanel, lecturaDelHistorial, ultimaFotoDelHistorial, preguntaJustoAntesDeLaFoto,
+  VENTANA_PREGUNTA_ANTERIOR_MS,
 } = vision;
 const { pideLaFotoOtraVez } = require(path.join(__dirname, '..', 'netlify/functions/whatsapp-agent-config.js'));
 
@@ -159,6 +160,38 @@ comprobar('una foto vieja ya no cuenta', () => {
     ...Array.from({ length: 5 }, () => ({ role: 'user', content: 'otra cosa' })),
   ];
   assert.strictEqual(ultimaFotoDelHistorial(historial), null);
+});
+
+console.log('\n=== Primero la pregunta, después la foto\n');
+
+// "Luego también está el caso en que primero pregunta y luego envía la foto"
+// (propietario, 19/10/2026). Ahí esperar no sirve de nada: la pregunta ya está
+// dicha, solo hay que recogerla.
+const haceNada = (texto) => ({ role: 'user', content: texto, ts: Date.now() - 3000 });
+
+comprobar('se recoge lo que acaba de escribir', () => {
+  assert.strictEqual(
+    preguntaJustoAntesDeLaFoto([haceNada('busco una caja como esta')]),
+    'busco una caja como esta'
+  );
+});
+
+// Una frase de hace cinco minutos no es la pregunta de esta foto: es otra
+// conversación, y colgársela sería contestar a algo que nadie preguntó.
+comprobar('una frase vieja no cuenta', () => {
+  const vieja = { role: 'user', content: '¿a qué hora abrís?', ts: Date.now() - VENTANA_PREGUNTA_ANTERIOR_MS - 1000 };
+  assert.strictEqual(preguntaJustoAntesDeLaFoto([vieja]), '');
+});
+
+// Lo apuntado de una foto anterior es nuestro, no suyo: tomarlo por su pregunta
+// haría que una foto se contestara con la descripción de otra.
+comprobar('lo que apuntamos nosotros no es su pregunta', () => {
+  const apunte = { role: 'user', content: `[El cliente envió una foto]\n${paraElPanel({ seVe: 'grapadora', textoLeido: '' })}`, ts: Date.now() };
+  assert.strictEqual(preguntaJustoAntesDeLaFoto([apunte]), '');
+});
+
+comprobar('sin marca de tiempo no se arriesga', () => {
+  assert.strictEqual(preguntaJustoAntesDeLaFoto([{ role: 'user', content: 'algo' }]), '');
 });
 
 console.log('\n=== "No me llega la foto" cuando sí llegó\n');
@@ -459,6 +492,40 @@ async function caso(etiqueta, msg, revisar, semilla = []) {
     assert.ok(!tiene('foto en espera'), 'se puso a esperar una pregunta que ya tenía');
     assert.strictEqual(delegadoCon, null, 'delegó sin necesidad');
   });
+
+  // Y AL REVÉS: PRIMERO LA PREGUNTA, DESPUÉS LA FOTO.
+  //
+  // El cliente escribe "busco una caja como esta" y acto seguido manda la
+  // imagen. Esperar no tendría sentido —la pregunta ya está dicha—, así que se
+  // recoge y se contesta con las dos cosas de una vez. Antes el texto se
+  // contestaba a ciegas y la foto se contestaba otra vez: dos respuestas, y la
+  // primera adivinando.
+  escenario.historial = [
+    { role: 'user', content: 'busco una caja como esta', ts: Date.now() - 4000 },
+    { role: 'assistant', content: '¿De qué tipo de caja hablamos?' },
+  ];
+  escenario.catalogo = { productContext: 'Resultado EN TIEMPO REAL: caja de regalo con tarros — 12,50 €', fallo: false };
+  escenario.respuestaIA = 'Esa caja de regalo con tarros la tenemos a 12,50 €.';
+  await caso('Preguntó antes y ahora manda la foto', foto(), () => {
+    assert.ok(tiene('respuesta'), 'no contestó: se puso a esperar una pregunta que ya tenía');
+    assert.ok(!tiene('foto en espera'), 'dejó la foto esperando teniendo ya la pregunta');
+    assert.strictEqual(delegadoCon, null, 'delegó sin necesidad');
+    assert.ok(
+      texto('se le pregunta a la IA').includes('busco una caja como esta'),
+      'contestó a la foto sin la pregunta que el cliente ya había escrito'
+    );
+  });
+
+  // Pero si lo último que escribió fue hace rato, eso no es la pregunta de esta
+  // foto: es otra conversación. Entonces sí toca esperar.
+  escenario.historial = [
+    { role: 'user', content: '¿a qué hora abrís?', ts: Date.now() - 10 * 60 * 1000 },
+  ];
+  await caso('Escribió hace rato de otra cosa: la foto espera igual', foto(), () => {
+    assert.ok(!tiene('respuesta'), 'coló una pregunta vieja como si fuera la de esta foto');
+    assert.ok(tiene('foto en espera'), 'ni contestó ni esperó');
+  });
+  escenario.historial = [];
 
   // SI NO SE PUEDE DELEGAR, SE CONTESTA EN EL ACTO. Nadie despertaría a
   // hacerlo, y lo único que no vale es dejar al cliente sin respuesta.
