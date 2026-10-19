@@ -65,12 +65,36 @@ Module.prototype.require = function (p) {
 const wh = require(path.join(RAIZ, 'netlify/functions/whatsapp-webhook.js'));
 Module.prototype.require = orig;
 
-global.fetch = async () => ({ ok: true, json: async () => ({}), text: async () => '{}' });
+// Nada de esto toca Upstash, pero sí decide por qué camino va el mensaje: una
+// foto que no se puede bajar ni leer se queda en "te paso con una persona" y
+// no mediría el gasto del camino nuevo, que es el que interesa.
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64'
+);
+process.env.WHATSAPP_TOKEN = 'token';
+process.env.ANTHROPIC_API_KEY = 'clave-de-prueba';
+global.fetch = async (url) => {
+  const u = String(url);
+  if (u.includes('api.anthropic.com')) {
+    return { ok: true, json: async () => ({ content: [{ type: 'text', text: 'SE VE: cartucho de tinta\nTEXTO: HP 305XL\nBUSCAR: si' }] }) };
+  }
+  if (u.includes('graph.facebook.com/v20.0/')) {
+    return { ok: true, json: async () => ({ url: 'https://lookaside.meta/x', mime_type: 'image/jpeg', file_size: PNG.length }) };
+  }
+  if (u.includes('lookaside')) {
+    return { ok: true, arrayBuffer: async () => PNG.buffer.slice(PNG.byteOffset, PNG.byteOffset + PNG.length) };
+  }
+  return { ok: true, json: async () => ({}), text: async () => '{}' };
+};
 
+// `texto` puede ser la frase del cliente o, para lo que no es texto (una foto),
+// el mensaje de Meta ya montado.
 const evento = (texto) => {
+  const mensaje = typeof texto === 'string' ? { type: 'text', text: { body: texto } } : texto;
   const body = JSON.stringify({
     entry: [{ changes: [{ value: {
-      messages: [{ from: '34600555111', id: 'wamid.' + Math.random(), type: 'text', text: { body: texto } }],
+      messages: [{ from: '34600555111', id: 'wamid.' + Math.random(), ...mensaje }],
       contacts: [{ profile: { name: 'Cliente' } }],
     } }] }],
   });
@@ -87,6 +111,10 @@ const CASOS = [
   ['saludo suelto', 'Hola'],
   ['problema de cuenta (escala)', 'No recuerdo mi contraseña'],
   ['cliente molesto (escala)', 'Esto es una estafa'],
+  // Una foto dejó de ser un callejón sin salida el 19/10/2026: ahora se lee y
+  // se contesta, así que pasa por el mismo camino que una consulta de producto
+  // (historial, ficha, notas) y ya no es el mensaje más baratito de atender.
+  ['foto de un producto', { type: 'image', image: { id: '1', caption: '¿Tenéis este?' } }],
 ];
 
 (async () => {

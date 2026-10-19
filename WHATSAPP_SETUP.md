@@ -500,10 +500,27 @@ lo está:
 - Ficha del cliente con datos duros y presentación una sola vez por cliente.
 - Sabe qué consumible lleva cada impresora (ver más abajo).
 
+- **Lee las fotos** que manda el cliente (desde el 19/10/2026): "¿tenéis este?"
+  con la foto de la caja del cartucho ya se contesta sola. La foto NO se le pasa
+  a la IA que contesta: se lee aparte (`whatsapp-vision.js`, una llamada cuyo
+  único trabajo es describirla) y lo que sale son **palabras** que entran por el
+  mismo camino que un mensaje de texto — se busca en el catálogo y manda el
+  catálogo. Esa separación es a propósito: una lectura de imagen se equivoca (lee
+  "305XL" donde dice "305"), y convertida en términos de búsqueda un error acaba
+  en "no encuentro eso", que es recuperable, en vez de en un dato falso dado por
+  cierto. Si la lectura falla, si en la foto no hay ningún artículo, o si la
+  respuesta no pasa las redes de seguridad de siempre (sin datos de catálogo no
+  se confirma ningún producto ni se dice ningún precio), se vuelve al
+  comportamiento anterior: se le ofrece una persona. Lo que el bot ha visto en la
+  foto queda escrito en el panel, debajo de la imagen, para poder distinguir de
+  un vistazo una lectura mala de una búsqueda mala.
+
 Limitación que sigue vigente:
 
-- Solo responde a mensajes de **texto**. Los mensajes con audio, imagen, etc.
-  reciben una respuesta genérica indicando que el equipo lo revisará.
+- Un **audio**, un **vídeo** o un **PDF** no se leen. Reciben la respuesta
+  genérica y la opción de hablar con una persona. Un sticker tampoco se lee (es
+  un emoji grande, no una consulta de producto), aunque sí se guarda y se ve en
+  el panel.
 
 ## Cuando el cliente está enfadado
 

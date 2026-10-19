@@ -125,6 +125,13 @@ const { respuestaSinCatalogo } = require('./whatsapp-consumibles');
 const { detectarHostilidad, mensajeClienteMolesto } = require('./whatsapp-hostilidad');
 const { todasLasNotas, notasQueAplican, notaDeFicha } = require('./whatsapp-notas');
 const { guardarAdjuntoDeCliente, MARCA_ADJUNTO } = require('./whatsapp-media');
+const {
+  leerFoto,
+  sePuedeLeer: sePuedeLeerLaFoto,
+  textoParaBuscar,
+  comoSeLeDiceALaIA,
+  paraElPanel: lecturaParaElPanel,
+} = require('./whatsapp-vision');
 const { idiomaDeRespuesta } = require('./whatsapp-idioma');
 const { firmaDeReintento } = require('./whatsapp-firma');
 const conversationStore = require('./conversation-store');
@@ -581,6 +588,59 @@ async function pedirSegundoIntento(from, text) {
   }
 }
 
+// CONTESTAR A UNA FOTO, cuando se ha podido leer qué hay en ella.
+//
+// Lo que entra aquí no es la foto: son las palabras que salieron de leerla
+// (whatsapp-vision.js). Desde ese momento esto es una consulta de producto como
+// cualquier otra, y se trata igual — se busca en el catálogo y contesta la IA
+// con esos datos delante.
+//
+// Devuelve la respuesta, o null si no hay ninguna de la que fiarse. Y ese null
+// es la pieza importante: significa "no lo sé", y quien llama vuelve entonces al
+// camino de siempre, que es ofrecerle una persona. Una foto es terreno
+// resbaladizo —la lectura puede estar mal, y el cliente no ha escrito nada que
+// permita comprobarlo— así que aquí NO se baja el listón: valen las mismas
+// redes de seguridad que con el texto (sin datos de catálogo no se confirma
+// ningún producto y no se dice ningún precio), y lo que no las pase no se manda.
+async function contestarAUnaFoto({ from, lectura, pieDeFoto, history, fichaCliente, notas, idioma }) {
+  const busqueda = textoParaBuscar(lectura, pieDeFoto);
+  if (!busqueda) return null;
+
+  // `forzar`: aquí no hay que decidir si la pregunta va de un producto. La
+  // lectura ya ha dicho que en la foto hay un artículo (BUSCAR: sí), y el filtro
+  // de palabras está hecho para frases de clientes ("¿tenéis...?", "busco..."),
+  // no para una descripción nuestra — aplicarlo haría que no se buscara nunca.
+  const { productContext, contextoConsumibles, impresoras, fallo } =
+    await construirContextoCatalogo({ from, text: busqueda, history, forzar: true });
+
+  // La web no contestó y no tenemos datos. Contestar a una foto sin catálogo es
+  // justo lo que no se puede hacer: no hay nada con lo que comprobar la lectura.
+  if (fallo && !productContext) return null;
+
+  const datos = unirContexto(contextoConsumibles, productContext);
+  const respuesta = await askClaude(
+    comoSeLeDiceALaIA(lectura, pieDeFoto, idioma),
+    history,
+    datos,
+    fichaCliente,
+    notas
+  );
+
+  if (isNoSeLaRespuesta(respuesta)) return null;
+  if (
+    !productContext &&
+    (isUnverifiedConfirmation(respuesta) ||
+      isUnverifiedStockClaim(respuesta) ||
+      preciosSinRespaldo(respuesta, datos, fichaCliente, notas, busqueda).length > 0)
+  ) {
+    // Sin catálogo que lo respalde, lo único que se puede decir con certeza es
+    // qué referencia necesita su impresora, si la lectura la ha identificado.
+    return respuestaSinCatalogo(impresoras) || null;
+  }
+
+  return stripAiOwnGreeting(respuesta);
+}
+
 // La parada de emergencia puede venir de dos sitios, y se miran los dos:
 //
 //  1. El interruptor del panel de conversaciones (guardado en Redis). Es el
@@ -740,8 +800,8 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     // imagen. En el aviso al dueño sobra: se lee en un email o en WhatsApp, y
     // ahí "[ADJUNTO:1]" no significa nada.
     const legible = `[El cliente envió ${queEs}]${pieDeFoto ? ` — "${pieDeFoto}"` : ''}`;
-    const marca = adjunto ? `${MARCA_ADJUNTO}${adjunto.mediaId}]` : '';
-    const registro = `${marca}${legible}`;
+    const marca = adjunto?.mediaId ? `${MARCA_ADJUNTO}${adjunto.mediaId}]` : '';
+    let registro = `${marca}${legible}`;
 
     // Se PREGUNTA si quiere una persona, no se da por hecho.
     //
@@ -781,10 +841,65 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     const presentacion = presentarse
       ? `${idiomaFoto === 'en' ? PRESENTACION_BREVE_EN : PRESENTACION_BREVE}\n\n`
       : '';
+
+    // LA FOTO SE MIRA.
+    //
+    // Hasta el 19/10/2026 esto acababa aquí: "no puedo leer una foto por aquí" y
+    // los botones de hablar con una persona. Pero "¿tenéis este?" con la foto de
+    // la caja del cartucho es de las formas más comunes de preguntar que hay, y
+    // de madrugada esa respuesta es un cliente esperando hasta las nueve.
+    //
+    // Se lee en una llamada aparte, cuyo único trabajo es describirla, y lo que
+    // sale son PALABRAS que entran por el mismo camino que un mensaje de texto
+    // (ver contestarAUnaFoto y whatsapp-vision.js). Así la lectura nunca se le
+    // da al cliente como un hecho: sirve para buscar, y manda el catálogo.
+    //
+    // Si no se puede leer, o si lo que sale no pasa las redes de seguridad, se
+    // sigue por el camino de siempre. Nada de esto quita una respuesta: solo
+    // añade una mejor cuando la hay.
+    let lectura = null;
+    if (message.type === 'image' && adjunto?.buffer && sePuedeLeerLaFoto(adjunto.tipo, adjunto.bytes)) {
+      lectura = await leerFoto({ buffer: adjunto.buffer, tipo: adjunto.tipo, pieDeFoto });
+    }
+
+    // Lo leído queda en el panel, debajo de la foto, pase lo que pase después.
+    // Es para el equipo: si el bot contesta algo raro, con esto se ve de un
+    // vistazo si fue porque leyó mal la foto o porque buscó mal.
+    if (lectura) registro = `${registro}\n${lecturaParaElPanel(lectura)}`;
+
+    if (lectura?.buscar) {
+      const notasFoto = todasLasNotas(await conversationStore.listarNotasNegocio());
+      const respuestaFoto = await contestarAUnaFoto({
+        from: message.from,
+        lectura,
+        pieDeFoto,
+        history: await getHistory(message.from),
+        fichaCliente: fichaFoto,
+        notas: notasFoto,
+        idioma: idiomaFoto,
+      });
+
+      if (respuestaFoto) {
+        const reply = presentacion + respuestaFoto;
+        await appendToHistory(message.from, registro, reply);
+        await sendWhatsappMessage(message.from, reply);
+        return;
+      }
+    }
+
     const QUE_ES_EN = { image: 'a photo', audio: 'a voice note', video: 'a video', document: 'a document', sticker: 'a sticker', location: 'a location' };
-    const prefijo = idiomaFoto === 'en'
-      ? `${presentacion}Thanks for your message. I can't read ${QUE_ES_EN[message.type] || 'that'} here. `
-      : `${presentacion}Gracias por tu mensaje. No puedo leer ${queEs} por aquí. `;
+    // Cuando la foto SÍ se ha leído pero no se ha podido contestar (no está en
+    // el catálogo, la web no contestó, o la respuesta no pasó las redes de
+    // seguridad), decir "no puedo leer una foto" sería mentir: se ha leído y no
+    // se ha sabido resolver, que no es lo mismo y además es lo que el cliente
+    // nota — acaba de ver que hablábamos de su cartucho.
+    const prefijo = lectura
+      ? idiomaFoto === 'en'
+        ? `${presentacion}Thanks — I've seen the photo, but I can't confirm from here whether we have it. `
+        : `${presentacion}Gracias, he visto la foto, pero no te puedo confirmar desde aquí si lo tenemos. `
+      : idiomaFoto === 'en'
+        ? `${presentacion}Thanks for your message. I can't read ${QUE_ES_EN[message.type] || 'that'} here. `
+        : `${presentacion}Gracias por tu mensaje. No puedo leer ${queEs} por aquí. `;
     await sendEscalateButtons(message.from, prefijo, idiomaFoto);
 
     // El registro se guarda SIEMPRE, diga lo que diga después: es lo que hace
