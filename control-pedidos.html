@@ -352,6 +352,11 @@ function enCatalogo(cat, ref) {
 const nPed = (n) => { const s = String(n == null ? '' : n).trim(); return /^\d$/.test(s) ? '0' + s : s; };
 /** Marca de «enviado al proveedor» (p.enviado). Los primeros envíos se guardaron
  *  en p.envio, que en reposición es el nombre del fichero subido: solo vale si es un objeto. */
+// Pedidos marcados en las listas de campaña. En memoria y no en el DOM: la
+// sincronización repinta la pantalla y, si no, las marcas se perdían y se
+// enviaba la campaña entera.
+const seleccionados = new Set();
+function marcarSel(c) { if (c.checked) seleccionados.add(c.value); else seleccionados.delete(c.value); }
 const envioDe = (p) => p.enviado || (p.envio && typeof p.envio === 'object' ? p.envio : null);
 const preciosAnteriores = (proveedor) => Object.fromEntries(Object.entries(E.historial[prov(proveedor)] || {}).map(([k, v]) => [k, v.neto]));
 const fmtDtos = (d) => (CP.parseDtos(d).length ? CP.parseDtos(d).map((x) => fmt(x).replace(',00', '')).join('+') + ' %' : '');
@@ -633,11 +638,11 @@ function vistaGrupo(g, i) {
       </span>
     </summary>
     <div class="tabla-scroll"><table class="lista-pedidos">
-      <tr><th class="no-imprimir"><input type="checkbox" title="Seleccionar todos" onchange="this.closest('table').querySelectorAll('.selPed').forEach(c=>c.checked=this.checked)"></th>
+      <tr><th class="no-imprimir"><input type="checkbox" title="Seleccionar todos" onchange="this.closest('table').querySelectorAll('.selPed').forEach(c=>{c.checked=this.checked;marcarSel(c)})"></th>
         <th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th>Fotos</th><th>Propuesta</th><th>Estado</th><th class="c-movil"></th><th class="no-imprimir"></th></tr>
       ${g.pedidos.map((p) => { const e = estadoPedido(p); return `
       <tr class="clic" onclick="if(event.target.type!=='checkbox')abrirPedido('${p.id}')">
-        <td class="no-imprimir c-sel"><input type="checkbox" class="selPed" value="${p.id}"></td>
+        <td class="no-imprimir c-sel"><input type="checkbox" class="selPed" value="${p.id}" ${seleccionados.has(p.id) ? 'checked' : ''} onchange="marcarSel(this)"></td>
         <td class="c-d">${h(fmtFecha(p.fecha))}</td><td class="c-d">${h(nPed(p.numero))}</td><td class="c-d">${h(esRepo(p) ? '—' : p.cliente)}</td>
         <td class="num c-d">${p.lineas.length}</td>
         <td class="c-d">${esRepo(p) ? '—' : celdaFotos(p)}</td>
@@ -2536,9 +2541,19 @@ function correoProveedor(proveedor) {
   return conEnvio.length ? envioDe(conEnvio[0]).para : '';
 }
 async function prepararEnvio(clave, raiz) {
-  let ids = [...(raiz || document).querySelectorAll('.selPed:checked')].map((c) => c.value);
-  if (!ids.length) ids = E.pedidos.filter((p) => claveGrupo(p) === clave).map((p) => p.id);
-  const ps = ids.map(pedidoPorId).filter(Boolean);
+  const delGrupo = E.pedidos.filter((p) => claveGrupo(p) === clave);
+  let ps = delGrupo.filter((p) => seleccionados.has(p.id));
+  let aviso = '';
+  if (!ps.length) {
+    // Sin marcar ninguno: los que aún no se han enviado (los de última hora);
+    // si ya se enviaron todos, la campaña entera.
+    const sinEnviar = delGrupo.filter((p) => !envioDe(p));
+    ps = sinEnviar.length ? sinEnviar : delGrupo;
+    aviso = sinEnviar.length && sinEnviar.length < delGrupo.length
+      ? ' No has marcado ninguno: van solo los que aún no se habían enviado.'
+      : ' No has marcado ninguno: va la campaña entera.';
+  }
+  ps.sort((a, b) => String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }));
   const bloques = CP.pedidosParaProveedor(ps);
   if (!bloques.length) { alert('Estos pedidos no tienen líneas que enviar.'); return; }
   const ej = ps[0];
@@ -2548,7 +2563,7 @@ async function prepararEnvio(clave, raiz) {
   const dlg = document.getElementById('dlgEnvio');
   dlg.innerHTML = `
     <h2>📧 Enviar pedidos a ${h(ej.proveedor)}</h2>
-    <p class="pequeno" style="margin-top:0">${bloques.length} pedido(s) · ${nLineas} línea(s) · campaña ${h(ej.campana || 'sin nombre')}. El PDF va sin precios, un bloque por cliente.${yaEnviados ? ` <b>Ojo: ${yaEnviados} ya se habían enviado.</b>` : ''}</p>
+    <p class="pequeno" style="margin-top:0">${bloques.length} pedido(s) · ${nLineas} línea(s) · campaña ${h(ej.campana || 'sin nombre')}. El PDF va sin precios, un bloque por cliente.${aviso}<br><b>Pedidos: ${ps.map((p) => h(nPed(p.numero)) + (p.cliente ? ' ' + h(p.cliente) : '')).join(', ')}</b>${yaEnviados ? ` <b>Ojo: ${yaEnviados} ya se habían enviado.</b>` : ''}</p>
     <label>Para (correo del proveedor)<input id="envPara" type="email" value="${h(correoProveedor(ej.proveedor))}" placeholder="pedidos@proveedor.com"></label>
     <label>Asunto<input id="envAsunto" value="${h(`Pedido Ofipapel · ${ej.proveedor}${ej.campana ? ' · ' + ej.campana : ''}`)}"></label>
     <label>Mensaje<textarea id="envMensaje">${h(MENSAJE_ENVIO)}</textarea></label>
@@ -2642,7 +2657,7 @@ function marcarEnviado() {
   if (!envio) return;
   const para = document.getElementById('envPara').value.trim() || envio.para || '';
   const ahora = new Date().toISOString();
-  for (const id of envio.ids) { const p = pedidoPorId(id); if (p) p.enviado = { fecha: ahora, para, por: nube.usuario || '' }; }
+  for (const id of envio.ids) { const p = pedidoPorId(id); if (p) p.enviado = { fecha: ahora, para, por: nube.usuario || '' }; seleccionados.delete(id); }
   guardar();
   document.getElementById('dlgEnvio').close();
   envio = null;
