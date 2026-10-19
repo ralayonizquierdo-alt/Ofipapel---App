@@ -126,22 +126,22 @@ li.descartada{text-decoration:line-through;opacity:.65}
 .libreta{margin:10px 0}
 .libreta-cab{margin-bottom:6px}
 /* Hoja de libreta: renglones azules de 36px, margen rojo y columnas como el talonario. */
-.hoja{--r:36px;position:relative;background-color:#fffef4;border:1px solid #e6dfbf;border-radius:6px;box-shadow:0 2px 6px #0001;
-  background-image:linear-gradient(to right,transparent 42px,#e79a9a 42px,#e79a9a 44px,transparent 44px),
+.hoja{--r:36px;--f:20px;--m:44px;position:relative;background-color:#fffef4;border:1px solid #e6dfbf;border-radius:6px;box-shadow:0 2px 6px #0001;
+  background-image:linear-gradient(to right,transparent calc(var(--m) - 2px),#e79a9a calc(var(--m) - 2px),#e79a9a var(--m),transparent var(--m)),
     repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--r) - 1px),#bcd4ec calc(var(--r) - 1px),#bcd4ec var(--r));
   max-height:60vh;overflow:auto;font-family:'Kalam','Segoe Print','Comic Sans MS',cursive}
-.renglon{display:grid;grid-template-columns:44px 104px 150px 1fr 96px;height:36px;align-items:end;margin:0}
+.renglon{display:grid;grid-template-columns:var(--m,44px) 104px 150px 1fr 96px;height:var(--r,36px);align-items:end;margin:0}
 .renglon > span{padding:0 8px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:1px solid #f0c9c9;height:100%;display:flex;align-items:flex-end}
 .renglon > .l-num{border-left:0;justify-content:center;color:#c98a8a;font-size:14px}
 .renglon.titulos{position:sticky;top:0;z-index:1;background:#fffef4}
 .renglon.titulos .t-corto{display:none}
 .renglon.titulos .exp-toggle{margin-left:6px;letter-spacing:0;text-transform:none}
 .renglon.titulos > span{font-family:'Segoe UI',system-ui,sans-serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#a55;align-items:center}
-.renglon.escrito{color:#1c3f94;font-size:20px;line-height:1}
+.renglon.escrito{color:#1c3f94;font-size:var(--f,20px);line-height:1}
 .renglon .l-precio{justify-content:flex-end}
 .renglon .l-todo{grid-column:2 / -1}
 .renglon.tachado > span:not(.l-num){text-decoration:line-through;text-decoration-color:#c33;color:#7c8aa8}
-.renglon.nuevo input{all:unset;box-sizing:border-box;width:100%;height:34px;padding-top:12px;line-height:20px;font:inherit;font-size:20px;color:#1c3f94;caret-color:#c33}
+.renglon.nuevo input{all:unset;box-sizing:border-box;width:100%;height:calc(var(--r,36px) - 2px);padding-top:calc(var(--r,36px) - 24px);line-height:var(--f,20px);font:inherit;font-size:var(--f,20px);color:#1c3f94;caret-color:#c33}
 .renglon.nuevo input:focus{background:#fff3b0aa}
 .renglon.nuevo input::placeholder{color:#9fb3d6}
 .renglon.nuevo .l-precio input{text-align:right}
@@ -151,6 +151,17 @@ li.descartada{text-decoration:line-through;opacity:.65}
 .exp-toggle[aria-pressed=true]{background:#c33;border-color:#c33;color:#fff}
 #qaRefModo[aria-pressed=true]{background:#1c3f94;border-color:#1c3f94}
 .renglon .l-cant small{margin-left:4px;color:#c33;font-size:12px}
+/* El comercial (Miguel) trabaja en una tableta: todo más grande, a lo ancho, y
+   el bloc con renglones y letra grandes ocupando la pantalla. */
+@media (min-width:701px){
+  body.comercial{zoom:1.22}
+  body.comercial main,body.comercial #avisoNube,body.comercial #avisoWeb,body.comercial #avisoFallo{max-width:none}
+  body.comercial .hoja{--r:54px;--f:28px;--m:58px;max-height:none}
+  body.comercial .renglon{grid-template-columns:var(--m) 150px 230px 1fr 140px}
+  body.comercial .renglon.titulos > span{font-size:13px}
+  body.comercial .exp-toggle{font-size:14px;padding:8px 10px}
+  body.comercial .renglon > .l-num{font-size:17px}
+}
 .casilla{flex-direction:row!important;align-items:center;gap:6px;align-self:flex-end;padding-bottom:8px}
 details.grupo{border:1px solid var(--borde,#ddd);border-radius:10px;padding:10px 12px;margin-top:12px}
 details.grupo>summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:16px}
@@ -397,6 +408,7 @@ function pintar() {
   try { pintarNube(); } catch (e) { mostrarFallo('estado de la nube: ' + e.message); }
   try { pintarCampana(); } catch (e) { mostrarFallo('avisos: ' + e.message); }
   const comercial = esComercial();
+  document.body.classList.toggle('comercial', comercial);
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('oculto', comercial && VISTAS_SOLO_COMPRAS.includes(b.dataset.vista)));
   if (comercial && VISTAS_SOLO_COMPRAS.includes(vista)) {
     vista = 'pedidos';
