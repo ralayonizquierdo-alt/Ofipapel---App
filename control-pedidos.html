@@ -311,7 +311,16 @@ const EN_NETLIFY = /(^|\.)netlify\.app$/.test(location.hostname) || /^(localhost
 // catalogos:{PROVEEDOR: {fecha, archivo, items:{ref:{d,p,ean}}}}
 // historial:{PROVEEDOR: {REF: {neto, fecha}}}  último precio neto aceptado en una reposición validada
 let E = cargar();
-let vista = 'importar'; // la app arranca siempre en «PDF a Excel», la primera pestaña
+// El comercial (Miguel) solo ve lo suyo: sin «PDF a Excel» ni «Reposición», y
+// en las campañas sin los botones de compras (enviar al proveedor, propuestas,
+// Excel de Géminis, último control). Es solo para no estorbarle: no es un
+// permiso (los datos son los mismos para todas las cuentas de cp_miembros).
+const USUARIOS_COMERCIAL = new Set(['miguel']);
+const CLAVE_ULTIMO_USUARIO = 'ofipapel-control-pedidos-ultimo-usuario';
+const esComercial = () => USUARIOS_COMERCIAL.has(nube.usuario || (() => { try { return localStorage.getItem(CLAVE_ULTIMO_USUARIO); } catch { return null; } })());
+const VISTAS_SOLO_COMPRAS = ['importar', 'reposicion'];
+// La app arranca en «PDF a Excel», la primera pestaña; el comercial, en «Campañas».
+let vista = (() => { try { return USUARIOS_COMERCIAL.has(localStorage.getItem(CLAVE_ULTIMO_USUARIO)) ? 'pedidos' : 'importar'; } catch { return 'importar'; } })();
 let pedidoAbierto = null;
 let soloDiscordancias = true;
 
@@ -387,6 +396,12 @@ function pintar() {
   if (pedidoAbierto && !pedidoPorId(pedidoAbierto)) pedidoAbierto = null; // lo borró otro dispositivo
   try { pintarNube(); } catch (e) { mostrarFallo('estado de la nube: ' + e.message); }
   try { pintarCampana(); } catch (e) { mostrarFallo('avisos: ' + e.message); }
+  const comercial = esComercial();
+  document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('oculto', comercial && VISTAS_SOLO_COMPRAS.includes(b.dataset.vista)));
+  if (comercial && VISTAS_SOLO_COMPRAS.includes(vista)) {
+    vista = 'pedidos';
+    if (pedidoAbierto && esRepo(pedidoPorId(pedidoAbierto))) pedidoAbierto = null;
+  }
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('activa', b.dataset.vista === vista));
   const main = document.getElementById('main');
   const importar = document.getElementById('vistaImportar');
@@ -665,16 +680,16 @@ function vistaGrupo(g, i) {
         <input type="file" accept="image/*" multiple class="oculto" onchange="subirFotosCampana(this.files, ${js(ej.proveedor)}, ${js(ej.campana || '')}); this.value=''"></label>
       <button class="btn" onclick="otroPedidoCampana(${js(ej.proveedor)}, ${js(ej.campana || '')})">✍️ Añadir pedido a mano a esta campaña</button>
       <button class="btn primario" onclick="avisarCompras(${js(g.clave)})">📣 Avisar a compras: pedidos listos</button>
-      <button class="btn primario" onclick="prepararEnvio(${js(g.clave)}, this.closest('details'))">📧 Enviar pedidos al proveedor</button>
+      ${esComercial() ? '' : `<button class="btn primario" onclick="prepararEnvio(${js(g.clave)}, this.closest('details'))">📧 Enviar pedidos al proveedor</button>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📄 Cargar propuestas del proveedor de esta campaña
-        <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
+        <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files, ${js(g.clave)}); this.value=''"></label>`}
       <button class="btn peque" onclick="renombrarCampana(${js(g.clave)})">✏️ ${ej.campana ? 'Renombrar' : 'Poner nombre a'} la campaña</button>`}
-      <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel de la compra al proveedor (Géminis)</button>
+      ${esComercial() ? '' : `<button class="btn" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel de la compra al proveedor (Géminis)</button>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales${esRepo(ej) ? ' (opcional)' : ''}
-        <input type="file" multiple class="oculto" onchange="cargarFacturasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
+        <input type="file" multiple class="oculto" onchange="cargarFacturasVarias(this.files, ${js(g.clave)}); this.value=''"></label>`}
       ${esRepo(ej) ? '' : `<button class="btn" onclick="imprimirGuiaFacturacion(${js(g.clave)})">🧾 Imprimir guía de facturación</button>`}
       <button class="btn peque peligro" onclick="borrarCampana(${js(g.clave)})">🗑️ Borrar ${esRepo(ej) ? 'estas reposiciones' : 'la campaña'}</button>
-      <span class="pequeno">El Excel es la <b>compra al proveedor</b>: lo que nos factura, a su precio y descuento y en su orden, no el pedido del cliente; si ya está la factura final, sale de ella. Sin marcar ninguno, sale toda la campaña; marcando pedidos, solo esos. Solo pedidos validados; varios se suman por referencia.</span>
+      <span class="pequeno"${esComercial() ? ' style="display:none"' : ''}>El Excel es la <b>compra al proveedor</b>: lo que nos factura, a su precio y descuento y en su orden, no el pedido del cliente; si ya está la factura final, sale de ella. Sin marcar ninguno, sale toda la campaña; marcando pedidos, solo esos. Solo pedidos validados; varios se suman por referencia.</span>
     </div>
     ${comparados.length ? `
     <h3 style="margin-top:14px">Faltas y sobras</h3>
@@ -2926,7 +2941,7 @@ async function sincronizar() {
         for (const f of filas) {
           if (f.coleccion !== 'pedidos' || f.borrado || teniamos.has(f.id) || !f.autor || f.autor === nube.usuario) continue;
           const p = E.pedidos.find((x) => String(x.id) === f.id);
-          if (!p || avisos.some((a) => a.id === p.id)) continue;
+          if (!p || avisos.some((a) => a.id === p.id) || (esComercial() && esRepo(p))) continue;
           avisos.push({ id: p.id, autor: f.autor, cuando: f.actualizado });
         }
         guardarAvisos();
@@ -3008,6 +3023,7 @@ async function empezarSesion(recienEntrado) {
     }
   }
   nube.usuario = String(s.user.email || '').replace(DOMINIO, '');
+  try { localStorage.setItem(CLAVE_ULTIMO_USUARIO, nube.usuario); } catch { /* solo afecta a la pestaña de arranque */ }
   document.getElementById('login').classList.add('oculto');
   document.getElementById('loginClave').value = '';
   pintar();
