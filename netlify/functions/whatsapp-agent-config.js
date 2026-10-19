@@ -773,6 +773,32 @@ function fotoReply(normalizedText) {
   return OFRECE_MANDAR_FOTO_RE.test(normalizedText) ? FOTO_INFO : null;
 }
 
+// "NO ME LLEGA LA FOTO" — CUANDO SÍ HA LLEGADO.
+//
+// Visto en real el 19/10/2026, a la hora de estrenar la lectura de fotos. En
+// WhatsApp la imagen y la pregunta llegan como DOS mensajes distintos: primero
+// la foto, y un segundo después "¿y este papel?". El primero se contestó
+// perfecto (reconoció el papel MATTIO, dio el precio y el enlace) y el segundo,
+// que entra por el camino del texto y no lleva ninguna foto encima, se llevó un
+// "No veo una foto adjunta en ese mensaje. ¿Puedes enviarla de nuevo?".
+//
+// Desde el lado del cliente eso es desesperante: acaba de ver que hablábamos de
+// su foto y ahora le decimos que no ha llegado. Esta función reconoce esa
+// respuesta para poder tirarla cuando sabemos que la foto sí llegó (el webhook
+// la busca en el historial). Si de verdad no llegó ninguna, la respuesta es
+// correcta y se deja pasar.
+const PIDE_LA_FOTO_OTRA_VEZ_RE = [
+  /\bno\s+(me\s+)?(ha\s+)?(llega|llego|llegado|lleg[oó])\b[^.]{0,30}\b(foto|imagen|archivo|adjunto)/i,
+  /\bno\s+(veo|me\s+aparece|puedo\s+ver|consigo\s+ver)\b[^.]{0,30}\b(foto|imagen|adjunt)/i,
+  /\b(foto|imagen)\b[^.]{0,30}\bno\s+(me\s+)?(ha\s+)?(llegado|llega)\b/i,
+  /\b(env[ií]a(la|mela)?|m[áa]nda(la|mela)?|reenv[ií]a(la|mela)?|intenta\s+enviarla)\b[^.]{0,30}\b(de\s+nuevo|otra\s+vez)\b/i,
+];
+
+function pideLaFotoOtraVez(respuesta) {
+  const texto = String(respuesta || '');
+  return PIDE_LA_FOTO_OTRA_VEZ_RE.some((re) => re.test(texto));
+}
+
 const FAQ_RULES = [
   {
     name: 'mandar una foto',
@@ -1223,6 +1249,7 @@ Instrucciones:
 - Si el mensaje parece una queja, un pedido complejo, o el cliente muestra que no está satisfecho con tu respuesta, ofrécele amablemente hablar con una persona del equipo. Si estamos en horario, facilita el teléfono directo: ${STORES[0].phone}. Si estamos fuera de horario, no des el teléfono para llamar ahora: dile que un agente atenderá su petición en cuanto retomemos la actividad.
 - NUNCA le mandes al cliente a buscar él en ofipapel.net ("busca 'Epson 604' en la web y ahí lo ves"). Buscar es tu trabajo, no el suyo: si te ha escrito por WhatsApp es justamente para no tener que hacerlo. Puedes dar el enlace directo de un producto o de una categoría concreta cuando lo tengas en los resultados de búsqueda, pero no la instrucción de que se ponga a buscar. Si no tienes los datos, dile lo que sí sabes y ofrécele el contacto del equipo.
 - LAS FOTOS SÍ LAS VES, pero no directamente. Cuando un cliente manda una foto, el sistema la lee aparte y te pasa esa lectura en un mensaje que empieza por "${MARCA_FOTO}". Lo que viene detrás NO son sus palabras: es una descripción automática de su foto, y PUEDE ESTAR MAL (una referencia mal leída, una marca que no es). Úsala como pista para buscar, nunca como un hecho: que la lectura diga "HP 305XL" no significa que lo tengamos ni que sea de verdad ese modelo — eso solo lo dicen los resultados de búsqueda. Háblale con naturalidad de lo que se ve ("por la foto parece un 305XL, ¿me lo confirmas?"), sin mencionar lecturas, descripciones ni sistemas, y sin dar por hecho que te lo describió él. Si de la lectura no queda claro qué necesita, pregúntaselo. Lo que NO puedes ver es ni un audio, ni un vídeo, ni un PDF: de esos se encarga una persona del equipo.
+- NUNCA digas que una foto no te ha llegado, ni pidas que te la manden otra vez ("no veo la foto", "no me llega la imagen", "¿puedes enviarla de nuevo?"). En WhatsApp la foto y la pregunta llegan casi siempre como DOS mensajes separados: primero la imagen y un segundo después "¿y este papel?" — así que un mensaje que habla de una foto sin traerla NO significa que se haya perdido. Mira hacia atrás en la conversación: si ya hay una foto, lo que se vio en ella está escrito ahí ("el bot ve en la foto: ..."), y esa es la foto de la que te habla. Pedirle que la reenvíe cuando acabas de comentarle lo que había en ella es la forma más rápida de que piense que no le estás escuchando.
 - No uses markdown ni listas largas, escribe como un mensaje de texto normal.`;
 }
 
@@ -1259,6 +1286,7 @@ module.exports = {
   isUnverifiedStockClaim,
   preciosDe,
   preciosSinRespaldo,
+  pideLaFotoOtraVez,
   pareceConsultaDeProducto,
   PRODUCTO_NO_VERIFICADO_INFO,
   PEDIDOS_INFO,

@@ -518,9 +518,24 @@ lo está:
 Limitación que sigue vigente:
 
 - Un **audio**, un **vídeo** o un **PDF** no se leen. Reciben la respuesta
-  genérica y la opción de hablar con una persona. Un sticker tampoco se lee (es
-  un emoji grande, no una consulta de producto), aunque sí se guarda y se ve en
-  el panel.
+  genérica y la opción de hablar con una persona.
+- Un **sticker** no se lee ni se contesta: es un gesto, no una pregunta, igual
+  que la reacción con un emoji sobre un mensaje. Se guarda y se ve en el panel,
+  y ahí acaba. Antes se llevaba "no puedo leer un sticker por aquí, ¿quieres que
+  te ponga en contacto con una persona?" — el mismo disparate que se arregló el
+  30/9/2026 con las reacciones, entrando por otra puerta: escalar a alguien, a lo
+  mejor de madrugada, por dar las gracias con un pulgar arriba.
+- **La foto y la pregunta llegan como dos mensajes distintos**, y hay que
+  contarlo porque es la fuente de un fallo real (19/10/2026): primero la imagen
+  y un segundo después "¿y este papel?". El primero lo contesta la rama de
+  fotos; el segundo entra por el camino del texto SIN ninguna imagen encima, y
+  la IA concluyó que no había llegado — "No veo una foto adjunta en ese mensaje,
+  ¿puedes enviarla de nuevo?", a un cliente al que se le acababa de dar el precio
+  y el enlace de lo que salía en su foto. Lo que se vio en una foto queda
+  apuntado en el historial (es la misma línea que se pinta en el panel), así que
+  el segundo mensaje la recupera de ahí y se contesta por la rama de fotos.
+  `pideLaFotoOtraVez()` reconoce esa respuesta equivocada y la tira; si de verdad
+  no había ninguna foto detrás, la respuesta es correcta y se deja pasar.
 
 ## Cuando el cliente está enfadado
 
