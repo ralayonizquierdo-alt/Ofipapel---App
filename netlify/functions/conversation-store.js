@@ -170,6 +170,63 @@ async function getUltimoFallo() {
 //
 // Se guarda lo que dijo Meta, tal cual, para poder enseñarlo. Caduca solo: es
 // el fallo de un envío concreto, no un estado.
+// LA FOTO QUE ESTÁ ESPERANDO A SU PREGUNTA.
+//
+// En WhatsApp la foto y la pregunta llegan como dos mensajes: primero la imagen
+// y un segundo después "¿y este papel?". Contestar a la foto sola es contestar
+// a medias — por la foto no se sabe qué quiere saber el cliente (si la tenemos,
+// cuánto vale, si hay otro color), y la pregunta manda sobre la imagen: la foto
+// es el contexto. Decisión del propietario, 19/10/2026.
+//
+// Así que la foto leída se deja aquí en espera, y quien conteste se la lleva.
+// La llave es el cliente, no el mensaje, porque puede mandar varias fotos
+// seguidas antes de preguntar: se van acumulando y la pregunta se contesta con
+// todas.
+//
+// QUIÉN CONTESTA SE DECIDE AQUÍ, y es la pieza delicada: la pregunta del
+// cliente y la función de segundo plano (que despierta por si no llega ninguna
+// pregunta) corren a la vez y las dos querrían contestar. `tomarFotosPendientes`
+// las saca y las borra en una sola operación, así que solo una se las lleva; la
+// otra se encuentra las manos vacías y se calla. Sin eso, el cliente recibiría
+// dos respuestas a lo mismo, que es justo lo que se vino a quitar.
+const FOTO_PENDIENTE_TTL_SEGUNDOS = 300;
+const MAXIMO_FOTOS_EN_ESPERA = 4;
+
+async function guardarFotoPendiente(phone, lectura) {
+  if (!isConfigured() || !phone || !lectura) return;
+  const clave = `foto_pendiente:${phone}`;
+  const crudo = await redisCommand(['GET', clave]);
+  let lecturas = [];
+  try {
+    lecturas = crudo ? JSON.parse(crudo) : [];
+  } catch {
+    lecturas = [];
+  }
+  if (!Array.isArray(lecturas)) lecturas = [];
+  lecturas.push(lectura);
+  await redisCommand([
+    'SET',
+    clave,
+    JSON.stringify(lecturas.slice(-MAXIMO_FOTOS_EN_ESPERA)),
+    'EX',
+    String(FOTO_PENDIENTE_TTL_SEGUNDOS),
+  ]);
+}
+
+// Devuelve las fotos en espera y las quita de en medio, en una sola operación.
+// Quien reciba algo es el que contesta; quien reciba una lista vacía, se calla.
+async function tomarFotosPendientes(phone) {
+  if (!isConfigured() || !phone) return [];
+  const crudo = await redisCommand(['GETDEL', `foto_pendiente:${phone}`]);
+  if (!crudo) return [];
+  try {
+    const lecturas = JSON.parse(crudo);
+    return Array.isArray(lecturas) ? lecturas : [];
+  } catch {
+    return [];
+  }
+}
+
 const FALLO_ENVIO_TTL_SEGUNDOS = 24 * 3600;
 
 async function guardarFalloDeEnvio(phone, detalle) {
@@ -806,6 +863,8 @@ module.exports = {
   registrarFalloDelBot,
   getUltimoFallo,
   borrarUltimoFallo,
+  guardarFotoPendiente,
+  tomarFotosPendientes,
   guardarFalloDeEnvio,
   getFalloDeEnvio,
   huellaDeMensaje,

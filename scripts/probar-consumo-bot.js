@@ -41,6 +41,9 @@ Module.prototype.require = function (p) {
       'isBotPaused', 'getFichaCliente', 'actualizarFichaCliente', 'guardarNombreWhatsapp',
       'marcarPresentado', 'claimMessage', 'getPausaGlobal', 'marcarEntrega', 'getAvisoPausa',
       'marcarAvisoPausa', 'leerAliasBusqueda', 'getEstadoEntrega',
+      // La foto que espera a su pregunta: el guardado solo ocurre con fotos,
+      // pero la recogida se intenta en CADA mensaje de texto, así que cuenta.
+      'guardarFotoPendiente', 'tomarFotosPendientes',
     ];
     const envuelto = { ...m, isConfigured: () => true };
     for (const f of tocanRedis) {
@@ -50,6 +53,7 @@ Module.prototype.require = function (p) {
         if (f === 'loadConversation') return [];
         if (f === 'getFichaCliente') return { presentado: true };
         if (f === 'isBotPaused') return false;
+        if (f === 'tomarFotosPendientes') return [];
         return null;
       };
     }

@@ -91,6 +91,7 @@ const {
 } = require('./whatsapp-agent-config');
 const woocommerce = require('./woocommerce-client');
 const { sendWhatsappMessage: entregarAlCliente, sendWhatsappTemplate } = require('./whatsapp-send');
+const { escalateQuestion, sendEscalateButtons } = require('./whatsapp-escalado');
 
 // EL BOT TIENE QUE ENTERARSE DE QUE NO LE LLEGA AL CLIENTE.
 //
@@ -129,11 +130,11 @@ const { guardarAdjuntoDeCliente, MARCA_ADJUNTO, adjuntoDelHistorial } = require(
 const {
   leerFoto,
   sePuedeLeer: sePuedeLeerLaFoto,
-  textoParaBuscar,
-  comoSeLeDiceALaIA,
   paraElPanel: lecturaParaElPanel,
   ultimaFotoDelHistorial,
+  preguntaJustoAntesDeLaFoto,
 } = require('./whatsapp-vision');
+const { responderAUnaFoto } = require('./whatsapp-foto-responder');
 
 // EL HISTORIAL, VISTO POR LA IA.
 //
@@ -251,19 +252,8 @@ function yaSeDijo(history = [], frase) {
     .some((m) => String(m.content || '').includes(limpio));
 }
 
-// Fuera de horario, la propia pregunta de "¿quieres que te ponga en contacto...?" ya
-// deja claro que ahora mismo no hay nadie y que la atención será en cuanto abramos —
-// así el cliente no piensa que va a hablar con alguien al instante al pulsar "Sí".
-function escalateQuestion(idioma = 'es') {
-  if (idioma === 'en') {
-    return isWithinBusinessHours()
-      ? 'Would you like me to put you in touch with someone from the team?'
-      : `We're closed at the moment (${STORES[0].hoursEn}), so nobody can help you right away. Would you still like me to put you in touch? Someone will look at your conversation as soon as we're open.`;
-  }
-  return isWithinBusinessHours()
-    ? '¿Quieres que te ponga en contacto con una persona del equipo?'
-    : `Ahora mismo estamos fuera del horario comercial (${STORES[0].hours}), así que nadie puede atenderte al instante. ¿Quieres que igualmente te pongamos en contacto? Un agente revisará tu conversación en cuanto retomemos la actividad.`;
-}
+// escalateQuestion y sendEscalateButtons viven ahora en whatsapp-send.js: los
+// comparte la función de segundo plano que contesta a las fotos.
 const ESCALATE_DECLINE_REPLY = 'Entendido, sigo por aquí. Cuéntame otra vez qué necesitas e intento ayudarte.';
 const ESCALATE_DECLINE_REPLY_EN = "Understood, I'm still here. Tell me again what you need and I'll try to help.";
 
@@ -271,37 +261,6 @@ function escalateDeclineReply(idioma = 'es') {
   return idioma === 'en' ? ESCALATE_DECLINE_REPLY_EN : ESCALATE_DECLINE_REPLY;
 }
 
-async function sendEscalateButtons(to, greetingPrefix = '', idioma = 'es') {
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const token = process.env.WHATSAPP_TOKEN;
-
-  const resp = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      to,
-      type: 'interactive',
-      interactive: {
-        type: 'button',
-        body: { text: greetingPrefix + escalateQuestion(idioma) },
-        action: {
-          buttons: [
-            { type: 'reply', reply: { id: 'escalate_yes', title: idioma === 'en' ? '✅ Yes' : '✅ Sí' } },
-            { type: 'reply', reply: { id: 'escalate_no', title: idioma === 'en' ? '✖️ No' : '✖️ No' } },
-          ],
-        },
-      },
-    }),
-  });
-
-  if (!resp.ok) {
-    console.error('Error enviando botones de escalado:', resp.status, await resp.text());
-  }
-}
 
 // Aviso por WhatsApp al número personal del dueño, solo cuando se confirma un
 // escalado (no en cada mensaje, para no saturar). Requiere OWNER_WHATSAPP_NUMBER
@@ -605,57 +564,37 @@ async function pedirSegundoIntento(from, text) {
   }
 }
 
-// CONTESTAR A UNA FOTO, cuando se ha podido leer qué hay en ella.
+// DEJA LA FOTO EN ESPERA Y AVISA A LA FUNCIÓN QUE LA CONTESTARÁ SI NADIE
+// PREGUNTA. Devuelve si se pudo delegar: si no, quien llama contesta en el
+// acto, porque lo único que no vale es dejar al cliente sin respuesta.
 //
-// Lo que entra aquí no es la foto: son las palabras que salieron de leerla
-// (whatsapp-vision.js). Desde ese momento esto es una consulta de producto como
-// cualquier otra, y se trata igual — se busca en el catálogo y contesta la IA
-// con esos datos delante.
-//
-// Devuelve la respuesta, o null si no hay ninguna de la que fiarse. Y ese null
-// es la pieza importante: significa "no lo sé", y quien llama vuelve entonces al
-// camino de siempre, que es ofrecerle una persona. Una foto es terreno
-// resbaladizo —la lectura puede estar mal, y el cliente no ha escrito nada que
-// permita comprobarlo— así que aquí NO se baja el listón: valen las mismas
-// redes de seguridad que con el texto (sin datos de catálogo no se confirma
-// ningún producto y no se dice ningún precio), y lo que no las pase no se manda.
-async function contestarAUnaFoto({ from, lectura, pieDeFoto, history, fichaCliente, notas, idioma }) {
-  const busqueda = textoParaBuscar(lectura, pieDeFoto);
-  if (!busqueda) return null;
-
-  // `forzar`: aquí no hay que decidir si la pregunta va de un producto. La
-  // lectura ya ha dicho que en la foto hay un artículo (BUSCAR: sí), y el filtro
-  // de palabras está hecho para frases de clientes ("¿tenéis...?", "busco..."),
-  // no para una descripción nuestra — aplicarlo haría que no se buscara nunca.
-  const { productContext, contextoConsumibles, impresoras, fallo } =
-    await construirContextoCatalogo({ from, text: busqueda, history, forzar: true });
-
-  // La web no contestó y no tenemos datos. Contestar a una foto sin catálogo es
-  // justo lo que no se puede hacer: no hay nada con lo que comprobar la lectura.
-  if (fallo && !productContext) return null;
-
-  const datos = unirContexto(contextoConsumibles, productContext);
-  const respuesta = await askClaude(
-    comoSeLeDiceALaIA(lectura, pieDeFoto, idioma),
-    history,
-    datos,
-    fichaCliente,
-    notas
-  );
-
-  if (isNoSeLaRespuesta(respuesta)) return null;
-  if (
-    !productContext &&
-    (isUnverifiedConfirmation(respuesta) ||
-      isUnverifiedStockClaim(respuesta) ||
-      preciosSinRespaldo(respuesta, datos, fichaCliente, notas, busqueda).length > 0)
-  ) {
-    // Sin catálogo que lo respalde, lo único que se puede decir con certeza es
-    // qué referencia necesita su impresora, si la lectura la ha identificado.
-    return respuestaSinCatalogo(impresoras) || null;
+// La llamada NO se espera a que termine: las funciones -background de Netlify
+// responden 202 al momento y siguen trabajando por su cuenta, que es justo lo
+// que necesitamos para no agotar el tiempo del webhook.
+async function dejarLaFotoEsperandoLaPregunta(from, referencia, idioma, presentacion) {
+  const base = process.env.URL;
+  const firma = firmaDeReintento(from, referencia);
+  if (!base || !firma) {
+    console.error('No se puede dejar la foto en espera: falta URL del sitio o secreto para firmarla.');
+    return false;
   }
 
-  return stripAiOwnGreeting(respuesta);
+  try {
+    const resp = await fetch(`${base}/.netlify/functions/whatsapp-foto-background`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, referencia, idioma, presentacion, firma }),
+      signal: AbortSignal.timeout(2000),
+    });
+    if (resp.status !== 202 && !resp.ok) {
+      console.error('La función de fotos en segundo plano no aceptó la petición:', resp.status);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Fallo dejando la foto en espera:', err);
+    return false;
+  }
 }
 
 // La parada de emergencia puede venir de dos sitios, y se miran los dos:
@@ -908,23 +847,64 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     if (lectura) registro = `${registro}\n${lecturaParaElPanel(lectura)}`;
 
     if (lectura?.buscar) {
+      // LA FOTO ESPERA A SU PREGUNTA.
+      //
+      // Decisión del propietario (19/10/2026): "prefiero que espere y conteste
+      // con todo el contexto antes que dar dos respuestas rápidas... la
+      // pregunta manda sobre la foto, la foto es para ampliar datos o
+      // contexto". Y tiene razón: por la imagen sola no se sabe qué quiere
+      // saber —si la tenemos, cuánto vale, si hay otro color—, y contestar al
+      // llegar significaba además soltarle dos mensajes, uno por cada mensaje
+      // suyo.
+      //
+      // NO se espera cuando la pregunta ya está dicha, y puede estar dicha de
+      // dos maneras:
+      //
+      //   - En el pie de foto, que es lo más directo.
+      //   - En un mensaje de hace un momento, porque el cliente también
+      //     pregunta primero y manda la foto después ("busco una caja como
+      //     esta" y acto seguido la imagen). Entonces esa frase es la pregunta
+      //     de esta foto, igual que si la hubiera puesto de pie.
+      //
+      // Sin ninguna de las dos, la foto leída se deja en espera y se avisa a la
+      // función de segundo plano. Si el cliente pregunta en los próximos
+      // segundos, se la lleva su mensaje (ver más abajo, en la rama de texto);
+      // si no pregunta, se la lleva esa función y contesta con la foto sola.
       const notasFoto = todasLasNotas(await conversationStore.listarNotasNegocio());
-      const respuestaFoto = await contestarAUnaFoto({
+      const historialFoto = historialParaLaIA(await getHistory(message.from));
+      const pregunta = pieDeFoto || preguntaJustoAntesDeLaFoto(historialFoto);
+
+      if (!pregunta) {
+        await conversationStore.guardarFotoPendiente(message.from, lectura);
+        const esperando = await dejarLaFotoEsperandoLaPregunta(
+          message.from,
+          message.id,
+          idiomaFoto,
+          presentacion
+        );
+        if (esperando) {
+          // Solo se archiva la foto. La respuesta la archivará quien conteste.
+          await conversationStore.appendCustomerMessage(message.from, registro, message.id);
+          return;
+        }
+        // No se pudo delegar: nadie despertaría a contestar, así que se vuelve
+        // a coger la foto y se contesta aquí mismo. Más vale una respuesta a
+        // medias que ninguna.
+        await conversationStore.tomarFotosPendientes(message.from);
+      }
+
+      const enviado = await responderAUnaFoto({
         from: message.from,
-        lectura,
-        pieDeFoto,
-        history: historialParaLaIA(await getHistory(message.from)),
+        lecturas: [lectura],
+        pregunta,
+        history: historialFoto,
         fichaCliente: fichaFoto,
         notas: notasFoto,
         idioma: idiomaFoto,
+        presentacion,
       });
-
-      if (respuestaFoto) {
-        const reply = presentacion + respuestaFoto;
-        await appendToHistory(message.from, registro, reply);
-        await sendWhatsappMessage(message.from, reply);
-        return;
-      }
+      await appendToHistory(message.from, registro, enviado);
+      return;
     }
 
     const QUE_ES_EN = { image: 'a photo', audio: 'a voice note', video: 'a video', document: 'a document', sticker: 'a sticker', location: 'a location' };
@@ -1136,6 +1116,35 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     return;
   }
 
+  // ESTA ES LA PREGUNTA DE LA FOTO QUE ACABA DE MANDAR.
+  //
+  // La foto se quedó esperando sin contestar justo para esto (ver la rama de
+  // fotos). Si hay alguna en espera, este mensaje es lo que faltaba: se la
+  // lleva —quitándola de en medio para que la función de segundo plano no
+  // conteste también— y se responde con las dos cosas juntas, que es lo que el
+  // cliente pidió desde el principio.
+  //
+  // Va DESPUÉS del escalado, de los problemas de cuenta y de la búsqueda de
+  // pedidos: si después de la foto lo que escribe es "quiero hablar con una
+  // persona", eso manda sobre cualquier foto. Y va ANTES de las respuestas
+  // fijas y de la IA normal, porque la pregunta de una foto no la puede
+  // contestar una FAQ que no ha visto la imagen.
+  const fotosEnEspera = await conversationStore.tomarFotosPendientes(message.from);
+  if (fotosEnEspera.length) {
+    const enviado = await responderAUnaFoto({
+      from: message.from,
+      lecturas: fotosEnEspera,
+      pregunta: text,
+      history,
+      fichaCliente,
+      notas,
+      idioma,
+      presentacion: greeting,
+    });
+    await appendToHistory(message.from, text, enviado);
+    return;
+  }
+
   // Si el bot acaba de pedirle que lo explique de otra forma y el cliente lo ha
   // hecho, NO se le trata como que insiste. Comprobado en real: pidió tinta para
   // una Epson, el bot dijo "creo que no te he entendido", él lo reformuló tal y
@@ -1315,28 +1324,17 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   if (pideLaFotoOtraVez(respuesta)) {
     const fotoPrevia = ultimaFotoDelHistorial(history);
     if (fotoPrevia) {
-      const conLaFoto = await contestarAUnaFoto({
+      const enviado = await responderAUnaFoto({
         from: message.from,
-        lectura: fotoPrevia,
-        pieDeFoto: text,
+        lecturas: [fotoPrevia],
+        pregunta: text,
         history,
         fichaCliente,
         notas,
         idioma,
+        presentacion: greeting,
       });
-      if (conLaFoto) {
-        const reply = greeting + conLaFoto;
-        await appendToHistory(message.from, text, reply);
-        await sendWhatsappMessage(message.from, reply);
-        return;
-      }
-      // No se pudo respaldar nada de lo que diría. Mejor una persona que
-      // pedirle otra vez una foto que ya tenemos.
-      const prefijo = idioma === 'en'
-        ? `${greeting}Thanks — I've seen the photo, but I can't confirm from here whether we have it. `
-        : `${greeting}Gracias, he visto la foto, pero no te puedo confirmar desde aquí si lo tenemos. `;
-      await sendEscalateButtons(message.from, prefijo, idioma);
-      await appendToHistory(message.from, text, `${prefijo}${escalateQuestion(idioma)}`);
+      await appendToHistory(message.from, text, enviado);
       return;
     }
   }

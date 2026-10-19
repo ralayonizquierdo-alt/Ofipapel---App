@@ -525,17 +525,52 @@ Limitación que sigue vigente:
   te ponga en contacto con una persona?" — el mismo disparate que se arregló el
   30/9/2026 con las reacciones, entrando por otra puerta: escalar a alguien, a lo
   mejor de madrugada, por dar las gracias con un pulgar arriba.
-- **La foto y la pregunta llegan como dos mensajes distintos**, y hay que
-  contarlo porque es la fuente de un fallo real (19/10/2026): primero la imagen
-  y un segundo después "¿y este papel?". El primero lo contesta la rama de
-  fotos; el segundo entra por el camino del texto SIN ninguna imagen encima, y
-  la IA concluyó que no había llegado — "No veo una foto adjunta en ese mensaje,
-  ¿puedes enviarla de nuevo?", a un cliente al que se le acababa de dar el precio
-  y el enlace de lo que salía en su foto. Lo que se vio en una foto queda
-  apuntado en el historial (es la misma línea que se pinta en el panel), así que
-  el segundo mensaje la recupera de ahí y se contesta por la rama de fotos.
-  `pideLaFotoOtraVez()` reconoce esa respuesta equivocada y la tira; si de verdad
-  no había ninguna foto detrás, la respuesta es correcta y se deja pasar.
+### La foto espera a su pregunta
+
+**La foto y la pregunta llegan como dos mensajes distintos**: primero la imagen
+y un segundo después "¿y este papel?". Decisión del propietario (19/10/2026):
+
+> Prefiero que espere y conteste con todo el contexto antes que dar dos
+> respuestas rápidas. Viendo solo la foto no sabe qué quiere preguntar el
+> cliente: **la pregunta manda sobre la foto, la foto es para ampliar datos o
+> contexto**.
+
+Cómo funciona:
+
+1. Llega la foto. Se lee y **no se contesta**: la lectura queda en espera
+   (`foto_pendiente:<teléfono>` en Upstash, 5 min) y el webhook avisa a
+   `whatsapp-foto-background.js`.
+2. Si el cliente pregunta en los siguientes segundos, **su mensaje se lleva la
+   foto** y se contesta con las dos cosas juntas.
+3. Si no pregunta, a los **20 segundos** despierta la función de segundo plano,
+   se lleva la foto y contesta con ella sola — nunca se queda sin respuesta.
+   El tiempo se cambia con `FOTO_ESPERA_MS` en Netlify, sin tocar código.
+
+Quien conteste se decide **quitando la foto de en medio**
+(`tomarFotosPendientes` la saca y la borra a la vez), no mirando el historial:
+las dos vías corren a la vez y solo una puede llevársela. Sin eso el cliente
+recibiría dos respuestas a lo mismo. Si el cliente manda **varias fotos** antes
+de preguntar, se acumulan y la respuesta sale con todas delante.
+
+**No se espera cuando la pregunta ya está dicha**, y puede estarlo de dos
+maneras: en el **pie de foto**, o en un mensaje **de hace un momento** — el
+cliente también pregunta primero y manda la foto después ("busco una caja como
+esta" y acto seguido la imagen). En ese caso esa frase es la pregunta de la
+foto, igual que si fuera el pie, y se contesta al momento con las dos cosas. La
+ventana son 90 segundos: una frase más vieja es otra conversación, y colgársela
+a la foto sería contestar a algo que nadie preguntó.
+
+Tampoco se espera si no se puede avisar a la función de segundo plano: nadie
+despertaría a contestar, y lo único que no vale es dejar al cliente sin nada.
+
+Antes de esto el segundo mensaje entraba por el camino del texto SIN ninguna
+imagen encima, y la IA concluía que no había llegado — "No veo una foto adjunta
+en ese mensaje, ¿puedes enviarla de nuevo?", a un cliente al que se le acababa
+de dar el precio y el enlace de lo que salía en su foto. Esa red sigue puesta
+por si acaso: lo que se vio en una foto queda apuntado en el historial (la misma
+línea que se pinta en el panel), `pideLaFotoOtraVez()` reconoce la respuesta
+equivocada y se contesta con la foto recuperada de ahí; si de verdad no había
+ninguna foto detrás, la respuesta es correcta y se deja pasar.
 
 ## Cuando el cliente está enfadado
 
