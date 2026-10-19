@@ -702,3 +702,20 @@ test('aviso por correo: un resumen por campaña, campañas nuevas marcadas y sin
   assert.equal(resumenAvisos([ped('reposicion', 'X', '', '', '', 1)], []), null);
   assert.match(resumenAvisos([ped('comercial', 'FINOCAM', '2027', '22', 'A', 1)], ['FINOCAM|2027']).asunto, /^1 pedido nuevo: FINOCAM · 2027$/);
 });
+
+test('tarifa del proveedor: referencia + descripción o precio, prefiere «Precio» a «PVP» y se salta lo que no es artículo', () => {
+  const r = CP.leerTarifa([
+    ['TARIFA FINOCAM 2027'], [],
+    ['Código', 'Descripción', 'EAN', 'PVP', 'Precio'],
+    ['780100027', 'CALENDARIO A4', '8412345678901', '5,90', 3.25],
+    ['', 'FAMILIA: AGENDAS', '', '', ''],
+    ['782000327', 'AGENDA DÍA PÁGINA', '', 8, '4,10'],
+    ['TOTAL', '', '', '', ''],
+  ]);
+  assert.equal(r.n, 2);
+  assert.deepEqual(r.items['780100027'], { d: 'CALENDARIO A4', p: 3.25, ean: '8412345678901' });
+  assert.equal(r.items['782000327'].p, 4.1);
+  // Solo referencia y descripción (sin precios) también vale
+  assert.equal(CP.leerTarifa([['Referencia', 'Denominación'], ['A-1', 'BOLÍGRAFO']]).items['A-1'].d, 'BOLÍGRAFO');
+  assert.throws(() => CP.leerTarifa([['Cantidad', 'Importe'], [1, 2]]), /columna «Referencia»/);
+});

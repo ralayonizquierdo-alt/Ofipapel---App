@@ -834,6 +834,48 @@
     return d == null ? comoSiempre : [Math.round(d * 10000) / 10000];
   }
 
+  /**
+   * Tarifa completa de un proveedor (Excel), para el catálogo: sirve para
+   * rellenar descripción y precio al apuntar una referencia y para detectar
+   * referencias mal escritas. Necesita una columna de referencia y otra de
+   * descripción o de precio (sin cantidades). Devuelve { items: {ref: {d, p, ean}}, n }.
+   */
+  function leerTarifa(filas) {
+    const hallar = (cab, pruebas) => {
+      for (const pr of pruebas) {
+        const i = cab.findIndex((c) => pr.test(clave(c)));
+        if (i >= 0) return i;
+      }
+      return -1;
+    };
+    let iCab = -1;
+    let col = null;
+    for (let i = 0; i < Math.min((filas || []).length, 60); i++) {
+      const cab = filas[i] || [];
+      const ref = hallar(cab, [/^REFERENCIA\b/, /^RFCIA/, /^REFCIA/, /^REF\.?\b/, /^ARTICULO\b/, /^CODIGO\b/, /^COD\.? ?ART/, /^COD\.?$/]);
+      const desc = hallar(cab, [/^DESCRIPCION/, /^DENOMINACION/, /^CONCEPTO/, /^NOMBRE\b/, /^ARTICULO\b/]);
+      const precio = hallar(cab, [/^PRECIO\b/, /^TARIFA\b/, /^P\.? ?TARIFA\b/, /^P\.? ?UNIT/, /^PTD\b/, /^COSTE?\b/, /^COSTO\b/, /^PVP\b/, /^P\.? ?V\.? ?P/]);
+      if (ref >= 0 && (precio >= 0 || (desc >= 0 && desc !== ref))) {
+        iCab = i;
+        col = { ref, desc: desc === ref ? -1 : desc, precio, ean: hallar(cab, [/^EAN/, /^COD\.? ?BARRAS/, /^CODIGO DE BARRAS/]) };
+        break;
+      }
+    }
+    if (iCab < 0) throw new Error('No encuentro la fila de títulos: hace falta una columna «Referencia» (o «Código») y otra de «Descripción» o «Precio»');
+    const items = {};
+    for (let i = iCab + 1; i < filas.length; i++) {
+      const f = filas[i] || [];
+      const ref = normRef(f[col.ref]);
+      if (!ref || ref.length > 30) continue;
+      const d = col.desc >= 0 ? String(f[col.desc] == null ? '' : f[col.desc]).trim() : '';
+      const p = col.precio >= 0 ? parseNum(f[col.precio]) : null;
+      if (!d && p == null) continue;
+      const ean = col.ean >= 0 ? String(f[col.ean] == null ? '' : f[col.ean]).trim() : '';
+      items[ref] = { d, p, ean };
+    }
+    return { items, n: Object.keys(items).length };
+  }
+
   function leerPropuesta(filas) {
     // Por prioridad de patrón, no de columna: en el Excel de la herramienta de
     // PDF la primera columna es «Codigo I.S.B.N.» y la referencia buena es
@@ -1226,7 +1268,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
