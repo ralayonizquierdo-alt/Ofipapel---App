@@ -223,10 +223,15 @@ const escenario = {
   catalogo: { productContext: 'Resultado de búsqueda EN TIEMPO REAL: HP 305XL negro — 24,95 €', fallo: false },
   pausado: false,
   historial: [],
+  delegacionFalla: false,
 };
+// Para que el webhook pueda delegar hace falta saber la dirección del sitio.
+process.env.URL = 'https://ofipapel-bot.netlify.app';
 let log = [];
 let buscadoCon = null;
 let lecturasPedidas = 0;
+let enEspera = [];
+let delegadoCon = null;
 
 const orig = Module.prototype.require;
 Module.prototype.require = function (p) {
@@ -289,6 +294,22 @@ Module.prototype.require = function (p) {
     return {
       ...m,
       isConfigured: () => true,
+      // La foto en espera, en memoria. Lo que importa de verdad es que
+      // `tomarFotosPendientes` las SAQUE: es lo que decide quién contesta, la
+      // pregunta del cliente o la función de segundo plano, y lo que impide
+      // que contesten las dos.
+      guardarFotoPendiente: async (f, lectura) => {
+        enEspera.push(lectura);
+        log.push({ t: 'foto en espera', m: lectura.seVe });
+      },
+      tomarFotosPendientes: async () => {
+        const todas = enEspera.splice(0, enEspera.length);
+        if (todas.length) log.push({ t: 'se lleva la foto en espera', m: `${todas.length}` });
+        return todas;
+      },
+      appendBotReply: async (f, t) => {
+        log.push({ t: 'respuesta guardada suelta', m: t });
+      },
       claimMessage: async () => true,
       getFichaCliente: async () => ({ presentado: true }),
       getPausaGlobal: async () => null,
@@ -302,6 +323,12 @@ Module.prototype.require = function (p) {
   return m;
 };
 const wh = require(path.join(__dirname, '..', 'netlify/functions/whatsapp-webhook.js'));
+// La de segundo plano se carga DENTRO de la ventana de simulación: si no, se
+// traería el almacén de verdad y la prueba hablaría con Upstash.
+// En la prueba no se espera de verdad — lo que se comprueba es el reparto, no
+// el reloj.
+process.env.FOTO_ESPERA_MS = '1';
+const fondo = require(path.join(__dirname, '..', 'netlify/functions/whatsapp-foto-background.js'));
 Module.prototype.require = orig;
 
 global.fetch = async (url, opts) => {
@@ -310,6 +337,11 @@ global.fetch = async (url, opts) => {
     const b = JSON.parse(opts?.body || '{}');
     if (b.type === 'interactive') log.push({ t: 'botones', m: b.interactive?.body?.text });
   } catch { /* no es JSON, da igual */ }
+  if (u.includes('whatsapp-foto-background')) {
+    delegadoCon = JSON.parse(opts?.body || '{}');
+    log.push({ t: 'la foto queda esperando la pregunta', m: delegadoCon.referencia });
+    return { ok: !escenario.delegacionFalla, status: escenario.delegacionFalla ? 500 : 202, json: async () => ({}), text: async () => '' };
+  }
   if (u.includes('api.anthropic.com')) {
     lecturasPedidas += 1;
     if (escenario.lectura === null) return { ok: false, status: 500, text: async () => 'boom' };
@@ -357,10 +389,15 @@ const texto = (t) => (log.find((l) => l.t === t) || {}).m || '';
 
 const texto_ = (t) => ({ type: 'text', text: { body: t } });
 
-async function caso(etiqueta, msg, revisar) {
+// `semilla`: las fotos que ya estaban esperando antes de este mensaje. Se fija
+// en cada caso en vez de arrastrarse del anterior — con el arrastre, un caso
+// que falla cambia en silencio lo que prueba el siguiente.
+async function caso(etiqueta, msg, revisar, semilla = []) {
   log = [];
   buscadoCon = null;
   lecturasPedidas = 0;
+  delegadoCon = null;
+  enEspera = [...semilla];
   await wh.handler(ev(msg));
   console.log(`=== ${etiqueta}`);
   log.forEach((l) => console.log(`   [${l.t}] ${String(l.m).replace(/\n/g, ' ⏎ ').slice(0, 160)}`));
@@ -377,10 +414,61 @@ async function caso(etiqueta, msg, revisar) {
 (async () => {
   console.log('\n=== El recorrido entero\n');
 
-  // EL CASO QUE JUSTIFICA TODO ESTO: la foto de la caja del cartucho con un
-  // "¿tenéis este?". Hasta el 19/10/2026 se contestaba "no puedo leer una foto
-  // por aquí" y se le ofrecía una persona; de madrugada, eso es un cliente
-  // esperando hasta las nueve.
+  // LA FOTO SOLA ESPERA A SU PREGUNTA.
+  //
+  // "Prefiero que espere y conteste con todo el contexto antes que dar dos
+  // respuestas rápidas... la pregunta manda sobre la foto, la foto es para
+  // ampliar datos o contexto" (propietario, 19/10/2026). Por la imagen sola no
+  // se sabe qué quiere saber: si la tenemos, cuánto vale o si hay otro color.
+  await caso('Foto sola: espera, no contesta', foto(), () => {
+    assert.ok(!tiene('respuesta') && !tiene('botones'), 'contestó a la foto sin esperar a la pregunta');
+    assert.ok(tiene('foto en espera'), 'la foto no quedó en espera: nadie podría contestarla luego');
+    assert.ok(delegadoCon, 'no se avisó a quien tiene que contestar si no llega pregunta');
+    assert.ok(tiene('guardado sin contestar'), 'la foto tiene que verse en el panel igual');
+    assert.ok(/ve en la foto/.test(texto('guardado sin contestar')), 'el panel no dice qué vio el bot');
+  });
+
+  // Y AQUÍ LLEGA LA PREGUNTA. Se lleva la foto en espera (para que no conteste
+  // también la función de segundo plano) y responde con las dos cosas juntas.
+  escenario.catalogo = { productContext: 'Resultado EN TIEMPO REAL: PAPEL A-4 MATTIO — 3,94 €', fallo: false };
+  escenario.respuestaIA = 'Es el MATTIO A4 de 80gr, a 3,94 € + IGIC el paquete.';
+  // Dos fotos esperando: mandar dos o tres y preguntar después es lo normal, y
+  // la respuesta tiene que salir con todas delante, no solo con la última.
+  const dosFotos = [
+    { seVe: 'cartucho de tinta negro', textoLeido: 'HP 305XL', buscar: true },
+    { seVe: 'paquete de folios A4', textoLeido: 'MATTIO', buscar: true },
+  ];
+  await caso('Y entonces pregunta: contesta con las dos cosas', texto_('¿cuánto vale?'), () => {
+    assert.ok(tiene('respuesta'), 'se quedó sin contestar');
+    assert.ok(tiene('se lleva la foto en espera'), 'no se llevó la foto: contestarían dos a la vez');
+    const alaIA = texto('se le pregunta a la IA');
+    assert.ok(alaIA.startsWith(MARCA_FOTO), 'contestó sin la foto delante');
+    assert.ok(/2 fotos/.test(alaIA), 'se olvidó de una de las fotos que estaban esperando');
+    assert.ok(alaIA.includes('¿cuánto vale?'), 'no le pasó la pregunta del cliente');
+    assert.ok(/MATTIO/.test(buscadoCon || ''), 'no buscó con lo que vio en la foto');
+    assert.strictEqual(enEspera.length, 0, 'la foto sigue en espera: la contestarán dos veces');
+  }, dosFotos);
+
+  // CON PIE DE FOTO NO SE ESPERA: la pregunta ya viene puesta, que es justo lo
+  // que estaríamos esperando. Es el caso que justifica todo esto — la foto de
+  // la caja del cartucho con un "¿tenéis este?".
+  escenario.catalogo = { productContext: 'Resultado de búsqueda EN TIEMPO REAL: HP 305XL negro — 24,95 €', fallo: false };
+  escenario.respuestaIA = 'El HP 305XL negro lo tenemos a 24,95 €. ¿Te lo preparo?';
+  await caso('Foto con pregunta: contesta al momento', foto('¿Tenéis este?'), () => {
+    assert.ok(tiene('respuesta'), 'no contestó a una foto que ya traía la pregunta');
+    assert.ok(!tiene('foto en espera'), 'se puso a esperar una pregunta que ya tenía');
+    assert.strictEqual(delegadoCon, null, 'delegó sin necesidad');
+  });
+
+  // SI NO SE PUEDE DELEGAR, SE CONTESTA EN EL ACTO. Nadie despertaría a
+  // hacerlo, y lo único que no vale es dejar al cliente sin respuesta.
+  escenario.delegacionFalla = true;
+  await caso('No se puede delegar: contesta ya, con la foto sola', foto(), () => {
+    assert.ok(tiene('respuesta') || tiene('botones'), 'el cliente se quedó sin nada');
+    assert.strictEqual(enEspera.length, 0, 'la foto se quedó en espera y nadie la va a coger');
+  });
+  escenario.delegacionFalla = false;
+
   await caso('Foto de un cartucho, con pregunta', foto('¿Tenéis este?'), () => {
     assert.ok(tiene('respuesta'), 'no se le contestó a la foto');
     assert.ok(!tiene('botones'), 'se le ofreció una persona habiendo respuesta');
@@ -407,7 +495,9 @@ async function caso(etiqueta, msg, revisar) {
   escenario.lectura = 'SE VE: paquete de folios A4\nTEXTO: nada\nBUSCAR: si';
   escenario.catalogo = { productContext: null, fallo: false };
   escenario.respuestaIA = 'Sí, lo tenemos: son 12,95 € + IGIC.';
-  await caso('La IA se inventa un precio y no hay catálogo', foto(), () => {
+  // Con pregunta, para que conteste en el acto: lo que se prueba aquí es la red
+  // de seguridad del precio, no la espera.
+  await caso('La IA se inventa un precio y no hay catálogo', foto('¿cuánto vale?'), () => {
     assert.ok(!tiene('respuesta'), 'se le mandó un precio que no sale de ningún sitio');
     assert.ok(tiene('botones'), 'sin nada de lo que fiarse, toca una persona');
   });
@@ -514,6 +604,88 @@ async function caso(etiqueta, msg, revisar) {
     );
   });
   escenario.historial = [];
+
+  // -------------------------------------------------------------------------
+  // LA FUNCIÓN QUE DESPIERTA CUANDO NO LLEGA NINGUNA PREGUNTA.
+  //
+  // Es la mitad delicada del asunto: corre a la vez que el mensaje del cliente
+  // y las dos querrían contestar. Lo que lo decide es quién se lleva la foto de
+  // la espera. Si esto se rompe, el cliente recibe dos respuestas a lo mismo —
+  // justo lo que se vino a quitar.
+  // -------------------------------------------------------------------------
+  console.log('\n=== Cuando no llega ninguna pregunta\n');
+
+  const { firmaDeReintento } = require(path.join(__dirname, '..', 'netlify/functions/whatsapp-firma.js'));
+
+  // Lo que se espera DE VERDAD en producción, sin la variable de la prueba.
+  const esperaReal = 15000;
+  const peticionDeFondo = (from, referencia) => ({
+    httpMethod: 'POST',
+    body: JSON.stringify({ from, referencia, idioma: 'es', firma: firmaDeReintento(from, referencia) }),
+  });
+
+  comprobar('espera un rato antes de contestar, no al instante', () => {
+    assert.ok(esperaReal >= 5000, `espera muy poco (${esperaReal} ms): no daría tiempo a escribir`);
+    assert.ok(esperaReal <= 30000, `espera demasiado (${esperaReal} ms): el cliente lo nota`);
+  });
+
+  // 1. El cliente preguntó mientras tanto: su mensaje ya se llevó la foto, así
+  //    que aquí no queda nada y hay que callarse.
+  log = [];
+  enEspera = [];
+  await fondo.handler(peticionDeFondo('34600777222', 'wamid.X'));
+  console.log('=== El cliente ya preguntó (la foto ya no está)');
+  log.forEach((l) => console.log(`   [${l.t}] ${String(l.m).slice(0, 120)}`));
+  if (log.some((l) => l.t === 'respuesta' || l.t === 'botones')) {
+    fallos += 1;
+    console.log('    ✗ contestó por segunda vez a lo que ya estaba contestado');
+  } else {
+    console.log('    ✔ se calla');
+  }
+  console.log();
+
+  // 2. No preguntó: se lleva la foto y contesta con ella sola, que es mejor que
+  //    dejarle sin respuesta.
+  log = [];
+  enEspera = [{ seVe: 'cartucho de tinta negro', textoLeido: 'HP 305XL', buscar: true }];
+  escenario.catalogo = { productContext: 'Resultado EN TIEMPO REAL: HP 305XL — 24,95 €', fallo: false };
+  escenario.respuestaIA = 'El HP 305XL lo tenemos a 24,95 €. ¿Te digo algo más?';
+  await fondo.handler(peticionDeFondo('34600777222', 'wamid.Y'));
+  console.log('=== No preguntó nada: contesta con la foto sola');
+  log.forEach((l) => console.log(`   [${l.t}] ${String(l.m).slice(0, 120)}`));
+  try {
+    assert.ok(log.some((l) => l.t === 'respuesta'), 'dejó al cliente sin respuesta');
+    assert.ok(
+      log.some((l) => l.t === 'respuesta guardada suelta'),
+      'no archivó la respuesta: en el panel la foto se vería sin contestar'
+    );
+    assert.strictEqual(enEspera.length, 0, 'no se llevó la foto');
+    console.log('    ✔');
+  } catch (err) {
+    fallos += 1;
+    console.log(`    ✗ ${err.message.split('\n')[0]}`);
+  }
+  console.log();
+
+  // 3. Sin firma válida no se mueve un dedo: la dirección de la función es
+  //    pública y cualquiera que la supiera podría hacer que el bot escribiera a
+  //    cualquier número.
+  log = [];
+  enEspera = [{ seVe: 'cartucho', textoLeido: '', buscar: true }];
+  const sinFirma = await fondo.handler({
+    httpMethod: 'POST',
+    body: JSON.stringify({ from: '34600777222', referencia: 'wamid.Z', firma: 'inventada' }),
+  });
+  console.log('=== Alguien de fuera la llama con una firma inventada');
+  try {
+    assert.strictEqual(sinFirma.statusCode, 401);
+    assert.ok(!log.some((l) => l.t === 'respuesta'), 'le escribió a un número por una petición no firmada');
+    console.log('    ✔ la rechaza');
+  } catch (err) {
+    fallos += 1;
+    console.log(`    ✗ ${err.message.split('\n')[0]}`);
+  }
+  console.log();
 
   console.log(fallos === 0 ? '✔ Sin fallos' : `✗ ${fallos} fallos`);
   process.exit(fallos === 0 ? 0 : 1);

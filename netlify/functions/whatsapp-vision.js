@@ -129,11 +129,19 @@ const MARCA_FOTO = '[FOTO DEL CLIENTE]';
 // (la API solo admite user/assistant), pero diciendo claramente qué parte es
 // suya y qué parte es nuestra lectura.
 function comoSeLeDiceALaIA(lectura, pieDeFoto = '', idioma = 'es') {
-  const partes = [`${MARCA_FOTO} El cliente ha mandado una foto.`];
-  partes.push(`Lectura automática de la foto (puede estar mal): se ve ${lectura.seVe}.`);
-  if (lectura.textoLeido) partes.push(`Texto que se lee en la foto: ${lectura.textoLeido}.`);
+  const varias = Number(lectura.cuantas) > 1;
+  const partes = [`${MARCA_FOTO} El cliente ha mandado ${varias ? `${lectura.cuantas} fotos` : 'una foto'}.`];
+  partes.push(`Lectura automática ${varias ? 'de las fotos' : 'de la foto'} (puede estar mal): se ve ${lectura.seVe}.`);
+  if (lectura.textoLeido) partes.push(`Texto que se lee: ${lectura.textoLeido}.`);
   const pie = String(pieDeFoto || '').trim();
-  partes.push(pie ? `Con la foto escribe: "${pie}"` : 'No escribe nada más: la foto es toda la pregunta.');
+  // LA PREGUNTA MANDA SOBRE LA FOTO: la imagen dice QUÉ artículo es, pero solo
+  // sus palabras dicen qué quiere saber de él (si lo tenemos, cuánto vale, si
+  // hay otro color). Por eso va la última y se marca como lo que pregunta.
+  partes.push(
+    pie
+      ? `Y PREGUNTA ESTO, que es lo que tienes que contestar: "${pie}". La foto solo te dice de qué artículo habla.`
+      : `No escribe nada más: la foto es toda la pregunta, así que cuéntale lo que tengas de ese artículo y pregúntale qué necesita saber.`
+  );
   // El idioma se dice aparte porque este texto lo escribimos NOSOTROS, siempre
   // en español, y la IA contesta en el idioma del mensaje que recibe. Sin esto,
   // a un cliente inglés que manda una foto se le contestaría en español —
@@ -177,6 +185,23 @@ function lecturaDelHistorial(contenido) {
 // Solo se mira lo reciente: una foto de hace media conversación no tiene nada
 // que ver con lo que se pregunta ahora.
 const MENSAJES_QUE_CUENTAN_COMO_LA_MISMA_FOTO = 4;
+
+// VARIAS FOTOS Y UNA SOLA PREGUNTA.
+//
+// Lo normal es mandar dos o tres fotos seguidas y preguntar después ("¿tenéis
+// alguno de estos?"). Como la respuesta es una, las lecturas se juntan en una:
+// así la búsqueda las tiene todas en cuenta y la IA ve todo lo que hay delante.
+function juntarLecturas(lecturas) {
+  const lista = (Array.isArray(lecturas) ? lecturas : [lecturas]).filter((l) => l && l.seVe);
+  if (!lista.length) return null;
+  if (lista.length === 1) return lista[0];
+  return {
+    seVe: lista.map((l) => l.seVe).join('; '),
+    textoLeido: lista.map((l) => l.textoLeido).filter(Boolean).join('; '),
+    buscar: true,
+    cuantas: lista.length,
+  };
+}
 
 function ultimaFotoDelHistorial(history = []) {
   const recientes = history
@@ -258,6 +283,7 @@ module.exports = {
   paraElPanel,
   lecturaDelHistorial,
   ultimaFotoDelHistorial,
+  juntarLecturas,
   MARCA_FOTO,
   TIPOS_QUE_SE_LEEN,
   MAXIMO_PARA_LEER,
