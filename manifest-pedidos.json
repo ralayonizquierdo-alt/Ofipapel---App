@@ -10,9 +10,9 @@
   "background_color": "#f6f9f7",
   "theme_color": "#1e7d32",
   "icons": [
-    { "src": "icon-ofipapel-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon-ofipapel-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icon-ofipapel-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "icon-ofipapel-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icon-compras-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-compras-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-compras-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-compras-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
