@@ -641,3 +641,17 @@ test('envío al proveedor: un bloque por pedido (nº y cliente), sin precios, po
   ]);
   assert.ok(!JSON.stringify(r).includes('precio'), 'sin precios');
 });
+
+test('propuesta con dos «TOTAL» (neto por unidad y de la línea) y el descuento en euros', () => {
+  const { lineas } = CP.leerPropuesta([
+    ['REF', 'DESCRIPCION', 'EAN', 'P.TARIFA', 'DESCUENTO', 'TOTAL', 'CANTIDAD', 'TOTAL'],
+    ['A1', 'LAPICES', '', 8.28, 2.2356, 6.0444, 12, 72.5328],
+    ['A2', 'ESTUCHE', '', 2.52, 0.6804, 1.8396, 48, 88.3008],
+    ['A3', 'CON PORCENTAJE', '', 10, 0.27, 7.3, 2, 14.6],
+  ]);
+  assert.deepStrictEqual(lineas.map((l) => [l.ref, l.precio, l.dtos[0], l.importe, CP.precioNeto(l)]), [
+    ['A1', 8.28, 27, 72.5328, 6.0444],
+    ['A2', 2.52, 27, 88.3008, 1.8396],
+    ['A3', 10, 27, 14.6, 7.3],
+  ]);
+});
