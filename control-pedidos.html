@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-19-3"></script>
+<script src="control-pedidos-logica.js?v=2026-10-19-4"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -443,25 +443,28 @@ function fotosDe(p) {
   if (p.fotos && p.fotos.length) return p.fotos;
   return [...new Set(p.lineas.map((l) => l.foto).filter(Boolean))].map((nombre) => ({ nombre, hoja: '' }));
 }
+/** Hojas del pedido: las leídas en las fotos, o las que diga el usuario en
+ *  «Hojas del pedido» (p.hojas) si la lectura se equivocó. */
+function hojasDe(p) { return CP.hojasDelPedido(fotosDe(p), p.hojas); }
 /** En el móvil, cada pedido de la campaña en dos líneas: nº y cliente, y debajo
  *  lo demás en pequeño (en vez de una ficha con una fila por dato). */
 function filaMovil(p, e) {
-  const r = CP.hojasDelPedido(fotosDe(p));
+  const r = hojasDe(p);
   const datos = [fmtFecha(p.fecha).slice(0, 5), p.lineas.length + ' lín.', esRepo(p) ? '' : r.fotos ? '📷 ' + r.fotos + (r.total ? '/' + r.total : '') : ''].filter(Boolean).join(' · ');
   return `<div class="m-tit">${esRepo(p) ? h(p.proveedor) + (p.numero ? ' · nº ' + h(p.numero) : '') : `nº ${h(nPed(p.numero))} · ${h(p.cliente)}`}</div>
     <div class="m-dat">${h(datos)}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}</div>
     <div class="m-est"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</div>`;
 }
 function celdaFotos(p) {
-  const r = CP.hojasDelPedido(fotosDe(p));
+  const r = hojasDe(p);
   if (!r.fotos) return '—';
   return `${r.fotos}${r.total ? ` <span class="pequeno">(${r.hojas.length} de ${r.total} hojas)</span>` : ''}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}`;
 }
 function avisoFotos(p) {
   const fotos = fotosDe(p);
-  const r = CP.hojasDelPedido(fotos);
+  const r = hojasDe(p);
   if (!r.fotos) return '';
-  return `<div class="aviso-caja ${r.faltan.length ? 'mal' : 'info'}">📷 <b>${r.fotos} foto(s)</b>${r.total ? ` · hojas leídas ${r.hojas.join(', ')} de ${r.total}` : ''}
+  return `<div class="aviso-caja ${r.faltan.length ? 'mal' : 'info'}">📷 <b>${r.fotos} foto(s)</b>${r.total ? ` · hojas leídas ${r.hojas.join(', ')} de ${r.total}${r.aMano ? ' (total puesto a mano)' : ''}` : ''}
     ${r.faltan.length ? `<br><b>⚠️ Falta la hoja ${r.faltan.join(', ')} de ${r.total}:</b> súbela con «Hacer foto» o «Elegir de la galería».` : ''}
     <div class="pequeno" style="margin-top:4px">${fotos.map((f) => `<span style="display:inline-block;margin:2px 8px 2px 0">${h(f.nombre)}${f.hoja ? ` (hoja ${h(f.hoja)})` : ''}${f.lineas != null ? ` · ${f.lineas} línea(s)` : ''}
       <button class="btn peque peligro no-imprimir" style="padding:1px 6px" onclick="quitarFoto(${js(f.nombre)})" title="Quitar esta foto y sus líneas">quitar</button></span>`).join('')}</div></div>`;
@@ -610,7 +613,7 @@ function vistaGrupo(g, i) {
   const nF = filasRes.filter((r) => r.tipo === 'falta').length;
   const nS = filasRes.length - nF;
   const validados = g.pedidos.filter((p) => p.validado).length;
-  const hojasG = g.pedidos.filter((p) => !esRepo(p)).map((p) => CP.hojasDelPedido(fotosDe(p)));
+  const hojasG = g.pedidos.filter((p) => !esRepo(p)).map((p) => hojasDe(p));
   const nFotos = hojasG.reduce((s, x) => s + x.fotos, 0);
   const hojasFaltan = hojasG.reduce((s, x) => s + x.faltan.length, 0);
   const ej = g.pedidos[0];
@@ -1014,6 +1017,7 @@ function vistaDetalle(p) {
       <label>Nº<input value="${h(p.numero)}" style="width:80px" onchange="cambiaCampo('numero', this.value.trim())"></label>
       <label>Cliente<input value="${h(p.cliente)}" onchange="cambiaCampo('cliente', this.value.trim().toUpperCase())"></label>
       <label>Fecha<input type="date" value="${h(p.fecha)}" onchange="cambiaCampo('fecha', this.value)"></label>
+      <label title="Si la lectura de las fotos se equivoca con el total de hojas, ponlo aquí y manda sobre lo leído">Hojas del pedido<input type="number" inputmode="numeric" min="1" max="50" style="width:90px" value="${h(p.hojas || '')}" placeholder="${h(CP.hojasDelPedido(fotosDe(p)).total || '')}" onchange="cambiaHojas(this.value)"></label>
       <button class="btn primario" onclick="otroPedidoCampana(${js(p.proveedor)}, ${js(p.campana || '')})">➕ Otro pedido de esta campaña</button>
       <button class="btn peque peligro" onclick="borrarPedido()">Borrar pedido</button>
     </div>
@@ -1368,6 +1372,13 @@ function avisoRestosEnPropuesta(p) {
 // ── Edición ──────────────────────────────────────────────────────────────────
 function pedidoActual() { return pedidoPorId(pedidoAbierto); }
 function invalidar(p) { p.validado = false; }
+/** Total de hojas a mano: no cambia nada del pedido, así que no hay que revalidar. */
+function cambiaHojas(valor) {
+  const p = pedidoActual();
+  const n = Math.floor(Number(valor));
+  if (n > 0 && n <= 50) p.hojas = n; else delete p.hojas;
+  guardar(); pintar();
+}
 function cambiaCampo(campo, valor) {
   const p = pedidoActual();
   p[campo] = campo === 'campana' ? campanaCanonica(p.proveedor, valor) : valor;
