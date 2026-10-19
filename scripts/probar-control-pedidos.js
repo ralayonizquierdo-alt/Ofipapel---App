@@ -684,3 +684,21 @@ test('hojas del pedido: el total puesto a mano manda sobre lo leído en las foto
   assert.deepEqual(CP.hojasDelPedido(fotos, '').faltan, [3], 'vacío: se vuelve a lo leído');
   assert.deepEqual(CP.hojasDelPedido([{ nombre: 'a.jpg', hoja: '1/1' }], 2).faltan, [2], 'también sirve para avisar de una hoja que no se leyó como tal');
 });
+
+test('aviso por correo: un resumen por campaña, campañas nuevas marcadas y sin reposición', async () => {
+  const { resumenAvisos } = await import('../netlify/functions/avisos-pedidos.mjs');
+  const ped = (tipo, proveedor, campana, numero, cliente, n) => ({ datos: { tipo, proveedor, campana, numero, cliente, lineas: Array(n).fill({}) }, autor: 'miguel@ofipapel.internal' });
+  const r = resumenAvisos([
+    ped('comercial', 'FINOCAM', '2027', '21', 'TORRES', 3),
+    ped('comercial', 'MIQUELRIUS', 'Navidad', '1', 'PAPELES', 1),
+    ped('comercial', 'FINOCAM', '2027', '9', 'ALDAYO', 2),
+    ped('reposicion', 'LANCELOT', '', '', '', 30),
+  ], ['FINOCAM|2027']);
+  assert.equal(r.n, 3, 'la reposición no cuenta');
+  assert.match(r.asunto, /Campaña nueva: MIQUELRIUS · Navidad y más pedidos/);
+  assert.match(r.texto, /FINOCAM · 2027\n  - nº 09 · ALDAYO — 2 líneas · subido por miguel\n  - nº 21 · TORRES/);
+  assert.match(r.texto, /🆕 CAMPAÑA NUEVA · MIQUELRIUS · Navidad/);
+  assert.doesNotMatch(r.texto, /LANCELOT/);
+  assert.equal(resumenAvisos([ped('reposicion', 'X', '', '', '', 1)], []), null);
+  assert.match(resumenAvisos([ped('comercial', 'FINOCAM', '2027', '22', 'A', 1)], ['FINOCAM|2027']).asunto, /^1 pedido nuevo: FINOCAM · 2027$/);
+});
