@@ -1,31 +1,94 @@
 rules_version = '2';
 
-// Reglas de acceso para el proyecto Firebase "Ofipapel Fichaje" (ofipapel-fichaje-63ced),
-// usado exclusivamente por fichaje.html — propio y separado de ofipapelvv (Vacaciones/Alquileres).
+// Reglas de acceso para el proyecto Firebase "Ofipapel Fichaje"
+// (ofipapel-fichaje-63ced), usado solo por fichaje.html. Es un proyecto propio,
+// separado de ofipapelvv (Vacaciones/Alquileres).
 //
-// La pantalla de fichaje no pide login de gerencia para poder fichar con PIN: usa una sesión
-// anónima (ver ensureAnonSession() en fichaje.html) solo para que Firestore exija una sesión,
-// no una identidad real. La verificación del PIN (hash SHA-256) y la separación empleado/gerencia
-// las hace la propia app, no estas reglas — mismo nivel de protección que el resto del ecosistema
-// (RLS de Supabase en joe-app, reglas de alquileres/firestore.rules): bloquea el acceso directo
-// con solo la apiKey pública, pero no distingue entre personas.
+// ─── Qué había antes, y por qué no protegía nada ────────────────────────────
+// La versión anterior de este fichero decía `allow read, write: if
+// request.auth != null` y lo daba por suficiente. No lo era: fichaje.html abría
+// una sesión ANÓNIMA al arrancar, y una sesión anónima la crea cualquiera con
+// la apiKey pública que va dentro del HTML. O sea que "tener sesión" no
+// distinguía a nadie — la puerta pedía una llave que regalaba el portero.
 //
-// Firebase crea la base de datos nueva con reglas por defecto que BLOQUEAN todo — sin publicar
-// esto, cualquier lectura/escritura devuelve 403 (se ve en la app como "Sin conexión con el
-// servidor").
+// Comprobado en vivo el 2026-09-08, pidiendo una sesión anónima y leyendo:
 //
-// Despliegue (requiere el CLI de Firebase autenticado con acceso al proyecto
-// "ofipapel-fichaje-63ced" — no se puede aplicar desde este repo sin esas credenciales):
-//   firebase deploy --only firestore:rules --project ofipapel-fichaje-63ced
-// o pegar el contenido de este fichero en Firebase Console > Firestore Database > Rules > Publish.
+//   200  ofipapel_fichaje_eventos    fichajes reales de la plantilla
+//   200  ofipapel_fichaje_config     incluidos los hashes de los PIN
+//   403  ofipapel_fichaje_personas   (no existe, por eso 403)
 //
-// Requiere también activar el proveedor "Anonymous" en Firebase Console > Authentication >
-// Sign-in method — sin eso, ensureAnonSession() nunca obtiene sesión y estas reglas rechazarían
-// todas las peticiones igualmente.
+// Son datos personales de los empleados y el registro de su jornada, que es
+// justo lo que la ley obliga a conservar (RD-ley 8/2019). Es el mismo
+// malentendido de DT-23, y el último que queda abierto del ecosistema.
+//
+// ─── Qué exigen ahora ───────────────────────────────────────────────────────
+// Sesión iniciada con CONTRASEÑA. Las anónimas quedan fuera. Los dos caminos
+// legítimos ya cumplen eso:
+//
+//   gerencia   `accounts:signInWithPassword` desde el propio fichaje.html
+//              (Luis / Rober / David) — ya funcionaba así, no cambia nada.
+//   empleados  no tocan Firestore directamente: fichan contra
+//              netlify/functions/fichar.js, que comprueba el PIN en el
+//              servidor e inicia sesión con FICHAJE_FIREBASE_EMAIL /
+//              FICHAJE_FIREBASE_PASSWORD, credenciales que solo existen en
+//              Netlify.
+//
+// ─── EL ORDEN IMPORTA. Si te lo saltas, la plantilla no puede fichar ────────
+// Esto ya pasó una vez (DT-29): se cerraron las reglas de ofipapelvv antes de
+// migrar quien las usaba y el personal se quedó sin poder fichar. No repitas
+// el error aquí.
+//
+//   1. Firebase Console > Authentication > Users > Add user: crea una cuenta
+//      de servicio (p. ej. servidor@ofipapel-fichaje.internal) con contraseña.
+//      Es solo para la función, no la usa ninguna persona.
+//   2. Netlify > sitio `ofipapel` > Environment variables: añade
+//        FICHAJE_FIREBASE_EMAIL
+//        FICHAJE_FIREBASE_PASSWORD
+//      (marca la contraseña como secreta).
+//   3. Espera al despliegue y COMPRUEBA que la función responde. Antes del
+//      paso 2 devuelve 503 a propósito, y fichaje.html sigue fichando por la
+//      vía antigua, así que nada se rompe mientras tanto:
+//        curl -s -X POST https://ofipapel.netlify.app/.netlify/functions/fichar \
+//          -H 'Content-Type: application/json' \
+//          -H 'Origin: https://ralayonizquierdo-alt.github.io' \
+//          -d '{"personId":"...","pin":"...."}'
+//      Tiene que dejar de decir "Faltan FICHAJE_FIREBASE_EMAIL...".
+//   4. Que alguien fiche de verdad, en su móvil, y salga bien.
+//   5. Y SOLO ENTONCES publicar estas reglas:
+//        firebase deploy --only firestore:rules --project ofipapel-fichaje-63ced
+//      o pegando este fichero en Firebase Console > Firestore Database >
+//      Rules > Publish.
+//   6. Volver a comprobar que se puede fichar, y que desde fuera ya no se lee:
+//        bash scripts/comprobar-accesos.sh
+//
+// Después del paso 5 se puede (y conviene) desactivar el proveedor "Anonymous"
+// en Authentication > Sign-in method. No antes: hasta ese momento es la vía de
+// respaldo que mantiene la pantalla en pie.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{collection}/{docId} {
-      allow read, write: if request.auth != null;
+
+    // Ni anónima, ni ningún otro proveedor que alguien active por error más
+    // adelante. Solo correo + contraseña.
+    function esUsuarioReal() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+
+    // Se enumeran las colecciones en vez de usar un comodín. El comodín es lo
+    // que hizo que las reglas de alquileres/ se llevaran por delante a
+    // fichaje.html sin que nadie lo viera venir (DT-29): `match /{collection}`
+    // cubre TODO el proyecto, incluido lo que aún no existe.
+    match /ofipapel_fichaje_eventos/{docId} {
+      allow read, write: if esUsuarioReal();
+    }
+    match /ofipapel_fichaje_config/{docId} {
+      allow read, write: if esUsuarioReal();
+    }
+
+    // Todo lo demás, cerrado. Si mañana hace falta una colección nueva, hay que
+    // añadirla aquí a propósito — que es exactamente lo que se quiere.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
