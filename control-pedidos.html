@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-19-4"></script>
+<script src="control-pedidos-logica.js?v=2026-10-19-5"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -1978,6 +1978,8 @@ function guardarCatalogo(proveedor, archivo, catalogo) {
   // Solo cuenta como catálogo si trae bastante más que lo pedido: el
   // formulario de Finocam lleva la tarifa entera; una propuesta corta no.
   if (n < 50) return;
+  // Una tarifa subida a mano en «Datos» manda: una propuesta no la pisa.
+  if ((E.catalogos[prov(proveedor)] || {}).tarifa) return;
   E.catalogos[prov(proveedor)] = { fecha: hoy(), archivo, items: catalogo };
 }
 /** Pone la propuesta del proveedor en el pedido. Si ya tenía una, la nueva la
@@ -2536,10 +2538,18 @@ function vistaDatos() {
     </div>
   </div>
   <div class="tarjeta">
-    <h2>Catálogos de proveedor</h2>
-    <p class="pequeno">Se guardan solos al cargar una propuesta que trae la tarifa completa (como el formulario de Finocam). Sirven para detectar referencias mal leídas.</p>
-    ${cats.length ? `<table><tr><th>Proveedor</th><th class="num">Referencias</th><th>Archivo</th><th>Fecha</th></tr>
-      ${cats.map(([k, c]) => `<tr><td>${h(k)}</td><td class="num">${Object.keys(c.items).length}</td><td>${h(c.archivo)}</td><td>${h(fmtFecha(c.fecha))}</td></tr>`).join('')}</table>`
+    <h2>📚 Tarifas y catálogos de proveedor</h2>
+    <p class="pequeno">Sube la <b>tarifa completa</b> de un proveedor en Excel (una columna de referencia o código y otra de descripción o precio; se leen todas las hojas). Al apuntar un pedido, la referencia rellena sola la descripción y el precio, y se avisa si una referencia no existe en la tarifa. Una tarifa nueva del mismo proveedor sustituye a la anterior. Sin tarifa, el catálogo se guarda solo al cargar una propuesta que la trae completa (como el formulario de Finocam), y nunca pisa una tarifa subida aquí.</p>
+    <div class="fila no-imprimir">
+      <label>Proveedor<input id="tarProv" list="tarProvs" placeholder="FINOCAM" autocomplete="off"></label>
+      <datalist id="tarProvs">${[...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean).sort().map((x) => `<option value="${h(x)}">`).join('')}</datalist>
+      <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📚 Subir tarifa (Excel)
+        <input type="file" class="oculto" onchange="subirTarifa(this.files[0]); this.value=''"></label>
+    </div>
+    <div id="progresoTarifa" class="progreso"></div>
+    ${cats.length ? `<table style="margin-top:8px"><tr><th>Proveedor</th><th class="num">Referencias</th><th>Origen</th><th>Fecha</th><th></th></tr>
+      ${cats.sort(([a], [b]) => a.localeCompare(b, 'es')).map(([k, c]) => `<tr><td><b>${h(k)}</b></td><td class="num">${Object.keys(c.items || {}).length}</td><td>${c.tarifa ? '📚 tarifa' : 'de una propuesta'} · <span class="pequeno">${h(c.archivo)}</span></td><td>${h(fmtFecha(c.fecha))}</td>
+        <td class="no-imprimir"><button class="btn peque peligro" onclick="quitarCatalogo(${js(k)})">Quitar</button></td></tr>`).join('')}</table>`
       : `<div class="vacio">Ninguno todavía.</div>`}
   </div>
   <div class="tarjeta">
@@ -2553,6 +2563,43 @@ function vistaDatos() {
         ${[2, 3, 4, 6].map((n) => `<option ${String(n) === (localStorage.getItem('cp.decimales') || '2') ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
     </div>
   </div>`;
+}
+/** Tarifa completa de un proveedor (Excel, todas las hojas) → su catálogo. */
+async function subirTarifa(file) {
+  if (!file) return;
+  const campo = document.getElementById('tarProv');
+  const proveedor = prov(proveedorCanonico(campo.value) || campo.value);
+  if (!proveedor) { alert('Escribe primero de qué proveedor es la tarifa.'); campo.focus(); return; }
+  if (esPdf(file) || esImagen(file)) { alert('La tarifa tiene que ir en Excel (o CSV). Un PDF o una foto de miles de líneas no se lee con fiabilidad.'); return; }
+  const caja = document.getElementById('progresoTarifa');
+  if (caja) caja.textContent = `Leyendo ${file.name}…`;
+  try {
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+    const items = {};
+    const errores = [];
+    for (const nombre of wb.SheetNames) {
+      try { Object.assign(items, CP.leerTarifa(XLSX.utils.sheet_to_json(wb.Sheets[nombre], { header: 1, defval: '', raw: true })).items); }
+      catch (e) { errores.push(nombre); }
+    }
+    const n = Object.keys(items).length;
+    if (!n) throw new Error('no he encontrado artículos. Hace falta una columna «Referencia» (o «Código») y otra de «Descripción» o «Precio»');
+    const conPrecio = Object.values(items).filter((x) => x.p != null).length;
+    const antes = E.catalogos[proveedor];
+    if (!confirm(`${proveedor}: ${n} artículos (${conPrecio} con precio) en ${file.name}.` + (antes ? `\nSustituye al catálogo actual (${Object.keys(antes.items || {}).length} referencias).` : '') + '\n\n¿Guardar la tarifa?')) return;
+    E.catalogos[proveedor] = { fecha: hoy(), archivo: file.name, items, tarifa: true };
+    guardar(); pintar();
+    if (errores.length && errores.length < wb.SheetNames.length) alert(`Hojas sin artículos reconocibles (no se han usado): ${errores.join(', ')}`);
+  } catch (err) {
+    alert('No he podido leer la tarifa: ' + err.message);
+  } finally {
+    const c = document.getElementById('progresoTarifa');
+    if (c) c.textContent = '';
+  }
+}
+function quitarCatalogo(proveedor) {
+  if (!confirm(`¿Quitar el catálogo de ${proveedor}? Los pedidos no cambian; solo deja de rellenar y comprobar referencias.`)) return;
+  delete E.catalogos[proveedor];
+  guardar(); pintar();
 }
 function descargarCopia() {
   const blob = new Blob([JSON.stringify(E, null, 1)], { type: 'application/json' });
