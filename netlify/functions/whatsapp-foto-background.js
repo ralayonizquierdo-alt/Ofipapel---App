@@ -36,15 +36,23 @@ const conversationStore = require('./conversation-store');
 
 // CUÁNTO SE ESPERA A LA PREGUNTA.
 //
-// El que manda una foto y luego escribe tarda lo que tarda en teclear: unos
-// segundos. Con quince se recoge prácticamente todo, y quien manda la foto a
-// secas espera quince segundos a su respuesta, que en WhatsApp no se nota.
-// Subirlo hace esperar a todo el mundo; bajarlo deja fuera al que escribe
-// despacio y vuelven las dos respuestas.
+// VEINTE SEGUNDOS, puestos por el propietario (19/10/2026): "prefiero esperar
+// 20 segundos siempre antes, si no hay pregunta".
+//
+// El que manda una foto y luego escribe tarda lo que tarda en teclear, y hay
+// quien escribe despacio. Quedarse corto es lo caro: la pregunta llega tarde,
+// la foto ya se contestó sola y el cliente recibe las dos respuestas que
+// veníamos a quitar. Esperar de más solo cuesta espera, y solo a quien manda la
+// foto sin preguntar nada.
+//
+// Ojo: esto NO retrasa a quien sí pregunta. Con pregunta —en el pie de foto o
+// escrita justo antes— se contesta al momento; estos segundos son únicamente
+// para la foto que llega sola.
 //
 // Se puede cambiar sin tocar el código con la variable FOTO_ESPERA_MS en
 // Netlify (hace falta volver a desplegar para que llegue a las funciones).
-const ESPERA_MS = Number(process.env.FOTO_ESPERA_MS) > 0 ? Number(process.env.FOTO_ESPERA_MS) : 15000;
+const ESPERA_POR_DEFECTO_MS = 20000;
+const ESPERA_MS = Number(process.env.FOTO_ESPERA_MS) > 0 ? Number(process.env.FOTO_ESPERA_MS) : ESPERA_POR_DEFECTO_MS;
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 

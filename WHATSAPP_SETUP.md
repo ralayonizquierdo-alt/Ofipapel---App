@@ -542,7 +542,7 @@ Cómo funciona:
    `whatsapp-foto-background.js`.
 2. Si el cliente pregunta en los siguientes segundos, **su mensaje se lleva la
    foto** y se contesta con las dos cosas juntas.
-3. Si no pregunta, a los **15 segundos** despierta la función de segundo plano,
+3. Si no pregunta, a los **20 segundos** despierta la función de segundo plano,
    se lleva la foto y contesta con ella sola — nunca se queda sin respuesta.
    El tiempo se cambia con `FOTO_ESPERA_MS` en Netlify, sin tocar código.
 

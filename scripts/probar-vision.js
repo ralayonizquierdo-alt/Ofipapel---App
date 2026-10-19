@@ -684,16 +684,23 @@ async function caso(etiqueta, msg, revisar, semilla = []) {
 
   const { firmaDeReintento } = require(path.join(__dirname, '..', 'netlify/functions/whatsapp-firma.js'));
 
-  // Lo que se espera DE VERDAD en producción, sin la variable de la prueba.
-  const esperaReal = 15000;
   const peticionDeFondo = (from, referencia) => ({
     httpMethod: 'POST',
     body: JSON.stringify({ from, referencia, idioma: 'es', firma: firmaDeReintento(from, referencia) }),
   });
 
-  comprobar('espera un rato antes de contestar, no al instante', () => {
-    assert.ok(esperaReal >= 5000, `espera muy poco (${esperaReal} ms): no daría tiempo a escribir`);
-    assert.ok(esperaReal <= 30000, `espera demasiado (${esperaReal} ms): el cliente lo nota`);
+  // Lo que se espera DE VERDAD en producción (aquí la prueba lo baja a 1 ms con
+  // FOTO_ESPERA_MS, así que se lee del fichero). Son los 20 segundos que pidió
+  // el propietario, y quedarse corto es lo caro: la pregunta llega tarde, la
+  // foto ya se contestó sola y el cliente recibe las dos respuestas que
+  // veníamos a quitar.
+  comprobar('espera los 20 segundos que se pidieron', () => {
+    const fuente = require('fs').readFileSync(
+      path.join(__dirname, '..', 'netlify/functions/whatsapp-foto-background.js'),
+      'utf8'
+    );
+    const esperaReal = Number(/const ESPERA_POR_DEFECTO_MS = (\d+);/.exec(fuente)[1]);
+    assert.strictEqual(esperaReal, 20000, `espera ${esperaReal} ms y se pidieron 20000`);
   });
 
   // 1. El cliente preguntó mientras tanto: su mensaje ya se llevó la foto, así
