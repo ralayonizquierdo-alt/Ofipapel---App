@@ -640,7 +640,7 @@ function vistaGrupo(g, i) {
         <span class="chip gris">${g.pedidos.length} pedido(s)</span>
         ${nFotos ? `<span class="chip gris">📷 ${nFotos} foto(s)</span>` : ''}
         ${hojasFaltan ? `<span class="chip mal">⚠️ ${hojasFaltan} hoja(s) sin subir</span>` : ''}
-        ${esRepo(ej) ? '' : chipAvisoCompras(g.pedidos) + chipEnvio(g.pedidos)}
+        ${esRepo(ej) ? '' : chipEnvio(g.pedidos)}
         <span class="chip ${validados === g.pedidos.length ? 'ok' : 'info'}">${validados} validado(s)</span>
         ${comparados.length ? `<span class="chip ${nF ? 'mal' : 'ok'}">${nF} faltan</span><span class="chip ${nS ? 'aviso' : 'ok'}">${nS} sobran</span>` : ''}
       </span>
@@ -1090,7 +1090,6 @@ function vistaDetalle(p) {
       <label>Fecha<input type="date" value="${h(p.fecha)}" onchange="cambiaCampo('fecha', this.value)"></label>
       <label title="Si la lectura de las fotos se equivoca con el total de hojas, ponlo aquí y manda sobre lo leído">Hojas del pedido<input type="number" inputmode="numeric" min="1" max="50" style="width:90px" value="${h(p.hojas || '')}" placeholder="${h(CP.hojasDelPedido(fotosDe(p)).total || '')}" onchange="cambiaHojas(this.value)"></label>
       <button class="btn primario" onclick="otroPedidoCampana(${js(p.proveedor)}, ${js(p.campana || '')})">➕ Otro pedido de esta campaña</button>
-      <button class="btn" onclick="avisarCompras(${js(claveGrupo(p))})">📣 Avisar a compras: pedidos listos</button>
       <button class="btn peque peligro" onclick="borrarPedido()">Borrar pedido</button>
     </div>
     ${p.notas ? `<div class="aviso-caja info">Notas: ${h(p.notas)}</div>` : ''}
@@ -2596,61 +2595,36 @@ let envio = null; // {ids, proveedor, campana, file, nombre}
 const cargarScript = (src) => new Promise((ok, mal) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => mal(new Error('no se pudo cargar ' + src.split('/').pop())); document.head.appendChild(s); });
 // ── Aviso a compras: el comercial dice «ya están» cuando termina ────────────
 // Sale de su propio programa de correo (como el envío al proveedor): sin
-// servidor ni claves. Van los pedidos marcados; si no hay ninguno, los de la
-// campaña que aún no se habían avisado; si ya estaban todos, la campaña entera.
+// servidor ni claves. Van los pedidos marcados en la campaña; sin marcar, la
+// campaña entera. No se apunta nada en los pedidos (decisión del propietario).
 const CORREO_COMPRAS = 'compras@ofipapelsl.com';
-let avisoCompras = null; // { ids }
-function chipAvisoCompras(ps) {
-  const av = ps.filter((p) => p.avisoCompras);
-  if (!av.length) return '';
-  const ult = av.map((p) => String(p.avisoCompras.fecha)).sort().pop();
-  return av.length === ps.length
-    ? `<span class="chip ok">📣 avisada ${h(fmtFecha(ult.slice(0, 10)).slice(0, 5))}</span>`
-    : `<span class="chip aviso">📣 ${av.length} de ${ps.length} avisados</span>`;
-}
 function avisarCompras(clave) {
   const delGrupo = E.pedidos.filter((p) => claveGrupo(p) === clave && !esRepo(p));
   if (!delGrupo.length) return;
-  let ps = delGrupo.filter((p) => seleccionados.has(p.id));
-  let nota = '';
-  if (!ps.length) {
-    const sin = delGrupo.filter((p) => !p.avisoCompras);
-    ps = sin.length ? sin : delGrupo;
-    nota = sin.length && sin.length < delGrupo.length ? 'Van los que aún no se habían avisado.' : '';
-  }
-  ps.sort((a, b) => String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }));
+  const marcados = delGrupo.filter((p) => seleccionados.has(p.id));
+  const ps = (marcados.length ? marcados : delGrupo.slice())
+    .sort((a, b) => String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }));
   const ej = ps[0];
   const campana = `${ej.proveedor} · ${ej.campana || 'sin campaña'}`;
   const lista = ps.map((p) => `  - nº ${nPed(p.numero)} · ${p.cliente || ''} (${p.lineas.length} línea${p.lineas.length === 1 ? '' : 's'})`).join('\n');
   const mensaje = `Hola,\n\nYa están listos para procesar ${ps.length === 1 ? 'este pedido' : `estos ${ps.length} pedidos`} de la campaña ${campana}:\n\n${lista}\n\nControl de Pedidos: ${location.origin}${location.pathname}\n\n${nube.usuario || ''}`;
-  avisoCompras = { ids: ps.map((p) => p.id) };
   const dlg = document.getElementById('dlgEnvio');
   dlg.innerHTML = `
     <h2>📣 Avisar a compras</h2>
-    <p class="pequeno" style="margin-top:0">${ps.length} pedido(s) de ${h(campana)}. ${nota}</p>
+    <p class="pequeno" style="margin-top:0">${marcados.length ? `Los ${ps.length} pedido(s) marcados` : `No has marcado ninguno: va la campaña entera (${ps.length} pedidos)`} de ${h(campana)}.</p>
     <label>Para<input id="avPara" type="email" value="${h(CORREO_COMPRAS)}"></label>
     <label>Asunto<input id="avAsunto" value="${h(`Pedidos listos · ${campana}`)}"></label>
     <label>Mensaje<textarea id="avMensaje" rows="10">${h(mensaje)}</textarea></label>
     <div class="fila" style="margin-top:10px">
       <button class="btn primario" onclick="abrirCorreoAviso()">📧 Abrir mi correo</button>
-      <button class="btn" onclick="marcarAvisoCompras()">✅ Ya lo he enviado</button>
       <button class="btn peque" onclick="document.getElementById('dlgEnvio').close()">Cerrar</button>
-    </div>
-    <div class="pequeno">Se abre tu programa de correo con todo escrito: envíalo y vuelve aquí a pulsar «✅ Ya lo he enviado».</div>`;
+    </div>`;
   dlg.showModal();
 }
 function abrirCorreoAviso() {
   const v = (id) => document.getElementById(id).value;
   location.href = `mailto:${encodeURIComponent(v('avPara').trim())}?subject=${encodeURIComponent(v('avAsunto'))}&body=${encodeURIComponent(v('avMensaje'))}`;
-}
-function marcarAvisoCompras() {
-  if (!avisoCompras) return;
-  const ahora = new Date().toISOString();
-  for (const id of avisoCompras.ids) { const p = pedidoPorId(id); if (p) p.avisoCompras = { fecha: ahora, por: nube.usuario || '' }; }
-  guardar();
   document.getElementById('dlgEnvio').close();
-  avisoCompras = null;
-  pintar();
 }
 function chipEnvio(ps) {
   const env = ps.filter(envioDe);
