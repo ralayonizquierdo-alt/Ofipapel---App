@@ -1050,7 +1050,7 @@ function vistaDetalle(p) {
   <div class="tarjeta">
     <h2>2 · Propuesta del proveedor</h2>
     <div class="fila no-imprimir">
-      <label>Propuesta del proveedor (PDF, Excel o foto)<input type="file" accept=".pdf,.xlsx,.xlsm,.xls,.csv,image/*" onchange="cargarPropuestaEn('${p.id}', this.files[0]); this.value=''"></label>
+      <label>Propuesta del proveedor (PDF, Excel o foto)<input type="file" onchange="cargarPropuestaEn('${p.id}', this.files[0]); this.value=''"></label>
     </div>
     <div id="progresoProp" class="progreso"></div>
     ${p.propuesta ? `<div class="resumen">
@@ -1104,7 +1104,7 @@ function vistaDetalleRepo(p) {
   <div class="tarjeta">
     <h2>1 · El pedido que enviamos al proveedor</h2>
     <div class="fila no-imprimir">
-      <label>Nuestro pedido (PDF, Excel o foto)<input type="file" accept=".pdf,.xlsx,.xlsm,.xls,.csv,image/*" onchange="cargarEnvio(this.files[0]); this.value=''"></label>
+      <label>Nuestro pedido (PDF, Excel o foto)<input type="file" onchange="cargarEnvio(this.files[0]); this.value=''"></label>
       <button class="btn peque" onclick="document.getElementById('pegar').classList.toggle('oculto')">Pegar o escribir líneas</button>
       <button class="btn peque" onclick="anadirLinea()">+ Línea</button>
     </div>
@@ -1120,7 +1120,7 @@ function vistaDetalleRepo(p) {
   <div class="tarjeta">
     <h2>2 · Propuesta, albarán o factura del proveedor</h2>
     <div class="fila no-imprimir">
-      <label>Factura, albarán o propuesta (PDF, Excel o foto)<input type="file" accept=".pdf,.xlsx,.xlsm,.xls,.csv,image/*" onchange="cargarPropuestaEn('${p.id}', this.files[0]); this.value=''"></label>
+      <label>Factura, albarán o propuesta (PDF, Excel o foto)<input type="file" onchange="cargarPropuestaEn('${p.id}', this.files[0]); this.value=''"></label>
       <button class="btn peque" onclick="document.getElementById('pegarProp').classList.toggle('oculto')">Pegar o escribir líneas</button>
       ${p.propuesta ? `<button class="btn peque peligro" onclick="quitarPropuesta()">Quitar</button>` : ''}
     </div>
@@ -2305,7 +2305,7 @@ function vistaRestos() {
     <div class="fila">
       <label>Proveedor<select id="llProv">${opc([...new Set(E.restos.filter((r) => r.pendiente > 0 && !r.anulado).map((r) => r.proveedor))].sort(), llegada && llegada.proveedor)}</select></label>
       <label>Origen<input id="llOrigen" placeholder="Albarán 1234 / Pedido 5" value="${h(llegada ? llegada.origen : '')}"></label>
-      <label>Albarán (PDF, Excel o foto)<input type="file" accept=".pdf,.xlsx,.xlsm,.xls,.csv,image/*" onchange="llegadaDesdeExcel(this.files[0]); this.value=''"></label>
+      <label>Albarán (PDF, Excel o foto)<input type="file" onchange="llegadaDesdeExcel(this.files[0]); this.value=''"></label>
     </div>
     <div id="progresoLlegada" class="progreso"></div>
     <textarea id="llTexto" style="margin-top:8px" placeholder="785100027 2&#10;742776027 1"></textarea>
