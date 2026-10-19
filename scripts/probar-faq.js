@@ -118,13 +118,16 @@ const CASOS = [
   // Y preguntar de verdad por el estado sigue yendo donde iba.
   ['Quiero saber el estado de mi pedido', 'faq:dime el número'],
 
-  // "¿TE PUEDO MANDAR UNA FOTO?" — SÍ, PERO EL BOT NO LA VE.
+  // "¿TE PUEDO MANDAR UNA FOTO?" — SÍ, Y AHORA SÍ LA MIRA.
   //
   // El 19/10/2026 el bot contestó "Claro, mándame la foto y ASÍ VEO
   // exactamente qué tipo de caja buscas", y al llegar la foto: "no puedo leer
-  // una foto por aquí". Prometió algo que no puede hacer.
-  ['Te puedo mandar una foto?', 'faq:la ve una persona del equipo'],
-  ['¿Os puedo enviar una foto?', 'faq:no puedo verla'],
+  // una foto por aquí". Prometió algo que no podía hacer. Ese mismo día se
+  // arregló por los dos lados: la respuesta dejó de prometerlo, y las fotos se
+  // empezaron a leer de verdad (whatsapp-vision.js). Lo que la respuesta NO
+  // puede volver a decir es que no la ve.
+  ['Te puedo mandar una foto?', 'faq:la miro'],
+  ['¿Os puedo enviar una foto?', 'faq:mándamela'],
   ['te mando una imagen', 'faq:mándamela'],
   // Pero al revés NO es lo mismo: aquí la foto la pide el cliente, no la manda.
   ['Me podéis mandar una foto del producto?', 'catalogo'],

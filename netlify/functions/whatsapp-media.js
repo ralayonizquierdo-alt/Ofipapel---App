@@ -97,15 +97,24 @@ async function leer(event, phone, mediaId) {
 // Baja y guarda de una vez. Devuelve el id con el que el panel podrá pedirlo, o
 // null si algo falló — y que falle NO es grave: el mensaje se registra igual y
 // el aviso al equipo sale igual, solo que sin la foto.
+//
+// Devuelve TAMBIÉN el contenido (`buffer`), porque el que acaba de bajar la foto
+// es el único que la tiene en la mano: leerla (whatsapp-vision.js) ocurre en el
+// mismo turno, y volver a pedírsela a Netlify Blobs sería una ida y vuelta de
+// más dentro de los ~10 segundos que da Meta. Si el guardado falla pero la
+// descarga fue bien se devuelve igual, sin `mediaId`: en el panel no se verá la
+// foto, pero el bot sí puede contestar lo que hay en ella, que es lo que el
+// cliente está esperando.
 async function guardarAdjuntoDeCliente(event, phone, mediaId) {
   const bajado = await descargarDeMeta(mediaId);
   if (!bajado.ok) return null;
+  const datos = { tipo: bajado.tipo, bytes: bajado.buffer.length, buffer: bajado.buffer };
   try {
     await guardar(event, phone, mediaId, bajado.buffer, bajado.tipo);
-    return { mediaId, tipo: bajado.tipo, bytes: bajado.buffer.length };
+    return { ...datos, mediaId };
   } catch (err) {
     console.error('whatsapp-media: no se pudo guardar en Blobs:', err.message);
-    return null;
+    return { ...datos, mediaId: null };
   }
 }
 

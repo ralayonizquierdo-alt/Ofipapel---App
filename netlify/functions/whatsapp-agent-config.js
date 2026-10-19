@@ -8,6 +8,10 @@
 // buildAiSystemPrompt. Ver whatsapp-notas.js.
 
 const { bloqueDeNotas } = require('./whatsapp-notas');
+// La marca con la que llega la lectura de una foto. Se importa en vez de
+// escribirla a mano: el prompt tiene que decir exactamente la misma que pone
+// quien lee la foto, y con dos copias eso dura hasta que alguien toque una.
+const { MARCA_FOTO } = require('./whatsapp-vision');
 
 const BUSINESS_NAME = 'Ofipapel';
 
@@ -743,17 +747,19 @@ const DEVOLUCIONES_INFO = `Tienes 14 días naturales desde la entrega para devol
 
 // Reglas de coincidencia por palabras clave, evaluadas en orden.
 // La primera que encuentre una palabra clave en el mensaje gana.
-// "¿TE PUEDO MANDAR UNA FOTO?" — SÍ, PERO NO LA VE EL BOT.
+// "¿TE PUEDO MANDAR UNA FOTO?" — SÍ, Y AHORA SÍ LA MIRA.
 //
 // El 19/10/2026 un cliente preguntó justo eso a las 4:59 de la mañana y el bot
 // contestó "Claro, mándame la foto y ASÍ VEO exactamente qué tipo de caja
 // buscas". Cuando llegó la foto: "Gracias por tu mensaje. No puedo leer una
-// foto por aquí". Le prometió algo que no puede hacer, y el cliente tuvo que
+// foto por aquí". Le prometió algo que no podía hacer, y el cliente tuvo que
 // insistir con "Fíjate en la caja nada más".
 //
-// La respuesta honesta sí es útil: la foto se guarda y la ve una persona del
-// equipo (es lo que hace el bot con cualquier imagen), y mientras tanto, si la
-// describe con palabras, el catálogo sí se puede mirar al momento.
+// Ese mismo día se arregló por el lado honesto (decirle que no la veía) y
+// después por el lado bueno: las fotos se leen (whatsapp-vision.js). Así que la
+// promesa ya se puede cumplir. Lo que no cambia es pedirle que lo cuente
+// también con palabras: una foto no dice el tamaño, ni el color, ni para qué es,
+// y con eso se busca mucho mejor.
 //
 // Va por función y no solo por palabras clave porque "foto" aparece en
 // mensajes que no son esto ("¿me mandáis una foto del producto?", que es al
@@ -761,7 +767,7 @@ const DEVOLUCIONES_INFO = `Tienes 14 días naturales desde la entrega para devol
 const OFRECE_MANDAR_FOTO_RE =
   /\b(te|os|le|les)\s+(la\s+)?(mando|envio|paso|adjunto|puedo\s+(mandar|enviar|pasar|adjuntar)|mandare|enviare)|puedo\s+(mandar|enviar|pasar|adjuntar)(te|os|le|les)?\b/;
 
-const FOTO_INFO = `Sí, mándamela sin problema: la foto se guarda y la ve una persona del equipo. Yo no puedo verla, así que si además me cuentas con palabras qué buscas (tamaño, material, para qué es), te lo miro en el catálogo ahora mismo.`;
+const FOTO_INFO = `Sí, mándamela: la miro y te busco lo que se vea en ella. Si además me cuentas con palabras qué necesitas (tamaño, color, para qué es), acierto mucho mejor.`;
 
 function fotoReply(normalizedText) {
   return OFRECE_MANDAR_FOTO_RE.test(normalizedText) ? FOTO_INFO : null;
@@ -1216,7 +1222,7 @@ Instrucciones:
 - IMPORTANTE: nunca prometas cosas que no puedes cumplir tú sola, como "le paso tu consulta al equipo", "he anotado tu nombre y teléfono para que te llamen" o "el equipo te contactará mañana". No tienes forma de avisar a nadie ni de guardar esos datos para un seguimiento real — si dices eso, el cliente se queda esperando una llamada que nunca llega. Si el cliente pide que le devuelvan la llamada, le contacten, o le pasen un mensaje al equipo, no lo gestiones tú: dile que puede escribir directamente a pedidos@ofipapelsl.com con su nombre y teléfono, o (si estamos en horario) llamar al ${STORES[0].phone}.
 - Si el mensaje parece una queja, un pedido complejo, o el cliente muestra que no está satisfecho con tu respuesta, ofrécele amablemente hablar con una persona del equipo. Si estamos en horario, facilita el teléfono directo: ${STORES[0].phone}. Si estamos fuera de horario, no des el teléfono para llamar ahora: dile que un agente atenderá su petición en cuanto retomemos la actividad.
 - NUNCA le mandes al cliente a buscar él en ofipapel.net ("busca 'Epson 604' en la web y ahí lo ves"). Buscar es tu trabajo, no el suyo: si te ha escrito por WhatsApp es justamente para no tener que hacerlo. Puedes dar el enlace directo de un producto o de una categoría concreta cuando lo tengas en los resultados de búsqueda, pero no la instrucción de que se ponga a buscar. Si no tienes los datos, dile lo que sí sabes y ofrécele el contacto del equipo.
-- NO PUEDES VER IMÁGENES. Ni fotos, ni capturas, ni catálogos en PDF. Si alguien te manda una, el sistema la guarda y la mira una PERSONA del equipo — tú no. Así que nunca digas "mándame la foto y así veo cuál es", "enséñamela y te digo", ni nada que dé a entender que vas a mirarla: es una promesa que no puedes cumplir, y el cliente se da cuenta al momento siguiente. Si te ofrecen mandar una foto, dile que sí (se guarda y la ve una persona) y pídele además que te lo describa con palabras, que eso sí lo puedes buscar.
+- LAS FOTOS SÍ LAS VES, pero no directamente. Cuando un cliente manda una foto, el sistema la lee aparte y te pasa esa lectura en un mensaje que empieza por "${MARCA_FOTO}". Lo que viene detrás NO son sus palabras: es una descripción automática de su foto, y PUEDE ESTAR MAL (una referencia mal leída, una marca que no es). Úsala como pista para buscar, nunca como un hecho: que la lectura diga "HP 305XL" no significa que lo tengamos ni que sea de verdad ese modelo — eso solo lo dicen los resultados de búsqueda. Háblale con naturalidad de lo que se ve ("por la foto parece un 305XL, ¿me lo confirmas?"), sin mencionar lecturas, descripciones ni sistemas, y sin dar por hecho que te lo describió él. Si de la lectura no queda claro qué necesita, pregúntaselo. Lo que NO puedes ver es ni un audio, ni un vídeo, ni un PDF: de esos se encarga una persona del equipo.
 - No uses markdown ni listas largas, escribe como un mensaje de texto normal.`;
 }
 
