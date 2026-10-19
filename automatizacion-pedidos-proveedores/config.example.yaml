@@ -57,8 +57,9 @@ excel:
   fila_cabecera: 0
 
 salida:
+  # En Windows usa la ruta UNC de red con barras invertidas dobles:
+  # carpeta: '\\server-ofipapel\Aplicaciones\ARCHIVOS OFIPAPEL\COMPRAS PROVEEDORES (GENERAL)\PEDIDOS INFORMATICA'
   carpeta: "./output"
-  nombre_archivo_patron: "ganador_{proveedor}_{fecha}.xlsx"
 
 email:
   plantilla_respuesta: |

@@ -12,13 +12,26 @@ import argparse
 import os
 import sys
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 
 import yaml
 
 import auth
 import graph_client
 import excel_logic
+
+
+_MESES_ES = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"]
+
+
+def _nombre_semana(referencia: date = None) -> str:
+    """Devuelve el nombre de la semana en formato 'DD--DD MES' (domingo a domingo)."""
+    hoy = referencia or date.today()
+    dias_desde_domingo = (hoy.weekday() + 1) % 7
+    domingo_inicio = hoy - timedelta(days=dias_desde_domingo)
+    domingo_fin = domingo_inicio + timedelta(days=7)
+    mes = _MESES_ES[domingo_fin.month - 1]
+    return f"{domingo_inicio.day:02d}--{domingo_fin.day:02d} {mes}"
 
 
 def cargar_config(path: str) -> dict:
@@ -135,7 +148,7 @@ def main():
         balance_tolerancia_porcentaje=balance_tolerancia_porcentaje,
     )
 
-    hoy = date.today().isoformat()
+    semana = _nombre_semana()
 
     drafts_creados = {}
     for nombre, mensaje in correos_por_proveedor.items():
@@ -150,14 +163,12 @@ def main():
                 columna_cantidad=config["excel"].get("columna_cantidad"),
                 ruta_plantilla=ruta_plantilla,
             )
-            nombre_archivo_salida = config["salida"]["nombre_archivo_patron"].format(
-                proveedor=nombre.replace(" ", "_"), fecha=hoy
-            )
+            nombre_archivo_salida = f"PEDIDO {semana} {nombre}.xlsx"
             ruta_xlsx_tmp = os.path.join(config["salida"]["carpeta"], nombre_archivo_salida)
             with open(ruta_xlsx_tmp, "wb") as f:
                 f.write(excel_bytes)
 
-            nombre_xls = os.path.splitext(nombre_archivo_salida)[0] + ".xls"
+            nombre_xls = f"PEDIDO {semana} {nombre}.xls"
             ruta_xls = os.path.join(config["salida"]["carpeta"], nombre_xls)
             script_com = (
                 "import win32com.client, pythoncom, os; "
@@ -199,7 +210,7 @@ def main():
         config["excel"]["columna_precio"],
         config["excel"]["columnas_esperadas"],
     )
-    ruta_no_stock = os.path.join(config["salida"]["carpeta"], f"NO_STOCK_{hoy}.xlsx")
+    ruta_no_stock = os.path.join(config["salida"]["carpeta"], f"PEDIDO {semana} NO_STOCK.xlsx")
     with open(ruta_no_stock, "wb") as f:
         f.write(excel_bytes_no_stock)
     print(f"Excel NO STOCK generado: {ruta_no_stock}")
@@ -210,7 +221,7 @@ def main():
         config["excel"]["columna_precio"],
         config["excel"]["columnas_esperadas"],
     )
-    ruta_comparativa = os.path.join(config["salida"]["carpeta"], f"Comparativa_{hoy}.xlsx")
+    ruta_comparativa = os.path.join(config["salida"]["carpeta"], f"PEDIDO {semana} Comparativa.xlsx")
     with open(ruta_comparativa, "wb") as f:
         f.write(excel_bytes_comparativa)
     print(f"Excel comparativa generado: {ruta_comparativa}")
