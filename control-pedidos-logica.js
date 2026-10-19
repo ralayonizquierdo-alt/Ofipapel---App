@@ -778,6 +778,23 @@
    * cantidad vacía: el formulario de Finocam trae la tarifa entera) y la
    * cabecera que haya.
    */
+  /**
+   * La columna «Descuento» puede traer un porcentaje (27), una fracción (0,27)
+   * o el descuento en euros por unidad (2,2356 sobre 8,28): con precio,
+   * cantidad e importe se elige la lectura con la que cuadra la línea.
+   * Sin importe, o si ninguna cuadra, se lee como siempre (fracción → %).
+   */
+  function dtosDeColumna(brutos, precio, cant, importe) {
+    const comoSiempre = brutos.map((n) => (n > 0 && n < 1 ? red2(n * 100) : n));
+    if (brutos.length !== 1 || !precio || !cant || importe == null) return comoSiempre;
+    const n = brutos[0];
+    const lecturas = [n, n * 100, (n / precio) * 100].filter((d) => d > 0 && d < 100);
+    const cuadra = (d) => Math.abs(precio * cant * (1 - d / 100) - importe) <= 0.02 + 0.01 * cant;
+    if (comoSiempre.length && cuadra(comoSiempre[0])) return comoSiempre;
+    const d = lecturas.find(cuadra);
+    return d == null ? comoSiempre : [Math.round(d * 10000) / 10000];
+  }
+
   function leerPropuesta(filas) {
     // Por prioridad de patrón, no de columna: en el Excel de la herramienta de
     // PDF la primera columna es «Codigo I.S.B.N.» y la referencia buena es
@@ -803,11 +820,13 @@
           cant,
           desc: hallar(cab, [/^DESCRIPCION/, /^DENOMINACION/, /^CONCEPTO/]),
           ean: hallar(cab, [/^EAN/, /^COD\.? ?BARRAS/, /^CODIGO\s*I\.?\s*S\.?\s*B\.?\s*N/, /^ISBN\b/]),
-          precio: hallar(cab, [/^PTD\b/, /^PRECIO\b/, /^P\.? ?UNIT/, /^P\.? ?COSTO/, /^COSTE?\b/, /^COSTO\b/, /^TARIFA\b/, /^UNIDAD$/]),
+          precio: hallar(cab, [/^PTD\b/, /^PRECIO\b/, /^P\.? ?UNIT/, /^P\.? ?COSTO/, /^COSTE?\b/, /^COSTO\b/, /^TARIFA\b/, /^P\.? ?TARIFA\b/, /^UNIDAD$/]),
           // Puede haber varias columnas de descuento encadenadas (Dto. 1, Dto. 2…).
           dtos: hallarTodas(cab, [/^DESC\.? ?LIN/, /^DTO\b/, /^DCTO\b/, /^% ?DTO\b/, /^DESCUENTO\b/]),
           iva: hallar(cab, [/^IVA\b/, /^IGIC\b/]),
-          importe: hallar(cab, [/^IMPORTE\b/, /^SUBTOTAL\b/, /^TOTAL\b/, /^NETO\b/]),
+          // Puede haber más de un «TOTAL» (el neto por unidad y el de la línea):
+          // el importe de la línea es el mayor de ellos.
+          importes: hallarTodas(cab, [/^IMPORTE\b/, /^SUBTOTAL\b/, /^TOTAL\b/, /^NETO\b/]),
           udsCaja: hallar(cab, [/^UDS?\.?\s*(\/|X)\s*CA?JA/, /^UNID\w*\s*(\/|POR)\s*CAJA/]),
         };
         break;
@@ -847,10 +866,13 @@
       catalogo[ref] = { d: desc, p: precio, ean };
       const cant = parseNum(val(f, col.cant));
       if (cant) {
-        const dtos = col.dtos.map((i) => parseNum(f[i])).filter((n) => n).map((n) => (n > 0 && n < 1 ? red2(n * 100) : n));
+        const brutos = col.dtos.map((i) => parseNum(f[i])).filter((n) => n);
+        const imps = col.importes.map((i) => parseNum(f[i])).filter((n) => n != null);
+        const importe = imps.length ? imps.reduce((a, b) => (Math.abs(b) > Math.abs(a) ? b : a)) : null;
+        const dtos = dtosDeColumna(brutos, precio, cant, importe);
         let iva = parseNum(val(f, col.iva));
         if (iva != null && iva > 0 && iva < 1) iva = red2(iva * 100);
-        lineas.push(marcarAlta({ ref, desc, ean, cant, precio, dtos, iva, importe: parseNum(val(f, col.importe)), udsCaja: parseNum(val(f, col.udsCaja)) }));
+        lineas.push(marcarAlta({ ref, desc, ean, cant, precio, dtos, iva, importe, udsCaja: parseNum(val(f, col.udsCaja)) }));
       }
     }
     return { lineas, catalogo, cabecera };
