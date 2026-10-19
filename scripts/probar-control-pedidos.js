@@ -359,6 +359,44 @@ test('lo que viene de más o sin pedir también se puede reclamar', () => {
   assert.doesNotMatch(t, /faltan las siguientes/);
 });
 
+test('«2 ALTA NUEVA»: se compara por el código de la descripción y a Géminis vuelve como alta nueva', () => {
+  const g = CP.leerPedidoGeminis([
+    'Propuesta de Pedido', 'Cod.Venta R Rfc.Compra Descripción Bultos cajas Udes. x Caja Unidades Precio Desc.Bon Cod. Barras',
+    '113267 DA000060 CERA BARRA 12-COLORES 0 0 0 10 0,000 8400001134322',
+    '00002 2 ALTA NUEVA UA000570>MALETIN ARTISTICO 130 piezas 0 0 0 5 11,622',
+    '00002 2 ALTA NUEVA UA000710 / UA000720>TRAVEL SET SURTIDO 0 0 0 12 2,373',
+    '00002 2 ALTA NUEVA VL000011 Caja expositora Surtida 0 0 0 1 34,602',
+    '00002 2 ALTA NUEVA PLANNING PARED 26/27 84x59cm 0 0 0 40 0,000',
+  ]);
+  const ped = CP.lineasDeDocumento(g).lineas;
+  assert.deepEqual(ped.map((l) => [l.ref, l.alta || false, l.cant]), [
+    ['DA000060', false, 10], ['UA000570', true, 5], ['UA000710+UA000720', true, 12], ['VL000011', true, 1], ['ALTA-PLANNINGPARED2', true, 40]]);
+  assert.equal(ped[1].descAlta, 'UA000570>MALETIN ARTISTICO 130 piezas');
+  // Lo leído antes del arreglo (referencia «2») se repara igual
+  assert.equal(CP.marcarAlta({ ref: '2', desc: 'ALTA NUEVA AD-EXP002>PLANNING PARED', cant: 40 }).ref, 'AD-EXP002');
+  // Propuesta del proveedor: el travel set viene en dos líneas y se suma
+  const prop = [{ ref: 'DA000060', cant: 10, precio: 4.307 }, { ref: 'UA000570', cant: 5, precio: 11.6216 },
+    { ref: 'UA000710', cant: 6, precio: 2.3725 }, { ref: 'UA000720', cant: 6, precio: 2.3725 }, { ref: 'VL000011', cant: 1, precio: 34.602 }];
+  const filas = CP.compararPedido(ped, prop, { comparar: 'neto', tolerancia: CP.TOLERANCIA.reposicion });
+  const { faltan, sobran } = CP.faltasYSobras(filas);
+  assert.deepEqual(faltan.map((x) => x.ref), ['ALTA-PLANNINGPARED2'], 'solo falta lo que no trae código');
+  assert.deepEqual(sobran, []);
+  // Al Excel: «2 ALTA NUEVA» y nuestra descripción
+  const fin = CP.aplicarDecisiones(filas, { 'ALTA-PLANNINGPARED2': { accion: 'excluir' }, DA000060: { accion: 'aceptar' } }).lineas;
+  const aoa = CP.filasGeminis(CP.lineasParaGeminis(fin, {}), {});
+  const datos = aoa.slice(10);
+  const travel = datos.find((r) => String(r[1]).startsWith('UA000710'));
+  assert.ok(travel, 'la descripción del Excel es la nuestra');
+  assert.equal(travel[2], '2 ALTA NUEVA');
+  assert.equal(travel[5], 12);
+  assert.equal(datos.find((r) => r[1].startsWith('CERA'))[2], 'DA000060');
+  // Factura final con las dos líneas del travel set: una sola línea de alta
+  const fus = CP.fusionarAltas([{ ref: 'UA000710', cant: 6, precio: 2.3725, importe: 14.24 }, { ref: 'UA000720', cant: 6, precio: 2.3725, importe: 14.24 }], fin);
+  assert.deepEqual(fus.map((l) => [l.ref, l.cant, l.alta, l.importe]), [['UA000710+UA000720', 12, true, 28.48]]);
+  assert.deepEqual(CP.controlFactura(fin, [{ ref: 'UA000710', cant: 6, precio: 2.3725 }, { ref: 'UA000720', cant: 6, precio: 2.3725 },
+    { ref: 'DA000060', cant: 10, precio: 4.307 }, { ref: 'UA000570', cant: 5, precio: 11.6216 }, { ref: 'VL000011', cant: 1, precio: 34.602 }]).cuadra, true);
+});
+
 test('reclamación de faltas: separada por cliente, con faltas totales y parciales', () => {
   const t = CP.textoReclamacion('FINOCAM', [
     { numero: '2', cliente: 'CLIENTE A', faltan: [{ ref: '785100027', desc: 'CALENDARIO', cant: 2, de: 2, total: true }] },

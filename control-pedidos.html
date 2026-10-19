@@ -15,7 +15,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-15-1"></script>
+<script src="control-pedidos-logica.js?v=2026-10-19-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -416,7 +416,15 @@ function ponerEtiquetas(raiz) {
 }
 
 // ── Estado de un pedido ──────────────────────────────────────────────────────
+/** Pedidos leídos antes de entender «2 ALTA NUEVA» (referencia «2»): se arreglan una vez. */
+function repararAltas(p) {
+  if (!p.lineas.some((l) => !l.alta && CP.marcarAlta(l) !== l)) return;
+  p.lineas = p.lineas.map(CP.marcarAlta);
+  if (p.validado) invalidar(p); // lo validado se hizo con la referencia «2»: hay que volver a validar
+  setTimeout(guardar, 0);
+}
 function comparar(p) {
+  repararAltas(p);
   if (!p.propuesta) return null;
   // Reposición: precio NETO (tras todos los descuentos), 0,25 € informativo, y
   // si el pedido no trae precio se compara con el último aceptado.
@@ -916,7 +924,7 @@ async function subirEnvio(file) {
     }
     const p = { id: nuevoId(), tipo: 'reposicion', proveedor, campana: '', numero: String(doc.cabecera.numero || doc.cabecera.numeroPedido || ''),
       cliente: '', fecha: hoy(), notas: '',
-      lineas: doc.lineas.map((l) => ({ ref: l.ref, desc: l.desc, ean: l.ean, cant: l.cant, precio: l.precio, dtos: l.dtos || [], udsCaja: l.udsCaja, importe: l.importe, duda: l.duda || '' })),
+      lineas: doc.lineas.map((l) => ({ ref: l.ref, desc: l.desc, ean: l.ean, cant: l.cant, precio: l.precio, dtos: l.dtos || [], udsCaja: l.udsCaja, importe: l.importe, duda: l.duda || '', ...(l.alta ? { alta: true, descAlta: l.descAlta } : {}) })),
       envio: file.name, envioControl: doc.control || null, propuesta: null, decisiones: {}, validado: false, final: null };
     guardarCatalogo(proveedor, file.name, doc.catalogo);
     E.pedidos.push(p);
@@ -1161,7 +1169,7 @@ function tablaLineasRepo(p, cat, lado) {
       const neto = CP.precioNeto({ cant: l.cant, precio: l.precio, dtos: l.dtos, importe: l.importe });
       return `<tr class="${fuera ? 'fuera-catalogo' : ''} ${l.duda ? 'duda' : ''}">
         <td class="c-cant"><input class="cant" inputmode="decimal" value="${h(l.cant)}" onchange="cambiaLinea(${i},'cant',this.value${L})"></td>
-        <td class="c-ref"><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value${L})"></td>
+        <td class="c-ref"><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value${L})">${l.alta ? `<div class="pequeno" title="Para Géminis: ${CP.REF_ALTA}">🆕 ${CP.REF_ALTA}</div>` : ''}</td>
         <td class="c-desc"><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value${L})"></td>
         <td class="c-precio"><input class="precio" inputmode="decimal" value="${l.precio == null ? '' : h(fmtPrecio(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value${L})"></td>
         <td class="c-dtos"><input class="precio" inputmode="decimal" value="${h(Array.isArray(l.dtos) ? l.dtos.join('+') : l.dtos)}" placeholder="—" title="Descuentos encadenados, p. ej. 10+5" onchange="cambiaLinea(${i},'dtos',this.value${L})"></td>
@@ -1181,7 +1189,7 @@ async function cargarEnvio(file) {
   try {
     const prop = await leerFicheroProveedor(file, 'progresoEnvio');
     if (p.lineas.length && !confirm(`El pedido ya tiene ${p.lineas.length} líneas. ¿Sustituirlas por las ${prop.lineas.length} del Excel?`)) return;
-    p.lineas = prop.lineas.map((l) => ({ ref: l.ref, desc: l.desc, ean: l.ean, cant: l.cant, precio: l.precio, dtos: l.dtos || [], udsCaja: l.udsCaja, importe: l.importe, duda: l.duda || '' }));
+    p.lineas = prop.lineas.map((l) => ({ ref: l.ref, desc: l.desc, ean: l.ean, cant: l.cant, precio: l.precio, dtos: l.dtos || [], udsCaja: l.udsCaja, importe: l.importe, duda: l.duda || '', ...(l.alta ? { alta: true, descAlta: l.descAlta } : {}) }));
     p.envio = file.name;
     p.envioControl = prop.control || null;
     guardarCatalogo(p.proveedor, file.name, prop.catalogo);
@@ -1214,7 +1222,7 @@ function tablaLineas(p, cat) {
       return `<tr class="${fuera ? 'fuera-catalogo' : ''} ${l.duda ? 'duda' : ''}">
         <td class="c-cant"><input class="cant" inputmode="decimal" value="${h(l.cant)}" onchange="cambiaLinea(${i},'cant',this.value)"></td>
         <td class="c-exp"><input type="checkbox" ${l.exp ? 'checked' : ''} onchange="cambiaLinea(${i},'exp',this.checked)"></td>
-        <td class="c-ref"><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value)">
+        <td class="c-ref"><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value)">${l.alta ? `<div class="pequeno">🆕 ${CP.REF_ALTA}</div>` : ''}
           ${fuera ? `<div class="sugerencia">No está en el catálogo.${sug.length ? ' ¿Quizá…? ' + sug.map((s) => `<button onclick="cambiaLinea(${i},'ref',${js(s.ref)})" title="${h(s.desc)}">${h(s.ref)} · ${h(s.desc.slice(0, 24))}${s.precio != null ? ' · ' + fmt(s.precio) : ''}</button>`).join('') : ''}</div>` : ''}</td>
         <td class="c-desc"><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value)">${enCat && enCat.d ? `<div class="pequeno">${h(enCat.d)}</div>` : ''}</td>
         <td class="c-precio"><input class="precio" inputmode="decimal" value="${l.precio == null ? '' : h(fmtPrecio(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value)">
@@ -1249,7 +1257,7 @@ function vistaComparacion(p, filas) {
         const d = p.decisiones[f.ref] || {};
         const acciones = CP.accionesPara(f, p.tipo);
         return `<tr>
-          <td><b>${h(f.ref)}</b>${f.sugerencias.length ? `<div class="sugerencia">¿Quizá ${f.sugerencias.map((s) => h(s.ref)).join(', ')}? Corrígela arriba.</div>` : ''}</td>
+          <td><b>${h(f.ref)}</b>${f.alta ? ` <span class="pequeno">🆕 alta nueva</span>` : ''}${f.sugerencias.length ? `<div class="sugerencia">¿Quizá ${f.sugerencias.map((s) => h(s.ref)).join(', ')}? Corrígela arriba.</div>` : ''}</td>
           <td>${h(f.desc)}</td>
           <td class="num">${f.cantPedida || '—'}</td><td class="num">${f.cantPropuesta || '—'}</td>
           <td class="num">${f.precioDeHistorial ? fmt(f.precioReferencia) + '<div class="pequeno">(último aceptado)</div>' : celdaPrecio(p, f.precioPedido, f.dtosPedido, f.netoPedido)}</td>
@@ -2632,7 +2640,7 @@ function exportarPedidos(ids) {
   for (const p of ps) {
     // La factura final manda: si está, el Excel es ella tal cual (su orden,
     // precio y descuento). Si no, lo validado en el orden de la propuesta.
-    const enOrden = p.factura ? p.factura.lineas : CP.ordenarComoPropuesta(p.final.lineas, p.propuesta && p.propuesta.lineas);
+    const enOrden = p.factura ? CP.fusionarAltas(p.factura.lineas, p.final.lineas) : CP.ordenarComoPropuesta(p.final.lineas, p.propuesta && p.propuesta.lineas);
     const dtoGlobal = p.factura ? (p.factura.cabecera || {}).dtoGlobal : p.final.dto;
     for (const l of CP.lineasParaGeminis(enOrden, { dtoGlobal, decimales })) {
       const k = [l.ref, l.precio, l.dto].join('|');
