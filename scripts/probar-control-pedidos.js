@@ -353,10 +353,10 @@ test('lo que viene de más o sin pedir también se puede reclamar', () => {
   assert.deepEqual(r.lineas.map((l) => [l.ref, l.cant]), [['A', 2], ['B', 5]]);
   const { sobran } = CP.faltasYSobras(filas);
   const t = CP.textoReclamacion('APLI', [{ numero: '7', cliente: 'Reposición', faltan: [], sobran }]);
-  assert.match(t, /no hemos pedido/);
-  assert.match(t, /B .*de más: 3 uds\. \(pedimos 5\)/);
-  assert.match(t, /X\s+NO PEDIDA\s+→\s+de más: 1 ud\. sin pedir/);
-  assert.doesNotMatch(t, /faltan las siguientes/);
+  assert.match(t, /hemos encontrado las siguientes diferencias/);
+  assert.match(t, /B .*viene de más: 3 uds\. \(pedimos 5, vienen 8\)/);
+  assert.match(t, /X\s+NO PEDIDA\s+→\s+no la hemos pedido \(1 ud\.\)/);
+  assert.doesNotMatch(t, /descatalogada/, 'sin faltas no pregunta por descatalogados');
 });
 
 test('«2 ALTA NUEVA»: se compara por el código de la descripción y a Géminis vuelve como alta nueva', () => {
@@ -403,8 +403,8 @@ test('reclamación de faltas: separada por cliente, con faltas totales y parcial
     { numero: '3', cliente: 'CLIENTE B', faltan: [] },
     { numero: '4', cliente: 'CLIENTE C', faltan: [{ ref: '782000327', desc: 'AGENDA', cant: 1, de: 3, total: false }] },
   ], { campana: '2027' });
-  assert.match(t, /Pedido nº 2 · CLIENTE A\n  - 785100027  CALENDARIO  →  faltan 2 uds\./);
-  assert.match(t, /782000327  AGENDA  →  faltan 1 ud\. \(de 3 pedidas\)/);
+  assert.match(t, /Pedido nº 2 · CLIENTE A\n  - 785100027  CALENDARIO  →  no viene \(pedimos 2 uds\.\): ¿está descatalogada/);
+  assert.match(t, /782000327  AGENDA  →  faltan 1 ud\. \(pedimos 3, vienen 2\)/);
   assert.doesNotMatch(t, /CLIENTE B/, 'un pedido sin faltas no sale');
   assert.match(t, /campaña 2027/);
   assert.equal(CP.textoReclamacion('X', [{ numero: '1', faltan: [] }]), '');
@@ -654,4 +654,24 @@ test('propuesta con dos «TOTAL» (neto por unidad y de la línea) y el descuent
     ['A2', 2.52, 27, 88.3008, 1.8396],
     ['A3', 10, 27, 14.6, 7.3],
   ]);
+});
+
+test('reclamar un precio que no cuadra, con el motivo escrito para el proveedor', () => {
+  const filas = CP.compararPedido(
+    [{ ref: 'P1', desc: 'ESTUCHE', cant: 10, precio: 2.54 }, { ref: 'P2', desc: 'LAPICES', cant: 5, precio: 1 }, { ref: 'P3', desc: 'CERAS', cant: 4, precio: 1 }],
+    [{ ref: 'P1', desc: 'ESTUCHE', cant: 10, precio: 3.1 }, { ref: 'P2', desc: 'LAPICES', cant: 5, precio: 1 }],
+    { comparar: 'neto', tolerancia: CP.TOLERANCIA.reposicion });
+  const P1 = filas.find((f) => f.ref === 'P1');
+  assert.ok(CP.accionesPara(P1, 'reposicion').includes('reclamar'), 'reposición');
+  assert.ok(CP.accionesPara(P1, 'comercial').includes('reclamar'), 'comercial');
+  const dec = { P1: { accion: 'reclamar', motivo: 'Nos lo pasasteis a 2,54 en la oferta' }, P3: { accion: 'reclamar' } };
+  const r = CP.aReclamar(filas, dec);
+  assert.deepEqual(r.precios.map((x) => [x.ref, x.antes, x.ahora, x.nota]), [['P1', 2.54, 3.1, 'Nos lo pasasteis a 2,54 en la oferta']]);
+  assert.deepEqual(r.faltan.map((x) => x.ref), ['P3']);
+  const t = CP.textoReclamacion('LANCELOT', [{ numero: '95042', cliente: 'Reposición', ...r }]);
+  assert.match(t, /P1  ESTUCHE  →  el precio neto no cuadra: 3,10 € por unidad en lugar de 2,54 €\n      Nota: Nos lo pasasteis a 2,54 en la oferta/);
+  assert.match(t, /P3  CERAS  →  no viene \(pedimos 4 uds\.\)/);
+  assert.doesNotMatch(t, /P2/, 'lo que cuadra no sale');
+  // Validar no depende de reclamar un precio: el Excel lleva lo que factura el proveedor
+  assert.deepEqual(CP.aplicarDecisiones(filas, dec).lineas.map((l) => [l.ref, l.cant]), [['P1', 10], ['P2', 5]]);
 });
