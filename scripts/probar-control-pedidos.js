@@ -675,3 +675,12 @@ test('reclamar un precio que no cuadra, con el motivo escrito para el proveedor'
   // Validar no depende de reclamar un precio: el Excel lleva lo que factura el proveedor
   assert.deepEqual(CP.aplicarDecisiones(filas, dec).lineas.map((l) => [l.ref, l.cant]), [['P1', 10], ['P2', 5]]);
 });
+
+test('hojas del pedido: el total puesto a mano manda sobre lo leído en las fotos', () => {
+  const fotos = [{ nombre: 'a.jpg', hoja: '1/3' }, { nombre: 'b.jpg', hoja: '2/3' }];
+  assert.deepEqual(CP.hojasDelPedido(fotos).faltan, [3], 'leído: 3 hojas, falta la 3');
+  const r = CP.hojasDelPedido(fotos, 2);
+  assert.deepEqual([r.total, r.faltan, r.aMano], [2, [], true]);
+  assert.deepEqual(CP.hojasDelPedido(fotos, '').faltan, [3], 'vacío: se vuelve a lo leído');
+  assert.deepEqual(CP.hojasDelPedido([{ nombre: 'a.jpg', hoja: '1/1' }], 2).faltan, [2], 'también sirve para avisar de una hoja que no se leyó como tal');
+});

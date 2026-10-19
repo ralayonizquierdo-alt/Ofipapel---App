@@ -495,8 +495,11 @@
    * Devuelve cuántas fotos hay, las hojas leídas, el total que dicen (el
    * mayor) y las que faltan, para avisar si alguna foto se quedó atrás.
    */
-  function hojasDelPedido(fotos) {
+  function hojasDelPedido(fotos, totalAMano) {
     const lista = fotos || [];
+    // Si el usuario ha dicho cuántas hojas tiene el pedido, eso manda sobre lo
+    // leído (la lectura puede equivocarse: «2/3» en un pedido de dos hojas).
+    const fijo = Number(totalAMano) > 0 && Number(totalAMano) <= 50 ? Math.floor(Number(totalAMano)) : null;
     const leidas = new Set();
     let total = null;
     for (const f of lista) {
@@ -507,9 +510,10 @@
       leidas.add(n);
       total = Math.max(total || 0, t);
     }
+    if (fijo) { total = fijo; for (const n of [...leidas]) if (n > fijo) leidas.delete(n); }
     const faltan = [];
     if (total) for (let k = 1; k <= total; k++) if (!leidas.has(k)) faltan.push(k);
-    return { fotos: lista.length, hojas: [...leidas].sort((x, y) => x - y), total, faltan };
+    return { fotos: lista.length, hojas: [...leidas].sort((x, y) => x - y), total, faltan, aMano: Boolean(fijo) };
   }
 
   /**
