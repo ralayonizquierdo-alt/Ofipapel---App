@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-19-2"></script>
+<script src="control-pedidos-logica.js?v=2026-10-19-3"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -601,9 +601,8 @@ function vistaGrupo(g, i) {
     const filas = comparar(p);
     const { sobran } = CP.faltasYSobras(filas);
     const faltan = CP.faltasPendientes(filas, p.decisiones);
-    const aReclamar = faltan.filter((x) => x.pendiente === 'reclamar');
-    const sobranReclamar = sobran.filter((x) => (p.decisiones[x.ref] || {}).accion === 'reclamar');
-    if (aReclamar.length || sobranReclamar.length) reclamar.push({ numero: p.numero, cliente: esRepo(p) ? 'Reposición' : p.cliente, faltan: aReclamar, sobran: sobranReclamar });
+    const r = CP.aReclamar(filas, p.decisiones);
+    if (r.faltan.length || r.sobran.length || r.precios.length) reclamar.push({ numero: p.numero, cliente: esRepo(p) ? 'Reposición' : p.cliente, ...r });
     faltan.forEach((x) => filasRes.push({ p, x, tipo: 'falta' }));
     sobran.forEach((x) => filasRes.push({ p, x, tipo: 'sobra' }));
   }
@@ -742,11 +741,11 @@ function imprimirResumen(i, nombre) {
  *  envía desde aquí: se copia o se imprime/guarda en PDF y se manda a mano. */
 function vistaReclamacion(clave, i, grupos, o) {
   const op = o || {};
-  const n = grupos.reduce((s, g) => s + (g.faltan || []).length + (g.sobran || []).length, 0);
+  const n = grupos.reduce((s, g) => s + new Set([...(g.faltan || []), ...(g.sobran || []), ...(g.precios || [])].map((x) => x.ref)).size, 0);
   return `
     <details class="no-imprimir reclamacion" style="margin-top:12px" ${op.abierto ? 'open' : ''}>
       <summary><b>✉️ Reclamar al proveedor</b> · ${n} referencia(s)${grupos.length > 1 ? ` de ${grupos.length} pedidos, separadas por cliente` : ''}</summary>
-      <p class="pequeno">Lo que has marcado «✉️ Reclamar al proveedor» (faltas y lo que viene de más). Revisa el texto y mándalo por correo, o cópialo / imprímelo.</p>
+      <p class="pequeno">Lo que has marcado «✉️ Reclamar al proveedor» (faltas, lo que viene de más o sin pedir y precios que no cuadran), con el motivo en cada referencia y tu nota si la has escrito. Revisa el texto y mándalo por correo, o cópialo / imprímelo.</p>
       <textarea id="txtReclamacion${i}" rows="12" style="width:100%;font-family:ui-monospace,monospace;font-size:13px" oninput="reclamaciones[${js(clave)}]=this.value">${h(reclamaciones[clave])}</textarea>
       <div class="fila" style="margin-top:6px">
         ${op.proveedor != null ? `<button class="btn primario" onclick="correoReclamacion(${js(clave)}, ${js(op.proveedor)}, ${js(op.asunto || '')})">📧 Enviar por correo</button>` : ''}
@@ -763,12 +762,10 @@ function correoReclamacion(clave, proveedor, asunto) {
 }
 /** Reclamación de UN pedido (dentro del pedido): sus faltas y sobras marcadas «Reclamar». */
 function bloqueReclamacionPedido(p, filas) {
-  const acc = (ref) => (p.decisiones[ref] || {}).accion;
-  const faltan = CP.faltasPendientes(filas, p.decisiones).filter((x) => x.pendiente === 'reclamar');
-  const sobran = CP.faltasYSobras(filas).sobran.filter((x) => acc(x.ref) === 'reclamar');
-  if (!faltan.length && !sobran.length) return '';
+  const r = CP.aReclamar(filas, p.decisiones);
+  if (!r.faltan.length && !r.sobran.length && !r.precios.length) return '';
   const clave = 'P|' + p.id;
-  const grupos = [{ numero: p.numero || '—', cliente: esRepo(p) ? 'Reposición' : p.cliente, faltan, sobran }];
+  const grupos = [{ numero: p.numero || '—', cliente: esRepo(p) ? 'Reposición' : p.cliente, ...r }];
   reclamaciones[clave] = CP.textoReclamacion(p.proveedor, grupos, { campana: esRepo(p) ? '' : p.campana });
   const asunto = `Reclamación ${esRepo(p) ? 'pedido de reposición' : 'pedido'}${p.numero ? ' nº ' + p.numero : ''} · Ofipapel`;
   return vistaReclamacion(clave, 'P', grupos, { abierto: true, proveedor: p.proveedor, asunto });
@@ -1286,6 +1283,7 @@ function vistaComparacion(p, filas) {
               ${acciones.map((a) => `<option value="${a}" ${d.accion === a ? 'selected' : ''}>${nombres[a]}</option>`).join('')}
             </select>
             ${d.accion === 'manual' ? `<div class="fila" style="margin-top:4px"><input class="cant" placeholder="Cant." value="${h(d.cant)}" onchange="decide(${js(f.ref)},'cant',this.value)"><input class="precio" placeholder="${esRepo(p) ? 'Neto' : 'Precio'}" value="${h(d.precio)}" onchange="decide(${js(f.ref)},'precio',this.value)"></div>` : ''}
+            ${d.accion === 'reclamar' ? `<input style="margin-top:4px" placeholder="Motivo para el proveedor (opcional)" title="Sale en el texto de la reclamación, debajo de esta referencia" value="${h(d.motivo)}" onchange="decide(${js(f.ref)},'motivo',this.value)">` : ''}
             <input style="margin-top:4px" placeholder="Nota de facturación (opcional)" value="${h(d.nota)}" onchange="decide(${js(f.ref)},'nota',this.value)">
           ` : ''}</td>
         </tr>`;
@@ -1544,7 +1542,9 @@ function borrarCampana(clave) {
 function decide(ref, campo, valor) {
   const p = pedidoActual();
   p.decisiones[ref] = Object.assign({}, p.decisiones[ref], { [campo]: valor });
-  invalidar(p); guardar(); pintar();
+  // La nota para el proveedor solo cambia el texto de la reclamación: no hay que revalidar.
+  if (campo !== 'motivo') invalidar(p);
+  guardar(); pintar();
 }
 
 /** «4 780100027 3,25 CALENDARIO» · «1EXP 883840127 180,14» · también separado por tabuladores (copiado de Excel). */

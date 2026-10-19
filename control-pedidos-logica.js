@@ -338,32 +338,61 @@
    */
   function textoReclamacion(proveedor, grupos, opciones) {
     const o = opciones || {};
-    const conFaltas = (grupos || []).filter((g) => (g.faltan && g.faltan.length) || (g.sobran && g.sobran.length));
-    if (!conFaltas.length) return '';
-    const hayFaltas = conFaltas.some((g) => g.faltan && g.faltan.length);
-    const haySobras = conFaltas.some((g) => g.sobran && g.sobran.length);
+    const lista = (g, k) => (g && g[k]) || [];
+    const conAlgo = (grupos || []).filter((g) => lista(g, 'faltan').length || lista(g, 'sobran').length || lista(g, 'precios').length);
+    if (!conAlgo.length) return '';
     const uds = (n) => `${n} ud${n === 1 ? '' : 's'}.`;
-    const donde = o.campana ? 'la campaña ' + o.campana : conFaltas.length === 1 ? 'nuestro pedido' : 'los pedidos';
-    const out = [`Buenos días${proveedor ? ', ' + proveedor : ''}:`, ''];
-    if (hayFaltas) {
-      out.push(`En ${donde} faltan las siguientes referencias que no vienen en vuestra propuesta o factura.`,
-        '¿Podéis indicarnos si están descatalogadas, agotadas o si ha sido un error, y cuándo las enviaríais?');
-    }
-    if (haySobras) {
-      out.push(`${hayFaltas ? 'Además, en' : 'En'} ${donde} vienen referencias que no hemos pedido, o en más cantidad de la pedida (marcadas «de más»). Por favor, no las incluyáis o corregidlas.`);
-    }
-    for (const g of conFaltas) {
+    const donde = o.campana ? 'los pedidos de la campaña ' + o.campana : conAlgo.length === 1 ? 'nuestro pedido' : 'nuestros pedidos';
+    // Texto general: el motivo concreto va en cada referencia (puede ser una
+    // falta, algo de más o sin pedir, un precio que no cuadra…).
+    const out = [`Buenos días${proveedor ? ', ' + proveedor : ''}:`, '',
+      `Al revisar vuestra propuesta o factura de ${donde} hemos encontrado las siguientes diferencias. Os indicamos el motivo en cada referencia:`];
+    for (const g of conAlgo) {
       const num = g.numero && g.numero !== '—' ? `Pedido nº ${g.numero}` : 'Pedido';
       out.push('', `${num}${g.cliente ? ' · ' + g.cliente : ''}`);
-      for (const x of g.faltan || []) {
-        out.push(`  - ${x.ref}  ${x.desc || ''}  →  faltan ${uds(x.cant)}${x.total ? '' : ` (de ${x.de} pedidas)`}`.replace(/ {2,}→/, '  →'));
+      // Una línea por referencia, con todos sus motivos (p. ej. de más y además otro precio).
+      const porRef = new Map();
+      const de = (x) => {
+        if (!porRef.has(x.ref)) porRef.set(x.ref, { ref: x.ref, desc: x.desc || '', motivos: [], nota: '' });
+        const r = porRef.get(x.ref);
+        if (x.nota) r.nota = x.nota;
+        return r;
+      };
+      for (const x of lista(g, 'faltan')) {
+        de(x).motivos.push(x.total
+          ? `no viene (pedimos ${uds(x.cant)}): ¿está descatalogada, agotada o es un error? ¿Cuándo la enviaríais?`
+          : `faltan ${uds(x.cant)} (pedimos ${x.de}, vienen ${x.de - x.cant})`);
       }
-      for (const x of g.sobran || []) {
-        out.push(`  - ${x.ref}  ${x.desc || ''}  →  de más: ${x.total ? `${uds(x.cant)} sin pedir` : `${uds(x.cant)} (pedimos ${x.de - x.cant})`}`.replace(/ {2,}→/, '  →'));
+      for (const x of lista(g, 'sobran')) {
+        de(x).motivos.push(x.total
+          ? `no la hemos pedido (${uds(x.cant)}): no la incluyáis`
+          : `viene de más: ${uds(x.cant)} (pedimos ${x.de - x.cant}, vienen ${x.de}): corregid la cantidad`);
+      }
+      for (const x of lista(g, 'precios')) {
+        de(x).motivos.push(`el precio neto no cuadra: ${fmt(x.ahora)} € por unidad en lugar de ${fmt(x.antes)} €`);
+      }
+      for (const r of porRef.values()) {
+        const motivo = r.motivos.join('; ') || 'revisadla, por favor';
+        out.push(`  - ${r.ref}  ${r.desc}  →  ${motivo}`.replace(/ {2,}→/, '  →') + (r.nota ? `\n      Nota: ${r.nota}` : ''));
       }
     }
-    out.push('', 'Gracias.');
+    out.push('', 'Quedamos a la espera de vuestra respuesta para corregirlo. Gracias.');
     return out.join('\n');
+  }
+
+  /**
+   * Lo que se ha decidido «Reclamar al proveedor» en un pedido, por tipo:
+   * faltas, lo que viene de más o sin pedir, y precios que no cuadran. Cada
+   * cosa lleva la nota que se haya escrito para el proveedor (`motivo`).
+   */
+  function aReclamar(filas, decisiones) {
+    const dec = (ref) => (decisiones && decisiones[ref]) || {};
+    const reclamada = (x) => dec(x.ref).accion === 'reclamar';
+    const nota = (x) => ({ ...x, nota: String(dec(x.ref).motivo || '').trim() });
+    const { faltan, sobran } = faltasYSobras(filas);
+    const precios = (filas || []).filter((f) => reclamada(f) && f.difPrecio != null && f.precioReferencia != null)
+      .map((f) => ({ ref: f.ref, desc: f.desc, antes: f.precioReferencia, ahora: red2(f.precioReferencia + f.difPrecio) }));
+    return { faltan: faltan.filter(reclamada).map(nota), sobran: sobran.filter(reclamada).map(nota), precios: precios.map(nota) };
   }
 
   /**
@@ -561,6 +590,12 @@
    * se deciden ahí, pero nunca entran en el almacén de faltas del comercial.
    */
   function accionesPara(fila, tipo) {
+    const acc = accionesBase(fila, tipo);
+    // Un precio que no cuadra también se reclama (2026-10-19).
+    if (fila.difPrecio != null && !acc.includes('reclamar')) acc.splice(1, 0, 'reclamar');
+    return acc;
+  }
+  function accionesBase(fila, tipo) {
     if (tipo === 'reposicion') {
       // Como en el comercial, una falta se puede reclamar al proveedor; lo
       // que nunca hay en reposición es «resto».
@@ -1187,7 +1222,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
