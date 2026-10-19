@@ -1316,7 +1316,9 @@ function bloqueFaltasSobras(p, filas) {
   const linea = (x, signo, falta) => {
     const acc = (p.decisiones[x.ref] || {}).accion;
     const fuera = false;
-    return `<li${fuera ? ' class="descartada"' : ''}><b>${h(x.ref)}</b> ${h(x.desc)} — ${signo}${x.cant}${x.total ? '' : ` de ${x.de}`} ud.${x.total ? '' : ' (parcial)'}${x.sustitucion ? ` <span class="pequeno">¿sustitución ${h(x.sustitucion)}?</span>` : ''}${acc ? ` <span class="pequeno">· ${h(decidido[acc] || acc)}</span>` : ''}</li>`;
+    return `<li${fuera ? ' class="descartada"' : ''}><b>${h(x.ref)}</b> ${h(x.desc)} — ${x.total ? `${signo}${x.cant} ud.` : falta
+      ? `pedidas ${x.de}, vienen ${x.de - x.cant} → <b>faltan ${x.cant}</b>`
+      : `pedidas ${x.de - x.cant}, vienen ${x.de} → <b>${x.cant} de más</b>`}${x.sustitucion ? ` <span class="pequeno">¿sustitución ${h(x.sustitucion)}?</span>` : ''}${acc ? ` <span class="pequeno">· ${h(decidido[acc] || acc)}</span>` : ''}</li>`;
   };
   // Lo ya decidido sale de la lista (queda plegado aparte, por si hay que revisarlo).
   // Una sobra reclamada sigue a la vista (como las faltas reclamadas) hasta que el proveedor conteste.
