@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-19-5"></script>
+<script src="control-pedidos-logica.js?v=2026-10-20-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -365,6 +365,8 @@ const fmtFecha = (f) => (f && /^\d{4}-\d{2}-\d{2}/.test(f)) ? f.slice(8, 10) + '
 const prov = (s) => String(s || '').trim().toUpperCase();
 const pedidoPorId = (id) => E.pedidos.find((p) => p.id === id);
 const catalogoDe = (proveedor) => (E.catalogos[prov(proveedor)] || {}).items || null;
+// Cómo se pasa el precio de la tarifa a precio de venta (ver CP.precioVenta).
+const ajusteDe = (proveedor) => (E.catalogos[prov(proveedor)] || {}).ajuste || null;
 const esRepo = (p) => p.tipo === 'reposicion';
 /** Artículo del catálogo por referencia; las numéricas casan con o sin ceros delante (00839 = 000000839). */
 const indicesCat = new WeakMap();
@@ -1605,7 +1607,8 @@ function completarDesdeCatalogo() {
   const desc = document.getElementById('qaDesc');
   const precio = document.getElementById('qaPrecio');
   if (!desc.value.trim() && it.d) desc.value = it.d;
-  if (!precio.value.trim() && it.p != null) precio.value = fmt(it.p);
+  const venta = CP.precioVenta(it.p, ajusteDe(pedidoActual().proveedor));
+  if (!precio.value.trim() && venta != null) precio.value = fmt(venta);
 }
 function anadirRapida() {
   const v = (id) => document.getElementById(id).value.trim();
@@ -1990,9 +1993,10 @@ function guardarCatalogo(proveedor, archivo, catalogo) {
   // Solo cuenta como catálogo si trae bastante más que lo pedido: el
   // formulario de Finocam lleva la tarifa entera; una propuesta corta no.
   if (n < 50) return;
-  // Una tarifa subida a mano en «Datos» manda: una propuesta no la pisa.
-  if ((E.catalogos[prov(proveedor)] || {}).tarifa) return;
-  E.catalogos[prov(proveedor)] = { fecha: hoy(), archivo, items: catalogo };
+  // Manda lo más reciente: una propuesta con la tarifa completa sustituye a la
+  // tarifa subida antes en «Datos» (los proveedores cambian de tarifa a menudo).
+  const ajuste = (E.catalogos[prov(proveedor)] || {}).ajuste;
+  E.catalogos[prov(proveedor)] = Object.assign({ fecha: hoy(), archivo, items: catalogo }, ajuste ? { ajuste } : {});
 }
 /** Pone la propuesta del proveedor en el pedido. Si ya tenía una, la nueva la
  *  sustituye: se mantienen las decisiones de lo que no cambia y se quitan las
@@ -2551,17 +2555,30 @@ function vistaDatos() {
   </div>
   <div class="tarjeta">
     <h2>📚 Tarifas y catálogos de proveedor</h2>
-    <p class="pequeno">Sube la <b>tarifa completa</b> de un proveedor en Excel (una columna de referencia o código y otra de descripción o precio; se leen todas las hojas). Al apuntar un pedido, la referencia rellena sola la descripción y el precio, y se avisa si una referencia no existe en la tarifa. Una tarifa nueva del mismo proveedor sustituye a la anterior. Sin tarifa, el catálogo se guarda solo al cargar una propuesta que la trae completa (como el formulario de Finocam), y nunca pisa una tarifa subida aquí.</p>
+    <p class="pequeno">Sube la <b>tarifa completa</b> de un proveedor en Excel (una columna de referencia o código y otra de descripción o precio; se leen todas las hojas). Al apuntar un pedido, la referencia rellena sola la descripción y el precio, y se avisa si una referencia no existe en la tarifa. Es una <b>guía</b>: manda siempre la última propuesta del proveedor. Se queda el catálogo más reciente: una tarifa nueva, o una propuesta que traiga la tarifa completa (como el formulario de Finocam), sustituye a la anterior. Si una referencia de la propuesta no está en la tarifa guardada, solo se avisa. <b>Precio de venta</b>: si la tarifa ya viene a precio de venta (como Finocam, cuyo descuento es nuestro margen), déjalo como está; si viene a precio neto, elige el % de beneficio sobre la venta o de incremento sobre el coste. Es el precio que se rellena al apuntar en el bloc y el que sale al exportar la tarifa en PDF o Excel (sin el coste ni el margen).</p>
     <div class="fila no-imprimir">
-      <label>Proveedor<input id="tarProv" list="tarProvs" placeholder="FINOCAM" autocomplete="off"></label>
+      ${esComercial() ? '' : `<label>Proveedor<input id="tarProv" list="tarProvs" placeholder="FINOCAM" autocomplete="off"></label>
       <datalist id="tarProvs">${[...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean).sort().map((x) => `<option value="${h(x)}">`).join('')}</datalist>
       <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📚 Subir tarifa (Excel)
-        <input type="file" class="oculto" onchange="subirTarifa(this.files[0]); this.value=''"></label>
+        <input type="file" class="oculto" onchange="subirTarifa(this.files[0]); this.value=''"></label>`}
     </div>
     <div id="progresoTarifa" class="progreso"></div>
-    ${cats.length ? `<table style="margin-top:8px"><tr><th>Proveedor</th><th class="num">Referencias</th><th>Origen</th><th>Fecha</th><th></th></tr>
-      ${cats.sort(([a], [b]) => a.localeCompare(b, 'es')).map(([k, c]) => `<tr><td><b>${h(k)}</b></td><td class="num">${Object.keys(c.items || {}).length}</td><td>${c.tarifa ? '📚 tarifa' : 'de una propuesta'} · <span class="pequeno">${h(c.archivo)}</span></td><td>${h(fmtFecha(c.fecha))}</td>
-        <td class="no-imprimir"><button class="btn peque peligro" onclick="quitarCatalogo(${js(k)})">Quitar</button></td></tr>`).join('')}</table>`
+    ${cats.length ? `<table style="margin-top:8px"><tr><th>Proveedor</th><th class="num">Referencias</th><th>Origen</th><th>Precio de venta</th><th></th></tr>
+      ${cats.sort(([a], [b]) => a.localeCompare(b, 'es')).map(([k, c]) => {
+        const aj = c.ajuste || { modo: 'ninguno' };
+        return `<tr><td><b>${h(k)}</b></td><td class="num">${Object.keys(c.items || {}).length}</td><td>${c.tarifa ? '📚 tarifa' : 'de una propuesta'} · <span class="pequeno">${h(c.archivo)} · ${h(fmtFecha(c.fecha))}</span></td>
+        <td>${esComercial() ? h(textoAjuste(aj)) : `<div class="fila" style="gap:6px;align-items:center">
+          <select onchange="cambiarAjuste(${js(k)}, 'modo', this.value)">
+            <option value="ninguno" ${aj.modo === 'ninguno' || !aj.modo ? 'selected' : ''}>El de la tarifa (ya es de venta)</option>
+            <option value="beneficio" ${aj.modo === 'beneficio' ? 'selected' : ''}>% de beneficio sobre la venta</option>
+            <option value="incremento" ${aj.modo === 'incremento' ? 'selected' : ''}>% de incremento sobre el coste</option>
+          </select>
+          ${aj.modo && aj.modo !== 'ninguno' ? `<input type="number" inputmode="decimal" step="0.5" min="0" max="${aj.modo === 'beneficio' ? 99 : 500}" style="width:80px" value="${h(aj.pct == null ? '' : aj.pct)}" placeholder="%" onchange="cambiarAjuste(${js(k)}, 'pct', this.value)"> %` : ''}</div>`}</td>
+        <td class="no-imprimir"><div class="fila" style="gap:6px">
+          <button class="btn peque" onclick="exportarTarifa(${js(k)}, 'pdf')">PDF</button>
+          <button class="btn peque" onclick="exportarTarifa(${js(k)}, 'xlsx')">Excel</button>
+          ${esComercial() ? '' : `<button class="btn peque peligro" onclick="quitarCatalogo(${js(k)})">Quitar</button>`}</div></td></tr>`;
+      }).join('')}</table>`
       : `<div class="vacio">Ninguno todavía.</div>`}
   </div>
   <div class="tarjeta">
@@ -2598,7 +2615,7 @@ async function subirTarifa(file) {
     const conPrecio = Object.values(items).filter((x) => x.p != null).length;
     const antes = E.catalogos[proveedor];
     if (!confirm(`${proveedor}: ${n} artículos (${conPrecio} con precio) en ${file.name}.` + (antes ? `\nSustituye al catálogo actual (${Object.keys(antes.items || {}).length} referencias).` : '') + '\n\n¿Guardar la tarifa?')) return;
-    E.catalogos[proveedor] = { fecha: hoy(), archivo: file.name, items, tarifa: true };
+    E.catalogos[proveedor] = Object.assign({ fecha: hoy(), archivo: file.name, items, tarifa: true }, antes && antes.ajuste ? { ajuste: antes.ajuste } : {});
     guardar(); pintar();
     if (errores.length && errores.length < wb.SheetNames.length) alert(`Hojas sin artículos reconocibles (no se han usado): ${errores.join(', ')}`);
   } catch (err) {
@@ -2607,6 +2624,65 @@ async function subirTarifa(file) {
     const c = document.getElementById('progresoTarifa');
     if (c) c.textContent = '';
   }
+}
+function textoAjuste(aj) {
+  const pct = CP.parseNum(aj && aj.pct);
+  if (!aj || !aj.modo || aj.modo === 'ninguno' || !pct) return 'El de la tarifa';
+  return aj.modo === 'beneficio' ? `${fmt(pct).replace(',00', '')} % de beneficio` : `+${fmt(pct).replace(',00', '')} % sobre coste`;
+}
+function cambiarAjuste(proveedor, campo, valor) {
+  const c = E.catalogos[proveedor];
+  if (!c) return;
+  const aj = Object.assign({ modo: 'ninguno' }, c.ajuste);
+  if (campo === 'modo') aj.modo = valor;
+  else aj.pct = CP.parseNum(valor);
+  if (aj.modo === 'beneficio' && aj.pct != null && aj.pct >= 100) { alert('El beneficio sobre la venta tiene que ser menor que 100 %.'); pintar(); return; }
+  c.ajuste = aj;
+  guardar(); pintar();
+}
+/** La tarifa de un proveedor con el precio de venta (lo que vende el comercial),
+ *  en PDF o Excel, para mandársela. No lleva el coste ni el margen. */
+async function exportarTarifa(proveedor, formato) {
+  const c = E.catalogos[proveedor];
+  if (!c) return;
+  const aj = c.ajuste || null;
+  const filas = Object.entries(c.items || {}).map(([ref, it]) => ({ ref, desc: it.d || '', ean: it.ean || '', venta: CP.precioVenta(it.p, aj) }));
+  if (!filas.length) { alert('Esa tarifa no tiene artículos.'); return; }
+  if (aj && aj.modo && aj.modo !== 'ninguno' && !CP.parseNum(aj.pct) && !confirm('Has elegido un ajuste pero sin porcentaje: los precios saldrán igual que en la tarifa. ¿Seguir?')) return;
+  const limpio = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  const base = `Tarifa_${limpio(proveedor)}_${hoy()}`;
+  if (formato === 'xlsx') {
+    const aoa = [[`Tarifa ${proveedor} · precios de venta · ${fmtFecha(hoy())}`], [], ['Referencia', 'Descripción', 'EAN', 'Precio']]
+      .concat(filas.map((f) => [f.ref, f.desc, f.ean, f.venta]));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 16 }, { wch: 60 }, { wch: 15 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Tarifa');
+    XLSX.writeFile(wb, base + '.xlsx');
+    return;
+  }
+  if (!window.jspdf) await cargarScript(JSPDF);
+  if (!window.jspdf.jsPDF.API.autoTable) await cargarScript(JSPDF_TABLA);
+  const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+  const ancho = doc.internal.pageSize.getWidth();
+  const alto = doc.internal.pageSize.getHeight();
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
+  doc.text(`Tarifa ${proveedor}`, 14, 18);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+  doc.text(`Ofipapel, S.L. · precios de venta · ${fmtFecha(hoy())} · ${filas.length} artículos`, 14, 25);
+  doc.autoTable({
+    startY: 30, margin: { left: 14, right: 14 },
+    head: [['Referencia', 'Descripción', 'Precio']],
+    body: filas.map((f) => [f.ref, f.desc, f.venta == null ? '' : fmt(f.venta) + ' €']),
+    styles: { fontSize: 9, cellPadding: 1.5 }, headStyles: { fillColor: [30, 125, 50], textColor: 255 },
+    columnStyles: { 0: { cellWidth: 34 }, 2: { cellWidth: 24, halign: 'right' } },
+  });
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) {
+    doc.setPage(i); doc.setFontSize(8); doc.setTextColor(120);
+    doc.text(`Tarifa ${proveedor} · página ${i} de ${n}`, ancho / 2, alto - 8, { align: 'center' });
+  }
+  doc.save(base + '.pdf');
 }
 function quitarCatalogo(proveedor) {
   if (!confirm(`¿Quitar el catálogo de ${proveedor}? Los pedidos no cambian; solo deja de rellenar y comprobar referencias.`)) return;

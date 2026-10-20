@@ -109,6 +109,11 @@ test('referencia que no está en el catálogo: avisa y sugiere la parecida', () 
   assert.equal(f.sugerencias[0].ref, '792000327');
   const trans = CP.sugerenciasCatalogo('780010027', catalogo);
   assert.equal(trans[0].ref, '780100027', 'dos cifras contiguas intercambiadas');
+  // Si la propuesta del proveedor la trae, la tarifa guardada es la que está vieja: solo se avisa
+  const [g] = CP.compararPedido([{ ref: 'NUEVA1', cant: 2, precio: 1 }], [{ ref: 'NUEVA1', cant: 2, precio: 1 }], { catalogo });
+  assert.equal(g.enCatalogo, false);
+  assert.equal(g.revisar, false, 'no obliga a decidir');
+  assert.ok(g.motivos.some((m) => m.tipo === 'no_catalogo' && m.informativo));
 });
 
 test('descuentos encadenados → uno equivalente sin tocar el precio base', () => {
@@ -718,4 +723,14 @@ test('tarifa del proveedor: referencia + descripción o precio, prefiere «Preci
   // Solo referencia y descripción (sin precios) también vale
   assert.equal(CP.leerTarifa([['Referencia', 'Denominación'], ['A-1', 'BOLÍGRAFO']]).items['A-1'].d, 'BOLÍGRAFO');
   assert.throws(() => CP.leerTarifa([['Cantidad', 'Importe'], [1, 2]]), /columna «Referencia»/);
+});
+
+test('precio de venta de una tarifa: sin ajuste, incremento sobre coste o beneficio sobre venta', () => {
+  assert.equal(CP.precioVenta(10, { modo: 'ninguno' }), 10);
+  assert.equal(CP.precioVenta('10', null), 10);
+  assert.equal(CP.precioVenta(10, { modo: 'incremento', pct: 30 }), 13);
+  assert.equal(CP.precioVenta(7, { modo: 'beneficio', pct: 30 }), 10, '30 % de beneficio sobre la venta: 7 / 0,7');
+  assert.equal(CP.precioVenta(3.33, { modo: 'beneficio', pct: '25' }), 4.44);
+  assert.equal(CP.precioVenta(null, { modo: 'incremento', pct: 30 }), null);
+  assert.equal(CP.precioVenta(5, { modo: 'beneficio', pct: 100 }), 5, 'un 100 % no tiene sentido: se deja el precio');
 });
