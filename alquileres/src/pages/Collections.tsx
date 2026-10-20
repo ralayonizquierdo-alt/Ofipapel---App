@@ -1,5 +1,5 @@
 import { Fragment, useState, useCallback } from 'react'
-import { FileSpreadsheet, Printer, AlertTriangle, Plus, Banknote } from 'lucide-react'
+import { FileSpreadsheet, Printer, AlertTriangle, Plus, Banknote, Check } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import Modal from '../components/ui/Modal'
 import { calcIGIC } from '../lib/priceCalc'
@@ -882,6 +882,8 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
   const delAnio = payments.filter(p => p.received && mesDe(p)?.startsWith(String(year))
     && (!filterApt || aptDe(p) === filterApt))
 
+  const hoy = today()
+
   /** dd/mm/aa, como lo escribe el propietario en el Excel. */
   const fecha = (iso: string) => formatDate(iso).replace(/\/\d{2}(\d{2})$/, '/$1')
   const imp = (n: number) => n ? num(n, 2) : ''
@@ -954,16 +956,33 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
     return 0
   }
 
-  /** La celda morada del pendiente, que se repite en varios sitios. */
+  /**
+   * La celda del pendiente, al cerrar cada estancia.
+   *
+   * Tres cosas distintas, y por eso se ven distintas: un visto verde si está
+   * cobrada del todo; una raya si todavía está en marcha y le falta algo —se
+   * cobrará a su tiempo, no hay nada que reclamar—; y la cifra en morado solo
+   * cuando la estancia ya terminó y sigue debiendo, o cuando se cobró de más.
+   */
   const Pendiente = ({ r, mes }: { r: Reservation; mes: number }) => {
     if (mes !== ultimoMesDe(r)) return <td className={celda} />
     const saldo = pendienteDe(r)
     if (Math.abs(saldo) < 0.005) {
-      return <td className={`${celda} text-right text-slate-300`}>—</td>
+      return (
+        <td className={`${celda} text-right`} title="Cobrada del todo">
+          <Check size={15} className="inline text-green-600" strokeWidth={3} />
+        </td>
+      )
+    }
+    if (saldo > 0 && r.checkOut >= hoy) {
+      return (
+        <td className={`${celda} text-right text-slate-300`}
+          title={`Aún en curso: quedan ${imp(saldo)} € por cobrar`}>—</td>
+      )
     }
     return (
       <td className={`${celda} text-right font-semibold text-purple-700`}
-        title={saldo > 0 ? 'Falta por cobrar' : 'Cobrado de más'}>
+        title={saldo > 0 ? 'La estancia terminó y falta por cobrar' : 'Cobrado de más'}>
         {saldo > 0 ? imp(saldo) : `+${imp(-saldo)}`}
       </td>
     )
