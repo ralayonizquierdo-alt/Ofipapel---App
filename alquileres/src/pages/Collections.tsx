@@ -904,23 +904,41 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
   }
 
   /**
-   * Lo que falta por cobrar de una estancia contando hasta ese mes incluido.
+   * Lo que falta por cobrar de una estancia, mire el mes que se mire.
    *
-   * Es el saldo vivo: en una estancia larga que se paga por meses baja según
-   * entran los pagos, y en la última línea queda lo que de verdad falta. En
-   * negativo es lo cobrado de más.
+   * Cuenta TODOS sus cobros, también los de otro mes o de otro año: una
+   * estancia que entra el 31 de julio y se cobra en agosto está cobrada, y en
+   * la línea de julio no puede salir como pendiente. Antes se contaba solo
+   * hasta el mes de la línea y por eso aparecía ese falso descubierto.
+   *
+   * En negativo es lo cobrado de más.
    */
-  const pendienteHasta = (r: Reservation, mes: number): number => {
-    const hasta = `${year}-${String(mes).padStart(2, '0')}`
-    const pagado = delAnio
-      .filter(p => p.reservationId === r.id && (mesDe(p) ?? '') <= hasta)
+  const pendienteDe = (r: Reservation): number => {
+    const pagado = payments
+      .filter(p => p.reservationId === r.id && p.received)
       .reduce((x, p) => x + p.amount, 0)
     return Math.round((r.total - pagado) * 100) / 100
   }
 
+  /**
+   * El último mes del año en el que aparece una estancia.
+   *
+   * El pendiente se dice una sola vez, ahí: repetir el mismo saldo en cada mes
+   * que ocupa una estancia larga llenaba la columna de cifras iguales y hacía
+   * pensar que se debía en todos.
+   */
+  const ultimoMesDe = (r: Reservation): number => {
+    for (let m = 12; m >= 1; m--) {
+      const mm = `${year}-${String(m).padStart(2, '0')}`
+      if (r.checkIn <= `${mm}-31` && r.checkOut > `${mm}-01`) return m
+    }
+    return 0
+  }
+
   /** La celda morada del pendiente, que se repite en varios sitios. */
   const Pendiente = ({ r, mes }: { r: Reservation; mes: number }) => {
-    const saldo = pendienteHasta(r, mes)
+    if (mes !== ultimoMesDe(r)) return <td className={celda} />
+    const saldo = pendienteDe(r)
     if (Math.abs(saldo) < 0.005) {
       return <td className={`${celda} text-right text-slate-300`}>—</td>
     }
