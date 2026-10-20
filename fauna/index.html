@@ -127,6 +127,17 @@
         <button id="ampliar-cancelar" class="button secondary" type="button">Cancelar</button>
       </div>
     </dialog>
+    <dialog id="fotos" class="ampliar" aria-labelledby="fotos-titulo">
+      <h2 id="fotos-titulo">Fotos del registro de las <span id="fotos-hora"></span></h2>
+      <p class="hint">De momento se guardan solo en este aparato. Pulsa una foto para verla en grande.</p>
+      <div id="fotos-lista" class="fotos-lista"></div>
+      <div class="ampliar-botones">
+        <button id="fotos-otra" class="button primary" type="button">📷 Hacer otra foto</button>
+        <button id="fotos-cerrar" class="button secondary" type="button">Cerrar</button>
+      </div>
+    </dialog>
+    <input id="foto-input" type="file" accept="image/*" capture="environment" hidden />
+    <script src="fotos.js" defer></script>
     <script src="sol.js" defer></script>
     <script src="app.js" defer></script>
     <script src="procesar.js" defer></script>

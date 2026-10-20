@@ -114,19 +114,32 @@ function renderEntries() {
     if (missing.length && !['pendiente','ordenando','error'].includes(entry.ai)) { const warn = document.createElement('p'); warn.className = 'entry-missing'; warn.textContent = `Faltan: ${missing.join(', ')}`; body.append(warn); }
     if (entry.ai) body.append(aiStatus(entry));
     if (entry.historial?.length || entry.porAmpliar?.length) body.append(ampliarStatus(entry));
+    if (entry.fotos?.length) {
+      const ver = document.createElement('button'); ver.type = 'button'; ver.className = 'entry-fotos';
+      ver.textContent = `📷 ${entry.fotos.length === 1 ? 'Ver la foto' : `Ver las ${entry.fotos.length} fotos`}`;
+      ver.addEventListener('click', () => abrirFotos(entry));
+      body.append(ver);
+    }
     const actions = document.createElement('div'); actions.className = 'entry-actions';
     const add = document.createElement('button'); add.type = 'button'; add.title = 'Añadir por voz'; add.setAttribute('aria-label','Añadir por voz al registro de las ' + entry.time); add.textContent = '🎙';
     add.addEventListener('click', () => abrirAmpliar(entry));
+    // Con fotos, la cámara las abre (y desde ahí se hace otra); sin fotos, hace una.
+    const camara = document.createElement('button'); camara.type = 'button';
+    camara.title = entry.fotos?.length ? 'Ver las fotos' : 'Hacer una foto';
+    camara.setAttribute('aria-label', `${camara.title} del registro de las ${entry.time}`); camara.textContent = '📷';
+    if (entry.fotos?.length) camara.classList.add('con-fotos');
+    camara.addEventListener('click', () => entry.fotos?.length ? abrirFotos(entry) : hacerFoto(entry));
     const edit = document.createElement('button'); edit.type = 'button'; edit.title = 'Editar registro'; edit.setAttribute('aria-label','Editar registro de las ' + entry.time); edit.textContent = '✎';
     edit.addEventListener('click', () => beginEdit(entry));
     const remove = document.createElement('button'); remove.type = 'button'; remove.title = 'Eliminar registro'; remove.setAttribute('aria-label','Eliminar registro de las ' + entry.time); remove.textContent = '×';
     remove.addEventListener('click', () => {
       if (!confirm('¿Eliminar este registro?')) return;
       state.reports[dateInput.value] = currentEntries().filter(item => item.id !== entry.id);
+      for (const id of entry.fotos || []) window.FaunaFotos?.borrar(id).catch(() => {});
       if (editingId === entry.id) clearComposer();
       save(); renderEntries();
     });
-    actions.append(add,edit,remove);
+    actions.append(add,camara,edit,remove);
     row.append(time,body,actions); list.append(row);
   }
 }
@@ -467,6 +480,65 @@ function ampliarStatus(entry) {
   }
   return box;
 }
+// ── Fotos de un registro ─────────────────────────────────────────────────
+// De momento se guardan solo en este aparato (fauna/fotos.js); dónde se
+// almacenan de verdad queda pendiente. El registro solo lleva sus ids.
+let fotoPara = null, fotosAbiertas = null;
+const urlsFotos = [];
+function hacerFoto(entry) {
+  if (!window.FaunaFotos?.disponible) { alert('Este navegador no permite guardar fotos.'); return; }
+  fotoPara = entry.id;
+  $('foto-input').value = ''; $('foto-input').click();
+}
+$('foto-input').addEventListener('change', async () => {
+  const ficheros = [...$('foto-input').files]; const id = fotoPara; fotoPara = null;
+  if (!ficheros.length || !id) return;
+  const {date, entry} = findEntry(id);
+  if (!entry) return;
+  try {
+    for (const f of ficheros) (entry.fotos ||= []).push(await window.FaunaFotos.guardar(f, {registro: id, fecha: date}));
+    save(); renderEntries();
+    if ($('fotos').open) pintarFotos(entry);
+  } catch (e) { alert('No se ha podido guardar la foto: ' + (e.message || e)); }
+});
+function soltarUrls() { while (urlsFotos.length) URL.revokeObjectURL(urlsFotos.pop()); }
+async function pintarFotos(entry) {
+  soltarUrls();
+  $('fotos-hora').textContent = entry.time;
+  const caja = $('fotos-lista'); caja.replaceChildren();
+  if (!entry.fotos?.length) { const p = document.createElement('p'); p.className = 'hint'; p.textContent = 'Este registro no tiene fotos.'; caja.append(p); return; }
+  for (const id of [...entry.fotos]) {
+    const fig = document.createElement('figure'); fig.className = 'foto';
+    const foto = await window.FaunaFotos.leer(id).catch(() => null);
+    if (foto?.blob) {
+      const url = URL.createObjectURL(foto.blob); urlsFotos.push(url);
+      // Al pulsarla se ve a pantalla completa; otro toque la devuelve.
+      const img = document.createElement('img'); img.src = url; img.alt = `Foto del registro de las ${entry.time}`;
+      img.addEventListener('click', () => fig.classList.toggle('grande'));
+      fig.append(img);
+      const pie = document.createElement('figcaption'); pie.textContent = `Hecha a las ${new Date(foto.creada).toTimeString().slice(0, 5)}`; fig.append(pie);
+    } else {
+      const p = document.createElement('p'); p.className = 'hint'; p.textContent = 'Esta foto ya no está en este aparato.'; fig.append(p);
+    }
+    const quitar = document.createElement('button'); quitar.type = 'button'; quitar.className = 'link-button'; quitar.textContent = '🗑 Borrar esta foto';
+    quitar.addEventListener('click', async () => {
+      if (!confirm('¿Borrar esta foto?')) return;
+      await window.FaunaFotos.borrar(id).catch(() => {});
+      entry.fotos = entry.fotos.filter(x => x !== id); if (!entry.fotos.length) delete entry.fotos;
+      save(); renderEntries(); pintarFotos(entry);
+    });
+    fig.append(quitar); caja.append(fig);
+  }
+}
+function abrirFotos(entry) {
+  fotosAbiertas = entry.id;
+  $('fotos').showModal(); pintarFotos(entry);
+}
+function cerrarFotos() { soltarUrls(); fotosAbiertas = null; if ($('fotos').open) $('fotos').close(); }
+$('fotos-otra').addEventListener('click', () => { const {entry} = findEntry(fotosAbiertas); if (entry) hacerFoto(entry); });
+$('fotos-cerrar').addEventListener('click', cerrarFotos);
+$('fotos').addEventListener('cancel', cerrarFotos);
+
 let ampliandoId = null;
 function abrirAmpliar(entry) {
   ampliandoId = entry.id;
