@@ -687,17 +687,6 @@ export default function Collections() {
           </div>
         </div>
 
-        {/* Annual total */}
-        <div className="bg-slate-900 rounded-xl p-5 flex items-center justify-between print:hidden">
-          <div>
-            <p className="text-slate-300 text-sm">Total anual {year}</p>
-            <p className="text-white text-3xl font-bold mt-1">{numSuelto(yearTotal)} €</p>
-          </div>
-          <div className="text-right">
-            <p className="text-slate-400 text-xs">IGIC 7% a declarar</p>
-            <p className="text-amber-400 text-xl font-bold mt-1">{numSuelto(calcIGIC(yearTotal))} €</p>
-          </div>
-        </div>
       </div>
     </div>
   )
