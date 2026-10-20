@@ -1057,13 +1057,11 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
               const todo = suma(g.lineas)
               return (
                 <Fragment key={g.clave}>
+                  {/* Arriba, solo el nombre: las cifras del mes son un
+                      sumatorio y van debajo de lo que suman, como en cualquier
+                      listado de cuentas. */}
                   <tr className="bg-slate-100 border-y border-slate-200">
-                    <td className="py-2 px-3 font-bold text-slate-800 capitalize" colSpan={5}>{g.titulo}</td>
-                    <td className="py-2 px-3 text-right font-bold text-blue-700">{imp(todo - efec)}</td>
-                    <td className="py-2 px-3 text-right font-bold text-red-600">{imp(efec)}</td>
-                    <td colSpan={2} />
-                    <td className="py-2 px-3 text-right font-bold text-slate-800">{imp(todo)}</td>
-                    <td />
+                    <td className="py-2 px-3 font-bold text-slate-800 capitalize" colSpan={11}>{g.titulo}</td>
                   </tr>
 
                   {g.lineas.map((l, i) => {
@@ -1138,6 +1136,17 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                       </tr>
                     ))
                   })}
+
+                  <tr className="bg-slate-50 border-y-2 border-slate-300 text-sm">
+                    <td className="py-2 px-3 font-semibold text-slate-600 capitalize" colSpan={5}>
+                      Total {g.titulo.toLowerCase()}
+                    </td>
+                    <td className="py-2 px-3 text-right font-bold text-blue-700">{imp(todo - efec)}</td>
+                    <td className="py-2 px-3 text-right font-bold text-red-600">{imp(efec)}</td>
+                    <td colSpan={2} />
+                    <td className="py-2 px-3 text-right font-bold text-slate-800">{imp(todo)}</td>
+                    <td />
+                  </tr>
                 </Fragment>
               )
             })}
