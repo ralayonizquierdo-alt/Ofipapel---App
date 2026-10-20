@@ -763,3 +763,18 @@ test('proveedor de netos con margen: se compara en precio de venta, al cliente l
   assert.equal(f.ventaPropuesta, null);
   assert.equal(f.estado, 'cambio');
 });
+
+test('Excel de Géminis, plantilla «Luis» (PEDIDOS_PROVEEDORES_ALTA_NUEVOS.xlt): títulos en la fila 11 y artículos desde la 12', () => {
+  const aoa = CP.filasGeminisLuis([
+    { ref: 'AL000177', desc: '12 LAPICES', ean: '8413240476511', cant: 12, precio: 8.28, dto: 27, total: 72.53 },
+    { ref: 'UA000570', alta: true, descAlta: 'UA000570>MALETIN', desc: 'MALETIN', cant: 5, precio: 15.92, dto: 27, total: 58.11 },
+  ], { proveedor: 'LANCELOT TRADING SL', numero: '95042', fecha: '20/10/2026', almacen: '04' }, { igic: 7 });
+  assert.deepEqual([aoa[1][2], aoa[1][4], aoa[1][5]], ['PROPUESTA    DE     PEDIDO', 'ALMACEN', '04']);
+  assert.deepEqual([aoa[3][2], aoa[3][3]], ['PROVEEDOR;', 'LANCELOT TRADING SL']);
+  assert.deepEqual([aoa[5][2], aoa[5][3], aoa[5][4], aoa[5][5]], ['Nº Pedido', '95042', 'FECHA', '20/10/2026']);
+  assert.deepEqual([aoa[9][1], aoa[9][2]], ['MARCA', 'Rfecia. Compra']);
+  assert.deepEqual(aoa[10].slice(0, 14), ['Codigo I.S.B.N.', 'EDITORIAL', 'Rfcia. Proveedor', 'DESCRIPCION', 'Caja', 'Ud./Caja', 'Udes', 'Precio U.', 'Dcto', 'Igic', 'IMPORTE', 'RECONVERTIR', 'COD. FAMILIA', 'PADRE']);
+  assert.deepEqual(aoa[11].slice(0, 11), ['8413240476511', '', 'AL000177', '12 LAPICES', '', '', 12, 8.28, 27, 7, 72.53]);
+  assert.deepEqual(aoa[12].slice(2, 4), ['2 ALTA NUEVA', 'UA000570>MALETIN']);
+  assert.equal(aoa.length, 13, 'sin fila de total: la plantilla no la lleva');
+});
