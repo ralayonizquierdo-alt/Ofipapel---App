@@ -183,6 +183,10 @@
     const neto = o.comparar === 'neto';
     const catalogo = o.catalogo || null;
     const anteriores = o.preciosAnteriores || {};
+    // Proveedor de netos con margen (tarifa con % de beneficio o incremento): el
+    // comercial apunta precio de VENTA, así que se compara con el neto del
+    // proveedor llevado a venta con el mismo ajuste (ventaPropuesta).
+    const ajuste = o.ajusteVenta && o.ajusteVenta.modo && o.ajusteVenta.modo !== 'ninguno' && parseNum(o.ajusteVenta.pct) ? o.ajusteVenta : null;
     const ped = agrupar(lineasPedido);
     const pro = agrupar(lineasPropuesta, aliasAltas(lineasPedido));
     const claves = [...ped.keys(), ...[...pro.keys()].filter((r) => !ped.has(r))];
@@ -211,6 +215,8 @@
         dtosPropuesta: b ? b.dtos : [],
         netoPedido: a ? a.neto : null,
         netoPropuesta: b ? b.neto : null,
+        ventaPropuesta: b && ajuste && b.neto != null ? precioVenta(b.neto, ajuste) : null,
+        ajusteVenta: ajuste,
         importePropuesta: b ? b.importe : null,
         udsCajaPedido: a ? a.udsCaja : null,
         udsCajaPropuesta: b ? b.udsCaja : null,
@@ -248,7 +254,7 @@
           fila.motivos.push({ tipo: 'unidad', texto: `Unidad de venta ${a.unidad} → ${b.unidad}`, revisar: true });
         }
         let antes = neto ? a.neto : a.precio;
-        const ahora = neto ? b.neto : b.precio;
+        const ahora = fila.ventaPropuesta != null ? fila.ventaPropuesta : neto ? b.neto : b.precio;
         if (antes == null && ant.get(clave) != null) { antes = ant.get(clave); fila.precioDeHistorial = true; }
         fila.precioReferencia = antes;
         if (antes != null && ahora != null && red2(antes) !== red2(ahora)) {
@@ -259,7 +265,8 @@
           fila.estado = 'cambio';
           fila.motivos.push({
             tipo: 'precio',
-            texto: `${neto ? 'Precio neto' : 'Precio'} ${fmt(antes)} → ${fmt(ahora)} (${dif > 0 ? '+' : ''}${fmt(dif)})` +
+            texto: `${fila.ventaPropuesta != null ? 'Precio de venta' : neto ? 'Precio neto' : 'Precio'} ${fmt(antes)} → ${fmt(ahora)} (${dif > 0 ? '+' : ''}${fmt(dif)})` +
+              (fila.ventaPropuesta != null ? ` · coste del proveedor ${fmt(b.neto)} con ${textoAjuste(ajuste)}` : '') +
               (fila.precioDeHistorial ? ' respecto al último precio aceptado' : ''),
             revisar: fuera,
             informativo: !fuera,
@@ -395,7 +402,11 @@
     const nota = (x) => ({ ...x, nota: String(dec(x.ref).motivo || '').trim() });
     const { faltan, sobran } = faltasYSobras(filas);
     const precios = (filas || []).filter((f) => reclamada(f) && f.difPrecio != null && f.precioReferencia != null)
-      .map((f) => ({ ref: f.ref, desc: f.desc, antes: f.precioReferencia, ahora: red2(f.precioReferencia + f.difPrecio) }));
+      .map((f) => (f.ventaPropuesta != null
+        // Con margen: al proveedor se le habla en coste — el que esperábamos
+        // (el precio apuntado, sin el margen) frente al neto que propone.
+        ? { ref: f.ref, desc: f.desc, antes: precioCoste(f.precioReferencia, f.ajusteVenta), ahora: f.netoPropuesta }
+        : { ref: f.ref, desc: f.desc, antes: f.precioReferencia, ahora: red2(f.precioReferencia + f.difPrecio) }));
     return { faltan: faltan.filter(reclamada).map(nota), sobran: sobran.filter(reclamada).map(nota), precios: precios.map(nota) };
   }
 
@@ -683,7 +694,8 @@
       const base = { ref: f.ref, desc: f.desc, ean: f.ean, exp: Boolean(f.exp), ...(f.alta ? { alta: true, descAlta: f.descAlta } : {}) };
       // _neto: el precio neto de esa línea (tras sus descuentos), para el precio al cliente.
       const propuesta = (cant) => ({ ...base, cant, precio: f.precioPropuesta, dtos: f.dtosPropuesta,
-        importe: cant === f.cantPropuesta ? f.importePropuesta : null, udsCaja: f.udsCajaPropuesta || f.udsCajaPedido, _neto: f.netoPropuesta });
+        importe: cant === f.cantPropuesta ? f.importePropuesta : null, udsCaja: f.udsCajaPropuesta || f.udsCajaPedido,
+        _neto: f.ventaPropuesta != null ? f.ventaPropuesta : f.netoPropuesta });
       const pedido = (cant) => (f.precioPedido != null
         ? { ...base, cant, precio: f.precioPedido, dtos: f.dtosPedido, importe: null, udsCaja: f.udsCajaPedido || f.udsCajaPropuesta, _neto: f.netoPedido }
         : propuesta(cant));
@@ -739,6 +751,11 @@
           l.precio = f.precioPropuesta;
           l.dtos = f.dtosPropuesta;
           l.importe = l.cant === f.cantPropuesta ? f.importePropuesta : null;
+        } else if (f.ajusteVenta && l.precio != null) {
+          // Sin línea del proveedor, lo apuntado es precio de venta: a Géminis va el coste.
+          l.precio = precioCoste(l.precio, f.ajusteVenta);
+          l.dtos = [];
+          l.importe = null;
         }
       }
     }
@@ -845,6 +862,21 @@
    * pct %) o {modo:'beneficio', pct} (pct % de beneficio sobre la venta:
    * coste / (1 − pct/100)). Redondeado a céntimos.
    */
+  /** Lo contrario de precioVenta: el coste que corresponde a un precio de venta. */
+  function precioCoste(venta, ajuste) {
+    const v = parseNum(venta);
+    if (v == null) return null;
+    const a = ajuste || {};
+    const pct = parseNum(a.pct) || 0;
+    if (a.modo === 'incremento') return red2(v / (1 + pct / 100));
+    if (a.modo === 'beneficio' && pct > 0 && pct < 100) return red2(v * (1 - pct / 100));
+    return red2(v);
+  }
+  function textoAjuste(a) {
+    const pct = parseNum(a && a.pct);
+    if (!a || !a.modo || a.modo === 'ninguno' || !pct) return 'el precio de la tarifa';
+    return a.modo === 'beneficio' ? `${fmt(pct).replace(',00', '')} % de beneficio` : `+${fmt(pct).replace(',00', '')} % sobre coste`;
+  }
   function precioVenta(precio, ajuste) {
     const p = parseNum(precio);
     if (p == null) return null;
@@ -1289,7 +1321,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

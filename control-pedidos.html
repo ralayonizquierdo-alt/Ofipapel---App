@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-20-1"></script>
+<script src="control-pedidos-logica.js?v=2026-10-20-2"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -478,7 +478,8 @@ function comparar(p) {
   // Comercial: tolerancia cero en precio. El comercial apunta siempre el precio
   // NETO (nunca descuentos): se compara con el neto de cada línea del proveedor
   // (tras sus descuentos, sin el global, que es entre el proveedor y nosotros).
-  return CP.compararPedido(p.lineas, p.propuesta.lineas, { catalogo: catalogoDe(p.proveedor), comparar: 'neto', tolerancia: CP.TOLERANCIA.comercial });
+  // Proveedor de netos con margen en su tarifa: el comercial apunta precio de venta.
+  return CP.compararPedido(p.lineas, p.propuesta.lineas, { catalogo: catalogoDe(p.proveedor), comparar: 'neto', tolerancia: CP.TOLERANCIA.comercial, ajusteVenta: ajusteDe(p.proveedor) });
 }
 /** Fotos del pedido (las antiguas, sin registro, se deducen de sus líneas). */
 function fotosDe(p) {
@@ -1379,7 +1380,7 @@ function vistaComparacion(p, filas) {
           <td>${h(f.desc)}</td>
           <td class="num">${f.cantPedida || '—'}</td><td class="num">${f.cantPropuesta || '—'}</td>
           <td class="num">${f.precioDeHistorial ? fmt(f.precioReferencia) + '<div class="pequeno">(último aceptado)</div>' : celdaPrecio(p, f.precioPedido, f.dtosPedido, f.netoPedido)}</td>
-          <td class="num">${celdaPrecio(p, f.precioPropuesta, f.dtosPropuesta, f.netoPropuesta)}${f.difPrecio != null ? `<div class="motivo ${Math.abs(f.difPrecio) > (esRepo(p) ? CP.TOLERANCIA.reposicion : CP.TOLERANCIA.comercial) ? 'revisar' : ''}">${f.difPrecio > 0 ? '+' : ''}${fmt(f.difPrecio)} € (${f.difPrecioPct > 0 ? '+' : ''}${fmt(f.difPrecioPct)} %)</div>` : ''}</td>
+          <td class="num">${f.ventaPropuesta != null ? `${fmt(f.ventaPropuesta)}${esComercial() ? '' : `<div class="pequeno">venta · coste ${fmt(f.netoPropuesta)}</div>`}` : celdaPrecio(p, f.precioPropuesta, f.dtosPropuesta, f.netoPropuesta)}${f.difPrecio != null ? `<div class="motivo ${Math.abs(f.difPrecio) > (esRepo(p) ? CP.TOLERANCIA.reposicion : CP.TOLERANCIA.comercial) ? 'revisar' : ''}">${f.difPrecio > 0 ? '+' : ''}${fmt(f.difPrecio)} € (${f.difPrecioPct > 0 ? '+' : ''}${fmt(f.difPrecioPct)} %)</div>` : ''}</td>
           <td>${f.motivos.length ? f.motivos.map((m) => `<div class="motivo ${m.revisar ? 'revisar' : ''}">${h(m.texto)}</div>`).join('') : '<span class="chip ok">Cuadra</span>'}</td>
           <td class="no-imprimir">${f.revisar ? `
             <select onchange="decide(${js(f.ref)},'accion',this.value)">
