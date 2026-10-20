@@ -7,6 +7,9 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI1MCIgZmlsbD0iI0VDMUMyNCIvPjx0ZXh0IHg9IjUwIiB5PSI3MiIgZm9udC1zaXplPSI2NSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+8J+NgDwvdGV4dD48L3N2Zz4K">
 <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI1MCIgZmlsbD0iI0VDMUMyNCIvPjx0ZXh0IHg9IjUwIiB5PSI3MiIgZm9udC1zaXplPSI2NSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+8J+NgDwvdGV4dD48L3N2Zz4K">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Lector de facturas en Excel y plantilla «Luis»: los mismos que Control de
+     Pedidos (no duplicados). Al cambiar esa lógica, sube la versión aquí también. -->
+<script src="control-pedidos-logica.js?v=2026-10-20-3"></script>
 <style>
 :root{
   --verde-oscuro:#145c26;
@@ -134,12 +137,12 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
 <main>
 
   <div class="card">
-    <h2>1. Cargar factura PDF</h2>
+    <h2>1. Cargar factura (PDF o Excel)</h2>
     <label class="dropzone" for="pdfInput" id="dropzone">
       <div class="dz-icono">📄</div>
-      <div class="dz-title" id="dzTitulo">Haz clic o arrastra aquí la factura PDF del proveedor</div>
-      <div class="dz-sub">Solo PDFs de texto (no facturas escaneadas como imagen) — el proveedor se detecta solo si es posible</div>
-      <input type="file" id="pdfInput" accept="application/pdf" onchange="onPdfSelected(this.files[0])">
+      <div class="dz-title" id="dzTitulo">Haz clic o arrastra aquí la factura del proveedor (PDF o Excel)</div>
+      <div class="dz-sub">PDF de texto (no escaneado como imagen) — el proveedor se detecta solo si es posible. Excel: con títulos de columna (referencia, cantidad, precio…)</div>
+      <input type="file" id="pdfInput" accept="application/pdf,.pdf,.xlsx,.xls,.xlsm,.csv" onchange="onPdfSelected(this.files[0])">
     </label>
     <div class="dz-acciones" id="dzAcciones" style="display:none;">
       <button type="button" onclick="event.preventDefault(); document.getElementById('pdfInput').value=''; resetDropzone();">✕ Quitar archivo</button>
@@ -1608,6 +1611,10 @@ async function onSelProveedorChange(){
   // Si ya había una factura cargada (p.ej. no se detectó el proveedor solo,
   // o el usuario quiere forzar otro distinto), la reprocesamos con el
   // proveedor recién elegido sin tener que volver a subir el PDF.
+  if(!ultimasLineasPDF && filas.length && document.getElementById('dzTitulo').textContent.startsWith('📊')){
+    const p = PERFILES_PROVEEDOR.find(x => x.id === perfilSeleccionadoId);
+    if(p) document.getElementById('cabProveedor').value = proveedorDetectado = p.nombre;
+  }
   if(ultimasLineasPDF){
     const perfil = (perfilSeleccionadoId && perfilSeleccionadoId!=='otro')
       ? (PERFILES_PROVEEDOR.find(p => p.id === perfilSeleccionadoId) || null)
@@ -1753,8 +1760,9 @@ let ultimoFueOCR = false;
 
 async function onPdfSelected(file){
   if(!file) return;
+  if(/\.(xlsx|xls|xlsm|csv)$/i.test(file.name)){ onExcelSelected(file); return; }
   if(file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')){
-    mostrarEstado('err', 'El archivo no es un PDF.');
+    mostrarEstado('err', 'El archivo no es un PDF ni un Excel.');
     return;
   }
   ultimoArchivoPDF = file;
@@ -1802,6 +1810,50 @@ async function onPdfSelected(file){
     procesarFacturaConPerfil(lineasParaParsear, textoParaParsear, perfil);
   }catch(err){
     mostrarEstado('err', 'Error al procesar el PDF: ' + err.message);
+  }
+}
+
+// Factura del proveedor en Excel (20/10/2026): se lee por los títulos de
+// columna con el mismo lector que Control de Pedidos (leerPropuesta: necesita
+// «Referencia/Código/Artículo» y «Cantidad/Unidades»; resuelve dos «TOTAL» y
+// el descuento en euros) y va a la misma tabla que un PDF. El precio no se
+// toca: se exporta el de la factura y su(s) descuento(s).
+async function onExcelSelected(file){
+  ultimoArchivoPDF = null; ultimasLineasPDF = null; ultimoTextoPDF = ''; ultimoFueOCR = false; // cambiar de proveedor no relee nada
+  document.getElementById('dzTitulo').textContent = '📊 ' + file.name;
+  document.getElementById('dzAcciones').style.display = 'flex';
+  document.getElementById('ocrOfrecido').style.display = 'none';
+  document.getElementById('notasFactura').style.display = 'none';
+  if(!window.ControlPedidos){ mostrarEstado('err', 'No se ha podido cargar el lector de Excel. Recarga la página.'); return; }
+  mostrarEstado('warn', 'Leyendo Excel…');
+  try{
+    const wb = XLSX.read(await file.arrayBuffer(), {type:'array'});
+    let leido = null, ultimoError = null;
+    for(const nombre of wb.SheetNames){
+      try{
+        const r = ControlPedidos.leerPropuesta(XLSX.utils.sheet_to_json(wb.Sheets[nombre], {header:1, defval:'', raw:true}));
+        if(r.lineas.length){ leido = r; break; }
+      }catch(e){ ultimoError = e; }
+    }
+    if(!leido){ mostrarEstado('err', 'No he encontrado artículos en el Excel: hace falta una fila de títulos con «Referencia» (o «Código») y «Cantidad». ' + (ultimoError ? ultimoError.message : '')); return; }
+    const perfil = (perfilSeleccionadoId && perfilSeleccionadoId!=='otro') ? (PERFILES_PROVEEDOR.find(p => p.id === perfilSeleccionadoId) || null) : null;
+    proveedorDetectado = perfil ? perfil.nombre : '';
+    document.getElementById('cabProveedor').value = proveedorDetectado;
+    filas = leido.lineas.map(l => {
+      const dtos = (l.dtos || []).map(Number).filter(d => d);
+      const importe = l.importe != null ? round2_(l.importe)
+        : round2_((parseFloat(l.precio)||0) * (parseFloat(l.cant)||0) * dtos.reduce((x,d)=>x*(1-d/100), 1));
+      return nuevaFila({ isbn: l.ean || '', ref: l.ref, desc: l.desc, udes: l.cant, precioU: l.precio == null ? 0 : l.precio,
+        dto1: dtos[0]||0, dto2: dtos[1]||0, dto3: dtos[2]||0, dto4: dtos[3]||0, importe, igic: l.iva != null ? l.iva : '' });
+    });
+    ordenActual = {campo:null, asc:true};
+    renderFilas();
+    actualizarBotonesOrden();
+    mostrarEstado('ok', `Excel: ${filas.length} líneas leídas — elige el proveedor arriba si no lo está y revisa ISBN/Marca/Familia/Igic antes de exportar.`);
+    const sumaCalculada = round2_(filas.reduce((s,f)=>s+(parseFloat(f.importe)||0), 0));
+    mostrarModalVerificacion({ perfil, lineas: filas.length, sumaCalculada, totalFactura: null, viaOCR: false, bajaConfianza: false });
+  }catch(err){
+    mostrarEstado('err', 'Error al leer el Excel: ' + err.message);
   }
 }
 
@@ -2082,47 +2134,25 @@ function generarExcel(){
   const fecha = document.getElementById('cabFecha').value;
   const almacen = document.getElementById('cabAlmacen').value.trim();
 
-  const NCOLS = 14; // A..N
-  const aoa = [];
-  const fila = ()=> filaVacia(NCOLS);
-
-  // Filas 1-11: cabecera del pedido + panel de referencia de códigos de
-  // familia más usados, reproduciendo exactamente la misma disposición
-  // (mismas filas/columnas y textos) que la plantilla oficial de Gestión
-  // (PLANTILLA_PEDIDOS_PROGRAMACION_NUEVA_APLICACION_PDF). Ya no lleva
-  // Contactar con / E-mail: esa plantilla nueva los quitó. Los datos de
-  // línea deben empezar en la fila 13, igual que en la plantilla.
-  let r;
-  r = fila(); r[7]='RECORDATORIO DE FAMILIAS '; aoa.push(r);
-  r = fila(); r[4]='ALMACEN'; r[5]=almacen; r[6]=1001; r[7]='L} LIBROS DE TEXTOS';
-    r[11]=20; r[12]='-} ARTICULOS de DISENO (Escolar)'; aoa.push(r);
-  r = fila(); r[6]=100100; r[7]='Libros de Textos Pvp Fijo'; aoa.push(r);
-  r = fila(); r[2]='PROVEEDOR;'; r[3]=proveedor; r[6]=100125; r[7]='Libros de Textos L} (-25%) '; aoa.push(r);
-  r = fila(); r[6]=100130; r[7]='Libros de Textos L} (-30%) ';
-    r[11]=209102; r[12]='ARTICULOS DISENO (Varios)     '; r[13]='NO WEB'; aoa.push(r);
-  r = fila(); r[2]='N_ Pedido'; r[3]=pedido; r[4]='FECHA'; r[5]=fecha; r[6]=1002; r[7]='Libros SINLI';
-    r[11]=209162; r[12]='MOCHILAS (Diseno)                            '; r[13]='NO WEB'; aoa.push(r);
-  r = fila(); r[6]=100200; r[7]='Libros SINLI Pvp Fijo';
-    r[11]=209155; r[12]='Artículos Diseño (SUBEN A Web)               '; r[13]='SUBE A WEB'; aoa.push(r);
-  r = fila(); r[6]=100225; r[7]='Libros SINLI  (-25%) ';
-    r[11]=209162; r[12]='MOCHILAS (Diseño) SOLO  ALTA EN WEB                           '; r[13]='SUBE A WEB'; aoa.push(r);
-  r = fila(); r[6]=100230; r[7]='Libros SINLI  (-30%) '; aoa.push(r);
-  r = fila(); r[6]=100235; r[7]='Libros SINLI  (-35%) '; aoa.push(r);
-  r = fila(); r[2]='Rfecia. Compra'; aoa.push(r);
-
-  aoa.push(['Codigo I.S.B.N.','MARCA/EDITORIAL','Rfcia. Proveedor','DESCRIPCION','Caja','Ud./Caja','Udes','Precio U.','Dcto','Igic','IMPORTE','','COD. FAMILIA','']);
-
+  // Filas 1-11: cabecera y recordatorio de familias, títulos en la 11 y
+  // artículos desde la 12, celda a celda como la plantilla oficial de Gestión
+  // PLANTILLA_PEDIDOS_PROVEEDORES_ALTA_NUEVOS.xlt (la que mandó el propietario
+  // el 20/10/2026, porque la exportación «Luis» anterior —títulos en la 12,
+  // artículos desde la 13— fallaba al importar). La cabecera sale de la misma
+  // función que usa Control de Pedidos (ControlPedidos.filasGeminisLuis), para
+  // que las dos herramientas exporten exactamente igual.
+  const aoa = window.ControlPedidos
+    ? ControlPedidos.filasGeminisLuis([], { proveedor, numero: pedido, fecha, almacen }, {})
+    : null;
+  if(!aoa){ alert('No se ha podido cargar la plantilla. Recarga la página.'); return; }
   filas.forEach(f=>{
-    aoa.push([f.isbn, f.marca, f.ref, f.desc, f.caja, f.udCaja, f.udes, f.precioU, dtoParaExportar(f), f.igic, f.importe, '', f.familia, '']);
+    aoa.push([f.isbn, f.marca, f.ref, f.desc, f.caja, f.udCaja, f.udes, f.precioU, dtoParaExportar(f), f.igic, f.importe, '', f.familia, '', '', '']);
   });
-
-  const total = filas.reduce((s,f)=>s + (parseFloat(f.importe)||0), 0);
-  r = fila(); r[9]='TOTAL'; r[10]=Math.round(total*100)/100; aoa.push(r);
 
   const aoaSinAcentos = aoa.map(fila => fila.map(quitarAcentos));
 
   const ws = XLSX.utils.aoa_to_sheet(aoaSinAcentos);
-  ws['!cols'] = [{wch:14},{wch:16},{wch:16},{wch:40},{wch:7},{wch:9},{wch:8},{wch:10},{wch:8},{wch:8},{wch:12},{wch:2},{wch:12},{wch:10}];
+  ws['!cols'] = [21,10,16,37,5,8,5,9,8,4,10,14,16,11,11,11].map(wch => ({wch})); // anchos de la plantilla
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
 
