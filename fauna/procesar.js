@@ -117,6 +117,57 @@ function abrirParte({regenerar = false} = {}) {
   actualizarEstado();
   prepararCorreo();
   actualizarBotonOrdenar();
+  rellenarViento();
+}
+
+// ── Viento de cada actuación (METAR de Tenerife Sur) ───────────────────────
+// Rellena solo las casillas de viento VACÍAS de la cronología que tengan hora,
+// con la observación del aeropuerto más cercana a esa hora
+// (netlify/functions/fauna-viento.js). Lo escrito a mano nunca se toca. Sin
+// cobertura o sin función (copia de GitHub Pages) no pasa nada: quedan vacías.
+const VIENTO_URL = '/.netlify/functions/fauna-viento';
+const vientoPorFecha = {};
+// Milisegundos UTC de una hora HH:MM de ese día en Canarias (con su horario de verano).
+function instanteCanarias(fecha, hhmm) {
+  const [a, m, d] = fecha.split('-').map(Number), [h, mi] = hhmm.split(':').map(Number);
+  const supuesto = Date.UTC(a, m - 1, d, h, mi);
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {timeZone: 'Atlantic/Canary', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'}).formatToParts(new Date(supuesto)).map(x => [x.type, x.value]));
+  const local = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
+  return supuesto - (local - supuesto);
+}
+async function rellenarViento() {
+  const fecha = parte.fecha, s = SECCIONES.find(x => x.key === 'crono');
+  const cHora = s.cols.indexOf('HORA'), cViento = s.cols.indexOf('VIENTO (NUDOS)');
+  const huecos = () => parte.filas.crono.filter(f => tieneDatos(f) && !String(f[cViento]).trim() && minutos(f[cHora]) !== null);
+  if (!huecos().length) return;
+  let datos = vientoPorFecha[fecha];
+  if (!datos) {
+    try {
+      const r = await fetch(`${VIENTO_URL}?fecha=${fecha}`);
+      if (!r.ok) return;
+      datos = vientoPorFecha[fecha] = await r.json();
+    } catch { return; }
+  }
+  if (!parte || parte.fecha !== fecha) return; // se cambió de día mientras llegaba
+  const obs = (datos.observaciones || []).filter(o => o.t <= Date.now());
+  const margen = (datos.fuente === 'metar' ? 35 : 45) * 6e4;
+  let puestas = 0;
+  for (const f of huecos()) {
+    const m = minutos(f[cHora]);
+    const t = instanteCanarias(fecha, `${Math.floor(m / 60)}:${m % 60}`);
+    const o = obs.reduce((mejor, x) => Math.abs(x.t - t) < Math.abs((mejor?.t ?? Infinity) - t) ? x : mejor, null);
+    if (!o || Math.abs(o.t - t) > margen) continue;
+    f[cViento] = o.racha ? `${o.kt} G${o.racha}` : String(o.kt);
+    puestas++;
+  }
+  if (!puestas) return;
+  // Si el cursor está en una casilla, no se repinta (se perdería lo que se escribe).
+  if (document.activeElement?.dataset?.sec) { guardarBorrador(); return; }
+  pintarParte(); guardarBorrador();
+  const nota = $('proc-viento');
+  if (nota) nota.textContent = datos.fuente === 'metar'
+    ? `💨 Viento rellenado en ${puestas} ${puestas === 1 ? 'línea' : 'líneas'} con el METAR de Tenerife Sur (lo medido en el aeropuerto a esa hora, ±30 min). Revísalo.`
+    : `💨 Viento rellenado en ${puestas} ${puestas === 1 ? 'línea' : 'líneas'} con una ESTIMACIÓN (Open-Meteo): para esa fecha ya no hay METAR. Revísalo.`;
 }
 function actualizarEstado() {
   const {entradas} = datosDelDia(parte.fecha);

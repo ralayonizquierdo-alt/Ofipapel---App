@@ -35,6 +35,7 @@
       <section class="setup card" aria-labelledby="setup-title">
         <div class="section-heading"><h2 id="setup-title">Datos del turno</h2><span>Se guardan en este dispositivo</span></div>
         <p id="carry-note" class="carry-note" hidden></p>
+        <p id="sun-note" class="hint"></p>
         <div class="setup-grid">
           <label>Halconero de turno<select id="agent"><option value="">Seleccionar</option><option>Pedro</option><option>Rayco</option><option>Cristo</option></select></label>
           <label>Hora de inicio<input id="start-time" type="time" /></label>
@@ -86,6 +87,7 @@
           <div>
             <h2>Parte del <span id="proc-date"></span></h2>
             <p id="proc-status" class="hint" role="status"></p>
+            <p id="proc-viento" class="hint"></p>
           </div>
           <div class="proc-actions">
             <button id="proc-ordenar" class="button secondary ai-button" type="button" hidden>✨ Ordenar pendientes</button>
@@ -125,6 +127,7 @@
         <button id="ampliar-cancelar" class="button secondary" type="button">Cancelar</button>
       </div>
     </dialog>
+    <script src="sol.js" defer></script>
     <script src="app.js" defer></script>
     <script src="procesar.js" defer></script>
   </body>

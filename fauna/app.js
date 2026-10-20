@@ -132,26 +132,38 @@ function renderEntries() {
 }
 
 // ── Datos del turno ─────────────────────────────────────────────────────
-// Al abrir un día nuevo se copian nombres y horario del último día con datos,
-// para revisar. Tiempo, viento y registros empiezan vacíos: nunca se copian
-// incidencias de otro día.
+// Al abrir un día nuevo se copia el halconero del último día con datos, para
+// revisar. El horario sale del sol de ese día (fauna/sol.js: 15 min antes de la
+// salida y de la puesta, redondeado a 5 min) y se puede cambiar a mano. Tiempo,
+// viento y registros empiezan vacíos: nunca se copian incidencias de otro día.
 function loadFields() {
   let values = state.fields[dateInput.value];
   let previousDate;
   if (!values) {
     previousDate = Object.keys(state.fields).filter(day => day < dateInput.value).sort().at(-1);
-    const previous = previousDate ? state.fields[previousDate] : {};
-    values = previousDate ? {agent: previous.agent || '', 'start-time': previous['start-time'] || '', 'end-time': previous['end-time'] || ''} : {};
+    values = previousDate ? {agent: state.fields[previousDate].agent || ''} : {};
     state.fields[dateInput.value] = values;
-    save();
   }
+  const sol = window.FaunaSol?.horarioSolar(dateInput.value);
+  if (sol) {
+    if (!values['start-time']) values['start-time'] = sol.inicio;
+    if (!values['end-time']) values['end-time'] = sol.fin;
+  }
+  save();
   for (const id of fields) $(id).value = values[id] || '';
+  pintarNotaSol();
   $('carry-note').hidden = !previousDate;
-  if (previousDate) $('carry-note').textContent = `Se han copiado los nombres y el horario del ${previousDate}. Revísalos; el tiempo y los registros empiezan vacíos.`;
+  if (previousDate) $('carry-note').textContent = `Se ha copiado el halconero del ${previousDate}. Revísalo; el tiempo y los registros empiezan vacíos.`;
   clearComposer();
   renderEntries();
 }
-for (const id of fields) $(id).addEventListener('input', () => { dayFields()[id] = $(id).value; save(); });
+function pintarNotaSol() {
+  const sol = window.FaunaSol?.horarioSolar(dateInput.value), nota = $('sun-note');
+  if (!sol || !nota) return;
+  const aMano = $('start-time').value !== sol.inicio || $('end-time').value !== sol.fin;
+  nota.textContent = `☀ Tenerife Sur: sale el sol a las ${sol.salida} y se pone a las ${sol.puesta} → servicio de ${sol.inicio} a ${sol.fin}${aMano ? ' (horario cambiado a mano)' : ''}.`;
+}
+for (const id of fields) $(id).addEventListener('input', () => { dayFields()[id] = $(id).value; save(); if (id.endsWith('-time')) pintarNotaSol(); });
 dateInput.addEventListener('change', loadFields);
 
 // ── Formulario de registro ──────────────────────────────────────────────
