@@ -54,8 +54,11 @@ const INICIO = 'Inicio de servicio', FIN = 'Fin de servicio';
 const esInicio = t => /^\s*inicio de(l)? servicio/i.test(String(t || ''));
 const esFin = t => /^\s*fin de(l)? servicio/i.test(String(t || ''));
 
-function construirParte(fecha) {
-  const {campos, entradas} = datosDelDia(fecha);
+// `solo` (opcional): ids de registros; devuelve solo sus filas, sin inicio ni
+// fin de servicio (para añadirlos a un parte ya corregido a mano).
+function construirParte(fecha, solo = null) {
+  const dia = datosDelDia(fecha), campos = dia.campos;
+  const entradas = solo ? dia.entradas.filter(e => solo.has(e.id)) : dia.entradas;
   const d = (e, k) => String((e.details || {})[k] || '').trim();
   const texto = e => String(e.text || '').trim();
   const de = tipo => entradas.filter(e => e.kind === tipo);
@@ -64,6 +67,7 @@ function construirParte(fecha) {
     fecha,
     huella: huella(fecha),
     editado: null,
+    incluidos: dia.entradas.map(e => e.id),
     cabecera: {empresa:'FENIX CONTROL DE FAUNA', fecha:fechaES(fecha), halconero:campos.agent || '', clima:campos.weather || '', horario},
     filas: {
       crono: (() => {
@@ -77,6 +81,7 @@ function construirParte(fecha) {
           const e = entradas.find(x => x.kind === 'actuacion' && prueba(texto(x)));
           return e ? fila(e) : [hora || '', '', nombre, ''];
         };
+        if (solo) return entradas.map(fila);
         const inicio = propia(esInicio, campos['start-time'], INICIO);
         const fin = propia(esFin, campos['end-time'], FIN);
         if (!inicio[1]) inicio[1] = campos.wind || '';
@@ -107,8 +112,11 @@ function guardarBorrador() {
 function abrirParte({regenerar = false} = {}) {
   const fecha = fechaActual();
   $('proc-date').textContent = fechaES(fecha);
+  // El borrador guardado solo se usa si tiene correcciones a mano: si no, el
+  // parte se rehace siempre con los registros, así sale al momento lo último
+  // que se haya dictado.
   const borrador = leer(BORRADOR_KEY)[fecha];
-  if (borrador && !regenerar) parte = borrador;
+  if (borrador?.editado && !regenerar) { parte = borrador; añadirNuevos(); }
   else {
     parte = construirParte(fecha);
     for (const s of SECCIONES) parte.filas[s.key] = conHueco(s, parte.filas[s.key]);
@@ -162,12 +170,39 @@ async function rellenarViento() {
   }
   if (!puestas) return;
   // Si el cursor está en una casilla, no se repinta (se perdería lo que se escribe).
-  if (document.activeElement?.dataset?.sec) { guardarBorrador(); return; }
-  pintarParte(); guardarBorrador();
+  if (parte.editado) guardarBorrador();
+  if (document.activeElement?.dataset?.sec) return;
+  pintarParte();
   const nota = $('proc-viento');
   if (nota) nota.textContent = datos.fuente === 'metar'
     ? `💨 Viento rellenado en ${puestas} ${puestas === 1 ? 'línea' : 'líneas'} con el METAR de Tenerife Sur (lo medido en el aeropuerto a esa hora, ±30 min). Revísalo.`
     : `💨 Viento rellenado en ${puestas} ${puestas === 1 ? 'línea' : 'líneas'} con una ESTIMACIÓN (Open-Meteo): para esa fecha ya no hay METAR. Revísalo.`;
+}
+// En un parte corregido a mano, los registros nuevos se añaden sin perder las
+// correcciones. Solo cuando la IA ya los ha ordenado (o no ha podido), para no
+// meter el dictado en bruto y que luego cambie de sección. Lo que cambie en un
+// registro que ya estaba en el parte sigue avisándose con «Recargar».
+function añadirNuevos() {
+  if (!Array.isArray(parte.incluidos)) return false; // borrador antiguo
+  const {entradas} = datosDelDia(parte.fecha), ya = new Set(parte.incluidos);
+  // ¿El parte estaba al día antes de estos registros? (huella sin los nuevos)
+  const sinNuevos = JSON.stringify({campos: datosDelDia(parte.fecha).campos, entradas: entradas.filter(e => ya.has(e.id))});
+  const listos = entradas.filter(e => !ya.has(e.id) && e.ai !== 'pendiente' && e.ai !== 'ordenando');
+  if (!listos.length) return false;
+  const soloAñadidos = parte.huella === sinNuevos && listos.length === entradas.filter(e => !ya.has(e.id)).length;
+  const nuevas = construirParte(parte.fecha, new Set(listos.map(e => e.id))).filas;
+  for (const s of SECCIONES) {
+    for (const f of nuevas[s.key]) {
+      const filas = parte.filas[s.key], hueco = filas.findIndex(x => !tieneDatos(x));
+      if (hueco >= 0) filas[hueco] = f; else filas.push(f);
+    }
+    if (nuevas[s.key].length && s.cols.includes('HORA')) ordenarFilas(s);
+  }
+  parte.incluidos.push(...listos.map(e => e.id));
+  // Si lo único que había cambiado eran registros nuevos, el parte vuelve a estar al día.
+  if (soloAñadidos) parte.huella = huella(parte.fecha);
+  guardarBorrador();
+  return true;
 }
 function actualizarEstado() {
   const {entradas} = datosDelDia(parte.fecha);
@@ -305,11 +340,22 @@ function minutos(hora) {
   return m && +m[1] < 24 && +m[2] < 60 ? +m[1] * 60 + +m[2] : null;
 }
 function ordenarPorHora(s) {
-  const col = s.cols.indexOf('HORA');
-  const filas = parte.filas[s.key];
-  // Si el cursor ya está en otra casilla, se le devuelve allí tras recolocar.
   const activa = document.activeElement?.dataset?.sec ? document.activeElement : null;
   const filaActiva = activa && parte.filas[activa.dataset.sec][+activa.dataset.fila];
+  const {cambiado, sinHora} = ordenarFilas(s);
+  if (!cambiado) return;
+  pintarParte();
+  marcarEditado();
+  if (activa) {
+    const nueva = parte.filas[activa.dataset.sec].indexOf(filaActiva);
+    $('parte').querySelector(`textarea[data-sec="${activa.dataset.sec}"][data-fila="${nueva}"][data-col="${activa.dataset.col}"]`)?.focus();
+  }
+  if (sinHora) setEstado(`${sinHora} ${sinHora === 1 ? 'fila no tiene' : 'filas no tienen'} una hora válida (formato 09:30) y ${sinHora === 1 ? 'se ha dejado' : 'se han dejado'} detrás de las demás.`, true);
+}
+// Recoloca las filas de una sección por hora (sin repintar). Devuelve si algo cambió.
+function ordenarFilas(s) {
+  const col = s.cols.indexOf('HORA');
+  const filas = parte.filas[s.key];
   const conHora = [], sinHora = [], vacias = [];
   for (const f of filas) (!tieneDatos(f) ? vacias : minutos(f[col]) === null ? sinHora : conHora).push(f);
   // En la cronología, inicio y fin de servicio no se mueven de su sitio.
@@ -325,15 +371,9 @@ function ordenarPorHora(s) {
   const datos = [...conHora, ...sinHora];
   const nuevas = [...datos.filter(f => fijo(f) < 0), ...datos.filter(f => !fijo(f)), ...datos.filter(f => fijo(f) > 0), ...vacias];
   // Si nada se mueve ni cambia de formato, no se redibuja (no se pierde el cursor).
-  if (!formatoCambiado && nuevas.every((f, i) => f === filas[i])) return;
+  if (!formatoCambiado && nuevas.every((f, i) => f === filas[i])) return {cambiado: false, sinHora: sinHora.length};
   parte.filas[s.key] = nuevas;
-  pintarParte();
-  marcarEditado();
-  if (activa) {
-    const nueva = parte.filas[activa.dataset.sec].indexOf(filaActiva);
-    $('parte').querySelector(`textarea[data-sec="${activa.dataset.sec}"][data-fila="${nueva}"][data-col="${activa.dataset.col}"]`)?.focus();
-  }
-  if (sinHora.length) setEstado(`${sinHora.length} ${sinHora.length === 1 ? 'fila no tiene' : 'filas no tienen'} una hora válida (formato 09:30) y ${sinHora.length === 1 ? 'se ha dejado' : 'se han dejado'} detrás de las demás.`, true);
+  return {cambiado: true, sinHora: sinHora.length};
 }
 
 // ── PDF (A4, mismo orden y columnas que la plantilla) ──────────────────────
@@ -450,10 +490,20 @@ $('proc-ordenar').addEventListener('click', async () => {
   if (parte && !parte.editado) abrirParte({regenerar:true});
   actualizarBotonOrdenar();
 });
-window.addEventListener('fauna-registros', () => {
+// Un registro nuevo (o la IA que termina de ordenar uno) se ve en el parte al
+// momento, también con esta pestaña abierta; salvo mientras se escribe en una
+// casilla, para no quitarle el cursor a nadie (se ve al salir de ella).
+function refrescarParte() {
   if (location.hash !== '#procesar' || !parte) return;
+  if (!document.activeElement?.dataset?.sec) {
+    if (!parte.editado) abrirParte({regenerar:true});
+    else if (añadirNuevos()) pintarParte();
+  }
   actualizarBotonOrdenar(); actualizarEstado();
-});
+}
+window.addEventListener('fauna-registros', refrescarParte);
+// Otra pestaña del mismo dispositivo (p. ej. el registro abierto aparte).
+window.addEventListener('storage', e => { if (e.key === REGISTROS_KEY) refrescarParte(); });
 
 // ── Pestañas ───────────────────────────────────────────────────────────────
 function mostrarVista() {
