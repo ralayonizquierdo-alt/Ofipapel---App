@@ -904,6 +904,35 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
   }
 
   /**
+   * Lo que falta por cobrar de una estancia contando hasta ese mes incluido.
+   *
+   * Es el saldo vivo: en una estancia larga que se paga por meses baja según
+   * entran los pagos, y en la última línea queda lo que de verdad falta. En
+   * negativo es lo cobrado de más.
+   */
+  const pendienteHasta = (r: Reservation, mes: number): number => {
+    const hasta = `${year}-${String(mes).padStart(2, '0')}`
+    const pagado = delAnio
+      .filter(p => p.reservationId === r.id && (mesDe(p) ?? '') <= hasta)
+      .reduce((x, p) => x + p.amount, 0)
+    return Math.round((r.total - pagado) * 100) / 100
+  }
+
+  /** La celda morada del pendiente, que se repite en varios sitios. */
+  const Pendiente = ({ r, mes }: { r: Reservation; mes: number }) => {
+    const saldo = pendienteHasta(r, mes)
+    if (Math.abs(saldo) < 0.005) {
+      return <td className={`${celda} text-right text-slate-300`}>—</td>
+    }
+    return (
+      <td className={`${celda} text-right font-semibold text-purple-700`}
+        title={saldo > 0 ? 'Falta por cobrar' : 'Cobrado de más'}>
+        {saldo > 0 ? imp(saldo) : `+${imp(-saldo)}`}
+      </td>
+    )
+  }
+
+  /**
    * Qué poner cuando una reserva no tiene cobros en ese mes.
    *
    * «Sin cobro este mes» mezclaba dos cosas que no se parecen en nada: una
@@ -994,10 +1023,16 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
         <h3 className="font-semibold text-white">Reservas y cobros · {year}</h3>
         <span className="text-white font-bold">{eur(suma(lineas))}</span>
       </div>
-      <div className="overflow-auto">
+      {/* El listado es largo —doce meses por ocho inmuebles— y sin la cabecera
+          a la vista no hay quien sepa qué columna está mirando a mitad de
+          agosto. La caja tiene altura propia y desplaza por dentro: así el
+          `sticky` tiene contra qué pegarse (con `overflow` en el padre, el
+          navegador lo pega a la caja, no a la página). Al imprimir se quita el
+          tope de altura y sale el listado entero. */}
+      <div className="overflow-auto max-h-[70vh] print:max-h-none print:overflow-visible">
         <table className="w-full text-sm" translate="no">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
+          <thead className="sticky top-0 z-20 shadow-sm">
+            <tr className="border-b border-slate-200 bg-slate-100 text-xs text-slate-600">
               <th className="text-left py-2 px-3 font-medium">{porMes ? 'Apto.' : 'Mes'}</th>
               <th className="text-left py-2 px-3 font-medium">Fecha reserva</th>
               <th className="text-right py-2 px-3 font-medium">Noches</th>
@@ -1010,6 +1045,10 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
               <th className="text-left py-2 px-3 font-medium">Fecha cobro</th>
               <th className="text-left py-2 px-3 font-medium">Nº asiento</th>
               <th className="text-right py-2 px-3 font-medium">Cobrado</th>
+              <th className="text-right py-2 px-3 font-medium text-purple-700"
+                title="Lo que falta por cobrar de esa estancia; en negativo, lo cobrado de más">
+                Pendiente
+              </th>
             </tr>
           </thead>
           <tbody className="tabular-nums">
@@ -1018,12 +1057,13 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
               const todo = suma(g.lineas)
               return (
                 <Fragment key={g.clave}>
-                  <tr className="bg-slate-100 border-y border-slate-200">
+                  <tr className="bg-slate-200/90 border-y border-slate-300 sticky top-[33px] z-10">
                     <td className="py-2 px-3 font-bold text-slate-800 capitalize" colSpan={5}>{g.titulo}</td>
                     <td className="py-2 px-3 text-right font-bold text-blue-700">{imp(todo - efec)}</td>
                     <td className="py-2 px-3 text-right font-bold text-red-600">{imp(efec)}</td>
                     <td colSpan={2} />
                     <td className="py-2 px-3 text-right font-bold text-slate-800">{imp(todo)}</td>
+                    <td />
                   </tr>
 
                   {g.lineas.map((l, i) => {
@@ -1032,7 +1072,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                     if (!r && cobros.length === 0) return (
                       <tr key={clave} className="border-b border-slate-50">
                         <Cruce l={l} />
-                        <td className={`${celda} text-slate-400 italic`} colSpan={9}>sin reservas</td>
+                        <td className={`${celda} text-slate-400 italic`} colSpan={10}>sin reservas</td>
                       </tr>
                     )
                     if (!r) return cobros.map((p, k) => (
@@ -1040,6 +1080,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                         {k === 0 ? <Cruce l={l} /> : <td className={celda} />}
                         <td className={`${celda} text-amber-800 italic`} colSpan={4}>cobro sin reserva asociada</td>
                         <Movimiento p={p} />
+                        <td className={celda} />
                         <td className={celda} />
                       </tr>
                     ))
@@ -1079,6 +1120,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                           <td className={`${celda} ${aviso ? 'text-amber-700 font-medium' : 'text-slate-400 italic'}`} colSpan={5}>
                             {texto}
                           </td>
+                          <Pendiente r={r} mes={l.mes} />
                         </tr>
                       )
                     }
@@ -1090,6 +1132,9 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                         <td className={`${celda} text-right font-semibold text-slate-800`}>
                           {k === 0 ? imp(cobrado) : ''}
                         </td>
+                        {k === cobros.length - 1
+                          ? <Pendiente r={r} mes={l.mes} />
+                          : <td className={celda} />}
                       </tr>
                     ))
                   })}
