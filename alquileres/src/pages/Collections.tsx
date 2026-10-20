@@ -261,7 +261,10 @@ export default function Collections() {
               antes ? '' : fmt(r.cleaningFee)]
             if (cobros.length === 0) {
               const otros = delAnio.filter(x => x.reservationId === r.id)
-              const donde = otros.length === 0 ? 'sin cobrar en todo el año'
+              const hoy = today()
+              const donde = otros.length === 0
+                ? (r.checkIn > hoy ? 'aún no ha entrado'
+                  : r.checkOut > hoy ? 'estancia en curso' : 'sin cobrar en todo el año')
                 : `se cobró en ${[...new Set(otros.map(x => x.mes))].sort()
                     .map(x => MONTH_NAMES_ES[Number(x!.slice(5, 7)) - 1].toLowerCase()).join(' y ')}`
               rows.push([...base, '', '', '', '', donde])
@@ -911,7 +914,15 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
    */
   const dondeSeCobro = (r: Reservation): { texto: string; aviso: boolean } => {
     const suyos = delAnio.filter(p => p.reservationId === r.id)
-    if (suyos.length === 0) return { texto: 'sin cobrar en todo el año', aviso: true }
+    if (suyos.length === 0) {
+      // Una estancia que todavía no ha terminado no es un descuido: lo normal
+      // es que se cobre durante la estancia o al salir. Se dice en qué punto
+      // está, en gris, y el aviso rojo se guarda para las que ya terminaron.
+      const hoy = today()
+      if (r.checkIn > hoy) return { texto: 'aún no ha entrado', aviso: false }
+      if (r.checkOut > hoy) return { texto: 'estancia en curso', aviso: false }
+      return { texto: 'sin cobrar en todo el año', aviso: true }
+    }
     const meses = [...new Set(suyos.map(p => mesDe(p)).filter(Boolean))]
       .sort()
       .map(m => MONTH_NAMES_ES[Number(m!.slice(5, 7)) - 1].toLowerCase())
