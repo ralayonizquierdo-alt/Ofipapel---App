@@ -269,7 +269,11 @@
 
       if (catalogo && !fila.enCatalogo && a) {
         fila.sugerencias = sugerenciasCatalogo(ref, catalogo);
-        fila.motivos.push({ tipo: 'no_catalogo', texto: 'La referencia no existe en el catálogo del proveedor: posible error de lectura', revisar: true });
+        // Si el proveedor la trae en su propuesta, existe: la tarifa guardada puede
+        // ser antigua (lo que manda es la última propuesta). Solo se avisa.
+        fila.motivos.push(b
+          ? { tipo: 'no_catalogo', texto: 'No está en la tarifa guardada del proveedor (puede ser una referencia nueva)', revisar: false, informativo: true }
+          : { tipo: 'no_catalogo', texto: 'La referencia no existe en el catálogo del proveedor: posible error de lectura', revisar: true });
       }
       return fila;
     });
@@ -835,6 +839,23 @@
   }
 
   /**
+   * Precio de venta a partir del precio de la tarifa, según cómo la manda el
+   * proveedor: {modo:'ninguno'} (ya es precio de venta, p. ej. Finocam: tarifa
+   * base cuyo descuento es nuestro margen), {modo:'incremento', pct} (coste +
+   * pct %) o {modo:'beneficio', pct} (pct % de beneficio sobre la venta:
+   * coste / (1 − pct/100)). Redondeado a céntimos.
+   */
+  function precioVenta(precio, ajuste) {
+    const p = parseNum(precio);
+    if (p == null) return null;
+    const a = ajuste || {};
+    const pct = parseNum(a.pct) || 0;
+    if (a.modo === 'incremento') return red2(p * (1 + pct / 100));
+    if (a.modo === 'beneficio' && pct > 0 && pct < 100) return red2(p / (1 - pct / 100));
+    return red2(p);
+  }
+
+  /**
    * Tarifa completa de un proveedor (Excel), para el catálogo: sirve para
    * rellenar descripción y precio al apuntar una referencia y para detectar
    * referencias mal escritas. Necesita una columna de referencia y otra de
@@ -1268,7 +1289,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
