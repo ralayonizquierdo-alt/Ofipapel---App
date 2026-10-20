@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, FileSpreadsheet, History, Sparkles, ClipboardPaste, Settings, Menu, X, KeyRound, LogOut,
-  PanelLeftClose, PanelLeftOpen, Building2,
+  PanelLeftClose, PanelLeftOpen, Building2, Grid3x3,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import bgTrebol from './assets/bg-trebol.png'
@@ -50,6 +50,19 @@ const NAV: { to: string; icon: typeof LayoutDashboard; label: string; roles: Rol
 ]
 
 const navDe = (rol: Rol) => NAV.filter(n => n.roles.includes(rol))
+
+/**
+ * Vuelve al hub del ecosistema sin cerrar la sesión.
+ *
+ * Alquileres se abre desde `inicio.html` y hasta ahora la única forma de
+ * volver era el botón de atrás del navegador —que en la app instalada no
+ * existe— o cerrar sesión, que obliga a teclear la contraseña otra vez para
+ * nada. Se sale de la aplicación, no de la cuenta.
+ *
+ * Va por la ruta completa y no por «/» porque la copia de GitHub Pages no
+ * tiene la reescritura de Netlify: allí «/» no lleva a ninguna parte.
+ */
+const AL_HUB = '/inicio.html'
 
 /**
  * Dónde cae cada uno al entrar, y adónde se le manda si escribe otra ruta.
@@ -124,6 +137,10 @@ function Sidebar({ rol, alerts, plegado, onPlegar, onChangePassword, onLogout }:
       </nav>
       <div className={`${plegado ? 'px-1.5' : 'px-4'} py-3 border-t border-slate-700 space-y-1 relative z-10`}>
         {!plegado && <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>}
+        <a href={AL_HUB} title="Volver al hub sin cerrar la sesión"
+          className={`flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 rounded-lg hover:bg-slate-800 transition-colors ${plegado ? 'justify-center px-0' : 'px-2'}`}>
+          <Grid3x3 size={13} /> {!plegado && 'Salir al hub'}
+        </a>
         <button onClick={onChangePassword} title="Cambiar contraseña"
           className={`flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 rounded-lg hover:bg-slate-800 transition-colors ${plegado ? 'justify-center px-0' : 'px-2'}`}>
           <KeyRound size={13} /> {!plegado && 'Cambiar contraseña'}
@@ -181,6 +198,10 @@ function Drawer({ rol, alerts, open, onClose, onChangePassword, onLogout }: { ro
         </nav>
         <div className="px-4 py-3 border-t border-slate-700 space-y-1 relative z-10">
           <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>
+          <a href={AL_HUB}
+            className="flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
+            <Grid3x3 size={13} /> Salir al hub
+          </a>
           <button onClick={() => { onClose(); onChangePassword() }}
             className="flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
             <KeyRound size={13} /> Cambiar contraseña
