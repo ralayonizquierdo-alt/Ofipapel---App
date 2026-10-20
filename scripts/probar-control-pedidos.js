@@ -734,3 +734,32 @@ test('precio de venta de una tarifa: sin ajuste, incremento sobre coste o benefi
   assert.equal(CP.precioVenta(null, { modo: 'incremento', pct: 30 }), null);
   assert.equal(CP.precioVenta(5, { modo: 'beneficio', pct: 100 }), 5, 'un 100 % no tiene sentido: se deja el precio');
 });
+
+test('proveedor de netos con margen: se compara en precio de venta, al cliente la venta, a Géminis y al proveedor el coste', () => {
+  const ajusteVenta = { modo: 'beneficio', pct: 30 };
+  assert.equal(CP.precioCoste(10, ajusteVenta), 7);
+  assert.equal(CP.precioCoste(13, { modo: 'incremento', pct: 30 }), 10);
+  const filas = CP.compararPedido(
+    [{ ref: 'A', cant: 2, precio: 10 }, { ref: 'B', cant: 1, precio: 5 }, { ref: 'C', cant: 1, precio: 10 }],
+    [{ ref: 'A', cant: 2, precio: 7 }, { ref: 'B', cant: 1, precio: 4 }],
+    { comparar: 'neto', tolerancia: CP.TOLERANCIA.comercial, ajusteVenta });
+  const A = filas.find((f) => f.ref === 'A');
+  const B = filas.find((f) => f.ref === 'B');
+  assert.equal(A.estado, 'ok', '7 de coste con 30 % de beneficio = 10, lo que apuntó el comercial');
+  assert.equal(A.ventaPropuesta, 10);
+  assert.equal(B.ventaPropuesta, 5.71);
+  assert.match(B.motivos.find((m) => m.tipo === 'precio').texto, /Precio de venta 5,00 → 5,71 .*coste del proveedor 4,00 con 30 % de beneficio/);
+  const dec = { B: { accion: 'aceptar' }, C: { accion: 'mantener' } };
+  const r = CP.aplicarDecisiones(filas, dec, { comercial: true });
+  const l = (ref) => r.lineas.find((x) => x.ref === ref);
+  assert.deepEqual([l('A').precioCliente, l('A').precio], [10, 7], 'al cliente la venta; a Géminis el coste');
+  assert.deepEqual([l('B').precioCliente, l('B').precio], [5.71, 4]);
+  assert.deepEqual([l('C').precioCliente, l('C').precio], [10, 7], 'sin línea del proveedor: el coste sale del precio apuntado');
+  // Reclamar el precio de B: al proveedor, en coste (nunca el precio de venta ni el margen)
+  const rec = CP.aReclamar(filas, { B: { accion: 'reclamar' } });
+  assert.deepEqual(rec.precios.map((x) => [x.antes, x.ahora]), [[3.5, 4]]);
+  // Sin ajuste (Finocam), todo como antes
+  const [f] = CP.compararPedido([{ ref: 'A', cant: 1, precio: 10 }], [{ ref: 'A', cant: 1, precio: 7 }], { comparar: 'neto', ajusteVenta: { modo: 'ninguno' } });
+  assert.equal(f.ventaPropuesta, null);
+  assert.equal(f.estado, 'cambio');
+});
