@@ -1115,6 +1115,47 @@
     });
   }
 
+  /**
+   * Plantilla «Luis»: la oficial de Gestión, PLANTILLA_PEDIDOS_PROVEEDORES_ALTA_NUEVOS.xlt
+   * (la que mandó el propietario el 20/10/2026), celda a celda: cabecera y
+   * recordatorio de familias en las filas 1–10, títulos en la 11 y artículos
+   * desde la 12, columnas A–P. Con la «Rober» (filasGeminis) Géminis daba de
+   * alta cada línea como artículo «2».
+   */
+  function filasGeminisLuis(lineas, cab, opciones) {
+    const N = 16; // A..P
+    const fila = () => new Array(N).fill('');
+    const c = cab || {};
+    const aoa = [];
+    let r;
+    r = fila(); r[10] = 1001; r[11] = '< L} LIBROS DE TEXTOS     '; r[14] = 'Para otros dieños consultar el arbol de FAMILIAS'; aoa.push(r);
+    r = fila(); r[2] = 'PROPUESTA    DE     PEDIDO'; r[4] = 'ALMACEN'; r[5] = c.almacen || ''; r[9] = 'L}'; r[10] = 100125; r[11] = 'LIBRO TEXTOS (L} 25%)         ';
+    r[14] = 20; r[15] = '-} ARTICULOS de DISEÑO (Escolar)'; aoa.push(r);
+    r = fila(); r[9] = 'L}'; r[10] = 100130; r[11] = 'LIBRO TEXTOS (L} 30%)         '; r[13] = 'Para incluir'; aoa.push(r);
+    r = fila(); r[2] = 'PROVEEDOR;'; r[3] = c.proveedor || ''; r[10] = 1002; r[11] = '<< L< LIBROS DE LECTURAS '; r[13] = 'Referencias';
+    r[14] = 209102; r[15] = 'ARTICULOS DISEÑO (Varios)     '; aoa.push(r);
+    r = fila(); r[9] = 'L<'; r[10] = 100225; r[11] = 'LIBRO Lecturas (25% L<)       '; r[13] = 'en un mismo';
+    r[14] = 209162; r[15] = 'MOCHILAS (Diseño)                            '; aoa.push(r);
+    r = fila(); r[0] = '922-75.35.20'; r[2] = 'Nº Pedido'; r[3] = c.numero || ''; r[4] = 'FECHA'; r[5] = c.fecha || ''; r[9] = 'L<'; r[10] = 100230;
+    r[11] = 'LIBRO Lecturas (30% L<)       '; r[13] = 'codigo'; r[14] = 209160; r[15] = 'Macutos Bolsas y Bandoleras (Diseño)'; aoa.push(r);
+    r = fila(); r[0] = 'Compras@ofipapelsl.com'; r[13] = 'el padre no '; r[14] = 209163; r[15] = 'Monederos Billeteras (Diseño)'; aoa.push(r);
+    r = fila(); r[2] = 'Contactar con:'; r[4] = 'E-mail'; r[10] = 209102; r[11] = 'ARTICULOS DISEÑO (Varios)     '; r[13] = 'lleva ';
+    r[14] = 209166; r[15] = 'Neceser Escolar (Diseño)'; aoa.push(r);
+    r = fila(); r[10] = 209162; r[11] = 'MOCHILAS (Diseño) SOLO  ALTA EN WEB                           '; r[14] = 209176; r[15] = 'Plumier (Diseño)'; aoa.push(r);
+    r = fila(); r[1] = 'MARCA'; r[2] = 'Rfecia. Compra'; r[11] = 'CODIGO  A'; r[12] = 'Margen'; r[14] = 209179; r[15] = 'Portatodo (Diseño)'; aoa.push(r);
+    aoa.push(['Codigo I.S.B.N.', 'EDITORIAL', 'Rfcia. Proveedor', 'DESCRIPCION', 'Caja', 'Ud./Caja', 'Udes', 'Precio U.', 'Dcto', 'Igic', 'IMPORTE', 'RECONVERTIR', 'COD. FAMILIA', 'PADRE', '>>>>>>>>>>>>>>>>>>>>>>>', '']);
+    const dto = (opciones && opciones.dto) || 0;
+    const igic = (opciones && opciones.igic != null) ? opciones.igic : '';
+    for (const l of lineas || []) {
+      const precio = l.precio == null ? 0 : l.precio;
+      const dtoLinea = l.dto != null ? l.dto : dto;
+      const importe = l.total != null ? l.total : red2(precio * l.cant * (1 - dtoLinea / 100));
+      aoa.push([l.ean || '', '', l.alta ? REF_ALTA : l.ref, l.alta ? (l.descAlta || l.desc || '') : (l.desc || ''), '', '', l.cant,
+        precio, dtoLinea, l.igic != null ? l.igic : igic, importe, '', '', '', '', '']);
+    }
+    return aoa;
+  }
+
   /** Matriz lista para SheetJS (aoa_to_sheet) con cabecera en 1–10 y datos desde la 11. */
   function filasGeminis(lineas, cab, opciones) {
     const P = PLANTILLA_GEMINIS;
@@ -1321,7 +1362,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-20-2"></script>
+<script src="control-pedidos-logica.js?v=2026-10-20-3"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -2585,10 +2585,13 @@ function vistaDatos() {
   <div class="tarjeta">
     <h2>Excel para Géminis</h2>
     <p class="pequeno">Géminis solo admite un descuento por línea: los encadenados se convierten en uno equivalente sin tocar el precio base, cuadrando con el importe del proveedor. Con 2 decimales a veces no cuadra al céntimo (la app avisa); cuántos admite Géminis está <b>pendiente de comprobar</b>.</p>
-    <p class="pequeno">Formato Excel 5.0/95 (.xls), artículos desde la fila 11, columnas A–N de la plantilla «Propuesta de pedido». Las tildes y la Ñ se quitan porque ese formato no las admite (igual que en la herramienta de PDF). <b>Pendiente:</b> comprobar la cabecera (filas 1–10) con un fichero que Géminis haya aceptado.</p>
+    <p class="pequeno">Formato Excel 5.0/95 (.xls). Por defecto, plantilla <b>«Luis»</b>: la oficial de Gestión (PLANTILLA_PEDIDOS_PROVEEDORES_ALTA_NUEVOS), celda a celda, con los títulos en la fila 11 y los artículos desde la 12. La <b>«Rober»</b> (artículos desde la fila 11) hacía que Géminis diera de alta cada línea como artículo «2». Las tildes y la Ñ se quitan porque ese formato no las admite.</p>
     <div class="fila">
       <label>Almacén<input id="cfgAlmacen" value="${h(localStorage.getItem('cp.almacen') || '')}" onchange="localStorage.setItem('cp.almacen', this.value)"></label>
       <label>IGIC %<input id="cfgIgic" type="number" step="0.5" value="${h(localStorage.getItem('cp.igic') || '7')}" onchange="localStorage.setItem('cp.igic', this.value)"></label>
+      <label>Plantilla<select onchange="localStorage.setItem('cp.plantilla', this.value)">
+        <option value="luis" ${(localStorage.getItem('cp.plantilla') || 'luis') === 'luis' ? 'selected' : ''}>Luis (oficial de Gestión)</option>
+        <option value="rober" ${localStorage.getItem('cp.plantilla') === 'rober' ? 'selected' : ''}>Rober (fila 11)</option></select></label>
       <label>Decimales del descuento<select onchange="localStorage.setItem('cp.decimales', this.value)">
         ${[2, 3, 4, 6].map((n) => `<option ${String(n) === (localStorage.getItem('cp.decimales') || '2') ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
     </div>
@@ -2958,15 +2961,19 @@ function descargarGeminis(lineas, o) {
     descuadres.slice(0, 8).map((l) => `${l.ref}: ${l.residuo > 0 ? '+' : ''}${fmt(l.residuo)} €`).join('\n') +
     '\n\nPuedes subir los decimales en «Datos». ¿Exportar igualmente?')) return;
   const quitar = (v) => typeof v === 'string' ? v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[Ññ]/g, (m) => (m === 'Ñ' ? 'N' : 'n')) : v;
-  const aoa = CP.filasGeminis([...suma.values()], {
-    proveedor: provs[0], fecha: fmtFecha(hoy()), numero, almacen: localStorage.getItem('cp.almacen') || '',
-    observaciones: o.observaciones || '',
-  }, { igic: CP.parseNum(localStorage.getItem('cp.igic') || '7') }).map((f) => f.map(quitar));
+  // Plantilla «Luis» (la oficial de Gestión, la de «PDF a Excel») por defecto:
+  // con la «Rober» Géminis no reconocía las referencias (20/10/2026).
+  const rober = (localStorage.getItem('cp.plantilla') || 'luis') === 'rober';
+  const cab = { proveedor: provs[0], fecha: fmtFecha(hoy()), numero, almacen: localStorage.getItem('cp.almacen') || '', observaciones: o.observaciones || '' };
+  const opc = { igic: CP.parseNum(localStorage.getItem('cp.igic') || '7') };
+  const aoa = (rober ? CP.filasGeminis([...suma.values()], cab, opc) : CP.filasGeminisLuis([...suma.values()], cab, opc)).map((f) => f.map(quitar));
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [{ wch: 15 }, { wch: 38 }, { wch: 14 }, { wch: 6 }, { wch: 8 }, { wch: 8 }, { wch: 9 }, { wch: 7 }, { wch: 6 }, { wch: 10 }, { wch: 9 }, { wch: 9 }, { wch: 12 }, { wch: 14 }];
+  ws['!cols'] = rober
+    ? [{ wch: 15 }, { wch: 38 }, { wch: 14 }, { wch: 6 }, { wch: 8 }, { wch: 8 }, { wch: 9 }, { wch: 7 }, { wch: 6 }, { wch: 10 }, { wch: 9 }, { wch: 9 }, { wch: 12 }, { wch: 14 }]
+    : [{ wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 40 }, { wch: 7 }, { wch: 9 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 12 }, { wch: 2 }, { wch: 12 }, { wch: 10 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
-  XLSX.writeFile(wb, `PEDIDO_${quitar(provs[0]).replace(/\W+/g, '_')}${numero ? '_' + String(numero).replace(/\W+/g, '_') : ''}.xls`, { bookType: 'biff5' });
+  XLSX.writeFile(wb, `PEDIDO_${quitar(provs[0]).replace(/\W+/g, '_')}${numero ? '_' + String(numero).replace(/\W+/g, '_') : ''}${rober ? '_ROBER' : ''}.xls`, { bookType: 'biff5' });
 }
 
 // ── Nube (Supabase, proyecto «App Bancos», tablas cp_*) ──────────────────────
