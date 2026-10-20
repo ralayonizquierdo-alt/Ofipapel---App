@@ -2,12 +2,12 @@
 // en el propio teléfono (algoritmo de la NOAA, error de ~1 minuto): no hace
 // falta internet ni ningún servicio externo.
 //
-// Regla del servicio (indicada por el propietario, 20/10/2026): el inicio es
-// 15 minutos antes de la salida del sol y el fin 15 minutos antes de la puesta,
-// redondeados al múltiplo de 5 minutos más cercano.
+// Regla del servicio (indicada por el propietario, 20/10/2026, corregida el
+// mismo día): el inicio es 15 minutos ANTES de la salida del sol y el fin 15
+// minutos DESPUÉS de la puesta, redondeados al múltiplo de 5 minutos más cercano.
 (function (raiz) {
   const GCTS = {lat: 28.0445, lon: -16.5725, zona: 'Atlantic/Canary'};
-  const ANTELACION_MIN = 15, REDONDEO_MIN = 5;
+  const MARGEN_MIN = 15, REDONDEO_MIN = 5;
   const rad = g => g * Math.PI / 180, grad = r => r * 180 / Math.PI;
 
   // Minutos UTC desde la medianoche UTC de la fecha; salida (subida=true) o puesta.
@@ -29,12 +29,14 @@
   }
   const aMin = hhmm => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
   const aHora = min => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
-  const servicio = hhmm => aHora(Math.round((aMin(hhmm) - ANTELACION_MIN) / REDONDEO_MIN) * REDONDEO_MIN);
+  const servicio = (hhmm, desfase) => aHora(Math.round((aMin(hhmm) + desfase) / REDONDEO_MIN) * REDONDEO_MIN);
 
   function horarioSolar(fecha, lugar = GCTS) {
     const salida = horaLocal(fecha, minutosUTC(fecha, true, lugar), lugar.zona);
     const puesta = horaLocal(fecha, minutosUTC(fecha, false, lugar), lugar.zona);
-    return {salida, puesta, inicio: servicio(salida), fin: servicio(puesta)};
+    // finAnterior: la regla equivocada de la primera versión (15 min antes de la
+    // puesta), para corregir los días que se abrieron con ella.
+    return {salida, puesta, inicio: servicio(salida, -MARGEN_MIN), fin: servicio(puesta, MARGEN_MIN), finAnterior: servicio(puesta, -MARGEN_MIN)};
   }
 
   const api = {horarioSolar, GCTS};

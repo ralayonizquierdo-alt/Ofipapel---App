@@ -134,7 +134,7 @@ function renderEntries() {
 // ── Datos del turno ─────────────────────────────────────────────────────
 // Al abrir un día nuevo se copia el halconero del último día con datos, para
 // revisar. El horario sale del sol de ese día (fauna/sol.js: 15 min antes de la
-// salida y de la puesta, redondeado a 5 min) y se puede cambiar a mano. Tiempo,
+// salida y 15 min después de la puesta, redondeado a 5 min) y se puede cambiar a mano. Tiempo,
 // viento y registros empiezan vacíos: nunca se copian incidencias de otro día.
 function loadFields() {
   let values = state.fields[dateInput.value];
@@ -147,7 +147,8 @@ function loadFields() {
   const sol = window.FaunaSol?.horarioSolar(dateInput.value);
   if (sol) {
     if (!values['start-time']) values['start-time'] = sol.inicio;
-    if (!values['end-time']) values['end-time'] = sol.fin;
+    // También si quedó puesto con la regla equivocada (15 min antes de la puesta).
+    if (!values['end-time'] || values['end-time'] === sol.finAnterior) values['end-time'] = sol.fin;
   }
   save();
   for (const id of fields) $(id).value = values[id] || '';
