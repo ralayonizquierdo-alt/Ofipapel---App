@@ -664,7 +664,7 @@ export default function Collections() {
                       <td className="py-2.5 px-4 text-right text-green-700 whitespace-nowrap">{efectivo > 0 ? `${numSuelto(efectivo)} €` : '—'}</td>
                       <td className="py-2.5 px-4 text-right font-bold text-slate-800 whitespace-nowrap">{numSuelto(total)} €</td>
                       <td className="py-2.5 px-4 text-right text-slate-500 text-xs whitespace-nowrap">{numSuelto(igic)} €</td>
-                      <td className="py-2.5 px-4 text-right font-semibold text-amber-700 bg-amber-50 whitespace-nowrap">{(total + numSuelto(igic))} €</td>
+                      <td className="py-2.5 px-4 text-right font-semibold text-amber-700 bg-amber-50 whitespace-nowrap">{numSuelto(total + igic)} €</td>
                     </tr>
                   )
                 })}
@@ -673,10 +673,10 @@ export default function Collections() {
                 <tr>
                   <td className="py-3 px-4 font-semibold text-slate-700">TOTAL ANUAL</td>
                   <td className="py-3 px-4 text-right font-bold text-blue-700 whitespace-nowrap">
-                    {visibleApts.reduce((s, a) => s + getAnnualBreakdown(a.id).transferencia, numSuelto(0))} €
+                    {numSuelto(visibleApts.reduce((s, a) => s + getAnnualBreakdown(a.id).transferencia, 0))} €
                   </td>
                   <td className="py-3 px-4 text-right font-bold text-green-700 whitespace-nowrap">
-                    {visibleApts.reduce((s, a) => s + getAnnualBreakdown(a.id).efectivo, numSuelto(0))} €
+                    {numSuelto(visibleApts.reduce((s, a) => s + getAnnualBreakdown(a.id).efectivo, 0))} €
                   </td>
                   <td className="py-3 px-4 text-right font-bold text-slate-900 whitespace-nowrap">{numSuelto(yearTotal)} €</td>
                   <td className="py-3 px-4 text-right font-semibold text-slate-600 whitespace-nowrap">{numSuelto(calcIGIC(yearTotal))} €</td>

@@ -31,18 +31,43 @@ export interface LineaPegada {
   nota?: string
 }
 
+/**
+ * El número de un inmueble, venga pegado a lo que venga.
+ *
+ * En los conceptos del banco el número va pegado a las letras: «AL104 11/10-27/10».
+ * Con `\b104\b` eso no casaba —entre la «L» y el «1» no hay frontera de palabra,
+ * las dos son caracteres de palabra— y el cobro se quedaba sin apartamento. Lo
+ * único que hay que exigir es que no esté pegado a OTRO dígito, para no leer
+ * «1104» o «2041» como si fueran el 104 y el 204.
+ */
+const numero = (n: string) => new RegExp(`(?:^|[^0-9])${n}(?:[^0-9]|$)`)
+
 const INMUEBLES: { id: string; patrones: RegExp[] }[] = [
-  { id: '104',  patrones: [/\b104\b/] },
-  { id: '105',  patrones: [/\b105\b/] },
-  { id: '106',  patrones: [/\b106\b/] },
-  { id: '203',  patrones: [/\b203\b/] },
-  { id: '204',  patrones: [/\b204\b/] },
-  { id: '402',  patrones: [/\b402\b/, /\b[áa]tico\b/i] },
-  { id: 'P3',   patrones: [/\bpiso\s*-?\s*3\b/i, /\bp\s*-?\s*3\b/i, /\bjuan\s*xxi{1,3}\b/i] },
-  { id: 'AP2B', patrones: [/\barenal\b/i, /\bap\s*-?\s*2\s*-?\s*b\b/i, /\bmonta[ñn]a\s*chica\b/i] },
+  { id: '104',  patrones: [numero('104')] },
+  { id: '105',  patrones: [numero('105')] },
+  { id: '106',  patrones: [numero('106')] },
+  { id: '203',  patrones: [numero('203')] },
+  { id: '204',  patrones: [numero('204')] },
+  { id: '402',  patrones: [numero('402'), /[áa]tico/i] },
+  { id: 'P3',   patrones: [/piso\s*-?\s*3(?:[^0-9]|$)/i, /(?:^|[^a-z0-9])p\s*-?\s*3(?:[^0-9]|$)/i,
+                           /juan\s*xxi{1,3}/i] },
+  { id: 'AP2B', patrones: [/arenal/i, /(?:^|[^a-z0-9])ap\s*-?\s*2\s*-?\s*b/i, /monta[ñn]a\s*chica/i] },
 ]
 
-const FECHA = /(\d{1,2})\s*[/.-]\s*(\d{1,2})(?:\s*[/.-]\s*(\d{2,4}))?/g
+/**
+ * «AL104» → «AL 104», para que el P-3 y el AP-2-B también se reconozcan
+ * cuando el banco los escribe pegados al prefijo de siempre.
+ */
+const despega = (t: string) => t.replace(/\bAL(?=[A-Za-z0-9])/g, 'AL ')
+
+/**
+ * Una fecha suelta: «17/08», «17/08/26» o «17-08-2026».
+ *
+ * El año solo se toma si detrás no viene otra fecha. En «11/10-27/10» el guion
+ * es el del periodo, no el separador del año: sin esa condición se leía «11 de
+ * octubre de 2027» y el cobro se iba a un año que no existe.
+ */
+const FECHA = /(\d{1,2})\s*[/.-]\s*(\d{1,2})(?:\s*[/.-]\s*(\d{2,4})(?!\s*[/.]\s*\d))?/g
 
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
@@ -76,7 +101,7 @@ export function analizaPegado(texto: string, hoy = new Date()): LineaPegada[] {
     const cabeza = fechas.length ? linea.slice(0, fechas[0].index) : linea
     let apartmentId: string | null = null
     for (const { id, patrones } of INMUEBLES) {
-      if (patrones.some(p => p.test(cabeza))) { apartmentId = id; break }
+      if (patrones.some(p => p.test(despega(cabeza)))) { apartmentId = id; break }
     }
 
     // Una línea sin inmueble ni fechas es saludo o firma: no se enseña.
@@ -208,7 +233,7 @@ export function analizaAirbnb(texto: string, hoy = new Date()): LineaPegada | nu
   // Si el texto nombra una, manda; si no, la única publicada en Airbnb.
   let apartmentId: string | null = null
   for (const { id, patrones } of INMUEBLES) {
-    if (patrones.some(p => p.test(plano))) { apartmentId = id; break }
+    if (patrones.some(p => p.test(despega(plano)))) { apartmentId = id; break }
   }
   const notas: string[] = []
   if (!apartmentId) {
@@ -365,8 +390,9 @@ export function analizaCobro(texto: string): CobroPegado | null {
   const concepto = (conceptoM ? conceptoM[1] : plano).trim()
 
   let apartmentId: string | null = null
+  const paraBuscar = despega(concepto)
   for (const { id, patrones } of INMUEBLES) {
-    if (patrones.some(p => p.test(concepto))) { apartmentId = id; break }
+    if (patrones.some(p => p.test(paraBuscar))) { apartmentId = id; break }
   }
 
   FECHA.lastIndex = 0
