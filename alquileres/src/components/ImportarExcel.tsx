@@ -357,7 +357,7 @@ export default function ImportarExcel(
             {previo.reparaciones.length > 0 && (
               <p className="text-xs text-slate-500">
                 Las {previo.reparaciones.length} líneas de reparaciones
-                ({previo.reparaciones.reduce((s, r) => s + r.base, numSuelto(0))} €)
+                ({numSuelto(previo.reparaciones.reduce((s, r) => s + r.base, 0))} €)
                 <strong> no se cargan como gasto</strong>: ya están en la pantalla de
                 Reparaciones. Solo se anota la cifra del Excel para poder compararlas y
                 avisar en el dashboard si no cuadran.
