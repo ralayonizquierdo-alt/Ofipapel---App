@@ -47,6 +47,13 @@ function datosDelDia(fecha) {
 }
 function huella(fecha) { return JSON.stringify(datosDelDia(fecha)); }
 
+// La cronología abre siempre con «Inicio de servicio» y cierra con «Fin de
+// servicio», a la hora del horario del turno. Si el halconero ya lo apuntó
+// como registro, se usa ese (con su hora) en lugar de duplicarlo.
+const INICIO = 'Inicio de servicio', FIN = 'Fin de servicio';
+const esInicio = t => /^\s*inicio de(l)? servicio/i.test(String(t || ''));
+const esFin = t => /^\s*fin de(l)? servicio/i.test(String(t || ''));
+
 function construirParte(fecha) {
   const {campos, entradas} = datosDelDia(fecha);
   const d = (e, k) => String((e.details || {})[k] || '').trim();
@@ -59,12 +66,23 @@ function construirParte(fecha) {
     editado: null,
     cabecera: {empresa:'FENIX CONTROL DE FAUNA', fecha:fechaES(fecha), halconero:campos.agent || '', clima:campos.weather || '', horario},
     filas: {
-      crono: entradas.map((e, i) => {
-        let actuacion = texto(e);
-        if (e.kind === 'aviso') actuacion = `Aviso ${(d(e,'direction') || 'recibido').toLowerCase()}: ${actuacion}`;
-        else if (e.kind !== 'actuacion') actuacion = `${ETIQUETAS[e.kind] || 'Registro'}: ${actuacion}`;
-        return [e.time || '', d(e,'wind') || (i === 0 ? campos.wind || '' : ''), actuacion, e.kind === 'aviso' ? 'AVISO' : d(e,'observations')];
-      }),
+      crono: (() => {
+        const fila = e => {
+          let actuacion = texto(e);
+          if (e.kind === 'aviso') actuacion = `Aviso ${(d(e,'direction') || 'recibido').toLowerCase()}: ${actuacion}`;
+          else if (e.kind !== 'actuacion') actuacion = `${ETIQUETAS[e.kind] || 'Registro'}: ${actuacion}`;
+          return [e.time || '', d(e,'wind'), actuacion, e.kind === 'aviso' ? 'AVISO' : d(e,'observations')];
+        };
+        const propia = (prueba, hora, nombre) => {
+          const e = entradas.find(x => x.kind === 'actuacion' && prueba(texto(x)));
+          return e ? fila(e) : [hora || '', '', nombre, ''];
+        };
+        const inicio = propia(esInicio, campos['start-time'], INICIO);
+        const fin = propia(esFin, campos['end-time'], FIN);
+        if (!inicio[1]) inicio[1] = campos.wind || '';
+        const resto = entradas.filter(e => !(e.kind === 'actuacion' && (esInicio(texto(e)) || esFin(texto(e))))).map(fila);
+        return [inicio, ...resto, fin];
+      })(),
       fauna: de('fauna').map(e => [e.time || '', d(e,'species'), d(e,'count'), d(e,'behavior'), d(e,'altitude'), d(e,'origin'), d(e,'destination'), codigo(d(e,'action')), d(e,'threat'), d(e,'observations') || texto(e)]),
       captura: de('captura').map(e => [d(e,'species'), codigo(d(e,'method')), d(e,'count'), d(e,'location'), codigo(d(e,'destination')), d(e,'observations') || texto(e)]),
       retirada: de('retirada').map(e => [e.time || '', d(e,'species'), d(e,'count'), d(e,'location'), d(e,'impact'), d(e,'observations') || texto(e)]),
@@ -243,13 +261,18 @@ function ordenarPorHora(s) {
   const filaActiva = activa && parte.filas[activa.dataset.sec][+activa.dataset.fila];
   const conHora = [], sinHora = [], vacias = [];
   for (const f of filas) (!tieneDatos(f) ? vacias : minutos(f[col]) === null ? sinHora : conHora).push(f);
+  // En la cronología, inicio y fin de servicio no se mueven de su sitio.
+  const act = s.cols.indexOf('ACTUACIONES');
+  const fijo = f => act < 0 ? 0 : esInicio(f[act]) ? -1 : esFin(f[act]) ? 1 : 0;
   conHora.sort((a, b) => minutos(a[col]) - minutos(b[col])); // sort es estable: a igual hora, se respeta el orden
   let formatoCambiado = false;
   for (const f of conHora) {
     const m = minutos(f[col]), bonita = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
     if (f[col] !== bonita) { f[col] = bonita; formatoCambiado = true; }
   }
-  const nuevas = [...conHora, ...sinHora, ...vacias];
+  // Inicio siempre arriba y fin siempre al final (tengan hora o no).
+  const datos = [...conHora, ...sinHora];
+  const nuevas = [...datos.filter(f => fijo(f) < 0), ...datos.filter(f => !fijo(f)), ...datos.filter(f => fijo(f) > 0), ...vacias];
   // Si nada se mueve ni cambia de formato, no se redibuja (no se pierde el cursor).
   if (!formatoCambiado && nuevas.every((f, i) => f === filas[i])) return;
   parte.filas[s.key] = nuevas;
