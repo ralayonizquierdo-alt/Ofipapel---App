@@ -1334,7 +1334,12 @@ function quitarPropuesta() {
 function tablaLineas(p, cat) {
   if (!p.lineas.length) return `<div class="vacio">Sin líneas. Lee las fotos, pégalas o añádelas a mano.</div>`;
   const fueraCat = cat ? p.lineas.filter((l) => l.ref && !enCatalogo(cat, l.ref)).length : 0;
-  const dudas = p.lineas.filter((l) => l.duda).length;
+  // Una duda de lectura deja de importar cuando la propuesta del proveedor trae
+  // esa misma referencia y cuadra en todo (cantidad y precio): ya no se enseña.
+  let confirmadas = new Set();
+  try { if (p.propuesta) confirmadas = new Set(comparar(p).filter((f) => f.estado === 'ok').map((f) => CP.claveRef(f.ref))); } catch (e) { /* sin comparación, se enseñan todas */ }
+  const dudaDe = (l) => (l.duda && !confirmadas.has(CP.claveRef(l.ref)) ? l.duda : '');
+  const dudas = p.lineas.filter((l) => dudaDe(l)).length;
   return `
   <div class="resumen">
     <span class="chip gris">${p.lineas.length} líneas</span>
@@ -1348,7 +1353,8 @@ function tablaLineas(p, cat) {
       const fuera = cat && ref && !enCatalogo(cat, ref);
       const sug = fuera ? CP.sugerenciasCatalogo(ref, cat, 4) : [];
       const enCat = enCatalogo(cat, ref);
-      return `<tr class="${fuera ? 'fuera-catalogo' : ''} ${l.duda ? 'duda' : ''}">
+      const duda = dudaDe(l);
+      return `<tr class="${fuera ? 'fuera-catalogo' : ''} ${duda ? 'duda' : ''}">
         <td class="c-cant"><input class="cant" inputmode="decimal" value="${h(l.cant)}" onchange="cambiaLinea(${i},'cant',this.value)"></td>
         <td class="c-exp"><input type="checkbox" ${l.exp ? 'checked' : ''} onchange="cambiaLinea(${i},'exp',this.checked)"></td>
         <td class="c-ref"><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value)">${l.alta ? `<div class="pequeno">🆕 ${CP.REF_ALTA}</div>` : ''}
@@ -1356,7 +1362,7 @@ function tablaLineas(p, cat) {
         <td class="c-desc"><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value)">${enCat && enCat.d ? `<div class="pequeno">${h(enCat.d)}</div>` : ''}</td>
         <td class="c-precio"><input class="precio" inputmode="decimal" value="${l.precio == null ? '' : h(fmtPrecio(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value)">
           ${enCat && enCat.p != null && l.precio != null && CP.red2(enCat.p) !== CP.red2(l.precio) ? `<div class="pequeno">Tarifa ${fmt(enCat.p)}</div>` : ''}</td>
-        <td class="c-duda${l.duda ? '' : ' vacia'}">${l.duda ? `<div class="duda-txt">${h(l.duda)}</div>` : `<input value="" onchange="cambiaLinea(${i},'duda',this.value)" placeholder="—">`}${l.duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda','')">✓ Está bien</button>` : ''}</td>
+        <td class="c-duda${duda ? '' : ' vacia'}">${duda ? `<div class="duda-txt">${h(duda)}</div>` : `<input value="" onchange="cambiaLinea(${i},'duda',this.value)" placeholder="—">`}${duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda','')">✓ Está bien</button>` : ''}</td>
         <td class="c-x"><button class="btn peque peligro" onclick="borrarLinea(${i})" title="Borrar la línea entera">✕</button></td>
       </tr>`;
     }).join('')}
