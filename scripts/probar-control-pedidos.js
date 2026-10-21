@@ -778,3 +778,14 @@ test('Excel de Géminis, plantilla «Luis» (PEDIDOS_PROVEEDORES_ALTA_NUEVOS.xlt
   assert.deepEqual(aoa[12].slice(2, 4), ['2 ALTA NUEVA', 'UA000570>MALETIN']);
   assert.equal(aoa.length, 13, 'sin fila de total: la plantilla no la lleva');
 });
+
+test('Factura agrupada (Apli/Miquelrius): un documento por «Pedido Cliente», cada uno a su pedido', () => {
+  const l = (ref, pedido) => ({ referencia: ref, ean: '', descripcion: ref, cantidad: '1', udsCaja: '', precio: '10,000', descuentos: '29', importe: '7,10', duda: '', pedido });
+  const res = { proveedor: 'APLI PAPER S.A.U.', tipoDocumento: 'factura', numero: '1771692', fecha: '', pedidoCliente: 'Pedido 5_ B2F; Pedido 6_B2F', baseImponible: '21,30', dtoGlobal: '', notas: '',
+    lineas: [l('MR8280', 'Pedido 5_ B2F'), l('MR13428', 'Pedido 5_ B2F'), l('MR19683', 'Pedido 6_B2F')] };
+  const partes = CP.separarPorPedido(res).map(CP.lineasDeDocumento);
+  assert.deepEqual(partes.map((d) => [d.cabecera.numeroPedido, d.lineas.map((x) => x.ref).join(',')]), [[5, 'MR8280,MR13428'], [6, 'MR19683']]);
+  assert.equal(partes[0].control.cuadra, null, 'la base imponible es la del total: en las partes no se compara');
+  // De un solo pedido (o sin el campo), el documento tal cual
+  assert.equal(CP.separarPorPedido(Object.assign({}, res, { lineas: res.lineas.map((x) => Object.assign({}, x, { pedido: '' })) })).length, 1);
+});
