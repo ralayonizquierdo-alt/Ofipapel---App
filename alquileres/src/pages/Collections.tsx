@@ -967,10 +967,14 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
       )
     }
     if (saldo > 0 && r.checkOut >= hoy) {
-      return (
-        <td className={`${celda} text-right text-slate-300`}
-          title={`Aún en curso: quedan ${imp(saldo)} € por cobrar`}>—</td>
-      )
+      // La raya es la misma —no hay nada que reclamar todavía—, pero el aviso
+      // al pasar por encima no puede decir «en curso» de una estancia que aún
+      // no ha entrado: eso es lo que hacía, y en noviembre y diciembre casi
+      // todas las del Arenal son futuras.
+      const aviso = r.checkIn > hoy
+        ? `Aún no ha entrado: se cobrarán ${imp(saldo)} €`
+        : `Estancia en curso: quedan ${imp(saldo)} € por cobrar`
+      return <td className={`${celda} text-right text-slate-300`} title={aviso}>—</td>
     }
     return (
       <td className={`${celda} text-right font-semibold text-purple-700`}
