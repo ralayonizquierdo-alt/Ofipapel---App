@@ -942,30 +942,22 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
   }
 
   /**
-   * El último mes del año en el que aparece una estancia.
-   *
-   * El pendiente se dice una sola vez, ahí: repetir el mismo saldo en cada mes
-   * que ocupa una estancia larga llenaba la columna de cifras iguales y hacía
-   * pensar que se debía en todos.
-   */
-  const ultimoMesDe = (r: Reservation): number => {
-    for (let m = 12; m >= 1; m--) {
-      const mm = `${year}-${String(m).padStart(2, '0')}`
-      if (r.checkIn <= `${mm}-31` && r.checkOut > `${mm}-01`) return m
-    }
-    return 0
-  }
-
-  /**
-   * La celda del pendiente, al cerrar cada estancia.
+   * La celda del pendiente de una estancia.
    *
    * Tres cosas distintas, y por eso se ven distintas: un visto verde si está
    * cobrada del todo; una raya si todavía está en marcha y le falta algo —se
    * cobrará a su tiempo, no hay nada que reclamar—; y la cifra en morado solo
    * cuando la estancia ya terminó y sigue debiendo, o cuando se cobró de más.
+   *
+   * Va en **todos** los meses que ocupa la estancia (decisión del propietario,
+   * 21/10/2026). Antes se decía una sola vez, en su último mes, y una estancia
+   * que entra el 24 de marzo, se cobra el 25 y sale el 4 de abril dejaba la
+   * casilla de marzo en blanco —justo al lado de su transferencia— con el
+   * visto escondido en abril. Repetirlo no engaña: el saldo se calcula con
+   * TODOS los cobros del año (`pendienteDe`), así que en marzo y en abril dice
+   * lo mismo, que es lo que pasa de verdad.
    */
-  const Pendiente = ({ r, mes }: { r: Reservation; mes: number }) => {
-    if (mes !== ultimoMesDe(r)) return <td className={celda} />
+  const Pendiente = ({ r }: { r: Reservation }) => {
     const saldo = pendienteDe(r)
     if (Math.abs(saldo) < 0.005) {
       return (
@@ -1174,7 +1166,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                           <td className={`${celda} ${aviso ? 'text-amber-700 font-medium' : 'text-slate-400 italic'}`} colSpan={5}>
                             {texto}
                           </td>
-                          <Pendiente r={r} mes={l.mes} />
+                          <Pendiente r={r} />
                         </tr>
                       )
                     }
@@ -1187,7 +1179,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                           {k === 0 ? imp(cobrado) : ''}
                         </td>
                         {k === cobros.length - 1
-                          ? <Pendiente r={r} mes={l.mes} />
+                          ? <Pendiente r={r} />
                           : <td className={celda} />}
                       </tr>
                     ))
