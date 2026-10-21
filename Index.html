@@ -719,7 +719,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               <span id="cajaConcilFiltroTag" style="font-size:11px;color:var(--texto2);font-style:italic;"></span>
               <span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
                 <span style="font-size:12px;color:var(--texto2);">Dar por cuadrados hasta</span>
-                <input type="date" id="cuadrarHastaFecha" value="2026-10-31" style="padding:3px 6px;border:1px solid var(--borde);border-radius:8px;font-size:12px;">
+                <input type="date" id="cuadrarHastaFecha" value="2026-09-30" style="padding:3px 6px;border:1px solid var(--borde);border-radius:8px;font-size:12px;">
                 <button onclick="cuadrarHasta()" style="padding:4px 12px;background:#e8f5e9;border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--verde,#1A5C1A);font-weight:600;">☑️ Cuadrar</button>
                 <button onclick="quitarTodosCuadrados()" title="Quitar todas las marcas de cuadrado a mano" style="padding:4px 10px;background:#fff;border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;">↩ Deshacer</button>
               </span>
@@ -4581,11 +4581,14 @@ function cuadrarHasta(){
   if(!hasta){ showToast('Elige hasta qué fecha','err'); return; }
   const conc=conciliarRecibos();
   const objetivo=cajaCierres.filter(c=>c.fecha&&c.fecha<=hasta&&!['ok','sin','manual'].includes(estadoBancoDeCierre(c,conc).estado));
-  if(!objetivo.length){ alert('No hay cierres pendientes hasta esa fecha.'); return; }
-  if(!confirm('¿Dar por CUADRADOS a mano '+objetivo.length+' cierres con fecha hasta el '+_diaCorto(hasta)+', aunque les falten recibos del banco?\n\nLos que ya están ✅ no cambian y se puede deshacer.')) return;
+  // lo posterior a la fecha no se da por cuadrado: si ya tenía la marca, se quita (así queda justo «hasta esa fecha»)
+  const despues=cajaCierres.filter(c=>c.fecha&&c.fecha>hasta&&c.cuadradoManual&&!c.cuadradoManual.quitado);
+  if(!objetivo.length&&!despues.length){ alert('No hay nada que cambiar: los cierres hasta esa fecha ya están cuadrados.'); return; }
+  if(!confirm('¿Dar por CUADRADOS a mano '+objetivo.length+' cierres con fecha hasta el '+_diaCorto(hasta)+', aunque les falten recibos del banco?'+(despues.length?'\n\nY quitar la marca a '+despues.length+' posteriores, que vuelven a depender de los recibos.':'')+'\n\nLos que ya están ✅ no cambian y se puede deshacer.')) return;
   const ts=new Date().toISOString();
   objetivo.forEach(c=>{ c.cuadradoManual={por:currentUser||'—',ts}; });
-  saveCajaCierres(); renderCajaView(); showToast('☑️ '+objetivo.length+' cierres dados por cuadrados','ok');
+  despues.forEach(c=>{ c.cuadradoManual={quitado:true,por:currentUser||'—',ts}; });
+  saveCajaCierres(); renderCajaView(); showToast('☑️ '+objetivo.length+' cierres dados por cuadrados'+(despues.length?' · '+despues.length+' posteriores sin marca':''),'ok');
 }
 function quitarCuadrado(fecha,filename){
   const c=cajaCierres.find(x=>(x.fecha||'')===(fecha||'')&&x.filename===filename); if(!c) return;
