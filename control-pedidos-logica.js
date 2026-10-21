@@ -1023,6 +1023,31 @@
    *    documento: `control.cuadra` = false → falta o sobra alguna línea, o
    *    hay un importe mal leído.
    */
+  /**
+   * Una factura agrupada (Apli/Miquelrius: un bloque «Pedido Cliente: Pedido 5_
+   * B2F» por cada pedido nuestro) se parte en un documento por pedido, con las
+   * líneas de cada bloque (`pedido` de cada línea, que la lectura con IA rellena
+   * solo cuando hay varios). La base imponible es la del total, así que en las
+   * partes va vacía. Con un solo pedido, el documento tal cual.
+   */
+  function separarPorPedido(res) {
+    const r = res || {};
+    const lineas = r.lineas || [];
+    const clave = (l) => String((l && l.pedido) || '').trim();
+    const pedidos = [...new Set(lineas.map(clave).filter(Boolean))];
+    if (pedidos.length < 2) return [r];
+    const partes = new Map(pedidos.map((k) => [k, []]));
+    let sin = [];
+    for (const l of lineas) (clave(l) ? partes.get(clave(l)) : sin).push(l);
+    const doc = (k, ls) => Object.assign({}, r, {
+      pedidoCliente: k, baseImponible: '', lineas: ls,
+      notas: [`Parte de ${r.tipoDocumento || 'documento'} ${r.numero || ''} (${pedidos.length} pedidos)`.replace(/\s+/g, ' '), r.notas].filter(Boolean).join(' · '),
+    });
+    const out = pedidos.map((k) => doc(k, partes.get(k)));
+    if (sin.length) out.push(doc('', sin));
+    return out;
+  }
+
   function lineasDeDocumento(res) {
     const r = res || {};
     const lineas = (r.lineas || []).map((l) => ({
@@ -1362,7 +1387,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento,
+    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

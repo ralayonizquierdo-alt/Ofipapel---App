@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-20-3"></script>
+<script src="control-pedidos-logica.js?v=2026-10-21-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -1757,7 +1757,9 @@ async function leerConIA(file, modo) {
   // que solo recibe el jobId: Netlify corta a 256 KB lo que se le manda a una
   // Background Function, y una foto o un PDF pasan de eso (error 413).
   const cab = { 'content-type': 'application/json', 'x-ocr-token': OCR_TOKEN };
-  const sub = await fetch(FN + 'leer-pedido-manuscrito-subir', {
+  const bloqueo = await pantallaEncendida();
+  try {
+  const sub = await fetchReintentando(FN + 'leer-pedido-manuscrito-subir', {
     method: 'POST', headers: cab,
     body: JSON.stringify({ jobId, imagenBase64, mediaType: pdf ? 'application/pdf' : 'image/jpeg' }),
   });
@@ -1765,19 +1767,41 @@ async function leerConIA(file, modo) {
     const e = await sub.json().catch(() => ({}));
     throw new Error(e.error || 'No se ha podido subir (' + sub.status + '). ¿Estás en la web de Netlify?');
   }
-  const r = await fetch(FN + 'leer-pedido-manuscrito-background', { method: 'POST', headers: cab, body: JSON.stringify({ jobId, modo }) });
+  const r = await fetchReintentando(FN + 'leer-pedido-manuscrito-background', { method: 'POST', headers: cab, body: JSON.stringify({ jobId, modo }) }, 2);
   if (r.status !== 202 && !r.ok) throw new Error('El lector no responde (' + r.status + '). ¿Estás en la web de Netlify?');
-  const limite = Date.now() + 5 * 60 * 1000;
+  // La lectura sigue en el servidor aunque el móvil pierda la red un momento
+  // (salir a otra app, apagar la pantalla, pasar de wifi a datos): una
+  // consulta fallida no la da por perdida, se vuelve a preguntar.
+  const limite = Date.now() + 8 * 60 * 1000;
+  let sinRed = null;
   while (Date.now() < limite) {
     await espera(3000);
-    const e = await fetch(FN + 'leer-pedido-manuscrito-estado?jobId=' + encodeURIComponent(jobId), { headers: { 'x-ocr-token': OCR_TOKEN } });
+    let e;
+    try { e = await fetch(FN + 'leer-pedido-manuscrito-estado?jobId=' + encodeURIComponent(jobId), { headers: { 'x-ocr-token': OCR_TOKEN } }); }
+    catch (err) { sinRed = err; continue; }
+    sinRed = null;
     if (e.status === 202) continue;
     const data = await e.json().catch(() => ({}));
     if (!e.ok) throw new Error(data.error || 'Error consultando la lectura');
     if (data.status === 'error') throw errorDeLectura(data.error);
     if (data.status === 'done') return data.resultado;
   }
-  throw new Error('La lectura ha tardado más de 5 minutos');
+  throw new Error(sinRed ? 'Sin conexión: no se ha podido recoger la lectura. Revisa la cobertura y vuelve a intentarlo.' : 'La lectura ha tardado más de 8 minutos');
+  } finally { if (bloqueo) bloqueo.release().catch(() => {}); }
+}
+/** fetch que reintenta si falla la red («Failed to fetch»), no si el servidor contesta un error. */
+async function fetchReintentando(url, opciones, intentos = 4) {
+  for (let i = 1; ; i++) {
+    try { return await fetch(url, opciones); }
+    catch (err) {
+      if (i >= intentos) throw new Error('Sin conexión con el servidor (' + err.message + '). Revisa la cobertura y vuelve a intentarlo.');
+      await espera(2000 * i);
+    }
+  }
+}
+/** Que la pantalla no se apague mientras se lee (si el navegador lo permite). */
+async function pantallaEncendida() {
+  try { return navigator.wakeLock ? await navigator.wakeLock.request('screen') : null; } catch { return null; }
 }
 
 /** Nº de pedido de una hoja: el que pone «añadir al pedido nº 4» en las notas
@@ -1954,7 +1978,14 @@ async function textoDePdf(file) {
   }
   return lineas;
 }
-async function leerFicheroProveedor(file, idProgreso) {
+/** Un documento del proveedor, o varios si es una factura que agrupa varios
+ *  pedidos nuestros (`separarPorPedido`). Siempre una lista. */
+async function leerDocumentosProveedor(file, idProgreso) {
+  const res = await leerFicheroProveedor(file, idProgreso, null, true);
+  return Array.isArray(res) ? res : [res];
+}
+/** Con `numero`, de una factura agrupada se queda la parte de ese pedido. */
+async function leerFicheroProveedor(file, idProgreso, numero, partes) {
   if (!esPdf(file) && !esImagen(file)) return leerExcel(file);
   // Nuestro pedido de Géminis («Propuesta de Pedido»): se lee exacto, sin IA.
   if (esPdf(file)) {
@@ -1966,7 +1997,16 @@ async function leerFicheroProveedor(file, idProgreso) {
   const caja = idProgreso && document.getElementById(idProgreso);
   if (caja) caja.textContent = `Leyendo ${file.name}… puede tardar uno o dos minutos.`;
   try {
-    return CP.lineasDeDocumento(await leerConIA(file, 'documento'));
+    const res = await leerConIA(file, 'documento');
+    const trozos = CP.separarPorPedido(res);
+    if (trozos.length > 1) {
+      const docs = trozos.map(CP.lineasDeDocumento);
+      if (partes) return docs;
+      const n = String(numero || '').replace(/\D/g, '');
+      const suyo = n && docs.find((d) => d.cabecera.numeroPedido === Number(n));
+      if (suyo) return suyo;
+    }
+    return CP.lineasDeDocumento(res);
   } finally {
     const c = idProgreso && document.getElementById(idProgreso);
     if (c) c.textContent = '';
@@ -2018,7 +2058,7 @@ async function cargarPropuestaEn(id, file) {
   if (!file) return;
   const p = pedidoPorId(id);
   try {
-    const prop = await leerFicheroProveedor(file, 'progresoProp');
+    const prop = await leerFicheroProveedor(file, 'progresoProp', p.numero);
     const n = prop.cabecera.numeroPedido;
     if (n != null && String(n) !== String(p.numero).replace(/\D/g, '') &&
         !confirm(`El Excel dice «${prop.cabecera.observaciones}» y este es el pedido nº ${p.numero}. ¿Cargarlo aquí igualmente?`)) return;
@@ -2060,6 +2100,8 @@ function importeDoc(prop) {
 }
 const textoParecido = (x) => `${x.comunes} de ${x.deDoc} referencias coinciden`;
 
+/** «0001771692.PDF · Pedido 5_ B2F» para cada parte de una factura agrupada. */
+const nombrePorPedido = (nombre, prop, n) => (n > 1 ? `${nombre} · ${(prop.cabecera.observaciones || '').split(' · ')[0] || 'sin pedido'}` : nombre);
 async function cargarPropuestasVarias(files, clave) {
   const enCampana = (q) => !clave || claveGrupo(q) === clave;
   // Copia antes del primer await: el onchange hace this.value='' justo después
@@ -2073,7 +2115,8 @@ async function cargarPropuestasVarias(files, clave) {
     const f = lista[i];
     progreso(`Leyendo ${i + 1} de ${lista.length}: ${f.name}${esPdf(f) || esImagen(f) ? ' (PDF/foto: hasta un minuto)' : ''}…`);
     try {
-      leidos.push({ id: nuevoId(), archivo: f.name, prop: await leerFicheroProveedor(f) });
+      const docs = await leerDocumentosProveedor(f);
+      for (const prop of docs) leidos.push({ id: nuevoId(), archivo: nombrePorPedido(f.name, prop, docs.length), prop });
     } catch (err) {
       if (err.sinSaldo) { ultimaCarga.push({ ok: false, texto: MSG_SIN_SALDO }); break; }
       ultimaCarga.push({ ok: false, texto: `${f.name}: ${err.message}` });
@@ -2240,7 +2283,7 @@ async function cargarFacturaEn(id, file) {
   if (!file) return;
   const p = pedidoPorId(id);
   try {
-    const doc = await leerFicheroProveedor(file, 'progresoFactura');
+    const doc = await leerFicheroProveedor(file, 'progresoFactura', p.numero);
     const n = doc.cabecera.numeroPedido;
     if (n != null && String(n) !== String(p.numero).replace(/\D/g, '') &&
         !confirm(`La factura parece del pedido ${n} y este es el nº ${p.numero}. ¿Cargarla aquí igualmente?`)) return;
@@ -2259,7 +2302,10 @@ async function cargarFacturasVarias(files, clave) {
   for (let i = 0; i < lista.length; i++) {
     const f = lista[i];
     progreso(`Leyendo factura ${i + 1} de ${lista.length}: ${f.name}…`);
-    try { leidos.push({ id: nuevoId(), archivo: f.name, prop: await leerFicheroProveedor(f) }); }
+    try {
+      const docs = await leerDocumentosProveedor(f);
+      for (const prop of docs) leidos.push({ id: nuevoId(), archivo: nombrePorPedido(f.name, prop, docs.length), prop });
+    }
     catch (err) {
       if (err.sinSaldo) { ultimaCarga.push({ ok: false, texto: MSG_SIN_SALDO }); break; }
       ultimaCarga.push({ ok: false, texto: `${f.name}: ${err.message}` });

@@ -76,6 +76,7 @@ Para cada línea de artículo (de todas las páginas, y de todos los albaranes s
 - descuentos: los descuentos de la línea en porcentaje, en orden y separados por «+» (p. ej. «10+5»). Vacío si no hay.
 - importe: el importe de la línea tal como figura, después de sus descuentos y SIN impuestos.
 - duda: si algo de la línea no se lee bien o es ambiguo, explícalo; si no, vacío.
+- pedido: solo si el documento agrupa VARIOS pedidos nuestros en bloques (p. ej. una factura con «Pedido Cliente: Pedido 5_ B2F», «Pedido Cliente: Pedido 6_B2F»… encabezando cada bloque de líneas), el pedido del bloque al que pertenece esta línea, copiado tal cual; si el documento es de un solo pedido, vacío.
 
 Reglas:
 - Copia los números tal como están (coma decimal). No calcules ni corrijas nada: si un importe no cuadra con precio × cantidad, cópialo igualmente.
@@ -110,8 +111,9 @@ const ESQUEMA_DOCUMENTO = {
           descuentos: { type: 'string' },
           importe: { type: 'string' },
           duda: { type: 'string' },
+          pedido: { type: 'string', description: 'pedido nuestro del bloque de esta línea si el documento agrupa varios; si no, vacío' },
         },
-        required: ['referencia', 'ean', 'descripcion', 'cantidad', 'udsCaja', 'precio', 'descuentos', 'importe', 'duda'],
+        required: ['referencia', 'ean', 'descripcion', 'cantidad', 'udsCaja', 'precio', 'descuentos', 'importe', 'duda', 'pedido'],
         additionalProperties: false,
       },
     },
