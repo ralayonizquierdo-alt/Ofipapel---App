@@ -967,10 +967,14 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
       )
     }
     if (saldo > 0 && r.checkOut >= hoy) {
-      return (
-        <td className={`${celda} text-right text-slate-300`}
-          title={`Aún en curso: quedan ${imp(saldo)} € por cobrar`}>—</td>
-      )
+      // La raya es la misma —no hay nada que reclamar todavía—, pero el aviso
+      // al pasar por encima no puede decir «en curso» de una estancia que aún
+      // no ha entrado: eso es lo que hacía, y en noviembre y diciembre casi
+      // todas las del Arenal son futuras.
+      const aviso = r.checkIn > hoy
+        ? `Aún no ha entrado: se cobrarán ${imp(saldo)} €`
+        : `Estancia en curso: quedan ${imp(saldo)} € por cobrar`
+      return <td className={`${celda} text-right text-slate-300`} title={aviso}>—</td>
     }
     return (
       <td className={`${celda} text-right font-semibold text-purple-700`}
@@ -1178,9 +1182,12 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                         <td className={`${celda} text-right font-semibold text-slate-800`}>
                           {k === 0 ? imp(cobrado) : ''}
                         </td>
-                        {k === cobros.length - 1
-                          ? <Pendiente r={r} />
-                          : <td className={celda} />}
+                        {/* En la primera línea, con el «Cobrado» del mes y los
+                            datos de la reserva. Cuando una estancia tiene dos
+                            cobros en el mismo mes, antes iba en la última y
+                            quedaba un renglón por debajo de su propia cifra,
+                            como si fuera de otra cosa. */}
+                        {k === 0 ? <Pendiente r={r} /> : <td className={celda} />}
                       </tr>
                     ))
                   })}
