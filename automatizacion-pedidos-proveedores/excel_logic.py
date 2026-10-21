@@ -349,7 +349,7 @@ def _construir_con_plantilla(
     Datos desde Excel fila 11. Fila TOTAL al final con suma de importes.
     """
     import openpyxl as _opx
-    from openpyxl.styles import Font as _Font
+    from openpyxl.styles import Alignment as _Alignment, Font as _Font
 
     wb = _opx.load_workbook(ruta_plantilla)
     ws = wb["fichero"]
@@ -376,7 +376,9 @@ def _construir_con_plantilla(
         cantvend_val = cantvend if pd.notna(cantvend) else ""
         precio_val = precio if pd.notna(precio) else ""
 
-        ws.cell(row=fila, column=2).value = descrip
+        _cb = ws.cell(row=fila, column=2)
+        _cb.value = descrip
+        _cb.alignment = _Alignment(horizontal="left", wrap_text=False)
         ws.cell(row=fila, column=3).value = str(cod_compra)
 
         if cantvend_val != "":
