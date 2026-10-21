@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-21-1"></script>
+<script src="control-pedidos-logica.js?v=2026-10-21-2"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -697,7 +697,9 @@ function vistaGrupo(g, i) {
       <button class="btn primario" onclick="avisarCompras(${js(g.clave)})">📣 Avisar a compras: pedidos listos</button>
       ${esComercial() ? '' : `<button class="btn primario" onclick="prepararEnvio(${js(g.clave)}, this.closest('details'))">📧 Enviar pedidos al proveedor</button>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📄 Cargar propuestas del proveedor de esta campaña
-        <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files, ${js(g.clave)}); this.value=''"></label>`}
+        <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
+      <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px" title="Para el proveedor que lo factura todo junto, sin separar por cliente: cada línea va al pedido que pidió esa referencia">🧩 Factura de todo junto: repartirla por referencias
+        <input type="file" multiple class="oculto" onchange="repartirFacturaCampana(this.files, ${js(g.clave)}); this.value=''"></label>`}
       <button class="btn peque" onclick="renombrarCampana(${js(g.clave)})">✏️ ${ej.campana ? 'Renombrar' : 'Poner nombre a'} la campaña</button>`}
       ${esComercial() ? '' : `<button class="btn" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel de la compra al proveedor (Géminis)</button>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales${esRepo(ej) ? ' (opcional)' : ''}
@@ -2163,6 +2165,84 @@ async function cargarPropuestasVarias(files, clave) {
     ultimaCarga.push({ ok: true, texto: `Total: ${leidos.length} documento(s) leídos · ${leidos.reduce((t, x) => t + x.prop.lineas.length, 0)} líneas · ${fmt(CP.red2(leidos.reduce((t, x) => t + importeDoc(x.prop), 0)))} € · ${okk.length} asignado(s) a su pedido${sinAsignar.length ? ` · ${sinAsignar.length} por confirmar abajo` : ''}` });
   }
   progreso('');
+  guardar(); pintar();
+  const caja = document.getElementById('avisoCarga'); if (caja) caja.scrollIntoView({ block: 'start' });
+}
+
+/** Factura o propuesta de toda la campaña junta (el proveedor no la separa por
+ *  cliente): se reparte por referencias entre los pedidos sin validar de la
+ *  campaña (`repartirPorReferencias`). Lo que no pidió ningún cliente, o lo que
+ *  viene de más, va a un pedido aparte «SIN CLIENTE», donde sale en «Sobran»
+ *  para decidir (aceptarlo para la tienda o reclamarlo). Las facturas se suben
+ *  según llegan: cada una se suma a lo ya repartido (lo que ya le llegó a un
+ *  pedido no se le vuelve a dar) y volver a subir la misma la sustituye
+ *  (cada línea repartida guarda su `origen`). */
+const CLIENTE_SOBRANTES = 'SIN CLIENTE · LO QUE SOBRA DE LA FACTURA';
+async function repartirFacturaCampana(files, clave) {
+  const lista = [...files];
+  if (!lista.length) return;
+  const pedidos = E.pedidos.filter((q) => !q.archivado && !esRepo(q) && claveGrupo(q) === clave);
+  const destino = pedidos.filter((q) => !q.validado && !q.sobrantes);
+  if (!destino.length) { alert('No hay pedidos sin validar en esta campaña.'); return; }
+  if (!confirm(`Se repartirán ${lista.length} documento(s) entre los ${destino.length} pedidos sin validar de esta campaña, por referencias.\n\nSi el proveedor sirve en varias veces, sube cada factura cuando llegue: se suma a lo ya repartido. Volver a subir la misma factura la sustituye.`)) return;
+  ultimaCarga = [];
+  const progreso = (t) => { const c = document.getElementById('progresoProps'); if (c) c.textContent = t; };
+  const docs = [];
+  for (let i = 0; i < lista.length; i++) {
+    const f = lista[i];
+    progreso(`Leyendo ${i + 1} de ${lista.length}: ${f.name}${esPdf(f) || esImagen(f) ? ' (PDF/foto: uno o dos minutos; no salgas de la app)' : ''}…`);
+    try { docs.push({ archivo: f.name, prop: await leerFicheroProveedor(f) }); }
+    catch (err) {
+      ultimaCarga.push({ ok: false, texto: `${f.name}: ${err.message}` });
+      if (err.sinSaldo) break;
+    }
+  }
+  progreso('');
+  if (!docs.length) { pintar(); return; }
+  const lineas = docs.flatMap((d) => d.prop.lineas.map((l) => Object.assign({}, l, { origen: d.archivo })));
+  const cab = Object.assign({}, docs[0].prop.cabecera, { numeroPedido: null, observaciones: `Repartida por referencias entre los pedidos de la campaña (${docs.map((d) => d.archivo).join(', ')})` });
+  const nombres = docs.map((d) => d.archivo);
+  // Lo que ya le llegó a cada pedido con otras facturas repartidas antes (no
+  // con las que se suben ahora, que se sustituyen).
+  const previas = (q) => (q.propuesta && q.propuesta.reparto ? q.propuesta.lineas.filter((l) => !nombres.includes(l.origen)) : []);
+  const r = CP.repartirPorReferencias(lineas, destino.map((q) => ({ id: q.id, numero: q.numero,
+    lineas: q.lineas.concat(previas(q).map((l) => ({ ref: l.ref, cant: -(CP.parseNum(l.cant) || 0) }))) })));
+  const deEsteReparto = (q) => q.propuesta && (q.propuesta.reparto || nombres.some((n) => String(q.propuesta.archivo || '').startsWith(n)));
+  const archivoDe = (ls) => 'Reparto: ' + [...new Set(ls.map((l) => l.origen).filter(Boolean))].join(' + ');
+  const prop = (ls) => ({ cabecera: cab, lineas: ls, catalogo: {}, control: null });
+  const porNumero = (x) => Number(String(x.numero).replace(/\D/g, '')) || 0;
+  for (const q of destino.slice().sort((x, y) => porNumero(x) - porNumero(y))) {
+    const nuevas = r.porPedido.get(q.id) || [];
+    const antes = previas(q);
+    if (nuevas.length) {
+      const todas = antes.concat(nuevas);
+      const aviso = asignarPropuesta(q, archivoDe(todas), prop(todas));
+      q.propuesta.reparto = true;
+      ultimaCarga.push({ ok: true, importe: importeDoc({ lineas: nuevas }), texto: `→ nº ${nPed(q.numero)} ${q.cliente || ''} · ${nuevas.length} líneas · ${fmt(importeDoc({ lineas: nuevas }))} €${antes.length ? ` (más ${antes.length} de facturas anteriores)` : ''}${aviso && !antes.length ? ` — 🔁 ${aviso}` : ''}` });
+    } else if (deEsteReparto(q)) {
+      // Lo que le tocó de estas facturas en un reparto anterior (o con la
+      // asignación por «Pedido N») ya no es suyo; lo de otras facturas, sí.
+      if (antes.length) asignarPropuesta(q, archivoDe(antes), prop(antes)), q.propuesta.reparto = true;
+      else { q.propuesta = null; q.decisiones = {}; invalidar(q); }
+    }
+  }
+  // Lo que no pidió ningún cliente: a su pedido aparte de la campaña.
+  const ej = pedidos[0];
+  let sob = pedidos.find((q) => q.sobrantes);
+  if (r.sobrantes.length) {
+    if (!sob) {
+      sob = { id: nuevoId(), tipo: 'comercial', proveedor: ej.proveedor, campana: ej.campana, numero: siguienteNumero(ej.proveedor, ej.campana), cliente: CLIENTE_SOBRANTES,
+        fecha: hoy(), notas: '', lineas: [], propuesta: null, decisiones: {}, validado: false, final: null, sobrantes: true };
+      E.pedidos.push(sob);
+    }
+    if (!sob.validado) { const todas = previas(sob).concat(r.sobrantes); asignarPropuesta(sob, archivoDe(todas), prop(todas)); sob.propuesta.reparto = true; }
+    ultimaCarga.push({ ok: true, texto: `→ nº ${nPed(sob.numero)} ${CLIENTE_SOBRANTES} · ${r.sobrantes.length} líneas · ${fmt(importeDoc({ lineas: r.sobrantes }))} € (no las pidió ningún cliente o vienen de más: decide en ese pedido si se quedan para la tienda o se reclaman)` });
+  } else if (sob && !sob.validado && sob.propuesta && sob.propuesta.reparto) {
+    const antes = previas(sob);
+    if (antes.length) { asignarPropuesta(sob, archivoDe(antes), prop(antes)); sob.propuesta.reparto = true; } else { sob.propuesta = null; sob.decisiones = {}; invalidar(sob); }
+  }
+  const sinNada = destino.filter((q) => !r.porPedido.has(q.id)).length;
+  ultimaCarga.push({ ok: true, texto: `Total: ${docs.length} documento(s) · ${lineas.length} líneas · ${fmt(CP.red2(lineas.reduce((t, l) => t + (l.importe || 0), 0)))} € · repartido entre ${r.porPedido.size} pedido(s)${sinNada ? ` · ${sinNada} pedido(s) sin nada en esta factura` : ''}` });
   guardar(); pintar();
   const caja = document.getElementById('avisoCarga'); if (caja) caja.scrollIntoView({ block: 'start' });
 }
