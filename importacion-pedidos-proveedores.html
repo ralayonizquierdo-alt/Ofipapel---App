@@ -570,14 +570,32 @@ function parseFaibo(lineas){
 
 // NOGUERA Y VINTRÓ: usa PUNTO como separador decimal (no coma)
 function parseNoguera(lineas){
+  // "CODIGO DESCRIPCION UNIDADES PRECIO [%DTO] PRECIO.NETO IMPORTE"; la
+  // descripción larga sigue en la(s) línea(s) siguiente(s), a veces ya en la
+  // página siguiente. El código puede ser solo de cifras ("102840").
+  // Precio U. = la columna "Precio" (tarifa), tal cual; el "Precio Neto" no se
+  // exporta. En un albarán, las líneas sin Unidades ni Importe son lo pedido y
+  // no servido: no se exportan (homologado con el albarán 217004, 21/10/2026).
   const filas = [];
-  const RE = /^([A-Z]{2}[A-Z0-9]*\d[A-Z0-9]*)\s+(.*?)\s+(\d+\.\d{2})\s+(\d+\.\d{3})\s+(\d+\.\d{2})\s+(\d+\.\d{3})\s+(\d+(?:,\d{3})*\.\d{2})$/;
+  const CODIGO = '([A-Z]{0,4}\\d[A-Z0-9]*)';
+  const RE = new RegExp('^' + CODIGO + '\\s+(.*?)\\s+(\\d+\\.\\d{2})\\s+(\\d+\\.\\d{3})\\s+(?:(\\d+\\.\\d{2})\\s+)?(\\d+\\.\\d{3})\\s+(\\d+(?:,\\d{3})*\\.\\d{2})$');
+  const RE_SIN_SERVIR = new RegExp('^' + CODIGO + '\\s+(.*?)\\s+(\\d+\\.\\d{3})\\s+(\\d+\\.\\d{2})\\s+(\\d+\\.\\d{3})$');
+  let enTabla = false, cur = null;
   lineas.forEach(l=>{
-    const m = l.match(RE);
-    if(!m) return;
-    const [,codigo,desc,cant,,dto,precioNeto,importe] = m;
-    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:Math.round(parseDecPunto(cant)),
-      precioUnitario:parseDecPunto(precioNeto), dto1:parseDecPunto(dto), importe:parseDecPunto(importe)}));
+    if(/^Art[ií]culo\s+Descripci/i.test(l)){ enTabla = true; return; }
+    if(!enTabla) return;
+    let m = l.match(RE);
+    if(m){
+      const [,codigo,desc,cant,precio,dto,,importe] = m;
+      cur = fila_({codigo, descripcion:desc.trim(), cantidad:Math.round(parseDecPunto(cant)),
+        precioUnitario:parseDecPunto(precio), dto1:dto ? parseDecPunto(dto) : 0, importe:parseDecPunto(importe)});
+      filas.push(cur); return;
+    }
+    if(RE_SIN_SERVIR.test(l)){ cur = { descripcion:'' }; return; }
+    // El pie "inscrita en el Reg.Merc..." sale a media página en el texto del PDF.
+    if(/^inscrita\b/i.test(l)) return;
+    if(/^(P[aá]gina|Importe)\b|^[\d.,]+$/i.test(l)){ enTabla = false; return; }
+    if(cur && /^[^\d\s]|^\d+[A-Z]/i.test(l)) cur.descripcion += ' ' + l.trim();
   });
   return filas;
 }
@@ -1514,7 +1532,7 @@ const PERFILES_PROVEEDOR = [
   { id:'faibo', nombre:'FAIBO (VDA. E. FAJEDA)', detectar: t => /VDA\.\s*E\.\s*FAJEDA|FAIBO/i.test(t), parser: parseFaibo,
     total: t => totalRepetidoComa(t, 'BASE IMPONIBLE') },
   { id:'noguera', nombre:'NOGUERA Y VINTRÓ ANDALUCIA', detectar: t => /NOGUERA\s+Y\s+VINTR|B-41574435/i.test(t), parser: parseNoguera,
-    total: t => totalRepetidoPunto(t, 'Total Factura') },
+    total: t => totalRepetidoPunto(t, 'Total Factura') ?? totalRepetidoPunto(t, 'Equivalencia\\s+Venta') },
   { id:'roymart', nombre:'ROYMART, S.L.', detectar: t => /ROYMART|B58263526/i.test(t), parser: parseRoymart,
     total: t => ultimoNumeroTrasLinea(t, 'Total pedido') },
   { id:'talens', nombre:'TALENS ESPAÑA, S.A.U.', detectar: t => /TALENS\s+ESPA|A08542771/i.test(t), parser: parseTalens,
