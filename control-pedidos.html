@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-21-3"></script>
+<script src="control-pedidos-logica.js?v=2026-10-21-4"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -488,28 +488,35 @@ function fotosDe(p) {
 }
 /** Hojas del pedido: las leídas en las fotos, o las que diga el usuario en
  *  «Hojas del pedido» (p.hojas) si la lectura se equivocó. */
-function hojasDe(p) { return CP.hojasDelPedido(fotosDe(p), p.hojas); }
+function hojasDe(p) {
+  const r = CP.hojasDelPedido(fotosDe(p), p.hojas);
+  // También la foto repetida por contenido (sin nº de hoja que la delate).
+  r.fotosRepetidas = CP.fotosRepetidas(p.lineas);
+  r.hayRepetida = r.repetidas.length > 0 || r.fotosRepetidas.length > 0;
+  return r;
+}
 /** En el móvil, cada pedido de la campaña en dos líneas: nº y cliente, y debajo
  *  lo demás en pequeño (en vez de una ficha con una fila por dato). */
 function filaMovil(p, e) {
   const r = hojasDe(p);
   const datos = [fmtFecha(p.fecha).slice(0, 5), p.lineas.length + ' lín.', esRepo(p) ? '' : r.fotos ? '📷 ' + r.fotos + (r.total ? '/' + r.total : '') : ''].filter(Boolean).join(' · ');
   return `<div class="m-tit">${esRepo(p) ? h(p.proveedor) + (p.numero ? ' · nº ' + h(p.numero) : '') : `nº ${h(nPed(p.numero))} · ${h(p.cliente)}`}</div>
-    <div class="m-dat">${h(datos)}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}${r.repetidas.length ? ` <span class="chip mal">hoja ${r.repetidas.join(', ')} repetida</span>` : ''}</div>
+    <div class="m-dat">${h(datos)}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}${r.hayRepetida ? ` <span class="chip mal">foto repetida</span>` : ''}</div>
     <div class="m-est"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</div>`;
 }
 function celdaFotos(p) {
   const r = hojasDe(p);
   if (!r.fotos) return '—';
-  return `${r.fotos}${r.total ? ` <span class="pequeno">(${r.hojas.length} de ${r.total} hojas)</span>` : ''}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}${r.repetidas.length ? ` <span class="chip mal">hoja ${r.repetidas.join(', ')} repetida</span>` : ''}`;
+  return `${r.fotos}${r.total ? ` <span class="pequeno">(${r.hojas.length} de ${r.total} hojas)</span>` : ''}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}${r.hayRepetida ? ` <span class="chip mal">foto repetida</span>` : ''}`;
 }
 function avisoFotos(p) {
   const fotos = fotosDe(p);
   const r = hojasDe(p);
   if (!r.fotos) return '';
-  return `<div class="aviso-caja ${r.faltan.length || r.repetidas.length ? 'mal' : 'info'}">📷 <b>${r.fotos} foto(s)</b>${r.total ? ` · hojas leídas ${r.hojas.join(', ')} de ${r.total}${r.aMano ? ' (total puesto a mano)' : ''}` : ''}
+  return `<div class="aviso-caja ${r.faltan.length || r.hayRepetida ? 'mal' : 'info'}">📷 <b>${r.fotos} foto(s)</b>${r.total ? ` · hojas leídas ${r.hojas.join(', ')} de ${r.total}${r.aMano ? ' (total puesto a mano)' : ''}` : ''}
     ${r.faltan.length ? `<br><b>⚠️ Falta la hoja ${r.faltan.join(', ')} de ${r.total}:</b> súbela con «Hacer foto» o «Elegir de la galería».` : ''}
     ${r.repetidas.length ? `<br><b>⚠️ La hoja ${r.repetidas.join(', ')} está subida dos veces:</b> sus líneas están duplicadas (salen faltas que no lo son). Quita la foto repetida con «quitar».` : ''}
+    ${r.fotosRepetidas.map((x) => `<br><b>⚠️ La foto ${h(x.foto)} es la misma que ${h(x.igualA)}</b> (mismas referencias y cantidades): sus líneas están duplicadas. Quítala con «quitar».`).join('')}
     <div class="pequeno" style="margin-top:4px">${fotos.map((f) => `<span style="display:inline-block;margin:2px 8px 2px 0">${h(f.nombre)}${f.hoja ? ` (hoja ${h(f.hoja)})` : ''}${f.lineas != null ? ` · ${f.lineas} línea(s)` : ''}
       <button class="btn peque peligro no-imprimir" style="padding:1px 6px" onclick="quitarFoto(${js(f.nombre)})" title="Quitar esta foto y sus líneas">quitar</button></span>`).join('')}</div></div>`;
 }
@@ -1327,7 +1334,12 @@ function quitarPropuesta() {
 function tablaLineas(p, cat) {
   if (!p.lineas.length) return `<div class="vacio">Sin líneas. Lee las fotos, pégalas o añádelas a mano.</div>`;
   const fueraCat = cat ? p.lineas.filter((l) => l.ref && !enCatalogo(cat, l.ref)).length : 0;
-  const dudas = p.lineas.filter((l) => l.duda).length;
+  // Una duda de lectura deja de importar cuando la propuesta del proveedor trae
+  // esa misma referencia y cuadra en todo (cantidad y precio): ya no se enseña.
+  let confirmadas = new Set();
+  try { if (p.propuesta) confirmadas = new Set(comparar(p).filter((f) => f.estado === 'ok').map((f) => CP.claveRef(f.ref))); } catch (e) { /* sin comparación, se enseñan todas */ }
+  const dudaDe = (l) => (l.duda && !confirmadas.has(CP.claveRef(l.ref)) ? l.duda : '');
+  const dudas = p.lineas.filter((l) => dudaDe(l)).length;
   return `
   <div class="resumen">
     <span class="chip gris">${p.lineas.length} líneas</span>
@@ -1341,7 +1353,8 @@ function tablaLineas(p, cat) {
       const fuera = cat && ref && !enCatalogo(cat, ref);
       const sug = fuera ? CP.sugerenciasCatalogo(ref, cat, 4) : [];
       const enCat = enCatalogo(cat, ref);
-      return `<tr class="${fuera ? 'fuera-catalogo' : ''} ${l.duda ? 'duda' : ''}">
+      const duda = dudaDe(l);
+      return `<tr class="${fuera ? 'fuera-catalogo' : ''} ${duda ? 'duda' : ''}">
         <td class="c-cant"><input class="cant" inputmode="decimal" value="${h(l.cant)}" onchange="cambiaLinea(${i},'cant',this.value)"></td>
         <td class="c-exp"><input type="checkbox" ${l.exp ? 'checked' : ''} onchange="cambiaLinea(${i},'exp',this.checked)"></td>
         <td class="c-ref"><input class="ref" value="${h(l.ref)}" onchange="cambiaLinea(${i},'ref',this.value)">${l.alta ? `<div class="pequeno">🆕 ${CP.REF_ALTA}</div>` : ''}
@@ -1349,7 +1362,7 @@ function tablaLineas(p, cat) {
         <td class="c-desc"><input value="${h(l.desc)}" onchange="cambiaLinea(${i},'desc',this.value)">${enCat && enCat.d ? `<div class="pequeno">${h(enCat.d)}</div>` : ''}</td>
         <td class="c-precio"><input class="precio" inputmode="decimal" value="${l.precio == null ? '' : h(fmtPrecio(l.precio))}" onchange="cambiaLinea(${i},'precio',this.value)">
           ${enCat && enCat.p != null && l.precio != null && CP.red2(enCat.p) !== CP.red2(l.precio) ? `<div class="pequeno">Tarifa ${fmt(enCat.p)}</div>` : ''}</td>
-        <td class="c-duda${l.duda ? '' : ' vacia'}">${l.duda ? `<div class="duda-txt">${h(l.duda)}</div>` : `<input value="" onchange="cambiaLinea(${i},'duda',this.value)" placeholder="—">`}${l.duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda','')">✓ Está bien</button>` : ''}</td>
+        <td class="c-duda${duda ? '' : ' vacia'}">${duda ? `<div class="duda-txt">${h(duda)}</div>` : `<input value="" onchange="cambiaLinea(${i},'duda',this.value)" placeholder="—">`}${duda ? `<button class="btn peque" title="La he revisado: quitar la duda" onclick="cambiaLinea(${i},'duda','')">✓ Está bien</button>` : ''}</td>
         <td class="c-x"><button class="btn peque peligro" onclick="borrarLinea(${i})" title="Borrar la línea entera">✕</button></td>
       </tr>`;
     }).join('')}
@@ -1822,6 +1835,17 @@ function numeroDeHoja(res) {
 const claveCliente = (c) => String(c || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]/g, '');
 
 function anadirLecturaA(p, res, nombre) {
+  // La misma hoja subida otra vez (mismas referencias y cantidades que una foto
+  // que ya tiene el pedido) no se añade: duplicaría todas sus líneas.
+  const nuevas = (res.lineas || []).map((l) => ({ ref: CP.normRef(l.referencia), cant: CP.parseNum(l.cantidad) || 0 }));
+  const firma = CP.firmaLineas(nuevas);
+  if (firma) {
+    const igual = fotosDe(p).find((f) => CP.firmaLineas(p.lineas.filter((l) => l.foto === f.nombre)) === firma);
+    if (igual) {
+      p.notas = [p.notas, `${nombre}: es la misma hoja que ${igual.nombre}, no se ha añadido`].filter(Boolean).join(' | ');
+      return 0;
+    }
+  }
   let descAnterior = '';
   let n = 0;
   for (const l of res.lineas || []) {
@@ -1919,7 +1943,9 @@ async function leerFotos(files, destino, base) {
         continue;
       }
       if (clave) lote.set(clave, p);
-      total += anadirLecturaA(p, res, lista[i].name);
+      const nLeidas = anadirLecturaA(p, res, lista[i].name);
+      if (!nLeidas && (res.lineas || []).length) avisos.push(`${lista[i].name}: es la misma hoja que otra foto del pedido nº ${p.numero || '—'}; no se ha añadido para no duplicar sus líneas`);
+      total += nLeidas;
       tocados.add(p);
       guardar(); pintar();
     } catch (err) {

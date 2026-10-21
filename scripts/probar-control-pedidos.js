@@ -810,3 +810,10 @@ test('Factura de toda la campaña junta: cada línea al pedido que pidió esa re
   const r2 = CP.repartirPorReferencias([{ ref: 'MR1', cant: 1, importe: 10, bloque: 'Pedido 3_ Gift' }], peds);
   assert.deepEqual([...r2.porPedido.keys()], ['c']);
 });
+
+test('Foto repetida por contenido: dos fotos con las mismas referencias y cantidades, aunque no traigan nº de hoja', () => {
+  const l = (ref, cant, foto) => ({ ref, cant, foto });
+  const lineas = [l('MR1', 2, 'a.jpg'), l('MR12074', 1, 'b.jpg'), l('MR13428', 1, 'b.jpg'), l('MR13428', 1, 'c.jpg'), l('MR12074', 1, 'c.jpg')];
+  assert.deepEqual(CP.fotosRepetidas(lineas), [{ foto: 'c.jpg', igualA: 'b.jpg' }]);
+  assert.deepEqual(CP.fotosRepetidas([l('MR1', 2, 'a.jpg'), l('MR1', 3, 'b.jpg')]), [], 'otra cantidad: no es la misma hoja');
+});
