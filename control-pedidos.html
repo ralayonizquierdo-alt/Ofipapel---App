@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-21-2"></script>
+<script src="control-pedidos-logica.js?v=2026-10-21-3"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -364,7 +364,7 @@ const fmtPrecio = (n) => (n == null || Math.abs(n * 100 - Math.round(n * 100)) <
 const fmtFecha = (f) => (f && /^\d{4}-\d{2}-\d{2}/.test(f)) ? f.slice(8, 10) + '/' + f.slice(5, 7) + '/' + f.slice(0, 4) : (f || '');
 const prov = (s) => String(s || '').trim().toUpperCase();
 const pedidoPorId = (id) => E.pedidos.find((p) => p.id === id);
-const catalogoDe = (proveedor) => (E.catalogos[prov(proveedor)] || {}).items || null;
+const catalogoDe = (proveedor) => { const it = (E.catalogos[prov(proveedor)] || {}).items; return it && Object.keys(it).length ? it : null; };
 // Cómo se pasa el precio de la tarifa a precio de venta (ver CP.precioVenta).
 const ajusteDe = (proveedor) => (E.catalogos[prov(proveedor)] || {}).ajuste || null;
 const esRepo = (p) => p.tipo === 'reposicion';
@@ -495,20 +495,21 @@ function filaMovil(p, e) {
   const r = hojasDe(p);
   const datos = [fmtFecha(p.fecha).slice(0, 5), p.lineas.length + ' lín.', esRepo(p) ? '' : r.fotos ? '📷 ' + r.fotos + (r.total ? '/' + r.total : '') : ''].filter(Boolean).join(' · ');
   return `<div class="m-tit">${esRepo(p) ? h(p.proveedor) + (p.numero ? ' · nº ' + h(p.numero) : '') : `nº ${h(nPed(p.numero))} · ${h(p.cliente)}`}</div>
-    <div class="m-dat">${h(datos)}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}</div>
+    <div class="m-dat">${h(datos)}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}${r.repetidas.length ? ` <span class="chip mal">hoja ${r.repetidas.join(', ')} repetida</span>` : ''}</div>
     <div class="m-est"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</div>`;
 }
 function celdaFotos(p) {
   const r = hojasDe(p);
   if (!r.fotos) return '—';
-  return `${r.fotos}${r.total ? ` <span class="pequeno">(${r.hojas.length} de ${r.total} hojas)</span>` : ''}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}`;
+  return `${r.fotos}${r.total ? ` <span class="pequeno">(${r.hojas.length} de ${r.total} hojas)</span>` : ''}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}${r.repetidas.length ? ` <span class="chip mal">hoja ${r.repetidas.join(', ')} repetida</span>` : ''}`;
 }
 function avisoFotos(p) {
   const fotos = fotosDe(p);
   const r = hojasDe(p);
   if (!r.fotos) return '';
-  return `<div class="aviso-caja ${r.faltan.length ? 'mal' : 'info'}">📷 <b>${r.fotos} foto(s)</b>${r.total ? ` · hojas leídas ${r.hojas.join(', ')} de ${r.total}${r.aMano ? ' (total puesto a mano)' : ''}` : ''}
+  return `<div class="aviso-caja ${r.faltan.length || r.repetidas.length ? 'mal' : 'info'}">📷 <b>${r.fotos} foto(s)</b>${r.total ? ` · hojas leídas ${r.hojas.join(', ')} de ${r.total}${r.aMano ? ' (total puesto a mano)' : ''}` : ''}
     ${r.faltan.length ? `<br><b>⚠️ Falta la hoja ${r.faltan.join(', ')} de ${r.total}:</b> súbela con «Hacer foto» o «Elegir de la galería».` : ''}
+    ${r.repetidas.length ? `<br><b>⚠️ La hoja ${r.repetidas.join(', ')} está subida dos veces:</b> sus líneas están duplicadas (salen faltas que no lo son). Quita la foto repetida con «quitar».` : ''}
     <div class="pequeno" style="margin-top:4px">${fotos.map((f) => `<span style="display:inline-block;margin:2px 8px 2px 0">${h(f.nombre)}${f.hoja ? ` (hoja ${h(f.hoja)})` : ''}${f.lineas != null ? ` · ${f.lineas} línea(s)` : ''}
       <button class="btn peque peligro no-imprimir" style="padding:1px 6px" onclick="quitarFoto(${js(f.nombre)})" title="Quitar esta foto y sus líneas">quitar</button></span>`).join('')}</div></div>`;
 }
@@ -2113,11 +2114,15 @@ async function cargarPropuestasVarias(files, clave) {
   const progreso = (t) => { const c = document.getElementById('progresoProps'); if (c) c.textContent = t; };
   // 1) Leer todos.
   const leidos = [];
+  const agrupadas = [];
   for (let i = 0; i < lista.length; i++) {
     const f = lista[i];
     progreso(`Leyendo ${i + 1} de ${lista.length}: ${f.name}${esPdf(f) || esImagen(f) ? ' (PDF/foto: hasta un minuto)' : ''}…`);
     try {
       const docs = await leerDocumentosProveedor(f);
+      // Factura agrupada de varios pedidos: sus «Pedido N» no siempre son los
+      // nuestros (los «B2F» de Miquelrius), así que se reparte por referencias.
+      if (docs.length > 1 && clave) { agrupadas.push({ archivo: f.name, prop: { cabecera: docs[0].cabecera, lineas: docs.flatMap((d) => d.lineas), catalogo: {} } }); continue; }
       for (const prop of docs) leidos.push({ id: nuevoId(), archivo: nombrePorPedido(f.name, prop, docs.length), prop });
     } catch (err) {
       if (err.sinSaldo) { ultimaCarga.push({ ok: false, texto: MSG_SIN_SALDO }); break; }
@@ -2159,6 +2164,10 @@ async function cargarPropuestasVarias(files, clave) {
     }
     for (const y of sinAsignar) if (!asignadosIds.has(y.id) && rep.sugerencias[y.id]) y.sugerencia = rep.sugerencias[y.id];
   }
+  if (agrupadas.length) {
+    ultimaCarga.push({ ok: true, texto: `${agrupadas.map((x) => x.archivo).join(', ')}: factura de varios pedidos juntos → repartida por referencias:` });
+    aplicarReparto(agrupadas, clave);
+  }
   // 4) Sumatorio de la carga.
   const okk = ultimaCarga.filter((x) => x.ok);
   if (leidos.length > 1) {
@@ -2199,6 +2208,14 @@ async function repartirFacturaCampana(files, clave) {
   }
   progreso('');
   if (!docs.length) { pintar(); return; }
+  aplicarReparto(docs, clave);
+}
+/** Reparte por referencias documentos ya leídos ({archivo, prop}) entre los
+ *  pedidos sin validar de la campaña. Añade el resultado a `ultimaCarga`. */
+function aplicarReparto(docs, clave) {
+  const pedidos = E.pedidos.filter((q) => !q.archivado && !esRepo(q) && claveGrupo(q) === clave);
+  const destino = pedidos.filter((q) => !q.validado && !q.sobrantes);
+  if (!destino.length) { ultimaCarga.push({ ok: false, texto: 'No hay pedidos sin validar en esta campaña para repartir la factura.' }); pintar(); return; }
   const lineas = docs.flatMap((d) => d.prop.lineas.map((l) => Object.assign({}, l, { origen: d.archivo })));
   const cab = Object.assign({}, docs[0].prop.cabecera, { numeroPedido: null, observaciones: `Repartida por referencias entre los pedidos de la campaña (${docs.map((d) => d.archivo).join(', ')})` });
   const nombres = docs.map((d) => d.archivo);
@@ -2207,7 +2224,9 @@ async function repartirFacturaCampana(files, clave) {
   const previas = (q) => (q.propuesta && q.propuesta.reparto ? q.propuesta.lineas.filter((l) => !nombres.includes(l.origen)) : []);
   const r = CP.repartirPorReferencias(lineas, destino.map((q) => ({ id: q.id, numero: q.numero,
     lineas: q.lineas.concat(previas(q).map((l) => ({ ref: l.ref, cant: -(CP.parseNum(l.cant) || 0) }))) })));
-  const deEsteReparto = (q) => q.propuesta && (q.propuesta.reparto || nombres.some((n) => String(q.propuesta.archivo || '').startsWith(n)));
+  // También lo que se asignó antes por los «Pedido N» de una factura agrupada
+  // («factura.PDF · Pedido 9_ B2F»): con el reparto, ya no vale.
+  const deEsteReparto = (q) => q.propuesta && (q.propuesta.reparto || / · Pedido /i.test(String(q.propuesta.archivo || '')) || nombres.some((n) => String(q.propuesta.archivo || '').startsWith(n)));
   const archivoDe = (ls) => 'Reparto: ' + [...new Set(ls.map((l) => l.origen).filter(Boolean))].join(' + ');
   const prop = (ls) => ({ cabecera: cab, lineas: ls, catalogo: {}, control: null });
   const porNumero = (x) => Number(String(x.numero).replace(/\D/g, '')) || 0;
@@ -2590,7 +2609,10 @@ function marcarNota(id, v) { E.notas.find((n) => n.id === id).resuelta = v; guar
 
 // ── Vista: datos ─────────────────────────────────────────────────────────────
 function vistaDatos() {
-  const cats = Object.entries(E.catalogos);
+  // También los proveedores con pedidos del comercial y sin tarifa subida, para
+  // poder decir cómo apunta el comercial sus precios (p. ej. Miquelrius, tarifa).
+  const cats = Object.entries(E.catalogos).concat([...new Set(E.pedidos.filter((p) => !esRepo(p)).map((p) => prov(p.proveedor)))]
+    .filter((k) => k && !E.catalogos[k]).map((k) => [k, { items: {}, archivo: '', sinTarifa: true }]));
   const conf = conflictosGuardados();
   const pend = nube.cli && nube.usuario ? CP.cambiosPendientes(E, nube.meta.docs).length : 0;
   return `<div class="tarjeta">
@@ -2631,18 +2653,19 @@ function vistaDatos() {
     ${cats.length ? `<table style="margin-top:8px"><tr><th>Proveedor</th><th class="num">Referencias</th><th>Origen</th><th>Precio de venta</th><th></th></tr>
       ${cats.sort(([a], [b]) => a.localeCompare(b, 'es')).map(([k, c]) => {
         const aj = c.ajuste || { modo: 'ninguno' };
-        return `<tr><td><b>${h(k)}</b></td><td class="num">${Object.keys(c.items || {}).length}</td><td>${c.tarifa ? '📚 tarifa' : 'de una propuesta'} · <span class="pequeno">${h(c.archivo)} · ${h(fmtFecha(c.fecha))}</span></td>
+        return `<tr><td><b>${h(k)}</b></td><td class="num">${Object.keys(c.items || {}).length}</td><td>${c.sinTarifa || !Object.keys(c.items || {}).length ? '<span class="pequeno">sin tarifa subida</span>' : `${c.tarifa ? '📚 tarifa' : 'de una propuesta'} · <span class="pequeno">${h(c.archivo)} · ${h(fmtFecha(c.fecha))}</span>`}</td>
         <td>${esComercial() ? h(textoAjuste(aj)) : `<div class="fila" style="gap:6px;align-items:center">
           <select onchange="cambiarAjuste(${js(k)}, 'modo', this.value)">
             <option value="ninguno" ${aj.modo === 'ninguno' || !aj.modo ? 'selected' : ''}>El de la tarifa (ya es de venta)</option>
             <option value="beneficio" ${aj.modo === 'beneficio' ? 'selected' : ''}>% de beneficio sobre la venta</option>
             <option value="incremento" ${aj.modo === 'incremento' ? 'selected' : ''}>% de incremento sobre el coste</option>
+            <option value="tarifa" ${aj.modo === 'tarifa' ? 'selected' : ''}>El comercial apunta la tarifa del proveedor (sin descuentos)</option>
           </select>
-          ${aj.modo && aj.modo !== 'ninguno' ? `<input type="number" inputmode="decimal" step="0.5" min="0" max="${aj.modo === 'beneficio' ? 99 : 500}" style="width:80px" value="${h(aj.pct == null ? '' : aj.pct)}" placeholder="%" onchange="cambiarAjuste(${js(k)}, 'pct', this.value)"> %` : ''}</div>`}</td>
+          ${aj.modo && aj.modo !== 'ninguno' && aj.modo !== 'tarifa' ? `<input type="number" inputmode="decimal" step="0.5" min="0" max="${aj.modo === 'beneficio' ? 99 : 500}" style="width:80px" value="${h(aj.pct == null ? '' : aj.pct)}" placeholder="%" onchange="cambiarAjuste(${js(k)}, 'pct', this.value)"> %` : ''}</div>`}</td>
         <td class="no-imprimir"><div class="fila" style="gap:6px">
-          <button class="btn peque" onclick="exportarTarifa(${js(k)}, 'pdf')">PDF</button>
-          <button class="btn peque" onclick="exportarTarifa(${js(k)}, 'xlsx')">Excel</button>
-          ${esComercial() ? '' : `<button class="btn peque peligro" onclick="quitarCatalogo(${js(k)})">Quitar</button>`}</div></td></tr>`;
+          ${Object.keys(c.items || {}).length ? `<button class="btn peque" onclick="exportarTarifa(${js(k)}, 'pdf')">PDF</button>
+          <button class="btn peque" onclick="exportarTarifa(${js(k)}, 'xlsx')">Excel</button>` : ''}
+          ${esComercial() || c.sinTarifa ? '' : `<button class="btn peque peligro" onclick="quitarCatalogo(${js(k)})">Quitar</button>`}</div></td></tr>`;
       }).join('')}</table>`
       : `<div class="vacio">Ninguno todavía.</div>`}
   </div>
@@ -2695,12 +2718,13 @@ async function subirTarifa(file) {
 }
 function textoAjuste(aj) {
   const pct = CP.parseNum(aj && aj.pct);
+  if (aj && aj.modo === 'tarifa') return 'Tarifa del proveedor, sin descuentos';
   if (!aj || !aj.modo || aj.modo === 'ninguno' || !pct) return 'El de la tarifa';
   return aj.modo === 'beneficio' ? `${fmt(pct).replace(',00', '')} % de beneficio` : `+${fmt(pct).replace(',00', '')} % sobre coste`;
 }
 function cambiarAjuste(proveedor, campo, valor) {
-  const c = E.catalogos[proveedor];
-  if (!c) return;
+  // Sin tarifa subida, se guarda solo el ajuste (un catálogo vacío).
+  const c = E.catalogos[proveedor] = E.catalogos[proveedor] || { fecha: hoy(), archivo: '', items: {} };
   const aj = Object.assign({ modo: 'ninguno' }, c.ajuste);
   if (campo === 'modo') aj.modo = valor;
   else aj.pct = CP.parseNum(valor);
