@@ -686,6 +686,44 @@ function totalSenfortPedido(texto){
   return m ? parseDecComa(m[3]) : null;
 }
 
+// GRUPO ERIK EDITORES: "Pedido en Firme" con la misma disposición en
+// cuadrícula que el pedido de Senfort (una línea con los códigos y la
+// siguiente con "cantidad precio €" de cada uno, mismo orden, cuatro por
+// fila y la última fila incompleta), pero con códigos alfanuméricos
+// (BN002, LAMP037, AF100101505, PP14062PSEU) en vez de numéricos, sin
+// columna de descripción —va dentro de la foto del artículo— y sin
+// descuentos: no hay "DTO. LINEAS" y el IMP. BRUTO coincide con la BASE
+// IMP. Calibrado con el pedido nº 548 de 16/10/2026: 101 líneas,
+// Cantidad × Precio = Importe en todas y suma 1.423,87 € = BASES IMP.
+// Se deja aparte del de Senfort a propósito, para no retocar un parser ya
+// homologado contra sus propias facturas.
+function parseGrupoErik(lineas){
+  const filas = [];
+  const RE_CODIGOS = /^[A-Z][A-Z0-9]{2,}(?:\s+[A-Z][A-Z0-9]{2,}){0,3}$/;
+  const RE_PAR = /(\d+(?:\.\d{3})*)\s+(\d{1,3}(?:\.\d{3})*,\d{2})\s?€/g;
+  for(let i=0;i<lineas.length-1;i++){
+    const cab = lineas[i].trim();
+    if(!RE_CODIGOS.test(cab)) continue;
+    const codigos = cab.split(/\s+/);
+    const pares = [...lineas[i+1].matchAll(RE_PAR)];
+    if(pares.length !== codigos.length) continue;
+    codigos.forEach((codigo, idx)=>{
+      const cantidad = parseInt(pares[idx][1].replace(/\./g,''),10);
+      const precioUnitario = parseDecComa(pares[idx][2]);
+      filas.push(fila_({codigo, descripcion:'', cantidad, precioUnitario,
+        importe:round2_(cantidad*precioUnitario)}));
+    });
+  }
+  return filas;
+}
+// Pie del pedido: "IMP. BRUTO  BASES IMP.  IVA" y debajo
+// "1.423,87 €  1.423,87 €  21,00%  299,01 €". Se toma la segunda cifra
+// (BASES IMP.), que es la que tienen que sumar las líneas.
+function totalGrupoErik(texto){
+  const m = texto.match(/IMP\.\s*BRUTO[\s\S]{0,80}?(\d{1,3}(?:\.\d{3})*,\d{2})\s?€\s+(\d{1,3}(?:\.\d{3})*,\d{2})\s?€/i);
+  return m ? parseDecComa(m[2]) : null;
+}
+
 // PRYSE: dos formatos distintos según el tipo de documento del mismo proveedor.
 // a) Factura: "[CODIGO] DESCRIPCION CANTIDAD,000 PRECIO,00000 DTO,00 No sujeto IMPORTE,00 €"
 // b) Presupuesto/Orden de venta: "CODIGO DESCRIPCION Pend,000 Entregada,000
@@ -1526,7 +1564,9 @@ const PERFILES_PROVEEDOR = [
   { id:'acrilicosvallejo', nombre:'ACRÍLICOS VALLEJO, S.L.U.', detectar: t => /ACRYLICOS VALLEJO|ESB60562956/i.test(desplazarTexto(t, 29)), parser: parseAcrilicosVallejo,
     total: t => totalAcrilicosVallejo(t) },
   { id:'poessa', nombre:'POESSA (The Paper & Office Equipment Spain)', detectar: t => /The Paper & Office Equipment|A48221998/i.test(t), parser: parsePoessa,
-    total: t => totalPoessa(t) }
+    total: t => totalPoessa(t) },
+  { id:'grupoerik', nombre:'GRUPO ERIK EDITORES S.L.', detectar: t => /Grupo\s+Erik\s+Editores|ESB18454090/i.test(t), parser: parseGrupoErik,
+    total: t => totalGrupoErik(t) }
 ];
 
 function detectarProveedor(lineas){

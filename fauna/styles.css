@@ -64,3 +64,13 @@
 .ampliar .voice-button{position:static;width:auto;min-height:46px;flex:1;justify-content:center;border:0;box-shadow:none}
 .entry-actions button{font-size:16px}
 .entry .entry-ampliado .link-button,.entry .entry-ai .link-button{font-size:12px;line-height:1.4;color:#a85e12;padding:0;font-weight:800}
+
+.entry .entry-fotos{display:inline-block;margin-top:6px;border:1px solid #e9c9a1;background:#fcebd8;color:#8a4b0c;border-radius:8px;font-size:13px;font-weight:800;padding:5px 10px;cursor:pointer}
+.entry-actions button.con-fotos{color:#a85e12}
+.fotos-lista{display:flex;flex-direction:column;gap:14px;max-height:60vh;overflow:auto;margin-top:10px}
+.foto{margin:0}
+.foto img{display:block;width:100%;height:auto;border-radius:10px;border:1px solid #e9e1d8}
+.foto figcaption{font-size:12px;color:#6e665f;margin:4px 0}
+.foto .link-button{border:0;background:none;color:#bb483b;font-weight:700;font-size:13px;padding:2px 0;cursor:pointer}
+.foto img{cursor:zoom-in}
+.foto.grande img{position:fixed;inset:0;z-index:10;width:100vw;height:100vh;object-fit:contain;background:#000;border:0;border-radius:0;cursor:zoom-out}

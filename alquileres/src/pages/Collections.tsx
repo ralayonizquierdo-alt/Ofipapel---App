@@ -1,5 +1,5 @@
 import { Fragment, useState, useCallback } from 'react'
-import { FileSpreadsheet, Printer, AlertTriangle, Plus, Banknote } from 'lucide-react'
+import { FileSpreadsheet, Printer, AlertTriangle, Plus, Banknote, Check } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import Modal from '../components/ui/Modal'
 import { calcIGIC } from '../lib/priceCalc'
@@ -184,9 +184,12 @@ export default function Collections() {
   const aFavor = saldos.filter(x => x.falta < -0.005)
   const totalAFavor = Math.round(aFavor.reduce((s, x) => s - x.falta, 0) * 100) / 100
 
-  const totalPorCobrar = Math.round(porCobrar.reduce((s, x) => s + x.falta, 0) * 100) / 100
+  /** Terminadas y a medio cobrar: esto sí hay que reclamarlo. */
   const vencidas = porCobrar.filter(x => x.r.checkOut < hoy)
   const totalVencido = Math.round(vencidas.reduce((s, x) => s + x.falta, 0) * 100) / 100
+  /** En marcha o por venir: se cobrarán a su tiempo. */
+  const porVenir = porCobrar.filter(x => x.r.checkOut >= hoy)
+  const totalPorVenir = Math.round(porVenir.reduce((s, x) => s + x.falta, 0) * 100) / 100
   const nombreApt = (id: string) => allApartments.find(a => a.id === id)?.name ?? id
   const eur = (n: number) =>
     `${num(n, 2)} €`
@@ -410,54 +413,32 @@ export default function Collections() {
         }
       />
 
-      {/* Lo que falta por cobrar va antes que lo cobrado: es lo que hay que
-          mirar, y si está vacío ni siquiera aparece. */}
-      {porCobrar.length > 0 && (
+      {/* Un descubierto es una estancia TERMINADA y sin cobrar del todo. Lo
+          que está en marcha o por venir no es un descubierto —lo normal es
+          cobrarlo durante la estancia o a la salida—, así que va aparte, en
+          gris y plegado: se consulta, no avisa. */}
+      {vencidas.length > 0 && (
         <div className="mb-6 bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden print:hidden">
-          <div className="bg-amber-50 border-b border-amber-200 px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={16} className="text-amber-600 shrink-0" />
-              <p className="text-sm font-semibold text-amber-900">
-                Falta por cobrar de {year}: {eur(totalPorCobrar)}
-              </p>
-            </div>
-            {totalVencido > 0 && (
-              <p className="text-sm font-semibold text-red-700">
-                {eur(totalVencido)} de estancias ya terminadas
-              </p>
-            )}
+          <div className="bg-amber-50 border-b border-amber-200 px-5 py-3 flex items-center gap-2">
+            <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+            <p className="text-sm font-semibold text-amber-900">
+              Falta por cobrar de estancias ya terminadas: {eur(totalVencido)}
+            </p>
           </div>
-          <table className="w-full text-sm" translate="no">
-            <thead>
-              <tr className="border-b border-slate-200 text-xs text-slate-500">
-                <th className="text-left py-2 px-5 font-medium">Apartamento</th>
-                <th className="text-left py-2 px-4 font-medium">Estancia</th>
-                <th className="text-right py-2 px-4 font-medium">Total</th>
-                <th className="text-right py-2 px-4 font-medium">Cobrado</th>
-                <th className="text-right py-2 px-5 font-medium">Falta</th>
-              </tr>
-            </thead>
-            <tbody className="tabular-nums">
-              {porCobrar.map(({ r, cobrado, falta }) => {
-                const vencida = r.checkOut < hoy
-                return (
-                  <tr key={r.id} className="border-b border-slate-100 last:border-0">
-                    <td className="py-2 px-5 font-medium text-slate-700">{nombreApt(r.apartmentId)}</td>
-                    <td className="py-2 px-4 text-slate-500 text-xs">
-                      {formatDate(r.checkIn)} → {formatDate(r.checkOut)}
-                      {vencida && <span className="ml-2 text-red-600 font-semibold">ya terminó</span>}
-                    </td>
-                    <td className="py-2 px-4 text-right text-slate-700">{eur(r.total)}</td>
-                    <td className="py-2 px-4 text-right text-slate-500">{eur(cobrado)}</td>
-                    <td className={`py-2 px-5 text-right font-semibold ${vencida ? 'text-red-600' : 'text-amber-700'}`}>
-                      {eur(falta)}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <TablaSaldos filas={vencidas} nombreApt={nombreApt} eur={eur} vencidas />
         </div>
+      )}
+
+      {porVenir.length > 0 && (
+        <details className="mb-6 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:hidden">
+          <summary className="px-5 py-3 text-sm text-slate-600 cursor-pointer select-none hover:bg-slate-50">
+            Por cobrar de {porVenir.length === 1 ? 'una estancia que aún no ha terminado'
+              : `${porVenir.length} estancias que aún no han terminado`}:{' '}
+            <b className="text-slate-800">{eur(totalPorVenir)}</b>
+            <span className="text-slate-400"> · no es un descubierto</span>
+          </summary>
+          <TablaSaldos filas={porVenir} nombreApt={nombreApt} eur={eur} />
+        </details>
       )}
 
       {nuevoCobro && <NuevoCobro onClose={() => setNuevoCobro(false)} />}
@@ -706,6 +687,44 @@ export default function Collections() {
  * apartamento, igual que los del Excel: no todo lo que se cobra en mano
  * corresponde a una reserva identificable.
  */
+/** La tabla de saldos: la misma para las vencidas y para las que están por venir. */
+function TablaSaldos({ filas, nombreApt, eur, vencidas }: {
+  filas: { r: Reservation; cobrado: number; falta: number }[]
+  nombreApt: (id: string) => string
+  eur: (n: number) => string
+  vencidas?: boolean
+}) {
+  return (
+    <table className="w-full text-sm" translate="no">
+      <thead>
+        <tr className="border-b border-slate-200 text-xs text-slate-500">
+          <th className="text-left py-2 px-5 font-medium">Apartamento</th>
+          <th className="text-left py-2 px-4 font-medium">Estancia</th>
+          <th className="text-right py-2 px-4 font-medium">Total</th>
+          <th className="text-right py-2 px-4 font-medium">Cobrado</th>
+          <th className="text-right py-2 px-5 font-medium">Falta</th>
+        </tr>
+      </thead>
+      <tbody className="tabular-nums">
+        {filas.map(({ r, cobrado, falta }) => (
+          <tr key={r.id} className="border-b border-slate-100 last:border-0">
+            <td className="py-2 px-5 font-medium text-slate-700">{nombreApt(r.apartmentId)}</td>
+            <td className="py-2 px-4 text-slate-500 text-xs">
+              {formatDate(r.checkIn)} → {formatDate(r.checkOut)}
+              {vencidas && <span className="ml-2 text-red-600 font-semibold">ya terminó</span>}
+            </td>
+            <td className="py-2 px-4 text-right text-slate-700">{eur(r.total)}</td>
+            <td className="py-2 px-4 text-right text-slate-500">{eur(cobrado)}</td>
+            <td className={`py-2 px-5 text-right font-semibold ${vencidas ? 'text-red-600' : 'text-slate-600'}`}>
+              {eur(falta)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
 function NuevoCobro({ onClose }: { onClose: () => void }) {
   const { apartments: todos, reservations, addPayment, anotaVolcado } = useData()
   const apartments = todos.filter(a => a.active)
@@ -863,6 +882,8 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
   const delAnio = payments.filter(p => p.received && mesDe(p)?.startsWith(String(year))
     && (!filterApt || aptDe(p) === filterApt))
 
+  const hoy = today()
+
   /** dd/mm/aa, como lo escribe el propietario en el Excel. */
   const fecha = (iso: string) => formatDate(iso).replace(/\/\d{2}(\d{2})$/, '/$1')
   const imp = (n: number) => n ? num(n, 2) : ''
@@ -904,29 +925,60 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
   }
 
   /**
-   * Lo que falta por cobrar de una estancia contando hasta ese mes incluido.
+   * Lo que falta por cobrar de una estancia, mire el mes que se mire.
    *
-   * Es el saldo vivo: en una estancia larga que se paga por meses baja según
-   * entran los pagos, y en la última línea queda lo que de verdad falta. En
-   * negativo es lo cobrado de más.
+   * Cuenta TODOS sus cobros, también los de otro mes o de otro año: una
+   * estancia que entra el 31 de julio y se cobra en agosto está cobrada, y en
+   * la línea de julio no puede salir como pendiente. Antes se contaba solo
+   * hasta el mes de la línea y por eso aparecía ese falso descubierto.
+   *
+   * En negativo es lo cobrado de más.
    */
-  const pendienteHasta = (r: Reservation, mes: number): number => {
-    const hasta = `${year}-${String(mes).padStart(2, '0')}`
-    const pagado = delAnio
-      .filter(p => p.reservationId === r.id && (mesDe(p) ?? '') <= hasta)
+  const pendienteDe = (r: Reservation): number => {
+    const pagado = payments
+      .filter(p => p.reservationId === r.id && p.received)
       .reduce((x, p) => x + p.amount, 0)
     return Math.round((r.total - pagado) * 100) / 100
   }
 
-  /** La celda morada del pendiente, que se repite en varios sitios. */
-  const Pendiente = ({ r, mes }: { r: Reservation; mes: number }) => {
-    const saldo = pendienteHasta(r, mes)
+  /**
+   * La celda del pendiente de una estancia.
+   *
+   * Tres cosas distintas, y por eso se ven distintas: un visto verde si está
+   * cobrada del todo; una raya si todavía está en marcha y le falta algo —se
+   * cobrará a su tiempo, no hay nada que reclamar—; y la cifra en morado solo
+   * cuando la estancia ya terminó y sigue debiendo, o cuando se cobró de más.
+   *
+   * Va en **todos** los meses que ocupa la estancia (decisión del propietario,
+   * 21/10/2026). Antes se decía una sola vez, en su último mes, y una estancia
+   * que entra el 24 de marzo, se cobra el 25 y sale el 4 de abril dejaba la
+   * casilla de marzo en blanco —justo al lado de su transferencia— con el
+   * visto escondido en abril. Repetirlo no engaña: el saldo se calcula con
+   * TODOS los cobros del año (`pendienteDe`), así que en marzo y en abril dice
+   * lo mismo, que es lo que pasa de verdad.
+   */
+  const Pendiente = ({ r }: { r: Reservation }) => {
+    const saldo = pendienteDe(r)
     if (Math.abs(saldo) < 0.005) {
-      return <td className={`${celda} text-right text-slate-300`}>—</td>
+      return (
+        <td className={`${celda} text-right`} title="Cobrada del todo">
+          <Check size={15} className="inline text-green-600" strokeWidth={3} />
+        </td>
+      )
+    }
+    if (saldo > 0 && r.checkOut >= hoy) {
+      // La raya es la misma —no hay nada que reclamar todavía—, pero el aviso
+      // al pasar por encima no puede decir «en curso» de una estancia que aún
+      // no ha entrado: eso es lo que hacía, y en noviembre y diciembre casi
+      // todas las del Arenal son futuras.
+      const aviso = r.checkIn > hoy
+        ? `Aún no ha entrado: se cobrarán ${imp(saldo)} €`
+        : `Estancia en curso: quedan ${imp(saldo)} € por cobrar`
+      return <td className={`${celda} text-right text-slate-300`} title={aviso}>—</td>
     }
     return (
       <td className={`${celda} text-right font-semibold text-purple-700`}
-        title={saldo > 0 ? 'Falta por cobrar' : 'Cobrado de más'}>
+        title={saldo > 0 ? 'La estancia terminó y falta por cobrar' : 'Cobrado de más'}>
         {saldo > 0 ? imp(saldo) : `+${imp(-saldo)}`}
       </td>
     )
@@ -1118,7 +1170,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                           <td className={`${celda} ${aviso ? 'text-amber-700 font-medium' : 'text-slate-400 italic'}`} colSpan={5}>
                             {texto}
                           </td>
-                          <Pendiente r={r} mes={l.mes} />
+                          <Pendiente r={r} />
                         </tr>
                       )
                     }
@@ -1130,9 +1182,12 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                         <td className={`${celda} text-right font-semibold text-slate-800`}>
                           {k === 0 ? imp(cobrado) : ''}
                         </td>
-                        {k === cobros.length - 1
-                          ? <Pendiente r={r} mes={l.mes} />
-                          : <td className={celda} />}
+                        {/* En la primera línea, con el «Cobrado» del mes y los
+                            datos de la reserva. Cuando una estancia tiene dos
+                            cobros en el mismo mes, antes iba en la última y
+                            quedaba un renglón por debajo de su propia cifra,
+                            como si fuera de otra cosa. */}
+                        {k === 0 ? <Pendiente r={r} /> : <td className={celda} />}
                       </tr>
                     ))
                   })}
