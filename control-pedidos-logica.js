@@ -1030,6 +1030,46 @@
    * solo cuando hay varios). La base imponible es la del total, así que en las
    * partes va vacía. Con un solo pedido, el documento tal cual.
    */
+  /**
+   * Una factura o propuesta de toda una campaña junta (el proveedor no la separa
+   * por cliente, o sus «Pedido 5_ B2F» no son nuestros pedidos): cada línea va a
+   * los pedidos que piden esa referencia, hasta lo que pide cada uno — primero el
+   * pedido cuyo nº coincide con el bloque de la línea, si lo trae, y luego por nº
+   * de pedido —. El importe se reparte en proporción a la cantidad. Lo que no
+   * pide nadie, o lo que viene de más, queda en `sobrantes`.
+   * pedidos: [{ id, numero, lineas }] → { porPedido: Map(id → lineas), sobrantes }
+   */
+  function repartirPorReferencias(lineasDoc, pedidos) {
+    const numero = (x) => { const m = String(x || '').match(/\d+/); return m ? Number(m[0]) : Infinity; };
+    const lista = (pedidos || []).slice().sort((a, b) => numero(a.numero) - numero(b.numero));
+    const falta = new Map(lista.map((p) => [p.id, new Map([...agrupar(p.lineas, aliasAltas(p.lineas))].map(([k, g]) => [k, g.cant]))]));
+    const porPedido = new Map();
+    const sobrantes = [];
+    const parte = (l, q, imp) => Object.assign({}, l, { cant: q, importe: imp });
+    for (const l of lineasDoc || []) {
+      const clave = claveRef(l.ref);
+      let resto = parseNum(l.cant);
+      if (!clave || !resto) { sobrantes.push(l); continue; }
+      const total = resto;
+      const nBloque = l.bloque ? numero(l.bloque) : null;
+      const candidatos = lista.filter((p) => (falta.get(p.id).get(clave) || 0) > 0)
+        .sort((a, b) => Number(numero(b.numero) === nBloque) - Number(numero(a.numero) === nBloque));
+      let repartido = 0;
+      for (const p of candidatos) {
+        if (resto <= 0) break;
+        const q = Math.min(resto, falta.get(p.id).get(clave));
+        falta.get(p.id).set(clave, falta.get(p.id).get(clave) - q);
+        resto -= q;
+        let imp = null;
+        if (l.importe != null) { imp = resto <= 0 ? red2(l.importe - repartido) : red2(l.importe * q / total); repartido = red2(repartido + imp); }
+        if (!porPedido.has(p.id)) porPedido.set(p.id, []);
+        porPedido.get(p.id).push(parte(l, q, imp));
+      }
+      if (resto > 0) sobrantes.push(parte(l, resto, l.importe != null ? red2(l.importe - repartido) : null));
+    }
+    return { porPedido, sobrantes };
+  }
+
   function separarPorPedido(res) {
     const r = res || {};
     const lineas = r.lineas || [];
@@ -1060,6 +1100,7 @@
       dtos: parseDtos(l.descuentos),
       importe: parseNum(l.importe),
       duda: String(l.duda || '').trim(),
+      ...(String(l.pedido || '').trim() ? { bloque: String(l.pedido).trim() } : {}),
     })).filter((l) => l.ref || l.desc).map(marcarAlta);
 
     for (const l of lineas) {
@@ -1387,7 +1428,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido,
+    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, repartirPorReferencias,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

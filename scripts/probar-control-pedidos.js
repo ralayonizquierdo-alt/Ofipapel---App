@@ -789,3 +789,24 @@ test('Factura agrupada (Apli/Miquelrius): un documento por «Pedido Cliente», c
   // De un solo pedido (o sin el campo), el documento tal cual
   assert.equal(CP.separarPorPedido(Object.assign({}, res, { lineas: res.lineas.map((x) => Object.assign({}, x, { pedido: '' })) })).length, 1);
 });
+
+test('Factura de toda la campaña junta: cada línea al pedido que pidió esa referencia; lo demás, sobrante', () => {
+  const peds = [
+    { id: 'a', numero: '2', lineas: [{ ref: 'MR1', cant: 2 }, { ref: 'MR2', cant: 1 }] },
+    { id: 'b', numero: '1', lineas: [{ ref: 'MR1', cant: 1 }] },
+    { id: 'c', numero: '3', lineas: [{ ref: 'MR1', cant: 5 }] },
+  ];
+  const r = CP.repartirPorReferencias([
+    { ref: 'MR1', cant: 4, precio: 10, dtos: [], importe: 40 },
+    { ref: 'MR2', cant: 3, precio: 5, dtos: [], importe: 15 },
+    { ref: 'MR9', cant: 1, precio: 2, dtos: [], importe: 2 },
+  ], peds);
+  const de = (id) => (r.porPedido.get(id) || []).map((l) => `${l.ref}x${l.cant}=${l.importe}`).join(' ');
+  assert.equal(de('b'), 'MR1x1=10', 'por nº de pedido: primero el 1');
+  assert.equal(de('a'), 'MR1x2=20 MR2x1=5');
+  assert.equal(de('c'), 'MR1x1=10');
+  assert.deepEqual(r.sobrantes.map((l) => `${l.ref}x${l.cant}=${l.importe}`), ['MR2x2=10', 'MR9x1=2']);
+  // Con bloque («Pedido 3_…»), primero el pedido de ese nº
+  const r2 = CP.repartirPorReferencias([{ ref: 'MR1', cant: 1, importe: 10, bloque: 'Pedido 3_ Gift' }], peds);
+  assert.deepEqual([...r2.porPedido.keys()], ['c']);
+});
