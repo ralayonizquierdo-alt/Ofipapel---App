@@ -186,7 +186,9 @@
     // Proveedor de netos con margen (tarifa con % de beneficio o incremento): el
     // comercial apunta precio de VENTA, así que se compara con el neto del
     // proveedor llevado a venta con el mismo ajuste (ventaPropuesta).
-    const ajuste = o.ajusteVenta && o.ajusteVenta.modo && o.ajusteVenta.modo !== 'ninguno' && parseNum(o.ajusteVenta.pct) ? o.ajusteVenta : null;
+    // Con «tarifa» (Miquelrius) el comercial apunta el precio de tarifa del
+    // proveedor, antes de sus descuentos: se compara con ese, no con el neto.
+    const ajuste = o.ajusteVenta && (o.ajusteVenta.modo === 'tarifa' || (o.ajusteVenta.modo && o.ajusteVenta.modo !== 'ninguno' && parseNum(o.ajusteVenta.pct))) ? o.ajusteVenta : null;
     const ped = agrupar(lineasPedido);
     const pro = agrupar(lineasPropuesta, aliasAltas(lineasPedido));
     const claves = [...ped.keys(), ...[...pro.keys()].filter((r) => !ped.has(r))];
@@ -215,7 +217,7 @@
         dtosPropuesta: b ? b.dtos : [],
         netoPedido: a ? a.neto : null,
         netoPropuesta: b ? b.neto : null,
-        ventaPropuesta: b && ajuste && b.neto != null ? precioVenta(b.neto, ajuste) : null,
+        ventaPropuesta: !b || !ajuste ? null : ajuste.modo === 'tarifa' ? (b.precio != null ? b.precio : null) : b.neto != null ? precioVenta(b.neto, ajuste) : null,
         ajusteVenta: ajuste,
         importePropuesta: b ? b.importe : null,
         udsCajaPedido: a ? a.udsCaja : null,
@@ -265,8 +267,8 @@
           fila.estado = 'cambio';
           fila.motivos.push({
             tipo: 'precio',
-            texto: `${fila.ventaPropuesta != null ? 'Precio de venta' : neto ? 'Precio neto' : 'Precio'} ${fmt(antes)} → ${fmt(ahora)} (${dif > 0 ? '+' : ''}${fmt(dif)})` +
-              (fila.ventaPropuesta != null ? ` · coste del proveedor ${fmt(b.neto)} con ${textoAjuste(ajuste)}` : '') +
+            texto: `${fila.ventaPropuesta != null ? (ajuste.modo === 'tarifa' ? 'Precio de tarifa' : 'Precio de venta') : neto ? 'Precio neto' : 'Precio'} ${fmt(antes)} → ${fmt(ahora)} (${dif > 0 ? '+' : ''}${fmt(dif)})` +
+              (fila.ventaPropuesta != null ? (ajuste.modo === 'tarifa' ? ` · neto del proveedor ${fmt(b.neto)}` : ` · coste del proveedor ${fmt(b.neto)} con ${textoAjuste(ajuste)}`) : '') +
               (fila.precioDeHistorial ? ' respecto al último precio aceptado' : ''),
             revisar: fuera,
             informativo: !fuera,
@@ -402,7 +404,7 @@
     const nota = (x) => ({ ...x, nota: String(dec(x.ref).motivo || '').trim() });
     const { faltan, sobran } = faltasYSobras(filas);
     const precios = (filas || []).filter((f) => reclamada(f) && f.difPrecio != null && f.precioReferencia != null)
-      .map((f) => (f.ventaPropuesta != null
+      .map((f) => (f.ventaPropuesta != null && f.ajusteVenta.modo !== 'tarifa'
         // Con margen: al proveedor se le habla en coste — el que esperábamos
         // (el precio apuntado, sin el margen) frente al neto que propone.
         ? { ref: f.ref, desc: f.desc, antes: precioCoste(f.precioReferencia, f.ajusteVenta), ahora: f.netoPropuesta }
@@ -516,6 +518,7 @@
     // leído (la lectura puede equivocarse: «2/3» en un pedido de dos hojas).
     const fijo = Number(totalAMano) > 0 && Number(totalAMano) <= 50 ? Math.floor(Number(totalAMano)) : null;
     const leidas = new Set();
+    const vistas = new Set(), repetidas = new Set();
     let total = null;
     for (const f of lista) {
       const m = String(f.hoja || '').match(/(\d+)\s*(?:\/|-|de)\s*(\d+)/i);
@@ -523,12 +526,14 @@
       const n = Number(m[1]); const t = Number(m[2]);
       if (!n || !t || n > t || t > 50) continue;
       leidas.add(n);
+      // La misma hoja subida dos veces duplica sus líneas (y salen faltas que no lo son).
+      if (vistas.has(n + '/' + t)) repetidas.add(n); else vistas.add(n + '/' + t);
       total = Math.max(total || 0, t);
     }
     if (fijo) { total = fijo; for (const n of [...leidas]) if (n > fijo) leidas.delete(n); }
     const faltan = [];
     if (total) for (let k = 1; k <= total; k++) if (!leidas.has(k)) faltan.push(k);
-    return { fotos: lista.length, hojas: [...leidas].sort((x, y) => x - y), total, faltan, aMano: Boolean(fijo) };
+    return { fotos: lista.length, hojas: [...leidas].sort((x, y) => x - y), total, faltan, aMano: Boolean(fijo), repetidas: [...repetidas].sort((x, y) => x - y) };
   }
 
   /**
@@ -751,7 +756,7 @@
           l.precio = f.precioPropuesta;
           l.dtos = f.dtosPropuesta;
           l.importe = l.cant === f.cantPropuesta ? f.importePropuesta : null;
-        } else if (f.ajusteVenta && l.precio != null) {
+        } else if (f.ajusteVenta && f.ajusteVenta.modo !== 'tarifa' && l.precio != null) {
           // Sin línea del proveedor, lo apuntado es precio de venta: a Géminis va el coste.
           l.precio = precioCoste(l.precio, f.ajusteVenta);
           l.dtos = [];
@@ -874,6 +879,7 @@
   }
   function textoAjuste(a) {
     const pct = parseNum(a && a.pct);
+    if (a && a.modo === 'tarifa') return 'el precio de tarifa del proveedor, sin sus descuentos';
     if (!a || !a.modo || a.modo === 'ninguno' || !pct) return 'el precio de la tarifa';
     return a.modo === 'beneficio' ? `${fmt(pct).replace(',00', '')} % de beneficio` : `+${fmt(pct).replace(',00', '')} % sobre coste`;
   }
