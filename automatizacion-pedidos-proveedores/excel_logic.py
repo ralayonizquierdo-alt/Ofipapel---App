@@ -56,7 +56,7 @@ def leer_excel_proveedor(
     columnas_mapa: dict = None,
 ) -> pd.DataFrame:
     """Lee el Excel adjunto de un proveedor y lo normaliza a un formato comun."""
-    df = pd.read_excel(BytesIO(contenido_bytes), header=config_excel["fila_cabecera"])
+    df = pd.read_excel(BytesIO(contenido_bytes), header=config_excel["fila_cabecera"], dtype=str)
     df = _normalizar_columnas(df)
 
     # Si hay columnas con el mismo nombre, añadir sufijo _1, _2, ...
@@ -368,10 +368,10 @@ def _construir_con_plantilla(
         precio = row.get(col_precio, "") if col_precio else ""
         cod_venta_raw = row.get("cod_venta", "")
 
-        try:
-            cod_venta = int(float(cod_venta_raw)) if cod_venta_raw != "" and pd.notna(cod_venta_raw) else ""
-        except (ValueError, TypeError):
-            cod_venta = cod_venta_raw
+        if pd.isna(cod_venta_raw) or str(cod_venta_raw).strip() in ("", "nan"):
+            cod_venta = ""
+        else:
+            cod_venta = str(cod_venta_raw).strip()
 
         cantvend_val = cantvend if pd.notna(cantvend) else ""
         precio_val = precio if pd.notna(precio) else ""
