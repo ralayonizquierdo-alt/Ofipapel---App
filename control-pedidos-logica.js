@@ -512,6 +512,32 @@
    * Devuelve cuántas fotos hay, las hojas leídas, el total que dicen (el
    * mayor) y las que faltan, para avisar si alguna foto se quedó atrás.
    */
+  /**
+   * Fotos del pedido que son la misma hoja subida dos veces, por su CONTENIDO
+   * (mismas referencias y cantidades), aunque no traigan nº de hoja: las
+   * fotos de WhatsApp o del talonario sin «1/2» se colaban (nº 5 de Miquelrius,
+   * 21/10/2026). Devuelve [{ foto, igualA }] con la segunda de cada pareja.
+   */
+  function firmaLineas(lineas) {
+    return (lineas || []).map((l) => `${claveRef(l.ref)}x${parseNum(l.cant) || 0}`).sort().join(' ');
+  }
+  function fotosRepetidas(lineas) {
+    const porFoto = new Map();
+    for (const l of lineas || []) {
+      if (!l.foto) continue;
+      if (!porFoto.has(l.foto)) porFoto.set(l.foto, []);
+      porFoto.get(l.foto).push(l);
+    }
+    const vistas = new Map();
+    const out = [];
+    for (const [foto, ls] of porFoto) {
+      const f = firmaLineas(ls);
+      if (!f) continue;
+      if (vistas.has(f)) out.push({ foto, igualA: vistas.get(f) }); else vistas.set(f, foto);
+    }
+    return out;
+  }
+
   function hojasDelPedido(fotos, totalAMano) {
     const lista = fotos || [];
     // Si el usuario ha dicho cuántas hojas tiene el pedido, eso manda sobre lo
@@ -1434,7 +1460,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, repartirPorReferencias,
+    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, repartirPorReferencias, fotosRepetidas, firmaLineas,
     sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
