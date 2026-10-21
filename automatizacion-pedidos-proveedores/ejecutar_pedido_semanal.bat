@@ -1,5 +1,6 @@
 @echo off
-cd /d "C:\Users\ralay\Desktop\AUTOMATIZACION\Ofipapel---App-claude-outlook-excel-automation-czzywe\automatizacion-pedidos-proveedores"
+cd /d "C:\Users\ralay\Ofipapel---App\automatizacion-pedidos-proveedores"
+git pull
 call .venv\Scripts\activate.bat
 python main.py
 echo.
