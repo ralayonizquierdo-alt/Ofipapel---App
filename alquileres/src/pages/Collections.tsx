@@ -1178,9 +1178,12 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                         <td className={`${celda} text-right font-semibold text-slate-800`}>
                           {k === 0 ? imp(cobrado) : ''}
                         </td>
-                        {k === cobros.length - 1
-                          ? <Pendiente r={r} />
-                          : <td className={celda} />}
+                        {/* En la primera línea, con el «Cobrado» del mes y los
+                            datos de la reserva. Cuando una estancia tiene dos
+                            cobros en el mismo mes, antes iba en la última y
+                            quedaba un renglón por debajo de su propia cifra,
+                            como si fuera de otra cosa. */}
+                        {k === 0 ? <Pendiente r={r} /> : <td className={celda} />}
                       </tr>
                     ))
                   })}
