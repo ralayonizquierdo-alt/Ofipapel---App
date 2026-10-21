@@ -717,12 +717,6 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               <span style="font-weight:700;color:var(--azul);">📅 Histórico de Conciliaciones</span>
               <button onclick="openCajaConcilFiltro()" style="padding:4px 12px;background:var(--azul-pale);border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--azul);font-weight:600;">🔍 Filtrar</button>
               <span id="cajaConcilFiltroTag" style="font-size:11px;color:var(--texto2);font-style:italic;"></span>
-              <span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                <span style="font-size:12px;color:var(--texto2);">Dar por cuadrados hasta</span>
-                <input type="date" id="cuadrarHastaFecha" value="2026-09-30" style="padding:3px 6px;border:1px solid var(--borde);border-radius:8px;font-size:12px;">
-                <button onclick="cuadrarHasta()" style="padding:4px 12px;background:#e8f5e9;border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;color:var(--verde,#1A5C1A);font-weight:600;">☑️ Cuadrar</button>
-                <button onclick="quitarTodosCuadrados()" title="Quitar todas las marcas de cuadrado a mano" style="padding:4px 10px;background:#fff;border:1px solid var(--borde);border-radius:8px;font-size:12px;cursor:pointer;">↩ Deshacer</button>
-              </span>
             </div>
             <div class="card" id="cajaHistorico" style="padding:0;overflow:hidden;margin-bottom:20px;"></div>
             <div style="font-size:12px;color:var(--texto2);margin-bottom:12px;">Los PDFs se importan desde <strong style="cursor:pointer;color:var(--azul);text-decoration:underline;" onclick="showView('entrada')">Volcado Diario</strong>.</div>
@@ -2306,7 +2300,7 @@ function renderDashboard(){
     const es=estadoBancoDeCierre(lc);
     const ico=iconoBanco(es);
     const tipo=es.estado==='ok'||es.estado==='manual'?'ok':es.estado==='parcial'?'warn':'info';
-    const txt=es.estado==='manual'?'Dado por cuadrado a mano':es.estado==='ok'?`Conciliado ✔ Efectivo depositado: ${fmt(es.bancoEf)}`:es.estado==='sin'?'Sin ingresos al banco en este cierre':es.estado==='parcial'?`Faltan recibos: ${textoFaltan(es)}`:`Resguardos bancarios pendientes · Efectivo sistema: ${fmt(es.sistemaEf)}`;
+    const txt=es.estado==='manual'?'Cuadrado por excepción':es.estado==='ok'?`Conciliado ✔ Efectivo depositado: ${fmt(es.bancoEf)}`:es.estado==='sin'?'Sin ingresos al banco en este cierre':es.estado==='parcial'?`Faltan recibos: ${textoFaltan(es)}`:`Resguardos bancarios pendientes · Efectivo sistema: ${fmt(es.sistemaEf)}`;
     return `<div class="alert-card ${tipo}" style="margin-bottom:20px;cursor:pointer;" onclick="showView('caja')"><div class="alert-ico">${ico}</div><div><div class="alert-ttl">💰 Control de Caja — ${new Date((lc.fecha||'')+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}</div><div class="alert-txt">${txt}</div></div></div>`;
   })()}
 
@@ -4576,33 +4570,6 @@ function estadoBancoDeCierre(c,conc){
     estado:(()=>{ const base=!L.length?'sin':faltan.length===0?'ok':hechas.length?'parcial':'pendiente'; const man=c.cuadradoManual&&!c.cuadradoManual.quitado; return man&&base!=='ok'&&base!=='sin'?'manual':base; })(),
     manual:c.cuadradoManual&&!c.cuadradoManual.quitado?c.cuadradoManual:null};
 }
-function cuadrarHasta(){
-  const inp=document.getElementById('cuadrarHastaFecha'), hasta=inp&&inp.value;
-  if(!hasta){ showToast('Elige hasta qué fecha','err'); return; }
-  const conc=conciliarRecibos();
-  const objetivo=cajaCierres.filter(c=>c.fecha&&c.fecha<=hasta&&!['ok','sin','manual'].includes(estadoBancoDeCierre(c,conc).estado));
-  // lo posterior a la fecha no se da por cuadrado: si ya tenía la marca, se quita (así queda justo «hasta esa fecha»)
-  const despues=cajaCierres.filter(c=>c.fecha&&c.fecha>hasta&&c.cuadradoManual&&!c.cuadradoManual.quitado);
-  if(!objetivo.length&&!despues.length){ alert('No hay nada que cambiar: los cierres hasta esa fecha ya están cuadrados.'); return; }
-  if(!confirm('¿Dar por CUADRADOS a mano '+objetivo.length+' cierres con fecha hasta el '+_diaCorto(hasta)+', aunque les falten recibos del banco?'+(despues.length?'\n\nY quitar la marca a '+despues.length+' posteriores, que vuelven a depender de los recibos.':'')+'\n\nLos que ya están ✅ no cambian y se puede deshacer.')) return;
-  const ts=new Date().toISOString();
-  objetivo.forEach(c=>{ c.cuadradoManual={por:currentUser||'—',ts}; });
-  despues.forEach(c=>{ c.cuadradoManual={quitado:true,por:currentUser||'—',ts}; });
-  saveCajaCierres(); renderCajaView(); showToast('☑️ '+objetivo.length+' cierres dados por cuadrados'+(despues.length?' · '+despues.length+' posteriores sin marca':''),'ok');
-}
-function quitarCuadrado(fecha,filename){
-  const c=cajaCierres.find(x=>(x.fecha||'')===(fecha||'')&&x.filename===filename); if(!c) return;
-  c.cuadradoManual={quitado:true,por:currentUser||'—',ts:new Date().toISOString()};
-  saveCajaCierres(); renderCajaView();
-}
-function quitarTodosCuadrados(){
-  const m=cajaCierres.filter(c=>c.cuadradoManual&&!c.cuadradoManual.quitado);
-  if(!m.length){ alert('No hay ningún cierre dado por cuadrado a mano.'); return; }
-  if(!confirm('¿Quitar la marca de «cuadrado a mano» a '+m.length+' cierres? Volverán a depender de los recibos del banco.')) return;
-  const ts=new Date().toISOString();
-  m.forEach(c=>{ c.cuadradoManual={quitado:true,por:currentUser||'—',ts}; });
-  saveCajaCierres(); renderCajaView();
-}
 function _diaCorto(f){ return f?new Date(f+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short'}):''; }
 function iconoBanco(es){ return {ok:'✅',manual:'☑️',parcial:'🟡',pendiente:'⏳',sin:'➖'}[es.estado]; }
 function textoFaltan(es){ return es.faltan.map(x=>x.banco+' '+fmt(x.importe)).join(' · '); }
@@ -4672,7 +4639,7 @@ function renderCajaConciliacion(){
   const fechaLabel=last.fecha?new Date(last.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'}):'—';
   const _diaRec=last.fechaCierre?` (ingresos del ${_diaCorto(last.fechaCierre)})`:'';
   const _banner=(bg,ico,tit,txt)=>`<div style="background:${bg};color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">${ico}</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">${tit}</div><div style="font-size:13px;opacity:0.9;">${txt}</div></div></div>`;
-  if(es.estado==='manual') alertEl.innerHTML=_banner('#5d8a5d','☑️',`CUADRADO A MANO — ${fechaLabel}`,`Lo dio por cuadrado ${es.manual.por} el ${_diaCorto(String(es.manual.ts).slice(0,10))}. Sin recibo: <strong>${textoFaltan(es)}</strong> <button onclick="quitarCuadrado('${(last.fecha||'')}','${(last.filename||'').replace(/'/g,"\\'")}')" style="margin-left:8px;padding:2px 10px;border-radius:8px;border:1px solid #fff;background:transparent;color:#fff;cursor:pointer;font-size:12px;">Quitar marca</button>`);
+  if(es.estado==='manual') alertEl.innerHTML=_banner('#5d8a5d','☑️',`CUADRADO POR EXCEPCIÓN — ${fechaLabel}`,`Sin recibo del banco: <strong>${textoFaltan(es)}</strong>. Excepción autorizada por ${es.manual.por||'el propietario'} el ${_diaCorto(String(es.manual.ts).slice(0,10))}.`);
   else if(es.estado==='ok') alertEl.innerHTML=_banner('#27AE60','✅',`CAJA CUADRADA — ${fechaLabel}`,`Los ${es.lineas.length} ingresos del cierre tienen su recibo del banco. Efectivo depositado: <strong>${fmt(es.bancoEf)}</strong>`);
   else if(es.estado==='parcial') alertEl.innerHTML=_banner('#c0392b','⚠️',`FALTAN RECIBOS — ${fechaLabel}`,`Hay recibo de ${es.lineas.length-es.faltan.length} de ${es.lineas.length} ingresos${_diaRec}. Faltan: <strong>${textoFaltan(es)}</strong>`);
   else if(es.estado==='sin') alertEl.innerHTML=_banner('#7f8c8d','➖',`SIN INGRESOS AL BANCO — ${fechaLabel}`,'El cierre no trae ingresos de efectivo ni cheques que justificar.');
@@ -4755,7 +4722,7 @@ function renderCajaHistorico(){
     ${sorted.map(c=>{
       const es=estadoBancoDeCierre(c,_conc);
       const tbef=es.bancoEf;
-      const ico=`<span title="${es.estado==='sin'?'El cierre no trae ingresos al banco':es.estado==='manual'?'Dado por cuadrado a mano por '+es.manual.por+' el '+_diaCorto(String(es.manual.ts).slice(0,10))+'. Sin recibo: '+textoFaltan(es):es.faltan.length?'Faltan recibos'+(c.fechaCierre?' (ingresos del '+_diaCorto(c.fechaCierre)+')':'')+': '+textoFaltan(es):'Todos los ingresos tienen su recibo'}">${iconoBanco(es)}</span>`;
+      const ico=`<span title="${es.estado==='sin'?'El cierre no trae ingresos al banco':es.estado==='manual'?'Cuadrado por excepción (autorizada por '+(es.manual.por||'el propietario')+', '+_diaCorto(String(es.manual.ts).slice(0,10))+'). Sin recibo: '+textoFaltan(es):es.faltan.length?'Faltan recibos'+(c.fechaCierre?' (ingresos del '+_diaCorto(c.fechaCierre)+')':'')+': '+textoFaltan(es):'Todos los ingresos tienen su recibo'}">${iconoBanco(es)}</span>`;
       const cKey=(c.fecha||'')+'|'+(c.filename||'');
       const acKey=_selectedCierreKey||((cajaCierres.length?(cajaCierres[cajaCierres.length-1].fecha||'')+'|'+(cajaCierres[cajaCierres.length-1].filename||''):null));
       const isSel=cKey===acKey;
