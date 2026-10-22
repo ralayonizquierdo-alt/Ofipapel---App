@@ -169,6 +169,59 @@ body{
 }
 .sound-toggle:hover{background:rgba(0,0,0,.75);transform:scale(1.08);}
 @keyframes soundBtnIn{from{opacity:0;transform:scale(.6);}to{opacity:1;transform:scale(1);}}
+
+/* ─── Recepcionista (chat de guía) ─── */
+.receptionist-backdrop{
+  position:fixed;inset:0;z-index:20;
+  background:rgba(0,0,0,.6);
+  display:flex;align-items:center;justify-content:center;
+  padding:16px;
+  animation:fadeUp .2s ease;
+}
+.receptionist-backdrop[hidden]{display:none;}
+.receptionist-panel{
+  width:min(420px,100%);height:min(560px,88svh);
+  background:#12161a;color:#EAF5EA;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:18px;
+  box-shadow:0 24px 70px rgba(0,0,0,.6);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.receptionist-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;font-weight:700;font-size:14px;
+  background:rgba(46,204,64,.12);
+  border-bottom:1px solid rgba(255,255,255,.1);
+}
+.receptionist-close{
+  background:none;border:none;color:inherit;font-size:16px;
+  cursor:pointer;opacity:.7;line-height:1;padding:4px;
+}
+.receptionist-close:hover{opacity:1;}
+.receptionist-messages{
+  flex:1;overflow-y:auto;padding:14px 16px;
+  display:flex;flex-direction:column;gap:10px;
+  font-size:13.5px;line-height:1.45;
+}
+.r-msg{max-width:85%;padding:9px 13px;border-radius:14px;white-space:pre-wrap;}
+.r-msg.user{align-self:flex-end;background:#2ECC40;color:#06220c;border-bottom-right-radius:4px;}
+.r-msg.bot{align-self:flex-start;background:rgba(255,255,255,.08);border-bottom-left-radius:4px;}
+.r-msg.bot.typing{opacity:.6;font-style:italic;}
+.receptionist-form{
+  display:flex;gap:8px;padding:12px;
+  border-top:1px solid rgba(255,255,255,.1);
+}
+.receptionist-input{
+  flex:1;background:rgba(255,255,255,.07);color:inherit;
+  border:1px solid rgba(255,255,255,.15);border-radius:10px;
+  padding:9px 12px;font-size:13.5px;font-family:inherit;
+}
+.receptionist-input:focus{outline:2px solid #2ECC40;outline-offset:1px;}
+.receptionist-send{
+  background:#2ECC40;color:#06220c;border:none;border-radius:10px;
+  width:38px;font-size:15px;cursor:pointer;
+}
+.receptionist-send:disabled{opacity:.5;cursor:default;}
 </style>
 </head>
 <body>
@@ -245,6 +298,26 @@ body{
     </svg>
   </div>
 
+  <!-- ─── Recepcionista: chat de guía sobre el ecosistema Ofipapel, se abre
+       al tocar el logo "OFIPAPEL 360°" del centro (junto con su sonido).
+       Reutiliza tal cual el proxy de netlify/functions/chat-assistant.js
+       que ya usa el Asistente IA de Index.html — mismo endpoint, mismo
+       token no-secreto (ver comentario en esa función), solo cambia el
+       system prompt. No hace falta backend nuevo. ─── -->
+  <div id="receptionistBackdrop" class="receptionist-backdrop" hidden>
+    <div class="receptionist-panel" role="dialog" aria-modal="true" aria-label="Guía de Ofipapel 360°">
+      <div class="receptionist-head">
+        <span>💬 Guía Ofipapel 360°</span>
+        <button type="button" id="receptionistClose" class="receptionist-close" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="receptionistMessages" class="receptionist-messages"></div>
+      <form id="receptionistForm" class="receptionist-form">
+        <input type="text" id="receptionistInput" class="receptionist-input" placeholder="Pregunta lo que quieras sobre las apps…" autocomplete="off">
+        <button type="submit" class="receptionist-send" aria-label="Enviar">➤</button>
+      </form>
+    </div>
+  </div>
+
 <script>
 (function(){
   var video = document.getElementById('hubVideo');
@@ -273,9 +346,127 @@ body{
     });
   });
 
-  // ── Logo central "OFIPAPEL 360°": no navega a ningún sitio, solo suena
-  // (sin el retraso de las zonas de arriba, que es para dar tiempo antes
-  // de cambiar de página — aquí no hay cambio de página). ──
+  // ── Recepcionista: chat de guía sobre el ecosistema, se abre al tocar
+  // el logo (junto con su sonido). Reutiliza tal cual el backend del
+  // Asistente IA de Index.html (netlify/functions/chat-assistant.js) —
+  // mismo endpoint, mismo token (no es un secreto real, ver comentario en
+  // esa función, solo evita dejar el proxy totalmente abierto). ──
+  var CHAT_TOKEN = 'ofipapel-chat-2026';
+  var RECEPTIONIST_SYSTEM = [
+    'Eres la recepcionista virtual del hub "OFIPAPEL 360°", el punto de',
+    'entrada a las aplicaciones internas de Ofipapel (papelería con',
+    'tiendas en Tenerife). Tu trabajo es orientar sobre qué aplicación usar',
+    'y qué hace cada una. No tienes acceso a datos reales de ninguna app',
+    '(ventas, pedidos, fichajes...): si preguntan por datos concretos,',
+    'dirige a la app correspondiente, nunca inventes cifras.',
+    '',
+    'Las 8 aplicaciones del hub:',
+    '',
+    '🛒 COMPRAS — Control de pedidos a proveedores: compara lo pedido con',
+    'lo facturado, detecta faltas y sobras, convierte facturas PDF de',
+    'proveedor a Excel, pedidos del comercial y reposición de tienda.',
+    '',
+    '⏰ TURNOS — Planificador del cuadrante de vacaciones y turnos del',
+    'personal.',
+    '',
+    '🎧 ATENCIÓN AL CLIENTE — Panel del bot de WhatsApp con IA: conversaciones',
+    'con clientes, consultas de productos/precios/stock y estado de pedidos.',
+    '',
+    '📊 FINANZAS — Control financiero: caja, ventas, conciliación bancaria,',
+    'informes, asistente IA de datos.',
+    '',
+    '📣 RR.SS. — Gestión de redes sociales de Ofipapel: campañas y',
+    'calendario de publicaciones.',
+    '',
+    '🏠 ALQUILERES — Gestión de los alquileres vacacionales: reservas,',
+    'precios, reparaciones, cobros.',
+    '',
+    '🔑 FICHAJES — Registro horario del personal: fichar entrada/salida,',
+    'exportación mensual.',
+    '',
+    '📦 ALMACÉN (Roturas y Devoluciones) — Gestión de artículos rotos o a',
+    'devolver: peticiones de abono a proveedor, decisión de destruir o',
+    'devolver, informe de destruidos.',
+    '',
+    'Responde siempre en español, con frases cortas y directas, como',
+    'alguien que conoce bien el sitio y ayuda a encontrar la puerta',
+    'correcta. Si preguntan algo que no tiene que ver con estas',
+    'aplicaciones, dilo con naturalidad y redirige la conversación.'
+  ].join('\n');
+
+  var backdrop = document.getElementById('receptionistBackdrop');
+  var messagesEl = document.getElementById('receptionistMessages');
+  var formEl = document.getElementById('receptionistForm');
+  var chatInput = document.getElementById('receptionistInput');
+  var closeBtn = document.getElementById('receptionistClose');
+  var chatHistory = [];
+  var chatOpened = false;
+
+  function renderMessages(){
+    messagesEl.innerHTML = '';
+    chatHistory.forEach(function(m){
+      var div = document.createElement('div');
+      div.className = 'r-msg ' + (m.role === 'user' ? 'user' : 'bot');
+      div.textContent = m.content;
+      messagesEl.appendChild(div);
+    });
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+  function openReceptionist(){
+    backdrop.hidden = false;
+    if (!chatOpened) {
+      chatOpened = true;
+      chatHistory.push({ role: 'assistant', content: '¡Hola! 👋 Soy la guía de Ofipapel 360°. Pregúntame qué aplicación necesitas o qué hace cada departamento.' });
+      renderMessages();
+    }
+    setTimeout(function(){ chatInput.focus(); }, 50);
+  }
+  function closeReceptionist(){ backdrop.hidden = true; }
+
+  if (backdrop && formEl) {
+    closeBtn.addEventListener('click', closeReceptionist);
+    backdrop.addEventListener('click', function(evt){ if (evt.target === backdrop) closeReceptionist(); });
+    document.addEventListener('keydown', function(evt){ if (evt.key === 'Escape' && !backdrop.hidden) closeReceptionist(); });
+
+    formEl.addEventListener('submit', function(evt){
+      evt.preventDefault();
+      var text = chatInput.value.trim();
+      if (!text) return;
+      chatInput.value = '';
+      chatInput.disabled = true;
+      chatHistory.push({ role: 'user', content: text });
+      renderMessages();
+
+      var typing = document.createElement('div');
+      typing.className = 'r-msg bot typing';
+      typing.textContent = 'Escribiendo…';
+      messagesEl.appendChild(typing);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      fetch('/.netlify/functions/chat-assistant', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-chat-token': CHAT_TOKEN },
+        body: JSON.stringify({ system: RECEPTIONIST_SYSTEM, messages: chatHistory })
+      }).then(function(resp){
+        return resp.json().catch(function(){ return {}; }).then(function(data){ return { ok: resp.ok, data: data }; });
+      }).then(function(result){
+        var reply = result.ok ? (result.data.reply || '(Sin respuesta)') : ('❌ ' + (result.data.error || 'Error de conexión'));
+        chatHistory.push({ role: 'assistant', content: reply });
+      }).catch(function(){
+        chatHistory.push({ role: 'assistant', content: '❌ No se pudo contactar con el asistente. Prueba de nuevo en un momento.' });
+      }).then(function(){
+        typing.remove();
+        chatInput.disabled = false;
+        renderMessages();
+        chatInput.focus();
+      });
+    });
+  }
+
+  // ── Logo central "OFIPAPEL 360°": no navega a ningún sitio — suena y
+  // abre la recepcionista (sin el retraso de las zonas de arriba, que es
+  // para dar tiempo antes de cambiar de página; aquí no hay cambio de
+  // página). ──
   var logoTap = document.querySelector('.logo-tap');
   var logoAudio = new Audio('sound-logo-reveal.mp3');
   logoAudio.preload = 'auto';
@@ -283,6 +474,7 @@ body{
     logoTap.addEventListener('click', function(evt){
       evt.preventDefault();
       try { logoAudio.currentTime = 0; logoAudio.play().catch(function(){}); } catch(e){}
+      openReceptionist();
     });
   }
 
