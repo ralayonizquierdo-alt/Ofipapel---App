@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-23-2"></script>
+<script src="control-pedidos-logica.js?v=2026-10-23-3"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -2345,8 +2345,25 @@ function aplicarReparto(docs, clave) {
       else { q.propuesta = null; q.decisiones = {}; invalidar(q); }
     }
   }
-  // Lo que no pidió ningún cliente: a su pedido aparte de la campaña.
   const ej = pedidos[0];
+  // Lo que sobra puede ser un resto de un pedido anterior que llega ahora: se
+  // le da a quien lo esperaba y sale de Restos. Antes se deshace lo rescatado
+  // con estos mismos ficheros (volver a subir una factura la sustituye).
+  for (const x of E.restos) {
+    const fuera = x.asignaciones.filter((a) => a.reparto && nombres.includes(a.origen));
+    if (!fuera.length) continue;
+    x.pendiente += fuera.reduce((t, a) => t + a.cant, 0);
+    x.asignaciones = x.asignaciones.filter((a) => !fuera.includes(a));
+  }
+  const rescate = CP.restosQueLlegan(E.restos, r.sobrantes, ej.proveedor);
+  for (const a of rescate.asignaciones) {
+    const x = E.restos.find((y) => y.id === a.restoId);
+    x.asignaciones.push({ fecha: hoy(), cant: a.cant, origen: a.origen, reparto: true });
+    x.pendiente -= a.cant;
+  }
+  r.sobrantes = rescate.sobrantes;
+  if (rescate.asignaciones.length) ultimaCarga.push({ ok: true, texto: `♻️ Llegan ${rescate.asignaciones.length} resto(s) pendiente(s) de pedidos anteriores (salen de Restos): ` + rescate.asignaciones.map((a) => `nº ${nPed(a.numero)} ${a.cliente} ${a.ref} × ${a.cant}`).join(' · ') });
+  // Lo que no pidió ningún cliente: a su pedido aparte de la campaña.
   let sob = pedidos.find((q) => q.sobrantes);
   if (r.sobrantes.length) {
     if (!sob) {
