@@ -128,6 +128,22 @@ body{
 }
 .hub-stage.pulse-once .dept-glow{animation:deptGlowPulse 1.1s ease-out 1 forwards;}
 .hub-stage.pulse-once .dept-hit{animation:deptEdgePulse 1.1s ease-out 1 forwards;}
+
+/* ─── Botón de sonido: solo aparece cuando el autoplay con audio se ha
+   bloqueado (ver script) — en el resto de casos el vídeo ya suena solo y
+   no hace falta. ─── */
+.sound-toggle{
+  position:absolute;right:14px;bottom:14px;z-index:5;
+  width:40px;height:40px;border-radius:50%;
+  background:rgba(0,0,0,.55);color:#fff;
+  border:1.5px solid rgba(255,255,255,.35);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;backdrop-filter:blur(3px);
+  transition:background .2s ease, transform .2s ease;
+  animation:soundBtnIn .3s ease;
+}
+.sound-toggle:hover{background:rgba(0,0,0,.75);transform:scale(1.08);}
+@keyframes soundBtnIn{from{opacity:0;transform:scale(.6);}to{opacity:1;transform:scale(1);}}
 </style>
 </head>
 <body>
@@ -191,6 +207,28 @@ body{
   var video = document.getElementById('hubVideo');
   var stage = document.querySelector('.hub-stage');
   var overlay = document.getElementById('deptOverlay');
+  var depts = document.querySelectorAll('.dept');
+
+  // ── Sonido al pulsar cada zona (puerta deslizante, como entrar en el
+  // departamento): se retrasa un poco la navegación real para que le dé
+  // tiempo a oírse (si no, el navegador descarga la página siguiente y
+  // corta el audio casi al instante). Se respetan los casos en los que el
+  // usuario claramente NO quiere una navegación normal en la misma
+  // pestaña (clic central/derecho, Ctrl/Cmd/Shift+clic) — ahí no se toca
+  // nada y el navegador hace lo suyo tal cual. Las zonas no son clicables
+  // hasta que el vídeo termina (pointer-events:none en .dept-overlay), así
+  // que este sonido nunca puede sonar encima de la música de apertura.
+  var clickAudio = new Audio('sound-click-door.mp3');
+  clickAudio.preload = 'auto';
+  var CLICK_DELAY = 180;
+  depts.forEach(function(dept){
+    dept.addEventListener('click', function(evt){
+      if (evt.defaultPrevented || evt.button !== 0 || evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey) return;
+      evt.preventDefault();
+      try { clickAudio.currentTime = 0; clickAudio.play().catch(function(){}); } catch(e){}
+      setTimeout(function(){ window.location.href = dept.getAttribute('href'); }, CLICK_DELAY);
+    });
+  });
 
   // ── Tamaño del escenario + recorte del vídeo. SRC_W/SRC_H son la
   // resolución real del vídeo (1920×1080, 16:9). El vídeo usa
@@ -250,7 +288,9 @@ body{
 
   // ── Fin del vídeo: deja el último fotograma fijo (el propio <video>
   // pausado ya no consume recursos), lanza el pulso único sobre las 8
-  // zonas y las activa como clicables. ──
+  // zonas y las activa como clicables. Si seguía muteado (nadie tocó nada
+  // a tiempo), el botón de sonido se queda para poder repetirlo con
+  // audio bajo demanda (ver más abajo). ──
   function onEnded(){
     stage.classList.add('ready');
     stage.classList.add('pulse-once');
@@ -258,13 +298,51 @@ body{
   }
   video.addEventListener('ended', onEnded, { once: true });
 
+  // ── Botón de sonido: casi ningún navegador deja reproducir con audio
+  // sin que haya habido antes un gesto del usuario en la página (ver
+  // abajo), y mirar un vídeo no cuenta como gesto — así que esperar a que
+  // el usuario toque algo "por su cuenta" antes de que termine el vídeo
+  // (8s) no es fiable. Se muestra un botón explícito en vez de confiar en
+  // eso: si el vídeo sigue sonando, lo desmutea sin más; si ya terminó
+  // (muteado del todo), lo repite desde el principio ya con sonido —
+  // único reinicio permitido, y solo a petición directa del usuario, sin
+  // tocar el estado de las zonas (ya activas, siguen estándolo). ──
+  var soundBtn = null;
+  function hideSoundButton(){
+    if (!soundBtn) return;
+    soundBtn.remove();
+    soundBtn = null;
+  }
+  function showSoundButton(){
+    if (soundBtn) return;
+    soundBtn = document.createElement('button');
+    soundBtn.type = 'button';
+    soundBtn.className = 'sound-toggle';
+    soundBtn.setAttribute('aria-label', 'Activar sonido del vídeo');
+    soundBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.42.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 0 0 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4 9.91 6.09 12 8.18V4z"/></svg>';
+    soundBtn.addEventListener('click', function(){
+      if (video.ended) {
+        video.currentTime = 0;
+        video.muted = false;
+        video.play().catch(function(){});
+      } else {
+        video.muted = false;
+      }
+      hideSoundButton();
+    });
+    stage.appendChild(soundBtn);
+  }
+
   // ── Reproducción automática una sola vez, sin loop, con el sonido
   // propio del vídeo. Si el navegador bloquea el autoplay con audio (muy
   // habitual sin gesto previo del usuario), se reproduce muteado para no
-  // perder la animación igualmente a tiempo, y se desmutea en cuanto haya
-  // un primer gesto (clic/toque/tecla) — sin reiniciar el vídeo. ──
+  // perder la animación igualmente a tiempo, se enseña el botón de
+  // sonido, y de regalo se desmutea también con el primer gesto en
+  // cualquier parte de la página (clic/toque/tecla) por si llega a
+  // tiempo — sin reiniciar el vídeo. ──
   function unmuteOnGesture(){
     video.muted = false;
+    hideSoundButton();
     document.removeEventListener('pointerdown', unmuteOnGesture);
     document.removeEventListener('keydown', unmuteOnGesture);
   }
@@ -273,6 +351,7 @@ body{
     played.catch(function(){
       video.muted = true;
       video.play().catch(function(){});
+      showSoundButton();
       document.addEventListener('pointerdown', unmuteOnGesture, { passive: true });
       document.addEventListener('keydown', unmuteOnGesture, { passive: true });
     });

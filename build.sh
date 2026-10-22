@@ -102,6 +102,7 @@ cp hub-coin-*.webp _site/ 2>/dev/null || true
 cp hub-center.webp _site/ 2>/dev/null || true
 cp sound-connect.mp3 _site/ 2>/dev/null || true
 cp sound-click.mp3 _site/ 2>/dev/null || true
+cp sound-click-door.mp3 _site/ 2>/dev/null || true
 cp ofipapel-360-intro.mp4 _site/ 2>/dev/null || true
 cp manifest-inicio.json _site/ 2>/dev/null || true
 cp icon-ofipapel-192.png _site/ 2>/dev/null || true
