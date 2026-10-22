@@ -2401,6 +2401,19 @@ function repartirFacturas(docs, clave) {
   const previas = (q) => (q.factura && q.factura.reparto ? q.factura.lineas.filter((l) => !nombres.includes(l.origen)) : []);
   const r = CP.repartirPorReferencias(lineas, pedidos.map((q) => ({ id: q.id, numero: q.numero,
     lineas: q.final.lineas.concat(previas(q).map((l) => ({ ref: l.ref, cant: -(CP.parseNum(l.cant) || 0) }))) })));
+  // Un pedido que de esta factura solo recibe unas líneas sueltas no tiene su
+  // albarán en ella (Finocam: ALDAYO recibió 1 línea de 96 y las otras 95
+  // acabaron en Restos): no se le da factura —llegará en otra— y esas líneas
+  // cuentan como sobrantes.
+  for (const q of pedidos) {
+    const ls = r.porPedido.get(q.id);
+    if (!ls || previas(q).length) continue;
+    const pedidas = new Set(q.final.lineas.map((l) => CP.claveRef(l.ref))).size;
+    if (pedidas && new Set(ls.map((l) => CP.claveRef(l.ref))).size < pedidas / 2) {
+      r.sobrantes.push(...ls);
+      r.porPedido.delete(q.id);
+    }
+  }
   // Lo sobrante, al pedido que más líneas recibe de ese mismo PDF.
   for (const l of r.sobrantes) {
     const cuenta = new Map();
