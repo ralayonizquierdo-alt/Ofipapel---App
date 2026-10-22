@@ -2385,6 +2385,48 @@ function vistaFacturaFinal(p) {
     ${r.faltan.length ? `<p class="pequeno">${esRepo(p) ? 'Lo que no viene en la factura no entra en el Excel de Géminis: reclámalo al proveedor si hace falta.' : 'La factura manda: lo que no viene <b>pasa a Restos del cliente</b> (como si no hubiera stock), no sale en su guía de facturación ni en el Excel de Géminis.'}</p>` : ''}`}`}
   </div>`;
 }
+/** Factura(s) final(es) de toda la campaña junta: cada línea va al pedido
+ *  validado que la pidió (`repartirPorReferencias` contra lo validado); lo que
+ *  no pidió nadie o viene de más va al pedido con el que más comparte ese PDF,
+ *  para que salga como «de más» y no se pierda del Excel de Géminis. Se acumula
+ *  factura a factura (cada línea guarda su `origen`; subir la misma sustituye). */
+function repartirFacturas(docs, clave) {
+  const pedidos = E.pedidos.filter((q) => !q.archivado && claveGrupo(q) === clave && q.validado && q.final);
+  if (!pedidos.length) { ultimaCarga.push({ ok: false, texto: 'No hay pedidos validados en esta campaña para repartir la factura.' }); return; }
+  const nombres = docs.map((d) => d.archivo);
+  const lineas = docs.flatMap((d) => d.prop.lineas.map((l) => Object.assign({}, l, { origen: d.archivo })));
+  const dtoGlobal = docs.map((d) => d.prop.cabecera.dtoGlobal).find((x) => x) || null;
+  const cab = Object.assign({}, docs[0].prop.cabecera, { numeroPedido: null, dtoGlobal,
+    observaciones: `Factura repartida por referencias entre los pedidos validados (${nombres.join(', ')})` });
+  const previas = (q) => (q.factura && q.factura.reparto ? q.factura.lineas.filter((l) => !nombres.includes(l.origen)) : []);
+  const r = CP.repartirPorReferencias(lineas, pedidos.map((q) => ({ id: q.id, numero: q.numero,
+    lineas: q.final.lineas.concat(previas(q).map((l) => ({ ref: l.ref, cant: -(CP.parseNum(l.cant) || 0) }))) })));
+  // Lo sobrante, al pedido que más líneas recibe de ese mismo PDF.
+  for (const l of r.sobrantes) {
+    const cuenta = new Map();
+    for (const [id, ls] of r.porPedido) cuenta.set(id, ls.filter((x) => x.origen === l.origen).length);
+    const destino = [...cuenta].sort((a, b) => b[1] - a[1])[0];
+    if (!destino) continue;
+    r.porPedido.get(destino[0]).push(Object.assign({}, l, { deMas: true }));
+  }
+  const archivoDe = (ls) => 'Reparto: ' + [...new Set(ls.map((l) => l.origen).filter(Boolean))].join(' + ');
+  const porNumero = (x) => Number(String(x.numero).replace(/\D/g, '')) || 0;
+  let nDeMas = 0;
+  for (const q of pedidos.slice().sort((a, b) => porNumero(a) - porNumero(b))) {
+    const nuevas = r.porPedido.get(q.id) || [];
+    const antes = previas(q);
+    const deEste = q.factura && (q.factura.reparto || nombres.some((n) => String(q.factura.archivo || '').startsWith(n)));
+    if (!nuevas.length && !deEste) continue;
+    const todas = antes.concat(nuevas);
+    if (!todas.length) { q.factura = null; restosPorFactura(q); continue; }
+    asignarFactura(q, archivoDe(todas), { cabecera: cab, lineas: todas, control: null });
+    q.factura.reparto = true;
+    const rv = revisarFactura(q);
+    const dm = nuevas.filter((l) => l.deMas).length; nDeMas += dm;
+    if (nuevas.length) ultimaCarga.push({ ok: true, texto: `→ nº ${nPed(q.numero)} ${q.cliente || ''} · ${nuevas.length} líneas · ${fmt(importeDoc({ lineas: nuevas }))} €${rv && rv.cuadra ? ' — ✅ cuadra' : rv && rv.faltan.length ? ` — ❌ no vienen ${rv.faltan.length}` : ' — ⚠️ revisar'}${dm ? ` (${dm} sin pedir)` : ''}` });
+  }
+  ultimaCarga.push({ ok: true, texto: `Total: ${docs.length} documento(s) · ${lineas.length} líneas · ${fmt(CP.red2(lineas.reduce((t, l) => t + (CP.parseNum(l.importe) || 0), 0)))} € · repartido entre ${r.porPedido.size} pedido(s)${nDeMas ? ` · ${nDeMas} línea(s) que no pidió nadie, en el pedido que más comparte con su PDF` : ''}${dtoGlobal ? ` · dto. global ${dtoGlobal} %` : ''}` });
+}
 function asignarFactura(p, archivo, doc) {
   p.factura = { archivo, fecha: hoy(), cabecera: doc.cabecera || {}, lineas: doc.lineas, control: doc.control || null };
   restosPorFactura(p);
@@ -2435,6 +2477,19 @@ async function cargarFacturasVarias(files, clave) {
       if (err.sinSaldo) { ultimaCarga.push({ ok: false, texto: MSG_SIN_SALDO }); break; }
       ultimaCarga.push({ ok: false, texto: `${f.name}: ${err.message}` });
     }
+  }
+  // En una campaña del comercial, la factura final que no trae nº de pedido
+  // suele juntar los albaranes de varios clientes (Finocam: AV2604921…929, y
+  // además partida en varios PDF): se reparte por referencias, sin preguntar.
+  const ejemplo = E.pedidos.find((q) => claveGrupo(q) === clave);
+  const sinNumero = ejemplo && !esRepo(ejemplo) ? leidos.filter((x) => x.prop.cabecera.numeroPedido == null) : [];
+  if (sinNumero.length) {
+    repartirFacturas(sinNumero, clave);
+    progreso('');
+    guardar(); pintar();
+    const caja = document.getElementById('avisoCarga'); if (caja) caja.scrollIntoView({ block: 'start' });
+    if (sinNumero.length === leidos.length) return;
+    leidos.splice(0, leidos.length, ...leidos.filter((x) => !sinNumero.includes(x)));
   }
   const usados = new Set();
   const asignar = (x, p, como) => {
