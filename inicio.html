@@ -35,18 +35,23 @@ body{
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:3vh 12px;
+  padding:10px;
 }
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
 
-/* ─── Escenario del vídeo de apertura: contenedor 16:9 que fija el marco
-   sobre el que se alinea la capa SVG de zonas clicables — ambos comparten
-   el mismo viewBox/tamaño, así que se mueven siempre juntos sin importar
-   el tamaño real de pantalla (ver overlay más abajo). ─── */
+/* ─── Escenario del vídeo de apertura. El tamaño real (ancho/alto en px)
+   lo fija el script, no esta regla: calcula el rectángulo más grande que
+   cabe en pantalla sin deformar demasiado el 16:9 del vídeo (ver
+   layoutStage() más abajo) — con esto basta como arranque antes de que
+   corra el script y como red por si algo falla. El vídeo usa
+   object-fit:cover (recorta un poco si la pantalla no es 16:9, a propósito:
+   mejor perder un margen que dejar marco negro alrededor) y la capa SVG
+   recalcula su viewBox para recortar exactamente lo mismo que el vídeo,
+   así que vídeo y zonas quedan siempre alineados. ─── */
 .hub-stage{
   position:relative;z-index:1;
-  width:min(1400px, 94vw, calc(90svh * 16 / 9));
+  width:min(1400px, 94vw);
   aspect-ratio:16/9;
   border-radius:16px;
   overflow:hidden;
@@ -56,13 +61,13 @@ body{
 }
 .hub-video{
   position:absolute;inset:0;width:100%;height:100%;
-  display:block;object-fit:fill; /* el vídeo ya es 16:9, igual que el contenedor */
+  display:block;object-fit:cover;object-position:center;
 }
 
-/* ─── Zonas clicables: capa SVG transparente sobre el vídeo, viewBox fijo
-   a la resolución fuente (1920×1080) con preserveAspectRatio="none" para
-   que escale exactamente igual que el vídeo en cualquier tamaño —
-   coordenadas relativas, nunca px absolutos de una resolución concreta.
+/* ─── Zonas clicables: capa SVG transparente sobre el vídeo. El viewBox se
+   recalcula en JS para recortar exactamente lo mismo que object-fit:cover
+   recorta del vídeo (mismas coordenadas de origen, 1920×1080), así que
+   quedan siempre alineadas sea cual sea la forma real de pantalla.
    Inactiva (pointer-events:none) mientras dura el vídeo; se activa sola
    al terminar (ver script). ─── */
 .dept-overlay{
@@ -72,37 +77,57 @@ body{
 .hub-stage.ready .dept-overlay{pointer-events:auto;}
 
 .dept{cursor:pointer;outline:none;}
-.dept-hit{fill:transparent;}
+
+/* Borde fino y nítido, del color del departamento — una vez listo
+   (.ready), se queda encendido de forma permanente como seña de "esto se
+   puede pulsar", no solo al pasar el ratón. */
+.dept-hit{
+  fill:transparent;
+  stroke:var(--c);
+  stroke-width:0;
+  stroke-opacity:.9;
+  transition:stroke-width .3s ease;
+}
+.hub-stage.ready .dept-hit{stroke-width:2.5;}
+.dept:hover .dept-hit,
+.dept:focus-visible .dept-hit,
+.dept:active .dept-hit{stroke-width:4.5;}
+
+/* Halo desenfocado detrás del borde, para que no sea una simple línea sino
+   que se note "brillante" — también permanente una vez listo. */
 .dept-glow{
   fill:var(--c);
-  opacity:0;
+  stroke:var(--c);
+  stroke-width:6;
+  fill-opacity:0;
+  stroke-opacity:0;
   filter:url(#deptGlow);
-  transition:opacity .25s ease;
+  transition:fill-opacity .3s ease, stroke-opacity .3s ease;
   pointer-events:none;
 }
+.hub-stage.ready .dept-glow{fill-opacity:.08;stroke-opacity:.5;}
 .dept:hover .dept-glow,
 .dept:focus-visible .dept-glow,
 .dept:active .dept-glow{
-  opacity:.3;
+  fill-opacity:.22;stroke-opacity:.9;
   transition-duration:.2s;
 }
-.dept:focus-visible .dept-hit{
-  stroke:var(--c);
-  stroke-width:3;
-  stroke-opacity:.8;
-}
 
-/* ─── Pulso único al terminar el vídeo, para enseñar qué zonas son
-   interactivas — se dispara una vez (clase añadida por el script) y el
-   HUB queda limpio después. ─── */
-@keyframes deptPulse{
-  0%{opacity:0;}
-  35%{opacity:.42;}
-  100%{opacity:0;}
+/* ─── Pulso único al terminar el vídeo: sube de golpe por encima del nivel
+   permanente de arriba y baja hasta quedarse justo en ese nivel (no en
+   cero) — así el "encendido" queda fijo después del aviso inicial. ─── */
+@keyframes deptGlowPulse{
+  0%{fill-opacity:0;stroke-opacity:0;}
+  35%{fill-opacity:.4;stroke-opacity:1;}
+  100%{fill-opacity:.08;stroke-opacity:.5;}
 }
-.hub-stage.pulse-once .dept-glow{
-  animation:deptPulse 1.1s ease-out 1;
+@keyframes deptEdgePulse{
+  0%{stroke-width:0;}
+  35%{stroke-width:5;}
+  100%{stroke-width:2.5;}
 }
+.hub-stage.pulse-once .dept-glow{animation:deptGlowPulse 1.1s ease-out 1 forwards;}
+.hub-stage.pulse-once .dept-hit{animation:deptEdgePulse 1.1s ease-out 1 forwards;}
 </style>
 </head>
 <body>
@@ -112,7 +137,7 @@ body{
       <source src="ofipapel-360-intro.mp4" type="video/mp4">
     </video>
 
-    <svg class="dept-overlay" viewBox="0 0 1920 1080" preserveAspectRatio="none" aria-hidden="false">
+    <svg id="deptOverlay" class="dept-overlay" viewBox="0 0 1920 1080" preserveAspectRatio="none" aria-hidden="false">
       <defs>
         <filter id="deptGlow" x="-60%" y="-60%" width="220%" height="220%">
           <feGaussianBlur stdDeviation="14"/>
@@ -165,6 +190,52 @@ body{
 (function(){
   var video = document.getElementById('hubVideo');
   var stage = document.querySelector('.hub-stage');
+  var overlay = document.getElementById('deptOverlay');
+
+  // ── Tamaño del escenario + recorte del vídeo. SRC_W/SRC_H son la
+  // resolución real del vídeo (1920×1080, 16:9). El vídeo usa
+  // object-fit:cover para llenar la pantalla aunque no sea 16:9 (mejor
+  // recortar un poco que dejar marco negro alrededor); MIN/MAX_ASPECT
+  // evitan que ese recorte se dispare en pantallas muy distintas de 16:9
+  // (un móvil en vertical perdería casi todo el ancho si se dejara sin
+  // tope). El viewBox del SVG se recalcula para recortar EXACTAMENTE lo
+  // mismo que el vídeo (mismo centro, mismas proporciones), así que las 8
+  // zonas quedan siempre alineadas con lo que se ve de verdad.
+  var SRC_W = 1920, SRC_H = 1080, SRC_ASPECT = SRC_W / SRC_H;
+  var MIN_ASPECT = 1.25, MAX_ASPECT = 2.3;
+  function layoutStage(){
+    var margin = 20; // dos veces el padding del body (10px arriba+abajo/izq+der)
+    var availW = (window.visualViewport ? window.visualViewport.width : window.innerWidth) - margin;
+    var availH = (window.visualViewport ? window.visualViewport.height : window.innerHeight) - margin;
+    if (availW <= 0 || availH <= 0) return;
+
+    var w = availW, h = availH, aspect = w / h;
+    if (aspect > MAX_ASPECT) { w = h * MAX_ASPECT; }
+    else if (aspect < MIN_ASPECT) { h = w / MIN_ASPECT; }
+
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+
+    var boxAspect = w / h, vbX, vbY, vbW, vbH;
+    if (boxAspect > SRC_ASPECT) {
+      // la caja es relativamente más ancha que el vídeo: cover recorta arriba/abajo
+      vbW = SRC_W;
+      vbH = SRC_W / boxAspect;
+      vbX = 0;
+      vbY = (SRC_H - vbH) / 2;
+    } else {
+      // la caja es relativamente más alta/estrecha: cover recorta los lados
+      vbH = SRC_H;
+      vbW = SRC_H * boxAspect;
+      vbY = 0;
+      vbX = (SRC_W - vbW) / 2;
+    }
+    overlay.setAttribute('viewBox', vbX.toFixed(1) + ' ' + vbY.toFixed(1) + ' ' + vbW.toFixed(1) + ' ' + vbH.toFixed(1));
+  }
+  layoutStage();
+  var layoutTimer;
+  window.addEventListener('resize', function(){ clearTimeout(layoutTimer); layoutTimer = setTimeout(layoutStage, 120); });
+  window.addEventListener('orientationchange', function(){ setTimeout(layoutStage, 200); });
 
   // ── Despierta en segundo plano las apps externas que "duermen" tras un
   // rato sin uso (Almacén en Vercel, Atención al Cliente/WhatsApp BOT en
