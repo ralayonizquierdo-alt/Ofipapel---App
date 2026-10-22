@@ -631,6 +631,12 @@ function pageShell(title, body) {
   }
   .volver-arriba:hover { color: var(--green-dark); border-color: var(--green-light); }
   .pie-hilo { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  /* El botón de actualizar del final va con la misma pinta que los de volver,
+     porque hace lo mismo: es el juego de botones del final del hilo. Y la hora
+     debajo, que es lo que distingue "no hay nada nuevo" de "esto es de hace un
+     rato y no lo has refrescado". */
+  .pie-hilo button.volver-arriba { font-family: inherit; cursor: pointer; }
+  .pie-cuando { text-align: center; color: var(--text-muted); font-size: 12.5px; margin: 8px 0 0; }
 
   .thread-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
   .thread-title {
@@ -754,6 +760,29 @@ function pageShell(title, body) {
   .attach-filename { display: none; align-items: center; gap: 6px; font-size: 13px; color: var(--green-dark); background: var(--bg-soft); border: 1px solid var(--border); border-radius: 999px; padding: 5px 10px 5px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .attach-filename.show { display: inline-flex; }
   .attach-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+  /* EMOJIS. Escribir desde el panel es escribir por WhatsApp, y ahí un 👍 o un
+     ✅ dicen en un carácter lo que si no son dos líneas. En el móvil el teclado
+     ya los trae, pero desde el ordenador —que es desde donde se contesta casi
+     siempre— no hay forma de ponerlos sin irse a buscarlos fuera. */
+  .emoji-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+    background: var(--bg-soft); border: 1.5px solid var(--border);
+    font-size: 19px; line-height: 1; cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+  }
+  .emoji-btn:hover { background: #ddf0dd; border-color: var(--green-light); }
+  .emoji-panel {
+    display: none; flex-wrap: wrap; gap: 2px; margin-top: 8px; padding: 6px;
+    background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px;
+  }
+  .emoji-panel.abierto { display: flex; }
+  .emoji-panel button {
+    font-size: 22px; line-height: 1; padding: 7px; border: 0; border-radius: 8px;
+    background: none; cursor: pointer;
+  }
+  .emoji-panel button:hover { background: #ddf0dd; }
   .reply-form .btn-primary { margin-top: 10px; }
 </style>
 </head>
@@ -1663,6 +1692,28 @@ function guionDeRefresco(cada) {
 </script>`;
 }
 
+// LOS EMOJIS QUE SE USAN DE VERDAD CONTESTANDO A UN CLIENTE.
+//
+// No es una lista de emojis: es la lista de los que hacen falta en una
+// papelería. Un 👍 o un ✅ cierran un mensaje en un carácter, y los de pedido,
+// precio y entrega son los que más se escriben a mano. Puestos en el orden en
+// que se buscan, no por categorías.
+//
+// Desde el móvil el teclado ya los trae; esto es para el ordenador, que es
+// desde donde se contesta casi siempre y donde ponerlos obliga a irse fuera.
+const EMOJIS_RESPUESTA = [
+  '👍', '✅', '❌', '🙏', '😊', '😉', '👋', '🎉',
+  '📦', '🛒', '🧾', '📄', '💶', '🚚', '🕐', '📍',
+  '☎️', '✉️', '🖨️', '🖊️', '📎', '⚠️', '🔎', '❤️',
+];
+
+function panelDeEmojis() {
+  const botones = EMOJIS_RESPUESTA.map(
+    (emoji) => `<button type="button" title="${emoji}" onclick="ponerEmoji('${emoji}')">${emoji}</button>`
+  ).join('');
+  return `<div class="emoji-panel" id="emoji-panel">${botones}</div>`;
+}
+
 // El contenido de una burbuja. Casi siempre es texto, pero si el mensaje trae
 // una foto del cliente se pinta la foto — que es de lo que va la conversación:
 // "¿tenéis este?" no significa nada sin la imagen al lado.
@@ -1919,9 +1970,11 @@ function renderThread(phone, messages, { paused, error, ficha, entrega, falloDeE
         else { tag.classList.remove('show'); }
       ">
     </label>
+    <button type="button" class="emoji-btn" title="Poner un emoji" aria-expanded="false" onclick="abrirEmojis(this)">🙂</button>
     <span class="attach-filename">${ICON.file}<span></span></span>
     <button type="submit" class="btn btn-primary" style="margin-left:auto;">${ICON.send} Enviar</button>
   </div>
+  ${panelDeEmojis()}
   <div class="attach-hint">Imágenes (JPG/PNG) o PDF, máximo ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB. También puedes pegar una imagen copiada (Ctrl+V) sin guardarla antes.</div>
 </form>
 <script>
@@ -1949,6 +2002,41 @@ function quitarCita() {
   var aviso = document.getElementById('cita-activa');
   if (campo) campo.value = '';
   if (aviso) aviso.hidden = true;
+}
+
+// LOS EMOJIS.
+//
+// Se abren y se cierran con el mismo botón, y el panel se queda abierto
+// mientras se ponen: casi nunca se pone uno solo.
+function abrirEmojis(boton) {
+  var panel = document.getElementById('emoji-panel');
+  if (!panel) return;
+  var abierto = panel.classList.toggle('abierto');
+  boton.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+  if (abierto) {
+    var ta = document.querySelector('.reply-form textarea');
+    if (ta) ta.focus();
+  }
+}
+
+// Se mete DONDE ESTÁ EL CURSOR, no al final. Quien escribe "ya te lo preparo"
+// y quiere el 👍 detrás de "preparo" lo tiene fácil, pero quien quiere empezar
+// el mensaje con un 👋 tendría que cortar y pegar si esto lo pegara siempre al
+// final. Y el cursor se deja DESPUÉS del emoji para poder seguir escribiendo
+// sin tocar nada.
+function ponerEmoji(emoji) {
+  var ta = document.querySelector('.reply-form textarea');
+  if (!ta) return;
+  var desde = ta.selectionStart;
+  var hasta = ta.selectionEnd;
+  if (typeof desde !== 'number' || typeof hasta !== 'number') {
+    desde = ta.value.length;
+    hasta = desde;
+  }
+  ta.value = ta.value.slice(0, desde) + emoji + ta.value.slice(hasta);
+  var cursor = desde + emoji.length;
+  ta.focus();
+  if (ta.setSelectionRange) ta.setSelectionRange(cursor, cursor);
 }
 
 // Copiar el texto de un mensaje, para pegarlo donde haga falta.
@@ -2056,6 +2144,14 @@ function copiarMensaje(boton) {
   <button type="submit" class="danger-link">${ICON.trash} Borrar historial</button>
 </form>`;
 
+  // LA HORA A LA QUE SE CARGÓ ESTO.
+  //
+  // Va con el botón de actualizar del final, y es la mitad que lo hace útil:
+  // sin ella, una conversación sin novedades y una conversación que no se ha
+  // refrescado se ven exactamente igual. Con la hora delante se sabe de cuándo
+  // es lo que estás mirando. En hora de Canarias, que es donde se lee.
+  const horaDelHilo = new Date().toLocaleTimeString('es-ES', { timeZone: 'Atlantic/Canary' });
+
   return pageShell(
     `${phone} · Conversaciones Ofipapel`,
     `<a class="back-link" id="arriba" href="?">${ICON.back} Todas las conversaciones</a>
@@ -2066,8 +2162,10 @@ function copiarMensaje(boton) {
 ${renderFichaCliente(phone, ficha)}${pauseBar}${ventanaBar}${errorBanner}${bubbles || '<div class="empty-thread">Sin mensajes.</div>'}${replyForm}
 <div class="pie-hilo">
   <a class="volver-arriba" href="?">${ICON.back} Todas las conversaciones</a>
+  <button type="button" class="volver-arriba" onclick="this.textContent='Actualizando…'; this.disabled = true; location.reload();">⟳ Actualizar</button>
   <a class="volver-arriba" href="#arriba">${ICON.arriba} Volver arriba</a>
 </div>
+<p class="pie-cuando">Actualizado a las ${escapeHtml(horaDelHilo)}</p>
 ${guionDeRefresco(30000)}`
   );
 }
