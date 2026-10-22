@@ -70,44 +70,42 @@ body{
    recalcula en JS para recortar exactamente lo mismo que object-fit:cover
    recorta del vídeo (mismas coordenadas de origen, 1920×1080), así que
    quedan siempre alineadas sea cual sea la forma real de pantalla.
-   Inactiva (pointer-events:none) mientras dura el vídeo; se activa sola
-   al terminar (ver script). ─── */
+   Clicables desde el primer fotograma — no hace falta esperar a que
+   termine el vídeo para poder entrar en una app (antes sí, y no gustaba:
+   quien ya sabe a dónde va no quiere ver 8s de vídeo cada vez). ─── */
 .dept-overlay{
   position:absolute;inset:0;width:100%;height:100%;
-  pointer-events:none;
+  pointer-events:auto;
 }
-.hub-stage.ready .dept-overlay{pointer-events:auto;}
 
 .dept{cursor:pointer;outline:none;}
 
-/* Borde fino y nítido, del color del departamento — una vez listo
-   (.ready), se queda encendido de forma permanente como seña de "esto se
-   puede pulsar", no solo al pasar el ratón. */
+/* Borde fino y nítido, del color del departamento — encendido desde el
+   principio (no solo tras el pulso final) como seña permanente de "esto
+   se puede pulsar ya", no solo al pasar el ratón. */
 .dept-hit{
   fill:transparent;
   stroke:var(--c);
-  stroke-width:0;
+  stroke-width:2.5;
   stroke-opacity:.9;
   transition:stroke-width .3s ease;
 }
-.hub-stage.ready .dept-hit{stroke-width:2.5;}
 .dept:hover .dept-hit,
 .dept:focus-visible .dept-hit,
 .dept:active .dept-hit{stroke-width:4.5;}
 
 /* Halo desenfocado detrás del borde, para que no sea una simple línea sino
-   que se note "brillante" — también permanente una vez listo. */
+   que se note "brillante" — también encendido desde el principio. */
 .dept-glow{
   fill:var(--c);
   stroke:var(--c);
   stroke-width:6;
-  fill-opacity:0;
-  stroke-opacity:0;
+  fill-opacity:.08;
+  stroke-opacity:.5;
   filter:url(#deptGlow);
   transition:fill-opacity .3s ease, stroke-opacity .3s ease;
   pointer-events:none;
 }
-.hub-stage.ready .dept-glow{fill-opacity:.08;stroke-opacity:.5;}
 .dept:hover .dept-glow,
 .dept:focus-visible .dept-glow,
 .dept:active .dept-glow{
@@ -535,10 +533,11 @@ body{
   });
 
   // ── Fin del vídeo: deja el último fotograma fijo (el propio <video>
-  // pausado ya no consume recursos), lanza el pulso único sobre las 8
-  // zonas y las activa como clicables. Si seguía muteado (nadie tocó nada
-  // a tiempo), el botón de sonido se queda para poder repetirlo con
-  // audio bajo demanda (ver más abajo). ──
+  // pausado ya no consume recursos) y lanza un pulso de aviso sobre las 8
+  // zonas (ya eran clicables desde el principio, esto es solo el "aviso
+  // final" visual). Si seguía muteado (nadie tocó nada a tiempo), el
+  // botón de sonido se queda para poder repetirlo con audio bajo demanda
+  // (ver más abajo). ──
   function onEnded(){
     stage.classList.add('ready');
     stage.classList.add('pulse-once');
