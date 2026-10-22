@@ -1608,3 +1608,82 @@ encontró el síntoma (enlace roto) al probar el preview.
 rama; revertirlo con `git revert -m 1` es posible pero perdería también
 el trabajo de `main` incorporado. El propio merge no reescribe historia
 de nadie (ni de esta rama ni de `main`), es avance normal.
+
+### 2026-10-22 — Recepcionista del hub con acceso real a Finanzas y Alquileres
+
+**Qué**: la recepcionista de `inicio.html` (chat del logo "OFIPAPEL 360°")
+pasa de ser puramente informativa a tener herramientas de verdad
+(*tool-use* de Claude) para consultar Finanzas (saldo de caja, estado de
+cierres) y Alquileres (reservas por fecha, cobros pendientes). Backend
+nuevo, `netlify/functions/receptionist-chat.js`, separado de
+`chat-assistant.js` para no tocar el contrato que ya usa `Index.html`.
+
+**Alcance decidido con el propietario**: empezar solo con Finanzas y
+Alquileres (no Compras ni Fichaje todavía — se puede ampliar después con
+el mismo patrón de herramientas). Antes de responder algo sensible, el
+chat pide primero quién pregunta (desplegable "Quién pregunta": Admin,
+Luis, Rober, Mónica, Miguel) — **no es una contraseña**, es solo para que
+quede constancia en los logs de quién preguntó qué; el propietario eligió
+esta opción en vez de heredar sin más el mismo nivel de acceso abierto
+que ya tiene el resto del ecosistema hoy (ver «Seguridad conocida» en
+`CLAUDE.md`).
+
+**Cambios**: `netlify/functions/receptionist-chat.js` (nuevo) implementa
+el bucle de *tool-use* de Claude (hasta 4 rondas por pregunta) con 4
+herramientas de solo lectura: `consultar_saldo_caja`/`consultar_cierre_caja`
+leen Supabase (`registros`, `app_sync.cajacierres`) con
+`SUPABASE_SERVICE_ROLE_KEY` — la misma que ya usa `avisos-pedidos.mjs` en
+el sitio `ofipapel`, no hace falta un secreto nuevo para Finanzas —;
+`consultar_reservas_alquileres`/`consultar_cobros_pendientes_alquileres`
+leen Firestore del proyecto `ofipapelvv` con Firebase Admin y una cuenta
+de servicio nueva (`FIREBASE_SERVICE_ACCOUNT_ALQUILERES`, secreto
+pendiente de crear y configurar en Netlify — sin él, esas dos preguntas
+responden "no configurado" en vez de romper el resto del chat).
+`netlify/functions/package.json` suma `firebase-admin` como dependencia
+(`package-lock.json` regenerado, `npm ci` comprobado limpio).
+`inicio.html`: el panel de la recepcionista añade el desplegable "Quién
+pregunta" (se guarda en `localStorage`, se manda en cada petición), el
+`fetch` pasa de `/.netlify/functions/chat-assistant` a
+`/.netlify/functions/receptionist-chat`, y el *system prompt* explica a
+Claude qué herramientas tiene y cuándo pedir identificación.
+
+**Por qué cuenta de servicio y no las contraseñas reales de Luis/Rober o
+de `fin_miembros`**: tanto las reglas de Alquileres (`firestore.rules`)
+como la RLS de Finanzas ya exigen una cuenta real — una función de
+servidor de confianza usa su propia credencial de acceso (bypass
+explícito, de solo lectura en este fichero), en vez de guardar la
+contraseña de una persona real como si fuera un secreto de aplicación.
+
+**Verificación**: sin credenciales reales de Supabase/Firebase a mano en
+esta sesión, así que no se pudo probar contra datos en vivo. Sí se probó
+con pruebas automatizadas: `node --check` sobre la función nueva; el
+bucle de herramientas completo simulando las respuestas de Claude
+(pide una herramienta → se ejecuta → fetch bien formado) sin
+`SUPABASE_SERVICE_ROLE_KEY` ni `FIREBASE_SERVICE_ACCOUNT_ALQUILERES`
+configuradas (cada herramienta devuelve su error de "no configurado" en
+vez de tirar la función abajo); tope de rondas (no se cuelga si Claude
+pidiera herramientas sin parar); rutas de autenticación/validación
+(token incorrecto → 401, sin `messages` → 400, `OPTIONS` → 200); `npm ci`
+limpio en `netlify/functions/` con la dependencia nueva. En `inicio.html`,
+con Playwright (Service Worker bloqueado para poder interceptar el
+`fetch`): el panel se abre, el desplegable persiste en `localStorage`
+entre recargas, y la petición real sale hacia `receptionist-chat` con el
+`quien` y el *system prompt* nuevo.
+
+**Pendiente para que funcione de verdad**: crear
+`FIREBASE_SERVICE_ACCOUNT_ALQUILERES` (cuenta de servicio nueva en
+Firebase Console, proyecto `ofipapelvv`) y añadirla como variable de
+entorno en el sitio `ofipapel` de Netlify; comprobar que
+`SUPABASE_SERVICE_ROLE_KEY` ya está en ese mismo sitio (debería estarlo,
+la usa `avisos-pedidos.mjs`); probar las 4 preguntas de ejemplo del
+propietario contra datos reales una vez configurado.
+
+**Quién decide**: el propietario pidió explícitamente "montarlo bien...
+que tenga todo el contexto" y eligió el alcance (Finanzas + Alquileres
+primero) y el nivel de identificación (pedir quién pregunta) entre las
+opciones planteadas.
+
+**Reversibilidad**: alta — función nueva e independiente, no toca
+`chat-assistant.js` ni ningún dato existente (solo lecturas nuevas);
+quitar el acceso es borrar las dos variables de entorno o revertir el
+commit.

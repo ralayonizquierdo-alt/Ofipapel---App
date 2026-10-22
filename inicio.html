@@ -199,6 +199,15 @@ body{
   cursor:pointer;opacity:.7;line-height:1;padding:4px;
 }
 .receptionist-close:hover{opacity:1;}
+.receptionist-whoBar{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 16px;font-size:11.5px;color:#9aa3ab;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.receptionist-whoBar select{
+  background:#1b1f24;color:#EAF5EA;border:1px solid rgba(255,255,255,.15);
+  border-radius:8px;padding:4px 8px;font-size:12px;font-family:inherit;
+}
 .receptionist-messages{
   flex:1;overflow-y:auto;padding:14px 16px;
   display:flex;flex-direction:column;gap:10px;
@@ -301,15 +310,29 @@ body{
 
   <!-- ─── Recepcionista: chat de guía sobre el ecosistema Ofipapel, se abre
        al tocar el logo "OFIPAPEL 360°" del centro (junto con su sonido).
-       Reutiliza tal cual el proxy de netlify/functions/chat-assistant.js
-       que ya usa el Asistente IA de Index.html — mismo endpoint, mismo
-       token no-secreto (ver comentario en esa función), solo cambia el
-       system prompt. No hace falta backend nuevo. ─── -->
+       Desde el 2026-10-22 ya no es solo informativa: tiene herramientas de
+       verdad para consultar Finanzas (saldo de caja, cierres) y Alquileres
+       (reservas, cobros pendientes) — netlify/functions/receptionist-chat.js,
+       mismo token no-secreto que chat-assistant.js pero backend propio (ver
+       comentario en ese fichero). El desplegable "Quién pregunta" no es una
+       contraseña: solo identifica quién hace cada pregunta (decisión del
+       propietario, 2026-10-22), para que quede constancia en los logs. ─── -->
   <div id="receptionistBackdrop" class="receptionist-backdrop" hidden>
     <div class="receptionist-panel" role="dialog" aria-modal="true" aria-label="Guía de Ofipapel 360°">
       <div class="receptionist-head">
         <span>💬 Guía Ofipapel 360°</span>
         <button type="button" id="receptionistClose" class="receptionist-close" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="receptionist-whoBar">
+        <label for="receptionistQuien">Quién pregunta:</label>
+        <select id="receptionistQuien">
+          <option value="">— elige —</option>
+          <option value="admin">Admin</option>
+          <option value="luis">Luis</option>
+          <option value="rober">Rober</option>
+          <option value="monica">Mónica</option>
+          <option value="miguel">Miguel</option>
+        </select>
       </div>
       <div id="receptionistMessages" class="receptionist-messages"></div>
       <form id="receptionistForm" class="receptionist-form">
@@ -348,18 +371,31 @@ body{
   });
 
   // ── Recepcionista: chat de guía sobre el ecosistema, se abre al tocar
-  // el logo (junto con su sonido). Reutiliza tal cual el backend del
-  // Asistente IA de Index.html (netlify/functions/chat-assistant.js) —
-  // mismo endpoint, mismo token (no es un secreto real, ver comentario en
-  // esa función, solo evita dejar el proxy totalmente abierto). ──
+  // el logo (junto con su sonido). Backend propio desde el 2026-10-22,
+  // netlify/functions/receptionist-chat.js (mismo token no-secreto que
+  // chat-assistant.js, pero con herramientas de verdad para Finanzas y
+  // Alquileres — ver comentario en esa función). ──
   var CHAT_TOKEN = 'ofipapel-chat-2026';
+  var QUIEN_KEY = 'ofipapel-recepcionista-quien';
   var RECEPTIONIST_SYSTEM = [
     'Eres la recepcionista virtual del hub "OFIPAPEL 360°", el punto de',
     'entrada a las aplicaciones internas de Ofipapel (papelería con',
     'tiendas en Tenerife). Tu trabajo es orientar sobre qué aplicación usar',
-    'y qué hace cada una. No tienes acceso a datos reales de ninguna app',
-    '(ventas, pedidos, fichajes...): si preguntan por datos concretos,',
-    'dirige a la app correspondiente, nunca inventes cifras.',
+    'y qué hace cada una.',
+    '',
+    'Para FINANZAS y ALQUILERES tienes herramientas de verdad que consultan',
+    'los datos reales (saldo de caja, si se hizo un cierre, reservas de un',
+    'día, cobros pendientes) — úsalas en vez de adivinar, y si una',
+    'herramienta devuelve un error de configuración o que no encuentra',
+    'datos, dilo tal cual, no inventes cifras. Para el resto de apps (sin',
+    'herramientas) no tienes acceso a sus datos: si preguntan algo',
+    'concreto de esas, dirige a la app correspondiente.',
+    '',
+    'Antes de usar una herramienta de datos sensibles (caja, cobros,',
+    'reservas), si no sabe quién pregunta (abajo se indica, o dice',
+    '"(sin identificar)"), pide primero que elija su nombre en el',
+    'desplegable "Quién pregunta" de arriba del chat — no hace falta',
+    'contraseña, es solo para que quede registrado quién preguntó qué.',
     '',
     'Las 8 aplicaciones del hub:',
     '',
@@ -374,13 +410,15 @@ body{
     'con clientes, consultas de productos/precios/stock y estado de pedidos.',
     '',
     '📊 FINANZAS — Control financiero: caja, ventas, conciliación bancaria,',
-    'informes, asistente IA de datos.',
+    'informes, asistente IA de datos. (Tienes herramientas: saldo de caja',
+    'y estado de cierres.)',
     '',
     '📣 RR.SS. — Gestión de redes sociales de Ofipapel: campañas y',
     'calendario de publicaciones.',
     '',
     '🏠 ALQUILERES — Gestión de los alquileres vacacionales: reservas,',
-    'precios, reparaciones, cobros.',
+    'precios, reparaciones, cobros. (Tienes herramientas: reservas por',
+    'fecha y cobros pendientes.)',
     '',
     '🔑 FICHAJES — Registro horario del personal: fichar entrada/salida,',
     'exportación mensual.',
@@ -400,8 +438,14 @@ body{
   var formEl = document.getElementById('receptionistForm');
   var chatInput = document.getElementById('receptionistInput');
   var closeBtn = document.getElementById('receptionistClose');
+  var quienSelect = document.getElementById('receptionistQuien');
   var chatHistory = [];
   var chatOpened = false;
+
+  try { quienSelect.value = localStorage.getItem(QUIEN_KEY) || ''; } catch(e){}
+  quienSelect.addEventListener('change', function(){
+    try { localStorage.setItem(QUIEN_KEY, quienSelect.value); } catch(e){}
+  });
 
   function renderMessages(){
     messagesEl.innerHTML = '';
@@ -444,10 +488,10 @@ body{
       messagesEl.appendChild(typing);
       messagesEl.scrollTop = messagesEl.scrollHeight;
 
-      fetch('/.netlify/functions/chat-assistant', {
+      fetch('/.netlify/functions/receptionist-chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-chat-token': CHAT_TOKEN },
-        body: JSON.stringify({ system: RECEPTIONIST_SYSTEM, messages: chatHistory })
+        body: JSON.stringify({ system: RECEPTIONIST_SYSTEM, messages: chatHistory, quien: quienSelect.value || null })
       }).then(function(resp){
         return resp.json().catch(function(){ return {}; }).then(function(data){ return { ok: resp.ok, data: data }; });
       }).then(function(result){
