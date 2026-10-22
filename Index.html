@@ -813,6 +813,8 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <div id="tablaJefeContainer"></div>
           </div>
 
+          <div id="cajaFondoCambio"></div>
+
           <div class="sec-title" style="margin-top:24px;">🗂️ Historial de Importaciones de Caja</div>
           <div class="card" style="padding:12px 16px;margin-bottom:16px;"><div id="importLogCaja"></div></div>
         </div>
@@ -1571,6 +1573,8 @@ try{ const cb=JSON.parse(localStorage.getItem('op_cajabancorecibos')||'null'); i
 })();
 let cajaEfectivo = [];
 try{ const ce=JSON.parse(localStorage.getItem('op_cajaefectivo')||'null'); if(ce) cajaEfectivo=ce; }catch(e){}
+let cajaFondoCambio = [];   // hoja «Fondo Caja CAMBIOS» del Excel diario: [{fecha, items:[{tienda,codigo,importe}], nota}]
+try{ const fc=JSON.parse(localStorage.getItem('op_cajafondocambio')||'null'); if(fc) cajaFondoCambio=fc; }catch(e){}
 let cajaDetalles = [];
 try{ const cd=JSON.parse(localStorage.getItem('op_cajadetalles')||'null'); if(cd) cajaDetalles=cd; }catch(e){}
 let cajaTerminales = [];
@@ -1760,6 +1764,11 @@ function applyCloudDataset(key, payload){
     ventasWeb = payload;
     try{ localStorage.setItem('op_ventasweb', JSON.stringify(ventasWeb)); }catch(e){}
     renderVentasWeb();
+  } else if(key==='cajafondocambio'){
+    const m={}; [...(payload||[]),...cajaFondoCambio].forEach(x=>{ if(x&&x.fecha) m[x.fecha]=x; });
+    cajaFondoCambio=Object.values(m).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    try{ localStorage.setItem('op_cajafondocambio', JSON.stringify(cajaFondoCambio)); }catch(e){}
+    if(typeof renderCajaBancoLista==='function') renderCajaFondoCambio();
   } else if(key==='cajaefectivo'){
     cajaEfectivo = payload;
     try{ localStorage.setItem('op_cajaefectivo', JSON.stringify(cajaEfectivo)); }catch(e){}
@@ -1820,6 +1829,7 @@ async function loadAllSharedDatasets(){
     if(!existing.comprasprov && comprasProveedores.length) syncDatasetToCloud('comprasprov', comprasProveedores);
     if(!existing.ventasweb && ventasWeb.length) syncDatasetToCloud('ventasweb', ventasWeb);
     if(!existing.cajaefectivo && cajaEfectivo.length) syncDatasetToCloud('cajaefectivo', cajaEfectivo);
+    if(!existing.cajafondocambio && cajaFondoCambio.length) syncDatasetToCloud('cajafondocambio', cajaFondoCambio);
     // Datasets que antes no se sincronizaban — rescate inicial
     // applyCloudDataset ya hizo el merge de cloud+local; ahora subimos el resultado combinado
     if(cajaCierres.length) syncDatasetToCloud('cajacierres', cajaCierres);
@@ -1885,6 +1895,7 @@ async function forzarSyncCompleto(btn){
     if(ventasWeb.length)        ops.push(syncDatasetToCloud('ventasweb', ventasWeb));
     if(ventasWebDetalle.length) ops.push(syncDatasetToCloud('ventasweb_det', ventasWebDetalle));
     if(cajaEfectivo.length)     ops.push(syncDatasetToCloud('cajaefectivo', cajaEfectivo));
+    if(cajaFondoCambio.length)  ops.push(syncDatasetToCloud('cajafondocambio', cajaFondoCambio));
     await Promise.all(ops);
     showToast('✅ Datos subidos a la nube correctamente','ok');
   } catch(e){
@@ -2008,7 +2019,7 @@ function _completeLogin(u){
   initSupabase().then(() => { loadFromCloud(); loadAllSharedDatasets(); startSharedDatasetsPolling(); });
   document.getElementById('topbarDate').textContent = new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   document.getElementById('entradaFecha').value = new Date().toLocaleDateString('en-CA');
-  renderDashboard(); renderDeuda(); renderAlertas(); renderHistorico(); renderCajaBancoLista();
+  renderDashboard(); renderDeuda(); renderAlertas(); renderHistorico(); renderCajaBancoLista(); renderCajaFondoCambio();
 }
 
 async function doLogin() {
@@ -3370,10 +3381,24 @@ function _ejecutarArrastre(input){
         }
       } catch(cajErr){ console.warn('TOTAL CAJAS parse error:', cajErr); }
 
+      // ── FONDO CAJA CAMBIOS: hoja del mismo Excel diario ──
+      let fondoMsg = '';
+      try{
+        const fc = _parseFondoCambioSheet(wb);
+        if(fc){
+          const ent = { fecha, items: fc.items, nota: fc.nota };
+          const i = cajaFondoCambio.findIndex(x => x.fecha === fecha);
+          if(i >= 0) cajaFondoCambio[i] = ent; else cajaFondoCambio.push(ent);
+          cajaFondoCambio.sort((a,b) => a.fecha.localeCompare(b.fecha));
+          saveCajaFondoCambio();
+          fondoMsg = ` · Fondo de cambio: ${fmt(fc.items.reduce((t,x)=>t+x.importe,0))}`;
+        }
+      } catch(fcErr){ console.warn('Fondo Caja CAMBIOS parse error:', fcErr); }
+
       const ahoraLabel = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-      statusEl.innerHTML = `<span class="ok">✅ ${fechaLabel} — Total: ${fmt(totalCalc)}${cajaMsg} · Subido ${ahoraLabel}</span>`;
+      statusEl.innerHTML = `<span class="ok">✅ ${fechaLabel} — Total: ${fmt(totalCalc)}${cajaMsg}${fondoMsg} · Subido ${ahoraLabel}</span>`;
       stampImport('volcado', file.name);
-      renderDashboard(); renderAlertas();
+      renderDashboard(); renderAlertas(); renderCajaFondoCambio();
       showToast(`✅ Importado: ${fechaLabel}`,'ok');
 
     } catch(err) {
@@ -3391,6 +3416,56 @@ function _ejecutarArrastre(input){
 // Tiendas Ofipapel: 43,44,45,46,48 (47 es admin pass-through)
 // Tiendas Aliz-1: A2,A3  — Tienda Aliz-2: AA
 // ═══════════════════════════════════════════════════════
+function _parseFondoCambioSheet(wb){
+  const nombre=(wb.SheetNames||[]).find(n=>/fondo.*caja.*cambio/i.test(n));
+  if(!nombre) return null;
+  const data=XLSX.utils.sheet_to_json(wb.Sheets[nombre],{header:1,defval:'',raw:true});
+  // un importe es un número, o un texto solo con cifras como «339.-€» (así «Z-8» no cuenta)
+  const num=x=>{
+    if(typeof x==='number') return x;
+    const m=String(x||'').trim().match(/^(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)\s*\.?-?\s*€?$/);
+    if(!m) return null;
+    let t=m[1]; if(t.includes(',')) t=t.replace(/\./g,'').replace(',','.'); else if(/^\d{1,3}(\.\d{3})+$/.test(t)) t=t.replace(/\./g,'');
+    const n=parseFloat(t); return isNaN(n)?null:n;
+  };
+  const items=[]; let nota='';
+  for(const row of data){
+    const txt=row.map(c=>String(c||'')).join(' ').replace(/\s+/g,' ').trim();
+    if(/estos importes/i.test(txt)) nota=txt;
+    const a=String(row[0]||'').trim();
+    if(!/^(OFIPAPEL|ALIZ[\s\-]?[12])$/i.test(a)) continue;
+    const resto=row.slice(1);
+    const importes=resto.map(num).filter(n=>n!==null);
+    if(!importes.length) continue;
+    const codigo=resto.map(c=>String(c||'').trim()).find(c=>c&&num(c)===null)||'';
+    items.push({tienda:a.toUpperCase().replace(/ALIZ[\s\-]?(\d)/,'ALIZ-$1'),codigo,importe:importes[importes.length-1]});
+  }
+  return items.length?{items,nota}:null;
+}
+
+function renderCajaFondoCambio(){
+  const el=document.getElementById('cajaFondoCambio'); if(!el) return;
+  const hist=[...cajaFondoCambio].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const titulo='<div class="sec-title" style="margin-top:24px;">💱 Fondo de Caja de Cambio</div>';
+  if(!hist.length){
+    el.innerHTML=titulo+'<div class="card" style="padding:14px 16px;margin-bottom:16px;color:var(--texto2);font-size:13px;">Se rellena al subir el Excel de saldos diario (hoja «Fondo Caja CAMBIOS»).</div>';
+    return;
+  }
+  const u=hist[0], tot=u.items.reduce((t,x)=>t+x.importe,0);
+  const dia=f=>new Date(f+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+  const antes=hist.slice(1,6).map(h=>`${dia(h.fecha)}: ${fmt(h.items.reduce((t,x)=>t+x.importe,0))}`).join(' · ');
+  el.innerHTML=titulo+`<div class="card" style="padding:16px;margin-bottom:16px;">
+    <div style="font-size:12px;color:var(--texto2);margin-bottom:8px;">Según el Excel de saldos del <strong>${dia(u.fecha)}</strong></div>
+    <table class="tabla" style="margin-bottom:0;max-width:520px;">
+      <thead><tr><th>Tienda</th><th>Caja</th><th style="text-align:right;">Importe</th></tr></thead>
+      <tbody>${u.items.map(x=>`<tr><td style="font-weight:600;">${x.tienda}</td><td style="font-family:'IBM Plex Mono',monospace;">${x.codigo||'—'}</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(x.importe)}</td></tr>`).join('')}
+      <tr style="border-top:2px solid var(--borde);font-weight:700;"><td colspan="2">Total</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(tot)}</td></tr></tbody>
+    </table>
+    ${u.nota?`<div style="font-size:12px;color:var(--texto2);margin-top:10px;font-style:italic;">${u.nota}</div>`:''}
+    ${antes?`<div style="font-size:11px;color:var(--texto2);margin-top:8px;">Anteriores: ${antes}</div>`:''}
+  </div>`;
+}
+
 function _parseTotalCajasSheet(wb){
   const ws = wb.Sheets['TOTAL CAJAS'];
   if(!ws) return null;
@@ -3766,6 +3841,7 @@ function importProveedoresPDF(input){
 // ═══════════════════════════════════════════════════════
 function saveCajaCierres(){ try{localStorage.setItem('op_cajacierres',JSON.stringify(cajaCierres));}catch(e){} syncDatasetToCloud('cajacierres', cajaCierres); }
 function saveCajaBanco(){ try{localStorage.setItem('op_cajabancorecibos',JSON.stringify(cajaBancoRecibos));}catch(e){} syncDatasetToCloud('cajabancorecibos', cajaBancoRecibos); }
+function saveCajaFondoCambio(){ try{localStorage.setItem('op_cajafondocambio',JSON.stringify(cajaFondoCambio));}catch(e){} syncDatasetToCloud('cajafondocambio', cajaFondoCambio); }
 function saveCajaEfectivo(){ try{localStorage.setItem('op_cajaefectivo',JSON.stringify(cajaEfectivo));}catch(e){} syncDatasetToCloud('cajaefectivo', cajaEfectivo); }
 function saveCajaDetalles(){ try{localStorage.setItem('op_cajadetalles',JSON.stringify(cajaDetalles));}catch(e){} }
 function saveCajaTerminales(){ try{localStorage.setItem('op_cajaterminales',JSON.stringify(cajaTerminales));}catch(e){} syncDatasetToCloud('cajaterminales', cajaTerminales); }
@@ -4578,6 +4654,7 @@ function renderCajaView(){
   renderCajaConciliacion();
   renderCajaHistorico();
   renderCajaBancoLista();
+  renderCajaFondoCambio();
 }
 
 function renderCajaConciliacion(){
