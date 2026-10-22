@@ -667,6 +667,16 @@ entender el tono ("muchas gracias por la ayuda, se nota") se queda fuera.
 - **Adjuntar pegando**: además del botón del clip, se puede pegar una imagen
   copiada (Ctrl+V) en el cuadro de respuesta, sin tener que guardarla antes en
   el disco. Va al mismo sitio que un adjunto normal.
+- **Emojis** (botón 🙂 junto al clip): abre una rejilla con los 24 que se usan
+  de verdad contestando a un cliente — 👍 ✅ 🙏 📦 💶 🚚 y los demás. El emoji
+  se mete **donde está el cursor**, no al final, y el panel se queda abierto
+  mientras se ponen. Desde el móvil el teclado ya los trae; esto es para el
+  ordenador, que es desde donde se contesta casi siempre.
+- **⟳ Actualizar al final del hilo**, junto a los botones de volver, con la
+  hora de lo que estás viendo debajo. El de arriba, en una conversación larga,
+  queda a un hilo entero de distancia — y lo que se quiere mirar (si ha
+  contestado) está justo abajo. La hora es la otra mitad: sin ella, una
+  conversación sin novedades y una que no se ha refrescado se ven igual.
 - **Perfil del negocio** (enlace en el pie): enseña la foto y los datos que ve un
   cliente al pulsar en el nombre del contacto, dice cuántos faltan por rellenar,
   y trae los pasos para cambiarlo en WhatsApp Manager. Solo se lee desde aquí:

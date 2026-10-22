@@ -67,8 +67,10 @@ const VISTAS = [
   const cookie = (login.headers?.['Set-Cookie'] || '').split(';')[0];
 
   let fallos = 0;
+  const paginas = {};
   for (const [nombre, query] of VISTAS) {
     const res = await conv.handler({ httpMethod: 'GET', queryStringParameters: query, headers: { cookie } });
+    paginas[nombre] = res.body || '';
     const bloques = [...(res.body || '').matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
 
     if (bloques.length === 0) {
@@ -88,6 +90,32 @@ const VISTAS = [
     });
   }
 
-  console.log(fallos === 0 ? '\n✔ Todo el JavaScript del panel parsea' : `\n✗ ${fallos} bloques con error de sintaxis`);
+  // Y QUE LOS BOTONES ESTÉN PUESTOS.
+  //
+  // Que el script parsee no dice nada de si el botón que lo llama llegó a
+  // pintarse: son dos trozos distintos del mismo fichero y es fácil tocar uno
+  // y dejar el otro. Esto mira lo que de verdad recibe el navegador.
+  const hilo = paginas['conversación'] || '';
+  const EN_EL_HILO = [
+    ['el botón de emojis', 'class="emoji-btn"'],
+    ['el panel de emojis', 'id="emoji-panel"'],
+    ['los emojis, con su llamada', "ponerEmoji('👍')"],
+    ['la función que los mete', 'function ponerEmoji('],
+    // Actualizar al final del hilo: en una conversación larga el de arriba
+    // queda a un hilo entero de distancia, y lo que se quiere mirar —si ha
+    // contestado— está justo abajo.
+    ['actualizar al final del hilo', '⟳ Actualizar'],
+    ['la hora de lo que estás viendo', 'class="pie-cuando"'],
+  ];
+  for (const [que, trozo] of EN_EL_HILO) {
+    if (hilo.includes(trozo)) {
+      console.log(`  OK   está ${que}`);
+    } else {
+      fallos++;
+      console.log(`  MAL  falta ${que} (no aparece ${trozo})`);
+    }
+  }
+
+  console.log(fallos === 0 ? '\n✔ Todo el JavaScript del panel parsea' : `\n✗ ${fallos} fallos`);
   process.exit(fallos === 0 ? 0 : 1);
 })();
