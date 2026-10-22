@@ -841,6 +841,39 @@
     return { asignaciones, sobrante };
   }
 
+  /**
+   * Lo que sobra al repartir una factura en la campaña puede ser un RESTO
+   * pendiente de un pedido anterior (llega en la factura siguiente): se le da
+   * al cliente que lo esperaba, el más antiguo primero. Línea a línea, para
+   * conservar su `origen` e importe. Devuelve { asignaciones: [{ restoId, ref,
+   * cliente, numero, cant, origen }], sobrantes: líneas que siguen sin dueño }.
+   */
+  function restosQueLlegan(restos, lineas, proveedor) {
+    const abiertos = (restos || [])
+      .filter((r) => !r.anulado && r.pendiente > 0 && (!proveedor || r.proveedor === proveedor))
+      .slice()
+      .sort((x, y) => String(x.fecha).localeCompare(String(y.fecha)) || String(x.id).localeCompare(String(y.id)));
+    const usado = new Map();
+    const asignaciones = [];
+    const sobrantes = [];
+    for (const l of lineas || []) {
+      const k = claveRef(l.ref);
+      const total = parseNum(l.cant) || 0;
+      let queda = total;
+      for (const r of abiertos) {
+        if (queda <= 0) break;
+        if (claveRef(r.ref) !== k) continue;
+        const q = Math.min(queda, r.pendiente - (usado.get(r.id) || 0));
+        if (q <= 0) continue;
+        usado.set(r.id, (usado.get(r.id) || 0) + q);
+        asignaciones.push({ restoId: r.id, ref: r.ref, cliente: r.cliente, numero: r.numero, cant: q, origen: l.origen || '' });
+        queda -= q;
+      }
+      if (queda > 0) sobrantes.push(queda === total ? l : Object.assign({}, l, { cant: queda, importe: l.importe != null ? red2(l.importe * queda / total) : null }));
+    }
+    return { asignaciones, sobrantes };
+  }
+
   // ── Descuentos ────────────────────────────────────────────────────────────
 
   /**
@@ -1486,7 +1519,7 @@
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
     parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, repartirPorReferencias, fotosRepetidas, firmaLineas,
-    sugerirAsignacion, descuentoEquivalente, leerPropuesta, filasGeminis,
+    sugerirAsignacion, restosQueLlegan, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.ControlPedidos = api;

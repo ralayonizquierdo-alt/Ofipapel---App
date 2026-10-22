@@ -841,3 +841,14 @@ test('Reparto por referencias: el bloque que nombra al cliente («Pedido Aliz I_
   const r2 = CP.repartirPorReferencias([{ ref: 'MR1', cant: 1, importe: 10, bloque: 'Pedido 4_ Gift' }], pedidos);
   assert.deepEqual([...r2.porPedido.keys()], ['a'], 'sin nombre, por nº como siempre');
 });
+
+test('Restos que llegan en la factura siguiente: lo que sobra del reparto se da al resto pendiente más antiguo', () => {
+  const restos = [
+    { id: 'r2', ref: 'MR1', cliente: 'B', numero: '8', proveedor: 'MIQUELRIUS', fecha: '2026-10-10', pendiente: 2, anulado: false },
+    { id: 'r1', ref: 'MR1', cliente: 'A', numero: '4', proveedor: 'MIQUELRIUS', fecha: '2026-10-05', pendiente: 1, anulado: false },
+    { id: 'r3', ref: 'MR2', cliente: 'A', numero: '4', proveedor: 'OTRO', fecha: '2026-10-05', pendiente: 1, anulado: false },
+  ];
+  const r = CP.restosQueLlegan(restos, [{ ref: 'MR1', cant: 4, importe: 40, origen: 'f2.pdf' }, { ref: 'MR2', cant: 1, importe: 5 }], 'MIQUELRIUS');
+  assert.deepEqual(r.asignaciones.map((a) => [a.restoId, a.cant, a.origen]), [['r1', 1, 'f2.pdf'], ['r2', 2, 'f2.pdf']]);
+  assert.deepEqual(r.sobrantes.map((l) => [l.ref, l.cant, l.importe]), [['MR1', 1, 10], ['MR2', 1, 5]], 'otro proveedor no cuenta; lo que sobra conserva su parte del importe');
+});
