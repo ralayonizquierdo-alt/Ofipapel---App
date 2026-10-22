@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-22-1"></script>
+<script src="control-pedidos-logica.js?v=2026-10-23-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -683,6 +683,7 @@ function vistaGrupo(g, i) {
         ${comparados.length ? `<span class="chip ${nF ? 'mal' : 'ok'}">${nF} faltan</span><span class="chip ${nS ? 'aviso' : 'ok'}">${nS} sobran</span>` : ''}
       </span>
     </summary>
+    ${esComercial() ? '' : bloqueMarca(g)}
     <div class="tabla-scroll"><table class="lista-pedidos">
       <tr><th class="no-imprimir"><input type="checkbox" title="Seleccionar todos" onchange="this.closest('table').querySelectorAll('.selPed').forEach(c=>{c.checked=this.checked;marcarSel(c)})"></th>
         <th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th>Fotos</th><th>Propuesta</th><th>Estado</th><th class="c-movil"></th><th class="no-imprimir"></th></tr>
@@ -708,6 +709,7 @@ function vistaGrupo(g, i) {
         <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px" title="Para el proveedor que lo factura todo junto, sin separar por cliente: cada línea va al pedido que pidió esa referencia">🧩 Factura de todo junto: repartirla por referencias
         <input type="file" multiple class="oculto" onchange="repartirFacturaCampana(this.files, ${js(g.clave)}); this.value=''"></label>`}
+      <button class="btn peque peligro" onclick="quitarDocumentoCampana(${js(g.clave)})">🗑️ Quitar propuestas o facturas subidas</button>
       <button class="btn peque" onclick="renombrarCampana(${js(g.clave)})">✏️ ${ej.campana ? 'Renombrar' : 'Poner nombre a'} la campaña</button>`}
       ${esComercial() ? '' : `<button class="btn" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel de la compra al proveedor (Géminis)</button>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales${esRepo(ej) ? ' (opcional)' : ''}
@@ -948,6 +950,31 @@ function renombrarCampana(clave) {
   gruposAbiertos = gruposAbiertos || new Set();
   gruposAbiertos.add(claveGrupo(ps[0]));
   guardar(); pintar();
+}
+/** Marca (columna B «EDITORIAL/MARCA» del Excel de Géminis) de la campaña:
+ *  se elige una vez al principio y la llevan todos sus pedidos (`p.marca`). */
+function marcaDe(pedidos) { return (pedidos.find((p) => p.marca) || {}).marca || ''; }
+function bloqueMarca(g) {
+  const m = marcaDe(g.pedidos);
+  return `<div class="fila no-imprimir" style="margin:6px 0 10px;align-items:center;gap:8px">
+    🏷️ Marca para Géminis: ${m ? `<b>${h(m)}</b>` : '<span class="chip mal">sin elegir</span>'}
+    <button class="btn peque" onclick="elegirMarca(${js(g.clave)})">${m ? 'Cambiar' : 'Elegir marca'}</button></div>`;
+}
+/** Pide la marca y la pone en todos los pedidos de la campaña. Devuelve la
+ *  elegida ('' si se cancela). Propone la última usada con ese proveedor. */
+function elegirMarca(clave) {
+  const ps = E.pedidos.filter((p) => claveGrupo(p) === clave);
+  if (!ps.length) return '';
+  const usadas = [...new Set(E.pedidos.map((p) => p.marca).filter(Boolean))].sort();
+  const delProv = E.pedidos.filter((p) => p.marca && prov(p.proveedor) === prov(ps[0].proveedor)).map((p) => p.marca);
+  const propuesta = marcaDe(ps) || delProv[delProv.length - 1] || prov(ps[0].proveedor);
+  const r = prompt(`Marca para el Excel de Géminis de la campaña «${ps[0].campana || ps[0].proveedor}» (columna EDITORIAL/MARCA de cada artículo).` +
+    (usadas.length ? `\nYa usadas: ${usadas.join(', ')}` : ''), propuesta);
+  if (r == null || !r.trim()) return '';
+  const marca = r.trim().toUpperCase();
+  ps.forEach((p) => { p.marca = marca; });
+  guardar(); pintar();
+  return marca;
 }
 function otroPedidoCampana(proveedor, campana) {
   prefijoNuevo = { proveedor, campana };
@@ -1658,6 +1685,53 @@ function quitarPedidos(ids) {
   E.notas = E.notas.filter((n) => !fuera.has(n.pedidoId));
 }
 /** Una campaña entera (o todas las reposiciones de un proveedor), con doble confirmación. */
+/** Quita de la campaña una propuesta o factura del proveedor ya subida (o
+ *  todas), de todos los pedidos a los que se repartió, para volver a subirla
+ *  sin que se sume: cada línea repartida guarda su `origen` (el fichero). */
+function docsDe(x) {
+  if (!x) return [];
+  return x.reparto ? [...new Set(x.lineas.map((l) => l.origen).filter(Boolean))] : [x.archivo || 'sin nombre'];
+}
+function quitarDocumentoCampana(clave) {
+  const ps = E.pedidos.filter((p) => claveGrupo(p) === clave);
+  const docs = [];
+  for (const [campo, tipo] of [['propuesta', 'Propuesta'], ['factura', 'Factura final']]) {
+    for (const p of ps) for (const nombre of docsDe(p[campo])) {
+      let d = docs.find((x) => x.campo === campo && x.nombre === nombre);
+      if (!d) docs.push(d = { campo, tipo, nombre, pedidos: [] });
+      d.pedidos.push(p);
+    }
+  }
+  if (!docs.length) { alert('Esta campaña no tiene propuestas ni facturas subidas.'); return; }
+  const r = prompt('¿Qué documento quitas? Se quita de todos los pedidos de la campaña.\n\n' +
+    docs.map((d, i) => `${i + 1}) ${d.tipo} · ${d.nombre} (${d.pedidos.length} pedido(s))`).join('\n') +
+    '\n\nEscribe el número, o TODO para quitarlos todos:');
+  if (r == null || !r.trim()) return;
+  const elegidos = r.trim().toUpperCase() === 'TODO' ? docs : [docs[Number(r) - 1]].filter(Boolean);
+  if (!elegidos.length) { alert('Ese número no está en la lista.'); return; }
+  const validados = [...new Set(elegidos.flatMap((d) => d.pedidos))].filter((p) => p.validado).length;
+  if (!confirm(`Se quita${elegidos.length > 1 ? 'n' : ''} ${elegidos.map((d) => d.nombre).join(', ')}.` +
+    (validados ? `\n${validados} pedido(s) validado(s) tendrán que revalidarse.` : '') + '\n¿Seguir?')) return;
+  for (const d of elegidos) {
+    for (const p of d.pedidos) {
+      const x = p[d.campo];
+      if (!x) continue;
+      const quedan = x.reparto ? x.lineas.filter((l) => l.origen !== d.nombre) : [];
+      if (quedan.length) {
+        x.lineas = quedan;
+        x.archivo = 'Reparto: ' + docsDe(x).join(' + ');
+      } else {
+        p[d.campo] = null;
+        if (d.campo === 'propuesta') p.decisiones = {};
+      }
+      if (d.campo === 'propuesta') invalidar(p); else restosPorFactura(p);
+    }
+  }
+  // El pedido «lo que sobra de la factura» sin nada ya no pinta nada.
+  quitarPedidos(ps.filter((p) => p.sobrantes && !p.propuesta && !p.factura).map((p) => p.id));
+  guardar(); pintar();
+  alert('Quitado. Ya puedes volver a subirlo.');
+}
 function borrarCampana(clave) {
   const ps = E.pedidos.filter((p) => claveGrupo(p) === clave);
   if (!ps.length) return;
@@ -3132,6 +3206,11 @@ function exportarPedidos(ids) {
   if (sinValidar.length) { alert('No se puede exportar con discordancias sin resolver. Sin validar: ' + sinValidar.map((p) => 'nº ' + p.numero).join(', ')); return; }
   const provs = [...new Set(ps.map((p) => p.proveedor))];
   if (provs.length > 1) { alert('Exporta los pedidos de un proveedor cada vez.'); return; }
+  // La marca de la campaña es obligatoria: sin ella Géminis no sabe la EDITORIAL.
+  const grupos = [...new Set(ps.map(claveGrupo))];
+  let marca = marcaDe(ps) || marcaDe(E.pedidos.filter((p) => grupos.includes(claveGrupo(p))));
+  if (!marca) marca = elegirMarca(grupos[0]);
+  if (!marca) { alert('Elige la marca de la campaña para exportar el Excel de Géminis.'); return; }
   // Cada línea con un único descuento equivalente (encadenados + global del
   // pedido) sin tocar el precio base. Varias selecciones se suman por
   // referencia, precio y descuento.
@@ -3150,7 +3229,7 @@ function exportarPedidos(ids) {
     }
   }
   descargarGeminis([...suma.values()], { proveedor: provs[0], numero: ps.length === 1 ? ps[0].numero : ps.map((p) => p.numero).join('+'),
-    observaciones: ps.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales });
+    observaciones: ps.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales, marca });
 }
 /** Escribe el Excel 5.0/95 de Géminis (artículos desde la fila 11) con líneas ya pasadas por lineasParaGeminis. */
 function descargarGeminis(lineas, o) {
@@ -3166,7 +3245,7 @@ function descargarGeminis(lineas, o) {
   // Plantilla «Luis» (la oficial de Gestión, la de «PDF a Excel») por defecto:
   // con la «Rober» Géminis no reconocía las referencias (20/10/2026).
   const rober = (localStorage.getItem('cp.plantilla') || 'luis') === 'rober';
-  const cab = { proveedor: provs[0], fecha: fmtFecha(hoy()), numero, almacen: localStorage.getItem('cp.almacen') || '', observaciones: o.observaciones || '' };
+  const cab = { proveedor: provs[0], fecha: fmtFecha(hoy()), numero, almacen: localStorage.getItem('cp.almacen') || '', observaciones: o.observaciones || '', marca: o.marca || '' };
   const opc = { igic: CP.parseNum(localStorage.getItem('cp.igic') || '7') };
   const aoa = (rober ? CP.filasGeminis([...suma.values()], cab, opc) : CP.filasGeminisLuis([...suma.values()], cab, opc)).map((f) => f.map(quitar));
   const ws = XLSX.utils.aoa_to_sheet(aoa);

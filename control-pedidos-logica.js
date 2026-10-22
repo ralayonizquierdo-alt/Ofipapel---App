@@ -1233,6 +1233,7 @@
    * desde la 12, columnas A–P. Con la «Rober» (filasGeminis) Géminis daba de
    * alta cada línea como artículo «2».
    */
+  // `cab.marca` (la elegida en la campaña) va en la columna B, EDITORIAL/MARCA, de cada artículo.
   function filasGeminisLuis(lineas, cab, opciones) {
     const N = 16; // A..P
     const fila = () => new Array(N).fill('');
@@ -1261,7 +1262,7 @@
       const precio = l.precio == null ? 0 : l.precio;
       const dtoLinea = l.dto != null ? l.dto : dto;
       const importe = l.total != null ? l.total : red2(precio * l.cant * (1 - dtoLinea / 100));
-      aoa.push([l.ean || '', '', l.alta ? REF_ALTA : l.ref, l.alta ? (l.descAlta || l.desc || '') : (l.desc || ''), '', '', l.cant,
+      aoa.push([l.ean || '', c.marca || '', l.alta ? REF_ALTA : l.ref, l.alta ? (l.descAlta || l.desc || '') : (l.desc || ''), '', '', l.cant,
         precio, dtoLinea, l.igic != null ? l.igic : igic, importe, '', '', '', '', '']);
     }
     return aoa;
