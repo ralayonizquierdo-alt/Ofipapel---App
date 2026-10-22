@@ -572,6 +572,66 @@ línea que se pinta en el panel), `pideLaFotoOtraVez()` reconoce la respuesta
 equivocada y se contesta con la foto recuperada de ahí; si de verdad no había
 ninguna foto detrás, la respuesta es correcta y se deja pasar.
 
+## El estado REAL del pedido (GeminisWin)
+
+WooCommerce no se entera de que un pedido se ha facturado, cargado en la
+furgoneta o entregado: eso se cambia a mano, así que su estado va por detrás de
+la realidad. Un proceso aparte, del lado de Gestión, publica el estado de verdad
+en Supabase («App Bancos», tabla `estado_pedidos_web`) y el bot lo lee
+(`netlify/functions/gestion-pedidos.js`).
+
+**Los estados de la tabla NO son los de GeminisWin.** Allí «Liquidado» significa
+COBRADO (el repartidor ha pagado la factura en administración), no facturado.
+El publicador traduce a estos siete y el bot solo entiende estos:
+
+| estado | Qué contesta el bot |
+|---|---|
+| `recibido` | Se está preparando; se facturará hoy o el próximo día laborable (hora de corte, abajo) |
+| `facturado` | Ya está facturado; lo recibirás el siguiente día laborable |
+| `en_reparto` | Cargado hoy → sale el próximo día laborable. Cargado antes → está hoy en reparto |
+| `entregado` | Figura como entregado (y si el cliente dice que no lo tiene, va a una persona) |
+| `no_entregado` | No se pudo entregar, reprogramado + una persona |
+| `incidencia` | Mensaje breve + una persona |
+| `anulado` | Mensaje breve + una persona |
+
+Un estado que no esté en esa lista **se ignora** y manda WooCommerce: lo que no
+entendemos no se le enseña al cliente.
+
+**La hora de corte.** Un pedido que entra un día laborable antes de las 13:00 se
+factura esa misma tarde (~14:00) y sale en el reparto de ese día; se entrega al
+siguiente día laborable. Después de las 13:00, o en fin de semana, se factura el
+día laborable siguiente. **Nunca se dan fechas concretas**, siempre «el siguiente
+día laborable»: no hay calendario de festivos, y prometer una fecha en vísperas
+de uno es prometer algo que no se va a cumplir. Las cuentas van en **hora de
+Canarias**, no en UTC — en verano hay una hora de diferencia y la hora de corte
+se correría media parte del año.
+
+Si un pedido entró a tiempo, ya han pasado las 15:00 y **sigue sin facturar**, no
+se promete ningún plazo: se ofrece una persona.
+
+**El dato viejo no se usa.** `actualizado` lo pone la base de datos sola (trigger
+`estado_pedidos_web_sella`): el publicador no tiene que enviarlo, y si lo envía
+se ignora. El bot mide la caducidad **en días laborables**, no en horas: un dato
+del viernes por la tarde vale el lunes por la mañana, pero si es anterior al
+último día laborable (se saltó una pasada entera) el bot da lo que diga
+WooCommerce y ofrece una persona. **Por eso el publicador tiene que reescribir
+todas las filas vivas en cada pasada, no solo las que cambien**: si no, un pedido
+que lleva tres días en el mismo estado parecería caducado.
+
+### Seguridad
+
+- El estado se consulta **solo después** de que WooCommerce haya confirmado que
+  el pedido es de quien escribe (por teléfono o por nombre). La tabla **no lleva
+  nombres a propósito**: la identidad se comprueba siempre contra WooCommerce.
+- Dos cuentas de Supabase con RLS, ninguna con `service_role`:
+  `bot@ofipapel.internal` **solo SELECT**, `gestion@ofipapel.internal` **solo
+  INSERT y UPDATE**. No hay política de DELETE: nadie puede borrar filas.
+- A la clave publishable (la que está en `Index.html`, pública) se le ha quitado
+  el permiso sobre esta tabla a nivel de GRANT, además de por RLS.
+- Variables en el sitio **`spontaneous-lebkuchen-60fa41`** (el del bot, no el de
+  `ofipapel`): `SUPABASE_BOT_EMAIL` y `SUPABASE_BOT_PASSWORD`. Sin ellas el bot
+  no consulta nada y se comporta como antes.
+
 ## Cuando el cliente está enfadado
 
 Un cliente que insulta, acusa de estafa o amenaza con el abogado **no quiere que
