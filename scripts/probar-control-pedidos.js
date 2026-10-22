@@ -777,6 +777,9 @@ test('Excel de Géminis, plantilla «Luis» (PEDIDOS_PROVEEDORES_ALTA_NUEVOS.xlt
   assert.deepEqual(aoa[11].slice(0, 11), ['8413240476511', '', 'AL000177', '12 LAPICES', '', '', 12, 8.28, 27, 7, 72.53]);
   assert.deepEqual(aoa[12].slice(2, 4), ['2 ALTA NUEVA', 'UA000570>MALETIN']);
   assert.equal(aoa.length, 13, 'sin fila de total: la plantilla no la lleva');
+  // La marca elegida en la campaña va en la columna B (EDITORIAL) de cada artículo
+  const conMarca = CP.filasGeminisLuis([{ ref: 'A', cant: 1, precio: 1 }, { ref: 'B', cant: 1, precio: 1 }], { proveedor: 'FINOCAM', marca: 'FINOCAM' }, {});
+  assert.deepEqual(conMarca.slice(11).map((f) => f[1]), ['FINOCAM', 'FINOCAM']);
 });
 
 test('Factura agrupada (Apli/Miquelrius): un documento por «Pedido Cliente», cada uno a su pedido', () => {
