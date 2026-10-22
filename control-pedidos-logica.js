@@ -1084,6 +1084,14 @@
    * pide nadie, o lo que viene de más, queda en `sobrantes`.
    * pedidos: [{ id, numero, lineas }] → { porPedido: Map(id → lineas), sobrantes }
    */
+  /** ¿El texto del bloque de la factura («Pedido Aliz I_Gift») nombra al cliente
+   *  del pedido? Por alguna palabra de 4+ letras del cliente que no sea genérica. */
+  function nombraCliente(bloque, cliente) {
+    const norm = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    const b = ` ${norm(bloque).replace(/[^A-Z0-9]+/g, ' ')} `;
+    const genericas = new Set(['PEDIDO', 'TIENDA', 'PAPELERIA', 'PAPELES', 'CLIENTE', 'FACTURA', 'GIFT']);
+    return norm(cliente).split(/[^A-Z0-9]+/).some((w) => w.length >= 4 && !genericas.has(w) && b.includes(` ${w} `));
+  }
   function repartirPorReferencias(lineasDoc, pedidos) {
     const numero = (x) => { const m = String(x || '').match(/\d+/); return m ? Number(m[0]) : Infinity; };
     const lista = (pedidos || []).slice().sort((a, b) => numero(a.numero) - numero(b.numero));
@@ -1097,8 +1105,11 @@
       if (!clave || !resto) { sobrantes.push(l); continue; }
       const total = resto;
       const nBloque = l.bloque ? numero(l.bloque) : null;
+      // Primero el pedido que nombra el bloque: por su cliente («Pedido Aliz
+      // I_Gift» → ALIZ (TIENDA), 23/10/2026) o por su nº.
+      const pref = (p) => (nombraCliente(l.bloque, p.cliente) ? 2 : 0) + (numero(p.numero) === nBloque ? 1 : 0);
       const candidatos = lista.filter((p) => (falta.get(p.id).get(clave) || 0) > 0)
-        .sort((a, b) => Number(numero(b.numero) === nBloque) - Number(numero(a.numero) === nBloque));
+        .sort((a, b) => pref(b) - pref(a));
       let repartido = 0;
       for (const p of candidatos) {
         if (resto <= 0) break;

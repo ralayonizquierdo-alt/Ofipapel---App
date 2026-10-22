@@ -830,3 +830,14 @@ test('Último control: sustitución decidida a mano (el proveedor manda otro art
   assert.equal(r.cambiosRef.filter((x) => x.manual).length, 2);
   assert.equal(CP.restosDeFactura(val, fac, { sustituciones: { '785120027': '787060127' } }).map((x) => x.ref).join(), '792020327', 'lo sustituido no va a Restos');
 });
+
+test('Reparto por referencias: el bloque que nombra al cliente («Pedido Aliz I_Gift») va a ese pedido antes que a otros que piden lo mismo', () => {
+  const pedidos = [
+    { id: 'a', numero: '5', cliente: 'PAPELES', lineas: [{ ref: 'MR1', cant: 1 }] },
+    { id: 't', numero: '25', cliente: 'ALIZ (TIENDA)', lineas: [{ ref: 'MR1', cant: 1 }] },
+  ];
+  const r = CP.repartirPorReferencias([{ ref: 'MR1', cant: 1, importe: 10, bloque: 'Pedido Aliz I_Gift' }], pedidos);
+  assert.deepEqual([...r.porPedido.keys()], ['t']);
+  const r2 = CP.repartirPorReferencias([{ ref: 'MR1', cant: 1, importe: 10, bloque: 'Pedido 4_ Gift' }], pedidos);
+  assert.deepEqual([...r2.porPedido.keys()], ['a'], 'sin nombre, por nº como siempre');
+});
