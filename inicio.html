@@ -63,6 +63,8 @@ body{
   position:absolute;inset:0;width:100%;height:100%;
   display:block;object-fit:cover;object-position:center;
 }
+.hub-freeze{opacity:0;pointer-events:none;transition:opacity .25s ease;}
+.hub-stage.ready .hub-freeze{opacity:1;}
 
 /* ─── Zonas clicables: capa SVG transparente sobre el vídeo. El viewBox se
    recalcula en JS para recortar exactamente lo mismo que object-fit:cover
@@ -129,6 +131,29 @@ body{
 .hub-stage.pulse-once .dept-glow{animation:deptGlowPulse 1.1s ease-out 1 forwards;}
 .hub-stage.pulse-once .dept-hit{animation:deptEdgePulse 1.1s ease-out 1 forwards;}
 
+/* ─── Logo central "OFIPAPEL 360°": solo un efecto de sonido al tocarlo,
+   no un departamento — por eso no lleva el borde fijo que dejan las 8
+   zonas tras el pulso, solo reacciona (igual de suave) al pasar el
+   ratón/tocar, para no insinuar que "va a algún sitio". ─── */
+.logo-tap{cursor:pointer;outline:none;}
+.logo-hit{
+  fill:transparent;stroke:var(--c);stroke-width:0;stroke-opacity:.9;
+  transition:stroke-width .2s ease;
+}
+.logo-glow{
+  fill:var(--c);stroke:var(--c);stroke-width:6;
+  fill-opacity:0;stroke-opacity:0;
+  filter:url(#deptGlow);
+  transition:fill-opacity .2s ease, stroke-opacity .2s ease;
+  pointer-events:none;
+}
+.logo-tap:hover .logo-hit,
+.logo-tap:focus-visible .logo-hit,
+.logo-tap:active .logo-hit{stroke-width:4;}
+.logo-tap:hover .logo-glow,
+.logo-tap:focus-visible .logo-glow,
+.logo-tap:active .logo-glow{fill-opacity:.2;stroke-opacity:.85;}
+
 /* ─── Botón de sonido: solo aparece cuando el autoplay con audio se ha
    bloqueado (ver script) — en el resto de casos el vídeo ya suena solo y
    no hace falta. ─── */
@@ -152,6 +177,13 @@ body{
     <video id="hubVideo" class="hub-video" playsinline preload="auto" disablepictureinpicture>
       <source src="ofipapel-360-intro.mp4" type="video/mp4">
     </video>
+    <!-- Último fotograma del vídeo, pero con un realce de nitidez aparte
+         (el vídeo en sí se va suavizando según avanza, un efecto típico de
+         cómo se generó — no se toca el .mp4 para nada). Se superpone con
+         un fundido de .25s justo cuando el vídeo termina (ver .ready en
+         el CSS), así que de cara al usuario es el mismo fotograma, solo
+         que más nítido. -->
+    <img id="hubFreeze" class="hub-video hub-freeze" src="ofipapel-360-hub-fondo.webp" alt="" aria-hidden="true">
 
     <svg id="deptOverlay" class="dept-overlay" viewBox="0 0 1920 1080" preserveAspectRatio="none" aria-hidden="false">
       <defs>
@@ -199,6 +231,17 @@ body{
         <rect class="dept-glow" x="454" y="638" width="840" height="187" rx="50"/>
         <rect class="dept-hit" x="442" y="626" width="864" height="211" rx="40"/>
       </a>
+
+      <!-- Logo central "OFIPAPEL 360°": no es un departamento (no navega a
+           ningún sitio), solo un efecto de sonido al tocarlo. Va el último
+           a propósito -- en el pequeño solape con RR.SS./Alquileres (está
+           físicamente detrás de esos dos en la imagen, por la perspectiva)
+           gana el que esté más abajo en el SVG, y aquí interesa que gane
+           el logo si se toca justo el texto. -->
+      <a class="logo-tap" href="#" role="button" aria-label="OFIPAPEL 360°" style="--c:#2ECC40">
+        <rect class="logo-glow" x="818" y="433" width="284" height="171" rx="36"/>
+        <rect class="logo-hit" x="806" y="421" width="308" height="195" rx="26"/>
+      </a>
     </svg>
   </div>
 
@@ -229,6 +272,19 @@ body{
       setTimeout(function(){ window.location.href = dept.getAttribute('href'); }, CLICK_DELAY);
     });
   });
+
+  // ── Logo central "OFIPAPEL 360°": no navega a ningún sitio, solo suena
+  // (sin el retraso de las zonas de arriba, que es para dar tiempo antes
+  // de cambiar de página — aquí no hay cambio de página). ──
+  var logoTap = document.querySelector('.logo-tap');
+  var logoAudio = new Audio('sound-logo-reveal.mp3');
+  logoAudio.preload = 'auto';
+  if (logoTap) {
+    logoTap.addEventListener('click', function(evt){
+      evt.preventDefault();
+      try { logoAudio.currentTime = 0; logoAudio.play().catch(function(){}); } catch(e){}
+    });
+  }
 
   // ── Tamaño del escenario + recorte del vídeo. SRC_W/SRC_H son la
   // resolución real del vídeo (1920×1080, 16:9). El vídeo usa
