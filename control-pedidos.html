@@ -3109,9 +3109,20 @@ function marcarEnviado() {
 }
 
 function exportarSeleccionados(raiz) {
-  // Sin marcar ninguno: la compra entera de la campaña.
+  // Sin marcar ninguno: la compra entera de la campaña (o solo lo facturado, si hay facturas).
   let ids = [...(raiz || document).querySelectorAll('.selPed:checked')].map((c) => c.value);
-  if (!ids.length) ids = [...(raiz || document).querySelectorAll('.selPed')].map((c) => c.value);
+  if (!ids.length) {
+    ids = [...(raiz || document).querySelectorAll('.selPed')].map((c) => c.value);
+    // Si la campaña ya tiene facturas finales, sin marcar sale solo lo facturado:
+    // lo que aún no tiene factura (otro albarán, otra factura) no se ha comprado
+    // todavía y descuadraba el total con la factura en la mano.
+    const facturados = ids.filter((id) => (pedidoPorId(id) || {}).factura);
+    if (facturados.length && facturados.length < ids.length) {
+      const fuera = ids.filter((id) => !facturados.includes(id)).map((id) => 'nº ' + nPed(pedidoPorId(id).numero));
+      alert(`Salen solo los ${facturados.length} pedidos con factura final. Quedan fuera, porque aún no tienen factura: ${fuera.join(', ')}.\nSi quieres alguno, márcalo.`);
+      ids = facturados;
+    }
+  }
   if (!ids.length) { alert('No hay pedidos que exportar.'); return; }
   exportarPedidos(ids);
 }
@@ -3165,6 +3176,10 @@ function descargarGeminis(lineas, o) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
   XLSX.writeFile(wb, `PEDIDO_${quitar(provs[0]).replace(/\W+/g, '_')}${numero ? '_' + String(numero).replace(/\W+/g, '_') : ''}${rober ? '_ROBER' : ''}.xls`, { bookType: 'biff5' });
+  // El total, para cuadrarlo con la factura en la mano (en el Excel no va: la
+  // plantilla de Géminis no lleva fila de total y la importaría como artículo).
+  const total = CP.red2([...suma.values()].reduce((t, l) => t + (CP.parseNum(l.total) || 0), 0));
+  alert(`Excel de Géminis: ${suma.size} líneas · total ${fmt(total)} € (sin impuestos).`);
 }
 
 // ── Nube (Supabase, proyecto «App Bancos», tablas cp_*) ──────────────────────
