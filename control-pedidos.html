@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-21-4"></script>
+<script src="control-pedidos-logica.js?v=2026-10-22-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -2346,7 +2346,7 @@ function descartarSinAsignar(id) { sinAsignar = sinAsignar.filter((y) => y.id !=
 // propuesta y luego facturan otra cosa porque en ese momento algo se agotó.
 function revisarFactura(p) {
   if (!p.factura || !p.final) return null;
-  return CP.controlFactura(p.final.lineas, p.factura.lineas, { dtoValidado: p.final.dto, dtoFactura: (p.factura.cabecera || {}).dtoGlobal });
+  return CP.controlFactura(p.final.lineas, p.factura.lineas, { dtoValidado: p.final.dto, dtoFactura: (p.factura.cabecera || {}).dtoGlobal, sustituciones: p.factura.sustituciones });
 }
 function chipFactura(p) {
   const r = revisarFactura(p);
@@ -2376,11 +2376,11 @@ function vistaFacturaFinal(p) {
     <div class="resumen"><span class="chip info">${h(p.factura.archivo)}</span><span class="chip gris">${p.factura.lineas.length} líneas</span></div>
     ${p.factura.control ? avisoControl(p.factura) : ''}
     ${r.cuadra ? `<div class="aviso-caja ok"><b>✅ La factura cuadra con lo validado:</b> están todas las referencias, en la misma cantidad y al mismo precio.</div>
-    ${r.cambiosRef && r.cambiosRef.length ? `<div class="aviso-caja info"><b>🔁 Misma mercancía facturada con otra referencia (${r.cambiosRef.length})</b>${lista(r.cambiosRef, (x) => `<li><b>${h(x.ref)}</b> → <b>${h(x.refFactura)}</b> ${h(x.desc)} — ${x.cant} ud.</li>`)}</div>` : ''}` : `
+    ${r.cambiosRef && r.cambiosRef.length ? `<div class="aviso-caja info"><b>🔁 Facturado con otra referencia (${r.cambiosRef.length})</b>${lista(r.cambiosRef, (x) => `<li><b>${h(x.ref)}</b> → <b>${h(x.refFactura)}</b> ${h(x.desc)} — ${x.cant} ud.${x.manual ? ` <button class="btn peque no-imprimir" onclick="sustituir('${p.id}', ${js(x.ref)}, '')">deshacer</button>` : ''}</li>`)}</div>` : ''}` : `
     <div class="aviso-caja ${r.faltan.length ? 'mal' : 'ok'}"><b>${r.faltan.length ? `❌ No vienen en la factura ${r.faltan.length} referencia(s)` : '✅ No falta nada de lo validado'}</b>
-      ${r.faltan.length ? lista(r.faltan, (x) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — faltan ${x.cant}${x.total ? '' : ` de ${x.de}`} ud.</li>`) : ''}</div>
+      ${r.faltan.length ? lista(r.faltan, (x) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — faltan ${x.cant}${x.total ? '' : ` de ${x.de}`} ud.${r.sobran.length ? ` <select class="no-imprimir" onchange="sustituir('${p.id}', ${js(x.ref)}, this.value)"><option value="">¿Lo sustituye algo facturado de más?</option>${r.sobran.map((y) => `<option value="${h(y.ref)}">${h(y.ref)} ${h(y.desc)} (+${y.cant})</option>`).join('')}</select>` : ''}</li>`) : ''}</div>
     ${r.sobran.length ? `<div class="aviso-caja aviso"><b>⚠️ Facturado sin estar en lo validado (${r.sobran.length})</b>${lista(r.sobran, (x) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — +${x.cant} ud.</li>`)}</div>` : ''}
-    ${r.cambiosRef && r.cambiosRef.length ? `<div class="aviso-caja info"><b>🔁 Misma mercancía facturada con otra referencia (${r.cambiosRef.length})</b> — mismo artículo y cantidad: no falta ni sobra nada${lista(r.cambiosRef, (x) => `<li><b>${h(x.ref)}</b> → <b>${h(x.refFactura)}</b> ${h(x.desc)} — ${x.cant} ud.</li>`)}</div>` : ''}
+    ${r.cambiosRef && r.cambiosRef.length ? `<div class="aviso-caja info"><b>🔁 Facturado con otra referencia (${r.cambiosRef.length})</b> — no falta ni sobra${lista(r.cambiosRef, (x) => `<li><b>${h(x.ref)}</b> → <b>${h(x.refFactura)}</b> ${h(x.desc)} — ${x.cant} ud.${x.manual ? ` <button class="btn peque no-imprimir" onclick="sustituir('${p.id}', ${js(x.ref)}, '')">deshacer</button>` : ''}</li>`)}</div>` : ''}
     ${r.precios.length ? `<div class="aviso-caja aviso"><b>Precio neto distinto al validado (${r.precios.length})</b>${lista(r.precios, (x) => `<li><b>${h(x.ref)}</b> ${h(x.desc)} — validado ${fmt(x.validado)} → facturado ${fmt(x.facturado)}</li>`)}</div>` : ''}
     ${r.faltan.length ? `<p class="pequeno">${esRepo(p) ? 'Lo que no viene en la factura no entra en el Excel de Géminis: reclámalo al proveedor si hace falta.' : 'La factura manda: lo que no viene <b>pasa a Restos del cliente</b> (como si no hubiera stock), no sale en su guía de facturación ni en el Excel de Géminis.'}</p>` : ''}`}`}
   </div>`;
@@ -2427,6 +2427,15 @@ function repartirFacturas(docs, clave) {
   }
   ultimaCarga.push({ ok: true, texto: `Total: ${docs.length} documento(s) · ${lineas.length} líneas · ${fmt(CP.red2(lineas.reduce((t, l) => t + (CP.parseNum(l.importe) || 0), 0)))} € · repartido entre ${r.porPedido.size} pedido(s)${nDeMas ? ` · ${nDeMas} línea(s) que no pidió nadie, en el pedido que más comparte con su PDF` : ''}${dtoGlobal ? ` · dto. global ${dtoGlobal} %` : ''}` });
 }
+/** El usuario decide que lo facturado de más sustituye a lo que no viene. */
+function sustituir(id, refValidada, refFactura) {
+  const p = pedidoPorId(id);
+  if (!p || !p.factura) return;
+  const s = p.factura.sustituciones = Object.assign({}, p.factura.sustituciones);
+  if (refFactura) s[refValidada] = refFactura; else delete s[refValidada];
+  restosPorFactura(p);
+  guardar(); pintar();
+}
 function asignarFactura(p, archivo, doc) {
   p.factura = { archivo, fecha: hoy(), cabecera: doc.cabecera || {}, lineas: doc.lineas, control: doc.control || null };
   restosPorFactura(p);
@@ -2439,7 +2448,7 @@ function restosPorFactura(p) {
   const conLlegadas = E.restos.filter((x) => x.pedidoId === p.id && x.deFactura && x.asignaciones.length);
   E.restos = E.restos.filter((x) => x.pedidoId !== p.id || !x.deFactura || x.asignaciones.length);
   if (!p.factura || !p.final) return;
-  const opc = { dtoValidado: p.final.dto, dtoFactura: (p.factura.cabecera || {}).dtoGlobal };
+  const opc = { dtoValidado: p.final.dto, dtoFactura: (p.factura.cabecera || {}).dtoGlobal, sustituciones: p.factura.sustituciones };
   for (const x of CP.restosDeFactura(p.final.lineas, p.factura.lineas, opc)) {
     if (conLlegadas.some((c) => CP.claveRef(c.ref) === CP.claveRef(x.ref))) continue;
     E.restos.push({ id: nuevoId(), pedidoId: p.id, proveedor: p.proveedor, cliente: p.cliente, numero: p.numero, ref: x.ref, desc: x.desc, ean: x.ean,

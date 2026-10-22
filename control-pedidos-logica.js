@@ -489,6 +489,19 @@
         precios.push({ ref: `${x.ref} → ${y.ref}`, desc: x.desc || y.desc, validado: red2(na), facturado: red2(nb) });
       }
     }
+    // Sustituciones que decide el usuario (el proveedor manda otro artículo en
+    // lugar del pedido: calendario de pared → de sobremesa): `sustituciones`
+    // { refValidada: refFacturada }. Lo que cubre deja de faltar y de sobrar.
+    for (const [rv, rf] of Object.entries(o.sustituciones || {})) {
+      const x = faltan.find((z) => z.k === claveRef(rv));
+      const y = sobran.find((z) => z.k === claveRef(rf));
+      if (!x || !y) continue;
+      const q = Math.min(x.cant, y.cant);
+      x.cant = red2(x.cant - q); y.cant = red2(y.cant - q);
+      if (!x.cant) faltan.splice(faltan.indexOf(x), 1);
+      if (!y.cant) sobran.splice(sobran.indexOf(y), 1);
+      cambiosRef.push({ ref: x.ref, refFactura: y.ref, desc: `${x.desc} → ${y.desc}`, cant: q, manual: true });
+    }
     return { faltan, sobran, precios, cambiosRef, cuadra: !faltan.length && !sobran.length && !precios.length };
   }
 

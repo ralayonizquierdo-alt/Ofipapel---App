@@ -817,3 +817,13 @@ test('Foto repetida por contenido: dos fotos con las mismas referencias y cantid
   assert.deepEqual(CP.fotosRepetidas(lineas), [{ foto: 'c.jpg', igualA: 'b.jpg' }]);
   assert.deepEqual(CP.fotosRepetidas([l('MR1', 2, 'a.jpg'), l('MR1', 3, 'b.jpg')]), [], 'otra cantidad: no es la misma hoja');
 });
+
+test('Último control: sustitución decidida a mano (el proveedor manda otro artículo en lugar del pedido)', () => {
+  const val = [{ ref: '785120027', desc: 'CAL.PARED', cant: 2, precio: 5 }, { ref: '792020327', desc: 'CAL.PARED ART', cant: 1, precio: 5 }];
+  const fac = [{ ref: '787060127', desc: 'CAL.SOBREMESA', cant: 2, precio: 5 }, { ref: '792000327', desc: 'CAL.SOBREMESA ART', cant: 2, precio: 5 }];
+  const r = CP.controlFactura(val, fac, { sustituciones: { '785120027': '787060127', '792020327': '792000327' } });
+  assert.equal(r.faltan.length, 0);
+  assert.deepEqual(r.sobran.map((x) => [x.ref, x.cant]), [['792000327', 1]], 'sustituye 1 de 2: el otro sigue de más');
+  assert.equal(r.cambiosRef.filter((x) => x.manual).length, 2);
+  assert.equal(CP.restosDeFactura(val, fac, { sustituciones: { '785120027': '787060127' } }).map((x) => x.ref).join(), '792020327', 'lo sustituido no va a Restos');
+});
