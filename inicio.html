@@ -524,8 +524,22 @@ body{
   }
   layoutStage();
   var layoutTimer;
-  window.addEventListener('resize', function(){ clearTimeout(layoutTimer); layoutTimer = setTimeout(layoutStage, 120); });
+  function relayoutSoon(){ clearTimeout(layoutTimer); layoutTimer = setTimeout(layoutStage, 120); }
+  window.addEventListener('resize', relayoutSoon);
   window.addEventListener('orientationchange', function(){ setTimeout(layoutStage, 200); });
+  // El propio window no siempre avisa de cambios de tamaño del área visible
+  // -- una barra flotante del navegador (por ejemplo la de "Deploy Preview"
+  // al abrir el enlace desde otra app) puede aparecer/desaparecer o
+  // animarse sin disparar 'resize' en window, dejando el escenario
+  // calculado para un hueco más alto del que queda disponible de verdad
+  // (hueco negro sobrante). visualViewport sí avisa de esos cambios.
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', relayoutSoon);
+  }
+  // Y por si esa barra tarda en asentarse tras la primera carga, un par de
+  // reintentos cortos (no hacen nada raro si el tamaño ya era el correcto).
+  setTimeout(layoutStage, 400);
+  setTimeout(layoutStage, 1200);
 
   // ── Despierta en segundo plano las apps externas que "duermen" tras un
   // rato sin uso (Almacén en Vercel, Atención al Cliente/WhatsApp BOT en
