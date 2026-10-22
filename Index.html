@@ -587,8 +587,8 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <div class="form-group"><label>Saldo Cuenta</label><input type="number" id="f_luis_sant" placeholder="1.978,00" step="0.01"></div>
           </div>
           <div class="form-card">
-            <h3><span style="color:var(--verde)">💶</span> Caja Central</h3>
-            <div class="form-group"><label>Efectivo en Caja (€)</label><input type="number" id="f_caja_central" placeholder="11.000,00" step="0.01"></div>
+            <h3><span style="color:var(--verde)">🧾</span> Pagarés en Caja</h3>
+            <div class="form-group"><label>Pagarés pendientes de ingresar (€)</label><input type="number" id="f_caja_central" placeholder="11.000,00" step="0.01"></div>
           </div>
           <div class="form-card">
             <h3>📝 Notas del día</h3>
@@ -2120,7 +2120,7 @@ function total(r){
        + (r.luis_bbva||0)
        + (r.luis_sant||0);
 }
-// Caja Central (fila 23 del Excel, fuera del sumatorio Q8:Q20)
+// Pagarés en Caja = «CAJA CENTRAL PAGARES» (fila 23 del Excel, Q23 = hoja «Pagares en Caja»!G2: emitido − ingresado; fuera del sumatorio Q8:Q20)
 function totalConCaja(r){ return total(r) + (r.caja_central||0); }
 // totalConPol deprecated — see total() above
 function sortedRegistros(){ return [...registros].sort((a,b)=>a.fecha.localeCompare(b.fecha)); }
@@ -2246,7 +2246,7 @@ function renderDashboard(){
           </div>
         </div>
         <div style="text-align:right;">
-          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:4px;">+ Caja Central</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:4px;">+ Pagarés en caja</div>
           <div style="font-size:22px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:rgba(255,255,255,0.75);">${fmt(totalConCaja(last))}</div>
           <div style="font-size:14px;font-weight:700;color:#8DC41E;margin-top:8px;letter-spacing:0.3px;">${new Date(last.fecha).toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}</div>
         </div>
@@ -2287,7 +2287,7 @@ function renderDashboard(){
     </div>
     <div class="kpi k-caja">
       <div class="kpi-ico">💶</div>
-      <div class="kpi-lbl">Caja Central</div>
+      <div class="kpi-lbl">Pagarés en Caja</div>
       <div class="kpi-val">${fmt(last.caja_central)}</div>
       <div class="kpi-delta">${deltaStr(last,prev,'caja_central')}</div>
     </div>
@@ -2369,7 +2369,7 @@ function renderDashboard(){
   </div>
 
   <div class="chart-card" style="margin-bottom:20px">
-    <div class="chart-ttl">Caja Central — evolución</div>
+    <div class="chart-ttl">Pagarés en Caja — evolución</div>
     <div class="chart-desc">Efectivo registrado en caja cada día</div>
     <canvas id="cCaja" height="70"></canvas>
   </div>
@@ -2392,7 +2392,7 @@ function renderDashboard(){
 
   charts['cDona'] = new Chart(document.getElementById('cDona'),{
     type:'doughnut',
-    data:{ labels:['BBVA Ofipapel','Santander ICO','CaixaBank','Caja Siete','Caja Central','Luis Alayón'],
+    data:{ labels:['BBVA Ofipapel','Santander ICO','CaixaBank','Caja Siete','Pagarés en Caja','Luis Alayón'],
       datasets:[{ data:[last.bbva_ofip,last.sant_ico,last.caixa_cta,last.c7,last.caja_central,(last.luis_bbva||0)+(last.luis_sant||0)],
         backgroundColor:[C.azul,C.sant,C.azulC,C.naranja,C.verde,C.azulM], borderWidth:2, borderColor:'#fff' }] },
     options:{ responsive:true, cutout:'60%', plugins:{ legend:{ position:'bottom', labels:{font:{size:10},padding:8,color:'#1C2B3A'} }, tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.toLocaleString('es-ES')} €`}} } }
@@ -2420,7 +2420,7 @@ function renderDashboard(){
 
   charts['cCaja'] = new Chart(document.getElementById('cCaja'),{
     type:'bar',
-    data:{ labels, datasets:[{ label:'Caja Central', data:sorted.map(r=>r.caja_central), backgroundColor:'rgba(39,174,96,0.7)', borderColor:C.verde, borderWidth:1.5, borderRadius:4 }] },
+    data:{ labels, datasets:[{ label:'Pagarés en Caja', data:sorted.map(r=>r.caja_central), backgroundColor:'rgba(39,174,96,0.7)', borderColor:C.verde, borderWidth:1.5, borderRadius:4 }] },
     options:{ responsive:true, plugins:{ legend:{display:false}, tooltip:{callbacks:{label:G.ttip}} }, scales:{ x:{grid:G.grid,ticks:G.ticks}, y:{grid:G.grid,ticks:{...G.ticks,callback:v=>v.toLocaleString('es-ES')+'€'}} } }
   });
 }
@@ -2458,7 +2458,7 @@ function renderHistoricoComparativa(){
     {key:'sant_ico',  label:'Santander ICO'},
     {key:'caixa_cta', label:'CaixaBank Cta'},
     {key:'c7',        label:'Caja Siete'},
-    {key:'caja_central', label:'Caja Central'},
+    {key:'caja_central', label:'Pagarés en Caja'},
     {key:'luis_bbva', label:'Luis BBVA'},
     {key:'luis_sant', label:'Luis Santander'},
   ];
@@ -2688,7 +2688,7 @@ function renderHistorico(){
     <div class="tscroll">
     <table>
       <thead><tr>
-        <th>Fecha</th><th>BBVA Ofipapel</th><th>Santander ICO</th><th>CaixaBank</th><th>Caja Siete</th><th>Caja Central</th><th>Total</th><th>Δ</th><th>Notas</th>
+        <th>Fecha</th><th>BBVA Ofipapel</th><th>Santander ICO</th><th>CaixaBank</th><th>Caja Siete</th><th>Pagarés en Caja</th><th>Total</th><th>Δ</th><th>Notas</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -2729,9 +2729,8 @@ function renderAlertas(){
     else if(d<-5000) alerts.push({type:'warn', ico:'📉', ttl:'BBVA Ofipapel — Caída significativa', txt:`Reducción de ${fmt(Math.abs(d))} respecto al día anterior.`});
   }
 
-  // Caja Central mínimo
-  if((last.caja_central||0) < 5000) alerts.push({type:'warn', ico:'💰', ttl:'Caja Central — Nivel bajo', txt:`Saldo actual: ${fmt(last.caja_central)}. Considerar reposición.`});
-  else alerts.push({type:'ok', ico:'💶', ttl:'Caja Central — Nivel normal', txt:`Saldo actual: ${fmt(last.caja_central)}.`});
+  // Pagarés en caja: lo emitido menos lo ya ingresado en el banco (no es efectivo, no tiene «nivel mínimo»)
+  alerts.push({type:'ok', ico:'🧾', ttl:'Pagarés en Caja — pendientes de ingresar', txt:`Total en caja: ${fmt(last.caja_central)}.`});
 
   // ICO Vencimiento
   alerts.push({type:'warn', ico:'📅', ttl:'ICO Préstamo 435 — Fecha vencimiento pasada', txt:'Vencimiento: 20/05/2025. Saldo pendiente: 356.144 €. Confirmar situación actual con Santander.'});
@@ -3593,7 +3592,7 @@ function dropExcel(e){
 // ═══════════════════════════════════════════════════════
 function exportCSV(){
   const sorted = sortedRegistros();
-  const header = 'Fecha,BBVA Ofipapel,Santander ICO,CaixaBank Cuenta,Póliza CaixaBank,Caja Siete,Luis Alayón BBVA,Luis Alayón Santander,Caja Central,Total,Notas\n';
+  const header = 'Fecha,BBVA Ofipapel,Santander ICO,CaixaBank Cuenta,Póliza CaixaBank,Caja Siete,Luis Alayón BBVA,Luis Alayón Santander,Pagarés en Caja,Total,Notas\n';
   const rows = sorted.map(r=>`${r.fecha},${r.bbva_ofip},${r.sant_ico},${r.caixa_cta},${r.caixa_pol},${r.c7},${r.luis_bbva},${r.luis_sant},${r.caja_central},${total(r)},"${r.notas||''}"`).join('\n');
   const blob = new Blob([header+rows],{type:'text/csv;charset=utf-8;'});
   const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
