@@ -1,10 +1,13 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
-import type { Repair, Apartment } from '../types'
+import type { Repair, Apartment, DeletedRepair } from '../types'
 import { formatDate } from '../lib/dateUtils'
+import { verificarPassword, usuarioDe } from '../lib/auth'
+import { auth } from '../lib/firebase'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
+import { num, numSuelto } from '../lib/formato'
 
 const APT_ORDER = ['104', '105', '106', '203', '204', '402', 'P3', 'AP2B', 'JXXIII']
 
@@ -20,7 +23,7 @@ function sortApartments(apts: Apartment[]): Apartment[] {
 }
 
 export default function Repairs() {
-  const { repairs, apartments: allApartments, deleteRepair } = useData()
+  const { repairs, apartments: allApartments, deletedRepairs, deleteRepairWithAudit } = useData()
   const apartments = sortApartments(allApartments)
   const [filterApt, setFilterApt] = useState('')
   const [filterYear, setFilterYear] = useState('')
@@ -28,6 +31,7 @@ export default function Repairs() {
   const [filterDateTo, setFilterDateTo] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Repair | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Repair | null>(null)
 
   const years = [...new Set(repairs.map(r => r.repairDate?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
 
@@ -40,22 +44,22 @@ export default function Repairs() {
 
   const totalFiltered = filtered.reduce((s, r) => s + (r.amount || 0), 0)
 
+  const totalLabel = filterYear ? `Total año ${filterYear}` : 'Total general'
+
   function getAptName(id: string) { return apartments.find(a => a.id === id)?.name || id }
-  function handleDelete(id: string) {
-    if (!confirm('¿Eliminar?')) return
-    deleteRepair(id)
-  }
 
   const byApt = apartments.map(a => ({
     apt: a,
     total: filtered.filter(r => r.apartmentId === a.id).reduce((s, r) => s + (r.amount || 0), 0)
   })).filter(x => x.total > 0)
 
+  const sortedDeletedRepairs = [...deletedRepairs].sort((a, b) => b.deletedAt.localeCompare(a.deletedAt))
+
   return (
     <div className="p-6">
       <PageHeader
         title="Reparaciones y Mantenimiento"
-        subtitle={`${filtered.length} registros · Total: ${totalFiltered.toLocaleString('es-ES')} €`}
+        subtitle={`${filtered.length} registros · Total: ${numSuelto(totalFiltered)} €`}
         actions={
           <button onClick={() => { setEditing(null); setShowForm(true) }}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
@@ -94,12 +98,12 @@ export default function Repairs() {
           {byApt.map(({ apt, total }) => (
             <div key={apt.id} className="bg-white rounded-lg border border-slate-200 p-3">
               <p className="text-xs text-slate-500">{apt.name}</p>
-              <p className="text-lg font-bold text-red-700 mt-0.5">{total.toLocaleString('es-ES')} €</p>
+              <p className="text-lg font-bold text-red-700 mt-0.5">{numSuelto(total)} €</p>
             </div>
           ))}
           <div className="col-span-2 bg-blue-50 rounded-lg border-2 border-blue-300 p-4 flex flex-col justify-center">
-            <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Total general</p>
-            <p className="text-2xl font-bold text-blue-800 mt-1">{totalFiltered.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</p>
+            <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">{totalLabel}</p>
+            <p className="text-2xl font-bold text-blue-800 mt-1">{num(totalFiltered, 2)} €</p>
             <p className="text-xs text-blue-500 mt-0.5">{filtered.length} reparaciones</p>
           </div>
         </div>
@@ -128,15 +132,15 @@ export default function Repairs() {
                 <td className="py-2.5 px-4 text-slate-700">{r.item}</td>
                 <td className="py-2.5 px-4 text-slate-500 text-xs">{r.supplier || '—'}</td>
                 <td className="py-2.5 px-4 text-slate-500 text-xs">{r.document || '—'}</td>
-                <td className="py-2.5 px-4 text-right font-semibold text-red-700">
-                  {r.amount ? `${r.amount.toLocaleString('es-ES')} €` : '—'}
+                <td className="py-2.5 px-4 text-right font-semibold text-red-700 whitespace-nowrap">
+                  {r.amount ? `${numSuelto(r.amount)} €` : '—'}
                 </td>
                 <td className="py-2.5 px-4 text-slate-400 text-xs">{r.entryNumber || '—'}</td>
                 <td className="py-2.5 px-4">
                   <div className="flex items-center gap-1 justify-end">
                     <button onClick={() => { setEditing(r); setShowForm(true) }}
                       className="p-1.5 text-slate-300 hover:text-blue-600 rounded"><Pencil size={13} /></button>
-                    <button onClick={() => handleDelete(r.id)}
+                    <button onClick={() => setDeleteTarget(r)}
                       className="p-1.5 text-slate-300 hover:text-red-600 rounded"><Trash2 size={13} /></button>
                   </div>
                 </td>
@@ -150,13 +154,53 @@ export default function Repairs() {
             <tfoot className="border-t-2 border-slate-200 bg-slate-50">
               <tr>
                 <td colSpan={5} className="py-3 px-4 text-sm font-semibold text-slate-700">TOTAL</td>
-                <td className="py-3 px-4 text-right font-bold text-red-700">{totalFiltered.toLocaleString('es-ES')} €</td>
+                <td className="py-3 px-4 text-right font-bold text-red-700 whitespace-nowrap">{numSuelto(totalFiltered)} €</td>
                 <td colSpan={2}></td>
               </tr>
             </tfoot>
           )}
         </table>
       </div>
+
+      {/* Deleted repairs audit log */}
+      {sortedDeletedRepairs.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+            <AlertTriangle size={14} className="text-amber-500" />
+            Registro de eliminaciones ({sortedDeletedRepairs.length})
+          </h2>
+          <div className="bg-white rounded-xl shadow-sm border border-amber-200 overflow-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-amber-100 bg-amber-50">
+                <tr>
+                  <th className="text-left py-2.5 px-4 font-medium text-slate-600 text-xs">Eliminado</th>
+                  <th className="text-left py-2.5 px-4 font-medium text-slate-600 text-xs">Por</th>
+                  <th className="text-left py-2.5 px-4 font-medium text-slate-600 text-xs">Apartamento</th>
+                  <th className="text-left py-2.5 px-4 font-medium text-slate-600 text-xs">Fecha rep.</th>
+                  <th className="text-left py-2.5 px-4 font-medium text-slate-600 text-xs">Descripción</th>
+                  <th className="text-right py-2.5 px-4 font-medium text-slate-600 text-xs">Importe</th>
+                  <th className="text-left py-2.5 px-4 font-medium text-slate-600 text-xs">Motivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedDeletedRepairs.map((d: DeletedRepair) => (
+                  <tr key={d.id} className="border-b border-amber-50 hover:bg-amber-50/50">
+                    <td className="py-2 px-4 text-xs text-slate-500 whitespace-nowrap">{formatDate(d.deletedAt.slice(0, 10))}</td>
+                    <td className="py-2 px-4 text-xs font-medium text-slate-700">{d.deletedBy}</td>
+                    <td className="py-2 px-4 text-xs text-slate-500">{getAptName(d.apartmentId)}</td>
+                    <td className="py-2 px-4 text-xs text-slate-500 whitespace-nowrap">{formatDate(d.repairDate)}</td>
+                    <td className="py-2 px-4 text-xs text-slate-700">{d.item}</td>
+                    <td className="py-2 px-4 text-xs text-right font-semibold text-red-700 whitespace-nowrap">
+                      {d.amount ? `${numSuelto(d.amount)} €` : '—'}
+                    </td>
+                    <td className="py-2 px-4 text-xs text-amber-700 italic">{d.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <RepairForm
@@ -165,7 +209,85 @@ export default function Repairs() {
           onClose={() => setShowForm(false)}
         />
       )}
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          repair={deleteTarget}
+          onConfirm={(reason, deletedBy) => {
+            deleteRepairWithAudit(deleteTarget, reason, deletedBy)
+            setDeleteTarget(null)
+          }}
+          onClose={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
+  )
+}
+
+function DeleteConfirmModal({ repair, onConfirm, onClose }:
+  { repair: Repair; onConfirm: (reason: string, deletedBy: string) => void; onClose: () => void }) {
+  const [reason, setReason] = useState('')
+  const [pw, setPw] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleConfirm() {
+    if (!reason.trim()) { setError('Introduce el motivo de la eliminación'); return }
+    if (!pw) { setError('Introduce la contraseña'); return }
+    setLoading(true)
+    if (!(await verificarPassword(pw))) {
+      setError('Contraseña incorrecta')
+      setPw('')
+      setLoading(false)
+      return
+    }
+    // Quién borra sale de la sesión de Firebase, no de un valor del navegador
+    // que se podía cambiar a mano desde las herramientas de desarrollo.
+    const deletedBy = usuarioDe(auth.currentUser) || 'Desconocido'
+    onConfirm(reason.trim(), deletedBy)
+  }
+
+  return (
+    <Modal title="Eliminar reparación" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+          <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
+          <div className="text-sm text-red-700">
+            <p className="font-semibold">{repair.item}</p>
+            {repair.amount && <p className="text-xs mt-0.5">{numSuelto(repair.amount)} €</p>}
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Motivo de la eliminación *</label>
+          <textarea
+            value={reason}
+            onChange={e => { setReason(e.target.value); setError('') }}
+            rows={2}
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-400"
+            placeholder="Indica el motivo..."
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Contraseña de acceso *</label>
+          <input
+            type="password"
+            value={pw}
+            onChange={e => { setPw(e.target.value); setError('') }}
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+            placeholder="Contraseña"
+            autoComplete="current-password"
+          />
+        </div>
+        {error && <p className="text-red-500 text-xs">{error}</p>}
+        <div className="flex justify-end gap-3 pt-1">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+          <button onClick={handleConfirm} disabled={loading}
+            className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-60">
+            {loading ? 'Verificando...' : 'Eliminar'}
+          </button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

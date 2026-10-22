@@ -1,0 +1,289 @@
+// Responder a un mensaje concreto y quitar un mensaje del panel.
+//
+//   node scripts/probar-acciones-mensaje.js
+//
+// Las dos cosas que se pidieron "tipo WhatsApp", con sus dos trampas:
+//
+// RESPONDER CITANDO. WhatsApp pinta la respuesta enganchada al mensaje original
+// si se manda `context.message_id` con el identificador (wamid) que Meta le dio
+// a ese mensaje. Hasta ahora no se guardaba ninguno, así que solo se puede
+// citar lo que entre a partir de ahora — y los mensajes viejos NO deben enseñar
+// el botón, porque daría un envío fallido.
+//
+// QUITAR UN MENSAJE. Meta NO permite borrar un mensaje ya enviado: no existe
+// ese endpoint en la Cloud API. Así que esto solo lo quita del panel, y eso hay
+// que decirlo donde se pulsa. La trampa aquí es otra: el índice de un mensaje
+// cambia si mientras tanto llega otro, así que borrar "el número 7" a ciegas
+// puede borrar el mensaje equivocado. Por eso va con una huella del contenido:
+// si no coincide, no se borra nada.
+const Module = require('module');
+const path = require('path');
+const orig = Module.prototype.require;
+const RAIZ = path.join(__dirname, '..');
+
+process.env.DASHBOARD_PASSWORD = 'prueba';
+process.env.UPSTASH_REDIS_REST_URL = 'https://ejemplo.upstash.io';
+process.env.UPSTASH_REDIS_REST_TOKEN = 'token-de-prueba';
+
+const TEL = '34600111222';
+const WAMID = 'wamid.ABC123';
+
+// La conversación tal y como estaría archivada. El primer mensaje del cliente
+// trae wamid (entró después del cambio); el tercero no (es de los de antes).
+let CONVERSACION = [
+  { role: 'user', content: '¿Tenéis folios A4?', ts: Date.now() - 60000, wamid: WAMID },
+  { role: 'assistant', content: 'Sí, tenemos varios formatos.', ts: Date.now() - 59000 },
+  { role: 'user', content: 'Mensaje viejo sin identificador', ts: Date.now() - 58000 },
+  // Una respuesta del bot con la marca interna con la que se acuerda de por
+  // dónde iba una búsqueda de pedido. Al cliente le llegó sin ella; en el panel
+  // salía tal cual, y parecía un error.
+  { role: 'assistant', content: '[PEDIDO:ESPERANDO_NOMBRE:643514]Para confirmar que el pedido es tuyo, dime el nombre.', ts: Date.now() - 57000 },
+];
+
+const enviados = [];
+const OTRAS = new Map();
+let fallarEnvio = null;
+
+global.fetch = async (url, opts) => {
+  const u = String(url);
+  if (u.includes('upstash')) {
+    const args = JSON.parse(opts.body);
+    const [cmd, clave] = args;
+    const responder = (result) => ({ ok: true, json: async () => ({ result }), text: async () => JSON.stringify({ result }) });
+    if (cmd === 'GET' && clave === `conv:${TEL}`) return responder(JSON.stringify(CONVERSACION));
+    if (cmd === 'SET' && clave === `conv:${TEL}`) { CONVERSACION = JSON.parse(args[2]); return responder('OK'); }
+    // El resto de claves (p. ej. el motivo del último envío fallido) se guardan
+    // de verdad: el panel las escribe en un sitio y las lee en otro.
+    if (cmd === 'SET') { OTRAS.set(clave, args[2]); return responder('OK'); }
+    if (cmd === 'GET') return responder(OTRAS.get(clave) ?? null);
+    if (cmd === 'SMEMBERS') return responder([TEL]);
+    return responder(null);
+  }
+  if (u.includes('graph.facebook.com')) {
+    enviados.push(JSON.parse(opts.body));
+    if (fallarEnvio) return { ok: false, status: 400, json: async () => ({}), text: async () => fallarEnvio.error };
+    // Meta contesta con el identificador del mensaje que acaba de enviar. Sin
+    // devolverlo aquí no se probaría que se guarda, que es lo que permite
+    // responder después a un mensaje propio.
+    return { ok: true, json: async () => ({ messages: [{ id: 'wamid.ENVIADO1' }] }), text: async () => '{}' };
+  }
+  return { ok: true, json: async () => ({}), text: async () => '{}' };
+};
+
+// El panel va REAL salvo el envío a WhatsApp, que se intercepta arriba por
+// fetch para poder mirar exactamente qué se le manda a Meta.
+Module.prototype.require = function (p) {
+  const m = orig.apply(this, arguments);
+  if (p === './conversation-store') {
+    return { ...m, getPanelPassword: async () => null, getEstadoEntrega: async () => ({}), markAsViewed: async () => {} };
+  }
+  return m;
+};
+const panel = require(path.join(RAIZ, 'netlify/functions/conversations.js'));
+Module.prototype.require = orig;
+
+(async () => {
+  let fallos = 0;
+  const mal = (m) => { fallos++; console.log('  MAL  ' + m); };
+  const bien = (m) => console.log('  OK   ' + m);
+
+  const login = await panel.handler({
+    httpMethod: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: 'action=login&password=prueba', queryStringParameters: {},
+  });
+  const cookie = (login.headers?.['Set-Cookie'] || '').split(';')[0];
+  const abrir = () => panel.handler({ httpMethod: 'GET', queryStringParameters: { phone: TEL }, headers: { cookie } });
+  const postear = (body) => panel.handler({
+    httpMethod: 'POST', headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+    queryStringParameters: {}, body,
+  });
+
+  console.log('\n=== Los botones en la conversación');
+  const html = (await abrir()).body || '';
+  html.includes('↩︎ Responder') ? bien('el mensaje del cliente trae botón de responder') : mal('no hay botón de responder');
+  // El recuadro "Respondiendo a:" solo debe verse al pulsar Responder. Lleva el
+  // atributo hidden, pero el CSS le daba display:flex — que gana — y salía
+  // siempre, y encima vacío. Visto en real.
+  /\.cita-activa\[hidden\] \{ display: none/.test(html)
+    ? bien('el recuadro de "Respondiendo a:" empieza escondido de verdad')
+    : mal('el recuadro "Respondiendo a:" sale siempre y vacío: el display del CSS pisa al hidden');
+  html.includes(WAMID) ? bien('lleva el identificador del mensaje que se va a citar') : mal('no lleva el identificador: la cita no llegaría');
+  (html.match(/↩︎ Responder/g) || []).length === 1
+    ? bien('solo se puede citar el mensaje que sí tiene identificador')
+    : mal('ofrece citar mensajes que no se pueden citar: el envío fallaría');
+  (html.match(/value="borrar-mensaje"/g) || []).length === CONVERSACION.length
+    ? bien('todos los mensajes se pueden quitar del panel')
+    : mal('faltan botones de quitar');
+  /Meta no permite borrarlo de su lado/.test(html)
+    ? bien('avisa de que al cliente le sigue apareciendo')
+    : mal('no avisa: se daría por hecho que se borra para los dos, y no es así');
+
+  console.log('\n=== Salir de la conversación');
+  // El enlace de volver estaba solo arriba del todo: para cambiar de cliente
+  // había que subirse el hilo entero primero, que en el móvil y con una
+  // conversación larga es un fastidio.
+  (html.match(/Todas las conversaciones/g) || []).length >= 2
+    ? bien('se puede salir desde abajo, sin subir el hilo entero')
+    : mal('solo se puede salir desde arriba del todo');
+  html.indexOf('pie-hilo') < html.lastIndexOf('Todas las conversaciones')
+    ? bien('el de abajo está en el pie, junto al de volver arriba')
+    : mal('el enlace de abajo no está donde se busca');
+
+  console.log('\n=== La cabecera del listado');
+  // El botón de "Clientes de la semana muda" era para recuperar a la gente de
+  // la semana que el bot estuvo caído (10-17/9/2026). Eso ya está hecho, y
+  // ocupaba sitio en la pantalla que se mira todos los días.
+  const listado = (await panel.handler({ httpMethod: 'GET', queryStringParameters: {}, headers: { cookie } })).body || '';
+  listado.includes('Clientes de la semana muda')
+    ? mal('sigue el botón de la semana muda, que ya no hace falta')
+    : bien('fuera el botón de la semana muda');
+  /location\.reload\(\)/.test(listado)
+    ? bien('y hay un botón para actualizar la página a mano')
+    : mal('no se puede actualizar sin esperar a que se refresque sola');
+  // Sin esto el botón PARECE roto: recarga, pero como casi nunca hay nada
+  // nuevo que enseñar la página queda idéntica y no hay forma de saber que
+  // ha hecho algo. La hora es la única prueba de que ha ido a mirar.
+  /Actualizado a las \d{1,2}:\d{2}/.test(listado)
+    ? bien('y dice a qué hora se cargó, que es lo que demuestra que hizo algo')
+    : mal('el botón recarga pero no se nota: la página queda igual y parece roto');
+  /Actualizando/.test(listado)
+    ? bien('y el propio botón avisa mientras tanto')
+    : mal('al pulsarlo no da ninguna señal');
+  listado.includes('Aprendizaje del bot')
+    ? bien('el de aprendizaje sigue donde estaba')
+    : mal('se ha llevado por delante el de aprendizaje');
+
+  // El panel se sirve desde una función, así que la ruta no acaba en .html y
+  // las reglas de caché de netlify.toml no le llegaban. Sin cabecera, el
+  // navegador decide por su cuenta y puede devolver la copia que ya tenía —
+  // justo al darle a Actualizar.
+  const cabeceras = (await panel.handler({ httpMethod: 'GET', queryStringParameters: {}, headers: { cookie } })).headers || {};
+  /no-store/.test(cabeceras['Cache-Control'] || '')
+    ? bien('y el panel pide que no se guarde en caché: actualizar trae datos de verdad')
+    : mal('sin cabecera de caché, actualizar puede devolver la página vieja');
+
+  console.log('\n=== Cuando un envío falla');
+  // 17/10/2026: el panel decía "Ventana de WhatsApp ABIERTA, quedan 13 h 14
+  // min" y JUSTO DEBAJO, en rojo, "puede que hayan pasado más de 24h". Las dos
+  // cosas no pueden ser ciertas, y con eso delante no hay por dónde empezar.
+  fallarEnvio = { error: JSON.stringify({ error: { message: 'Something went wrong', code: 131000 } }) };
+  await postear(`phone=${TEL}&action=reply&message=${encodeURIComponent('a ver si sale')}`);
+  fallarEnvio = null;
+  const conFallo = (await panel.handler({
+    httpMethod: 'GET', queryStringParameters: { phone: TEL, error: 'send' }, headers: { cookie },
+  })).body || '';
+  !/puede que hayan pasado más de 24h/i.test(conFallo.replace(/<[^>]+>/g, ' '))
+    ? bien('con la ventana abierta ya no echa la culpa a las 24 h')
+    : mal('sigue diciendo lo de las 24 h debajo del cartel que dice que la ventana está abierta');
+  /NO es por las 24 h/i.test(conFallo)
+    ? bien('y lo dice con todas las letras')
+    : mal('no aclara que la ventana sigue abierta');
+  /Something went wrong/.test(conFallo)
+    ? bien('y enseña lo que contestó WhatsApp, que es lo único que sirve para arreglarlo')
+    : mal('el motivo real sigue tirándose a unos logs que nadie mira');
+
+  // Y los motivos que sí se reconocen se explican solos, en vez de caer todos
+  // en el mismo "puede que hayan pasado 24h".
+  for (const [codigo, bruto, espera, etiqueta] of [
+    ['190', '{"error":{"code":190,"message":"Error validating access token"}}', /token de Meta/i, 'el token caducado'],
+    ['131026', '{"error":{"code":131026,"message":"Message undeliverable"}}', /no tenga WhatsApp/i, 'un número sin WhatsApp'],
+    ['131049', '{"error":{"code":131049,"message":"healthy ecosystem engagement"}}', /calidad/i, 'el freno por calidad'],
+  ]) {
+    fallarEnvio = { error: bruto };
+    const salida = await postear(`phone=${TEL}&action=reply&message=${encodeURIComponent('prueba ' + codigo)}`);
+    fallarEnvio = null;
+    const destino = String(salida.headers?.Location || '');
+    const pagina = (await panel.handler({
+      httpMethod: 'GET',
+      queryStringParameters: { phone: TEL, error: destino.split('error=')[1] || '' },
+      headers: { cookie },
+    })).body || '';
+    espera.test(pagina)
+      ? bien(`${etiqueta} se explica solo`)
+      : mal(`${etiqueta} (código ${codigo}) cae en el mensaje genérico`);
+  }
+
+  console.log('\n=== Copiar (lo que hace de "reenviar")');
+  (html.match(/⧉ Copiar/g) || []).length === CONVERSACION.length
+    ? bien('todos los mensajes se pueden copiar')
+    : mal('faltan botones de copiar');
+  html.includes('data-copiar="¿Tenéis folios A4?"')
+    ? bien('copia el texto del mensaje, listo para pegar')
+    : mal('el texto a copiar no llega bien al botón');
+
+  console.log('\n=== Las marcas internas del bot');
+  html.includes('PEDIDO:ESPERANDO_NOMBRE')
+    ? mal('se enseña "[PEDIDO:ESPERANDO_NOMBRE:...]" en el panel: parece un error del bot')
+    : bien('las marcas internas no se enseñan');
+  html.includes('Para confirmar que el pedido es tuyo')
+    ? bien('pero el mensaje sí se lee entero')
+    : mal('al quitar la marca se ha comido el mensaje');
+  CONVERSACION.some((m) => String(m.content).startsWith('[PEDIDO:ESPERANDO_NOMBRE'))
+    ? bien('en el archivo la marca sigue estando (el bot la necesita para seguir el hilo)')
+    : mal('se ha borrado del archivo: el bot perdería el hilo de la conversación');
+
+  console.log('\n=== El hueco que dejaban los botones');
+  // La burbuja respeta los espacios tal cual (white-space: pre-wrap), así que
+  // los saltos de línea del HTML de los botones se pintaban como espacio de
+  // verdad y estiraban la burbuja media pantalla. Visto en real.
+  /<div class="msg-acciones">[^\n]*<\/div>/.test(html)
+    ? bien('los botones van en una sola línea de HTML, sin espacio de más')
+    : mal('el HTML de los botones lleva saltos de línea: estiran la burbuja');
+  /\.msg-acciones \{[^}]*white-space: normal/.test(html)
+    ? bien('y además el CSS los saca del pre-wrap de la burbuja')
+    : mal('sin white-space: normal, cualquier espacio del HTML vuelve a estirar la burbuja');
+
+  console.log('\n=== Responder citando');
+  enviados.length = 0;
+  await postear(`phone=${TEL}&action=reply&message=${encodeURIComponent('Sí, 4,20 € el paquete')}&citando=${WAMID}`);
+  const conCita = enviados.find((e) => e.type === 'text');
+  conCita?.context?.message_id === WAMID
+    ? bien('se le manda a Meta con context.message_id: llega enganchado al original')
+    : mal(`no se manda la cita (context: ${JSON.stringify(conCita?.context)})`);
+
+  // Y lo que se acaba de enviar tiene que quedar citable a su vez: en WhatsApp
+  // se puede responder a lo que uno mismo escribió, y si no, en una
+  // conversación en la que acabas de contestar tú no sale el botón por ningún
+  // lado (fue justo lo que se vio al probarlo).
+  CONVERSACION.some((m) => m.role === 'agent' && m.wamid === 'wamid.ENVIADO1')
+    ? bien('el mensaje propio guarda su identificador: se le puede responder después')
+    : mal('el mensaje propio no guarda identificador: no se podrá citar');
+  (((await abrir()).body || '').match(/↩︎ Responder/g) || []).length >= 2
+    ? bien('y ya aparece el botón también en los mensajes propios')
+    : mal('sigue sin salir el botón en los mensajes propios');
+
+  enviados.length = 0;
+  await postear(`phone=${TEL}&action=reply&message=${encodeURIComponent('Un mensaje suelto')}`);
+  const sinCita = enviados.find((e) => e.type === 'text');
+  sinCita && !sinCita.context
+    ? bien('sin citar nada se manda suelto, como siempre')
+    : mal('mete una cita donde no la había');
+
+  console.log('\n=== Quitar un mensaje');
+  const antes = CONVERSACION.length;
+  const objetivo = CONVERSACION[0];
+  const huella = require(path.join(RAIZ, 'netlify/functions/conversation-store.js')).huellaDeMensaje(objetivo);
+
+  await postear(`phone=${TEL}&action=borrar-mensaje&indice=0&huella=${huella}`);
+  CONVERSACION.length === antes - 1
+    ? bien('se quita del panel')
+    : mal('no se ha quitado');
+  !CONVERSACION.some((m) => m.content === objetivo.content)
+    ? bien('y se quita el que era, no otro')
+    : mal('sigue estando: se ha borrado el mensaje equivocado');
+
+  console.log('\n=== Y si la conversación cambió mientras mirabas');
+  const cuantos = CONVERSACION.length;
+  // Huella de un mensaje que ya no está en esa posición: es lo que pasa cuando
+  // llega un mensaje nuevo entre que se pinta la página y se pulsa el botón.
+  const fuera = await postear(`phone=${TEL}&action=borrar-mensaje&indice=0&huella=huellaquenoes`);
+  CONVERSACION.length === cuantos
+    ? bien('no borra nada en vez de borrar el que no era')
+    : mal('ha borrado un mensaje distinto del que se pulsó');
+  String(fuera.headers?.Location || '').includes('borradoCambiado')
+    ? bien('y lo explica en vez de quedarse callado')
+    : mal('no avisa de que no ha borrado nada');
+
+  console.log(fallos === 0 ? '\n✔ Sin fallos' : `\n✗ ${fallos} fallos`);
+  process.exit(fallos === 0 ? 0 : 1);
+})();

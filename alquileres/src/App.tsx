@@ -1,53 +1,99 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Calendar, BedDouble, Tag, Wrench, PiggyBank, BarChart3, Settings, Menu, X, KeyRound, LogOut
+  LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, FileSpreadsheet, History, Sparkles, ClipboardPaste, Settings, Menu, X, KeyRound, LogOut,
+  PanelLeftClose, PanelLeftOpen, Building2, Grid3x3,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import bgTrebol from './assets/bg-trebol.png'
 import LoginScreen from './components/LoginScreen'
 import MigrateLocalData from './components/MigrateLocalData'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import { useData } from './contexts/DataContext'
+import { observarSesion, rolDe, salir, usuarioDe, type Rol, type UsuarioApp } from './lib/auth'
 import Dashboard from './pages/Dashboard'
 import Planning from './pages/Planning'
+import Edificios from './pages/Edificios'
 import Reservations from './pages/Reservations'
 import Prices from './pages/Prices'
-import Repairs from './pages/Repairs'
 import Collections from './pages/Collections'
+import Costos from './pages/Costos'
 import Analytics from './pages/Analytics'
+import Asesoria from './pages/Asesoria'
+import Registro from './pages/Registro'
+import SubirLimpieza from './pages/SubirLimpieza'
+import EntradaRapida from './pages/EntradaRapida'
 import ApartmentsConfig from './pages/ApartmentsConfig'
 
-const NAV = [
-  { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/planning',     icon: Calendar,        label: 'Planning' },
-  { to: '/reservas',     icon: BedDouble,       label: 'Reservas' },
-  { to: '/precios',      icon: Tag,             label: 'Precios' },
-  { to: '/reparaciones', icon: Wrench,          label: 'Reparaciones' },
-  { to: '/cobros',       icon: PiggyBank,       label: 'Cobros' },
-  { to: '/analitica',    icon: BarChart3,       label: 'Analítica' },
-  { to: '/config',       icon: Settings,        label: 'Apartamentos' },
+/**
+ * El menú, con el rol que puede ver cada entrada. Quien entra como «gastos»
+ * —Mónica y Cande— solo tiene las dos pantallas de subir cosas: el parte de
+ * limpieza y la entrada de reservas, cobros y gastos. Aportan datos, pero no
+ * los consultan: ni el dinero, ni el listado de reservas, ni las cuentas.
+ */
+const NAV: { to: string; icon: typeof LayoutDashboard; label: string; roles: Rol[] }[] = [
+  { to: '/subir',        icon: ClipboardPaste,  label: 'Subir reservas y gastos', roles: ['gastos'] },
+  { to: '/limpieza',     icon: Sparkles,        label: 'Subir limpieza', roles: ['gastos'] },
+  { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard',      roles: ['gestion'] },
+  { to: '/planning',     icon: Calendar,        label: 'Planning',       roles: ['gestion'] },
+  { to: '/edificios',    icon: Building2,       label: 'Edificios',      roles: ['gestion'] },
+  { to: '/reservas',     icon: BedDouble,       label: 'Reservas',       roles: ['gestion'] },
+  { to: '/precios',      icon: Tag,             label: 'Precios',        roles: ['gestion'] },
+  { to: '/cobros',       icon: PiggyBank,       label: 'Cobros',         roles: ['gestion'] },
+  { to: '/gastos',       icon: Receipt,         label: 'Gastos',         roles: ['gestion'] },
+  { to: '/analitica',    icon: BarChart3,       label: 'Analítica',      roles: ['gestion'] },
+  { to: '/asesoria',     icon: FileSpreadsheet, label: 'Asesoría',       roles: ['gestion'] },
+  // El registro también para «gastos»: no lleva ni un importe —quién, cuándo,
+  // por dónde y cuántas cosas entraron— y les deja comprobar que su subida
+  // llegó sin tener que preguntar.
+  { to: '/registro',     icon: History,         label: 'Registro',       roles: ['gestion', 'gastos'] },
+  { to: '/config',       icon: Settings,        label: 'Apartamentos',   roles: ['gestion'] },
 ]
 
-function NavItems({ alerts, onClose }: { alerts: number; onClose?: () => void }) {
+const navDe = (rol: Rol) => NAV.filter(n => n.roles.includes(rol))
+
+/**
+ * Vuelve al hub del ecosistema sin cerrar la sesión.
+ *
+ * Alquileres se abre desde `inicio.html` y hasta ahora la única forma de
+ * volver era el botón de atrás del navegador —que en la app instalada no
+ * existe— o cerrar sesión, que obliga a teclear la contraseña otra vez para
+ * nada. Se sale de la aplicación, no de la cuenta.
+ *
+ * Va por la ruta completa y no por «/» porque la copia de GitHub Pages no
+ * tiene la reescritura de Netlify: allí «/» no lleva a ninguna parte.
+ */
+const AL_HUB = '/inicio.html'
+
+/**
+ * Dónde cae cada uno al entrar, y adónde se le manda si escribe otra ruta.
+ * Siempre la primera entrada de su menú: las reservas llegan a diario y el
+ * parte de limpieza es semanal, así que abre por lo que más se usa.
+ */
+const INICIO: Record<Rol, string> = { gestion: '/dashboard', gastos: '/subir' }
+
+function NavItems({ rol, alerts, onClose, plegado }: { rol: Rol; alerts: number; onClose?: () => void; plegado?: boolean }) {
   return (
     <>
-      {NAV.map(({ to, icon: Icon, label }) => (
+      {navDe(rol).map(({ to, icon: Icon, label }) => (
         <NavLink
           key={to}
           to={to}
           onClick={onClose}
+          title={plegado ? label : undefined}
           className={({ isActive }) =>
-            `flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-              isActive
+            `flex items-center gap-2.5 py-2.5 rounded-lg text-sm transition-colors ${
+              plegado ? 'px-0 justify-center' : 'px-3'
+            } ${isActive
                 ? 'bg-blue-600 text-white'
                 : 'text-slate-300 hover:bg-slate-800 hover:text-white'
             }`
           }
         >
-          <Icon size={16} />
-          {label}
+          <Icon size={16} className="shrink-0" />
+          {!plegado && label}
           {label === 'Dashboard' && alerts > 0 && (
-            <span className="ml-auto bg-amber-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+            <span className={`bg-amber-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold ${
+              plegado ? 'absolute top-1 right-1 w-4 h-4 text-[10px]' : 'ml-auto'}`}>
               {alerts}
             </span>
           )}
@@ -57,27 +103,51 @@ function NavItems({ alerts, onClose }: { alerts: number; onClose?: () => void })
   )
 }
 
-function Sidebar({ alerts, onChangePassword, onLogout }: { alerts: number; onChangePassword: () => void; onLogout: () => void }) {
+/**
+ * El menú lateral, que se pliega a una tira de iconos.
+ *
+ * La pantalla de Cobros con los doce meses no cabe en un portátil con el menú
+ * abierto, y había que irse a la barra de desplazamiento para ver el último
+ * trimestre. Plegado quedan los iconos: se sigue viendo dónde estás y se sigue
+ * navegando con un clic, que es más de lo que daría esconderlo del todo.
+ */
+function Sidebar({ rol, alerts, plegado, onPlegar, onChangePassword, onLogout }: {
+  rol: Rol; alerts: number; plegado: boolean; onPlegar: () => void
+  onChangePassword: () => void; onLogout: () => void
+}) {
   return (
-    <aside className="w-56 min-h-screen flex flex-col shrink-0 relative overflow-hidden"
+    <aside className={`${plegado ? 'w-14' : 'w-56'} min-h-screen flex flex-col shrink-0 relative overflow-hidden transition-[width] duration-150`}
       style={{ backgroundImage: `url(${bgTrebol})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <div className="absolute inset-0 bg-slate-900/90 pointer-events-none" />
-      <div className="px-4 py-5 border-b border-slate-700 relative z-10">
-        <h1 className="text-white font-bold text-lg leading-tight">🏠 Alquileres</h1>
-        <p className="text-slate-400 text-xs mt-0.5">Gestión vacacional</p>
-      </div>
-      <nav className="flex-1 py-4 space-y-0.5 px-2 relative z-10">
-        <NavItems alerts={alerts} />
-      </nav>
-      <div className="px-4 py-3 border-t border-slate-700 space-y-1 relative z-10">
-        <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>
-        <button onClick={onChangePassword}
-          className="flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
-          <KeyRound size={13} /> Cambiar contraseña
+      <div className={`${plegado ? 'px-2' : 'px-4'} py-5 border-b border-slate-700 relative z-10 flex items-start gap-2`}>
+        {!plegado && (
+          <div className="flex-1 min-w-0">
+            <h1 className="text-white font-bold text-lg leading-tight">🏠 Alquileres</h1>
+            <p className="text-slate-400 text-xs mt-0.5">Gestión vacacional</p>
+          </div>
+        )}
+        <button onClick={onPlegar}
+          title={plegado ? 'Ver el menú' : 'Ocultar el menú (se gana sitio a lo ancho)'}
+          className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors mx-auto">
+          {plegado ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </button>
-        <button onClick={onLogout}
-          className="flex items-center gap-2 text-slate-400 hover:text-red-400 text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
-          <LogOut size={13} /> Cerrar sesión
+      </div>
+      <nav className={`flex-1 py-4 space-y-0.5 ${plegado ? 'px-1.5' : 'px-2'} relative z-10`}>
+        <NavItems rol={rol} alerts={alerts} plegado={plegado} />
+      </nav>
+      <div className={`${plegado ? 'px-1.5' : 'px-4'} py-3 border-t border-slate-700 space-y-1 relative z-10`}>
+        {!plegado && <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>}
+        <a href={AL_HUB} title="Volver al hub sin cerrar la sesión"
+          className={`flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 rounded-lg hover:bg-slate-800 transition-colors ${plegado ? 'justify-center px-0' : 'px-2'}`}>
+          <Grid3x3 size={13} /> {!plegado && 'Salir al hub'}
+        </a>
+        <button onClick={onChangePassword} title="Cambiar contraseña"
+          className={`flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 rounded-lg hover:bg-slate-800 transition-colors ${plegado ? 'justify-center px-0' : 'px-2'}`}>
+          <KeyRound size={13} /> {!plegado && 'Cambiar contraseña'}
+        </button>
+        <button onClick={onLogout} title="Cerrar sesión"
+          className={`flex items-center gap-2 text-slate-400 hover:text-red-400 text-xs w-full py-1.5 rounded-lg hover:bg-slate-800 transition-colors ${plegado ? 'justify-center px-0' : 'px-2'}`}>
+          <LogOut size={13} /> {!plegado && 'Cerrar sesión'}
         </button>
       </div>
     </aside>
@@ -106,12 +176,12 @@ function MobileHeader({ alerts, onMenuOpen }: { alerts: number; onMenuOpen: () =
   )
 }
 
-function Drawer({ alerts, open, onClose, onChangePassword, onLogout }: { alerts: number; open: boolean; onClose: () => void; onChangePassword: () => void; onLogout: () => void }) {
+function Drawer({ rol, alerts, open, onClose, onChangePassword, onLogout }: { rol: Rol; alerts: number; open: boolean; onClose: () => void; onChangePassword: () => void; onLogout: () => void }) {
   if (!open) return null
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
-      <div className="fixed inset-y-0 left-0 z-50 w-64 flex flex-col relative overflow-hidden"
+      <div className="fixed inset-0 z-40 bg-black/50 print:hidden!" onClick={onClose} />
+      <div className="fixed inset-y-0 left-0 z-50 w-64 flex flex-col relative overflow-hidden print:hidden!"
         style={{ backgroundImage: `url(${bgTrebol})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
         <div className="absolute inset-0 bg-slate-900/90 pointer-events-none" />
         <div className="px-4 py-5 border-b border-slate-700 flex items-center justify-between relative z-10">
@@ -124,10 +194,14 @@ function Drawer({ alerts, open, onClose, onChangePassword, onLogout }: { alerts:
           </button>
         </div>
         <nav className="flex-1 py-4 space-y-0.5 px-2 overflow-y-auto relative z-10">
-          <NavItems alerts={alerts} onClose={onClose} />
+          <NavItems rol={rol} alerts={alerts} onClose={onClose} />
         </nav>
         <div className="px-4 py-3 border-t border-slate-700 space-y-1 relative z-10">
           <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>
+          <a href={AL_HUB}
+            className="flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
+            <Grid3x3 size={13} /> Salir al hub
+          </a>
           <button onClick={() => { onClose(); onChangePassword() }}
             className="flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
             <KeyRound size={13} /> Cambiar contraseña
@@ -145,7 +219,22 @@ function Drawer({ alerts, open, onClose, onChangePassword, onLogout }: { alerts:
 export default function App() {
   const { loading, reservations, payments } = useData()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [loggedIn, setLoggedIn] = useState(false)
+  // Plegar el menú es una preferencia de quien usa el equipo, no del momento:
+  // quien trabaja en un portátil lo quiere plegado siempre, así que se recuerda.
+  const [menuPlegado, setMenuPlegado] = useState(() => {
+    try { return localStorage.getItem('alquileres:menu-plegado') === '1' } catch { return false }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('alquileres:menu-plegado', menuPlegado ? '1' : '0') } catch { /* modo privado */ }
+  }, [menuPlegado])
+  // La sesión la mantiene Firebase Auth: sobrevive a la recarga por sí sola y,
+  // a diferencia del login anterior, es la que da acceso real a los datos.
+  const [currentUser, setCurrentUser] = useState<UsuarioApp | null>(null)
+  const [comprobandoSesion, setComprobandoSesion] = useState(true)
+  useEffect(() => observarSesion(u => {
+    setCurrentUser(usuarioDe(u))
+    setComprobandoSesion(false)
+  }), [])
   const [showChangePassword, setShowChangePassword] = useState(false)
 
   const alertCount = useMemo(() => {
@@ -160,56 +249,91 @@ export default function App() {
     }).length
   }, [reservations, payments])
 
+  // Primero la sesión y luego los datos: sin sesión no se pide nada, así que
+  // esperar a «loading» antes del login dejaría la pantalla colgada.
+  if (comprobandoSesion) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-100">
+      <p className="text-slate-500 text-sm">Cargando...</p>
+    </div>
+  )
+
+  if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />
+
+  // Con sesión abierta siempre hay rol; el «?? 'gastos'» es solo para que el
+  // tipo case, y además falla del lado seguro: sin rol, el mínimo acceso.
+  const rol = rolDe(currentUser) ?? 'gastos'
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100">
       <p className="text-slate-500 text-sm">Cargando...</p>
     </div>
   )
 
-  if (!loggedIn) return <LoginScreen onLogin={() => setLoggedIn(true)} />
-
   return (
-    <BrowserRouter basename="/Ofipapel---App/alquileres">
+    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
       {showChangePassword && (
         <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
       )}
       <div className="flex min-h-screen bg-slate-100">
-        {/* Desktop sidebar */}
-        <div className="hidden md:flex">
+        {/* Desktop sidebar. En papel no se imprime: la hoja de la asesoría
+            salía con el menú lateral pegado al margen. */}
+        <div className="hidden md:flex print:hidden!">
           <Sidebar
+            rol={rol}
             alerts={alertCount}
+            plegado={menuPlegado}
+            onPlegar={() => setMenuPlegado(v => !v)}
             onChangePassword={() => setShowChangePassword(true)}
-            onLogout={() => setLoggedIn(false)}
+            onLogout={() => { salir() }}
           />
         </div>
 
         <div className="flex-1 flex flex-col min-w-0">
           {/* Mobile header */}
-          <div className="md:hidden">
+          <div className="md:hidden print:hidden!">
             <MobileHeader alerts={alertCount} onMenuOpen={() => setDrawerOpen(true)} />
           </div>
 
           {/* Mobile drawer */}
           <Drawer
+            rol={rol}
             alerts={alertCount}
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
             onChangePassword={() => setShowChangePassword(true)}
-            onLogout={() => setLoggedIn(false)}
+            onLogout={() => { salir() }}
           />
 
           <MigrateLocalData />
           <main className="flex-1 overflow-auto">
+            {/* Las rutas se montan según el rol: lo que alguien no puede ver
+                no existe para su sesión, así que escribir «/cobros» a mano
+                tampoco lleva a ninguna parte. */}
             <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/planning" element={<Planning />} />
-              <Route path="/reservas" element={<Reservations />} />
-              <Route path="/precios" element={<Prices />} />
-              <Route path="/reparaciones" element={<Repairs />} />
-              <Route path="/cobros" element={<Collections />} />
-              <Route path="/analitica" element={<Analytics />} />
-              <Route path="/config" element={<ApartmentsConfig />} />
+              {rol === 'gastos' ? (
+                <>
+                  <Route path="/subir" element={<EntradaRapida />} />
+                  <Route path="/limpieza" element={<SubirLimpieza />} />
+                  <Route path="/registro" element={<Registro />} />
+                </>
+              ) : (
+                <>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/planning" element={<Planning />} />
+                  <Route path="/edificios" element={<Edificios />} />
+                  <Route path="/reservas" element={<Reservations />} />
+                  <Route path="/precios" element={<Prices />} />
+                  <Route path="/reparaciones" element={<Navigate to="/gastos?tab=reparaciones" replace />} />
+                  <Route path="/gastos" element={<Costos />} />
+                  <Route path="/cobros" element={<Collections />} />
+                  <Route path="/analitica" element={<Analytics />} />
+                  <Route path="/asesoria" element={<Asesoria />} />
+                  <Route path="/registro" element={<Registro />} />
+                  <Route path="/limpieza" element={<SubirLimpieza />} />
+                  <Route path="/config" element={<ApartmentsConfig />} />
+                </>
+              )}
+              <Route path="*" element={<Navigate to={INICIO[rol]} replace />} />
             </Routes>
           </main>
         </div>

@@ -1,0 +1,159 @@
+// Enrutado de las FAQ: ¿quién contesta a cada mensaje?
+//
+//   node scripts/probar-faq.js
+//
+// Dos cosas que comprobar, y las dos han fallado con clientes reales:
+//   1. Que una palabra suelta de FAQ no se coma una consulta de producto
+//      ("¿tenéis el 305XL? ¿me lo mandáis a casa?" no es una pregunta de envíos).
+//   2. Que una regla de contexto no se quede sin contestar por culpa de otra
+//      regla que aparece pero luego se descarta a sí misma.
+const { matchFaqRule } = require('../netlify/functions/whatsapp-agent-core.js');
+
+// esperado: 'catalogo' = debe pasar de largo (contesta la IA con el catálogo),
+//           'faq:<texto>' = debe contestar una regla, y llevar ese texto dentro.
+const CASOS = [
+  // --- Consultas de producto con una palabra de FAQ dentro ---
+  ['¿Tenéis el 305XL? ¿Me lo podéis mandar a domicilio?', 'catalogo'],
+  ['Quiero comprar un TN-248 ¿cómo hago el pedido?', 'catalogo'],
+  ['¿A qué hora abrís? Necesito un 603XL', 'catalogo'],
+  ['¿Dónde estáis? Voy a por un cartucho 604XL', 'catalogo'],
+  ['En la factura del mes pasado venía un 305XL, ¿me pueden mandar otro?', 'catalogo'],
+  ['¿Tenéis tinta para la XP-4200? ¿La mandáis a Santa Cruz?', 'catalogo'],
+  ['Necesito el 219X para la HP LaserJet, ¿lo tenéis?', 'catalogo'],
+  ['¿Cuánto cuesta el TK5490? ¿Se puede comprar en la web?', 'catalogo'],
+  ['Busco el 415-A original', 'catalogo'],
+  ['¿Tenéis el nº305 en tienda física?', 'catalogo'],
+
+  // --- Preguntas de FAQ de verdad: alguien tiene que contestarlas ---
+  ['¿abrís el 24 a las 9?', 'faq:horario'],
+  ['¿A qué hora cerráis hoy?', 'faq:horario'],
+  ['¿Dónde estáis?', 'faq:'],
+  ['¿Cuánto cuestan los portes a Tenerife?', 'faq:'],
+  ['¿Cómo hago un pedido?', 'faq:'],
+  ['Necesito una copia de la factura de mi pedido', 'faq:pedidos@ofipapelsl.com'],
+  ['¿Hacéis presupuestos de material escolar?', 'faq:presupuesto'],
+
+  // La regla de gracias solo contesta si el mensaje es SOLO un agradecimiento;
+  // con coletilla se aparta a propósito y contesta la IA.
+  ['Muchas gracias, muy amables', 'catalogo'],
+
+  // --- Caso real (3/9/2026), que se quedó sin respuesta ---
+  // "muchas gracias" (14) le ganaba a "la factura" (10) y apartaba la regla de
+  // facturas por ser de contexto; luego la de gracias se descartaba a sí misma
+  // por no ser el mensaje solo un agradecimiento, y no quedaba nadie. El cliente
+  // preguntó dónde estaba su factura y se le contestó solo sobre el pedido.
+  [
+    'Buenos días,\n\nMi pedido #637966 ha sido entregado.\n\n¿Dónde puedo encontrar la factura?\n\nMuchas gracias.',
+    'faq:repartidor',
+  ],
+  // La misma trampa con otras dos reglas de contexto.
+  ['¿Cuál es vuestro horario? Muchas gracias', 'faq:horario'],
+  ['¿Me lo mandáis a casa? Muchas gracias de antemano', 'faq:'],
+
+  // --- Dos preguntas en el mismo mensaje ---
+  // Una regla fija contesta una cosa y se acaba, así que la otra mitad se
+  // perdía en silencio. Cuando el mensaje toca dos temas se deja pasar a la IA,
+  // que tiene todas estas respuestas en su prompt y sí puede contestar las dos.
+  ['¿A qué hora abrís? ¿Hacéis fotocopias?', 'catalogo'],
+  ['¿Dónde estáis y cuál es vuestro horario?', 'catalogo'],
+  ['Necesito la factura del pedido 637966. ¿Y hacéis envíos a La Palma?', 'catalogo'],
+  ['¿Cuánto cuestan los portes? ¿Y cómo hago el pedido?', 'catalogo'],
+  ['¿Hacéis presupuestos para colegios? ¿A qué hora abrís?', 'catalogo'],
+  ['¿Puedo devolver un producto? ¿Dónde está la tienda?', 'catalogo'],
+
+  // --- Y que UNA sola pregunta siga contestándose con su texto fijo ---
+  // "¿dónde está mi pedido?" no es la dirección de la tienda: va al flujo de
+  // pedidos. Es la razón de que "donde esta" a secas no sea palabra clave.
+  ['¿Dónde está mi pedido?', 'faq:número de tu pedido'],
+  ['¿Dónde está la tienda?', 'faq:Chajofe'],
+  ['¿Cómo hago el pedido?', 'faq:'],
+  ['¿Puedo devolver un producto?', 'faq:14 días'],
+
+  // --- Pedir una persona ---
+  // La presentación del bot dice "dímelo y te paso", así que estas formas TIENEN
+  // que escalar: si no, el bot invita a una frase que luego no reconoce.
+  ['Pásame con una persona', 'faq:equipo'],
+  ['Pásame con alguien', 'faq:equipo'],
+  ['¿Me pasas con una persona?', 'faq:equipo'],
+  ['Quiero que me atienda una persona', 'faq:equipo'],
+  ['Prefiero una persona', 'faq:equipo'],
+
+  // --- Problemas de cuenta en la web ---
+  // El bot no puede arreglar que no salga el correo de restablecimiento: tiene
+  // que escalar. Caso real (8/9/2026): la frase lleva "hacer el pedido", así que
+  // saltaba CÓMO COMPRAR y se le explicaba cómo comprar en la web a quien
+  // acababa de decir que la web no le deja entrar.
+  ['Hola, soy cliente de ustedes pero al hacer el pedido no recuerdo la contraseña y no se envía el correo de restablecimiento', 'faq:equipo'],
+  ['No recuerdo mi contraseña', 'faq:equipo'],
+  ['No me llega el correo de restablecimiento', 'faq:equipo'],
+  ['No puedo entrar en mi cuenta', 'faq:equipo'],
+  ['He olvidado la contraseña de la web', 'faq:equipo'],
+  ['No me deja hacer el pedido en la web', 'faq:equipo'],
+
+  // Y que pedir una persona GANE aunque el mensaje toque otro tema: escalar no
+  // es "un tema más" que competir, es la señal de que el bot no pinta nada.
+  ['Quiero hablar con una persona, ¿y cuál es vuestro horario?', 'faq:equipo'],
+
+  // Estas siguen siendo de "cómo comprar", no de cuenta.
+  ['¿Cómo hago un pedido?', 'faq:WhatsApp'],
+  ['¿Cómo me registro?', 'faq:registrarte'],
+  // El apartado de la web se llama "Acceder o Registrarse". La dirección es
+  // /mi-cuenta/ (nombre interno de WooCommerce), y la IA leía la dirección y
+  // mandaba al cliente a "Mi cuenta", que ya no existe con ese nombre.
+  ['¿Dónde me doy de alta?', 'faq:Acceder o Registrarse'],
+  // Y la pregunta que se quedó sin contestar en real (25/9/2026): se le mandó
+  // a llamar a Administración para algo que se ve entrando en el formulario.
+  ['Buenas tarde, me puede decir qué datos le hacen falta para abrir un cuenta de empresa, gracias', 'faq:DNI/NIF/NIE'],
+
+  // PEDIR LA FACTURA NO ES PREGUNTAR POR EL ESTADO DEL PEDIDO.
+  //
+  // Casi nadie pide una factura sin decir de qué pedido, y en cuanto dice el
+  // número el mensaje toca dos temas. Antes eso lo mandaba a la IA... y por el
+  // camino el número disparaba la consulta del estado y se acababa el turno.
+  // Visto en real (13/10/2026): una clienta pidió que le reenviaran una
+  // factura de junio y se le contestó que su pedido "está pagado y en
+  // preparación", que ni era la respuesta ni daba buena impresión.
+  ['Buenas tardes!\nMi nombre es Pilar Ruiz.\nNormalmente hago pedidos por la web y me gustaría saber si me pueden reenviar una factura de junio.\nEl número de pedido es el 621370.\nMuchas gracias de antemano', 'faq:pedidos@ofipapelsl.com'],
+  ['¿Me podéis mandar la factura del pedido 621370?', 'faq:repartidor'],
+  // Y preguntar de verdad por el estado sigue yendo donde iba.
+  ['Quiero saber el estado de mi pedido', 'faq:dime el número'],
+
+  // "¿TE PUEDO MANDAR UNA FOTO?" — SÍ, Y AHORA SÍ LA MIRA.
+  //
+  // El 19/10/2026 el bot contestó "Claro, mándame la foto y ASÍ VEO
+  // exactamente qué tipo de caja buscas", y al llegar la foto: "no puedo leer
+  // una foto por aquí". Prometió algo que no podía hacer. Ese mismo día se
+  // arregló por los dos lados: la respuesta dejó de prometerlo, y las fotos se
+  // empezaron a leer de verdad (whatsapp-vision.js). Lo que la respuesta NO
+  // puede volver a decir es que no la ve.
+  ['Te puedo mandar una foto?', 'faq:la miro'],
+  ['¿Os puedo enviar una foto?', 'faq:mándamela'],
+  ['te mando una imagen', 'faq:mándamela'],
+  // Pero al revés NO es lo mismo: aquí la foto la pide el cliente, no la manda.
+  ['Me podéis mandar una foto del producto?', 'catalogo'],
+  // Y "foto" dentro de otra cosa sigue yendo donde iba.
+  ['¿Hacéis fotocopias?', 'faq:copias'],
+
+  // Y estas NO, aunque lleven "pásame" o "una persona".
+  ['¿Me pasas el precio del 305XL?', 'catalogo'],
+  ['Pásame la dirección de la tienda', 'faq:Chajofe'],
+  ['No quiero hablar con una persona', 'catalogo'],
+];
+
+let ok = 0;
+for (const [mensaje, esperado] of CASOS) {
+  const r = matchFaqRule(mensaje);
+  let bien;
+  if (esperado === 'catalogo') {
+    bien = !r;
+  } else {
+    const quiere = esperado.slice(4).toLowerCase();
+    bien = Boolean(r) && (!quiere || r.toLowerCase().includes(quiere));
+  }
+  if (bien) ok++;
+  const salida = r ? r.replace(/\s+/g, ' ').slice(0, 52) : '(pasa al catálogo)';
+  console.log(`${bien ? 'OK  ' : 'MAL '} ${salida.padEnd(54)} <- ${mensaje.replace(/\n+/g, ' ⏎ ').slice(0, 70)}`);
+}
+
+console.log(`\n${ok}/${CASOS.length} correctos`);
+process.exit(ok === CASOS.length ? 0 : 1);

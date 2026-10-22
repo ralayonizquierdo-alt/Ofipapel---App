@@ -1566,3 +1566,45 @@ propósito) — no bloquea nada, la foto y el layout se generan igual.
 
 **Reversibilidad**: alta — 1 fichero nuevo, 3 puntos de paso opcionales
 (`options.testMode`) que no cambian nada si están ausentes.
+
+### 2026-10-22 — Reconciliación `claude/ofipapel-animated-interface-5imku1` ← `main`
+
+La rama del hub llevaba desde el commit `f91d8da` (sonido de apertura +
+clic) sin tocar `main`: 615 commits de diferencia, 182 ficheros. El
+propietario detectó el síntoma real al probar el deploy preview del PR
+#381 — el nodo «Compras» del hub nuevo daba 404 — y dio el enlace de
+GitHub Pages (que sí construye desde `main`) como referencia de que el
+fichero correcto existe. Investigado: `control-pedidos.html` y sus piezas
+(`control-pedidos-logica.js`, `manifest-pedidos.json`) no existían en
+absoluto en esta rama porque se crearon en `main` después de la
+divergencia; el `href="control-pedidos.html"` del hub nuevo ya era
+correcto (ese cambio de nombre del nodo sí estaba incorporado), solo
+faltaba el fichero de destino.
+
+**Cambios**: `git merge origin/main` sobre la rama del hub (ver
+`CONTRIBUTING.md` §4, proceso de reconciliación). Solo dos ficheros
+tocados por ambos lados: `build.sh` fusionó limpio (añadidos aditivos de
+los dos lados, sin solape de líneas); `inicio.html` tuvo conflicto real —
+resuelto quedándose con la versión de esta rama entera (`--ours`), porque
+los únicos cambios de `main` en ese fichero desde la divergencia (3
+commits: renombrar el nodo "Importación Pedidos" a "Compras" y apuntarlo
+a `control-pedidos.html`) ya estaban reflejados en el hub nuevo de forma
+independiente — verificado comparando contenido, no solo mensajes de
+commit. Nada del resto de `main` (Control de Pedidos completo, Control de
+Caja, Fauna, cambios de Alquileres/Joe's App, etc.) se descartó.
+
+**Verificación**: sin marcadores de conflicto residuales · `bash -n
+build.sh` y `node --check` sobre los `<script>` de `inicio.html` limpios
+· `bash build.sh` real end-to-end (incluye `npm ci`+`vite build` de
+`alquileres`) sin errores · servido el `_site/` resultante y probado con
+Playwright: las 8 zonas + el logo siguen funcionando igual que antes de
+la fusión (vídeo, recorte, borde fijo, recepcionista, sonidos), y
+`Compras` ahora navega de verdad a `control-pedidos.html` (antes 404).
+
+**Quién decide**: necesario para que el PR #381 funcione — el propietario
+encontró el síntoma (enlace roto) al probar el preview.
+
+**Reversibilidad**: media — es un merge real de 615 commits ajenos a esta
+rama; revertirlo con `git revert -m 1` es posible pero perdería también
+el trabajo de `main` incorporado. El propio merge no reescribe historia
+de nadie (ni de esta rama ni de `main`), es avance normal.

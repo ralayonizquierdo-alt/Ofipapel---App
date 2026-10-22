@@ -10,10 +10,10 @@ Mantenido por la Skill `project-manager`. Refleja el estado real del repo
 | FalControl | Microsite/herramienta personal ("Radio Alerta"), sin relación de negocio con Ofipapel | `falcontrol.html` | HTML monolítico | GitHub Pages + Netlify | Activo |
 | Cuadrante de Vacaciones | Planificador de turnos/vacaciones del personal | `vacaciones.html` | HTML monolítico | GitHub Pages + Netlify | Activo — detectado durante la reconciliación de documentación, no auditado en profundidad todavía (ver `ROADMAP_TECNICO.md` RT-11) |
 | Importación de Pedidos a Proveedores | Conversión de facturas PDF a Excel para proveedores | `importacion-pedidos-proveedores.html` | HTML monolítico | GitHub Pages + Netlify | Activo — detectado durante la reconciliación de documentación, no auditado en profundidad todavía (ver `ROADMAP_TECNICO.md` RT-11) |
+| Control de Pedidos | Pedidos del comercial y de reposición ↔ propuesta del proveedor, restos por cliente (solo comercial), historial de precios netos, Excel 5.0/95 para Géminis | `control-pedidos.html` + `control-pedidos-logica.js` + `netlify/functions/leer-pedido-manuscrito-*.js` | HTML monolítico + lógica aparte con pruebas (`scripts/probar-control-pedidos.js`) + Claude (lectura de manuscritos, Background Function + Netlify Blobs). Datos en `localStorage` | GitHub Pages + Netlify (la lectura de fotos solo en Netlify) | Nuevo (2026-10-02) — probado con los 8 pedidos reales de Finocam (fuera del repo); reposición añadida 2026-10-03 (entrada por Excel/pegado; PDF por homologar proveedor a proveedor con muestras); pendiente: primera lectura real con la API, cabecera del Excel de Géminis, sin icono en el hub todavía |
 | Alquileres | Aplicación interna de gestión (8 apartamentos reales) | `alquileres/` | React 19 + Vite + TS + Tailwind 4 + Recharts + **Firebase Firestore** (proyecto `ofipapelvv`) — backend real confirmado, con login de app (Luis/Rober) y reglas de acceso (`alquileres/firestore.rules`, pendiente de activar el proveedor Anonymous y desplegar). `package.json` conserva `@supabase/supabase-js` sin usarse en ningún fichero, dependencia muerta del intento anterior (`DEUDA_TECNICA.md` DT-10) | Netlify (build propio, `_site/alquileres/`) | Activo |
 | Joe App | Aplicación familiar/personal (calendario, turnos, "coisinhas", música, negocio) | `joe-app/` | React 19 + Vite + TS + Supabase + PIN/biometría (WebAuthn) de acceso a la UI + sesión anónima Supabase para RLS | Netlify (`_site/joe/`) | Activo |
-| Agente WhatsApp (Meta Cloud API) | Automatización — auto-respuesta con reglas + IA (Claude) | `netlify/functions/whatsapp-webhook.js`, `whatsapp-agent-config.js` | Netlify Functions + Anthropic API | Netlify Functions | Activo (ver `WHATSAPP_SETUP.md`) |
-| Agente WhatsApp (Twilio, alternativa) | Automatización — variante del agente anterior vía Twilio | `netlify/functions/twilio-webhook.js` | Netlify Functions | Netlify Functions | Activo/paralelo — **sigue sin confirmar con el propietario cuál es la vía canónica** |
+| Agente WhatsApp (Meta Cloud API) | Automatización — auto-respuesta con reglas + IA (Claude) | `netlify/functions/whatsapp-webhook.js`, `whatsapp-agent-config.js` | Netlify Functions + Anthropic API | Netlify Functions | Activo, único canal (ver `WHATSAPP_SETUP.md`) — la alternativa por Twilio se eliminó |
 | Hub del ecosistema ("Ofipapel 360°") | Pantalla de entrada animada — monedas/nodos conectados al centro, una por app, instalable como PWA con icono y sonido propios | `inicio.html` (antes `index.html` — renombrado el 2026-07-28: colisión de mayúsculas con `Index.html` en Netlify hacía que "/" sirviera la app financiera en vez del hub) | HTML monolítico + SVG + Web Audio (sonido sintetizado/mp3) + manifest PWA (`manifest-inicio.json`) + Service Worker (`sw.js`) | GitHub Pages + Netlify (`_site/`), `netlify.toml` fuerza `force=true` en el redirect de "/" | Activo — en redesign visual en curso (ver `SESSION_LOG.md` 2026-08-01): pasando del estilo "moneda dorada fotorrealista" a un estilo "red neón sobre fondo oscuro" con iconos planos por app |
 | Página 404 propia | Página de error personalizada | `404.html` | HTML estático | GitHub Pages + Netlify | Activo — integrada en `build.sh` |
 | Design Studio | Estudio de diseño autónomo compartido por las Skills visuales | `design-studio/` | Plantillas HTML + Playwright + Adobe for Creativity (MCP) + `brand-kit.json` (identidad visual machine-readable) | No se despliega | Activo — validado con la campaña real "Vuelta al Cole" |
@@ -107,11 +107,83 @@ decidir si "ya se puede retomar sales-marketing".
   `creative-engine/` sin cambios — ver
   `creative-engine/creative-lab/ARCHITECTURE.md`.
 
+## Infraestructura desplegada (barrido completo, 2026-08-28)
+
+Inventario de **todo lo que está corriendo fuera del repo**, comprobado con
+peticiones reales. Se hizo porque las dos auditorías anteriores miraron el
+código proyecto por proyecto y nunca contaron cuántas instancias había de
+cada cosa — de ahí que los tres sitios duplicados de Netlify pasaran
+desapercibidos durante meses. **Regla que sale de aquí: contar instancias
+antes de analizar una.**
+
+### Netlify
+
+| Sitio | Qué sirve | Construye este repo | Coste en minutos | Estado |
+|---|---|---|---|---|
+| `ofipapel` | El ecosistema completo (hub + 8 apps + 17 funciones) | Sí | Alto | **Canónico.** La política de privacidad registrada en Meta apunta aquí (`ofipapel.netlify.app`) |
+| `spontaneous-lebkuchen-60fa41` | Exactamente lo mismo, mismo commit, misma hora | Sí | Alto (duplicado) | Duplicado — **pero el webhook de WhatsApp de Meta apunta aquí**, no se puede apagar sin repuntarlo primero (DT-27) |
+| `joesworld` | Exactamente lo mismo, mismo commit, misma hora | Sí | Alto (duplicado) | Duplicado. Nombre heredado de cuando servía solo `joe-app` (DT-27) |
+| `ofipapel-fichaje-test` | Una sola URL: `/fichaje-1.html` (la raíz es 404). Copia de julio subida a mano | No (`deploy_source: "drop"`, sin funciones) | Ninguno | **Copia de producción sin mantenimiento** — el propietario cree que es la URL que usa el personal. Le faltan el arreglo XSS, las geocercas, el cambio de departamento y las alertas, y **el arreglo de DT-29 no puede llegarle** porque no tiene funciones. Mover a la gente a `ofipapel.netlify.app/fichaje.html` y borrarlo (DT-26) |
+
+Comprobado: el sitio publicado ocupa 9,4 MB, así que el gasto **no** viene de
+almacenamiento ni de tráfico. Viene de construir el mismo repo tres veces en
+cada push (y tres veces más en cada PR, por los deploy previews). Las dos
+funciones de marketing pesan 85 MB cada una, lo que alarga cada build.
+
+Mitigación ya aplicada en el repo (2026-08-28): `netlify-ignore.sh` (salta el
+build si el commit solo toca documentación) y caché de
+`netlify/functions/node_modules` en `build.sh` (evita reinstalar
+`@sparticuz/chromium` en cada build). La consolidación de los tres sitios
+sigue pendiente y **requiere al propietario delante** (DT-27).
+
+### Vercel
+
+| Proyecto | Estado real comprobado |
+|---|---|
+| `rax-os` | Activo y **cerrado** — `/`, `/dashboard` y `/roturas` redirigen a `/login` |
+| `ofipapel-social-manager` | Activo y **cerrado** — la SPA carga sin claves embebidas; su API vive en el mismo dominio (`/api/health` → `{"ok":true}`, `/api/campaigns` → 401) |
+| `ofipapel-social-manager-api` | **Zombi** — no sirve nada. El backend acabó dentro del proyecto anterior (DT-28) |
+| `nextjs-boilerplate` | **Zombi** — `DEPLOYMENT_NOT_FOUND`. Andamio de `create-next-app` sin relación con el negocio (DT-28) |
+
+### Firebase
+
+| Proyecto | Lo usa | Estado |
+|---|---|---|
+| `ofipapelvv` | `alquileres/`, `vacaciones.html` y (solo lectura de la plantilla) `fichaje.html` | **Cerrado** — las reglas exigen `sign_in_provider == 'password'`, verificado: 403 con sesión anónima. Efecto secundario: rompió la lectura de la plantilla desde `fichaje.html` (DT-29) |
+| `ofipapel-fichaje-63ced` | `fichaje.html` | **Abierto** — `eventos`, `personas`, `config` y `fichajes` se leen con una sesión anónima recién creada (DT-23). Falta aplicarle el mismo patrón que ya tiene `ofipapelvv` |
+
+### Supabase
+
+| Proyecto | Lo usa | Estado |
+|---|---|---|
+| "App Bancos" | `Index.html` (Finanzas) | **Abierto** — política `allow_all` para el rol `public`, lectura y escritura (DT-23) |
+| Joe's App | `joe-app/` | **Cerrado y verificado** — las 7 tablas devuelven 401 sin sesión (DT-07, DT-24) |
+
 ## Pendiente de activación en consolas externas (no ejecutable desde este repo)
 
-- Supabase (`joe-app`): activar "Allow anonymous sign-ins".
-- Firebase (`ofipapelvv`): activar el proveedor "Anonymous" y desplegar `alquileres/firestore.rules`.
-- Netlify: configurar `CHAT_ASSISTANT_TOKEN` (debe coincidir con `APP_CHAT_TOKEN` en `Index.html`).
+Por orden de urgencia real, a 2026-08-28:
+
+1. **Supabase → "App Bancos"**: sustituir la política `allow_all` del rol
+   `public`. Hoy cualquiera lee **y escribe** los saldos bancarios reales
+   (DT-23). Es lo más grave que queda abierto.
+2. **Firebase → `ofipapel-fichaje-63ced`**: aplicar el mismo patrón que ya
+   tiene `ofipapelvv` (exigir `sign_in_provider == 'password'`), **después**
+   de migrar el login de `fichaje.html` — no antes, o pasa lo de DT-29 otra
+   vez (DT-23).
+3. **Netlify**: retirar `ofipapel-fichaje-test`. El propietario confirmó que
+   usa la URL buena (`ofipapel.netlify.app/fichaje.html`), así que no hay
+   nadie que mover: se puede borrar directamente (DT-26).
+4. **Vercel**: borrar `ofipapel-social-manager-api` y `nextjs-boilerplate`,
+   proyectos zombis (DT-28).
+5. **Netlify**: consolidar los tres sitios que construyen este repo — el
+   ahorro grande de créditos. Cuidado con el orden: el webhook de WhatsApp
+   vive en `spontaneous-lebkuchen-60fa41` y Meta tiene registrada la política
+   de privacidad en `ofipapel.netlify.app` (DT-27).
+
+Ya resueltos: Supabase (`joe-app`) con "Allow anonymous sign-ins" activado y
+RLS real; Firebase (`ofipapelvv`) con reglas desplegadas; Netlify con
+`CHAT_ASSISTANT_TOKEN`, `MARKETING_ENGINE_TOKEN` y las credenciales de
+`plantilla-vacaciones` configuradas.
 
 ## Deliberadamente fuera de alcance de este sprint
 

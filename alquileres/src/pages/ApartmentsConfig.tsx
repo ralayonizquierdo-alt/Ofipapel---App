@@ -4,6 +4,7 @@ import { useData } from '../contexts/DataContext'
 import type { Apartment, ApartmentType } from '../types'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
+import CopiaSeguridad from '../components/CopiaSeguridad'
 
 const TYPE_LABELS: Record<ApartmentType, string> = {
   '1BR': '1 Dormitorio', '2BR': '2 Dormitorios',
@@ -36,6 +37,10 @@ export default function ApartmentsConfig() {
           </button>
         }
       />
+
+      <div className="mb-6">
+        <CopiaSeguridad />
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {apartments.map(apt => (

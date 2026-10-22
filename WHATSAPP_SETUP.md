@@ -3,17 +3,27 @@
 Este agente contesta automáticamente los mensajes de WhatsApp del negocio:
 primero intenta responder con reglas rápidas (horario, dirección, teléfono...)
 y, si no reconoce la pregunta, responde con IA (Claude) usando la información
-del negocio como contexto.
+del negocio y el catálogo real de ofipapel.net como contexto.
 
 Vive como una función serverless de Netlify en
 `netlify/functions/whatsapp-webhook.js`, así que se despliega junto con el
 resto del sitio sin necesidad de un servidor aparte.
 
+> **¿Vienes a cambiar el número de prueba por el definitivo?**
+> Ve directo a [Migración al número definitivo](#migración-al-número-definitivo).
+> Ese apartado tiene el orden exacto de los pasos: hacerlos en otro orden hace
+> que Meta rechace el alta del número.
+
 ## 1. Datos del negocio
 
-Los datos de la tienda (Los Cristianos: dirección, teléfono y horario) ya
-están cargados en `netlify/functions/whatsapp-agent-config.js`. Puedes
-añadir más preguntas frecuentes en el array `FAQ_RULES` si lo necesitas.
+Los datos de las tiendas (dirección, teléfono y horario) ya están cargados en
+`netlify/functions/whatsapp-agent-config.js`. Puedes añadir más preguntas
+frecuentes en el array `FAQ_RULES` si lo necesitas.
+
+Ningún número de teléfono del bot está escrito a mano en el código: el número
+desde el que contesta lo determina `WHATSAPP_PHONE_NUMBER_ID`, y los teléfonos
+que el bot da a los clientes salen siempre de `STORES`. Por eso cambiar de
+número no obliga a tocar el código.
 
 ## 2. Crear la app de WhatsApp Cloud API en Meta
 
@@ -42,8 +52,16 @@ En Netlify: **Site settings > Environment variables**, añade:
 | `WHATSAPP_APP_SECRET` | El App Secret de Meta (opcional) |
 | `ANTHROPIC_API_KEY` | Tu API key de Claude (console.anthropic.com) |
 
-Despliega el sitio (push a la rama o build manual) para que la función quede
-publicada en `https://<tu-dominio>/.netlify/functions/whatsapp-webhook`.
+Hay más variables opcionales (avisos por email, panel de conversaciones,
+catálogo de WooCommerce). Están todas documentadas en la cabecera de
+`netlify/functions/whatsapp-webhook.js`, que es la lista de verdad.
+
+**Importante:** cambiar una variable de entorno en Netlify NO afecta a las
+funciones ya desplegadas. Después de tocar cualquiera hay que lanzar un
+**deploy nuevo** (Deploys > Trigger deploy) para que la función la recoja.
+
+Despliega el sitio para que la función quede publicada en
+`https://<tu-dominio>/.netlify/functions/whatsapp-webhook`.
 
 ## 4. Configurar el webhook en Meta
 
@@ -60,14 +78,841 @@ Escribe un WhatsApp al número configurado. Deberías recibir una respuesta
 automática en segundos. Revisa los logs de la función en Netlify (Functions >
 whatsapp-webhook) si algo falla.
 
-## Notas y limitaciones de esta primera versión
+---
 
-- Solo responde a mensajes de **texto**. Mensajes con audio, imagen, etc.
-  reciben una respuesta genérica indicando que el equipo lo revisará.
-- No guarda historial de conversación entre mensajes (cada mensaje se
-  responde de forma independiente). Si más adelante quieres memoria de
-  conversación o un panel para ver el historial, se puede añadir una base de
-  datos (por ejemplo Supabase, que ya se usa en `joe-app`).
-- La deduplicación de reintentos de Meta es best-effort (en memoria), válida
-  para el volumen de mensajes de una papelería; si el tráfico creciera mucho
-  convendría pasar a un almacén persistente.
+# Migración al número definitivo
+
+Pasar del número de prueba de Meta al número real del negocio. El webhook, el
+App Secret y el token **no cambian** mientras se use la misma app de Meta: lo
+único que cambia de verdad es `WHATSAPP_PHONE_NUMBER_ID`.
+
+## Antes de empezar: lo irreversible
+
+Un número de teléfono **no puede estar a la vez** en la app de WhatsApp (o
+WhatsApp Business) del móvil y en la API de Cloud. Para darlo de alta en Meta
+hay que **eliminar su cuenta desde la app**, y eso **borra el historial de
+chats de ese número**. No hay forma de deshacerlo.
+
+Desinstalar la app NO vale: hay que eliminar la cuenta desde dentro
+(Ajustes > Cuenta > Eliminar mi cuenta). Si solo se desinstala, Meta sigue
+viendo el número como ocupado y el alta falla.
+
+Si en ese número hay conversaciones que importan, haz copia antes
+(Ajustes > Chats > Copia de seguridad) o replantea usar otra línea.
+
+## Fase 0 — Preparación (se puede hacer con calma, días antes)
+
+Esta fase no toca el número que está funcionando. Hazla primero porque la
+verificación del negocio la revisa Meta a mano y puede tardar.
+
+1. **Verificación del negocio** en Meta Business Suite. Sin ella el número
+   queda limitado y el nombre visible no se aprueba. Es el paso más largo
+   (días) y el que más se atasca, así que va el primero — ver
+   [Paso a paso de la verificación](#paso-a-paso-de-la-verificación-del-negocio).
+2. **Método de pago** en WhatsApp Manager. Meta lo exige para operar en
+   producción aunque no se llegue a pagar nada (ver "Qué cuesta esto" abajo).
+3. **Token permanente**: comprueba que `WHATSAPP_TOKEN` es de un *System User*
+   y no el token temporal de 24h de "API Setup". Si fuera el temporal, el bot
+   ya se habría caído solo, pero conviene confirmarlo antes de ir a real.
+4. **Nombre visible** que verán los clientes (p. ej. `Ofipapel`). Lo revisa
+   Meta y debe corresponderse con el negocio.
+5. **Política de privacidad** publicada: ya está en `privacidad.html`.
+6. **Campos de la app** en Meta for Developers > Configuración de la app >
+   Básica. Los cuatro que hay que dejar bien (venían vacíos o apuntando a
+   `facebook.com`, que no vale):
+
+   | Campo | Valor |
+   |---|---|
+   | Categoría | `Negocios y páginas` |
+   | URL de Condiciones del servicio | `https://ofipapel.net/terminos-y-condiciones/` |
+   | URL de la política de privacidad | `https://ralayonizquierdo-alt.github.io/Ofipapel---App/privacidad.html` |
+   | Eliminación de datos de usuario | la misma, más `#eliminacion-de-datos` |
+
+   **Ojo con el dominio de Netlify:** el validador de Meta rechaza
+   `https://ofipapel.netlify.app/...` con "Privacy policy URL should
+   represent a valid URL", aunque la página responda 200 y sea HTML válido
+   (comprobado desde fuera). No es un espacio ni un error al pegar: no traga
+   el dominio de primer nivel `.app`. Por eso esos dos campos apuntan a
+   GitHub Pages, que sirve exactamente la misma página y sí acepta. Curioso:
+   el campo de eliminación de datos sí admitía `.app`; el de privacidad no.
+
+### Paso a paso de la verificación del negocio
+
+El motivo nº 1 de rechazo no es la documentación: es que **el dato tecleado no
+coincide letra por letra con el documento**. Por eso conviene reunir los datos
+antes de abrir el formulario.
+
+**A. Comprobar de dónde cuelga la app (5 minutos, hacer esto primero)**
+
+La verificación no se hace en la app de desarrollador, sino en el *portfolio*
+de negocio del que cuelga. Si la app se creó a título personal y no está
+enlazada a ningún portfolio, no hay nada que verificar todavía.
+
+1. Entra en [developers.facebook.com](https://developers.facebook.com/) > Mis
+   apps > la app de WhatsApp de Ofipapel.
+2. **Configuración de la app > Básica**, y mira el campo de la cuenta o
+   portfolio de empresa asociado.
+3. Si está vacío, enlázala a un portfolio de empresa antes de seguir.
+4. Confirma que entras como **administrador** de ese portfolio (no como
+   "empleado": un empleado no ve la opción de verificar).
+
+**B. Reunir los datos exactos**
+
+Tienen que coincidir con el Registro Mercantil, no con el uso comercial:
+
+- **Razón social** literal, con su puntuación (`OFIPAPEL, S.L.`), no el nombre
+  comercial.
+- **Domicilio social** el que consta en el registro — que puede no ser el de
+  la tienda. Es el error más habitual.
+- **Teléfono** en formato internacional (`+34 ...`). No tiene por qué ser el
+  número que va a llevar el bot.
+- **Web** (`ofipapel.net`) y un correo del propio dominio.
+
+**C. Reunir la documentación**
+
+Meta enseña la lista concreta que acepta para España dentro del propio
+formulario — ésa es la que manda. En la práctica valen:
+
+- Certificado o nota simple del **Registro Mercantil** (mejor reciente).
+- **Modelo 036/037** sellado por la AEAT.
+- Tarjeta de identificación fiscal (**CIF**).
+- Si el teléfono no aparece en ninguno de los anteriores, una **factura de
+  teléfono** a nombre de la empresa.
+
+Requisitos de forma, que también tumban solicitudes: en **color**, documento
+**completo** sin recortar ni tapar nada, legible, y de **menos de un año** de
+antigüedad.
+
+**D. Enviar**
+
+1. [business.facebook.com/settings](https://business.facebook.com/settings)
+2. Selecciona el portfolio > **Configuración**.
+3. **Centro de seguridad** (Security Centre).
+4. En **Verificación del negocio**, pulsa **Iniciar verificación**.
+5. Rellena los datos del punto B, sube los documentos del punto C y confirma
+   el código que Meta envía por teléfono o correo.
+
+**E. Esperar**
+
+El estado se sigue en ese mismo Centro de seguridad: *No verificado* >
+*Pendiente* > *Verificado*. Lo normal son unos días; si la documentación va
+justa puede irse a dos semanas. Si sale rechazado, Meta dice el motivo y se
+puede volver a enviar corrigiendo ese punto.
+
+Mientras tanto **no toques el número del móvil**: la fase 1 va después.
+
+## Fase 1 — Liberar el número
+
+1. Copia de seguridad de los chats, si hiciera falta.
+2. En el móvil, en la app de WhatsApp o WhatsApp Business de ese número:
+   **Ajustes > Cuenta > Eliminar mi cuenta**.
+3. Espera unos minutos a que Meta lo dé por libre.
+
+A partir de aquí ese número ya no recibe WhatsApp en el móvil. Lo recibirá el
+bot.
+
+## Fase 2 — Alta en Meta
+
+1. En la app de Meta: **WhatsApp > API Setup > Add phone number**.
+2. Rellena el perfil de empresa (nombre visible, categoría, descripción).
+3. Verifica el número por **SMS** o por **llamada de voz**.
+4. Copia el **Phone Number ID** nuevo. Ojo: es un identificador largo, **no**
+   es el número de teléfono.
+5. Comprueba en **WhatsApp > Configuration > Webhook** que el campo `messages`
+   sigue suscrito, y que la app está suscrita a la cuenta de WhatsApp Business
+   (WABA) donde ha quedado el número nuevo.
+
+### El fallo que cuesta dos horas: la app suscrita a la cuenta
+
+**Si el número está "Conectado" y aun así no llega ni un mensaje, es esto.**
+
+Una app solo recibe los mensajes de las cuentas de WhatsApp Business (WABA) a
+las que está **suscrita**. Ese enlace se hace solo cuando el número se añade
+*desde dentro de la app*; si la cuenta se crea desde Configuración del negocio
+(que es lo que hay que hacer, porque la cuenta de pruebas no admite números
+reales), **el enlace no se crea** y Meta no entrega nada.
+
+Lo peor es que **no se ve en ninguna pantalla de Meta**: solo existe en la API.
+Todo lo demás sale en verde — número Conectado, webhook configurado, campo
+`messages` suscrito, token con permisos — y no funciona nada.
+
+Comprobarlo y arreglarlo, con un token de la app (Paso 1 > "Generar token"):
+
+```bash
+# ¿Qué apps reciben los mensajes de esta cuenta?
+curl -sS "https://graph.facebook.com/v21.0/<WABA_ID>/subscribed_apps" \
+  -H "Authorization: Bearer $TOKEN"
+# {"data":[]}  <- vacío: ahí está el problema
+
+# Suscribir la app
+curl -sS -X POST "https://graph.facebook.com/v21.0/<WABA_ID>/subscribed_apps" \
+  -H "Authorization: Bearer $TOKEN"
+# {"success":true}
+```
+
+Tiene efecto inmediato, sin desplegar nada.
+
+De paso, para ver el estado real del número sin dar vueltas por los menús:
+
+```bash
+curl -sS "https://graph.facebook.com/v21.0/<PHONE_NUMBER_ID>?fields=display_phone_number,verified_name,name_status,code_verification_status,quality_rating,platform_type,status" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+`status: CONNECTED` y `code_verification_status: VERIFIED` es lo que hay que
+ver. `name_status: DECLINED` significa que Meta rechazó el nombre visible —
+molesto, pero **no impide** enviar ni recibir.
+
+### Hay DOS fotos distintas, y la que se toca por error es la que no es
+
+Meta llama "empresa" a dos cosas, y las pantallas se parecen:
+
+| Pantalla | Qué foto es | ¿La ve el cliente? |
+|---|---|---|
+| **Editar foto de la empresa** — "imagen principal de tu **porfolio empresarial**… visible en las tecnologías de Meta" | La del porfolio de Meta (Business Manager) | **No** |
+| **WhatsApp Manager > Cuentas > Números de teléfono > [el número] > Perfil** | La del número de WhatsApp | **Sí**, es la del chat |
+
+La primera **no tiene botón de guardar**: se guarda sola al elegir la imagen, y
+lo confirma un aviso abajo del todo ("Se ha cambiado la foto de la empresa").
+Si después de cambiarla el cliente sigue viendo la de antes, no es que no se
+haya guardado — es que se cambió la que no era.
+
+La que se ve en el chat es la segunda, y va mejor desde el ordenador
+(`business.facebook.com/wa/manage/phone-numbers/`) que desde la app del móvil,
+donde está enterrada.
+
+### Mientras se revisa el nombre, el perfil entero está bloqueado
+
+Comprobado en real, y cuesta un rato entenderlo porque Meta no lo explica: con
+una verificación de nombre visible **en curso**, la pantalla del perfil no deja
+guardar NADA. Ni la foto, ni el correo, ni el sitio web. El aviso que sale es un
+genérico *"No se pudieron guardar los cambios. Envía los cambios de nuevo y
+vuelve a intentarlo"*, que invita a insistir — y por ahí no se sale.
+
+Se reconoce por el cartel de arriba de la pantalla ("Se rechazó tu nombre
+visible…") y por el diálogo *"La verificación del nombre visible ya está en
+curso. Espera a que esta se complete antes de solicitar otra"*.
+
+Qué hacer: **esperar**. No hay atajo, y reintentar no acelera nada. Solo se
+admite una verificación de nombre a la vez.
+
+Y sobre el nombre en sí: Meta es tiquismiquis con las formas jurídicas.
+`Ofipapel SL` fue rechazado; `Ofipapel` a secas o `Ofipapel Papelería` tienen
+mejor pinta. Si se rechaza una y otra vez, el motivo de fondo suele ser que la
+verificación del NEGOCIO no está completa (ver Fase 0) — hasta que eso no esté,
+los nombres se seguirán cayendo.
+
+Nada de esto afecta al bot: sigue enviando y recibiendo con normalidad.
+
+### Ojo: puede haber más de un sitio en Netlify
+
+En este proyecto conviven dos sitios apuntando al mismo repositorio:
+`ofipapel.netlify.app` (antiguo, sin las variables del bot) y
+`spontaneous-lebkuchen-60fa41.netlify.app` (el que sirve de verdad). El bot,
+el panel de conversaciones y el webhook viven en el **segundo**.
+
+Los dos sirven el mismo HTML, así que por una página estática no se distinguen.
+Para saber en cuál se está mirando, vale esta prueba: una petición POST sin
+firma al webhook devuelve **401** en el sitio bueno (tiene
+`WHATSAPP_APP_SECRET`) y **200** en el viejo.
+
+## Fase 3 — Cambiar la configuración
+
+1. En Netlify: **Site settings > Environment variables**, cambia
+   `WHATSAPP_PHONE_NUMBER_ID` por el nuevo.
+2. **Lanza un deploy nuevo.** Sin esto la función sigue con el valor viejo.
+3. El resto de variables (`WHATSAPP_TOKEN`, `WHATSAPP_APP_SECRET`,
+   `WHATSAPP_VERIFY_TOKEN`) no se tocan.
+
+## Fase 4 — Comprobaciones antes de darlo por bueno
+
+Desde un móvil que **no** sea el del bot:
+
+1. "Hola" → debe llegar la presentación de bot nuevo (solo la primera vez).
+2. Una pregunta de FAQ ("¿a qué hora abrís?").
+3. Una búsqueda de catálogo ("¿tenéis papeleras de rejilla?") → debe dar
+   productos y precios reales, no el genérico de "pásate por la tienda".
+4. Una referencia concreta ("tóner HP 83A") → debe ofrecer **exactamente** esa
+   referencia, nunca una parecida.
+5. Pedir hablar con una persona → deben llegar los botones, y al confirmar,
+   el aviso por email.
+6. Revisa los logs en Netlify (Functions > whatsapp-webhook) buscando errores.
+
+## Qué cambia al pasar a producción
+
+- **Coste**: las conversaciones que inicia el cliente y se responden dentro de
+  las 24h siguientes (*service conversations*) no se facturan. El bot solo
+  responde a mensajes entrantes, así que en el uso normal no genera coste de
+  mensajería. Conviene confirmar las condiciones vigentes en la web de precios
+  de Meta, que las ha cambiado varias veces.
+- **Ventana de 24 horas**: fuera de esa ventana Meta solo deja enviar
+  plantillas aprobadas. Esto afecta al aviso por WhatsApp al dueño
+  (`OWNER_WHATSAPP_NUMBER`): si hace más de 24h que no le escribes al bot, ese
+  aviso **fallará**. El aviso por email (`RESEND_API_KEY` / `OWNER_EMAIL`) no
+  tiene esa limitación y es el que hay que considerar fiable.
+- **Límite de mensajería**: se empieza en un escalón bajo de clientes únicos
+  cada 24h y Meta lo va subiendo según el volumen y la calidad de las
+  respuestas. Para el volumen de una papelería no debería notarse.
+- **Calidad**: Meta puntúa la calidad del número según cómo reaccionan los
+  clientes (bloqueos, reportes). Si baja mucho, restringe el envío.
+
+## La ventana de 24 horas (y por qué hacen falta plantillas)
+
+Meta solo deja a un negocio mandar texto libre a quien le ha escrito **en las
+últimas 24 horas**, contadas desde el último mensaje del cliente y reiniciadas
+con cada mensaje nuevo suyo. Cada conversación tiene su propia ventana. Fuera de
+ella, el mensaje no se entrega: Meta lo rechaza y el destinatario no ve nada.
+
+**Al bot esto no le afecta nunca**, porque solo responde: cuando contesta, la
+ventana acaba de abrirse en ese mismo segundo.
+
+**Sí afecta a los avisos al dueño.** Para WhatsApp el dueño es un cliente más
+del número del bot, así que si hace más de un día que no le escribe, el aviso de
+escalado en texto libre **no le llega, y falla en silencio**. Y un escalado salta
+justo cuando no está escribiéndole al bot. En pruebas no se nota (se le escribe
+al bot cada dos por tres); en producción falla casi siempre.
+
+La forma correcta de escribir fuera de la ventana es una **plantilla aprobada**.
+
+### Crear la plantilla de aviso de escalado
+
+En WhatsApp Manager > Herramientas de la cuenta > **Plantillas de mensajes** >
+Crear plantilla:
+
+- **Nombre**: `aviso_escalado` (minúsculas y guiones bajos; es lo único que
+  admite Meta)
+- **Categoría**: **Utilidad** (*Utility*). No es marketing — es un aviso de
+  servicio. Elegir marketing haría que la rechazaran o que costara más.
+- **Idioma**: Español (`es`)
+- **Cuerpo**:
+
+  ```
+  🔔 Bot de Ofipapel: un cliente quiere hablar con una persona.
+
+  Su teléfono es {{1}} y su último mensaje fue: "{{2}}".
+
+  Entra en el panel de conversaciones para responderle.
+  ```
+
+- **Ejemplos** que pide Meta para revisar: `34600123456` y
+  `Quiero hablar con alguien sobre mi pedido`
+- **Botón** (opcional pero cómodo): tipo *Visitar sitio web*, texto "Ver panel",
+  URL `https://ofipapel.netlify.app/.netlify/functions/conversations`
+
+Reglas de Meta que conviene respetar al escribir el cuerpo, porque son motivo de
+rechazo: los huecos van numerados y correlativos desde `{{1}}`, no pueden ir dos
+pegados, y es más seguro que el texto no empiece ni termine en un hueco.
+
+Una vez aprobada, en Netlify:
+
+| Variable | Valor |
+|---|---|
+| `OWNER_ALERT_TEMPLATE` | `aviso_escalado` |
+| `OWNER_ALERT_TEMPLATE_LANG` | `es_ES` (opcional, es el valor por defecto) |
+
+### La plantilla para escribir a un CLIENTE fuera de la ventana
+
+La de arriba es para avisarte a ti. Hace falta otra para lo contrario: cuando
+quieres contestarle a un cliente y hace más de 24 h que no escribe. Es el fallo
+que se veía como "mando el mensaje desde el panel y no le llega".
+
+Se crea igual (Utilidad, mismo idioma), con nombre `respuesta_consulta` y este
+cuerpo:
+
+```
+Hola {{1}}, te escribimos desde Ofipapel sobre tu consulta: "{{2}}".
+
+Respóndenos por aquí y seguimos ayudándote.
+```
+
+Los huecos los rellena el panel solo: `{{1}}` con el nombre del cliente (el de
+su ficha, o el de su WhatsApp) y `{{2}}` con su último mensaje. Tiene que tener
+**exactamente dos**.
+
+| Variable | Valor |
+|---|---|
+| `CUSTOMER_TEMPLATE` | `respuesta_consulta` |
+| `CUSTOMER_TEMPLATE_LANG` | `es_ES` (opcional, es el valor por defecto) |
+
+### Ojo con el idioma: "Spanish (SPA)" NO es `es`
+
+En WhatsApp Manager el desplegable ofrece varios españoles, y para Meta cada uno
+es una plantilla **distinta**:
+
+| Lo que se elige en la pantalla | Código de la API |
+|---|---|
+| Spanish | `es` |
+| **Spanish (SPA)** | **`es_ES`** |
+| Spanish (MEX) | `es_MX` |
+| Spanish (ARG) | `es_AR` |
+
+Las plantillas de Ofipapel están en **Spanish (SPA)**, así que el código por
+defecto es `es_ES`. Con el código equivocado Meta responde *"template does not
+exist"* aunque la plantilla esté aprobada y se llame exactamente igual — un
+error que despista mucho, porque en la pantalla se ve ahí, en verde.
+
+Y un deploy nuevo. Sin `OWNER_ALERT_TEMPLATE` el aviso sigue yendo en texto
+libre, igual que hasta ahora; si el envío por plantilla falla, también se cae al
+texto libre. El aviso por **email** (`RESEND_API_KEY` / `OWNER_EMAIL`) va
+siempre aparte y no depende de nada de esto — es el único que se puede
+considerar fiable al 100%.
+
+Los valores que se meten en los huecos se limpian antes de enviarlos (saltos de
+línea, tabuladores, espacios repetidos y longitud): Meta rechaza el envío entero
+si los llevan, y vienen de lo que ha escrito un cliente por WhatsApp.
+
+## Parada de emergencia
+
+Si el bot empieza a contestar mal a clientes reales, hay dos formas de callarlo,
+y conviene conocer las dos **antes** de necesitarlas:
+
+1. **Botón "Parar el bot"** en el panel de conversaciones
+   (`/.netlify/functions/conversations`). Es la vía normal: dos clics desde el
+   móvil, efecto inmediato, sin desplegar nada.
+2. **Variable `BOT_PAUSADO=1`** en Netlify + un deploy. Es el respaldo, para
+   cuando el panel no está disponible (por ejemplo si Redis está caído, que es
+   justo cuando el botón del panel no se podría leer).
+
+Estando parado:
+
+- El bot **no responde** a nadie.
+- Los mensajes de los clientes **se siguen archivando** en el panel, para
+  contestarlos a mano. Parar el bot no pierde mensajes.
+- Cada cliente recibe **un solo aviso** de que le atenderá una persona — no uno
+  por cada mensaje que mande. Si más adelante se vuelve a parar el bot, se le
+  vuelve a avisar.
+
+La pausa **no caduca sola**: se reanuda a mano desde el mismo botón. Una parada
+de emergencia que se levanta sola sin que nadie se entere es peor que no
+tenerla.
+
+## Estado actual del agente
+
+Lo que la primera versión de este documento daba por no implementado y hoy sí
+lo está:
+
+- Guarda el historial de conversación (Upstash Redis) y hay panel para verlo
+  (`netlify/functions/conversations.js`).
+- La deduplicación de reintentos de Meta es persistente y funciona entre
+  instancias distintas de la función, no solo en memoria.
+- Consulta el catálogo real de ofipapel.net (productos, precios, stock) y el
+  estado de pedidos.
+- Ficha del cliente con datos duros y presentación una sola vez por cliente.
+- Sabe qué consumible lleva cada impresora (ver más abajo).
+
+- **Lee las fotos** que manda el cliente (desde el 19/10/2026): "¿tenéis este?"
+  con la foto de la caja del cartucho ya se contesta sola. La foto NO se le pasa
+  a la IA que contesta: se lee aparte (`whatsapp-vision.js`, una llamada cuyo
+  único trabajo es describirla) y lo que sale son **palabras** que entran por el
+  mismo camino que un mensaje de texto — se busca en el catálogo y manda el
+  catálogo. Esa separación es a propósito: una lectura de imagen se equivoca (lee
+  "305XL" donde dice "305"), y convertida en términos de búsqueda un error acaba
+  en "no encuentro eso", que es recuperable, en vez de en un dato falso dado por
+  cierto. Si la lectura falla, si en la foto no hay ningún artículo, o si la
+  respuesta no pasa las redes de seguridad de siempre (sin datos de catálogo no
+  se confirma ningún producto ni se dice ningún precio), se vuelve al
+  comportamiento anterior: se le ofrece una persona. Lo que el bot ha visto en la
+  foto queda escrito en el panel, debajo de la imagen, para poder distinguir de
+  un vistazo una lectura mala de una búsqueda mala.
+
+Limitación que sigue vigente:
+
+- Un **audio**, un **vídeo** o un **PDF** no se leen. Reciben la respuesta
+  genérica y la opción de hablar con una persona.
+- Un **sticker** no se lee ni se contesta: es un gesto, no una pregunta, igual
+  que la reacción con un emoji sobre un mensaje. Se guarda y se ve en el panel,
+  y ahí acaba. Antes se llevaba "no puedo leer un sticker por aquí, ¿quieres que
+  te ponga en contacto con una persona?" — el mismo disparate que se arregló el
+  30/9/2026 con las reacciones, entrando por otra puerta: escalar a alguien, a lo
+  mejor de madrugada, por dar las gracias con un pulgar arriba.
+### La foto espera a su pregunta
+
+**La foto y la pregunta llegan como dos mensajes distintos**: primero la imagen
+y un segundo después "¿y este papel?". Decisión del propietario (19/10/2026):
+
+> Prefiero que espere y conteste con todo el contexto antes que dar dos
+> respuestas rápidas. Viendo solo la foto no sabe qué quiere preguntar el
+> cliente: **la pregunta manda sobre la foto, la foto es para ampliar datos o
+> contexto**.
+
+Cómo funciona:
+
+1. Llega la foto. Se lee y **no se contesta**: la lectura queda en espera
+   (`foto_pendiente:<teléfono>` en Upstash, 5 min) y el webhook avisa a
+   `whatsapp-foto-background.js`.
+2. Si el cliente pregunta en los siguientes segundos, **su mensaje se lleva la
+   foto** y se contesta con las dos cosas juntas.
+3. Si no pregunta, a los **20 segundos** despierta la función de segundo plano,
+   se lleva la foto y contesta con ella sola — nunca se queda sin respuesta.
+   El tiempo se cambia con `FOTO_ESPERA_MS` en Netlify, sin tocar código.
+
+Quien conteste se decide **quitando la foto de en medio**
+(`tomarFotosPendientes` la saca y la borra a la vez), no mirando el historial:
+las dos vías corren a la vez y solo una puede llevársela. Sin eso el cliente
+recibiría dos respuestas a lo mismo. Si el cliente manda **varias fotos** antes
+de preguntar, se acumulan y la respuesta sale con todas delante.
+
+**No se espera cuando la pregunta ya está dicha**, y puede estarlo de dos
+maneras: en el **pie de foto**, o en un mensaje **de hace un momento** — el
+cliente también pregunta primero y manda la foto después ("busco una caja como
+esta" y acto seguido la imagen). En ese caso esa frase es la pregunta de la
+foto, igual que si fuera el pie, y se contesta al momento con las dos cosas. La
+ventana son 90 segundos: una frase más vieja es otra conversación, y colgársela
+a la foto sería contestar a algo que nadie preguntó.
+
+Tampoco se espera si no se puede avisar a la función de segundo plano: nadie
+despertaría a contestar, y lo único que no vale es dejar al cliente sin nada.
+
+Antes de esto el segundo mensaje entraba por el camino del texto SIN ninguna
+imagen encima, y la IA concluía que no había llegado — "No veo una foto adjunta
+en ese mensaje, ¿puedes enviarla de nuevo?", a un cliente al que se le acababa
+de dar el precio y el enlace de lo que salía en su foto. Esa red sigue puesta
+por si acaso: lo que se vio en una foto queda apuntado en el historial (la misma
+línea que se pinta en el panel), `pideLaFotoOtraVez()` reconoce la respuesta
+equivocada y se contesta con la foto recuperada de ahí; si de verdad no había
+ninguna foto detrás, la respuesta es correcta y se deja pasar.
+
+## Cuando el cliente está enfadado
+
+Un cliente que insulta, acusa de estafa o amenaza con el abogado **no quiere que
+le conteste un bot**, y cada respuesta automática de más empeora la situación.
+`whatsapp-hostilidad.js` lo detecta y se aparta: el bot manda un único mensaje
+diciendo que deja de contestar él, se **para 24 h** en esa conversación, avisa al
+dueño por email y por WhatsApp, y la conversación queda marcada como "requiere
+atención" en el panel.
+
+Unas 375 expresiones repartidas en seis familias, que son las que se ven de
+verdad en atención al cliente (con las equivalentes en inglés, que es el otro
+idioma del bot):
+
+| Familia | Ejemplo |
+|---|---|
+| Incompetencia | "Sois unos inútiles", "Hablo con la pared", "Nadie me contesta", "Me estáis mareando", "Cada uno me dice una cosa" |
+| Fraude o engaño | "Sois unos ladrones", "Esto es una estafa", "Una tomadura de pelo", "Es una vergüenza", "Me habéis cobrado y no…" |
+| Ataque a la plataforma | "Vuestra web es una basura", "El robot este es imbécil", "El formulario no funciona", "Estoy en un bucle" |
+| Insulto directo | "Sois unos payasos", "Menuda mierda de servicio", "Me cago en…", "Estoy hasta las narices", "Menuda chapuza" |
+| Sarcasmo | "Gracias por nada", "Menos mal que sois los expertos", "Esto es de traca", "Tiene delito", "Lo que faltaba" |
+| Amenaza de represalia | "Os voy a poner a parir en redes", "Mi abogado", "Hoja de reclamaciones", "Reseña de una estrella", "Me lo compro en Amazon" |
+
+Tres decisiones que conviene no deshacer sin pensarlo:
+
+- **Se comprueba antes que nada**, delante de las FAQ, del catálogo y de la IA.
+  "Sois unos ladrones, quiero el 305XL" es primero un cliente furioso y después
+  una consulta de producto: contestarle con el precio del cartucho, por correcto
+  que sea, es no haberle escuchado.
+- **No se le enseñan los botones de "¿quieres hablar con una persona?"**. Quien
+  acaba de llamarnos inútiles ya ha contestado a esa pregunta.
+- **No lo decide la IA**, sino reglas fijas. Hace falta certeza (el coste de
+  tratar a un cliente furioso como si preguntara por un bolígrafo es perderlo),
+  y además la IA es justo lo que le molesta en la mitad de los casos.
+
+### Por qué la lista es corta a propósito
+
+El error no cuesta lo mismo en las dos direcciones. Que se escape un insulto es
+recuperable; marcar como hostil a un cliente contento le corta la conversación,
+le para el bot 24 h y llena de avisos el móvil del dueño.
+
+Por eso ninguna expresión de la lista es una palabra suelta: todas van dirigidas
+a nosotros de forma inequívoca. Importa especialmente en una papelería, **donde
+media lista de insultos posibles son productos reales**: bolsas de *basura*,
+*papelera* de rejilla, *ladrón* de tres enchufes. Por eso se exige "sois unos
+ladrones" y no "ladrones", "es una basura" y no "basura".
+
+Un caso real de la primera prueba: "una estrella" (por la reseña) saltaba con
+*"quiero un cuaderno de una estrella para mi hija"*. Ahora se pide "una estrella
+en Google". Cada vez que se añada una expresión conviene pasarle la lista de
+clientes contentos y de productos, no solo la de insultos.
+
+El sarcasmo es la familia que menos cubre, también a propósito: se construye con
+palabras amables ("gracias", "menos mal", "qué rápido"), así que cualquier regla
+suelta sobre ellas convertiría a todos los clientes educados en hostiles. Solo
+entran frases hechas que nadie dice en serio. Lo que no se puede distinguir sin
+entender el tono ("muchas gracias por la ayuda, se nota") se queda fuera.
+
+## El panel de conversaciones
+
+`netlify/functions/conversations.js`. Además de leer y contestar, tiene:
+
+- **Acuses de recibo.** Cada mensaje que sale (del bot o escrito a mano) lleva su
+  tick: uno gris enviado, dos grises entregado en el móvil del cliente, dos
+  azules leído. Meta los manda por el mismo webhook que los mensajes entrantes.
+  **Si el cliente tiene desactivadas las confirmaciones de lectura en su
+  WhatsApp, el azul no llega nunca** aunque lo haya leído — se queda en
+  entregado. No es un fallo del bot y no hay forma de saberlo desde aquí.
+- **Borrar una conversación desde la lista**, con el icono de la papelera en la
+  esquina de cada tarjeta (pide confirmación). Borra también el contador de sin
+  leer y los acuses de ese número; el historial no se puede recuperar.
+- **Cada tarjeta dice de qué va**: junto al número y la hora salen el nombre del
+  cliente y, entre comillas,
+  por lo que preguntó — «lápiz 3D», «tóner Brother». Sale de lo que el bot
+  anota en la ficha, y si no hay ficha, del primer mensaje con contenido del
+  cliente. Un número de teléfono no identifica a nadie, y aquí no hay foto de
+  perfil como en WhatsApp.
+
+  El nombre sale, por orden de fiabilidad: de la empresa o el nombre de un
+  pedido verificado contra WooCommerce, y si no, del **nombre que el cliente
+  tiene puesto en su WhatsApp**, que Meta manda con cada mensaje.
+
+  **La foto de perfil no se puede mostrar.** La API de WhatsApp Cloud no da la
+  foto de los clientes — solo la del propio negocio — y no hay forma de
+  obtenerla. Es una decisión de privacidad de Meta, no una limitación nuestra.
+- **Buscador** en la lista: busca en el teléfono, en todo lo hablado y en la
+  ficha del cliente (nombre, empresa y notas del equipo), sin distinguir
+  acentos ni mayúsculas. Se piden todas las palabras, y cada resultado enseña
+  el trozo de conversación por el que ha salido.
+- **Parada del bot**, general (arriba del todo) o por conversación. Las
+  conversaciones con el bot parado se ven **desde la lista**, con su aviso y la
+  tarjeta en ámbar: si no, se quedan ahí muertas hasta que la pausa caduca sola
+  a las 24 h y el cliente se lleva el silencio.
+- **Adjuntar pegando**: además del botón del clip, se puede pegar una imagen
+  copiada (Ctrl+V) en el cuadro de respuesta, sin tener que guardarla antes en
+  el disco. Va al mismo sitio que un adjunto normal.
+- **Perfil del negocio** (enlace en el pie): enseña la foto y los datos que ve un
+  cliente al pulsar en el nombre del contacto, dice cuántos faltan por rellenar,
+  y trae los pasos para cambiarlo en WhatsApp Manager. Solo se lee desde aquí:
+  los textos se podrían cambiar por API, pero subir la foto es una carga en tres
+  pasos que no compensa montar para algo que se toca una vez al año.
+- **Los enlaces se pinchan**, tanto en el panel como en el móvil del cliente.
+  En los mensajes que salen del bot o del panel va activada la vista previa de
+  WhatsApp (`preview_url`), así que un enlace a una ficha de producto llega con
+  su foto y su nombre en vez de como una línea de texto suelta.
+- **Volver arriba** al final de cada conversación.
+- **Estado de la ventana de 24 h**, en cada conversación y **antes** de escribir:
+  si está abierta dice cuánto queda; si está cerrada avisa de que un mensaje
+  normal no llegaría y ofrece mandar la plantilla aprobada con un botón. Antes
+  esto solo se descubría después de redactar la respuesta y darle a enviar, y el
+  aviso decía "puede que" — ahora el motivo se lee del propio error de Meta
+  (131047 fuera de ventana, 132001 plantilla inexistente, 132000 huecos que no
+  cuadran) y se dice exactamente qué ha pasado.
+
+### Instalarlo en el móvil (y que no abra una pestaña nueva cada vez)
+
+El panel es instalable: `manifest-bot.json` + `display: standalone`. Eso es lo
+que hace que **el icono recupere la ventana que ya estaba abierta** en vez de
+abrir una pestaña nueva del navegador en cada toque. Un acceso directo creado
+sin manifest es solo un enlace, y Android lo trata como tal.
+
+Para instalarlo, en Chrome en el móvil: menú ⋮ → **"Instalar aplicación"** (o
+"Añadir a pantalla de inicio"). Si aparece como "Añadir acceso directo" en vez de
+"Instalar", es que el navegador todavía no ha visto el manifest — recarga la
+página una vez y vuelve a mirar.
+
+**Importante si ya tenías un icono de antes**: el acceso directo viejo NO se
+convierte solo. Hay que **borrarlo y volver a añadirlo**, o seguirá abriendo
+pestañas nuevas para siempre.
+
+Detalles que conviene no romper:
+
+- El manifest y los iconos son ficheros **estáticos de la raíz** del sitio y se
+  piden por ruta absoluta. El panel es una función (`/.netlify/functions/
+  conversations`) y no puede servir ficheros propios; una ruta relativa buscaría
+  el manifest dentro de esa carpeta y daría 404. Se copian en `build.sh`.
+- El `scope` es `/.netlify/functions/`, no la raíz. Así los enlaces de los avisos
+  (que apuntan a esta misma función con `?phone=...`) se abren **dentro** de la
+  app y no en el navegador.
+- El icono es propio (burbuja de chat sobre verde Ofipapel) para no confundirlo
+  en la pantalla de inicio con el del hub, que es negro.
+
+## Cuando ofipapel.net nos bloquea
+
+Es la causa número uno de que el bot conteste "un segundo, por favor" y acabe
+sin dar precios. **No es un fallo del código ni de las claves de WooCommerce.**
+
+### Qué pasa exactamente
+
+La web tiene una protección anti-bots que va **delante de WordPress**, en la
+capa del hosting (el servidor se identifica como `openresty`). Cuando decide
+que una petición es sospechosa, contesta con un **HTTP 200 y una página HTML**
+titulada *"One moment, please…"*, con un JavaScript ofuscado que espera un
+parámetro `wsidchk` y reenvía a una ruta larga en hexadecimal
+(`/z0f76a1d1…`). Es decir: responde una página web donde nosotros esperábamos
+JSON.
+
+Por eso **tener claves válidas de la API no ayuda**: quien corta la petición no
+es WooCommerce, es el portero de la puerta de la calle. WordPress ni se entera
+de que hemos llamado, así que nunca llega a mirar las claves. Es como tener la
+tarjeta de la oficina pero que no te dejen entrar al edificio.
+
+En los registros de Netlify se reconoce por este mensaje:
+
+```
+WooCommerce devolvió "text/html; charset=UTF-8" en vez de JSON:
+la protección anti-bots de ofipapel.net nos ha bloqueado
+```
+
+### Qué pedirle a quien administra la web
+
+Lo que hay que conseguir es una excepción para **una sola ruta**:
+`/wp-json/wc/v3/*`. No hace falta bajar la protección del resto de la web.
+
+**Importante: no vale una lista blanca por IP.** Las funciones de Netlify se
+ejecutan en AWS Lambda y salen por direcciones que cambian en cada ejecución;
+una regla por IP dejaría de valer al día siguiente. La excepción tiene que ir
+por ruta, por cabecera o por las dos.
+
+El bot se identifica en **todas** sus peticiones con:
+
+| Cabecera | Valor |
+|---|---|
+| `User-Agent` | `OfipapelWhatsAppBot/1.0 (+https://ofipapel.net; bot de atencion al cliente)` |
+| `Authorization` | `Basic …` (las claves de la API REST de WooCommerce) |
+| `X-Ofipapel-Bot` | solo si se configura `WOOCOMMERCE_BYPASS_TOKEN` (ver abajo) |
+
+Tres formas de hacer la excepción, de la más sencilla a la más estricta —
+cualquiera de las tres sirve:
+
+1. **Por ruta.** Excluir `/wp-json/wc/v3/` de la protección anti-bots y del
+   límite de peticiones. Es la más simple. Esa ruta ya está protegida por las
+   propias claves de la API: sin ellas devuelve 401.
+2. **Por User-Agent.** Permitir las peticiones cuyo `User-Agent` sea
+   `OfipapelWhatsAppBot/1.0`. Sirve si el panel del hosting permite reglas por
+   agente pero no por ruta.
+3. **Por cabecera secreta.** La más estricta y la que se recomienda si la
+   protección la lleva Cloudflare u otro WAF con reglas propias:
+   - Se genera un valor largo al azar (por ejemplo `openssl rand -hex 24`).
+   - Se pone en Netlify como variable `WOOCOMMERCE_BYPASS_TOKEN` (marcada como
+     secreta) y se despliega.
+   - Se crea una regla que deje pasar las peticiones a `/wp-json/wc/v3/*` que
+     lleven la cabecera `X-Ofipapel-Bot` con ese valor exacto.
+
+   Sin la variable configurada el bot no manda esa cabecera y todo sigue
+   funcionando igual que ahora, así que se puede preparar la regla primero y
+   activar la variable después.
+
+### Volumen real, para dimensionar la regla
+
+Conviene decírselo, porque suele ser la duda: **el bot no hace scraping**.
+
+- Solo llama cuando un cliente escribe por WhatsApp.
+- Por cada mensaje, entre 2 y 7 peticiones (varias formas de escribir la misma
+  búsqueda, más categorías y ofertas), y en dos tandas, no todas a la vez.
+- Con el volumen actual de conversaciones son decenas de peticiones al día, no
+  miles.
+- Cada petición trae ya sus claves de API y solo hace lecturas (`GET`).
+
+### Cómo comprobar que ha funcionado
+
+Desde cualquier terminal. Las claves van en variables y no dentro del propio
+comando, por dos razones: no se quedan escritas en el historial del terminal, y
+así el ejemplo no tiene la forma `-u "usuario:contraseña"` — que los detectores
+de secretos (GitGuardian) marcan como fuga aunque lo que haya ahí sea un
+marcador de relleno. Ya pasó una vez y el aviso hay que investigarlo entero
+antes de poder descartarlo.
+
+```bash
+read -rsp "Clave (ck_...): " WC_KEY; echo
+read -rsp "Secreto (cs_...): " WC_SECRET; echo
+
+curl -s -o /dev/null -w "%{http_code} %{content_type}\n" \
+  -H "User-Agent: OfipapelWhatsAppBot/1.0" \
+  --user "$WC_KEY:$WC_SECRET" \
+  "https://ofipapel.net/wp-json/wc/v3/products?search=toner&per_page=3"
+```
+
+- **Bien:** `200 application/json`
+- **Sigue bloqueado:** `200 text/html…` (esa es la pantalla de "One moment,
+  please…")
+- **Claves mal:** `401 application/json`
+
+Repetirlo cinco o seis veces seguidas: el bloqueo a veces solo salta al
+acumular varias peticiones seguidas, que es exactamente lo que hace el bot.
+
+### Qué se gana
+
+- Se acaban los "un segundo, por favor" y las respuestas sin precio.
+- Se podría descargar el catálogo entero una vez y emparejar las referencias de
+  consumible contra los nombres reales de los productos, en vez de deducir la
+  forma en que están escritos (ver la limitación de los guiones más abajo).
+
+## Consumibles por modelo de impresora
+
+El cliente no sabe la referencia del cartucho; sabe qué impresora tiene. El bot
+hace de puente: si nombra su modelo en cualquier frase ("tengo una Epson
+XP-4200 y necesito tinta"), reconoce el equipo, sabe que lleva el **604 / 604XL**
+y busca justo esa referencia en el catálogo para darle precio y stock.
+
+Piezas:
+
+| Fichero | Qué hace |
+|---|---|
+| `scripts/datos/Inf_Art_Rel.xlsx` | El Excel del distribuidor: relación equipo → consumible. Es el origen de todo. |
+| `scripts/generar-consumibles.py` | Convierte ese Excel en el índice del bot. Se ejecuta **a mano**, no forma parte de ningún build. |
+| `netlify/functions/data/consumibles-impresora.json` | El índice ya generado: 469 impresoras y 933 consumibles. Va empaquetado con la función. |
+| `netlify/functions/whatsapp-consumibles.js` | Reconoce el modelo en el mensaje y arma el bloque que se le pasa a la IA. |
+
+Cuando el proveedor mande un Excel nuevo:
+
+```bash
+pip install openpyxl                                   # solo la primera vez
+cp <el excel nuevo> scripts/datos/Inf_Art_Rel.xlsx
+python3 scripts/generar-consumibles.py scripts/datos/Inf_Art_Rel.xlsx
+git add scripts/datos/Inf_Art_Rel.xlsx netlify/functions/data/consumibles-impresora.json
+```
+
+Y desplegar. No hay nada que configurar en Netlify: los datos viajan dentro de
+la función, no se consultan por red. Es a propósito — la relación
+equipo-consumible no está publicada en ofipapel.net, y la web se cae o nos
+bloquea con demasiada frecuencia como para depender de ella también para esto.
+
+### Cómo lo escribe el catálogo
+
+El proveedor da `TN248`; la web escribe `TN-248`. Y el buscador de WordPress
+compara letra por letra, así que preguntar por `TN248` no encuentra nada aunque
+el producto esté ahí. Igual con `A4` contra `A-4`, o `nº305` contra `305`.
+
+`scripts/emparejar-catalogo.py` descarga el catálogo entero una vez, busca cada
+referencia dentro de los nombres reales y anota la forma exacta en
+`netlify/functions/data/referencias-catalogo.json`. El bot pregunta por lo que
+sabe que existe, en vez de probar variantes.
+
+```bash
+# La primera vez, o cuando cambie el Excel del proveedor (tarda ~30 min):
+python3 scripts/emparejar-catalogo.py catalogo.json
+
+# Repetir el emparejado sin volver a descargar (usa el catalogo.json de antes):
+python3 scripts/emparejar-catalogo.py catalogo.json
+```
+
+Ese fichero es **opcional**: si no está, el bot busca por la referencia del
+proveedor exactamente como antes. Una regeneración a medias no puede dejarlo
+roto.
+
+Requiere que el hosting no nos esté bloqueando — ver "Cuando ofipapel.net nos
+bloquea".
+
+### Cuánto del índice tiene precio en la web
+
+Medido sobre el catálogo entero (18.891 productos), no sobre una muestra:
+
+| Marca | Equipos con precio | Total | |
+|---|---|---|---|
+| EPSON | 23 | 27 | 85% |
+| HP | 80 | 124 | 65% |
+| BROTHER | 72 | 135 | 53% |
+| CANON | 2 | 2 | 100% |
+| KYOCERA | 2 | 64 | 3% |
+| LEXMARK, OKI, DYMO, PANTUM, TOSHIBA, RICOH | 0 | 117 | 0% |
+| **TOTAL** | **179** | **469** | **38%** |
+
+El 38% general engaña: el Excel es el catálogo **completo del distribuidor**
+(Lexmark de empresa, Kyocera TASKalfa, OKI industrial, etiquetadoras Dymo…),
+mientras que la web vende la gama de hogar y pequeña oficina. Donde importa —
+Epson, HP y Brother, que son 286 de los 469 equipos — la cobertura va del 53%
+al 85%.
+
+Para el resto el bot sigue siendo útil: da la referencia correcta, que es la
+pregunta que hace el cliente. Lo que no puede dar es el precio.
+
+### Lo que este índice NO resuelve
+
+- **Solo lleva los equipos que el distribuidor vende hoy.** Una MFC-L2710DW o
+  una Lexmark MS431, muy comunes entre clientes, no están en el Excel aunque su
+  tóner siga vendiéndose. Para esas el bot sigue funcionando como antes: si el
+  cliente da la referencia, la busca; si da el modelo, no la deduce.
+- **No dice si lo tenemos ni a qué precio.** Eso sigue saliendo solo del
+  catálogo. El bloque que recibe la IA se lo advierte de forma explícita, y la
+  red de seguridad contra confirmaciones inventadas ("sí, tenemos…") sigue
+  atada al catálogo, no a este índice.
+- **Del Excel solo se usan las familias de tienda** (láser, inkjet,
+  etiquetadoras, cintas). Gran formato, escáneres de producción y plotters
+  quedan fuera a propósito: no es lo que se pregunta por WhatsApp.

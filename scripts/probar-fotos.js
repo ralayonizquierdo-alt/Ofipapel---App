@@ -1,0 +1,175 @@
+// Qué pasa cuando un cliente manda una FOTO.
+//
+//   node scripts/probar-fotos.js
+//
+// Existe por un fallo real: la rama de adjuntos llamaba a Netlify Blobs con una
+// variable `event` que en esa función NO EXISTÍA. Reventaba con un
+// ReferenceError justo DESPUÉS de contestar al cliente y ANTES de registrar la
+// foto y avisar al equipo — o sea, el cliente veía una respuesta correcta y en
+// el panel no aparecía nada. Desde fuera parecía que funcionaba.
+//
+// Por eso esta prueba ejecuta la rama ENTERA por el webhook de verdad, con Meta
+// y el almacén simulados, en vez de comprobar las piezas por separado. El
+// connectLambda simulado revienta si recibe undefined: es exactamente el fallo
+// que se escapó.
+const Module=require('module'); const orig=Module.prototype.require;
+const crypto=require('crypto'); const SECRETO='s'; process.env.WHATSAPP_APP_SECRET=SECRETO;
+let log=[];
+const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64');
+const almacen=new Map();
+process.env.WHATSAPP_TOKEN='token';
+Module.prototype.require=function(p){
+  if(p==='@netlify/blobs') return {connectLambda:(e)=>{ if(!e) throw new Error('connectLambda recibió undefined'); },
+    getStore:()=>({set:async(k,v,o)=>{almacen.set(k,{data:v,metadata:o?.metadata}); log.push({t:'foto guardada',m:k});},
+                   getWithMetadata:async(k)=>almacen.get(k)||null})};
+  if(p==='./whatsapp-send') return {sendWhatsappMessage:async(t,m)=>{log.push({t:'respuesta',m});return{ok:true};},sendWhatsappTemplate:async()=>({ok:true}),uploadWhatsappMedia:async()=>({}),sendWhatsappMedia:async()=>({})};
+  const m=orig.apply(this,arguments);
+  if(p==='./whatsapp-agent-core') return {...m,
+    notifyOwner:async(a)=>{log.push({t:'email al dueño',m:a.customerMessage});},
+    notifyOwnerByWhatsapp:async(f,x)=>{log.push({t:'wapp al dueño',m:x});},
+    getHistory:async()=>[], appendToHistory:async(f,u,a)=>{log.push({t:'guardado en el panel',m:u});},
+    appendCustomerMessage:async(f,u)=>{log.push({t:'guardado sin contestar',m:u});}, isBotPaused:async()=>PAUSADO,
+    pauseBot:async(f,h)=>{log.push({t:'bot en pausa',m:h+' h'});}, askClaude:async()=>'x'};
+  if(p==='./conversation-store') return {...m, isConfigured:()=>true, claimMessage:async()=>true, getFichaCliente:async()=>({presentado:PRESENTADO}), getPausaGlobal:async()=>null, marcarPresentado:async()=>{},
+    appendCustomerMessage:async(f,u)=>{log.push({t:'guardado sin contestar',m:u});}};
+  return m;
+};
+const wh=require(require('path').join(__dirname,'..','netlify/functions/whatsapp-webhook.js'));
+Module.prototype.require=orig;
+global.fetch=async(url,opts)=>{
+  try{ const b=JSON.parse(opts?.body||'{}');
+       if(b.type==='interactive') log.push({t:'botones',m:b.interactive?.body?.text}); }catch{}
+  if(String(url).includes('graph.facebook.com/v20.0/')) return {ok:true,json:async()=>({url:'https://lookaside.meta/x',mime_type:'image/jpeg',file_size:PNG.length})};
+  if(String(url).includes('lookaside')) return {ok:true,arrayBuffer:async()=>PNG.buffer.slice(PNG.byteOffset,PNG.byteOffset+PNG.length)};
+  return {ok:true,json:async()=>({}),text:async()=>'{}'};
+};
+
+const ev=(msg)=>{ const body=JSON.stringify({entry:[{changes:[{value:{messages:[{from:'34600777222',id:'wamid.'+Math.random(),...msg}],contacts:[{profile:{name:'Cliente'}}]}}]}]});
+  return {httpMethod:'POST',headers:{'x-hub-signature-256':'sha256='+crypto.createHmac('sha256',SECRETO).update(Buffer.from(body,'utf8')).digest('hex')},body}; };
+
+let fallos=0;
+global.PRESENTADO=true;
+global.PAUSADO=false;
+(async()=>{
+  for(const [etiqueta,msg] of [
+    ['Foto con pregunta', {type:'image', image:{id:'1', caption:'¿Tenéis este cartucho?'}}],
+    ['Foto sin texto',    {type:'image', image:{id:'2'}}],
+    ['Audio',             {type:'audio', audio:{id:'3'}}],
+  ]){
+    log=[];
+    await wh.handler(ev(msg));
+    console.log('=== '+etiqueta);
+    log.forEach(l=>console.log(`   [${l.t}] ${l.m}`));
+
+    // Lo que NO puede faltar nunca: que quede registrado y que avise. Que la
+    // foto se guarde es deseable, pero puede fallar (Meta lento) sin que eso
+    // deje al cliente sin atención.
+    const tiene=(t)=>log.some(l=>l.t===t);
+    // Se PREGUNTA si quiere una persona; no se pausa ni se avisa por cuenta
+    // propia. Eso pasa solo si el cliente pulsa "Sí" (ver handleEscalateReply).
+    for(const obligatorio of ['botones','guardado en el panel']){
+      if(!tiene(obligatorio)){ fallos++; console.log(`   ✗ FALTA: ${obligatorio}`); }
+    }
+    if(msg.type==='image' && !tiene('foto guardada')){ fallos++; console.log(`   ✗ FALTA: el adjunto (${msg.type}) no se guardó, no se verá en el panel`); }
+    for(const prohibido of ['bot en pausa','email al dueño']){
+      if(tiene(prohibido)){ fallos++; console.log(`   ✗ NO debería: ${prohibido} (se pregunta antes)`); }
+    }
+    console.log();
+  }
+  // Cliente NUEVO cuya primera interacción es una foto: tiene que enterarse de
+  // que habla con un bot. Antes esta rama iba antes de la presentación y no se
+  // presentaba nunca.
+  global.PRESENTADO=false;
+  log=[];
+  await wh.handler(ev({type:'image', image:{id:'99'}}));
+  const botones=(log.find(l=>l.t==='botones')||{}).m||'';
+  console.log('=== Cliente nuevo (primera vez, manda foto)');
+  console.log('   ', botones.slice(0,150));
+  if(!/asistente virtual/i.test(botones)){ fallos++; console.log('   ✗ NO se presenta como bot'); }
+  else console.log('    ✔ se presenta como bot');
+  console.log();
+
+  // UNA REACCIÓN NO ES UNA PREGUNTA.
+  //
+  // Un 👍 sobre un mensaje llega como type:'reaction' y caía en la rama de
+  // fotos: el cliente recibía "No puedo leer un mensaje de tipo reaction por
+  // aquí" y los botones de hablar con una persona. Visto en real el 30/9/2026,
+  // fuera de horario y acabando en un escalado. Por dar las gracias.
+  global.PRESENTADO=true;
+  log=[];
+  await wh.handler(ev({type:'reaction', reaction:{message_id:'wamid.X', emoji:'👍'}}));
+  console.log('=== Una reacción (👍)');
+  log.forEach(l=>console.log(`   [${l.t}] ${l.m}`));
+  const tieneR=(t)=>log.some(l=>l.t===t);
+  for(const prohibido of ['botones','respuesta']){
+    if(tieneR(prohibido)){ fallos++; console.log(`   ✗ NO debería contestar a una reacción: ${prohibido}`); }
+  }
+  if(!tieneR('guardado sin contestar')){ fallos++; console.log('   ✗ FALTA: no queda constancia en el panel de que reaccionó'); }
+  else if(!log.some(l=>String(l.m).includes('👍'))){ fallos++; console.log('   ✗ se guarda sin el emoji: no se sabe qué puso'); }
+  else console.log('    ✔ se archiva con su emoji y no se contesta');
+  console.log();
+
+  // UN STICKER TAMPOCO ES UNA PREGUNTA, y es el mismo caso que la reacción
+  // entrando por otra puerta: un sticker de pulgar arriba cierra una
+  // conversación igual que el 👍 pegado a un mensaje. Se llevaba "no puedo leer
+  // un sticker por aquí, ¿quieres que te ponga en contacto con una persona?" —
+  // el mismo disparate que se arregló el 30/9/2026 con las reacciones.
+  //
+  // Sí se descarga y se archiva: en el panel un sticker dice algo.
+  log=[];
+  await wh.handler(ev({type:'sticker', sticker:{id:'4'}}));
+  console.log('=== Un sticker');
+  log.forEach(l=>console.log(`   [${l.t}] ${l.m}`));
+  const tieneK=(t)=>log.some(l=>l.t===t);
+  for(const prohibido of ['botones','respuesta']){
+    if(tieneK(prohibido)){ fallos++; console.log(`   ✗ NO debería contestar a un sticker: ${prohibido}`); }
+  }
+  if(!tieneK('guardado sin contestar')){ fallos++; console.log('   ✗ FALTA: el sticker no llega al panel'); }
+  else if(!tieneK('foto guardada')){ fallos++; console.log('   ✗ FALTA: el sticker no se descargó, no se verá'); }
+  else console.log('    ✔ se archiva con su imagen y no se contesta');
+  console.log();
+
+  // UN AVISO DE WHATSAPP NO ES UNA PREGUNTA.
+  //
+  // Los `system` no los escribe el cliente: los manda Meta, y lo normal es que
+  // sea un cambio de número. Al cliente le llegó "No puedo leer un mensaje de
+  // tipo system por aquí. ¿Quieres que te ponga en contacto con una persona?"
+  // — a un aviso automático. Visto en real el 17/10/2026.
+  log=[];
+  await wh.handler(ev({type:'system', system:{type:'user_changed_number', wa_id:'34611000111', body:'Cambió a 34611000111'}}));
+  console.log('=== Un aviso de WhatsApp (cambio de número)');
+  log.forEach(l=>console.log(`   [${l.t}] ${l.m}`));
+  const tieneS=(t)=>log.some(l=>l.t===t);
+  for(const prohibido of ['botones','respuesta']){
+    if(tieneS(prohibido)){ fallos++; console.log(`   ✗ NO debería contestar a un aviso del sistema: ${prohibido}`); }
+  }
+  if(!tieneS('guardado sin contestar')){ fallos++; console.log('   ✗ FALTA: no queda constancia del aviso'); }
+  else if(!log.some(l=>/cambiado de n/i.test(String(l.m)))){ fallos++; console.log('   ✗ no dice que cambió de número: es el dato que importa'); }
+  else if(!log.some(l=>String(l.m).includes('34611000111'))){ fallos++; console.log('   ✗ no apunta el número nuevo'); }
+  else console.log('    ✔ se anota el cambio de número y no se contesta');
+  console.log();
+
+  // CON EL BOT EN PAUSA NO HABLA, MANDE LO QUE MANDE.
+  //
+  // La comprobación de la pausa estaba DESPUÉS de esta rama, así que solo
+  // valía para el texto: con una persona atendiendo la conversación, una foto
+  // hacía que el bot se metiera por medio a preguntar si quería hablar con
+  // alguien. Visto en real el 30/9/2026.
+  global.PAUSADO=true;
+  log=[];
+  await wh.handler(ev({type:'image', image:{id:'7', caption:'la máquina es ésta'}}));
+  console.log('=== Foto con el bot en pausa (contesta una persona)');
+  log.forEach(l=>console.log(`   [${l.t}] ${l.m}`));
+  const tieneP=(t)=>log.some(l=>l.t===t);
+  for(const prohibido of ['botones','respuesta']){
+    if(tieneP(prohibido)){ fallos++; console.log(`   ✗ el bot habla por encima de quien está atendiendo: ${prohibido}`); }
+  }
+  if(!tieneP('guardado sin contestar')){ fallos++; console.log('   ✗ FALTA: la foto no llega al panel'); }
+  else console.log('    ✔ la foto llega al panel y el bot se calla');
+  if(!tieneP('foto guardada')){ fallos++; console.log('   ✗ FALTA: el adjunto no se descargó, no se verá la foto'); }
+  global.PAUSADO=false;
+  console.log();
+
+  console.log(fallos===0 ? '✔ Sin fallos' : `✗ ${fallos} fallos`);
+  process.exit(fallos===0?0:1);
+})();

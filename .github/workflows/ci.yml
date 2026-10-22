@@ -1,9 +1,21 @@
 name: CI
 
+# El CI solo tiene sentido si hay código que compilar. Un commit que solo toca
+# documentación (`.claude/**`, `*.md`, `docs/**`) no puede romper `tsc` ni
+# ESLint, así que no se arranca nada. Mismo criterio que `netlify-ignore.sh`,
+# escrito aquí también porque son dos plataformas distintas y ninguna lee al
+# otro.
+#
+# `paths-ignore` va a nivel de workflow porque GitHub Actions no admite filtros
+# de rutas por trabajo. Que cada app se compile solo cuando cambia lo suyo
+# haría falta una acción externa (`dorny/paths-filter`), y no compensa: son
+# minutos gratuitos en un repositorio público, el problema era el ruido.
 on:
   pull_request:
+    paths-ignore: ['.claude/**', 'docs/**', '**.md']
   push:
     branches: [main]
+    paths-ignore: ['.claude/**', 'docs/**', '**.md']
 
 jobs:
   joe-app:

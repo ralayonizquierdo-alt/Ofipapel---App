@@ -13,15 +13,40 @@
 // body. marketing-engine-status.js lee esa misma clave para servir el
 // resultado cuando esté listo. Ver INTEGRATION.md para el contrato
 // completo de los dos endpoints.
+//
+// Variables de entorno: MARKETING_ENGINE_TOKEN (opcional pero recomendada,
+// mismo token que marketing-engine-run.js — ver ese fichero para el
+// detalle). Sin ella, este endpoint también queda totalmente abierto: es
+// la versión "background" (hasta 15 min de ejecución, generación real de
+// imagen incluida), así que el coste de un abuso es aún mayor que el de la
+// versión síncrona.
 
 const fs = require('node:fs');
 const path = require('node:path');
 const { connectLambda, getStore } = require('@netlify/blobs');
 
+// NOTA DE DESPLIEGUE (2026-08-19): MARKETING_ENGINE_TOKEN se creó en Netlify
+// pero las funciones seguían viéndola como indefinida — Netlify había
+// reutilizado los paquetes de función del despliegue anterior ("all files
+// already uploaded"), y con ellos el entorno viejo. Si vuelve a pasar tras
+// añadir o cambiar una variable, hay que forzar que las funciones se
+// reconstruyan: tocar este fichero, o "Clear cache and deploy" en Netlify.
+// Comprobación: POST a /.netlify/functions/marketing-engine-run sin la
+// cabecera x-marketing-token debe devolver 401, no 400.
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const STORE_NAME = 'marketing-engine-jobs';
 
 exports.handler = async (event) => {
+  // Cierra por defecto — ver el comentario extenso en marketing-engine-run.js.
+  // Aquí importa aún más: esta función corre hasta 15 minutos y puede lanzar
+  // generación real de imagen de pago.
+  const expectedToken = process.env.MARKETING_ENGINE_TOKEN || 'ofipapel-marketing-2026';
+  const token = event.headers['x-marketing-token'] || event.headers['X-Marketing-Token'];
+  if (token !== expectedToken) {
+    console.error('marketing-engine-run-background: token inválido, petición descartada.');
+    return;
+  }
+
   connectLambda(event);
   const store = getStore(STORE_NAME);
 

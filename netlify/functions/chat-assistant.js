@@ -26,6 +26,12 @@
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 const MAX_TOKENS = 1024;
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, x-chat-token, X-Chat-Token',
+};
+
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMIT_MAX_PER_IP = 20;
 const requestsByIp = new Map();
@@ -50,38 +56,41 @@ function clientIp(event) {
 }
 
 exports.handler = async (event) => {
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers: CORS_HEADERS, body: '' };
+  }
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+    return { statusCode: 405, headers: CORS_HEADERS, body: 'Method Not Allowed' };
   }
 
   const expectedToken = process.env.CHAT_ASSISTANT_TOKEN;
   if (expectedToken) {
     const token = event.headers['x-chat-token'] || event.headers['X-Chat-Token'];
     if (token !== expectedToken) {
-      return { statusCode: 401, body: JSON.stringify({ error: 'Token inválido' }) };
+      return { statusCode: 401, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Token inválido' }) };
     }
   }
 
   const ip = clientIp(event);
   if (isRateLimited(ip)) {
-    return { statusCode: 429, body: JSON.stringify({ error: 'Demasiadas peticiones, inténtalo más tarde' }) };
+    return { statusCode: 429, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Demasiadas peticiones, inténtalo más tarde' }) };
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'Asistente no configurado (falta ANTHROPIC_API_KEY)' }) };
+    return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Asistente no configurado (falta ANTHROPIC_API_KEY)' }) };
   }
 
   let payload;
   try {
     payload = JSON.parse(event.body || '{}');
   } catch (err) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'JSON inválido' }) };
+    return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: 'JSON inválido' }) };
   }
 
   const { system, messages } = payload;
   if (!Array.isArray(messages) || !messages.length) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Falta "messages"' }) };
+    return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Falta "messages"' }) };
   }
 
   try {
@@ -102,14 +111,14 @@ exports.handler = async (event) => {
 
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
-      return { statusCode: resp.status, body: JSON.stringify({ error: err.error?.message || 'Error de Claude API' }) };
+      return { statusCode: resp.status, headers: CORS_HEADERS, body: JSON.stringify({ error: err.error?.message || 'Error de Claude API' }) };
     }
 
     const data = await resp.json();
     const reply = data.content?.find((block) => block.type === 'text')?.text?.trim() || '(Sin respuesta)';
-    return { statusCode: 200, body: JSON.stringify({ reply }) };
+    return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ reply }) };
   } catch (err) {
     console.error('Fallo llamando a Claude desde chat-assistant:', err);
-    return { statusCode: 502, body: JSON.stringify({ error: 'No se pudo contactar con Claude' }) };
+    return { statusCode: 502, headers: CORS_HEADERS, body: JSON.stringify({ error: 'No se pudo contactar con Claude' }) };
   }
 };

@@ -1,8 +1,15 @@
-// Lógica compartida del agente de WhatsApp: usada tanto por whatsapp-webhook.js
-// (Meta Cloud API) como por twilio-webhook.js (Twilio), para no duplicar el
-// matching de FAQ ni la llamada a Claude entre los dos canales.
+// Lógica compartida del agente de WhatsApp: matching de FAQ + llamada a
+// Claude, usada por whatsapp-webhook.js (Meta Cloud API, único canal).
 
-const { FAQ_RULES, buildAiSystemPrompt, agenteInfo, isAgenteInfoMessage } = require('./whatsapp-agent-config');
+const {
+  FAQ_RULES,
+  FACTURA_INFO,
+  isPedidoEstadoQuestion,
+  buildAiSystemPrompt,
+  agenteInfo,
+  isAgenteInfoMessage,
+  pareceConsultaDeProducto,
+} = require('./whatsapp-agent-config');
 const conversationStore = require('./conversation-store');
 
 const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
@@ -12,7 +19,12 @@ const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 // (conversation-store.js), que sobrevive a cold starts y alimenta el panel web.
 // Si no, cae de vuelta a un mapa en memoria (best-effort, se pierde en cold starts).
 const CONVERSATION_TTL_MS = 30 * 60 * 1000; // 30 min de inactividad = conversación nueva
-const MAX_HISTORY_MESSAGES = 10; // últimos mensajes (usuario + bot) que se le pasan a Claude
+// Últimos mensajes (usuario + bot) que se le pasan a Claude. Con 10 el bot
+// "olvidaba" a los 5 turnos y perdía el contexto de conversaciones largas, en
+// las que el cliente explica lo que necesita al principio y pregunta al final
+// (visto en real). Se archivan muchos más (MAX_STORED_MESSAGES en
+// conversation-store.js): esto solo decide cuántos ve la IA en cada respuesta.
+const MAX_HISTORY_MESSAGES = 24;
 const conversations = new Map(); // from -> { messages: [{role, content}], updatedAt } (fallback)
 
 async function getHistory(from) {
@@ -20,9 +32,12 @@ async function getHistory(from) {
     const messages = await conversationStore.loadConversation(from);
     // Los mensajes escritos a mano desde el panel se guardan con role "agent"; de
     // cara a Claude se presentan como "assistant" (la API solo admite user/assistant).
+    // Se conserva la marca de tiempo: la necesita isRepeatQuestion para
+    // distinguir "está insistiendo ahora" de "preguntó lo mismo hace semanas".
+    // askClaude la quita antes de llamar a la API, que solo admite role/content.
     return messages
       .slice(-MAX_HISTORY_MESSAGES)
-      .map(({ role, content }) => ({ role: role === 'agent' ? 'assistant' : role, content }));
+      .map(({ role, content, ts }) => ({ role: role === 'agent' ? 'assistant' : role, content, ts }));
   }
 
   const conv = conversations.get(from);
@@ -34,9 +49,12 @@ async function getHistory(from) {
   return conv.messages;
 }
 
-async function appendToHistory(from, userText, botReply) {
+// `wamid` (opcional): el identificador que Meta le da al mensaje del cliente.
+// Se guarda para poder responderle CITÁNDOLO desde el panel, como el
+// "Responder" de la app de WhatsApp. Sin él todo funciona igual.
+async function appendToHistory(from, userText, botReply, wamid) {
   if (conversationStore.isConfigured()) {
-    await conversationStore.appendMessages(from, userText, botReply);
+    await conversationStore.appendMessages(from, userText, botReply, wamid);
     return;
   }
 
@@ -53,9 +71,9 @@ async function appendToHistory(from, userText, botReply) {
 
 // Guarda solo el mensaje del cliente (sin respuesta), para cuando el bot está en
 // pausa porque una persona está atendiendo esa conversación desde el panel.
-async function appendCustomerMessage(from, userText) {
+async function appendCustomerMessage(from, userText, wamid) {
   if (conversationStore.isConfigured()) {
-    await conversationStore.appendCustomerMessage(from, userText);
+    await conversationStore.appendCustomerMessage(from, userText, wamid);
     return;
   }
   const now = Date.now();
@@ -84,17 +102,164 @@ function matchFaqRule(text) {
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, ''); // quita acentos para comparar con más tolerancia
 
-  for (const rule of FAQ_RULES) {
-    const hit = rule.keywords.some((keyword) => {
+  // Gana la coincidencia MÁS ESPECÍFICA, no la primera de la lista. Antes ganaba
+  // la primera, y el orden del array no es ningún criterio: un colegio escribió
+  // "queria saber si me podian hacer el PRESUPUESTO del material y libros del
+  // alumnado... les ENVIO foto" y se le contestó sobre gastos de envío a
+  // Canarias, porque la regla de envíos está antes en la lista que la de
+  // presupuestos — que es justamente la que le habría pasado con una persona.
+  //
+  // La longitud de la palabra clave que coincide es una buena medida de lo
+  // específica que es: "presupuesto" (11) dice mucho más sobre lo que quiere el
+  // cliente que "envio" (5), que aquí aparecía de pasada. Esto ataca de raíz
+  // toda una familia de choques entre palabras que veníamos parcheando uno a
+  // uno.
+  const candidatas = [];
+  FAQ_RULES.forEach((rule, orden) => {
+    let longitud = 0;
+    for (const keyword of rule.keywords) {
       const normalizedKeyword = keyword
         .toLowerCase()
         .normalize('NFD')
         .replace(/[̀-ͯ]/g, '');
-      return normalized.includes(normalizedKeyword);
-    });
-    if (hit) return typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply;
+      if (normalized.includes(normalizedKeyword)) {
+        longitud = Math.max(longitud, normalizedKeyword.length);
+      }
+    }
+    if (longitud > 0) candidatas.push({ rule, longitud, orden });
+  });
+
+  // Hay palabras que la gente nombra DE PASADA, no como pregunta. "Tienda
+  // física" es el caso claro: "sé que la vendéis porque he ido a la tienda
+  // física" no es "¿tenéis tienda física?", pero por longitud ganaba a todo lo
+  // demás. Las reglas marcadas como de contexto (ver `contexto: true` en
+  // FAQ_RULES) se apartan en dos situaciones:
+  //
+  //   1. Si hay otra regla que también encaja. Preguntar "¿la mandáis a
+  //      domicilio o solo se compra en tienda física?" es una pregunta de
+  //      envíos, con la tienda nombrada de refilón.
+  //   2. Si el mensaje trae una referencia de producto ("305XL", "TN-248").
+  //      Entonces la consulta es del producto, y contestarla toca al catálogo,
+  //      no a una respuesta fija.
+  //
+  // Las dos salieron de la misma conversación real, en la que un cliente
+  // preguntó dos veces por una tinta HP 305XL y se llevó dos veces la lista de
+  // direcciones, hasta que pidió hablar con una persona.
+  const deContexto = (candidata) => Boolean(candidata.rule.contexto);
+  const concretas = candidatas.filter((c) => !deContexto(c));
+  const contextuales = candidatas.filter(deContexto);
+
+  // Varias reglas se descartan a sí mismas cuando miran el mensaje entero: la de
+  // agradecimientos solo contesta si el mensaje es SOLO un gracias, y las de
+  // reprografía se apartan cuando "plastificar" o "escanear" venían de un
+  // producto ("láminas de plastificar") y no de un encargo. Cuando una se
+  // descarta hay que seguir con la siguiente mejor, no rendirse: en el mensaje
+  // del colegio, "muchas gracias" (14) ganaba a "presupuesto" (11), se apartaba
+  // por no ser solo un agradecimiento, y el cliente se quedaba sin respuesta.
+  //
+  // A igualdad de longitud manda el orden de la lista, como hasta ahora.
+  const primeraQueConteste = (lista) => {
+    lista.sort((a, b) => b.longitud - a.longitud || a.orden - b.orden);
+    for (const { rule } of lista) {
+      const reply = typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply;
+      if (reply) return reply;
+    }
+    return null;
+  };
+
+  // SI EL CLIENTE PREGUNTA DOS COSAS, LAS DOS MERECEN RESPUESTA.
+  //
+  // Una regla fija contesta con su texto y ahí se acaba, así que un mensaje con
+  // dos temas se llevaba media respuesta y la otra mitad se perdía en silencio.
+  // Medido sobre mensajes normales, fallaba SIEMPRE:
+  //
+  //   "¿A qué hora abrís? ¿Hacéis fotocopias?"      -> solo las fotocopias
+  //   "¿Dónde estáis y cuál es vuestro horario?"    -> solo la dirección
+  //   "¿Cuánto cuestan los portes? ¿Y cómo pido?"   -> solo los portes
+  //
+  // Cuando encajan DOS reglas distintas que además contestarían de verdad, el
+  // mensaje toca dos temas y ninguna de las dos vale por sí sola. Se deja pasar
+  // a la IA, que tiene todas estas respuestas en su prompt (ver
+  // buildAiSystemPrompt) y sí puede contestar las dos mitades en un mensaje.
+  //
+  // Se mide por reglas que CONTESTAN, no por candidatas: media docena de reglas
+  // pueden encajar de refilón y luego descartarse solas, y eso no es preguntar
+  // dos cosas.
+  // Se cuentan TODAS, las concretas y las de contexto: horario, dirección y
+  // envíos son de contexto, y son justo los temas que más se combinan con otro
+  // en el mismo mensaje.
+  const contestarian = candidatas
+    .map(({ rule }) => (typeof rule.reply === 'function' ? rule.reply(normalized) : rule.reply))
+    .filter(Boolean);
+
+  // ESCALAR A UNA PERSONA MANDA SOBRE TODO LO DEMÁS.
+  //
+  // No es "un tema más" que compita con otro: es la señal de que el bot no
+  // pinta nada aquí. Si además de pedir una persona el mensaje toca otro tema,
+  // eso NO es motivo para mandarlo a la IA — al revés, hace más falta la
+  // persona.
+  //
+  // Visto en real (8/9/2026, 23:03): "soy cliente de ustedes pero al hacer el
+  // pedido no recuerdo la contraseña y no se envía el correo de
+  // restablecimiento". Encajaban el escalado (por la contraseña) y CÓMO
+  // COMPRAR (por "hacer el pedido"), así que la regla de dos temas lo mandaba
+  // a la IA... que le explicó cómo comprar en la web a quien acababa de decir
+  // que la web no le deja entrar.
+  const escalado = contestarian.find((reply) => isAgenteInfoMessage(reply));
+  if (escalado) return escalado;
+
+  // LA FACTURA MANDA SOBRE EL ESTADO DEL PEDIDO.
+  //
+  // Casi nadie pide una factura sin decir de qué pedido. Y en cuanto dice el
+  // número, el mensaje toca dos temas y la regla de abajo lo manda a la IA...
+  // solo que antes de llegar, el número dispara por su cuenta la consulta del
+  // estado del pedido y el turno se acaba ahí.
+  //
+  // Visto en real (13/10/2026). Una clienta escribió: "me gustaría saber si me
+  // pueden reenviar una factura de junio. El número de pedido es el 621370", y
+  // se le contestó que su pedido "está pagado y en preparación, por un total de
+  // 31,19 €". No preguntaba eso, y encima le sonó a que su pedido de junio
+  // seguía sin salir.
+  //
+  // El número de pedido ahí no es la pregunta: es un DATO de su petición. Y la
+  // respuesta de facturas ya lo aprovecha ("escribe a pedidos@ofipapelsl.com
+  // con el número de pedido"), así que contestarla no deja nada sin responder.
+  // Solo cuando están LOS DOS TEMAS y nada más: si la factura es la única que
+  // contesta, manda el camino de siempre (que, si el mensaje trae una
+  // referencia de producto, lo deja pasar al catálogo — "en la factura del mes
+  // pasado venía un 305XL, ¿me pueden mandar otro?" es una consulta de
+  // producto, no una petición de factura).
+  const porLaFactura = contestarian.find((reply) => reply === FACTURA_INFO);
+  if (
+    porLaFactura &&
+    contestarian.length > 1 &&
+    contestarian.every((r) => r === FACTURA_INFO || isPedidoEstadoQuestion(r))
+  ) {
+    return porLaFactura;
   }
-  return null;
+
+  if (contestarian.length > 1) return null;
+
+  // Mandan las concretas, y solo si NINGUNA llega a contestar entran las de
+  // contexto.
+  //
+  // Ese "llega a contestar" es la parte que importa, y costó un cliente real:
+  // antes bastaba con que otra regla APARECIERA entre las candidatas para
+  // apartar a la de contexto, sin mirar si luego iba a contestar. Un cliente
+  // escribió "mi pedido #637966 ha sido entregado. ¿Dónde puedo encontrar la
+  // factura? Muchas gracias." y se quedó sin respuesta a lo que preguntaba:
+  // "muchas gracias" (14) le ganaba a "la factura" (10), apartaba la regla de
+  // facturas por ser de contexto... y acto seguido se descartaba a sí misma por
+  // no ser el mensaje solo un agradecimiento. No quedaba nadie.
+  const respuesta = primeraQueConteste(concretas);
+  if (respuesta) return respuesta;
+
+  // Ninguna concreta ha contestado. Si el mensaje trae una referencia de
+  // producto, la consulta es del producto y le toca al catálogo, no a una
+  // respuesta fija.
+  if (pareceConsultaDeProducto(text)) return null;
+
+  return primeraQueConteste(contextuales);
 }
 
 // Palabras demasiado comunes como para servir de pista de que dos preguntas son
@@ -106,6 +271,13 @@ const STOPWORDS_COMPARACION = new Set([
   'quiero', 'necesito', 'puedo', 'podeis', 'podéis', 'vosotros', 'ustedes', 'sido',
 ]);
 
+// Ojo: length > 1 (no > 3) — con el umbral anterior, referencias de producto
+// cortas como "HP", "301", "TN" se descartaban por "demasiado cortas", y dos
+// preguntas sobre productos totalmente distintos podían quedarse con una única
+// palabra significativa en común ("compatible") y marcarse como "la misma
+// pregunta" por pura coincidencia (comprobado en real: "tóner TN2420
+// compatible" vs "HP 301 compatible?" — sin HP/301, solo quedaba "compatible"
+// en ambas, 100% de solapamiento).
 function palabrasSignificativas(text) {
   return text
     .toLowerCase()
@@ -113,28 +285,64 @@ function palabrasSignificativas(text) {
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter((w) => w.length > 3 && !STOPWORDS_COMPARACION.has(w));
+    .filter((w) => w.length > 1 && !STOPWORDS_COMPARACION.has(w));
 }
 
 // Detecta si el cliente está insistiendo/repitiendo una pregunta que ya hizo antes
 // en la misma conversación (comparando palabras significativas, no texto exacto),
 // para escalar a una persona en vez de darle otra vez la misma respuesta genérica.
+// Cuánto atrás cuenta como "está insistiendo". Pasado ese rato, volver a
+// preguntar lo mismo no es insistir: es un cliente que vuelve.
+const VENTANA_INSISTENCIA_MS = 30 * 60 * 1000;
+
+// Y como mucho los últimos mensajes suyos: insistir es hacerlo seguido.
+const MENSAJES_QUE_CUENTAN_COMO_INSISTENCIA = 4;
+
+// Un mensaje corto NO es una insistencia, es una continuación. "¿Tienen
+// compatibles?" tiene una sola palabra con contenido ("compatibles"), y si esa
+// palabra salió en cualquier mensaje reciente, la proporción da 1 y se marcaba
+// como "la misma pregunta". Visto en real: el cliente escribió "¿Tienen
+// compatibles?" después de haber dicho "compatibles está bien" un rato antes, y
+// se llevó un "creo que no te he entendido" en vez de una respuesta.
+//
+// Por eso hacen falta las dos cosas: bastantes palabras con contenido para que
+// la comparación signifique algo, y bastantes en común para que sea de verdad
+// la misma pregunta y no una coincidencia de vocabulario.
+const MIN_PALABRAS_PARA_COMPARAR = 3;
+const MIN_PALABRAS_EN_COMUN = 3;
+
 function isRepeatQuestion(text, history) {
   const currentWords = new Set(palabrasSignificativas(text));
-  if (currentWords.size === 0) return false;
+  if (currentWords.size < MIN_PALABRAS_PARA_COMPARAR) return false;
 
-  const previousUserMessages = history.filter((m) => m.role === 'user').map((m) => m.content);
+  // Comprobado en real: preguntar "tengo una Epson XP-4200, necesito tinta" y
+  // repetirlo cinco horas después hacía que el bot contestara "creo que no te he
+  // entendido" y escalara, sin llegar siquiera a buscar. Un cliente que vuelve
+  // al día siguiente con la misma duda merece la misma respuesta, no una
+  // disculpa.
+  const ahora = Date.now();
+  const previousUserMessages = history
+    .filter((m) => m.role === 'user')
+    .filter((m) => !m.ts || ahora - m.ts <= VENTANA_INSISTENCIA_MS)
+    .slice(-MENSAJES_QUE_CUENTAN_COMO_INSISTENCIA)
+    .map((m) => m.content);
+
   for (const prev of previousUserMessages) {
     const prevWords = new Set(palabrasSignificativas(prev));
     if (prevWords.size === 0) continue;
     const overlap = [...currentWords].filter((w) => prevWords.has(w)).length;
+    if (overlap < MIN_PALABRAS_EN_COMUN) continue;
     const ratio = overlap / Math.min(currentWords.size, prevWords.size);
     if (ratio >= 0.6) return true;
   }
   return false;
 }
 
-async function askClaude(userText, history = []) {
+// `notas`: lo que el equipo le ha enseñado al bot desde el panel, más las que
+// van escritas en el código (whatsapp-notas.js). Quien llama es responsable de
+// traerlas — aquí no se leen solas, para no meter una consulta a Upstash dentro
+// de una función que hasta ahora solo hablaba con la API de Claude.
+async function askClaude(userText, history = [], productContext = null, fichaCliente = null, notas = []) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return 'Gracias por tu mensaje. En breve un miembro del equipo te responderá.';
@@ -151,8 +359,11 @@ async function askClaude(userText, history = []) {
       body: JSON.stringify({
         model: CLAUDE_MODEL,
         max_tokens: 300,
-        system: buildAiSystemPrompt(),
-        messages: [...history, { role: 'user', content: userText }],
+        system: buildAiSystemPrompt(productContext, fichaCliente, notas, userText),
+        messages: [
+          ...history.map(({ role, content }) => ({ role, content })),
+          { role: 'user', content: userText },
+        ],
       }),
     });
 

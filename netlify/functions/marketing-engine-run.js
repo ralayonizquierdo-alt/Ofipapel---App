@@ -5,10 +5,18 @@
 // el estado de app.html vive en memoria del navegador, igual que el resto
 // de datos de la app hoy).
 //
-// Variables de entorno: ninguna obligatoria — sin OPENAI_API_KEY, el
-// Creative Engine usa el proveedor "simulated". Con OPENAI_API_KEY
-// definida, genera la pieza real con OpenAI Images. Ver
-// creative-engine/FIRST_REAL_GENERATION.md.
+// Variables de entorno:
+//   MARKETING_ENGINE_TOKEN  (opcional pero recomendada) cadena que tú
+//     inventas; debe coincidir con la constante APP_MARKETING_TOKEN
+//     embebida en app.html (mismo patrón que CHAT_ASSISTANT_TOKEN de
+//     Index.html — no es un secreto real, app.html es HTML estático
+//     visible con "ver código fuente", solo evita dejar el endpoint
+//     totalmente abierto). Sin ella configurada, CUALQUIERA puede invocar
+//     este endpoint y disparar generación real de imágenes con OpenAI
+//     (coste real por llamada) sin límite.
+//   OPENAI_API_KEY  opcional — sin ella, el Creative Engine usa el
+//     proveedor "simulated" (sin coste). Con ella definida, genera la
+//     pieza real con OpenAI Images. Ver creative-engine/FIRST_REAL_GENERATION.md.
 //
 // IMPORTANTE — bloqueantes conocidos antes de producción real (ver
 // marketing-engine/INTEGRATION.md para el detalle):
@@ -28,11 +36,70 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+// NOTA DE DESPLIEGUE (2026-08-19): MARKETING_ENGINE_TOKEN se creó en Netlify
+// pero las funciones seguían viéndola como indefinida — Netlify había
+// reutilizado los paquetes de función del despliegue anterior ("all files
+// already uploaded"), y con ellos el entorno viejo. Si vuelve a pasar tras
+// añadir o cambiar una variable, hay que forzar que las funciones se
+// reconstruyan: tocar este fichero, o "Clear cache and deploy" en Netlify.
+// Comprobación: POST a /.netlify/functions/marketing-engine-run sin la
+// cabecera x-marketing-token debe devolver 401, no 400.
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
+
+// Mismo mecanismo de rate limiting best-effort que chat-assistant.js: acota
+// el coste ante uso indebido, no es control de acceso real (se reinicia si
+// la función se "enfría"). Este endpoint es más caro por llamada que el
+// chat (Chromium + posible generación real de imagen), así que el límite es
+// más bajo.
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_MAX_PER_IP = 5;
+const requestsByIp = new Map();
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const entry = requestsByIp.get(ip);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    requestsByIp.set(ip, { windowStart: now, count: 1 });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > RATE_LIMIT_MAX_PER_IP;
+}
+
+function clientIp(event) {
+  return (
+    event.headers['x-nf-client-connection-ip'] ||
+    (event.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
+    'unknown'
+  );
+}
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
+  }
+
+  // Cierra por defecto. La versión anterior solo comprobaba el token SI la
+  // variable de entorno existía, y si no, dejaba pasar a cualquiera — un
+  // "fail open" que en la práctica dejó el endpoint abierto durante días:
+  // la variable se creó en Netlify pero las funciones seguían sin verla, y
+  // como el código no fallaba, nada lo delataba salvo probarlo (comprobado
+  // en vivo: token deliberadamente incorrecto también pasaba).
+  //
+  // Ahora, si falta la variable se usa el mismo valor que app.html lleva
+  // embebido. No añade secreto (app.html es HTML estático y cualquiera lo
+  // ve con "ver código fuente"), pero garantiza que el endpoint nunca queda
+  // abierto de par en par por un fallo de configuración. La variable de
+  // entorno, cuando esté disponible, tiene prioridad y permite cambiar el
+  // token sin tocar código.
+  const expectedToken = process.env.MARKETING_ENGINE_TOKEN || 'ofipapel-marketing-2026';
+  const token = event.headers['x-marketing-token'] || event.headers['X-Marketing-Token'];
+  if (token !== expectedToken) {
+    return { statusCode: 401, body: JSON.stringify({ error: 'Token inválido' }) };
+  }
+
+  if (isRateLimited(clientIp(event))) {
+    return { statusCode: 429, body: JSON.stringify({ error: 'Demasiadas peticiones, inténtalo más tarde' }) };
   }
 
   let payload;

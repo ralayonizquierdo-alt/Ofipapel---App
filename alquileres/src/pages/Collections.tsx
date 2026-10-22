@@ -1,8 +1,15 @@
-import { useState } from 'react'
+import { Fragment, useState, useCallback } from 'react'
+import { FileSpreadsheet, Printer, AlertTriangle, Plus, Banknote, Check } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
+import Modal from '../components/ui/Modal'
 import { calcIGIC } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
-import { MONTH_NAMES_ES } from '../lib/dateUtils'
+import { MONTH_NAMES_ES, formatDate, today } from '../lib/dateUtils'
+import { EJERCICIO_APP } from '../lib/cuentas'
+import { ordenaApartamentos } from '../lib/apartamentos'
+import { partesDeAlojamiento, devengoAcumulado, nochesEnMes, mesSiguiente } from '../lib/devengo'
+import type { Apartment, Payment, PaymentMethod, Reservation } from '../types'
+import { num, numSuelto } from '../lib/formato'
 
 const QUARTERS = [
   { q: 1, months: [1, 2, 3], label: '1T (Ene–Mar)' },
@@ -11,144 +18,601 @@ const QUARTERS = [
   { q: 4, months: [10, 11, 12], label: '4T (Oct–Dic)' },
 ]
 
+const TODOS_LOS_MESES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+/** Valor del selector de periodo que enseña los doce meses en una sola tabla. */
+const ANUAL = -1
+/** El que enseña los cobros uno a uno, colgando de su reserva. */
+const POR_RESERVA = -2
+
+type SortBy = 'nombre' | 'importe'
+/** Un bloque de la pantalla: un trimestre, un mes suelto o el año entero. */
+type Bloque = { key: string; months: number[]; label: string; corto: string; totalLabel: string }
+
+/**
+ * Un cobro en efectivo cuenta como tal cuando lo dice su forma de pago, y —para
+ * los apuntes viejos que no la llevan— cuando la reserva era directa, que es
+ * como se cobraban. El mismo criterio que el resumen anual de abajo.
+ */
+function esEfectivo(p: Payment, canalDirecto: boolean): boolean {
+  return p.paymentMethod ? p.paymentMethod === 'efectivo' : canalDirecto
+}
+
 export default function Collections() {
   const { reservations, payments, apartments: allApartments } = useData()
+  const [nuevoCobro, setNuevoCobro] = useState(false)
+  /** Cómo se agrupa el listado por reserva: por mes o por apartamento. */
+  const [agrupaPor, setAgrupaPor] = useState<'mes' | 'apartamento'>('mes')
   const apartments = allApartments.filter(a => a.active)
   const [year, setYear] = useState(new Date().getFullYear())
+  const [filterQ, setFilterQ] = useState<number>(0)
+  /** 0 = todos. Al elegir mes, el trimestre se ajusta solo al que lo contiene. */
+  const [filterMes, setFilterMes] = useState<number>(0)
+  const [sortBy, setSortBy] = useState<SortBy>('nombre')
+  /** '' = todos. Un solo apartamento es como se cuadra contra el Excel. */
+  const [filterApt, setFilterApt] = useState('')
 
-  const years = [...new Set(payments.map(p => p.paymentDate?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
+  /**
+   * Mes al que pertenece un cobro, «AAAA-MM».
+   *
+   * Manda el mes contable del Excel cuando lo trae: el alquiler de enero del
+   * 106 se pagó el 31 de diciembre y cuenta en enero. Si no, la fecha del
+   * movimiento, que es lo único que tienen los cobros metidos por la app.
+   */
+  const mesDe = useCallback((p: Payment) => p.mes || p.paymentDate?.slice(0, 7), [])
 
-  function getMonthAmount(aptId: string, month: number): number {
+  /**
+   * Apartamento de un cobro: el suyo propio si lo lleva —los del Excel van por
+   * apartamento— y si no, el de la estancia de la que cuelga.
+   */
+  const aptDe = useCallback((p: Payment) => {
+    if (p.apartmentId) return p.apartmentId
+    const r = reservations.find(x => x.id === p.reservationId)
+    return r && r.status !== 'cancelada' ? r.apartmentId : undefined
+  }, [reservations])
+
+  const years = [...new Set(payments.map(p => mesDe(p)?.slice(0, 4)).filter(Boolean))].sort((a, b) => b!.localeCompare(a!))
+
+  const getMonthAmount = useCallback((aptId: string, month: number): number => {
     const monthStr = `${year}-${String(month).padStart(2, '0')}`
-    const aptReservationIds = reservations
-      .filter(r => r.apartmentId === aptId && r.status !== 'cancelada')
-      .map(r => r.id)
     return payments
-      .filter(p => p.received && p.paymentDate?.startsWith(monthStr) && aptReservationIds.includes(p.reservationId))
+      .filter(p => p.received && mesDe(p) === monthStr && aptDe(p) === aptId)
+      .reduce((s, p) => s + p.amount, 0)
+  }, [year, payments, mesDe, aptDe])
+
+  const getQuarterTotal = useCallback((aptId: string, months: number[]): number =>
+    months.reduce((s, m) => s + getMonthAmount(aptId, m), 0),
+  [getMonthAmount])
+
+  // Todo lo que se enseña y se suma respeta el apartamento elegido: si se está
+  // mirando el 104, el total de abajo tiene que ser el del 104 y no el de la casa.
+  const visibleApts = filterApt ? apartments.filter(a => a.id === filterApt) : apartments
+  const visibleAptIds = visibleApts.map(a => a.id)
+
+  /** De lo cobrado ese mes, lo que entró en mano. */
+  /**
+   * Lo cobrado en un bloque de meses por un apartamento, partido en dos: lo
+   * que llegó por banco y lo que llegó en mano. Es la contabilidad de la casa:
+   * la transferencia se cuadra con el extracto y el efectivo con el recibo que
+   * se le hizo al cliente, y sin separarlos no se puede cuadrar ninguna.
+   */
+  function desglose(aptId: string, months: number[]): { transf: number; efectivo: number } {
+    let transf = 0, efectivo = 0
+    for (const m of months) {
+      const monthStr = `${year}-${String(m).padStart(2, '0')}`
+      for (const p of payments) {
+        if (!p.received || mesDe(p) !== monthStr || aptDe(p) !== aptId) continue
+        const r = reservations.find(x => x.id === p.reservationId)
+        if (esEfectivo(p, r?.channel === 'directo')) efectivo += p.amount
+        else transf += p.amount
+      }
+    }
+    return { transf, efectivo }
+  }
+
+  function getMonthEfectivo(month: number): number {
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`
+    return payments
+      .filter(p => {
+        if (!p.received || mesDe(p) !== monthStr) return false
+        const apt = aptDe(p)
+        if (!apt || !visibleAptIds.includes(apt)) return false
+        const r = reservations.find(x => x.id === p.reservationId)
+        return esEfectivo(p, r?.channel === 'directo')
+      })
       .reduce((s, p) => s + p.amount, 0)
   }
 
-  function getQuarterTotal(aptId: string, months: number[]): number {
-    return months.reduce((s, m) => s + getMonthAmount(aptId, m), 0)
+
+  function sortApartments(apts: Apartment[], months: number[]): Apartment[] {
+    if (sortBy === 'nombre') return ordenaApartamentos(apts)
+    return [...apts].sort((a, b) => getQuarterTotal(b.id, months) - getQuarterTotal(a.id, months))
   }
 
-  const yearTotal = apartments.reduce((s, a) =>
+
+  // Qué tablas se pintan. Un mes elegido manda sobre el trimestre, y «todos los
+  // meses» pone los doce en una sola fila, que es como está el Excel.
+  const porReserva = filterQ === POR_RESERVA && !filterMes
+  const bloques: Bloque[] = filterMes
+    ? [{ key: `m${filterMes}`, months: [filterMes], label: `${MONTH_NAMES_ES[filterMes - 1]} ${year}`,
+         corto: MONTH_NAMES_ES[filterMes - 1], totalLabel: 'TOTAL MES' }]
+    : filterQ === ANUAL || porReserva
+      ? [{ key: 'anual', months: TODOS_LOS_MESES, label: `Todos los meses de ${year}`,
+           corto: 'AÑO', totalLabel: 'TOTAL AÑO' }]
+      : (filterQ ? QUARTERS.filter(qt => qt.q === filterQ) : QUARTERS).map(qt => ({
+          key: `q${qt.q}`, months: qt.months, label: qt.label, corto: `${qt.q}T`, totalLabel: 'TRIMESTRE' }))
+
+  const yearTotal = visibleApts.reduce((s, a) =>
     s + QUARTERS.reduce((q, qt) => q + getQuarterTotal(a.id, qt.months), 0), 0)
 
+  /**
+   * Lo que falta por cobrar del ejercicio.
+   *
+   * Esta pantalla contaba solo el dinero que ha entrado, así que una reserva
+   * cobrada a medias no aparecía por ningún lado — es lo que dejó pasar el
+   * pago parcial del 105. Se mira reserva a reserva: total menos lo cobrado.
+   */
+  const hoy = today()
+  /**
+  * Lo que falta por cobrar y lo cobrado de más, estancia a estancia.
+  *
+  * Solo de {EJERCICIO_APP} en adelante. De los años anteriores la app tiene dos
+  * cosas que no se pueden restar entre sí: las estancias, que vinieron del
+  * calendario de colores y llevan un importe estimado —muchas, cero—, y los
+  * cobros, que salen del Excel y son los de verdad. Compararlos daba
+  * disparates: 25.776 € «cobrados de más» en 2025, que eran estancias con
+  * importe cero a las que se les había enganchado su cobro real.
+  */
+  const saldos = reservations
+    .filter(r => r.status !== 'cancelada' && r.checkIn.startsWith(String(year))
+      && year >= EJERCICIO_APP
+      && (!filterApt || r.apartmentId === filterApt))
+    .map(r => {
+      const cobrado = payments
+        .filter(p => p.reservationId === r.id && p.received)
+        .reduce((s, p) => s + p.amount, 0)
+      return { r, cobrado, falta: Math.round((r.total - cobrado) * 100) / 100 }
+    })
+    .sort((a, b) => a.r.checkOut.localeCompare(b.r.checkOut))
+  // Medio céntimo de margen: un redondeo no es un impago.
+  const porCobrar = saldos.filter(x => x.falta > 0.005)
+  /**
+   * Lo cobrado de más. Pasa a menudo —se paga un mes redondo, se adelanta de
+   * más— y hasta ahora no se veía en ninguna parte, porque la pantalla solo
+   * miraba lo que faltaba. No se devuelve ni se descuenta de nada: la estancia
+   * queda cuadrada y el sobrante se queda en casa. Se enseña solo para saber
+   * de dónde salió cada euro cuando no cuadre con una reserva.
+   */
+  const aFavor = saldos.filter(x => x.falta < -0.005)
+  const totalAFavor = Math.round(aFavor.reduce((s, x) => s - x.falta, 0) * 100) / 100
+
+  /** Terminadas y a medio cobrar: esto sí hay que reclamarlo. */
+  const vencidas = porCobrar.filter(x => x.r.checkOut < hoy)
+  const totalVencido = Math.round(vencidas.reduce((s, x) => s + x.falta, 0) * 100) / 100
+  /** En marcha o por venir: se cobrarán a su tiempo. */
+  const porVenir = porCobrar.filter(x => x.r.checkOut >= hoy)
+  const totalPorVenir = Math.round(porVenir.reduce((s, x) => s + x.falta, 0) * 100) / 100
+  const nombreApt = (id: string) => allApartments.find(a => a.id === id)?.name ?? id
+  const eur = (n: number) =>
+    `${num(n, 2)} €`
+
   function getAnnualBreakdown(aptId: string): { transferencia: number; efectivo: number; total: number } {
-    const aptReservationIds = reservations
-      .filter(r => r.apartmentId === aptId && r.status !== 'cancelada')
-      .map(r => r.id)
     const yearStr = String(year)
     const aptPayments = payments.filter(p =>
-      p.received && p.paymentDate?.startsWith(yearStr) && aptReservationIds.includes(p.reservationId)
+      p.received && mesDe(p)?.startsWith(yearStr) && aptDe(p) === aptId
     )
     let efectivo = 0
     let transferencia = 0
     for (const p of aptPayments) {
-      if (p.paymentMethod) {
-        if (p.paymentMethod === 'efectivo') efectivo += p.amount
-        else if (p.paymentMethod === 'transferencia') transferencia += p.amount
-        else transferencia += p.amount
-      } else {
-        const res = reservations.find(r => r.id === p.reservationId)
-        if (res?.channel === 'directo') efectivo += p.amount
-        else transferencia += p.amount
-      }
+      const res = reservations.find(r => r.id === p.reservationId)
+      if (esEfectivo(p, res?.channel === 'directo')) efectivo += p.amount
+      else transferencia += p.amount
     }
     return { transferencia, efectivo, total: efectivo + transferencia }
   }
 
+  function exportCSV() {
+    const fmt = (n: number) => n > 0 ? num(n, 2) : '0,00'
+    const rows: string[][] = []
+
+    // En la vista por reserva se baja lo que se está viendo: el detalle de cada
+    // cobro. Es con lo que se cuadra contra el extracto o contra los recibos.
+    if (porReserva) {
+      rows.push([`Reservas y cobros — ${year}`])
+      rows.push([])
+      rows.push(['Mes', 'Apto.', 'Fecha reserva', 'Noches', 'Importe', 'Limpieza',
+        'Transferencia', 'Efectivo', 'Fecha cobro', 'Nº asiento', 'Cobrado'])
+      const corto = (iso: string) => formatDate(iso).replace(/\/\d{2}(\d{2})$/, '/$1')
+      const enMano = (p: Payment) => {
+        const r = reservations.find(x => x.id === p.reservationId)
+        return esEfectivo(p, r?.channel === 'directo')
+      }
+      /** El importe en la columna que toca: banco o mano. */
+      const movimiento = (p: Payment) => enMano(p)
+        ? ['', fmt(p.amount), p.paymentDate ? corto(p.paymentDate) : '', p.entryNumber ?? 'efectivo']
+        : [fmt(p.amount), '', p.paymentDate ? corto(p.paymentDate) : '', p.entryNumber ?? '']
+      const delAnio = payments.filter(p => p.received && mesDe(p)?.startsWith(String(year))
+        && (!filterApt || aptDe(p) === filterApt))
+      for (let m = 1; m <= 12; m++) {
+        const mm = `${year}-${String(m).padStart(2, '0')}`
+        const usados = new Set<string>()
+        for (const apt of visibleApts) {
+          // Las que ocupan el mes, empiecen cuando empiecen: igual que en
+          // pantalla, para que el papel y la pantalla digan lo mismo.
+          const reservas = reservations
+            .filter(r => r.apartmentId === apt.id && r.status !== 'cancelada'
+              && r.checkIn <= `${mm}-31` && r.checkOut > `${mm}-01`)
+            .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
+          if (reservas.length === 0) {
+            rows.push([MONTH_NAMES_ES[m - 1], apt.id, 'sin reservas', '', '', '', '', '', '', '', ''])
+            continue
+          }
+          for (const r of reservas) {
+            // Los cobros DE ESE MES. Antes se bajaban todos los del año en cada
+            // mes que ocupaba la estancia, así que una reserva de tres meses
+            // repetía su cobro tres veces en el Excel.
+            const cobros = delAnio.filter(p => p.reservationId === r.id && mesDe(p) === mm)
+            cobros.forEach(p => usados.add(p.id))
+            const antes = r.checkIn.startsWith(mm) ? ''
+              : Number(r.checkIn.slice(0, 4)) < year
+                ? `viene de ${r.checkIn.slice(0, 4)} · `
+                : `viene de ${MONTH_NAMES_ES[Number(r.checkIn.slice(5, 7)) - 1].toLowerCase()} · `
+            // Lo devengado de ese mes, igual que en pantalla: su parte por
+            // noches, y la limpieza entera en el mes de entrada.
+            const base = [MONTH_NAMES_ES[m - 1], apt.id,
+              `${antes}${corto(r.checkIn)} al ${corto(r.checkOut)}`,
+              `${nochesEnMes(r, mm)}-N`,
+              fmt(partesDeAlojamiento(r).get(mm) ?? 0),
+              antes ? '' : fmt(r.cleaningFee)]
+            if (cobros.length === 0) {
+              const otros = delAnio.filter(x => x.reservationId === r.id)
+              const hoy = today()
+              const donde = otros.length === 0
+                ? (r.checkIn > hoy ? 'aún no ha entrado'
+                  : r.checkOut > hoy ? 'estancia en curso' : 'sin cobrar en todo el año')
+                : `se cobró en ${[...new Set(otros.map(x => x.mes))].sort()
+                    .map(x => MONTH_NAMES_ES[Number(x!.slice(5, 7)) - 1].toLowerCase()).join(' y ')}`
+              rows.push([...base, '', '', '', '', donde])
+              continue
+            }
+            const cobrado = cobros.reduce((x, p) => x + p.amount, 0)
+            cobros.forEach((p, k2) => rows.push([
+              ...(k2 === 0 ? base : [MONTH_NAMES_ES[m - 1], apt.id, '', '', '', '']),
+              ...movimiento(p), k2 === 0 ? fmt(cobrado) : '']))
+          }
+        }
+        for (const p of delAnio.filter(p => mesDe(p) === mm && !usados.has(p.id))) {
+          rows.push([MONTH_NAMES_ES[m - 1], aptDe(p) ?? '', 'cobro sin reserva asociada', '', '', '',
+            ...movimiento(p), ''])
+        }
+      }
+      rows.push([])
+      rows.push(['TOTAL', '', '', '', '', '', '', '', '', '', fmt(delAnio.reduce((s, p) => s + p.amount, 0))])
+      descarga(rows, `reservas_y_cobros_${year}${filterApt ? `_${filterApt}` : ''}.csv`)
+      return
+    }
+    rows.push([`Cobros por Trimestres — ${year}`])
+    rows.push([])
+
+    for (const { months, label, corto, totalLabel } of bloques) {
+      rows.push([label])
+      rows.push(['Apartamento', ...months.map(m => MONTH_NAMES_ES[m - 1]),
+        'Transferencia', 'Efectivo', 'IGIC 7%', totalLabel])
+      const sorted = sortApartments(visibleApts, months)
+      for (const apt of sorted) {
+        const monthAmounts = months.map(m => getMonthAmount(apt.id, m))
+        const total = monthAmounts.reduce((s, a) => s + a, 0)
+        if (total === 0) continue
+        const { transf, efectivo } = desglose(apt.id, months)
+        rows.push([apt.name, ...monthAmounts.map(fmt),
+          fmt(transf), fmt(efectivo), fmt(calcIGIC(total)), fmt(total)])
+      }
+      const qTotal = visibleApts.reduce((s, a) => s + getQuarterTotal(a.id, months), 0)
+      const qIGIC = calcIGIC(qTotal)
+      const qEfec = months.reduce((s, m) => s + getMonthEfectivo(m), 0)
+      rows.push(['TOTAL ' + corto,
+        ...months.map(m => fmt(visibleApts.reduce((s, a) => s + getMonthAmount(a.id, m), 0))),
+        fmt(qTotal - qEfec), fmt(qEfec), fmt(qIGIC), fmt(qTotal)])
+      // De ese total, lo cobrado en mano. Va en su propia fila, igual que en
+      // pantalla: no es dinero aparte, es una parte de lo ya contado.
+      rows.push(['DE ESO, EN EFECTIVO',
+        ...months.map(m => fmt(getMonthEfectivo(m))), '', fmt(qEfec), '', ''])
+      rows.push([])
+    }
+
+    rows.push(['Resumen anual ' + year])
+    rows.push(['Apartamento', 'Transferencia', 'Efectivo', 'Total', 'IGIC 7%', 'Total con IGIC'])
+    for (const apt of visibleApts) {
+      const { transferencia, efectivo, total } = getAnnualBreakdown(apt.id)
+      if (total === 0) continue
+      const igic = calcIGIC(total)
+      rows.push([apt.name, fmt(transferencia), fmt(efectivo), fmt(total), fmt(igic), fmt(total + igic)])
+    }
+    const igicTotal = calcIGIC(yearTotal)
+    rows.push(['TOTAL ANUAL', '', '', fmt(yearTotal), fmt(igicTotal), fmt(yearTotal + igicTotal)])
+
+    descarga(rows, `cobros_${year}${filterQ > 0 ? `_${filterQ}T` : ''}${filterMes ? `_${MONTH_NAMES_ES[filterMes - 1]}` : ''}${filterApt ? `_${filterApt}` : ''}.csv`)
+  }
+
+  /** El punto y coma y el BOM son lo que hace que Excel lo abra en columnas. */
+  function descarga(rows: string[][], nombre: string) {
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(';')).join('\r\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = nombre
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function handlePrint() {
+    window.print()
+  }
+
   return (
     <div className="p-6">
+      <style>{`
+        @media print {
+          body > * { display: none !important; }
+          #collections-print { display: block !important; }
+          #collections-print { position: fixed; inset: 0; background: white; padding: 20px; }
+        }
+        #collections-print { display: none; }
+      `}</style>
+
       <PageHeader
         title="Total Cobrado por Trimestres"
         subtitle="IGIC incluido al 7%"
         actions={
-          <select value={year} onChange={e => setYear(Number(e.target.value))}
-            className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-            {(years.length ? years : [String(year)]).map(y => <option key={y} value={y!}>{y}</option>)}
-          </select>
+          <div className="flex items-center gap-2 flex-wrap">
+            <select value={year} onChange={e => setYear(Number(e.target.value))}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+              {(years.length ? years : [String(year)]).map(y => <option key={y} value={y!}>{y}</option>)}
+            </select>
+            <select value={filterQ} onChange={e => { setFilterQ(Number(e.target.value)); setFilterMes(0) }}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+              <option value={0}>Trimestres (4 tablas)</option>
+              <option value={ANUAL}>Todos los meses (una tabla)</option>
+              <option value={POR_RESERVA}>Cobros según reserva</option>
+              {QUARTERS.map(qt => <option key={qt.q} value={qt.q}>{qt.label}</option>)}
+            </select>
+            <select value={filterMes} onChange={e => { setFilterMes(Number(e.target.value)); setFilterQ(0) }}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+              <option value={0}>Todos los meses</option>
+              {MONTH_NAMES_ES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            </select>
+            <select value={filterApt} onChange={e => setFilterApt(e.target.value)}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+              <option value="">Todos los apartamentos</option>
+              {apartments.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            {porReserva && (
+              <select value={agrupaPor} onChange={e => setAgrupaPor(e.target.value as 'mes' | 'apartamento')}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+                <option value="mes">Agrupar por mes</option>
+                <option value="apartamento">Agrupar por apartamento</option>
+              </select>
+            )}
+            <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+              <option value="nombre">Orden de la casa</option>
+              <option value="importe">Ordenar por importe</option>
+            </select>
+            <button onClick={() => setNuevoCobro(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+              <Plus size={15} /> Nuevo cobro
+            </button>
+            <button onClick={exportCSV}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
+              <FileSpreadsheet size={15} /> Excel
+            </button>
+            <button onClick={handlePrint}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-slate-600 text-white rounded-lg hover:bg-slate-700 font-medium">
+              <Printer size={15} /> Imprimir / PDF
+            </button>
+          </div>
         }
       />
 
-      <div className="space-y-6">
-        {QUARTERS.map(({ q, months, label }) => {
-          const qTotal = apartments.reduce((s, a) => s + getQuarterTotal(a.id, months), 0)
+      {/* Un descubierto es una estancia TERMINADA y sin cobrar del todo. Lo
+          que está en marcha o por venir no es un descubierto —lo normal es
+          cobrarlo durante la estancia o a la salida—, así que va aparte, en
+          gris y plegado: se consulta, no avisa. */}
+      {vencidas.length > 0 && (
+        <div className="mb-6 bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden print:hidden">
+          <div className="bg-amber-50 border-b border-amber-200 px-5 py-3 flex items-center gap-2">
+            <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+            <p className="text-sm font-semibold text-amber-900">
+              Falta por cobrar de estancias ya terminadas: {eur(totalVencido)}
+            </p>
+          </div>
+          <TablaSaldos filas={vencidas} nombreApt={nombreApt} eur={eur} vencidas />
+        </div>
+      )}
+
+      {porVenir.length > 0 && (
+        <details className="mb-6 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:hidden">
+          <summary className="px-5 py-3 text-sm text-slate-600 cursor-pointer select-none hover:bg-slate-50">
+            Por cobrar de {porVenir.length === 1 ? 'una estancia que aún no ha terminado'
+              : `${porVenir.length} estancias que aún no han terminado`}:{' '}
+            <b className="text-slate-800">{eur(totalPorVenir)}</b>
+            <span className="text-slate-400"> · no es un descubierto</span>
+          </summary>
+          <TablaSaldos filas={porVenir} nombreApt={nombreApt} eur={eur} />
+        </details>
+      )}
+
+      {nuevoCobro && <NuevoCobro onClose={() => setNuevoCobro(false)} />}
+
+      {aFavor.length > 0 && (
+        <div className="mb-6 bg-white rounded-xl shadow-sm border border-blue-200 overflow-hidden print:hidden">
+          <div className="bg-blue-50 border-b border-blue-200 px-5 py-3">
+            <p className="text-sm font-semibold text-blue-900">
+              Cobrado de más en {year}: {eur(totalAFavor)}
+            </p>
+            <p className="text-xs text-blue-800/80 mt-0.5">
+              Estancias que se pagaron por encima de su importe. Están cuadradas y el sobrante se
+              queda; esto es solo para saber de dónde salió.
+            </p>
+          </div>
+          <table className="w-full text-sm" translate="no">
+            <tbody className="tabular-nums">
+              {aFavor.map(({ r, cobrado, falta }) => (
+                <tr key={r.id} className="border-b border-slate-100 last:border-0">
+                  <td className="py-2 px-5 font-medium text-slate-700">{nombreApt(r.apartmentId)}</td>
+                  <td className="py-2 px-4 text-slate-500 text-xs">
+                    {formatDate(r.checkIn)} → {formatDate(r.checkOut)}
+                  </td>
+                  <td className="py-2 px-4 text-right text-slate-700">{eur(r.total)}</td>
+                  <td className="py-2 px-4 text-right text-slate-500">{eur(cobrado)}</td>
+                  <td className="py-2 px-5 text-right font-semibold text-blue-700">+{eur(-falta)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="space-y-6" id="collections-screen">
+        {porReserva && (
+          <CobrosPorReserva
+            year={year} filterApt={filterApt} apartments={apartments}
+            reservations={reservations} payments={payments}
+            eur={eur} mesDe={mesDe} aptDe={aptDe} agrupaPor={agrupaPor}
+          />
+        )}
+
+        {!porReserva && bloques.map(({ key, months, label, corto, totalLabel }) => {
+          // Doce meses no caben en un portátil con el ancho de siempre: se
+          // aprietan las celdas, se abrevian los meses y el apartamento pasa a
+          // su número, que es como lo llama todo el mundo y como está el Excel.
+          const apretada = months.length > 6
+          const celda = apretada ? 'py-2 px-1 text-xs' : 'py-2.5 px-4'
+          // Apretada, el € se repetiría doce veces por fila y es lo primero que
+          // sobra: se queda en los totales y se avisa en la cabecera.
+          // Siempre con los dos decimales: una columna con «470,5» al lado de
+          // «13.406,89» no se lee, se descifra.
+          const imp = (n: number) => apretada ? num(n) : `${num(n)} €`
+          const sorted = sortApartments(visibleApts, months)
+          const qTotal = visibleApts.reduce((s, a) => s + getQuarterTotal(a.id, months), 0)
+          const qEfectivo = months.reduce((s, m) => s + getMonthEfectivo(m), 0)
+          const qTransf = Math.round((qTotal - qEfectivo) * 100) / 100
           const qIGIC = calcIGIC(qTotal)
-          const qWithIGIC = qTotal + qIGIC
           return (
-            <div key={q} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div key={key} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
                 <h3 className="font-semibold text-white">{label}</h3>
                 <div className="text-right">
-                  <span className="text-white font-bold">{qTotal.toLocaleString('es-ES')} €</span>
-                  <span className="text-slate-300 text-xs ml-3">IGIC: {qIGIC.toLocaleString('es-ES')} €</span>
+                  <span className="text-white font-bold">{numSuelto(qTotal)} €</span>
+                  <span className="text-slate-300 text-xs ml-3">IGIC: {numSuelto(qIGIC)} €</span>
                 </div>
               </div>
               <div className="overflow-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50">
-                      <th className="text-left py-2.5 px-4 font-medium text-slate-600 w-40">Apartamento</th>
+                      <th className={`text-left font-medium text-slate-600 ${celda} ${apretada ? 'w-16' : 'w-40'}`}>
+                        {apretada ? 'Apto. €' : 'Apartamento'}
+                      </th>
                       {months.map(m => (
-                        <th key={m} className="text-right py-2.5 px-4 font-medium text-slate-600">
-                          {MONTH_NAMES_ES[m - 1]}
+                        <th key={m} className={`text-right font-medium text-slate-600 ${celda}`}>
+                          {apretada ? MONTH_NAMES_ES[m - 1].slice(0, 3) : MONTH_NAMES_ES[m - 1]}
                         </th>
                       ))}
-                      <th className="text-right py-2.5 px-4 font-semibold text-slate-700 bg-slate-100">TRIMESTRE</th>
-                      <th className="text-right py-2.5 px-4 font-medium text-slate-500">IGIC 7%</th>
-                      <th className="text-right py-2.5 px-4 font-medium text-slate-700 bg-amber-50">TOTAL</th>
+                      {/* Lo cobrado, partido en dos: banco y mano. Es lo que
+                          hace falta para cuadrar la contabilidad de la casa —
+                          la transferencia contra el extracto, el efectivo
+                          contra el recibo que se le hizo al cliente. */}
+                      <th className={`text-right font-medium text-blue-700 bg-blue-50/60 ${celda}`}>Transf.</th>
+                      <th className={`text-right font-medium text-red-600 bg-red-50/60 ${celda}`}>Efectivo</th>
+                      <th className={`text-right font-medium text-slate-500 ${celda}`}>IGIC</th>
+                      <th className={`text-right font-semibold text-slate-700 bg-slate-100 ${celda}`}>
+                        {totalLabel}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {apartments.map(apt => {
+                    {sorted.map(apt => {
                       const monthAmounts = months.map(m => getMonthAmount(apt.id, m))
                       const total = monthAmounts.reduce((s, a) => s + a, 0)
                       if (total === 0) return null
                       const igic = calcIGIC(total)
+                      const { transf, efectivo } = desglose(apt.id, months)
                       return (
                         <tr key={apt.id} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="py-2.5 px-4 font-medium text-slate-700 text-xs">{apt.name}</td>
+                          <td className={`font-medium text-slate-700 text-xs ${celda}`} title={apt.name}>
+                            {apretada ? apt.id : apt.name}
+                          </td>
                           {monthAmounts.map((amount, i) => (
-                            <td key={i} className="py-2.5 px-4 text-right text-slate-600">
-                              {amount > 0 ? `${amount.toLocaleString('es-ES')} €` : <span className="text-slate-300">—</span>}
+                            <td key={i} className={`text-right text-slate-600 whitespace-nowrap tabular-nums ${celda}`}>
+                              {amount > 0 ? imp(amount) : <span className="text-slate-300">—</span>}
                             </td>
                           ))}
-                          <td className="py-2.5 px-4 text-right font-bold text-slate-800 bg-slate-50">
-                            {total.toLocaleString('es-ES')} €
+                          <td className={`text-right text-blue-700 bg-blue-50/60 whitespace-nowrap tabular-nums ${celda}`}>
+                            {transf > 0 ? imp(transf) : <span className="text-slate-300">—</span>}
                           </td>
-                          <td className="py-2.5 px-4 text-right text-slate-500 text-xs">
-                            {igic.toLocaleString('es-ES')} €
+                          <td className={`text-right font-medium text-red-600 bg-red-50/60 whitespace-nowrap tabular-nums ${celda}`}>
+                            {efectivo > 0 ? imp(efectivo) : <span className="text-slate-300">—</span>}
                           </td>
-                          <td className="py-2.5 px-4 text-right font-semibold text-amber-700 bg-amber-50 text-xs">
-                            {(total + igic).toLocaleString('es-ES')} €
+                          <td className={`text-right text-slate-500 text-xs whitespace-nowrap tabular-nums ${celda}`}>
+                            {imp(igic)}
+                          </td>
+                          <td className={`text-right font-bold text-slate-800 bg-slate-100 whitespace-nowrap tabular-nums ${celda}`}>
+                            {imp(total)}
                           </td>
                         </tr>
                       )
                     })}
                   </tbody>
                   <tfoot className="border-t-2 border-slate-300 bg-slate-50">
-                    <tr>
-                      <td className="py-3 px-4 font-semibold text-slate-700">TOTAL {label.split(' ')[0]}</td>
+                    <tr className={apretada ? 'text-xs' : ''}>
+                      <td className={`font-semibold text-slate-700 ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>TOTAL{!apretada && ` ${corto}`}</td>
                       {months.map(m => {
-                        const mTotal = apartments.reduce((s, a) => s + getMonthAmount(a.id, m), 0)
+                        const mTotal = visibleApts.reduce((s, a) => s + getMonthAmount(a.id, m), 0)
                         return (
-                          <td key={m} className="py-3 px-4 text-right font-semibold text-slate-700">
-                            {mTotal > 0 ? `${mTotal.toLocaleString('es-ES')} €` : '—'}
+                          <td key={m} className={`text-right font-semibold text-slate-700 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
+                            {mTotal > 0 ? imp(mTotal) : '—'}
                           </td>
                         )
                       })}
-                      <td className="py-3 px-4 text-right font-bold text-slate-900 bg-slate-100">
-                        {qTotal.toLocaleString('es-ES')} €
+                      <td className={`text-right font-bold text-blue-700 bg-blue-50/60 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
+                        {imp(qTransf)}
                       </td>
-                      <td className="py-3 px-4 text-right font-semibold text-slate-600">
-                        {qIGIC.toLocaleString('es-ES')} €
+                      <td className={`text-right font-bold text-red-600 bg-red-50/60 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
+                        {imp(qEfectivo)}
                       </td>
-                      <td className="py-3 px-4 text-right font-bold text-amber-700 bg-amber-50">
-                        {qWithIGIC.toLocaleString('es-ES')} €
+                      <td className={`text-right font-semibold text-slate-600 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
+                        {imp(qIGIC)}
+                      </td>
+                      <td className={`text-right font-bold text-slate-900 bg-slate-100 whitespace-nowrap tabular-nums ${apretada ? 'py-2 px-1.5' : 'py-3 px-4'}`}>
+                        {imp(qTotal)}
                       </td>
                     </tr>
+                    {/* De lo de arriba, lo que entró en mano. Va debajo del
+                        total y no en una columna aparte: el efectivo no es
+                        dinero distinto, es una parte de lo ya contado. */}
+                    {qEfectivo > 0 && (
+                      <tr className={`text-red-600 ${apretada ? 'text-xs' : 'text-sm'}`}>
+                        <td className={`font-medium ${apretada ? 'py-1.5 px-1.5' : 'py-2 px-4'}`}>
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                            <Banknote size={13} className="shrink-0" /> {apretada ? 'Efectivo' : 'En efectivo'}
+                          </span>
+                        </td>
+                        {months.map(m => {
+                          const e = getMonthEfectivo(m)
+                          return (
+                            <td key={m} className={`text-right whitespace-nowrap tabular-nums ${apretada ? 'py-1.5 px-1.5' : 'py-2 px-4'}`}>
+                              {e > 0 ? imp(e) : <span className="text-slate-300">—</span>}
+                            </td>
+                          )
+                        })}
+                        <td />
+                        <td className={`text-right font-semibold whitespace-nowrap tabular-nums bg-red-50/60 ${apretada ? 'py-1.5 px-1.5' : 'py-2 px-4'}`}>
+                          {imp(qEfectivo)}
+                        </td>
+                        <td colSpan={2} />
+                      </tr>
+                    )}
                   </tfoot>
                 </table>
               </div>
@@ -174,18 +638,18 @@ export default function Collections() {
                 </tr>
               </thead>
               <tbody>
-                {apartments.map(apt => {
+                {visibleApts.map(apt => {
                   const { transferencia, efectivo, total } = getAnnualBreakdown(apt.id)
                   if (total === 0) return null
                   const igic = calcIGIC(total)
                   return (
                     <tr key={apt.id} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="py-2.5 px-4 font-medium text-slate-700 text-xs">{apt.name}</td>
-                      <td className="py-2.5 px-4 text-right text-blue-700">{transferencia > 0 ? `${transferencia.toLocaleString('es-ES')} €` : '—'}</td>
-                      <td className="py-2.5 px-4 text-right text-green-700">{efectivo > 0 ? `${efectivo.toLocaleString('es-ES')} €` : '—'}</td>
-                      <td className="py-2.5 px-4 text-right font-bold text-slate-800">{total.toLocaleString('es-ES')} €</td>
-                      <td className="py-2.5 px-4 text-right text-slate-500 text-xs">{igic.toLocaleString('es-ES')} €</td>
-                      <td className="py-2.5 px-4 text-right font-semibold text-amber-700 bg-amber-50">{(total + igic).toLocaleString('es-ES')} €</td>
+                      <td className="py-2.5 px-4 text-right text-blue-700 whitespace-nowrap">{transferencia > 0 ? `${numSuelto(transferencia)} €` : '—'}</td>
+                      <td className="py-2.5 px-4 text-right text-green-700 whitespace-nowrap">{efectivo > 0 ? `${numSuelto(efectivo)} €` : '—'}</td>
+                      <td className="py-2.5 px-4 text-right font-bold text-slate-800 whitespace-nowrap">{numSuelto(total)} €</td>
+                      <td className="py-2.5 px-4 text-right text-slate-500 text-xs whitespace-nowrap">{numSuelto(igic)} €</td>
+                      <td className="py-2.5 px-4 text-right font-semibold text-amber-700 bg-amber-50 whitespace-nowrap">{numSuelto(total + igic)} €</td>
                     </tr>
                   )
                 })}
@@ -193,32 +657,625 @@ export default function Collections() {
               <tfoot className="border-t-2 border-slate-300 bg-slate-50">
                 <tr>
                   <td className="py-3 px-4 font-semibold text-slate-700">TOTAL ANUAL</td>
-                  <td className="py-3 px-4 text-right font-bold text-blue-700">
-                    {apartments.reduce((s, a) => s + getAnnualBreakdown(a.id).transferencia, 0).toLocaleString('es-ES')} €
+                  <td className="py-3 px-4 text-right font-bold text-blue-700 whitespace-nowrap">
+                    {numSuelto(visibleApts.reduce((s, a) => s + getAnnualBreakdown(a.id).transferencia, 0))} €
                   </td>
-                  <td className="py-3 px-4 text-right font-bold text-green-700">
-                    {apartments.reduce((s, a) => s + getAnnualBreakdown(a.id).efectivo, 0).toLocaleString('es-ES')} €
+                  <td className="py-3 px-4 text-right font-bold text-green-700 whitespace-nowrap">
+                    {numSuelto(visibleApts.reduce((s, a) => s + getAnnualBreakdown(a.id).efectivo, 0))} €
                   </td>
-                  <td className="py-3 px-4 text-right font-bold text-slate-900">{yearTotal.toLocaleString('es-ES')} €</td>
-                  <td className="py-3 px-4 text-right font-semibold text-slate-600">{calcIGIC(yearTotal).toLocaleString('es-ES')} €</td>
-                  <td className="py-3 px-4 text-right font-bold text-amber-700 bg-amber-50">{(yearTotal + calcIGIC(yearTotal)).toLocaleString('es-ES')} €</td>
+                  <td className="py-3 px-4 text-right font-bold text-slate-900 whitespace-nowrap">{numSuelto(yearTotal)} €</td>
+                  <td className="py-3 px-4 text-right font-semibold text-slate-600 whitespace-nowrap">{numSuelto(calcIGIC(yearTotal))} €</td>
+                  <td className="py-3 px-4 text-right font-bold text-amber-700 bg-amber-50 whitespace-nowrap">{numSuelto(yearTotal + calcIGIC(yearTotal))} €</td>
                 </tr>
               </tfoot>
             </table>
           </div>
         </div>
 
-        {/* Annual total */}
-        <div className="bg-slate-900 rounded-xl p-5 flex items-center justify-between">
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Alta de un cobro a mano, pensada para el dinero en efectivo.
+ *
+ * Lo que entra por transferencia llega solo, con su PDF o con el Excel de
+ * Luis. El efectivo no deja rastro en ninguna parte, así que si no se anota
+ * aquí, la caja no cuadra y nadie sabe por qué.
+ *
+ * El cobro se puede colgar de una estancia o quedarse suelto a nombre del
+ * apartamento, igual que los del Excel: no todo lo que se cobra en mano
+ * corresponde a una reserva identificable.
+ */
+/** La tabla de saldos: la misma para las vencidas y para las que están por venir. */
+function TablaSaldos({ filas, nombreApt, eur, vencidas }: {
+  filas: { r: Reservation; cobrado: number; falta: number }[]
+  nombreApt: (id: string) => string
+  eur: (n: number) => string
+  vencidas?: boolean
+}) {
+  return (
+    <table className="w-full text-sm" translate="no">
+      <thead>
+        <tr className="border-b border-slate-200 text-xs text-slate-500">
+          <th className="text-left py-2 px-5 font-medium">Apartamento</th>
+          <th className="text-left py-2 px-4 font-medium">Estancia</th>
+          <th className="text-right py-2 px-4 font-medium">Total</th>
+          <th className="text-right py-2 px-4 font-medium">Cobrado</th>
+          <th className="text-right py-2 px-5 font-medium">Falta</th>
+        </tr>
+      </thead>
+      <tbody className="tabular-nums">
+        {filas.map(({ r, cobrado, falta }) => (
+          <tr key={r.id} className="border-b border-slate-100 last:border-0">
+            <td className="py-2 px-5 font-medium text-slate-700">{nombreApt(r.apartmentId)}</td>
+            <td className="py-2 px-4 text-slate-500 text-xs">
+              {formatDate(r.checkIn)} → {formatDate(r.checkOut)}
+              {vencidas && <span className="ml-2 text-red-600 font-semibold">ya terminó</span>}
+            </td>
+            <td className="py-2 px-4 text-right text-slate-700">{eur(r.total)}</td>
+            <td className="py-2 px-4 text-right text-slate-500">{eur(cobrado)}</td>
+            <td className={`py-2 px-5 text-right font-semibold ${vencidas ? 'text-red-600' : 'text-slate-600'}`}>
+              {eur(falta)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function NuevoCobro({ onClose }: { onClose: () => void }) {
+  const { apartments: todos, reservations, addPayment, anotaVolcado } = useData()
+  const apartments = todos.filter(a => a.active)
+  const hoy = today()
+
+  const [apartmentId, setApartmentId] = useState(apartments[0]?.id ?? '')
+  const [importe, setImporte] = useState('')
+  const [fecha, setFecha] = useState(hoy)
+  const [metodo, setMetodo] = useState<PaymentMethod>('efectivo')
+  const [reservationId, setReservationId] = useState('')
+  const [asiento, setAsiento] = useState('')
+  const [mes, setMes] = useState(hoy.slice(0, 7))
+  const [guardando, setGuardando] = useState(false)
+
+  // Las estancias de ese apartamento que tocan la fecha del cobro, y las de
+  // alrededor: se cobra al entrar, al salir y a veces semanas después.
+  const candidatas = reservations
+    .filter(r => r.apartmentId === apartmentId && r.status !== 'cancelada')
+    .filter(r => r.checkOut >= fecha.slice(0, 4) + '-01-01')
+    .sort((a, b) => b.checkIn.localeCompare(a.checkIn))
+    .slice(0, 40)
+
+  const cantidad = Number(importe.replace(',', '.'))
+  const vale = apartmentId && Number.isFinite(cantidad) && cantidad > 0 && /^\d{4}-\d{2}$/.test(mes)
+
+  async function guardar() {
+    if (!vale || guardando) return
+    setGuardando(true)
+    addPayment({
+      reservationId, apartmentId, mes,
+      amount: Math.round(cantidad * 100) / 100,
+      paymentDate: fecha || undefined,
+      entryNumber: asiento.trim() || undefined,
+      received: true,
+      paymentMethod: metodo,
+    })
+    const apt = apartments.find(a => a.id === apartmentId)
+    anotaVolcado({
+      origen: 'correcciones',
+      year: Number(mes.slice(0, 4)),
+      cobros: 1,
+      resumen: `Cobro a mano · ${apt?.name ?? apartmentId} · `
+        + `${num(cantidad, 2)} € en ${metodo}`,
+    })
+    onClose()
+  }
+
+  const campo = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm'
+
+  return (
+    <Modal title="Nuevo cobro" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-slate-300 text-sm">Total anual {year}</p>
-            <p className="text-white text-3xl font-bold mt-1">{yearTotal.toLocaleString('es-ES')} €</p>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Apartamento *</label>
+            <select value={apartmentId} onChange={e => { setApartmentId(e.target.value); setReservationId('') }} className={campo}>
+              {apartments.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
           </div>
-          <div className="text-right">
-            <p className="text-slate-400 text-xs">IGIC 7% a declarar</p>
-            <p className="text-amber-400 text-xl font-bold mt-1">{calcIGIC(yearTotal).toLocaleString('es-ES')} €</p>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Importe (€) *</label>
+            <input value={importe} onChange={e => setImporte(e.target.value)} inputMode="decimal"
+              placeholder="0,00" className={`${campo} text-right tabular-nums`} autoFocus />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Fecha del cobro</label>
+            <input type="date" value={fecha}
+              onChange={e => { setFecha(e.target.value); if (e.target.value) setMes(e.target.value.slice(0, 7)) }}
+              className={campo} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Forma de pago</label>
+            <select value={metodo} onChange={e => setMetodo(e.target.value as PaymentMethod)} className={campo}>
+              <option value="efectivo">Efectivo</option>
+              <option value="transferencia">Transferencia</option>
+              <option value="otro">Otro</option>
+            </select>
           </div>
         </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Estancia (opcional)</label>
+          <select value={reservationId} onChange={e => setReservationId(e.target.value)} className={campo}>
+            <option value="">Sin estancia — solo a nombre del apartamento</option>
+            {candidatas.map(r => (
+              <option key={r.id} value={r.id}>
+                {formatDate(r.checkIn)} → {formatDate(r.checkOut)} · {eurLargo(r.total)}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Colgarlo de una estancia hace que cuente como cobrada. Sin estancia, el dinero
+            se ve igual en esta pantalla, por apartamento y por mes.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Cuenta en el mes de</label>
+            <input type="month" value={mes} onChange={e => setMes(e.target.value)} className={campo} />
+            <p className="text-[11px] text-slate-400 mt-1">
+              Normalmente el de la fecha. Se cambia cuando el cobro es de otro mes, como en el Excel.
+            </p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Nº de asiento (opcional)</label>
+            <input value={asiento} onChange={e => setAsiento(e.target.value)} className={campo} placeholder="Ej: 150326104" />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+          <button onClick={guardar} disabled={!vale || guardando}
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-40">
+            {guardando ? 'Guardando…' : 'Anotar el cobro'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+const eurLargo = (n: number) =>
+  `${num(n, 2)} €`
+
+/**
+ * El listado del año: reservas y cobros, agrupados por mes o por apartamento.
+ *
+ * Es el formato que pidió el propietario y el orden en que mira las cuentas:
+ * de cada reserva sus fechas, sus noches, el importe y la limpieza, y al lado
+ * el cobro con el que se pagó, en la columna de banco o en la de mano.
+ *
+ * Una reserva aparece en TODOS los meses que ocupa, no solo en el que empieza.
+ * El 106 entró el 30/11/25 y salió el 27/02/26: en enero ese piso está
+ * alquilado y cobra, así que decir «sin reservas» era falso — y además mandaba
+ * su cobro al cajón de los huérfanos. Las que vienen de antes se marcan con
+ * «◀» para no confundirlas con una entrada de ese mes.
+ *
+ * Se puede agrupar por mes (y dentro, los apartamentos en el orden de la casa)
+ * o por apartamento (y dentro, los meses). Es la misma tabla mirada por sus dos
+ * lados: una sirve para cuadrar el mes, la otra para seguir un piso.
+ */
+function CobrosPorReserva({ year, filterApt, apartments, reservations, payments, eur, mesDe, aptDe, agrupaPor }: {
+  year: number
+  filterApt: string
+  apartments: Apartment[]
+  reservations: Reservation[]
+  payments: Payment[]
+  eur: (n: number) => string
+  mesDe: (p: Payment) => string | undefined
+  aptDe: (p: Payment) => string | undefined
+  agrupaPor: 'mes' | 'apartamento'
+}) {
+  const visibles = filterApt ? apartments.filter(a => a.id === filterApt) : apartments
+  const delAnio = payments.filter(p => p.received && mesDe(p)?.startsWith(String(year))
+    && (!filterApt || aptDe(p) === filterApt))
+
+  const hoy = today()
+
+  /** dd/mm/aa, como lo escribe el propietario en el Excel. */
+  const fecha = (iso: string) => formatDate(iso).replace(/\/\d{2}(\d{2})$/, '/$1')
+  const imp = (n: number) => n ? num(n, 2) : ''
+  const celda = 'py-1.5 px-3 text-xs whitespace-nowrap'
+
+  const esEfectivoDe = (p: Payment) => {
+    const r = reservations.find(x => x.id === p.reservationId)
+    return esEfectivo(p, r?.channel === 'directo')
+  }
+
+  /**
+   * De dónde viene una reserva que ya estaba en marcha: «de 2025» si arrancó el
+   * año pasado, «de noviembre» si fue un mes anterior de este año. Una flecha
+   * sola no dice nada; con el mes o el año delante se entiende de un vistazo
+   * que ese piso no se alquiló ese mes, que seguía alquilado.
+   */
+  const vieneDe = (r: Reservation, mes: number): string => {
+    const mm = `${year}-${String(mes).padStart(2, '0')}`
+    if (r.checkIn.startsWith(mm)) return ''
+    const anio = Number(r.checkIn.slice(0, 4))
+    if (anio < year) return `de ${anio}`
+    return `de ${MONTH_NAMES_ES[Number(r.checkIn.slice(5, 7)) - 1].toLowerCase()}`
+  }
+
+  /**
+   * «▶ sigue en abril»: la estancia continúa el mes que viene.
+   *
+   * Con el importe repartido por meses, una cifra pequeña en marzo ya no es un
+   * error ni un cobro a medias: es que marzo solo se queda con sus noches. Esto
+   * lo dice en la propia línea, para no tener que buscarlo.
+   */
+  const sigueEn = (r: Reservation, mes: number): string => {
+    const siguiente = mesSiguiente(mm(mes))
+    if (nochesEnMes(r, siguiente) === 0) return ''
+    const anio = Number(siguiente.slice(0, 4))
+    if (anio > year) return String(anio)
+    return MONTH_NAMES_ES[Number(siguiente.slice(5, 7)) - 1].toLowerCase()
+  }
+
+  /** El reparto por meses de cada estancia, calculado una sola vez. */
+  const partesDe = (() => {
+    const cache = new Map<string, Map<string, number>>()
+    return (r: Reservation) => {
+      let p = cache.get(r.id)
+      if (!p) { p = partesDeAlojamiento(r); cache.set(r.id, p) }
+      return p
+    }
+  })()
+
+  const mm = (mes: number) => `${year}-${String(mes).padStart(2, '0')}`
+
+  /**
+   * Lo cobrado de una estancia hasta el final de ese mes, y en total.
+   *
+   * «Hasta ese mes» cuenta también los años anteriores, igual que el devengo:
+   * una estancia que entró en diciembre pudo cobrarse en diciembre. El total
+   * cuenta además lo que llegó después, que es lo que evita marcar como
+   * descubierto algo que se cobró al mes siguiente.
+   */
+  const cobradoDe = (r: Reservation, hasta?: string) => {
+    const suyos = payments.filter(p => p.reservationId === r.id && p.received)
+    const vale = (p: Payment) => !hasta || (mesDe(p) ?? '') <= hasta
+    return Math.round(suyos.filter(vale).reduce((x, p) => x + p.amount, 0) * 100) / 100
+  }
+
+  /**
+   * La celda de estado de una estancia, mes a mes.
+   *
+   * Cada mes enseña su parte devengada (ver `lib/devengo.ts`), así que el
+   * estado también es de ese mes: **lo cobrado contra lo devengado hasta ahí**,
+   * acumulado. Se mira acumulado a propósito, porque los cobros mensuales del
+   * propietario no son el prorrateo exacto por noches —el ático cobró 1.435 €
+   * en agosto cuando le tocaban 691— y compararlos mes contra mes pintaría de
+   * rojo una estancia que va al día.
+   *
+   * Cuatro señales, y cada una dice una cosa distinta:
+   *   ✓ verde   — a esa altura está cubierto
+   *   ◆ azul    — va por delante: han pagado más de lo devengado hasta ese mes
+   *   — raya    — la estancia sigue en marcha (o no ha entrado): nada que reclamar
+   *   cifra     — el mes cerró y, contando todo lo cobrado, sigue faltando
+   *
+   * Lo cobrado de más de una estancia ya terminada sale en su último mes, en
+   * morado y con un «+» delante, porque entonces ya no es un adelanto.
+   */
+  const Estado = ({ r, mes }: { r: Reservation; mes: number }) => {
+    const hasta = mm(mes)
+    const partes = partesDe(r)
+    const devengado = devengoAcumulado(r, hasta, partes)
+    const cobradoHasta = cobradoDe(r, hasta)
+    const cobradoTodo = cobradoDe(r)
+    const falta = Math.round((devengado - cobradoTodo) * 100) / 100
+    const sobra = Math.round((cobradoTodo - r.total) * 100) / 100
+    const esUltimoMes = nochesEnMes(r, hasta) > 0 && !partes.has(mesSiguiente(hasta))
+
+    if (sobra > 0.005 && esUltimoMes && r.checkOut < hoy) {
+      return (
+        <td className={`${celda} text-right font-semibold text-purple-700`}
+          title={`Cobrado de más: ${imp(sobra)} € por encima de los ${imp(r.total)} € de la estancia`}>
+          +{imp(sobra)}
+        </td>
+      )
+    }
+    if (falta > 0.005) {
+      if (r.checkOut >= hoy) {
+        const aviso = r.checkIn > hoy
+          ? `Aún no ha entrado: se devengarán ${imp(devengado)} € hasta ${MONTH_NAMES_ES[mes - 1].toLowerCase()}`
+          : `Estancia en curso: de los ${imp(devengado)} € devengados hasta ${MONTH_NAMES_ES[mes - 1].toLowerCase()} faltan ${imp(falta)} €`
+        return <td className={`${celda} text-right text-slate-300`} title={aviso}>—</td>
+      }
+      return (
+        <td className={`${celda} text-right font-semibold text-purple-700`}
+          title={`La estancia terminó y de lo devengado hasta ${MONTH_NAMES_ES[mes - 1].toLowerCase()} faltan ${imp(falta)} €`}>
+          {imp(falta)}
+        </td>
+      )
+    }
+    const porDelante = Math.round((cobradoHasta - devengado) * 100) / 100
+    if (porDelante > 0.005) {
+      return (
+        <td className={`${celda} text-right text-sky-600 font-semibold`}
+          title={`Pagado por delante: ${imp(porDelante)} € por encima de lo devengado a ${MONTH_NAMES_ES[mes - 1].toLowerCase()}`}>
+          ◆
+        </td>
+      )
+    }
+    return (
+      <td className={`${celda} text-right`}
+        title={cobradoHasta + 0.005 < devengado
+          ? `Cubierto: lo devengado hasta ${MONTH_NAMES_ES[mes - 1].toLowerCase()} se cobró después`
+          : 'Cubierto: lo devengado hasta este mes está cobrado'}>
+        <Check size={15} className="inline text-green-600" strokeWidth={3} />
+      </td>
+    )
+  }
+
+  /**
+   * Qué poner cuando una reserva no tiene cobros en ese mes.
+   *
+   * «Sin cobro este mes» mezclaba dos cosas que no se parecen en nada: una
+   * estancia que se paga de una vez y por eso los demás meses están vacíos —lo
+   * normal, y no hay nada que mirar— y una estancia que no se ha cobrado en
+   * todo el año, que sí es un aviso. Ahora la primera dice dónde se cobró y la
+   * segunda avisa de verdad.
+   */
+  const dondeSeCobro = (r: Reservation): { texto: string; aviso: boolean } => {
+    const suyos = delAnio.filter(p => p.reservationId === r.id)
+    if (suyos.length === 0) {
+      // Una estancia que todavía no ha terminado no es un descuido: lo normal
+      // es que se cobre durante la estancia o al salir. Se dice en qué punto
+      // está, en gris, y el aviso rojo se guarda para las que ya terminaron.
+      const hoy = today()
+      if (r.checkIn > hoy) return { texto: 'aún no ha entrado', aviso: false }
+      if (r.checkOut > hoy) return { texto: 'estancia en curso', aviso: false }
+      return { texto: 'sin cobrar en todo el año', aviso: true }
+    }
+    const meses = [...new Set(suyos.map(p => mesDe(p)).filter(Boolean))]
+      .sort()
+      .map(m => MONTH_NAMES_ES[Number(m!.slice(5, 7)) - 1].toLowerCase())
+    return { texto: `se cobró en ${meses.join(' y ')}`, aviso: false }
+  }
+
+  /** Una línea del listado: una reserva con sus cobros de ese mes, o un hueco. */
+  type Linea = { mes: number; apt: string; r?: Reservation; vieneDeAntes: boolean; cobros: Payment[] }
+
+  const lineas: Linea[] = []
+  for (let mes = 1; mes <= 12; mes++) {
+    const mm = `${year}-${String(mes).padStart(2, '0')}`
+    for (const apt of visibles) {
+      // Las que ocupan el mes, empiecen cuando empiecen.
+      const ocupan = reservations
+        .filter(r => r.apartmentId === apt.id && r.status !== 'cancelada'
+          && r.checkIn <= `${mm}-31` && r.checkOut > `${mm}-01`)
+        .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
+      const cobrosMes = delAnio.filter(p => mesDe(p) === mm && aptDe(p) === apt.id)
+      const colocados = new Set<string>()
+
+      for (const r of ocupan) {
+        const suyos = cobrosMes.filter(p => p.reservationId === r.id)
+        suyos.forEach(p => colocados.add(p.id))
+        lineas.push({ mes, apt: apt.id, r, cobros: suyos, vieneDeAntes: !r.checkIn.startsWith(mm) })
+      }
+      // Lo cobrado ese mes que no cuelga de ninguna de ellas.
+      const sueltos = cobrosMes.filter(p => !colocados.has(p.id))
+      if (sueltos.length > 0) lineas.push({ mes, apt: apt.id, cobros: sueltos, vieneDeAntes: false })
+      if (ocupan.length === 0 && sueltos.length === 0) {
+        lineas.push({ mes, apt: apt.id, cobros: [], vieneDeAntes: false })
+      }
+    }
+  }
+
+  const porMes = agrupaPor === 'mes'
+  const grupos = porMes
+    ? MONTH_NAMES_ES.map((n, i) => ({ clave: `m${i + 1}`, titulo: n, lineas: lineas.filter(l => l.mes === i + 1) }))
+    : visibles.map(a => ({ clave: a.id, titulo: a.name, lineas: lineas.filter(l => l.apt === a.id) }))
+
+  const suma = (ls: Linea[], filtro?: (p: Payment) => boolean) =>
+    ls.reduce((s, l) => s + l.cobros.filter(p => !filtro || filtro(p)).reduce((x, p) => x + p.amount, 0), 0)
+
+  /** Un cobro: su importe en la columna que toca, su fecha y su asiento. */
+  const Movimiento = ({ p }: { p: Payment }) => {
+    const enMano = esEfectivoDe(p)
+    return (
+      <>
+        <td className={`${celda} text-right text-blue-700`}>{enMano ? '' : imp(p.amount)}</td>
+        <td className={`${celda} text-right font-medium text-red-600`}>{enMano ? imp(p.amount) : ''}</td>
+        <td className={`${celda} text-slate-600`}>
+          {p.paymentDate ? fecha(p.paymentDate) : <span className="text-slate-400">sin fecha</span>}
+        </td>
+        <td className={`${celda} text-slate-500`}>{p.entryNumber || (enMano ? 'efectivo' : '')}</td>
+      </>
+    )
+  }
+
+  /** La primera columna: el apartamento si se agrupa por mes, y al revés. */
+  const Cruce = ({ l }: { l: Linea }) => (
+    <td className={`${celda} ${porMes ? 'font-medium text-slate-700 pl-6' : 'text-slate-500 pl-6 capitalize'}`}>
+      {porMes ? l.apt : MONTH_NAMES_ES[l.mes - 1]}
+    </td>
+  )
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
+        <h3 className="font-semibold text-white">Reservas y cobros · {year}</h3>
+        <span className="text-white font-bold">{eur(suma(lineas))}</span>
+      </div>
+      {/* Las señales de la última columna, dichas una vez. Son cuatro y no se
+          adivinan: el jefe mira este listado para cuadrar el mes, no para
+          aprenderse una leyenda de memoria. */}
+      <div className="flex flex-wrap gap-x-5 gap-y-1 px-5 py-2 bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
+        <span>Cada mes lleva <b className="text-slate-700">su parte</b> de la estancia: las noches que duerme en él.</span>
+        <span><Check size={13} className="inline text-green-600" strokeWidth={3} /> cubierto</span>
+        <span><b className="text-sky-600">◆</b> pagado por delante</span>
+        <span><b className="text-slate-300">—</b> en curso o sin entrar</span>
+        <span><b className="text-purple-700">cifra</b> lo que falta</span>
+      </div>
+      {/* El listado es largo —doce meses por ocho inmuebles— y sin la cabecera
+          a la vista no hay quien sepa qué columna está mirando a mitad de
+          agosto. La caja tiene altura propia y desplaza por dentro: así el
+          `sticky` tiene contra qué pegarse (con `overflow` en el padre, el
+          navegador lo pega a la caja, no a la página). Al imprimir se quita el
+          tope de altura y sale el listado entero. */}
+      <div className="overflow-auto max-h-[70vh] print:max-h-none print:overflow-visible">
+        <table className="w-full text-sm" translate="no">
+          <thead className="sticky top-0 z-20 shadow-sm">
+            <tr className="border-b border-slate-200 bg-slate-100 text-xs text-slate-600">
+              <th className="text-left py-2 px-3 font-medium">{porMes ? 'Apto.' : 'Mes'}</th>
+              <th className="text-left py-2 px-3 font-medium">Fecha reserva</th>
+              <th className="text-right py-2 px-3 font-medium" title="Las noches de la estancia que caen en ese mes">Noches</th>
+              <th className="text-right py-2 px-3 font-medium" title="Lo devengado de ese mes: la parte de alojamiento que le toca por sus noches">
+                Importe
+              </th>
+              <th className="text-right py-2 px-3 font-medium">Limpieza</th>
+              <th className="text-right py-2 px-3 font-medium text-blue-700">Transferencia</th>
+              <th className="text-right py-2 px-3 font-medium text-red-600">Efectivo</th>
+              <th className="text-left py-2 px-3 font-medium">Fecha cobro</th>
+              <th className="text-left py-2 px-3 font-medium">Nº asiento</th>
+              <th className="text-right py-2 px-3 font-medium">Cobrado</th>
+              <th className="text-right py-2 px-3 font-medium text-purple-700"
+                title="✓ cubierto · ◆ pagado por delante · — en curso · cifra: lo que falta">
+                Estado
+              </th>
+            </tr>
+          </thead>
+          <tbody className="tabular-nums">
+            {grupos.map(g => {
+              const efec = suma(g.lineas, esEfectivoDe)
+              const todo = suma(g.lineas)
+              // Lo devengado: la suma de las partes de ese mes. Es la cifra que
+              // tiene que cuadrar con lo declarado, y ahora sale debajo de su
+              // propia columna.
+              const alojamiento = g.lineas.reduce((x, l) =>
+                l.r ? x + (partesDe(l.r).get(mm(l.mes)) ?? 0) : x, 0)
+              const limpiezas = g.lineas.reduce((x, l) =>
+                l.r && l.r.checkIn.startsWith(mm(l.mes)) ? x + l.r.cleaningFee : x, 0)
+              return (
+                <Fragment key={g.clave}>
+                  {/* Arriba, solo el nombre: las cifras del mes son un
+                      sumatorio y van debajo de lo que suman, como en cualquier
+                      listado de cuentas. */}
+                  <tr className="bg-slate-100 border-y border-slate-200">
+                    <td className="py-2 px-3 font-bold text-slate-800 capitalize" colSpan={11}>{g.titulo}</td>
+                  </tr>
+
+                  {g.lineas.map((l, i) => {
+                    const { r, cobros } = l
+                    const clave = `${g.clave}-${i}`
+                    if (!r && cobros.length === 0) return (
+                      <tr key={clave} className="border-b border-slate-50">
+                        <Cruce l={l} />
+                        <td className={`${celda} text-slate-400 italic`} colSpan={10}>sin reservas</td>
+                      </tr>
+                    )
+                    if (!r) return cobros.map((p, k) => (
+                      <tr key={`${clave}-${p.id}`} className="border-b border-slate-50 bg-amber-50/40">
+                        {k === 0 ? <Cruce l={l} /> : <td className={celda} />}
+                        <td className={`${celda} text-amber-800 italic`} colSpan={4}>cobro sin reserva asociada</td>
+                        <Movimiento p={p} />
+                        <td className={celda} />
+                        <td className={celda} />
+                      </tr>
+                    ))
+
+                    const cobrado = cobros.reduce((x, p) => x + p.amount, 0)
+                    const datos = (
+                      <>
+                        <td className={`${celda} ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}>
+                          {l.vieneDeAntes && (
+                            <span className="mr-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-medium"
+                              title="La reserva no empieza en este mes: ya estaba en marcha">
+                              ◀ {vieneDe(r, l.mes)}
+                            </span>
+                          )}
+                          {fecha(r.checkIn)} al {fecha(r.checkOut)}
+                          {sigueEn(r, l.mes) && (
+                            <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-medium"
+                              title="La estancia no termina en este mes: el resto está en el siguiente">
+                              ▶ sigue en {sigueEn(r, l.mes)}
+                            </span>
+                          )}
+                        </td>
+                        {/* Cada mes, lo suyo: las noches que duerme en él y el
+                            alojamiento que le toca. El importe de la estancia no
+                            se repite en los meses que ocupa —el del 105 del 31
+                            de julio salía entero en julio y otra vez en agosto—,
+                            se reparte. La limpieza no se parte: se cobra una
+                            vez, en el mes de entrada. */}
+                        <td className={`${celda} text-right ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}
+                          title={`${r.nights} noches en toda la estancia`}>
+                          {nochesEnMes(r, mm(l.mes))}-N
+                        </td>
+                        <td className={`${celda} text-right ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}
+                          title={`Su parte de ${MONTH_NAMES_ES[l.mes - 1].toLowerCase()}, de los ${imp(r.total - r.cleaningFee)} € de alojamiento de la estancia`}>
+                          {imp(partesDe(r).get(mm(l.mes)) ?? 0)}
+                        </td>
+                        <td className={`${celda} text-right text-slate-500`}>
+                          {r.checkIn.startsWith(mm(l.mes)) ? imp(r.cleaningFee) : ''}
+                        </td>
+                      </>
+                    )
+                    if (cobros.length === 0) {
+                      const { texto, aviso } = dondeSeCobro(r)
+                      return (
+                        <tr key={clave} className="border-b border-slate-50">
+                          <Cruce l={l} />
+                          {datos}
+                          <td className={`${celda} ${aviso ? 'text-amber-700 font-medium' : 'text-slate-400 italic'}`} colSpan={5}>
+                            {texto}
+                          </td>
+                          <Estado r={r} mes={l.mes} />
+                        </tr>
+                      )
+                    }
+                    return cobros.map((p, k) => (
+                      <tr key={`${clave}-${p.id}`} className="border-b border-slate-50">
+                        {k === 0 ? <Cruce l={l} /> : <td className={celda} />}
+                        {k === 0 ? datos : <td className={celda} colSpan={4} />}
+                        <Movimiento p={p} />
+                        <td className={`${celda} text-right font-semibold text-slate-800`}>
+                          {k === 0 ? imp(cobrado) : ''}
+                        </td>
+                        {/* En la primera línea, con el «Cobrado» del mes y los
+                            datos de la reserva. Cuando una estancia tiene dos
+                            cobros en el mismo mes, antes iba en la última y
+                            quedaba un renglón por debajo de su propia cifra,
+                            como si fuera de otra cosa. */}
+                        {k === 0 ? <Estado r={r} mes={l.mes} /> : <td className={celda} />}
+                      </tr>
+                    ))
+                  })}
+
+                  <tr className="bg-slate-50 border-y-2 border-slate-300 text-sm">
+                    <td className="py-2 px-3 font-semibold text-slate-600 capitalize" colSpan={3}>
+                      Total {g.titulo.toLowerCase()}
+                    </td>
+                    <td className="py-2 px-3 text-right font-bold text-slate-600"
+                      title="Lo devengado: la parte de alojamiento que le toca a este periodo">
+                      {imp(Math.round(alojamiento * 100) / 100)}
+                    </td>
+                    <td className="py-2 px-3 text-right font-bold text-slate-500">{imp(limpiezas)}</td>
+                    <td className="py-2 px-3 text-right font-bold text-blue-700">{imp(todo - efec)}</td>
+                    <td className="py-2 px-3 text-right font-bold text-red-600">{imp(efec)}</td>
+                    <td colSpan={2} />
+                    <td className="py-2 px-3 text-right font-bold text-slate-800">{imp(todo)}</td>
+                    <td />
+                  </tr>
+                </Fragment>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   )

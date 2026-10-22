@@ -1,17 +1,53 @@
 [build]
   command = "bash build.sh"
   publish = "_site"
+  # Este repo alimenta TRES sitios de Netlify a la vez, así que cada push
+  # cuesta tres builds completos. netlify-ignore.sh salta el build cuando el
+  # commit solo toca documentación (`.claude/**`, `*.md`, `docs/**`,
+  # `.github/**`) — ficheros que build.sh no copia a `_site/` en ningún caso,
+  # así que reconstruir por ellos no cambia ni un byte de lo publicado.
+  # Ante cualquier duda el script construye; ver su cabecera.
+  ignore = "bash netlify-ignore.sh"
 
 [build.environment]
   NODE_VERSION = "20"
+  VITE_BASE_PATH = "/alquileres/"
   # fichaje.html incluye la apiKey pública de Firebase (Ofipapel Fichaje) —
   # es un identificador de proyecto, no un secreto (mismo modelo que el resto
   # de claves cliente de este repo, ver CLAUDE.md). El escaneo de secretos de
   # Netlify la detecta como falso positivo y bloquea el deploy.
   SECRETS_SCAN_OMIT_PATHS = "fichaje.html"
+  # Netlify tiene DOS escaneos y esta variable solo silencia el primero. El
+  # segundo ("smart detection") no mira rutas sino valores, y tiene su propia
+  # lista: SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES. Es el que tumbó el deploy
+  # de fichar.js con `Build script returned non-zero exit code: 2`, señalando
+  # la misma apiKey ya declarada arriba como falso positivo.
+  #
+  # Las dos claves de abajo son apiKeys web de Firebase (Ofipapel Fichaje y
+  # ofipapelvv). Van dentro de fichaje.html y vacaciones.html, que se sirven
+  # tal cual a cualquier navegador: publicarlas no añade exposición ninguna,
+  # es como se distribuye siempre un cliente Firebase. Las credenciales de
+  # verdad de estas funciones son FICHAJE_FIREBASE_PASSWORD y
+  # VACACIONES_FIREBASE_PASSWORD, y esas viven solo en el entorno.
+  #
+  # Si alguna vez aparece aquí algo que NO sea una apiKey web de Firebase,
+  # es que se está silenciando un secreto real: el arreglo es sacarlo del
+  # código, no alargar esta lista.
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyCZ7cBQXZkw-VB0vnJE4m8lj3mscyiIMEc,AIzaSyDLqPoqiMgiqbk5Uv-4RoYrbA-5Yfc1A_s"
 
 [functions]
   directory = "netlify/functions"
+
+# El índice de consumibles por impresora se carga con un require() estático de
+# JSON, que el bundler sí traza — pero si alguna vez se quedara fuera, el bot
+# reventaría al arrancar en vez de degradarse, así que se declara explícito.
+# Lo necesitan las dos funciones que construyen el contexto del catálogo: el
+# webhook y el reintento en segundo plano.
+[functions."whatsapp-webhook"]
+  included_files = ["netlify/functions/data/**"]
+
+[functions."whatsapp-reintento-background"]
+  included_files = ["netlify/functions/data/**"]
 
 # El bundler de Netlify traza dependencias por análisis estático de
 # require()/import — no detecta las rutas que arma

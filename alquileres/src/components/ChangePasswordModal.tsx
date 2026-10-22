@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X, Eye, EyeOff } from 'lucide-react'
-import { hashPw, getStoredHash, saveHash } from '../lib/passwordAuth'
+import { cambiarPassword } from '../lib/auth'
 
 interface Props { onClose: () => void }
 
@@ -14,14 +14,20 @@ export default function ChangePasswordModal({ onClose }: Props) {
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
 
+  const [guardando, setGuardando] = useState(false)
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const h = await hashPw(current)
-    if (h !== getStoredHash()) { setError('La contraseña actual no es correcta'); return }
     if (next.length < 6) { setError('La nueva contraseña debe tener al menos 6 caracteres'); return }
     if (next !== confirm) { setError('Las contraseñas nuevas no coinciden'); return }
-    saveHash(await hashPw(next))
-    setDone(true)
+    setGuardando(true)
+    try {
+      await cambiarPassword(current, next)
+      setDone(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se ha podido cambiar la contraseña')
+    }
+    setGuardando(false)
   }
 
   if (done) return (
@@ -71,10 +77,10 @@ export default function ChangePasswordModal({ onClose }: Props) {
 
           {error && <p className="text-red-500 text-xs">{error}</p>}
 
-          <button type="submit"
-            className="w-full py-2.5 rounded-lg text-sm font-semibold text-white mt-1"
+          <button type="submit" disabled={guardando}
+            className="w-full py-2.5 rounded-lg text-sm font-semibold text-white mt-1 disabled:opacity-60"
             style={{ background: '#1976D2' }}>
-            Guardar contraseña
+            {guardando ? 'Guardando…' : 'Guardar contraseña'}
           </button>
         </form>
       </div>

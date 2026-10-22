@@ -962,7 +962,7 @@ function addDebugLog(msg) {
   debugEntries.push(`${t} ${msg}`);
   if (debugEntries.length > 30) debugEntries.shift();
   const el = document.getElementById('debugLog');
-  if (el) el.innerHTML = debugEntries.map(e => `<div>${e}</div>`).join('');
+  if (el) el.innerHTML = debugEntries.map(e => `<div>${esc(e)}</div>`).join('');
   const p = document.getElementById('debugPanel');
   if (p && p.style.display !== 'none') p.scrollTop = p.scrollHeight;
 }

@@ -1,8 +1,16 @@
-import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock } from 'lucide-react'
+import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert, ClipboardPaste } from 'lucide-react'
+import { EJERCICIO_APP } from '../lib/cuentas'
 import { useData } from '../contexts/DataContext'
 import type { Reservation } from '../types'
 import { formatDate, formatDateShort, today } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
+import { Link } from 'react-router-dom'
+import AlertasDescuadre from '../components/AlertasDescuadre'
+import CorreccionesLuis from '../components/CorreccionesLuis'
+import { CajaPegar } from '../components/PegarWhatsApp'
+import SoltarGastos from '../components/SoltarGastos'
+import { tocaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
+import { numSuelto } from '../lib/formato'
 
 export default function Dashboard() {
   const { reservations, payments, apartments, repairs } = useData()
@@ -16,11 +24,37 @@ export default function Dashboard() {
     .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
     .slice(0, 5)
 
-  const pendingPayment = reservations.filter(r => {
-    if (r.status === 'cancelada') return false
-    const paid = payments.filter(p => p.reservationId === r.id && p.received).reduce((s, p) => s + p.amount, 0)
-    return paid < r.total && new Date(r.checkOut) >= now
-  })
+  /**
+   * Reservas que no están cobradas del todo.
+   *
+   * Antes solo se miraban las que aún no habían terminado, y por ahí se coló lo
+   * peor que puede pasar: una estancia acabada, cobrada de menos y sin que
+   * saltara nada. Ahora entran también las vencidas, y van las primeras: una
+   * estancia terminada y a medio pagar es un descubierto, no una previsión.
+   */
+  const pendingPayment = reservations
+    .filter(r => {
+      if (r.status === 'cancelada') return false
+      // Nada de años cerrados: sus estancias llevan el importe estimado del
+      // calendario de colores y sus cobros son los reales del Excel, así que
+      // la resta no significa nada. Ver lib/cuentas.ts, EJERCICIO_APP.
+      if (Number(r.checkIn.slice(0, 4)) < EJERCICIO_APP) return false
+      const paid = payments.filter(p => p.reservationId === r.id && p.received).reduce((s, p) => s + p.amount, 0)
+      // Medio céntimo de margen: los redondeos no son un impago.
+      return r.total - paid > 0.005
+    })
+    .sort((a, b) => a.checkOut.localeCompare(b.checkOut))
+
+  /**
+   * Las que ya terminaron y siguen sin cobrarse enteras: lo único que se
+   * avisa aquí.
+   *
+   * Una estancia que todavía no ha empezado y no está cobrada no es una
+   * alerta, es lo normal — y mezclarlas tapaba las que sí importan. Las que
+   * están por venir se siguen viendo en Reservas, con su columna «falta».
+   */
+  const vencidas = pendingPayment.filter(r => new Date(r.checkOut) < now)
+  const porVenir = pendingPayment.length - vencidas.length
 
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
@@ -40,6 +74,8 @@ export default function Dashboard() {
     .reduce((s, r) => s + (r.amount || 0), 0)
 
   const netYear = yearIncome - totalRepairs
+  // Se mira una sola vez al pintar: no hace falta vigilarlo en vivo.
+  const copiaPendiente = tocaCopia()
   const isPriceRenewalMonth = currentMonth === 1
 
   function getApartmentName(id: string) {
@@ -60,14 +96,51 @@ export default function Dashboard() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <KpiCard icon={<CalendarCheck size={20} className="text-blue-600" />} label="Activas hoy" value={String(active.length)} sub={`de ${apartments.filter(a => a.active).length} aptos.`} color="blue" />
-        <KpiCard icon={<Euro size={20} className="text-green-600" />} label="Cobrado este mes" value={`${monthIncome.toLocaleString('es-ES')} €`} sub={`IGIC: ${calcIGIC(monthIncome).toLocaleString('es-ES')} €`} color="green" />
-        <KpiCard icon={<TrendingUp size={20} className="text-purple-600" />} label={`Neto ${currentYear}`} value={`${netYear.toLocaleString('es-ES')} €`} sub={`Ingresos: ${yearIncome.toLocaleString('es-ES')} €`} color="purple" />
-        <KpiCard icon={<AlertTriangle size={20} className="text-amber-600" />} label="Pagos pendientes" value={String(pendingPayment.length)} sub="reservas sin cobrar" color="amber" />
+        <KpiCard icon={<Euro size={20} className="text-green-600" />} label="Cobrado este mes" value={`${numSuelto(monthIncome)} €`} sub={`IGIC: ${numSuelto(calcIGIC(monthIncome))} €`} color="green" />
+        <KpiCard icon={<TrendingUp size={20} className="text-purple-600" />} label={`Neto ${currentYear}`} value={`${numSuelto(netYear)} €`} sub={`Ingresos: ${numSuelto(yearIncome)} €`} color="purple" />
+        <KpiCard icon={<AlertTriangle size={20} className="text-amber-600" />} label="Cobros vencidos" value={String(vencidas.length)} sub={porVenir ? `${porVenir} más por venir` : 'estancias ya terminadas'} color="amber" />
       </div>
 
+      {/* La caja de pegar va arriba del todo y a la vista: es lo que más se usa
+          al abrir la app, según llegan los mensajes de la inmobiliaria. */}
+      <div className="mb-6 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2">
+          <ClipboardPaste size={15} className="text-blue-600" />
+          <p className="text-sm font-semibold text-slate-700">Entrada rápida</p>
+          <span className="text-xs text-slate-400">
+            pega el mensaje de WhatsApp, o suelta el PDF de un cobro o el Excel de gastos
+          </span>
+        </div>
+        <div className="p-4 space-y-3">
+          <CajaPegar compacta />
+          <SoltarGastos />
+        </div>
+      </div>
+
+      {/* Arreglo de una vez de las estancias que se pisaban. Desaparece solo
+          cuando no queda nada pendiente. */}
+      <CorreccionesLuis />
+
+      {/* Descuadres Excel ↔ app. Van antes que el resto de avisos: son los que
+          pidió el propietario para poder cerrar el ejercicio. */}
+      <AlertasDescuadre />
+
       {/* Alerts */}
-      {(pendingPayment.length > 0 || isPriceRenewalMonth) && (
+      {(vencidas.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
         <div className="mb-6 space-y-2">
+          {copiaPendiente && (
+            <Link to="/config"
+              className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3 hover:bg-amber-100/70 transition-colors">
+              <ShieldAlert size={18} className="text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium text-amber-800 text-sm">Toca copia de seguridad</p>
+                <p className="text-amber-700 text-xs mt-0.5">
+                  Han pasado {DIAS_ENTRE_COPIAS} días o más desde la última. Pincha aquí para
+                  descargarla desde <strong>Apartamentos</strong>.
+                </p>
+              </div>
+            </Link>
+          )}
           {isPriceRenewalMonth && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
               <AlertTriangle size={18} className="text-blue-600 mt-0.5 shrink-0" />
@@ -77,21 +150,28 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-          {pendingPayment.slice(0, 3).map(r => {
+          {vencidas.slice(0, 5).map(r => {
             const paid = getPaidAmount(r)
             const pending = r.total - paid
+            const vencida = true
             return (
-              <div key={r.id} className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-3">
-                <Clock size={16} className="text-amber-600 shrink-0" />
+              <div key={r.id} className={`rounded-lg p-3 flex items-center gap-3 border ${
+                vencida ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+                <Clock size={16} className={`shrink-0 ${vencida ? 'text-red-600' : 'text-amber-600'}`} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-amber-800">{getApartmentName(r.apartmentId)} — {formatDateShort(r.checkIn)} al {formatDateShort(r.checkOut)}</p>
-                  <p className="text-xs text-amber-700">Pendiente: <strong>{pending.toFixed(2)} €</strong> (cobrado {paid.toFixed(2)} de {r.total.toFixed(2)} €)</p>
+                  <p className={`text-sm font-medium ${vencida ? 'text-red-800' : 'text-amber-800'}`}>
+                    {getApartmentName(r.apartmentId)} — {formatDateShort(r.checkIn)} al {formatDateShort(r.checkOut)}
+                    {vencida && <span className="ml-2 text-xs font-bold">ya terminó y no está cobrada del todo</span>}
+                  </p>
+                  <p className={`text-xs ${vencida ? 'text-red-700' : 'text-amber-700'}`}>
+                    Falta por cobrar: <strong>{pending.toFixed(2)} €</strong> · cobrado {paid.toFixed(2)} de {r.total.toFixed(2)} €
+                  </p>
                 </div>
               </div>
             )
           })}
-          {pendingPayment.length > 3 && (
-            <p className="text-xs text-slate-500 pl-1">+{pendingPayment.length - 3} pagos más pendientes</p>
+          {vencidas.length > 5 && (
+            <p className="text-xs text-slate-500 pl-1">+{vencidas.length - 5} cobros vencidos más</p>
           )}
         </div>
       )}
@@ -112,7 +192,7 @@ export default function Dashboard() {
                     <p className="text-sm font-medium text-slate-700">{getApartmentName(r.apartmentId)}</p>
                     <p className="text-xs text-slate-500">Sale {formatDate(r.checkOut)} · {r.nights} noches</p>
                   </div>
-                  <span className="text-sm font-semibold text-green-700">{r.total.toLocaleString('es-ES')} €</span>
+                  <span className="text-sm font-semibold text-green-700">{numSuelto(r.total)} €</span>
                 </div>
               ))}
             </div>

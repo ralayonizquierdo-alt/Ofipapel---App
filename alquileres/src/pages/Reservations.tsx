@@ -1,19 +1,29 @@
-import { useState, useEffect } from 'react'
-import { Plus, Pencil, Trash2, CheckCircle, Circle } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Plus, Pencil, Trash2, CheckCircle, Circle, ClipboardPaste, CalendarRange, Paperclip, FileText } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { Reservation, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
-import { formatDate, getNights, getSeason, today } from '../lib/dateUtils'
-import { getApartmentType, calcTotal } from '../lib/priceCalc'
+import { formatDate, getNights, today } from '../lib/dateUtils'
+import { calcTotal, buscaTarifa, stayTypeDays, lineasPrecio, TRAMO_LABEL, type Tramo } from '../lib/priceCalc'
+import { EJERCICIO_APP } from '../lib/cuentas'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
+import PegarWhatsApp from '../components/PegarWhatsApp'
+import ImportarReservas from '../components/ImportarReservas'
+import ImportarAirbnb from '../components/ImportarAirbnb'
+import { num, numSuelto } from '../lib/formato'
 
 const STAY_LABELS: Record<StayType, string> = {
   '1semana': '1 Semana', '2semanas': '2 Semanas', '3semanas': '3 Semanas',
   '1mes': '1 Mes', 'directo': 'Directo/Largo', 'otro': 'Otro'
 }
+const TRAMOS: Tramo[] = ['1semana', '2semanas', '3semanas', '1mes']
+const eur = (n: number) =>
+  `${num(Number.isFinite(n) ? n : 0, 2)} €`
+/** Descuento por pago en efectivo. Se aplica dure lo que dure la estancia. */
+const DTO_EFECTIVO = 10
 const CHANNEL_LABELS: Record<Channel, string> = {
-  directo: 'Directo', inmobiliaria: 'Inmobiliaria', booking: 'Booking', web: 'Web'
+  directo: 'Directo', inmobiliaria: 'Inmobiliaria', booking: 'Booking', airbnb: 'Airbnb', web: 'Web'
 }
 const STATUS_COLORS: Record<string, string> = {
   confirmada: 'bg-blue-100 text-blue-700',
@@ -25,11 +35,17 @@ const STATUS_COLORS: Record<string, string> = {
 export default function Reservations() {
   const { reservations, payments, apartments, prices } = useData()
   const [showForm, setShowForm] = useState(false)
+  const [showPegar, setShowPegar] = useState(false)
+  const [showCalendario, setShowCalendario] = useState(false)
+  const [showAirbnb, setShowAirbnb] = useState(false)
   const [editing, setEditing] = useState<Reservation | null>(null)
   const [selectedRes, setSelectedRes] = useState<Reservation | null>(null)
   const [filterApt, setFilterApt] = useState('')
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()))
   const [searchParams, setSearchParams] = useSearchParams()
+  const hoy = today()
+  /** De los años cerrados no se cuadra nada: ver el comentario de `suma`. */
+  const cuadra = (r: Reservation) => Number(r.checkIn.slice(0, 4)) >= EJERCICIO_APP
 
   useEffect(() => {
     const editId = searchParams.get('edit')
@@ -49,6 +65,36 @@ export default function Reservations() {
 
   const years = [...new Set(reservations.map(r => r.checkIn.slice(0, 4)))].sort((a, b) => b.localeCompare(a))
 
+  // Sumas de lo que se está viendo, no del total de la base: el filtro de
+  // apartamento y año está justo encima, y lo que se quiere es cuadrar ese
+  // trozo contra el Excel sin ir sumando las filas a mano.
+  // Lo que falta por cobrar y lo cobrado de más se suman por separado: si se
+  // netean, 900 € sin cobrar de una y 900 € de más en otra dan cero y parece
+  // que no hay nada que hacer, cuando hay dos cosas que hacer.
+  //
+  // Y solo cuentan las estancias del ejercicio en curso: las de años anteriores
+  // llevan el importe estimado que trajo el calendario de colores —muchas,
+  // cero— mientras que sus cobros son los reales del Excel. Restar lo uno de lo
+  // otro no significa nada.
+  const suma = filtered.reduce((a, r) => {
+    if (r.status === 'cancelada' || !cuadra(r)) return a
+    const cobrado = payments
+      .filter(p => p.reservationId === r.id && p.received)
+      .reduce((x, p) => x + p.amount, 0)
+    const saldo = r.total - cobrado
+    return {
+      noches: a.noches + r.nights,
+      total: a.total + r.total,
+      cobrado: a.cobrado + cobrado,
+      falta: a.falta + (saldo > 0.005 ? saldo : 0),
+      aFavor: a.aFavor + (saldo < -0.005 ? -saldo : 0),
+    }
+  }, { noches: 0, total: 0, cobrado: 0, falta: 0, aFavor: 0 })
+  const redondea = (n: number) => Math.round(n * 100) / 100
+  
+  const sumaFalta = redondea(suma.falta)
+  const sumaAFavor = redondea(suma.aFavor)
+
   function getAptName(id: string) { return apartments.find(a => a.id === id)?.name || id }
   function getPaid(r: Reservation) {
     return payments.filter(p => p.reservationId === r.id && p.received).reduce((s, p) => s + p.amount, 0)
@@ -65,17 +111,36 @@ export default function Reservations() {
     <div className="p-6">
       <PageHeader
         title="Reservas"
-        subtitle={`${filtered.length} reservas`}
+        subtitle={`${filtered.length} reservas · ${suma.noches} noches · ${eur(suma.total)}`
+          + (sumaFalta > 0 ? ` · falta por cobrar ${eur(sumaFalta)}` : '')
+          + (sumaAFavor > 0 ? ` · ${eur(sumaAFavor)} cobrados de más` : '')
+          + (!sumaFalta && !sumaAFavor ? ' · todo cobrado' : '')}
         actions={
-          <button onClick={() => { setEditing(null); setShowForm(true) }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-            <Plus size={16} /> Nueva reserva
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => setShowCalendario(true)}
+              title="Sustituir todas las reservas por las del calendario anual"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 whitespace-nowrap">
+              <CalendarRange size={16} /> Cargar calendario
+            </button>
+            <button onClick={() => setShowAirbnb(true)}
+              title="Informe anual de la gestora del Arenal: pone el importe neto a las reservas de Airbnb"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 whitespace-nowrap">
+              <FileText size={16} /> Informe<span className="hidden sm:inline"> de Airbnb</span>
+            </button>
+            <button onClick={() => setShowPegar(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-slate-200 bg-white text-slate-700 rounded-lg text-sm font-medium hover:border-blue-300 whitespace-nowrap">
+              <ClipboardPaste size={16} /> Pegar<span className="hidden sm:inline"> desde WhatsApp</span>
+            </button>
+            <button onClick={() => { setEditing(null); setShowForm(true) }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 whitespace-nowrap">
+              <Plus size={16} /> Nueva<span className="hidden sm:inline"> reserva</span>
+            </button>
+          </div>
         }
       />
 
       {/* Filters */}
-      <div className="flex gap-3 mb-5">
+      <div className="flex flex-wrap gap-3 mb-5">
         <select value={filterApt} onChange={e => setFilterApt(e.target.value)}
           className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-700">
           <option value="">Todos los apartamentos</option>
@@ -100,6 +165,7 @@ export default function Reservations() {
               <th className="text-left py-3 px-4 font-medium text-slate-600">Tipo</th>
               <th className="text-right py-3 px-4 font-medium text-slate-600">Total</th>
               <th className="text-right py-3 px-4 font-medium text-slate-600">Cobrado</th>
+              <th className="text-right py-3 px-4 font-medium text-slate-600">Pendiente</th>
               <th className="text-left py-3 px-4 font-medium text-slate-600">Forma pago</th>
               <th className="text-left py-3 px-4 font-medium text-slate-600">Estado</th>
               <th className="py-3 px-4"></th>
@@ -108,7 +174,10 @@ export default function Reservations() {
           <tbody>
             {filtered.map(r => {
               const paid = getPaid(r)
-              const pending = r.total - paid
+              const pending = cuadra(r) ? r.total - paid : 0
+              // Estancia terminada y sin cobrar del todo: eso ya no es «queda
+              // por cobrar», es un descubierto. Se pinta en rojo.
+              const vencida = r.status !== 'cancelada' && r.checkOut < hoy
               const displayStatus = (r.status === 'confirmada' && r.total > 0 && paid >= r.total) ? 'cobrada' : r.status
               return (
                 <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
@@ -118,12 +187,29 @@ export default function Reservations() {
                   <td className="py-3 px-4 text-slate-600">{formatDate(r.checkOut)}</td>
                   <td className="py-3 px-4 text-slate-600">{r.nights}N</td>
                   <td className="py-3 px-4 text-slate-500 text-xs">{STAY_LABELS[r.stayType]}</td>
-                  <td className="py-3 px-4 text-right font-semibold text-slate-800">{r.total.toLocaleString('es-ES')} €</td>
-                  <td className="py-3 px-4 text-right">
-                    <span className={`text-xs font-medium ${pending > 0 ? 'text-amber-700' : 'text-green-700'}`}>
-                      {paid.toLocaleString('es-ES')} €
-                      {pending > 0 && <span className="ml-1 text-amber-500">(-{pending.toFixed(0)})</span>}
-                    </span>
+                  <td className="py-3 px-4 text-right font-semibold text-slate-800 tabular-nums">{eur(r.total)}</td>
+                  <td className="py-3 px-4 text-right text-slate-600 tabular-nums">
+                    {eur(paid)}
+                  </td>
+                  {/* Lo que falta por cobrar, en su propia columna y con su
+                      color. Antes iba de refilón entre paréntesis junto a lo
+                      cobrado y se pasaba por alto: una estancia pagada de menos
+                      parecía pagada. */}
+                  <td className="py-3 px-4 text-right tabular-nums">
+                    {pending > 0.005 ? (
+                      <span className={`font-semibold ${vencida && pending > 0.005 ? 'text-red-600' : 'text-amber-700'}`}>
+                        {eur(pending)}
+                      </span>
+                    ) : pending < -0.005 ? (
+                      /* Han pagado de más: no es un pendiente en negativo. La
+                         estancia está cuadrada y el sobrante se queda; se
+                         enseña para saber de dónde salió ese euro de más. */
+                      <span className="font-semibold text-blue-700" title="La estancia está cuadrada: esto es lo que pagaron de más">
+                        +{eur(-pending)} de más
+                      </span>
+                    ) : (
+                      <span className="text-green-600">—</span>
+                    )}
                   </td>
                   <td className="py-3 px-4 text-slate-500 text-xs">{getPaymentMethods(r)}</td>
                   <td className="py-3 px-4">
@@ -141,9 +227,28 @@ export default function Reservations() {
               )
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={10} className="py-8 text-center text-slate-400 text-sm">No hay reservas</td></tr>
+              <tr><td colSpan={11} className="py-8 text-center text-slate-400 text-sm">No hay reservas</td></tr>
             )}
           </tbody>
+          {filtered.length > 0 && (
+            <tfoot className="border-t-2 border-slate-300 bg-slate-50">
+              <tr className="font-semibold text-slate-800">
+                <td className="py-3 px-4">TOTAL · {filtered.length} reservas</td>
+                <td className="py-3 px-4" colSpan={2}></td>
+                <td className="py-3 px-4 text-slate-600">{suma.noches}N</td>
+                <td className="py-3 px-4"></td>
+                <td className="py-3 px-4 text-right tabular-nums">{eur(suma.total)}</td>
+                <td className="py-3 px-4 text-right tabular-nums text-slate-600">{eur(suma.cobrado)}</td>
+                <td className="py-3 px-4 text-right tabular-nums">
+                  {sumaFalta > 0 && <span className="text-amber-700">{eur(sumaFalta)}</span>}
+                  {sumaFalta > 0 && sumaAFavor > 0 && <br />}
+                  {sumaAFavor > 0 && <span className="text-blue-700 text-xs">+{eur(sumaAFavor)} de más</span>}
+                  {!sumaFalta && !sumaAFavor && <span className="text-green-600">—</span>}
+                </td>
+                <td className="py-3 px-4" colSpan={3}></td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 
@@ -164,6 +269,30 @@ export default function Reservations() {
           onClose={() => setSelectedRes(null)}
         />
       )}
+
+      {showPegar && <PegarWhatsApp onClose={() => setShowPegar(false)} />}
+
+      {showCalendario && <ImportarReservas onClose={() => setShowCalendario(false)} />}
+
+      {showAirbnb && <ImportarAirbnb onClose={() => setShowAirbnb(false)} />}
+    </div>
+  )
+}
+
+/**
+ * Nota al pie con las cuentas que dan el total. Meramente informativa: sirve
+ * para que dentro de dos años se pueda ver con qué tarifa se cerró una reserva
+ * sin tener que reconstruirla.
+ *
+ * Va en translate="no" por lo mismo que el resumen de precios: si el traductor
+ * del navegador reemplaza estos textos, React falla al insertar nodos y se cae
+ * la app entera (pantalla en blanco).
+ */
+function MemoriaPrecio({ lineas }: { lineas: string[] }) {
+  return (
+    <div className="mt-2 pt-2 border-t border-slate-200 text-[11px] leading-relaxed text-slate-400" translate="no">
+      <p className="font-medium text-slate-500">Cómo se calcula</p>
+      {lineas.map((l, i) => <p key={i}>{l}</p>)}
     </div>
   )
 }
@@ -172,57 +301,55 @@ export default function Reservations() {
 function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   { apartments: Apartment[]; prices: PriceEntry[]; editing: Reservation | null; onClose: () => void; onSave: () => void }) {
 
-  const { addReservation, updateReservation, deleteReservation, addPayment, updatePayment, payments } = useData()
+  const { addReservation, updateReservation, deleteReservation, addPayment, updatePayment, payments, offerPrices } = useData()
 
   const [aptId, setAptId] = useState(editing?.apartmentId || apartments[0]?.id || '')
   const [checkIn, setCheckIn] = useState(editing?.checkIn || today())
   const [checkOut, setCheckOut] = useState(editing?.checkOut || '')
-  const [stayType, setStayType] = useState<StayType>(editing?.stayType || '1semana')
+  const [stayTypeManual, setStayType] = useState<StayType>(editing?.stayType || '1semana')
   const [channel, setChannel] = useState<Channel>(editing?.channel || 'inmobiliaria')
-  const [basePrice, setBasePrice] = useState(editing?.basePrice || 0)
-  const [cleaningFee, setCleaningFee] = useState(editing?.cleaningFee || 40)
+  const [basePriceManual, setBasePrice] = useState(editing?.basePrice || 0)
+  const [cleaningFeeManual, setCleaningFee] = useState(editing?.cleaningFee || 40)
   const [discountPct, setDiscountPct] = useState(editing?.discountPct || 0)
   const [notes, setNotes] = useState(editing?.notes || '')
   const [status, setStatus] = useState(editing?.status || 'confirmada' as Reservation['status'])
   const [guestName, setGuestName] = useState(editing?.guestName || '')
-  const [autoCalc, setAutoCalc] = useState(!editing)
+  /**
+   * «Precio pactado»: el importe lo pone la persona a mano y la app no lo
+   * recalcula. Es lo que se usa para los acuerdos de larga temporada, que no
+   * siguen la tarifa por tramos. Al editar una reserva ya guardada se entra
+   * siempre en este modo, para no cambiarle el precio a algo ya cerrado.
+   */
+  const [pactado, setPactado] = useState(!!editing)
 
   const nights = checkOut && checkIn ? getNights(checkIn, checkOut) : 0
+  const tarifa = useMemo(
+    () => buscaTarifa(prices, aptId, checkIn, nights, offerPrices),
+    [prices, aptId, checkIn, nights, offerPrices],
+  )
+
+  // Tarifa por tramos: el precio del tramo se divide entre sus días y se
+  // multiplica por las noches reales, y el tramo no se elige, sale de las
+  // noches (ver tramoPorNoches en lib/priceCalc.ts). Se calcula aquí en vez de
+  // copiarlo a estado con un efecto: así no hay dos versiones del mismo dato
+  // que puedan quedar desincronizadas.
+  const stayType = pactado || !tarifa ? stayTypeManual : tarifa.tramo
+  const basePrice = pactado || !tarifa ? basePriceManual : tarifa.base
+  const cleaningFee = pactado || !tarifa
+    ? cleaningFeeManual
+    : (Number.isFinite(Number(tarifa.entry.cleaningFee)) ? Number(tarifa.entry.cleaningFee) : 40)
   const total = calcTotal(basePrice, cleaningFee, discountPct)
 
-  useEffect(() => {
-    if (!autoCalc || !aptId || !checkIn) return
-    const season = getSeason(checkIn)
-    const aptType = getApartmentType(aptId)
-    const year = new Date(checkIn).getFullYear()
-    const priceEntry = prices.find(p =>
-      p.apartmentType === aptType && p.season === season &&
-      (p.year === year || p.year === year + 1)
-    )
-    if (!priceEntry) return
-    const priceMap: Record<StayType, number> = {
-      '1semana': priceEntry.price1week,
-      '2semanas': priceEntry.price2weeks,
-      '3semanas': priceEntry.price3weeks,
-      '1mes': priceEntry.price1month,
-      'directo': priceEntry.price1month * 0.9,
-      'otro': 0,
-    }
-    setBasePrice(priceMap[stayType] || 0)
-    setCleaningFee(priceEntry.cleaningFee)
-  }, [aptId, stayType, checkIn, autoCalc, prices])
-
-  useEffect(() => {
-    if (!autoCalc || !checkIn) return
-    const daysMap: Record<StayType, number> = {
-      '1semana': 7, '2semanas': 14, '3semanas': 21, '1mes': 30, 'directo': 30, 'otro': 0
-    }
-    const d = daysMap[stayType]
-    if (!d) return
+  /** Atajo: rellena la fecha de salida a partir de la de entrada. */
+  function rellenarSalida(t: Tramo) {
+    if (!checkIn) return
     const date = new Date(checkIn)
-    date.setDate(date.getDate() + d)
+    // Una fecha inválida haría que toISOString() lanzara RangeError, y un error
+    // dentro del render tumba todo el árbol de React (pantalla en blanco).
+    if (Number.isNaN(date.getTime())) return
+    date.setDate(date.getDate() + stayTypeDays(t))
     setCheckOut(date.toISOString().split('T')[0])
-  }, [stayType, checkIn, autoCalc])
+  }
 
   function handleSave() {
     if (!aptId || !checkIn || !checkOut) return alert('Completa los campos obligatorios')
@@ -290,10 +417,16 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Tipo de estancia</label>
-            <select value={stayType} onChange={e => setStayType(e.target.value as StayType)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
-              {Object.entries(STAY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
+            {pactado ? (
+              <select value={stayType} onChange={e => setStayType(e.target.value as StayType)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                {Object.entries(STAY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            ) : (
+              <div className="w-full border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-sm text-slate-600">
+                {nights > 0 ? STAY_LABELS[stayType] : 'Según las fechas'}
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Canal</label>
@@ -307,21 +440,51 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
         <div className="bg-slate-50 rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold text-slate-700">Precios</p>
-            <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
-              <input type="checkbox" checked={autoCalc} onChange={e => setAutoCalc(e.target.checked)} />
-              Cálculo automático
-            </label>
+            <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs">
+              {[
+                { v: false, t: 'Tarifa por tramos' },
+                { v: true, t: 'Precio pactado' },
+              ].map(o => (
+                <button key={String(o.v)} type="button"
+                  onClick={() => {
+                    // Al pasar a manual se parte de lo que ya se está viendo,
+                    // no de lo que hubiera antes en el formulario.
+                    if (o.v) { setStayType(stayType); setBasePrice(basePrice); setCleaningFee(cleaningFee) }
+                    setPactado(o.v)
+                  }}
+                  className={`px-2.5 py-1.5 font-medium transition-colors ${
+                    pactado === o.v ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                  }`}>
+                  {o.t}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {!pactado && (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-slate-500">Rellenar salida:</span>
+              {TRAMOS.map(t => (
+                <button key={t} type="button" onClick={() => rellenarSalida(t)}
+                  className="px-2 py-1 rounded border border-slate-200 bg-white text-xs text-slate-600 hover:border-blue-300">
+                  {STAY_LABELS[t]}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-xs text-slate-500 mb-1">Precio base (€)</label>
               <input type="number" value={basePrice} onChange={e => setBasePrice(Number(e.target.value))}
-                className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm" />
+                readOnly={!pactado}
+                className={`w-full border border-slate-200 rounded px-2 py-1.5 text-sm ${!pactado ? 'bg-slate-100 text-slate-600' : ''}`} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Limpieza (€)</label>
               <input type="number" value={cleaningFee} onChange={e => setCleaningFee(Number(e.target.value))}
-                className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm" />
+                readOnly={!pactado}
+                className={`w-full border border-slate-200 rounded px-2 py-1.5 text-sm ${!pactado ? 'bg-slate-100 text-slate-600' : ''}`} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Descuento (%)</label>
@@ -329,14 +492,38 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
                 className="w-full border border-slate-200 rounded px-2 py-1.5 text-sm" min="0" max="100" />
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between bg-white rounded p-3 border border-slate-200">
+          {/* Ojo al tocar este bloque: los hijos deben ser SIEMPRE los mismos
+              elementos, cambiando solo su texto. Si se mezclan nodos de texto
+              sueltos con <span> condicionales, el traductor del navegador
+              reemplaza esos textos y, al insertar React el span, insertBefore
+              falla ("node ... is not a child of this node") y se cae la app
+              entera dejando la pantalla en blanco. translate="no" evita además
+              que el traductor toque estas cifras. */}
+          <label className="mt-3 flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+            <input type="checkbox" checked={discountPct === DTO_EFECTIVO}
+              onChange={e => setDiscountPct(e.target.checked ? DTO_EFECTIVO : 0)} />
+            Pago en efectivo (−{DTO_EFECTIVO} %)
+          </label>
+
+          <div className="mt-3 flex items-center justify-between bg-white rounded p-3 border border-slate-200" translate="no">
+            {/* El desglose de la cuenta va abajo, en «Cómo se calcula»: aquí
+                solo lo imprescindible para no decir dos veces lo mismo. */}
             <div className="text-xs text-slate-500">
-              {nights > 0 && <span>{nights} noches · </span>}
-              Base: {basePrice}€ + Limpieza: {cleaningFee}€
-              {discountPct > 0 && <span> - {discountPct}% dto</span>}
+              <span>{nights > 0 ? `${nights} noches · ` : ''}</span>
+              <span className="text-indigo-600 font-medium">
+                {!pactado && tarifa ? `Tarifa de ${TRAMO_LABEL[tarifa.tramo]} · ` : ''}
+              </span>
+              <span>{`Base ${eur(basePrice)} + limpieza ${eur(cleaningFee)}`}</span>
+              <span>{discountPct > 0 ? ` − ${discountPct} % dto` : ''}</span>
             </div>
-            <div className="text-lg font-bold text-blue-700">{total.toLocaleString('es-ES')} €</div>
+            <div className="text-lg font-bold text-blue-700">{numSuelto(total)} €</div>
           </div>
+
+          <MemoriaPrecio lineas={lineasPrecio({
+            nights, basePrice, cleaningFee, discountPct,
+            tarifa: pactado ? null : tarifa, pactado,
+            oferta: pactado ? null : tarifa?.oferta,
+          })} />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -393,16 +580,16 @@ function PaymentModal({ reservation, aptName, onClose }:
         <div className="bg-slate-50 rounded-lg p-4 grid grid-cols-3 gap-4 text-center">
           <div>
             <p className="text-xs text-slate-500">Total reserva</p>
-            <p className="text-xl font-bold text-slate-800">{reservation.total.toLocaleString('es-ES')} €</p>
+            <p className="text-xl font-bold text-slate-800">{numSuelto(reservation.total)} €</p>
           </div>
           <div>
             <p className="text-xs text-slate-500">Cobrado</p>
-            <p className="text-xl font-bold text-green-700">{totalPaid.toLocaleString('es-ES')} €</p>
+            <p className="text-xl font-bold text-green-700">{numSuelto(totalPaid)} €</p>
           </div>
           <div>
             <p className="text-xs text-slate-500">Pendiente</p>
             <p className={`text-xl font-bold ${pending > 0 ? 'text-amber-600' : 'text-green-600'}`}>
-              {pending.toLocaleString('es-ES')} €
+              {numSuelto(pending)} €
             </p>
           </div>
         </div>
@@ -410,6 +597,19 @@ function PaymentModal({ reservation, aptName, onClose }:
         <div className="text-xs text-slate-500">
           {formatDate(reservation.checkIn)} → {formatDate(reservation.checkOut)} · {reservation.nights} noches · {reservation.notes}
         </div>
+
+        {/* Aquí se parte de lo que quedó guardado en la reserva, no de la tarifa
+            vigente hoy: el precio de una reserva cerrada no puede moverse
+            porque más adelante se cambie la lista de precios. */}
+        <MemoriaPrecio lineas={[
+          `Estancia registrada como «${STAY_LABELS[reservation.stayType]}»`,
+          ...lineasPrecio({
+            nights: reservation.nights,
+            basePrice: reservation.basePrice,
+            cleaningFee: reservation.cleaningFee,
+            discountPct: reservation.discountPct,
+          }),
+        ]} />
 
         <div className="space-y-2">
           <div className="grid gap-2 text-xs font-medium text-slate-500 px-2" style={{gridTemplateColumns: '1fr 3fr 3fr 2fr 2fr 2fr'}}>
@@ -440,7 +640,15 @@ function PaymentModal({ reservation, aptName, onClose }:
               <input defaultValue={p.entryNumber || ''}
                 onBlur={e => handleUpdateField(p.id, 'entryNumber', e.target.value)}
                 className="w-full border border-slate-200 rounded px-2 py-1 text-sm" placeholder="Nº asiento" />
-              <div className="flex justify-end gap-1">
+              <div className="flex justify-end items-center gap-1">
+                {/* El justificante del que salió el cobro, si se subió uno. */}
+                {p.justificanteUrl && (
+                  <a href={p.justificanteUrl} target="_blank" rel="noopener noreferrer"
+                    title={`Ver el justificante: ${p.justificanteNombre ?? 'documento'}`}
+                    className="text-violet-500 hover:text-violet-700 p-0.5">
+                    <Paperclip size={14} />
+                  </a>
+                )}
                 <span className="text-xs text-slate-400">P{i + 1}</span>
                 <button onClick={() => deletePayment(p.id)} className="text-slate-300 hover:text-red-500 p-0.5">
                   <Trash2 size={13} />
