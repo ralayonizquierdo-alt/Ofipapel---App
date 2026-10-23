@@ -153,6 +153,12 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
       <button type="button" class="btn btn-secundario" id="btnProbarOcr" onclick="probarConOcr()">🔍 Probar con OCR</button>
       <div id="ocrProgreso" class="estado" style="margin-top:8px;"></div>
     </div>
+    <div id="iaOfrecido" style="display:none;margin-top:10px;padding:12px 14px;border:1px dashed var(--borde);border-radius:10px;">
+      <div style="font-size:12.5px;color:var(--texto2);margin-bottom:8px;">¿No sale bien o el proveedor no está homologado? <b>Léela con IA</b> (cualquier proveedor; menos fiable que uno homologado: revisa las líneas marcadas y el total) o <b>mándala para homologar</b> el proveedor.</div>
+      <button type="button" class="btn btn-secundario" onclick="leerFacturaConIA()">🤖 Leer con IA</button>
+      <button type="button" class="btn btn-secundario" onclick="enviarParaHomologar()">📤 Enviar para homologar</button>
+      <div id="iaProgreso" class="estado" style="margin-top:8px;"></div>
+    </div>
     <div class="campo" style="margin:14px 0 0;max-width:420px;">
       <label>Proveedor</label>
       <input type="text" id="buscarProveedor" placeholder="🔎 Buscar por nombre..." autocomplete="off"
@@ -1817,6 +1823,7 @@ function resetDropzone(){
   ultimoFueOCR = false;
   document.getElementById('ocrOfrecido').style.display = 'none';
   document.getElementById('ocrProgreso').textContent = '';
+  document.getElementById('iaOfrecido').style.display = 'none';
 }
 
 // Texto/líneas de la última factura leída, para poder reprocesarla si el
@@ -1845,6 +1852,8 @@ async function onPdfSelected(file){
   document.getElementById('dzAcciones').style.display = 'flex';
   document.getElementById('ocrOfrecido').style.display = 'none';
   document.getElementById('ocrProgreso').textContent = '';
+  document.getElementById('iaOfrecido').style.display = 'block';
+  document.getElementById('iaProgreso').textContent = '';
   mostrarEstado('warn', 'Leyendo PDF…');
   try{
     const lineas = await extraerLineasPDF(file);
@@ -1897,6 +1906,7 @@ async function onExcelSelected(file){
   document.getElementById('dzTitulo').textContent = '📊 ' + file.name;
   document.getElementById('dzAcciones').style.display = 'flex';
   document.getElementById('ocrOfrecido').style.display = 'none';
+  document.getElementById('iaOfrecido').style.display = 'none';
   document.getElementById('notasFactura').style.display = 'none';
   if(!window.ControlPedidos){ mostrarEstado('err', 'No se ha podido cargar el lector de Excel. Recarga la página.'); return; }
   mostrarEstado('warn', 'Leyendo Excel…');
@@ -1928,6 +1938,125 @@ async function onExcelSelected(file){
     mostrarModalVerificacion({ perfil, lineas: filas.length, sumaCalculada, totalFactura: null, viaOCR: false, bajaConfianza: false });
   }catch(err){
     mostrarEstado('err', 'Error al leer el Excel: ' + err.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// LECTURA CON IA Y ENVÍO PARA HOMOLOGAR (23/10/2026, a petición del propietario)
+// Para un proveedor sin homologar (o un PDF que su perfil ya no lee): la misma
+// lectura con IA que Control de Pedidos (netlify/functions/leer-pedido-manuscrito-*,
+// modo «documento»). No se fía de lo leído: cada línea se comprueba
+// (cantidad × precio − descuentos = importe) y la suma con la base imponible.
+// «Enviar para homologar» deja el PDF en la nube (tabla cp_homologar, solo las
+// cuentas de Compras) para que Claude haga el perfil del proveedor.
+// ═══════════════════════════════════════════════════════
+const IA_TOKEN = 'ofipapel-ocr-2026'; // el mismo que Control de Pedidos; no es un secreto (ver la función)
+const IA_FN = '/.netlify/functions/';
+const NUBE_URL = 'https://agjmciudnnginqybnogh.supabase.co';
+const NUBE_KEY = 'sb_publishable_LaJCCCGsN2VIXFDFAxEb6g_eEZHh3j6';
+function base64DeArchivo(file){
+  return new Promise((ok, mal) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1]); fr.onerror = () => mal(new Error('No se ha podido leer el fichero')); fr.readAsDataURL(file); });
+}
+const esperaIA = ms => new Promise(r => setTimeout(r, ms));
+async function leerFacturaConIA(){
+  const file = ultimoArchivoPDF;
+  const prog = document.getElementById('iaProgreso');
+  if(!file){ prog.className = 'estado err'; prog.textContent = 'Primero carga el PDF.'; return; }
+  if(!/netlify\.app$|^localhost$/.test(location.hostname)){ prog.className = 'estado err'; prog.textContent = 'La lectura con IA solo funciona en ofipapel.netlify.app.'; return; }
+  try{
+    prog.className = 'estado warn'; prog.textContent = '🤖 Leyendo con IA… (suele tardar entre 30 segundos y 2 minutos)';
+    const b64 = await base64DeArchivo(file);
+    if(b64.length > 4*1024*1024) throw new Error('El PDF es demasiado grande (máximo unos 3 MB).');
+    const jobId = 'imp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    const cab = { 'content-type': 'application/json', 'x-ocr-token': IA_TOKEN };
+    const sub = await fetch(IA_FN + 'leer-pedido-manuscrito-subir', { method:'POST', headers:cab, body: JSON.stringify({ jobId, imagenBase64: b64, mediaType: 'application/pdf' }) });
+    if(!sub.ok){ const e = await sub.json().catch(() => ({})); throw new Error(e.error || 'No se ha podido subir (' + sub.status + ')'); }
+    const r = await fetch(IA_FN + 'leer-pedido-manuscrito-background', { method:'POST', headers:cab, body: JSON.stringify({ jobId, modo: 'documento' }) });
+    if(r.status !== 202 && !r.ok) throw new Error('El lector no responde (' + r.status + ')');
+    let res = null;
+    const limite = Date.now() + 8*60*1000;
+    while(Date.now() < limite){
+      await esperaIA(3000);
+      let e; try{ e = await fetch(IA_FN + 'leer-pedido-manuscrito-estado?jobId=' + encodeURIComponent(jobId), { headers: { 'x-ocr-token': IA_TOKEN } }); }catch(_){ continue; }
+      if(e.status === 202) continue;
+      const d = await e.json().catch(() => ({}));
+      if(!e.ok) throw new Error(d.error || 'Error consultando la lectura');
+      if(d.status === 'error') throw new Error(/credit balance|billing/i.test(String(d.error)) ? 'Se ha acabado el saldo de la cuenta de la IA (Anthropic).' : d.error);
+      if(d.status === 'done'){ res = d.resultado; break; }
+    }
+    if(!res) throw new Error('La lectura ha tardado más de 8 minutos');
+    cargarLecturaIA(res);
+    prog.textContent = '';
+  }catch(err){
+    prog.className = 'estado err'; prog.textContent = 'No se ha podido leer con IA: ' + err.message;
+  }
+}
+function cargarLecturaIA(res){
+  const num = v => { const n = ControlPedidos.parseNum(v); return n == null ? 0 : n; };
+  const dudas = [];
+  filas = (res.lineas || []).filter(l => String(l.referencia || l.descripcion || '').trim()).map(l => {
+    const dtos = ControlPedidos.parseDtos(l.descuentos).map(Number).filter(d => d);
+    const cant = num(l.cantidad), precio = num(l.precio);
+    const importe = l.importe != null && l.importe !== '' ? num(l.importe) : round2_(cant * precio * dtos.reduce((x,d)=>x*(1-d/100), 1));
+    const ref = String(l.referencia || '').trim();
+    const calc = round2_(cant * precio * dtos.reduce((x,d)=>x*(1-d/100), 1));
+    const avisos = [];
+    if(!ref) avisos.push('sin referencia');
+    if(!cant) avisos.push('sin cantidad');
+    if(cant && Math.abs(calc - importe) > 0.02 + 0.01*cant) avisos.push(`el importe ${fmtNum(importe)} no sale de cantidad × precio − descuentos (${fmtNum(calc)})`);
+    if(String(l.duda || '').trim()) avisos.push(String(l.duda).trim());
+    if(avisos.length) dudas.push(`${ref || String(l.descripcion||'').slice(0,30)}: ${avisos.join(' · ')}`);
+    return nuevaFila({ isbn: String(l.ean || '').replace(/\s+/g,''), ref, desc: String(l.descripcion || '').trim(), udes: cant, precioU: precio,
+      dto1: dtos[0]||0, dto2: dtos[1]||0, dto3: dtos[2]||0, dto4: dtos[3]||0, importe, igic: '' });
+  });
+  proveedorDetectado = String(res.proveedor || '').trim();
+  document.getElementById('cabProveedor').value = proveedorDetectado;
+  const notas = document.getElementById('notasFactura');
+  if(dudas.length){
+    notas.style.display = 'block';
+    notas.innerHTML = '<strong>🤖 Líneas a revisar (leídas con IA):</strong><br>' + dudas.map(escapeHtml).join('<br>');
+  } else { notas.style.display = 'none'; notas.innerHTML = ''; }
+  ordenActual = {campo:null, asc:true};
+  renderFilas();
+  actualizarBotonesOrden();
+  mostrarEstado(filas.length ? 'warn' : 'err', filas.length
+    ? `🤖 Leído con IA: ${filas.length} líneas${dudas.length ? `, ${dudas.length} a revisar` : ''}. Revisa la tabla y el total antes de exportar.`
+    : 'La IA no ha encontrado líneas de artículo en este PDF.');
+  if(!filas.length) return;
+  const sumaCalculada = round2_(filas.reduce((s,f)=>s+(parseFloat(f.importe)||0), 0));
+  const base = ControlPedidos.parseNum(res.baseImponible);
+  mostrarModalVerificacion({ perfil: { nombre: (proveedorDetectado || 'Sin identificar') + ' (leído con IA)' }, lineas: filas.length, sumaCalculada,
+    totalFactura: base == null ? null : base, viaOCR: false, bajaConfianza: true });
+}
+// La sesión de Control de Pedidos (misma web, su propia clave): solo se lee
+// el token, sin abrir otro cliente que pudiera pisarle la renovación.
+function tokenDeCompras(){
+  try{
+    const s = JSON.parse(localStorage.getItem('ofipapel-control-pedidos-auth') || 'null');
+    const ses = s && (s.access_token ? s : s.currentSession);
+    if(ses && ses.access_token && (!ses.expires_at || ses.expires_at*1000 > Date.now() + 30000)) return ses.access_token;
+  }catch(_){}
+  return null;
+}
+async function enviarParaHomologar(){
+  const file = ultimoArchivoPDF;
+  const prog = document.getElementById('iaProgreso');
+  if(!file){ prog.className = 'estado err'; prog.textContent = 'Primero carga el PDF.'; return; }
+  const token = tokenDeCompras();
+  if(!token){ prog.className = 'estado err'; prog.textContent = 'Para enviarla hay que tener abierta la sesión de Compras (Control de Pedidos) con tu usuario. Ábrela desde el hub y vuelve a intentarlo.'; return; }
+  const nota = prompt('Enviar «' + file.name + '» para homologar el proveedor.\n\nNota (opcional): ¿qué proveedor es o qué falla?', proveedorDetectado || '');
+  if(nota === null) return;
+  try{
+    prog.className = 'estado warn'; prog.textContent = '📤 Enviando…';
+    const b64 = await base64DeArchivo(file);
+    if(b64.length > 6000000) throw new Error('El PDF es demasiado grande (máximo unos 4 MB).');
+    const r = await fetch(NUBE_URL + '/rest/v1/cp_homologar', { method:'POST',
+      headers: { apikey: NUBE_KEY, Authorization: 'Bearer ' + token, 'content-type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ nombre: file.name, nota: String(nota).trim(), proveedor: document.getElementById('cabProveedor').value || proveedorDetectado || '', tamano: file.size, pdf: b64 }) });
+    if(!r.ok){ const t = await r.text(); throw new Error(r.status + ' ' + t.slice(0, 160)); }
+    prog.className = 'estado ok'; prog.textContent = '✅ Enviada para homologar. En el próximo chat con Claude, dile «homologa los pendientes».';
+  }catch(err){
+    prog.className = 'estado err'; prog.textContent = 'No se ha podido enviar: ' + err.message;
   }
 }
 
