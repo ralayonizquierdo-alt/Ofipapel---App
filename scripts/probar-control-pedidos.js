@@ -927,3 +927,19 @@ test('Reposición: el proveedor cuenta por cajas y nosotros por unidades; «Mant
   const x3 = r.lineas.find((l) => l.ref === 'X3');
   assert.deepEqual([x3.cant, x3.precio], [10, 1]);
 });
+
+test('Pedido de Géminis con miles («1.200») y cajas de nuestro pedido cuando el proveedor manda de más', () => {
+  const r = CP.leerPedidoGeminis([
+    'Propuesta de Pedido', 'PROVEEDOR PRUEBA', 'Almacén 12345',
+    'Cod.Venta R Rfc.Compra Descripción Bultos cajas',
+    'Caja Unidades Precio Desc.Bon Cod. Barras Imágen',
+    '555 B-1 BOLIGRAFO AZUL 0 432 25 10.800 0,265 8400000000048',
+    '666 B-2 BOLIGRAFO NEGRO 0 48 25 1.200 0,216 8400000000055',
+  ]);
+  assert.deepEqual(r.lineas.map((l) => [l.referencia, l.cantidad, l.udsCaja]), [['B-1', '10800', '25'], ['B-2', '1200', '25']]);
+  const ped = [{ ref: 'B-1', cant: 4800, precio: 0.265, udsCaja: '25' }, { ref: 'B-2', cant: 72, precio: 0.241, udsCaja: '6' }];
+  const pro = [{ ref: 'B-1', cant: 200, precio: 6.62 }, { ref: 'B-2', cant: 3, precio: 5.785 }];
+  const f = CP.compararPedido(ped, pro, { comparar: 'neto', tolerancia: CP.TOLERANCIA.reposicion });
+  assert.deepEqual([f[0].porCaja, f[0].cantPropuesta, f[0].revisar], [25, 5000, true], '200 cajas de 25: vienen 200 de más');
+  assert.deepEqual([f[1].porCaja, f[1].cantPropuesta], [24, 72], 'sin cuadrar con las uds/caja, vale el múltiplo exacto');
+});
