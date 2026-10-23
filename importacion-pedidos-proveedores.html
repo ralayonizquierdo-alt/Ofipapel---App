@@ -1222,7 +1222,22 @@ function parsePerfotec(lineas){
 function desplazarTexto(s, n){
   return String(s).split('').map(c => String.fromCodePoint(c.codePointAt(0)+n)).join('');
 }
+// Desde septiembre de 2026 algunas facturas (y sus confirmaciones de pedido) llegan con el
+// texto normal, sin desplazar: si con el descifrado no sale ninguna línea, se leen tal cual.
+const RE_VALLEJO_PLANO = /^(?:\d{1,3}\s+)?(\S+)\s+(.+?)\s+(\d+)\s+([\d,]+)\s+(-?\d+)\s*%\s+(?:(-?\d+)\s*%\s+)?([\d.]+,\d{2})$/;
 function parseAcrilicosVallejo(lineasCrudas){
+  const cifradas = parseAcrilicosVallejoCifrado(lineasCrudas);
+  if(cifradas.length) return cifradas;
+  const filas = [];
+  lineasCrudas.forEach(l=>{
+    const m = String(l).trim().replace(/\s+/g,' ').match(RE_VALLEJO_PLANO);
+    if(!m) return;
+    const [,codigo,desc,cant,precio,dto1,dto2,importe] = m;
+    filas.push(fila_({codigo, descripcion:desc.trim(), cantidad:parseInt(cant,10), precioUnitario:parseDecComa(precio), dto1:Math.abs(parseDecComa(dto1)), dto2: dto2?Math.abs(parseDecComa(dto2)):0, importe:parseDecComa(importe)}));
+  });
+  return filas;
+}
+function parseAcrilicosVallejoCifrado(lineasCrudas){
   const lineas = lineasCrudas.map(l => desplazarTexto(l, 29));
   const filas = [];
   const RE = /^\d+=(\S+)=(.+?)=(\d+)=([\d,]+)=(-?\d+)%=(?:(-?\d+)=%=)?([\d.]+,\d{2})$/;
@@ -1504,7 +1519,8 @@ function totalRepetidoComaTodas(texto, keyword){
 function totalAcrilicosVallejo(textoCrudo){
   // Ojo: desplazar el bloque completo movería también los '\n' (10+29=39=comilla),
   // destruyendo los saltos de línea. Hay que desplazar línea a línea y volver a unir.
-  const texto = textoCrudo.split('\n').map(l => desplazarTexto(l, 29)).join('\n');
+  const plano = /Suma importes/i.test(textoCrudo);
+  const texto = plano ? textoCrudo : textoCrudo.split('\n').map(l => desplazarTexto(l, 29)).join('\n');
   const idx = texto.search(/Suma importes/i);
   if(idx<0) return null;
   const lineas = texto.slice(idx).split('\n');
@@ -1579,7 +1595,7 @@ const PERFILES_PROVEEDOR = [
     total: t => totalRepetidoComa(t, 'BASE IMPONIBLE') },
   { id:'perfotec', nombre:'PERFOTEC, S.L.', detectar: t => /PERFOTEC/i.test(t), parser: parsePerfotec,
     total: t => totalSimple(t, /B\. IMPONIBLE[\s\S]{0,30}?(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
-  { id:'acrilicosvallejo', nombre:'ACRÍLICOS VALLEJO, S.L.U.', detectar: t => /ACRYLICOS VALLEJO|ESB60562956/i.test(desplazarTexto(t, 29)), parser: parseAcrilicosVallejo,
+  { id:'acrilicosvallejo', nombre:'ACRÍLICOS VALLEJO, S.L.U.', detectar: t => /ACRYLICOS VALLEJO|ESB60562956/i.test(desplazarTexto(t, 29)) || /ACRYLICOS VALLEJO|ESB60562956/i.test(t), parser: parseAcrilicosVallejo,
     total: t => totalAcrilicosVallejo(t) },
   { id:'poessa', nombre:'POESSA (The Paper & Office Equipment Spain)', detectar: t => /The Paper & Office Equipment|A48221998/i.test(t), parser: parsePoessa,
     total: t => totalPoessa(t) },
