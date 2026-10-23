@@ -1385,6 +1385,40 @@
   }
 
   /**
+   * Referencias nuestras que el proveedor factura con otro código (Fellowes:
+   * ESP010 → 5110301, 53088 → 5308803, 4812170 → 48121-70). Empareja una a una
+   * lo que falta con lo que sobra, por este orden: el mismo código sin
+   * guiones/espacios; uno que empieza por el otro (mín. 5 caracteres); o la
+   * misma cantidad y la misma medida en la descripción («10mm» = «10MM»). Solo
+   * si el candidato es único. Devuelve { refProveedor: refNuestra }.
+   */
+  function emparejarReferencias(lineasPedido, lineasPropuesta) {
+    const ped = agrupar(lineasPedido);
+    const pro = agrupar(lineasPropuesta);
+    let faltan = [...ped.keys()].filter((k) => !pro.has(k)).map((k) => ped.get(k));
+    let sobran = [...pro.keys()].filter((k) => !ped.has(k)).map((k) => pro.get(k));
+    const out = {};
+    const alnum = (r) => String(r || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const medidas = (d) => [...new Set((String(d || '').toLowerCase().match(/\d+(?:[.,]\d+)?\s*(?:mm|cm|mic|mi|ml|gr?|kg)\b/g) || []).map((x) => x.replace(/\s+/g, '').replace(',', '.').replace(/mic$|mi$/, 'mic')))].sort().join('|');
+    const reglas = [
+      (a, b) => alnum(a.ref) === alnum(b.ref),
+      (a, b) => { const x = alnum(a.ref), y = alnum(b.ref); return x.length >= 5 && y.length >= 5 && (x.startsWith(y) || y.startsWith(x)); },
+      (a, b) => { const m = medidas(a.desc); return Boolean(m) && m === medidas(b.desc) && a.cant === b.cant; },
+    ];
+    for (const regla of reglas) {
+      for (const a of faltan.slice()) {
+        const cand = sobran.filter((b) => regla(a, b));
+        if (cand.length !== 1) continue;
+        if (faltan.filter((x) => regla(x, cand[0])).length !== 1) continue;
+        out[cand[0].ref] = a.ref;
+        faltan = faltan.filter((x) => x !== a);
+        sobran = sobran.filter((x) => x !== cand[0]);
+      }
+    }
+    return out;
+  }
+
+  /**
    * Referencia tal como la tiene Géminis. Finocam añade el año a sus códigos
    * (621163027 = 6211630 + «27») y Géminis los guarda sin él, porque cambia
    * cada año: en el Excel para Géminis, una referencia de Finocam de 9 cifras
@@ -1558,7 +1592,7 @@
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
     parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, repartirPorReferencias, fotosRepetidas, firmaLineas,
-    sugerirAsignacion, restosQueLlegan, codigosInternos, refParaGeminis, descuentoEquivalente, leerPropuesta, filasGeminis,
+    sugerirAsignacion, restosQueLlegan, codigosInternos, refParaGeminis, emparejarReferencias, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.ControlPedidos = api;

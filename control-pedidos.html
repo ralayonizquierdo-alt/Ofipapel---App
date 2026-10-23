@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-23-5"></script>
+<script src="control-pedidos-logica.js?v=2026-10-23-6"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -468,20 +468,39 @@ function repararAltas(p) {
   if (p.validado) invalidar(p); // lo validado se hizo con la referencia «2»: hay que volver a validar
   setTimeout(guardar, 0);
 }
+/** Equivalencias de referencia (la del proveedor → la nuestra): las que se
+ *  emparejan solas, las del proveedor que ya se dijeron otra vez y las de este
+ *  pedido, que mandan. */
+function equivalenciasDe(p) {
+  const delProv = ((E.catalogos[prov(p.proveedor)] || {}).equivalencias) || {};
+  const nuestras = new Set(p.lineas.map((l) => CP.claveRef(l.ref)));
+  const conocidas = Object.fromEntries(Object.entries(delProv).filter(([, r]) => nuestras.has(CP.claveRef(r))));
+  const manuales = Object.assign({}, conocidas, p.equivalencias || {});
+  const conMan = p.propuesta.lineas.map((l) => (manuales[l.ref] ? Object.assign({}, l, { ref: manuales[l.ref] }) : l));
+  return Object.assign(CP.emparejarReferencias(p.lineas, conMan), manuales);
+}
 function comparar(p) {
   repararAltas(p);
   if (!p.propuesta) return null;
+  // La referencia del proveedor que es la nuestra con otro código se compara como la nuestra.
+  const eq = equivalenciasDe(p);
+  const inv = Object.fromEntries(Object.entries(eq).map(([a, b]) => [CP.claveRef(b), a]));
+  const filas = compararSinEquivalencias(p, p.propuesta.lineas.map((l) => (eq[l.ref] ? Object.assign({}, l, { ref: eq[l.ref] }) : l)));
+  for (const f of filas) { const r = inv[CP.claveRef(f.ref)]; if (r && CP.claveRef(r) !== CP.claveRef(f.ref)) f.refProveedor = r; }
+  return filas;
+}
+function compararSinEquivalencias(p, lineasPropuesta) {
   // Reposición: precio NETO (tras todos los descuentos), 0,25 € informativo, y
   // si el pedido no trae precio se compara con el último aceptado.
   if (esRepo(p)) {
-    return CP.compararPedido(p.lineas, p.propuesta.lineas, { catalogo: catalogoDe(p.proveedor), comparar: 'neto',
+    return CP.compararPedido(p.lineas, lineasPropuesta, { catalogo: catalogoDe(p.proveedor), comparar: 'neto',
       tolerancia: CP.TOLERANCIA.reposicion, preciosAnteriores: preciosAnteriores(p.proveedor) });
   }
   // Comercial: tolerancia cero en precio. El comercial apunta siempre el precio
   // NETO (nunca descuentos): se compara con el neto de cada línea del proveedor
   // (tras sus descuentos, sin el global, que es entre el proveedor y nosotros).
   // Proveedor de netos con margen en su tarifa: el comercial apunta precio de venta.
-  return CP.compararPedido(p.lineas, p.propuesta.lineas, { catalogo: catalogoDe(p.proveedor), comparar: 'neto', tolerancia: CP.TOLERANCIA.comercial, ajusteVenta: ajusteDe(p.proveedor) });
+  return CP.compararPedido(p.lineas, lineasPropuesta, { catalogo: catalogoDe(p.proveedor), comparar: 'neto', tolerancia: CP.TOLERANCIA.comercial, ajusteVenta: ajusteDe(p.proveedor) });
 }
 /** Fotos del pedido (las antiguas, sin registro, se deducen de sus líneas). */
 function fotosDe(p) {
@@ -1459,7 +1478,7 @@ function vistaComparacion(p, filas) {
         const d = p.decisiones[f.ref] || {};
         const acciones = CP.accionesPara(f, p.tipo);
         return `<tr>
-          <td><b>${h(f.ref)}</b>${f.alta ? ` <span class="pequeno">🆕 alta nueva</span>` : ''}${f.sugerencias.length ? `<div class="sugerencia">¿Quizá ${f.sugerencias.map((s) => h(s.ref)).join(', ')}? Corrígela arriba.</div>` : ''}</td>
+          <td><b>${h(f.ref)}</b>${f.refProveedor ? `<div class="pequeno" title="El proveedor la factura con otro código">🔗 proveedor: ${h(f.refProveedor)}${(p.equivalencias || {})[f.refProveedor] ? ` <button class="btn peque" onclick="emparejar(${js(f.refProveedor)}, '')" title="No es la misma: deshacer">deshacer</button>` : ''}</div>` : ''}${f.alta ? ` <span class="pequeno">🆕 alta nueva</span>` : ''}${f.sugerencias.length ? `<div class="sugerencia">¿Quizá ${f.sugerencias.map((s) => h(s.ref)).join(', ')}? Corrígela arriba.</div>` : ''}</td>
           <td>${h(f.desc)}</td>
           <td class="num">${f.cantPedida || '—'}</td><td class="num">${f.cantPropuesta || '—'}</td>
           <td class="num">${f.precioDeHistorial ? fmt(f.precioReferencia) + '<div class="pequeno">(último aceptado)</div>' : celdaPrecio(p, f.precioPedido, f.dtosPedido, f.netoPedido)}</td>
@@ -1469,6 +1488,7 @@ function vistaComparacion(p, filas) {
             <select onchange="decide(${js(f.ref)},'accion',this.value)">
               <option value="">— decidir —</option>
               ${acciones.map((a) => `<option value="${a}" ${d.accion === a ? 'selected' : ''}>${nombres[a]}</option>`).join('')}
+              ${f.estado === 'falta' ? filas.filter((x) => x.estado === 'extra').map((x) => `<option value="eq:${h(x.ref)}">🔗 Es la «${h(x.ref)}» del proveedor (${h(String(x.desc || '').slice(0, 30))})</option>`).join('') : ''}
             </select>
             ${d.accion === 'manual' ? `<div class="fila" style="margin-top:4px"><input class="cant" placeholder="Cant." value="${h(d.cant)}" onchange="decide(${js(f.ref)},'cant',this.value)"><input class="precio" placeholder="${esRepo(p) ? 'Neto' : 'Precio'}" value="${h(d.precio)}" onchange="decide(${js(f.ref)},'precio',this.value)"></div>` : ''}
             ${d.accion === 'reclamar' ? `<input style="margin-top:4px" placeholder="Motivo para el proveedor (opcional)" title="Sale en el texto de la reclamación, debajo de esta referencia" value="${h(d.motivo)}" onchange="decide(${js(f.ref)},'motivo',this.value)">` : ''}
@@ -1782,8 +1802,21 @@ function borrarCampana(clave) {
   quitarPedidos(ps.map((p) => p.id));
   pedidoAbierto = null; guardar(); pintar();
 }
+/** Nuestra referencia `nuestra` es la `delProveedor` de su propuesta (o se
+ *  deshace con nuestra = ''). Se recuerda también para ese proveedor. */
+function emparejar(delProveedor, nuestra) {
+  const p = pedidoActual();
+  p.equivalencias = Object.assign({}, p.equivalencias);
+  const k = prov(p.proveedor);
+  const c = E.catalogos[k] = E.catalogos[k] || { fecha: hoy(), items: {} };
+  c.equivalencias = Object.assign({}, c.equivalencias);
+  if (nuestra) { p.equivalencias[delProveedor] = nuestra; c.equivalencias[delProveedor] = nuestra; delete p.decisiones[nuestra]; }
+  else { delete p.equivalencias[delProveedor]; delete c.equivalencias[delProveedor]; }
+  invalidar(p); guardar(); pintar();
+}
 function decide(ref, campo, valor) {
   const p = pedidoActual();
+  if (campo === 'accion' && String(valor).startsWith('eq:')) { emparejar(String(valor).slice(3), ref); return; }
   p.decisiones[ref] = Object.assign({}, p.decisiones[ref], { [campo]: valor });
   // La nota para el proveedor solo cambia el texto de la reclamación: no hay que revalidar.
   if (campo !== 'motivo') invalidar(p);
