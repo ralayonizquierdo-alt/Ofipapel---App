@@ -1,4 +1,4 @@
-import { Fragment, useState, useCallback } from 'react'
+import { Fragment, useState, useMemo, useCallback } from 'react'
 import { FileSpreadsheet, Printer, AlertTriangle, Plus, Banknote, Check } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import Modal from '../components/ui/Modal'
@@ -42,8 +42,24 @@ export default function Collections() {
   const [nuevoCobro, setNuevoCobro] = useState(false)
   /** Cómo se agrupa el listado por reserva: por mes o por apartamento. */
   const [agrupaPor, setAgrupaPor] = useState<'mes' | 'apartamento'>('mes')
-  const apartments = allApartments.filter(a => a.active)
   const [year, setYear] = useState(new Date().getFullYear())
+  /**
+   * Los apartamentos que salen: los activos, y además cualquiera que tenga
+   * reservas o cobros de ese año aunque esté dado de baja. Enseñar solo los
+   * activos escondía el dinero de un piso que se deja de alquilar a mitad de
+   * ejercicio, que sigue habiendo que declarar.
+   */
+  const apartments = useMemo(() => {
+    const conMovimiento = new Set<string>()
+    for (const r of reservations) if (r.checkIn?.startsWith(String(year)) || r.checkOut?.startsWith(String(year))) conMovimiento.add(r.apartmentId)
+    for (const p of payments) {
+      const r = reservations.find(x => x.id === p.reservationId)
+      const apt = p.apartmentId ?? r?.apartmentId
+      const cuando = p.mes ?? p.paymentDate
+      if (apt && cuando?.startsWith(String(year))) conMovimiento.add(apt)
+    }
+    return allApartments.filter(a => a.active || conMovimiento.has(a.id))
+  }, [allApartments, reservations, payments, year])
   const [filterQ, setFilterQ] = useState<number>(0)
   /** 0 = todos. Al elegir mes, el trimestre se ajusta solo al que lo contiene. */
   const [filterMes, setFilterMes] = useState<number>(0)
@@ -85,7 +101,7 @@ export default function Collections() {
 
   // Todo lo que se enseña y se suma respeta el apartamento elegido: si se está
   // mirando el 104, el total de abajo tiene que ser el del 104 y no el de la casa.
-  const visibleApts = filterApt ? apartments.filter(a => a.id === filterApt) : apartments
+  const visibleApts = filterApt ? apartments.filter((a: Apartment) => a.id === filterApt) : apartments
   const visibleAptIds = visibleApts.map(a => a.id)
 
   /** De lo cobrado ese mes, lo que entró en mano. */
@@ -219,8 +235,9 @@ export default function Collections() {
     if (porReserva) {
       rows.push([`Reservas y cobros — ${year}`])
       rows.push([])
-      rows.push(['Mes', 'Apto.', 'Fecha reserva', 'Noches', 'Importe', 'Limpieza',
-        'Transferencia', 'Efectivo', 'Fecha cobro', 'Nº asiento', 'Cobrado'])
+      rows.push(['Mes', 'Apto.', 'Fecha reserva', 'Viene o sigue', 'Noches',
+        'Importe reserva', 'Devengado mes', 'Resto pdte.', 'Limpieza',
+        'Transferencia', 'Efectivo', 'Fecha cobro', 'Nº asiento', 'Cobrado mes'])
       const corto = (iso: string) => formatDate(iso).replace(/\/\d{2}(\d{2})$/, '/$1')
       const enMano = (p: Payment) => {
         const r = reservations.find(x => x.id === p.reservationId)
@@ -243,7 +260,7 @@ export default function Collections() {
               && r.checkIn <= `${mm}-31` && r.checkOut > `${mm}-01`)
             .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
           if (reservas.length === 0) {
-            rows.push([MONTH_NAMES_ES[m - 1], apt.id, 'sin reservas', '', '', '', '', '', '', '', ''])
+            rows.push([MONTH_NAMES_ES[m - 1], apt.id, 'sin reservas', '', '', '', '', '', '', '', '', '', '', ''])
             continue
           }
           for (const r of reservas) {
@@ -254,14 +271,28 @@ export default function Collections() {
             cobros.forEach(p => usados.add(p.id))
             const antes = r.checkIn.startsWith(mm) ? ''
               : Number(r.checkIn.slice(0, 4)) < year
-                ? `viene de ${r.checkIn.slice(0, 4)} · `
-                : `viene de ${MONTH_NAMES_ES[Number(r.checkIn.slice(5, 7)) - 1].toLowerCase()} · `
-            // Lo devengado de ese mes, igual que en pantalla: su parte por
-            // noches, y la limpieza entera en el mes de entrada.
+                ? `viene de ${r.checkIn.slice(0, 4)}`
+                : `viene de ${MONTH_NAMES_ES[Number(r.checkIn.slice(5, 7)) - 1].toLowerCase()}`
+            const sigue = nochesEnMes(r, mesSiguiente(mm)) > 0
+              ? `sigue en ${Number(mesSiguiente(mm).slice(0, 4)) > year
+                  ? mesSiguiente(mm).slice(0, 4)
+                  : MONTH_NAMES_ES[Number(mesSiguiente(mm).slice(5, 7)) - 1].toLowerCase()}`
+              : ''
+            // Las mismas columnas que la pantalla: el importe de la reserva, lo
+            // devengado de ese mes (su parte por noches), lo que queda por
+            // cobrar de toda la estancia, y la limpieza entera en el mes de
+            // entrada.
+            const cobradoTodo = payments
+              .filter(p => p.reservationId === r.id && p.received)
+              .reduce((x, p) => x + p.amount, 0)
+            const pdte = Math.round((r.total - cobradoTodo) * 100) / 100
             const base = [MONTH_NAMES_ES[m - 1], apt.id,
-              `${antes}${corto(r.checkIn)} al ${corto(r.checkOut)}`,
+              `${corto(r.checkIn)} al ${corto(r.checkOut)}`,
+              [antes, sigue].filter(Boolean).join(' · '),
               `${nochesEnMes(r, mm)}-N`,
+              fmt(r.total - r.cleaningFee),
               fmt(partesDeAlojamiento(r).get(mm) ?? 0),
+              pdte > 0.005 ? fmt(pdte) : '',
               antes ? '' : fmt(r.cleaningFee)]
             if (cobros.length === 0) {
               const otros = delAnio.filter(x => x.reservationId === r.id)
@@ -276,17 +307,17 @@ export default function Collections() {
             }
             const cobrado = cobros.reduce((x, p) => x + p.amount, 0)
             cobros.forEach((p, k2) => rows.push([
-              ...(k2 === 0 ? base : [MONTH_NAMES_ES[m - 1], apt.id, '', '', '', '']),
+              ...(k2 === 0 ? base : [MONTH_NAMES_ES[m - 1], apt.id, '', '', '', '', '', '', '']),
               ...movimiento(p), k2 === 0 ? fmt(cobrado) : '']))
           }
         }
         for (const p of delAnio.filter(p => mesDe(p) === mm && !usados.has(p.id))) {
-          rows.push([MONTH_NAMES_ES[m - 1], aptDe(p) ?? '', 'cobro sin reserva asociada', '', '', '',
+          rows.push([MONTH_NAMES_ES[m - 1], aptDe(p) ?? '', 'cobro sin reserva asociada', '', '', '', '', '', '',
             ...movimiento(p), ''])
         }
       }
       rows.push([])
-      rows.push(['TOTAL', '', '', '', '', '', '', '', '', '', fmt(delAnio.reduce((s, p) => s + p.amount, 0))])
+      rows.push(['TOTAL', '', '', '', '', '', '', '', '', '', '', '', '', fmt(delAnio.reduce((s, p) => s + p.amount, 0))])
       descarga(rows, `reservas_y_cobros_${year}${filterApt ? `_${filterApt}` : ''}.csv`)
       return
     }
@@ -1133,16 +1164,24 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
             <tr className="border-b border-slate-200 bg-slate-100 text-xs text-slate-600">
               <th className="text-left py-2 px-3 font-medium">{porMes ? 'Apto.' : 'Mes'}</th>
               <th className="text-left py-2 px-3 font-medium">Fecha reserva</th>
+              <th className="text-left py-2 px-3 font-medium" title="Si la estancia viene del mes anterior o sigue en el siguiente">
+                Viene o sigue
+              </th>
               <th className="text-right py-2 px-3 font-medium" title="Las noches de la estancia que caen en ese mes">Noches</th>
-              <th className="text-right py-2 px-3 font-medium" title="Lo devengado de ese mes: la parte de alojamiento que le toca por sus noches">
-                Importe
+              <th className="text-right py-2 px-3 font-medium"
+                title="Arriba, el alojamiento de toda la reserva; debajo, lo devengado de este mes (su parte por noches)">
+                Importe reserva
+              </th>
+              <th className="text-right py-2 px-3 font-medium text-purple-700"
+                title="Lo que falta por cobrar de toda la reserva, cuente los cobros del mes que cuente">
+                Resto pdte.
               </th>
               <th className="text-right py-2 px-3 font-medium">Limpieza</th>
               <th className="text-right py-2 px-3 font-medium text-blue-700">Transferencia</th>
               <th className="text-right py-2 px-3 font-medium text-red-600">Efectivo</th>
               <th className="text-left py-2 px-3 font-medium">Fecha cobro</th>
               <th className="text-left py-2 px-3 font-medium">Nº asiento</th>
-              <th className="text-right py-2 px-3 font-medium">Cobrado</th>
+              <th className="text-right py-2 px-3 font-medium" title="Lo cobrado en este mes de esta reserva">Cobrado mes</th>
               <th className="text-right py-2 px-3 font-medium text-purple-700"
                 title="✓ cubierto · ◆ pagado por delante · — en curso · cifra: lo que falta">
                 Estado
@@ -1166,7 +1205,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                       sumatorio y van debajo de lo que suman, como en cualquier
                       listado de cuentas. */}
                   <tr className="bg-slate-100 border-y border-slate-200">
-                    <td className="py-2 px-3 font-bold text-slate-800 capitalize" colSpan={11}>{g.titulo}</td>
+                    <td className="py-2 px-3 font-bold text-slate-800 capitalize" colSpan={13}>{g.titulo}</td>
                   </tr>
 
                   {g.lineas.map((l, i) => {
@@ -1175,13 +1214,13 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                     if (!r && cobros.length === 0) return (
                       <tr key={clave} className="border-b border-slate-50">
                         <Cruce l={l} />
-                        <td className={`${celda} text-slate-400 italic`} colSpan={10}>sin reservas</td>
+                        <td className={`${celda} text-slate-400 italic`} colSpan={12}>sin reservas</td>
                       </tr>
                     )
                     if (!r) return cobros.map((p, k) => (
                       <tr key={`${clave}-${p.id}`} className="border-b border-slate-50 bg-amber-50/40">
                         {k === 0 ? <Cruce l={l} /> : <td className={celda} />}
-                        <td className={`${celda} text-amber-800 italic`} colSpan={4}>cobro sin reserva asociada</td>
+                        <td className={`${celda} text-amber-800 italic`} colSpan={6}>cobro sin reserva asociada</td>
                         <Movimiento p={p} />
                         <td className={celda} />
                         <td className={celda} />
@@ -1189,36 +1228,53 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                     ))
 
                     const cobrado = cobros.reduce((x, p) => x + p.amount, 0)
+                    const resto = Math.round((r.total - cobradoDe(r)) * 100) / 100
                     const datos = (
                       <>
                         <td className={`${celda} ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}>
+                          {fecha(r.checkIn)} al {fecha(r.checkOut)}
+                        </td>
+                        {/* «Viene o Sigue», en su propia columna (lo pidió el
+                            propietario el 23/10/2026): pegadas a las fechas se
+                            leían de corrido, «◀ de septiembre19/09/26 al
+                            28/11/26▶ sigue en noviembre». */}
+                        <td className={`${celda} text-slate-500`}>
                           {l.vieneDeAntes && (
-                            <span className="mr-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-medium"
+                            <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-medium"
                               title="La reserva no empieza en este mes: ya estaba en marcha">
                               ◀ {vieneDe(r, l.mes)}
                             </span>
                           )}
-                          {fecha(r.checkIn)} al {fecha(r.checkOut)}
                           {sigueEn(r, l.mes) && (
-                            <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-medium"
+                            <span className={`${l.vieneDeAntes ? 'ml-1 ' : ''}px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-medium`}
                               title="La estancia no termina en este mes: el resto está en el siguiente">
                               ▶ sigue en {sigueEn(r, l.mes)}
                             </span>
                           )}
                         </td>
-                        {/* Cada mes, lo suyo: las noches que duerme en él y el
-                            alojamiento que le toca. El importe de la estancia no
-                            se repite en los meses que ocupa —el del 105 del 31
-                            de julio salía entero en julio y otra vez en agosto—,
-                            se reparte. La limpieza no se parte: se cobra una
-                            vez, en el mes de entrada. */}
                         <td className={`${celda} text-right ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}
                           title={`${r.nights} noches en toda la estancia`}>
                           {nochesEnMes(r, mm(l.mes))}-N
                         </td>
+                        {/* El importe de toda la reserva y, debajo, lo que le
+                            toca a este mes por sus noches. Las dos cifras hacen
+                            falta: la de arriba es lo que vale la estancia y la
+                            de abajo la que tiene que cuadrar con lo declarado
+                            del mes. La limpieza no se parte: se cobra una vez,
+                            en el mes de entrada. */}
                         <td className={`${celda} text-right ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}
-                          title={`Su parte de ${MONTH_NAMES_ES[l.mes - 1].toLowerCase()}, de los ${imp(r.total - r.cleaningFee)} € de alojamiento de la estancia`}>
-                          {imp(partesDe(r).get(mm(l.mes)) ?? 0)}
+                          title={`Alojamiento de toda la estancia, sin la limpieza`}>
+                          {imp(r.total - r.cleaningFee)}
+                          <span className="block text-[10px] text-slate-400 font-normal"
+                            title={`Su parte de ${MONTH_NAMES_ES[l.mes - 1].toLowerCase()}`}>
+                            mes {imp(partesDe(r).get(mm(l.mes)) ?? 0)}
+                          </span>
+                        </td>
+                        <td className={`${celda} text-right ${resto > 0.005 ? 'text-purple-700 font-semibold' : 'text-slate-300'}`}
+                          title={resto > 0.005
+                            ? `De los ${imp(r.total)} € de la estancia faltan por cobrar ${imp(resto)} €`
+                            : 'No queda nada por cobrar de esta estancia'}>
+                          {resto > 0.005 ? imp(resto) : '—'}
                         </td>
                         <td className={`${celda} text-right text-slate-500`}>
                           {r.checkIn.startsWith(mm(l.mes)) ? imp(r.cleaningFee) : ''}
@@ -1241,7 +1297,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                     return cobros.map((p, k) => (
                       <tr key={`${clave}-${p.id}`} className="border-b border-slate-50">
                         {k === 0 ? <Cruce l={l} /> : <td className={celda} />}
-                        {k === 0 ? datos : <td className={celda} colSpan={4} />}
+                        {k === 0 ? datos : <td className={celda} colSpan={6} />}
                         <Movimiento p={p} />
                         <td className={`${celda} text-right font-semibold text-slate-800`}>
                           {k === 0 ? imp(cobrado) : ''}
@@ -1257,13 +1313,17 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                   })}
 
                   <tr className="bg-slate-50 border-y-2 border-slate-300 text-sm">
-                    <td className="py-2 px-3 font-semibold text-slate-600 capitalize" colSpan={3}>
+                    <td className="py-2 px-3 font-semibold text-slate-600 capitalize" colSpan={4}>
                       Total {g.titulo.toLowerCase()}
                     </td>
+                    {/* De la columna del importe se suma lo devengado, no el
+                        importe de cada reserva: ese se repite en todos los
+                        meses que ocupa y sumarlo no significaría nada. */}
                     <td className="py-2 px-3 text-right font-bold text-slate-600"
                       title="Lo devengado: la parte de alojamiento que le toca a este periodo">
                       {imp(Math.round(alojamiento * 100) / 100)}
                     </td>
+                    <td />
                     <td className="py-2 px-3 text-right font-bold text-slate-500">{imp(limpiezas)}</td>
                     <td className="py-2 px-3 text-right font-bold text-blue-700">{imp(todo - efec)}</td>
                     <td className="py-2 px-3 text-right font-bold text-red-600">{imp(efec)}</td>
