@@ -198,7 +198,23 @@
 
     const filas = claves.map((clave) => {
       const a = ped.get(clave);
-      const b = pro.get(clave);
+      let b = pro.get(clave);
+      // El proveedor cuenta por cajas y nosotros por unidades (72 lápices = 3
+      // cajas de 24, 5,79 € la caja = 0,24 € la unidad): si lo pedido es un
+      // múltiplo exacto de lo suyo y su precio sale proporcional (de 0,6 a 1,6 veces la caja: una subida de
+      // precio se avisa aparte, por unidad), se
+      // pasa su línea a unidades y se compara como la misma cantidad.
+      let porCaja = null;
+      if (a && b && b.cant > 0 && a.cant > b.cant && Number.isInteger(a.cant / b.cant)) {
+        const k = a.cant / b.cant;
+        const pa = neto ? a.neto : a.precio;
+        const pb = neto ? b.neto : b.precio;
+        if (pa && pb && pb / pa >= k * 0.6 && pb / pa <= k * 1.6) {
+          porCaja = k;
+          const div = (x) => (x == null ? x : Math.round((x / k) * 1e5) / 1e5);
+          b = { ...b, cant: a.cant, precio: div(b.precio), neto: div(b.neto), udsCaja: null };
+        }
+      }
       // La referencia que se enseña y con la que se decide es la de nuestro pedido.
       const ref = (a || b).ref;
       const enCat = cat && cat.get(clave);
@@ -232,6 +248,7 @@
         sugerencias: [],
       };
 
+      if (porCaja) { fila.porCaja = porCaja; fila.motivos.push({ tipo: 'por_caja', texto: `El proveedor lo cuenta por cajas de ${porCaja} (${a.cant / porCaja} cajas = ${a.cant} uds.)`, revisar: false, informativo: true }); }
       if (a && a.veces > 1) fila.motivos.push({ tipo: 'duplicada_pedido', texto: `Aparece ${a.veces} veces en el pedido (se suman)`, revisar: true });
       // Un alta que junta varios códigos del proveedor viene, a propósito, en varias líneas.
       if (b && b.veces > 1 && !(a && a.alta && String(a.ref).includes('+'))) fila.motivos.push({ tipo: 'duplicada_propuesta', texto: `Aparece ${b.veces} veces en la propuesta (se suman)`, revisar: true });
@@ -789,6 +806,11 @@
         // cliente va el neto, nunca el precio de tarifa del proveedor.
         const neto = l._neto != null ? l._neto : l.precio;
         delete l._neto;
+        // Reposición: «Mantener lo pedido» se queda con nuestra referencia y
+        // cantidad, pero a Géminis va el precio que factura el proveedor.
+        if (!comercial && d.accion === 'mantener' && f.precioPropuesta != null) {
+          l.precio = f.precioPropuesta; l.dtos = f.dtosPropuesta; l.importe = null;
+        }
         if (!comercial) continue;
         l.precioCliente = precioClienteManual != null ? precioClienteManual : neto;
         if (f.precioPropuesta != null) {

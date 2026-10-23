@@ -200,14 +200,14 @@ test('reposición: sin precio en el pedido se compara con el último precio acep
   assert.equal(f.revisar, true);
 });
 
-test('reposición: nunca ofrece restos; «mantener» conserva precio base y descuentos del pedido', () => {
+test('reposición: nunca ofrece restos; «mantener» conserva la cantidad del pedido pero va con el precio del proveedor', () => {
   const filas = CP.compararPedido(
     [{ ref: 'A', cant: 4, precio: 10, dtos: '10+5' }, { ref: 'B', cant: 2, precio: 3 }],
     [{ ref: 'A', cant: 4, precio: 11, dtos: [10, 5] }], REPO);
   for (const f of filas) assert.ok(!CP.accionesPara(f, 'reposicion').includes('resto'));
   const r = CP.aplicarDecisiones(filas, { A: { accion: 'mantener' }, B: { accion: 'excluir' } });
   assert.equal(r.restos.length, 0);
-  assert.deepEqual([r.lineas[0].precio, r.lineas[0].dtos], [10, [10, 5]]);
+  assert.deepEqual([r.lineas[0].cant, r.lineas[0].precio, r.lineas[0].dtos], [4, 11, [10, 5]], 'a Géminis, lo que factura el proveedor (23/10/2026)');
 });
 
 test('Géminis: un solo descuento equivalente, precio base intacto, cuadrando con el importe del proveedor', () => {
@@ -282,8 +282,8 @@ test('comercial: «mantener lo pedido» fija el precio al cliente; el coste para
   assert.deepEqual([x.precioCliente, x.precio], [11, 8.76]);
   const [g] = CP.lineasParaGeminis([m], { dtoGlobal: 30 });
   assert.deepEqual([g.precio, g.total], [8.76, 6.13], 'Géminis: coste del proveedor con su 30 %');
-  // Reposición no cambia: «mantener» es nuestro precio de compra
-  assert.equal(CP.aplicarDecisiones(filas, { 770140327: { accion: 'mantener' } }).lineas[0].precio, 12.67);
+  // Reposición: «mantener» guarda nuestra cantidad, con el precio que factura el proveedor
+  assert.equal(CP.aplicarDecisiones(filas, { 770140327: { accion: 'mantener' } }).lineas[0].precio, 8.76);
 });
 
 test('comercial: su precio es NETO; se compara con el neto del proveedor y al cliente va el neto', () => {
@@ -911,4 +911,19 @@ test('Emparejar referencias: el proveedor pone prefijo y sufijo a nuestro códig
   assert.equal(r['01C6157CSTP'], '6157');
   assert.equal(r['01A1106CSTL'], '1106');
   assert.equal(Object.keys(r).length, 10);
+});
+
+test('Reposición: el proveedor cuenta por cajas y nosotros por unidades; «Mantener» va con su precio', () => {
+  const ped = [{ ref: 'L1', cant: 72, precio: 0.24 }, { ref: 'P2', cant: 288, precio: 0.33 }, { ref: 'X3', cant: 10, precio: 1 }];
+  const pro = [{ ref: 'L1', cant: 3, precio: 5.79, importe: 17.37 }, { ref: 'P2', cant: 24, precio: 4.27, importe: 102.48 }, { ref: 'X3', cant: 5, precio: 1 }];
+  const filas = CP.compararPedido(ped, pro, { comparar: 'neto', tolerancia: CP.TOLERANCIA.reposicion });
+  const f = (r) => filas.find((x) => x.ref === r);
+  assert.equal(f('L1').porCaja, 24); assert.equal(f('L1').cantPropuesta, 72); assert.equal(f('L1').revisar, false);
+  assert.equal(f('P2').porCaja, 12); assert.equal(f('P2').revisar, false, '0,356 frente a 0,33: dentro de la tolerancia de reposición');
+  assert.equal(f('X3').porCaja, undefined, 'mitad de cantidad al mismo precio: no es por cajas');
+  const r = CP.aplicarDecisiones(filas, { X3: { accion: 'mantener' } }, { comercial: false });
+  const l1 = r.lineas.find((l) => l.ref === 'L1');
+  assert.equal(l1.cant, 72); assert.equal(l1.importe, 17.37);
+  const x3 = r.lineas.find((l) => l.ref === 'X3');
+  assert.deepEqual([x3.cant, x3.precio], [10, 1]);
 });
