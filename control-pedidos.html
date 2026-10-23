@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-23-3"></script>
+<script src="control-pedidos-logica.js?v=2026-10-23-4"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -712,6 +712,8 @@ function vistaGrupo(g, i) {
       <button class="btn peque peligro" onclick="quitarDocumentoCampana(${js(g.clave)})">🗑️ Quitar propuestas o facturas subidas</button>
       <button class="btn peque" onclick="renombrarCampana(${js(g.clave)})">✏️ ${ej.campana ? 'Renombrar' : 'Poner nombre a'} la campaña</button>`}
       ${esComercial() ? '' : `<button class="btn" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel de la compra al proveedor (Géminis)</button>
+      <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px" title="La «Propuesta de Pedido» de Géminis (PDF) de esta campaña: sus Cod.Venta salen en la guía de facturación">🏷️ Subir nuestra liquidación de Géminis (códigos internos)
+        <input type="file" multiple class="oculto" onchange="cargarCodigosCampana(this.files, ${js(g.clave)}); this.value=''"></label>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales${esRepo(ej) ? ' (opcional)' : ''}
         <input type="file" multiple class="oculto" onchange="cargarFacturasVarias(this.files, ${js(g.clave)}); this.value=''"></label>`}
       ${esRepo(ej) ? '' : `<button class="btn" onclick="imprimirGuiaFacturacion(${js(g.clave)})">🧾 Imprimir guía de facturación</button>`}
@@ -738,6 +740,38 @@ function vistaGrupo(g, i) {
  *  comercial, sin el descuento de la propuesta), menos lo que no haya venido
  *  en la factura final — y sus notas de facturación. Nada de restos. Los
  *  pedidos sin validar no entran: se avisa arriba. */
+/** Nuestra liquidación de Géminis («Propuesta de Pedido», PDF) de la campaña:
+ *  guarda en cada pedido su código interno por referencia (`p.codigos`) para
+ *  que la guía de facturación salga con él. Se lee sin IA. */
+async function cargarCodigosCampana(files, clave) {
+  const lineas = [];
+  for (const f of [...files]) {
+    try {
+      const g = /\.pdf$/i.test(f.name) ? CP.leerPedidoGeminis(await textoDePdf(f)) : null;
+      if (!g) { alert(`${f.name} no parece una «Propuesta de Pedido» de Géminis en PDF.`); continue; }
+      lineas.push(...g.lineas);
+    } catch (err) { alert('No he podido leer ' + f.name + ': ' + err.message); }
+  }
+  if (!lineas.length) return;
+  const ps = E.pedidos.filter((p) => claveGrupo(p) === clave);
+  let con = 0, sin = [];
+  for (const p of ps) {
+    const todas = p.lineas.concat((p.final && p.final.lineas) || []);
+    p.codigos = Object.assign({}, p.codigos, CP.codigosInternos(todas, lineas));
+    // Solo cuentan las líneas que saldrán en la guía: con factura final, lo facturado.
+    const tiene = (ref) => Object.keys(p.codigos).some((r) => CP.claveRef(r) === CP.claveRef(ref));
+    for (const l of (p.factura && p.factura.lineas) || (p.final && p.final.lineas) || []) { if (tiene(l.ref)) con++; else sin.push(`nº ${nPed(p.numero)} ${l.ref}`); }
+  }
+  guardar(); pintar();
+  alert(`Liquidación leída: ${lineas.length} códigos.\n${con} líneas de los pedidos ya tienen código interno.` +
+    (sin.length ? `\nSin código (${sin.length}): ${sin.slice(0, 15).join(', ')}${sin.length > 15 ? '…' : ''}` : ''));
+}
+function codigoDe(p, ref) {
+  const c = p.codigos || {};
+  if (c[ref]) return c[ref];
+  const k = Object.keys(c).find((r) => CP.claveRef(r) === CP.claveRef(ref));
+  return k ? c[k] : '';
+}
 function imprimirGuiaFacturacion(clave) {
   const ps = E.pedidos.filter((p) => claveGrupo(p) === clave)
     .sort((a, b) => String(a.cliente).localeCompare(String(b.cliente), 'es') || String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }));
@@ -747,6 +781,8 @@ function imprimirGuiaFacturacion(clave) {
   const sinValidar = ps.filter((p) => !(p.validado && p.final));
   if (!validados.length) { alert('Todavía no hay ningún pedido validado en esta campaña.'); return; }
   const pc = (l) => (l.precioCliente != null ? l.precioCliente : l.precio) || 0;
+  // Con la liquidación de Géminis subida, cada línea lleva nuestro código interno.
+  const conCodigos = validados.some((p) => p.codigos && Object.keys(p.codigos).length);
   let totalCampana = 0;
   const bloques = validados.map((p) => {
     // Si ya está la factura final, solo se factura al cliente lo que ha venido.
@@ -764,8 +800,8 @@ function imprimirGuiaFacturacion(clave) {
     const notas = E.notas.filter((n) => n.pedidoId === p.id && !n.resuelta);
     return `<section>
       <h2><span class="caja"></span> ${h(p.cliente)} <small>· pedido nº ${h(nPed(p.numero))} · ${h(fmtFecha(p.fecha))}</small></h2>
-      <table><tr><th class="n">Cant.</th><th>Referencia</th><th>Descripción</th><th class="n">Precio</th><th class="n">Importe</th></tr>
-      ${lineas.map((l) => `<tr><td class="n">${l.cant}${l.exp ? ' EXP' : ''}</td><td>${h(l.ref)}</td><td>${h(l.desc)}</td><td class="n">${fmt(pc(l))}</td><td class="n">${fmt(CP.red2(pc(l) * l.cant))}</td></tr>`).join('')}
+      <table><tr><th class="n">Cant.</th>${conCodigos ? '<th>Cód. Ofipapel</th>' : ''}<th>Referencia</th><th>Descripción</th><th class="n">Precio</th><th class="n">Importe</th></tr>
+      ${lineas.map((l) => `<tr><td class="n">${l.cant}${l.exp ? ' EXP' : ''}</td>${conCodigos ? `<td>${codigoDe(p, l.ref) ? h(codigoDe(p, l.ref)) : '<span class="sincod">—</span>'}</td>` : ''}<td>${h(l.ref)}</td><td>${h(l.desc)}</td><td class="n">${fmt(pc(l))}</td><td class="n">${fmt(CP.red2(pc(l) * l.cant))}</td></tr>`).join('')}
       <tr class="tot"><td colspan="4" class="n">Total (sin impuestos)</td><td class="n">${fmt(total)}</td></tr></table>
       ${notas.length ? `<p class="nota"><b>Notas de facturación:</b> ${notas.map((n) => `${h(n.ref)} — ${h(n.texto)}`).join(' · ')}</p>` : ''}
     </section>`;
@@ -776,7 +812,7 @@ function imprimirGuiaFacturacion(clave) {
   section{break-inside:avoid;page-break-inside:avoid;border-top:2px solid #333;padding-top:6px;margin-top:16px}
   h2{font-size:15px;margin:0 0 6px}h2 small{font-weight:normal;color:#555}.caja{display:inline-block;width:12px;height:12px;border:1.5px solid #333;margin-right:4px;vertical-align:-1px}
   table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ccc;padding:3px 5px;text-align:left}td.n,th.n{text-align:right}
-  tr.tot td{font-weight:bold;border-bottom:0}.nota{background:#eef4ff;padding:4px 6px}.resto{background:#fff6e0;padding:4px 6px}.aviso{background:#fde8e8;padding:6px}</style></head><body>
+  tr.tot td{font-weight:bold;border-bottom:0}.nota{background:#eef4ff;padding:4px 6px}.resto{background:#fff6e0;padding:4px 6px}.aviso{background:#fde8e8;padding:6px}.sincod{color:#b00;font-weight:bold}</style></head><body>
   <h1>Guía de facturación · ${h(nombre)}</h1>
   <p>${h(fmtFecha(hoy()))} · ${validados.length} cliente(s)${validados.some((p) => !p.factura) ? ' · <b>aún sin factura final del proveedor:</b> ' + validados.filter((p) => !p.factura).map((p) => 'nº ' + h(nPed(p.numero))).join(', ') : ''} · total ${fmt(CP.red2(totalCampana))} € sin impuestos · marca la casilla de cada cliente al facturarlo.</p>
   ${sinValidar.length ? `<p class="aviso"><b>Sin validar, no incluidos:</b> ${sinValidar.map((p) => `nº ${h(nPed(p.numero))} ${h(p.cliente)}`).join(', ')}</p>` : ''}

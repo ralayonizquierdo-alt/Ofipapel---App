@@ -1385,6 +1385,33 @@
   }
 
   /**
+   * Nuestro código interno (Cod.Venta de Géminis) de cada línea de un pedido, a
+   * partir de la «Propuesta de Pedido»/liquidación de Géminis (leerPedidoGeminis).
+   * Géminis guarda a veces la referencia del proveedor sin la cola del año
+   * (Finocam 621163027 → Rfc.Compra 6211630), así que casa por: misma
+   * referencia, mismo EAN o una referencia que empieza por la otra (mín. 5
+   * caracteres). Devuelve { ref: codigo } con las líneas que encuentra.
+   */
+  function codigosInternos(lineasPedido, lineasGeminis) {
+    const g = (lineasGeminis || []).filter((x) => x.codVenta && x.referencia);
+    const out = {};
+    for (const l of lineasPedido || []) {
+      const k = claveRef(l.ref);
+      if (!k) continue;
+      let m = g.find((x) => claveRef(x.referencia) === k)
+        || (l.ean ? g.find((x) => x.ean && x.ean === l.ean) : null);
+      if (!m) {
+        const r = normRef(l.ref);
+        const cand = g.filter((x) => { const q = normRef(x.referencia); return q.length >= 5 && r.length >= 5 && (r.startsWith(q) || q.startsWith(r)); });
+        // La misma referencia puede salir en varias líneas (un calendario en dos pedidos): vale si todas llevan el mismo código.
+        if (cand.length && cand.every((x) => x.codVenta === cand[0].codVenta)) m = cand[0];
+      }
+      if (m) out[l.ref] = m.codVenta;
+    }
+    return out;
+  }
+
+  /**
    * Pedidos de una campaña tal como se mandan al proveedor: uno por cliente
    * (nº y cliente), con cantidad, referencia y descripción — sin precios.
    * Ordenados por nº de pedido; las líneas sin referencia ni descripción, fuera.
@@ -1519,7 +1546,7 @@
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
     parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, repartirPorReferencias, fotosRepetidas, firmaLineas,
-    sugerirAsignacion, restosQueLlegan, descuentoEquivalente, leerPropuesta, filasGeminis,
+    sugerirAsignacion, restosQueLlegan, codigosInternos, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.ControlPedidos = api;
