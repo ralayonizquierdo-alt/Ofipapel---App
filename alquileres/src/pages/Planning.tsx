@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Eye, Pencil } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
@@ -32,6 +32,34 @@ export default function Planning() {
     if (month === 12) { setMonth(1); setYear(y => y + 1) }
     else setMonth(m => m + 1)
   }
+  function irAHoy() {
+    const ahora = new Date()
+    setYear(ahora.getFullYear())
+    setMonth(ahora.getMonth() + 1)
+  }
+  const enEsteMes = year === now.getFullYear() && month === now.getMonth() + 1
+
+  /**
+   * Al volver a la app después de un buen rato, el planning se pone solo en el
+   * mes de hoy.
+   *
+   * La pantalla arranca siempre en el mes en curso, pero la app instalada en el
+   * móvil no se cierra: al abrirla otra vez el navegador devuelve la página tal
+   * y como se dejó, con el mes que se estuviera mirando —que puede ser de hace
+   * días—. Se espera media hora a propósito: cambiar de pantalla un momento
+   * para mirar un WhatsApp no tiene por qué mover el mes que estás mirando.
+   */
+  useEffect(() => {
+    let desde = 0
+    const alVolver = () => {
+      if (document.visibilityState === 'hidden') { desde = Date.now(); return }
+      if (!desde || Date.now() - desde < 30 * 60 * 1000) return
+      desde = 0
+      irAHoy()
+    }
+    document.addEventListener('visibilitychange', alVolver)
+    return () => document.removeEventListener('visibilitychange', alVolver)
+  }, [])
 
   const mm = `${year}-${String(month).padStart(2, '0')}`
   const dia = (d: number) => `${mm}-${String(d).padStart(2, '0')}`
@@ -140,6 +168,14 @@ export default function Planning() {
             {MONTH_NAMES_ES[month - 1]} {year}
           </span>
           <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-slate-200 text-slate-600"><ChevronRight size={18} /></button>
+          {/* Para volver al mes de hoy sin ir dando saltos con las flechas.
+              Solo sale cuando se está mirando otro mes. */}
+          {!enEsteMes && (
+            <button onClick={irAHoy}
+              className="ml-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+              Hoy
+            </button>
+          )}
         </div>
       </div>
 
