@@ -1385,6 +1385,18 @@
   }
 
   /**
+   * Referencia tal como la tiene Géminis. Finocam añade el año a sus códigos
+   * (621163027 = 6211630 + «27») y Géminis los guarda sin él, porque cambia
+   * cada año: en el Excel para Géminis, una referencia de Finocam de 9 cifras
+   * va sin las 2 últimas (23/10/2026, comprobado con los 132 códigos de una
+   * «Propuesta de Pedido» real, todos de 7 cifras).
+   */
+  function refParaGeminis(ref, proveedor) {
+    const r = String(ref == null ? '' : ref).trim();
+    return /FINOCAM/i.test(String(proveedor || '')) && /^\d{9}$/.test(r) ? r.slice(0, 7) : r;
+  }
+
+  /**
    * Nuestro código interno (Cod.Venta de Géminis) de cada línea de un pedido, a
    * partir de la «Propuesta de Pedido»/liquidación de Géminis (leerPedidoGeminis).
    * Géminis guarda a veces la referencia del proveedor sin la cola del año
@@ -1546,7 +1558,7 @@
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
     parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, repartirPorReferencias, fotosRepetidas, firmaLineas,
-    sugerirAsignacion, restosQueLlegan, codigosInternos, descuentoEquivalente, leerPropuesta, filasGeminis,
+    sugerirAsignacion, restosQueLlegan, codigosInternos, refParaGeminis, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.ControlPedidos = api;

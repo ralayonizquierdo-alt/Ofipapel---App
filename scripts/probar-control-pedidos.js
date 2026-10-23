@@ -866,3 +866,10 @@ test('Códigos internos desde la liquidación de Géminis: por referencia, por E
   ], g);
   assert.deepEqual(r, { 621163027: '141161', 780180027: '79139', 'Y-9': '555', 839: '900' }, 'dos candidatos con códigos distintos: no se adivina');
 });
+
+test('Excel de Géminis: las referencias de Finocam van sin el año del final', () => {
+  assert.equal(CP.refParaGeminis('621163027', 'FINOCAM'), '6211630');
+  assert.equal(CP.refParaGeminis('1984293', 'FINOCAM'), '1984293', 'las de 7 cifras, tal cual');
+  assert.equal(CP.refParaGeminis('621163027', 'MIQUELRIUS'), '621163027', 'solo Finocam');
+  assert.equal(CP.refParaGeminis('MR4566', 'FINOCAM'), 'MR4566');
+});
