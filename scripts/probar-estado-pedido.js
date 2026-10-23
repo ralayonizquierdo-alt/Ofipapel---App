@@ -348,6 +348,29 @@ async function caso(etiqueta, mensaje, revisar, desde) {
     assert.ok(/nombre/i.test(texto('respuesta')), 'tenía que pedir el nombre');
   }, '34699000111');
 
+  // EL NÚMERO Y EL NOMBRE EN EL MISMO MENSAJE.
+  //
+  // Visto en real el 23/10/2026: mandó "PEDIDO 658818 LEMON TREE" y el bot le
+  // pidió el nombre que acababa de darle. Tuvo que contestar en mayúsculas —
+  // "EL NOMBRE COMERCIAL TE LO PUSE JUSTO AL LADO DEL NÚMERO DE PEDIDO"— y
+  // repetirlo en dos mensajes sueltos para que lo cogiera.
+  escenario.pedido.billing.company = 'LEMON TREE';
+  escenario.fila = { estado: 'facturado', actualizado: new Date().toISOString() };
+  await caso('Número y nombre comercial en el mismo mensaje', 'PEDIDO 637966 LEMON TREE', () => {
+    assert.ok(!/dime el nombre/i.test(texto('respuesta')), 'le pide un nombre que ya le había dado');
+    assert.ok(/ya está facturado/i.test(texto('respuesta')), 'no llegó a dar el estado');
+    assert.deepStrictEqual(consultasAGestion, ['637966'], 'no verificó, o verificó mal');
+  }, '34699000111');
+  escenario.pedido.billing.company = '';
+
+  // Pero un mensaje SIN el nombre sigue pidiéndolo: la verificación no se
+  // relaja, solo se intenta un paso antes.
+  escenario.fila = { estado: 'facturado', actualizado: new Date().toISOString() };
+  await caso('Número suelto desde otro teléfono: sigue pidiendo el nombre', 'el pedido 637966', () => {
+    assert.ok(/dime el nombre/i.test(texto('respuesta')), 'dejó de verificar');
+    assert.strictEqual(consultasAGestion.length, 0, 'consultó sin verificar');
+  }, '34699000111');
+
   // Con el teléfono del pedido, la verificación está hecha: ahora sí.
   escenario.fila = { estado: 'facturado', fecha_factura: '2026-10-20', actualizado: new Date().toISOString() };
   await caso('El dueño del pedido pregunta: contesta con el estado de Gestión', '¿qué pasa con el pedido 637966?', () => {
