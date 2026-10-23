@@ -873,3 +873,32 @@ test('Excel de Géminis: las referencias de Finocam van sin el año del final', 
   assert.equal(CP.refParaGeminis('621163027', 'MIQUELRIUS'), '621163027', 'solo Finocam');
   assert.equal(CP.refParaGeminis('MR4566', 'FINOCAM'), 'MR4566');
 });
+
+test('Emparejar referencias que el proveedor factura con otro código (Fellowes)', () => {
+  const ped = [
+    { ref: 'ESP010', cant: 20, desc: 'negro ESPIRAL METAL 5:1 10mm NEGROS 60-H' },
+    { ref: '943162', cant: 6, desc: 'ESPIRAL METAL 5:1 16mm NEGROS 140-H' },
+    { ref: 'IBESP925136', cant: 2, desc: 'ESPIRAL METAL 5:1 36mm BLANCA 320-H' },
+    { ref: 'ESP905140', cant: 2, desc: 'ESPIRAL METAL 5:1 40mm Negro 360-H' },
+    { ref: '53088', cant: 70, desc: 'FUNDA PLASTIFICAR A-3 175mi' },
+    { ref: '4812170', cant: 20, desc: 'REPOSAPIES Fellowes' },
+    { ref: '54775', cant: 5, desc: 'TAPAS Encuadernar' },
+    { ref: 'IGUAL', cant: 1, desc: 'X' },
+  ];
+  const pro = [
+    { ref: '5110301', cant: 20, desc: 'ESP10N - METAL COILS 10MM BLACK 100PK' },
+    { ref: '5110601', cant: 6, desc: 'ESP16N - METAL COILS 16MM BLACK 100PK' },
+    { ref: '5114301', cant: 2, desc: 'ESP36B - METAL COILS 36MM WHITE 25PK' },
+    { ref: '5111901', cant: 2, desc: 'ESP40N - METAL COILS 40MM BLACK 25PK' },
+    { ref: '5308803', cant: 1, desc: 'LAMINATING POUCH A3 175MIC 100PK' },
+    { ref: '48121-70', cant: 20, desc: 'REPOSAPIÉS AJUSTABLE' },
+    { ref: '5477502', cant: 5, desc: '50PK POLYPROP. COVERS BLACK' },
+    { ref: 'IGUAL', cant: 1, desc: 'X' },
+  ];
+  assert.deepEqual(CP.emparejarReferencias(ped, pro), {
+    '48121-70': '4812170', 5308803: '53088', 5477502: '54775',
+    5110301: 'ESP010', 5110601: '943162', 5114301: 'IBESP925136', 5111901: 'ESP905140',
+  });
+  // Dos candidatos con la misma medida y cantidad: no se adivina
+  assert.deepEqual(CP.emparejarReferencias([{ ref: 'A', cant: 2, desc: '24mm negro' }], [{ ref: 'B', cant: 2, desc: '24MM black' }, { ref: 'C', cant: 2, desc: '24MM white' }]), {});
+});
