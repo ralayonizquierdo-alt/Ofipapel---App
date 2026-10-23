@@ -2352,7 +2352,10 @@ function aplicarReparto(docs, clave) {
   const pedidos = E.pedidos.filter((q) => !q.archivado && !esRepo(q) && claveGrupo(q) === clave);
   const destino = pedidos.filter((q) => !q.validado && !q.sobrantes);
   if (!destino.length) { ultimaCarga.push({ ok: false, texto: 'No hay pedidos sin validar en esta campaña para repartir la factura.' }); pintar(); return; }
-  const lineas = docs.flatMap((d) => d.prop.lineas.map((l) => Object.assign({}, l, { origen: d.archivo })));
+  // `subida` + `pos`: el orden de cada línea en la factura (el Excel de Géminis sale en ese orden).
+  const subida = Date.now();
+  let pos = 0;
+  const lineas = docs.flatMap((d) => d.prop.lineas.map((l) => Object.assign({}, l, { origen: d.archivo, subida, pos: pos++ })));
   const cab = Object.assign({}, docs[0].prop.cabecera, { numeroPedido: null, observaciones: `Repartida por referencias entre los pedidos de la campaña (${docs.map((d) => d.archivo).join(', ')})` });
   const nombres = docs.map((d) => d.archivo);
   // Lo que ya le llegó a cada pedido con otras facturas repartidas antes (no
@@ -2521,7 +2524,10 @@ function repartirFacturas(docs, clave) {
   const pedidos = E.pedidos.filter((q) => !q.archivado && claveGrupo(q) === clave && q.validado && q.final);
   if (!pedidos.length) { ultimaCarga.push({ ok: false, texto: 'No hay pedidos validados en esta campaña para repartir la factura.' }); return; }
   const nombres = docs.map((d) => d.archivo);
-  const lineas = docs.flatMap((d) => d.prop.lineas.map((l) => Object.assign({}, l, { origen: d.archivo })));
+  // `subida` + `pos`: el orden de cada línea en la factura (el Excel de Géminis sale en ese orden).
+  const subida = Date.now();
+  let pos = 0;
+  const lineas = docs.flatMap((d) => d.prop.lineas.map((l) => Object.assign({}, l, { origen: d.archivo, subida, pos: pos++ })));
   const dtoGlobal = docs.map((d) => d.prop.cabecera.dtoGlobal).find((x) => x) || null;
   const cab = Object.assign({}, docs[0].prop.cabecera, { numeroPedido: null, dtoGlobal,
     observaciones: `Factura repartida por referencias entre los pedidos validados (${nombres.join(', ')})` });
@@ -2577,7 +2583,10 @@ function sustituir(id, refValidada, refFactura) {
   guardar(); pintar();
 }
 function asignarFactura(p, archivo, doc) {
-  p.factura = { archivo, fecha: hoy(), cabecera: doc.cabecera || {}, lineas: doc.lineas, control: doc.control || null };
+  // Cada línea recuerda su sitio en la factura (si no lo trae ya de un reparto).
+  const subida = Date.now();
+  const lineas = (doc.lineas || []).map((l, i) => (l.pos != null ? l : Object.assign({}, l, { origen: l.origen || archivo, subida, pos: i })));
+  p.factura = { archivo, fecha: hoy(), cabecera: doc.cabecera || {}, lineas, control: doc.control || null };
   restosPorFactura(p);
 }
 /** La factura final manda: lo validado que no viene en ella pasa a Restos del
@@ -3269,6 +3278,11 @@ function exportarPedidos(ids) {
   // referencia, precio y descuento.
   const decimales = CP.parseNum(localStorage.getItem('cp.decimales') || '2');
   const suma = new Map();
+  // Con factura final en todos, el Excel es la factura tal cual: una fila por
+  // línea, en su orden (por subida y posición), sin juntar referencias.
+  // (las facturas subidas antes del 23/10/2026 no guardan la posición: esas, como antes).
+  const comoFactura = ps.every((p) => p.factura && p.factura.lineas.length && p.factura.lineas.every((l) => l.pos != null));
+  const filas = [];
   for (const p of ps) {
     // La factura final manda: si está, el Excel es ella tal cual (su orden,
     // precio y descuento). Si no, lo validado en el orden de la propuesta.
@@ -3277,13 +3291,28 @@ function exportarPedidos(ids) {
     for (const l0 of CP.lineasParaGeminis(enOrden, { dtoGlobal, decimales })) {
       // Géminis guarda las referencias de Finocam sin el año del final.
       const l = Object.assign({}, l0, { ref: l0.alta ? l0.ref : CP.refParaGeminis(l0.ref, p.proveedor) });
+      if (comoFactura) { filas.push(l); continue; }
       const k = [l.ref, l.precio, l.dto].join('|');
       if (!suma.has(k)) { suma.set(k, Object.assign({}, l)); continue; }
       const g = suma.get(k);
       g.cant += l.cant; g.total = CP.red2(g.total + l.total); g.residuo = CP.red2(g.residuo + l.residuo);
     }
   }
-  descargarGeminis([...suma.values()], { proveedor: provs[0], numero: ps.length === 1 ? ps[0].numero : ps.map((p) => p.numero).join('+'),
+  if (comoFactura) {
+    const orden = (l) => [l.subida != null ? l.subida : Infinity, l.pos != null ? l.pos : Infinity];
+    filas.forEach((l, i) => { l._i = i; });
+    filas.sort((a, b) => { const x = orden(a), y = orden(b); return x[0] - y[0] || x[1] - y[1] || a._i - b._i; });
+    filas.forEach((l) => delete l._i);
+    // Una línea de la factura repartida entre varios clientes vuelve a ser una sola fila.
+    for (let i = filas.length - 1; i > 0; i--) {
+      const a = filas[i - 1], b = filas[i];
+      if (a.subida === b.subida && a.pos === b.pos && a.ref === b.ref && a.precio === b.precio && a.dto === b.dto) {
+        a.cant += b.cant; a.total = CP.red2(a.total + b.total); a.residuo = CP.red2((a.residuo || 0) + (b.residuo || 0));
+        filas.splice(i, 1);
+      }
+    }
+  }
+  descargarGeminis(comoFactura ? filas : [...suma.values()], { proveedor: provs[0], numero: ps.length === 1 ? ps[0].numero : ps.map((p) => p.numero).join('+'),
     observaciones: ps.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales, marca });
 }
 /** Escribe el Excel 5.0/95 de Géminis (artículos desde la fila 11) con líneas ya pasadas por lineasParaGeminis. */
