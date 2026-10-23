@@ -154,6 +154,10 @@ cp hub-coin-*.webp _site/ 2>/dev/null || true
 cp hub-center.webp _site/ 2>/dev/null || true
 cp sound-connect.mp3 _site/ 2>/dev/null || true
 cp sound-click.mp3 _site/ 2>/dev/null || true
+cp sound-click-door.mp3 _site/ 2>/dev/null || true
+cp sound-logo-reveal.mp3 _site/ 2>/dev/null || true
+cp ofipapel-360-intro.mp4 _site/ 2>/dev/null || true
+cp ofipapel-360-hub-fondo.webp _site/ 2>/dev/null || true
 cp manifest-inicio.json _site/ 2>/dev/null || true
 # Manifest e iconos del panel del bot. El panel es una FUNCIÓN de Netlify
 # (/.netlify/functions/conversations), así que no puede servir sus propios

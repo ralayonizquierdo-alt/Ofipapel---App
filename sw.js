@@ -1,4 +1,4 @@
-const CACHE = 'ofipapel-v4.0';
+const CACHE = 'ofipapel-v4.1';
 const ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
@@ -39,6 +39,17 @@ self.addEventListener('fetch', e => {
       url.endsWith('/') || url.endsWith('.html') || url.includes('falcontrol')) {
     e.respondWith(fetch(e.request));
     return;
+  }
+
+  // Vídeo/audio directo a la red, sin pasar por el Service Worker: el
+  // <video> del hub pide el .mp4 por rangos de bytes (Range) para ir
+  // reproduciendo/buscando, y un SW de por medio (incluso solo reenviando
+  // el fetch) es una causa conocida de que esas peticiones por rangos se
+  // queden colgadas en según qué navegador — el vídeo se congela sin
+  // avisar y hace falta recargar la página entera para que vuelva a ir.
+  if (e.request.destination === 'video' || e.request.destination === 'audio' ||
+      /\.(mp4|webm|mp3|wav|ogg)$/i.test(url)) {
+    return; // sin respondWith(): el navegador hace la petición directa, tal cual
   }
 
   // CDN libs: caché primero
