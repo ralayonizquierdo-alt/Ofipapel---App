@@ -90,6 +90,7 @@ const {
   isPedidoEstadoQuestion,
 } = require('./whatsapp-agent-config');
 const woocommerce = require('./woocommerce-client');
+const gestion = require('./gestion-pedidos');
 const { sendWhatsappMessage: entregarAlCliente, sendWhatsappTemplate } = require('./whatsapp-send');
 const { escalateQuestion, sendEscalateButtons } = require('./whatsapp-escalado');
 
@@ -422,6 +423,25 @@ function marcaEsperandoNombre(orderId) {
   return `[PEDIDO:ESPERANDO_NOMBRE:${orderId}]`;
 }
 
+// «FIGURA COMO ENTREGADO» Y EL CLIENTE DICE QUE NO LO HA RECIBIDO.
+//
+// Eso ya no es una duda sobre el estado: es un problema, y de los que no se
+// arreglan con otra frase del bot. Puede ser que lo recogiera otra persona de
+// la empresa, que el reparto se cerrara sin entregar o que se haya extraviado —
+// nada de eso lo puede resolver un bot, y repetirle «figura como entregado» a
+// quien acaba de decir que no lo tiene es la forma más rápida de enfadarlo.
+//
+// Solo cuenta si el mensaje anterior del bot fue justo el de «entregado» (de
+// ahí la marca): «no me ha llegado» en mitad de otra conversación es otra cosa.
+const NIEGA_LA_ENTREGA_RE =
+  /\bno\s+(me\s+)?(lo|la|le)?\s*(ha\s+|han\s+)?(lleg|recib|entreg|traj|vino|venido)/i;
+
+function negacionDeEntrega(history, text) {
+  const ultimoBot = [...history].reverse().find((m) => m.role === 'assistant' || m.role === 'agent');
+  if (!ultimoBot || !String(ultimoBot.content || '').startsWith(MARCA_PEDIDO_ENTREGADO)) return false;
+  return NIEGA_LA_ENTREGA_RE.test(String(text || ''));
+}
+
 function detectarPasoPedido(history) {
   const ultimoBot = [...history].reverse().find((m) => m.role === 'assistant');
   if (!ultimoBot) return null;
@@ -429,6 +449,67 @@ function detectarPasoPedido(history) {
   const m = PEDIDO_MARCA_ESPERANDO_NOMBRE_RE.exec(ultimoBot.content);
   if (m) return { paso: 'nombre', orderId: m[1] };
   return null;
+}
+
+// EL ESTADO DEL PEDIDO, CON EL DE GEMINISWIN SI LO TENEMOS.
+//
+// Se llama desde los DOS caminos de verificación (teléfono y nombre) y solo
+// desde ahí: cuando se llega aquí, WooCommerce ya ha confirmado que el pedido
+// es de quien escribe. La tabla de Gestión no lleva nombres a propósito, así
+// que la identidad nunca se comprueba contra ella.
+//
+// Devuelve { texto, ofrecerPersona, entregado }. Si Gestión no sabe nada de ese
+// pedido, si el dato está caducado o si Supabase no contesta, se cae al estado
+// de WooCommerce de siempre — nunca se deja a un cliente sin respuesta.
+const MARCA_PEDIDO_ENTREGADO = '[PEDIDO:ENTREGADO]';
+
+async function respuestaDeEstado(order, idioma) {
+  const porDefecto = { texto: woocommerce.formatOrderStatus(order, idioma), ofrecerPersona: false };
+
+  let fila = null;
+  try {
+    fila = await gestion.estadoDeGestion(order.id);
+  } catch (err) {
+    console.error('No se pudo consultar el estado de Gestión:', err);
+  }
+  if (!fila) return porDefecto;
+
+  // El dato es viejo: el publicador se ha saltado una pasada entera. Se da lo
+  // que diga WooCommerce y se ofrece una persona, porque lo de la web puede ir
+  // por detrás y ya no tenemos con qué corregirlo.
+  if (gestion.caducado(fila.actualizado)) {
+    console.error(`gestion-pedidos: dato caducado del pedido ${order.id} (${fila.actualizado}).`);
+    return { ...porDefecto, ofrecerPersona: true };
+  }
+
+  const frase = gestion.fraseDeEstado(fila, new Date(), idioma);
+  if (!frase) return porDefecto;
+
+  return {
+    texto: `${woocommerce.encabezadoDelPedido(order, idioma)} ${frase.texto}`.trim(),
+    ofrecerPersona: Boolean(frase.ofrecerPersona),
+    entregado: Boolean(frase.entregado),
+  };
+}
+
+// Manda la respuesta del estado por donde toque: un mensaje normal, o el texto
+// con los botones de hablar con una persona cuando el estado lo pide (anulado,
+// incidencia, no entregado, retraso o dato caducado).
+async function contestarElEstado(from, text, order, greeting, idioma) {
+  const { texto, ofrecerPersona, entregado } = await respuestaDeEstado(order, idioma);
+
+  if (ofrecerPersona) {
+    const prefijo = `${greeting}${texto} `;
+    await sendEscalateButtons(from, prefijo, idioma);
+    await appendToHistory(from, text, `${prefijo}${escalateQuestion(idioma)}`);
+    return;
+  }
+
+  const reply = greeting + texto;
+  // La marca solo sirve para reconocer el turno siguiente: si el cliente
+  // contesta que no lo ha recibido, eso no es una duda, es un problema.
+  await appendToHistory(from, text, `${entregado ? MARCA_PEDIDO_ENTREGADO : ''}${reply}`);
+  await sendWhatsappMessage(from, reply);
 }
 
 // Continúa una búsqueda de pedido ya empezada. Devuelve true si se ha encargado del
@@ -481,9 +562,7 @@ async function continuarBusquedaPedido(from, text, paso, greeting, idioma = 'es'
       // Pedido ya verificado como suyo: su nombre/empresa salen de WooCommerce,
       // así que se pueden guardar en su ficha como dato fiable.
       await conversationStore.registrarPedidoVerificado(from, order);
-      const reply = greeting + woocommerce.formatOrderStatus(order, idioma);
-      await appendToHistory(from, text, reply);
-      await sendWhatsappMessage(from, reply);
+      await contestarElEstado(from, text, order, greeting, idioma);
       return true;
     }
 
@@ -501,9 +580,7 @@ async function continuarBusquedaPedido(from, text, paso, greeting, idioma = 'es'
     const order = await woocommerce.getOrder(paso.orderId);
     if (order && !woocommerce.isSpamOrder(order) && woocommerce.nombreCoincide(text, order)) {
       await conversationStore.registrarPedidoVerificado(from, order);
-      const reply = greeting + woocommerce.formatOrderStatus(order, idioma);
-      await appendToHistory(from, text, reply);
-      await sendWhatsappMessage(from, reply);
+      await contestarElEstado(from, text, order, greeting, idioma);
       return true;
     }
 
@@ -1057,6 +1134,19 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // Si la última respuesta del bot fue "dime el número de tu pedido" o "confírmame
   // el nombre", este mensaje es la continuación de esa búsqueda concreta — se
   // gestiona aparte de FAQ/escalado/IA (ver detectarPasoPedido más abajo).
+  // El bot acaba de decirle que su pedido figura como entregado y él contesta
+  // que no lo ha recibido. Eso lo atiende una persona, y va ANTES que cualquier
+  // otra cosa: no hay respuesta automática que valga aquí.
+  if (negacionDeEntrega(history, text)) {
+    const prefijo = idioma === 'en'
+      ? `${greeting}I'm sorry — if it is recorded as delivered and you don't have it, someone needs to look into it. `
+      : `${greeting}Lo siento. Si figura como entregado y no lo tienes, esto tiene que mirarlo una persona. `;
+    await sendEscalateButtons(message.from, prefijo, idioma);
+    await appendToHistory(message.from, text, `[Dice que no ha recibido un pedido dado por entregado] ${prefijo}${escalateQuestion(idioma)}`);
+    await notifyOwnerByWhatsapp(message.from, `📦 Dice que NO ha recibido un pedido que figura como entregado: ${text}`);
+    return;
+  }
+
   const pasoPedido = detectarPasoPedido(history);
   if (pasoPedido) {
     const gestionado = await continuarBusquedaPedido(message.from, text, pasoPedido, greeting, idioma);

@@ -965,6 +965,31 @@ function formatOrderStatusEs(order) {
   return msg;
 }
 
+// LOS DATOS DEL PEDIDO, SIN DECIR EN QUÉ ESTADO ESTÁ.
+//
+// Número, fecha e importe sí los sabe WooCommerce con certeza y son suyos; el
+// estado es lo único que va por detrás de la realidad. Cuando GeminisWin nos
+// dice el estado de verdad (ver gestion-pedidos.js), se usa este encabezado y
+// la frase del estado la pone él.
+function encabezadoDelPedido(order, idioma = 'es') {
+  const fecha = order.date_created
+    ? new Date(order.date_created).toLocaleDateString(idioma === 'en' ? 'en-GB' : 'es-ES')
+    : null;
+  const total = order.total ? Number(order.total).toFixed(2) : null;
+
+  if (idioma === 'en') {
+    let msg = `Your order #${order.id}`;
+    if (fecha) msg += ` (${fecha})`;
+    if (total) msg += `, for a total of €${total}`;
+    return `${msg}.`;
+  }
+
+  let msg = `Tu pedido #${order.id}`;
+  if (fecha) msg += ` (del ${fecha})`;
+  if (total) msg += `, por un total de ${total}€`;
+  return `${msg}.`;
+}
+
 // "spamorder" es un estado interno (pedidos marcados como spam/fraude por un
 // plugin) — si un pedido real cae ahí por error, mejor que lo revise una persona
 // en vez de que el bot le diga al cliente que su pedido está marcado como spam.
@@ -982,5 +1007,6 @@ module.exports = {
   phoneMatches,
   nombreCoincide,
   formatOrderStatus,
+  encabezadoDelPedido,
   isSpamOrder,
 };
