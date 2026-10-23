@@ -23,6 +23,8 @@ const TODOS_LOS_MESES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 const ANUAL = -1
 /** El que enseña los cobros uno a uno, colgando de su reserva. */
 const POR_RESERVA = -2
+/** El reporte de pagos: cada reserva con TODOS sus cobros, uno debajo de otro. */
+const PAGOS = -3
 
 type SortBy = 'nombre' | 'importe'
 /** Un bloque de la pantalla: un trimestre, un mes suelto o el año entero. */
@@ -148,10 +150,11 @@ export default function Collections() {
   // Qué tablas se pintan. Un mes elegido manda sobre el trimestre, y «todos los
   // meses» pone los doce en una sola fila, que es como está el Excel.
   const porReserva = filterQ === POR_RESERVA && !filterMes
+  const porPagos = filterQ === PAGOS && !filterMes
   const bloques: Bloque[] = filterMes
     ? [{ key: `m${filterMes}`, months: [filterMes], label: `${MONTH_NAMES_ES[filterMes - 1]} ${year}`,
          corto: MONTH_NAMES_ES[filterMes - 1], totalLabel: 'TOTAL MES' }]
-    : filterQ === ANUAL || porReserva
+    : filterQ === ANUAL || porReserva || porPagos
       ? [{ key: 'anual', months: TODOS_LOS_MESES, label: `Todos los meses de ${year}`,
            corto: 'AÑO', totalLabel: 'TOTAL AÑO' }]
       : (filterQ ? QUARTERS.filter(qt => qt.q === filterQ) : QUARTERS).map(qt => ({
@@ -229,6 +232,51 @@ export default function Collections() {
   function exportCSV() {
     const fmt = (n: number) => n > 0 ? num(n, 2) : '0,00'
     const rows: string[][] = []
+
+    // El reporte de pagos se baja tal cual se ve: una línea por cobro, con su
+    // reserva delante. Es lo que pidió el propietario para las estancias que se
+    // pagan en varias veces y a lo largo de varios meses.
+    if (porPagos) {
+      rows.push([`Pagos por reserva — ${year}`])
+      rows.push([])
+      rows.push(['Apto.', 'Estancia', 'Noches', 'Importe reserva', 'Nº de pagos',
+        'Fecha', 'Mes contable', 'Transferencia', 'Efectivo', 'Nº asiento',
+        'Cobrado', 'Resto pdte.'])
+      const corto = (iso?: string) => iso ? formatDate(iso).replace(/\/\d{2}(\d{2})$/, '/$1') : ''
+      const fichas = reservations
+        .filter(r => r.status !== 'cancelada' && (!filterApt || r.apartmentId === filterApt))
+        .map(r => {
+          const suyos = payments
+            .filter(p => p.reservationId === r.id && p.received)
+            .sort((a, b) => (mesDe(a) ?? '').localeCompare(mesDe(b) ?? '')
+              || (a.paymentDate ?? '').localeCompare(b.paymentDate ?? ''))
+          const cobrado = Math.round(suyos.reduce((x, p) => x + p.amount, 0) * 100) / 100
+          return { r, suyos, cobrado, resto: Math.round((r.total - cobrado) * 100) / 100 }
+        })
+        .filter(f => f.suyos.some(p => (mesDe(p) ?? '').startsWith(String(year)))
+          || (f.r.checkIn <= `${year}-12-31` && f.r.checkOut > `${year}-01-01`))
+        .sort((a, b) => a.r.checkIn.localeCompare(b.r.checkIn)
+          || a.r.apartmentId.localeCompare(b.r.apartmentId))
+      for (const { r, suyos, cobrado, resto } of fichas) {
+        const cab = [nombreApt(r.apartmentId), `${corto(r.checkIn)} al ${corto(r.checkOut)}`,
+          `${r.nights}-N`, fmt(r.total), String(suyos.length)]
+        if (suyos.length === 0) {
+          rows.push([...cab, '', '', '', '', 'sin ningún cobro todavía', fmt(0), fmt(resto)])
+          continue
+        }
+        suyos.forEach((p, k) => rows.push([
+          ...(k === 0 ? cab : ['', '', '', '', '']),
+          corto(p.paymentDate), p.mes ?? '',
+          p.paymentMethod === 'efectivo' ? '' : fmt(p.amount),
+          p.paymentMethod === 'efectivo' ? fmt(p.amount) : '',
+          p.entryNumber ?? '',
+          k === suyos.length - 1 ? fmt(cobrado) : '',
+          k === suyos.length - 1 ? (Math.abs(resto) > 0.005 ? fmt(resto) : '') : '',
+        ]))
+      }
+      descarga(rows, `pagos_por_reserva_${year}${filterApt ? `_${filterApt}` : ''}.csv`)
+      return
+    }
 
     // En la vista por reserva se baja lo que se está viendo: el detalle de cada
     // cobro. Es con lo que se cuadra contra el extracto o contra los recibos.
@@ -405,6 +453,7 @@ export default function Collections() {
               <option value={0}>Trimestres (4 tablas)</option>
               <option value={ANUAL}>Todos los meses (una tabla)</option>
               <option value={POR_RESERVA}>Cobros según reserva</option>
+              <option value={PAGOS}>Pagos por reserva (detalle)</option>
               {QUARTERS.map(qt => <option key={qt.q} value={qt.q}>{qt.label}</option>)}
             </select>
             <select value={filterMes} onChange={e => { setFilterMes(Number(e.target.value)); setFilterQ(0) }}
@@ -505,6 +554,13 @@ export default function Collections() {
       )}
 
       <div className="space-y-6" id="collections-screen">
+        {porPagos && (
+          <PagosPorReserva
+            year={year} filterApt={filterApt} apartments={apartments}
+            reservations={reservations} payments={payments} eur={eur} mesDe={mesDe}
+          />
+        )}
+
         {porReserva && (
           <CobrosPorReserva
             year={year} filterApt={filterApt} apartments={apartments}
@@ -513,7 +569,7 @@ export default function Collections() {
           />
         )}
 
-        {!porReserva && bloques.map(({ key, months, label, corto, totalLabel }) => {
+        {!porReserva && !porPagos && bloques.map(({ key, months, label, corto, totalLabel }) => {
           // Doce meses no caben en un portátil con el ancho de siempre: se
           // aprietan las celdas, se abrevian los meses y el apartamento pasa a
           // su número, que es como lo llama todo el mundo y como está el Excel.
@@ -1334,6 +1390,145 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                 </Fragment>
               )
             })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * El reporte de pagos: cada reserva con TODOS sus cobros, uno debajo de otro.
+ *
+ * Lo pidió el propietario el 23/10/2026, y con estas palabras: «reportes de
+ * pagos, sobre todo para los pagos de reservas que se componen de varios pagos
+ * y de más de un mes: fechas, importes, nº asiento». Ese caso —una estancia
+ * larga que se va pagando por meses— es el que no se ve en ninguna otra
+ * pantalla: en el listado por meses sus cobros salen repartidos por el año, uno
+ * en cada mes, y hay que ir juntándolos a mano.
+ *
+ * Aquí cada estancia es un bloque: sus datos arriba y debajo sus cobros en
+ * orden, con el mes contable al lado de la fecha real —que no siempre es el
+ * mismo— y el nº de asiento, que es con lo que se cuadra contra Gestión. Las
+ * que llevan más de un pago salen marcadas, porque son las que hay que mirar.
+ *
+ * Entran las reservas con algún cobro del año y las que tocan el año y aún no
+ * han cobrado nada: lo que falta por cobrar también es un reporte de pagos.
+ */
+function PagosPorReserva({ year, filterApt, apartments, reservations, payments, eur, mesDe }: {
+  year: number
+  filterApt: string
+  apartments: Apartment[]
+  reservations: Reservation[]
+  payments: Payment[]
+  eur: (n: number) => string
+  mesDe: (p: Payment) => string | undefined
+}) {
+  const nombreApt = (id: string) => apartments.find(a => a.id === id)?.name ?? id
+  const fecha = (iso?: string) => iso ? formatDate(iso).replace(/\/\d{2}(\d{2})$/, '/$1') : '—'
+  const mesCorto = (p: Payment) => {
+    const m = mesDe(p)
+    return m ? `${MONTH_NAMES_ES[Number(m.slice(5, 7)) - 1].slice(0, 3).toLowerCase()} ${m.slice(2, 4)}` : '—'
+  }
+
+  const delAnio = `${year}`
+  const fichas = reservations
+    .filter(r => r.status !== 'cancelada' && (!filterApt || r.apartmentId === filterApt))
+    .map(r => {
+      const suyos = payments
+        .filter(p => p.reservationId === r.id && p.received)
+        .sort((a, b) => (mesDe(a) ?? '').localeCompare(mesDe(b) ?? '')
+          || (a.paymentDate ?? '').localeCompare(b.paymentDate ?? ''))
+      const cobrado = Math.round(suyos.reduce((x, p) => x + p.amount, 0) * 100) / 100
+      const meses = new Set(suyos.map(p => mesDe(p)).filter(Boolean))
+      return { r, suyos, cobrado, meses: meses.size, resto: Math.round((r.total - cobrado) * 100) / 100 }
+    })
+    // Del año: la que cobra en él o la que lo ocupa.
+    .filter(f => f.suyos.some(p => (mesDe(p) ?? '').startsWith(delAnio))
+      || (f.r.checkIn <= `${year}-12-31` && f.r.checkOut > `${year}-01-01`))
+    .sort((a, b) => a.r.checkIn.localeCompare(b.r.checkIn)
+      || a.r.apartmentId.localeCompare(b.r.apartmentId))
+
+  const varios = fichas.filter(f => f.suyos.length > 1).length
+  const aPlazos = fichas.filter(f => f.meses > 1).length
+  const totalCobrado = Math.round(fichas.reduce((x, f) => x + f.cobrado, 0) * 100) / 100
+
+  const celda = 'py-1.5 px-3 text-xs whitespace-nowrap'
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
+        <h3 className="font-semibold text-white">Pagos por reserva · {year}</h3>
+        <span className="text-white font-bold">{eur(totalCobrado)}</span>
+      </div>
+      <div className="px-5 py-2 bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
+        {fichas.length} reservas · <b className="text-slate-700">{varios}</b> con más de un pago ·{' '}
+        <b className="text-slate-700">{aPlazos}</b> repartidas en varios meses
+      </div>
+      <div className="overflow-auto max-h-[70vh] print:max-h-none print:overflow-visible">
+        <table className="w-full text-sm" translate="no">
+          <thead className="sticky top-0 z-20 shadow-sm">
+            <tr className="border-b border-slate-200 bg-slate-100 text-xs text-slate-600">
+              <th className="text-left py-2 px-3 font-medium">Apto.</th>
+              <th className="text-left py-2 px-3 font-medium">Estancia</th>
+              <th className="text-right py-2 px-3 font-medium">Importe</th>
+              <th className="text-right py-2 px-3 font-medium">Pagos</th>
+              <th className="text-left py-2 px-3 font-medium">Fecha</th>
+              <th className="text-left py-2 px-3 font-medium" title="El mes en el que cuenta el cobro, que no siempre es el de su fecha">Mes contable</th>
+              <th className="text-right py-2 px-3 font-medium text-blue-700">Transferencia</th>
+              <th className="text-right py-2 px-3 font-medium text-red-600">Efectivo</th>
+              <th className="text-left py-2 px-3 font-medium">Nº asiento</th>
+              <th className="text-right py-2 px-3 font-medium">Cobrado</th>
+              <th className="text-right py-2 px-3 font-medium text-purple-700">Resto pdte.</th>
+            </tr>
+          </thead>
+          <tbody className="tabular-nums">
+            {fichas.map(({ r, suyos, cobrado, meses, resto }) => (
+              <Fragment key={r.id}>
+                <tr className="border-t-2 border-slate-200 bg-slate-50/60">
+                  <td className={`${celda} font-medium text-slate-700`}>{nombreApt(r.apartmentId)}</td>
+                  <td className={`${celda} text-slate-600`}>
+                    {fecha(r.checkIn)} al {fecha(r.checkOut)} · {r.nights}-N
+                    {meses > 1 && (
+                      <span className="ml-2 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-medium"
+                        title="Se ha ido pagando a lo largo de varios meses">
+                        a plazos · {meses} meses
+                      </span>
+                    )}
+                  </td>
+                  <td className={`${celda} text-right text-slate-700 font-semibold`}>{eur(r.total)}</td>
+                  <td className={`${celda} text-right ${suyos.length > 1 ? 'text-amber-700 font-semibold' : 'text-slate-500'}`}>
+                    {suyos.length}
+                  </td>
+                  <td className={celda} colSpan={5} />
+                  <td className={`${celda} text-right font-semibold text-slate-800`}>{eur(cobrado)}</td>
+                  <td className={`${celda} text-right font-semibold ${resto > 0.005 ? 'text-purple-700' : resto < -0.005 ? 'text-blue-700' : 'text-slate-300'}`}>
+                    {resto > 0.005 ? eur(resto) : resto < -0.005 ? `+${eur(-resto)}` : '—'}
+                  </td>
+                </tr>
+                {suyos.length === 0 && (
+                  <tr className="border-b border-slate-50">
+                    <td className={celda} colSpan={4} />
+                    <td className={`${celda} text-slate-400 italic`} colSpan={7}>sin ningún cobro todavía</td>
+                  </tr>
+                )}
+                {suyos.map(p => (
+                  <tr key={p.id} className="border-b border-slate-50">
+                    <td className={celda} colSpan={4} />
+                    <td className={`${celda} text-slate-600`}>{fecha(p.paymentDate)}</td>
+                    <td className={`${celda} text-slate-500`}>{mesCorto(p)}</td>
+                    <td className={`${celda} text-right text-blue-700`}>
+                      {p.paymentMethod !== 'efectivo' ? eur(p.amount) : ''}
+                    </td>
+                    <td className={`${celda} text-right text-red-600`}>
+                      {p.paymentMethod === 'efectivo' ? eur(p.amount) : ''}
+                    </td>
+                    <td className={`${celda} text-slate-500`}>{p.entryNumber ?? ''}</td>
+                    <td className={celda} colSpan={2} />
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
           </tbody>
         </table>
       </div>
