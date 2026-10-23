@@ -902,3 +902,13 @@ test('Emparejar referencias que el proveedor factura con otro código (Fellowes)
   // Dos candidatos con la misma medida y cantidad: no se adivina
   assert.deepEqual(CP.emparejarReferencias([{ ref: 'A', cant: 2, desc: '24mm negro' }], [{ ref: 'B', cant: 2, desc: '24MM black' }, { ref: 'C', cant: 2, desc: '24MM white' }]), {});
 });
+
+test('Emparejar referencias: el proveedor pone prefijo y sufijo a nuestro código (Archivo 2000)', () => {
+  const ped = ['1106', '64004', '64005', '27104M', '66617', '6142', '11004CSTP', '6157A', '6157', '6156A'].map((ref) => ({ ref, cant: 1, desc: '' }));
+  const pro = ['01A1106CSTL', '01C64004PT', '01C64005PT', '01A27104MNE', '01A66617CSTP', '01A6142CSTP', '01A11004CSTP', '01C6157ACSTP', '01C6157CSTP', '01C6156ACSTP'].map((ref) => ({ ref, cant: 1, desc: '' }));
+  const r = CP.emparejarReferencias(ped, pro);
+  assert.equal(r['01C6157ACSTP'], '6157A');
+  assert.equal(r['01C6157CSTP'], '6157');
+  assert.equal(r['01A1106CSTL'], '1106');
+  assert.equal(Object.keys(r).length, 10);
+});

@@ -1399,17 +1399,24 @@
     let sobran = [...pro.keys()].filter((k) => !ped.has(k)).map((k) => pro.get(k));
     const out = {};
     const alnum = (r) => String(r || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const nucleo = (r) => alnum(r).replace(/^\d{2}[A-Z]{1,3}(?=\d)/, '');
     const medidas = (d) => [...new Set((String(d || '').toLowerCase().match(/\d+(?:[.,]\d+)?\s*(?:mm|cm|mic|mi|ml|gr?|kg)\b/g) || []).map((x) => x.replace(/\s+/g, '').replace(',', '.').replace(/mic$|mi$/, 'mic')))].sort().join('|');
+    // `contiene`: Archivo 2000 pone prefijo y sufijo a nuestro código (1106 →
+    // 01A1106CSTL, 27104M → 01A27104MNE); se prueba de la más larga a la más
+    // corta para que «6157A» se quede la suya antes que «6157».
     const reglas = [
-      (a, b) => alnum(a.ref) === alnum(b.ref),
-      (a, b) => { const x = alnum(a.ref), y = alnum(b.ref); return x.length >= 5 && y.length >= 5 && (x.startsWith(y) || y.startsWith(x)); },
-      (a, b) => { const m = medidas(a.desc); return Boolean(m) && m === medidas(b.desc) && a.cant === b.cant; },
+      // …y el mismo código con otro prefijo de serie delante (01C6156CSTP = 01A6156CSTP).
+      { f: (a, b) => alnum(a.ref) === alnum(b.ref) || (nucleo(a.ref).length >= 4 && nucleo(a.ref) === nucleo(b.ref)) },
+      { f: (a, b) => { const x = alnum(a.ref), y = alnum(b.ref); return x.length >= 5 && y.length >= 5 && (x.startsWith(y) || y.startsWith(x)); } },
+      { f: (a, b) => { const x = alnum(a.ref), y = alnum(b.ref); return x.length >= 4 && y.length >= 4 && (x.includes(y) || y.includes(x)); }, contiene: true },
+      { f: (a, b) => { const m = medidas(a.desc); return Boolean(m) && m === medidas(b.desc) && a.cant === b.cant; } },
     ];
-    for (const regla of reglas) {
-      for (const a of faltan.slice()) {
+    for (const { f: regla, contiene } of reglas) {
+      const orden = contiene ? faltan.slice().sort((x, y) => alnum(y.ref).length - alnum(x.ref).length) : faltan.slice();
+      for (const a of orden) {
         const cand = sobran.filter((b) => regla(a, b));
         if (cand.length !== 1) continue;
-        if (faltan.filter((x) => regla(x, cand[0])).length !== 1) continue;
+        if (!contiene && faltan.filter((x) => regla(x, cand[0])).length !== 1) continue;
         out[cand[0].ref] = a.ref;
         faltan = faltan.filter((x) => x !== a);
         sobran = sobran.filter((x) => x !== cand[0]);
