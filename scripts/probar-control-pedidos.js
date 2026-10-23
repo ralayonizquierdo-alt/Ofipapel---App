@@ -852,3 +852,17 @@ test('Restos que llegan en la factura siguiente: lo que sobra del reparto se da 
   assert.deepEqual(r.asignaciones.map((a) => [a.restoId, a.cant, a.origen]), [['r1', 1, 'f2.pdf'], ['r2', 2, 'f2.pdf']]);
   assert.deepEqual(r.sobrantes.map((l) => [l.ref, l.cant, l.importe]), [['MR1', 1, 10], ['MR2', 1, 5]], 'otro proveedor no cuenta; lo que sobra conserva su parte del importe');
 });
+
+test('Códigos internos desde la liquidación de Géminis: por referencia, por EAN o por referencia sin la cola del año', () => {
+  const g = [
+    { codVenta: '141161', referencia: '6211630', ean: '8422952403975' },
+    { codVenta: '79139', referencia: '7801800', ean: '' }, { codVenta: '79139', referencia: '7801800', ean: '' },
+    { codVenta: '555', referencia: 'X-1', ean: '8400000000001' },
+    { codVenta: '1', referencia: '1234567', ean: '' }, { codVenta: '2', referencia: '12345678', ean: '' },
+    { codVenta: '900', referencia: '00839', ean: '' },
+  ];
+  const r = CP.codigosInternos([
+    { ref: '621163027' }, { ref: '780180027' }, { ref: 'Y-9', ean: '8400000000001' }, { ref: '123456789' }, { ref: '839' }, { ref: 'NADA' },
+  ], g);
+  assert.deepEqual(r, { 621163027: '141161', 780180027: '79139', 'Y-9': '555', 839: '900' }, 'dos candidatos con códigos distintos: no se adivina');
+});
