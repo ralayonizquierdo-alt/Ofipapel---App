@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, FileSpreadsheet, History, Sparkles, ClipboardPaste, Settings, Menu, X, KeyRound, LogOut,
-  PanelLeftClose, PanelLeftOpen, Building2, Grid3x3,
+  PanelLeftClose, PanelLeftOpen, Building2, Grid3x3, RefreshCw,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import bgTrebol from './assets/bg-trebol.png'
@@ -137,6 +137,7 @@ function Sidebar({ rol, alerts, plegado, onPlegar, onChangePassword, onLogout }:
       </nav>
       <div className={`${plegado ? 'px-1.5' : 'px-4'} py-3 border-t border-slate-700 space-y-1 relative z-10`}>
         {!plegado && <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>}
+        <BotonRefrescar plegado={plegado} />
         <a href={AL_HUB} title="Volver al hub sin cerrar la sesión"
           className={`flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 rounded-lg hover:bg-slate-800 transition-colors ${plegado ? 'justify-center px-0' : 'px-2'}`}>
           <Grid3x3 size={13} /> {!plegado && 'Salir al hub'}
@@ -154,6 +155,36 @@ function Sidebar({ rol, alerts, plegado, onPlegar, onChangePassword, onLogout }:
   )
 }
 
+/**
+ * «Refrescar»: vuelve a cargar la app y sus datos (lo pidió el propietario,
+ * 23/10/2026).
+ *
+ * Los datos ya llegan solos —Firestore avisa de cada cambio en tiempo real—,
+ * pero eso no se ve, y cuando alguien acaba de apuntar algo desde otro
+ * dispositivo lo que apetece es un botón que lo traiga. Recargar la página
+ * entera es lo único que garantiza que no se está mirando nada viejo: también
+ * se trae la versión nueva de la app si la hay.
+ */
+function BotonRefrescar({ plegado, className, onClose }: { plegado?: boolean; className?: string; onClose?: () => void }) {
+  const [yendo, setYendo] = useState(false)
+  const refrescar = () => {
+    setYendo(true)
+    onClose?.()
+    window.location.reload()
+  }
+  if (className) return (
+    <button onClick={refrescar} title="Refrescar: vuelve a cargar los datos" className={className}>
+      <RefreshCw size={18} className={yendo ? 'animate-spin' : ''} />
+    </button>
+  )
+  return (
+    <button onClick={refrescar} title="Refrescar: vuelve a cargar los datos"
+      className={`flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 rounded-lg hover:bg-slate-800 transition-colors ${plegado ? 'justify-center px-0' : 'px-2'}`}>
+      <RefreshCw size={13} className={yendo ? 'animate-spin' : ''} /> {!plegado && 'Refrescar'}
+    </button>
+  )
+}
+
 function MobileHeader({ alerts, onMenuOpen }: { alerts: number; onMenuOpen: () => void }) {
   const location = useLocation()
   const current = NAV.find(n => location.pathname.startsWith(n.to))
@@ -167,11 +198,14 @@ function MobileHeader({ alerts, onMenuOpen }: { alerts: number; onMenuOpen: () =
         </button>
         <span className="font-semibold text-sm">{current?.label ?? 'Alquileres'}</span>
       </div>
-      {alerts > 0 && (
-        <span className="bg-amber-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold relative z-10">
-          {alerts}
-        </span>
-      )}
+      <div className="flex items-center gap-3 relative z-10">
+        {alerts > 0 && (
+          <span className="bg-amber-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+            {alerts}
+          </span>
+        )}
+        <BotonRefrescar className="p-1 rounded-lg hover:bg-slate-700" />
+      </div>
     </header>
   )
 }
@@ -198,6 +232,7 @@ function Drawer({ rol, alerts, open, onClose, onChangePassword, onLogout }: { ro
         </nav>
         <div className="px-4 py-3 border-t border-slate-700 space-y-1 relative z-10">
           <p className="text-slate-500 text-xs mb-2">Ofipapel © 2026</p>
+          <BotonRefrescar onClose={onClose} />
           <a href={AL_HUB}
             className="flex items-center gap-2 text-slate-400 hover:text-white text-xs w-full py-1.5 px-2 rounded-lg hover:bg-slate-800 transition-colors">
             <Grid3x3 size={13} /> Salir al hub
