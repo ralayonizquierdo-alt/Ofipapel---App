@@ -205,14 +205,19 @@
       // precio se avisa aparte, por unidad), se
       // pasa su línea a unidades y se compara como la misma cantidad.
       let porCaja = null;
-      if (a && b && b.cant > 0 && a.cant > b.cant && Number.isInteger(a.cant / b.cant)) {
-        const k = a.cant / b.cant;
+      // Las cajas: lo que se deduce de las cantidades (múltiplo exacto) o, si no
+      // cuadra con el precio, las uds/caja de nuestro pedido (4.800 uds. y 200
+      // cajas de 25: viene de más). Vale la que mejor cuadra con el precio por caja.
+      if (a && b && b.cant > 0 && a.cant > b.cant) {
         const pa = neto ? a.neto : a.precio;
         const pb = neto ? b.neto : b.precio;
-        if (pa && pb && pb / pa >= k * 0.6 && pb / pa <= k * 1.6) {
+        const cands = [Number.isInteger(a.cant / b.cant) ? a.cant / b.cant : null, parseNum(a.udsCaja) > 1 ? parseNum(a.udsCaja) : null];
+        const desvio = (c) => Math.abs(Math.log(pb / pa / c));
+        const k = pa && pb ? cands.filter((c) => c && pb / pa >= c * 0.6 && pb / pa <= c * 1.6).sort((x, y) => desvio(x) - desvio(y))[0] : null;
+        if (k) {
           porCaja = k;
           const div = (x) => (x == null ? x : Math.round((x / k) * 1e5) / 1e5);
-          b = { ...b, cant: a.cant, precio: div(b.precio), neto: div(b.neto), udsCaja: null };
+          b = { ...b, cant: b.cant * k, precio: div(b.precio), neto: div(b.neto), udsCaja: null };
         }
       }
       // La referencia que se enseña y con la que se decide es la de nuestro pedido.
@@ -248,7 +253,7 @@
         sugerencias: [],
       };
 
-      if (porCaja) { fila.porCaja = porCaja; fila.motivos.push({ tipo: 'por_caja', texto: `El proveedor lo cuenta por cajas de ${porCaja} (${a.cant / porCaja} cajas = ${a.cant} uds.)`, revisar: false, informativo: true }); }
+      if (porCaja) { fila.porCaja = porCaja; fila.motivos.push({ tipo: 'por_caja', texto: `El proveedor lo cuenta por cajas de ${porCaja} (${b.cant / porCaja} cajas = ${b.cant} uds.)`, revisar: false, informativo: true }); }
       if (a && a.veces > 1) fila.motivos.push({ tipo: 'duplicada_pedido', texto: `Aparece ${a.veces} veces en el pedido (se suman)`, revisar: true });
       // Un alta que junta varios códigos del proveedor viene, a propósito, en varias líneas.
       if (b && b.veces > 1 && !(a && a.alta && String(a.ref).includes('+'))) fila.motivos.push({ tipo: 'duplicada_propuesta', texto: `Aparece ${b.veces} veces en la propuesta (se suman)`, revisar: true });
@@ -1382,13 +1387,16 @@
     const todo = filas.join('\n');
     if (!/Propuesta de Pedido/i.test(todo) || !/Rfc\.?\s*Compra/i.test(todo) || !/Unidades/i.test(todo)) return null;
     const NUM = '(\\d{1,3}(?:\\.\\d{3})*,\\d{2,4})';
-    const re = new RegExp('^(\\S+) (?:([A-Z]) )?(\\S+) (.+?) (\\d+) (\\d+) (\\d+) (\\d+) ' + NUM + '(?: (\\d{1,2}(?:,\\d+)?)(?= |$))?(?: (\\S+))?(?: .*)?$');
+    // Las cantidades de miles llevan punto («1.200», «10.800»): sin esto se saltaba la línea (Factis 95041).
+    const ENT = '(\\d{1,3}(?:\\.\\d{3})+|\\d+)';
+    const re = new RegExp('^(\\S+) (?:([A-Z]) )?(\\S+) (.+?) ' + ENT + ' ' + ENT + ' ' + ENT + ' ' + ENT + ' ' + NUM + '(?: (\\d{1,2}(?:,\\d+)?)(?= |$))?(?: (\\S+))?(?: .*)?$');
     const lineas = [];
     for (const f0 of filas) {
       const f = f0.replace(/^(\S+ (?:[A-Z] )?)2 ALTA NUEVA /i, '$12_ALTA_NUEVA ');
       const m = f.match(re);
       if (!m || !/\d/.test(m[1])) continue;
       let [, codVenta, , rfc, desc, , cajas, udsCaja, unidades, precio, dto, ean] = m;
+      [cajas, udsCaja, unidades] = [cajas, udsCaja, unidades].map((x) => x.replace(/\./g, ''));
       if (rfc === '2_ALTA_NUEVA') rfc = REF_ALTA;
       lineas.push({
         referencia: rfc, codVenta, ean: ean && !/^\d{1,2},/.test(ean) ? ean : '', descripcion: desc.trim(),
