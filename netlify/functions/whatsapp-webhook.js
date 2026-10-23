@@ -566,6 +566,23 @@ async function continuarBusquedaPedido(from, text, paso, greeting, idioma = 'es'
       return true;
     }
 
+    // ¿Y SI EL NOMBRE VIENE EN EL MISMO MENSAJE?
+    //
+    // Mucha gente lo escribe todo de una vez: "PEDIDO 658818 LEMON TREE". Hasta
+    // ahora el bot cogía el número, ignoraba el resto y le pedía el nombre que
+    // acababa de darle — y a la segunda el cliente contesta en mayúsculas, con
+    // razón (visto en real el 23/10/2026: "EL NOMBRE COMERCIAL TE LO PUSE JUSTO
+    // AL LADO DEL NÚMERO DE PEDIDO").
+    //
+    // Es la MISMA comprobación de siempre, aplicada un paso antes y al mismo
+    // mensaje: si el nombre comercial o el nombre y apellidos están ahí, el
+    // pedido queda verificado y no hay que preguntar nada.
+    if (woocommerce.nombreCoincide(text, order)) {
+      await conversationStore.registrarPedidoVerificado(from, order);
+      await contestarElEstado(from, text, order, greeting, idioma);
+      return true;
+    }
+
     // El teléfono del pedido no coincide con el número que escribe (p. ej. compró
     // con el teléfono de la empresa y escribe desde el personal) — segunda comprobación.
     const reply = idioma === 'en'
