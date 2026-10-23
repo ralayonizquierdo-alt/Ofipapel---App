@@ -251,13 +251,14 @@ table.lista-pedidos .c-movil{display:none}
   .hoja{background-image:linear-gradient(to right,transparent 28px,#e79a9a 28px,#e79a9a 30px,transparent 30px),
     repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--r) - 1px),#bcd4ec calc(var(--r) - 1px),#bcd4ec var(--r))}
 }
-@media print{header,nav,.no-imprimir{display:none!important}body{background:#fff}.tarjeta{border:0}}
+@media print{@page{size:A4;margin:20mm 16mm 18mm}header,nav,.no-imprimir{display:none!important}body{background:#fff}.tarjeta{border:0}}
 </style>
 </head>
 <body>
 <header>
   <h1><a href="inicio.html" class="hub no-imprimir" title="Volver al hub de Ofipapel">⬅ Hub</a>Control de Pedidos <button id="estadoNube" class="nube oculto" onclick="vista='datos';pedidoAbierto=null;pintar()" title="Ver el estado de la nube"></button>
-    <button id="campana" class="campana no-imprimir" onclick="abrirAvisos()" title="Pedidos y campañas nuevos">🔔<span class="globo oculto" id="globoAvisos">0</span></button></h1>
+    <button id="campana" class="campana no-imprimir" onclick="abrirAvisos()" title="Pedidos y campañas nuevos">🔔<span class="globo oculto" id="globoAvisos">0</span></button>
+    <button class="hub no-imprimir" onclick="salir()" title="Cerrar la sesión en este dispositivo" style="border:0;cursor:pointer;font:inherit;font-size:14px;font-weight:600">Cerrar sesión</button></h1>
   <nav id="nav">
     <button data-vista="importar" class="activa">📄 PDF a Excel</button>
     <button data-vista="pedidos">Campañas</button>
@@ -712,9 +713,11 @@ function vistaGrupo(g, i) {
         <input type="file" multiple class="oculto" onchange="repartirFacturaCampana(this.files, ${js(g.clave)}); this.value=''"></label>`}
       <button class="btn peque peligro" onclick="quitarDocumentoCampana(${js(g.clave)})">🗑️ Quitar propuestas o facturas subidas</button>
       <button class="btn peque" onclick="renombrarCampana(${js(g.clave)})">✏️ ${ej.campana ? 'Renombrar' : 'Poner nombre a'} la campaña</button>`}
-      ${esComercial() ? '' : `<button class="btn" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel de la compra al proveedor (Géminis)</button>
-      <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px" title="La «Propuesta de Pedido» de Géminis (PDF) de esta campaña: sus Cod.Venta salen en la guía de facturación">🏷️ Subir nuestra liquidación de Géminis (códigos internos)
-        <input type="file" multiple class="oculto" onchange="cargarCodigosCampana(this.files, ${js(g.clave)}); this.value=''"></label>
+      ${esComercial() ? '' : `${esRepo(ej) ? `<label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📄 Subir propuesta o factura del proveedor (PDF o Excel)
+        <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files, ${js(g.clave)}); this.value=''"></label>` : ''}
+      <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel de la compra al proveedor (Géminis)</button>
+      ${esRepo(ej) ? '' : `<label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px" title="La «Propuesta de Pedido» de Géminis (PDF) de esta campaña: sus Cod.Venta salen en la guía de facturación">🏷️ Subir nuestra liquidación de Géminis (códigos internos)
+        <input type="file" multiple class="oculto" onchange="cargarCodigosCampana(this.files, ${js(g.clave)}); this.value=''"></label>`}
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales${esRepo(ej) ? ' (opcional)' : ''}
         <input type="file" multiple class="oculto" onchange="cargarFacturasVarias(this.files, ${js(g.clave)}); this.value=''"></label>`}
       ${esRepo(ej) ? '' : `<button class="btn" onclick="imprimirGuiaFacturacion(${js(g.clave)})">🧾 Imprimir guía de facturación</button>`}
@@ -809,7 +812,7 @@ function imprimirGuiaFacturacion(clave) {
   }).join('');
   const w = window.open('', '_blank');
   w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Guía de facturación · ${h(nombre)}</title>
-  <style>@page{size:A4;margin:18mm 12mm 14mm}body{font-family:system-ui,sans-serif;margin:0;padding-top:6px;color:#111;font-size:13px}h1{font-size:18px;margin:0 0 4px}
+  <style>@page{size:A4;margin:20mm 16mm 18mm}body{font-family:system-ui,sans-serif;margin:0;color:#111;font-size:12px}td{overflow-wrap:anywhere}h1{font-size:18px;margin:0 0 4px}
   section{border-top:2px solid #333;padding-top:6px;margin-top:16px}
   h2{font-size:15px;margin:0 0 6px;break-after:avoid;page-break-after:avoid}tr{break-inside:avoid;page-break-inside:avoid}thead{display:table-header-group}h2 small{font-weight:normal;color:#555}.caja{display:inline-block;width:12px;height:12px;border:1.5px solid #333;margin-right:4px;vertical-align:-1px}
   table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ccc;padding:3px 5px;text-align:left}td.n,th.n{text-align:right}
@@ -829,7 +832,7 @@ function imprimirResumen(i, nombre) {
   const t = document.getElementById('tablaResumen' + i);
   const w = window.open('', '_blank');
   w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Faltas y sobras · ${h(nombre)}</title>
-  <style>body{font-family:system-ui,sans-serif;margin:24px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left}</style></head>
+  <style>@page{size:A4;margin:20mm 16mm 18mm}body{font-family:system-ui,sans-serif;margin:0}td{overflow-wrap:anywhere}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left}</style></head>
   <body><h1 style="font-size:18px">Faltas y sobras · ${h(nombre)} · ${h(fmtFecha(hoy()))}</h1>${t ? t.innerHTML : '<p>No falta ni sobra nada.</p>'}<script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
 }
@@ -878,7 +881,7 @@ function imprimirReclamacion(clave) {
   const nombre = ej ? nombreGrupo(ej) + (clave.startsWith('P|') && ej.numero ? ' · nº ' + ej.numero : '') : '';
   const w = window.open('', '_blank');
   w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Reclamación · ${h(nombre)}</title>
-  <style>body{font-family:system-ui,sans-serif;margin:24px;font-size:14px}pre{white-space:pre-wrap;font-family:inherit}</style></head>
+  <style>@page{size:A4;margin:20mm 16mm 18mm}body{font-family:system-ui,sans-serif;margin:0;font-size:13px}pre{white-space:pre-wrap;font-family:inherit}</style></head>
   <body><h1 style="font-size:18px">Reclamación al proveedor · ${h(nombre)} · ${h(fmtFecha(hoy()))}</h1><pre>${h(reclamaciones[clave])}</pre><script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
 }
@@ -2225,6 +2228,12 @@ function pedidoParaDocumento(prop, filtro) {
     const porCliente = abiertos.filter((p) => claveCliente(p.cliente).length >= 4 && obs.includes(claveCliente(p.cliente)));
     if (porCliente.length === 1) c = porCliente;
   }
+  if (c.length !== 1) {
+    // Nuestro nº de pedido citado en el documento («95109 · Informe de validación de pedido»).
+    const texto = ` ${prop.cabecera.numero || ''} ${prop.cabecera.observaciones || ''} ${prop.cabecera.pedidoCliente || ''} `;
+    const porNum = abiertos.filter((p) => { const d = String(p.numero || '').replace(/\D/g, ''); return d.length >= 4 && new RegExp(`(^|\\D)${d}(\\D|$)`).test(texto); });
+    if (porNum.length === 1) c = porNum;
+  }
   return c.length === 1 ? c[0] : null;
 }
 
@@ -2280,6 +2289,12 @@ async function cargarPropuestasVarias(files, clave) {
   for (const x of leidos) {
     const p = pedidoParaDocumento(x.prop, (q) => !q.validado && enCampana(q) && !usados.has(q.id));
     if (p) asignar(x, p, ''); else resto.push(x);
+  }
+  // Una reposición con un solo pedido abierto: el documento es suyo.
+  const grupoRepo = clave && E.pedidos.some((q) => claveGrupo(q) === clave && esRepo(q));
+  if (grupoRepo && resto.length === 1) {
+    const abiertos = E.pedidos.filter((q) => !q.validado && !q.archivado && enCampana(q) && !usados.has(q.id));
+    if (abiertos.length === 1) asignar(resto.pop(), abiertos[0], 'el único pedido de esta reposición');
   }
   // 3) Los que no: por las referencias que coinciden con pedidos sin propuesta
   //    (también los que quedaron pendientes de otra carga).
@@ -2425,13 +2440,15 @@ function aplicarReparto(docs, clave) {
 
 function vistaSinAsignar() {
   const ok = ultimaCarga.filter((x) => x.ok), mal = ultimaCarga.filter((x) => !x.ok);
+  // Una factura final también puede ir a un pedido sin validar (una reposición
+  // a la que no se subió propuesta): entonces hace de propuesta.
   const opcionesDe = (x) => (x.destino === 'factura'
-    ? E.pedidos.filter((p) => p.validado && claveGrupo(p) === x.clave)
+    ? E.pedidos.filter((p) => !p.archivado && claveGrupo(p) === x.clave).sort((a, b) => Number(Boolean(b.validado)) - Number(Boolean(a.validado)))
     : E.pedidos.filter((p) => !p.validado && (!x.clave || claveGrupo(p) === x.clave)).sort((a, b) => Number(Boolean(a.propuesta)) - Number(Boolean(b.propuesta))))
     .map((p) => `<option value="${p.id}">${esRepo(p) ? 'Repo.' : 'Nº'} ${h(p.numero || '—')} ${h(p.cliente || p.proveedor)}${x.destino === 'factura' ? (p.factura ? ' (ya tiene factura)' : '') : p.propuesta ? ' (ya tiene propuesta)' : ''}</option>`).join('');
   return (ok.length ? `<div class="aviso-caja ok">${ok.map((x) => h(x.texto)).join('<br>')}</div>` : '') +
     (mal.length ? `<div class="aviso-caja mal">No se han podido leer:<br>${mal.map((x) => h(x.texto)).join('<br>')}</div>` : '') +
-    (sinAsignar.length ? `<div class="aviso-caja aviso"><b>Confirma a qué pedido va cada uno</b> (${sinAsignar.length}). No traen un nº de pedido ni un cliente reconocible, y sus referencias no coinciden lo bastante con ningún pedido${sinAsignar.some((x) => x.sugerencia) ? '; donde hay un pedido parecido ya está elegido' : ''}. Si no hay pedido para alguno, sube antes el pedido del comercial.
+    (sinAsignar.length ? `<div class="aviso-caja aviso"><b>Confirma a qué pedido va cada uno</b> (${sinAsignar.length}). No traen un nº de pedido reconocible${sinAsignar.some((x) => (E.pedidos.find((q) => claveGrupo(q) === x.clave) || {}).tipo !== 'reposicion') ? ' ni un cliente' : ''}, y sus referencias no coinciden lo bastante con ningún pedido${sinAsignar.some((x) => x.sugerencia) ? '; donde hay un pedido parecido ya está elegido' : ''}. Si no hay pedido para alguno, súbelo antes.
       ${sinAsignar.map((x) => `<div class="fila" style="margin-top:8px;align-items:center">
         <span style="flex:1 1 200px">${x.destino === 'factura' ? '<span class="chip info">Factura final</span> ' : ''}<b>${h(x.archivo)}</b>${x.prop.cabecera.observaciones ? `<div class="pequeno">${h(x.prop.cabecera.observaciones)}</div>` : ''}<div class="pequeno">${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} €${x.sugerencia ? ` · parecido a nº ${h((pedidoPorId(x.sugerencia.pedidoId) || {}).numero || '—')}: ${textoParecido(x.sugerencia)}` : ''}</div></span>
         <select id="asig-${x.id}" style="flex:1 1 160px"><option value="">— elegir pedido —</option>${opcionesDe(x).replace(x.sugerencia ? `value="${x.sugerencia.pedidoId}"` : '\u0000', `value="${x.sugerencia ? x.sugerencia.pedidoId : ''}" selected`)}</select>
@@ -2445,7 +2462,7 @@ function asignarManual(id) {
   if (!x || !pid) { alert('Elige el pedido.'); return; }
   const p = pedidoPorId(pid);
   let extra = '';
-  if (x.destino === 'factura') {
+  if (x.destino === 'factura' && p.validado) {
     if (p.factura && !confirm(`El pedido nº ${p.numero} ya tiene factura (${p.factura.archivo}). ¿Sustituirla?`)) return;
     asignarFactura(p, x.archivo, x.prop);
   } else {
@@ -2463,7 +2480,7 @@ function asignarTodasElegidas() {
   if (new Set(ids).size !== ids.length && !confirm('Has elegido el mismo pedido para dos documentos: el segundo sustituirá al primero. ¿Seguir?')) return;
   for (const x of elegidas) {
     const p = pedidoPorId(document.getElementById('asig-' + x.id).value);
-    const extra = x.destino === 'factura' ? (asignarFactura(p, x.archivo, x.prop), '') : asignarPropuesta(p, x.archivo, x.prop);
+    const extra = x.destino === 'factura' && p.validado ? (asignarFactura(p, x.archivo, x.prop), '') : asignarPropuesta(p, x.archivo, x.prop);
     ultimaCarga.push({ ok: true, texto: `${x.archivo} → nº ${p.numero || '—'} ${p.cliente || ''} · ${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} €${extra ? ` — 🔁 ${extra}` : ''}` });
   }
   const hechos = new Set(elegidas.map((x) => x.id));
@@ -2622,6 +2639,9 @@ async function cargarFacturaEn(id, file) {
  *  validado por nº o cliente; las que no casan se preguntan. */
 async function cargarFacturasVarias(files, clave) {
   const lista = [...files];
+  // Reposición sin ningún pedido validado: la factura hace de propuesta (se compara con nuestro pedido).
+  const grupo = E.pedidos.filter((q) => claveGrupo(q) === clave && !q.archivado);
+  if (grupo.length && grupo.every(esRepo) && !grupo.some((q) => q.validado)) return cargarPropuestasVarias(lista, clave);
   ultimaCarga = [];
   const progreso = (t) => { const c = document.getElementById('progresoProps'); if (c) c.textContent = t; };
   const leidos = [];
@@ -3052,7 +3072,7 @@ function imprimirListado(id) {
   const bruto = lineas.reduce((s, l) => s + pc(l) * l.cant, 0);
   const w = window.open('', '_blank');
   w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Pedido ${h(p.numero)} ${h(p.cliente)}</title>
-  <style>body{font-family:system-ui,sans-serif;margin:24px;color:#111}table{border-collapse:collapse;width:100%;font-size:13px}
+  <style>@page{size:A4;margin:20mm 16mm 18mm}body{font-family:system-ui,sans-serif;margin:0;color:#111}td{overflow-wrap:anywhere}table{border-collapse:collapse;width:100%;font-size:12px}
   th,td{border-bottom:1px solid #ccc;padding:5px;text-align:left}td.n,th.n{text-align:right}h1{font-size:20px;margin:0}h2{font-size:15px;margin-top:24px}</style></head><body>
   <h1>${h(p.cliente)}</h1><p>${h(p.proveedor)} · pedido nº ${h(nPed(p.numero))} · ${h(fmtFecha(p.fecha))}${p.campana ? ' · campaña ' + h(p.campana) : ''}</p>
   <table><tr><th>Cant.</th><th>Referencia</th><th>Descripción</th><th class="n">Precio</th><th class="n">Importe</th></tr>
