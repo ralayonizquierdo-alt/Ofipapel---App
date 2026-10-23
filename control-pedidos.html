@@ -114,6 +114,7 @@ main{overflow-wrap:anywhere}
 .importar-barra{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:10px 0}
 li.descartada{text-decoration:line-through;opacity:.65}
 .dlg{border:0;border-radius:14px;padding:18px;width:min(560px,94vw);box-shadow:0 10px 40px #0005}
+.hub{font-size:14px;font-weight:600;color:var(--verde-oscuro);background:#fff;text-decoration:none;border-radius:999px;padding:6px 12px;box-shadow:0 2px 6px #0003;white-space:nowrap}.hub:hover{background:#eef6ef}
 .campana{position:relative;font-size:22px;line-height:1;background:#fff;border:0;border-radius:50%;width:42px;height:42px;cursor:pointer;box-shadow:0 2px 6px #0003;margin-left:auto}
 .campana .globo{position:absolute;top:-6px;right:-6px;background:var(--rojo);color:#fff;font-size:12px;font-weight:700;border-radius:11px;min-width:22px;height:22px;padding:0 5px;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
 .campana.hay{animation:sonar 1.6s ease-in-out infinite}
@@ -255,7 +256,7 @@ table.lista-pedidos .c-movil{display:none}
 </head>
 <body>
 <header>
-  <h1>Control de Pedidos <button id="estadoNube" class="nube oculto" onclick="vista='datos';pedidoAbierto=null;pintar()" title="Ver el estado de la nube"></button>
+  <h1><a href="inicio.html" class="hub no-imprimir" title="Volver al hub de Ofipapel">⬅ Hub</a>Control de Pedidos <button id="estadoNube" class="nube oculto" onclick="vista='datos';pedidoAbierto=null;pintar()" title="Ver el estado de la nube"></button>
     <button id="campana" class="campana no-imprimir" onclick="abrirAvisos()" title="Pedidos y campañas nuevos">🔔<span class="globo oculto" id="globoAvisos">0</span></button></h1>
   <nav id="nav">
     <button data-vista="importar" class="activa">📄 PDF a Excel</button>
