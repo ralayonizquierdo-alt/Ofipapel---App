@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-23-4"></script>
+<script src="control-pedidos-logica.js?v=2026-10-23-5"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -3274,7 +3274,9 @@ function exportarPedidos(ids) {
     // precio y descuento). Si no, lo validado en el orden de la propuesta.
     const enOrden = p.factura ? CP.fusionarAltas(p.factura.lineas, p.final.lineas) : CP.ordenarComoPropuesta(p.final.lineas, p.propuesta && p.propuesta.lineas);
     const dtoGlobal = p.factura ? (p.factura.cabecera || {}).dtoGlobal : p.final.dto;
-    for (const l of CP.lineasParaGeminis(enOrden, { dtoGlobal, decimales })) {
+    for (const l0 of CP.lineasParaGeminis(enOrden, { dtoGlobal, decimales })) {
+      // Géminis guarda las referencias de Finocam sin el año del final.
+      const l = Object.assign({}, l0, { ref: l0.alta ? l0.ref : CP.refParaGeminis(l0.ref, p.proveedor) });
       const k = [l.ref, l.precio, l.dto].join('|');
       if (!suma.has(k)) { suma.set(k, Object.assign({}, l)); continue; }
       const g = suma.get(k);
