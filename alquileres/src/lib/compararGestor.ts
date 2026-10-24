@@ -77,9 +77,28 @@ const numero = (v: unknown): number | null => {
   return Number(t)
 }
 
+/**
+ * Según la versión, la librería devuelve las filas directamente o envueltas en
+ * [{ sheet, data }]. Se admiten las dos formas, igual que en `importExcel.ts`.
+ */
+function extraeFilas(bruto: unknown): unknown[][] {
+  if (!Array.isArray(bruto)) return []
+  const primero: unknown = bruto[0]
+  if (primero && !Array.isArray(primero) && typeof primero === 'object') {
+    const data = (primero as { data?: unknown }).data
+    if (Array.isArray(data)) return data as unknown[][]
+  }
+  return bruto as unknown[][]
+}
+
 /** Lee la hoja del gestor. No escribe nada: solo devuelve lo que pone. */
 export async function leeHojaGestor(fichero: File, apartments: Apartment[]): Promise<HojaGestor> {
-  const filas = await readXlsxFile(fichero) as unknown as unknown[][]
+  return analizaHojaGestor(await readXlsxFile(fichero), apartments)
+}
+
+/** Analiza las filas ya leídas. Aparte de la lectura, para poder probarlo. */
+export function analizaHojaGestor(bruto: unknown, apartments: Apartment[]): HojaGestor {
+  const filas = extraeFilas(bruto)
   const resultado: FilaGestor[] = []
   const sinCasar: string[] = []
   let year = 0

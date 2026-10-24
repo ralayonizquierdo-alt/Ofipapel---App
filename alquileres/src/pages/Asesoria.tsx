@@ -5,6 +5,7 @@ import { EJERCICIO_APP, rejillaAnual } from '../lib/cuentas'
 import { hojaAsesoria, type FilaHoja, type Formato } from '../lib/hojaAsesoria'
 import { creaXlsx, descarga, ESTILO, type Celda } from '../lib/exportaExcel'
 import PageHeader from '../components/ui/PageHeader'
+import CompararGestor from '../components/CompararGestor'
 import { num } from '../lib/formato'
 
 /**
@@ -126,6 +127,13 @@ export default function Asesoria() {
           </section>
         </>
       )}
+
+      {/* Lo que llega de fuera, para contrastarlo con lo nuestro. Va al final
+          porque es una herramienta de revisión, no parte de la hoja que se
+          manda: en el papel sale solo si se ha cargado algo. */}
+      <div className="mt-8">
+        <CompararGestor />
+      </div>
     </div>
   )
 }
