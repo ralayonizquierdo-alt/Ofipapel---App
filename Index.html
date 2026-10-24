@@ -1436,6 +1436,30 @@ try{ _importStamps=JSON.parse(localStorage.getItem('op_importstamps')||'{}'); }c
 let importLog = [];
 try{ importLog=JSON.parse(localStorage.getItem('op_importlog')||'[]'); }catch(e){}
 function saveImportLog(){ try{localStorage.setItem('op_importlog',JSON.stringify(importLog));}catch(e){} }
+// El registro se comparte en la nube (app_sync, id 'importlog'): un array de apuntes {ts, user, key, tipo, archivos, registros?}.
+// Lo escriben la app y los procesos automáticos (p. ej. la carga de GeminisWin); aquí se unen sin duplicados.
+function _mergeImportLog(extra){
+  const k=e=>[e.ts,e.key,e.user||'',e.archivos||''].join('|');
+  const m=new Map();
+  [...importLog,...(Array.isArray(extra)?extra:[])].forEach(e=>{ if(e&&e.ts&&e.key) m.set(k(e),e); });
+  importLog=[...m.values()].sort((a,b)=>String(a.ts).localeCompare(String(b.ts)));
+  if(importLog.length>300) importLog=importLog.slice(importLog.length-300);
+  importLog.forEach(e=>{ if(!_importStamps[e.key]||e.ts>_importStamps[e.key]) _importStamps[e.key]=e.ts; });
+  saveImportLog();
+  try{ localStorage.setItem('op_importstamps',JSON.stringify(_importStamps)); }catch(x){}
+}
+function _renderTodosLosRegistros(){
+  [[_ILG_ENTRADA,'importLogEntrada'],[_ILG_CAJA,'importLogCaja'],[_ILG_VENTAS,'importLogVentas'],[_ILG_COMPRAS,'importLogCompras']].forEach(([t,id])=>renderImportLog(t,id));
+}
+async function syncImportLogToCloud(){
+  if(!supaReady) return;
+  try{
+    const { data } = await supaClient.from('app_sync').select('payload').eq('id','importlog').maybeSingle();
+    if(data && Array.isArray(data.payload)) _mergeImportLog(data.payload);
+    await syncDatasetToCloud('importlog', importLog);
+    _renderTodosLosRegistros();
+  }catch(e){ console.warn('Sync importlog:', e); }
+}
 
 const IMPORT_LOG_LABELS = {
   volcado:'Volcado Diario (Excel)', cajaCierres:'Cierre de Cajas (PDF)',
@@ -1452,15 +1476,18 @@ const _ILG_CAJA     = ['cajaCierres','cajaBancoRecibos'];
 const _ILG_VENTAS   = ['ventasCaja','ventasWeb','ventasAnual','ventasVendedores','ventasTiendas','ventasClientes'];
 const _ILG_COMPRAS  = ['compras','comprasAnual','comprasProveedores','proveedores','familias'];
 
-function logImport(key, archivos){
+function logImport(key, archivos, registros){
   const arch = Array.isArray(archivos) ? (archivos.filter(Boolean).join(', ')||'—') : (archivos||'—');
-  importLog.push({ts:new Date().toISOString(), user:currentUser||'—', key, tipo:IMPORT_LOG_LABELS[key]||key, archivos:arch});
+  const ent={ts:new Date().toISOString(), user:currentUser||'—', key, tipo:IMPORT_LOG_LABELS[key]||key, archivos:arch};
+  if(registros!=null) ent.registros=registros;
+  importLog.push(ent);
   if(importLog.length>300) importLog.splice(0, importLog.length-300);
   saveImportLog();
   if(_ILG_ENTRADA.includes(key)) renderImportLog(_ILG_ENTRADA,'importLogEntrada');
   if(_ILG_CAJA.includes(key)) renderImportLog(_ILG_CAJA,'importLogCaja');
   if(_ILG_VENTAS.includes(key)) renderImportLog(_ILG_VENTAS,'importLogVentas');
   if(_ILG_COMPRAS.includes(key)) renderImportLog(_ILG_COMPRAS,'importLogCompras');
+  syncImportLogToCloud();
 }
 
 function renderImportLog(tipos, containerId){
@@ -1477,18 +1504,18 @@ function renderImportLog(tipos, containerId){
     '</tr></thead><tbody>'+
     entries.map(e=>'<tr style="border-bottom:1px solid var(--borde);">'+
       '<td style="padding:5px 8px;white-space:nowrap;">'+new Date(e.ts).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+'</td>'+
-      '<td style="padding:5px 8px;font-weight:500;">'+e.user+'</td>'+
-      '<td style="padding:5px 8px;">'+e.tipo+'</td>'+
-      '<td style="padding:5px 8px;color:var(--texto2);word-break:break-all;">'+e.archivos+'</td>'+
+      '<td style="padding:5px 8px;font-weight:500;">'+escapeHtml(e.user||'—')+'</td>'+
+      '<td style="padding:5px 8px;">'+escapeHtml(e.tipo||IMPORT_LOG_LABELS[e.key]||e.key)+'</td>'+
+      '<td style="padding:5px 8px;color:var(--texto2);word-break:break-all;">'+escapeHtml(e.archivos||'—')+(e.registros!=null?' · '+Number(e.registros).toLocaleString('es-ES')+' registros':'')+'</td>'+
       '</tr>').join('')+
     '</tbody></table></div>';
 }
 
-function stampImport(key, archivos){
+function stampImport(key, archivos, registros){
   _importStamps[key]=new Date().toISOString();
   try{ localStorage.setItem('op_importstamps',JSON.stringify(_importStamps)); }catch(e){}
   syncDatasetToCloud('importstamps', _importStamps);
-  if(archivos !== undefined) logImport(key, archivos);
+  if(archivos !== undefined) logImport(key, archivos, registros);
 }
 
 let cajaCierres = [];
@@ -1789,6 +1816,8 @@ function applyCloudDataset(key, payload){
   } else if(key==='ventasweb_det'){
     ventasWebDetalle = payload;
     try{ localStorage.setItem('op_ventasweb_det', JSON.stringify(ventasWebDetalle)); }catch(e){}
+  } else if(key==='importlog'){
+    _mergeImportLog(payload); _renderTodosLosRegistros();
   } else if(key==='importstamps'){
     const cloud = payload || {};
     Object.entries(cloud).forEach(([k,v])=>{ if(!_importStamps[k]||v>_importStamps[k]) _importStamps[k]=v; });
@@ -1836,6 +1865,7 @@ async function loadAllSharedDatasets(){
     if(cajaBancoRecibos.length) syncDatasetToCloud('cajabancorecibos', cajaBancoRecibos);
     if(!existing.ventasweb_det && ventasWebDetalle.length) syncDatasetToCloud('ventasweb_det', ventasWebDetalle);
     if(!existing.importstamps && Object.keys(_importStamps).length) syncDatasetToCloud('importstamps', _importStamps);
+    if(!existing.importlog && importLog.length) syncDatasetToCloud('importlog', importLog);
   } catch(e){ console.warn('Error cargando datasets compartidos:', e); }
 }
 
@@ -1882,6 +1912,7 @@ async function forzarSyncCompleto(btn){
       syncDatasetToCloud('cajabancorecibos', cajaBancoRecibos),
       syncDatasetToCloud('importstamps', _importStamps),
     ];
+    if(importLog.length) ops.push(syncDatasetToCloud('importlog', importLog));
     if(proveedores.length)      ops.push(syncDatasetToCloud('proveedores', proveedores));
     if(compras.length)          ops.push(syncDatasetToCloud('compras', compras));
     if(familias.length)         ops.push(syncDatasetToCloud('familias', familias));
@@ -5181,6 +5212,69 @@ function renderAnualTabla(an){
   </div>`;
 }
 
+// ── Ranking de UN mismo mes en todos los años (Ventas: Vendedores, Tiendas y Familias) ──
+const _rankMes={};
+function rankingMesFilas(filas,mesIdx){
+  const por={};
+  (filas||[]).forEach(r=>{ if(r&&r.anio!=null) por[r.anio]=(por[r.anio]||0)+((r.meses&&r.meses[mesIdx])||0); });
+  return Object.keys(por).map(Number).sort((a,b)=>a-b).map(a=>{
+    const imp=por[a], prev=por[a-1];
+    const ok=imp>0&&prev>0;   // sin ventas (año en curso, mes sin llegar) no se compara
+    return {anio:a, importe:imp, diff:ok?imp-prev:null, pct:ok?((imp-prev)/prev)*100:null};
+  });
+}
+function rankingMesPintar(uid){
+  const st=_rankMes[uid]; const el=st&&document.getElementById(st.tablaId); if(!el) return;
+  const {col,dir}=st.sort;
+  const val=r=>r[col]==null?(dir<0?-Infinity:Infinity):r[col];
+  const orden=[...st.rows].sort((a,b)=>(val(a)-val(b))*dir||a.anio-b.anio);
+  const mejor=st.rows.filter(r=>r.importe>0).reduce((m,r)=>(!m||r.importe>m.importe)?r:m,null);
+  const th=(c,txt,alin)=>`<th style="text-align:${alin};cursor:pointer;user-select:none;" onclick="rankingMesOrden('${uid}','${c}')" title="Ordenar">${txt}${st.sort.col===c?(st.sort.dir<0?' ▼':' ▲'):''}</th>`;
+  const dif=d=>d==null?'<span class="neu">—</span>':`<span class="${d>=0?'pos':'neg2'}">${d>=0?'+':'−'}${fmt(Math.abs(d))}</span>`;
+  el.innerHTML=`<div style="overflow-x:auto;"><table class="tabla">
+    <thead><tr>${th('anio','Año','left')}${th('importe','Importe','right')}${th('diff','Diferencia vs año anterior','right')}${th('pct','% vs año anterior','right')}</tr></thead>
+    <tbody>${orden.map(r=>{
+      const best=mejor&&r.anio===mejor.anio;
+      return `<tr style="${best?'background:#EDFBF3;':''}${r.importe>0?'':'color:var(--texto2);'}">
+        <td style="font-weight:700;">${r.anio}${best?' 🏆':''}</td>
+        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:${best?800:600};">${r.importe>0?fmt(r.importe):'sin ventas'}</td>
+        <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${dif(r.diff)}</td>
+        <td style="text-align:right;">${pctBadge(r.pct)}</td></tr>`;}).join('')}</tbody></table></div>`;
+}
+function rankingMesOrden(uid,col){
+  const st=_rankMes[uid]; if(!st) return;
+  st.sort=st.sort.col===col?{col,dir:-st.sort.dir}:{col,dir:col==='anio'?1:-1};
+  rankingMesPintar(uid);
+}
+function rankingMesMostrar(cfg){
+  const rows=rankingMesFilas(cfg.filas,cfg.mesIdx);
+  const prev=_rankMes[cfg.uid];
+  _rankMes[cfg.uid]={rows,tablaId:cfg.tablaId,sort:(prev&&prev.sort)||{col:'importe',dir:-1}};
+  const validos=rows.filter(r=>r.importe>0);
+  const mejor=validos.reduce((m,r)=>(!m||r.importe>m.importe)?r:m,null);
+  const ultimo=validos[validos.length-1];
+  const mes=MESES[cfg.mesIdx];
+  if(cfg.chartTtlId){ const t=document.getElementById(cfg.chartTtlId); if(t) t.textContent=`${mes} en todos los años — ${cfg.etiqueta}`; }
+  if(cfg.kpisId){
+    const k=document.getElementById(cfg.kpisId);
+    if(k) k.innerHTML=mejor?`
+      <div class="kpi"><div class="kpi-ico">🏆</div><div class="kpi-lbl">Mejor ${mes}</div><div class="kpi-val">${mejor.anio}</div><div class="kpi-sub">${fmt(mejor.importe)}</div></div>
+      <div class="kpi"><div class="kpi-ico">📅</div><div class="kpi-lbl">Años comparados</div><div class="kpi-val">${validos.length}</div><div class="kpi-sub">${validos[0].anio} – ${ultimo.anio}</div></div>
+      <div class="kpi"><div class="kpi-ico">📈</div><div class="kpi-lbl">${ultimo.anio} vs año anterior</div><div class="kpi-val" style="font-size:16px;">${pctBadge(ultimo.pct)}</div><div class="kpi-sub">${fmt(ultimo.importe)}</div></div>`:'';
+  }
+  if(cfg.chartId&&cfg.canvasId){
+    destroyChart(cfg.chartId);
+    const cv=document.getElementById(cfg.canvasId);
+    if(cv&&validos.length) charts[cfg.chartId]=new Chart(cv,{
+      type:'bar',
+      data:{ labels:validos.map(r=>r.anio), datasets:[{ label:`${mes}`, data:validos.map(r=>r.importe), backgroundColor:validos.map(r=>mejor&&r.anio===mejor.anio?'#1A5C1A':'rgba(26,92,26,0.45)'), borderRadius:4 }] },
+      options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>(v/1000).toFixed(0)+'K €'}}} }
+    });
+  }
+  if(!validos.length){ const el=document.getElementById(cfg.tablaId); if(el) el.innerHTML='<div class="empty-state"><div class="e-ico">📅</div><h3>Sin datos</h3><p>No hay ventas de '+mes+' en ningún año.</p></div>'; return; }
+  rankingMesPintar(cfg.uid);
+}
+
 // ═══════════════════════════════════════════════════════
 // VENTAS (CAJA) — agregados por día/hora/empleado/tipo al importar
 // ═══════════════════════════════════════════════════════
@@ -5547,7 +5641,7 @@ function importVentasVendedoresExcel(input){
       saveVentasVendedores();
       const sel=document.getElementById('ventVendSelect'); if(sel) sel.value='';
       renderVentasVendedores();
-      stampImport('ventasVendedores', file.name);
+      stampImport('ventasVendedores', file.name, registros.length);
       alert(registros.length+' registros de vendedores importados.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -5575,10 +5669,15 @@ function renderVentasVendedores(){
   const anioFiltro=selAnio?.value||'todos';
   const mesWrap=document.getElementById('ventVendMesWrap');
   const selMes=document.getElementById('ventVendMes');
-  if(mesWrap) mesWrap.style.display=anioFiltro!=='todos'?'':'none';
-  if(anioFiltro==='todos' && selMes) selMes.value='';
+  if(mesWrap) mesWrap.style.display='';
   const mesIdx=selMes?.value!==''&&selMes?.value!=null?parseInt(selMes.value,10):-1;
 
+  // «Todos los años» + un mes: ranking de ese mes año por año (de todos los vendedores o del elegido)
+  if(anioFiltro==='todos'&&mesIdx>=0&&ventasVendedores.length){
+    rankingMesMostrar({uid:'vend',filas:seleccionado?ventasVendedores.filter(r=>r.vendedor===seleccionado):ventasVendedores,mesIdx,
+      etiqueta:seleccionado||'Todos los vendedores',kpisId:'ventVendKpis',tablaId:'ventVendTabla',chartId:'cVentVend',canvasId:'cVentVend',chartTtlId:'ventVendChartTtl'});
+    return;
+  }
   if(seleccionado){ renderVentasVendedorDetalle(); return; }
 
   destroyChart('cVentVend');
@@ -5634,6 +5733,8 @@ function renderVentasVendedorDetalle(){
   const vendedor=sel?.value||'';
   const btn=document.getElementById('ventVendInformeBtn'); if(btn) btn.style.display=vendedor?'inline-block':'none';
   if(!vendedor){ renderVentasVendedores(); return; }
+  const _mv=document.getElementById('ventVendMes')?.value;
+  if((document.getElementById('ventVendAnio')?.value||'todos')==='todos'&&_mv!==''&&_mv!=null){ renderVentasVendedores(); return; }
 
   const rows=ventasVendedores.filter(r=>r.vendedor===vendedor).map(r=>({anio:r.anio, meses:r.meses, total:r.total}));
   destroyChart('cVentVend');
@@ -5737,7 +5838,7 @@ function importVentasTiendasExcel(input){
       saveVentasTiendas();
       const sel=document.getElementById('ventTiendaSelect'); if(sel) sel.value='';
       renderVentasTiendas();
-      stampImport('ventasTiendas', file.name);
+      stampImport('ventasTiendas', file.name, registros.length);
       alert(registros.length+' registros de tiendas importados. (Terminales 41, 43, 60 y 68 excluidos)');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -5758,8 +5859,7 @@ function renderVentasTiendas(){
   const anioFiltro=selAnio?.value||'todos';
   const mesWrap=document.getElementById('ventTiendaMesWrap');
   const selMes=document.getElementById('ventTiendaMes');
-  if(mesWrap) mesWrap.style.display=anioFiltro!=='todos'?'':'none';
-  if(anioFiltro==='todos' && selMes) selMes.value='';
+  if(mesWrap) mesWrap.style.display='';
   const mesIdx=selMes?.value!==''&&selMes?.value!=null?parseInt(selMes.value,10):-1;
 
   // Apply año filter on top of grupo filter
@@ -5779,6 +5879,15 @@ function renderVentasTiendas(){
     sel.value=tiendas.map(String).includes(valorActual)?valorActual:'';
   }
   const seleccionada=sel?.value||'';
+  // «Todos los años» + un mes: ranking de ese mes año por año (de las tiendas del grupo o de la elegida)
+  if(anioFiltro==='todos'&&mesIdx>=0&&ventasTiendas.length){
+    document.getElementById('ventTiendaGrupoTtl').style.display='none';
+    document.getElementById('ventTiendaGrupoKpis').innerHTML='';
+    document.getElementById('ventTiendaGrupoTabla').innerHTML='';
+    rankingMesMostrar({uid:'tienda',filas:seleccionada?porFiltro.filter(r=>String(r.tienda)===String(seleccionada)):porFiltro,mesIdx,
+      etiqueta:seleccionada?'Tienda '+seleccionada:(grupo!=='todos'?grupo:'Todas las tiendas'),kpisId:'ventTiendaKpis',tablaId:'ventTiendaTabla',chartId:'cVentTienda',canvasId:'cVentTienda',chartTtlId:'ventTiendaChartTtl'});
+    return;
+  }
   if(seleccionada){
     document.getElementById('ventTiendaGrupoTtl').style.display='none';
     document.getElementById('ventTiendaGrupoKpis').innerHTML='';
@@ -5850,6 +5959,8 @@ function renderVentasTiendaDetalle(){
   const sel=document.getElementById('ventTiendaSelect');
   const tiendaSel=sel?.value||'';
   if(!tiendaSel){ renderVentasTiendas(); return; }
+  const _mt=document.getElementById('ventTiendaMes')?.value;
+  if((document.getElementById('ventTiendaAnio')?.value||'todos')==='todos'&&_mt!==''&&_mt!=null){ renderVentasTiendas(); return; }
 
   const rows=ventasTiendas.filter(r=>String(r.tienda)===String(tiendaSel)).map(r=>({anio:r.anio, meses:r.meses, total:r.total}));
   destroyChart('cVentTienda');
@@ -5914,7 +6025,7 @@ function importVentasClientesExcel(input){
 
       ventasClientes=registros;
       saveVentasClientes(); renderVentasClientes();
-      stampImport('ventasClientes', file.name);
+      stampImport('ventasClientes', file.name, registros.length);
       alert(registros.length+' registros de clientes importados.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
     input.value='';
@@ -6915,8 +7026,7 @@ function _renderFamiliasCore(pfx, cpfx){
   // Mes selector — solo cuando hay año concreto
   const mesWrap=el(pfx+'FiltroMesWrap');
   const selM=el(pfx+'FiltroMes');
-  if(mesWrap) mesWrap.style.display=anio!=='todos'?'':'none';
-  if(anio==='todos' && selM) selM.value='';
+  if(mesWrap) mesWrap.style.display='';
   const mesIdx=selM?.value!==''&&selM?.value!=null?parseInt(selM.value,10):-1;
 
   let f=familias.filter(x=>{
@@ -6939,7 +7049,11 @@ function _renderFamiliasCore(pfx, cpfx){
     el(pfx+'CompKpis').innerHTML=anualKpisHtml(anFam);
     el(pfx+'CompTabla').innerHTML=renderAnualTabla(anFam);
   } else if(compTtlEl){
-    if(mesIdx>=0){ compTtlEl.textContent=''; el(pfx+'CompKpis').innerHTML=''; el(pfx+'CompTabla').innerHTML=''; }
+    if(mesIdx>=0&&anio==='todos'&&fComp.length){
+      compTtlEl.textContent='📊 Ranking de '+MESES_LARGO[mesIdx]+' en todos los años';
+      rankingMesMostrar({uid:'fam'+pfx,filas:fComp,mesIdx,etiqueta:'',kpisId:pfx+'CompKpis',tablaId:pfx+'CompTabla'});
+    }
+    else if(mesIdx>=0){ compTtlEl.textContent=''; el(pfx+'CompKpis').innerHTML=''; el(pfx+'CompTabla').innerHTML=''; }
     else { compTtlEl.textContent='📊 Comparativa Mensual y Anual'; el(pfx+'CompKpis').innerHTML=''; el(pfx+'CompTabla').innerHTML=''; }
   }
 
