@@ -8,6 +8,7 @@ import bgTrebol from './assets/bg-trebol.png'
 import LoginScreen from './components/LoginScreen'
 import MigrateLocalData from './components/MigrateLocalData'
 import ChangePasswordModal from './components/ChangePasswordModal'
+import PreguntarApp from './components/PreguntarApp'
 import { useData } from './contexts/DataContext'
 import { observarSesion, rolDe, salir, usuarioDe, type Rol, type UsuarioApp } from './lib/auth'
 import Dashboard from './pages/Dashboard'
@@ -340,6 +341,10 @@ export default function App() {
           />
 
           <MigrateLocalData />
+          {/* «Preguntar a la aplicación»: flota en todas las pantallas de quien
+              ve el dinero. Mónica y Cande entran solo a subir el parte, así que
+              no tienen nada que preguntarle. */}
+          {rol === 'gestion' && <PreguntarApp />}
           <main className="flex-1 overflow-auto">
             {/* Las rutas se montan según el rol: lo que alguien no puede ver
                 no existe para su sesión, así que escribir «/cobros» a mano
