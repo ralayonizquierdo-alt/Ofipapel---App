@@ -1,0 +1,9 @@
+node_modules/
+package-lock.json
+
+# Los listados que salen de GeminisWin llevan números de pedido y datos de
+# clientes reales, y este repositorio es público. No se versionan nunca.
+*.xls
+*.xlsx
+*.csv
+.env

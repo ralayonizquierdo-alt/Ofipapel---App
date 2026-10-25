@@ -1,0 +1,17 @@
+{
+  "name": "publicador-estado-pedidos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Publica en Supabase el estado real de los pedidos web que lleva GeminisWin, para que lo lea el bot de WhatsApp.",
+  "main": "publicar.js",
+  "scripts": {
+    "publicar": "node publicar.js",
+    "probar": "node ../scripts/probar-publicador.js"
+  },
+  "dependencies": {
+    "xlsx": "0.18.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
