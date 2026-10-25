@@ -580,10 +580,15 @@ la realidad. Un proceso aparte, del lado de Gestión, publica el estado de verda
 en Supabase («App Bancos», tabla `estado_pedidos_web`) y el bot lo lee
 (`netlify/functions/gestion-pedidos.js`).
 
-**El publicador vive en `publicador-estado-pedidos/`** y corre en la oficina, no
-en Netlify: GeminisWin no tiene API, así que se le pasa un listado exportado
-(`.xls`, `.xlsx` o `.csv`) y él lo sube. Cómo se instala, se programa y se le
-enseñan los estados, en su propio README.
+**El publicador vive en `publicador-estado-pedidos/`** y corre en el PC de
+Rober, no en Netlify: GeminisWin no tiene API, así que lee en solo lectura los
+`.dbf` de `G:\GW002024\` (`pedidos`, `reparlin`, `repartos`) y sube el estado.
+Cómo se instala, se programa y qué reglas aplica, en su propio README.
+
+**La tabla lleva además `pago_pendiente`** (25/10/2026): solo puede ser cierto
+con `FORMA_P = '77'` (transferencia inmediata) y `TOT_PEND > 0`, porque el resto
+de pedidos web se pagan al hacerlos. **Pagado no es entregado**: lo único que
+confirma una entrega es que se cierre el reparto.
 
 **Los estados de la tabla NO son los de GeminisWin.** Allí «Liquidado» significa
 COBRADO (el repartidor ha pagado la factura en administración), no facturado.

@@ -1,8 +1,13 @@
-node_modules/
-package-lock.json
+__pycache__/
+*.pyc
 
-# Los listados que salen de GeminisWin llevan números de pedido y datos de
-# clientes reales, y este repositorio es público. No se versionan nunca.
+# El registro de las pasadas se queda en el PC de Rober.
+log.txt
+log.txt.1
+
+# Por si alguna vez se copia un .dbf aquí para mirarlo: llevan datos de
+# clientes reales y este repositorio es público.
+*.dbf
 *.xls
 *.xlsx
 *.csv

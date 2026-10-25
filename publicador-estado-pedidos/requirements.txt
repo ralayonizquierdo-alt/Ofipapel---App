@@ -1,0 +1,10 @@
+# py -m pip install -r requirements.txt
+
+# La contraseña de gestion@ofipapel.internal vive en el Administrador de
+# credenciales de Windows, no en el código ni en un fichero.
+keyring>=24
+
+# Windows NO trae base de datos de zonas horarias, y sin ella zoneinfo no sabe
+# qué es Atlantic/Canary. La hora del pedido decide si entró antes de las 13:00,
+# así que esto no es opcional.
+tzdata>=2024.1
