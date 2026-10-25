@@ -26,7 +26,22 @@ Credenciales en variables de entorno, **nunca** en un fichero del repo:
 | `SUPABASE_GESTION_EMAIL` | `gestion@ofipapel.internal` |
 | `SUPABASE_GESTION_PASSWORD` | la suya |
 
-## Lo primero que hay que hacer: traducir los estados
+## Lo primero de todo: enseñarle cómo es vuestro listado
+
+```bash
+node publicar.js "C:\geminisw\listado.xls" --inspeccionar
+```
+
+No escribe nada y **nunca falla**, aunque el listado no se parezca en nada a lo
+que espera — que es justo lo que hace falta la primera vez, cuando publicar
+pararía. Imprime cómo se llaman las columnas, cuáles reconoce solo, y las
+palabras de las columnas de catálogo (ahí está la de estados).
+
+Esa salida **se puede copiar y mandar**: solo enseña los valores que **se
+repiten**. De una columna donde cada fila es distinta —el cliente, el número de
+pedido, la fecha— sale el título, nunca el contenido.
+
+## Después: traducir los estados
 
 El vocabulario de los listados de GeminisWin **no está puesto todavía**, porque
 no lo conocemos: no tiene API y los listados se miran con computer use en

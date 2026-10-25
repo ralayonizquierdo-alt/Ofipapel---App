@@ -18,7 +18,9 @@ const os = require('os');
 const RAIZ = path.join(__dirname, '..');
 const DIR = path.join(RAIZ, 'publicador-estado-pedidos');
 const estados = require(path.join(DIR, 'estados.js'));
-const { construirFilas, claveWeb, aDia, aInstante, ListadoIlegible } = require(path.join(DIR, 'filas.js'));
+const {
+  construirFilas, resumenDeColumnas, claveWeb, aDia, aInstante, ListadoIlegible,
+} = require(path.join(DIR, 'filas.js'));
 const { leerCSV, leerListado } = require(path.join(DIR, 'leer-listado.js'));
 
 let fallos = 0;
@@ -213,6 +215,52 @@ comprobar('una columna que no está, simplemente no viaja', () => {
   const r = csv('Nº Pedido Web;Estado\n663273;Facturado');
   assert.strictEqual(r.columnas.fecha_reparto, null);
   assert.strictEqual(r.filas[0].fecha_reparto, null);
+});
+
+console.log('\n=== Mirar un listado que todavía no entendemos (--inspeccionar)\n');
+
+// Un listado con los títulos cambiados: es lo que nos vamos a encontrar la
+// primera vez, y es justo cuando construirFilas para y no sirve de nada.
+const RARO = [
+  'Numero;Razon Social;Situacion;F. Pedido',
+  '663273;DONATACO S.L.U;Pdte. Servir;23/10/2026 7:56',
+  '663274;LEMON TREE;Servido;23/10/2026 9:10',
+  '663275;OTRO CLIENTE;Liquidado;22/10/2026 16:00',
+  '663276;MAS CLIENTES;Servido;23/10/2026 11:00',
+  '663277;Y OTRO MAS;Servido;23/10/2026 11:30',
+  '663278;UNO MAS;Pdte. Servir;23/10/2026 12:00',
+].join('\n');
+
+comprobar('enseña las palabras de la columna de estados', () => {
+  const resumen = resumenDeColumnas(leerCSV(RARO));
+  const situacion = resumen.find((c) => c.titulo === 'Situacion');
+  assert.ok(situacion.valores, 'la columna de estados tiene que salir con sus valores');
+  const palabras = situacion.valores.map(([v]) => v);
+  assert.deepStrictEqual(palabras.sort(), ['Liquidado', 'Pdte. Servir', 'Servido']);
+});
+
+comprobar('NO enseña los nombres de los clientes', () => {
+  // Esto se manda por WhatsApp o por correo para configurarlo. Lo que no se
+  // repite —el cliente, el número de pedido, la fecha— no puede salir.
+  const resumen = resumenDeColumnas(leerCSV(RARO));
+  for (const titulo of ['Razon Social', 'Numero', 'F. Pedido']) {
+    assert.strictEqual(resumen.find((c) => c.titulo === titulo).valores, null, titulo);
+  }
+});
+
+comprobar('con pocas filas tampoco se escapa un cliente', () => {
+  // El caso que se me coló: con cuatro filas, cuatro clientes son "solo cuatro
+  // valores distintos" y se enseñaban enteros.
+  const corto = resumenDeColumnas(leerCSV('Cliente;Estado\nDONATACO;Facturado\nLEMON TREE;Facturado'));
+  assert.strictEqual(corto.find((c) => c.titulo === 'Cliente').valores, null);
+});
+
+comprobar('mirar un listado nunca falla, aunque no se entienda nada', () => {
+  // construirFilas sí para con este listado — y tiene que parar.
+  assert.throws(() => construirFilas(leerCSV(RARO)), ListadoIlegible);
+  // Pero mirarlo no: si también fallara, no habría manera de configurarlo.
+  assert.doesNotThrow(() => resumenDeColumnas(leerCSV(RARO)));
+  assert.strictEqual(resumenDeColumnas(leerCSV('Solo;Titulos')).length, 2);
 });
 
 console.log('\n=== Leer el fichero\n');

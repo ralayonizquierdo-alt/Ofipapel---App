@@ -17,7 +17,9 @@
 // `service_role` en ningún sitio.
 
 const { leerListado } = require('./leer-listado');
-const { construirFilas, ListadoIlegible } = require('./filas');
+const {
+  construirFilas, detectarColumnas, resumenDeColumnas, ListadoIlegible,
+} = require('./filas');
 
 const SUPA_URL = 'https://agjmciudnnginqybnogh.supabase.co';
 // La misma clave publishable que ya está en Index.html: es pública y no da
@@ -104,17 +106,63 @@ function informe({ filas, columnas, sinTraducir, sinNumero, repetidos }) {
   }
 }
 
+// LO QUE SE IMPRIME CON --inspeccionar.
+//
+// Pensado para copiarlo y mandarlo: dice cómo se llaman las columnas y qué
+// palabras hay en las que tienen pocas (ahí está la de estados), y NO enseña
+// clientes, importes ni números de pedido.
+function inspeccionar(crudo) {
+  const columnas = detectarColumnas(crudo.titulos || []);
+  console.log(`${crudo.filas.length} filas, ${(crudo.titulos || []).length} columnas.\n`);
+
+  console.log('Lo que reconozco solo:');
+  for (const [campo, titulo] of Object.entries(columnas)) {
+    console.log(`   ${campo.padEnd(18)} ${titulo || '— no lo encuentro'}`);
+  }
+
+  console.log('\nTodas las columnas:');
+  for (const col of resumenDeColumnas(crudo)) {
+    console.log(`\n   «${col.titulo}»  — ${col.distintos} valores distintos`);
+    if (col.valores) {
+      for (const [valor, n] of col.valores) {
+        console.log(`        ${String(n).padStart(5)}  ${valor === '' ? '(vacío)' : valor}`);
+      }
+    } else {
+      console.log('        (sus valores no se repiten: será el cliente, un número o una fecha)');
+    }
+  }
+
+  console.log(
+    '\nMándame esto tal cual. Con los títulos de las columnas y las palabras de\n' +
+    'la de estados queda configurado.\n' +
+    '\nSolo se enseñan los valores que SE REPITEN, que son los de catálogo (los\n' +
+    'estados). De una columna donde cada fila es distinta —el cliente, el número\n' +
+    'de pedido, la fecha— solo sale el título, nunca el contenido.'
+  );
+}
+
 async function principal() {
   const args = process.argv.slice(2);
   const seco = args.includes('--seco') || args.includes('--dry-run');
+  const soloMirar = args.includes('--inspeccionar');
   const ruta = args.find((a) => !a.startsWith('--')) || process.env.LISTADO_PEDIDOS;
 
   if (!ruta) {
-    console.error('Falta el listado.\n  node publicar.js <fichero.xls|.xlsx|.csv> [--seco]');
+    console.error(
+      'Falta el listado.\n' +
+      '  node publicar.js <fichero.xls|.xlsx|.csv>                 publica\n' +
+      '  node publicar.js <fichero> --seco                         lo calcula y no escribe\n' +
+      '  node publicar.js <fichero> --inspeccionar                 solo mira qué trae el listado'
+    );
     process.exit(2);
   }
 
   const crudo = leerListado(ruta);
+
+  // Va antes que nada: es lo que hay que poder hacer cuando el listado todavía
+  // no se entiende, que es justo cuando `construirFilas` pararía.
+  if (soloMirar) { inspeccionar(crudo); return; }
+
   const resultado = construirFilas(crudo);
   informe(resultado);
 

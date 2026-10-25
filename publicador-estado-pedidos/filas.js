@@ -200,7 +200,54 @@ function construirFilas({ titulos, filas }) {
   return { filas: [...porPedido.values()], columnas, sinTraducir, sinNumero, repetidos };
 }
 
+// --------------------------------------------------------------------------
+// MIRAR UN LISTADO SIN TOCAR NADA.
+//
+// La primera vez que esto se encuentre con un listado de GeminisWin de verdad,
+// lo normal es que algo no cuadre: una columna que se llama distinto, o
+// palabras de estado que no conocemos. `construirFilas` para y dice qué falta,
+// pero para arreglarlo hace falta ver el listado entero — y el listado lleva
+// clientes reales, así que no puede salir de la oficina.
+//
+// Esto saca lo único que hace falta para configurarlo y que NO es confidencial:
+// cómo se llaman las columnas y qué palabras distintas hay en cada una de las
+// pocas. Ni nombres, ni importes, ni números de pedido.
+//
+// Una columna es "de catálogo" cuando sus valores SE REPITEN: la de estados
+// tiene cinco o seis palabras para trescientas filas, la de clientes tiene
+// trescientas. Solo se enseñan las de catálogo.
+//
+// No basta con contar valores distintos: en un listado de cuatro filas, cuatro
+// clientes son cuatro valores distintos y se colarían. Por eso se exige además
+// que cada valor se repita, de media, al menos una vez — una columna donde cada
+// fila es diferente no se enseña, sea el listado grande o pequeño.
+const MAXIMO_VALORES_DISTINTOS = 25;
+
+function esDeCatalogo(distintos, filas) {
+  return distintos > 0 && distintos <= MAXIMO_VALORES_DISTINTOS && distintos * 2 <= filas;
+}
+
+function resumenDeColumnas({ titulos, filas }) {
+  const lista = titulos && titulos.length
+    ? titulos
+    : [...new Set(filas.flatMap((f) => Object.keys(f)))];
+
+  return lista.map((titulo) => {
+    const cuenta = new Map();
+    for (const fila of filas) {
+      const valor = String(fila[titulo] == null ? '' : fila[titulo]).trim();
+      cuenta.set(valor, (cuenta.get(valor) || 0) + 1);
+    }
+    const distintos = cuenta.size;
+    const valores = esDeCatalogo(distintos, filas.length)
+      ? [...cuenta.entries()].sort((a, b) => b[1] - a[1])
+      : null;
+    return { titulo, distintos, valores };
+  });
+}
+
 module.exports = {
-  TITULOS, detectarColumnas, buscarColumna, construirFilas,
+  TITULOS, detectarColumnas, buscarColumna, construirFilas, resumenDeColumnas,
   claveWeb, aDia, aInstante, instanteEnCanarias, ListadoIlegible,
+  MAXIMO_VALORES_DISTINTOS, esDeCatalogo,
 };
