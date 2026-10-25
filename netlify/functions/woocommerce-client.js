@@ -882,12 +882,41 @@ const ESTADO_TRADUCIDO = {
 // dato real de pago (date_paid), no solo con el nombre del estado. "extra" es una
 // frase aparte (después del total) para no romper la construcción "está X, por un
 // total de Y" a media frase.
+// LAS FORMAS DE PAGO EN LAS QUE EL CLIENTE PAGA POR ADELANTADO.
+//
+// Solo con una de estas tiene sentido decirle que falta el pago: una
+// transferencia que todavía no ha llegado, por ejemplo.
+//
+// Con cualquier otra NO se nombra el pago. Buena parte de los clientes de
+// Ofipapel son de crédito ("Pago Habitual Según Condiciones Pactadas") y a un
+// cliente de crédito no se le dice JAMÁS que su pago está pendiente de
+// confirmar: paga según lo pactado, no debe nada, y dar a entender lo contrario
+// ofende (decisión del propietario, 25/10/2026, sobre un pedido real).
+//
+// Por eso la lista dice de quién SÍ se habla, y no de quién no: una pasarela
+// nueva o con un nombre que no conocemos cae del lado callado, que siempre es
+// cierto, en vez de heredar la frase del pago pendiente.
+const PAGO_POR_ADELANTADO = new Set([
+  'bacs', // transferencia bancaria
+  'cheque', // pago con cheque
+  'redsys', 'redsys_insite', 'servired',
+  'paypal', 'ppcp-gateway', 'ppec_paypal',
+  'stripe', 'stripe_cc', 'woocommerce_payments',
+]);
+
+function pagoPorAdelantado(order) {
+  return PAGO_POR_ADELANTADO.has(String(order.payment_method || '').trim().toLowerCase());
+}
+
 function fraseProcessing(order) {
   if (order.date_paid) return { estado: 'pagado y en preparación', extra: '' };
   if (order.payment_method === 'cod') {
     return { estado: 'en preparación', extra: ' Ha elegido pago contra reembolso, así que se paga al recibirlo.' };
   }
-  return { estado: 'en preparación, pendiente de confirmar el pago', extra: '' };
+  if (pagoPorAdelantado(order)) {
+    return { estado: 'en preparación, pendiente de confirmar el pago', extra: '' };
+  }
+  return { estado: 'en preparación', extra: '' };
 }
 
 // El sistema de gestión de las tiendas NO avisa a la web en cuanto se factura o
@@ -917,7 +946,10 @@ function fraseProcessingEn(order) {
   if (order.payment_method === 'cod') {
     return { estado: 'being prepared', extra: ' You chose cash on delivery, so you pay when it arrives.' };
   }
-  return { estado: 'being prepared, pending payment confirmation', extra: '' };
+  if (pagoPorAdelantado(order)) {
+    return { estado: 'being prepared, pending payment confirmation', extra: '' };
+  }
+  return { estado: 'being prepared', extra: '' };
 }
 
 const AVISO_POSIBLE_DESACTUALIZACION_EN =

@@ -228,6 +228,51 @@ comprobar('en inglés también, y escrito a mano', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Y lo que se dice MIENTRAS no hay dato de Gestión, que es el estado de
+// WooCommerce de siempre. Aquí lo delicado no es el plazo: es el dinero.
+// ---------------------------------------------------------------------------
+
+console.log('\n=== El pago: de quién se habla y de quién no\n');
+
+const wc = require(path.join(RAIZ, 'netlify/functions/woocommerce-client.js'));
+const enPreparacion = (extra) => wc.formatOrderStatus(
+  { id: 663273, status: 'processing', total: '64.72', date_created: '2026-10-23T07:56:00', ...extra },
+  'es'
+);
+
+comprobar('a un cliente de crédito NUNCA se le dice que falta su pago', () => {
+  // El pedido real del 23/10/2026: DONATACO, "Pago Habitual Según Condiciones
+  // Pactadas". Paga según lo pactado y no debe nada.
+  const msg = enPreparacion({ payment_method: 'condiciones_pactadas', payment_method_title: 'Pago Habitual Según Condiciones Pactadas' });
+  assert.ok(!/pendiente de confirmar el pago/i.test(msg), msg);
+  assert.ok(/en preparación/i.test(msg), msg);
+});
+
+comprobar('una pasarela que no conocemos también se calla', () => {
+  // Lo importante del arreglo: lo que no está en la lista cae del lado
+  // callado. Una forma de pago nueva no hereda la frase del pago pendiente.
+  const msg = enPreparacion({ payment_method: 'pasarela_inventada_manana' });
+  assert.ok(!/pago/i.test(msg), msg);
+});
+
+comprobar('una transferencia que no ha llegado sí se dice', () => {
+  const msg = enPreparacion({ payment_method: 'bacs' });
+  assert.ok(/pendiente de confirmar el pago/i.test(msg), msg);
+});
+
+comprobar('pagado es pagado, y contra reembolso se explica', () => {
+  assert.ok(/pagado y en preparación/i.test(enPreparacion({ payment_method: 'bacs', date_paid: '2026-10-23T08:00:00' })));
+  assert.ok(/se paga al recibirlo/i.test(enPreparacion({ payment_method: 'cod' })));
+});
+
+comprobar('en inglés, lo mismo', () => {
+  const credito = wc.formatOrderStatus({ id: 663273, status: 'processing', total: '64.72', payment_method: 'condiciones_pactadas' }, 'en');
+  assert.ok(!/pending payment/i.test(credito), credito);
+  const transferencia = wc.formatOrderStatus({ id: 663273, status: 'processing', total: '64.72', payment_method: 'bacs' }, 'en');
+  assert.ok(/pending payment confirmation/i.test(transferencia), transferencia);
+});
+
+// ---------------------------------------------------------------------------
 // El recorrido entero por el webhook.
 // ---------------------------------------------------------------------------
 

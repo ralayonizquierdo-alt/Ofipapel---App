@@ -580,6 +580,16 @@ la realidad. Un proceso aparte, del lado de Gestión, publica el estado de verda
 en Supabase («App Bancos», tabla `estado_pedidos_web`) y el bot lo lee
 (`netlify/functions/gestion-pedidos.js`).
 
+**El publicador vive en `publicador-estado-pedidos/`** y corre en el PC de
+Rober, no en Netlify: GeminisWin no tiene API, así que lee en solo lectura los
+`.dbf` de `G:\GW002024\` (`pedidos`, `reparlin`, `repartos`) y sube el estado.
+Cómo se instala, se programa y qué reglas aplica, en su propio README.
+
+**La tabla lleva además `pago_pendiente`** (25/10/2026): solo puede ser cierto
+con `FORMA_P = '77'` (transferencia inmediata) y `TOT_PEND > 0`, porque el resto
+de pedidos web se pagan al hacerlos. **Pagado no es entregado**: lo único que
+confirma una entrega es que se cierre el reparto.
+
 **Los estados de la tabla NO son los de GeminisWin.** Allí «Liquidado» significa
 COBRADO (el repartidor ha pagado la factura en administración), no facturado.
 El publicador traduce a estos siete y el bot solo entiende estos:
@@ -623,9 +633,19 @@ que lleva tres días en el mismo estado parecería caducado.
 - El estado se consulta **solo después** de que WooCommerce haya confirmado que
   el pedido es de quien escribe (por teléfono o por nombre). La tabla **no lleva
   nombres a propósito**: la identidad se comprueba siempre contra WooCommerce.
-- Dos cuentas de Supabase con RLS, ninguna con `service_role`:
-  `bot@ofipapel.internal` **solo SELECT**, `gestion@ofipapel.internal` **solo
-  INSERT y UPDATE**. No hay política de DELETE: nadie puede borrar filas.
+- Dos cuentas de Supabase, ninguna con `service_role`. `bot@ofipapel.internal`
+  **solo lee**, por política RLS. `gestion@ofipapel.internal` **no toca la tabla
+  directamente**: escribe llamando a `publicar_estado_pedidos(jsonb)`, que
+  comprueba por dentro quién llama (mismo patrón que `cp_guardar_lote` en
+  Control de Pedidos). No puede leer la tabla ni tocar ninguna otra, y no hay
+  política de DELETE: nadie puede borrar filas.
+
+  **Tiene que ser por la función, no contra la tabla.** Al publicador se le dio
+  INSERT y UPDATE directos y no servían: sin permiso de lectura, un upsert no
+  puede resolver el conflicto ni un UPDATE encontrar su fila, así que daba de
+  alta un pedido la primera vez y no podía volver a tocarlo nunca más —
+  justo lo contrario de lo que necesita el bot, que es que cada pasada reescriba
+  todas las filas vivas. Comprobado contra las políticas reales el 25/10/2026.
 - A la clave publishable (la que está en `Index.html`, pública) se le ha quitado
   el permiso sobre esta tabla a nivel de GRANT, además de por RLS.
 - Variables en el sitio **`spontaneous-lebkuchen-60fa41`** (el del bot, no el de
