@@ -79,6 +79,19 @@ esquema ya tenía para esto), descuenta stock igual que una venta de
 TPV, y marca el pedido `entregado: true`. Verificado en vivo igual que
 Compras.
 
+**Repartos** completa la otra mitad de "Fase 4 — Pedidos de clientes
+y repartos" (la parte que no se había tocado: repartos no es lo mismo
+que entregar un pedido directamente, es agrupar varias ventas en una
+ruta con un repartidor asignado). Crea el reparto numerado de forma
+atómica (`fn_siguiente_numero`, tipo `'reparto'` — ya estaba en el
+catálogo sin usar) y sus paradas (`reparto_linea`, cada una apuntando
+a una venta real). Ruta y repartidor son opcionales (ambas FKs son
+nullable en el esquema): como `ruta_reparto` y `repartidor` están
+vacías todavía, no hacía falta construir un CRUD nuevo para poder
+crear un reparto ya. Verificado en vivo con una venta real, una ruta y
+un repartidor de prueba, comprobando también la consulta con joins
+exacta que usa la pantalla.
+
 Ventas/TPV cierra el ciclo de **cobros** (la última pieza nombrada en
 "Fase 5 — Ventas/TPV, caja, cobros"): toda venta con `total_pendiente`
 (típicamente una venta creada por "Entregar" desde Pedidos, que nace

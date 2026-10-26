@@ -12,6 +12,7 @@ import {
   Receipt,
   FileSpreadsheet,
   LogOut,
+  MapPinned,
 } from 'lucide-react'
 import { useAuth } from '../lib/AuthContext'
 
@@ -26,6 +27,7 @@ const nav = [
   { to: '/stock', label: 'Stock', icon: Warehouse },
   { to: '/compras', label: 'Compras', icon: ShoppingCart },
   { to: '/pedidos', label: 'Pedidos de clientes', icon: ClipboardList },
+  { to: '/repartos', label: 'Repartos', icon: MapPinned },
   { to: '/ventas', label: 'Ventas / TPV', icon: Receipt },
   { to: '/facturacion', label: 'Facturación', icon: FileSpreadsheet },
 ]
