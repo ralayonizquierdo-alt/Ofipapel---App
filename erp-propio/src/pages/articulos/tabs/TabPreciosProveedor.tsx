@@ -183,16 +183,16 @@ export function TabPreciosProveedor({
             <thead className="sticky top-0">
               <tr>
                 <th style={{ width: 90 }}>Proveedor</th>
-                <th className="text-right" style={{ width: 90 }}>Puro</th>
-                <th className="text-right" style={{ width: 90 }}>Neto</th>
-                <th className="text-right" style={{ width: 90 }}>Bruto</th>
-                <th className="text-right" style={{ width: 90 }}>Liquido</th>
-                <th className="text-right" style={{ width: 75 }}>Unds ped.</th>
+                <th className="text-center!" style={{ width: 90 }}>Puro</th>
+                <th className="text-center!" style={{ width: 90 }}>Neto</th>
+                <th className="text-center!" style={{ width: 90 }}>Bruto</th>
+                <th className="text-center!" style={{ width: 90 }}>Liquido</th>
+                <th className="text-center!" style={{ width: 75 }}>Unds ped.</th>
                 <th style={{ width: 95 }}>Prev. Entrada</th>
-                <th className="text-right" style={{ width: 95 }}>Unds. Compr.</th>
+                <th className="text-center!" style={{ width: 95 }}>Unds. Compr.</th>
                 <th style={{ width: 80 }}>Ult. Comp.</th>
-                <th className="text-right" style={{ width: 90 }}>Ult. Und. Co.</th>
-                <th className="text-right" style={{ width: 60 }}>%Canon</th>
+                <th className="text-center!" style={{ width: 90 }}>Ult. Und. Co.</th>
+                <th className="text-center!" style={{ width: 60 }}>%Canon</th>
               </tr>
             </thead>
             <tbody>

@@ -127,7 +127,7 @@ export function TabCaracteristicas({
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-0.5">
       <div className="grid grid-cols-[170px_minmax(0,600px)_minmax(0,1fr)] gap-2">
         <GwGroup title="Precios de coste" className="flex flex-col gap-0.5">
           <CosteRow label="Coste Puro Prov." title="COSTE_PURO">
@@ -271,34 +271,41 @@ export function TabCaracteristicas({
             </GwInline>
           </GwGroup>
           <div className="grid grid-cols-[minmax(0,1fr)_150px] gap-2">
-            <GwGroup title="Impuestos" className="flex flex-col gap-1">
-              <div className="grid grid-cols-[70px_1fr] gap-2">
-                <GwField label="% IGIC">
-                  <span title="IGIC">{num('igic_pct', 2)}</span>
+            <div className="flex flex-col gap-1">
+              <GwGroup title="Impuestos" className="flex flex-col gap-1">
+                <div className="grid grid-cols-[70px_1fr] gap-2">
+                  <GwField label="% IGIC">
+                    <span title="IGIC">{num('igic_pct', 2)}</span>
+                  </GwField>
+                  <GwGroup title={<span title="TIPOIGIC (confirmar códigos con Luis)">Tipo IGIC</span>} className="flex flex-col !py-0.5">
+                    <GwRadio
+                      name="tipo-igic"
+                      label="Soportado"
+                      checked={articulo.tipo_igic_codigo === 1}
+                      disabled={disabled}
+                      onChange={() => onChange({ tipo_igic_codigo: 1 })}
+                    />
+                    <GwRadio
+                      name="tipo-igic"
+                      label="Repercutido"
+                      checked={articulo.tipo_igic_codigo !== 1}
+                      disabled={disabled}
+                      onChange={() => onChange({ tipo_igic_codigo: 0 })}
+                    />
+                  </GwGroup>
+                </div>
+                <GwField label="Canon">
+                  <span className="w-[110px]" title="IMPU2">
+                    {num('impuesto2_pct', 2)}
+                  </span>
                 </GwField>
-                <GwGroup title={<span title="TIPOIGIC (confirmar códigos con Luis)">Tipo IGIC</span>} className="flex flex-col !py-0.5">
-                  <GwRadio
-                    name="tipo-igic"
-                    label="Soportado"
-                    checked={articulo.tipo_igic_codigo === 1}
-                    disabled={disabled}
-                    onChange={() => onChange({ tipo_igic_codigo: 1 })}
-                  />
-                  <GwRadio
-                    name="tipo-igic"
-                    label="Repercutido"
-                    checked={articulo.tipo_igic_codigo !== 1}
-                    disabled={disabled}
-                    onChange={() => onChange({ tipo_igic_codigo: 0 })}
-                  />
-                </GwGroup>
-              </div>
-              <GwField label="Canon">
-                <span className="w-[110px]" title="IMPU2">
-                  {num('impuesto2_pct', 2)}
+              </GwGroup>
+              <GwInline label="Meses de Garantía:">
+                <span className="w-[70px]" title="GARANTIA">
+                  {num('garantia_meses', 0)}
                 </span>
-              </GwField>
-            </GwGroup>
+              </GwInline>
+            </div>
             <GwGroup title="Embalaje" className="flex flex-col gap-0.5">
               <GwField label="Cajas/Bulto">
                 <span title="CAJ_BULTO">{num('cajas_por_bulto', 2)}</span>
@@ -317,11 +324,6 @@ export function TabCaracteristicas({
               </div>
             </GwGroup>
           </div>
-          <GwInline label="Meses de Garantía:">
-            <span className="w-[70px]" title="GARANTIA">
-              {num('garantia_meses', 0)}
-            </span>
-          </GwInline>
         </div>
       </div>
 
@@ -335,7 +337,7 @@ export function TabCaracteristicas({
             {check('vende_por_horario', 'Usar Formato de Horas y Minutos al Vender', false, 'VENDPORHOR')}
             {check('pesar_en_tpv', 'Pesar al Vender', false, 'PESARENTPV')}
           </div>
-          <div className="flex flex-col gap-0.5 border border-[var(--gw-border-light)] px-1 py-0.5">
+          <div className="flex flex-col border border-[var(--gw-border-light)] px-1">
             {check('permite_modificar_pvp_al_vender', 'Permitir modificar el Pvp en ventas', false, 'MODITPV')}
             <div className="grid grid-cols-[31%_39%_minmax(0,1fr)] gap-x-2">
               {check('permite_modificar_pvp_solo_si_es_cero', 'Sólo si el PVP=0', !articulo.permite_modificar_pvp_al_vender, 'MPVPSIPVP0')}
@@ -344,7 +346,7 @@ export function TabCaracteristicas({
             </div>
           </div>
         </GwGroup>
-        <GwGroup title="Fechas" className="grid grid-cols-[auto_auto] gap-x-4 gap-y-0.5">
+        <GwGroup title="Fechas" className="grid grid-cols-[auto_auto] gap-x-4 gap-y-0">
           <Fecha label="Última compra" value={articulo.ultima_compra_fecha} />
           <Fecha label="Prev. Entrada Pedido" value={articulo.fecha_prevista_venta} labelWidth={140} />
           <Fecha label="Última venta" value={articulo.ultima_venta_fecha} />

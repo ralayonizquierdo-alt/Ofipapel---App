@@ -135,7 +135,7 @@ export function TabEquivalentes({ articuloCodigo }: { articuloCodigo: string }) 
         <table className="gw-grid">
           <thead className="sticky top-0">
             <tr>
-              <th style={{ width: 210 }}>Código Interno</th>
+              <th style={{ width: '26%' }}>Código Interno</th>
               <th>Descripción</th>
             </tr>
           </thead>

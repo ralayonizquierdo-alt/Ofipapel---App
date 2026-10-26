@@ -8,7 +8,8 @@ import { ArticulosListPage } from './pages/articulos/ArticulosListPage'
 import { ArticuloFichaPage } from './pages/articulos/ArticuloFichaPage'
 import { ClienteFichaPage } from './pages/clientes/ClienteFichaPage'
 import { ClientesListPage } from './pages/clientes/ClientesListPage'
-import { ProveedoresPage } from './pages/ProveedoresPage'
+import { ProveedorFichaPage } from './pages/proveedores/ProveedorFichaPage'
+import { ProveedoresListPage } from './pages/proveedores/ProveedoresListPage'
 import { AlmacenesPage } from './pages/AlmacenesPage'
 import { TiendasPage } from './pages/TiendasPage'
 import { EmpleadosPage } from './pages/EmpleadosPage'
@@ -51,7 +52,9 @@ function App() {
             <Route path="/clientes" element={<ClienteFichaPage />} />
             <Route path="/clientes/lista" element={<ClientesListPage />} />
             <Route path="/clientes/:codigo" element={<ClienteFichaPage />} />
-            <Route path="/proveedores" element={<ProveedoresPage />} />
+            <Route path="/proveedores" element={<ProveedorFichaPage />} />
+            <Route path="/proveedores/lista" element={<ProveedoresListPage />} />
+            <Route path="/proveedores/:codigo" element={<ProveedorFichaPage />} />
             <Route path="/almacenes" element={<AlmacenesPage />} />
             <Route path="/tiendas" element={<TiendasPage />} />
             <Route path="/empleados" element={<EmpleadosPage />} />
