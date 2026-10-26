@@ -26,7 +26,7 @@ export function TabParametrosPvp({
   const sinRedondeo = articulo.tipo_redondeo == null || articulo.tipo_redondeo === 3
 
   return (
-    <div className="flex h-[250px] items-start gap-6">
+    <div className="flex min-h-[250px] items-start gap-6">
       <div className="flex w-[300px] flex-none flex-col gap-1.5">
         <GwGroup title="Precio de coste elegido para el cálculo del Pvp">
           <div className="flex flex-col gap-1">

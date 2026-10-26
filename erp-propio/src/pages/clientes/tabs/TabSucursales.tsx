@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Binoculars, Check, ChevronFirst, ChevronLast, FilePen, FilePlus2, FileX2, Play, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwCheck, GwField, GwGroup, GwInput, GwNumber, GwSelect } from '../../../components/gw'
-import { FilasVacias } from './TabBancos'
+import { FilasVacias } from '../../../components/gw/GwGridParts'
 import type { ClienteTabProps } from '../types'
 
 interface Sucursal {

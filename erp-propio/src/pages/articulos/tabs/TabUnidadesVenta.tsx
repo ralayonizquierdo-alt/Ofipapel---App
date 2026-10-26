@@ -171,7 +171,7 @@ export function TabUnidadesVenta({
   )
 
   return (
-    <div className="flex h-[250px] flex-col gap-1" title="ARTUNDVT">
+    <div className="flex min-h-[250px] flex-col gap-1" title="ARTUNDVT">
       <fieldset className="gw-group flex-1">
         <legend>
           <GwCheck

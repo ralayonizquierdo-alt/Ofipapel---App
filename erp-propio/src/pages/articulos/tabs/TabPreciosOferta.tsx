@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { Binoculars, Calculator, Check, FilePen, FilePlus2, Tags, Trash2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { GwInput, GwNumber, GwSelect, GwTabs, formatGw } from '../../../components/gw'
+import { GwInput, GwNumber, GwSelect, formatGw } from '../../../components/gw'
 import { NIVELES_TARIFA, type ArticuloOferta, type ArticuloTarifaCantidad } from '../types'
 
 const str = (v: string) => (v === '' ? null : v)
@@ -91,28 +91,35 @@ export function TabPreciosOferta({
   const [sub, setSub] = useState('cantidad')
   const [error, setError] = useState<string | null>(null)
   return (
-    <div className="flex h-[250px] flex-col" title="ARTTARIF / ARTOFERT">
-      <GwTabs
-        rows={[
-          [
-            { key: 'cantidad', label: 'Ofertas por Fecha y a partir de una cantidad mínima' },
-            { key: 'regalo', label: 'Ofertas por Fecha, Regalos y Descuentos' },
-          ],
-        ]}
-        active={sub}
-        onChange={(k) => {
-          setError(null)
-          setSub(k)
-        }}
-        position="bottom"
-      >
+    <div className="flex min-h-[250px] flex-col" title="ARTTARIF / ARTOFERT">
+      <div className="border border-[var(--gw-border)] p-1">
         {sub === 'cantidad' ? (
           <OfertasCantidad articuloCodigo={articuloCodigo} editingFicha={editing} costeBase={costeBase} setError={setError} />
         ) : (
           <OfertasRegalo articuloCodigo={articuloCodigo} editingFicha={editing} setError={setError} />
         )}
         {error && <div className="mt-0.5 text-[12px] text-[#a4262c]">{error}</div>}
-      </GwTabs>
+      </div>
+      <div className="flex">
+        {[
+          { key: 'cantidad', label: 'Ofertas por Fecha y a partir de una cantidad mínima' },
+          { key: 'regalo', label: 'Ofertas por Fecha, Regalos y Descuentos' },
+        ].map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => {
+              setError(null)
+              setSub(t.key)
+            }}
+            className={`-mt-px border border-[var(--gw-border)] px-2 text-[12px] ${
+              sub === t.key ? 'z-10 h-[24px] border-t-transparent bg-[var(--gw-face)] font-bold' : 'h-[22px] bg-[#f6f6f6] hover:bg-[#e5f1fb]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

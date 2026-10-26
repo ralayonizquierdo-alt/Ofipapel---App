@@ -213,7 +213,7 @@ export function TabTallasColores({ articuloCodigo, editing = true }: { articuloC
   )
 
   return (
-    <div className="flex h-[250px] gap-3" title="TALLAS_M / TALLAS_D">
+    <div className="flex min-h-[250px] gap-3" title="TALLAS_M / TALLAS_D">
       <div className="flex w-[510px] flex-none flex-col">
         <div className="flex-1 overflow-y-auto border border-[var(--gw-border)] bg-white">
           <table className="gw-grid text-[12px]">

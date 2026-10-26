@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Check, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwField, GwInput, GwSelect } from '../../../components/gw'
-import { FilasVacias, GridMiniBar } from './TabBancos'
+import { FilasVacias, GridMiniBar } from '../../../components/gw/GwGridParts'
 import type { ClienteTabProps } from '../types'
 
 interface Contacto {

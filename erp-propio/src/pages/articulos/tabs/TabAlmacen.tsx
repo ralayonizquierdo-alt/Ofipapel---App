@@ -47,7 +47,7 @@ export function TabAlmacen({
   const miniBtn = 'flex h-[22px] w-[46px] items-center justify-center border border-[var(--gw-border)] bg-[var(--gw-face)] text-[#9a9a9a]'
 
   return (
-    <div className="flex h-[250px] items-start gap-8">
+    <div className="flex min-h-[250px] items-start gap-8">
       <div className="flex w-[205px] flex-none flex-col gap-0.5">
         <GwCheck
           label="Éste artículo no tiene stock"

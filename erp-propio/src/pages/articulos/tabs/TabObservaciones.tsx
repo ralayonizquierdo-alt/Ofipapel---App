@@ -14,7 +14,7 @@ export function TabObservaciones({
   const dis = !editing
 
   return (
-    <div className="grid h-[250px] grid-cols-2 gap-x-4">
+    <div className="grid min-h-[250px] grid-cols-2 gap-x-4">
       <div className="flex min-h-0 flex-col">
         <div className="flex items-center gap-6">
           <span className="gw-label">Observaciones</span>

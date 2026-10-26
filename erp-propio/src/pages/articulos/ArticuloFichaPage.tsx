@@ -432,13 +432,13 @@ export function ArticuloFichaPage() {
               {tab === 'unidades' && enAvisoSatelite(<TabUnidadesVenta articuloCodigo={articulo.codigo_interno} articulo={draft} editing={editing} onChange={patchArticulo} />)}
               {tab === 'observaciones' && <TabObservaciones articulo={draft} editing={editing} onChange={patchArticulo} />}
               {tab === 'parametros' && <TabParametrosPvp articulo={draft} editing={editing} onChange={patchArticulo} onRecalcularPvps={recalcularPvps} />}
-              {tab === 'ofertas' && enAvisoSatelite(<TabPreciosOferta articuloCodigo={articulo.codigo_interno} />)}
+              {tab === 'ofertas' && enAvisoSatelite(<TabPreciosOferta articuloCodigo={articulo.codigo_interno} editing={editing} costeBase={costeBase(draft)} />)}
               {tab === 'almacen' && <TabAlmacen articulo={draft} editing={editing} onChange={patchArticulo} />}
               {tab === 'tallas' && enAvisoSatelite(<TabTallasColores articuloCodigo={articulo.codigo_interno} editing={editing} />)}
               {tab === 'equivalentes' && enAvisoSatelite(<TabEquivalentes articuloCodigo={articulo.codigo_interno} />)}
               {tab === 'proveedores' &&
                 enAvisoSatelite(<TabPreciosProveedor articuloCodigo={articulo.codigo_interno} proveedores={proveedores} />)}
-              {tab === 'composicion' && enAvisoSatelite(<TabComposicion articuloCodigo={articulo.codigo_interno} />)}
+              {tab === 'composicion' && enAvisoSatelite(<TabComposicion articuloCodigo={articulo.codigo_interno} articulo={draft} editing={mode !== 'consulta'} onChange={patchArticulo} />)}
               {tab === 'imagen' && <TabImagen articulo={draft} editing={editing} onChange={patchArticulo} />}
               {tab === 'web' && <TabWeb articulo={draft} editing={editing} onChange={patchArticulo} />}
             </>

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
 import { Binoculars, ChevronFirst, ChevronLast, Play } from 'lucide-react'
 import { GwGroup, GwInput, GwRadio, GwSelect, formatGw } from '../../../components/gw'
-import { FilasVacias } from './TabBancos'
+import { FilasVacias } from '../../../components/gw/GwGridParts'
 import type { ClienteTabProps } from '../types'
 
 type Sub = 'ventas' | 'facturas' | 'pedidos' | 'presupuestos' | 'reparaciones'
