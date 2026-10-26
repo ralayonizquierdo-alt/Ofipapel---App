@@ -2,4 +2,18 @@
 
 @media print {
   @page { size: A4 landscape; margin: 1.5cm 1cm; }
+
+  /*
+   * En papel no hay nada que desplazar: todo tiene que caber.
+   *
+   * En pantalla hay cajas con su propio desplazamiento (`overflow-auto`,
+   * `max-h-[70vh]`, `overflow-hidden` para redondear esquinas). Al imprimir,
+   * el navegador se lleva al papel solo lo que esa caja enseña y recorta el
+   * resto: así se perdía la cuarta tabla —la del Piso 3— al imprimir la
+   * tarifa, y salían «3 hojas de papel» en vez de 4 (propietario,
+   * 26/10/2026). Quitando el recorte y el tope de altura, el contenido fluye
+   * de una hoja a la siguiente como debe.
+   */
+  html, body, #root { height: auto !important; overflow: visible !important; }
+  main, section, div, table { overflow: visible !important; max-height: none !important; }
 }
