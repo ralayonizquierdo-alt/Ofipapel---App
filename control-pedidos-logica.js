@@ -1471,6 +1471,34 @@
   }
 
   /**
+   * Cuadre de artículos de una campaña: cada unidad facturada por el proveedor
+   * tiene que acabar facturada a un cliente. pedidos: [{ numero, cliente,
+   * sinCliente, validado, factura: [{ref, cant}] (ya con nuestra referencia),
+   * final: [{ref, cant}] }]. Devuelve unidades facturadas, a clientes, sin
+   * cliente, sin validar y las diferencias por pedido y referencia.
+   */
+  function cuadreArticulos(pedidos) {
+    const out = { facturadas: 0, aClientes: 0, sinCliente: 0, sinValidar: 0, difs: [] };
+    const suma = (ls) => { const m = new Map(); for (const l of ls || []) { const k = claveRef(l.ref); m.set(k, { ref: l.ref, cant: ((m.get(k) || {}).cant || 0) + (Number(l.cant) || 0) }); } return m; };
+    for (const p of pedidos || []) {
+      const fac = suma(p.factura);
+      const uds = [...fac.values()].reduce((t, x) => t + x.cant, 0);
+      if (!uds) continue;
+      out.facturadas += uds;
+      if (p.sinCliente) { out.sinCliente += uds; continue; }
+      if (!p.validado) { out.sinValidar += uds; continue; }
+      const fin = suma(p.final);
+      for (const k of new Set([...fac.keys(), ...fin.keys()])) {
+        const f = (fac.get(k) || {}).cant || 0, c = (fin.get(k) || {}).cant || 0;
+        out.aClientes += Math.min(f, c);
+        // Lo validado que no viene en la factura va a Restos: solo descuadra lo facturado que no paga nadie.
+        if (f > c) out.difs.push({ numero: p.numero, cliente: p.cliente, ref: (fac.get(k) || fin.get(k)).ref, facturado: f, aCliente: c });
+      }
+    }
+    return out;
+  }
+
+  /**
    * Razona las faltas y sobras de un pedido como lo haría una persona, en vez
    * de dejarlas sueltas: si faltan 5 y sobran 5, «será por algo».
    *  - errata: la referencia apuntada se diferencia en una cifra o letra de la
@@ -1742,7 +1770,7 @@
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
     facturaDeLinea, parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, repartirPorReferencias, fotosRepetidas, firmaLineas,
-    sugerirAsignacion, restosQueLlegan, codigosInternos, refParaGeminis, emparejarReferencias, explicarDiferencias, descuentoEquivalente, leerPropuesta, filasGeminis,
+    sugerirAsignacion, restosQueLlegan, codigosInternos, refParaGeminis, emparejarReferencias, explicarDiferencias, cuadreArticulos, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.ControlPedidos = api;

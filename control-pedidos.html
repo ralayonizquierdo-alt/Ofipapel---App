@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-26-1"></script>
+<script src="control-pedidos-logica.js?v=2026-10-26-2"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -544,9 +544,13 @@ function avisoFotos(p) {
 function chipsFaltasSobras(p) {
   const filas = comparar(p);
   if (!filas) return '';
-  const { sobran } = CP.faltasYSobras(filas);
+  const sobran = sobrasPendientes(p, filas);
   const faltan = CP.faltasPendientes(filas, p.decisiones);
   return ` <span class="chip ${faltan.length ? 'mal' : 'ok'}">${faltan.length} faltan</span> <span class="chip ${sobran.length ? 'aviso' : 'ok'}">${sobran.length} sobran</span>`;
+}
+/** Lo que sobra y aún hay que decidir (o está reclamado): lo aceptado ya se le factura al cliente. */
+function sobrasPendientes(p, filas) {
+  return CP.faltasYSobras(filas).sobran.filter((x) => { const a = (p.decisiones[x.ref] || {}).accion; return !a || a === 'reclamar'; });
 }
 function estadoPedido(p) {
   if (p.validado) return { chip: 'ok', texto: 'Validado' };
@@ -674,7 +678,7 @@ function vistaGrupo(g, i) {
   const reclamar = [];
   for (const p of comparados) {
     const filas = comparar(p);
-    const { sobran } = CP.faltasYSobras(filas);
+    const sobran = sobrasPendientes(p, filas);
     const faltan = CP.faltasPendientes(filas, p.decisiones);
     const r = CP.aReclamar(filas, p.decisiones);
     if (r.faltan.length || r.sobran.length || r.precios.length) reclamar.push({ numero: p.numero, cliente: esRepo(p) ? 'Reposición' : p.cliente, ...r });
@@ -1832,8 +1836,21 @@ function bloqueDocumentos(g) {
     const ds = docs.map((d, i) => [d, i]).filter(([d]) => d.campo === campo);
     return `<div><b>${titulo} (${ds.length})</b>${ds.length ? `<ul style="margin:4px 0 0 18px;padding:0">${ds.map(([d, i]) => fila(d, i)).join('')}</ul>` : ' <span class="pequeno">ninguna</span>'}</div>`;
   };
-  return `<details class="no-imprimir" style="margin:8px 0"><summary>📂 Documentos subidos: 📷 ${nFotos} foto(s) · 📄 ${docs.filter((d) => d.campo === 'propuesta').length} propuesta(s) · 🧾 ${docs.filter((d) => d.campo === 'factura').length} factura(s) final(es)</summary>
+  const cu = cuadreCampana(g.pedidos);
+  const lineaCuadre = !cu.facturadas ? '' : (cu.difs.length || cu.sinCliente || cu.sinValidar)
+    ? `<div class="aviso-caja mal" style="margin:6px 0"><b>🧮 Artículos: ${cu.facturadas} uds. facturadas por el proveedor, ${cu.aClientes} a clientes</b>${cu.sinCliente ? ` · ${cu.sinCliente} sin cliente` : ''}${cu.sinValidar ? ` · ${cu.sinValidar} en pedidos sin validar` : ''}
+        ${cu.difs.length ? `<ul style="margin:4px 0 0 18px;padding:0">${cu.difs.map((d) => `<li>Pedido ${h(nPed(d.numero))} (${h(d.cliente)}) · <b>${h(d.ref)}</b>: facturadas ${d.facturado}, al cliente ${d.aCliente}</li>`).join('')}</ul>` : ''}</div>`
+    : `<div class="aviso-caja ok" style="margin:6px 0"><b>🧮 Artículos cuadrados:</b> las ${cu.facturadas} uds. que factura el proveedor están todas facturadas a un cliente.</div>`;
+  return `${lineaCuadre}<details class="no-imprimir" style="margin:8px 0"><summary>📂 Documentos subidos: 📷 ${nFotos} foto(s) · 📄 ${docs.filter((d) => d.campo === 'propuesta').length} propuesta(s) · 🧾 ${docs.filter((d) => d.campo === 'factura').length} factura(s) final(es)</summary>
     <div style="display:grid;gap:8px;margin-top:8px">${lista('propuesta', '📄 Propuestas del proveedor')}${lista('factura', '🧾 Facturas finales')}</div></details>`;
+}
+function cuadreCampana(ps) {
+  return CP.cuadreArticulos(ps.filter((p) => p.factura).map((p) => {
+    const eq = p.propuesta ? equivalenciasDe(p) : Object.assign({}, p.equivalencias);
+    return { numero: p.numero, cliente: p.cliente, sinCliente: Boolean(p.sobrantes), validado: p.validado,
+      factura: p.factura.lineas.map((l) => (eq[l.ref] ? Object.assign({}, l, { ref: eq[l.ref] }) : l)),
+      final: (p.final && p.final.lineas) || [] };
+  }));
 }
 function quitarDocumentoCampana(clave, indice) {
   const ps = E.pedidos.filter((p) => claveGrupo(p) === clave);
