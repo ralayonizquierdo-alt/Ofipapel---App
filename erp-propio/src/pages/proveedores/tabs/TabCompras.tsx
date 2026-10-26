@@ -61,7 +61,8 @@ const FILTRO_INICIAL: Filtro = {
 
 const finDia = (d: string) => `${d}T23:59:59.999`
 
-export function TabCompras({ proveedor }: ProveedorTabProps) {
+/** También la usa la ficha de Transportistas (campo='transportista_codigo'). */
+export function TabCompras({ proveedor, campo = 'proveedor_codigo' }: ProveedorTabProps & { campo?: 'proveedor_codigo' | 'transportista_codigo' }) {
   const navigate = useNavigate()
   const proveedorCodigo = proveedor.codigo
   const [borrador, setBorrador] = useState<Filtro>(FILTRO_INICIAL)
@@ -90,7 +91,7 @@ export function TabCompras({ proveedor }: ProveedorTabProps) {
       let q = supabase
         .from('pedido_proveedor')
         .select('tienda_terminal_codigo, numero, fecha_hora, numero_albaran_proveedor, numero_factura_proveedor_externo, estado, recibido, pagado, total')
-        .eq('proveedor_codigo', proveedorCodigo)
+        .eq(campo, proveedorCodigo)
         .order('fecha_hora', { ascending: false })
         .order('numero', { ascending: false })
         .limit(500)
@@ -116,7 +117,7 @@ export function TabCompras({ proveedor }: ProveedorTabProps) {
     return () => {
       vivo = false
     }
-  }, [proveedorCodigo, filtro])
+  }, [proveedorCodigo, filtro, campo])
 
   const claves = rows.map((r) => `${r.tienda_terminal_codigo}-${r.numero}`)
   const total = rows.reduce((acc, r) => acc + Number(r.total ?? 0), 0)

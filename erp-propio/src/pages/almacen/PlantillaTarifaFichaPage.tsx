@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { GwField, GwGroup, GwInline, GwInput, GwNumber, GwSelect, GwTabs, type GwTabDef } from '../../components/gw'
-import { GwRecordBar } from '../../components/gw/GwRecordBar'
+import { GwField, GwGroup, GwInput, GwNumber, GwSelect } from '../../components/gw'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
-import { FilasVacias } from '../../components/gw/GwGridParts'
 import { useFichaMaestro } from './useFichaMaestro'
-import { ArticulosDe, PieEstado } from './piezas'
+import { BarraCompacta, PieEstado } from './piezas'
 
 interface PlantillaTarifa {
   codigo: string
@@ -27,14 +25,6 @@ const NOMBRES = ['General:', 'MAYOR  M-1:', 'MAYOR  M-2:', 'MAYOR  M-3:', 'Tarif
 const nivelesVacios = (): Nivel[] =>
   NOMBRES.map((_, i) => ({ nivel_tarifa: i, modo_calculo: i >= 4 ? 'D' : 'P', permite_descuento_linea: true, incremento_pct: null }))
 
-const TABS: GwTabDef[][] = [
-  [
-    { key: 'tarifas', label: 'Tarifas' },
-    { key: 'familias', label: 'Familias' },
-    { key: 'articulos', label: 'Artículos' },
-  ],
-]
-
 /** Siguiente código numérico de 3 dígitos, como «075 MEDIA» o «125». */
 function siguienteCodigo(codigos: string[]) {
   const max = codigos.reduce((m, c) => (/^\d+$/.test(c) ? Math.max(m, Number(c)) : m), 0)
@@ -46,9 +36,7 @@ export function PlantillaTarifaFichaPage() {
   const { draft, patch, editing, mode } = f
   const [niveles, setNiveles] = useState<Nivel[]>(nivelesVacios)
   const [nivelesGuardados, setNivelesGuardados] = useState<Nivel[]>(nivelesVacios)
-  const [tab, setTab] = useState('tarifas')
   const [buscar, setBuscar] = useState(false)
-  const [familias, setFamilias] = useState<{ codigo: string; descripcion: string }[]>([])
 
   useEffect(() => {
     if (mode === 'alta') {
@@ -69,12 +57,6 @@ export function PlantillaTarifaFichaPage() {
         setNiveles(base)
         setNivelesGuardados(base)
       })
-    supabase
-      .from('familia')
-      .select('codigo, descripcion')
-      .eq('plantilla_tarifa_codigo', f.registro.codigo)
-      .order('codigo')
-      .then(({ data }) => setFamilias((data ?? []) as { codigo: string; descripcion: string }[]))
   }, [f.registro.codigo, mode])
 
   useEffect(() => {
@@ -116,8 +98,8 @@ export function PlantillaTarifaFichaPage() {
   const ro = !editing
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-x-1.5">
+    <div className="flex max-w-[1000px] flex-col gap-1">
+      <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-x-2.5">
         <GwField label="Código">
           <GwInput value={draft.codigo} disabled={mode !== 'alta'} title="CODTAR" maxLength={10} onChange={(e) => patch({ codigo: e.target.value })} />
         </GwField>
@@ -125,101 +107,58 @@ export function PlantillaTarifaFichaPage() {
           <GwInput value={draft.descripcion} disabled={ro} title="DESCRIPTAR" maxLength={30} onChange={(e) => patch({ descripcion: e.target.value })} />
         </GwField>
       </div>
+      {f.sinRegistros ? (
+        <div className="p-3 text-[13px]">No hay ninguna plantilla de tarifas. Pulsa Agregar para dar de alta la primera.</div>
+      ) : (
+        <div className="flex min-h-[280px] pl-[180px] pt-2">
+          <div className="flex w-[500px] flex-col">
+            <GwGroup title="Tarifas">
+              <div className="grid grid-cols-[150px_86px_86px_minmax(0,1fr)] items-center gap-x-1 gap-y-[5px]">
+                {niveles.map((n) => (
+                  <div key={n.nivel_tarifa} className="contents">
+                    <span className="gw-label" title={`PLANTTAR nivel ${n.nivel_tarifa}`}>
+                      {NOMBRES[n.nivel_tarifa]}
+                    </span>
+                    <GwSelect
+                      value={n.modo_calculo}
+                      disabled={ro}
+                      title={`POD${n.nivel_tarifa === 0 ? '_PVP' : n.nivel_tarifa}: P = % sobre coste, D = % de descuento sobre la General`}
+                      onChange={(e) => setNivel(n.nivel_tarifa, { modo_calculo: e.target.value })}
+                    >
+                      <option value="P">P</option>
+                      <option value="D">D</option>
+                    </GwSelect>
+                    <GwSelect
+                      value={n.permite_descuento_linea ? 'S' : 'N'}
+                      disabled={ro}
+                      title={`VERDTO_${n.nivel_tarifa}`}
+                      onChange={(e) => setNivel(n.nivel_tarifa, { permite_descuento_linea: e.target.value === 'S' })}
+                    >
+                      <option value="N">N</option>
+                      <option value="S">S</option>
+                    </GwSelect>
+                    <GwNumber value={n.incremento_pct} decimals={2} disabled={ro} onChange={(v) => setNivel(n.nivel_tarifa, { incremento_pct: v })} />
+                  </div>
+                ))}
+              </div>
+            </GwGroup>
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center border-x border-b border-[var(--gw-border-light)] px-1.5 py-1.5">
+              <span className="gw-label text-center">Dto. Máximo del artículo:</span>
+              <span title="DTOMAXCLI">
+                <GwNumber
+                  value={draft.descuento_maximo_cliente_pct}
+                  decimals={2}
+                  disabled={ro}
+                  onChange={(v) => patch({ descuento_maximo_cliente_pct: v })}
+                />
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
       {f.error && <div className="text-[13px] text-[#c42b1c]">{f.error}</div>}
 
-      <div className="mt-1">
-        <GwTabs rows={TABS} active={tab} onChange={setTab}>
-          {f.sinRegistros ? (
-            <div className="p-3 text-[13px]">No hay ninguna plantilla de tarifas. Pulsa Nuevo para dar de alta la primera.</div>
-          ) : (
-            <div className="min-h-[300px]">
-              {tab === 'tarifas' && (
-                <div className="flex items-start gap-4">
-                  <GwGroup title="Pvps" className="w-[430px] flex-none">
-                    <div className="grid grid-cols-[120px_52px_52px_92px] items-center gap-x-1 gap-y-[3px]">
-                      <span />
-                      <span className="gw-label text-center" title="POD: P = % sobre coste, D = % de descuento sobre la General">
-                        Tipo
-                      </span>
-                      <span className="gw-label text-center" title="VERDTO">
-                        Dto.
-                      </span>
-                      <span className="gw-label text-right">%</span>
-                      {niveles.map((n) => (
-                        <div key={n.nivel_tarifa} className="contents">
-                          <span className="gw-label" title={`PLANTTAR nivel ${n.nivel_tarifa}`}>
-                            {NOMBRES[n.nivel_tarifa]}
-                          </span>
-                          <GwSelect
-                            value={n.modo_calculo}
-                            disabled={ro}
-                            title={`POD${n.nivel_tarifa === 0 ? '0' : n.nivel_tarifa}: P = % sobre coste, D = % de descuento sobre la General`}
-                            onChange={(e) => setNivel(n.nivel_tarifa, { modo_calculo: e.target.value })}
-                          >
-                            <option value="P">P</option>
-                            <option value="D">D</option>
-                          </GwSelect>
-                          <GwSelect
-                            value={n.permite_descuento_linea ? 'S' : 'N'}
-                            disabled={ro}
-                            title={`VERDTO_${n.nivel_tarifa}`}
-                            onChange={(e) => setNivel(n.nivel_tarifa, { permite_descuento_linea: e.target.value === 'S' })}
-                          >
-                            <option value="N">N</option>
-                            <option value="S">S</option>
-                          </GwSelect>
-                          <GwNumber
-                            value={n.incremento_pct}
-                            decimals={2}
-                            disabled={ro}
-                            onChange={(v) => setNivel(n.nivel_tarifa, { incremento_pct: v })}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <GwInline label="Dto. Max.:" className="mt-2 justify-end">
-                      <span className="w-[92px]" title="DTOMAXCLI">
-                        <GwNumber
-                          value={draft.descuento_maximo_cliente_pct}
-                          decimals={2}
-                          disabled={ro}
-                          onChange={(v) => patch({ descuento_maximo_cliente_pct: v })}
-                        />
-                      </span>
-                    </GwInline>
-                  </GwGroup>
-                </div>
-              )}
-              {tab === 'familias' && (
-                <div className="h-[290px] overflow-y-auto border border-[var(--gw-border)] bg-white">
-                  <table className="gw-grid">
-                    <thead className="sticky top-0">
-                      <tr>
-                        <th style={{ width: '18%' }}>Familia</th>
-                        <th>Descripción</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {familias.map((x) => (
-                        <tr key={x.codigo} onDoubleClick={() => f.navigate(`/familias/${encodeURIComponent(x.codigo)}`)}>
-                          <td>{x.codigo}</td>
-                          <td>{x.descripcion}</td>
-                        </tr>
-                      ))}
-                      <FilasVacias cols={2} ocupadas={familias.length} total={12} />
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              {tab === 'articulos' && f.registro.codigo && mode !== 'alta' && (
-                <ArticulosDe columna="plantilla_tarifa_codigo" valor={f.registro.codigo} titulo="Artículos con esta plantilla de tarifas" />
-              )}
-            </div>
-          )}
-        </GwTabs>
-      </div>
-
-      <GwRecordBar
+      <BarraCompacta
         mode={mode}
         canNavigate={f.canNavigate}
         saving={f.saving}

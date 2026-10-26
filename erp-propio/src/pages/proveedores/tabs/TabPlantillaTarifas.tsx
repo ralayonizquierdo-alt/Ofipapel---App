@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { GwField, GwGroup, GwInline, GwLookupButton, GwNumber, GwSelect } from '../../../components/gw'
+import { useNavigate } from 'react-router-dom'
+import { FilePen, FilePlus2, FileX2 } from 'lucide-react'
+import { GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import type { ProveedorTabProps } from '../types'
 
@@ -24,6 +26,7 @@ export function TabPlantillaTarifas({ proveedor, editing, onChange }: ProveedorT
   const [plantillas, setPlantillas] = useState<Plantilla[]>([])
   const [niveles, setNiveles] = useState<Nivel[]>([])
   const [buscar, setBuscar] = useState(false)
+  const navigate = useNavigate()
   const ro = !editing
   const codigo = proveedor.plantilla_tarifa_codigo
 
@@ -51,32 +54,30 @@ export function TabPlantillaTarifas({ proveedor, editing, onChange }: ProveedorT
   const plantilla = plantillas.find((p) => p.codigo === codigo)
 
   return (
-    <div className="flex min-h-[250px] flex-col gap-1.5">
-      <div className="flex items-end gap-2">
-        <GwField label="Plantilla de Tarifas" className="w-[420px]">
+    <div className="flex min-h-[250px] flex-col">
+      <GwGroup title="Plantilla de Tarifas" className="w-[500px]">
+        <div className="mb-1 grid grid-cols-[120px_minmax(0,1fr)] gap-x-1">
+          <GwSelect value={codigo ?? ''} disabled={ro} title="CODTAR" onChange={(e) => onChange({ plantilla_tarifa_codigo: e.target.value || null })}>
+            <option value="" />
+            {plantillas.map((p) => (
+              <option key={p.codigo} value={p.codigo}>
+                {p.codigo}
+              </option>
+            ))}
+            {codigo && !plantilla && <option value={codigo}>{codigo}</option>}
+          </GwSelect>
           <span className="flex">
-            <GwSelect value={codigo ?? ''} disabled={ro} title="CODTAR" onChange={(e) => onChange({ plantilla_tarifa_codigo: e.target.value || null })}>
-              <option value="" />
-              {plantillas.map((p) => (
-                <option key={p.codigo} value={p.codigo}>
-                  {p.codigo} — {p.descripcion}
-                </option>
-              ))}
-              {codigo && !plantilla && <option value={codigo}>{codigo}</option>}
-            </GwSelect>
+            <GwInput readOnly tabIndex={-1} value={plantilla?.descripcion ?? ''} title="DESCRIPTAR" />
             <GwLookupButton disabled={ro} onClick={() => setBuscar(true)} title="Buscar plantilla de tarifas" />
           </span>
-        </GwField>
-      </div>
-
-      <div className="flex items-start gap-3">
-        <GwGroup title="Pvps" className="w-[420px]">
-          <div className="flex flex-col gap-[3px]">
+        </div>
+        <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-x-1.5">
+          <div className="flex flex-col gap-[3px] border-t border-[var(--gw-border-light)] pt-1">
             {NOMBRES_PVP.map((nombre, i) => {
               const n = niveles.find((x) => x.nivel_tarifa === i)
               return (
-                <div key={i} className="grid grid-cols-[110px_52px_52px_92px] items-center gap-1">
-                  <span className="gw-label" title={`PVP_${i}`}>
+                <div key={i} className="grid grid-cols-[120px_64px_64px_minmax(0,1fr)] items-center gap-1">
+                  <span className="gw-label pl-2" title={`PVP_${i}`}>
                     {nombre}
                   </span>
                   <GwSelect value={n?.modo_calculo ?? ''} disabled title={`POD${i}: P = % sobre coste, D = % de descuento sobre la General`}>
@@ -94,13 +95,24 @@ export function TabPlantillaTarifas({ proveedor, editing, onChange }: ProveedorT
               )
             })}
           </div>
-        </GwGroup>
-        <GwInline label="Dto. Max.:" className="mt-3">
-          <span className="w-[80px]" title="DTOMAXCLI">
-            <GwNumber value={plantilla?.descuento_maximo_cliente_pct ?? null} decimals={2} />
-          </span>
-        </GwInline>
-      </div>
+          <div className="flex flex-col gap-1 border-t border-[var(--gw-border-light)] pt-1">
+            <button type="button" className="gw-btn" title="Nueva plantilla de tarifas" onClick={() => navigate('/plantillas-tarifas/nuevo')}>
+              <FilePlus2 size={13} />
+            </button>
+            <button type="button" className="gw-btn" title="Modificar la plantilla" disabled={!codigo} onClick={() => codigo && navigate(`/plantillas-tarifas/${encodeURIComponent(codigo)}`)}>
+              <FilePen size={13} />
+            </button>
+            <button type="button" className="gw-btn" title="Borrar (desde Almacén → Plantillas Tarifas)" disabled>
+              <FileX2 size={13} />
+            </button>
+            <span className="flex-1" />
+            <span className="gw-label">Dto. Máx.</span>
+            <span title="DTOMAXCLI">
+              <GwNumber value={plantilla?.descuento_maximo_cliente_pct ?? null} decimals={2} />
+            </span>
+          </div>
+        </div>
+      </GwGroup>
 
       {buscar && (
         <GwLookupDialog<{ codigo: string; descripcion: string }>

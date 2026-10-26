@@ -1,9 +1,201 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  ArrowDownAZ,
+  Binoculars,
+  Check,
+  ChevronFirst,
+  ChevronLast,
+  DoorOpen,
+  FilePen,
+  FilePlus2,
+  FolderOpen,
+  Play,
+  Printer,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { formatGw } from '../../components/gw'
+import { GwInput, GwRadio, formatGw } from '../../components/gw'
 import { FilasVacias } from '../../components/gw/GwGridParts'
 import type { ModoFicha } from './useFichaMaestro'
+
+/**
+ * Imagen con «Ver Imagen a … Tamaño real / Tamaño ajustado / Rellenar marco» y la ruta
+ * debajo con su botón de carpeta, como en Familias y Marcas de GeminisWin.
+ */
+export function ImagenConModo({
+  url,
+  modo,
+  alto,
+  disabled,
+  onUrl,
+  onModo,
+  nombre,
+}: {
+  url: string | null
+  modo: number
+  alto: number
+  disabled: boolean
+  onUrl: (v: string | null) => void
+  onModo: (v: number) => void
+  nombre: string
+}) {
+  const [rota, setRota] = useState(false)
+  useEffect(() => setRota(false), [url])
+  const limpia = url?.trim() || null
+  const ajuste = modo === 0 ? 'object-none' : modo === 2 ? 'object-fill' : 'object-contain'
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="grid grid-cols-[minmax(0,1fr)_200px] gap-1.5">
+        <div className="relative overflow-hidden border border-[var(--gw-border)] bg-[var(--gw-face)]" style={{ height: alto }} title="IMAGEN">
+          {limpia && !rota ? (
+            <img src={limpia} alt="" className={`h-full w-full ${ajuste}`} onError={() => setRota(true)} />
+          ) : (
+            <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100" aria-label="Sin imagen">
+              <line x1="0" y1="0" x2="100" y2="100" stroke="#9a9a9a" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+              <line x1="100" y1="0" x2="0" y2="100" stroke="#9a9a9a" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+            </svg>
+          )}
+        </div>
+        <div className="flex flex-col">
+          <span className="gw-label">Ver Imagen a ...</span>
+          <div className="flex flex-col gap-0.5 border border-[var(--gw-border-light)] px-1.5 py-1">
+            {['Tamaño real', 'Tamaño ajustado', 'Rellenar marco'].map((l, i) => (
+              <GwRadio key={l} name={`${nombre}-imagen-modo`} label={l} checked={modo === i} disabled={disabled} onChange={() => onModo(i)} />
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="flex">
+        <GwInput value={url ?? ''} disabled={disabled} title="Ruta o dirección de la imagen" onChange={(e) => onUrl(e.target.value || null)} />
+        <button
+          type="button"
+          className="gw-btn flex-none px-0"
+          style={{ width: 40, height: 22 }}
+          disabled={disabled}
+          title="Elegir imagen (dirección de la imagen)"
+          onClick={() => {
+            const v = prompt('Dirección (URL) de la imagen', url ?? '')
+            if (v !== null) onUrl(v.trim() || null)
+          }}
+        >
+          <FolderOpen size={14} className="text-[#b8860b]" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Barra inferior de las fichas pequeñas de GeminisWin (Plantillas de tarifas, Marcas):
+ * navegación en dos filas a la izquierda y botones grandes con texto (Imprimir, Agregar,
+ * Editar, Eliminar, Cerrar). En alta o modificación, Editar y Eliminar pasan a Aceptar y
+ * Cancelar.
+ */
+export function BarraCompacta({
+  mode,
+  canNavigate,
+  saving,
+  onFirst,
+  onPrev,
+  onNext,
+  onLast,
+  onSort,
+  onSearch,
+  onPrint,
+  onNew,
+  onEdit,
+  onDelete,
+  onSave,
+  onCancel,
+  onExit,
+}: {
+  mode: ModoFicha
+  canNavigate: boolean
+  saving?: boolean
+  onFirst: () => void
+  onPrev: () => void
+  onNext: () => void
+  onLast: () => void
+  onSort: () => void
+  onSearch: () => void
+  onPrint: () => void
+  onNew: () => void
+  onEdit: () => void
+  onDelete: () => void
+  onSave: () => void
+  onCancel: () => void
+  onExit: () => void
+}) {
+  const consulta = mode === 'consulta'
+  const mini =
+    'flex h-[22px] items-center justify-center border-r border-b border-[var(--gw-border-light)] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent'
+  const Grande = ({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: ReactNode }) => (
+    <button
+      type="button"
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className="group flex h-[44px] w-[96px] flex-col items-center justify-center gap-0.5 border-l border-[var(--gw-border-light)] text-[12px] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent"
+    >
+      {children}
+      <span className="text-[#000] group-disabled:text-[#9a9a9a]">{label}</span>
+    </button>
+  )
+  return (
+    <div className="mt-1.5 flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
+      <div className="grid w-[192px] grid-cols-3 border-t border-l border-[var(--gw-border-light)]">
+        <button type="button" className={mini} title="Primero" disabled={!canNavigate} onClick={onFirst}>
+          <ChevronFirst size={13} strokeWidth={3} />
+        </button>
+        <button type="button" className={mini} title="Siguiente" disabled={!canNavigate} onClick={onNext}>
+          <Play size={9} fill="currentColor" />
+        </button>
+        <button type="button" className={mini} title="Ordenar" disabled={!consulta} onClick={onSort}>
+          <ArrowDownAZ size={13} />
+        </button>
+        <button type="button" className={mini} title="Anterior" disabled={!canNavigate} onClick={onPrev}>
+          <Play size={9} className="rotate-180" fill="currentColor" />
+        </button>
+        <button type="button" className={mini} title="Último" disabled={!canNavigate} onClick={onLast}>
+          <ChevronLast size={13} strokeWidth={3} />
+        </button>
+        <button type="button" className={mini} title="Buscar" disabled={!consulta} onClick={onSearch}>
+          <Binoculars size={13} />
+        </button>
+      </div>
+      <Grande label="Imprimir" onClick={onPrint} disabled={!consulta}>
+        <Printer size={15} />
+      </Grande>
+      <Grande label="Agregar" onClick={onNew} disabled={!consulta}>
+        <FilePlus2 size={15} />
+      </Grande>
+      {consulta ? (
+        <>
+          <Grande label="Editar" onClick={onEdit}>
+            <FilePen size={15} />
+          </Grande>
+          <Grande label="Eliminar" onClick={onDelete}>
+            <Trash2 size={15} />
+          </Grande>
+        </>
+      ) : (
+        <>
+          <Grande label="Aceptar" onClick={onSave} disabled={saving}>
+            <Check size={16} strokeWidth={3} className="text-[#127a12]" />
+          </Grande>
+          <Grande label="Cancelar" onClick={onCancel} disabled={saving}>
+            <X size={16} strokeWidth={3} className="text-[#c42b1c]" />
+          </Grande>
+        </>
+      )}
+      <Grande label="Cerrar" onClick={onExit}>
+        <DoorOpen size={15} />
+      </Grande>
+    </div>
+  )
+}
 
 /** Recuadro de imagen de GeminisWin: la imagen ajustada o un aspa si no hay ninguna. */
 export function ImagenRecuadro({ url, alto = 170 }: { url: string | null; alto?: number }) {

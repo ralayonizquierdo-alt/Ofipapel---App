@@ -5,7 +5,6 @@ import { GwCheck, GwInput, GwSelect } from '../../../components/gw'
 import { FilasVacias, GridMiniBar } from '../../../components/gw/GwGridParts'
 import type { ProveedorTabProps } from '../types'
 
-const TIPO_ENTIDAD = 'proveedor'
 
 interface Cuenta {
   id: number
@@ -52,7 +51,8 @@ function formatoIban(v: string | null) {
   return normalizarIban(v).replace(/(.{4})/g, '$1 ').trim()
 }
 
-export function TabBancos({ proveedor, editing }: ProveedorTabProps) {
+/** También la usa la ficha de Transportistas (tipoEntidad='transportista'). */
+export function TabBancos({ proveedor, editing, tipoEntidad: TIPO_ENTIDAD = 'proveedor' }: ProveedorTabProps & { tipoEntidad?: 'proveedor' | 'transportista' }) {
   const proveedorCodigo = proveedor.codigo
   const [rows, setRows] = useState<Cuenta[]>([])
   const [bancos, setBancos] = useState<{ codigo: string; nombre: string }[]>([])

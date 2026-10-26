@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
+import { Binoculars, ChevronFirst, ChevronLast, Play } from 'lucide-react'
 import { GwInput, formatGw } from '../../../components/gw'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
 import type { ProveedorTabProps } from '../types'
@@ -14,7 +15,7 @@ interface Fila {
   coste_neto: number | null
   coste_bruto: number | null
   ultima_compra_fecha: string | null
-  articulo: { descripcion: string; precio_liquidado: number | null } | null
+  articulo: { descripcion: string; precio_liquidado: number | null; familia_codigo: string | null } | null
 }
 
 function fecha(v: string | null) {
@@ -33,6 +34,7 @@ export function TabArticulos({ proveedor }: ProveedorTabProps) {
   const [total, setTotal] = useState(0)
   const [sel, setSel] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [verFiltro, setVerFiltro] = useState(false)
 
   useEffect(() => {
     if (!proveedorCodigo) return
@@ -41,7 +43,7 @@ export function TabArticulos({ proveedor }: ProveedorTabProps) {
       const f = filtro.trim().replace(/[,%()"]/g, ' ').trim()
       let q = supabase
         .from('articulo_proveedor')
-        .select('articulo_codigo, codigo_compra, coste_puro, coste_neto, coste_bruto, ultima_compra_fecha, articulo:articulo_codigo(descripcion, precio_liquidado)', {
+        .select('articulo_codigo, codigo_compra, coste_puro, coste_neto, coste_bruto, ultima_compra_fecha, articulo:articulo_codigo(descripcion, precio_liquidado, familia_codigo)', {
           count: 'exact',
         })
         .eq('proveedor_codigo', proveedorCodigo)
@@ -68,30 +70,25 @@ export function TabArticulos({ proveedor }: ProveedorTabProps) {
     }
   }, [proveedorCodigo, filtro])
 
+  const idx = rows.findIndex((r) => r.articulo_codigo === sel)
+  const mover = (i: number) => rows[i] && setSel(rows[i].articulo_codigo)
+  const nb =
+    'flex h-[26px] w-[84px] items-center justify-center border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent'
+
   return (
     <div className="flex flex-col gap-1" title="Artículos del proveedor (ARTPROV / ARTDPROV)">
-      <div className="flex items-center gap-2">
-        <span className="gw-label">Buscar:</span>
-        <GwInput
-          className="!w-[320px]"
-          placeholder="Código interno, código de compra o descripción"
-          value={filtro}
-          onChange={(e) => setFiltro(e.target.value)}
-        />
-      </div>
       {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
-      <div className="h-[280px] overflow-y-auto border border-[var(--gw-border)] bg-white">
+      <div className="h-[250px] overflow-auto border border-[var(--gw-border)] bg-white">
         <table className="gw-grid">
           <thead className="sticky top-0">
             <tr>
-              <th style={{ width: 120 }}>Código Interno</th>
+              <th style={{ width: 150 }}>Cod. Interno</th>
               <th>Descripción</th>
-              <th style={{ width: 130 }}>Código de Compra</th>
-              <th style={{ width: 90 }} className="text-right!">Coste Puro</th>
-              <th style={{ width: 90 }} className="text-right!">Neto</th>
-              <th style={{ width: 90 }} className="text-right!">Bruto</th>
-              <th style={{ width: 90 }} className="text-right!">Líquido</th>
-              <th style={{ width: 96 }}>Última Compra</th>
+              <th style={{ width: 160 }}>Cod. Compra</th>
+              <th style={{ width: 80 }}>Familia</th>
+              <th style={{ width: 100 }} className="text-right!">Coste</th>
+              <th style={{ width: 110 }} className="text-right!">Coste bruto</th>
+              <th style={{ width: 110 }} className="text-right!">Coste líquido</th>
             </tr>
           </thead>
           <tbody>
@@ -101,25 +98,50 @@ export function TabArticulos({ proveedor }: ProveedorTabProps) {
                 className={sel === r.articulo_codigo ? 'gw-selected' : ''}
                 onClick={() => setSel(r.articulo_codigo)}
                 onDoubleClick={() => navigate(`/articulos/${encodeURIComponent(r.articulo_codigo)}`)}
+                title={r.ultima_compra_fecha ? `Última compra: ${fecha(r.ultima_compra_fecha)}` : undefined}
               >
                 <td>{r.articulo_codigo}</td>
                 <td>{r.articulo?.descripcion ?? ''}</td>
                 <td>{r.codigo_compra ?? ''}</td>
-                <td className="text-right">{c3(r.coste_puro)}</td>
+                <td>{r.articulo?.familia_codigo ?? ''}</td>
                 <td className="text-right">{c3(r.coste_neto)}</td>
                 <td className="text-right">{c3(r.coste_bruto)}</td>
                 <td className="text-right">{c3(r.articulo?.precio_liquidado)}</td>
-                <td>{fecha(r.ultima_compra_fecha)}</td>
               </tr>
             ))}
-            <FilasVacias cols={8} ocupadas={rows.length} total={11} />
+            <FilasVacias cols={7} ocupadas={rows.length} total={10} />
           </tbody>
         </table>
       </div>
-      <span className="gw-label text-[#1a4fd0]">
-        Nº Artículos: {total}
-        {total > rows.length ? ` (se muestran ${rows.length}; usa el buscador para acotar)` : ''}
-      </span>
+      <div className="flex items-center gap-3">
+        <div className="flex border border-[var(--gw-border)] bg-[var(--gw-face)]">
+          <button type="button" className={nb} title="Primero" disabled={!rows.length} onClick={() => mover(0)}>
+            <ChevronFirst size={14} strokeWidth={3} />
+          </button>
+          <button type="button" className={nb} title="Anterior" disabled={idx <= 0} onClick={() => mover(idx - 1)}>
+            <Play size={10} className="rotate-180" fill="currentColor" />
+          </button>
+          <button type="button" className={nb} title="Siguiente" disabled={idx < 0 || idx >= rows.length - 1} onClick={() => mover(idx + 1)}>
+            <Play size={10} fill="currentColor" />
+          </button>
+          <button type="button" className={nb} title="Último" disabled={!rows.length} onClick={() => mover(rows.length - 1)}>
+            <ChevronLast size={14} strokeWidth={3} />
+          </button>
+          <button type="button" className={nb} title="Buscar" onClick={() => setVerFiltro((v) => !v)}>
+            <Binoculars size={14} />
+          </button>
+        </div>
+        {verFiltro && (
+          <GwInput
+            autoFocus
+            className="!w-[300px]"
+            placeholder="Código interno, código de compra o descripción"
+            value={filtro}
+            onChange={(e) => setFiltro(e.target.value)}
+          />
+        )}
+        {total > rows.length && <span className="gw-label text-[#1a4fd0]">Se muestran {rows.length} de {total}: usa el buscador para acotar.</span>}
+      </div>
     </div>
   )
 }

@@ -9,7 +9,7 @@ const MODOS = [
   { valor: 2, label: 'Rellenar marco', fit: 'object-fill' },
 ]
 
-export function TabObservaciones({ proveedor, editing, onChange }: ProveedorTabProps) {
+export function TabObservaciones({ proveedor, editing, onChange, tabla = 'PROVEEDO' }: ProveedorTabProps & { tabla?: string }) {
   const [rota, setRota] = useState<string | null>(null)
   const ro = !editing
   const url = proveedor.imagen_url?.trim() || null
@@ -24,7 +24,7 @@ export function TabObservaciones({ proveedor, editing, onChange }: ProveedorTabP
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_400px] gap-3">
       <GwField label="Observaciones">
-        <GwTextArea title="PROVEEDO.OBSERV" rows={14} className="h-[280px]" {...texto('observaciones')} />
+        <GwTextArea title={`${tabla}.OBSERV`} rows={14} className="h-[280px]" {...texto('observaciones')} />
       </GwField>
       <div className="flex flex-col gap-1 pt-4">
         <div className="grid grid-cols-[210px_minmax(0,1fr)] gap-1">
@@ -44,7 +44,7 @@ export function TabObservaciones({ proveedor, editing, onChange }: ProveedorTabP
               {MODOS.map((m) => (
                 <GwRadio
                   key={m.valor}
-                  name="proveedor-imagen-modo"
+                  name={`${tabla}-imagen-modo`}
                   label={m.label}
                   checked={modo.valor === m.valor}
                   disabled={ro}
@@ -55,7 +55,7 @@ export function TabObservaciones({ proveedor, editing, onChange }: ProveedorTabP
           </div>
         </div>
         <div className="flex gap-1">
-          <GwInput title="PROVEEDO.IMAGEN — ruta o dirección de la imagen" {...texto('imagen_url')} />
+          <GwInput title={`${tabla}.IMAGEN — ruta o dirección de la imagen`} {...texto('imagen_url')} />
           <button type="button" className="gw-btn flex-none px-2" disabled={ro} title="Elegir imagen (escribe la ruta o URL)">
             <FolderOpen size={14} className="text-[#b58a1a]" />
           </button>
