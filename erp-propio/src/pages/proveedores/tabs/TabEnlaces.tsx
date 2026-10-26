@@ -49,9 +49,6 @@ export function TabEnlaces({ proveedor, editing, onChange }: ProveedorTabProps) 
             <GwInput readOnly value={nombreAlmacen} tabIndex={-1} />
             <GwLookupButton disabled={disabled} onClick={() => setLookup(true)} title="Buscar almacén" />
           </div>
-          <span className="text-[13px] leading-[15px] text-[#1a4fd0]">
-            Si se asigna un almacén, este proveedor solo servirá los pedidos de ese almacén
-          </span>
         </GwGroup>
         <GwGroup title="Sector del libro" className="grid grid-cols-[80px_minmax(0,1fr)] items-center gap-x-2 gap-y-1">
           <span className="gw-label">Id Sinli:</span>

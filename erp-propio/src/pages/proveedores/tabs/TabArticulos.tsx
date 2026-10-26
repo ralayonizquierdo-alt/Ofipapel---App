@@ -38,30 +38,24 @@ export function TabArticulos({ proveedor }: ProveedorTabProps) {
     if (!proveedorCodigo) return
     let vivo = true
     const t = setTimeout(async () => {
-      const f = filtro.trim().replace(/[,%()]/g, ' ')
+      const f = filtro.trim().replace(/[,%()"]/g, ' ').trim()
       let q = supabase
         .from('articulo_proveedor')
-        .select('articulo_codigo, codigo_compra, coste_puro, coste_neto, coste_bruto, ultima_compra_fecha, articulo:articulo_codigo!inner(descripcion, precio_liquidado)', {
+        .select('articulo_codigo, codigo_compra, coste_puro, coste_neto, coste_bruto, ultima_compra_fecha, articulo:articulo_codigo(descripcion, precio_liquidado)', {
           count: 'exact',
         })
         .eq('proveedor_codigo', proveedorCodigo)
         .order('articulo_codigo')
         .limit(LIMITE)
-      if (f) q = q.or(`articulo_codigo.ilike.%${f}%,codigo_compra.ilike.%${f}%,descripcion.ilike.%${f}%`, { referencedTable: undefined })
-      let { data, count, error: err } = await q
-      if (err && f) {
-        // El filtro por descripción va sobre la tabla enlazada: se reintenta con filtro sobre el artículo.
-        const q2 = supabase
-          .from('articulo_proveedor')
-          .select('articulo_codigo, codigo_compra, coste_puro, coste_neto, coste_bruto, ultima_compra_fecha, articulo:articulo_codigo!inner(descripcion, precio_liquidado)', {
-            count: 'exact',
-          })
-          .eq('proveedor_codigo', proveedorCodigo)
-          .ilike('articulo.descripcion', `%${f}%`)
-          .order('articulo_codigo')
-          .limit(LIMITE)
-        ;({ data, count, error: err } = await q2)
+      if (f) {
+        // La descripción vive en articulo: se buscan antes los códigos que casan por descripción.
+        const { data: porDesc } = await supabase.from('articulo').select('codigo_interno').ilike('descripcion', `%${f}%`).limit(500)
+        const codigos = (porDesc ?? []).map((a) => `"${String(a.codigo_interno).replace(/"/g, '')}"`)
+        const condiciones = [`articulo_codigo.ilike.%${f}%`, `codigo_compra.ilike.%${f}%`]
+        if (codigos.length) condiciones.push(`articulo_codigo.in.(${codigos.join(',')})`)
+        q = q.or(condiciones.join(','))
       }
+      const { data, count, error: err } = await q
       if (!vivo) return
       setError(err ? err.message : null)
       setRows((data ?? []) as unknown as Fila[])
