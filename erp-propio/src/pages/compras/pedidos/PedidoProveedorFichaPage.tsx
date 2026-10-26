@@ -432,7 +432,8 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
       return
     }
     setMensaje(null)
-    setEditLinea((e) => (e ? { ...e, l } : e))
+    // Las cantidades tecleadas mientras se buscaba el artículo se conservan.
+    setEditLinea((e) => (e ? { ...e, l: { ...l, bultos: e.l.bultos, cajas: e.l.cajas, cantidad: e.l.cantidad, bonificacion: e.l.bonificacion } } : e))
   }
 
   function nuevaLinea() {
@@ -858,7 +859,9 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
                   checked={!!cab?.transporte_factura_pagada}
                   onChange={(e) => patch({ transporte_factura_pagada: e.target.checked })}
                 />
-                Fac<u>t</u>ura Pagada
+                <span>
+                  Fac<u>t</u>ura Pagada
+                </span>
               </label>
               {selectFormaPago('transporte_forma_pago_codigo', 'forma_pago_t')}
             </div>
@@ -1031,7 +1034,9 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
                   onClick={() => navigate('/pagos-proveedor')}
                 >
                   <Wallet size={15} className="text-[#8a6d1d]" />
-                  <u>P</u>agos
+                  <span>
+                    <u>P</u>agos
+                  </span>
                 </button>
               </div>
             </div>
@@ -1073,7 +1078,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
                 <button type="button" className="gw-btn !h-[28px] !text-[16px]" disabled title="Total canon de las líneas">
                   Canon
                 </button>
-                <span className="text-right text-[16px]">Y Transporte:</span>
+                <span className="whitespace-nowrap text-right text-[16px]">Y Transporte:</span>
                 <span className="pr-1 text-right text-[17px] font-bold">{formatGw(tot.transporte, 2)}</span>
               </div>
               <div className="grid grid-cols-[minmax(0,1fr)_110px] items-center gap-x-1">

@@ -522,7 +522,7 @@ export function GestorPagosProveedorPage() {
                   </tr>
                 )
               })}
-              <FilasVacias cols={10} ocupadas={filas.length} total={18} />
+              <FilasVacias cols={10} ocupadas={filas.length} total={16} />
             </tbody>
           </table>
         </div>
@@ -552,7 +552,7 @@ export function GestorPagosProveedorPage() {
                     <Celda v={x.aPagar} bg="#5aa832" />
                   </tr>
                 ))}
-                <FilasVacias cols={4} ocupadas={porDiaFp.length} total={8} />
+                <FilasVacias cols={4} ocupadas={porDiaFp.length} total={7} />
               </tbody>
             </table>
           </div>
@@ -578,7 +578,7 @@ export function GestorPagosProveedorPage() {
                     <Celda v={x.aPagar} bg="#e3c96a" />
                   </tr>
                 ))}
-                <FilasVacias cols={3} ocupadas={porDia.length} total={8} />
+                <FilasVacias cols={3} ocupadas={porDia.length} total={7} />
               </tbody>
             </table>
           </div>

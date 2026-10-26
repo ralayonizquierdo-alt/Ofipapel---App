@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Folder, Mail, Printer, Send } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { GwCheck, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwRadio, GwSelect, GwTabs, GwTextArea, formatGw, type GwTabDef } from '../../components/gw'
+import { GwCheck, GwField, GwGroup, GwInline, GwInput, GwLookupButton, GwNumber, GwRadio, GwSelect, GwTabs, GwTextArea, formatGw, type GwTabDef } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { FilasVacias, GridMiniBar } from '../../components/gw/GwGridParts'
@@ -234,7 +234,15 @@ export function ModificacionPreciosFichaPage() {
   const ro = !editing
   const setLinea = (i: number, fn: (l: Linea) => Linea) => setLineas((ls) => ls.map((l, j) => (j === i ? fn(l) : l)))
   const setNivel = (i: number, n: number, p: Partial<NivelMod>) =>
-    setLinea(i, (l) => ({ ...l, niveles: l.niveles.map((x, k) => (k === n ? { ...x, ...p } : x)) }))
+    setLinea(i, (l) => {
+      const niveles = l.niveles.map((x, k) => (k === n ? { ...x, ...p } : x))
+      // Los niveles «D» son descuento sobre la General: se arrastran al cambiarla.
+      const general = niveles[0].pvp
+      return {
+        ...l,
+        niveles: n === 0 ? niveles.map((x, k) => (k > 0 && x.modo === 'D' && x.pct != null ? { ...x, pvp: redondear(general * (1 - x.pct / 100), 2) } : x)) : niveles,
+      }
+    })
 
   async function anadirArticulo(codigo: string) {
     const { data } = await supabase
@@ -332,40 +340,36 @@ export function ModificacionPreciosFichaPage() {
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,500px)] gap-x-2">
-        <div className="flex min-w-0 flex-col gap-1">
-          <div className="grid grid-cols-[120px_100px_56px_minmax(0,1fr)] gap-x-1.5">
-            <GwField label="Codigo">
-              <GwInput value={draft.codigo} disabled={mode !== 'alta'} maxLength={10} title="CODIGO" onChange={(e) => patch({ codigo: e.target.value })} />
-            </GwField>
-            <GwField label="Fecha">
-              <GwInput type="date" value={draft.fecha ?? ''} disabled={ro} title="FECHA" onChange={(e) => patch({ fecha: e.target.value || null })} />
-            </GwField>
-            <GwField label="Hora">
-              <GwInput value={draft.hora ?? ''} disabled={ro} maxLength={5} title="HORA" onChange={(e) => patch({ hora: e.target.value || null })} />
-            </GwField>
-            <GwField label="Concepto">
-              <GwInput value={draft.concepto} disabled={ro} maxLength={40} title="CONCEPTO" onChange={(e) => patch({ concepto: e.target.value })} />
-            </GwField>
+      <div className="grid grid-cols-[120px_100px_56px_minmax(0,1fr)_300px] items-end gap-x-1.5">
+        <GwField label="Codigo">
+          <GwInput value={draft.codigo} disabled={mode !== 'alta'} maxLength={10} title="CODIGO" onChange={(e) => patch({ codigo: e.target.value })} />
+        </GwField>
+        <GwField label="Fecha">
+          <GwInput type="date" value={draft.fecha ?? ''} disabled={ro} title="FECHA" onChange={(e) => patch({ fecha: e.target.value || null })} />
+        </GwField>
+        <GwField label="Hora">
+          <GwInput value={draft.hora ?? ''} disabled={ro} maxLength={5} title="HORA" onChange={(e) => patch({ hora: e.target.value || null })} />
+        </GwField>
+        <GwField label="Concepto">
+          <GwInput value={draft.concepto} disabled={ro} maxLength={40} title="CONCEPTO" onChange={(e) => patch({ concepto: e.target.value })} />
+        </GwField>
+        <BotonMarca checked={draft.son_precios_oferta} disabled={ro} title="Precios de oferta entre fechas y por cantidad" onChange={(v) => patch({ son_precios_oferta: v })}>
+          Son precios de oferta entre fechas y varían según la cantidad
+        </BotonMarca>
+      </div>
+      <div className="grid grid-cols-[400px_minmax(0,1fr)] gap-x-2">
+        <GwGroup title="Periodo activo de la Oferta">
+          <div className="grid grid-cols-2 gap-x-3">
+            <GwInline label="Fecha Inicio:">
+              <GwInput type="date" value={draft.fecha_desde ?? ''} disabled={ro} title="Fecha inicio" onChange={(e) => patch({ fecha_desde: e.target.value || null })} />
+            </GwInline>
+            <GwInline label="Fecha Fin:">
+              <GwInput type="date" value={draft.fecha_hasta ?? ''} disabled={ro} title="Fecha fin" onChange={(e) => patch({ fecha_hasta: e.target.value || null })} />
+            </GwInline>
           </div>
-          <div className="grid grid-cols-[minmax(0,1fr)_250px] items-end gap-x-2">
-            <BotonMarca checked={draft.son_precios_oferta} disabled={ro} title="Precios de oferta entre fechas y por cantidad" onChange={(v) => patch({ son_precios_oferta: v })}>
-              Son precios de oferta entre fechas y varían según la cantidad
-            </BotonMarca>
-            <GwGroup title="Periodo activo de la Oferta">
-              <div className="grid grid-cols-2 gap-x-1.5">
-                <GwField label="Fecha Inicio">
-                  <GwInput type="date" value={draft.fecha_desde ?? ''} disabled={ro || !verOferta} onChange={(e) => patch({ fecha_desde: e.target.value || null })} />
-                </GwField>
-                <GwField label="Fecha Fin">
-                  <GwInput type="date" value={draft.fecha_hasta ?? ''} disabled={ro || !verOferta} onChange={(e) => patch({ fecha_hasta: e.target.value || null })} />
-                </GwField>
-              </div>
-            </GwGroup>
-          </div>
-        </div>
+        </GwGroup>
         <GwField label="Observaciones">
-          <GwTextArea rows={5} value={draft.observaciones ?? ''} disabled={ro} onChange={(e) => patch({ observaciones: e.target.value || null })} />
+          <GwTextArea rows={2} value={draft.observaciones ?? ''} disabled={ro} onChange={(e) => patch({ observaciones: e.target.value || null })} />
         </GwField>
       </div>
       {f.error && <div className="text-[13px] text-[#c42b1c]">{f.error}</div>}
@@ -462,8 +466,8 @@ export function ModificacionPreciosFichaPage() {
               >
                 {aplicando ? 'Aplicando…' : 'Actualizado'}
               </BotonMarca>
-              <span className="gw-label ml-auto text-[15px] text-[#1a4fd0]">Prec. Líquido: {formatGw(lineaSel?.precio_liquido ?? 0, 3)}</span>
-              <span className="gw-label text-[15px] text-[#1a4fd0]">Nº Lineas: {lineas.length}</span>
+              <span className="gw-label text-[15px] text-[#1a4fd0]">Prec. Líquido: {formatGw(lineaSel?.precio_liquido ?? 0, 3)}</span>
+              <span className="gw-label ml-auto text-[15px] text-[#1a4fd0]">Nº Lineas: {lineas.length}</span>
             </GridMiniBar>
           </div>
         ) : tab === 'act_articulos' ? (
