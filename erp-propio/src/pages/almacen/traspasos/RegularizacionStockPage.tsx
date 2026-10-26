@@ -202,7 +202,7 @@ export function RegularizacionStockPage() {
   useEffect(() => {
     if (!reg?.articulo_codigo || !reg.almacen_codigo) return setStockActual(0)
     stockDe(reg.articulo_codigo, reg.almacen_codigo).then(setStockActual)
-  }, [reg?.articulo_codigo, reg?.almacen_codigo, refresco])
+  }, [reg?.articulo_codigo, reg?.almacen_codigo, reg?.numero, refresco])
 
   const patch = (p: Partial<Reg>) => setReg((r) => (r ? { ...r, ...p } : r))
   const irA = (t: string, n: number) => navigate(`/regularizacion-stock/${encodeURIComponent(t)}/${n}`)
@@ -420,7 +420,7 @@ export function RegularizacionStockPage() {
       </div>
 
       <div className="flex items-center gap-2">
-        <span className={BIG_LABEL}>Nº de Inventario:</span>
+        <span className={`${BIG_LABEL} whitespace-nowrap`}>Nº de Inventario:</span>
         <span className={`gw-input ${BIG_INPUT} flex w-[160px] items-center justify-end`} title="Se rellena cuando la regularización sale de un inventario">
           {r.inventario_numero != null ? `${r.inventario_tienda_terminal_codigo ?? ''}/${r.inventario_numero}` : ''}
         </span>
