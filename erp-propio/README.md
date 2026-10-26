@@ -38,13 +38,19 @@ desde el primer día — no el modelo definitivo de alta de usuarios.
 - El resto del menú (Stock, Compras, Pedidos, Ventas/TPV, Facturación)
   muestra "Próximamente" — el esquema ya existe, falta la pantalla.
 
-## Pendiente de revisar (26-10-2026, noche)
+## Corrección de la nota de anoche
 
-Durante la verificación se intentó limpiar una fila de prueba
-(`articulo.codigo_interno = 'STOCKTEST'`, usada para comprobar el
-trigger de stock de Fase 2 contra la base real) y el `DELETE` de
-limpieza se quedó pendiente de una confirmación que nadie pudo dar.
-**Revisa si queda esa fila suelta** (`SELECT * FROM articulo WHERE
-codigo_interno = 'STOCKTEST'` y sus filas relacionadas en
-`movimiento_stock`/`articulo_almacen_stock`) y bórrala si sigue ahí —
-no es dato real, solo resto de una prueba.
+La fila de prueba `STOCKTEST` que quedó pendiente de confirmar nunca
+llegó a crearse de verdad (el bloque entero se canceló al pedir
+confirmación para el `DELETE` de limpieza) — comprobado y repetido esta
+mañana con `STOCKTEST2` vía API REST directa: trigger de stock
+verificado en la base real (25 unidades de entrada → saldo 25 exacto)
+y limpiado sin dejar nada suelto. No hay ninguna fila de prueba
+pendiente de revisar.
+
+## Pantallas ya conectadas (27-10-2026)
+
+Además de Artículos/Clientes/Proveedores: **Almacenes**, **Tiendas /
+Terminales**, **Empleados** (Fase 1) y **Stock** (Fase 2 — saldo en
+vivo por artículo+almacén + alta de movimientos manuales, con el
+trigger de `movimiento_stock` manteniendo el saldo).
