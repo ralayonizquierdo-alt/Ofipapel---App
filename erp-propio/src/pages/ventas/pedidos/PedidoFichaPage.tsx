@@ -227,6 +227,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
   const [saving, setSaving] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
+  const [refresco, setRefresco] = useState(0)
 
   const editing = mode !== 'consulta'
 
@@ -409,7 +410,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
     return () => {
       cancel = true
     }
-  }, [lineaSel?.articulo_codigo, lineaSel?.codigo_compra, cab?.almacen_codigo])
+  }, [lineaSel?.articulo_codigo, lineaSel?.codigo_compra, cab?.almacen_codigo, refresco])
 
   const dtoPie = Number(cab?.descuento_pie_pct ?? 0)
   const igicPie = Number(cab?.igic_pie_pct ?? 0)
@@ -704,6 +705,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
       setCab(c)
       setOrig({ cab: c, lineas })
       await cargarEnlaces(c)
+      setRefresco((r) => r + 1)
       setMensaje(`Entregado: venta ${c.venta_tienda_codigo}-${n}.`)
     } catch (e) {
       setMensaje((e as Error).message)
@@ -775,7 +777,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
           <Campo label="Tipo Documento">
             <GwSelect
               disabled={ro}
-              value={cab?.es_presupuesto ? 'P' : 'D'}
+              value={(cab ? cab.es_presupuesto : presupuestos) ? 'P' : 'D'}
               onChange={(e) => patch({ es_presupuesto: e.target.value === 'P' })}
             >
               <option value="D">Pedido</option>

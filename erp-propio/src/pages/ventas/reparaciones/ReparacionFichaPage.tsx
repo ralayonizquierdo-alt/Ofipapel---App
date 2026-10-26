@@ -202,10 +202,7 @@ function MiniBtn({ title, onClick, disabled, children, ancho = 58 }: { title: st
 
 type Lookup = 'empleado' | 'vendedor' | 'tecnico' | 'cliente' | 'serie' | 'articulo_linea' | 'buscar' | null
 
-interface CodNom {
-  codigo: string
-  nombre: string
-}
+type CodNom = { codigo: string; nombre: string }
 
 export function ReparacionFichaPage() {
   const params = useParams()
