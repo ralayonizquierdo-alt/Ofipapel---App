@@ -25,6 +25,8 @@ export interface LineaPegada {
   problema: string
   /** Nombre del huésped, cuando el aviso lo trae (Airbnb sí). */
   guestName?: string
+  /** Cuántas personas, cuando el aviso lo dice («grupo de 4 personas»). */
+  guests?: number
   /** De dónde viene la reserva. Sin esto, se entiende que de la inmobiliaria. */
   origen?: 'airbnb'
   /** Avisos que no impiden crearla, pero que hay que enseñar. */
@@ -321,7 +323,8 @@ export function analizaAirbnb(texto: string, hoy = new Date()): LineaPegada | nu
   return {
     ...base,
     apartmentId,
-    guestName: guestName + (personasM ? ` (${personasM[1]} personas)` : ''),
+    guestName,
+    guests: personasM ? Number(personasM[1]) : undefined,
     checkIn: iso(entrada),
     checkOut: iso(salidaF),
     nights: noches,

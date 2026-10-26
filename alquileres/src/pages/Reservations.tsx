@@ -11,6 +11,7 @@ import PageHeader from '../components/ui/PageHeader'
 import PegarWhatsApp from '../components/PegarWhatsApp'
 import ImportarReservas from '../components/ImportarReservas'
 import ImportarAirbnb from '../components/ImportarAirbnb'
+import { nombreDe, personasDe } from '../lib/huesped'
 import { num, numSuelto } from '../lib/formato'
 
 const STAY_LABELS: Record<StayType, string> = {
@@ -313,7 +314,10 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   const [discountPct, setDiscountPct] = useState(editing?.discountPct || 0)
   const [notes, setNotes] = useState(editing?.notes || '')
   const [status, setStatus] = useState(editing?.status || 'confirmada' as Reservation['status'])
-  const [guestName, setGuestName] = useState(editing?.guestName || '')
+  const [guestName, setGuestName] = useState(editing ? nombreDe(editing) : '')
+  // Las personas: de su campo, o del «(4 personas)» que los avisos viejos
+  // metían dentro del nombre.
+  const [guests, setGuests] = useState(editing ? personasDe(editing) : 0)
   /**
    * «Precio pactado»: el importe lo pone la persona a mano y la app no lo
    * recalcula. Es lo que se usa para los acuerdos de larga temporada, que no
@@ -355,7 +359,7 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
     if (!aptId || !checkIn || !checkOut) return alert('Completa los campos obligatorios')
     const newTotal = calcTotal(basePrice, cleaningFee, discountPct)
     const data = {
-      apartmentId: aptId, guestName, checkIn, checkOut,
+      apartmentId: aptId, guestName, guests: guests > 0 ? guests : undefined, checkIn, checkOut,
       nights: getNights(checkIn, checkOut), stayType, channel,
       basePrice, cleaningFee, discountPct, total: newTotal, status, notes,
     }
@@ -401,6 +405,11 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
             <label className="block text-xs font-medium text-slate-600 mb-1">Huésped</label>
             <input value={guestName} onChange={e => setGuestName(e.target.value)}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Nombre opcional" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Personas</label>
+            <input type="number" min={0} value={guests || ''} onChange={e => setGuests(Number(e.target.value))}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Cuántas se alojan" />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Entrada *</label>

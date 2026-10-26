@@ -6,6 +6,7 @@ import Modal from '../components/ui/Modal'
 import type { Reservation } from '../types'
 import { MONTH_NAMES_ES, DAY_NAMES_ES, getDaysInMonth, getSeason } from '../lib/dateUtils'
 import { num } from '../lib/formato'
+import { huespedYPersonas, nombreDe, personasDe } from '../lib/huesped'
 
 const APT_COLORS = [
   'bg-blue-400', 'bg-emerald-400', 'bg-violet-400', 'bg-amber-400',
@@ -249,7 +250,13 @@ export default function Planning() {
                     // Orden fijo, el que pidió el propietario: apartamento, fechas,
                     // noches e importe total. Antes iba el desglose precio+limpieza,
                     // que en una franja estrecha no se lee y no es lo que se mira.
-                    const label = `${vieneDeAntes ? '◀ ' : ''}${apt.id} — ${fmtD(res.checkIn)} al ${fmtD(res.checkOut, true)}, `
+                    // Quién viene y cuántos son, delante del dinero: es lo
+                    // primero que se mira en el planning (lo pidió el
+                    // propietario el 26/10/2026).
+                    const quien = huespedYPersonas(res)
+                    const label = `${vieneDeAntes ? '◀ ' : ''}${apt.id} — `
+                      + (quien ? `${quien} — ` : '')
+                      + `${fmtD(res.checkIn)} al ${fmtD(res.checkOut, true)}, `
                       + `${res.nights}-N, ${eur(res.total)}`
                     celdas.push(
                       <td key={d} colSpan={franja.hasta - d + 1} title={label} className="h-9 p-0.5">
@@ -330,6 +337,8 @@ function DetalleReserva({ res, nombre, cobrado, eur, onEditar, onClose }: {
 
   const filas: [string, string][] = [
     ['Apartamento', nombre],
+    ...(nombreDe(res) ? [['Huésped', nombreDe(res)] as [string, string]] : []),
+    ...(personasDe(res) ? [['Personas', `${personasDe(res)}`] as [string, string]] : []),
     ['Entrada', fecha(res.checkIn)],
     ['Salida', fecha(res.checkOut)],
     ['Noches', `${res.nights}`],
