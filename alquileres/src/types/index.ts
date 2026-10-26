@@ -29,6 +29,15 @@ export interface Reservation {
   id: string
   apartmentId: string
   guestName?: string
+  /**
+   * Cuántas personas se alojan.
+   *
+   * Hasta el 26/10/2026 esto no existía como campo: lo que se pegaba de la
+   * inmobiliaria metía «(4 personas)» dentro del nombre del huésped, y de ahí
+   * no se podía sacar para nada. Ahora va aparte, y `personasDe()` sigue
+   * leyendo las de los avisos viejos para que el planning las enseñe igual.
+   */
+  guests?: number
   checkIn: string  // ISO date YYYY-MM-DD
   checkOut: string // ISO date YYYY-MM-DD
   nights: number

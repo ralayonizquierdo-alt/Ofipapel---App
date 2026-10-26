@@ -172,7 +172,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
     for (const p of validas) {
       const l = p.linea
       const res = addReservation({
-        apartmentId: l.apartmentId!, guestName: l.guestName ?? '', checkIn: l.checkIn!, checkOut: l.checkOut!,
+        apartmentId: l.apartmentId!, guestName: l.guestName ?? '', guests: l.guests, checkIn: l.checkIn!, checkOut: l.checkOut!,
         nights: l.nights, stayType: tramoPorNoches(l.nights),
         channel: l.origen === 'airbnb' ? 'airbnb' : 'inmobiliaria',
         basePrice: p.base ?? 0, cleaningFee: p.limpieza ?? 40, discountPct: 0,
@@ -440,7 +440,11 @@ function Fila({ p, nombreApt }: { p: Propuesta; nombreApt: (id: string | null) =
       <tr className={`border-b border-slate-100 ${malo ? 'bg-red-50/60' : ''}`}>
         <td className="py-2 px-3 font-medium text-slate-700">
           {nombreApt(l.apartmentId)}
-          {l.guestName && <span className="block text-xs font-normal text-slate-500">{l.guestName}</span>}
+          {(l.guestName || l.guests) && (
+            <span className="block text-xs font-normal text-slate-500">
+              {[l.guestName, l.guests ? `${l.guests} personas` : ''].filter(Boolean).join(' · ')}
+            </span>
+          )}
           {l.origen === 'airbnb' && (
             <span className="inline-block mt-0.5 text-[10px] font-medium text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded">Airbnb</span>
           )}
