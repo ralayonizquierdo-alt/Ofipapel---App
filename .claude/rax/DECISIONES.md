@@ -1819,3 +1819,60 @@ anteriores).
 **Reversibilidad**: alta — funciones y triggers son objetos de base de
 datos normales, reversibles con un `DROP` cuando se pueda ejecutar; los
 datos de catálogo (roles/permisos) son filas normales.
+
+---
+
+### 2026-10-26 (continuación, misma noche) — El stock y los cobros se mueven de verdad, no solo los documentos
+
+**Contexto**: tras cerrar RBAC/auditoría, se revisó qué pantallas
+creaban un documento pero no tocaban el stock ni el dinero que ese
+documento debería mover — un ERP que registra pedidos y ventas pero
+nunca actualiza el almacén ni cobra no es un ERP funcional, por mucho
+que cada pantalla individual estuviera bien construida. Se encontraron
+y cerraron cuatro huecos, todos reutilizando piezas que el esquema ya
+traía sin usar:
+
+1. **Ventas/TPV no descontaba stock**. Cada línea de una venta genera
+   ahora su `movimiento_stock` real (`sentido: -1`), reutilizando el
+   trigger de Fase 2. Verificado: 10 unidades → vende 3 → saldo 7.
+2. **Compras no tenía forma de recepcionar**. Botón "Recepcionar":
+   genera el `movimiento_stock` de entrada (`sentido: 1`) por línea y
+   marca el pedido `recepcionado` (más `recibido`/`stock_movido`/
+   `fecha_recepcion`, columnas que ya existían para esto). Verificado:
+   pedido de 20 unidades → recepcionar → saldo 20.
+3. **Pedidos de clientes no generaba ninguna venta al entregar**.
+   Botón "Entregar": crea la `venta`/`venta_linea` real, enlazada en
+   los dos sentidos que el esquema ya preveía
+   (`venta.pedido_tienda_codigo`/`pedido_numero` y
+   `pedido_cliente.venta_tienda_codigo`/`venta_numero`), y mueve stock
+   igual que una venta de TPV. Verificado: pedido de 4 unidades con 15
+   en stock → entregar → saldo 11, venta correctamente enlazada.
+4. **Ninguna venta con saldo pendiente podía cobrarse nunca**. Columna
+   "Pendiente" + botón "Cobrar" en Ventas/TPV: inserta el
+   `cobro_cliente` real (numerado vía `fn_siguiente_numero` con el
+   tipo `'pago'`, que ya estaba en el catálogo sin usar), admite cobro
+   parcial, actualiza los totales de la venta y genera su
+   `movimiento_caja` si hay caja abierta. Verificado: venta de 100 €,
+   cobro parcial de 40 €, luego el resto (60 €), saldo final 0.
+
+Con esto quedan cerrados los cuatro verbos de negocio que CLAUDE.md
+nombra para Fase 5 ("Ventas/TPV, caja, cobros") y el ciclo completo
+compra → stock → pedido → entrega → venta → cobro queda verificado de
+punta a punta contra la base real, no solo cada documento por
+separado.
+
+**Qué sigue sin tocar** (deliberado): no hay selector de
+tienda/terminal real (sigue `TIENDA = '01'` hardcodeado en las 5
+pantallas que lo necesitan — solo hay una tienda sembrada, así que
+construir el selector ahora no se podría verificar con datos reales);
+no hay reparto/rutas de entrega (la otra mitad de "Fase 4 — Pedidos de
+clientes y repartos"); los cobros no distinguen formas de pago más
+allá de efectivo/tarjeta (sin cheques, domiciliaciones ni efectos,
+aunque el esquema de `cobro_cliente` los contempla).
+
+**Quién decide**: propietario (misma instrucción de las entradas
+anteriores de esta noche).
+
+**Reversibilidad**: alta — todo es código de `erp-propio/`, reversible
+como cualquier commit; no hay cambios de esquema, solo uso de columnas
+y catálogos que ya existían.
