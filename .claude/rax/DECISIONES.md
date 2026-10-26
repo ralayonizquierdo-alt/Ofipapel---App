@@ -1876,3 +1876,63 @@ anteriores de esta noche).
 **Reversibilidad**: alta — todo es código de `erp-propio/`, reversible
 como cualquier commit; no hay cambios de esquema, solo uso de columnas
 y catálogos que ya existían.
+
+---
+
+### 2026-10-26 (continuación, misma noche) — Cuatro pantallas más: Repartos, Pagos y gastos, Traspasos, Inventario
+
+**Contexto**: siguiendo "sigue programando pantallas sin parar", se
+revisó qué quedaba sin construir del catálogo `tipo_documento_numerable`
+(los tipos de documento que `fn_siguiente_numero` ya sabía numerar) y
+de lo que CLAUDE.md nombra explícitamente para este ERP. Se encontraron
+cuatro módulos con tablas completas en el esquema desde el principio,
+nunca conectados a ninguna pantalla:
+
+1. **Repartos** (`reparto`/`reparto_linea`/`ruta_reparto`/`repartidor`)
+   — completa la otra mitad de "Fase 4: Pedidos de clientes y
+   repartos" que había quedado sin tocar (entregar un pedido
+   directamente ya existía; agrupar varias ventas en una ruta con
+   repartidor asignado, no). Ruta y repartidor quedan como selects
+   opcionales porque sus tablas catálogo están vacías y ambas FKs son
+   nullable — no hizo falta construir un CRUD nuevo para ellas.
+2. **Pagos y gastos** (`pago_proveedor`) — el mandato original pedía
+   explícitamente "payments" como operación sensible; solo existían
+   cobros a clientes (Cobrar en Ventas/TPV), nunca pagos a proveedor
+   ni gastos de caja. Al verificarlo se encontró que
+   `movimiento_caja.forma_pago_codigo` tiene una FK a un catálogo
+   `forma_pago` que ninguna pantalla rellena (tampoco Ventas/TPV) —
+   se dejó igual de sin usar aquí, en vez de inventar datos de
+   catálogo para poder rellenarlo.
+3. **Traspasos entre almacenes** (`traspaso_almacen`/
+   `traspaso_almacen_linea`) — un traspaso real son dos movimientos de
+   stock a la vez (salida de un almacén, entrada en otro), que el
+   formulario de un solo movimiento de Stock no podía hacer. Mismo
+   patrón "crear pendiente → Confirmar mueve stock real" que
+   Compras/Pedidos.
+4. **Inventario** (`inventario`/`inventario_linea`) — recuento físico
+   que, al cerrar, compara la cantidad contada contra el stock de
+   sistema y genera solo los ajustes reales (lo que ya coincide no
+   genera movimiento).
+
+Con esto, de los 13 tipos de documento en `tipo_documento_numerable`
+solo quedan sin pantalla `factura_proveedor` (registrar la factura en
+papel del proveedor, distinto del pago), `peticion` (petición de
+compra previa al pedido), `punto_restauracion_stock` (snapshot/rollback
+de stock, función de administración) y `regularizacion_stock` (ya
+cubierto conceptualmente por el movimiento manual de Stock) — los
+cuatro notablemente más administrativos/de borde que operativos del
+día a día, buen punto para parar esta tanda y dejarlo anotado en vez
+de seguir construyendo sin que quede claro si aportan valor real ya.
+
+**Cómo se verificó**: las cuatro pantallas, igual que todas las
+anteriores — contra la base real vía API REST con JWT real,
+comprobando también la consulta exacta con joins que usa cada
+pantalla, con datos de prueba creados y limpiados en cada caso
+(incluyendo un almacén y un proveedor de prueba temporales para poder
+probar Traspasos y Pagos con datos reales).
+
+**Quién decide**: propietario ("sigue programando pantallas sin
+parar").
+
+**Reversibilidad**: alta — todo código de `erp-propio/`, sin cambios
+de esquema.
