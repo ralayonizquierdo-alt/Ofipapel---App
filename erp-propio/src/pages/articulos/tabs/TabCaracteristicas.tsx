@@ -101,7 +101,7 @@ export function TabCaracteristicas({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="grid grid-cols-[170px_minmax(0,1fr)_minmax(0,390px)] gap-2">
+      <div className="grid grid-cols-[170px_minmax(0,600px)_minmax(0,1fr)] gap-2">
         <GwGroup title="Precios de coste" className="flex flex-col gap-0.5">
           <CosteRow label="Coste Puro Prov." title="COSTE_PURO">
             {num('coste_puro')}
@@ -129,7 +129,7 @@ export function TabCaracteristicas({
               {niveles.map((n) => (
                 <div
                   key={n.nivel_tarifa}
-                  className="grid grid-cols-[110px_52px_52px_minmax(70px,90px)_minmax(80px,1fr)_62px] items-center gap-1"
+                  className="grid grid-cols-[110px_52px_52px_92px_132px_62px] items-center gap-1"
                 >
                   <span className="gw-label" title={`PVP_${n.nivel_tarifa}`}>
                     {NOMBRES_PVP[n.nivel_tarifa]}
@@ -289,7 +289,7 @@ export function TabCaracteristicas({
         </div>
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,560px)] gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,670px)] gap-2">
         <GwGroup title="Opciones" className="flex flex-col gap-0.5">
           <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
             {check('generico', 'Genérico', false, 'Genérico (probablemente MODDES, confirmar con Luis)')}

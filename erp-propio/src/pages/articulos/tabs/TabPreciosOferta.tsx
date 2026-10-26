@@ -1,17 +1,10 @@
-import { Fragment, useEffect, useState, type ReactNode } from 'react'
-import { Plus, Pencil, Trash2, Save, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Check, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { TextInput, SelectInput } from '../../../components/FormField'
-import { Toggle } from '../../../components/Toggle'
+import { GwCheck, GwGroup, GwInput, GwNumber, GwSelect, formatGw } from '../../../components/gw'
 import { NIVELES_TARIFA, type ArticuloOferta, type ArticuloTarifaCantidad } from '../types'
 
-const num = (v: string) => (v === '' ? null : Number(v))
 const str = (v: string) => (v === '' ? null : v)
-const th = 'px-2 py-2 text-left font-semibold'
-const td = 'px-2 py-1.5'
-const inp = 'w-full py-1 text-xs'
-const miniBtn =
-  'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-30'
 
 const TIPOS_OFERTA = [
   { value: 0, label: 'Descuento' },
@@ -19,78 +12,94 @@ const TIPOS_OFERTA = [
 ]
 
 interface NivelDraft {
-  pvp: string
-  incremento_pct: string
+  pvp: number | null
+  incremento_pct: number | null
   modo_calculo: string
   permite_descuento_linea: boolean
 }
 
+function fecha(v: string | null) {
+  if (!v) return '  /  /'
+  const [y, m, d] = v.slice(0, 10).split('-')
+  return `${d}/${m}/${y}`
+}
+
 function periodo(fd: string | null, hd: string | null, fh: string | null, hh: string | null) {
-  if (!fd && !fh) return '—'
-  return `${fd ?? '…'} ${hd ?? ''} → ${fh ?? '…'} ${hh ?? ''}`.trim()
+  if (!fd && !fh) return ''
+  return `${fecha(fd)} ${hd ?? ''} - ${fecha(fh)} ${hh ?? ''}`.trim()
 }
 
 function GridBar({
-  title,
   onAdd,
   onEdit,
   onDelete,
   canEdit,
   busy,
-  extra,
+  onSave,
+  onCancel,
 }: {
-  title: string
   onAdd: () => void
   onEdit: () => void
   onDelete: () => void
   canEdit: boolean
   busy: boolean
-  extra?: ReactNode
+  onSave: () => void
+  onCancel: () => void
 }) {
   return (
-    <div className="flex items-center gap-1 border-b border-slate-200 bg-slate-50 px-2 py-1">
-      <span className="mr-auto text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</span>
-      {extra}
-      <button type="button" className={miniBtn} onClick={onAdd} disabled={busy}>
+    <div className="mb-1 flex gap-1">
+      <button type="button" className="gw-btn" onClick={onAdd} disabled={busy}>
         <Plus size={14} /> Añadir línea
       </button>
-      <button type="button" className={miniBtn} onClick={onEdit} disabled={!canEdit || busy}>
-        <Pencil size={14} /> Modificar
+      <button type="button" className="gw-btn" onClick={onEdit} disabled={!canEdit || busy}>
+        <Pencil size={14} /> Modificar línea
       </button>
-      <button
-        type="button"
-        className={`${miniBtn} hover:bg-red-50 hover:text-red-600`}
-        onClick={onDelete}
-        disabled={!canEdit || busy}
-      >
+      <button type="button" className="gw-btn" onClick={onDelete} disabled={!canEdit || busy}>
         <Trash2 size={14} /> Borrar línea
       </button>
+      {busy && (
+        <>
+          <button type="button" className="gw-btn ml-3" onClick={onSave}>
+            <Check size={14} className="text-[#127a12]" /> Aceptar
+          </button>
+          <button type="button" className="gw-btn" onClick={onCancel}>
+            <X size={14} className="text-[#c42b1c]" /> Cancelar
+          </button>
+        </>
+      )}
     </div>
   )
 }
 
-function RowActions({ onSave, onCancel }: { onSave: () => void; onCancel: () => void }) {
+function Periodo({
+  fd,
+  hd,
+  fh,
+  hh,
+  onChange,
+}: {
+  fd: string | null
+  hd: string | null
+  fh: string | null
+  hh: string | null
+  onChange: (p: { fecha_desde?: string | null; hora_desde?: string | null; fecha_hasta?: string | null; hora_hasta?: string | null }) => void
+}) {
   return (
-    <td className={`${td} whitespace-nowrap`}>
-      <button type="button" className={miniBtn} onClick={onSave}>
-        <Save size={14} />
-      </button>
-      <button type="button" className={miniBtn} onClick={onCancel}>
-        <X size={14} />
-      </button>
-    </td>
+    <div className="flex items-center gap-1">
+      <GwInput type="date" className="w-[128px]" value={fd ?? ''} onChange={(e) => onChange({ fecha_desde: str(e.target.value) })} />
+      <GwInput type="time" className="w-[72px]" value={hd ?? ''} onChange={(e) => onChange({ hora_desde: str(e.target.value) })} />
+      <span>-</span>
+      <GwInput type="date" className="w-[128px]" value={fh ?? ''} onChange={(e) => onChange({ fecha_hasta: str(e.target.value) })} />
+      <GwInput type="time" className="w-[72px]" value={hh ?? ''} onChange={(e) => onChange({ hora_hasta: str(e.target.value) })} />
+    </div>
   )
 }
 
 export function TabPreciosOferta({ articuloCodigo }: { articuloCodigo: string }) {
   const [error, setError] = useState<string | null>(null)
   return (
-    <div className="flex flex-col gap-6">
-      <p className="text-xs text-slate-500">
-        Ofertas por fecha, hora y cantidad mínima (con su precio en cada tarifa) y ofertas con regalos y descuentos.
-        Tablas ARTTARIF y ARTOFERT.
-      </p>
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+    <div className="flex flex-col gap-1.5" title="ARTTARIF / ARTOFERT">
+      {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
       <OfertasCantidad articuloCodigo={articuloCodigo} setError={setError} />
       <OfertasRegalo articuloCodigo={articuloCodigo} setError={setError} />
     </div>
@@ -131,8 +140,8 @@ function OfertasCantidad({
     const map: Record<number, NivelDraft> = {}
     for (const r of data ?? []) {
       map[r.nivel_tarifa] = {
-        pvp: String(r.pvp),
-        incremento_pct: r.incremento_pct == null ? '' : String(r.incremento_pct),
+        pvp: r.pvp == null ? null : Number(r.pvp),
+        incremento_pct: r.incremento_pct == null ? null : Number(r.incremento_pct),
         modo_calculo: r.modo_calculo ?? 'P',
         permite_descuento_linea: r.permite_descuento_linea,
       }
@@ -200,15 +209,15 @@ function OfertasCantidad({
   async function saveNiveles() {
     if (selectedId == null) return
     setError(null)
-    const conPvp = NIVELES_TARIFA.filter((n) => niveles[n.nivel]?.pvp)
-    const sinPvp = NIVELES_TARIFA.filter((n) => niveles[n.nivel] && !niveles[n.nivel].pvp).map((n) => n.nivel)
+    const conPvp = NIVELES_TARIFA.filter((n) => niveles[n.nivel]?.pvp != null)
+    const sinPvp = NIVELES_TARIFA.filter((n) => niveles[n.nivel] && niveles[n.nivel].pvp == null).map((n) => n.nivel)
     if (conPvp.length) {
       const { error } = await supabase.from('articulo_tarifa_cantidad_nivel').upsert(
         conPvp.map((n) => ({
           articulo_tarifa_cantidad_id: selectedId,
           nivel_tarifa: n.nivel,
           pvp: Number(niveles[n.nivel].pvp),
-          incremento_pct: num(niveles[n.nivel].incremento_pct),
+          incremento_pct: niveles[n.nivel].incremento_pct,
           modo_calculo: niveles[n.nivel].modo_calculo || null,
           permite_descuento_linea: niveles[n.nivel].permite_descuento_linea,
         })),
@@ -232,7 +241,7 @@ function OfertasCantidad({
   function setNivel(nivel: number, patch: Partial<NivelDraft>) {
     setNiveles((m) => ({
       ...m,
-      [nivel]: { ...(m[nivel] ?? { pvp: '', incremento_pct: '', modo_calculo: 'P', permite_descuento_linea: true }), ...patch },
+      [nivel]: { ...(m[nivel] ?? { pvp: null, incremento_pct: null, modo_calculo: 'P', permite_descuento_linea: true }), ...patch },
     }))
     setNivelesDirty(true)
   }
@@ -240,209 +249,140 @@ function OfertasCantidad({
   const selected = rows.find((r) => r.id === selectedId)
 
   const editRow = (d: ArticuloTarifaCantidad) => (
-    <tr className="border-b border-slate-100 bg-amber-50/40">
-      <td className={td}>
-        <TextInput
-          type="number"
-          step="0.001"
-          className={inp}
-          value={d.cantidad_desde}
-          onChange={(e) => setEditing({ ...d, cantidad_desde: Number(e.target.value || 0) })}
-          autoFocus
-        />
+    <tr key={d.id ?? 'nueva'}>
+      <td>
+        <GwNumber value={d.cantidad_desde} decimals={3} onChange={(v) => setEditing({ ...d, cantidad_desde: v ?? 0 })} />
       </td>
-      <td className={td}>
-        <TextInput
-          className={inp}
-          value={d.descripcion_oferta ?? ''}
-          onChange={(e) => setEditing({ ...d, descripcion_oferta: str(e.target.value) })}
-        />
+      <td>
+        <GwInput autoFocus value={d.descripcion_oferta ?? ''} onChange={(e) => setEditing({ ...d, descripcion_oferta: str(e.target.value) })} />
       </td>
-      <td className={td}>
-        <div className="flex flex-col gap-1">
-          <div className="flex gap-1">
-            <TextInput type="date" className={inp} value={d.fecha_desde ?? ''} onChange={(e) => setEditing({ ...d, fecha_desde: str(e.target.value) })} />
-            <TextInput type="time" className="w-20 py-1 text-xs" value={d.hora_desde ?? ''} onChange={(e) => setEditing({ ...d, hora_desde: str(e.target.value) })} />
-          </div>
-          <div className="flex gap-1">
-            <TextInput type="date" className={inp} value={d.fecha_hasta ?? ''} onChange={(e) => setEditing({ ...d, fecha_hasta: str(e.target.value) })} />
-            <TextInput type="time" className="w-20 py-1 text-xs" value={d.hora_hasta ?? ''} onChange={(e) => setEditing({ ...d, hora_hasta: str(e.target.value) })} />
-          </div>
-        </div>
+      <td>
+        <Periodo fd={d.fecha_desde} hd={d.hora_desde} fh={d.fecha_hasta} hh={d.hora_hasta} onChange={(p) => setEditing({ ...d, ...p })} />
       </td>
-      <td className={td}>
-        <TextInput
-          type="number"
-          step="0.001"
-          className={inp}
-          value={d.stock_minimo_oferta ?? ''}
-          onChange={(e) => setEditing({ ...d, stock_minimo_oferta: num(e.target.value) })}
-        />
+      <td>
+        <GwNumber value={d.stock_minimo_oferta} decimals={3} onChange={(v) => setEditing({ ...d, stock_minimo_oferta: v })} />
       </td>
-      <td className={td}>
-        <SelectInput
-          className={inp}
-          value={d.almacen_oferta_codigo ?? ''}
-          onChange={(e) => setEditing({ ...d, almacen_oferta_codigo: str(e.target.value) })}
-        >
+      <td>
+        <GwSelect value={d.almacen_oferta_codigo ?? ''} onChange={(e) => setEditing({ ...d, almacen_oferta_codigo: str(e.target.value) })}>
           <option value="">Todos</option>
           {almacenes.map((a) => (
             <option key={a.codigo} value={a.codigo}>
-              {a.codigo} — {a.nombre}
+              {a.codigo} {a.nombre}
             </option>
           ))}
-        </SelectInput>
+        </GwSelect>
       </td>
-      <td className={td}>
-        <Toggle
-          label=""
-          checked={d.es_un_pvp_para_toda_la_oferta}
-          onChange={(v) => setEditing({ ...d, es_un_pvp_para_toda_la_oferta: v })}
-        />
+      <td className="text-center">
+        <GwCheck label="" checked={d.es_un_pvp_para_toda_la_oferta} onChange={(v) => setEditing({ ...d, es_un_pvp_para_toda_la_oferta: v })} />
       </td>
-      <RowActions onSave={saveRow} onCancel={() => setEditing(null)} />
     </tr>
   )
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="overflow-hidden rounded-lg border border-slate-200">
-        <GridBar
-          title="Ofertas por fecha, hora y cantidad"
-          busy={!!editing}
-          canEdit={!!selected}
-          onAdd={() =>
-            setEditing({
-              articulo_codigo: articuloCodigo,
-              cantidad_desde: 1,
-              descripcion_oferta: null,
-              fecha_desde: null,
-              hora_desde: null,
-              fecha_hasta: null,
-              hora_hasta: null,
-              stock_minimo_oferta: null,
-              almacen_oferta_codigo: null,
-              es_un_pvp_para_toda_la_oferta: false,
-            })
-          }
-          onEdit={() => selected && setEditing({ ...selected })}
-          onDelete={deleteSelected}
-        />
-        <table className="w-full text-xs">
+    <GwGroup title="Ofertas por Fecha, Hora y Cantidad">
+      <GridBar
+        busy={!!editing}
+        canEdit={!!selected}
+        onAdd={() => {
+          setError(null)
+          setEditing({
+            articulo_codigo: articuloCodigo,
+            cantidad_desde: 1,
+            descripcion_oferta: null,
+            fecha_desde: null,
+            hora_desde: null,
+            fecha_hasta: null,
+            hora_hasta: null,
+            stock_minimo_oferta: null,
+            almacen_oferta_codigo: null,
+            es_un_pvp_para_toda_la_oferta: false,
+          })
+        }}
+        onEdit={() => {
+          setError(null)
+          if (selected) setEditing({ ...selected })
+        }}
+        onDelete={deleteSelected}
+        onSave={saveRow}
+        onCancel={() => setEditing(null)}
+      />
+      <div className="grid grid-cols-[minmax(0,1fr)_330px] gap-2">
+        <table className="gw-grid self-start">
           <thead>
-            <tr className="border-b border-slate-200 text-slate-500">
-              <th className={th}>Desde cantidad</th>
-              <th className={th}>Descripción</th>
-              <th className={th}>Periodo</th>
-              <th className={th}>Stock de oferta</th>
-              <th className={th}>Almacén</th>
-              <th className={th}>Mismo PVP todas las tarifas</th>
-              <th className={th} />
+            <tr>
+              <th className="text-right" style={{ width: 95 }}>Desde Cant.</th>
+              <th>Descripción</th>
+              <th style={{ width: 230 }}>Periodo</th>
+              <th className="text-right" style={{ width: 95 }}>Stock Oferta</th>
+              <th style={{ width: 90 }}>Almacén</th>
+              <th style={{ width: 70 }}>Un Pvp</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && !editing && (
               <tr>
-                <td colSpan={7} className="px-2 py-4 text-center text-slate-400">
-                  Sin ofertas por cantidad.
-                </td>
+                <td colSpan={6} className="text-center text-[#6d6d6d]">Sin ofertas por cantidad.</td>
               </tr>
             )}
             {rows.map((r) =>
               editing && editing.id === r.id ? (
-                <Fragment key={r.id}>{editRow(editing)}</Fragment>
+                editRow(editing)
               ) : (
-                <tr
-                  key={r.id}
-                  onClick={() => setSelectedId(r.id ?? null)}
-                  className={`cursor-pointer border-b border-slate-100 last:border-0 ${
-                    selectedId === r.id ? 'bg-indigo-50' : 'hover:bg-slate-50'
-                  }`}
-                >
-                  <td className={td}>{r.cantidad_desde}</td>
-                  <td className={td}>{r.descripcion_oferta ?? '—'}</td>
-                  <td className={td}>{periodo(r.fecha_desde, r.hora_desde, r.fecha_hasta, r.hora_hasta)}</td>
-                  <td className={td}>{r.stock_minimo_oferta ?? '—'}</td>
-                  <td className={td}>{r.almacen_oferta_codigo ?? 'Todos'}</td>
-                  <td className={td}>{r.es_un_pvp_para_toda_la_oferta ? 'Sí' : 'No'}</td>
-                  <td className={td} />
+                <tr key={r.id} className={selectedId === r.id ? 'gw-selected' : ''} onClick={() => !editing && setSelectedId(r.id ?? null)}>
+                  <td className="text-right tabular-nums">{formatGw(r.cantidad_desde, 3)}</td>
+                  <td>{r.descripcion_oferta ?? ''}</td>
+                  <td>{periodo(r.fecha_desde, r.hora_desde, r.fecha_hasta, r.hora_hasta)}</td>
+                  <td className="text-right tabular-nums">{formatGw(r.stock_minimo_oferta, 3)}</td>
+                  <td>{r.almacen_oferta_codigo ?? 'Todos'}</td>
+                  <td>{r.es_un_pvp_para_toda_la_oferta ? 'Sí' : 'No'}</td>
                 </tr>
               ),
             )}
             {editing && editing.id == null && editRow(editing)}
           </tbody>
         </table>
-      </div>
 
-      {selected && (
-        <div className="overflow-hidden rounded-lg border border-slate-200">
-          <div className="flex items-center gap-1 border-b border-slate-200 bg-slate-50 px-2 py-1">
-            <span className="mr-auto text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Precio por tarifa desde {selected.cantidad_desde} unidades
-            </span>
-            <button type="button" className={miniBtn} disabled={!nivelesDirty} onClick={saveNiveles}>
-              <Save size={14} /> Guardar precios
+        <div className="flex flex-col gap-1">
+          <span className="gw-label">{selected ? `Pvps desde ${formatGw(selected.cantidad_desde, 3)} unidades` : 'Pvps'}</span>
+          <div className="grid grid-cols-[92px_44px_44px_62px_1fr] items-center gap-x-1 gap-y-[3px]">
+            {NIVELES_TARIFA.map((n) => {
+              const v = niveles[n.nivel]
+              const dis = !selected
+              return (
+                <div key={n.nivel} className="contents">
+                  <span className="gw-label truncate">{n.nombre}:</span>
+                  <GwSelect
+                    disabled={dis}
+                    value={v?.modo_calculo ?? 'P'}
+                    onChange={(e) => setNivel(n.nivel, { modo_calculo: e.target.value })}
+                    title="P = % sobre coste · D = % de descuento sobre la General"
+                  >
+                    <option value="P">P</option>
+                    <option value="D">D</option>
+                  </GwSelect>
+                  <GwSelect
+                    disabled={dis}
+                    value={(v?.permite_descuento_linea ?? true) ? 'S' : 'N'}
+                    onChange={(e) => setNivel(n.nivel, { permite_descuento_linea: e.target.value === 'S' })}
+                    title="VERDTO"
+                  >
+                    <option value="N">N</option>
+                    <option value="S">S</option>
+                  </GwSelect>
+                  <GwNumber disabled={dis} value={v?.incremento_pct ?? null} decimals={2} onChange={(x) => setNivel(n.nivel, { incremento_pct: x })} />
+                  <GwNumber disabled={dis} value={v?.pvp ?? null} decimals={3} onChange={(x) => setNivel(n.nivel, { pvp: x })} />
+                </div>
+              )
+            })}
+          </div>
+          <div className="flex justify-end">
+            <button type="button" className="gw-btn" disabled={!selected || !nivelesDirty} onClick={saveNiveles}>
+              <Save size={14} /> Guardar Pvps
             </button>
           </div>
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500">
-                <th className={th}>Tarifa</th>
-                <th className={th}>Modo</th>
-                <th className={th}>Incremento %</th>
-                <th className={th}>PVP</th>
-                <th className={th}>Permite dto. en línea</th>
-              </tr>
-            </thead>
-            <tbody>
-              {NIVELES_TARIFA.map((n) => {
-                const v = niveles[n.nivel]
-                return (
-                  <tr key={n.nivel} className="border-b border-slate-100 last:border-0">
-                    <td className={`${td} font-medium text-slate-700`}>{n.nombre}</td>
-                    <td className={td}>
-                      <SelectInput
-                        className="py-1 text-xs"
-                        value={v?.modo_calculo ?? 'P'}
-                        onChange={(e) => setNivel(n.nivel, { modo_calculo: e.target.value })}
-                      >
-                        <option value="P">P — % sobre coste</option>
-                        <option value="D">D — % dto. sobre General</option>
-                      </SelectInput>
-                    </td>
-                    <td className={td}>
-                      <TextInput
-                        type="number"
-                        step="0.01"
-                        className="w-24 py-1 text-xs"
-                        value={v?.incremento_pct ?? ''}
-                        onChange={(e) => setNivel(n.nivel, { incremento_pct: e.target.value })}
-                      />
-                    </td>
-                    <td className={td}>
-                      <TextInput
-                        type="number"
-                        step="0.001"
-                        className="w-28 py-1 text-xs"
-                        value={v?.pvp ?? ''}
-                        onChange={(e) => setNivel(n.nivel, { pvp: e.target.value })}
-                      />
-                    </td>
-                    <td className={td}>
-                      <Toggle
-                        label=""
-                        checked={v?.permite_descuento_linea ?? true}
-                        onChange={(val) => setNivel(n.nivel, { permite_descuento_linea: val })}
-                      />
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
         </div>
-      )}
-    </div>
+      </div>
+    </GwGroup>
   )
 }
 
@@ -519,67 +459,51 @@ function OfertasRegalo({
   const selected = rows.find((r) => r.id === selectedId)
 
   const editRow = (d: ArticuloOferta) => (
-    <tr className="border-b border-slate-100 bg-amber-50/40">
-      <td className={td}>
-        <SelectInput
-          className={inp}
-          value={d.tipo_oferta}
-          onChange={(e) => setEditing({ ...d, tipo_oferta: Number(e.target.value) })}
-        >
+    <tr key={d.id ?? 'nueva'}>
+      <td>
+        <GwSelect value={d.tipo_oferta} onChange={(e) => setEditing({ ...d, tipo_oferta: Number(e.target.value) })}>
           {TIPOS_OFERTA.map((t) => (
             <option key={t.value} value={t.value}>
               {t.label}
             </option>
           ))}
-        </SelectInput>
+        </GwSelect>
       </td>
-      <td className={td}>
-        <TextInput className={inp} value={d.descripcion ?? ''} onChange={(e) => setEditing({ ...d, descripcion: str(e.target.value) })} autoFocus />
+      <td>
+        <GwInput autoFocus value={d.descripcion ?? ''} onChange={(e) => setEditing({ ...d, descripcion: str(e.target.value) })} />
       </td>
-      <td className={td}>
-        <div className="flex flex-col gap-1">
-          <div className="flex gap-1">
-            <TextInput type="date" className={inp} value={d.fecha_desde ?? ''} onChange={(e) => setEditing({ ...d, fecha_desde: str(e.target.value) })} />
-            <TextInput type="time" className="w-20 py-1 text-xs" value={d.hora_desde ?? ''} onChange={(e) => setEditing({ ...d, hora_desde: str(e.target.value) })} />
-          </div>
-          <div className="flex gap-1">
-            <TextInput type="date" className={inp} value={d.fecha_hasta ?? ''} onChange={(e) => setEditing({ ...d, fecha_hasta: str(e.target.value) })} />
-            <TextInput type="time" className="w-20 py-1 text-xs" value={d.hora_hasta ?? ''} onChange={(e) => setEditing({ ...d, hora_hasta: str(e.target.value) })} />
-          </div>
-        </div>
+      <td>
+        <Periodo fd={d.fecha_desde} hd={d.hora_desde} fh={d.fecha_hasta} hh={d.hora_hasta} onChange={(p) => setEditing({ ...d, ...p })} />
       </td>
-      <td className={td}>
-        <TextInput type="number" step="0.001" className={inp} value={d.cada_x_cantidad ?? ''} onChange={(e) => setEditing({ ...d, cada_x_cantidad: num(e.target.value) })} />
+      <td>
+        <GwNumber value={d.cada_x_cantidad} decimals={3} onChange={(v) => setEditing({ ...d, cada_x_cantidad: v })} />
       </td>
-      <td className={td}>
-        <TextInput
-          className={inp}
-          placeholder="Código interno"
+      <td>
+        <GwInput
           disabled={d.tipo_oferta !== 1}
           value={d.articulo_regalo_codigo ?? ''}
           onChange={(e) => setEditing({ ...d, articulo_regalo_codigo: str(e.target.value) })}
         />
       </td>
-      <td className={td}>
-        <TextInput type="number" step="0.001" className={inp} value={d.cantidad_oferta ?? ''} onChange={(e) => setEditing({ ...d, cantidad_oferta: num(e.target.value) })} />
+      <td>
+        <GwNumber value={d.cantidad_oferta} decimals={3} onChange={(v) => setEditing({ ...d, cantidad_oferta: v })} />
       </td>
-      <td className={td}>
-        <TextInput type="number" step="0.01" className={inp} value={d.descuento_pct ?? ''} onChange={(e) => setEditing({ ...d, descuento_pct: num(e.target.value) })} />
+      <td>
+        <GwNumber value={d.descuento_pct} decimals={2} onChange={(v) => setEditing({ ...d, descuento_pct: v })} />
       </td>
-      <td className={td}>
-        <TextInput type="number" step="0.001" className={inp} value={d.pvp_fijo ?? ''} onChange={(e) => setEditing({ ...d, pvp_fijo: num(e.target.value) })} />
+      <td>
+        <GwNumber value={d.pvp_fijo} decimals={3} onChange={(v) => setEditing({ ...d, pvp_fijo: v })} />
       </td>
-      <RowActions onSave={saveRow} onCancel={() => setEditing(null)} />
     </tr>
   )
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200">
+    <GwGroup title="Ofertas con Regalos y Descuentos">
       <GridBar
-        title="Ofertas con regalos y descuentos"
         busy={!!editing}
         canEdit={!!selected}
-        onAdd={() =>
+        onAdd={() => {
+          setError(null)
           setEditing({
             articulo_codigo: articuloCodigo,
             tipo_oferta: 0,
@@ -594,58 +518,53 @@ function OfertasRegalo({
             descuento_pct: null,
             pvp_fijo: null,
           })
-        }
-        onEdit={() => selected && setEditing({ ...selected })}
+        }}
+        onEdit={() => {
+          setError(null)
+          if (selected) setEditing({ ...selected })
+        }}
         onDelete={deleteSelected}
+        onSave={saveRow}
+        onCancel={() => setEditing(null)}
       />
-      <table className="w-full text-xs">
+      <table className="gw-grid">
         <thead>
-          <tr className="border-b border-slate-200 text-slate-500">
-            <th className={th}>Tipo</th>
-            <th className={th}>Descripción</th>
-            <th className={th}>Periodo</th>
-            <th className={th}>Cada X uds.</th>
-            <th className={th}>Artículo regalo</th>
-            <th className={th}>Cant. oferta</th>
-            <th className={th}>Dto. %</th>
-            <th className={th}>PVP fijo</th>
-            <th className={th} />
+          <tr>
+            <th style={{ width: 100 }}>Tipo</th>
+            <th>Descripción</th>
+            <th style={{ width: 230 }}>Periodo</th>
+            <th className="text-right" style={{ width: 85 }}>Cada X uds.</th>
+            <th style={{ width: 120 }}>Art. Regalo</th>
+            <th className="text-right" style={{ width: 85 }}>Cant. Oferta</th>
+            <th className="text-right" style={{ width: 70 }}>% Dto.</th>
+            <th className="text-right" style={{ width: 85 }}>Pvp Fijo</th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 && !editing && (
             <tr>
-              <td colSpan={9} className="px-2 py-4 text-center text-slate-400">
-                Sin ofertas con regalo o descuento.
-              </td>
+              <td colSpan={8} className="text-center text-[#6d6d6d]">Sin ofertas con regalo o descuento.</td>
             </tr>
           )}
           {rows.map((r) =>
             editing && editing.id === r.id ? (
-              <Fragment key={r.id}>{editRow(editing)}</Fragment>
+              editRow(editing)
             ) : (
-              <tr
-                key={r.id}
-                onClick={() => setSelectedId(r.id ?? null)}
-                className={`cursor-pointer border-b border-slate-100 last:border-0 ${
-                  selectedId === r.id ? 'bg-indigo-50' : 'hover:bg-slate-50'
-                }`}
-              >
-                <td className={td}>{TIPOS_OFERTA.find((t) => t.value === r.tipo_oferta)?.label ?? r.tipo_oferta}</td>
-                <td className={td}>{r.descripcion ?? '—'}</td>
-                <td className={td}>{periodo(r.fecha_desde, r.hora_desde, r.fecha_hasta, r.hora_hasta)}</td>
-                <td className={td}>{r.cada_x_cantidad ?? '—'}</td>
-                <td className={td}>{r.articulo_regalo_codigo ?? '—'}</td>
-                <td className={td}>{r.cantidad_oferta ?? '—'}</td>
-                <td className={td}>{r.descuento_pct ?? '—'}</td>
-                <td className={td}>{r.pvp_fijo ?? '—'}</td>
-                <td className={td} />
+              <tr key={r.id} className={selectedId === r.id ? 'gw-selected' : ''} onClick={() => !editing && setSelectedId(r.id ?? null)}>
+                <td>{TIPOS_OFERTA.find((t) => t.value === r.tipo_oferta)?.label ?? r.tipo_oferta}</td>
+                <td>{r.descripcion ?? ''}</td>
+                <td>{periodo(r.fecha_desde, r.hora_desde, r.fecha_hasta, r.hora_hasta)}</td>
+                <td className="text-right tabular-nums">{formatGw(r.cada_x_cantidad, 3)}</td>
+                <td>{r.articulo_regalo_codigo ?? ''}</td>
+                <td className="text-right tabular-nums">{formatGw(r.cantidad_oferta, 3)}</td>
+                <td className="text-right tabular-nums">{formatGw(r.descuento_pct, 2)}</td>
+                <td className="text-right tabular-nums">{formatGw(r.pvp_fijo, 3)}</td>
               </tr>
             ),
           )}
           {editing && editing.id == null && editRow(editing)}
         </tbody>
       </table>
-    </div>
+    </GwGroup>
   )
 }
