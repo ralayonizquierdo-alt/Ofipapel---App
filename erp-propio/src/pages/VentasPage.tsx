@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Plus, Trash2, Lock, Unlock } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from '../lib/AuthContext'
 import { DataTable, type Column } from '../components/DataTable'
 import { Modal } from '../components/Modal'
 import { FormField, TextInput, SelectInput } from '../components/FormField'
@@ -12,11 +11,11 @@ function hoy() {
   return new Date().toISOString().slice(0, 10)
 }
 
-// Heurística temporal: rober@ofipapel.local -> ROBER (coincide con los empleados ya
-// sembrados). Pendiente de un vínculo real auth.users <-> empleado (ver DECISIONES.md).
-function empleadoCodigoDeSesion(email: string | undefined): string | null {
-  if (!email) return null
-  return email.split('@')[0].toUpperCase()
+// fn_empleado_actual() resuelve el empleado.codigo real vinculado a la sesión
+// vía empleado.auth_user_id (= auth.uid()) — no una heurística sobre el email.
+async function empleadoCodigoActual(): Promise<string | null> {
+  const { data } = await supabase.rpc('fn_empleado_actual')
+  return data ?? null
 }
 
 interface CajaSesion {
@@ -54,7 +53,6 @@ interface LineaForm {
 }
 
 export function VentasPage() {
-  const { session } = useAuth()
   const [caja, setCaja] = useState<CajaSesion | null>(null)
   const [loadingCaja, setLoadingCaja] = useState(true)
   const [ventas, setVentas] = useState<Venta[]>([])
@@ -137,7 +135,7 @@ export function VentasPage() {
       ejercicio,
       fecha_apertura: new Date().toISOString(),
       cerrado: false,
-      empleado_apertura_codigo: empleadoCodigoDeSesion(session?.user.email),
+      empleado_apertura_codigo: await empleadoCodigoActual(),
       fondo_inicial: Number(fondoInicial) || 0,
     })
     if (insertError) {
@@ -177,7 +175,7 @@ export function VentasPage() {
       .update({
         cerrado: true,
         fecha_cierre: new Date().toISOString(),
-        empleado_cierre_codigo: empleadoCodigoDeSesion(session?.user.email),
+        empleado_cierre_codigo: await empleadoCodigoActual(),
         total_efectivo: totalEfectivo,
         total_tarjeta: totalTarjeta,
         total_ingreso: totalEfectivo + totalTarjeta,

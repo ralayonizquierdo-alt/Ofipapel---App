@@ -73,12 +73,10 @@ vender si no hay caja abierta. Dos notas de implementación:
   para los *movimientos* de caja, no para la sesión) — se calcula como
   `max(ejercicio)+1` por tienda, razonable con una sola tienda/terminal
   activa hoy.
-- `empleado_apertura_codigo`/`empleado_cierre_codigo` llevan una FK a
-  `empleado`, que todavía no tiene vínculo real con `auth.users`. De
-  momento se deriva del email de sesión (`rober@ofipapel.local` →
-  `ROBER`), que coincide con los dos empleados ya sembrados — simplificación
-  temporal, pendiente de decidir el vínculo real cuando haya altas de
-  empleados desde la propia app.
+- `empleado_apertura_codigo`/`empleado_cierre_codigo` se resuelven con
+  `fn_empleado_actual()` (ver más abajo) — el vínculo real
+  `empleado.auth_user_id` ya existe en el esquema y ya estaba poblado
+  para `ROBER`/`LUIS`; no hacía falta ninguna heurística.
 
 **Facturación** (Fase 6) ya calcula la huella Veri*Factu real —
 `src/lib/verifactu.ts`, algoritmo oficial del Artículo 137 de la Orden
@@ -113,3 +111,31 @@ el envío real al webservice de la AEAT (ahora mismo todo queda en
 `estado_envio_aeat = 'pendiente_envio'`), que requiere certificado
 digital de la empresa — por eso `FIREFLY_CLIENT_ID` aparte, esto
 necesita su propio certificado, no relacionado con Adobe Firefly.
+
+## Roles reales y auditoría (en progreso, 26-10-2026 noche)
+
+El esquema ya traía `rol`/`permiso`/`rol_permiso`/`auditoria` (Fase 1)
+sin usar — RLS era solo "cualquier autenticado puede todo". Se está
+conectando de verdad:
+
+- **Hecho y verificado en la base real**: catálogo inicial de permisos
+  (`gestionar_usuarios`, `ver_informes_financieros`, `operar_tpv`,
+  `gestionar_compras`, `facturar`), 2 roles (`GERENCIA` con todos los
+  permisos, `DEPENDIENTE` con los operativos), `ROBER`/`LUIS` asignados
+  a `GERENCIA`, y tres funciones: `fn_empleado_actual()` (resuelve el
+  `empleado.codigo` de la sesión vía `empleado.auth_user_id = auth.uid()`),
+  `fn_tiene_permiso(codigo)` y `fn_auditoria_trigger()` (trigger
+  genérico que escribe en `auditoria` con `datos_antes`/`datos_despues`
+  en jsonb).
+- **Pendiente** (se quedó a medias por una confirmación de la
+  herramienta de migraciones que no se pudo responder a tiempo, sin
+  ningún cambio a medio aplicar — hay que terminarlo en la próxima
+  sesión): atar `fn_auditoria_trigger()` a `factura`,
+  `movimiento_stock`, `movimiento_caja`, `caja_apertura_cierre` y
+  `venta`; sustituir la política RLS "todo vale" de `factura` por
+  solo SELECT/INSERT (las facturas no deben poder editarse ni
+  borrarse nunca, es obligación legal de Veri*Factu); y restringir la
+  edición de `empleado`/`rol`/`rol_permiso` a quien tenga el permiso
+  `gestionar_usuarios`. El resto de las 93 tablas se queda con la
+  política "cualquier autenticado" de momento — llevar esto a una
+  matriz de permisos completa es trabajo futuro, no de esta sesión.
