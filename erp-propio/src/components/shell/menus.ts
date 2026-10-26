@@ -239,7 +239,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/tiendas', title: 'Tiendas' },
   { prefix: '/empleados', title: 'Empleados' },
   { prefix: '/stock', title: 'Listados Artículos (stock por almacén)' },
-  { prefix: '/traspasos', title: 'Traspasos entre Almacenes' },
+  { prefix: '/traspasos', title: 'Traspasos de artículos entre almacenes' },
   { prefix: '/inventario', title: 'Inventarios' },
   { prefix: '/compras', title: 'Pedidos a Proveedores' },
   { prefix: '/pedidos-proveedor', title: 'Pedidos a Proveedores' },

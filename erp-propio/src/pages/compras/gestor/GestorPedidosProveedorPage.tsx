@@ -486,7 +486,10 @@ export function GestorPedidosProveedorPage() {
           </>
         )}
 
-        {tab === 'propuestas' && <TabPropuestas opciones={opciones} onError={setError} onPedidosCreados={() => cargar(aplicado.current)} />}
+        {tab === 'propuestas' && <TabPropuestas opciones={opciones} onError={setError} onPedidosCreados={() => {
+              conocidos.current = null // los acabamos de crear aquí: no avisar como «nuevos»
+              cargar(aplicado.current)
+            }} />}
         {tab === 'articulos' && <TabArticulos opciones={opciones} onError={setError} />}
         {tab === 'peticiones' && <TabPeticiones opciones={opciones} onError={setError} />}
         {tab === 'opciones' && <TabOpciones opciones={opciones} onChange={setOpciones} />}
