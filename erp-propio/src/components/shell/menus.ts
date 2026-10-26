@@ -8,6 +8,8 @@ export interface MenuItem {
   to?: string
   action?: MenuAction
   shortcut?: string
+  /** Texto de la barra de estado al pasar el ratón (p. ej. «Ficha de Vendedores»). */
+  description?: string
   children?: MenuEntry[]
   checked?: boolean
 }
@@ -81,24 +83,28 @@ export const MENUS: TopMenu[] = [
   {
     label: 'Ventas',
     items: [
-      ...off(['Vendedores', 'Repartidores', 'Zonas Territoriales', 'Rutas de Reparto']),
-      item('Repartos', { to: '/repartos' }),
-      ...off(['Técnicos', 'Nº Serie']),
+      item('Vendedores', { to: '/vendedores', description: 'Ficha de Vendedores' }),
+      item('Repartidores', { to: '/repartidores', description: 'Ficha de Repartidores' }),
+      item('Zonas Territoriales', { to: '/zonas-territoriales', description: 'Zonas Territoriales' }),
+      item('Rutas de Reparto', { to: '/rutas-reparto', description: 'Rutas de Reparto' }),
+      item('Repartos', { to: '/repartos', description: 'Repartos' }),
+      item('Técnicos', { to: '/tecnicos', description: 'Ficha de Técnicos' }),
+      item('Nº Serie', { to: '/numeros-serie', description: 'Números de Serie' }),
       'sep',
-      item('Pedidos', { to: '/pedidos' }),
-      item('TPV / Ventas', { to: '/ventas', shortcut: 'Ctrl+F12' }),
-      item('Ventas / Facturas'),
-      item('Reparaciones', { shortcut: 'Ctrl+F11' }),
-      item('Presupuestos'),
-      item('Gestor de Pedidos', { shortcut: 'Alt+F6' }),
-      item('Gestor de Presupuestos'),
+      item('Pedidos', { to: '/pedidos', description: 'Pedidos de Clientes' }),
+      item('TPV / Ventas', { to: '/tpv', shortcut: 'CTRL+F12', description: 'TPV / Ventas' }),
+      item('Ventas / Facturas', { to: '/ventas', description: 'Ventas / Facturas' }),
+      item('Reparaciones', { to: '/reparaciones', shortcut: 'CTRL+F11', description: 'Reparaciones' }),
+      item('Presupuestos', { to: '/presupuestos', description: 'Presupuestos' }),
+      item('Gestor de Pedidos', { to: '/gestor-pedidos', shortcut: 'ALT+F6', description: 'Gestor de Pedidos' }),
+      item('Gestor de Presupuestos', { to: '/gestor-presupuestos', description: 'Gestor de Presupuestos' }),
       'sep',
       item('Listados', {
         children: [
           item('List. Ventas', {
-            children: [item('List. de Ventas'), item('Ventas por Artículo', { shortcut: 'Alt+F9' })],
+            children: [item('List. de Ventas'), item('Ventas por Artículo', { shortcut: 'ALT+F9' })],
           }),
-          ...off(['List. Pedidos', 'L. Reparaciones', 'List. Presupuestos', 'List. Tarjetas', 'List. Divisas', 'List. Apert. Cajón']),
+          ...off(['List Pedidos', 'L. Reparaciones', 'List. Presupuestos', 'List. Tarjetas', 'List. Divisas', 'List. Apert. Cajón']),
         ],
       }),
     ],
@@ -110,8 +116,9 @@ export const MENUS: TopMenu[] = [
       item('Listado de Caja', { shortcut: 'Ctrl+F5' }),
       item('Entrada en caja'),
       item('Salida de caja'),
-      item('Apertura de Caja', { to: '/ventas', shortcut: 'Alt+F6' }),
-      item('Cierre de Caja', { to: '/ventas', shortcut: 'Ctrl+F6' }),
+      // En GeminisWin Apertura de Caja y Gestor de Pedidos muestran los dos Alt+F6; el atajo real va al Gestor.
+      item('Apertura de Caja', { to: '/caja', shortcut: 'Alt+F6 ' }),
+      item('Cierre de Caja', { to: '/caja', shortcut: 'Ctrl+F6' }),
       item('Aperturas y Cierres'),
     ],
   },
@@ -223,7 +230,19 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/compras', title: 'Pedidos a Proveedores' },
   { prefix: '/pedidos', title: 'Pedidos de Clientes' },
   { prefix: '/repartos', title: 'Repartos' },
-  { prefix: '/ventas', title: 'TPV / Ventas' },
+  { prefix: '/tpv', title: 'Ventas' },
+  { prefix: '/ventas', title: 'Ventas' },
+  { prefix: '/caja', title: 'Apertura y Cierre de Caja' },
+  { prefix: '/presupuestos', title: 'Presupuestos' },
+  { prefix: '/gestor-pedidos', title: 'Gestor de Pedidos' },
+  { prefix: '/gestor-presupuestos', title: 'Gestor de Presupuestos' },
+  { prefix: '/numeros-serie', title: 'Números de Serie' },
+  { prefix: '/reparaciones', title: 'Reparaciones' },
+  { prefix: '/vendedores', title: 'Vendedores' },
+  { prefix: '/tecnicos', title: 'Técnicos' },
+  { prefix: '/repartidores', title: 'Repartidores' },
+  { prefix: '/zonas-territoriales', title: 'Zonas Territoriales' },
+  { prefix: '/rutas-reparto', title: 'Rutas de Reparto' },
   { prefix: '/pagos', title: 'Pagos' },
   { prefix: '/facturacion', title: 'Facturas' },
   { prefix: '/resumen', title: 'Resumen del ERP' },
