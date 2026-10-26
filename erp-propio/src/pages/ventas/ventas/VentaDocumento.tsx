@@ -596,7 +596,7 @@ export function VentaDocumento({
           <fieldset className="gw-group flex gap-1 px-1 pb-1 pt-0">
             <Campo label="Tienda" ancho={88}>
               <select
-                className="gw-input h-[30px] text-[22px]"
+                className="gw-input !h-[30px] !text-[22px]"
                 value={tienda}
                 disabled={!(modo === 'alta' || (consulta && modoInicial === 'consulta'))}
                 onChange={(e) => {
@@ -620,7 +620,7 @@ export function VentaDocumento({
             </Campo>
             <Campo label={<><u>N</u>úmero</>} ancho={172}>
               <input
-                className="gw-input h-[30px] text-right text-[22px]"
+                className="gw-input !h-[30px] text-right !text-[22px]"
                 readOnly
                 value={cab.numero ?? ''}
                 placeholder={modo === 'alta' ? 'al guardar' : ''}
@@ -628,26 +628,26 @@ export function VentaDocumento({
               />
             </Campo>
             <Campo label="Fecha" ancho={148}>
-              <input className="gw-input h-[30px] text-[22px]" readOnly value={fechaES(cab.fecha)} />
+              <input className="gw-input !h-[30px] !text-[22px]" readOnly value={fechaES(cab.fecha)} />
             </Campo>
             <Campo label="Hora" ancho={112}>
-              <input className="gw-input h-[30px] text-[22px]" readOnly value={cab.hora} />
+              <input className="gw-input !h-[30px] !text-[22px]" readOnly value={cab.hora} />
             </Campo>
           </fieldset>
           <fieldset className="gw-group flex items-center gap-1 px-1 pb-1 pt-0">
             <legend className="text-[19px] font-bold leading-[18px]">Cliente</legend>
             <input
-              className="gw-input h-[30px] w-[92px] text-[21px]"
+              className="gw-input !h-[30px] !w-[92px] !text-[21px]"
               value={cab.cliente_codigo}
               readOnly={!editable}
               onChange={(e) => setCab((c) => ({ ...c, cliente_codigo: e.target.value }))}
               onBlur={(e) => editable && e.target.value !== guardadas?.cab.cliente_codigo && cambiarCliente(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
             />
-            <input className="gw-input h-[42px] w-[408px] text-[34px]" readOnly value={cab.cliente_nombre} title={cab.cliente_nombre} />
+            <input className="gw-input !h-[42px] !w-[408px] !text-[34px]" readOnly value={cab.cliente_nombre} title={cab.cliente_nombre} />
             <button
               type="button"
-              className="gw-btn h-[42px] w-[94px] text-[26px] font-bold"
+              className="gw-btn !h-[42px] !w-[94px] !text-[26px] !font-bold"
               disabled={!editable}
               title="Buscar cliente"
               onClick={() => setDialogo({ tipo: 'buscarCliente' })}
@@ -656,7 +656,7 @@ export function VentaDocumento({
             </button>
             <span className="text-[16px]">▪</span>
             <input
-              className="gw-input h-[30px] w-[30px] text-center text-[19px]"
+              className="gw-input !h-[30px] !w-[30px] text-center !text-[19px]"
               readOnly={!editable}
               value={cab.sucursal ?? '0'}
               title="Sucursal del cliente"
@@ -670,12 +670,12 @@ export function VentaDocumento({
           </legend>
           <div className="flex flex-1 flex-col gap-1.5">
             <div className="flex gap-1.5">
-              <input className="gw-input h-[42px] w-[118px] text-[34px]" readOnly value={empleadoVenta?.codigo ?? ''} />
-              <button type="button" className="gw-btn h-[52px] flex-1 text-[30px] font-bold" onClick={cambiarEmpleado} title="Cerrar la sesión y entrar con otro empleado">
+              <input className="gw-input !h-[42px] !w-[118px] !text-[34px]" readOnly value={empleadoVenta?.codigo ?? ''} />
+              <button type="button" className="gw-btn !h-[52px] !flex-1 !text-[30px] !font-bold" onClick={cambiarEmpleado} title="Cerrar la sesión y entrar con otro empleado">
                 Cambiar Empleado
               </button>
             </div>
-            <input className="gw-input h-[38px] text-[28px]" readOnly value={empleadoVenta?.nombre ?? ''} />
+            <input className="gw-input !h-[38px] !text-[28px]" readOnly value={empleadoVenta?.nombre ?? ''} />
           </div>
           <div className="relative h-[96px] w-[136px] flex-none border border-[var(--gw-border)] bg-[var(--gw-face)]">
             {empleadoVenta?.imagen_url ? (
@@ -800,7 +800,7 @@ export function VentaDocumento({
             <span className="w-[64px] text-[20px] font-bold">Dto.:</span>
             <PieNum value={cab.descuento_pie_pct} editable={editable} onChange={(v) => setCab((c) => ({ ...c, descuento_pie_pct: v }))} ancho={96} decimales={2} punto />
             <span className="text-[20px] font-bold">%</span>
-            <input className="gw-input h-[28px] flex-1 text-right text-[20px]" readOnly value={pie.descuento.toFixed(3)} />
+            <input className="gw-input !h-[28px] !flex-1 text-right !text-[20px]" readOnly value={pie.descuento.toFixed(3)} />
           </div>
           <div className="flex items-center gap-1">
             <span className="w-[64px] text-[20px] font-bold">Igic:</span>
@@ -965,7 +965,7 @@ function PieNum({
   const mostrado = txt ?? (punto ? value.toFixed(decimales) : formatGw(value, decimales))
   return (
     <input
-      className="gw-input h-[28px] text-right text-[20px]"
+      className="gw-input !h-[28px] text-right !text-[20px]"
       style={{ width: ancho }}
       readOnly={!editable}
       value={mostrado}

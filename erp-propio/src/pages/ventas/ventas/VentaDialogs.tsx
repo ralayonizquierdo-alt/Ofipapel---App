@@ -64,13 +64,13 @@ export function EmpleadoDialog({
         <fieldset className="gw-group mx-1.5 mt-1 px-2 pb-2">
           <legend className="text-[28px] font-bold leading-[30px]">Empleado</legend>
           <div className="flex items-center gap-2">
-            <input className="gw-input h-[40px] w-[90px] text-[28px] font-bold" readOnly value={empleado?.codigo ?? ''} />
-            <select className="gw-input h-[40px] flex-1 text-[28px] font-bold" disabled value={empleado?.codigo ?? ''}>
+            <input className="gw-input !h-[40px] !w-[90px] !text-[28px] !font-bold" readOnly value={empleado?.codigo ?? ''} />
+            <select className="gw-input !h-[40px] !flex-1 !text-[28px] !font-bold" disabled value={empleado?.codigo ?? ''}>
               <option value={empleado?.codigo ?? ''}>{empleado?.nombre ?? 'Usuario sin empleado asociado'}</option>
             </select>
             <button
               type="button"
-              className="gw-btn h-[40px] w-[90px] text-[24px] font-bold"
+              className="gw-btn !h-[40px] !w-[90px] !text-[24px] !font-bold"
               title="Para vender como otro empleado, usa «Cambiar Empleado»"
               onClick={onCambiarEmpleado}
             >
@@ -84,7 +84,7 @@ export function EmpleadoDialog({
             type="password"
             autoFocus
             autoComplete="current-password"
-            className="gw-input h-[44px] w-[300px] text-[22px]"
+            className="gw-input !h-[44px] !w-[300px] !text-[22px]"
             value={pass}
             onChange={(e) => setPass(e.target.value)}
           />
@@ -167,10 +167,10 @@ export function PagoDialog({
         </div>
         {excede && <p className="text-[14px] text-[#c42b1c]">Lo cobrado supera el importe: usa «Entregado» para calcular el cambio.</p>}
         <div className="flex justify-end gap-1.5 pt-1">
-          <button type="button" className="gw-btn h-[34px] px-6 text-[16px]" disabled={excede} onClick={() => onOk({ efectivo: efectivo ?? 0, tarjeta: tarjeta ?? 0 })}>
+          <button type="button" className="gw-btn !h-[34px] !px-6 !text-[16px]" disabled={excede} onClick={() => onOk({ efectivo: efectivo ?? 0, tarjeta: tarjeta ?? 0 })}>
             <Check size={16} className="text-[#127a12]" /> Aceptar
           </button>
-          <button type="button" className="gw-btn h-[34px] px-6 text-[16px]" onClick={onCancel}>
+          <button type="button" className="gw-btn !h-[34px] !px-6 !text-[16px]" onClick={onCancel}>
             <X size={16} className="text-[#c42b1c]" /> Cancelar
           </button>
         </div>

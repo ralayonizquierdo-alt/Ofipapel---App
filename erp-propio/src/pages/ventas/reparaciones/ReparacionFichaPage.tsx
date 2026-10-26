@@ -590,7 +590,7 @@ export function ReparacionFichaPage() {
   )
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-[3px]">
       {/* Cabecera: tienda, número, fecha y hora · empleado · vendedor */}
       <div className="grid grid-cols-[minmax(0,470px)_minmax(0,1fr)_minmax(0,1fr)] gap-x-2">
         <GwGroup>
@@ -716,14 +716,14 @@ export function ReparacionFichaPage() {
           </div>
         </div>
         <GwField label="Observaciones">
-          <GwTextArea rows={5} readOnly disabled title="Observaciones del Nº de serie (N_SERIES.OBSERV)" value={serie?.observaciones ?? ''} />
+          <GwTextArea rows={4} readOnly disabled className="h-full" title="Observaciones del Nº de serie (N_SERIES.OBSERV)" value={serie?.observaciones ?? ''} />
         </GwField>
       </div>
 
       {/* Avería · datos de entrega · observaciones de la reparación */}
       <div className="grid grid-cols-[minmax(0,1fr)_350px_minmax(0,370px)] gap-x-2">
         <GwField label={<span className="underline decoration-1 underline-offset-2">Averia</span>}>
-          <GwTextArea rows={3} title="AVERIA" value={draft.averia ?? ''} disabled={dis} onChange={(e) => patch({ averia: e.target.value || null })} />
+          <GwTextArea rows={2} title="AVERIA" value={draft.averia ?? ''} disabled={dis} onChange={(e) => patch({ averia: e.target.value || null })} />
         </GwField>
         <GwGroup title="Datos de Entrega" className="self-start">
           <div className="flex items-center gap-1.5">
@@ -734,12 +734,12 @@ export function ReparacionFichaPage() {
           </div>
         </GwGroup>
         <GwField label="Observaciones">
-          <GwTextArea rows={3} title="OBSER" value={draft.observaciones ?? ''} disabled={dis} onChange={(e) => patch({ observaciones: e.target.value || null })} />
+          <GwTextArea rows={2} title="OBSER" value={draft.observaciones ?? ''} disabled={dis} onChange={(e) => patch({ observaciones: e.target.value || null })} />
         </GwField>
       </div>
 
       {/* Líneas */}
-      <div className="h-[200px] overflow-auto border border-[var(--gw-border)] bg-white">
+      <div className="h-[160px] overflow-auto border border-[var(--gw-border)] bg-white">
         <table className="gw-grid min-w-[980px]">
           <thead className="sticky top-0 z-10">
             <tr>
@@ -802,7 +802,7 @@ export function ReparacionFichaPage() {
                 </tr>
               )
             })}
-            <FilasVacias cols={9} ocupadas={lineas.length} total={8} />
+            <FilasVacias cols={9} ocupadas={lineas.length} total={6} />
           </tbody>
         </table>
       </div>
@@ -867,7 +867,7 @@ export function ReparacionFichaPage() {
       </div>
 
       {/* Realizada, entregada y paso a venta / factura */}
-      <div className="flex items-end gap-1.5 border-t border-[var(--gw-border-light)] pt-1">
+      <div className="flex items-end gap-1.5">
         <Estado label="Realizada" vertical value={draft.preparado} disabled={dis} onClick={() => patch({ preparado: !draft.preparado })} />
         <Estado label="Entregada" vertical value={draft.entregado} disabled={dis} onClick={() => patch({ entregado: !draft.entregado })} />
         <GwField label="Fecha" className="w-[120px]">

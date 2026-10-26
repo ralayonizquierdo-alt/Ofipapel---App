@@ -165,7 +165,10 @@ export const MENUS: TopMenu[] = [
       item('Inventarios', { to: '/inventario' }),
       item('Inventariar Almacén'),
       'sep',
-      ...off(['Familias', 'Marcas', 'Plantillas Tarifas', 'Tarifas de Oferta', 'Modificación de Precios', 'Modif. de Artículos en bloque']),
+      item('Familias', { to: '/familias', description: 'Ficha de Familias' }),
+      item('Marcas', { to: '/marcas', description: 'Ficha de Marcas' }),
+      item('Plantillas Tarifas', { to: '/plantillas-tarifas', description: 'Plantillas de Tarifas' }),
+      ...off(['Tarifas de Oferta', 'Modificación de Precios', 'Modif. de Artículos en bloque']),
       'sep',
       item('Puntos de Restauración Stock'),
       item('Recalcular Stock', { children: [] }),
@@ -219,6 +222,9 @@ export const MENUS: TopMenu[] = [
 /** Descripción de cada ventana para la barra de título de la ventana hija y la barra de estado. */
 export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/articulos', title: 'Artículos' },
+  { prefix: '/familias', title: 'Familias' },
+  { prefix: '/marcas', title: 'Marcas' },
+  { prefix: '/plantillas-tarifas', title: 'Plantillas de Tarifas' },
   { prefix: '/clientes', title: 'Clientes' },
   { prefix: '/proveedores', title: 'Proveedores' },
   { prefix: '/almacenes', title: 'Almacenes' },
