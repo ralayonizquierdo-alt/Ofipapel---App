@@ -7,6 +7,7 @@ import type { Reservation } from '../types'
 import { MONTH_NAMES_ES, DAY_NAMES_ES, getDaysInMonth, getSeason } from '../lib/dateUtils'
 import { num } from '../lib/formato'
 import { huespedYPersonas, nombreDe, personasDe } from '../lib/huesped'
+import { ofertaDeReserva, nombreOferta } from '../lib/oferta'
 
 const APT_COLORS = [
   'bg-blue-400', 'bg-emerald-400', 'bg-violet-400', 'bg-amber-400',
@@ -14,7 +15,7 @@ const APT_COLORS = [
 ]
 
 export default function Planning() {
-  const { reservations, payments, apartments: allApartments } = useData()
+  const { reservations, payments, apartments: allApartments, prices, offerPrices } = useData()
   const navigate = useNavigate()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
@@ -254,12 +255,24 @@ export default function Planning() {
                     // primero que se mira en el planning (lo pidió el
                     // propietario el 26/10/2026).
                     const quien = huespedYPersonas(res)
+                    // Las tarifas de oferta mandan sobre la general, pero eso
+                    // pasaba por debajo y sin verse: un importe más bajo de lo
+                    // normal, sin nada al lado, parece un error. La marca la
+                    // pidió el propietario el 26/10/2026.
+                    const of = ofertaDeReserva(res, prices, offerPrices)
                     const label = `${vieneDeAntes ? '◀ ' : ''}${apt.id} — `
                       + (quien ? `${quien} — ` : '')
                       + `${fmtD(res.checkIn)} al ${fmtD(res.checkOut, true)}, `
                       + `${res.nights}-N, ${eur(res.total)}`
+                      // En la barra, solo la etiqueta: no cabe más. Lo que es
+                      // va en el título, que sale al parar el ratón encima.
+                      + (of ? ' 🏷️' : '')
+                    const titulo = !of ? label
+                      : of.cuadra
+                        ? `${label} — precio de la tarifa de oferta «${nombreOferta(of.oferta)}»`
+                        : `${label} — hay una tarifa de oferta para ese mes, «${nombreOferta(of.oferta)}», pero este importe no sale de ella`
                     celdas.push(
-                      <td key={d} colSpan={franja.hasta - d + 1} title={label} className="h-9 p-0.5">
+                      <td key={d} colSpan={franja.hasta - d + 1} title={titulo} className="h-9 p-0.5">
                         <div
                           className={`h-full ${colorMap[apt.id]} opacity-80 rounded-sm flex items-center overflow-hidden cursor-pointer hover:opacity-100`}
                           onClick={() => navigate(`/reservas?edit=${res.id}`)}
@@ -295,6 +308,7 @@ export default function Planning() {
           res={mirando}
           nombre={allApartments.find(a => a.id === mirando.apartmentId)?.name ?? mirando.apartmentId}
           cobrado={cobradoDe(mirando)}
+          oferta={ofertaDeReserva(mirando, prices, offerPrices)}
           eur={eur}
           onEditar={() => navigate(`/reservas?edit=${mirando.id}`)}
           onClose={() => setMirando(null)}
@@ -323,10 +337,11 @@ export default function Planning() {
  * enseñar un «pendiente» en negativo, que no se entiende. El sobrante no se
  * devuelve ni se descuenta de nada: la estancia queda cuadrada.
  */
-function DetalleReserva({ res, nombre, cobrado, eur, onEditar, onClose }: {
+function DetalleReserva({ res, nombre, cobrado, oferta, eur, onEditar, onClose }: {
   res: Reservation
   nombre: string
   cobrado: number
+  oferta: ReturnType<typeof ofertaDeReserva>
   eur: (n: number) => string
   onEditar: () => void
   onClose: () => void
@@ -344,6 +359,13 @@ function DetalleReserva({ res, nombre, cobrado, eur, onEditar, onClose }: {
     ['Noches', `${res.nights}`],
     ['Canal', res.channel],
     ['Importe', eur(res.total)],
+    // De qué tarifa salen los precios, cuando no es la general.
+    ...(oferta
+      ? [['Tarifa', oferta.cuadra
+          ? `🏷️ Oferta «${nombreOferta(oferta.oferta)}»`
+          : `🏷️ Hay oferta «${nombreOferta(oferta.oferta)}» para ese mes (${eur(oferta.total)}), pero este importe no sale de ella`,
+        ] as [string, string]]
+      : []),
     ['Cobrado', eur(cobrado)],
   ]
 

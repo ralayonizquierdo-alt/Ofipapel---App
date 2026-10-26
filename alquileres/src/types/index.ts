@@ -262,6 +262,7 @@ export type OrigenSubida =
   | 'pegado-airbnb'     // aviso de reserva de la aplicación de Airbnb
   | 'informe-airbnb'    // informe anual de la gestora del Arenal (Airbnb)
   | 'justificante'      // transferencia, pegada o leída de su PDF
+  | 'anulacion'         // aviso de reserva cancelada, pegado como texto
   | 'correcciones'      // arreglo puntual de datos ya cargados
 
 export const ORIGEN_LABEL: Record<OrigenSubida, string> = {
@@ -272,6 +273,7 @@ export const ORIGEN_LABEL: Record<OrigenSubida, string> = {
   'pegado-airbnb': 'Aviso de Airbnb',
   'informe-airbnb': 'Informe anual de Airbnb',
   'justificante': 'Justificante de transferencia',
+  'anulacion': 'Aviso de anulación',
   'correcciones': 'Corrección de datos',
 }
 

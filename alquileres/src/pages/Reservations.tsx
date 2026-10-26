@@ -5,6 +5,7 @@ import { useData } from '../contexts/DataContext'
 import type { Reservation, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
 import { formatDate, getNights, today } from '../lib/dateUtils'
 import { calcTotal, buscaTarifa, stayTypeDays, lineasPrecio, TRAMO_LABEL, type Tramo } from '../lib/priceCalc'
+import { ofertaDeReserva, nombreOferta } from '../lib/oferta'
 import { EJERCICIO_APP } from '../lib/cuentas'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
@@ -34,7 +35,7 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default function Reservations() {
-  const { reservations, payments, apartments, prices } = useData()
+  const { reservations, payments, apartments, prices, offerPrices } = useData()
   const [showForm, setShowForm] = useState(false)
   const [showPegar, setShowPegar] = useState(false)
   const [showCalendario, setShowCalendario] = useState(false)
@@ -188,7 +189,25 @@ export default function Reservations() {
                   <td className="py-3 px-4 text-slate-600">{formatDate(r.checkOut)}</td>
                   <td className="py-3 px-4 text-slate-600">{r.nights}N</td>
                   <td className="py-3 px-4 text-slate-500 text-xs">{STAY_LABELS[r.stayType]}</td>
-                  <td className="py-3 px-4 text-right font-semibold text-slate-800 tabular-nums">{eur(r.total)}</td>
+                  {/* Si el importe sale de una tarifa de oferta se dice aquí:
+                      si no, un precio más bajo de lo normal parece un error
+                      (lo pidió el propietario el 26/10/2026). */}
+                  <td className="py-3 px-4 text-right font-semibold text-slate-800 tabular-nums">
+                    {eur(r.total)}
+                    {(() => {
+                      const of = ofertaDeReserva(r, prices, offerPrices)
+                      if (!of) return null
+                      return (
+                        <span
+                          title={of.cuadra
+                            ? `Precio de la tarifa de oferta «${nombreOferta(of.oferta)}»`
+                            : `Hay una tarifa de oferta «${nombreOferta(of.oferta)}» para ese mes (${eur(of.total)}), pero este importe no sale de ella`}
+                          className={`block text-[10px] font-medium ${of.cuadra ? 'text-violet-700' : 'text-amber-700'}`}>
+                          🏷️ {of.cuadra ? 'oferta' : 'hay oferta'}
+                        </span>
+                      )
+                    })()}
+                  </td>
                   <td className="py-3 px-4 text-right text-slate-600 tabular-nums">
                     {eur(paid)}
                   </td>

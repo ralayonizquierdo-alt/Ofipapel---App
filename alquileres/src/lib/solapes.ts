@@ -13,16 +13,20 @@ import { today } from './dateUtils'
  * encima, y resultó ser una reserva anulada que nunca se marcó como anulada.
  * El planning lo enseñaba, pero había que ir a mirarlo; ahora salta solo.
  *
- * Al encenderlo contra los datos de verdad salieron 8 pares, y **casi todos
- * eran la misma estancia metida dos veces**: el calendario del Excel se
- * importó año a año, así que una estancia de diciembre a marzo quedó cortada
- * el 31 de diciembre en un apunte y entera en otro (el 203 lo dice en su
- * propia nota: «entra 03/12/2025 y sale 31/03/2026», guardado como
- * 03/12/2025 → 31/12/2025). Son de ejercicios cerrados y no hay dos clientes
- * con la misma llave. Por eso cada solape se clasifica (`tipo`) y se marca si
- * toca de hoy en adelante (`actual`): el aviso que salta al entrar es solo
- * para lo que aún puede dejar a alguien en la calle, y lo viejo se repasa
- * cuando se pueda, sin tapar lo urgente.
+ * **Solo se mira de hoy en adelante** (decisión del propietario, 26/10/2026:
+ * «olvida los años pasados porque si no no acabamos nunca»). Al encenderlo
+ * contra los datos de verdad salieron 8 pares y todos eran de 2024 y 2025, y
+ * casi todos **la misma estancia metida dos veces**: el calendario del Excel
+ * se importó año a año, así que una estancia de diciembre a marzo quedó
+ * cortada el 31 de diciembre en un apunte y entera en otro (el 203 lo dice en
+ * su propia nota: «entra 03/12/2025 y sale 31/03/2026», guardado como
+ * 03/12/2025 → 31/12/2025). Eso ya no se puede arreglar con nadie dentro, y un
+ * aviso que no se puede cerrar nunca deja de mirarse: el día que haya un
+ * solape de verdad no lo vería nadie. Lo que importa es lo que todavía puede
+ * dejar a alguien en la puerta.
+ *
+ * Cuando sale uno, se clasifica (`tipo`) para decir si parece la misma
+ * estancia apuntada dos veces o dos clientes distintos.
  *
  * Una salida y una entrada el mismo día NO se pisan: el `checkOut` es
  * exclusivo, esa noche ya no duerme nadie.
@@ -48,8 +52,6 @@ export interface Solape {
   motivo?: string
   /** La reserva que sobra, cuando está claro cuál es (la cortada). */
   sobra?: Reservation
-  /** Si las noches compartidas llegan a hoy o al futuro. */
-  actual: boolean
 }
 
 const DIA = 86400000
@@ -109,15 +111,19 @@ function mismaEstancia(a: Reservation, b: Reservation): { sobra: Reservation; mo
 }
 
 /**
- * Todos los pares de reservas que se pisan, del más reciente al más antiguo.
+ * Los pares de reservas que se pisan **de hoy en adelante**, del más próximo
+ * al más lejano.
  *
- * Se miran todas, no solo las del ejercicio en curso: una reserva vieja mal
- * anulada sigue siendo un error, y además ensucia el planning de ese mes.
+ * Lo que ya pasó no entra: no se puede arreglar y taparía lo que sí importa
+ * (ver la explicación de arriba). Una estancia en marcha sí cuenta, aunque
+ * empezara el año pasado, porque ahí todavía hay alguien dentro.
  */
 export function solapes(reservations: Reservation[]): Solape[] {
   const hoy = today()
   const vivas = reservations
     .filter(r => r.status !== 'cancelada' && r.checkIn && r.checkOut && r.checkIn < r.checkOut)
+    // Las que ya terminaron no pueden pisar a nadie hoy.
+    .filter(r => r.checkOut > hoy)
     .sort((x, y) => x.checkIn.localeCompare(y.checkIn))
 
   const porApto = new Map<string, Reservation[]>()
@@ -145,21 +151,10 @@ export function solapes(reservations: Reservation[]): Solape[] {
           tipo: dup ? 'duplicada' : 'solape',
           motivo: dup?.motivo,
           sobra: dup?.sobra,
-          actual: hasta >= hoy,
         })
       }
     }
   }
 
-  return fuera.sort((x, y) => y.desde.localeCompare(x.desde))
-}
-
-/**
- * Los que hay que mirar ya: los que tocan de hoy en adelante, porque son los
- * únicos que todavía pueden dejar a alguien en la puerta. Son los que sacan la
- * ventana al entrar; lo de ejercicios cerrados se queda en la tarjeta del
- * panel, que para eso está, sin tapar lo urgente cada vez que se abre la app.
- */
-export function solapesUrgentes(lista: Solape[]): Solape[] {
-  return lista.filter(s => s.actual)
+  return fuera.sort((x, y) => x.desde.localeCompare(y.desde))
 }
