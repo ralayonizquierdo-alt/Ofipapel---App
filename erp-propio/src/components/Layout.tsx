@@ -15,6 +15,7 @@ import {
   MapPinned,
   Banknote,
   ArrowRightLeft,
+  ClipboardCheck,
 } from 'lucide-react'
 import { useAuth } from '../lib/AuthContext'
 
@@ -28,6 +29,7 @@ const nav = [
   { to: '/empleados', label: 'Empleados', icon: UserCog },
   { to: '/stock', label: 'Stock', icon: Warehouse },
   { to: '/traspasos', label: 'Traspasos', icon: ArrowRightLeft },
+  { to: '/inventario', label: 'Inventario', icon: ClipboardCheck },
   { to: '/compras', label: 'Compras', icon: ShoppingCart },
   { to: '/pedidos', label: 'Pedidos de clientes', icon: ClipboardList },
   { to: '/repartos', label: 'Repartos', icon: MapPinned },

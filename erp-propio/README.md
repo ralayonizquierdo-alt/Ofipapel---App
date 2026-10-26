@@ -79,6 +79,16 @@ esquema ya tenía para esto), descuenta stock igual que una venta de
 TPV, y marca el pedido `entregado: true`. Verificado en vivo igual que
 Compras.
 
+**Inventario** completa el último tipo de documento numerable que
+quedaba sin usar (`inventario`, con `inventario_linea`). Es un recuento
+físico: se anota la cantidad contada por artículo, y "Cerrar e
+inventariar" compara esa cantidad contra el stock de sistema en ese
+momento y genera **solo** los `movimiento_stock` de ajuste reales
+(uno por artículo cuya cantidad contada no coincide con el stock —
+los que ya coinciden no generan ningún movimiento). Verificado en
+vivo: artículo sin stock de sistema, se cuenta 20 unidades físicas,
+cerrar inventario → saldo final 20 exacto.
+
 **Traspasos entre almacenes** usa `traspaso_almacen`/`traspaso_almacen_linea`
 (numerado vía `fn_siguiente_numero`, tipo `'traspaso_almacen'` — ya
 estaba en el catálogo sin usar), con el mismo patrón "crear pendiente
