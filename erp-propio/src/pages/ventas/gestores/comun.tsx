@@ -231,8 +231,17 @@ export function FiltroBar({
               <option key={p}>{p}</option>
             ))}
           </select>
-          <input type="date" className={`${BIG_INPUT} mx-1.5 w-auto!`} disabled={!personal} value={filtro.desde} onChange={(e) => set({ desde: e.target.value })} title="Desde" />
-          <input type="date" className={`${BIG_INPUT} mx-1.5 w-auto!`} disabled={!personal} value={filtro.hasta} onChange={(e) => set({ hasta: e.target.value })} title="Hasta" />
+          {personal ? (
+            <>
+              <input type="date" className={`${BIG_INPUT} mx-1.5 w-auto!`} value={filtro.desde} onChange={(e) => set({ desde: e.target.value })} title="Desde" />
+              <input type="date" className={`${BIG_INPUT} mx-1.5 w-auto!`} value={filtro.hasta} onChange={(e) => set({ hasta: e.target.value })} title="Hasta" />
+            </>
+          ) : (
+            <>
+              <input className={`${BIG_INPUT} mx-1.5 w-auto! text-[#6d6d6d]!`} disabled value={fechaEs(filtro.desde)} title="Desde (elige «Personalizado» para cambiarla)" />
+              <input className={`${BIG_INPUT} mx-1.5 w-auto! text-[#6d6d6d]!`} disabled value={fechaEs(filtro.hasta)} title="Hasta (elige «Personalizado» para cambiarla)" />
+            </>
+          )}
         </div>
       </fieldset>
       <fieldset className="gw-group min-w-0 flex-1 px-2 pb-2 pt-1">

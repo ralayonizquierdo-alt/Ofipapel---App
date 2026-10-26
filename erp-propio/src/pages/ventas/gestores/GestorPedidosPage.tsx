@@ -229,7 +229,8 @@ export function GestorPedidosPage() {
       let ptPd = false
       let ptRs = false
       let algunaLiq = false
-      for (const l of ls) {
+      const liq = Number(c.liquidado ?? 0)
+      for (const l of liq === 5 ? [] : ls) {
         const pendiente = Number(l.cantidad ?? 0) - Number(l.unidades_liquidadas ?? 0)
         if (Number(l.unidades_liquidadas ?? 0) > 0) algunaLiq = true
         if (!l.articulo_codigo || pendiente <= 0) continue
@@ -237,7 +238,6 @@ export function GestorPedidosPage() {
         if (!s || s.disp < pendiente) ptPd = true
         else ptRs = true
       }
-      const liq = Number(c.liquidado ?? 0)
       const estado = liq === 5 ? 'Liquidado' : liq > 0 || algunaLiq ? 'Liq. Frag. Pend.' : 'Pendiente'
       return {
         key,
