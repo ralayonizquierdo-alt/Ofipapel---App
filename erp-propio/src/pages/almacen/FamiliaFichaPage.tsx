@@ -134,6 +134,8 @@ export function FamiliaFichaPage() {
     />
   )
   const descPadre = (c: string) => (c === cod ? draft.descripcion : padres[c] ?? '')
+  // 200000 es una familia de nivel 1 y 209100 de nivel 2: los niveles inferiores quedan vacíos.
+  const nivelFamilia = cod.endsWith('0000') ? 1 : cod.endsWith('00') ? 2 : 3
 
   return (
     <div className="flex flex-col gap-1">
@@ -170,17 +172,20 @@ export function FamiliaFichaPage() {
       </div>
       <div className="grid grid-cols-3 gap-x-1.5">
         {[
-          { label: 'Nivel 1', c: n1, full: `${n1}0000` },
-          { label: 'Nivel 2', c: n2, full: `${n2}00` },
-          { label: 'Nivel 3', c: cod, full: cod },
-        ].map((n) => (
-          <GwField key={n.label} label={n.label}>
-            <div className="grid grid-cols-[60px_minmax(0,1fr)] gap-x-1">
-              <GwInput readOnly value={valido ? n.c : ''} />
-              <GwInput readOnly value={valido ? descPadre(n.full) : ''} />
-            </div>
-          </GwField>
-        ))}
+          { nivel: 1, c: n1, full: `${n1}0000` },
+          { nivel: 2, c: n2, full: `${n2}00` },
+          { nivel: 3, c: cod, full: cod },
+        ].map((n) => {
+          const ver = valido && n.nivel <= nivelFamilia
+          return (
+            <GwField key={n.nivel} label={`Nivel ${n.nivel}`}>
+              <div className="grid grid-cols-[60px_minmax(0,1fr)] gap-x-1">
+                <GwInput readOnly value={ver ? n.c : ''} />
+                <GwInput readOnly value={ver ? descPadre(n.full) : ''} />
+              </div>
+            </GwField>
+          )
+        })}
       </div>
       {valido && cod.startsWith('99') && (
         <div className="text-[13px] text-[#1a4fd0]">Familia de artículos obsoletos (99xxxx).</div>

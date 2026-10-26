@@ -128,7 +128,7 @@ export function useFicha<T extends Registro>({
     }
     setSaving(true)
     const { actualizado_en: _a, ...resto } = draft
-    const payload = { ...resto, ...extra, codigo: cod, [campoNombre]: nombre }
+    const payload: Record<string, unknown> = { ...resto, ...extra, codigo: cod, [campoNombre]: nombre }
     const res =
       mode === 'alta'
         ? await supabase.from(tabla).insert(payload)
