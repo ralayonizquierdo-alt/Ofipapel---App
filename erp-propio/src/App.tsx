@@ -15,8 +15,19 @@ import { TiendasPage } from './pages/TiendasPage'
 import { EmpleadosPage } from './pages/EmpleadosPage'
 import { StockPage } from './pages/StockPage'
 import { ComprasPage } from './pages/ComprasPage'
-import { PedidosPage } from './pages/PedidosPage'
-import { RepartosPage } from './pages/RepartosPage'
+import { PedidoFichaPage } from './pages/ventas/pedidos/PedidoFichaPage'
+import { PresupuestosPage } from './pages/ventas/pedidos/PresupuestosPage'
+import { TpvPage } from './pages/ventas/tpv/TpvPage'
+import { VentaFichaPage } from './pages/ventas/ventas/VentaFichaPage'
+import { RepartoFichaPage } from './pages/ventas/repartos/RepartoFichaPage'
+import { GestorPedidosPage } from './pages/ventas/gestores/GestorPedidosPage'
+import { GestorPresupuestosPage } from './pages/ventas/gestores/GestorPresupuestosPage'
+import { NumeroSerieFichaPage } from './pages/ventas/series/NumeroSerieFichaPage'
+import { ReparacionFichaPage } from './pages/ventas/reparaciones/ReparacionFichaPage'
+import { VendedorFichaPage } from './pages/ventas/vendedores/VendedorFichaPage'
+import { RepartidorFichaPage } from './pages/ventas/maestros/RepartidorFichaPage'
+import { ZonaFichaPage } from './pages/ventas/maestros/ZonaFichaPage'
+import { RutaFichaPage } from './pages/ventas/maestros/RutaFichaPage'
 import { VentasPage } from './pages/VentasPage'
 import { PagosPage } from './pages/PagosPage'
 import { TraspasosPage } from './pages/TraspasosPage'
@@ -62,9 +73,21 @@ function App() {
             <Route path="/traspasos" element={<TraspasosPage />} />
             <Route path="/inventario" element={<InventarioPage />} />
             <Route path="/compras" element={<ComprasPage />} />
-            <Route path="/pedidos" element={<PedidosPage />} />
-            <Route path="/repartos" element={<RepartosPage />} />
-            <Route path="/ventas" element={<VentasPage />} />
+            <Route path="/pedidos/*" element={<PedidoFichaPage />} />
+            <Route path="/presupuestos/*" element={<PresupuestosPage />} />
+            <Route path="/tpv/*" element={<TpvPage />} />
+            <Route path="/ventas/*" element={<VentaFichaPage />} />
+            <Route path="/caja" element={<VentasPage />} />
+            <Route path="/repartos/*" element={<RepartoFichaPage />} />
+            <Route path="/gestor-pedidos" element={<GestorPedidosPage />} />
+            <Route path="/gestor-presupuestos" element={<GestorPresupuestosPage />} />
+            <Route path="/numeros-serie/*" element={<NumeroSerieFichaPage />} />
+            <Route path="/reparaciones/*" element={<ReparacionFichaPage />} />
+            <Route path="/vendedores/*" element={<VendedorFichaPage tipo="vendedor" />} />
+            <Route path="/tecnicos/*" element={<VendedorFichaPage tipo="tecnico" />} />
+            <Route path="/repartidores/*" element={<RepartidorFichaPage />} />
+            <Route path="/zonas-territoriales/*" element={<ZonaFichaPage />} />
+            <Route path="/rutas-reparto/*" element={<RutaFichaPage />} />
             <Route path="/pagos" element={<PagosPage />} />
             <Route path="/facturacion" element={<FacturacionPage />} />
           </Route>
