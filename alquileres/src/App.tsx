@@ -10,7 +10,7 @@ import MigrateLocalData from './components/MigrateLocalData'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import PreguntarApp from './components/PreguntarApp'
 import AvisoSolapes from './components/AvisoSolapes'
-import { solapes, solapesUrgentes } from './lib/solapes'
+import { solapes } from './lib/solapes'
 import { useData } from './contexts/DataContext'
 import { observarSesion, rolDe, salir, usuarioDe, type Rol, type UsuarioApp } from './lib/auth'
 import Dashboard from './pages/Dashboard'
@@ -279,11 +279,8 @@ export default function App() {
     const today = new Date()
     // Los solapes van en la cuenta del globo: son lo más urgente que puede
     // haber, y así se ven desde cualquier pantalla sin entrar en el panel.
-    // Solo los que tocan de hoy en adelante, igual que el resto del globo (que
-    // cuenta cobros pendientes de estancias no terminadas): los duplicados de
-    // ejercicios cerrados están en la tarjeta del panel, no en un número que
-    // no baja nunca.
-    const pisadas = solapesUrgentes(solapes(reservations)).length
+    // `solapes()` ya solo devuelve los de hoy en adelante.
+    const pisadas = solapes(reservations).length
     return pisadas + reservations.filter(r => {
       if (r.status === 'cancelada') return false
       if (new Date(r.checkOut) < today) return false
