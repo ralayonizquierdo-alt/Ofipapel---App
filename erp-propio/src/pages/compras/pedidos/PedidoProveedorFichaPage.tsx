@@ -7,6 +7,7 @@ import { GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, form
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import { buscarArticulo } from '../../ventas/pedidos/precios'
 import { CompraBar } from './CompraBar'
+import { camposTotales } from './totales'
 import {
   CAB_COMPRA_COLS,
   ESTADOS_COMPRA,
@@ -536,19 +537,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
         if (error) throw new Error(error.message)
         numero = data as number
       }
-      const t = calcularCompra(lineas, cab)
-      const fila = {
-        ...cab,
-        numero,
-        subtotal: t.subtotal,
-        total_descuento: t.totalDto,
-        base_imponible: t.baseConGastos,
-        total_igic: t.totalIgic,
-        total_gastos: r3(t.gastos + t.otros),
-        total_canon: t.canon,
-        total: t.total,
-        total_a_pagar_proveedor: t.aPagarProveedor,
-      }
+      const fila = { ...cab, numero, ...camposTotales(lineas, cab) }
       if (mode === 'alta') {
         const { error } = await supabase.from('pedido_proveedor').insert(fila)
         if (error) throw new Error(error.message)
@@ -643,22 +632,29 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
 
   async function togglePagado() {
     if (!cab) return
+    const v = !cab.pagado
+    // Pagado deja el pedido Liquidado; al desmarcarlo vuelve a Recepcionado (o Pendiente si no se actualizó).
+    const cambios = {
+      pagado: v,
+      proveedor_pagado: v,
+      fecha_pago: v ? cab.fecha_pago ?? hoy() : cab.fecha_pago,
+      estado: v ? 'liquidado' : cab.estado === 'liquidado' ? (cab.stock_movido ? 'recepcionado' : 'pendiente') : cab.estado,
+    }
     if (editing) {
-      patch({ pagado: !cab.pagado, proveedor_pagado: !cab.pagado })
+      patch(cambios)
       return
     }
     if (cab.numero == null) return
-    const v = !cab.pagado
     const { error } = await supabase
       .from('pedido_proveedor')
-      .update({ pagado: v, proveedor_pagado: v, fecha_pago: v ? cab.fecha_pago ?? hoy() : cab.fecha_pago })
+      .update(cambios)
       .eq('tienda_terminal_codigo', cab.tienda_terminal_codigo)
       .eq('numero', cab.numero)
     if (error) {
       setMensaje(error.message)
       return
     }
-    const c = { ...cab, pagado: v, proveedor_pagado: v, fecha_pago: v ? cab.fecha_pago ?? hoy() : cab.fecha_pago }
+    const c = { ...cab, ...cambios }
     setCab(c)
     setOrig((o) => (o ? { ...o, cab: c } : o))
   }
