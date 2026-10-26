@@ -1,11 +1,15 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Truck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { DataTable, type Column } from '../components/DataTable'
 import { Modal } from '../components/Modal'
 import { FormField, TextInput, SelectInput } from '../components/FormField'
 
 const TIENDA = '01'
+
+function hoy() {
+  return new Date().toISOString().slice(0, 10)
+}
 
 interface Pedido {
   tienda_terminal_codigo: string
@@ -14,6 +18,8 @@ interface Pedido {
   entregado: boolean
   total: number | null
   fecha: string
+  cliente_codigo: string
+  almacen_codigo: string | null
   cliente: { nombre: string } | null
 }
 
@@ -44,13 +50,14 @@ export function PedidosPage() {
   const [lineas, setLineas] = useState<LineaForm[]>([{ articulo_codigo: '', cantidad: '', precio: '' }])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [entregando, setEntregando] = useState<number | null>(null)
 
   async function load() {
     setLoading(true)
     const [{ data }, { data: cli }, { data: alm }] = await Promise.all([
       supabase
         .from('pedido_cliente')
-        .select('tienda_terminal_codigo, numero, anulado, entregado, total, fecha, cliente:cliente_codigo(nombre)')
+        .select('tienda_terminal_codigo, numero, anulado, entregado, total, fecha, cliente_codigo, almacen_codigo, cliente:cliente_codigo(nombre)')
         .order('fecha', { ascending: false })
         .limit(100),
       supabase.from('cliente').select('codigo, nombre').order('nombre'),
@@ -125,6 +132,112 @@ export function PedidosPage() {
     load()
   }
 
+  async function handleEntregar(pedido: Pedido) {
+    setEntregando(pedido.numero)
+    setError(null)
+
+    const { data: lineasPedido, error: lineasError } = await supabase
+      .from('pedido_cliente_linea')
+      .select('articulo_codigo, cantidad, precio')
+      .eq('tienda_terminal_codigo', pedido.tienda_terminal_codigo)
+      .eq('numero', pedido.numero)
+    if (lineasError) {
+      setEntregando(null)
+      setError(lineasError.message)
+      return
+    }
+
+    const total = (lineasPedido ?? []).reduce((acc, l) => acc + Number(l.cantidad) * Number(l.precio ?? 0), 0)
+
+    const { data: numeroVenta, error: numeroError } = await supabase.rpc('fn_siguiente_numero', {
+      p_tienda: TIENDA,
+      p_tipo_documento: 'venta',
+      p_serie: '',
+    })
+    if (numeroError) {
+      setEntregando(null)
+      setError(numeroError.message)
+      return
+    }
+
+    const { error: ventaError } = await supabase.from('venta').insert({
+      tienda_terminal_codigo: TIENDA,
+      numero: numeroVenta,
+      pedido_tienda_codigo: pedido.tienda_terminal_codigo,
+      pedido_numero: pedido.numero,
+      cliente_codigo: pedido.cliente_codigo,
+      almacen_codigo: pedido.almacen_codigo,
+      fecha: hoy(),
+      total,
+      total_efectivo: 0,
+      total_tarjeta: 0,
+      total_pendiente: total,
+    })
+    if (ventaError) {
+      setEntregando(null)
+      setError(ventaError.message)
+      return
+    }
+
+    if (lineasPedido && lineasPedido.length > 0) {
+      const { error: ventaLineaError } = await supabase.from('venta_linea').insert(
+        lineasPedido.map((l, i) => ({
+          tienda_terminal_codigo: TIENDA,
+          numero: numeroVenta,
+          numero_linea: i + 1,
+          articulo_codigo: l.articulo_codigo,
+          cantidad: l.cantidad,
+          precio: l.precio,
+        })),
+      )
+      if (ventaLineaError) {
+        setEntregando(null)
+        setError(ventaLineaError.message)
+        return
+      }
+
+      if (pedido.almacen_codigo) {
+        const { error: stockError } = await supabase.from('movimiento_stock').insert(
+          lineasPedido.map((l, i) => ({
+            tipo_movimiento: 'venta',
+            sentido: -1,
+            almacen_codigo: pedido.almacen_codigo,
+            articulo_codigo: l.articulo_codigo,
+            cantidad: l.cantidad,
+            documento_origen_tipo: 'venta',
+            documento_origen_tienda_codigo: TIENDA,
+            documento_origen_numero: numeroVenta,
+            documento_origen_linea: i + 1,
+            tienda_terminal_codigo: TIENDA,
+          })),
+        )
+        if (stockError) {
+          setEntregando(null)
+          setError(stockError.message)
+          return
+        }
+      }
+    }
+
+    const { error: updateError } = await supabase
+      .from('pedido_cliente')
+      .update({
+        entregado: true,
+        venta_tienda_codigo: TIENDA,
+        venta_numero: numeroVenta,
+      })
+      .eq('tienda_terminal_codigo', pedido.tienda_terminal_codigo)
+      .eq('numero', pedido.numero)
+    if (updateError) {
+      setEntregando(null)
+      setError(updateError.message)
+      return
+    }
+
+    setEntregando(null)
+    load()
+  }
+
   const columns: Column<Pedido>[] = [
     { header: 'Número', cell: (r) => <span className="font-mono text-xs">{r.tienda_terminal_codigo}-{r.numero}</span> },
     { header: 'Cliente', cell: (r) => r.cliente?.nombre ?? '—' },
@@ -141,6 +254,20 @@ export function PedidosPage() {
     },
     { header: 'Total', cell: (r) => (r.total != null ? `${r.total.toFixed(2)} €` : '—') },
     { header: 'Fecha', cell: (r) => new Date(r.fecha).toLocaleDateString('es-ES') },
+    {
+      header: '',
+      cell: (r) =>
+        r.anulado || r.entregado ? null : (
+          <button
+            type="button"
+            onClick={() => handleEntregar(r)}
+            disabled={entregando === r.numero}
+            className="flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
+          >
+            <Truck size={14} /> {entregando === r.numero ? 'Entregando…' : 'Entregar'}
+          </button>
+        ),
+    },
   ]
 
   return (

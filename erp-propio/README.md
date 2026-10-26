@@ -65,7 +65,13 @@ Compras además tiene botón **Recepcionar**: genera el `movimiento_stock`
 real de entrada (`sentido: 1`) por cada línea y marca el pedido
 `estado: 'recepcionado'` + `recibido`/`stock_movido`/`fecha_recepcion`
 — verificado en vivo (pedido de 20 unidades → recepcionar → saldo 20
-exacto en el almacén de destino).
+exacto en el almacén de destino). Pedidos de clientes tiene el
+simétrico, **Entregar**: crea la `venta`/`venta_linea` real enlazada
+al pedido (`venta.pedido_tienda_codigo`/`pedido_numero`, y de vuelta
+`pedido_cliente.venta_tienda_codigo`/`venta_numero` — columnas que el
+esquema ya tenía para esto), descuenta stock igual que una venta de
+TPV, y marca el pedido `entregado: true`. Verificado en vivo igual que
+Compras.
 
 **Ventas / TPV** (Fase 5) ya abre y cierra caja de verdad
 (`caja_apertura_cierre`) y crea tickets de venta reales (`venta` +
