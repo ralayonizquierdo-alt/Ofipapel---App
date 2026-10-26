@@ -515,30 +515,35 @@ export function VentaDocumento({
   const teclas = useRef<(e: KeyboardEvent) => void>(() => {})
   teclas.current = (e: KeyboardEvent) => {
     if (dialogo || pidiendoEmpleado) return
-    if (e.altKey && e.key === 'Backspace' && editable) {
+    // Dentro de la ventana de ventas estas teclas son suyas (Ctrl+F11 = aplazadas, no Reparaciones)
+    const mia = () => {
       e.preventDefault()
+      e.stopImmediatePropagation()
+    }
+    if (e.altKey && e.key === 'Backspace' && editable) {
+      mia()
       cancelar()
     } else if (e.key === 'F1') {
-      e.preventDefault()
+      mia()
       if (editable) prepararGuardado(false)
     } else if (e.key === 'F2') {
-      e.preventDefault()
+      mia()
       window.print()
     } else if (e.key === 'F11' && e.ctrlKey) {
-      e.preventDefault()
+      mia()
       setDialogo({ tipo: 'aplazadas' })
     } else if (e.key === 'F11') {
-      e.preventDefault()
+      mia()
       if (editable) prepararGuardado(true)
-    } else if (e.key === 'F12') {
-      e.preventDefault()
+    } else if (e.key === 'F12' && !e.ctrlKey) {
+      mia()
       if (lineaSel?.articulo_codigo) setDialogo({ tipo: 'stock' })
     }
   }
   useEffect(() => {
     const h = (e: KeyboardEvent) => teclas.current(e)
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
+    window.addEventListener('keydown', h, true)
+    return () => window.removeEventListener('keydown', h, true)
   }, [])
 
   async function recuperarAplazada(numero: number) {
