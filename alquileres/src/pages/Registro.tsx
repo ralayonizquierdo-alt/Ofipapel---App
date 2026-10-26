@@ -44,6 +44,7 @@ const COLOR_ORIGEN: Record<OrigenSubida, string> = {
   'pegado-airbnb': 'bg-rose-50 text-rose-700 border-rose-200',
   'informe-airbnb': 'bg-rose-50 text-rose-800 border-rose-300',
   'justificante': 'bg-violet-50 text-violet-700 border-violet-200',
+  'anulacion': 'bg-orange-50 text-orange-800 border-orange-200',
   'correcciones': 'bg-amber-50 text-amber-800 border-amber-200',
 }
 

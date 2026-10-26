@@ -332,6 +332,149 @@ export function analizaAirbnb(texto: string, hoy = new Date()): LineaPegada | nu
   }
 }
 
+// ─── Avisos de anulación ─────────────────────────────────────────────────────
+
+export interface AnulacionPegada {
+  /** El aviso recortado, para poder enseñarlo y guardarlo en la nota. */
+  texto: string
+  apartmentId: string | null
+  checkIn: string | null
+  checkOut: string | null
+  /** El código de la reserva, cuando el aviso lo trae («HMHJT5K3D4»). */
+  codigo?: string
+  /** El viajero, cuando se puede leer. */
+  guestName?: string
+  problema: string
+  nota?: string
+}
+
+/**
+ * ¿Esto es un aviso de que una reserva se ha caído?
+ *
+ * Se piden frases enteras, no la palabra «cancelar» suelta: el aviso de una
+ * reserva NUEVA de Airbnb habla de «tu política de cancelación» al final, y
+ * leerlo como una anulación daría de baja justo la reserva que acaba de entrar.
+ */
+export function pareceAnulacion(texto: string): boolean {
+  const t = (texto || '').toLowerCase().replace(/\s+/g, ' ')
+  return [
+    /reserva\s+cancelada/,
+    /cancelada\s*:\s*reserva/,
+    /ha\s+tenido\s+que\s+cancelar/,
+    /\bha\s+cancelado\s+(?:la\s+|su\s+)?reserva/,
+    /\bcancel[oó]\s+(?:la\s+|su\s+)?reserva/,
+    /reserva\s+anulada/,
+    /\banulad[ao]\b[^.]{0,40}\breserva\b/,
+    /\breserva\b[^.]{0,40}\banulad[ao]\b/,
+    // «se anula la reserva», «anular la reserva», «anulación de la reserva».
+    /\banula(?:r|n|mos|ción|cion)?\s+(?:de\s+)?(?:la\s+|su\s+|esta\s+)?reserva/,
+    // Los verbos de cancelar, pero NO el nombre: «política de cancelación de
+    // la reserva» sale en el aviso de una reserva nueva.
+    /\bcancel(?:a|ar|an|amos)\s+(?:de\s+)?(?:la\s+|su\s+|esta\s+)?reserva/,
+  ].some(re => re.test(t))
+}
+
+/**
+ * Lee el aviso de una reserva anulada, pegado tal cual.
+ *
+ * Vale el correo de Airbnb —que es el que llega del Arenal— y también el
+ * mensaje suelto de la inmobiliaria («Se anula la reserva del 104 del 12/11 al
+ * 20/11»). De las dos cosas hace falta lo mismo: qué vivienda y qué fechas,
+ * para dar con la reserva que hay que marcar. Nunca anula nada por su cuenta:
+ * esto solo encuentra: quien decide es quien lo lee.
+ *
+ * Ejemplo de lo que llega de Airbnb:
+ *
+ *   Cancelada: reserva HMHJT5K3D4 (del 22 oct – 10 nov)
+ *   Reserva cancelada
+ *   Arenal - Céntrico con Aire Acondicionado
+ *   22 oct – 10 nov, 3 viajeros
+ *   Sentimos informarte de que I Erna, tu viajero, ha tenido que cancelar la
+ *   reserva HMHJT5K3D4 para el periodo del 22 oct – 10 nov.
+ */
+export function analizaAnulacion(texto: string, hoy = new Date()): AnulacionPegada | null {
+  const bruto = (texto || '').trim()
+  if (!bruto || !pareceAnulacion(bruto)) return null
+
+  const plano = bruto.replace(/\s+/g, ' ')
+  // Lo que se guarda en la nota de la reserva. Se tiran las líneas de cabecera
+  // del correo (remitente, destinatario, fecha suelta): si no, la nota acaba
+  // diciendo «Para: …@gmail.com» en vez de de qué reserva habla.
+  const base: AnulacionPegada = {
+    texto: bruto.split(/\r?\n/).map(l => l.trim())
+      .filter(l => l && !/@/.test(l) && !/^(para|de|cc|cco|asunto|enviado|fecha)\s*:/i.test(l)
+        && !/^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}$/.test(l))
+      .slice(0, 3).join(' · '),
+    apartmentId: null, checkIn: null, checkOut: null, problema: '',
+  }
+  const notas: string[] = []
+
+  // ── Vivienda ───────────────────────────────────────────────────────────────
+  let apartmentId: string | null = null
+  for (const { id, patrones } of INMUEBLES) {
+    if (patrones.some(p => p.test(despega(plano)))) { apartmentId = id; break }
+  }
+  const deAirbnb = /airbnb|anuncio\s+n\.?[ºo°]|viajer[oa]/i.test(plano)
+  if (!apartmentId && deAirbnb) {
+    apartmentId = AIRBNB_POR_DEFECTO
+    notas.push('El aviso no dice el apartamento: se usa Arenal 2-B, el único publicado en Airbnb')
+  }
+
+  // ── Código y viajero ───────────────────────────────────────────────────────
+  // El código de Airbnb son 10 caracteres en mayúsculas con al menos una letra
+  // y una cifra, para no confundirlo con una palabra escrita en mayúsculas.
+  const codM = plano.match(/reserva\s+([A-Z0-9]{8,12})\b/)
+  const codigo = codM && /[A-Z]/.test(codM[1]) && /\d/.test(codM[1]) ? codM[1] : undefined
+  const huespedM = plano.match(/de\s+que\s+(.+?),?\s+tu\s+viajer[oa]/i)
+  const guestName = huespedM ? huespedM[1].trim() : undefined
+
+  // ── Fechas ─────────────────────────────────────────────────────────────────
+  // Primero las que llevan el mes escrito («22 oct – 10 nov»), que es como las
+  // manda Airbnb; si no hay, las numéricas de un mensaje normal.
+  let entrada: Date | null = null
+  let salidaF: Date | null = null
+
+  const conMes = fechasConMes(plano)
+  if (conMes.length >= 2) {
+    // El año no viene nunca. Se toma el de hoy y, si la entrada queda muy
+    // atrás, el siguiente. El margen es amplio a propósito: una anulación
+    // puede llegar con la estancia ya empezada, o hasta terminada.
+    entrada = construye(conMes[0].dia, conMes[0].mes, hoy.getFullYear())
+    if (entrada) {
+      const margen = new Date(hoy); margen.setMonth(margen.getMonth() - 6)
+      if (entrada < margen) entrada = new Date(entrada.setFullYear(entrada.getFullYear() + 1))
+      salidaF = construye(conMes[1].dia, conMes[1].mes, entrada.getFullYear())
+      if (salidaF && salidaF <= entrada) salidaF = new Date(salidaF.setFullYear(salidaF.getFullYear() + 1))
+    }
+  } else {
+    FECHA.lastIndex = 0
+    const fechas = [...plano.matchAll(FECHA)]
+    if (fechas.length >= 2) {
+      const anio = (t: string | undefined) => {
+        if (!t) return null
+        const n = Number(t)
+        return n < 100 ? 2000 + n : n
+      }
+      entrada = construye(Number(fechas[0][1]), Number(fechas[0][2]), anio(fechas[0][3]) ?? hoy.getFullYear())
+      if (entrada) {
+        salidaF = construye(Number(fechas[1][1]), Number(fechas[1][2]), anio(fechas[1][3]) ?? entrada.getFullYear())
+        if (salidaF && salidaF <= entrada) salidaF = new Date(salidaF.setFullYear(salidaF.getFullYear() + 1))
+      }
+    }
+  }
+
+  const salida: AnulacionPegada = {
+    ...base, apartmentId, codigo, guestName,
+    checkIn: entrada ? iso(entrada) : null,
+    checkOut: salidaF ? iso(salidaF) : null,
+    nota: notas.join('. ') || undefined,
+  }
+
+  if (!apartmentId) return { ...salida, problema: 'No se reconoce el apartamento' }
+  if (!entrada || !salidaF) return { ...salida, problema: 'No se encuentran las fechas de la reserva anulada' }
+  return salida
+}
+
 // ─── Justificantes de transferencia ──────────────────────────────────────────
 
 export interface CobroPegado {
