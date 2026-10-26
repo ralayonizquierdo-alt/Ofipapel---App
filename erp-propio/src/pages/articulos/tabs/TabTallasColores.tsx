@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Save, Wand2 } from 'lucide-react'
+import { Check, Plus, Save, Trash2, Wand2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { FormField, TextInput, SelectInput } from '../../../components/FormField'
-import { Toggle } from '../../../components/Toggle'
+import { GwCheck, GwGroup, GwInput, GwNumber, GwSelect, formatGw } from '../../../components/gw'
 import type { ArticuloTallaColorConfig, ArticuloVariante } from '../types'
 
 interface Maestro {
@@ -32,6 +31,8 @@ export function TabTallasColores({ articuloCodigo }: { articuloCodigo: string })
   const [stockPorCodigo, setStockPorCodigo] = useState<Record<string, number>>({})
   const [selTallas, setSelTallas] = useState<number[]>([])
   const [selColores, setSelColores] = useState<number[]>([])
+  const [adding, setAdding] = useState(false)
+  const [sel, setSel] = useState<number | null>(null)
   const [nueva, setNueva] = useState<{ talla_id: string; color_id: string; codigo_variante: string }>({ talla_id: '', color_id: '', codigo_variante: '' })
   const [error, setError] = useState<string | null>(null)
   const [savingConfig, setSavingConfig] = useState(false)
@@ -102,6 +103,7 @@ export function TabTallasColores({ articuloCodigo }: { articuloCodigo: string })
       return
     }
     setNueva({ talla_id: '', color_id: '', codigo_variante: '' })
+    setAdding(false)
     loadVariantes()
   }
 
@@ -112,12 +114,16 @@ export function TabTallasColores({ articuloCodigo }: { articuloCodigo: string })
     else loadVariantes()
   }
 
-  async function deleteVariante(v: ArticuloVariante) {
-    if (!v.id) return
+  async function deleteVariante() {
+    const v = variantes.find((x) => x.id === sel)
+    if (!v?.id) return
     if (!confirm(`¿Borrar la variante ${v.talla_descripcion ?? ''} ${v.color_descripcion ?? ''}?`)) return
     const { error: err } = await supabase.from('articulo_variante').delete().eq('id', v.id)
     if (err) setError(err.message)
-    else loadVariantes()
+    else {
+      setSel(null)
+      loadVariantes()
+    }
   }
 
   async function generar() {
@@ -156,158 +162,147 @@ export function TabTallasColores({ articuloCodigo }: { articuloCodigo: string })
   }
 
   const toggleSel = (list: number[], id: number) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
-  const num = (v: string) => (v === '' ? null : Number(v))
-  const chip = (on: boolean) =>
-    `rounded-full border px-2.5 py-1 text-xs font-medium ${on ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`
+
+  const lista = (titulo: string, items: Maestro[], marcados: number[], set: (v: number[]) => void, off: boolean) => (
+    <div className="flex min-w-0 flex-col">
+      <span className="gw-label">{titulo}</span>
+      <div className={`h-[120px] overflow-y-auto border border-[var(--gw-border)] bg-white px-1 ${off ? 'opacity-50' : ''}`}>
+        {items.length === 0 && <span className="text-[#6d6d6d]">Sin {titulo.toLowerCase()} en el maestro.</span>}
+        {items.map((it) => (
+          <GwCheck key={it.id} label={it.descripcion} checked={marcados.includes(it.id)} disabled={off} onChange={() => set(toggleSel(marcados, it.id))} />
+        ))}
+      </div>
+    </div>
+  )
 
   return (
-    <div className="flex flex-col gap-5">
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-
-      <section className="flex flex-col gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Definición de tallas y colores</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <FormField label="Nº de tallas" hint="NUMTALLAS">
-            <TextInput type="number" value={config.num_tallas ?? ''} onChange={(e) => setConfig({ ...config, num_tallas: num(e.target.value) })} />
-          </FormField>
-          <FormField label="Nº de colores" hint="COLORES">
-            <TextInput type="number" value={config.num_colores ?? ''} onChange={(e) => setConfig({ ...config, num_colores: num(e.target.value) })} />
-          </FormField>
-        </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <Toggle label="Rango alfabético (RANGOALFA)" checked={config.rango_alfabetico} onChange={(v) => setConfig({ ...config, rango_alfabetico: v })} />
-          <Toggle label="No incluir talla (NOINCTAL)" checked={config.no_incluir_talla} onChange={(v) => setConfig({ ...config, no_incluir_talla: v })} />
-          <Toggle label="No incluir color (NOINCCOL)" checked={config.no_incluir_color} onChange={(v) => setConfig({ ...config, no_incluir_color: v })} />
-          <Toggle label="Los hijos usan el PVP del padre (PVPPADRE)" checked={config.pvp_es_padre} onChange={(v) => setConfig({ ...config, pvp_es_padre: v })} />
-          <Toggle
-            label="Los hijos usan el código de compra del padre (CODCOMPRPD)"
-            checked={config.codigo_compra_es_padre}
-            onChange={(v) => setConfig({ ...config, codigo_compra_es_padre: v })}
-          />
-        </div>
-        <div>
-          <button
-            type="button"
-            onClick={saveConfig}
-            disabled={savingConfig}
-            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
-            <Save size={14} /> {savingConfig ? 'Guardando…' : 'Guardar definición'}
-          </button>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Generar tallas y colores</h3>
-        {tallas.length === 0 && colores.length === 0 ? (
-          <p className="text-sm text-slate-400">No hay tallas ni colores dados de alta en los maestros (tablas talla y color).</p>
-        ) : (
-          <>
-            {!config.no_incluir_talla && tallas.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                <span className="mr-1 self-center text-xs text-slate-500">Tallas:</span>
-                {tallas.map((t) => (
-                  <button key={t.id} type="button" className={chip(selTallas.includes(t.id))} onClick={() => setSelTallas(toggleSel(selTallas, t.id))}>
-                    {t.descripcion}
-                  </button>
-                ))}
-              </div>
-            )}
-            {!config.no_incluir_color && colores.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                <span className="mr-1 self-center text-xs text-slate-500">Colores:</span>
-                {colores.map((c) => (
-                  <button key={c.id} type="button" className={chip(selColores.includes(c.id))} onClick={() => setSelColores(toggleSel(selColores, c.id))}>
-                    {c.descripcion}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div>
-              <button
-                type="button"
-                onClick={generar}
-                className="flex items-center gap-1.5 rounded-lg border border-indigo-200 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
-              >
-                <Wand2 size={14} /> Generar tallas y colores
+    <div className="flex flex-col gap-1.5" title="TALLAS_M / TALLAS_D">
+      {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
+      <div className="grid grid-cols-[300px_minmax(0,1fr)] gap-2">
+        <GwGroup title="Definición de Tallas y Colores">
+          <div className="flex flex-col gap-1">
+            <div className="grid grid-cols-[1fr_90px] items-center gap-x-2 gap-y-1">
+              <span className="gw-label">Nº de Tallas:</span>
+              <GwNumber value={config.num_tallas} decimals={0} onChange={(v) => setConfig({ ...config, num_tallas: v })} />
+              <span className="gw-label">Nº de Colores:</span>
+              <GwNumber value={config.num_colores} decimals={0} onChange={(v) => setConfig({ ...config, num_colores: v })} />
+            </div>
+            <GwCheck label="Rango alfabético" checked={config.rango_alfabetico} onChange={(v) => setConfig({ ...config, rango_alfabetico: v })} />
+            <GwCheck label="No incluir talla" checked={config.no_incluir_talla} onChange={(v) => setConfig({ ...config, no_incluir_talla: v })} />
+            <GwCheck label="No incluir color" checked={config.no_incluir_color} onChange={(v) => setConfig({ ...config, no_incluir_color: v })} />
+            <GwCheck label="Pvp del padre" checked={config.pvp_es_padre} onChange={(v) => setConfig({ ...config, pvp_es_padre: v })} />
+            <GwCheck
+              label="Código de compra del padre"
+              checked={config.codigo_compra_es_padre}
+              onChange={(v) => setConfig({ ...config, codigo_compra_es_padre: v })}
+            />
+            <div className="mt-1">
+              <button type="button" className="gw-btn" onClick={saveConfig} disabled={savingConfig}>
+                <Save size={14} /> {savingConfig ? 'Guardando…' : 'Guardar definición'}
               </button>
             </div>
-          </>
-        )}
-      </section>
+          </div>
+        </GwGroup>
+        <GwGroup title="Generar Tallas y Colores">
+          <div className="grid grid-cols-2 gap-2">
+            {lista('Tallas', tallas, selTallas, setSelTallas, config.no_incluir_talla)}
+            {lista('Colores', colores, selColores, setSelColores, config.no_incluir_color)}
+          </div>
+          <div className="mt-1.5">
+            <button type="button" className="gw-btn" onClick={generar} disabled={tallas.length === 0 && colores.length === 0}>
+              <Wand2 size={14} /> Generar tallas y colores
+            </button>
+          </div>
+        </GwGroup>
+      </div>
 
-      <section className="flex flex-col gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Artículos hijos (variantes)</h3>
-        <div className="overflow-hidden rounded-lg border border-slate-200">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-2">Talla</th>
-                <th className="px-3 py-2">Color</th>
-                <th className="px-3 py-2">Código del hijo</th>
-                <th className="px-3 py-2 text-right">Stock</th>
-                <th className="w-10 px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {variantes.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-3 py-4 text-center text-slate-400">Sin variantes.</td>
-                </tr>
-              )}
-              {variantes.map((v) => (
-                <tr key={v.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-3 py-1.5">{v.talla_descripcion ?? '—'}</td>
-                  <td className="px-3 py-1.5">{v.color_descripcion ?? '—'}</td>
-                  <td className="px-3 py-1.5">
-                    <TextInput
-                      className="w-40 py-1"
-                      defaultValue={v.codigo_variante ?? ''}
-                      onBlur={(e) => e.target.value !== (v.codigo_variante ?? '') && updateCodigo(v, e.target.value)}
-                    />
-                  </td>
-                  <td className="px-3 py-1.5 text-right tabular-nums">
-                    {v.codigo_variante && stockPorCodigo[v.codigo_variante] != null ? stockPorCodigo[v.codigo_variante].toFixed(3) : '—'}
-                  </td>
-                  <td className="px-3 py-1.5">
-                    <button type="button" onClick={() => deleteVariante(v)} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Borrar línea">
-                      <Trash2 size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-slate-200 bg-slate-50">
-                <td className="px-3 py-1.5">
-                  <SelectInput className="py-1" value={nueva.talla_id} onChange={(e) => setNueva({ ...nueva, talla_id: e.target.value })}>
-                    <option value="">—</option>
-                    {tallas.map((t) => (
-                      <option key={t.id} value={t.id}>{t.descripcion}</option>
-                    ))}
-                  </SelectInput>
-                </td>
-                <td className="px-3 py-1.5">
-                  <SelectInput className="py-1" value={nueva.color_id} onChange={(e) => setNueva({ ...nueva, color_id: e.target.value })}>
-                    <option value="">—</option>
-                    {colores.map((c) => (
-                      <option key={c.id} value={c.id}>{c.descripcion}</option>
-                    ))}
-                  </SelectInput>
-                </td>
-                <td className="px-3 py-1.5">
-                  <TextInput className="w-40 py-1" value={nueva.codigo_variante} onChange={(e) => setNueva({ ...nueva, codigo_variante: e.target.value })} />
-                </td>
-                <td colSpan={2} className="px-3 py-1.5 text-right">
-                  <button type="button" onClick={addVariante} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">
-                    <Plus size={14} /> Añadir
+      <div className="flex gap-1">
+        <button
+          type="button"
+          className="gw-btn"
+          disabled={adding}
+          onClick={() => {
+            setError(null)
+            setAdding(true)
+          }}
+        >
+          <Plus size={14} /> Añadir línea
+        </button>
+        <button type="button" className="gw-btn" disabled={sel == null || adding} onClick={deleteVariante}>
+          <Trash2 size={14} /> Borrar línea
+        </button>
+      </div>
+      <table className="gw-grid">
+        <thead>
+          <tr>
+            <th style={{ width: 180 }}>Talla</th>
+            <th style={{ width: 180 }}>Color</th>
+            <th>Código del Artículo Hijo</th>
+            <th className="text-right" style={{ width: 110 }}>Stock</th>
+          </tr>
+        </thead>
+        <tbody>
+          {variantes.length === 0 && !adding && (
+            <tr>
+              <td colSpan={4} className="text-center text-[#6d6d6d]">Sin artículos hijos.</td>
+            </tr>
+          )}
+          {variantes.map((v) => (
+            <tr key={v.id} className={sel === v.id ? 'gw-selected' : ''} onClick={() => setSel(v.id ?? null)}>
+              <td>{v.talla_descripcion ?? ''}</td>
+              <td>{v.color_descripcion ?? ''}</td>
+              <td>
+                <GwInput
+                  key={v.codigo_variante ?? ''}
+                  className="text-black"
+                  defaultValue={v.codigo_variante ?? ''}
+                  onBlur={(e) => e.target.value !== (v.codigo_variante ?? '') && updateCodigo(v, e.target.value)}
+                />
+              </td>
+              <td className="text-right tabular-nums">
+                {v.codigo_variante && stockPorCodigo[v.codigo_variante] != null ? formatGw(stockPorCodigo[v.codigo_variante], 3) : ''}
+              </td>
+            </tr>
+          ))}
+          {adding && (
+            <tr>
+              <td>
+                <GwSelect autoFocus value={nueva.talla_id} onChange={(e) => setNueva({ ...nueva, talla_id: e.target.value })}>
+                  <option value="">—</option>
+                  {tallas.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.descripcion}
+                    </option>
+                  ))}
+                </GwSelect>
+              </td>
+              <td>
+                <GwSelect value={nueva.color_id} onChange={(e) => setNueva({ ...nueva, color_id: e.target.value })}>
+                  <option value="">—</option>
+                  {colores.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.descripcion}
+                    </option>
+                  ))}
+                </GwSelect>
+              </td>
+              <td>
+                <GwInput value={nueva.codigo_variante} onChange={(e) => setNueva({ ...nueva, codigo_variante: e.target.value })} />
+              </td>
+              <td>
+                <div className="flex justify-end gap-1">
+                  <button type="button" className="gw-btn px-1.5" title="Aceptar" onClick={addVariante}>
+                    <Check size={14} className="text-[#127a12]" />
                   </button>
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </section>
+                  <button type="button" className="gw-btn px-1.5" title="Cancelar" onClick={() => setAdding(false)}>
+                    <X size={14} className="text-[#c42b1c]" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   )
 }

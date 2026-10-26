@@ -1,30 +1,23 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, Save, X } from 'lucide-react'
+import { Check, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { TextInput, SelectInput } from '../../../components/FormField'
-import { Toggle } from '../../../components/Toggle'
+import { GwCheck, GwGroup, GwInput, GwNumber, GwSelect, formatGw } from '../../../components/gw'
 import { NIVELES_TARIFA, type ArticuloUnidadVenta } from '../types'
 
 const TIPOS_CALCULO = [
   { value: 0, label: 'Proporcional' },
   { value: 1, label: '% sobre el anterior' },
-  { value: 2, label: 'PVP fijo' },
+  { value: 2, label: 'Pvp fijo' },
   { value: 3, label: 'Tarifas de la ficha' },
 ]
 
 type Draft = Omit<ArticuloUnidadVenta, 'precios'>
 
-const num = (v: string) => (v === '' ? null : Number(v))
-const th = 'px-2 py-2 text-left font-semibold'
-const td = 'px-2 py-1.5'
-const miniBtn =
-  'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-30'
-
 export function TabUnidadesVenta({ articuloCodigo }: { articuloCodigo: string }) {
   const [rows, setRows] = useState<Draft[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [editing, setEditing] = useState<Draft | null>(null)
-  const [precios, setPrecios] = useState<Record<number, string>>({})
+  const [precios, setPrecios] = useState<Record<number, number | null>>({})
   const [preciosDirty, setPreciosDirty] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -43,8 +36,8 @@ export function TabUnidadesVenta({ articuloCodigo }: { articuloCodigo: string })
       .from('articulo_unidad_venta_precio_nivel')
       .select('nivel_tarifa, pvp')
       .eq('articulo_unidad_venta_id', id)
-    const map: Record<number, string> = {}
-    for (const r of data ?? []) map[r.nivel_tarifa] = String(r.pvp)
+    const map: Record<number, number | null> = {}
+    for (const r of data ?? []) map[r.nivel_tarifa] = Number(r.pvp)
     setPrecios(map)
     setPreciosDirty(false)
   }
@@ -60,6 +53,7 @@ export function TabUnidadesVenta({ articuloCodigo }: { articuloCodigo: string })
   }, [selectedId])
 
   function startNew() {
+    setError(null)
     setEditing({
       articulo_codigo: articuloCodigo,
       descripcion: '',
@@ -113,12 +107,12 @@ export function TabUnidadesVenta({ articuloCodigo }: { articuloCodigo: string })
   async function savePrecios() {
     if (selectedId == null) return
     setError(null)
-    const upserts = NIVELES_TARIFA.filter((n) => precios[n.nivel] !== undefined && precios[n.nivel] !== '').map((n) => ({
+    const upserts = NIVELES_TARIFA.filter((n) => precios[n.nivel] != null).map((n) => ({
       articulo_unidad_venta_id: selectedId,
       nivel_tarifa: n.nivel,
       pvp: Number(precios[n.nivel]),
     }))
-    const vacios = NIVELES_TARIFA.filter((n) => precios[n.nivel] === '').map((n) => n.nivel)
+    const vacios = NIVELES_TARIFA.filter((n) => n.nivel in precios && precios[n.nivel] == null).map((n) => n.nivel)
     if (upserts.length) {
       const { error: err } = await supabase
         .from('articulo_unidad_venta_precio_nivel')
@@ -140,191 +134,123 @@ export function TabUnidadesVenta({ articuloCodigo }: { articuloCodigo: string })
 
   const selected = rows.find((r) => r.id === selectedId)
 
-  return (
-    <div className="flex flex-col gap-5">
-      <p className="text-xs text-slate-500">
-        Unidad de stock y unidades de venta (p. ej. unidad y caja), cada una con su forma de cálculo del PVP y sus 7
-        precios. Tablas ARTUNDVT.
-      </p>
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-
-      <div className="overflow-hidden rounded-lg border border-slate-200">
-        <div className="flex items-center gap-1 border-b border-slate-200 bg-slate-50 px-2 py-1">
-          <span className="mr-auto text-xs font-semibold uppercase tracking-wide text-slate-500">Unidades de venta</span>
-          <button type="button" className={miniBtn} onClick={startNew} disabled={!!editing}>
-            <Plus size={14} /> Añadir línea
-          </button>
-          <button
-            type="button"
-            className={miniBtn}
-            disabled={!selected || !!editing}
-            onClick={() => selected && setEditing({ ...selected })}
-          >
-            <Pencil size={14} /> Modificar
-          </button>
-          <button
-            type="button"
-            className={`${miniBtn} hover:bg-red-50 hover:text-red-600`}
-            disabled={!selected || !!editing}
-            onClick={() => selected && deleteRow(selected)}
-          >
-            <Trash2 size={14} /> Borrar línea
-          </button>
-        </div>
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-slate-200 text-slate-500">
-              <th className={th}>Descripción</th>
-              <th className={th}>Unidades (factor)</th>
-              <th className={th}>Cálculo del PVP</th>
-              <th className={th}>Incremento %</th>
-              <th className={th}>No vender</th>
-              <th className={th} />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && !editing && (
-              <tr>
-                <td colSpan={6} className="px-2 py-4 text-center text-slate-400">
-                  Sin unidades de venta: se vende solo por la unidad de stock.
-                </td>
-              </tr>
-            )}
-            {rows.map((r) =>
-              editing && editing.id === r.id ? (
-                <EditRow key={r.id} draft={editing} setDraft={setEditing} onSave={saveRow} onCancel={() => setEditing(null)} />
-              ) : (
-                <tr
-                  key={r.id}
-                  onClick={() => setSelectedId(r.id ?? null)}
-                  className={`cursor-pointer border-b border-slate-100 last:border-0 ${
-                    selectedId === r.id ? 'bg-indigo-50' : 'hover:bg-slate-50'
-                  }`}
-                >
-                  <td className={td}>{r.descripcion}</td>
-                  <td className={td}>{r.factor_conversion}</td>
-                  <td className={td}>{TIPOS_CALCULO.find((t) => t.value === r.tipo_calculo_precio)?.label ?? '—'}</td>
-                  <td className={td}>{r.incremento_pct ?? '—'}</td>
-                  <td className={td}>{r.no_vender ? 'Sí' : 'No'}</td>
-                  <td className={td} />
-                </tr>
-              ),
-            )}
-            {editing && editing.id == null && (
-              <EditRow draft={editing} setDraft={setEditing} onSave={saveRow} onCancel={() => setEditing(null)} />
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {selected && (
-        <div className="overflow-hidden rounded-lg border border-slate-200">
-          <div className="flex items-center gap-1 border-b border-slate-200 bg-slate-50 px-2 py-1">
-            <span className="mr-auto text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Precios de «{selected.descripcion}» por tarifa
-            </span>
-            <button type="button" className={miniBtn} disabled={!preciosDirty} onClick={savePrecios}>
-              <Save size={14} /> Guardar precios
-            </button>
-          </div>
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500">
-                {NIVELES_TARIFA.map((n) => (
-                  <th key={n.nivel} className={th}>
-                    {n.nombre}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                {NIVELES_TARIFA.map((n) => (
-                  <td key={n.nivel} className={td}>
-                    <TextInput
-                      type="number"
-                      step="0.001"
-                      className="w-full py-1 text-xs"
-                      value={precios[n.nivel] ?? ''}
-                      onChange={(e) => {
-                        setPrecios((p) => ({ ...p, [n.nivel]: e.target.value }))
-                        setPreciosDirty(true)
-                      }}
-                    />
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function EditRow({
-  draft,
-  setDraft,
-  onSave,
-  onCancel,
-}: {
-  draft: Draft
-  setDraft: (d: Draft) => void
-  onSave: () => void
-  onCancel: () => void
-}) {
-  return (
-    <tr className="border-b border-slate-100 bg-amber-50/40">
-      <td className={td}>
-        <TextInput
-          className="w-full py-1 text-xs"
-          value={draft.descripcion}
-          onChange={(e) => setDraft({ ...draft, descripcion: e.target.value })}
-          autoFocus
-        />
+  const editRow = (d: Draft) => (
+    <tr key={d.id ?? 'nueva'}>
+      <td>
+        <GwInput autoFocus value={d.descripcion} onChange={(e) => setEditing({ ...d, descripcion: e.target.value })} />
       </td>
-      <td className={td}>
-        <TextInput
-          type="number"
-          step="0.001"
-          className="w-24 py-1 text-xs"
-          value={draft.factor_conversion}
-          onChange={(e) => setDraft({ ...draft, factor_conversion: Number(e.target.value || 0) })}
-        />
+      <td>
+        <GwNumber value={d.factor_conversion} decimals={3} onChange={(v) => setEditing({ ...d, factor_conversion: v ?? 0 })} />
       </td>
-      <td className={td}>
-        <SelectInput
-          className="py-1 text-xs"
-          value={draft.tipo_calculo_precio ?? ''}
-          onChange={(e) => setDraft({ ...draft, tipo_calculo_precio: num(e.target.value) })}
+      <td>
+        <GwSelect
+          value={d.tipo_calculo_precio ?? ''}
+          onChange={(e) => setEditing({ ...d, tipo_calculo_precio: e.target.value === '' ? null : Number(e.target.value) })}
         >
           {TIPOS_CALCULO.map((t) => (
             <option key={t.value} value={t.value}>
               {t.label}
             </option>
           ))}
-        </SelectInput>
+        </GwSelect>
       </td>
-      <td className={td}>
-        <TextInput
-          type="number"
-          step="0.01"
-          className="w-20 py-1 text-xs"
-          value={draft.incremento_pct ?? ''}
-          onChange={(e) => setDraft({ ...draft, incremento_pct: num(e.target.value) })}
-        />
+      <td>
+        <GwNumber value={d.incremento_pct} decimals={2} onChange={(v) => setEditing({ ...d, incremento_pct: v })} />
       </td>
-      <td className={td}>
-        <Toggle label="" checked={draft.no_vender} onChange={(v) => setDraft({ ...draft, no_vender: v })} />
-      </td>
-      <td className={`${td} whitespace-nowrap`}>
-        <button type="button" className={miniBtn} onClick={onSave}>
-          <Save size={14} />
-        </button>
-        <button type="button" className={miniBtn} onClick={onCancel}>
-          <X size={14} />
-        </button>
+      <td>
+        <div className="flex items-center gap-1">
+          <GwCheck label="" checked={d.no_vender} onChange={(v) => setEditing({ ...d, no_vender: v })} />
+          <button type="button" className="gw-btn ml-auto px-1.5" title="Aceptar" onClick={saveRow}>
+            <Check size={14} className="text-[#127a12]" />
+          </button>
+          <button type="button" className="gw-btn px-1.5" title="Cancelar" onClick={() => setEditing(null)}>
+            <X size={14} className="text-[#c42b1c]" />
+          </button>
+        </div>
       </td>
     </tr>
+  )
+
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_300px] gap-2" title="ARTUNDVT">
+      <div className="flex flex-col gap-1.5">
+        <div className="flex gap-1">
+          <button type="button" className="gw-btn" onClick={startNew} disabled={!!editing}>
+            <Plus size={14} /> Añadir línea
+          </button>
+          <button
+            type="button"
+            className="gw-btn"
+            disabled={!selected || !!editing}
+            onClick={() => {
+              setError(null)
+              if (selected) setEditing({ ...selected })
+            }}
+          >
+            <Pencil size={14} /> Modificar línea
+          </button>
+          <button type="button" className="gw-btn" disabled={!selected || !!editing} onClick={() => selected && deleteRow(selected)}>
+            <Trash2 size={14} /> Borrar línea
+          </button>
+        </div>
+        {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
+        <table className="gw-grid">
+          <thead>
+            <tr>
+              <th>Unidad de Venta</th>
+              <th className="text-right" style={{ width: 110 }}>Unidades</th>
+              <th style={{ width: 170 }}>Cálculo del Pvp</th>
+              <th className="text-right" style={{ width: 90 }}>% Incr.</th>
+              <th style={{ width: 120 }}>No vender</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && !editing && (
+              <tr>
+                <td colSpan={5} className="text-center text-[#6d6d6d]">Sin unidades de venta.</td>
+              </tr>
+            )}
+            {rows.map((r) =>
+              editing && editing.id === r.id ? (
+                editRow(editing)
+              ) : (
+                <tr key={r.id} className={selectedId === r.id ? 'gw-selected' : ''} onClick={() => !editing && setSelectedId(r.id ?? null)}>
+                  <td>{r.descripcion}</td>
+                  <td className="text-right tabular-nums">{formatGw(r.factor_conversion, 3)}</td>
+                  <td>{TIPOS_CALCULO.find((t) => t.value === r.tipo_calculo_precio)?.label ?? ''}</td>
+                  <td className="text-right tabular-nums">{formatGw(r.incremento_pct, 2)}</td>
+                  <td>{r.no_vender ? 'Sí' : 'No'}</td>
+                </tr>
+              ),
+            )}
+            {editing && editing.id == null && editRow(editing)}
+          </tbody>
+        </table>
+      </div>
+
+      <GwGroup title={selected ? `Pvps de «${selected.descripcion}»` : 'Pvps'}>
+        <div className="grid grid-cols-[1fr_120px] items-center gap-x-2 gap-y-1">
+          {NIVELES_TARIFA.map((n) => (
+            <div key={n.nivel} className="contents">
+              <span className="gw-label">{n.nombre}:</span>
+              <GwNumber
+                value={precios[n.nivel] ?? null}
+                decimals={3}
+                disabled={!selected}
+                onChange={(v) => {
+                  setPrecios((p) => ({ ...p, [n.nivel]: v }))
+                  setPreciosDirty(true)
+                }}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="mt-1.5 flex justify-end">
+          <button type="button" className="gw-btn" disabled={!selected || !preciosDirty} onClick={savePrecios}>
+            <Save size={14} /> Guardar Pvps
+          </button>
+        </div>
+      </GwGroup>
+    </div>
   )
 }

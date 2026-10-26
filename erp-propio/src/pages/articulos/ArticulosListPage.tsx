@@ -1,93 +1,141 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { DataTable, type Column } from '../../components/DataTable'
+import { GwField, GwGroup, GwInput, formatGw } from '../../components/gw'
 
-interface ArticuloRow {
+interface Fila {
   codigo_interno: string
   descripcion: string
-  codigo_barras_principal: string | null
-  pvp: number | null
+  codigo_venta: string | null
   familia_codigo: string | null
+  proveedor_habitual_codigo: string | null
+  pvp: number | null
+  coste_neto: number | null
   activo: boolean
 }
 
+const VACIO = { codigo: '', descripcion: '', barras: '', familia: '', proveedor: '' }
+
+function limpio(s: string) {
+  return s.trim().replace(/[,%()]/g, ' ')
+}
+
+/** «Lista / filtro» de Artículos al estilo GeminisWin: filtros arriba y rejilla navegable. */
 export function ArticulosListPage() {
   const navigate = useNavigate()
-  const [rows, setRows] = useState<ArticuloRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [filtros, setFiltros] = useState(VACIO)
+  const [rows, setRows] = useState<Fila[]>([])
+  const [sel, setSel] = useState(0)
+  const [cargando, setCargando] = useState(true)
+  const gridRef = useRef<HTMLDivElement>(null)
 
-  async function load() {
-    setLoading(true)
-    let query = supabase
-      .from('articulo')
-      .select('codigo_interno, descripcion, codigo_barras_principal, pvp, familia_codigo, activo')
-      .order('actualizado_en', { ascending: false })
-      .limit(200)
-    if (search) query = query.or(`descripcion.ilike.%${search}%,codigo_interno.ilike.%${search}%,codigo_barras_principal.ilike.%${search}%`)
-    const { data } = await query
-    setRows(data ?? [])
-    setLoading(false)
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      setCargando(true)
+      let q = supabase
+        .from('articulo')
+        .select('codigo_interno, descripcion, codigo_venta, familia_codigo, proveedor_habitual_codigo, pvp, coste_neto, activo')
+        .order('codigo_interno')
+        .limit(500)
+      if (limpio(filtros.codigo)) q = q.ilike('codigo_interno', `${limpio(filtros.codigo)}%`)
+      if (limpio(filtros.descripcion)) q = q.ilike('descripcion', `%${limpio(filtros.descripcion)}%`)
+      if (limpio(filtros.barras)) q = q.ilike('codigo_barras_principal', `%${limpio(filtros.barras)}%`)
+      if (limpio(filtros.familia)) q = q.ilike('familia_codigo', `${limpio(filtros.familia)}%`)
+      if (limpio(filtros.proveedor)) q = q.ilike('proveedor_habitual_codigo', `${limpio(filtros.proveedor)}%`)
+      const { data } = await q
+      setRows((data ?? []) as Fila[])
+      setSel(0)
+      setCargando(false)
+    }, 250)
+    return () => clearTimeout(t)
+  }, [filtros])
+
+  const abrir = (r?: Fila) => r && navigate(`/articulos/${encodeURIComponent(r.codigo_interno)}`)
+
+  function onKey(e: React.KeyboardEvent) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSel((s) => Math.min(s + 1, rows.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSel((s) => Math.max(s - 1, 0))
+    } else if (e.key === 'Enter') abrir(rows[sel])
   }
 
   useEffect(() => {
-    const t = setTimeout(load, 200)
-    return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search])
+    gridRef.current?.querySelector('tr.gw-selected')?.scrollIntoView({ block: 'nearest' })
+  }, [sel])
 
-  const columns: Column<ArticuloRow>[] = [
-    { header: 'Código', cell: (r) => <span className="font-mono text-xs">{r.codigo_interno}</span> },
-    { header: 'Descripción', cell: (r) => r.descripcion },
-    { header: 'Familia', cell: (r) => r.familia_codigo ?? '—' },
-    { header: 'Cód. barras', cell: (r) => r.codigo_barras_principal ?? '—' },
-    { header: 'PVP', cell: (r) => (r.pvp != null ? `${r.pvp.toFixed(2)} €` : '—') },
-    {
-      header: 'Estado',
-      cell: (r) => (
-        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${r.activo ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-          {r.activo ? 'Activo' : 'Baja'}
-        </span>
-      ),
-    },
-  ]
+  const campo = (key: keyof typeof VACIO, label: string, className = '') => (
+    <GwField label={label} className={className}>
+      <GwInput value={filtros[key]} onChange={(e) => setFiltros((f) => ({ ...f, [key]: e.target.value }))} onKeyDown={onKey} />
+    </GwField>
+  )
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Artículos</h1>
-          <p className="mt-1 text-sm text-slate-400">Almacén → Artículos. Ficha completa, igual que en GeminisWin.</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => navigate('/articulos/nuevo')}
-          className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-        >
-          <Plus size={16} /> Nuevo artículo
+    <div className="flex flex-col gap-1.5" onKeyDown={onKey}>
+      <GwGroup title="Filtro" className="grid grid-cols-[140px_minmax(0,1fr)_170px_110px_110px] gap-x-2">
+        {campo('codigo', 'Código Interno')}
+        {campo('descripcion', 'Descripción')}
+        {campo('barras', 'Código de Barras')}
+        {campo('familia', 'Familia')}
+        {campo('proveedor', 'Proveedor')}
+      </GwGroup>
+      <div ref={gridRef} tabIndex={0} className="h-[calc(100vh-260px)] min-h-[240px] overflow-y-auto border border-[var(--gw-border)] bg-white outline-none">
+        <table className="gw-grid">
+          <thead className="sticky top-0">
+            <tr>
+              <th style={{ width: 120 }}>Código Interno</th>
+              <th>Descripción</th>
+              <th style={{ width: 110 }}>Código Venta</th>
+              <th style={{ width: 80 }}>Familia</th>
+              <th style={{ width: 80 }}>Proveedor</th>
+              <th style={{ width: 100 }} className="text-right!">
+                PVP General
+              </th>
+              <th style={{ width: 100 }} className="text-right!">
+                Coste Neto
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {!cargando && rows.length === 0 && (
+              <tr>
+                <td colSpan={7} className="text-center text-[#6d6d6d]">
+                  Ningún artículo cumple el filtro.
+                </td>
+              </tr>
+            )}
+            {rows.map((r, i) => (
+              <tr
+                key={r.codigo_interno}
+                className={i === sel ? 'gw-selected' : r.activo ? '' : 'text-[#8a8a8a]'}
+                onClick={() => setSel(i)}
+                onDoubleClick={() => abrir(r)}
+              >
+                <td>{r.codigo_interno}</td>
+                <td>{r.descripcion}</td>
+                <td>{r.codigo_venta ?? ''}</td>
+                <td>{r.familia_codigo ?? ''}</td>
+                <td>{r.proveedor_habitual_codigo ?? ''}</td>
+                <td className="text-right">{formatGw(r.pvp ?? 0, 3)}</td>
+                <td className="text-right">{formatGw(r.coste_neto ?? 0, 3)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="gw-label flex-1">{cargando ? 'Buscando…' : `${rows.length} artículos${rows.length === 500 ? ' (se muestran los 500 primeros)' : ''}`}</span>
+        <button type="button" className="gw-btn" onClick={() => navigate('/articulos/nuevo')}>
+          Nuevo
         </button>
-      </div>
-
-      <div className="relative mt-5 w-80">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por descripción, código interno o código de barras…"
-          className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-        />
-      </div>
-
-      <div className="mt-4">
-        <DataTable
-          columns={columns}
-          rows={rows}
-          rowKey={(r) => r.codigo_interno}
-          loading={loading}
-          onRowClick={(r) => navigate(`/articulos/${encodeURIComponent(r.codigo_interno)}`)}
-        />
+        <button type="button" className="gw-btn" disabled={!rows[sel]} onClick={() => abrir(rows[sel])}>
+          Abrir ficha
+        </button>
+        <button type="button" className="gw-btn" onClick={() => navigate('/')}>
+          Salir
+        </button>
       </div>
     </div>
   )

@@ -1,10 +1,12 @@
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { FormField, TextInput, SelectInput } from '../../components/FormField'
-import { Tabs, TabPanel, useTabs } from '../../components/Tabs'
-import { RecordToolbar } from '../../components/RecordToolbar'
-import { type Articulo, emptyArticulo } from './types'
+import { GwField, GwInput, GwLookupButton, GwPlusButton, GwTabs, type GwTabDef } from '../../components/gw'
+import { GwRecordBar } from '../../components/gw/GwRecordBar'
+import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
+import { type Articulo, type ArticuloPrecioNivel, emptyArticulo, NIVELES_TARIFA } from './types'
+import { COSTE_FIELDS, aplicarCambioNivel, costeBase, recalcularTodos, type NivelPatch } from './pricing'
+import { CodigosBarrasDialog, CodigosCompraDialog } from './dialogs/CodigosDialogs'
 import { TabCaracteristicas } from './tabs/TabCaracteristicas'
 import { TabUnidadesVenta } from './tabs/TabUnidadesVenta'
 import { TabObservaciones } from './tabs/TabObservaciones'
@@ -15,26 +17,52 @@ import { TabTallasColores } from './tabs/TabTallasColores'
 import { TabEquivalentes } from './tabs/TabEquivalentes'
 import { TabPreciosProveedor } from './tabs/TabPreciosProveedor'
 import { TabComposicion } from './tabs/TabComposicion'
-import { TabImagenWeb } from './tabs/TabImagenWeb'
+import { TabImagen, TabWeb } from './tabs/TabImagenWeb'
 
 interface Maestro {
   codigo: string
   nombre: string
 }
 
-const TABS = [
-  { key: 'caracteristicas', label: 'Características' },
-  { key: 'unidades', label: 'Unidades de stock y venta' },
-  { key: 'observaciones', label: 'Observaciones' },
-  { key: 'parametros', label: 'Parámetros PVP' },
-  { key: 'ofertas', label: 'Precios de oferta' },
-  { key: 'almacen', label: 'Almacén' },
-  { key: 'tallas', label: 'Tallas y colores' },
-  { key: 'equivalentes', label: 'Equivalentes' },
-  { key: 'proveedores', label: 'Precios por proveedor' },
-  { key: 'composicion', label: 'Composición' },
-  { key: 'web', label: 'Imagen y Web' },
+interface CodigoDesc {
+  codigo_interno: string
+  descripcion: string
+}
+
+const TAB_ROWS: GwTabDef[][] = [
+  [
+    { key: 'proveedores', label: 'Precios por Proveedor' },
+    { key: 'composicion', label: 'Composición Articulo' },
+    { key: 'imagen', label: 'Imagen' },
+    { key: 'web', label: 'Web' },
+  ],
+  [
+    { key: 'caracteristicas', label: 'Características' },
+    { key: 'unidades', label: 'Unds. de Stock y Venta' },
+    { key: 'observaciones', label: 'Observaciones' },
+    { key: 'parametros', label: 'Parámetros para el Cálculo del Pvp' },
+    { key: 'ofertas', label: 'Precios de oferta' },
+    { key: 'almacen', label: 'Almacén' },
+    { key: 'tallas', label: 'Tallas y colores' },
+    { key: 'equivalentes', label: 'Equivalentes' },
+  ],
 ]
+
+// Pestañas cuyos datos viven en tablas satélite: necesitan que el artículo ya exista.
+const TABS_SATELITE = new Set(['proveedores', 'composicion', 'unidades', 'ofertas', 'tallas', 'equivalentes'])
+
+function nivelesVacios(codigo: string): ArticuloPrecioNivel[] {
+  return NIVELES_TARIFA.map((n) => ({
+    articulo_codigo: codigo,
+    nivel_tarifa: n.nivel,
+    pvp: 0,
+    incremento_pct: null,
+    modo_calculo: n.nivel >= 4 ? 'D' : 'P',
+    permite_descuento_linea: false,
+  }))
+}
+
+type Lookup = 'marca' | 'proveedor' | 'familia' | 'buscar' | 'compra' | 'barras' | null
 
 export function ArticuloFichaPage() {
   const { codigo } = useParams<{ codigo: string }>()
@@ -44,272 +72,477 @@ export function ArticuloFichaPage() {
   const [mode, setMode] = useState<'consulta' | 'edicion' | 'alta'>(isNew ? 'alta' : 'consulta')
   const [articulo, setArticulo] = useState<Articulo>({ ...emptyArticulo, actualizado_en: '' })
   const [draft, setDraft] = useState<Articulo>({ ...emptyArticulo, actualizado_en: '' })
-  const [loading, setLoading] = useState(!isNew)
+  const [niveles, setNiveles] = useState<ArticuloPrecioNivel[]>(() => nivelesVacios(''))
+  const [nivelesOrig, setNivelesOrig] = useState<ArticuloPrecioNivel[]>(() => nivelesVacios(''))
+  const [preciosCargados, setPreciosCargados] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [vacio, setVacio] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [familias, setFamilias] = useState<Maestro[]>([])
-  const [marcas, setMarcas] = useState<string[]>([])
   const [proveedores, setProveedores] = useState<Maestro[]>([])
   const [plantillas, setPlantillas] = useState<Maestro[]>([])
-  const [allCodes, setAllCodes] = useState<string[]>([])
-  const { active, setActive } = useTabs(TABS)
+  const [lista, setLista] = useState<CodigoDesc[]>([])
+  const [orden, setOrden] = useState<'codigo' | 'descripcion'>('codigo')
+  const [nombreProveedor, setNombreProveedor] = useState('')
+  const [descFamilia, setDescFamilia] = useState('')
+  const [lookup, setLookup] = useState<Lookup>(null)
+  const [tab, setTab] = useState('caracteristicas')
+
+  const editing = mode !== 'consulta'
 
   useEffect(() => {
     Promise.all([
-      supabase.from('familia').select('codigo, descripcion').order('codigo'),
-      supabase.from('marca').select('codigo').order('codigo'),
-      supabase.from('proveedor').select('codigo, nombre').order('nombre'),
+      supabase.from('proveedor').select('codigo, nombre').order('codigo'),
       supabase.from('plantilla_tarifa').select('codigo, descripcion').order('codigo'),
-      supabase.from('articulo').select('codigo_interno').order('codigo_interno'),
-    ]).then(([f, m, p, t, codes]) => {
-      setFamilias((f.data ?? []).map((r) => ({ codigo: r.codigo, nombre: r.descripcion })))
-      setMarcas((m.data ?? []).map((r) => r.codigo))
+      supabase.from('articulo').select('codigo_interno, descripcion').order('codigo_interno'),
+    ]).then(([p, t, codes]) => {
       setProveedores(p.data ?? [])
       setPlantillas((t.data ?? []).map((r) => ({ codigo: r.codigo, nombre: r.descripcion })))
-      setAllCodes((codes.data ?? []).map((r) => r.codigo_interno))
+      setLista((codes.data ?? []) as CodigoDesc[])
     })
   }, [])
 
   useEffect(() => {
+    setError(null)
     if (isNew) {
-      setArticulo({ ...emptyArticulo, actualizado_en: '' })
-      setDraft({ ...emptyArticulo, actualizado_en: '' })
+      const vacioArt = { ...emptyArticulo, actualizado_en: '' }
+      setArticulo(vacioArt)
+      setDraft(vacioArt)
+      setNiveles(nivelesVacios(''))
+      setNivelesOrig(nivelesVacios(''))
+      setPreciosCargados(true)
+      setNombreProveedor('')
+      setDescFamilia('')
+      setVacio(false)
       setMode('alta')
       setLoading(false)
       return
     }
-    if (!codigo) return
-    setLoading(true)
-    supabase
-      .from('articulo')
-      .select('*')
-      .eq('codigo_interno', codigo)
-      .single()
-      .then(({ data, error: err }) => {
-        if (err || !data) {
-          setError('No se ha encontrado el artículo.')
-          setLoading(false)
-          return
-        }
-        setArticulo(data as Articulo)
-        setDraft(data as Articulo)
-        setMode('consulta')
-        setLoading(false)
-      })
-  }, [codigo, isNew])
-
-  function field<K extends keyof Articulo>(key: K) {
-    return {
-      value: (draft[key] ?? '') as string | number,
-      onChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const raw = e.target.value
-        setDraft((d) => ({ ...d, [key]: raw === '' ? null : raw }))
-      },
-      disabled: mode === 'consulta',
-    }
-  }
-
-  async function handleSave() {
-    setSaving(true)
-    setError(null)
-    const { actualizado_en: _ignored, ...payload } = draft
-    if (mode === 'alta') {
-      const { error: err } = await supabase
+    if (!codigo) {
+      // Como en GeminisWin, Almacén → Artículos abre directamente la ficha del primer artículo.
+      supabase
         .from('articulo')
-        .insert({ ...payload, fecha_alta: payload.fecha_alta ?? new Date().toISOString().slice(0, 10) })
-      setSaving(false)
-      if (err) {
-        setError(err.message)
+        .select('codigo_interno')
+        .order('codigo_interno')
+        .limit(1)
+        .then(({ data }) => {
+          if (data && data[0]) navigate(`/articulos/${encodeURIComponent(data[0].codigo_interno)}`, { replace: true })
+          else {
+            setVacio(true)
+            setMode('consulta')
+            setLoading(false)
+          }
+        })
+      return
+    }
+    setLoading(true)
+    setPreciosCargados(false)
+    Promise.all([
+      supabase.from('articulo').select('*').eq('codigo_interno', codigo).maybeSingle(),
+      supabase.from('articulo_precio_nivel').select('*').eq('articulo_codigo', codigo),
+    ]).then(([a, p]) => {
+      if (a.error || !a.data) {
+        setError('No se ha encontrado el artículo.')
+        setLoading(false)
         return
       }
+      const art = a.data as Articulo
+      const base = nivelesVacios(art.codigo_interno)
+      for (const row of (p.data ?? []) as ArticuloPrecioNivel[]) {
+        const i = base.findIndex((b) => b.nivel_tarifa === row.nivel_tarifa)
+        if (i >= 0)
+          base[i] = {
+            ...row,
+            pvp: Number(row.pvp),
+            incremento_pct: row.incremento_pct == null ? null : Number(row.incremento_pct),
+          }
+      }
+      setArticulo(art)
+      setDraft(art)
+      setNiveles(base)
+      setNivelesOrig(base)
+      setPreciosCargados(true)
+      setVacio(false)
+      setMode('consulta')
+      setLoading(false)
+    })
+  }, [codigo, isNew, navigate])
+
+  useEffect(() => {
+    const c = draft.proveedor_habitual_codigo
+    if (!c) return setNombreProveedor('')
+    const local = proveedores.find((p) => p.codigo === c)
+    if (local) return setNombreProveedor(local.nombre)
+    supabase
+      .from('proveedor')
+      .select('nombre')
+      .eq('codigo', c)
+      .maybeSingle()
+      .then(({ data }) => setNombreProveedor(data?.nombre ?? ''))
+  }, [draft.proveedor_habitual_codigo, proveedores])
+
+  useEffect(() => {
+    const c = draft.familia_codigo
+    if (!c) return setDescFamilia('')
+    supabase
+      .from('familia')
+      .select('descripcion')
+      .eq('codigo', c)
+      .maybeSingle()
+      .then(({ data }) => setDescFamilia(data?.descripcion ?? ''))
+  }, [draft.familia_codigo])
+
+  function patchArticulo(patch: Partial<Articulo>) {
+    const next = { ...draft, ...patch }
+    const tocaCoste = Object.keys(patch).some((k) => COSTE_FIELDS.includes(k as keyof Articulo))
+    if (tocaCoste && preciosCargados && !next.no_calcular_pvp_auto) {
+      const base = costeBase(next)
+      if (base != null) {
+        const recalc = recalcularTodos(niveles, base)
+        setNiveles(recalc)
+        next.coste_usado_calculo_pvp = base
+        next.pvp = recalc.find((n) => n.nivel_tarifa === 0)?.pvp ?? next.pvp
+      }
+    }
+    setDraft(next)
+  }
+
+  function cambiarNivel(nivel: number, patch: NivelPatch) {
+    const base = costeBase(draft)
+    const next = aplicarCambioNivel(niveles, nivel, patch, base)
+    setNiveles(next)
+    setDraft((d) => ({
+      ...d,
+      pvp: next.find((n) => n.nivel_tarifa === 0)?.pvp ?? d.pvp,
+      coste_usado_calculo_pvp: base ?? d.coste_usado_calculo_pvp,
+    }))
+  }
+
+  const preciosCambiados = useMemo(
+    () =>
+      niveles.some((n) => {
+        const o = nivelesOrig.find((x) => x.nivel_tarifa === n.nivel_tarifa)
+        return (
+          !o ||
+          o.pvp !== n.pvp ||
+          o.incremento_pct !== n.incremento_pct ||
+          o.modo_calculo !== n.modo_calculo ||
+          o.permite_descuento_linea !== n.permite_descuento_linea
+        )
+      }),
+    [niveles, nivelesOrig],
+  )
+
+  async function handleSave() {
+    setError(null)
+    if (!draft.codigo_interno.trim() || !draft.descripcion.trim()) {
+      setError('El código interno y la descripción son obligatorios.')
+      return
+    }
+    setSaving(true)
+    const { actualizado_en: _ignorado, ...resto } = draft
+    const payload = {
+      ...resto,
+      codigo_interno: resto.codigo_interno.trim(),
+      fecha_ultima_modificacion_pvp: preciosCambiados ? new Date().toISOString() : resto.fecha_ultima_modificacion_pvp,
+    }
+    const res =
+      mode === 'alta'
+        ? await supabase.from('articulo').insert({ ...payload, fecha_alta: payload.fecha_alta ?? new Date().toISOString().slice(0, 10) })
+        : await supabase.from('articulo').update(payload).eq('codigo_interno', articulo.codigo_interno)
+    if (res.error) {
+      setSaving(false)
+      setError(res.error.code === '23505' ? `Ya existe un artículo con el código ${payload.codigo_interno}.` : res.error.message)
+      return
+    }
+    if (preciosCambiados || mode === 'alta') {
+      const rows = niveles.map((n) => ({ ...n, articulo_codigo: payload.codigo_interno, pvp: n.pvp ?? 0 }))
+      const { error: err } = await supabase.from('articulo_precio_nivel').upsert(rows, { onConflict: 'articulo_codigo,nivel_tarifa' })
+      if (err) {
+        setSaving(false)
+        setError(`Artículo guardado, pero los precios no: ${err.message}`)
+        return
+      }
+    }
+    setSaving(false)
+    if (mode === 'alta') {
+      setLista((l) => [...l, { codigo_interno: payload.codigo_interno, descripcion: payload.descripcion }])
       navigate(`/articulos/${encodeURIComponent(payload.codigo_interno)}`, { replace: true })
       return
     }
-    const { error: err } = await supabase
-      .from('articulo')
-      .update(payload)
-      .eq('codigo_interno', articulo.codigo_interno)
-    setSaving(false)
-    if (err) {
-      setError(err.message)
+    const { data } = await supabase.from('articulo').select('*').eq('codigo_interno', payload.codigo_interno).maybeSingle()
+    const guardado = (data as Articulo | null) ?? { ...draft }
+    setArticulo(guardado)
+    setDraft(guardado)
+    setNivelesOrig(niveles)
+    setMode('consulta')
+  }
+
+  function handleCancel() {
+    if (mode === 'alta') {
+      navigate(lista[0] ? `/articulos/${encodeURIComponent(lista[0].codigo_interno)}` : '/articulos')
       return
     }
-    setArticulo({ ...draft })
+    setDraft(articulo)
+    setNiveles(nivelesOrig)
+    setError(null)
     setMode('consulta')
   }
 
   async function handleDelete() {
-    if (!confirm(`¿Dar de baja el artículo ${articulo.codigo_interno}? No se elimina físicamente, queda marcado como inactivo.`)) return
+    if (vacio || !articulo.codigo_interno) return
+    if (!confirm(`¿Dar de baja el artículo ${articulo.codigo_interno}? Queda marcado como baja, no se borra.`)) return
     const { error: err } = await supabase
       .from('articulo')
       .update({ activo: false, fecha_baja: new Date().toISOString().slice(0, 10) })
       .eq('codigo_interno', articulo.codigo_interno)
-    if (err) {
-      setError(err.message)
-      return
-    }
-    navigate('/articulos')
+    if (err) return setError(err.message)
+    const hoy = new Date().toISOString().slice(0, 10)
+    setArticulo((a) => ({ ...a, activo: false, fecha_baja: hoy }))
+    setDraft((a) => ({ ...a, activo: false, fecha_baja: hoy }))
   }
 
-  function goTo(targetCodigo: string) {
-    navigate(`/articulos/${encodeURIComponent(targetCodigo)}`)
-  }
+  const ordenada = useMemo(
+    () =>
+      orden === 'codigo'
+        ? lista
+        : [...lista].sort((a, b) => a.descripcion.localeCompare(b.descripcion, 'es') || a.codigo_interno.localeCompare(b.codigo_interno)),
+    [lista, orden],
+  )
+  const idx = ordenada.findIndex((r) => r.codigo_interno === articulo.codigo_interno)
+  const canNavigate = mode === 'consulta' && ordenada.length > 0
+  const goTo = (c?: string) => c && navigate(`/articulos/${encodeURIComponent(c)}`)
 
-  const idx = allCodes.indexOf(articulo.codigo_interno)
-  const canNavigate = mode === 'consulta' && idx >= 0
+  const ro = !editing
+  const txt = (key: keyof Articulo, extra: { readOnly?: boolean; className?: string; title?: string } = {}) => (
+    <GwInput
+      value={(draft[key] ?? '') as string}
+      disabled={ro || extra.readOnly}
+      className={extra.className}
+      title={extra.title}
+      onChange={(e) => patchArticulo({ [key]: e.target.value === '' ? null : e.target.value } as Partial<Articulo>)}
+    />
+  )
 
-  if (loading) return <div className="p-8 text-sm text-slate-400">Cargando…</div>
+  if (loading) return <div className="p-4 text-[13px]">Cargando…</div>
+
+  const satelitesBloqueados = mode === 'alta' || vacio
+  const enAvisoSatelite = (contenido: ReactNode) =>
+    satelitesBloqueados ? (
+      <div className="p-3 text-[13px]">
+        {vacio ? 'No hay ningún artículo. Pulsa Nuevo para dar de alta el primero.' : 'Acepta el alta del artículo para poder rellenar esta pestaña.'}
+      </div>
+    ) : (
+      contenido
+    )
 
   return (
-    <div className="flex flex-col gap-4 pb-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">
-            {isNew ? 'Nuevo artículo' : articulo.descripcion || articulo.codigo_interno}
-          </h1>
-          <p className="mt-1 text-xs uppercase tracking-wide text-slate-400">
-            {mode === 'alta' ? 'Alta de artículo' : mode === 'edicion' ? 'Modificando' : 'Consulta'}
-            {!articulo.activo && mode !== 'alta' ? ' · Baja' : ''}
-          </p>
-        </div>
+    <div className="flex flex-col gap-1">
+      {/* Cabecera, tres filas como en GeminisWin */}
+      <div className="grid grid-cols-[220px_minmax(0,1fr)_250px] gap-x-2">
+        <GwField label="Código Interno">
+          <GwInput
+            value={draft.codigo_interno}
+            disabled={mode !== 'alta'}
+            title="COD_INTERN"
+            onChange={(e) => patchArticulo({ codigo_interno: e.target.value })}
+          />
+        </GwField>
+        <GwField label="Descripción">{txt('descripcion', { title: 'DESCRIP' })}</GwField>
+        <GwField label="Descr. Corta:">{txt('descripcion_corta', { title: 'DESCRCORTA' })}</GwField>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.9fr)] gap-x-2">
+        <GwField label="Códigos de Compra">
+          <span className="flex">
+            {txt('codigo_compra_habitual', { title: 'COD_COMPRA' })}
+            <GwPlusButton title="Códigos de compra por proveedor" disabled={satelitesBloqueados} onClick={() => setLookup('compra')} />
+          </span>
+        </GwField>
+        <GwField label="Código Venta">{txt('codigo_venta', { title: 'COD_VENTA' })}</GwField>
+        <GwField label="Códigos de Barras">
+          <span className="flex">
+            {txt('codigo_barras_principal', { title: 'COD_BARRAS' })}
+            <GwPlusButton title="Más códigos de barras" disabled={satelitesBloqueados} onClick={() => setLookup('barras')} />
+          </span>
+        </GwField>
+        <GwField label="Marca">
+          <span className="flex">
+            {txt('marca_codigo', { title: 'MARCA' })}
+            <GwLookupButton disabled={ro} onClick={() => setLookup('marca')} title="Buscar marca" />
+          </span>
+        </GwField>
+        <GwField label="Campo Libre">{txt('campo_libre', { title: 'CMP_LIBRE' })}</GwField>
+      </div>
+      <div className="grid grid-cols-[150px_minmax(0,1.6fr)_150px_minmax(0,1.6fr)] gap-x-2">
+        <GwField label="Proveedor">
+          <span className="flex">
+            {txt('proveedor_habitual_codigo', { title: 'COD_PROV' })}
+            <GwLookupButton disabled={ro} onClick={() => setLookup('proveedor')} title="Buscar proveedor" />
+          </span>
+        </GwField>
+        <GwField label="Nombre Proveedor">
+          <span className="flex">
+            <GwInput readOnly value={nombreProveedor} disabled={ro} />
+            <GwLookupButton disabled={ro} onClick={() => setLookup('proveedor')} title="Buscar proveedor" />
+          </span>
+        </GwField>
+        <GwField label="Familia">
+          <span className="flex">
+            {txt('familia_codigo', { title: 'COD_FAM' })}
+            <GwLookupButton disabled={ro} onClick={() => setLookup('familia')} title="Buscar familia" />
+          </span>
+        </GwField>
+        <GwField label="Descripción Familia">
+          <span className="flex">
+            <GwInput readOnly value={descFamilia} disabled={ro} />
+            <GwLookupButton disabled={ro} onClick={() => setLookup('familia')} title="Buscar familia" />
+          </span>
+        </GwField>
       </div>
 
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+      {(error || (!articulo.activo && !vacio && mode !== 'alta')) && (
+        <div className="text-[13px] text-[#c42b1c]">{error ?? 'Artículo dado de baja.'}</div>
+      )}
 
-      {/* Cabecera, siempre visible, igual en GeminisWin para todas las pestañas */}
-      <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-2 lg:grid-cols-4">
-        <FormField label="Código interno *">
-          <TextInput {...field('codigo_interno')} disabled={mode !== 'alta'} required />
-        </FormField>
-        <FormField label="Descripción *" hint="DESCRIP">
-          <TextInput className="lg:col-span-2" {...field('descripcion')} required />
-        </FormField>
-        <FormField label="Descripción corta" hint="DESCRCORTA">
-          <TextInput {...field('descripcion_corta')} />
-        </FormField>
-        <FormField label="Código de compra" hint="COD_COMPRA">
-          <TextInput {...field('codigo_compra_habitual')} />
-        </FormField>
-        <FormField label="Código de venta" hint="COD_VENTA">
-          <TextInput {...field('codigo_venta')} />
-        </FormField>
-        <FormField label="Código de barras principal" hint="COD_BARRAS — más códigos en la pestaña Características">
-          <TextInput {...field('codigo_barras_principal')} />
-        </FormField>
-        <FormField label="Marca" hint="MARCA">
-          <SelectInput {...field('marca_codigo')}>
-            <option value="">—</option>
-            {marcas.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </SelectInput>
-        </FormField>
-        <FormField label="Familia" hint="COD_FAM">
-          <SelectInput {...field('familia_codigo')}>
-            <option value="">—</option>
-            {familias.map((f) => (
-              <option key={f.codigo} value={f.codigo}>
-                {f.codigo} — {f.nombre}
-              </option>
-            ))}
-          </SelectInput>
-        </FormField>
-        <FormField label="Proveedor principal" hint="COD_PROV">
-          <SelectInput {...field('proveedor_habitual_codigo')}>
-            <option value="">—</option>
-            {proveedores.map((p) => (
-              <option key={p.codigo} value={p.codigo}>
-                {p.nombre}
-              </option>
-            ))}
-          </SelectInput>
-        </FormField>
-        <FormField label="Campo libre" hint="CMP_LIBRE">
-          <TextInput {...field('campo_libre')} />
-        </FormField>
-      </div>
-
-      <div>
-        <Tabs tabs={TABS} active={active} onChange={setActive} />
-        <TabPanel>
-          {isNew ? (
-            <p className="text-sm text-slate-400">
-              Guarda la cabecera para poder rellenar el resto de pestañas (códigos de barras, precios, stock por
-              almacén…), igual que en GeminisWin: primero se crea el artículo y luego se completa la ficha.
-            </p>
+      <div className="mt-1">
+        <GwTabs rows={TAB_ROWS} active={tab} onChange={setTab}>
+          {vacio && !TABS_SATELITE.has(tab) ? (
+            <div className="p-3 text-[13px]">No hay ningún artículo. Pulsa Nuevo para dar de alta el primero.</div>
           ) : (
             <>
-              {active === 'caracteristicas' && (
+              {tab === 'caracteristicas' && (
                 <TabCaracteristicas
                   articulo={draft}
-                  editing={mode !== 'consulta'}
-                  onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
+                  editing={editing}
+                  onChange={patchArticulo}
                   plantillas={plantillas}
+                  niveles={niveles}
+                  onNivelChange={cambiarNivel}
+                  preciosCargados={preciosCargados}
                 />
               )}
-              {active === 'unidades' && <TabUnidadesVenta articuloCodigo={articulo.codigo_interno} />}
-              {active === 'observaciones' && (
-                <TabObservaciones
-                  articulo={draft}
-                  editing={mode !== 'consulta'}
-                  onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
-                />
-              )}
-              {active === 'parametros' && (
-                <TabParametrosPvp
-                  articulo={draft}
-                  editing={mode !== 'consulta'}
-                  onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
-                />
-              )}
-              {active === 'ofertas' && <TabPreciosOferta articuloCodigo={articulo.codigo_interno} />}
-              {active === 'almacen' && (
-                <TabAlmacen
-                  articulo={draft}
-                  editing={mode !== 'consulta'}
-                  onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
-                />
-              )}
-              {active === 'tallas' && <TabTallasColores articuloCodigo={articulo.codigo_interno} />}
-              {active === 'equivalentes' && <TabEquivalentes articuloCodigo={articulo.codigo_interno} />}
-              {active === 'proveedores' && (
-                <TabPreciosProveedor articuloCodigo={articulo.codigo_interno} proveedores={proveedores} />
-              )}
-              {active === 'composicion' && <TabComposicion articuloCodigo={articulo.codigo_interno} />}
-              {active === 'web' && (
-                <TabImagenWeb
-                  articulo={draft}
-                  editing={mode !== 'consulta'}
-                  onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
-                />
-              )}
+              {tab === 'unidades' && enAvisoSatelite(<TabUnidadesVenta articuloCodigo={articulo.codigo_interno} />)}
+              {tab === 'observaciones' && <TabObservaciones articulo={draft} editing={editing} onChange={patchArticulo} />}
+              {tab === 'parametros' && <TabParametrosPvp articulo={draft} editing={editing} onChange={patchArticulo} />}
+              {tab === 'ofertas' && enAvisoSatelite(<TabPreciosOferta articuloCodigo={articulo.codigo_interno} />)}
+              {tab === 'almacen' && <TabAlmacen articulo={draft} editing={editing} onChange={patchArticulo} />}
+              {tab === 'tallas' && enAvisoSatelite(<TabTallasColores articuloCodigo={articulo.codigo_interno} />)}
+              {tab === 'equivalentes' && enAvisoSatelite(<TabEquivalentes articuloCodigo={articulo.codigo_interno} />)}
+              {tab === 'proveedores' &&
+                enAvisoSatelite(<TabPreciosProveedor articuloCodigo={articulo.codigo_interno} proveedores={proveedores} />)}
+              {tab === 'composicion' && enAvisoSatelite(<TabComposicion articuloCodigo={articulo.codigo_interno} />)}
+              {tab === 'imagen' && <TabImagen articulo={draft} editing={editing} onChange={patchArticulo} />}
+              {tab === 'web' && <TabWeb articulo={draft} editing={editing} onChange={patchArticulo} />}
             </>
           )}
-        </TabPanel>
+        </GwTabs>
       </div>
 
-      <RecordToolbar
+      <GwRecordBar
         mode={mode}
         canNavigate={canNavigate}
         saving={saving}
-        onFirst={() => allCodes[0] && goTo(allCodes[0])}
-        onPrev={() => idx > 0 && goTo(allCodes[idx - 1])}
-        onNext={() => idx >= 0 && idx < allCodes.length - 1 && goTo(allCodes[idx + 1])}
-        onLast={() => allCodes.length > 0 && goTo(allCodes[allCodes.length - 1])}
-        onSearch={() => navigate('/articulos')}
-        onList={() => navigate('/articulos')}
+        onFirst={() => goTo(ordenada[0]?.codigo_interno)}
+        onPrev={() => goTo(ordenada[idx - 1]?.codigo_interno)}
+        onNext={() => goTo(ordenada[idx + 1]?.codigo_interno)}
+        onLast={() => goTo(ordenada[ordenada.length - 1]?.codigo_interno)}
+        onSort={() => setOrden((o) => (o === 'codigo' ? 'descripcion' : 'codigo'))}
+        onSearch={() => setLookup('buscar')}
+        onPrint={() => window.print()}
         onNew={() => navigate('/articulos/nuevo')}
-        onEdit={() => setMode('edicion')}
-        onSave={handleSave}
-        onCancel={() => {
-          setDraft(articulo)
-          setMode('consulta')
-        }}
+        onEdit={() => !vacio && setMode('edicion')}
         onDelete={handleDelete}
-        onExit={() => navigate('/articulos')}
+        onSave={handleSave}
+        onCancel={handleCancel}
+        onExit={() => navigate('/')}
       />
+      <div className="text-[11px] text-[#444]">
+        Orden: {orden === 'codigo' ? 'por código' : 'por descripción'}
+        {idx >= 0 ? ` · Registro ${idx + 1} de ${ordenada.length}` : ''}
+        {mode === 'alta' ? ' · Alta de artículo' : mode === 'edicion' ? ' · Modificando' : ''}
+      </div>
+
+      {lookup === 'marca' && (
+        <GwLookupDialog<{ codigo: string }>
+          title="Marcas"
+          table="marca"
+          columns={[{ key: 'codigo', label: 'Marca' }]}
+          searchColumns={['codigo']}
+          orderBy="codigo"
+          keyColumn="codigo"
+          onPick={(r) => {
+            patchArticulo({ marca_codigo: r.codigo })
+            setLookup(null)
+          }}
+          onClose={() => setLookup(null)}
+        />
+      )}
+      {lookup === 'proveedor' && (
+        <GwLookupDialog<{ codigo: string; nombre: string }>
+          title="Proveedores"
+          table="proveedor"
+          columns={[
+            { key: 'codigo', label: 'Código', width: 90 },
+            { key: 'nombre', label: 'Nombre' },
+          ]}
+          searchColumns={['codigo', 'nombre']}
+          orderBy="codigo"
+          keyColumn="codigo"
+          onPick={(r) => {
+            patchArticulo({ proveedor_habitual_codigo: r.codigo })
+            setLookup(null)
+          }}
+          onClose={() => setLookup(null)}
+        />
+      )}
+      {lookup === 'familia' && (
+        <GwLookupDialog<{ codigo: string; descripcion: string }>
+          title="Familias"
+          table="familia"
+          columns={[
+            { key: 'codigo', label: 'Código', width: 90 },
+            { key: 'descripcion', label: 'Descripción' },
+          ]}
+          searchColumns={['codigo', 'descripcion']}
+          orderBy="codigo"
+          keyColumn="codigo"
+          onPick={(r) => {
+            patchArticulo({ familia_codigo: r.codigo })
+            setLookup(null)
+          }}
+          onClose={() => setLookup(null)}
+        />
+      )}
+      {lookup === 'buscar' && (
+        <GwLookupDialog<{ codigo_interno: string; descripcion: string; codigo_barras_principal: string | null }>
+          title="Buscar Artículo"
+          table="articulo"
+          columns={[
+            { key: 'codigo_interno', label: 'Código Interno', width: 120 },
+            { key: 'descripcion', label: 'Descripción' },
+            { key: 'codigo_barras_principal', label: 'Código de Barras', width: 140 },
+          ]}
+          searchColumns={['codigo_interno', 'descripcion', 'codigo_barras_principal']}
+          orderBy={orden === 'codigo' ? 'codigo_interno' : 'descripcion'}
+          keyColumn="codigo_interno"
+          onPick={(r) => {
+            setLookup(null)
+            goTo(r.codigo_interno)
+          }}
+          onClose={() => setLookup(null)}
+        />
+      )}
+      {lookup === 'compra' && (
+        <CodigosCompraDialog
+          articuloCodigo={articulo.codigo_interno}
+          proveedores={proveedores}
+          editable={editing}
+          onClose={() => setLookup(null)}
+        />
+      )}
+      {lookup === 'barras' && (
+        <CodigosBarrasDialog articuloCodigo={articulo.codigo_interno} editable={editing} onClose={() => setLookup(null)} />
+      )}
     </div>
   )
 }

@@ -236,7 +236,7 @@ export function TabComposicion({ articuloCodigo }: { articuloCodigo: string }) {
               <td>{r.articulo_componente_codigo}</td>
               <td>{r.descripcion}</td>
               <td className="text-right">
-                {editingId === r.id ? <GwNumber autoFocusless value={unidades} decimals={3} onChange={setUnidades} /> : formatGw(r.unidades, 3)}
+                {editingId === r.id ? <GwNumber value={unidades} decimals={3} onChange={setUnidades} /> : formatGw(r.unidades, 3)}
               </td>
               <td className="text-right tabular-nums">{formatGw(r.coste_neto, 3)}</td>
               <td className="text-right tabular-nums">{r.coste_neto != null ? formatGw(r.coste_neto * r.unidades, 3) : ''}</td>
