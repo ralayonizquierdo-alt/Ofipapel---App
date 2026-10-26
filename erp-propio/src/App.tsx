@@ -14,7 +14,13 @@ import { AlmacenesPage } from './pages/AlmacenesPage'
 import { TiendasPage } from './pages/TiendasPage'
 import { EmpleadosPage } from './pages/EmpleadosPage'
 import { StockPage } from './pages/StockPage'
-import { ComprasPage } from './pages/ComprasPage'
+import { PedidoProveedorFichaPage } from './pages/compras/pedidos/PedidoProveedorFichaPage'
+import { CreacionRapidaPedidosPage } from './pages/compras/pedidos/CreacionRapidaPedidosPage'
+import { PagoProveedorFichaPage } from './pages/compras/pagos/PagoProveedorFichaPage'
+import { GestorPagosProveedorPage } from './pages/compras/pagos/GestorPagosProveedorPage'
+import { FacturaProveedorFichaPage } from './pages/compras/facturas/FacturaProveedorFichaPage'
+import { GestorPedidosProveedorPage } from './pages/compras/gestor/GestorPedidosProveedorPage'
+import { TransportistaFichaPage } from './pages/compras/transportistas/TransportistaFichaPage'
 import { PedidoFichaPage } from './pages/ventas/pedidos/PedidoFichaPage'
 import { PresupuestosPage } from './pages/ventas/pedidos/PresupuestosPage'
 import { TpvPage } from './pages/ventas/tpv/TpvPage'
@@ -75,7 +81,14 @@ function App() {
             <Route path="/stock" element={<StockPage />} />
             <Route path="/traspasos" element={<TraspasosPage />} />
             <Route path="/inventario" element={<InventarioPage />} />
-            <Route path="/compras" element={<ComprasPage />} />
+            <Route path="/compras" element={<PedidoProveedorFichaPage />} />
+            <Route path="/pedidos-proveedor/*" element={<PedidoProveedorFichaPage />} />
+            <Route path="/creacion-rapida-pedidos" element={<CreacionRapidaPedidosPage />} />
+            <Route path="/pagos-proveedor/*" element={<PagoProveedorFichaPage />} />
+            <Route path="/gestor-pagos-proveedor" element={<GestorPagosProveedorPage />} />
+            <Route path="/facturas-proveedor/*" element={<FacturaProveedorFichaPage />} />
+            <Route path="/gestor-pedidos-proveedor" element={<GestorPedidosProveedorPage />} />
+            <Route path="/transportistas/*" element={<TransportistaFichaPage />} />
             <Route path="/pedidos/*" element={<PedidoFichaPage />} />
             <Route path="/presupuestos/*" element={<PresupuestosPage />} />
             <Route path="/tpv/*" element={<TpvPage />} />
