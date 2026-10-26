@@ -73,6 +73,18 @@ esquema ya tenía para esto), descuenta stock igual que una venta de
 TPV, y marca el pedido `entregado: true`. Verificado en vivo igual que
 Compras.
 
+Ventas/TPV cierra el ciclo de **cobros** (la última pieza nombrada en
+"Fase 5 — Ventas/TPV, caja, cobros"): toda venta con `total_pendiente`
+(típicamente una venta creada por "Entregar" desde Pedidos, que nace
+sin cobrar) muestra una columna "Pendiente" y un botón **Cobrar** que
+crea el `cobro_cliente` real (numerado vía `fn_siguiente_numero`,
+tipo `'pago'` — ya estaba en el catálogo de `tipo_documento_numerable`
+como "Cobro o vencimiento de cliente"), actualiza
+`total_efectivo`/`total_tarjeta`/`total_pendiente`/`total_pagado` de
+la venta (admite cobro parcial), y genera su `movimiento_caja` si hay
+caja abierta. Verificado en vivo con un cobro parcial (40 €) seguido
+del resto (60 €) hasta saldar la venta de 100 €.
+
 **Ventas / TPV** (Fase 5) ya abre y cierra caja de verdad
 (`caja_apertura_cierre`) y crea tickets de venta reales (`venta` +
 `venta_linea`) con su `movimiento_caja` de ingreso asociado — no deja

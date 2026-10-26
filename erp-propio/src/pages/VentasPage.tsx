@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Plus, Trash2, Lock, Unlock } from 'lucide-react'
+import { Plus, Trash2, Lock, Unlock, Banknote } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { DataTable, type Column } from '../components/DataTable'
 import { Modal } from '../components/Modal'
@@ -32,6 +32,8 @@ interface Venta {
   total: number | null
   total_efectivo: number | null
   total_tarjeta: number | null
+  total_pendiente: number | null
+  cliente_codigo: string
   fecha: string
   cliente: { nombre: string } | null
 }
@@ -75,6 +77,12 @@ export function VentasPage() {
   const [savingVenta, setSavingVenta] = useState(false)
   const [errorVenta, setErrorVenta] = useState<string | null>(null)
 
+  const [cobroVenta, setCobroVenta] = useState<Venta | null>(null)
+  const [importeCobro, setImporteCobro] = useState('')
+  const [formaPagoCobro, setFormaPagoCobro] = useState<'efectivo' | 'tarjeta'>('efectivo')
+  const [savingCobro, setSavingCobro] = useState(false)
+  const [errorCobro, setErrorCobro] = useState<string | null>(null)
+
   async function loadCaja() {
     setLoadingCaja(true)
     const { data } = await supabase
@@ -93,7 +101,7 @@ export function VentasPage() {
     setLoadingVentas(true)
     const { data } = await supabase
       .from('venta')
-      .select('tienda_terminal_codigo, numero, total, total_efectivo, total_tarjeta, fecha, cliente:cliente_codigo(nombre)')
+      .select('tienda_terminal_codigo, numero, total, total_efectivo, total_tarjeta, total_pendiente, cliente_codigo, fecha, cliente:cliente_codigo(nombre)')
       .eq('tienda_terminal_codigo', TIENDA)
       .order('numero', { ascending: false })
       .limit(50)
@@ -300,13 +308,124 @@ export function VentasPage() {
     loadVentas()
   }
 
+  async function handleCobrar(e: FormEvent) {
+    e.preventDefault()
+    if (!cobroVenta) return
+    setSavingCobro(true)
+    setErrorCobro(null)
+
+    const importe = Number(importeCobro) || 0
+
+    const { data: codigoPago, error: numeroError } = await supabase.rpc('fn_siguiente_numero', {
+      p_tienda: TIENDA,
+      p_tipo_documento: 'pago',
+      p_serie: '',
+    })
+    if (numeroError) {
+      setSavingCobro(false)
+      setErrorCobro(numeroError.message)
+      return
+    }
+
+    const { error: cobroError } = await supabase.from('cobro_cliente').insert({
+      tienda_terminal_codigo: TIENDA,
+      codigo_pago: codigoPago,
+      cliente_codigo: cobroVenta.cliente_codigo,
+      fecha_pago: hoy(),
+      fecha: hoy(),
+      importe_cobrado: importe,
+      estado_cobro: 'cobrado',
+      tipo_pago: formaPagoCobro,
+      venta_relacionada_tienda_codigo: cobroVenta.tienda_terminal_codigo,
+      venta_relacionada_numero: cobroVenta.numero,
+    })
+    if (cobroError) {
+      setSavingCobro(false)
+      setErrorCobro(cobroError.message)
+      return
+    }
+
+    const nuevoEfectivo = (cobroVenta.total_efectivo ?? 0) + (formaPagoCobro === 'efectivo' ? importe : 0)
+    const nuevoTarjeta = (cobroVenta.total_tarjeta ?? 0) + (formaPagoCobro === 'tarjeta' ? importe : 0)
+    const nuevoPendiente = Math.max((cobroVenta.total_pendiente ?? cobroVenta.total ?? 0) - importe, 0)
+
+    const { error: updateError } = await supabase
+      .from('venta')
+      .update({
+        total_efectivo: nuevoEfectivo,
+        total_tarjeta: nuevoTarjeta,
+        total_pendiente: nuevoPendiente,
+        total_pagado: (cobroVenta.total ?? 0) - nuevoPendiente,
+      })
+      .eq('tienda_terminal_codigo', cobroVenta.tienda_terminal_codigo)
+      .eq('numero', cobroVenta.numero)
+    if (updateError) {
+      setSavingCobro(false)
+      setErrorCobro(updateError.message)
+      return
+    }
+
+    if (caja) {
+      const { data: numeroMov } = await supabase.rpc('fn_siguiente_numero', {
+        p_tienda: TIENDA,
+        p_tipo_documento: 'caja',
+        p_serie: '',
+      })
+      if (numeroMov) {
+        await supabase.from('movimiento_caja').insert({
+          tienda_terminal_codigo: TIENDA,
+          numero: numeroMov,
+          fecha: hoy(),
+          es_ingreso: true,
+          ingreso: importe,
+          concepto: `Cobro venta ${cobroVenta.tienda_terminal_codigo}-${cobroVenta.numero}`,
+          documento: 'cobro',
+          ajeno_tienda_codigo: cobroVenta.tienda_terminal_codigo,
+          ajeno_codigo: cobroVenta.numero,
+          cliente_codigo: cobroVenta.cliente_codigo,
+        })
+      }
+    }
+
+    setSavingCobro(false)
+    setCobroVenta(null)
+    setImporteCobro('')
+    setFormaPagoCobro('efectivo')
+    loadVentas()
+  }
+
   const columns: Column<Venta>[] = [
     { header: 'Número', cell: (r) => <span className="font-mono text-xs">{r.tienda_terminal_codigo}-{r.numero}</span> },
     { header: 'Cliente', cell: (r) => r.cliente?.nombre ?? '—' },
     { header: 'Efectivo', cell: (r) => (r.total_efectivo != null ? `${r.total_efectivo.toFixed(2)} €` : '—') },
     { header: 'Tarjeta', cell: (r) => (r.total_tarjeta != null ? `${r.total_tarjeta.toFixed(2)} €` : '—') },
     { header: 'Total', cell: (r) => (r.total != null ? `${r.total.toFixed(2)} €` : '—') },
+    {
+      header: 'Pendiente',
+      cell: (r) =>
+        r.total_pendiente && r.total_pendiente > 0 ? (
+          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">{r.total_pendiente.toFixed(2)} €</span>
+        ) : (
+          '—'
+        ),
+    },
     { header: 'Fecha', cell: (r) => new Date(r.fecha).toLocaleDateString('es-ES') },
+    {
+      header: '',
+      cell: (r) =>
+        r.total_pendiente && r.total_pendiente > 0 ? (
+          <button
+            type="button"
+            onClick={() => {
+              setCobroVenta(r)
+              setImporteCobro(r.total_pendiente!.toFixed(2))
+            }}
+            className="flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
+          >
+            <Banknote size={14} /> Cobrar
+          </button>
+        ) : null,
+    },
   ]
 
   const sumaManual = (Number(efectivo) || 0) + (Number(tarjeta) || 0)
@@ -478,6 +597,29 @@ export function VentasPage() {
             {errorVenta && <p className="text-sm text-red-600">{errorVenta}</p>}
             <button type="submit" disabled={savingVenta} className="mt-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
               {savingVenta ? 'Guardando…' : 'Cobrar y guardar'}
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {cobroVenta && (
+        <Modal title={`Cobrar venta ${cobroVenta.tienda_terminal_codigo}-${cobroVenta.numero}`} onClose={() => setCobroVenta(null)}>
+          <form onSubmit={handleCobrar} className="flex flex-col gap-4">
+            <p className="text-sm text-slate-500">
+              Pendiente: <span className="font-semibold text-slate-800">{(cobroVenta.total_pendiente ?? 0).toFixed(2)} €</span>
+            </p>
+            <FormField label="Importe a cobrar (€) *">
+              <TextInput required type="number" step="0.01" value={importeCobro} onChange={(e) => setImporteCobro(e.target.value)} />
+            </FormField>
+            <FormField label="Forma de pago *">
+              <SelectInput required value={formaPagoCobro} onChange={(e) => setFormaPagoCobro(e.target.value as 'efectivo' | 'tarjeta')}>
+                <option value="efectivo">Efectivo</option>
+                <option value="tarjeta">Tarjeta</option>
+              </SelectInput>
+            </FormField>
+            {errorCobro && <p className="text-sm text-red-600">{errorCobro}</p>}
+            <button type="submit" disabled={savingCobro} className="mt-2 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+              {savingCobro ? 'Cobrando…' : 'Registrar cobro'}
             </button>
           </form>
         </Modal>
