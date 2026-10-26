@@ -56,12 +56,8 @@ export function TabDatosGenerales({ proveedor, editing, onChange }: ProveedorTab
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-2">
-        <GwField label="Contacto">{txt('contacto', 'CONTACTO')}</GwField>
-      </div>
-
-      <GwGroup className="mt-1 flex flex-col gap-1">
-        <div className="grid grid-cols-[150px_minmax(0,1fr)] gap-x-2">
+      <GwGroup className="flex flex-col gap-1">
+        <div className="grid grid-cols-[230px_minmax(0,1fr)] gap-x-2">
           <GwField label="Cod. Postal">
             <span className="flex">
               {txt('codigo_postal', 'CODPOSTAL')}
@@ -75,14 +71,14 @@ export function TabDatosGenerales({ proveedor, editing, onChange }: ProveedorTab
             </span>
           </GwField>
         </div>
-        <div className="grid grid-cols-[minmax(0,350px)_minmax(0,280px)_minmax(0,1fr)] gap-x-2">
+        <div className="grid grid-cols-[minmax(0,1.05fr)_minmax(0,0.8fr)_minmax(0,0.5fr)] gap-x-2">
           <GwField label="Población">
             <span className="flex">
               {txt('poblacion', 'POBLACION')}
               <GwLookupButton disabled={ro} onClick={() => setBuscarCp(true)} title="Buscar población" />
             </span>
           </GwField>
-          <GwField label="Provincia">
+          <GwField label="Província">
             <span className="flex">
               <GwSelect
                 value={proveedor.provincia_codigo ?? ''}
@@ -104,7 +100,7 @@ export function TabDatosGenerales({ proveedor, editing, onChange }: ProveedorTab
             </span>
           </GwField>
         </div>
-        <GwGroup title="Teléfonos" className="mr-[90px] flex items-center gap-3">
+        <GwGroup title="Teléfonos" className="mr-[80px] flex items-center gap-3">
           <GwInline label="Tlf. Fijo:" className="flex-1">
             {txt('telefono_fijo', 'TELEFONO')}
           </GwInline>
@@ -120,6 +116,15 @@ export function TabDatosGenerales({ proveedor, editing, onChange }: ProveedorTab
           <GwField label="Dirección Web (URL)">{txt('web', 'WEB')}</GwField>
         </div>
       </GwGroup>
+
+      <div className="mt-1 flex items-center gap-6">
+        <GwInline label="Fecha de Alta:">
+          <GwInput type="date" title="F_ALTA" className="!w-[150px]" value={proveedor.fecha_alta ? proveedor.fecha_alta.slice(0, 10) : ''} disabled={ro} onChange={(e) => onChange({ fecha_alta: e.target.value || null })} />
+        </GwInline>
+        <GwInline label="Fecha de Baja:">
+          <GwInput type="date" title="F_BAJA" className="!w-[150px]" value={proveedor.fecha_baja ? proveedor.fecha_baja.slice(0, 10) : ''} disabled={ro} onChange={(e) => onChange({ fecha_baja: e.target.value || null })} />
+        </GwInline>
+      </div>
 
       {buscar && (
         <GwLookupDialog<Opcion & Record<string, unknown>>

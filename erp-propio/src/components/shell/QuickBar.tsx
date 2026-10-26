@@ -37,7 +37,7 @@ export const QUICK_ITEMS: QuickItem[] = [
   { label: 'Ventas', description: 'TPV / Ventas', icon: Banknote, color: '#3d7f5a', to: '/tpv' },
   { label: 'Reparaciones', description: 'Reparaciones', icon: Wrench, color: '#6b4f9e', to: '/reparaciones' },
   { label: 'Facturación', description: 'Facturas', icon: NotebookText, color: '#c0392b', to: '/facturacion' },
-  { label: 'Compras', description: 'Pedidos a Proveedores', icon: ShoppingCart, color: '#8b4513', to: '/compras' },
+  { label: 'Compras', description: 'Pedidos a Proveedores', icon: ShoppingCart, color: '#8b4513', to: '/pedidos-proveedor' },
   { label: 'Artículos', description: 'Artículos', icon: Boxes, color: '#c58a3a', to: '/articulos' },
   { label: 'Traspasos', description: 'Traspasos entre Almacenes', icon: RefreshCcw, color: '#e08a1e', to: '/traspasos' },
   { label: 'Reparar BD', description: 'Reparar Base de Datos', icon: DatabaseZap, color: '#2e7d32' },

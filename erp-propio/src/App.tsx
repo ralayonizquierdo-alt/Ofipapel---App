@@ -39,8 +39,11 @@ import { MarcaFichaPage } from './pages/almacen/MarcaFichaPage'
 import { PlantillaTarifaFichaPage } from './pages/almacen/PlantillaTarifaFichaPage'
 import { VentasPage } from './pages/VentasPage'
 import { PagosPage } from './pages/PagosPage'
-import { TraspasosPage } from './pages/TraspasosPage'
-import { InventarioPage } from './pages/InventarioPage'
+import { TarifaOfertaFichaPage } from './pages/almacen/TarifaOfertaFichaPage'
+import { ModificacionPreciosFichaPage } from './pages/almacen/ModificacionPreciosFichaPage'
+import { TraspasoFichaPage } from './pages/almacen/traspasos/TraspasoFichaPage'
+import { RegularizacionStockPage } from './pages/almacen/traspasos/RegularizacionStockPage'
+import { InventarioFichaPage } from './pages/almacen/inventarios/InventarioFichaPage'
 import { FacturacionPage } from './pages/FacturacionPage'
 
 function ProtectedArea() {
@@ -79,8 +82,11 @@ function App() {
             <Route path="/tiendas" element={<TiendasPage />} />
             <Route path="/empleados" element={<EmpleadosPage />} />
             <Route path="/stock" element={<StockPage />} />
-            <Route path="/traspasos" element={<TraspasosPage />} />
-            <Route path="/inventario" element={<InventarioPage />} />
+            <Route path="/traspasos/*" element={<TraspasoFichaPage />} />
+            <Route path="/regularizacion-stock/*" element={<RegularizacionStockPage />} />
+            <Route path="/inventario/*" element={<InventarioFichaPage />} />
+            <Route path="/tarifas-oferta/*" element={<TarifaOfertaFichaPage />} />
+            <Route path="/modificacion-precios/*" element={<ModificacionPreciosFichaPage />} />
             <Route path="/compras" element={<PedidoProveedorFichaPage />} />
             <Route path="/pedidos-proveedor/*" element={<PedidoProveedorFichaPage />} />
             <Route path="/creacion-rapida-pedidos" element={<CreacionRapidaPedidosPage />} />

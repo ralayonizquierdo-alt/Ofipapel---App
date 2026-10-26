@@ -21,14 +21,14 @@ interface CodigoNombre {
 
 const TAB_ROWS: GwTabDef[][] = [
   [
-    { key: 'generales', label: 'Datos generales' },
-    { key: 'comerciales', label: 'Datos comerciales' },
-    { key: 'plantilla', label: 'Plantilla de tarifas' },
+    { key: 'generales', label: 'Datos Generales' },
+    { key: 'comerciales', label: 'Datos Comerciales' },
+    { key: 'plantilla', label: 'Plantilla tarifas' },
     { key: 'enlaces', label: 'Enlaces' },
     { key: 'bancos', label: 'Bancos' },
     { key: 'articulos', label: 'Artículos' },
     { key: 'compras', label: 'Compras' },
-    { key: 'obs', label: 'Observaciones e imagen' },
+    { key: 'obs', label: 'Observaciones e Imagen' },
   ],
 ]
 
@@ -41,18 +41,6 @@ const hoy = () => new Date().toISOString().slice(0, 10)
 function siguienteCodigo(codigos: string[]) {
   const max = codigos.reduce((m, c) => (/^\d+$/.test(c) ? Math.max(m, Number(c)) : m), 0)
   return String(max + 1).padStart(5, '0')
-}
-
-function FechaInput({ value, onChange, disabled, title }: { value: string | null; onChange: (v: string | null) => void; disabled?: boolean; title?: string }) {
-  return (
-    <GwInput
-      type="date"
-      title={title}
-      value={value ? value.slice(0, 10) : ''}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.value || null)}
-    />
-  )
 }
 
 export function ProveedorFichaPage() {
@@ -232,23 +220,18 @@ export function ProveedorFichaPage() {
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-x-1.5">
+      <div className="grid grid-cols-[130px_minmax(0,1fr)_160px] gap-x-1.5">
         <GwField label="Código">
-          <GwInput value={draft.codigo} disabled={mode !== 'alta'} title="COD_PROV" onChange={(e) => patch({ codigo: e.target.value })} />
+          <GwInput value={draft.codigo} disabled={mode !== 'alta'} title="CODIGO" onChange={(e) => patch({ codigo: e.target.value })} />
         </GwField>
         <GwField label="Nombre">
           <GwInput value={draft.nombre} disabled={ro} title="NOMBRE" onChange={(e) => patch({ nombre: e.target.value })} />
         </GwField>
-      </div>
-      <div className="grid grid-cols-[110px_minmax(0,1fr)_120px_120px] gap-x-1.5">
         <GwField label="Dni/Nif">{txt('nif', 'NIF')}</GwField>
-        <GwField label="Razón Social:">{txt('razon_social', 'RAZONSOC')}</GwField>
-        <GwField label="Fecha de Alta">
-          <FechaInput value={draft.fecha_alta} disabled={ro} title="F_ALTA" onChange={(v) => patch({ fecha_alta: v })} />
-        </GwField>
-        <GwField label="Fecha de Baja">
-          <FechaInput value={draft.fecha_baja} disabled={ro} title="F_BAJA" onChange={(v) => patch({ fecha_baja: v })} />
-        </GwField>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] gap-x-1.5">
+        <GwField label="Razón Social">{txt('razon_social', 'RAZONSOC')}</GwField>
+        <GwField label="Contacto">{txt('contacto', 'CONTACTO')}</GwField>
       </div>
 
       {(error || (!proveedor.activo && !vacio && mode !== 'alta')) && (
