@@ -6,7 +6,8 @@ import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ArticulosListPage } from './pages/articulos/ArticulosListPage'
 import { ArticuloFichaPage } from './pages/articulos/ArticuloFichaPage'
-import { ClientesPage } from './pages/ClientesPage'
+import { ClienteFichaPage } from './pages/clientes/ClienteFichaPage'
+import { ClientesListPage } from './pages/clientes/ClientesListPage'
 import { ProveedoresPage } from './pages/ProveedoresPage'
 import { AlmacenesPage } from './pages/AlmacenesPage'
 import { TiendasPage } from './pages/TiendasPage'
@@ -47,7 +48,9 @@ function App() {
             <Route path="/articulos" element={<ArticuloFichaPage />} />
             <Route path="/articulos/lista" element={<ArticulosListPage />} />
             <Route path="/articulos/:codigo" element={<ArticuloFichaPage />} />
-            <Route path="/clientes" element={<ClientesPage />} />
+            <Route path="/clientes" element={<ClienteFichaPage />} />
+            <Route path="/clientes/lista" element={<ClientesListPage />} />
+            <Route path="/clientes/:codigo" element={<ClienteFichaPage />} />
             <Route path="/proveedores" element={<ProveedoresPage />} />
             <Route path="/almacenes" element={<AlmacenesPage />} />
             <Route path="/tiendas" element={<TiendasPage />} />
