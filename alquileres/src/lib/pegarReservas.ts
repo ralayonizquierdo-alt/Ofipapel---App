@@ -1,3 +1,5 @@
+import type { Reservation } from '../types'
+
 /**
  * Lee las reservas escritas en un mensaje de WhatsApp.
  *
@@ -334,6 +336,15 @@ export function analizaAirbnb(texto: string, hoy = new Date()): LineaPegada | nu
 
 // ─── Avisos de anulación ─────────────────────────────────────────────────────
 
+/** De qué vivienda habla un texto, si lo dice. */
+function viviendaDe(texto: string): string | null {
+  const t = despega(texto)
+  for (const { id, patrones } of INMUEBLES) {
+    if (patrones.some(p => p.test(t))) return id
+  }
+  return null
+}
+
 export interface AnulacionPegada {
   /** El aviso recortado, para poder enseñarlo y guardarlo en la nota. */
   texto: string
@@ -364,14 +375,87 @@ export function pareceAnulacion(texto: string): boolean {
     /\bha\s+cancelado\s+(?:la\s+|su\s+)?reserva/,
     /\bcancel[oó]\s+(?:la\s+|su\s+)?reserva/,
     /reserva\s+anulada/,
-    /\banulad[ao]\b[^.]{0,40}\breserva\b/,
-    /\breserva\b[^.]{0,40}\banulad[ao]\b/,
-    // «se anula la reserva», «anular la reserva», «anulación de la reserva».
-    /\banula(?:r|n|mos|ción|cion)?\s+(?:de\s+)?(?:la\s+|su\s+|esta\s+)?reserva/,
+    /\banulad[ao]s?\b[^.]{0,40}\breservas?\b/,
+    /\breservas?\b[^.]{0,40}\banulad[ao]s?\b/,
+    // «se anula la reserva», «anular la reserva», «se anulan estas reservas»,
+    // «anulación de las reservas». Entre el verbo y «reserva» caben un par de
+    // palabras, que es lo que escribe cualquiera; más no, para no juntar dos
+    // frases distintas de un correo largo.
+    /\banula(?:r|n|mos|ron|d[ao]s?|ción|cion)?\s+(?:\w+\s+){0,2}reservas?\b/,
     // Los verbos de cancelar, pero NO el nombre: «política de cancelación de
     // la reserva» sale en el aviso de una reserva nueva.
-    /\bcancel(?:a|ar|an|amos)\s+(?:de\s+)?(?:la\s+|su\s+|esta\s+)?reserva/,
+    /\bcancel(?:a|ar|an|amos|aron)\s+(?:\w+\s+){0,2}reservas?\b/,
   ].some(re => re.test(t))
+}
+
+/**
+ * Las anulaciones de un mensaje, **una por línea**, igual que las altas.
+ *
+ * Un aviso de la inmobiliaria puede traer varias de golpe:
+ *
+ *   Se anulan estas reservas:
+ *   ALAYON 104 del 02/11/26 al 09/11/26
+ *   ALAYON 203 del 12/11/26 al 20/11/26
+ *
+ * Si ninguna línea trae vivienda y fechas a la vez —que es lo que pasa con el
+ * correo de Airbnb, donde el piso está en una línea y las fechas en otra— se
+ * lee el mensaje entero como una sola anulación.
+ */
+export function analizaAnulaciones(texto: string, hoy = new Date()): AnulacionPegada[] {
+  const bruto = (texto || '').trim()
+  if (!bruto || !pareceAnulacion(bruto)) return []
+
+  // La vivienda puede estar en una línea y las fechas en otra (el correo de
+  // Airbnb nombra el anuncio arriba y habla del viajero abajo). Lo que diga el
+  // mensaje entero vale para las líneas que no la nombran.
+  const delMensaje = viviendaDe(bruto.replace(/\s+/g, ' '))
+
+  // El correo de Airbnb repite además las mismas fechas en varias líneas (el
+  // asunto, el resumen y el cuerpo): lo que coincide en vivienda y fechas es
+  // una sola anulación, y se queda la línea que más datos trae.
+  const porLineas = new Map<string, AnulacionPegada>()
+  for (const linea of bruto.split(/\r?\n/)) {
+    // Cada línea se lee sola, pero la señal de que esto es una anulación es
+    // del mensaje entero: «Se anulan estas reservas:» va en la primera y las
+    // demás solo traen piso y fechas.
+    const leida = analizaAnulacion(`Se anula la reserva. ${linea}`, hoy)
+    if (!leida || leida.problema) continue
+    // Si la línea no nombraba vivienda y el mensaje sí, manda la del mensaje:
+    // el aviso de Airbnb pone «Arenal» arriba, no en la línea de las fechas.
+    const una = !viviendaDe(linea) && delMensaje
+      ? { ...leida, apartmentId: delMensaje, nota: undefined }
+      : leida
+    const clave = `${una.apartmentId}|${una.checkIn}|${una.checkOut}`
+    const antes = porLineas.get(clave)
+    const datos = (x: AnulacionPegada) => (x.codigo ? 1 : 0) + (x.guestName ? 1 : 0)
+    if (!antes || datos(una) > datos(antes)) porLineas.set(clave, { ...una, texto: linea.trim() })
+  }
+  if (porLineas.size) return [...porLineas.values()]
+
+  const entera = analizaAnulacion(bruto, hoy)
+  return entera ? [entera] : []
+}
+
+/**
+ * Las reservas que pueden ser la que se anula.
+ *
+ * Primero la que cuadra al día; si no hay, las que empiezan y acaban a un par
+ * de días (un aviso puede traer la fecha del cambio de huésped y no la del
+ * contrato); y en último caso cualquiera de ese apartamento que pise esas
+ * fechas. Nunca decide sola si hay más de una: esto solo encuentra.
+ */
+export function candidatasDeAnulacion(a: AnulacionPegada, reservations: Reservation[]): Reservation[] {
+  if (!a.apartmentId || !a.checkIn || !a.checkOut) return []
+  const { apartmentId, checkIn, checkOut } = a
+  const suyas = reservations.filter(r => r.apartmentId === apartmentId && r.status !== 'cancelada')
+  const exactas = suyas.filter(r => r.checkIn === checkIn && r.checkOut === checkOut)
+  if (exactas.length) return exactas
+  const dias = (x: string, y: string) => Math.abs(Date.parse(x) - Date.parse(y)) / 86400000
+  const cerca = suyas.filter(r => dias(r.checkIn, checkIn) <= 2 && dias(r.checkOut, checkOut) <= 2)
+  if (cerca.length) return cerca
+  return suyas
+    .filter(r => r.checkIn < checkOut && checkIn < r.checkOut)
+    .sort((x, y) => x.checkIn.localeCompare(y.checkIn))
 }
 
 /**
@@ -410,10 +494,7 @@ export function analizaAnulacion(texto: string, hoy = new Date()): AnulacionPega
   const notas: string[] = []
 
   // ── Vivienda ───────────────────────────────────────────────────────────────
-  let apartmentId: string | null = null
-  for (const { id, patrones } of INMUEBLES) {
-    if (patrones.some(p => p.test(despega(plano)))) { apartmentId = id; break }
-  }
+  let apartmentId = viviendaDe(plano)
   const deAirbnb = /airbnb|anuncio\s+n\.?[ºo°]|viajer[oa]/i.test(plano)
   if (!apartmentId && deAirbnb) {
     apartmentId = AIRBNB_POR_DEFECTO

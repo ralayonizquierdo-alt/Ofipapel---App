@@ -1,7 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Clipboard, ClipboardPaste, FileUp, Ban } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
-import { analizaPegado, analizaAirbnb, analizaAnulacion, analizaCobro, type LineaPegada } from '../lib/pegarReservas'
+import {
+  analizaPegado, analizaAirbnb, analizaAnulaciones, candidatasDeAnulacion, analizaCobro,
+  type LineaPegada, type AnulacionPegada,
+} from '../lib/pegarReservas'
 import { textoDePdf } from '../lib/leePdf'
 import { esImagen, textoDeImagen, ErrorImagen } from '../lib/leeImagen'
 import { subeJustificante, ErrorJustificante, tamanoLegible } from '../lib/justificantes'
@@ -67,40 +70,28 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
   // Cuatro formatos distintos, y se distinguen solos. La anulación se mira
   // antes que nada: trae fechas y vivienda igual que un alta, y leerla como un
   // alta daría de alta otra vez la reserva que se acaba de caer.
-  const anulacion = useMemo(() => analizaAnulacion(texto), [texto])
-  const cobro = useMemo(() => (anulacion ? null : analizaCobro(texto)), [texto, anulacion])
-  const airbnb = useMemo(() => (anulacion || cobro ? null : analizaAirbnb(texto)), [texto, cobro, anulacion])
+  const anulaciones = useMemo(() => analizaAnulaciones(texto), [texto])
+  const hayAnulacion = anulaciones.length > 0
+  const cobro = useMemo(() => (hayAnulacion ? null : analizaCobro(texto)), [texto, hayAnulacion])
+  const airbnb = useMemo(() => (hayAnulacion || cobro ? null : analizaAirbnb(texto)), [texto, cobro, hayAnulacion])
   const lineas = useMemo(
-    () => (anulacion || cobro ? [] : airbnb ? [airbnb] : analizaPegado(texto)),
-    [texto, cobro, airbnb, anulacion],
+    () => (hayAnulacion || cobro ? [] : airbnb ? [airbnb] : analizaPegado(texto)),
+    [texto, cobro, airbnb, hayAnulacion],
   )
 
-  /**
-   * Las reservas que pueden ser la que se anula.
-   *
-   * Primero la que cuadra al día; si no hay, las que empiezan o acaban a un par
-   * de días (un aviso puede traer la fecha del cambio de huésped y no la del
-   * contrato); y en último caso cualquiera de ese apartamento que pise esas
-   * fechas. Nunca se elige sola si hay más de una.
-   */
-  const candidatas = useMemo((): Reservation[] => {
-    if (!anulacion?.apartmentId || !anulacion.checkIn || !anulacion.checkOut) return []
-    const { apartmentId, checkIn, checkOut } = anulacion
-    const suyas = reservations.filter(r => r.apartmentId === apartmentId && r.status !== 'cancelada')
-    const exactas = suyas.filter(r => r.checkIn === checkIn && r.checkOut === checkOut)
-    if (exactas.length) return exactas
-    const dias = (a: string, b: string) =>
-      Math.abs(Date.parse(a) - Date.parse(b)) / 86400000
-    const cerca = suyas.filter(r => dias(r.checkIn, checkIn) <= 2 && dias(r.checkOut, checkOut) <= 2)
-    if (cerca.length) return cerca
-    return suyas
-      .filter(r => r.checkIn < checkOut && checkIn < r.checkOut)
-      .sort((a, b) => a.checkIn.localeCompare(b.checkIn))
-  }, [anulacion, reservations])
+  /** Cuál de las candidatas se anula en cada aviso, cuando hay varias. */
+  const [elegidas, setElegidas] = useState<Record<string, string>>({})
 
-  /** Cuál de las candidatas se va a anular. Con una sola, esa. */
-  const [elegida, setElegida] = useState<string>('')
-  const aAnular = candidatas.find(r => r.id === elegida) ?? (candidatas.length === 1 ? candidatas[0] : null)
+  /** Cada anulación leída, con las reservas que pueden ser y la elegida. */
+  const porAnular = useMemo(() => anulaciones.map((a, i) => {
+    const candidatas = candidatasDeAnulacion(a, reservations)
+    const clave = `${i}|${a.apartmentId}|${a.checkIn}`
+    const elegida = candidatas.find(r => r.id === elegidas[clave])
+      ?? (candidatas.length === 1 ? candidatas[0] : null)
+    return { a, clave, candidatas, elegida }
+  }), [anulaciones, reservations, elegidas])
+
+  const aAnular = porAnular.filter(x => x.elegida)
 
   /** Reservas listas para crear, con su precio calculado y sus avisos. */
   const propuestas = useMemo(() => lineas.map(l => {
@@ -232,30 +223,36 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
    * planning. Lo que ya se hubiera cobrado se devuelve o no por otro lado;
    * eso no lo decide la aplicación.
    */
-  function anularReserva() {
-    if (!anulacion || !aAnular) return
+  function anularReservas() {
+    if (!aAnular.length) return
     setGuardando(true)
-    const sello = `Anulada el ${formatDate(new Date().toISOString().slice(0, 10))}`
-      + (anulacion.codigo ? ` (reserva ${anulacion.codigo})` : '')
-      + ` desde el aviso: ${anulacion.texto}`
-    updateReservation(aAnular.id, {
-      status: 'cancelada',
-      notes: [aAnular.notes, sello].filter(Boolean).join(' · '),
-    })
+    const hoy = formatDate(new Date().toISOString().slice(0, 10))
+    let cobrado = 0
+    for (const { a, elegida } of aAnular) {
+      const r = elegida!
+      const sello = `Anulada el ${hoy}`
+        + (a.codigo ? ` (reserva ${a.codigo})` : '')
+        + ` desde el aviso: ${a.texto}`
+      updateReservation(r.id, {
+        status: 'cancelada',
+        notes: [r.notes, sello].filter(Boolean).join(' · '),
+      })
+      cobrado += payments
+        .filter(p => p.reservationId === r.id && p.received)
+        .reduce((s, p) => s + p.amount, 0)
+    }
+    const detalle = aAnular
+      .map(({ elegida }) => `${nombreApt(elegida!.apartmentId)} ${formatDate(elegida!.checkIn)} a ${formatDate(elegida!.checkOut)}`)
+      .join(' · ')
     anotaVolcado({
       origen: 'anulacion',
-      resumen: `${nombreApt(aAnular.apartmentId)}, reserva del ${formatDate(aAnular.checkIn)} `
-        + `al ${formatDate(aAnular.checkOut)} marcada como anulada`,
-      year: Number(aAnular.checkIn.slice(0, 4)),
-      reservas: 1,
+      resumen: `${aAnular.length === 1 ? 'Reserva anulada' : `${aAnular.length} reservas anuladas`}: ${detalle}`,
+      year: Number(aAnular[0].elegida!.checkIn.slice(0, 4)),
+      reservas: aAnular.length,
     })
-    const cobrado = payments
-      .filter(p => p.reservationId === aAnular.id && p.received)
-      .reduce((s, p) => s + p.amount, 0)
-    setHecho(`Reserva anulada: ${nombreApt(aAnular.apartmentId)}, del ${formatDate(aAnular.checkIn)} `
-      + `al ${formatDate(aAnular.checkOut)}`
-      + (cobrado > 0 ? `. Ojo: tiene ${eur(cobrado)} ya cobrados, míralo` : ''))
-    setTexto(''); setFichero(null); setElegida(''); setGuardando(false)
+    setHecho(`${aAnular.length === 1 ? 'Reserva anulada' : `${aAnular.length} reservas anuladas`}: ${detalle}`
+      + (cobrado > 0 ? `. Ojo: hay ${eur(cobrado)} ya cobrados, míralo` : ''))
+    setTexto(''); setFichero(null); setElegidas({}); setGuardando(false)
   }
 
   async function guardarCobro() {
@@ -385,73 +382,22 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
           </div>
         )}
 
-        {/* ── Un aviso de anulación ── */}
-        {anulacion && (
+        {/* ── Avisos de anulación: uno por reserva que se cae ── */}
+        {hayAnulacion && (
           <div className="border-2 border-amber-300 rounded-lg overflow-hidden">
             <div className="bg-amber-50 px-4 py-2 border-b border-amber-200 flex items-center gap-2">
               <Ban size={15} className="text-amber-700 shrink-0" />
-              <p className="text-xs font-semibold text-amber-900">Aviso de anulación</p>
+              <p className="text-xs font-semibold text-amber-900">
+                {porAnular.length === 1 ? 'Aviso de anulación' : `${porAnular.length} anulaciones`}
+              </p>
             </div>
-            <div className="p-4 space-y-1.5 text-sm" translate="no">
-              <p className="flex justify-between">
-                <span className="text-slate-500">Apartamento</span>
-                <span className="text-slate-800">{nombreApt(anulacion.apartmentId)}</span>
-              </p>
-              <p className="flex justify-between">
-                <span className="text-slate-500">Fechas del aviso</span>
-                <span className="text-slate-800">
-                  {anulacion.checkIn ? formatDate(anulacion.checkIn) : '—'} → {anulacion.checkOut ? formatDate(anulacion.checkOut) : '—'}
-                </span>
-              </p>
-              {(anulacion.guestName || anulacion.codigo) && (
-                <p className="flex justify-between">
-                  <span className="text-slate-500">Reserva</span>
-                  <span className="text-slate-800">
-                    {[anulacion.guestName, anulacion.codigo].filter(Boolean).join(' · ')}
-                  </span>
-                </p>
-              )}
-              {anulacion.nota && <p className="text-xs text-amber-800">{anulacion.nota}</p>}
-
-              <div className="pt-2 mt-1 border-t border-slate-100">
-                {anulacion.problema ? (
-                  <p className="text-sm text-red-800">{anulacion.problema}</p>
-                ) : candidatas.length === 0 ? (
-                  <p className="text-sm text-amber-800">
-                    No hay ninguna reserva de esas fechas sin anular en {nombreApt(anulacion.apartmentId)}.
-                    Puede que ya estuviera anulada.
-                  </p>
-                ) : candidatas.length === 1 ? (
-                  <p className="text-sm text-slate-700">
-                    Se marcará como anulada la reserva del{' '}
-                    <b>{formatDate(candidatas[0].checkIn)}</b> al{' '}
-                    <b>{formatDate(candidatas[0].checkOut)}</b>
-                    {candidatas[0].guestName ? <> de <b>{candidatas[0].guestName}</b></> : null}.
-                    No se borra: se queda con sus cobros y su historial.
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-sm text-slate-700 mb-2">
-                      Hay {candidatas.length} reservas que pueden ser. Elige cuál:
-                    </p>
-                    <div className="space-y-1.5">
-                      {candidatas.map(r => (
-                        <label key={r.id}
-                          className={`flex items-center gap-2 text-sm border rounded-lg px-3 py-2 cursor-pointer ${
-                            aAnular?.id === r.id ? 'border-amber-400 bg-amber-50' : 'border-slate-200 hover:bg-slate-50'
-                          }`}>
-                          <input type="radio" name="anular" checked={aAnular?.id === r.id}
-                            onChange={() => setElegida(r.id)} />
-                          <span>
-                            {formatDate(r.checkIn)} → {formatDate(r.checkOut)} · {r.nights}-N
-                            {r.guestName ? ` · ${r.guestName}` : ''}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
+            <div className="divide-y divide-slate-100">
+              {porAnular.map(({ a, clave, candidatas, elegida }) => (
+                <BloqueAnulacion
+                  key={clave} a={a} candidatas={candidatas} elegida={elegida} nombreApt={nombreApt}
+                  onElegir={id => setElegidas(e => ({ ...e, [clave]: id }))}
+                />
+              ))}
             </div>
           </div>
         )}
@@ -542,11 +488,13 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
               Cerrar
             </button>
           )}
-          {anulacion ? (
-            <button onClick={anularReserva} disabled={guardando || !aAnular}
+          {hayAnulacion ? (
+            <button onClick={anularReservas} disabled={guardando || aAnular.length === 0}
               className="flex items-center gap-2 px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium disabled:opacity-50">
               <Ban size={15} />
-              {guardando ? 'Anulando…' : 'Marcar como anulada'}
+              {guardando ? 'Anulando…'
+                : aAnular.length > 1 ? `Marcar ${aAnular.length} como anuladas`
+                : 'Marcar como anulada'}
             </button>
           ) : cobro ? (
             <button onClick={guardarCobro} disabled={guardando || !reservaDelCobro}
@@ -561,6 +509,82 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
             </button>
           )}
         </div>
+    </div>
+  )
+}
+
+/**
+ * Un aviso de anulación: qué dice y qué reserva se va a marcar.
+ *
+ * Con una sola candidata va decidido; con varias hay que elegir, y hasta que
+ * se elija esa anulación no cuenta. Nunca se marca nada sin enseñarlo antes.
+ */
+function BloqueAnulacion({ a, candidatas, elegida, nombreApt, onElegir }: {
+  a: AnulacionPegada
+  candidatas: Reservation[]
+  elegida: Reservation | null
+  nombreApt: (id: string | null) => string
+  onElegir: (id: string) => void
+}) {
+  return (
+    <div className="p-4 space-y-1.5 text-sm" translate="no">
+      <p className="flex justify-between">
+        <span className="text-slate-500">Apartamento</span>
+        <span className="text-slate-800">{nombreApt(a.apartmentId)}</span>
+      </p>
+      <p className="flex justify-between">
+        <span className="text-slate-500">Fechas del aviso</span>
+        <span className="text-slate-800">
+          {a.checkIn ? formatDate(a.checkIn) : '—'} → {a.checkOut ? formatDate(a.checkOut) : '—'}
+        </span>
+      </p>
+      {(a.guestName || a.codigo) && (
+        <p className="flex justify-between">
+          <span className="text-slate-500">Reserva</span>
+          <span className="text-slate-800">{[a.guestName, a.codigo].filter(Boolean).join(' · ')}</span>
+        </p>
+      )}
+      {a.nota && <p className="text-xs text-amber-800">{a.nota}</p>}
+
+      <div className="pt-2 mt-1 border-t border-slate-100">
+        {a.problema ? (
+          <p className="text-sm text-red-800">{a.problema}</p>
+        ) : candidatas.length === 0 ? (
+          <p className="text-sm text-amber-800">
+            No hay ninguna reserva de esas fechas sin anular en {nombreApt(a.apartmentId)}.
+            Puede que ya estuviera anulada.
+          </p>
+        ) : candidatas.length === 1 ? (
+          <p className="text-sm text-slate-700">
+            Se marcará como anulada la reserva del{' '}
+            <b>{formatDate(candidatas[0].checkIn)}</b> al{' '}
+            <b>{formatDate(candidatas[0].checkOut)}</b>
+            {candidatas[0].guestName ? <> de <b>{candidatas[0].guestName}</b></> : null}.
+            No se borra: se queda con sus cobros y su historial.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-slate-700 mb-2">
+              Hay {candidatas.length} reservas que pueden ser. Elige cuál:
+            </p>
+            <div className="space-y-1.5">
+              {candidatas.map(r => (
+                <label key={r.id}
+                  className={`flex items-center gap-2 text-sm border rounded-lg px-3 py-2 cursor-pointer ${
+                    elegida?.id === r.id ? 'border-amber-400 bg-amber-50' : 'border-slate-200 hover:bg-slate-50'
+                  }`}>
+                  <input type="radio" name={`anular-${a.apartmentId}-${a.checkIn}`}
+                    checked={elegida?.id === r.id} onChange={() => onElegir(r.id)} />
+                  <span>
+                    {formatDate(r.checkIn)} → {formatDate(r.checkOut)} · {r.nights}-N
+                    {r.guestName ? ` · ${r.guestName}` : ''}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }
