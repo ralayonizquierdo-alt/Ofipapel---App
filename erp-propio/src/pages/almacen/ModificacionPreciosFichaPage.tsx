@@ -297,7 +297,7 @@ export function ModificacionPreciosFichaPage() {
 
   async function aplicar() {
     if (editing || !f.registro.codigo || !guardadas.length) return
-    const yaAplicado = f.registro.actualizado
+    const yaAplicado = draft.actualizado
     const destinos = [
       draft.actualizar_articulos && (draft.son_precios_oferta && draft.actualizar_ofertas_cantidad ? 'artículos y ofertas por cantidades' : 'artículos'),
       draft.actualizar_clientes && 'precios de clientes',
@@ -314,9 +314,9 @@ export function ModificacionPreciosFichaPage() {
       return
     setAplicando(true)
     try {
-      const resumen = await aplicarModificacionPrecios(f.registro, guardadas)
+      const resumen = await aplicarModificacionPrecios(draft, guardadas)
       setAviso(resumen)
-      f.goTo(f.registro.codigo, true)
+      patch({ actualizado: true })
     } catch (e) {
       setAviso(`Error al aplicar: ${(e as Error).message}`)
     } finally {

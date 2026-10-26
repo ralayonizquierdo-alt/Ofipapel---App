@@ -434,7 +434,7 @@ export function GestorPagosProveedorPage() {
           <legend className="px-1 text-[16px]">Estado Documento</legend>
           <div className="flex">
             {(['pagado', 'pendiente'] as const).map((e) => (
-              <Toggle key={e} on={estados.has(e)} onClick={() => setEstados(alternar(estados, e))} className="w-[122px]">
+              <Toggle key={e} on={estados.has(e)} onClick={() => setEstados(alternar(estados, e))} className="w-[108px]">
                 {e === 'pagado' ? 'Pagado' : 'Pendiente'}
               </Toggle>
             ))}
@@ -453,7 +453,7 @@ export function GestorPagosProveedorPage() {
         <button
           type="button"
           onClick={aplicar}
-          className="my-1 flex w-[124px] items-center justify-center gap-1 border border-[var(--gw-border)] bg-[var(--gw-face)] text-[16px] hover:bg-[#e5f1fb]"
+          className="my-1 flex w-[110px] items-center justify-center gap-1 border border-[var(--gw-border)] bg-[var(--gw-face)] text-[16px] hover:bg-[#e5f1fb]"
         >
           <Check size={16} strokeWidth={3} className="text-[#127a12]" /> Aplicar
         </button>
@@ -719,7 +719,7 @@ function Toggle({ on, onClick, className = '', children }: { on: boolean; onClic
       type="button"
       onClick={onClick}
       title={on ? 'Incluido en el filtro (pulsa Aplicar)' : 'Sin filtrar'}
-      className={`flex h-[28px] items-center justify-center gap-0.5 truncate border border-[var(--gw-border)] bg-[var(--gw-face)] px-1 text-[16px] hover:bg-[#e5f1fb] ${className}`}
+      className={`flex h-[28px] items-center justify-center gap-0.5 truncate border border-[var(--gw-border)] bg-[var(--gw-face)] px-0.5 text-[15px] hover:bg-[#e5f1fb] ${className}`}
     >
       {on ? <Check size={14} strokeWidth={3} className="shrink-0 text-[#127a12]" /> : <X size={14} strokeWidth={3} className="shrink-0 text-[#c42b1c]" />}
       <span className="truncate">{children}</span>
@@ -742,7 +742,7 @@ function Ico({ title, onClick, children }: { title: string; onClick: () => void;
       type="button"
       title={title}
       onClick={onClick}
-      className="flex w-[80px] items-center justify-center border border-[var(--gw-border)] text-[#1d3a8a] hover:bg-[#e5f1fb]"
+      className="flex w-[64px] shrink-0 items-center justify-center border border-[var(--gw-border)] text-[#1d3a8a] hover:bg-[#e5f1fb]"
     >
       {children}
     </button>
@@ -755,7 +755,7 @@ function BtnTxt({ onClick, disabled, w, children }: { onClick: () => void; disab
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex ${w} items-center justify-center gap-1.5 border border-[var(--gw-border)] text-[16px] hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent`}
+      className={`flex ${w} items-center justify-center gap-1.5 whitespace-nowrap border border-[var(--gw-border)] text-[16px] hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent`}
     >
       {children}
     </button>
