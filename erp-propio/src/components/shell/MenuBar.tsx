@@ -91,7 +91,7 @@ function MenuList({
             className="relative"
             onMouseEnter={() => {
               setOpenSub(hasChildren ? i : null)
-              onHover(enabled ? it.label : `${it.label} — ${NOT_AVAILABLE}`)
+              onHover(enabled ? (it.description ?? it.label) : `${it.label} — ${NOT_AVAILABLE}`)
             }}
             onMouseLeave={() => onHover(null)}
           >

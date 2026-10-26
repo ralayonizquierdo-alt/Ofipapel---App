@@ -1,3 +1,6 @@
+import { PedidoFichaPage } from './PedidoFichaPage'
+
+/** Ventas → Presupuestos: la misma ficha de pedidos, recorriendo solo los presupuestos y sin bloque de factura. */
 export function PresupuestosPage() {
-  return <div className="gw-label p-2">En construcción.</div>
+  return <PedidoFichaPage presupuestos />
 }
