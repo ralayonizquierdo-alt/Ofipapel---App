@@ -973,3 +973,17 @@ test('Excel por factura: facturaDeLinea saca el nº de la línea o del fichero',
   assert.strictEqual(CP.facturaDeLinea({ origen: '0001769800.pdf' }), '1769800');
   assert.strictEqual(CP.facturaDeLinea({}, '55'), '55');
 });
+
+test('Cuadre de artículos: lo facturado tiene que acabar en un cliente', () => {
+  const ok = CP.cuadreArticulos([
+    { numero: '1', cliente: 'A', validado: true, factura: [{ ref: 'X', cant: 2 }, { ref: 'Y', cant: 1 }], final: [{ ref: 'X', cant: 2 }, { ref: 'Y', cant: 1 }, { ref: 'Z', cant: 3 }] },
+  ]);
+  assert.deepStrictEqual([ok.facturadas, ok.aClientes, ok.difs.length], [3, 3, 0]);
+  const mal = CP.cuadreArticulos([
+    { numero: '1', cliente: 'A', validado: true, factura: [{ ref: 'X', cant: 3 }], final: [{ ref: 'X', cant: 2 }] },
+    { numero: '2', cliente: 'B', validado: false, factura: [{ ref: 'Y', cant: 1 }], final: [] },
+    { numero: '3', cliente: '', sinCliente: true, factura: [{ ref: 'W', cant: 4 }], final: [] },
+  ]);
+  assert.deepStrictEqual([mal.facturadas, mal.aClientes, mal.sinValidar, mal.sinCliente], [8, 2, 1, 4]);
+  assert.deepStrictEqual(mal.difs.map((d) => [d.numero, d.ref, d.facturado, d.aCliente]), [['1', 'X', 3, 2]]);
+});
