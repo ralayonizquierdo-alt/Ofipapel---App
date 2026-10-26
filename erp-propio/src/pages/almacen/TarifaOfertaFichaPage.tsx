@@ -62,7 +62,7 @@ interface Linea {
   precio: number | null
 }
 
-interface ArticuloBase {
+type ArticuloBase = {
   codigo_interno: string
   descripcion: string
   coste_neto: number | null
@@ -509,7 +509,7 @@ export function TarifaOfertaFichaPage() {
         />
       )}
       {buscarArticulo && (
-        <GwLookupDialog<ArticuloBase & { codigo_compra_habitual: string | null }>
+        <GwLookupDialog<{ codigo_interno: string; descripcion: string; codigo_compra_habitual: string | null }>
           title={buscarArticulo === 'nueva' ? 'Añadir artículo a la oferta' : 'Localizar artículo en la oferta'}
           table="articulo"
           columns={[

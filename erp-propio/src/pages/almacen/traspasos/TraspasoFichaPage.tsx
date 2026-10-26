@@ -943,7 +943,8 @@ export function EntradaRapida({
   onCerrar: () => void
 }) {
   const [codigo, setCodigo] = useState('')
-  const [cantidad, setCantidad] = useState<number | null>(cantidadInicial)
+  const [cantidadTxt, setCantidadTxt] = useState(String(cantidadInicial))
+  const cantidad = Number(cantidadTxt.trim().replace(/\./g, '').replace(',', '.')) || 0
   const [ultimo, setUltimo] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const ref = useRef<HTMLInputElement>(null)
@@ -963,7 +964,7 @@ export function EntradaRapida({
     setUltimo(`${a.codigo_interno} · ${a.descripcion} · ${formatGw(cantidad ?? 0, 3)}`)
     setError(null)
     setCodigo('')
-    setCantidad(cantidadInicial)
+    setCantidadTxt(String(cantidadInicial))
     ref.current?.focus()
   }
 
@@ -974,10 +975,10 @@ export function EntradaRapida({
           <div className="grid grid-cols-[minmax(0,1fr)_150px] gap-2">
             <label className="flex flex-col">
               <span className={BIG_LABEL}>Código / Código de barras</span>
-              <GwInput
+              <input
                 ref={ref}
                 autoFocus
-                className={BIG_INPUT}
+                className={`gw-input ${BIG_INPUT}`}
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && codigo.trim() && anadir()}
@@ -985,7 +986,13 @@ export function EntradaRapida({
             </label>
             <label className="flex flex-col">
               <span className={BIG_LABEL}>{etiquetaCantidad}</span>
-              <GwNumber className={BIG_INPUT} value={cantidad} decimals={3} onChange={setCantidad} />
+              <input
+                className={`gw-input gw-num ${BIG_INPUT}`}
+                value={cantidadTxt}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setCantidadTxt(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && codigo.trim() && anadir()}
+              />
             </label>
           </div>
           {ultimo && <span className="gw-label text-[#1a4fd0]">Añadido: {ultimo}</span>}

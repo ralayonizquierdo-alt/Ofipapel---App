@@ -158,8 +158,9 @@ export async function actualizarCompra(cab: CabeceraCompra & { numero: number },
   const pmPrevio = new Map((arts ?? []).map((a) => [a.codigo_interno as string, Number(a.precio_medio_compra ?? 0)]))
 
   const movimientos = calc
-    .filter((c) => c.unidades > 0)
-    .map((c, i) => ({
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => c.unidades > 0)
+    .map(({ c, i }) => ({
       tipo_movimiento: cab.es_abono ? 'devolucion_proveedor' : 'compra',
       sentido,
       almacen_codigo: cab.almacen_codigo,

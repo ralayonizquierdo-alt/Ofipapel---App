@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { GwWindow, formatGw } from '../../../components/gw'
 import type { Linea, Punto } from './logica'
 
 const inp = 'h-[26px] border border-[var(--gw-border)] bg-white px-1 text-[15px] outline-none focus:border-[var(--gw-select)] disabled:text-black'
 
-function Modal({ titulo, onClose, ancho, children }: { titulo: string; onClose: () => void; ancho: number; children: React.ReactNode }) {
+function Modal({ titulo, onClose, ancho, children }: { titulo: string; onClose: () => void; ancho: number; children: ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-20" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
       <GwWindow title={titulo} onClose={onClose} className="max-w-[95vw]">
