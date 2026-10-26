@@ -238,7 +238,7 @@ export function ClienteFichaPage() {
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="grid grid-cols-[110px_minmax(0,1fr)_140px_150px] gap-x-2">
+      <div className="grid grid-cols-[110px_minmax(0,1fr)_120px] gap-x-1.5">
         <GwField label="Código">
           <GwInput
             value={draft.codigo}
@@ -256,27 +256,25 @@ export function ClienteFichaPage() {
             onChange={(e) => patch({ nombre: e.target.value })}
           />
         </GwField>
-        <GwField label="Fecha de Nacimiento">
+        <GwField label="Fe. Nacimiento">
           <FechaInput value={draft.fecha_nacimiento} disabled={ro} title="FECHANAC" onChange={(v) => patch({ fecha_nacimiento: v })} />
         </GwField>
-        <GwField label="DNI / NIF">{txt('nif', 'NIF')}</GwField>
       </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_140px_140px_150px] gap-x-2">
-        <GwField label="Razón Social">{txt('razon_social', 'RAZONSOC')}</GwField>
+      <div className="grid grid-cols-[110px_minmax(0,1fr)_120px_120px] gap-x-1.5">
+        <GwField label="Dni/Nif">{txt('nif', 'NIF')}</GwField>
+        <GwField label="Razón Social:">{txt('razon_social', 'RAZONSOC')}</GwField>
         <GwField label="Fecha de Alta">
           <FechaInput value={draft.fecha_alta} disabled={ro} title="F_ALTA" onChange={(v) => patch({ fecha_alta: v })} />
         </GwField>
         <GwField label="Fecha de Baja">
           <FechaInput value={draft.fecha_baja} disabled={ro} title="F_BAJA" onChange={(v) => patch({ fecha_baja: v })} />
         </GwField>
-        <div className="flex items-end pb-[3px]">
-          {draft.bloqueado && (
-            <span className="w-full border border-[#c42b1c] bg-[#fde7e9] px-1 text-center text-[13px] font-bold text-[#c42b1c]" title="BLOQUEADO">
-              CLIENTE BLOQUEADO
-            </span>
-          )}
-        </div>
       </div>
+      {draft.bloqueado && (
+        <div className="text-[13px] font-bold text-[#c42b1c]" title="BLOQUEADO">
+          CLIENTE BLOQUEADO
+        </div>
+      )}
 
       {(error || (!cliente.activo && !vacio && mode !== 'alta')) && (
         <div className="text-[13px] text-[#c42b1c]">{error ?? 'Cliente dado de baja.'}</div>

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect } from '../../../components/gw'
+import { GwGroup, GwInput, GwLookupButton, GwNumber } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import type { Cliente, ClienteTabProps } from '../types'
 
@@ -60,74 +60,88 @@ export function TabEnlaces({ cliente, editing, onChange }: ClienteTabProps) {
     />
   )
 
-  const maestro = (m: Maestro, extra?: ReactNode) => {
+  const maestro = (m: Maestro, titulo: string, extra?: ReactNode) => {
     const lista = opciones[m.key] ?? []
     const valor = cliente[m.key]
+    const nombre = lista.find((o) => o.codigo === valor)?.nombre ?? ''
     return (
-      <GwField key={m.key} label={m.label}>
-        <div className="flex gap-1" title={m.title}>
-          <GwSelect
+      <GwGroup key={m.key} title={titulo} className="flex flex-col gap-1">
+        <div className="grid grid-cols-[80px_minmax(0,1fr)_auto] gap-1" title={m.title}>
+          <GwInput
             value={valor ?? ''}
             disabled={disabled}
             onChange={(e) => onChange({ [m.key]: e.target.value === '' ? null : e.target.value } as Partial<Cliente>)}
-          >
-            <option value="" />
-            {valor && !lista.some((o) => o.codigo === valor) && <option value={valor}>{valor}</option>}
-            {lista.map((o) => (
-              <option key={o.codigo} value={o.codigo}>
-                {o.codigo} — {o.nombre}
-              </option>
-            ))}
-          </GwSelect>
+          />
+          <GwInput readOnly value={nombre} tabIndex={-1} />
           <GwLookupButton disabled={disabled} onClick={() => setLookup(m)} title={`Buscar ${m.label.toLowerCase()}`} />
-          {extra}
         </div>
-      </GwField>
+        {extra}
+      </GwGroup>
     )
   }
 
-  const face = (label: string, codigo: keyof Cliente, nombre: keyof Cliente, title: string) => (
-    <GwField label={label}>
-      <div className="grid grid-cols-[130px_minmax(0,1fr)] gap-1">
+  const cuenta = (label: string, key: keyof Cliente, title: string) => (
+    <>
+      <span className="gw-label">{label}</span>
+      {text(key, title)}
+    </>
+  )
+
+  const face = (label: string, ayuda: string, codigo: keyof Cliente, nombre: keyof Cliente, title: string) => (
+    <div className="flex flex-col">
+      <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-1">
+        <span className="gw-label">{label}</span>
+        <span className="gw-label">{ayuda}</span>
+      </div>
+      <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-1">
         {text(codigo, `${title} (código)`)}
         {text(nombre, `${title} (nombre)`)}
       </div>
-    </GwField>
+    </div>
   )
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
-      <div className="flex flex-col gap-1.5">
-        <GwGroup title="Enlaces" className="flex flex-col gap-1">
-          {MAESTROS.slice(0, 3).map((m) => maestro(m))}
-          <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-2">
-            {maestro(MAESTROS[3])}
-            <GwField label="Orden en ruta">
-              <span title="ORDENRUTA">
+    <div className="flex flex-col gap-1.5">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+        {maestro(MAESTROS[0], 'Vendedor predeterminado asignado a este cliente')}
+        {maestro(MAESTROS[1], 'Tienda predeterminada asignada a este Cliente')}
+        {maestro(MAESTROS[2], 'Zona Territorial')}
+        {maestro(
+          MAESTROS[3],
+          'Ruta de Reparto',
+          <div className="flex items-start gap-2">
+            <span className="flex-1 text-[13px] leading-[15px] text-[#1a4fd0]">
+              Si no se asigna una ruta de reparto, se le asignará la ruta de reparto de la zona territorial
+            </span>
+            <span className="flex items-center gap-1" title="ORDENRUTA">
+              <span className="gw-label">Orden:</span>
+              <span className="w-[60px]">
                 <GwNumber decimals={0} value={cliente.orden_en_ruta} disabled={disabled} onChange={(v) => onChange({ orden_en_ruta: v })} />
               </span>
-            </GwField>
+            </span>
+          </div>,
+        )}
+      </div>
+      <div className="grid grid-cols-[minmax(0,320px)_minmax(0,1fr)] gap-2">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2 pl-1.5">
+            <span className="gw-label w-[140px]">Código de Barras:</span>
+            {text('codigo_barras', 'COD_BARRAS', '!w-[160px]')}
           </div>
-          <GwField label="Código de barras del cliente">{text('codigo_barras', 'COD_BARRAS', '!w-[220px]')}</GwField>
-        </GwGroup>
-        <GwGroup title="Cuentas contables" className="grid grid-cols-[90px_minmax(0,220px)] items-center gap-x-2 gap-y-1">
-          <span className="gw-label">Cliente 430</span>
-          {text('cuenta_contable_430', 'CTA430')}
-          <span className="gw-label">Ventas 700</span>
-          {text('cuenta_contable_700', 'CTA700')}
-          <span className="gw-label">4310</span>
-          {text('cuenta_contable_431', 'CTA4310')}
-          <span className="gw-label">4315</span>
-          {text('cuenta_contable_43150', 'CTA4315')}
-          <span className="gw-label">Caja 572</span>
-          {text('cuenta_contable_572', 'CTA572')}
+          <GwGroup title="Cuentas Contables" className="grid grid-cols-[150px_minmax(0,1fr)] items-center gap-x-2 gap-y-1">
+            {cuenta('Cuenta del Cliente (430):', 'cuenta_contable_430', 'CTA430')}
+            {cuenta('Ventas del cliente(700):', 'cuenta_contable_700', 'CTA700')}
+            {cuenta('Efectos a cobrar (4310):', 'cuenta_contable_431', 'CTA4310')}
+            {cuenta('Efct. impagados (4315):', 'cuenta_contable_43150', 'CTA4315')}
+            {cuenta('Banco C/C vista (572):', 'cuenta_contable_572', 'CTA572')}
+          </GwGroup>
+        </div>
+        <GwGroup title="FacE datos identificativos de la Administración" className="flex flex-col gap-1">
+          {face('Órgano Gestor', 'Nombre, en su defecto se usará la Razón Social', 'face_organo_gestor', 'face_organo_gestor_nombre', 'FACEORGGES')}
+          {face('Unidad Tramitadora', 'Nombre, en su defecto se usará el Gerente', 'face_unidad_tramitadora', 'face_unidad_tramitadora_nombre', 'FACEUNITRA')}
+          {face('Oficina Contable', 'Nombre, en su defecto se usará el comentario', 'face_oficina_contable', 'face_oficina_contable_nombre', 'FACEOFICON')}
         </GwGroup>
       </div>
-      <GwGroup title="FacE (Administración)" className="flex flex-col gap-1">
-        {face('Órgano gestor', 'face_organo_gestor', 'face_organo_gestor_nombre', 'FACEORGGES')}
-        {face('Unidad tramitadora', 'face_unidad_tramitadora', 'face_unidad_tramitadora_nombre', 'FACEUNITRA')}
-        {face('Oficina contable', 'face_oficina_contable', 'face_oficina_contable_nombre', 'FACEOFICON')}
-      </GwGroup>
       {lookup && (
         <GwLookupDialog<Record<string, unknown>>
           title={lookup.label}
