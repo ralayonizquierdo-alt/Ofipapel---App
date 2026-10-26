@@ -126,8 +126,15 @@ export function calcularCompra(lineas: LineaCompra[], c: Pick<CabeceraCompra, 'd
  *   puro = precio de compra · neto = puro − dto. de línea · bruto = neto − dto. de pie ·
  *   líquido = (bruto × cantidad + gastos repartidos) / (cantidad + bonificación)
  *   PM compra = media ponderada con el stock existente.
+ * En un abono se elige si actualiza costes: si lo hace, toma los costes del abono y saca del
+ * precio medio las unidades devueltas, sin tocar los datos de «última compra».
  */
-export async function actualizarCompra(cab: CabeceraCompra & { numero: number }, lineas: LineaCompra[], empleado: string | null) {
+export async function actualizarCompra(
+  cab: CabeceraCompra & { numero: number },
+  lineas: LineaCompra[],
+  empleado: string | null,
+  actualizarCostes = !cab.es_abono,
+) {
   if (cab.stock_movido) throw new Error('El pedido ya está actualizado.')
   if (!lineas.length) throw new Error('El pedido no tiene líneas.')
   const dtoPie = Number(cab.descuento_pie_pct || 0)
@@ -179,23 +186,26 @@ export async function actualizarCompra(cab: CabeceraCompra & { numero: number },
     if (error) throw new Error(error.message)
   }
 
-  // Costes: los abonos mueven stock pero no cambian los costes del artículo.
-  if (!cab.es_abono) {
+  if (actualizarCostes) {
     const acumulado = new Map<string, number>()
     for (const c of calc) {
       const previo = (stockPrevio.get(c.l.articulo_codigo) ?? 0) + (acumulado.get(c.l.articulo_codigo) ?? 0)
       const pmAnt = pmPrevio.get(c.l.articulo_codigo) ?? 0
-      const pm = previo > 0 && pmAnt > 0 ? r3((previo * pmAnt + c.unidades * c.liquido) / (previo + c.unidades)) : c.liquido
+      const quedan = previo + sentido * c.unidades
+      const pm =
+        previo > 0 && pmAnt > 0 && quedan > 0 ? r3((previo * pmAnt + sentido * c.unidades * c.liquido) / quedan) : cab.es_abono ? pmAnt : c.liquido
       pmPrevio.set(c.l.articulo_codigo, pm)
-      acumulado.set(c.l.articulo_codigo, (acumulado.get(c.l.articulo_codigo) ?? 0) + c.unidades)
+      acumulado.set(c.l.articulo_codigo, (acumulado.get(c.l.articulo_codigo) ?? 0) + sentido * c.unidades)
+      const costes = { coste_puro: c.puro, coste_neto: c.neto, coste_bruto: c.bruto, precio_liquidado: c.liquido, precio_medio_compra: pm }
+      if (cab.es_abono) {
+        const { error } = await supabase.from('articulo').update(costes).eq('codigo_interno', c.l.articulo_codigo)
+        if (error) throw new Error(error.message)
+        continue
+      }
       const { error: e1 } = await supabase
         .from('articulo')
         .update({
-          coste_puro: c.puro,
-          coste_neto: c.neto,
-          coste_bruto: c.bruto,
-          precio_liquidado: c.liquido,
-          precio_medio_compra: pm,
+          ...costes,
           ultima_compra_fecha: hoy,
           ultima_compra_tienda: cab.tienda_terminal_codigo,
           ultima_compra_numero: cab.numero,

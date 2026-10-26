@@ -616,14 +616,16 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
     if (sinPrecio && !cab.es_abono && !confirm(`Hay ${sinPrecio} líneas sin precio: el coste de esos artículos quedará a cero. ¿Seguir?`)) return
     const accion = cab.es_abono ? 'sacará del' : 'entrará en el'
     if (!confirm(`¿Actualizar el pedido ${cab.numero}? Se ${accion} almacén ${cab.almacen_codigo} el stock de sus ${lineas.length} líneas${cab.es_abono ? '' : ' y se recalcularán los costes de los artículos'}.`)) return
+    // En un abono se elige si actualiza los costes de los artículos (pendiente de confirmar con Luis cómo lo pregunta GeminisWin).
+    const costes = cab.es_abono ? confirm('¿Actualizar también los costes de los artículos con los precios de este abono?') : true
     setSaving(true)
     try {
-      await actualizarCompra({ ...cab, numero: cab.numero }, lineas, empleado)
+      await actualizarCompra({ ...cab, numero: cab.numero }, lineas, empleado, costes)
       const c = { ...cab, estado: 'recepcionado', recibido: true, stock_movido: true, fecha_recepcion: hoy() }
       setCab(c)
       setOrig({ cab: c, lineas })
       setRefresco((r) => r + 1)
-      setMensaje('Actualizado: stock y costes al día.')
+      setMensaje(costes ? 'Actualizado: stock y costes al día.' : 'Actualizado: stock al día, costes sin tocar.')
     } catch (e) {
       setMensaje((e as Error).message)
     }

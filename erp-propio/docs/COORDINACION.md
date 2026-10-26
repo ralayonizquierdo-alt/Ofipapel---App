@@ -106,8 +106,11 @@ pantalla llevan la marca «confirmar con Luis».
   «Renumerar orden de entrega».
 - Vendedores: formato de código (se propone 3 dígitos).
 - Familias: si DESCRIMPR es la descripción de la impresora del TPV.
-- Pedido a proveedor: cómo reparte GeminisWin los gastos (transporte, otros)
-  entre líneas para el coste de entrada; si un «Abono» debe tocar costes.
+- Pedido a proveedor: el usuario cree que el transporte se reparte como un
+  porcentaje sobre cada línea (es lo implementado: en proporción al importe de
+  la línea); confirmar. El «Abono» puede actualizar o no los costes, se elige
+  (confirmado por el usuario); falta ver cómo lo pregunta GeminisWin (casilla o
+  mensaje) — hoy el ERP lo pregunta al pulsar «Actualizado».
 
 ## Datos de prueba en la base de datos
 
