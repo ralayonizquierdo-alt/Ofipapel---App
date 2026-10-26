@@ -152,6 +152,19 @@ Tres notas de implementación:
   sensible/pendiente, igual que el resto de datos de GeminisWin que no
   se migran sin revisión.
 
+**Pagos y gastos** cierra el lado de "payments" que faltaba — hasta
+ahora solo se podía cobrar a clientes (Cobrar en Ventas/TPV), nunca
+pagar a un proveedor ni registrar un gasto de caja. Usa `pago_proveedor`
+(numerado vía `fn_siguiente_numero`, tipo `'pago_proveedor'` — ya
+estaba en el catálogo sin usar) con proveedor opcional (si no se
+elige, el beneficiario es texto libre — `pago_proveedor` está pensado
+para "pago a proveedor **o gasto**") y genera su `movimiento_caja` de
+gasto. Un hallazgo real al verificarlo: `movimiento_caja.forma_pago_codigo`
+tiene una FK a una tabla `forma_pago` catálogo que no admite valores
+libres como `'efectivo'` — ninguna pantalla de este repo la rellena
+(ni Ventas/TPV), así que Pagos tampoco lo hace, dejando ese campo sin
+usar como el resto. Verificado en vivo contra la base real.
+
 Lo que falta explícitamente para que esto sea Veri*Factu de verdad
 ante la AEAT (fuera del alcance de esta pantalla, no implementado):
 el envío real al webservice de la AEAT (ahora mismo todo queda en

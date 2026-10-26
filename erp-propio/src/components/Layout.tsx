@@ -13,6 +13,7 @@ import {
   FileSpreadsheet,
   LogOut,
   MapPinned,
+  Banknote,
 } from 'lucide-react'
 import { useAuth } from '../lib/AuthContext'
 
@@ -29,6 +30,7 @@ const nav = [
   { to: '/pedidos', label: 'Pedidos de clientes', icon: ClipboardList },
   { to: '/repartos', label: 'Repartos', icon: MapPinned },
   { to: '/ventas', label: 'Ventas / TPV', icon: Receipt },
+  { to: '/pagos', label: 'Pagos y gastos', icon: Banknote },
   { to: '/facturacion', label: 'Facturación', icon: FileSpreadsheet },
 ]
 
