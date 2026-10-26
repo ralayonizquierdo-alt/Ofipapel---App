@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Check, Pencil, Plus, Star, Trash2, X } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Binoculars, Check, FilePen, FilePlus2, FileX2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwCheck, GwInput, GwSelect } from '../../../components/gw'
 import type { ClienteTabProps } from '../types'
@@ -51,6 +51,66 @@ function formatoIban(v: string | null) {
   return normalizarIban(v).replace(/(.{4})/g, '$1 ').trim()
 }
 
+/** Mini barra de iconos bajo las rejillas de GeminisWin: nuevo · modificar · borrar · buscar. */
+export function GridMiniBar({
+  onNuevo,
+  onModificar,
+  onBorrar,
+  onBuscar,
+  nuevo = true,
+  modificar = true,
+  borrar = true,
+  buscar = true,
+  children,
+}: {
+  onNuevo?: () => void
+  onModificar?: () => void
+  onBorrar?: () => void
+  onBuscar?: () => void
+  nuevo?: boolean
+  modificar?: boolean
+  borrar?: boolean
+  buscar?: boolean
+  children?: ReactNode
+}) {
+  const b = 'flex h-[22px] w-[58px] items-center justify-center border-r border-[var(--gw-border-light)] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent'
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex border border-[var(--gw-border)] bg-[var(--gw-face)]">
+        <button type="button" className={b} title="Nueva línea" disabled={!nuevo} onClick={onNuevo}>
+          <FilePlus2 size={13} />
+        </button>
+        <button type="button" className={b} title="Modificar línea" disabled={!modificar} onClick={onModificar}>
+          <FilePen size={13} />
+        </button>
+        <button type="button" className={b} title="Borrar línea" disabled={!borrar} onClick={onBorrar}>
+          <FileX2 size={13} />
+        </button>
+        <button type="button" className={`${b} border-r-0`} title="Buscar" disabled={!buscar} onClick={onBuscar}>
+          <Binoculars size={13} />
+        </button>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+/** Filas vacías para que la rejilla tenga la altura fija de GeminisWin aunque haya pocos registros. */
+export function FilasVacias({ cols, ocupadas, total = 12 }: { cols: number; ocupadas: number; total?: number }) {
+  const n = Math.max(0, total - ocupadas)
+  return (
+    <>
+      {Array.from({ length: n }, (_, i) => (
+        <tr key={`__vacia${i}`}>
+          {Array.from({ length: cols }, (_, j) => (
+            <td key={j}>&nbsp;</td>
+          ))}
+        </tr>
+      ))}
+    </>
+  )
+}
+
 export function TabBancos({ cliente, editing }: ClienteTabProps) {
   const clienteCodigo = cliente.codigo
   const [rows, setRows] = useState<Cuenta[]>([])
@@ -58,6 +118,7 @@ export function TabBancos({ cliente, editing }: ClienteTabProps) {
   const [sel, setSel] = useState<number | null>(null)
   const [draft, setDraft] = useState<Borrador | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [sucursales, setSucursales] = useState<Record<string, string>>({})
 
   async function load() {
     if (!clienteCodigo) return setRows([])
@@ -87,7 +148,21 @@ export function TabBancos({ cliente, editing }: ClienteTabProps) {
       .then(({ data }) => setBancos((data ?? []) as { codigo: string; nombre: string }[]))
   }, [])
 
-  const nombreBanco = (c: string | null) => (c ? (bancos.find((b) => b.codigo === c)?.nombre ?? c) : '')
+  const nombreBanco = (c: string | null) => (c ? (bancos.find((b) => b.codigo === c)?.nombre ?? '') : '')
+
+  useEffect(() => {
+    const codigos = [...new Set(rows.map((r) => r.banco_codigo).filter((c): c is string => !!c))]
+    if (codigos.length === 0) return
+    supabase
+      .from('banco_sucursal')
+      .select('banco_codigo, codigo, nombre')
+      .in('banco_codigo', codigos)
+      .then(({ data }) =>
+        setSucursales(Object.fromEntries((data ?? []).map((r) => [`${r.banco_codigo}|${r.codigo}`, r.nombre as string]))),
+      )
+  }, [rows])
+
+  const nombreSucursal = (b: string | null, c: string | null) => (b && c ? (sucursales[`${b}|${c}`] ?? '') : '')
 
   async function quitarOtrasPrincipales(excepto: number) {
     await supabase
@@ -165,7 +240,7 @@ export function TabBancos({ cliente, editing }: ClienteTabProps) {
           onChange={(e) => setDraft({ ...draft, iban: e.target.value })}
         />
       </td>
-      <td>
+      <td colSpan={2}>
         <GwSelect value={draft.banco_codigo ?? ''} onChange={(e) => setDraft({ ...draft, banco_codigo: e.target.value || null })}>
           <option value="" />
           {bancos.map((b) => (
@@ -178,15 +253,13 @@ export function TabBancos({ cliente, editing }: ClienteTabProps) {
       <td>
         <GwInput value={draft.sucursal_codigo ?? ''} onChange={(e) => setDraft({ ...draft, sucursal_codigo: e.target.value })} />
       </td>
+      <td>{nombreSucursal(draft.banco_codigo, draft.sucursal_codigo)}</td>
       <td>
         <GwInput value={draft.digito_control ?? ''} maxLength={2} onChange={(e) => setDraft({ ...draft, digito_control: e.target.value })} />
       </td>
       <td>
-        <GwInput value={draft.numero_cuenta ?? ''} onChange={(e) => setDraft({ ...draft, numero_cuenta: e.target.value })} />
-      </td>
-      <td>
         <div className="flex items-center gap-1">
-          <GwCheck label="" checked={draft.es_principal} onChange={(v) => setDraft({ ...draft, es_principal: v })} />
+          <GwInput value={draft.numero_cuenta ?? ''} onChange={(e) => setDraft({ ...draft, numero_cuenta: e.target.value })} />
           <button type="button" className="gw-btn px-1.5" title="Aceptar" onClick={guardar}>
             <Check size={14} className="text-[#127a12]" />
           </button>
@@ -198,83 +271,71 @@ export function TabBancos({ cliente, editing }: ClienteTabProps) {
     </tr>
   )
 
+  const seleccionada = rows.find((x) => x.id === sel)
+
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex gap-1">
-        <button
-          type="button"
-          className="gw-btn"
-          disabled={!editing || enEdicion || !clienteCodigo}
-          onClick={() => {
-            setError(null)
-            setDraft({ ...vacio })
-          }}
-        >
-          <Plus size={14} /> Añadir línea
-        </button>
-        <button
-          type="button"
-          className="gw-btn"
-          disabled={!editing || enEdicion || sel == null}
-          onClick={() => {
-            const r = rows.find((x) => x.id === sel)
-            if (r) {
-              setError(null)
-              setDraft({ ...r })
-            }
-          }}
-        >
-          <Pencil size={14} /> Modificar línea
-        </button>
-        <button type="button" className="gw-btn" disabled={!editing || enEdicion || sel == null} onClick={borrar}>
-          <Trash2 size={14} /> Borrar línea
-        </button>
-        <button
-          type="button"
-          className="gw-btn"
-          disabled={!editing || enEdicion || sel == null || !!rows.find((x) => x.id === sel)?.es_principal}
-          onClick={marcarPrincipal}
-        >
-          <Star size={14} /> Cuenta principal
-        </button>
-      </div>
+    <div className="flex flex-col gap-1">
       {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
-      <table className="gw-grid" title="CTABKCLI">
-        <thead>
-          <tr>
-            <th style={{ width: 260 }}>IBAN</th>
-            <th>Banco</th>
-            <th style={{ width: 90 }}>Sucursal</th>
-            <th style={{ width: 60 }}>D.C.</th>
-            <th style={{ width: 150 }}>Nº de cuenta</th>
-            <th style={{ width: 120 }}>Principal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 && !enEdicion && (
+      <div className="max-h-[300px] overflow-y-auto border border-[var(--gw-border)] bg-white">
+        <table className="gw-grid" title="CTABKCLI">
+          <thead className="sticky top-0">
             <tr>
-              <td colSpan={6} className="text-center text-[#6d6d6d]">
-                Sin cuentas bancarias.
-              </td>
+              <th style={{ width: 230 }}>Iban</th>
+              <th style={{ width: 70 }}>Banco</th>
+              <th>Banco Nombre</th>
+              <th style={{ width: 80 }}>Sucursal</th>
+              <th>Sucursal Descripción</th>
+              <th style={{ width: 46 }}>D.C.</th>
+              <th style={{ width: 150 }}>Nº de Cuenta</th>
             </tr>
-          )}
-          {rows.map((r) =>
-            draft?.id === r.id ? (
-              filaEdicion
-            ) : (
-              <tr key={r.id} className={sel === r.id ? 'gw-selected' : ''} onClick={() => !enEdicion && setSel(r.id)}>
-                <td className="font-mono">{formatoIban(r.iban)}</td>
-                <td>{nombreBanco(r.banco_codigo)}</td>
-                <td>{r.sucursal_codigo ?? ''}</td>
-                <td>{r.digito_control ?? ''}</td>
-                <td>{r.numero_cuenta ?? ''}</td>
-                <td>{r.es_principal ? 'Sí' : ''}</td>
-              </tr>
-            ),
-          )}
-          {draft && draft.id == null && filaEdicion}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r) =>
+              draft?.id === r.id ? (
+                filaEdicion
+              ) : (
+                <tr key={r.id} className={sel === r.id ? 'gw-selected' : ''} onClick={() => !enEdicion && setSel(r.id)}>
+                  <td className="font-mono">{formatoIban(r.iban)}</td>
+                  <td>{r.banco_codigo ?? ''}</td>
+                  <td>{nombreBanco(r.banco_codigo)}</td>
+                  <td>{r.sucursal_codigo ?? ''}</td>
+                  <td>{nombreSucursal(r.banco_codigo, r.sucursal_codigo)}</td>
+                  <td>{r.digito_control ?? ''}</td>
+                  <td>{r.numero_cuenta ?? ''}</td>
+                </tr>
+              ),
+            )}
+            {draft && draft.id == null && filaEdicion}
+            <FilasVacias cols={7} ocupadas={rows.length + (draft && draft.id == null ? 1 : 0)} />
+          </tbody>
+        </table>
+      </div>
+      <GridMiniBar
+        nuevo={editing && !enEdicion && !!clienteCodigo}
+        modificar={editing && !enEdicion && seleccionada != null}
+        borrar={editing && !enEdicion && seleccionada != null}
+        buscar={false}
+        onNuevo={() => {
+          setError(null)
+          setDraft({ ...vacio })
+        }}
+        onModificar={() => {
+          if (seleccionada) {
+            setError(null)
+            setDraft({ ...seleccionada })
+          }
+        }}
+        onBorrar={borrar}
+      >
+        <span title="Cuenta principal del cliente">
+          <GwCheck
+            label="Cuenta Principal"
+            checked={draft ? draft.es_principal : !!seleccionada?.es_principal}
+            disabled={draft ? false : !editing || seleccionada == null || seleccionada.es_principal}
+            onChange={(v) => (draft ? setDraft({ ...draft, es_principal: v }) : v && marcarPrincipal())}
+          />
+        </span>
+      </GridMiniBar>
     </div>
   )
 }

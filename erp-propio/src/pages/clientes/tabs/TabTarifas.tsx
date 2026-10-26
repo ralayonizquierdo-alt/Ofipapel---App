@@ -8,9 +8,7 @@ import {
   GwInput,
   GwLookupButton,
   GwNumber,
-  GwRadio,
   GwSelect,
-  GwTabs,
   formatGw,
 } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
@@ -39,78 +37,96 @@ function fecha(v: string | null) {
   return `${d}/${m}/${y}`
 }
 
+const AZUL = 'text-[13px] leading-[15px] text-[#1a4fd0]'
+
 export function TabTarifas(props: ClienteTabProps) {
   const [sub, setSub] = useState('tarifas')
+  const subs = [
+    { key: 'tarifas', label: 'Tarifas y Descuentos' },
+    { key: 'precios', label: 'Precios fijos por artículo' },
+  ]
+  // En GeminisWin las subpestañas de Tarifas van debajo del contenido.
   return (
-    <GwTabs
-      rows={[
-        [
-          { key: 'tarifas', label: 'Tarifas y descuentos' },
-          { key: 'precios', label: 'Precios fijos por artículo' },
-        ],
-      ]}
-      active={sub}
-      onChange={setSub}
-    >
-      {sub === 'tarifas' ? <TarifasDescuentos {...props} /> : <PreciosFijos {...props} />}
-    </GwTabs>
+    <div className="flex flex-col">
+      <div className="border border-[var(--gw-border)] p-1.5">
+        {sub === 'tarifas' ? <TarifasDescuentos {...props} /> : <PreciosFijos {...props} />}
+      </div>
+      <div className="flex">
+        {subs.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setSub(t.key)}
+            className={`-mt-px border border-[var(--gw-border)] px-2 text-[13px] ${
+              sub === t.key ? 'h-[26px] border-t-transparent bg-[var(--gw-face)] font-bold' : 'h-[24px] bg-[#f6f6f6] hover:bg-[#e5f1fb]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
 
 function TarifasDescuentos({ cliente, editing, onChange }: ClienteTabProps) {
   const disabled = !editing
+  const [buscarTarifa, setBuscarTarifa] = useState(false)
   return (
-    <div className="grid grid-cols-[minmax(0,420px)_minmax(0,1fr)] gap-2">
-      <div className="flex flex-col gap-1.5">
-        <GwGroup title="Tarifas y descuentos" className="grid grid-cols-2 gap-x-3 gap-y-1">
-          <GwField label="Incremento fijo sobre coste %" className="col-span-2">
-            <span
-              className="w-[110px]"
-              title="INCCOSTE — si se indica, anula el resto de precios: el PVP es el coste más este %"
-            >
+    <div className="flex flex-col gap-1">
+      <div className="grid grid-cols-[220px_minmax(0,270px)_minmax(0,1fr)] gap-1.5">
+        <div className="flex flex-col gap-1">
+          <GwGroup title={<>Aplicar Siempre un % de<br />Incremento sobre el coste:</>} className="flex justify-end">
+            <span className="w-[70px]" title="INCCOSTE">
               <GwNumber
                 decimals={2}
+                emptyAsZero
                 value={cliente.incremento_sobre_coste_pct}
                 disabled={disabled}
                 onChange={(v) => onChange({ incremento_sobre_coste_pct: v })}
               />
             </span>
-          </GwField>
-          <GwField label="Descuento %">
-            <span className="w-[110px]" title="DESCUENTO">
-              <GwNumber decimals={2} value={cliente.descuento_pct} disabled={disabled} onChange={(v) => onChange({ descuento_pct: v })} />
-            </span>
-          </GwField>
-          <div className="flex flex-col justify-end gap-0.5 pb-0.5" title="Dónde se aplica el descuento">
-            <GwRadio
-              name="dto-donde"
-              label="En línea"
-              checked={!cliente.descuento_en_pie}
-              disabled={disabled}
-              onChange={() => onChange({ descuento_en_pie: false })}
-            />
-            <GwRadio
-              name="dto-donde"
-              label="En pie"
-              checked={cliente.descuento_en_pie}
-              disabled={disabled}
-              onChange={() => onChange({ descuento_en_pie: true })}
-            />
+          </GwGroup>
+          <div className={`flex-1 border border-[var(--gw-border-light)] p-1 ${AZUL}`}>
+            Si se introduce algún valor en éste campo, el PVP de los artículos para éste cliente, siempre será calculado a partir
+            del % indicado sobre el precio de coste y serán desechados todos los de más valores introducidos: tarifas, descuentos y
+            precios por artículo.
           </div>
-          <GwField label="Descuento ficticio %" className="col-span-2">
-            <span className="w-[110px]" title="DTOFICTICIO — se aplica manteniendo visible el PVP">
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <GwGroup title="Descuentos" className="grid grid-cols-[minmax(0,1fr)_80px_auto] items-center gap-x-1.5 gap-y-1">
+            <span className="gw-label">Descuento:</span>
+            <span title="DESCUENTO">
+              <GwNumber decimals={2} emptyAsZero value={cliente.descuento_pct} disabled={disabled} onChange={(v) => onChange({ descuento_pct: v })} />
+            </span>
+            <GwCheck label="En Pie" checked={cliente.descuento_en_pie} disabled={disabled} onChange={(v) => onChange({ descuento_en_pie: v })} />
+            <span className="gw-label">Descuento Ficticio:</span>
+            <span title="DTOFICTICIO">
               <GwNumber
                 decimals={2}
+                emptyAsZero
                 value={cliente.descuento_ficticio_pct}
                 disabled={disabled}
                 onChange={(v) => onChange({ descuento_ficticio_pct: v })}
               />
             </span>
-          </GwField>
-          <GwField label="Tarifa predeterminada" className="col-span-2">
+            <span />
+          </GwGroup>
+          <div className={`flex-1 border border-[var(--gw-border-light)] p-1 ${AZUL}`}>
+            El descuento, se aplicará en línea o en los subtotales de la venta, depende de la configuración en parámetros.
+            <br />
+            El descuento Ficticio, no afectará al precio final del artículo ya que el programa recalculará el PVP del artículo para
+            que al aplicar el Dto. quede el PVP Inicial. Nos sirve para que el cliente siempre vea el mismo dto. aunque varie el PVP.
+          </div>
+        </div>
+
+        <GwGroup title="Tarifas" className="flex flex-col gap-1">
+          <span className="gw-label">Tarifa Predeterminada para este cliente</span>
+          <span className="flex gap-1">
+            <GwInput readOnly disabled={disabled} className="!w-[34px]" value={cliente.tarifa_nivel_defecto ?? ''} title="TARIFA" />
             <GwSelect
               title="TARIFA"
-              className="!w-[200px]"
               value={cliente.tarifa_nivel_defecto ?? ''}
               disabled={disabled}
               onChange={(e) => onChange({ tarifa_nivel_defecto: e.target.value === '' ? null : Number(e.target.value) })}
@@ -122,24 +138,41 @@ function TarifasDescuentos({ cliente, editing, onChange }: ClienteTabProps) {
                 </option>
               ))}
             </GwSelect>
-          </GwField>
-        </GwGroup>
-        <GwGroup title="Opciones" className="flex flex-col gap-0.5">
+            <GwLookupButton disabled={disabled} onClick={() => setBuscarTarifa(true)} title="Buscar tarifa" />
+          </span>
+          <TarifaPorFamilia clienteCodigo={cliente.codigo} editing={editing} />
           <GwCheck
             label="No permitir modificar la tarifa al vender"
             checked={cliente.no_permite_modificar_tarifa}
             disabled={disabled}
             onChange={(v) => onChange({ no_permite_modificar_tarifa: v })}
           />
-          <GwCheck
-            label="No aplicar el canon"
-            checked={cliente.no_aplica_impuesto2}
-            disabled={disabled}
-            onChange={(v) => onChange({ no_aplica_impuesto2: v })}
-          />
         </GwGroup>
       </div>
-      <TarifaPorFamilia clienteCodigo={cliente.codigo} editing={editing} />
+      <GwCheck
+        label="No Aplicar el Canon al vender"
+        checked={cliente.no_aplica_impuesto2}
+        disabled={disabled}
+        onChange={(v) => onChange({ no_aplica_impuesto2: v })}
+      />
+      {buscarTarifa && (
+        <GwLookupDialog<{ nivel: number; nombre: string }>
+          title="Tarifas"
+          table="nivel_tarifa"
+          columns={[
+            { key: 'nivel', label: 'Nivel', width: 60 },
+            { key: 'nombre', label: 'Tarifa' },
+          ]}
+          searchColumns={['nombre']}
+          orderBy="nivel"
+          keyColumn="nivel"
+          onPick={(r) => {
+            onChange({ tarifa_nivel_defecto: Number(r.nivel) })
+            setBuscarTarifa(false)
+          }}
+          onClose={() => setBuscarTarifa(false)}
+        />
+      )}
     </div>
   )
 }
@@ -199,29 +232,14 @@ function TarifaPorFamilia({ clienteCodigo, editing }: { clienteCodigo: string; e
   }
 
   return (
-    <GwGroup title="Tarifa por nivel de familia" className="flex flex-col gap-1.5">
-      <div className="flex gap-1">
-        <button
-          type="button"
-          className="gw-btn"
-          disabled={!editing || adding || !clienteCodigo}
-          onClick={() => {
-            setError(null)
-            setNueva({ grupo: null, nivel: '0' })
-            setAdding(true)
-          }}
-        >
-          <Plus size={14} /> Añadir línea
-        </button>
-        <button type="button" className="gw-btn" disabled={!editing || sel == null || adding} onClick={remove}>
-          <Trash2 size={14} /> Borrar línea
-        </button>
-      </div>
+    <div className="ml-4 mr-2 flex flex-col">
+      <span className="gw-label">Tarifa por el nivel de la familia</span>
       <ErrorBox msg={error} />
+      <div className="h-[92px] overflow-y-auto border border-[var(--gw-border)] bg-white">
       <table className="gw-grid" title="NIVEL_DT">
         <thead>
           <tr>
-            <th style={{ width: 140 }}>Nivel de familia</th>
+            <th style={{ width: 70 }}>Nivel</th>
             <th>Tarifa</th>
           </tr>
         </thead>
@@ -265,7 +283,32 @@ function TarifaPorFamilia({ clienteCodigo, editing }: { clienteCodigo: string; e
           )}
         </tbody>
       </table>
-    </GwGroup>
+      </div>
+      <div className="mx-auto flex">
+        <button
+          type="button"
+          className="gw-btn w-[60px]"
+          title="Añadir línea"
+          disabled={!editing || adding || !clienteCodigo}
+          onClick={() => {
+            setError(null)
+            setNueva({ grupo: null, nivel: '0' })
+            setAdding(true)
+          }}
+        >
+          <Plus size={13} />
+        </button>
+        <button type="button" className="gw-btn w-[60px]" title="Modificar línea" disabled>
+          <Pencil size={13} />
+        </button>
+        <button type="button" className="gw-btn w-[60px]" title="Borrar línea" disabled={!editing || sel == null || adding} onClick={remove}>
+          <Trash2 size={13} />
+        </button>
+        <button type="button" className="gw-btn w-[60px]" title="Buscar" disabled={rows.length === 0}>
+          <Binoculars size={13} />
+        </button>
+      </div>
+    </div>
   )
 }
 

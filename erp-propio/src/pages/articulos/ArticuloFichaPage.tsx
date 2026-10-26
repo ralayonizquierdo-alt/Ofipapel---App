@@ -207,6 +207,14 @@ export function ArticuloFichaPage() {
     setDraft(next)
   }
 
+  function recalcularPvps() {
+    const base = costeBase(draft)
+    if (!preciosCargados || base == null) return
+    const recalc = recalcularTodos(niveles, base)
+    setNiveles(recalc)
+    setDraft((d) => ({ ...d, coste_usado_calculo_pvp: base, pvp: recalc.find((n) => n.nivel_tarifa === 0)?.pvp ?? d.pvp }))
+  }
+
   function cambiarNivel(nivel: number, patch: NivelPatch) {
     const base = costeBase(draft)
     const next = aplicarCambioNivel(niveles, nivel, patch, base)
@@ -421,9 +429,9 @@ export function ArticuloFichaPage() {
                   preciosCargados={preciosCargados}
                 />
               )}
-              {tab === 'unidades' && enAvisoSatelite(<TabUnidadesVenta articuloCodigo={articulo.codigo_interno} />)}
+              {tab === 'unidades' && enAvisoSatelite(<TabUnidadesVenta articuloCodigo={articulo.codigo_interno} articulo={draft} editing={editing} onChange={patchArticulo} />)}
               {tab === 'observaciones' && <TabObservaciones articulo={draft} editing={editing} onChange={patchArticulo} />}
-              {tab === 'parametros' && <TabParametrosPvp articulo={draft} editing={editing} onChange={patchArticulo} />}
+              {tab === 'parametros' && <TabParametrosPvp articulo={draft} editing={editing} onChange={patchArticulo} onRecalcularPvps={recalcularPvps} />}
               {tab === 'ofertas' && enAvisoSatelite(<TabPreciosOferta articuloCodigo={articulo.codigo_interno} />)}
               {tab === 'almacen' && <TabAlmacen articulo={draft} editing={editing} onChange={patchArticulo} />}
               {tab === 'tallas' && enAvisoSatelite(<TabTallasColores articuloCodigo={articulo.codigo_interno} />)}

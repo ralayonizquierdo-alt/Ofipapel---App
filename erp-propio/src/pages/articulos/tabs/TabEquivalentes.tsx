@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Binoculars, Check, ExternalLink, Plus, Trash2, X } from 'lucide-react'
+import { Binoculars, Check, FilePen, FilePlus2, Trash2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwInput, GwLookupButton } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
@@ -16,14 +16,15 @@ const LOOKUP_COLS = [
   { key: 'descripcion', label: 'Descripción' },
 ]
 const LOOKUP_SEARCH = ['codigo_interno', 'descripcion']
+const FILAS_MINIMAS = 14
 
 export function TabEquivalentes({ articuloCodigo }: { articuloCodigo: string }) {
   const navigate = useNavigate()
   const [rows, setRows] = useState<ArticuloEquivalencia[]>([])
   const [existentes, setExistentes] = useState<Set<string>>(new Set())
   const [sel, setSel] = useState<number | null>(null)
-  const [adding, setAdding] = useState(false)
-  const [nueva, setNueva] = useState({ codigo_equivalente: '', descripcion_1: '', descripcion_2: '' })
+  const [modo, setModo] = useState<'alta' | 'modificar' | null>(null)
+  const [nueva, setNueva] = useState({ codigo_equivalente: '', descripcion_1: '' })
   const [lookup, setLookup] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -60,17 +61,32 @@ export function TabEquivalentes({ articuloCodigo }: { articuloCodigo: string }) 
 
   function empezar() {
     setError(null)
-    setNueva({ codigo_equivalente: '', descripcion_1: '', descripcion_2: '' })
-    setAdding(true)
+    setNueva({ codigo_equivalente: '', descripcion_1: '' })
+    setModo('alta')
   }
 
   function cancelar() {
-    setAdding(false)
+    setModo(null)
     setError(null)
   }
 
-  async function add() {
+  async function aceptar() {
     setError(null)
+    if (modo === 'modificar') {
+      const r = rows.find((x) => x.id === sel)
+      if (!r?.id) return
+      const { error: err } = await supabase
+        .from('articulo_equivalencia')
+        .update({ descripcion_1: nueva.descripcion_1 || null })
+        .eq('id', r.id)
+      if (err) {
+        setError(err.message)
+        return
+      }
+      setModo(null)
+      load()
+      return
+    }
     const codigo = nueva.codigo_equivalente.trim()
     if (!codigo) {
       setError('Indica el código equivalente.')
@@ -88,13 +104,12 @@ export function TabEquivalentes({ articuloCodigo }: { articuloCodigo: string }) 
       articulo_codigo: articuloCodigo,
       codigo_equivalente: codigo,
       descripcion_1: nueva.descripcion_1 || null,
-      descripcion_2: nueva.descripcion_2 || null,
     })
     if (err) {
       setError(err.message)
       return
     }
-    setAdding(false)
+    setModo(null)
     load()
   }
 
@@ -111,86 +126,113 @@ export function TabEquivalentes({ articuloCodigo }: { articuloCodigo: string }) 
   }
 
   const selRow = rows.find((x) => x.id === sel)
+  const huecos = Math.max(0, FILAS_MINIMAS - rows.length - (modo === 'alta' ? 1 : 0))
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex gap-1">
-        <button type="button" className="gw-btn" onClick={empezar} disabled={adding}>
-          <Plus size={14} /> Añadir línea
-        </button>
-        <button type="button" className="gw-btn" onClick={remove} disabled={!selRow || adding}>
-          <Trash2 size={14} /> Borrar línea
-        </button>
-        <button type="button" className="gw-btn" onClick={() => { if (!adding) empezar(); setLookup(true) }}>
-          <Binoculars size={14} /> Buscar artículo
-        </button>
-        <button
-          type="button"
-          className="gw-btn"
-          disabled={!selRow || !existentes.has(selRow.codigo_equivalente)}
-          onClick={() => selRow && navigate(`/articulos/${encodeURIComponent(selRow.codigo_equivalente)}`)}
-        >
-          <ExternalLink size={14} /> Ir al artículo
-        </button>
-      </div>
+    <div className="flex flex-col gap-1" title="EQUIVALE">
       {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
-      <table className="gw-grid" title="EQUIVALE">
-        <thead>
-          <tr>
-            <th style={{ width: 200 }}>Código Equivalente</th>
-            <th>Descripción 1</th>
-            <th>Descripción 2</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 && !adding && (
+      <div className="max-h-[300px] overflow-y-auto border border-[var(--gw-border)]">
+        <table className="gw-grid">
+          <thead className="sticky top-0">
             <tr>
-              <td colSpan={3} className="text-center text-[#6d6d6d]">Sin equivalentes.</td>
+              <th style={{ width: 210 }}>Código Interno</th>
+              <th>Descripción</th>
             </tr>
-          )}
-          {rows.map((r) => (
-            <tr
-              key={r.id}
-              className={sel === r.id ? 'gw-selected' : ''}
-              onClick={() => setSel(r.id ?? null)}
-              onDoubleClick={() => existentes.has(r.codigo_equivalente) && navigate(`/articulos/${encodeURIComponent(r.codigo_equivalente)}`)}
+          </thead>
+          <tbody>
+            {rows.map((r) =>
+              modo === 'modificar' && sel === r.id ? (
+                <tr key={r.id} className="bg-[#fffbe6]">
+                  <td>{r.codigo_equivalente}</td>
+                  <td>
+                    <GwInput autoFocus value={nueva.descripcion_1} onChange={(e) => setNueva({ ...nueva, descripcion_1: e.target.value })} />
+                  </td>
+                </tr>
+              ) : (
+                <tr
+                  key={r.id}
+                  className={sel === r.id ? 'gw-selected' : ''}
+                  onClick={() => !modo && setSel(r.id ?? null)}
+                  onDoubleClick={() => !modo && existentes.has(r.codigo_equivalente) && navigate(`/articulos/${encodeURIComponent(r.codigo_equivalente)}`)}
+                  title={existentes.has(r.codigo_equivalente) ? 'Doble clic para abrir la ficha' : undefined}
+                >
+                  <td>{r.codigo_equivalente}</td>
+                  <td>{r.descripcion_1 ?? ''}</td>
+                </tr>
+              ),
+            )}
+            {modo === 'alta' && (
+              <tr className="bg-[#fffbe6]">
+                <td>
+                  <div className="flex">
+                    <GwInput
+                      autoFocus
+                      value={nueva.codigo_equivalente}
+                      onChange={(e) => setNueva({ ...nueva, codigo_equivalente: e.target.value })}
+                      onBlur={(e) => resolverCodigo(e.target.value)}
+                    />
+                    <GwLookupButton onClick={() => setLookup(true)} title="Buscar artículo" />
+                  </div>
+                </td>
+                <td>
+                  <GwInput value={nueva.descripcion_1} onChange={(e) => setNueva({ ...nueva, descripcion_1: e.target.value })} />
+                </td>
+              </tr>
+            )}
+            {Array.from({ length: huecos }, (_, i) => (
+              <tr key={`h${i}`}>
+                <td />
+                <td />
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex w-fit border border-[var(--gw-border)]">
+        {modo ? (
+          <>
+            <MiniBtn title="Aceptar" onClick={aceptar}>
+              <Check size={14} strokeWidth={3} className="text-[#127a12]" />
+            </MiniBtn>
+            <MiniBtn title="Cancelar" onClick={cancelar}>
+              <X size={14} strokeWidth={3} className="text-[#c42b1c]" />
+            </MiniBtn>
+            <MiniBtn title="Buscar artículo" disabled={modo !== 'alta'} onClick={() => setLookup(true)}>
+              <Binoculars size={13} />
+            </MiniBtn>
+          </>
+        ) : (
+          <>
+            <MiniBtn title="Nuevo" onClick={empezar}>
+              <FilePlus2 size={13} />
+            </MiniBtn>
+            <MiniBtn
+              title="Modificar"
+              disabled={!selRow}
+              onClick={() => {
+                if (!selRow) return
+                setError(null)
+                setNueva({ codigo_equivalente: selRow.codigo_equivalente, descripcion_1: selRow.descripcion_1 ?? '' })
+                setModo('modificar')
+              }}
             >
-              <td>{r.codigo_equivalente}</td>
-              <td>{r.descripcion_1 ?? ''}</td>
-              <td>{r.descripcion_2 ?? ''}</td>
-            </tr>
-          ))}
-          {adding && (
-            <tr>
-              <td>
-                <div className="flex">
-                  <GwInput
-                    autoFocus
-                    value={nueva.codigo_equivalente}
-                    onChange={(e) => setNueva({ ...nueva, codigo_equivalente: e.target.value })}
-                    onBlur={(e) => resolverCodigo(e.target.value)}
-                  />
-                  <GwLookupButton onClick={() => setLookup(true)} title="Buscar artículo" />
-                </div>
-              </td>
-              <td>
-                <GwInput value={nueva.descripcion_1} onChange={(e) => setNueva({ ...nueva, descripcion_1: e.target.value })} />
-              </td>
-              <td>
-                <div className="flex gap-1">
-                  <GwInput value={nueva.descripcion_2} onChange={(e) => setNueva({ ...nueva, descripcion_2: e.target.value })} />
-                  <button type="button" className="gw-btn px-1.5" title="Aceptar" onClick={add}>
-                    <Check size={14} className="text-[#127a12]" />
-                  </button>
-                  <button type="button" className="gw-btn px-1.5" title="Cancelar" onClick={cancelar}>
-                    <X size={14} className="text-[#c42b1c]" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+              <FilePen size={13} />
+            </MiniBtn>
+            <MiniBtn title="Borrar" disabled={!selRow} onClick={remove}>
+              <Trash2 size={13} />
+            </MiniBtn>
+            <MiniBtn
+              title="Buscar artículo"
+              onClick={() => {
+                empezar()
+                setLookup(true)
+              }}
+            >
+              <Binoculars size={13} />
+            </MiniBtn>
+          </>
+        )}
+      </div>
       {lookup && (
         <GwLookupDialog<ArticuloLookup>
           title="Artículos"
@@ -201,11 +243,25 @@ export function TabEquivalentes({ articuloCodigo }: { articuloCodigo: string }) 
           keyColumn="codigo_interno"
           onClose={() => setLookup(false)}
           onPick={(a) => {
-            setNueva((n) => ({ ...n, codigo_equivalente: a.codigo_interno, descripcion_1: a.descripcion }))
+            setNueva({ codigo_equivalente: a.codigo_interno, descripcion_1: a.descripcion })
             setLookup(false)
           }}
         />
       )}
     </div>
+  )
+}
+
+function MiniBtn({ title, onClick, disabled, children }: { title: string; onClick?: () => void; disabled?: boolean; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      disabled={disabled}
+      className="flex h-[22px] w-[48px] items-center justify-center border-r border-[var(--gw-border-light)] bg-[var(--gw-face)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent"
+    >
+      {children}
+    </button>
   )
 }

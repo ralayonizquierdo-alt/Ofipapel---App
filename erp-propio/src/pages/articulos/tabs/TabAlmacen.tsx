@@ -1,14 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { FilePen, FilePlus2, Trash2 } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { GwCheck, GwField, GwGroup, GwInput, GwNumber, formatGw } from '../../../components/gw'
+import { GwCheck, GwGroup, GwInput, GwNumber, formatGw } from '../../../components/gw'
 import type { Articulo } from '../types'
 
-interface StockRow {
-  almacen_codigo: string
-  cantidad_actual: number
-  cantidad_reservada: number
-  cantidad_disponible: number | null
-  almacen: { nombre: string } | null
+interface FilaStock {
+  almacen: string
+  nombre: string
+  cantidad: number
+}
+
+function Fila({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-1">
+      <span className="gw-label text-[12px]">{label}</span>
+      {children}
+    </div>
+  )
 }
 
 export function TabAlmacen({
@@ -20,104 +28,96 @@ export function TabAlmacen({
   editing: boolean
   onChange: (patch: Partial<Articulo>) => void
 }) {
-  const [stock, setStock] = useState<StockRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [sel, setSel] = useState<string | null>(null)
+  const [filas, setFilas] = useState<FilaStock[]>([])
+  const [sel, setSel] = useState(0)
 
   useEffect(() => {
-    supabase
-      .from('articulo_almacen_stock')
-      .select('almacen_codigo, cantidad_actual, cantidad_reservada, cantidad_disponible, almacen:almacen_codigo(nombre)')
-      .eq('articulo_codigo', articulo.codigo_interno)
-      .order('almacen_codigo')
-      .then(({ data }) => {
-        setStock((data ?? []) as unknown as StockRow[])
-        setLoading(false)
-      })
+    Promise.all([
+      supabase.from('almacen').select('codigo, nombre').order('codigo'),
+      supabase.from('articulo_almacen_stock').select('almacen_codigo, cantidad_actual').eq('articulo_codigo', articulo.codigo_interno),
+    ]).then(([alm, stk]) => {
+      const porAlmacen = new Map((stk.data ?? []).map((r) => [r.almacen_codigo as string, Number(r.cantidad_actual)]))
+      setFilas((alm.data ?? []).map((a) => ({ almacen: a.codigo, nombre: a.nombre, cantidad: porAlmacen.get(a.codigo) ?? 0 })))
+    })
   }, [articulo.codigo_interno])
 
   const dis = !editing
   const text = (v: string) => (v === '' ? null : v)
-  const total = stock.reduce((s, r) => s + Number(r.cantidad_actual), 0)
-  const totalReservado = stock.reduce((s, r) => s + Number(r.cantidad_reservada), 0)
+  const total = filas.reduce((s, f) => s + f.cantidad, 0)
+  const miniBtn = 'flex h-[22px] w-[46px] items-center justify-center border border-[var(--gw-border)] bg-[var(--gw-face)] text-[#9a9a9a]'
 
   return (
-    <div className="grid grid-cols-[300px_minmax(0,1fr)] gap-2">
-      <div className="flex flex-col gap-2">
+    <div className="flex h-[250px] items-start gap-8">
+      <div className="flex w-[205px] flex-none flex-col gap-0.5">
         <GwCheck
-          label="No tiene stock"
+          label="Éste artículo no tiene stock"
           checked={articulo.sin_control_stock}
           onChange={(v) => onChange({ sin_control_stock: v })}
           disabled={dis}
+          className="text-[12px]"
         />
-        <GwGroup title="Ubicación">
-          <div className="grid grid-cols-2 gap-2">
-            <GwField label="Ubicación 1">
-              <GwInput title="UBICACION1" value={articulo.ubicacion_1 ?? ''} onChange={(e) => onChange({ ubicacion_1: text(e.target.value) })} disabled={dis} />
-            </GwField>
-            <GwField label="Ubicación 2">
-              <GwInput title="UBICACION2" value={articulo.ubicacion_2 ?? ''} onChange={(e) => onChange({ ubicacion_2: text(e.target.value) })} disabled={dis} />
-            </GwField>
-          </div>
-        </GwGroup>
-        <GwGroup title="Stock">
-          <div className="grid grid-cols-[1fr_120px] items-center gap-x-2 gap-y-1">
-            <span className="gw-label">Stock Mínimo:</span>
-            <GwNumber value={articulo.stock_minimo} decimals={3} disabled={dis} onChange={(v) => onChange({ stock_minimo: v })} />
-            <span className="gw-label">Stock Máximo:</span>
-            <GwNumber value={articulo.stock_maximo} decimals={3} disabled={dis} onChange={(v) => onChange({ stock_maximo: v })} />
-            <span className="gw-label">Pedido Recomendado:</span>
-            <GwNumber value={articulo.pedido_recomendado} decimals={3} disabled={dis} onChange={(v) => onChange({ pedido_recomendado: v })} />
-            <span className="gw-label">Reservado:</span>
-            <GwNumber value={totalReservado} decimals={3} disabled />
-            <span className="gw-label">Total:</span>
-            <GwNumber value={total} decimals={3} disabled />
+        <GwGroup title="Datos comunes almacenes">
+          <div className="flex flex-col gap-1">
+            <Fila label="Ubicación:">
+              <div className="grid grid-cols-2 gap-0.5">
+                <GwInput title="UBICACION1" value={articulo.ubicacion_1 ?? ''} onChange={(e) => onChange({ ubicacion_1: text(e.target.value) })} disabled={dis} />
+                <GwInput title="UBICACION2" value={articulo.ubicacion_2 ?? ''} onChange={(e) => onChange({ ubicacion_2: text(e.target.value) })} disabled={dis} />
+              </div>
+            </Fila>
+            <Fila label="Stock Mínimo:">
+              <GwNumber value={articulo.stock_minimo} decimals={3} emptyAsZero disabled={dis} onChange={(v) => onChange({ stock_minimo: v })} />
+            </Fila>
+            <Fila label="Stock Máximo:">
+              <GwNumber value={articulo.stock_maximo} decimals={3} emptyAsZero disabled={dis} onChange={(v) => onChange({ stock_maximo: v })} />
+            </Fila>
+            <Fila label="Stock Reservado:">
+              <GwNumber value={articulo.unidades_reservadas} decimals={3} emptyAsZero disabled={dis} onChange={(v) => onChange({ unidades_reservadas: v ?? 0 })} />
+            </Fila>
+            <Fila label="Stock Pedido:">
+              <GwNumber value={articulo.unidades_pedidas} decimals={3} emptyAsZero disabled={dis} onChange={(v) => onChange({ unidades_pedidas: v ?? 0 })} />
+            </Fila>
+            <Fila label="Stock Comprado:">
+              <GwNumber value={articulo.unidades_compradas} decimals={3} emptyAsZero disabled={dis} onChange={(v) => onChange({ unidades_compradas: v ?? 0 })} />
+            </Fila>
+            <Fila label="Total Stock Actual:">
+              <span className="pr-1 text-right text-[12px] tabular-nums text-[#1a4fd0]">{formatGw(total, 3)}</span>
+            </Fila>
           </div>
         </GwGroup>
       </div>
-      <GwGroup title="Stock por Almacén">
-        <table className="gw-grid">
-          <thead>
-            <tr>
-              <th style={{ width: 60 }}>Almacén</th>
-              <th>Descripción</th>
-              <th className="text-right">Stock</th>
-              <th className="text-right">Reservado</th>
-              <th className="text-right">Disponible</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={5} className="text-center text-[#6d6d6d]">Cargando…</td>
-              </tr>
-            )}
-            {!loading && stock.length === 0 && (
-              <tr>
-                <td colSpan={5} className="text-center text-[#6d6d6d]">Sin stock en ningún almacén.</td>
-              </tr>
-            )}
-            {stock.map((r) => (
-              <tr key={r.almacen_codigo} className={sel === r.almacen_codigo ? 'gw-selected' : ''} onClick={() => setSel(r.almacen_codigo)}>
-                <td>{r.almacen_codigo}</td>
-                <td>{r.almacen?.nombre ?? ''}</td>
-                <td className="text-right tabular-nums">{formatGw(r.cantidad_actual, 3)}</td>
-                <td className="text-right tabular-nums">{formatGw(r.cantidad_reservada, 3)}</td>
-                <td className="text-right tabular-nums">{r.cantidad_disponible != null ? formatGw(r.cantidad_disponible, 3) : ''}</td>
-              </tr>
-            ))}
-          </tbody>
-          {stock.length > 0 && (
-            <tfoot>
-              <tr>
-                <td colSpan={2} className="font-bold">Total</td>
-                <td className="text-right font-bold tabular-nums">{formatGw(total, 3)}</td>
-                <td className="text-right font-bold tabular-nums">{formatGw(totalReservado, 3)}</td>
-                <td className="text-right font-bold tabular-nums">{formatGw(total - totalReservado, 3)}</td>
-              </tr>
-            </tfoot>
-          )}
-        </table>
+
+      <GwGroup title="Stock en los almacenes" className="w-[250px] flex-none">
+        <div className="flex items-end gap-0.5">
+          <div className="h-[226px] flex-1 overflow-y-auto border border-[var(--gw-border)] bg-white">
+            <table className="gw-grid text-[12px]">
+              <thead className="sticky top-0">
+                <tr>
+                  <th>Almacen</th>
+                  <th className="!text-left">Cantidad</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filas.map((f, i) => (
+                  <tr key={f.almacen} title={f.nombre} className={i === sel ? 'gw-selected' : ''} onClick={() => setSel(i)}>
+                    <td className="!h-[16px] !py-0">{f.almacen}</td>
+                    <td className="!h-[16px] !py-0 text-right tabular-nums">{formatGw(f.cantidad, 3)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-col gap-0.5" title="El stock solo cambia con documentos: compras, ventas, traspasos y regularizaciones">
+            <span className={miniBtn}>
+              <FilePlus2 size={13} />
+            </span>
+            <span className={miniBtn}>
+              <FilePen size={13} />
+            </span>
+            <span className={miniBtn}>
+              <Trash2 size={13} />
+            </span>
+          </div>
+        </div>
       </GwGroup>
     </div>
   )

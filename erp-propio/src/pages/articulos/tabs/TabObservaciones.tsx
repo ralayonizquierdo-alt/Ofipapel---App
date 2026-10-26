@@ -1,4 +1,4 @@
-import { GwCheck, GwField, GwTextArea } from '../../../components/gw'
+import { GwCheck, GwTextArea } from '../../../components/gw'
 import type { Articulo } from '../types'
 
 export function TabObservaciones({
@@ -11,43 +11,46 @@ export function TabObservaciones({
   onChange: (patch: Partial<Articulo>) => void
 }) {
   const text = (v: string) => (v === '' ? null : v)
+  const dis = !editing
 
   return (
-    <div className="flex flex-col gap-2">
-      <GwField label="Observaciones">
+    <div className="grid h-[250px] grid-cols-2 gap-x-4">
+      <div className="flex min-h-0 flex-col">
+        <div className="flex items-center gap-6">
+          <span className="gw-label">Observaciones</span>
+          <GwCheck
+            label="Al vender el artículo incluirlas en la venta"
+            checked={articulo.observaciones_venta}
+            onChange={(v) => onChange({ observaciones_venta: v })}
+            disabled={dis}
+            className="text-[12px]"
+          />
+        </div>
         <GwTextArea
           title="OBS"
-          rows={6}
+          className="flex-1 !resize-none"
           value={articulo.observaciones ?? ''}
           onChange={(e) => onChange({ observaciones: text(e.target.value) })}
-          disabled={!editing}
+          disabled={dis}
         />
-      </GwField>
-      <GwCheck
-        label="Incluir las observaciones en la venta"
-        checked={articulo.observaciones_venta}
-        onChange={(v) => onChange({ observaciones_venta: v })}
-        disabled={!editing}
-      />
-      <div className="grid grid-cols-2 gap-2">
-        <GwField label="Mensaje al Vender">
-          <GwTextArea
-            title="MSGVENTAS"
-            rows={5}
-            value={articulo.mensaje_ventas ?? ''}
-            onChange={(e) => onChange({ mensaje_ventas: text(e.target.value) })}
-            disabled={!editing}
-          />
-        </GwField>
-        <GwField label="Notas Internas">
-          <GwTextArea
-            title="OBSINFO"
-            rows={5}
-            value={articulo.observaciones_info ?? ''}
-            onChange={(e) => onChange({ observaciones_info: text(e.target.value) })}
-            disabled={!editing}
-          />
-        </GwField>
+      </div>
+      <div className="flex min-h-0 flex-col">
+        <span className="gw-label">Mensaje al Vender</span>
+        <GwTextArea
+          title="MSGVENTAS"
+          className="h-[46px] !resize-none"
+          value={articulo.mensaje_ventas ?? ''}
+          onChange={(e) => onChange({ mensaje_ventas: text(e.target.value) })}
+          disabled={dis}
+        />
+        <span className="gw-label mt-1.5">Notas internas informativas</span>
+        <GwTextArea
+          title="OBSINFO"
+          className="flex-1 !resize-none"
+          value={articulo.observaciones_info ?? ''}
+          onChange={(e) => onChange({ observaciones_info: text(e.target.value) })}
+          disabled={dis}
+        />
       </div>
     </div>
   )

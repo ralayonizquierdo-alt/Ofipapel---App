@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { GwCheck, GwField, GwGroup, GwInput, GwNumber, GwSelect } from '../../../components/gw'
+import { GwCheck, GwField, GwGroup, GwInline, GwInput, GwNumber, GwSelect } from '../../../components/gw'
 import type { Cliente, ClienteTabProps } from '../types'
 
 export function TabWeb({ cliente, editing, onChange }: ClienteTabProps) {
@@ -17,26 +17,35 @@ export function TabWeb({ cliente, editing, onChange }: ClienteTabProps) {
       .then(({ data }) => setSucursales(data ?? []))
   }, [cliente.codigo])
 
-  function texto(key: keyof Cliente, label: string, title: string, disabled = ro) {
-    return (
-      <GwField label={label}>
-        <GwInput
-          title={title}
-          disabled={disabled}
-          value={(cliente[key] as string | null) ?? ''}
-          onChange={(e) => onChange({ [key]: e.target.value === '' ? null : e.target.value } as Partial<Cliente>)}
-        />
-      </GwField>
-    )
-  }
+  const texto = (key: keyof Cliente, title: string, disabled = ro) => (
+    <GwInput
+      title={title}
+      disabled={disabled}
+      value={(cliente[key] as string | null) ?? ''}
+      onChange={(e) => onChange({ [key]: e.target.value === '' ? null : e.target.value } as Partial<Cliente>)}
+    />
+  )
 
   const distintos = cliente.web_factura_datos_distintos
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <GwGroup title="Cliente Web" className="grid grid-cols-[auto_150px_140px_minmax(0,1fr)] items-end gap-x-3 gap-y-1">
-        <GwCheck label="Cliente web" disabled={ro} checked={cliente.web_publicado} onChange={(v) => onChange({ web_publicado: v })} />
-        <GwField label="Fecha de baja web">
+    <GwGroup
+      title={<GwCheck label="Cliente Web" disabled={ro} checked={cliente.web_publicado} onChange={(v) => onChange({ web_publicado: v })} />}
+      className="flex flex-col gap-1.5"
+    >
+      <div className="grid grid-cols-[minmax(0,1fr)_250px_190px] gap-4">
+        <GwInline label="Usuario:" className="[&>span]:w-[64px]">
+          {texto('web_usuario', 'WEBUSUARIO')}
+        </GwInline>
+        <GwInline label="Contraseña:">
+          <GwInput
+            disabled
+            value=""
+            title={cliente.web_contrasena_hash ? 'Contraseña establecida' : 'Sin contraseña'}
+            placeholder={cliente.web_contrasena_hash ? '••••••••' : ''}
+          />
+        </GwInline>
+        <GwInline label="Fecha baja:">
           <GwInput
             type="date"
             title="WEB_F_BAJA"
@@ -44,13 +53,16 @@ export function TabWeb({ cliente, editing, onChange }: ClienteTabProps) {
             value={cliente.web_fecha_baja ?? ''}
             onChange={(e) => onChange({ web_fecha_baja: e.target.value || null })}
           />
-        </GwField>
-        <GwField label="Id Web">
+        </GwInline>
+      </div>
+      <div className="flex items-center gap-4">
+        <GwInline label="Cliente WebId:" className="w-[230px]">
           <GwNumber decimals={0} disabled={ro} value={cliente.web_id_cliente} onChange={(v) => onChange({ web_id_cliente: v })} />
-        </GwField>
-        <GwField label="Sucursal de entrega">
+        </GwInline>
+        <GwInline label="Sucursal predeterminada para la entrega de productos Web:" className="ml-auto">
           <GwSelect
             title="WEBIDSUCUR"
+            className="!w-[140px]"
             disabled={ro}
             value={cliente.web_id_sucursal ?? ''}
             onChange={(e) => onChange({ web_id_sucursal: e.target.value || null })}
@@ -62,33 +74,24 @@ export function TabWeb({ cliente, editing, onChange }: ClienteTabProps) {
               </option>
             ))}
           </GwSelect>
-        </GwField>
-      </GwGroup>
-
-      <GwGroup title="Acceso" className="grid grid-cols-[minmax(0,1fr)_220px] gap-x-3 gap-y-1">
-        {texto('web_usuario', 'Usuario', 'WEBUSUARIO')}
-        <GwField label="Contraseña">
-          <GwInput readOnly value={cliente.web_contrasena_hash ? 'Contraseña establecida' : 'Sin contraseña'} />
-        </GwField>
-      </GwGroup>
-
-      <div className="grid grid-cols-2 gap-2">
-        <GwGroup title="Datos de envío" className="grid grid-cols-2 gap-x-2 gap-y-1">
-          {texto('web_nombre_pila', 'Nombre', 'WEBNOMBRE')}
-          {texto('web_apellidos', 'Apellidos', 'WEBAPELLID')}
-        </GwGroup>
-        <GwGroup title="Datos de facturación" className="grid grid-cols-2 gap-x-2 gap-y-1">
-          <GwCheck
-            className="col-span-2"
-            label="Datos de facturación distintos de los de envío"
-            disabled={ro}
-            checked={distintos}
-            onChange={(v) => onChange({ web_factura_datos_distintos: v })}
-          />
-          {texto('web_fact_nombre_pila', 'Nombre', 'WEBFNOMBRE', ro || !distintos)}
-          {texto('web_fact_apellidos', 'Apellidos', 'WEBFAPELLI', ro || !distintos)}
-        </GwGroup>
+        </GwInline>
       </div>
-    </div>
+      <div className="grid grid-cols-2 gap-4">
+        <GwField label="Nombre">{texto('web_nombre_pila', 'WEBNOMBRE')}</GwField>
+        <GwField label="Apellidos">{texto('web_apellidos', 'WEBAPELLID')}</GwField>
+      </div>
+      <GwGroup title="Datos de Facturación y/o Transporte" className="flex flex-col gap-1">
+        <div className="grid grid-cols-2 gap-4">
+          <GwField label="Nombre">{texto('web_fact_nombre_pila', 'WEBFNOMBRE', ro || !distintos)}</GwField>
+          <GwField label="Apellidos">{texto('web_fact_apellidos', 'WEBFAPELLI', ro || !distintos)}</GwField>
+        </div>
+        <GwCheck
+          label="Usar datos de facturación distintos a los del transporte"
+          disabled={ro}
+          checked={distintos}
+          onChange={(v) => onChange({ web_factura_datos_distintos: v })}
+        />
+      </GwGroup>
+    </GwGroup>
   )
 }

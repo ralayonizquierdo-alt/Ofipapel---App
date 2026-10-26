@@ -1,18 +1,20 @@
-import { useEffect, useState } from 'react'
-import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Binoculars, Check, ChevronFirst, ChevronLast, FilePen, FilePlus2, Play, Trash2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { GwField, GwGroup, GwInput, GwNumber, GwSelect, formatGw } from '../../../components/gw'
+import { GwInput, GwNumber, GwSelect, formatGw } from '../../../components/gw'
 import type { ArticuloProveedor } from '../types'
 
 const str = (v: string) => (v === '' ? null : v)
 const fecha = (v: string | null) => {
-  if (!v) return '  /  /'
+  if (!v) return ' /  /'
   const [y, m, d] = v.slice(0, 10).split('-')
   return `${d}/${m}/${y}`
 }
 
 const COLS =
   'articulo_codigo, proveedor_codigo, codigo_compra, coste_puro, coste_neto, coste_bruto, precio_medio_compra, ultimo_descuento_pct, impuesto1_pct, impuesto2_pct, impuesto3_pct, ultima_bonificacion, ultima_compra_tienda, ultima_compra_numero, ultima_compra_fecha, fecha_prevista_entrega, ultimas_unidades_compradas, unidades_pedidas, unidades_compra'
+
+const FILAS_MINIMAS = 12
 
 export function TabPreciosProveedor({
   articuloCodigo,
@@ -36,7 +38,7 @@ export function TabPreciosProveedor({
     if (err) setError(err.message)
     const list = (data ?? []) as ArticuloProveedor[]
     setRows(list)
-    setSelected((s) => s ?? list[0]?.proveedor_codigo ?? null)
+    setSelected((s) => (s && list.some((r) => r.proveedor_codigo === s) ? s : (list[0]?.proveedor_codigo ?? null)))
   }
 
   useEffect(() => {
@@ -132,151 +134,179 @@ export function TabPreciosProveedor({
 
   const usados = new Set(rows.map((r) => r.proveedor_codigo))
   const selectedRow = rows.find((r) => r.proveedor_codigo === selected)
-  const d = editing ?? selectedRow ?? null
-  const dis = !editing
+  const idx = rows.findIndex((r) => r.proveedor_codigo === selected)
   const set = (patch: Partial<ArticuloProveedor>) => editing && setEditing({ ...editing, ...patch })
+  const ir = (i: number) => rows[i] && setSelected(rows[i].proveedor_codigo)
+
+  const filaEdicion = (e: ArticuloProveedor) => (
+    <tr className="bg-[#fffbe6]">
+      <td>
+        {isNewRow ? (
+          <GwSelect autoFocus value={e.proveedor_codigo} onChange={(ev) => set({ proveedor_codigo: ev.target.value })} title="COD_PROV">
+            <option value="">— Proveedor —</option>
+            {proveedores
+              .filter((p) => !usados.has(p.codigo))
+              .map((p) => (
+                <option key={p.codigo} value={p.codigo}>
+                  {p.codigo} {p.nombre}
+                </option>
+              ))}
+          </GwSelect>
+        ) : (
+          e.proveedor_codigo
+        )}
+      </td>
+      <td><GwNumber value={e.coste_puro} decimals={3} onChange={(v) => set({ coste_puro: v })} /></td>
+      <td><GwNumber value={e.coste_neto} decimals={3} onChange={(v) => set({ coste_neto: v })} /></td>
+      <td><GwNumber value={e.coste_bruto} decimals={3} onChange={(v) => set({ coste_bruto: v })} /></td>
+      <td><GwNumber value={e.precio_medio_compra} decimals={3} onChange={(v) => set({ precio_medio_compra: v })} /></td>
+      <td><GwNumber value={e.unidades_pedidas} decimals={3} onChange={(v) => set({ unidades_pedidas: v })} /></td>
+      <td>
+        <GwInput type="date" value={e.fecha_prevista_entrega ?? ''} onChange={(ev) => set({ fecha_prevista_entrega: str(ev.target.value) })} />
+      </td>
+      <td><GwNumber value={e.unidades_compra} decimals={3} onChange={(v) => set({ unidades_compra: v })} /></td>
+      <td>{fecha(e.ultima_compra_fecha)}</td>
+      <td className="text-right tabular-nums">{formatGw(e.ultimas_unidades_compradas ?? 0, 2)}</td>
+      <td><GwNumber value={e.impuesto2_pct} decimals={2} onChange={(v) => set({ impuesto2_pct: v })} /></td>
+    </tr>
+  )
+
+  const huecos = Math.max(0, FILAS_MINIMAS - rows.length - (isNewRow ? 1 : 0))
 
   return (
-    <div className="flex flex-col gap-1.5" title="ARTPROV + ARTDPROV">
-      <div className="flex gap-1">
-        <button type="button" className="gw-btn" onClick={startNew} disabled={!!editing}>
-          <Plus size={14} /> Añadir línea
-        </button>
-        <button
-          type="button"
-          className="gw-btn"
-          disabled={!selectedRow || !!editing}
-          onClick={() => {
-            if (!selectedRow) return
-            setError(null)
-            setIsNewRow(false)
-            setEditing({ ...selectedRow })
-          }}
-        >
-          <Pencil size={14} /> Modificar línea
-        </button>
-        <button type="button" className="gw-btn" disabled={!selectedRow || !!editing} onClick={deleteSelected}>
-          <Trash2 size={14} /> Borrar línea
-        </button>
-        {editing && (
-          <>
-            <button type="button" className="gw-btn ml-3" onClick={saveRow}>
-              <Check size={14} className="text-[#127a12]" /> Aceptar
-            </button>
-            <button type="button" className="gw-btn" onClick={cancel}>
-              <X size={14} className="text-[#c42b1c]" /> Cancelar
-            </button>
-          </>
-        )}
-      </div>
-      {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
-
-      <div className="max-h-[170px] overflow-y-auto border border-[var(--gw-border)]">
-        <table className="gw-grid">
-          <thead className="sticky top-0">
-            <tr>
-              <th style={{ width: 80 }}>Proveedor</th>
-              <th>Nombre Proveedor</th>
-              <th style={{ width: 140 }}>Código de Compra</th>
-              <th className="text-right" style={{ width: 95 }}>Coste Puro</th>
-              <th className="text-right" style={{ width: 95 }}>Coste Neto</th>
-              <th className="text-right" style={{ width: 95 }}>Coste Bruto</th>
-              <th className="text-right" style={{ width: 95 }}>Coste Líquido</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && !isNewRow && (
+    <div className="flex flex-col gap-1" title="ARTPROV + ARTDPROV">
+      <fieldset className="gw-group">
+        <legend>Precios de coste y datos última compra según proveedor</legend>
+        {error && <div className="mb-1 border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
+        <div className="max-h-[270px] overflow-y-auto border border-[var(--gw-border)]">
+          <table className="gw-grid">
+            <thead className="sticky top-0">
               <tr>
-                <td colSpan={7} className="text-center text-[#6d6d6d]">Sin precios de proveedor.</td>
+                <th style={{ width: 90 }}>Proveedor</th>
+                <th className="text-right" style={{ width: 90 }}>Puro</th>
+                <th className="text-right" style={{ width: 90 }}>Neto</th>
+                <th className="text-right" style={{ width: 90 }}>Bruto</th>
+                <th className="text-right" style={{ width: 90 }}>Liquido</th>
+                <th className="text-right" style={{ width: 75 }}>Unds ped.</th>
+                <th style={{ width: 95 }}>Prev. Entrada</th>
+                <th className="text-right" style={{ width: 95 }}>Unds. Compr.</th>
+                <th style={{ width: 80 }}>Ult. Comp.</th>
+                <th className="text-right" style={{ width: 90 }}>Ult. Und. Co.</th>
+                <th className="text-right" style={{ width: 60 }}>%Canon</th>
               </tr>
-            )}
-            {rows.map((r) => (
-              <tr
-                key={r.proveedor_codigo}
-                className={!isNewRow && selected === r.proveedor_codigo ? 'gw-selected' : ''}
-                onClick={() => !editing && setSelected(r.proveedor_codigo)}
-              >
-                <td>{r.proveedor_codigo}</td>
-                <td>{nombreProveedor(r.proveedor_codigo)}</td>
-                <td>{r.codigo_compra ?? ''}</td>
-                <td className="text-right tabular-nums">{formatGw(r.coste_puro, 3)}</td>
-                <td className="text-right tabular-nums">{formatGw(r.coste_neto, 3)}</td>
-                <td className="text-right tabular-nums">{formatGw(r.coste_bruto, 3)}</td>
-                <td className="text-right tabular-nums">{formatGw(r.precio_medio_compra, 3)}</td>
-              </tr>
-            ))}
-            {isNewRow && (
-              <tr className="gw-selected">
-                <td colSpan={7}>(nueva línea)</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {d && (
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2">
-          <GwGroup title="Proveedor">
-            <div className="flex flex-col gap-1.5">
-              <GwField label="Proveedor">
-                {isNewRow && editing ? (
-                  <GwSelect autoFocus value={editing.proveedor_codigo} onChange={(e) => set({ proveedor_codigo: e.target.value })}>
-                    <option value="">— Proveedor —</option>
-                    {proveedores
-                      .filter((p) => !usados.has(p.codigo))
-                      .map((p) => (
-                        <option key={p.codigo} value={p.codigo}>
-                          {p.codigo} {p.nombre}
-                        </option>
-                      ))}
-                  </GwSelect>
+            </thead>
+            <tbody>
+              {rows.map((r) =>
+                editing && !isNewRow && editing.proveedor_codigo === r.proveedor_codigo ? (
+                  <FilaKey key={r.proveedor_codigo}>{filaEdicion(editing)}</FilaKey>
                 ) : (
-                  <GwInput value={`${d.proveedor_codigo} ${nombreProveedor(d.proveedor_codigo)}`} disabled />
-                )}
-              </GwField>
-              <GwField label="Código de Compra">
-                <GwInput title="COD_COMPRA" value={d.codigo_compra ?? ''} disabled={dis} onChange={(e) => set({ codigo_compra: str(e.target.value) })} />
-              </GwField>
-              <GwField label="Canon">
-                <GwNumber value={d.impuesto2_pct} decimals={2} disabled={dis} onChange={(v) => set({ impuesto2_pct: v })} />
-              </GwField>
-            </div>
-          </GwGroup>
-          <GwGroup title="Precios de coste">
-            <div className="grid grid-cols-[1fr_110px] items-center gap-x-2 gap-y-1">
-              <span className="gw-label">Coste Puro Prov.:</span>
-              <GwNumber value={d.coste_puro} decimals={3} disabled={dis} onChange={(v) => set({ coste_puro: v })} />
-              <span className="gw-label">Coste Neto:</span>
-              <GwNumber value={d.coste_neto} decimals={3} disabled={dis} onChange={(v) => set({ coste_neto: v })} />
-              <span className="gw-label">Coste Bruto:</span>
-              <GwNumber value={d.coste_bruto} decimals={3} disabled={dis} onChange={(v) => set({ coste_bruto: v })} />
-              <span className="gw-label">Coste Líquido:</span>
-              <GwNumber value={d.precio_medio_compra} decimals={3} disabled={dis} onChange={(v) => set({ precio_medio_compra: v })} />
-              <span className="gw-label">Últ. Dto. %:</span>
-              <GwNumber value={d.ultimo_descuento_pct} decimals={2} disabled={dis} onChange={(v) => set({ ultimo_descuento_pct: v })} />
-            </div>
-          </GwGroup>
-          <GwGroup title="Compras">
-            <div className="grid grid-cols-[1fr_110px] items-center gap-x-2 gap-y-1">
-              <span className="gw-label">Unids. Pedidas:</span>
-              <GwNumber value={d.unidades_pedidas} decimals={3} disabled={dis} onChange={(v) => set({ unidades_pedidas: v })} />
-              <span className="gw-label">Prev. Entrada:</span>
-              <GwInput
-                type="date"
-                value={d.fecha_prevista_entrega ?? ''}
-                disabled={dis}
-                onChange={(e) => set({ fecha_prevista_entrega: str(e.target.value) })}
-              />
-              <span className="gw-label">Unids. Compradas:</span>
-              <GwNumber value={d.unidades_compra} decimals={3} disabled={dis} onChange={(v) => set({ unidades_compra: v })} />
-              <span className="gw-label">Última Compra:</span>
-              <GwInput value={fecha(d.ultima_compra_fecha)} disabled />
-              <span className="gw-label">Unids. Últ. Compra:</span>
-              <GwNumber value={d.ultimas_unidades_compradas} decimals={3} disabled />
-            </div>
-          </GwGroup>
+                  <tr
+                    key={r.proveedor_codigo}
+                    title={nombreProveedor(r.proveedor_codigo)}
+                    className={!isNewRow && selected === r.proveedor_codigo ? 'gw-selected' : ''}
+                    onClick={() => !editing && setSelected(r.proveedor_codigo)}
+                  >
+                    <td>{r.proveedor_codigo}</td>
+                    <td className="text-right tabular-nums">{formatGw(r.coste_puro ?? 0, 3)}</td>
+                    <td className="text-right tabular-nums">{formatGw(r.coste_neto ?? 0, 3)}</td>
+                    <td className="text-right tabular-nums">{formatGw(r.coste_bruto ?? 0, 3)}</td>
+                    <td className="text-right tabular-nums">{formatGw(r.precio_medio_compra ?? 0, 3)}</td>
+                    <td className="text-right tabular-nums">{formatGw(r.unidades_pedidas ?? 0, 3)}</td>
+                    <td>{fecha(r.fecha_prevista_entrega)}</td>
+                    <td className="text-right tabular-nums">{formatGw(r.unidades_compra ?? 0, 3)}</td>
+                    <td>{fecha(r.ultima_compra_fecha)}</td>
+                    <td className="text-right tabular-nums">{formatGw(r.ultimas_unidades_compradas ?? 0, 2)}</td>
+                    <td className="text-right tabular-nums">{formatGw(r.impuesto2_pct ?? 0, 2)}</td>
+                  </tr>
+                ),
+              )}
+              {isNewRow && editing && filaEdicion(editing)}
+              {Array.from({ length: huecos }, (_, i) => (
+                <tr key={`h${i}`}>
+                  {Array.from({ length: 11 }, (_, j) => (
+                    <td key={j} />
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+        <div className="mt-1 flex w-fit border border-[var(--gw-border)]">
+          <MiniBtn title="Primero" disabled={!!editing || rows.length === 0} onClick={() => ir(0)}>
+            <ChevronFirst size={14} strokeWidth={3} />
+          </MiniBtn>
+          <MiniBtn title="Anterior" disabled={!!editing || idx <= 0} onClick={() => ir(idx - 1)}>
+            <Play size={10} className="rotate-180" fill="currentColor" />
+          </MiniBtn>
+          <MiniBtn title="Siguiente" disabled={!!editing || idx < 0 || idx >= rows.length - 1} onClick={() => ir(idx + 1)}>
+            <Play size={10} fill="currentColor" />
+          </MiniBtn>
+          <MiniBtn title="Último" disabled={!!editing || rows.length === 0} onClick={() => ir(rows.length - 1)}>
+            <ChevronLast size={14} strokeWidth={3} />
+          </MiniBtn>
+          <MiniBtn
+            title="Buscar proveedor"
+            disabled={!!editing || rows.length === 0}
+            onClick={() => {
+              const c = window.prompt('Código de proveedor:')?.trim()
+              if (!c) return
+              if (rows.some((r) => r.proveedor_codigo === c)) setSelected(c)
+              else setError(`El proveedor ${c} no tiene precios para este artículo.`)
+            }}
+          >
+            <Binoculars size={13} />
+          </MiniBtn>
+          {editing ? (
+            <>
+              <MiniBtn title="Aceptar" onClick={saveRow}>
+                <Check size={14} strokeWidth={3} className="text-[#127a12]" />
+              </MiniBtn>
+              <MiniBtn title="Cancelar" onClick={cancel}>
+                <X size={14} strokeWidth={3} className="text-[#c42b1c]" />
+              </MiniBtn>
+            </>
+          ) : (
+            <>
+              <MiniBtn title="Nuevo" onClick={startNew}>
+                <FilePlus2 size={13} />
+              </MiniBtn>
+              <MiniBtn
+                title="Modificar"
+                disabled={!selectedRow}
+                onClick={() => {
+                  if (!selectedRow) return
+                  setError(null)
+                  setIsNewRow(false)
+                  setEditing({ ...selectedRow })
+                }}
+              >
+                <FilePen size={13} />
+              </MiniBtn>
+              <MiniBtn title="Borrar" disabled={!selectedRow} onClick={deleteSelected}>
+                <Trash2 size={13} />
+              </MiniBtn>
+            </>
+          )}
+        </div>
+      </fieldset>
     </div>
+  )
+}
+
+function FilaKey({ children }: { children: ReactNode }) {
+  return <>{children}</>
+}
+
+function MiniBtn({ title, onClick, disabled, children }: { title: string; onClick?: () => void; disabled?: boolean; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      disabled={disabled}
+      className="flex h-[22px] w-[52px] items-center justify-center border-r border-[var(--gw-border-light)] bg-[var(--gw-face)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent"
+    >
+      {children}
+    </button>
   )
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Binoculars, Check, ChevronFirst, ChevronLast, FilePen, FilePlus2, FileX2, Play, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { GwCheck, GwField, GwGroup, GwInput, GwNumber, GwSelect, GwTabs } from '../../../components/gw'
+import { GwCheck, GwField, GwGroup, GwInput, GwNumber, GwSelect } from '../../../components/gw'
+import { FilasVacias } from './TabBancos'
 import type { ClienteTabProps } from '../types'
 
 interface Sucursal {
@@ -43,11 +44,10 @@ interface Opcion {
 const COLUMNAS =
   'cliente_codigo, codigo, nombre, nif, gerente, contacto, direccion, codigo_postal, provincia_codigo, pais_codigo, poblacion, telefono_fijo, telefono_movil, fax, email, web, zona_territorial_codigo, vendedor_codigo, ruta_codigo, orden_en_ruta, face_organo_gestor, face_organo_gestor_nombre, face_unidad_tramitadora, face_unidad_tramitadora_nombre, face_oficina_contable, face_oficina_contable_nombre, fecha_alta, fecha_baja'
 
-const SUBTABS = [
-  [
-    { key: 'generales', label: 'Datos generales' },
-    { key: 'enlaces', label: 'Enlaces' },
-  ],
+const VISTAS = [
+  { key: 'todas', label: 'Ver Todas' },
+  { key: 'generales', label: 'Datos Gener.' },
+  { key: 'enlaces', label: 'Enlaces' },
 ]
 
 function vacia(clienteCodigo: string, codigo: string): Sucursal {
@@ -95,7 +95,7 @@ export function TabSucursales({ cliente, editing, onChange }: ClienteTabProps) {
   const [selected, setSelected] = useState<string | null>(null)
   const [draft, setDraft] = useState<Sucursal | null>(null)
   const [esNueva, setEsNueva] = useState(false)
-  const [subtab, setSubtab] = useState('generales')
+  const [subtab, setSubtab] = useState('todas')
   const [error, setError] = useState<string | null>(null)
   const [zonas, setZonas] = useState<Opcion[]>([])
   const [vendedores, setVendedores] = useState<Opcion[]>([])
@@ -222,143 +222,176 @@ export function TabSucursales({ cliente, editing, onChange }: ClienteTabProps) {
     load()
   }
 
+  const idx = rows.findIndex((r) => r.codigo === selected)
+  const mover = (i: number) => {
+    if (draft || rows.length === 0) return
+    setSelected(rows[Math.max(0, Math.min(rows.length - 1, i))].codigo)
+  }
+  function buscar() {
+    const q = window.prompt('Buscar sucursal (código o nombre):')?.trim().toLowerCase()
+    if (!q) return
+    const r = rows.find((x) => x.codigo.toLowerCase() === q) ?? rows.find((x) => x.nombre.toLowerCase().includes(q))
+    if (r) setSelected(r.codigo)
+  }
+  function modificar() {
+    const s = rows.find((r) => r.codigo === selected)
+    if (!s) return
+    setError(null)
+    setEsNueva(false)
+    setDraft({ ...s })
+    if (subtab === 'todas') setSubtab('generales')
+  }
+
+  const nav = 'flex h-[22px] w-[46px] items-center justify-center border-r border-[var(--gw-border-light)] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent'
+  const puedeNavegar = !draft && rows.length > 0
+
   return (
-    <div className="flex flex-col gap-1.5" title="CLISUCUR">
+    <div className="flex flex-col gap-1" title="CLISUCUR">
       <div className="flex items-center gap-1">
-        <button type="button" className="gw-btn" onClick={nueva} disabled={!editing || !!draft}>
-          <Plus size={14} /> Añadir línea
-        </button>
-        <button
-          type="button"
-          className="gw-btn"
-          disabled={!editing || !selected || !!draft}
-          onClick={() => {
-            const s = rows.find((r) => r.codigo === selected)
-            if (s) {
-              setError(null)
-              setEsNueva(false)
-              setDraft({ ...s })
-            }
-          }}
-        >
-          <Pencil size={14} /> Modificar línea
-        </button>
-        <button type="button" className="gw-btn" disabled={!editing || !selected || !!draft} onClick={borrar}>
-          <Trash2 size={14} /> Borrar línea
-        </button>
-        <span className="ml-auto" />
-        <GwCheck
-          label="Crear sucursales al vender"
-          checked={cliente.genera_sucursales_auto}
-          disabled={!editing}
-          onChange={(v) => onChange({ genera_sucursales_auto: v })}
-        />
+        <GwInput readOnly className="!w-[60px]" value={actual?.codigo ?? ''} tabIndex={-1} />
+        <GwInput readOnly className="flex-1" value={actual?.nombre ?? ''} tabIndex={-1} />
+        <span className="flex h-[24px] w-[240px] flex-none items-center justify-center border border-[var(--gw-border)] bg-[#e1e1e1]">
+          <GwCheck
+            label="Crear Sucursales al Vender"
+            checked={cliente.genera_sucursales_auto}
+            disabled={!editing}
+            onChange={(v) => onChange({ genera_sucursales_auto: v })}
+          />
+        </span>
       </div>
       {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
 
-      <div className="max-h-[180px] overflow-y-auto border border-[var(--gw-border)] bg-white">
-        <table className="gw-grid">
-          <thead className="sticky top-0">
-            <tr>
-              <th style={{ width: 70 }}>Código</th>
-              <th>Nombre</th>
-              <th style={{ width: 110 }}>NIF</th>
-              <th style={{ width: 180 }}>Contacto</th>
-              <th style={{ width: 160 }}>Población</th>
-              <th style={{ width: 110 }}>Teléfono</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && !draft && (
+      <div className="h-[226px] overflow-y-auto border border-[var(--gw-border)] bg-white">
+        {subtab === 'todas' && (
+          <table className="gw-grid">
+            <thead className="sticky top-0">
               <tr>
-                <td colSpan={6} className="text-center text-[#6d6d6d]">
-                  Sin sucursales.
-                </td>
+                <th style={{ width: 60 }}>Cod.</th>
+                <th>Nombre</th>
+                <th style={{ width: 100 }}>N.I.F.</th>
+                <th style={{ width: 130 }}>Contacto</th>
+                <th style={{ width: 200 }}>Direccion</th>
+                <th style={{ width: 80 }}>Cod.Post.</th>
+                <th style={{ width: 170 }}>Poblacion</th>
               </tr>
-            )}
-            {rows.map((r) => (
-              <tr
-                key={r.codigo}
-                className={r.codigo === (draft?.codigo ?? selected) && !esNueva ? 'gw-selected' : ''}
-                onClick={() => !draft && setSelected(r.codigo)}
-              >
-                <td>{r.codigo}</td>
-                <td>{r.nombre}</td>
-                <td>{r.nif ?? ''}</td>
-                <td>{r.contacto ?? ''}</td>
-                <td>{r.poblacion ?? ''}</td>
-                <td>{r.telefono_movil ?? r.telefono_fijo ?? ''}</td>
-              </tr>
-            ))}
-            {draft && esNueva && (
-              <tr className="gw-selected">
-                <td>{draft.codigo}</td>
-                <td colSpan={5}>{draft.nombre || '(nueva sucursal)'}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr
+                  key={r.codigo}
+                  className={r.codigo === selected && !(draft && esNueva) ? 'gw-selected' : ''}
+                  onClick={() => !draft && setSelected(r.codigo)}
+                  onDoubleClick={() => !draft && setSubtab('generales')}
+                >
+                  <td>{r.codigo}</td>
+                  <td>{r.nombre}</td>
+                  <td>{r.nif ?? ''}</td>
+                  <td>{r.contacto ?? ''}</td>
+                  <td>{r.direccion ?? ''}</td>
+                  <td>{r.codigo_postal ?? ''}</td>
+                  <td>{r.poblacion ?? ''}</td>
+                </tr>
+              ))}
+              <FilasVacias cols={7} ocupadas={rows.length} total={9} />
+            </tbody>
+          </table>
+        )}
+        {subtab === 'generales' && actual && (
+          <div className="grid grid-cols-[110px_minmax(0,2fr)_130px_minmax(0,1fr)] gap-x-2 gap-y-1 bg-[var(--gw-face)] p-1.5">
+            <GwField label="Código">
+              <GwInput disabled={!draft || !esNueva} value={actual.codigo} onChange={(e) => set('codigo', e.target.value)} />
+            </GwField>
+            {texto('nombre', 'Nombre')}
+            {texto('nif', 'N.I.F.')}
+            {texto('gerente', 'Gerente')}
+            {texto('contacto', 'Contacto', undefined, 'col-span-2')}
+            {texto('direccion', 'Dirección', undefined, 'col-span-2')}
+            {texto('codigo_postal', 'Cod. Postal')}
+            {texto('poblacion', 'Población', undefined, 'col-span-3')}
+            {select('provincia_codigo', 'Provincia', provincias)}
+            {select('pais_codigo', 'País', paises)}
+            {texto('telefono_fijo', 'Tlf. Fijo')}
+            {texto('telefono_movil', 'Tlf. Móvil')}
+            {texto('fax', 'Fax')}
+            {texto('email', 'Dirección E-mail')}
+            {texto('web', 'Dirección Web (URL)', undefined, 'col-span-2')}
+          </div>
+        )}
+        {subtab === 'enlaces' && actual && (
+          <div className="flex flex-col gap-1.5 bg-[var(--gw-face)] p-1.5">
+            <div className="grid grid-cols-4 gap-x-2 gap-y-1">
+              {select('zona_territorial_codigo', 'Zona Territorial', zonas)}
+              {select('vendedor_codigo', 'Vendedor', vendedores)}
+              {select('ruta_codigo', 'Ruta de Reparto', rutas)}
+              <GwField label="Orden en Ruta">
+                <GwNumber decimals={0} disabled={ro} value={actual.orden_en_ruta} onChange={(v) => set('orden_en_ruta', v)} />
+              </GwField>
+            </div>
+            <GwGroup title="FacE datos identificativos de la Administración" className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-2 gap-y-1">
+              {texto('face_organo_gestor', 'Órgano Gestor')}
+              {texto('face_organo_gestor_nombre', 'Nombre')}
+              {texto('face_unidad_tramitadora', 'Unidad Tramitadora')}
+              {texto('face_unidad_tramitadora_nombre', 'Nombre')}
+              {texto('face_oficina_contable', 'Oficina Contable')}
+              {texto('face_oficina_contable_nombre', 'Nombre')}
+            </GwGroup>
+          </div>
+        )}
+        {subtab !== 'todas' && !actual && <div className="p-2 text-[#6d6d6d]">Selecciona una sucursal en «Ver Todas».</div>}
       </div>
 
-      {actual && (
-        <GwTabs rows={SUBTABS} active={subtab} onChange={setSubtab}>
-          {subtab === 'generales' && (
-            <div className="grid grid-cols-[110px_minmax(0,2fr)_130px_minmax(0,1fr)] gap-x-2 gap-y-1">
-              <GwField label="Código">
-                <GwInput
-                  disabled={!draft || !esNueva}
-                  value={actual.codigo}
-                  onChange={(e) => set('codigo', e.target.value)}
-                />
-              </GwField>
-              {texto('nombre', 'Nombre')}
-              {texto('nif', 'NIF')}
-              {texto('gerente', 'Gerente')}
-              {texto('contacto', 'Contacto', undefined, 'col-span-2')}
-              {texto('direccion', 'Dirección', undefined, 'col-span-2')}
-              {texto('codigo_postal', 'Cód. Postal')}
-              {texto('poblacion', 'Población', undefined, 'col-span-3')}
-              {select('provincia_codigo', 'Provincia', provincias)}
-              {select('pais_codigo', 'País', paises)}
-              {texto('telefono_fijo', 'Teléfono')}
-              {texto('telefono_movil', 'Móvil')}
-              {texto('fax', 'Fax')}
-              {texto('email', 'Email')}
-              {texto('web', 'Web', undefined, 'col-span-2')}
-            </div>
-          )}
-          {subtab === 'enlaces' && (
-            <div className="flex flex-col gap-1.5">
-              <div className="grid grid-cols-4 gap-x-2 gap-y-1">
-                {select('zona_territorial_codigo', 'Zona Territorial', zonas)}
-                {select('vendedor_codigo', 'Vendedor', vendedores)}
-                {select('ruta_codigo', 'Ruta de Reparto', rutas)}
-                <GwField label="Orden en Ruta">
-                  <GwNumber decimals={0} disabled={ro} value={actual.orden_en_ruta} onChange={(v) => set('orden_en_ruta', v)} />
-                </GwField>
-              </div>
-              <GwGroup title="FacE (Administración)" className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-2 gap-y-1">
-                {texto('face_organo_gestor', 'Órgano Gestor')}
-                {texto('face_organo_gestor_nombre', ' ')}
-                {texto('face_unidad_tramitadora', 'Unidad Tramitadora')}
-                {texto('face_unidad_tramitadora_nombre', ' ')}
-                {texto('face_oficina_contable', 'Oficina Contable')}
-                {texto('face_oficina_contable_nombre', ' ')}
-              </GwGroup>
-            </div>
-          )}
-          {draft && (
-            <div className="mt-1.5 flex justify-end gap-1">
-              <button type="button" className="gw-btn" onClick={aceptar}>
-                <Check size={14} className="text-[#127a12]" /> Aceptar
-              </button>
-              <button type="button" className="gw-btn" onClick={() => setDraft(null)}>
-                <X size={14} className="text-[#c42b1c]" /> Cancelar
-              </button>
-            </div>
-          )}
-        </GwTabs>
-      )}
+      <div className="flex items-start gap-2">
+        <div className="-mt-px flex">
+          {VISTAS.map((v) => (
+            <button
+              key={v.key}
+              type="button"
+              onClick={() => setSubtab(v.key)}
+              className={`border border-[var(--gw-border)] px-2.5 text-[13px] ${
+                subtab === v.key ? 'z-10 h-[26px] border-t-transparent bg-[var(--gw-face)]' : 'h-[24px] bg-[#f6f6f6] hover:bg-[#e5f1fb]'
+              }`}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex border border-[var(--gw-border)] bg-[var(--gw-face)]">
+          <button type="button" className={nav} title="Primera" disabled={!puedeNavegar} onClick={() => mover(0)}>
+            <ChevronFirst size={13} strokeWidth={3} />
+          </button>
+          <button type="button" className={nav} title="Anterior" disabled={!puedeNavegar} onClick={() => mover(idx - 1)}>
+            <Play size={9} className="rotate-180" fill="currentColor" />
+          </button>
+          <button type="button" className={nav} title="Siguiente" disabled={!puedeNavegar} onClick={() => mover(idx + 1)}>
+            <Play size={9} fill="currentColor" />
+          </button>
+          <button type="button" className={nav} title="Última" disabled={!puedeNavegar} onClick={() => mover(rows.length - 1)}>
+            <ChevronLast size={13} strokeWidth={3} />
+          </button>
+          <button type="button" className={nav} title="Buscar" disabled={!puedeNavegar} onClick={buscar}>
+            <Binoculars size={13} />
+          </button>
+          <button type="button" className={nav} title="Nueva sucursal" disabled={!editing || !!draft} onClick={nueva}>
+            <FilePlus2 size={13} />
+          </button>
+          <button type="button" className={nav} title="Modificar sucursal" disabled={!editing || !selected || !!draft} onClick={modificar}>
+            <FilePen size={13} />
+          </button>
+          <button type="button" className={`${nav} border-r-0`} title="Borrar sucursal" disabled={!editing || !selected || !!draft} onClick={borrar}>
+            <FileX2 size={13} />
+          </button>
+        </div>
+        {draft && (
+          <span className="flex gap-1">
+            <button type="button" className="gw-btn" onClick={aceptar}>
+              <Check size={14} className="text-[#127a12]" /> Aceptar
+            </button>
+            <button type="button" className="gw-btn" onClick={() => setDraft(null)}>
+              <X size={14} className="text-[#c42b1c]" /> Cancelar
+            </button>
+          </span>
+        )}
+      </div>
     </div>
   )
 }
