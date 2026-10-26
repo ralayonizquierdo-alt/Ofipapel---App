@@ -61,6 +61,11 @@ vía `fn_siguiente_numero()` (sin condiciones de carrera). Ambas
 comparten el mismo patrón: cabecera + líneas libres (código de
 artículo en texto, sin desplegable todavía) contra `pedido_proveedor`/
 `pedido_proveedor_linea` y `pedido_cliente`/`pedido_cliente_linea`.
+Compras además tiene botón **Recepcionar**: genera el `movimiento_stock`
+real de entrada (`sentido: 1`) por cada línea y marca el pedido
+`estado: 'recepcionado'` + `recibido`/`stock_movido`/`fecha_recepcion`
+— verificado en vivo (pedido de 20 unidades → recepcionar → saldo 20
+exacto en el almacén de destino).
 
 **Ventas / TPV** (Fase 5) ya abre y cierra caja de verdad
 (`caja_apertura_cierre`) y crea tickets de venta reales (`venta` +

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, PackageCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { DataTable, type Column } from '../components/DataTable'
 import { Modal } from '../components/Modal'
@@ -12,6 +12,7 @@ interface Pedido {
   numero: number
   estado: string
   total: number | null
+  almacen_codigo: string | null
   proveedor: { nombre: string } | null
   fecha_hora: string
 }
@@ -43,13 +44,14 @@ export function ComprasPage() {
   const [lineas, setLineas] = useState<LineaForm[]>([{ articulo_codigo: '', cantidad: '', precio_compra: '' }])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [recepcionando, setRecepcionando] = useState<number | null>(null)
 
   async function load() {
     setLoading(true)
     const [{ data }, { data: prov }, { data: alm }] = await Promise.all([
       supabase
         .from('pedido_proveedor')
-        .select('tienda_terminal_codigo, numero, estado, total, fecha_hora, proveedor:proveedor_codigo(nombre)')
+        .select('tienda_terminal_codigo, numero, estado, total, almacen_codigo, fecha_hora, proveedor:proveedor_codigo(nombre)')
         .order('fecha_hora', { ascending: false })
         .limit(100),
       supabase.from('proveedor').select('codigo, nombre').order('nombre'),
@@ -90,6 +92,7 @@ export function ComprasPage() {
       numero,
       proveedor_codigo: proveedorCodigo,
       almacen_codigo: almacenCodigo,
+      estado: 'pendiente',
     })
     if (cabeceraError) {
       setSaving(false)
@@ -124,6 +127,63 @@ export function ComprasPage() {
     load()
   }
 
+  async function handleRecepcionar(pedido: Pedido) {
+    setRecepcionando(pedido.numero)
+    setError(null)
+
+    const { data: lineasPedido, error: lineasError } = await supabase
+      .from('pedido_proveedor_linea')
+      .select('articulo_codigo, cantidad')
+      .eq('tienda_terminal_codigo', pedido.tienda_terminal_codigo)
+      .eq('numero', pedido.numero)
+    if (lineasError) {
+      setRecepcionando(null)
+      setError(lineasError.message)
+      return
+    }
+
+    if (lineasPedido && lineasPedido.length > 0 && pedido.almacen_codigo) {
+      const { error: stockError } = await supabase.from('movimiento_stock').insert(
+        lineasPedido.map((l, i) => ({
+          tipo_movimiento: 'compra',
+          sentido: 1,
+          almacen_codigo: pedido.almacen_codigo,
+          articulo_codigo: l.articulo_codigo,
+          cantidad: l.cantidad,
+          documento_origen_tipo: 'pedido_proveedor',
+          documento_origen_tienda_codigo: pedido.tienda_terminal_codigo,
+          documento_origen_numero: pedido.numero,
+          documento_origen_linea: i + 1,
+          tienda_terminal_codigo: pedido.tienda_terminal_codigo,
+        })),
+      )
+      if (stockError) {
+        setRecepcionando(null)
+        setError(stockError.message)
+        return
+      }
+    }
+
+    const { error: updateError } = await supabase
+      .from('pedido_proveedor')
+      .update({
+        estado: 'recepcionado',
+        recibido: true,
+        stock_movido: true,
+        fecha_recepcion: new Date().toISOString().slice(0, 10),
+      })
+      .eq('tienda_terminal_codigo', pedido.tienda_terminal_codigo)
+      .eq('numero', pedido.numero)
+    if (updateError) {
+      setRecepcionando(null)
+      setError(updateError.message)
+      return
+    }
+
+    setRecepcionando(null)
+    load()
+  }
+
   const columns: Column<Pedido>[] = [
     { header: 'Número', cell: (r) => <span className="font-mono text-xs">{r.tienda_terminal_codigo}-{r.numero}</span> },
     { header: 'Proveedor', cell: (r) => r.proveedor?.nombre ?? '—' },
@@ -133,6 +193,20 @@ export function ComprasPage() {
     },
     { header: 'Total', cell: (r) => (r.total != null ? `${r.total.toFixed(2)} €` : '—') },
     { header: 'Fecha', cell: (r) => new Date(r.fecha_hora).toLocaleString('es-ES') },
+    {
+      header: '',
+      cell: (r) =>
+        r.estado === 'recepcionado' || r.estado === 'liquidado' ? null : (
+          <button
+            type="button"
+            onClick={() => handleRecepcionar(r)}
+            disabled={recepcionando === r.numero}
+            className="flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline disabled:opacity-50"
+          >
+            <PackageCheck size={14} /> {recepcionando === r.numero ? 'Recepcionando…' : 'Recepcionar'}
+          </button>
+        ),
+    },
   ]
 
   return (
