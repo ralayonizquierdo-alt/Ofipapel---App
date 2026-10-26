@@ -6,6 +6,7 @@ import { formatDate, formatDateShort, today } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
 import { Link } from 'react-router-dom'
 import AlertasDescuadre from '../components/AlertasDescuadre'
+import { TarjetaSolapes } from '../components/AvisoSolapes'
 import CorreccionesLuis from '../components/CorreccionesLuis'
 import { CajaPegar } from '../components/PegarWhatsApp'
 import SoltarGastos from '../components/SoltarGastos'
@@ -123,6 +124,9 @@ export default function Dashboard() {
 
       {/* Descuadres Excel ↔ app. Van antes que el resto de avisos: son los que
           pidió el propietario para poder cerrar el ejercicio. */}
+      {/* Lo primero: un piso alquilado dos veces no es un descuadre que
+          revisar, es un error que hay que arreglar hoy. */}
+      <TarjetaSolapes />
       <AlertasDescuadre />
 
       {/* Alerts */}
