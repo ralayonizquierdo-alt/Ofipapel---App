@@ -39,6 +39,33 @@ function Fecha({ label, value, conHora, labelWidth = 92 }: { label: string; valu
   )
 }
 
+function BotonCasilla({
+  label,
+  title,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string
+  title: string
+  checked: boolean
+  disabled?: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className="gw-btn w-full justify-start gap-1 !px-1.5 disabled:!opacity-100"
+    >
+      <span className={`font-bold ${checked ? 'text-[#127a12]' : 'text-[#c42b1c]'}`}>{checked ? '✓' : '×'}</span>
+      {label}
+    </button>
+  )
+}
+
 function CosteRow({ label, title, children }: { label: string; title: string; children: ReactNode }) {
   return (
     <div className="flex flex-col" title={title}>
@@ -228,27 +255,28 @@ export function TabCaracteristicas({
               </GwSelect>
             </span>
           </GwField>
-          <div className="grid grid-cols-2 gap-2">
-            <GwField label="Unidad de Medida">
-              <span title="UNI_MEDIDA">{unidadSelect('unidad_medida')}</span>
-            </GwField>
-            <GwField label="Unidad Básica">
-              <span title="UNI_MEDBAS">{unidadSelect('unidad_medida_base')}</span>
-            </GwField>
-          </div>
-          <GwInline label="Valor Unidad de Medida:" className="justify-between">
-            <span className="w-[170px]" title="UNI_MEDVAL">
-              {num('unidad_medida_valor', 6)}
-            </span>
-          </GwInline>
+          <GwGroup className="flex flex-col gap-1 !pt-1">
+            <div className="grid grid-cols-2 gap-2">
+              <GwField label="Unidad de Medida">
+                <span title="UNI_MEDIDA">{unidadSelect('unidad_medida')}</span>
+              </GwField>
+              <GwField label="Unidad Básica">
+                <span title="UNI_MEDBAS">{unidadSelect('unidad_medida_base')}</span>
+              </GwField>
+            </div>
+            <GwInline label="Valor Unidad de Medida:" className="justify-between">
+              <span className="w-[170px]" title="UNI_MEDVAL">
+                {num('unidad_medida_valor', 6)}
+              </span>
+            </GwInline>
+          </GwGroup>
           <div className="grid grid-cols-[minmax(0,1fr)_150px] gap-2">
             <GwGroup title="Impuestos" className="flex flex-col gap-1">
               <div className="grid grid-cols-[70px_1fr] gap-2">
                 <GwField label="% IGIC">
                   <span title="IGIC">{num('igic_pct', 2)}</span>
                 </GwField>
-                <div className="flex flex-col" title="TIPOIGIC (confirmar códigos con Luis)">
-                  <span className="gw-label">Tipo IGIC</span>
+                <GwGroup title={<span title="TIPOIGIC (confirmar códigos con Luis)">Tipo IGIC</span>} className="flex flex-col !py-0.5">
                   <GwRadio
                     name="tipo-igic"
                     label="Soportado"
@@ -263,7 +291,7 @@ export function TabCaracteristicas({
                     disabled={disabled}
                     onChange={() => onChange({ tipo_igic_codigo: 0 })}
                   />
-                </div>
+                </GwGroup>
               </div>
               <GwField label="Canon">
                 <span className="w-[110px]" title="IMPU2">
@@ -278,7 +306,15 @@ export function TabCaracteristicas({
               <GwField label="Unids/Caja">
                 <span title="UNI_CAJA">{num('unidades_por_caja', 2)}</span>
               </GwField>
-              <div className="pt-1">{check('vende_por_caja', 'Vender Cajas', false, 'VENDPORCAJ')}</div>
+              <div className="pt-1">
+                <BotonCasilla
+                  label="Vender Cajas"
+                  title="VENDPORCAJ"
+                  checked={articulo.vende_por_caja}
+                  disabled={disabled}
+                  onChange={(v) => onChange({ vende_por_caja: v })}
+                />
+              </div>
             </GwGroup>
           </div>
           <GwInline label="Meses de Garantía:">
@@ -291,17 +327,21 @@ export function TabCaracteristicas({
 
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,670px)] gap-2">
         <GwGroup title="Opciones" className="flex flex-col gap-0.5">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+          <div className="grid grid-cols-[20%_minmax(0,1fr)] gap-x-2">
             {check('generico', 'Genérico', false, 'Genérico (probablemente MODDES, confirmar con Luis)')}
             {check('no_ver_en_venta', 'No Mostrar en ventas', false, 'NOVERENVTA')}
+          </div>
+          <div className="grid grid-cols-[71%_minmax(0,1fr)] gap-x-2">
             {check('vende_por_horario', 'Usar Formato de Horas y Minutos al Vender', false, 'VENDPORHOR')}
             {check('pesar_en_tpv', 'Pesar al Vender', false, 'PESARENTPV')}
           </div>
-          {check('permite_modificar_pvp_al_vender', 'Permitir modificar el Pvp en ventas', false, 'MODITPV')}
-          <div className="flex flex-wrap gap-x-6 pl-0">
-            {check('permite_modificar_pvp_solo_si_es_cero', 'Sólo si el PVP=0', !articulo.permite_modificar_pvp_al_vender, 'MPVPSIPVP0')}
-            {check('modificar_pvp_actualiza_articulo', 'Reemplaz. en artículos', !articulo.permite_modificar_pvp_al_vender, 'MPVPUPDART')}
-            {check('modificar_pvp_pide_precio_coste', 'Pedir prec. Coste', !articulo.permite_modificar_pvp_al_vender, 'MPVPCOSTE')}
+          <div className="flex flex-col gap-0.5 border border-[var(--gw-border-light)] px-1 py-0.5">
+            {check('permite_modificar_pvp_al_vender', 'Permitir modificar el Pvp en ventas', false, 'MODITPV')}
+            <div className="grid grid-cols-[31%_39%_minmax(0,1fr)] gap-x-2">
+              {check('permite_modificar_pvp_solo_si_es_cero', 'Sólo si el PVP=0', !articulo.permite_modificar_pvp_al_vender, 'MPVPSIPVP0')}
+              {check('modificar_pvp_actualiza_articulo', 'Reemplaz. en artículos', !articulo.permite_modificar_pvp_al_vender, 'MPVPUPDART')}
+              {check('modificar_pvp_pide_precio_coste', 'Pedir prec. Coste', !articulo.permite_modificar_pvp_al_vender, 'MPVPCOSTE')}
+            </div>
           </div>
         </GwGroup>
         <GwGroup title="Fechas" className="grid grid-cols-[auto_auto] gap-x-4 gap-y-0.5">

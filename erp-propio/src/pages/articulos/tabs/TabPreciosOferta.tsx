@@ -333,12 +333,12 @@ function OfertasCantidad({
             <thead className="sticky top-0 z-10">
               <tr>
                 <th style={{ minWidth: 150 }}>Descripción</th>
-                <th style={{ minWidth: 86 }}>Fec. Desde</th>
-                <th style={{ minWidth: 86 }}>Fec. Hasta</th>
-                <th style={{ minWidth: 64 }}>Hora Inic.</th>
-                <th style={{ minWidth: 64 }}>Hora Fin</th>
-                <th style={{ minWidth: 40 }}>Tipo</th>
-                <th style={{ minWidth: 40 }}>Dto</th>
+                <th style={{ minWidth: 124 }}>Fec. Desde</th>
+                <th style={{ minWidth: 124 }}>Fec. Hasta</th>
+                <th style={{ minWidth: 100 }}>Hora Inic.</th>
+                <th style={{ minWidth: 100 }}>Hora Fin</th>
+                <th style={{ minWidth: 50 }}>Tipo</th>
+                <th style={{ minWidth: 50 }}>Dto</th>
                 <th style={{ minWidth: 72 }}>Cant. Mín.</th>
                 {NIVELES_TARIFA.map((t) => (
                   <Fragment key={t.nivel}>
@@ -417,10 +417,10 @@ function OfertasCantidad({
           onCancel={() => setEdit(null)}
         />
         <span className="flex-1" />
-        <button type="button" className="gw-btn w-[130px]" disabled={!edit} onClick={recalcular} title="Recalcula los Pvps de la línea en edición a partir del coste y de los %">
+        <button type="button" className="gw-btn whitespace-nowrap" disabled={!edit} onClick={recalcular} title="Recalcula los Pvps de la línea en edición a partir del coste y de los %">
           <Calculator size={13} /> Recalcular Pvps
         </button>
-        <button type="button" className="gw-btn w-[186px]" disabled title="Tarifas de oferta: aún no disponible en el ERP propio">
+        <button type="button" className="gw-btn whitespace-nowrap" disabled title="Tarifas de oferta: aún no disponible en el ERP propio">
           <Tags size={13} /> Ir al Formulario de Tarifas
         </button>
       </div>
@@ -551,11 +551,11 @@ function OfertasRegalo({
             <thead className="sticky top-0 z-10">
               <tr>
                 <th style={{ minWidth: 180 }}>Descripción</th>
-                <th style={{ minWidth: 86 }}>Fec. Desde</th>
-                <th style={{ minWidth: 86 }}>Fec. Hasta</th>
-                <th style={{ minWidth: 64 }}>Hora Inic.</th>
-                <th style={{ minWidth: 64 }}>Hora Fin</th>
-                <th style={{ minWidth: 90 }}>Tipo</th>
+                <th style={{ minWidth: 124 }}>Fec. Desde</th>
+                <th style={{ minWidth: 124 }}>Fec. Hasta</th>
+                <th style={{ minWidth: 100 }}>Hora Inic.</th>
+                <th style={{ minWidth: 100 }}>Hora Fin</th>
+                <th style={{ minWidth: 104 }}>Tipo</th>
                 <th style={{ minWidth: 76 }}>Cada X uds.</th>
                 <th style={{ minWidth: 110 }}>Art. Regalo</th>
                 <th style={{ minWidth: 76 }}>Cant. Oferta</th>

@@ -157,9 +157,9 @@ export function TabUnidadesVenta({
     load()
   }
 
-  const fila = (n: { nivel: number; label: string }) => (
-    <div key={n.nivel} className="grid grid-cols-[110px_96px_12px] items-center gap-1">
-      <span className="gw-label text-[12px]">{n.label}</span>
+  const fila = (n: { nivel: number; label: string }, derecha = false) => (
+    <div key={n.nivel} className="grid grid-cols-[110px_130px_12px] items-center gap-1">
+      <span className={`gw-label text-[12px] ${derecha ? 'text-right' : ''}`}>{n.label}</span>
       <GwNumber
         value={p[n.nivel] ?? null}
         decimals={3}
@@ -259,8 +259,8 @@ export function TabUnidadesVenta({
                 </GwGroup>
                 <GwGroup title="Pvps para la unidad de venta" className="flex-1">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-0.5" title="UNDPVP_0 … UNDPVP_7">
-                    <div className="flex flex-col gap-0.5">{PVPS_IZQ.map(fila)}</div>
-                    <div className="flex flex-col gap-0.5">{PVPS_DER.map(fila)}</div>
+                    <div className="flex flex-col gap-0.5">{PVPS_IZQ.map((n) => fila(n))}</div>
+                    <div className="flex flex-col gap-0.5 justify-self-center">{PVPS_DER.map((n) => fila(n, true))}</div>
                   </div>
                 </GwGroup>
               </div>

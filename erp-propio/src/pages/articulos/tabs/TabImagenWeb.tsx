@@ -72,16 +72,16 @@ export function TabWeb({ articulo, editing, onChange }: TabProps) {
   const dis = !editing
   return (
     <div className="flex flex-col gap-1">
-      <fieldset className="gw-group">
-        <legend>
-          <GwCheck
-            label="Artículo publicado en la Web"
-            checked={articulo.web_publicado}
-            onChange={(v) => onChange({ web_publicado: v })}
-            disabled={dis}
-          />
-        </legend>
-        <div className="grid grid-cols-[200px_minmax(0,1fr)] gap-2">
+      <div className="grid grid-cols-[236px_minmax(0,1fr)] items-start gap-3">
+        <fieldset className="gw-group">
+          <legend>
+            <GwCheck
+              label="Artículo publicado en la Web"
+              checked={articulo.web_publicado}
+              onChange={(v) => onChange({ web_publicado: v })}
+              disabled={dis}
+            />
+          </legend>
           <fieldset className="gw-group">
             <legend>Opciones de envío</legend>
             <div className="flex flex-col gap-0.5">
@@ -104,93 +104,91 @@ export function TabWeb({ articulo, editing, onChange }: TabProps) {
                 onChange={(v) => onChange({ web_sin_oferta: v })}
                 disabled={dis}
               />
-              <div className="mt-1 flex items-center gap-1.5">
-                <span className="gw-label">Fecha de baja:</span>
-                <GwInput
-                  type="date"
-                  title="WEB_F_BAJA"
-                  className="!w-[118px]"
-                  value={articulo.web_fecha_baja ?? ''}
-                  onChange={(e) => onChange({ web_fecha_baja: text(e.target.value) })}
-                  disabled={dis}
-                />
-              </div>
             </div>
           </fieldset>
-          <div className="flex flex-col gap-1">
-            <GwField label="Descripción para la Web">
-              <GwTextArea
-                title="WEBDESCRIP"
-                rows={3}
-                value={articulo.web_descripcion ?? ''}
-                onChange={(e) => onChange({ web_descripcion: text(e.target.value) })}
-                disabled={dis}
-              />
-            </GwField>
-            <div className="grid grid-cols-[80px_minmax(0,1fr)_70px_100px] items-end gap-1.5">
-              <GwField label="WebId:">
-                <GwInput
-                  title="WEBIDLINK"
-                  className="gw-num"
-                  value={articulo.web_id_link ?? 0}
-                  onChange={(e) => onChange({ web_id_link: e.target.value === '' ? null : Number(e.target.value.replace(/\D/g, '')) })}
-                  disabled={dis}
-                />
-              </GwField>
-              <GwField label="Fabricante:">
-                <GwInput title="WEBFABRICA" value={articulo.web_fabricante ?? ''} onChange={(e) => onChange({ web_fabricante: text(e.target.value) })} disabled={dis} />
-              </GwField>
-              <GwField label="Energy">
-                <GwSelect
-                  title="ENERGY"
-                  value={articulo.etiqueta_energetica ?? ''}
-                  onChange={(e) => onChange({ etiqueta_energetica: text(e.target.value) })}
-                  disabled={dis}
-                >
-                  {[...ENERGY, ...(articulo.etiqueta_energetica && !ENERGY.includes(articulo.etiqueta_energetica) ? [articulo.etiqueta_energetica] : [])].map(
-                    (e) => (
-                      <option key={e} value={e}>
-                        {e}
-                      </option>
-                    ),
-                  )}
-                </GwSelect>
-              </GwField>
-              <button
-                type="button"
-                title="WEBDESTACA"
-                disabled={dis}
-                onClick={() => onChange({ web_destacado: !articulo.web_destacado })}
-                className="gw-btn h-[34px] justify-start px-1.5 text-left leading-tight"
-              >
-                <span className={`font-bold ${articulo.web_destacado ? 'text-[#c42b1c]' : 'text-transparent'}`}>×</span>
-                <span>
-                  Artículo
-                  <br />
-                  Destacado
-                </span>
-              </button>
-            </div>
+          <div className="mt-1 flex items-center gap-1.5">
+            <span className="gw-label">Fecha de baja:</span>
+            <GwInput
+              type="date"
+              title="WEB_F_BAJA"
+              className="min-w-0 flex-1"
+              value={articulo.web_fecha_baja ?? ''}
+              onChange={(e) => onChange({ web_fecha_baja: text(e.target.value) })}
+              disabled={dis}
+            />
           </div>
-        </div>
-        <div className="mt-1 flex flex-col gap-1">
-          <GwField label="Categoria">
-            <GwTextArea title="WEBCATEGOR" rows={1} value={articulo.web_categoria ?? ''} onChange={(e) => onChange({ web_categoria: text(e.target.value) })} disabled={dis} />
-          </GwField>
-          <GwField label="Dirección Web (URL)">
-            <GwTextArea title="WEBURL" rows={2} value={articulo.web_url ?? ''} onChange={(e) => onChange({ web_url: text(e.target.value) })} disabled={dis} />
-          </GwField>
-          <GwField label="Observaciones para la Web">
+        </fieldset>
+        <div className="flex min-w-0 flex-col gap-1 pt-1">
+          <GwField label="Descripción para la Web">
             <GwTextArea
-              title="WEBOBSERV"
+              title="WEBDESCRIP"
               rows={3}
-              value={articulo.web_observaciones ?? ''}
-              onChange={(e) => onChange({ web_observaciones: text(e.target.value) })}
+              value={articulo.web_descripcion ?? ''}
+              onChange={(e) => onChange({ web_descripcion: text(e.target.value) })}
               disabled={dis}
             />
           </GwField>
+          <div className="grid grid-cols-[64px_minmax(0,1fr)_70px_110px] items-end gap-1.5">
+            <GwField label="WebId:">
+              <GwInput
+                title="WEBIDLINK"
+                className="gw-num"
+                value={articulo.web_id_link ?? 0}
+                onChange={(e) => onChange({ web_id_link: e.target.value === '' ? null : Number(e.target.value.replace(/\D/g, '')) })}
+                disabled={dis}
+              />
+            </GwField>
+            <GwField label="Fabricante:">
+              <GwInput title="WEBFABRICA" value={articulo.web_fabricante ?? ''} onChange={(e) => onChange({ web_fabricante: text(e.target.value) })} disabled={dis} />
+            </GwField>
+            <GwField label="Energy">
+              <GwSelect
+                title="ENERGY"
+                value={articulo.etiqueta_energetica ?? ''}
+                onChange={(e) => onChange({ etiqueta_energetica: text(e.target.value) })}
+                disabled={dis}
+              >
+                {[...ENERGY, ...(articulo.etiqueta_energetica && !ENERGY.includes(articulo.etiqueta_energetica) ? [articulo.etiqueta_energetica] : [])].map(
+                  (e) => (
+                    <option key={e} value={e}>
+                      {e}
+                    </option>
+                  ),
+                )}
+              </GwSelect>
+            </GwField>
+            <button
+              type="button"
+              title="WEBDESTACA"
+              disabled={dis}
+              onClick={() => onChange({ web_destacado: !articulo.web_destacado })}
+              className="gw-btn h-[34px] justify-start gap-1 px-1.5 text-left leading-tight disabled:!opacity-100 disabled:!text-[var(--gw-text)]"
+            >
+              <span className={`font-bold ${articulo.web_destacado ? 'text-[#127a12]' : 'text-[#c42b1c]'}`}>{articulo.web_destacado ? '✓' : '×'}</span>
+              <span>
+                Artículo
+                <br />
+                Destacado
+              </span>
+            </button>
+          </div>
         </div>
-      </fieldset>
+      </div>
+      <GwField label="Categoria">
+        <GwTextArea title="WEBCATEGOR" rows={1} value={articulo.web_categoria ?? ''} onChange={(e) => onChange({ web_categoria: text(e.target.value) })} disabled={dis} />
+      </GwField>
+      <GwField label="Dirección Web (URL)">
+        <GwTextArea title="WEBURL" rows={2} value={articulo.web_url ?? ''} onChange={(e) => onChange({ web_url: text(e.target.value) })} disabled={dis} />
+      </GwField>
+      <GwField label="Observaciones para la Web">
+        <GwTextArea
+          title="WEBOBSERV"
+          rows={3}
+          value={articulo.web_observaciones ?? ''}
+          onChange={(e) => onChange({ web_observaciones: text(e.target.value) })}
+          disabled={dis}
+        />
+      </GwField>
     </div>
   )
 }

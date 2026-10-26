@@ -103,6 +103,12 @@ export function TabAlmacen({
                     <td className="!h-[16px] !py-0 text-right tabular-nums">{formatGw(f.cantidad, 3)}</td>
                   </tr>
                 ))}
+                {Array.from({ length: Math.max(0, 12 - filas.length) }, (_, i) => (
+                  <tr key={`v${i}`}>
+                    <td className="!h-[16px] !py-0">&nbsp;</td>
+                    <td className="!h-[16px] !py-0" />
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

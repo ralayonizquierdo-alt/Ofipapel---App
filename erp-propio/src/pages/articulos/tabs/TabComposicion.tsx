@@ -190,24 +190,24 @@ export function TabComposicion({
 
   return (
     <div className="flex flex-col gap-1" title="COMPUEST">
-      <div className="flex gap-10">
+      <div className="grid grid-cols-[21%_minmax(0,1fr)]">
         <span title="COMPUESTO">{casilla('compuesto', 'Composición Activada')}</span>
         <span title="COMPESKITA (confirmar)">{casilla('es_accesorio', 'Es un accesorio o un condimento o un aditivo')}</span>
       </div>
       {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
 
       <div className="max-h-[260px] overflow-y-auto border border-[var(--gw-border)]">
-        <table className="gw-grid">
+        <table className="gw-grid table-fixed">
           <thead className="sticky top-0">
             <tr>
-              <th style={{ width: 170 }}>Código</th>
-              <th>Descripción</th>
-              <th className="text-right" style={{ width: 70 }}>Cant.</th>
-              <th className="text-right" style={{ width: 90 }}>Liquido</th>
-              <th className="text-right" style={{ width: 95 }}>Total Coste</th>
-              <th style={{ width: 34 }}>Tar.</th>
-              <th className="text-right" style={{ width: 90 }}>PVP</th>
-              <th className="text-right" style={{ width: 95 }}>Total PVP</th>
+              <th style={{ width: '21.5%' }}>Código</th>
+              <th style={{ width: '27%' }}>Descripción</th>
+              <th className="text-right" style={{ width: '7.2%' }}>Cant.</th>
+              <th className="text-right" style={{ width: '9%' }}>Liquido</th>
+              <th style={{ width: '9.6%' }}>Total Coste</th>
+              <th style={{ width: '3.4%' }}>Tar.</th>
+              <th className="text-right" style={{ width: '9.4%' }}>PVP</th>
+              <th className="text-right" style={{ width: '12.9%' }}>Total PVP</th>
             </tr>
           </thead>
           <tbody>
@@ -269,15 +269,15 @@ export function TabComposicion({
         </table>
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_95px_34px_90px_95px] items-center text-[#1a4fd0]">
+      <div className="grid grid-cols-[64.7%_9.6%_12.8%_12.9%] items-center pr-[1px] text-[#1a4fd0]">
         <span>Nº Componentes: {rows.length}</span>
         <span className="text-right tabular-nums">{formatGw(totalCoste, 0)}</span>
-        <span />
         <span />
         <span className="text-right tabular-nums">{formatGw(totalPvp, 0)}</span>
       </div>
 
-      <div className="flex items-center gap-6">
+      <div className="grid grid-cols-[57%_minmax(0,1fr)] items-center">
+        <div className="flex items-center gap-6">
         <div className="flex border border-[var(--gw-border)]">
           {editingId == null ? (
             <>
@@ -324,7 +324,8 @@ export function TabComposicion({
           )}
         </div>
         <span title="NOCALCCTE (confirmar)">{casilla('composicion_no_sumar_coste', 'No usar la suma de los precios de coste')}</span>
-        <span className="ml-auto mr-24" title="NOCALCPVP (confirmar)">
+        </div>
+        <span title="NOCALCPVP (confirmar)">
           {casilla('composicion_no_sumar_pvp', 'No usar la suma de los PVPs')}
         </span>
       </div>

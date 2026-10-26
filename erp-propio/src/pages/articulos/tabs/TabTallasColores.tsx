@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowUpRight, Binoculars, Check, FilePen, FilePlus2, Trash2, Wand2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwCheck, GwInput, GwLookupButton, GwSelect, GwWindow, formatGw } from '../../../components/gw'
+import { FilasVacias } from '../../../components/gw/GwGridParts'
 import type { ArticuloTallaColorConfig, ArticuloVariante } from '../types'
 
 interface Maestro {
@@ -241,6 +242,7 @@ export function TabTallasColores({ articuloCodigo, editing = true }: { articuloC
                 ),
               )}
               {edit && edit.id == null && filaEdit(edit)}
+              <FilasVacias cols={4} ocupadas={variantes.length + (edit && edit.id == null ? 1 : 0)} total={8} />
             </tbody>
           </table>
         </div>
@@ -310,11 +312,14 @@ export function TabTallasColores({ articuloCodigo, editing = true }: { articuloC
           className="text-[12px]"
         />
         <button type="button" className="gw-btn !h-[40px] w-[206px]" disabled={dis} onClick={() => setGenerador(true)}>
-          <Wand2 size={14} /> <span className="underline decoration-1 underline-offset-2">G</span>enerar tallas y colores
+          <Wand2 size={14} />
+          <span>
+            <span className="underline decoration-1 underline-offset-2">G</span>enerar tallas y colores
+          </span>
         </button>
         <button
           type="button"
-          className="gw-btn w-[142px]"
+          className="gw-btn w-[150px] whitespace-nowrap"
           disabled={!padre}
           title={padre ? `Abrir ${padre}` : 'Este artículo no es hijo de ningún otro'}
           onClick={() => padre && navigate(`/articulos/${encodeURIComponent(padre)}`)}
