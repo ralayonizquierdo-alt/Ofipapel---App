@@ -98,6 +98,26 @@ export interface Articulo {
   coste_usado_calculo_pvp: number | null
   plantilla_tarifa_origen: number | null // 0 artículo · 1-3 familia nivel 1-3
   generico: boolean
+  pvp_fijo: boolean
+  coste_base_siempre: boolean
+  redondeo_centimo: string | null
+  redondeo_decimo: string | null
+  redondeo_unidad: string | null
+  redondeo_decena: string | null
+  redondeo_centena: string | null
+  redondeo_siempre: boolean
+  und_asignar: boolean
+  und_stock_valor: number
+  und_vender_por_stock: boolean
+  und_stock_descripcion: string | null
+  und_confirmar_tpv: boolean
+  unidades_pedidas: number
+  unidades_reservadas: number
+  unidades_compradas: number
+  imagen_modo: number // 0 tamaño real · 1 tamaño ajustado · 2 rellenar marco
+  composicion_no_sumar_coste: boolean
+  composicion_no_sumar_pvp: boolean
+  es_accesorio: boolean
 
   // Observaciones
   observaciones: string | null
@@ -202,6 +222,26 @@ export const emptyArticulo: Omit<Articulo, 'actualizado_en'> = {
   coste_usado_calculo_pvp: null,
   plantilla_tarifa_origen: null,
   generico: false,
+  pvp_fijo: false,
+  coste_base_siempre: false,
+  redondeo_centimo: null,
+  redondeo_decimo: null,
+  redondeo_unidad: null,
+  redondeo_decena: null,
+  redondeo_centena: null,
+  redondeo_siempre: false,
+  und_asignar: false,
+  und_stock_valor: 1,
+  und_vender_por_stock: false,
+  und_stock_descripcion: null,
+  und_confirmar_tpv: false,
+  unidades_pedidas: 0,
+  unidades_reservadas: 0,
+  unidades_compradas: 0,
+  imagen_modo: 1,
+  composicion_no_sumar_coste: false,
+  composicion_no_sumar_pvp: false,
+  es_accesorio: false,
   observaciones: null,
   observaciones_info: null,
   observaciones_venta: false,
@@ -334,6 +374,7 @@ export interface ArticuloTallaColorConfig {
   no_incluir_talla: boolean
   pvp_es_padre: boolean
   codigo_compra_es_padre: boolean
+  crear_hijos_al_vender: number
 }
 
 export interface ArticuloVariante {

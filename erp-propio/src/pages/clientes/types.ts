@@ -90,7 +90,11 @@ export interface Cliente {
   genera_sucursales_auto: boolean
 
   // Obs. e Img.
+  observaciones: string | null
+  ejerce_desde: string | null
+  horario: string | null
   imagen_url: string | null
+  imagen_modo: number // 0 tamaño real · 1 tamaño ajustado · 2 rellenar marco
 
   // Web (la contraseña solo existe como hash y nunca se muestra)
   web_publicado: boolean
@@ -186,7 +190,11 @@ export const emptyCliente: Omit<Cliente, 'actualizado_en'> = {
   face_oficina_contable: null,
   face_oficina_contable_nombre: null,
   genera_sucursales_auto: false,
+  observaciones: null,
+  ejerce_desde: null,
+  horario: null,
   imagen_url: null,
+  imagen_modo: 1,
   web_publicado: false,
   web_fecha_baja: null,
   web_id_cliente: null,
