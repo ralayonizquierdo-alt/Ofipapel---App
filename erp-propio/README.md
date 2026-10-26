@@ -48,6 +48,12 @@ verificado en la base real (25 unidades de entrada → saldo 25 exacto)
 y limpiado sin dejar nada suelto. No hay ninguna fila de prueba
 pendiente de revisar.
 
+El **Resumen** (pantalla de entrada) ya refleja los módulos nuevos, no
+solo Artículos/Clientes/Proveedores/Almacenes: pedidos a proveedor
+pendientes (ni recepcionados ni liquidados), pedidos de clientes
+pendientes (ni entregados ni anulados), ventas de hoy, facturas
+emitidas, y un indicador de si la caja está abierta o cerrada.
+
 ## Pantallas ya conectadas (27-10-2026)
 
 Además de Artículos/Clientes/Proveedores: **Almacenes**, **Tiendas /
