@@ -79,3 +79,37 @@ vender si no hay caja abierta. Dos notas de implementación:
   `ROBER`), que coincide con los dos empleados ya sembrados — simplificación
   temporal, pendiente de decidir el vínculo real cuando haya altas de
   empleados desde la propia app.
+
+**Facturación** (Fase 6) ya calcula la huella Veri*Factu real —
+`src/lib/verifactu.ts`, algoritmo oficial del Artículo 137 de la Orden
+HAC/1177/2024, verificado carácter a carácter contra el ejemplo
+publicado por la AEAT (NIF 89890001K / serie 12345678-G33 → huella
+`3C464DAF61ACB827C65FDA19F352A4E3BDC2C640E9E9FC4CC058073F38F12F60`,
+reproducida exactamente) y contra una librería .NET open-source que
+implementa la misma especificación (`mdiago/VeriFactu`). SHA-256 real
+vía Web Crypto (`crypto.subtle`), no una aproximación. Encadenamiento
+verificado en vivo: la segunda factura de prueba recogió correctamente
+la huella de la primera como `huella_anterior`.
+
+Tres notas de implementación:
+- `factura.secuencia_global` es una columna `GENERATED ALWAYS` —la
+  asigna Postgres solo, la pantalla nunca la escribe (y no podría).
+- `'factura'` no estaba dado de alta en `tipo_documento_numerable`
+  (el catálogo que `fn_siguiente_numero` exige por FK); se añadió esa
+  fila para poder numerar facturas de forma atómica, igual que
+  `pedido_cliente`/`pedido_proveedor`/`venta`. Se reutiliza para dos
+  contadores independientes del mismo tipo de documento: `numero` (PK
+  interno, `p_serie: ''`) y `n_factura` (el número legal por serie,
+  `p_serie: <código de serie>`).
+- `NIF_EMISOR` en `FacturacionPage.tsx` es un **placeholder** (`B00000000`)
+  — la huella se calcula bien mecánicamente pero no es válida ante la
+  AEAT hasta sustituirlo por el NIF real de Ofipapel. Marcado como
+  sensible/pendiente, igual que el resto de datos de GeminisWin que no
+  se migran sin revisión.
+
+Lo que falta explícitamente para que esto sea Veri*Factu de verdad
+ante la AEAT (fuera del alcance de esta pantalla, no implementado):
+el envío real al webservice de la AEAT (ahora mismo todo queda en
+`estado_envio_aeat = 'pendiente_envio'`), que requiere certificado
+digital de la empresa — por eso `FIREFLY_CLIENT_ID` aparte, esto
+necesita su propio certificado, no relacionado con Adobe Firefly.

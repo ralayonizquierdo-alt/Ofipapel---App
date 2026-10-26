@@ -14,7 +14,7 @@ import { StockPage } from './pages/StockPage'
 import { ComprasPage } from './pages/ComprasPage'
 import { PedidosPage } from './pages/PedidosPage'
 import { VentasPage } from './pages/VentasPage'
-import { ProximamentePage } from './pages/ProximamentePage'
+import { FacturacionPage } from './pages/FacturacionPage'
 
 function ProtectedArea() {
   const { session, loading } = useAuth()
@@ -48,7 +48,7 @@ function App() {
             <Route path="/compras" element={<ComprasPage />} />
             <Route path="/pedidos" element={<PedidosPage />} />
             <Route path="/ventas" element={<VentasPage />} />
-            <Route path="/facturacion" element={<ProximamentePage titulo="Facturación" fase="Fase 6" />} />
+            <Route path="/facturacion" element={<FacturacionPage />} />
           </Route>
         </Routes>
       </AuthProvider>

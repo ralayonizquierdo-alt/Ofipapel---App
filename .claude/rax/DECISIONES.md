@@ -1683,3 +1683,78 @@ pantallas... sigue programando pantallas sin parar, hasta mañana").
 prueba son reales y tienen que borrarse/cambiarse a mano si no se
 quieren conservar (no hay nada que un `git revert` deshaga); el código
 de `erp-propio/` en sí es tan reversible como cualquier commit normal.
+
+---
+
+### 2026-10-26 (continuación, misma noche) — Pantallas de Compras, Pedidos, Ventas/TPV y Facturación (Fases 3-6), Veri*Factu real implementado
+
+**Contexto**: siguiendo la instrucción explícita del propietario de
+seguir programando pantallas sin pedir permiso, se completaron las
+cuatro pantallas que quedaban "Próximamente": Compras (Fase 3),
+Pedidos de clientes (Fase 4), Ventas/TPV con caja (Fase 5) y
+Facturación (Fase 6). Con esto las 6 fases del esquema tienen ya una
+pantalla real conectada — ya no queda ningún `ProximamentePage` en el
+router (el componente se borró por no tener más uso).
+
+**Qué se hizo**:
+1. `fn_siguiente_numero()` (creada la noche anterior) reutilizada tal
+   cual para Compras y Pedidos de clientes — mismo patrón cabecera +
+   líneas que ya existía.
+2. Ventas/TPV: apertura/cierre de caja real (`caja_apertura_cierre`) que
+   bloquea la venta si no hay caja abierta; el ticket de venta genera su
+   `movimiento_caja` de ingreso. Dos huecos de diseño que no estaban
+   decididos se resolvieron de forma pragmática y quedan documentados en
+   el README de `erp-propio/`: el número de sesión de caja no pasa por
+   `fn_siguiente_numero` (no hay tipo de documento numerable para
+   sesiones, solo para movimientos) sino `max(ejercicio)+1`; y el
+   empleado de apertura/cierre se deriva del email de sesión
+   (`rober@` → `ROBER`) a falta de un vínculo real `auth.users`-`empleado`.
+3. Facturación: se implementó **de verdad** el algoritmo oficial de la
+   huella Veri*Factu (`erp-propio/src/lib/verifactu.ts`) — Artículo 137
+   de la Orden HAC/1177/2024, verificado carácter a carácter contra el
+   ejemplo oficial publicado por la AEAT (cuya huella es
+   `3C464DAF61ACB827C65FDA19F352A4E3BDC2C640E9E9FC4CC058073F38F12F60`,
+   reproducida exactamente) y cruzado contra una librería .NET
+   open-source independiente que implementa la misma especificación
+   (`mdiago/VeriFactu` en GitHub, con cita literal del artículo legal en
+   su propio código fuente). SHA-256 real vía Web Crypto, no una
+   aproximación. El encadenamiento (`huella_anterior`) se probó en vivo
+   con dos facturas consecutivas: la segunda recogió correctamente la
+   huella de la primera.
+4. Se encontró que `factura.secuencia_global` es una columna
+   `GENERATED ALWAYS` (Postgres la asigna sola, no se puede ni se debe
+   escribir desde la app) y que `'factura'` no estaba dado de alta en
+   el catálogo `tipo_documento_numerable` que `fn_siguiente_numero`
+   exige por FK — se añadió esa fila (dato de catálogo, no cambio de
+   esquema) para poder numerar facturas atómicamente, reutilizando el
+   mismo tipo de documento para dos contadores independientes (`numero`
+   interno con `p_serie=''`, y `n_factura` legal con `p_serie=<serie>`).
+
+**Qué queda señalado como pendiente/placeholder** (no bloqueante, pero
+no debe olvidarse antes de facturar de verdad):
+- `NIF_EMISOR` en `FacturacionPage.tsx` es un placeholder (`B00000000`).
+  La huella se calcula bien mecánicamente pero no es válida ante la
+  AEAT hasta poner el NIF real de Ofipapel.
+- El envío real al webservice de la AEAT no está implementado (todo
+  queda en `estado_envio_aeat = 'pendiente_envio'`) — necesita
+  certificado digital de empresa, fuera del alcance de esta sesión.
+- `empleado_apertura_codigo`/`empleado_cierre_codigo` de caja siguen
+  con la heurística de email descrita arriba, no un vínculo real.
+
+**Cómo se verificó**: igual que las pantallas anteriores, contra la
+base real vía API REST con JWT real — numeración atómica, inserción de
+cabecera+líneas, la consulta exacta que usa cada pantalla, y en
+Facturación además el cálculo de la huella en Node (mismo algoritmo
+que corre en el navegador, con `crypto.subtle`) verificado carácter a
+carácter contra el ejemplo oficial antes de usarlo. Todos los datos de
+prueba (clientes, artículos, series, facturas, caja) se limpiaron
+después de cada verificación.
+
+**Quién decide**: propietario (misma instrucción de la entrada
+anterior, "sigue programando pantallas sin parar... deja de pedirme
+permisos ya").
+
+**Reversibilidad**: alta — todo lo de esta entrada es código de
+`erp-propio/` (tan reversible como cualquier commit) más dos cambios de
+datos de catálogo en la base real (`tipo_documento_numerable` con la
+fila `factura`), fácilmente reversibles si hiciera falta.
