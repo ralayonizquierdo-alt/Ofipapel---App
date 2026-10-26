@@ -232,7 +232,7 @@ function OfertasCantidad({
   function setNivel(nivel: number, patch: Partial<NivelDraft>) {
     setNiveles((m) => ({
       ...m,
-      [nivel]: { pvp: '', incremento_pct: '', modo_calculo: 'P', permite_descuento_linea: true, ...m[nivel], ...patch },
+      [nivel]: { ...(m[nivel] ?? { pvp: '', incremento_pct: '', modo_calculo: 'P', permite_descuento_linea: true }), ...patch },
     }))
     setNivelesDirty(true)
   }
@@ -349,7 +349,7 @@ function OfertasCantidad({
               </tr>
             )}
             {rows.map((r) =>
-              editing?.id === r.id ? (
+              editing && editing.id === r.id ? (
                 <Fragment key={r.id}>{editRow(editing)}</Fragment>
               ) : (
                 <tr
@@ -621,7 +621,7 @@ function OfertasRegalo({
             </tr>
           )}
           {rows.map((r) =>
-            editing?.id === r.id ? (
+            editing && editing.id === r.id ? (
               <Fragment key={r.id}>{editRow(editing)}</Fragment>
             ) : (
               <tr

@@ -191,7 +191,7 @@ export function TabUnidadesVenta({ articuloCodigo }: { articuloCodigo: string })
               </tr>
             )}
             {rows.map((r) =>
-              editing?.id === r.id ? (
+              editing && editing.id === r.id ? (
                 <EditRow key={r.id} draft={editing} setDraft={setEditing} onSave={saveRow} onCancel={() => setEditing(null)} />
               ) : (
                 <tr

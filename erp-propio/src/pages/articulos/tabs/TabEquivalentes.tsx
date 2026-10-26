@@ -73,6 +73,14 @@ export function TabEquivalentes({ articuloCodigo }: { articuloCodigo: string }) 
       setError('Indica el código equivalente.')
       return
     }
+    if (codigo === articuloCodigo) {
+      setError('Un artículo no puede ser equivalente de sí mismo.')
+      return
+    }
+    if (rows.some((r) => r.codigo_equivalente === codigo)) {
+      setError(`${codigo} ya está en la lista de equivalentes.`)
+      return
+    }
     const { error: err } = await supabase.from('articulo_equivalencia').insert({
       articulo_codigo: articuloCodigo,
       codigo_equivalente: codigo,

@@ -59,6 +59,7 @@ export function TabCaracteristicas({
   const disabled = !editing
 
   const [niveles, setNiveles] = useState<ArticuloPrecioNivel[]>(() => emptyNiveles(codigo))
+  const [preciosCargados, setPreciosCargados] = useState(false)
   const [savingPrecios, setSavingPrecios] = useState(false)
   const [preciosMsg, setPreciosMsg] = useState<string | null>(null)
   const [barras, setBarras] = useState<ArticuloCodigoBarras[]>([])
@@ -67,6 +68,7 @@ export function TabCaracteristicas({
 
   useEffect(() => {
     if (!codigo) return
+    setPreciosCargados(false)
     supabase
       .from('articulo_precio_nivel')
       .select('*')
@@ -78,6 +80,7 @@ export function TabCaracteristicas({
           if (i >= 0) base[i] = { ...row, pvp: Number(row.pvp), incremento_pct: row.incremento_pct == null ? null : Number(row.incremento_pct) }
         }
         setNiveles(base)
+        setPreciosCargados(true)
       })
     loadBarras()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,10 +122,13 @@ export function TabCaracteristicas({
     const base = Number(articulo.coste_neto ?? articulo.coste_puro ?? 0)
     const general = niveles.find((n) => n.nivel_tarifa === 0)
     let pvpGeneral = general?.pvp ?? 0
-    if (general && general.modo_calculo !== 'D') pvpGeneral = round2(base * (1 + Number(general.incremento_pct ?? 0) / 100))
+    if (general && general.modo_calculo !== 'D' && general.incremento_pct != null)
+      pvpGeneral = round2(base * (1 + Number(general.incremento_pct) / 100))
     const next = niveles.map((n) => {
-      const inc = Number(n.incremento_pct ?? 0)
       if (n.nivel_tarifa === 0) return { ...n, pvp: pvpGeneral }
+      // Sin margen indicado se respeta el PVP actual: recalcular con 0 % dejaría la tarifa a precio de coste.
+      if (n.incremento_pct == null) return n
+      const inc = Number(n.incremento_pct)
       if (n.modo_calculo === 'D') return { ...n, pvp: round2(pvpGeneral * (1 - inc / 100)) }
       return { ...n, pvp: round2(base * (1 + inc / 100)) }
     })
@@ -150,7 +156,7 @@ export function TabCaracteristicas({
       digitos_barras: nuevoBarra.codigo_barras.trim().length,
     })
     if (err) {
-      setError(err.message)
+      setError(err.code === '23505' ? `El código de barras ${nuevoBarra.codigo_barras.trim()} ya está asignado a otro artículo.` : err.message)
       return
     }
     setNuevoBarra({ codigo_barras: '', unidades_por_codigo: '', unidad_descripcion: '' })
@@ -187,15 +193,15 @@ export function TabCaracteristicas({
           <div className="flex gap-2">
             <button
               type="button"
-              disabled={disabled}
               onClick={calcularDesdeCoste}
+              disabled={disabled || !preciosCargados}
               className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40"
             >
               <Calculator size={14} /> Calcular desde coste
             </button>
             <button
               type="button"
-              disabled={disabled || savingPrecios}
+              disabled={disabled || savingPrecios || !preciosCargados}
               onClick={guardarPrecios}
               className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-40"
             >
@@ -226,7 +232,7 @@ export function TabCaracteristicas({
                     </td>
                     <td className="px-3 py-1.5">
                       <SelectInput
-                        disabled={disabled}
+                        disabled={disabled || !preciosCargados}
                         value={n.modo_calculo ?? 'P'}
                         onChange={(e) => setNivel(n.nivel_tarifa, { modo_calculo: e.target.value })}
                         className="py-1"
@@ -239,7 +245,7 @@ export function TabCaracteristicas({
                       <TextInput
                         type="number"
                         step="any"
-                        disabled={disabled}
+                        disabled={disabled || !preciosCargados}
                         value={n.incremento_pct ?? ''}
                         onChange={(e) => setNivel(n.nivel_tarifa, { incremento_pct: toNum(e.target.value) })}
                         className="w-24 py-1"
@@ -249,7 +255,7 @@ export function TabCaracteristicas({
                       <TextInput
                         type="number"
                         step="0.01"
-                        disabled={disabled}
+                        disabled={disabled || !preciosCargados}
                         value={n.pvp ?? ''}
                         onChange={(e) => setNivel(n.nivel_tarifa, { pvp: toNum(e.target.value) ?? 0 })}
                         className="w-28 py-1"
@@ -260,7 +266,7 @@ export function TabCaracteristicas({
                       <Toggle
                         label=""
                         checked={n.permite_descuento_linea}
-                        disabled={disabled}
+                        disabled={disabled || !preciosCargados}
                         onChange={(v) => setNivel(n.nivel_tarifa, { permite_descuento_linea: v })}
                       />
                     </td>

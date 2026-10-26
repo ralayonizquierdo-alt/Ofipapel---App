@@ -114,7 +114,9 @@ export function ArticuloFichaPage() {
     setError(null)
     const { actualizado_en: _ignored, ...payload } = draft
     if (mode === 'alta') {
-      const { error: err } = await supabase.from('articulo').insert(payload)
+      const { error: err } = await supabase
+        .from('articulo')
+        .insert({ ...payload, fecha_alta: payload.fecha_alta ?? new Date().toISOString().slice(0, 10) })
       setSaving(false)
       if (err) {
         setError(err.message)
