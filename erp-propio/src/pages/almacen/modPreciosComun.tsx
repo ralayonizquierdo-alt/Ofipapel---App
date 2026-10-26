@@ -35,6 +35,7 @@ export function BotonMarca({
       title={title}
       disabled={disabled}
       onClick={() => onChange?.(!checked)}
+      style={{ height: 'auto' }}
       className={`gw-btn h-auto min-h-[26px] justify-start gap-1 px-2 py-0.5 text-left leading-[15px] disabled:opacity-100 ${className}`}
     >
       {checked ? <Check size={13} strokeWidth={3} className="flex-none text-[#127a12]" /> : <X size={13} strokeWidth={3} className="flex-none text-[#c42b1c]" />}

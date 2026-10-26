@@ -357,9 +357,9 @@ export function ModificacionPreciosFichaPage() {
           Son precios de oferta entre fechas y varían según la cantidad
         </BotonMarca>
       </div>
-      <div className="grid grid-cols-[400px_minmax(0,1fr)] gap-x-2">
+      <div className="grid grid-cols-[450px_minmax(0,1fr)] gap-x-2">
         <GwGroup title="Periodo activo de la Oferta">
-          <div className="grid grid-cols-2 gap-x-3">
+          <div className="flex gap-x-4">
             <GwInline label="Fecha Inicio:">
               <GwInput type="date" value={draft.fecha_desde ?? ''} disabled={ro} title="Fecha inicio" onChange={(e) => patch({ fecha_desde: e.target.value || null })} />
             </GwInline>
@@ -583,7 +583,7 @@ export function ModificacionPreciosFichaPage() {
                       ))}
                     </GwSelect>
                     <div className="flex w-[130px]">
-                      <GwNumber value={draft.pacto_pedido_numero} decimals={0} disabled={ro || !draft.es_pacto_tarifas} onChange={(v) => patch({ pacto_pedido_numero: v })} />
+                      <GwNumber className="w-[100px]" value={draft.pacto_pedido_numero} decimals={0} disabled={ro || !draft.es_pacto_tarifas} onChange={(v) => patch({ pacto_pedido_numero: v })} />
                       <GwLookupButton disabled={ro || !draft.es_pacto_tarifas} title="Buscar pedido de cliente" onClick={() => setBuscarPedido(true)} />
                     </div>
                   </div>

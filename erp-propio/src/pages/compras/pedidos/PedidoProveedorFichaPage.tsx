@@ -389,6 +389,9 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
     if (!a) return null
     const upc = Number(a.unidades_por_caja ?? 0)
     const cpb = Number(a.cajas_por_bulto ?? 0)
+    // Los costes de este proveedor mandan; si están vacíos o a cero, los del artículo.
+    const puro = Number(ap?.coste_puro ?? 0) || Number(a.coste_puro ?? 0)
+    const anterior = Number(ap?.coste_neto ?? 0) || (a.coste_neto != null ? Number(a.coste_neto) : null)
     return {
       ...previa,
       articulo_codigo: a.codigo_interno as string,
@@ -396,8 +399,8 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
       descripcion: a.descripcion as string,
       unidades_por_caja: upc,
       cajas_por_bulto: cpb,
-      coste_anterior: ap?.coste_neto != null ? Number(ap.coste_neto) : a.coste_neto != null ? Number(a.coste_neto) : null,
-      precio_compra: Number(ap?.coste_puro ?? a.coste_puro ?? 0),
+      coste_anterior: anterior,
+      precio_compra: puro,
       descuento_pct: Number(ap?.ultimo_descuento_pct ?? a.ultimo_descuento_compra_pct ?? 0),
       igic_pct: Number(a.igic_pct ?? 0),
       canon: proveedor?.no_aplica_impuesto2 ? 0 : Number(a.impuesto2_pct ?? 0),
@@ -620,6 +623,8 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
       setMensaje('El pedido no tiene líneas.')
       return
     }
+    const sinPrecio = lineas.filter((l) => !(l.precio_compra > 0)).length
+    if (sinPrecio && !cab.es_abono && !confirm(`Hay ${sinPrecio} líneas sin precio: el coste de esos artículos quedará a cero. ¿Seguir?`)) return
     const accion = cab.es_abono ? 'sacará del' : 'entrará en el'
     if (!confirm(`¿Actualizar el pedido ${cab.numero}? Se ${accion} almacén ${cab.almacen_codigo} el stock de sus ${lineas.length} líneas${cab.es_abono ? '' : ' y se recalcularán los costes de los artículos'}.`)) return
     setSaving(true)
@@ -883,7 +888,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
 
       {/* Rejilla de líneas */}
       <div className={`${rapida ? 'h-[300px]' : 'h-[266px]'} overflow-y-auto overflow-x-hidden border border-[var(--gw-border)] bg-white`}>
-        <table className={`gw-grid table-fixed ${txt} [&_td]:h-[22px] [&_td]:py-0 ${rapida ? '[&_th]:text-[17px]' : '[&_th]:text-[15px]'}`}>
+        <table className={`gw-grid table-fixed ${txt} [&_td]:h-[22px] [&_td]:py-0 [&_th]:truncate ${rapida ? '[&_th]:text-[17px]' : '[&_th]:text-[15px]'}`}>
           <colgroup>
             <col style={{ width: rapida ? '9%' : '10.5%' }} />
             <col style={{ width: rapida ? '33%' : '23%' }} />

@@ -120,3 +120,12 @@ artículo 149719, proveedor 05520, familia 209102, marca MIQUELRIUS.
 ## Notas de otros chats
 
 (Añadid aquí: fecha · chat · nota.)
+
+- 26/10/2026 · Cowork (transcrito por la sesión de Claude Code) · Ha leído este
+  documento. Sin el PC enlazado no puede sacar capturas; cuando esté encendido
+  empieza por «Capturas pendientes» y sigue con Caja y Facturación, Maestros y
+  Listados, con el formato de nombres y un ZIP con su lista por bloque. Solo
+  tiene lectura del repositorio: sus notas llegarán a través del usuario. No
+  puede abrir la web de prueba porque su proxy bloquea netlify.app; para
+  comparar pantallas hay que añadir `ofipapel-erp-propio-preview.netlify.app`
+  en claude.ai → Ajustes → Capacidades → dominios permitidos.

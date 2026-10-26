@@ -389,7 +389,7 @@ export function TarifaOfertaFichaPage() {
                 </GwSelect>
               </GwField>
               <div className="flex flex-wrap gap-3">
-                <button type="button" className="gw-btn w-[150px]" disabled={ro || !lineas.length} title="Vuelve a leer el PVP de la tarifa de cada artículo y recalcula los %" onClick={recalcularTarifas}>
+                <button type="button" className="gw-btn w-[170px]" disabled={ro || !lineas.length} title="Vuelve a leer el PVP de la tarifa de cada artículo y recalcula los %" onClick={recalcularTarifas}>
                   <Calculator size={13} /> ReCalcular Tarifas
                 </button>
                 <button
@@ -403,7 +403,7 @@ export function TarifaOfertaFichaPage() {
                 </button>
                 <button
                   type="button"
-                  className="gw-btn w-[150px]"
+                  className="gw-btn w-[170px]"
                   disabled={ro || !lineas.length}
                   title="Recalcula el precio a partir del %Pvp"
                   onClick={() => setLineas((ls) => ls.map((l) => ({ ...l, precio: precioDe(l.pct, l.pvp_base) ?? l.precio })))}
