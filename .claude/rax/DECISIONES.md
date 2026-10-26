@@ -1566,3 +1566,45 @@ propósito) — no bloquea nada, la foto y el layout se generan igual.
 
 **Reversibilidad**: alta — 1 fichero nuevo, 3 puntos de paso opcionales
 (`options.testMode`) que no cambian nada si están ausentes.
+
+---
+
+### 2026-10-26 — Rescate del prototipo Firestore del ERP a `prototype/ofipapel-erp-firestore`
+
+**Contexto**: durante el diseño del esquema Postgres Fase 1 (migración
+GeminisWin → ERP propio), el stop-hook de la sesión avisaba repetidamente
+de "commits conflictivos" en `claude/wholesale-retail-management-nhfyf9`.
+Investigado a fondo con `git merge-base`: la rama remota de ese mismo
+nombre en GitHub **no tiene ningún ancestro común con `origin/main`** —
+es una historia de Git completamente distinta que solo coincide en el
+nombre de rama. Esos 145 commits resultaron ser el prototipo Firestore
+del ERP ya construido (navigation shell, módulos Fase 1/2, TPV,
+Fiscalidad/Veri*Factu, Flota de vehículos, etc. — el mismo prototipo que
+el VEREDICTO del propietario declaró con bases inválidas para el ERP
+real, pero con pantallas reales que se quería poder reaprovechar
+visualmente más adelante).
+
+**Decisión**: rescatar esos 145 commits sin tocarlos, bajo una rama
+remota nueva sin colisión, `prototype/ofipapel-erp-firestore` (hecho:
+`git push origin <local>:prototype/ofipapel-erp-firestore`), dejando el
+nombre `claude/wholesale-retail-management-nhfyf9` para el trabajo real
+de esquema Postgres de Fase 1, sin mezclar ambas historias con un merge
+de historias no relacionadas.
+
+**Pendiente, no bloqueante**: el intento de borrar la rama remota
+original (`git push origin --delete claude/wholesale-retail-management-nhfyf9`)
+devolvió `403` — el credential de GitHub de esta sesión no tiene permiso
+para borrar ramas remotas (límite de la plataforma, no de este repo). El
+riesgo de pérdida de datos ya no existe (el contenido está a salvo bajo
+el nuevo nombre), pero el nombre original sigue "ocupado" por esa
+historia no relacionada hasta que el propietario la borre a mano en
+GitHub, o autorice expresamente un force-push sobre ella cuando haya
+commits reales de Fase 1 que publicar.
+
+**Quién decide**: propietario, elegido explícitamente vía pregunta
+directa ("esperar al nuevo prototipo sobre Postgres, sin ver el
+Firestore todavía" + "renombrar la rama remota del prototipo").
+
+**Reversibilidad**: alta — no se ha borrado ni sobrescrito nada, solo se
+ha añadido una rama remota nueva que apunta al mismo contenido que ya
+existía.
