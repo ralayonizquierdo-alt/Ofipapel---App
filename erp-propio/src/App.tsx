@@ -28,6 +28,9 @@ import { VendedorFichaPage } from './pages/ventas/vendedores/VendedorFichaPage'
 import { RepartidorFichaPage } from './pages/ventas/maestros/RepartidorFichaPage'
 import { ZonaFichaPage } from './pages/ventas/maestros/ZonaFichaPage'
 import { RutaFichaPage } from './pages/ventas/maestros/RutaFichaPage'
+import { FamiliaFichaPage } from './pages/almacen/FamiliaFichaPage'
+import { MarcaFichaPage } from './pages/almacen/MarcaFichaPage'
+import { PlantillaTarifaFichaPage } from './pages/almacen/PlantillaTarifaFichaPage'
 import { VentasPage } from './pages/VentasPage'
 import { PagosPage } from './pages/PagosPage'
 import { TraspasosPage } from './pages/TraspasosPage'
@@ -88,6 +91,9 @@ function App() {
             <Route path="/repartidores/*" element={<RepartidorFichaPage />} />
             <Route path="/zonas-territoriales/*" element={<ZonaFichaPage />} />
             <Route path="/rutas-reparto/*" element={<RutaFichaPage />} />
+            <Route path="/familias/*" element={<FamiliaFichaPage />} />
+            <Route path="/marcas/*" element={<MarcaFichaPage />} />
+            <Route path="/plantillas-tarifas/*" element={<PlantillaTarifaFichaPage />} />
             <Route path="/pagos" element={<PagosPage />} />
             <Route path="/facturacion" element={<FacturacionPage />} />
           </Route>
