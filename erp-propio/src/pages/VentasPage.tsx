@@ -248,6 +248,26 @@ export function VentasPage() {
         setErrorVenta(lineasError.message)
         return
       }
+
+      const { error: stockError } = await supabase.from('movimiento_stock').insert(
+        lineasValidas.map((l, i) => ({
+          tipo_movimiento: 'venta',
+          sentido: -1,
+          almacen_codigo: almacenCodigo,
+          articulo_codigo: l.articulo_codigo,
+          cantidad: Number(l.cantidad),
+          documento_origen_tipo: 'venta',
+          documento_origen_tienda_codigo: TIENDA,
+          documento_origen_numero: numero,
+          documento_origen_linea: i + 1,
+          tienda_terminal_codigo: TIENDA,
+        })),
+      )
+      if (stockError) {
+        setSavingVenta(false)
+        setErrorVenta(stockError.message)
+        return
+      }
     }
 
     const { data: numeroMov, error: numeroMovError } = await supabase.rpc('fn_siguiente_numero', {

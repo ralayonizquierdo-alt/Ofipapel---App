@@ -65,7 +65,12 @@ artículo en texto, sin desplegable todavía) contra `pedido_proveedor`/
 **Ventas / TPV** (Fase 5) ya abre y cierra caja de verdad
 (`caja_apertura_cierre`) y crea tickets de venta reales (`venta` +
 `venta_linea`) con su `movimiento_caja` de ingreso asociado — no deja
-vender si no hay caja abierta. Dos notas de implementación:
+vender si no hay caja abierta. Cada línea genera además su
+`movimiento_stock` real (`tipo_movimiento: 'venta'`, `sentido: -1`),
+que el trigger ya existente de Fase 2 usa para descontar
+`articulo_almacen_stock` — verificado en vivo (10 unidades → vende 3
+→ saldo 7 exacto). Antes de este cambio una venta no movía stock en
+absoluto. Dos notas de implementación:
 - El número de sesión de caja (`ejercicio`) no pasa por
   `fn_siguiente_numero()` porque `caja` no es un tipo de documento
   numerable en `tipo_documento_numerable` (solo lo son `venta`,
