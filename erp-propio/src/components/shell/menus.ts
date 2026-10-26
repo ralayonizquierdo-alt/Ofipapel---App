@@ -244,7 +244,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/compras', title: 'Pedidos a Proveedores' },
   { prefix: '/pedidos-proveedor', title: 'Pedidos a Proveedores' },
   { prefix: '/creacion-rapida-pedidos', title: 'Creación Rápida de Pedidos' },
-  { prefix: '/pagos-proveedor', title: 'Pagos' },
+  { prefix: '/pagos-proveedor', title: 'Pagos de Gastos, pagos a proveedores, pagos a transportistas, etc' },
   { prefix: '/gestor-pagos-proveedor', title: 'Gestor de Pagos' },
   { prefix: '/facturas-proveedor', title: 'Facturas de Proveedores' },
   { prefix: '/gestor-pedidos-proveedor', title: 'Gestor de Pedidos a Proveedores' },
