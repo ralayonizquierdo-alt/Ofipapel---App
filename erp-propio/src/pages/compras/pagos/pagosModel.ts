@@ -174,7 +174,7 @@ export async function cargarDoc(clase: 'pedido' | 'factura', tienda: string, num
   }
   const { data } = await supabase
     .from('factura_proveedor')
-    .select('tienda_terminal_codigo, id, proveedor_codigo, numero_factura_externo, fecha_factura, fecha_vencimiento, total, total_a_pagar_proveedor, pagado')
+    .select('tienda_terminal_codigo, id, proveedor_codigo, numero_factura_externo, fecha_factura, fecha_vencimiento, forma_pago_codigo, total, total_a_pagar_proveedor, pagado')
     .eq('tienda_terminal_codigo', tienda)
     .eq('id', numero)
     .maybeSingle()
@@ -187,7 +187,7 @@ export async function cargarDoc(clase: 'pedido' | 'factura', tienda: string, num
     numero_factura: data.numero_factura_externo,
     fecha_factura: data.fecha_factura,
     fecha_vencimiento: data.fecha_vencimiento,
-    forma_pago_codigo: null,
+    forma_pago_codigo: data.forma_pago_codigo,
     total: Number(data.total_a_pagar_proveedor ?? data.total ?? 0),
     pagado: Boolean(data.pagado),
   }

@@ -42,7 +42,7 @@ interface Reg {
 }
 
 const COLS =
-  'tienda, numero, articulo_codigo, almacen_codigo, fecha, documento_externo, cantidad, precio, stock_anterior, inventario_tienda_terminal_codigo, inventario_numero, creado_en'
+  'tienda:tienda_terminal_codigo, numero, articulo_codigo, almacen_codigo, fecha, documento_externo, cantidad, precio, stock_anterior, inventario_tienda_terminal_codigo, inventario_numero, creado_en'
 const DOC_DEFECTO = 'USR_STK'
 
 /** Movimiento de stock por una variación (positiva entra, negativa sale); 0 no genera nada. */
@@ -75,7 +75,7 @@ async function guardarUna(base: Reg, a: ArticuloStock, nuevo: number): Promise<n
   const numero = Number(n)
   const reg: Reg = { ...base, numero, articulo_codigo: a.codigo_interno, cantidad: nuevo, stock_anterior: anterior, precio: a.coste_bruto }
   const { error: e2 } = await supabase.from('regularizacion_stock').insert({
-    tienda: reg.tienda,
+    tienda_terminal_codigo: reg.tienda,
     numero,
     articulo_codigo: reg.articulo_codigo,
     almacen_codigo: reg.almacen_codigo,
@@ -129,9 +129,9 @@ export function RegularizacionStockPage() {
   const cargarClaves = useCallback(async () => {
     const { data } = await supabase
       .from('regularizacion_stock')
-      .select('tienda, numero')
+      .select('tienda:tienda_terminal_codigo, numero')
       .neq('activo', false)
-      .order('tienda', { ascending: !ordenDesc })
+      .order('tienda_terminal_codigo', { ascending: !ordenDesc })
       .order('numero', { ascending: !ordenDesc })
       .limit(5000)
     setClaves((data ?? []).map((r) => ({ t: r.tienda as string, n: Number(r.numero) })))
@@ -172,7 +172,7 @@ export function RegularizacionStockPage() {
         return
       }
       let q = supabase.from('regularizacion_stock').select(COLS).neq('activo', false)
-      if (claveTienda && claveNumero != null) q = q.eq('tienda', claveTienda).eq('numero', claveNumero)
+      if (claveTienda && claveNumero != null) q = q.eq('tienda_terminal_codigo', claveTienda).eq('numero', claveNumero)
       else q = q.order('creado_en', { ascending: false }).order('numero', { ascending: false })
       const { data } = await q.limit(1)
       if (cancel) return
@@ -241,7 +241,7 @@ export function RegularizacionStockPage() {
         const { error } = await supabase
           .from('regularizacion_stock')
           .update({ cantidad: reg.cantidad, fecha: reg.fecha, documento_externo: reg.documento_externo || DOC_DEFECTO })
-          .eq('tienda', reg.tienda)
+          .eq('tienda_terminal_codigo', reg.tienda)
           .eq('numero', reg.numero!)
           .eq('articulo_codigo', reg.articulo_codigo)
         if (error) throw error
@@ -268,7 +268,7 @@ export function RegularizacionStockPage() {
       const { error } = await supabase
         .from('regularizacion_stock')
         .update({ activo: false })
-        .eq('tienda', reg.tienda)
+        .eq('tienda_terminal_codigo', reg.tienda)
         .eq('numero', reg.numero)
         .eq('articulo_codigo', reg.articulo_codigo)
       if (error) throw error
@@ -485,7 +485,7 @@ export function RegularizacionStockPage() {
           title="Localizar regularización"
           table="regularizacion_stock"
           columns={[
-            { key: 'tienda', label: 'Tienda', width: 70 },
+            { key: 'tienda_terminal_codigo', label: 'Tienda', width: 70 },
             { key: 'numero', label: 'Número', width: 100 },
             { key: 'articulo_codigo', label: 'Artículo', width: 140 },
             { key: 'almacen_codigo', label: 'Almacén', width: 80 },
@@ -496,7 +496,7 @@ export function RegularizacionStockPage() {
           keyColumn="numero"
           onPick={(x) => {
             setDialogo(null)
-            irA(String(x.tienda), Number(x.numero))
+            irA(String(x.tienda_terminal_codigo), Number(x.numero))
           }}
           onClose={() => setDialogo(null)}
         />
