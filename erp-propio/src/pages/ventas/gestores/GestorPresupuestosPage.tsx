@@ -104,6 +104,7 @@ export function GestorPresupuestosPage() {
       .from('pedido_cliente')
       .select('tienda_terminal_codigo, numero, fecha, hora, fecha_fin, aceptado, anulado, venta_numero, cliente_codigo, nombre_cliente, cliente:cliente_codigo(nombre)')
       .eq('es_presupuesto', true)
+      .eq('es_reparacion', false)
     const { data, error: e } = await conFiltro(base, f, f.campo, f.campo === 'actualizado_en').order('fecha').order('hora').limit(2000)
     if (e) {
       setError(e.message)

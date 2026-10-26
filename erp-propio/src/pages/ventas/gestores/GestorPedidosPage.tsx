@@ -172,6 +172,7 @@ export function GestorPedidosPage() {
       .from('pedido_cliente')
       .select('tienda_terminal_codigo, numero, web_pedido_id, liquidado, fecha, hora, ruta_codigo, cliente_codigo, nombre_cliente, almacen_codigo, cliente:cliente_codigo(nombre)')
       .eq('es_presupuesto', false)
+      .eq('es_reparacion', false)
       .eq('anulado', false)
     const { data: cab, error: e1 } = await conFiltro(base, f, f.campo, conHora).order('fecha').order('hora').limit(2000)
     if (e1) {

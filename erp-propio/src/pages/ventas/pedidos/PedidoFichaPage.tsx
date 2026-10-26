@@ -260,7 +260,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
   }, [mode, empleadoActual])
 
   const cargarClaves = useCallback(async () => {
-    let q = supabase.from('pedido_cliente').select('tienda_terminal_codigo, numero, nombre_cliente')
+    let q = supabase.from('pedido_cliente').select('tienda_terminal_codigo, numero, nombre_cliente').eq('es_reparacion', false)
     if (presupuestos) q = q.eq('es_presupuesto', true)
     q = orden === 'numero' ? q.order('tienda_terminal_codigo').order('numero') : q.order('nombre_cliente').order('numero')
     const { data } = await q.limit(5000)
@@ -334,6 +334,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
       let q = supabase.from('pedido_cliente').select(CAB_COLS)
       if (claveTienda && claveNumero != null) q = q.eq('tienda_terminal_codigo', claveTienda).eq('numero', claveNumero)
       else {
+        q = q.eq('es_reparacion', false)
         if (presupuestos) q = q.eq('es_presupuesto', true)
         q = q.order('fecha', { ascending: false }).order('numero', { ascending: false })
       }
