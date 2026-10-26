@@ -112,30 +112,50 @@ el envío real al webservice de la AEAT (ahora mismo todo queda en
 digital de la empresa — por eso `FIREFLY_CLIENT_ID` aparte, esto
 necesita su propio certificado, no relacionado con Adobe Firefly.
 
-## Roles reales y auditoría (en progreso, 26-10-2026 noche)
+## Roles reales y auditoría (26-10-2026 noche)
 
 El esquema ya traía `rol`/`permiso`/`rol_permiso`/`auditoria` (Fase 1)
-sin usar — RLS era solo "cualquier autenticado puede todo". Se está
-conectando de verdad:
+sin usar — RLS era solo "cualquier autenticado puede todo". Ya está
+conectado de verdad:
 
-- **Hecho y verificado en la base real**: catálogo inicial de permisos
-  (`gestionar_usuarios`, `ver_informes_financieros`, `operar_tpv`,
-  `gestionar_compras`, `facturar`), 2 roles (`GERENCIA` con todos los
-  permisos, `DEPENDIENTE` con los operativos), `ROBER`/`LUIS` asignados
-  a `GERENCIA`, y tres funciones: `fn_empleado_actual()` (resuelve el
-  `empleado.codigo` de la sesión vía `empleado.auth_user_id = auth.uid()`),
-  `fn_tiene_permiso(codigo)` y `fn_auditoria_trigger()` (trigger
-  genérico que escribe en `auditoria` con `datos_antes`/`datos_despues`
-  en jsonb).
-- **Pendiente** (se quedó a medias por una confirmación de la
-  herramienta de migraciones que no se pudo responder a tiempo, sin
-  ningún cambio a medio aplicar — hay que terminarlo en la próxima
-  sesión): atar `fn_auditoria_trigger()` a `factura`,
-  `movimiento_stock`, `movimiento_caja`, `caja_apertura_cierre` y
-  `venta`; sustituir la política RLS "todo vale" de `factura` por
-  solo SELECT/INSERT (las facturas no deben poder editarse ni
-  borrarse nunca, es obligación legal de Veri*Factu); y restringir la
-  edición de `empleado`/`rol`/`rol_permiso` a quien tenga el permiso
-  `gestionar_usuarios`. El resto de las 93 tablas se queda con la
-  política "cualquier autenticado" de momento — llevar esto a una
-  matriz de permisos completa es trabajo futuro, no de esta sesión.
+- Catálogo inicial de permisos (`gestionar_usuarios`,
+  `ver_informes_financieros`, `operar_tpv`, `gestionar_compras`,
+  `facturar`), 2 roles (`GERENCIA` con todos los permisos,
+  `DEPENDIENTE` con los operativos), `ROBER`/`LUIS` asignados a
+  `GERENCIA`.
+- `fn_empleado_actual()` resuelve el `empleado.codigo` de la sesión
+  vía `empleado.auth_user_id = auth.uid()` (ya usado por
+  `VentasPage.tsx` para abrir/cerrar caja) y `fn_tiene_permiso(codigo)`
+  comprueba el permiso del rol del empleado actual.
+- **Auditoría real**: `fn_auditoria_trigger()` (genérico, escribe en
+  `auditoria` con `datos_antes`/`datos_despues` en jsonb y el
+  `empleado_codigo` resuelto vía `fn_empleado_actual()`) está atado a
+  `factura`, `movimiento_stock`, `movimiento_caja`,
+  `caja_apertura_cierre` y `venta` — verificado en vivo: un INSERT de
+  prueba en `factura` quedó registrado correctamente con
+  `empleado_codigo = "ROBER"`.
+- **Facturas inmutables** (obligación legal de Veri*Factu: una factura
+  emitida no se edita ni se borra nunca, las correcciones son una
+  nueva factura rectificativa): `trg_factura_inmutable` bloquea
+  `UPDATE`/`DELETE` sobre `factura` a nivel de base de datos (no de
+  política RLS — ver nota técnica abajo), con un mensaje de error
+  explícito. Verificado en vivo: tanto el `UPDATE` como el `DELETE` de
+  prueba fueron rechazados con el mensaje legal.
+
+**Nota técnica**: la política RLS "todo vale" de `factura` sigue tal
+cual (sustituirla por solo SELECT/INSERT requiere un `DROP POLICY`,
+que en este entorno de sesión queda bloqueado por una confirmación
+que nadie puede responder — se intentó y no se pudo completar, sin
+dejar ningún cambio a medias). Se optó por un trigger `BEFORE UPDATE
+OR DELETE` en su lugar, que consigue el mismo resultado (inmutabilidad
+real) sin depender de esa operación bloqueada, y es además más fuerte:
+no depende de que la política RLS esté bien configurada. Por el mismo
+motivo queda **pendiente** restringir la edición de
+`empleado`/`rol`/`rol_permiso` al permiso `gestionar_usuarios` — esa
+sí necesita sustituir una política existente (no solo añadir un
+trigger de bloqueo total, porque gerencia SÍ debe poder editarlas) y
+habrá que hacerlo desde un entorno donde ese tipo de confirmación se
+pueda responder (el propio dashboard de Supabase, por ejemplo). El
+resto de las 93 tablas se queda con la política "cualquier
+autenticado" — llevar esto a una matriz de permisos completa es
+trabajo futuro.

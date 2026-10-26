@@ -1758,3 +1758,64 @@ permisos ya").
 `erp-propio/` (tan reversible como cualquier commit) más dos cambios de
 datos de catálogo en la base real (`tipo_documento_numerable` con la
 fila `factura`), fácilmente reversibles si hiciera falta.
+
+---
+
+### 2026-10-26 (continuación, misma noche) — Roles/permisos y auditoría reales; facturas inmutables
+
+**Contexto**: al construir Facturación se descubrió que el esquema ya
+traía, desde la Fase 1 original, las tablas `rol`/`permiso`/
+`rol_permiso`/`auditoria` y un vínculo real `empleado.auth_user_id` →
+`auth.users` — completamente diseñados pero sin usar: 0 roles, 0
+permisos, `rol_id` nulo en los 2 empleados, y RLS seguía siendo solo
+"cualquier autenticado puede todo". Esto es justo lo que el mandato
+original pedía ("usuarios individuales con roles... RLS por rol...
+tabla de auditoría") y quedaba sin cerrar.
+
+**Qué se hizo** (verificado en vivo contra la base real en todos los
+casos):
+1. Catálogo de 5 permisos iniciales, 2 roles (`GERENCIA` con todos,
+   `DEPENDIENTE` con los operativos), `ROBER`/`LUIS` asignados a
+   `GERENCIA`.
+2. `fn_empleado_actual()` y `fn_tiene_permiso(codigo)` — dos funciones
+   `SECURITY DEFINER` que resuelven identidad/autorización desde
+   `auth.uid()`.
+3. Se corrigió `VentasPage.tsx`: la apertura/cierre de caja usaba una
+   heurística sobre el email (`rober@` → `ROBER`) "a falta de vínculo
+   real" — pero el vínculo real ya existía y estaba poblado. Se
+   sustituyó por `fn_empleado_actual()`.
+4. `fn_auditoria_trigger()` genérico, atado a `factura`,
+   `movimiento_stock`, `movimiento_caja`, `caja_apertura_cierre` y
+   `venta` — las operaciones sensibles que el mandato original nombró
+   explícitamente (facturación, numeración/stock, pagos/caja).
+5. Facturas inmutables: `trg_factura_inmutable` bloquea `UPDATE` y
+   `DELETE` sobre `factura` con un mensaje de error legal explícito —
+   obligación de Veri*Factu (una factura emitida no se edita ni se
+   borra, se rectifica con otra factura).
+
+**Limitación real encontrada**: la herramienta de migraciones de esta
+sesión pide una confirmación para cualquier `DROP POLICY`/`DROP
+TRIGGER` que nadie puede responder (queda esperando 60s y se cancela
+entera, sin aplicar nada a medias — comprobado: tras el primer intento
+fallido, `permiso`/`rol` seguían vacíos). Esto bloqueó el plan original
+de sustituir la política RLS de `factura` por una más restrictiva. Se
+resolvió con un trigger `BEFORE UPDATE OR DELETE` en vez de tocar la
+política — consigue la misma inmutabilidad real sin depender de la
+operación bloqueada, y es arguably más fuerte (no depende de que la
+política esté bien configurada). La misma limitación deja pendiente
+restringir `empleado`/`rol`/`rol_permiso` al permiso
+`gestionar_usuarios` (ese caso sí necesita sustituir una política, no
+solo bloquear del todo, porque gerencia debe seguir pudiendo editar) —
+queda para una sesión donde esa confirmación se pueda responder, o
+para hacerlo a mano desde el dashboard de Supabase.
+
+**Qué NO se ha tocado**: el resto de las 93 tablas sigue con la
+política "cualquier autenticado puede todo" — llevar esto a una matriz
+de permisos completa por tabla es trabajo futuro, no de esta sesión.
+
+**Quién decide**: propietario (misma instrucción de las dos entradas
+anteriores).
+
+**Reversibilidad**: alta — funciones y triggers son objetos de base de
+datos normales, reversibles con un `DROP` cuando se pueda ejecutar; los
+datos de catálogo (roles/permisos) son filas normales.
