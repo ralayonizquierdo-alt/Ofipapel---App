@@ -1188,10 +1188,13 @@
 
   function separarPorPedido(res) {
     const r = res || {};
-    const lineas = r.lineas || [];
+    // Cada línea guarda su posición en el documento entero antes de partirlo:
+    // el Excel de Géminis tiene que salir en el orden exacto de la factura.
+    const subida = Date.now();
+    const lineas = (r.lineas || []).map((l, i) => (l && l.pos == null ? Object.assign({}, l, { pos: i, subida }) : l));
     const clave = (l) => String((l && l.pedido) || '').trim();
     const pedidos = [...new Set(lineas.map(clave).filter(Boolean))];
-    if (pedidos.length < 2) return [r];
+    if (pedidos.length < 2) return [Object.assign({}, r, { lineas })];
     const partes = new Map(pedidos.map((k) => [k, []]));
     let sin = [];
     for (const l of lineas) (clave(l) ? partes.get(clave(l)) : sin).push(l);
@@ -1202,6 +1205,15 @@
     const out = pedidos.map((k) => doc(k, partes.get(k)));
     if (sin.length) out.push(doc('', sin));
     return out;
+  }
+
+  /** De qué factura es una línea: la que guarda al subirla o, en las subidas antes
+   *  del 24/10/2026, el número del nombre del PDF («0001768607.pdf» → 1768607). */
+  function facturaDeLinea(l, porDefecto) {
+    if (l && l.fra) return String(l.fra).replace(/^0+(?=\d)/, '');
+    const m = String((l && l.origen) || '').match(/(\d{5,})/);
+    if (m) return m[1].replace(/^0+(?=\d)/, '');
+    return String(porDefecto || '').replace(/^0+(?=\d)/, '');
   }
 
   function lineasDeDocumento(res) {
@@ -1217,6 +1229,9 @@
       importe: parseNum(l.importe),
       duda: String(l.duda || '').trim(),
       ...(String(l.pedido || '').trim() ? { bloque: String(l.pedido).trim() } : {}),
+      // Su sitio en el documento entero (aunque luego se parta por pedidos) y de qué factura es.
+      ...(l.pos != null ? { pos: l.pos, subida: l.subida } : {}),
+      ...(String(r.numero || '').trim() ? { fra: String(r.numero).trim() } : {}),
     })).filter((l) => l.ref || l.desc).map(marcarAlta);
 
     for (const l of lineas) {
@@ -1456,6 +1471,104 @@
   }
 
   /**
+   * Razona las faltas y sobras de un pedido como lo haría una persona, en vez
+   * de dejarlas sueltas: si faltan 5 y sobran 5, «será por algo».
+   *  - errata: la referencia apuntada se diferencia en una cifra o letra de la
+   *    del proveedor (MR1269 ↔ MR12069) y casa cantidad o precio;
+   *  - expositor: falta un expositor y vienen sus piezas sueltas (la descripción
+   *    de una pieza nombra al expositor o lo de más suma lo que vale él);
+   *  - sustituto: misma cantidad, precio parecido (±10 %) y alguna palabra de la
+   *    descripción en común, con un único candidato;
+   *  - otroPedido: lo que sobra aquí lo echa en falta otro pedido de la campaña
+   *    (o al revés): la mercancía se repartió al pedido equivocado.
+   * faltan/sobran: los de faltasYSobras(). opciones.otros: [{ pedido, faltan, sobran }].
+   * Devuelve [{ tipo, falta, sobra, sobras, pedido, texto }]; cada falta y cada
+   * sobra se explica una vez, por la primera regla que la explica sin dudas.
+   */
+  function explicarDiferencias(faltan, sobran, opciones) {
+    const o = opciones || {};
+    let F = (faltan || []).slice();
+    let S = (sobran || []).slice();
+    const out = [];
+    const an = (r) => String(r || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const dist = (a, b) => {
+      if (Math.abs(a.length - b.length) > 1) return 9;
+      const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+      for (let j = 1; j <= b.length; j++) d[0][j] = j;
+      for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) {
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+      }
+      return d[a.length][b.length];
+    };
+    const cerca = (x, y, tol) => x > 0 && y > 0 && Math.abs(x - y) <= tol * Math.max(x, y);
+    const VACIAS = new Set(['CON', 'PARA', 'SIN', 'LOS', 'LAS', 'DEL', 'UDS', 'UNIDADES', 'PACK', 'CAJA']);
+    const palabras = (d) => new Set((String(d || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').match(/[A-Z]{4,}/g) || []).filter((w) => !VACIAS.has(w)));
+    const comunes = (a, b) => { const x = palabras(a.desc); return [...palabras(b.desc)].filter((w) => x.has(w)); };
+    const quita = (f, ss) => { F = F.filter((x) => x !== f); S = S.filter((x) => !ss.includes(x)); };
+    const uno = (lista, regla) => { const c = lista.filter(regla); return c.length === 1 ? c[0] : null; };
+    const valor = (x) => (Number(x.precio) || 0) * (Number(x.cant) || 0);
+
+    // 1) Erratas de referencia: una cifra de menos o de más (MR1269 ↔ MR12069),
+    // o una cambiada si además casan cantidad y precio.
+    const errata = (f, s) => {
+      const a = an(f.ref), b = an(s.ref);
+      if (a.length < 4 || b.length < 4 || dist(a, b) !== 1) return false;
+      const mismoPrecio = cerca(s.precio, f.precio, 0.02);
+      return a.length !== b.length ? (s.cant === f.cant || mismoPrecio) : (s.cant === f.cant && mismoPrecio);
+    };
+    for (const f of F.slice()) {
+      const s = uno(S, (x) => errata(f, x));
+      if (!s || uno(F, (x) => errata(x, s)) !== f) continue;
+      out.push({ tipo: 'errata', falta: f, sobra: s, texto: `«${f.ref}» y «${s.ref}» solo se diferencian en un carácter${s.cant === f.cant ? ' y llevan la misma cantidad' : ''}: casi seguro es la misma referencia mal apuntada.` });
+      quita(f, [s]);
+    }
+    // 2) Mercancía repartida al pedido equivocado de la campaña.
+    const k = (r) => claveRef(r);
+    for (const otro of o.otros || []) {
+      for (const s of S.slice()) {
+        const f2 = (otro.faltan || []).find((x) => k(x.ref) === k(s.ref) || dist(an(x.ref), an(s.ref)) === 1);
+        if (!f2) continue;
+        out.push({ tipo: 'otroPedido', sobra: s, pedido: otro.pedido, id: otro.id, texto: `«${s.ref}» sobra aquí y le falta al pedido ${otro.pedido}${k(f2.ref) !== k(s.ref) ? ` (apuntada allí como «${f2.ref}»)` : ''}: es suyo, se repartió mal.` });
+        S = S.filter((x) => x !== s);
+      }
+      for (const f of F.slice()) {
+        const s2 = (otro.sobran || []).find((x) => k(x.ref) === k(f.ref) || dist(an(x.ref), an(f.ref)) === 1);
+        if (!s2) continue;
+        out.push({ tipo: 'otroPedido', falta: f, pedido: otro.pedido, id: otro.id, texto: `«${f.ref}» falta aquí y le sobra al pedido ${otro.pedido}: le llegó a él por error.` });
+        F = F.filter((x) => x !== f);
+      }
+    }
+    // 3) Sustitutos: misma cantidad, precio parecido y algo de la descripción en común.
+    for (const f of F.slice()) {
+      const regla = (s) => s.cant === f.cant && cerca(s.precio, f.precio, 0.1) && comunes(f, s).length > 0;
+      const s = uno(S, regla);
+      if (!s || uno(F, (x) => x.cant === s.cant && cerca(s.precio, x.precio, 0.1) && comunes(x, s).length > 0) !== f) continue;
+      out.push({ tipo: 'sustituto', falta: f, sobra: s, texto: `«${s.ref}» (${s.desc}) llega en lugar de «${f.ref}» (${f.desc}): misma cantidad, precio parecido y en común «${comunes(f, s).join(', ')}». Probable sustitución o referencia nueva.` });
+      quita(f, [s]);
+    }
+    // 4) Expositor servido por piezas: lo que queda de más nombra al expositor
+    // o suma lo que vale él (±5 %, dejando fuera como mucho un artículo).
+    for (const f of F.slice()) {
+      if (!/\bEXP|EXPOSITOR/i.test(f.desc || '')) continue;
+      const vf = valor(f);
+      const suma = (xs) => xs.reduce((t, s) => t + valor(s), 0);
+      let piezas = S.filter((s) => an(s.desc).includes(an(f.ref)) || an(s.ref).startsWith(an(f.ref)));
+      if (vf > 0 && S.length >= 2) {
+        if (cerca(suma(S), vf, 0.05)) piezas = S.slice();
+        else if (!piezas.length) {
+          const sin = S.map((x) => S.filter((y) => y !== x)).filter((xs) => xs.length >= 2 && cerca(suma(xs), vf, 0.05));
+          if (sin.length === 1) piezas = sin[0];
+        }
+      }
+      if (!piezas.length) continue;
+      out.push({ tipo: 'expositor', falta: f, sobras: piezas, texto: `Falta el expositor «${f.ref}» y vienen ${piezas.length} artículo(s) sueltos${vf ? ` por ${fmt(suma(piezas))} € frente a ${fmt(vf)} € del expositor` : ''}: el proveedor lo ha servido desglosado.` });
+      quita(f, piezas);
+    }
+    return out;
+  }
+
+  /**
    * Referencia tal como la tiene Géminis. Finocam añade el año a sus códigos
    * (621163027 = 6211630 + «27») y Géminis los guarda sin él, porque cambia
    * cada año: en el Excel para Géminis, una referencia de Finocam de 9 cifras
@@ -1628,8 +1741,8 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, repartirPorReferencias, fotosRepetidas, firmaLineas,
-    sugerirAsignacion, restosQueLlegan, codigosInternos, refParaGeminis, emparejarReferencias, descuentoEquivalente, leerPropuesta, filasGeminis,
+    facturaDeLinea, parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, repartirPorReferencias, fotosRepetidas, firmaLineas,
+    sugerirAsignacion, restosQueLlegan, codigosInternos, refParaGeminis, emparejarReferencias, explicarDiferencias, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.ControlPedidos = api;

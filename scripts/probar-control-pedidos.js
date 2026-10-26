@@ -943,3 +943,33 @@ test('Pedido de Géminis con miles («1.200») y cajas de nuestro pedido cuando 
   assert.deepEqual([f[0].porCaja, f[0].cantPropuesta, f[0].revisar], [25, 5000, true], '200 cajas de 25: vienen 200 de más');
   assert.deepEqual([f[1].porCaja, f[1].cantPropuesta], [24, 72], 'sin cuadrar con las uds/caja, vale el múltiplo exacto');
 });
+
+test('Faltas y sobras razonadas: errata, pedido equivocado, sustituto y expositor por piezas', () => {
+  const F = [
+    { ref: 'MR1269', desc: 'BOLIGRAFO CHERRIES', cant: 1, precio: 3.6 },
+    { ref: 'MR23646', desc: 'EXP.22 AG.ESPIRAL GRAFICA 27', cant: 1, precio: 191.31 },
+    { ref: 'MR500', desc: 'CALENDARIO PARED FLORES', cant: 2, precio: 8 },
+  ];
+  const S = [
+    { ref: 'MR12069', desc: 'BOLIGRAFO CHERRIES', cant: 2, precio: 3.6 },
+    { ref: 'MR22296', desc: 'EXP.SOBREMESA VACIO', cant: 1, precio: 0 },
+    { ref: 'MR25273', desc: 'AG GRID', cant: 13, precio: 7.37 },
+    { ref: 'MR38559', desc: 'AG MIKADO', cant: 9, precio: 10.86 },
+    { ref: 'MR600', desc: 'CALENDARIO SOBREMESA FLORES', cant: 2, precio: 8.3 },
+    { ref: 'MR777', desc: 'NADA', cant: 3, precio: 1 },
+  ];
+  const ex = CP.explicarDiferencias(F, S, { otros: [{ pedido: '17', faltan: [{ ref: 'MR777' }], sobran: [] }] });
+  const por = (t) => ex.filter((x) => x.tipo === t);
+  assert.deepStrictEqual(por('errata').map((x) => [x.falta.ref, x.sobra.ref]), [['MR1269', 'MR12069']]);
+  assert.deepStrictEqual(por('otroPedido').map((x) => [x.sobra.ref, x.pedido]), [['MR777', '17']]);
+  assert.deepStrictEqual(por('sustituto').map((x) => [x.falta.ref, x.sobra.ref]), [['MR500', 'MR600']]);
+  assert.deepStrictEqual(por('expositor').map((x) => x.sobras.map((s) => s.ref).sort()), [['MR22296', 'MR25273', 'MR38559']]);
+  // Una cifra cambiada sin casar cantidad y precio no es errata.
+  assert.strictEqual(CP.explicarDiferencias([{ ref: 'AB1234', desc: 'X', cant: 1, precio: 5 }], [{ ref: 'AB1235', desc: 'Y', cant: 4, precio: 9 }]).length, 0);
+});
+
+test('Excel por factura: facturaDeLinea saca el nº de la línea o del fichero', () => {
+  assert.strictEqual(CP.facturaDeLinea({ fra: '0001768607' }), '1768607');
+  assert.strictEqual(CP.facturaDeLinea({ origen: '0001769800.pdf' }), '1769800');
+  assert.strictEqual(CP.facturaDeLinea({}, '55'), '55');
+});
