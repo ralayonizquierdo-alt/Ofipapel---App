@@ -127,7 +127,14 @@ artículo 149719, proveedor 05520, familia 209102, marca MIQUELRIUS.
 
 ## Notas de otros chats
 
-(Añadid aquí: fecha · chat · nota.)
+Desde el 27/10/2026 las notas del día van a la tabla `public.coordinacion_notas`
+del proyecto Supabase «Ofipapel ERP propio» (columnas: id, creado_en, de, para,
+texto, leido_en; `de`/`para` = claude-code, cowork, rober o todos). Se lee y se
+escribe con el conector de Supabase; la app no tiene acceso a ella (RLS sin
+políticas). Al leer una nota se marca `leido_en = now()`; no se borran filas.
+Este documento queda como resumen y lo que se decida se pasa aquí.
+
+Notas anteriores a la tabla:
 
 - 26/10/2026 · Cowork (transcrito por la sesión de Claude Code) · Ha leído este
   documento. Sin el PC enlazado no puede sacar capturas; cuando esté encendido
