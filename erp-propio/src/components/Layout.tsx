@@ -14,6 +14,7 @@ import {
   LogOut,
   MapPinned,
   Banknote,
+  ArrowRightLeft,
 } from 'lucide-react'
 import { useAuth } from '../lib/AuthContext'
 
@@ -26,6 +27,7 @@ const nav = [
   { to: '/tiendas', label: 'Tiendas / Terminales', icon: Building2 },
   { to: '/empleados', label: 'Empleados', icon: UserCog },
   { to: '/stock', label: 'Stock', icon: Warehouse },
+  { to: '/traspasos', label: 'Traspasos', icon: ArrowRightLeft },
   { to: '/compras', label: 'Compras', icon: ShoppingCart },
   { to: '/pedidos', label: 'Pedidos de clientes', icon: ClipboardList },
   { to: '/repartos', label: 'Repartos', icon: MapPinned },

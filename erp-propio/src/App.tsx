@@ -16,6 +16,7 @@ import { PedidosPage } from './pages/PedidosPage'
 import { RepartosPage } from './pages/RepartosPage'
 import { VentasPage } from './pages/VentasPage'
 import { PagosPage } from './pages/PagosPage'
+import { TraspasosPage } from './pages/TraspasosPage'
 import { FacturacionPage } from './pages/FacturacionPage'
 
 function ProtectedArea() {
@@ -47,6 +48,7 @@ function App() {
             <Route path="/tiendas" element={<TiendasPage />} />
             <Route path="/empleados" element={<EmpleadosPage />} />
             <Route path="/stock" element={<StockPage />} />
+            <Route path="/traspasos" element={<TraspasosPage />} />
             <Route path="/compras" element={<ComprasPage />} />
             <Route path="/pedidos" element={<PedidosPage />} />
             <Route path="/repartos" element={<RepartosPage />} />

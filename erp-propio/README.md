@@ -79,6 +79,15 @@ esquema ya tenía para esto), descuenta stock igual que una venta de
 TPV, y marca el pedido `entregado: true`. Verificado en vivo igual que
 Compras.
 
+**Traspasos entre almacenes** usa `traspaso_almacen`/`traspaso_almacen_linea`
+(numerado vía `fn_siguiente_numero`, tipo `'traspaso_almacen'` — ya
+estaba en el catálogo sin usar), con el mismo patrón "crear pendiente
+→ Confirmar mueve stock real" que Compras/Pedidos: confirmar genera
+**dos** `movimiento_stock` por línea (salida del origen, entrada al
+destino), reutilizando el mismo trigger de siempre. Verificado en
+vivo con un almacén de prueba: 25 unidades en el origen → traspasa 10
+→ origen 15, destino 10 exactos.
+
 **Repartos** completa la otra mitad de "Fase 4 — Pedidos de clientes
 y repartos" (la parte que no se había tocado: repartos no es lo mismo
 que entregar un pedido directamente, es agrupar varias ventas en una
