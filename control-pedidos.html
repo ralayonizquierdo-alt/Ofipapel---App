@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-23-9"></script>
+<script src="control-pedidos-logica.js?v=2026-10-26-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -705,6 +705,7 @@ function vistaGrupo(g, i) {
       </span>
     </summary>
     ${esComercial() ? '' : bloqueMarca(g)}
+    ${esComercial() ? '' : bloqueDocumentos(g)}
     <div class="tabla-scroll"><table class="lista-pedidos">
       <tr><th class="no-imprimir"><input type="checkbox" title="Seleccionar todos" onchange="this.closest('table').querySelectorAll('.selPed').forEach(c=>{c.checked=this.checked;marcarSel(c)})"></th>
         <th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th>Fotos</th><th>Propuesta</th><th>Estado</th><th class="c-movil"></th><th class="no-imprimir"></th></tr>
@@ -1551,7 +1552,7 @@ function bloqueFaltasSobras(p, filas) {
   const sobranYa = sobran.filter(sobraDecidida);
   const lista = (xs, signo, falta) => xs.length ? `<ul style="margin:6px 0 0;padding-left:18px">${xs.map((x) => linea(x, signo, falta)).join('')}</ul>` : '';
   const plegado = (xs, signo, falta) => xs.length ? `<details class="decididas"><summary>${xs.length} ya decidida(s)</summary>${lista(xs, signo, falta)}</details>` : '';
-  return `
+  return `${bloqueExplicaciones(p, faltanVer, sobranVer)}
     <div class="aviso-caja ${pendientes.length ? 'mal' : 'ok'}" style="margin-top:0">
       <b>${pendientes.length ? `❌ Faltan ${pendientes.length} referencia(s)` : faltan.length ? '✅ Ninguna falta pendiente' : '✅ No falta nada'}</b> — pedido que no viene en ${doc}
       ${lista(faltanVer, '', true)}${plegado(faltanYa, '', true)}
@@ -1560,6 +1561,55 @@ function bloqueFaltasSobras(p, filas) {
       <b>${sobranVer.length ? `⚠️ Sobran ${sobranVer.length} referencia(s)` : sobran.length ? '✅ Ninguna sobra pendiente' : '✅ No sobra nada'}</b> — vienen en ${doc} sin haberse pedido (o de más)
       ${lista(sobranVer, '+')}${plegado(sobranYa, '+')}
     </div>`;
+}
+
+/** «🧠 Por qué falta y sobra»: lo que una persona vería al mirar juntas las faltas
+ *  y las sobras (erratas, expositor por piezas, sustitutos, mercancía de otro
+ *  pedido de la campaña), con el botón para aplicarlo. */
+function bloqueExplicaciones(p, faltan, sobran) {
+  if (!faltan.length && !sobran.length) return '';
+  const otros = E.pedidos.filter((q) => q.id !== p.id && claveGrupo(q) === claveGrupo(p) && q.propuesta && q.lineas.length).map((q) => {
+    const f = comparar(q);
+    return { id: q.id, pedido: `${nPed(q.numero)}${esRepo(q) ? '' : ' (' + q.cliente + ')'}`, faltan: CP.faltasPendientes(f, q.decisiones), sobran: CP.faltasYSobras(f).sobran.filter((x) => !(q.decisiones[x.ref] || {}).accion) };
+  });
+  const ex = CP.explicarDiferencias(faltan, sobran, { otros });
+  if (!ex.length) return '';
+  const icono = { errata: '✏️', sustituto: '🔁', expositor: '🧩', otroPedido: '📦' };
+  const boton = (x) => x.tipo === 'errata' || x.tipo === 'sustituto'
+    ? `<button class="btn peque" onclick="emparejar(${js(x.sobra.ref)}, ${js(x.falta.ref)})">🔗 Es la misma: emparejar</button>`
+    : x.tipo === 'expositor'
+      ? `<button class="btn peque" onclick="aplicarExpositor(${js(x.falta.ref)}, ${js(x.sobras.map((s) => s.ref).join('\n'))})">🧩 Dar el expositor por servido en piezas</button>`
+      : x.tipo === 'otroPedido' && x.sobra
+        ? `<button class="btn peque" onclick="pasarAOtroPedido(${js(x.sobra.ref)}, ${js(x.id)})">📦 Pasarla al pedido ${h(x.pedido)}</button>`
+        : '';
+  return `<div class="aviso-caja info no-imprimir" style="margin-top:0"><b>🧠 Por qué falta y sobra</b> <span class="pequeno">(lo que se deduce al mirarlas juntas; revísalo antes de aplicarlo)</span>
+    <ul style="margin:6px 0 0;padding-left:18px">${ex.map((x) => `<li>${icono[x.tipo] || ''} ${h(x.texto)} ${boton(x)}</li>`).join('')}</ul></div>`;
+}
+/** Lo que llegó al pedido equivocado: sus líneas de propuesta y factura pasan al otro. */
+function pasarAOtroPedido(ref, destinoId) {
+  const p = pedidoActual(); const q = pedidoPorId(destinoId);
+  if (!p || !q) return;
+  const k = CP.claveRef(ref);
+  let n = 0;
+  for (const campo of ['propuesta', 'factura']) {
+    const x = p[campo]; if (!x) continue;
+    const van = x.lineas.filter((l) => CP.claveRef(l.ref) === k);
+    if (!van.length) continue;
+    x.lineas = x.lineas.filter((l) => !van.includes(l));
+    q[campo] = q[campo] || { fecha: hoy(), archivo: x.archivo, cabecera: Object.assign({}, x.cabecera), lineas: [] };
+    q[campo].lineas = q[campo].lineas.concat(van);
+    n += van.length;
+  }
+  if (!n) return;
+  delete p.decisiones[ref];
+  invalidar(p); invalidar(q); guardar(); pintar();
+  alert(`«${ref}» pasada al pedido ${nPed(q.numero)}${q.cliente ? ' (' + q.cliente + ')' : ''}. Los dos pedidos hay que revalidarlos.`);
+}
+function aplicarExpositor(expositor, piezas) {
+  const p = pedidoActual();
+  p.decisiones[expositor] = { accion: esRepo(p) ? 'excluir' : 'anular', nota: 'Servido desglosado: el proveedor lo factura por piezas' };
+  for (const r of String(piezas).split('\n').filter(Boolean)) p.decisiones[r] = { accion: 'aceptar', nota: `Parte del expositor ${expositor} (servido desglosado)` };
+  invalidar(p); guardar(); pintar();
 }
 
 /** Si la propuesta trae algo que otro cliente tiene pendiente en restos, se avisa. */
@@ -1748,26 +1798,56 @@ function quitarPedidos(ids) {
 /** Quita de la campaña una propuesta o factura del proveedor ya subida (o
  *  todas), de todos los pedidos a los que se repartió, para volver a subirla
  *  sin que se sume: cada línea repartida guarda su `origen` (el fichero). */
+/** De qué documento es una línea: el nº de factura del proveedor si se sabe
+ *  («Factura 1768607», aunque se subiera partida en trozos), si no el fichero. */
+function claveDocumento(l, x) {
+  const fra = CP.facturaDeLinea(l, '');
+  return fra ? 'Factura ' + fra : (l.origen || x.archivo || 'sin nombre');
+}
 function docsDe(x) {
   if (!x) return [];
-  return x.reparto ? [...new Set(x.lineas.map((l) => l.origen).filter(Boolean))] : [x.archivo || 'sin nombre'];
+  const conOrigen = (x.lineas || []).some((l) => l.origen || l.fra);
+  return conOrigen ? [...new Set(x.lineas.map((l) => claveDocumento(l, x)))] : [x.archivo || 'sin nombre'];
 }
-function quitarDocumentoCampana(clave) {
-  const ps = E.pedidos.filter((p) => claveGrupo(p) === clave);
+/** Lo subido a una campaña: fotos, propuestas y facturas finales (por documento, con sus pedidos). */
+function documentosCampana(ps) {
   const docs = [];
   for (const [campo, tipo] of [['propuesta', 'Propuesta'], ['factura', 'Factura final']]) {
     for (const p of ps) for (const nombre of docsDe(p[campo])) {
       let d = docs.find((x) => x.campo === campo && x.nombre === nombre);
-      if (!d) docs.push(d = { campo, tipo, nombre, pedidos: [] });
+      if (!d) docs.push(d = { campo, tipo, nombre, pedidos: [], lineas: 0, importe: 0 });
       d.pedidos.push(p);
+      const ls = (p[campo].lineas || []).filter((l) => docsDe(p[campo]).length === 1 || claveDocumento(l, p[campo]) === nombre);
+      d.lineas += ls.length; d.importe = CP.red2(d.importe + ls.reduce((t, l) => t + (CP.parseNum(l.importe) || 0), 0));
     }
   }
+  return docs;
+}
+function bloqueDocumentos(g) {
+  const docs = documentosCampana(g.pedidos);
+  const nFotos = g.pedidos.reduce((s, p) => s + fotosDe(p).length, 0);
+  const fila = (d, i) => `<li><b>${h(d.nombre)}</b> · ${d.pedidos.length} pedido(s) (${d.pedidos.map((p) => nPed(p.numero)).join(', ')}) · ${d.lineas} líneas · ${fmt(d.importe)} €
+    <button class="btn peque peligro" onclick="quitarDocumentoCampana(${js(g.clave)}, ${i})" title="Quitarlo de todos los pedidos de la campaña">🗑️ Quitar</button></li>`;
+  const lista = (campo, titulo) => {
+    const ds = docs.map((d, i) => [d, i]).filter(([d]) => d.campo === campo);
+    return `<div><b>${titulo} (${ds.length})</b>${ds.length ? `<ul style="margin:4px 0 0 18px;padding:0">${ds.map(([d, i]) => fila(d, i)).join('')}</ul>` : ' <span class="pequeno">ninguna</span>'}</div>`;
+  };
+  return `<details class="no-imprimir" style="margin:8px 0"><summary>📂 Documentos subidos: 📷 ${nFotos} foto(s) · 📄 ${docs.filter((d) => d.campo === 'propuesta').length} propuesta(s) · 🧾 ${docs.filter((d) => d.campo === 'factura').length} factura(s) final(es)</summary>
+    <div style="display:grid;gap:8px;margin-top:8px">${lista('propuesta', '📄 Propuestas del proveedor')}${lista('factura', '🧾 Facturas finales')}</div></details>`;
+}
+function quitarDocumentoCampana(clave, indice) {
+  const ps = E.pedidos.filter((p) => claveGrupo(p) === clave);
+  const docs = documentosCampana(ps);
   if (!docs.length) { alert('Esta campaña no tiene propuestas ni facturas subidas.'); return; }
-  const r = prompt('¿Qué documento quitas? Se quita de todos los pedidos de la campaña.\n\n' +
-    docs.map((d, i) => `${i + 1}) ${d.tipo} · ${d.nombre} (${d.pedidos.length} pedido(s))`).join('\n') +
-    '\n\nEscribe el número, o TODO para quitarlos todos:');
-  if (r == null || !r.trim()) return;
-  const elegidos = r.trim().toUpperCase() === 'TODO' ? docs : [docs[Number(r) - 1]].filter(Boolean);
+  let elegidos;
+  if (indice != null) elegidos = [docs[indice]].filter(Boolean);
+  else {
+    const r = prompt('¿Qué documento quitas? Se quita de todos los pedidos de la campaña.\n\n' +
+      docs.map((d, i) => `${i + 1}) ${d.tipo} · ${d.nombre} (${d.pedidos.length} pedido(s))`).join('\n') +
+      '\n\nEscribe el número, o TODO para quitarlos todos:');
+    if (r == null || !r.trim()) return;
+    elegidos = r.trim().toUpperCase() === 'TODO' ? docs : [docs[Number(r) - 1]].filter(Boolean);
+  }
   if (!elegidos.length) { alert('Ese número no está en la lista.'); return; }
   const validados = [...new Set(elegidos.flatMap((d) => d.pedidos))].filter((p) => p.validado).length;
   if (!confirm(`Se quita${elegidos.length > 1 ? 'n' : ''} ${elegidos.map((d) => d.nombre).join(', ')}.` +
@@ -1776,10 +1856,10 @@ function quitarDocumentoCampana(clave) {
     for (const p of d.pedidos) {
       const x = p[d.campo];
       if (!x) continue;
-      const quedan = x.reparto ? x.lineas.filter((l) => l.origen !== d.nombre) : [];
+      const quedan = docsDe(x).length > 1 ? x.lineas.filter((l) => claveDocumento(l, x) !== d.nombre) : [];
       if (quedan.length) {
         x.lineas = quedan;
-        x.archivo = 'Reparto: ' + docsDe(x).join(' + ');
+        x.archivo = docsDe(x).join(' + ');
       } else {
         p[d.campo] = null;
         if (d.campo === 'propuesta') p.decisiones = {};
@@ -2404,7 +2484,7 @@ function aplicarReparto(docs, clave) {
   // `subida` + `pos`: el orden de cada línea en la factura (el Excel de Géminis sale en ese orden).
   const subida = Date.now();
   let pos = 0;
-  const lineas = docs.flatMap((d) => d.prop.lineas.map((l) => Object.assign({}, l, { origen: d.archivo, subida, pos: pos++ })));
+  const lineas = docs.flatMap((d) => d.prop.lineas.map((l) => Object.assign({}, l, { origen: d.archivo, subida, pos: pos++ }, l.fra || !(d.prop.cabecera || {}).numero ? {} : { fra: d.prop.cabecera.numero })));
   const cab = Object.assign({}, docs[0].prop.cabecera, { numeroPedido: null, observaciones: `Repartida por referencias entre los pedidos de la campaña (${docs.map((d) => d.archivo).join(', ')})` });
   const nombres = docs.map((d) => d.archivo);
   // Lo que ya le llegó a cada pedido con otras facturas repartidas antes (no
@@ -2578,7 +2658,7 @@ function repartirFacturas(docs, clave) {
   // `subida` + `pos`: el orden de cada línea en la factura (el Excel de Géminis sale en ese orden).
   const subida = Date.now();
   let pos = 0;
-  const lineas = docs.flatMap((d) => d.prop.lineas.map((l) => Object.assign({}, l, { origen: d.archivo, subida, pos: pos++ })));
+  const lineas = docs.flatMap((d) => d.prop.lineas.map((l) => Object.assign({}, l, { origen: d.archivo, subida, pos: pos++ }, l.fra || !(d.prop.cabecera || {}).numero ? {} : { fra: d.prop.cabecera.numero })));
   const dtoGlobal = docs.map((d) => d.prop.cabecera.dtoGlobal).find((x) => x) || null;
   const cab = Object.assign({}, docs[0].prop.cabecera, { numeroPedido: null, dtoGlobal,
     observaciones: `Factura repartida por referencias entre los pedidos validados (${nombres.join(', ')})` });
@@ -2636,7 +2716,9 @@ function sustituir(id, refValidada, refFactura) {
 function asignarFactura(p, archivo, doc) {
   // Cada línea recuerda su sitio en la factura (si no lo trae ya de un reparto).
   const subida = Date.now();
-  const lineas = (doc.lineas || []).map((l, i) => (l.pos != null ? l : Object.assign({}, l, { origen: l.origen || archivo, subida, pos: i })));
+  const fra = (doc.cabecera || {}).numero || '';
+  const lineas = (doc.lineas || []).map((l, i) => Object.assign({}, l, { origen: l.origen || archivo, subida: l.subida != null ? l.subida : subida, pos: l.pos != null ? l.pos : i },
+    l.fra || !fra ? {} : { fra }));
   p.factura = { archivo, fecha: hoy(), cabecera: doc.cabecera || {}, lineas, control: doc.control || null };
   restosPorFactura(p);
 }
@@ -3345,7 +3427,7 @@ function exportarPedidos(ids) {
     for (const l0 of CP.lineasParaGeminis(enOrden, { dtoGlobal, decimales })) {
       // Géminis guarda las referencias de Finocam sin el año del final.
       const l = Object.assign({}, l0, { ref: l0.alta ? l0.ref : CP.refParaGeminis(l0.ref, p.proveedor) });
-      if (comoFactura) { filas.push(l); continue; }
+      if (comoFactura) { filas.push(Object.assign(l, { _fra: CP.facturaDeLinea(l0, (p.factura.cabecera || {}).numero || p.factura.archivo), _ped: p })); continue; }
       const k = [l.ref, l.precio, l.dto].join('|');
       if (!suma.has(k)) { suma.set(k, Object.assign({}, l)); continue; }
       const g = suma.get(k);
@@ -3360,13 +3442,30 @@ function exportarPedidos(ids) {
     // Una línea de la factura repartida entre varios clientes vuelve a ser una sola fila.
     for (let i = filas.length - 1; i > 0; i--) {
       const a = filas[i - 1], b = filas[i];
-      if (a.subida === b.subida && a.pos === b.pos && a.ref === b.ref && a.precio === b.precio && a.dto === b.dto) {
+      if (a._fra === b._fra && a.subida === b.subida && a.pos === b.pos && a.ref === b.ref && a.precio === b.precio && a.dto === b.dto) {
         a.cant += b.cant; a.total = CP.red2(a.total + b.total); a.residuo = CP.red2((a.residuo || 0) + (b.residuo || 0));
         filas.splice(i, 1);
       }
     }
   }
-  descargarGeminis(comoFactura ? filas : [...suma.values()], { proveedor: provs[0], numero: ps.length === 1 ? ps[0].numero : ps.map((p) => p.numero).join('+'),
+  if (comoFactura) {
+    // Un Excel por cada factura del proveedor (en Géminis, una compra por factura),
+    // cada uno en el orden exacto de su factura.
+    const porFactura = new Map();
+    for (const l of filas) {
+      if (!porFactura.has(l._fra)) porFactura.set(l._fra, []);
+      porFactura.get(l._fra).push(l);
+    }
+    if (porFactura.size > 1) alert(`Estos pedidos vienen en ${porFactura.size} facturas del proveedor (${[...porFactura.keys()].join(', ')}): se descarga un Excel de Géminis por factura, cada uno en su orden.`);
+    for (const [fra, ls] of porFactura) {
+      const peds = [...new Set(ls.map((l) => l._ped))];
+      ls.forEach((l) => { delete l._fra; delete l._ped; });
+      descargarGeminis(ls, { proveedor: provs[0], numero: porFactura.size > 1 || peds.length > 1 ? `FRA ${fra}` : peds[0].numero,
+        observaciones: `Factura ${fra}: ` + peds.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales, marca });
+    }
+    return;
+  }
+  descargarGeminis([...suma.values()], { proveedor: provs[0], numero: ps.length === 1 ? ps[0].numero : ps.map((p) => p.numero).join('+'),
     observaciones: ps.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales, marca });
 }
 /** Escribe el Excel 5.0/95 de Géminis (artículos desde la fila 11) con líneas ya pasadas por lineasParaGeminis. */
