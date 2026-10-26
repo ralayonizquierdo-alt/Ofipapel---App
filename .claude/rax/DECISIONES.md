@@ -1608,3 +1608,78 @@ Firestore todavía" + "renombrar la rama remota del prototipo").
 **Reversibilidad**: alta — no se ha borrado ni sobrescrito nada, solo se
 ha añadido una rama remota nueva que apunta al mismo contenido que ya
 existía.
+
+---
+
+### 2026-10-26 — Primer despliegue real del ERP propio: Supabase + esquema (93 tablas) + primera app conectada
+
+**Contexto**: con las 6 fases del esquema PostgreSQL ya diseñadas y
+validadas localmente (ver documentos de entrega por fase), el
+propietario dio luz verde explícita a "empezar a programar pantallas" y
+pidió seguir trabajando sin pararse durante la noche. Hasta ese momento
+todo el trabajo había sido diseño (SQL validado contra un PostgreSQL
+local efímero, nunca aplicado a ningún sitio real).
+
+**Decisión y qué se hizo**:
+1. Creado un proyecto Supabase nuevo y dedicado, **"Ofipapel ERP
+   propio"** (ref `sufxvpiwcncnyltrvoun`, región `eu-west-1`), en la
+   organización `Ofipapel, S.L.` — deliberadamente un proyecto aparte,
+   no reaprovechar "App Bancos" ni "Joe's APP" que ya existían en la
+   misma organización.
+2. Aplicadas las 6 migraciones (una por fase) en orden real contra ese
+   proyecto — las mismas 93 tablas ya validadas localmente, esta vez en
+   infraestructura real.
+3. **Activado RLS en las 93 tablas** con una política mínima
+   ("autenticados, acceso total") — bloquea completamente el acceso
+   anónimo/clave pública, que es el fallo exacto que el veredicto
+   encontró en las otras apps del ecosistema (`AUDITORIA_SEGURIDAD_2026-08.md`).
+   Verificado con `get_advisors` de Supabase: 0 hallazgos de seguridad
+   tras el cambio (antes: 93 tablas marcadas ERROR por RLS desactivado).
+4. **2 cuentas de prueba creadas directamente en `auth.users`** (no por
+   el flujo normal de registro, que choca con límites de envío de email
+   del proyecto en modo de prueba): `rober@ofipapel.local` y
+   `luis@ofipapel.local`, ambas con contraseña `OfipapelERP2026!`,
+   enlazadas a sus filas correspondientes en `empleado`
+   (`empleado.auth_user_id`). **Son cuentas de arranque para poder
+   entrar y probar — cámbiense las contraseñas y créense las cuentas
+   reales de cada persona en cuanto el propietario lo decida**, esto no
+   es el modelo de alta de usuarios definitivo.
+5. Primera app real, `erp-propio/` (React 19 + Vite + TS + Tailwind 4 +
+   `@supabase/supabase-js`), con login individual, y 3 pantallas
+   conectadas de verdad a las tablas reales (Artículos, Clientes,
+   Proveedores: listado, búsqueda, alta) más un Resumen con contadores
+   en vivo. Build y `tsc` limpios, `oxlint` sin errores (1 aviso menor).
+
+**Cómo se verificó (y una limitación real encontrada)**: login real
+contra el proyecto (emite JWT válido), inserción y lectura autenticada
+funcionando contra las tablas reales, y lectura anónima bloqueada por
+RLS — las tres cosas probadas por **API REST directa** (idéntico al
+código que ejecuta la app vía `supabase-js`), no solo revisado a ojo.
+**No se consiguió completar la misma prueba dentro de un navegador real
+(Playwright)**: el tráfico HTTPS saliente de Chromium en este entorno de
+pruebas queda interceptado por un proxy propio del entorno de forma que
+ni las peticiones directas ni configurando el proxy explícitamente
+llegan a completarse (timeout) — probado varias vías (confianza del
+certificado, bypass de proxy para localhost, proxy explícito con token
+`<-loopback>`) sin éxito en el tiempo disponible. Es una limitación de
+*este* entorno de pruebas, no de la app — las llamadas de Node/curl a
+través del mismo proxy sí funcionan, y la build de producción compila
+limpia. **Queda pendiente que el propietario confirme con sus propios
+ojos que `npm run dev` funciona de verdad en su máquina** (no debería
+tener este problema, al no estar detrás de este proxy de entorno).
+
+**Qué NO se ha hecho todavía** (deliberado, fuera del alcance de "ya
+puedes empezar"): no se ha migrado ningún dato real de GeminisWin, no
+se ha tocado ninguna de las ~20 preguntas abiertas de las 6 fases, no
+hay pantallas para Stock/Compras/Pedidos/Ventas/Facturación (solo
+"Próximamente"), y el proyecto no está conectado a ningún dominio ni
+desplegado en Netlify/GitHub Pages — vive solo como `npm run dev` local
+por ahora.
+
+**Quién decide**: propietario ("luz verde para empezar a programar
+pantallas... sigue programando pantallas sin parar, hasta mañana").
+
+**Reversibilidad**: media — el proyecto Supabase y las 2 cuentas de
+prueba son reales y tienen que borrarse/cambiarse a mano si no se
+quieren conservar (no hay nada que un `git revert` deshaga); el código
+de `erp-propio/` en sí es tan reversible como cualquier commit normal.
