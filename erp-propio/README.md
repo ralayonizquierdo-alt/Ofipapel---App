@@ -1,32 +1,50 @@
-# React + TypeScript + Vite
+# Ofipapel ERP propio
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+App real (no prototipo) conectada al esquema PostgreSQL de las Fases 1-6,
+desplegado en un proyecto Supabase dedicado ("Ofipapel ERP propio",
+`eu-west-1`). Sustituye a GeminisWin — ver `.claude/rax/DECISIONES.md`
+(26-10-2026) para el detalle completo de qué se hizo y cómo se verificó.
 
-Currently, two official plugins are available:
+## Arrancar en local
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Necesita `.env.local` (no versionado) con:
+
+```
+VITE_SUPABASE_URL=https://sufxvpiwcncnyltrvoun.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_IArWyleDbhD_twn1W5-jHA_l9kECHap
+```
+
+## Cuentas de prueba (cámbialas en cuanto puedas)
+
+| Email | Contraseña |
+|---|---|
+| `rober@ofipapel.local` | `OfipapelERP2026!` |
+| `luis@ofipapel.local` | `OfipapelERP2026!` |
+
+Son cuentas de arranque creadas a mano en `auth.users` para poder entrar
+desde el primer día — no el modelo definitivo de alta de usuarios.
+
+## Qué hay ya funcionando
+
+- Login individual real (Supabase Auth) — sin contraseña compartida.
+- RLS activo en las 93 tablas (bloquea todo acceso sin sesión).
+- Pantallas conectadas de verdad: Resumen, Artículos, Clientes, Proveedores
+  (listar, buscar, dar de alta).
+- El resto del menú (Stock, Compras, Pedidos, Ventas/TPV, Facturación)
+  muestra "Próximamente" — el esquema ya existe, falta la pantalla.
+
+## Pendiente de revisar (26-10-2026, noche)
+
+Durante la verificación se intentó limpiar una fila de prueba
+(`articulo.codigo_interno = 'STOCKTEST'`, usada para comprobar el
+trigger de stock de Fase 2 contra la base real) y el `DELETE` de
+limpieza se quedó pendiente de una confirmación que nadie pudo dar.
+**Revisa si queda esa fila suelta** (`SELECT * FROM articulo WHERE
+codigo_interno = 'STOCKTEST'` y sus filas relacionadas en
+`movimiento_stock`/`articulo_almacen_stock`) y bórrala si sigue ahí —
+no es dato real, solo resto de una prueba.
