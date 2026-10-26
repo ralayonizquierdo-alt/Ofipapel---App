@@ -61,3 +61,21 @@ vía `fn_siguiente_numero()` (sin condiciones de carrera). Ambas
 comparten el mismo patrón: cabecera + líneas libres (código de
 artículo en texto, sin desplegable todavía) contra `pedido_proveedor`/
 `pedido_proveedor_linea` y `pedido_cliente`/`pedido_cliente_linea`.
+
+**Ventas / TPV** (Fase 5) ya abre y cierra caja de verdad
+(`caja_apertura_cierre`) y crea tickets de venta reales (`venta` +
+`venta_linea`) con su `movimiento_caja` de ingreso asociado — no deja
+vender si no hay caja abierta. Dos notas de implementación:
+- El número de sesión de caja (`ejercicio`) no pasa por
+  `fn_siguiente_numero()` porque `caja` no es un tipo de documento
+  numerable en `tipo_documento_numerable` (solo lo son `venta`,
+  `pedido_cliente`, `pedido_proveedor`, `caja`... pero este último es
+  para los *movimientos* de caja, no para la sesión) — se calcula como
+  `max(ejercicio)+1` por tienda, razonable con una sola tienda/terminal
+  activa hoy.
+- `empleado_apertura_codigo`/`empleado_cierre_codigo` llevan una FK a
+  `empleado`, que todavía no tiene vínculo real con `auth.users`. De
+  momento se deriva del email de sesión (`rober@ofipapel.local` →
+  `ROBER`), que coincide con los dos empleados ya sembrados — simplificación
+  temporal, pendiente de decidir el vínculo real cuando haya altas de
+  empleados desde la propia app.
