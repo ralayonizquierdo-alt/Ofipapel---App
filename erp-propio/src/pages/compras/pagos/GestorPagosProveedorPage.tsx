@@ -279,7 +279,7 @@ export function GestorPagosProveedorPage() {
         fechaPago: p.fechaPago,
         fechaVto: p.fechaVto,
         nDoc: p.nDoc ?? '',
-        totalDoc: d?.total ?? p.cuota,
+        totalDoc: d?.total ?? (p.cuota || p.importe),
         importe: pagado ? p.importe : 0,
         aPagar: pagado ? 0 : p.cuota || p.importe,
         fp: p.fp,
@@ -648,7 +648,7 @@ export function GestorPagosProveedorPage() {
           }}
           w="flex-1"
         >
-          <Settings2 size={15} /> Gen. <u>T</u>odos los Pagos
+          <Settings2 size={15} /> <span>Gen. <u>T</u>odos los Pagos</span>
         </BtnTxt>
       </div>
 

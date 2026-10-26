@@ -63,10 +63,10 @@ export const LINEA_COMPRA_COLS =
 
 export const ESTADOS_COMPRA = [
   { v: 'pendiente', t: 'Pendiente' },
-  { v: 'pendiente_confirmar', t: 'Pdte. Confirmar' },
+  { v: 'pendiente_confirmar', t: 'Pend. confirmar' },
   { v: 'confirmado', t: 'Confirmado' },
   { v: 'conformado', t: 'Conformado' },
-  { v: 'pendiente_entrega', t: 'Pdte. Entrega' },
+  { v: 'pendiente_entrega', t: 'Pend. entrega' },
   { v: 'recepcionado', t: 'Recepcionado' },
   { v: 'liquidado', t: 'Liquidado' },
 ]

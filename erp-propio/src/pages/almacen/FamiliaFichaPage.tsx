@@ -402,7 +402,7 @@ export function FamiliaFichaPage() {
                 <div className="flex flex-col gap-3 px-2 pt-3">
                   <div className="grid grid-cols-[230px_200px] items-center">
                     <span className="gw-label">Descripción de la impresora:</span>
-                    {texto('descripcion_corta', 'DESCRIMPR (descripción de la impresora; confirmar con Luis)', 15)}
+                    {texto('descripcion_corta', 'DESCRIMPR (descripción de la impresora del TPV)', 15)}
                   </div>
                   <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-y-2">
                     <span className="gw-label">Impresora:</span>

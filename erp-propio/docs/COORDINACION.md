@@ -129,3 +129,30 @@ artículo 149719, proveedor 05520, familia 209102, marca MIQUELRIUS.
   puede abrir la web de prueba porque su proxy bloquea netlify.app; para
   comparar pantallas hay que añadir `ofipapel-erp-propio-preview.netlify.app`
   en claude.ai → Ajustes → Capacidades → dominios permitidos.
+- 27/10/2026 · Cowork · Enviados ZIP 1 Ventas (33), 2 Compras (20), 3 Almacén
+  (19). Retoma lo pendiente cuando el PC vuelva a estar conectado.
+- 27/10/2026 · Cowork · TPV y Ventas/Facturas son el MISMO formulario (tabla
+  ventas). El TPV pide empleado+contraseña y abre una venta de contado (cliente
+  00002 en tienda 42). Cancelar NO consume número. → En el ERP coincide: TPV y
+  Ventas/Facturas comparten documento y el número se asigna al guardar.
+- 27/10/2026 · Cowork · Plantillas de tarifas: el usuario 008 recibe «No tiene
+  permiso para abrir este formulario»; «Almacenes» sale en gris por permisos.
+  → PENDIENTE en el ERP: permisos por formulario y grupo de acceso
+  (Empleados → grupo), con opciones de menú en gris según el grupo.
+- 27/10/2026 · Cowork · D.C. confirmado en Tiendas: Variable = 04, Fijo 1 = 01,
+  Fijo 2 = 02. → Coincide con lo implementado.
+- 27/10/2026 · Cowork · Estado del reparto: Generado / Entregado; estados de
+  línea 1 Anulado, 2 Pendiente, 3 Viene de reparto anterior, 4 Entregado,
+  5 Liquidado, 6 Devuelto, 7 No entregado. → Coincide con lo implementado.
+- 27/10/2026 · Cowork · Terminales de atención al público (confirmado por
+  Luis): 44, 45, 46, 48, A1, A2, AA. Oficinas/administración/pedidos/reparto:
+  41, 42, 43, 47, 52, 53, 54. Web: 60.
+- 27/10/2026 · Cowork · Familias: Luis quiere listados a 4 y 6 dígitos.
+  DESCRIMPR = «Descripción de la impresora» del TPV por familia (confirmado).
+  → Aplicado en la ficha de Familias; los listados quedan para el bloque
+  Listados.
+- 27/10/2026 · Cowork · Estados del pedido a proveedor: Pendiente, Pend.
+  confirmar, Confirmado, Conformado, Pend. entrega, Recepcionado, Liquidado.
+  Peticiones: Pendiente, Atendida, Parcial tramitada, Parcial resuelta,
+  Tramitada, Resuelta, Entregada, Anulada. → Se aplican al pedido a proveedor y
+  al gestor de pedidos a proveedores.
