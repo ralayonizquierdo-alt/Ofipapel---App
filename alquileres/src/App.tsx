@@ -1,9 +1,9 @@
-import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, BedDouble, Tag, PiggyBank, Receipt, BarChart3, FileSpreadsheet, History, Sparkles, ClipboardPaste, Settings, Menu, X, KeyRound, LogOut,
   PanelLeftClose, PanelLeftOpen, Building2, Grid3x3, RefreshCw,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import bgTrebol from './assets/bg-trebol.png'
 import LoginScreen from './components/LoginScreen'
 import MigrateLocalData from './components/MigrateLocalData'
@@ -73,6 +73,44 @@ const AL_HUB = '/inicio.html'
  * parte de limpieza es semanal, así que abre por lo que más se usa.
  */
 const INICIO: Record<Rol, string> = { gestion: '/dashboard', gastos: '/subir' }
+
+/**
+ * Recuerda en qué pantalla se estaba y vuelve a ella al abrir la aplicación.
+ *
+ * «Prefiero que las aplicaciones se abran en la última que estuviste»
+ * (propietario, 26/10/2026). Se guarda en el navegador de cada uno, no en la
+ * nube: es dónde está mirando uno, no un dato del negocio.
+ *
+ * Solo se recuerda la pantalla, sin lo que lleve detrás de la «?»: volver a
+ * «/reservas?edit=xxx» abriría sola la ficha de una reserva al entrar, que no
+ * es lo que nadie espera.
+ */
+function RecuerdaPantalla({ rol }: { rol: Rol }) {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const clave = `alquileres:ultimaPantalla:${rol}`
+  // Una marca, no un estado: volver a la última pantalla se hace una sola vez
+  // y no tiene que repintar nada.
+  const yaVolvio = useRef(false)
+
+  useEffect(() => {
+    if (yaVolvio.current) return
+    yaVolvio.current = true
+    // Solo se vuelve desde la pantalla de arranque: si se ha entrado con un
+    // enlace a otra cosa, manda el enlace.
+    if (location.pathname !== '/' && location.pathname !== INICIO[rol]) return
+    try {
+      const ultima = localStorage.getItem(clave)
+      if (ultima && ultima !== location.pathname) navigate(ultima, { replace: true })
+    } catch { /* sin localStorage: se queda donde está */ }
+  }, [location.pathname, navigate, clave, rol])
+
+  useEffect(() => {
+    try { localStorage.setItem(clave, location.pathname) } catch { /* da igual */ }
+  }, [clave, location.pathname])
+
+  return null
+}
 
 function NavItems({ rol, alerts, onClose, plegado }: { rol: Rol; alerts: number; onClose?: () => void; plegado?: boolean }) {
   return (
@@ -352,6 +390,7 @@ export default function App() {
               no tienen nada que preguntarle. */}
           {rol === 'gestion' && <PreguntarApp />}
           {/* Salta al entrar y vuelve cada vez hasta que no quede ninguno. */}
+          <RecuerdaPantalla rol={rol} />
           {rol === 'gestion' && <AvisoSolapes />}
           <main className="flex-1 overflow-auto">
             {/* Las rutas se montan según el rol: lo que alguien no puede ver

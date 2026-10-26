@@ -7,6 +7,7 @@ import Modal from '../components/ui/Modal'
 import { Pencil, Info, Printer, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import { MONTH_NAMES_ES } from '../lib/dateUtils'
 import { num, numSuelto } from '../lib/formato'
+import AplicarOferta from '../components/AplicarOferta'
 
 const APT_TYPE_LABELS: Record<ApartmentType, string> = {
   '1BR': '1 Dormitorio (104, 105)',
@@ -100,6 +101,8 @@ export default function Prices() {
   const [plegadas, setPlegadas] = useState<string[]>([])
   /** Mientras se imprime una oferta sola, el resto de la pantalla no sale. */
   const [soloOferta, setSoloOferta] = useState<string | null>(null)
+  /** La oferta que se está llevando a las reservas ya hechas. */
+  const [aplicando, setAplicando] = useState<OfferPrice | null>(null)
 
   /**
    * Imprime una oferta sola, que es como se le presenta a la agencia: se
@@ -253,6 +256,14 @@ export default function Prices() {
                   </p>
                 </div>
                 <div className="print:hidden flex items-center gap-2 shrink-0">
+                  {/* Llevar la oferta a las reservas de ese mes que ya
+                      estaban hechas: cambiar los precios aquí no las movía
+                      (propietario, 26/10/2026). */}
+                  <button onClick={() => setAplicando(op)}
+                    title="Aplicar esta oferta a las reservas de ese mes que ya estaban hechas"
+                    className="px-2 py-1.5 text-xs font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 rounded">
+                    Aplicar a las reservas
+                  </button>
                   <button onClick={() => imprimeOferta(op.id)}
                     title="Imprimir solo esta tarifa, o guardarla en PDF desde el mismo diálogo"
                     className="p-1.5 text-amber-700 hover:text-amber-900 rounded"><Printer size={15} /></button>
@@ -295,6 +306,10 @@ export default function Prices() {
 
       {editing && (
         <PriceEditModal entry={editing} onClose={() => setEditing(null)} />
+      )}
+
+      {aplicando && (
+        <AplicarOferta oferta={aplicando} onClose={() => setAplicando(null)} />
       )}
 
       {showOfferForm && (

@@ -84,6 +84,34 @@ export function partesDeAlojamiento(r: Reservation): Map<string, number> {
   return partes
 }
 
+/**
+ * El desglose de una estancia, mes a mes, tal y como lo escribe el propietario
+ * a mano (26/10/2026):
+ *
+ *   agosto       15-N      697,50
+ *   septiembre   30-N    1.395,00
+ *   ...
+ *   Limpieza                40,00
+ *   Total                4.707,50
+ *
+ * Es lo que sale al parar el ratón encima del importe o de las noches en
+ * Cobros. Solo tiene sentido en estancias que pasan de un mes; en una semana
+ * no hay nada que repartir.
+ */
+export interface LineaDesglose {
+  /** «AAAA-MM». */
+  mes: string
+  noches: number
+  importe: number
+}
+
+export function desglosePorMeses(r: Reservation): LineaDesglose[] {
+  const partes = partesDeAlojamiento(r)
+  return [...partes.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([mes, importe]) => ({ mes, noches: nochesEnMes(r, mes), importe }))
+}
+
 /** Lo devengado en ese mes: su parte de alojamiento y, si entra, la limpieza. */
 export function devengoDelMes(r: Reservation, mm: string, partes?: Map<string, number>): number {
   const p = (partes ?? partesDeAlojamiento(r)).get(mm) ?? 0
