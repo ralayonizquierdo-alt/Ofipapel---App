@@ -9,6 +9,8 @@ import LoginScreen from './components/LoginScreen'
 import MigrateLocalData from './components/MigrateLocalData'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import PreguntarApp from './components/PreguntarApp'
+import AvisoSolapes from './components/AvisoSolapes'
+import { solapes } from './lib/solapes'
 import { useData } from './contexts/DataContext'
 import { observarSesion, rolDe, salir, usuarioDe, type Rol, type UsuarioApp } from './lib/auth'
 import Dashboard from './pages/Dashboard'
@@ -275,7 +277,10 @@ export default function App() {
 
   const alertCount = useMemo(() => {
     const today = new Date()
-    return reservations.filter(r => {
+    // Los solapes van en la cuenta del globo: son lo más urgente que puede
+    // haber, y así se ven desde cualquier pantalla sin entrar en el panel.
+    const pisadas = solapes(reservations).length
+    return pisadas + reservations.filter(r => {
       if (r.status === 'cancelada') return false
       if (new Date(r.checkOut) < today) return false
       const paid = payments
@@ -345,6 +350,8 @@ export default function App() {
               ve el dinero. Mónica y Cande entran solo a subir el parte, así que
               no tienen nada que preguntarle. */}
           {rol === 'gestion' && <PreguntarApp />}
+          {/* Salta al entrar y vuelve cada vez hasta que no quede ninguno. */}
+          {rol === 'gestion' && <AvisoSolapes />}
           <main className="flex-1 overflow-auto">
             {/* Las rutas se montan según el rol: lo que alguien no puede ver
                 no existe para su sesión, así que escribir «/cobros» a mano
