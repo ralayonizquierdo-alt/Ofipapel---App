@@ -7,6 +7,7 @@ import { BarButton, BIG_INPUT, chunks, fechaEs, LocalizarDialog } from '../../ve
 import { ordenar, Rejilla, type Col, type Orden } from '../../ventas/gestores/rejilla'
 import { BarraGestor, buscarFila, Contador } from './barra'
 import { colorProveedor, type OpcionesGestorCompras } from './opciones'
+import { recalcularTotalesPedido } from '../pedidos/totales'
 
 const TIENDA = '01' // única tienda sembrada por ahora, igual que ComprasPage
 
@@ -203,6 +204,9 @@ export function TabPropuestas({
       setCargando(false)
       return
     }
+    // IGIC de cada artículo, para que las líneas y los totales del pedido salgan bien calculados.
+    const { data: igics } = await supabase.from('articulo').select('codigo_interno, igic_pct').in('codigo_interno', [...new Set(marcados.map((r) => r.articulo))])
+    const igicDe = new Map((igics ?? []).map((a) => [a.codigo_interno as string, Number(a.igic_pct ?? 0)]))
     const creados: string[] = []
     const hechos = new Set<string>()
     for (const [proveedor, lineas] of porProv) {
@@ -233,10 +237,17 @@ export function TabPropuestas({
           descripcion: l.descripcion,
           cantidad: l.aPedir,
           precio_compra: l.precio,
+          igic_pct: igicDe.get(l.articulo) ?? 0,
         })),
       )
       if (eLin) {
         onError(`Pedido ${TIENDA}/${numero}: ${eLin.message}`)
+        break
+      }
+      try {
+        await recalcularTotalesPedido(TIENDA, numero as number)
+      } catch (e) {
+        onError(`Pedido ${TIENDA}/${numero}: ${(e as Error).message}`)
         break
       }
       creados.push(`${TIENDA}/${numero}`)

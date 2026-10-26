@@ -48,26 +48,26 @@ construida.
 | Repartidores | Calcada salvo Comisiones y Bancos |
 | Zonas territoriales · Rutas de reparto | Calcada salvo Observaciones e imagen |
 
-### Compras (en construcción)
+### Compras
 | Pantalla | Estado |
 |---|---|
-| Menú Compras | En curso |
-| Pedido a proveedor · Creación rápida de pedidos | En curso |
-| Pagos · Gestor de pagos | En curso (solo primera vista del gestor) |
-| Facturas de proveedor | En curso |
-| Gestor de pedidos a proveedores | En curso |
-| Proveedores | En curso (Bancos y Observaciones e imagen sin captura) |
-| Transportistas | En curso (Enlaces, Bancos, Observaciones, Compras sin captura) |
+| Menú Compras | Calcada (opciones sin captura en gris) |
+| Pedido a proveedor · Creación rápida de pedidos | Calcada (estados de Cowork; Actualizado → Recepcionado, Pagado → Liquidado) |
+| Pagos · Gestor de pagos | Calcada (gestor: solo la primera vista, faltan capturas) |
+| Facturas de proveedor | Calcada |
+| Gestor de pedidos a proveedores | Calcada (los pedidos generados ya guardan totales e IGIC) |
+| Proveedores | Calcada salvo Bancos y Observaciones e imagen |
+| Transportistas | Datos generales calcada; Enlaces, Bancos, Observaciones y Compras sin captura |
 | Listados de pedidos/facturas, Peticiones de artículos, Generar petición | Gris |
 
-### Almacén (en construcción)
+### Almacén
 | Pantalla | Estado |
 |---|---|
 | Artículos (12 vistas) | Calcada |
-| Familias · Marcas · Plantillas de tarifas | En curso (calcando) |
-| Tarifas de oferta · Modificación de precios | En curso |
-| Traspasos · Regularización de stock | En curso |
-| Inventarios | En curso |
+| Familias · Marcas · Plantillas de tarifas | Calcada |
+| Tarifas de oferta · Modificación de precios | Calcada |
+| Traspasos · Regularización de stock | Calcada |
+| Inventarios | Calcada (columnas cortadas pendientes de captura) |
 | Creación rápida, listados, movimientos, etiquetas, lotes, inventariar almacén, modificación en bloque, PLU's | Gris |
 
 ### Caja · Facturación · Maestros · Listados
@@ -106,6 +106,8 @@ pantalla llevan la marca «confirmar con Luis».
   «Renumerar orden de entrega».
 - Vendedores: formato de código (se propone 3 dígitos).
 - Familias: si DESCRIMPR es la descripción de la impresora del TPV.
+- Pedido a proveedor: cómo reparte GeminisWin los gastos (transporte, otros)
+  entre líneas para el coste de entrada; si un «Abono» debe tocar costes.
 
 ## Datos de prueba en la base de datos
 
@@ -114,7 +116,13 @@ Supabase: artículos ZZTEST-001 y ZZTEST-002, proveedor ZZPROV, cliente 00001
 «CLIENTE DE PRUEBA E2E», pedido 01-4 y venta 01-8, venta 01-9 con su cobro,
 reparación 01/5, Nº de serie PRUEBA-SERIE-001, vendedor 001, ruta 99, zona
 9999, repartidor 999, una caja abierta en la tienda 01 y el stock negativo del
-artículo 149719 en el almacén 01. Datos reales de referencia que se quedan:
+artículo 149719 en el almacén 01. De Compras y Almacén: pedidos a
+proveedor 01/6, 01/7 (mal grabado, a coste 0) y 01/8 (Liquidado, sumó 20
+unidades en el almacén 01 y recalculó los costes de 149719), factura de
+proveedor 01/1, pago 01-2 anulado y movimiento de caja 01-4, transportista
+000001, almacén 98, traspaso 01/2, regularización 01/2, inventario 01-2 con sus
+puntos de restauración y lote de modificación de precios 0000000001; artículo
+PRUEBA-GPP1. Datos reales de referencia que se quedan:
 artículo 149719, proveedor 05520, familia 209102, marca MIQUELRIUS.
 
 ## Notas de otros chats
