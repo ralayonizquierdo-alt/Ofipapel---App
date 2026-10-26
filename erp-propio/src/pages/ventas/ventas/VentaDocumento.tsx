@@ -675,7 +675,7 @@ export function VentaDocumento({
           </legend>
           <div className="flex flex-1 flex-col gap-1.5">
             <div className="flex gap-1.5">
-              <input className="gw-input !h-[42px] !w-[118px] !text-[34px]" readOnly value={empleadoVenta?.codigo ?? ''} />
+              <input className="gw-input !h-[42px] !w-[150px] !text-[30px]" readOnly value={empleadoVenta?.codigo ?? ''} />
               <button type="button" className="gw-btn !h-[52px] !flex-1 !text-[30px] !font-bold" onClick={cambiarEmpleado} title="Cerrar la sesión y entrar con otro empleado">
                 Cambiar Empleado
               </button>
