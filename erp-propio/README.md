@@ -5,6 +5,21 @@ desplegado en un proyecto Supabase dedicado ("Ofipapel ERP propio",
 `eu-west-1`). Sustituye a GeminisWin — ver `.claude/rax/DECISIONES.md`
 (26-10-2026) para el detalle completo de qué se hizo y cómo se verificó.
 
+## Preview desplegada (26-10-2026)
+
+Sitio Netlify **separado** de los de producción de Ofipapel (no está
+en `netlify.toml` del monorepo, no se toca nada compartido):
+
+**https://ofipapel-erp-propio-preview.netlify.app**
+
+Desplegado como subida manual del `dist/` ya compilado (no hay CD por
+git configurado todavía) — para actualizarlo tras un cambio, repetir
+`VITE_BASE_PATH=/ npm run build` y volver a desplegar `dist/` a ese
+mismo `siteId`. Lleva un `_redirects` (`/* /index.html 200`) para que
+las rutas de React Router no den 404 al recargar. Sin contraseña de
+sitio — lo único que protege los datos es el login real de la propia
+app (Supabase Auth + RLS), igual que en local.
+
 ## Arrancar en local
 
 ```bash
