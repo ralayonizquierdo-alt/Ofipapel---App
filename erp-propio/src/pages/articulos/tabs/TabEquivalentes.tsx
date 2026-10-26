@@ -1,21 +1,30 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ExternalLink, Plus, Trash2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Binoculars, Check, ExternalLink, Plus, Trash2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { TextInput } from '../../../components/FormField'
+import { GwInput, GwLookupButton } from '../../../components/gw'
+import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import type { ArticuloEquivalencia } from '../types'
 
-interface Sugerencia {
+interface ArticuloLookup extends Record<string, unknown> {
   codigo_interno: string
   descripcion: string
 }
 
+const LOOKUP_COLS = [
+  { key: 'codigo_interno', label: 'Código Interno', width: 140 },
+  { key: 'descripcion', label: 'Descripción' },
+]
+const LOOKUP_SEARCH = ['codigo_interno', 'descripcion']
+
 export function TabEquivalentes({ articuloCodigo }: { articuloCodigo: string }) {
+  const navigate = useNavigate()
   const [rows, setRows] = useState<ArticuloEquivalencia[]>([])
   const [existentes, setExistentes] = useState<Set<string>>(new Set())
+  const [sel, setSel] = useState<number | null>(null)
+  const [adding, setAdding] = useState(false)
   const [nueva, setNueva] = useState({ codigo_equivalente: '', descripcion_1: '', descripcion_2: '' })
-  const [busqueda, setBusqueda] = useState('')
-  const [sugerencias, setSugerencias] = useState<Sugerencia[]>([])
+  const [lookup, setLookup] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function load() {
@@ -42,33 +51,27 @@ export function TabEquivalentes({ articuloCodigo }: { articuloCodigo: string }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [articuloCodigo])
 
-  useEffect(() => {
-    if (busqueda.trim().length < 2) {
-      setSugerencias([])
-      return
-    }
-    const t = setTimeout(async () => {
-      const q = busqueda.trim()
-      const { data } = await supabase
-        .from('articulo')
-        .select('codigo_interno, descripcion')
-        .or(`codigo_interno.ilike.%${q}%,descripcion.ilike.%${q}%`)
-        .neq('codigo_interno', articuloCodigo)
-        .limit(8)
-      setSugerencias(data ?? [])
-    }, 200)
-    return () => clearTimeout(t)
-  }, [busqueda, articuloCodigo])
+  async function resolverCodigo(codigo: string) {
+    const c = codigo.trim()
+    if (!c) return
+    const { data } = await supabase.from('articulo').select('descripcion').eq('codigo_interno', c).maybeSingle()
+    if (data) setNueva((n) => ({ ...n, codigo_equivalente: c, descripcion_1: n.descripcion_1 || data.descripcion }))
+  }
 
-  function elegir(s: Sugerencia) {
-    setNueva({ ...nueva, codigo_equivalente: s.codigo_interno, descripcion_1: s.descripcion })
-    setBusqueda(s.codigo_interno)
-    setSugerencias([])
+  function empezar() {
+    setError(null)
+    setNueva({ codigo_equivalente: '', descripcion_1: '', descripcion_2: '' })
+    setAdding(true)
+  }
+
+  function cancelar() {
+    setAdding(false)
+    setError(null)
   }
 
   async function add() {
     setError(null)
-    const codigo = (nueva.codigo_equivalente || busqueda).trim()
+    const codigo = nueva.codigo_equivalente.trim()
     if (!codigo) {
       setError('Indica el código equivalente.')
       return
@@ -91,100 +94,118 @@ export function TabEquivalentes({ articuloCodigo }: { articuloCodigo: string }) 
       setError(err.message)
       return
     }
-    setNueva({ codigo_equivalente: '', descripcion_1: '', descripcion_2: '' })
-    setBusqueda('')
+    setAdding(false)
     load()
   }
 
-  async function remove(r: ArticuloEquivalencia) {
-    if (!r.id) return
+  async function remove() {
+    const r = rows.find((x) => x.id === sel)
+    if (!r?.id) return
     if (!confirm(`¿Borrar la equivalencia con ${r.codigo_equivalente}?`)) return
     const { error: err } = await supabase.from('articulo_equivalencia').delete().eq('id', r.id)
     if (err) setError(err.message)
-    else load()
+    else {
+      setSel(null)
+      load()
+    }
   }
 
+  const selRow = rows.find((x) => x.id === sel)
+
   return (
-    <div className="flex flex-col gap-3">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Artículos equivalentes o sustitutos (EQUIVALE)</h3>
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-      <div className="overflow-visible rounded-lg border border-slate-200">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <th className="px-3 py-2">Código equivalente</th>
-              <th className="px-3 py-2">Descripción 1</th>
-              <th className="px-3 py-2">Descripción 2</th>
-              <th className="w-10 px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-3 py-4 text-center text-slate-400">Sin equivalentes.</td>
-              </tr>
-            )}
-            {rows.map((r) => (
-              <tr key={r.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-3 py-2 font-mono text-xs">
-                  {existentes.has(r.codigo_equivalente) ? (
-                    <Link to={`/articulos/${encodeURIComponent(r.codigo_equivalente)}`} className="inline-flex items-center gap-1 text-indigo-700 hover:underline">
-                      {r.codigo_equivalente} <ExternalLink size={12} />
-                    </Link>
-                  ) : (
-                    r.codigo_equivalente
-                  )}
-                </td>
-                <td className="px-3 py-2">{r.descripcion_1 ?? '—'}</td>
-                <td className="px-3 py-2">{r.descripcion_2 ?? '—'}</td>
-                <td className="px-3 py-2">
-                  <button type="button" onClick={() => remove(r)} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Borrar línea">
-                    <Trash2 size={14} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-slate-200 bg-slate-50 align-top">
-              <td className="relative px-3 py-1.5">
-                <TextInput
-                  className="w-full py-1"
-                  placeholder="Buscar código o descripción…"
-                  value={busqueda}
-                  onChange={(e) => {
-                    setBusqueda(e.target.value)
-                    setNueva({ ...nueva, codigo_equivalente: '' })
-                  }}
-                />
-                {sugerencias.length > 0 && (
-                  <ul className="absolute left-3 right-3 z-10 mt-1 max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-                    {sugerencias.map((s) => (
-                      <li key={s.codigo_interno}>
-                        <button type="button" onClick={() => elegir(s)} className="flex w-full gap-2 px-3 py-1.5 text-left text-sm hover:bg-indigo-50">
-                          <span className="font-mono text-xs text-slate-500">{s.codigo_interno}</span>
-                          <span className="truncate">{s.descripcion}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </td>
-              <td className="px-3 py-1.5">
-                <TextInput className="w-full py-1" value={nueva.descripcion_1} onChange={(e) => setNueva({ ...nueva, descripcion_1: e.target.value })} />
-              </td>
-              <td className="px-3 py-1.5">
-                <TextInput className="w-full py-1" value={nueva.descripcion_2} onChange={(e) => setNueva({ ...nueva, descripcion_2: e.target.value })} />
-              </td>
-              <td className="px-3 py-1.5">
-                <button type="button" onClick={add} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-50" title="Añadir">
-                  <Plus size={14} />
-                </button>
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex gap-1">
+        <button type="button" className="gw-btn" onClick={empezar} disabled={adding}>
+          <Plus size={14} /> Añadir línea
+        </button>
+        <button type="button" className="gw-btn" onClick={remove} disabled={!selRow || adding}>
+          <Trash2 size={14} /> Borrar línea
+        </button>
+        <button type="button" className="gw-btn" onClick={() => { if (!adding) empezar(); setLookup(true) }}>
+          <Binoculars size={14} /> Buscar artículo
+        </button>
+        <button
+          type="button"
+          className="gw-btn"
+          disabled={!selRow || !existentes.has(selRow.codigo_equivalente)}
+          onClick={() => selRow && navigate(`/articulos/${encodeURIComponent(selRow.codigo_equivalente)}`)}
+        >
+          <ExternalLink size={14} /> Ir al artículo
+        </button>
       </div>
+      {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
+      <table className="gw-grid" title="EQUIVALE">
+        <thead>
+          <tr>
+            <th style={{ width: 200 }}>Código Equivalente</th>
+            <th>Descripción 1</th>
+            <th>Descripción 2</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && !adding && (
+            <tr>
+              <td colSpan={3} className="text-center text-[#6d6d6d]">Sin equivalentes.</td>
+            </tr>
+          )}
+          {rows.map((r) => (
+            <tr
+              key={r.id}
+              className={sel === r.id ? 'gw-selected' : ''}
+              onClick={() => setSel(r.id ?? null)}
+              onDoubleClick={() => existentes.has(r.codigo_equivalente) && navigate(`/articulos/${encodeURIComponent(r.codigo_equivalente)}`)}
+            >
+              <td>{r.codigo_equivalente}</td>
+              <td>{r.descripcion_1 ?? ''}</td>
+              <td>{r.descripcion_2 ?? ''}</td>
+            </tr>
+          ))}
+          {adding && (
+            <tr>
+              <td>
+                <div className="flex">
+                  <GwInput
+                    autoFocus
+                    value={nueva.codigo_equivalente}
+                    onChange={(e) => setNueva({ ...nueva, codigo_equivalente: e.target.value })}
+                    onBlur={(e) => resolverCodigo(e.target.value)}
+                  />
+                  <GwLookupButton onClick={() => setLookup(true)} title="Buscar artículo" />
+                </div>
+              </td>
+              <td>
+                <GwInput value={nueva.descripcion_1} onChange={(e) => setNueva({ ...nueva, descripcion_1: e.target.value })} />
+              </td>
+              <td>
+                <div className="flex gap-1">
+                  <GwInput value={nueva.descripcion_2} onChange={(e) => setNueva({ ...nueva, descripcion_2: e.target.value })} />
+                  <button type="button" className="gw-btn px-1.5" title="Aceptar" onClick={add}>
+                    <Check size={14} className="text-[#127a12]" />
+                  </button>
+                  <button type="button" className="gw-btn px-1.5" title="Cancelar" onClick={cancelar}>
+                    <X size={14} className="text-[#c42b1c]" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      {lookup && (
+        <GwLookupDialog<ArticuloLookup>
+          title="Artículos"
+          table="articulo"
+          columns={LOOKUP_COLS}
+          searchColumns={LOOKUP_SEARCH}
+          orderBy="codigo_interno"
+          keyColumn="codigo_interno"
+          onClose={() => setLookup(false)}
+          onPick={(a) => {
+            setNueva((n) => ({ ...n, codigo_equivalente: a.codigo_interno, descripcion_1: a.descripcion }))
+            setLookup(false)
+          }}
+        />
+      )}
     </div>
   )
 }

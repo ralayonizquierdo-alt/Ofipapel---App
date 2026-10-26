@@ -1,47 +1,51 @@
-import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react'
-import { Plus, Trash2, Calculator, Save } from 'lucide-react'
-import { supabase } from '../../../lib/supabase'
-import { FormField, TextInput, SelectInput } from '../../../components/FormField'
-import { Toggle } from '../../../components/Toggle'
-import { type Articulo, type ArticuloPrecioNivel, type ArticuloCodigoBarras, NIVELES_TARIFA } from '../types'
+import { useState, type ReactNode } from 'react'
+import {
+  GwCheck,
+  GwField,
+  GwGroup,
+  GwInline,
+  GwInput,
+  GwLookupButton,
+  GwNumber,
+  GwRadio,
+  GwSelect,
+  formatGw,
+} from '../../../components/gw'
+import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
+import type { Articulo, ArticuloPrecioNivel } from '../types'
+import { costeBase, margenReal, type NivelPatch } from '../pricing'
 
 type Patch = Partial<Articulo>
 
-function toNum(v: string): number | null {
-  if (v === '') return null
-  const n = Number(v)
-  return Number.isNaN(n) ? null : n
-}
+const NOMBRES_PVP = ['General:', 'MAYOR  M-1:', 'MAYOR  M-2:', 'MAYOR  M-3:', 'Tarifa Dcto -4:', 'Tarifa Dcto -5:', 'Tarifa Dcto -6:']
+const UNIDADES = ['UNIDAD', 'CAJA', 'PAQUETE', 'KG', 'LITRO', 'METRO', 'HORA']
 
-function round2(n: number) {
-  return Math.round(n * 100) / 100
-}
-
-function fmtDate(v: string | null) {
-  if (!v) return '—'
-  const d = new Date(v)
+function fecha(v: string | null, conHora = false) {
+  if (!v) return conHora ? '  /  /' : '  /  /'
+  const d = new Date(v.length === 10 ? `${v}T00:00:00` : v)
   if (Number.isNaN(d.getTime())) return v
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const f = d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return conHora ? `${f} ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : f
 }
 
-function Section({ title, children, cols = 'sm:grid-cols-2 lg:grid-cols-4' }: { title: string; children: ReactNode; cols?: string }) {
+function Fecha({ label, value, conHora, labelWidth = 92 }: { label: string; value: string | null; conHora?: boolean; labelWidth?: number }) {
   return (
-    <section className="flex flex-col gap-3">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</h3>
-      <div className={`grid grid-cols-1 gap-3 ${cols}`}>{children}</div>
-    </section>
+    <div className="flex items-center gap-1">
+      <span className="gw-label" style={{ width: labelWidth }}>
+        {label}
+      </span>
+      <GwInput readOnly value={fecha(value, conHora)} className={conHora ? '!w-[150px]' : '!w-[118px]'} />
+    </div>
   )
 }
 
-function emptyNiveles(codigo: string): ArticuloPrecioNivel[] {
-  return NIVELES_TARIFA.map((n) => ({
-    articulo_codigo: codigo,
-    nivel_tarifa: n.nivel,
-    pvp: 0,
-    incremento_pct: null,
-    modo_calculo: n.nivel >= 4 ? 'D' : 'P',
-    permite_descuento_linea: true,
-  }))
+function CosteRow({ label, title, children }: { label: string; title: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col" title={title}>
+      <span className="gw-label">{label}</span>
+      {children}
+    </div>
+  )
 }
 
 export function TabCaracteristicas({
@@ -49,383 +53,288 @@ export function TabCaracteristicas({
   editing,
   onChange,
   plantillas,
+  niveles,
+  onNivelChange,
+  preciosCargados,
 }: {
   articulo: Articulo
   editing: boolean
   onChange: (patch: Patch) => void
   plantillas: { codigo: string; nombre: string }[]
+  niveles: ArticuloPrecioNivel[]
+  onNivelChange: (nivel: number, patch: NivelPatch) => void
+  preciosCargados: boolean
 }) {
-  const codigo = articulo.codigo_interno
   const disabled = !editing
+  const preciosDisabled = disabled || !preciosCargados
+  const [buscarPlantilla, setBuscarPlantilla] = useState(false)
+  const base = costeBase(articulo)
 
-  const [niveles, setNiveles] = useState<ArticuloPrecioNivel[]>(() => emptyNiveles(codigo))
-  const [preciosCargados, setPreciosCargados] = useState(false)
-  const [savingPrecios, setSavingPrecios] = useState(false)
-  const [preciosMsg, setPreciosMsg] = useState<string | null>(null)
-  const [barras, setBarras] = useState<ArticuloCodigoBarras[]>([])
-  const [nuevoBarra, setNuevoBarra] = useState({ codigo_barras: '', unidades_por_codigo: '', unidad_descripcion: '' })
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!codigo) return
-    setPreciosCargados(false)
-    supabase
-      .from('articulo_precio_nivel')
-      .select('*')
-      .eq('articulo_codigo', codigo)
-      .then(({ data }) => {
-        const base = emptyNiveles(codigo)
-        for (const row of (data ?? []) as ArticuloPrecioNivel[]) {
-          const i = base.findIndex((b) => b.nivel_tarifa === row.nivel_tarifa)
-          if (i >= 0) base[i] = { ...row, pvp: Number(row.pvp), incremento_pct: row.incremento_pct == null ? null : Number(row.incremento_pct) }
-        }
-        setNiveles(base)
-        setPreciosCargados(true)
-      })
-    loadBarras()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [codigo])
-
-  async function loadBarras() {
-    const { data } = await supabase.from('articulo_codigo_barras').select('*').eq('articulo_codigo', codigo).order('id')
-    setBarras((data ?? []) as ArticuloCodigoBarras[])
+  const num = (key: keyof Articulo, decimals = 3) => (
+    <GwNumber
+      value={articulo[key] as number | null}
+      decimals={decimals}
+      disabled={disabled}
+      emptyAsZero
+      onChange={(v) => onChange({ [key]: v } as Patch)}
+    />
+  )
+  const check = (key: keyof Articulo, label: string, extraDisabled = false, title?: string) => (
+    <span title={title}>
+      <GwCheck label={label} checked={Boolean(articulo[key])} disabled={disabled || extraDisabled} onChange={(v) => onChange({ [key]: v } as Patch)} />
+    </span>
+  )
+  const unidadSelect = (key: 'unidad_medida' | 'unidad_medida_base') => {
+    const actual = articulo[key]
+    const opciones = actual && !UNIDADES.includes(actual) ? [actual, ...UNIDADES] : UNIDADES
+    return (
+      <GwSelect value={actual ?? ''} disabled={disabled} onChange={(e) => onChange({ [key]: e.target.value || null } as Patch)}>
+        <option value="" />
+        {opciones.map((u) => (
+          <option key={u} value={u}>
+            {u}
+          </option>
+        ))}
+      </GwSelect>
+    )
   }
-
-  function num<K extends keyof Articulo>(key: K) {
-    return {
-      type: 'number' as const,
-      step: 'any',
-      value: (articulo[key] ?? '') as string | number,
-      onChange: (e: ChangeEvent<HTMLInputElement>) => onChange({ [key]: toNum(e.target.value) } as Patch),
-      disabled,
-    }
-  }
-
-  function text<K extends keyof Articulo>(key: K) {
-    return {
-      value: (articulo[key] ?? '') as string,
-      onChange: (e: ChangeEvent<HTMLInputElement>) => onChange({ [key]: e.target.value === '' ? null : e.target.value } as Patch),
-      disabled,
-    }
-  }
-
-  function bool<K extends keyof Articulo>(key: K, label: string, extraDisabled = false) {
-    return <Toggle label={label} checked={Boolean(articulo[key])} disabled={disabled || extraDisabled} onChange={(v) => onChange({ [key]: v } as Patch)} />
-  }
-
-  function setNivel(nivel: number, patch: Partial<ArticuloPrecioNivel>) {
-    setNiveles((prev) => prev.map((n) => (n.nivel_tarifa === nivel ? { ...n, ...patch } : n)))
-    if (nivel === 0 && patch.pvp !== undefined) onChange({ pvp: patch.pvp })
-  }
-
-  function calcularDesdeCoste() {
-    const base = Number(articulo.coste_neto ?? articulo.coste_puro ?? 0)
-    const general = niveles.find((n) => n.nivel_tarifa === 0)
-    let pvpGeneral = general?.pvp ?? 0
-    if (general && general.modo_calculo !== 'D' && general.incremento_pct != null)
-      pvpGeneral = round2(base * (1 + Number(general.incremento_pct) / 100))
-    const next = niveles.map((n) => {
-      if (n.nivel_tarifa === 0) return { ...n, pvp: pvpGeneral }
-      // Sin margen indicado se respeta el PVP actual: recalcular con 0 % dejaría la tarifa a precio de coste.
-      if (n.incremento_pct == null) return n
-      const inc = Number(n.incremento_pct)
-      if (n.modo_calculo === 'D') return { ...n, pvp: round2(pvpGeneral * (1 - inc / 100)) }
-      return { ...n, pvp: round2(base * (1 + inc / 100)) }
-    })
-    setNiveles(next)
-    onChange({ pvp: pvpGeneral })
-  }
-
-  async function guardarPrecios() {
-    setSavingPrecios(true)
-    setPreciosMsg(null)
-    const rows = niveles.map((n) => ({ ...n, articulo_codigo: codigo, pvp: n.pvp ?? 0 }))
-    const { error: err } = await supabase.from('articulo_precio_nivel').upsert(rows, { onConflict: 'articulo_codigo,nivel_tarifa' })
-    setSavingPrecios(false)
-    setPreciosMsg(err ? err.message : 'Precios guardados.')
-  }
-
-  async function addBarra() {
-    if (!nuevoBarra.codigo_barras.trim()) return
-    setError(null)
-    const { error: err } = await supabase.from('articulo_codigo_barras').insert({
-      articulo_codigo: codigo,
-      codigo_barras: nuevoBarra.codigo_barras.trim(),
-      unidades_por_codigo: toNum(nuevoBarra.unidades_por_codigo),
-      unidad_descripcion: nuevoBarra.unidad_descripcion || null,
-      digitos_barras: nuevoBarra.codigo_barras.trim().length,
-    })
-    if (err) {
-      setError(err.code === '23505' ? `El código de barras ${nuevoBarra.codigo_barras.trim()} ya está asignado a otro artículo.` : err.message)
-      return
-    }
-    setNuevoBarra({ codigo_barras: '', unidades_por_codigo: '', unidad_descripcion: '' })
-    loadBarras()
-  }
-
-  async function deleteBarra(id?: number) {
-    if (id == null) return
-    const { error: err } = await supabase.from('articulo_codigo_barras').delete().eq('id', id)
-    if (err) setError(err.message)
-    else loadBarras()
-  }
-
-  const igic = Number(articulo.igic_pct ?? 0)
-  const modificaPvp = Boolean(articulo.permite_modificar_pvp_al_vender)
 
   return (
-    <div className="flex flex-col gap-6">
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+    <div className="flex flex-col gap-1.5">
+      <div className="grid grid-cols-[170px_minmax(0,1fr)_minmax(0,390px)] gap-2">
+        <GwGroup title="Precios de coste" className="flex flex-col gap-0.5">
+          <CosteRow label="Coste Puro Prov." title="COSTE_PURO">
+            {num('coste_puro')}
+          </CosteRow>
+          <CosteRow label="Coste Neto:" title="COSTE_NETO">
+            {num('coste_neto')}
+          </CosteRow>
+          <CosteRow label="Coste Bruto:" title="COSTE_BRUT">
+            {num('coste_bruto')}
+          </CosteRow>
+          <CosteRow label="Coste Líquido:" title="PRECIO_LIQ">
+            {num('precio_liquidado')}
+          </CosteRow>
+          <CosteRow label="Precio Liq. Medio:" title="PM_COMPRA">
+            {num('precio_medio_compra')}
+          </CosteRow>
+          <CosteRow label="Proveedor Local:" title="COST_LOCAL">
+            {num('coste_local')}
+          </CosteRow>
+        </GwGroup>
 
-      <Section title="Costes" cols="sm:grid-cols-3 lg:grid-cols-7">
-        <FormField label="Coste puro proveedor" hint="COSTE_PURO"><TextInput {...num('coste_puro')} /></FormField>
-        <FormField label="Coste neto" hint="COSTE_NETO"><TextInput {...num('coste_neto')} /></FormField>
-        <FormField label="Coste bruto" hint="COSTE_BRUT"><TextInput {...num('coste_bruto')} /></FormField>
-        <FormField label="Precio líquido" hint="PRECIO_LIQ"><TextInput {...num('precio_liquidado')} /></FormField>
-        <FormField label="Precio líquido medio" hint="PM_COMPRA"><TextInput {...num('precio_medio_compra')} /></FormField>
-        <FormField label="Coste proveedor local" hint="COST_LOCAL"><TextInput {...num('coste_local')} /></FormField>
-        <div className="flex items-end pb-2">{bool('calcular_coste_automatico', 'Calcular coste automático')}</div>
-      </Section>
-
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Tarifas de venta (7 PVP)</h3>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={calcularDesdeCoste}
-              disabled={disabled || !preciosCargados}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-            >
-              <Calculator size={14} /> Calcular desde coste
-            </button>
-            <button
-              type="button"
-              disabled={disabled || savingPrecios || !preciosCargados}
-              onClick={guardarPrecios}
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-40"
-            >
-              <Save size={14} /> {savingPrecios ? 'Guardando…' : 'Guardar precios'}
-            </button>
-          </div>
-        </div>
-        {preciosMsg && <p className="text-xs text-slate-500">{preciosMsg}</p>}
-        <div className="overflow-x-auto rounded-xl border border-slate-200">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-2">Tarifa</th>
-                <th className="px-3 py-2">Modo</th>
-                <th className="px-3 py-2">Margen / Dto %</th>
-                <th className="px-3 py-2">PVP sin impuesto</th>
-                <th className="px-3 py-2">PVP con IGIC</th>
-                <th className="px-3 py-2">Dto. en línea</th>
-              </tr>
-            </thead>
-            <tbody>
-              {niveles.map((n) => {
-                const nombre = NIVELES_TARIFA.find((t) => t.nivel === n.nivel_tarifa)?.nombre
-                return (
-                  <tr key={n.nivel_tarifa} className="border-b border-slate-100 last:border-0">
-                    <td className="px-3 py-1.5 font-medium text-slate-700">
-                      {nombre} <span className="text-xs text-slate-400">PVP_{n.nivel_tarifa}</span>
-                    </td>
-                    <td className="px-3 py-1.5">
-                      <SelectInput
-                        disabled={disabled || !preciosCargados}
-                        value={n.modo_calculo ?? 'P'}
-                        onChange={(e) => setNivel(n.nivel_tarifa, { modo_calculo: e.target.value })}
-                        className="py-1"
-                      >
-                        <option value="P">P — % sobre coste</option>
-                        <option value="D">D — % dto. sobre General</option>
-                      </SelectInput>
-                    </td>
-                    <td className="px-3 py-1.5">
-                      <TextInput
-                        type="number"
-                        step="any"
-                        disabled={disabled || !preciosCargados}
-                        value={n.incremento_pct ?? ''}
-                        onChange={(e) => setNivel(n.nivel_tarifa, { incremento_pct: toNum(e.target.value) })}
-                        className="w-24 py-1"
-                      />
-                    </td>
-                    <td className="px-3 py-1.5">
-                      <TextInput
-                        type="number"
-                        step="0.01"
-                        disabled={disabled || !preciosCargados}
-                        value={n.pvp ?? ''}
-                        onChange={(e) => setNivel(n.nivel_tarifa, { pvp: toNum(e.target.value) ?? 0 })}
-                        className="w-28 py-1"
-                      />
-                    </td>
-                    <td className="px-3 py-1.5 tabular-nums text-slate-600">{round2((n.pvp ?? 0) * (1 + igic / 100)).toFixed(2)} €</td>
-                    <td className="px-3 py-1.5">
-                      <Toggle
-                        label=""
-                        checked={n.permite_descuento_linea}
-                        disabled={disabled || !preciosCargados}
-                        onChange={(v) => setNivel(n.nivel_tarifa, { permite_descuento_linea: v })}
-                      />
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <Section title="Plantilla de tarifa" cols="sm:grid-cols-2 lg:grid-cols-4">
-        <FormField label="Plantilla de tarifa" hint="CODARTTAR">
-          <SelectInput
-            disabled={disabled}
-            value={articulo.plantilla_tarifa_codigo ?? ''}
-            onChange={(e) => onChange({ plantilla_tarifa_codigo: e.target.value || null })}
-          >
-            <option value="">— (la de la familia)</option>
-            {plantillas.map((p) => (
-              <option key={p.codigo} value={p.codigo}>
-                {p.codigo} — {p.nombre}
-              </option>
-            ))}
-          </SelectInput>
-        </FormField>
-        <FormField label="Descuento máximo %" hint="DTOMAXCLI"><TextInput {...num('descuento_maximo_cliente_pct')} /></FormField>
-      </Section>
-
-      <section className="flex flex-col gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Códigos de barras adicionales (ARTBARRA)</h3>
-        <div className="overflow-x-auto rounded-xl border border-slate-200">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-2">Código de barras</th>
-                <th className="px-3 py-2">Unidades</th>
-                <th className="px-3 py-2">Unidad</th>
-                <th className="px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {barras.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-3 py-3 text-center text-xs text-slate-400">Sin códigos adicionales.</td>
-                </tr>
-              )}
-              {barras.map((b) => (
-                <tr key={b.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-3 py-1.5 font-mono text-xs">{b.codigo_barras}</td>
-                  <td className="px-3 py-1.5">{b.unidades_por_codigo ?? '—'}</td>
-                  <td className="px-3 py-1.5">{b.unidad_descripcion ?? '—'}</td>
-                  <td className="px-3 py-1.5 text-right">
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => deleteBarra(b.id)}
-                      className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </td>
-                </tr>
+        <div className="flex min-w-0 flex-col gap-1">
+          <GwGroup title="Pvps">
+            <div className="flex flex-col gap-[3px]">
+              {niveles.map((n) => (
+                <div
+                  key={n.nivel_tarifa}
+                  className="grid grid-cols-[110px_52px_52px_minmax(70px,90px)_minmax(80px,1fr)_62px] items-center gap-1"
+                >
+                  <span className="gw-label" title={`PVP_${n.nivel_tarifa}`}>
+                    {NOMBRES_PVP[n.nivel_tarifa]}
+                  </span>
+                  <GwSelect
+                    title={`POD${n.nivel_tarifa}: P = % sobre coste, D = % de descuento sobre la General`}
+                    value={n.modo_calculo ?? 'P'}
+                    disabled={preciosDisabled}
+                    onChange={(e) => onNivelChange(n.nivel_tarifa, { modo_calculo: e.target.value })}
+                  >
+                    <option value="P">P</option>
+                    <option value="D">D</option>
+                  </GwSelect>
+                  <GwSelect
+                    title={`VERDTO_${n.nivel_tarifa}`}
+                    value={n.permite_descuento_linea ? 'S' : 'N'}
+                    disabled={preciosDisabled}
+                    onChange={(e) => onNivelChange(n.nivel_tarifa, { permite_descuento_linea: e.target.value === 'S' })}
+                  >
+                    <option value="N">N</option>
+                    <option value="S">S</option>
+                  </GwSelect>
+                  <GwNumber
+                    value={n.incremento_pct}
+                    decimals={2}
+                    disabled={preciosDisabled}
+                    onChange={(v) => onNivelChange(n.nivel_tarifa, { incremento_pct: v })}
+                  />
+                  <GwNumber
+                    value={n.pvp}
+                    decimals={3}
+                    disabled={preciosDisabled}
+                    emptyAsZero
+                    onChange={(v) => onNivelChange(n.nivel_tarifa, { pvp: v ?? 0 })}
+                  />
+                  <span className="gw-label">{margenReal(n.pvp, base)}</span>
+                </div>
               ))}
-              {editing && (
-                <tr className="bg-slate-50/50">
-                  <td className="px-3 py-1.5">
-                    <TextInput value={nuevoBarra.codigo_barras} onChange={(e) => setNuevoBarra({ ...nuevoBarra, codigo_barras: e.target.value })} placeholder="EAN…" className="py-1" />
-                  </td>
-                  <td className="px-3 py-1.5">
-                    <TextInput type="number" step="any" value={nuevoBarra.unidades_por_codigo} onChange={(e) => setNuevoBarra({ ...nuevoBarra, unidades_por_codigo: e.target.value })} className="w-24 py-1" />
-                  </td>
-                  <td className="px-3 py-1.5">
-                    <TextInput value={nuevoBarra.unidad_descripcion} onChange={(e) => setNuevoBarra({ ...nuevoBarra, unidad_descripcion: e.target.value })} placeholder="Caja, unidad…" className="py-1" />
-                  </td>
-                  <td className="px-3 py-1.5 text-right">
-                    <button type="button" onClick={addBarra} className="rounded p-1 text-indigo-600 hover:bg-indigo-50">
-                      <Plus size={16} />
-                    </button>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <Section title="Impuestos">
-        <FormField label="% IGIC" hint="IGIC">
-          <TextInput {...num('igic_pct')} list="igic-opciones" />
-          <datalist id="igic-opciones">
-            {[0, 3, 7, 9.5, 15, 20].map((v) => (
-              <option key={v} value={v} />
-            ))}
-          </datalist>
-        </FormField>
-        <FormField label="Tipo de IGIC" hint="TIPOIGIC, confirmar significado con Luis">
-          <SelectInput
-            disabled={disabled}
-            value={articulo.tipo_igic_codigo ?? 0}
-            onChange={(e) => onChange({ tipo_igic_codigo: Number(e.target.value) })}
-          >
-            <option value={0}>Repercutido</option>
-            <option value={1}>Soportado</option>
-          </SelectInput>
-        </FormField>
-        <FormField label="Canon / impuesto 2 (IMPU2)" hint="IMPU2"><TextInput {...num('impuesto2_pct')} /></FormField>
-        <FormField label="Impuesto 3" hint="IMPU3"><TextInput {...num('impuesto3_pct')} /></FormField>
-      </Section>
-
-      <Section title="Unidad de medida y embalaje">
-        <FormField label="Unidad de medida" hint="UNI_MEDIDA"><TextInput {...text('unidad_medida')} /></FormField>
-        <FormField label="Unidad básica" hint="UNI_MEDBAS"><TextInput {...text('unidad_medida_base')} /></FormField>
-        <FormField label="Valor unidad de medida" hint="UNI_MEDVAL"><TextInput {...num('unidad_medida_valor')} /></FormField>
-        <FormField label="Meses de garantía" hint="GARANTIA"><TextInput {...num('garantia_meses')} /></FormField>
-        <FormField label="Unidades por caja" hint="UNI_CAJA"><TextInput {...num('unidades_por_caja')} /></FormField>
-        <FormField label="Cajas por bulto" hint="CAJ_BULTO"><TextInput {...num('cajas_por_bulto')} /></FormField>
-        <FormField label="Control de lotes" hint="CTRLLOTES">
-          <SelectInput disabled={disabled} value={articulo.control_lotes ?? 0} onChange={(e) => onChange({ control_lotes: Number(e.target.value) })}>
-            <option value={0}>Sin control</option>
-            <option value={1}>Con control de lotes</option>
-          </SelectInput>
-        </FormField>
-        <div className="flex items-end pb-2">{bool('vende_por_caja', 'Vender cajas')}</div>
-      </Section>
-
-      <Section title="Opciones" cols="sm:grid-cols-2 lg:grid-cols-3">
-        {bool('no_ver_en_venta', 'No mostrar en ventas')}
-        {bool('no_ver_en_compra', 'No mostrar en compras')}
-        {bool('vende_por_horario', 'Vender por horas y minutos')}
-        {bool('pesar_en_tpv', 'Pesar al vender')}
-        {bool('no_calcular_pvp_auto', 'No calcular PVP automáticamente')}
-        <FormField label="Tipo de artículo" hint="TIPO_ART (código GeminisWin)"><TextInput {...num('tipo_articulo')} /></FormField>
-        <div className="flex flex-col gap-2 rounded-lg border border-slate-100 p-3 sm:col-span-2 lg:col-span-3">
-          {bool('permite_modificar_pvp_al_vender', 'Permitir modificar el PVP al vender')}
-          <div className="flex flex-wrap gap-4 pl-11">
-            {bool('permite_modificar_pvp_solo_si_es_cero', 'Solo si PVP = 0', !modificaPvp)}
-            {bool('modificar_pvp_actualiza_articulo', 'Reemplazar en artículos', !modificaPvp)}
-            {bool('modificar_pvp_pide_precio_coste', 'Pedir precio de coste', !modificaPvp)}
+            </div>
+          </GwGroup>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <GwInline label="Plantilla Tar.:">
+              <span className="flex" title="CODARTTAR">
+                <GwSelect
+                  className="!w-[110px]"
+                  value={articulo.plantilla_tarifa_codigo ?? ''}
+                  disabled={disabled}
+                  onChange={(e) => onChange({ plantilla_tarifa_codigo: e.target.value || null })}
+                >
+                  <option value="" />
+                  {plantillas.map((p) => (
+                    <option key={p.codigo} value={p.codigo}>
+                      {p.codigo}
+                    </option>
+                  ))}
+                </GwSelect>
+                <GwLookupButton disabled={disabled} onClick={() => setBuscarPlantilla(true)} title="Buscar plantilla de tarifas" />
+              </span>
+            </GwInline>
+            <span title="TIPPLANTAR: de dónde sale la plantilla (confirmar con Luis)">
+              <GwSelect
+                className="!w-[130px]"
+                value={articulo.plantilla_tarifa_origen ?? ''}
+                disabled={disabled}
+                onChange={(e) => onChange({ plantilla_tarifa_origen: e.target.value === '' ? null : Number(e.target.value) })}
+              >
+                <option value="" />
+                <option value="0">Artículo</option>
+                <option value="1">Familia Niv.1</option>
+                <option value="2">Familia Niv.2</option>
+                <option value="3">Familia Niv.3</option>
+              </GwSelect>
+            </span>
+            <GwInline label="Dto. Max.:" className="ml-auto">
+              <span className="w-[80px]" title="DTOMAXCLI">
+                {num('descuento_maximo_cliente_pct', 2)}
+              </span>
+            </GwInline>
+          </div>
+          <div className="gw-label" title="COSTEPVP_0">
+            Ultimo Precio de Coste usado para el recalculo de Pvps: {formatGw(articulo.coste_usado_calculo_pvp ?? 0, 3)}
           </div>
         </div>
-      </Section>
 
-      <Section title="Fechas" cols="sm:grid-cols-3 lg:grid-cols-6">
-        {(
-          [
-            ['Última compra', 'ULTCOMPRA', articulo.ultima_compra_fecha],
-            ['Última venta', 'ULTVENTA', articulo.ultima_venta_fecha],
-            ['Última modif. PVP', 'F_MODPREC', articulo.fecha_ultima_modificacion_pvp],
-            ['Alta', 'F_ALTA', articulo.fecha_alta],
-            ['Baja', 'F_BAJA', articulo.fecha_baja],
-            ['Previsión de entrada de pedido', 'FECPREVENT', articulo.fecha_prevista_venta],
-          ] as const
-        ).map(([label, hint, value]) => (
-          <FormField key={hint} label={label} hint={hint}>
-            <span className="rounded-lg bg-slate-50 px-3 py-2 text-sm tabular-nums text-slate-700">{fmtDate(value)}</span>
-          </FormField>
-        ))}
-      </Section>
+        <div className="flex min-w-0 flex-col gap-1">
+          <GwField label="Control de Lotes">
+            <span title="CTRLLOTES (confirmar valores con Luis)">
+              <GwSelect
+                value={articulo.control_lotes ?? 0}
+                disabled={disabled}
+                onChange={(e) => onChange({ control_lotes: Number(e.target.value) })}
+              >
+                <option value={0}>Predeterminado</option>
+                <option value={1}>Sí</option>
+                <option value={2}>No</option>
+              </GwSelect>
+            </span>
+          </GwField>
+          <div className="grid grid-cols-2 gap-2">
+            <GwField label="Unidad de Medida">
+              <span title="UNI_MEDIDA">{unidadSelect('unidad_medida')}</span>
+            </GwField>
+            <GwField label="Unidad Básica">
+              <span title="UNI_MEDBAS">{unidadSelect('unidad_medida_base')}</span>
+            </GwField>
+          </div>
+          <GwInline label="Valor Unidad de Medida:" className="justify-between">
+            <span className="w-[170px]" title="UNI_MEDVAL">
+              {num('unidad_medida_valor', 6)}
+            </span>
+          </GwInline>
+          <div className="grid grid-cols-[minmax(0,1fr)_150px] gap-2">
+            <GwGroup title="Impuestos" className="flex flex-col gap-1">
+              <div className="grid grid-cols-[70px_1fr] gap-2">
+                <GwField label="% IGIC">
+                  <span title="IGIC">{num('igic_pct', 2)}</span>
+                </GwField>
+                <div className="flex flex-col" title="TIPOIGIC (confirmar códigos con Luis)">
+                  <span className="gw-label">Tipo IGIC</span>
+                  <GwRadio
+                    name="tipo-igic"
+                    label="Soportado"
+                    checked={articulo.tipo_igic_codigo === 1}
+                    disabled={disabled}
+                    onChange={() => onChange({ tipo_igic_codigo: 1 })}
+                  />
+                  <GwRadio
+                    name="tipo-igic"
+                    label="Repercutido"
+                    checked={articulo.tipo_igic_codigo !== 1}
+                    disabled={disabled}
+                    onChange={() => onChange({ tipo_igic_codigo: 0 })}
+                  />
+                </div>
+              </div>
+              <GwField label="Canon">
+                <span className="w-[110px]" title="IMPU2">
+                  {num('impuesto2_pct', 2)}
+                </span>
+              </GwField>
+            </GwGroup>
+            <GwGroup title="Embalaje" className="flex flex-col gap-0.5">
+              <GwField label="Cajas/Bulto">
+                <span title="CAJ_BULTO">{num('cajas_por_bulto', 2)}</span>
+              </GwField>
+              <GwField label="Unids/Caja">
+                <span title="UNI_CAJA">{num('unidades_por_caja', 2)}</span>
+              </GwField>
+              <div className="pt-1">{check('vende_por_caja', 'Vender Cajas', false, 'VENDPORCAJ')}</div>
+            </GwGroup>
+          </div>
+          <GwInline label="Meses de Garantía:">
+            <span className="w-[70px]" title="GARANTIA">
+              {num('garantia_meses', 0)}
+            </span>
+          </GwInline>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,560px)] gap-2">
+        <GwGroup title="Opciones" className="flex flex-col gap-0.5">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+            {check('generico', 'Genérico', false, 'Genérico (probablemente MODDES, confirmar con Luis)')}
+            {check('no_ver_en_venta', 'No Mostrar en ventas', false, 'NOVERENVTA')}
+            {check('vende_por_horario', 'Usar Formato de Horas y Minutos al Vender', false, 'VENDPORHOR')}
+            {check('pesar_en_tpv', 'Pesar al Vender', false, 'PESARENTPV')}
+          </div>
+          {check('permite_modificar_pvp_al_vender', 'Permitir modificar el Pvp en ventas', false, 'MODITPV')}
+          <div className="flex flex-wrap gap-x-6 pl-0">
+            {check('permite_modificar_pvp_solo_si_es_cero', 'Sólo si el PVP=0', !articulo.permite_modificar_pvp_al_vender, 'MPVPSIPVP0')}
+            {check('modificar_pvp_actualiza_articulo', 'Reemplaz. en artículos', !articulo.permite_modificar_pvp_al_vender, 'MPVPUPDART')}
+            {check('modificar_pvp_pide_precio_coste', 'Pedir prec. Coste', !articulo.permite_modificar_pvp_al_vender, 'MPVPCOSTE')}
+          </div>
+        </GwGroup>
+        <GwGroup title="Fechas" className="grid grid-cols-[auto_auto] gap-x-4 gap-y-0.5">
+          <Fecha label="Última compra" value={articulo.ultima_compra_fecha} />
+          <Fecha label="Prev. Entrada Pedido" value={articulo.fecha_prevista_venta} labelWidth={140} />
+          <Fecha label="Última venta" value={articulo.ultima_venta_fecha} />
+          <Fecha label="Últ. Modif. de Pvps" value={articulo.fecha_ultima_modificacion_pvp} conHora labelWidth={140} />
+          <div className="flex items-center gap-2">
+            <Fecha label="F. Alta" value={articulo.fecha_alta} labelWidth={40} />
+            <Fecha label="F. Baja" value={articulo.fecha_baja} labelWidth={44} />
+          </div>
+          <Fecha label="Modif." value={articulo.actualizado_en || null} conHora labelWidth={140} />
+        </GwGroup>
+      </div>
+
+      {buscarPlantilla && (
+        <GwLookupDialog<{ codigo: string; descripcion: string }>
+          title="Plantillas de Tarifas"
+          table="plantilla_tarifa"
+          columns={[
+            { key: 'codigo', label: 'Código', width: 110 },
+            { key: 'descripcion', label: 'Descripción' },
+          ]}
+          searchColumns={['codigo', 'descripcion']}
+          orderBy="codigo"
+          keyColumn="codigo"
+          onPick={(r) => {
+            onChange({ plantilla_tarifa_codigo: r.codigo })
+            setBuscarPlantilla(false)
+          }}
+          onClose={() => setBuscarPlantilla(false)}
+        />
+      )}
     </div>
   )
 }

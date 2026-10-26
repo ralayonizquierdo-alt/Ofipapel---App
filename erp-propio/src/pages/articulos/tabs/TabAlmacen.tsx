@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { FormField, TextInput } from '../../../components/FormField'
-import { Toggle } from '../../../components/Toggle'
+import { GwCheck, GwField, GwGroup, GwInput, GwNumber, formatGw } from '../../../components/gw'
 import type { Articulo } from '../types'
 
 interface StockRow {
@@ -23,6 +22,7 @@ export function TabAlmacen({
 }) {
   const [stock, setStock] = useState<StockRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [sel, setSel] = useState<string | null>(null)
 
   useEffect(() => {
     supabase
@@ -36,93 +36,89 @@ export function TabAlmacen({
       })
   }, [articulo.codigo_interno])
 
-  const num = (v: string) => (v === '' ? null : Number(v))
+  const dis = !editing
   const text = (v: string) => (v === '' ? null : v)
   const total = stock.reduce((s, r) => s + Number(r.cantidad_actual), 0)
   const totalReservado = stock.reduce((s, r) => s + Number(r.cantidad_reservada), 0)
 
   return (
-    <div className="flex flex-col gap-5">
-      <section className="flex flex-col gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Control de stock</h3>
-        <Toggle
-          label="No tiene stock (SINSTOCK) — servicios, cuotas, copias…"
+    <div className="grid grid-cols-[300px_minmax(0,1fr)] gap-2">
+      <div className="flex flex-col gap-2">
+        <GwCheck
+          label="No tiene stock"
           checked={articulo.sin_control_stock}
           onChange={(v) => onChange({ sin_control_stock: v })}
-          disabled={!editing}
+          disabled={dis}
         />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <FormField label="Ubicación 1" hint="UBICACION1">
-            <TextInput value={articulo.ubicacion_1 ?? ''} onChange={(e) => onChange({ ubicacion_1: text(e.target.value) })} disabled={!editing} />
-          </FormField>
-          <FormField label="Ubicación 2" hint="UBICACION2">
-            <TextInput value={articulo.ubicacion_2 ?? ''} onChange={(e) => onChange({ ubicacion_2: text(e.target.value) })} disabled={!editing} />
-          </FormField>
-          <FormField label="Stock mínimo" hint="STOCK_MIN">
-            <TextInput type="number" step="0.001" value={articulo.stock_minimo ?? ''} onChange={(e) => onChange({ stock_minimo: num(e.target.value) })} disabled={!editing} />
-          </FormField>
-          <FormField label="Stock máximo" hint="STOCK_MAX">
-            <TextInput type="number" step="0.001" value={articulo.stock_maximo ?? ''} onChange={(e) => onChange({ stock_maximo: num(e.target.value) })} disabled={!editing} />
-          </FormField>
-          <FormField label="Pedido recomendado" hint="PED_RECOM">
-            <TextInput type="number" step="0.001" value={articulo.pedido_recomendado ?? ''} onChange={(e) => onChange({ pedido_recomendado: num(e.target.value) })} disabled={!editing} />
-          </FormField>
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Stock por almacén</h3>
-        <p className="text-xs text-slate-400">
-          Solo lectura. El stock cambia únicamente con documentos (compras, ventas, traspasos y regularizaciones), nunca
-          editándolo aquí.
-        </p>
-        <div className="overflow-hidden rounded-lg border border-slate-200">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-2">Almacén</th>
-                <th className="px-3 py-2 text-right">Actual</th>
-                <th className="px-3 py-2 text-right">Reservado</th>
-                <th className="px-3 py-2 text-right">Disponible</th>
+        <GwGroup title="Ubicación">
+          <div className="grid grid-cols-2 gap-2">
+            <GwField label="Ubicación 1">
+              <GwInput title="UBICACION1" value={articulo.ubicacion_1 ?? ''} onChange={(e) => onChange({ ubicacion_1: text(e.target.value) })} disabled={dis} />
+            </GwField>
+            <GwField label="Ubicación 2">
+              <GwInput title="UBICACION2" value={articulo.ubicacion_2 ?? ''} onChange={(e) => onChange({ ubicacion_2: text(e.target.value) })} disabled={dis} />
+            </GwField>
+          </div>
+        </GwGroup>
+        <GwGroup title="Stock">
+          <div className="grid grid-cols-[1fr_120px] items-center gap-x-2 gap-y-1">
+            <span className="gw-label">Stock Mínimo:</span>
+            <GwNumber value={articulo.stock_minimo} decimals={3} disabled={dis} onChange={(v) => onChange({ stock_minimo: v })} />
+            <span className="gw-label">Stock Máximo:</span>
+            <GwNumber value={articulo.stock_maximo} decimals={3} disabled={dis} onChange={(v) => onChange({ stock_maximo: v })} />
+            <span className="gw-label">Pedido Recomendado:</span>
+            <GwNumber value={articulo.pedido_recomendado} decimals={3} disabled={dis} onChange={(v) => onChange({ pedido_recomendado: v })} />
+            <span className="gw-label">Reservado:</span>
+            <GwNumber value={totalReservado} decimals={3} disabled />
+            <span className="gw-label">Total:</span>
+            <GwNumber value={total} decimals={3} disabled />
+          </div>
+        </GwGroup>
+      </div>
+      <GwGroup title="Stock por Almacén">
+        <table className="gw-grid">
+          <thead>
+            <tr>
+              <th style={{ width: 60 }}>Almacén</th>
+              <th>Descripción</th>
+              <th className="text-right">Stock</th>
+              <th className="text-right">Reservado</th>
+              <th className="text-right">Disponible</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr>
+                <td colSpan={5} className="text-center text-[#6d6d6d]">Cargando…</td>
               </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={4} className="px-3 py-4 text-center text-slate-400">Cargando…</td>
-                </tr>
-              )}
-              {!loading && stock.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-3 py-4 text-center text-slate-400">Sin movimientos de stock todavía.</td>
-                </tr>
-              )}
-              {stock.map((r) => (
-                <tr key={r.almacen_codigo} className="border-b border-slate-100 last:border-0">
-                  <td className="px-3 py-2">
-                    <span className="font-mono text-xs text-slate-400">{r.almacen_codigo}</span> {r.almacen?.nombre ?? ''}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{Number(r.cantidad_actual).toFixed(3)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{Number(r.cantidad_reservada).toFixed(3)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {r.cantidad_disponible != null ? Number(r.cantidad_disponible).toFixed(3) : '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            {stock.length > 0 && (
-              <tfoot>
-                <tr className="border-t border-slate-200 bg-slate-50 font-semibold">
-                  <td className="px-3 py-2">Total</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{total.toFixed(3)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{totalReservado.toFixed(3)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{(total - totalReservado).toFixed(3)}</td>
-                </tr>
-              </tfoot>
             )}
-          </table>
-        </div>
-      </section>
+            {!loading && stock.length === 0 && (
+              <tr>
+                <td colSpan={5} className="text-center text-[#6d6d6d]">Sin stock en ningún almacén.</td>
+              </tr>
+            )}
+            {stock.map((r) => (
+              <tr key={r.almacen_codigo} className={sel === r.almacen_codigo ? 'gw-selected' : ''} onClick={() => setSel(r.almacen_codigo)}>
+                <td>{r.almacen_codigo}</td>
+                <td>{r.almacen?.nombre ?? ''}</td>
+                <td className="text-right tabular-nums">{formatGw(r.cantidad_actual, 3)}</td>
+                <td className="text-right tabular-nums">{formatGw(r.cantidad_reservada, 3)}</td>
+                <td className="text-right tabular-nums">{r.cantidad_disponible != null ? formatGw(r.cantidad_disponible, 3) : ''}</td>
+              </tr>
+            ))}
+          </tbody>
+          {stock.length > 0 && (
+            <tfoot>
+              <tr>
+                <td colSpan={2} className="font-bold">Total</td>
+                <td className="text-right font-bold tabular-nums">{formatGw(total, 3)}</td>
+                <td className="text-right font-bold tabular-nums">{formatGw(totalReservado, 3)}</td>
+                <td className="text-right font-bold tabular-nums">{formatGw(total - totalReservado, 3)}</td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </GwGroup>
     </div>
   )
 }

@@ -1,86 +1,120 @@
-import { NavLink, Outlet } from 'react-router-dom'
-import {
-  LayoutDashboard,
-  Package,
-  Users,
-  Truck,
-  Warehouse,
-  Building2,
-  UserCog,
-  ShoppingCart,
-  ClipboardList,
-  Receipt,
-  FileSpreadsheet,
-  LogOut,
-  MapPinned,
-  Banknote,
-  ArrowRightLeft,
-  ClipboardCheck,
-} from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
+import { supabase } from '../lib/supabase'
+import { GwAppIcon, GwWindow } from './gw'
+import { MenuBar } from './shell/MenuBar'
+import { QuickBar } from './shell/QuickBar'
+import { MENUS, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
 
-const nav = [
-  { to: '/', label: 'Resumen', icon: LayoutDashboard, end: true },
-  { to: '/articulos', label: 'Artículos', icon: Package },
-  { to: '/clientes', label: 'Clientes', icon: Users },
-  { to: '/proveedores', label: 'Proveedores', icon: Truck },
-  { to: '/almacenes', label: 'Almacenes', icon: Warehouse },
-  { to: '/tiendas', label: 'Tiendas / Terminales', icon: Building2 },
-  { to: '/empleados', label: 'Empleados', icon: UserCog },
-  { to: '/stock', label: 'Stock', icon: Warehouse },
-  { to: '/traspasos', label: 'Traspasos', icon: ArrowRightLeft },
-  { to: '/inventario', label: 'Inventario', icon: ClipboardCheck },
-  { to: '/compras', label: 'Compras', icon: ShoppingCart },
-  { to: '/pedidos', label: 'Pedidos de clientes', icon: ClipboardList },
-  { to: '/repartos', label: 'Repartos', icon: MapPinned },
-  { to: '/ventas', label: 'Ventas / TPV', icon: Receipt },
-  { to: '/pagos', label: 'Pagos y gastos', icon: Banknote },
-  { to: '/facturacion', label: 'Facturación', icon: FileSpreadsheet },
-]
-
+// Ventana principal con el aspecto de GeminisWin: franja de título, barra de menús,
+// barra lateral de accesos rápidos, área MDI gris con la ventana activa y barra de estado.
 export function Layout() {
   const { session, signOut } = useAuth()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const [empresa, setEmpresa] = useState('')
+  const [hint, setHint] = useState<string | null>(null)
+  const title = windowTitle(pathname)
+
+  useEffect(() => {
+    supabase
+      .from('empresa')
+      .select('nombre')
+      .order('codigo')
+      .limit(1)
+      .then(({ data }) => setEmpresa(data?.[0]?.nombre ?? ''))
+  }, [])
+
+  function runMenu(i: MenuItem) {
+    if (i.to) navigate(i.to)
+    else if (i.action === 'signout') signOut()
+    else if (i.action === 'close-window') navigate('/')
+    else if (i.action) document.execCommand(i.action)
+  }
+
+  useEffect(() => {
+    const shortcuts = new Map<string, MenuItem>()
+    const collect = (entries: MenuEntry[]) => {
+      for (const e of entries) {
+        if (e === 'sep') continue
+        if (e.shortcut && (e.to || e.action === 'signout')) shortcuts.set(e.shortcut.toLowerCase(), e)
+        if (e.children) collect(e.children)
+      }
+    }
+    MENUS.forEach((m) => collect(m.items))
+    const onKey = (ev: KeyboardEvent) => {
+      const combo = [ev.ctrlKey && 'ctrl', ev.altKey && 'alt', ev.key.toLowerCase()].filter(Boolean).join('+')
+      const hit = shortcuts.get(combo)
+      if (hit && isEnabled(hit)) {
+        ev.preventDefault()
+        runMenu(hit)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <aside className="flex w-60 flex-col border-r border-slate-200 bg-white">
-        <div className="px-5 py-5">
-          <div className="text-lg font-bold text-slate-800">Ofipapel ERP</div>
-          <div className="text-xs text-slate-400">propio · en construcción</div>
-        </div>
-        <nav className="flex-1 space-y-0.5 px-3">
-          {nav.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'
-                }`
-              }
+    <div className="flex h-screen flex-col overflow-hidden bg-[var(--gw-face)]">
+      <div className="flex h-[24px] flex-none items-center gap-1.5 bg-white px-2 text-[12px]">
+        <GwAppIcon size={16} />
+        <span className="truncate">
+          Ofipapel ERP, Periodo: Periodo {new Date().getFullYear()} Empresa: {empresa}
+        </span>
+      </div>
+      <MenuBar onRun={runMenu} onHover={setHint} activeWindow={title} />
+      <div className="flex min-h-0 flex-1">
+        <QuickBar
+          onHover={setHint}
+          onRun={(q) => {
+            if (q.to) navigate(q.to)
+            else if (q.action === 'signout') signOut()
+          }}
+        />
+        <div className="relative min-w-0 flex-1 bg-[var(--gw-mdi)]">
+          <Watermark />
+          {pathname !== '/' && (
+            <GwWindow
+              title={title}
+              onClose={() => navigate('/')}
+              className="absolute inset-1 z-10 [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-auto"
             >
-              <Icon size={17} />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="border-t border-slate-100 px-5 py-4">
-          <div className="truncate text-xs text-slate-500">{session?.user.email}</div>
-          <button
-            type="button"
-            onClick={() => signOut()}
-            className="mt-2 flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-red-600"
-          >
-            <LogOut size={14} /> Cerrar sesión
-          </button>
+              <Outlet />
+            </GwWindow>
+          )}
         </div>
-      </aside>
-      <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-6xl px-8 py-8">
-          <Outlet />
-        </div>
-      </main>
+      </div>
+      <StatusBar text={hint ?? title} email={session?.user.email ?? ''} />
+    </div>
+  )
+}
+
+function Watermark() {
+  return (
+    <div className="pointer-events-none absolute bottom-3 right-3 z-0 flex select-none flex-col items-stretch border border-[#9aa8bb] bg-white px-1 pt-0.5 shadow-sm">
+      <span className="text-center text-[30px] font-black italic leading-[32px] tracking-tight text-[#2f5fb3] [text-shadow:2px_2px_0_#b9c4d6]">
+        OE
+      </span>
+      <span className="bg-[#1f4e9c] px-1.5 text-[11px] font-bold leading-[15px] text-white">Ofipapel ERP</span>
+    </div>
+  )
+}
+
+function StatusBar({ text, email }: { text: string; email: string }) {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  const panel = 'flex h-[16px] items-center border border-t-[#a0a0a0] border-l-[#a0a0a0] border-b-white border-r-white px-1.5'
+  return (
+    <div className="flex h-[22px] flex-none items-center gap-[3px] border-t border-[var(--gw-border-light)] bg-[var(--gw-face)] px-[3px] text-[11px]">
+      <span className="min-w-0 flex-1 truncate px-1">{text}</span>
+      <span className={`${panel} max-w-[220px] truncate`}>{email}</span>
+      <span className={`${panel} w-[48px] justify-center`}>NUM</span>
+      <span className={`${panel} w-[64px] justify-center tabular-nums`}>{now.toLocaleTimeString('es-ES')}</span>
     </div>
   )
 }

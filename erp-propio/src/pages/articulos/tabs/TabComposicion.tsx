@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, Save, X, AlertTriangle } from 'lucide-react'
+import { Binoculars, Check, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { TextInput } from '../../../components/FormField'
+import { GwInline, GwInput, GwLookupButton, GwNumber, formatGw } from '../../../components/gw'
+import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 
 interface ComponenteRow {
   id: number
@@ -12,28 +13,30 @@ interface ComponenteRow {
   pvp: number | null
 }
 
-interface Candidato {
+interface Candidato extends Record<string, unknown> {
   codigo_interno: string
   descripcion: string
   coste_neto: number | null
   pvp: number | null
 }
 
-const th = 'px-2 py-2 text-left font-semibold'
-const td = 'px-2 py-1.5'
-const miniBtn =
-  'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-30'
-const eur = (v: number | null) => (v == null ? '—' : `${v.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 3 })} €`)
+const LOOKUP_COLS = [
+  { key: 'codigo_interno', label: 'Código Interno', width: 130 },
+  { key: 'descripcion', label: 'Descripción' },
+  { key: 'coste_neto', label: 'Coste Neto', width: 90 },
+  { key: 'pvp', label: 'Pvp', width: 80 },
+]
+const LOOKUP_SEARCH = ['codigo_interno', 'descripcion']
 
 export function TabComposicion({ articuloCodigo }: { articuloCodigo: string }) {
   const [rows, setRows] = useState<ComponenteRow[]>([])
   const [esCompuesto, setEsCompuesto] = useState<boolean | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<number | 'nuevo' | null>(null)
-  const [unidades, setUnidades] = useState('1')
+  const [unidades, setUnidades] = useState<number | null>(1)
   const [componente, setComponente] = useState<Candidato | null>(null)
-  const [busqueda, setBusqueda] = useState('')
-  const [candidatos, setCandidatos] = useState<Candidato[]>([])
+  const [codigoTecleado, setCodigoTecleado] = useState('')
+  const [lookup, setLookup] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function load() {
@@ -72,31 +75,30 @@ export function TabComposicion({ articuloCodigo }: { articuloCodigo: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [articuloCodigo])
 
-  useEffect(() => {
-    if (editingId !== 'nuevo' || busqueda.trim().length < 2) {
-      setCandidatos([])
-      return
-    }
-    const t = setTimeout(async () => {
-      const q = busqueda.trim()
-      const { data } = await supabase
-        .from('articulo')
-        .select('codigo_interno, descripcion, coste_neto, pvp')
-        .or(`descripcion.ilike.%${q}%,codigo_interno.ilike.%${q}%`)
-        .neq('codigo_interno', articuloCodigo)
-        .eq('activo', true)
-        .order('descripcion')
-        .limit(15)
-      setCandidatos(data ?? [])
-    }, 250)
-    return () => clearTimeout(t)
-  }, [busqueda, editingId, articuloCodigo])
+  async function resolverCodigo(codigo: string) {
+    const c = codigo.trim()
+    if (!c) return
+    const { data } = await supabase
+      .from('articulo')
+      .select('codigo_interno, descripcion, coste_neto, pvp')
+      .eq('codigo_interno', c)
+      .maybeSingle()
+    if (data) setComponente(data as Candidato)
+    else setError(`No existe el artículo ${c}.`)
+  }
+
+  function nuevo() {
+    setError(null)
+    setEditingId('nuevo')
+    setUnidades(1)
+    setComponente(null)
+    setCodigoTecleado('')
+  }
 
   function cancel() {
     setEditingId(null)
     setComponente(null)
-    setBusqueda('')
-    setCandidatos([])
+    setCodigoTecleado('')
   }
 
   async function save() {
@@ -156,203 +158,149 @@ export function TabComposicion({ articuloCodigo }: { articuloCodigo: string }) {
   const totalPvp = rows.reduce((s, r) => s + (r.pvp ?? 0) * r.unidades, 0)
   const selected = rows.find((r) => r.id === selectedId)
 
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="text-xs text-slate-500">
-        Artículo compuesto o kit: componentes, cantidades, coste y PVP. Tabla COMPUEST.
-      </p>
-      {esCompuesto === false && (
-        <p className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          <AlertTriangle size={14} />
-          Este artículo no está marcado como compuesto (pestaña Características). Los componentes no se descontarán
-          del stock al venderlo hasta que lo marques.
-        </p>
-      )}
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+  const acciones = (
+    <div className="flex gap-1">
+      <button type="button" className="gw-btn px-1.5" title="Aceptar" onClick={save}>
+        <Check size={14} className="text-[#127a12]" />
+      </button>
+      <button type="button" className="gw-btn px-1.5" title="Cancelar" onClick={cancel}>
+        <X size={14} className="text-[#c42b1c]" />
+      </button>
+    </div>
+  )
 
-      <div className="overflow-hidden rounded-lg border border-slate-200">
-        <div className="flex items-center gap-1 border-b border-slate-200 bg-slate-50 px-2 py-1">
-          <span className="mr-auto text-xs font-semibold uppercase tracking-wide text-slate-500">Componentes</span>
-          <button
-            type="button"
-            className={miniBtn}
-            disabled={editingId != null}
-            onClick={() => {
-              setEditingId('nuevo')
-              setUnidades('1')
-            }}
-          >
-            <Plus size={14} /> Añadir línea
-          </button>
-          <button
-            type="button"
-            className={miniBtn}
-            disabled={!selected || editingId != null}
-            onClick={() => {
-              if (!selected) return
-              setEditingId(selected.id)
-              setUnidades(String(selected.unidades))
-            }}
-          >
-            <Pencil size={14} /> Modificar
-          </button>
-          <button
-            type="button"
-            className={`${miniBtn} hover:bg-red-50 hover:text-red-600`}
-            disabled={!selected || editingId != null}
-            onClick={deleteSelected}
-          >
-            <Trash2 size={14} /> Borrar línea
-          </button>
-        </div>
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-slate-200 text-slate-500">
-              <th className={th}>Código</th>
-              <th className={th}>Descripción</th>
-              <th className={`${th} text-right`}>Unidades</th>
-              <th className={`${th} text-right`}>Coste neto</th>
-              <th className={`${th} text-right`}>Subtotal coste</th>
-              <th className={`${th} text-right`}>PVP</th>
-              <th className={`${th} text-right`}>Subtotal PVP</th>
-              <th className={th} />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && editingId == null && (
-              <tr>
-                <td colSpan={8} className="px-2 py-4 text-center text-slate-400">
-                  Sin componentes.
-                </td>
-              </tr>
-            )}
-            {rows.map((r) => (
-              <tr
-                key={r.id}
-                onClick={() => editingId == null && setSelectedId(r.id)}
-                className={`border-b border-slate-100 last:border-0 ${
-                  editingId === r.id
-                    ? 'bg-amber-50/40'
-                    : selectedId === r.id
-                      ? 'cursor-pointer bg-indigo-50'
-                      : 'cursor-pointer hover:bg-slate-50'
-                }`}
-              >
-                <td className={`${td} font-mono`}>{r.articulo_componente_codigo}</td>
-                <td className={td}>{r.descripcion}</td>
-                <td className={`${td} text-right`}>
-                  {editingId === r.id ? (
-                    <TextInput
-                      type="number"
-                      step="0.001"
-                      className="w-24 py-1 text-right text-xs"
-                      value={unidades}
-                      onChange={(e) => setUnidades(e.target.value)}
-                      autoFocus
-                    />
-                  ) : (
-                    r.unidades
-                  )}
-                </td>
-                <td className={`${td} text-right`}>{eur(r.coste_neto)}</td>
-                <td className={`${td} text-right`}>{eur(r.coste_neto != null ? r.coste_neto * r.unidades : null)}</td>
-                <td className={`${td} text-right`}>{eur(r.pvp)}</td>
-                <td className={`${td} text-right`}>{eur(r.pvp != null ? r.pvp * r.unidades : null)}</td>
-                <td className={`${td} whitespace-nowrap`}>
-                  {editingId === r.id && (
-                    <>
-                      <button type="button" className={miniBtn} onClick={save}>
-                        <Save size={14} />
-                      </button>
-                      <button type="button" className={miniBtn} onClick={cancel}>
-                        <X size={14} />
-                      </button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {editingId === 'nuevo' && (
-              <tr className="border-b border-slate-100 bg-amber-50/40 align-top">
-                <td className={td} colSpan={2}>
-                  {componente ? (
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono">{componente.codigo_interno}</span>
-                      <span>{componente.descripcion}</span>
-                      <button type="button" className="text-indigo-600 hover:underline" onClick={() => setComponente(null)}>
-                        cambiar
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <TextInput
-                        className="w-full py-1 text-xs"
-                        placeholder="Buscar artículo por descripción o código…"
-                        value={busqueda}
-                        onChange={(e) => setBusqueda(e.target.value)}
-                        autoFocus
-                      />
-                      {candidatos.length > 0 && (
-                        <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-                          {candidatos.map((c) => (
-                            <li key={c.codigo_interno}>
-                              <button
-                                type="button"
-                                className="flex w-full gap-2 px-3 py-1.5 text-left hover:bg-indigo-50"
-                                onClick={() => {
-                                  setComponente(c)
-                                  setCandidatos([])
-                                }}
-                              >
-                                <span className="font-mono text-slate-500">{c.codigo_interno}</span>
-                                <span>{c.descripcion}</span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  )}
-                </td>
-                <td className={`${td} text-right`}>
-                  <TextInput
-                    type="number"
-                    step="0.001"
-                    className="w-24 py-1 text-right text-xs"
-                    value={unidades}
-                    onChange={(e) => setUnidades(e.target.value)}
-                  />
-                </td>
-                <td className={`${td} text-right`}>{eur(componente?.coste_neto ?? null)}</td>
-                <td className={td} />
-                <td className={`${td} text-right`}>{eur(componente?.pvp ?? null)}</td>
-                <td className={td} />
-                <td className={`${td} whitespace-nowrap`}>
-                  <button type="button" className={miniBtn} onClick={save}>
-                    <Save size={14} />
-                  </button>
-                  <button type="button" className={miniBtn} onClick={cancel}>
-                    <X size={14} />
-                  </button>
-                </td>
-              </tr>
-            )}
-          </tbody>
-          {rows.length > 0 && (
-            <tfoot>
-              <tr className="border-t border-slate-200 bg-slate-50 font-semibold text-slate-700">
-                <td className={td} colSpan={4}>
-                  Total del kit ({rows.length} componente{rows.length === 1 ? '' : 's'})
-                </td>
-                <td className={`${td} text-right`}>{eur(totalCoste)}</td>
-                <td className={td} />
-                <td className={`${td} text-right`}>{eur(totalPvp)}</td>
-                <td className={td} />
-              </tr>
-            </tfoot>
-          )}
-        </table>
+  return (
+    <div className="flex flex-col gap-1.5" title="COMPUEST">
+      <div className="flex items-center gap-1">
+        <button type="button" className="gw-btn" disabled={editingId != null} onClick={nuevo}>
+          <Plus size={14} /> Añadir línea
+        </button>
+        <button
+          type="button"
+          className="gw-btn"
+          disabled={!selected || editingId != null}
+          onClick={() => {
+            if (!selected) return
+            setError(null)
+            setEditingId(selected.id)
+            setUnidades(selected.unidades)
+          }}
+        >
+          <Pencil size={14} /> Modificar línea
+        </button>
+        <button type="button" className="gw-btn" disabled={!selected || editingId != null} onClick={deleteSelected}>
+          <Trash2 size={14} /> Borrar línea
+        </button>
+        <button
+          type="button"
+          className="gw-btn"
+          disabled={editingId != null && editingId !== 'nuevo'}
+          onClick={() => {
+            if (editingId !== 'nuevo') nuevo()
+            setLookup(true)
+          }}
+        >
+          <Binoculars size={14} /> Buscar artículo
+        </button>
+        {esCompuesto === false && (
+          <span className="ml-3 text-[#a4262c]">El artículo no está marcado como compuesto.</span>
+        )}
       </div>
+      {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
+
+      <table className="gw-grid">
+        <thead>
+          <tr>
+            <th style={{ width: 150 }}>Código</th>
+            <th>Descripción</th>
+            <th className="text-right" style={{ width: 100 }}>Unidades</th>
+            <th className="text-right" style={{ width: 100 }}>Coste Neto</th>
+            <th className="text-right" style={{ width: 100 }}>Total Coste</th>
+            <th className="text-right" style={{ width: 100 }}>Pvp</th>
+            <th className="text-right" style={{ width: 100 }}>Total Pvp</th>
+            <th style={{ width: 70 }} />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && editingId == null && (
+            <tr>
+              <td colSpan={8} className="text-center text-[#6d6d6d]">Sin componentes.</td>
+            </tr>
+          )}
+          {rows.map((r) => (
+            <tr
+              key={r.id}
+              onClick={() => editingId == null && setSelectedId(r.id)}
+              className={editingId !== r.id && selectedId === r.id ? 'gw-selected' : ''}
+            >
+              <td>{r.articulo_componente_codigo}</td>
+              <td>{r.descripcion}</td>
+              <td className="text-right">
+                {editingId === r.id ? <GwNumber autoFocusless value={unidades} decimals={3} onChange={setUnidades} /> : formatGw(r.unidades, 3)}
+              </td>
+              <td className="text-right tabular-nums">{formatGw(r.coste_neto, 3)}</td>
+              <td className="text-right tabular-nums">{r.coste_neto != null ? formatGw(r.coste_neto * r.unidades, 3) : ''}</td>
+              <td className="text-right tabular-nums">{formatGw(r.pvp, 3)}</td>
+              <td className="text-right tabular-nums">{r.pvp != null ? formatGw(r.pvp * r.unidades, 3) : ''}</td>
+              <td>{editingId === r.id && acciones}</td>
+            </tr>
+          ))}
+          {editingId === 'nuevo' && (
+            <tr>
+              <td>
+                <div className="flex">
+                  <GwInput
+                    autoFocus
+                    value={componente?.codigo_interno ?? codigoTecleado}
+                    onChange={(e) => {
+                      setComponente(null)
+                      setCodigoTecleado(e.target.value)
+                    }}
+                    onBlur={(e) => !componente && resolverCodigo(e.target.value)}
+                  />
+                  <GwLookupButton onClick={() => setLookup(true)} title="Buscar artículo" />
+                </div>
+              </td>
+              <td>{componente?.descripcion ?? ''}</td>
+              <td>
+                <GwNumber value={unidades} decimals={3} onChange={setUnidades} />
+              </td>
+              <td className="text-right tabular-nums">{formatGw(componente?.coste_neto ?? null, 3)}</td>
+              <td className="text-right tabular-nums">
+                {componente?.coste_neto != null && unidades ? formatGw(componente.coste_neto * unidades, 3) : ''}
+              </td>
+              <td className="text-right tabular-nums">{formatGw(componente?.pvp ?? null, 3)}</td>
+              <td className="text-right tabular-nums">{componente?.pvp != null && unidades ? formatGw(componente.pvp * unidades, 3) : ''}</td>
+              <td>{acciones}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      <div className="flex justify-end gap-4">
+        <GwInline label={`Total Coste (${rows.length} comp.):`}>
+          <GwNumber className="w-[110px]" value={totalCoste} decimals={3} disabled />
+        </GwInline>
+        <GwInline label="Total Pvp:">
+          <GwNumber className="w-[110px]" value={totalPvp} decimals={3} disabled />
+        </GwInline>
+      </div>
+
+      {lookup && (
+        <GwLookupDialog<Candidato>
+          title="Artículos"
+          table="articulo"
+          columns={LOOKUP_COLS}
+          searchColumns={LOOKUP_SEARCH}
+          orderBy="descripcion"
+          keyColumn="codigo_interno"
+          onClose={() => setLookup(false)}
+          onPick={(a) => {
+            setComponente(a)
+            setLookup(false)
+          }}
+        />
+      )}
     </div>
   )
 }

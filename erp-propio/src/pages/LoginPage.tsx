@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useAuth } from '../lib/AuthContext'
+import { GwField, GwInput, GwWindow } from '../components/gw'
 
 export function LoginPage() {
   const { signIn } = useAuth()
@@ -18,44 +19,35 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-xl font-bold text-slate-800">Ofipapel ERP</h1>
-        <p className="mt-1 text-sm text-slate-400">Acceso con cuenta individual</p>
-
-        <div className="mt-6 flex flex-col gap-4">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-600">Email</span>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-600">Contraseña</span>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-            />
-          </label>
-        </div>
-
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="mt-6 w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {loading ? 'Entrando…' : 'Entrar'}
-        </button>
-      </form>
+    <div className="flex min-h-screen items-center justify-center bg-[var(--gw-mdi)] p-4">
+      <GwWindow title="Cambiar Empleado" className="w-[340px] max-w-full">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2 p-1">
+          <div className="text-[12px]">Ofipapel ERP — identificación del empleado</div>
+          <GwField label="Email">
+            <GwInput type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
+          </GwField>
+          <GwField label="Contraseña">
+            <GwInput type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          </GwField>
+          {error && <div className="text-[12px] text-[#c42b1c]">{error}</div>}
+          <div className="mt-1 flex justify-end gap-1.5">
+            <button type="submit" className="gw-btn w-[80px]" disabled={loading}>
+              {loading ? 'Entrando…' : 'Aceptar'}
+            </button>
+            <button
+              type="button"
+              className="gw-btn w-[80px]"
+              onClick={() => {
+                setEmail('')
+                setPassword('')
+                setError(null)
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </GwWindow>
     </div>
   )
 }
