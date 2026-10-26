@@ -42,8 +42,10 @@ function App() {
         <Routes>
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
           <Route element={<ProtectedArea />}>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/articulos" element={<ArticulosListPage />} />
+            <Route path="/" element={null} />
+            <Route path="/resumen" element={<DashboardPage />} />
+            <Route path="/articulos" element={<ArticuloFichaPage />} />
+            <Route path="/articulos/lista" element={<ArticulosListPage />} />
             <Route path="/articulos/:codigo" element={<ArticuloFichaPage />} />
             <Route path="/clientes" element={<ClientesPage />} />
             <Route path="/proveedores" element={<ProveedoresPage />} />

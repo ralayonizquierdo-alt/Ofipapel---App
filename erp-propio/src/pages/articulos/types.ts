@@ -93,6 +93,11 @@ export interface Articulo {
 
   // Parámetros para el cálculo del PVP
   tipo_redondeo: number | null
+  redondeo_a: number | null
+  coste_base_calculo: number // 0 puro · 1 neto · 2 bruto · 3 líquido
+  coste_usado_calculo_pvp: number | null
+  plantilla_tarifa_origen: number | null // 0 artículo · 1-3 familia nivel 1-3
+  generico: boolean
 
   // Observaciones
   observaciones: string | null
@@ -192,6 +197,11 @@ export const emptyArticulo: Omit<Articulo, 'actualizado_en'> = {
   oferta_fecha_hasta: null,
   oferta_hora_hasta: null,
   tipo_redondeo: 2,
+  redondeo_a: 0,
+  coste_base_calculo: 3,
+  coste_usado_calculo_pvp: null,
+  plantilla_tarifa_origen: null,
+  generico: false,
   observaciones: null,
   observaciones_info: null,
   observaciones_venta: false,

@@ -2,15 +2,141 @@
 
 :root {
   color-scheme: light;
+  --gw-face: #f0f0f0;
+  --gw-mdi: #808080;
+  --gw-border: #adadad;
+  --gw-border-light: #d9d9d9;
+  --gw-text: #000000;
+  --gw-disabled: #6d6d6d;
+  --gw-select: #0078d7;
 }
 
 body {
   margin: 0;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
-  background: #f5f6f8;
-  color: #1c2129;
+  font-family: Tahoma, 'Segoe UI', Verdana, Arial, sans-serif;
+  font-size: 13px;
+  background: var(--gw-face);
+  color: var(--gw-text);
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Controles con el aspecto de GeminisWin (Visual FoxPro sobre Windows) */
+.gw-label {
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--gw-text);
+  white-space: nowrap;
+}
+
+.gw-input {
+  height: 22px;
+  width: 100%;
+  padding: 0 4px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--gw-text);
+  background: #ffffff;
+  border: 1px solid var(--gw-border);
+  border-radius: 0;
+  outline: none;
+}
+.gw-input:focus {
+  border-color: var(--gw-select);
+}
+.gw-input:disabled,
+.gw-input[readonly] {
+  color: var(--gw-text);
+  background: #ffffff;
+  -webkit-text-fill-color: var(--gw-text);
+  opacity: 1;
+}
+.gw-input.gw-num {
+  text-align: right;
+}
+textarea.gw-input {
+  height: auto;
+  padding: 3px 4px;
+  resize: vertical;
+}
+select.gw-input {
+  padding: 0 2px;
+}
+select.gw-input:disabled {
+  color: var(--gw-text);
+  -webkit-text-fill-color: var(--gw-text);
+}
+
+.gw-group {
+  position: relative;
+  border: 1px solid var(--gw-border-light);
+  padding: 10px 6px 6px;
+  margin: 0;
+  min-width: 0;
+}
+.gw-group > legend {
+  padding: 0 3px;
+  font-size: 13px;
+  line-height: 14px;
+}
+
+.gw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--gw-text);
+  background: #e1e1e1;
+  border: 1px solid var(--gw-border);
+  border-radius: 0;
+  cursor: default;
+}
+.gw-btn:hover:not(:disabled) {
+  background: #e5f1fb;
+  border-color: var(--gw-select);
+}
+.gw-btn:disabled {
+  color: var(--gw-disabled);
+  opacity: 0.6;
+}
+
+.gw-lookup {
+  flex: none;
+  width: 34px;
+  height: 22px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  line-height: 10px;
+  padding: 0 0 6px;
+}
+
+.gw-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: #ffffff;
+}
+.gw-grid th {
+  font-weight: normal;
+  text-align: left;
+  padding: 2px 4px;
+  background: #f0f0f0;
+  border: 1px solid var(--gw-border-light);
+  white-space: nowrap;
+}
+.gw-grid td {
+  padding: 1px 4px;
+  border: 1px solid var(--gw-border-light);
+  height: 22px;
+}
+.gw-grid tr.gw-selected td {
+  background: var(--gw-select);
+  color: #ffffff;
 }

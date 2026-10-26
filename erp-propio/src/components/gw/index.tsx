@@ -1,0 +1,274 @@
+import { useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { Minus, Square, X } from 'lucide-react'
+
+// Piezas de interfaz que replican el aspecto de GeminisWin (Visual FoxPro sobre Windows):
+// ventanas hijas MDI, etiquetas encima del campo, números con coma decimal alineados
+// a la derecha, grupos con marco, pestañas en varias filas y botones «···» de búsqueda.
+
+export function GwWindow({
+  title,
+  onClose,
+  children,
+  className = '',
+}: {
+  title: string
+  onClose?: () => void
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={`flex flex-col border border-[#6f6f6f] bg-[var(--gw-face)] shadow-[2px_2px_6px_rgba(0,0,0,0.35)] ${className}`}>
+      <div className="flex h-[22px] select-none items-center gap-1.5 bg-gradient-to-b from-[#dbe6f4] to-[#c7d6ea] px-1.5 text-[12px]">
+        <GwAppIcon size={14} />
+        <span className="flex-1 truncate">{title}</span>
+        <span className="flex gap-0.5">
+          <span className="flex h-[16px] w-[22px] items-center justify-center border border-[#9aa8bb] bg-[#e9eef6]">
+            <Minus size={10} />
+          </span>
+          <span className="flex h-[16px] w-[22px] items-center justify-center border border-[#9aa8bb] bg-[#e9eef6]">
+            <Square size={8} />
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            title="Cerrar"
+            className="flex h-[16px] w-[22px] items-center justify-center border border-[#a33] bg-[#d9534f] text-white"
+          >
+            <X size={11} strokeWidth={3} />
+          </button>
+        </span>
+      </div>
+      <div className="flex-1 p-1.5">{children}</div>
+    </div>
+  )
+}
+
+export function GwAppIcon({ size = 16 }: { size?: number }) {
+  return (
+    <span
+      style={{ width: size, height: size, fontSize: size * 0.45 }}
+      className="inline-flex flex-none items-center justify-center bg-[#1f4e9c] font-bold leading-none text-white"
+    >
+      OE
+    </span>
+  )
+}
+
+export function GwField({ label, children, className = '' }: { label?: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <div className={`flex min-w-0 flex-col ${className}`}>
+      {label != null && <span className="gw-label">{label}</span>}
+      {children}
+    </div>
+  )
+}
+
+/** Campo en línea: etiqueta a la izquierda y control a la derecha (p. ej. «Dto. Max.: [30,00]»). */
+export function GwInline({ label, children, className = '' }: { label: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <div className={`flex min-w-0 items-center gap-1.5 ${className}`}>
+      <span className="gw-label">{label}</span>
+      {children}
+    </div>
+  )
+}
+
+export function GwInput(props: InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...props} className={`gw-input ${props.className ?? ''}`} />
+}
+
+export function GwTextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea {...props} className={`gw-input ${props.className ?? ''}`} />
+}
+
+export function GwSelect(props: SelectHTMLAttributes<HTMLSelectElement>) {
+  return <select {...props} className={`gw-input ${props.className ?? ''}`} />
+}
+
+const nf = (decimals: number) =>
+  new Intl.NumberFormat('es-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals, useGrouping: true })
+
+export function formatGw(value: number | null | undefined, decimals = 3) {
+  if (value == null || Number.isNaN(Number(value))) return ''
+  return nf(decimals).format(Number(value))
+}
+
+/**
+ * Número al estilo GeminisWin: muestra «4,310» alineado a la derecha y, al entrar en el
+ * campo, deja editar el valor en bruto aceptando coma o punto decimal.
+ */
+export function GwNumber({
+  value,
+  onChange,
+  decimals = 3,
+  disabled,
+  className = '',
+  emptyAsZero = false,
+}: {
+  value: number | null | undefined
+  onChange?: (v: number | null) => void
+  decimals?: number
+  disabled?: boolean
+  className?: string
+  emptyAsZero?: boolean
+}) {
+  const [editing, setEditing] = useState<string | null>(null)
+  const shown = editing ?? (value == null && emptyAsZero ? formatGw(0, decimals) : formatGw(value, decimals))
+  return (
+    <input
+      className={`gw-input gw-num ${className}`}
+      disabled={disabled}
+      readOnly={!onChange}
+      value={shown}
+      onFocus={() => setEditing(value == null ? '' : String(value).replace('.', ','))}
+      onChange={(e) => setEditing(e.target.value)}
+      onBlur={() => {
+        if (editing == null) return
+        const raw = editing.trim().replace(/\./g, '').replace(',', '.')
+        const n = raw === '' ? null : Number(raw)
+        setEditing(null)
+        if (onChange && (n === null || !Number.isNaN(n))) onChange(n)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+      }}
+    />
+  )
+}
+
+export function GwCheck({
+  label,
+  checked,
+  onChange,
+  disabled,
+  className = '',
+}: {
+  label: ReactNode
+  checked: boolean
+  onChange?: (v: boolean) => void
+  disabled?: boolean
+  className?: string
+}) {
+  return (
+    <label className={`flex select-none items-center gap-1 whitespace-nowrap text-[13px] ${className}`}>
+      <input
+        type="checkbox"
+        className="m-0 h-[13px] w-[13px] accent-[#0078d7]"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange?.(e.target.checked)}
+      />
+      {label}
+    </label>
+  )
+}
+
+export function GwRadio({
+  label,
+  checked,
+  onChange,
+  disabled,
+  name,
+}: {
+  label: ReactNode
+  checked: boolean
+  onChange?: () => void
+  disabled?: boolean
+  name: string
+}) {
+  return (
+    <label className="flex select-none items-center gap-1 whitespace-nowrap text-[13px]">
+      <input
+        type="radio"
+        name={name}
+        className="m-0 h-[12px] w-[12px] accent-[#0078d7]"
+        checked={checked}
+        disabled={disabled}
+        onChange={() => onChange?.()}
+      />
+      {label}
+    </label>
+  )
+}
+
+export function GwGroup({ title, children, className = '' }: { title?: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <fieldset className={`gw-group ${className}`}>
+      {title != null && <legend>{title}</legend>}
+      {children}
+    </fieldset>
+  )
+}
+
+/** Botón «···» que abre el buscador de la tabla relacionada, como en GeminisWin. */
+export function GwLookupButton({ onClick, disabled, title }: { onClick?: () => void; disabled?: boolean; title?: string }) {
+  return (
+    <button type="button" className="gw-btn gw-lookup" onClick={onClick} disabled={disabled} title={title ?? 'Buscar'}>
+      ···
+    </button>
+  )
+}
+
+export function GwPlusButton({ onClick, disabled, title }: { onClick?: () => void; disabled?: boolean; title?: string }) {
+  return (
+    <button
+      type="button"
+      className="gw-btn flex-none px-0 text-[20px] font-bold leading-none"
+      style={{ width: 34, height: 22 }}
+      onClick={onClick}
+      disabled={disabled}
+      title={title ?? 'Añadir'}
+    >
+      +
+    </button>
+  )
+}
+
+export interface GwTabDef {
+  key: string
+  label: string
+}
+
+/**
+ * Pestañas en varias filas al estilo Win32: la fila que contiene la pestaña activa se
+ * dibuja la última, pegada al contenido (en GeminisWin, «Características» queda abajo y
+ * «Precios por Proveedor / Composición / Imagen / Web» arriba).
+ */
+export function GwTabs({
+  rows,
+  active,
+  onChange,
+  children,
+}: {
+  rows: GwTabDef[][]
+  active: string
+  onChange: (key: string) => void
+  children: ReactNode
+}) {
+  const activeRow = rows.findIndex((r) => r.some((t) => t.key === active))
+  const ordered = activeRow < 0 ? rows : [...rows.filter((_, i) => i !== activeRow), rows[activeRow]]
+  return (
+    <div className="flex flex-col">
+      {ordered.map((row, i) => (
+        <div key={i} className="flex">
+          {row.map((t) => {
+            const isActive = t.key === active
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => onChange(t.key)}
+                className={`-mb-px flex-auto whitespace-nowrap border border-[var(--gw-border)] px-2 text-[14px] ${
+                  isActive ? 'z-10 h-[28px] border-b-transparent bg-[var(--gw-face)] font-bold' : 'h-[26px] mt-[2px] bg-[#f6f6f6] hover:bg-[#e5f1fb]'
+                }`}
+              >
+                {t.label}
+              </button>
+            )
+          })}
+        </div>
+      ))}
+      <div className="border border-[var(--gw-border)] bg-[var(--gw-face)] p-1.5">{children}</div>
+    </div>
+  )
+}

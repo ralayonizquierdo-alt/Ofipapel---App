@@ -1,0 +1,111 @@
+import { useEffect, useState } from 'react'
+import { supabase } from '../../lib/supabase'
+import { GwInput, GwWindow } from './index'
+
+export interface GwLookupColumn {
+  key: string
+  label: string
+  width?: number
+}
+
+/**
+ * Buscador de la tabla relacionada que abre el botón «···» de GeminisWin: rejilla con
+ * filtro, doble clic o Intro para elegir, Esc para cerrar.
+ */
+export function GwLookupDialog<T extends Record<string, unknown>>({
+  title,
+  table,
+  columns,
+  searchColumns,
+  orderBy,
+  keyColumn,
+  onPick,
+  onClose,
+}: {
+  title: string
+  table: string
+  columns: GwLookupColumn[]
+  searchColumns: string[]
+  orderBy: string
+  keyColumn: string
+  onPick: (row: T) => void
+  onClose: () => void
+}) {
+  const [filtro, setFiltro] = useState('')
+  const [rows, setRows] = useState<T[]>([])
+  const [sel, setSel] = useState(0)
+
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      let q = supabase.from(table).select(columns.map((c) => c.key).join(', ')).order(orderBy).limit(200)
+      const f = filtro.trim().replace(/[,%()]/g, ' ')
+      if (f) q = q.or(searchColumns.map((c) => `${c}.ilike.%${f}%`).join(','))
+      const { data } = await q
+      setRows((data ?? []) as unknown as T[])
+      setSel(0)
+    }, 200)
+    return () => clearTimeout(t)
+  }, [filtro, table, orderBy, columns, searchColumns])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-24" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+      <GwWindow title={title} onClose={onClose} className="w-[640px] max-w-[95vw]">
+        <div className="flex flex-col gap-1.5">
+          <GwInput
+            autoFocus
+            placeholder="Escribe para filtrar…"
+            value={filtro}
+            onChange={(e) => setFiltro(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') setSel((s) => Math.min(s + 1, rows.length - 1))
+              if (e.key === 'ArrowUp') setSel((s) => Math.max(s - 1, 0))
+              if (e.key === 'Enter' && rows[sel]) onPick(rows[sel])
+            }}
+          />
+          <div className="max-h-[360px] overflow-y-auto border border-[var(--gw-border)]">
+            <table className="gw-grid">
+              <thead className="sticky top-0">
+                <tr>
+                  {columns.map((c) => (
+                    <th key={c.key} style={c.width ? { width: c.width } : undefined}>
+                      {c.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={columns.length} className="text-center text-[#6d6d6d]">
+                      Sin registros.
+                    </td>
+                  </tr>
+                )}
+                {rows.map((r, i) => (
+                  <tr
+                    key={String(r[keyColumn])}
+                    className={i === sel ? 'gw-selected' : ''}
+                    onClick={() => setSel(i)}
+                    onDoubleClick={() => onPick(r)}
+                  >
+                    {columns.map((c) => (
+                      <td key={c.key}>{String(r[c.key] ?? '')}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-end gap-1.5">
+            <button type="button" className="gw-btn" disabled={!rows[sel]} onClick={() => rows[sel] && onPick(rows[sel])}>
+              Aceptar
+            </button>
+            <button type="button" className="gw-btn" onClick={onClose}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </GwWindow>
+    </div>
+  )
+}
