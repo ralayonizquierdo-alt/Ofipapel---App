@@ -54,3 +54,10 @@ Además de Artículos/Clientes/Proveedores: **Almacenes**, **Tiendas /
 Terminales**, **Empleados** (Fase 1) y **Stock** (Fase 2 — saldo en
 vivo por artículo+almacén + alta de movimientos manuales, con el
 trigger de `movimiento_stock` manteniendo el saldo).
+
+**Compras** (Fase 3 — pedido a proveedor) y **Pedidos de clientes**
+(Fase 4) ya crean documentos reales, numerados de forma atómica real
+vía `fn_siguiente_numero()` (sin condiciones de carrera). Ambas
+comparten el mismo patrón: cabecera + líneas libres (código de
+artículo en texto, sin desplegable todavía) contra `pedido_proveedor`/
+`pedido_proveedor_linea` y `pedido_cliente`/`pedido_cliente_linea`.
