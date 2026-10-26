@@ -1,7 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
-import { GwField, GwInput, GwSelect, formatGw } from '../../../components/gw'
+import { Binoculars, ChevronFirst, ChevronLast, Play } from 'lucide-react'
+import { GwGroup, GwInput, GwRadio, GwSelect, formatGw } from '../../../components/gw'
+import { FilasVacias } from './TabBancos'
 import type { ClienteTabProps } from '../types'
 
 type Sub = 'ventas' | 'facturas' | 'pedidos' | 'presupuestos' | 'reparaciones'
@@ -72,6 +74,46 @@ function fecha(v: string | null) {
 const eur = (v: number | null | undefined) => formatGw(v ?? 0, 2)
 const sum = <T,>(rows: T[], f: (r: T) => number | null | undefined) => rows.reduce((acc, r) => acc + Number(f(r) ?? 0), 0)
 
+type Operador = 'cualquiera' | 'igual' | 'entre' | 'desde' | 'hasta'
+type ModoTienda = 'rango' | 'cualquiera' | 'seleccionar'
+
+interface Filtro {
+  operador: Operador
+  fecha1: string
+  fecha2: string
+  modoTienda: ModoTienda
+  tiendaDesde: string
+  tiendaHasta: string
+  tienda: string
+}
+
+const FILTRO_INICIAL: Filtro = {
+  operador: 'entre',
+  fecha1: haceUnAno(),
+  fecha2: hoy(),
+  modoTienda: 'cualquiera',
+  tiendaDesde: '',
+  tiendaHasta: '',
+  tienda: '',
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function aplicarFiltro(q: any, campo: string, f: Filtro) {
+  if (f.operador === 'igual' && f.fecha1) q = q.eq(campo, f.fecha1)
+  if (f.operador === 'entre') {
+    if (f.fecha1) q = q.gte(campo, f.fecha1)
+    if (f.fecha2) q = q.lte(campo, f.fecha2)
+  }
+  if (f.operador === 'desde' && f.fecha1) q = q.gte(campo, f.fecha1)
+  if (f.operador === 'hasta' && f.fecha1) q = q.lte(campo, f.fecha1)
+  if (f.modoTienda === 'seleccionar' && f.tienda) q = q.eq('tienda_terminal_codigo', f.tienda)
+  if (f.modoTienda === 'rango') {
+    if (f.tiendaDesde) q = q.gte('tienda_terminal_codigo', f.tiendaDesde)
+    if (f.tiendaHasta) q = q.lte('tienda_terminal_codigo', f.tiendaHasta)
+  }
+  return q
+}
+
 function estadoPedido(p: Pedido) {
   if (p.anulado) return 'Anulado'
   if (p.liquidado === 5) return 'Liquidado'
@@ -85,9 +127,8 @@ export function TabConsultas({ cliente }: ClienteTabProps) {
   const navigate = useNavigate()
   const clienteCodigo = cliente.codigo
   const [sub, setSub] = useState<Sub>('ventas')
-  const [desde, setDesde] = useState(haceUnAno())
-  const [hasta, setHasta] = useState(hoy())
-  const [tienda, setTienda] = useState('')
+  const [borrador, setBorrador] = useState<Filtro>(FILTRO_INICIAL)
+  const [filtro, setFiltro] = useState<Filtro>(FILTRO_INICIAL)
   const [tiendas, setTiendas] = useState<{ codigo: string; descripcion: string }[]>([])
   const [ventas, setVentas] = useState<Venta[]>([])
   const [facturas, setFacturas] = useState<Factura[]>([])
@@ -119,9 +160,7 @@ export function TabConsultas({ cliente }: ClienteTabProps) {
           .order('fecha', { ascending: false })
           .order('numero', { ascending: false })
           .limit(500)
-        if (desde) q = q.gte('fecha', desde)
-        if (hasta) q = q.lte('fecha', hasta)
-        if (tienda) q = q.eq('tienda_terminal_codigo', tienda)
+        q = aplicarFiltro(q, 'fecha', filtro)
         const { data, error: err } = await q
         if (!vivo) return
         if (err) setError(err.message)
@@ -133,9 +172,7 @@ export function TabConsultas({ cliente }: ClienteTabProps) {
           .eq('cliente_codigo', clienteCodigo)
           .order('fecha_factura', { ascending: false })
           .limit(500)
-        if (desde) q = q.gte('fecha_factura', desde)
-        if (hasta) q = q.lte('fecha_factura', hasta)
-        if (tienda) q = q.eq('tienda_terminal_codigo', tienda)
+        q = aplicarFiltro(q, 'fecha_factura', filtro)
         const { data, error: err } = await q
         if (!vivo) return
         if (err) setError(err.message)
@@ -149,9 +186,7 @@ export function TabConsultas({ cliente }: ClienteTabProps) {
           .order('numero', { ascending: false })
           .limit(500)
         q = sub === 'presupuestos' ? q.eq('es_presupuesto', true) : q.or('es_presupuesto.is.null,es_presupuesto.eq.false')
-        if (desde) q = q.gte('fecha', desde)
-        if (hasta) q = q.lte('fecha', hasta)
-        if (tienda) q = q.eq('tienda_terminal_codigo', tienda)
+        q = aplicarFiltro(q, 'fecha', filtro)
         const { data, error: err } = await q
         if (!vivo) return
         if (err) setError(err.message)
@@ -162,47 +197,101 @@ export function TabConsultas({ cliente }: ClienteTabProps) {
     return () => {
       vivo = false
     }
-  }, [clienteCodigo, sub, desde, hasta, tienda])
+  }, [clienteCodigo, sub, filtro])
+
+  const claves =
+    sub === 'ventas'
+      ? ventas.map((v) => `${v.tienda_terminal_codigo}-${v.numero}`)
+      : sub === 'facturas'
+        ? facturas.map((f) => `${f.tienda_terminal_codigo}-${f.numero}`)
+        : pedidos.map((p) => `${p.tienda_terminal_codigo}-${p.numero}`)
 
   return (
-    <div className="flex flex-col gap-1.5" title="Historial del cliente">
-      <div className="flex items-end gap-2">
-        <GwField label="Desde" className="w-[140px]">
-          <GwInput type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
-        </GwField>
-        <GwField label="Hasta" className="w-[140px]">
-          <GwInput type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
-        </GwField>
-        <GwField label="Tienda" className="w-[260px]">
-          <GwSelect value={tienda} onChange={(e) => setTienda(e.target.value)}>
-            <option value="">Todas</option>
+    <div className="flex flex-col gap-1" title="Historial del cliente">
+      <div className="flex items-stretch gap-2">
+        <GwGroup title="Filtrar Según Fecha" className="grid w-[420px] grid-cols-2 gap-x-2 gap-y-1">
+          <GwSelect value="fecha" disabled title="Campo de fecha">
+            <option value="fecha">Fecha</option>
+          </GwSelect>
+          <GwSelect value={borrador.operador} onChange={(e) => setBorrador({ ...borrador, operador: e.target.value as Operador })}>
+            <option value="cualquiera">Cualquiera</option>
+            <option value="igual">Igual que</option>
+            <option value="entre">Entre</option>
+            <option value="desde">Desde</option>
+            <option value="hasta">Hasta</option>
+          </GwSelect>
+          <GwInput
+            type="date"
+            disabled={borrador.operador === 'cualquiera'}
+            value={borrador.fecha1}
+            onChange={(e) => setBorrador({ ...borrador, fecha1: e.target.value })}
+          />
+          <GwInput
+            type="date"
+            disabled={borrador.operador !== 'entre'}
+            value={borrador.fecha2}
+            onChange={(e) => setBorrador({ ...borrador, fecha2: e.target.value })}
+          />
+        </GwGroup>
+        <GwGroup title="Tiendas" className="grid w-[320px] grid-cols-[110px_minmax(0,1fr)] items-center gap-x-2 gap-y-0.5">
+          <GwRadio
+            name="consultas-tiendas"
+            label="Desde/Hasta"
+            checked={borrador.modoTienda === 'rango'}
+            onChange={() => setBorrador({ ...borrador, modoTienda: 'rango' })}
+          />
+          <div className="grid grid-cols-2 gap-1">
+            {(['tiendaDesde', 'tiendaHasta'] as const).map((k) => (
+              <GwSelect
+                key={k}
+                disabled={borrador.modoTienda !== 'rango'}
+                value={borrador[k]}
+                onChange={(e) => setBorrador({ ...borrador, [k]: e.target.value })}
+              >
+                <option value="" />
+                {tiendas.map((t) => (
+                  <option key={t.codigo} value={t.codigo} title={t.descripcion}>
+                    {t.codigo}
+                  </option>
+                ))}
+              </GwSelect>
+            ))}
+          </div>
+          <GwRadio
+            name="consultas-tiendas"
+            label="Cualquiera"
+            checked={borrador.modoTienda === 'cualquiera'}
+            onChange={() => setBorrador({ ...borrador, modoTienda: 'cualquiera' })}
+          />
+          <span />
+          <GwRadio
+            name="consultas-tiendas"
+            label="Seleccionar"
+            checked={borrador.modoTienda === 'seleccionar'}
+            onChange={() => setBorrador({ ...borrador, modoTienda: 'seleccionar' })}
+          />
+          <GwSelect
+            disabled={borrador.modoTienda !== 'seleccionar'}
+            value={borrador.tienda}
+            onChange={(e) => setBorrador({ ...borrador, tienda: e.target.value })}
+          >
+            <option value="" />
             {tiendas.map((t) => (
               <option key={t.codigo} value={t.codigo}>
                 {t.codigo} — {t.descripcion}
               </option>
             ))}
           </GwSelect>
-        </GwField>
-        <span className="gw-label pb-1 text-[#6d6d6d]">{cargando ? 'Buscando…' : ''}</span>
+        </GwGroup>
+        <div className="ml-auto flex flex-col justify-start pt-2">
+          <button type="button" className="gw-btn h-[30px] w-[90px]" onClick={() => setFiltro({ ...borrador })}>
+            <span className="text-[#c42b1c]">×</span>Aplicar
+          </button>
+          <span className="gw-label mt-1 text-[#6d6d6d]">{cargando ? 'Buscando…' : ''}</span>
+        </div>
       </div>
 
-      <div className="flex">
-        {SUBTABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            disabled={t.disabled}
-            title={t.disabled ? 'Aún no disponible' : undefined}
-            onClick={() => setSub(t.key)}
-            className={`-mb-px flex-auto whitespace-nowrap border border-[var(--gw-border)] px-2 text-[14px] disabled:text-[#9a9a9a] ${
-              sub === t.key ? 'z-10 h-[28px] border-b-transparent bg-[var(--gw-face)] font-bold' : 'mt-[2px] h-[26px] bg-[#f6f6f6] enabled:hover:bg-[#e5f1fb]'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <div className="-mt-1.5 border border-[var(--gw-border)] bg-[var(--gw-face)] p-1.5">
+      <div className="flex flex-col gap-1">
         {error && <div className="mb-1 border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
 
         {sub === 'ventas' && (
@@ -297,12 +386,69 @@ export function TabConsultas({ cliente }: ClienteTabProps) {
             })}
           </Rejilla>
         )}
+        <NavRejilla claves={claves} sel={sel} setSel={setSel} />
+      </div>
+      <div className="-mt-px flex">
+        {SUBTABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            disabled={t.disabled}
+            title={t.disabled ? 'Aún no disponible' : undefined}
+            onClick={() => setSub(t.key)}
+            className={`whitespace-nowrap border border-[var(--gw-border)] px-2.5 text-[14px] disabled:text-[#9a9a9a] ${
+              sub === t.key ? 'z-10 h-[28px] border-t-transparent bg-[var(--gw-face)] font-bold' : 'h-[26px] bg-[#f6f6f6] enabled:hover:bg-[#e5f1fb]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
     </div>
   )
 }
 
-function Rejilla({
+function NavRejilla({ claves, sel, setSel }: { claves: string[]; sel: string | null; setSel: (k: string) => void }) {
+  const i = sel ? claves.indexOf(sel) : -1
+  const ir = (n: number) => {
+    if (claves.length) setSel(claves[Math.max(0, Math.min(claves.length - 1, n))])
+  }
+  const b =
+    'flex h-[22px] w-[64px] items-center justify-center border-r border-[var(--gw-border-light)] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent'
+  const vacio = claves.length === 0
+  return (
+    <div className="flex w-fit border border-[var(--gw-border)] bg-[var(--gw-face)]">
+      <button type="button" className={b} title="Primero" disabled={vacio} onClick={() => ir(0)}>
+        <ChevronFirst size={13} strokeWidth={3} />
+      </button>
+      <button type="button" className={b} title="Anterior" disabled={vacio} onClick={() => ir(i - 1)}>
+        <Play size={9} className="rotate-180" fill="currentColor" />
+      </button>
+      <button type="button" className={b} title="Siguiente" disabled={vacio} onClick={() => ir(i + 1)}>
+        <Play size={9} fill="currentColor" />
+      </button>
+      <button type="button" className={b} title="Último" disabled={vacio} onClick={() => ir(claves.length - 1)}>
+        <ChevronLast size={13} strokeWidth={3} />
+      </button>
+      <button
+        type="button"
+        className={`${b} border-r-0`}
+        title="Buscar por número"
+        disabled={vacio}
+        onClick={() => {
+          const q = window.prompt('Buscar por número:')?.trim()
+          const k = q ? claves.find((c) => c.endsWith(`-${q}`)) : undefined
+          if (k) setSel(k)
+        }}
+      >
+        <Binoculars size={13} />
+      </button>
+    </div>
+  )
+}
+
+function Rejilla(
+{
   cabecera,
   derecha,
   vacio,
@@ -316,7 +462,7 @@ function Rejilla({
   children: ReactNode[]
 }) {
   return (
-    <div className="h-[340px] overflow-y-auto border border-[var(--gw-border)] bg-white">
+    <div className="h-[250px] overflow-y-auto border border-[var(--gw-border)] bg-white">
       <table className="gw-grid">
         <thead className="sticky top-0">
           <tr>
@@ -328,15 +474,15 @@ function Rejilla({
           </tr>
         </thead>
         <tbody>
-          {children.length === 0 ? (
+          {children}
+          {children.length === 0 && (
             <tr>
               <td colSpan={cabecera.length} className="text-center text-[#6d6d6d]">
                 {vacio}
               </td>
             </tr>
-          ) : (
-            children
           )}
+          <FilasVacias cols={cabecera.length} ocupadas={Math.max(children.length, 1)} total={9} />
         </tbody>
         <tfoot className="sticky bottom-0">
           <tr>

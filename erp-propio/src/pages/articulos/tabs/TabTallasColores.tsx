@@ -1,12 +1,23 @@
-import { useEffect, useState } from 'react'
-import { Check, Plus, Save, Trash2, Wand2, X } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowUpRight, Binoculars, Check, FilePen, FilePlus2, Trash2, Wand2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { GwCheck, GwGroup, GwInput, GwNumber, GwSelect, formatGw } from '../../../components/gw'
+import { GwCheck, GwInput, GwLookupButton, GwSelect, GwWindow, formatGw } from '../../../components/gw'
 import type { ArticuloTallaColorConfig, ArticuloVariante } from '../types'
 
 interface Maestro {
   id: number
   descripcion: string
+}
+interface Almacen {
+  codigo: string
+  nombre: string
+}
+interface FilaEdit {
+  id?: number
+  talla_id: string
+  color_id: string
+  codigo_variante: string
 }
 
 const emptyConfig = (codigo: string): ArticuloTallaColorConfig => ({
@@ -21,21 +32,40 @@ const emptyConfig = (codigo: string): ArticuloTallaColorConfig => ({
   no_incluir_talla: false,
   pvp_es_padre: false,
   codigo_compra_es_padre: false,
+  crear_hijos_al_vender: 0,
 })
 
-export function TabTallasColores({ articuloCodigo }: { articuloCodigo: string }) {
+function MiniBtn({ title, onClick, disabled, children }: { title: string; onClick?: () => void; disabled?: boolean; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      disabled={disabled}
+      className="flex h-[22px] w-[48px] items-center justify-center border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent"
+    >
+      {children}
+    </button>
+  )
+}
+
+export function TabTallasColores({ articuloCodigo, editing = true }: { articuloCodigo: string; editing?: boolean }) {
+  const navigate = useNavigate()
   const [config, setConfig] = useState<ArticuloTallaColorConfig>(emptyConfig(articuloCodigo))
   const [variantes, setVariantes] = useState<ArticuloVariante[]>([])
   const [tallas, setTallas] = useState<Maestro[]>([])
   const [colores, setColores] = useState<Maestro[]>([])
-  const [stockPorCodigo, setStockPorCodigo] = useState<Record<string, number>>({})
+  const [almacenes, setAlmacenes] = useState<Almacen[]>([])
+  const [almacen, setAlmacen] = useState('')
+  const [stock, setStock] = useState<Record<string, number>>({})
+  const [padre, setPadre] = useState<string | null>(null)
+  const [sel, setSel] = useState<number | null>(null)
+  const [edit, setEdit] = useState<FilaEdit | null>(null)
+  const [generador, setGenerador] = useState(false)
   const [selTallas, setSelTallas] = useState<number[]>([])
   const [selColores, setSelColores] = useState<number[]>([])
-  const [adding, setAdding] = useState(false)
-  const [sel, setSel] = useState<number | null>(null)
-  const [nueva, setNueva] = useState<{ talla_id: string; color_id: string; codigo_variante: string }>({ talla_id: '', color_id: '', codigo_variante: '' })
+  const [buscarAlmacen, setBuscarAlmacen] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [savingConfig, setSavingConfig] = useState(false)
 
   async function loadVariantes() {
     const { data } = await supabase
@@ -44,20 +74,7 @@ export function TabTallasColores({ articuloCodigo }: { articuloCodigo: string })
       .eq('articulo_codigo', articuloCodigo)
       .order('talla_descripcion')
       .order('color_descripcion')
-    const rows = (data ?? []) as ArticuloVariante[]
-    setVariantes(rows)
-    const codigos = rows.map((r) => r.codigo_variante).filter((c): c is string => !!c)
-    if (codigos.length === 0) {
-      setStockPorCodigo({})
-      return
-    }
-    const { data: stock } = await supabase
-      .from('articulo_almacen_stock')
-      .select('articulo_codigo, cantidad_actual')
-      .in('articulo_codigo', codigos)
-    const map: Record<string, number> = {}
-    for (const s of stock ?? []) map[s.articulo_codigo] = (map[s.articulo_codigo] ?? 0) + Number(s.cantidad_actual)
-    setStockPorCodigo(map)
+    setVariantes((data ?? []) as ArticuloVariante[])
   }
 
   useEffect(() => {
@@ -65,65 +82,70 @@ export function TabTallasColores({ articuloCodigo }: { articuloCodigo: string })
       supabase.from('articulo_talla_color_config').select('*').eq('articulo_codigo', articuloCodigo).maybeSingle(),
       supabase.from('talla').select('id, descripcion').order('id'),
       supabase.from('color').select('id, descripcion').order('descripcion'),
-    ]).then(([c, t, co]) => {
-      if (c.data) setConfig(c.data as ArticuloTallaColorConfig)
+      supabase.from('almacen').select('codigo, nombre').order('codigo'),
+      supabase.from('articulo_variante').select('articulo_codigo').eq('codigo_variante', articuloCodigo).limit(1).maybeSingle(),
+    ]).then(([c, t, co, al, pa]) => {
+      setConfig(c.data ? ({ ...emptyConfig(articuloCodigo), ...c.data } as ArticuloTallaColorConfig) : emptyConfig(articuloCodigo))
       setTallas(t.data ?? [])
       setColores(co.data ?? [])
+      setAlmacenes(al.data ?? [])
+      setPadre((pa.data?.articulo_codigo as string | undefined) ?? null)
     })
     loadVariantes()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [articuloCodigo])
 
-  async function saveConfig() {
-    setSavingConfig(true)
+  useEffect(() => {
+    const codigos = variantes.map((v) => v.codigo_variante).filter((c): c is string => !!c)
+    if (codigos.length === 0) return setStock({})
+    let q = supabase.from('articulo_almacen_stock').select('articulo_codigo, cantidad_actual').in('articulo_codigo', codigos)
+    if (almacen) q = q.eq('almacen_codigo', almacen)
+    q.then(({ data }) => {
+      const map: Record<string, number> = {}
+      for (const s of data ?? []) map[s.articulo_codigo] = (map[s.articulo_codigo] ?? 0) + Number(s.cantidad_actual)
+      setStock(map)
+    })
+  }, [variantes, almacen])
+
+  async function guardarConfig(patch: Partial<ArticuloTallaColorConfig>) {
+    const next = { ...config, ...patch }
+    setConfig(next)
     setError(null)
-    const { error: err } = await supabase.from('articulo_talla_color_config').upsert(config, { onConflict: 'articulo_codigo' })
-    setSavingConfig(false)
+    const { error: err } = await supabase.from('articulo_talla_color_config').upsert(next, { onConflict: 'articulo_codigo' })
     if (err) setError(err.message)
   }
 
-  async function addVariante() {
+  async function aceptarFila() {
+    if (!edit) return
     setError(null)
-    const talla = tallas.find((t) => t.id === Number(nueva.talla_id))
-    const color = colores.find((c) => c.id === Number(nueva.color_id))
-    if (!talla && !color) {
-      setError('Elige al menos una talla o un color.')
-      return
-    }
-    const { error: err } = await supabase.from('articulo_variante').insert({
+    const talla = tallas.find((t) => t.id === Number(edit.talla_id))
+    const color = colores.find((c) => c.id === Number(edit.color_id))
+    if (!talla && !color) return setError('Elige al menos una talla o un color.')
+    const payload = {
       articulo_codigo: articuloCodigo,
       talla_id: talla?.id ?? null,
       talla_descripcion: talla?.descripcion ?? null,
       color_id: color?.id ?? null,
       color_descripcion: color?.descripcion ?? null,
-      codigo_variante: nueva.codigo_variante || null,
-    })
-    if (err) {
-      setError(err.message)
-      return
+      codigo_variante: edit.codigo_variante.trim() || null,
     }
-    setNueva({ talla_id: '', color_id: '', codigo_variante: '' })
-    setAdding(false)
+    const { error: err } =
+      edit.id != null
+        ? await supabase.from('articulo_variante').update(payload).eq('id', edit.id)
+        : await supabase.from('articulo_variante').insert(payload)
+    if (err) return setError(err.message)
+    setEdit(null)
     loadVariantes()
   }
 
-  async function updateCodigo(v: ArticuloVariante, codigo: string) {
-    if (!v.id) return
-    const { error: err } = await supabase.from('articulo_variante').update({ codigo_variante: codigo || null }).eq('id', v.id)
-    if (err) setError(err.message)
-    else loadVariantes()
-  }
-
-  async function deleteVariante() {
+  async function borrar() {
     const v = variantes.find((x) => x.id === sel)
     if (!v?.id) return
     if (!confirm(`¿Borrar la variante ${v.talla_descripcion ?? ''} ${v.color_descripcion ?? ''}?`)) return
     const { error: err } = await supabase.from('articulo_variante').delete().eq('id', v.id)
-    if (err) setError(err.message)
-    else {
-      setSel(null)
-      loadVariantes()
-    }
+    if (err) return setError(err.message)
+    setSel(null)
+    loadVariantes()
   }
 
   async function generar() {
@@ -135,8 +157,7 @@ export function TabTallasColores({ articuloCodigo }: { articuloCodigo: string })
     for (const t of tallasUsar) {
       for (const c of coloresUsar) {
         if (!t && !c) continue
-        const key = `${t?.id ?? ''}|${c?.id ?? ''}`
-        if (existentes.has(key)) continue
+        if (existentes.has(`${t?.id ?? ''}|${c?.id ?? ''}`)) continue
         nuevas.push({
           articulo_codigo: articuloCodigo,
           talla_id: t?.id ?? null,
@@ -147,162 +168,237 @@ export function TabTallasColores({ articuloCodigo }: { articuloCodigo: string })
         })
       }
     }
-    if (nuevas.length === 0) {
-      setError('No hay combinaciones nuevas: selecciona tallas y/o colores que aún no existan.')
-      return
-    }
+    if (nuevas.length === 0) return setError('No hay combinaciones nuevas: selecciona tallas y/o colores que aún no existan.')
     const { error: err } = await supabase.from('articulo_variante').insert(nuevas)
-    if (err) {
-      setError(err.message)
-      return
-    }
+    if (err) return setError(err.message)
     setSelTallas([])
     setSelColores([])
-    loadVariantes()
+    setGenerador(false)
+    await loadVariantes()
   }
 
-  const toggleSel = (list: number[], id: number) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
+  const nTallas = new Set(variantes.map((v) => v.talla_id).filter((x) => x != null)).size
+  const nColores = new Set(variantes.map((v) => v.color_id).filter((x) => x != null)).size
+  const almacenNombre = almacenes.find((a) => a.codigo === almacen)?.nombre ?? ''
+  const toggle = (list: number[], id: number) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
+  const dis = !editing
 
-  const lista = (titulo: string, items: Maestro[], marcados: number[], set: (v: number[]) => void, off: boolean) => (
-    <div className="flex min-w-0 flex-col">
-      <span className="gw-label">{titulo}</span>
-      <div className={`h-[120px] overflow-y-auto border border-[var(--gw-border)] bg-white px-1 ${off ? 'opacity-50' : ''}`}>
-        {items.length === 0 && <span className="text-[#6d6d6d]">Sin {titulo.toLowerCase()} en el maestro.</span>}
-        {items.map((it) => (
-          <GwCheck key={it.id} label={it.descripcion} checked={marcados.includes(it.id)} disabled={off} onChange={() => set(toggleSel(marcados, it.id))} />
-        ))}
-      </div>
-    </div>
+  const filaEdit = (e: FilaEdit) => (
+    <tr key={e.id ?? 'nueva'}>
+      <td>
+        <GwInput autoFocus value={e.codigo_variante} onChange={(ev) => setEdit({ ...e, codigo_variante: ev.target.value })} />
+      </td>
+      <td>
+        <GwSelect value={e.talla_id} onChange={(ev) => setEdit({ ...e, talla_id: ev.target.value })}>
+          <option value="">—</option>
+          {tallas.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.descripcion}
+            </option>
+          ))}
+        </GwSelect>
+      </td>
+      <td>
+        <GwSelect value={e.color_id} onChange={(ev) => setEdit({ ...e, color_id: ev.target.value })}>
+          <option value="">—</option>
+          {colores.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.descripcion}
+            </option>
+          ))}
+        </GwSelect>
+      </td>
+      <td />
+    </tr>
   )
 
   return (
-    <div className="flex flex-col gap-1.5" title="TALLAS_M / TALLAS_D">
-      {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
-      <div className="grid grid-cols-[300px_minmax(0,1fr)] gap-2">
-        <GwGroup title="Definición de Tallas y Colores">
-          <div className="flex flex-col gap-1">
-            <div className="grid grid-cols-[1fr_90px] items-center gap-x-2 gap-y-1">
-              <span className="gw-label">Nº de Tallas:</span>
-              <GwNumber value={config.num_tallas} decimals={0} onChange={(v) => setConfig({ ...config, num_tallas: v })} />
-              <span className="gw-label">Nº de Colores:</span>
-              <GwNumber value={config.num_colores} decimals={0} onChange={(v) => setConfig({ ...config, num_colores: v })} />
-            </div>
-            <GwCheck label="Rango alfabético" checked={config.rango_alfabetico} onChange={(v) => setConfig({ ...config, rango_alfabetico: v })} />
-            <GwCheck label="No incluir talla" checked={config.no_incluir_talla} onChange={(v) => setConfig({ ...config, no_incluir_talla: v })} />
-            <GwCheck label="No incluir color" checked={config.no_incluir_color} onChange={(v) => setConfig({ ...config, no_incluir_color: v })} />
-            <GwCheck label="Pvp del padre" checked={config.pvp_es_padre} onChange={(v) => setConfig({ ...config, pvp_es_padre: v })} />
-            <GwCheck
-              label="Código de compra del padre"
-              checked={config.codigo_compra_es_padre}
-              onChange={(v) => setConfig({ ...config, codigo_compra_es_padre: v })}
-            />
-            <div className="mt-1">
-              <button type="button" className="gw-btn" onClick={saveConfig} disabled={savingConfig}>
-                <Save size={14} /> {savingConfig ? 'Guardando…' : 'Guardar definición'}
-              </button>
-            </div>
+    <div className="flex h-[250px] gap-3" title="TALLAS_M / TALLAS_D">
+      <div className="flex w-[510px] flex-none flex-col">
+        <div className="flex-1 overflow-y-auto border border-[var(--gw-border)] bg-white">
+          <table className="gw-grid text-[12px]">
+            <thead className="sticky top-0">
+              <tr>
+                <th style={{ width: 175 }}>Código</th>
+                <th className="!text-center" style={{ width: 108 }}>Talla</th>
+                <th className="!text-center" style={{ width: 116 }}>Color</th>
+                <th>Almacen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {variantes.map((v) =>
+                edit && edit.id === v.id ? (
+                  filaEdit(edit)
+                ) : (
+                  <tr key={v.id} className={sel === v.id ? 'gw-selected' : ''} onClick={() => !edit && setSel(v.id ?? null)}>
+                    <td>{v.codigo_variante ?? ''}</td>
+                    <td className="text-center">{v.talla_descripcion ?? ''}</td>
+                    <td className="text-center">{v.color_descripcion ?? ''}</td>
+                    <td className="text-right tabular-nums">
+                      {v.codigo_variante && stock[v.codigo_variante] != null ? formatGw(stock[v.codigo_variante], 3) : ''}
+                    </td>
+                  </tr>
+                ),
+              )}
+              {edit && edit.id == null && filaEdit(edit)}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-0.5 flex items-center gap-4">
+          <div className="flex border border-[var(--gw-border)]">
+            {edit ? (
+              <>
+                <MiniBtn title="Aceptar" onClick={aceptarFila}>
+                  <Check size={14} strokeWidth={3} className="text-[#127a12]" />
+                </MiniBtn>
+                <MiniBtn title="Cancelar" onClick={() => setEdit(null)}>
+                  <X size={14} strokeWidth={3} className="text-[#c42b1c]" />
+                </MiniBtn>
+              </>
+            ) : (
+              <>
+                <MiniBtn title="Añadir línea" disabled={dis} onClick={() => setEdit({ talla_id: '', color_id: '', codigo_variante: '' })}>
+                  <FilePlus2 size={13} />
+                </MiniBtn>
+                <MiniBtn
+                  title="Modificar línea"
+                  disabled={dis || sel == null}
+                  onClick={() => {
+                    const v = variantes.find((x) => x.id === sel)
+                    if (v) setEdit({ id: v.id, talla_id: v.talla_id != null ? String(v.talla_id) : '', color_id: v.color_id != null ? String(v.color_id) : '', codigo_variante: v.codigo_variante ?? '' })
+                  }}
+                >
+                  <FilePen size={13} />
+                </MiniBtn>
+                <MiniBtn title="Borrar línea" disabled={dis || sel == null} onClick={borrar}>
+                  <Trash2 size={13} />
+                </MiniBtn>
+              </>
+            )}
+            <MiniBtn title="Buscar" disabled>
+              <Binoculars size={13} />
+            </MiniBtn>
           </div>
-        </GwGroup>
-        <GwGroup title="Generar Tallas y Colores">
-          <div className="grid grid-cols-2 gap-2">
-            {lista('Tallas', tallas, selTallas, setSelTallas, config.no_incluir_talla)}
-            {lista('Colores', colores, selColores, setSelColores, config.no_incluir_color)}
-          </div>
-          <div className="mt-1.5">
-            <button type="button" className="gw-btn" onClick={generar} disabled={tallas.length === 0 && colores.length === 0}>
-              <Wand2 size={14} /> Generar tallas y colores
-            </button>
-          </div>
-        </GwGroup>
+          <span className="text-[12px] text-[#1a4fd0]">Nº Items: {variantes.length}</span>
+          <span className="text-[12px] text-[#1a4fd0]">Nº Tallas: {nTallas || ''}</span>
+          <span className="text-[12px] text-[#1a4fd0]">Nº Colores: {nColores || ''}</span>
+        </div>
+        {error && <span className="text-[12px] text-[#a4262c]">{error}</span>}
       </div>
 
-      <div className="flex gap-1">
+      <div className="flex w-[270px] flex-none flex-col gap-2">
+        <fieldset className="gw-group">
+          <legend className="text-[12px]">Ver el Stock del almacen:</legend>
+          <div className="flex gap-0.5">
+            <GwSelect className="!w-[56px]" value={almacen} onChange={(e) => setAlmacen(e.target.value)}>
+              <option value="">—</option>
+              {almacenes.map((a) => (
+                <option key={a.codigo} value={a.codigo}>
+                  {a.codigo}
+                </option>
+              ))}
+            </GwSelect>
+            <GwInput readOnly value={almacenNombre} />
+            <GwLookupButton onClick={() => setBuscarAlmacen(true)} title="Buscar almacén" />
+          </div>
+        </fieldset>
+        <GwCheck
+          label="Siempre se utilizarán los PVPs del Artículo Padre"
+          checked={config.pvp_es_padre}
+          onChange={(v) => guardarConfig({ pvp_es_padre: v })}
+          disabled={dis}
+          className="text-[12px]"
+        />
+        <button type="button" className="gw-btn !h-[40px] w-[206px]" disabled={dis} onClick={() => setGenerador(true)}>
+          <Wand2 size={14} /> <span className="underline decoration-1 underline-offset-2">G</span>enerar tallas y colores
+        </button>
         <button
           type="button"
-          className="gw-btn"
-          disabled={adding}
-          onClick={() => {
-            setError(null)
-            setAdding(true)
-          }}
+          className="gw-btn w-[142px]"
+          disabled={!padre}
+          title={padre ? `Abrir ${padre}` : 'Este artículo no es hijo de ningún otro'}
+          onClick={() => padre && navigate(`/articulos/${encodeURIComponent(padre)}`)}
         >
-          <Plus size={14} /> Añadir línea
+          <ArrowUpRight size={13} /> Ir al Artículo Padre
         </button>
-        <button type="button" className="gw-btn" disabled={sel == null || adding} onClick={deleteVariante}>
-          <Trash2 size={14} /> Borrar línea
-        </button>
+        <div className="flex flex-col">
+          <span className="gw-label text-[12px]">Crear Artic. Hijos al Vender:</span>
+          <GwSelect
+            className="!w-[172px]"
+            title="Confirmar los valores con Luis"
+            value={config.crear_hijos_al_vender}
+            onChange={(e) => guardarConfig({ crear_hijos_al_vender: Number(e.target.value) })}
+            disabled={dis}
+          >
+            <option value={0}>Deshabilitado</option>
+            <option value={1}>Preguntar al vender</option>
+            <option value={2}>Crear automáticamente</option>
+          </GwSelect>
+        </div>
       </div>
-      <table className="gw-grid">
-        <thead>
-          <tr>
-            <th style={{ width: 180 }}>Talla</th>
-            <th style={{ width: 180 }}>Color</th>
-            <th>Código del Artículo Hijo</th>
-            <th className="text-right" style={{ width: 110 }}>Stock</th>
-          </tr>
-        </thead>
-        <tbody>
-          {variantes.length === 0 && !adding && (
-            <tr>
-              <td colSpan={4} className="text-center text-[#6d6d6d]">Sin artículos hijos.</td>
-            </tr>
-          )}
-          {variantes.map((v) => (
-            <tr key={v.id} className={sel === v.id ? 'gw-selected' : ''} onClick={() => setSel(v.id ?? null)}>
-              <td>{v.talla_descripcion ?? ''}</td>
-              <td>{v.color_descripcion ?? ''}</td>
-              <td>
-                <GwInput
-                  key={v.codigo_variante ?? ''}
-                  className="text-black"
-                  defaultValue={v.codigo_variante ?? ''}
-                  onBlur={(e) => e.target.value !== (v.codigo_variante ?? '') && updateCodigo(v, e.target.value)}
-                />
-              </td>
-              <td className="text-right tabular-nums">
-                {v.codigo_variante && stockPorCodigo[v.codigo_variante] != null ? formatGw(stockPorCodigo[v.codigo_variante], 3) : ''}
-              </td>
-            </tr>
-          ))}
-          {adding && (
-            <tr>
-              <td>
-                <GwSelect autoFocus value={nueva.talla_id} onChange={(e) => setNueva({ ...nueva, talla_id: e.target.value })}>
-                  <option value="">—</option>
-                  {tallas.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.descripcion}
-                    </option>
-                  ))}
-                </GwSelect>
-              </td>
-              <td>
-                <GwSelect value={nueva.color_id} onChange={(e) => setNueva({ ...nueva, color_id: e.target.value })}>
-                  <option value="">—</option>
-                  {colores.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.descripcion}
-                    </option>
-                  ))}
-                </GwSelect>
-              </td>
-              <td>
-                <GwInput value={nueva.codigo_variante} onChange={(e) => setNueva({ ...nueva, codigo_variante: e.target.value })} />
-              </td>
-              <td>
-                <div className="flex justify-end gap-1">
-                  <button type="button" className="gw-btn px-1.5" title="Aceptar" onClick={addVariante}>
-                    <Check size={14} className="text-[#127a12]" />
-                  </button>
-                  <button type="button" className="gw-btn px-1.5" title="Cancelar" onClick={() => setAdding(false)}>
-                    <X size={14} className="text-[#c42b1c]" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+
+      {buscarAlmacen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-24">
+          <GwWindow title="Almacenes" onClose={() => setBuscarAlmacen(false)} className="w-[420px]">
+            <table className="gw-grid">
+              <tbody>
+                {almacenes.map((a) => (
+                  <tr
+                    key={a.codigo}
+                    className="cursor-default hover:bg-[#e5f1fb]"
+                    onDoubleClick={() => {
+                      setAlmacen(a.codigo)
+                      setBuscarAlmacen(false)
+                    }}
+                  >
+                    <td style={{ width: 60 }}>{a.codigo}</td>
+                    <td>{a.nombre}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </GwWindow>
+        </div>
+      )}
+
+      {generador && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-20">
+          <GwWindow title="Generar tallas y colores" onClose={() => setGenerador(false)} className="w-[560px]">
+            <div className="flex flex-col gap-1.5">
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { titulo: 'Tallas', items: tallas, marcados: selTallas, set: setSelTallas, off: config.no_incluir_talla },
+                  { titulo: 'Colores', items: colores, marcados: selColores, set: setSelColores, off: config.no_incluir_color },
+                ].map((l) => (
+                  <div key={l.titulo} className="flex flex-col">
+                    <span className="gw-label">{l.titulo}</span>
+                    <div className={`h-[150px] overflow-y-auto border border-[var(--gw-border)] bg-white px-1 ${l.off ? 'opacity-50' : ''}`}>
+                      {l.items.length === 0 && <span className="text-[#6d6d6d]">Sin {l.titulo.toLowerCase()} en el maestro.</span>}
+                      {l.items.map((it) => (
+                        <GwCheck key={it.id} label={it.descripcion} checked={l.marcados.includes(it.id)} disabled={l.off} onChange={() => l.set(toggle(l.marcados, it.id))} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-x-2">
+                <GwCheck label="No incluir talla" checked={config.no_incluir_talla} onChange={(v) => guardarConfig({ no_incluir_talla: v })} />
+                <GwCheck label="No incluir color" checked={config.no_incluir_color} onChange={(v) => guardarConfig({ no_incluir_color: v })} />
+                <GwCheck label="Rango alfabético" checked={config.rango_alfabetico} onChange={(v) => guardarConfig({ rango_alfabetico: v })} />
+                <GwCheck label="Los hijos usan el código de compra del padre" checked={config.codigo_compra_es_padre} onChange={(v) => guardarConfig({ codigo_compra_es_padre: v })} />
+              </div>
+              <div className="flex justify-end gap-1.5">
+                <button type="button" className="gw-btn" onClick={generar}>
+                  Generar
+                </button>
+                <button type="button" className="gw-btn" onClick={() => setGenerador(false)}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </GwWindow>
+        </div>
+      )}
     </div>
   )
 }

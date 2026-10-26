@@ -434,7 +434,7 @@ export function ArticuloFichaPage() {
               {tab === 'parametros' && <TabParametrosPvp articulo={draft} editing={editing} onChange={patchArticulo} onRecalcularPvps={recalcularPvps} />}
               {tab === 'ofertas' && enAvisoSatelite(<TabPreciosOferta articuloCodigo={articulo.codigo_interno} />)}
               {tab === 'almacen' && <TabAlmacen articulo={draft} editing={editing} onChange={patchArticulo} />}
-              {tab === 'tallas' && enAvisoSatelite(<TabTallasColores articuloCodigo={articulo.codigo_interno} />)}
+              {tab === 'tallas' && enAvisoSatelite(<TabTallasColores articuloCodigo={articulo.codigo_interno} editing={editing} />)}
               {tab === 'equivalentes' && enAvisoSatelite(<TabEquivalentes articuloCodigo={articulo.codigo_interno} />)}
               {tab === 'proveedores' &&
                 enAvisoSatelite(<TabPreciosProveedor articuloCodigo={articulo.codigo_interno} proveedores={proveedores} />)}

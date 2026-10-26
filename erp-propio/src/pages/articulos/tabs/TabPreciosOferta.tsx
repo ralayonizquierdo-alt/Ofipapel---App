@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
-import { Check, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
+import { Fragment, useEffect, useState, type ReactNode } from 'react'
+import { Binoculars, Calculator, Check, FilePen, FilePlus2, Tags, Trash2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { GwCheck, GwGroup, GwInput, GwNumber, GwSelect, formatGw } from '../../../components/gw'
+import { GwInput, GwNumber, GwSelect, GwTabs, formatGw } from '../../../components/gw'
 import { NIVELES_TARIFA, type ArticuloOferta, type ArticuloTarifaCantidad } from '../types'
 
 const str = (v: string) => (v === '' ? null : v)
+const round3 = (n: number) => Math.round(n * 1000) / 1000
 
 const TIPOS_OFERTA = [
   { value: 0, label: 'Descuento' },
@@ -17,108 +18,121 @@ interface NivelDraft {
   modo_calculo: string
   permite_descuento_linea: boolean
 }
+type Niveles = Record<number, NivelDraft>
+
+const nivelVacio = (nivel: number): NivelDraft => ({ pvp: null, incremento_pct: null, modo_calculo: nivel >= 4 ? 'D' : 'P', permite_descuento_linea: true })
 
 function fecha(v: string | null) {
-  if (!v) return '  /  /'
+  if (!v) return ' / /'
   const [y, m, d] = v.slice(0, 10).split('-')
   return `${d}/${m}/${y}`
 }
 
-function periodo(fd: string | null, hd: string | null, fh: string | null, hh: string | null) {
-  if (!fd && !fh) return ''
-  return `${fecha(fd)} ${hd ?? ''} - ${fecha(fh)} ${hh ?? ''}`.trim()
-}
-
-function GridBar({
+function MiniBar({
+  editing,
+  canEdit,
+  disabled,
   onAdd,
   onEdit,
   onDelete,
-  canEdit,
-  busy,
   onSave,
   onCancel,
 }: {
+  editing: boolean
+  canEdit: boolean
+  disabled: boolean
   onAdd: () => void
   onEdit: () => void
   onDelete: () => void
-  canEdit: boolean
-  busy: boolean
   onSave: () => void
   onCancel: () => void
 }) {
+  const b = (title: string, on: () => void, dis: boolean, icon: ReactNode) => (
+    <button
+      type="button"
+      title={title}
+      onClick={on}
+      disabled={dis}
+      className="flex h-[22px] w-[46px] items-center justify-center border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent"
+    >
+      {icon}
+    </button>
+  )
   return (
-    <div className="mb-1 flex gap-1">
-      <button type="button" className="gw-btn" onClick={onAdd} disabled={busy}>
-        <Plus size={14} /> Añadir línea
-      </button>
-      <button type="button" className="gw-btn" onClick={onEdit} disabled={!canEdit || busy}>
-        <Pencil size={14} /> Modificar línea
-      </button>
-      <button type="button" className="gw-btn" onClick={onDelete} disabled={!canEdit || busy}>
-        <Trash2 size={14} /> Borrar línea
-      </button>
-      {busy && (
+    <div className="flex border border-[var(--gw-border)]">
+      {editing ? (
         <>
-          <button type="button" className="gw-btn ml-3" onClick={onSave}>
-            <Check size={14} className="text-[#127a12]" /> Aceptar
-          </button>
-          <button type="button" className="gw-btn" onClick={onCancel}>
-            <X size={14} className="text-[#c42b1c]" /> Cancelar
-          </button>
+          {b('Aceptar', onSave, false, <Check size={14} strokeWidth={3} className="text-[#127a12]" />)}
+          {b('Cancelar', onCancel, false, <X size={14} strokeWidth={3} className="text-[#c42b1c]" />)}
+        </>
+      ) : (
+        <>
+          {b('Añadir línea', onAdd, disabled, <FilePlus2 size={13} />)}
+          {b('Modificar línea', onEdit, disabled || !canEdit, <FilePen size={13} />)}
+          {b('Borrar línea', onDelete, disabled || !canEdit, <Trash2 size={13} />)}
         </>
       )}
+      {b('Buscar', () => undefined, true, <Binoculars size={13} />)}
     </div>
   )
 }
 
-function Periodo({
-  fd,
-  hd,
-  fh,
-  hh,
-  onChange,
+const td = '!h-[18px] !py-0 text-[12px]'
+
+export function TabPreciosOferta({
+  articuloCodigo,
+  editing = true,
+  costeBase = null,
 }: {
-  fd: string | null
-  hd: string | null
-  fh: string | null
-  hh: string | null
-  onChange: (p: { fecha_desde?: string | null; hora_desde?: string | null; fecha_hasta?: string | null; hora_hasta?: string | null }) => void
+  articuloCodigo: string
+  editing?: boolean
+  costeBase?: number | null
 }) {
-  return (
-    <div className="flex items-center gap-1">
-      <GwInput type="date" className="w-[128px]" value={fd ?? ''} onChange={(e) => onChange({ fecha_desde: str(e.target.value) })} />
-      <GwInput type="time" className="w-[72px]" value={hd ?? ''} onChange={(e) => onChange({ hora_desde: str(e.target.value) })} />
-      <span>-</span>
-      <GwInput type="date" className="w-[128px]" value={fh ?? ''} onChange={(e) => onChange({ fecha_hasta: str(e.target.value) })} />
-      <GwInput type="time" className="w-[72px]" value={hh ?? ''} onChange={(e) => onChange({ hora_hasta: str(e.target.value) })} />
-    </div>
-  )
-}
-
-export function TabPreciosOferta({ articuloCodigo }: { articuloCodigo: string }) {
+  const [sub, setSub] = useState('cantidad')
   const [error, setError] = useState<string | null>(null)
   return (
-    <div className="flex flex-col gap-1.5" title="ARTTARIF / ARTOFERT">
-      {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
-      <OfertasCantidad articuloCodigo={articuloCodigo} setError={setError} />
-      <OfertasRegalo articuloCodigo={articuloCodigo} setError={setError} />
+    <div className="flex h-[250px] flex-col" title="ARTTARIF / ARTOFERT">
+      <GwTabs
+        rows={[
+          [
+            { key: 'cantidad', label: 'Ofertas por Fecha y a partir de una cantidad mínima' },
+            { key: 'regalo', label: 'Ofertas por Fecha, Regalos y Descuentos' },
+          ],
+        ]}
+        active={sub}
+        onChange={(k) => {
+          setError(null)
+          setSub(k)
+        }}
+        position="bottom"
+      >
+        {sub === 'cantidad' ? (
+          <OfertasCantidad articuloCodigo={articuloCodigo} editingFicha={editing} costeBase={costeBase} setError={setError} />
+        ) : (
+          <OfertasRegalo articuloCodigo={articuloCodigo} editingFicha={editing} setError={setError} />
+        )}
+        {error && <div className="mt-0.5 text-[12px] text-[#a4262c]">{error}</div>}
+      </GwTabs>
     </div>
   )
 }
 
 function OfertasCantidad({
   articuloCodigo,
+  editingFicha,
+  costeBase,
   setError,
 }: {
   articuloCodigo: string
+  editingFicha: boolean
+  costeBase: number | null
   setError: (e: string | null) => void
 }) {
   const [rows, setRows] = useState<ArticuloTarifaCantidad[]>([])
+  const [niveles, setNiveles] = useState<Record<number, Niveles>>({})
   const [almacenes, setAlmacenes] = useState<{ codigo: string; nombre: string }[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [editing, setEditing] = useState<ArticuloTarifaCantidad | null>(null)
-  const [niveles, setNiveles] = useState<Record<number, NivelDraft>>({})
-  const [nivelesDirty, setNivelesDirty] = useState(false)
+  const [edit, setEdit] = useState<{ fila: ArticuloTarifaCantidad; niveles: Niveles } | null>(null)
 
   async function load() {
     const { data, error } = await supabase
@@ -129,17 +143,18 @@ function OfertasCantidad({
       .eq('articulo_codigo', articuloCodigo)
       .order('cantidad_desde')
     if (error) setError(error.message)
-    setRows(data ?? [])
-  }
-
-  async function loadNiveles(id: number) {
-    const { data } = await supabase
+    const lista = (data ?? []) as ArticuloTarifaCantidad[]
+    setRows(lista)
+    const ids = lista.map((r) => r.id).filter((x): x is number => x != null)
+    if (ids.length === 0) return setNiveles({})
+    const { data: nv } = await supabase
       .from('articulo_tarifa_cantidad_nivel')
-      .select('nivel_tarifa, pvp, incremento_pct, modo_calculo, permite_descuento_linea')
-      .eq('articulo_tarifa_cantidad_id', id)
-    const map: Record<number, NivelDraft> = {}
-    for (const r of data ?? []) {
-      map[r.nivel_tarifa] = {
+      .select('articulo_tarifa_cantidad_id, nivel_tarifa, pvp, incremento_pct, modo_calculo, permite_descuento_linea')
+      .in('articulo_tarifa_cantidad_id', ids)
+    const map: Record<number, Niveles> = {}
+    for (const r of nv ?? []) {
+      map[r.articulo_tarifa_cantidad_id] ??= {}
+      map[r.articulo_tarifa_cantidad_id][r.nivel_tarifa] = {
         pvp: r.pvp == null ? null : Number(r.pvp),
         incremento_pct: r.incremento_pct == null ? null : Number(r.incremento_pct),
         modo_calculo: r.modo_calculo ?? 'P',
@@ -147,7 +162,6 @@ function OfertasCantidad({
       }
     }
     setNiveles(map)
-    setNivelesDirty(false)
   }
 
   useEffect(() => {
@@ -160,242 +174,265 @@ function OfertasCantidad({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [articuloCodigo])
 
-  useEffect(() => {
-    if (selectedId != null) loadNiveles(selectedId)
-    else setNiveles({})
-  }, [selectedId])
-
-  async function saveRow() {
-    if (!editing) return
+  async function aceptar() {
+    if (!edit) return
     setError(null)
+    const d = edit.fila
     const payload = {
       articulo_codigo: articuloCodigo,
-      cantidad_desde: editing.cantidad_desde,
-      descripcion_oferta: editing.descripcion_oferta,
-      fecha_desde: editing.fecha_desde,
-      hora_desde: editing.hora_desde,
-      fecha_hasta: editing.fecha_hasta,
-      hora_hasta: editing.hora_hasta,
-      stock_minimo_oferta: editing.stock_minimo_oferta,
-      almacen_oferta_codigo: editing.almacen_oferta_codigo,
-      es_un_pvp_para_toda_la_oferta: editing.es_un_pvp_para_toda_la_oferta,
+      cantidad_desde: d.cantidad_desde,
+      descripcion_oferta: d.descripcion_oferta,
+      fecha_desde: d.fecha_desde,
+      hora_desde: d.hora_desde,
+      fecha_hasta: d.fecha_hasta,
+      hora_hasta: d.hora_hasta,
+      stock_minimo_oferta: d.stock_minimo_oferta,
+      almacen_oferta_codigo: d.almacen_oferta_codigo,
+      es_un_pvp_para_toda_la_oferta: d.es_un_pvp_para_toda_la_oferta,
     }
-    const { error } =
-      editing.id != null
-        ? await supabase.from('articulo_tarifa_cantidad').update(payload).eq('id', editing.id)
-        : await supabase.from('articulo_tarifa_cantidad').insert(payload)
-    if (error) {
-      setError(error.message)
-      return
+    const res =
+      d.id != null
+        ? await supabase.from('articulo_tarifa_cantidad').update(payload).eq('id', d.id).select('id').single()
+        : await supabase.from('articulo_tarifa_cantidad').insert(payload).select('id').single()
+    if (res.error) return setError(res.error.message)
+    const id = res.data.id as number
+    const conPvp = NIVELES_TARIFA.filter((n) => edit.niveles[n.nivel]?.pvp != null)
+    const sinPvp = NIVELES_TARIFA.filter((n) => edit.niveles[n.nivel] && edit.niveles[n.nivel].pvp == null).map((n) => n.nivel)
+    if (conPvp.length) {
+      const { error } = await supabase.from('articulo_tarifa_cantidad_nivel').upsert(
+        conPvp.map((n) => ({
+          articulo_tarifa_cantidad_id: id,
+          nivel_tarifa: n.nivel,
+          pvp: Number(edit.niveles[n.nivel].pvp),
+          incremento_pct: edit.niveles[n.nivel].incremento_pct,
+          modo_calculo: edit.niveles[n.nivel].modo_calculo || null,
+          permite_descuento_linea: edit.niveles[n.nivel].permite_descuento_linea,
+        })),
+        { onConflict: 'articulo_tarifa_cantidad_id,nivel_tarifa' },
+      )
+      if (error) return setError(error.message)
     }
-    setEditing(null)
+    if (sinPvp.length) {
+      await supabase.from('articulo_tarifa_cantidad_nivel').delete().eq('articulo_tarifa_cantidad_id', id).in('nivel_tarifa', sinPvp)
+    }
+    setEdit(null)
+    setSelectedId(id)
     load()
   }
 
-  async function deleteSelected() {
+  async function borrar() {
     const row = rows.find((r) => r.id === selectedId)
     if (!row || row.id == null) return
-    if (!confirm(`¿Borrar la oferta desde ${row.cantidad_desde} unidades y sus precios por tarifa?`)) return
+    if (!confirm(`¿Borrar la oferta desde ${formatGw(row.cantidad_desde, 3)} unidades y sus precios por tarifa?`)) return
     await supabase.from('articulo_tarifa_cantidad_nivel').delete().eq('articulo_tarifa_cantidad_id', row.id)
     const { error } = await supabase.from('articulo_tarifa_cantidad').delete().eq('id', row.id)
-    if (error) {
-      setError(error.message)
-      return
-    }
+    if (error) return setError(error.message)
     setSelectedId(null)
     load()
   }
 
-  async function saveNiveles() {
-    if (selectedId == null) return
-    setError(null)
-    const conPvp = NIVELES_TARIFA.filter((n) => niveles[n.nivel]?.pvp != null)
-    const sinPvp = NIVELES_TARIFA.filter((n) => niveles[n.nivel] && niveles[n.nivel].pvp == null).map((n) => n.nivel)
-    if (conPvp.length) {
-      const { error } = await supabase.from('articulo_tarifa_cantidad_nivel').upsert(
-        conPvp.map((n) => ({
-          articulo_tarifa_cantidad_id: selectedId,
-          nivel_tarifa: n.nivel,
-          pvp: Number(niveles[n.nivel].pvp),
-          incremento_pct: niveles[n.nivel].incremento_pct,
-          modo_calculo: niveles[n.nivel].modo_calculo || null,
-          permite_descuento_linea: niveles[n.nivel].permite_descuento_linea,
-        })),
-        { onConflict: 'articulo_tarifa_cantidad_id,nivel_tarifa' },
-      )
-      if (error) {
-        setError(error.message)
-        return
-      }
+  function recalcular() {
+    if (!edit) return
+    const n = { ...edit.niveles }
+    const gen = n[0] ?? nivelVacio(0)
+    if (gen.incremento_pct != null && gen.modo_calculo !== 'D' && costeBase != null) n[0] = { ...gen, pvp: round3(costeBase * (1 + gen.incremento_pct / 100)) }
+    const general = n[0]?.pvp ?? null
+    for (const t of NIVELES_TARIFA) {
+      if (t.nivel === 0) continue
+      const v = n[t.nivel]
+      if (!v || v.incremento_pct == null) continue
+      if (v.modo_calculo === 'D' && general != null) n[t.nivel] = { ...v, pvp: round3(general * (1 - v.incremento_pct / 100)) }
+      else if (v.modo_calculo !== 'D' && costeBase != null) n[t.nivel] = { ...v, pvp: round3(costeBase * (1 + v.incremento_pct / 100)) }
     }
-    if (sinPvp.length) {
-      await supabase
-        .from('articulo_tarifa_cantidad_nivel')
-        .delete()
-        .eq('articulo_tarifa_cantidad_id', selectedId)
-        .in('nivel_tarifa', sinPvp)
-    }
-    loadNiveles(selectedId)
+    setEdit({ ...edit, niveles: n })
   }
 
-  function setNivel(nivel: number, patch: Partial<NivelDraft>) {
-    setNiveles((m) => ({
-      ...m,
-      [nivel]: { ...(m[nivel] ?? { pvp: null, incremento_pct: null, modo_calculo: 'P', permite_descuento_linea: true }), ...patch },
-    }))
-    setNivelesDirty(true)
+  const setF = (patch: Partial<ArticuloTarifaCantidad>) => edit && setEdit({ ...edit, fila: { ...edit.fila, ...patch } })
+  const setN = (nivel: number, patch: Partial<NivelDraft>) =>
+    edit && setEdit({ ...edit, niveles: { ...edit.niveles, [nivel]: { ...(edit.niveles[nivel] ?? nivelVacio(nivel)), ...patch } } })
+
+  const filaEdit = (d: ArticuloTarifaCantidad, nv: Niveles) => {
+    const gen = nv[0] ?? nivelVacio(0)
+    return (
+      <tr key={d.id ?? 'nueva'}>
+        <td>
+          <GwInput autoFocus className="!h-[20px]" value={d.descripcion_oferta ?? ''} onChange={(e) => setF({ descripcion_oferta: str(e.target.value) })} />
+        </td>
+        <td>
+          <GwInput type="date" className="!h-[20px]" value={d.fecha_desde ?? ''} onChange={(e) => setF({ fecha_desde: str(e.target.value) })} />
+        </td>
+        <td>
+          <GwInput type="date" className="!h-[20px]" value={d.fecha_hasta ?? ''} onChange={(e) => setF({ fecha_hasta: str(e.target.value) })} />
+        </td>
+        <td>
+          <GwInput type="time" className="!h-[20px]" value={d.hora_desde ?? ''} onChange={(e) => setF({ hora_desde: str(e.target.value) })} />
+        </td>
+        <td>
+          <GwInput type="time" className="!h-[20px]" value={d.hora_hasta ?? ''} onChange={(e) => setF({ hora_hasta: str(e.target.value) })} />
+        </td>
+        <td>
+          <GwSelect className="!h-[20px]" value={gen.modo_calculo} title="P = % sobre coste · D = % de descuento sobre la General" onChange={(e) => setN(0, { modo_calculo: e.target.value })}>
+            <option value="P">P</option>
+            <option value="D">D</option>
+          </GwSelect>
+        </td>
+        <td>
+          <GwSelect className="!h-[20px]" value={gen.permite_descuento_linea ? 'S' : 'N'} title="VERDTO" onChange={(e) => setN(0, { permite_descuento_linea: e.target.value === 'S' })}>
+            <option value="N">N</option>
+            <option value="S">S</option>
+          </GwSelect>
+        </td>
+        <td>
+          <GwNumber className="!h-[20px]" value={d.cantidad_desde} decimals={3} onChange={(v) => setF({ cantidad_desde: v ?? 0 })} />
+        </td>
+        {NIVELES_TARIFA.map((t) => (
+          <Fragment key={t.nivel}>
+            <td>
+              <GwNumber className="!h-[20px]" value={nv[t.nivel]?.incremento_pct ?? null} decimals={2} onChange={(v) => setN(t.nivel, { incremento_pct: v })} />
+            </td>
+            <td>
+              <GwNumber className="!h-[20px]" value={nv[t.nivel]?.pvp ?? null} decimals={3} onChange={(v) => setN(t.nivel, { pvp: v })} />
+            </td>
+          </Fragment>
+        ))}
+        <td>
+          <GwNumber className="!h-[20px]" value={d.stock_minimo_oferta} decimals={3} onChange={(v) => setF({ stock_minimo_oferta: v })} />
+        </td>
+        <td>
+          <GwSelect className="!h-[20px]" value={d.almacen_oferta_codigo ?? ''} onChange={(e) => setF({ almacen_oferta_codigo: str(e.target.value) })}>
+            <option value="">Todos</option>
+            {almacenes.map((a) => (
+              <option key={a.codigo} value={a.codigo}>
+                {a.codigo}
+              </option>
+            ))}
+          </GwSelect>
+        </td>
+        <td className="text-center">
+          <input type="checkbox" className="h-[13px] w-[13px] accent-[#0078d7]" checked={d.es_un_pvp_para_toda_la_oferta} onChange={(e) => setF({ es_un_pvp_para_toda_la_oferta: e.target.checked })} />
+        </td>
+      </tr>
+    )
   }
 
   const selected = rows.find((r) => r.id === selectedId)
 
-  const editRow = (d: ArticuloTarifaCantidad) => (
-    <tr key={d.id ?? 'nueva'}>
-      <td>
-        <GwNumber value={d.cantidad_desde} decimals={3} onChange={(v) => setEditing({ ...d, cantidad_desde: v ?? 0 })} />
-      </td>
-      <td>
-        <GwInput autoFocus value={d.descripcion_oferta ?? ''} onChange={(e) => setEditing({ ...d, descripcion_oferta: str(e.target.value) })} />
-      </td>
-      <td>
-        <Periodo fd={d.fecha_desde} hd={d.hora_desde} fh={d.fecha_hasta} hh={d.hora_hasta} onChange={(p) => setEditing({ ...d, ...p })} />
-      </td>
-      <td>
-        <GwNumber value={d.stock_minimo_oferta} decimals={3} onChange={(v) => setEditing({ ...d, stock_minimo_oferta: v })} />
-      </td>
-      <td>
-        <GwSelect value={d.almacen_oferta_codigo ?? ''} onChange={(e) => setEditing({ ...d, almacen_oferta_codigo: str(e.target.value) })}>
-          <option value="">Todos</option>
-          {almacenes.map((a) => (
-            <option key={a.codigo} value={a.codigo}>
-              {a.codigo} {a.nombre}
-            </option>
-          ))}
-        </GwSelect>
-      </td>
-      <td className="text-center">
-        <GwCheck label="" checked={d.es_un_pvp_para_toda_la_oferta} onChange={(v) => setEditing({ ...d, es_un_pvp_para_toda_la_oferta: v })} />
-      </td>
-    </tr>
-  )
-
   return (
-    <GwGroup title="Ofertas por Fecha, Hora y Cantidad">
-      <GridBar
-        busy={!!editing}
-        canEdit={!!selected}
-        onAdd={() => {
-          setError(null)
-          setEditing({
-            articulo_codigo: articuloCodigo,
-            cantidad_desde: 1,
-            descripcion_oferta: null,
-            fecha_desde: null,
-            hora_desde: null,
-            fecha_hasta: null,
-            hora_hasta: null,
-            stock_minimo_oferta: null,
-            almacen_oferta_codigo: null,
-            es_un_pvp_para_toda_la_oferta: false,
-          })
-        }}
-        onEdit={() => {
-          setError(null)
-          if (selected) setEditing({ ...selected })
-        }}
-        onDelete={deleteSelected}
-        onSave={saveRow}
-        onCancel={() => setEditing(null)}
-      />
-      <div className="grid grid-cols-[minmax(0,1fr)_330px] gap-2">
-        <table className="gw-grid self-start">
-          <thead>
-            <tr>
-              <th className="text-right" style={{ width: 95 }}>Desde Cant.</th>
-              <th>Descripción</th>
-              <th style={{ width: 230 }}>Periodo</th>
-              <th className="text-right" style={{ width: 95 }}>Stock Oferta</th>
-              <th style={{ width: 90 }}>Almacén</th>
-              <th style={{ width: 70 }}>Un Pvp</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && !editing && (
+    <div className="flex h-[190px] flex-col gap-0.5">
+      <fieldset className="gw-group flex min-h-0 flex-1 flex-col !pt-1">
+        <legend className="text-[12px]">Precios de Oferta por cantidades y fechas</legend>
+        <div className="min-h-0 flex-1 overflow-auto border border-[var(--gw-border)] bg-white">
+          <table className="gw-grid w-max min-w-full text-[12px]">
+            <thead className="sticky top-0 z-10">
               <tr>
-                <td colSpan={6} className="text-center text-[#6d6d6d]">Sin ofertas por cantidad.</td>
+                <th style={{ minWidth: 150 }}>Descripción</th>
+                <th style={{ minWidth: 86 }}>Fec. Desde</th>
+                <th style={{ minWidth: 86 }}>Fec. Hasta</th>
+                <th style={{ minWidth: 64 }}>Hora Inic.</th>
+                <th style={{ minWidth: 64 }}>Hora Fin</th>
+                <th style={{ minWidth: 40 }}>Tipo</th>
+                <th style={{ minWidth: 40 }}>Dto</th>
+                <th style={{ minWidth: 72 }}>Cant. Mín.</th>
+                {NIVELES_TARIFA.map((t) => (
+                  <Fragment key={t.nivel}>
+                    <th style={{ minWidth: 60 }}>%Incr.</th>
+                    <th className="!text-right" style={{ minWidth: 86 }}>
+                      {t.nombre}
+                    </th>
+                  </Fragment>
+                ))}
+                <th style={{ minWidth: 80 }}>Stock Oferta</th>
+                <th style={{ minWidth: 64 }}>Almacén</th>
+                <th style={{ minWidth: 52 }}>Un Pvp</th>
               </tr>
-            )}
-            {rows.map((r) =>
-              editing && editing.id === r.id ? (
-                editRow(editing)
-              ) : (
-                <tr key={r.id} className={selectedId === r.id ? 'gw-selected' : ''} onClick={() => !editing && setSelectedId(r.id ?? null)}>
-                  <td className="text-right tabular-nums">{formatGw(r.cantidad_desde, 3)}</td>
-                  <td>{r.descripcion_oferta ?? ''}</td>
-                  <td>{periodo(r.fecha_desde, r.hora_desde, r.fecha_hasta, r.hora_hasta)}</td>
-                  <td className="text-right tabular-nums">{formatGw(r.stock_minimo_oferta, 3)}</td>
-                  <td>{r.almacen_oferta_codigo ?? 'Todos'}</td>
-                  <td>{r.es_un_pvp_para_toda_la_oferta ? 'Sí' : 'No'}</td>
-                </tr>
-              ),
-            )}
-            {editing && editing.id == null && editRow(editing)}
-          </tbody>
-        </table>
-
-        <div className="flex flex-col gap-1">
-          <span className="gw-label">{selected ? `Pvps desde ${formatGw(selected.cantidad_desde, 3)} unidades` : 'Pvps'}</span>
-          <div className="grid grid-cols-[92px_44px_44px_62px_1fr] items-center gap-x-1 gap-y-[3px]">
-            {NIVELES_TARIFA.map((n) => {
-              const v = niveles[n.nivel]
-              const dis = !selected
-              return (
-                <div key={n.nivel} className="contents">
-                  <span className="gw-label truncate">{n.nombre}:</span>
-                  <GwSelect
-                    disabled={dis}
-                    value={v?.modo_calculo ?? 'P'}
-                    onChange={(e) => setNivel(n.nivel, { modo_calculo: e.target.value })}
-                    title="P = % sobre coste · D = % de descuento sobre la General"
-                  >
-                    <option value="P">P</option>
-                    <option value="D">D</option>
-                  </GwSelect>
-                  <GwSelect
-                    disabled={dis}
-                    value={(v?.permite_descuento_linea ?? true) ? 'S' : 'N'}
-                    onChange={(e) => setNivel(n.nivel, { permite_descuento_linea: e.target.value === 'S' })}
-                    title="VERDTO"
-                  >
-                    <option value="N">N</option>
-                    <option value="S">S</option>
-                  </GwSelect>
-                  <GwNumber disabled={dis} value={v?.incremento_pct ?? null} decimals={2} onChange={(x) => setNivel(n.nivel, { incremento_pct: x })} />
-                  <GwNumber disabled={dis} value={v?.pvp ?? null} decimals={3} onChange={(x) => setNivel(n.nivel, { pvp: x })} />
-                </div>
-              )
-            })}
-          </div>
-          <div className="flex justify-end">
-            <button type="button" className="gw-btn" disabled={!selected || !nivelesDirty} onClick={saveNiveles}>
-              <Save size={14} /> Guardar Pvps
-            </button>
-          </div>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                if (edit && edit.fila.id === r.id) return filaEdit(edit.fila, edit.niveles)
+                const nv = niveles[r.id ?? -1] ?? {}
+                const gen = nv[0]
+                return (
+                  <tr key={r.id} className={selectedId === r.id ? 'gw-selected' : ''} onClick={() => !edit && setSelectedId(r.id ?? null)}>
+                    <td className={td}>{r.descripcion_oferta ?? ''}</td>
+                    <td className={td}>{fecha(r.fecha_desde)}</td>
+                    <td className={td}>{fecha(r.fecha_hasta)}</td>
+                    <td className={td}>{r.hora_desde ?? ''}</td>
+                    <td className={td}>{r.hora_hasta ?? ''}</td>
+                    <td className={td}>{gen?.modo_calculo ?? ''}</td>
+                    <td className={td}>{gen ? (gen.permite_descuento_linea ? 'S' : 'N') : ''}</td>
+                    <td className={`${td} text-right tabular-nums`}>{formatGw(r.cantidad_desde, 3)}</td>
+                    {NIVELES_TARIFA.map((t) => (
+                      <Fragment key={t.nivel}>
+                        <td className={`${td} text-right tabular-nums`}>{formatGw(nv[t.nivel]?.incremento_pct, 2)}</td>
+                        <td className={`${td} text-right tabular-nums`}>{formatGw(nv[t.nivel]?.pvp, 3)}</td>
+                      </Fragment>
+                    ))}
+                    <td className={`${td} text-right tabular-nums`}>{formatGw(r.stock_minimo_oferta, 3)}</td>
+                    <td className={td}>{r.almacen_oferta_codigo ?? 'Todos'}</td>
+                    <td className={`${td} text-center`}>{r.es_un_pvp_para_toda_la_oferta ? 'Sí' : 'No'}</td>
+                  </tr>
+                )
+              })}
+              {edit && edit.fila.id == null && filaEdit(edit.fila, edit.niveles)}
+            </tbody>
+          </table>
         </div>
+      </fieldset>
+      <div className="flex items-center gap-2">
+        <MiniBar
+          editing={!!edit}
+          canEdit={!!selected}
+          disabled={!editingFicha}
+          onAdd={() => {
+            setError(null)
+            setEdit({
+              fila: {
+                articulo_codigo: articuloCodigo,
+                cantidad_desde: 1,
+                descripcion_oferta: null,
+                fecha_desde: null,
+                hora_desde: null,
+                fecha_hasta: null,
+                hora_hasta: null,
+                stock_minimo_oferta: null,
+                almacen_oferta_codigo: null,
+                es_un_pvp_para_toda_la_oferta: false,
+              },
+              niveles: {},
+            })
+          }}
+          onEdit={() => {
+            setError(null)
+            if (selected) setEdit({ fila: { ...selected }, niveles: { ...(niveles[selected.id ?? -1] ?? {}) } })
+          }}
+          onDelete={borrar}
+          onSave={aceptar}
+          onCancel={() => setEdit(null)}
+        />
+        <span className="flex-1" />
+        <button type="button" className="gw-btn w-[130px]" disabled={!edit} onClick={recalcular} title="Recalcula los Pvps de la línea en edición a partir del coste y de los %">
+          <Calculator size={13} /> Recalcular Pvps
+        </button>
+        <button type="button" className="gw-btn w-[186px]" disabled title="Tarifas de oferta: aún no disponible en el ERP propio">
+          <Tags size={13} /> Ir al Formulario de Tarifas
+        </button>
       </div>
-    </GwGroup>
+    </div>
   )
 }
 
 function OfertasRegalo({
   articuloCodigo,
+  editingFicha,
   setError,
 }: {
   articuloCodigo: string
+  editingFicha: boolean
   setError: (e: string | null) => void
 }) {
   const [rows, setRows] = useState<ArticuloOferta[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [editing, setEditing] = useState<ArticuloOferta | null>(null)
+  const [edit, setEdit] = useState<ArticuloOferta | null>(null)
 
   async function load() {
     const { data, error } = await supabase
@@ -414,54 +451,63 @@ function OfertasRegalo({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [articuloCodigo])
 
-  async function saveRow() {
-    if (!editing) return
+  async function aceptar() {
+    if (!edit) return
     setError(null)
     const payload = {
       articulo_codigo: articuloCodigo,
-      tipo_oferta: editing.tipo_oferta,
-      descripcion: editing.descripcion,
-      fecha_desde: editing.fecha_desde,
-      hora_desde: editing.hora_desde,
-      fecha_hasta: editing.fecha_hasta,
-      hora_hasta: editing.hora_hasta,
-      cada_x_cantidad: editing.cada_x_cantidad,
-      articulo_regalo_codigo: editing.articulo_regalo_codigo,
-      cantidad_oferta: editing.cantidad_oferta,
-      descuento_pct: editing.descuento_pct,
-      pvp_fijo: editing.pvp_fijo,
+      tipo_oferta: edit.tipo_oferta,
+      descripcion: edit.descripcion,
+      fecha_desde: edit.fecha_desde,
+      hora_desde: edit.hora_desde,
+      fecha_hasta: edit.fecha_hasta,
+      hora_hasta: edit.hora_hasta,
+      cada_x_cantidad: edit.cada_x_cantidad,
+      articulo_regalo_codigo: edit.articulo_regalo_codigo,
+      cantidad_oferta: edit.cantidad_oferta,
+      descuento_pct: edit.descuento_pct,
+      pvp_fijo: edit.pvp_fijo,
     }
     const { error } =
-      editing.id != null
-        ? await supabase.from('articulo_oferta').update(payload).eq('id', editing.id)
+      edit.id != null
+        ? await supabase.from('articulo_oferta').update(payload).eq('id', edit.id)
         : await supabase.from('articulo_oferta').insert(payload)
-    if (error) {
-      setError(error.message)
-      return
-    }
-    setEditing(null)
+    if (error) return setError(error.message)
+    setEdit(null)
     load()
   }
 
-  async function deleteSelected() {
+  async function borrar() {
     const row = rows.find((r) => r.id === selectedId)
     if (!row || row.id == null) return
     if (!confirm('¿Borrar esta oferta?')) return
     const { error } = await supabase.from('articulo_oferta').delete().eq('id', row.id)
-    if (error) {
-      setError(error.message)
-      return
-    }
+    if (error) return setError(error.message)
     setSelectedId(null)
     load()
   }
 
-  const selected = rows.find((r) => r.id === selectedId)
+  const set = (patch: Partial<ArticuloOferta>) => edit && setEdit({ ...edit, ...patch })
 
-  const editRow = (d: ArticuloOferta) => (
+  const filaEdit = (d: ArticuloOferta) => (
     <tr key={d.id ?? 'nueva'}>
       <td>
-        <GwSelect value={d.tipo_oferta} onChange={(e) => setEditing({ ...d, tipo_oferta: Number(e.target.value) })}>
+        <GwInput autoFocus className="!h-[20px]" value={d.descripcion ?? ''} onChange={(e) => set({ descripcion: str(e.target.value) })} />
+      </td>
+      <td>
+        <GwInput type="date" className="!h-[20px]" value={d.fecha_desde ?? ''} onChange={(e) => set({ fecha_desde: str(e.target.value) })} />
+      </td>
+      <td>
+        <GwInput type="date" className="!h-[20px]" value={d.fecha_hasta ?? ''} onChange={(e) => set({ fecha_hasta: str(e.target.value) })} />
+      </td>
+      <td>
+        <GwInput type="time" className="!h-[20px]" value={d.hora_desde ?? ''} onChange={(e) => set({ hora_desde: str(e.target.value) })} />
+      </td>
+      <td>
+        <GwInput type="time" className="!h-[20px]" value={d.hora_hasta ?? ''} onChange={(e) => set({ hora_hasta: str(e.target.value) })} />
+      </td>
+      <td>
+        <GwSelect className="!h-[20px]" value={d.tipo_oferta} onChange={(e) => set({ tipo_oferta: Number(e.target.value) })}>
           {TIPOS_OFERTA.map((t) => (
             <option key={t.value} value={t.value}>
               {t.label}
@@ -470,41 +516,78 @@ function OfertasRegalo({
         </GwSelect>
       </td>
       <td>
-        <GwInput autoFocus value={d.descripcion ?? ''} onChange={(e) => setEditing({ ...d, descripcion: str(e.target.value) })} />
+        <GwNumber className="!h-[20px]" value={d.cada_x_cantidad} decimals={3} onChange={(v) => set({ cada_x_cantidad: v })} />
       </td>
       <td>
-        <Periodo fd={d.fecha_desde} hd={d.hora_desde} fh={d.fecha_hasta} hh={d.hora_hasta} onChange={(p) => setEditing({ ...d, ...p })} />
+        <GwInput className="!h-[20px]" disabled={d.tipo_oferta !== 1} value={d.articulo_regalo_codigo ?? ''} onChange={(e) => set({ articulo_regalo_codigo: str(e.target.value) })} />
       </td>
       <td>
-        <GwNumber value={d.cada_x_cantidad} decimals={3} onChange={(v) => setEditing({ ...d, cada_x_cantidad: v })} />
+        <GwNumber className="!h-[20px]" value={d.cantidad_oferta} decimals={3} onChange={(v) => set({ cantidad_oferta: v })} />
       </td>
       <td>
-        <GwInput
-          disabled={d.tipo_oferta !== 1}
-          value={d.articulo_regalo_codigo ?? ''}
-          onChange={(e) => setEditing({ ...d, articulo_regalo_codigo: str(e.target.value) })}
-        />
+        <GwNumber className="!h-[20px]" value={d.descuento_pct} decimals={2} onChange={(v) => set({ descuento_pct: v })} />
       </td>
       <td>
-        <GwNumber value={d.cantidad_oferta} decimals={3} onChange={(v) => setEditing({ ...d, cantidad_oferta: v })} />
-      </td>
-      <td>
-        <GwNumber value={d.descuento_pct} decimals={2} onChange={(v) => setEditing({ ...d, descuento_pct: v })} />
-      </td>
-      <td>
-        <GwNumber value={d.pvp_fijo} decimals={3} onChange={(v) => setEditing({ ...d, pvp_fijo: v })} />
+        <GwNumber className="!h-[20px]" value={d.pvp_fijo} decimals={3} onChange={(v) => set({ pvp_fijo: v })} />
       </td>
     </tr>
   )
 
+  const selected = rows.find((r) => r.id === selectedId)
+
   return (
-    <GwGroup title="Ofertas con Regalos y Descuentos">
-      <GridBar
-        busy={!!editing}
+    <div className="flex h-[190px] flex-col gap-0.5">
+      <fieldset className="gw-group flex min-h-0 flex-1 flex-col !pt-1">
+        <legend className="text-[12px]">Ofertas por fecha con regalos y descuentos</legend>
+        <div className="min-h-0 flex-1 overflow-auto border border-[var(--gw-border)] bg-white">
+          <table className="gw-grid w-max min-w-full text-[12px]">
+            <thead className="sticky top-0 z-10">
+              <tr>
+                <th style={{ minWidth: 180 }}>Descripción</th>
+                <th style={{ minWidth: 86 }}>Fec. Desde</th>
+                <th style={{ minWidth: 86 }}>Fec. Hasta</th>
+                <th style={{ minWidth: 64 }}>Hora Inic.</th>
+                <th style={{ minWidth: 64 }}>Hora Fin</th>
+                <th style={{ minWidth: 90 }}>Tipo</th>
+                <th style={{ minWidth: 76 }}>Cada X uds.</th>
+                <th style={{ minWidth: 110 }}>Art. Regalo</th>
+                <th style={{ minWidth: 76 }}>Cant. Oferta</th>
+                <th style={{ minWidth: 60 }}>%Dto.</th>
+                <th style={{ minWidth: 80 }}>Pvp Fijo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) =>
+                edit && edit.id === r.id ? (
+                  filaEdit(edit)
+                ) : (
+                  <tr key={r.id} className={selectedId === r.id ? 'gw-selected' : ''} onClick={() => !edit && setSelectedId(r.id ?? null)}>
+                    <td className={td}>{r.descripcion ?? ''}</td>
+                    <td className={td}>{fecha(r.fecha_desde)}</td>
+                    <td className={td}>{fecha(r.fecha_hasta)}</td>
+                    <td className={td}>{r.hora_desde ?? ''}</td>
+                    <td className={td}>{r.hora_hasta ?? ''}</td>
+                    <td className={td}>{TIPOS_OFERTA.find((t) => t.value === r.tipo_oferta)?.label ?? r.tipo_oferta}</td>
+                    <td className={`${td} text-right tabular-nums`}>{formatGw(r.cada_x_cantidad, 3)}</td>
+                    <td className={td}>{r.articulo_regalo_codigo ?? ''}</td>
+                    <td className={`${td} text-right tabular-nums`}>{formatGw(r.cantidad_oferta, 3)}</td>
+                    <td className={`${td} text-right tabular-nums`}>{formatGw(r.descuento_pct, 2)}</td>
+                    <td className={`${td} text-right tabular-nums`}>{formatGw(r.pvp_fijo, 3)}</td>
+                  </tr>
+                ),
+              )}
+              {edit && edit.id == null && filaEdit(edit)}
+            </tbody>
+          </table>
+        </div>
+      </fieldset>
+      <MiniBar
+        editing={!!edit}
         canEdit={!!selected}
+        disabled={!editingFicha}
         onAdd={() => {
           setError(null)
-          setEditing({
+          setEdit({
             articulo_codigo: articuloCodigo,
             tipo_oferta: 0,
             descripcion: null,
@@ -521,50 +604,12 @@ function OfertasRegalo({
         }}
         onEdit={() => {
           setError(null)
-          if (selected) setEditing({ ...selected })
+          if (selected) setEdit({ ...selected })
         }}
-        onDelete={deleteSelected}
-        onSave={saveRow}
-        onCancel={() => setEditing(null)}
+        onDelete={borrar}
+        onSave={aceptar}
+        onCancel={() => setEdit(null)}
       />
-      <table className="gw-grid">
-        <thead>
-          <tr>
-            <th style={{ width: 100 }}>Tipo</th>
-            <th>Descripción</th>
-            <th style={{ width: 230 }}>Periodo</th>
-            <th className="text-right" style={{ width: 85 }}>Cada X uds.</th>
-            <th style={{ width: 120 }}>Art. Regalo</th>
-            <th className="text-right" style={{ width: 85 }}>Cant. Oferta</th>
-            <th className="text-right" style={{ width: 70 }}>% Dto.</th>
-            <th className="text-right" style={{ width: 85 }}>Pvp Fijo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 && !editing && (
-            <tr>
-              <td colSpan={8} className="text-center text-[#6d6d6d]">Sin ofertas con regalo o descuento.</td>
-            </tr>
-          )}
-          {rows.map((r) =>
-            editing && editing.id === r.id ? (
-              editRow(editing)
-            ) : (
-              <tr key={r.id} className={selectedId === r.id ? 'gw-selected' : ''} onClick={() => !editing && setSelectedId(r.id ?? null)}>
-                <td>{TIPOS_OFERTA.find((t) => t.value === r.tipo_oferta)?.label ?? r.tipo_oferta}</td>
-                <td>{r.descripcion ?? ''}</td>
-                <td>{periodo(r.fecha_desde, r.hora_desde, r.fecha_hasta, r.hora_hasta)}</td>
-                <td className="text-right tabular-nums">{formatGw(r.cada_x_cantidad, 3)}</td>
-                <td>{r.articulo_regalo_codigo ?? ''}</td>
-                <td className="text-right tabular-nums">{formatGw(r.cantidad_oferta, 3)}</td>
-                <td className="text-right tabular-nums">{formatGw(r.descuento_pct, 2)}</td>
-                <td className="text-right tabular-nums">{formatGw(r.pvp_fijo, 3)}</td>
-              </tr>
-            ),
-          )}
-          {editing && editing.id == null && editRow(editing)}
-        </tbody>
-      </table>
-    </GwGroup>
+    </div>
   )
 }
