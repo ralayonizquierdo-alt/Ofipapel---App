@@ -4,7 +4,8 @@ import { AuthProvider, useAuth } from './lib/AuthContext'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
-import { ArticulosPage } from './pages/ArticulosPage'
+import { ArticulosListPage } from './pages/articulos/ArticulosListPage'
+import { ArticuloFichaPage } from './pages/articulos/ArticuloFichaPage'
 import { ClientesPage } from './pages/ClientesPage'
 import { ProveedoresPage } from './pages/ProveedoresPage'
 import { AlmacenesPage } from './pages/AlmacenesPage'
@@ -42,7 +43,8 @@ function App() {
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
           <Route element={<ProtectedArea />}>
             <Route path="/" element={<DashboardPage />} />
-            <Route path="/articulos" element={<ArticulosPage />} />
+            <Route path="/articulos" element={<ArticulosListPage />} />
+            <Route path="/articulos/:codigo" element={<ArticuloFichaPage />} />
             <Route path="/clientes" element={<ClientesPage />} />
             <Route path="/proveedores" element={<ProveedoresPage />} />
             <Route path="/almacenes" element={<AlmacenesPage />} />
