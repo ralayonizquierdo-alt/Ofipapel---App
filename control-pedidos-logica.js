@@ -44,12 +44,24 @@
   const REF_ALTA = '2 ALTA NUEVA';
   function codigosAlta(desc) {
     const d = String(desc || '');
-    const cabeza = d.includes('>') ? d.split('>')[0] : d.trim().split(/\s+/)[0];
-    return cabeza.split('/').map((t) => normRef(t)).filter((t) => /^[A-Z0-9][A-Z0-9.-]{2,}$/.test(t) && /\d/.test(t) && /[A-Z]/.test(t));
+    const conFlecha = d.includes('>');
+    const cabeza = conFlecha ? d.split('>')[0] : d.trim().split(/\s+/)[0];
+    const trozos = cabeza.split('/').map((t) => normRef(t)).filter(Boolean);
+    // «06803001/2/3/4/5»: lo que va tras la barra es el final del primer código (06803002…).
+    const base = trozos[0] || '';
+    const cods = trozos.map((t, i) => (i && /^\d+$/.test(t) && /^\d+$/.test(base) && t.length < base.length ? base.slice(0, base.length - t.length) + t : t));
+    // Con «>» el código puede ser solo de cifras (Fabriano: «65900208>SET REGALO…»).
+    return cods.filter((t) => /^[A-Z0-9][A-Z0-9.-]{2,}$/.test(t) && /\d/.test(t) && (/[A-Z]/.test(t) || (conFlecha && t.replace(/\D/g, '').length >= 5)));
   }
   /** Una línea con «2 ALTA NUEVA» → ref = código(s) del proveedor (unidos con «+»), alta = true y descAlta = la descripción original. */
   function marcarAlta(l) {
-    if (!l || l.alta) return l;
+    if (!l) return l;
+    // Alta leída antes sin código («ALTA-…»): si ahora se sabe leer el código, se arregla.
+    if (l.alta) {
+      if (!/^ALTA-/.test(String(l.ref))) return l;
+      const c = codigosAlta(l.descAlta || l.desc);
+      return c.length ? { ...l, ref: c.join('+') } : l;
+    }
     let r = normRef(l.ref);
     let desc = String(l.desc || '');
     // Leídas antes del arreglo: referencia «2» y la descripción empezando por «ALTA NUEVA».
@@ -1444,17 +1456,28 @@
     let sobran = [...pro.keys()].filter((k) => !ped.has(k)).map((k) => pro.get(k));
     const out = {};
     const alnum = (r) => String(r || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    // Un alta con varios códigos («06803001+06803002…») casa por cualquiera de ellos.
+    const partes = (r) => String(r || '').split('+').map(alnum).filter(Boolean);
+    const alguna = (a, b, f) => partes(a.ref).some((x) => partes(b.ref).some((y) => f(x, y)));
     const nucleo = (r) => alnum(r).replace(/^\d{2}[A-Z]{1,3}(?=\d)/, '');
-    const medidas = (d) => [...new Set((String(d || '').toLowerCase().match(/\d+(?:[.,]\d+)?\s*(?:mm|cm|mic|mi|ml|gr?|kg)\b/g) || []).map((x) => x.replace(/\s+/g, '').replace(',', '.').replace(/mic$|mi$/, 'mic')))].sort().join('|');
+    const cifras = (r) => alnum(r).replace(/^[A-Z]+(?=\d)/, '');
+    const medidas = (d) => [...new Set((String(d || '').toLowerCase().match(/\d+(?:[.,]\d+)?\s*(?:mm|cm|mic|mi|ml|gr?|kg)\b/g) || []).map((x) => x.replace(/\s+/g, '').replace(',', '.').replace(/mic$|mi$/, 'mic').replace(/gr$/, 'g')))].sort().join('|');
+    const distUno = (a, b) => {
+      if (a === b || Math.abs(a.length - b.length) > 1) return false;
+      let i = 0; while (i < a.length && a[i] === b[i]) i++;
+      return a.slice(i + (a.length >= b.length ? 1 : 0)) === b.slice(i + (b.length >= a.length ? 1 : 0));
+    };
     // `contiene`: Archivo 2000 pone prefijo y sufijo a nuestro código (1106 →
     // 01A1106CSTL, 27104M → 01A27104MNE); se prueba de la más larga a la más
     // corta para que «6157A» se quede la suya antes que «6157».
     const reglas = [
       // …y el mismo código con otro prefijo de serie delante (01C6156CSTP = 01A6156CSTP).
-      { f: (a, b) => alnum(a.ref) === alnum(b.ref) || (nucleo(a.ref).length >= 4 && nucleo(a.ref) === nucleo(b.ref)) },
-      { f: (a, b) => { const x = alnum(a.ref), y = alnum(b.ref); return x.length >= 5 && y.length >= 5 && (x.startsWith(y) || y.startsWith(x)); } },
-      { f: (a, b) => { const x = alnum(a.ref), y = alnum(b.ref); return x.length >= 4 && y.length >= 4 && (x.includes(y) || y.includes(x)); }, contiene: true },
+      { f: (a, b) => alguna(a, b, (x, y) => x === y || (nucleo(x).length >= 4 && nucleo(x) === nucleo(y))) },
+      { f: (a, b) => alguna(a, b, (x, y) => x.length >= 5 && y.length >= 5 && (x.startsWith(y) || y.startsWith(x))) },
+      { f: (a, b) => alguna(a, b, (x, y) => x.length >= 4 && y.length >= 4 && (x.includes(y) || y.includes(x))), contiene: true },
       { f: (a, b) => { const m = medidas(a.desc); return Boolean(m) && m === medidas(b.desc) && a.cant === b.cant; } },
+      // Una cifra cambiada en un código largo y la misma cantidad (07722714 → F07702714).
+      { f: (a, b) => a.cant === b.cant && alguna(a, b, (x, y) => cifras(x).length >= 6 && /^\d+$/.test(cifras(x)) && /^\d+$/.test(cifras(y)) && distUno(cifras(x), cifras(y))) },
     ];
     for (const { f: regla, contiene } of reglas) {
       const orden = contiene ? faltan.slice().sort((x, y) => alnum(y.ref).length - alnum(x.ref).length) : faltan.slice();
@@ -1467,8 +1490,51 @@
         sobran = sobran.filter((x) => x !== cand[0]);
       }
     }
+    // Por último, como lo haría una persona: misma cantidad, misma medida (si las
+    // dos la traen) y lo que dice la descripción, con los colores en italiano o
+    // inglés traducidos (Fabriano: «GIALLO» = amarillo, «BANANA» = amarillo claro).
+    // Solo se empareja la pareja que se elige mutuamente y sin empate; se repite
+    // porque al casar una, la siguiente puede quedar sin empate.
+    const palabras = (d) => {
+      const t = String(d || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const ws = new Set((t.match(/[A-Z]{3,}/g) || []).filter((w) => !VACIAS_DESC.has(w)));
+      for (const w of [...ws]) for (const x of (COLORES[w] || '').split(' ').filter(Boolean)) ws.add(x);
+      return ws;
+    };
+    const parecido = (a, b) => {
+      if (a.cant !== b.cant) return 0;
+      const ma = medidas(a.desc), mb = medidas(b.desc);
+      if (ma && mb && ma !== mb) return 0;
+      const pa = palabras(a.desc); let n = 0;
+      for (const w of palabras(b.desc)) if (pa.has(w)) n++;
+      return n >= (ma && mb ? 1 : 2) ? n : 0;
+    };
+    const mejor = (x, lista, f) => {
+      const v = lista.map((y) => [y, f(x, y)]).filter(([, n]) => n > 0).sort((p, q) => q[1] - p[1]);
+      return v.length && (v.length === 1 || v[0][1] > v[1][1]) ? v[0][0] : null;
+    };
+    for (let cambio = true; cambio;) {
+      cambio = false;
+      for (const a of faltan.slice()) {
+        const b = mejor(a, sobran, parecido);
+        if (!b || mejor(b, faltan, (x, y) => parecido(y, x)) !== a) continue;
+        out[b.ref] = a.ref;
+        faltan = faltan.filter((x) => x !== a);
+        sobran = sobran.filter((x) => x !== b);
+        cambio = true;
+      }
+    }
     return out;
   }
+  // Palabras que no dicen qué artículo es.
+  const VACIAS_DESC = new Set(['CON', 'PARA', 'SIN', 'LOS', 'LAS', 'DEL', 'UDS', 'UNIDADES', 'PACK', 'CAJA', 'HOJAS', 'FSC', 'PVP', 'COL', 'COLOR', 'COLORES', 'THE', 'AND']);
+  // Colores de los proveedores italianos e ingleses → los nuestros.
+  const COLORES = {
+    GIALLO: 'AMARILLO', YELLOW: 'AMARILLO', BANANA: 'AMARILLO CLARO', CANARIO: 'AMARILLO', ALBICOCA: 'ALBARICOQUE SALMON', ALBICOCCA: 'ALBARICOQUE SALMON',
+    SALMONE: 'SALMON', ARANCIO: 'NARANJA', ORANGE: 'NARANJA', ROSSO: 'ROJO', RED: 'ROJO', VERDE: 'VERDE', GREEN: 'VERDE', BLU: 'AZUL', BLUE: 'AZUL',
+    CELESTE: 'AZUL CLARO CIELO', AZZURRO: 'AZUL CLARO CIELO', VIOLA: 'VIOLETA', LILLA: 'LILA', NERO: 'NEGRO', BLACK: 'NEGRO', BIANCO: 'BLANCO', WHITE: 'BLANCO',
+    GRIGIO: 'GRIS', GREY: 'GRIS', GRAY: 'GRIS', AVORIO: 'MARFIL', IVORY: 'MARFIL', MARRONE: 'MARRON', BROWN: 'MARRON', ORO: 'ORO', GOLD: 'ORO', ARGENTO: 'PLATA', SILVER: 'PLATA',
+  };
 
   /**
    * Cuadre de artículos de una campaña: cada unidad facturada por el proveedor
