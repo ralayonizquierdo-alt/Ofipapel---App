@@ -570,31 +570,35 @@ body{
   // navegador puede bloquear la reproducción automática sin gesto previo
   // del usuario — si play() falla, queda pendiente y se reintenta en el
   // primer clic/toque/tecla.
+  // 2026-10-27: el fundido se hacía con un nodo de ganancia de Web Audio
+  // (AudioContext + GainNode) -- el propietario detectó un corte
+  // perceptible justo al empezar, repetible siempre. Causa probable: al
+  // crear el AudioContext y llamar a .play() en el mismo instante, el
+  // navegador tarda un poco en arrancar el pipeline de audio real, y ese
+  // arranque no está sincronizado con la rampa de ganancia (programada en
+  // el reloj del AudioContext, no en el de la reproducción) -- se oye
+  // silencio/corte hasta que ambos cuadran. Se cambia a un fundido simple
+  // subiendo audio.volume con requestAnimationFrame: no hay dos relojes
+  // que sincronizar, el volumen afecta directamente a lo que ya se está
+  // reproduciendo.
   var openAudio = new Audio('sound-connect.mp3');
   openAudio.preload = 'auto';
   var openAudioPending = false;
-  var fadeCtx = null, fadeGain = null;
-  var FADE_IN = .45;
-  function setupFade(){
-    if (fadeGain) return;
-    var Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    try {
-      fadeCtx = new Ctx();
-      var source = fadeCtx.createMediaElementSource(openAudio);
-      fadeGain = fadeCtx.createGain();
-      source.connect(fadeGain).connect(fadeCtx.destination);
-    } catch (e) {}
+  var FADE_IN_MS = 450;
+  var fadeRAF = null;
+  function fadeVolumeIn(){
+    if (fadeRAF) cancelAnimationFrame(fadeRAF);
+    var start = performance.now();
+    openAudio.volume = 0;
+    function step(now){
+      var t = Math.max(0, Math.min(1, (now - start) / FADE_IN_MS));
+      openAudio.volume = t;
+      fadeRAF = t < 1 ? requestAnimationFrame(step) : null;
+    }
+    fadeRAF = requestAnimationFrame(step);
   }
   function playOpenSound(){
-    setupFade();
-    if (fadeCtx && fadeCtx.state !== 'running') fadeCtx.resume().catch(function(){});
-    if (fadeGain && fadeCtx) {
-      var now = fadeCtx.currentTime;
-      fadeGain.gain.cancelScheduledValues(now);
-      fadeGain.gain.setValueAtTime(0, now);
-      fadeGain.gain.linearRampToValueAtTime(1, now + FADE_IN);
-    }
+    fadeVolumeIn();
     openAudio.currentTime = 0;
     var p = openAudio.play();
     if (p && p.catch) {
@@ -605,7 +609,6 @@ body{
   playOpenSound();
   ['pointerdown', 'keydown'].forEach(function(evt){
     document.addEventListener(evt, function(){
-      if (fadeCtx && fadeCtx.state !== 'running') fadeCtx.resume().catch(function(){});
       if (openAudioPending) {
         playOpenSound();
       }
