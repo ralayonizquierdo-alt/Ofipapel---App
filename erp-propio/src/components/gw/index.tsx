@@ -1,6 +1,8 @@
 import { useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { Minus, Square, X } from 'lucide-react'
 
+export { GwDate, type GwDateProps } from './GwDate'
+
 // Piezas de interfaz que replican el aspecto de GeminisWin (Visual FoxPro sobre Windows):
 // ventanas hijas MDI, etiquetas encima del campo, números con coma decimal alineados
 // a la derecha, grupos con marco, pestañas en varias filas y botones «···» de búsqueda.
