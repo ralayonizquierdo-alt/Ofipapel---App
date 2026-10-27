@@ -112,6 +112,13 @@ pantalla llevan la marca «confirmar con Luis».
   (confirmado por el usuario); falta ver cómo lo pregunta GeminisWin (casilla o
   mensaje) — hoy el ERP lo pregunta al pulsar «Actualizado».
 
+- VeriFactu (27/10, confirmado por Rober): a los clientes de crédito se les
+  hacen albaranes y se facturan todos a fin de mes. Implementado: una venta a
+  crédito (albarán) NO genera registro VeriFactu; lo genera la factura mensual
+  que los agrupa, y desde ese momento el albarán queda bloqueado. Pendiente con
+  el bloque Facturación: la pantalla de facturar albaranes y si un albarán sin
+  facturar se puede anular/borrar.
+
 ## Datos de prueba en la base de datos
 
 Creados durante las pruebas; se borran cuando el usuario apruebe el borrado en

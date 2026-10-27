@@ -136,6 +136,9 @@ export function GwDate({ value, onChange, disabled, readOnly, className = '', ti
     setHuecos(h)
     setMal(false)
     caret.current = pos
+    // Si el texto no cambia (un «2» tecleado sobre otro «2») React no vuelve a pintar y el
+    // efecto no llega a mover el cursor: se mueve aquí también.
+    inputRef.current?.setSelectionRange(pos, pos)
     if (/^\d{8}$/.test(h)) {
       const v = validar(h)
       if (v.ok) confirmar(v.iso)
