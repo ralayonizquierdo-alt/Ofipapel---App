@@ -4,6 +4,9 @@ import { supabase } from '../../lib/supabase'
 import { GwField, GwInput, GwTabs, type GwTabDef } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
+import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
+import { gwBuscarPorInicio, useListaOrdenada } from '../../components/gw/GwListaOrdenada'
+import { buscarTerceroPorCodigo, defTercero } from '../../components/gw/listasTerceros'
 import { type Proveedor, emptyProveedor } from './types'
 import { TabDatosGenerales } from './tabs/TabDatosGenerales'
 import { TabDatosComerciales } from './tabs/TabDatosComerciales'
@@ -62,6 +65,8 @@ export function ProveedorFichaPage() {
   const [tab, setTab] = useState('generales')
 
   const editing = mode !== 'consulta'
+  const consulta = mode === 'consulta'
+  const listaOrd = useListaOrdenada()
 
   useEffect(() => {
     supabase
@@ -194,6 +199,33 @@ export function ProveedorFichaPage() {
   const idx = ordenada.findIndex((r) => r.codigo === proveedor.codigo)
   const canNavigate = mode === 'consulta' && ordenada.length > 0
   const goTo = (c?: string) => c && navigate(`/proveedores/${encodeURIComponent(c)}`)
+
+  // Búsqueda desde los campos en consulta (Intro) y lista ordenada por el campo (Ctrl+Intro).
+  async function buscarCodigo(t: string) {
+    const c = await buscarTerceroPorCodigo('proveedor', t)
+    if (c) goTo(c)
+    else setError(`No existe el proveedor ${t}`)
+  }
+  const buscarInicio = (campo: string, que: string) => async (t: string) => {
+    const f = await gwBuscarPorInicio('proveedor', campo, t)
+    if (f) goTo(String(f.codigo))
+    else setError(`No existe ningún proveedor con ${que} que empiece por «${t}»`)
+  }
+  const lista = (campo: string) =>
+    consulta
+      ? (texto: string | null) => listaOrd.abrir(defTercero('proveedor', campo), { texto, ancla: proveedor.codigo, onPick: (f) => goTo(String(f.codigo)) })
+      : undefined
+  const campoBusqueda = (campo: 'nombre' | 'razon_social' | 'nif', title: string, que: string, className?: string) => (
+    <GwCampoBusqueda
+      value={(draft[campo] ?? '') as string}
+      editable={editing}
+      title={title}
+      className={className}
+      onChange={(v) => patch({ [campo]: campo === 'nombre' ? v : v === '' ? null : v } as Partial<typeof draft>)}
+      onBuscar={buscarInicio(campo, que)}
+      onLista={lista(campo)}
+    />
+  )
 
   const ro = !editing
   const txt = (key: keyof Proveedor, title: string) => (
