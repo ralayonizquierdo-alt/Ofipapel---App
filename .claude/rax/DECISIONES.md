@@ -1566,3 +1566,53 @@ propósito) — no bloquea nada, la foto y el layout se generan igual.
 
 **Reversibilidad**: alta — 1 fichero nuevo, 3 puntos de paso opcionales
 (`options.testMode`) que no cambian nada si están ausentes.
+
+### 2026-10-27 — El nodo central del hub abre el ERP propio en desarrollo
+
+**Qué**: el nodo central de `inicio.html` ("OFIPAPEL 360°", el trébol) era
+puramente decorativo (`<div aria-hidden="true">`, sin enlace) desde que
+existe el hub. El propietario está desarrollando un ERP propio de
+Ofipapel y pidió añadirlo al hub "justo en el centro, donde pone
+Ofipapel 360" — se convierte ese nodo en un enlace real.
+
+**Contexto importante**: este cambio va sobre el hub que está REALMENTE
+en producción hoy (`main`, el de "red neuronal" con 8 satélites a 45°) —
+no sobre el rediseño con vídeo de la rama
+`claude/ofipapel-animated-interface-5imku1` (PR #381, todavía sin
+fusionar). Se creó una rama nueva desde `main` a propósito para esto,
+sin mezclarla con ese PR en curso.
+
+**Cambios**: `<div class="hub-center" aria-hidden="true">` → `<a
+class="hub-center" href="https://ofipapel-erp-propio-preview.netlify.app"
+aria-label="...">` (enlace **provisional** del propietario, pendiente de
+actualizar con el dominio definitivo del ERP cuando lo tenga). Mismo
+sonido de clic + retraso de 220ms antes de navegar que los 8 satélites
+(`clickAudio`/`CLICK_DELAY`), pero con su propio listener aparte en vez
+de meterlo en la lista `sats`, porque esa lista también gobierna el
+dibujado de las líneas conectoras del fondo y el centro no es uno de los
+8 satélites. Se añadió también un estado `:hover`/`:focus-visible` (antes
+no hacía falta, al no ser interactivo) y se quitó `aria-hidden`. Ninguno
+de los 8 satélites se tocó.
+
+**Por qué no un 9º satélite**: se planteó también añadir el ERP como
+satélite nuevo, pero los 8 actuales están repartidos exactos a 45° con
+imágenes de aro+chispas generadas una a una — un 9º exige romper esa
+simetría (mover los 8 de sitio y regenerar sus imágenes) o aceptar un
+hueco asimétrico. El propietario aclaró que quería el centro, no un
+satélite nuevo, así que no hizo falta decidir entre esas opciones.
+
+**Verificación**: `node --check` sobre los dos `<script>` del fichero ·
+con Playwright (Service Worker bloqueado): el nodo central es ahora
+`<a>` con el `href`/`aria-label` correctos y sin `aria-hidden`; los 8
+satélites siguen intactos (mismo recuento, mismo `href` de Compras de
+ejemplo); el clic en el centro previene la navegación inmediata, suena y
+navega al cabo del retraso, igual que un satélite cualquiera · capturas
+de pantalla del hub completo y en :hover — visualmente sin cambios salvo
+el nuevo resalte al pasar el ratón por el centro.
+
+**Quién decide**: el propietario, al pedir explícitamente que el ERP
+fuera "justo en el centro, donde pone Ofipapel 360".
+
+**Reversibilidad**: alta — 2 líneas de HTML (abrir/cerrar etiqueta),
+unas pocas de CSS y un listener de JS aislado; revertir es trivial y no
+toca nada de los 8 satélites ni del resto del hub.
