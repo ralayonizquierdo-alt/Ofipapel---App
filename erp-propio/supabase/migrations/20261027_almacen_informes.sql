@@ -490,6 +490,11 @@ declare
   en_periodo text;
 begin
   en_periodo := concat_ws(' and ', 'true',
+    case p->>'informe'
+      when 'venta' then 'm.tipo_movimiento in (''venta'', ''devolucion_cliente'')'
+      when 'compra' then 'm.tipo_movimiento in (''compra'', ''devolucion_proveedor'')'
+      when 'traspaso' then 'm.tipo_movimiento = ''traspaso'''
+      when 'regularizacion' then 'm.tipo_movimiento in (''regularizacion'', ''inventario'')' end,
     case when d is not null then format('m.ocurrido_en >= fn_dia_canarias(%L::date)', d) end,
     case when h is not null then format('m.ocurrido_en < fn_dia_canarias(%L::date + 1)', h) end);
   return query execute format($q$
