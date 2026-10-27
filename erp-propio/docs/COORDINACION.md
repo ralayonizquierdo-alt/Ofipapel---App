@@ -119,6 +119,12 @@ pantalla llevan la marca «confirmar con Luis».
   el bloque Facturación: la pantalla de facturar albaranes y si un albarán sin
   facturar se puede anular/borrar.
 
+- Contabilidad (para la gestoría): programa (¿Sage?) y su formato de
+  importación; longitud de subcuenta (puesta 8) y si 430/400 + código de
+  cliente/proveedor; subcuentas de IGIC por tipo (47700007, 47200007…); cobros
+  con tarjeta a la 572 u otra; cuentas genéricas (entradas de caja 759, salidas
+  629, redondeo 659); tickets en un asiento por día y tienda o uno por ticket.
+
 ## Datos de prueba en la base de datos
 
 Creados durante las pruebas; se borran cuando el usuario apruebe el borrado en
