@@ -240,6 +240,7 @@ export function CreacionRapidaArticulosPage() {
   }
 
   async function guardar() {
+    if (guardando) return
     setError(null)
     setGuardando(true)
     try {
