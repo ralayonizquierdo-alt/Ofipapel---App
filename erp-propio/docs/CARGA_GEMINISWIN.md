@@ -184,6 +184,17 @@ Sin correspondencia clara (no se cargan, para no inventar):
     por defecto del ERP (3, líquido). En el artículo 149719 el PVP general
     (125 % sobre coste) cuadra con el coste líquido/bruto (4,00) y no con el
     puro (4,31). **¿Qué significan 0 y 4?**
+    Comprobación sobre toda la muestra (artículos con `POD0` = P): el PVP general
+    es `coste × (1 + INC_PVP0/100)` **sin IGIC**, y el coste que cuadra es
+    `PM_COMPRA` (precio medio): 89 de 89 con `COSTTOCALC` = 4 y 1856 de 1900
+    con `COSTTOCALC` vacío (el líquido solo cuadra en 1195). El selector del ERP
+    (0..3) no tiene «precio medio», así que «Recalcular Pvps» en el ERP daría
+    otros PVP en cientos de artículos: hay que añadir esa opción en la ficha.
+  - Los 99 artículos con `COSTTOCALC` = 4 son casi todos de marca
+    `SOBREPEDIDO` (92). Muchos vienen así de GeminisWin: sin coste puro (53),
+    sin `PVP_0` (9), sin código de barras (98) o sin proveedor (9). Ejemplo:
+    00003000087 solo trae `COSTE_NETO` y `PVP_1`. Lo cargado coincide con el
+    DBF: no es un fallo de la carga.
   - `TIPPLANTAR` / `TIPOPLANTT` (de dónde sale la plantilla de tarifa): valores
     1..9 y la ficha solo prevé 0..3. **¿Qué significa cada valor?**
   - `TIPOIGIC`: siempre 2. La ficha usa 1 = soportado / otro = repercutido.
