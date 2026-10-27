@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase'
+import type { RegistroFacturacion } from '../../../lib/verifactu'
 
 // Ficha Ventas / Facturas de GeminisWin (VENTAS + VENTDETA). El TPV usa el mismo documento.
 
@@ -42,6 +43,16 @@ export interface CabeceraVenta {
   tipo_credito: string | null
   aplazada: boolean
   observaciones: string | null
+  // Rectificativa: venta original que corrige (abono). VeriFactu la registra como R5 (simplificada) o R1.
+  rectifica_tienda: string | null
+  rectifica_numero: number | null
+  anulada: boolean
+}
+
+/** Registros VeriFactu de una venta: alta (al emitirse) y, si se anuló, anulación. */
+export interface VerifactuVenta {
+  alta: RegistroFacturacion | null
+  anulacion: RegistroFacturacion | null
 }
 
 export const NIVELES = ['General', 'MAYOR M-1', 'MAYOR M-2', 'MAYOR M-3', 'Tarifa Dto-4', 'Tarifa Dto-5', 'Tarifa Dto-6']
@@ -245,6 +256,9 @@ export async function cargarVenta(tienda: string, numero: number, almacen: strin
     tipo_credito: v.tipo_credito,
     aplazada: Boolean(v.aplazada),
     observaciones: v.observaciones,
+    rectifica_tienda: v.venta_rectificada_tienda_codigo ?? null,
+    rectifica_numero: v.venta_rectificada_numero == null ? null : Number(v.venta_rectificada_numero),
+    anulada: v.anulada_en != null,
   }
   const lineas: LineaVenta[] = (ls ?? []).map((l) => {
     const info = l.articulo_codigo ? infoArt.get(l.articulo_codigo) : undefined
@@ -265,7 +279,24 @@ export async function cargarVenta(tienda: string, numero: number, almacen: strin
       unidades_pendientes: Number(info?.unidades_pedidas ?? 0),
     }
   })
-  return { cab, lineas }
+  return { cab, lineas, verifactu: await cargarVerifactuVenta(tienda, numero) }
+}
+
+export async function cargarVerifactuVenta(tienda: string, numero: number): Promise<VerifactuVenta> {
+  const { data } = await supabase
+    .from('registro_facturacion')
+    .select('*')
+    .eq('origen_tipo', 'venta')
+    .eq('origen_tienda_codigo', tienda)
+    .eq('origen_numero', numero)
+  const regs = (data ?? []) as RegistroFacturacion[]
+  return { alta: regs.find((r) => r.tipo_registro === 'alta') ?? null, anulacion: regs.find((r) => r.tipo_registro === 'anulacion') ?? null }
+}
+
+/** Anula una venta emitida: registro VeriFactu de anulación + baja lógica + devolución de stock (en BD). */
+export async function anularVenta(tienda: string, numero: number, motivo: string) {
+  const { error } = await supabase.rpc('fn_verifactu_anular_venta', { p_tienda: tienda, p_numero: numero, p_motivo: motivo })
+  if (error) throw new Error(error.message)
 }
 
 export interface Cobro {
@@ -353,8 +384,12 @@ export async function guardarVenta(opts: {
     total_pagado: aplazar ? cab.total_pagado : pagadoTotal,
     total_pendiente: pendiente,
     fecha_pago: !aplazar && cobrado > 0 ? hoyISO() : undefined,
-    aplazada: aplazar,
+    // Se graba siempre como aplazada y se completa al final (ver más abajo): ese paso emite el
+    // registro VeriFactu en la misma transacción, ya con todas las líneas grabadas.
+    aplazada: true,
     observaciones: cab.observaciones,
+    venta_rectificada_tienda_codigo: cab.rectifica_tienda,
+    venta_rectificada_numero: cab.rectifica_numero,
   }
 
   if (esAlta) {
@@ -404,6 +439,13 @@ export async function guardarVenta(opts: {
   if (filas.length) {
     const { error } = await supabase.from('venta_linea').insert(filas)
     if (error) throw new Error(error.message)
+  }
+
+  if (!aplazar) {
+    // Completar = emitir: el trigger de BD crea el registro VeriFactu (huella encadenada) y
+    // desde ese momento la venta y sus líneas quedan bloqueadas.
+    const { error: eEmitir } = await supabase.from('venta').update({ aplazada: false }).eq('tienda_terminal_codigo', tienda).eq('numero', numero)
+    if (eEmitir) throw new Error(eEmitir.message)
   }
 
   if (!aplazar) {

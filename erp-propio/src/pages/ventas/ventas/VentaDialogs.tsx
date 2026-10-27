@@ -2,7 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Check, KeyRound, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwNumber, GwWindow, formatGw } from '../../../components/gw'
-import { NIVELES, r2 } from './ventaModel'
+import { BloqueVerifactu } from '../../../components/VerifactuQr'
+import { NIVELES, r2, type VerifactuVenta } from './ventaModel'
 
 function Modal({ title, onClose, width = 720, children }: { title: string; onClose: () => void; width?: number; children: ReactNode }) {
   return (
@@ -340,6 +341,112 @@ export function AvisoDialog({ titulo, texto, onClose }: { titulo: string; texto:
         <div className="flex justify-end">
           <button type="button" autoFocus className="gw-btn" onClick={onClose}>
             Aceptar
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+const NOMBRE_TIPO_FACTURA: Record<string, string> = {
+  F1: 'F1 · Factura completa',
+  F2: 'F2 · Factura simplificada (ticket)',
+  F3: 'F3 · Factura en sustitución de simplificadas',
+  R1: 'R1 · Rectificativa (art. 80.1, 80.2 y error fundado)',
+  R5: 'R5 · Rectificativa de factura simplificada',
+}
+
+/** Datos VeriFactu de la venta: QR, tipo, huella y estado del envío. */
+export function VerifactuDialog({ verifactu, onClose }: { verifactu: VerifactuVenta; onClose: () => void }) {
+  const a = verifactu.alta
+  if (!a) return null
+  const fila = 'grid grid-cols-[150px_1fr] gap-2 text-[14px]'
+  return (
+    <Modal title={`VeriFactu · ${a.num_serie_factura}`} onClose={onClose} width={640}>
+      <div className="flex gap-4 p-2">
+        {a.codigo_qr_contenido && <BloqueVerifactu contenido={a.codigo_qr_contenido} tamano="150px" />}
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className={fila}>
+            <span className="text-[#555]">Nº serie factura</span>
+            <span className="font-mono">{a.num_serie_factura}</span>
+          </div>
+          <div className={fila}>
+            <span className="text-[#555]">Tipo</span>
+            <span>{NOMBRE_TIPO_FACTURA[a.tipo_factura ?? ''] ?? a.tipo_factura}</span>
+          </div>
+          {a.rectificada_num_serie && (
+            <div className={fila}>
+              <span className="text-[#555]">Rectifica a</span>
+              <span className="font-mono">{a.rectificada_num_serie}</span>
+            </div>
+          )}
+          <div className={fila}>
+            <span className="text-[#555]">Emisor</span>
+            <span className="font-mono">{a.id_emisor}</span>
+          </div>
+          <div className={fila}>
+            <span className="text-[#555]">Cuota / Importe</span>
+            <span>
+              {formatGw(Number(a.cuota_total), 2)} / {formatGw(Number(a.importe_total), 2)} €
+            </span>
+          </div>
+          <div className={fila}>
+            <span className="text-[#555]">Generado</span>
+            <span className="font-mono">{a.fecha_hora_huso_texto}</span>
+          </div>
+          <div className={fila}>
+            <span className="text-[#555]">Huella</span>
+            <span className="break-all font-mono text-[12px]">{a.huella}</span>
+          </div>
+          <div className={fila}>
+            <span className="text-[#555]">Huella anterior</span>
+            <span className="break-all font-mono text-[12px]">{a.huella_anterior ?? '(primer registro)'}</span>
+          </div>
+          <div className={fila}>
+            <span className="text-[#555]">Envío AEAT</span>
+            <span>{a.estado_envio_aeat}</span>
+          </div>
+          {verifactu.anulacion && (
+            <p className="text-[14px] font-bold text-[#d01c1c]">
+              ANULADA el {new Date(verifactu.anulacion.creado_en).toLocaleString('es-ES')}
+              {verifactu.anulacion.motivo ? ` — ${verifactu.anulacion.motivo}` : ''}
+            </p>
+          )}
+          <div className="mt-1 flex justify-end">
+            <button type="button" autoFocus className="gw-btn" onClick={onClose}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+/** Confirmación de «Eliminar» una venta emitida: no se borra, se anula (registro VeriFactu de anulación). */
+export function AnularVentaDialog({ venta, onOk, onCancel }: { venta: string; onOk: (motivo: string) => void; onCancel: () => void }) {
+  const [motivo, setMotivo] = useState('')
+  return (
+    <Modal title={`Anular la venta ${venta}`} onClose={onCancel} width={560}>
+      <div className="flex flex-col gap-2 p-2 text-[15px]">
+        <p>
+          La venta está emitida (VeriFactu): <b>no se borra</b>. Se genera un <b>registro de anulación</b> encadenado, la venta queda
+          marcada como anulada y se devuelve el stock al almacén.
+        </p>
+        <p className="text-[#d01c1c]">
+          Anular es solo para documentos expedidos por error. Si la venta fue real y hay que corregirla o devolver, usa «Rectificar».
+          Los cobros y la caja no se tocan.
+        </p>
+        <label className="flex flex-col gap-0.5">
+          <span>Motivo</span>
+          <input className="gw-input" autoFocus value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={200} />
+        </label>
+        <div className="flex justify-end gap-2">
+          <button type="button" className="gw-btn" disabled={!motivo.trim()} onClick={() => onOk(motivo.trim())}>
+            Anular venta
+          </button>
+          <button type="button" className="gw-btn" onClick={onCancel}>
+            Cancelar
           </button>
         </div>
       </div>

@@ -45,6 +45,7 @@ import { TraspasoFichaPage } from './pages/almacen/traspasos/TraspasoFichaPage'
 import { RegularizacionStockPage } from './pages/almacen/traspasos/RegularizacionStockPage'
 import { InventarioFichaPage } from './pages/almacen/inventarios/InventarioFichaPage'
 import { FacturacionPage } from './pages/FacturacionPage'
+import { RegistrosVerifactuPage } from './pages/RegistrosVerifactuPage'
 
 function ProtectedArea() {
   const { session, loading } = useAuth()
@@ -115,6 +116,7 @@ function App() {
             <Route path="/plantillas-tarifas/*" element={<PlantillaTarifaFichaPage />} />
             <Route path="/pagos" element={<PagosPage />} />
             <Route path="/facturacion" element={<FacturacionPage />} />
+            <Route path="/registros-verifactu" element={<RegistrosVerifactuPage />} />
           </Route>
         </Routes>
       </AuthProvider>

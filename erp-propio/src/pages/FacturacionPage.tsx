@@ -1,17 +1,15 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Plus, ShieldCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { calcularHuellaVerifactu, contenidoQrVerifactu, LEYENDA_VERIFACTU } from '../lib/verifactu'
 import { DataTable, type Column } from '../components/DataTable'
 import { Modal } from '../components/Modal'
 import { FormField, TextInput, SelectInput } from '../components/FormField'
 
 const TIENDA = '01'
 
-// ⚠️ SENSIBLE / PENDIENTE: placeholder, sustituir por el NIF real de Ofipapel
-// antes de emitir una factura real (ver DECISIONES.md). Con este valor la
-// huella se calcula correctamente pero no es válida ante la AEAT.
-const NIF_EMISOR = 'B00000000'
+// VeriFactu: la huella, el encadenado, el QR y el NIF del emisor (empresa.cif de la
+// tienda) los pone la BASE DE DATOS al insertar la factura (trigger
+// trg_factura_verifactu_alta → fn_verifactu_registrar). Aquí no se calcula nada.
 
 interface Factura {
   tienda_terminal_codigo: string
@@ -149,45 +147,14 @@ export function FacturacionPage() {
       return
     }
 
-    const { data: anterior, error: anteriorError } = await supabase
-      .from('factura')
-      .select('huella')
-      .not('huella', 'is', null)
-      .order('secuencia_global', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (anteriorError) {
-      setSavingFactura(false)
-      setErrorFactura(anteriorError.message)
-      return
-    }
-
     const ahora = new Date()
-    const numSerieFactura = `${serieFacturaCodigo}-${nFactura}`
-    const huella = await calcularHuellaVerifactu({
-      nifEmisor: NIF_EMISOR,
-      numSerieFactura,
-      fechaExpedicion: ahora,
-      tipoFactura: 'F1',
-      cuotaTotal: cuotaIgic,
-      importeTotal,
-      huellaAnterior: anterior?.huella ?? null,
-      fechaHoraHusoGenRegistro: ahora,
-    })
-    const codigoQrContenido = contenidoQrVerifactu({
-      nifEmisor: NIF_EMISOR,
-      numSerieFactura,
-      fechaExpedicion: ahora,
-      importeTotal,
-    })
-
     const { error: facturaError } = await supabase.from('factura').insert({
       tienda_terminal_codigo: TIENDA,
       numero,
       serie: serieFacturaCodigo,
       n_factura: nFactura,
       cliente_codigo: clienteCodigo,
-      fecha_factura: ahora.toISOString().slice(0, 10),
+      fecha_factura: ahora.toLocaleDateString('sv-SE'),
       estado: 'emitida',
       total_base: base,
       total_igic: cuotaIgic,
@@ -195,14 +162,6 @@ export function FacturacionPage() {
       es_factura_global: false,
       tipo_factura: 'F1',
       observaciones: descripcionOperacion || null,
-      huella,
-      huella_anterior: anterior?.huella ?? null,
-      fecha_hora_huso_generacion_registro: ahora.toISOString(),
-      estado_envio_aeat: 'pendiente_envio',
-      codigo_qr_contenido: codigoQrContenido,
-      leyenda_verifactu: LEYENDA_VERIFACTU,
-      software_productor_nombre: 'Ofipapel ERP propio',
-      software_productor_version: '0.1.0',
     })
     if (facturaError) {
       setSavingFactura(false)
@@ -262,7 +221,7 @@ export function FacturacionPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Facturación</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Fase 6 — huella Veri*Factu real (algoritmo oficial AEAT, Art. 137 Orden HAC/1177/2024), encadenada.
+            Huella Veri*Factu (art. 137 Orden HAC/1177/2024) calculada y encadenada en la base de datos. Ver «Registros VeriFactu».
           </p>
         </div>
         <button

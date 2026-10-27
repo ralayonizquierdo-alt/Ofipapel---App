@@ -140,3 +140,27 @@ select.gw-input:disabled {
   background: var(--gw-select);
   color: #ffffff;
 }
+
+/* Impresión del ticket/factura (VeriFactu): si la página tiene un bloque .solo-impresion,
+   al imprimir solo sale ese bloque (con el QR), no la pantalla. */
+.solo-impresion {
+  display: none;
+}
+@media print {
+  body:has(.solo-impresion) * {
+    visibility: hidden;
+  }
+  body:has(.solo-impresion) .solo-impresion,
+  body:has(.solo-impresion) .solo-impresion * {
+    visibility: visible;
+  }
+  .solo-impresion {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    color: #000;
+    background: #fff;
+  }
+}

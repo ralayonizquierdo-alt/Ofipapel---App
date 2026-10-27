@@ -75,6 +75,8 @@ export async function entregarPedido(p: PedidoParaEntregar): Promise<number> {
     total_tarjeta: 0,
     total_pagado: 0,
     total_pendiente: total,
+    // Se graba aplazada y se completa tras grabar las líneas: así se emite el registro VeriFactu
+    aplazada: true,
   })
   if (ventaError) throw new Error(ventaError.message)
 
@@ -91,6 +93,17 @@ export async function entregarPedido(p: PedidoParaEntregar): Promise<number> {
       })),
     )
     if (ventaLineaError) throw new Error(ventaLineaError.message)
+  }
+
+  // Completar la venta = emitirla (el trigger de BD genera el registro VeriFactu)
+  const { error: emitirError } = await supabase
+    .from('venta')
+    .update({ aplazada: false })
+    .eq('tienda_terminal_codigo', p.tienda_terminal_codigo)
+    .eq('numero', numeroVenta)
+  if (emitirError) throw new Error(emitirError.message)
+
+  if (ls.length > 0) {
 
     if (p.almacen_codigo) {
       const { error: stockError } = await supabase.from('movimiento_stock').insert(

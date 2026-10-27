@@ -8,6 +8,7 @@ import {
   DoorOpen,
   FilePen,
   FilePlus2,
+  FileMinus2,
   FileX2,
   Hand,
   Play,
@@ -25,6 +26,7 @@ import { formatGw } from '../../../components/gw'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import {
   NIVELES,
+  anularVenta,
   baseLinea,
   cajaAbierta,
   calcularPie,
@@ -40,9 +42,21 @@ import {
   subtotalLinea,
   type CabeceraVenta,
   type Cobro,
+  nuevaClave,
   type LineaVenta,
+  type VerifactuVenta,
 } from './ventaModel'
-import { AplazadasDialog, AvisoDialog, EmpleadoDialog, PagoDialog, StockDialog, TarifaDialog } from './VentaDialogs'
+import {
+  AnularVentaDialog,
+  AplazadasDialog,
+  AvisoDialog,
+  EmpleadoDialog,
+  PagoDialog,
+  StockDialog,
+  TarifaDialog,
+  VerifactuDialog,
+} from './VentaDialogs'
+import { VentaTicket, type EmpresaTicket } from './VentaTicket'
 
 type Modo = 'consulta' | 'alta' | 'edicion'
 
@@ -51,6 +65,7 @@ interface Tienda {
   descripcion: string
   almacen_codigo: string | null
   cliente_contado_codigo: string | null
+  empresa_codigo: string | null
 }
 
 interface Empleado {
@@ -104,6 +119,9 @@ function cabeceraNueva(tienda: string): CabeceraVenta {
     tipo_credito: null,
     aplazada: false,
     observaciones: null,
+    rectifica_tienda: null,
+    rectifica_numero: null,
+    anulada: false,
   }
 }
 
@@ -134,6 +152,8 @@ export function VentaDocumento({
   const [cab, setCab] = useState<CabeceraVenta>(cabeceraNueva(tiendaParam ?? ''))
   const [lineas, setLineas] = useState<LineaVenta[]>([])
   const [guardadas, setGuardadas] = useState<{ cab: CabeceraVenta; lineas: LineaVenta[] } | null>(null)
+  const [verifactu, setVerifactu] = useState<VerifactuVenta | null>(null)
+  const [empresa, setEmpresa] = useState<EmpresaTicket | null>(null)
   const [sel, setSel] = useState(0)
   const [orden, setOrden] = useState<'numero' | 'fecha'>('numero')
   const [mensaje, setMensaje] = useState<{ texto: string; error: boolean } | null>(null)
@@ -151,6 +171,8 @@ export function VentaDocumento({
     | { tipo: 'buscarCliente' }
     | { tipo: 'buscarArticulo' }
     | { tipo: 'aviso'; texto: string }
+    | { tipo: 'verifactu' }
+    | { tipo: 'anular' }
   >(null)
   const codRefs = useRef<Map<string, HTMLInputElement>>(new Map())
   const [foco, setFoco] = useState<number | null>(null)
@@ -164,7 +186,7 @@ export function VentaDocumento({
   // Tiendas y empleado de la sesión
   useEffect(() => {
     Promise.all([
-      supabase.from('tienda_terminal').select('codigo, descripcion, almacen_codigo, cliente_contado_codigo').order('codigo'),
+      supabase.from('tienda_terminal').select('codigo, descripcion, almacen_codigo, cliente_contado_codigo, empresa_codigo').order('codigo'),
       supabase.rpc('fn_empleado_actual'),
     ]).then(async ([t, e]) => {
       const lista = (t.data ?? []) as Tienda[]
@@ -184,6 +206,18 @@ export function VentaDocumento({
       }
     })
   }, [tiendaParam])
+
+  // Empresa emisora (cabecera del ticket impreso)
+  const empresaCodigo = tiendas.find((t) => t.codigo === tienda)?.empresa_codigo ?? null
+  useEffect(() => {
+    if (!empresaCodigo) return
+    supabase
+      .from('empresa')
+      .select('nombre, cif, direccion, poblacion')
+      .eq('codigo', empresaCodigo)
+      .maybeSingle()
+      .then(({ data }) => setEmpresa((data as EmpresaTicket) ?? null))
+  }, [empresaCodigo])
 
   const cargarEmpleadoVenta = useCallback(async (codigo: string | null) => {
     if (!codigo) return setEmpleadoVenta(null)
@@ -238,6 +272,7 @@ export function VentaDocumento({
       setCab(nueva.cab)
       setLineas(nueva.lineas)
       setGuardadas(null)
+      setVerifactu(null)
       setSel(0)
       setModo('alta')
       setEmpleadoVenta(empleado)
@@ -264,6 +299,7 @@ export function VentaDocumento({
         setCab(cabeceraNueva(t))
         setLineas([])
         setGuardadas(null)
+        setVerifactu(null)
         setModo('consulta')
         setEmpleadoVenta(null)
         setCargando(false)
@@ -278,6 +314,7 @@ export function VentaDocumento({
       setCab(r.cab)
       setLineas(r.lineas)
       setGuardadas({ cab: r.cab, lineas: r.lineas })
+      setVerifactu(r.verifactu)
       setSel(0)
       setModo('consulta')
       cargarEmpleadoVenta(r.cab.empleado_codigo)
@@ -396,6 +433,13 @@ export function VentaDocumento({
       setMensaje({ texto: 'Venta facturada: no se puede modificar (la factura es inalterable).', error: true })
       return
     }
+    if (verifactu?.alta) {
+      setMensaje({
+        texto: 'Venta emitida (VeriFactu): no se puede modificar. Para corregirla usa «Rectificar»; si se expidió por error, «Eliminar» la anula.',
+        error: true,
+      })
+      return
+    }
     setModo('edicion')
     if (lineas.length === 0) setLineas([lineaVacia(cab.tarifa_nivel)])
     setMensaje(null)
@@ -428,6 +472,7 @@ export function VentaDocumento({
   const lineasUtiles = () => lineas.filter((l) => l.articulo_codigo || l.descripcion.trim())
 
   async function prepararGuardado(aplazar: boolean) {
+    console.log('DBG prepararGuardado', editable, guardando, cab.cliente_codigo, almacen, lineasUtiles().length)
     if (!editable || guardando) return
     if (!cab.cliente_codigo) return setMensaje({ texto: 'Indica el cliente de la venta.', error: true })
     const utiles = lineasUtiles()
@@ -485,6 +530,50 @@ export function VentaDocumento({
     } catch (e) {
       setMensaje({ texto: e instanceof Error ? e.message : String(e), error: true })
     }
+  }
+
+  // ---------------- VeriFactu: anular y rectificar ----------------
+
+  async function anular(motivo: string) {
+    setDialogo(null)
+    if (cab.numero == null) return
+    try {
+      await anularVenta(tienda, cab.numero, motivo)
+      await abrirVenta(tienda, cab.numero)
+      setMensaje({ texto: `Venta Nº ${cab.numero} anulada (registro VeriFactu de anulación generado).`, error: false })
+    } catch (e) {
+      setMensaje({ texto: e instanceof Error ? e.message : String(e), error: true })
+    }
+  }
+
+  /** Abono que referencia la venta actual: mismas líneas en negativo, editables antes de guardar. */
+  function empezarRectificativa() {
+    if (!consulta || cab.numero == null || !verifactu?.alta || verifactu.anulacion) return
+    const original = cab.numero
+    setCab({
+      ...cabeceraNueva(tienda),
+      cliente_codigo: cab.cliente_codigo,
+      cliente_nombre: cab.cliente_nombre,
+      cliente_nif: cab.cliente_nif,
+      sucursal: cab.sucursal,
+      tarifa_nivel: cab.tarifa_nivel,
+      empleado_codigo: empleado?.codigo ?? cab.empleado_codigo,
+      descuento_pie_pct: cab.descuento_pie_pct,
+      igic_pie_pct: cab.igic_pie_pct,
+      observaciones: `Rectificativa de ${verifactu.alta.num_serie_factura}`,
+      rectifica_tienda: tienda,
+      rectifica_numero: original,
+    })
+    setLineas(lineas.filter((l) => l.articulo_codigo || l.descripcion.trim()).map((l) => ({ ...l, key: nuevaClave(), cantidad: -l.cantidad })))
+    setGuardadas(null)
+    setVerifactu(null)
+    setSel(0)
+    setModo('alta')
+    setEmpleadoVenta(empleado)
+    setMensaje({
+      texto: `Rectificativa de la venta ${tienda}-${original}: deja solo las líneas a devolver o corregir (en negativo) y guarda.`,
+      error: false,
+    })
   }
 
   // ---------------- Navegación ----------------
@@ -570,15 +659,22 @@ export function VentaDocumento({
   // ---------------- Estado ----------------
 
   const facturada = cab.factura_numero != null
+  const emitida = verifactu?.alta != null
+  const anulada = cab.anulada || verifactu?.anulacion != null
+  const bloqueada = facturada || emitida
   const pendiente = cab.numero == null ? 0 : cab.total_pendiente
-  const textoEstado = facturada
+  const textoEstado = anulada
+    ? 'Venta ANULADA.'
+    : cab.rectifica_numero != null
+      ? `Rectificativa de ${cab.rectifica_tienda}-${cab.rectifica_numero}.`
+      : facturada
     ? 'Venta Facturada.'
     : cab.aplazada
       ? 'Venta Aplazada.'
       : cab.tipo_credito === 'Crédito'
         ? 'Venta a Crédito.'
         : 'Venta de Contado.'
-  const colorEstado = facturada || cab.aplazada ? 'text-[#d01c1c]' : 'text-[#1a3fd0]'
+  const colorEstado = facturada || cab.aplazada || anulada ? 'text-[#d01c1c]' : 'text-[#1a3fd0]'
   const avisoLinea = lineaSel?.articulo_codigo
     ? {
         texto: `${lineaSel.codigo_compra ? `CC: ${lineaSel.codigo_compra}` : '<<No tiene Cod. Compra>>'}  ${
@@ -760,12 +856,12 @@ export function VentaDocumento({
               onClick={() => setSel((s) => Math.min(lineas.length - 1, s + 1))}
               disabled={sel >= lineas.length - 1}
             />
-            <MiniBtn label="Agregar" icon={<FilePlus2 size={14} />} onClick={agregarLinea} disabled={facturada} />
+            <MiniBtn label="Agregar" icon={<FilePlus2 size={14} />} onClick={agregarLinea} disabled={consulta && bloqueada} />
             <MiniBtn
               label="Editar"
               icon={<FilePen size={14} />}
               onClick={() => (editable ? lineaSel && codRefs.current.get(lineaSel.key)?.focus() : entrarEdicion())}
-              disabled={facturada || (cab.numero == null && consulta)}
+              disabled={(consulta && bloqueada) || (cab.numero == null && consulta)}
             />
             <MiniBtn label="Eliminar" icon={<FileX2 size={14} className="text-[#c42b1c]" />} onClick={eliminarLinea} disabled={!editable || !lineaSel} />
             <MiniBtn
@@ -787,17 +883,33 @@ export function VentaDocumento({
             />
             <MiniBtn label="Petic." icon={<Hand size={14} className="text-[#b08a1c]" />} disabled title="Peticiones: aún no disponible en el ERP propio" />
           </div>
-          <button
-            type="button"
-            disabled={!consulta || cab.numero == null || pendiente <= 0}
-            onClick={() => setDialogo({ tipo: 'cobrar' })}
-            title={consulta && pendiente > 0 ? 'Pagar: cobrar lo pendiente de esta venta' : undefined}
-            className={`mt-0.5 text-left text-[14px] leading-[16px] ${colorEstado} enabled:cursor-pointer enabled:hover:underline`}
-          >
-            {textoEstado}
-            <br />
-            &nbsp;Pagado: {formatGw(cab.total_pagado, 3)}. Pendiente: {formatGw(pendiente, 3)}
-          </button>
+          <div className="mt-0.5 flex items-start gap-1">
+            <button
+              type="button"
+              disabled={!consulta || cab.numero == null || pendiente <= 0}
+              onClick={() => setDialogo({ tipo: 'cobrar' })}
+              title={consulta && pendiente > 0 ? 'Pagar: cobrar lo pendiente de esta venta' : undefined}
+              className={`min-w-0 flex-1 text-left text-[14px] leading-[16px] ${colorEstado} enabled:cursor-pointer enabled:hover:underline`}
+            >
+              {textoEstado}
+              <br />
+              &nbsp;Pagado: {formatGw(cab.total_pagado, 3)}. Pendiente: {formatGw(pendiente, 3)}
+            </button>
+            {consulta && verifactu?.alta && (
+              <button
+                type="button"
+                className={`flex-none border px-1.5 text-[12px] leading-[15px] hover:bg-[#e5f1fb] ${
+                  anulada ? 'border-[#d01c1c] text-[#d01c1c]' : 'border-[#127a12] text-[#127a12]'
+                }`}
+                onClick={() => setDialogo({ tipo: 'verifactu' })}
+                title="Ver el registro VeriFactu: QR, huella y estado del envío a la AEAT"
+              >
+                <b>VERI*FACTU</b> {verifactu.alta.tipo_factura}
+                <br />
+                {anulada ? 'anulada' : verifactu.alta.num_serie_factura}
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex w-[368px] flex-none flex-col gap-1">
           <span className={`h-[16px] truncate text-[13px] leading-[16px] ${avisoLinea?.rojo ? 'text-[#d01c1c]' : 'text-[#1a3fd0]'}`}>{avisoLinea?.texto ?? ''}</span>
@@ -849,8 +961,33 @@ export function VentaDocumento({
         {consulta ? (
           <>
             <BarBtn label="Agregar" icon={<FilePlus2 size={15} />} onClick={() => empezarAlta(tienda)} />
-            <BarBtn label="Editar" icon={<FilePen size={15} />} onClick={() => entrarEdicion()} disabled={cab.numero == null || facturada} />
-            <BarBtn label="Eliminar" icon={<FileX2 size={15} />} disabled title="Una venta no se elimina: se anula con una devolución" />
+            <BarBtn
+              label="Editar"
+              icon={<FilePen size={15} />}
+              onClick={() => entrarEdicion()}
+              disabled={cab.numero == null || bloqueada}
+              title={emitida ? 'Venta emitida (VeriFactu): no se modifica; usa «Rectificar»' : undefined}
+            />
+            <BarBtn
+              label="Eliminar"
+              icon={<FileX2 size={15} />}
+              onClick={() => setDialogo({ tipo: 'anular' })}
+              disabled={!emitida || anulada}
+              title={
+                emitida
+                  ? anulada
+                    ? 'La venta ya está anulada'
+                    : 'Anular la venta: registro VeriFactu de anulación (no se borra)'
+                  : 'Una venta no se elimina: se anula con una devolución'
+              }
+            />
+            <BarBtn
+              label="Rectificar"
+              icon={<FileMinus2 size={15} />}
+              onClick={empezarRectificativa}
+              disabled={!emitida || anulada}
+              title="Factura rectificativa (abono) que referencia esta venta"
+            />
           </>
         ) : (
           <>
@@ -866,6 +1003,8 @@ export function VentaDocumento({
           ? 'ALT+RETROCESO=>Cancelar, F1=>Guardar, F2=>Imprimir, F11=>Aplazar, CTRL+F11=>Aplazadas, F12=>Ver Stock'
           : 'F2=>Imprimir, CTRL+F11=>Aplazadas, F12=>Ver Stock'}
       </div>
+
+      <VentaTicket empresa={empresa} cab={cab} lineas={lineas} pie={pie} verifactu={verifactu} />
 
       {/* ---------- Diálogos ---------- */}
       {pidiendoEmpleado && (
@@ -894,6 +1033,10 @@ export function VentaDocumento({
         <StockDialog articulo={lineaSel.articulo_codigo} descripcion={lineaSel.descripcion} onClose={() => setDialogo(null)} />
       )}
       {dialogo?.tipo === 'tarifa' && <TarifaDialog actual={lineaSel?.tarifa_nivel ?? cab.tarifa_nivel} onPick={cambiarTarifaLinea} onClose={() => setDialogo(null)} />}
+      {dialogo?.tipo === 'verifactu' && verifactu && <VerifactuDialog verifactu={verifactu} onClose={() => setDialogo(null)} />}
+      {dialogo?.tipo === 'anular' && cab.numero != null && (
+        <AnularVentaDialog venta={`${tienda}-${cab.numero}`} onOk={anular} onCancel={() => setDialogo(null)} />
+      )}
       {dialogo?.tipo === 'aviso' && <AvisoDialog titulo="Aviso al vender a este cliente" texto={dialogo.texto} onClose={() => setDialogo(null)} />}
       {dialogo?.tipo === 'buscarVenta' && (
         <GwLookupDialog<{ numero: number }>
