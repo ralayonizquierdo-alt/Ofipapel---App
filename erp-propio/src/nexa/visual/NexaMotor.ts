@@ -33,6 +33,8 @@ export class NexaMotor {
   private vao: WebGLVertexArrayObject
   private bufPos: WebGLBuffer
   private bufProps: WebGLBuffer
+  private bufColor: WebGLBuffer
+  private celdas = 300
   private u: Record<string, WebGLUniformLocation | null> = {}
   private cantidad = 0
   private mapa: MapaDensidad | null = null
@@ -84,6 +86,7 @@ export class NexaMotor {
     this.vao = gl.createVertexArray()!
     this.bufPos = gl.createBuffer()!
     this.bufProps = gl.createBuffer()!
+    this.bufColor = gl.createBuffer()!
     for (const n of ['u_time', 'u_canvas', 'u_scale', 'u_pointPx', 'u_states', 'u_level', 'u_form', 'u_blink', 'u_gaze', 'u_glow', 'u_light', 'u_opacity', 'u_boost'])
       this.u[n] = gl.getUniformLocation(this.prog, n)
     gl.enable(gl.BLEND)
@@ -143,6 +146,7 @@ export class NexaMotor {
     const gl = this.gl
     gl.deleteBuffer(this.bufPos)
     gl.deleteBuffer(this.bufProps)
+    gl.deleteBuffer(this.bufColor)
     gl.deleteVertexArray(this.vao)
     gl.deleteProgram(this.prog)
   }
@@ -174,6 +178,7 @@ export class NexaMotor {
     gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FRAGMENT))
     gl.bindAttribLocation(p, 0, 'a_pos')
     gl.bindAttribLocation(p, 1, 'a_props')
+    gl.bindAttribLocation(p, 2, 'a_color')
     gl.linkProgram(p)
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('NEXA programa: ' + gl.getProgramInfoLog(p))
     return p
@@ -191,6 +196,13 @@ export class NexaMotor {
     gl.enableVertexAttribArray(1)
     gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 0, 0)
     gl.bindVertexArray(null)
+    gl.bindVertexArray(this.vao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.bufColor)
+    gl.bufferData(gl.ARRAY_BUFFER, nube.colores, gl.STATIC_DRAW)
+    gl.enableVertexAttribArray(2)
+    gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 0, 0)
+    gl.bindVertexArray(null)
+    this.celdas = nube.celdas
     this.cantidad = nube.cantidad
   }
 
@@ -290,7 +302,8 @@ export class NexaMotor {
     gl.useProgram(this.prog)
     const lado = Math.min(this.canvas.width, this.canvas.height)
     // Tamaño del punto proporcional al lado (la nube ya agranda los puntos cuando hay menos)
-    const pointPx = Math.max(1.2, lado * 0.0075)
+    // Diámetro de una celda de la trama en píxeles del lienzo.
+    const pointPx = (lado * this.escala) / this.celdas
     // Párpado: curva rápida al cerrar y algo más lenta al abrir
     const p = this.parpadeo
     const blink = p > 0.5 ? (1 - p) * 2 : p * 2

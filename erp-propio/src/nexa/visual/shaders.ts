@@ -10,6 +10,7 @@ precision highp float;
 
 in vec2 a_pos;      // destino de la partícula en el rostro
 in vec4 a_props;    // tamaño, semilla, profundidad, tono (0 brillo · 1 sombra)
+in vec4 a_color;    // color (rgb) y alfa del punto según la referencia
 
 uniform float u_time;
 uniform vec2  u_canvas;     // píxeles físicos del lienzo
@@ -26,6 +27,8 @@ out float v_bright;
 out float v_alpha;
 out float v_core;           // fracción del sprite que es núcleo (el resto es halo)
 out float v_tono;
+out vec3 v_color;
+out float v_alfaRef;
 
 float hash(float n) { return fract(sin(n * 127.1) * 43758.5453); }
 
@@ -56,7 +59,7 @@ void main() {
   // --- Reposo: microvibración y respiración digital (siempre activas)
   float br = 1.0 + 0.006 * sin(t * 0.8);
   p *= br;
-  p += 0.0035 * vec2(sin(t * 0.73 + seed * 61.0), cos(t * 0.61 + seed * 47.0));
+  p += 0.0014 * vec2(sin(t * 0.73 + seed * 61.0), cos(t * 0.61 + seed * 47.0));
   float bright = 0.82 + 0.18 * sin(t * 1.3 + seed * 40.0);
 
   // --- Parpadeo: los propios puntos del ojo se aprietan hacia la línea del párpado
@@ -114,11 +117,13 @@ void main() {
   gl_Position = vec4(clip, 0.0, 1.0);
 
   float halo = 1.0 + 2.2 * u_glow;
-  float px = u_pointPx * size * (0.8 + 0.35 * depth) * mix(0.8, 1.0, k);
-  gl_PointSize = max(1.0, px * halo);
+  float px = u_pointPx * size * mix(0.8, 1.0, k);
+  gl_PointSize = max(1.5, px * halo);
   v_core = 1.0 / halo;
   v_bright = bright * (0.85 + 0.25 * depth);
   v_tono = tono;
+  v_color = a_color.rgb;
+  v_alfaRef = a_color.a;
   v_alpha = alpha;
 }
 `
@@ -130,6 +135,8 @@ in float v_bright;
 in float v_alpha;
 in float v_core;
 in float v_tono;
+in vec3 v_color;
+in float v_alfaRef;
 
 uniform float u_light;    // 0 = fondo claro, 1 = fondo oscuro
 uniform float u_glow;
@@ -141,27 +148,29 @@ out vec4 color;
 void main() {
   float d = length(gl_PointCoord - 0.5) * 2.0;     // 0 centro .. 1 borde del sprite
   float r = d / v_core;                            // 0..1 dentro del núcleo
-  float core = 1.0 - smoothstep(0.72, 1.0, r);
+  float core = 1.0 - smoothstep(0.86, 1.0, r);
   // Borde algo más oscuro en fondo claro: separa el punto del blanco sin ninguna superficie.
   float rim = smoothstep(0.55, 0.9, r) * core;
   float glow = (1.0 - smoothstep(v_core, 1.0, d)) * exp(-pow(d * 1.6, 2.0)) * u_glow;
 
-  // Rampa de tonos de la referencia: sombra = azul profundo, brillo = azul muy claro.
-  vec3 sombraC = vec3(0.00, 0.20, 0.78), medioC = vec3(0.12, 0.48, 1.00), brilloC = vec3(0.62, 0.82, 1.00);
-  vec3 sombraO = vec3(0.16, 0.46, 1.00), medioO = vec3(0.42, 0.74, 1.00), brilloO = vec3(0.86, 0.95, 1.00);
-  vec3 rampaC = v_tono > 0.5 ? mix(medioC, sombraC, (v_tono - 0.5) * 2.0) : mix(brilloC, medioC, v_tono * 2.0);
-  vec3 rampaO = v_tono > 0.5 ? mix(medioO, sombraO, (v_tono - 0.5) * 2.0) : mix(brilloO, medioO, v_tono * 2.0);
-  vec3 nucleo = mix(rampaC, rampaO, u_light);
-  vec3 borde  = mix(vec3(0.02, 0.16, 0.62), vec3(0.20, 0.55, 1.00), u_light);
+  // Color real del punto en la referencia. Sobre fondo oscuro se aclara para que no se pierda.
+  vec3 claro = v_color * mix(1.0, 0.5, smoothstep(0.25, 1.0, v_tono));
+  vec3 oscuro = v_color * mix(1.2, 0.72, v_tono) + vec3(0.04, 0.10, 0.16);
+  vec3 nucleo = mix(claro, oscuro, u_light);
+  vec3 borde  = mix(v_color * 0.7, vec3(0.20, 0.55, 1.00), u_light);
   float b = clamp(v_bright * u_boost, 0.0, 1.8);
-  vec3 c = mix(nucleo, borde, rim * mix(0.75, 0.25, u_light)) * mix(0.75, 1.0, min(b, 1.0));
+  // Cada punto es una pequeña esfera: brillo arriba a la izquierda y borde más oscuro.
+  vec2 q = (gl_PointCoord - 0.5) * 2.0 / v_core;
+  float esfera = clamp(1.0 - dot(q - vec2(-0.32, -0.32), q - vec2(-0.32, -0.32)) * 1.4, 0.0, 1.0);
+  vec3 c = mix(nucleo, borde, rim * mix(0.35, 0.2, u_light)) * mix(0.85, 1.0, min(b, 1.0));
+  c = mix(c, vec3(0.9, 0.96, 1.0), esfera * esfera * mix(0.22, 0.4, u_light));
   c += vec3(0.55, 0.8, 1.0) * max(b - 1.0, 0.0) * 0.6;   // destellos al pulsar/pensar
 
-  float aCore = core * clamp(0.55 + 0.5 * b, 0.0, 1.0);
+  float aCore = core * clamp(0.75 + 0.4 * b, 0.0, 1.0);
   float aGlow = glow * mix(0.18, 0.55, u_light) * clamp(b, 0.0, 1.5);
   vec3 glowCol = mix(vec3(0.15, 0.45, 1.0), vec3(0.35, 0.7, 1.0), u_light);
 
-  float a = clamp(aCore + aGlow * (1.0 - aCore), 0.0, 1.0) * v_alpha * u_opacity;
+  float a = clamp(aCore + aGlow * (1.0 - aCore), 0.0, 1.0) * v_alpha * u_opacity * mix(v_alfaRef, 1.0, u_light * 0.5);
   if (a < 0.003) discard;
   vec3 rgb = (c * aCore + glowCol * aGlow * (1.0 - aCore)) / max(aCore + aGlow * (1.0 - aCore), 1e-4);
   color = vec4(rgb * a, a);   // alfa premultiplicado: transparencia real
