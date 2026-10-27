@@ -4,6 +4,8 @@ import { supabase } from '../../../lib/supabase'
 import { GwField, GwInput, GwTabs, type GwTabDef } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
+import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
+import { useBusquedaFicha } from '../../../components/gw/useBusquedaFicha'
 import { emptyProveedor, type Proveedor } from '../../proveedores/types'
 import { TabDatosGenerales } from '../../proveedores/tabs/TabDatosGenerales'
 import { TabBancos } from '../../proveedores/tabs/TabBancos'
@@ -190,6 +192,22 @@ export function TransportistaFichaPage() {
   const idx = ordenada.findIndex((r) => r.codigo === registro.codigo)
   const canNavigate = mode === 'consulta' && ordenada.length > 0
   const goTo = (c?: string) => c && navigate(`/transportistas/${encodeURIComponent(c)}`)
+  // Intro en Código/Nombre (consulta) y Ctrl+Intro: lista ordenada (gw_lista_ordenada).
+  const busq = useBusquedaFicha({
+    fuente: 'transportista',
+    campoNombre: 'nombre',
+    que: 'el transportista',
+    titulo: 'Transportistas',
+    digitos: 6,
+    consulta: mode === 'consulta',
+    actual: registro.codigo || null,
+    goTo: (c) => goTo(c),
+    setError,
+    columnasExtra: [
+      { key: 'nif', label: 'NIF', width: 110 },
+      { key: 'telefono', label: 'Teléfono', width: 120 },
+    ],
+  })
 
   const ro = !editing
   const txt = (key: keyof Transportista, title: string) => (
@@ -225,10 +243,17 @@ export function TransportistaFichaPage() {
     <div className="flex flex-col gap-1">
       <div className="grid grid-cols-[130px_minmax(0,1fr)_160px] gap-x-1.5">
         <GwField label="Código">
-          <GwInput value={draft.codigo} disabled={mode !== 'alta'} title="CODIGO" onChange={(e) => patch({ codigo: e.target.value })} />
+          <GwCampoBusqueda
+            value={draft.codigo}
+            editable={mode === 'alta'}
+            disabled={mode === 'edicion'}
+            title="CODIGO"
+            onChange={(v) => patch({ codigo: v })}
+            {...busq.busqueda('codigo')}
+          />
         </GwField>
         <GwField label="Nombre">
-          <GwInput value={draft.nombre} disabled={ro} title="NOMBRE" onChange={(e) => patch({ nombre: e.target.value })} />
+          <GwCampoBusqueda value={draft.nombre} editable={!ro} title="NOMBRE" onChange={(v) => patch({ nombre: v })} {...busq.busqueda('nombre')} />
         </GwField>
         <GwField label="Dni/Nif">{txt('nif', 'NIF')}</GwField>
       </div>
@@ -282,6 +307,7 @@ export function TransportistaFichaPage() {
         {mode === 'alta' ? ' · Alta de transportista' : mode === 'edicion' ? ' · Modificando' : ''}
       </div>
 
+      {busq.dialogo}
       {buscar && (
         <GwLookupDialog<{ codigo: string; nombre: string; nif: string | null; poblacion: string | null }>
           title="Buscar Transportista"

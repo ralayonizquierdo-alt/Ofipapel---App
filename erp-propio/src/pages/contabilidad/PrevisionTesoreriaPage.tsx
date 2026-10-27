@@ -35,7 +35,7 @@ export function PrevisionTesoreriaPage() {
     setError(null)
     try {
       const out: Previsto[] = []
-      const [cob, pag, fac, fpr] = await Promise.all([
+      const [cob, pag, fac, fpr, anu] = await Promise.all([
         supabase
           .from('cobro_cliente')
           .select('tienda_terminal_codigo, codigo_pago, fecha_vencimiento, fecha, importe_cobrado, cuota, concepto, factura_tienda_codigo, factura_numero, cliente:cliente_codigo(nombre)')
@@ -48,17 +48,21 @@ export function PrevisionTesoreriaPage() {
           .eq('estado_pago', 'pendiente'),
         supabase
           .from('factura')
-          .select('tienda_terminal_codigo, numero, serie, n_factura, fecha_factura, fecha_primer_pago, total_pendiente, nombre_cliente')
-          .gt('total_pendiente', 0),
+          .select('tienda_terminal_codigo, numero, serie, n_factura, tipo_factura, fecha_factura, fecha_primer_pago, total_pendiente, nombre_cliente')
+          .neq('total_pendiente', 0),
         supabase
           .from('factura_proveedor')
           .select('tienda_terminal_codigo, id, numero_factura_externo, fecha_factura, fecha_vencimiento, total_pendiente, pagado, proveedor:proveedor_codigo(nombre)')
           .gt('total_pendiente', 0)
           .eq('pagado', false),
+        // Facturas anuladas en VeriFactu: la factura no cambia, la anulación es un registro aparte
+        supabase.from('registro_facturacion').select('origen_tienda_codigo, origen_numero').eq('origen_tipo', 'factura').eq('tipo_registro', 'anulacion'),
       ])
-      for (const r of [cob, pag, fac, fpr]) if (r.error) throw new Error(r.error.message)
+      for (const r of [cob, pag, fac, fpr, anu]) if (r.error) throw new Error(r.error.message)
+      const anuladas = new Set((anu.data ?? []).map((a) => `${a.origen_tienda_codigo}-${a.origen_numero}`))
       const conCobro = new Set<string>()
       for (const c of (cob.data ?? []) as unknown as Record<string, unknown>[]) {
+        if (c.factura_numero && anuladas.has(`${c.factura_tienda_codigo}-${c.factura_numero}`)) continue
         if (c.factura_numero) conCobro.add(`${c.factura_tienda_codigo}-${c.factura_numero}`)
         out.push({
           vencimiento: String(c.fecha_vencimiento ?? c.fecha ?? hoy()),
@@ -80,11 +84,12 @@ export function PrevisionTesoreriaPage() {
         })
       }
       for (const f of fac.data ?? []) {
-        if (conCobro.has(`${f.tienda_terminal_codigo}-${f.numero}`)) continue
+        const k = `${f.tienda_terminal_codigo}-${f.numero}`
+        if (conCobro.has(k) || anuladas.has(k)) continue
         out.push({
           vencimiento: f.fecha_primer_pago ?? f.fecha_factura,
           tipo: 'Cobro',
-          documento: `Factura ${f.serie ?? ''}${f.n_factura ?? f.numero}`,
+          documento: `${String(f.tipo_factura ?? '').startsWith('R') ? 'Fra. rectificativa' : 'Factura'} ${[f.serie, f.n_factura ?? f.numero].filter(Boolean).join('-')}`,
           tercero: f.nombre_cliente ?? '',
           importe: Number(f.total_pendiente),
         })

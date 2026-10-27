@@ -4,6 +4,8 @@ import { supabase } from '../../../lib/supabase'
 import { GwField, GwInput, GwTabs, type GwTabDef } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLocalizarDialog } from '../../../components/gw/GwLocalizarDialog'
+import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
+import { useBusquedaFicha } from '../../../components/gw/useBusquedaFicha'
 import { CONFIG, type Comisiones, type TipoFicha, type Vendedor, emptyVendedor } from './types'
 import { VendedoresListPage } from './VendedoresListPage'
 import { TabDatosGenerales } from './tabs/TabDatosGenerales'
@@ -223,6 +225,22 @@ function Ficha({ tipo, codigo }: { tipo: TipoFicha; codigo?: string }) {
   const idx = ordenada.findIndex((r) => r.codigo === registro.codigo)
   const canNavigate = mode === 'consulta' && ordenada.length > 0
   const goTo = (c?: string) => c && ir(c)
+  // Intro en Código/Nombre (consulta) y Ctrl+Intro: lista ordenada (gw_lista_ordenada).
+  const busq = useBusquedaFicha({
+    fuente: cfg.tabla,
+    campoNombre: 'nombre',
+    que: `el ${cfg.singular}`,
+    titulo: cfg.titulo,
+    digitos: 3,
+    consulta: mode === 'consulta',
+    actual: registro.codigo || null,
+    goTo: ir,
+    setError,
+    columnasExtra: [
+      { key: 'nombre_corto', label: 'Nomb. corto', width: 120 },
+      { key: 'dni', label: 'Dni/Nif', width: 110 },
+    ],
+  })
 
   const ro = !editing
   const txt = (key: keyof Vendedor, title: string) => (
@@ -251,10 +269,17 @@ function Ficha({ tipo, codigo }: { tipo: TipoFicha; codigo?: string }) {
     <div className="flex flex-col gap-1">
       <div className="grid grid-cols-[96px_minmax(0,1fr)_180px_210px] gap-x-4">
         <GwField label="Código">
-          <GwInput value={draft.codigo} disabled={mode !== 'alta'} title={tipo === 'vendedor' ? 'IDVENDEDOR' : 'IDTECNICO'} onChange={(e) => patch({ codigo: e.target.value })} />
+          <GwCampoBusqueda
+            value={draft.codigo}
+            editable={mode === 'alta'}
+            disabled={mode === 'edicion'}
+            title={tipo === 'vendedor' ? 'IDVENDEDOR' : 'IDTECNICO'}
+            onChange={(v) => patch({ codigo: v })}
+            {...busq.busqueda('codigo')}
+          />
         </GwField>
         <GwField label="Nombre">
-          <GwInput value={draft.nombre} disabled={ro} title="NOMBRE" onChange={(e) => patch({ nombre: e.target.value })} />
+          <GwCampoBusqueda value={draft.nombre} editable={!ro} title="NOMBRE" onChange={(v) => patch({ nombre: v })} {...busq.busqueda('nombre')} />
         </GwField>
         <GwField label="Nomb. corto">{txt('nombre_corto', 'NOMBCORTO')}</GwField>
         <GwField label="Dni/Nif">{txt('dni', 'DNI')}</GwField>
@@ -310,6 +335,7 @@ function Ficha({ tipo, codigo }: { tipo: TipoFicha; codigo?: string }) {
         </button>
       </div>
 
+      {busq.dialogo}
       {buscar && (
         <GwLocalizarDialog<{ codigo: string; nombre: string; nombre_corto: string | null; dni: string | null; poblacion: string | null }>
           table={cfg.tabla}

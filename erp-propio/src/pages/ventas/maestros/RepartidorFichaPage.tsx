@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { GwCheck, GwField, GwGroup, GwInline, GwInput, GwLookupButton, GwNumber, GwSelect, GwTabs, type GwTabDef } from '../../../components/gw'
+import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { BancosEntidad } from './bancos'
 import {
@@ -80,7 +81,7 @@ const TABS: GwTabDef[][] = [
 const SATELITES = new Set(['rutas', 'bancos'])
 
 export function RepartidorFichaPage() {
-  const f = useFicha<Repartidor>({ tabla: 'repartidor', ruta: '/repartidores', vacio: VACIO, digitos: 3, campoNombre: 'nombre' })
+  const f = useFicha<Repartidor>({ tabla: 'repartidor', ruta: '/repartidores', vacio: VACIO, digitos: 3, campoNombre: 'nombre', que: 'el repartidor', titulo: 'Repartidores', etiquetaNombre: 'Nombre' })
   const [tab, setTab] = useState('generales')
   const ro = !f.editing
   const d = f.draft
@@ -111,10 +112,17 @@ export function RepartidorFichaPage() {
     <div className="flex flex-col gap-1">
       <div className="grid grid-cols-[80px_minmax(0,500px)_145px_minmax(0,1fr)_180px] items-end gap-x-1.5">
         <GwField label="Código">
-          <GwInput value={d.codigo} disabled={f.mode !== 'alta'} title="CODIGO" onChange={(e) => f.patch({ codigo: e.target.value })} />
+          <GwCampoBusqueda
+            value={d.codigo}
+            editable={f.mode === 'alta'}
+            disabled={f.mode === 'edicion'}
+            title="CODIGO"
+            onChange={(v) => f.patch({ codigo: v })}
+            {...f.busqueda('codigo')}
+          />
         </GwField>
         <GwField label="Nombre">
-          <GwInput value={d.nombre} disabled={ro} title="NOMBRE" onChange={(e) => f.patch({ nombre: e.target.value })} />
+          <GwCampoBusqueda value={d.nombre} editable={!ro} title="NOMBRE" onChange={(v) => f.patch({ nombre: v })} {...f.busqueda('nombre')} />
         </GwField>
         <GwField label="Nomb. corto">
           <GwInput value={d.nombre_corto ?? ''} disabled={ro} title="NOMBCORTO" onChange={(e) => f.patch({ nombre_corto: e.target.value || null })} />

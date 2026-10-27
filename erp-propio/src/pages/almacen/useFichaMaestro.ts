@@ -26,6 +26,7 @@ export function useFichaMaestro<T extends { codigo: string }>({
   titulo = 'Registros',
   etiquetaCodigo = 'Código',
   etiquetaNombre = 'Descripción',
+  rpc,
 }: {
   tabla: string
   base: string
@@ -38,6 +39,8 @@ export function useFichaMaestro<T extends { codigo: string }>({
   titulo?: string
   etiquetaCodigo?: string
   etiquetaNombre?: string
+  /** RPC de la lista ordenada si la tabla no está en gw_lista_ordenada (p. ej. gw_lista_ordenada_maestros). */
+  rpc?: string
 }) {
   const params = useParams()
   const navigate = useNavigate()
@@ -233,6 +236,7 @@ export function useFichaMaestro<T extends { codigo: string }>({
   const columnaNombre = campoNombre === 'codigo' ? [] : [{ key: campoNombre, label: etiquetaNombre }]
   const defLista = (campo: string): GwListaOrdenadaDef => ({
     fuente: tabla,
+    rpc,
     campo,
     etiqueta: campo === 'codigo' ? etiquetaCodigo : etiquetaNombre,
     que: titulo,
@@ -248,7 +252,7 @@ export function useFichaMaestro<T extends { codigo: string }>({
           if (c) return goTo(c)
           return setError(`No existe ${que} ${t}`)
         }
-        const f = await gwBuscarPorInicio(tabla, campo, t)
+        const f = await gwBuscarPorInicio(tabla, campo, t, rpc)
         if (f) goTo(String(f.codigo))
         else setError(`No existe ${que} que empiece por «${t}»`)
       },

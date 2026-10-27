@@ -6,6 +6,7 @@ import { GwField, GwInput, GwRadio, GwTextArea } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import { FilasVacias, GridMiniBar } from '../../../components/gw/GwGridParts'
+import { useBusquedaFicha } from '../../../components/gw/useBusquedaFicha'
 
 export const hoy = () => new Date().toISOString().slice(0, 10)
 
@@ -27,12 +28,20 @@ export function useFicha<T extends Registro>({
   vacio,
   digitos,
   campoNombre,
+  que = 'el registro',
+  titulo = 'Registros',
+  etiquetaNombre = 'Descripción',
 }: {
   tabla: string
   ruta: string
   vacio: T
   digitos: number
   campoNombre: keyof T & string
+  /** Para los avisos de la búsqueda: «No existe la zona 12». */
+  que?: string
+  /** Para la lista ordenada (Ctrl+Intro): «Zonas Territoriales ordenadas por …». */
+  titulo?: string
+  etiquetaNombre?: string
 }) {
   const params = useParams()
   const sub = params['*'] ? decodeURIComponent(params['*']) : ''
@@ -166,7 +175,23 @@ export function useFicha<T extends Registro>({
     [lista, orden],
   )
 
+  // Intro en Código/Descripción (consulta) y Ctrl+Intro: lista ordenada (gw_lista_ordenada).
+  const busq = useBusquedaFicha({
+    fuente: tabla,
+    campoNombre,
+    etiquetaNombre,
+    que,
+    titulo,
+    digitos,
+    consulta: mode === 'consulta',
+    actual: registro.codigo || null,
+    goTo: (c) => navigate(`${ruta}/${encodeURIComponent(c)}`),
+    setError,
+  })
+
   return {
+    busqueda: busq.busqueda,
+    dialogoLista: busq.dialogo,
     mode,
     setMode,
     registro,
@@ -232,6 +257,7 @@ export function BarraFicha<T extends Registro>({
         onCancel={f.cancelar}
         onExit={() => f.navigate('/')}
       />
+      {f.dialogoLista}
       <div className="text-[11px] text-[#444]">
         Orden: {f.orden === 'codigo' ? 'por código' : 'por descripción'}
         {idx >= 0 ? ` · Registro ${idx + 1} de ${f.ordenada.length}` : ''}

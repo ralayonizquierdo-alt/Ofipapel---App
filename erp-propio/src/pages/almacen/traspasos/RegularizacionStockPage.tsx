@@ -18,7 +18,12 @@ import {
 import { supabase } from '../../../lib/supabase'
 import { GwInput, GwLookupButton, GwNumber, GwSelect, formatGw } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
-import { BIG_INPUT, BIG_LABEL, BtnTexto, type ArticuloStock, aLocal, fechaHora, resolverArticulo, stockDe } from './comun'
+import { BIG_INPUT, BIG_LABEL, BtnTexto, type ArticuloStock, fechaHora, resolverArticulo, stockDe } from './comun'
+import { GwDateTime } from '../../../components/gw/GwDateTime'
+import { navDir, navIndice, useNavRegistro, type NavDir, type NavFiltro } from '../../../components/gw/useNavRegistro'
+
+/** Las regularizaciones anuladas no se recorren con la barra. */
+const soloActivas: NavFiltro = (q) => q.neq('activo', false)
 import { EntradaRapida } from './TraspasoFichaPage'
 
 // Regularización de stock (GeminisWin: un registro por artículo y almacén, documento USR_STK).
@@ -107,7 +112,6 @@ export function RegularizacionStockPage() {
   const [descripcion, setDescripcion] = useState('')
   const [articulo, setArticulo] = useState<ArticuloStock | null>(null)
   const [stockActual, setStockActual] = useState(0)
-  const [claves, setClaves] = useState<{ t: string; n: number }[]>([])
   const [ordenDesc, setOrdenDesc] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
@@ -126,20 +130,14 @@ export function RegularizacionStockPage() {
     })
   }, [])
 
-  const cargarClaves = useCallback(async () => {
-    const { data } = await supabase
-      .from('regularizacion_stock')
-      .select('tienda:tienda_terminal_codigo, numero')
-      .neq('activo', false)
-      .order('tienda_terminal_codigo', { ascending: !ordenDesc })
-      .order('numero', { ascending: !ordenDesc })
-      .limit(5000)
-    setClaves((data ?? []).map((r) => ({ t: r.tienda as string, n: Number(r.numero) })))
-  }, [ordenDesc])
-
-  useEffect(() => {
-    cargarClaves()
-  }, [cargarClaves])
+  // Navegación contra el servidor: solo el vecino (gt/lt + limit 1) y el recuento, nunca la lista.
+  const nav = useNavRegistro<{ tienda_terminal_codigo: string; numero: number }>({
+    tabla: 'regularizacion_stock',
+    orden: ['tienda_terminal_codigo', 'numero'],
+    actual: reg?.numero != null ? [reg.tienda, reg.numero] : null,
+    filtro: soloActivas,
+  })
+  const cargarClaves = nav.refrescar
 
   const vacia = useCallback((): Reg => {
     const t = tiendas[0]
@@ -206,7 +204,12 @@ export function RegularizacionStockPage() {
 
   const patch = (p: Partial<Reg>) => setReg((r) => (r ? { ...r, ...p } : r))
   const irA = (t: string, n: number) => navigate(`/regularizacion-stock/${encodeURIComponent(t)}/${n}`)
-  const idx = reg?.numero != null ? claves.findIndex((k) => k.t === reg.tienda && k.n === reg.numero) : -1
+  const idx = navIndice(nav, ordenDesc)
+  const totalClaves = nav.total ?? 0
+  async function navegar(d: NavDir) {
+    const f = await nav.ir(navDir(d, ordenDesc))
+    if (f) irA(f.tienda_terminal_codigo, Number(f.numero))
+  }
 
   // En alta el stock antiguo es el actual; en consulta, el que había al regularizar.
   const antiguo = modo === 'alta' ? stockActual : Number(reg?.stock_anterior ?? 0)
@@ -233,7 +236,7 @@ export function RegularizacionStockPage() {
     try {
       if (modo === 'alta') {
         const numero = await guardarUna({ ...reg, fecha: reg.fecha }, articulo, reg.cantidad)
-        await cargarClaves()
+        cargarClaves()
         setModo('consulta')
         irA(reg.tienda, numero)
       } else {
@@ -272,7 +275,7 @@ export function RegularizacionStockPage() {
         .eq('numero', reg.numero)
         .eq('articulo_codigo', reg.articulo_codigo)
       if (error) throw error
-      await cargarClaves()
+      cargarClaves()
       navigate('/regularizacion-stock')
     } catch (e) {
       setMensaje(`No se ha podido eliminar: ${(e as { message?: string }).message ?? String(e)}`)
@@ -284,7 +287,7 @@ export function RegularizacionStockPage() {
   function cancelar() {
     setMensaje(null)
     if (modo === 'alta') {
-      if (claves.length) irA(claves[claves.length - 1].t, claves[claves.length - 1].n)
+      if (totalClaves) void navegar('ultimo')
       else {
         setReg(null)
         setModo('consulta')
@@ -334,12 +337,11 @@ export function RegularizacionStockPage() {
         <label className="flex flex-col">
           <span className={BIG_LABEL}>Fecha y Hora</span>
           {editable ? (
-            <GwInput
-              type="datetime-local"
-              step={1}
+            <GwDateTime
               className={BIG_INPUT}
-              value={aLocal(r.fecha)}
-              onChange={(e) => e.target.value && patch({ fecha: new Date(e.target.value).toISOString() })}
+              title="dd/mm/aaaa hh:mm · +/- día · H ahora · F4 calendario"
+              value={r.fecha}
+              onChange={(v) => v && patch({ fecha: v })}
             />
           ) : (
             <GwInput className={BIG_INPUT} readOnly value={sinDoc ? '' : fechaHora(r.fecha)} />
@@ -431,19 +433,19 @@ export function RegularizacionStockPage() {
 
       <div className="flex h-[66px] gap-1 border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
         <div className="grid w-[150px] grid-cols-3 grid-rows-2">
-          <BtnTexto title="Primero" disabled={editable || idx < 0} onClick={() => claves[0] && irA(claves[0].t, claves[0].n)}>
+          <BtnTexto title="Primero" disabled={editable || idx < 0} onClick={() => navegar('primero')}>
             <ChevronFirst size={16} strokeWidth={3} />
           </BtnTexto>
-          <BtnTexto title="Siguiente" disabled={editable || idx < 0 || idx >= claves.length - 1} onClick={() => irA(claves[idx + 1].t, claves[idx + 1].n)}>
+          <BtnTexto title="Siguiente" disabled={editable || idx < 0 || idx >= totalClaves - 1} onClick={() => navegar('siguiente')}>
             <Play size={11} fill="currentColor" />
           </BtnTexto>
           <BtnTexto title={ordenDesc ? 'Orden: del más nuevo al más antiguo' : 'Orden: del más antiguo al más nuevo'} disabled={editable} onClick={() => setOrdenDesc((o) => !o)}>
             <ArrowDownAZ size={16} />
           </BtnTexto>
-          <BtnTexto title="Anterior" disabled={editable || idx <= 0} onClick={() => irA(claves[idx - 1].t, claves[idx - 1].n)}>
+          <BtnTexto title="Anterior" disabled={editable || idx <= 0} onClick={() => navegar('anterior')}>
             <Play size={11} className="rotate-180" fill="currentColor" />
           </BtnTexto>
-          <BtnTexto title="Último" disabled={editable || idx < 0} onClick={() => claves.length && irA(claves[claves.length - 1].t, claves[claves.length - 1].n)}>
+          <BtnTexto title="Último" disabled={editable || idx < 0} onClick={() => navegar('ultimo')}>
             <ChevronLast size={16} strokeWidth={3} />
           </BtnTexto>
           <BtnTexto title="Buscar" disabled={editable} onClick={() => setDialogo('buscar')}>
@@ -563,7 +565,7 @@ export function RegularizacionStockPage() {
           cantidadInicial={0}
           onCerrar={async () => {
             setDialogo(null)
-            await cargarClaves()
+            cargarClaves()
             setRefresco((x) => x + 1)
           }}
           onAnadir={async (a, nuevo) => {

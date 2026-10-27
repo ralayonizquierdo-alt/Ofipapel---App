@@ -67,10 +67,10 @@ async function pedir(def: GwListaOrdenadaDef, modo: 'ge' | 'gt' | 'lt', sk: stri
 export const gwConCeros = (t: string) => (/^\d{1,4}$/.test(t) ? t.padStart(5, '0') : t)
 
 /** Primer registro cuyo campo empieza por `texto` (como el SEEK de GeminisWin), o null. */
-export async function gwBuscarPorInicio(fuente: string, campo: string, texto: string): Promise<GwListaFila | null> {
+export async function gwBuscarPorInicio(fuente: string, campo: string, texto: string, rpc?: string): Promise<GwListaFila | null> {
   const t = texto.trim().toUpperCase()
   if (!t) return null
-  const filas = await pedir({ fuente, campo, etiqueta: campo, que: '', columnas: [] }, 'ge', t, '').catch(() => [])
+  const filas = await pedir({ fuente, campo, etiqueta: campo, que: '', columnas: [], rpc }, 'ge', t, '').catch(() => [])
   const f = filas[0]
   return f && f._sk.startsWith(t) ? f : null
 }

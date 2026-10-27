@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { GwField, GwGroup, GwInput, GwNumber, GwTabs, type GwTabDef } from '../../../components/gw'
+import { GwField, GwGroup, GwNumber, GwTabs, type GwTabDef } from '../../../components/gw'
+import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
 import { BarraFicha, BotonCasilla, BuscarEnFilas, FilasVacias, GridMiniBar, ObsImagen, RejillaClientes, SelectorDialog, Tick, useFicha } from './common'
 
 export interface RutaReparto {
@@ -26,7 +27,7 @@ const TABS: GwTabDef[][] = [
 const SATELITES = new Set(['rutas', 'clientes'])
 
 export function RutaFichaPage() {
-  const f = useFicha<RutaReparto>({ tabla: 'ruta_reparto', ruta: '/rutas-reparto', vacio: VACIO, digitos: 2, campoNombre: 'descripcion' })
+  const f = useFicha<RutaReparto>({ tabla: 'ruta_reparto', ruta: '/rutas-reparto', vacio: VACIO, digitos: 2, campoNombre: 'descripcion', que: 'la ruta', titulo: 'Rutas de Reparto' })
   const [tab, setTab] = useState('rutas')
   const ro = !f.editing
   const d = f.draft
@@ -59,10 +60,17 @@ export function RutaFichaPage() {
     <div className="flex flex-col gap-1">
       <div className="grid grid-cols-[95px_minmax(0,520px)_minmax(0,1fr)_270px] items-end gap-x-2">
         <GwField label="Código">
-          <GwInput value={d.codigo} disabled={f.mode !== 'alta'} title="RUTAS.CODIGO" onChange={(e) => f.patch({ codigo: e.target.value })} />
+          <GwCampoBusqueda
+            value={d.codigo}
+            editable={f.mode === 'alta'}
+            disabled={f.mode === 'edicion'}
+            title="RUTAS.CODIGO"
+            onChange={(v) => f.patch({ codigo: v })}
+            {...f.busqueda('codigo')}
+          />
         </GwField>
         <GwField label="Descripción">
-          <GwInput value={d.descripcion} disabled={ro} title="DESCRIP" onChange={(e) => f.patch({ descripcion: e.target.value })} />
+          <GwCampoBusqueda value={d.descripcion} editable={!ro} title="DESCRIP" onChange={(v) => f.patch({ descripcion: v })} {...f.busqueda('nombre')} />
         </GwField>
         <span />
         <BotonCasilla

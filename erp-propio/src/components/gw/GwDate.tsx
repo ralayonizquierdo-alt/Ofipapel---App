@@ -343,7 +343,7 @@ export function GwDate({ value, onChange, disabled, readOnly, className = '', ti
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
-function Calendario({
+export function Calendario({
   x,
   y,
   valor,

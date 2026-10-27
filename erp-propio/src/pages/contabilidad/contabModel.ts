@@ -64,6 +64,7 @@ export const TIPOS_DOC: { value: string; label: string }[] = [
 export const ORIGEN_LABEL: Record<string, string> = {
   venta: 'Tickets',
   factura: 'Factura',
+  factura_anulacion: 'Anulación factura',
   factura_proveedor: 'Fra. proveedor',
   cobro: 'Cobro',
   pago: 'Pago',

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowDownAZ,
@@ -20,7 +20,9 @@ import { supabase } from '../../../lib/supabase'
 import { GwCheck, GwInput, GwLookupButton, GwNumber, GwSelect, GwWindow, formatGw } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
-import { BIG_INPUT, BIG_LABEL, type ArticuloStock, aLocal, empleadoActual, fechaHora, resolverArticulo, stockDe } from './comun'
+import { BIG_INPUT, BIG_LABEL, type ArticuloStock, empleadoActual, fechaHora, resolverArticulo, stockDe } from './comun'
+import { GwDateTime } from '../../../components/gw/GwDateTime'
+import { navDir, navIndice, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 
 // Traspasos de artículos entre almacenes (Almacén → Traspasos en GeminisWin, TRASPCAB/TRASPLIN).
 // A diferencia de GeminisWin, la pantalla abre en consulta y el número se asigna al guardar.
@@ -139,7 +141,6 @@ export function TraspasoFichaPage() {
   const [almacenes, setAlmacenes] = useState<Maestro[]>([])
   const [empleado, setEmpleado] = useState<Maestro | null>(null)
   const [nombreEmpleado, setNombreEmpleado] = useState('')
-  const [claves, setClaves] = useState<{ t: string; n: number }[]>([])
   const [ordenDesc, setOrdenDesc] = useState(false)
   const [stock, setStock] = useState({ origen: 0, destino: 0 })
   const [mensaje, setMensaje] = useState<string | null>(null)
@@ -163,19 +164,13 @@ export function TraspasoFichaPage() {
     })
   }, [])
 
-  const cargarClaves = useCallback(async () => {
-    const { data } = await supabase
-      .from('traspaso_almacen')
-      .select('tienda_terminal_codigo, numero')
-      .order('tienda_terminal_codigo', { ascending: !ordenDesc })
-      .order('numero', { ascending: !ordenDesc })
-      .limit(5000)
-    setClaves((data ?? []).map((r) => ({ t: r.tienda_terminal_codigo as string, n: Number(r.numero) })))
-  }, [ordenDesc])
-
-  useEffect(() => {
-    cargarClaves()
-  }, [cargarClaves])
+  // Navegación contra el servidor: solo el vecino (gt/lt + limit 1) y el recuento, nunca la lista.
+  const nav = useNavRegistro<{ tienda_terminal_codigo: string; numero: number }>({
+    tabla: 'traspaso_almacen',
+    orden: ['tienda_terminal_codigo', 'numero'],
+    actual: cab?.numero != null ? [cab.tienda_terminal_codigo, cab.numero] : null,
+  })
+  const cargarClaves = nav.refrescar
 
   // Carga del documento: el de la URL, el último si no hay ninguno, o uno vacío en alta.
   useEffect(() => {
@@ -322,7 +317,12 @@ export function TraspasoFichaPage() {
   function irA(t: string, n: number) {
     navigate(`/traspasos/${encodeURIComponent(t)}/${n}`)
   }
-  const idx = cab?.numero != null ? claves.findIndex((k) => k.t === cab.tienda_terminal_codigo && k.n === cab.numero) : -1
+  const idx = navIndice(nav, ordenDesc)
+  const totalClaves = nav.total ?? 0
+  async function navegar(d: NavDir) {
+    const r = await nav.ir(navDir(d, ordenDesc))
+    if (r) irA(r.tienda_terminal_codigo, Number(r.numero))
+  }
 
   async function guardar() {
     if (!cab) return
@@ -421,7 +421,7 @@ export function TraspasoFichaPage() {
           .eq('numero', numero!)
         if (error) throw error
       }
-      await cargarClaves()
+      cargarClaves()
       setModo('consulta')
       if (modo === 'alta' || cab.numero !== numero) irA(cab.tienda_terminal_codigo, numero!)
       else {
@@ -440,7 +440,7 @@ export function TraspasoFichaPage() {
   function cancelar() {
     setMensaje(null)
     if (modo === 'alta') {
-      if (claves.length) irA(claves[claves.length - 1].t, claves[claves.length - 1].n)
+      if (totalClaves) void navegar('ultimo')
       else {
         setCab(null)
         setLineas([])
@@ -506,12 +506,11 @@ export function TraspasoFichaPage() {
             </Campo>
             <Campo label="Fecha y Hora">
               {editable ? (
-                <GwInput
-                  type="datetime-local"
-                  step={1}
+                <GwDateTime
                   className={BIG_INPUT}
-                  value={aLocal(c.fecha)}
-                  onChange={(e) => e.target.value && patch({ fecha: new Date(e.target.value).toISOString() })}
+                  title="dd/mm/aaaa hh:mm · +/- día · H ahora · F4 calendario"
+                  value={c.fecha}
+                  onChange={(v) => v && patch({ fecha: v })}
                 />
               ) : (
                 <GwInput className={BIG_INPUT} readOnly value={sinDoc ? '' : fechaHora(c.fecha)} />
@@ -702,19 +701,19 @@ export function TraspasoFichaPage() {
       {sinDoc && modo === 'consulta' && <p className="gw-label text-[#1a4fd0]">No hay traspasos todavía. Pulsa Nuevo para crear el primero.</p>}
 
       <div className="flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
-        <BarBtn title="Ir al primer registro" disabled={editable || idx < 0} onClick={() => claves[0] && irA(claves[0].t, claves[0].n)}>
+        <BarBtn title="Ir al primer registro" disabled={editable || idx < 0} onClick={() => navegar('primero')}>
           <ChevronFirst size={17} strokeWidth={3} />
         </BarBtn>
-        <BarBtn title="Ir al anterior registro" disabled={editable || idx <= 0} onClick={() => irA(claves[idx - 1].t, claves[idx - 1].n)}>
+        <BarBtn title="Ir al anterior registro" disabled={editable || idx <= 0} onClick={() => navegar('anterior')}>
           <Play size={12} className="rotate-180" fill="currentColor" />
         </BarBtn>
-        <BarBtn title="Ir al siguiente registro" disabled={editable || idx < 0 || idx >= claves.length - 1} onClick={() => irA(claves[idx + 1].t, claves[idx + 1].n)}>
+        <BarBtn title="Ir al siguiente registro" disabled={editable || idx < 0 || idx >= totalClaves - 1} onClick={() => navegar('siguiente')}>
           <Play size={12} fill="currentColor" />
         </BarBtn>
         <BarBtn
           title="Ir al último registro"
           disabled={editable || idx < 0}
-          onClick={() => claves.length && irA(claves[claves.length - 1].t, claves[claves.length - 1].n)}
+          onClick={() => navegar('ultimo')}
         >
           <ChevronLast size={17} strokeWidth={3} />
         </BarBtn>

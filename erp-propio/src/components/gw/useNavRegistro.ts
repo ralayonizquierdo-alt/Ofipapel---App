@@ -163,3 +163,15 @@ export async function siguienteCodigoServidor(tabla: string, digitos: number, co
   const max = Number(((data as Record<string, string>[] | null) ?? [])[0]?.[columna] ?? 0)
   return String(max + 1).padStart(digitos, '0')
 }
+
+/** Dirección equivalente cuando la ficha se recorre en orden inverso (del más nuevo al más antiguo). */
+export function navDir(d: NavDir, inverso: boolean): NavDir {
+  if (!inverso) return d
+  return ({ primero: 'ultimo', ultimo: 'primero', anterior: 'siguiente', siguiente: 'anterior' } as const)[d]
+}
+
+/** Posición (0…) en el orden mostrado, -1 si no se sabe; con `inverso`, contada desde el final. */
+export function navIndice(nav: { total: number | null; posicion: number | null }, inverso = false) {
+  if (nav.posicion == null) return -1
+  return inverso ? (nav.total ?? nav.posicion) - nav.posicion : nav.posicion - 1
+}
