@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { selectTodo, supabase } from '../../lib/supabase'
 import { GwField, GwInput, GwLookupButton, GwPlusButton, GwTabs, type GwTabDef } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
@@ -94,11 +94,11 @@ export function ArticuloFichaPage() {
     Promise.all([
       supabase.from('proveedor').select('codigo, nombre').order('codigo'),
       supabase.from('plantilla_tarifa').select('codigo, descripcion').order('codigo'),
-      supabase.from('articulo').select('codigo_interno, descripcion').order('codigo_interno'),
+      selectTodo<CodigoDesc>('articulo', 'codigo_interno, descripcion', 'codigo_interno'),
     ]).then(([p, t, codes]) => {
       setProveedores(p.data ?? [])
       setPlantillas((t.data ?? []).map((r) => ({ codigo: r.codigo, nombre: r.descripcion })))
-      setLista((codes.data ?? []) as CodigoDesc[])
+      setLista(codes.data)
     })
   }, [])
 

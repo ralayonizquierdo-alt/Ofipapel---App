@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { selectTodo, supabase } from '../../lib/supabase'
 
 export type ModoFicha = 'consulta' | 'edicion' | 'alta'
 
@@ -44,12 +44,9 @@ export function useFichaMaestro<T extends { codigo: string }>({
   const [orden, setOrden] = useState<'codigo' | 'nombre'>('codigo')
 
   useEffect(() => {
-    supabase
-      .from(tabla)
-      .select(campoNombre === 'codigo' ? 'codigo' : `codigo, ${campoNombre}`)
-      .order('codigo')
+    selectTodo<Record<string, string>>(tabla, campoNombre === 'codigo' ? 'codigo' : `codigo, ${campoNombre}`, 'codigo')
       .then(({ data }) => {
-        const filas = ((data ?? []) as unknown as Record<string, string>[]).map((r) => ({
+        const filas = data.map((r) => ({
           codigo: r.codigo,
           nombre: r[campoNombre] ?? r.codigo,
         }))

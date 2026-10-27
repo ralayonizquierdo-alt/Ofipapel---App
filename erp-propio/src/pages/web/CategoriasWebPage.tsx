@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DoorOpen, FileDown, RefreshCw } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { selectTodo, supabase } from '../../lib/supabase'
 import { wc, type WcCategoria } from '../../lib/woocommerce'
 import { descargarCsv, normalizar } from '../../lib/webMapeo'
 import { BotonPendiente, DIF, Nota, Tabla, WebError, type Col } from './comun'
@@ -79,8 +79,8 @@ export function CategoriasWebPage() {
     setCargando(true)
     setError(null)
     try {
-      const { data: fams, error: e1 } = await supabase.from('familia').select('codigo, descripcion, web_descripcion, web_codigo, web_publicada').order('codigo')
-      if (e1) throw new Error(e1.message)
+      const { data: fams, error: e1 } = await selectTodo<{ codigo: string; descripcion: string; web_descripcion: string | null; web_codigo: string | null; web_publicada: boolean }>('familia', 'codigo, descripcion, web_descripcion, web_codigo, web_publicada', 'codigo')
+      if (e1) throw new Error(e1)
       const { data: arts } = await supabase.from('articulo').select('familia_codigo').eq('web_publicado', true).limit(50000)
       const cuenta = new Map<string, number>()
       for (const a of arts ?? []) if (a.familia_codigo) cuenta.set(a.familia_codigo, (cuenta.get(a.familia_codigo) ?? 0) + 1)
