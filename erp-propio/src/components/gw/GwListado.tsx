@@ -35,6 +35,9 @@
  *      'entero'|'fecha', dec, ancho, suma}. `rango()`, `describirRango()` y `describirFecha()`
  *      ayudan a montar el jsonb y la línea de «filtros aplicados».
  *
+ * Grupos más específicos ya hechos en src/pages/listados/comun.tsx: «Tienda y Número»,
+ * «Filtrar Según Campo de Cliente», «Filtrar según el total del Proveedor» y rpc(fn, p).
+ *
  * Buscadores («···» y Ctrl+Intro) ya definidos en BUSCADORES: tienda, almacen, vendedor, tecnico,
  * empleado, cliente, articulo, familia, marca, proveedor, formaPago, moneda, tipoCliente, zona.
  */
@@ -78,7 +81,8 @@ export function rangoSql(r: Rango) {
 }
 
 export function describirRango(nombre: string, r: Rango): string | null {
-  if (r.modo === 'desdeHasta' && (r.desde.trim() || r.hasta.trim())) return `${nombre}: desde ${r.desde.trim() || 'el primero'} hasta ${r.hasta.trim() || 'el último'}`
+  if (r.modo === 'desdeHasta' && (r.desde.trim() || r.hasta.trim()))
+    return `${nombre}: desde ${r.desde.trim() || 'el primero'} hasta ${r.hasta.trim() || 'el último'}`
   if (r.modo === 'seleccionar' && r.lista.trim()) return `${nombre}: ${r.lista.trim()}`
   return null
 }
@@ -141,14 +145,58 @@ export interface Buscador {
   lista?: GwListaOrdenadaDef
 }
 
-const cod = (label = 'Código', width = 90): GwLookupColumn => ({ key: 'codigo', label, width })
+const cod = (label = 'Código', width = 90): GwLookupColumn => ({
+  key: 'codigo',
+  label,
+  width,
+})
 
 export const BUSCADORES = {
-  tienda: { titulo: 'Tiendas', tabla: 'tienda_terminal', clave: 'codigo', nombre: 'descripcion', columnas: [cod(), { key: 'descripcion', label: 'Descripción' }], busca: ['codigo', 'descripcion'], orden: 'codigo' },
-  almacen: { titulo: 'Almacenes', tabla: 'almacen', clave: 'codigo', nombre: 'nombre', columnas: [cod(), { key: 'nombre', label: 'Nombre' }], busca: ['codigo', 'nombre'], orden: 'codigo' },
-  vendedor: { titulo: 'Vendedores', tabla: 'vendedor', clave: 'codigo', nombre: 'nombre', columnas: [cod(), { key: 'nombre', label: 'Nombre' }], busca: ['codigo', 'nombre'], orden: 'codigo' },
-  tecnico: { titulo: 'Técnicos', tabla: 'tecnico', clave: 'codigo', nombre: 'nombre', columnas: [cod(), { key: 'nombre', label: 'Nombre' }], busca: ['codigo', 'nombre'], orden: 'codigo' },
-  empleado: { titulo: 'Empleados', tabla: 'empleado', clave: 'codigo', nombre: 'nombre', columnas: [cod(), { key: 'nombre', label: 'Nombre' }], busca: ['codigo', 'nombre'], orden: 'codigo' },
+  tienda: {
+    titulo: 'Tiendas',
+    tabla: 'tienda_terminal',
+    clave: 'codigo',
+    nombre: 'descripcion',
+    columnas: [cod(), { key: 'descripcion', label: 'Descripción' }],
+    busca: ['codigo', 'descripcion'],
+    orden: 'codigo',
+  },
+  almacen: {
+    titulo: 'Almacenes',
+    tabla: 'almacen',
+    clave: 'codigo',
+    nombre: 'nombre',
+    columnas: [cod(), { key: 'nombre', label: 'Nombre' }],
+    busca: ['codigo', 'nombre'],
+    orden: 'codigo',
+  },
+  vendedor: {
+    titulo: 'Vendedores',
+    tabla: 'vendedor',
+    clave: 'codigo',
+    nombre: 'nombre',
+    columnas: [cod(), { key: 'nombre', label: 'Nombre' }],
+    busca: ['codigo', 'nombre'],
+    orden: 'codigo',
+  },
+  tecnico: {
+    titulo: 'Técnicos',
+    tabla: 'tecnico',
+    clave: 'codigo',
+    nombre: 'nombre',
+    columnas: [cod(), { key: 'nombre', label: 'Nombre' }],
+    busca: ['codigo', 'nombre'],
+    orden: 'codigo',
+  },
+  empleado: {
+    titulo: 'Empleados',
+    tabla: 'empleado',
+    clave: 'codigo',
+    nombre: 'nombre',
+    columnas: [cod(), { key: 'nombre', label: 'Nombre' }],
+    busca: ['codigo', 'nombre'],
+    orden: 'codigo',
+  },
   cliente: {
     titulo: 'Clientes',
     tabla: 'cliente',
@@ -157,7 +205,17 @@ export const BUSCADORES = {
     columnas: [cod(), { key: 'nombre', label: 'Nombre' }, { key: 'nif', label: 'NIF', width: 110 }],
     busca: ['codigo', 'nombre', 'nif'],
     orden: 'codigo',
-    lista: { fuente: 'cliente', campo: 'codigo', etiqueta: 'Código', que: 'Clientes', columnas: [{ key: 'codigo', label: 'Código', width: 80 }, { key: 'nombre', label: 'Nombre' }, { key: 'nif', label: 'NIF', width: 110 }] },
+    lista: {
+      fuente: 'cliente',
+      campo: 'codigo',
+      etiqueta: 'Código',
+      que: 'Clientes',
+      columnas: [
+        { key: 'codigo', label: 'Código', width: 80 },
+        { key: 'nombre', label: 'Nombre' },
+        { key: 'nif', label: 'NIF', width: 110 },
+      ],
+    },
   },
   proveedor: {
     titulo: 'Proveedores',
@@ -167,17 +225,40 @@ export const BUSCADORES = {
     columnas: [cod(), { key: 'nombre', label: 'Nombre' }, { key: 'nif', label: 'NIF', width: 110 }],
     busca: ['codigo', 'nombre', 'nif'],
     orden: 'codigo',
-    lista: { fuente: 'proveedor', campo: 'codigo', etiqueta: 'Código', que: 'Proveedores', columnas: [{ key: 'codigo', label: 'Código', width: 80 }, { key: 'nombre', label: 'Nombre' }, { key: 'nif', label: 'NIF', width: 110 }] },
+    lista: {
+      fuente: 'proveedor',
+      campo: 'codigo',
+      etiqueta: 'Código',
+      que: 'Proveedores',
+      columnas: [
+        { key: 'codigo', label: 'Código', width: 80 },
+        { key: 'nombre', label: 'Nombre' },
+        { key: 'nif', label: 'NIF', width: 110 },
+      ],
+    },
   },
   articulo: {
     titulo: 'Artículos',
     tabla: 'articulo',
     clave: 'codigo_interno',
     nombre: 'descripcion',
-    columnas: [{ key: 'codigo_interno', label: 'Cód. Interno', width: 110 }, { key: 'descripcion', label: 'Descripción' }],
+    columnas: [
+      { key: 'codigo_interno', label: 'Cód. Interno', width: 110 },
+      { key: 'descripcion', label: 'Descripción' },
+    ],
     busca: ['codigo_interno', 'descripcion'],
     orden: 'codigo_interno',
-    lista: { fuente: 'articulo', campo: 'codigo_interno', etiqueta: 'Código Interno', que: 'Artículos', columnas: [{ key: 'codigo_interno', label: 'Cód. Interno', width: 110 }, { key: 'descripcion', label: 'Descripción' }, { key: 'pvp', label: 'P.V.P.', width: 80, decimales: 3 }] },
+    lista: {
+      fuente: 'articulo',
+      campo: 'codigo_interno',
+      etiqueta: 'Código Interno',
+      que: 'Artículos',
+      columnas: [
+        { key: 'codigo_interno', label: 'Cód. Interno', width: 110 },
+        { key: 'descripcion', label: 'Descripción' },
+        { key: 'pvp', label: 'P.V.P.', width: 80, decimales: 3 },
+      ],
+    },
   },
   familia: {
     titulo: 'Familias',
@@ -187,7 +268,16 @@ export const BUSCADORES = {
     columnas: [cod(), { key: 'descripcion', label: 'Descripción' }],
     busca: ['codigo', 'descripcion'],
     orden: 'codigo',
-    lista: { fuente: 'familia', campo: 'codigo', etiqueta: 'Código', que: 'Familias', columnas: [{ key: 'codigo', label: 'Código', width: 90 }, { key: 'descripcion', label: 'Descripción' }] },
+    lista: {
+      fuente: 'familia',
+      campo: 'codigo',
+      etiqueta: 'Código',
+      que: 'Familias',
+      columnas: [
+        { key: 'codigo', label: 'Código', width: 90 },
+        { key: 'descripcion', label: 'Descripción' },
+      ],
+    },
   },
   marca: {
     titulo: 'Marcas',
@@ -196,12 +286,50 @@ export const BUSCADORES = {
     columnas: [cod('Marca', 260)],
     busca: ['codigo'],
     orden: 'codigo',
-    lista: { fuente: 'marca', campo: 'codigo', etiqueta: 'Marca', que: 'Marcas', columnas: [{ key: 'codigo', label: 'Marca' }] },
+    lista: {
+      fuente: 'marca',
+      campo: 'codigo',
+      etiqueta: 'Marca',
+      que: 'Marcas',
+      columnas: [{ key: 'codigo', label: 'Marca' }],
+    },
   },
-  formaPago: { titulo: 'Formas de Pago', tabla: 'forma_pago', clave: 'codigo', nombre: 'descripcion', columnas: [cod(), { key: 'descripcion', label: 'Descripción' }], busca: ['codigo', 'descripcion'], orden: 'codigo' },
-  moneda: { titulo: 'Monedas', tabla: 'moneda', clave: 'codigo', nombre: 'descripcion', columnas: [cod(), { key: 'descripcion', label: 'Descripción' }], busca: ['codigo', 'descripcion'], orden: 'codigo' },
-  tipoCliente: { titulo: 'Tipos de Cliente', tabla: 'tipo_cliente', clave: 'codigo', nombre: 'descripcion', columnas: [cod(), { key: 'descripcion', label: 'Descripción' }], busca: ['codigo', 'descripcion'], orden: 'codigo' },
-  zona: { titulo: 'Zonas Territoriales', tabla: 'zona_territorial', clave: 'codigo', nombre: 'descripcion', columnas: [cod(), { key: 'descripcion', label: 'Descripción' }], busca: ['codigo', 'descripcion'], orden: 'codigo' },
+  formaPago: {
+    titulo: 'Formas de Pago',
+    tabla: 'forma_pago',
+    clave: 'codigo',
+    nombre: 'descripcion',
+    columnas: [cod(), { key: 'descripcion', label: 'Descripción' }],
+    busca: ['codigo', 'descripcion'],
+    orden: 'codigo',
+  },
+  moneda: {
+    titulo: 'Monedas',
+    tabla: 'moneda',
+    clave: 'codigo',
+    nombre: 'descripcion',
+    columnas: [cod(), { key: 'descripcion', label: 'Descripción' }],
+    busca: ['codigo', 'descripcion'],
+    orden: 'codigo',
+  },
+  tipoCliente: {
+    titulo: 'Tipos de Cliente',
+    tabla: 'tipo_cliente',
+    clave: 'codigo',
+    nombre: 'descripcion',
+    columnas: [cod(), { key: 'descripcion', label: 'Descripción' }],
+    busca: ['codigo', 'descripcion'],
+    orden: 'codigo',
+  },
+  zona: {
+    titulo: 'Zonas Territoriales',
+    tabla: 'zona_territorial',
+    clave: 'codigo',
+    nombre: 'descripcion',
+    columnas: [cod(), { key: 'descripcion', label: 'Descripción' }],
+    busca: ['codigo', 'descripcion'],
+    orden: 'codigo',
+  },
 } satisfies Record<string, Buscador>
 
 export type NombreBuscador = keyof typeof BUSCADORES
@@ -216,7 +344,11 @@ export function useBuscador(nombre: NombreBuscador | undefined) {
   const b: Buscador | undefined = nombre ? BUSCADORES[nombre] : undefined
   const abrir = (onPick: (codigo: string) => void) => setPick(() => onPick)
   const lista = (texto: string | null, onPick: (codigo: string) => void) => {
-    if (b?.lista) ordenada.abrir(b.lista, { texto, onPick: (f) => onPick(String(f[b.clave] ?? f._k ?? '')) })
+    if (b?.lista)
+      ordenada.abrir(b.lista, {
+        texto,
+        onPick: (f) => onPick(String(f[b.clave] ?? f._k ?? '')),
+      })
     else abrir(onPick)
   }
   const dialogo = (
@@ -285,7 +417,21 @@ function Radio({ nombre, label, on, set, disabled }: { nombre: string; label: Re
 }
 export { Radio as LstRadio }
 
-export function LstCheck({ label, on, set, disabled, className = '', title }: { label: ReactNode; on: boolean; set: (v: boolean) => void; disabled?: boolean; className?: string; title?: string }) {
+export function LstCheck({
+  label,
+  on,
+  set,
+  disabled,
+  className = '',
+  title,
+}: {
+  label: ReactNode
+  on: boolean
+  set: (v: boolean) => void
+  disabled?: boolean
+  className?: string
+  title?: string
+}) {
   return (
     <label title={title} className={`flex select-none items-center gap-1.5 whitespace-nowrap ${disabled ? 'text-[#8a8a8a]' : ''} ${className}`}>
       <input type="checkbox" className="m-0 h-[11px] w-[11px] accent-[#0078d7]" checked={on} disabled={disabled} onChange={(e) => set(e.target.checked)} />
@@ -324,7 +470,10 @@ export function CampoCodigo({
   const bus = useBuscador(buscador)
   const poner = (c: string) => {
     if (!multiple) return onChange(c)
-    const actuales = valor.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean)
+    const actuales = valor
+      .split(/[,;\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
     onChange([...actuales.filter((x) => x !== c), c].join(', '))
   }
   return (
@@ -380,7 +529,10 @@ export function CampoFechaHora({
   const fijar = (fecha: string | null, hora: string) => onChange(fecha ? `${fecha}T${soloFecha ? horaDef : hora || horaDef}` : '')
   const fs = alto >= 26 ? 'text-[16px]!' : 'text-[12px]!'
   return (
-    <div className={`flex min-w-0 items-stretch border border-[var(--gw-border)] bg-white ${disabled ? 'opacity-90' : ''} ${className}`} style={{ height: alto }}>
+    <div
+      className={`flex min-w-0 items-stretch border border-[var(--gw-border)] bg-white ${disabled ? 'opacity-90' : ''} ${className}`}
+      style={{ height: alto }}
+    >
       <GwDate
         className={`gw-input h-full! min-w-0 flex-none border-0! ${fs} ${alto >= 26 ? 'w-[118px]!' : 'w-[86px]!'}`}
         value={f || null}
@@ -410,7 +562,10 @@ export function CampoFechaHora({
         title="Calendario"
         onClick={(e) => {
           const r = e.currentTarget.getBoundingClientRect()
-          setCal({ x: Math.min(r.left - 150, window.innerWidth - 200), y: r.bottom + 2 })
+          setCal({
+            x: Math.min(r.left - 150, window.innerWidth - 200),
+            y: r.bottom + 2,
+          })
         }}
       >
         <CalendarDays size={14} className="text-[#3a5f9c]" />
@@ -477,7 +632,9 @@ export function GrupoRango({
         <div className="flex flex-col gap-[2px]">
           <Radio nombre={nombre} label="Desde/Hasta" on={valor.modo === 'desdeHasta'} set={() => set({ modo: 'desdeHasta' })} disabled={disabled} />
           <Radio nombre={nombre} label="Cualquiera" on={valor.modo === 'cualquiera'} set={() => set({ modo: 'cualquiera' })} disabled={disabled} />
-          {!sinSeleccionar && <Radio nombre={nombre} label="Seleccionar" on={valor.modo === 'seleccionar'} set={() => set({ modo: 'seleccionar' })} disabled={disabled} />}
+          {!sinSeleccionar && (
+            <Radio nombre={nombre} label="Seleccionar" on={valor.modo === 'seleccionar'} set={() => set({ modo: 'seleccionar' })} disabled={disabled} />
+          )}
         </div>
         <div className="flex min-w-0 flex-col gap-[2px]">
           <div className="flex min-w-0 gap-2">
@@ -618,14 +775,28 @@ export function BotonOpcion({
 }
 
 /** Botón de estado sin icono que queda «hundido» al activarlo (Estado de Reparaciones). */
-export function BotonPulsado({ label, on, set, className = '', title }: { label: string; on: boolean; set: (v: boolean) => void; className?: string; title?: string }) {
+export function BotonPulsado({
+  label,
+  on,
+  set,
+  className = '',
+  title,
+}: {
+  label: string
+  on: boolean
+  set: (v: boolean) => void
+  className?: string
+  title?: string
+}) {
   return (
     <button
       type="button"
       title={title}
       onClick={() => set(!on)}
       className={`flex h-[34px] min-w-0 items-center justify-center border px-2 text-[17px] ${
-        on ? 'border-[#5a5a5a] border-b-white border-r-white bg-[#dcdcdc] font-bold shadow-[inset_1px_1px_2px_rgba(0,0,0,0.35)]' : 'border-[var(--gw-border)] bg-[#f3f3f3] hover:bg-[#e5f1fb]'
+        on
+          ? 'border-[#5a5a5a] border-b-white border-r-white bg-[#dcdcdc] font-bold shadow-[inset_1px_1px_2px_rgba(0,0,0,0.35)]'
+          : 'border-[var(--gw-border)] bg-[#f3f3f3] hover:bg-[#e5f1fb]'
       } ${className}`}
     >
       <span className="truncate">{label}</span>
@@ -643,7 +814,11 @@ const DESTINOS: { k: Destino; label: string; icono: ReactNode }[] = [
   { k: 'pantalla', label: 'Pantalla', icono: <Monitor size={14} /> },
   { k: 'impresora', label: 'Impresora', icono: <Printer size={14} /> },
   { k: 'examinar', label: 'Examinar', icono: <Search size={14} /> },
-  { k: 'pdf', label: 'Doc. PDF', icono: <FileText size={14} className="text-[#c42b1c]" /> },
+  {
+    k: 'pdf',
+    label: 'Doc. PDF',
+    icono: <FileText size={14} className="text-[#c42b1c]" />,
+  },
 ]
 
 export function ListadoVentana({
@@ -714,7 +889,12 @@ export function ListadoVentana({
                 </option>
               ))}
             </select>
-            <button type="button" className={`${LST_BTN} h-[30px]! w-[56px]!`} disabled title="Orden personalizado (expresión de FoxPro): no disponible en el ERP">
+            <button
+              type="button"
+              className={`${LST_BTN} h-[30px]! w-[56px]!`}
+              disabled
+              title="Orden personalizado (expresión de FoxPro): no disponible en el ERP"
+            >
               ···
             </button>
           </div>
@@ -732,7 +912,9 @@ export function ListadoVentana({
               type="button"
               onClick={() => onDestino(d.k)}
               className={`flex h-[42px] flex-1 items-center justify-center gap-1.5 border text-[18px] ${
-                destino === d.k ? 'border-[#8a8a8a] border-b-white border-r-white bg-[#f7f7f7] shadow-[inset_1px_1px_2px_rgba(0,0,0,0.3)]' : 'border-[var(--gw-border)] bg-[#ececec] hover:bg-[#e5f1fb]'
+                destino === d.k
+                  ? 'border-[#8a8a8a] border-b-white border-r-white bg-[#f7f7f7] shadow-[inset_1px_1px_2px_rgba(0,0,0,0.3)]'
+                  : 'border-[var(--gw-border)] bg-[#ececec] hover:bg-[#e5f1fb]'
               }`}
             >
               {d.icono}
@@ -740,11 +922,20 @@ export function ListadoVentana({
             </button>
           ))}
         </div>
-        <button type="button" onClick={onProcesar} disabled={procesando} className="flex h-[50px] w-[180px] flex-none items-center justify-center gap-1.5 border border-[var(--gw-border)] bg-[#f3f3f3] text-[19px] hover:bg-[#e5f1fb] disabled:text-[#8a8a8a]">
+        <button
+          type="button"
+          onClick={onProcesar}
+          disabled={procesando}
+          className="flex h-[50px] w-[180px] flex-none items-center justify-center gap-1.5 border border-[var(--gw-border)] bg-[#f3f3f3] text-[19px] hover:bg-[#e5f1fb] disabled:text-[#8a8a8a]"
+        >
           <Check size={15} strokeWidth={3} className="text-[#2a9d2a]" />
           {procesando ? 'Procesando…' : 'Procesar'}
         </button>
-        <button type="button" onClick={cerrar} className="flex h-[50px] w-[180px] flex-none items-center justify-center gap-1.5 border border-[var(--gw-border)] bg-[#f3f3f3] text-[19px] hover:bg-[#e5f1fb]">
+        <button
+          type="button"
+          onClick={cerrar}
+          className="flex h-[50px] w-[180px] flex-none items-center justify-center gap-1.5 border border-[var(--gw-border)] bg-[#f3f3f3] text-[19px] hover:bg-[#e5f1fb]"
+        >
           <DoorOpen size={15} className="text-[#7a5a1a]" />
           Cerrar
         </button>
@@ -760,7 +951,12 @@ export function ListadoVentana({
 /** Pinta `children` sobre el escritorio gris (tapa la ventana MDI), centrado, como en GeminisWin. */
 function SobreEscritorio({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [rect, setRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
+  const [rect, setRect] = useState<{
+    left: number
+    top: number
+    width: number
+    height: number
+  } | null>(null)
   useLayoutEffect(() => {
     const medir = () => {
       const win = ref.current?.closest('.inset-1') as HTMLElement | null
@@ -793,12 +989,14 @@ function SobreEscritorio({ children }: { children: ReactNode }) {
 
 /** Clases de los diálogos pequeños grises (Windows clásico, texto azul en los campos). */
 export const DLG = {
-  input: 'h-[17px] border border-[#7f7f7f] border-b-white border-r-white bg-white px-[2px] text-[12px] font-bold text-[#0000e0] outline-none focus:bg-[#0078d7] focus:text-white disabled:text-[#0000e0]',
+  input:
+    'h-[17px] border border-[#7f7f7f] border-b-white border-r-white bg-white px-[2px] text-[12px] font-bold text-[#0000e0] outline-none focus:bg-[#0078d7] focus:text-white disabled:text-[#0000e0]',
   marco: 'border border-[#ffffff] border-b-[#808080] border-r-[#808080] bg-[#ece9d8] px-1.5 py-1',
   etiqueta: 'text-[12px] font-bold text-black',
   /** Para GwDate dentro de un diálogo pequeño. */
   fecha: 'h-[17px]! w-[72px]! flex-none border-[#7f7f7f]! px-[2px]! text-[12px]! font-bold text-[#0000e0]!',
-  boton: 'h-[22px] min-w-[44px] border border-[#ffffff] border-b-[#404040] border-r-[#404040] bg-[#ece9d8] px-1.5 text-[12px] font-bold underline-offset-1 active:border-[#404040] active:border-b-white active:border-r-white',
+  boton:
+    'h-[22px] min-w-[44px] border border-[#ffffff] border-b-[#404040] border-r-[#404040] bg-[#ece9d8] px-1.5 text-[12px] font-bold underline-offset-1 active:border-[#404040] active:border-b-white active:border-r-white',
 }
 
 export function DialogoListado({
@@ -839,7 +1037,12 @@ export function DialogoListado({
           <span className="flex-1 truncate">{titulo}</span>
           <span className="flex h-[14px] w-[20px] items-center justify-center border border-[#9aa8bb] bg-[#e9eef6] text-[9px]">_</span>
           <span className="flex h-[14px] w-[20px] items-center justify-center border border-[#9aa8bb] bg-[#e9eef6] text-[9px]">□</span>
-          <button type="button" onClick={cerrar} title="Cerrar" className="flex h-[14px] w-[20px] items-center justify-center border border-[#9aa8bb] bg-[#e9eef6]">
+          <button
+            type="button"
+            onClick={cerrar}
+            title="Cerrar"
+            className="flex h-[14px] w-[20px] items-center justify-center border border-[#9aa8bb] bg-[#e9eef6]"
+          >
             <X size={9} strokeWidth={3} />
           </button>
         </div>
@@ -905,7 +1108,7 @@ export function DlgRadio({ nombre, label, on, set }: { nombre: string; label: Re
   return (
     <label className="flex select-none items-center gap-1.5 whitespace-nowrap text-[12px] font-bold">
       <input type="radio" name={nombre} className="m-0 h-[11px] w-[11px] accent-[#0078d7]" checked={on} onChange={set} />
-      {label}
+      <span>{label}</span>
     </label>
   )
 }
@@ -914,8 +1117,26 @@ export function DlgRadio({ nombre, label, on, set }: { nombre: string; label: Re
 export function DlgDestino({ valor, onChange, nombre }: { valor: 'pantalla' | 'impresora'; onChange: (v: 'pantalla' | 'impresora') => void; nombre: string }) {
   return (
     <div className={`${DLG.marco} flex flex-col gap-1`}>
-      <DlgRadio nombre={nombre} label={<><u>P</u>antalla</>} on={valor === 'pantalla'} set={() => onChange('pantalla')} />
-      <DlgRadio nombre={nombre} label={<><u>I</u>mpresora</>} on={valor === 'impresora'} set={() => onChange('impresora')} />
+      <DlgRadio
+        nombre={nombre}
+        label={
+          <>
+            <u>P</u>antalla
+          </>
+        }
+        on={valor === 'pantalla'}
+        set={() => onChange('pantalla')}
+      />
+      <DlgRadio
+        nombre={nombre}
+        label={
+          <>
+            <u>I</u>mpresora
+          </>
+        }
+        on={valor === 'impresora'}
+        set={() => onChange('impresora')}
+      />
     </div>
   )
 }
@@ -938,14 +1159,21 @@ export interface ColumnaInforme {
   suma?: boolean
 }
 
-export type FilaInforme = Record<string, unknown> & { nivel: number; grupo: string | null; grupo_desc: string | null }
+export type FilaInforme = Record<string, unknown> & {
+  nivel: number
+  grupo: string | null
+  grupo_desc: string | null
+}
 
 export interface DefInforme {
   titulo: string
   /** Líneas de «filtros aplicados». */
   filtros: (string | null | undefined | false)[]
   columnas: ColumnaInforme[]
-  cargar: () => PromiseLike<{ data: unknown; error: { message: string } | null }>
+  cargar: () => PromiseLike<{
+    data: unknown
+    error: { message: string } | null
+  }>
   /** Sin captura del informe impreso de GeminisWin: se avisa en la vista preliminar. */
   sinCaptura?: boolean
   /** Aviso fijo (p. ej. «el ERP no registra cobros en divisas»). */
@@ -972,7 +1200,10 @@ function celda(v: unknown, c: ColumnaInforme): string {
 function celdaCsv(v: unknown, c: ColumnaInforme): string {
   if (v == null || v === '') return ''
   const t = c.tipo ?? 'texto'
-  if (t === 'num') return Number(v).toFixed(c.dec ?? 2).replace('.', ',')
+  if (t === 'num')
+    return Number(v)
+      .toFixed(c.dec ?? 2)
+      .replace('.', ',')
   if (t === 'entero') return String(Math.round(Number(v)))
   if (t === 'fecha') return fechaEs(String(v))
   return String(v)
@@ -1001,7 +1232,12 @@ function lineasDe(filas: FilaInforme[], soloTotales: boolean): Linea[] {
       }
       out.push({ tipo: 'detalle', fila: f })
     } else if (f.nivel === 1) {
-      if (conGrupos) out.push({ tipo: 'subtotal', texto: `Total ${f.grupo_desc || f.grupo || ''}`, fila: f })
+      if (conGrupos)
+        out.push({
+          tipo: 'subtotal',
+          texto: `Total ${f.grupo_desc || f.grupo || ''}`,
+          fila: f,
+        })
     } else out.push({ tipo: 'total', fila: f })
   }
   return out
@@ -1083,7 +1319,11 @@ function HojaInforme({ r, empresa }: { r: Resultado; empresa: string }) {
         <thead>
           <tr>
             {r.columnas.map((c) => (
-              <th key={c.key} className={`border-b border-black px-1 py-[2px] font-bold ${esNum(c) ? 'text-right' : 'text-left'}`} style={c.ancho ? { width: c.ancho } : undefined}>
+              <th
+                key={c.key}
+                className={`border-b border-black px-1 py-[2px] font-bold ${esNum(c) ? 'text-right' : 'text-left'}`}
+                style={c.ancho ? { width: c.ancho } : undefined}
+              >
                 {c.titulo}
               </th>
             ))}
@@ -1176,56 +1416,80 @@ function VistaInforme({ r, onCerrar }: { r: Resultado; onCerrar: () => void }) {
   const detalle = r.filas.filter((f) => f.nivel === 0).length
   return (
     <>
-      <div className="fixed inset-0 z-50 flex bg-black/25 p-3" onKeyDown={(e) => e.key === 'Escape' && onCerrar()}>
-        <GwWindow title={`${examinar ? 'Examinar' : 'Vista preliminar'} - ${r.titulo}`} onClose={onCerrar} className="h-full w-full [&>div:last-child]:min-h-0">
-          <div className="flex h-full min-h-0 flex-col gap-1">
-            <div className="flex flex-none flex-wrap items-center gap-1.5">
-              <button type="button" className="gw-btn h-[30px]! text-[14px]!" onClick={imprimir} title="Imprimir en A4 (o Guardar como PDF en el diálogo de impresión)">
-                <Printer size={15} /> Imprimir
-              </button>
-              <button type="button" className="gw-btn h-[30px]! text-[14px]!" onClick={() => exportarCsv(r)} title="CSV con «;» y coma decimal, se abre directamente en Excel">
-                <FileDown size={15} className="text-[#1d6f42]" /> Exportar a Excel (CSV)
-              </button>
-              {!examinar && (
-                <select className="gw-input h-[30px]! w-[90px]! text-[14px]!" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} title="Zoom">
-                  {[75, 100, 125, 150].map((z) => (
-                    <option key={z} value={z}>
-                      {z}%
-                    </option>
-                  ))}
-                </select>
-              )}
-              <span className="gw-label px-2 text-[13px]!">
-                {detalle} {detalle === 1 ? 'línea' : 'líneas'}
-                {r.destino === 'pdf' && ' · En el diálogo de impresión elija «Guardar como PDF»'}
-              </span>
-              <span className="flex-1" />
-              {r.sinCaptura && (
-                <span className="border border-[#d6a400] bg-[#fff6d5] px-2 py-[3px] text-[12px] text-[#6b5200]" title="Las capturas de GeminisWin solo muestran la ventana de filtros">
-                  Sin captura del informe impreso de GeminisWin: columnas a confirmar con Luis
-                </span>
-              )}
-              <button type="button" className="gw-btn h-[30px]! text-[14px]!" onClick={onCerrar}>
-                <DoorOpen size={15} /> Cerrar
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-auto border border-[var(--gw-border)] bg-[#8c8c8c] p-3">
-              {examinar ? (
-                <div className="bg-white">
-                  <RejillaInforme r={r} />
-                </div>
-              ) : (
-                <div
-                  className="mx-auto bg-white p-[10mm] shadow-[2px_2px_8px_rgba(0,0,0,0.5)]"
-                  style={{ width: r.apaisado ? '297mm' : '210mm', minHeight: r.apaisado ? '210mm' : '297mm', zoom: zoom / 100 }}
+      {createPortal(
+        <div className="fixed inset-0 z-[60] flex bg-black/25 p-3" onKeyDown={(e) => e.key === 'Escape' && onCerrar()}>
+          <GwWindow
+            title={`${examinar ? 'Examinar' : 'Vista preliminar'} - ${r.titulo}`}
+            onClose={onCerrar}
+            className="h-full w-full [&>div:last-child]:min-h-0"
+          >
+            <div className="flex h-full min-h-0 flex-col gap-1">
+              <div className="flex flex-none flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  className="gw-btn h-[30px]! text-[14px]!"
+                  onClick={imprimir}
+                  title="Imprimir en A4 (o Guardar como PDF en el diálogo de impresión)"
                 >
-                  <HojaInforme r={r} empresa={empresa} />
-                </div>
-              )}
+                  <Printer size={15} /> Imprimir
+                </button>
+                <button
+                  type="button"
+                  className="gw-btn h-[30px]! text-[14px]!"
+                  onClick={() => exportarCsv(r)}
+                  title="CSV con «;» y coma decimal, se abre directamente en Excel"
+                >
+                  <FileDown size={15} className="text-[#1d6f42]" /> Exportar a Excel (CSV)
+                </button>
+                {!examinar && (
+                  <select className="gw-input h-[30px]! w-[90px]! text-[14px]!" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} title="Zoom">
+                    {[75, 100, 125, 150].map((z) => (
+                      <option key={z} value={z}>
+                        {z}%
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <span className="gw-label px-2 text-[13px]!">
+                  {detalle} {detalle === 1 ? 'línea' : 'líneas'}
+                  {r.destino === 'pdf' && ' · En el diálogo de impresión elija «Guardar como PDF»'}
+                </span>
+                <span className="flex-1" />
+                {r.sinCaptura && (
+                  <span
+                    className="border border-[#d6a400] bg-[#fff6d5] px-2 py-[3px] text-[12px] text-[#6b5200]"
+                    title="Las capturas de GeminisWin solo muestran la ventana de filtros"
+                  >
+                    Sin captura del informe impreso de GeminisWin: columnas a confirmar con Luis
+                  </span>
+                )}
+                <button type="button" className="gw-btn h-[30px]! text-[14px]!" onClick={onCerrar}>
+                  <DoorOpen size={15} /> Cerrar
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto border border-[var(--gw-border)] bg-[#8c8c8c] p-3">
+                {examinar ? (
+                  <div className="bg-white">
+                    <RejillaInforme r={r} />
+                  </div>
+                ) : (
+                  <div
+                    className="mx-auto bg-white p-[10mm] shadow-[2px_2px_8px_rgba(0,0,0,0.5)]"
+                    style={{
+                      width: r.apaisado ? '297mm' : '210mm',
+                      minHeight: r.apaisado ? '210mm' : '297mm',
+                      zoom: zoom / 100,
+                    }}
+                  >
+                    <HojaInforme r={r} empresa={empresa} />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </GwWindow>
-      </div>
+          </GwWindow>
+        </div>,
+        document.body,
+      )}
       {createPortal(
         <div className="gw-listado-impresion">
           <style>{`@page { size: A4 ${r.apaisado ? 'landscape' : 'portrait'}; margin: 10mm; }`}</style>
@@ -1251,7 +1515,12 @@ export function useInforme() {
     try {
       const { data, error: e } = await def.cargar()
       if (e) throw new Error(e.message)
-      setRes({ ...def, filas: (data ?? []) as FilaInforme[], destino, generado: new Date() })
+      setRes({
+        ...def,
+        filas: (data ?? []) as FilaInforme[],
+        destino,
+        generado: new Date(),
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {

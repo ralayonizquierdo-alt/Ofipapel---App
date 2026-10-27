@@ -52,7 +52,11 @@ interface Filtros {
 
 const inicial = (): Filtros => ({
   campoFecha: 'entrada',
-  fecha: { modo: 'cualquiera', desde: `${hoyIso()}T00:00:00`, hasta: `${hoyIso()}T23:59:59` },
+  fecha: {
+    modo: 'cualquiera',
+    desde: `${hoyIso()}T00:00:00`,
+    hasta: `${hoyIso()}T23:59:59`,
+  },
   tecnicos: rango(),
   clientes: rango(),
   realizadas: par(),
@@ -98,7 +102,12 @@ export function ListadoReparacionesPage() {
         : [
             { key: 'documento', titulo: 'Nº', ancho: 60 },
             { key: 'fecha', titulo: 'F. Entrada', tipo: 'fecha', ancho: 66 },
-            { key: 'fecha_realizacion', titulo: 'F. Realiz.', tipo: 'fecha', ancho: 66 },
+            {
+              key: 'fecha_realizacion',
+              titulo: 'F. Realiz.',
+              tipo: 'fecha',
+              ancho: 66,
+            },
             { key: 'cliente', titulo: 'Cliente' },
             { key: 'tecnico', titulo: 'Téc.', ancho: 34 },
             { key: 'numero_serie', titulo: 'Nº Serie', ancho: 80 },
@@ -142,7 +151,16 @@ export function ListadoReparacionesPage() {
         informes={INFORMES}
         informe={informe}
         onInforme={setInforme}
-        cabeceraDebajo={<LstCheck label="Emitir informe simple" on={false} set={() => undefined} disabled className="text-[#8a8a8a]" title="Informe simple de GeminisWin: sin captura" />}
+        cabeceraDebajo={
+          <LstCheck
+            label="Emitir informe simple"
+            on={false}
+            set={() => undefined}
+            disabled
+            className="text-[#8a8a8a]"
+            title="Informe simple de GeminisWin: sin captura"
+          />
+        }
         ordenes={[{ value: '', label: '' }]}
         orden=""
         onOrden={() => undefined}
@@ -170,7 +188,14 @@ export function ListadoReparacionesPage() {
               className="relative ml-10 flex h-[58px] w-[400px] flex-none items-center justify-center border border-[var(--gw-border)] bg-[#f3f3f3] px-3 text-[18px] leading-[22px] hover:bg-[#e5f1fb]"
               onClick={() => {
                 const hoy = hoyIso()
-                const nuevo = { ...inicial(), fecha: { modo: 'desdeHasta' as const, desde: `${hoy}T00:00:00`, hasta: `${hoy}T23:59:59` } }
+                const nuevo = {
+                  ...inicial(),
+                  fecha: {
+                    modo: 'desdeHasta' as const,
+                    desde: `${hoy}T00:00:00`,
+                    hasta: `${hoy}T23:59:59`,
+                  },
+                }
                 setF(nuevo)
                 procesar(nuevo)
               }}
@@ -188,19 +213,34 @@ export function ListadoReparacionesPage() {
           <LstGrupo titulo="Estado" className="flex-1">
             <div className="grid grid-cols-3 gap-2 pt-1">
               <div className="flex flex-col gap-1 border border-[var(--gw-border-light)] p-1">
-                <div className="flex">{boton('Realizadas', 'realizadas', 'si')}{boton('No Realizadas', 'realizadas', 'no')}</div>
-                <div className="flex">{boton('Entregadas', 'entregadas', 'si')}{boton('No Entregadas', 'entregadas', 'no')}</div>
+                <div className="flex">
+                  {boton('Realizadas', 'realizadas', 'si')}
+                  {boton('No Realizadas', 'realizadas', 'no')}
+                </div>
+                <div className="flex">
+                  {boton('Entregadas', 'entregadas', 'si')}
+                  {boton('No Entregadas', 'entregadas', 'no')}
+                </div>
               </div>
               <div className="flex flex-col gap-1 border border-[var(--gw-border-light)] p-1">
-                <div className="flex">{boton('Con Presupuest.', 'presupuesto', 'si')}{boton('Sin Presup.', 'presupuesto', 'no')}</div>
+                <div className="flex">
+                  {boton('Con Presupuest.', 'presupuesto', 'si')}
+                  {boton('Sin Presup.', 'presupuesto', 'no')}
+                </div>
                 <div className="flex">
                   {boton('Incluir Pedidos', 'pedidos', 'si', 'Lista también los pedidos que no son reparación')}
                   {boton('Sólo Pedidos', 'pedidos', 'no', 'Solo pedidos (no reparaciones)')}
                 </div>
               </div>
               <div className="flex flex-col gap-1 border border-[var(--gw-border-light)] p-1">
-                <div className="flex">{boton('Facturadas', 'facturadas', 'si')}{boton('No Facturadas', 'facturadas', 'no')}</div>
-                <div className="flex">{boton('Incl. Anuladas', 'anuladas', 'si')}{boton('Sólo Anuladas', 'anuladas', 'no')}</div>
+                <div className="flex">
+                  {boton('Facturadas', 'facturadas', 'si')}
+                  {boton('No Facturadas', 'facturadas', 'no')}
+                </div>
+                <div className="flex">
+                  {boton('Incl. Anuladas', 'anuladas', 'si')}
+                  {boton('Sólo Anuladas', 'anuladas', 'no')}
+                </div>
               </div>
             </div>
           </LstGrupo>

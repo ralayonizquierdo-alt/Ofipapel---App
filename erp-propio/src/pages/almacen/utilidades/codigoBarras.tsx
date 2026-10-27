@@ -130,7 +130,16 @@ export function CodigoBarras({ codigo, ancho, alto, conTexto = true }: { codigo:
       <rect width={total} height={hBarra + hTexto} fill="#fff" />
       <path d={rects.join('')} fill="#000" />
       {conTexto && (
-        <text x={total / 2} y={hBarra + hTexto - 1} textAnchor="middle" fontSize={8.5} fontFamily="Arial, sans-serif" fill="#000" textLength={Math.min(total - 4, texto.length * 6)} lengthAdjust="spacingAndGlyphs">
+        <text
+          x={total / 2}
+          y={hBarra + hTexto - 1}
+          textAnchor="middle"
+          fontSize={8.5}
+          fontFamily="Arial, sans-serif"
+          fill="#000"
+          textLength={Math.min(total - 4, texto.length * 6)}
+          lengthAdjust="spacingAndGlyphs"
+        >
           {texto}
         </text>
       )}

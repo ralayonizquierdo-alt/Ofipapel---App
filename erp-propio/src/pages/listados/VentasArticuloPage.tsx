@@ -37,12 +37,21 @@ import {
 
 const INFORMES = [
   { value: 'articulo', label: 'Ventas por Artículo' },
-  { value: 'familia_articulo', label: 'Ventas por Artículo Agrupado por Familia' },
+  {
+    value: 'familia_articulo',
+    label: 'Ventas por Artículo Agrupado por Familia',
+  },
   { value: 'familia', label: 'Ventas por Familia' },
   { value: 'marca', label: 'Ventas por Marca' },
-  { value: 'proveedor_articulo', label: 'Ventas por Artículo Agrupado por Proveedor' },
+  {
+    value: 'proveedor_articulo',
+    label: 'Ventas por Artículo Agrupado por Proveedor',
+  },
   { value: 'proveedor', label: 'Ventas por Proveedor' },
-  { value: 'cliente_articulo', label: 'Ventas por Artículo Agrupado por Cliente' },
+  {
+    value: 'cliente_articulo',
+    label: 'Ventas por Artículo Agrupado por Cliente',
+  },
 ]
 
 const ORDENES = [
@@ -66,11 +75,19 @@ export function VentasArticuloPage() {
   const inf = useInforme()
   const [informe, setInforme] = useState('articulo')
   const [soloTotales, setSoloTotales] = useState(false)
-  const [agrupar, setAgrupar] = useState({ tienda: false, almacen: false, descripcion: false })
+  const [agrupar, setAgrupar] = useState({
+    tienda: false,
+    almacen: false,
+    descripcion: false,
+  })
   const [orden, setOrden] = useState('cod_intern')
   const [destino, setDestino] = useState<Destino>('pantalla')
   const [campoFecha, setCampoFecha] = useState('venta')
-  const [fecha, setFecha] = useState<RangoFecha>(() => ({ modo: 'cualquiera', desde: mesEnCurso().desde, hasta: '' }))
+  const [fecha, setFecha] = useState<RangoFecha>(() => ({
+    modo: 'cualquiera',
+    desde: mesEnCurso().desde,
+    hasta: '',
+  }))
   const [formas, setFormas] = useState(rango())
   const [fraccionados, setFraccionados] = useState(false)
   const [clientes, setClientes] = useState(rango())
@@ -88,7 +105,12 @@ export function VentasArticuloPage() {
   const [facturadas, setFacturadas] = useState<Par>(par())
   const [pagadas, setPagadas] = useState<Par>(par())
   const [aplazadas, setAplazadas] = useState(false)
-  const [ranking, setRanking] = useState({ activo: false, por: 'valor', modo: 'mas', n: 10 })
+  const [ranking, setRanking] = useState({
+    activo: false,
+    por: 'valor',
+    modo: 'mas',
+    n: 10,
+  })
 
   function procesar() {
     const p = {
@@ -101,7 +123,11 @@ export function VentasArticuloPage() {
       fraccionados,
       clientes: rangoSql(clientes),
       campoCliente: campoCli,
-      articulos: { ...rangoSql(articulos), por: porArt, nivelFamilia: nivelFam },
+      articulos: {
+        ...rangoSql(articulos),
+        por: porArt,
+        nivelFamilia: nivelFam,
+      },
       marcas: { ...rangoSql(marcas), por: porMarca },
       filtrarPor: por,
       personas: rangoSql(personas),
@@ -114,7 +140,15 @@ export function VentasArticuloPage() {
       ranking,
     }
     const clave =
-      informe === 'familia' ? 'Familia' : informe === 'marca' ? 'Marca' : informe === 'proveedor' ? 'Proveedor' : agrupar.descripcion ? 'Descripción' : 'Cód. Interno'
+      informe === 'familia'
+        ? 'Familia'
+        : informe === 'marca'
+          ? 'Marca'
+          : informe === 'proveedor'
+            ? 'Proveedor'
+            : agrupar.descripcion
+              ? 'Descripción'
+              : 'Cód. Interno'
     const nombrePor = por === 'tecnico' ? 'Técnicos' : por === 'empleado' ? 'Empleados' : 'Vendedores'
     inf.procesar(
       {
@@ -123,8 +157,17 @@ export function VentasArticuloPage() {
         soloTotales,
         columnas: [
           ...(informe === 'marca' || (agrupar.descripcion && !['familia', 'proveedor'].includes(informe)) ? [] : [{ key: 'clave', titulo: clave, ancho: 90 }]),
-          { key: 'descripcion', titulo: informe === 'marca' ? 'Marca' : 'Descripción' },
-          { key: 'unidades', titulo: 'Unidades', tipo: 'num', dec: 3, ancho: 75 },
+          {
+            key: 'descripcion',
+            titulo: informe === 'marca' ? 'Marca' : 'Descripción',
+          },
+          {
+            key: 'unidades',
+            titulo: 'Unidades',
+            tipo: 'num',
+            dec: 3,
+            ancho: 75,
+          },
           { key: 'importe', titulo: 'Importe', tipo: 'num', ancho: 85 },
           { key: 'coste', titulo: 'Coste', tipo: 'num', ancho: 80 },
           { key: 'beneficio', titulo: 'Beneficio', tipo: 'num', ancho: 80 },
@@ -169,7 +212,12 @@ export function VentasArticuloPage() {
             <span>Agrupar Artículos por</span>
             <LstCheck label="Tienda" on={agrupar.tienda} set={(v) => setAgrupar({ ...agrupar, tienda: v })} />
             <LstCheck label="Almacén" on={agrupar.almacen} set={(v) => setAgrupar({ ...agrupar, almacen: v })} />
-            <LstCheck label="Descripción" on={agrupar.descripcion} set={(v) => setAgrupar({ ...agrupar, descripcion: v })} title="Agrupa por el texto de la línea (artículos genéricos)" />
+            <LstCheck
+              label="Descripción"
+              on={agrupar.descripcion}
+              set={(v) => setAgrupar({ ...agrupar, descripcion: v })}
+              title="Agrupa por el texto de la línea (artículos genéricos)"
+            />
           </>
         }
         ordenes={ORDENES}
@@ -188,7 +236,13 @@ export function VentasArticuloPage() {
             titulo={
               <>
                 <span>Formas de pago</span>
-                <LstCheck label="Fraccionados" on={fraccionados} set={setFraccionados} className="text-[17px]" title="Solo ventas cobradas con más de una forma de pago" />
+                <LstCheck
+                  label="Fraccionados"
+                  on={fraccionados}
+                  set={setFraccionados}
+                  className="text-[17px]"
+                  title="Solo ventas cobradas con más de una forma de pago"
+                />
               </>
             }
             valor={formas}
@@ -238,7 +292,13 @@ export function VentasArticuloPage() {
               <>
                 <span>Filtrar por:</span>
                 {(['vendedor', 'tecnico', 'empleado'] as Por[]).map((k) => (
-                  <LstRadio key={k} nombre="va-por" label={k === 'vendedor' ? 'Vendedor' : k === 'tecnico' ? 'Técnico' : 'Empleado'} on={por === k} set={() => setPor(k)} />
+                  <LstRadio
+                    key={k}
+                    nombre="va-por"
+                    label={k === 'vendedor' ? 'Vendedor' : k === 'tecnico' ? 'Técnico' : 'Empleado'}
+                    on={por === k}
+                    set={() => setPor(k)}
+                  />
                 ))}
               </>
             }
@@ -267,7 +327,9 @@ export function VentasArticuloPage() {
             </div>
           </LstGrupo>
           <LstGrupo
-            titulo={<LstCheck label="Filtrar los Artículos más / menos Vendidos según..." on={ranking.activo} set={(v) => setRanking({ ...ranking, activo: v })} />}
+            titulo={
+              <LstCheck label="Filtrar los Artículos más / menos Vendidos según..." on={ranking.activo} set={(v) => setRanking({ ...ranking, activo: v })} />
+            }
             disabled={!ranking.activo}
           >
             <div className="flex flex-col gap-1.5 pt-1">
@@ -282,7 +344,12 @@ export function VentasArticuloPage() {
                 ))}
               </div>
               <div className="flex gap-1">
-                <select className={LST_INPUT} disabled={!ranking.activo} value={ranking.modo} onChange={(e) => setRanking({ ...ranking, modo: e.target.value })}>
+                <select
+                  className={LST_INPUT}
+                  disabled={!ranking.activo}
+                  value={ranking.modo}
+                  onChange={(e) => setRanking({ ...ranking, modo: e.target.value })}
+                >
                   <option value="mas">Nº máximo de solo artículos vendidos a mostrar</option>
                   <option value="menos">Nº máximo de artículos menos vendidos a mostrar</option>
                 </select>
@@ -292,7 +359,12 @@ export function VentasArticuloPage() {
                   className={`${LST_INPUT} w-[160px]! flex-none text-right`}
                   disabled={!ranking.activo}
                   value={ranking.n}
-                  onChange={(e) => setRanking({ ...ranking, n: Math.max(1, Number(e.target.value) || 1) })}
+                  onChange={(e) =>
+                    setRanking({
+                      ...ranking,
+                      n: Math.max(1, Number(e.target.value) || 1),
+                    })
+                  }
                 />
               </div>
             </div>

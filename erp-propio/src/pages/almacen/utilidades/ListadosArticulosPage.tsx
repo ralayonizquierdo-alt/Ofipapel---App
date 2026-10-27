@@ -94,7 +94,10 @@ export function ListadosArticulosPage() {
   const [salida, setSalida] = useState<Salida>('pantalla')
   const [procesando, setProcesando] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [visor, setVisor] = useState<null | { p: Record<string, unknown>; modo: 'pantalla' | 'examinar' }>(null)
+  const [visor, setVisor] = useState<null | {
+    p: Record<string, unknown>
+    modo: 'pantalla' | 'examinar'
+  }>(null)
   const [imprimir, setImprimir] = useState<FilaArt[] | null>(null)
   const set = (p: Partial<FiltroArticulos>) => setF((x) => ({ ...x, ...p }))
   const cerrar = useCallback(() => navigate('/'), [navigate])
@@ -106,12 +109,21 @@ export function ListadosArticulosPage() {
   const almCols = almacenes.filter((a) => {
     if (f.alm_stock.almacen && f.alm_stock.almacen !== '*') return a.codigo === f.alm_stock.almacen
     if (f.almacenes.modo === 'rango') return (!f.almacenes.desde || a.codigo >= f.almacenes.desde) && (!f.almacenes.hasta || a.codigo <= f.almacenes.hasta)
-    if (f.almacenes.modo === 'seleccionar') return f.almacenes.lista.split(',').map((x) => x.trim()).includes(a.codigo)
+    if (f.almacenes.modo === 'seleccionar')
+      return f.almacenes.lista
+        .split(',')
+        .map((x) => x.trim())
+        .includes(a.codigo)
     return true
   })
 
   function payload(): Record<string, unknown> {
-    return { ...aJson(f), orden, con_stocks: informe === 'stock', bajo_minimo: informe === 'minimo' }
+    return {
+      ...aJson(f),
+      orden,
+      con_stocks: informe === 'stock',
+      bajo_minimo: informe === 'minimo',
+    }
   }
 
   const base: ColInforme<FilaArt>[] = [
@@ -120,11 +132,36 @@ export function ListadosArticulosPage() {
   ]
   const cols: ColInforme<FilaArt>[] =
     informe === 'pvps'
-      ? [...base, ...NIVELES_PVP.map((n, i) => ({ k: `pvp${i}`, l: n.replace(/\s+/g, ' '), w: 84, d: 3 })), { k: 'coste', l: 'Coste', w: 80, d: 3 }]
+      ? [
+          ...base,
+          ...NIVELES_PVP.map((n, i) => ({
+            k: `pvp${i}`,
+            l: n.replace(/\s+/g, ' '),
+            w: 84,
+            d: 3,
+          })),
+          { k: 'coste', l: 'Coste', w: 80, d: 3 },
+        ]
       : informe === 'stock'
-        ? [...base, ...almCols.map((a) => ({ k: `alm_${a.codigo}`, l: `Alm. ${a.codigo}`, w: 80, d: 3, v: (r: FilaArt) => r.stocks?.[a.codigo] ?? null })), { k: 'stock', l: 'Total', w: 90, d: 3 }]
+        ? [
+            ...base,
+            ...almCols.map((a) => ({
+              k: `alm_${a.codigo}`,
+              l: `Alm. ${a.codigo}`,
+              w: 80,
+              d: 3,
+              v: (r: FilaArt) => r.stocks?.[a.codigo] ?? null,
+            })),
+            { k: 'stock', l: 'Total', w: 90, d: 3 },
+          ]
         : informe === 'valorado'
-          ? [...base, { k: 'familia_codigo', l: 'Familia', w: 70 }, { k: 'stock', l: 'Stock', w: 90, d: 3 }, { k: 'coste', l: 'Coste', w: 90, d: 3 }, { k: 'valor', l: 'Valor', w: 100, d: 2 }]
+          ? [
+              ...base,
+              { k: 'familia_codigo', l: 'Familia', w: 70 },
+              { k: 'stock', l: 'Stock', w: 90, d: 3 },
+              { k: 'coste', l: 'Coste', w: 90, d: 3 },
+              { k: 'valor', l: 'Valor', w: 100, d: 2 },
+            ]
           : informe === 'minimo'
             ? [
                 ...base,
@@ -132,7 +169,13 @@ export function ListadosArticulosPage() {
                 { k: 'stock', l: 'Stock', w: 90, d: 3 },
                 { k: 'stock_minimo', l: 'Stock Mín.', w: 90, d: 3 },
                 { k: 'stock_maximo', l: 'Stock Máx.', w: 90, d: 3 },
-                { k: 'pedir', l: 'A Pedir', w: 90, d: 3, v: (r) => Math.max(0, Number(r.stock_maximo ?? r.stock_minimo ?? 0) - Number(r.stock)) },
+                {
+                  k: 'pedir',
+                  l: 'A Pedir',
+                  w: 90,
+                  d: 3,
+                  v: (r) => Math.max(0, Number(r.stock_maximo ?? r.stock_minimo ?? 0) - Number(r.stock)),
+                },
               ]
             : informe === 'igic'
               ? [
@@ -150,8 +193,18 @@ export function ListadosArticulosPage() {
                   { k: 'codigo_compra', l: 'Cód. Compra', w: 110 },
                   { k: 'pvp0', l: 'PVP General', w: 84, d: 3 },
                   ...(conAlmacen ? [{ k: 'stock', l: 'Stock', w: 84, d: 3 }] : []),
-                  { k: 'ultima_compra', l: 'Últ. Compra', w: 86, v: (r: FilaArt) => fechaEs(r.ultima_compra) },
-                  { k: 'ultima_venta', l: 'Últ. Venta', w: 86, v: (r: FilaArt) => fechaEs(r.ultima_venta) },
+                  {
+                    k: 'ultima_compra',
+                    l: 'Últ. Compra',
+                    w: 86,
+                    v: (r: FilaArt) => fechaEs(r.ultima_compra),
+                  },
+                  {
+                    k: 'ultima_venta',
+                    l: 'Últ. Venta',
+                    w: 86,
+                    v: (r: FilaArt) => fechaEs(r.ultima_venta),
+                  },
                 ]
 
   const totales = (r: FilaArt | undefined) =>
@@ -279,7 +332,12 @@ export function FiltrosArticulo({
       <div className="grid grid-cols-2 gap-3">
         <Grupo titulo="Elegir y/o Filtrar Según el Pvp del Artículo">
           <CondicionCampo
-            value={{ campo: String(f.pvp.nivel), op: f.pvp.op, v1: f.pvp.v1, v2: f.pvp.v2 }}
+            value={{
+              campo: String(f.pvp.nivel),
+              op: f.pvp.op,
+              v1: f.pvp.v1,
+              v2: f.pvp.v2,
+            }}
             tipoFijo="num"
             onChange={(c) => set({ pvp: { nivel: f.pvp.nivel, op: c.op, v1: c.v1, v2: c.v2 } })}
             sinCampo={
@@ -310,7 +368,13 @@ export function FiltrosArticulo({
                   ['codigo', 'Con código'],
                 ] as const
               ).map(([t, l]) => (
-                <GwRadio key={t} name={`${name}-prov`} label={<span className={L}>{l}</span>} checked={f.proveedor.tipo === t} onChange={() => set({ proveedor: { ...f.proveedor, tipo: t } })} />
+                <GwRadio
+                  key={t}
+                  name={`${name}-prov`}
+                  label={<span className={L}>{l}</span>}
+                  checked={f.proveedor.tipo === t}
+                  onChange={() => set({ proveedor: { ...f.proveedor, tipo: t } })}
+                />
               ))}
             </span>
           }
@@ -320,7 +384,12 @@ export function FiltrosArticulo({
         <Grupo
           titulo="Filtrar Según Campo"
           derecha={
-            <button type="button" className="ml-auto text-[16px] text-[#1a4fd0]" title="Varios valores separados por comas" onClick={() => set({ campo: { ...f.campo, op: 'lista' } })}>
+            <button
+              type="button"
+              className="ml-auto text-[16px] text-[#1a4fd0]"
+              title="Varios valores separados por comas"
+              onClick={() => set({ campo: { ...f.campo, op: 'lista' } })}
+            >
               Múltiple
             </button>
           }

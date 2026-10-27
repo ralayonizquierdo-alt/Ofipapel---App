@@ -47,11 +47,7 @@ export const INFORMES_COMPRA = [
   { value: 'mensual_proveedor', label: 'Totales Mensuales por Proveedor' },
 ]
 
-const INFORMES = [
-  INFORMES_COMPRA[0],
-  { value: 'desglosado', label: 'Pedidos Desglosados (con líneas)' },
-  ...INFORMES_COMPRA.slice(1),
-]
+const INFORMES = [INFORMES_COMPRA[0], { value: 'desglosado', label: 'Pedidos Desglosados (con líneas)' }, ...INFORMES_COMPRA.slice(1)]
 
 const ORDENES = [
   { value: 'fechahora', label: 'Pedidcab.Fechahora' },
@@ -115,7 +111,11 @@ export function ListadoPedidosProveedorPage() {
   const [tNum, setTNum] = useState(tiendaNumero())
   const [almacenes, setAlmacenes] = useState(rango())
   const [campoFecha, setCampoFecha] = useState('llegada')
-  const [fecha, setFecha] = useState<RangoFecha>({ modo: 'cualquiera', desde: '', hasta: '' })
+  const [fecha, setFecha] = useState<RangoFecha>({
+    modo: 'cualquiera',
+    desde: '',
+    hasta: '',
+  })
   const [fePor, setFePor] = useState<'formaPago' | 'estado'>('formaPago')
   const [formaEstado, setFormaEstado] = useState(rango())
   const [est, setEst] = useState<Record<'pendientes' | 'actualizados' | 'negativos' | 'pedidos' | 'facturados', Par>>({
@@ -127,9 +127,21 @@ export function ListadoPedidosProveedorPage() {
   })
   const [proveedores, setProveedores] = useState(rango())
   const [totProv, setTotProv] = useState(totalProveedor())
-  const [campoArt, setCampoArt] = useState({ modo: 'no', desde: '', hasta: '' })
-  const [fechaPago, setFechaPago] = useState<FiltroFecha>({ modo: 'no', desde: '', hasta: '' })
-  const [fechaMod, setFechaMod] = useState<FiltroFecha>({ modo: 'no', desde: '', hasta: '' })
+  const [campoArt, setCampoArt] = useState({
+    modo: 'no',
+    desde: '',
+    hasta: '',
+  })
+  const [fechaPago, setFechaPago] = useState<FiltroFecha>({
+    modo: 'no',
+    desde: '',
+    hasta: '',
+  })
+  const [fechaMod, setFechaMod] = useState<FiltroFecha>({
+    modo: 'no',
+    desde: '',
+    hasta: '',
+  })
 
   function procesar() {
     const p = {
@@ -145,7 +157,11 @@ export function ListadoPedidosProveedorPage() {
       proveedores: rangoSql(proveedores),
       totalProveedor: totalProveedorSql(totProv),
       campoArticulo: campoArt,
-      fechaPago: { ...fechaPago, desde: fechaPago.desde.slice(0, 10), hasta: fechaPago.hasta.slice(0, 10) },
+      fechaPago: {
+        ...fechaPago,
+        desde: fechaPago.desde.slice(0, 10),
+        hasta: fechaPago.hasta.slice(0, 10),
+      },
       fechaModPrecios: fechaMod,
     }
     const imp: ColumnaInforme[] = [
@@ -157,18 +173,43 @@ export function ListadoPedidosProveedorPage() {
       informe === 'desglosado'
         ? [
             { key: 'descripcion', titulo: 'Artículo' },
-            { key: 'cantidad', titulo: 'Cantidad', tipo: 'num', dec: 3, ancho: 65, suma: false },
-            { key: 'precio', titulo: 'Precio', tipo: 'num', dec: 3, ancho: 65, suma: false },
-            { key: 'dto', titulo: 'Dto. %', tipo: 'num', ancho: 50, suma: false },
+            {
+              key: 'cantidad',
+              titulo: 'Cantidad',
+              tipo: 'num',
+              dec: 3,
+              ancho: 65,
+              suma: false,
+            },
+            {
+              key: 'precio',
+              titulo: 'Precio',
+              tipo: 'num',
+              dec: 3,
+              ancho: 65,
+              suma: false,
+            },
+            {
+              key: 'dto',
+              titulo: 'Dto. %',
+              tipo: 'num',
+              ancho: 50,
+              suma: false,
+            },
             ...imp,
           ]
         : informe === 'totales_proveedor'
-          ? [{ key: 'clave', titulo: 'Proveedor', ancho: 70 }, { key: 'descripcion', titulo: 'Nombre' }, { key: 'n', titulo: 'Nº Pedidos', tipo: 'entero', ancho: 70 }, ...imp]
+          ? [
+              { key: 'clave', titulo: 'Proveedor', ancho: 70 },
+              { key: 'descripcion', titulo: 'Nombre' },
+              { key: 'n', titulo: 'Nº Pedidos', tipo: 'entero', ancho: 70 },
+              ...imp,
+            ]
           : informe === 'mensual_proveedor'
             ? [{ key: 'descripcion', titulo: 'Mes' }, { key: 'n', titulo: 'Nº Pedidos', tipo: 'entero', ancho: 70 }, ...imp]
             : [
                 { key: 'descripcion', titulo: 'Pedido' },
-                { key: 'fecha', titulo: 'Fecha', tipo: 'fecha', ancho: 66 },
+                { key: 'fecha', titulo: `F. ${CAMPOS_FECHA.find((c) => c.value === campoFecha)?.label}`, tipo: 'fecha', ancho: 70 },
                 { key: 'documento', titulo: 'Nº Alb./Fact. Prov.', ancho: 110 },
                 { key: 'estado', titulo: 'Estado', ancho: 80 },
                 ...imp,
@@ -192,7 +233,8 @@ export function ListadoPedidosProveedorPage() {
           describirRango('Proveedores', proveedores),
           describirTotalProveedor(totProv),
           campoArt.modo !== 'no' && `Marca de los artículos: ${campoArt.desde || '…'} a ${campoArt.hasta || '…'}`,
-          fechaPago.modo !== 'no' && `Fecha de pago al proveedor: ${fechaHoraEs(fechaPago.desde).split(' ')[0] || '…'} a ${fechaHoraEs(fechaPago.hasta).split(' ')[0] || '…'}`,
+          fechaPago.modo !== 'no' &&
+            `Fecha de pago al proveedor: ${fechaHoraEs(fechaPago.desde).split(' ')[0] || '…'} a ${fechaHoraEs(fechaPago.hasta).split(' ')[0] || '…'}`,
           fechaMod.modo !== 'no' && `Última modificación de precios: ${fechaHoraEs(fechaMod.desde) || '…'} a ${fechaHoraEs(fechaMod.hasta) || '…'}`,
           tallas && 'Desglosar tallas y colores: el ERP no maneja tallas en los pedidos (sin efecto)',
         ],
@@ -265,7 +307,11 @@ export function ListadoPedidosProveedorPage() {
               <select className={`${LST_INPUT} h-[30px]! text-[18px]!`} disabled defaultValue="marca" title="Campo de los artículos del pedido">
                 <option value="marca">Marca</option>
               </select>
-              <select className={`${LST_INPUT} h-[30px]! text-[18px]!`} value={campoArt.modo} onChange={(e) => setCampoArt({ ...campoArt, modo: e.target.value })}>
+              <select
+                className={`${LST_INPUT} h-[30px]! text-[18px]!`}
+                value={campoArt.modo}
+                onChange={(e) => setCampoArt({ ...campoArt, modo: e.target.value })}
+              >
                 <option value="no">No Filtrar</option>
                 <option value="desdeHasta">Desde/Hasta</option>
               </select>

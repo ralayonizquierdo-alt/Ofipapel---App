@@ -44,7 +44,12 @@ export interface FiltroArticulos {
   caract: Record<string, boolean>
 }
 
-export const rangoVacio = (modo: ModoRango = 'cualquiera'): Rango => ({ modo, desde: '', hasta: '', lista: '' })
+export const rangoVacio = (modo: ModoRango = 'cualquiera'): Rango => ({
+  modo,
+  desde: '',
+  hasta: '',
+  lista: '',
+})
 const op = (campo: string): CampoOp => ({ campo, op: 'no', v1: '', v2: '' })
 
 export function filtroInicial(p: Partial<FiltroArticulos> = {}): FiltroArticulos {
@@ -72,7 +77,12 @@ const lista = (s: string) =>
     .split(',')
     .map((x) => x.trim())
     .filter(Boolean)
-const rangoJson = (r: Rango) => ({ modo: r.modo, desde: r.desde.trim(), hasta: r.hasta.trim(), lista: lista(r.lista) })
+const rangoJson = (r: Rango) => ({
+  modo: r.modo,
+  desde: r.desde.trim(),
+  hasta: r.hasta.trim(),
+  lista: lista(r.lista),
+})
 
 /** Estado de pantalla → jsonb de fn_informe_* (las listas como arrays). */
 export function aJson(f: FiltroArticulos): Record<string, unknown> {
@@ -137,8 +147,18 @@ export const CAMPOS_COSTE: CampoDef[] = [
 export const CAMPOS_VARIOS: CampoDef[] = [
   { v: 'marca_codigo', l: 'Marca', tipo: 'texto', lookup: 'marca' },
   { v: 'familia_codigo', l: 'Familia', tipo: 'texto', lookup: 'familia' },
-  { v: 'plantilla_tarifa_codigo', l: 'Plantilla de Tarifas', tipo: 'texto', lookup: 'plantilla_tarifa' },
-  { v: 'proveedor_habitual_codigo', l: 'Proveedor', tipo: 'texto', lookup: 'proveedor' },
+  {
+    v: 'plantilla_tarifa_codigo',
+    l: 'Plantilla de Tarifas',
+    tipo: 'texto',
+    lookup: 'plantilla_tarifa',
+  },
+  {
+    v: 'proveedor_habitual_codigo',
+    l: 'Proveedor',
+    tipo: 'texto',
+    lookup: 'proveedor',
+  },
   { v: 'igic_pct', l: '% IGIC', tipo: 'num' },
   { v: 'unidad_medida', l: 'Unidad de Medida', tipo: 'texto' },
   { v: 'unidades_por_caja', l: 'Und. Caja', tipo: 'num' },
@@ -157,7 +177,11 @@ export const CAMPOS_VARIOS: CampoDef[] = [
 export const CAMPOS_FECHA: CampoDef[] = [
   { v: 'ultima_compra_fecha', l: 'Fecha Última Compra', tipo: 'fecha' },
   { v: 'ultima_venta_fecha', l: 'Fecha Última Venta', tipo: 'fecha' },
-  { v: 'fecha_ultima_modificacion_pvp', l: 'F. Últ. Mod. de precios', tipo: 'fecha' },
+  {
+    v: 'fecha_ultima_modificacion_pvp',
+    l: 'F. Últ. Mod. de precios',
+    tipo: 'fecha',
+  },
   { v: 'fecha_alta', l: 'Fecha de Alta', tipo: 'fecha' },
   { v: 'fecha_baja', l: 'Fecha de Baja', tipo: 'fecha' },
   { v: 'fecha_prevista_venta', l: 'Fecha Prevista Venta', tipo: 'fecha' },
@@ -198,7 +222,14 @@ export const LOOKUPS: Record<string, LookupDef> = {
     order: 'codigo',
     key: 'codigo',
   },
-  marca: { title: 'Marcas', table: 'marca', columns: [{ key: 'codigo', label: 'Marca' }], search: ['codigo'], order: 'codigo', key: 'codigo' },
+  marca: {
+    title: 'Marcas',
+    table: 'marca',
+    columns: [{ key: 'codigo', label: 'Marca' }],
+    search: ['codigo'],
+    order: 'codigo',
+    key: 'codigo',
+  },
   plantilla_tarifa: {
     title: 'Plantillas de Tarifas',
     table: 'plantilla_tarifa',
@@ -318,7 +349,11 @@ export function Grupo({ titulo, children, className = '', derecha }: { titulo: R
 }
 
 function Radios({ value, onChange, name, opciones }: { value: ModoRango; onChange: (m: ModoRango) => void; name: string; opciones: ModoRango[] }) {
-  const et: Record<ModoRango, string> = { rango: 'Desde/Hasta', cualquiera: 'Cualquiera', seleccionar: 'Seleccionar' }
+  const et: Record<ModoRango, string> = {
+    rango: 'Desde/Hasta',
+    cualquiera: 'Cualquiera',
+    seleccionar: 'Seleccionar',
+  }
   return (
     <div className={`flex w-[118px] flex-none flex-col justify-around ${L}`}>
       {opciones.map((o) => (
@@ -422,12 +457,14 @@ export function RangoCodigos({
               title="Códigos separados por comas"
               onChange={(e) => p({ lista: e.target.value })}
             />
-            <BotonBuscar
-              lookup={lookup}
+            <BotonBuscar lookup={lookup} disabled={value.modo !== 'seleccionar'} onPick={(c) => p({ lista: [...lista(value.lista), c].join(', ') })} />
+            <button
+              type="button"
+              className="gw-btn h-[26px] w-[34px] flex-none px-0"
+              title="Vaciar la selección"
               disabled={value.modo !== 'seleccionar'}
-              onPick={(c) => p({ lista: [...lista(value.lista), c].join(', ') })}
-            />
-            <button type="button" className="gw-btn h-[26px] w-[34px] flex-none px-0" title="Vaciar la selección" disabled={value.modo !== 'seleccionar'} onClick={() => p({ lista: '' })}>
+              onClick={() => p({ lista: '' })}
+            >
               <ListPlus size={14} />
             </button>
           </span>
@@ -519,11 +556,26 @@ export function AlmacenStock({
   const sin = value.almacen === ''
   return (
     <CondicionCampo
-      value={{ campo: value.almacen, op: sin ? 'no' : value.op, v1: value.v1, v2: value.v2 }}
+      value={{
+        campo: value.almacen,
+        op: sin ? 'no' : value.op,
+        v1: value.v1,
+        v2: value.v2,
+      }}
       tipoFijo="num"
       onChange={(c) => onChange({ almacen: value.almacen, op: c.op, v1: c.v1, v2: c.v2 })}
       sinCampo={
-        <GwSelect className={IN} value={value.almacen} onChange={(e) => onChange({ ...value, almacen: e.target.value, op: e.target.value === '' ? 'no' : value.op })}>
+        <GwSelect
+          className={IN}
+          value={value.almacen}
+          onChange={(e) =>
+            onChange({
+              ...value,
+              almacen: e.target.value,
+              op: e.target.value === '' ? 'no' : value.op,
+            })
+          }
+        >
           <option value="">Sin Almacenes</option>
           <option value="*">Todos los Almacenes</option>
           {almacenes.map((a) => (
@@ -546,7 +598,14 @@ export function FiltrarPor({ f, set, name }: { f: FiltroArticulos; set: (p: Part
       <GwRadio name={`${name}-por`} label={<span className={L}>Familia, Nivel:</span>} checked={f.por === 'familia'} onChange={() => set({ por: 'familia' })} />
       <span className="ml-auto flex gap-3">
         {([1, 2, 3] as const).map((n) => (
-          <GwRadio key={n} name={`${name}-nivel`} disabled={f.por !== 'familia'} label={<span className={L}>{n}º</span>} checked={f.nivel === n} onChange={() => set({ nivel: n })} />
+          <GwRadio
+            key={n}
+            name={`${name}-nivel`}
+            disabled={f.por !== 'familia'}
+            label={<span className={L}>{n}º</span>}
+            checked={f.nivel === n}
+            onChange={() => set({ nivel: n })}
+          />
         ))}
       </span>
     </div>

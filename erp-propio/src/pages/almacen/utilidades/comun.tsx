@@ -45,7 +45,11 @@ export function fechaEs(iso: string | null | undefined, conHora = false) {
   if (!iso) return ''
   const d = new Date(iso.length === 10 ? `${iso}T00:00:00` : iso)
   if (Number.isNaN(d.getTime())) return ''
-  const f = d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const f = d.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
   return conHora ? `${f} ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : f
 }
 
@@ -67,7 +71,9 @@ export function descargarCsv(nombre: string, cabecera: string[], filas: (string 
 
 /** RPC de informe con un único parámetro jsonb (limite/desplazamiento dentro). */
 export async function rpcPagina<T>(fn: string, p: Record<string, unknown>, desde: number, limite: number): Promise<T[]> {
-  const { data, error } = await supabase.rpc(fn, { p: { ...p, limite, desplazamiento: desde } })
+  const { data, error } = await supabase.rpc(fn, {
+    p: { ...p, limite, desplazamiento: desde },
+  })
   if (error) throw error
   return (data ?? []) as T[]
 }
@@ -177,7 +183,11 @@ export function CampoArticulo({
   className?: string
   onIntro?: (v: string) => void
 }) {
-  const abrir = () => lista.abrir(DEF_ARTICULOS, { texto: value || null, onPick: (f) => onChange(String(f.codigo_interno)) })
+  const abrir = () =>
+    lista.abrir(DEF_ARTICULOS, {
+      texto: value || null,
+      onPick: (f) => onChange(String(f.codigo_interno)),
+    })
   return (
     <span className="flex min-w-0">
       <GwInput
@@ -378,11 +388,7 @@ export function VisorInforme<T>({
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/20 pt-4">
-      <GwWindow
-        title={titulo}
-        onClose={onCerrar}
-        className="h-[calc(100vh-32px)] w-[1300px] max-w-[98vw] [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-hidden"
-      >
+      <GwWindow title={titulo} onClose={onCerrar} className="h-[calc(100vh-32px)] w-[1300px] max-w-[98vw] [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-hidden">
         <div className="flex h-full min-h-0 flex-col gap-1">
           <div className="flex flex-none items-center gap-2">
             <span className="text-[15px] font-bold">{titulo}</span>

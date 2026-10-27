@@ -53,7 +53,16 @@ export function ListadoPresupuestosPage() {
       extremo('vendedor', 'codigo', false),
       extremo('cliente', 'codigo', false),
     ]).then(([nd, nh, td, th, vd, vh, ch]) =>
-      setF((x) => ({ ...x, numeroDesde: nd, numeroHasta: nh, tiendaDesde: td, tiendaHasta: th, vendedorDesde: vd, vendedorHasta: vh, clienteHasta: ch })),
+      setF((x) => ({
+        ...x,
+        numeroDesde: nd,
+        numeroHasta: nh,
+        tiendaDesde: td,
+        tiendaHasta: th,
+        vendedorDesde: vd,
+        vendedorHasta: vh,
+        clienteHasta: ch,
+      })),
     )
   }, [])
 
@@ -108,8 +117,18 @@ export function ListadoPresupuestosPage() {
           <div>
             <div className={DLG.etiqueta}>Nº Presupuesto</div>
             <div className={`${DLG.marco} flex gap-[3px] p-[2px]!`}>
-              <input className={`${DLG.input} w-[62px] text-right`} value={f.numeroDesde} onChange={(e) => set({ numeroDesde: e.target.value })} title="Desde" />
-              <input className={`${DLG.input} w-[62px] text-right`} value={f.numeroHasta} onChange={(e) => set({ numeroHasta: e.target.value })} title="Hasta" />
+              <input
+                className={`${DLG.input} w-[62px] text-right`}
+                value={f.numeroDesde}
+                onChange={(e) => set({ numeroDesde: e.target.value })}
+                title="Desde"
+              />
+              <input
+                className={`${DLG.input} w-[62px] text-right`}
+                value={f.numeroHasta}
+                onChange={(e) => set({ numeroHasta: e.target.value })}
+                title="Hasta"
+              />
             </div>
           </div>
         </div>
@@ -117,12 +136,40 @@ export function ListadoPresupuestosPage() {
           <div className={DLG.etiqueta}>Tienda</div>
           <div className="flex gap-1.5">
             <div className={`${DLG.marco} flex flex-col gap-[2px]`}>
-              <DlgCodigoNombre valor={f.tiendaDesde} onChange={(v) => set({ tiendaDesde: v })} buscador="tienda" anchoCodigo={18} anchoNombre={118} title="Tienda desde" />
-              <DlgCodigoNombre valor={f.tiendaHasta} onChange={(v) => set({ tiendaHasta: v })} buscador="tienda" anchoCodigo={18} anchoNombre={118} title="Tienda hasta" />
+              <DlgCodigoNombre
+                valor={f.tiendaDesde}
+                onChange={(v) => set({ tiendaDesde: v })}
+                buscador="tienda"
+                anchoCodigo={18}
+                anchoNombre={118}
+                title="Tienda desde"
+              />
+              <DlgCodigoNombre
+                valor={f.tiendaHasta}
+                onChange={(v) => set({ tiendaHasta: v })}
+                buscador="tienda"
+                anchoCodigo={18}
+                anchoNombre={118}
+                title="Tienda hasta"
+              />
             </div>
             <div className={`${DLG.marco} flex flex-col gap-[2px]`}>
-              <DlgCodigoNombre valor={f.vendedorDesde} onChange={(v) => set({ vendedorDesde: v })} buscador="vendedor" anchoCodigo={26} anchoNombre={106} title="Vendedor desde" />
-              <DlgCodigoNombre valor={f.vendedorHasta} onChange={(v) => set({ vendedorHasta: v })} buscador="vendedor" anchoCodigo={26} anchoNombre={106} title="Vendedor hasta" />
+              <DlgCodigoNombre
+                valor={f.vendedorDesde}
+                onChange={(v) => set({ vendedorDesde: v })}
+                buscador="vendedor"
+                anchoCodigo={26}
+                anchoNombre={106}
+                title="Vendedor desde"
+              />
+              <DlgCodigoNombre
+                valor={f.vendedorHasta}
+                onChange={(v) => set({ vendedorHasta: v })}
+                buscador="vendedor"
+                anchoCodigo={26}
+                anchoNombre={106}
+                title="Vendedor hasta"
+              />
             </div>
           </div>
         </div>
@@ -130,9 +177,23 @@ export function ListadoPresupuestosPage() {
           <div className={DLG.etiqueta}>Cliente</div>
           <div className={`${DLG.marco} inline-grid grid-cols-[auto_auto] items-center gap-x-1 gap-y-[2px]`}>
             <span className={DLG.etiqueta}>Desde</span>
-            <DlgCodigoNombre valor={f.clienteDesde} onChange={(v) => set({ clienteDesde: v })} buscador="cliente" anchoCodigo={62} anchoNombre={150} title="Cliente desde" />
+            <DlgCodigoNombre
+              valor={f.clienteDesde}
+              onChange={(v) => set({ clienteDesde: v })}
+              buscador="cliente"
+              anchoCodigo={62}
+              anchoNombre={150}
+              title="Cliente desde"
+            />
             <span className={DLG.etiqueta}>Hasta</span>
-            <DlgCodigoNombre valor={f.clienteHasta} onChange={(v) => set({ clienteHasta: v })} buscador="cliente" anchoCodigo={62} anchoNombre={150} title="Cliente hasta" />
+            <DlgCodigoNombre
+              valor={f.clienteHasta}
+              onChange={(v) => set({ clienteHasta: v })}
+              buscador="cliente"
+              anchoCodigo={62}
+              anchoNombre={150}
+              title="Cliente hasta"
+            />
           </div>
         </div>
         <div className="flex items-center justify-center gap-1.5 pt-1">

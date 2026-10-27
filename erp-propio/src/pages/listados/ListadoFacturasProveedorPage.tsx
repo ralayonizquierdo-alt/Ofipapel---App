@@ -51,11 +51,19 @@ export function ListadoFacturasProveedorPage() {
   const [tNum, setTNum] = useState(tiendaNumero())
   const [almacenes, setAlmacenes] = useState(rango())
   const [campoFecha, setCampoFecha] = useState('alta')
-  const [fecha, setFecha] = useState<RangoFecha>({ modo: 'cualquiera', desde: '', hasta: '' })
+  const [fecha, setFecha] = useState<RangoFecha>({
+    modo: 'cualquiera',
+    desde: '',
+    hasta: '',
+  })
   const [formas, setFormas] = useState(rango())
   const [pendientes, setPendientes] = useState(par())
   const [negativas, setNegativas] = useState(par())
-  const [fechaPago, setFechaPago] = useState<RangoFecha>({ modo: 'cualquiera', desde: '', hasta: '' })
+  const [fechaPago, setFechaPago] = useState<RangoFecha>({
+    modo: 'cualquiera',
+    desde: '',
+    hasta: '',
+  })
   const [totProv, setTotProv] = useState(totalProveedor())
   const [proveedores, setProveedores] = useState(rango())
 
@@ -82,14 +90,24 @@ export function ListadoFacturasProveedorPage() {
     ]
     const columnas: ColumnaInforme[] =
       informe === 'totales_proveedor'
-        ? [{ key: 'clave', titulo: 'Proveedor', ancho: 70 }, { key: 'descripcion', titulo: 'Nombre' }, { key: 'n', titulo: 'Nº Facturas', tipo: 'entero', ancho: 70 }, ...imp]
+        ? [
+            { key: 'clave', titulo: 'Proveedor', ancho: 70 },
+            { key: 'descripcion', titulo: 'Nombre' },
+            { key: 'n', titulo: 'Nº Facturas', tipo: 'entero', ancho: 70 },
+            ...imp,
+          ]
         : informe === 'mensual_proveedor'
           ? [{ key: 'descripcion', titulo: 'Mes' }, { key: 'n', titulo: 'Nº Facturas', tipo: 'entero', ancho: 70 }, ...imp]
           : [
               { key: 'descripcion', titulo: 'Factura' },
               { key: 'fecha', titulo: 'F. Factura', tipo: 'fecha', ancho: 66 },
               { key: 'documento', titulo: 'Nº Fact. Prov.', ancho: 95 },
-              { key: 'fecha_pago', titulo: 'F. Pago', tipo: 'fecha', ancho: 66 },
+              {
+                key: 'fecha_pago',
+                titulo: 'F. Pago',
+                tipo: 'fecha',
+                ancho: 66,
+              },
               { key: 'estado', titulo: 'Estado', ancho: 60 },
               ...imp,
             ]

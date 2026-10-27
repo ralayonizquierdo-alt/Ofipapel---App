@@ -36,8 +36,14 @@ import { CodigoBarras } from './codigoBarras'
 // Confirmar con Luis los formatos reales de sus etiquetas y las opciones de los desplegables.
 
 const INFORMES = [
-  { v: 'principal', l: 'Listar Etiquetas con el Cod. de Barras Principal del Artículo' },
-  { v: 'todos', l: 'Listar Etiquetas con todos los Códigos de Barras del Artículo' },
+  {
+    v: 'principal',
+    l: 'Listar Etiquetas con el Cod. de Barras Principal del Artículo',
+  },
+  {
+    v: 'todos',
+    l: 'Listar Etiquetas con todos los Códigos de Barras del Artículo',
+  },
   { v: 'interno', l: 'Listar Etiquetas con el Código Interno del Artículo' },
   { v: 'precio', l: 'Listar Etiquetas de Precio (sin código de barras)' },
 ]
@@ -66,9 +72,24 @@ function EtiquetaArt({ e, sencilla, sinBarras }: { e: Etiqueta; sencilla: boolea
   return (
     <div
       className="flex flex-col overflow-hidden bg-white text-black"
-      style={{ width: `${w}mm`, height: `${h}mm`, padding: sencilla ? '1.5mm 2mm' : '2.5mm 3mm', boxSizing: 'border-box', fontFamily: 'Arial, sans-serif' }}
+      style={{
+        width: `${w}mm`,
+        height: `${h}mm`,
+        padding: sencilla ? '1.5mm 2mm' : '2.5mm 3mm',
+        boxSizing: 'border-box',
+        fontFamily: 'Arial, sans-serif',
+      }}
     >
-      <div style={{ fontSize: sencilla ? '7pt' : '8pt', lineHeight: 1.15, height: sencilla ? '6mm' : '7mm', overflow: 'hidden' }}>{e.descripcion}</div>
+      <div
+        style={{
+          fontSize: sencilla ? '7pt' : '8pt',
+          lineHeight: 1.15,
+          height: sencilla ? '6mm' : '7mm',
+          overflow: 'hidden',
+        }}
+      >
+        {e.descripcion}
+      </div>
       <div className="flex items-baseline justify-between" style={{ marginTop: '0.5mm' }}>
         <span style={{ fontSize: '6pt' }}>{e.codigo}</span>
         <span style={{ fontSize: sencilla ? '13pt' : '15pt', fontWeight: 700 }}>{e.pvp != null ? `${formatGw(e.pvp, 2)} €` : ''}</span>
@@ -78,7 +99,11 @@ function EtiquetaArt({ e, sencilla, sinBarras }: { e: Etiqueta; sencilla: boolea
           <CodigoBarras codigo={e.barras} ancho={sencilla ? 44 : 52} alto={sencilla ? 13 : 15} />
         </div>
       )}
-      {sinBarras && <div className="mt-auto text-right" style={{ fontSize: '5.5pt' }}>IGIC incluido</div>}
+      {sinBarras && (
+        <div className="mt-auto text-right" style={{ fontSize: '5.5pt' }}>
+          IGIC incluido
+        </div>
+      )}
     </div>
   )
 }
@@ -134,9 +159,25 @@ export function EtiquetasPage() {
   const [cuantas, setCuantas] = useState('contador')
   const [contador, setContador] = useState(1)
   const [f, setF] = useState<FiltroArticulos>(() =>
-    filtroInicial({ articulos: rangoVacio(), fecha1: { campo: 'fecha_ultima_modificacion_pvp', op: 'no', v1: '', v2: '' }, fecha2: { campo: 'ultima_compra_fecha', op: 'no', v1: '', v2: '' } }),
+    filtroInicial({
+      articulos: rangoVacio(),
+      fecha1: {
+        campo: 'fecha_ultima_modificacion_pvp',
+        op: 'no',
+        v1: '',
+        v2: '',
+      },
+      fecha2: { campo: 'ultima_compra_fecha', op: 'no', v1: '', v2: '' },
+    }),
   )
-  const [pedido, setPedido] = useState<Rango & { tienda_desde: string; numero_desde: string; tienda_hasta: string; numero_hasta: string }>({
+  const [pedido, setPedido] = useState<
+    Rango & {
+      tienda_desde: string
+      numero_desde: string
+      tienda_hasta: string
+      numero_hasta: string
+    }
+  >({
     ...rangoVacio(),
     tienda_desde: '',
     numero_desde: '',
@@ -156,7 +197,13 @@ export function EtiquetasPage() {
   function payload(): Record<string, unknown> {
     const p: Record<string, unknown> = { ...aJson(f), orden }
     if (pedido.modo !== 'cualquiera')
-      p.pedido = { ...pedido, lista: pedido.lista.split(',').map((x) => x.trim()).filter(Boolean) }
+      p.pedido = {
+        ...pedido,
+        lista: pedido.lista
+          .split(',')
+          .map((x) => x.trim())
+          .filter(Boolean),
+      }
     // El stock hace falta para «Nº de etiquetas = Stock Actual» aunque no se filtre por él.
     if (cuantas === 'stock' && !f.alm_stock.almacen) p.alm_stock = { ...f.alm_stock, almacen: '*', op: 'no' }
     return p
@@ -172,9 +219,16 @@ export function EtiquetasPage() {
     if (informe === 'todos') {
       const cods = filas.map((r) => r.codigo_interno)
       for (let i = 0; i < cods.length; i += 300) {
-        const { data, error: e } = await supabase.from('articulo_codigo_barras').select('articulo_codigo, codigo_barras').in('articulo_codigo', cods.slice(i, i + 300))
+        const { data, error: e } = await supabase
+          .from('articulo_codigo_barras')
+          .select('articulo_codigo, codigo_barras')
+          .in('articulo_codigo', cods.slice(i, i + 300))
         if (e) throw e
-        for (const b of (data ?? []) as { articulo_codigo: string; codigo_barras: string }[]) extra.set(b.articulo_codigo, [...(extra.get(b.articulo_codigo) ?? []), b.codigo_barras])
+        for (const b of (data ?? []) as {
+          articulo_codigo: string
+          codigo_barras: string
+        }[])
+          extra.set(b.articulo_codigo, [...(extra.get(b.articulo_codigo) ?? []), b.codigo_barras])
       }
     }
     const out: Etiqueta[] = []
@@ -188,7 +242,14 @@ export function EtiquetasPage() {
             ? [...new Set([r.codigo_barras, ...(extra.get(r.codigo_interno) ?? [])].filter((x): x is string => !!x))]
             : [r.codigo_barras || r.codigo_interno]
       for (const c of codigos.length ? codigos : [r.codigo_interno])
-        for (let k = 0; k < n; k++) out.push({ key: `${r.codigo_interno}|${c}|${k}`, codigo: r.codigo_interno, descripcion: r.descripcion, barras: c, pvp: pvpConIgic(r) })
+        for (let k = 0; k < n; k++)
+          out.push({
+            key: `${r.codigo_interno}|${c}|${k}`,
+            codigo: r.codigo_interno,
+            descripcion: r.descripcion,
+            barras: c,
+            pvp: pvpConIgic(r),
+          })
       if (out.length > MAX_ETIQUETAS) throw new Error(`Salen más de ${MAX_ETIQUETAS} etiquetas: afina los filtros o el número de etiquetas por artículo.`)
     }
     return out
@@ -305,9 +366,29 @@ export function EtiquetasPage() {
                 <div className="flex min-w-0 flex-1 flex-col justify-between gap-[3px]">
                   <div className="grid grid-cols-[100px_minmax(0,1fr)_100px_minmax(0,1fr)] gap-1.5">
                     <CodigoBuscar value={pedido.tienda_desde} lookup="tienda" disabled={pedido.modo !== 'rango'} onChange={(v) => setPedido((x) => ({ ...x, tienda_desde: v }))} />
-                    <PedidoNumero value={pedido.numero_desde} disabled={pedido.modo !== 'rango'} onChange={(v, t) => setPedido((x) => ({ ...x, numero_desde: v, tienda_desde: t ?? x.tienda_desde }))} />
+                    <PedidoNumero
+                      value={pedido.numero_desde}
+                      disabled={pedido.modo !== 'rango'}
+                      onChange={(v, t) =>
+                        setPedido((x) => ({
+                          ...x,
+                          numero_desde: v,
+                          tienda_desde: t ?? x.tienda_desde,
+                        }))
+                      }
+                    />
                     <CodigoBuscar value={pedido.tienda_hasta} lookup="tienda" disabled={pedido.modo !== 'rango'} onChange={(v) => setPedido((x) => ({ ...x, tienda_hasta: v }))} />
-                    <PedidoNumero value={pedido.numero_hasta} disabled={pedido.modo !== 'rango'} onChange={(v, t) => setPedido((x) => ({ ...x, numero_hasta: v, tienda_hasta: t ?? x.tienda_hasta }))} />
+                    <PedidoNumero
+                      value={pedido.numero_hasta}
+                      disabled={pedido.modo !== 'rango'}
+                      onChange={(v, t) =>
+                        setPedido((x) => ({
+                          ...x,
+                          numero_hasta: v,
+                          tienda_hasta: t ?? x.tienda_hasta,
+                        }))
+                      }
+                    />
                   </div>
                   <span className="flex">
                     <GwInput
@@ -321,7 +402,12 @@ export function EtiquetasPage() {
                       soloBoton
                       value=""
                       disabled={pedido.modo !== 'seleccionar'}
-                      onChange={(v, t) => setPedido((x) => ({ ...x, lista: [x.lista, `${t}/${v}`].filter(Boolean).join(', ') }))}
+                      onChange={(v, t) =>
+                        setPedido((x) => ({
+                          ...x,
+                          lista: [x.lista, `${t}/${v}`].filter(Boolean).join(', '),
+                        }))
+                      }
                     />
                   </span>
                 </div>
@@ -345,7 +431,15 @@ export function EtiquetasPage() {
           cols={colsExaminar}
           cargar={(d, l) => rpcPagina<FilaArt>('fn_informe_articulos', examinar, d, l)}
           todas={() => rpcTodas<FilaArt>('fn_informe_articulos', examinar)}
-          totales={(r) => (r ? <span>Artículos: <b>{Number(r.total_filas).toLocaleString('es-ES')}</b></span> : <span>Ningún artículo.</span>)}
+          totales={(r) =>
+            r ? (
+              <span>
+                Artículos: <b>{Number(r.total_filas).toLocaleString('es-ES')}</b>
+              </span>
+            ) : (
+              <span>Ningún artículo.</span>
+            )
+          }
           clave={(r) => r.codigo_interno}
           onAbrir={(r) => navigate(`/articulos/${encodeURIComponent(r.codigo_interno)}`)}
           onCerrar={() => setExaminar(null)}
@@ -358,17 +452,7 @@ export function EtiquetasPage() {
 }
 
 /** Nº de pedido a proveedor con «···» (busca en pedido_proveedor y devuelve también la tienda). */
-function PedidoNumero({
-  value,
-  onChange,
-  disabled,
-  soloBoton,
-}: {
-  value: string
-  onChange: (numero: string, tienda?: string) => void
-  disabled?: boolean
-  soloBoton?: boolean
-}) {
+function PedidoNumero({ value, onChange, disabled, soloBoton }: { value: string; onChange: (numero: string, tienda?: string) => void; disabled?: boolean; soloBoton?: boolean }) {
   const [abierto, setAbierto] = useState(false)
   const boton = (
     <button type="button" className="gw-btn gw-lookup !h-[26px]" disabled={disabled} onClick={() => setAbierto(true)} title="Buscar pedido a proveedor">
@@ -385,7 +469,15 @@ function PedidoNumero({
 }
 
 function BuscarPedido({ onPick, onClose }: { onPick: (tienda: string, numero: number) => void; onClose: () => void }) {
-  const [filas, setFilas] = useState<{ tienda_terminal_codigo: string; numero: number; proveedor_codigo: string; estado: string; fecha_hora: string }[]>([])
+  const [filas, setFilas] = useState<
+    {
+      tienda_terminal_codigo: string
+      numero: number
+      proveedor_codigo: string
+      estado: string
+      fecha_hora: string
+    }[]
+  >([])
   useEffect(() => {
     supabase
       .from('pedido_proveedor')
@@ -432,7 +524,11 @@ function VistaEtiquetas({ etiquetas, sencilla, sinBarras, onCerrar }: { etiqueta
   const [imprimir, setImprimir] = useState(false)
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/20 pt-4">
-      <GwWindow title="Etiquetas (vista previa)" onClose={onCerrar} className="h-[calc(100vh-32px)] w-[960px] max-w-[98vw] [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-hidden">
+      <GwWindow
+        title="Etiquetas (vista previa)"
+        onClose={onCerrar}
+        className="h-[calc(100vh-32px)] w-[960px] max-w-[98vw] [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-hidden"
+      >
         <div className="flex h-full min-h-0 flex-col gap-1">
           <div className="min-h-0 flex-1 overflow-auto bg-[#9a9a9a] p-3">
             <Hojas etiquetas={etiquetas} sencilla={sencilla} sinBarras={sinBarras} pantalla />

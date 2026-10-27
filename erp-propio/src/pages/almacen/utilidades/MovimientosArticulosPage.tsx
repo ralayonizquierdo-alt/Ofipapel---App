@@ -27,19 +27,7 @@ import {
   type Salida,
 } from '../../../components/gw/GwInformeArticulos'
 import { GwSelect } from '../../../components/gw'
-import {
-  ImpresionInforme,
-  NOMBRE_DOC,
-  VisorInforme,
-  fechaEs,
-  msgError,
-  rpcPagina,
-  rpcTodas,
-  rutaDocumento,
-  useAlmacenes,
-  useF4,
-  type ColInforme,
-} from './comun'
+import { ImpresionInforme, NOMBRE_DOC, VisorInforme, fechaEs, msgError, rpcPagina, rpcTodas, rutaDocumento, useAlmacenes, useF4, type ColInforme } from './comun'
 
 // Almacén → List. de Movimientos de Artículos. Calcada de la captura 06-23 («Listados de
 // Movimientos de los Artículos»): mismos grupos de filtro y barra de salida. El informe sale de
@@ -121,9 +109,19 @@ export function MovimientosArticulosPage() {
   const [informe, setInforme] = useState('venta')
   const [soloTotales, setSoloTotales] = useState(false)
   const [orden, setOrden] = useState('articulo')
-  const [f, setF] = useState<FiltroArticulos>(() => filtroInicial({ alm_stock: { almacen: '*', op: 'no', v1: '', v2: '' }, anulados: { no: false, si: false } }))
+  const [f, setF] = useState<FiltroArticulos>(() =>
+    filtroInicial({
+      alm_stock: { almacen: '*', op: 'no', v1: '', v2: '' },
+      anulados: { no: false, si: false },
+    }),
+  )
   const [tiendas, setTiendas] = useState<Rango>(rangoVacio())
-  const [fecha, setFecha] = useState<{ tipo: 'pedido' | 'llegada' | 'factura'; modo: 'rango' | 'cualquiera'; desde: string | null; hasta: string | null }>({
+  const [fecha, setFecha] = useState<{
+    tipo: 'pedido' | 'llegada' | 'factura'
+    modo: 'rango' | 'cualquiera'
+    desde: string | null
+    hasta: string | null
+  }>({
     tipo: 'llegada',
     modo: 'cualquiera',
     desde: null,
@@ -136,7 +134,10 @@ export function MovimientosArticulosPage() {
   const [salida, setSalida] = useState<Salida>('pantalla')
   const [procesando, setProcesando] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [visor, setVisor] = useState<null | { p: Record<string, unknown>; modo: 'pantalla' | 'examinar' }>(null)
+  const [visor, setVisor] = useState<null | {
+    p: Record<string, unknown>
+    modo: 'pantalla' | 'examinar'
+  }>(null)
   const [impMov, setImpMov] = useState<Mov[] | null>(null)
   const [impRes, setImpRes] = useState<Res[] | null>(null)
   const set = (p: Partial<FiltroArticulos>) => setF((x) => ({ ...x, ...p }))
@@ -196,7 +197,12 @@ export function MovimientosArticulosPage() {
     { k: 'articulo_codigo', l: 'Cod. Interno', w: 110 },
     { k: 'descripcion', l: 'Descripción', w: 280 },
     { k: 'almacen_codigo', l: 'Alm.', w: 40 },
-    { k: 'tipo', l: 'Tipo', w: 80, v: (m) => TIPO[m.tipo_movimiento] ?? m.tipo_movimiento },
+    {
+      k: 'tipo',
+      l: 'Tipo',
+      w: 80,
+      v: (m) => TIPO[m.tipo_movimiento] ?? m.tipo_movimiento,
+    },
     {
       k: 'documento',
       l: 'Documento',
@@ -215,8 +221,20 @@ export function MovimientosArticulosPage() {
     },
     { k: 'tercero_codigo', l: 'Cli./Prov.', w: 70 },
     { k: 'tercero_nombre', l: 'Nombre', w: 170 },
-    { k: 'entrada', l: 'Entradas', w: 78, d: 3, v: (m) => (m.entrada ? m.entrada : null) },
-    { k: 'salida', l: 'Salidas', w: 78, d: 3, v: (m) => (m.salida ? m.salida : null) },
+    {
+      k: 'entrada',
+      l: 'Entradas',
+      w: 78,
+      d: 3,
+      v: (m) => (m.entrada ? m.entrada : null),
+    },
+    {
+      k: 'salida',
+      l: 'Salidas',
+      w: 78,
+      d: 3,
+      v: (m) => (m.salida ? m.salida : null),
+    },
     { k: 'saldo', l: 'Saldo', w: 84, d: 3 },
     { k: 'costo_unitario', l: 'Coste', w: 72, d: 3 },
   ]
@@ -296,8 +314,18 @@ export function MovimientosArticulosPage() {
             >
               <div className="flex items-center gap-2">
                 <div className={`flex w-[118px] flex-none flex-col ${L}`}>
-                  <GwRadio name="mov-fmodo" label={<span className={L}>Desde/Hasta</span>} checked={fecha.modo === 'rango'} onChange={() => setFecha((x) => ({ ...x, modo: 'rango' }))} />
-                  <GwRadio name="mov-fmodo" label={<span className={L}>Cualquiera</span>} checked={fecha.modo === 'cualquiera'} onChange={() => setFecha((x) => ({ ...x, modo: 'cualquiera' }))} />
+                  <GwRadio
+                    name="mov-fmodo"
+                    label={<span className={L}>Desde/Hasta</span>}
+                    checked={fecha.modo === 'rango'}
+                    onChange={() => setFecha((x) => ({ ...x, modo: 'rango' }))}
+                  />
+                  <GwRadio
+                    name="mov-fmodo"
+                    label={<span className={L}>Cualquiera</span>}
+                    checked={fecha.modo === 'cualquiera'}
+                    onChange={() => setFecha((x) => ({ ...x, modo: 'cualquiera' }))}
+                  />
                 </div>
                 <span className="min-w-0 flex-1">
                   <GwDate className={IN} value={fecha.desde} disabled={fecha.modo !== 'rango'} onChange={(v) => setFecha((x) => ({ ...x, desde: v }))} />
@@ -330,7 +358,15 @@ export function MovimientosArticulosPage() {
                       name="mov-ter"
                       label={<span className={L}>{t[0].toUpperCase() + t.slice(1)}</span>}
                       checked={tercero.tipo === t}
-                      onChange={() => setTercero((x) => ({ ...x, tipo: t, desde: '', hasta: '', lista: '' }))}
+                      onChange={() =>
+                        setTercero((x) => ({
+                          ...x,
+                          tipo: t,
+                          desde: '',
+                          hasta: '',
+                          lista: '',
+                        }))
+                      }
                     />
                   ))}
                 </span>
@@ -341,7 +377,12 @@ export function MovimientosArticulosPage() {
             <Grupo
               titulo="Filtrar Según Campo"
               derecha={
-                <button type="button" className="ml-auto text-[16px] text-[#1a4fd0]" title="Varios valores separados por comas" onClick={() => set({ campo: { ...f.campo, op: 'lista' } })}>
+                <button
+                  type="button"
+                  className="ml-auto text-[16px] text-[#1a4fd0]"
+                  title="Varios valores separados por comas"
+                  onClick={() => set({ campo: { ...f.campo, op: 'lista' } })}
+                >
                   Múltiple
                 </button>
               }
@@ -364,9 +405,23 @@ export function MovimientosArticulosPage() {
           <div className="grid grid-cols-2 gap-3">
             <Grupo titulo="Elegir y/o Filtrar Según el Pvp del Artículo">
               <CondicionCampo
-                value={{ campo: String(f.pvp.nivel), op: f.pvp.op, v1: f.pvp.v1, v2: f.pvp.v2 }}
+                value={{
+                  campo: String(f.pvp.nivel),
+                  op: f.pvp.op,
+                  v1: f.pvp.v1,
+                  v2: f.pvp.v2,
+                }}
                 tipoFijo="num"
-                onChange={(c) => set({ pvp: { nivel: Number(c.campo), op: c.op, v1: c.v1, v2: c.v2 } })}
+                onChange={(c) =>
+                  set({
+                    pvp: {
+                      nivel: Number(c.campo),
+                      op: c.op,
+                      v1: c.v1,
+                      v2: c.v2,
+                    },
+                  })
+                }
                 sinCampo={
                   <GwSelect className={IN} value={f.pvp.nivel} onChange={(e) => set({ pvp: { ...f.pvp, nivel: Number(e.target.value) } })}>
                     {NIVELES_PVP.map((n, i) => (
@@ -423,7 +478,15 @@ export function MovimientosArticulosPage() {
         />
       )}
       {impMov && (
-        <ImpresionInforme titulo={titulo} subtitulo={subtitulo} cols={colsMov} filas={impMov} totales={lineaTotales(impMov[0])} clave={(m) => String(m.id)} soloTotales={soloTotales} />
+        <ImpresionInforme
+          titulo={titulo}
+          subtitulo={subtitulo}
+          cols={colsMov}
+          filas={impMov}
+          totales={lineaTotales(impMov[0])}
+          clave={(m) => String(m.id)}
+          soloTotales={soloTotales}
+        />
       )}
       {impRes && (
         <ImpresionInforme

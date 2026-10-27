@@ -12,7 +12,12 @@ import { rpc } from './comun'
 export function AperturasCajonPage() {
   const inf = useInforme()
   const hoy = hoyIso()
-  const [f, setF] = useState({ fechaDesde: hoy as string | null, fechaHasta: hoy as string | null, empleadoDesde: '', empleadoHasta: '' })
+  const [f, setF] = useState({
+    fechaDesde: hoy as string | null,
+    fechaHasta: hoy as string | null,
+    empleadoDesde: '',
+    empleadoHasta: '',
+  })
   const [destino, setDestino] = useState<'pantalla' | 'impresora'>('pantalla')
   const set = (p: Partial<typeof f>) => setF((x) => ({ ...x, ...p }))
 
@@ -21,7 +26,11 @@ export function AperturasCajonPage() {
       supabase.from('empleado').select('codigo').order('codigo').limit(1),
       supabase.from('empleado').select('codigo').order('codigo', { ascending: false }).limit(1),
     ]).then(([a, b]) =>
-      setF((x) => ({ ...x, empleadoDesde: (a.data?.[0]?.codigo as string) ?? '', empleadoHasta: (b.data?.[0]?.codigo as string) ?? '' })),
+      setF((x) => ({
+        ...x,
+        empleadoDesde: (a.data?.[0]?.codigo as string) ?? '',
+        empleadoHasta: (b.data?.[0]?.codigo as string) ?? '',
+      })),
     )
   }, [])
 
@@ -37,13 +46,24 @@ export function AperturasCajonPage() {
           { key: 'tienda', titulo: 'Tienda', ancho: 50 },
           { key: 'documento', titulo: 'Venta', ancho: 80 },
           { key: 'motivo', titulo: 'Motivo' },
-          { key: 'n', titulo: 'Aperturas', tipo: 'entero', ancho: 70, suma: true },
+          {
+            key: 'n',
+            titulo: 'Aperturas',
+            tipo: 'entero',
+            ancho: 70,
+            suma: true,
+          },
         ],
         filtros: [
           `Fecha: ${fechaEs(f.fechaDesde) || '…'} a ${fechaEs(f.fechaHasta) || '…'}`,
           `Empleados: ${f.empleadoDesde || '…'} a ${f.empleadoHasta || '…'}`,
         ],
-        cargar: () => rpc('fn_lst_aperturas_cajon', { ...f, fechaDesde: f.fechaDesde ?? '', fechaHasta: f.fechaHasta ?? '' }),
+        cargar: () =>
+          rpc('fn_lst_aperturas_cajon', {
+            ...f,
+            fechaDesde: f.fechaDesde ?? '',
+            fechaHasta: f.fechaHasta ?? '',
+          }),
       },
       destino,
     )
@@ -73,9 +93,23 @@ export function AperturasCajonPage() {
           <span className={`${DLG.etiqueta} absolute left-1.5 top-[-2px]`}>Empleado:</span>
           <div className="grid grid-cols-[auto_auto] items-center gap-x-1 gap-y-[2px]">
             <span className={`${DLG.etiqueta} text-right`}>Desde:</span>
-            <DlgCodigoNombre valor={f.empleadoDesde} onChange={(v) => set({ empleadoDesde: v })} buscador="empleado" anchoCodigo={26} anchoNombre={136} title="Empleado desde" />
+            <DlgCodigoNombre
+              valor={f.empleadoDesde}
+              onChange={(v) => set({ empleadoDesde: v })}
+              buscador="empleado"
+              anchoCodigo={54}
+              anchoNombre={110}
+              title="Empleado desde"
+            />
             <span className={`${DLG.etiqueta} text-right`}>Hasta:</span>
-            <DlgCodigoNombre valor={f.empleadoHasta} onChange={(v) => set({ empleadoHasta: v })} buscador="empleado" anchoCodigo={26} anchoNombre={136} title="Empleado hasta" />
+            <DlgCodigoNombre
+              valor={f.empleadoHasta}
+              onChange={(v) => set({ empleadoHasta: v })}
+              buscador="empleado"
+              anchoCodigo={54}
+              anchoNombre={110}
+              title="Empleado hasta"
+            />
           </div>
         </div>
         <div className="flex justify-center">

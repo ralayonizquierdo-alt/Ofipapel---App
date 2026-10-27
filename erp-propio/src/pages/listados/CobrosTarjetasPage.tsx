@@ -36,7 +36,12 @@ export function CobrosTarjetasPage() {
       .order('codigo')
       .then(({ data }) => {
         const c = (data ?? []).map((r) => r.codigo as string)
-        if (c.length) setF((x) => ({ ...x, tarjetaDesde: x.tarjetaDesde || c[0], tarjetaHasta: x.tarjetaHasta || c[c.length - 1] }))
+        if (c.length)
+          setF((x) => ({
+            ...x,
+            tarjetaDesde: x.tarjetaDesde || c[0],
+            tarjetaHasta: x.tarjetaHasta || c[c.length - 1],
+          }))
       })
   }, [])
 
@@ -66,9 +71,15 @@ export function CobrosTarjetasPage() {
           `Fecha de venta: ${fechaEs(f.fechaDesde) || '…'} a ${fechaEs(f.fechaHasta) || '…'}`,
           (f.tiendaDesde || f.tiendaHasta) && `Tiendas: ${f.tiendaDesde || '…'} a ${f.tiendaHasta || '…'}`,
           (f.vendedorDesde || f.vendedorHasta) && `Vendedores: ${f.vendedorDesde || '…'} a ${f.vendedorHasta || '…'}`,
-          (f.agruparTienda || f.agruparVendedor) && `Agrupado por: ${[f.agruparTienda && 'tienda', f.agruparVendedor && 'vendedor'].filter(Boolean).join(' y ')}`,
+          (f.agruparTienda || f.agruparVendedor) &&
+            `Agrupado por: ${[f.agruparTienda && 'tienda', f.agruparVendedor && 'vendedor'].filter(Boolean).join(' y ')}`,
         ],
-        cargar: () => rpc('fn_lst_cobros_tarjeta', { ...f, fechaDesde: f.fechaDesde ?? '', fechaHasta: f.fechaHasta ?? '' }),
+        cargar: () =>
+          rpc('fn_lst_cobros_tarjeta', {
+            ...f,
+            fechaDesde: f.fechaDesde ?? '',
+            fechaHasta: f.fechaHasta ?? '',
+          }),
       },
       destino,
     )
@@ -82,9 +93,23 @@ export function CobrosTarjetasPage() {
           <div className={DLG.etiqueta}>Tarjeta:</div>
           <div className={`${DLG.marco} grid grid-cols-[auto_auto] items-center gap-x-1 gap-y-[2px]`}>
             <span className={`${DLG.etiqueta} text-right`}>Desde:</span>
-            <DlgCodigoNombre valor={f.tarjetaDesde} onChange={(v) => set({ tarjetaDesde: v })} buscador="formaPago" anchoCodigo={20} anchoNombre={158} title="Forma de pago desde" />
+            <DlgCodigoNombre
+              valor={f.tarjetaDesde}
+              onChange={(v) => set({ tarjetaDesde: v })}
+              buscador="formaPago"
+              anchoCodigo={20}
+              anchoNombre={158}
+              title="Forma de pago desde"
+            />
             <span className={`${DLG.etiqueta} text-right`}>Hasta:</span>
-            <DlgCodigoNombre valor={f.tarjetaHasta} onChange={(v) => set({ tarjetaHasta: v })} buscador="formaPago" anchoCodigo={20} anchoNombre={158} title="Forma de pago hasta" />
+            <DlgCodigoNombre
+              valor={f.tarjetaHasta}
+              onChange={(v) => set({ tarjetaHasta: v })}
+              buscador="formaPago"
+              anchoCodigo={20}
+              anchoNombre={158}
+              title="Forma de pago hasta"
+            />
           </div>
         </div>
         <div className="flex items-start gap-1">
@@ -111,8 +136,22 @@ export function CobrosTarjetasPage() {
           <div>
             <div className={DLG.etiqueta}>Vendedor:</div>
             <div className={`${DLG.marco} flex flex-col gap-[2px] p-[2px]!`}>
-              <DlgCodigoNombre valor={f.vendedorDesde} onChange={(v) => set({ vendedorDesde: v })} buscador="vendedor" anchoCodigo={20} anchoNombre={96} title="Vendedor desde" />
-              <DlgCodigoNombre valor={f.vendedorHasta} onChange={(v) => set({ vendedorHasta: v })} buscador="vendedor" anchoCodigo={20} anchoNombre={96} title="Vendedor hasta" />
+              <DlgCodigoNombre
+                valor={f.vendedorDesde}
+                onChange={(v) => set({ vendedorDesde: v })}
+                buscador="vendedor"
+                anchoCodigo={20}
+                anchoNombre={96}
+                title="Vendedor desde"
+              />
+              <DlgCodigoNombre
+                valor={f.vendedorHasta}
+                onChange={(v) => set({ vendedorHasta: v })}
+                buscador="vendedor"
+                anchoCodigo={20}
+                anchoNombre={96}
+                title="Vendedor hasta"
+              />
             </div>
           </div>
           <div>
@@ -123,7 +162,12 @@ export function CobrosTarjetasPage() {
                 Tienda
               </label>
               <label className="flex items-center gap-1 font-bold">
-                <input type="checkbox" className="m-0 h-[12px] w-[12px]" checked={f.agruparVendedor} onChange={(e) => set({ agruparVendedor: e.target.checked })} />
+                <input
+                  type="checkbox"
+                  className="m-0 h-[12px] w-[12px]"
+                  checked={f.agruparVendedor}
+                  onChange={(e) => set({ agruparVendedor: e.target.checked })}
+                />
                 Vendedor
               </label>
             </div>
@@ -131,8 +175,26 @@ export function CobrosTarjetasPage() {
         </div>
         <div className="flex justify-center gap-1.5 pt-1">
           <div className={`${DLG.marco} flex flex-col gap-1`}>
-            <DlgRadio nombre="tarj-modo" label={<><u>D</u>esglosado</>} on={f.modo === 'desglosado'} set={() => set({ modo: 'desglosado' })} />
-            <DlgRadio nombre="tarj-modo" label={<><u>R</u>esumido</>} on={f.modo === 'resumido'} set={() => set({ modo: 'resumido' })} />
+            <DlgRadio
+              nombre="tarj-modo"
+              label={
+                <>
+                  <u>D</u>esglosado
+                </>
+              }
+              on={f.modo === 'desglosado'}
+              set={() => set({ modo: 'desglosado' })}
+            />
+            <DlgRadio
+              nombre="tarj-modo"
+              label={
+                <>
+                  <u>R</u>esumido
+                </>
+              }
+              on={f.modo === 'resumido'}
+              set={() => set({ modo: 'resumido' })}
+            />
           </div>
           <DlgDestino nombre="tarj-dest" valor={destino} onChange={setDestino} />
         </div>

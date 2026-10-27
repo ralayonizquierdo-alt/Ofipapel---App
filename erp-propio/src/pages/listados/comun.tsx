@@ -16,7 +16,14 @@ export interface TiendaNumero {
   hastaNumero: string
   lista: string
 }
-export const tiendaNumero = (): TiendaNumero => ({ modo: 'cualquiera', desdeTienda: '', desdeNumero: '', hastaTienda: '', hastaNumero: '', lista: '' })
+export const tiendaNumero = (): TiendaNumero => ({
+  modo: 'cualquiera',
+  desdeTienda: '',
+  desdeNumero: '',
+  hastaTienda: '',
+  hastaNumero: '',
+  lista: '',
+})
 
 export function tiendaNumeroSql(t: TiendaNumero) {
   return {
@@ -33,8 +40,7 @@ export function tiendaNumeroSql(t: TiendaNumero) {
 }
 
 export function describirTiendaNumero(nombre: string, t: TiendaNumero) {
-  if (t.modo === 'desdeHasta')
-    return `${nombre}: desde ${t.desdeTienda || '…'}/${t.desdeNumero || '…'} hasta ${t.hastaTienda || '…'}/${t.hastaNumero || '…'}`
+  if (t.modo === 'desdeHasta') return `${nombre}: desde ${t.desdeTienda || '…'}/${t.desdeNumero || '…'} hasta ${t.hastaTienda || '…'}/${t.hastaNumero || '…'}`
   if (t.modo === 'seleccionar' && t.lista.trim()) return `${nombre}: ${t.lista}`
   return null
 }
@@ -64,9 +70,23 @@ export function GrupoTiendaNumero({
         </div>
         <div className="flex min-w-0 flex-col gap-[2px]">
           <div className="flex min-w-0 gap-2">
-            <CampoCodigo valor={valor.desdeTienda} onChange={(v) => set({ desdeTienda: v })} buscador="tienda" disabled={off} ancho={108} title="Tienda desde" />
+            <CampoCodigo
+              valor={valor.desdeTienda}
+              onChange={(v) => set({ desdeTienda: v })}
+              buscador="tienda"
+              disabled={off}
+              ancho={108}
+              title="Tienda desde"
+            />
             <CampoCodigo valor={valor.desdeNumero} onChange={(v) => set({ desdeNumero: v })} disabled={off} className="flex-1" numerico title="Número desde" />
-            <CampoCodigo valor={valor.hastaTienda} onChange={(v) => set({ hastaTienda: v })} buscador="tienda" disabled={off} ancho={108} title="Tienda hasta" />
+            <CampoCodigo
+              valor={valor.hastaTienda}
+              onChange={(v) => set({ hastaTienda: v })}
+              buscador="tienda"
+              disabled={off}
+              ancho={108}
+              title="Tienda hasta"
+            />
             <CampoCodigo valor={valor.hastaNumero} onChange={(v) => set({ hastaNumero: v })} disabled={off} className="flex-1" numerico title="Número hasta" />
           </div>
           <div className="h-[26px]" />
@@ -86,7 +106,11 @@ export function GrupoTiendaNumero({
 
 /* ---------- Filtrar Según Campo de Cliente ---------- */
 
-export const CAMPOS_CLIENTE: { value: string; label: string; buscador?: NombreBuscador }[] = [
+export const CAMPOS_CLIENTE: {
+  value: string
+  label: string
+  buscador?: NombreBuscador
+}[] = [
   { value: 'tipo_cliente', label: 'Tipo Cliente', buscador: 'tipoCliente' },
   { value: 'zona', label: 'Zona Territorial', buscador: 'zona' },
   { value: 'vendedor', label: 'Vendedor', buscador: 'vendedor' },
@@ -102,7 +126,12 @@ export interface CampoCliente {
   desde: string
   hasta: string
 }
-export const campoCliente = (): CampoCliente => ({ campo: 'tipo_cliente', modo: 'no', desde: '', hasta: '' })
+export const campoCliente = (): CampoCliente => ({
+  campo: 'tipo_cliente',
+  modo: 'no',
+  desde: '',
+  hasta: '',
+})
 
 export function describirCampoCliente(c: CampoCliente) {
   if (c.modo === 'no') return null
@@ -135,7 +164,12 @@ export function GrupoCampoCliente({
       }
     >
       <div className="grid grid-cols-2 gap-x-2 gap-y-[6px]">
-        <select className={LST_INPUT} value={valor.campo} onChange={(e) => set({ campo: e.target.value, desde: '', hasta: '' })} title="Campo de la ficha del cliente">
+        <select
+          className={LST_INPUT}
+          value={valor.campo}
+          onChange={(e) => set({ campo: e.target.value, desde: '', hasta: '' })}
+          title="Campo de la ficha del cliente"
+        >
           {CAMPOS_CLIENTE.map((c) => (
             <option key={c.value} value={c.value}>
               {c.label}
@@ -152,8 +186,22 @@ export function GrupoCampoCliente({
             {multiple}
           </span>
         </div>
-        <CampoCodigo valor={valor.desde} onChange={(v) => set({ desde: v })} buscador={bus} disabled={valor.modo === 'no'} className="flex-1" title="Desde / valor" />
-        <CampoCodigo valor={valor.hasta} onChange={(v) => set({ hasta: v })} buscador={bus} disabled={valor.modo !== 'desdeHasta'} className="flex-1" title="Hasta" />
+        <CampoCodigo
+          valor={valor.desde}
+          onChange={(v) => set({ desde: v })}
+          buscador={bus}
+          disabled={valor.modo === 'no'}
+          className="flex-1"
+          title="Desde / valor"
+        />
+        <CampoCodigo
+          valor={valor.hasta}
+          onChange={(v) => set({ hasta: v })}
+          buscador={bus}
+          disabled={valor.modo !== 'desdeHasta'}
+          className="flex-1"
+          title="Hasta"
+        />
       </div>
     </LstGrupo>
   )
@@ -166,8 +214,16 @@ export interface TotalProveedor {
   a: string
   b: string
 }
-export const totalProveedor = (): TotalProveedor => ({ modo: 'no', a: '0,00', b: '0,00' })
-export const totalProveedorSql = (t: TotalProveedor) => ({ modo: t.modo, a: t.a.replace(/\./g, '').replace(',', '.'), b: t.b.replace(/\./g, '').replace(',', '.') })
+export const totalProveedor = (): TotalProveedor => ({
+  modo: 'no',
+  a: '0,00',
+  b: '0,00',
+})
+export const totalProveedorSql = (t: TotalProveedor) => ({
+  modo: t.modo,
+  a: t.a.replace(/\./g, '').replace(',', '.'),
+  b: t.b.replace(/\./g, '').replace(',', '.'),
+})
 export function describirTotalProveedor(t: TotalProveedor) {
   if (t.modo === 'mayor') return `Total del proveedor mayor que ${t.a}`
   if (t.modo === 'menor') return `Total del proveedor menor que ${t.a}`
@@ -186,9 +242,21 @@ export function GrupoTotalProveedor({ valor, onChange, className = '' }: { valor
           <option value="menor">Menor que</option>
           <option value="entre">Entre</option>
         </select>
-        <input className={`${LST_INPUT} h-[30px]! text-right text-[18px]!`} value={valor.a} disabled={valor.modo === 'no'} onChange={(e) => set({ a: e.target.value })} title="Importe" />
+        <input
+          className={`${LST_INPUT} h-[30px]! text-right text-[18px]!`}
+          value={valor.a}
+          disabled={valor.modo === 'no'}
+          onChange={(e) => set({ a: e.target.value })}
+          title="Importe"
+        />
         <span />
-        <input className={`${LST_INPUT} h-[30px]! text-right text-[18px]!`} value={valor.b} disabled={valor.modo !== 'entre'} onChange={(e) => set({ b: e.target.value })} title="Hasta (solo «Entre»)" />
+        <input
+          className={`${LST_INPUT} h-[30px]! text-right text-[18px]!`}
+          value={valor.b}
+          disabled={valor.modo !== 'entre'}
+          onChange={(e) => set({ b: e.target.value })}
+          title="Hasta (solo «Entre»)"
+        />
       </div>
     </LstGrupo>
   )
@@ -198,5 +266,8 @@ export function GrupoTotalProveedor({ valor, onChange, className = '' }: { valor
 export function mesEnCurso(): { desde: string; hasta: string } {
   const d = new Date()
   const p = (n: number) => String(n).padStart(2, '0')
-  return { desde: `${d.getFullYear()}-${p(d.getMonth() + 1)}-01T00:00:00`, hasta: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T23:59:59` }
+  return {
+    desde: `${d.getFullYear()}-${p(d.getMonth() + 1)}-01T00:00:00`,
+    hasta: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T23:59:59`,
+  }
 }

@@ -38,7 +38,10 @@ import {
 // Todo se calcula en fn_lst_ventas (subtotales y total en SQL).
 
 const INFORMES = [
-  { value: 'mensual_vendedor', label: 'Totales Mensuales de Ventas Agrupado por Vendedor' },
+  {
+    value: 'mensual_vendedor',
+    label: 'Totales Mensuales de Ventas Agrupado por Vendedor',
+  },
   { value: 'desglosado', label: 'Relación de Ventas Desglosada' },
   { value: 'diario', label: 'Totales Diarios de Ventas' },
   { value: 'mensual', label: 'Totales Mensuales de Ventas' },
@@ -72,8 +75,15 @@ export function ListadoVentasPage() {
   const [orden, setOrden] = useState('clave')
   const [destino, setDestino] = useState<Destino>('pantalla')
   const [campoFecha, setCampoFecha] = useState('venta')
-  const [fecha, setFecha] = useState<RangoFecha>(() => ({ modo: 'desdeHasta', ...mesEnCurso() }))
-  const [hora, setHora] = useState({ modo: 'cualquiera' as 'desdeHasta' | 'cualquiera', desde: '', hasta: '' })
+  const [fecha, setFecha] = useState<RangoFecha>(() => ({
+    modo: 'desdeHasta',
+    ...mesEnCurso(),
+  }))
+  const [hora, setHora] = useState({
+    modo: 'cualquiera' as 'desdeHasta' | 'cualquiera',
+    desde: '',
+    hasta: '',
+  })
   const [tiendas, setTiendas] = useState(rango())
   const [por, setPor] = useState<Por>('vendedor')
   const [personas, setPersonas] = useState(rango())
@@ -87,11 +97,20 @@ export function ListadoVentasPage() {
   const [credito, setCredito] = useState<Par>(par())
   const [aplazadas, setAplazadas] = useState<Par>(par())
   const [facturadas, setFacturadas] = useState<Par>(par())
-  const [reparto, setReparto] = useState({ sinReparto: false, entregado: false, pendiente: false, devuelto: false })
+  const [reparto, setReparto] = useState({
+    sinReparto: false,
+    entregado: false,
+    pendiente: false,
+    devuelto: false,
+  })
   const [reparaciones, setReparaciones] = useState<Par>(par())
   const [formas, setFormas] = useState(rango())
   const [fraccionados, setFraccionados] = useState(false)
-  const [ranking, setRanking] = useState({ activo: false, por: 'total', n: 10 })
+  const [ranking, setRanking] = useState({
+    activo: false,
+    por: 'total',
+    n: 10,
+  })
 
   const nombrePor = por === 'tecnico' ? 'Técnico' : por === 'empleado' ? 'Empleado' : 'Vendedor'
 
@@ -101,7 +120,11 @@ export function ListadoVentasPage() {
       orden,
       campoFecha,
       fecha: { modo: fecha.modo, desde: fecha.desde, hasta: fecha.hasta },
-      hora: { modo: hora.modo, desde: hora.desde.trim(), hasta: hora.hasta.trim() },
+      hora: {
+        modo: hora.modo,
+        desde: hora.desde.trim(),
+        hasta: hora.hasta.trim(),
+      },
       tiendas: rangoSql(tiendas),
       filtrarPor: por,
       personas: rangoSql(personas),
@@ -131,12 +154,28 @@ export function ListadoVentasPage() {
         : ['vendedor', 'cliente', 'tienda', 'forma_pago'].includes(informe)
           ? [
               { key: 'clave', titulo: 'Código', ancho: 70 },
-              { key: 'descripcion', titulo: informe === 'vendedor' ? nombrePor : 'Descripción' },
-              { key: 'n_ventas', titulo: 'Nº Ventas', tipo: 'entero', ancho: 60 },
+              {
+                key: 'descripcion',
+                titulo: informe === 'vendedor' ? nombrePor : 'Descripción',
+              },
+              {
+                key: 'n_ventas',
+                titulo: 'Nº Ventas',
+                tipo: 'entero',
+                ancho: 60,
+              },
             ]
           : [
-              { key: 'descripcion', titulo: informe === 'diario' ? 'Día' : 'Mes' },
-              { key: 'n_ventas', titulo: 'Nº Ventas', tipo: 'entero', ancho: 60 },
+              {
+                key: 'descripcion',
+                titulo: informe === 'diario' ? 'Día' : 'Mes',
+              },
+              {
+                key: 'n_ventas',
+                titulo: 'Nº Ventas',
+                tipo: 'entero',
+                ancho: 60,
+              },
             ]
     const importes: ColumnaInforme[] = sinIgic
       ? [{ key: 'base', titulo: 'Base Imponible', tipo: 'num', ancho: 95 }]
@@ -147,7 +186,13 @@ export function ListadoVentasPage() {
           { key: 'pagado', titulo: 'Pagado', tipo: 'num', ancho: 80 },
           { key: 'pendiente', titulo: 'Pendiente', tipo: 'num', ancho: 80 },
         ]
-    if (comisiones) importes.push({ key: 'comision', titulo: 'Comisión', tipo: 'num', ancho: 75 })
+    if (comisiones)
+      importes.push({
+        key: 'comision',
+        titulo: 'Comisión',
+        tipo: 'num',
+        ancho: 75,
+      })
     inf.procesar(
       {
         titulo: etiqueta,
@@ -173,7 +218,8 @@ export function ListadoVentasPage() {
           describirPar('Sólo reparaciones', 'Sin reparaciones', reparaciones),
           describirRango('Formas de pago', formas),
           fraccionados && 'Solo pagos fraccionados',
-          ranking.activo && `Ranking: las ${ranking.n} primeras según ${ranking.por === 'base' ? 'base imponible' : ranking.por === 'comision' ? 'comisión' : 'total'}`,
+          ranking.activo &&
+            `Ranking: las ${ranking.n} primeras según ${ranking.por === 'base' ? 'base imponible' : ranking.por === 'comision' ? 'comisión' : 'total'}`,
           sinIgic && 'Importes sin IGIC',
         ],
         cargar: () => rpc('fn_lst_ventas', p),
@@ -182,9 +228,7 @@ export function ListadoVentasPage() {
     )
   }
 
-  const opt = (label: string, p: Par, set: (p: Par) => void, k: 'si' | 'no') => (
-    <BotonOpcion label={label} on={p[k]} set={(v) => set({ ...p, [k]: v })} />
-  )
+  const opt = (label: string, p: Par, set: (p: Par) => void, k: 'si' | 'no') => <BotonOpcion label={label} on={p[k]} set={(v) => set({ ...p, [k]: v })} />
 
   return (
     <>
@@ -215,8 +259,22 @@ export function ListadoVentasPage() {
                 <LstRadio nombre="lv-hora" label="Desde/Hasta" on={hora.modo === 'desdeHasta'} set={() => setHora({ ...hora, modo: 'desdeHasta' })} />
                 <LstRadio nombre="lv-hora" label="Cualquiera" on={hora.modo === 'cualquiera'} set={() => setHora({ ...hora, modo: 'cualquiera' })} />
               </div>
-              <input className={`${LST_INPUT} mt-[2px]`} value={hora.desde} placeholder=" :" disabled={hora.modo !== 'desdeHasta'} title="Hora desde (hh:mm)" onChange={(e) => setHora({ ...hora, desde: e.target.value })} />
-              <input className={`${LST_INPUT} mt-[2px]`} value={hora.hasta} placeholder=" :" disabled={hora.modo !== 'desdeHasta'} title="Hora hasta (hh:mm)" onChange={(e) => setHora({ ...hora, hasta: e.target.value })} />
+              <input
+                className={`${LST_INPUT} mt-[2px]`}
+                value={hora.desde}
+                placeholder=" :"
+                disabled={hora.modo !== 'desdeHasta'}
+                title="Hora desde (hh:mm)"
+                onChange={(e) => setHora({ ...hora, desde: e.target.value })}
+              />
+              <input
+                className={`${LST_INPUT} mt-[2px]`}
+                value={hora.hasta}
+                placeholder=" :"
+                disabled={hora.modo !== 'desdeHasta'}
+                title="Hora hasta (hh:mm)"
+                onChange={(e) => setHora({ ...hora, hasta: e.target.value })}
+              />
             </div>
           </LstGrupo>
         </div>
@@ -228,7 +286,13 @@ export function ListadoVentasPage() {
               <>
                 <span>Filtrar por:</span>
                 {(['vendedor', 'tecnico', 'empleado'] as Por[]).map((k) => (
-                  <LstRadio key={k} nombre="lv-por" label={k === 'vendedor' ? 'Vendedor' : k === 'tecnico' ? 'Técnico' : 'Empleado'} on={por === k} set={() => setPor(k)} />
+                  <LstRadio
+                    key={k}
+                    nombre="lv-por"
+                    label={k === 'vendedor' ? 'Vendedor' : k === 'tecnico' ? 'Técnico' : 'Empleado'}
+                    on={por === k}
+                    set={() => setPor(k)}
+                  />
                 ))}
               </>
             }
@@ -243,8 +307,22 @@ export function ListadoVentasPage() {
                 <option value="desdeHasta">Desde/Hasta</option>
               </select>
               <div className="flex gap-2">
-                <CampoCodigo valor={tarifa.desde} onChange={(v) => setTarifa({ ...tarifa, desde: v.replace(/\D/g, '') })} disabled={tarifa.modo === 'no'} className="flex-1" numerico title="Nivel de tarifa desde (0-6)" />
-                <CampoCodigo valor={tarifa.hasta} onChange={(v) => setTarifa({ ...tarifa, hasta: v.replace(/\D/g, '') })} disabled={tarifa.modo === 'no'} className="flex-1" numerico title="Nivel de tarifa hasta (0-6)" />
+                <CampoCodigo
+                  valor={tarifa.desde}
+                  onChange={(v) => setTarifa({ ...tarifa, desde: v.replace(/\D/g, '') })}
+                  disabled={tarifa.modo === 'no'}
+                  className="flex-1"
+                  numerico
+                  title="Nivel de tarifa desde (0-6)"
+                />
+                <CampoCodigo
+                  valor={tarifa.hasta}
+                  onChange={(v) => setTarifa({ ...tarifa, hasta: v.replace(/\D/g, '') })}
+                  disabled={tarifa.modo === 'no'}
+                  className="flex-1"
+                  numerico
+                  title="Nivel de tarifa hasta (0-6)"
+                />
               </div>
             </div>
           </LstGrupo>
@@ -304,7 +382,13 @@ export function ListadoVentasPage() {
             titulo={
               <>
                 <span>Formas de pago</span>
-                <LstCheck label="Fraccionados" on={fraccionados} set={setFraccionados} className="text-[17px]" title="Solo ventas cobradas con más de una forma de pago" />
+                <LstCheck
+                  label="Fraccionados"
+                  on={fraccionados}
+                  set={setFraccionados}
+                  className="text-[17px]"
+                  title="Solo ventas cobradas con más de una forma de pago"
+                />
               </>
             }
             valor={formas}
@@ -328,7 +412,9 @@ export function ListadoVentasPage() {
                     disabled={!ranking.activo}
                     onClick={() => setRanking({ ...ranking, por: k })}
                     className={`h-[30px] flex-1 border text-[17px] disabled:text-[#8a8a8a] ${
-                      ranking.por === k ? 'border-[#8a8a8a] border-b-white border-r-white bg-[#f7f7f7] shadow-[inset_1px_1px_2px_rgba(0,0,0,0.3)]' : 'border-[var(--gw-border)] bg-[#ececec]'
+                      ranking.por === k
+                        ? 'border-[#8a8a8a] border-b-white border-r-white bg-[#f7f7f7] shadow-[inset_1px_1px_2px_rgba(0,0,0,0.3)]'
+                        : 'border-[var(--gw-border)] bg-[#ececec]'
                     }`}
                   >
                     {l}
@@ -345,7 +431,12 @@ export function ListadoVentasPage() {
                   className={`${LST_INPUT} w-[130px]! flex-none text-right`}
                   disabled={!ranking.activo}
                   value={ranking.n}
-                  onChange={(e) => setRanking({ ...ranking, n: Math.max(1, Number(e.target.value) || 1) })}
+                  onChange={(e) =>
+                    setRanking({
+                      ...ranking,
+                      n: Math.max(1, Number(e.target.value) || 1),
+                    })
+                  }
                 />
               </div>
             </div>
