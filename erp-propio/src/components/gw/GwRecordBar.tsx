@@ -36,6 +36,7 @@ export function GwRecordBar({
   onSave,
   onCancel,
   onExit,
+  grande = false,
 }: {
   mode: 'consulta' | 'edicion' | 'alta'
   canNavigate: boolean
@@ -53,10 +54,12 @@ export function GwRecordBar({
   onSave?: () => void
   onCancel?: () => void
   onExit?: () => void
+  /** Botones altos que ocupan todo el ancho de la ventana (Caja, Aperturas y Cierres de GeminisWin). */
+  grande?: boolean
 }) {
   const consulta = mode === 'consulta'
   return (
-    <div className="mt-1.5 flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
+    <div className={`mt-1.5 flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px] ${grande ? 'gw-barra-grande gap-[2px]' : ''}`}>
       <Btn title="Primero" onClick={onFirst} disabled={!canNavigate}>
         <ChevronFirst size={15} strokeWidth={3} />
       </Btn>

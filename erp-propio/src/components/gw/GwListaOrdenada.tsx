@@ -29,6 +29,10 @@ export interface GwListaOrdenadaDef {
   columnas: GwListaColumna[]
   /** No listar los registros con el campo vacío (códigos de barras, NIF…). */
   omitirVacios?: boolean
+  /** Función RPC que sirve la lista (por defecto gw_lista_ordenada; Caja usa gw_lista_ordenada_caja). */
+  rpc?: string
+  /** Campo numérico (nº de movimiento…): se ordena por número y lo tecleado se rellena con ceros. */
+  numerico?: boolean
 }
 
 export type GwListaFila = Record<string, unknown> & { _sk: string; _k: string }
@@ -45,7 +49,7 @@ const PAGINA = 60
 const MARGEN_CARGA = 240
 
 async function pedir(def: GwListaOrdenadaDef, modo: 'ge' | 'gt' | 'lt', sk: string, k: string, ancla?: string | null) {
-  const { data, error } = await supabase.rpc('gw_lista_ordenada', {
+  const { data, error } = await supabase.rpc(def.rpc ?? 'gw_lista_ordenada', {
     p_fuente: def.fuente,
     p_campo: def.campo,
     p_modo: modo,
@@ -101,7 +105,7 @@ export function GwListaOrdenada({
   const posicionar = useCallback(
     async (t: string, anclaClave: string | null | undefined) => {
       const g = ++gen.current
-      const sk = t.trim().toUpperCase()
+      const sk = def.numerico && /^\d{1,12}$/.test(t.trim()) ? t.trim().padStart(12, '0') : t.trim().toUpperCase()
       setCargando(true)
       try {
         const [arriba, abajo] = sk

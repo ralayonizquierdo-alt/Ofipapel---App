@@ -217,3 +217,41 @@ select.gw-input:disabled {
     transform: translateY(-2px);
   }
 }
+
+/* Barra de registro con botones altos a todo el ancho (GwRecordBar grande: Caja, Aperturas y Cierres) */
+.gw-barra-grande > button {
+  flex: 1 1 0;
+  width: auto;
+  height: 46px;
+  border: 1px solid var(--gw-border);
+}
+.gw-barra-grande > button svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Informes de Caja: al imprimir (o «Doc. PDF») sale solo el informe, a todo el ancho. */
+@media print {
+  body:has(.informe-impresion) * {
+    visibility: hidden;
+  }
+  body:has(.informe-impresion) .informe-impresion,
+  body:has(.informe-impresion) .informe-impresion * {
+    visibility: visible;
+  }
+  body:has(.informe-impresion) .informe-impresion {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #fff;
+  }
+  body:has(.informe-impresion) .informe-impresion .informe-scroll {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  body:has(.informe-impresion) .no-imprimir {
+    display: none !important;
+  }
+}
