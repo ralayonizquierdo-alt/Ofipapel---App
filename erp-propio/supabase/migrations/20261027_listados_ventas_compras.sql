@@ -613,3 +613,200 @@ begin
 end
 $$;
 
+-- ---------- Compras → Listados de Pedidos ----------
+
+create or replace function public.fn_lst_pedidos_proveedor(p jsonb)
+returns table(nivel int, grupo text, grupo_desc text, clave text, descripcion text, fecha date, documento text,
+              estado text, cantidad numeric, precio numeric, dto numeric, n bigint, base numeric, igic numeric, total numeric)
+language plpgsql stable security invoker set search_path = public as $$
+#variable_conflict use_column
+declare
+  inf text := coalesce(p->>'informe', 'factura_resumida');
+  cf text := coalesce(p->>'campoFecha', 'llegada');
+  ord text := coalesce(p->>'orden', 'fechahora');
+  fe_por text := coalesce(p->>'formaEstadoPor', 'formaPago');
+  tp jsonb := coalesce(p->'totalProveedor', '{}'::jsonb);
+  ca jsonb := coalesce(p->'campoArticulo', '{}'::jsonb);
+  fpg jsonb := coalesce(p->'fechaPago', '{}'::jsonb);
+  fmp jsonb := coalesce(p->'fechaModPrecios', '{}'::jsonb);
+begin
+  return query
+  with pf as (
+    select pp.tienda_terminal_codigo as t, pp.numero as num, pp.proveedor_codigo as prov, coalesce(pr.nombre, '') as prov_nombre,
+           pp.fecha_hora as fh, pp.numero_factura_proveedor_externo as nfe, pp.numero_albaran_proveedor as nalb,
+           pp.estado as est, pp.base_imponible as bi, pp.total_igic as ti, pp.total as tot,
+           case cf when 'alta' then (pp.fecha_hora at time zone 'Atlantic/Canary')::date
+                   when 'solicitud' then pp.fecha_solicitud when 'factura' then pp.fecha_factura
+                   when 'albaran' then pp.fecha_recepcion else pp.fecha_prevista end as fref
+    from pedido_proveedor pp
+    left join proveedor pr on pr.codigo = pp.proveedor_codigo
+    where lst_tienda_num(pp.tienda_terminal_codigo, pp.numero, p->'tiendaNumero')
+      and lst_en(pp.almacen_codigo, p->'almacenes')
+      and lst_fecha(case cf when 'alta' then (pp.fecha_hora at time zone 'Atlantic/Canary')
+                            when 'solicitud' then lst_ts(pp.fecha_solicitud, null)
+                            when 'factura' then lst_ts(pp.fecha_factura, null)
+                            when 'albaran' then lst_ts(pp.fecha_recepcion, null)
+                            else lst_ts(pp.fecha_prevista, null) end, p->'fecha')
+      and lst_en(case fe_por when 'estado' then pp.estado else pp.forma_pago_codigo end, p->'formaEstado')
+      and lst_par(not coalesce(pp.pagado, false), p->'pendientes')
+      and lst_par(coalesce(pp.stock_movido, false), p->'actualizados')
+      and lst_par(coalesce(pp.total, 0) < 0 or coalesce(pp.es_abono, false), p->'negativos')
+      and lst_par(not coalesce(pp.recibido, false), p->'pedidos')
+      and lst_par(pp.factura_proveedor_id is not null or pp.estado = 'liquidado', p->'facturados')
+      and lst_en(pp.proveedor_codigo, p->'proveedores')
+      and (coalesce(ca->>'modo', 'no') = 'no'
+           or exists (select 1 from pedido_proveedor_linea l join articulo a on a.codigo_interno = l.articulo_codigo
+                      where l.tienda_terminal_codigo = pp.tienda_terminal_codigo and l.numero = pp.numero
+                        and lst_en(a.marca_codigo, jsonb_build_object('modo', 'desdeHasta', 'desde', ca->>'desde', 'hasta', ca->>'hasta'))))
+      and (coalesce(fpg->>'modo', 'no') = 'no'
+           or ((coalesce(fpg->>'desde', '') = '' or pp.fecha_pago >= (fpg->>'desde')::date)
+               and (coalesce(fpg->>'hasta', '') = '' or pp.fecha_pago <= (fpg->>'hasta')::date) and pp.fecha_pago is not null))
+      and (coalesce(fmp->>'modo', 'no') = 'no'
+           or exists (select 1 from pedido_proveedor_linea l join articulo a on a.codigo_interno = l.articulo_codigo
+                      where l.tienda_terminal_codigo = pp.tienda_terminal_codigo and l.numero = pp.numero
+                        and lst_fecha(a.fecha_ultima_modificacion_pvp at time zone 'Atlantic/Canary',
+                                      jsonb_build_object('modo', 'desdeHasta', 'desde', fmp->>'desde', 'hasta', fmp->>'hasta'))))
+  ),
+  totprov as (select pf.prov, sum(coalesce(pf.tot, 0)) as s from pf group by 1),
+  pf2 as (
+    select pf.* from pf join totprov x on x.prov is not distinct from pf.prov
+    where case coalesce(tp->>'modo', 'no')
+            when 'mayor' then x.s > coalesce(nullif(tp->>'a', '')::numeric, 0)
+            when 'menor' then x.s < coalesce(nullif(tp->>'a', '')::numeric, 0)
+            when 'entre' then x.s between coalesce(nullif(tp->>'a', '')::numeric, 0) and coalesce(nullif(tp->>'b', '')::numeric, 0)
+            else true end
+  ),
+  -- Una fila por pedido (o por línea en «Pedidos Desglosados»).
+  r as (
+    select pf2.t, pf2.num, pf2.prov, pf2.prov_nombre, pf2.fref, pf2.fh,
+           coalesce(nullif(pf2.nfe, ''), nullif(pf2.nalb, ''), '') as doc,
+           coalesce(pf2.est, '') as e, null::integer as linea, null::text as art, null::text as art_desc,
+           null::numeric as cant, null::numeric as prec, null::numeric as dt,
+           coalesce(pf2.bi, 0) as bs, coalesce(pf2.ti, 0) as ig, coalesce(pf2.tot, 0) as tt
+    from pf2 where inf <> 'desglosado'
+    union all
+    select pf2.t, pf2.num, pf2.prov, pf2.prov_nombre, pf2.fref, pf2.fh,
+           coalesce(nullif(pf2.nfe, ''), nullif(pf2.nalb, ''), ''),
+           coalesce(pf2.est, ''), l.linea, l.articulo_codigo, coalesce(l.descripcion, ''),
+           l.cantidad, l.precio_compra, l.descuento_pct,
+           round(coalesce(l.cantidad, 0) * coalesce(l.precio_compra, 0) * (1 - coalesce(l.descuento_pct, 0) / 100), 3),
+           round(coalesce(l.cantidad, 0) * coalesce(l.precio_compra, 0) * (1 - coalesce(l.descuento_pct, 0) / 100) * coalesce(l.igic_pct, 0) / 100, 3),
+           round(coalesce(l.cantidad, 0) * coalesce(l.precio_compra, 0) * (1 - coalesce(l.descuento_pct, 0) / 100) * (1 + coalesce(l.igic_pct, 0) / 100), 3)
+    from pf2 join pedido_proveedor_linea l on l.tienda_terminal_codigo = pf2.t and l.numero = pf2.num
+    where inf = 'desglosado'
+  ),
+  b as (
+    select r.*,
+      case inf when 'factura_resumida' then coalesce(r.prov, '—')
+               when 'mensual_proveedor' then coalesce(r.prov, '—')
+               when 'desglosado' then r.t || '-' || lpad(r.num::text, 10, '0')
+               else '' end as g,
+      case inf when 'factura_resumida' then 'Proveedor ' || coalesce(r.prov, '—') || ' ' || r.prov_nombre
+               when 'mensual_proveedor' then 'Proveedor ' || coalesce(r.prov, '—') || ' ' || r.prov_nombre
+               when 'desglosado' then 'Pedido ' || r.t || '-' || r.num || '  ' || coalesce(r.prov, '') || ' ' || r.prov_nombre
+                                       || case when r.fref is not null then '  ' || to_char(r.fref, 'DD/MM/YYYY') else '' end
+               else '' end as gd,
+      case inf when 'totales_proveedor' then coalesce(r.prov, '—')
+               when 'mensual_proveedor' then coalesce(to_char(r.fref, 'YYYY-MM'), '—')
+               when 'desglosado' then lpad(coalesce(r.linea, 0)::text, 6, '0')
+               else r.t || '-' || lpad(r.num::text, 10, '0') end as k,
+      case inf when 'totales_proveedor' then r.prov_nombre
+               when 'mensual_proveedor' then coalesce(nullif(lst_mes(r.fref), ''), 'Sin fecha')
+               when 'desglosado' then coalesce(r.art, '') || ' ' || r.art_desc
+               when 'relacion' then r.t || '-' || r.num || '  ' || coalesce(r.prov, '') || ' ' || r.prov_nombre
+               else r.t || '-' || r.num end as kd
+    from r
+  )
+  select (case when grouping(b.g) = 1 then 2 when grouping(b.k) = 1 then 1 else 0 end)::int,
+         b.g, b.gd, b.k, case when grouping(b.k) = 0 then min(b.kd) end,
+         case when grouping(b.k) = 0 and inf in ('factura_resumida', 'relacion') then min(b.fref) end,
+         case when grouping(b.k) = 0 and inf in ('factura_resumida', 'relacion') then min(b.doc) end,
+         case when grouping(b.k) = 0 and inf in ('factura_resumida', 'relacion') then min(b.e) end,
+         case when grouping(b.k) = 0 and inf = 'desglosado' then min(b.cant) end,
+         case when grouping(b.k) = 0 and inf = 'desglosado' then min(b.prec) end,
+         case when grouping(b.k) = 0 and inf = 'desglosado' then min(b.dt) end,
+         count(*), sum(b.bs), sum(b.ig), sum(b.tt)
+  from b
+  group by grouping sets ((b.g, b.gd, b.k), (b.g, b.gd), ())
+  order by grouping(b.g), b.g, grouping(b.k),
+           case when ord = 'fechahora' and inf in ('factura_resumida', 'relacion') then min(b.fh) end,
+           case when ord = 'total' then sum(b.tt) end desc nulls last,
+           case when ord = 'proveedor' then min(b.prov_nombre) end,
+           b.k;
+end
+$$;
+
+-- ---------- Compras → Listados de Facturas (de proveedor) ----------
+
+create or replace function public.fn_lst_facturas_proveedor(p jsonb)
+returns table(nivel int, grupo text, grupo_desc text, clave text, descripcion text, fecha date, documento text,
+              fecha_pago date, estado text, n bigint, base numeric, igic numeric, total numeric, pendiente numeric)
+language plpgsql stable security invoker set search_path = public as $$
+#variable_conflict use_column
+declare
+  inf text := coalesce(p->>'informe', 'factura_resumida');
+  cf text := coalesce(p->>'campoFecha', 'alta');
+  ord text := coalesce(p->>'orden', 'fechahora');
+  tp jsonb := coalesce(p->'totalProveedor', '{}'::jsonb);
+begin
+  return query
+  with ff as (
+    select fp.tienda_terminal_codigo as t, fp.id, fp.proveedor_codigo as prov, coalesce(pr.nombre, '') as prov_nombre,
+           fp.fecha_hora as fh, coalesce(fp.numero_factura_externo, '') as nfe, fp.fecha_factura as ffac, fp.fecha_pago as fpag,
+           case when coalesce(fp.pagado, false) then 'Pagada' else 'Pendiente' end as e,
+           coalesce(fp.base_imponible, 0) as bs, coalesce(fp.total_igic, 0) + coalesce(fp.total_igic_gastos, 0) as ig,
+           coalesce(fp.total, 0) as tt, coalesce(fp.total_pendiente, case when coalesce(fp.pagado, false) then 0 else fp.total end, 0) as pend,
+           case cf when 'factura' then fp.fecha_factura else (fp.fecha_hora at time zone 'Atlantic/Canary')::date end as fref
+    from factura_proveedor fp
+    left join proveedor pr on pr.codigo = fp.proveedor_codigo
+    where lst_tienda_num(fp.tienda_terminal_codigo, fp.id, p->'tiendaNumero')
+      and lst_en(coalesce(fp.almacen_desde_codigo, fp.almacen_hasta_codigo), p->'almacenes')
+      and lst_fecha(case cf when 'factura' then lst_ts(fp.fecha_factura, null)
+                            else (fp.fecha_hora at time zone 'Atlantic/Canary') end, p->'fecha')
+      and lst_en(fp.forma_pago_codigo, p->'formasPago')
+      and lst_par(not coalesce(fp.pagado, false), p->'pendientes')
+      and lst_par(coalesce(fp.total, 0) < 0, p->'negativas')
+      and lst_fecha(lst_ts(fp.fecha_pago, null), p->'fechaPago')
+      and lst_en(fp.proveedor_codigo, p->'proveedores')
+  ),
+  totprov as (select ff.prov, sum(ff.tt) as s from ff group by 1),
+  b as (
+    select ff.*,
+      case inf when 'factura_resumida' then coalesce(ff.prov, '—') when 'mensual_proveedor' then coalesce(ff.prov, '—') else '' end as g,
+      case inf when 'factura_resumida' then 'Proveedor ' || coalesce(ff.prov, '—') || ' ' || ff.prov_nombre
+               when 'mensual_proveedor' then 'Proveedor ' || coalesce(ff.prov, '—') || ' ' || ff.prov_nombre else '' end as gd,
+      case inf when 'totales_proveedor' then coalesce(ff.prov, '—')
+               when 'mensual_proveedor' then coalesce(to_char(ff.fref, 'YYYY-MM'), '—')
+               else ff.t || '-' || lpad(ff.id::text, 10, '0') end as k,
+      case inf when 'totales_proveedor' then ff.prov_nombre
+               when 'mensual_proveedor' then coalesce(nullif(lst_mes(ff.fref), ''), 'Sin fecha')
+               when 'relacion' then ff.t || '-' || ff.id || '  ' || coalesce(ff.prov, '') || ' ' || ff.prov_nombre
+               else ff.t || '-' || ff.id end as kd
+    from ff join totprov x on x.prov is not distinct from ff.prov
+    where case coalesce(tp->>'modo', 'no')
+            when 'mayor' then x.s > coalesce(nullif(tp->>'a', '')::numeric, 0)
+            when 'menor' then x.s < coalesce(nullif(tp->>'a', '')::numeric, 0)
+            when 'entre' then x.s between coalesce(nullif(tp->>'a', '')::numeric, 0) and coalesce(nullif(tp->>'b', '')::numeric, 0)
+            else true end
+  )
+  select (case when grouping(b.g) = 1 then 2 when grouping(b.k) = 1 then 1 else 0 end)::int,
+         b.g, b.gd, b.k, case when grouping(b.k) = 0 then min(b.kd) end,
+         case when grouping(b.k) = 0 and inf in ('factura_resumida', 'relacion') then min(b.ffac) end,
+         case when grouping(b.k) = 0 and inf in ('factura_resumida', 'relacion') then min(b.nfe) end,
+         case when grouping(b.k) = 0 and inf in ('factura_resumida', 'relacion') then min(b.fpag) end,
+         case when grouping(b.k) = 0 and inf in ('factura_resumida', 'relacion') then min(b.e) end,
+         count(*), sum(b.bs), sum(b.ig), sum(b.tt), sum(b.pend)
+  from b
+  group by grouping sets ((b.g, b.gd, b.k), (b.g, b.gd), ())
+  order by grouping(b.g), b.g, grouping(b.k),
+           case when ord = 'fechahora' and inf in ('factura_resumida', 'relacion') then min(b.fh) end,
+           case when ord = 'fechafactura' then min(b.ffac) end,
+           case when ord = 'total' then sum(b.tt) end desc nulls last,
+           case when ord = 'proveedor' then min(b.prov_nombre) end,
+           b.k;
+end
+$$;
+
+grant execute on function public.fn_lst_ventas(jsonb), public.fn_lst_ventas_articulo(jsonb), public.fn_lst_reparaciones(jsonb),
+  public.fn_lst_presupuestos(jsonb), public.fn_lst_cobros_tarjeta(jsonb), public.fn_lst_aperturas_cajon(jsonb),
+  public.fn_lst_pedidos_proveedor(jsonb), public.fn_lst_facturas_proveedor(jsonb) to authenticated;

@@ -255,3 +255,27 @@ select.gw-input:disabled {
     display: none !important;
   }
 }
+
+/* Listados (GwListado): la hoja del informe se imprime sola en A4; el resto de la app se oculta. */
+.gw-listado-impresion {
+  display: none;
+}
+@media print {
+  body:has(> .gw-listado-impresion) > *:not(.gw-listado-impresion) {
+    display: none !important;
+  }
+  body:has(> .gw-listado-impresion) {
+    background: #fff;
+  }
+  body > .gw-listado-impresion {
+    display: block;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .gw-listado-impresion thead {
+    display: table-header-group;
+  }
+  .gw-listado-impresion tr {
+    break-inside: avoid;
+  }
+}

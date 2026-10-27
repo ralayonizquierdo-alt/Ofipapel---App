@@ -15,7 +15,7 @@ import { TiendaFichaPage } from './pages/archivo/TiendaFichaPage'
 import { EmpleadoFichaPage } from './pages/archivo/EmpleadoFichaPage'
 import { EmpresaPage } from './pages/archivo/EmpresaPage'
 import { FormaPagoFichaPage } from './pages/archivo/FormaPagoFichaPage'
-import { StockPage } from './pages/StockPage'
+import { AlmacenUtilRoutes } from './pages/almacen/utilidades/AlmacenUtilRoutes'
 import { PedidoProveedorFichaPage } from './pages/compras/pedidos/PedidoProveedorFichaPage'
 import { CreacionRapidaPedidosPage } from './pages/compras/pedidos/CreacionRapidaPedidosPage'
 import { PagoProveedorFichaPage } from './pages/compras/pagos/PagoProveedorFichaPage'
@@ -72,6 +72,15 @@ import { RegistroSincronizacionPage } from './pages/web/RegistroSincronizacionPa
 import { EstadisticasWebPage } from './pages/web/EstadisticasWebPage'
 import { PublicarArticulosWebPage } from './pages/web/PublicarArticulosWebPage'
 import { WhatsAppWebPage } from './pages/web/WhatsAppWebPage'
+import { ListadoVentasPage } from './pages/listados/ListadoVentasPage'
+import { VentasArticuloPage } from './pages/listados/VentasArticuloPage'
+import { ListadoReparacionesPage } from './pages/listados/ListadoReparacionesPage'
+import { ListadoPresupuestosPage } from './pages/listados/ListadoPresupuestosPage'
+import { CobrosTarjetasPage } from './pages/listados/CobrosTarjetasPage'
+import { CobrosDivisasPage } from './pages/listados/CobrosDivisasPage'
+import { AperturasCajonPage } from './pages/listados/AperturasCajonPage'
+import { ListadoPedidosProveedorPage } from './pages/listados/ListadoPedidosProveedorPage'
+import { ListadoFacturasProveedorPage } from './pages/listados/ListadoFacturasProveedorPage'
 
 function ProtectedArea() {
   const { session, loading } = useAuth()
@@ -117,7 +126,9 @@ function App() {
             <Route path="/empleados/*" element={<EmpleadoFichaPage />} />
             <Route path="/empresa" element={<EmpresaPage />} />
             <Route path="/formas-pago/*" element={<FormaPagoFichaPage />} />
-            <Route path="/stock" element={<StockPage />} />
+            {/* Menú Almacén: «Listados Artículos» (06-20) sustituye a la pantalla antigua /stock */}
+            <Route path="/stock" element={<Navigate to="/almacen/listados-articulos" replace />} />
+            <Route path="/almacen/*" element={<AlmacenUtilRoutes />} />
             <Route path="/traspasos/*" element={<TraspasoFichaPage />} />
             <Route path="/regularizacion-stock/*" element={<RegularizacionStockPage />} />
             <Route path="/inventario/*" element={<InventarioFichaPage />} />
@@ -164,6 +175,16 @@ function App() {
             <Route path="/facturacion/*" element={<FacturaClienteFichaPage />} />
             <Route path="/generar-facturas" element={<GenerarFacturasPage />} />
             <Route path="/listado-facturas" element={<ListadoFacturasPage />} />
+            {/* Ventas → Listados y Compras → Listados (pieza común GwListado) */}
+            <Route path="/listados-ventas/ventas" element={<ListadoVentasPage />} />
+            <Route path="/listados-ventas/articulos" element={<VentasArticuloPage />} />
+            <Route path="/listados-ventas/reparaciones" element={<ListadoReparacionesPage />} />
+            <Route path="/listados-ventas/presupuestos" element={<ListadoPresupuestosPage />} />
+            <Route path="/listados-ventas/tarjetas" element={<CobrosTarjetasPage />} />
+            <Route path="/listados-ventas/divisas" element={<CobrosDivisasPage />} />
+            <Route path="/listados-ventas/cajon" element={<AperturasCajonPage />} />
+            <Route path="/listados-compras/pedidos" element={<ListadoPedidosProveedorPage />} />
+            <Route path="/listados-compras/facturas" element={<ListadoFacturasProveedorPage />} />
             <Route path="/cambiar-clave" element={<CambiarClavePage />} />
             <Route path="/registros-verifactu" element={<RegistrosVerifactuPage />} />
             {/* Menú Contabilidad */}
