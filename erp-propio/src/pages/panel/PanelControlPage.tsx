@@ -248,13 +248,13 @@ function Kpis({ d, per, abrir }: { d: PanelData; per: (typeof PERIODOS)[number];
         <span className="flex items-center gap-2.5">
           {(
             [
-              [UserRound, 'Comerciales', ph.comercial],
+              [UserRound, 'Comercial', ph.comercial],
               [Globe, 'Web', ph.web],
               [Store, 'Tienda', ph.tienda],
             ] as const
           ).map(([Icono, txt, n]) => (
             <span key={txt} className="flex items-center gap-1" title={`${n} pedidos de ${txt.toLowerCase()} hoy`}>
-              <Icono size={12} className="text-[#5d6d7e]" />
+              <Icono size={12} className="hidden flex-none text-[#5d6d7e] 2xl:inline" />
               {txt} <b className="text-[#111]">{n}</b>
             </span>
           ))}

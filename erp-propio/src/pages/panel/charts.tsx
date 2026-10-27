@@ -167,7 +167,7 @@ export function BarrasSimples({
         <BarChart data={datos} layout="vertical" margin={{ top: 4, right: 36, left: 0, bottom: 0 }} barCategoryGap="28%">
           <CartesianGrid horizontal={false} stroke={C.grid} />
           <XAxis type="number" tick={ejeY} tickFormatter={ejeY.tickFormatter} axisLine={false} tickLine={false} allowDecimals={false} />
-          <YAxis type="category" dataKey="nombre" tick={{ ...fuente, fill: C.tinta2 }} axisLine={{ stroke: C.eje }} tickLine={false} width={118} />
+          <YAxis type="category" dataKey="nombre" tick={{ ...fuente, fill: C.tinta2 }} axisLine={{ stroke: C.eje }} tickLine={false} width={118} interval={0} />
           <Tooltip cursor={cursor} content={(p) => <GwTooltip {...(p as TooltipContentProps<number, string>)} />} />
           <Bar
             dataKey="valor"
