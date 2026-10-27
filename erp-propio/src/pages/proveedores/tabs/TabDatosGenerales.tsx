@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { GwField, GwGroup, GwInline, GwInput, GwLookupButton, GwSelect } from '../../../components/gw'
+import { GwDate, GwField, GwGroup, GwInline, GwInput, GwLookupButton, GwSelect } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import type { Proveedor, ProveedorTabProps } from '../types'
 
@@ -119,10 +119,10 @@ export function TabDatosGenerales({ proveedor, editing, onChange }: ProveedorTab
 
       <div className="mt-1 flex items-center gap-6">
         <GwInline label="Fecha de Alta:">
-          <GwInput type="date" title="F_ALTA" className="!w-[150px]" value={proveedor.fecha_alta ? proveedor.fecha_alta.slice(0, 10) : ''} disabled={ro} onChange={(e) => onChange({ fecha_alta: e.target.value || null })} />
+          <GwDate title="F_ALTA" className="!w-[150px]" value={proveedor.fecha_alta} disabled={ro} onChange={(v) => onChange({ fecha_alta: v })} />
         </GwInline>
         <GwInline label="Fecha de Baja:">
-          <GwInput type="date" title="F_BAJA" className="!w-[150px]" value={proveedor.fecha_baja ? proveedor.fecha_baja.slice(0, 10) : ''} disabled={ro} onChange={(e) => onChange({ fecha_baja: e.target.value || null })} />
+          <GwDate title="F_BAJA" className="!w-[150px]" value={proveedor.fecha_baja} disabled={ro} onChange={(v) => onChange({ fecha_baja: v })} />
         </GwInline>
       </div>
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Check, X } from 'lucide-react'
-import { GwRadio, GwWindow } from '../../../components/gw'
+import { GwDate, GwRadio, GwWindow } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 
 // Piezas comunes del Gestor de Pedidos y del Gestor de Presupuestos de GeminisWin:
@@ -233,8 +233,8 @@ export function FiltroBar({
           </select>
           {personal ? (
             <>
-              <input type="date" className={`${BIG_INPUT} mx-1.5 w-auto!`} value={filtro.desde} onChange={(e) => set({ desde: e.target.value })} title="Desde" />
-              <input type="date" className={`${BIG_INPUT} mx-1.5 w-auto!`} value={filtro.hasta} onChange={(e) => set({ hasta: e.target.value })} title="Hasta" />
+              <GwDate className={`${BIG_INPUT} mx-1.5 w-auto!`} value={filtro.desde} onChange={(v) => set({ desde: v ?? '' })} title="Desde" />
+              <GwDate className={`${BIG_INPUT} mx-1.5 w-auto!`} value={filtro.hasta} onChange={(v) => set({ hasta: v ?? '' })} title="Hasta" />
             </>
           ) : (
             <>

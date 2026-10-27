@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Binoculars, Check, FilePen, FilePlus2, FileX2, PackageSearch, Tag, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../lib/AuthContext'
-import { GwInput, GwLookupButton, GwNumber, GwSelect, GwWindow, formatGw } from '../../../components/gw'
+import { GwDate, GwInput, GwLookupButton, GwNumber, GwSelect, GwWindow, formatGw } from '../../../components/gw'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import { PedidoBar } from './PedidoBar'
 import { entregarPedido } from './entregar'
@@ -762,7 +762,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
             <GwInput readOnly className="gw-num" value={cab?.numero != null ? String(cab.numero) : ''} />
           </Campo>
           <Campo label="Fecha">
-            <GwInput type="date" disabled={ro} value={cab?.fecha ?? ''} onChange={(e) => patch({ fecha: e.target.value || null })} />
+            <GwDate disabled={ro} value={cab?.fecha} onChange={(v) => patch({ fecha: v })} />
           </Campo>
           <Campo label="Hora">
             <GwInput disabled={ro} value={cab?.hora ?? ''} onChange={(e) => patch({ hora: e.target.value || null })} />
@@ -849,9 +849,9 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
         <fieldset className="gw-group w-[350px] !pt-0">
           <legend>Periodo de Validez</legend>
           <div className="flex items-center gap-1">
-            <GwInput type="date" disabled={ro} value={cab?.fecha_inicio ?? ''} onChange={(e) => patch({ fecha_inicio: e.target.value || null })} />
+            <GwDate disabled={ro} value={cab?.fecha_inicio} onChange={(v) => patch({ fecha_inicio: v })} />
             <span className="text-[15px] font-bold">–</span>
-            <GwInput type="date" disabled={ro} value={cab?.fecha_fin ?? ''} onChange={(e) => patch({ fecha_fin: e.target.value || null })} />
+            <GwDate disabled={ro} value={cab?.fecha_fin} onChange={(v) => patch({ fecha_fin: v })} />
           </div>
         </fieldset>
       </div>

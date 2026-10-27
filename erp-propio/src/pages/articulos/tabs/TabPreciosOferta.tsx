@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { Binoculars, Calculator, Check, FilePen, FilePlus2, Tags, Trash2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { GwInput, GwNumber, GwSelect, formatGw } from '../../../components/gw'
+import { GwDate, GwInput, GwNumber, GwSelect, formatGw } from '../../../components/gw'
 import { NIVELES_TARIFA, type ArticuloOferta, type ArticuloTarifaCantidad } from '../types'
 
 const str = (v: string) => (v === '' ? null : v)
@@ -266,10 +266,10 @@ function OfertasCantidad({
           <GwInput autoFocus className="!h-[20px]" value={d.descripcion_oferta ?? ''} onChange={(e) => setF({ descripcion_oferta: str(e.target.value) })} />
         </td>
         <td>
-          <GwInput type="date" className="!h-[20px]" value={d.fecha_desde ?? ''} onChange={(e) => setF({ fecha_desde: str(e.target.value) })} />
+          <GwDate className="!h-[20px]" value={d.fecha_desde} onChange={(v) => setF({ fecha_desde: v })} />
         </td>
         <td>
-          <GwInput type="date" className="!h-[20px]" value={d.fecha_hasta ?? ''} onChange={(e) => setF({ fecha_hasta: str(e.target.value) })} />
+          <GwDate className="!h-[20px]" value={d.fecha_hasta} onChange={(v) => setF({ fecha_hasta: v })} />
         </td>
         <td>
           <GwInput type="time" className="!h-[20px]" value={d.hora_desde ?? ''} onChange={(e) => setF({ hora_desde: str(e.target.value) })} />
@@ -502,10 +502,10 @@ function OfertasRegalo({
         <GwInput autoFocus className="!h-[20px]" value={d.descripcion ?? ''} onChange={(e) => set({ descripcion: str(e.target.value) })} />
       </td>
       <td>
-        <GwInput type="date" className="!h-[20px]" value={d.fecha_desde ?? ''} onChange={(e) => set({ fecha_desde: str(e.target.value) })} />
+        <GwDate className="!h-[20px]" value={d.fecha_desde} onChange={(v) => set({ fecha_desde: v })} />
       </td>
       <td>
-        <GwInput type="date" className="!h-[20px]" value={d.fecha_hasta ?? ''} onChange={(e) => set({ fecha_hasta: str(e.target.value) })} />
+        <GwDate className="!h-[20px]" value={d.fecha_hasta} onChange={(v) => set({ fecha_hasta: v })} />
       </td>
       <td>
         <GwInput type="time" className="!h-[20px]" value={d.hora_desde ?? ''} onChange={(e) => set({ hora_desde: str(e.target.value) })} />

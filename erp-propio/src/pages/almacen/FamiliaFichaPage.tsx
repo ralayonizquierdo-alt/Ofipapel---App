@@ -3,6 +3,7 @@ import { ChevronFirst, ChevronLast, Binoculars, FilePen, FilePlus2, FileX2, Play
 import { supabase } from '../../lib/supabase'
 import {
   GwCheck,
+  GwDate,
   GwField,
   GwGroup,
   GwInput,
@@ -350,12 +351,7 @@ export function FamiliaFichaPage() {
                         {ro ? (
                           <GwInput readOnly value={fecha(draft.web_fecha_baja)} title="WEB_F_BAJA" />
                         ) : (
-                          <GwInput
-                            type="date"
-                            value={draft.web_fecha_baja ?? ''}
-                            title="WEB_F_BAJA"
-                            onChange={(e) => patch({ web_fecha_baja: e.target.value || null })}
-                          />
+                          <GwDate value={draft.web_fecha_baja} title="WEB_F_BAJA" onChange={(v) => patch({ web_fecha_baja: v })} />
                         )}
                       </GwField>
                     </div>

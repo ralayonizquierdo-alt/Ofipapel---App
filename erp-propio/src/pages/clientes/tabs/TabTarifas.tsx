@@ -3,6 +3,7 @@ import { Binoculars, Check, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import {
   GwCheck,
+  GwDate,
   GwField,
   GwGroup,
   GwInput,
@@ -484,10 +485,10 @@ function PreciosFijos({ cliente, editing, onChange }: ClienteTabProps) {
       </td>
       <td>{draft.descripcion}</td>
       <td>
-        <GwInput type="date" value={draft.fecha_inicio} onChange={(e) => setDraft({ ...draft, fecha_inicio: e.target.value })} />
+        <GwDate value={draft.fecha_inicio} onChange={(v) => setDraft({ ...draft, fecha_inicio: v ?? '' })} />
       </td>
       <td>
-        <GwInput type="date" value={draft.fecha_fin} onChange={(e) => setDraft({ ...draft, fecha_fin: e.target.value })} />
+        <GwDate value={draft.fecha_fin} onChange={(v) => setDraft({ ...draft, fecha_fin: v ?? '' })} />
       </td>
       <td>
         <GwNumber decimals={3} value={draft.pvp} onChange={(v) => setDraft({ ...draft, pvp: v })} />

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { GwField, GwInput, GwTabs, type GwTabDef } from '../../components/gw'
+import { GwDate, GwField, GwInput, GwTabs, type GwTabDef } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { type Cliente, emptyCliente } from './types'
@@ -49,13 +49,7 @@ function siguienteCodigo(codigos: string[]) {
 
 function FechaInput({ value, onChange, disabled, title }: { value: string | null; onChange: (v: string | null) => void; disabled?: boolean; title?: string }) {
   return (
-    <GwInput
-      type="date"
-      title={title}
-      value={value ? value.slice(0, 10) : ''}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.value || null)}
-    />
+    <GwDate title={title} value={value} disabled={disabled} onChange={onChange} />
   )
 }
 

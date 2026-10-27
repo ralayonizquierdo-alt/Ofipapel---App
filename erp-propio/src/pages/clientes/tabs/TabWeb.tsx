@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { GwCheck, GwField, GwGroup, GwInline, GwInput, GwNumber, GwSelect } from '../../../components/gw'
+import { GwCheck, GwDate, GwField, GwGroup, GwInline, GwInput, GwNumber, GwSelect } from '../../../components/gw'
 import type { Cliente, ClienteTabProps } from '../types'
 
 export function TabWeb({ cliente, editing, onChange }: ClienteTabProps) {
@@ -46,13 +46,7 @@ export function TabWeb({ cliente, editing, onChange }: ClienteTabProps) {
           />
         </GwInline>
         <GwInline label="Fecha baja:">
-          <GwInput
-            type="date"
-            title="WEB_F_BAJA"
-            disabled={ro}
-            value={cliente.web_fecha_baja ?? ''}
-            onChange={(e) => onChange({ web_fecha_baja: e.target.value || null })}
-          />
+          <GwDate title="WEB_F_BAJA" disabled={ro} value={cliente.web_fecha_baja} onChange={(v) => onChange({ web_fecha_baja: v })} />
         </GwInline>
       </div>
       <div className="flex items-center gap-4">

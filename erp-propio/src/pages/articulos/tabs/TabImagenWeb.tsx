@@ -1,5 +1,5 @@
 import { FolderOpen } from 'lucide-react'
-import { GwCheck, GwField, GwInput, GwRadio, GwSelect, GwTextArea } from '../../../components/gw'
+import { GwCheck, GwDate, GwField, GwInput, GwRadio, GwSelect, GwTextArea } from '../../../components/gw'
 import type { Articulo } from '../types'
 
 interface TabProps {
@@ -108,14 +108,7 @@ export function TabWeb({ articulo, editing, onChange }: TabProps) {
           </fieldset>
           <div className="mt-1 flex items-center gap-1.5">
             <span className="gw-label">Fecha de baja:</span>
-            <GwInput
-              type="date"
-              title="WEB_F_BAJA"
-              className="min-w-0 flex-1"
-              value={articulo.web_fecha_baja ?? ''}
-              onChange={(e) => onChange({ web_fecha_baja: text(e.target.value) })}
-              disabled={dis}
-            />
+            <GwDate title="WEB_F_BAJA" className="min-w-0 flex-1" value={articulo.web_fecha_baja} onChange={(v) => onChange({ web_fecha_baja: v })} disabled={dis} />
           </div>
         </fieldset>
         <div className="flex min-w-0 flex-col gap-1 pt-1">

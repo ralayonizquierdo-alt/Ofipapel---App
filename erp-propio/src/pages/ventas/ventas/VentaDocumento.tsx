@@ -472,7 +472,6 @@ export function VentaDocumento({
   const lineasUtiles = () => lineas.filter((l) => l.articulo_codigo || l.descripcion.trim())
 
   async function prepararGuardado(aplazar: boolean) {
-    console.log('DBG prepararGuardado', editable, guardando, cab.cliente_codigo, almacen, lineasUtiles().length)
     if (!editable || guardando) return
     if (!cab.cliente_codigo) return setMensaje({ texto: 'Indica el cliente de la venta.', error: true })
     const utiles = lineasUtiles()

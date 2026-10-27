@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Calculator } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { GwField, GwGroup, GwInput, GwNumber, GwSelect, GwTabs, GwTextArea, formatGw, type GwTabDef } from '../../components/gw'
+import { GwDate, GwField, GwGroup, GwInput, GwNumber, GwSelect, GwTabs, GwTextArea, formatGw, type GwTabDef } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { FilasVacias, GridMiniBar } from '../../components/gw/GwGridParts'
@@ -258,7 +258,7 @@ export function TarifaOfertaFichaPage() {
               <GwInput value={draft.codigo} disabled={mode !== 'alta'} maxLength={10} title="ARTTAROF.CODIGO" onChange={(e) => patch({ codigo: e.target.value })} />
             </GwField>
             <GwField label="Fecha">
-              <GwInput type="date" value={draft.fecha ?? ''} disabled={ro} title="FECHA" onChange={(e) => patch({ fecha: e.target.value || null })} />
+              <GwDate value={draft.fecha} disabled={ro} title="FECHA" onChange={(v) => patch({ fecha: v })} />
             </GwField>
             <GwField label="Hora">
               <GwInput value={draft.hora ?? ''} disabled={ro} maxLength={5} title="HORA" onChange={(e) => patch({ hora: e.target.value || null })} />
@@ -273,10 +273,10 @@ export function TarifaOfertaFichaPage() {
                 <GwInput value={draft.descripcion ?? ''} disabled={ro} maxLength={20} title="OFERT_DESC" onChange={(e) => patch({ descripcion: e.target.value || null })} />
               </GwField>
               <GwField label="Fecha Inicio">
-                <GwInput type="date" value={draft.fecha_desde ?? ''} disabled={ro} title="FECHA_OFD" onChange={(e) => patch({ fecha_desde: e.target.value || null })} />
+                <GwDate value={draft.fecha_desde} disabled={ro} title="FECHA_OFD" onChange={(v) => patch({ fecha_desde: v })} />
               </GwField>
               <GwField label="Fecha Fin">
-                <GwInput type="date" value={draft.fecha_hasta ?? ''} disabled={ro} title="FECHA_OFH" onChange={(e) => patch({ fecha_hasta: e.target.value || null })} />
+                <GwDate value={draft.fecha_hasta} disabled={ro} title="FECHA_OFH" onChange={(v) => patch({ fecha_hasta: v })} />
               </GwField>
               <GwField label="Rango Horario" className="col-span-2">
                 <div className="grid grid-cols-2 gap-x-1.5">

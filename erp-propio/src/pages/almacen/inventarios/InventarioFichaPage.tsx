@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, ClipboardList, History } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { formatGw } from '../../../components/gw'
+import { formatGw, GwDate } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { GridMiniBar } from '../../../components/gw/GwGridParts'
@@ -382,7 +382,7 @@ export function InventarioFichaPage() {
         </label>
         <label className="flex w-[160px] flex-col">
           <span className={lbl}>Fecha</span>
-          <input type="date" className={`${inp} w-full`} disabled={!editing} value={vista.fecha ?? ''} onChange={(e) => patch({ fecha: e.target.value })} />
+          <GwDate className={`${inp} w-full`} disabled={!editing} value={vista.fecha} onChange={(v) => patch({ fecha: v ?? '' })} />
         </label>
         <label className="flex w-[218px] flex-col">
           <span className={lbl}>Fecha y hora de alta</span>

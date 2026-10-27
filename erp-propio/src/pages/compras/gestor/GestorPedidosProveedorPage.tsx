@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, RefreshCw, ShoppingCart } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { formatGw } from '../../../components/gw'
+import { formatGw, GwDate } from '../../../components/gw'
 import { BarButton, BigTabs, BIG_INPUT, chunks, fechaEs, leerOpciones, LocalizarDialog, OptionButton, PERIODOS, pitido, rangoPeriodo, useRefresco, type Periodo } from '../../ventas/gestores/comun'
 import { ordenar, Rejilla, type Col, type Orden } from '../../ventas/gestores/rejilla'
 import { BarraGestor, buscarFila, Contador } from './barra'
@@ -379,8 +379,8 @@ export function GestorPedidosProveedorPage() {
                       </option>
                     ))}
                   </select>
-                  <input type="date" className={BIG_INPUT} value={filtro.desde} disabled={!personal} onChange={(e) => set({ desde: e.target.value })} title="Desde" />
-                  <input type="date" className={BIG_INPUT} value={filtro.hasta} disabled={!personal} onChange={(e) => set({ hasta: e.target.value })} title="Hasta" />
+                  <GwDate className={BIG_INPUT} value={filtro.desde} disabled={!personal} onChange={(v) => set({ desde: v ?? '' })} title="Desde" />
+                  <GwDate className={BIG_INPUT} value={filtro.hasta} disabled={!personal} onChange={(v) => set({ hasta: v ?? '' })} title="Hasta" />
                 </div>
               </fieldset>
               <fieldset className="gw-group min-w-0 px-2 pb-1.5 pt-0.5">

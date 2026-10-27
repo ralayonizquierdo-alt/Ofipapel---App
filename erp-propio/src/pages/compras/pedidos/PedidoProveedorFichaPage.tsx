@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Binoculars, Check, FilePen, FilePlus2, FileX2, Sheet, Wallet, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../lib/AuthContext'
-import { GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
+import { GwDate, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import { buscarArticulo } from '../../ventas/pedidos/precios'
 import { CompraBar } from './CompraBar'
@@ -782,7 +782,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
   )
 
   const fecha = (key: 'fecha_solicitud' | 'fecha_prevista' | 'fecha_factura' | 'fecha_pago' | 'fecha_vencimiento_1') => (
-    <GwInput type="date" disabled={ro} value={cab?.[key] ?? ''} onChange={(e) => patch({ [key]: e.target.value || null })} />
+    <GwDate disabled={ro} value={cab?.[key]} onChange={(v) => patch({ [key]: v })} />
   )
 
   return (
@@ -869,7 +869,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
               {selectFormaPago('transporte_forma_pago_codigo', 'forma_pago_t')}
             </div>
             <Campo label="Fecha pago">
-              <GwInput type="date" disabled={ro} value={cab?.transporte_fecha_pago ?? ''} onChange={(e) => patch({ transporte_fecha_pago: e.target.value || null })} />
+              <GwDate disabled={ro} value={cab?.transporte_fecha_pago} onChange={(v) => patch({ transporte_fecha_pago: v })} />
             </Campo>
             <Campo label="Coste" right>
               <GwNumber decimals={2} disabled={ro} value={cab?.transporte_coste ?? 0} onChange={(v) => patch({ transporte_coste: v ?? 0 })} />

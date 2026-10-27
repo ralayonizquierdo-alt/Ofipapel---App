@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { GwField, GwGroup, GwInput, GwSelect, GwWindow } from '../../../components/gw'
+import { GwDate, GwField, GwGroup, GwInput, GwSelect, GwWindow } from '../../../components/gw'
 
 const n = (v: unknown) => Number(v ?? 0)
 const r2 = (v: number) => Math.round(v * 100) / 100
@@ -119,10 +119,10 @@ export function GenerarFacturasDialog({
           <GwGroup title="Albaranes a facturar">
             <div className="grid grid-cols-2 gap-2">
               <GwField label="Desde fecha">
-                <GwInput type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
+                <GwDate value={desde} onChange={(v) => setDesde(v ?? '')} />
               </GwField>
               <GwField label="Hasta fecha">
-                <GwInput type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
+                <GwDate value={hasta} onChange={(v) => setHasta(v ?? '')} />
               </GwField>
               <GwField label="Proveedor (vacío = todos)">
                 <GwInput value={proveedor} onChange={(e) => setProveedor(e.target.value)} />
@@ -139,7 +139,7 @@ export function GenerarFacturasDialog({
                 </GwSelect>
               </GwField>
               <GwField label="Fecha de factura">
-                <GwInput type="date" value={fechaFactura} onChange={(e) => setFechaFactura(e.target.value)} />
+                <GwDate value={fechaFactura} onChange={(v) => setFechaFactura(v ?? '')} />
               </GwField>
             </div>
           </GwGroup>

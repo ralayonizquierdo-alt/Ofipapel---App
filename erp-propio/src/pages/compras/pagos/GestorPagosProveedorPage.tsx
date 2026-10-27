@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useNavigate } from 'react-router-dom'
 import { Binoculars, Check, ChevronFirst, ChevronLast, CircleDollarSign, FileText, Play, Printer, RotateCw, Settings2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { formatGw } from '../../../components/gw'
+import { formatGw, GwDate } from '../../../components/gw'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
 import { FORMA_PAGO_COLS, cargarDoc, claseFormaPago, generarPagosDoc, hoyISO, type ClaseFp, type FormaPago } from './pagosModel'
 
@@ -674,9 +674,9 @@ export function GestorPagosProveedorPage() {
         {verFiltro && periodo === 'filtro' && (
           <div className="absolute bottom-[36px] right-0 z-10 flex items-center gap-2 border border-[var(--gw-border)] bg-[var(--gw-face)] p-2 shadow">
             <span className="gw-label">Desde</span>
-            <input type="date" className="gw-input" value={filtro.desde} onChange={(e) => setFiltro({ ...filtro, desde: e.target.value })} />
+            <GwDate value={filtro.desde} onChange={(v) => setFiltro({ ...filtro, desde: v ?? '' })} />
             <span className="gw-label">Hasta</span>
-            <input type="date" className="gw-input" value={filtro.hasta} onChange={(e) => setFiltro({ ...filtro, hasta: e.target.value })} />
+            <GwDate value={filtro.hasta} onChange={(v) => setFiltro({ ...filtro, hasta: v ?? '' })} />
             <button type="button" className="gw-btn" onClick={() => setVerFiltro(false)}>
               Aceptar
             </button>

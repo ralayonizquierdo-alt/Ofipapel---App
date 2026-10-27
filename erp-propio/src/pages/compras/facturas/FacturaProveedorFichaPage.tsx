@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, FileText, HandCoins, RefreshCw, Settings2, ShoppingCart, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, formatGw } from '../../../components/gw'
+import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, formatGw } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { FilasVacias, GridMiniBar } from '../../../components/gw/GwGridParts'
@@ -505,10 +505,10 @@ export function FacturaProveedorFichaPage() {
             />
           </GwField>
           <GwField label={<span className="text-[15px]">Fec. Factura</span>}>
-            <GwInput type="date" disabled={disabledCab} value={cab?.fecha_factura ?? ''} onChange={(e) => patch({ fecha_factura: e.target.value || null })} />
+            <GwDate disabled={disabledCab} value={cab?.fecha_factura} onChange={(v) => patch({ fecha_factura: v })} />
           </GwField>
           <GwField label={<span className="text-[15px]">Fec. Vencim.</span>}>
-            <GwInput type="date" disabled={disabledCab} value={cab?.fecha_vencimiento ?? ''} onChange={(e) => patch({ fecha_vencimiento: e.target.value || null })} />
+            <GwDate disabled={disabledCab} value={cab?.fecha_vencimiento} onChange={(v) => patch({ fecha_vencimiento: v })} />
           </GwField>
         </div>
         <GwGroup title={<span className="text-[15px]">Proveedor</span>} className="w-[540px] flex-none">
@@ -528,9 +528,9 @@ export function FacturaProveedorFichaPage() {
       <div className="flex gap-2">
         <GwGroup title={<span className="text-[15px]">Periodo Facturado</span>} className="w-[310px] flex-none">
           <div className="flex items-center gap-1">
-            <GwInput type="date" disabled={disabledCab} value={cab?.fecha_desde ?? ''} onChange={(e) => patch({ fecha_desde: e.target.value || null })} />
+            <GwDate disabled={disabledCab} value={cab?.fecha_desde} onChange={(v) => patch({ fecha_desde: v })} />
             <span>—</span>
-            <GwInput type="date" disabled={disabledCab} value={cab?.fecha_hasta ?? ''} onChange={(e) => patch({ fecha_hasta: e.target.value || null })} />
+            <GwDate disabled={disabledCab} value={cab?.fecha_hasta} onChange={(v) => patch({ fecha_hasta: v })} />
           </div>
         </GwGroup>
         <GwGroup title={<span className="text-[15px]">Tiendas Facturadas</span>} className="w-[300px] flex-none">
@@ -690,7 +690,7 @@ export function FacturaProveedorFichaPage() {
               Pagado
             </button>
             <GwField label={<span className="text-[15px]">Fecha del Pago</span>} className="row-span-2">
-              <GwInput type="date" disabled={!editing || !cab?.pagado} value={cab?.fecha_pago ?? ''} onChange={(e) => patch({ fecha_pago: e.target.value || null })} />
+              <GwDate disabled={!editing || !cab?.pagado} value={cab?.fecha_pago} onChange={(v) => patch({ fecha_pago: v })} />
             </GwField>
             <span className="text-right text-[16px] font-bold">Total...:</span>
             <span className="text-right text-[16px] font-bold tabular-nums">{formatGw(tot?.total ?? 0, 2)}</span>

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { DataTable, type Column } from '../components/DataTable'
 import { Modal } from '../components/Modal'
 import { FormField, TextInput, SelectInput } from '../components/FormField'
+import { GwDate } from '../components/gw'
 
 const TIENDA = '01'
 
@@ -203,7 +204,7 @@ export function RepartosPage() {
                 </SelectInput>
               </FormField>
               <FormField label="Fecha *">
-                <TextInput required type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+                <GwDate required className="h-[38px]! rounded-lg border-slate-200! px-3! text-sm!" value={fecha} onChange={(v) => setFecha(v ?? '')} />
               </FormField>
             </div>
 

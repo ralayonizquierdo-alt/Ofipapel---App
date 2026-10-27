@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Folder, Mail, Printer, Send } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { GwCheck, GwField, GwGroup, GwInline, GwInput, GwLookupButton, GwNumber, GwRadio, GwSelect, GwTabs, GwTextArea, formatGw, type GwTabDef } from '../../components/gw'
+import { GwCheck, GwDate, GwField, GwGroup, GwInline, GwInput, GwLookupButton, GwNumber, GwRadio, GwSelect, GwTabs, GwTextArea, formatGw, type GwTabDef } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { FilasVacias, GridMiniBar } from '../../components/gw/GwGridParts'
@@ -345,7 +345,7 @@ export function ModificacionPreciosFichaPage() {
           <GwInput value={draft.codigo} disabled={mode !== 'alta'} maxLength={10} title="CODIGO" onChange={(e) => patch({ codigo: e.target.value })} />
         </GwField>
         <GwField label="Fecha">
-          <GwInput type="date" value={draft.fecha ?? ''} disabled={ro} title="FECHA" onChange={(e) => patch({ fecha: e.target.value || null })} />
+          <GwDate value={draft.fecha} disabled={ro} title="FECHA" onChange={(v) => patch({ fecha: v })} />
         </GwField>
         <GwField label="Hora">
           <GwInput value={draft.hora ?? ''} disabled={ro} maxLength={5} title="HORA" onChange={(e) => patch({ hora: e.target.value || null })} />
@@ -361,10 +361,10 @@ export function ModificacionPreciosFichaPage() {
         <GwGroup title="Periodo activo de la Oferta">
           <div className="flex gap-x-4">
             <GwInline label="Fecha Inicio:">
-              <GwInput type="date" value={draft.fecha_desde ?? ''} disabled={ro} title="Fecha inicio" onChange={(e) => patch({ fecha_desde: e.target.value || null })} />
+              <GwDate value={draft.fecha_desde} disabled={ro} title="Fecha inicio" onChange={(v) => patch({ fecha_desde: v })} />
             </GwInline>
             <GwInline label="Fecha Fin:">
-              <GwInput type="date" value={draft.fecha_hasta ?? ''} disabled={ro} title="Fecha fin" onChange={(e) => patch({ fecha_hasta: e.target.value || null })} />
+              <GwDate value={draft.fecha_hasta} disabled={ro} title="Fecha fin" onChange={(v) => patch({ fecha_hasta: v })} />
             </GwInline>
           </div>
         </GwGroup>

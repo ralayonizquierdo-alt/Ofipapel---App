@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Check, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { GwField, GwInput, GwSelect } from '../../../components/gw'
+import { GwDate, GwField, GwInput, GwSelect } from '../../../components/gw'
 import { FilasVacias, GridMiniBar } from '../../../components/gw/GwGridParts'
 import type { ClienteTabProps } from '../types'
 
@@ -239,14 +239,14 @@ export function TabAgenda({ cliente, editing }: ClienteTabProps) {
           {ro ? (
             <GwInput readOnly value={fecha(actual?.fecha_alta ?? null)} />
           ) : (
-            <GwInput type="date" value={actual?.fecha_alta ?? ''} onChange={(e) => set('fecha_alta', e.target.value || null)} />
+            <GwDate value={actual?.fecha_alta} onChange={(v) => set('fecha_alta', v)} />
           )}
         </GwField>
         <GwField label="Fecha Baja">
           {ro ? (
             <GwInput readOnly value={fecha(actual?.fecha_baja ?? null)} />
           ) : (
-            <GwInput type="date" value={actual?.fecha_baja ?? ''} onChange={(e) => set('fecha_baja', e.target.value || null)} />
+            <GwDate value={actual?.fecha_baja} onChange={(v) => set('fecha_baja', v)} />
           )}
         </GwField>
         {texto('email', 'Dirección Email')}

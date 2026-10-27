@@ -1,10 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Binoculars, Check, ChevronFirst, ChevronLast, FilePen, FilePlus2, Play, Trash2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { GwInput, GwNumber, GwSelect, formatGw } from '../../../components/gw'
+import { GwDate, GwNumber, GwSelect, formatGw } from '../../../components/gw'
 import type { ArticuloProveedor } from '../types'
 
-const str = (v: string) => (v === '' ? null : v)
 const fecha = (v: string | null) => {
   if (!v) return ' /  /'
   const [y, m, d] = v.slice(0, 10).split('-')
@@ -162,7 +161,7 @@ export function TabPreciosProveedor({
       <td><GwNumber value={e.precio_medio_compra} decimals={3} onChange={(v) => set({ precio_medio_compra: v })} /></td>
       <td><GwNumber value={e.unidades_pedidas} decimals={3} onChange={(v) => set({ unidades_pedidas: v })} /></td>
       <td>
-        <GwInput type="date" value={e.fecha_prevista_entrega ?? ''} onChange={(ev) => set({ fecha_prevista_entrega: str(ev.target.value) })} />
+        <GwDate value={e.fecha_prevista_entrega} onChange={(v) => set({ fecha_prevista_entrega: v })} />
       </td>
       <td><GwNumber value={e.unidades_compra} decimals={3} onChange={(v) => set({ unidades_compra: v })} /></td>
       <td>{fecha(e.ultima_compra_fecha)}</td>

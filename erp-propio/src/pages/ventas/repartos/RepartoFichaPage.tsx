@@ -13,7 +13,7 @@ import {
   Truck,
 } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { formatGw } from '../../../components/gw'
+import { formatGw, GwDate } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 
@@ -800,13 +800,7 @@ export function RepartoFichaPage() {
               </div>
               <div className="flex w-[160px] flex-col">
                 <span className={lbl}>Fecha</span>
-                <input
-                  type="date"
-                  className={`${inp} w-full`}
-                  disabled={!editing}
-                  value={vista.fecha ?? ''}
-                  onChange={(e) => patch({ fecha: e.target.value || null })}
-                />
+                <GwDate className={`${inp} w-full`} disabled={!editing} value={vista.fecha} onChange={(v) => patch({ fecha: v })} />
               </div>
             </div>
           </Grupo>

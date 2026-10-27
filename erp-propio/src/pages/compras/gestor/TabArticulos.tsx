@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, Package } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { formatGw } from '../../../components/gw'
+import { formatGw, GwDate } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { BarButton, BIG_INPUT, chunks, fechaEs, LocalizarDialog } from '../../ventas/gestores/comun'
 import { ordenar, Rejilla, type Col, type Orden } from '../../ventas/gestores/rejilla'
@@ -213,10 +213,10 @@ export function TabArticulos({ opciones, onError }: { opciones: OpcionesGestorCo
             'Ult. compra desde:',
             'w-auto',
             <>
-              <input type="date" className={`${BIG_INPUT} min-w-0`} value={filtro.ultDesde} onChange={(e) => set({ ultDesde: e.target.value })} />
+              <GwDate className={`${BIG_INPUT} min-w-0`} value={filtro.ultDesde} onChange={(v) => set({ ultDesde: v ?? '' })} />
             </>,
           )}
-          {campo('hasta:', 'w-auto', <input type="date" className={`${BIG_INPUT} min-w-0`} value={filtro.ultHasta} onChange={(e) => set({ ultHasta: e.target.value })} />)}
+          {campo('hasta:', 'w-auto', <GwDate className={`${BIG_INPUT} min-w-0`} value={filtro.ultHasta} onChange={(v) => set({ ultHasta: v ?? '' })} />)}
           <div className="flex items-center gap-5">
             <label className="flex select-none items-center gap-1.5 whitespace-nowrap text-[17px]">
               <input type="checkbox" className="m-0 h-[13px] w-[13px] accent-[#0078d7]" checked={filtro.anulados} onChange={(e) => set({ anulados: e.target.checked })} />

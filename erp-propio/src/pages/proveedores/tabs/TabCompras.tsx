@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Binoculars, ChevronFirst, ChevronLast, Play } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { GwGroup, GwInput, GwRadio, GwSelect, formatGw } from '../../../components/gw'
+import { GwDate, GwGroup, GwRadio, GwSelect, formatGw } from '../../../components/gw'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
 import type { ProveedorTabProps } from '../types'
 
@@ -137,17 +137,15 @@ export function TabCompras({ proveedor, campo = 'proveedor_codigo' }: ProveedorT
             <option value="desde">Desde</option>
             <option value="hasta">Hasta</option>
           </GwSelect>
-          <GwInput
-            type="date"
+          <GwDate
             disabled={borrador.operador === 'cualquiera'}
             value={borrador.fecha1}
-            onChange={(e) => setBorrador({ ...borrador, fecha1: e.target.value })}
+            onChange={(v) => setBorrador({ ...borrador, fecha1: v ?? '' })}
           />
-          <GwInput
-            type="date"
+          <GwDate
             disabled={borrador.operador !== 'entre'}
             value={borrador.fecha2}
-            onChange={(e) => setBorrador({ ...borrador, fecha2: e.target.value })}
+            onChange={(v) => setBorrador({ ...borrador, fecha2: v ?? '' })}
           />
         </GwGroup>
         <GwGroup title="Tiendas" className="grid w-[320px] grid-cols-[110px_minmax(0,1fr)] items-center gap-x-2 gap-y-0.5">

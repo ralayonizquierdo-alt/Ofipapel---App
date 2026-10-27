@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, FilePen, FilePlus2, FileX2, Binoculars, Tag, Package, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
+import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
@@ -613,7 +613,7 @@ export function ReparacionFichaPage() {
               <GwInput className="text-right" readOnly disabled value={draft.numero ?? ''} title="IDPEDIDO — se asigna al guardar" />
             </GwField>
             <GwField label="Fecha">
-              <GwInput type="date" value={draft.fecha ?? ''} disabled={dis} onChange={(e) => patch({ fecha: e.target.value || null })} />
+              <GwDate value={draft.fecha} disabled={dis} onChange={(v) => patch({ fecha: v })} />
             </GwField>
             <GwField label="Hora">
               <GwInput value={draft.hora ?? ''} disabled={dis} onChange={(e) => patch({ hora: e.target.value || null })} />
@@ -728,7 +728,7 @@ export function ReparacionFichaPage() {
         <GwGroup title="Datos de Entrega" className="self-start">
           <div className="flex items-center gap-1.5">
             <span className="gw-label">Fecha:</span>
-            <GwInput type="date" className="!w-[140px]" title="FECHA_ENTR" value={draft.fecha_entrega ?? ''} disabled={dis} onChange={(e) => patch({ fecha_entrega: e.target.value || null })} />
+            <GwDate className="!w-[140px]" title="FECHA_ENTR" value={draft.fecha_entrega} disabled={dis} onChange={(v) => patch({ fecha_entrega: v })} />
             <span className="gw-label">Hora:</span>
             <GwInput className="!w-[70px]" title="HORARESERV" value={draft.hora_reserva ?? ''} disabled={dis} onChange={(e) => patch({ hora_reserva: e.target.value || null })} />
           </div>

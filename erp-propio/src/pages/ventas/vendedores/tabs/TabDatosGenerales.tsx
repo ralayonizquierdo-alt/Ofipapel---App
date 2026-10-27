@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../../lib/supabase'
-import { GwField, GwGroup, GwInline, GwInput, GwLookupButton, GwSelect } from '../../../../components/gw'
+import { GwDate, GwField, GwGroup, GwInline, GwInput, GwLookupButton, GwSelect } from '../../../../components/gw'
 import { GwLookupDialog } from '../../../../components/gw/GwLookupDialog'
 import type { Vendedor, VendedorTabProps } from '../types'
 
@@ -179,6 +179,6 @@ export function TabDatosGenerales({ tipo, vendedor: cliente, editing, onChange }
 
 function FechaInput({ value, onChange, disabled, title }: { value: string | null; onChange: (v: string | null) => void; disabled?: boolean; title?: string }) {
   return (
-    <GwInput type="date" className="!w-[150px]" title={title} value={value ? value.slice(0, 10) : ''} disabled={disabled} onChange={(e) => onChange(e.target.value || null)} />
+    <GwDate className="!w-[150px]" title={title} value={value} disabled={disabled} onChange={onChange} />
   )
 }

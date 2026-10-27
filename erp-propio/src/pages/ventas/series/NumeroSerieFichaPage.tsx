@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Binoculars, ChevronFirst, ChevronLast, Play } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwTabs, GwTextArea, formatGw, type GwTabDef } from '../../../components/gw'
+import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwTabs, GwTextArea, formatGw, type GwTabDef } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
@@ -95,13 +95,7 @@ function sumarMeses(fecha: string, meses: number) {
 
 function FechaInput({ value, onChange, disabled }: { value: string | null; onChange?: (v: string | null) => void; disabled?: boolean }) {
   return (
-    <GwInput
-      type="date"
-      value={value ? value.slice(0, 10) : ''}
-      disabled={disabled}
-      readOnly={!onChange}
-      onChange={(e) => onChange?.(e.target.value || null)}
-    />
+    <GwDate value={value} disabled={disabled} onChange={onChange} />
   )
 }
 

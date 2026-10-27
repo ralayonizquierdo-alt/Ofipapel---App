@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
-import { GwCheck, GwInput, GwLookupButton, GwNumber, GwRadio, GwSelect, formatGw } from '../../../components/gw'
+import { GwCheck, GwDate, GwInput, GwLookupButton, GwNumber, GwRadio, GwSelect, formatGw } from '../../../components/gw'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import { PagosBar } from './PagosBar'
 import {
@@ -419,7 +419,7 @@ export function PagoProveedorFichaPage() {
                 <GwInput className={`${I} gw-num`} readOnly value={p.codigo_pago ?? ''} title="CODPAGO — se asigna al guardar" />
               </Campo>
               <Campo label="Fecha">
-                <GwInput className={I} type="date" value={p.fecha ?? ''} disabled={!editable} onChange={(e) => patch({ fecha: e.target.value || null })} />
+                <GwDate className={I} value={p.fecha} disabled={!editable} onChange={(v) => patch({ fecha: v })} />
               </Campo>
             </Grupo>
             <Grupo title="Tienda y Nº Fact. proveedor" apagado={!editable} className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-1.5">
@@ -554,10 +554,10 @@ export function PagoProveedorFichaPage() {
               <GwNumber className={I} value={p.cuota} decimals={3} disabled={!editable} onChange={(v) => patch({ cuota: v })} />
             </Campo>
             <Campo label="Fecha venc.">
-              <GwInput className={I} type="date" value={p.fecha_vencimiento ?? ''} disabled={!editable} onChange={(e) => patch({ fecha_vencimiento: e.target.value || null })} />
+              <GwDate className={I} value={p.fecha_vencimiento} disabled={!editable} onChange={(v) => patch({ fecha_vencimiento: v })} />
             </Campo>
             <Campo label="Fecha pago">
-              <GwInput className={I} type="date" value={p.fecha_pago ?? ''} disabled={!editable} onChange={(e) => patch({ fecha_pago: e.target.value || null })} />
+              <GwDate className={I} value={p.fecha_pago} disabled={!editable} onChange={(v) => patch({ fecha_pago: v })} />
             </Campo>
             <Campo label="Pagado" alinear="right">
               <GwNumber className={I} value={p.importe_pagado} decimals={3} disabled={!editable} onChange={(v) => patch({ importe_pagado: v })} />
@@ -586,7 +586,7 @@ export function PagoProveedorFichaPage() {
               <GwInput className={I} value={p.receptor_dni ?? ''} disabled={!editable} onChange={(e) => patch({ receptor_dni: e.target.value || null })} />
             </Campo>
             <Campo label="Fecha Factura">
-              <GwInput className={I} type="date" value={p.fecha_factura ?? ''} disabled={!editable} onChange={(e) => patch({ fecha_factura: e.target.value || null })} />
+              <GwDate className={I} value={p.fecha_factura} disabled={!editable} onChange={(v) => patch({ fecha_factura: v })} />
             </Campo>
             <Campo label="Nº Talón, Cheque,etc.">
               <GwInput className={I} value={p.numero_documento_pago ?? ''} disabled={!editable} onChange={(e) => patch({ numero_documento_pago: e.target.value || null })} />
