@@ -57,9 +57,19 @@ void main() {
   float cheek = gauss2(vec2(abs(p.x), p.y), vec2(0.27, -0.12), vec2(0.11, 0.1));
 
   // --- Reposo: microvibración y respiración digital (siempre activas)
-  float br = 1.0 + 0.006 * sin(t * 0.8);
+  // Respiración: todo el rostro se expande y contrae muy despacio.
+  float br = 1.0 + 0.012 * sin(t * 0.8);
   p *= br;
-  p += 0.0014 * vec2(sin(t * 0.73 + seed * 61.0), cos(t * 0.61 + seed * 47.0));
+  // Flujo coherente: los puntos vecinos se mueven juntos (ondulación de la superficie), así hay
+  // movimiento visible sin desordenar la trama.
+  vec2 flujo = vec2(sin(a_pos.y * 7.0 + t * 0.9) + 0.5 * sin(a_pos.x * 11.0 - t * 1.3),
+                    cos(a_pos.x * 6.0 + t * 0.75) + 0.5 * cos(a_pos.y * 9.0 + t * 1.15));
+  p += flujo * 0.0042 * (0.5 + 0.5 * depth);
+  // Los puntos sueltos del contorno flotan en pequeñas órbitas propias.
+  float suelto = 1.0 - smoothstep(0.0, 0.2, depth);
+  float h0 = fract(seed * 91.7);
+  p += suelto * 0.026 * vec2(sin(t * (0.35 + 0.4 * h0) + seed * 40.0), cos(t * (0.3 + 0.35 * h0) + seed * 29.0));
+  p += 0.0012 * vec2(sin(t * 0.73 + seed * 61.0), cos(t * 0.61 + seed * 47.0));
   float bright = 0.82 + 0.18 * sin(t * 1.3 + seed * 40.0);
 
   // --- Parpadeo: los propios puntos del ojo se aprietan hacia la línea del párpado
@@ -117,7 +127,8 @@ void main() {
   gl_Position = vec4(clip, 0.0, 1.0);
 
   float halo = 1.0 + 2.2 * u_glow;
-  float px = u_pointPx * size * mix(0.8, 1.0, k);
+  float centelleo = 1.0 + 0.12 * sin(t * (1.1 + 1.7 * fract(seed * 13.3)) + seed * 70.0);
+  float px = u_pointPx * size * centelleo * mix(0.8, 1.0, k);
   gl_PointSize = max(1.5, px * halo);
   v_core = 1.0 / halo;
   v_bright = bright * (0.85 + 0.25 * depth);
