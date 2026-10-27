@@ -211,7 +211,7 @@ export function ProveedorFichaPage() {
     if (f) goTo(String(f.codigo))
     else setError(`No existe ningún proveedor con ${que} que empiece por «${t}»`)
   }
-  const lista = (campo: string) =>
+  const listaCampo = (campo: string) =>
     consulta
       ? (texto: string | null) => listaOrd.abrir(defTercero('proveedor', campo), { texto, ancla: proveedor.codigo, onPick: (f) => goTo(String(f.codigo)) })
       : undefined
@@ -223,7 +223,7 @@ export function ProveedorFichaPage() {
       className={className}
       onChange={(v) => patch({ [campo]: campo === 'nombre' ? v : v === '' ? null : v } as Partial<typeof draft>)}
       onBuscar={buscarInicio(campo, que)}
-      onLista={lista(campo)}
+      onLista={listaCampo(campo)}
     />
   )
 
@@ -254,15 +254,23 @@ export function ProveedorFichaPage() {
     <div className="flex flex-col gap-1">
       <div className="grid grid-cols-[130px_minmax(0,1fr)_160px] gap-x-1.5">
         <GwField label="Código">
-          <GwInput value={draft.codigo} disabled={mode !== 'alta'} title="CODIGO" onChange={(e) => patch({ codigo: e.target.value })} />
+          <GwCampoBusqueda
+            value={draft.codigo}
+            editable={mode === 'alta'}
+            disabled={mode === 'edicion'}
+            title="CODIGO"
+            onChange={(v) => patch({ codigo: v })}
+            onBuscar={buscarCodigo}
+            onLista={listaCampo('codigo')}
+          />
         </GwField>
         <GwField label="Nombre">
-          <GwInput value={draft.nombre} disabled={ro} title="NOMBRE" onChange={(e) => patch({ nombre: e.target.value })} />
+          {campoBusqueda('nombre', 'NOMBRE', 'nombre')}
         </GwField>
-        <GwField label="Dni/Nif">{txt('nif', 'NIF')}</GwField>
+        <GwField label="Dni/Nif">{campoBusqueda('nif', 'NIF', 'NIF')}</GwField>
       </div>
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] gap-x-1.5">
-        <GwField label="Razón Social">{txt('razon_social', 'RAZONSOC')}</GwField>
+        <GwField label="Razón Social">{campoBusqueda('razon_social', 'RAZONSOC', 'razón social')}</GwField>
         <GwField label="Contacto">{txt('contacto', 'CONTACTO')}</GwField>
       </div>
 
@@ -313,6 +321,7 @@ export function ProveedorFichaPage() {
         {mode === 'alta' ? ' · Alta de proveedor' : mode === 'edicion' ? ' · Modificando' : ''}
       </div>
 
+      {listaOrd.dialogo}
       {buscar && (
         <GwLookupDialog<{ codigo: string; nombre: string; nif: string | null; poblacion: string | null }>
           title="Buscar Proveedor"

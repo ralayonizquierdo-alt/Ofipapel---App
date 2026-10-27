@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { GwCheck, GwField, GwInput, GwTextArea } from '../../components/gw'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { useFichaMaestro } from './useFichaMaestro'
+import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { BarraCompacta, ImagenConModo, PieEstado } from './piezas'
 
 interface Marca {
@@ -25,7 +26,7 @@ function fechaHora(v: string) {
 
 /** Almacén → Marcas, calcada de la ficha de GeminisWin (MARCAS). */
 export function MarcaFichaPage() {
-  const f = useFichaMaestro<Marca>({ tabla: 'marca', base: '/marcas', vacio: VACIA, campoNombre: 'codigo' })
+  const f = useFichaMaestro<Marca>({ tabla: 'marca', base: '/marcas', vacio: VACIA, campoNombre: 'codigo', que: 'la marca', titulo: 'Marcas', etiquetaCodigo: 'Marca' })
   const { draft, patch, editing, mode } = f
   const [buscar, setBuscar] = useState(false)
 
@@ -46,12 +47,14 @@ export function MarcaFichaPage() {
       <div className="grid grid-cols-[330px_minmax(0,1fr)] gap-x-3">
         <div className="flex flex-col gap-1">
           <GwField label="Marca">
-            <GwInput
+            <GwCampoBusqueda
               value={draft.codigo}
-              disabled={mode !== 'alta'}
+              editable={mode === 'alta'}
+              disabled={mode === 'edicion'}
               title="MARCA"
               maxLength={20}
-              onChange={(e) => patch({ codigo: e.target.value.toUpperCase() })}
+              onChange={(v) => patch({ codigo: v.toUpperCase() })}
+              {...f.busqueda('codigo')}
             />
           </GwField>
           <GwField label="Ultmod">
@@ -122,6 +125,7 @@ export function MarcaFichaPage() {
           onClose={() => setBuscar(false)}
         />
       )}
+      {f.dialogoLista}
     </div>
   )
 }

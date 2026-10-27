@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { GwField, GwGroup, GwInput, GwNumber, GwSelect } from '../../components/gw'
+import { GwField, GwGroup, GwNumber, GwSelect } from '../../components/gw'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { useFichaMaestro } from './useFichaMaestro'
+import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { BarraCompacta, PieEstado } from './piezas'
 
 interface PlantillaTarifa {
@@ -32,7 +33,7 @@ function siguienteCodigo(codigos: string[]) {
 }
 
 export function PlantillaTarifaFichaPage() {
-  const f = useFichaMaestro<PlantillaTarifa>({ tabla: 'plantilla_tarifa', base: '/plantillas-tarifas', vacio: VACIA, campoNombre: 'descripcion' })
+  const f = useFichaMaestro<PlantillaTarifa>({ tabla: 'plantilla_tarifa', base: '/plantillas-tarifas', vacio: VACIA, campoNombre: 'descripcion', que: 'la plantilla', titulo: 'Plantillas de tarifas' })
   const { draft, patch, editing, mode } = f
   const [niveles, setNiveles] = useState<Nivel[]>(nivelesVacios)
   const [nivelesGuardados, setNivelesGuardados] = useState<Nivel[]>(nivelesVacios)
@@ -101,10 +102,25 @@ export function PlantillaTarifaFichaPage() {
     <div className="flex max-w-[1000px] flex-col gap-1">
       <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-x-2.5">
         <GwField label="Código">
-          <GwInput value={draft.codigo} disabled={mode !== 'alta'} title="CODTAR" maxLength={10} onChange={(e) => patch({ codigo: e.target.value })} />
+          <GwCampoBusqueda
+            value={draft.codigo}
+            editable={mode === 'alta'}
+            disabled={mode === 'edicion'}
+            title="CODTAR"
+            maxLength={10}
+            onChange={(v) => patch({ codigo: v })}
+            {...f.busqueda('codigo')}
+          />
         </GwField>
         <GwField label="Descripción">
-          <GwInput value={draft.descripcion} disabled={ro} title="DESCRIPTAR" maxLength={30} onChange={(e) => patch({ descripcion: e.target.value })} />
+          <GwCampoBusqueda
+            value={draft.descripcion}
+            editable={editing}
+            title="DESCRIPTAR"
+            maxLength={30}
+            onChange={(v) => patch({ descripcion: v })}
+            {...f.busqueda('nombre')}
+          />
         </GwField>
       </div>
       {f.sinRegistros ? (
@@ -204,6 +220,7 @@ export function PlantillaTarifaFichaPage() {
           onClose={() => setBuscar(false)}
         />
       )}
+      {f.dialogoLista}
     </div>
   )
 }

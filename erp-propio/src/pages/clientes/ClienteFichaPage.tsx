@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { GwDate, GwField, GwInput, GwTabs, type GwTabDef } from '../../components/gw'
+import { GwDate, GwField, GwTabs, type GwTabDef } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
@@ -223,7 +223,7 @@ export function ClienteFichaPage() {
     if (f) goTo(String(f.codigo))
     else setError(`No existe ningún cliente con ${que} que empiece por «${t}»`)
   }
-  const lista = (campo: string) =>
+  const listaCampo = (campo: string) =>
     consulta
       ? (texto: string | null) => listaOrd.abrir(defTercero('cliente', campo), { texto, ancla: cliente.codigo, onPick: (f) => goTo(String(f.codigo)) })
       : undefined
@@ -235,19 +235,11 @@ export function ClienteFichaPage() {
       className={className}
       onChange={(v) => patch({ [campo]: campo === 'nombre' ? v : v === '' ? null : v } as Partial<typeof draft>)}
       onBuscar={buscarInicio(campo, que)}
-      onLista={lista(campo)}
+      onLista={listaCampo(campo)}
     />
   )
 
   const ro = !editing
-  const txt = (key: keyof Cliente, title: string) => (
-    <GwInput
-      value={(draft[key] ?? '') as string}
-      disabled={ro}
-      title={title}
-      onChange={(e) => patch({ [key]: e.target.value === '' ? null : e.target.value } as Partial<Cliente>)}
-    />
-  )
 
   if (loading) return <div className="p-4 text-[13px]">Cargando…</div>
 
@@ -266,29 +258,26 @@ export function ClienteFichaPage() {
     <div className="flex flex-col gap-1">
       <div className="grid grid-cols-[110px_minmax(0,1fr)_120px] gap-x-1.5">
         <GwField label="Código">
-          <GwInput
+          <GwCampoBusqueda
             value={draft.codigo}
-            disabled={mode !== 'alta'}
+            editable={mode === 'alta'}
+            disabled={mode === 'edicion'}
             title="CODIGO"
-            onChange={(e) => patch({ codigo: e.target.value })}
+            onChange={(v) => patch({ codigo: v })}
+            onBuscar={buscarCodigo}
+            onLista={listaCampo('codigo')}
           />
         </GwField>
         <GwField label="Nombre">
-          <GwInput
-            value={draft.nombre}
-            disabled={ro}
-            title="NOMBRE"
-            className={draft.bloqueado ? '!font-bold !text-[#c42b1c] [-webkit-text-fill-color:#c42b1c]' : ''}
-            onChange={(e) => patch({ nombre: e.target.value })}
-          />
+          {campoBusqueda('nombre', 'NOMBRE', 'nombre', draft.bloqueado ? '!font-bold !text-[#c42b1c] [-webkit-text-fill-color:#c42b1c]' : '')}
         </GwField>
         <GwField label="Fe. Nacimiento">
           <FechaInput value={draft.fecha_nacimiento} disabled={ro} title="FECHANAC" onChange={(v) => patch({ fecha_nacimiento: v })} />
         </GwField>
       </div>
       <div className="grid grid-cols-[110px_minmax(0,1fr)_120px_120px] gap-x-1.5">
-        <GwField label="Dni/Nif">{txt('nif', 'NIF')}</GwField>
-        <GwField label="Razón Social:">{txt('razon_social', 'RAZONSOC')}</GwField>
+        <GwField label="Dni/Nif">{campoBusqueda('nif', 'NIF', 'NIF')}</GwField>
+        <GwField label="Razón Social:">{campoBusqueda('razon_social', 'RAZONSOC', 'razón social')}</GwField>
         <GwField label="Fecha de Alta">
           <FechaInput value={draft.fecha_alta} disabled={ro} title="F_ALTA" onChange={(v) => patch({ fecha_alta: v })} />
         </GwField>
@@ -351,6 +340,7 @@ export function ClienteFichaPage() {
         {mode === 'alta' ? ' · Alta de cliente' : mode === 'edicion' ? ' · Modificando' : ''}
       </div>
 
+      {listaOrd.dialogo}
       {buscar && (
         <GwLookupDialog<{ codigo: string; nombre: string; nif: string | null; poblacion: string | null }>
           title="Buscar Cliente"

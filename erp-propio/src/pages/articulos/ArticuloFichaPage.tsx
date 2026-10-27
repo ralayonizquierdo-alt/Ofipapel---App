@@ -414,8 +414,9 @@ export function ArticuloFichaPage() {
       () => supabase.from('articulo_codigo_barras').select('codigo_interno:articulo_codigo').eq('codigo_barras', t).limit(1),
       () => supabase.from('articulo').select('codigo_interno').eq('codigo_barras_principal', t).limit(1),
     ]
-    for (const q of intentos) {
-      const { data } = await q()
+    // Las cuatro a la vez; gana la primera de la lista que encuentre algo.
+    const res = await Promise.all(intentos.map((q) => q()))
+    for (const { data } of res) {
       const c = (data as { codigo_interno: string }[] | null)?.[0]?.codigo_interno
       if (c) return goTo(c)
     }

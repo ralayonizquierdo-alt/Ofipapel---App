@@ -19,6 +19,7 @@ import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { FilasVacias } from '../../components/gw/GwGridParts'
 import { useFichaMaestro } from './useFichaMaestro'
+import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { ImagenConModo, PieEstado } from './piezas'
 
 interface Familia {
@@ -104,7 +105,7 @@ interface NivelPlantilla {
 }
 
 export function FamiliaFichaPage() {
-  const f = useFichaMaestro<Familia>({ tabla: 'familia', base: '/familias', vacio: VACIA, campoNombre: 'descripcion', sinColumnas: SIN_COLUMNAS })
+  const f = useFichaMaestro<Familia>({ tabla: 'familia', base: '/familias', vacio: VACIA, campoNombre: 'descripcion', sinColumnas: SIN_COLUMNAS, que: 'la familia', titulo: 'Familias' })
   const { draft, patch, editing, mode } = f
   const [tab, setTab] = useState('general')
   const [buscar, setBuscar] = useState(false)
@@ -187,16 +188,27 @@ export function FamiliaFichaPage() {
     <div className="flex flex-col gap-1">
       <div className="grid grid-cols-[150px_minmax(0,1fr)_260px] gap-x-4 pl-12">
         <GwField label="Código:">
-          <GwInput
+          <GwCampoBusqueda
             value={draft.codigo}
-            disabled={mode !== 'alta'}
+            editable={mode === 'alta'}
+            disabled={mode === 'edicion'}
             title="COD_FAM: 2, 4 o 6 dígitos (familia de nivel 1, 2 o 3)"
             maxLength={6}
             inputMode="numeric"
-            onChange={(e) => patch({ codigo: e.target.value.replace(/\D/g, '') })}
+            onChange={(v) => patch({ codigo: v.replace(/\D/g, '') })}
+            {...f.busqueda('codigo')}
           />
         </GwField>
-        <GwField label="Descripción:">{texto('descripcion', 'DESCRIP', 45)}</GwField>
+        <GwField label="Descripción:">
+          <GwCampoBusqueda
+            value={draft.descripcion}
+            editable={editing}
+            title="DESCRIP"
+            maxLength={45}
+            onChange={(v) => patch({ descripcion: v === '' ? null : v } as Partial<Familia>)}
+            {...f.busqueda('nombre')}
+          />
+        </GwField>
         <GwField label="Última Modificación">
           <GwInput readOnly value={mode === 'alta' ? '  /  /' : fechaHora(draft.actualizado_en)} title="ULTMOD" />
         </GwField>
@@ -523,6 +535,7 @@ export function FamiliaFichaPage() {
           onClose={() => setBuscarWeb(false)}
         />
       )}
+      {f.dialogoLista}
     </div>
   )
 }

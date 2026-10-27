@@ -6,6 +6,7 @@ import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { FilasVacias, GridMiniBar } from '../../components/gw/GwGridParts'
 import { useFichaMaestro } from './useFichaMaestro'
+import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { BotonMarca, NOMBRES_TARIFA, PieFicha, horaActual, hoyISO, redondear, siguienteCodigo } from './modPreciosComun'
 
 // Almacén → Tarifas de Oferta (ARTTAROF cabecera; líneas en articulo_tarifa_cantidad,
@@ -91,7 +92,7 @@ async function pvpsBase(codigos: string[], nivel: number) {
 }
 
 export function TarifaOfertaFichaPage() {
-  const f = useFichaMaestro<Oferta>({ tabla: 'oferta_tarifa', base: '/tarifas-oferta', vacio: VACIA, campoNombre: 'concepto' })
+  const f = useFichaMaestro<Oferta>({ tabla: 'oferta_tarifa', base: '/tarifas-oferta', vacio: VACIA, campoNombre: 'concepto', que: 'la oferta', titulo: 'Ofertas', etiquetaNombre: 'Concepto' })
   const { draft, patch, editing, mode } = f
   const [tab, setTab] = useState('tarifas')
   const [lineas, setLineas] = useState<Linea[]>([])
@@ -255,7 +256,15 @@ export function TarifaOfertaFichaPage() {
         <div className="flex min-w-0 flex-col gap-1">
           <div className="grid grid-cols-[110px_100px_56px_minmax(0,1fr)] gap-x-1.5">
             <GwField label="Codigo">
-              <GwInput value={draft.codigo} disabled={mode !== 'alta'} maxLength={10} title="ARTTAROF.CODIGO" onChange={(e) => patch({ codigo: e.target.value })} />
+              <GwCampoBusqueda
+                value={draft.codigo}
+                editable={mode === 'alta'}
+                disabled={mode === 'edicion'}
+                maxLength={10}
+                title="ARTTAROF.CODIGO"
+                onChange={(v) => patch({ codigo: v })}
+                {...f.busqueda('codigo')}
+              />
             </GwField>
             <GwField label="Fecha">
               <GwDate value={draft.fecha} disabled={ro} title="FECHA" onChange={(v) => patch({ fecha: v })} />
@@ -264,7 +273,14 @@ export function TarifaOfertaFichaPage() {
               <GwInput value={draft.hora ?? ''} disabled={ro} maxLength={5} title="HORA" onChange={(e) => patch({ hora: e.target.value || null })} />
             </GwField>
             <GwField label="Concepto">
-              <GwInput value={draft.concepto} disabled={ro} maxLength={30} title="CONCEPTO" onChange={(e) => patch({ concepto: e.target.value })} />
+              <GwCampoBusqueda
+                value={draft.concepto}
+                editable={editing}
+                maxLength={30}
+                title="CONCEPTO"
+                onChange={(v) => patch({ concepto: v })}
+                {...f.busqueda('nombre')}
+              />
             </GwField>
           </div>
           <GwGroup title="Datos de la Oferta">
@@ -535,6 +551,7 @@ export function TarifaOfertaFichaPage() {
           onClose={() => setBuscarArticulo(null)}
         />
       )}
+      {f.dialogoLista}
     </div>
   )
 }

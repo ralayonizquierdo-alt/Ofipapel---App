@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { selectTodo, supabase } from '../../lib/supabase'
+import { gwBuscarPorInicio, useListaOrdenada, type GwListaOrdenadaDef } from '../../components/gw/GwListaOrdenada'
 
 export type ModoFicha = 'consulta' | 'edicion' | 'alta'
 
@@ -20,12 +21,22 @@ export function useFichaMaestro<T extends { codigo: string }>({
   vacio,
   campoNombre,
   sinColumnas = ['actualizado_en'],
+  que = 'el registro',
+  titulo = 'Registros',
+  etiquetaCodigo = 'Código',
+  etiquetaNombre = 'Descripción',
 }: {
   tabla: string
   base: string
   vacio: T
   campoNombre: string
   sinColumnas?: string[]
+  /** Para los avisos: «No existe la familia XX». */
+  que?: string
+  /** Para el título de la lista ordenada: «Familias ordenadas por …». */
+  titulo?: string
+  etiquetaCodigo?: string
+  etiquetaNombre?: string
 }) {
   const params = useParams()
   const navigate = useNavigate()
@@ -207,7 +218,43 @@ export function useFichaMaestro<T extends { codigo: string }>({
     navigate(siguiente ? `${base}/${encodeURIComponent(siguiente.codigo)}` : base, { replace: true })
   }
 
+  // Búsqueda desde los campos en consulta (Intro) y lista ordenada (Ctrl+Intro), como en
+  // Artículos. `busqueda('codigo' | 'nombre')` da los props para GwCampoBusqueda; la tabla
+  // tiene que estar en la lista blanca de gw_lista_ordenada.
+  const listaOrd = useListaOrdenada()
+  const columnaNombre = campoNombre === 'codigo' ? [] : [{ key: campoNombre, label: etiquetaNombre }]
+  const defLista = (campo: string): GwListaOrdenadaDef => ({
+    fuente: tabla,
+    campo,
+    etiqueta: campo === 'codigo' ? etiquetaCodigo : etiquetaNombre,
+    que: titulo,
+    columnas: [{ key: 'codigo', label: etiquetaCodigo, width: campoNombre === 'codigo' ? undefined : 130 }, ...columnaNombre],
+  })
+  function busqueda(cual: 'codigo' | 'nombre') {
+    const campo = cual === 'codigo' ? 'codigo' : campoNombre
+    return {
+      onBuscar: async (t: string) => {
+        if (campo === 'codigo') {
+          const { data } = await supabase.from(tabla).select('codigo').in('codigo', [t, t.toUpperCase()]).limit(1)
+          const c = (data as { codigo: string }[] | null)?.[0]?.codigo
+          if (c) return goTo(c)
+          return setError(`No existe ${que} ${t}`)
+        }
+        const f = await gwBuscarPorInicio(tabla, campo, t)
+        if (f) goTo(String(f.codigo))
+        else setError(`No existe ${que} que empiece por «${t}»`)
+      },
+      onLista:
+        mode === 'consulta'
+          ? (texto: string | null) =>
+              listaOrd.abrir(defLista(campo), { texto, ancla: registro.codigo || null, onPick: (f) => goTo(String(f.codigo)) })
+          : undefined,
+    }
+  }
+
   return {
+    busqueda,
+    dialogoLista: listaOrd.dialogo,
     navigate,
     mode,
     setMode,
