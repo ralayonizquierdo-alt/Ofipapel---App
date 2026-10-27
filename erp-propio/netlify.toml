@@ -5,7 +5,8 @@
   command = "npm ci && npm run build"
   publish = "dist"
   # No reconstruir si el cambio no toca el ERP (el repositorio tiene más proyectos).
-  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- ."
+  # En la primera publicación de la rama los dos commits son iguales: entonces se construye.
+  ignore = "[ \"$CACHED_COMMIT_REF\" != \"$COMMIT_REF\" ] && git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- ."
 
 [build.environment]
   VITE_BASE_PATH = "/"
