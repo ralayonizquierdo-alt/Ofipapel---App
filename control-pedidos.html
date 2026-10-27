@@ -874,7 +874,6 @@ function vistaReclamacion(clave, i, grupos, o) {
   return `
     <details class="no-imprimir reclamacion" style="margin-top:12px" ${op.abierto ? 'open' : ''}>
       <summary><b>✉️ Reclamar al proveedor</b> · ${n} referencia(s)${grupos.length > 1 ? ` de ${grupos.length} pedidos, separadas por cliente` : ''}</summary>
-      <p class="pequeno">Lo que has marcado «✉️ Reclamar al proveedor» (faltas, lo que viene de más o sin pedir y precios que no cuadran), con el motivo en cada referencia y tu nota si la has escrito. Revisa el texto y mándalo por correo, o cópialo / imprímelo.</p>
       <textarea id="txtReclamacion${i}" rows="12" style="width:100%;font-family:ui-monospace,monospace;font-size:13px" oninput="reclamaciones[${js(clave)}]=this.value">${h(reclamaciones[clave])}</textarea>
       <div class="fila" style="margin-top:6px">
         ${op.proveedor != null ? `<button class="btn primario" onclick="correoReclamacion(${js(clave)}, ${js(op.proveedor)}, ${js(op.asunto || '')})">📧 Enviar por correo</button>` : ''}
@@ -1484,7 +1483,7 @@ function vistaComparacion(p, filas) {
   const plegadas = soloDiscordancias ? orden(filas.filter((f) => f.motivos.length && !porDecidir(f))) : [];
   const nombres = { reclamar: '✉️ Reclamar al proveedor (esperar respuesta)', resto: 'Sin stock: dejar en restos', anular: 'Descartar (descatalogado o ya no lo quiere)', aceptar: 'Aceptar propuesta', mantener: 'Mantener lo pedido', manual: 'Cantidad/precio a mano', excluir: 'Excluir línea' };
   const tabla = (xs) => `<div class="tabla-scroll"><table>
-      <tr><th class="no-imprimir c-sel"><input type="checkbox" title="Marcar todas" onchange="this.closest('table').querySelectorAll('.selDec').forEach((c) => { c.checked = this.checked; marcarDec(c); })"></th><th>Referencia</th><th>Descripción</th><th class="num">Pedido</th><th class="num">Propuesta</th><th class="num">${esRepo(p) ? 'Neto pedido' : 'Precio pedido'}</th><th class="num">${esRepo(p) ? 'Neto propuesta' : 'Precio propuesta'}</th><th>Qué pasa</th><th>Decisión</th></tr>
+      <tr><th class="no-imprimir c-sel"><input type="checkbox" title="Marcar todas" onchange="this.closest('table').querySelectorAll('.selDec').forEach((c) => { c.checked = this.checked; marcarDec(c); })"></th><th>Referencia</th><th>Descripción</th><th class="num">Pedido</th><th class="num">Propuesta</th><th class="num">${esRepo(p) ? 'Neto pedido' : 'Precio pedido'}</th><th class="num">${esRepo(p) ? 'Neto propuesta' : 'Precio propuesta'}</th><th>Qué pasa</th><th${esRepo(p) ? '' : ' title="En un cambio de precio, la decisión fija el precio al cliente; el Excel de Géminis lleva siempre el coste del proveedor."'}>Decisión</th></tr>
       ${xs.map((f) => {
         const d = p.decisiones[f.ref] || {};
         const acciones = CP.accionesPara(f, p.tipo);
@@ -1504,7 +1503,7 @@ function vistaComparacion(p, filas) {
             </select>
             ${d.accion === 'manual' ? `<div class="fila" style="margin-top:4px"><input class="cant" placeholder="Cant." value="${h(d.cant)}" onchange="decide(${js(f.ref)},'cant',this.value)"><input class="precio" placeholder="${esRepo(p) ? 'Neto' : 'Precio'}" value="${h(d.precio)}" onchange="decide(${js(f.ref)},'precio',this.value)"></div>` : ''}
             ${d.accion === 'reclamar' ? `<input style="margin-top:4px" placeholder="Motivo para el proveedor (opcional)" title="Sale en el texto de la reclamación, debajo de esta referencia" value="${h(d.motivo)}" onchange="decide(${js(f.ref)},'motivo',this.value)">` : ''}
-            <input style="margin-top:4px" placeholder="Nota de facturación (opcional)" value="${h(d.nota)}" onchange="decide(${js(f.ref)},'nota',this.value)">
+            ${d.accion || d.nota ? `<input style="margin-top:4px" placeholder="Nota de facturación (opcional)" value="${h(d.nota)}" onchange="decide(${js(f.ref)},'nota',this.value)">` : ''}
           ` : ''}</td>
         </tr>`;
       }).join('')}
@@ -1515,7 +1514,6 @@ function vistaComparacion(p, filas) {
     ${bloqueFaltasSobras(p, filas)}
     ${bloqueReclamacionPedido(p, filas)}
     <h3 style="margin-top:16px">Todas las diferencias</h3>
-    ${esRepo(p) ? '' : `<div class="pequeno" style="margin-bottom:6px">En un cambio de precio, tu decisión fija el <b>precio al cliente</b> (listado imprimible): «Mantener lo pedido» = el que apuntó el comercial. El Excel de Géminis lleva siempre el <b>coste que factura el proveedor</b>.</div>`}
     <div class="resumen">
       <span class="chip ok">${n.ok} cuadran</span>
       ${n.info ? `<span class="chip info">${n.info} con cambio de precio informativo</span>` : ''}
@@ -1525,15 +1523,11 @@ function vistaComparacion(p, filas) {
     <label class="no-imprimir" style="flex-direction:row;align-items:center;gap:6px;margin:6px 0">
       <input type="checkbox" ${soloDiscordancias ? 'checked' : ''} onchange="soloDiscordancias=this.checked;pintar()"> Ver solo lo que falta decidir
     </label>
-    ${n.revisar ? `<div class="fila no-imprimir" style="margin:6px 0;gap:6px;align-items:center;flex-wrap:wrap">
-      <b>Decidir en bloque:</b>
-      <button class="btn peque" onclick="marcarPorProblema('falta')">Marcar las que faltan</button>
-      <button class="btn peque" onclick="marcarPorProblema('sobra')">Marcar las que sobran</button>
-      <button class="btn peque" onclick="marcarPorProblema('precio')">Marcar las de precio</button>
-      <button class="btn peque" onclick="marcarPorProblema('')">Desmarcar</button>
-      <select id="accionBloque"><option value="">— decisión para las marcadas —</option>${['aceptar', 'reclamar', 'resto', 'anular', 'mantener', 'excluir'].filter((a) => esRepo(p) ? a !== 'resto' && a !== 'anular' : true).map((a) => `<option value="${a}">${nombres[a]}</option>`).join('')}</select>
-      <button class="btn primario peque" onclick="decidirEnBloque(document.getElementById('accionBloque').value)">Aplicar a las marcadas (<span id="nMarcadas">${filas.filter((f) => f.revisar && marcadasDec.has(f.ref)).length}</span>)</button>
-    </div>` : ''}
+    ${n.revisar ? (() => { const nm = filas.filter((f) => f.revisar && marcadasDec.has(f.ref)).length; return `<div id="barraBloque" class="fila no-imprimir" style="margin:6px 0;gap:6px;align-items:center;${nm ? '' : 'display:none'}">
+      <b><span id="nMarcadas">${nm}</span> marcadas:</b>
+      <select id="accionBloque"><option value="">— decisión —</option>${['aceptar', 'reclamar', 'resto', 'anular', 'mantener', 'excluir'].filter((a) => esRepo(p) ? a !== 'resto' && a !== 'anular' : true).map((a) => `<option value="${a}">${nombres[a]}</option>`).join('')}</select>
+      <button class="btn primario peque" onclick="decidirEnBloque(document.getElementById('accionBloque').value)">Aplicar</button>
+    </div>`; })() : ''}
     ${mostrar.length ? tabla(mostrar) : `<div class="aviso-caja ok">${n.revisar ? '✅ Todas las discordancias están decididas.' : 'Todo cuadra.'}</div>`}
     ${plegadas.length ? `<details class="decididas"><summary>Ya decididas o solo informativas (${plegadas.length}) — abrir para ver o cambiar</summary>${tabla(plegadas)}</details>` : ''}
     <div class="fila no-imprimir" style="margin-top:14px">
@@ -1554,7 +1548,6 @@ function bloqueFaltasSobras(p, filas) {
   const { faltan, sobran } = CP.faltasYSobras(filas);
   const pendientes = CP.faltasPendientes(filas, p.decisiones);
   const pend = new Set(pendientes.map((x) => x.ref));
-  const doc = esRepo(p) ? 'la factura/propuesta' : 'la propuesta';
   const decidido = { reclamar: '✉️ reclamada, esperando respuesta del proveedor', resto: 'sin stock: en restos', anular: 'descartada definitivamente', excluir: 'descartada', aceptar: 'aceptada la propuesta', mantener: 'se mantiene lo pedido', manual: 'a mano' };
   const filaDe = new Map(filas.map((f) => [f.ref, f]));
   const cortos = { aceptar: '✅ Aceptar', excluir: '🗑️ Quitar del pedido', anular: '🗑️ Descartar', resto: 'Sin stock: a restos', mantener: 'Mantener lo pedido' };
@@ -1582,11 +1575,11 @@ function bloqueFaltasSobras(p, filas) {
   const plegado = (xs, signo, falta) => xs.length ? `<details class="decididas"><summary>${xs.length} ya decidida(s)</summary>${lista(xs, signo, falta)}</details>` : '';
   return `${bloqueExplicaciones(p, faltanVer, sobranVer)}
     <div class="aviso-caja ${pendientes.length ? 'mal' : 'ok'}" style="margin-top:0">
-      <b>${pendientes.length ? `❌ Faltan ${pendientes.length} referencia(s)` : faltan.length ? '✅ Ninguna falta pendiente' : '✅ No falta nada'}</b> — pedido que no viene en ${doc}
+      <b>${pendientes.length ? `❌ Faltan ${pendientes.length} referencia(s)` : faltan.length ? '✅ Ninguna falta pendiente' : '✅ No falta nada'}</b>
       ${lista(faltanVer, '', true)}${plegado(faltanYa, '', true)}
     </div>
     <div class="aviso-caja ${sobranVer.length ? 'aviso' : 'ok'}">
-      <b>${sobranVer.length ? `⚠️ Sobran ${sobranVer.length} referencia(s)` : sobran.length ? '✅ Ninguna sobra pendiente' : '✅ No sobra nada'}</b> — vienen en ${doc} sin haberse pedido (o de más)
+      <b>${sobranVer.length ? `⚠️ Sobran ${sobranVer.length} referencia(s)` : sobran.length ? '✅ Ninguna sobra pendiente' : '✅ No sobra nada'}</b>
       ${lista(sobranVer, '+')}${plegado(sobranYa, '+')}
     </div>`;
 }
@@ -1610,7 +1603,8 @@ function bloqueExplicaciones(p, faltan, sobran) {
       : x.tipo === 'otroPedido' && x.sobra
         ? `<button class="btn peque" onclick="pasarAOtroPedido(${js(x.sobra.ref)}, ${js(x.id)})">📦 Pasarla al pedido ${h(x.pedido)}</button>`
         : '';
-  return `<div class="aviso-caja info no-imprimir" style="margin-top:0"><b>🧠 Por qué falta y sobra</b> <span class="pequeno">(lo que se deduce al mirarlas juntas; revísalo antes de aplicarlo)</span>
+  if (!ex.length) return `<div class="no-imprimir" style="margin:0 0 8px">${bloqueIA(p)}</div>`;
+  return `<div class="aviso-caja info no-imprimir" style="margin-top:0"><b>🧠 Por qué falta y sobra</b>
     ${ex.length ? `<ul style="margin:6px 0 0;padding-left:18px">${ex.map((x) => `<li>${icono[x.tipo] || ''} ${h(x.texto)} ${boton(x)}</li>`).join('')}</ul>` : ''}
     ${bloqueIA(p)}</div>`;
 }
@@ -1677,9 +1671,9 @@ function propuestasValidas(ps, datos) {
 function bloqueIA(p) {
   const st = iaPropuestas[p.id];
   const log = p.iaDeshacer || [];
-  const deshacer = log.length ? ` <button class="btn peque" onclick="deshacerIA()">↩️ Deshacer lo aplicado por la IA (${log.length})</button>` : '';
+  const deshacer = log.length ? ` <button class="btn peque" onclick="deshacerIA()">↩️ Deshacer IA (${log.length})</button>` : '';
   if (esComercial()) return '';
-  if (!st) return `<div class="fila" style="margin-top:8px;gap:6px"><button class="btn peque primario" onclick="revisarConIA()">🧠 Revisar con IA lo que queda</button><span class="pequeno">Razona referencias, cantidades, precios y colores; solo propone, tú decides.</span>${deshacer}</div>`;
+  if (!st) return `<div class="fila" style="margin-top:8px;gap:6px"><button class="btn peque primario" onclick="revisarConIA()" title="Solo propone: tú decides y se puede deshacer">🧠 Revisar con IA</button>${deshacer}</div>`;
   if (st.estado === 'cargando') return `<div style="margin-top:8px">🧠 Revisando… (unos segundos)${deshacer}</div>`;
   if (st.estado === 'error') return `<div style="margin-top:8px" class="pequeno">🧠 No se ha podido revisar: ${h(st.error)} <button class="btn peque" onclick="revisarConIA()">Volver a intentar</button>${deshacer}</div>`;
   const icono = { emparejar: '🔗', expositor: '🧩', otroPedido: '📦' };
@@ -2078,18 +2072,10 @@ function emparejar(delProveedor, nuestra) {
 }
 function marcarDec(c) {
   if (c.checked) marcadasDec.add(c.value); else marcadasDec.delete(c.value);
-  const n = document.getElementById('nMarcadas');
-  if (n) n.textContent = comparar(pedidoActual()).filter((f) => f.revisar && marcadasDec.has(f.ref)).length;
-}
-/** Marca todas las discordancias con el mismo problema: faltan, sobran o precio. */
-function marcarPorProblema(tipo) {
-  const filas = comparar(pedidoActual()).filter((f) => f.revisar);
-  marcadasDec.clear();
-  for (const f of filas) {
-    const falta = f.cantPropuesta < f.cantPedida, sobra = f.cantPropuesta > f.cantPedida;
-    if ((tipo === 'falta' && falta) || (tipo === 'sobra' && sobra) || (tipo === 'precio' && !falta && !sobra)) marcadasDec.add(f.ref);
-  }
-  pintar();
+  const nm = comparar(pedidoActual()).filter((f) => f.revisar && marcadasDec.has(f.ref)).length;
+  const n = document.getElementById('nMarcadas'), barra = document.getElementById('barraBloque');
+  if (n) n.textContent = nm;
+  if (barra) barra.style.display = nm ? '' : 'none';
 }
 /** Misma decisión para todas las marcadas; a la que no admite esa decisión no se le toca y se avisa. */
 function decidirEnBloque(accion) {
