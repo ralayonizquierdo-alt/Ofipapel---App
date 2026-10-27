@@ -899,8 +899,10 @@ test('Emparejar referencias que el proveedor factura con otro código (Fellowes)
     '48121-70': '4812170', 5308803: '53088', 5477502: '54775',
     5110301: 'ESP010', 5110601: '943162', 5114301: 'IBESP925136', 5111901: 'ESP905140',
   });
-  // Dos candidatos con la misma medida y cantidad: no se adivina
-  assert.deepEqual(CP.emparejarReferencias([{ ref: 'A', cant: 2, desc: '24mm negro' }], [{ ref: 'B', cant: 2, desc: '24MM black' }, { ref: 'C', cant: 2, desc: '24MM white' }]), {});
+  // Dos candidatos con la misma medida y cantidad: decide el color («black» = negro)…
+  assert.deepEqual(CP.emparejarReferencias([{ ref: 'A', cant: 2, desc: '24mm negro' }], [{ ref: 'B', cant: 2, desc: '24MM black' }, { ref: 'C', cant: 2, desc: '24MM white' }]), { B: 'A' });
+  // …y sin nada que los distinga, no se adivina
+  assert.deepEqual(CP.emparejarReferencias([{ ref: 'A', cant: 2, desc: '24mm tapa' }], [{ ref: 'B', cant: 2, desc: '24MM caja' }, { ref: 'C', cant: 2, desc: '24MM bolsa' }]), {});
 });
 
 test('Emparejar referencias: el proveedor pone prefijo y sufijo a nuestro código (Archivo 2000)', () => {
@@ -986,4 +988,39 @@ test('Cuadre de artículos: lo facturado tiene que acabar en un cliente', () => 
   ]);
   assert.deepStrictEqual([mal.facturadas, mal.aClientes, mal.sinValidar, mal.sinCliente], [8, 2, 1, 4]);
   assert.deepStrictEqual(mal.difs.map((d) => [d.numero, d.ref, d.facturado, d.aCliente]), [['1', 'X', 3, 2]]);
+});
+
+test('Sadipal/Fabriano: altas de solo cifras, códigos viejos y colores en italiano', () => {
+  assert.deepStrictEqual(CP.codigosAlta('65900208>SET REGALO SKETCHBOOK'), ['65900208']);
+  assert.deepStrictEqual(CP.codigosAlta('06803006/9/7/8/10>SET BOLIGRAFO Inspira'), ['06803006', '06803009', '06803007', '06803008', '06803010']);
+  // Un alta guardada antes sin código se arregla sola
+  assert.strictEqual(CP.marcarAlta({ ref: 'ALTA-65900208SETREG', alta: true, descAlta: '65900208>SET REGALO SKETCHBOOK', cant: 10 }).ref, '65900208');
+  const ped = [
+    { ref: '53721297', cant: 240, desc: 'PAPEL FOTOCOPIA A-4 240gr. (Pvp-150-Hojas)' },
+    { ref: '61121297', cant: 20, desc: 'PAPEL Fotocopia A-4 80gr. 500-H Color (Amarillo-Claro)' },
+    { ref: 'F60621297', cant: 20, desc: 'PAPEL Fotocopia A-4 80gr. 500-H Color (Amarillo-Fuerte)' },
+    { ref: '61321297', cant: 5, desc: 'PAPEL Fotocopia A-4 80gr. 500-H Color (Salmon)' },
+    { ref: '60121297', cant: 5, desc: 'PAPEL Fotocopia A-4 80gr. 500-H Color (Verde-Fuerte)' },
+    { ref: '11406', cant: 30, desc: 'PAPEL CREPE 0,50x250ctm METALIZADO (ORO)' },
+    { ref: 'S1545015', cant: 30, desc: 'PAPEL CREPE 0,50ctm x 2,50mts (EXTRA 60%) (Azul-Marino)' },
+    { ref: '65900208', cant: 10, desc: '65900208>SET REGALO SKETCHBOOK', alta: true },
+    { ref: '07722714', cant: 10, desc: '07722714>CALENDARIO WALLIS 26X8', alta: true },
+    { ref: '06803001+06803002+06803003', cant: 10, desc: '06803001/2/3>SET LAPIZ', alta: true },
+  ];
+  const pro = [
+    { ref: 'F50621297', cant: 240, desc: 'IMAGING PRO A4 240g 150H' },
+    { ref: 'F75021297', cant: 20, desc: 'FA. COL. 80g A4 FSC BANANA 500H' },
+    { ref: 'F74621297', cant: 20, desc: 'FA. COL. 80g A4 FSC GIALLO 500H' },
+    { ref: 'F75221297', cant: 5, desc: 'FA. COL. 80g A4 FSC ALBICOCA 500H' },
+    { ref: 'F74121297', cant: 5, desc: 'FA. COL. 80g A4 FSC VERDE 500H' },
+    { ref: 'S1505005', cant: 30, desc: 'PAPEL CREPE ALUM-60g-0,50x1,5m-Pack 10r-ORO_HFE' },
+    { ref: 'F65900208', cant: 10, desc: 'SKETCHBOOK & WRITING SET' },
+    { ref: 'F07702714', cant: 10, desc: '2027 WALLIS CALENDAR' },
+    { ref: 'F06803001', cant: 10, desc: 'FABRIANO SHORTY PENCIL SET ROSSO' },
+    { ref: 'S2436126', cant: 4, desc: 'SD VINYL CRAFT 30,5X183 cm-MATT-ROJO FUERTE' },
+  ];
+  assert.deepStrictEqual(CP.emparejarReferencias(ped, pro), {
+    F50621297: '53721297', F75021297: '61121297', F74621297: 'F60621297', F75221297: '61321297', F74121297: '60121297',
+    S1505005: '11406', F65900208: '65900208', F07702714: '07722714', F06803001: '06803001+06803002+06803003',
+  });
 });
