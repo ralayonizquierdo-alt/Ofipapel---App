@@ -36,9 +36,19 @@ export interface EstadoConversacion {
 }
 
 const CLAVE = 'nexa.conversacion.v1'
+const CLAVE_VOZ = 'nexa.voz.v1'
+
+/** Preferencia de voz del navegador: activada salvo que el usuario la haya silenciado. */
+function vozGuardada() {
+  try {
+    return localStorage.getItem(CLAVE_VOZ) !== 'no'
+  } catch {
+    return true
+  }
+}
 
 function cargar(): EstadoConversacion {
-  const base: EstadoConversacion = { mensajes: [], pensando: false, abierto: false, ampliado: false, voz: false, sinLeer: false }
+  const base: EstadoConversacion = { mensajes: [], pensando: false, abierto: false, ampliado: false, voz: vozGuardada(), sinLeer: false }
   try {
     const raw = sessionStorage.getItem(CLAVE)
     if (!raw) return base
@@ -48,7 +58,6 @@ function cargar(): EstadoConversacion {
       mensajes: Array.isArray(g.mensajes) ? g.mensajes.slice(-200) : [],
       abierto: Boolean(g.abierto),
       ampliado: Boolean(g.ampliado),
-      voz: Boolean(g.voz),
     }
   } catch {
     return base
@@ -89,6 +98,7 @@ export const getConversacion = () => estado
 
 export function abrirPanel() {
   cambiar({ abierto: true, sinLeer: false })
+  if (!estado.mensajes.length && !estado.pensando) void saludar()
 }
 /** Cierra (o minimiza) el panel. Cerrar además corta la voz. */
 export function cerrarPanel(opciones: { callar?: boolean } = {}) {
@@ -104,12 +114,42 @@ export function setAmpliado(ampliado: boolean) {
 }
 export function setVoz(voz: boolean) {
   if (!voz) callar()
+  try {
+    localStorage.setItem(CLAVE_VOZ, voz ? 'si' : 'no')
+  } catch {
+    // sin almacenamiento: la preferencia dura lo que la sesión
+  }
   cambiar({ voz })
 }
 export function nuevaConversacion() {
   callar()
   terminarHabla()
   cambiar({ mensajes: [], sinLeer: false })
+  if (estado.abierto) void saludar()
+}
+
+// ---------------------------------------------------------------- Saludo
+
+/** Nombre del empleado conectado (ficha de empleado; si no, el usuario de acceso). */
+async function nombreUsuario() {
+  const { data } = await supabase.auth.getSession()
+  const user = data.session?.user
+  if (!user) return ''
+  const { data: emp } = await supabase.from('empleado').select('nombre').eq('auth_user_id', user.id).maybeSingle()
+  const nombre = (emp?.nombre as string | undefined) ?? (user.email ?? '').split('@')[0]
+  return nombre ? nombre.charAt(0).toUpperCase() + nombre.slice(1).toLowerCase() : ''
+}
+
+/** Saludo al empezar cada conversación: por la hora de Canarias y con el nombre del empleado. */
+async function saludar() {
+  const hora = Number(new Intl.DateTimeFormat('es-ES', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Atlantic/Canary' }).format(new Date()))
+  const franja = hora >= 6 && hora < 13 ? 'Buenos días' : hora >= 13 && hora < 21 ? 'Buenas tardes' : 'Buenas noches'
+  const nombre = await nombreUsuario().catch(() => '')
+  const coletillas = ['¿En qué te ayudo?', '¿Qué necesitas saber?', 'Dime qué quieres consultar.']
+  const texto = `${franja}${nombre ? `, ${nombre}` : ''}. Soy NEXA. ${coletillas[Math.floor(Math.random() * coletillas.length)]}`
+  if (estado.mensajes.length) return // ya ha empezado a escribir
+  cambiar({ mensajes: [{ id: `saludo-${Date.now()}`, rol: 'nexa', texto, hora: Date.now() }] })
+  hablar(texto)
 }
 
 // ---------------------------------------------------------------- Estados visuales
@@ -154,9 +194,19 @@ function textoParaLeer(md: string) {
     .trim()
 }
 
+/** La voz española más natural disponible (las «Natural»/«Online» de Edge y las de Google suenan mucho mejor). */
 function vozEspanola() {
   const voces = window.speechSynthesis.getVoices()
-  return voces.find((v) => v.lang === 'es-ES') ?? voces.find((v) => v.lang.startsWith('es')) ?? null
+  const es = voces.filter((v) => v.lang.replace('_', '-').toLowerCase().startsWith('es'))
+  const espana = es.filter((v) => /es-es/i.test(v.lang.replace('_', '-')))
+  const natural = (lista: SpeechSynthesisVoice[]) => lista.find((v) => /natural|online|neural/i.test(v.name))
+  return natural(espana) ?? espana.find((v) => /google/i.test(v.name)) ?? natural(es) ?? espana[0] ?? es[0] ?? null
+}
+
+// Chrome carga la lista de voces después de arrancar: se pide pronto para tenerla al saludar.
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  window.speechSynthesis.getVoices()
+  window.speechSynthesis.addEventListener?.('voiceschanged', () => window.speechSynthesis.getVoices())
 }
 
 function leerEnVoz(md: string) {

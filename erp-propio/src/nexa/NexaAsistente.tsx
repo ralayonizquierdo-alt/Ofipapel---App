@@ -194,7 +194,8 @@ function NexaPanel() {
     cerrarPanel({ callar: true })
   }
 
-  const vacia = conv.mensajes.length === 0
+  // «Vacía» = sin preguntas del usuario (el saludo de NEXA no cuenta): siguen saliendo las sugerencias.
+  const vacia = !conv.mensajes.some((m) => m.rol === 'usuario')
   const ancho = conv.ampliado ? 'min(70%, 1100px)' : '440px'
 
   return (
@@ -247,7 +248,7 @@ function NexaPanel() {
 
       {/* Conversación */}
       <div ref={listaRef} className="nexa-lista min-h-0 flex-1 overflow-y-auto px-3 pb-2 pt-1" aria-live="polite">
-        {vacia ? (
+        {vacia && !conv.mensajes.length ? (
           <Bienvenida onElegir={(s) => enviar(s)} deshabilitado={conv.pensando} />
         ) : (
           <div className="flex flex-col gap-2.5">
@@ -271,6 +272,8 @@ function NexaPanel() {
                 NEXA está pensando…
               </div>
             )}
+            {/* Tras el saludo, las sugerencias de inicio siguen disponibles */}
+            {vacia && <Bienvenida onElegir={(s) => enviar(s)} deshabilitado={conv.pensando} conSaludo={false} />}
           </div>
         )}
       </div>
@@ -356,11 +359,11 @@ function BotonBarra({
   )
 }
 
-function Bienvenida({ onElegir, deshabilitado }: { onElegir: (s: string) => void; deshabilitado: boolean }) {
+function Bienvenida({ onElegir, deshabilitado, conSaludo = true }: { onElegir: (s: string) => void; deshabilitado: boolean; conSaludo?: boolean }) {
   return (
     <div className="flex flex-col items-center gap-3 pt-1 text-center">
       <div>
-        <div className="text-[15px] font-semibold text-slate-800">Hola, soy NEXA.</div>
+        {conSaludo && <div className="text-[15px] font-semibold text-slate-800">Hola, soy NEXA.</div>}
         <div className="mt-0.5 text-[12px] text-slate-500">Pregúntame por ventas, pedidos, stock, clientes o proveedores. Sé en qué pantalla estás.</div>
       </div>
       <div className="flex w-full flex-col gap-1.5">
