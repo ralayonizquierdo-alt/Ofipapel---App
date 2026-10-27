@@ -264,9 +264,17 @@ Deno.serve(async (req) => {
   }
   const usuario = usuarioData.user.email ?? usuarioData.user.id
 
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
+  const apiKey = (Deno.env.get('ANTHROPIC_API_KEY') ?? '').trim()
   if (!apiKey) {
     return fallo('falta_clave', 'Falta la clave de la IA (ANTHROPIC_API_KEY) en Supabase → Edge Functions → Secrets.')
+  }
+  // Una clave pegada con comillas tipográficas, espacios raros o saltos de línea no se puede
+  // mandar en una cabecera HTTP: se avisa claro en vez de fallar con un error interno.
+  if (!/^[\x21-\x7e]+$/.test(apiKey)) {
+    return fallo(
+      'clave_invalida',
+      'La clave de la IA (ANTHROPIC_API_KEY) tiene caracteres no válidos (¿comillas, espacios o saltos de línea al pegarla?). Vuelve a pegarla en Supabase → Edge Functions → Secrets, solo el texto que empieza por sk-ant-.',
+    )
   }
 
   // Historial: el primero debe ser del usuario y los roles alternar (se funden seguidos).
