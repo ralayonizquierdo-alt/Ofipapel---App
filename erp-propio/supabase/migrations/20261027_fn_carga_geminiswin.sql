@@ -1058,7 +1058,7 @@ begin
   select gw_res('ARTDPROV + ARTPROV', 'articulo_proveedor', (select count(*) from src),
     (select count(*) from up where ins), (select count(*) from up where not ins),
     (select jsonb_object_agg(motivo, jsonb_build_object('pares', n, 'proveedores_distintos', np, 'ejemplos', ej)) from
-       (select motivo, count(*) n, count(distinct prov) np, to_jsonb((array_agg(distinct prov))[1:5]) ej
+       (select motivo, count(*) n, count(distinct prov) np, to_jsonb((array_agg(distinct coalesce(prov, clave)))[1:5]) ej
         from src where motivo is not null group by 1) x),
     null,
     jsonb_build_object(
@@ -1083,7 +1083,9 @@ declare r jsonb; v_info bigint;
 begin
   with src as (
     select clave, datos d, gw_t(datos,'COD_INTERN') art, gw_t(datos,'CODALMAC') alm,
-      coalesce(gw_n(datos,'CANTIDAD'), 0) cant,
+      -- redondeo a la precisión de la columna (numeric(10,3)); si no, al repetir la
+      -- carga quedaría una diferencia de milésimas y un movimiento de cantidad 0.000
+      round(coalesce(gw_n(datos,'CANTIDAD'), 0), 3) cant,
       case when gw_t(datos,'CODALMAC') is null then 'sin almacén'
            when not exists (select 1 from almacen a where a.codigo = gw_t(datos,'CODALMAC')) then 'almacén inexistente'
            when not exists (select 1 from articulo a where a.codigo_interno = gw_t(datos,'COD_INTERN')) then 'artículo inexistente'
