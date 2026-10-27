@@ -336,6 +336,8 @@ const VISTAS_SOLO_COMPRAS = ['importar', 'reposicion'];
 let vista = (() => { try { return USUARIOS_COMERCIAL.has(localStorage.getItem(CLAVE_ULTIMO_USUARIO)) ? 'pedidos' : 'importar'; } catch { return 'importar'; } })();
 let pedidoAbierto = null;
 let soloDiscordancias = true;
+/** Discordancias marcadas para decidir en bloque (solo en memoria, como `seleccionados`). */
+const marcadasDec = new Set();
 
 function cargar() {
   const base = { pedidos: [], restos: [], notas: [], catalogos: {}, historial: {} };
@@ -1482,11 +1484,12 @@ function vistaComparacion(p, filas) {
   const plegadas = soloDiscordancias ? orden(filas.filter((f) => f.motivos.length && !porDecidir(f))) : [];
   const nombres = { reclamar: '✉️ Reclamar al proveedor (esperar respuesta)', resto: 'Sin stock: dejar en restos', anular: 'Descartar (descatalogado o ya no lo quiere)', aceptar: 'Aceptar propuesta', mantener: 'Mantener lo pedido', manual: 'Cantidad/precio a mano', excluir: 'Excluir línea' };
   const tabla = (xs) => `<div class="tabla-scroll"><table>
-      <tr><th>Referencia</th><th>Descripción</th><th class="num">Pedido</th><th class="num">Propuesta</th><th class="num">${esRepo(p) ? 'Neto pedido' : 'Precio pedido'}</th><th class="num">${esRepo(p) ? 'Neto propuesta' : 'Precio propuesta'}</th><th>Qué pasa</th><th>Decisión</th></tr>
+      <tr><th class="no-imprimir c-sel"><input type="checkbox" title="Marcar todas" onchange="this.closest('table').querySelectorAll('.selDec').forEach((c) => { c.checked = this.checked; marcarDec(c); })"></th><th>Referencia</th><th>Descripción</th><th class="num">Pedido</th><th class="num">Propuesta</th><th class="num">${esRepo(p) ? 'Neto pedido' : 'Precio pedido'}</th><th class="num">${esRepo(p) ? 'Neto propuesta' : 'Precio propuesta'}</th><th>Qué pasa</th><th>Decisión</th></tr>
       ${xs.map((f) => {
         const d = p.decisiones[f.ref] || {};
         const acciones = CP.accionesPara(f, p.tipo);
         return `<tr>
+          <td class="no-imprimir c-sel">${f.revisar ? `<input type="checkbox" class="selDec" value="${h(f.ref)}" ${marcadasDec.has(f.ref) ? 'checked' : ''} onchange="marcarDec(this)">` : ''}</td>
           <td><b>${h(f.ref)}</b>${f.refProveedor ? `<div class="pequeno" title="El proveedor la factura con otro código">🔗 proveedor: ${h(f.refProveedor)}${(p.equivalencias || {})[f.refProveedor] ? ` <button class="btn peque" onclick="emparejar(${js(f.refProveedor)}, '')" title="No es la misma: deshacer">deshacer</button>` : ''}</div>` : ''}${f.alta ? ` <span class="pequeno">🆕 alta nueva</span>` : ''}${f.sugerencias.length ? `<div class="sugerencia">¿Quizá ${f.sugerencias.map((s) => h(s.ref)).join(', ')}? Corrígela arriba.</div>` : ''}</td>
           <td>${h(f.desc)}</td>
           <td class="num">${f.cantPedida || '—'}</td><td class="num">${f.cantPropuesta || '—'}</td>
@@ -1522,6 +1525,15 @@ function vistaComparacion(p, filas) {
     <label class="no-imprimir" style="flex-direction:row;align-items:center;gap:6px;margin:6px 0">
       <input type="checkbox" ${soloDiscordancias ? 'checked' : ''} onchange="soloDiscordancias=this.checked;pintar()"> Ver solo lo que falta decidir
     </label>
+    ${n.revisar ? `<div class="fila no-imprimir" style="margin:6px 0;gap:6px;align-items:center;flex-wrap:wrap">
+      <b>Decidir en bloque:</b>
+      <button class="btn peque" onclick="marcarPorProblema('falta')">Marcar las que faltan</button>
+      <button class="btn peque" onclick="marcarPorProblema('sobra')">Marcar las que sobran</button>
+      <button class="btn peque" onclick="marcarPorProblema('precio')">Marcar las de precio</button>
+      <button class="btn peque" onclick="marcarPorProblema('')">Desmarcar</button>
+      <select id="accionBloque"><option value="">— decisión para las marcadas —</option>${['aceptar', 'reclamar', 'resto', 'anular', 'mantener', 'excluir'].filter((a) => esRepo(p) ? a !== 'resto' && a !== 'anular' : true).map((a) => `<option value="${a}">${nombres[a]}</option>`).join('')}</select>
+      <button class="btn primario peque" onclick="decidirEnBloque(document.getElementById('accionBloque').value)">Aplicar a las marcadas (<span id="nMarcadas">${filas.filter((f) => f.revisar && marcadasDec.has(f.ref)).length}</span>)</button>
+    </div>` : ''}
     ${mostrar.length ? tabla(mostrar) : `<div class="aviso-caja ok">${n.revisar ? '✅ Todas las discordancias están decididas.' : 'Todo cuadra.'}</div>`}
     ${plegadas.length ? `<details class="decididas"><summary>Ya decididas o solo informativas (${plegadas.length}) — abrir para ver o cambiar</summary>${tabla(plegadas)}</details>` : ''}
     <div class="fila no-imprimir" style="margin-top:14px">
@@ -1544,12 +1556,20 @@ function bloqueFaltasSobras(p, filas) {
   const pend = new Set(pendientes.map((x) => x.ref));
   const doc = esRepo(p) ? 'la factura/propuesta' : 'la propuesta';
   const decidido = { reclamar: '✉️ reclamada, esperando respuesta del proveedor', resto: 'sin stock: en restos', anular: 'descartada definitivamente', excluir: 'descartada', aceptar: 'aceptada la propuesta', mantener: 'se mantiene lo pedido', manual: 'a mano' };
+  const filaDe = new Map(filas.map((f) => [f.ref, f]));
+  const cortos = { aceptar: '✅ Aceptar', excluir: '🗑️ Quitar del pedido', anular: '🗑️ Descartar', resto: 'Sin stock: a restos', mantener: 'Mantener lo pedido' };
+  // Una reclamada se puede cerrar desde aquí cuando conteste el proveedor.
+  const cambiarReclamada = (x) => {
+    const f = filaDe.get(x.ref);
+    if (!f || (p.decisiones[x.ref] || {}).accion !== 'reclamar') return '';
+    return ' ' + CP.accionesPara(f, p.tipo).filter((a) => cortos[a]).map((a) => `<button class="btn peque no-imprimir" onclick="decide(${js(x.ref)},'accion','${a}')">${cortos[a]}</button>`).join(' ');
+  };
   const linea = (x, signo, falta) => {
     const acc = (p.decisiones[x.ref] || {}).accion;
     const fuera = false;
     return `<li${fuera ? ' class="descartada"' : ''}><b>${h(x.ref)}</b> ${h(x.desc)} — ${x.total ? `${signo}${x.cant} ud.` : falta
       ? `pedidas ${x.de}, vienen ${x.de - x.cant} → <b>faltan ${x.cant}</b>`
-      : `pedidas ${x.de - x.cant}, vienen ${x.de} → <b>${x.cant} de más</b>`}${x.sustitucion ? ` <span class="pequeno">¿sustitución ${h(x.sustitucion)}?</span>` : ''}${acc ? ` <span class="pequeno">· ${h(decidido[acc] || acc)}</span>` : ''}</li>`;
+      : `pedidas ${x.de - x.cant}, vienen ${x.de} → <b>${x.cant} de más</b>`}${x.sustitucion ? ` <span class="pequeno">¿sustitución ${h(x.sustitucion)}?</span>` : ''}${acc ? ` <span class="pequeno">· ${h(decidido[acc] || acc)}</span>` : ''}${cambiarReclamada(x)}</li>`;
   };
   // Lo ya decidido sale de la lista (queda plegado aparte, por si hay que revisarlo).
   // Una sobra reclamada sigue a la vista (como las faltas reclamadas) hasta que el proveedor conteste.
@@ -1914,6 +1934,36 @@ function emparejar(delProveedor, nuestra) {
   if (nuestra) { p.equivalencias[delProveedor] = nuestra; c.equivalencias[delProveedor] = nuestra; delete p.decisiones[nuestra]; }
   else { delete p.equivalencias[delProveedor]; delete c.equivalencias[delProveedor]; }
   invalidar(p); guardar(); pintar();
+}
+function marcarDec(c) {
+  if (c.checked) marcadasDec.add(c.value); else marcadasDec.delete(c.value);
+  const n = document.getElementById('nMarcadas');
+  if (n) n.textContent = comparar(pedidoActual()).filter((f) => f.revisar && marcadasDec.has(f.ref)).length;
+}
+/** Marca todas las discordancias con el mismo problema: faltan, sobran o precio. */
+function marcarPorProblema(tipo) {
+  const filas = comparar(pedidoActual()).filter((f) => f.revisar);
+  marcadasDec.clear();
+  for (const f of filas) {
+    const falta = f.cantPropuesta < f.cantPedida, sobra = f.cantPropuesta > f.cantPedida;
+    if ((tipo === 'falta' && falta) || (tipo === 'sobra' && sobra) || (tipo === 'precio' && !falta && !sobra)) marcadasDec.add(f.ref);
+  }
+  pintar();
+}
+/** Misma decisión para todas las marcadas; a la que no admite esa decisión no se le toca y se avisa. */
+function decidirEnBloque(accion) {
+  if (!accion) { alert('Elige primero la decisión.'); return; }
+  const p = pedidoActual();
+  const filas = comparar(p).filter((f) => f.revisar && marcadasDec.has(f.ref));
+  if (!filas.length) { alert('No hay ninguna marcada.'); return; }
+  const no = [];
+  for (const f of filas) {
+    if (!CP.accionesPara(f, p.tipo).includes(accion)) { no.push(f.ref); continue; }
+    p.decisiones[f.ref] = Object.assign({}, p.decisiones[f.ref], { accion });
+  }
+  marcadasDec.clear();
+  invalidar(p); guardar(); pintar();
+  if (no.length) alert(`Hecho en ${filas.length - no.length}. Estas no admiten esa decisión y siguen igual: ${no.join(', ')}`);
 }
 function decide(ref, campo, valor) {
   const p = pedidoActual();
