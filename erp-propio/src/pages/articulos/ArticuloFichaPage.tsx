@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { selectTodo, supabase } from '../../lib/supabase'
-import { GwField, GwInput, GwLookupButton, GwPlusButton, GwTabs, type GwTabDef } from '../../components/gw'
+import { GwField, GwInput, GwLookupButton, GwPlusButton, GwTabs, GwWindow, type GwTabDef } from '../../components/gw'
+import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
+import { gwBuscarPorInicio, gwConCeros, useListaOrdenada, type GwListaColumna, type GwListaOrdenadaDef } from '../../components/gw/GwListaOrdenada'
+import { ArticulosDe } from '../almacen/piezas'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { type Articulo, type ArticuloPrecioNivel, emptyArticulo, NIVELES_TARIFA } from './types'
@@ -62,6 +65,81 @@ function nivelesVacios(codigo: string): ArticuloPrecioNivel[] {
   }))
 }
 
+// Ctrl+Intro: listas ordenadas por cada campo de búsqueda de la ficha.
+const COLS_ARTICULO_FIN: GwListaColumna[] = [
+  { key: 'pvp', label: 'PVP General', width: 100, decimales: 3 },
+  { key: 'stock', label: 'Stock', width: 80, decimales: 2 },
+  { key: 'familia_codigo', label: 'Familia', width: 80 },
+]
+const COLS_EXTRA: Record<string, GwListaColumna> = {
+  codigo_venta: { key: 'codigo_venta', label: 'Código Venta', width: 130 },
+  codigo_barras_principal: { key: 'codigo_barras_principal', label: 'Código de Barras', width: 140 },
+}
+function defArticulo(campo: string, etiqueta: string): GwListaOrdenadaDef {
+  return {
+    fuente: 'articulo',
+    campo,
+    etiqueta,
+    que: 'Artículos',
+    omitirVacios: campo !== 'codigo_interno' && campo !== 'descripcion',
+    columnas: [
+      { key: 'codigo_interno', label: 'Código Interno', width: 120 },
+      ...(COLS_EXTRA[campo] ? [COLS_EXTRA[campo]] : []),
+      { key: 'descripcion', label: 'Descripción' },
+      ...COLS_ARTICULO_FIN,
+    ],
+  }
+}
+const DEF_COMPRA: GwListaOrdenadaDef = {
+  fuente: 'articulo_compra',
+  campo: 'codigo_compra',
+  etiqueta: 'Código de Compra',
+  que: 'Artículos',
+  omitirVacios: true,
+  columnas: [
+    { key: 'codigo_compra', label: 'Código de Compra', width: 160 },
+    { key: 'proveedor_codigo', label: 'Prov.', width: 64 },
+    { key: 'proveedor_nombre', label: 'Nombre Proveedor', width: 170 },
+    { key: 'codigo_interno', label: 'Código Interno', width: 110 },
+    { key: 'descripcion', label: 'Descripción' },
+    { key: 'pvp', label: 'PVP General', width: 95, decimales: 3 },
+  ],
+}
+const DEF_BARRAS: GwListaOrdenadaDef = {
+  fuente: 'articulo_barras',
+  campo: 'codigo_barras',
+  etiqueta: 'Código de Barras',
+  que: 'Artículos',
+  columnas: [
+    { key: 'codigo_barras', label: 'Código de Barras', width: 150 },
+    { key: 'codigo_interno', label: 'Código Interno', width: 120 },
+    { key: 'descripcion', label: 'Descripción' },
+    { key: 'pvp', label: 'PVP General', width: 100, decimales: 3 },
+  ],
+}
+const defProveedor = (campo: string, etiqueta: string): GwListaOrdenadaDef => ({
+  fuente: 'proveedor',
+  campo,
+  etiqueta,
+  que: 'Proveedores',
+  columnas: [
+    { key: 'codigo', label: 'Código', width: 80 },
+    { key: 'nombre', label: 'Nombre' },
+    { key: 'nif', label: 'NIF', width: 110 },
+    { key: 'telefono', label: 'Teléfono', width: 120 },
+  ],
+})
+const defFamilia = (campo: string, etiqueta: string): GwListaOrdenadaDef => ({
+  fuente: 'familia',
+  campo,
+  etiqueta,
+  que: 'Familias',
+  columnas: [
+    { key: 'codigo', label: 'Código', width: 100 },
+    { key: 'descripcion', label: 'Descripción' },
+  ],
+})
+
 type Lookup = 'marca' | 'proveedor' | 'familia' | 'buscar' | 'compra' | 'barras' | null
 
 export function ArticuloFichaPage() {
@@ -87,8 +165,11 @@ export function ArticuloFichaPage() {
   const [descFamilia, setDescFamilia] = useState('')
   const [lookup, setLookup] = useState<Lookup>(null)
   const [tab, setTab] = useState('caracteristicas')
+  const [articulosDe, setArticulosDe] = useState<{ columna: string; valor: string; titulo: string } | null>(null)
+  const listaOrd = useListaOrdenada()
 
   const editing = mode !== 'consulta'
+  const consulta = mode === 'consulta'
 
   useEffect(() => {
     Promise.all([
@@ -104,6 +185,7 @@ export function ArticuloFichaPage() {
 
   useEffect(() => {
     setError(null)
+    setArticulosDe(null)
     if (isNew) {
       const vacioArt = { ...emptyArticulo, actualizado_en: '' }
       setArticulo(vacioArt)
@@ -321,6 +403,70 @@ export function ArticuloFichaPage() {
   const canNavigate = mode === 'consulta' && ordenada.length > 0
   const goTo = (c?: string) => c && navigate(`/articulos/${encodeURIComponent(c)}`)
 
+  // --- Búsquedas desde los campos (consulta) y listas ordenadas (Ctrl+Intro) ---
+  const noExiste = (t: string) => setError(`No existe el artículo ${t}`)
+
+  /** Código escrito en Código Interno, Código Venta o Código de Barras: salta a ese artículo. */
+  async function buscarArticulo(t: string) {
+    const intentos = [
+      () => supabase.from('articulo').select('codigo_interno').eq('codigo_interno', t).limit(1),
+      () => supabase.from('articulo').select('codigo_interno').eq('codigo_venta', t).limit(1),
+      () => supabase.from('articulo_codigo_barras').select('codigo_interno:articulo_codigo').eq('codigo_barras', t).limit(1),
+      () => supabase.from('articulo').select('codigo_interno').eq('codigo_barras_principal', t).limit(1),
+    ]
+    for (const q of intentos) {
+      const { data } = await q()
+      const c = (data as { codigo_interno: string }[] | null)?.[0]?.codigo_interno
+      if (c) return goTo(c)
+    }
+    noExiste(t)
+  }
+
+  async function buscarPorInicio(fuente: string, campo: string, t: string, que: string) {
+    const f = await gwBuscarPorInicio(fuente, campo, t)
+    if (f) goTo(String(f.codigo_interno))
+    else setError(`No existe ningún artículo con ${que} que empiece por «${t}»`)
+  }
+
+  const listaArticulos = (campo: string, etiqueta: string) => (texto: string | null) =>
+    listaOrd.abrir(defArticulo(campo, etiqueta), { texto, ancla: articulo.codigo_interno, onPick: (f) => goTo(String(f.codigo_interno)) })
+  const listaPorValor = (def: GwListaOrdenadaDef, valorActual: string | null) => (texto: string | null) =>
+    listaOrd.abrir(def, { texto: texto ?? valorActual, onPick: (f) => goTo(String(f.codigo_interno)) })
+
+  // Proveedor y familia: en modificación, elegir los asigna; en consulta, enseña sus artículos.
+  const verArticulos = (columna: string, valor: string, titulo: string) => setArticulosDe({ columna, valor, titulo })
+  const listaProveedor = (campo: string, etiqueta: string) => (texto: string | null) =>
+    listaOrd.abrir(defProveedor(campo, etiqueta), {
+      texto,
+      ancla: draft.proveedor_habitual_codigo,
+      onPick: (f) =>
+        editing
+          ? patchArticulo({ proveedor_habitual_codigo: String(f.codigo) })
+          : verArticulos('proveedor_habitual_codigo', String(f.codigo), `Artículos del proveedor ${f.codigo} ${f.nombre ?? ''}`),
+    })
+  const listaFamilia = (campo: string, etiqueta: string) => (texto: string | null) =>
+    listaOrd.abrir(defFamilia(campo, etiqueta), {
+      texto,
+      ancla: draft.familia_codigo,
+      onPick: (f) =>
+        editing
+          ? patchArticulo({ familia_codigo: String(f.codigo) })
+          : verArticulos('familia_codigo', String(f.codigo), `Artículos de la familia ${f.codigo} ${f.descripcion ?? ''}`),
+    })
+  async function buscarProveedor(t: string) {
+    const { data } = await supabase.from('proveedor').select('codigo, nombre').in('codigo', [t, gwConCeros(t)]).limit(1)
+    const p = data?.[0]
+    if (!p) return setError(`No existe el proveedor ${t}`)
+    verArticulos('proveedor_habitual_codigo', p.codigo, `Artículos del proveedor ${p.codigo} ${p.nombre}`)
+  }
+  async function buscarFamilia(t: string) {
+    const { data } = await supabase.from('familia').select('codigo, descripcion').in('codigo', [t, t.toUpperCase()]).limit(1)
+    const fam = data?.[0]
+    if (!fam) return setError(`No existe la familia ${t}`)
+    verArticulos('familia_codigo', fam.codigo, `Artículos de la familia ${fam.codigo} ${fam.descripcion ?? ''}`)
+  }
+
+  const nul = (v: string) => (v === '' ? null : v)
   const ro = !editing
   const txt = (key: keyof Articulo, extra: { readOnly?: boolean; className?: string; title?: string } = {}) => (
     <GwInput
@@ -349,27 +495,66 @@ export function ArticuloFichaPage() {
       {/* Cabecera, tres filas como en GeminisWin */}
       <div className="grid grid-cols-[220px_minmax(0,1fr)_250px] gap-x-2">
         <GwField label="Código Interno">
-          <GwInput
+          <GwCampoBusqueda
             value={draft.codigo_interno}
-            disabled={mode !== 'alta'}
+            editable={mode === 'alta'}
+            disabled={mode === 'edicion'}
             title="COD_INTERN"
-            onChange={(e) => patchArticulo({ codigo_interno: e.target.value })}
+            onChange={(v) => patchArticulo({ codigo_interno: v })}
+            onBuscar={buscarArticulo}
+            onLista={consulta ? listaArticulos('codigo_interno', 'Código Interno') : undefined}
           />
         </GwField>
-        <GwField label="Descripción">{txt('descripcion', { title: 'DESCRIP' })}</GwField>
+        <GwField label="Descripción">
+          <GwCampoBusqueda
+            value={draft.descripcion}
+            editable={editing}
+            title="DESCRIP"
+            onChange={(v) => patchArticulo({ descripcion: v })}
+            onBuscar={(t) => buscarPorInicio('articulo', 'descripcion', t, 'descripción')}
+            onLista={consulta ? listaArticulos('descripcion', 'Descripción') : undefined}
+          />
+        </GwField>
         <GwField label="Descr. Corta:">{txt('descripcion_corta', { title: 'DESCRCORTA' })}</GwField>
       </div>
       <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.9fr)] gap-x-2">
         <GwField label="Códigos de Compra">
           <span className="flex">
-            {txt('codigo_compra_habitual', { title: 'COD_COMPRA' })}
+            <GwCampoBusqueda
+              value={draft.codigo_compra_habitual}
+              editable={editing}
+              title="COD_COMPRA"
+              onChange={(v) => patchArticulo({ codigo_compra_habitual: nul(v) })}
+              onBuscar={async (t) => {
+                const f = await gwBuscarPorInicio('articulo_compra', 'codigo_compra', t)
+                if (f) goTo(String(f.codigo_interno))
+                else noExiste(t)
+              }}
+              onLista={consulta ? listaPorValor(DEF_COMPRA, draft.codigo_compra_habitual) : undefined}
+            />
             <GwPlusButton title="Códigos de compra por proveedor" disabled={satelitesBloqueados} onClick={() => setLookup('compra')} />
           </span>
         </GwField>
-        <GwField label="Código Venta">{txt('codigo_venta', { title: 'COD_VENTA' })}</GwField>
+        <GwField label="Código Venta">
+          <GwCampoBusqueda
+            value={draft.codigo_venta}
+            editable={editing}
+            title="COD_VENTA"
+            onChange={(v) => patchArticulo({ codigo_venta: nul(v) })}
+            onBuscar={buscarArticulo}
+            onLista={consulta ? listaArticulos('codigo_venta', 'Código Venta') : undefined}
+          />
+        </GwField>
         <GwField label="Códigos de Barras">
           <span className="flex">
-            {txt('codigo_barras_principal', { title: 'COD_BARRAS' })}
+            <GwCampoBusqueda
+              value={draft.codigo_barras_principal}
+              editable={editing}
+              title="COD_BARRAS"
+              onChange={(v) => patchArticulo({ codigo_barras_principal: nul(v) })}
+              onBuscar={buscarArticulo}
+              onLista={consulta ? listaPorValor(DEF_BARRAS, draft.codigo_barras_principal) : undefined}
+            />
             <GwPlusButton title="Más códigos de barras" disabled={satelitesBloqueados} onClick={() => setLookup('barras')} />
           </span>
         </GwField>
@@ -384,25 +569,49 @@ export function ArticuloFichaPage() {
       <div className="grid grid-cols-[150px_minmax(0,1.6fr)_150px_minmax(0,1.6fr)] gap-x-2">
         <GwField label="Proveedor">
           <span className="flex">
-            {txt('proveedor_habitual_codigo', { title: 'COD_PROV' })}
+            <GwCampoBusqueda
+              value={draft.proveedor_habitual_codigo}
+              editable={editing}
+              title="COD_PROV"
+              onChange={(v) => patchArticulo({ proveedor_habitual_codigo: nul(v) })}
+              onBuscar={buscarProveedor}
+              onLista={listaProveedor('codigo', 'Código')}
+            />
             <GwLookupButton disabled={ro} onClick={() => setLookup('proveedor')} title="Buscar proveedor" />
           </span>
         </GwField>
         <GwField label="Nombre Proveedor">
           <span className="flex">
-            <GwInput readOnly value={nombreProveedor} disabled={ro} />
+            <GwCampoBusqueda
+              value={nombreProveedor}
+              title="Nombre del proveedor"
+              onBuscar={(t) => listaProveedor('nombre', 'Nombre')(t)}
+              onLista={listaProveedor('nombre', 'Nombre')}
+            />
             <GwLookupButton disabled={ro} onClick={() => setLookup('proveedor')} title="Buscar proveedor" />
           </span>
         </GwField>
         <GwField label="Familia">
           <span className="flex">
-            {txt('familia_codigo', { title: 'COD_FAM' })}
+            <GwCampoBusqueda
+              value={draft.familia_codigo}
+              editable={editing}
+              title="COD_FAM"
+              onChange={(v) => patchArticulo({ familia_codigo: nul(v) })}
+              onBuscar={buscarFamilia}
+              onLista={listaFamilia('codigo', 'Código')}
+            />
             <GwLookupButton disabled={ro} onClick={() => setLookup('familia')} title="Buscar familia" />
           </span>
         </GwField>
         <GwField label="Descripción Familia">
           <span className="flex">
-            <GwInput readOnly value={descFamilia} disabled={ro} />
+            <GwCampoBusqueda
+              value={descFamilia}
+              title="Descripción de la familia"
+              onBuscar={(t) => listaFamilia('descripcion', 'Descripción')(t)}
+              onLista={listaFamilia('descripcion', 'Descripción')}
+            />
             <GwLookupButton disabled={ro} onClick={() => setLookup('familia')} title="Buscar familia" />
           </span>
         </GwField>
@@ -539,6 +748,17 @@ export function ArticuloFichaPage() {
           }}
           onClose={() => setLookup(null)}
         />
+      )}
+      {listaOrd.dialogo}
+      {articulosDe && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-16"
+          onKeyDown={(e) => e.key === 'Escape' && setArticulosDe(null)}
+        >
+          <GwWindow title={articulosDe.titulo} onClose={() => setArticulosDe(null)} className="w-[900px] max-w-[96vw]">
+            <ArticulosDe columna={articulosDe.columna} valor={articulosDe.valor} titulo={articulosDe.titulo} />
+          </GwWindow>
+        </div>
       )}
       {lookup === 'compra' && (
         <CodigosCompraDialog

@@ -23,6 +23,31 @@ body {
   box-sizing: border-box;
 }
 
+/* Como en un programa de escritorio: ni un doble/triple clic ni arrastrar sobre la ventana,
+   las etiquetas, las rejillas o los menús pintan la pantalla de azul. Solo se puede
+   seleccionar texto dentro de los campos (y en lo marcado como .gw-seleccionable, p. ej. los
+   mensajes de NEXA, que se copian). */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+input,
+textarea,
+[contenteditable='true'],
+[contenteditable=''],
+.gw-seleccionable,
+.gw-seleccionable * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+input[type='checkbox'],
+input[type='radio'],
+input[type='button'],
+input[type='submit'] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 /* Controles con el aspecto de GeminisWin (Visual FoxPro sobre Windows) */
 .gw-label {
   font-size: 13px;

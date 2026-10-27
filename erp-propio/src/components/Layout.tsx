@@ -16,6 +16,7 @@ export function Layout() {
   const { pathname } = useLocation()
   const [empresa, setEmpresa] = useState('')
   const [hint, setHint] = useState<string | null>(null)
+  const [ayuda, setAyuda] = useState<string | null>(null)
   const title = windowTitle(pathname)
 
   // Al entrar (iniciar sesión o abrir la aplicación en «/») se abre el Panel de Control. Solo al
@@ -64,6 +65,33 @@ export function Layout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Ayuda del campo con el foco en la barra de estado (como GeminisWin): los campos que la
+  // tienen la declaran en data-gw-ayuda («Intro: buscar · Ctrl+Intro: lista ordenada»).
+  // Y Ctrl+A fuera de un campo no selecciona toda la página: en un programa de escritorio no pasa.
+  useEffect(() => {
+    const enCampo = (el: EventTarget | null) =>
+      el instanceof HTMLElement && (el.closest('input, textarea, [contenteditable=""], [contenteditable="true"]') != null)
+    const alEntrar = (ev: FocusEvent) => {
+      const el = ev.target instanceof HTMLElement ? ev.target.closest<HTMLElement>('[data-gw-ayuda]') : null
+      setAyuda(el ? `${el.title ? `${el.title.split(' · ')[0]}: ` : ''}${el.dataset.gwAyuda}` : null)
+    }
+    const alSalir = () => setAyuda(null)
+    const teclas = (ev: KeyboardEvent) => {
+      if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'a' && !enCampo(ev.target)) {
+        const sel = window.getSelection()
+        if (!sel || !sel.anchorNode || !(sel.anchorNode.parentElement?.closest('.gw-seleccionable'))) ev.preventDefault()
+      }
+    }
+    document.addEventListener('focusin', alEntrar)
+    document.addEventListener('focusout', alSalir)
+    document.addEventListener('keydown', teclas)
+    return () => {
+      document.removeEventListener('focusin', alEntrar)
+      document.removeEventListener('focusout', alSalir)
+      document.removeEventListener('keydown', teclas)
+    }
+  }, [])
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--gw-face)]">
       <div className="flex h-[24px] flex-none items-center gap-1.5 bg-white px-2 text-[12px]">
@@ -96,7 +124,7 @@ export function Layout() {
           <NexaAsistente />
         </div>
       </div>
-      <StatusBar text={hint ?? title} email={session?.user.email ?? ''} />
+      <StatusBar text={hint ?? ayuda ?? title} email={session?.user.email ?? ''} />
     </div>
   )
 }

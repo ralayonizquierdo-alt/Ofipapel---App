@@ -383,7 +383,7 @@ function Bienvenida({ onElegir, deshabilitado }: { onElegir: (s: string) => void
 function Mensaje({ m, onAbrir }: { m: MensajeNexa; onAbrir: (ruta: string) => void }) {
   if (m.rol === 'usuario') {
     return (
-      <div className="ml-10 self-end whitespace-pre-wrap rounded-lg rounded-br-sm bg-[#1f4e9c] px-3 py-1.5 text-[13px] leading-[18px] text-white shadow-sm">
+      <div className="gw-seleccionable ml-10 self-end whitespace-pre-wrap rounded-lg rounded-br-sm bg-[#1f4e9c] px-3 py-1.5 text-[13px] leading-[18px] text-white shadow-sm">
         {m.texto}
       </div>
     )
@@ -392,13 +392,15 @@ function Mensaje({ m, onAbrir }: { m: MensajeNexa; onAbrir: (ruta: string) => vo
     return (
       <div className="mr-6 flex gap-2 rounded-lg border border-red-200 bg-red-50/90 px-3 py-2 text-[12.5px] leading-[18px] text-red-800" role="alert">
         <AlertTriangle size={15} className="mt-[1px] flex-none" />
-        <span>{m.texto}</span>
+        <span className="gw-seleccionable">{m.texto}</span>
       </div>
     )
   }
   return (
     <div className="min-w-0 rounded-lg rounded-bl-sm border border-white/70 bg-white/75 px-3 py-2 text-[13px] leading-[19px] text-slate-800 shadow-sm">
-      <Markdown texto={m.texto} />
+      <div className="gw-seleccionable">
+        <Markdown texto={m.texto} />
+      </div>
       {m.rutas && m.rutas.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {m.rutas.map((r) => (
