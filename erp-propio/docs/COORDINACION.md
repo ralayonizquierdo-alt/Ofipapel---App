@@ -73,20 +73,40 @@ construida.
 ### Caja · Facturación · Maestros · Listados
 Pendiente de capturas. Pantallas antiguas provisionales: `/caja`, `/facturacion`.
 
-## Capturas pendientes (lista de Rober/usuario)
+## Capturas pendientes (lista actualizada 27/10/2026, tras los ZIP 4, 5 y 6)
 
-- Pestañas: Técnicos (resto), Repartidores (Comisiones), Zonas y Rutas
-  (Observaciones e imagen), Proveedores (Observaciones e imagen), Transportistas
-  (Enlaces, Observaciones e imagen, Compras), Gestor de pagos de proveedores
-  (4 vistas de arriba y 3 de abajo).
-- Opciones de menú sin abrir: listados de Ventas; listados de pedidos y de
-  facturas, peticiones de artículos y generar petición (Compras); creación
-  rápida, listados, movimientos, etiquetas, lotes, inventariar almacén,
-  modificación en bloque y PLU's (Almacén).
-- Columnas cortadas en tablas anchas: pedidos a proveedor, gestores,
-  inventarios (segunda captura desplazando la tabla, o ventana maximizada).
-- Bloques nuevos: Caja y Facturación, Maestros, Listados — cada uno con su
-  lista de contenido para comprobar que no falta nada.
+Recibidos y construidos: ZIP 1 Ventas, 2 Compras, 3 Almacén, 4 Caja y
+Facturación (parcial), 5 Maestros (Archivo y Utilidades), 6 Listados. Falta:
+
+- **Caja:** Apertura de caja; Cierre de caja; Aperturas y cierres → pestaña
+  Consultas movimientos de caja; Listado de caja → lista de tipos de informe.
+- **Facturación:** Generar facturas; Gestor de pagos de clientes → pestañas
+  Facturas, Pagos y facturas sin pagos, y Pagos; Listados → List. Remesas.
+- **Ventas:** Listados → List. Pedidos; Listados de ventas → lista de tipos de
+  informe; Técnicos → resto de pestañas; Repartidores → Comisiones; Zonas
+  territoriales → Observaciones e imagen; Rutas de reparto → Observaciones e
+  imagen.
+- **Compras:** Gestor de pagos a proveedores → 4 vistas superiores y 3
+  inferiores; Peticiones de artículos; Generar petición; Proveedores →
+  Observaciones e imagen; Transportistas → Enlaces, Observaciones e imagen y
+  Compras; Listados de facturas → lista de tipos de informe; Pedido a
+  proveedor y Gestor de pedidos a proveedores → columnas ocultas (tabla
+  desplazada).
+- **Almacén:** Control de lotes; Inventarios → columnas ocultas (tabla
+  desplazada).
+- **Archivo:** Traspaso información; Traspaso a contabilidad; Importar;
+  Seleccionar periodo; Periodos o ejercicios.
+- **Utilidades:** Copia de seguridad; Cambio de fecha; Cambio de tienda;
+  Reparar base de datos; Reconstruir ficheros; Actualizar tablas del terminal;
+  Control de módulos; Recalcular stock; Eliminación de artículos; Puntos de
+  restauración de stock; Etiquetas; Listado de ventas; Stock a 0 de familia;
+  Elimina artículos en blanco; Conectar David.
+- **Pestañas Bancos (con la ficha vacía, sin datos):** Vendedores, Proveedores,
+  Tiendas, Empleados y Datos de empresa.
+
+Algunas ya están construidas SIN captura (Apertura/Cierre de caja, Generar
+facturas, Peticiones, Generar petición, Recalcular stock, Puntos de
+restauración, Etiquetas…): cuando llegue su captura se ajustan.
 
 ## Preguntas para Luis
 
