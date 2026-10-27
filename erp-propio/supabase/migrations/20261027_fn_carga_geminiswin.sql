@@ -1028,7 +1028,7 @@ begin
     select coalesce(dp.prov, ap.prov) prov, coalesce(dp.art, ap.art) art, dp.d,
       coalesce(gw_t(dp.d,'COD_COMPRA'), ap.cod) cod, coalesce(dp.clave, ap.clave) clave,
       (select count(*) from unnest(ap.cods) c where c is not null and c is distinct from coalesce(gw_t(dp.d,'COD_COMPRA'), ap.cod)) codigos_extra,
-      case when dp.d is not null and ap.prov is null and ap.art is null then 'ARTDPROV'
+      case when dp.d is not null and ap.art is null then 'ARTDPROV'
            when dp.d is null then 'ARTPROV' else 'ambos' end origen,
       case when coalesce(dp.prov, ap.prov) is null then 'sin proveedor'
            when not exists (select 1 from proveedor p where p.codigo = coalesce(dp.prov, ap.prov)) then 'proveedor inexistente'
