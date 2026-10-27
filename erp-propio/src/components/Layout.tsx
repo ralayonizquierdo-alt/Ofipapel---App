@@ -6,6 +6,7 @@ import { GwAppIcon, GwWindow } from './gw'
 import { MenuBar } from './shell/MenuBar'
 import { QuickBar } from './shell/QuickBar'
 import { MENUS, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
+import { NexaAsistente } from '../nexa/NexaAsistente'
 
 // Ventana principal con el aspecto de GeminisWin: franja de título, barra de menús,
 // barra lateral de accesos rápidos, área MDI gris con la ventana activa y barra de estado.
@@ -91,6 +92,8 @@ export function Layout() {
               <Outlet />
             </GwWindow>
           )}
+          {/* NEXA: avatar flotante + panel de conversación, disponible en todas las pantallas */}
+          <NexaAsistente />
         </div>
       </div>
       <StatusBar text={hint ?? title} email={session?.user.email ?? ''} />
@@ -117,7 +120,8 @@ function StatusBar({ text, email }: { text: string; email: string }) {
   }, [])
   const panel = 'flex h-[16px] items-center border border-t-[#a0a0a0] border-l-[#a0a0a0] border-b-white border-r-white px-1.5'
   return (
-    <div className="flex h-[22px] flex-none items-center gap-[3px] border-t border-[var(--gw-border-light)] bg-[var(--gw-face)] px-[3px] text-[11px]">
+    // pr-[92px]: la esquina derecha queda libre para el avatar flotante de NEXA.
+    <div className="flex h-[22px] flex-none items-center gap-[3px] border-t border-[var(--gw-border-light)] bg-[var(--gw-face)] pl-[3px] pr-[92px] text-[11px]">
       <span className="min-w-0 flex-1 truncate px-1">{text}</span>
       <span className={`${panel} max-w-[220px] truncate`}>{email}</span>
       <span className={`${panel} w-[48px] justify-center`}>NUM</span>
