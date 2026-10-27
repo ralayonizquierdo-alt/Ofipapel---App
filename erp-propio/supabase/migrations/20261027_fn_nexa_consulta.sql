@@ -76,7 +76,8 @@ begin
   -- 2) Ejecutar como subconsulta, con 200 filas como mucho y el total real.
   execute format(
     'select count(*), coalesce(jsonb_agg(to_jsonb(s) - ''__nexa_n'' order by s.__nexa_n) filter (where s.__nexa_n <= 200), ''[]''::jsonb)
-       from (select row_number() over () as __nexa_n, q.* from (%s) q) s',
+       from (select row_number() over () as __nexa_n, q.* from (%s
+       ) q) s',  -- salto de línea: un comentario final «-- …» no se come el paréntesis
     v_sql)
   into v_total, v_filas;
 
