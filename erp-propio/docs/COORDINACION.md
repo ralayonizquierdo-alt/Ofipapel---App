@@ -16,7 +16,7 @@ lo que escribió otro.
 
 ## Ramas y publicación
 
-- Rama común del ERP: **`erp`**. La web de prueba
+- Rama común del ERP: **`erp`** (conectada a Netlify el 27/10/2026). La web de prueba
   (ofipapel-erp-propio-preview) se publica SOLA desde GitHub cada vez que
   entra un cambio en `erp` que toca `erp-propio/` (configuración en
   `erp-propio/netlify.toml`).
