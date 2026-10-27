@@ -316,7 +316,7 @@ export function proponerPedido(
   const totalWeb = num(p.total)
   if (Math.abs(totalErp - totalWeb) > 0.05) avisos.push(`El total en el ERP (${totalErp.toFixed(2)} €) no coincide con el de la web (${totalWeb.toFixed(2)} €).`)
   if (!(p.line_items ?? []).length) bloqueos.push('El pedido no tiene líneas.')
-  if (!cfg.estados_importables.includes(p.status)) avisos.push(`Estado «${p.status}» fuera de los estados importables configurados.`)
+  if (!cfg.estados_importables.includes(p.status)) bloqueos.push(`Estado en la web «${p.status}»: no está entre los estados importables (Configuración de la Conexión).`)
 
   const fecha = (p.date_created ?? '').slice(0, 10)
   return {
