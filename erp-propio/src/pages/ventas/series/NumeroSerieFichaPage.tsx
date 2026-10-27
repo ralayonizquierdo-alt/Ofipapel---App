@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Binoculars, ChevronFirst, ChevronLast, Play } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { navDir, navIndice, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwTabs, GwTextArea, formatGw, type GwTabDef } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
@@ -114,7 +115,7 @@ export function NumeroSerieFichaPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [lista, setLista] = useState<{ id: number; numero_serie: string }[]>([])
+  const [inverso, setInverso] = useState(false)
   const [tab, setTab] = useState('generales')
   const [lookup, setLookup] = useState<Lookup>(null)
   const [nombreCliente, setNombreCliente] = useState('')
@@ -125,13 +126,13 @@ export function NumeroSerieFichaPage() {
 
   const editing = mode !== 'consulta'
 
-  useEffect(() => {
-    supabase
-      .from('articulo_numero_serie')
-      .select('id, numero_serie')
-      .order('numero_serie')
-      .then(({ data }) => setLista((data ?? []) as { id: number; numero_serie: string }[]))
-  }, [serie.id])
+  // Navegación contra el servidor: solo el vecino (gt/lt + limit 1) y el recuento, nunca la lista.
+  const nav = useNavRegistro<{ id: number }>({
+    tabla: 'articulo_numero_serie',
+    orden: ['numero_serie', 'id'],
+    actual: serie.id ? [serie.numero_serie, serie.id] : null,
+    select: 'id',
+  })
 
   useEffect(() => {
     let cancel = false
@@ -225,8 +226,11 @@ export function NumeroSerieFichaPage() {
     })
   }
 
-  const idx = useMemo(() => lista.findIndex((l) => l.id === serie.id), [lista, serie.id])
-  const ir = (i: number) => lista[i] && navigate(`/numeros-serie/${lista[i].id}`)
+  const idx = navIndice(nav, inverso)
+  const ir = async (d: NavDir) => {
+    const r = await nav.ir(navDir(d, inverso))
+    if (r) navigate(`/numeros-serie/${r.id}`)
+  }
 
   async function guardar() {
     setError(null)
@@ -468,11 +472,11 @@ export function NumeroSerieFichaPage() {
         mode={mode}
         canNavigate={mode === 'consulta' && idx >= 0}
         saving={saving}
-        onFirst={() => ir(0)}
-        onPrev={() => ir(idx - 1)}
-        onNext={() => ir(idx + 1)}
-        onLast={() => ir(lista.length - 1)}
-        onSort={() => setLista((l) => [...l].reverse())}
+        onFirst={() => ir('primero')}
+        onPrev={() => ir('anterior')}
+        onNext={() => ir('siguiente')}
+        onLast={() => ir('ultimo')}
+        onSort={() => setInverso((v) => !v)}
         onSearch={() => setLookup('buscar')}
         onPrint={() => window.print()}
         onNew={() => navigate('/numeros-serie/nuevo')}

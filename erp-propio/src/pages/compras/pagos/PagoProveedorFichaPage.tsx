@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
+import { navIndice, useNavRegistro, type NavDir, type NavFiltro } from '../../../components/gw/useNavRegistro'
+
+/** Los pagos anulados no se recorren con la barra. */
+const soloActivos: NavFiltro = (q) => q.eq('activo', true)
 import { GwCheck, GwDate, GwInput, GwLookupButton, GwNumber, GwRadio, GwSelect, formatGw } from '../../../components/gw'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import { PagosBar } from './PagosBar'
@@ -62,7 +66,6 @@ export function PagoProveedorFichaPage() {
   const [tiendas, setTiendas] = useState<string[]>([])
   const [formas, setFormas] = useState<FormaPago[]>([])
   const [empleado, setEmpleado] = useState<string | null>(null)
-  const [claves, setClaves] = useState<{ t: string; n: number }[]>([])
   const [pago, setPago] = useState<Pago | null>(null)
   const [orig, setOrig] = useState<Pago | null>(null)
   const [mode, setMode] = useState<'consulta' | 'edicion' | 'alta'>('consulta')
@@ -89,20 +92,17 @@ export function PagoProveedorFichaPage() {
     })
   }, [])
 
-  const cargarClaves = useCallback(async () => {
-    const { data } = await supabase
-      .from('pago_proveedor')
-      .select('tienda_terminal_codigo, codigo_pago')
-      .eq('activo', true)
-      .order('tienda_terminal_codigo')
-      .order('codigo_pago')
-      .limit(10000)
-    setClaves((data ?? []).map((r) => ({ t: r.tienda_terminal_codigo as string, n: Number(r.codigo_pago) })))
-  }, [])
-
-  useEffect(() => {
-    cargarClaves()
-  }, [cargarClaves])
+  // Navegación contra el servidor: solo el vecino (gt/lt + limit 1) y el recuento, nunca la lista.
+  const nav = useNavRegistro<{ tienda_terminal_codigo: string; codigo_pago: number }>({
+    tabla: 'pago_proveedor',
+    orden: ['tienda_terminal_codigo', 'codigo_pago'],
+    actual:
+      pago && pago.codigo_pago != null && (pago as { activo?: boolean | null }).activo !== false
+        ? [pago.tienda_terminal_codigo, pago.codigo_pago]
+        : null,
+    filtro: soloActivos,
+  })
+  const cargarClaves = nav.refrescar
 
   const cargarInfoDoc = useCallback(async (p: Pago | null) => {
     setDoc(null)
@@ -237,8 +237,12 @@ export function PagoProveedorFichaPage() {
     setPago((p) => (p ? { ...p, ...c } : p))
   }
 
-  const idx = pago && pago.codigo_pago != null ? claves.findIndex((k) => k.t === pago.tienda_terminal_codigo && k.n === pago.codigo_pago) : -1
-  const ir = (k?: { t: string; n: number }) => k && navigate(`/pagos-proveedor/${encodeURIComponent(k.t)}/${k.n}`)
+  const idx = navIndice(nav)
+  const totalClaves = nav.total ?? 0
+  const irNav = async (d: NavDir) => {
+    const k = await nav.ir(d)
+    if (k) navigate(`/pagos-proveedor/${encodeURIComponent(k.tienda_terminal_codigo)}/${k.codigo_pago}`)
+  }
 
   async function guardar() {
     if (!pago) return
@@ -254,7 +258,7 @@ export function PagoProveedorFichaPage() {
     setMensaje(null)
     try {
       const codigo = await guardarPago(pago, fp, empleado, orig)
-      await cargarClaves()
+      cargarClaves()
       setSaving(false)
       navigate(`/pagos-proveedor/${encodeURIComponent(pago.tienda_terminal_codigo)}/${codigo}`, { replace: true })
       if (mode === 'edicion') {
@@ -281,7 +285,7 @@ export function PagoProveedorFichaPage() {
     if (!confirm(`¿Eliminar el pago ${pago.tienda_terminal_codigo}-${pago.codigo_pago}? Queda anulado y, si generó un gasto de caja, ese gasto pasa a 0.`)) return
     try {
       await eliminarPago(pago)
-      await cargarClaves()
+      cargarClaves()
       navigate('/pagos-proveedor', { replace: true })
     } catch (e) {
       setMensaje((e as Error).message)
@@ -618,10 +622,10 @@ export function PagoProveedorFichaPage() {
         mode={mode}
         canNavigate={mode === 'consulta' && idx >= 0}
         saving={saving}
-        onFirst={() => ir(claves[0])}
-        onPrev={() => idx > 0 && ir(claves[idx - 1])}
-        onNext={() => idx >= 0 && idx < claves.length - 1 && ir(claves[idx + 1])}
-        onLast={() => ir(claves[claves.length - 1])}
+        onFirst={() => irNav('primero')}
+        onPrev={() => idx > 0 && irNav('anterior')}
+        onNext={() => idx >= 0 && idx < totalClaves - 1 && irNav('siguiente')}
+        onLast={() => irNav('ultimo')}
         onPrint={() => window.print()}
         onNew={() => navigate('/pagos-proveedor/nuevo')}
         onEdit={() => p && setMode('edicion')}

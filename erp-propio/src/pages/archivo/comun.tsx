@@ -367,6 +367,7 @@ export function ObservacionesImagen({
   tituloImagen,
   porDefecto,
   alto = 450,
+  sinObservaciones = false,
 }: {
   observaciones: string | null
   imagenUrl: string | null
@@ -379,21 +380,25 @@ export function ObservacionesImagen({
   /** Imagen que se ve si no hay ninguna puesta (logotipo del ERP). */
   porDefecto?: string
   alto?: number
+  /** Solo la imagen (pestaña «Imagen» de Formas de Pago). */
+  sinObservaciones?: boolean
 }) {
   const [rota, setRota] = useState<string | null>(null)
   const url = imagenUrl?.trim() || porDefecto || null
   const ajuste = imagenModo === 0 ? 'object-none' : imagenModo === 2 ? 'object-fill' : 'object-contain'
   return (
-    <div className="grid grid-cols-[minmax(0,375fr)_minmax(0,1000fr)] gap-x-[10px]" style={{ height: alto }}>
-      <GwField label="Observaciones" className="h-full">
-        <GwTextArea
-          title="OBSERV"
-          className="min-h-0 flex-1 resize-none"
-          disabled={ro}
-          value={observaciones ?? ''}
-          onChange={(e) => onChange({ observaciones: e.target.value === '' ? null : e.target.value })}
-        />
-      </GwField>
+    <div className={`grid gap-x-[10px] ${sinObservaciones ? 'grid-cols-1' : 'grid-cols-[minmax(0,375fr)_minmax(0,1000fr)]'}`} style={{ height: alto }}>
+      {!sinObservaciones && (
+        <GwField label="Observaciones" className="h-full">
+          <GwTextArea
+            title="OBSERV"
+            className="min-h-0 flex-1 resize-none"
+            disabled={ro}
+            value={observaciones ?? ''}
+            onChange={(e) => onChange({ observaciones: e.target.value === '' ? null : e.target.value })}
+          />
+        </GwField>
+      )}
       <div className="flex min-h-0 flex-col">
         {tituloImagen ? <span className="gw-label">{tituloImagen}</span> : <span className="h-[4px]" />}
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_265px] gap-x-1.5 border-t border-[var(--gw-border-light)] pt-0.5">

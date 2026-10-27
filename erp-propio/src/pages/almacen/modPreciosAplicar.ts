@@ -101,10 +101,17 @@ async function clientes(cab: CabeceraMod, lineas: LineaMod[]) {
   } else {
     // «Coincidentes»: clientes que ya tienen precio pactado de esos artículos; con «y los nuevos»
     // o «eliminar y añadir», cualquier cliente que tenga precios pactados.
-    let q = supabase.from('cliente_articulo_precio').select('cliente_codigo')
-    if (cab.tipo_actualizacion_clientes === 0) q = q.in('articulo_codigo', arts)
-    const { data } = await q.limit(10000)
-    codigos = [...new Set(((data ?? []) as { cliente_codigo: string }[]).map((r) => r.cliente_codigo))]
+    // De 1000 en 1000: PostgREST corta cada respuesta en 1000 filas (un limit(10000) se quedaba
+    // a medias sin avisar con los precios pactados reales).
+    const vistos = new Set<string>()
+    for (let desde = 0; ; desde += 1000) {
+      let q = supabase.from('cliente_articulo_precio').select('cliente_codigo')
+      if (cab.tipo_actualizacion_clientes === 0) q = q.in('articulo_codigo', arts)
+      const { data } = await q.order('cliente_codigo').order('articulo_codigo').range(desde, desde + 999)
+      for (const r of (data ?? []) as { cliente_codigo: string }[]) vistos.add(r.cliente_codigo)
+      if (!data || data.length < 1000) break
+    }
+    codigos = [...vistos]
   }
   if (!codigos.length) return { error: null, n: 0 }
   const { data: cls } = await supabase.from('cliente').select('codigo, tarifa_nivel_defecto').in('codigo', codigos)

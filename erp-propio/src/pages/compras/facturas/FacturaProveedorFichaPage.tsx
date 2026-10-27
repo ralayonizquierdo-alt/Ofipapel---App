@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, FileText, HandCoins, RefreshCw, Settings2, ShoppingCart, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { navIndice, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, formatGw } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
@@ -149,7 +150,6 @@ export function FacturaProveedorFichaPage() {
 
   const [tiendas, setTiendas] = useState<string[]>([])
   const [almacenes, setAlmacenes] = useState<string[]>([])
-  const [claves, setClaves] = useState<{ t: string; id: number }[]>([])
   const [orden, setOrden] = useState<'id' | 'fecha'>('id')
   const [mode, setMode] = useState<'consulta' | 'edicion' | 'alta'>('consulta')
   const [cab, setCab] = useState<FacturaProveedor | null>(null)
@@ -181,16 +181,19 @@ export function FacturaProveedorFichaPage() {
     })
   }, [])
 
-  const cargarClaves = useCallback(async () => {
-    let q = supabase.from('factura_proveedor').select('tienda_terminal_codigo, id, fecha_hora')
-    q = orden === 'id' ? q.order('tienda_terminal_codigo').order('id') : q.order('fecha_hora').order('id')
-    const { data } = await q.limit(5000)
-    setClaves((data ?? []).map((r) => ({ t: r.tienda_terminal_codigo as string, id: Number(r.id) })))
-  }, [orden])
-
-  useEffect(() => {
-    cargarClaves()
-  }, [cargarClaves])
+  // Navegación contra el servidor: solo el vecino (gt/lt + limit 1) y el recuento, nunca la lista.
+  const nav = useNavRegistro<{ tienda_terminal_codigo: string; id: number }>({
+    tabla: 'factura_proveedor',
+    orden: orden === 'id' ? ['tienda_terminal_codigo', 'id'] : ['fecha_hora', 'id', 'tienda_terminal_codigo'],
+    actual:
+      mode !== 'consulta' || !cab
+        ? null
+        : orden === 'id'
+          ? [cab.tienda_terminal_codigo, cab.id]
+          : [cab.fecha_hora, cab.id, cab.tienda_terminal_codigo],
+    select: 'tienda_terminal_codigo, id',
+  })
+  const cargarClaves = nav.refrescar
 
   const cargarSatelites = useCallback(async (f: FacturaProveedor) => {
     const [a, p] = await Promise.all([
@@ -291,8 +294,12 @@ export function FacturaProveedorFichaPage() {
     setCab((c) => (c ? { ...c, ...p } : c))
   }
 
-  const idx = cab ? claves.findIndex((k) => k.t === cab.tienda_terminal_codigo && k.id === cab.id) : -1
-  const ir = (k?: { t: string; id: number }) => k && navigate(`/facturas-proveedor/${k.t}/${k.id}`)
+  const idx = navIndice(nav)
+  const totalClaves = nav.total ?? 0
+  const irNav = async (d: NavDir) => {
+    const k = await nav.ir(d)
+    if (k) navigate(`/facturas-proveedor/${k.tienda_terminal_codigo}/${k.id}`)
+  }
 
   function payloadTotales(f: FacturaProveedor) {
     const t = calcularTotales(f, albaranes, pagado)
@@ -349,7 +356,7 @@ export function FacturaProveedorFichaPage() {
       const { error } = await supabase.from('factura_proveedor').insert({ tienda_terminal_codigo: cab.tienda_terminal_codigo, id, ...datos })
       setSaving(false)
       if (error) return setMensaje(error.message)
-      await cargarClaves()
+      cargarClaves()
       navigate(`/facturas-proveedor/${cab.tienda_terminal_codigo}/${id}`, { replace: true })
       return
     }
@@ -380,7 +387,7 @@ export function FacturaProveedorFichaPage() {
       .eq('factura_relacionada_id', cab.id)
     const { error } = await supabase.from('factura_proveedor').delete().eq('tienda_terminal_codigo', cab.tienda_terminal_codigo).eq('id', cab.id)
     if (error) return setMensaje(error.message)
-    await cargarClaves()
+    cargarClaves()
     navigate('/facturas-proveedor')
     setRecarga((x) => x + 1)
   }
@@ -792,10 +799,10 @@ export function FacturaProveedorFichaPage() {
         mode={mode}
         canNavigate={mode === 'consulta' && idx >= 0}
         saving={saving}
-        onFirst={() => ir(claves[0])}
-        onPrev={() => idx > 0 && ir(claves[idx - 1])}
-        onNext={() => idx >= 0 && idx < claves.length - 1 && ir(claves[idx + 1])}
-        onLast={() => ir(claves[claves.length - 1])}
+        onFirst={() => irNav('primero')}
+        onPrev={() => idx > 0 && irNav('anterior')}
+        onNext={() => idx >= 0 && idx < totalClaves - 1 && irNav('siguiente')}
+        onLast={() => irNav('ultimo')}
         onSort={() => setOrden((o) => (o === 'id' ? 'fecha' : 'id'))}
         onSearch={() => setLookup('buscar')}
         onPrint={() => window.print()}
@@ -813,7 +820,7 @@ export function FacturaProveedorFichaPage() {
         onExit={() => navigate('/')}
       />
       <span className="gw-label text-[11px] text-[#555]">
-        {mensaje ?? `Orden: ${orden === 'id' ? 'por Id. factura' : 'por fecha'} · ${idx >= 0 ? `Registro ${idx + 1} de ${claves.length}` : mode === 'alta' ? 'Alta de factura' : claves.length ? '' : 'No hay facturas de proveedor'}`}
+        {mensaje ?? `Orden: ${orden === 'id' ? 'por Id. factura' : 'por fecha'} · ${idx >= 0 ? `Registro ${idx + 1} de ${totalClaves}` : mode === 'alta' ? 'Alta de factura' : nav.total !== 0 ? '' : 'No hay facturas de proveedor'}`}
       </span>
 
       {lookup === 'proveedor' && (
@@ -883,7 +890,7 @@ export function FacturaProveedorFichaPage() {
           onClose={() => setGenerar(false)}
           onHecho={async (creadas) => {
             setGenerar(false)
-            await cargarClaves()
+            cargarClaves()
             setMensaje(creadas.length ? `Generadas ${creadas.length} facturas.` : 'No hay albaranes recibidos pendientes de facturar en ese periodo.')
             if (creadas[0]) navigate(`/facturas-proveedor/${creadas[0].t}/${creadas[0].id}`)
           }}

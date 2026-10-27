@@ -6,6 +6,7 @@ import { useAuth } from '../../../lib/AuthContext'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwInput, GwLookupButton, GwNumber, GwSelect, GwWindow, formatGw } from '../../../components/gw'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
+import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { PedidoBar } from './PedidoBar'
 import { entregarPedido } from './entregar'
 import {
@@ -218,7 +219,6 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
   const [cliente, setCliente] = useState<ClienteVenta | null>(null)
   const [venta, setVenta] = useState<VentaInfo | null>(null)
   const [factura, setFactura] = useState<FacturaInfo | null>(null)
-  const [claves, setClaves] = useState<{ t: string; n: number }[]>([])
   const [orden, setOrden] = useState<'numero' | 'cliente'>('numero')
   const [sel, setSel] = useState(0)
   const [editLinea, setEditLinea] = useState<{ idx: number | 'nuevo'; l: Linea } | null>(null)
@@ -260,17 +260,26 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
       .then(({ data }) => setNombres((n) => (n.empleado ? n : { ...n, empleado: (data?.nombre as string | undefined) ?? '' })))
   }, [mode, empleadoActual])
 
-  const cargarClaves = useCallback(async () => {
-    let q = supabase.from('pedido_cliente').select('tienda_terminal_codigo, numero, nombre_cliente').eq('es_reparacion', false)
-    if (presupuestos) q = q.eq('es_presupuesto', true)
-    q = orden === 'numero' ? q.order('tienda_terminal_codigo').order('numero') : q.order('nombre_cliente').order('numero')
-    const { data } = await q.limit(5000)
-    setClaves((data ?? []).map((r) => ({ t: r.tienda_terminal_codigo as string, n: Number(r.numero) })))
-  }, [presupuestos, orden])
-
-  useEffect(() => {
-    cargarClaves()
-  }, [cargarClaves])
+  // Navegación contra el servidor: solo el vecino (gt/lt + limit 1) y el recuento, nunca la lista.
+  const filtroNav = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (q: any) => (presupuestos ? q.eq('es_reparacion', false).eq('es_presupuesto', true) : q.eq('es_reparacion', false)),
+    [presupuestos],
+  )
+  const nav = useNavRegistro<{ tienda_terminal_codigo: string; numero: number }>({
+    tabla: 'pedido_cliente',
+    orden: orden === 'numero' ? ['tienda_terminal_codigo', 'numero'] : ['nombre_cliente', 'numero', 'tienda_terminal_codigo'],
+    actual:
+      mode !== 'consulta' || !cab || cab.numero == null
+        ? null
+        : orden === 'numero'
+          ? [cab.tienda_terminal_codigo, cab.numero]
+          : [cab.nombre_cliente, cab.numero, cab.tienda_terminal_codigo],
+    select: 'tienda_terminal_codigo, numero',
+    filtro: filtroNav,
+    nulos: orden !== 'numero',
+  })
+  const cargarClaves = nav.refrescar
 
   const cargarCliente = useCallback(async (codigo: string) => {
     if (!codigo) {
@@ -672,7 +681,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
         if (error) throw new Error(error.message)
       }
       setSaving(false)
-      await cargarClaves()
+      cargarClaves()
       if (mode === 'alta') navigate(`${base}/${encodeURIComponent(cab.tienda_terminal_codigo)}/${numero}`, { replace: true })
       else {
         const c = { ...cab }
@@ -752,9 +761,11 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  const idx = cab && cab.numero != null ? claves.findIndex((k) => k.t === cab.tienda_terminal_codigo && k.n === cab.numero) : -1
-  const ir = (k?: { t: string; n: number }) => k && navigate(`${base}/${encodeURIComponent(k.t)}/${k.n}`)
-  const canNavigate = mode === 'consulta' && claves.length > 0
+  const ir = async (d: NavDir) => {
+    const k = await nav.ir(d)
+    if (k) navigate(`${base}/${encodeURIComponent(k.tienda_terminal_codigo)}/${k.numero}`)
+  }
+  const canNavigate = mode === 'consulta' && !!cab
 
   const ro = !editing
   const nivelTarifa = cab?.tarifa_nivel ?? cliente?.tarifa_nivel_defecto ?? 0
@@ -1112,10 +1123,10 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
         mode={mode}
         canNavigate={canNavigate}
         saving={saving}
-        onFirst={() => ir(claves[0])}
-        onPrev={() => ir(idx > 0 ? claves[idx - 1] : claves[0])}
-        onNext={() => ir(idx >= 0 && idx < claves.length - 1 ? claves[idx + 1] : claves[claves.length - 1])}
-        onLast={() => ir(claves[claves.length - 1])}
+        onFirst={() => ir('primero')}
+        onPrev={() => ir('anterior')}
+        onNext={() => ir('siguiente')}
+        onLast={() => ir('ultimo')}
         onSort={() => setOrden((o) => (o === 'numero' ? 'cliente' : 'numero'))}
         onSearch={() => setDialogo('buscar')}
         onPrint={() => window.print()}
@@ -1135,7 +1146,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
                 ? `Alta de ${tipoDoc.toLowerCase()} · el número se asigna al guardar (F1)`
                 : mode === 'edicion'
                   ? 'Modificando · F1 guarda'
-                  : `Orden: ${orden === 'numero' ? 'por número' : 'por cliente'} · Registro ${idx + 1} de ${claves.length}`}
+                  : `Orden: ${orden === 'numero' ? 'por número' : 'por cliente'}${textoRegistro(nav)}`}
         </span>
         {mensaje && <span className="font-bold text-[#c42b1c]">{mensaje}</span>}
       </div>
@@ -1201,7 +1212,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
           onClose={() => setDialogo(null)}
           onPick={(r) => {
             setDialogo(null)
-            ir({ t: String(r.tienda_terminal_codigo), n: Number(r.numero) })
+            navigate(`${base}/${encodeURIComponent(String(r.tienda_terminal_codigo))}/${Number(r.numero)}`)
           }}
         />
       )}

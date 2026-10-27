@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Binoculars, Check, FilePen, FilePlus2, FileX2, Sheet, Wallet, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { useAuth } from '../../../lib/AuthContext'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
@@ -184,7 +185,6 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
   const [orig, setOrig] = useState<{ cab: CabeceraCompra; lineas: LineaCompra[] } | null>(null)
   const [lineas, setLineas] = useState<LineaCompra[]>([])
   const [proveedor, setProveedor] = useState<ProveedorInfo | null>(null)
-  const [claves, setClaves] = useState<{ t: string; n: number }[]>([])
   const [orden, setOrden] = useState<'numero' | 'proveedor'>('numero')
   const [sel, setSel] = useState(0)
   const [editLinea, setEditLinea] = useState<{ idx: number | 'nuevo'; l: LineaCompra } | null>(null)
@@ -231,16 +231,19 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
         .then(({ data }) => setEmpleado(data?.codigo ?? null))
   }, [session?.user.id])
 
-  const cargarClaves = useCallback(async () => {
-    let q = supabase.from('pedido_proveedor').select('tienda_terminal_codigo, numero')
-    q = orden === 'numero' ? q.order('tienda_terminal_codigo').order('numero') : q.order('proveedor_codigo').order('numero')
-    const { data } = await q.limit(5000)
-    setClaves((data ?? []).map((r) => ({ t: r.tienda_terminal_codigo as string, n: Number(r.numero) })))
-  }, [orden])
-
-  useEffect(() => {
-    cargarClaves()
-  }, [cargarClaves])
+  // Navegación contra el servidor: solo el vecino (gt/lt + limit 1) y el recuento, nunca la lista.
+  const nav = useNavRegistro<{ tienda_terminal_codigo: string; numero: number }>({
+    tabla: 'pedido_proveedor',
+    orden: orden === 'numero' ? ['tienda_terminal_codigo', 'numero'] : ['proveedor_codigo', 'numero', 'tienda_terminal_codigo'],
+    actual:
+      mode !== 'consulta' || !cab || cab.numero == null
+        ? null
+        : orden === 'numero'
+          ? [cab.tienda_terminal_codigo, cab.numero]
+          : [cab.proveedor_codigo, cab.numero, cab.tienda_terminal_codigo],
+    select: 'tienda_terminal_codigo, numero',
+  })
+  const cargarClaves = nav.refrescar
 
   const cargarProveedor = useCallback(async (codigo: string) => {
     if (!codigo) {
@@ -598,7 +601,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
         }
       }
       setSaving(false)
-      await cargarClaves()
+      cargarClaves()
       if (mode === 'alta') navigate(rutaDoc({ t: cab.tienda_terminal_codigo, n: numero as number }), { replace: true })
       else {
         setOrig({ cab: { ...cab }, lineas })
@@ -696,9 +699,12 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  const idx = cab && cab.numero != null ? claves.findIndex((k) => k.t === cab.tienda_terminal_codigo && k.n === cab.numero) : -1
   const ir = (k?: { t: string; n: number }) => k && navigate(rutaDoc(k))
-  const canNavigate = mode === 'consulta' && claves.length > 0
+  const irNav = async (d: NavDir) => {
+    const k = await nav.ir(d)
+    if (k) ir({ t: k.tienda_terminal_codigo, n: Number(k.numero) })
+  }
+  const canNavigate = mode === 'consulta' && !!cab
   const nombreTransportista = transportistas.find((a) => a.codigo === cab?.transportista_codigo)?.nombre ?? ''
   const lineasBloqueadas = !!cab?.stock_movido
   const columnas = rapida ? 11 : 12
@@ -1185,10 +1191,10 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
         mode={mode}
         canNavigate={canNavigate}
         saving={saving}
-        onFirst={() => ir(claves[0])}
-        onPrev={() => ir(idx > 0 ? claves[idx - 1] : claves[0])}
-        onNext={() => ir(idx >= 0 && idx < claves.length - 1 ? claves[idx + 1] : claves[claves.length - 1])}
-        onLast={() => ir(claves[claves.length - 1])}
+        onFirst={() => irNav('primero')}
+        onPrev={() => irNav('anterior')}
+        onNext={() => irNav('siguiente')}
+        onLast={() => irNav('ultimo')}
         onSort={() => setOrden((o) => (o === 'numero' ? 'proveedor' : 'numero'))}
         onSearch={() => setDialogo('buscar')}
         onPrint={() => window.print()}
@@ -1208,7 +1214,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
                 ? 'Alta de pedido a proveedor · el número se asigna al guardar (F1)'
                 : mode === 'edicion'
                   ? 'Modificando · F1 guarda'
-                  : `Orden: ${orden === 'numero' ? 'por número' : 'por proveedor'} · Registro ${idx + 1} de ${claves.length}`}
+                  : `Orden: ${orden === 'numero' ? 'por número' : 'por proveedor'}${textoRegistro(nav)}`}
         </span>
         {mensaje && <span className="font-bold text-[#c42b1c]">{mensaje}</span>}
       </div>

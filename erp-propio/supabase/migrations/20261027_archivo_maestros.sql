@@ -292,3 +292,9 @@ begin
 end;
 $$;
 grant execute on function public.gw_lista_ordenada_maestros(text, text, text, text, text, text, integer, boolean) to authenticated;
+
+-- ── Datos de empresa: datos legales de las facturas (NIF, VeriFactu): solo los cambia un
+-- administrador (migración aparte «empresa_solo_admin_escribe»).
+create policy admin_escribe_empresa on public.empresa as restrictive for insert to authenticated with check (public.fn_es_administrador());
+create policy admin_modifica_empresa on public.empresa as restrictive for update to authenticated using (public.fn_es_administrador());
+create policy admin_borra_empresa on public.empresa as restrictive for delete to authenticated using (public.fn_es_administrador());

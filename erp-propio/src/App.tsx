@@ -11,8 +11,10 @@ import { ClientesListPage } from './pages/clientes/ClientesListPage'
 import { ProveedorFichaPage } from './pages/proveedores/ProveedorFichaPage'
 import { ProveedoresListPage } from './pages/proveedores/ProveedoresListPage'
 import { AlmacenesPage } from './pages/AlmacenesPage'
-import { TiendasPage } from './pages/TiendasPage'
-import { EmpleadosPage } from './pages/EmpleadosPage'
+import { TiendaFichaPage } from './pages/archivo/TiendaFichaPage'
+import { EmpleadoFichaPage } from './pages/archivo/EmpleadoFichaPage'
+import { EmpresaPage } from './pages/archivo/EmpresaPage'
+import { FormaPagoFichaPage } from './pages/archivo/FormaPagoFichaPage'
 import { StockPage } from './pages/StockPage'
 import { PedidoProveedorFichaPage } from './pages/compras/pedidos/PedidoProveedorFichaPage'
 import { CreacionRapidaPedidosPage } from './pages/compras/pedidos/CreacionRapidaPedidosPage'
@@ -110,8 +112,11 @@ function App() {
             <Route path="/proveedores/lista" element={<ProveedoresListPage />} />
             <Route path="/proveedores/:codigo" element={<ProveedorFichaPage />} />
             <Route path="/almacenes" element={<AlmacenesPage />} />
-            <Route path="/tiendas" element={<TiendasPage />} />
-            <Route path="/empleados" element={<EmpleadosPage />} />
+            {/* Menú Archivo (maestros calcados de GeminisWin) */}
+            <Route path="/tiendas/*" element={<TiendaFichaPage />} />
+            <Route path="/empleados/*" element={<EmpleadoFichaPage />} />
+            <Route path="/empresa" element={<EmpresaPage />} />
+            <Route path="/formas-pago/*" element={<FormaPagoFichaPage />} />
             <Route path="/stock" element={<StockPage />} />
             <Route path="/traspasos/*" element={<TraspasoFichaPage />} />
             <Route path="/regularizacion-stock/*" element={<RegularizacionStockPage />} />

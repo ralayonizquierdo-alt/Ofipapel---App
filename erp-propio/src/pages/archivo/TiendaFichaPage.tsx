@@ -448,7 +448,7 @@ function ParametrosGenerales({ d, ro, onChange }: { d: Tienda; ro: boolean; onCh
           </div>
         </GwGroup>
       </div>
-      <GwGroup className="flex flex-col gap-1 !pt-0">
+      <GwGroup className="flex flex-col gap-1 self-start !pt-0">
         <span className="text-[15px]">Ejercicios de Caja</span>
         <div className="grid grid-cols-[minmax(0,1fr)_180px] items-center gap-2">
           <span className="text-[15px]">Nº Último Ejercicio de Caja:</span>
