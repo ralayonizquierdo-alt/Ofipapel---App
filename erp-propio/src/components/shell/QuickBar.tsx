@@ -6,6 +6,7 @@ import {
   Calculator,
   DatabaseZap,
   HandCoins,
+  LayoutDashboard,
   LogOut,
   NotebookText,
   RefreshCcw,
@@ -28,6 +29,8 @@ export interface QuickItem {
 
 // Barra lateral de accesos rápidos de GeminisWin, en el mismo orden que el original.
 export const QUICK_ITEMS: QuickItem[] = [
+  // Añadido (no está en GeminisWin): Panel de Control, la pantalla inicial.
+  { label: 'Panel', description: 'Panel de Control', icon: LayoutDashboard, color: '#1f4e9c', to: '/resumen' },
   { label: 'Camb. Empl.', description: 'Cambiar Empleado', icon: UserRoundPlus, color: '#2f6fb5', action: 'signout' },
   { label: 'Cerrar Empl.', description: 'Cerrar Empleado', icon: UserRoundX, color: '#c0392b', action: 'signout' },
   { label: 'Clientes', description: 'Clientes', icon: Users, color: '#b7791f', to: '/clientes' },

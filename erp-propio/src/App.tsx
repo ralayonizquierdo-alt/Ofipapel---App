@@ -46,6 +46,23 @@ import { RegularizacionStockPage } from './pages/almacen/traspasos/Regularizacio
 import { InventarioFichaPage } from './pages/almacen/inventarios/InventarioFichaPage'
 import { FacturacionPage } from './pages/FacturacionPage'
 import { RegistrosVerifactuPage } from './pages/RegistrosVerifactuPage'
+import { ContabilidadRoutes } from './pages/contabilidad/ContabilidadRoutes'
+import { ConfiguracionWebPage } from './pages/web/ConfiguracionWebPage'
+import { ImportarPedidosWebPage } from './pages/web/ImportarPedidosWebPage'
+import { SincronizarCatalogoPage } from './pages/web/SincronizarCatalogoPage'
+import { ErroresWebPage } from './pages/web/ErroresWebPage'
+import { PreciosWebPage } from './pages/web/PreciosWebPage'
+import { CategoriasWebPage } from './pages/web/CategoriasWebPage'
+import { PendientesServirPage } from './pages/web/PendientesServirPage'
+import { StockReservadoPage } from './pages/web/StockReservadoPage'
+import { EstadoPedidosWebPage } from './pages/web/EstadoPedidosWebPage'
+import { DevolucionesWebPage } from './pages/web/DevolucionesWebPage'
+import { ClientesWebPage } from './pages/web/ClientesWebPage'
+import { CuponesWebPage } from './pages/web/CuponesWebPage'
+import { RegistroSincronizacionPage } from './pages/web/RegistroSincronizacionPage'
+import { EstadisticasWebPage } from './pages/web/EstadisticasWebPage'
+import { PublicarArticulosWebPage } from './pages/web/PublicarArticulosWebPage'
+import { WhatsAppWebPage } from './pages/web/WhatsAppWebPage'
 
 function ProtectedArea() {
   const { session, loading } = useAuth()
@@ -117,6 +134,26 @@ function App() {
             <Route path="/pagos" element={<PagosPage />} />
             <Route path="/facturacion" element={<FacturacionPage />} />
             <Route path="/registros-verifactu" element={<RegistrosVerifactuPage />} />
+            {/* Menú Contabilidad */}
+            <Route path="/contabilidad/*" element={<ContabilidadRoutes />} />
+            {/* Menú Web (WooCommerce, solo lectura de la web) */}
+            <Route path="/web/configuracion" element={<ConfiguracionWebPage />} />
+            <Route path="/web/importar-pedidos" element={<ImportarPedidosWebPage />} />
+            <Route path="/web/catalogo" element={<SincronizarCatalogoPage />} />
+            <Route path="/web/errores" element={<ErroresWebPage />} />
+            <Route path="/web/precios" element={<PreciosWebPage />} />
+            <Route path="/web/categorias" element={<CategoriasWebPage />} />
+            <Route path="/web/pendientes" element={<PendientesServirPage />} />
+            <Route path="/web/stock-reservado" element={<StockReservadoPage />} />
+            <Route path="/web/estado-pedidos" element={<EstadoPedidosWebPage />} />
+            <Route path="/web/devoluciones" element={<DevolucionesWebPage />} />
+            <Route path="/web/clientes" element={<ClientesWebPage />} />
+            <Route path="/web/clientes-empresa" element={<ClientesWebPage empresa />} />
+            <Route path="/web/cupones" element={<CuponesWebPage />} />
+            <Route path="/web/registro" element={<RegistroSincronizacionPage />} />
+            <Route path="/web/estadisticas" element={<EstadisticasWebPage />} />
+            <Route path="/web/publicar" element={<PublicarArticulosWebPage />} />
+            <Route path="/web/whatsapp" element={<WhatsAppWebPage />} />
           </Route>
         </Routes>
       </AuthProvider>

@@ -125,7 +125,7 @@ export function ErroresWebPage() {
     <div className="flex h-full min-h-0 flex-col gap-1.5 text-[13px]">
       <div className="flex flex-none flex-wrap items-center gap-2">
         <span className="gw-label">Error:</span>
-        <select className="gw-input w-[190px]" value={tipo} onChange={(e) => setTipo(e.target.value)}>
+        <select className="gw-input w-[190px]! flex-none" value={tipo} onChange={(e) => setTipo(e.target.value)}>
           <option value="">Todos ({todos.length})</option>
           {TIPOS.map((t) => (
             <option key={t} value={t}>
@@ -134,7 +134,7 @@ export function ErroresWebPage() {
           ))}
         </select>
         <span className="gw-label">Origen:</span>
-        <select className="gw-input w-[110px]" value={origen} onChange={(e) => setOrigen(e.target.value)}>
+        <select className="gw-input w-[110px]! flex-none" value={origen} onChange={(e) => setOrigen(e.target.value)}>
           <option value="">ERP y web</option>
           <option value="ERP">ERP</option>
           <option value="Web">Web</option>

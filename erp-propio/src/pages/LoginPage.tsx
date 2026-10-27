@@ -22,6 +22,12 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-[var(--gw-mdi)] p-4">
       <GwWindow title="Cambiar Empleado" className="w-[340px] max-w-full">
         <form onSubmit={handleSubmit} className="flex flex-col gap-2 p-1">
+          <img
+            src={`${import.meta.env.BASE_URL}marca/logo-ofipapel.png`}
+            alt="Ofipapel — Suministros de Oficina"
+            className="mx-auto my-1 w-[220px] select-none"
+            draggable={false}
+          />
           <div className="text-[12px]">Ofipapel ERP — identificación del empleado</div>
           <GwField label="Email">
             <GwInput type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />

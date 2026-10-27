@@ -111,7 +111,7 @@ export function SincronizarCatalogoPage() {
     <div className="flex h-full min-h-0 flex-col gap-1.5 text-[13px]">
       <div className="flex flex-none flex-wrap items-center gap-2">
         <span className="gw-label">Ver:</span>
-        <select className="gw-input w-[290px]" value={vista} onChange={(e) => {
+        <select className="gw-input w-[290px]! flex-none" value={vista} onChange={(e) => {
             setVista(e.target.value)
             setSel(0)
           }}>
@@ -123,7 +123,7 @@ export function SincronizarCatalogoPage() {
           ))}
         </select>
         <span className="gw-label">Buscar:</span>
-        <input className="gw-input w-[180px]" value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="SKU, código o nombre" />
+        <input className="gw-input w-[180px]! flex-none" value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="SKU, código o nombre" />
         <label className="flex items-center gap-1" title="Stock del ERP: el almacén de la web (Configuración) o la suma de todos">
           <input
             type="checkbox"

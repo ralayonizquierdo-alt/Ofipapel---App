@@ -191,7 +191,7 @@ export function FiltroFechas({
     <div className="flex flex-none flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
       <span className="gw-label">Periodo:</span>
       <select
-        className="gw-input w-[170px]"
+        className="gw-input w-[170px]! flex-none"
         value={filtro.periodo}
         onChange={(e) => {
           const p = e.target.value as Periodo
@@ -207,13 +207,13 @@ export function FiltroFechas({
         ))}
       </select>
       <span className="gw-label">Desde:</span>
-      <input type="date" className="gw-input w-[130px]" value={filtro.desde} onChange={(e) => onChange({ ...filtro, periodo: 'Personalizado', desde: e.target.value })} />
+      <input type="date" className="gw-input w-[130px]! flex-none" value={filtro.desde} onChange={(e) => onChange({ ...filtro, periodo: 'Personalizado', desde: e.target.value })} />
       <span className="gw-label">Hasta:</span>
-      <input type="date" className="gw-input w-[130px]" value={filtro.hasta} onChange={(e) => onChange({ ...filtro, periodo: 'Personalizado', hasta: e.target.value })} />
+      <input type="date" className="gw-input w-[130px]! flex-none" value={filtro.hasta} onChange={(e) => onChange({ ...filtro, periodo: 'Personalizado', hasta: e.target.value })} />
       {conEstado && (
         <>
           <span className="gw-label">Estado en la web:</span>
-          <select className="gw-input w-[160px]" value={filtro.estado} onChange={(e) => onChange({ ...filtro, estado: e.target.value })}>
+          <select className="gw-input w-[160px]! flex-none" value={filtro.estado} onChange={(e) => onChange({ ...filtro, estado: e.target.value })}>
             <option value="">Todos</option>
             {ESTADOS_PEDIDO_WEB.map((s) => (
               <option key={s.value} value={s.value}>

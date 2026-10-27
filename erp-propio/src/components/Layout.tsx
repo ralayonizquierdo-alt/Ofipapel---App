@@ -17,6 +17,13 @@ export function Layout() {
   const [hint, setHint] = useState<string | null>(null)
   const title = windowTitle(pathname)
 
+  // Al entrar (iniciar sesión o abrir la aplicación en «/») se abre el Panel de Control. Solo al
+  // montar: cerrar la ventana deja el escritorio vacío y «/» ya no lo vuelve a abrir.
+  useEffect(() => {
+    if (pathname === '/') navigate('/resumen', { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     supabase
       .from('empresa')
@@ -93,12 +100,12 @@ export function Layout() {
 
 function Watermark() {
   return (
-    <div className="pointer-events-none absolute bottom-3 right-3 z-0 flex select-none flex-col items-stretch border border-[#9aa8bb] bg-white px-1 pt-0.5 shadow-sm">
-      <span className="text-center text-[30px] font-black italic leading-[32px] tracking-tight text-[#2f5fb3] [text-shadow:2px_2px_0_#b9c4d6]">
-        OE
-      </span>
-      <span className="bg-[#1f4e9c] px-1.5 text-[11px] font-bold leading-[15px] text-white">Ofipapel ERP</span>
-    </div>
+    <img
+      src={`${import.meta.env.BASE_URL}marca/logo-ofipapel.png`}
+      alt="Ofipapel — Suministros de Oficina"
+      className="pointer-events-none absolute bottom-4 right-4 z-0 w-[260px] select-none opacity-90"
+      draggable={false}
+    />
   )
 }
 

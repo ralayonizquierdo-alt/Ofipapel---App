@@ -29,6 +29,8 @@ const RECURSOS: RegExp[] = [
   /^products$/,
   /^products\/\d+$/,
   /^products\/categories$/,
+  /^products\/reviews$/,
+  /^products\/\d+\/variations$/,
   /^orders$/,
   /^orders\/\d+$/,
   /^orders\/\d+\/refunds$/,

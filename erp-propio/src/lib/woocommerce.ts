@@ -141,6 +141,15 @@ export interface WcProducto {
   price?: string
   regular_price?: string
   sale_price?: string
+  date_on_sale_from?: string | null
+  date_on_sale_to?: string | null
+  upsell_ids?: number[]
+  cross_sell_ids?: number[]
+  related_ids?: number[]
+  variations?: number[]
+  attributes?: { id?: number; name: string; options?: string[]; option?: string }[]
+  average_rating?: string
+  rating_count?: number
   manage_stock?: boolean
   stock_quantity?: number | null
   stock_status?: string
@@ -181,6 +190,29 @@ export interface WcCupon {
   minimum_amount?: string
   maximum_amount?: string
   date_created?: string
+}
+
+export interface WcCategoria {
+  id: number
+  name: string
+  slug: string
+  parent: number
+  count?: number
+  description?: string
+  image?: { src: string } | null
+}
+
+export interface WcResena {
+  id: number
+  date_created: string
+  product_id: number
+  product_name?: string
+  status: string
+  reviewer: string
+  reviewer_email?: string
+  review: string
+  rating: number
+  verified?: boolean
 }
 
 export interface WcReembolso {

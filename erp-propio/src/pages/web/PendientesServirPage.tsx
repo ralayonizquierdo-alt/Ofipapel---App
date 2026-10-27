@@ -53,7 +53,7 @@ export function PendientesServirPage() {
     cargar()
   }, [])
 
-  const hoy = Date.now()
+  const [hoy] = useState(() => Date.now())
   const filas: Fila[] = useMemo(
     () =>
       (datos?.pedidos ?? []).map((p) => ({

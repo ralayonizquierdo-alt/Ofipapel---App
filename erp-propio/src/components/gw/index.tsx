@@ -46,13 +46,16 @@ export function GwWindow({
 }
 
 export function GwAppIcon({ size = 16 }: { size?: number }) {
+  // Icono de Ofipapel (cuadro «OFI» con el trébol), recortado del logo de la empresa.
   return (
-    <span
-      style={{ width: size, height: size, fontSize: size * 0.45 }}
-      className="inline-flex flex-none items-center justify-center bg-[#1f4e9c] font-bold leading-none text-white"
-    >
-      OE
-    </span>
+    <img
+      src={`${import.meta.env.BASE_URL}marca/icono-${size > 32 ? 64 : 32}.png`}
+      alt=""
+      width={size}
+      height={size}
+      className="inline-block flex-none object-contain"
+      draggable={false}
+    />
   )
 }
 
