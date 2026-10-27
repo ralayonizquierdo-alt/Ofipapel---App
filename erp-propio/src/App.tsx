@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
-import { DashboardPage } from './pages/DashboardPage'
+import { PanelControlPage } from './pages/panel/PanelControlPage'
 import { ArticulosListPage } from './pages/articulos/ArticulosListPage'
 import { ArticuloFichaPage } from './pages/articulos/ArticuloFichaPage'
 import { ClienteFichaPage } from './pages/clientes/ClienteFichaPage'
@@ -21,6 +21,8 @@ import { GestorPagosProveedorPage } from './pages/compras/pagos/GestorPagosProve
 import { FacturaProveedorFichaPage } from './pages/compras/facturas/FacturaProveedorFichaPage'
 import { GestorPedidosProveedorPage } from './pages/compras/gestor/GestorPedidosProveedorPage'
 import { TransportistaFichaPage } from './pages/compras/transportistas/TransportistaFichaPage'
+import { PeticionFichaPage } from './pages/compras/peticiones/PeticionFichaPage'
+import { GenerarPeticionHost } from './pages/compras/peticiones/GenerarPeticionDialog'
 import { PedidoFichaPage } from './pages/ventas/pedidos/PedidoFichaPage'
 import { PresupuestosPage } from './pages/ventas/pedidos/PresupuestosPage'
 import { TpvPage } from './pages/ventas/tpv/TpvPage'
@@ -37,14 +39,18 @@ import { RutaFichaPage } from './pages/ventas/maestros/RutaFichaPage'
 import { FamiliaFichaPage } from './pages/almacen/FamiliaFichaPage'
 import { MarcaFichaPage } from './pages/almacen/MarcaFichaPage'
 import { PlantillaTarifaFichaPage } from './pages/almacen/PlantillaTarifaFichaPage'
-import { VentasPage } from './pages/VentasPage'
-import { PagosPage } from './pages/PagosPage'
+import { MovimientoCajaFichaPage } from './pages/caja/MovimientoCajaFichaPage'
+import { EntradaSalidaCajaPage } from './pages/caja/EntradaSalidaCajaPage'
+import { AperturasCierresPage } from './pages/caja/AperturasCierresPage'
+import { InformesCajaPage } from './pages/caja/InformesCajaPage'
 import { TarifaOfertaFichaPage } from './pages/almacen/TarifaOfertaFichaPage'
 import { ModificacionPreciosFichaPage } from './pages/almacen/ModificacionPreciosFichaPage'
 import { TraspasoFichaPage } from './pages/almacen/traspasos/TraspasoFichaPage'
 import { RegularizacionStockPage } from './pages/almacen/traspasos/RegularizacionStockPage'
 import { InventarioFichaPage } from './pages/almacen/inventarios/InventarioFichaPage'
-import { FacturacionPage } from './pages/FacturacionPage'
+import { FacturaClienteFichaPage } from './pages/facturacion/FacturaClienteFichaPage'
+import { GenerarFacturasPage } from './pages/facturacion/GenerarFacturasPage'
+import { ListadoFacturasPage } from './pages/facturacion/ListadoFacturasPage'
 import { CambiarClavePage } from './pages/CambiarClavePage'
 import { RegistrosVerifactuPage } from './pages/RegistrosVerifactuPage'
 import { ContabilidadRoutes } from './pages/contabilidad/ContabilidadRoutes'
@@ -69,7 +75,13 @@ function ProtectedArea() {
   const { session, loading } = useAuth()
   if (loading) return <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">Cargando…</div>
   if (!session) return <Navigate to="/login" replace />
-  return <Layout />
+  return (
+    <>
+      <Layout />
+      {/* Compras → Generar Petición: CTRL+P desde cualquier pantalla */}
+      <GenerarPeticionHost />
+    </>
+  )
 }
 
 function PublicOnly({ children }: { children: ReactNode }) {
@@ -87,7 +99,7 @@ function App() {
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
           <Route element={<ProtectedArea />}>
             <Route path="/" element={null} />
-            <Route path="/resumen" element={<DashboardPage />} />
+            <Route path="/resumen" element={<PanelControlPage />} />
             <Route path="/articulos" element={<ArticuloFichaPage />} />
             <Route path="/articulos/lista" element={<ArticulosListPage />} />
             <Route path="/articulos/:codigo" element={<ArticuloFichaPage />} />
@@ -114,11 +126,20 @@ function App() {
             <Route path="/facturas-proveedor/*" element={<FacturaProveedorFichaPage />} />
             <Route path="/gestor-pedidos-proveedor" element={<GestorPedidosProveedorPage />} />
             <Route path="/transportistas/*" element={<TransportistaFichaPage />} />
+            <Route path="/peticiones/*" element={<PeticionFichaPage />} />
             <Route path="/pedidos/*" element={<PedidoFichaPage />} />
             <Route path="/presupuestos/*" element={<PresupuestosPage />} />
             <Route path="/tpv/*" element={<TpvPage />} />
             <Route path="/ventas/*" element={<VentaFichaPage />} />
-            <Route path="/caja" element={<VentasPage />} />
+            {/* Menú Caja (la pantalla provisional antigua VentasPage queda sin enrutar) */}
+            <Route path="/caja" element={<Navigate to="/caja/aperturas" replace />} />
+            <Route path="/caja/movimientos/*" element={<MovimientoCajaFichaPage />} />
+            <Route path="/caja/listado" element={<InformesCajaPage />} />
+            <Route path="/caja/entrada" element={<EntradaSalidaCajaPage key="entrada" tipo="entrada" />} />
+            <Route path="/caja/salida" element={<EntradaSalidaCajaPage key="salida" tipo="salida" />} />
+            <Route path="/caja/apertura" element={<Navigate to="/caja/aperturas/nuevo" replace />} />
+            <Route path="/caja/cierre" element={<Navigate to="/caja/aperturas?cerrar=1" replace />} />
+            <Route path="/caja/aperturas/*" element={<AperturasCierresPage />} />
             <Route path="/repartos/*" element={<RepartoFichaPage />} />
             <Route path="/gestor-pedidos" element={<GestorPedidosPage />} />
             <Route path="/gestor-presupuestos" element={<GestorPresupuestosPage />} />
@@ -132,8 +153,12 @@ function App() {
             <Route path="/familias/*" element={<FamiliaFichaPage />} />
             <Route path="/marcas/*" element={<MarcaFichaPage />} />
             <Route path="/plantillas-tarifas/*" element={<PlantillaTarifaFichaPage />} />
-            <Route path="/pagos" element={<PagosPage />} />
-            <Route path="/facturacion" element={<FacturacionPage />} />
+            {/* La pantalla provisional antigua de pagos a proveedor se sustituyó por Compras → Pagos */}
+            <Route path="/pagos" element={<Navigate to="/pagos-proveedor" replace />} />
+            {/* Menú Facturación (la antigua FacturacionPage provisional queda desenrutada) */}
+            <Route path="/facturacion/*" element={<FacturaClienteFichaPage />} />
+            <Route path="/generar-facturas" element={<GenerarFacturasPage />} />
+            <Route path="/listado-facturas" element={<ListadoFacturasPage />} />
             <Route path="/cambiar-clave" element={<CambiarClavePage />} />
             <Route path="/registros-verifactu" element={<RegistrosVerifactuPage />} />
             {/* Menú Contabilidad */}

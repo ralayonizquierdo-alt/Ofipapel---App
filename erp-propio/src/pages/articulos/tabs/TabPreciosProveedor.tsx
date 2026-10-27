@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Binoculars, Check, ChevronFirst, ChevronLast, FilePen, FilePlus2, Play, Trash2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { GwDate, GwNumber, GwSelect, formatGw } from '../../../components/gw'
+import { GwDate, GwNumber, formatGw } from '../../../components/gw'
+import { BUSCADOR_PROVEEDOR, GwCodigoBuscador, useNombres } from '../../../components/gw/GwCodigoBuscador'
 import type { ArticuloProveedor } from '../types'
 
 const fecha = (v: string | null) => {
@@ -17,10 +18,8 @@ const FILAS_MINIMAS = 12
 
 export function TabPreciosProveedor({
   articuloCodigo,
-  proveedores,
 }: {
   articuloCodigo: string
-  proveedores: { codigo: string; nombre: string }[]
 }) {
   const [rows, setRows] = useState<ArticuloProveedor[]>([])
   const [selected, setSelected] = useState<string | null>(null)
@@ -45,7 +44,9 @@ export function TabPreciosProveedor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [articuloCodigo])
 
-  const nombreProveedor = (codigo: string) => proveedores.find((p) => p.codigo === codigo)?.nombre ?? codigo
+  // Solo los nombres de los proveedores que salen en la rejilla (antes se bajaban todos).
+  const nombreDe = useNombres('proveedor', rows.map((r) => r.proveedor_codigo))
+  const nombreProveedor = (codigo: string) => nombreDe(codigo) || codigo
 
   function startNew() {
     setError(null)
@@ -141,16 +142,14 @@ export function TabPreciosProveedor({
     <tr className="bg-[#fffbe6]">
       <td>
         {isNewRow ? (
-          <GwSelect autoFocus value={e.proveedor_codigo} onChange={(ev) => set({ proveedor_codigo: ev.target.value })} title="COD_PROV">
-            <option value="">— Proveedor —</option>
-            {proveedores
-              .filter((p) => !usados.has(p.codigo))
-              .map((p) => (
-                <option key={p.codigo} value={p.codigo}>
-                  {p.codigo} {p.nombre}
-                </option>
-              ))}
-          </GwSelect>
+          <GwCodigoBuscador
+            autoFocus
+            value={e.proveedor_codigo}
+            onChange={(c) => set({ proveedor_codigo: c })}
+            title={usados.has(e.proveedor_codigo) ? 'Ese proveedor ya tiene precios para este artículo' : 'COD_PROV · F4: buscar'}
+            className={usados.has(e.proveedor_codigo) ? '[&_input]:text-[#c42b1c]' : ''}
+            {...BUSCADOR_PROVEEDOR}
+          />
         ) : (
           e.proveedor_codigo
         )}

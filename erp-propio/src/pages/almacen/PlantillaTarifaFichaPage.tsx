@@ -178,10 +178,10 @@ export function PlantillaTarifaFichaPage() {
         mode={mode}
         canNavigate={f.canNavigate}
         saving={f.saving}
-        onFirst={() => f.goTo(f.ordenada[0]?.codigo)}
-        onPrev={() => f.goTo(f.ordenada[f.idx - 1]?.codigo)}
-        onNext={() => f.goTo(f.ordenada[f.idx + 1]?.codigo)}
-        onLast={() => f.goTo(f.ordenada[f.ordenada.length - 1]?.codigo)}
+        onFirst={() => f.irA('primero')}
+        onPrev={() => f.irA('anterior')}
+        onNext={() => f.irA('siguiente')}
+        onLast={() => f.irA('ultimo')}
         onSort={() => f.setOrden((o) => (o === 'codigo' ? 'nombre' : 'codigo'))}
         onSearch={() => setBuscar(true)}
         onPrint={() => window.print()}
@@ -200,7 +200,7 @@ export function PlantillaTarifaFichaPage() {
         }}
         onExit={() => f.navigate('/')}
       />
-      <PieEstado orden={f.orden} idx={f.idx} total={f.ordenada.length} mode={mode} que="plantilla de tarifas" />
+      <PieEstado orden={f.orden} idx={f.idx} total={f.total} mode={mode} que="plantilla de tarifas" />
 
       {buscar && (
         <GwLookupDialog<{ codigo: string; descripcion: string }>

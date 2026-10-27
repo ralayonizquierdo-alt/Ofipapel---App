@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, FilePen, FilePlus2, FileX2, Binoculars, Tag, Package, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
@@ -571,6 +572,27 @@ export function ReparacionFichaPage() {
     if (draft.es_presupuesto && !draft.aceptado) return 'Presupuesto Pendiente de Entregar'
     return `${tipo} Pendiente de Entregar`
   })()
+
+  // Contexto para NEXA: la reparación guardada que se está consultando.
+  useNexaContexto(
+    !editing && !vacio && rep.numero != null
+      ? {
+          documento: `${rep.es_presupuesto ? 'Presupuesto de reparación' : 'Reparación'} ${rep.tienda_terminal_codigo}-${rep.numero}`,
+          fecha: rep.fecha,
+          cliente: rep.cliente_codigo,
+          nombreCliente: rep.nombre_cliente,
+          tecnico: rep.tecnico_codigo,
+          numeroSerie: rep.numero_serie,
+          averia: rep.averia,
+          fechaEntrega: rep.fecha_entrega,
+          estado,
+          venta: rep.venta_numero ? `${rep.venta_tienda_codigo}-${rep.venta_numero}` : null,
+          numeroLineas: lineas.length,
+          lineas: lineas.slice(0, 40).map((l) => ({ articulo: l.articulo_codigo, descripcion: l.descripcion, cantidad: l.cantidad })),
+          total: totales.total,
+        }
+      : null,
+  )
 
   if (loading) return <div className="gw-label p-2">Cargando…</div>
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, FileText, HandCoins, RefreshCw, Settings2, ShoppingCart, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, formatGw } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
@@ -265,6 +266,26 @@ export function FacturaProveedorFichaPage() {
 
   const pagado = useMemo(() => r2(pagos.reduce((s, p) => s + n(p.importe_pagado), 0)), [pagos])
   const tot = useMemo(() => (cab ? calcularTotales(cab, albaranes, pagado) : null), [cab, albaranes, pagado])
+
+  // Contexto para NEXA: la factura de proveedor guardada que se está consultando.
+  useNexaContexto(
+    cab && mode === 'consulta' && cab.id
+      ? {
+          documento: `Factura de proveedor ${cab.tienda_terminal_codigo}-${cab.id}`,
+          proveedor: cab.proveedor_codigo,
+          nombreProveedor: nombreProv,
+          numeroFacturaProveedor: cab.numero_factura_externo,
+          fechaFactura: cab.fecha_factura,
+          fechaVencimiento: cab.fecha_vencimiento,
+          formaPago: nombreFp || cab.forma_pago_codigo,
+          pagada: cab.pagado,
+          fechaPago: cab.fecha_pago,
+          albaranes: albaranes.slice(0, 40).map((a) => `${a.tienda_terminal_codigo}-${a.numero}`),
+          total: tot?.total ?? cab.total,
+          pendiente: tot?.pendiente ?? cab.total_pendiente,
+        }
+      : null,
+  )
 
   function patch(p: Partial<FacturaProveedor>) {
     setCab((c) => (c ? { ...c, ...p } : c))

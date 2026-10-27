@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../lib/AuthContext'
+import { useNexaContexto } from '../../../nexa/contexto'
 import { formatGw } from '../../../components/gw'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import {
@@ -182,6 +183,22 @@ export function VentaDocumento({
   const editable = modo !== 'consulta'
   const pie = useMemo(() => calcularPie(lineas, cab), [lineas, cab])
   const lineaSel = lineas[sel] ?? null
+
+  // Contexto para NEXA: la venta abierta (o la que se está haciendo en el TPV).
+  useNexaContexto({
+    documento: cab.numero != null ? `Venta ${cab.tienda}-${cab.numero}` : `Venta nueva en curso (sin guardar) en la tienda ${tienda}`,
+    modo,
+    fecha: cab.fecha,
+    cliente: cab.cliente_codigo,
+    nombreCliente: cab.cliente_nombre,
+    anulada: cab.anulada,
+    factura: cab.factura_numero ? `${cab.factura_tienda}-${cab.factura_numero}` : null,
+    aplazada: cab.aplazada,
+    pendienteDeCobro: cab.total_pendiente,
+    numeroLineas: lineas.length,
+    lineas: lineas.slice(0, 40).map((l) => ({ articulo: l.articulo_codigo, descripcion: l.descripcion, cantidad: l.cantidad })),
+    total: pie.total,
+  })
 
   // Tiendas y empleado de la sesión
   useEffect(() => {

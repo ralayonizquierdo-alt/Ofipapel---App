@@ -7,6 +7,8 @@ import { BarButton, chunks, fechaEs, LocalizarDialog, OptionButton } from '../..
 import { ordenar, Rejilla, type Col, type Orden } from '../../ventas/gestores/rejilla'
 import { BarraGestor, buscarFila } from './barra'
 import { ESTADOS_PETICION, fechaHoraEs, type OpcionesGestorCompras } from './opciones'
+import { TramitarPeticionesDialog } from '../peticiones/TramitarPeticionesDialog'
+import { ESTADOS_TRAMITABLES } from '../peticiones/peticiones'
 
 interface PeticionRow {
   key: string
@@ -64,6 +66,7 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
   const [ordT, setOrdT] = useState<Orden | null>(null)
   const [cargando, setCargando] = useState(false)
   const [localizar, setLocalizar] = useState(false)
+  const [tramitar, setTramitar] = useState(false)
 
   const cargar = useCallback(
     async (est: Set<string>) => {
@@ -362,11 +365,31 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
         >
           <Package size={16} className="text-[#2a9d2a]" /> Artículos
         </BarButton>
-        <BarButton title="La ficha de Peticiones aún no está disponible en el ERP propio" className="w-[160px] text-[17px]! text-[#000]" disabled>
-          <Link2 size={16} /> Peticiones
+        <BarButton
+          title="Abrir la ficha de la petición (Compras → Peticiones de Artículos)"
+          className="w-[160px] text-[17px]! text-[#000]"
+          disabled={!actual}
+          onClick={() => actual && navigate(`/peticiones/${encodeURIComponent(actual.tienda)}/${actual.numero}`)}
+        >
+          <Link2 size={16} className="text-[#2a9d2a]" /> Peticiones
+        </BarButton>
+        <BarButton
+          title="Tramitar las peticiones pendientes o atendidas de la lista a pedidos de proveedor (uno por proveedor)"
+          className="w-[150px] text-[17px]! text-[#000]"
+          disabled={!rows.some((r) => ESTADOS_TRAMITABLES.includes(r.estado))}
+          onClick={() => setTramitar(true)}
+        >
+          <ShoppingCart size={16} className="text-[#2a9d2a]" /> Tramitar
         </BarButton>
       </BarraGestor>
 
+      {tramitar && (
+        <TramitarPeticionesDialog
+          claves={rows.filter((r) => ESTADOS_TRAMITABLES.includes(r.estado)).map((r) => ({ t: r.tienda, n: r.numero }))}
+          onClose={() => setTramitar(false)}
+          onHecho={() => cargar(estados)}
+        />
+      )}
       {localizar && (
         <LocalizarDialog
           onBuscar={(t) => {

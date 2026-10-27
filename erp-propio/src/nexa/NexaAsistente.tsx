@@ -30,7 +30,7 @@ const SUGERENCIAS = [
   '¿Cómo van los pedidos de hoy?',
   '¿Qué artículos están bajo mínimo?',
   'Prepara un resumen del día',
-  '¿Qué clientes nos deben más?',
+  '¿Qué pedidos están pendientes de servir?',
   '¿Qué pedidos a proveedor están pendientes de recibir?',
 ]
 

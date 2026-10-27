@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Binoculars, Check, FilePen, FilePlus2, FileX2, PackageSearch, Tag, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../lib/AuthContext'
+import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwInput, GwLookupButton, GwNumber, GwSelect, GwWindow, formatGw } from '../../../components/gw'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import { PedidoBar } from './PedidoBar'
@@ -431,6 +432,31 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
     if (cab.preparado) return `${tipoDoc} Preparado.\nPendiente de Entregar`
     return `${tipoDoc} Pendiente de Entregar`
   })()
+
+  // Contexto para NEXA («¿qué le falta a este pedido?»): solo el documento guardado, en consulta.
+  useNexaContexto(
+    cab && cab.numero != null && mode === 'consulta'
+      ? {
+          documento: `${tipoDoc} de cliente ${cab.tienda_terminal_codigo}-${cab.numero}`,
+          fecha: cab.fecha,
+          cliente: cab.cliente_codigo,
+          nombreCliente: cab.nombre_cliente,
+          vendedor: cab.vendedor_codigo,
+          ruta: cab.ruta_codigo,
+          formaPago: cab.forma_pago_codigo,
+          almacen: cab.almacen_codigo,
+          fechaFin: cab.fecha_fin,
+          estado: estado.replace(/\n/g, ' '),
+          preparado: cab.preparado,
+          entregado: cab.entregado,
+          anulado: cab.anulado,
+          venta: cab.venta_numero ? `${cab.venta_tienda_codigo}-${cab.venta_numero}` : null,
+          numeroLineas: lineas.length,
+          lineas: lineas.slice(0, 40).map((l) => ({ articulo: l.articulo_codigo, descripcion: l.descripcion, cantidad: l.cantidad })),
+          total: tot.total,
+        }
+      : null,
+  )
 
   function patch(p: Partial<Cabecera>) {
     setCab((c) => (c ? { ...c, ...p } : c))

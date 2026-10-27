@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { selectTodo, supabase } from '../../lib/supabase'
+import { supabase } from '../../lib/supabase'
+import { textoRegistro, useNavRegistro, type NavDir } from '../../components/gw/useNavRegistro'
 import { GwField, GwInput, GwLookupButton, GwPlusButton, GwTabs, GwWindow, type GwTabDef } from '../../components/gw'
 import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { gwBuscarPorInicio, gwConCeros, useListaOrdenada, type GwListaColumna, type GwListaOrdenadaDef } from '../../components/gw/GwListaOrdenada'
@@ -25,11 +26,6 @@ import { TabImagen, TabWeb } from './tabs/TabImagenWeb'
 interface Maestro {
   codigo: string
   nombre: string
-}
-
-interface CodigoDesc {
-  codigo_interno: string
-  descripcion: string
 }
 
 const TAB_ROWS: GwTabDef[][] = [
@@ -157,9 +153,7 @@ export function ArticuloFichaPage() {
   const [vacio, setVacio] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [proveedores, setProveedores] = useState<Maestro[]>([])
   const [plantillas, setPlantillas] = useState<Maestro[]>([])
-  const [lista, setLista] = useState<CodigoDesc[]>([])
   const [orden, setOrden] = useState<'codigo' | 'descripcion'>('codigo')
   const [nombreProveedor, setNombreProveedor] = useState('')
   const [descFamilia, setDescFamilia] = useState('')
@@ -167,20 +161,29 @@ export function ArticuloFichaPage() {
   const [tab, setTab] = useState('caracteristicas')
   const [articulosDe, setArticulosDe] = useState<{ columna: string; valor: string; titulo: string } | null>(null)
   const listaOrd = useListaOrdenada()
+  // Anterior/siguiente/primero/último y «Registro X de N» pidiendo al servidor solo el vecino.
+  const nav = useNavRegistro<{ codigo_interno: string }>({
+    tabla: 'articulo',
+    orden: orden === 'codigo' ? ['codigo_interno'] : ['descripcion', 'codigo_interno'],
+    actual:
+      vacio || mode === 'alta' || !articulo.codigo_interno
+        ? null
+        : orden === 'codigo'
+          ? [articulo.codigo_interno]
+          : [articulo.descripcion, articulo.codigo_interno],
+    select: 'codigo_interno',
+  })
 
   const editing = mode !== 'consulta'
   const consulta = mode === 'consulta'
 
   useEffect(() => {
-    Promise.all([
-      supabase.from('proveedor').select('codigo, nombre').order('codigo'),
-      supabase.from('plantilla_tarifa').select('codigo, descripcion').order('codigo'),
-      selectTodo<CodigoDesc>('articulo', 'codigo_interno, descripcion', 'codigo_interno'),
-    ]).then(([p, t, codes]) => {
-      setProveedores(p.data ?? [])
-      setPlantillas((t.data ?? []).map((r) => ({ codigo: r.codigo, nombre: r.descripcion })))
-      setLista(codes.data)
-    })
+    // Plantillas de tarifa: tabla pequeña, se carga entera. Los proveedores ya no (ver TabPreciosProveedor).
+    supabase
+      .from('plantilla_tarifa')
+      .select('codigo, descripcion')
+      .order('codigo')
+      .then((t) => setPlantillas((t.data ?? []).map((r) => ({ codigo: r.codigo, nombre: r.descripcion }))))
   }, [])
 
   useEffect(() => {
@@ -253,15 +256,13 @@ export function ArticuloFichaPage() {
   useEffect(() => {
     const c = draft.proveedor_habitual_codigo
     if (!c) return setNombreProveedor('')
-    const local = proveedores.find((p) => p.codigo === c)
-    if (local) return setNombreProveedor(local.nombre)
     supabase
       .from('proveedor')
       .select('nombre')
       .eq('codigo', c)
       .maybeSingle()
       .then(({ data }) => setNombreProveedor(data?.nombre ?? ''))
-  }, [draft.proveedor_habitual_codigo, proveedores])
+  }, [draft.proveedor_habitual_codigo])
 
   useEffect(() => {
     const c = draft.familia_codigo
@@ -356,7 +357,7 @@ export function ArticuloFichaPage() {
     }
     setSaving(false)
     if (mode === 'alta') {
-      setLista((l) => [...l, { codigo_interno: payload.codigo_interno, descripcion: payload.descripcion }])
+      nav.refrescar()
       navigate(`/articulos/${encodeURIComponent(payload.codigo_interno)}`, { replace: true })
       return
     }
@@ -370,7 +371,7 @@ export function ArticuloFichaPage() {
 
   function handleCancel() {
     if (mode === 'alta') {
-      navigate(lista[0] ? `/articulos/${encodeURIComponent(lista[0].codigo_interno)}` : '/articulos')
+      navigate('/articulos')
       return
     }
     setDraft(articulo)
@@ -392,16 +393,9 @@ export function ArticuloFichaPage() {
     setDraft((a) => ({ ...a, activo: false, fecha_baja: hoy }))
   }
 
-  const ordenada = useMemo(
-    () =>
-      orden === 'codigo'
-        ? lista
-        : [...lista].sort((a, b) => a.descripcion.localeCompare(b.descripcion, 'es') || a.codigo_interno.localeCompare(b.codigo_interno)),
-    [lista, orden],
-  )
-  const idx = ordenada.findIndex((r) => r.codigo_interno === articulo.codigo_interno)
-  const canNavigate = mode === 'consulta' && ordenada.length > 0
+  const canNavigate = mode === 'consulta' && !vacio
   const goTo = (c?: string) => c && navigate(`/articulos/${encodeURIComponent(c)}`)
+  const irA = async (d: NavDir) => goTo((await nav.ir(d))?.codigo_interno)
 
   // --- Búsquedas desde los campos (consulta) y listas ordenadas (Ctrl+Intro) ---
   const noExiste = (t: string) => setError(`No existe el artículo ${t}`)
@@ -647,7 +641,7 @@ export function ArticuloFichaPage() {
               {tab === 'tallas' && enAvisoSatelite(<TabTallasColores articuloCodigo={articulo.codigo_interno} editing={editing} />)}
               {tab === 'equivalentes' && enAvisoSatelite(<TabEquivalentes articuloCodigo={articulo.codigo_interno} />)}
               {tab === 'proveedores' &&
-                enAvisoSatelite(<TabPreciosProveedor articuloCodigo={articulo.codigo_interno} proveedores={proveedores} />)}
+                enAvisoSatelite(<TabPreciosProveedor articuloCodigo={articulo.codigo_interno} />)}
               {tab === 'composicion' && enAvisoSatelite(<TabComposicion articuloCodigo={articulo.codigo_interno} articulo={draft} editing={mode !== 'consulta'} onChange={patchArticulo} />)}
               {tab === 'imagen' && <TabImagen articulo={draft} editing={editing} onChange={patchArticulo} />}
               {tab === 'web' && <TabWeb articulo={draft} editing={editing} onChange={patchArticulo} />}
@@ -660,10 +654,10 @@ export function ArticuloFichaPage() {
         mode={mode}
         canNavigate={canNavigate}
         saving={saving}
-        onFirst={() => goTo(ordenada[0]?.codigo_interno)}
-        onPrev={() => goTo(ordenada[idx - 1]?.codigo_interno)}
-        onNext={() => goTo(ordenada[idx + 1]?.codigo_interno)}
-        onLast={() => goTo(ordenada[ordenada.length - 1]?.codigo_interno)}
+        onFirst={() => irA('primero')}
+        onPrev={() => irA('anterior')}
+        onNext={() => irA('siguiente')}
+        onLast={() => irA('ultimo')}
         onSort={() => setOrden((o) => (o === 'codigo' ? 'descripcion' : 'codigo'))}
         onSearch={() => setLookup('buscar')}
         onPrint={() => window.print()}
@@ -676,7 +670,7 @@ export function ArticuloFichaPage() {
       />
       <div className="text-[11px] text-[#444]">
         Orden: {orden === 'codigo' ? 'por código' : 'por descripción'}
-        {idx >= 0 ? ` · Registro ${idx + 1} de ${ordenada.length}` : ''}
+        {textoRegistro(nav)}
         {mode === 'alta' ? ' · Alta de artículo' : mode === 'edicion' ? ' · Modificando' : ''}
       </div>
 
@@ -764,7 +758,6 @@ export function ArticuloFichaPage() {
       {lookup === 'compra' && (
         <CodigosCompraDialog
           articuloCodigo={articulo.codigo_interno}
-          proveedores={proveedores}
           editable={editing}
           onClose={() => setLookup(null)}
         />

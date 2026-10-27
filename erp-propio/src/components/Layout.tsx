@@ -39,6 +39,8 @@ export function Layout() {
     if (i.to) navigate(i.to)
     else if (i.action === 'signout') signOut()
     else if (i.action === 'close-window') navigate('/')
+    // Compras → Generar Petición: lo abre GenerarPeticionHost (App.tsx), que también recoge CTRL+P.
+    else if (i.action === 'generar-peticion') window.dispatchEvent(new Event('gw:generar-peticion'))
     else if (i.action) document.execCommand(i.action)
   }
 
@@ -111,7 +113,9 @@ export function Layout() {
         />
         <div className="relative min-w-0 flex-1 bg-[var(--gw-mdi)]">
           <Watermark />
-          {pathname !== '/' && (
+          {/* Entrada / Salida en caja: diálogo suelto sobre el escritorio, sin ventana detrás (como GeminisWin). */}
+          {(pathname === '/caja/entrada' || pathname === '/caja/salida') && <Outlet />}
+          {pathname !== '/' && pathname !== '/caja/entrada' && pathname !== '/caja/salida' && (
             <GwWindow
               title={title}
               onClose={() => navigate('/')}

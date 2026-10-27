@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Binoculars, Check, FilePen, FilePlus2, FileX2, Sheet, Wallet, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../lib/AuthContext'
+import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import { buscarArticulo } from '../../ventas/pedidos/precios'
@@ -354,6 +355,28 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
         cab ?? { descuento_pie_pct: 0, igic_pie_pct: 0, gastos_proveedor: 0, gastos_proveedor_igic_pct: 0, transporte_coste: 0, transporte_igic_pct: 0, otros_gastos: 0 },
       ),
     [lineasCalculo, cab],
+  )
+
+  // Contexto para NEXA («¿qué le falta a este pedido?»): el pedido guardado, en consulta.
+  useNexaContexto(
+    cab && cab.numero != null && mode === 'consulta'
+      ? {
+          documento: `${cab.es_abono ? 'Abono' : 'Pedido'} a proveedor ${cab.tienda_terminal_codigo}-${cab.numero}`,
+          proveedor: cab.proveedor_codigo,
+          nombreProveedor: proveedor?.nombre ?? null,
+          almacen: cab.almacen_codigo,
+          estado: ESTADOS_COMPRA.find((e) => e.v === cab.estado)?.t ?? cab.estado,
+          fechaSolicitud: cab.fecha_solicitud,
+          fechaPrevista: cab.fecha_prevista,
+          fechaRecepcion: cab.fecha_recepcion,
+          recibido: cab.recibido,
+          stockActualizado: cab.stock_movido,
+          facturaProveedor: cab.numero_factura_proveedor_externo,
+          numeroLineas: lineas.length,
+          lineas: lineas.slice(0, 40).map((l) => ({ articulo: l.articulo_codigo, codigoCompra: l.codigo_compra, descripcion: l.descripcion, cantidad: l.cantidad })),
+          total: tot.total,
+        }
+      : null,
   )
 
   function patch(p: Partial<CabeceraCompra>) {

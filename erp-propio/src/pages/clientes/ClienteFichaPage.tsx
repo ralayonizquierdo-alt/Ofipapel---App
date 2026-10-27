@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { siguienteCodigoServidor, textoRegistro, useNavRegistro, type NavDir } from '../../components/gw/useNavRegistro'
 import { GwDate, GwField, GwTabs, type GwTabDef } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
@@ -18,11 +19,6 @@ import { TabAgenda } from './tabs/TabAgenda'
 import { TabObsImg } from './tabs/TabObsImg'
 import { TabConsultas } from './tabs/TabConsultas'
 import { TabWeb } from './tabs/TabWeb'
-
-interface CodigoNombre {
-  codigo: string
-  nombre: string
-}
 
 const TAB_ROWS: GwTabDef[][] = [
   [
@@ -44,12 +40,6 @@ const TABS_SATELITE = new Set(['tarifas', 'bancos', 'sucursales', 'agenda', 'con
 
 const hoy = () => new Date().toISOString().slice(0, 10)
 
-/** Siguiente código numérico con 5 dígitos, como GeminisWin (00002, 00625…). */
-function siguienteCodigo(codigos: string[]) {
-  const max = codigos.reduce((m, c) => (/^\d+$/.test(c) ? Math.max(m, Number(c)) : m), 0)
-  return String(max + 1).padStart(5, '0')
-}
-
 function FechaInput({ value, onChange, disabled, title }: { value: string | null; onChange: (v: string | null) => void; disabled?: boolean; title?: string }) {
   return (
     <GwDate title={title} value={value} disabled={disabled} onChange={onChange} />
@@ -68,8 +58,6 @@ export function ClienteFichaPage() {
   const [vacio, setVacio] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [lista, setLista] = useState<CodigoNombre[]>([])
-  const [listaCargada, setListaCargada] = useState(false)
   const [orden, setOrden] = useState<'codigo' | 'nombre'>('codigo')
   const [buscar, setBuscar] = useState(false)
   const [tab, setTab] = useState('general')
@@ -78,16 +66,13 @@ export function ClienteFichaPage() {
   const consulta = mode === 'consulta'
   const listaOrd = useListaOrdenada()
 
-  useEffect(() => {
-    supabase
-      .from('cliente')
-      .select('codigo, nombre')
-      .order('codigo')
-      .then(({ data }) => {
-        setLista((data ?? []) as CodigoNombre[])
-        setListaCargada(true)
-      })
-  }, [])
+  // Anterior/siguiente/primero/último y «Registro X de N» pidiendo al servidor solo el vecino.
+  const nav = useNavRegistro<{ codigo: string }>({
+    tabla: 'cliente',
+    orden: orden === 'codigo' ? ['codigo'] : ['nombre', 'codigo'],
+    actual: vacio || mode === 'alta' || !cliente.codigo ? null : orden === 'codigo' ? [cliente.codigo] : [cliente.nombre, cliente.codigo],
+    select: 'codigo',
+  })
 
   useEffect(() => {
     setError(null)
@@ -139,10 +124,14 @@ export function ClienteFichaPage() {
 
   // En alta, proponer el siguiente código libre en cuanto se conoce la lista.
   useEffect(() => {
-    if (mode === 'alta' && listaCargada && !draft.codigo) {
-      setDraft((d) => ({ ...d, codigo: siguienteCodigo(lista.map((l) => l.codigo)) }))
+    if (mode === 'alta' && !draft.codigo) {
+      let vivo = true
+      siguienteCodigoServidor('cliente', 5).then((c) => vivo && setDraft((d) => (d.codigo ? d : { ...d, codigo: c })))
+      return () => {
+        vivo = false
+      }
     }
-  }, [mode, listaCargada, lista, draft.codigo])
+  }, [mode, draft.codigo])
 
   function patch(p: Partial<Cliente>) {
     setDraft((d) => ({ ...d, ...p }))
@@ -169,7 +158,7 @@ export function ClienteFichaPage() {
       return
     }
     if (mode === 'alta') {
-      setLista((l) => [...l, { codigo: cod, nombre: payload.nombre }].sort((a, b) => a.codigo.localeCompare(b.codigo)))
+      nav.refrescar()
       navigate(`/clientes/${encodeURIComponent(cod)}`, { replace: true })
       return
     }
@@ -177,13 +166,12 @@ export function ClienteFichaPage() {
     const guardado = (data as Cliente | null) ?? { ...draft }
     setCliente(guardado)
     setDraft(guardado)
-    setLista((l) => l.map((x) => (x.codigo === cod ? { ...x, nombre: guardado.nombre } : x)))
     setMode('consulta')
   }
 
   function handleCancel() {
     if (mode === 'alta') {
-      navigate(lista[0] ? `/clientes/${encodeURIComponent(lista[0].codigo)}` : '/clientes')
+      navigate('/clientes')
       return
     }
     setDraft(cliente)
@@ -201,16 +189,9 @@ export function ClienteFichaPage() {
     setDraft((c) => ({ ...c, activo: false, fecha_baja: f }))
   }
 
-  const ordenada = useMemo(
-    () =>
-      orden === 'codigo'
-        ? lista
-        : [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es') || a.codigo.localeCompare(b.codigo)),
-    [lista, orden],
-  )
-  const idx = ordenada.findIndex((r) => r.codigo === cliente.codigo)
-  const canNavigate = mode === 'consulta' && ordenada.length > 0
+  const canNavigate = mode === 'consulta' && !vacio
   const goTo = (c?: string) => c && navigate(`/clientes/${encodeURIComponent(c)}`)
+  const irA = async (d: NavDir) => goTo((await nav.ir(d))?.codigo)
 
   // Búsqueda desde los campos en consulta (Intro) y lista ordenada por el campo (Ctrl+Intro).
   async function buscarCodigo(t: string) {
@@ -320,10 +301,10 @@ export function ClienteFichaPage() {
         mode={mode}
         canNavigate={canNavigate}
         saving={saving}
-        onFirst={() => goTo(ordenada[0]?.codigo)}
-        onPrev={() => goTo(ordenada[idx - 1]?.codigo)}
-        onNext={() => goTo(ordenada[idx + 1]?.codigo)}
-        onLast={() => goTo(ordenada[ordenada.length - 1]?.codigo)}
+        onFirst={() => irA('primero')}
+        onPrev={() => irA('anterior')}
+        onNext={() => irA('siguiente')}
+        onLast={() => irA('ultimo')}
         onSort={() => setOrden((o) => (o === 'codigo' ? 'nombre' : 'codigo'))}
         onSearch={() => setBuscar(true)}
         onPrint={() => window.print()}
@@ -336,7 +317,7 @@ export function ClienteFichaPage() {
       />
       <div className="text-[11px] text-[#444]">
         Orden: {orden === 'codigo' ? 'por código' : 'por nombre'}
-        {idx >= 0 ? ` · Registro ${idx + 1} de ${ordenada.length}` : ''}
+        {textoRegistro(nav)}
         {mode === 'alta' ? ' · Alta de cliente' : mode === 'edicion' ? ' · Modificando' : ''}
       </div>
 

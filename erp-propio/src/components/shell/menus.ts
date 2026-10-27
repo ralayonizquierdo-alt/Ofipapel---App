@@ -1,7 +1,7 @@
 // Árbol de menús de la ventana principal, copiado del mapa funcional de GeminisWin
 // (págs. 1-3). Las opciones con `to` o `action` funcionan; el resto sale en gris.
 
-export type MenuAction = 'signout' | 'close-window' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll'
+export type MenuAction = 'signout' | 'close-window' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion'
 
 export interface MenuItem {
   label: string
@@ -115,27 +115,33 @@ export const MENUS: TopMenu[] = [
   {
     label: 'Caja',
     items: [
-      item('Mov. de Caja', { shortcut: 'Alt+F5' }),
-      item('Listado de Caja', { shortcut: 'Ctrl+F5' }),
-      item('Entrada en caja'),
-      item('Salida de caja'),
+      // Como en GeminisWin, Mov. de Caja abre la ventana en alta.
+      item('Mov. de Caja', { to: '/caja/movimientos/nuevo', shortcut: 'Alt+F5', description: 'Movimientos de caja: entradas, salidas, ventas, cobros y pagos' }),
+      item('Listado de Caja', { to: '/caja/listado', shortcut: 'Ctrl+F5', description: 'Informes de Caja' }),
+      'sep',
+      item('Entrada en caja', { to: '/caja/entrada', description: 'Entrada de dinero en la caja abierta' }),
+      item('Salida de caja', { to: '/caja/salida', description: 'Salida de dinero de la caja abierta' }),
+      'sep',
       // En GeminisWin Apertura de Caja y Gestor de Pedidos muestran los dos Alt+F6; el atajo real va al Gestor.
-      item('Apertura de Caja', { to: '/caja', shortcut: 'Alt+F6 ' }),
-      item('Cierre de Caja', { to: '/caja', shortcut: 'Ctrl+F6' }),
-      item('Aperturas y Cierres'),
+      item('Apertura de Caja', { to: '/caja/apertura', shortcut: 'Alt+F6 ', description: 'Abrir la caja de la tienda/terminal con el fondo inicial' }),
+      item('Cierre de Caja', { to: '/caja/cierre', shortcut: 'Ctrl+F6', description: 'Cerrar la caja abierta con el arqueo' }),
+      item('Aperturas y Cierres', { to: '/caja/aperturas', description: 'Aperturas y Cierres de Caja' }),
     ],
   },
   {
     label: 'Facturación',
     items: [
-      item('Generar Facturas'),
-      item('Facturas', { to: '/facturacion' }),
+      // Calcado de GeminisWin (capturas 04-10 y 04-11). Registros VeriFactu está en Contabilidad.
+      item('Generar Facturas', { to: '/generar-facturas', description: 'Generar facturación mensual, etc' }),
+      item('Facturas', { to: '/facturacion', description: 'Facturas Clientes' }),
       item('Gestor de Pagos de Clientes'),
+      item('Listados', {
+        children: [
+          item('List. Facturas', { to: '/listado-facturas', description: 'Listado de facturas de clientes con desglose de IGIC' }),
+          ...off(['L. Pend. de Cobro', 'List. Remesas', 'Extracto clientes']),
+        ],
+      }),
       item('Liquidación'),
-      'sep',
-      item('Registros VeriFactu', { to: '/registros-verifactu', description: 'Registros de facturación VeriFactu encadenados' }),
-      'sep',
-      item('Listados', { children: off(['List. Facturas', 'L. Pend. de Cobro', 'List. Remesas', 'Extracto clientes']) }),
     ],
   },
   {
@@ -186,8 +192,10 @@ export const MENUS: TopMenu[] = [
       item('Transportistas', { to: '/transportistas', description: 'Ficha de Transportistas' }),
       'sep',
       item('Gestor Pedidos a Proveedores', { to: '/gestor-pedidos-proveedor', description: 'Gestor de Pedidos a Proveedores' }),
-      item('Peticiones de Artículos'),
-      item('Generar Petición', { shortcut: 'CTRL+P' }),
+      // SIN CAPTURA de GeminisWin: ficha y alta rápida hechas sobre PETICION/PETIDETA.
+      item('Peticiones de Artículos', { to: '/peticiones', description: 'Peticiones de Artículos: encargos internos que se tramitan como pedido a proveedor' }),
+      // El atajo CTRL+P lo recoge GenerarPeticionHost (abre el alta rápida encima de la ventana actual).
+      item('Generar Petición', { action: 'generar-peticion', shortcut: 'CTRL+P', description: 'Generar una Petición de Artículo' }),
     ],
   },
   {
@@ -317,6 +325,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/facturas-proveedor', title: 'Facturas de Proveedores' },
   { prefix: '/gestor-pedidos-proveedor', title: 'Gestor de Pedidos a Proveedores' },
   { prefix: '/transportistas', title: 'Transportistas' },
+  { prefix: '/peticiones', title: 'Peticiones de Artículos' },
   { prefix: '/regularizacion-stock', title: 'Regularización de Stock' },
   { prefix: '/tarifas-oferta', title: 'Tarifas de Oferta' },
   { prefix: '/modificacion-precios', title: 'Modificación de Precios' },
@@ -324,7 +333,12 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/repartos', title: 'Repartos' },
   { prefix: '/tpv', title: 'Ventas' },
   { prefix: '/ventas', title: 'Ventas' },
-  { prefix: '/caja', title: 'Apertura y Cierre de Caja' },
+  { prefix: '/caja/movimientos', title: 'Caja' },
+  { prefix: '/caja/listado', title: 'Informes de Caja' },
+  { prefix: '/caja/entrada', title: 'Entrada en caja' },
+  { prefix: '/caja/salida', title: 'Salida de caja' },
+  { prefix: '/caja/aperturas', title: 'Aperturas y Cierres de Caja' },
+  { prefix: '/caja', title: 'Aperturas y Cierres de Caja' },
   { prefix: '/presupuestos', title: 'Presupuestos' },
   { prefix: '/gestor-pedidos', title: 'Control y Gestion de Pedidos de Clientes' },
   { prefix: '/gestor-presupuestos', title: 'Control y Gestion de Presupuestos de Clientes y/o Pactos de Tarifas' },
@@ -336,7 +350,9 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/zonas-territoriales', title: 'Zonas Territoriales' },
   { prefix: '/rutas-reparto', title: 'Rutas de Reparto' },
   { prefix: '/pagos', title: 'Pagos' },
-  { prefix: '/facturacion', title: 'Facturas' },
+  { prefix: '/facturacion', title: 'Facturas Clientes' },
+  { prefix: '/generar-facturas', title: 'Generar Facturas' },
+  { prefix: '/listado-facturas', title: 'Listado de Facturas' },
   { prefix: '/registros-verifactu', title: 'Registros de Facturación VeriFactu' },
   { prefix: '/contabilidad/generar', title: 'Generar Asientos Automáticos' },
   { prefix: '/contabilidad/pendientes', title: 'Asientos Pendientes / con Errores' },

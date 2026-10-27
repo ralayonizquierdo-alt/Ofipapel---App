@@ -71,7 +71,7 @@ export function RegistrosVerifactuPage() {
 
   function abrirOrigen(r: RegistroFacturacion) {
     if (r.origen_tipo === 'venta') navigate(`/ventas/${r.origen_tienda_codigo}/${r.origen_numero}`)
-    else navigate('/facturacion')
+    else navigate(`/facturacion/${r.origen_tienda_codigo}/${r.origen_numero}`)
   }
 
   return (

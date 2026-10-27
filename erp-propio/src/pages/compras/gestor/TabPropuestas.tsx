@@ -8,8 +8,9 @@ import { ordenar, Rejilla, type Col, type Orden } from '../../ventas/gestores/re
 import { BarraGestor, buscarFila, Contador } from './barra'
 import { colorProveedor, type OpcionesGestorCompras } from './opciones'
 import { recalcularTotalesPedido } from '../pedidos/totales'
+import { vincularPeticionesAPedido } from '../peticiones/peticiones'
 
-const TIENDA = '01' // única tienda sembrada por ahora, igual que ComprasPage
+const TIENDA = '01' // única tienda sembrada por ahora
 
 interface Propuesta {
   key: string
@@ -209,6 +210,7 @@ export function TabPropuestas({
     const igicDe = new Map((igics ?? []).map((a) => [a.codigo_interno as string, Number(a.igic_pct ?? 0)]))
     const creados: string[] = []
     const hechos = new Set<string>()
+    const peticionesDe = new Map(rows.map((r) => [r.articulo, r.peticiones]))
     for (const [proveedor, lineas] of porProv) {
       const { data: numero, error: eNum } = await supabase.rpc('fn_siguiente_numero', { p_tienda: TIENDA, p_tipo_documento: 'pedido_proveedor', p_serie: '' })
       if (eNum) {
@@ -249,6 +251,18 @@ export function TabPropuestas({
       } catch (e) {
         onError(`Pedido ${TIENDA}/${numero}: ${(e as Error).message}`)
         break
+      }
+      // Lo que faltaba de las peticiones abiertas va incluido en el pedido: quedan tramitadas en su línea.
+      if (filtro.conPeticiones) {
+        try {
+          await vincularPeticionesAPedido(
+            { tienda: TIENDA, numero: numero as number, proveedor, almacen },
+            lineas.map((l, i) => ({ articulo: l.articulo, linea: i + 1, cantidad: l.aPedir })).filter((l) => (peticionesDe.get(l.articulo) ?? 0) > 0),
+            filtro.almacen || null,
+          )
+        } catch (e) {
+          onError(`Pedido ${TIENDA}/${numero}: peticiones sin vincular (${(e as Error).message})`)
+        }
       }
       creados.push(`${TIENDA}/${numero}`)
       for (const l of lineas) hechos.add(l.key)

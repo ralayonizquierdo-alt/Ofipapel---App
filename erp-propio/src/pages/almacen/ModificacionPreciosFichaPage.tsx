@@ -695,10 +695,10 @@ export function ModificacionPreciosFichaPage() {
         mode={mode}
         canNavigate={f.canNavigate}
         saving={f.saving || aplicando}
-        onFirst={() => f.goTo(f.ordenada[0]?.codigo)}
-        onPrev={() => f.goTo(f.ordenada[f.idx - 1]?.codigo)}
-        onNext={() => f.goTo(f.ordenada[f.idx + 1]?.codigo)}
-        onLast={() => f.goTo(f.ordenada[f.ordenada.length - 1]?.codigo)}
+        onFirst={() => f.irA('primero')}
+        onPrev={() => f.irA('anterior')}
+        onNext={() => f.irA('siguiente')}
+        onLast={() => f.irA('ultimo')}
         onSort={() => f.setOrden((o) => (o === 'codigo' ? 'nombre' : 'codigo'))}
         onSearch={() => setBuscarFicha(true)}
         onPrint={() => window.print()}
@@ -725,7 +725,7 @@ export function ModificacionPreciosFichaPage() {
         onExit={() => f.navigate('/')}
       />
       <PieFicha
-        texto={`Orden: ${f.orden === 'codigo' ? 'por código' : 'por concepto'}${f.idx >= 0 ? ` · Registro ${f.idx + 1} de ${f.ordenada.length}` : ''}${
+        texto={`Orden: ${f.orden === 'codigo' ? 'por código' : 'por concepto'}${f.idx >= 0 ? ` · Registro ${f.idx + 1} de ${f.total}` : ''}${
           mode === 'alta' ? ' · Alta de modificación de precios' : mode === 'edicion' ? ' · Modificando' : draft.actualizado ? ' · Lote ya aplicado' : ''
         }`}
       />

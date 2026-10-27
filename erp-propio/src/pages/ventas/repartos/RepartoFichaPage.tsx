@@ -13,6 +13,7 @@ import {
   Truck,
 } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { useNexaContexto } from '../../../nexa/contexto'
 import { formatGw, GwDate } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
@@ -448,6 +449,31 @@ export function RepartoFichaPage() {
     }
     return { importe, cobrado }
   }, [lineasVista])
+
+  // Contexto para NEXA: el reparto guardado que se está consultando.
+  useNexaContexto(
+    !editing && cab.numero != null && !sinRepartos
+      ? {
+          documento: `Reparto ${cab.tienda_terminal_codigo}-${cab.numero}`,
+          fecha: cab.fecha,
+          ruta: cab.ruta_codigo,
+          nombreRuta,
+          repartidor: cab.repartidor_codigo,
+          nombreRepartidor,
+          estado: ESTADOS_REPARTO.find((e) => e.value === cab.estado)?.label ?? cab.estado,
+          numeroVentas: lineas.length,
+          ventas: lineas.slice(0, 40).map((l) => ({
+            venta: `${l.venta_tienda_codigo}-${l.venta_numero}`,
+            cliente: l.cliente_codigo,
+            nombre: l.nombre_cliente,
+            estado: ESTADOS_LINEA.find((e) => e.value === l.estado)?.label ?? l.estado,
+            poblacion: l.poblacion,
+          })),
+          importeVentas: totales.importe,
+          cobrado: totales.cobrado,
+        }
+      : null,
+  )
 
   const idx = claveRuta ? lista.findIndex((c) => c.tienda_terminal_codigo === claveRuta.tienda_terminal_codigo && c.numero === claveRuta.numero) : -1
   const ir = (c?: Clave) => c && navigate(`/repartos/${encodeURIComponent(c.tienda_terminal_codigo)}/${c.numero}`)

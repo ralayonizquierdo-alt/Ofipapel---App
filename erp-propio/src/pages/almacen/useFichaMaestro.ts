@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { selectTodo, supabase } from '../../lib/supabase'
 import { gwBuscarPorInicio, useListaOrdenada, type GwListaOrdenadaDef } from '../../components/gw/GwListaOrdenada'
+import { useNavRegistro, type NavDir } from '../../components/gw/useNavRegistro'
 
 export type ModoFicha = 'consulta' | 'edicion' | 'alta'
 
@@ -54,17 +55,15 @@ export function useFichaMaestro<T extends { codigo: string }>({
   const [listaCargada, setListaCargada] = useState(false)
   const [orden, setOrden] = useState<'codigo' | 'nombre'>('codigo')
 
+  // Los códigos solo hacen falta en el alta (para proponer el siguiente libre): ya no se bajan
+  // al abrir la ficha. La navegación va contra el servidor (useNavRegistro).
   useEffect(() => {
-    selectTodo<Record<string, string>>(tabla, campoNombre === 'codigo' ? 'codigo' : `codigo, ${campoNombre}`, 'codigo')
-      .then(({ data }) => {
-        const filas = data.map((r) => ({
-          codigo: r.codigo,
-          nombre: r[campoNombre] ?? r.codigo,
-        }))
-        setLista(filas)
-        setListaCargada(true)
-      })
-  }, [tabla, campoNombre])
+    if (mode !== 'alta' || listaCargada) return
+    selectTodo<Record<string, string>>(tabla, 'codigo', 'codigo').then(({ data }) => {
+      setLista(data.map((r) => ({ codigo: r.codigo, nombre: r.codigo })))
+      setListaCargada(true)
+    })
+  }, [mode, tabla, listaCargada])
 
   useEffect(() => {
     setError(null)
@@ -115,15 +114,22 @@ export function useFichaMaestro<T extends { codigo: string }>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codigo, isNew, navigate, tabla, base])
 
-  const ordenada = useMemo(
-    () =>
-      orden === 'codigo'
-        ? lista
-        : [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es') || a.codigo.localeCompare(b.codigo)),
-    [lista, orden],
-  )
-  const idx = ordenada.findIndex((r) => r.codigo === registro.codigo)
+  const porNombre = orden === 'nombre' && campoNombre !== 'codigo'
+  const nav = useNavRegistro<{ codigo: string }>({
+    tabla,
+    orden: porNombre ? [campoNombre, 'codigo'] : ['codigo'],
+    actual:
+      sinRegistros || mode === 'alta' || !registro.codigo
+        ? null
+        : porNombre
+          ? [String((registro as Record<string, unknown>)[campoNombre] ?? ''), registro.codigo]
+          : [registro.codigo],
+    select: 'codigo',
+  })
+  /** Posición (0…) del registro actual en el orden, -1 si no se sabe. */
+  const idx = nav.posicion != null ? nav.posicion - 1 : -1
   const goTo = (c?: string) => c && navigate(`${base}/${encodeURIComponent(c)}`)
+  const irA = async (d: NavDir) => goTo((await nav.ir(d))?.codigo)
 
   function patch(p: Partial<T>) {
     setDraft((d) => ({ ...d, ...p }))
@@ -168,6 +174,7 @@ export function useFichaMaestro<T extends { codigo: string }>({
     const nombre = String((payload as Record<string, unknown>)[campoNombre] ?? cod)
     if (mode === 'alta') {
       setLista((l) => [...l, { codigo: cod, nombre }].sort((a, b) => a.codigo.localeCompare(b.codigo)))
+      nav.refrescar()
       navigate(`${base}/${encodeURIComponent(cod)}`, { replace: true })
       return true
     }
@@ -182,7 +189,7 @@ export function useFichaMaestro<T extends { codigo: string }>({
 
   function cancelar() {
     if (mode === 'alta') {
-      navigate(lista[0] ? `${base}/${encodeURIComponent(lista[0].codigo)}` : base)
+      navigate(base)
       return
     }
     setDraft(registro)
@@ -207,14 +214,15 @@ export function useFichaMaestro<T extends { codigo: string }>({
         return
       }
     }
+    // El que queda en su sitio: el siguiente, o el anterior si era el último.
+    const siguiente = (await nav.ir('siguiente')) ?? (await nav.ir('anterior'))
     const { error: err } = await supabase.from(tabla).delete().eq('codigo', registro.codigo)
     if (err) {
       setError(err.message)
       return
     }
-    const resto = lista.filter((x) => x.codigo !== registro.codigo)
-    setLista(resto)
-    const siguiente = resto[Math.min(Math.max(idx, 0), resto.length - 1)]
+    setLista((l) => l.filter((x) => x.codigo !== registro.codigo))
+    nav.refrescar()
     navigate(siguiente ? `${base}/${encodeURIComponent(siguiente.codigo)}` : base, { replace: true })
   }
 
@@ -271,12 +279,15 @@ export function useFichaMaestro<T extends { codigo: string }>({
     listaCargada,
     orden,
     setOrden,
-    ordenada,
     idx,
+    /** Número de registros (0 mientras se cuenta). */
+    total: nav.total ?? 0,
     goTo,
+    /** Primero · anterior · siguiente · último, pidiendo al servidor solo ese registro. */
+    irA,
     guardar,
     cancelar,
     eliminar,
-    canNavigate: mode === 'consulta' && ordenada.length > 0,
+    canNavigate: mode === 'consulta' && !sinRegistros,
   }
 }

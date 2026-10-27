@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { GwInput, GwNumber, GwSelect, GwWindow } from '../../../components/gw'
+import { GwInput, GwNumber, GwWindow } from '../../../components/gw'
+import { BUSCADOR_PROVEEDOR, GwCodigoBuscador, useNombres } from '../../../components/gw/GwCodigoBuscador'
 
 function DialogShell({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
@@ -20,12 +21,10 @@ interface CodigoCompra {
 /** Botón «+» de «Códigos de Compra»: un código de compra por proveedor (ARTPROV). */
 export function CodigosCompraDialog({
   articuloCodigo,
-  proveedores,
   editable,
   onClose,
 }: {
   articuloCodigo: string
-  proveedores: { codigo: string; nombre: string }[]
   editable: boolean
   onClose: () => void
 }) {
@@ -82,7 +81,7 @@ export function CodigosCompraDialog({
     load()
   }
 
-  const nombre = (c: string) => proveedores.find((p) => p.codigo === c)?.nombre ?? ''
+  const nombre = useNombres('proveedor', rows.map((r) => r.proveedor_codigo))
 
   return (
     <DialogShell title="Códigos de Compra" onClose={onClose}>
@@ -116,14 +115,7 @@ export function CodigosCompraDialog({
         </div>
         {editable && (
           <div className="flex items-center gap-1.5">
-            <GwSelect value={prov} onChange={(e) => setProv(e.target.value)} className="!w-[260px]">
-              <option value="">— Proveedor —</option>
-              {proveedores.map((p) => (
-                <option key={p.codigo} value={p.codigo}>
-                  {p.codigo} {p.nombre}
-                </option>
-              ))}
-            </GwSelect>
+            <GwCodigoBuscador value={prov} onChange={(c) => setProv(c)} title="Proveedor · F4: buscar" className="w-[160px]" {...BUSCADOR_PROVEEDOR} />
             <GwInput placeholder="Código de compra" value={codigo} onChange={(e) => setCodigo(e.target.value)} />
             <button type="button" className="gw-btn" onClick={add}>
               Añadir
