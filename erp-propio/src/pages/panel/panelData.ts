@@ -30,6 +30,7 @@ export interface PanelData {
   pendientes: { por_preparar: number; preparados: number; atrasados: number }
   reparaciones: { abiertas: number; atrasadas: number }
   web_sin_servir: number
+  pedidos_web: { periodo: number; hoy: number; por_preparar: number; ultimo_fecha: string | null; ultimo_hora: string | null }
   reparto_hoy: { repartos: number; entregas: number; entregadas: number; pendientes: number; no_entregadas: number }
   repartos_hoy: {
     tienda: string
@@ -44,7 +45,8 @@ export interface PanelData {
   }[]
   por_hora: { h: number; tickets: number; tickets_media: number; pedidos: number }[]
   origenes: { web: number; comercial: number; tienda: number }
-  vendedores: { codigo: string; nombre: string; pedidos: number; ventas: number }[]
+  /** Pedidos de cliente por comercial (sin ventas de mostrador ni pedidos web). */
+  vendedores: { codigo: string; nombre: string; pedidos: number; hoy: number }[]
   por_tienda: { codigo: string; descripcion: string; tipo: string | null; actual: number; anterior: number }[]
   ultimos_pedidos: {
     tienda: string

@@ -21,6 +21,7 @@ import { fmtNum } from './panelData'
 export const C = {
   s1: '#2a78d6',
   s2: '#eb6834',
+  s1Claro: '#9ec5f4', // mismo azul, paso claro: «resto del periodo» junto a «hoy»
   ref: '#b9b7ae',
   refLinea: '#898781',
   ok: '#0ca30c',
@@ -151,15 +152,17 @@ export function BarrasSimples({
   vacio,
   serie,
   onClick,
+  alto,
 }: {
   datos: { nombre: string; valor: number; clave?: string }[]
   vacio: string
   serie: string
   onClick?: (clave: string) => void
+  alto?: number
 }) {
   if (!datos.some((d) => d.valor)) return <Vacio texto={vacio} />
   return (
-    <div style={{ height: 'var(--panel-chart-h)' }}>
+    <div style={{ height: alto ? `max(var(--panel-chart-h), ${alto}px)` : 'var(--panel-chart-h)' }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={datos} layout="vertical" margin={{ top: 4, right: 36, left: 0, bottom: 0 }} barCategoryGap="28%">
           <CartesianGrid horizontal={false} stroke={C.grid} />

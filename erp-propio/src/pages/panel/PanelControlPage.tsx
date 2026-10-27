@@ -147,16 +147,25 @@ export function PanelControlPage() {
           </div>
 
           <div className="grid grid-cols-12 gap-1.5">
-            <Card className="col-span-5" title="Ranking de vendedores" sub={`nº de operaciones · ${per.label.toLowerCase()}`}>
-              <BarrasApiladas
-                vacio="Ningún vendedor con pedidos o ventas en este periodo"
-                datos={data.vendedores.map((v) => ({ nombre: v.nombre, pedidos: v.pedidos, ventas: v.ventas }))}
-                series={[
-                  { key: 'pedidos', label: 'Pedidos', color: C.s1 },
-                  { key: 'ventas', label: 'Ventas directas (sin pedido)', color: C.s2 },
-                ]}
-                alto={data.vendedores.length * 22}
-              />
+            <Card className="col-span-5" title="Pedidos por comercial" sub={`nº de pedidos de cliente · ${per.label.toLowerCase()}`}>
+              {periodo === 'hoy' ? (
+                <BarrasSimples
+                  serie="pedidos hoy"
+                  vacio="Ningún comercial con pedidos hoy"
+                  datos={data.vendedores.map((v) => ({ nombre: v.nombre, valor: v.pedidos }))}
+                  alto={data.vendedores.length * 24}
+                />
+              ) : (
+                <BarrasApiladas
+                  vacio="Ningún comercial con pedidos en este periodo"
+                  datos={data.vendedores.map((v) => ({ nombre: v.nombre, hoy: v.hoy, antes: v.pedidos - v.hoy }))}
+                  series={[
+                    { key: 'hoy', label: 'Hoy', color: C.s1 },
+                    { key: 'antes', label: `Resto de ${per.label.toLowerCase()}`, color: C.s1Claro },
+                  ]}
+                  alto={data.vendedores.length * 24}
+                />
+              )}
             </Card>
             <Card className="col-span-4" title="Tickets por tienda" sub={per.label.toLowerCase()}>
               <ColumnasComparadas
@@ -236,7 +245,20 @@ function Kpis({ d, per, abrir }: { d: PanelData; per: (typeof PERIODOS)[number];
   return (
     <div className="grid grid-cols-6 gap-1.5">
       <Kpi label="Pedidos nuevos hoy" icon={ClipboardList} valor={fmtNum(ph.total)} onClick={() => abrir('/gestor-pedidos')}>
-        Comerciales {ph.comercial} · Web {ph.web} · Tienda {ph.tienda}
+        <span className="flex items-center gap-2.5">
+          {(
+            [
+              [UserRound, 'Comerciales', ph.comercial],
+              [Globe, 'Web', ph.web],
+              [Store, 'Tienda', ph.tienda],
+            ] as const
+          ).map(([Icono, txt, n]) => (
+            <span key={txt} className="flex items-center gap-1" title={`${n} pedidos de ${txt.toLowerCase()} hoy`}>
+              <Icono size={12} className="text-[#5d6d7e]" />
+              {txt} <b className="text-[#111]">{n}</b>
+            </span>
+          ))}
+        </span>
       </Kpi>
       <Kpi
         label="Pendientes de preparar"
@@ -275,8 +297,12 @@ function Kpis({ d, per, abrir }: { d: PanelData; per: (typeof PERIODOS)[number];
       >
         {d.reparaciones.atrasadas > 0 ? `${d.reparaciones.atrasadas} atrasadas` : 'Ninguna atrasada'}
       </Kpi>
-      <Kpi label="Pedidos web sin servir" icon={Globe} valor={fmtNum(d.web_sin_servir)} alerta={d.web_sin_servir > 0} onClick={() => abrir('/gestor-pedidos')}>
-        {d.web_sin_servir > 0 ? 'Pendientes de preparar o enviar' : 'Todo servido'}
+      <Kpi label={`Nuevos pedidos web · ${per.label.toLowerCase()}`} icon={Globe} valor={fmtNum(d.pedidos_web.periodo)} onClick={() => abrir('/web/estado-pedidos')}>
+        {d.pedidos_web.por_preparar > 0
+          ? `${d.pedidos_web.por_preparar} pendientes de preparar`
+          : d.pedidos_web.ultimo_fecha
+            ? `Último: ${d.pedidos_web.ultimo_fecha === d.meta.hoy ? 'hoy' : fmtFecha(d.pedidos_web.ultimo_fecha)}${d.pedidos_web.ultimo_hora ? ' a las ' + d.pedidos_web.ultimo_hora : ''}`
+            : 'Aún no hay pedidos web'}
       </Kpi>
       <Kpi
         label={`Tickets · ${per.label.toLowerCase()}`}
@@ -352,6 +378,12 @@ function Alertas({ d, abrir }: { d: PanelData; abrir: (r: string) => void }) {
       texto: d.reparaciones.atrasadas === 1 ? 'reparación atrasada' : 'reparaciones atrasadas',
       detalle: `${d.reparaciones.abiertas} abiertas en total`,
       ruta: '/reparaciones',
+    },
+    {
+      n: d.web_sin_servir,
+      texto: d.web_sin_servir === 1 ? 'pedido web sin servir' : 'pedidos web sin servir',
+      detalle: d.pedidos_web.por_preparar ? `${d.pedidos_web.por_preparar} aún sin preparar` : 'Preparados, falta entregarlos o enviarlos',
+      ruta: '/web/pendientes',
     },
     {
       n: d.pendientes.atrasados,
