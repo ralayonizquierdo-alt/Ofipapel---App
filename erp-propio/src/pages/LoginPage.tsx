@@ -13,8 +13,10 @@ export function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { error } = await signIn(email, password)
-    if (error) setError('Email o contraseña incorrectos')
+    // Se entra con el nombre de usuario (luis, rober…); internamente es usuario@ofipapel.local.
+    const usuario = email.trim().toLowerCase()
+    const { error } = await signIn(usuario.includes('@') ? usuario : `${usuario}@ofipapel.local`, password)
+    if (error) setError('Usuario o contraseña incorrectos')
     setLoading(false)
   }
 
@@ -29,11 +31,11 @@ export function LoginPage() {
             draggable={false}
           />
           <div className="text-[12px]">Ofipapel ERP — identificación del empleado</div>
-          <GwField label="Email">
-            <GwInput type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
+          <GwField label="Usuario">
+            <GwInput type="text" required autoFocus autoComplete="username" autoCapitalize="none" value={email} onChange={(e) => setEmail(e.target.value)} />
           </GwField>
           <GwField label="Contraseña">
-            <GwInput type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            <GwInput type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </GwField>
           {error && <div className="text-[12px] text-[#c42b1c]">{error}</div>}
           <div className="mt-1 flex justify-end gap-1.5">

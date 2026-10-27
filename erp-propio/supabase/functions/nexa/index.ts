@@ -264,7 +264,7 @@ Deno.serve(async (req) => {
   }
   const usuario = usuarioData.user.email ?? usuarioData.user.id
 
-  const apiKey = (Deno.env.get('ANTHROPIC_API_KEY') ?? '').trim()
+  const apiKey = (Deno.env.get('ANTHROPIC_API_KEY') ?? '').trim().replace(/^["']+|["']+$/g, '')
   if (!apiKey) {
     return fallo('falta_clave', 'Falta la clave de la IA (ANTHROPIC_API_KEY) en Supabase → Edge Functions → Secrets.')
   }

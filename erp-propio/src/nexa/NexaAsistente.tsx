@@ -72,15 +72,17 @@ function NexaFlotante({ sinLeer, pensando }: { sinLeer: boolean; pensando: boole
   return (
     // Abajo a la derecha, sobre la esquina de la barra de estado (que deja ese hueco libre):
     // así el centro pulsable queda por debajo de las botoneras de las ventanas.
-    <div className="pointer-events-none fixed bottom-[-6px] right-[2px] z-50 flex flex-col items-center" data-nexa="flotante">
+    // El aviso va en posición absoluta para no mover el avatar (si lo empujara, el ratón
+    // dejaría de estar encima y parpadearía).
+    <div className="pointer-events-none fixed bottom-[-6px] right-[2px] z-50" data-nexa="flotante">
       {(hover || aviso) && (
-        <div className="mb-[-6px] whitespace-nowrap rounded bg-slate-900/85 px-2.5 py-1 text-center text-[11px] leading-tight text-white shadow">
+        <div className="absolute bottom-[calc(100%-10px)] right-0 whitespace-nowrap rounded bg-slate-900/85 px-2.5 py-1 text-center text-[11px] leading-tight text-white shadow">
           <div className="font-bold tracking-wide">NEXA · Asistente inteligente</div>
           <div className="text-slate-300">{aviso ?? ATAJO_NEXA}</div>
         </div>
       )}
       <div className="relative" style={{ width: 90, height: 90 }}>
-        <NexaAvatar tamano={90} escala={0.86} fpsMax={30} formarAlIniciar />
+        <NexaAvatar tamano={90} escala={0.92} fpsMax={30} formarAlIniciar />
         {sinLeer && <span className="absolute right-[18px] top-[14px] h-2.5 w-2.5 rounded-full border border-white bg-[#1f6fe0] shadow" />}
         <button
           type="button"
@@ -90,7 +92,7 @@ function NexaFlotante({ sinLeer, pensando }: { sinLeer: boolean; pensando: boole
           onFocus={() => setHover(true)}
           onBlur={() => setHover(false)}
           onClick={abrirPanel}
-          className="pointer-events-auto absolute left-1/2 top-[54%] h-[40px] w-[40px] -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          className="pointer-events-auto absolute left-1/2 top-[63%] h-[36px] w-[42px] -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
         />
       </div>
     </div>
@@ -207,7 +209,7 @@ function NexaPanel() {
           cerrarPanel()
         }
       }}
-      className="nexa-panel absolute bottom-1 right-1 top-1 z-40 flex flex-col overflow-hidden rounded-md border border-white/60 bg-[rgba(236,241,248,0.80)] shadow-[0_8px_28px_rgba(15,30,60,0.35)] backdrop-blur-xl"
+      className="nexa-panel absolute bottom-1 right-1 top-[27px] z-40 flex flex-col overflow-hidden rounded-md border border-white/60 bg-[rgba(236,241,248,0.80)] shadow-[0_8px_28px_rgba(15,30,60,0.35)] backdrop-blur-xl"
       style={{ width: ancho, maxWidth: 'calc(100% - 8px)' }}
     >
       {/* Barra superior */}
