@@ -376,3 +376,23 @@ export async function cargarConfigWeb(): Promise<ConfigImportacion> {
   const { data } = await supabase.from('web_configuracion').select('*').eq('id', 1).maybeSingle()
   return { ...CONFIG_DEFECTO, ...(data ?? {}) }
 }
+
+/** Código del empleado de la sesión (para el campo empleado de los pedidos importados). */
+export function useEmpleadoActual() {
+  const [codigo, setCodigo] = useState<string | null>(null)
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id
+      if (!uid) return
+      supabase
+        .from('empleado')
+        .select('codigo')
+        .eq('auth_user_id', uid)
+        .maybeSingle()
+        .then(({ data: e }) => setCodigo((e?.codigo as string | undefined) ?? null))
+    })
+  }, [])
+  return codigo
+}
+
+export const ESTILO_FALTA: CSSProperties = { background: '#ffe3b3' }
