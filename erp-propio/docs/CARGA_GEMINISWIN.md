@@ -188,8 +188,13 @@ Sin correspondencia clara (no se cargan, para no inventar):
     es `coste × (1 + INC_PVP0/100)` **sin IGIC**, y el coste que cuadra es
     `PM_COMPRA` (precio medio): 89 de 89 con `COSTTOCALC` = 4 y 1856 de 1900
     con `COSTTOCALC` vacío (el líquido solo cuadra en 1195). El selector del ERP
-    (0..3) no tiene «precio medio», así que «Recalcular Pvps» en el ERP daría
-    otros PVP en cientos de artículos: hay que añadir esa opción en la ficha.
+    (0..3) no tiene «precio medio».
+    **Resuelto (27/10/2026, confirmado por Rober en GeminisWin):** el coste base
+    del PVP es el **coste líquido**, como ya hace el ERP por defecto. Que cuadre
+    con el precio medio se debe a que muchos PVP se calcularon cuando el líquido
+    valía lo que hoy es el precio medio y no se han recalculado tras compras
+    posteriores. «Recalcular Pvps» cambiará esos precios igual que lo haría
+    GeminisWin al recalcularlos.
   - Los 99 artículos con `COSTTOCALC` = 4 son casi todos de marca
     `SOBREPEDIDO` (92). Muchos vienen así de GeminisWin: sin coste puro (53),
     sin `PVP_0` (9), sin código de barras (98) o sin proveedor (9). Ejemplo:
