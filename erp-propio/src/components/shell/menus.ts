@@ -130,7 +130,24 @@ export const MENUS: TopMenu[] = [
       item('Gestor de Pagos de Clientes'),
       item('Liquidación'),
       'sep',
+      item('Registros VeriFactu', { to: '/registros-verifactu', description: 'Registros de facturación VeriFactu encadenados' }),
+      'sep',
       item('Listados', { children: off(['List. Facturas', 'L. Pend. de Cobro', 'List. Remesas', 'Extracto clientes']) }),
+    ],
+  },
+  {
+    label: 'Contabilidad',
+    // Menú nuevo, no existe en GeminisWin (petición de Rober, 27/10/2026). Opciones aún sin construir.
+    items: [
+      ...off(['Generar Asientos Automáticos', 'Asientos Pendientes / con Errores', 'Diario de Asientos']),
+      'sep',
+      ...off(['Plan de Cuentas', 'Mayor / Extracto de Cuenta', 'Sumas y Saldos', 'Pérdidas y Ganancias', 'Libros Registro de IGIC']),
+      'sep',
+      ...off(['Modelo 420 (IGIC Trimestral)', 'Modelo 425 (IGIC Anual)', 'Modelo 347', 'Retenciones 111 / 115', 'Verifactu (Registro y Envío)']),
+      'sep',
+      ...off(['Conciliación Bancaria', 'Remesas SEPA', 'Previsión de Tesorería']),
+      'sep',
+      ...off(['Cierre y Apertura de Ejercicio', 'Exportar a Gestoría', 'Configuración Contable']),
     ],
   },
   {
@@ -182,6 +199,20 @@ export const MENUS: TopMenu[] = [
       item('Eliminación de Artículos'),
       'sep',
       item("Plu's"),
+    ],
+  },
+  {
+    label: 'Web',
+    // Menú nuevo, no existe en GeminisWin (petición de Rober, 27/10/2026): conexión con WooCommerce.
+    // Nada escribe en la web hasta que Rober lo autorice (la gestiona una empresa externa).
+    items: [
+      ...off(['Publicar Artículos en la Web', 'Sincronizar Catálogo', 'Artículos con Errores Web']),
+      'sep',
+      ...off(['Importar Pedidos Web', 'Estado de Pedidos Web', 'Devoluciones y Reembolsos Web']),
+      'sep',
+      ...off(['Clientes Web', 'Ofertas y Cupones Web', 'Carritos Abandonados']),
+      'sep',
+      ...off(['Registro de Sincronización', 'Estadísticas Web', 'Configuración de la Conexión']),
     ],
   },
   {
@@ -269,6 +300,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/rutas-reparto', title: 'Rutas de Reparto' },
   { prefix: '/pagos', title: 'Pagos' },
   { prefix: '/facturacion', title: 'Facturas' },
+  { prefix: '/registros-verifactu', title: 'Registros de Facturación VeriFactu' },
   { prefix: '/resumen', title: 'Resumen del ERP' },
 ]
 
