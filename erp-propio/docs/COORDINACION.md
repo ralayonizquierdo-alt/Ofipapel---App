@@ -14,6 +14,16 @@ lo que escribió otro.
   copian al código, a la base de datos ni a datos de prueba. Las pestañas de
   Bancos no se capturan con datos (la estructura sale de una ficha vacía).
 
+## Ramas y publicación
+
+- Rama común del ERP: **`erp`**. La web de prueba
+  (ofipapel-erp-propio-preview) se publica SOLA desde GitHub cada vez que
+  entra un cambio en `erp` que toca `erp-propio/` (configuración en
+  `erp-propio/netlify.toml`).
+- Cada encargo se hace en su propia rama y se junta en `erp` con una
+  solicitud de cambios (pull request) o, si es de la misma sesión, empujando a
+  `erp`. Nada de publicar a mano salvo emergencia.
+
 ## Estado por pantalla
 
 Leyenda: **Calcada** = copiada de captura real y comprobada en navegador (sin
