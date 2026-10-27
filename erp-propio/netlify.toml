@@ -1,0 +1,12 @@
+# Despliegue automático del ERP propio en Netlify (sitio ofipapel-erp-propio-preview).
+# El sitio tiene «Base directory» = erp-propio, así que Netlify lee este fichero y no el
+# netlify.toml de la raíz (que es el de las demás apps del repositorio).
+[build]
+  command = "npm ci && npm run build"
+  publish = "dist"
+  # No reconstruir si el cambio no toca el ERP (el repositorio tiene más proyectos).
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- ."
+
+[build.environment]
+  VITE_BASE_PATH = "/"
+  NODE_VERSION = "22"
