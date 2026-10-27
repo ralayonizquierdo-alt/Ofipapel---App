@@ -460,7 +460,7 @@ export function RangoCodigos({
             <BotonBuscar lookup={lookup} disabled={value.modo !== 'seleccionar'} onPick={(c) => p({ lista: [...lista(value.lista), c].join(', ') })} />
             <button
               type="button"
-              className="gw-btn h-[26px] w-[34px] flex-none px-0"
+              className="gw-btn !h-[26px] !w-[34px] flex-none !px-0"
               title="Vaciar la selección"
               disabled={value.modo !== 'seleccionar'}
               onClick={() => p({ lista: '' })}
@@ -619,7 +619,7 @@ function MarcaX({ on }: { on: boolean }) {
 /** Botón conmutador ✓/× (Art. Anulados, Características…). */
 export function Conmutador({ on, onChange, children, className = '' }: { on: boolean; onChange: (v: boolean) => void; children: ReactNode; className?: string }) {
   return (
-    <button type="button" className={`gw-btn h-[28px] gap-1 px-1 text-[15px] ${className}`} aria-pressed={on} onClick={() => onChange(!on)}>
+    <button type="button" className={`gw-btn !h-[28px] !gap-1 !px-1 !text-[15px] ${className}`} aria-pressed={on} onClick={() => onChange(!on)}>
       <MarcaX on={on} />
       <span className="truncate">{children}</span>
     </button>
@@ -762,7 +762,7 @@ export function BarraSalida({
   const b = (s: Salida, icono: ReactNode, texto: string) => (
     <button
       type="button"
-      className={`gw-btn h-[40px] flex-1 gap-1.5 text-[17px] ${salida === s ? '!border-[#7a7a7a] !bg-[#f7f7f7] shadow-[inset_1px_1px_2px_rgba(0,0,0,0.25)]' : ''}`}
+      className={`gw-btn !h-[40px] flex-1 !gap-1.5 !text-[17px] ${salida === s ? '!border-[#7a7a7a] !bg-[#f7f7f7] shadow-[inset_1px_1px_2px_rgba(0,0,0,0.25)]' : ''}`}
       aria-pressed={salida === s}
       onClick={() => setSalida(s)}
     >
@@ -779,11 +779,11 @@ export function BarraSalida({
         {b('examinar', <Search size={15} />, 'Examinar')}
         {b('pdf', <span className="rounded-sm border border-[#c42b1c] px-0.5 text-[9px] font-bold text-[#c42b1c]">PDF</span>, 'Doc. PDF')}
       </div>
-      <button type="button" className="gw-btn h-[46px] w-[150px] gap-1.5 text-[18px]" onClick={onProcesar} disabled={procesando}>
+      <button type="button" className="gw-btn !h-[46px] !w-[150px] !gap-1.5 !text-[18px]" onClick={onProcesar} disabled={procesando}>
         <Check size={17} strokeWidth={3} className="text-[#127a12]" />
         {procesando ? 'Procesando…' : 'Procesar'}
       </button>
-      <button type="button" className="gw-btn h-[46px] w-[150px] gap-1.5 text-[18px]" onClick={onCerrar}>
+      <button type="button" className="gw-btn !h-[46px] !w-[150px] !gap-1.5 !text-[18px]" onClick={onCerrar}>
         <X size={17} strokeWidth={3} className="text-[#c42b1c]" />
         Cerrar
       </button>

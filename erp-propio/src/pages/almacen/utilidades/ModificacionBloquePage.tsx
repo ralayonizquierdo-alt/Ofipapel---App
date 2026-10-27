@@ -164,7 +164,15 @@ export function ModificacionBloquePage() {
   }, [f.registro.codigo, mode])
 
   useEffect(() => {
-    if (mode === 'alta' && f.listaCargada && !draft.codigo) patch({ codigo: siguienteCodigo(f.lista.map((l) => l.codigo), 4), fecha: hoyISO(), hora: horaActual() })
+    if (mode === 'alta' && f.listaCargada && !draft.codigo)
+      patch({
+        codigo: siguienteCodigo(
+          f.lista.map((l) => l.codigo),
+          4,
+        ),
+        fecha: hoyISO(),
+        hora: horaActual(),
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, f.listaCargada, draft.codigo])
 
@@ -177,7 +185,10 @@ export function ModificacionBloquePage() {
     if (!nuevos.length) return setInfo('Esos artículos ya están en la modificación.')
     const filas: Linea[] = []
     for (let i = 0; i < nuevos.length; i += 300) {
-      const { data, error } = await supabase.from('articulo').select(SELECT_CAMPOS).in('codigo_interno', nuevos.slice(i, i + 300))
+      const { data, error } = await supabase
+        .from('articulo')
+        .select(SELECT_CAMPOS)
+        .in('codigo_interno', nuevos.slice(i, i + 300))
       if (error) return setInfo(`Error: ${error.message}`)
       for (const r of (data ?? []) as unknown as Record<string, unknown>[]) filas.push({ articulo_codigo: String(r.codigo_interno), datos: r })
     }
@@ -250,7 +261,14 @@ export function ModificacionBloquePage() {
     const edita = editing && c.k !== 'codigo_interno' && (c.t === 'b' || editIdx === i)
     if (c.t === 'b')
       return (
-        <input type="checkbox" className="m-0 h-[12px] w-[12px] align-middle" checked={!!v} disabled={!edita} onChange={(e) => setDato(i, c.k, e.target.checked)} onClick={(e) => e.stopPropagation()} />
+        <input
+          type="checkbox"
+          className="m-0 h-[12px] w-[12px] align-middle"
+          checked={!!v}
+          disabled={!edita}
+          onChange={(e) => setDato(i, c.k, e.target.checked)}
+          onClick={(e) => e.stopPropagation()}
+        />
       )
     if (!edita) return c.t === 'd' ? fecha(v) : c.t === 'n' ? (v == null ? '' : formatGw(Number(v), c.k === 'igic_pct' || c.k.endsWith('_pct') ? 2 : 3)) : String(v ?? '')
     if (c.t === 'd') return <GwDate className="!h-[20px]" value={(v as string) || null} onChange={(x) => setDato(i, c.k, x)} />
@@ -294,7 +312,15 @@ export function ModificacionBloquePage() {
           </label>
           <label className="flex flex-col">
             <span className={lbl}>Concepto</span>
-            <GwCampoBusqueda className="!h-[28px] !text-[17px]" value={draft.concepto} editable={editing} maxLength={40} title="CONCEPTO" onChange={(v) => patch({ concepto: v })} {...f.busqueda('nombre')} />
+            <GwCampoBusqueda
+              className="!h-[28px] !text-[17px]"
+              value={draft.concepto}
+              editable={editing}
+              maxLength={40}
+              title="CONCEPTO"
+              onChange={(v) => patch({ concepto: v })}
+              {...f.busqueda('nombre')}
+            />
           </label>
         </div>
         <label className="flex flex-col">
@@ -341,7 +367,12 @@ export function ModificacionBloquePage() {
                 </thead>
                 <tbody>
                   {lineas.map((l, i) => (
-                    <tr key={l.id ?? `n${l.articulo_codigo}`} className={i === sel && editIdx !== i ? 'gw-selected' : ''} onClick={() => setSel(i)} onDoubleClick={() => editing && setEditIdx(i)}>
+                    <tr
+                      key={l.id ?? `n${l.articulo_codigo}`}
+                      className={i === sel && editIdx !== i ? 'gw-selected' : ''}
+                      onClick={() => setSel(i)}
+                      onDoubleClick={() => editing && setEditIdx(i)}
+                    >
                       <td className="!px-0 text-center text-[10px]">{i === sel ? '▸' : ''}</td>
                       {visibles.map((c) => (
                         <td key={c.k} className={`truncate !text-[15px] ${c.t === 'b' ? 'text-center' : c.t === 'n' ? 'text-right' : ''}`}>
@@ -368,7 +399,13 @@ export function ModificacionBloquePage() {
                 }}
                 onBuscar={() => setDialogo('buscarLinea')}
               >
-                <button type="button" className="gw-btn h-[30px] w-[185px] gap-1 text-[18px]" disabled={editing || aplicando || f.sinRegistros} title="Actualizar las fichas de los artículos con los campos marcados" onClick={actualizar}>
+                <button
+                  type="button"
+                  className="gw-btn !h-[30px] !w-[185px] !gap-1 !text-[18px]"
+                  disabled={editing || aplicando || f.sinRegistros}
+                  title="Actualizar las fichas de los artículos con los campos marcados"
+                  onClick={actualizar}
+                >
                   {draft.actualizado ? <Check size={16} strokeWidth={3} className="text-[#127a12]" /> : <X size={16} strokeWidth={3} className="text-[#c42b1c]" />}
                   {aplicando ? 'Actualizando…' : 'Actualizado'}
                 </button>
@@ -420,11 +457,11 @@ export function ModificacionBloquePage() {
                     ['Desactivar todos los campos para Actualizar', { a: false }],
                   ] as const
                 ).map(([t, p]) => (
-                  <button key={t} type="button" className="gw-btn h-[36px] justify-start text-[17px]" disabled={ro} onClick={() => todos(p)}>
+                  <button key={t} type="button" className="gw-btn !h-[36px] !justify-start !text-[17px]" disabled={ro} onClick={() => todos(p)}>
                     {t}
                   </button>
                 ))}
-                <button type="button" className="gw-btn h-[36px] justify-start text-[17px]" disabled={ro} onClick={() => patch({ campos: VACIO.campos })}>
+                <button type="button" className="gw-btn !h-[36px] !justify-start !text-[17px]" disabled={ro} onClick={() => patch({ campos: VACIO.campos })}>
                   Eliminar parametrización de los campos
                 </button>
                 <span className={`${L} mt-1 text-[#444]`}>Marca «Actualizar» solo en los campos que quieras cambiar en las fichas; los demás se ven pero no se tocan.</span>
@@ -512,13 +549,25 @@ export function ModificacionBloquePage() {
 function BuscarLinea({ lineas, onPick, onClose }: { lineas: Linea[]; onPick: (i: number) => void; onClose: () => void }) {
   const [t, setT] = useState('')
   const i = t.trim()
-    ? lineas.findIndex((l) => l.articulo_codigo.toUpperCase().startsWith(t.trim().toUpperCase()) || String(l.datos.descripcion ?? '').toUpperCase().includes(t.trim().toUpperCase()))
+    ? lineas.findIndex(
+        (l) =>
+          l.articulo_codigo.toUpperCase().startsWith(t.trim().toUpperCase()) ||
+          String(l.datos.descripcion ?? '')
+            .toUpperCase()
+            .includes(t.trim().toUpperCase()),
+      )
     : -1
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/20 pt-32" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
       <GwWindow title="Buscar artículo en la modificación" onClose={onClose} className="w-[440px]">
         <div className="flex flex-col gap-1.5">
-          <GwInput autoFocus placeholder="Código o parte de la descripción" value={t} onChange={(e) => setT(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && i >= 0 && onPick(i)} />
+          <GwInput
+            autoFocus
+            placeholder="Código o parte de la descripción"
+            value={t}
+            onChange={(e) => setT(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && i >= 0 && onPick(i)}
+          />
           <span className="text-[13px]">{i >= 0 ? `${lineas[i].articulo_codigo} · ${String(lineas[i].datos.descripcion ?? '')}` : t ? 'No está en la modificación.' : ''}</span>
           <div className="flex justify-end gap-1.5">
             <button type="button" className="gw-btn" disabled={i < 0} onClick={() => onPick(i)}>
@@ -575,7 +624,7 @@ function NuevasLineas({ onAnadir, onClose }: { onAnadir: (codigos: string[]) => 
               </span>
               <button
                 type="button"
-                className="gw-btn h-[26px] text-[15px]"
+                className="gw-btn !h-[26px] !text-[15px]"
                 disabled={!uno.trim() || ocupado}
                 onClick={async () => {
                   setOcupado(true)
@@ -611,7 +660,7 @@ function NuevasLineas({ onAnadir, onClose }: { onAnadir: (codigos: string[]) => 
               </label>
             </div>
             <div className="mt-2 flex items-center gap-2">
-              <button type="button" className="gw-btn h-[28px] text-[15px]" disabled={!hayFiltro} onClick={vistaPrevia}>
+              <button type="button" className="gw-btn !h-[28px] !text-[15px]" disabled={!hayFiltro} onClick={vistaPrevia}>
                 Vista previa
               </button>
               {prev && (
@@ -621,7 +670,7 @@ function NuevasLineas({ onAnadir, onClose }: { onAnadir: (codigos: string[]) => 
               )}
               <button
                 type="button"
-                className="gw-btn ml-auto h-[28px] text-[15px]"
+                className="gw-btn ml-auto !h-[28px] !text-[15px]"
                 disabled={!prev?.codigos.length || ocupado}
                 onClick={async () => {
                   if (!prev) return

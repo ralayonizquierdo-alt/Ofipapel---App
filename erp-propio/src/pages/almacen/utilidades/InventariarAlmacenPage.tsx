@@ -76,37 +76,35 @@ export function InventariarAlmacenPage() {
     if (!almacen) return setMsg('Elige primero el almacén.')
     setOcupado(true)
     setMsg(null)
+    let c = cab
     try {
       if (modo === 'edicion') {
         const l = lineas[sel]
-        if (!cab || !l) return
-        const r = await tomarLinea({ tienda_terminal_codigo: cab.tienda_terminal_codigo, numero: cab.numero! }, cab, l, cantidad, (m) => confirm(m))
+        if (!c?.numero || !l) return
+        const r = await tomarLinea({ tienda_terminal_codigo: c.tienda_terminal_codigo, numero: c.numero }, c, l, cantidad, (m) => confirm(m))
         if (r === 'descartada') setMsg('Toma descartada.')
       } else {
         const art = await resolverArticulo(codigo, true)
         if (!art) throw new Error(`No existe ningún artículo con el código ${codigo}.`)
-        let c = cab
-        if (!c) {
+        if (!c?.numero) {
           const nueva = { ...vacia(tiendaDe(almacen), almacen), nombre: `Inventariar almacén ${almacen}` }
-          const clave = await crearInventario(nueva)
-          await cargar(clave.tienda_terminal_codigo, clave.numero)
-          c = { ...nueva, numero: clave.numero }
+          const creada = await crearInventario(nueva)
+          c = { ...nueva, numero: creada.numero }
           setCab(c)
-          setNumero(clave.numero)
+          setNumero(creada.numero)
         }
         const clave = { tienda_terminal_codigo: c.tienda_terminal_codigo, numero: c.numero! }
-        const ya = (await cargarLineas(clave)).find((l) => l.articulo_codigo === art.codigo_interno)
+        const actuales = await cargarLineas(clave)
+        const ya = actuales.find((l) => l.articulo_codigo === art.codigo_interno)
         if (ya) {
           // Ya contado: se suma lo nuevo (lectura de varias unidades seguidas con el lector).
           await tomarLinea(clave, c, ya, Number(ya.cantidad_contada ?? 0) + Number(cantidad ?? 0), (m) => confirm(m))
         } else {
-          const sig = (await cargarLineas(clave)).reduce((m, l) => Math.max(m, l.numero_linea), 0) + 1
-          await anadirLinea(clave, almacen, art, cantidad, sig)
+          await anadirLinea(clave, almacen, art, cantidad, actuales.reduce((m, l) => Math.max(m, l.numero_linea), 0) + 1)
         }
       }
-      const clave = { tienda_terminal_codigo: (cab ?? { tienda_terminal_codigo: tiendaDe(almacen) }).tienda_terminal_codigo, numero: cab?.numero ?? numero }
-      if (cab?.numero || numero) {
-        const ls = await cargarLineas(clave.numero ? clave : { tienda_terminal_codigo: clave.tienda_terminal_codigo, numero })
+      if (c?.numero) {
+        const ls = await cargarLineas({ tienda_terminal_codigo: c.tienda_terminal_codigo, numero: c.numero })
         setLineas(ls)
         const i = ls.findIndex((l) => l.articulo_codigo.toUpperCase() === codigo.trim().toUpperCase())
         setSel(i >= 0 ? i : ls.length - 1)
@@ -124,15 +122,15 @@ export function InventariarAlmacenPage() {
     }
   }
 
-  // Tras crear el inventario con la primera línea, se recargan las líneas.
-  useEffect(() => {
-    if (cab?.numero) cargarLineas({ tienda_terminal_codigo: cab.tienda_terminal_codigo, numero: cab.numero }).then(setLineas)
-  }, [cab?.numero, cab?.tienda_terminal_codigo])
-
   async function borrarLinea() {
     const l = lineas[sel]
     if (!cab || !l || !confirm(`¿Quitar ${l.articulo_codigo} del inventario?`)) return
-    const { error } = await supabase.from('inventario_linea').delete().eq('tienda_terminal_codigo', cab.tienda_terminal_codigo).eq('numero', cab.numero!).eq('numero_linea', l.numero_linea)
+    const { error } = await supabase
+      .from('inventario_linea')
+      .delete()
+      .eq('tienda_terminal_codigo', cab.tienda_terminal_codigo)
+      .eq('numero', cab.numero!)
+      .eq('numero_linea', l.numero_linea)
     if (error) return setMsg(error.message)
     setLineas(await cargarLineas({ tienda_terminal_codigo: cab.tienda_terminal_codigo, numero: cab.numero! }))
     setSel((s) => Math.max(0, s - 1))
@@ -155,7 +153,8 @@ export function InventariarAlmacenPage() {
 
   const editando = modo !== 'consulta'
   const inventariado = cab?.estado === 'inventariado'
-  const b = 'flex h-[40px] flex-1 items-center justify-center border border-[var(--gw-border-light)] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent'
+  const b =
+    'flex h-[40px] flex-1 items-center justify-center border border-[var(--gw-border-light)] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent'
 
   return (
     <div className="flex h-full items-start justify-center pt-6">
@@ -163,7 +162,7 @@ export function InventariarAlmacenPage() {
         <fieldset className="gw-group !pt-0">
           <legend className="text-[20px]">Almacén</legend>
           <div className="flex gap-1">
-            <GwInput className="!h-[34px] w-[70px] flex-none !text-[18px]" value={almacen} onChange={(e) => elegirAlmacen(e.target.value)} />
+            <GwInput className="!h-[34px] flex-none !text-[18px]" style={{ width: 70 }} value={almacen} onChange={(e) => elegirAlmacen(e.target.value)} />
             <GwSelect className="!h-[34px] !text-[16px]" value={almacen} onChange={(e) => elegirAlmacen(e.target.value)}>
               <option value="" />
               {almacenes.map((a) => (
@@ -176,14 +175,20 @@ export function InventariarAlmacenPage() {
           </div>
         </fieldset>
         <div className="flex items-center gap-1">
-          <span className="text-[20px]">Nº Invent.:</span>
+          <span className="whitespace-nowrap text-[20px]">Nº Invent.:</span>
           <span className="flex">
-            <GwInput className="!h-[34px] w-[110px] text-right !text-[20px]" readOnly value={numero} title={cab ? `Inventario ${cab.tienda_terminal_codigo}-${cab.numero} · ${cab.estado}` : '0 = uno nuevo, se crea con la primera línea'} />
+            <GwInput
+              className="!h-[34px] text-right !text-[20px]"
+              style={{ width: 110 }}
+              readOnly
+              value={numero}
+              title={cab ? `Inventario ${cab.tienda_terminal_codigo}-${cab.numero} · ${cab.estado}` : '0 = uno nuevo, se crea con la primera línea'}
+            />
             <GwLookupButton disabled={!almacen} onClick={() => setDialogo('inventario')} title="Inventarios pendientes de este almacén" />
           </span>
           <button
             type="button"
-            className="gw-btn ml-auto h-[38px] gap-1 text-[18px]"
+            className="gw-btn ml-auto !h-[38px] !gap-1 whitespace-nowrap !px-2 !text-[18px]"
             disabled={!cab?.numero || inventariado || editando || ocupado || !lineas.length}
             title="Aplicar el inventario al stock"
             onClick={inventariar}
@@ -227,8 +232,9 @@ export function InventariarAlmacenPage() {
         </div>
         {editando && (
           <div className="grid grid-cols-[120px_minmax(0,1fr)_86px] gap-1">
-            <GwInput
+            <input
               ref={codigoRef}
+              className="gw-input"
               autoFocus
               disabled={modo === 'edicion'}
               placeholder="Código / barras"

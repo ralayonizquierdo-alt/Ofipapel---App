@@ -84,7 +84,10 @@ export function PlusPage() {
         if (e) throw new Error(e.code === '23505' ? `El Plu ${plu} ya está asignado.` : e.message)
       } else {
         const antes = filas[sel]
-        const { error: e } = await supabase.from('articulo_plu').update({ plu, articulo_codigo: draft.articulo_codigo, actualizado_en: new Date().toISOString() }).eq('plu', antes.plu)
+        const { error: e } = await supabase
+          .from('articulo_plu')
+          .update({ plu, articulo_codigo: draft.articulo_codigo, actualizado_en: new Date().toISOString() })
+          .eq('plu', antes.plu)
         if (e) throw new Error(e.code === '23505' ? `El Plu ${plu} ya está asignado.` : e.message)
       }
       await cargar()
@@ -137,7 +140,13 @@ export function PlusPage() {
                 <tr key="editor">
                   <td className="!px-0 text-center text-[10px]">▸</td>
                   <td className="!p-0">
-                    <GwInput autoFocus className="!h-[26px] !text-[17px]" value={draft.plu} maxLength={13} onChange={(e) => setDraft((d) => ({ ...d, plu: e.target.value.trim() }))} />
+                    <GwInput
+                      autoFocus
+                      className="!h-[26px] !text-[17px]"
+                      value={draft.plu}
+                      maxLength={13}
+                      onChange={(e) => setDraft((d) => ({ ...d, plu: e.target.value.trim() }))}
+                    />
                   </td>
                   <td className="!p-0">
                     <CampoArticulo

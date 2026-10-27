@@ -40,7 +40,7 @@ const INP = '!h-[28px] !text-[17px]'
 /** «+» grande de Códigos de Compra / de Barras (captura 06-21). */
 function BotonMas({ title, onClick }: { title: string; onClick: () => void }) {
   return (
-    <button type="button" className="gw-btn h-[28px] w-[56px] flex-none px-0 text-[26px] font-bold leading-none" title={title} onClick={onClick}>
+    <button type="button" className="gw-btn !h-[28px] !w-[56px] flex-none !px-0 !text-[26px] font-bold !leading-none" title={title} onClick={onClick}>
       +
     </button>
   )

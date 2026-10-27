@@ -106,7 +106,7 @@ export function useF4(onCerrar: () => void) {
 /** Paginador: «|‹ ‹ 1-200 de 3.415 › ›|». */
 export function Paginador({ desde, pagina, total, onIr }: { desde: number; pagina: number; total: number; onIr: (desde: number) => void }) {
   const hasta = Math.min(desde + pagina, total)
-  const b = 'gw-btn h-[24px] w-[32px] px-0'
+  const b = 'gw-btn !h-[24px] !w-[32px] !px-0'
   return (
     <div className="flex items-center gap-1 text-[14px]">
       <button type="button" className={b} disabled={desde === 0} onClick={() => onIr(0)} title="Primera página">
@@ -443,13 +443,13 @@ export function VisorInforme<T>({
           <div className="flex flex-none items-center gap-2">
             <div className="min-w-0 flex-1 text-[14px]">{totales(filas[0])}</div>
             {error && <span className="text-[13px] text-[#c42b1c]">{error}</span>}
-            <button type="button" className="gw-btn h-[32px] gap-1.5 text-[15px]" onClick={csv}>
+            <button type="button" className="gw-btn !h-[32px] !gap-1.5 !text-[15px]" onClick={csv}>
               <FileSpreadsheet size={15} className="text-[#127a12]" /> CSV
             </button>
-            <button type="button" className="gw-btn h-[32px] gap-1.5 text-[15px]" onClick={aImpresora}>
+            <button type="button" className="gw-btn !h-[32px] !gap-1.5 !text-[15px]" onClick={aImpresora}>
               <Printer size={15} /> Imprimir
             </button>
-            <button type="button" className="gw-btn h-[32px] gap-1.5 text-[15px]" onClick={onCerrar}>
+            <button type="button" className="gw-btn !h-[32px] !gap-1.5 !text-[15px]" onClick={onCerrar}>
               <X size={15} strokeWidth={3} className="text-[#c42b1c]" /> Cerrar
             </button>
           </div>
@@ -500,5 +500,15 @@ export function ImpresionInforme<T>({
       {!soloTotales && <TablaPapel cols={cols} filas={filas} clave={clave} />}
       <div className="mt-1 border-t border-black pt-1 text-[9pt]">{totales}</div>
     </Impresion>
+  )
+}
+
+/** Botón «Cerrar» grande de la barra inferior de los informes. */
+export function BotonCerrar({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" className="gw-btn !h-[46px] !w-[150px] !gap-1.5 !text-[18px]" onClick={onClick}>
+      <X size={17} strokeWidth={3} className="text-[#c42b1c]" />
+      Cerrar
+    </button>
   )
 }

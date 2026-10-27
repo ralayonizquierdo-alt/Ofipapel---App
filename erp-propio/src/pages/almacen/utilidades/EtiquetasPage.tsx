@@ -323,7 +323,8 @@ export function EtiquetasPage() {
               type="number"
               min={0}
               max={999}
-              className="mt-0.5 !h-[28px] w-[170px] text-right !text-[17px]"
+              className="mt-0.5 !h-[28px] text-right !text-[17px]"
+              style={{ width: 170 }}
               disabled={cuantas !== 'contador'}
               value={contador}
               onChange={(e) => setContador(Math.max(0, Math.min(999, Number(e.target.value) || 0)))}
@@ -540,7 +541,7 @@ function VistaEtiquetas({ etiquetas, sencilla, sinBarras, onCerrar }: { etiqueta
             </span>
             <button
               type="button"
-              className="gw-btn h-[32px] gap-1.5 text-[15px]"
+              className="gw-btn !h-[32px] !gap-1.5 !text-[15px]"
               onClick={() => {
                 setImprimir(true)
                 setTimeout(() => {
@@ -551,7 +552,7 @@ function VistaEtiquetas({ etiquetas, sencilla, sinBarras, onCerrar }: { etiqueta
             >
               <Printer size={15} /> Imprimir
             </button>
-            <button type="button" className="gw-btn h-[32px] gap-1.5 text-[15px]" onClick={onCerrar}>
+            <button type="button" className="gw-btn !h-[32px] !gap-1.5 !text-[15px]" onClick={onCerrar}>
               <X size={15} strokeWidth={3} className="text-[#c42b1c]" /> Cerrar
             </button>
           </div>
