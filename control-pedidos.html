@@ -1490,7 +1490,7 @@ function vistaComparacion(p, filas) {
         const acciones = CP.accionesPara(f, p.tipo);
         return `<tr>
           <td class="no-imprimir c-sel">${f.revisar ? `<input type="checkbox" class="selDec" value="${h(f.ref)}" ${marcadasDec.has(f.ref) ? 'checked' : ''} onchange="marcarDec(this)">` : ''}</td>
-          <td><b>${h(f.ref)}</b>${f.refProveedor ? `<div class="pequeno" title="El proveedor la factura con otro código">🔗 proveedor: ${h(f.refProveedor)}${(p.equivalencias || {})[f.refProveedor] ? ` <button class="btn peque" onclick="emparejar(${js(f.refProveedor)}, '')" title="No es la misma: deshacer">deshacer</button>` : ''}</div>` : ''}${f.alta ? ` <span class="pequeno">🆕 alta nueva</span>` : ''}${f.sugerencias.length ? `<div class="sugerencia">¿Quizá ${f.sugerencias.map((s) => h(s.ref)).join(', ')}? Corrígela arriba.</div>` : ''}</td>
+          <td><b>${h(f.ref)}</b>${f.refProveedor ? `<div class="pequeno" title="El proveedor la factura con otro código">${(p.iaDeshacer || []).some((e) => e.tipo === 'emparejar' && e.delProveedor === f.refProveedor) ? '🧠 ' : ''}🔗 proveedor: ${h(f.refProveedor)}${(p.equivalencias || {})[f.refProveedor] ? ` <button class="btn peque" onclick="emparejar(${js(f.refProveedor)}, '')" title="No es la misma: deshacer">deshacer</button>` : ''}</div>` : ''}${f.alta ? ` <span class="pequeno">🆕 alta nueva</span>` : ''}${f.sugerencias.length ? `<div class="sugerencia">¿Quizá ${f.sugerencias.map((s) => h(s.ref)).join(', ')}? Corrígela arriba.</div>` : ''}</td>
           <td>${h(f.desc)}</td>
           <td class="num">${f.cantPedida || '—'}</td><td class="num">${f.cantPropuesta || '—'}</td>
           <td class="num">${f.precioDeHistorial ? fmt(f.precioReferencia) + '<div class="pequeno">(último aceptado)</div>' : celdaPrecio(p, f.precioPedido, f.dtosPedido, f.netoPedido)}</td>
@@ -1595,13 +1595,13 @@ function bloqueFaltasSobras(p, filas) {
  *  y las sobras (erratas, expositor por piezas, sustitutos, mercancía de otro
  *  pedido de la campaña), con el botón para aplicarlo. */
 function bloqueExplicaciones(p, faltan, sobran) {
-  if (!faltan.length && !sobran.length) return '';
+  // Aunque ya no quede nada, lo aplicado por la IA se tiene que poder deshacer.
+  if (!faltan.length && !sobran.length) return (p.iaDeshacer || []).length && !esComercial() ? `<div class="aviso-caja info no-imprimir" style="margin-top:0">${bloqueIA(p)}</div>` : '';
   const otros = E.pedidos.filter((q) => q.id !== p.id && claveGrupo(q) === claveGrupo(p) && q.propuesta && q.lineas.length).map((q) => {
     const f = comparar(q);
     return { id: q.id, pedido: `${nPed(q.numero)}${esRepo(q) ? '' : ' (' + q.cliente + ')'}`, faltan: CP.faltasPendientes(f, q.decisiones), sobran: CP.faltasYSobras(f).sobran.filter((x) => !(q.decisiones[x.ref] || {}).accion) };
   });
   const ex = CP.explicarDiferencias(faltan, sobran, { otros });
-  if (!ex.length) return '';
   const icono = { errata: '✏️', sustituto: '🔁', expositor: '🧩', otroPedido: '📦' };
   const boton = (x) => x.tipo === 'errata' || x.tipo === 'sustituto'
     ? `<button class="btn peque" onclick="emparejar(${js(x.sobra.ref)}, ${js(x.falta.ref)})">🔗 Es la misma: emparejar</button>`
@@ -1611,14 +1611,153 @@ function bloqueExplicaciones(p, faltan, sobran) {
         ? `<button class="btn peque" onclick="pasarAOtroPedido(${js(x.sobra.ref)}, ${js(x.id)})">📦 Pasarla al pedido ${h(x.pedido)}</button>`
         : '';
   return `<div class="aviso-caja info no-imprimir" style="margin-top:0"><b>🧠 Por qué falta y sobra</b> <span class="pequeno">(lo que se deduce al mirarlas juntas; revísalo antes de aplicarlo)</span>
-    <ul style="margin:6px 0 0;padding-left:18px">${ex.map((x) => `<li>${icono[x.tipo] || ''} ${h(x.texto)} ${boton(x)}</li>`).join('')}</ul></div>`;
+    ${ex.length ? `<ul style="margin:6px 0 0;padding-left:18px">${ex.map((x) => `<li>${icono[x.tipo] || ''} ${h(x.texto)} ${boton(x)}</li>`).join('')}</ul>` : ''}
+    ${bloqueIA(p)}</div>`;
+}
+// ── «🧠 Revisar con IA» ─────────────────────────────────────────────────────
+// La IA solo propone; cada propuesta se aplica con su botón y todo lo aplicado
+// queda apuntado en p.iaDeshacer para deshacerlo de golpe.
+const iaPropuestas = {};
+function datosParaIA(p) {
+  const filas = comparar(p);
+  const corta = (x) => ({ ref: x.ref, desc: x.desc, cant: x.cant, precio: x.precio });
+  const pend = (q, f) => ({ faltan: CP.faltasPendientes(f, q.decisiones).map(corta), sobran: sobrasPendientes(q, f).filter((x) => (q.decisiones[x.ref] || {}).accion !== 'reclamar').map(corta) });
+  const otros = E.pedidos.filter((q) => q.id !== p.id && claveGrupo(q) === claveGrupo(p) && q.propuesta && q.lineas.length)
+    .map((q) => Object.assign({ id: q.id, pedido: nPed(q.numero) + (esRepo(q) ? '' : ' ' + q.cliente) }, pend(q, comparar(q))))
+    .filter((o) => o.faltan.length || o.sobran.length);
+  return Object.assign({ proveedor: p.proveedor, tipo: esRepo(p) ? 'reposicion' : 'comercial', otros }, pend(p, filas));
+}
+async function revisarConIA() {
+  const p = pedidoActual();
+  if (!EN_NETLIFY) { alert('La revisión con IA solo funciona en ofipapel.netlify.app.'); return; }
+  const datos = datosParaIA(p);
+  if (!datos.faltan.length && !datos.sobran.length) { alert('No queda nada sin explicar.'); return; }
+  iaPropuestas[p.id] = { estado: 'cargando' }; pintar();
+  try {
+    const jobId = nuevoId();
+    const cab = { 'content-type': 'application/json', 'x-ocr-token': OCR_TOKEN };
+    const r = await fetchReintentando(FN + 'revisar-diferencias-background', { method: 'POST', headers: cab, body: JSON.stringify({ jobId, datos }) }, 2);
+    if (r.status !== 202 && !r.ok) throw new Error('La revisión no responde (' + r.status + ')');
+    const limite = Date.now() + 5 * 60 * 1000;
+    let res = null;
+    while (!res && Date.now() < limite) {
+      await espera(3000);
+      let e;
+      try { e = await fetch(FN + 'leer-pedido-manuscrito-estado?jobId=' + encodeURIComponent(jobId), { headers: { 'x-ocr-token': OCR_TOKEN } }); } catch { continue; }
+      if (e.status === 202) continue;
+      const d = await e.json().catch(() => ({}));
+      if (!e.ok || d.status === 'error') throw errorDeLectura(d.error || 'Error en la revisión');
+      if (d.status === 'done') res = d.resultado;
+    }
+    if (!res) throw new Error('La revisión ha tardado demasiado');
+    iaPropuestas[p.id] = { estado: 'listo', propuestas: propuestasValidas(res.propuestas || [], datos) };
+  } catch (err) {
+    iaPropuestas[p.id] = { estado: 'error', error: err.message || String(err) };
+  }
+  pintar();
+}
+/** Solo se queda con lo que nombra referencias que existen de verdad, y cada referencia una vez. */
+function propuestasValidas(ps, datos) {
+  const F = new Set(datos.faltan.map((x) => x.ref)), S = new Set(datos.sobran.map((x) => x.ref));
+  const ids = new Set(datos.otros.map((o) => o.id));
+  const usadas = new Set();
+  const libre = (r) => !usadas.has(r);
+  const out = [];
+  for (const x of ps) {
+    let ok = false, refs = [];
+    if (x.tipo === 'emparejar') { refs = [x.nuestra, x.delProveedor]; ok = F.has(x.nuestra) && S.has(x.delProveedor); }
+    else if (x.tipo === 'expositor') { refs = [x.nuestra, ...(x.piezas || [])]; ok = F.has(x.nuestra) && (x.piezas || []).length > 0 && x.piezas.every((r) => S.has(r)); }
+    else if (x.tipo === 'otroPedido') { refs = [x.delProveedor]; ok = S.has(x.delProveedor) && ids.has(x.pedidoId); x.pedido = (datos.otros.find((o) => o.id === x.pedidoId) || {}).pedido; }
+    if (!ok || !refs.every(libre)) continue;
+    refs.forEach((r) => usadas.add(r));
+    out.push(x);
+  }
+  return out;
+}
+function bloqueIA(p) {
+  const st = iaPropuestas[p.id];
+  const log = p.iaDeshacer || [];
+  const deshacer = log.length ? ` <button class="btn peque" onclick="deshacerIA()">↩️ Deshacer lo aplicado por la IA (${log.length})</button>` : '';
+  if (esComercial()) return '';
+  if (!st) return `<div class="fila" style="margin-top:8px;gap:6px"><button class="btn peque primario" onclick="revisarConIA()">🧠 Revisar con IA lo que queda</button><span class="pequeno">Razona referencias, cantidades, precios y colores; solo propone, tú decides.</span>${deshacer}</div>`;
+  if (st.estado === 'cargando') return `<div style="margin-top:8px">🧠 Revisando… (unos segundos)${deshacer}</div>`;
+  if (st.estado === 'error') return `<div style="margin-top:8px" class="pequeno">🧠 No se ha podido revisar: ${h(st.error)} <button class="btn peque" onclick="revisarConIA()">Volver a intentar</button>${deshacer}</div>`;
+  const icono = { emparejar: '🔗', expositor: '🧩', otroPedido: '📦' };
+  const texto = (x) => x.tipo === 'emparejar' ? `«${x.delProveedor}» del proveedor es tu «${x.nuestra}»`
+    : x.tipo === 'expositor' ? `El expositor «${x.nuestra}» viene en piezas: ${x.piezas.join(', ')}`
+      : `«${x.delProveedor}» es del pedido ${x.pedido}`;
+  return `<div style="margin-top:8px"><b>🧠 La IA propone</b>${st.propuestas.length ? '' : ': nada más que explicar con seguridad.'}${deshacer}
+    ${st.propuestas.length ? `<ul style="margin:6px 0 0;padding-left:18px">${st.propuestas.map((x, i) => `<li>${icono[x.tipo]} ${h(texto(x))} <span class="pequeno">— ${h(x.motivo)}${x.confianza === 'media' ? ' (confianza media)' : ''}</span> <button class="btn peque" onclick="aplicarIA(${i})">Aplicar</button></li>`).join('')}</ul>
+      ${st.propuestas.length > 1 ? `<button class="btn peque" style="margin-top:4px" onclick="aplicarTodasIA()">Aplicar todas</button>` : ''}` : ''}</div>`;
+}
+function aplicarIA(i, enLote) {
+  const p = pedidoActual();
+  const st = iaPropuestas[p.id];
+  const x = st && st.propuestas[i];
+  if (!x) return;
+  p.iaDeshacer = (p.iaDeshacer || []).slice();
+  const dec = (r) => (p.decisiones[r] ? Object.assign({}, p.decisiones[r]) : null);
+  if (x.tipo === 'emparejar') {
+    const c = E.catalogos[prov(p.proveedor)] || {};
+    p.iaDeshacer.push({ tipo: 'emparejar', delProveedor: x.delProveedor, nuestra: x.nuestra, dec: dec(x.nuestra), cat: (c.equivalencias || {})[x.delProveedor] || null, pEq: (p.equivalencias || {})[x.delProveedor] || null });
+    emparejar(x.delProveedor, x.nuestra);
+  } else if (x.tipo === 'expositor') {
+    const refs = [x.nuestra, ...x.piezas];
+    p.iaDeshacer.push({ tipo: 'decisiones', antes: Object.fromEntries(refs.map((r) => [r, dec(r)])) });
+    aplicarExpositor(x.nuestra, x.piezas.join('\n'));
+  } else if (x.tipo === 'otroPedido') {
+    const movidas = pasarAOtroPedido(x.delProveedor, x.pedidoId, true);
+    if (movidas) p.iaDeshacer.push({ tipo: 'mover', ref: x.delProveedor, destinoId: x.pedidoId, dec: dec(x.delProveedor), movidas });
+  }
+  st.propuestas = st.propuestas.filter((y) => y !== x);
+  if (!enLote) { guardar(); pintar(); }
+}
+function aplicarTodasIA() {
+  const p = pedidoActual();
+  const st = iaPropuestas[p.id];
+  while (st && st.propuestas.length) aplicarIA(0, true);
+  guardar(); pintar();
+}
+/** Deshace, del último al primero, todo lo que aplicó la IA en este pedido. */
+function deshacerIA() {
+  const p = pedidoActual();
+  const log = (p.iaDeshacer || []).slice().reverse();
+  if (!log.length || !confirm(`¿Deshacer las ${log.length} cosas que aplicó la IA en este pedido? Tus decisiones a mano no se tocan.`)) return;
+  const c = E.catalogos[prov(p.proveedor)] = E.catalogos[prov(p.proveedor)] || { fecha: hoy(), items: {} };
+  const ponDec = (r, d) => { if (d) p.decisiones[r] = d; else delete p.decisiones[r]; };
+  for (const e of log) {
+    if (e.tipo === 'emparejar') {
+      p.equivalencias = Object.assign({}, p.equivalencias); c.equivalencias = Object.assign({}, c.equivalencias);
+      if (e.pEq) p.equivalencias[e.delProveedor] = e.pEq; else delete p.equivalencias[e.delProveedor];
+      if (e.cat) c.equivalencias[e.delProveedor] = e.cat; else delete c.equivalencias[e.delProveedor];
+      ponDec(e.nuestra, e.dec);
+    } else if (e.tipo === 'decisiones') {
+      for (const [r, d] of Object.entries(e.antes)) ponDec(r, d);
+    } else if (e.tipo === 'mover') {
+      const q = pedidoPorId(e.destinoId);
+      for (const [campo, ls] of Object.entries(e.movidas || {})) {
+        if (q && q[campo]) {
+          const quitar = ls.map((l) => JSON.stringify(l));
+          q[campo].lineas = q[campo].lineas.filter((l) => { const i = quitar.indexOf(JSON.stringify(l)); if (i < 0) return true; quitar.splice(i, 1); return false; });
+          invalidar(q);
+        }
+        p[campo] = p[campo] || { fecha: hoy(), archivo: '', cabecera: {}, lineas: [] };
+        p[campo].lineas = p[campo].lineas.concat(ls);
+      }
+      ponDec(e.ref, e.dec);
+    }
+  }
+  p.iaDeshacer = [];
+  delete iaPropuestas[p.id];
+  invalidar(p); guardar(); pintar();
 }
 /** Lo que llegó al pedido equivocado: sus líneas de propuesta y factura pasan al otro. */
-function pasarAOtroPedido(ref, destinoId) {
+function pasarAOtroPedido(ref, destinoId, silencioso) {
   const p = pedidoActual(); const q = pedidoPorId(destinoId);
-  if (!p || !q) return;
+  if (!p || !q) return null;
   const k = CP.claveRef(ref);
   let n = 0;
+  const movidas = {};
   for (const campo of ['propuesta', 'factura']) {
     const x = p[campo]; if (!x) continue;
     const van = x.lineas.filter((l) => CP.claveRef(l.ref) === k);
@@ -1626,11 +1765,13 @@ function pasarAOtroPedido(ref, destinoId) {
     x.lineas = x.lineas.filter((l) => !van.includes(l));
     q[campo] = q[campo] || { fecha: hoy(), archivo: x.archivo, cabecera: Object.assign({}, x.cabecera), lineas: [] };
     q[campo].lineas = q[campo].lineas.concat(van);
+    movidas[campo] = JSON.parse(JSON.stringify(van));
     n += van.length;
   }
-  if (!n) return;
+  if (!n) return null;
   delete p.decisiones[ref];
   invalidar(p); invalidar(q); guardar(); pintar();
+  if (silencioso) return movidas;
   alert(`«${ref}» pasada al pedido ${nPed(q.numero)}${q.cliente ? ' (' + q.cliente + ')' : ''}. Los dos pedidos hay que revalidarlos.`);
 }
 function aplicarExpositor(expositor, piezas) {
