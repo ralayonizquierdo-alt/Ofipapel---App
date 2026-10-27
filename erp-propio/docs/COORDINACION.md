@@ -145,6 +145,35 @@ pantalla llevan la marca «confirmar con Luis».
   con tarjeta a la 572 u otra; cuentas genéricas (entradas de caja 759, salidas
   629, redondeo 659); tickets en un asiento por día y tienda o uno por ticket.
 
+### Dudas de los bloques Caja, Facturación, Maestros, Listados y Almacén (27/10)
+
+- **Caja:** qué filtran «D.C. Fra.» 1-04/2-01/3-02 del listado; qué hace el
+  botón «Ejercicio»; si el cierre genera movimiento «Cierres» por el efectivo
+  retirado; si «Crédito» es lo pendiente de ventas a crédito; qué fondo se
+  propone al cerrar; si eliminar un movimiento lo borra (aquí baja lógica); si
+  el campo Documento sale vacío en movimientos de ventas.
+- **Facturación:** qué es el «D.C.» y cómo se forma un número como 1100201
+  (series reales); qué significa cada «tipo de factura global» del cliente (1,
+  3); factura por cliente o por sucursal y en qué tienda se numera; si al
+  generar facturas se crean ya los vencimientos; si anular libera los
+  albaranes; rectificación total o parcial; qué fecha sale sin título bajo
+  Observaciones; qué hace «Pagada».
+- **Maestros:** cadencias de formas de pago (nivel0 = Resto?); nombres de
+  ajuste de vencimientos, «Utilizar IGIC en ventas» y «Eliminar facturas»;
+  relación entre la columna antigua `generar_vencimientos` y «ponerlos como
+  pagados»; formas de pago de los cierres de la caja central y dirección de la
+  empresa (no vienen en la carga).
+- **Listados:** tipos de informe y columnas de cada listado (solo había
+  capturas de los filtros); si se usan cobros en divisas; qué total debe salir
+  en «Pedidos desglosados» (líneas ≠ cabecera: ¿descuentos/gastos de pie?).
+- **Almacén:** opciones de los desplegables sin captura (tipos de informe,
+  órdenes, nº de etiquetas por artículo); qué son Familia nivel 1º/2º/3º; qué
+  fecha es «De Pedido/De Llegada/De Factura» en Movimientos; formatos reales de
+  etiquetas; stock inicial e IGIC por defecto en Creación rápida; lista de
+  campos de Modificación en bloque y «Sin Desc. Corta»; dígitos de los PLU; si
+  Eliminación borra de verdad y qué trae el submenú Recalcular Stock; a qué
+  cantidad restaura un punto de restauración.
+
 ## Datos de prueba en la base de datos
 
 Creados durante las pruebas; se borran cuando el usuario apruebe el borrado en
