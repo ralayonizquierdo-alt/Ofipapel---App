@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Check, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { usePermisos } from '../../../lib/PermisosContext'
 import { GwField, GwInput, GwLookupButton, GwNumber, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
 import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
 import { gwConCeros, useListaOrdenada, type GwListaOrdenadaDef } from '../../../components/gw/GwListaOrdenada'
@@ -279,9 +280,17 @@ export function GenerarPeticionHost() {
   const [aviso, setAviso] = useState<{ t: string; n: number } | null>(null)
   const ruta = useRef(pathname)
   ruta.current = pathname
+  // Permiso de grupo «Generar Petición» (CTRL+P y menú Compras).
+  const { tiene } = usePermisos()
+  const puedeGenerar = tiene('accion:generar-peticion')
+  const permitido = useRef(false)
+  useEffect(() => {
+    permitido.current = puedeGenerar
+  }, [puedeGenerar])
 
   useEffect(() => {
     const abrir = () => {
+      if (!permitido.current) return
       const m = ruta.current.match(/^\/articulos\/([^/]+)$/)
       const codigo = m && m[1] !== 'lista' && m[1] !== 'nuevo' ? decodeURIComponent(m[1]) : null
       setAbierto((a) => a ?? { articulo: codigo })

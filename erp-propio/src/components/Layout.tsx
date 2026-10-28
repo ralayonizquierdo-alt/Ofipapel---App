@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -7,6 +7,7 @@ import { MenuBar } from './shell/MenuBar'
 import { QuickBar } from './shell/QuickBar'
 import { MENUS, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
 import { NexaAsistente } from '../nexa/NexaAsistente'
+import { SinPermiso, usePermisos } from '../lib/PermisosContext'
 
 // Ventana principal con el aspecto de GeminisWin: franja de título, barra de menús,
 // barra lateral de accesos rápidos, área MDI gris con la ventana activa y barra de estado.
@@ -18,6 +19,18 @@ export function Layout() {
   const [hint, setHint] = useState<string | null>(null)
   const [ayuda, setAyuda] = useState<string | null>(null)
   const title = windowTitle(pathname)
+  // Permisos por grupo de acceso: la ventana no se abre si se entra escribiendo la URL.
+  const permisos = usePermisos()
+  const permisosRef = useRef(permisos)
+  permisosRef.current = permisos
+  const dialogoSuelto = (pathname === '/caja/entrada' || pathname === '/caja/salida') && !permisos.cargando && permisos.puedeRuta(pathname)
+  const contenido = permisos.cargando ? (
+    <div className="p-4 text-[13px]">Cargando permisos…</div>
+  ) : permisos.puedeRuta(pathname) ? (
+    <Outlet />
+  ) : (
+    <SinPermiso />
+  )
 
   // Al entrar (iniciar sesión o abrir la aplicación en «/») se abre el Panel de Control. Solo al
   // montar: cerrar la ventana deja el escritorio vacío y «/» ya no lo vuelve a abrir.
@@ -36,6 +49,7 @@ export function Layout() {
   }, [])
 
   function runMenu(i: MenuItem) {
+    if (!permisosRef.current.puedeOpcion(i)) return
     if (i.to) navigate(i.to)
     else if (i.action === 'signout') signOut()
     else if (i.action === 'close-window') navigate('/')
@@ -114,14 +128,14 @@ export function Layout() {
         <div className="relative min-w-0 flex-1 bg-[var(--gw-mdi)]">
           <Watermark />
           {/* Entrada / Salida en caja: diálogo suelto sobre el escritorio, sin ventana detrás (como GeminisWin). */}
-          {(pathname === '/caja/entrada' || pathname === '/caja/salida') && <Outlet />}
-          {pathname !== '/' && pathname !== '/caja/entrada' && pathname !== '/caja/salida' && (
+          {dialogoSuelto && contenido}
+          {pathname !== '/' && !dialogoSuelto && (
             <GwWindow
               title={title}
               onClose={() => navigate('/')}
               className="absolute inset-1 z-10 [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-auto"
             >
-              <Outlet />
+              {contenido}
             </GwWindow>
           )}
           {/* NEXA: avatar flotante + panel de conversación, disponible en todas las pantallas */}

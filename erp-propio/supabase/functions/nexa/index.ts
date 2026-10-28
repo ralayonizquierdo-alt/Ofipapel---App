@@ -10,6 +10,9 @@
 //   RLS. Nunca se usa la service role.
 // - En esta fase NEXA es de SOLO LECTURA: fn_nexa_consulta ejecuta las consultas en una
 //   transacción read only.
+// - Permisos por grupo de acceso: abrir_pantalla solo propone pantallas que el grupo del
+//   usuario permite (fn_mis_permisos / fn_es_administrador, misma regla que la interfaz en
+//   src/lib/permisos.ts). Las consultas siguen limitadas por RLS como hasta ahora.
 //
 // FUTURO (preparado, no construido): acciones que modifiquen datos («crea el pedido»,
 // «cambia el precio»). Irán como herramientas nuevas que NO ejecutan nada: devuelven una
@@ -72,7 +75,7 @@ Cómo respondes:
 - Usa markdown sencillo: párrafos cortos, listas, **negritas** y TABLAS markdown para cualquier listado de varias filas (artículos, clientes, pedidos, totales…). Importes con 2 decimales y «€», formato español (1.234,56 €). Fechas dd/mm/aaaa.
 - NUNCA inventes datos. Cualquier dato del negocio (ventas, stock, clientes, precios, pedidos…) solo lo afirmas si lo has consultado en esta conversación con consultar_bd. Si no lo puedes consultar o no aparece, dilo tal cual. Si una consulta devuelve 0 filas, dilo; no supongas.
 - Si la pregunta es ambigua, haz la consulta más razonable y explica en una línea qué has interpretado.
-- Cuando tenga sentido llevar al usuario a una ficha o pantalla, usa abrir_pantalla (el programa le enseña un botón «Abrir»; tú no navegas).
+- Cuando tenga sentido llevar al usuario a una ficha o pantalla, usa abrir_pantalla (el programa le enseña un botón «Abrir»; tú no navegas). Solo se pueden proponer pantallas que su grupo de acceso permite: si abrir_pantalla responde que no tiene permiso, no insistas ni busques otra ruta para lo mismo; dile que esa opción no está permitida a su grupo y que lo pida a un administrador.
 - En esta fase eres de SOLO LECTURA: no puedes crear, modificar ni borrar nada. Si te piden un cambio, explica cómo hacerlo en el programa y ofrece abrir la pantalla.
 
 Seguridad:
@@ -151,6 +154,43 @@ interface Ruta {
   etiqueta: string
 }
 
+// ---------------------------------------------------------------- Permisos por grupo de acceso
+// Copia de src/lib/permisos.ts (rutaPermitida, LIBRES, REDIRECCIONES): si cambian allí, cambiar aquí.
+
+const LIBRES = ['/', '/resumen', '/cambiar-clave']
+const REDIRECCIONES: Record<string, string> = {
+  '/caja': '/caja/aperturas',
+  '/caja/apertura': '/caja/aperturas',
+  '/caja/cierre': '/caja/aperturas',
+  '/compras': '/pedidos-proveedor',
+  '/pagos': '/pagos-proveedor',
+  '/stock': '/almacen/listados-articulos',
+}
+interface Permisos {
+  admin: boolean
+  codigos: Set<string>
+}
+const cubre = (codigo: string, ruta: string) => ruta === codigo || ruta.startsWith(codigo + '/')
+function rutaPermitida(rutaCompleta: string, p: Permisos): boolean {
+  if (p.admin) return true
+  const ruta = (rutaCompleta.split(/[?#]/)[0] || '/').replace(/(.)\/+$/, '$1')
+  if (LIBRES.includes(ruta)) return true
+  for (const c of p.codigos) {
+    if (!c.startsWith('/')) continue
+    if (cubre(c, ruta)) return true
+    const destino = REDIRECCIONES[c]
+    if (destino && cubre(destino, ruta)) return true
+  }
+  const destino = REDIRECCIONES[ruta]
+  return destino ? rutaPermitida(destino, p) : false
+}
+/** Permisos del usuario (con su JWT). Si falla la lectura: ninguno (solo lo libre). */
+async function leerPermisos(sb: SupabaseClient): Promise<Permisos> {
+  const [p, a] = await Promise.all([sb.rpc('fn_mis_permisos'), sb.rpc('fn_es_administrador')])
+  const codigos = new Set<string>(p.error ? [] : ((p.data ?? []) as unknown[]).map((x) => String(x)))
+  return { admin: !a.error && a.data === true, codigos }
+}
+
 function recortar(texto: string) {
   if (texto.length <= MAX_RESULTADO) return texto
   return texto.slice(0, MAX_RESULTADO) + `\n[RESULTADO RECORTADO: ${texto.length} caracteres. Pide menos columnas o agrega en SQL.]`
@@ -161,6 +201,7 @@ async function ejecutarHerramienta(
   nombre: string,
   entrada: Record<string, unknown>,
   rutas: Ruta[],
+  permisos: () => Promise<Permisos>,
 ): Promise<{ texto: string; error: boolean }> {
   if (nombre === 'consultar_bd') {
     const sql = typeof entrada.sql === 'string' ? entrada.sql : ''
@@ -184,6 +225,9 @@ async function ejecutarHerramienta(
     const etiqueta = typeof entrada.etiqueta === 'string' ? entrada.etiqueta.trim().slice(0, 80) : ''
     if (!/^\/[A-Za-z0-9._\-/]{0,120}$/.test(ruta) || ruta.includes('..')) {
       return { texto: 'Ruta no válida: debe ser una ruta interna como /clientes/00123.', error: true }
+    }
+    if (!rutaPermitida(ruta, await permisos())) {
+      return { texto: 'El usuario no tiene permiso para esa pantalla (su grupo de acceso no la incluye): no se le ha propuesto.', error: true }
     }
     if (!rutas.some((r) => r.ruta === ruta)) rutas.push({ ruta, etiqueta: etiqueta || ruta })
     return { texto: 'Hecho: el panel muestra un botón «Abrir» para esa pantalla.', error: false }
@@ -300,6 +344,9 @@ Deno.serve(async (req) => {
   const SISTEMA = sistema(await esquema(sb))
   const client = new Anthropic({ apiKey, maxRetries: 2, timeout: 90_000 })
   const rutas: Ruta[] = []
+  // Permisos del usuario: se leen una vez, solo si NEXA llega a proponer alguna pantalla.
+  let permisosCache: Promise<Permisos> | null = null
+  const permisos = () => (permisosCache ??= leerPermisos(sb))
   let consultas = 0
   const inicio = Date.now()
 
@@ -346,7 +393,7 @@ Deno.serve(async (req) => {
       const resultados: Anthropic.Beta.BetaToolResultBlockParam[] = []
       for (const uso of usos) {
         if (uso.name === 'consultar_bd') consultas++
-        const r = await ejecutarHerramienta(sb, uso.name, (uso.input ?? {}) as Record<string, unknown>, rutas)
+        const r = await ejecutarHerramienta(sb, uso.name, (uso.input ?? {}) as Record<string, unknown>, rutas, permisos)
         resultados.push({ type: 'tool_result', tool_use_id: uso.id, content: r.texto, is_error: r.error })
       }
       mensajes.push({ role: 'user', content: resultados })

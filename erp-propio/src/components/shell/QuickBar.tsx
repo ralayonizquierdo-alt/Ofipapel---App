@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
+import { usePermisos } from '../../lib/PermisosContext'
 import {
   Archive,
   Banknote,
@@ -49,19 +50,23 @@ export const QUICK_ITEMS: QuickItem[] = [
 ]
 
 export function QuickBar({ onRun, onHover }: { onRun: (i: QuickItem) => void; onHover: (text: string | null) => void }) {
+  const { puedeRuta } = usePermisos()
   return (
     <div className="flex w-[62px] flex-none flex-col items-stretch overflow-y-auto border-r border-[var(--gw-border)] bg-[var(--gw-face)] py-1">
       {QUICK_ITEMS.map((q) => {
-        const enabled = Boolean(q.to || q.action)
+        const construida = Boolean(q.to || q.action)
+        // En gris también lo que el grupo de acceso no permite.
+        const enabled = construida && (!q.to || puedeRuta(q.to))
+        const motivo = construida ? 'Sin permiso: tu grupo de acceso no tiene esta opción' : 'Aún no disponible en el ERP propio'
         const Icon = q.icon
         return (
           <button
             key={q.label}
             type="button"
             disabled={!enabled}
-            title={enabled ? q.description : 'Aún no disponible en el ERP propio'}
+            title={enabled ? q.description : motivo}
             onClick={() => onRun(q)}
-            onMouseEnter={() => onHover(enabled ? q.description : `${q.description} — Aún no disponible en el ERP propio`)}
+            onMouseEnter={() => onHover(enabled ? q.description : `${q.description} — ${motivo}`)}
             onMouseLeave={() => onHover(null)}
             className="flex flex-col items-center gap-[1px] border border-transparent py-[3px] hover:border-[var(--gw-border)] hover:bg-[#e5f1fb] disabled:opacity-45 disabled:hover:border-transparent disabled:hover:bg-transparent"
           >

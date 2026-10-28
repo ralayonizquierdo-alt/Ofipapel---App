@@ -328,9 +328,23 @@ integrado en la base de datos:
   la Edge Function **`empleados-acceso`**, que comprueba que quien lo pide es
   administrador.
 - **Reglas de acceso (RLS):** sin sesión no se lee ni se escribe nada.
-- **Pendiente:** **permisos por grupo de acceso**, como en GeminisWin (cada
-  empleado ve en gris lo que no puede usar, y NEXA y el Panel respetan esos
-  permisos).
+- **Permisos por grupo de acceso** (como GeminisWin): cada empleado pertenece a
+  un grupo (`empleado.rol_id`, se elige en Empleados → Seguridad) y solo puede
+  usar las opciones de menú marcadas para su grupo en **Archivo → Grupos de
+  Acceso**; las demás salen en gris en los menús y la barra lateral, y si se
+  escribe la URL sale «No tienes permiso para esta opción». Cada opción de menú
+  es un permiso (`permiso.tipo = 'menu'`, código = su ruta, p. ej.
+  `/caja/movimientos`, o `accion:generar-peticion`); una ruta da acceso a lo
+  que cuelga de ella. Catálogo y reglas en `src/lib/permisos.ts` (sale solo de
+  `menus.ts`: una opción nueva aparece en la pantalla de grupos y se da de alta
+  en `permiso` al abrirla un administrador). Los permisos del usuario los da
+  `fn_mis_permisos()` y se exponen con `usePermisos()`. Los administradores lo
+  pueden todo. Sin empleado o sin grupo: solo Panel y Cambiar contraseña.
+  El Panel no enlaza a pantallas no permitidas y NEXA no las propone (filtro en
+  la Edge Function). Solo administradores escriben en `rol`/`rol_permiso`/
+  `permiso` (políticas restrictivas) y no se puede quitar «Administrador» al
+  último grupo administrador. Pendiente: las RLS de las tablas de negocio
+  siguen siendo «autenticado = todo» (el permiso de menú es de interfaz).
 
 ## 11. NEXA, la asistente con IA
 
@@ -393,7 +407,7 @@ lleve a la pantalla adecuada.
 **Funcionalidad**
 - **Gestor de pagos de clientes** (cobros), cuando lleguen sus capturas (hoy
   «Pagos» lleva a proveedores).
-- **Permisos por grupo de acceso.**
+- Permisos por grupo de acceso: hechos (apartado 10); falta llevarlos a las RLS de cada tabla.
 - Tipos de informe y columnas de los Listados.
 - Contabilidad: formato de exportación de la gestoría.
 - WooCommerce: configurar claves; más adelante, escribir en la web (cuando se

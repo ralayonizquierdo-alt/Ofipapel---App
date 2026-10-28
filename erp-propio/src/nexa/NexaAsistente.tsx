@@ -4,6 +4,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as KeyboardEventReact, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { usePermisos } from '../lib/PermisosContext'
 import { AlertTriangle, ArrowUpRight, Maximize2, Mic, Minimize2, Minus, RotateCcw, SendHorizontal, Square, Volume2, VolumeX, X } from 'lucide-react'
 import { NexaAvatar } from './NexaAvatar'
 import { getNexaState, onNexaState, type EstadoNexa } from './estado'
@@ -384,6 +385,10 @@ function Bienvenida({ onElegir, deshabilitado, conSaludo = true }: { onElegir: (
 }
 
 function Mensaje({ m, onAbrir }: { m: MensajeNexa; onAbrir: (ruta: string) => void }) {
+  // El servidor ya no propone pantallas sin permiso; aquí se vuelve a filtrar por si acaso
+  // (p. ej. conversaciones guardadas de antes o permisos cambiados después).
+  const { puedeRuta } = usePermisos()
+  const rutas = (m.rutas ?? []).filter((r) => puedeRuta(r.ruta))
   if (m.rol === 'usuario') {
     return (
       <div className="gw-seleccionable ml-10 self-end whitespace-pre-wrap rounded-lg rounded-br-sm bg-[#1f4e9c] px-3 py-1.5 text-[13px] leading-[18px] text-white shadow-sm">
@@ -404,9 +409,9 @@ function Mensaje({ m, onAbrir }: { m: MensajeNexa; onAbrir: (ruta: string) => vo
       <div className="gw-seleccionable">
         <Markdown texto={m.texto} />
       </div>
-      {m.rutas && m.rutas.length > 0 && (
+      {rutas.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {m.rutas.map((r) => (
+          {rutas.map((r) => (
             <button
               key={r.ruta}
               type="button"

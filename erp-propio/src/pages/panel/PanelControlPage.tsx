@@ -1,5 +1,6 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { usePermisos } from '../../lib/PermisosContext'
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -52,7 +53,9 @@ export function PanelControlPage() {
   const hoy = data?.meta.hoy ?? hoyCanarias()
   const diaSemana = DIAS[new Date(`${hoy}T12:00:00Z`).getUTCDay()]
 
-  const abrir = (ruta: string) => navigate(ruta)
+  // Solo enlazan las tarjetas y avisos que llevan a pantallas que el grupo de acceso permite.
+  const { puedeRuta } = usePermisos()
+  const abrir: Abrir = (ruta) => (puedeRuta(ruta) ? () => navigate(ruta) : undefined)
 
   return (
     <div
@@ -181,10 +184,10 @@ export function PanelControlPage() {
           </div>
 
           <div className="grid grid-cols-12 gap-1.5">
-            <Card className="col-span-8" title="Últimos pedidos" sub={per.label.toLowerCase()} right={<Enlace onClick={() => abrir('/gestor-pedidos')}>Gestor de pedidos</Enlace>}>
+            <Card className="col-span-8" title="Últimos pedidos" sub={per.label.toLowerCase()} right={<Enlace onClick={abrir('/gestor-pedidos')}>Gestor de pedidos</Enlace>}>
               <UltimosPedidos d={data} soloHora={periodo === 'hoy'} abrir={abrir} />
             </Card>
-            <Card className="col-span-4" title="Repartos de hoy" sub="entregas por ruta" right={<Enlace onClick={() => abrir('/repartos')}>Repartos</Enlace>}>
+            <Card className="col-span-4" title="Repartos de hoy" sub="entregas por ruta" right={<Enlace onClick={abrir('/repartos')}>Repartos</Enlace>}>
               <RepartosHoy d={data} abrir={abrir} />
             </Card>
           </div>
@@ -194,7 +197,11 @@ export function PanelControlPage() {
   )
 }
 
-function Enlace({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+/** Devuelve la acción de abrir la pantalla, o undefined si el grupo de acceso no la permite. */
+type Abrir = (ruta: string) => (() => void) | undefined
+
+function Enlace({ onClick, children }: { onClick?: () => void; children: ReactNode }) {
+  if (!onClick) return null
   return (
     <button type="button" onClick={onClick} className="text-[11px] text-[#1d5fb4] underline-offset-2 hover:underline">
       {children} »
@@ -223,7 +230,8 @@ function Kpi({
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-w-0 flex-col items-stretch border bg-white px-2.5 py-1.5 text-left hover:border-[#1d5fb4] hover:bg-[#f5f9ff] ${
+      disabled={!onClick}
+      className={`flex min-w-0 flex-col items-stretch border bg-white px-2.5 py-1.5 text-left ${onClick ? 'hover:border-[#1d5fb4] hover:bg-[#f5f9ff]' : 'cursor-default'} ${
         alerta ? 'border-[#d03b3b] shadow-[inset_3px_0_0_#d03b3b]' : 'border-[#adadad] shadow-[inset_3px_0_0_#2a78d6]'
       }`}
     >
@@ -237,14 +245,14 @@ function Kpi({
   )
 }
 
-function Kpis({ d, per, abrir }: { d: PanelData; per: (typeof PERIODOS)[number]; abrir: (r: string) => void }) {
+function Kpis({ d, per, abrir }: { d: PanelData; per: (typeof PERIODOS)[number]; abrir: Abrir }) {
   const ph = d.pedidos_hoy
   const r = d.reparto_hoy
   const k = d.kpi
   const delta = k.tickets_ant > 0 ? ((k.tickets - k.tickets_ant) / k.tickets_ant) * 100 : null
   return (
     <div className="grid grid-cols-6 gap-1.5">
-      <Kpi label="Pedidos nuevos hoy" icon={ClipboardList} valor={fmtNum(ph.total)} onClick={() => abrir('/gestor-pedidos')}>
+      <Kpi label="Pedidos nuevos hoy" icon={ClipboardList} valor={fmtNum(ph.total)} onClick={abrir('/gestor-pedidos')}>
         <span className="flex items-center gap-2.5">
           {(
             [
@@ -265,7 +273,7 @@ function Kpis({ d, per, abrir }: { d: PanelData; per: (typeof PERIODOS)[number];
         icon={PackageCheck}
         valor={fmtNum(d.pendientes.por_preparar)}
         alerta={d.pendientes.atrasados > 0}
-        onClick={() => abrir('/gestor-pedidos')}
+        onClick={abrir('/gestor-pedidos')}
       >
         {d.pendientes.preparados} preparados sin servir
         {d.pendientes.atrasados > 0 ? ` · ${d.pendientes.atrasados} fuera de plazo` : ''}
@@ -284,7 +292,7 @@ function Kpis({ d, per, abrir }: { d: PanelData; per: (typeof PERIODOS)[number];
           )
         }
         alerta={r.no_entregadas > 0}
-        onClick={() => abrir('/repartos')}
+        onClick={abrir('/repartos')}
       >
         {r.entregas ? <Medidor e={r.entregadas} p={r.pendientes} n={r.no_entregadas} /> : 'Sin repartos para hoy'}
       </Kpi>
@@ -293,11 +301,11 @@ function Kpis({ d, per, abrir }: { d: PanelData; per: (typeof PERIODOS)[number];
         icon={Wrench}
         valor={fmtNum(d.reparaciones.abiertas)}
         alerta={d.reparaciones.atrasadas > 0}
-        onClick={() => abrir('/reparaciones')}
+        onClick={abrir('/reparaciones')}
       >
         {d.reparaciones.atrasadas > 0 ? `${d.reparaciones.atrasadas} atrasadas` : 'Ninguna atrasada'}
       </Kpi>
-      <Kpi label={`Nuevos pedidos web · ${per.label.toLowerCase()}`} icon={Globe} valor={fmtNum(d.pedidos_web.periodo)} onClick={() => abrir('/web/estado-pedidos')}>
+      <Kpi label={`Nuevos pedidos web · ${per.label.toLowerCase()}`} icon={Globe} valor={fmtNum(d.pedidos_web.periodo)} onClick={abrir('/web/estado-pedidos')}>
         {d.pedidos_web.por_preparar > 0
           ? `${d.pedidos_web.por_preparar} pendientes de preparar`
           : d.pedidos_web.ultimo_fecha
@@ -321,7 +329,7 @@ function Kpis({ d, per, abrir }: { d: PanelData; per: (typeof PERIODOS)[number];
             )}
           </span>
         }
-        onClick={() => abrir('/ventas')}
+        onClick={abrir('/ventas')}
       >
         {fmtNum(k.unidades, 2)} {k.unidades === 1 ? 'ud. vendida' : 'uds. vendidas'} · {k.devoluciones} devol. · vs {fmtNum(k.tickets_ant)}
       </Kpi>
@@ -350,7 +358,7 @@ function Medidor({ e, p, n, ancho }: { e: number; p: number; n: number; ancho?: 
 
 // ---- Avisos --------------------------------------------------------------------------------
 
-function Alertas({ d, abrir }: { d: PanelData; abrir: (r: string) => void }) {
+function Alertas({ d, abrir }: { d: PanelData; abrir: Abrir }) {
   const a = d.alertas
   const filas: { n: number; texto: string; detalle?: string; ruta: string; grave?: boolean }[] = [
     {
@@ -402,8 +410,9 @@ function Alertas({ d, abrir }: { d: PanelData; abrir: (r: string) => void }) {
           <li key={f.texto}>
             <button
               type="button"
-              onClick={() => abrir(f.ruta)}
-              className="flex w-full items-start gap-2 border-b border-[#eeeeee] px-1 py-[5px] text-left last:border-b-0 hover:bg-[#f2f7fd]"
+              onClick={abrir(f.ruta)}
+              disabled={!abrir(f.ruta)}
+              className="flex w-full items-start gap-2 border-b border-[#eeeeee] px-1 py-[5px] text-left last:border-b-0 enabled:hover:bg-[#f2f7fd] disabled:cursor-default"
             >
               <Icon size={15} color={color} className="mt-[1px] flex-none" aria-hidden />
               <span className="min-w-0 flex-1">
@@ -412,7 +421,7 @@ function Alertas({ d, abrir }: { d: PanelData; abrir: (r: string) => void }) {
                 </span>
                 {f.detalle && f.n > 0 && <span className="block truncate text-[11px] text-[#6d6d6d]">{f.detalle}</span>}
               </span>
-              {f.n > 0 && <span className="flex-none text-[11px] text-[#1d5fb4]">Ver »</span>}
+              {f.n > 0 && abrir(f.ruta) && <span className="flex-none text-[11px] text-[#1d5fb4]">Ver »</span>}
             </button>
           </li>
         )
@@ -423,7 +432,7 @@ function Alertas({ d, abrir }: { d: PanelData; abrir: (r: string) => void }) {
 
 // ---- Listas --------------------------------------------------------------------------------
 
-function TopArticulos({ d, abrir }: { d: PanelData; abrir: (r: string) => void }) {
+function TopArticulos({ d, abrir }: { d: PanelData; abrir: Abrir }) {
   const lista = d.top_articulos
   if (!lista.length) return <Vacio texto="Sin ventas en este periodo" />
   const max = Math.max(...lista.map((a) => a.unidades), 1)
@@ -431,7 +440,7 @@ function TopArticulos({ d, abrir }: { d: PanelData; abrir: (r: string) => void }
     <ol className="flex flex-col gap-1">
       {lista.map((a, i) => (
         <li key={a.codigo}>
-          <button type="button" onClick={() => abrir(`/articulos/${encodeURIComponent(a.codigo)}`)} className="w-full px-0.5 text-left hover:bg-[#f2f7fd]">
+          <button type="button" onClick={abrir(`/articulos/${encodeURIComponent(a.codigo)}`)} disabled={!abrir('/articulos')} className="w-full px-0.5 text-left enabled:hover:bg-[#f2f7fd] disabled:cursor-default">
             <span className="flex items-baseline gap-1.5">
               <span className="w-[14px] flex-none text-right text-[11px] text-[#76746e]">{i + 1}</span>
               <span className="min-w-0 flex-1 truncate" title={`${a.codigo} · ${a.descripcion ?? ''}`}>
@@ -464,7 +473,7 @@ const ESTADO: Record<string, string> = {
   Anulado: 'bg-[#f0f0f0] text-[#6d6d6d] border-[#d9d9d9] line-through',
 }
 
-function UltimosPedidos({ d, soloHora, abrir }: { d: PanelData; soloHora: boolean; abrir: (r: string) => void }) {
+function UltimosPedidos({ d, soloHora, abrir }: { d: PanelData; soloHora: boolean; abrir: Abrir }) {
   if (!d.ultimos_pedidos.length) return <Vacio texto="Sin pedidos en este periodo" />
   return (
     <table className="gw-grid table-fixed text-[12px]">
@@ -490,12 +499,13 @@ function UltimosPedidos({ d, soloHora, abrir }: { d: PanelData; soloHora: boolea
         {d.ultimos_pedidos.map((p) => {
           const o = ORIGEN[p.origen] ?? ORIGEN.tienda
           const Icon = p.reparacion ? Wrench : o.icon
+          const abrirPedido = abrir(`/${p.reparacion ? 'reparaciones' : 'pedidos'}/${encodeURIComponent(p.tienda)}/${p.numero}`)
           return (
             <tr
               key={`${p.tienda}-${p.numero}`}
-              className="cursor-pointer hover:[&>td]:bg-[#e5f1fb]"
-              onClick={() => abrir(`/${p.reparacion ? 'reparaciones' : 'pedidos'}/${encodeURIComponent(p.tienda)}/${p.numero}`)}
-              title="Abrir el pedido"
+              className={abrirPedido ? 'cursor-pointer hover:[&>td]:bg-[#e5f1fb]' : ''}
+              onClick={abrirPedido}
+              title={abrirPedido ? 'Abrir el pedido' : undefined}
             >
               <td className="tabular-nums">{soloHora ? (p.hora ?? '') : `${fmtFecha(p.fecha)} ${p.hora ?? ''}`.trim()}</td>
               <td className="tabular-nums">
@@ -520,7 +530,7 @@ function UltimosPedidos({ d, soloHora, abrir }: { d: PanelData; soloHora: boolea
   )
 }
 
-function RepartosHoy({ d, abrir }: { d: PanelData; abrir: (r: string) => void }) {
+function RepartosHoy({ d, abrir }: { d: PanelData; abrir: Abrir }) {
   if (!d.repartos_hoy.length) return <Vacio texto="No hay repartos generados para hoy" />
   return (
     <>
@@ -541,8 +551,9 @@ function RepartosHoy({ d, abrir }: { d: PanelData; abrir: (r: string) => void })
           <li key={`${r.tienda}-${r.numero}`}>
             <button
               type="button"
-              onClick={() => abrir(`/repartos/${encodeURIComponent(r.tienda)}/${r.numero}`)}
-              className="flex w-full flex-col gap-0.5 border-b border-[#eeeeee] px-1 py-1 text-left hover:bg-[#f2f7fd]"
+              onClick={abrir(`/repartos/${encodeURIComponent(r.tienda)}/${r.numero}`)}
+              disabled={!abrir('/repartos')}
+              className="flex w-full flex-col gap-0.5 border-b border-[#eeeeee] px-1 py-1 text-left enabled:hover:bg-[#f2f7fd] disabled:cursor-default"
             >
               <span className="flex items-baseline gap-1.5">
                 <b className="truncate">{r.ruta}</b>
