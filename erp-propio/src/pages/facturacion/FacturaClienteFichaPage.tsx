@@ -29,6 +29,7 @@ import {
   type RegistroVf,
   type Tramo,
 } from './facturaModel'
+import { cobrar } from './cobros/cobrosModel'
 import { FacturaImpresa, type ClienteFactura, type EmpresaFactura } from './FacturaImpresa'
 
 // Ficha «Facturas Clientes» (Facturación → Facturas en GeminisWin, captura 04-12): consulta de
@@ -332,15 +333,24 @@ export function FacturaClienteFichaPage() {
     }
     if (!confirm(`¿Dar por cobrados los ${pend.length} vencimientos pendientes (${formatGw(pendienteCuotas, 2)} €) con fecha de hoy?`)) return
     setOcupado(true)
+    // Se cobra con la lógica común del Gestor de Pagos de Clientes (fn_cobro_cliente_cobrar): actualiza la
+    // factura y sus albaranes y, si la forma de pago es de contado, apunta el ingreso en la caja abierta.
     for (const c of pend) {
-      const { error } = await supabase
-        .from('cobro_cliente')
-        .update({ estado_cobro: 'cobrado', importe_cobrado: n(c.cuota), fecha_pago: hoy() })
-        .eq('tienda_terminal_codigo', c.tienda_terminal_codigo)
-        .eq('codigo_pago', c.codigo_pago)
-      if (error) {
+      try {
+        await cobrar({
+          tienda: fac.tienda_terminal_codigo,
+          clase: 'factura',
+          docTienda: fac.tienda_terminal_codigo,
+          docNumero: fac.numero,
+          importe: r2(n(c.cuota) - n(c.importe_cobrado)),
+          fechaPago: hoy(),
+          formaPago: fac.forma_pago_codigo,
+          vencimiento: { tienda: c.tienda_terminal_codigo, codigo: c.codigo_pago },
+        })
+      } catch (e) {
         setOcupado(false)
-        return setMensaje(error.message)
+        setRecarga((x) => x + 1)
+        return setMensaje((e as Error).message)
       }
     }
     setOcupado(false)
@@ -636,8 +646,12 @@ export function FacturaClienteFichaPage() {
             >
               Ir a Ventas
             </BotonGrande>
-            {/* «Pagos de Clientes, Cobros» (menú Clientes) aún no existe: los cobros se ven y generan aquí. */}
-            <BotonGrande onClick={() => undefined} disabled icono={<HandCoins size={16} className="text-[#127a12]" />}>
+            {/* Abre el Gestor de Pagos de Clientes filtrado por esta factura. */}
+            <BotonGrande
+              onClick={() => fac && navigate(`/gestor-cobros-clientes?factura=${encodeURIComponent(fac.tienda_terminal_codigo)}-${fac.numero}`)}
+              disabled={sinFactura}
+              icono={<HandCoins size={16} className="text-[#127a12]" />}
+            >
               Ir a Pagos
             </BotonGrande>
             <BotonGrande onClick={generarPagos} disabled={sinFactura || anulada || ocupado} icono={<FilePlus2 size={16} />}>

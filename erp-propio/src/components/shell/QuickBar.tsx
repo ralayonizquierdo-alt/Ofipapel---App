@@ -35,7 +35,7 @@ export const QUICK_ITEMS: QuickItem[] = [
   { label: 'Cerrar Empl.', description: 'Cerrar Empleado', icon: UserRoundX, color: '#c0392b', action: 'signout' },
   { label: 'Clientes', description: 'Clientes', icon: Users, color: '#b7791f', to: '/clientes' },
   { label: 'Pedidos', description: 'Pedidos de Clientes', icon: ShoppingBasket, color: '#2f8f2f', to: '/pedidos' },
-  { label: 'Pagos', description: 'Pagos', icon: HandCoins, color: '#a8742a', to: '/pagos' },
+  { label: 'Pagos', description: 'Gestor de Pagos de Clientes', icon: HandCoins, color: '#a8742a', to: '/gestor-cobros-clientes' },
   { label: 'Caja', description: 'Caja', icon: Calculator, color: '#5d6d7e', to: '/caja' },
   { label: 'Ventas', description: 'TPV / Ventas', icon: Banknote, color: '#3d7f5a', to: '/tpv' },
   { label: 'Reparaciones', description: 'Reparaciones', icon: Wrench, color: '#6b4f9e', to: '/reparaciones' },
