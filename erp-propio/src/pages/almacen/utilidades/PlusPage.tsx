@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
+import { todasLasFilas } from '../../../lib/todasLasFilas'
 import { GwInput } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { useListaOrdenada } from '../../../components/gw/GwListaOrdenada'
@@ -30,10 +31,11 @@ export function PlusPage() {
   const filaRef = useRef<HTMLTableRowElement>(null)
 
   const cargar = useCallback(async () => {
-    const { data, error: e } = await supabase.from('articulo_plu').select('plu, articulo_codigo, articulo(descripcion)').order(orden).limit(5000)
-    if (e) return setError(e.message)
+    // Supabase corta cada respuesta en 1000 filas (un limit(5000) no sirve): por bloques.
+    const { data, error: e } = await todasLasFilas(() => supabase.from('articulo_plu').select('plu, articulo_codigo, articulo(descripcion)').order(orden).order('plu'))
+    if (e) return setError(e)
     setFilas(
-      ((data ?? []) as unknown as { plu: string; articulo_codigo: string; articulo: { descripcion: string } | null }[]).map((r) => ({
+      (data as unknown as { plu: string; articulo_codigo: string; articulo: { descripcion: string } | null }[]).map((r) => ({
         plu: r.plu,
         articulo_codigo: r.articulo_codigo,
         descripcion: r.articulo?.descripcion ?? '',

@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase'
+import { filasPorTrozos, todasLasFilas } from '../../../lib/todasLasFilas'
 import { recalcularTotalesPedido } from '../pedidos/totales'
 
 // Peticiones de Artículos (Compras → Peticiones de Artículos / Generar Petición, CTRL+P).
@@ -79,16 +80,20 @@ export interface PeticionATramitar {
 
 /** Peticiones tramitables con lo que les falta y el proveedor con el que se pedirían. */
 export async function cargarTramitables(filtro?: { claves?: { t: string; n: number }[] }): Promise<PeticionATramitar[]> {
-  let q = supabase
-    .from('peticion')
-    .select('tienda_terminal_codigo, numero, articulo_codigo, descripcion, cantidad, cantidad_tramitada, proveedor_codigo, origen_almacen_codigo, fecha_hora')
-    .in('estado', ESTADOS_TRAMITABLES)
-    .order('fecha_hora')
-    .limit(2000)
-  if (filtro?.claves?.length === 1) q = q.eq('tienda_terminal_codigo', filtro.claves[0].t).eq('numero', filtro.claves[0].n)
-  const { data, error } = await q
-  if (error) throw new Error(error.message)
-  let lista = data ?? []
+  const q = () => {
+    const b = supabase
+      .from('peticion')
+      .select('tienda_terminal_codigo, numero, articulo_codigo, descripcion, cantidad, cantidad_tramitada, proveedor_codigo, origen_almacen_codigo, fecha_hora')
+      .in('estado', ESTADOS_TRAMITABLES)
+      .order('fecha_hora')
+      .order('tienda_terminal_codigo')
+      .order('numero')
+    return filtro?.claves?.length === 1 ? b.eq('tienda_terminal_codigo', filtro.claves[0].t).eq('numero', filtro.claves[0].n) : b
+  }
+  // Supabase corta cada respuesta en 1000 filas: por bloques, para no dejar peticiones fuera.
+  const { data, error } = await todasLasFilas(q)
+  if (error) throw new Error(error)
+  let lista = data
   if (filtro?.claves && filtro.claves.length > 1) {
     const set = new Set(filtro.claves.map((k) => `${k.t}/${k.n}`))
     lista = lista.filter((r) => set.has(`${r.tienda_terminal_codigo}/${r.numero}`))
@@ -96,8 +101,8 @@ export async function cargarTramitables(filtro?: { claves?: { t: string; n: numb
   const arts = [...new Set(lista.map((r) => r.articulo_codigo as string))]
   const habitual = new Map<string, string | null>()
   if (arts.length) {
-    const { data: a } = await supabase.from('articulo').select('codigo_interno, proveedor_habitual_codigo').in('codigo_interno', arts)
-    for (const r of a ?? []) habitual.set(r.codigo_interno as string, r.proveedor_habitual_codigo as string | null)
+    const { data: a } = await filasPorTrozos(arts, (t) => supabase.from('articulo').select('codigo_interno, proveedor_habitual_codigo').in('codigo_interno', t).order('codigo_interno'))
+    for (const r of a) habitual.set(r.codigo_interno as string, r.proveedor_habitual_codigo as string | null)
   }
   return lista
     .map((r) => ({
@@ -170,24 +175,30 @@ export async function tramitarPeticiones(
 
   const { data: tienda } = await supabase.from('tienda_terminal').select('almacen_codigo').eq('codigo', opts.tienda).maybeSingle()
   const arts = [...new Set(pets.map((p) => p.articulo))]
-  const { data: artData, error: eArt } = await supabase
-    .from('articulo')
-    .select('codigo_interno, descripcion, codigo_compra_habitual, coste_puro, coste_neto, ultimo_descuento_compra_pct, igic_pct, impuesto2_pct, unidades_por_caja, cajas_por_bulto')
-    .in('codigo_interno', arts)
-  if (eArt) throw new Error(eArt.message)
-  const artDe = new Map((artData ?? []).map((a) => [a.codigo_interno as string, a]))
+  const { data: artData, error: eArt } = await filasPorTrozos(arts, (t) =>
+    supabase
+      .from('articulo')
+      .select('codigo_interno, descripcion, codigo_compra_habitual, coste_puro, coste_neto, ultimo_descuento_compra_pct, igic_pct, impuesto2_pct, unidades_por_caja, cajas_por_bulto')
+      .in('codigo_interno', t)
+      .order('codigo_interno'),
+  )
+  if (eArt) throw new Error(eArt)
+  const artDe = new Map(artData.map((a) => [a.codigo_interno as string, a]))
 
   const pedidos: { tienda: string; numero: number; proveedor: string; lineas: number }[] = []
   for (const [proveedor, grupo] of porProv) {
     const [{ data: prov }, { data: aps }] = await Promise.all([
       supabase.from('proveedor').select('forma_pago_codigo, descuento_pie_pct, no_aplica_impuesto2, almacen_defecto_codigo').eq('codigo', proveedor).maybeSingle(),
-      supabase
-        .from('articulo_proveedor')
-        .select('articulo_codigo, codigo_compra, coste_puro, coste_neto, ultimo_descuento_pct')
-        .eq('proveedor_codigo', proveedor)
-        .in('articulo_codigo', [...new Set(grupo.map((g) => g.articulo))]),
+      filasPorTrozos([...new Set(grupo.map((g) => g.articulo))], (t) =>
+        supabase
+          .from('articulo_proveedor')
+          .select('articulo_codigo, codigo_compra, coste_puro, coste_neto, ultimo_descuento_pct')
+          .eq('proveedor_codigo', proveedor)
+          .in('articulo_codigo', t)
+          .order('articulo_codigo'),
+      ),
     ])
-    const apDe = new Map((aps ?? []).map((a) => [a.articulo_codigo as string, a]))
+    const apDe = new Map(aps.map((a) => [a.articulo_codigo as string, a]))
     const almacen = opts.almacen || (prov?.almacen_defecto_codigo as string | null) || tienda?.almacen_codigo || '01'
 
     const { data: numero, error: eNum } = await supabase.rpc('fn_siguiente_numero', { p_tienda: opts.tienda, p_tipo_documento: 'pedido_proveedor', p_serie: '' })

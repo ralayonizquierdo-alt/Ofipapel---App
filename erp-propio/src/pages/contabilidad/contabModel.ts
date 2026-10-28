@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { todasLasFilas } from '../../lib/todasLasFilas'
 import { formatGw } from '../../components/gw'
 
 // Contabilidad: tipos, utilidades de fecha/importe y exportación CSV comunes a todas las pantallas.
@@ -186,8 +187,9 @@ export interface LineaLibro {
 }
 
 export async function cargarLibro(desde: string, hasta: string, libro: 'emitidas' | 'recibidas') {
-  const { data, error } = await supabase.rpc('fn_contab_libro_igic', { p_desde: desde, p_hasta: hasta, p_libro: libro })
-  if (error) throw new Error(error.message)
+  // Supabase corta cada respuesta en 1000 filas, también en las funciones: por bloques.
+  const { data, error } = await todasLasFilas(() => supabase.rpc('fn_contab_libro_igic', { p_desde: desde, p_hasta: hasta, p_libro: libro }), { tope: 500000 })
+  if (error) throw new Error(error)
   return (data ?? []) as LineaLibro[]
 }
 

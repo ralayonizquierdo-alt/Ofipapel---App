@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { Check, FileSpreadsheet, Monitor, Printer, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { avisoTope, filasPorTrozos, todasLasFilas } from '../../lib/todasLasFilas'
 import { GwCheck, GwDate, GwGroup, GwInput, GwLookupButton, GwRadio, GwSelect, formatGw } from '../../components/gw'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { gwConCeros } from '../../components/gw/GwListaOrdenada'
@@ -43,6 +44,9 @@ const INFORMES: Record<Informe, string> = {
   clientes: 'Resumen de facturas por cliente',
   igic: 'Desglose de IGIC por tipo',
 }
+
+/** Máximo de facturas del listado; si hay más, avisa de que se afine el filtro. */
+const TOPE_FACTURAS = 20000
 
 export function ListadoFacturasPage() {
   const navigate = useNavigate()
@@ -94,39 +98,48 @@ export function ListadoFacturasPage() {
   async function procesar(): Promise<Fila[] | null> {
     setProcesando(true)
     setError(null)
-    let q = supabase
-      .from('factura')
-      .select('tienda_terminal_codigo, numero, serie, n_factura, fecha_factura, cliente_codigo, nombre_cliente, nif_cliente, tipo_factura, total_base, total_igic, total_retencion, total, forma_pago_codigo, estado_envio_aeat')
-    if (fModo === 'rango') {
-      if (fDesde) q = q.gte('fecha_factura', fDesde)
-      if (fHasta) q = q.lte('fecha_factura', fHasta)
+    const consulta = () => {
+      let q = supabase
+        .from('factura')
+        .select('tienda_terminal_codigo, numero, serie, n_factura, fecha_factura, cliente_codigo, nombre_cliente, nif_cliente, tipo_factura, total_base, total_igic, total_retencion, total, forma_pago_codigo, estado_envio_aeat')
+      if (fModo === 'rango') {
+        if (fDesde) q = q.gte('fecha_factura', fDesde)
+        if (fHasta) q = q.lte('fecha_factura', fHasta)
+      }
+      if (tModo === 'rango') {
+        if (tDesde) q = q.gte('tienda_terminal_codigo', tDesde)
+        if (tHasta) q = q.lte('tienda_terminal_codigo', tHasta)
+      }
+      if (cModo === 'rango') {
+        if (cDesde) q = q.gte('cliente_codigo', gwConCeros(cDesde))
+        if (cHasta) q = q.lte('cliente_codigo', gwConCeros(cHasta))
+      }
+      if (serie) q = q.eq('serie', serie)
+      return q.order('fecha_factura').order('tienda_terminal_codigo').order('numero')
     }
-    if (tModo === 'rango') {
-      if (tDesde) q = q.gte('tienda_terminal_codigo', tDesde)
-      if (tHasta) q = q.lte('tienda_terminal_codigo', tHasta)
-    }
-    if (cModo === 'rango') {
-      if (cDesde) q = q.gte('cliente_codigo', gwConCeros(cDesde))
-      if (cHasta) q = q.lte('cliente_codigo', gwConCeros(cHasta))
-    }
-    if (serie) q = q.eq('serie', serie)
-    const { data, error: e } = await q.order('fecha_factura').order('numero').limit(20000)
+    // Supabase corta cada respuesta en 1000 filas: las facturas se piden por bloques (con tope).
+    const { data: base, error: e, cortado } = await todasLasFilas<Record<string, unknown>>(consulta, { tope: TOPE_FACTURAS })
     if (e) {
       setProcesando(false)
-      setError(e.message)
+      setError(e)
       return null
     }
-    const base = (data ?? []) as Record<string, unknown>[]
+    if (cortado) setError(avisoTope(TOPE_FACTURAS))
     const claves = new Set(base.map((f) => `${f.tienda_terminal_codigo}-${f.numero}`))
     // Tramos de IGIC y anulaciones VeriFactu de las facturas
     const [tr, an] = await Promise.all([
-      base.length
-        ? supabase
-            .from('factura_impuesto_tramo')
-            .select('tienda_terminal_codigo, numero, tipo_pct, base_imponible, cuota_igic')
-            .in('numero', [...new Set(base.map((f) => Number(f.numero)))].slice(0, 5000))
-        : Promise.resolve({ data: [] as Record<string, unknown>[] }),
-      supabase.from('registro_facturacion').select('origen_tienda_codigo, origen_numero').eq('origen_tipo', 'factura').eq('tipo_registro', 'anulacion'),
+      filasPorTrozos<Record<string, unknown>, number>([...new Set(base.map((f) => Number(f.numero)))], (t) =>
+        supabase
+          .from('factura_impuesto_tramo')
+          .select('tienda_terminal_codigo, numero, tipo_pct, base_imponible, cuota_igic')
+          .in('numero', t)
+          .order('tienda_terminal_codigo')
+          .order('numero')
+          .order('tramo'),
+      ),
+      todasLasFilas<Record<string, unknown>>(() =>
+        supabase.from('registro_facturacion').select('origen_tienda_codigo, origen_numero').eq('origen_tipo', 'factura').eq('tipo_registro', 'anulacion').order('id'),
+      ),
     ])
     const anul = new Set(((an.data ?? []) as Record<string, unknown>[]).map((r) => `${r.origen_tienda_codigo}-${r.origen_numero}`))
     const tramos = new Map<string, { bases: Record<string, number>; cuotas: Record<string, number> }>()

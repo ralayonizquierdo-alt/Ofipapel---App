@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, ClipboardList, History } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { todasLasFilas } from '../../../lib/todasLasFilas'
 import { formatGw, GwDate } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
@@ -141,10 +142,13 @@ export function InventarioFichaPage() {
   }, [])
 
   async function cargarLista(o = orden) {
-    const q = supabase.from('inventario').select('tienda_terminal_codigo, numero')
-    const { data } =
-      o === 'numero' ? await q.order('tienda_terminal_codigo').order('numero') : await q.order('fecha', { nullsFirst: true }).order('numero')
-    const l = ((data ?? []) as Clave[]).map((r) => ({ tienda_terminal_codigo: r.tienda_terminal_codigo, numero: Number(r.numero) }))
+    // Solo las claves, pero todas: Supabase corta cada respuesta en 1000 filas, así que por bloques.
+    const q = () => supabase.from('inventario').select('tienda_terminal_codigo, numero')
+    const { data } = await todasLasFilas<Clave>(
+      () => (o === 'numero' ? q().order('tienda_terminal_codigo').order('numero') : q().order('fecha', { nullsFirst: true }).order('numero').order('tienda_terminal_codigo')),
+      { tope: 500000 },
+    )
+    const l = data.map((r) => ({ tienda_terminal_codigo: r.tienda_terminal_codigo, numero: Number(r.numero) }))
     setLista(l)
     return l
   }

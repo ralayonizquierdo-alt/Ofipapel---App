@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useNavigate } from 'react-router-dom'
 import { Binoculars, Check, ChevronFirst, ChevronLast, CircleDollarSign, FileText, Play, Printer, RotateCw, Settings2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { avisoTope, todasLasFilas } from '../../../lib/todasLasFilas'
 import { formatGw, GwDate } from '../../../components/gw'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
 import { FORMA_PAGO_COLS, cargarDoc, claseFormaPago, generarPagosDoc, hoyISO, type ClaseFp, type FormaPago } from './pagosModel'
@@ -143,27 +144,39 @@ export function GestorPagosProveedorPage() {
     const d0 = `${anio}-01-01`
     const d1 = `${anio}-12-31`
     const rango = (cols: string[]) => cols.map((c) => `and(${c}.gte.${d0},${c}.lte.${d1})`).join(',')
+    // Supabase corta cada respuesta en 1000 filas: el año entero se pide por bloques.
     const [ped, fac, pag] = await Promise.all([
-      supabase
-        .from('pedido_proveedor')
-        .select('tienda_terminal_codigo, numero, proveedor_codigo, numero_factura_proveedor_externo, fecha_factura, fecha_hora, fecha_pago, fecha_vencimiento_1, forma_pago_codigo, total, total_a_pagar_proveedor, pagado')
-        .not('numero_factura_proveedor_externo', 'is', null)
-        .or(rango(['fecha_factura', 'fecha_pago', 'fecha_vencimiento_1']))
-        .limit(5000),
-      supabase
-        .from('factura_proveedor')
-        .select('tienda_terminal_codigo, id, proveedor_codigo, numero_factura_externo, fecha_factura, fecha_hora, fecha_pago, fecha_vencimiento, forma_pago_codigo, total, total_a_pagar_proveedor, pagado')
-        .or(rango(['fecha_factura', 'fecha_pago', 'fecha_vencimiento']))
-        .limit(5000),
-      supabase
-        .from('pago_proveedor')
-        .select('tienda_terminal_codigo, codigo_pago, fecha, receptor_codigo, receptor_nombre, numero_factura_externa, fecha_factura, fecha_pago, fecha_vencimiento, numero_documento_pago, cuota, importe_pagado, estado_pago, forma_pago_codigo, tipo_pago, pedido_relacionado_tienda_codigo, pedido_relacionado_numero, factura_relacionada_tienda_codigo, factura_relacionada_id')
-        .eq('activo', true)
-        .or(rango(['fecha', 'fecha_pago', 'fecha_vencimiento', 'fecha_factura']))
-        .limit(5000),
+      todasLasFilas(() =>
+        supabase
+          .from('pedido_proveedor')
+          .select('tienda_terminal_codigo, numero, proveedor_codigo, numero_factura_proveedor_externo, fecha_factura, fecha_hora, fecha_pago, fecha_vencimiento_1, forma_pago_codigo, total, total_a_pagar_proveedor, pagado')
+          .not('numero_factura_proveedor_externo', 'is', null)
+          .or(rango(['fecha_factura', 'fecha_pago', 'fecha_vencimiento_1']))
+          .order('tienda_terminal_codigo')
+          .order('numero'),
+      ),
+      todasLasFilas(() =>
+        supabase
+          .from('factura_proveedor')
+          .select('tienda_terminal_codigo, id, proveedor_codigo, numero_factura_externo, fecha_factura, fecha_hora, fecha_pago, fecha_vencimiento, forma_pago_codigo, total, total_a_pagar_proveedor, pagado')
+          .or(rango(['fecha_factura', 'fecha_pago', 'fecha_vencimiento']))
+          .order('tienda_terminal_codigo')
+          .order('id'),
+      ),
+      todasLasFilas(() =>
+        supabase
+          .from('pago_proveedor')
+          .select('tienda_terminal_codigo, codigo_pago, fecha, receptor_codigo, receptor_nombre, numero_factura_externa, fecha_factura, fecha_pago, fecha_vencimiento, numero_documento_pago, cuota, importe_pagado, estado_pago, forma_pago_codigo, tipo_pago, pedido_relacionado_tienda_codigo, pedido_relacionado_numero, factura_relacionada_tienda_codigo, factura_relacionada_id')
+          .eq('activo', true)
+          .or(rango(['fecha', 'fecha_pago', 'fecha_vencimiento', 'fecha_factura']))
+          .order('tienda_terminal_codigo')
+          .order('codigo_pago'),
+      ),
     ])
     const err = ped.error ?? fac.error ?? pag.error
-    if (err) setMensaje(err.message)
+    const cortado = [ped, fac, pag].find((r) => r.cortado)
+    if (err) setMensaje(err)
+    else if (cortado) setMensaje(avisoTope(cortado.data.length))
     const ds: Doc[] = [
       ...(ped.data ?? []).map((r) => ({
         clase: 'pedido' as const,

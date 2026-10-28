@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowDownAZ, Binoculars, Check, ChevronFirst, ChevronLast, DoorOpen, Link2, PackageCheck, Play, Printer, RefreshCw, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { avisoTope, todasLasFilas } from '../../../lib/todasLasFilas'
 import { formatGw } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import {
@@ -29,6 +30,9 @@ import {
 import { ordenar, Rejilla, type Col, type Orden } from './rejilla'
 
 const CLAVE_OPCIONES = 'gw.gestorPedidos.opciones'
+
+/** Máximo de pedidos (y de peticiones) que trae el gestor; si hay más, avisa de que se afine el filtro. */
+const TOPE_PEDIDOS = 5000
 
 interface Opciones {
   mostrarLiquidacion: boolean
@@ -150,6 +154,7 @@ export function GestorPedidosPage() {
   const [peticiones, setPeticiones] = useState<PeticionRow[]>([])
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
   const [nuevos, setNuevos] = useState<string[]>([])
   const conocidos = useRef<Set<string> | null>(null)
 
@@ -168,19 +173,24 @@ export function GestorPedidosPage() {
     setCargando(true)
     setError(null)
     const conHora = f.campo === 'actualizado_en'
-    const base = supabase
-      .from('pedido_cliente')
-      .select('tienda_terminal_codigo, numero, web_pedido_id, liquidado, fecha, hora, ruta_codigo, cliente_codigo, nombre_cliente, almacen_codigo, cliente:cliente_codigo(nombre)')
-      .eq('es_presupuesto', false)
-      .eq('es_reparacion', false)
-      .eq('anulado', false)
-    const { data: cab, error: e1 } = await conFiltro(base, f, f.campo, conHora).order('fecha').order('hora').limit(2000)
+    const base = () =>
+      supabase
+        .from('pedido_cliente')
+        .select('tienda_terminal_codigo, numero, web_pedido_id, liquidado, fecha, hora, ruta_codigo, cliente_codigo, nombre_cliente, almacen_codigo, cliente:cliente_codigo(nombre)')
+        .eq('es_presupuesto', false)
+        .eq('es_reparacion', false)
+        .eq('anulado', false)
+    // Supabase corta cada respuesta en 1000 filas: se pide por bloques, con tope y aviso.
+    const { data: cabs, error: e1, cortado } = await todasLasFilas(
+      () => conFiltro(base(), f, f.campo, conHora).order('fecha').order('hora').order('tienda_terminal_codigo').order('numero'),
+      { tope: TOPE_PEDIDOS },
+    )
     if (e1) {
-      setError(e1.message)
+      setError(e1)
       setCargando(false)
       return
     }
-    const cabs = cab ?? []
+    setAviso(cortado ? avisoTope(TOPE_PEDIDOS) : null)
     const numeros = [...new Set(cabs.map((c) => c.numero))]
     const lin: {
       tienda_terminal_codigo: string
@@ -196,11 +206,16 @@ export function GestorPedidosPage() {
       ubicacion: string | null
     }[] = []
     for (const parte of chunks(numeros)) {
-      const { data } = await supabase
-        .from('pedido_cliente_linea')
-        .select('tienda_terminal_codigo, numero, numero_linea, articulo_codigo, codigo_venta, descripcion, cantidad, unidades_liquidadas, liquidacion_comprobada, almacen_codigo, ubicacion')
-        .in('numero', parte)
-      lin.push(...(data ?? []))
+      const { data } = await todasLasFilas(() =>
+        supabase
+          .from('pedido_cliente_linea')
+          .select('tienda_terminal_codigo, numero, numero_linea, articulo_codigo, codigo_venta, descripcion, cantidad, unidades_liquidadas, liquidacion_comprobada, almacen_codigo, ubicacion')
+          .in('numero', parte)
+          .order('tienda_terminal_codigo')
+          .order('numero')
+          .order('numero_linea'),
+      )
+      lin.push(...data)
     }
     const claves = new Set(cabs.map((c) => `${c.tienda_terminal_codigo}/${c.numero}`))
     const lineasPed = lin.filter((l) => claves.has(`${l.tienda_terminal_codigo}/${l.numero}`))
@@ -208,11 +223,15 @@ export function GestorPedidosPage() {
     const arts = [...new Set(lineasPed.map((l) => l.articulo_codigo).filter((a): a is string => !!a))]
     const stock = new Map<string, { disp: number; ub1: string | null; ub2: string | null }>()
     for (const parte of chunks(arts)) {
-      const { data } = await supabase
-        .from('articulo_almacen_stock')
-        .select('articulo_codigo, almacen_codigo, cantidad_actual, cantidad_reservada, cantidad_disponible, ubicacion_1, ubicacion_2')
-        .in('articulo_codigo', parte)
-      for (const s of data ?? []) {
+      const { data } = await todasLasFilas(() =>
+        supabase
+          .from('articulo_almacen_stock')
+          .select('articulo_codigo, almacen_codigo, cantidad_actual, cantidad_reservada, cantidad_disponible, ubicacion_1, ubicacion_2')
+          .in('articulo_codigo', parte)
+          .order('articulo_codigo')
+          .order('almacen_codigo'),
+      )
+      for (const s of data) {
         const disp = s.cantidad_disponible ?? Number(s.cantidad_actual ?? 0) - Number(s.cantidad_reservada ?? 0)
         stock.set(`${s.articulo_codigo}|${s.almacen_codigo}`, { disp: Number(disp), ub1: s.ubicacion_1, ub2: s.ubicacion_2 })
       }
@@ -284,19 +303,32 @@ export function GestorPedidosPage() {
       })
 
     // Artículos en peticiones
-    const basePet = supabase
-      .from('peticion')
-      .select('tienda_terminal_codigo, numero, estado, fecha_hora, articulo_codigo, descripcion, cantidad, cantidad_tramitada, fecha_prevista_entrega, proveedor_codigo, origen_nombre, origen_cliente_codigo')
-    const { data: pets } = await conFiltro(basePet, f, 'fecha_hora', true).order('fecha_hora', { ascending: false }).limit(1000)
+    const basePet = () =>
+      supabase
+        .from('peticion')
+        .select('tienda_terminal_codigo, numero, estado, fecha_hora, articulo_codigo, descripcion, cantidad, cantidad_tramitada, fecha_prevista_entrega, proveedor_codigo, origen_nombre, origen_cliente_codigo')
+    const { data: pets, cortado: petCortado } = await todasLasFilas(
+      () =>
+        conFiltro(basePet(), f, 'fecha_hora', true)
+          .order('fecha_hora', { ascending: false })
+          .order('tienda_terminal_codigo')
+          .order('numero'),
+      { tope: TOPE_PEDIDOS },
+    )
+    if (petCortado) setAviso(avisoTope(TOPE_PEDIDOS))
     const numerosPet = [...new Set((pets ?? []).map((p) => p.numero))]
     const tram = new Map<string, { ped: string; prov: string | null }>()
     for (const parte of chunks(numerosPet)) {
-      const { data } = await supabase
-        .from('peticion_tramitacion')
-        .select('tienda_terminal_codigo, numero, pedido_proveedor_tienda_codigo, pedido_proveedor_numero, proveedor_codigo, fecha_hora')
-        .in('numero', parte)
-        .order('fecha_hora')
-      for (const t of data ?? []) {
+      const { data } = await todasLasFilas(() =>
+        supabase
+          .from('peticion_tramitacion')
+          .select('tienda_terminal_codigo, numero, pedido_proveedor_tienda_codigo, pedido_proveedor_numero, proveedor_codigo, fecha_hora')
+          .in('numero', parte)
+          .order('fecha_hora')
+          .order('tienda_terminal_codigo')
+          .order('numero'),
+      )
+      for (const t of data) {
         if (t.pedido_proveedor_numero == null) continue
         tram.set(`${t.tienda_terminal_codigo}/${t.numero}`, {
           ped: `${t.pedido_proveedor_tienda_codigo ?? ''}/${t.pedido_proveedor_numero}`,
@@ -539,6 +571,7 @@ export function GestorPedidosPage() {
           </div>
         )}
         {error && <div className="flex-none text-[14px] text-[#c42b1c]">{error}</div>}
+        {aviso && !error && <div className="flex-none text-[14px] font-bold text-[#c42b1c]">{aviso}</div>}
 
         {tab === 'seguimiento' && (
           <>

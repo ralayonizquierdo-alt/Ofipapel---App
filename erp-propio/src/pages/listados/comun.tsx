@@ -1,10 +1,19 @@
 import { supabase } from '../../lib/supabase'
+import { todasLasFilas } from '../../lib/todasLasFilas'
 import { CampoCodigo, LST_INPUT, LstGrupo, LstRadio, type ModoRango, type NombreBuscador } from '../../components/gw/GwListado'
 
 // Grupos de filtros que se repiten en varios listados de Ventas y Compras
 // («Tienda y Número», «Filtrar Según Campo de Cliente», «Filtrar según el total del Proveedor»).
 
-export const rpc = (fn: string, p: unknown) => supabase.rpc(fn, { p })
+/**
+ * Llama a la función SQL de un listado y trae TODAS sus filas: Supabase corta cada respuesta en
+ * 1000 filas también en las funciones, así que se pide por bloques (las funciones fn_lst_*
+ * devuelven las filas en un orden fijo, que termina en la clave).
+ */
+export async function rpc(fn: string, p: unknown) {
+  const r = await todasLasFilas(() => supabase.rpc(fn, { p }), { tope: 500000 })
+  return { data: r.data, error: r.error ? { message: r.error } : null }
+}
 
 /* ---------- Tienda y Número ---------- */
 

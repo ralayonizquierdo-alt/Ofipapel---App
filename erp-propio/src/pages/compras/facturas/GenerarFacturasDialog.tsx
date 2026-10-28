@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../../lib/supabase'
+import { todasLasFilas } from '../../../lib/todasLasFilas'
 import { GwDate, GwField, GwGroup, GwInput, GwSelect, GwWindow } from '../../../components/gw'
 
 const n = (v: unknown) => Number(v ?? 0)
@@ -44,18 +45,21 @@ export function GenerarFacturasDialog({
     if (!desde || !hasta || desde > hasta) return setError('El periodo no es válido.')
     setTrabajando(true)
     setError(null)
-    let q = supabase
-      .from('pedido_proveedor')
-      .select('tienda_terminal_codigo, numero, proveedor_codigo, almacen_codigo, forma_pago_codigo, base_imponible, total_igic, total_gastos, total')
-      .eq('recibido', true)
-      .is('factura_proveedor_id', null)
-      .gte('fecha_hora', `${desde}T00:00:00`)
-      .lte('fecha_hora', `${hasta}T23:59:59`)
-    if (proveedor.trim()) q = q.eq('proveedor_codigo', proveedor.trim())
-    const { data, error: e0 } = await q.order('proveedor_codigo').order('numero')
+    const consulta = () => {
+      const q = supabase
+        .from('pedido_proveedor')
+        .select('tienda_terminal_codigo, numero, proveedor_codigo, almacen_codigo, forma_pago_codigo, base_imponible, total_igic, total_gastos, total')
+        .eq('recibido', true)
+        .is('factura_proveedor_id', null)
+        .gte('fecha_hora', `${desde}T00:00:00`)
+        .lte('fecha_hora', `${hasta}T23:59:59`)
+      return (proveedor.trim() ? q.eq('proveedor_codigo', proveedor.trim()) : q).order('proveedor_codigo').order('numero').order('tienda_terminal_codigo')
+    }
+    // Supabase corta cada respuesta en 1000 filas: por bloques, para facturar todos los albaranes.
+    const { data, error: e0 } = await todasLasFilas(consulta)
     if (e0) {
       setTrabajando(false)
-      return setError(e0.message)
+      return setError(e0)
     }
     const grupos = new Map<string, AlbaranPend[]>()
     for (const a of (data ?? []) as AlbaranPend[]) grupos.set(a.proveedor_codigo, [...(grupos.get(a.proveedor_codigo) ?? []), a])

@@ -11,6 +11,7 @@ import {
   FileMinus2,
   FileX2,
   Hand,
+  Inbox,
   Play,
   Printer,
   Save,
@@ -28,6 +29,7 @@ import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLo
 import {
   NIVELES,
   anularVenta,
+  apuntarAperturaCajon,
   baseLinea,
   cajaAbierta,
   calcularPie,
@@ -548,6 +550,17 @@ export function VentaDocumento({
     }
   }
 
+  /** Botón «Cajón» (Ctrl+F12): abre el cajón a mano y lo apunta en el listado de aperturas. */
+  async function abrirCajon() {
+    const aviso = await apuntarAperturaCajon({
+      tienda,
+      empleado: empleado?.codigo ?? null,
+      motivo: 'Apertura manual',
+      venta: consulta && cab.numero != null ? { tienda, numero: cab.numero } : null,
+    })
+    setMensaje(aviso ? { texto: aviso, error: true } : { texto: 'Cajón abierto (apuntado en el listado de aperturas de cajón).', error: false })
+  }
+
   // ---------------- VeriFactu: anular y rectificar ----------------
 
   async function anular(motivo: string) {
@@ -640,6 +653,9 @@ export function VentaDocumento({
     } else if (e.key === 'F11') {
       mia()
       if (editable) prepararGuardado(true)
+    } else if (e.key === 'F12' && e.ctrlKey) {
+      mia()
+      abrirCajon()
     } else if (e.key === 'F12' && !e.ctrlKey) {
       mia()
       if (lineaSel?.articulo_codigo) setDialogo({ tipo: 'stock' })
@@ -1012,12 +1028,13 @@ export function VentaDocumento({
             <BarBtn label="Deshacer" icon={<Undo2 size={15} />} onClick={deshacer} disabled={guardando} />
           </>
         )}
+        <BarBtn label="Cajón" icon={<Inbox size={15} />} onClick={abrirCajon} disabled={guardando} title="Abrir el cajón (CTRL+F12): queda apuntado en el listado de aperturas de cajón" />
         <BarBtn label="Cerrar" icon={<DoorOpen size={15} />} onClick={() => navigate('/')} />
       </div>
       <div className="truncate text-[11px] text-[#333]">
         {editable
-          ? 'ALT+RETROCESO=>Cancelar, F1=>Guardar, F2=>Imprimir, F11=>Aplazar, CTRL+F11=>Aplazadas, F12=>Ver Stock'
-          : 'F2=>Imprimir, CTRL+F11=>Aplazadas, F12=>Ver Stock'}
+          ? 'ALT+RETROCESO=>Cancelar, F1=>Guardar, F2=>Imprimir, F11=>Aplazar, CTRL+F11=>Aplazadas, F12=>Ver Stock, CTRL+F12=>Abrir Cajón'
+          : 'F2=>Imprimir, CTRL+F11=>Aplazadas, F12=>Ver Stock, CTRL+F12=>Abrir Cajón'}
       </div>
 
       <VentaTicket empresa={empresa} cab={cab} lineas={lineas} pie={pie} verifactu={verifactu} />

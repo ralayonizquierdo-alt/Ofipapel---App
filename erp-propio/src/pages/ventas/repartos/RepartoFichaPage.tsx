@@ -13,6 +13,7 @@ import {
   Truck,
 } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { todasLasFilas } from '../../../lib/todasLasFilas'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { formatGw, GwDate } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
@@ -346,12 +347,13 @@ export function RepartoFichaPage() {
   }, [])
 
   async function cargarLista(o = orden) {
-    const q = supabase.from('reparto').select('tienda_terminal_codigo, numero')
-    const { data } =
-      o === 'numero'
-        ? await q.order('tienda_terminal_codigo').order('numero')
-        : await q.order('fecha', { nullsFirst: true }).order('numero')
-    const l = ((data ?? []) as Clave[]).map((r) => ({ tienda_terminal_codigo: r.tienda_terminal_codigo, numero: Number(r.numero) }))
+    // Solo las claves, pero todas: Supabase corta cada respuesta en 1000 filas, así que por bloques.
+    const q = () => supabase.from('reparto').select('tienda_terminal_codigo, numero')
+    const { data } = await todasLasFilas<Clave>(
+      () => (o === 'numero' ? q().order('tienda_terminal_codigo').order('numero') : q().order('fecha', { nullsFirst: true }).order('numero').order('tienda_terminal_codigo')),
+      { tope: 500000 },
+    )
+    const l = data.map((r) => ({ tienda_terminal_codigo: r.tienda_terminal_codigo, numero: Number(r.numero) }))
     setLista(l)
     return l
   }
@@ -682,14 +684,17 @@ export function RepartoFichaPage() {
     if (!confirm('¿Generar los repartos del día con las ventas pendientes de reparto, agrupadas por ruta?')) return
     setSaving(true)
     try {
-      const { data } = await supabase
-        .from('venta')
-        .select('tienda_terminal_codigo, numero, fecha, total, total_pagado, cliente_codigo, nombre_cliente, factura_numero, ruta_codigo')
-        .eq('es_reparto', true)
-        .is('reparto_numero', null)
-        .lte('fecha', hoy())
-        .limit(1000)
-      const ventas = (data ?? []) as Record<string, unknown>[]
+      // Supabase corta cada respuesta en 1000 filas: por bloques, para no dejar ventas sin reparto.
+      const { data: ventas } = await todasLasFilas<Record<string, unknown>>(() =>
+        supabase
+          .from('venta')
+          .select('tienda_terminal_codigo, numero, fecha, total, total_pagado, cliente_codigo, nombre_cliente, factura_numero, ruta_codigo')
+          .eq('es_reparto', true)
+          .is('reparto_numero', null)
+          .lte('fecha', hoy())
+          .order('tienda_terminal_codigo')
+          .order('numero'),
+      )
       if (!ventas.length) {
         setMensaje('No hay ventas pendientes de reparto.')
         return

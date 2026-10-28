@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Download, Search } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { todasLasFilas } from '../../lib/todasLasFilas'
 import { GwField, GwInput } from '../../components/gw'
 import { descargarCsv, eur, eur0, fechaEs, finAnio, inicioAnio, numCsv } from './contabModel'
 import { Aviso, Barra, Rango, Rejilla, Vacio } from './ui'
@@ -34,8 +35,9 @@ export function MayorPage() {
   const consultar = useCallback(async () => {
     setError(null)
     if (!/^\d{1,10}$/.test(cuenta)) return setError('Escribe una cuenta o el principio de varias (p. ej. 430 para todos los clientes).')
-    const { data, error: e } = await supabase.rpc('fn_contab_mayor', { p_cuenta: cuenta, p_desde: desde, p_hasta: hasta })
-    if (e) return setError(e.message)
+    // Supabase corta cada respuesta en 1000 filas, también en las funciones: por bloques.
+    const { data, error: e } = await todasLasFilas(() => supabase.rpc('fn_contab_mayor', { p_cuenta: cuenta, p_desde: desde, p_hasta: hasta }), { tope: 500000 })
+    if (e) return setError(e)
     setFilas((data ?? []) as FilaMayor[])
     setConsultada(true)
   }, [cuenta, desde, hasta])

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronFirst, ChevronLast, Binoculars, FilePen, FilePlus2, FileX2, Play, Printer, FolderOpen, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { todasLasFilas } from '../../lib/todasLasFilas'
 import {
   GwCheck,
   GwDate,
@@ -573,24 +574,27 @@ function RejillaFamilias({ actual, onAbrir }: { actual: string; onAbrir: (codigo
   useEffect(() => {
     let cancel = false
     setCargando(true)
-    let q = supabase
-      .from('familia')
-      .select('codigo, descripcion, plantilla_tarifa_codigo, web_publicada, web_codigo, web_descripcion, web_fecha_baja, web_id_link')
-      .order('codigo')
-      .limit(2000)
-    if (soloWeb) q = q.eq('web_publicada', true)
     const v1 = desde.trim().replace(/[,%()]/g, ' ')
     const v2 = hasta.trim().replace(/[,%()]/g, ' ')
-    if (condicion === 'igual' && v1) q = q.eq(campo, v1)
-    if (condicion === 'contiene' && v1) q = q.ilike(campo, `%${v1}%`)
-    if (condicion === 'empieza' && v1) q = q.ilike(campo, `${v1}%`)
-    if (condicion === 'rango') {
-      if (v1) q = q.gte(campo, v1)
-      if (v2) q = q.lte(campo, v2)
+    // Supabase corta cada respuesta en 1000 filas (hay más familias): se piden por bloques.
+    const consulta = () => {
+      let q = supabase
+        .from('familia')
+        .select('codigo, descripcion, plantilla_tarifa_codigo, web_publicada, web_codigo, web_descripcion, web_fecha_baja, web_id_link')
+        .order('codigo')
+      if (soloWeb) q = q.eq('web_publicada', true)
+      if (condicion === 'igual' && v1) q = q.eq(campo, v1)
+      if (condicion === 'contiene' && v1) q = q.ilike(campo, `%${v1}%`)
+      if (condicion === 'empieza' && v1) q = q.ilike(campo, `${v1}%`)
+      if (condicion === 'rango') {
+        if (v1) q = q.gte(campo, v1)
+        if (v2) q = q.lte(campo, v2)
+      }
+      return q
     }
-    q.then(({ data }) => {
+    todasLasFilas<FilaFamilia>(consulta).then(({ data }) => {
       if (cancel) return
-      let filas = (data ?? []) as FilaFamilia[]
+      let filas = data
       if (niveles.length) filas = filas.filter((r) => niveles.includes(r.codigo.length / 2))
       setRows(filas)
       setCargando(false)

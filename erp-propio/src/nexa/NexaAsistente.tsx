@@ -1,4 +1,4 @@
-// NEXA integrada en el ERP: avatar flotante abajo a la derecha (siempre disponible) y panel de
+// NEXA integrada en el ERP: avatar arriba a la derecha, en la cabecera (siempre disponible) y panel de
 // conversación a la derecha del área de trabajo. No depende de ninguna pantalla: se monta una
 // vez en el Layout. Atajo: Ctrl+Espacio.
 
@@ -25,6 +25,9 @@ import { dictadoDisponible, empezarDictado, type Dictado } from './dictado'
 import { Markdown } from './Markdown'
 
 export const ATAJO_NEXA = 'Ctrl+Espacio'
+
+/** Alto de la cabecera del Layout: franja del título (24 px) + barra de menús (20 px). */
+const ALTO_CABECERA = 44
 
 const SUGERENCIAS = [
   '¿Cómo van los pedidos de hoy?',
@@ -70,20 +73,24 @@ function NexaFlotante({ sinLeer, pensando }: { sinLeer: boolean; pensando: boole
   const [hover, setHover] = useState(false)
   const aviso = pensando ? 'Pensando…' : sinLeer ? 'Tienes una respuesta nueva' : null
   return (
-    // Abajo a la derecha, sobre la esquina de la barra de estado (que deja ese hueco libre):
-    // así el centro pulsable queda por debajo de las botoneras de las ventanas.
-    // El aviso va en posición absoluta para no mover el avatar (si lo empujara, el ratón
-    // dejaría de estar encima y parpadearía).
-    <div className="pointer-events-none fixed bottom-[-6px] right-[2px] z-50" data-nexa="flotante">
+    // Arriba a la derecha, en la franja blanca del título y la barra de menús (44 px de alto),
+    // que nunca usan las ventanas: así no tapa ningún botón (antes, abajo a la derecha, se
+    // ponía encima de «Salir» y de las botoneras de los gestores). No baja de esa franja.
+    // z-40: por debajo de los diálogos (z-50), que la tapan con su fondo como al resto.
+    // El aviso va a la izquierda, en posición absoluta, para no mover el avatar (si lo
+    // empujara, el ratón dejaría de estar encima y parpadearía).
+    <div className="pointer-events-none fixed right-[4px] top-0 z-40" data-nexa="flotante" style={{ height: ALTO_CABECERA }}>
       {(hover || aviso) && (
-        <div className="absolute bottom-[calc(100%-10px)] right-0 whitespace-nowrap rounded bg-slate-900/85 px-2.5 py-1 text-center text-[11px] leading-tight text-white shadow">
+        <div className="absolute right-[calc(100%+4px)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-slate-900/85 px-2.5 py-1 text-center text-[11px] leading-tight text-white shadow">
           <div className="font-bold tracking-wide">NEXA · Asistente inteligente</div>
           <div className="text-slate-300">{aviso ?? ATAJO_NEXA}</div>
         </div>
       )}
-      <div className="relative" style={{ width: 90, height: 90 }}>
-        <NexaAvatar tamano={90} escala={0.92} fpsMax={30} formarAlIniciar />
-        {sinLeer && <span className="absolute right-[18px] top-[14px] h-2.5 w-2.5 rounded-full border border-white bg-[#1f6fe0] shadow" />}
+      <div className="relative overflow-hidden" style={{ width: ALTO_CABECERA + 6, height: ALTO_CABECERA }}>
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <NexaAvatar tamano={ALTO_CABECERA + 6} escala={0.95} fpsMax={30} contraste="claro" formarAlIniciar />
+        </div>
+        {sinLeer && <span className="absolute right-[4px] top-[3px] h-2.5 w-2.5 rounded-full border border-white bg-[#1f6fe0] shadow" />}
         <button
           type="button"
           aria-label="Abrir NEXA, asistente inteligente"
@@ -92,7 +99,7 @@ function NexaFlotante({ sinLeer, pensando }: { sinLeer: boolean; pensando: boole
           onFocus={() => setHover(true)}
           onBlur={() => setHover(false)}
           onClick={abrirPanel}
-          className="pointer-events-auto absolute left-1/2 top-[63%] h-[36px] w-[42px] -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          className="pointer-events-auto absolute inset-0 cursor-pointer rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
         />
       </div>
     </div>

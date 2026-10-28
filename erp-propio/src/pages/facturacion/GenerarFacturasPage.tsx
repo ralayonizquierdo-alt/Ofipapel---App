@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, CheckSquare, Search, Settings2, Square, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { avisoTope, filasPorTrozos, todasLasFilas } from '../../lib/todasLasFilas'
 import { GwCheck, GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwRadio, GwSelect, GwTextArea, GwWindow, formatGw } from '../../components/gw'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { gwConCeros } from '../../components/gw/GwListaOrdenada'
@@ -49,6 +50,9 @@ const primeroDeMes = () => {
   const d = new Date()
   return new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString('sv-SE')
 }
+
+/** Máximo de albaranes que trae la búsqueda; si hay más, avisa de que se afine el filtro. */
+const TOPE_ALBARANES = 20000
 
 export function GenerarFacturasPage() {
   const navigate = useNavigate()
@@ -108,26 +112,32 @@ export function GenerarFacturasPage() {
     setError(null)
     setMensaje(null)
     setCreadas([])
-    let q = supabase
-      .from('venta')
-      .select('tienda_terminal_codigo, numero, fecha, cliente_codigo, nombre_cliente, forma_pago_codigo, subtotal_2, total_igic_pie, total, total_pagado, observaciones')
-      .ilike('tipo_credito', 'cr%')
-      .is('factura_numero', null)
-      .is('anulada_en', null)
-      .eq('aplazada', false)
-    if (fDesde) q = q.gte('fecha', fDesde)
-    if (fHasta) q = q.lte('fecha', fHasta)
-    if (tDesde) q = q.gte('tienda_terminal_codigo', tDesde)
-    if (tHasta) q = q.lte('tienda_terminal_codigo', tHasta)
-    if (cDesde) q = q.gte('cliente_codigo', gwConCeros(cDesde))
-    if (cHasta) q = q.lte('cliente_codigo', gwConCeros(cHasta))
-    if (fpModo === 'una' && fp) q = q.eq('forma_pago_codigo', fp)
-    const { data, error: e } = await q.order('cliente_codigo').order('fecha').order('numero').limit(5000)
+    const consulta = () => {
+      let q = supabase
+        .from('venta')
+        .select('tienda_terminal_codigo, numero, fecha, cliente_codigo, nombre_cliente, forma_pago_codigo, subtotal_2, total_igic_pie, total, total_pagado, observaciones')
+        .ilike('tipo_credito', 'cr%')
+        .is('factura_numero', null)
+        .is('anulada_en', null)
+        .eq('aplazada', false)
+      if (fDesde) q = q.gte('fecha', fDesde)
+      if (fHasta) q = q.lte('fecha', fHasta)
+      if (tDesde) q = q.gte('tienda_terminal_codigo', tDesde)
+      if (tHasta) q = q.lte('tienda_terminal_codigo', tHasta)
+      if (cDesde) q = q.gte('cliente_codigo', gwConCeros(cDesde))
+      if (cHasta) q = q.lte('cliente_codigo', gwConCeros(cHasta))
+      if (fpModo === 'una' && fp) q = q.eq('forma_pago_codigo', fp)
+      return q.order('cliente_codigo').order('fecha').order('tienda_terminal_codigo').order('numero')
+    }
+    // Supabase corta cada respuesta en 1000 filas: los albaranes del mes se piden por bloques
+    // (si se quedaran a medias, un cliente se facturaría sin todos sus albaranes).
+    const { data, error: e, cortado } = await todasLasFilas<Record<string, unknown>>(consulta, { tope: TOPE_ALBARANES })
     if (e) {
       setBuscando(false)
-      return setError(e.message)
+      return setError(e)
     }
-    let filas = ((data ?? []) as Record<string, unknown>[]).map((v) => ({
+    if (cortado) setMensaje(avisoTope(TOPE_ALBARANES))
+    let filas = data.map((v) => ({
       tienda_terminal_codigo: v.tienda_terminal_codigo as string,
       numero: Number(v.numero),
       fecha: v.fecha as string,
@@ -228,14 +238,20 @@ export function GenerarFacturasPage() {
     let vivo = true
     const albs = grupo.albaranes.filter((a) => a.marcado)
     cargarLineas(albs.map((a) => ({ t: a.tienda_terminal_codigo, n: a.numero }))).then(async (ls) => {
-      const { data } = await supabase
-        .from('venta')
-        .select('tienda_terminal_codigo, numero, descuento_pie_pct, igic_pie_pct, subtotal_2, total_igic_pie')
-        .eq('cliente_codigo', grupo.cliente)
-        .is('factura_numero', null)
-        .in('numero', albs.map((a) => a.numero))
+      const { data } = await filasPorTrozos<Record<string, unknown>, number>(
+        albs.map((a) => a.numero),
+        (t) =>
+          supabase
+            .from('venta')
+            .select('tienda_terminal_codigo, numero, descuento_pie_pct, igic_pie_pct, subtotal_2, total_igic_pie')
+            .eq('cliente_codigo', grupo.cliente)
+            .is('factura_numero', null)
+            .in('numero', t)
+            .order('tienda_terminal_codigo')
+            .order('numero'),
+      )
       const acc = new Map<number, { base: number; cuota: number }>()
-      for (const v of (data ?? []) as Record<string, unknown>[]) {
+      for (const v of data) {
         if (!albs.some((a) => a.tienda_terminal_codigo === v.tienda_terminal_codigo && a.numero === Number(v.numero))) continue
         const d = desgloseAlbaran(v as never, ls.filter((l) => l.tienda_terminal_codigo === v.tienda_terminal_codigo && Number(l.numero) === Number(v.numero)))
         for (const [k, b] of Object.entries(d.bases)) {

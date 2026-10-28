@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, Package } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { avisoTope, todasLasFilas } from '../../../lib/todasLasFilas'
 import { formatGw, GwDate } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { BarButton, BIG_INPUT, chunks, fechaEs, LocalizarDialog } from '../../ventas/gestores/comun'
@@ -39,6 +40,9 @@ interface FiltroArt {
 
 const FILTRO_INICIAL: FiltroArt = { proveedor: '', familia: '', texto: '', ultDesde: '', ultHasta: '', anulados: false, soloPendientes: false }
 
+/** Máximo de filas de la pestaña; si hay más, avisa de que se afine el filtro. */
+const TOPE_FILAS_TAB = 5000
+
 export function TabArticulos({ opciones, onError }: { opciones: OpcionesGestorCompras; onError: (m: string | null) => void }) {
   const navigate = useNavigate()
   const [filtro, setFiltro] = useState<FiltroArt>(FILTRO_INICIAL)
@@ -53,21 +57,27 @@ export function TabArticulos({ opciones, onError }: { opciones: OpcionesGestorCo
   async function aplicar() {
     setCargando(true)
     onError(null)
-    let qa = supabase.from('articulo').select('codigo_interno, descripcion').limit(3000)
-    if (!filtro.anulados) qa = qa.eq('activo', true)
-    if (filtro.familia) qa = qa.eq('familia_codigo', filtro.familia)
     const t = filtro.texto.trim().replace(/[%,()]/g, ' ')
-    if (t) qa = qa.or(`codigo_interno.ilike.%${t}%,descripcion.ilike.%${t}%`)
+    const qa = () => {
+      let q = supabase.from('articulo').select('codigo_interno, descripcion').order('codigo_interno')
+      if (!filtro.anulados) q = q.eq('activo', true)
+      if (filtro.familia) q = q.eq('familia_codigo', filtro.familia)
+      if (t) q = q.or(`codigo_interno.ilike.%${t}%,descripcion.ilike.%${t}%`)
+      return q
+    }
     const descr = new Map<string, string>()
     let codigos: string[] | null = null
+    let aviso: string | null = null
     if (filtro.familia || t) {
-      const { data, error } = await qa
+      // Supabase corta cada respuesta en 1000 filas: por bloques, con tope y aviso.
+      const { data, error, cortado } = await todasLasFilas(qa, { tope: TOPE_FILAS_TAB })
       if (error) {
-        onError(error.message)
+        onError(error)
         setCargando(false)
         return
       }
-      for (const a of data ?? []) descr.set(a.codigo_interno, a.descripcion ?? '')
+      if (cortado) aviso = avisoTope(TOPE_FILAS_TAB)
+      for (const a of data) descr.set(a.codigo_interno, a.descripcion ?? '')
       codigos = [...descr.keys()]
     }
 
@@ -99,18 +109,20 @@ export function TabArticulos({ opciones, onError }: { opciones: OpcionesGestorCo
     const datos: R[] = []
     if (codigos) {
       for (const trozo of chunks(codigos)) {
-        const { data, error } = await base().in('articulo_codigo', trozo)
+        const { data, error } = await todasLasFilas<R>(() => base().in('articulo_codigo', trozo))
         if (error) {
-          onError(error.message)
+          onError(error)
           break
         }
-        datos.push(...((data ?? []) as unknown as R[]))
+        datos.push(...data)
       }
     } else {
-      const { data, error } = await base().limit(3000)
-      if (error) onError(error.message)
-      datos.push(...((data ?? []) as unknown as R[]))
+      const { data, error, cortado } = await todasLasFilas<R>(base, { tope: TOPE_FILAS_TAB })
+      if (error) onError(error)
+      if (cortado) aviso = avisoTope(TOPE_FILAS_TAB)
+      datos.push(...data)
     }
+    if (aviso) onError(aviso)
     // Descripciones (y, si no se muestran anulados, quitar los artículos dados de baja).
     const faltan = [...new Set(datos.map((d) => d.articulo_codigo))].filter((c) => !descr.has(c))
     const activos = new Set<string>(descr.keys())

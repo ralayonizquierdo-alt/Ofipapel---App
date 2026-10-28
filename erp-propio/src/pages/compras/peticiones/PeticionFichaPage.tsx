@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Ban, Link2, Package, ShoppingCart } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
@@ -6,6 +6,7 @@ import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, 
 import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
+import { useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { gwConCeros, useListaOrdenada } from '../../../components/gw/GwListaOrdenada'
 import { defTercero } from '../../../components/gw/listasTerceros'
 import { useNexaContexto } from '../../../nexa/contexto'
@@ -83,7 +84,6 @@ export function PeticionFichaPage() {
   const [mode, setMode] = useState<'consulta' | 'edicion' | 'alta'>(esNuevo ? 'alta' : 'consulta')
   const [reg, setReg] = useState<Peticion | null>(null)
   const [draft, setDraft] = useState<Peticion | null>(null)
-  const [claves, setClaves] = useState<{ t: string; n: number }[]>([])
   const [orden, setOrden] = useState<'numero' | 'articulo'>('numero')
   const [tram, setTram] = useState<Tram[]>([])
   const [info, setInfo] = useState<{ stock: number; pedido: number; provHabitual: string | null; nombreProv: string }>({ stock: 0, pedido: 0, provHabitual: null, nombreProv: '' })
@@ -113,19 +113,25 @@ export function PeticionFichaPage() {
       .then(({ data }) => setAlmacenes((data ?? []) as { codigo: string; nombre: string }[]))
   }, [])
 
-  const cargarClaves = useCallback(async () => {
-    let q = supabase.from('peticion').select('tienda_terminal_codigo, numero')
-    q = orden === 'numero' ? q.order('tienda_terminal_codigo').order('numero') : q.order('articulo_codigo').order('numero')
-    const { data } = await q.limit(5000)
-    setClaves((data ?? []).map((r) => ({ t: r.tienda_terminal_codigo as string, n: Number(r.numero) })))
-  }, [orden])
+  // Navegación contra el servidor: solo el registro vecino (gt/lt + limit 1) y el recuento, nunca la
+  // lista de claves (que se cortaba en 1000 y había que bajar entera al abrir).
+  const nav = useNavRegistro<{ tienda_terminal_codigo: string; numero: number }>({
+    tabla: 'peticion',
+    orden: orden === 'numero' ? ['tienda_terminal_codigo', 'numero'] : ['articulo_codigo', 'numero', 'tienda_terminal_codigo'],
+    actual:
+      mode !== 'consulta' || !reg || reg.numero == null
+        ? null
+        : orden === 'numero'
+          ? [reg.tienda_terminal_codigo, reg.numero]
+          : [reg.articulo_codigo, reg.numero, reg.tienda_terminal_codigo],
+    select: 'tienda_terminal_codigo, numero',
+  })
+  const refrescarNav = nav.refrescar
 
   useEffect(() => {
-    cargarClaves()
-    const alCrear = () => cargarClaves()
-    window.addEventListener(EVENTO_PETICION_CREADA, alCrear)
-    return () => window.removeEventListener(EVENTO_PETICION_CREADA, alCrear)
-  }, [cargarClaves])
+    window.addEventListener(EVENTO_PETICION_CREADA, refrescarNav)
+    return () => window.removeEventListener(EVENTO_PETICION_CREADA, refrescarNav)
+  }, [refrescarNav])
 
   // Documento de la URL, el último si no hay ninguno, o uno vacío en alta.
   useEffect(() => {
@@ -243,8 +249,12 @@ export function PeticionFichaPage() {
       : null,
   )
 
-  const idx = reg?.numero != null ? claves.findIndex((k) => k.t === reg.tienda_terminal_codigo && k.n === reg.numero) : -1
   const ir = (k: { t: string; n: number } | undefined) => k && navigate(`/peticiones/${encodeURIComponent(k.t)}/${k.n}`)
+  const irNav = async (d: NavDir) => {
+    const k = await nav.ir(d)
+    if (k) ir({ t: k.tienda_terminal_codigo, n: Number(k.numero) })
+    return k
+  }
 
   async function fijarArticulo(codigo: string) {
     const a = await datosArticuloPeticion(codigo)
@@ -303,11 +313,12 @@ export function PeticionFichaPage() {
     if (!reg?.numero) return
     if (tram.length) return setError('No se puede eliminar: la petición ya está tramitada en un pedido a proveedor. Puedes anularla.')
     if (!confirm(`¿Eliminar la petición ${reg.tienda_terminal_codigo}/${reg.numero} (${reg.articulo_codigo} ${reg.descripcion ?? ''})?`)) return
+    // La vecina se pide antes de borrar (después ya no hay registro actual desde el que buscarla).
+    const vecina = (await nav.ir('siguiente')) ?? (await nav.ir('anterior'))
     const { error: e } = await supabase.from('peticion').delete().eq('tienda_terminal_codigo', reg.tienda_terminal_codigo).eq('numero', reg.numero)
     if (e) return setError(e.message)
-    const sig = claves[idx + 1] ?? claves[idx - 1]
-    await cargarClaves()
-    if (sig) ir(sig)
+    nav.refrescar()
+    if (vecina) ir({ t: vecina.tienda_terminal_codigo, n: Number(vecina.numero) })
     else navigate('/peticiones', { replace: true })
   }
 
@@ -356,10 +367,12 @@ export function PeticionFichaPage() {
                 disabled={editing}
                 className="gw-num"
                 title="PETICION.NUMERO"
-                onBuscar={(t) => {
-                  const n = Number(t)
-                  const k = claves.find((x) => x.t === d.tienda_terminal_codigo && x.n === n)
-                  if (k) ir(k)
+                onBuscar={async (t) => {
+                  const n = Number(t.replace(/\D/g, ''))
+                  const { data } = n
+                    ? await supabase.from('peticion').select('numero').eq('tienda_terminal_codigo', d.tienda_terminal_codigo).eq('numero', n).maybeSingle()
+                    : { data: null }
+                  if (data) ir({ t: d.tienda_terminal_codigo, n })
                   else setError(`No existe la petición ${d.tienda_terminal_codigo}/${t}.`)
                 }}
               />
@@ -394,7 +407,8 @@ export function PeticionFichaPage() {
               />
             </GwField>
             <span className="self-center text-right text-[12px] text-[#1a4fd0]" title="Orden de Primero / Anterior / Siguiente / Último (botón Ordenar)">
-              {idx >= 0 ? `Petición ${idx + 1} de ${claves.length}` : `${claves.length} peticiones`} · orden por {orden === 'numero' ? 'número' : 'artículo'}
+              {nav.posicion != null && nav.total != null ? `Petición ${nav.posicion} de ${nav.total}` : nav.total != null ? `${nav.total} peticiones` : ''} · orden por{' '}
+              {orden === 'numero' ? 'número' : 'artículo'}
             </span>
           </div>
 
@@ -599,12 +613,12 @@ export function PeticionFichaPage() {
       <div className="flex-1" />
       <GwRecordBar
         mode={mode}
-        canNavigate={!editing && claves.length > 0}
+        canNavigate={!editing && !!nav.total}
         saving={saving}
-        onFirst={() => ir(claves[0])}
-        onPrev={() => ir(claves[Math.max(0, idx - 1)])}
-        onNext={() => ir(claves[Math.min(claves.length - 1, idx + 1)])}
-        onLast={() => ir(claves[claves.length - 1])}
+        onFirst={() => irNav('primero')}
+        onPrev={() => irNav('anterior')}
+        onNext={() => irNav('siguiente')}
+        onLast={() => irNav('ultimo')}
         onSort={() => setOrden((o) => (o === 'numero' ? 'articulo' : 'numero'))}
         onSearch={() => setDialogo('buscar')}
         onNew={() => navigate('/peticiones/nueva')}
@@ -618,8 +632,7 @@ export function PeticionFichaPage() {
         onCancel={() => {
           setError(null)
           if (mode === 'alta') {
-            if (claves.length) ir(claves[claves.length - 1])
-            else navigate('/peticiones', { replace: true })
+            irNav('ultimo').then((k) => !k && navigate('/peticiones', { replace: true }))
           } else {
             setDraft(null)
             setMode('consulta')

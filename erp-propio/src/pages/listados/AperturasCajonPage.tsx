@@ -6,8 +6,8 @@ import { rpc } from './comun'
 
 // Ventas → Listados → List. Apert. Cajón (captura 06-06: «Listado de Aperturas de Cajón»).
 // GeminisWin apunta cada apertura del cajón portamonedas y quién la hizo. En el ERP se creó la
-// tabla apertura_cajon para este listado, pero AÚN NADIE LA RELLENA (falta que el TPV/Caja
-// inserte una fila al abrir el cajón): el informe sale vacío con un aviso.
+// tabla apertura_cajon para este listado; la rellena el TPV (apuntarAperturaCajon, en
+// ventas/ventaModel.ts) en cada cobro en efectivo y con el botón «Cajón» (Ctrl+F12).
 
 export function AperturasCajonPage() {
   const inf = useInforme()
@@ -39,7 +39,6 @@ export function AperturasCajonPage() {
       {
         titulo: 'Listado de Aperturas de Cajón',
         sinCaptura: true,
-        aviso: 'Aviso: el ERP todavía no registra las aperturas del cajón (el TPV no las anota). El listado saldrá vacío hasta que se conecte.',
         columnas: [
           { key: 'fecha', titulo: 'Fecha', tipo: 'fecha', ancho: 70 },
           { key: 'hora', titulo: 'Hora', ancho: 60 },

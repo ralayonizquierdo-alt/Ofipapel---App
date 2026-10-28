@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Calculator } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { filasPorTrozos, todasLasFilas } from '../../lib/todasLasFilas'
 import { GwDate, GwField, GwGroup, GwInput, GwNumber, GwSelect, GwTabs, GwTextArea, formatGw, type GwTabDef } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
@@ -86,8 +87,10 @@ const precioDe = (pct: number | null, base: number | null) => (pct == null || ba
 async function pvpsBase(codigos: string[], nivel: number) {
   const mapa = new Map<string, number>()
   if (!codigos.length) return mapa
-  const { data } = await supabase.from('articulo_precio_nivel').select('articulo_codigo, pvp').in('articulo_codigo', codigos).eq('nivel_tarifa', nivel)
-  for (const r of (data ?? []) as { articulo_codigo: string; pvp: number }[]) mapa.set(r.articulo_codigo, Number(r.pvp))
+  const { data } = await filasPorTrozos<{ articulo_codigo: string; pvp: number }>(codigos, (t) =>
+    supabase.from('articulo_precio_nivel').select('articulo_codigo, pvp').in('articulo_codigo', t).eq('nivel_tarifa', nivel).order('articulo_codigo'),
+  )
+  for (const r of data) mapa.set(r.articulo_codigo, Number(r.pvp))
   return mapa
 }
 
@@ -113,14 +116,17 @@ export function TarifaOfertaFichaPage() {
     if (!f.registro.codigo) return
     let cancel = false
     ;(async () => {
-      const { data } = await supabase
-        .from('articulo_tarifa_cantidad')
-        .select(
-          'id, articulo_codigo, cantidad_desde, almacen_oferta_codigo, stock_minimo_oferta, articulo:articulo_codigo(descripcion, coste_neto, precio_liquidado, pvp), niveles:articulo_tarifa_cantidad_nivel(nivel_tarifa, pvp, incremento_pct)',
-        )
-        .eq('oferta_codigo', f.registro.codigo)
-        .order('id')
-      const filas = (data ?? []) as unknown as {
+      // Una oferta puede llevar más de 1000 artículos (lo máximo que devuelve Supabase): por bloques.
+      const { data } = await todasLasFilas(() =>
+        supabase
+          .from('articulo_tarifa_cantidad')
+          .select(
+            'id, articulo_codigo, cantidad_desde, almacen_oferta_codigo, stock_minimo_oferta, articulo:articulo_codigo(descripcion, coste_neto, precio_liquidado, pvp), niveles:articulo_tarifa_cantidad_nivel(nivel_tarifa, pvp, incremento_pct)',
+          )
+          .eq('oferta_codigo', f.registro.codigo)
+          .order('id'),
+      )
+      const filas = data as unknown as {
         id: number
         articulo_codigo: string
         cantidad_desde: number

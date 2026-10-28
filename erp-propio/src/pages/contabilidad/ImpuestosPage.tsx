@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Download, RefreshCw } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { todasLasFilas } from '../../lib/todasLasFilas'
 import { GwField, GwGroup, GwNumber, GwRadio, GwSelect } from '../../components/gw'
 import {
   cargarLibro,
@@ -352,8 +353,9 @@ export function Modelo347Page() {
 
   const cargar = useCallback(async () => {
     setError(null)
-    const { data, error: e } = await supabase.rpc('fn_contab_347', { p_ejercicio: anio })
-    if (e) return setError(e.message)
+    // Supabase corta cada respuesta en 1000 filas, también en las funciones: por bloques.
+    const { data, error: e } = await todasLasFilas(() => supabase.rpc('fn_contab_347', { p_ejercicio: anio }), { tope: 500000 })
+    if (e) return setError(e)
     setFilas((data ?? []) as Fila347[])
   }, [anio])
   useEffect(() => {
