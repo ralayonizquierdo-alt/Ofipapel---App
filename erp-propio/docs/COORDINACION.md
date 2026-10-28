@@ -89,6 +89,10 @@ construida.
 ### Caja · Facturación · Maestros · Listados
 Pendiente de capturas. Pantallas antiguas provisionales: `/caja`, `/facturacion`.
 
+| Pantalla | Estado |
+|---|---|
+| Gestor de Pagos de Clientes (`/gestor-cobros-clientes`; pestañas Facturas, Pagos y Facturas sin Pagos, Pagos) y ficha Pagos de Clientes, Cobros (`/cobros-clientes`, Alt+F7) | Sin captura (gemelas del Gestor de pagos a proveedores y de su ficha). «Pagos» de la barra lateral y «Cobros de la factura» del pedido llevan aquí. Lógica en BD: `fn_cobro_cliente_cobrar` (total o parcial; contado = ingreso COB en la caja abierta), `fn_cobro_cliente_anular`, `fn_cobro_generar_vencimientos` (migración `20261028_cobros_clientes.sql`) |
+
 ## Capturas pendientes (lista actualizada 27/10/2026, tras los ZIP 4, 5 y 6)
 
 Recibidos y construidos: ZIP 1 Ventas, 2 Compras, 3 Almacén, 4 Caja y
@@ -97,7 +101,8 @@ Facturación (parcial), 5 Maestros (Archivo y Utilidades), 6 Listados. Falta:
 - **Caja:** Apertura de caja; Cierre de caja; Aperturas y cierres → pestaña
   Consultas movimientos de caja; Listado de caja → lista de tipos de informe.
 - **Facturación:** Generar facturas; Gestor de pagos de clientes → pestañas
-  Facturas, Pagos y facturas sin pagos, y Pagos; Listados → List. Remesas.
+  Facturas, Pagos y facturas sin pagos, y Pagos (ya construido sin captura); ficha
+  Pagos de Clientes, Cobros; Listados → List. Remesas.
 - **Clientes:** Tipo Cliente (construida sin captura el 28/10).
 - **Ventas:** Listados → List. Pedidos; Listados de ventas → lista de tipos de
   informe; Técnicos → resto de pestañas; Repartidores → Comisiones; Zonas
@@ -210,7 +215,10 @@ unidades en el almacén 01 y recalculó los costes de 149719), factura de
 proveedor 01/1, pago 01-2 anulado y movimiento de caja 01-4, transportista
 000001, almacén 98, traspaso 01/2, regularización 01/2, inventario 01-2 con sus
 puntos de restauración y lote de modificación de precios 0000000001; artículo
-PRUEBA-GPP1. Datos reales de referencia que se quedan:
+PRUEBA-GPP1. De Cobros de clientes (28/10): albaranes 01-17 y 01-19 del cliente
+00001 facturados en las facturas 01-9 (P01-3, cobrada en dos cobros de efectivo 01-10
+y 01-11, movimientos de caja 01-12 y 01-13) y 01-10 (P01-4, con su vencimiento 01-13
+pendiente); cobros anulados 01-8 y 01-12 (movimiento de caja 01-14 a 0). Datos reales de referencia que se quedan:
 artículo 149719, proveedor 05520, familia 209102, marca MIQUELRIUS.
 
 ## Notas de otros chats

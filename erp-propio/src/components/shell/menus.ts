@@ -78,7 +78,7 @@ export const MENUS: TopMenu[] = [
       item('Clientes', { to: '/clientes' }),
       item('Tipo Cliente', { to: '/tipos-cliente', description: 'Tipos de Cliente: condiciones por defecto (sin captura)' }),
       item('Recalcular deuda'),
-      item('Pagos de Clientes, Cobros', { shortcut: 'Alt+F7' }),
+      item('Pagos de Clientes, Cobros', { to: '/cobros-clientes/ficha', shortcut: 'Alt+F7', description: 'Pagos de Clientes, Cobros' }),
       'sep',
       item('Listados', {
         children: off([
@@ -150,7 +150,7 @@ export const MENUS: TopMenu[] = [
       // Calcado de GeminisWin (capturas 04-10 y 04-11). Registros VeriFactu está en Contabilidad.
       item('Generar Facturas', { to: '/generar-facturas', description: 'Generar facturación mensual, etc' }),
       item('Facturas', { to: '/facturacion', description: 'Facturas Clientes' }),
-      item('Gestor de Pagos de Clientes'),
+      item('Gestor de Pagos de Clientes', { to: '/gestor-cobros-clientes', description: 'Gestor de Pagos de Clientes (cobros)' }),
       item('Listados', {
         children: [
           item('List. Facturas', { to: '/listado-facturas', description: 'Listado de facturas de clientes con desglose de IGIC' }),
@@ -398,6 +398,8 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/repartidores', title: 'Repartidores' },
   { prefix: '/zonas-territoriales', title: 'Zonas Territoriales' },
   { prefix: '/rutas-reparto', title: 'Rutas de Reparto' },
+  { prefix: '/cobros-clientes', title: 'Pagos de Clientes, Cobros' },
+  { prefix: '/gestor-cobros-clientes', title: 'Gestor de Pagos de Clientes' },
   { prefix: '/pagos', title: 'Pagos' },
   { prefix: '/facturacion', title: 'Facturas Clientes' },
   { prefix: '/generar-facturas', title: 'Generar Facturas' },

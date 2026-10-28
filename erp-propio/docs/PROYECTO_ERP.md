@@ -405,8 +405,9 @@ lleve a la pantalla adecuada.
 - El TPV no apunta las aperturas de cajón en `apertura_cajon`.
 
 **Funcionalidad**
-- **Gestor de pagos de clientes** (cobros), cuando lleguen sus capturas (hoy
-  «Pagos» lleva a proveedores).
+- **Gestor de pagos de clientes** (cobros): construido sin captura el 28/10
+  (Facturación → Gestor de Pagos de Clientes y Clientes → Pagos de Clientes,
+  Cobros); se ajusta cuando lleguen sus capturas.
 - Permisos por grupo de acceso: hechos (apartado 10); falta llevarlos a las RLS de cada tabla.
 - Tipos de informe y columnas de los Listados.
 - Contabilidad: formato de exportación de la gestoría.

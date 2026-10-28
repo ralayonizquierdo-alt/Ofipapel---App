@@ -26,6 +26,8 @@ import { PedidoProveedorFichaPage } from './pages/compras/pedidos/PedidoProveedo
 import { CreacionRapidaPedidosPage } from './pages/compras/pedidos/CreacionRapidaPedidosPage'
 import { PagoProveedorFichaPage } from './pages/compras/pagos/PagoProveedorFichaPage'
 import { GestorPagosProveedorPage } from './pages/compras/pagos/GestorPagosProveedorPage'
+import { GestorCobrosClientePage } from './pages/facturacion/cobros/GestorCobrosClientePage'
+import { CobroClienteFichaPage } from './pages/facturacion/cobros/CobroClienteFichaPage'
 import { FacturaProveedorFichaPage } from './pages/compras/facturas/FacturaProveedorFichaPage'
 import { GestorPedidosProveedorPage } from './pages/compras/gestor/GestorPedidosProveedorPage'
 import { TransportistaFichaPage } from './pages/compras/transportistas/TransportistaFichaPage'
@@ -181,8 +183,10 @@ function App() {
             <Route path="/familias/*" element={<FamiliaFichaPage />} />
             <Route path="/marcas/*" element={<MarcaFichaPage />} />
             <Route path="/plantillas-tarifas/*" element={<PlantillaTarifaFichaPage />} />
-            {/* La pantalla provisional antigua de pagos a proveedor se sustituyó por Compras → Pagos */}
-            <Route path="/pagos" element={<Navigate to="/pagos-proveedor" replace />} />
+            {/* «Pagos» (barra lateral) es el Gestor de Pagos de Clientes (cobros); los pagos a proveedor siguen en Compras */}
+            <Route path="/pagos" element={<Navigate to="/gestor-cobros-clientes" replace />} />
+            <Route path="/gestor-cobros-clientes" element={<GestorCobrosClientePage />} />
+            <Route path="/cobros-clientes/*" element={<CobroClienteFichaPage />} />
             {/* Menú Facturación (la antigua FacturacionPage provisional queda desenrutada) */}
             <Route path="/facturacion/*" element={<FacturaClienteFichaPage />} />
             <Route path="/generar-facturas" element={<GenerarFacturasPage />} />

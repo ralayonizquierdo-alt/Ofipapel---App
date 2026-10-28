@@ -1107,7 +1107,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
             <GwInput readOnly value={factura?.hora_factura ?? ''} />
             <GwInput disabled={ro} value={cab?.observaciones ?? ''} onChange={(e) => patch({ observaciones: e.target.value || null })} />
           </fieldset>
-          <BigBtn disabled={!factura} title="Cobros de la factura" onClick={() => navigate('/pagos')}>
+          <BigBtn disabled={!factura} title="Cobros de la factura" onClick={() => factura && navigate(`/gestor-cobros-clientes?factura=${encodeURIComponent(factura.tienda_terminal_codigo)}-${factura.numero}`)}>
             Pagos
           </BigBtn>
         </div>
