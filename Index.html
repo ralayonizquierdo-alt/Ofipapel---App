@@ -115,7 +115,7 @@ body{background:url(bg-trebol.png) center/cover fixed;}
 /* MAIN CONTENT */
 .main-content {
   margin-left:var(--sidebar-w);height:100vh;overflow-y:auto;
-  display:flex;flex-direction:column;
+  display:flex;flex-direction:column;flex:1 1 auto;min-width:0;
   background:rgba(242,248,242,0.93);
 }
 .topbar {
@@ -319,6 +319,39 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
 .empty-state .e-ico{font-size:48px;margin-bottom:12px;}
 .empty-state h3{font-size:16px;color:var(--azul);margin-bottom:8px;}
 .empty-state p{font-size:13px;line-height:1.6;}
+
+/* ═══════════════════════════════════ PANTALLAS GRANDES ═══ */
+/* El contenido ocupa todo el ancho (ver .main-content) y, en monitores grandes, números, tablas y títulos crecen con él */
+@media(min-width:1500px){
+  .page-body{padding:32px 44px 70px;}
+  .topbar{padding:16px 44px;}
+  .topbar-title{font-size:19px;}
+  .kpi-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;}
+  .kpi{padding:22px 24px;}
+  .kpi-ico{font-size:24px;}
+  .kpi-lbl{font-size:12px;}
+  .kpi-val{font-size:25px;} .kpi-val.big{font-size:28px;}
+  .kpi-delta,.kpi-sub{font-size:13px;}
+  .chart-card{padding:26px;}
+  .chart-ttl{font-size:16px;} .chart-desc{font-size:13px;}
+  .sec-title{font-size:13px;}
+  thead th{font-size:12px;padding:11px 16px;}
+  tbody td,tbody td:first-child,tfoot td{font-size:14px;padding:12px 16px;}
+  .subtab-btn{font-size:14px;padding:10px 18px;}
+  .nav-item{font-size:14px;}
+  .kpi-grid-dash{grid-template-columns:repeat(4,1fr);}
+}
+@media(min-width:2200px){
+  .page-body{padding:40px 64px 80px;}
+  .kpi-grid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:22px;}
+  .kpi-grid-dash{grid-template-columns:repeat(4,1fr);}
+  .kpi-val{font-size:32px;} .kpi-val.big{font-size:36px;}
+  .kpi-lbl{font-size:14px;}
+  .chart-ttl{font-size:19px;}
+  thead th{font-size:14px;}
+  tbody td,tbody td:first-child,tfoot td{font-size:17px;padding:14px 18px;}
+  .subtab-btn{font-size:16px;}
+}
 
 /* ═══════════════════════════════════ RESPONSIVE ═══ */
 @media(max-width:900px){
@@ -2268,6 +2301,28 @@ function deltaStr(now, prev, field){
 }
 function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
 
+// Gráficos en pantallas grandes: por defecto Chart.js los hace tan altos como la mitad de lo que miden de ancho
+// (con 2 vendedores y 1.600 px de ancho, barras de 400 px). En ≥1500 px cada gráfico va en un recuadro de altura razonable.
+if(typeof Chart!=='undefined') Chart.register({
+  id:'alturaPantallaGrande',
+  beforeInit(chart){
+    if(window.innerWidth<1500) return;
+    const cv=chart.canvas; if(!cv||!cv.parentNode) return;
+    let wrap=cv.parentNode;
+    if(!(wrap.classList&&wrap.classList.contains('chart-wrap'))){
+      wrap=document.createElement('div'); wrap.className='chart-wrap'; wrap.style.position='relative';
+      cv.parentNode.insertBefore(wrap,cv); wrap.appendChild(cv);
+    }
+    const w=wrap.clientWidth||800, tipo=chart.config.type;
+    const n=((chart.config.data||{}).labels||[]).length||1;
+    const horiz=((chart.config.options||{}).indexAxis)==='y';
+    const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+    const h=(tipo==='doughnut'||tipo==='pie')?clamp(w,260,480):horiz?clamp(n*42+110,260,640):clamp(Math.round(w*0.34),260,540);
+    wrap.style.height=h+'px';
+    chart.options.maintainAspectRatio=false;
+  }
+});
+
 const G = {
   grid:{ color:'rgba(26,59,93,0.07)', borderDash:[4,4] },
   ticks:{ color:'#5A7385', font:{size:10} },
@@ -2362,7 +2417,7 @@ function renderDashboard(){
   const totalDiff  = total(last)-total(first);
 
   const html = `
-  <div class="kpi-grid">
+  <div class="kpi-grid kpi-grid-dash">
     <div class="kpi k-total" style="grid-column:1/-1;padding:24px 28px;border-radius:16px;background:linear-gradient(135deg,#0d3d0d,#1A5C1A);border:none;box-shadow:0 8px 32px rgba(26,92,26,0.35);">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
         <div>
