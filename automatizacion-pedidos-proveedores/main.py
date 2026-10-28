@@ -222,7 +222,9 @@ def main():
         config["excel"]["columna_precio"],
         config["excel"]["columnas_esperadas"],
     )
-    ruta_comparativa = os.path.join(config["salida"]["carpeta"], f"PEDIDO {semana} Comparativa.xlsx")
+    carpeta_comparativa = config["salida"].get("carpeta_comparativa") or config["salida"]["carpeta"]
+    os.makedirs(carpeta_comparativa, exist_ok=True)
+    ruta_comparativa = os.path.join(carpeta_comparativa, f"PEDIDO {semana} Comparativa.xlsx")
     with open(ruta_comparativa, "wb") as f:
         f.write(excel_bytes_comparativa)
     print(f"Excel comparativa generado: {ruta_comparativa}")
