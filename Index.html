@@ -2338,6 +2338,14 @@ function renderDashboard(){
 
   ${(() => {
     if(!cajaCierres.length) return '';
+    // Cualquier cierre sin conciliar (no solo el último) sale en rojo y bien grande
+    const conc=conciliarRecibos();
+    const sinConc=cajaCierres.map(c=>({c,es:estadoBancoDeCierre(c,conc)})).filter(x=>x.es.estado==='pendiente'||x.es.estado==='parcial').reverse();
+    if(sinConc.length){
+      const filas=sinConc.slice(0,8).map(({c,es})=>`<div style="margin-top:6px;font-size:14px;">${es.estado==='parcial'?'🟡':'⏳'} <strong>${_diaCorto(c.fecha)}</strong> — ${es.estado==='parcial'?'faltan recibos: '+escapeHtml(textoFaltan(es)):'sin recibos · efectivo '+fmt(es.sistemaEf)}</div>`).join('');
+      const mas=sinConc.length>8?`<div style="margin-top:6px;font-size:14px;">… y ${sinConc.length-8} más</div>`:'';
+      return `<div class="alert-card err" style="margin-bottom:20px;cursor:pointer;border-left-width:8px;padding:18px 20px;" onclick="showView('caja')"><div class="alert-ico" style="font-size:34px;">🚨</div><div><div class="alert-ttl" style="font-size:20px;font-weight:800;color:var(--rojo);">${sinConc.length===1?'HAY 1 CIERRE DE CAJA SIN CONCILIAR':'HAY '+sinConc.length+' CIERRES DE CAJA SIN CONCILIAR'}</div><div class="alert-txt">Faltan los recibos del banco. Pulsa para abrir Control de Caja.${filas}${mas}</div></div></div>`;
+    }
     const lc=cajaCierres[cajaCierres.length-1];
     const es=estadoBancoDeCierre(lc);
     const ico=iconoBanco(es);
