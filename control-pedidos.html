@@ -1499,7 +1499,6 @@ function vistaComparacion(p, filas) {
             <select onchange="decide(${js(f.ref)},'accion',this.value)">
               <option value="">— decidir —</option>
               ${acciones.map((a) => `<option value="${a}" ${d.accion === a ? 'selected' : ''}>${nombres[a]}</option>`).join('')}
-              ${f.cantPropuesta < f.cantPedida ? `<option value="anadir">➕ Lo añade el proveedor (meterlo en su propuesta)</option>` : ''}
               ${f.estado === 'falta' ? filas.filter((x) => x.estado === 'extra').map((x) => `<option value="eq:${h(x.ref)}">🔗 Es la «${h(x.ref)}» del proveedor (${h(String(x.desc || '').slice(0, 30))})</option>`).join('') : ''}
             </select>
             ${d.accion === 'manual' ? `<div class="fila" style="margin-top:4px"><input class="cant" placeholder="Cant." value="${h(d.cant)}" onchange="decide(${js(f.ref)},'cant',this.value)"><input class="precio" placeholder="${esRepo(p) ? 'Neto' : 'Precio'}" value="${h(d.precio)}" onchange="decide(${js(f.ref)},'precio',this.value)"></div>` : ''}
@@ -1526,7 +1525,7 @@ function vistaComparacion(p, filas) {
     </label>
     ${n.revisar ? (() => { const nm = filas.filter((f) => f.revisar && marcadasDec.has(f.ref)).length; return `<div id="barraBloque" class="fila no-imprimir" style="margin:6px 0;gap:6px;align-items:center;${nm ? '' : 'display:none'}">
       <b><span id="nMarcadas">${nm}</span> marcadas:</b>
-      <select id="accionBloque"><option value="">— decisión —</option>${['aceptar', 'reclamar', 'resto', 'anular', 'mantener', 'excluir'].filter((a) => esRepo(p) ? a !== 'resto' && a !== 'anular' : true).map((a) => `<option value="${a}">${nombres[a]}</option>`).join('')}<option value="anadir">➕ Lo añade el proveedor</option></select>
+      <select id="accionBloque"><option value="">— decisión —</option>${['aceptar', 'reclamar', 'resto', 'anular', 'mantener', 'excluir'].filter((a) => esRepo(p) ? a !== 'resto' && a !== 'anular' : true).map((a) => `<option value="${a}">${nombres[a]}</option>`).join('')}</select>
       <button class="btn primario peque" onclick="decidirEnBloque(document.getElementById('accionBloque').value)">Aplicar</button>
     </div>`; })() : ''}
     ${mostrar.length ? tabla(mostrar) : `<div class="aviso-caja ok">${n.revisar ? '✅ Todas las discordancias están decididas.' : 'Todo cuadra.'}</div>`}
@@ -1556,8 +1555,7 @@ function bloqueFaltasSobras(p, filas) {
   const cambiarReclamada = (x) => {
     const f = filaDe.get(x.ref);
     if (!f || (p.decisiones[x.ref] || {}).accion !== 'reclamar') return '';
-    const anadir = f.cantPropuesta < f.cantPedida ? ` <button class="btn peque no-imprimir" onclick="decide(${js(x.ref)},'accion','anadir')">➕ Lo añade el proveedor</button>` : '';
-    return anadir + ' ' + CP.accionesPara(f, p.tipo).filter((a) => cortos[a]).map((a) => `<button class="btn peque no-imprimir" onclick="decide(${js(x.ref)},'accion','${a}')">${cortos[a]}</button>`).join(' ');
+    return ' ' + CP.accionesPara(f, p.tipo).filter((a) => cortos[a]).map((a) => `<button class="btn peque no-imprimir" onclick="decide(${js(x.ref)},'accion','${a}')">${cortos[a]}</button>`).join(' ');
   };
   const linea = (x, signo, falta) => {
     const acc = (p.decisiones[x.ref] || {}).accion;
@@ -2087,7 +2085,6 @@ function decidirEnBloque(accion) {
   if (!filas.length) { alert('No hay ninguna marcada.'); return; }
   const no = [];
   for (const f of filas) {
-    if (accion === 'anadir') { if (!anadirAPropuesta(f.ref, true)) no.push(f.ref); continue; }
     if (!CP.accionesPara(f, p.tipo).includes(accion)) { no.push(f.ref); continue; }
     p.decisiones[f.ref] = Object.assign({}, p.decisiones[f.ref], { accion });
   }
@@ -2095,29 +2092,8 @@ function decidirEnBloque(accion) {
   invalidar(p); guardar(); pintar();
   if (no.length) alert(`Hecho en ${filas.length - no.length}. Estas no admiten esa decisión y siguen igual: ${no.join(', ')}`);
 }
-/** El proveedor confirma que añade lo que faltaba y no manda propuesta nueva:
- *  se mete en su propuesta lo que falta, a su precio si ya la traía y si no al
- *  nuestro. Va como «añadida a mano» (se ve y se quita en «Documentos subidos»). */
-function anadirAPropuesta(ref, enLote) {
-  const p = pedidoActual();
-  const f = comparar(p).find((x) => x.ref === ref);
-  if (!f || !p.propuesta || f.cantPropuesta >= f.cantPedida) return false;
-  const k = CP.claveRef(ref);
-  const suya = p.propuesta.lineas.find((l) => CP.claveRef(l.ref) === k);
-  const nuestra = p.lineas.find((l) => CP.claveRef(l.ref) === k) || {};
-  const base = suya || nuestra;
-  const cant = f.cantPedida - f.cantPropuesta;
-  const neto = CP.precioNeto(base);
-  p.propuesta.lineas.push({ ref: suya ? suya.ref : ref, desc: base.desc || f.desc, cant, precio: base.precio, dtos: (base.dtos || []).slice(),
-    importe: neto != null ? CP.red2(neto * cant) : null, origen: 'añadida a mano' });
-  delete p.decisiones[ref];
-  invalidar(p);
-  if (!enLote) { guardar(); pintar(); }
-  return true;
-}
 function decide(ref, campo, valor) {
   const p = pedidoActual();
-  if (campo === 'accion' && valor === 'anadir') { anadirAPropuesta(ref); return; }
   if (campo === 'accion' && String(valor).startsWith('eq:')) { emparejar(String(valor).slice(3), ref); return; }
   p.decisiones[ref] = Object.assign({}, p.decisiones[ref], { [campo]: valor });
   // La nota para el proveedor solo cambia el texto de la reclamación: no hay que revalidar.
