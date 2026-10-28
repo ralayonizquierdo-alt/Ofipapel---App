@@ -364,8 +364,13 @@ integrado en la base de datos:
   El Panel no enlaza a pantallas no permitidas y NEXA no las propone (filtro en
   la Edge Function). Solo administradores escriben en `rol`/`rol_permiso`/
   `permiso` (políticas restrictivas) y no se puede quitar «Administrador» al
-  último grupo administrador. Pendiente: las RLS de las tablas de negocio
-  siguen siendo «autenticado = todo» (el permiso de menú es de interfaz).
+  último grupo administrador. Las tablas de configuración y administración
+  (empresa, tiendas, formas de pago, series, contadores, configuración VeriFactu/
+  web/contable, empleados, ejercicios…) solo las escriben administradores, y
+  `registro_facturacion` y `auditoria` no se tocan por la API (políticas
+  restrictivas, `20261028_seguridad_config.sql`). Pendiente: las RLS de las
+  tablas de negocio siguen siendo «autenticado = todo» (el permiso de menú es
+  de interfaz). Inventario, pruebas y plan en **`docs/SEGURIDAD_BD.md`**.
 
 ## 11. NEXA, la asistente con IA
 
