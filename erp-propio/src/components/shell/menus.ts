@@ -77,16 +77,20 @@ export const MENUS: TopMenu[] = [
     items: [
       item('Clientes', { to: '/clientes' }),
       item('Tipo Cliente', { to: '/tipos-cliente', description: 'Tipos de Cliente: condiciones por defecto (sin captura)' }),
-      item('Recalcular deuda'),
+      item('Recalcular deuda', { to: '/recalcular-deuda', description: 'Recalcular la deuda de los clientes (sin captura)' }),
       item('Pagos de Clientes, Cobros', { to: '/cobros-clientes/ficha', shortcut: 'Alt+F7', description: 'Pagos de Clientes, Cobros' }),
       'sep',
       item('Listados', {
-        children: off([
-          'List. de Clientes',
-          'List. de Ventas y Facturas por Cliente',
-          'Por Zonas Terr., Vendedores, Facturas y Artículos Pend.',
-          'Cli. que no han pagado',
-        ]),
+        // SIN CAPTURA: construidos con la pieza GwListado (filtros y columnas a confirmar con Luis).
+        children: [
+          item('List. de Clientes', { to: '/listados-clientes/clientes', description: 'Listado de Clientes (sin captura)' }),
+          item('List. de Ventas y Facturas por Cliente', { to: '/listados-clientes/ventas-facturas', description: 'Ventas y Facturas por Cliente (sin captura)' }),
+          item('Por Zonas Terr., Vendedores, Facturas y Artículos Pend.', {
+            to: '/listados-clientes/zonas',
+            description: 'Clientes por Zonas, Vendedores, Facturas y Artículos Pendientes (sin captura)',
+          }),
+          item('Cli. que no han pagado', { to: '/listados-clientes/no-pagado', description: 'Clientes que no han pagado (sin captura)' }),
+        ],
       }),
     ],
   },
@@ -117,8 +121,8 @@ export const MENUS: TopMenu[] = [
               item('Ventas por Artículo', { to: '/listados-ventas/articulos', shortcut: 'ALT+F9', description: 'Listado de Ventas por Artículo' }),
             ],
           }),
-          // «List Pedidos» (de clientes) sin captura: en gris.
-          ...off(['List Pedidos']),
+          // «List Pedidos» (de clientes): sin captura, al estilo de los Informes de Pedidos de Compras.
+          item('List Pedidos', { to: '/listados-ventas/pedidos', description: 'Listado de Pedidos de Clientes (sin captura)' }),
           item('L. Reparaciones', { to: '/listados-ventas/reparaciones', description: 'Listado de Reparaciones' }),
           item('List. Presupuestos', { to: '/listados-ventas/presupuestos', description: 'Listado de presupuestos' }),
           item('List. Tarjetas', { to: '/listados-ventas/tarjetas', description: 'Listado de Cobros en Tarjetas' }),
@@ -154,7 +158,9 @@ export const MENUS: TopMenu[] = [
       item('Listados', {
         children: [
           item('List. Facturas', { to: '/listado-facturas', description: 'Listado de facturas de clientes con desglose de IGIC' }),
-          ...off(['L. Pend. de Cobro', 'List. Remesas', 'Extracto clientes']),
+          item('L. Pend. de Cobro', { to: '/listados-facturacion/pendiente-cobro', description: 'Listado de Pendiente de Cobro (sin captura)' }),
+          ...off(['List. Remesas']),
+          item('Extracto clientes', { to: '/listados-facturacion/extracto', description: 'Extracto de Clientes (sin captura)' }),
         ],
       }),
       item('Liquidación'),
@@ -336,6 +342,14 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/listados-ventas/divisas', title: 'Listado de Cobros en Divisas' },
   { prefix: '/listados-ventas/cajon', title: 'Listado de Aperturas de Cajón' },
   { prefix: '/listados-compras/pedidos', title: 'Informes de Pedidos' },
+  { prefix: '/listados-ventas/pedidos', title: 'Listado de Pedidos de Clientes' },
+  { prefix: '/listados-clientes/clientes', title: 'Listado de Clientes' },
+  { prefix: '/listados-clientes/ventas-facturas', title: 'Ventas y Facturas por Cliente' },
+  { prefix: '/listados-clientes/zonas', title: 'Clientes por Zonas, Vendedores, Facturas y Artículos Pendientes' },
+  { prefix: '/listados-clientes/no-pagado', title: 'Clientes que no han pagado' },
+  { prefix: '/listados-facturacion/pendiente-cobro', title: 'Listado de Pendiente de Cobro' },
+  { prefix: '/listados-facturacion/extracto', title: 'Extracto de Clientes' },
+  { prefix: '/recalcular-deuda', title: 'Recalcular Deuda de Clientes' },
   { prefix: '/listados-compras/facturas', title: 'Informes de Facturas de Proveedores' },
   { prefix: '/articulos', title: 'Artículos' },
   { prefix: '/familias', title: 'Familias' },

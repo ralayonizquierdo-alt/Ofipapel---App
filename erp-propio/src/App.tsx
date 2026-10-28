@@ -89,6 +89,8 @@ import { CobrosDivisasPage } from './pages/listados/CobrosDivisasPage'
 import { AperturasCajonPage } from './pages/listados/AperturasCajonPage'
 import { ListadoPedidosProveedorPage } from './pages/listados/ListadoPedidosProveedorPage'
 import { ListadoFacturasProveedorPage } from './pages/listados/ListadoFacturasProveedorPage'
+import * as ListadosClientes from './pages/listados/clientes'
+import { RecalcularDeudaPage } from './pages/clientes/RecalcularDeudaPage'
 
 function ProtectedArea() {
   const { session, loading } = useAuth()
@@ -201,6 +203,15 @@ function App() {
             <Route path="/listados-ventas/cajon" element={<AperturasCajonPage />} />
             <Route path="/listados-compras/pedidos" element={<ListadoPedidosProveedorPage />} />
             <Route path="/listados-compras/facturas" element={<ListadoFacturasProveedorPage />} />
+            {/* Clientes → Listados, Facturación → Listados (pend. de cobro, extracto), Ventas → List Pedidos y Recalcular deuda */}
+            <Route path="/listados-clientes/clientes" element={<ListadosClientes.ListadoClientesPage />} />
+            <Route path="/listados-clientes/ventas-facturas" element={<ListadosClientes.VentasFacturasClientePage />} />
+            <Route path="/listados-clientes/zonas" element={<ListadosClientes.ClientesZonasPage />} />
+            <Route path="/listados-clientes/no-pagado" element={<ListadosClientes.ClientesImpagadosPage />} />
+            <Route path="/listados-facturacion/pendiente-cobro" element={<ListadosClientes.PendienteCobroPage />} />
+            <Route path="/listados-facturacion/extracto" element={<ListadosClientes.ExtractoClientesPage />} />
+            <Route path="/listados-ventas/pedidos" element={<ListadosClientes.ListadoPedidosClientesPage />} />
+            <Route path="/recalcular-deuda" element={<RecalcularDeudaPage />} />
             <Route path="/cambiar-clave" element={<CambiarClavePage />} />
             <Route path="/registros-verifactu" element={<RegistrosVerifactuPage />} />
             {/* Menú Contabilidad */}
