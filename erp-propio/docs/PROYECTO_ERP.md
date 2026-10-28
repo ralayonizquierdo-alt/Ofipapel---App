@@ -320,7 +320,7 @@ integrado en la base de datos:
   clientes, proveedores, familias, tarifas, stock…), para probar con
   volúmenes y casos de verdad.
 - Cómo llega: Cowork, en el PC de la oficina, sube los ficheros DBF tal cual a
-  la tabla `carga_dbf` (función `cargar_dbf_lote`, solo con su usuario). Luego
+  la tabla `carga_dbf` (función `cargar_dbf_lote`, solo con su usuario o un administrador). Luego
   **`fn_carga_gw_todo()`** los convierte en las tablas del ERP. Se puede
   repetir las veces que haga falta: no duplica nada. El stock entra como
   movimientos de inventario, no como un número suelto.
@@ -368,9 +368,22 @@ integrado en la base de datos:
   (empresa, tiendas, formas de pago, series, contadores, configuración VeriFactu/
   web/contable, empleados, ejercicios…) solo las escriben administradores, y
   `registro_facturacion` y `auditoria` no se tocan por la API (políticas
-  restrictivas, `20261028_seguridad_config.sql`). Pendiente: las RLS de las
-  tablas de negocio siguen siendo «autenticado = todo» (el permiso de menú es
-  de interfaz). Inventario, pruebas y plan en **`docs/SEGURIDAD_BD.md`**.
+  restrictivas, `20261028_seguridad_config.sql`).
+- **El permiso de menú también en la base** (`20261028_seguridad_funciones.sql`):
+  `fn_puede('<ruta>')` aplica la misma regla que `rutaPermitida`. Las funciones
+  que anulan o rectifican documentos VeriFactu, cobran, recalculan deuda o
+  stock, dan de baja artículos, modifican en bloque o liquidan comisiones
+  empiezan comprobando el permiso de su pantalla (error `42501` «No tienes
+  permiso…»). `cargar_dbf_lote` solo la usan `cowork` (por su id) o un
+  administrador; las `fn_carga_gw_*` ya no se ejecutan por la API (se lanzan por
+  SQL). **Borrar físicamente** artículos, clientes, proveedores, familias,
+  marcas, vendedores, bancos, rutas, zonas… es solo de administradores: los
+  demás dan de baja; la ficha avisa si no se pudo borrar. Si cambias
+  `REDIRECCIONES` en `permisos.ts`, cámbialas también en `fn_puede`.
+  Pendiente: el alta y modificación de las tablas de negocio siguen siendo
+  «autenticado = todo», y Contabilidad (`fn_contab_*`) tiene plan aparte.
+  Inventario, clasificación de funciones, pruebas y plan en
+  **`docs/SEGURIDAD_BD.md`**.
 
 ## 11. NEXA, la asistente con IA
 
