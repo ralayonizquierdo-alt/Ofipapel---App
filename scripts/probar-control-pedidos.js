@@ -1051,3 +1051,18 @@ test('Sadipal/Fabriano: altas de solo cifras, códigos viejos y colores en itali
     S1505005: '11406', F65900208: '65900208', F07702714: '07722714', F06803001: '06803001+06803002+06803003',
   });
 });
+
+test('Expositor agotado y servido suelto: lo que sobra es todo de la misma familia y no es de nadie', () => {
+  const F = [{ ref: 'MR24544', desc: 'EXP. NOTEBOOK', cant: 1, precio: 48.8, total: true }];
+  const S = [
+    { ref: 'MR4577', desc: 'NB0 A6 100 LIS GREEN FLORAL GARDEN', cant: 4, precio: 3.05, total: true },
+    { ref: 'MR4580', desc: 'NB0 A6 100 LIS FLOWER FLORAL GARDEN', cant: 4, precio: 3.05, total: true },
+  ];
+  const ex = CP.explicarDiferencias(F, S);
+  assert.strictEqual(ex.length, 1);
+  assert.strictEqual(ex[0].tipo, 'expositor');
+  assert.strictEqual(ex[0].parcial, true, '24,40 € de 48,80 €: viene incompleto');
+  assert.deepStrictEqual(ex[0].sobras.map((s) => s.ref), ['MR4577', 'MR4580']);
+  // Lo que sobra no es de la misma familia: no se adivina
+  assert.strictEqual(CP.explicarDiferencias(F, [{ ref: 'A', desc: 'CUBILETE NUBE', cant: 2, precio: 5, total: true }, { ref: 'B', desc: 'GRAPADORA GRAFITO', cant: 2, precio: 5, total: true }]).length, 0);
+});
