@@ -15,6 +15,10 @@ import { TiendaFichaPage } from './pages/archivo/TiendaFichaPage'
 import { EmpleadoFichaPage } from './pages/archivo/EmpleadoFichaPage'
 import { EmpresaPage } from './pages/archivo/EmpresaPage'
 import { FormaPagoFichaPage } from './pages/archivo/FormaPagoFichaPage'
+import { CodigoPostalFichaPage } from './pages/archivo/CodigoPostalFichaPage'
+import { BancoFichaPage } from './pages/archivo/BancoFichaPage'
+import { MonedaFichaPage } from './pages/archivo/MonedaFichaPage'
+import { TipoClienteFichaPage } from './pages/clientes/TipoClienteFichaPage'
 import { AlmacenUtilRoutes } from './pages/almacen/utilidades/AlmacenUtilRoutes'
 import { PedidoProveedorFichaPage } from './pages/compras/pedidos/PedidoProveedorFichaPage'
 import { CreacionRapidaPedidosPage } from './pages/compras/pedidos/CreacionRapidaPedidosPage'
@@ -126,6 +130,10 @@ function App() {
             <Route path="/empleados/*" element={<EmpleadoFichaPage />} />
             <Route path="/empresa" element={<EmpresaPage />} />
             <Route path="/formas-pago/*" element={<FormaPagoFichaPage />} />
+            <Route path="/codigos-postales/*" element={<CodigoPostalFichaPage />} />
+            <Route path="/bancos/*" element={<BancoFichaPage />} />
+            <Route path="/monedas/*" element={<MonedaFichaPage />} />
+            <Route path="/tipos-cliente/*" element={<TipoClienteFichaPage />} />
             {/* Menú Almacén: «Listados Artículos» (06-20) sustituye a la pantalla antigua /stock */}
             <Route path="/stock" element={<Navigate to="/almacen/listados-articulos" replace />} />
             <Route path="/almacen/*" element={<AlmacenUtilRoutes />} />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -7,6 +7,7 @@ import { MenuBar } from './shell/MenuBar'
 import { QuickBar } from './shell/QuickBar'
 import { MENUS, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
 import { NexaAsistente } from '../nexa/NexaAsistente'
+import { AcercaDeDialog } from './shell/AcercaDeDialog'
 
 // Ventana principal con el aspecto de GeminisWin: franja de título, barra de menús,
 // barra lateral de accesos rápidos, área MDI gris con la ventana activa y barra de estado.
@@ -18,6 +19,53 @@ export function Layout() {
   const [hint, setHint] = useState<string | null>(null)
   const [ayuda, setAyuda] = useState<string | null>(null)
   const title = windowTitle(pathname)
+  const { search } = useLocation()
+  const [acercaDe, setAcercaDe] = useState(false)
+
+  // Menú Ventana. El ERP enseña una sola ventana a la vez (la ruta), así que se lleva la lista
+  // de ventanas abiertas en la sesión, en el orden en que se abrieron, cada una con la última
+  // dirección visitada (vuelve al mismo registro). Recorrer (Ctrl+F1) pasa a la siguiente, como
+  // Ctrl+F6 en las ventanas MDI; Ocultar la quita de la vista sin sacarla de la lista; Borrar
+  // (y la X de la ventana) la cierra; Mostrar todo vuelve a enseñar la última ocultada.
+  const [ventanas, setVentanas] = useState<{ title: string; to: string }[]>([])
+  const [oculta, setOculta] = useState<string | null>(null)
+  useEffect(() => {
+    if (!title || pathname === '/caja/entrada' || pathname === '/caja/salida') return
+    const to = pathname + search
+    setVentanas((vs) => {
+      const i = vs.findIndex((v) => v.title === title)
+      if (i < 0) return [...vs, { title, to }].slice(-9)
+      if (vs[i].to === to) return vs
+      return vs.map((v, j) => (j === i ? { ...v, to } : v))
+    })
+    setOculta(null)
+  }, [title, pathname, search])
+  const ventanasRef = useRef(ventanas)
+  ventanasRef.current = ventanas
+  const actualRef = useRef({ title, oculta })
+  actualRef.current = { title, oculta }
+
+  function cerrarVentana(ocultar: boolean) {
+    const { title: t } = actualRef.current
+    if (!t) return
+    const v = ventanasRef.current.find((x) => x.title === t)
+    if (ocultar) setOculta(v?.to ?? null)
+    else setVentanas((vs) => vs.filter((x) => x.title !== t))
+    navigate('/')
+  }
+  function recorrer() {
+    const vs = ventanasRef.current
+    if (!vs.length) return
+    const i = vs.findIndex((x) => x.title === actualRef.current.title)
+    const sig = vs[(i + 1) % vs.length]
+    if (sig && sig.title !== actualRef.current.title) navigate(sig.to)
+  }
+  function mostrarTodo() {
+    const { oculta: o } = actualRef.current
+    const vs = ventanasRef.current
+    if (o) navigate(o)
+    else if (!actualRef.current.title && vs.length) navigate(vs[vs.length - 1].to)
+  }
 
   // Al entrar (iniciar sesión o abrir la aplicación en «/») se abre el Panel de Control. Solo al
   // montar: cerrar la ventana deja el escritorio vacío y «/» ya no lo vuelve a abrir.
@@ -38,7 +86,11 @@ export function Layout() {
   function runMenu(i: MenuItem) {
     if (i.to) navigate(i.to)
     else if (i.action === 'signout') signOut()
-    else if (i.action === 'close-window') navigate('/')
+    else if (i.action === 'close-window') cerrarVentana(false)
+    else if (i.action === 'hide-window') cerrarVentana(true)
+    else if (i.action === 'show-all') mostrarTodo()
+    else if (i.action === 'cycle-window') recorrer()
+    else if (i.action === 'about') setAcercaDe(true)
     // Compras → Generar Petición: lo abre GenerarPeticionHost (App.tsx), que también recoge CTRL+P.
     else if (i.action === 'generar-peticion') window.dispatchEvent(new Event('gw:generar-peticion'))
     else if (i.action) document.execCommand(i.action)
@@ -49,7 +101,7 @@ export function Layout() {
     const collect = (entries: MenuEntry[]) => {
       for (const e of entries) {
         if (e === 'sep') continue
-        if (e.shortcut && (e.to || e.action === 'signout')) shortcuts.set(e.shortcut.toLowerCase(), e)
+        if (e.shortcut && (e.to || e.action === 'signout' || e.action === 'cycle-window')) shortcuts.set(e.shortcut.toLowerCase(), e)
         if (e.children) collect(e.children)
       }
     }
@@ -102,7 +154,7 @@ export function Layout() {
           Ofipapel ERP, Periodo: Periodo {new Date().getFullYear()} Empresa: {empresa}
         </span>
       </div>
-      <MenuBar onRun={runMenu} onHover={setHint} activeWindow={title} />
+      <MenuBar onRun={runMenu} onHover={setHint} activeWindow={title} windows={ventanas.map((v) => ({ label: v.title, to: v.to }))} />
       <div className="flex min-h-0 flex-1">
         <QuickBar
           onHover={setHint}
@@ -118,7 +170,7 @@ export function Layout() {
           {pathname !== '/' && pathname !== '/caja/entrada' && pathname !== '/caja/salida' && (
             <GwWindow
               title={title}
-              onClose={() => navigate('/')}
+              onClose={() => cerrarVentana(false)}
               className="absolute inset-1 z-10 [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-auto"
             >
               <Outlet />
@@ -128,6 +180,7 @@ export function Layout() {
           <NexaAsistente />
         </div>
       </div>
+      {acercaDe && <AcercaDeDialog onClose={() => setAcercaDe(false)} />}
       <StatusBar text={hint ?? ayuda ?? title} email={session?.user.email ?? ''} />
     </div>
   )

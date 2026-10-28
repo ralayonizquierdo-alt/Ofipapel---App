@@ -38,11 +38,17 @@ construida.
 | Login «Cambiar Empleado» | Sin captura |
 | Buscar «Localizar registros» (común) | Calcada |
 | Tiendas, Empleados, Almacenes | Pantallas antiguas sin rehacer (pendiente captura) |
+| Códigos Postales (`/codigos-postales`; clave código postal + población, propone la provincia por las dos primeras cifras) | Sin captura (28/10) |
+| Cód. Bancarios (`/bancos`: banco con BIC y rejilla de sucursales) | Sin captura (28/10) |
+| Monedas (`/monedas`: cotización billete/cheque, decimales) | Sin captura (28/10) |
+| ? → Acerca de Ofipapel ERP (versión de `package.json` y commit `COMMIT_REF` de Netlify) | Sin captura (28/10) |
+| Ventana → Ocultar / Mostrar todo / Borrar / Recorrer (Ctrl+F1) y lista de ventanas abiertas | Sin captura (28/10). El ERP enseña una sola ventana a la vez: Recorrer pasa a la siguiente ventana abierta en la sesión (vuelve al mismo registro), Ocultar la quita de la vista y Mostrar todo la vuelve a enseñar; no hay cascada ni mosaico |
 
 ### Clientes
 | Pantalla | Estado |
 |---|---|
 | Ficha de Clientes (10 pestañas) | Calcada |
+| Tipo Cliente (`/tipos-cliente`: datos generales, pago y documentos, tarifas y descuentos con tarifa por nivel de familia, observaciones) | Sin captura (28/10) |
 
 ### Ventas
 | Pantalla | Estado |
@@ -92,6 +98,7 @@ Facturación (parcial), 5 Maestros (Archivo y Utilidades), 6 Listados. Falta:
   Consultas movimientos de caja; Listado de caja → lista de tipos de informe.
 - **Facturación:** Generar facturas; Gestor de pagos de clientes → pestañas
   Facturas, Pagos y facturas sin pagos, y Pagos; Listados → List. Remesas.
+- **Clientes:** Tipo Cliente (construida sin captura el 28/10).
 - **Ventas:** Listados → List. Pedidos; Listados de ventas → lista de tipos de
   informe; Técnicos → resto de pestañas; Repartidores → Comisiones; Zonas
   territoriales → Observaciones e imagen; Rutas de reparto → Observaciones e
@@ -104,7 +111,8 @@ Facturación (parcial), 5 Maestros (Archivo y Utilidades), 6 Listados. Falta:
   desplazada).
 - **Almacén:** Control de lotes; Inventarios → columnas ocultas (tabla
   desplazada).
-- **Archivo:** Traspaso información; Traspaso a contabilidad; Importar;
+- **Archivo:** Códigos postales, Cód. bancarios y Monedas (construidas sin
+  captura el 28/10); Traspaso información; Traspaso a contabilidad; Importar;
   Seleccionar periodo; Periodos o ejercicios.
 - **Utilidades:** Copia de seguridad; Cambio de fecha; Cambio de tienda;
   Reparar base de datos; Reconstruir ficheros; Actualizar tablas del terminal;
@@ -122,6 +130,11 @@ restauración, Etiquetas…): cuando llegue su captura se ajustan.
 
 Valores que en GeminisWin son códigos numéricos sin significado documentado; en
 pantalla llevan la marca «confirmar con Luis».
+
+- Tipo Cliente: la tabla de descuentos por familia (`tipo_cliente_descuento_familia.descuento`)
+  se trata como el **nivel de tarifa** por nivel de familia, igual que en la ficha del
+  cliente. ¿Es así en GeminisWin o es un % de descuento? Monedas: ¿«Valor billete» y
+  «Valor cheque» son unidades por 1 € o € por unidad?
 
 - Artículos: códigos de Control de Lotes; Tipo IGIC (soportado/repercutido);
   que «Genérico» sea el campo MODDES; que «Impuesto 2» sea el canon; valores de

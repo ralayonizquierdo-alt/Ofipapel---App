@@ -1,7 +1,7 @@
 // Árbol de menús de la ventana principal, copiado del mapa funcional de GeminisWin
 // (págs. 1-3). Las opciones con `to` o `action` funcionan; el resto sale en gris.
 
-export type MenuAction = 'signout' | 'close-window' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion'
+export type MenuAction = 'signout' | 'close-window' | 'hide-window' | 'show-all' | 'cycle-window' | 'about' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion'
 
 export interface MenuItem {
   label: string
@@ -39,9 +39,12 @@ export const MENUS: TopMenu[] = [
       item('Cambiar Grupo de Acceso', { shortcut: 'CTRL+O' }),
       item('Cambiar Contraseña', { to: '/cambiar-clave', description: 'Cambiar la contraseña del empleado conectado' }),
       'sep',
-      ...off(['Códigos Postales', 'Cód. Bancarios']),
+      // SIN CAPTURA (Códigos Postales, Cód. Bancarios y Monedas): hechas con el esquema y el estilo de Formas de Pago.
+      item('Códigos Postales', { to: '/codigos-postales', description: 'Ficha de Códigos Postales (sin captura)' }),
+      item('Cód. Bancarios', { to: '/bancos', description: 'Bancos y sus sucursales (sin captura)' }),
       item('Formas de Pago', { to: '/formas-pago', description: 'Ficha de Formas de Pago' }),
-      ...off(['Monedas', 'Carga Cotización', 'Zonas de servicio']),
+      item('Monedas', { to: '/monedas', description: 'Ficha de Monedas (sin captura)' }),
+      ...off(['Carga Cotización', 'Zonas de servicio']),
       item('Empleados', { to: '/empleados', description: 'Ficha de Empleados' }),
       'sep',
       item('Traspaso Información', { children: [] }),
@@ -71,7 +74,7 @@ export const MENUS: TopMenu[] = [
     label: 'Clientes',
     items: [
       item('Clientes', { to: '/clientes' }),
-      item('Tipo Cliente'),
+      item('Tipo Cliente', { to: '/tipos-cliente', description: 'Tipos de Cliente: condiciones por defecto (sin captura)' }),
       item('Recalcular deuda'),
       item('Pagos de Clientes, Cobros', { shortcut: 'Alt+F7' }),
       'sep',
@@ -306,16 +309,18 @@ export const MENUS: TopMenu[] = [
   {
     label: 'Ventana',
     items: [
-      item('Ocultar', { action: 'close-window' }),
-      item('Ocultar todo', { action: 'close-window' }),
-      item('Mostrar todo'),
-      item('Borrar', { action: 'close-window' }),
-      item('Recorrer', { shortcut: 'Ctrl+F1' }),
+      // Una sola ventana a la vez (ver Layout): Ocultar la deja en la lista, Borrar la cierra,
+      // Mostrar todo vuelve a enseñar la ocultada y Recorrer pasa a la siguiente de la lista.
+      item('Ocultar', { action: 'hide-window', description: 'Oculta la ventana activa' }),
+      item('Ocultar todo', { action: 'hide-window', description: 'Oculta la ventana activa' }),
+      item('Mostrar todo', { action: 'show-all', description: 'Vuelve a mostrar la ventana ocultada' }),
+      item('Borrar', { action: 'close-window', description: 'Cierra la ventana activa' }),
+      item('Recorrer', { action: 'cycle-window', shortcut: 'Ctrl+F1', description: 'Pasa a la siguiente ventana abierta' }),
     ],
   },
   {
     label: '?',
-    items: [item('Panel de Control', { to: '/resumen' }), 'sep', item('Acerca de Ofipapel ERP')],
+    items: [item('Panel de Control', { to: '/resumen' }), 'sep', item('Acerca de Ofipapel ERP', { action: 'about', description: 'Versión del programa' })],
   },
 ]
 
@@ -341,6 +346,10 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/empleados', title: 'Empleados' },
   { prefix: '/empresa', title: 'Empresa' },
   { prefix: '/formas-pago', title: 'Formas de pago' },
+  { prefix: '/codigos-postales', title: 'Códigos Postales' },
+  { prefix: '/bancos', title: 'Códigos Bancarios' },
+  { prefix: '/monedas', title: 'Monedas' },
+  { prefix: '/tipos-cliente', title: 'Tipos de Cliente' },
   { prefix: '/stock', title: 'Listados de Artículos' },
   { prefix: '/almacen/listados-articulos', title: 'Listados de Artículos' },
   { prefix: '/almacen/movimientos', title: 'Listados de Movimientos de los Artículos' },

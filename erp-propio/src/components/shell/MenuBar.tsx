@@ -7,10 +7,13 @@ export function MenuBar({
   onRun,
   onHover,
   activeWindow,
+  windows,
 }: {
   onRun: (item: MenuItem) => void
   onHover: (text: string | null) => void
   activeWindow: string
+  /** Ventanas abiertas en la sesión (menú Ventana: «1 Artículos», «2 Clientes»…). */
+  windows?: { label: string; to: string }[]
 }) {
   const [open, setOpen] = useState<number | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -38,10 +41,12 @@ export function MenuBar({
   return (
     <div ref={ref} className="relative z-40 flex h-[20px] select-none items-stretch border-b border-[var(--gw-border-light)] bg-white text-[12px]">
       {MENUS.map((m, idx) => {
-        const items =
-          m.label === 'Ventana' && activeWindow
-            ? [...m.items, 'sep' as const, { label: `1 ${activeWindow}`, checked: true } satisfies MenuItem]
-            : m.items
+        const abiertas: MenuItem[] = windows?.length
+          ? windows.map((w, n) => ({ label: `${n + 1} ${w.label}`, to: w.to, checked: w.label === activeWindow }))
+          : activeWindow
+            ? [{ label: `1 ${activeWindow}`, checked: true }]
+            : []
+        const items = m.label === 'Ventana' && abiertas.length ? [...m.items, 'sep' as const, ...abiertas] : m.items
         return (
           <div key={m.label} className="relative">
             <button
