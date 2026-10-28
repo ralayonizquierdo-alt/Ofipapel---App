@@ -1470,13 +1470,14 @@ const IMPORT_LOG_LABELS = {
   ventasVendedores:'Ventas Vendedores (Excel)', ventasTiendas:'Ventas Tiendas (Excel)',
   ventasClientes:'Ventas Clientes (Excel)', compras:'Compras (Excel)',
   comprasAnual:'Compras Anuales (Excel)', comprasProveedores:'Compras Proveedores (Excel)',
-  proveedores:'Pagos Proveedores (Excel/PDF)', familias:'Familias de Productos (Excel)'
+  proveedores:'Pagos Proveedores (Excel/PDF)', familias:'Familias de Productos (Excel)',
+  forzarSubida:'Forzar subida de datos'
 };
 
-const _ILG_ENTRADA  = ['volcado','cajaCierres','cajaBancoRecibos'];
-const _ILG_CAJA     = ['cajaCierres','cajaBancoRecibos'];
-const _ILG_VENTAS   = ['ventasCaja','ventasWeb','ventasAnual','ventasVendedores','ventasTiendas','ventasClientes'];
-const _ILG_COMPRAS  = ['compras','comprasAnual','comprasProveedores','proveedores','familias'];
+const _ILG_ENTRADA  = ['volcado','cajaCierres','cajaBancoRecibos','forzarSubida'];
+const _ILG_CAJA     = ['cajaCierres','cajaBancoRecibos','forzarSubida'];
+const _ILG_VENTAS   = ['ventasCaja','ventasWeb','ventasAnual','ventasVendedores','ventasTiendas','ventasClientes','forzarSubida'];
+const _ILG_COMPRAS  = ['compras','comprasAnual','comprasProveedores','proveedores','familias','forzarSubida'];
 
 function logImport(key, archivos, registros){
   const arch = Array.isArray(archivos) ? (archivos.filter(Boolean).join(', ')||'—') : (archivos||'—');
@@ -1909,28 +1910,36 @@ async function forzarSyncCompleto(btn){
   btn.textContent = '⏳ Subiendo...';
   btn.disabled = true;
   try{
+    const subidos = [];
+    const sube = (id, datos) => { subidos.push(id); return syncDatasetToCloud(id, datos); };
     const ops = [
-      syncDatasetToCloud('cajacierres', cajaCierres),
-      syncDatasetToCloud('cajabancorecibos', cajaBancoRecibos),
-      syncDatasetToCloud('importstamps', _importStamps),
+      sube('cajacierres', cajaCierres),
+      sube('cajabancorecibos', cajaBancoRecibos),
+      sube('importstamps', _importStamps),
     ];
-    if(importLog.length) ops.push(syncDatasetToCloud('importlog', importLog));
-    if(proveedores.length)      ops.push(syncDatasetToCloud('proveedores', proveedores));
-    if(compras.length)          ops.push(syncDatasetToCloud('compras', compras));
-    if(familias.length)         ops.push(syncDatasetToCloud('familias', familias));
-    if((ventasCaja.porDia||[]).length) ops.push(syncDatasetToCloud('ventascaja', ventasCaja));
-    if((ventasAnual.conIgic||[]).length||(ventasAnual.sinIgic||[]).length) ops.push(syncDatasetToCloud('ventasanual', ventasAnual));
-    if(ventasVendedores.length) ops.push(syncDatasetToCloud('ventasvendedores', ventasVendedores));
-    if(ventasTiendas.length)    ops.push(syncDatasetToCloud('ventastiendas', ventasTiendas));
-    if(ventasClientes.length)   ops.push(syncDatasetToCloud('ventasclientes', ventasClientes));
-    if(comprasAnual.length)     ops.push(syncDatasetToCloud('comprasanual', comprasAnual));
-    if(comprasProveedores.length) ops.push(syncDatasetToCloud('comprasprov', comprasProveedores));
-    if(ventasWeb.length)        ops.push(syncDatasetToCloud('ventasweb', ventasWeb));
-    if(ventasWebDetalle.length) ops.push(syncDatasetToCloud('ventasweb_det', ventasWebDetalle));
-    if(cajaEfectivo.length)     ops.push(syncDatasetToCloud('cajaefectivo', cajaEfectivo));
-    if(cajaFondoCambio.length)  ops.push(syncDatasetToCloud('cajafondocambio', cajaFondoCambio));
-    await Promise.all(ops);
-    showToast('✅ Datos subidos a la nube correctamente','ok');
+    if(importLog.length) ops.push(sube('importlog', importLog));
+    if(proveedores.length)      ops.push(sube('proveedores', proveedores));
+    if(compras.length)          ops.push(sube('compras', compras));
+    if(familias.length)         ops.push(sube('familias', familias));
+    if((ventasCaja.porDia||[]).length) ops.push(sube('ventascaja', ventasCaja));
+    if((ventasAnual.conIgic||[]).length||(ventasAnual.sinIgic||[]).length) ops.push(sube('ventasanual', ventasAnual));
+    if(ventasVendedores.length) ops.push(sube('ventasvendedores', ventasVendedores));
+    if(ventasTiendas.length)    ops.push(sube('ventastiendas', ventasTiendas));
+    if(ventasClientes.length)   ops.push(sube('ventasclientes', ventasClientes));
+    if(comprasAnual.length)     ops.push(sube('comprasanual', comprasAnual));
+    if(comprasProveedores.length) ops.push(sube('comprasprov', comprasProveedores));
+    if(ventasWeb.length)        ops.push(sube('ventasweb', ventasWeb));
+    if(ventasWebDetalle.length) ops.push(sube('ventasweb_det', ventasWebDetalle));
+    if(cajaEfectivo.length)     ops.push(sube('cajaefectivo', cajaEfectivo));
+    if(cajaFondoCambio.length)  ops.push(sube('cajafondocambio', cajaFondoCambio));
+    const res = await Promise.all(ops);
+    if(res.every(Boolean)){
+      // Aunque sea «forzar», tiene que quedar apuntado quién subió qué y cuándo
+      logImport('forzarSubida', subidos.join(', '), subidos.length);
+      showToast('✅ Datos subidos a la nube correctamente','ok');
+    } else {
+      showToast('⚠️ Algunos datos no se pudieron subir a la nube','err');
+    }
   } catch(e){
     showToast('⚠️ Error durante la subida: '+e.message,'err');
   } finally{
