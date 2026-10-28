@@ -1,6 +1,7 @@
 import { supabase } from '../../../lib/supabase'
 import { fechaTrabajo, horaTrabajo } from '../../../lib/sesionTrabajo'
 import type { RegistroFacturacion } from '../../../lib/verifactu'
+import { igicDefecto } from '../../../lib/parametros'
 
 // Ficha Ventas / Facturas de GeminisWin (VENTAS + VENTDETA). El TPV usa el mismo documento.
 
@@ -82,7 +83,7 @@ export function lineaVacia(tarifa: number): LineaVenta {
     cantidad: 1,
     precio: 0,
     descuento_pct: 0,
-    igic_pct: 7,
+    igic_pct: igicDefecto(),
     impuesto2_pct: 0,
     tarifa_nivel: tarifa,
     codigo_compra: null,
@@ -200,7 +201,7 @@ export async function lineaDesdeArticulo(
     codigo_venta: art.codigo_venta || art.codigo_interno,
     descripcion: art.descripcion,
     precio,
-    igic_pct: art.igic_pct == null ? 7 : Number(art.igic_pct),
+    igic_pct: art.igic_pct == null ? igicDefecto() : Number(art.igic_pct),
     impuesto2_pct: Number(art.impuesto2_pct ?? 0),
     codigo_compra: art.codigo_compra_habitual,
     stock,

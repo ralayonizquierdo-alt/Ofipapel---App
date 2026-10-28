@@ -1,1 +1,4 @@
+# Tipos de cambio del BCE (Archivo → Carga Cotización): el BCE no permite leerlos desde otra web
+# (sin CORS), así que Netlify los pide por nosotros. Va antes de la regla de la aplicación.
+/bce/*  https://www.ecb.europa.eu/stats/eurofxref/:splat  200
 /*  /index.html  200

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { registrarVistaPrevia } from '../../lib/impresion'
 import {
   ArrowDownAZ,
   Binoculars,
@@ -58,6 +59,14 @@ export function GwRecordBar({
   grande?: boolean
 }) {
   const consulta = mode === 'consulta'
+  // Archivo → Presentación preliminar: en una ficha es su «Imprimir» (el navegador enseña la vista
+  // previa antes de imprimir). Solo si la ficha tiene botón Imprimir.
+  const imprimir = useRef(onPrint)
+  useEffect(() => {
+    imprimir.current = onPrint
+  })
+  const tieneImprimir = Boolean(onPrint)
+  useEffect(() => (tieneImprimir ? registrarVistaPrevia(() => () => imprimir.current?.()) : undefined), [tieneImprimir])
   return (
     <div className={`mt-1.5 flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px] ${grande ? 'gw-barra-grande gap-[2px]' : ''}`}>
       <Btn title="Primero" onClick={onFirst} disabled={!canNavigate}>

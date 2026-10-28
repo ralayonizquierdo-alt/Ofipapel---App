@@ -61,6 +61,7 @@ import {
   VerifactuDialog,
 } from './VentaDialogs'
 import { VentaTicket, type EmpresaTicket } from './VentaTicket'
+import { decimalesPrecio } from '../../../lib/parametros'
 
 type Modo = 'consulta' | 'alta' | 'edicion'
 
@@ -1199,7 +1200,7 @@ function FilaLinea({
         {editable ? <input className={inp} value={l.descripcion} onChange={(e) => onChange({ descripcion: e.target.value })} /> : l.descripcion}
       </td>
       <td className={`${td} text-right`}>{num('cantidad', 2)}</td>
-      <td className={`${td} text-right`}>{num('precio', 3)}</td>
+      <td className={`${td} text-right`}>{num('precio', decimalesPrecio())}</td>
       <td className={`${td} text-right`}>{num('descuento_pct', 2)}</td>
       <td className={`${td} text-right`}>{num('igic_pct', 1)}</td>
       <td className={`${td} text-right`}>{formatGw(canonLinea(l), 3)}</td>

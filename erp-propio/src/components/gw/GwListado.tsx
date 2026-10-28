@@ -50,6 +50,7 @@ import { GwWindow, formatGw } from './index'
 import { GwDate, Calendario } from './GwDate'
 import { GwLookupDialog, type GwLookupColumn } from './GwLookupDialog'
 import { useListaOrdenada, type GwListaOrdenadaDef } from './GwListaOrdenada'
+import { cssPagina, registrarVistaPrevia } from '../../lib/impresion'
 
 /* =====================================================================
  * Tipos y ayudantes de filtros
@@ -863,6 +864,31 @@ export function ListadoVentana({
 }) {
   const navigate = useNavigate()
   const cerrar = () => navigate('/')
+  // Archivo → Presentación preliminar: procesa el informe con destino Pantalla (vista preliminar).
+  const ultimo = useRef({ destino, onDestino, onProcesar })
+  useEffect(() => {
+    ultimo.current = { destino, onDestino, onProcesar }
+  })
+  // Si el destino no era Pantalla, se cambia y se procesa en cuanto el cambio llega.
+  const preliminarPendiente = useRef(false)
+  useEffect(
+    () =>
+      registrarVistaPrevia(() => () => {
+        const u = ultimo.current
+        if (u.destino === 'pantalla') u.onProcesar()
+        else {
+          preliminarPendiente.current = true
+          u.onDestino('pantalla')
+        }
+      }),
+    [],
+  )
+  useEffect(() => {
+    if (preliminarPendiente.current && destino === 'pantalla') {
+      preliminarPendiente.current = false
+      ultimo.current.onProcesar()
+    }
+  }, [destino])
   return (
     <div
       className="flex h-full min-h-[600px] min-w-[1180px] flex-col gap-1"
@@ -1025,6 +1051,12 @@ export function DialogoListado({
 }) {
   const navigate = useNavigate()
   const cerrar = () => navigate('/')
+  // Archivo → Presentación preliminar: lo mismo que Aceptar (con el destino elegido en el diálogo).
+  const aceptar = useRef(onAceptar)
+  useEffect(() => {
+    aceptar.current = onAceptar
+  })
+  useEffect(() => registrarVistaPrevia(() => () => aceptar.current()), [])
   return (
     <SobreEscritorio>
       <div
@@ -1508,7 +1540,7 @@ function VistaInforme({ r, onCerrar }: { r: Resultado; onCerrar: () => void }) {
       )}
       {createPortal(
         <div className="gw-listado-impresion">
-          <style>{`@page { size: A4 ${r.apaisado ? 'landscape' : 'portrait'}; margin: 10mm; }`}</style>
+          <style>{cssPagina(Boolean(r.apaisado))}</style>
           <HojaInforme r={r} empresa={empresa} />
         </div>,
         document.body,

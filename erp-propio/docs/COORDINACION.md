@@ -50,6 +50,11 @@ construida.
 | Códigos Postales (`/codigos-postales`; clave código postal + población, propone la provincia por las dos primeras cifras) | Sin captura (28/10) |
 | Cód. Bancarios (`/bancos`: banco con BIC y rejilla de sucursales) | Sin captura (28/10) |
 | Monedas (`/monedas`: cotización billete/cheque, decimales) | Sin captura (28/10) |
+| Parámetros (`/archivo/parametros`; pestañas Generales, Tiendas / Terminales, Empresa, VeriFactu y Web) | Sin captura (28/10). Generales = tabla nueva `parametro` (clave, valor jsonb; RLS: leer todos, alta/modificación solo administradores): **IGIC por defecto** (líneas nuevas de Ventas/TPV y Creación rápida de artículos, antes fijo 7), **decimales de precio** (precio de las líneas de Pedidos, Ventas/TPV y ticket, antes fijo 3) y **moneda de la empresa** (base de Carga Cotización); se leen con `src/lib/parametros.ts` (se cargan al entrar en `UtilidadesHost`). Tiendas = cliente de contado, almacén, IGIC y fondo de caja de `tienda_terminal` (solo administradores modifican desde aquí). Empresa, VeriFactu y Web: solo consulta (se cambian en su pantalla; VeriFactu el día del arranque) |
+| Zonas de servicio (`/archivo/zonas-servicio`) | Sin captura (28/10). Tabla nueva `zona_servicio` (código, descripción, observaciones, baja lógica). Ficha gemela de Monedas; Ctrl+Intro con `gw_lista_ordenada_zona_servicio`. Aún no se enlaza a clientes (no hay dato en GeminisWin cargado: confirmar con Luis para qué la usa) |
+| Carga Cotización (`/archivo/carga-cotizacion`) | Sin captura (28/10). Rejilla de monedas para teclear la cotización o «Leer tipos del BCE» + «Aplicar BCE» (casa por código o descripción corta ISO: USD, GBP…; convierte a la moneda de la empresa). Guarda `fecha_actualizacion` y apunta cada cambio en `moneda_cotizacion` (manual/bce). El BCE no tiene CORS: se pide por `/bce/*` (regla en `public/_redirects` de Netlify; en desarrollo, proxy de Vite) |
+| Importar (`/archivo/importar`) | Sin captura (28/10). Artículos, clientes o proveedores desde .xlsx o .csv (sin dependencias: `src/lib/hojaCalculo.ts` reutiliza el ZIP de la copia). Plantilla .xlsx, vista previa con Alta/Modificar/Error, validación (obligatorios, códigos repetidos en el fichero, números, familia/marca/provincia/forma de pago/tipo de cliente que existan), «Solo comprobar» y «Solo altas»; inserta/actualiza por lotes de 500 con `upsert`. Al modificar, una celda vacía NO borra el dato. No toca stock, tarifas por nivel ni códigos de barras adicionales |
+| Preparar página… / Presentación preliminar / Elegir Impresora… | Sin captura (28/10). Preferencias del puesto en `localStorage` «gw.impresion.opciones» (`src/lib/impresion.ts`): tamaño, orientación y márgenes (regla @page global al principio de `<head>`; los listados GwListado las usan con su orientación) y nombre de la impresora de A4 y de tickets (el navegador no deja elegir impresora: solo se recuerda). Presentación preliminar: la ventana activa se registra con `registrarVistaPrevia`; lo hacen solos `ListadoVentana` (procesa con destino Pantalla), `DialogoListado` (= Aceptar) y las fichas con botón Imprimir de `GwRecordBar` (= Imprimir, el navegador enseña la vista previa). Sin ninguna: aviso «La ventana activa no tiene presentación preliminar» |
 | ? → Acerca de Ofipapel ERP (versión de `package.json` y commit `COMMIT_REF` de Netlify) | Sin captura (28/10) |
 | Ventana → Ocultar / Mostrar todo / Borrar / Recorrer (Ctrl+F1) y lista de ventanas abiertas | Sin captura (28/10). El ERP enseña una sola ventana a la vez: Recorrer pasa a la siguiente ventana abierta en la sesión (vuelve al mismo registro), Ocultar la quita de la vista y Mostrar todo la vuelve a enseñar; no hay cascada ni mosaico |
 | Archivo → Seleccionar Periodo (diálogo) y Periodos o Ejercicios (`/utilidades/ejercicios`, tabla `ejercicio`: año, fechas, cerrado, activo) | Sin captura (28/10). El periodo elegido se recuerda en el navegador; si no hay, vale el ejercicio «activo». Fija la fecha de referencia de los rangos por defecto de listados (`mesEnCurso`), gestores (`rangoPeriodo`), Listado de facturas y el año del Gestor de pagos. No toca la contabilidad |
@@ -113,6 +118,7 @@ Pendiente de capturas. Pantallas antiguas provisionales: `/caja`, `/facturacion`
 | Pantalla | Estado |
 |---|---|
 | Facturación → Listados → L. Pend. de Cobro (`/listados-facturacion/pendiente-cobro`, `fn_lst_pendiente_cobro`) y Extracto clientes (`/listados-facturacion/extracto`, `fn_lst_extracto_clientes`: saldo anterior, cargos, abonos y saldo; el saldo final es el pendiente de cobro). Base común: `fn_cli_pendientes` (migración `20261028_listados_clientes_facturacion.sql`) | Sin captura (28/10) |
+| Liquidación (`/liquidacion`) | Sin captura (28/10). **Interpretación: liquidación de comisiones** a vendedores, técnicos y repartidores (el mapa funcional no la describe; es lo que encaja con los datos: % y comisión por línea de vendedor/técnico, % por defecto del repartidor). Cálculo por venta en `fn_liquidacion_comisiones_calculo` (filtros fecha, agente desde/hasta, solo facturadas, solo cobradas, incluir liquidadas); «Liquidar» crea una `liquidacion_comision` por agente con sus ventas en `liquidacion_comision_documento` (una venta solo se liquida una vez por tipo); «Anular» las devuelve a pendientes. **Confirmar con Luis** (ver Preguntas) |
 | Gestor de Pagos de Clientes (`/gestor-cobros-clientes`; pestañas Facturas, Pagos y Facturas sin Pagos, Pagos) y ficha Pagos de Clientes, Cobros (`/cobros-clientes`, Alt+F7) | Sin captura (gemelas del Gestor de pagos a proveedores y de su ficha). «Pagos» de la barra lateral y «Cobros de la factura» del pedido llevan aquí. Lógica en BD: `fn_cobro_cliente_cobrar` (total o parcial; contado = ingreso COB en la caja abierta), `fn_cobro_cliente_anular`, `fn_cobro_generar_vencimientos` (migración `20261028_cobros_clientes.sql`) |
 
 ## Capturas pendientes (lista actualizada 27/10/2026, tras los ZIP 4, 5 y 6)
@@ -144,7 +150,11 @@ Facturación (parcial), 5 Maestros (Archivo y Utilidades), 6 Listados. Falta:
   desplazada).
 - **Archivo:** Códigos postales, Cód. bancarios y Monedas (construidas sin
   captura el 28/10); Traspaso información; Traspaso a contabilidad; Importar;
-  Seleccionar periodo; Periodos o ejercicios (construidas sin captura el 28/10).
+  Seleccionar periodo; Periodos o ejercicios (construidas sin captura el 28/10);
+  Parámetros, Zonas de servicio, Carga cotización, Preparar página, Elegir
+  impresora (construidas sin captura el 28/10).
+- **Facturación:** Liquidación (construida sin captura el 28/10 como liquidación de
+  comisiones: hace falta la captura para saber qué es de verdad).
 - **Utilidades:** Copia de seguridad, Cambio de fecha, Cambio de tienda, Examinar y
   Eliminar ficheros temporales (construidas sin captura el 28/10);
   Reparar base de datos; Reconstruir ficheros; Actualizar tablas del terminal;
@@ -163,6 +173,17 @@ restauración, Etiquetas…): cuando llegue su captura se ajustan.
 Valores que en GeminisWin son códigos numéricos sin significado documentado; en
 pantalla llevan la marca «confirmar con Luis».
 
+- **Facturación → Liquidación (28/10):** ¿qué liquida en GeminisWin? Se ha hecho como
+  liquidación de **comisiones** a vendedores, técnicos y repartidores. Reglas puestas:
+  comisión de la línea si viene calculada; si no, base de la línea (menos el descuento de
+  pie) × % de la línea, si no el de la venta, si no el general del agente; repartidor =
+  base de la venta × su % por defecto; sin ventas anuladas. ¿Sobre ventas facturadas,
+  cobradas o todas? ¿Se usan los topes y los % por nivel de tarifa
+  (`vendedor_comision_nivel`) y el % de oferta? ¿Qué significan `venta.venta_no_liquidada`
+  y `pedido_cliente.tipo_liquidacion`? Si «Liquidación» fuera otra cosa (p. ej. liquidar
+  repartos o pedidos), se rehace con la captura.
+- **Archivo → Zonas de servicio (28/10):** ¿para qué se usan (clientes, técnicos,
+  reparaciones)? Hoy es solo el maestro.
 - Tipo Cliente: la tabla de descuentos por familia (`tipo_cliente_descuento_familia.descuento`)
   se trata como el **nivel de tarifa** por nivel de familia, igual que en la ficha del
   cliente. ¿Es así en GeminisWin o es un % de descuento? Monedas: ¿«Valor billete» y
@@ -242,7 +263,9 @@ unidades en el almacén 01 y recalculó los costes de 149719), factura de
 proveedor 01/1, pago 01-2 anulado y movimiento de caja 01-4, transportista
 000001, almacén 98, traspaso 01/2, regularización 01/2, inventario 01-2 con sus
 puntos de restauración y lote de modificación de precios 0000000001; artículo
-PRUEBA-GPP1. De Cobros de clientes (28/10): albaranes 01-17 y 01-19 del cliente
+PRUEBA-GPP1. De Archivo (28/10): zonas de servicio ZZTEST1 y ZZTEST2, moneda ZZTU
+(«PRUEBA DOLAR», USD) con una cotización del BCE en `moneda_cotizacion`, artículos
+ZZTEST-IMP1 y ZZTEST-IMP2 (Importar). De Cobros de clientes (28/10): albaranes 01-17 y 01-19 del cliente
 00001 facturados en las facturas 01-9 (P01-3, cobrada en dos cobros de efectivo 01-10
 y 01-11, movimientos de caja 01-12 y 01-13) y 01-10 (P01-4, con su vencimiento 01-13
 pendiente); cobros anulados 01-8 y 01-12 (movimiento de caja 01-14 a 0). Datos reales de referencia que se quedan:

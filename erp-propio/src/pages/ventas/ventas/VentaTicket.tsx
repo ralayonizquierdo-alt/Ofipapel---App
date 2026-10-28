@@ -1,6 +1,7 @@
 import { BloqueVerifactu } from '../../../components/VerifactuQr'
 import { formatGw } from '../../../components/gw'
 import { subtotalLinea, type CabeceraVenta, type LineaVenta, type VerifactuVenta } from './ventaModel'
+import { decimalesPrecio } from '../../../lib/parametros'
 
 export interface EmpresaTicket {
   nombre: string
@@ -63,7 +64,7 @@ export function VentaTicket({
           <div className="truncate">{l.descripcion}</div>
           <div className="flex justify-between">
             <span>
-              {formatGw(l.cantidad, 2)} x {formatGw(l.precio, 3)}
+              {formatGw(l.cantidad, 2)} x {formatGw(l.precio, decimalesPrecio())}
               {l.descuento_pct ? ` -${formatGw(l.descuento_pct, 2)}%` : ''}
             </span>
             <span>{formatGw(subtotalLinea(l), 2)}</span>
