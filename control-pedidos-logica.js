@@ -1695,8 +1695,20 @@
           .sort((a, b) => err(a) - err(b) || b.length - a.length);
         if (cands.length && (cands.length === 1 || err(cands[0]) < err(cands[1]) - 1e-9 || Math.abs(suma(cands[0]) - suma(cands[1])) < 0.005)) piezas = cands[0];
       }
+      // Si no cuadra la suma, como una persona: lo que viene sin pedir es todo
+      // de la misma familia (p. ej. todo libretas «NB0 A6… FLORAL GARDEN») y no
+      // es de nadie → se agotó el expositor y lo mandaron suelto: es del cliente.
+      let parcial = false;
+      if (!piezas.length && F.filter((x) => /\bEXP|EXPOSITOR/i.test(x.desc || '')).length === 1) {
+        const sueltas = S.filter((s) => s.total);
+        const comunesATodas = sueltas.length >= 2 ? [...palabras(sueltas[0].desc)].filter((w) => sueltas.every((s) => palabras(s.desc).has(w))) : [];
+        if (comunesATodas.length) { piezas = sueltas; parcial = vf > 0 && suma(sueltas) < vf * 0.95; }
+      }
       if (!piezas.length) continue;
-      out.push({ tipo: 'expositor', falta: f, sobras: piezas, texto: `Falta el expositor «${f.ref}» y vienen ${piezas.length} artículo(s) sueltos${vf ? ` por ${fmt(suma(piezas))} € frente a ${fmt(vf)} € del expositor` : ''}: el proveedor lo ha servido desglosado.` });
+      const vp = suma(piezas);
+      out.push({ tipo: 'expositor', falta: f, sobras: piezas, parcial, texto: parcial
+        ? `Falta el expositor «${f.ref}» y vienen sueltos ${piezas.length} artículo(s) de la misma familia que no pidió nadie (${fmt(vp)} € de ${fmt(vf)} €): parece el expositor servido suelto e incompleto; son del cliente, reclama lo que falta.`
+        : `Falta el expositor «${f.ref}» y vienen ${piezas.length} artículo(s) sueltos${vf ? ` por ${fmt(vp)} € frente a ${fmt(vf)} € del expositor` : ''}: el proveedor lo ha servido desglosado.` });
       quita(f, piezas);
     }
     return out;

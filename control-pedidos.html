@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-28-1"></script>
+<script src="control-pedidos-logica.js?v=2026-10-28-2"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -1498,7 +1498,7 @@ function vistaComparacion(p, filas) {
           <td class="no-imprimir">${f.revisar ? `
             <select onchange="decide(${js(f.ref)},'accion',this.value)">
               <option value="">— decidir —</option>
-              ${acciones.map((a) => `<option value="${a}" ${d.accion === a ? 'selected' : ''}>${nombres[a]}</option>`).join('')}
+              ${acciones.map((a) => `<option value="${a}" ${d.accion === a ? 'selected' : ''}>${a === 'aceptar' && f.cantPropuesta > f.cantPedida ? (esRepo(p) ? 'Aceptar: nos lo quedamos' : '➕ Sumarlo al pedido del cliente') : nombres[a]}</option>`).join('')}
               ${f.estado === 'falta' ? filas.filter((x) => x.estado === 'extra').map((x) => `<option value="eq:${h(x.ref)}">🔗 Es la «${h(x.ref)}» del proveedor (${h(String(x.desc || '').slice(0, 30))})</option>`).join('') : ''}
             </select>
             ${d.accion === 'manual' ? `<div class="fila" style="margin-top:4px"><input class="cant" placeholder="Cant." value="${h(d.cant)}" onchange="decide(${js(f.ref)},'cant',this.value)"><input class="precio" placeholder="${esRepo(p) ? 'Neto' : 'Precio'}" value="${h(d.precio)}" onchange="decide(${js(f.ref)},'precio',this.value)"></div>` : ''}
@@ -1555,7 +1555,8 @@ function bloqueFaltasSobras(p, filas) {
   const cambiarReclamada = (x) => {
     const f = filaDe.get(x.ref);
     if (!f || (p.decisiones[x.ref] || {}).accion !== 'reclamar') return '';
-    return ' ' + CP.accionesPara(f, p.tipo).filter((a) => cortos[a]).map((a) => `<button class="btn peque no-imprimir" onclick="decide(${js(x.ref)},'accion','${a}')">${cortos[a]}</button>`).join(' ');
+    const rotulo = (a) => (a === 'aceptar' && f.cantPropuesta > f.cantPedida && !esRepo(p) ? '➕ Sumar al cliente' : cortos[a]);
+    return ' ' + CP.accionesPara(f, p.tipo).filter((a) => cortos[a]).map((a) => `<button class="btn peque no-imprimir" onclick="decide(${js(x.ref)},'accion','${a}')">${rotulo(a)}</button>`).join(' ');
   };
   const linea = (x, signo, falta) => {
     const acc = (p.decisiones[x.ref] || {}).accion;
@@ -1601,7 +1602,7 @@ function bloqueExplicaciones(p, faltan, sobran) {
   const boton = (x) => x.tipo === 'errata' || x.tipo === 'sustituto'
     ? `<button class="btn peque" onclick="emparejar(${js(x.sobra.ref)}, ${js(x.falta.ref)})">🔗 Es la misma: emparejar</button>`
     : x.tipo === 'expositor'
-      ? `<button class="btn peque" onclick="aplicarExpositor(${js(x.falta.ref)}, ${js(x.sobras.map((s) => s.ref).join('\n'))})">🧩 Dar el expositor por servido en piezas</button>`
+      ? `<button class="btn peque" onclick="aplicarExpositor(${js(x.falta.ref)}, ${js(x.sobras.map((s) => s.ref).join('\n'))}, ${x.parcial ? 'true' : 'false'})">🧩 ${x.parcial ? 'Las piezas al cliente y reclamar lo que falta' : 'Dar el expositor por servido en piezas'}</button>`
       : x.tipo === 'otroPedido' && x.sobra
         ? `<button class="btn peque" onclick="pasarAOtroPedido(${js(x.sobra.ref)}, ${js(x.id)})">📦 Pasarla al pedido ${h(x.pedido)}</button>`
         : '';
@@ -1772,9 +1773,11 @@ function pasarAOtroPedido(ref, destinoId, silencioso) {
   if (silencioso) return movidas;
   alert(`«${ref}» pasada al pedido ${nPed(q.numero)}${q.cliente ? ' (' + q.cliente + ')' : ''}. Los dos pedidos hay que revalidarlos.`);
 }
-function aplicarExpositor(expositor, piezas) {
+function aplicarExpositor(expositor, piezas, parcial) {
   const p = pedidoActual();
-  p.decisiones[expositor] = { accion: esRepo(p) ? 'excluir' : 'anular', nota: 'Servido desglosado: el proveedor lo factura por piezas' };
+  p.decisiones[expositor] = parcial
+    ? { accion: 'reclamar', motivo: 'Lo habéis servido suelto e incompleto: falta parte del expositor' }
+    : { accion: esRepo(p) ? 'excluir' : 'anular', nota: 'Servido desglosado: el proveedor lo factura por piezas' };
   for (const r of String(piezas).split('\n').filter(Boolean)) p.decisiones[r] = { accion: 'aceptar', nota: `Parte del expositor ${expositor} (servido desglosado)` };
   invalidar(p); guardar(); pintar();
 }
@@ -2726,14 +2729,23 @@ function aplicarReparto(docs, clave) {
     x.pendiente += fuera.reduce((t, a) => t + a.cant, 0);
     x.asignaciones = x.asignaciones.filter((a) => !fuera.includes(a));
   }
-  // Lo de un bloque solo puede rescatar restos de SU pedido; lo que no viene por bloques, los de cualquiera (el más antiguo primero).
-  const sueltas = r.sobrantes.filter((l) => !l.deBloque);
-  const rescate = CP.restosQueLlegan(E.restos, sueltas, ej.proveedor);
+  // Manda el bloque: si es de un pedido ya validado, sus líneas se suman a SU
+  // propuesta y ese pedido se reabre para revalidarlo (sus restos se rehacen al
+  // validar). Nunca van a otro pedido.
   for (const id of [...new Set(r.sobrantes.filter((l) => l.duenoId).map((l) => l.duenoId))]) {
-    const suyo = CP.restosQueLlegan(E.restos.filter((x) => x.pedidoId === id), r.sobrantes.filter((l) => l.duenoId === id), ej.proveedor);
-    rescate.asignaciones.push(...suyo.asignaciones); rescate.sobrantes.push(...suyo.sobrantes);
+    const q = pedidoPorId(id);
+    const suyas = r.sobrantes.filter((l) => l.duenoId === id).map((l) => { const c = Object.assign({}, l); delete c.deBloque; delete c.duenoId; return c; });
+    if (!q) continue;
+    const antes = q.propuesta ? q.propuesta.lineas.filter((l) => !nombres.includes(l.origen)) : [];
+    asignarPropuesta(q, archivoDe(antes.concat(suyas)), prop(antes.concat(suyas)));
+    q.propuesta.reparto = true;
+    invalidar(q);
+    ultimaCarga.push({ ok: true, texto: `→ nº ${nPed(q.numero)} ${q.cliente} (estaba validado) · +${suyas.length} líneas de su bloque «${suyas[0].bloque}»: revísalo y vuelve a validarlo` });
   }
-  rescate.sobrantes.push(...r.sobrantes.filter((l) => l.deBloque && !l.duenoId));
+  r.sobrantes = r.sobrantes.filter((l) => !l.duenoId);
+  // Lo que no viene por bloques puede rescatar restos de cualquiera (el más antiguo primero); un bloque sin dueño va entero a «sin cliente».
+  const rescate = CP.restosQueLlegan(E.restos, r.sobrantes.filter((l) => !l.deBloque), ej.proveedor);
+  rescate.sobrantes.push(...r.sobrantes.filter((l) => l.deBloque));
   for (const a of rescate.asignaciones) {
     const x = E.restos.find((y) => y.id === a.restoId);
     x.asignaciones.push({ fecha: hoy(), cant: a.cant, origen: a.origen, reparto: true });
