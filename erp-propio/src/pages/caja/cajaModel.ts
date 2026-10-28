@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { ahoraTrabajo, elegirTienda, fechaTrabajo, tiendaDeTrabajo } from '../../lib/sesionTrabajo'
 
 // Menú Caja de GeminisWin: movimientos de caja (CAJA), aperturas y cierres (CAJACIER),
 // entradas/salidas rápidas e informes de caja.
@@ -180,23 +181,14 @@ export interface TiendaCaja {
   fondo_caja_inicial: number | null
 }
 
-/** Tienda/terminal de este puesto: la misma que recuerda el TPV. */
+/** Tienda/terminal de este puesto (Utilidades → Cambio de Tienda; la misma que el TPV). */
 export function tiendaPuesto(tiendas: { codigo: string }[]): string {
-  let guardada: string | null = null
-  try {
-    guardada = localStorage.getItem('tpv.tienda')
-  } catch {
-    guardada = null
-  }
-  return tiendas.find((t) => t.codigo === guardada)?.codigo ?? tiendas[0]?.codigo ?? ''
+  return tiendaDeTrabajo(tiendas)
 }
 
+/** Cambia la tienda de trabajo del puesto (Utilidades → Cambio de Tienda hace lo mismo). */
 export function recordarTiendaPuesto(t: string) {
-  try {
-    localStorage.setItem('tpv.tienda', t)
-  } catch {
-    /* sin almacenamiento local */
-  }
+  elegirTienda(t)
 }
 
 export async function cargarMaestrosCaja() {
@@ -231,13 +223,13 @@ export async function cajaAbiertaDe(tienda: string) {
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
+/** Fecha de trabajo (Utilidades → Cambio de Fecha), por defecto hoy. */
 export function hoyISO() {
-  const d = new Date()
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+  return fechaTrabajo()
 }
 
 export function horaActual() {
-  const d = new Date()
+  const d = ahoraTrabajo()
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
 }
 

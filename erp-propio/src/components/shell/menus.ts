@@ -1,7 +1,12 @@
 // Árbol de menús de la ventana principal, copiado del mapa funcional de GeminisWin
 // (págs. 1-3). Las opciones con `to` o `action` funcionan; el resto sale en gris.
 
-export type MenuAction = 'signout' | 'close-window' | 'hide-window' | 'show-all' | 'cycle-window' | 'about' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion'
+export type MenuAction = 'signout' | 'close-window' | 'hide-window' | 'show-all' | 'cycle-window' | 'about' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion' | AccionUtilidad
+
+/** Diálogos de Utilidades (y Seleccionar Periodo) que abre UtilidadesHost con el evento «gw:utilidad». */
+export const ACCIONES_UTILIDAD = ['cambio-tienda', 'cambio-fecha', 'cambio-fecha-hora', 'seleccionar-periodo', 'hacer-copia', 'testear-copia', 'eliminar-temporales'] as const
+export type AccionUtilidad = (typeof ACCIONES_UTILIDAD)[number]
+export const esAccionUtilidad = (a: MenuAction | undefined): a is AccionUtilidad => (ACCIONES_UTILIDAD as readonly string[]).includes(a ?? '')
 
 export interface MenuItem {
   label: string
@@ -29,8 +34,9 @@ export const MENUS: TopMenu[] = [
     label: 'Archivo',
     // Calcado de GeminisWin (captura 05-00). Además, «Cambiar Contraseña» (propio del ERP).
     items: [
-      item('Seleccionar Periodo', { description: 'Crea, modifica, elimina, establece el período de trabajo actual' }),
-      item('Periodos o Ejercicios'),
+      // SIN CAPTURA (Seleccionar Periodo y Periodos o Ejercicios): tabla `ejercicio`, ver pages/utilidades.
+      item('Seleccionar Periodo', { action: 'seleccionar-periodo', description: 'Crea, modifica, elimina, establece el período de trabajo actual' }),
+      item('Periodos o Ejercicios', { to: '/utilidades/ejercicios', description: 'Periodos o ejercicios de trabajo (sin captura)' }),
       item('Datos de Empresa', { to: '/empresa', description: 'Datos de la empresa' }),
       item('Tiendas', { to: '/tiendas', description: 'Ficha de Tiendas' }),
       item('Parámetros'),
@@ -280,13 +286,20 @@ export const MENUS: TopMenu[] = [
   },
   {
     label: 'Utilidades',
-    // Calcado de GeminisWin (capturas 05-20 y 05-21). Todo en gris: nada de esto existe aún en el ERP.
+    // Calcado de GeminisWin (capturas 05-20 y 05-21). SIN CAPTURA de sus ventanas: Examinar, Copia de
+    // Seguridad, Cambio de Fecha (y Hora), Cambio de Tienda y Eliminar Ficheros Temporales (pages/utilidades).
     items: [
-      item('Examinar', { shortcut: 'F11', description: 'Examina y/o edita la tabla activa' }),
+      item('Examinar', { to: '/utilidades/examinar', shortcut: 'F11', description: 'Examina las tablas de la base de datos (solo lectura, administradores)' }),
       item('Copia de Seguridad', {
-        children: [item('Hacer Copia', { shortcut: 'Alt+F8' }), item('Testear Copia'), item('Restaurar Copia')],
+        children: [
+          item('Hacer Copia', { action: 'hacer-copia', shortcut: 'Alt+F8', description: 'Descarga un ZIP con los datos de las tablas del ERP' }),
+          item('Testear Copia', { action: 'testear-copia', description: 'Comprueba que un ZIP de copia se puede leer entero' }),
+          item('Restaurar Copia', { description: 'La restauración se hace desde Supabase (copias diarias automáticas)' }),
+        ],
       }),
-      ...off(['Cambio de Fecha', 'Cambio de Fecha y Hora', 'Cambio de Tienda']),
+      item('Cambio de Fecha', { action: 'cambio-fecha', description: 'Fecha de trabajo de la sesión para los documentos nuevos' }),
+      item('Cambio de Fecha y Hora', { action: 'cambio-fecha-hora', description: 'Fecha y hora de trabajo de la sesión para los documentos nuevos' }),
+      item('Cambio de Tienda', { action: 'cambio-tienda', description: 'Tienda / terminal de trabajo de este puesto' }),
       'sep',
       item('Reparar Base de Datos', { shortcut: 'ALT+F12' }),
       item('Reconstruir Ficheros', { shortcut: 'ALT+F11' }),
@@ -297,7 +310,7 @@ export const MENUS: TopMenu[] = [
       item('Opciones de tablas', { children: [] }),
       'sep',
       item('Enviar Información a IdsSoft, S.L.', { children: [] }),
-      item('Eliminar Ficheros Temporales'),
+      item('Eliminar Ficheros Temporales', { action: 'eliminar-temporales', description: 'Limpia los datos temporales del ERP en este navegador' }),
       'sep',
       item('Configurar Utilidades'),
       'sep',
@@ -417,6 +430,8 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/contabilidad/configuracion', title: 'Configuración Contable' },
   { prefix: '/contabilidad', title: 'Contabilidad' },
   { prefix: '/cambiar-clave', title: 'Cambiar Contraseña' },
+  { prefix: '/utilidades/examinar', title: 'Examinar' },
+  { prefix: '/utilidades/ejercicios', title: 'Periodos o Ejercicios' },
   { prefix: '/resumen', title: 'Panel de Control' },
   { prefix: '/web/publicar', title: 'Publicar Artículos en la Web (vista previa)' },
   { prefix: '/web/catalogo', title: 'Sincronizar Catálogo (comparación web ↔ ERP)' },

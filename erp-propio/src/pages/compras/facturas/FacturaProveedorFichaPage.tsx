@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, FileText, HandCoins, RefreshCw, Settings2, ShoppingCart, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { ahoraTrabajo, fechaTrabajo, tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { navIndice, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, formatGw } from '../../../components/gw'
@@ -77,7 +78,8 @@ const ALB_COLS =
 
 const n = (v: number | null | undefined) => Number(v ?? 0)
 const r2 = (v: number) => Math.round(v * 100) / 100
-const hoy = () => new Date().toISOString().slice(0, 10)
+// Fecha de trabajo (Utilidades → Cambio de Fecha), por defecto hoy.
+const hoy = () => fechaTrabajo()
 
 function fecha(v: string | null | undefined) {
   if (!v) return ' / /'
@@ -103,7 +105,7 @@ function vacia(tienda: string): FacturaProveedor {
   return {
     tienda_terminal_codigo: tienda,
     id: 0,
-    fecha_hora: new Date().toISOString(),
+    fecha_hora: ahoraTrabajo().toISOString(),
     proveedor_codigo: '',
     numero_factura_externo: null,
     fecha_factura: hoy(),
@@ -222,7 +224,7 @@ export function FacturaProveedorFichaPage() {
       setSelAlb(0)
       setSelPago(0)
       if (esNuevo) {
-        const c = vacia(tiendas[0] ?? '')
+        const c = vacia(tiendaDeTrabajo(tiendas.map((codigo) => ({ codigo }))))
         setCab(c)
         setOrig(null)
         setAlbaranes([])

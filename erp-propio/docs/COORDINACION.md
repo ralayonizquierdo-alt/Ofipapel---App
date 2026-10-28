@@ -43,6 +43,12 @@ construida.
 | Monedas (`/monedas`: cotización billete/cheque, decimales) | Sin captura (28/10) |
 | ? → Acerca de Ofipapel ERP (versión de `package.json` y commit `COMMIT_REF` de Netlify) | Sin captura (28/10) |
 | Ventana → Ocultar / Mostrar todo / Borrar / Recorrer (Ctrl+F1) y lista de ventanas abiertas | Sin captura (28/10). El ERP enseña una sola ventana a la vez: Recorrer pasa a la siguiente ventana abierta en la sesión (vuelve al mismo registro), Ocultar la quita de la vista y Mostrar todo la vuelve a enseñar; no hay cascada ni mosaico |
+| Archivo → Seleccionar Periodo (diálogo) y Periodos o Ejercicios (`/utilidades/ejercicios`, tabla `ejercicio`: año, fechas, cerrado, activo) | Sin captura (28/10). El periodo elegido se recuerda en el navegador; si no hay, vale el ejercicio «activo». Fija la fecha de referencia de los rangos por defecto de listados (`mesEnCurso`), gestores (`rangoPeriodo`), Listado de facturas y el año del Gestor de pagos. No toca la contabilidad |
+| Utilidades → Cambio de Tienda (diálogo) | Sin captura (28/10). Tienda/terminal del puesto, centralizada en `src/lib/sesionTrabajo.ts` (clave `tpv.tienda`, la que ya usaban TPV y caja). La proponen TPV/Ventas, caja, pedidos, presupuestos, pedidos y facturas de proveedor y pagos. Se ve en la barra de estado |
+| Utilidades → Cambio de Fecha / Cambio de Fecha y Hora (diálogos) | Sin captura (28/10). Fecha (y hora) de trabajo de la pestaña (sessionStorage, se olvida al cerrarla), resaltada en amarillo en la barra de estado. La usan como fecha por defecto de documentos nuevos: TPV/Ventas (y sus cobros), Pedidos y Presupuestos, Caja (movimientos, apertura, informes), Pedidos y Facturas de proveedor, Pagos a proveedores. NO la usan VeriFactu (fecha de generación = `clock_timestamp()` en la base de datos), Facturación (Generar facturas / Facturas de clientes), Contabilidad, Reparaciones, Repartos, Traspasos, Inventarios ni la auditoría |
+| Utilidades → Examinar (F11, `/utilidades/examinar`) | Sin captura (28/10). Solo lectura y solo administradores: lista de tablas y rejilla paginada (100) con filtro «contiene» por columna y orden por cabecera (`fn_examinar`, SECURITY INVOKER, transacción de solo lectura) |
+| Utilidades → Copia de Seguridad → Hacer Copia (Alt+F8 y botón «Copia» de la barra lateral) / Testear Copia | Sin captura (28/10). ZIP con `manifiesto.json` y `tablas/<tabla>.json` de todas las tablas legibles salvo `carga_dbf`, de 1000 en 1000 por clave primaria (`fn_tablas_erp`); solo administradores. Testear abre el ZIP, comprueba CRC y cuenta filas frente al manifiesto. Restaurar Copia en gris: «La restauración se hace desde Supabase (copias diarias automáticas)» |
+| Utilidades → Eliminar Ficheros Temporales | Sin captura (28/10). Borra el localStorage/sessionStorage propio del ERP con confirmación; respeta la sesión (`sb-…`), tienda, periodo, fecha de trabajo, voz de NEXA y opciones de gestores y panel |
 
 ### Clientes
 | Pantalla | Estado |
@@ -113,8 +119,9 @@ Facturación (parcial), 5 Maestros (Archivo y Utilidades), 6 Listados. Falta:
   desplazada).
 - **Archivo:** Códigos postales, Cód. bancarios y Monedas (construidas sin
   captura el 28/10); Traspaso información; Traspaso a contabilidad; Importar;
-  Seleccionar periodo; Periodos o ejercicios.
-- **Utilidades:** Copia de seguridad; Cambio de fecha; Cambio de tienda;
+  Seleccionar periodo; Periodos o ejercicios (construidas sin captura el 28/10).
+- **Utilidades:** Copia de seguridad, Cambio de fecha, Cambio de tienda, Examinar y
+  Eliminar ficheros temporales (construidas sin captura el 28/10);
   Reparar base de datos; Reconstruir ficheros; Actualizar tablas del terminal;
   Control de módulos; Recalcular stock; Eliminación de artículos; Puntos de
   restauración de stock; Etiquetas; Listado de ventas; Stock a 0 de familia;

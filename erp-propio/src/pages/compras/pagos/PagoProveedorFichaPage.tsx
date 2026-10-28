@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
+import { tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { navIndice, useNavRegistro, type NavDir, type NavFiltro } from '../../../components/gw/useNavRegistro'
 
 /** Los pagos anulados no se recorren con la barra. */
@@ -196,7 +197,7 @@ export function PagoProveedorFichaPage() {
       setMensaje(null)
       if (esNuevo) {
         const qs = new URLSearchParams(location.search)
-        let p = vacio(tiendas[0] ?? '01')
+        let p = vacio(tiendaDeTrabajo(tiendas.map((codigo) => ({ codigo }))) || '01')
         const ped = qs.get('pedido')
         const fac = qs.get('factura')
         const [ct, cn] = (ped ?? fac ?? '').split('-')

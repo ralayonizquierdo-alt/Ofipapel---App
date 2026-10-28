@@ -24,7 +24,7 @@ export interface QuickItem {
   icon: LucideIcon
   color: string
   to?: string
-  action?: 'signout'
+  action?: 'signout' | 'hacer-copia'
 }
 
 // Barra lateral de accesos rápidos de GeminisWin, en el mismo orden que el original.
@@ -44,7 +44,7 @@ export const QUICK_ITEMS: QuickItem[] = [
   { label: 'Artículos', description: 'Artículos', icon: Boxes, color: '#c58a3a', to: '/articulos' },
   { label: 'Traspasos', description: 'Traspasos entre Almacenes', icon: RefreshCcw, color: '#e08a1e', to: '/traspasos' },
   { label: 'Reparar BD', description: 'Reparar Base de Datos', icon: DatabaseZap, color: '#2e7d32' },
-  { label: 'Copia', description: 'Copia de Seguridad', icon: Archive, color: '#c99a1b' },
+  { label: 'Copia', description: 'Copia de Seguridad', icon: Archive, color: '#c99a1b', action: 'hacer-copia' },
   { label: 'Salir', description: 'Salir', icon: LogOut, color: '#1f4e9c', action: 'signout' },
 ]
 

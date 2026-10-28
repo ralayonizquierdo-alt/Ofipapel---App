@@ -96,14 +96,14 @@ function MenuList({
             className="relative"
             onMouseEnter={() => {
               setOpenSub(hasChildren ? i : null)
-              onHover(enabled ? (it.description ?? it.label) : `${it.label} — ${NOT_AVAILABLE}`)
+              onHover(enabled ? (it.description ?? it.label) : `${it.label} — ${it.description ?? NOT_AVAILABLE}`)
             }}
             onMouseLeave={() => onHover(null)}
           >
             <button
               type="button"
               disabled={!enabled && !it.checked}
-              title={enabled || it.checked ? undefined : NOT_AVAILABLE}
+              title={enabled || it.checked ? undefined : (it.description ?? NOT_AVAILABLE)}
               onClick={() => enabled && !hasChildren && onRun(it)}
               className={`flex h-[22px] w-full items-center whitespace-nowrap pl-6 pr-3 text-left ${
                 enabled || it.checked ? 'text-black hover:bg-[#91c9f7]' : 'text-[#6d6d6d]'

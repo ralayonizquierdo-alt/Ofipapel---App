@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { elegirTienda, tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { useAuth } from '../../../lib/AuthContext'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { formatGw } from '../../../components/gw'
@@ -209,13 +210,7 @@ export function VentaDocumento({
       const lista = (t.data ?? []) as Tienda[]
       setTiendas(lista)
       if (!tiendaParam) {
-        let guardada: string | null = null
-        try {
-          guardada = localStorage.getItem('tpv.tienda')
-        } catch {
-          guardada = null
-        }
-        setTienda(lista.find((x) => x.codigo === guardada)?.codigo ?? lista[0]?.codigo ?? '')
+        setTienda(tiendaDeTrabajo(lista))
       }
       if (e.data) {
         const { data: emp } = await supabase.from('empleado').select('codigo, nombre, imagen_url').eq('codigo', e.data).maybeSingle()
@@ -719,11 +714,7 @@ export function VentaDocumento({
                 onChange={(e) => {
                   const t = e.target.value
                   setTienda(t)
-                  try {
-                    localStorage.setItem('tpv.tienda', t)
-                  } catch {
-                    /* sin almacenamiento local */
-                  }
+                  elegirTienda(t)
                   if (modo === 'alta') empezarAlta(t)
                   else abrirVenta(t, null)
                 }}

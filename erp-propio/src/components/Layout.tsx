@@ -5,7 +5,8 @@ import { supabase } from '../lib/supabase'
 import { GwAppIcon, GwWindow } from './gw'
 import { MenuBar } from './shell/MenuBar'
 import { QuickBar } from './shell/QuickBar'
-import { MENUS, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
+import { MENUS, esAccionUtilidad, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
+import { ahoraTrabajo, ejercicioTrabajo, useSesionTrabajo } from '../lib/sesionTrabajo'
 import { NexaAsistente } from '../nexa/NexaAsistente'
 import { AcercaDeDialog } from './shell/AcercaDeDialog'
 
@@ -21,6 +22,7 @@ export function Layout() {
   const title = windowTitle(pathname)
   const { search } = useLocation()
   const [acercaDe, setAcercaDe] = useState(false)
+  const sesion = useSesionTrabajo()
 
   // Menú Ventana. El ERP enseña una sola ventana a la vez (la ruta), así que se lleva la lista
   // de ventanas abiertas en la sesión, en el orden en que se abrieron, cada una con la última
@@ -93,6 +95,8 @@ export function Layout() {
     else if (i.action === 'about') setAcercaDe(true)
     // Compras → Generar Petición: lo abre GenerarPeticionHost (App.tsx), que también recoge CTRL+P.
     else if (i.action === 'generar-peticion') window.dispatchEvent(new Event('gw:generar-peticion'))
+    // Utilidades (Cambio de Tienda/Fecha, Seleccionar Periodo, Copia…): los abre UtilidadesHost (App.tsx).
+    else if (esAccionUtilidad(i.action)) window.dispatchEvent(new CustomEvent('gw:utilidad', { detail: i.action }))
     else if (i.action) document.execCommand(i.action)
   }
 
@@ -101,7 +105,7 @@ export function Layout() {
     const collect = (entries: MenuEntry[]) => {
       for (const e of entries) {
         if (e === 'sep') continue
-        if (e.shortcut && (e.to || e.action === 'signout' || e.action === 'cycle-window')) shortcuts.set(e.shortcut.toLowerCase(), e)
+        if (e.shortcut && (e.to || e.action === 'signout' || e.action === 'cycle-window' || esAccionUtilidad(e.action))) shortcuts.set(e.shortcut.toLowerCase(), e)
         if (e.children) collect(e.children)
       }
     }
@@ -151,7 +155,7 @@ export function Layout() {
       <div className="flex h-[24px] flex-none items-center gap-1.5 bg-white px-2 text-[12px]">
         <GwAppIcon size={16} />
         <span className="truncate">
-          Ofipapel ERP, Periodo: Periodo {new Date().getFullYear()} Empresa: {empresa}
+          Ofipapel ERP, Periodo: Periodo {ejercicioTrabajo().anio} Empresa: {empresa}
         </span>
       </div>
       <MenuBar onRun={runMenu} onHover={setHint} activeWindow={title} windows={ventanas.map((v) => ({ label: v.title, to: v.to }))} />
@@ -161,6 +165,7 @@ export function Layout() {
           onRun={(q) => {
             if (q.to) navigate(q.to)
             else if (q.action === 'signout') signOut()
+            else if (q.action) runMenu({ label: q.label, action: q.action })
           }}
         />
         <div className="relative min-w-0 flex-1 bg-[var(--gw-mdi)]">
@@ -181,7 +186,7 @@ export function Layout() {
         </div>
       </div>
       {acercaDe && <AcercaDeDialog onClose={() => setAcercaDe(false)} />}
-      <StatusBar text={hint ?? ayuda ?? title} email={session?.user.email ?? ''} />
+      <StatusBar text={hint ?? ayuda ?? title} email={session?.user.email ?? ''} tienda={sesion.tienda} />
     </div>
   )
 }
@@ -197,20 +202,35 @@ function Watermark() {
   )
 }
 
-function StatusBar({ text, email }: { text: string; email: string }) {
-  const [now, setNow] = useState(() => new Date())
+// Barra de estado: tienda y fecha de trabajo de la sesión (Utilidades → Cambio de Tienda / Fecha);
+// la fecha y la hora salen resaltadas cuando no son las reales.
+function StatusBar({ text, email, tienda }: { text: string; email: string; tienda: string | null }) {
+  const { desfaseMs, soloFecha } = useSesionTrabajo()
+  const cambiada = desfaseMs !== 0
+  const [now, setNow] = useState(() => ahoraTrabajo())
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000)
+    const t = setInterval(() => setNow(ahoraTrabajo()), 1000)
     return () => clearInterval(t)
-  }, [])
+  }, [desfaseMs])
   const panel = 'flex h-[16px] items-center border border-t-[#a0a0a0] border-l-[#a0a0a0] border-b-white border-r-white px-1.5'
   return (
     // pr-[92px]: la esquina derecha queda libre para el avatar flotante de NEXA.
     <div className="flex h-[22px] flex-none items-center gap-[3px] border-t border-[var(--gw-border-light)] bg-[var(--gw-face)] pl-[3px] pr-[92px] text-[11px]">
       <span className="min-w-0 flex-1 truncate px-1">{text}</span>
       <span className={`${panel} max-w-[220px] truncate`}>{email}</span>
+      <span className={`${panel} justify-center whitespace-nowrap`} title="Tienda / terminal de trabajo (Utilidades → Cambio de Tienda)">
+        Tienda {tienda ?? '—'}
+      </span>
+      <span
+        className={`${panel} w-[78px] justify-center tabular-nums ${cambiada ? 'bg-[#ffef8a] font-bold text-[#a00000]' : ''}`}
+        title={cambiada ? 'Fecha de trabajo distinta de hoy (Utilidades → Cambio de Fecha)' : 'Fecha de trabajo'}
+      >
+        {now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+      </span>
       <span className={`${panel} w-[48px] justify-center`}>NUM</span>
-      <span className={`${panel} w-[64px] justify-center tabular-nums`}>{now.toLocaleTimeString('es-ES')}</span>
+      <span className={`${panel} w-[64px] justify-center tabular-nums ${cambiada && !soloFecha ? 'bg-[#ffef8a] font-bold text-[#a00000]' : ''}`}>
+        {now.toLocaleTimeString('es-ES')}
+      </span>
     </div>
   )
 }

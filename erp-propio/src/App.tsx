@@ -29,6 +29,8 @@ import { GestorPedidosProveedorPage } from './pages/compras/gestor/GestorPedidos
 import { TransportistaFichaPage } from './pages/compras/transportistas/TransportistaFichaPage'
 import { PeticionFichaPage } from './pages/compras/peticiones/PeticionFichaPage'
 import { GenerarPeticionHost } from './pages/compras/peticiones/GenerarPeticionDialog'
+import { UtilidadesHost } from './pages/utilidades/UtilidadesHost'
+import { UtilidadesRoutes } from './pages/utilidades/UtilidadesRoutes'
 import { PedidoFichaPage } from './pages/ventas/pedidos/PedidoFichaPage'
 import { PresupuestosPage } from './pages/ventas/pedidos/PresupuestosPage'
 import { TpvPage } from './pages/ventas/tpv/TpvPage'
@@ -95,6 +97,8 @@ function ProtectedArea() {
       <Layout />
       {/* Compras → Generar Petición: CTRL+P desde cualquier pantalla */}
       <GenerarPeticionHost />
+      {/* Utilidades: Cambio de Tienda/Fecha, Seleccionar Periodo, Copia de Seguridad, Temporales */}
+      <UtilidadesHost />
     </>
   )
 }
@@ -194,6 +198,8 @@ function App() {
             <Route path="/listados-compras/pedidos" element={<ListadoPedidosProveedorPage />} />
             <Route path="/listados-compras/facturas" element={<ListadoFacturasProveedorPage />} />
             <Route path="/cambiar-clave" element={<CambiarClavePage />} />
+            {/* Utilidades → Examinar y Archivo → Periodos o Ejercicios (sin captura) */}
+            <Route path="/utilidades/*" element={<UtilidadesRoutes />} />
             <Route path="/registros-verifactu" element={<RegistrosVerifactuPage />} />
             {/* Menú Contabilidad */}
             <Route path="/contabilidad/*" element={<ContabilidadRoutes />} />

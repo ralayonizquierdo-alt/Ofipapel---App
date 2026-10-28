@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase'
+import { ahoraTrabajo, fechaTrabajo } from '../../../lib/sesionTrabajo'
 
 // Pagos de gastos, pagos a proveedores y a transportistas (PAGOSGST en GeminisWin).
 
@@ -91,13 +92,13 @@ export function claseFormaPago(fp: FormaPago | undefined, tipoPagoTexto?: string
   return 'efectivo'
 }
 
+/** Fecha de trabajo (Utilidades → Cambio de Fecha), por defecto hoy. */
 export function hoyISO() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return fechaTrabajo()
 }
 
 function horaActual() {
-  const d = new Date()
+  const d = ahoraTrabajo()
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 

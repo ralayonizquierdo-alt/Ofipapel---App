@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase'
+import { fechaTrabajo, horaTrabajo } from '../../../lib/sesionTrabajo'
 import type { RegistroFacturacion } from '../../../lib/verifactu'
 
 // Ficha Ventas / Facturas de GeminisWin (VENTAS + VENTDETA). El TPV usa el mismo documento.
@@ -63,12 +64,13 @@ export const r2 = (n: number) => Math.round(n * 100) / 100
 let seq = 0
 export const nuevaClave = () => `l${Date.now()}_${seq++}`
 
+/** Fecha de trabajo (Utilidades → Cambio de Fecha), por defecto hoy. */
 export function hoyISO() {
-  return new Date().toISOString().slice(0, 10)
+  return fechaTrabajo()
 }
 
 export function horaActual() {
-  return new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+  return horaTrabajo()
 }
 
 export function lineaVacia(tarifa: number): LineaVenta {
