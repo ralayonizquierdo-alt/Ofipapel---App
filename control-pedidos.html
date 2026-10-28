@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-10-27-1"></script>
+<script src="control-pedidos-logica.js?v=2026-10-28-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -1594,7 +1594,9 @@ function bloqueExplicaciones(p, faltan, sobran) {
     const f = comparar(q);
     return { id: q.id, pedido: `${nPed(q.numero)}${esRepo(q) ? '' : ' (' + q.cliente + ')'}`, faltan: CP.faltasPendientes(f, q.decisiones), sobran: CP.faltasYSobras(f).sobran.filter((x) => !(q.decisiones[x.ref] || {}).accion) };
   });
-  const ex = CP.explicarDiferencias(faltan, sobran, { otros });
+  // Factura por bloques: manda el bloque; nunca se propone pasar mercancía a otro pedido.
+  const porBloques = (q) => [q.propuesta, q.factura].some((x) => x && (x.lineas || []).some((l) => l.bloque));
+  const ex = CP.explicarDiferencias(faltan, sobran, { otros: porBloques(p) ? [] : otros });
   const icono = { errata: '✏️', sustituto: '🔁', expositor: '🧩', otroPedido: '📦' };
   const boton = (x) => x.tipo === 'errata' || x.tipo === 'sustituto'
     ? `<button class="btn peque" onclick="emparejar(${js(x.sobra.ref)}, ${js(x.falta.ref)})">🔗 Es la misma: emparejar</button>`
@@ -1619,7 +1621,9 @@ function datosParaIA(p) {
   const otros = E.pedidos.filter((q) => q.id !== p.id && claveGrupo(q) === claveGrupo(p) && q.propuesta && q.lineas.length)
     .map((q) => Object.assign({ id: q.id, pedido: nPed(q.numero) + (esRepo(q) ? '' : ' ' + q.cliente) }, pend(q, comparar(q))))
     .filter((o) => o.faltan.length || o.sobran.length);
-  return Object.assign({ proveedor: p.proveedor, tipo: esRepo(p) ? 'reposicion' : 'comercial', otros }, pend(p, filas));
+  // Si la factura viene por bloques, manda el bloque: no se le enseñan otros pedidos a la IA.
+  const bloques = [p.propuesta, p.factura].some((x) => x && (x.lineas || []).some((l) => l.bloque));
+  return Object.assign({ proveedor: p.proveedor, tipo: esRepo(p) ? 'reposicion' : 'comercial', otros: bloques ? [] : otros }, pend(p, filas));
 }
 async function revisarConIA() {
   const p = pedidoActual();
@@ -2688,8 +2692,9 @@ function aplicarReparto(docs, clave) {
   // Lo que ya le llegó a cada pedido con otras facturas repartidas antes (no
   // con las que se suben ahora, que se sustituyen).
   const previas = (q) => (q.propuesta && q.propuesta.reparto ? q.propuesta.lineas.filter((l) => !nombres.includes(l.origen)) : []);
-  const r = CP.repartirPorReferencias(lineas, destino.map((q) => ({ id: q.id, numero: q.numero,
-    lineas: q.lineas.concat(previas(q).map((l) => ({ ref: l.ref, cant: -(CP.parseNum(l.cant) || 0) }))) })));
+  const r = CP.repartirPorReferencias(lineas, destino.map((q) => ({ id: q.id, numero: q.numero, cliente: q.cliente,
+    lineas: q.lineas.concat(previas(q).map((l) => ({ ref: l.ref, cant: -(CP.parseNum(l.cant) || 0) }))) })),
+  { todos: pedidos.filter((q) => !q.sobrantes).map((q) => ({ id: q.id, numero: q.numero, cliente: q.cliente, lineas: q.lineas })) });
   // También lo que se asignó antes por los «Pedido N» de una factura agrupada
   // («factura.PDF · Pedido 9_ B2F»): con el reparto, ya no vale.
   const deEsteReparto = (q) => q.propuesta && (q.propuesta.reparto || / · Pedido /i.test(String(q.propuesta.archivo || '')) || nombres.some((n) => String(q.propuesta.archivo || '').startsWith(n)));
@@ -2721,7 +2726,14 @@ function aplicarReparto(docs, clave) {
     x.pendiente += fuera.reduce((t, a) => t + a.cant, 0);
     x.asignaciones = x.asignaciones.filter((a) => !fuera.includes(a));
   }
-  const rescate = CP.restosQueLlegan(E.restos, r.sobrantes, ej.proveedor);
+  // Lo de un bloque solo puede rescatar restos de SU pedido; lo que no viene por bloques, los de cualquiera (el más antiguo primero).
+  const sueltas = r.sobrantes.filter((l) => !l.deBloque);
+  const rescate = CP.restosQueLlegan(E.restos, sueltas, ej.proveedor);
+  for (const id of [...new Set(r.sobrantes.filter((l) => l.duenoId).map((l) => l.duenoId))]) {
+    const suyo = CP.restosQueLlegan(E.restos.filter((x) => x.pedidoId === id), r.sobrantes.filter((l) => l.duenoId === id), ej.proveedor);
+    rescate.asignaciones.push(...suyo.asignaciones); rescate.sobrantes.push(...suyo.sobrantes);
+  }
+  rescate.sobrantes.push(...r.sobrantes.filter((l) => l.deBloque && !l.duenoId));
   for (const a of rescate.asignaciones) {
     const x = E.restos.find((y) => y.id === a.restoId);
     x.asignaciones.push({ fecha: hoy(), cant: a.cant, origen: a.origen, reparto: true });
@@ -2861,23 +2873,26 @@ function repartirFacturas(docs, clave) {
   const cab = Object.assign({}, docs[0].prop.cabecera, { numeroPedido: null, dtoGlobal,
     observaciones: `Factura repartida por referencias entre los pedidos validados (${nombres.join(', ')})` });
   const previas = (q) => (q.factura && q.factura.reparto ? q.factura.lineas.filter((l) => !nombres.includes(l.origen)) : []);
-  const r = CP.repartirPorReferencias(lineas, pedidos.map((q) => ({ id: q.id, numero: q.numero,
-    lineas: q.final.lineas.concat(previas(q).map((l) => ({ ref: l.ref, cant: -(CP.parseNum(l.cant) || 0) }))) })));
+  const r = CP.repartirPorReferencias(lineas, pedidos.map((q) => ({ id: q.id, numero: q.numero, cliente: q.cliente,
+    lineas: q.final.lineas.concat(previas(q).map((l) => ({ ref: l.ref, cant: -(CP.parseNum(l.cant) || 0) }))) })),
+    { todos: E.pedidos.filter((q) => !q.archivado && claveGrupo(q) === clave && !q.sobrantes).map((q) => ({ id: q.id, numero: q.numero, cliente: q.cliente, lineas: (q.final && q.final.lineas) || q.lineas })) });
   // Un pedido que de esta factura solo recibe unas líneas sueltas no tiene su
   // albarán en ella (Finocam: ALDAYO recibió 1 línea de 96 y las otras 95
   // acabaron en Restos): no se le da factura —llegará en otra— y esas líneas
   // cuentan como sobrantes.
   for (const q of pedidos) {
     const ls = r.porPedido.get(q.id);
-    if (!ls || previas(q).length) continue;
+    if (!ls || previas(q).length || ls.some((l) => l.bloque)) continue;
     const pedidas = new Set(q.final.lineas.map((l) => CP.claveRef(l.ref))).size;
     if (pedidas && new Set(ls.map((l) => CP.claveRef(l.ref))).size < pedidas / 2) {
       r.sobrantes.push(...ls);
       r.porPedido.delete(q.id);
     }
   }
-  // Lo sobrante, al pedido que más líneas recibe de ese mismo PDF.
-  for (const l of r.sobrantes) {
+  // Un bloque de factura que no es de ningún pedido abierto no se reparte entre otros (regla del propietario).
+  if (r.bloquesSinDueno.length || r.sobrantes.some((l) => l.deBloque)) ultimaCarga.push({ ok: false, texto: `Bloques de la factura sin pedido en esta campaña (no se reparten entre otros): ${[...new Set(r.sobrantes.filter((l) => l.deBloque).map((l) => l.bloque))].join(', ')}` });
+  // Lo sobrante, al pedido que más líneas recibe de ese mismo PDF (solo lo que no viene por bloques).
+  for (const l of r.sobrantes.filter((x) => !x.deBloque)) {
     const cuenta = new Map();
     for (const [id, ls] of r.porPedido) cuenta.set(id, ls.filter((x) => x.origen === l.origen).length);
     const destino = [...cuenta].sort((a, b) => b[1] - a[1])[0];
