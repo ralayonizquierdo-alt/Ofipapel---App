@@ -866,6 +866,10 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                   </select>
                 </div>
                 <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Ver como</div>
+                  <select id="ventVendVista" onchange="renderVentasVendedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;"><option value="ranking">Ranking</option><option value="anios">Cuadro por años</option><option value="meses">Cuadro por meses</option></select>
+                </div>
+                <div>
                   <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
                   <select id="ventVendAnio" onchange="renderVentasVendedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
                     <option value="todos">Todos</option>
@@ -910,6 +914,10 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
                   <select id="ventTiendaSelect" onchange="renderVentasTiendaDetalle()" style="width:100%;padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
                     <option value="">— Ranking general —</option>
                   </select>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Ver como</div>
+                  <select id="ventTiendaVista" onchange="renderVentasTiendas()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;"><option value="ranking">Ranking</option><option value="anios">Cuadro por años</option><option value="meses">Cuadro por meses</option></select>
                 </div>
                 <div>
                   <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
@@ -1198,6 +1206,10 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
           <div class="subtab-panel" id="ct-proveedores">
             <div class="card" style="margin-bottom:16px;padding:16px;">
               <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+                <div>
+                  <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Ver como</div>
+                  <select id="compProvVista" onchange="renderComprasProveedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;"><option value="meses">Por meses</option><option value="anios">Por años</option></select>
+                </div>
                 <div>
                   <div style="font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:4px;">Año</div>
                   <select id="compProvAnio" onchange="renderComprasProveedores()" style="padding:7px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13px;">
@@ -2143,6 +2155,33 @@ function showComprasTab(tab){
   else if(tab==='anual') renderComprasAnual();
   else if(tab==='proveedores') renderComprasProveedores();
   else if(tab==='pormes') renderComprasMes();
+}
+
+// ═══════════════════════════════════════════════════════
+// CUADROS CRUZADOS — filas (vendedor / tienda / proveedor) × años, o × los 12 meses de un año
+// ═══════════════════════════════════════════════════════
+function cuadroCruzadoHtml(filas, claveFn, tituloFila, modo, anioMes, mesIdx, titulo){
+  const MES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const valor=r=>mesIdx>=0?(r.meses?.[mesIdx]||0):(r.total!=null?r.total:(r.meses||[]).reduce((s,v)=>s+v,0));
+  const mapa=new Map(); let cols;
+  if(modo==='meses'){
+    cols=MES.map((m,i)=>({etq:m,k:i}));
+    filas.filter(r=>String(r.anio)===String(anioMes)).forEach(r=>{ const k=claveFn(r), a=mapa.get(k)||{}; (r.meses||[]).forEach((v,i)=>{ a[i]=(a[i]||0)+v; }); mapa.set(k,a); });
+  } else {
+    cols=[...new Set(filas.map(r=>r.anio))].sort().map(a=>({etq:String(a),k:a}));
+    filas.forEach(r=>{ const k=claveFn(r), a=mapa.get(k)||{}; a[r.anio]=(a[r.anio]||0)+valor(r); mapa.set(k,a); });
+  }
+  const tot=a=>cols.reduce((s,c)=>s+(a[c.k]||0),0);
+  const lista=[...mapa.entries()].filter(([,a])=>tot(a)!==0).sort((x,y)=>tot(y[1])-tot(x[1]));
+  if(!lista.length) return '<div class="empty-state"><div class="e-ico">📊</div><h3>Sin datos para el período</h3></div>';
+  const celda=v=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;color:${v?'var(--texto)':'var(--texto2)'};">${v?fmt(v):'—'}</td>`;
+  const tots=cols.map(c=>lista.reduce((s,[,a])=>s+(a[c.k]||0),0));
+  return `<div class="sec-title" style="margin:12px 16px 6px;font-size:14px;">${escapeHtml(titulo)}</div>
+    <div style="overflow-x:auto;"><table class="tabla" style="font-size:12px;">
+    <thead><tr><th style="white-space:nowrap;min-width:170px;position:sticky;left:0;background:var(--card-bg);z-index:1;">${escapeHtml(tituloFila)}</th>${cols.map(c=>`<th style="text-align:right;white-space:nowrap;">${c.etq}</th>`).join('')}<th style="text-align:right;white-space:nowrap;background:var(--azul-pale);color:var(--azul);">Total</th></tr></thead>
+    <tbody>${lista.map(([k,a])=>`<tr><td style="font-weight:500;white-space:nowrap;position:sticky;left:0;background:var(--card-bg);">${escapeHtml(String(k))}</td>${cols.map(c=>celda(a[c.k]||0)).join('')}<td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--azul);background:var(--azul-pale);">${fmt(tot(a))}</td></tr>`).join('')}</tbody>
+    <tfoot><tr style="background:var(--azul-pale);"><td style="font-weight:700;color:var(--azul);position:sticky;left:0;background:var(--azul-pale);">TOTAL</td>${tots.map(v=>`<td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--azul);">${v?fmt(v):'—'}</td>`).join('')}<td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:800;color:var(--azul);">${fmt(tots.reduce((x,y)=>x+y,0))}</td></tr></tfoot>
+    </table></div>`;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5740,6 +5779,20 @@ function renderVentasVendedores(){
   if(mesWrap) mesWrap.style.display='';
   const mesIdx=selMes?.value!==''&&selMes?.value!=null?parseInt(selMes.value,10):-1;
 
+  // «Ver como» cuadro por años / por meses: filas = vendedores
+  const vistaV=document.getElementById('ventVendVista')?.value||'ranking';
+  const grafV=document.getElementById('cVentVend')?.closest('.chart-card'); if(grafV) grafV.style.display='';
+  if(vistaV!=='ranking'&&ventasVendedores.length){
+    destroyChart('cVentVend'); if(grafV) grafV.style.display='none';
+    document.getElementById('ventVendKpis').innerHTML='';
+    let filasV=ventasVendedores.filter(r=>!seleccionado||r.vendedor===seleccionado);
+    if(anioFiltro!=='todos'&&vistaV==='anios') filasV=filasV.filter(r=>String(r.anio)===String(anioFiltro));
+    const anioV=anioFiltro!=='todos'?anioFiltro:Math.max(...ventasVendedores.map(r=>+r.anio));
+    document.getElementById('ventVendTabla').innerHTML=cuadroCruzadoHtml(filasV,r=>r.vendedor,'Vendedor',vistaV,anioV,vistaV==='anios'?mesIdx:-1,
+      vistaV==='meses'?'Ventas por vendedor y mes — '+anioV:'Ventas por vendedor y año'+(mesIdx>=0?' — '+MESES_LARGO[mesIdx]:''));
+    return;
+  }
+
   // «Todos los años» + un mes: ranking de ese mes año por año (de todos los vendedores o del elegido)
   if(anioFiltro==='todos'&&mesIdx>=0&&ventasVendedores.length){
     rankingMesMostrar({uid:'vend',filas:seleccionado?ventasVendedores.filter(r=>r.vendedor===seleccionado):ventasVendedores,mesIdx,
@@ -5797,6 +5850,7 @@ function renderVentasVendedores(){
 }
 
 function renderVentasVendedorDetalle(){
+  if((document.getElementById('ventVendVista')?.value||'ranking')!=='ranking'){ renderVentasVendedores(); return; }
   const sel=document.getElementById('ventVendSelect');
   const vendedor=sel?.value||'';
   const btn=document.getElementById('ventVendInformeBtn'); if(btn) btn.style.display=vendedor?'inline-block':'none';
@@ -5947,6 +6001,21 @@ function renderVentasTiendas(){
     sel.value=tiendas.map(String).includes(valorActual)?valorActual:'';
   }
   const seleccionada=sel?.value||'';
+  // «Ver como» cuadro por años / por meses: filas = tiendas
+  const vistaT=document.getElementById('ventTiendaVista')?.value||'ranking';
+  const grafT=document.getElementById('cVentTienda')?.closest('.chart-card'); if(grafT) grafT.style.display='';
+  if(vistaT!=='ranking'&&ventasTiendas.length){
+    destroyChart('cVentTienda'); if(grafT) grafT.style.display='none';
+    document.getElementById('ventTiendaGrupoTtl').style.display='none';
+    document.getElementById('ventTiendaGrupoKpis').innerHTML='';
+    document.getElementById('ventTiendaGrupoTabla').innerHTML='';
+    document.getElementById('ventTiendaKpis').innerHTML='';
+    const filasT=(vistaT==='anios'?porFiltro:filtradas).filter(r=>!seleccionada||String(r.tienda)===String(seleccionada));
+    const anioT=anioFiltro!=='todos'?anioFiltro:Math.max(...ventasTiendas.map(r=>+r.anio));
+    document.getElementById('ventTiendaTabla').innerHTML=cuadroCruzadoHtml(filasT,r=>'Tienda '+r.tienda+(grupo==='todos'&&r.grupo?' · '+r.grupo:''),'Tienda',vistaT,anioT,vistaT==='anios'?mesIdx:-1,
+      (vistaT==='meses'?'Ventas por tienda y mes — '+anioT:'Ventas por tienda y año'+(mesIdx>=0?' — '+MESES_LARGO[mesIdx]:''))+(grupo!=='todos'?' ('+grupo+')':''));
+    return;
+  }
   // «Todos los años» + un mes: ranking de ese mes año por año (de las tiendas del grupo o de la elegida)
   if(anioFiltro==='todos'&&mesIdx>=0&&ventasTiendas.length){
     document.getElementById('ventTiendaGrupoTtl').style.display='none';
@@ -6024,6 +6093,7 @@ function renderVentasTiendas(){
 }
 
 function renderVentasTiendaDetalle(){
+  if((document.getElementById('ventTiendaVista')?.value||'ranking')!=='ranking'){ renderVentasTiendas(); return; }
   const sel=document.getElementById('ventTiendaSelect');
   const tiendaSel=sel?.value||'';
   if(!tiendaSel){ renderVentasTiendas(); return; }
@@ -6541,12 +6611,19 @@ function renderComprasProveedores(){
   if(almWrap) almWrap.style.display=useProvData?'none':'';
 
   destroyChart('cCompProvMes');
+  const grafC=document.getElementById('cCompProvMes')?.closest('.chart-card'); if(grafC) grafC.style.display='';
 
   if(useProvData){
     let datos=comprasProveedores;
     if(anioFiltro!=='todos') datos=datos.filter(r=>String(r.anio)===String(anioFiltro));
     if(!datos.length){
       document.getElementById('compProvTabla').innerHTML='<div class="empty-state"><div class="e-ico">🏭</div><h3>Sin datos</h3><p>No hay registros para los filtros seleccionados.</p></div>';
+      return;
+    }
+    // «Ver como» por años: filas = proveedores, columnas = años
+    if((document.getElementById('compProvVista')?.value||'meses')==='anios'){
+      if(grafC) grafC.style.display='none';
+      document.getElementById('compProvTabla').innerHTML=cuadroCruzadoHtml(datos,r=>r.provNom||r.provCod||'Sin proveedor','Proveedor','anios',null,mesIdx,'Compras por proveedor y año'+(mesIdx>=0?' — '+MESES[mesIdx]:''));
       return;
     }
 
