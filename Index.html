@@ -830,6 +830,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <button class="subtab-btn" data-vt="clientes" onclick="showVentasTab('clientes')">👥 Clientes</button>
             <button class="subtab-btn" data-vt="web" onclick="showVentasTab('web')">🌐 Venta Web</button>
             <button class="subtab-btn" data-vt="familias" onclick="showVentasTab('familias')">📦 Familias</button>
+            <button class="subtab-btn" style="margin-left:auto;" title="Descarga en Excel las tablas que ves ahora mismo, con los filtros y el orden elegidos" onclick="exportarVistaExcel('ventas')">📥 Exportar a Excel</button>
           </div>
 
           <div class="subtab-panel active" id="vt-anual">
@@ -1101,6 +1102,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
             <button class="subtab-btn" data-ct="anual" onclick="showComprasTab('anual')">📅 Histórico Anual</button>
             <button class="subtab-btn" data-ct="proveedores" onclick="showComprasTab('proveedores')">🏭 Por Proveedor</button>
             <button class="subtab-btn" data-ct="pormes" onclick="showComprasTab('pormes')">📊 Por Mes</button>
+            <button class="subtab-btn" style="margin-left:auto;" title="Descarga en Excel las tablas que ves ahora mismo, con los filtros y el orden elegidos" onclick="exportarVistaExcel('compras')">📥 Exportar a Excel</button>
             <label class="vdrop-label" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="vDropFile(event,'importComprasSmartExcel')" style="margin-left:auto;padding:6px 13px;background:var(--acento);color:#0d3d0d;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap;align-self:center;">📥 Excel Compras<input type="file" accept=".xlsx,.xls" id="compSmartInput" style="display:none" onchange="importComprasSmartExcel(this)"></label>
           </div>
 
@@ -2132,6 +2134,55 @@ function showComprasTab(tab){
   else if(tab==='anual') renderComprasAnual();
   else if(tab==='proveedores') renderComprasProveedores();
   else if(tab==='pormes') renderComprasMes();
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORTAR A EXCEL — lo que se ve en Ventas / Compras
+// ═══════════════════════════════════════════════════════
+// Convierte el texto de una celda («1.234,56 €», «-12,5%», «2025») en número de Excel; los códigos con ceros delante («042») se dejan como texto.
+function _celdaExcel(txt){
+  const t=String(txt==null?'':txt).replace(/\s+/g,' ').replace(/−/g,'-').trim();
+  if(!t||t==='—'||t==='-') return '';
+  const m=t.match(/^([+-]?)\s*(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?)\s*(€|%)?$/);
+  if(!m) return t;
+  if(!m[3] && /^0\d/.test(m[2])) return t;
+  let n=parseFloat(m[2].replace(/\./g,'').replace(',','.'));
+  if(m[1]==='-') n=-n;
+  if(m[3]==='%') return {v:n/100,t:'n',z:'0.0%'};
+  return {v:n,t:'n',z:m[3]==='€'?'#,##0.00':(/,/.test(m[2])?'#,##0.00':'0')};
+}
+function _tablaAFilas(tbl){
+  const filas=[];
+  tbl.querySelectorAll('tr').forEach(tr=>{
+    if(tr.offsetParent===null) return;
+    const f=[];
+    tr.querySelectorAll('th,td').forEach(c=>{ f.push(_celdaExcel(c.innerText)); for(let i=1;i<(c.colSpan||1);i++) f.push(''); });
+    if(f.some(x=>x!=='')) filas.push(f);
+  });
+  return filas;
+}
+function exportarVistaExcel(vista){
+  if(typeof XLSX==='undefined'){ showToast('⚠️ No se pudo cargar la librería de Excel','err'); return; }
+  const panel=document.querySelector('#v-'+vista+' .subtab-panel.active');
+  if(!panel){ showToast('No hay nada que exportar','err'); return; }
+  const tab=(panel.id||'').replace(/^[a-z]+-/,'')||vista;
+  const wb=XLSX.utils.book_new(), usados={};
+  let n=0;
+  panel.querySelectorAll('table').forEach(tbl=>{
+    const filas=_tablaAFilas(tbl);
+    if(filas.length<2) return;
+    const cab=tbl.closest('.card,.chart-card');
+    let nombre=((cab&&cab.querySelector('.sec-title,.card-title,h3,h4'))||{}).innerText||'';
+    nombre=nombre.replace(/[\\/?*\[\]:]/g,' ').replace(/\s+/g,' ').trim().slice(0,28)||('Tabla '+(n+1));
+    if(usados[nombre]){ usados[nombre]++; nombre=nombre.slice(0,26)+' '+usados[nombre]; } else usados[nombre]=1;
+    const ws=XLSX.utils.aoa_to_sheet(filas);
+    ws['!cols']=filas[0].map((_,i)=>({wch:Math.min(40,Math.max(8,...filas.map(r=>String(r[i]&&r[i].v!=null?r[i].v:(r[i]||'')).length)))}));
+    XLSX.utils.book_append_sheet(wb,ws,nombre); n++;
+  });
+  if(!n){ showToast('No hay ninguna tabla en pantalla para exportar','err'); return; }
+  const hoy=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb,`Ofipapel_${vista}_${tab}_${hoy}.xlsx`);
+  showToast('📥 Excel descargado ('+n+(n===1?' tabla':' tablas')+')','ok');
 }
 
 // ═══════════════════════════════════════════════════════
