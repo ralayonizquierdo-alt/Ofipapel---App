@@ -1066,3 +1066,13 @@ test('Expositor agotado y servido suelto: lo que sobra es todo de la misma famil
   // Lo que sobra no es de la misma familia: no se adivina
   assert.strictEqual(CP.explicarDiferencias(F, [{ ref: 'A', desc: 'CUBILETE NUBE', cant: 2, precio: 5, total: true }, { ref: 'B', desc: 'GRAPADORA GRAFITO', cant: 2, precio: 5, total: true }]).length, 0);
 });
+
+test('a Restos nunca va lo que vino de más: solo lo que pidió el cliente', () => {
+  const val = [
+    { ref: 'A', desc: 'PEDIDO', cant: 5, precio: 1, pedida: 5 },
+    { ref: 'B', desc: 'ACEPTADO DE MÁS', cant: 8, precio: 1, pedida: 5 },
+    { ref: 'C', desc: 'SIN PEDIR (SUMADO AL CLIENTE)', cant: 3, precio: 1, pedida: 0 },
+  ];
+  const r = CP.restosDeFactura(val, []);
+  assert.deepEqual(r.map((x) => `${x.ref}x${x.cant}`), ['Ax5', 'Bx5']);
+});

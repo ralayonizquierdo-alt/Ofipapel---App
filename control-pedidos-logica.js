@@ -547,11 +547,14 @@
   function restosDeFactura(lineasValidadas, lineasFactura, opciones) {
     const r = controlFactura(lineasValidadas, lineasFactura, opciones);
     const porRef = new Map((lineasValidadas || []).map((l) => [claveRef(l.ref), l]));
+    // A Restos solo va lo que el cliente PIDIÓ: lo aceptado de más (o las
+    // piezas de un expositor) que luego no se factura no se le debe a nadie.
     return r.faltan.map((x) => {
       const l = porRef.get(claveRef(x.ref)) || {};
-      return { ref: x.ref, desc: x.desc || l.desc || '', ean: l.ean || '', cant: x.cant,
+      const cant = l.pedida != null ? Math.min(x.cant, l.pedida) : x.cant;
+      return { ref: x.ref, desc: x.desc || l.desc || '', ean: l.ean || '', cant,
         precio: l.precioCliente != null ? l.precioCliente : (l.precio != null ? l.precio : null) };
-    });
+    }).filter((x) => x.cant > 0);
   }
 
   /**
@@ -769,7 +772,8 @@
     for (const f of filas) {
       const d = (decisiones && decisiones[f.ref]) || { accion: f.estado === 'falta' ? 'resto' : 'aceptar' };
       if (d.nota) notas.push({ ref: f.ref, desc: f.desc, texto: d.nota });
-      const base = { ref: f.ref, desc: f.desc, ean: f.ean, exp: Boolean(f.exp), ...(f.alta ? { alta: true, descAlta: f.descAlta } : {}) };
+      // pedida: lo que pidió el cliente; tope de lo que puede ir a Restos.
+      const base = { ref: f.ref, desc: f.desc, ean: f.ean, exp: Boolean(f.exp), pedida: f.cantPedida || 0, ...(f.alta ? { alta: true, descAlta: f.descAlta } : {}) };
       // _neto: el precio neto de esa línea (tras sus descuentos), para el precio al cliente.
       const propuesta = (cant) => ({ ...base, cant, precio: f.precioPropuesta, dtos: f.dtosPropuesta,
         importe: cant === f.cantPropuesta ? f.importePropuesta : null, udsCaja: f.udsCajaPropuesta || f.udsCajaPedido,
