@@ -23,3 +23,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Salida del robot de pruebas (e2e/recorrido.mjs): informes y capturas
+e2e/salida/

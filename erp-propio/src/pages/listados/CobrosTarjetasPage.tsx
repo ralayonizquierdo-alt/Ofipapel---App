@@ -87,7 +87,7 @@ export function CobrosTarjetasPage() {
 
   return (
     <>
-      <DialogoListado titulo="Listado de Cobros en Tarjetas" ancho={252} onAceptar={aceptar} procesando={inf.cargando}>
+      <DialogoListado titulo="Listado de Cobros en Tarjetas" ancho={284} onAceptar={aceptar} procesando={inf.cargando}>
         {inf.error && <div className="text-[11px] text-[#c42b1c]">{inf.error}</div>}
         <div>
           <div className={DLG.etiqueta}>Tarjeta:</div>
