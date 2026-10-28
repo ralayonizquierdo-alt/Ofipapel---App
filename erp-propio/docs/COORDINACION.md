@@ -14,6 +14,15 @@ lo que escribió otro.
   copian al código, a la base de datos ni a datos de prueba. Las pestañas de
   Bancos no se capturan con datos (la estructura sale de una ficha vacía).
 
+## Quién trabaja (28/10/2026)
+
+- **Rober** y **Luis** (GitHub `Lualme31`, escritura; administrador del ERP),
+  cada uno con su propio Claude. Notas entre sesiones en la tabla
+  `coordinacion_notas` (de/para: `claude-code`, `cowork`, `rober`, `luis`,
+  `todos`). Antes de empezar un encargo, mira las notas sin leer y deja una
+  diciendo qué pantalla o módulo vas a tocar; al terminar, otra con lo hecho.
+- No trabajar los dos en la misma pantalla a la vez.
+
 ## Ramas y publicación
 
 - Rama común del ERP: **`erp`** (conectada a Netlify el 27/10/2026). La web de prueba
