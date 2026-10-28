@@ -25,11 +25,12 @@ _MESES_ES = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT
 
 
 def _nombre_semana(referencia: date = None) -> str:
-    """Devuelve el nombre de la semana en formato 'DD--DD MES' (domingo a domingo)."""
+    """Devuelve el nombre de la semana ANTERIOR en formato 'DD--DD MES' (domingo a domingo).
+    Los pedidos se procesan esta semana pero corresponden a ventas de la semana pasada."""
     hoy = referencia or date.today()
     dias_desde_domingo = (hoy.weekday() + 1) % 7
-    domingo_inicio = hoy - timedelta(days=dias_desde_domingo)
-    domingo_fin = domingo_inicio + timedelta(days=7)
+    domingo_fin = hoy - timedelta(days=dias_desde_domingo)
+    domingo_inicio = domingo_fin - timedelta(days=7)
     mes = _MESES_ES[domingo_fin.month - 1]
     return f"{domingo_inicio.day:02d}--{domingo_fin.day:02d} {mes}"
 
