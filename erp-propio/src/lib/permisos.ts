@@ -32,7 +32,7 @@ export const REDIRECCIONES: Record<string, string> = {
 }
 
 /** Acciones de menú que no necesitan permiso (salir, ventana, edición). */
-const ACCIONES_LIBRES = new Set(['signout', 'close-window', 'undo', 'redo', 'cut', 'copy', 'delete', 'selectAll', 'hide-window', 'show-all', 'cycle-window', 'about', 'cambio-tienda', 'seleccionar-periodo', 'eliminar-temporales'])
+const ACCIONES_LIBRES = new Set(['signout', 'close-window', 'undo', 'redo', 'cut', 'copy', 'delete', 'selectAll', 'hide-window', 'show-all', 'cycle-window', 'about', 'cambio-tienda', 'seleccionar-periodo', 'eliminar-temporales', 'paste', 'find', 'replace', 'cambiar-grupo'])
 
 export interface OpcionPermiso {
   codigo: string

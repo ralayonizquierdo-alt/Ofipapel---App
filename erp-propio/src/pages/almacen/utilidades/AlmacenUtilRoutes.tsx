@@ -9,6 +9,9 @@ import { InventariarAlmacenPage } from './InventariarAlmacenPage'
 import { PuntosRestauracionPage } from './PuntosRestauracionPage'
 import { RecalcularStockPage } from './RecalcularStockPage'
 import { EliminacionArticulosPage } from './EliminacionArticulosPage'
+import { ControlLotesPage } from './ControlLotesPage'
+import { StockCeroFamiliaPage } from './StockCeroFamiliaPage'
+import { ArticulosEnBlancoPage } from './ArticulosEnBlancoPage'
 
 /** Rutas de las utilidades del menú Almacén (todas bajo /almacen/…). */
 export function AlmacenUtilRoutes() {
@@ -25,6 +28,10 @@ export function AlmacenUtilRoutes() {
       <Route path="puntos-restauracion" element={<PuntosRestauracionPage />} />
       <Route path="recalcular-stock" element={<RecalcularStockPage />} />
       <Route path="eliminacion-articulos" element={<EliminacionArticulosPage />} />
+      <Route path="lotes" element={<ControlLotesPage />} />
+      {/* Del menú Utilidades */}
+      <Route path="stock-cero-familia" element={<StockCeroFamiliaPage />} />
+      <Route path="articulos-en-blanco" element={<ArticulosEnBlancoPage />} />
       <Route path="*" element={<Navigate to="/almacen/listados-articulos" replace />} />
     </Routes>
   )

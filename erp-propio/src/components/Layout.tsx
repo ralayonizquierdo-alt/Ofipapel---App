@@ -9,6 +9,7 @@ import { MENUS, esAccionUtilidad, isEnabled, windowTitle, type MenuEntry, type M
 import { ahoraTrabajo, ejercicioTrabajo, useSesionTrabajo } from '../lib/sesionTrabajo'
 import { NexaAsistente } from '../nexa/NexaAsistente'
 import { AcercaDeDialog } from './shell/AcercaDeDialog'
+import { EdicionHerramientas, IndicadorVerComo, lanzarEdicion } from './shell/EdicionHerramientas'
 import { SinPermiso, usePermisos } from '../lib/PermisosContext'
 
 // Ventana principal con el aspecto de GeminisWin: franja de título, barra de menús,
@@ -111,6 +112,8 @@ export function Layout() {
     else if (i.action === 'generar-peticion') window.dispatchEvent(new Event('gw:generar-peticion'))
     // Utilidades (Cambio de Tienda/Fecha, Seleccionar Periodo, Copia…): los abre UtilidadesHost (App.tsx).
     else if (esAccionUtilidad(i.action)) window.dispatchEvent(new CustomEvent('gw:utilidad', { detail: i.action }))
+    // Edición → Pegar/Encontrar/Reemplazar y Archivo → Cambiar Grupo de Acceso: EdicionHerramientas.
+    else if (i.action === 'paste' || i.action === 'find' || i.action === 'replace' || i.action === 'cambiar-grupo') lanzarEdicion(i.action)
     else if (i.action) document.execCommand(i.action)
   }
 
@@ -193,7 +196,9 @@ export function Layout() {
               onClose={() => cerrarVentana(false)}
               className="absolute inset-1 z-10 [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-auto"
             >
-              {contenido}
+              <div data-gw-ventana className="contents">
+                {contenido}
+              </div>
             </GwWindow>
           )}
           {/* NEXA: avatar flotante + panel de conversación, disponible en todas las pantallas */}
@@ -201,6 +206,7 @@ export function Layout() {
         </div>
       </div>
       {acercaDe && <AcercaDeDialog onClose={() => setAcercaDe(false)} />}
+      <EdicionHerramientas />
       <StatusBar text={hint ?? ayuda ?? title} email={session?.user.email ?? ''} tienda={sesion.tienda} />
     </div>
   )
@@ -231,6 +237,7 @@ function StatusBar({ text, email, tienda }: { text: string; email: string; tiend
   return (
     <div className="flex h-[22px] flex-none items-center gap-[3px] border-t border-[var(--gw-border-light)] bg-[var(--gw-face)] px-[3px] text-[11px]">
       <span className="min-w-0 flex-1 truncate px-1">{text}</span>
+      <IndicadorVerComo />
       <span className={`${panel} max-w-[220px] truncate`}>{email}</span>
       <span className={`${panel} justify-center whitespace-nowrap`} title="Tienda / terminal de trabajo (Utilidades → Cambio de Tienda)">
         Tienda {tienda ?? '—'}

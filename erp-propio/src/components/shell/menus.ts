@@ -1,7 +1,7 @@
 // Árbol de menús de la ventana principal, copiado del mapa funcional de GeminisWin
 // (págs. 1-3). Las opciones con `to` o `action` funcionan; el resto sale en gris.
 
-export type MenuAction = 'signout' | 'close-window' | 'hide-window' | 'show-all' | 'cycle-window' | 'about' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion' | AccionUtilidad
+export type MenuAction = 'signout' | 'close-window' | 'hide-window' | 'show-all' | 'cycle-window' | 'about' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion' | 'paste' | 'find' | 'replace' | 'cambiar-grupo' | AccionUtilidad
 
 /** Diálogos de Utilidades (y Seleccionar Periodo) que abre UtilidadesHost con el evento «gw:utilidad». */
 export const ACCIONES_UTILIDAD = ['cambio-tienda', 'cambio-fecha', 'cambio-fecha-hora', 'seleccionar-periodo', 'hacer-copia', 'testear-copia', 'eliminar-temporales'] as const
@@ -42,7 +42,7 @@ export const MENUS: TopMenu[] = [
       item('Parámetros'),
       'sep',
       item('Cambiar Empleado', { action: 'signout', shortcut: 'CTRL+E' }),
-      item('Cambiar Grupo de Acceso', { shortcut: 'CTRL+O' }),
+      item('Cambiar Grupo de Acceso', { action: 'cambiar-grupo', shortcut: 'CTRL+O', description: 'Ver el programa como otro grupo de acceso (solo administradores)' }),
       item('Cambiar Contraseña', { to: '/cambiar-clave', description: 'Cambiar la contraseña del empleado conectado' }),
       'sep',
       // SIN CAPTURA (Códigos Postales, Cód. Bancarios y Monedas): hechas con el esquema y el estilo de Formas de Pago.
@@ -70,12 +70,12 @@ export const MENUS: TopMenu[] = [
       'sep',
       item('Cortar', { action: 'cut', shortcut: 'Ctrl+X' }),
       item('Copiar', { action: 'copy', shortcut: 'Ctrl+C' }),
-      item('Pegar', { shortcut: 'Ctrl+V' }),
+      item('Pegar', { action: 'paste', shortcut: 'Ctrl+V' }),
       item('Borrar', { action: 'delete', shortcut: 'Supr' }),
       item('Seleccionar todo', { action: 'selectAll', shortcut: 'Ctrl+A' }),
       'sep',
-      item('Encontrar', { shortcut: 'Ctrl+F' }),
-      item('Reemplazar', { shortcut: 'Ctrl+H' }),
+      item('Encontrar', { action: 'find', shortcut: 'Ctrl+F', description: 'Busca un texto en la rejilla de la ventana activa' }),
+      item('Reemplazar', { action: 'replace', shortcut: 'Ctrl+H', description: 'Reemplaza un texto en los campos de la ficha en modificación' }),
     ],
   },
   {
@@ -236,7 +236,7 @@ export const MENUS: TopMenu[] = [
       item('Etiquetas de Cód. de Barras', { to: '/almacen/etiquetas', description: 'Listados de Etiquetas de Artículos' }),
       'sep',
       item('Traspasos', { to: '/traspasos', description: 'Traspasos entre Almacenes' }),
-      item('Control de Lotes'),
+      item('Control de Lotes', { to: '/almacen/lotes', description: 'Control de Lotes' }),
       item('Almacenes', { to: '/almacenes', description: 'Ficha de Almacenes' }),
       item('Regularización de Stock', { to: '/regularizacion-stock', description: 'Regularización de Stock' }),
       item('Inventarios', { to: '/inventario', description: 'Inventarios' }),
@@ -322,7 +322,12 @@ export const MENUS: TopMenu[] = [
       'sep',
       item('Configurar Utilidades'),
       'sep',
-      ...off(['Etiquetas', 'Listado De Ventas', 'Stock A 0 de Familia', 'Elimina ArtiEnBlanco', 'Conectar David']),
+      // Etiquetas y Listado De Ventas abren las pantallas que ya existen (Almacén y Ventas).
+      item('Etiquetas', { to: '/almacen/etiquetas', description: 'Listados de Etiquetas de Artículos' }),
+      item('Listado De Ventas', { to: '/listados-ventas/ventas', description: 'Listados de Ventas' }),
+      item('Stock A 0 de Familia', { to: '/almacen/stock-cero-familia', description: 'Pone a 0 el stock de una familia en un almacén' }),
+      item('Elimina ArtiEnBlanco', { to: '/almacen/articulos-en-blanco', description: 'Da de baja los artículos en blanco' }),
+      ...off(['Conectar David']),
       'sep',
       item('Conectar con IdsSoft'),
     ],
@@ -391,6 +396,9 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/almacen/puntos-restauracion', title: 'Puntos de Restauración de Stock' },
   { prefix: '/almacen/recalcular-stock', title: 'Recalcular Stock' },
   { prefix: '/almacen/eliminacion-articulos', title: 'Eliminación de Artículos' },
+  { prefix: '/almacen/lotes', title: 'Control de Lotes' },
+  { prefix: '/almacen/stock-cero-familia', title: 'Stock A 0 de Familia' },
+  { prefix: '/almacen/articulos-en-blanco', title: 'Elimina Artículos en Blanco' },
   { prefix: '/traspasos', title: 'Traspasos de artículos entre almacenes' },
   { prefix: '/inventario', title: 'Inventarios' },
   { prefix: '/compras', title: 'Pedidos a Proveedores' },
