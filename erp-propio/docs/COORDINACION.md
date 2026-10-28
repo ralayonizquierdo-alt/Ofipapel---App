@@ -64,6 +64,11 @@ construida.
 |---|---|
 | Ficha de Clientes (10 pestañas) | Calcada |
 | Tipo Cliente (`/tipos-cliente`: datos generales, pago y documentos, tarifas y descuentos con tarifa por nivel de familia, observaciones) | Sin captura (28/10) |
+| Recalcular deuda (`/recalcular-deuda`: diálogo pequeño gris; cliente desde/hasta, calcula sin tocar nada, pide confirmación con barra de progreso por tramos de 100 clientes y se puede deshacer). `deuda_actual` = pendiente de facturas no anuladas + ventas sin facturar (no anuladas ni aplazadas); `fecha_ultima_venta` = la mayor entre la cargada y la última venta. Lógica en `fn_cliente_recalcular_deuda` / `fn_cliente_recalcular_deuda_deshacer`, historial en `cliente_deuda_recalculo` | Sin captura (28/10). **Ojo:** la deuda cargada de GeminisWin incluye documentos que aún no están en el ERP; recalcular TODOS los clientes hoy la dejaría casi a cero (por eso se puede deshacer) |
+| Listados → List. de Clientes (`/listados-clientes/clientes`, `fn_lst_clientes`) | Sin captura (28/10) |
+| Listados → List. de Ventas y Facturas por Cliente (`/listados-clientes/ventas-facturas`, `fn_lst_ventas_facturas_cliente`; albaranes facturados dentro de su factura) | Sin captura (28/10) |
+| Listados → Por Zonas Terr., Vendedores, Facturas y Artículos Pend. (`/listados-clientes/zonas`, `fn_lst_clientes_zonas`) | Sin captura (28/10) |
+| Listados → Cli. que no han pagado (`/listados-clientes/no-pagado`, `fn_lst_clientes_impagados`: vencido a una fecha por tramos 0-30/31-60/61-90/+90) | Sin captura (28/10) |
 
 ### Ventas
 | Pantalla | Estado |
@@ -73,6 +78,7 @@ construida.
 | TPV · Ventas / Facturas | Calcada |
 | Repartos | Calcada |
 | Gestor de pedidos · Gestor de presupuestos | Calcada |
+| Listados → List Pedidos (`/listados-ventas/pedidos`, `fn_lst_pedidos_clientes`: estado Pendiente/Parcial/Servido/Anulado e importe pendiente de servir) | Sin captura (28/10) |
 | Nº de serie · Reparaciones | Calcada |
 | Vendedores | Calcada salvo Bancos (sin captura, a propósito) |
 | Técnicos | Datos generales calcada; resto como Vendedores |
@@ -106,6 +112,7 @@ Pendiente de capturas. Pantallas antiguas provisionales: `/caja`, `/facturacion`
 
 | Pantalla | Estado |
 |---|---|
+| Facturación → Listados → L. Pend. de Cobro (`/listados-facturacion/pendiente-cobro`, `fn_lst_pendiente_cobro`) y Extracto clientes (`/listados-facturacion/extracto`, `fn_lst_extracto_clientes`: saldo anterior, cargos, abonos y saldo; el saldo final es el pendiente de cobro). Base común: `fn_cli_pendientes` (migración `20261028_listados_clientes_facturacion.sql`) | Sin captura (28/10) |
 | Gestor de Pagos de Clientes (`/gestor-cobros-clientes`; pestañas Facturas, Pagos y Facturas sin Pagos, Pagos) y ficha Pagos de Clientes, Cobros (`/cobros-clientes`, Alt+F7) | Sin captura (gemelas del Gestor de pagos a proveedores y de su ficha). «Pagos» de la barra lateral y «Cobros de la factura» del pedido llevan aquí. Lógica en BD: `fn_cobro_cliente_cobrar` (total o parcial; contado = ingreso COB en la caja abierta), `fn_cobro_cliente_anular`, `fn_cobro_generar_vencimientos` (migración `20261028_cobros_clientes.sql`) |
 
 ## Capturas pendientes (lista actualizada 27/10/2026, tras los ZIP 4, 5 y 6)
@@ -118,8 +125,12 @@ Facturación (parcial), 5 Maestros (Archivo y Utilidades), 6 Listados. Falta:
 - **Facturación:** Generar facturas; Gestor de pagos de clientes → pestañas
   Facturas, Pagos y facturas sin pagos, y Pagos (ya construido sin captura); ficha
   Pagos de Clientes, Cobros; Listados → List. Remesas.
-- **Clientes:** Tipo Cliente (construida sin captura el 28/10).
-- **Ventas:** Listados → List. Pedidos; Listados de ventas → lista de tipos de
+- **Clientes:** Tipo Cliente; Recalcular deuda; Listados → List. de Clientes, List. de Ventas
+  y Facturas por Cliente, Por Zonas Terr./Vendedores/Facturas/Artículos Pend. y Cli. que no han
+  pagado (todas construidas sin captura el 28/10; falta la ventana de filtros y el informe impreso).
+- **Facturación (listados):** L. Pend. de Cobro y Extracto clientes (construidos sin captura el
+  28/10).
+- **Ventas:** Listados → List. Pedidos (construido sin captura el 28/10); Listados de ventas → lista de tipos de
   informe; Técnicos → resto de pestañas; Repartidores → Comisiones; Zonas
   territoriales → Observaciones e imagen; Rutas de reparto → Observaciones e
   imagen.

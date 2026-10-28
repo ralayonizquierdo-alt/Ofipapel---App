@@ -39,7 +39,7 @@
  * «Filtrar Según Campo de Cliente», «Filtrar según el total del Proveedor» y rpc(fn, p).
  *
  * Buscadores («···» y Ctrl+Intro) ya definidos en BUSCADORES: tienda, almacen, vendedor, tecnico,
- * empleado, cliente, articulo, familia, marca, proveedor, formaPago, moneda, tipoCliente, zona.
+ * empleado, cliente, articulo, familia, marca, proveedor, formaPago, moneda, tipoCliente, zona, ruta.
  */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
@@ -324,6 +324,15 @@ export const BUSCADORES = {
   zona: {
     titulo: 'Zonas Territoriales',
     tabla: 'zona_territorial',
+    clave: 'codigo',
+    nombre: 'descripcion',
+    columnas: [cod(), { key: 'descripcion', label: 'Descripción' }],
+    busca: ['codigo', 'descripcion'],
+    orden: 'codigo',
+  },
+  ruta: {
+    titulo: 'Rutas de Reparto',
+    tabla: 'ruta_reparto',
     clave: 'codigo',
     nombre: 'descripcion',
     columnas: [cod(), { key: 'descripcion', label: 'Descripción' }],
@@ -1358,11 +1367,18 @@ function HojaInforme({ r, empresa }: { r: Resultado; empresa: string }) {
                   </tr>
                 )
               const total = l.tipo === 'total'
+              // El texto del total ocupa la primera columna y las siguientes que no suman (así no
+              // ensancha la primera columna con «Total Cliente …»).
+              let ocupa = 1
+              while (ocupa < n - 1 && !sumable(r.columnas[ocupa])) ocupa++
               return (
                 <tr key={i} className={total ? 'border-t-2 border-black font-bold' : 'border-t border-[#666] font-bold'}>
-                  {r.columnas.map((c, j) => (
-                    <td key={c.key} className={`px-1 py-[2px] ${esNum(c) ? 'text-right tabular-nums' : ''} ${j === 0 ? 'whitespace-nowrap' : ''}`}>
-                      {j === 0 ? (total ? 'TOTAL GENERAL' : l.texto) : sumable(c) ? celda(l.fila[c.key], c) : ''}
+                  <td colSpan={ocupa} className="px-1 py-[2px]">
+                    {total ? 'TOTAL GENERAL' : l.texto}
+                  </td>
+                  {r.columnas.slice(ocupa).map((c) => (
+                    <td key={c.key} className={`px-1 py-[2px] ${esNum(c) ? 'text-right tabular-nums' : ''}`}>
+                      {sumable(c) ? celda(l.fila[c.key], c) : ''}
                     </td>
                   ))}
                 </tr>
