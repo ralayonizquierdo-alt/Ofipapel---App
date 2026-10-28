@@ -154,7 +154,7 @@ export const MENUS: TopMenu[] = [
       item('Salida de caja', { to: '/caja/salida', description: 'Salida de dinero de la caja abierta' }),
       'sep',
       // En GeminisWin Apertura de Caja y Gestor de Pedidos muestran los dos Alt+F6; el atajo real va al Gestor.
-      item('Apertura de Caja', { to: '/caja/apertura', shortcut: 'Alt+F6 ', description: 'Abrir la caja de la tienda/terminal con el fondo inicial' }),
+      item('Apertura de Caja', { to: '/caja/apertura', shortcut: 'Alt+F6', description: 'Abrir la caja de la tienda/terminal con el fondo inicial' }),
       item('Cierre de Caja', { to: '/caja/cierre', shortcut: 'Ctrl+F6', description: 'Cerrar la caja abierta con el arqueo' }),
       item('Aperturas y Cierres', { to: '/caja/aperturas', description: 'Aperturas y Cierres de Caja' }),
     ],
