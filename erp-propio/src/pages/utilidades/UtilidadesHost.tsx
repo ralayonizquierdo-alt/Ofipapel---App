@@ -7,19 +7,46 @@ import { supabase } from '../../lib/supabase'
 import { elegirTienda, fijarEjercicioActivo, sesionTrabajo } from '../../lib/sesionTrabajo'
 import { CambioFechaDialog, CambioTiendaDialog, SeleccionarPeriodoDialog } from './SesionDialogs'
 import { EliminarTemporalesDialog, HacerCopiaDialog, TestearCopiaDialog } from './CopiaDialogs'
+import { ElegirImpresoraDialog, PrepararPaginaDialog } from './ImpresionDialogs'
+import { cargarParametros } from '../../lib/parametros'
+import { abrirPresentacionPreliminar, cssPagina, usePrefsImpresion } from '../../lib/impresion'
 
 const EVENTO_UTILIDAD = 'gw:utilidad'
 
 export function UtilidadesHost() {
   const [abierto, setAbierto] = useState<string | null>(null)
+  const prefs = usePrefsImpresion()
+
+  // Archivo → Preparar página: papel y márgenes de lo que se imprime desde este puesto. Va al
+  // PRINCIPIO de <head> para que las reglas @page propias de cada documento (listados con su
+  // orientación, etiquetas de 50 x 30 mm…) sigan mandando.
+  useEffect(() => {
+    let el = document.getElementById('gw-pagina') as HTMLStyleElement | null
+    if (!el) {
+      el = document.createElement('style')
+      el.id = 'gw-pagina'
+      document.head.prepend(el)
+    }
+    el.textContent = cssPagina(undefined, prefs)
+  }, [prefs])
 
   useEffect(() => {
-    const abrir = (e: Event) => setAbierto((e as CustomEvent<string>).detail)
+    const abrir = (e: Event) => {
+      const accion = (e as CustomEvent<string>).detail
+      // Archivo → Presentación preliminar: la de la ventana activa (src/lib/impresion.ts).
+      if (accion === 'presentacion-preliminar') {
+        if (!abrirPresentacionPreliminar()) alert('La ventana activa no tiene presentación preliminar. Abra un listado o una ficha con botón Imprimir.')
+        return
+      }
+      setAbierto(accion)
+    }
     window.addEventListener(EVENTO_UTILIDAD, abrir)
     return () => window.removeEventListener(EVENTO_UTILIDAD, abrir)
   }, [])
 
   useEffect(() => {
+    // Parámetros generales (IGIC por defecto, decimales de precio…): Archivo → Parámetros.
+    cargarParametros()
     supabase
       .from('ejercicio')
       .select('anio, fecha_inicio, fecha_fin')
@@ -54,6 +81,10 @@ export function UtilidadesHost() {
       return <TestearCopiaDialog onClose={cerrar} />
     case 'eliminar-temporales':
       return <EliminarTemporalesDialog onClose={cerrar} />
+    case 'preparar-pagina':
+      return <PrepararPaginaDialog onClose={cerrar} />
+    case 'elegir-impresora':
+      return <ElegirImpresoraDialog onClose={cerrar} />
     default:
       return null
   }

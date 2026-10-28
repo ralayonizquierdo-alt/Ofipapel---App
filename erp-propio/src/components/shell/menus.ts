@@ -4,7 +4,7 @@
 export type MenuAction = 'signout' | 'close-window' | 'hide-window' | 'show-all' | 'cycle-window' | 'about' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion' | 'paste' | 'find' | 'replace' | 'cambiar-grupo' | AccionUtilidad
 
 /** Diálogos de Utilidades (y Seleccionar Periodo) que abre UtilidadesHost con el evento «gw:utilidad». */
-export const ACCIONES_UTILIDAD = ['cambio-tienda', 'cambio-fecha', 'cambio-fecha-hora', 'seleccionar-periodo', 'hacer-copia', 'testear-copia', 'eliminar-temporales'] as const
+export const ACCIONES_UTILIDAD = ['cambio-tienda', 'cambio-fecha', 'cambio-fecha-hora', 'seleccionar-periodo', 'hacer-copia', 'testear-copia', 'eliminar-temporales', 'preparar-pagina', 'presentacion-preliminar', 'elegir-impresora'] as const
 export type AccionUtilidad = (typeof ACCIONES_UTILIDAD)[number]
 export const esAccionUtilidad = (a: MenuAction | undefined): a is AccionUtilidad => (ACCIONES_UTILIDAD as readonly string[]).includes(a ?? '')
 
@@ -39,7 +39,8 @@ export const MENUS: TopMenu[] = [
       item('Periodos o Ejercicios', { to: '/utilidades/ejercicios', description: 'Periodos o ejercicios de trabajo (sin captura)' }),
       item('Datos de Empresa', { to: '/empresa', description: 'Datos de la empresa' }),
       item('Tiendas', { to: '/tiendas', description: 'Ficha de Tiendas' }),
-      item('Parámetros'),
+      // SIN CAPTURA (Parámetros, Zonas de servicio, Carga Cotización, Importar e impresión): pages/archivo y pages/utilidades/ImpresionDialogs.
+      item('Parámetros', { to: '/archivo/parametros', description: 'Parámetros generales del programa (sin captura)' }),
       'sep',
       item('Cambiar Empleado', { action: 'signout', shortcut: 'CTRL+E' }),
       item('Cambiar Grupo de Acceso', { action: 'cambiar-grupo', shortcut: 'CTRL+O', description: 'Ver el programa como otro grupo de acceso (solo administradores)' }),
@@ -50,7 +51,8 @@ export const MENUS: TopMenu[] = [
       item('Cód. Bancarios', { to: '/bancos', description: 'Bancos y sus sucursales (sin captura)' }),
       item('Formas de Pago', { to: '/formas-pago', description: 'Ficha de Formas de Pago' }),
       item('Monedas', { to: '/monedas', description: 'Ficha de Monedas (sin captura)' }),
-      ...off(['Carga Cotización', 'Zonas de servicio']),
+      item('Carga Cotización', { to: '/archivo/carga-cotizacion', description: 'Actualizar la cotización de las monedas, a mano o del BCE (sin captura)' }),
+      item('Zonas de servicio', { to: '/archivo/zonas-servicio', description: 'Ficha de Zonas de servicio (sin captura)' }),
       item('Empleados', { to: '/empleados', description: 'Ficha de Empleados' }),
       // Propio del ERP (en GeminisWin los grupos se eligen en Empleados → Seguridad): qué opciones puede usar cada grupo.
       item('Grupos de Acceso', { to: '/grupos-acceso', description: 'Grupos de acceso: opciones de menú permitidas a cada grupo' }),
@@ -58,7 +60,10 @@ export const MENUS: TopMenu[] = [
       item('Traspaso Información', { children: [] }),
       item('Traspaso a Contabilidad'),
       'sep',
-      ...off(['Preparar página...', 'Presentación preliminar', 'Elegir Impresora...', 'Importar']),
+      item('Preparar página...', { action: 'preparar-pagina', description: 'Tamaño, orientación y márgenes del papel en este puesto' }),
+      item('Presentación preliminar', { action: 'presentacion-preliminar', description: 'Vista previa del listado o documento de la ventana activa' }),
+      item('Elegir Impresora...', { action: 'elegir-impresora', description: 'Impresoras de A4 y de tickets de este puesto' }),
+      item('Importar', { to: '/archivo/importar', description: 'Importar artículos, clientes o proveedores desde Excel o CSV (sin captura)' }),
       item('Salir', { action: 'signout' }),
     ],
   },
@@ -169,7 +174,8 @@ export const MENUS: TopMenu[] = [
           item('Extracto clientes', { to: '/listados-facturacion/extracto', description: 'Extracto de Clientes (sin captura)' }),
         ],
       }),
-      item('Liquidación'),
+      // SIN CAPTURA: interpretado como liquidación de comisiones (confirmar con Luis).
+      item('Liquidación', { to: '/liquidacion', description: 'Liquidación de comisiones de vendedores, técnicos y repartidores (sin captura)' }),
     ],
   },
   {
@@ -388,6 +394,11 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/codigos-postales', title: 'Códigos Postales' },
   { prefix: '/bancos', title: 'Códigos Bancarios' },
   { prefix: '/monedas', title: 'Monedas' },
+  { prefix: '/archivo/parametros', title: 'Parámetros' },
+  { prefix: '/archivo/zonas-servicio', title: 'Zonas de servicio' },
+  { prefix: '/archivo/carga-cotizacion', title: 'Carga Cotización' },
+  { prefix: '/archivo/importar', title: 'Importar' },
+  { prefix: '/liquidacion', title: 'Liquidación de Comisiones' },
   { prefix: '/tipos-cliente', title: 'Tipos de Cliente' },
   { prefix: '/stock', title: 'Listados de Artículos' },
   { prefix: '/almacen/listados-articulos', title: 'Listados de Artículos' },

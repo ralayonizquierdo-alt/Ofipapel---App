@@ -10,6 +10,7 @@ import { emptyArticulo, type Articulo, type ArticuloPrecioNivel } from '../../ar
 import { COSTE_FIELDS, aplicarCambioNivel, costeBase, margenReal, recalcularTodos, type NivelPatch } from '../../articulos/pricing'
 import { msgError, useTiendas } from './comun'
 import { esEan13 } from './codigoBarras'
+import { igicDefecto } from '../../../lib/parametros'
 
 // Almacén → Creación Ráp. de Artic. Calcada de las capturas 06-21 (abre en alta) y 06-22
 // (consulta de uno existente): ficha reducida de artículos con Código Interno, Descripción,
@@ -113,7 +114,7 @@ export function CreacionRapidaArticulosPage() {
     const a = {
       ...emptyArticulo,
       tipo_igic_codigo: 0,
-      igic_pct: 7,
+      igic_pct: igicDefecto(),
       descuento_maximo_cliente_pct: 100,
       fecha_alta: new Date().toISOString().slice(0, 10),
     }

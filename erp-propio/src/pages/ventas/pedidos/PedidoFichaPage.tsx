@@ -10,6 +10,7 @@ import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLo
 import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { PedidoBar } from './PedidoBar'
 import { entregarPedido } from './entregar'
+import { decimalesPrecio } from '../../../lib/parametros'
 import {
   ARTICULO_VENTA_COLS,
   CLIENTE_VENTA_COLS,
@@ -942,7 +943,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
                   <td className="truncate">{l.codigo_venta ?? l.articulo_codigo}</td>
                   <td className="truncate">{l.descripcion}</td>
                   <td className="text-right">{formatGw(l.cantidad, 2)}</td>
-                  <td className="text-right">{formatGw(l.precio, 3)}</td>
+                  <td className="text-right">{formatGw(l.precio, decimalesPrecio())}</td>
                   <td className="text-right">{formatGw(l.descuento_pct, 2)}</td>
                   <td className="text-right">{formatGw(igicPie > 0 ? igicPie : l.igic_pct, 2)}</td>
                   <td className="text-right">{formatGw(l.impuesto2_pct, 3)}</td>
@@ -1376,7 +1377,7 @@ function FilaEdicion({
         <GwNumber className={celda} decimals={2} value={l.cantidad} onChange={(v) => onChange({ cantidad: v ?? 0 })} />
       </td>
       <td className="!p-0">
-        <GwNumber className={celda} decimals={3} value={l.precio} onChange={(v) => onChange({ precio: v ?? 0 })} />
+        <GwNumber className={celda} decimals={decimalesPrecio()} value={l.precio} onChange={(v) => onChange({ precio: v ?? 0 })} />
       </td>
       <td className="!p-0">
         <GwNumber className={celda} decimals={2} value={l.descuento_pct} onChange={(v) => onChange({ descuento_pct: v ?? 0 })} />

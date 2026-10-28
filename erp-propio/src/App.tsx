@@ -101,6 +101,8 @@ import { ListadoPedidosProveedorPage } from './pages/listados/ListadoPedidosProv
 import { ListadoFacturasProveedorPage } from './pages/listados/ListadoFacturasProveedorPage'
 import * as ListadosClientes from './pages/listados/clientes'
 import { RecalcularDeudaPage } from './pages/clientes/RecalcularDeudaPage'
+import { ArchivoRoutes } from './pages/archivo/ArchivoRoutes'
+import { LiquidacionPage } from './pages/facturacion/LiquidacionPage'
 
 function ProtectedArea() {
   const { session, loading } = useAuth()
@@ -154,6 +156,8 @@ function App() {
             <Route path="/bancos/*" element={<BancoFichaPage />} />
             <Route path="/monedas/*" element={<MonedaFichaPage />} />
             <Route path="/tipos-cliente/*" element={<TipoClienteFichaPage />} />
+            {/* Archivo → Parámetros, Zonas de servicio, Carga Cotización e Importar (sin captura) */}
+            <Route path="/archivo/*" element={<ArchivoRoutes />} />
             {/* Menú Almacén: «Listados Artículos» (06-20) sustituye a la pantalla antigua /stock */}
             <Route path="/stock" element={<Navigate to="/almacen/listados-articulos" replace />} />
             <Route path="/almacen/*" element={<AlmacenUtilRoutes />} />
@@ -205,6 +209,7 @@ function App() {
             <Route path="/facturacion/*" element={<FacturaClienteFichaPage />} />
             <Route path="/generar-facturas" element={<GenerarFacturasPage />} />
             <Route path="/listado-facturas" element={<ListadoFacturasPage />} />
+            <Route path="/liquidacion" element={<LiquidacionPage />} />
             {/* Ventas → Listados y Compras → Listados (pieza común GwListado) */}
             <Route path="/listados-ventas/ventas" element={<ListadoVentasPage />} />
             <Route path="/listados-ventas/articulos" element={<VentasArticuloPage />} />
