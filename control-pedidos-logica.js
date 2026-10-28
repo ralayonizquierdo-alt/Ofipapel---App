@@ -1164,24 +1164,64 @@
     const genericas = new Set(['PEDIDO', 'TIENDA', 'PAPELERIA', 'PAPELES', 'CLIENTE', 'FACTURA', 'GIFT']);
     return norm(cliente).split(/[^A-Z0-9]+/).some((w) => w.length >= 4 && !genericas.has(w) && b.includes(` ${w} `));
   }
-  function repartirPorReferencias(lineasDoc, pedidos) {
+  /**
+   * De qué pedido es un bloque de una factura agrupada («Pedido 16_ Ag. anual»,
+   * «Pedido Aliz I_Gift», «Gift»). REGLA del propietario (28/10/2026): si la
+   * factura viene por bloques, manda el bloque — sus líneas son de ese pedido y
+   * nunca se reparten entre otros para tapar faltas. Se reconoce por:
+   *  1) el cliente que nombra el bloque;
+   *  2) su nº, si ese pedido pide al menos un tercio de sus referencias (un
+   *     «Pedido 5_ B2F» de otra campaña repite nº pero no contenido);
+   *  3) sin nº ni cliente («Gift»), el pedido que pide al menos la mitad de sus
+   *     referencias, si es único.
+   * Devuelve el pedido o null (bloque de nadie: va entero aparte, «sin cliente»).
+   */
+  function duenoDeBloque(bloque, lineasBloque, pedidos) {
+    const numero = (x) => { const m = String(x || '').match(/\d+/); return m ? Number(m[0]) : null; };
+    const refs = [...new Set((lineasBloque || []).map((l) => claveRef(l.ref)).filter(Boolean))];
+    const comun = (p) => { const suyas = new Set((p.lineas || []).filter((l) => (parseNum(l.cant) || 0) > 0).map((l) => claveRef(l.ref))); return refs.filter((r) => suyas.has(r)).length; };
+    const porNombre = (pedidos || []).filter((p) => p.cliente && nombraCliente(bloque, p.cliente));
+    if (porNombre.length === 1) return porNombre[0];
+    const n = numero(bloque);
+    if (n != null) return (pedidos || []).find((p) => numero(p.numero) === n && comun(p) * 3 >= refs.length) || null;
+    const v = (pedidos || []).map((p) => [p, comun(p)]).filter(([, c]) => refs.length && c * 2 >= refs.length).sort((a, b) => b[1] - a[1]);
+    return v.length && (v.length === 1 || v[0][1] > v[1][1]) ? v[0][0] : null;
+  }
+
+  function repartirPorReferencias(lineasDoc, pedidos, opciones) {
+    const o = opciones || {};
     const numero = (x) => { const m = String(x || '').match(/\d+/); return m ? Number(m[0]) : Infinity; };
     const lista = (pedidos || []).slice().sort((a, b) => numero(a.numero) - numero(b.numero));
     const falta = new Map(lista.map((p) => [p.id, new Map([...agrupar(p.lineas, aliasAltas(p.lineas))].map(([k, g]) => [k, g.cant]))]));
     const porPedido = new Map();
     const sobrantes = [];
+    const bloquesSinDueno = [];
     const parte = (l, q, imp) => Object.assign({}, l, { cant: q, importe: imp });
+    const dar = (id, l) => { if (!porPedido.has(id)) porPedido.set(id, []); porPedido.get(id).push(l); };
+    // Factura por bloques: manda el bloque, entero y sin compensar con otros pedidos.
+    // Se busca el dueño entre todos los de la campaña (`opciones.todos`): si es
+    // uno que no admite reparto (ya validado), el bloque NO pasa a otro.
+    const bloques = new Map();
+    for (const l of lineasDoc || []) if (l && l.bloque) { if (!bloques.has(l.bloque)) bloques.set(l.bloque, []); bloques.get(l.bloque).push(l); }
+    const dueno = new Map();
+    for (const [b, ls] of bloques) {
+      const d = duenoDeBloque(b, ls, o.todos || lista);
+      dueno.set(b, d ? d.id : null);
+      if (!d) bloquesSinDueno.push(b);
+    }
     for (const l of lineasDoc || []) {
+      if (l && l.bloque) {
+        const id = dueno.get(l.bloque);
+        if (id && falta.has(id)) { dar(id, l); const f = falta.get(id); const k = claveRef(l.ref); if (f.has(k)) f.set(k, f.get(k) - (parseNum(l.cant) || 0)); }
+        // Su dueño no admite reparto (ya validado) o no tiene dueño: aparte, sin tocar a otros pedidos.
+        else sobrantes.push(Object.assign({}, l, { deBloque: true }, id ? { duenoId: id } : {}));
+        continue;
+      }
       const clave = claveRef(l.ref);
       let resto = parseNum(l.cant);
       if (!clave || !resto) { sobrantes.push(l); continue; }
       const total = resto;
-      const nBloque = l.bloque ? numero(l.bloque) : null;
-      // Primero el pedido que nombra el bloque: por su cliente («Pedido Aliz
-      // I_Gift» → ALIZ (TIENDA), 23/10/2026) o por su nº.
-      const pref = (p) => (nombraCliente(l.bloque, p.cliente) ? 2 : 0) + (numero(p.numero) === nBloque ? 1 : 0);
-      const candidatos = lista.filter((p) => (falta.get(p.id).get(clave) || 0) > 0)
-        .sort((a, b) => pref(b) - pref(a));
+      const candidatos = lista.filter((p) => (falta.get(p.id).get(clave) || 0) > 0);
       let repartido = 0;
       for (const p of candidatos) {
         if (resto <= 0) break;
@@ -1190,12 +1230,11 @@
         resto -= q;
         let imp = null;
         if (l.importe != null) { imp = resto <= 0 ? red2(l.importe - repartido) : red2(l.importe * q / total); repartido = red2(repartido + imp); }
-        if (!porPedido.has(p.id)) porPedido.set(p.id, []);
-        porPedido.get(p.id).push(parte(l, q, imp));
+        dar(p.id, parte(l, q, imp));
       }
       if (resto > 0) sobrantes.push(parte(l, resto, l.importe != null ? red2(l.importe - repartido) : null));
     }
-    return { porPedido, sobrantes };
+    return { porPedido, sobrantes, bloquesSinDueno };
   }
 
   function separarPorPedido(res) {
@@ -1649,11 +1688,12 @@
       const suma = (xs) => xs.reduce((t, s) => t + valor(s), 0);
       let piezas = S.filter((s) => an(s.desc).includes(an(f.ref)) || an(s.ref).startsWith(an(f.ref)));
       if (vf > 0 && S.length >= 2) {
-        if (cerca(suma(S), vf, 0.05)) piezas = S.slice();
-        else if (!piezas.length) {
-          const sin = S.map((x) => S.filter((y) => y !== x)).filter((xs) => xs.length >= 2 && cerca(suma(xs), vf, 0.05));
-          if (sin.length === 1) piezas = sin[0];
-        }
+        // La combinación (todo lo de más, o todo menos un artículo) que más se acerca a lo que vale el expositor.
+        const err = (xs) => Math.abs(suma(xs) - vf) / vf;
+        // A igual suma (lo que cambia vale 0 €, como el expositor vacío), el conjunto más completo.
+        const cands = [S.slice(), ...S.map((x) => S.filter((y) => y !== x))].filter((xs) => xs.length >= 2 && err(xs) <= 0.05)
+          .sort((a, b) => err(a) - err(b) || b.length - a.length);
+        if (cands.length && (cands.length === 1 || err(cands[0]) < err(cands[1]) - 1e-9 || Math.abs(suma(cands[0]) - suma(cands[1])) < 0.005)) piezas = cands[0];
       }
       if (!piezas.length) continue;
       out.push({ tipo: 'expositor', falta: f, sobras: piezas, texto: `Falta el expositor «${f.ref}» y vienen ${piezas.length} artículo(s) sueltos${vf ? ` por ${fmt(suma(piezas))} € frente a ${fmt(vf)} € del expositor` : ''}: el proveedor lo ha servido desglosado.` });
@@ -1835,7 +1875,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    facturaDeLinea, parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, repartirPorReferencias, fotosRepetidas, firmaLineas,
+    facturaDeLinea, parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, repartirPorReferencias, duenoDeBloque, fotosRepetidas, firmaLineas,
     sugerirAsignacion, restosQueLlegan, codigosInternos, refParaGeminis, emparejarReferencias, explicarDiferencias, cuadreArticulos, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

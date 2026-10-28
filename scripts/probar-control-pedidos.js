@@ -839,7 +839,34 @@ test('Reparto por referencias: el bloque que nombra al cliente («Pedido Aliz I_
   const r = CP.repartirPorReferencias([{ ref: 'MR1', cant: 1, importe: 10, bloque: 'Pedido Aliz I_Gift' }], pedidos);
   assert.deepEqual([...r.porPedido.keys()], ['t']);
   const r2 = CP.repartirPorReferencias([{ ref: 'MR1', cant: 1, importe: 10, bloque: 'Pedido 4_ Gift' }], pedidos);
-  assert.deepEqual([...r2.porPedido.keys()], ['a'], 'sin nombre, por nº como siempre');
+  assert.deepEqual([...r2.porPedido.keys()], [], 'el bloque «Pedido 4» no es del pedido 5 aunque pida lo mismo');
+  assert.strictEqual(r2.sobrantes.length, 1);
+});
+
+test('Factura por bloques: manda el bloque, entero, y nunca se compensa con otros pedidos', () => {
+  const pedidos = [
+    { id: 'p15', numero: '15', cliente: 'LA PAGINA', lineas: [{ ref: 'F1', cant: 1 }, { ref: 'F2', cant: 1 }, { ref: 'EXP', cant: 1 }] },
+    { id: 'p17', numero: '17', cliente: 'TANIA', lineas: [{ ref: 'C1', cant: 2 }, { ref: 'EXP', cant: 1 }] },
+    { id: 'p26', numero: '26', cliente: 'OFIPAPEL (TIENDA)', lineas: [{ ref: 'C1', cant: 1 }, { ref: 'G1', cant: 5 }, { ref: 'G2', cant: 5 }] },
+  ];
+  const lineas = [
+    { ref: 'F1', cant: 1, bloque: 'Pedido 15_ Gift' }, { ref: 'EXP', cant: 1, bloque: 'Pedido 15_ Gift' }, { ref: 'NUEVA', cant: 2, bloque: 'Pedido 15_ Gift' },
+    // La tienda («Gift» sin nº) recibe 3 y pidió 1: las 2 de más NO van a Tania, que también pide C1.
+    { ref: 'C1', cant: 3, bloque: 'Gift' }, { ref: 'G1', cant: 5, bloque: 'Gift' }, { ref: 'G2', cant: 5, bloque: 'Gift' },
+    // Un «Pedido 5_ B2F» de otra campaña: nº que no casa con nada que se pida aquí.
+    { ref: 'B2F1', cant: 1, bloque: 'Pedido 5_ B2F' },
+  ];
+  const r = CP.repartirPorReferencias(lineas, pedidos);
+  const de = (id) => (r.porPedido.get(id) || []).map((l) => `${l.ref}x${l.cant}`).sort();
+  assert.deepEqual(de('p15'), ['EXPx1', 'F1x1', 'NUEVAx2'], 'el bloque entero a su pedido, también lo que no pidió (para decidir allí)');
+  assert.deepEqual(de('p26'), ['C1x3', 'G1x5', 'G2x5'], 'lo de más se queda en su bloque');
+  assert.deepEqual(de('p17'), [], 'a Tania no se le da nada de otro bloque');
+  assert.deepEqual(r.sobrantes.map((l) => l.ref), ['B2F1']);
+  assert.deepEqual(r.bloquesSinDueno, ['Pedido 5_ B2F']);
+  // El dueño ya está validado (no admite reparto): su bloque queda aparte, marcado como suyo, sin ir a otro.
+  const r3 = CP.repartirPorReferencias([{ ref: 'C1', cant: 2, bloque: 'Pedido 17_ Gift' }], [pedidos[2]], { todos: pedidos });
+  assert.deepEqual([...r3.porPedido.keys()], []);
+  assert.deepEqual(r3.sobrantes.map((l) => [l.ref, l.duenoId]), [['C1', 'p17']]);
 });
 
 test('Restos que llegan en la factura siguiente: lo que sobra del reparto se da al resto pendiente más antiguo', () => {
