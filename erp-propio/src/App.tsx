@@ -13,6 +13,8 @@ import { ProveedoresListPage } from './pages/proveedores/ProveedoresListPage'
 import { AlmacenesPage } from './pages/AlmacenesPage'
 import { TiendaFichaPage } from './pages/archivo/TiendaFichaPage'
 import { EmpleadoFichaPage } from './pages/archivo/EmpleadoFichaPage'
+import { GruposAccesoPage } from './pages/archivo/GruposAccesoPage'
+import { PermisosProvider } from './lib/PermisosContext'
 import { EmpresaPage } from './pages/archivo/EmpresaPage'
 import { FormaPagoFichaPage } from './pages/archivo/FormaPagoFichaPage'
 import { CodigoPostalFichaPage } from './pages/archivo/CodigoPostalFichaPage'
@@ -91,11 +93,12 @@ function ProtectedArea() {
   if (loading) return <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">Cargando…</div>
   if (!session) return <Navigate to="/login" replace />
   return (
-    <>
+    // Permisos por grupo de acceso: opciones en gris y rutas bloqueadas (src/lib/permisos.ts).
+    <PermisosProvider>
       <Layout />
       {/* Compras → Generar Petición: CTRL+P desde cualquier pantalla */}
       <GenerarPeticionHost />
-    </>
+    </PermisosProvider>
   )
 }
 
@@ -128,6 +131,7 @@ function App() {
             {/* Menú Archivo (maestros calcados de GeminisWin) */}
             <Route path="/tiendas/*" element={<TiendaFichaPage />} />
             <Route path="/empleados/*" element={<EmpleadoFichaPage />} />
+            <Route path="/grupos-acceso/*" element={<GruposAccesoPage />} />
             <Route path="/empresa" element={<EmpresaPage />} />
             <Route path="/formas-pago/*" element={<FormaPagoFichaPage />} />
             <Route path="/codigos-postales/*" element={<CodigoPostalFichaPage />} />

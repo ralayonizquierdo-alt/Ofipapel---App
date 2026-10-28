@@ -8,6 +8,7 @@ import { QuickBar } from './shell/QuickBar'
 import { MENUS, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
 import { NexaAsistente } from '../nexa/NexaAsistente'
 import { AcercaDeDialog } from './shell/AcercaDeDialog'
+import { SinPermiso, usePermisos } from '../lib/PermisosContext'
 
 // Ventana principal con el aspecto de GeminisWin: franja de título, barra de menús,
 // barra lateral de accesos rápidos, área MDI gris con la ventana activa y barra de estado.
@@ -66,6 +67,18 @@ export function Layout() {
     if (o) navigate(o)
     else if (!actualRef.current.title && vs.length) navigate(vs[vs.length - 1].to)
   }
+  // Permisos por grupo de acceso: la ventana no se abre si se entra escribiendo la URL.
+  const permisos = usePermisos()
+  const permisosRef = useRef(permisos)
+  permisosRef.current = permisos
+  const dialogoSuelto = (pathname === '/caja/entrada' || pathname === '/caja/salida') && !permisos.cargando && permisos.puedeRuta(pathname)
+  const contenido = permisos.cargando ? (
+    <div className="p-4 text-[13px]">Cargando permisos…</div>
+  ) : permisos.puedeRuta(pathname) ? (
+    <Outlet />
+  ) : (
+    <SinPermiso />
+  )
 
   // Al entrar (iniciar sesión o abrir la aplicación en «/») se abre el Panel de Control. Solo al
   // montar: cerrar la ventana deja el escritorio vacío y «/» ya no lo vuelve a abrir.
@@ -84,6 +97,7 @@ export function Layout() {
   }, [])
 
   function runMenu(i: MenuItem) {
+    if (!permisosRef.current.puedeOpcion(i)) return
     if (i.to) navigate(i.to)
     else if (i.action === 'signout') signOut()
     else if (i.action === 'close-window') cerrarVentana(false)
@@ -166,14 +180,14 @@ export function Layout() {
         <div className="relative min-w-0 flex-1 bg-[var(--gw-mdi)]">
           <Watermark />
           {/* Entrada / Salida en caja: diálogo suelto sobre el escritorio, sin ventana detrás (como GeminisWin). */}
-          {(pathname === '/caja/entrada' || pathname === '/caja/salida') && <Outlet />}
-          {pathname !== '/' && pathname !== '/caja/entrada' && pathname !== '/caja/salida' && (
+          {dialogoSuelto && contenido}
+          {pathname !== '/' && !dialogoSuelto && (
             <GwWindow
               title={title}
               onClose={() => cerrarVentana(false)}
               className="absolute inset-1 z-10 [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-auto"
             >
-              <Outlet />
+              {contenido}
             </GwWindow>
           )}
           {/* NEXA: avatar flotante + panel de conversación, disponible en todas las pantallas */}

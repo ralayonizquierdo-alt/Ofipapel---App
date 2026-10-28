@@ -46,6 +46,8 @@ export const MENUS: TopMenu[] = [
       item('Monedas', { to: '/monedas', description: 'Ficha de Monedas (sin captura)' }),
       ...off(['Carga Cotización', 'Zonas de servicio']),
       item('Empleados', { to: '/empleados', description: 'Ficha de Empleados' }),
+      // Propio del ERP (en GeminisWin los grupos se eligen en Empleados → Seguridad): qué opciones puede usar cada grupo.
+      item('Grupos de Acceso', { to: '/grupos-acceso', description: 'Grupos de acceso: opciones de menú permitidas a cada grupo' }),
       'sep',
       item('Traspaso Información', { children: [] }),
       item('Traspaso a Contabilidad'),
@@ -344,6 +346,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/almacenes', title: 'Almacenes' },
   { prefix: '/tiendas', title: 'Tiendas' },
   { prefix: '/empleados', title: 'Empleados' },
+  { prefix: '/grupos-acceso', title: 'Grupos de Acceso' },
   { prefix: '/empresa', title: 'Empresa' },
   { prefix: '/formas-pago', title: 'Formas de pago' },
   { prefix: '/codigos-postales', title: 'Códigos Postales' },

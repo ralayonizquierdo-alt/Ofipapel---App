@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { MENUS, isEnabled, type MenuEntry, type MenuItem } from './menus'
+import { usePermisos } from '../../lib/PermisosContext'
 
 const NOT_AVAILABLE = 'Aún no disponible en el ERP propio'
+const SIN_PERMISO = 'Sin permiso: tu grupo de acceso no tiene esta opción'
 
 export function MenuBar({
   onRun,
@@ -80,6 +82,7 @@ function MenuList({
   sub?: boolean
 }) {
   const [openSub, setOpenSub] = useState<number | null>(null)
+  const { puedeOpcion } = usePermisos()
   return (
     <div
       className={`absolute min-w-[230px] border border-[#a0a0a0] bg-[#f2f2f2] py-[2px] shadow-[2px_2px_4px_rgba(0,0,0,0.3)] ${
@@ -88,7 +91,10 @@ function MenuList({
     >
       {items.map((it, i) => {
         if (it === 'sep') return <div key={i} className="mx-[2px] my-[3px] border-t border-[#d7d7d7]" />
-        const enabled = isEnabled(it)
+        // En gris: opciones aún no construidas y las que el grupo de acceso no permite.
+        const construida = isEnabled(it)
+        const enabled = construida && puedeOpcion(it)
+        const motivo = construida ? SIN_PERMISO : NOT_AVAILABLE
         const hasChildren = it.children !== undefined
         return (
           <div
@@ -96,14 +102,14 @@ function MenuList({
             className="relative"
             onMouseEnter={() => {
               setOpenSub(hasChildren ? i : null)
-              onHover(enabled ? (it.description ?? it.label) : `${it.label} — ${NOT_AVAILABLE}`)
+              onHover(enabled ? (it.description ?? it.label) : `${it.label} — ${motivo}`)
             }}
             onMouseLeave={() => onHover(null)}
           >
             <button
               type="button"
               disabled={!enabled && !it.checked}
-              title={enabled || it.checked ? undefined : NOT_AVAILABLE}
+              title={enabled || it.checked ? undefined : motivo}
               onClick={() => enabled && !hasChildren && onRun(it)}
               className={`flex h-[22px] w-full items-center whitespace-nowrap pl-6 pr-3 text-left ${
                 enabled || it.checked ? 'text-black hover:bg-[#91c9f7]' : 'text-[#6d6d6d]'
@@ -114,7 +120,7 @@ function MenuList({
               {it.shortcut && <span className="ml-8">{it.shortcut}</span>}
               {hasChildren && <span className="ml-6 text-[9px]">▶</span>}
             </button>
-            {openSub === i && hasChildren && it.children!.length > 0 && (
+            {openSub === i && hasChildren && enabled && (
               <MenuList items={it.children!} onRun={onRun} onHover={onHover} sub />
             )}
           </div>
