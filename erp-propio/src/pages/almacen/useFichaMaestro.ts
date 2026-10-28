@@ -219,9 +219,14 @@ export function useFichaMaestro<T extends { codigo: string }>({
     }
     // El que queda en su sitio: el siguiente, o el anterior si era el último.
     const siguiente = (await nav.ir('siguiente')) ?? (await nav.ir('anterior'))
-    const { error: err } = await supabase.from(tabla).delete().eq('codigo', registro.codigo)
+    const { data: borradas, error: err } = await supabase.from(tabla).delete().eq('codigo', registro.codigo).select('codigo')
     if (err) {
       setError(err.message)
+      return
+    }
+    // Los maestros solo los borra un administrador (políticas admin_borra_*): sin error, pero 0 filas.
+    if (!borradas?.length) {
+      setError('Solo un administrador puede eliminar registros. Dalo de baja (desmarca «Activo») o pídeselo a un administrador.')
       return
     }
     setLista((l) => l.filter((x) => x.codigo !== registro.codigo))

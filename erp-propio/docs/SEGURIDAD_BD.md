@@ -2,7 +2,8 @@
 
 Proyecto Supabase `sufxvpiwcncnyltrvoun`. Inventario hecho el 28/10/2026 consultando
 `pg_policies`, `pg_proc`, `pg_roles` y los permisos de tablas y funciones en la base real.
-Migración de esta tanda: `supabase/migrations/20261028_seguridad_config.sql`.
+Migraciones: `supabase/migrations/20261028_seguridad_config.sql` (1.ª tanda, §2–§3) y
+`supabase/migrations/20261028_seguridad_funciones.sql` (2.ª tanda, §5–§6).
 
 ## 1. Cómo está montado
 
@@ -42,8 +43,8 @@ Migración de esta tanda: `supabase/migrations/20261028_seguridad_config.sql`.
   `fn_verifactu_emitir_venta`, `fn_verifactu_anular_venta`, `fn_contab_guardar_asiento`,
   `fn_contab_renumerar`, `fn_contab_conciliar_auto`, `fn_contab_cuenta_cliente/proveedor/transportista`,
   `cargar_dbf_lote`, y los triggers `fn_venta_verifactu_bloqueo`, `fn_venta_linea_verifactu_bloqueo`,
-  `fn_sincronizar_ruta_desde_ruta_reparto`. **Solo `fn_ajustar_contador` y `fn_mis_permisos`
-  comprueban quién llama**; el resto confía en que solo las llame la interfaz.
+  `fn_sincronizar_ruta_desde_ruta_reparto`. Antes de la 2.ª tanda solo `fn_ajustar_contador` y
+  `fn_mis_permisos` comprobaban quién llama; la clasificación actual está en el §5.
 - **142 funciones SECURITY INVOKER** → se ejecutan como el usuario (`authenticated`) y **sí
   respetan RLS**. Entre ellas `fn_carga_gw_*` (escriben `forma_pago`, `tienda_terminal`… pero se
   lanzan por SQL como `postgres`, ver `CARGA_GEMINISWIN.md`), `fn_ejercicio_activar` y
@@ -114,40 +115,154 @@ En navegador (Playwright, servidor local):
   Configuración Contable y Web: sin errores. No se abrió ni cerró caja: la de la tienda 01 ya
   estaba abierta (ejercicio 2).
 
-## 4. Propuesta siguiente (por prioridad)
+## 4. Plan siguiente (por prioridad)
 
-1. **Funciones DEFINER sin comprobación** (riesgo alto, cambio pequeño). Añadir al principio de
-   cada una `if not public.fn_puede('<permiso>') then raise exception … using errcode='42501'`:
-   - `cargar_dbf_lote` → solo administrador o el usuario de carga (`cowork`; hoy no tiene empleado:
-     darle uno en un grupo «CARGA» o comprobar su `auth.uid()`).
-   - `fn_contab_guardar_asiento`, `fn_contab_renumerar`, `fn_contab_anular_asiento`,
-     `fn_contab_conciliar_auto`, `fn_contab_generar` → permisos `/contabilidad/...`.
-   - `fn_verifactu_anular_venta` / `fn_verifactu_anular_factura` → `/ventas` / `/facturacion`.
-2. **Una función única de permiso para las políticas**: `fn_puede(codigo text)` =
-   `fn_es_administrador() or exists(... e.activo and rp.permiso_codigo = codigo)`. Ojo:
-   `fn_tiene_permiso` hoy no mira `empleado.activo`; corregirlo o sustituirlo.
-3. **Borrados** (riesgo medio, muy acotado): restrictiva `for delete` solo administradores en
-   maestros (`cliente`, `proveedor`, `articulo`, `familia`, `marca`, tarifas, `banco`,
-   `cuenta_bancaria`, `cuenta_contable`, `vendedor`, `repartidor`, `tecnico`, rutas y zonas).
-   Antes, buscar en `src/` los `.delete()` de cada una (p. ej. `AperturasCierresPage` borra en
-   `caja_apertura_cierre`; las fichas de documentos borran sus líneas al reescribirlas).
-4. **Escritura de maestros por permiso de menú** (riesgo medio): restrictivas
-   `insert/update` con `fn_puede('/articulos')` en `articulo*`, `/clientes` en `cliente*`,
-   `/proveedores` en `proveedor`, `articulo_proveedor`, etc. Cuidado con los efectos laterales:
-   el TPV y las compras actualizan campos de `articulo` (últimas ventas/compras, unidades
-   pedidas) y `articulo_almacen_stock`; esos campos deberían pasar a triggers DEFINER antes de
-   cerrar la tabla, o la política tiene que admitir también los permisos de venta/compra.
-5. **Documentos de venta y compra** (riesgo alto si se hace mal): un guardado de TPV escribe en
+Hecho en la 2.ª tanda (ver §5): `fn_puede`, comprobación en las funciones peligrosas,
+`cargar_dbf_lote`, borrado físico de maestros solo administradores. Queda:
+
+1. **Contabilidad** (plan aparte, no tocado): `fn_contab_guardar_asiento`, `fn_contab_renumerar`,
+   `fn_contab_anular_asiento`, `fn_contab_conciliar_auto`, `fn_contab_generar` y
+   `fn_contab_cuenta_cliente/proveedor/transportista` (crean subcuentas) son DEFINER y no
+   comprueban quién llama → `fn_puede('/contabilidad/diario')`, `/contabilidad/generar`,
+   `/contabilidad/conciliacion`…, y escritura de `cuenta_contable`, `extracto_bancario`,
+   `extracto_movimiento` por `/contabilidad/...`.
+2. **Alta y modificación de maestros por permiso de menú** (riesgo medio). Restrictivas
+   `for insert` y `for update` con `fn_puede(...)`, una por tabla, aceptando la unión de las
+   pantallas que la escriben:
+   - `articulo` y sus hijas (`articulo_codigo_barras`, `articulo_tarifa_cantidad*`,
+     `articulo_unidad_venta*`, `articulo_oferta`, `articulo_plu`, `articulo_variante`,
+     `articulo_componente`, `articulo_equivalencia`, `articulo_proveedor`) → `/articulos`
+     **o** `/almacen/...` (utilidades) **o** las pantallas que tocan campos derivados. Antes hay
+     que pasar a triggers DEFINER los campos que actualizan el TPV y las compras
+     (últimas ventas/compras, unidades pendientes) y `articulo_almacen_stock`; si no, la
+     política tendría que admitir `/tpv`, `/ventas`, `/pedidos`, `/compras`… y no serviría.
+   - `cliente`, `cliente_sucursal`, `cliente_contacto`, `cliente_articulo_precio`,
+     `cuenta_bancaria` → `/clientes` (el TPV da de alta clientes rápidos: añadir `/tpv`, y
+     `deuda_actual` la recalculan las funciones de cobro → mover a trigger).
+   - `proveedor`, `articulo_proveedor` → `/proveedores` o `/compras...`.
+   - `familia`, `marca`, `tipo_cliente`, `tipo_cliente_descuento_familia`, `plantilla_tarifa*`,
+     `vendedor`, `tecnico`, `repartidor`, `transportista`, rutas y zonas, bancos, monedas,
+     códigos postales → la ruta de su ficha (Archivo / Almacén / Ventas → maestros).
+3. **Documentos de venta y compra** (riesgo alto si se hace mal): un guardado de TPV escribe en
    `venta`, `venta_linea`, `movimiento_stock`, `cobro_cliente`, `movimiento_caja`,
-   `apertura_cajon`. Lo sensato es mover cada guardado a una RPC DEFINER que compruebe el permiso
-   (`fn_guardar_venta`, `fn_guardar_pedido`…) y entonces dejar esas tablas en solo lectura para
-   `authenticated`. Hasta entonces, una restrictiva por permiso tendría que aceptar la unión de
-   todas las pantallas que escriben la tabla (`/tpv` o `/ventas` o `/pedidos` o `/web/...`).
-6. **Contabilidad y bancos**: `configuracion_contable*` ya están cerradas; `cuenta_contable`,
-   `extracto_bancario`, `extracto_movimiento`, `banco`, `cuenta_bancaria` siguen abiertas →
-   escritura por `/contabilidad/...`.
-7. **Lectura** (último): limitar la lectura de `auditoria`, `empleado` (datos personales),
+   `apertura_cajon` y actualiza `articulo`/`cliente`. Lo sensato es mover cada guardado a una
+   RPC DEFINER que compruebe el permiso (`fn_guardar_venta`, `fn_guardar_pedido`…) y dejar esas
+   tablas en solo lectura para `authenticated`. Hasta entonces, una restrictiva por permiso
+   tendría que aceptar la unión de todas las pantallas que escriben la tabla (`/tpv` o
+   `/ventas` o `/pedidos` o `/web/...`), y la importación web (`src/pages/web/importar.ts`).
+   Borrados de líneas (`venta_linea`, `*_linea`, `inventario_linea`…) y de documentos
+   (`pedido_cliente`, `factura_proveedor`, `peticion`, `inventario`, `caja_apertura_cierre`) los
+   hace la interfaz en el uso normal: restringirlos al permiso de su pantalla, no a admin.
+4. **Lectura** (último): limitar la lectura de `auditoria`, `empleado` (datos personales),
    `cuenta_bancaria` y contabilidad a quien tenga el permiso de la pantalla.
+5. Funciones INVOKER que escriben y no están en el §5 (p. ej. `fn_ejercicio_activar`,
+   importaciones web): respetan RLS, así que quedarán cubiertas por los puntos 2–3; revisar si
+   alguna necesita además su `fn_puede`.
 
-Cada paso, como en esta tanda: políticas RESTRICTIVE nuevas, nunca `drop policy`; prueba con
+Cada paso, como en estas tandas: políticas RESTRICTIVE nuevas, nunca `drop policy`; prueba con
 `prueba` (DEPENDIENTE) y `rober` (administrador) por API y en navegador.
+
+## 5. 2.ª tanda: quién puede llamar a cada función (28/10/2026)
+
+### `fn_puede(p_codigo)`
+
+SECURITY DEFINER, STABLE, `search_path = public, pg_temp`; `anon` no la ejecuta. Verdadero si:
+- el usuario es **administrador activo** (`fn_es_administrador()`), o
+- su **empleado está activo** y su grupo tiene ese código, o una ruta de la que cuelga
+  (`/clientes` permite `/clientes/lista`), o una `REDIRECCIONES` cuyo destino lo cubre — igual
+  que `rutaPermitida` de `src/lib/permisos.ts` (**si cambias `REDIRECCIONES` allí, cámbialas
+  también en `fn_puede`**), o
+- es una llamada interna sin usuario de la API (SQL como `postgres`/`supabase_admin`, o
+  `service_role` de las Edge Functions): cargas y mantenimiento siguen funcionando.
+
+`fn_tiene_permiso` (código exacto) exige ahora también empleado activo. `fn_es_cowork()`:
+el usuario conectado es `cowork@ofipapel.local`, mirado por su id en `auth.users` (no por el
+texto del JWT).
+
+### Las 44 funciones SECURITY DEFINER
+
+| Clase | Funciones | Por qué |
+|---|---|---|
+| **Protegida ahora** | `cargar_dbf_lote` | Solo `fn_es_cowork()` o administrador (antes miraba el email del JWT) |
+| | `fn_verifactu_anular_venta` | `/ventas` o `/tpv` (DEPENDIENTE la tiene: anula desde la ficha de la venta) |
+| | `fn_verifactu_anular_factura` | `/facturacion` (la llama `fn_anular_factura_cliente`, misma regla) |
+| | `fn_empleado_usuarios_acceso` | `/empleados` (devuelve emails y último acceso); sin permiso, lista vacía |
+| **Segura** (solo lee o ya comprueba) | `fn_es_administrador`, `fn_tiene_permiso`, `fn_puede`, `fn_es_cowork`, `fn_mis_permisos`, `fn_empleado_actual`, `fn_factura_anulada`, `fn_ultimo_numero_usado`, `fn_verifactu_nif_emisor` | Lectura de lo del propio usuario o de datos ya visibles |
+| | `fn_ajustar_contador` | Ya comprueba administrador |
+| | `fn_siguiente_numero` | La usan todas las fichas al guardar; `anon` no la ejecuta (1.ª tanda) |
+| | `fn_verifactu_emitir_venta` | Idempotente: si la venta ya tiene alta, la devuelve; la emite el trigger al guardar |
+| | `fn_verifactu_registrar`, `fn_contab_crear_asiento`, `fn_contab_anular_interno` | `authenticated` no las ejecuta |
+| | Triggers: `fn_auditoria_trigger`, `fn_factura_verifactu_alta_trg`, `fn_venta_verifactu_emitir_trg`, `fn_venta_verifactu_bloqueo`, `fn_venta_linea_verifactu_bloqueo`, `fn_sincronizar_ruta_desde_ruta_reparto` | Una función de trigger no se puede llamar por RPC |
+| **Pendiente (Contabilidad)** | `fn_contab_guardar_asiento`, `fn_contab_anular_asiento`, `fn_contab_renumerar`, `fn_contab_conciliar_auto`, `fn_contab_generar`, `fn_contab_cuenta_cliente`, `fn_contab_cuenta_proveedor`, `fn_contab_cuenta_transportista` | Escriben asientos/cuentas sin comprobar quién llama. Plan aparte |
+| | `fn_contab_347`, `fn_contab_cfg`, `fn_contab_cobro_en_ticket`, `fn_contab_cuenta_cobro`, `fn_contab_cuenta_igic`, `fn_contab_desglose_*`, `fn_contab_libro_igic`, `fn_contab_mayor`, `fn_contab_subcuenta`, `fn_contab_sumas_saldos`, `fn_contab_tipo_igic` | Solo leen, pero dan toda la contabilidad a cualquier empleado: limitar por `/contabilidad/...` en el mismo plan |
+
+### Funciones INVOKER que modifican en bloque, protegidas también
+
+Respetan RLS, pero mientras las tablas de negocio sigan abiertas cualquiera podía lanzarlas
+por la API. Comprobación al principio (marca `[seguridad 20261028]` en el cuerpo):
+
+| Función | Permiso (cualquiera vale) |
+|---|---|
+| `fn_anular_factura_cliente`, `fn_rectificar_factura_cliente` | `/facturacion` |
+| `fn_facturar_albaranes` | `/generar-facturas` |
+| `fn_cobro_cliente_cobrar`, `fn_cobro_cliente_anular` | `/cobros-clientes/ficha`, `/gestor-cobros-clientes`, `/facturacion` |
+| `fn_cliente_recalcular_deuda`, `fn_cliente_recalcular_deuda_deshacer` | `/recalcular-deuda` |
+| `fn_stock_cero_familia_aplicar` | `/almacen/stock-cero-familia` |
+| `fn_recalcular_stock_aplicar` | `/almacen/recalcular-stock` |
+| `fn_punto_restauracion_crear`, `fn_punto_restauracion_restaurar` | `/almacen/puntos-restauracion` |
+| `fn_articulos_eliminacion_baja` | `/almacen/eliminacion-articulos` |
+| `fn_articulos_en_blanco_baja` | `/almacen/articulos-en-blanco` |
+| `fn_articulos_bloque`, `fn_modificacion_articulos_aplicar` | `/almacen/modificacion-bloque` |
+| `fn_liquidacion_comisiones_liquidar`, `fn_liquidacion_comisiones_anular` | `/liquidacion` |
+| `fn_carga_gw_*` (25) | Sin `execute` para `anon`/`authenticated`: se lanzan por SQL como `postgres` |
+
+Comprobado antes: quién las llama en `src/` (cada una desde su pantalla) y en otras funciones
+SQL (solo `fn_anular_factura_cliente` → `fn_verifactu_anular_factura`, mismo permiso). Los
+cobros del TPV **no** pasan por `fn_cobro_cliente_cobrar` (los escribe `VentaDocumento`
+directamente), así que el TPV de DEPENDIENTE no se ve afectado. El código de «Pagos de
+Clientes» es `/cobros-clientes/ficha` (no `/cobros-clientes`).
+
+### Borrado físico de maestros: solo administradores
+
+Restrictivas nuevas `admin_borra_<tabla>` (`for delete to authenticated using
+fn_es_administrador()`) en: `articulo`, `cliente`, `proveedor`, `familia`, `marca`, `vendedor`,
+`tecnico`, `repartidor`, `transportista`, `almacen`, `zona_territorial`, `ruta_reparto`, `ruta`,
+`tipo_cliente`, `codigo_postal`, `banco`, `banco_sucursal`, `moneda`, `zona_servicio`,
+`plantilla_tarifa`, `provincia`, `pais`.
+
+**No** se restringen las tablas hijas que la interfaz borra en el uso normal (búsqueda de
+`.delete()` en `src/`): `articulo_codigo_barras`, `articulo_tarifa_cantidad*`,
+`articulo_unidad_venta*`, `articulo_oferta`, `articulo_plu`, `articulo_variante`,
+`articulo_componente`, `articulo_equivalencia`, `cliente_sucursal`, `cliente_contacto`,
+`cliente_articulo_precio`, `cuenta_bancaria`, `ruta_reparto_zona`, `ruta_reparto_repartidor`,
+`tipo_cliente_descuento_familia`, `plantilla_tarifa_nivel`, líneas de documentos, etc. Ninguna
+función SQL borra en las tablas restringidas.
+
+Con RLS un borrado no permitido no da error: borra 0 filas. Por eso `useFichaMaestro.eliminar`,
+`ZonaFichaPage` y `RutaFichaPage` piden ahora la fila borrada (`.select('codigo')`) y, si no
+vuelve ninguna, dicen «Solo un administrador puede eliminar registros…» en vez de quitarla de
+la lista.
+
+## 6. Pruebas de la 2.ª tanda (28/10/2026)
+
+Por la API REST con el JWT de cada usuario:
+
+| Llamada | `prueba` (DEPENDIENTE) | `rober` (administrador) |
+|---|---|---|
+| `fn_puede('/tpv')`, `/ventas`, `/caja/movimientos`, `/caja/apertura`, `/clientes/lista` | true | true |
+| `fn_puede('/facturacion')`, `/recalcular-deuda`, `/almacen/recalcular-stock` | false | true |
+| `cargar_dbf_lote([])` | 403 `42501` | 200 → 0 |
+| `fn_verifactu_anular_factura` / `fn_anular_factura_cliente` (factura inexistente) | 403 `42501` | 400 «no tiene registro VeriFactu» (pasa la comprobación) |
+| `fn_verifactu_anular_venta` (venta inexistente) | 400 «No existe la venta» (tiene `/ventas`) | igual |
+| `fn_cliente_recalcular_deuda`, `fn_stock_cero_familia_aplicar`, `fn_articulos_eliminacion_baja`, `fn_liquidacion_comisiones_anular` | 403 `42501` | pasan la comprobación |
+| `fn_empleado_usuarios_acceso()` | `[]` | lista de usuarios |
+| `DELETE articulo ZZTEST-001`, `DELETE cliente 00001` | 200 `[]` (0 filas: RLS) | — |
+| Banco de prueba `ZZ99`: alta (rober) → `DELETE` (prueba) → baja lógica `activo=false` (rober) → `DELETE` (rober) | `[]` | alta, baja y borrado con la fila devuelta |
+| `fn_puede` sin sesión (`anon`) | 401 `permission denied` | |
+
+`cowork`, por SQL simulando su JWT (`request.jwt.claims` con su `sub`, rol `authenticated`):
+`fn_es_cowork()` = true, `fn_es_administrador()` = false, `fn_puede('/tpv')` = false,
+`cargar_dbf_lote('[]')` = 0 (pasa).
+
+En navegador (Playwright, `VITE_BASE_PATH=/ npx vite --port 5185`): `prueba`, venta de TPV en
+tienda 01, cliente 00001, ZZTEST-001, cobro → **«Venta Nº 21 guardada.»**, sin errores de la API.

@@ -47,11 +47,13 @@ export function ZonaFichaPage() {
   async function borrar() {
     if (f.vacia || !f.registro.codigo) return
     if (!confirm(`¿Eliminar la zona territorial ${f.registro.codigo} ${f.registro.descripcion}?`)) return
-    const { error } = await supabase.from('zona_territorial').delete().eq('codigo', f.registro.codigo)
+    const { data: borradas, error } = await supabase.from('zona_territorial').delete().eq('codigo', f.registro.codigo).select('codigo')
     if (error) {
       f.setError(error.code === '23503' ? 'No se puede eliminar: la zona está asignada a clientes, rutas u otros registros.' : error.message)
       return
     }
+    // La base solo deja borrar a administradores (política admin_borra_*): si no borra nada, avisar.
+    if (!borradas?.length) return f.setError('Solo un administrador puede eliminar registros. Dalo de baja (desmarca «Activo») o pídeselo a un administrador.')
     f.setLista((l) => l.filter((x) => x.codigo !== f.registro.codigo))
     f.navigate('/zonas-territoriales', { replace: true })
   }
