@@ -503,6 +503,20 @@ export function ImpresionInforme<T>({
   )
 }
 
+/** Ventana modal estilo GeminisWin (confirmaciones y altas de las utilidades). Esc cierra. */
+export function ModalGw({ titulo, onClose, ancho, children }: { titulo: string; onClose: () => void; ancho: number; children: ReactNode }) {
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-20" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+      <GwWindow title={titulo} onClose={onClose} className="max-w-[95vw]">
+        <div style={{ width: ancho }} className="max-w-full">
+          {children}
+        </div>
+      </GwWindow>
+    </div>,
+    document.body,
+  )
+}
+
 /** Botón «Cerrar» grande de la barra inferior de los informes. */
 export function BotonCerrar({ onClick }: { onClick: () => void }) {
   return (

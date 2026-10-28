@@ -17,6 +17,8 @@ import { todasLasFilas } from '../../../lib/todasLasFilas'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { formatGw, GwDate } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
+import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
+import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 
 // Ficha de Repartos (Ventas → Repartos en GeminisWin): REPARTOS + REPARLIN.
@@ -323,7 +325,6 @@ export function RepartoFichaPage() {
   const [tab, setTab] = useState<'repartos' | 'adicionales'>('repartos')
   const [subTab, setSubTab] = useState<'todos' | 'actual'>('todos')
   const [tiendas, setTiendas] = useState<string[]>([])
-  const [lista, setLista] = useState<Clave[]>([])
   const [orden, setOrden] = useState<'numero' | 'fecha'>('numero')
   const [nombreRuta, setNombreRuta] = useState('')
   const [nombreRepartidor, setNombreRepartidor] = useState('')
@@ -346,16 +347,16 @@ export function RepartoFichaPage() {
       .then(({ data }) => setTiendas(((data ?? []) as { codigo: string }[]).map((t) => t.codigo)))
   }, [])
 
-  async function cargarLista(o = orden) {
-    // Solo las claves, pero todas: Supabase corta cada respuesta en 1000 filas, así que por bloques.
-    const q = () => supabase.from('reparto').select('tienda_terminal_codigo, numero')
-    const { data } = await todasLasFilas<Clave>(
-      () => (o === 'numero' ? q().order('tienda_terminal_codigo').order('numero') : q().order('fecha', { nullsFirst: true }).order('numero').order('tienda_terminal_codigo')),
-      { tope: 500000 },
-    )
-    const l = data.map((r) => ({ tienda_terminal_codigo: r.tienda_terminal_codigo, numero: Number(r.numero) }))
-    setLista(l)
-    return l
+  /** Último reparto (por tienda y número): al abrir sin clave, al cancelar un alta y tras eliminar. */
+  async function ultimoReparto(): Promise<Clave | null> {
+    const { data } = await supabase
+      .from('reparto')
+      .select('tienda_terminal_codigo, numero')
+      .order('tienda_terminal_codigo', { ascending: false })
+      .order('numero', { ascending: false })
+      .limit(1)
+    const r = (data ?? [])[0] as Clave | undefined
+    return r ? { tienda_terminal_codigo: r.tienda_terminal_codigo, numero: Number(r.numero) } : null
   }
 
   useEffect(() => {
@@ -364,8 +365,6 @@ export function RepartoFichaPage() {
       setError(null)
       setMensaje(null)
       setLoading(true)
-      const l = await cargarLista()
-      if (cancel) return
       if (isNew) {
         const t = tiendas[0] ?? ''
         setCab(vacio(t))
@@ -377,7 +376,8 @@ export function RepartoFichaPage() {
         setLoading(false)
         return
       }
-      const clave = claveRuta ?? l[l.length - 1] ?? null
+      const clave = claveRuta ?? (await ultimoReparto())
+      if (cancel) return
       if (!clave) {
         setSinRepartos(true)
         setCab(vacio(tiendas[0] ?? ''))
@@ -477,8 +477,36 @@ export function RepartoFichaPage() {
       : null,
   )
 
-  const idx = claveRuta ? lista.findIndex((c) => c.tienda_terminal_codigo === claveRuta.tienda_terminal_codigo && c.numero === claveRuta.numero) : -1
-  const ir = (c?: Clave) => c && navigate(`/repartos/${encodeURIComponent(c.tienda_terminal_codigo)}/${c.numero}`)
+  // Navegación contra el servidor: solo el registro vecino (gt/lt + limit 1) y el recuento, nunca la
+  // lista de claves. Orden por número (tienda, número) o por fecha (fecha, número, tienda).
+  const nav = useNavRegistro<Clave>({
+    tabla: 'reparto',
+    orden: orden === 'numero' ? ['tienda_terminal_codigo', 'numero'] : ['fecha', 'numero', 'tienda_terminal_codigo'],
+    actual:
+      mode !== 'consulta' || sinRepartos || cab.numero == null
+        ? null
+        : orden === 'numero'
+          ? [cab.tienda_terminal_codigo, cab.numero]
+          : [cab.fecha, cab.numero, cab.tienda_terminal_codigo],
+    select: 'tienda_terminal_codigo, numero',
+    nulos: orden === 'fecha',
+  })
+  const ir = (c?: Clave | null) => c && navigate(`/repartos/${encodeURIComponent(c.tienda_terminal_codigo)}/${c.numero}`)
+  const irNav = async (d: NavDir) => {
+    setError(null)
+    const k = await nav.ir(d)
+    if (k) ir({ tienda_terminal_codigo: k.tienda_terminal_codigo, numero: Number(k.numero) })
+  }
+  // En consulta, escribir un número en «Número» salta a ese reparto de la tienda que se ve.
+  async function buscarNumero(texto: string) {
+    const num = Number(texto.replace(/\D/g, ''))
+    if (!num) return setError(`«${texto}» no es un número de reparto.`)
+    const { data } = await supabase.from('reparto').select('numero').eq('tienda_terminal_codigo', cab.tienda_terminal_codigo).eq('numero', num).maybeSingle()
+    if (data) {
+      setError(null)
+      ir({ tienda_terminal_codigo: cab.tienda_terminal_codigo, numero: num })
+    } else setError(`No existe el reparto ${num} en la tienda ${cab.tienda_terminal_codigo}.`)
+  }
 
   function patch(p: Partial<Reparto>) {
     setDraft((d) => ({ ...d, ...p }))
@@ -497,9 +525,7 @@ export function RepartoFichaPage() {
   function cancelar() {
     setError(null)
     if (mode === 'alta') {
-      const ult = lista[lista.length - 1]
-      if (ult) ir(ult)
-      else navigate('/repartos')
+      ultimoReparto().then((ult) => (ult ? ir(ult) : navigate('/repartos')))
       return
     }
     setDraft(cab)
@@ -636,7 +662,7 @@ export function RepartoFichaPage() {
       }
 
       setMode('consulta')
-      if (mode === 'alta' || arrastradas) await cargarLista()
+      if (mode === 'alta' || arrastradas) nav.refrescar()
       const nuevas = await cargarLineas(clave.tienda_terminal_codigo, clave.numero)
       const r = { ...draft, ...cabecera, numero: clave.numero, tienda_terminal_codigo: clave.tienda_terminal_codigo }
       setCab(r)
@@ -669,8 +695,8 @@ export function RepartoFichaPage() {
       .eq('tienda_terminal_codigo', cab.tienda_terminal_codigo)
       .eq('numero', cab.numero)
     if (err) return setError(err.message)
-    const l = await cargarLista()
-    const ult = l[l.length - 1]
+    nav.refrescar()
+    const ult = await ultimoReparto()
     if (ult) ir(ult)
     else navigate('/repartos')
   }
@@ -747,7 +773,7 @@ export function RepartoFichaPage() {
             .eq('tienda_terminal_codigo', v.tienda_terminal_codigo as string)
             .eq('numero', v.numero as number)
       }
-      await cargarLista()
+      nav.refrescar()
       setMensaje(
         `Repartos generados: ${creados} nuevo(s), ${ventas.length - sinRuta.length} venta(s) asignada(s).` +
           (sinRuta.length ? ` ${sinRuta.length} venta(s) sin ruta (ni en la venta ni en el cliente) se quedan pendientes.` : ''),
@@ -827,7 +853,11 @@ export function RepartoFichaPage() {
                 <span className={lbl}>
                   <u>N</u>úmero
                 </span>
-                <input className={`${inp} w-full text-right`} disabled value={vista.numero ?? ''} title="Se asigna al guardar" readOnly />
+                {mode === 'consulta' && !sinRepartos ? (
+                  <GwCampoBusqueda className={`${inp} w-full text-right`} value={vista.numero != null ? String(vista.numero) : ''} onBuscar={buscarNumero} title="Número de reparto" />
+                ) : (
+                  <input className={`${inp} w-full text-right`} disabled value={vista.numero ?? ''} title="Se asigna al guardar" readOnly />
+                )}
               </div>
               <div className="flex w-[160px] flex-col">
                 <span className={lbl}>Fecha</span>
@@ -1032,17 +1062,13 @@ export function RepartoFichaPage() {
 
       <GwRecordBar
         mode={mode}
-        canNavigate={mode === 'consulta' && idx >= 0}
+        canNavigate={mode === 'consulta' && !sinRepartos && cab.numero != null}
         saving={saving}
-        onFirst={() => ir(lista[0])}
-        onPrev={() => idx > 0 && ir(lista[idx - 1])}
-        onNext={() => idx >= 0 && idx < lista.length - 1 && ir(lista[idx + 1])}
-        onLast={() => ir(lista[lista.length - 1])}
-        onSort={() => {
-          const o = orden === 'numero' ? 'fecha' : 'numero'
-          setOrden(o)
-          cargarLista(o)
-        }}
+        onFirst={() => irNav('primero')}
+        onPrev={() => irNav('anterior')}
+        onNext={() => irNav('siguiente')}
+        onLast={() => irNav('ultimo')}
+        onSort={() => (setError(null), setOrden((o) => (o === 'numero' ? 'fecha' : 'numero')))}
         onSearch={() => setBuscar('reparto')}
         onPrint={() => window.print()}
         onNew={() => navigate('/repartos/nuevo')}
@@ -1054,7 +1080,7 @@ export function RepartoFichaPage() {
       />
       <div className="px-1 text-[11px] text-[#555]">
         Orden: por {orden === 'numero' ? 'número' : 'fecha'}
-        {idx >= 0 ? ` · Registro ${idx + 1} de ${lista.length}` : ''}
+        {textoRegistro(nav)}
         {mode === 'alta' ? ' · Alta de reparto (el número se asigna al guardar)' : ''}
       </div>
 

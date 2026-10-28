@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, FilePen, FilePlus2, FileX2, Binoculars, Tag, Package, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { todasLasFilas } from '../../../lib/todasLasFilas'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
+import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
+import { navDir, textoRegistro, useNavRegistro, type NavDir, type NavFiltro } from '../../../components/gw/useNavRegistro'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
 
@@ -224,7 +225,7 @@ export function ReparacionFichaPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [lista, setLista] = useState<{ tienda_terminal_codigo: string; numero: number }[]>([])
+  const [inverso, setInverso] = useState(false)
   const [lookup, setLookup] = useState<Lookup>(null)
   const [nombres, setNombres] = useState<{ empleado: string; vendedor: string; tecnico: string; cliente: string; articuloSerie: string }>({
     empleado: '',
@@ -248,14 +249,6 @@ export function ReparacionFichaPage() {
       .order('codigo')
       .then(({ data }) => setTiendas((data ?? []).map((t) => t.codigo as string)))
   }, [])
-
-  useEffect(() => {
-    // Solo las claves, pero todas: Supabase corta cada respuesta en 1000 filas, así que por bloques.
-    todasLasFilas<{ tienda_terminal_codigo: string; numero: number }>(
-      () => supabase.from('pedido_cliente').select('tienda_terminal_codigo, numero').eq('es_reparacion', true).order('tienda_terminal_codigo').order('numero'),
-      { tope: 500000 },
-    ).then(({ data }) => setLista(data))
-  }, [rep.numero])
 
   useEffect(() => {
     let cancel = false
@@ -396,11 +389,38 @@ export function ReparacionFichaPage() {
 
   const totales = useMemo(() => calcular(lineas, draft.descuento_pie_pct ?? 0), [lineas, draft.descuento_pie_pct])
 
-  const idx = useMemo(
-    () => lista.findIndex((l) => l.tienda_terminal_codigo === rep.tienda_terminal_codigo && l.numero === rep.numero),
-    [lista, rep.tienda_terminal_codigo, rep.numero],
-  )
-  const ir = (i: number) => lista[i] && navigate(`/reparaciones/${lista[i].tienda_terminal_codigo}/${lista[i].numero}`)
+  // Navegación contra el servidor: solo el registro vecino (gt/lt + limit 1) y el recuento, nunca la
+  // lista de claves (bajarla entera al abrir era lento con miles de pedidos).
+  const soloReparaciones = useCallback<NavFiltro>((q) => q.eq('es_reparacion', true), [])
+  const nav = useNavRegistro<{ tienda_terminal_codigo: string; numero: number }>({
+    tabla: 'pedido_cliente',
+    orden: ['tienda_terminal_codigo', 'numero'],
+    actual: mode === 'consulta' && !vacio && rep.numero != null ? [rep.tienda_terminal_codigo, rep.numero] : null,
+    select: 'tienda_terminal_codigo, numero',
+    filtro: soloReparaciones,
+  })
+  const irA = (t: string, n: number) => navigate(`/reparaciones/${t}/${n}`)
+  const irNav = async (d: NavDir) => {
+    setError(null)
+    const k = await nav.ir(navDir(d, inverso))
+    if (k) irA(k.tienda_terminal_codigo, Number(k.numero))
+  }
+  // En consulta, escribir un número en «Número» salta a esa reparación de la tienda que se ve.
+  async function buscarNumero(texto: string) {
+    const num = Number(texto.replace(/\D/g, ''))
+    if (!num) return setError(`«${texto}» no es un número de reparación.`)
+    const { data } = await supabase
+      .from('pedido_cliente')
+      .select('numero')
+      .eq('tienda_terminal_codigo', rep.tienda_terminal_codigo)
+      .eq('numero', num)
+      .eq('es_reparacion', true)
+      .maybeSingle()
+    if (data) {
+      setError(null)
+      irA(rep.tienda_terminal_codigo, num)
+    } else setError(`No existe la reparación ${num} en la tienda ${rep.tienda_terminal_codigo}.`)
+  }
 
   function patch(p: Partial<Reparacion>) {
     setDraft((d) => ({ ...d, ...p }))
@@ -546,6 +566,7 @@ export function ReparacionFichaPage() {
     setLineas(renumeradas)
     setLineasOrig(renumeradas)
     setMode('consulta')
+    nav.refrescar()
     navigate(`/reparaciones/${tienda}/${numero}`, { replace: true })
   }
 
@@ -631,7 +652,11 @@ export function ReparacionFichaPage() {
               </GwSelect>
             </GwField>
             <GwField label={<span className="underline decoration-1 underline-offset-2">Número</span>}>
-              <GwInput className="text-right" readOnly disabled value={draft.numero ?? ''} title="IDPEDIDO — se asigna al guardar" />
+              {mode === 'consulta' && !vacio ? (
+                <GwCampoBusqueda className="text-right" value={draft.numero != null ? String(draft.numero) : ''} onBuscar={buscarNumero} title="IDPEDIDO" />
+              ) : (
+                <GwInput className="text-right" readOnly disabled value={draft.numero ?? ''} title="IDPEDIDO — se asigna al guardar" />
+              )}
             </GwField>
             <GwField label="Fecha">
               <GwDate value={draft.fecha} disabled={dis} onChange={(v) => patch({ fecha: v })} />
@@ -923,13 +948,13 @@ export function ReparacionFichaPage() {
 
       <GwRecordBar
         mode={mode}
-        canNavigate={mode === 'consulta' && idx >= 0}
+        canNavigate={mode === 'consulta' && !vacio}
         saving={saving}
-        onFirst={() => ir(0)}
-        onPrev={() => ir(idx - 1)}
-        onNext={() => ir(idx + 1)}
-        onLast={() => ir(lista.length - 1)}
-        onSort={() => setLista((l) => [...l].reverse())}
+        onFirst={() => irNav('primero')}
+        onPrev={() => irNav('anterior')}
+        onNext={() => irNav('siguiente')}
+        onLast={() => irNav('ultimo')}
+        onSort={() => (setError(null), setInverso((x) => !x))}
         onSearch={() => setLookup('buscar')}
         onPrint={() => window.print()}
         onNew={() => navigate('/reparaciones/nuevo')}
@@ -952,7 +977,7 @@ export function ReparacionFichaPage() {
         ) : mode === 'alta' ? (
           'Alta de reparación: el número se asigna al guardar.'
         ) : (
-          ''
+          `Orden: ${inverso ? 'Número descendente' : 'Número'}${textoRegistro(inverso && nav.posicion != null && nav.total != null ? { total: nav.total, posicion: nav.total - nav.posicion + 1 } : nav)}`
         )}
       </div>
 

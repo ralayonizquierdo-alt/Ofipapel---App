@@ -42,6 +42,11 @@ construida.
 | Cód. Bancarios (`/bancos`: banco con BIC y rejilla de sucursales) | Sin captura (28/10) |
 | Monedas (`/monedas`: cotización billete/cheque, decimales) | Sin captura (28/10) |
 | ? → Acerca de Ofipapel ERP (versión de `package.json` y commit `COMMIT_REF` de Netlify) | Sin captura (28/10) |
+| Edición → Pegar (portapapeles al último campo con foco), Encontrar (Ctrl+F: busca en las filas visibles de las rejillas de la ventana activa y selecciona la siguiente coincidencia; Intro/F3 sigue) y Reemplazar (Ctrl+H: solo en los campos de texto modificables de la ficha en Modificar/Nuevo, entra como si se tecleara y se guarda o cancela con la ficha; no toca rejillas) — `components/shell/EdicionHerramientas.tsx` | Sin captura (28/10) |
+| Archivo → Cambiar Grupo de Acceso (Ctrl+O). Un empleado tiene un solo grupo (`rol_id`), así que se implementa como «ver como»: un administrador elige otro grupo y el programa (menús, barra lateral, Panel, NEXA) se ve con los permisos de ese grupo, con aviso «Viendo como: X · Volver» en la barra de estado; solo interfaz, nunca da permisos (el administrador ya lo tiene todo). A los demás les explica que no aplica. Dura la sesión del navegador (`PermisosContext`: `verComo`, `realAdmin`) | Sin captura (28/10) |
+| Utilidades → Etiquetas y Listado De Ventas: abren las pantallas que ya existían (`/almacen/etiquetas`, `/listados-ventas/ventas`) | Enlazadas (28/10) |
+| Utilidades → Stock A 0 de Familia (`/almacen/stock-cero-familia`): familia (con opción de subfamilias por prefijo) y almacén → lista de artículos con stock ≠ 0 → confirmación con nº de artículos y unidades → un movimiento de regularización por artículo (`fn_stock_cero_familia_previa` / `fn_stock_cero_familia_aplicar`, origen `stock_cero_familia`); también deja a 0 sus lotes en ese almacén | Sin captura (28/10) |
+| Utilidades → Elimina ArtiEnBlanco (`/almacen/articulos-en-blanco`): artículos activos sin descripción (o solo signos) o sin familia, PVP, coste ni código de barras, y sin movimientos, stock, ventas, pedidos, traspasos, inventarios, peticiones ni lotes → baja lógica tras confirmar con la lista (`fn_articulos_en_blanco`, `fn_articulos_en_blanco_baja`, que lo vuelve a comprobar) | Sin captura (28/10) |
 | Ventana → Ocultar / Mostrar todo / Borrar / Recorrer (Ctrl+F1) y lista de ventanas abiertas | Sin captura (28/10). El ERP enseña una sola ventana a la vez: Recorrer pasa a la siguiente ventana abierta en la sesión (vuelve al mismo registro), Ocultar la quita de la vista y Mostrar todo la vuelve a enseñar; no hay cascada ni mosaico |
 
 ### Clientes
@@ -84,7 +89,8 @@ construida.
 | Tarifas de oferta · Modificación de precios | Calcada |
 | Traspasos · Regularización de stock | Calcada |
 | Inventarios | Calcada (columnas cortadas pendientes de captura) |
-| Creación rápida, listados, movimientos, etiquetas, lotes, inventariar almacén, modificación en bloque, PLU's | Gris |
+| Control de Lotes (`/almacen/lotes`): consulta por artículo/almacén/caducidad (rojo vencido, naranja ≤ 30 días), stock del artículo frente a la suma de sus lotes («sin lote»), movimientos del lote con saldo, y Entrada/Nuevo, Salida y Regularizar (`fn_lote_movimiento`). Tablas nuevas `articulo_lote` y `articulo_lote_movimiento` (migración `20261028_lotes_utilidades.sql`) | Sin captura (28/10). El lote es un desglose informativo: no mueve el stock del artículo |
+| Creación rápida, listados, movimientos, etiquetas, inventariar almacén, modificación en bloque, PLU's | Gris |
 
 ### Caja · Facturación · Maestros · Listados
 Pendiente de capturas. Pantallas antiguas provisionales: `/caja`, `/facturacion`.
@@ -141,6 +147,7 @@ pantalla llevan la marca «confirmar con Luis».
   cliente. ¿Es así en GeminisWin o es un % de descuento? Monedas: ¿«Valor billete» y
   «Valor cheque» son unidades por 1 € o € por unidad?
 
+- Lotes (28/10): en BD solo existía la marca `control_lotes` (artículo y familia, todo NULL/0 en la carga) y ninguna tabla de lotes; se ha creado `articulo_lote` + movimientos y la pantalla Control de Lotes. **Pendiente de confirmar con Luis antes de tocar compras y ventas:** qué significan los valores de `control_lotes`, si al recepcionar un pedido a proveedor hay que pedir lote y caducidad, si al vender se descuenta del lote (¿FIFO por caducidad o elegido?) y si se usan números de lote del proveedor. Hoy compras y ventas NO piden lote.
 - Artículos: códigos de Control de Lotes; Tipo IGIC (soportado/repercutido);
   que «Genérico» sea el campo MODDES; que «Impuesto 2» sea el canon; valores de
   «Crear artículos hijos al vender».
@@ -218,7 +225,13 @@ puntos de restauración y lote de modificación de precios 0000000001; artículo
 PRUEBA-GPP1. De Cobros de clientes (28/10): albaranes 01-17 y 01-19 del cliente
 00001 facturados en las facturas 01-9 (P01-3, cobrada en dos cobros de efectivo 01-10
 y 01-11, movimientos de caja 01-12 y 01-13) y 01-10 (P01-4, con su vencimiento 01-13
-pendiente); cobros anulados 01-8 y 01-12 (movimiento de caja 01-14 a 0). Datos reales de referencia que se quedan:
+pendiente); cobros anulados 01-8 y 01-12 (movimiento de caja 01-14 a 0). De lotes y utilidades (28/10): familia ZZ «FAMILIA PRUEBA ZZ»; artículos
+ZZTEST-SC1, ZZTEST-SC2 y ZZTEST-LOTE1 (familia ZZ, con regularizaciones de prueba en el almacén 98
+y después puestos a 0 con «Stock A 0 de Familia»), lotes L-ZZ-001, L-ZZ-002 y L-ZZ-003 de
+ZZTEST-LOTE1 en el almacén 98 con sus movimientos; ZZTEST-BLANCO1 y ZZTEST-BLANCO2 (dados de baja
+con «Elimina ArtiEnBlanco») y ZZTEST-BLANCO3 (en blanco, activo, para probar la pantalla); repartos
+01/3, 01/4 y 01/5 (ruta 99, repartidor 999), reparaciones 01/8 y 01/9 del cliente 00001 e
+inventario 01/4 del almacén 98, para probar la navegación por registro vecino. Datos reales de referencia que se quedan:
 artículo 149719, proveedor 05520, familia 209102, marca MIQUELRIUS.
 
 ## Notas de otros chats

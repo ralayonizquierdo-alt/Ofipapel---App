@@ -8,6 +8,7 @@ import { QuickBar } from './shell/QuickBar'
 import { MENUS, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
 import { NexaAsistente } from '../nexa/NexaAsistente'
 import { AcercaDeDialog } from './shell/AcercaDeDialog'
+import { EdicionHerramientas, IndicadorVerComo, lanzarEdicion } from './shell/EdicionHerramientas'
 import { SinPermiso, usePermisos } from '../lib/PermisosContext'
 
 // Ventana principal con el aspecto de GeminisWin: franja de título, barra de menús,
@@ -107,6 +108,8 @@ export function Layout() {
     else if (i.action === 'about') setAcercaDe(true)
     // Compras → Generar Petición: lo abre GenerarPeticionHost (App.tsx), que también recoge CTRL+P.
     else if (i.action === 'generar-peticion') window.dispatchEvent(new Event('gw:generar-peticion'))
+    // Edición → Pegar/Encontrar/Reemplazar y Archivo → Cambiar Grupo de Acceso: EdicionHerramientas.
+    else if (i.action === 'paste' || i.action === 'find' || i.action === 'replace' || i.action === 'cambiar-grupo') lanzarEdicion(i.action)
     else if (i.action) document.execCommand(i.action)
   }
 
@@ -188,7 +191,9 @@ export function Layout() {
               onClose={() => cerrarVentana(false)}
               className="absolute inset-1 z-10 [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-auto"
             >
-              {contenido}
+              <div data-gw-ventana className="contents">
+                {contenido}
+              </div>
             </GwWindow>
           )}
           {/* NEXA: avatar flotante + panel de conversación, disponible en todas las pantallas */}
@@ -196,6 +201,7 @@ export function Layout() {
         </div>
       </div>
       {acercaDe && <AcercaDeDialog onClose={() => setAcercaDe(false)} />}
+      <EdicionHerramientas />
       <StatusBar text={hint ?? ayuda ?? title} email={session?.user.email ?? ''} />
     </div>
   )
@@ -222,6 +228,7 @@ function StatusBar({ text, email }: { text: string; email: string }) {
   return (
     <div className="flex h-[22px] flex-none items-center gap-[3px] border-t border-[var(--gw-border-light)] bg-[var(--gw-face)] px-[3px] text-[11px]">
       <span className="min-w-0 flex-1 truncate px-1">{text}</span>
+      <IndicadorVerComo />
       <span className={`${panel} max-w-[220px] truncate`}>{email}</span>
       <span className={`${panel} w-[48px] justify-center`}>NUM</span>
       <span className={`${panel} w-[64px] justify-center tabular-nums`}>{now.toLocaleTimeString('es-ES')}</span>

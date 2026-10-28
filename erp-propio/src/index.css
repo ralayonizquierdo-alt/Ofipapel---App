@@ -165,6 +165,11 @@ select.gw-input:disabled {
   background: var(--gw-select);
   color: #ffffff;
 }
+/* Fila encontrada con Edición → Encontrar (Ctrl+F). */
+tr.gw-encontrada td {
+  outline: 2px solid #e8a400;
+  outline-offset: -2px;
+}
 
 /* Impresión del ticket/factura (VeriFactu): si la página tiene un bloque .solo-impresion,
    al imprimir solo sale ese bloque (con el QR), no la pantalla. */

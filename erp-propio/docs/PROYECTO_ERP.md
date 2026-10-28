@@ -198,6 +198,11 @@ detalle pantalla a pantalla está en `COORDINACION.md`.
 - Utilidades de Almacén (`/almacen/*`): creación rápida, listados,
   movimientos, etiquetas, PLU, modificación en bloque, recalcular stock…
   Construidas en su mayoría sin captura.
+- **Control de Lotes** (`/almacen/lotes`, sin captura): lotes por artículo y
+  almacén con caducidad y movimientos (`articulo_lote`). Es un desglose: compras
+  y ventas aún no piden lote (pendiente de Luis). Desde Utilidades, **Stock A 0
+  de Familia** (con regularizaciones, nunca editando el stock) y **Elimina
+  ArtiEnBlanco** (baja lógica).
 
 ### Clientes y Proveedores
 - **Ficha de Clientes** (10 pestañas): Calcada. Las tarifas especiales por
@@ -410,9 +415,8 @@ lleve a la pantalla adecuada.
   derecha, en la cabecera); Factura de cliente, Aperturas y cierres y
   Peticiones navegan por registro vecino; gestores y listados ya no se cortan
   en 1000 filas (`todasLasFilas`); el TPV apunta las aperturas de cajón.
-- Quedan cargando la lista entera de claves (ahora completa, por bloques)
-  las fichas de Reparaciones, Repartos e Inventarios: pasarlas también a
-  `useNavRegistro` cuando se toquen.
+- Reparaciones, Repartos e Inventarios también navegan ya por registro vecino
+  (`useNavRegistro`) y saltan a un número escribiéndolo en «Número» (28/10).
 
 **Funcionalidad**
 - **Gestor de pagos de clientes** (cobros): construido sin captura el 28/10

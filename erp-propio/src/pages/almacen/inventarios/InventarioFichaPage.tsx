@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, ClipboardList, History } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { todasLasFilas } from '../../../lib/todasLasFilas'
 import { formatGw, GwDate } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
+import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
+import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { GridMiniBar } from '../../../components/gw/GwGridParts'
 import {
@@ -108,7 +109,6 @@ export function InventarioFichaPage() {
   const [tab, setTab] = useState<'articulos' | 'opciones'>('articulos')
   const [tiendas, setTiendas] = useState<string[]>([])
   const [almacenes, setAlmacenes] = useState<{ codigo: string; nombre: string }[]>([])
-  const [lista, setLista] = useState<Clave[]>([])
   const [orden, setOrden] = useState<'numero' | 'fecha'>('numero')
   const [loading, setLoading] = useState(true)
   const [sinDatos, setSinDatos] = useState(false)
@@ -141,16 +141,16 @@ export function InventarioFichaPage() {
       .then(({ data }) => setAlmacenes((data ?? []) as { codigo: string; nombre: string }[]))
   }, [])
 
-  async function cargarLista(o = orden) {
-    // Solo las claves, pero todas: Supabase corta cada respuesta en 1000 filas, así que por bloques.
-    const q = () => supabase.from('inventario').select('tienda_terminal_codigo, numero')
-    const { data } = await todasLasFilas<Clave>(
-      () => (o === 'numero' ? q().order('tienda_terminal_codigo').order('numero') : q().order('fecha', { nullsFirst: true }).order('numero').order('tienda_terminal_codigo')),
-      { tope: 500000 },
-    )
-    const l = data.map((r) => ({ tienda_terminal_codigo: r.tienda_terminal_codigo, numero: Number(r.numero) }))
-    setLista(l)
-    return l
+  /** Último inventario (por tienda y número): al abrir sin clave y al cancelar un alta. */
+  async function ultimoInventario(): Promise<Clave | null> {
+    const { data } = await supabase
+      .from('inventario')
+      .select('tienda_terminal_codigo, numero')
+      .order('tienda_terminal_codigo', { ascending: false })
+      .order('numero', { ascending: false })
+      .limit(1)
+    const r = (data ?? [])[0] as Clave | undefined
+    return r ? { tienda_terminal_codigo: r.tienda_terminal_codigo, numero: Number(r.numero) } : null
   }
 
   async function recargar(c: Clave) {
@@ -170,8 +170,6 @@ export function InventarioFichaPage() {
       setError(null)
       setMensaje(null)
       setLoading(true)
-      const l = await cargarLista()
-      if (cancel) return
       if (isNew) {
         const v = vacia(tiendas[0] ?? '', almacenes[0]?.codigo ?? '')
         setCab(v)
@@ -182,7 +180,8 @@ export function InventarioFichaPage() {
         setLoading(false)
         return
       }
-      const c = claveRuta ?? l[l.length - 1] ?? null
+      const c = claveRuta ?? (await ultimoInventario())
+      if (cancel) return
       if (!c) {
         setSinDatos(true)
         setCab(vacia(tiendas[0] ?? '', ''))
@@ -213,8 +212,31 @@ export function InventarioFichaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params['*'], tiendas.length, almacenes.length])
 
-  const idx = claveRuta ? lista.findIndex((c) => c.tienda_terminal_codigo === claveRuta.tienda_terminal_codigo && c.numero === claveRuta.numero) : -1
-  const ir = (c?: Clave) => c && navigate(`/inventario/${encodeURIComponent(c.tienda_terminal_codigo)}/${c.numero}`)
+  // Navegación contra el servidor: solo el registro vecino (gt/lt + limit 1) y el recuento, nunca la
+  // lista de claves. Orden por número (tienda, número) o por fecha (fecha, número, tienda).
+  const nav = useNavRegistro<Clave>({
+    tabla: 'inventario',
+    orden: orden === 'numero' ? ['tienda_terminal_codigo', 'numero'] : ['fecha', 'numero', 'tienda_terminal_codigo'],
+    actual: editing || !clave ? null : orden === 'numero' ? [clave.tienda_terminal_codigo, clave.numero] : [cab.fecha, clave.numero, clave.tienda_terminal_codigo],
+    select: 'tienda_terminal_codigo, numero',
+    nulos: orden === 'fecha',
+  })
+  const ir = (c?: Clave | null) => c && navigate(`/inventario/${encodeURIComponent(c.tienda_terminal_codigo)}/${c.numero}`)
+  const irNav = async (d: NavDir) => {
+    setError(null)
+    const k = await nav.ir(d)
+    if (k) ir({ tienda_terminal_codigo: k.tienda_terminal_codigo, numero: Number(k.numero) })
+  }
+  // En consulta, escribir un número en «Número» salta a ese inventario de la tienda que se ve.
+  async function buscarNumero(texto: string) {
+    const num = Number(texto.replace(/\D/g, ''))
+    if (!num) return setError(`«${texto}» no es un número de inventario.`)
+    const { data } = await supabase.from('inventario').select('numero').eq('tienda_terminal_codigo', cab.tienda_terminal_codigo).eq('numero', num).maybeSingle()
+    if (data) {
+      setError(null)
+      ir({ tienda_terminal_codigo: cab.tienda_terminal_codigo, numero: num })
+    } else setError(`No existe el inventario ${num} en la tienda ${cab.tienda_terminal_codigo}.`)
+  }
   const patch = (p: Partial<Cabecera>) => setDraft((d) => ({ ...d, ...p }))
   const nombreAlmacen = almacenes.find((a) => a.codigo === vista.almacen_codigo)?.nombre ?? ''
 
@@ -227,9 +249,7 @@ export function InventarioFichaPage() {
   function cancelar() {
     setError(null)
     if (mode === 'alta') {
-      const ult = lista[lista.length - 1]
-      if (ult) ir(ult)
-      else navigate('/inventario')
+      ultimoInventario().then((ult) => (ult ? ir(ult) : navigate('/inventario')))
       return
     }
     setDraft(cab)
@@ -248,7 +268,7 @@ export function InventarioFichaPage() {
     try {
       if (mode === 'alta') {
         const c = await crearInventario(draft)
-        await cargarLista()
+        nav.refrescar()
         setMode('consulta')
         navigate(`/inventario/${encodeURIComponent(c.tienda_terminal_codigo)}/${c.numero}`, { replace: true })
       } else {
@@ -271,12 +291,13 @@ export function InventarioFichaPage() {
     if (!clave) return
     if (actualizado) return setError('El inventario ya está actualizado: deshazlo antes de eliminarlo.')
     if (!window.confirm(`¿Eliminar el inventario ${clave.tienda_terminal_codigo}-${clave.numero} y sus ${lineas.length} línea(s)?`)) return
+    // El que se verá después: el siguiente en el orden o, si era el último, el anterior.
+    const sig = (await nav.ir('siguiente')) ?? (await nav.ir('anterior'))
     const { error: e1 } = await supabase.from('inventario_linea').delete().eq('tienda_terminal_codigo', clave.tienda_terminal_codigo).eq('numero', clave.numero)
     const { error: e2 } = e1 ? { error: e1 } : await supabase.from('inventario').delete().eq('tienda_terminal_codigo', clave.tienda_terminal_codigo).eq('numero', clave.numero)
     if (e2) return setError(e2.message)
-    const l = await cargarLista()
-    const sig = l[Math.min(Math.max(idx, 0), l.length - 1)]
-    if (sig) ir(sig)
+    nav.refrescar()
+    if (sig) ir({ tienda_terminal_codigo: sig.tienda_terminal_codigo, numero: Number(sig.numero) })
     else navigate('/inventario', { replace: true })
   }
 
@@ -357,7 +378,7 @@ export function InventarioFichaPage() {
     }
   }
 
-  const estadoBarra = loading ? 'Cargando…' : clave ? `Orden: ${orden === 'numero' ? 'Número' : 'Fecha'} · Registro ${idx + 1} de ${lista.length}` : ''
+  const estadoBarra = loading ? 'Cargando…' : clave ? `Orden: ${orden === 'numero' ? 'Número' : 'Fecha'}${textoRegistro(nav)}` : ''
 
   return (
     <div className="flex min-w-[1180px] flex-col gap-1" style={{ fontFamily: 'Tahoma, Segoe UI, Arial, sans-serif' }}>
@@ -378,7 +399,11 @@ export function InventarioFichaPage() {
           <span className={lbl}>
             <u>N</u>úmero
           </span>
-          <input className={`${inp} w-full text-right`} disabled readOnly value={vista.numero ?? ''} title="Se asigna al guardar" />
+          {!editing && clave ? (
+            <GwCampoBusqueda className={`${inp} w-full text-right`} value={String(clave.numero)} onBuscar={buscarNumero} title="Número de inventario" />
+          ) : (
+            <input className={`${inp} w-full text-right`} disabled readOnly value={vista.numero ?? ''} title="Se asigna al guardar" />
+          )}
         </label>
         <label className="flex min-w-0 flex-1 flex-col">
           <span className={lbl}>Nombre</span>
@@ -515,17 +540,13 @@ export function InventarioFichaPage() {
 
       <GwRecordBar
         mode={mode}
-        canNavigate={!editing && lista.length > 0}
+        canNavigate={!editing && !!clave}
         saving={saving}
-        onFirst={() => ir(lista[0])}
-        onPrev={() => ir(lista[Math.max(0, idx - 1)])}
-        onNext={() => ir(lista[Math.min(lista.length - 1, idx + 1)])}
-        onLast={() => ir(lista[lista.length - 1])}
-        onSort={async () => {
-          const o = orden === 'numero' ? 'fecha' : 'numero'
-          setOrden(o)
-          await cargarLista(o)
-        }}
+        onFirst={() => irNav('primero')}
+        onPrev={() => irNav('anterior')}
+        onNext={() => irNav('siguiente')}
+        onLast={() => irNav('ultimo')}
+        onSort={() => (setError(null), setOrden((o) => (o === 'numero' ? 'fecha' : 'numero')))}
         onSearch={() => setBuscar('inventario')}
         onPrint={() => window.print()}
         onNew={() => navigate('/inventario/nuevo')}
