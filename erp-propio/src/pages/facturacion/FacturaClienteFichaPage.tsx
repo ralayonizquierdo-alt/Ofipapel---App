@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Ban, Check, Clock, FilePlus2, HandCoins, QrCode, Settings2, ShoppingBag, Undo2, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, GwCheck, formatGw } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
+import { textoRegistro, useNavRegistro, type NavDir } from '../../components/gw/useNavRegistro'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { gwConCeros, useListaOrdenada, type GwListaOrdenadaDef } from '../../components/gw/GwListaOrdenada'
@@ -41,6 +42,13 @@ type Orden = 'numero' | 'n_factura' | 'fecha'
 
 const ORDEN_TXT: Record<Orden, string> = { numero: 'por Id. factura', n_factura: 'por Nº de factura', fecha: 'por fecha' }
 
+// Columnas de cada orden para la navegación por registro vecino; la última tupla hace única la fila.
+const ORDEN_COLS: Record<Orden, (keyof FacturaCliente & string)[]> = {
+  numero: ['tienda_terminal_codigo', 'numero'],
+  n_factura: ['serie', 'n_factura', 'tienda_terminal_codigo', 'numero'],
+  fecha: ['fecha_factura', 'numero', 'tienda_terminal_codigo'],
+}
+
 const defFactura = (campo: string, etiqueta: string): GwListaOrdenadaDef => ({
   fuente: 'factura',
   campo,
@@ -65,7 +73,6 @@ export function FacturaClienteFichaPage() {
   const [claveTienda, claveNum] = (params['*'] ?? '').split('/')
   const listaOrd = useListaOrdenada()
 
-  const [claves, setClaves] = useState<Clave[]>([])
   const [orden, setOrden] = useState<Orden>('numero')
   const [fac, setFac] = useState<FacturaCliente | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -99,22 +106,6 @@ export function FacturaClienteFichaPage() {
       setSeries((s.data ?? []) as never)
     })
   }, [])
-
-  const cargarClaves = useCallback(async () => {
-    let q = supabase.from('factura').select('tienda_terminal_codigo, numero')
-    q =
-      orden === 'numero'
-        ? q.order('tienda_terminal_codigo').order('numero')
-        : orden === 'n_factura'
-          ? q.order('serie').order('n_factura')
-          : q.order('fecha_factura').order('numero')
-    const { data } = await q.limit(20000)
-    setClaves((data ?? []).map((r) => ({ t: r.tienda_terminal_codigo as string, n: Number(r.numero) })))
-  }, [orden])
-
-  useEffect(() => {
-    cargarClaves()
-  }, [cargarClaves])
 
   // Carga: la factura de la URL o, si no hay, la última emitida.
   useEffect(() => {
@@ -223,8 +214,19 @@ export function FacturaClienteFichaPage() {
   const baseTrasDto = r2(n(fac?.total_base))
   const sumaAlb = r2(albaranes.reduce((s, a) => s + a.subtotal_2, 0))
 
-  const idx = fac ? claves.findIndex((k) => k.t === fac.tienda_terminal_codigo && k.n === fac.numero) : -1
+  // Navegación contra el servidor: solo el registro vecino (gt/lt + limit 1) y el recuento, nunca
+  // la lista de claves (con miles de facturas, bajarla entera era lento y se cortaba en 1000).
+  const nav = useNavRegistro<{ tienda_terminal_codigo: string; numero: number }>({
+    tabla: 'factura',
+    orden: ORDEN_COLS[orden],
+    actual: fac ? ORDEN_COLS[orden].map((c) => fac[c] as string | number) : null,
+    select: 'tienda_terminal_codigo, numero',
+  })
   const ir = (k?: Clave) => k && navigate(`/facturacion/${k.t}/${k.n}`)
+  const irNav = async (d: NavDir) => {
+    const k = await nav.ir(d)
+    if (k) ir({ t: k.tienda_terminal_codigo, n: Number(k.numero) })
+  }
 
   // --- Búsquedas (Intro) y lista ordenada (Ctrl+Intro) ---
   async function buscarNumFactura(texto: string) {
@@ -663,11 +665,11 @@ export function FacturaClienteFichaPage() {
 
       <GwRecordBar
         mode="consulta"
-        canNavigate={idx >= 0}
-        onFirst={() => ir(claves[0])}
-        onPrev={() => idx > 0 && ir(claves[idx - 1])}
-        onNext={() => idx >= 0 && idx < claves.length - 1 && ir(claves[idx + 1])}
-        onLast={() => ir(claves[claves.length - 1])}
+        canNavigate={!!fac}
+        onFirst={() => irNav('primero')}
+        onPrev={() => irNav('anterior')}
+        onNext={() => irNav('siguiente')}
+        onLast={() => irNav('ultimo')}
         onSort={() => setOrden((o) => (o === 'numero' ? 'n_factura' : o === 'n_factura' ? 'fecha' : 'numero'))}
         onSearch={() => setDialogo('buscar')}
         onPrint={() => (fac ? window.print() : undefined)}
@@ -678,12 +680,14 @@ export function FacturaClienteFichaPage() {
       />
 
       {/* Línea de estado: orden/registro y VeriFactu */}
-      <div className="flex min-h-[24px] items-center gap-2 pr-[64px] text-[12px]" title="(a la derecha queda sitio para el asistente NEXA)">
+      <div className="flex min-h-[24px] items-center gap-2 text-[12px]">
         <span className="min-w-0 flex-1 truncate text-[#555]">
           {mensaje ??
             (cargando
               ? 'Cargando…'
-              : `Orden: ${ORDEN_TXT[orden]} · ${idx >= 0 ? `Registro ${idx + 1} de ${claves.length}` : claves.length ? '' : 'No hay facturas emitidas. Pulsa «Generar Facturas» para facturar los albaranes.'}`)}
+              : nav.total === 0
+                ? 'No hay facturas emitidas. Pulsa «Generar Facturas» para facturar los albaranes.'
+                : `Orden: ${ORDEN_TXT[orden]}${textoRegistro(nav)}`)}
         </span>
         {fac && (
           <>
@@ -775,7 +779,7 @@ export function FacturaClienteFichaPage() {
           onHecho={async (msg, destino) => {
             setDialogo(null)
             setMensaje(msg)
-            await cargarClaves()
+            nav.refrescar()
             if (destino) ir(destino)
             else setRecarga((x) => x + 1)
           }}

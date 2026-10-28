@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Cog, ListChecks, TriangleAlert } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { todasLasFilas } from '../../lib/todasLasFilas'
 import { GwCheck, GwField, GwGroup, GwRadio, GwSelect } from '../../components/gw'
 import { TIPOS_DOC, eur0, inicioMes, hoy } from './contabModel'
 import { Aviso, Rango } from './ui'
@@ -35,9 +36,13 @@ export function GenerarAsientosPage() {
   }, [])
 
   async function cargarResumen() {
-    const { data } = await supabase.from('asiento').select('estado, total_debe').gte('fecha', desde).lte('fecha', hasta).neq('estado', 'anulado')
+    // Supabase corta cada respuesta en 1000 filas: el resumen se hace con todos, por bloques.
+    const { data } = await todasLasFilas(
+      () => supabase.from('asiento').select('estado, total_debe').gte('fecha', desde).lte('fecha', hasta).neq('estado', 'anulado').order('id'),
+      { tope: 500000 },
+    )
     const m = new Map<string, Resumen>()
-    for (const a of data ?? []) {
+    for (const a of data) {
       const x = m.get(a.estado) ?? { estado: a.estado, n: 0, debe: 0 }
       x.n += 1
       x.debe += Number(a.total_debe)

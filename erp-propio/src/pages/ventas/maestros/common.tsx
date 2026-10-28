@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Binoculars, Check, ChevronFirst, ChevronLast, FolderOpen, Play, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { todasLasFilas } from '../../../lib/todasLasFilas'
 import { GwField, GwInput, GwRadio, GwTextArea } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
@@ -447,10 +448,13 @@ export function RejillaClientes({ filtro, valor }: { filtro: 'zona_territorial_c
 
   useEffect(() => {
     if (!valor) return setRows([])
-    let q = supabase.from('cliente').select('codigo, nombre, direccion, codigo_postal, poblacion').eq(filtro, valor)
-    q = filtro === 'ruta_codigo' ? q.order('orden_en_ruta', { nullsFirst: false }).order('codigo') : q.order('codigo')
-    q.limit(1000).then(({ data }) => {
-      setRows((data ?? []) as typeof rows)
+    const consulta = () => {
+      const q = supabase.from('cliente').select('codigo, nombre, direccion, codigo_postal, poblacion').eq(filtro, valor)
+      return filtro === 'ruta_codigo' ? q.order('orden_en_ruta', { nullsFirst: false }).order('codigo') : q.order('codigo')
+    }
+    // Supabase corta cada respuesta en 1000 filas: por bloques.
+    todasLasFilas<(typeof rows)[number]>(consulta).then(({ data }) => {
+      setRows(data)
       setSel(0)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps

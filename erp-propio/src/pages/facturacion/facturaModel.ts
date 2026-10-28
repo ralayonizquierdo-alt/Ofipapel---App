@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { todasLasFilas } from '../../lib/todasLasFilas'
 
 // Facturas de clientes (Facturación → Facturas en GeminisWin). Una factura agrupa albaranes
 // (ventas a crédito) de un cliente. Es INMUTABLE (VeriFactu): no se edita ni se borra; se
@@ -202,14 +203,17 @@ export async function cargarLineas(claves: { t: string; n: number }[]) {
   for (const c of claves) porTienda.set(c.t, [...(porTienda.get(c.t) ?? []), c.n])
   for (const [t, nums] of porTienda) {
     for (let i = 0; i < nums.length; i += 150) {
-      const { data } = await supabase
-        .from('venta_linea')
-        .select('tienda_terminal_codigo, numero, numero_linea, articulo_codigo, descripcion, cantidad, precio, descuento_pct, subtotal, igic_pct')
-        .eq('tienda_terminal_codigo', t)
-        .in('numero', nums.slice(i, i + 150))
-        .order('numero')
-        .order('numero_linea')
-      out.push(...((data ?? []) as LineaAlbaran[]))
+      // 150 albaranes pueden pasar de 1000 líneas (lo máximo que devuelve Supabase): por bloques.
+      const { data } = await todasLasFilas<LineaAlbaran>(() =>
+        supabase
+          .from('venta_linea')
+          .select('tienda_terminal_codigo, numero, numero_linea, articulo_codigo, descripcion, cantidad, precio, descuento_pct, subtotal, igic_pct')
+          .eq('tienda_terminal_codigo', t)
+          .in('numero', nums.slice(i, i + 150))
+          .order('numero')
+          .order('numero_linea'),
+      )
+      out.push(...data)
     }
   }
   return out

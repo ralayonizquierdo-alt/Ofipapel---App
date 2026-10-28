@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, Check, DoorOpen, FileDown, FileText, ListPlus, Monitor, Printer, ScanSearch } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { todasLasFilas } from '../../lib/todasLasFilas'
 import { GwDate, GwInput, GwLookupButton, GwRadio, GwSelect, GwWindow, formatGw } from '../../components/gw'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { useListaOrdenada, type GwListaOrdenadaDef } from '../../components/gw/GwListaOrdenada'
@@ -370,17 +371,21 @@ export function InformesCajaPage() {
       // Ventas de crédito: lo pendiente de las ventas emitidas en el periodo y tiendas del filtro.
       let credito = 0
       if (f.incluirCredito) {
-        let q = supabase.from('venta').select('total_pendiente').gt('total_pendiente', 0).eq('aplazada', false).is('anulada_en', null)
-        if (f.fechaModo === 'desdeHasta') {
-          if (f.fDesde) q = q.gte('fecha', f.fDesde)
-          if (f.fHasta) q = q.lte('fecha', f.fHasta)
+        const consulta = () => {
+          let q = supabase.from('venta').select('total_pendiente').gt('total_pendiente', 0).eq('aplazada', false).is('anulada_en', null)
+          if (f.fechaModo === 'desdeHasta') {
+            if (f.fDesde) q = q.gte('fecha', f.fDesde)
+            if (f.fHasta) q = q.lte('fecha', f.fHasta)
+          }
+          if (f.tiendaModo === 'desdeHasta') {
+            if (f.tDesde) q = q.gte('tienda_terminal_codigo', f.tDesde)
+            if (f.tHasta) q = q.lte('tienda_terminal_codigo', f.tHasta)
+          } else if (f.tiendaModo === 'seleccionar' && lista(f.tiendasSel).length) q = q.in('tienda_terminal_codigo', lista(f.tiendasSel))
+          return q.order('tienda_terminal_codigo').order('numero')
         }
-        if (f.tiendaModo === 'desdeHasta') {
-          if (f.tDesde) q = q.gte('tienda_terminal_codigo', f.tDesde)
-          if (f.tHasta) q = q.lte('tienda_terminal_codigo', f.tHasta)
-        } else if (f.tiendaModo === 'seleccionar' && lista(f.tiendasSel).length) q = q.in('tienda_terminal_codigo', lista(f.tiendasSel))
-        const { data } = await q.limit(20000)
-        credito = r3((data ?? []).reduce((s, v) => s + Number(v.total_pendiente ?? 0), 0))
+        // Supabase corta cada respuesta en 1000 filas: la suma se hace con todas, por bloques.
+        const { data } = await todasLasFilas(consulta, { tope: 200000 })
+        credito = r3(data.reduce((s, v) => s + Number(v.total_pendiente ?? 0), 0))
       }
       setResultado({ filas, credito, truncado, imprimir: f.salida === 'impresora' || f.salida === 'pdf' })
     } catch (e) {

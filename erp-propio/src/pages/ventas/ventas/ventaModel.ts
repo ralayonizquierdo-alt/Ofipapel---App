@@ -496,6 +496,11 @@ export async function guardarVenta(opts: {
       })
       if (eCaja) throw new Error(eCaja.message)
     }
+    // Cobro en efectivo: se abre el cajón (y queda apuntado, como en GeminisWin).
+    if (cobro.efectivo > 0) {
+      const aviso = await apuntarAperturaCajon({ tienda, empleado: cab.empleado_codigo ?? empleado, motivo: esAlta || previaAplazada ? 'Venta' : 'Modif. venta', venta: { tienda, numero } })
+      if (aviso) console.error(aviso)
+    }
   }
   return numero
 }
@@ -560,6 +565,27 @@ export async function cobrarVenta(cab: CabeceraVenta, total: number, cobro: Cobr
     })
     if (e2) throw new Error(e2.message)
   }
+  if (cobro.efectivo > 0) {
+    const aviso = await apuntarAperturaCajon({ tienda, empleado, motivo: 'Cobro venta', venta: { tienda, numero } })
+    if (aviso) console.error(aviso)
+  }
+}
+
+/**
+ * Apunta una apertura del cajón portamonedas en `apertura_cajon` (lo que lee Listados → List.
+ * Apert. Cajón), como GeminisWin: cada cobro en efectivo y cada apertura a mano desde el TPV.
+ * La fecha y la hora (de Canarias) las pone la base de datos. Si no se puede apuntar, no
+ * deshace la venta ni el cobro: devuelve el error para avisar.
+ */
+export async function apuntarAperturaCajon(a: { tienda: string; empleado: string | null; motivo: string; venta?: { tienda: string; numero: number } | null }) {
+  const { error } = await supabase.from('apertura_cajon').insert({
+    tienda_terminal_codigo: a.tienda,
+    empleado_codigo: a.empleado,
+    motivo: a.motivo,
+    venta_tienda_codigo: a.venta?.tienda ?? null,
+    venta_numero: a.venta?.numero ?? null,
+  })
+  return error ? `No se pudo apuntar la apertura del cajón: ${error.message}` : null
 }
 
 export async function cajaAbierta(tienda: string) {

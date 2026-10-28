@@ -4,6 +4,8 @@ import { RefreshCw } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { GwInput, GwLookupButton, GwNumber, GwSelect, formatGw } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
+import { useNavRegistro, type NavDir } from '../../components/gw/useNavRegistro'
+import { todasLasFilas } from '../../lib/todasLasFilas'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { useListaOrdenada, type GwListaOrdenadaDef } from '../../components/gw/GwListaOrdenada'
@@ -124,7 +126,6 @@ export function AperturasCierresPage() {
   const [formas, setFormas] = useState<FormaPagoCaja[]>([])
   const [empleadoActual, setEmpleadoActual] = useState<string | null>(null)
   const [maestros, setMaestros] = useState(false)
-  const [claves, setClaves] = useState<{ t: string; n: number }[]>([])
   const [caja, setCaja] = useState<CajaApertura | null>(null)
   const [orig, setOrig] = useState<CajaApertura | null>(null)
   const [tot, setTot] = useState<TotalesCaja>(CERO)
@@ -148,20 +149,6 @@ export function AperturasCierresPage() {
       setMaestros(true)
     })
   }, [])
-
-  const cargarClaves = useCallback(async () => {
-    const { data } = await supabase
-      .from('caja_apertura_cierre')
-      .select('tienda_terminal_codigo, ejercicio')
-      .order('tienda_terminal_codigo')
-      .order('ejercicio')
-      .limit(10000)
-    setClaves((data ?? []).map((r) => ({ t: r.tienda_terminal_codigo as string, n: Number(r.ejercicio) })))
-  }, [])
-
-  useEffect(() => {
-    cargarClaves()
-  }, [cargarClaves])
 
   const leerNombres = useCallback(async (c: CajaApertura | null) => {
     const [a, b] = await Promise.all([nombreEmpleado(c?.empleado_apertura_codigo ?? null), nombreEmpleado(c?.empleado_cierre_codigo ?? null)])
@@ -307,14 +294,15 @@ export function AperturasCierresPage() {
   useEffect(() => {
     if (pestana !== 'movs' || !caja || modo === 'alta') return
     let cancel = false
-    supabase
-      .from('movimiento_caja')
-      .select(MOV_COLS)
-      .eq('turno_tienda_codigo', caja.tienda_terminal_codigo)
-      .eq('turno_numero', caja.ejercicio)
-      .order('numero')
-      .limit(5000)
-      .then(({ data }) => !cancel && setMovs((data ?? []) as MovimientoCaja[]))
+    // Todos los movimientos del turno, por bloques (Supabase corta cada respuesta en 1000 filas).
+    todasLasFilas<MovimientoCaja>(() =>
+      supabase
+        .from('movimiento_caja')
+        .select(MOV_COLS)
+        .eq('turno_tienda_codigo', caja.tienda_terminal_codigo)
+        .eq('turno_numero', caja.ejercicio)
+        .order('numero'),
+    ).then(({ data }) => !cancel && setMovs(data))
     return () => {
       cancel = true
     }
@@ -324,8 +312,18 @@ export function AperturasCierresPage() {
     setCaja((x) => (x ? { ...x, ...c } : x))
   }
 
-  const idx = caja ? claves.findIndex((k) => k.t === caja.tienda_terminal_codigo && k.n === caja.ejercicio) : -1
+  // Navegación contra el servidor: solo el registro vecino (gt/lt + limit 1), nunca la lista de claves.
+  const nav = useNavRegistro<{ tienda_terminal_codigo: string; ejercicio: number }>({
+    tabla: 'caja_apertura_cierre',
+    orden: ['tienda_terminal_codigo', 'ejercicio'],
+    actual: modo === 'consulta' && caja ? [caja.tienda_terminal_codigo, caja.ejercicio] : null,
+    select: 'tienda_terminal_codigo, ejercicio',
+  })
   const ir = (k?: { t: string; n: number }) => k && navigate(`/caja/aperturas/${encodeURIComponent(k.t)}/${k.n}`)
+  const irNav = async (d: NavDir) => {
+    const k = await nav.ir(d)
+    if (k) ir({ t: k.tienda_terminal_codigo, n: Number(k.ejercicio) })
+  }
 
   async function cambiarTienda(t: string) {
     if (modo === 'alta') {
@@ -333,16 +331,27 @@ export function AperturasCierresPage() {
       await avisarAbierta(t)
       return
     }
-    const deTienda = claves.filter((k) => k.t === t)
-    if (deTienda.length) ir(deTienda[deTienda.length - 1])
+    const { data } = await supabase
+      .from('caja_apertura_cierre')
+      .select('ejercicio')
+      .eq('tienda_terminal_codigo', t)
+      .order('ejercicio', { ascending: false })
+      .limit(1)
+    const ultima = (data ?? [])[0]
+    if (ultima) ir({ t, n: Number(ultima.ejercicio) })
     else setMensaje({ texto: `La tienda ${t} no tiene aperturas de caja. Pulsa «Nuevo» para abrir su caja.`, error: true })
   }
 
-  function buscarNumero(texto: string) {
+  async function buscarNumero(texto: string) {
     const n = Number(texto.replace(/\D/g, ''))
     if (!n || !caja) return
-    const k = claves.find((x) => x.t === caja.tienda_terminal_codigo && x.n === n)
-    if (k) ir(k)
+    const { data } = await supabase
+      .from('caja_apertura_cierre')
+      .select('ejercicio')
+      .eq('tienda_terminal_codigo', caja.tienda_terminal_codigo)
+      .eq('ejercicio', n)
+      .maybeSingle()
+    if (data) ir({ t: caja.tienda_terminal_codigo, n })
     else setMensaje({ texto: `No existe la apertura de caja ${n} en la tienda ${caja.tienda_terminal_codigo}.`, error: true })
   }
 
@@ -371,7 +380,7 @@ export function AperturasCierresPage() {
             .eq('tienda_terminal_codigo', caja.tienda_terminal_codigo)
             .eq('ejercicio', Number(data))
         recordarTiendaPuesto(caja.tienda_terminal_codigo)
-        await cargarClaves()
+        nav.refrescar()
         setGuardando(false)
         navigate(`/caja/aperturas/${encodeURIComponent(caja.tienda_terminal_codigo)}/${data}`, { replace: true })
         return
@@ -427,7 +436,7 @@ export function AperturasCierresPage() {
     if (!confirm(`¿Eliminar la apertura de caja Nº ${caja.ejercicio} de la tienda ${caja.tienda_terminal_codigo}? No tiene movimientos.`)) return
     const { error } = await supabase.from('caja_apertura_cierre').delete().eq('tienda_terminal_codigo', caja.tienda_terminal_codigo).eq('ejercicio', caja.ejercicio)
     if (error) return setMensaje({ texto: error.message, error: true })
-    await cargarClaves()
+    nav.refrescar()
     navigate('/caja/aperturas', { replace: true })
   }
 
@@ -724,12 +733,12 @@ export function AperturasCierresPage() {
       <GwRecordBar
         grande
         mode={modo === 'cierre' ? 'edicion' : modo}
-        canNavigate={modo === 'consulta' && idx >= 0}
+        canNavigate={modo === 'consulta' && !!caja}
         saving={guardando}
-        onFirst={() => ir(claves[0])}
-        onPrev={() => idx > 0 && ir(claves[idx - 1])}
-        onNext={() => idx >= 0 && idx < claves.length - 1 && ir(claves[idx + 1])}
-        onLast={() => ir(claves[claves.length - 1])}
+        onFirst={() => irNav('primero')}
+        onPrev={() => irNav('anterior')}
+        onNext={() => irNav('siguiente')}
+        onLast={() => irNav('ultimo')}
         onSort={() => lista.abrir(LISTA_CAJAS, { ancla, onPick: (f) => ir({ t: String(f.tienda_terminal_codigo), n: Number(f.ejercicio) }) })}
         onSearch={() => lista.abrir(LISTA_CAJAS, { ancla, onPick: (f) => ir({ t: String(f.tienda_terminal_codigo), n: Number(f.ejercicio) }) })}
         onPrint={() => window.print()}

@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { filasPorTrozos } from '../../lib/todasLasFilas'
 
 // «Actualizado» de Modificación de Precios: vuelca el lote en artículos (articulo_precio_nivel,
 // articulo.pvp y fecha_ultima_modificacion_pvp), en las ofertas por cantidades y en los
@@ -114,10 +115,15 @@ async function clientes(cab: CabeceraMod, lineas: LineaMod[]) {
     codigos = [...vistos]
   }
   if (!codigos.length) return { error: null, n: 0 }
-  const { data: cls } = await supabase.from('cliente').select('codigo, tarifa_nivel_defecto').in('codigo', codigos)
-  const nivelDe = new Map(((cls ?? []) as { codigo: string; tarifa_nivel_defecto: number | null }[]).map((c) => [c.codigo, c.tarifa_nivel_defecto ?? 0]))
-  const { data: ex } = await supabase.from('cliente_articulo_precio').select('cliente_codigo, articulo_codigo').in('cliente_codigo', codigos).in('articulo_codigo', arts)
-  const existe = new Set(((ex ?? []) as { cliente_codigo: string; articulo_codigo: string }[]).map((r) => `${r.cliente_codigo}|${r.articulo_codigo}`))
+  // Por trozos y bloques: con miles de clientes, ni cabe la URL ni llegan más de 1000 filas.
+  const { data: cls } = await filasPorTrozos<{ codigo: string; tarifa_nivel_defecto: number | null }>(codigos, (t) =>
+    supabase.from('cliente').select('codigo, tarifa_nivel_defecto').in('codigo', t).order('codigo'),
+  )
+  const nivelDe = new Map(cls.map((c) => [c.codigo, c.tarifa_nivel_defecto ?? 0]))
+  const { data: ex } = await filasPorTrozos<{ cliente_codigo: string; articulo_codigo: string }>(codigos, (t) =>
+    supabase.from('cliente_articulo_precio').select('cliente_codigo, articulo_codigo').in('cliente_codigo', t).in('articulo_codigo', arts).order('cliente_codigo').order('articulo_codigo'),
+  )
+  const existe = new Set(ex.map((r) => `${r.cliente_codigo}|${r.articulo_codigo}`))
   if (cab.tipo_actualizacion_clientes === 2) {
     const { error } = await supabase.from('cliente_articulo_precio').delete().in('cliente_codigo', codigos).in('articulo_codigo', arts)
     if (error) return { error: error.message, n: 0 }

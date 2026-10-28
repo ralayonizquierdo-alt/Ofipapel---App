@@ -162,7 +162,8 @@ export function Layout() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--gw-face)]">
-      <div className="flex h-[24px] flex-none items-center gap-1.5 bg-white px-2 text-[12px]">
+      {/* pr-[60px]: la esquina derecha de la cabecera (título + menús) es la de NEXA. */}
+      <div className="flex h-[24px] flex-none items-center gap-1.5 bg-white pl-2 pr-[60px] text-[12px]">
         <GwAppIcon size={16} />
         <span className="truncate">
           Ofipapel ERP, Periodo: Periodo {new Date().getFullYear()} Empresa: {empresa}
@@ -219,8 +220,7 @@ function StatusBar({ text, email }: { text: string; email: string }) {
   }, [])
   const panel = 'flex h-[16px] items-center border border-t-[#a0a0a0] border-l-[#a0a0a0] border-b-white border-r-white px-1.5'
   return (
-    // pr-[92px]: la esquina derecha queda libre para el avatar flotante de NEXA.
-    <div className="flex h-[22px] flex-none items-center gap-[3px] border-t border-[var(--gw-border-light)] bg-[var(--gw-face)] pl-[3px] pr-[92px] text-[11px]">
+    <div className="flex h-[22px] flex-none items-center gap-[3px] border-t border-[var(--gw-border-light)] bg-[var(--gw-face)] px-[3px] text-[11px]">
       <span className="min-w-0 flex-1 truncate px-1">{text}</span>
       <span className={`${panel} max-w-[220px] truncate`}>{email}</span>
       <span className={`${panel} w-[48px] justify-center`}>NUM</span>

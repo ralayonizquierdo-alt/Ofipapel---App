@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Download, RefreshCw } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { todasLasFilas } from '../../lib/todasLasFilas'
 import { GwField, GwSelect } from '../../components/gw'
 import { descargarCsv, eur, eur0, finAnio, inicioAnio, numCsv, r2 } from './contabModel'
 import { Aviso, Barra, Rango, Rejilla, Vacio } from './ui'
@@ -16,8 +17,9 @@ interface FilaSS {
 }
 
 async function sumasSaldos(desde: string, hasta: string, nivel: number) {
-  const { data, error } = await supabase.rpc('fn_contab_sumas_saldos', { p_desde: desde, p_hasta: hasta, p_nivel: nivel })
-  if (error) throw new Error(error.message)
+  // Supabase corta cada respuesta en 1000 filas, también en las funciones: por bloques.
+  const { data, error } = await todasLasFilas(() => supabase.rpc('fn_contab_sumas_saldos', { p_desde: desde, p_hasta: hasta, p_nivel: nivel }), { tope: 500000 })
+  if (error) throw new Error(error)
   return (data ?? []) as FilaSS[]
 }
 

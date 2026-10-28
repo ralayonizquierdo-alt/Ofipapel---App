@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Eraser, ShoppingCart, Sparkles } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { avisoTope, todasLasFilas } from '../../../lib/todasLasFilas'
 import { formatGw } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { BarButton, BIG_INPUT, chunks, fechaEs, LocalizarDialog } from '../../ventas/gestores/comun'
@@ -74,18 +75,22 @@ export function TabPropuestas({
     setMsg('')
     onError(null)
     // Peticiones abiertas (lo que falta por tramitar) por artículo.
-    const { data: pets, error: ePet } = await supabase
-      .from('peticion')
-      .select('articulo_codigo, cantidad, cantidad_tramitada, origen_almacen_codigo')
-      .in('estado', ESTADOS_PET_ABIERTOS)
-      .limit(5000)
+    // Supabase corta cada respuesta en 1000 filas: todo por bloques (las sumas tienen que salir enteras).
+    const { data: pets, error: ePet } = await todasLasFilas(() =>
+      supabase
+        .from('peticion')
+        .select('articulo_codigo, cantidad, cantidad_tramitada, origen_almacen_codigo')
+        .in('estado', ESTADOS_PET_ABIERTOS)
+        .order('tienda_terminal_codigo')
+        .order('numero'),
+    )
     if (ePet) {
-      onError(ePet.message)
+      onError(ePet)
       setCargando(false)
       return
     }
     const peticiones = new Map<string, number>()
-    for (const p of pets ?? []) {
+    for (const p of pets) {
       if (filtro.almacen && p.origen_almacen_codigo && p.origen_almacen_codigo !== filtro.almacen) continue
       const falta = Number(p.cantidad ?? 0) - Number(p.cantidad_tramitada ?? 0)
       if (falta > 0) peticiones.set(p.articulo_codigo, (peticiones.get(p.articulo_codigo) ?? 0) + falta)
@@ -113,13 +118,14 @@ export function TabPropuestas({
     }
     const arts = new Map<string, Art>()
     if (filtro.bajoMinimo) {
-      const { data, error } = await base().gt('stock_minimo', 0).limit(5000)
+      const { data, error, cortado } = await todasLasFilas<Art>(() => base().gt('stock_minimo', 0).order('codigo_interno'))
       if (error) {
-        onError(error.message)
+        onError(error)
         setCargando(false)
         return
       }
-      for (const a of (data ?? []) as Art[]) arts.set(a.codigo_interno, a)
+      if (cortado) onError(avisoTope(data.length))
+      for (const a of data) arts.set(a.codigo_interno, a)
     }
     if (filtro.conPeticiones) {
       for (const trozo of chunks([...peticiones.keys()])) {
@@ -133,17 +139,30 @@ export function TabPropuestas({
     const pedido = new Map<string, number>()
     const prov = new Map<string, { codigo: string | null; coste: number | null }>()
     for (const trozo of chunks(codigos)) {
-      let qs = supabase.from('articulo_almacen_stock').select('articulo_codigo, cantidad_actual').in('articulo_codigo', trozo)
-      if (filtro.almacen) qs = qs.eq('almacen_codigo', filtro.almacen)
+      const qs = () => {
+        const q = supabase.from('articulo_almacen_stock').select('articulo_codigo, cantidad_actual').in('articulo_codigo', trozo)
+        return filtro.almacen ? q.eq('almacen_codigo', filtro.almacen) : q
+      }
       const [s, l, ap] = await Promise.all([
-        qs,
-        supabase.from('pedido_proveedor_linea').select('articulo_codigo, cantidad, unidades_recibidas').in('articulo_codigo', trozo).eq('recibido', false),
-        supabase.from('articulo_proveedor').select('articulo_codigo, proveedor_codigo, codigo_compra, coste_neto').in('articulo_codigo', trozo),
+        todasLasFilas(() => qs().order('articulo_codigo').order('almacen_codigo')),
+        todasLasFilas(() =>
+          supabase
+            .from('pedido_proveedor_linea')
+            .select('articulo_codigo, cantidad, unidades_recibidas')
+            .in('articulo_codigo', trozo)
+            .eq('recibido', false)
+            .order('tienda_terminal_codigo')
+            .order('numero')
+            .order('linea'),
+        ),
+        todasLasFilas(() =>
+          supabase.from('articulo_proveedor').select('articulo_codigo, proveedor_codigo, codigo_compra, coste_neto').in('articulo_codigo', trozo).order('articulo_codigo').order('proveedor_codigo'),
+        ),
       ])
-      for (const r of s.data ?? []) stock.set(r.articulo_codigo, (stock.get(r.articulo_codigo) ?? 0) + Number(r.cantidad_actual ?? 0))
-      for (const r of l.data ?? [])
+      for (const r of s.data) stock.set(r.articulo_codigo, (stock.get(r.articulo_codigo) ?? 0) + Number(r.cantidad_actual ?? 0))
+      for (const r of l.data)
         pedido.set(r.articulo_codigo, (pedido.get(r.articulo_codigo) ?? 0) + Math.max(0, Number(r.cantidad ?? 0) - Number(r.unidades_recibidas ?? 0)))
-      for (const r of ap.data ?? []) {
+      for (const r of ap.data) {
         const a = arts.get(r.articulo_codigo)
         if (a && r.proveedor_codigo === a.proveedor_habitual_codigo) prov.set(r.articulo_codigo, { codigo: r.codigo_compra, coste: r.coste_neto })
       }

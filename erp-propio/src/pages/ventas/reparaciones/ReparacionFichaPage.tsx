@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, FilePen, FilePlus2, FileX2, Binoculars, Tag, Package, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { todasLasFilas } from '../../../lib/todasLasFilas'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
@@ -249,13 +250,11 @@ export function ReparacionFichaPage() {
   }, [])
 
   useEffect(() => {
-    supabase
-      .from('pedido_cliente')
-      .select('tienda_terminal_codigo, numero')
-      .eq('es_reparacion', true)
-      .order('tienda_terminal_codigo')
-      .order('numero')
-      .then(({ data }) => setLista((data ?? []) as { tienda_terminal_codigo: string; numero: number }[]))
+    // Solo las claves, pero todas: Supabase corta cada respuesta en 1000 filas, así que por bloques.
+    todasLasFilas<{ tienda_terminal_codigo: string; numero: number }>(
+      () => supabase.from('pedido_cliente').select('tienda_terminal_codigo, numero').eq('es_reparacion', true).order('tienda_terminal_codigo').order('numero'),
+      { tope: 500000 },
+    ).then(({ data }) => setLista(data))
   }, [rep.numero])
 
   useEffect(() => {

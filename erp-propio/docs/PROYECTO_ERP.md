@@ -138,6 +138,12 @@ estas piezas, no con controles propios.**
   - **Ctrl+Intro** en un campo de código abre la lista ordenada
     alfabéticamente, colocada en el registro actual (`GwListaOrdenada` +
     `useListaOrdenada`, con las funciones SQL `gw_lista_ordenada*`).
+- **Más de 1000 filas:** Supabase devuelve como mucho 1000 filas por
+  consulta, aunque se pida `.limit(5000)`, y no avisa. Toda consulta que
+  pueda pasar de ahí va con `todasLasFilas` / `filasPorTrozos`
+  (`src/lib/todasLasFilas.ts`): pide por bloques con `.range()` y, en los
+  gestores, con un tope y el aviso «Se muestran las primeras N filas; afina
+  el filtro» (`avisoTope`). La consulta debe ir ordenada por una clave única.
 - **Listados:** `GwListado` es la pieza común de todos los informes (filtros,
   vista previa, imprimir); `GwInformeArticulos` para los de artículos.
 
@@ -352,7 +358,9 @@ Una asistente dentro del ERP para preguntar en lenguaje normal («¿qué pedidos
 están pendientes de servir?», «¿cuánto stock queda de tal artículo?») y que
 lleve a la pantalla adecuada.
 
-- **Se abre** con el avatar de la esquina o con **Ctrl+Espacio**. Saluda según
+- **Se abre** con el avatar de la esquina superior derecha (en la franja del
+  título y los menús, para no tapar botones de las ventanas) o con
+  **Ctrl+Espacio**. Saluda según
   la hora de Canarias y por el nombre del empleado, y **habla en voz alta**
   (se puede silenciar; la preferencia se recuerda).
 - **El avatar** es una cara hecha de partículas (WebGL2, `src/nexa/visual`)
@@ -398,11 +406,13 @@ lleve a la pantalla adecuada.
 ## 13. Lo que falta (por orden aproximado)
 
 **Arreglos conocidos**
-- NEXA tapa el botón «Salir» de algunos gestores: hay que moverla.
-- Tres fichas (Factura de cliente, Aperturas y cierres, Peticiones) aún
-  cargan todas las claves al abrir: pasarlas a navegación por registro vecino.
-- Algunos gestores se cortan en 1000 filas sin avisar.
-- El TPV no apunta las aperturas de cajón en `apertura_cajon`.
+- Resueltos el 28/10/2026: NEXA ya no tapa «Salir» (ahora está arriba a la
+  derecha, en la cabecera); Factura de cliente, Aperturas y cierres y
+  Peticiones navegan por registro vecino; gestores y listados ya no se cortan
+  en 1000 filas (`todasLasFilas`); el TPV apunta las aperturas de cajón.
+- Quedan cargando la lista entera de claves (ahora completa, por bloques)
+  las fichas de Reparaciones, Repartos e Inventarios: pasarlas también a
+  `useNavRegistro` cuando se toquen.
 
 **Funcionalidad**
 - **Gestor de pagos de clientes** (cobros): construido sin captura el 28/10

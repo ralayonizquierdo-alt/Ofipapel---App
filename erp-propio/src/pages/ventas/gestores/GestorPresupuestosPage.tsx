@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Binoculars, Check, ChevronFirst, ChevronLast, DoorOpen, Play, Printer } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { avisoTope, todasLasFilas } from '../../../lib/todasLasFilas'
 import { formatGw } from '../../../components/gw'
 import {
   BarButton,
@@ -81,6 +82,9 @@ function diasHasta(fecha: string | null) {
 
 const siNo = (v: boolean) => (v ? 'Si' : 'No')
 
+/** Máximo de presupuestos que trae el gestor; si hay más, avisa de que se afine el filtro. */
+const TOPE_PRESUPUESTOS = 5000
+
 export function GestorPresupuestosPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState('seguimiento')
@@ -91,6 +95,7 @@ export function GestorPresupuestosPage() {
   const [rows, setRows] = useState<PresupuestoRow[]>([])
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
   const [nuevos, setNuevos] = useState<string[]>([])
   const conocidos = useRef<Set<string> | null>(null)
   const [sel, setSel] = useState(0)
@@ -100,17 +105,23 @@ export function GestorPresupuestosPage() {
   const cargar = useCallback(async (f: Filtro) => {
     setCargando(true)
     setError(null)
-    const base = supabase
-      .from('pedido_cliente')
-      .select('tienda_terminal_codigo, numero, fecha, hora, fecha_fin, aceptado, anulado, venta_numero, cliente_codigo, nombre_cliente, cliente:cliente_codigo(nombre)')
-      .eq('es_presupuesto', true)
-      .eq('es_reparacion', false)
-    const { data, error: e } = await conFiltro(base, f, f.campo, f.campo === 'actualizado_en').order('fecha').order('hora').limit(2000)
+    const base = () =>
+      supabase
+        .from('pedido_cliente')
+        .select('tienda_terminal_codigo, numero, fecha, hora, fecha_fin, aceptado, anulado, venta_numero, cliente_codigo, nombre_cliente, cliente:cliente_codigo(nombre)')
+        .eq('es_presupuesto', true)
+        .eq('es_reparacion', false)
+    // Supabase corta cada respuesta en 1000 filas: se pide por bloques, con tope y aviso.
+    const { data, error: e, cortado } = await todasLasFilas(
+      () => conFiltro(base(), f, f.campo, f.campo === 'actualizado_en').order('fecha').order('hora').order('tienda_terminal_codigo').order('numero'),
+      { tope: TOPE_PRESUPUESTOS },
+    )
     if (e) {
-      setError(e.message)
+      setError(e)
       setCargando(false)
       return
     }
+    setAviso(cortado ? avisoTope(TOPE_PRESUPUESTOS) : null)
     const filas: PresupuestoRow[] = (data ?? []).map((p) => ({
       key: `${p.tienda_terminal_codigo}/${p.numero}`,
       tienda: p.tienda_terminal_codigo,
@@ -222,6 +233,7 @@ export function GestorPresupuestosPage() {
               </div>
             )}
             {error && <div className="flex-none text-[14px] text-[#c42b1c]">{error}</div>}
+            {aviso && !error && <div className="flex-none text-[14px] font-bold text-[#c42b1c]">{aviso}</div>}
             <FiltroBar filtro={filtro} onChange={setFiltro} campos={CAMPOS_FECHA}>
               <button type="button" className="gw-btn h-[62px]! w-full text-[20px]!" onClick={aplicar} disabled={cargando}>
                 <Check size={16} strokeWidth={3} className="text-[#2a9d2a]" />

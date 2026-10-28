@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Download, RefreshCw } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { todasLasFilas } from '../../lib/todasLasFilas'
 import { GwCheck, GwField, GwNumber } from '../../components/gw'
 import { descargarCsv, eur0, fechaEs, hoy, numCsv, r2 } from './contabModel'
 import { Aviso, Barra, Rango, Rejilla, Vacio } from './ui'
@@ -35,30 +36,47 @@ export function PrevisionTesoreriaPage() {
     setError(null)
     try {
       const out: Previsto[] = []
+      // Supabase corta cada respuesta en 1000 filas: todo lo pendiente se pide por bloques.
       const [cob, pag, fac, fpr, anu] = await Promise.all([
-        supabase
-          .from('cobro_cliente')
-          .select('tienda_terminal_codigo, codigo_pago, fecha_vencimiento, fecha, importe_cobrado, cuota, concepto, factura_tienda_codigo, factura_numero, cliente:cliente_codigo(nombre)')
-          .eq('activo', true)
-          .neq('estado_cobro', 'cobrado'),
-        supabase
-          .from('pago_proveedor')
-          .select('tienda_terminal_codigo, codigo_pago, fecha_vencimiento, fecha, importe_pagado, cuota, concepto, receptor_nombre, factura_relacionada_tienda_codigo, factura_relacionada_id')
-          .eq('activo', true)
-          .eq('estado_pago', 'pendiente'),
-        supabase
-          .from('factura')
-          .select('tienda_terminal_codigo, numero, serie, n_factura, tipo_factura, fecha_factura, fecha_primer_pago, total_pendiente, nombre_cliente')
-          .neq('total_pendiente', 0),
-        supabase
-          .from('factura_proveedor')
-          .select('tienda_terminal_codigo, id, numero_factura_externo, fecha_factura, fecha_vencimiento, total_pendiente, pagado, proveedor:proveedor_codigo(nombre)')
-          .gt('total_pendiente', 0)
-          .eq('pagado', false),
+        todasLasFilas(() =>
+          supabase
+            .from('cobro_cliente')
+            .select('tienda_terminal_codigo, codigo_pago, fecha_vencimiento, fecha, importe_cobrado, cuota, concepto, factura_tienda_codigo, factura_numero, cliente:cliente_codigo(nombre)')
+            .eq('activo', true)
+            .neq('estado_cobro', 'cobrado')
+            .order('tienda_terminal_codigo')
+            .order('codigo_pago'),
+        ),
+        todasLasFilas(() =>
+          supabase
+            .from('pago_proveedor')
+            .select('tienda_terminal_codigo, codigo_pago, fecha_vencimiento, fecha, importe_pagado, cuota, concepto, receptor_nombre, factura_relacionada_tienda_codigo, factura_relacionada_id')
+            .eq('activo', true)
+            .eq('estado_pago', 'pendiente')
+            .order('tienda_terminal_codigo')
+            .order('codigo_pago'),
+        ),
+        todasLasFilas(() =>
+          supabase
+            .from('factura')
+            .select('tienda_terminal_codigo, numero, serie, n_factura, tipo_factura, fecha_factura, fecha_primer_pago, total_pendiente, nombre_cliente')
+            .neq('total_pendiente', 0)
+            .order('tienda_terminal_codigo')
+            .order('numero'),
+        ),
+        todasLasFilas(() =>
+          supabase
+            .from('factura_proveedor')
+            .select('tienda_terminal_codigo, id, numero_factura_externo, fecha_factura, fecha_vencimiento, total_pendiente, pagado, proveedor:proveedor_codigo(nombre)')
+            .gt('total_pendiente', 0)
+            .eq('pagado', false)
+            .order('tienda_terminal_codigo')
+            .order('id'),
+        ),
         // Facturas anuladas en VeriFactu: la factura no cambia, la anulación es un registro aparte
-        supabase.from('registro_facturacion').select('origen_tienda_codigo, origen_numero').eq('origen_tipo', 'factura').eq('tipo_registro', 'anulacion'),
+        todasLasFilas(() => supabase.from('registro_facturacion').select('origen_tienda_codigo, origen_numero').eq('origen_tipo', 'factura').eq('tipo_registro', 'anulacion').order('id')),
       ])
-      for (const r of [cob, pag, fac, fpr, anu]) if (r.error) throw new Error(r.error.message)
+      for (const r of [cob, pag, fac, fpr, anu]) if (r.error) throw new Error(r.error)
       const anuladas = new Set((anu.data ?? []).map((a) => `${a.origen_tienda_codigo}-${a.origen_numero}`))
       const conCobro = new Set<string>()
       for (const c of (cob.data ?? []) as unknown as Record<string, unknown>[]) {
@@ -108,7 +126,7 @@ export function PrevisionTesoreriaPage() {
       setFilas(out)
       // Saldo actual de tesorería según la contabilidad (570 + 572)
       if (saldoInicial == null) {
-        const { data } = await supabase.rpc('fn_contab_sumas_saldos', { p_desde: '2000-01-01', p_hasta: hoy(), p_nivel: 2 })
+        const { data } = await todasLasFilas(() => supabase.rpc('fn_contab_sumas_saldos', { p_desde: '2000-01-01', p_hasta: hoy(), p_nivel: 2 }))
         const t = ((data ?? []) as { cuenta: string; debe: number; haber: number }[]).find((x) => x.cuenta === '57')
         setSaldoInicial(t ? r2(Number(t.debe) - Number(t.haber)) : 0)
       }

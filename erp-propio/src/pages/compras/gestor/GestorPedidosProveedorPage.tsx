@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, RefreshCw, ShoppingCart } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { avisoTope, todasLasFilas } from '../../../lib/todasLasFilas'
 import { formatGw, GwDate } from '../../../components/gw'
 import { BarButton, BigTabs, BIG_INPUT, chunks, fechaEs, leerOpciones, LocalizarDialog, OptionButton, PERIODOS, pitido, rangoPeriodo, useRefresco, type Periodo } from '../../ventas/gestores/comun'
 import { ordenar, Rejilla, type Col, type Orden } from '../../ventas/gestores/rejilla'
@@ -92,6 +93,9 @@ const dia = (iso: string, n: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/** Máximo de pedidos que trae el gestor; si hay más, avisa de que se afine el filtro. */
+const TOPE_PEDIDOS = 5000
+
 export function GestorPedidosProveedorPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState('pedidos')
@@ -102,6 +106,7 @@ export function GestorPedidosProveedorPage() {
   const [lineas, setLineas] = useState<LineaRow[]>([])
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
   const [nuevos, setNuevos] = useState<string[]>([])
   const conocidos = useRef<Set<string> | null>(null)
   const [selP, setSelP] = useState(0)
@@ -117,33 +122,42 @@ export function GestorPedidosProveedorPage() {
     // Pedidos que llevan el artículo pedido (por código interno o de compra).
     let soloNumeros: Set<string> | null = null
     if (f.filtrarPorArticulo && f.articulo.trim()) {
-      const { data, error: e } = await supabase
-        .from('pedido_proveedor_linea')
-        .select('tienda_terminal_codigo, numero')
-        .eq(f.articuloModo === 'interno' ? 'articulo_codigo' : 'codigo_compra', f.articulo.trim())
-        .limit(2000)
+      const { data, error: e } = await todasLasFilas(() =>
+        supabase
+          .from('pedido_proveedor_linea')
+          .select('tienda_terminal_codigo, numero')
+          .eq(f.articuloModo === 'interno' ? 'articulo_codigo' : 'codigo_compra', f.articulo.trim())
+          .order('tienda_terminal_codigo')
+          .order('numero')
+          .order('linea'),
+      )
       if (e) {
-        setError(e.message)
+        setError(e)
         setCargando(false)
         return
       }
       soloNumeros = new Set((data ?? []).map((l) => `${l.tienda_terminal_codigo}/${l.numero}`))
     }
 
-    let q = supabase
-      .from('pedido_proveedor')
-      .select('tienda_terminal_codigo, numero, almacen_codigo, proveedor_codigo, fecha_hora, fecha_solicitud, fecha_prevista, estado, total, stock_movido, es_abono, proveedor:proveedor_codigo(nombre)')
-    if (f.estados.length) q = q.in('estado', f.estados)
-    if (f.campo === 'fecha_hora') q = q.gte('fecha_hora', f.desde).lt('fecha_hora', dia(f.hasta, 1))
-    else q = q.gte(f.campo, f.desde).lte(f.campo, f.hasta)
-    if (f.actualizadosNo !== f.actualizadosSi) q = q.eq('stock_movido', f.actualizadosSi)
-    if (f.devolucionesNo !== f.devolucionesSi) q = q.eq('es_abono', f.devolucionesSi)
-    const { data: cab, error: e1 } = await q.order('fecha_hora').limit(2000)
+    const consulta = () => {
+      let q = supabase
+        .from('pedido_proveedor')
+        .select('tienda_terminal_codigo, numero, almacen_codigo, proveedor_codigo, fecha_hora, fecha_solicitud, fecha_prevista, estado, total, stock_movido, es_abono, proveedor:proveedor_codigo(nombre)')
+      if (f.estados.length) q = q.in('estado', f.estados)
+      if (f.campo === 'fecha_hora') q = q.gte('fecha_hora', f.desde).lt('fecha_hora', dia(f.hasta, 1))
+      else q = q.gte(f.campo, f.desde).lte(f.campo, f.hasta)
+      if (f.actualizadosNo !== f.actualizadosSi) q = q.eq('stock_movido', f.actualizadosSi)
+      if (f.devolucionesNo !== f.devolucionesSi) q = q.eq('es_abono', f.devolucionesSi)
+      return q.order('fecha_hora').order('tienda_terminal_codigo').order('numero')
+    }
+    // Supabase corta cada respuesta en 1000 filas: se pide por bloques, con tope y aviso.
+    const { data: cab, error: e1, cortado } = await todasLasFilas(consulta, { tope: TOPE_PEDIDOS })
     if (e1) {
-      setError(e1.message)
+      setError(e1)
       setCargando(false)
       return
     }
+    setAviso(cortado ? avisoTope(TOPE_PEDIDOS) : null)
     // Ninguna de las dos casillas marcada: no se muestra nada de ese grupo, como en GeminisWin.
     const vacio = (!f.actualizadosNo && !f.actualizadosSi) || (!f.devolucionesNo && !f.devolucionesSi)
     const cabs = vacio ? [] : (cab ?? []).filter((c) => !soloNumeros || soloNumeros.has(`${c.tienda_terminal_codigo}/${c.numero}`))
@@ -180,11 +194,16 @@ export function GestorPedidosProveedorPage() {
       bonificacion_recibida: number | null
     }[] = []
     for (const parte of chunks([...new Set(filasP.map((p) => p.numero))])) {
-      const { data } = await supabase
-        .from('pedido_proveedor_linea')
-        .select('tienda_terminal_codigo, numero, linea, articulo_codigo, descripcion, bonificacion, cantidad, precio_compra, recibido, unidades_recibidas, bonificacion_recibida')
-        .in('numero', parte)
-      lin.push(...(data ?? []).filter((l) => claves.has(`${l.tienda_terminal_codigo}/${l.numero}`)))
+      const { data } = await todasLasFilas(() =>
+        supabase
+          .from('pedido_proveedor_linea')
+          .select('tienda_terminal_codigo, numero, linea, articulo_codigo, descripcion, bonificacion, cantidad, precio_compra, recibido, unidades_recibidas, bonificacion_recibida')
+          .in('numero', parte)
+          .order('tienda_terminal_codigo')
+          .order('numero')
+          .order('linea'),
+      )
+      lin.push(...data.filter((l) => claves.has(`${l.tienda_terminal_codigo}/${l.numero}`)))
     }
     const familias = new Map<string, string>()
     for (const parte of chunks([...new Set(lin.map((l) => l.articulo_codigo))])) {
@@ -326,6 +345,7 @@ export function GestorPedidosProveedorPage() {
           </div>
         )}
         {error && <div className="flex-none text-[14px] text-[#c42b1c]">{error}</div>}
+        {aviso && !error && <div className="flex-none text-[14px] font-bold text-[#c42b1c]">{aviso}</div>}
 
         {tab === 'pedidos' && (
           <>
