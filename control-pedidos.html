@@ -278,7 +278,7 @@ table.lista-pedidos .c-movil{display:none}
 <div id="login" class="oculto">
   <form onsubmit="event.preventDefault(); entrarConUsuario()">
     <h2>Control de Pedidos</h2>
-    <p class="pequeno" style="margin:0">Entra con tu usuario una vez en este dispositivo: se queda guardado.</p>
+    
     <label>Usuario<input id="loginUsuario" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="luis, rober, miguel…"></label>
     <label>Contraseña<input id="loginClave" type="password" autocomplete="current-password"></label>
     <div class="error" id="loginError"></div>
@@ -612,11 +612,11 @@ function vistaReposicion() {
   return `
   <div class="tarjeta no-imprimir">
     <h2>🔄 Nuevo pedido de reposición</h2>
-    <p class="pequeno" style="margin:0 0 10px">Sube el pedido que enviaste al proveedor (PDF, Excel o foto). El proveedor sale del propio documento. Después, dentro del pedido, sube su propuesta o factura para compararlas y validarlo.</p>
+    
     <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📤 Subir nuestro pedido al proveedor
       <input type="file" class="oculto" onchange="subirEnvio(this.files[0]); this.value=''"></label>
     <div id="progresoEnvios" class="progreso"></div>
-    <div class="pequeno" style="margin-top:8px">¿Sin documento? <a href="#" onclick="crearReposicionVacia();return false">Créalo vacío y escribe las líneas</a>.</div>
+    <a href="#" class="pequeno" onclick="crearReposicionVacia();return false">o créalo vacío</a>
   </div>
   <div class="pequeno no-imprimir" style="margin:-4px 0 12px">¿Solo quieres pasar una factura del proveedor a Géminis, sin pedido ni comparación? Súbela en la pestaña <a href="#" onclick="vista='importar';pedidoAbierto=null;pintar();return false">📄 PDF a Excel</a> (PDF o Excel).</div>
   <div class="tarjeta">
@@ -648,7 +648,7 @@ function vistaLista() {
   return `
   <div class="tarjeta">
     <h2>📷 Subir los pedidos de una campaña</h2>
-    <p class="pequeno" style="margin:0 0 10px">Para pedidos <b>nuevos</b>. Escribe el proveedor y la campaña y elige a la vez <b>todas las fotos de todos los clientes</b>: la app lee en cada hoja el <b>nº de pedido y el cliente</b> y crea un pedido por cada uno; las hojas del mismo pedido se juntan. Aquí nunca se añaden fotos a un pedido que ya existía: para completar uno, ábrelo y usa «Hacer foto».</p>
+    
     <div class="fila">
       <label>Proveedor<input id="lotProv" list="listaProv" placeholder="Escribe o elige el proveedor"></label>
       <label>Campaña<input id="lotCamp" list="listaCamp" placeholder="Escribe o elige la campaña"></label>
@@ -748,7 +748,7 @@ function vistaGrupo(g, i) {
         <input type="file" multiple class="oculto" onchange="cargarFacturasVarias(this.files, ${js(g.clave)}); this.value=''"></label>`}
       ${esRepo(ej) ? '' : `<button class="btn" onclick="imprimirGuiaFacturacion(${js(g.clave)})">🧾 Imprimir guía de facturación</button>`}
       <button class="btn peque peligro" onclick="borrarCampana(${js(g.clave)})">🗑️ Borrar ${esRepo(ej) ? 'estas reposiciones' : 'la campaña'}</button>
-      <span class="pequeno"${esComercial() ? ' style="display:none"' : ''}>El Excel es la <b>compra al proveedor</b>: lo que nos factura, a su precio y descuento y en su orden, no el pedido del cliente; si ya está la factura final, sale de ella. Sin marcar ninguno, sale toda la campaña; marcando pedidos, solo esos. Solo pedidos validados; varios se suman por referencia.</span>
+      
     </div>
     ${comparados.length ? `
     <h3 style="margin-top:14px">Faltas y sobras</h3>
@@ -930,7 +930,7 @@ function vistaNuevo() {
         <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📷 Mejor subir fotos de pedidos a esta campaña
           <input type="file" accept="image/*" multiple class="oculto" onchange="subirFotosCampana(this.files, ${js(pre.proveedor)}, ${js(pre.campana || '')}); this.value=''"></label>
       </div></div>` : ''}
-    <p class="pequeno" style="margin:0 0 10px">Sin fotos: creas el pedido y escribes sus artículos. Entra en su campaña igual que los que llegan por foto.</p>
+    
     <div class="fila">
       <label>Proveedor<select id="npProvSel" onchange="elegirProveedorNuevo()">
           <option value="">Elige el proveedor…</option>
@@ -1292,7 +1292,7 @@ function celdaPrecio(p, base, dtos, neto) {
 function vistaDetalleRepo(p) {
   const cat = catalogoDe(p.proveedor);
   const filas = comparar(p);
-  const ayudaPdf = `<div class="pequeno" style="margin-top:6px">El PDF o la foto se leen con IA, de cualquier proveedor: la app comprueba que las líneas sumen la base imponible del documento y marca en ámbar lo dudoso. Revísalo siempre antes de comparar.</div>`;
+  const ayudaPdf = ``;
   return `
   <div class="no-imprimir" style="margin-bottom:10px"><button class="btn peque" onclick="pedidoAbierto=null;pintar()">← Todos los pedidos</button></div>
   <div class="tarjeta">
@@ -1405,7 +1405,7 @@ function tablaLineasRepo(p, cat, lado) {
       </tr>`;
     }).join('')}
   </table></div>
-  <div class="pequeno" style="margin-top:6px">Sin precio en una línea, se compara con el último precio neto aceptado de ese proveedor (si lo hay).</div>`;
+  `;
 }
 
 async function cargarEnvio(file) {
@@ -1463,7 +1463,7 @@ function tablaLineas(p, cat) {
       </tr>`;
     }).join('')}
   </table></div>
-  ${dudas ? `<div class="pequeno" style="margin-top:6px">Las filas en ámbar tienen una duda de lectura: compruébalas con la foto y borra el texto de la duda cuando estén bien.</div>` : ''}`;
+  ${dudas ? `` : ''}`;
 }
 
 function vistaComparacion(p, filas) {
@@ -1499,6 +1499,7 @@ function vistaComparacion(p, filas) {
             <select onchange="decide(${js(f.ref)},'accion',this.value)">
               <option value="">— decidir —</option>
               ${acciones.map((a) => `<option value="${a}" ${d.accion === a ? 'selected' : ''}>${nombres[a]}</option>`).join('')}
+              ${f.cantPropuesta < f.cantPedida ? `<option value="anadir">➕ Lo añade el proveedor (meterlo en su propuesta)</option>` : ''}
               ${f.estado === 'falta' ? filas.filter((x) => x.estado === 'extra').map((x) => `<option value="eq:${h(x.ref)}">🔗 Es la «${h(x.ref)}» del proveedor (${h(String(x.desc || '').slice(0, 30))})</option>`).join('') : ''}
             </select>
             ${d.accion === 'manual' ? `<div class="fila" style="margin-top:4px"><input class="cant" placeholder="Cant." value="${h(d.cant)}" onchange="decide(${js(f.ref)},'cant',this.value)"><input class="precio" placeholder="${esRepo(p) ? 'Neto' : 'Precio'}" value="${h(d.precio)}" onchange="decide(${js(f.ref)},'precio',this.value)"></div>` : ''}
@@ -1525,16 +1526,16 @@ function vistaComparacion(p, filas) {
     </label>
     ${n.revisar ? (() => { const nm = filas.filter((f) => f.revisar && marcadasDec.has(f.ref)).length; return `<div id="barraBloque" class="fila no-imprimir" style="margin:6px 0;gap:6px;align-items:center;${nm ? '' : 'display:none'}">
       <b><span id="nMarcadas">${nm}</span> marcadas:</b>
-      <select id="accionBloque"><option value="">— decisión —</option>${['aceptar', 'reclamar', 'resto', 'anular', 'mantener', 'excluir'].filter((a) => esRepo(p) ? a !== 'resto' && a !== 'anular' : true).map((a) => `<option value="${a}">${nombres[a]}</option>`).join('')}</select>
+      <select id="accionBloque"><option value="">— decisión —</option>${['aceptar', 'reclamar', 'resto', 'anular', 'mantener', 'excluir'].filter((a) => esRepo(p) ? a !== 'resto' && a !== 'anular' : true).map((a) => `<option value="${a}">${nombres[a]}</option>`).join('')}<option value="anadir">➕ Lo añade el proveedor</option></select>
       <button class="btn primario peque" onclick="decidirEnBloque(document.getElementById('accionBloque').value)">Aplicar</button>
     </div>`; })() : ''}
     ${mostrar.length ? tabla(mostrar) : `<div class="aviso-caja ok">${n.revisar ? '✅ Todas las discordancias están decididas.' : 'Todo cuadra.'}</div>`}
     ${plegadas.length ? `<details class="decididas"><summary>Ya decididas o solo informativas (${plegadas.length}) — abrir para ver o cambiar</summary>${tabla(plegadas)}</details>` : ''}
     <div class="fila no-imprimir" style="margin-top:14px">
-      ${p.validado ? `<button class="btn ok" disabled>✅ Pedido validado</button><span class="pequeno">Si cambias una decisión o una línea, vuelve a «Validar pedido».</span>`
+      ${p.validado ? `<button class="btn ok" disabled>✅ Pedido validado</button>`
         : `<button class="btn primario" ${pend.length ? 'disabled' : ''} onclick="validarPedido()">Validar pedido</button>`}
-      ${p.validado ? '' : pend.length ? `<span class="pequeno">Decide las ${pend.length} discordancias pendientes para poder validar.</span>` : (esRepo(p) ? `<span class="pequeno">Al validar se guardan los precios netos aceptados para comparar los próximos pedidos. Las faltas de reposición no van a Restos.</span>`
-        : `<span class="pequeno">Al validar, lo que no llega pasa a Restos y las notas a Notas de facturación.</span>`)}
+      ${p.validado ? '' : pend.length ? `<span class="pequeno">Decide las ${pend.length} discordancias pendientes para poder validar.</span>` : (esRepo(p) ? ``
+        : ``)}
     </div>
     ${p.validado ? `<div class="fila no-imprimir" style="margin-top:10px">
       ${esRepo(p) ? `<button class="btn" onclick="window.print()">Imprimir comparación</button>` : `<button class="btn" onclick="imprimirListado('${p.id}')">Imprimir listado del cliente</button>`}
@@ -1555,7 +1556,8 @@ function bloqueFaltasSobras(p, filas) {
   const cambiarReclamada = (x) => {
     const f = filaDe.get(x.ref);
     if (!f || (p.decisiones[x.ref] || {}).accion !== 'reclamar') return '';
-    return ' ' + CP.accionesPara(f, p.tipo).filter((a) => cortos[a]).map((a) => `<button class="btn peque no-imprimir" onclick="decide(${js(x.ref)},'accion','${a}')">${cortos[a]}</button>`).join(' ');
+    const anadir = f.cantPropuesta < f.cantPedida ? ` <button class="btn peque no-imprimir" onclick="decide(${js(x.ref)},'accion','anadir')">➕ Lo añade el proveedor</button>` : '';
+    return anadir + ' ' + CP.accionesPara(f, p.tipo).filter((a) => cortos[a]).map((a) => `<button class="btn peque no-imprimir" onclick="decide(${js(x.ref)},'accion','${a}')">${cortos[a]}</button>`).join(' ');
   };
   const linea = (x, signo, falta) => {
     const acc = (p.decisiones[x.ref] || {}).accion;
@@ -1783,7 +1785,7 @@ function avisoRestosEnPropuesta(p) {
   if (!r.length) return '';
   return `<div class="aviso-caja info"><b>Esta propuesta trae artículos que están en restos de otros clientes:</b><br>${r.map((x) =>
     `${h(x.ref)} ${h(x.desc)} — ${x.pendiente} ud. de <b>${h(x.cliente)}</b> (pedido ${h(x.numero)}, ${h(fmtFecha(x.fecha))})`).join('<br>')}
-    <br><span class="pequeno">Cuando llegue la mercancía, regístralo en «Restos → Registrar llegada» para asignárselo.</span></div>`;
+    <br></div>`;
 }
 
 // ── Edición ──────────────────────────────────────────────────────────────────
@@ -1866,7 +1868,7 @@ function libreta(p) {
   return `
     <div class="libreta no-imprimir">
       <div class="libreta-cab"><b>📝 Bloc del pedido</b>${reg.length ? ` · ${reg.length} apuntado(s)${borradas ? ` · ${borradas} tachado(s)` : ''}` : ''}
-        <span class="pequeno">· escribe y pulsa <b>Enter</b>: cantidad → referencia → descripción → precio; en el precio, Enter apunta la línea. <b>ud</b>/<b>EXP</b>: unidades o expositores. <b>ABC</b>: teclado de letras para la referencia.</span></div>
+        </div>
       <div class="hoja" id="hojaLibreta">
         <div class="renglon titulos"><span class="l-num"></span><span class="l-cant">Cant.</span><span class="l-ref"><span class="t-largo">Referencia</span><span class="t-corto">Ref.</span> <button type="button" id="qaRefModo" class="exp-toggle" title="Teclado de letras o de números para la referencia" onclick="modoRef()">ABC</button></span><span class="l-desc">Descripción</span><span class="l-precio">Precio</span></div>
         ${escritas}
@@ -2085,6 +2087,7 @@ function decidirEnBloque(accion) {
   if (!filas.length) { alert('No hay ninguna marcada.'); return; }
   const no = [];
   for (const f of filas) {
+    if (accion === 'anadir') { if (!anadirAPropuesta(f.ref, true)) no.push(f.ref); continue; }
     if (!CP.accionesPara(f, p.tipo).includes(accion)) { no.push(f.ref); continue; }
     p.decisiones[f.ref] = Object.assign({}, p.decisiones[f.ref], { accion });
   }
@@ -2092,8 +2095,29 @@ function decidirEnBloque(accion) {
   invalidar(p); guardar(); pintar();
   if (no.length) alert(`Hecho en ${filas.length - no.length}. Estas no admiten esa decisión y siguen igual: ${no.join(', ')}`);
 }
+/** El proveedor confirma que añade lo que faltaba y no manda propuesta nueva:
+ *  se mete en su propuesta lo que falta, a su precio si ya la traía y si no al
+ *  nuestro. Va como «añadida a mano» (se ve y se quita en «Documentos subidos»). */
+function anadirAPropuesta(ref, enLote) {
+  const p = pedidoActual();
+  const f = comparar(p).find((x) => x.ref === ref);
+  if (!f || !p.propuesta || f.cantPropuesta >= f.cantPedida) return false;
+  const k = CP.claveRef(ref);
+  const suya = p.propuesta.lineas.find((l) => CP.claveRef(l.ref) === k);
+  const nuestra = p.lineas.find((l) => CP.claveRef(l.ref) === k) || {};
+  const base = suya || nuestra;
+  const cant = f.cantPedida - f.cantPropuesta;
+  const neto = CP.precioNeto(base);
+  p.propuesta.lineas.push({ ref: suya ? suya.ref : ref, desc: base.desc || f.desc, cant, precio: base.precio, dtos: (base.dtos || []).slice(),
+    importe: neto != null ? CP.red2(neto * cant) : null, origen: 'añadida a mano' });
+  delete p.decisiones[ref];
+  invalidar(p);
+  if (!enLote) { guardar(); pintar(); }
+  return true;
+}
 function decide(ref, campo, valor) {
   const p = pedidoActual();
+  if (campo === 'accion' && valor === 'anadir') { anadirAPropuesta(ref); return; }
   if (campo === 'accion' && String(valor).startsWith('eq:')) { emparejar(String(valor).slice(3), ref); return; }
   p.decisiones[ref] = Object.assign({}, p.decisiones[ref], { [campo]: valor });
   // La nota para el proveedor solo cambia el texto de la reclamación: no hay que revalidar.
@@ -2826,7 +2850,7 @@ function vistaFacturaFinal(p) {
   return `
   <div class="tarjeta">
     <h2>4 · Factura final del proveedor <span class="pequeno">(último control${esRepo(p) ? ', opcional' : ''})</span></h2>
-    <p class="pequeno" style="margin:0 0 8px">Sube la factura definitiva: la comparo con lo que validaste y te digo si falta alguna referencia, si viene algo de más o si cambia algún precio. <b>Manda la factura:</b> en cuanto está, el Excel de Géminis sale de ella.</p>
+    
     <div class="fila no-imprimir">
       <label>Factura final (PDF, Excel o foto)<input type="file" onchange="cargarFacturaEn('${p.id}', this.files[0]); this.value=''"></label>
     </div>
@@ -3065,7 +3089,7 @@ function vistaRestos() {
   return `
   <div class="tarjeta">
     <h2>Restos de pedidos del comercial</h2>
-    <p class="pequeno">Lo que un cliente pidió y no ha llegado. Cuando venga en un pedido posterior, regístralo abajo y se asigna al cliente que lo esperaba (primero al más antiguo).</p>
+    
     <div class="fila no-imprimir">
       <label>Proveedor<select onchange="filtroRestos.proveedor=this.value;pintar()"><option value="">Todos</option>${opc(provs, f.proveedor)}</select></label>
       <label>Cliente<select onchange="filtroRestos.cliente=this.value;pintar()"><option value="">Todos</option>${opc(clis, f.cliente)}</select></label>
@@ -3089,7 +3113,7 @@ function vistaRestos() {
 
   <div class="tarjeta no-imprimir">
     <h2>Registrar llegada</h2>
-    <p class="pequeno">Mercancía que llega en un pedido o albarán posterior. Sube el Excel o pega «referencia cantidad» por línea.</p>
+    
     <div class="fila">
       <label>Proveedor<select id="llProv">${opc([...new Set(E.restos.filter((r) => r.pendiente > 0 && !r.anulado).map((r) => r.proveedor))].sort(), llegada && llegada.proveedor)}</select></label>
       <label>Origen<input id="llOrigen" placeholder="Albarán 1234 / Pedido 5" value="${h(llegada ? llegada.origen : '')}"></label>
@@ -3168,7 +3192,7 @@ function vistaNotas() {
   const ns = E.notas.slice().sort((a, b) => Number(a.resuelta) - Number(b.resuelta) || String(b.fecha).localeCompare(String(a.fecha)));
   return `<div class="tarjeta">
     <h2>Notas de facturación</h2>
-    <p class="pequeno">Las que escribiste al decidir una discordancia (p. ej. «facturar al cliente la versión que reciba»). Márcalas cuando estén hechas.</p>
+    
     ${ns.length ? `<table>
       <tr><th>Hecha</th><th>Fecha</th><th>Cliente</th><th>Pedido</th><th>Referencia</th><th>Nota</th></tr>
       ${ns.map((n) => `<tr style="${n.resuelta ? 'opacity:.55' : ''}">
@@ -3207,7 +3231,7 @@ function vistaDatos() {
   </div>
   <div class="tarjeta">
     <h2>Copia de seguridad</h2>
-    <p class="pequeno">Los datos ya están en la nube; esta copia es un extra por si acaso. Restaurar una copia sustituye todo <b>también en la nube, para todos</b>.</p>
+    
     <div class="fila">
       <button class="btn primario" onclick="descargarCopia()">Descargar copia</button>
       <label>Restaurar una copia<input type="file" accept=".json" onchange="restaurarCopia(this.files[0]); this.value=''"></label>
@@ -3215,7 +3239,7 @@ function vistaDatos() {
   </div>
   <div class="tarjeta">
     <h2>📚 Tarifas y catálogos de proveedor</h2>
-    <p class="pequeno">Sube la <b>tarifa completa</b> de un proveedor en Excel (una columna de referencia o código y otra de descripción o precio; se leen todas las hojas). Al apuntar un pedido, la referencia rellena sola la descripción y el precio, y se avisa si una referencia no existe en la tarifa. Es una <b>guía</b>: manda siempre la última propuesta del proveedor. Se queda el catálogo más reciente: una tarifa nueva, o una propuesta que traiga la tarifa completa (como el formulario de Finocam), sustituye a la anterior. Si una referencia de la propuesta no está en la tarifa guardada, solo se avisa. <b>Precio de venta</b>: si la tarifa ya viene a precio de venta (como Finocam, cuyo descuento es nuestro margen), déjalo como está; si viene a precio neto, elige el % de beneficio sobre la venta o de incremento sobre el coste. Es el precio que se rellena al apuntar en el bloc y el que sale al exportar la tarifa en PDF o Excel (sin el coste ni el margen).</p>
+    
     <div class="fila no-imprimir">
       ${esComercial() ? '' : `<label>Proveedor<input id="tarProv" list="tarProvs" placeholder="FINOCAM" autocomplete="off"></label>
       <datalist id="tarProvs">${[...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean).sort().map((x) => `<option value="${h(x)}">`).join('')}</datalist>
@@ -3244,8 +3268,8 @@ function vistaDatos() {
   </div>
   <div class="tarjeta">
     <h2>Excel para Géminis</h2>
-    <p class="pequeno">Géminis solo admite un descuento por línea: los encadenados se convierten en uno equivalente sin tocar el precio base, cuadrando con el importe del proveedor. Con 2 decimales a veces no cuadra al céntimo (la app avisa); cuántos admite Géminis está <b>pendiente de comprobar</b>.</p>
-    <p class="pequeno">Formato Excel 5.0/95 (.xls). Por defecto, plantilla <b>«Luis»</b>: la oficial de Gestión (PLANTILLA_PEDIDOS_PROVEEDORES_ALTA_NUEVOS), celda a celda, con los títulos en la fila 11 y los artículos desde la 12. La <b>«Rober»</b> (artículos desde la fila 11) hacía que Géminis diera de alta cada línea como artículo «2». Las tildes y la Ñ se quitan porque ese formato no las admite.</p>
+    
+    
     <div class="fila">
       <label>Almacén<input id="cfgAlmacen" value="${h(localStorage.getItem('cp.almacen') || '')}" onchange="localStorage.setItem('cp.almacen', this.value)"></label>
       <label>IGIC %<input id="cfgIgic" type="number" step="0.5" value="${h(localStorage.getItem('cp.igic') || '7')}" onchange="localStorage.setItem('cp.igic', this.value)"></label>
