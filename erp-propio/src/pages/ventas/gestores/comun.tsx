@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Check, X } from 'lucide-react'
 import { GwDate, GwRadio, GwWindow } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
+import { fechaReferencia } from '../../../lib/sesionTrabajo'
 
 // Piezas comunes del Gestor de Pedidos y del Gestor de Presupuestos de GeminisWin:
 // pestañas grandes, filtro «Filtrar Según Fecha» + «Tiendas», botones-casilla ×/✓,
@@ -117,7 +118,8 @@ export type Periodo = (typeof PERIODOS)[number]
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-export function rangoPeriodo(p: Periodo, hoy = new Date()): [string, string] {
+/** Rango de un periodo. Sin fecha, relativo a la fecha de referencia de la sesión (fecha de trabajo dentro del periodo elegido en Archivo → Seleccionar Periodo). */
+export function rangoPeriodo(p: Periodo, hoy = fechaReferencia()): [string, string] {
   const y = hoy.getFullYear()
   const m = hoy.getMonth()
   const lunes = new Date(hoy)

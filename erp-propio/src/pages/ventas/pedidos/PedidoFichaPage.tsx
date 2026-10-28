@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useNavigate, useParams } from 'react-router-dom'
 import { Binoculars, Check, FilePen, FilePlus2, FileX2, PackageSearch, Tag, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { fechaTrabajo, horaTrabajo, tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { useAuth } from '../../../lib/AuthContext'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwInput, GwLookupButton, GwNumber, GwSelect, GwWindow, formatGw } from '../../../components/gw'
@@ -128,12 +129,13 @@ const LOOKUP_PEDIDO: GwLookupColumn[] = [
 ]
 const LOOKUP_PEDIDO_BUSCA = ['cliente_codigo', 'nombre_cliente']
 
+// Fecha y hora de trabajo (Utilidades → Cambio de Fecha), por defecto las reales.
 function hoy() {
-  return new Date().toISOString().slice(0, 10)
+  return fechaTrabajo()
 }
 
 function ahoraHora() {
-  return new Date().toTimeString().slice(0, 5)
+  return horaTrabajo()
 }
 
 function fechaEs(v: string | null | undefined) {
@@ -328,7 +330,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
       setEditLinea(null)
       setSel(0)
       if (esNuevo) {
-        const tienda = tiendas[0]
+        const tienda = tiendas.find((t) => t.codigo === tiendaDeTrabajo(tiendas))
         const c = vacia(tienda, empleadoActual, presupuestos)
         setCab(c)
         setOrig(null)

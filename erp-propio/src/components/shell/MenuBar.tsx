@@ -94,7 +94,7 @@ function MenuList({
         // En gris: opciones aún no construidas y las que el grupo de acceso no permite.
         const construida = isEnabled(it)
         const enabled = construida && puedeOpcion(it)
-        const motivo = construida ? SIN_PERMISO : NOT_AVAILABLE
+        const motivo = construida ? SIN_PERMISO : (it.description ?? NOT_AVAILABLE)
         const hasChildren = it.children !== undefined
         return (
           <div

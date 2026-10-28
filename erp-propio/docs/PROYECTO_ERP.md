@@ -186,6 +186,13 @@ detalle pantalla a pantalla está en `COORDINACION.md`.
   Almacenes, Datos de empresa, Formas de pago.
 - Cambiar contraseña (`/cambiar-clave`).
 - Utilidades de mantenimiento: unas construidas sin captura, otras en gris.
+- **Sesión de trabajo** (`src/lib/sesionTrabajo.ts`, único sitio que la decide):
+  tienda/terminal (Utilidades → Cambio de Tienda), fecha y hora de trabajo
+  (Cambio de Fecha / Fecha y Hora, nunca para VeriFactu) y periodo (Archivo →
+  Seleccionar Periodo, tabla `ejercicio`). Se ven en la barra de estado y en el
+  título. Detalle de qué pantallas las usan en `COORDINACION.md`.
+- Utilidades → Examinar (visor de tablas de solo lectura), Copia de Seguridad
+  (ZIP descargable y test) y Eliminar Ficheros Temporales.
 
 ### Artículos y Almacén
 - **Ficha de Artículos** con sus 12 vistas (precios, tarifas, stock por

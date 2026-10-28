@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { RefreshCw } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { ahoraTrabajo } from '../../lib/sesionTrabajo'
 import { GwInput, GwLookupButton, GwNumber, GwSelect, formatGw } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { useNavRegistro, type NavDir } from '../../components/gw/useNavRegistro'
@@ -241,7 +242,7 @@ export function AperturasCierresPage() {
     return {
       tienda_terminal_codigo: t,
       ejercicio: 0,
-      fecha_apertura: new Date().toISOString(),
+      fecha_apertura: ahoraTrabajo().toISOString(),
       fecha_cierre: null,
       cerrado: false,
       empleado_apertura_codigo: empleadoActual,

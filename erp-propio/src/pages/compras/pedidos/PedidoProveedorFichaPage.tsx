@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Binoculars, Check, FilePen, FilePlus2, FileX2, Sheet, Wallet, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { ahoraTrabajo, fechaTrabajo, tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { useAuth } from '../../../lib/AuthContext'
 import { useNexaContexto } from '../../../nexa/contexto'
@@ -76,8 +77,9 @@ const LOOKUP_FORMA_PAGO: GwLookupColumn[] = [
   { key: 'descripcion', label: 'Descripción' },
 ]
 
+// Fecha de trabajo (Utilidades → Cambio de Fecha), por defecto hoy.
 function hoy() {
-  return new Date().toISOString().slice(0, 10)
+  return fechaTrabajo()
 }
 
 function fechaHoraEs(v: string | null | undefined) {
@@ -91,7 +93,7 @@ function vacia(tienda: Tienda | undefined): CabeceraCompra {
   return {
     tienda_terminal_codigo: tienda?.codigo ?? '01',
     numero: null,
-    fecha_hora: new Date().toISOString(),
+    fecha_hora: ahoraTrabajo().toISOString(),
     proveedor_codigo: '',
     almacen_codigo: tienda?.almacen_codigo ?? '01',
     estado: 'pendiente',
@@ -268,7 +270,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
       setEditLinea(null)
       setSel(0)
       if (esNuevo) {
-        setCab(vacia(tiendas[0]))
+        setCab(vacia(tiendas.find((t) => t.codigo === tiendaDeTrabajo(tiendas))))
         setOrig(null)
         setLineas([])
         setProveedor(null)

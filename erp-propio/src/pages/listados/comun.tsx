@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import { todasLasFilas } from '../../lib/todasLasFilas'
+import { fechaReferencia } from '../../lib/sesionTrabajo'
 import { CampoCodigo, LST_INPUT, LstGrupo, LstRadio, type ModoRango, type NombreBuscador } from '../../components/gw/GwListado'
 
 // Grupos de filtros que se repiten en varios listados de Ventas y Compras
@@ -271,9 +272,13 @@ export function GrupoTotalProveedor({ valor, onChange, className = '' }: { valor
   )
 }
 
-/** Primer día del mes a las 0:00:00 y hoy a las 23:59:59 (fechas por defecto de los listados). */
+/**
+ * Primer día del mes a las 0:00:00 y hoy a las 23:59:59 (fechas por defecto de los listados).
+ * «Hoy» es la fecha de referencia de la sesión: la fecha de trabajo, o el final del periodo
+ * elegido en Archivo → Seleccionar Periodo si la fecha de trabajo no cae dentro.
+ */
 export function mesEnCurso(): { desde: string; hasta: string } {
-  const d = new Date()
+  const d = fechaReferencia()
   const p = (n: number) => String(n).padStart(2, '0')
   return {
     desde: `${d.getFullYear()}-${p(d.getMonth() + 1)}-01T00:00:00`,

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Check, FileSpreadsheet, Monitor, Printer, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { avisoTope, filasPorTrozos, todasLasFilas } from '../../lib/todasLasFilas'
+import { fechaReferencia } from '../../lib/sesionTrabajo'
 import { GwCheck, GwDate, GwGroup, GwInput, GwLookupButton, GwRadio, GwSelect, formatGw } from '../../components/gw'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { gwConCeros } from '../../components/gw/GwListaOrdenada'
@@ -54,11 +55,12 @@ export function ListadoFacturasPage() {
   const [soloTotales, setSoloTotales] = useState(false)
   const [orden, setOrden] = useState<Orden>('numero')
   const [fModo, setFModo] = useState<'rango' | 'cualquiera'>('rango')
+  // Mes en curso de la fecha de referencia (fecha de trabajo dentro del periodo seleccionado).
   const [fDesde, setFDesde] = useState<string | null>(() => {
-    const d = new Date()
+    const d = fechaReferencia()
     return new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString('sv-SE')
   })
-  const [fHasta, setFHasta] = useState<string | null>(new Date().toLocaleDateString('sv-SE'))
+  const [fHasta, setFHasta] = useState<string | null>(() => fechaReferencia().toLocaleDateString('sv-SE'))
   const [tModo, setTModo] = useState<'rango' | 'cualquiera'>('cualquiera')
   const [tDesde, setTDesde] = useState('')
   const [tHasta, setTHasta] = useState('')

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Binoculars, Check, ChevronFirst, ChevronLast, CircleDollarSign, FileText, Play, Printer, RotateCw, Settings2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { avisoTope, todasLasFilas } from '../../../lib/todasLasFilas'
+import { ejercicioTrabajo } from '../../../lib/sesionTrabajo'
 import { formatGw, GwDate } from '../../../components/gw'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
 import { FORMA_PAGO_COLS, cargarDoc, claseFormaPago, generarPagosDoc, hoyISO, type ClaseFp, type FormaPago } from './pagosModel'
@@ -111,7 +112,7 @@ function textoSobre(bg: string) {
 
 export function GestorPagosProveedorPage() {
   const navigate = useNavigate()
-  const [anio, setAnio] = useState(new Date().getFullYear())
+  const [anio, setAnio] = useState(() => ejercicioTrabajo().anio)
   const [periodo, setPeriodo] = useState<number | 'anio' | 'filtro'>(new Date().getMonth())
   const [filtro, setFiltro] = useState({ desde: hoyISO().slice(0, 8) + '01', hasta: hoyISO() })
   const [verFiltro, setVerFiltro] = useState(false)
