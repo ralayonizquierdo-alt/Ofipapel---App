@@ -82,6 +82,14 @@ import { RegistroSincronizacionPage } from './pages/web/RegistroSincronizacionPa
 import { EstadisticasWebPage } from './pages/web/EstadisticasWebPage'
 import { PublicarArticulosWebPage } from './pages/web/PublicarArticulosWebPage'
 import { WhatsAppWebPage } from './pages/web/WhatsAppWebPage'
+import { ImagenesTextosWebPage } from './pages/web/ImagenesTextosWebPage'
+import { VariacionesWebPage } from './pages/web/VariacionesWebPage'
+import { RelacionadosWebPage } from './pages/web/RelacionadosWebPage'
+import { FacturasPedidosWebPage } from './pages/web/FacturasPedidosWebPage'
+import { EnviosWebPage } from './pages/web/EnviosWebPage'
+import { PresupuestosWebPage } from './pages/web/PresupuestosWebPage'
+import { ResenasWebPage } from './pages/web/ResenasWebPage'
+import { CarritosAbandonadosWebPage } from './pages/web/CarritosAbandonadosWebPage'
 import { ListadoVentasPage } from './pages/listados/ListadoVentasPage'
 import { VentasArticuloPage } from './pages/listados/VentasArticuloPage'
 import { ListadoReparacionesPage } from './pages/listados/ListadoReparacionesPage'
@@ -240,6 +248,14 @@ function App() {
             <Route path="/web/estadisticas" element={<EstadisticasWebPage />} />
             <Route path="/web/publicar" element={<PublicarArticulosWebPage />} />
             <Route path="/web/whatsapp" element={<WhatsAppWebPage />} />
+            <Route path="/web/imagenes-textos" element={<ImagenesTextosWebPage />} />
+            <Route path="/web/variaciones" element={<VariacionesWebPage />} />
+            <Route path="/web/relacionados" element={<RelacionadosWebPage />} />
+            <Route path="/web/facturas-pedidos" element={<FacturasPedidosWebPage />} />
+            <Route path="/web/envios" element={<EnviosWebPage />} />
+            <Route path="/web/presupuestos" element={<PresupuestosWebPage />} />
+            <Route path="/web/resenas" element={<ResenasWebPage />} />
+            <Route path="/web/carritos-abandonados" element={<CarritosAbandonadosWebPage />} />
           </Route>
         </Routes>
       </AuthProvider>

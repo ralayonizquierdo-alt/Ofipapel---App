@@ -31,9 +31,12 @@ const RECURSOS: RegExp[] = [
   /^products\/categories$/,
   /^products\/reviews$/,
   /^products\/\d+\/variations$/,
+  /^products\/\d+\/variations\/\d+$/, // Web → Variaciones
+  /^products\/attributes$/, // Web → Variaciones (atributos globales)
   /^orders$/,
   /^orders\/\d+$/,
   /^orders\/\d+\/refunds$/,
+  /^orders\/\d+\/notes$/, // Web → Envíos y Seguimiento (notas del pedido, solo lectura)
   /^customers$/,
   /^customers\/\d+$/,
   /^coupons$/,

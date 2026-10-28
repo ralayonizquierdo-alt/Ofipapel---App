@@ -123,7 +123,7 @@ export interface WcPedido {
   billing: WcDireccion
   shipping?: WcDireccion
   line_items: WcLinea[]
-  shipping_lines?: { id?: number; method_title: string; total: string; total_tax?: string }[]
+  shipping_lines?: { id?: number; method_title: string; method_id?: string; total: string; total_tax?: string }[]
   coupon_lines?: { id?: number; code: string; discount: string; discount_tax?: string }[]
   fee_lines?: { id?: number; name: string; total: string; total_tax?: string }[]
   refunds?: { id: number; reason?: string; total: string }[]
@@ -158,6 +158,35 @@ export interface WcProducto {
   images?: { id?: number; src: string }[]
   categories?: { id: number; name: string; slug?: string }[]
   date_modified?: string
+  meta_data?: WcMeta[]
+}
+
+export interface WcVariacion {
+  id: number
+  sku?: string
+  status?: string
+  price?: string
+  regular_price?: string
+  sale_price?: string
+  manage_stock?: boolean | 'parent'
+  stock_quantity?: number | null
+  stock_status?: string
+  attributes?: { id?: number; name: string; option: string }[]
+  image?: { src: string } | null
+}
+
+export interface WcNotaPedido {
+  id: number
+  author?: string
+  date_created: string
+  note: string
+  customer_note?: boolean
+}
+
+export interface WcEstadoTotal {
+  slug: string
+  name: string
+  total: number
 }
 
 export interface WcCliente {
