@@ -1187,7 +1187,26 @@
     const porNombre = (pedidos || []).filter((p) => p.cliente && nombraCliente(bloque, p.cliente));
     if (porNombre.length === 1) return porNombre[0];
     const n = numero(bloque);
-    if (n != null) return (pedidos || []).find((p) => numero(p.numero) === n && comun(p) * 3 >= refs.length) || null;
+    if (n != null) {
+      // La «etiqueta» del bloque («Gift», «Ag. anual», «B2F»): si la campaña ya
+      // tiene bloques facturados y esta etiqueta no comparte ninguna palabra con
+      // ellos, es de otra campaña («Pedido 5_ B2F» no es nuestro pedido 5) aunque
+      // repita nº y alguna referencia; si la comparte, el nº manda aunque el
+      // bloque traiga un expositor desglosado en piezas que no están en el pedido.
+      const palabrasEtiqueta = (b) => new Set(String(b || '').toUpperCase().replace(/PEDIDO/g, ' ').replace(/\b\d+\b/g, ' ')
+        .split(/[^A-Z0-9ÁÉÍÓÚÑ]+/).filter((w) => w.length >= 2 && !/^\d+$/.test(w)));
+      const conocidas = new Set();
+      for (const p of pedidos || []) {
+        for (const l of [...((p.propuesta && p.propuesta.lineas) || []), ...((p.factura && p.factura.lineas) || [])]) {
+          if (l && l.bloque && l.bloque !== bloque) for (const w of palabrasEtiqueta(l.bloque)) conocidas.add(w);
+        }
+      }
+      const mias = palabrasEtiqueta(bloque);
+      const p = (pedidos || []).find((q) => numero(q.numero) === n);
+      if (!p) return null;
+      if (conocidas.size && mias.size) return [...mias].some((w) => conocidas.has(w)) ? p : null;
+      return comun(p) * 3 >= refs.length ? p : null;
+    }
     const v = (pedidos || []).map((p) => [p, comun(p)]).filter(([, c]) => refs.length && c * 2 >= refs.length).sort((a, b) => b[1] - a[1]);
     return v.length && (v.length === 1 || v[0][1] > v[1][1]) ? v[0][0] : null;
   }

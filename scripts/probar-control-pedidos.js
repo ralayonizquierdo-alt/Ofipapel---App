@@ -1076,3 +1076,25 @@ test('a Restos nunca va lo que vino de más: solo lo que pidió el cliente', () 
   const r = CP.restosDeFactura(val, []);
   assert.deepEqual(r.map((x) => `${x.ref}x${x.cant}`), ['Ax5', 'Bx5']);
 });
+
+test('bloque de otra campaña («Pedido 5_ B2F») no va a nuestro pedido 5; «Ag. anual» manda por nº aunque venga desglosado', () => {
+  const L = (ref, cant, bloque) => ({ ref, cant, precio: 1, importe: cant, bloque });
+  const p5 = { id: 'p5', numero: '5', cliente: 'PAPELERIA', lineas: [{ ref: 'MR13428', cant: 1 }, { ref: 'MR12074', cant: 1 }],
+    factura: { lineas: [L('MR13428', 1, 'Pedido 4_ Gift'), L('MR12074', 1, 'Pedido 4_ Gift')] } };
+  const p16 = { id: 'p16', numero: '16', cliente: 'TANIA', lineas: [{ ref: 'MR13383', cant: 1 }, { ref: 'MR34831', cant: 1 }],
+    propuesta: null };
+  const p1 = { id: 'p1', numero: '1', cliente: 'BARCO', lineas: [{ ref: 'MR28450', cant: 3 }], factura: { lineas: [L('MR28450', 3, 'Pedido 1_ Ag. anual')] } };
+  const todos = [p1, p5, p16];
+  assert.equal(CP.duenoDeBloque('Pedido 5_ B2F', [L('MR8280', 1), L('MR13428', 1)], todos), null);
+  const b16 = [L('MR13383', 1), L('MR34825', 1), L('MR34826', 1), L('MR34827', 1), L('MR34828', 2), L('MR34829', 2), L('MR34830', 1)];
+  assert.equal(CP.duenoDeBloque('Pedido 16_ Ag. anual', b16, todos), p16);
+  // Sin bloques previos en la campaña, se sigue pidiendo un tercio de referencias en común.
+  assert.equal(CP.duenoDeBloque('Pedido 5_ B2F', [L('MR8280', 1), L('MR8281', 1), L('MR13428', 1), L('MR8282', 1)], [{ ...p5, factura: null }]), null);
+});
+
+test('la etiqueta del bloque ignora el nº pegado («Pedido 13_ B2F» no es de «Pedido 13_Gift»)', () => {
+  const L = (ref, cant, bloque) => ({ ref, cant, precio: 1, importe: cant, bloque });
+  const p13 = { id: 'p13', numero: '13', cliente: 'X', lineas: [{ ref: 'A', cant: 1 }], factura: { lineas: [L('A', 1, 'Pedido 13_Gift')] } };
+  assert.equal(CP.duenoDeBloque('Pedido 13_B2F', [L('A', 1)], [p13]), null);
+  assert.equal(CP.duenoDeBloque('Pedido 13_ Gift + Xmas', [L('B', 1)], [p13, { id: 'o', numero: '1', lineas: [], factura: { lineas: [L('C', 1, 'Pedido 1_ Gift')] } }]), p13);
+});
