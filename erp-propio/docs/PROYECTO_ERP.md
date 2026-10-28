@@ -263,7 +263,10 @@ detalle pantalla a pantalla está en `COORDINACION.md`.
 - Menú Web con: configuración, importar pedidos, catálogo, errores, precios,
   categorías, pendientes, stock reservado, estado de pedidos, devoluciones,
   clientes y clientes empresa, cupones, registro, estadísticas, publicar y
-  WhatsApp.
+  WhatsApp. Desde el 28/10 también (en consulta): imágenes y textos,
+  variaciones, productos relacionados, facturas de pedidos web, envíos y
+  seguimiento, solicitudes de presupuesto, reseñas y carritos abandonados
+  (este último vacío: WooCommerce no los da sin un plugin).
 - **Hoy solo lee** de la web (función `woocommerce-erp`, solo peticiones GET).
   **No se escribe nada en WooCommerce hasta que Rober lo autorice.** Faltan
   por configurar sus claves (son las mismas que usa el bot de WhatsApp).

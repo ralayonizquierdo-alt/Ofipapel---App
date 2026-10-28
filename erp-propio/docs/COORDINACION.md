@@ -108,6 +108,24 @@ Pendiente de capturas. Pantallas antiguas provisionales: `/caja`, `/facturacion`
 |---|---|
 | Gestor de Pagos de Clientes (`/gestor-cobros-clientes`; pestañas Facturas, Pagos y Facturas sin Pagos, Pagos) y ficha Pagos de Clientes, Cobros (`/cobros-clientes`, Alt+F7) | Sin captura (gemelas del Gestor de pagos a proveedores y de su ficha). «Pagos» de la barra lateral y «Cobros de la factura» del pedido llevan aquí. Lógica en BD: `fn_cobro_cliente_cobrar` (total o parcial; contado = ingreso COB en la caja abierta), `fn_cobro_cliente_anular`, `fn_cobro_generar_vencimientos` (migración `20261028_cobros_clientes.sql`) |
 
+### Web (WooCommerce, menú nuevo: no existe en GeminisWin)
+Todo es **solo lectura** de ofipapel.net (función `woocommerce-erp`, solo GET y lista
+blanca de recursos). Lo que escribiría en la web sale desactivado con «Pendiente de
+autorización de Rober». **Pendiente de secretos**: hasta que se creen
+`WOOCOMMERCE_CONSUMER_KEY` / `WOOCOMMERCE_CONSUMER_SECRET` (y `WOOCOMMERCE_BYPASS_TOKEN`)
+en Supabase, todas enseñan el aviso amarillo «Faltan las claves» y la rejilla vacía.
+
+| Pantalla | Estado |
+|---|---|
+| Imágenes y Textos Web (`/web/imagenes-textos`: imágenes, descripción corta/larga y SEO Yoast/Rank Math/AIOSEO/SEOPress frente a descripción web, imagen y observaciones web del artículo) | Sin captura (28/10). Solo lectura, pendiente de secretos. Probada con datos simulados en el navegador |
+| Variaciones (`/web/variaciones`: productos variables; sus variaciones se leen al seleccionarlos o con «Leer todas», cruzadas con el ERP por SKU o código web, PVP y stock del almacén de la configuración web) | Sin captura (28/10). Solo lectura, pendiente de secretos |
+| Productos Relacionados (`/web/relacionados`: ventas dirigidas y cruzadas, aviso si el relacionado no está publicado, está agotado o ya no existe) | Sin captura (28/10). Solo lectura, pendiente de secretos |
+| Facturas de Pedidos Web (`/web/facturas-pedidos`: pedidos web «Completado» → `pedido_cliente.web_pedido_id` → venta → factura; doble clic abre la factura) | Sin captura (28/10). Solo lectura, pendiente de secretos. Cadena pedido → venta → factura probada contra la base de datos |
+| Envíos y Seguimiento (`/web/envios`: método de envío, portes, destino, seguimiento de los plugins tipo Shipment Tracking y notas del pedido `orders/{id}/notes`) | Sin captura (28/10). Solo lectura, pendiente de secretos |
+| Solicitudes de Presupuesto Web (`/web/presupuestos`: detecta en `reports/orders/totals` los estados de presupuesto de plugins tipo YITH Request a Quote; si no hay, lo explica) | Sin captura (28/10). Solo lectura, pendiente de secretos. No se sabe aún si la web tiene plugin de presupuestos |
+| Reseñas de Productos (`/web/resenas`: `products/reviews`, filtro por estado y valoración, artículo del ERP por `web_id_link`) | Sin captura (28/10). Solo lectura, pendiente de secretos |
+| Carritos Abandonados (`/web/carritos-abandonados`) | Sin captura (28/10). Vacía a propósito: WooCommerce no expone carritos abandonados por su API; explica qué plugin haría falta |
+
 ## Capturas pendientes (lista actualizada 27/10/2026, tras los ZIP 4, 5 y 6)
 
 Recibidos y construidos: ZIP 1 Ventas, 2 Compras, 3 Almacén, 4 Caja y
