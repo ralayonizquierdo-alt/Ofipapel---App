@@ -138,6 +138,34 @@ select pg_temp.politica_escritura(t, c) from (values
 ) v(t, c);
 
 -- =============================================================================================
+-- Bloque 1b (ajuste del 1, ya aplicado): Compras → Acreedores (/acreedores, de Luis, commit
+-- 819f312) es la misma ficha de proveedor con `tipo = 'acreedor'` y su pestaña Bancos.
+-- =============================================================================================
+
+create or replace function pg_temp.politica_escritura(p_tabla text, p_codigos text[])
+returns void language plpgsql as $$
+declare
+  v_expr text := format('((select public.fn_puede_alguno(%L::text[])))', p_codigos);
+  v_existe boolean;
+begin
+  select exists (select 1 from pg_policies where schemaname = 'public' and tablename = p_tabla and policyname = 'permiso_alta_' || p_tabla) into v_existe;
+  execute case when v_existe then format('alter policy %I on public.%I with check %s', 'permiso_alta_' || p_tabla, p_tabla, v_expr)
+    else format('create policy %I on public.%I as restrictive for insert to authenticated with check %s', 'permiso_alta_' || p_tabla, p_tabla, v_expr) end;
+  select exists (select 1 from pg_policies where schemaname = 'public' and tablename = p_tabla and policyname = 'permiso_modifica_' || p_tabla) into v_existe;
+  execute case when v_existe then format('alter policy %I on public.%I using %s with check %s', 'permiso_modifica_' || p_tabla, p_tabla, v_expr, v_expr)
+    else format('create policy %I on public.%I as restrictive for update to authenticated using %s with check %s', 'permiso_modifica_' || p_tabla, p_tabla, v_expr, v_expr) end;
+  select exists (select 1 from pg_policies where schemaname = 'public' and tablename = p_tabla and policyname = 'permiso_borra_' || p_tabla) into v_existe;
+  execute case when v_existe then format('alter policy %I on public.%I using %s', 'permiso_borra_' || p_tabla, p_tabla, v_expr)
+    else format('create policy %I on public.%I as restrictive for delete to authenticated using %s', 'permiso_borra_' || p_tabla, p_tabla, v_expr) end;
+end;
+$$;
+
+select pg_temp.politica_escritura(t, c) from (values
+  ('proveedor',       array['/proveedores', '/acreedores', '/archivo/importar', 'carga']),
+  ('cuenta_bancaria', array['/clientes', '/proveedores', '/acreedores', '/transportistas', '/vendedores', '/tecnicos', '/repartidores'])
+) v(t, c);
+
+-- =============================================================================================
 -- Bloque 2: artículos y sus tablas hijas
 -- =============================================================================================
 
