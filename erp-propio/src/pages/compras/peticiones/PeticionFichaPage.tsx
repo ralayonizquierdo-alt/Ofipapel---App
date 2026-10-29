@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Ban, Link2, Package, ShoppingCart } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, formatGw } from '../../../components/gw'
 import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
@@ -98,6 +99,8 @@ export function PeticionFichaPage() {
 
   const editing = mode !== 'consulta'
   const d = draft ?? reg
+  // En alta, el número que tendrá la petición (se asigna de verdad al guardar).
+  const proximo = useProximoNumero(mode === 'alta', d?.tienda_terminal_codigo, 'peticion')
   const patch = (p: Partial<Peticion>) => setDraft((x) => (x ? { ...x, ...p } : x))
 
   useEffect(() => {
@@ -138,7 +141,7 @@ export function PeticionFichaPage() {
     let cancel = false
     async function run() {
       setCargando(true)
-      setError(null)
+      setError(tomarAvisoNumero())
       if (esNuevo) {
         const v = vacia()
         v.empleado_peticion_codigo = await empleadoActual()
@@ -292,6 +295,7 @@ export function PeticionFichaPage() {
       if (mode === 'alta') {
         const n = await crearPeticion({ ...draft })
         window.dispatchEvent(new Event(EVENTO_PETICION_CREADA))
+        dejarAvisoNumero(avisoNumero(n, proximo))
         navigate(`/peticiones/${encodeURIComponent(draft.tienda_terminal_codigo)}/${n}`, { replace: true })
       } else {
         const { tienda_terminal_codigo, numero, ...resto } = draft
@@ -363,10 +367,10 @@ export function PeticionFichaPage() {
             </GwField>
             <GwField label="Número">
               <GwCampoBusqueda
-                value={d.numero == null ? '' : String(d.numero)}
+                value={String(d.numero ?? (mode === 'alta' ? (proximo ?? '') : ''))}
                 disabled={editing}
                 className="gw-num"
-                title="PETICION.NUMERO"
+                title={mode === 'alta' ? 'PETICION.NUMERO — el próximo libre; se confirma al guardar' : 'PETICION.NUMERO'}
                 onBuscar={async (t) => {
                   const n = Number(t.replace(/\D/g, ''))
                   const { data } = n

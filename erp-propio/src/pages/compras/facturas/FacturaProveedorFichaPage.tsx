@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, FileText, HandCoins, RefreshCw, Settings2, ShoppingCart, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { ahoraTrabajo, fechaTrabajo, tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { navIndice, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { useNexaContexto } from '../../../nexa/contexto'
@@ -170,6 +171,8 @@ export function FacturaProveedorFichaPage() {
   const [recarga, setRecarga] = useState(0)
 
   const editing = mode !== 'consulta'
+  // En alta, el Id. que tendrá la factura (se asigna de verdad al guardar).
+  const proximo = useProximoNumero(mode === 'alta', cab?.tienda_terminal_codigo, 'factura_proveedor')
 
   useEffect(() => {
     Promise.all([
@@ -220,7 +223,7 @@ export function FacturaProveedorFichaPage() {
   useEffect(() => {
     let cancel = false
     async function run() {
-      setMensaje(null)
+      setMensaje(tomarAvisoNumero())
       setSelAlb(0)
       setSelPago(0)
       if (esNuevo) {
@@ -359,6 +362,7 @@ export function FacturaProveedorFichaPage() {
       setSaving(false)
       if (error) return setMensaje(error.message)
       cargarClaves()
+      dejarAvisoNumero(avisoNumero(id, proximo))
       navigate(`/facturas-proveedor/${cab.tienda_terminal_codigo}/${id}`, { replace: true })
       return
     }
@@ -520,7 +524,12 @@ export function FacturaProveedorFichaPage() {
             </GwSelect>
           </GwField>
           <GwField label={<span className="text-[15px]">Id. Factura</span>}>
-            <GwInput readOnly className="gw-num" value={cab && mode !== 'alta' ? cab.id : ''} title="ID" />
+            <GwInput
+              readOnly
+              className="gw-num"
+              value={cab && mode !== 'alta' ? cab.id : mode === 'alta' ? (proximo ?? '') : ''}
+              title={mode === 'alta' ? 'ID — el próximo libre; se confirma al guardar' : 'ID'}
+            />
           </GwField>
           <GwField label={<span className="text-[15px]">Fecha y Hora</span>}>
             <GwInput readOnly value={fechaHora(cab?.fecha_hora)} />

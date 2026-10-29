@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ListOrdered, ReceiptText, Truck } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { todasLasFilas } from '../../../lib/todasLasFilas'
+import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { formatGw, GwDate } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
@@ -353,7 +354,7 @@ export function RepartoFichaPage() {
     let cancel = false
     async function run() {
       setError(null)
-      setMensaje(null)
+      setMensaje(tomarAvisoNumero())
       setLoading(true)
       if (isNew) {
         const t = tiendas[0] ?? ''
@@ -411,6 +412,8 @@ export function RepartoFichaPage() {
   }, [params['*'], tiendas.length])
 
   const vista = editing ? draft : cab
+  // En alta, el número que tendrá (se asigna de verdad al guardar).
+  const proximo = useProximoNumero(mode === 'alta', draft.tienda_terminal_codigo, 'reparto')
 
   useEffect(() => {
     if (!vista.ruta_codigo) return setNombreRuta('')
@@ -659,7 +662,10 @@ export function RepartoFichaPage() {
       setDraft(r)
       setLineas(nuevas)
       setLineasDraft(nuevas)
-      if (mode === 'alta') navigate(`/repartos/${encodeURIComponent(clave.tienda_terminal_codigo)}/${clave.numero}`, { replace: true })
+      if (mode === 'alta') {
+        dejarAvisoNumero(avisoNumero(clave.numero, proximo))
+        navigate(`/repartos/${encodeURIComponent(clave.tienda_terminal_codigo)}/${clave.numero}`, { replace: true })
+      }
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -846,7 +852,7 @@ export function RepartoFichaPage() {
                 {mode === 'consulta' && !sinRepartos ? (
                   <GwCampoBusqueda className={`${inp} w-full text-right`} value={vista.numero != null ? String(vista.numero) : ''} onBuscar={buscarNumero} title="Número de reparto" />
                 ) : (
-                  <input className={`${inp} w-full text-right`} disabled value={vista.numero ?? ''} title="Se asigna al guardar" readOnly />
+                  <input className={`${inp} w-full text-right`} disabled value={vista.numero ?? (mode === 'alta' ? (proximo ?? '') : '')} title="En alta, el próximo libre; se confirma al guardar" readOnly />
                 )}
               </div>
               <div className="flex w-[160px] flex-col">
