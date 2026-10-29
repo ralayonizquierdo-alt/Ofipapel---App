@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, FilePen, FilePlus2, FileX2, Binoculars, Tag, Package, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
@@ -241,6 +242,8 @@ export function ReparacionFichaPage() {
 
   const editing = mode !== 'consulta'
   const dis = !editing
+  // En alta, el número que tendrá (se asigna de verdad al guardar).
+  const proximo = useProximoNumero(mode === 'alta', draft.tienda_terminal_codigo, 'pedido_cliente')
 
   useEffect(() => {
     supabase
@@ -252,7 +255,7 @@ export function ReparacionFichaPage() {
 
   useEffect(() => {
     let cancel = false
-    setError(null)
+    setError(tomarAvisoNumero())
     if (isNew) {
       ;(async () => {
         const { data: emp } = await supabase.rpc('fn_empleado_actual')
@@ -567,6 +570,7 @@ export function ReparacionFichaPage() {
     setLineasOrig(renumeradas)
     setMode('consulta')
     nav.refrescar()
+    if (mode === 'alta') dejarAvisoNumero(avisoNumero(numero, proximo))
     navigate(`/reparaciones/${tienda}/${numero}`, { replace: true })
   }
 
@@ -655,7 +659,7 @@ export function ReparacionFichaPage() {
               {mode === 'consulta' && !vacio ? (
                 <GwCampoBusqueda className="text-right" value={draft.numero != null ? String(draft.numero) : ''} onBuscar={buscarNumero} title="IDPEDIDO" />
               ) : (
-                <GwInput className="text-right" readOnly disabled value={draft.numero ?? ''} title="IDPEDIDO — se asigna al guardar" />
+                <GwInput className="text-right" readOnly disabled value={draft.numero ?? (mode === 'alta' ? (proximo ?? '') : '')} title="IDPEDIDO — en alta, el próximo libre; se confirma al guardar" />
               )}
             </GwField>
             <GwField label="Fecha">

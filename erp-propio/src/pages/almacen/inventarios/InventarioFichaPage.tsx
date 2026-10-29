@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, ClipboardList, History } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { formatGw, GwDate } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
@@ -123,6 +124,8 @@ export function InventarioFichaPage() {
 
   const editing = mode !== 'consulta'
   const vista = editing ? draft : cab
+  // En alta, el número que tendrá (se asigna de verdad al guardar).
+  const proximo = useProximoNumero(mode === 'alta', draft.tienda_terminal_codigo, 'inventario')
   const clave: Clave | null = cab.numero != null && mode !== 'alta' ? { tienda_terminal_codigo: cab.tienda_terminal_codigo, numero: cab.numero } : null
   const actualizado = cab.estado === 'inventariado'
   const puedeTomar = !!clave && !actualizado && !ocupado
@@ -168,7 +171,7 @@ export function InventarioFichaPage() {
     let cancel = false
     async function run() {
       setError(null)
-      setMensaje(null)
+      setMensaje(tomarAvisoNumero())
       setLoading(true)
       if (isNew) {
         const v = vacia(tiendas[0] ?? '', almacenes[0]?.codigo ?? '')
@@ -270,6 +273,7 @@ export function InventarioFichaPage() {
         const c = await crearInventario(draft)
         nav.refrescar()
         setMode('consulta')
+        dejarAvisoNumero(avisoNumero(c.numero, proximo))
         navigate(`/inventario/${encodeURIComponent(c.tienda_terminal_codigo)}/${c.numero}`, { replace: true })
       } else {
         const { error: err } = await supabase
@@ -402,7 +406,7 @@ export function InventarioFichaPage() {
           {!editing && clave ? (
             <GwCampoBusqueda className={`${inp} w-full text-right`} value={String(clave.numero)} onBuscar={buscarNumero} title="Número de inventario" />
           ) : (
-            <input className={`${inp} w-full text-right`} disabled readOnly value={vista.numero ?? ''} title="Se asigna al guardar" />
+            <input className={`${inp} w-full text-right`} disabled readOnly value={vista.numero ?? (mode === 'alta' ? (proximo ?? '') : '')} title="En alta, el próximo libre; se confirma al guardar" />
           )}
         </label>
         <label className="flex min-w-0 flex-1 flex-col">

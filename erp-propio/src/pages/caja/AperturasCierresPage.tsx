@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { RefreshCw } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximaAperturaCaja } from '../../lib/proximoNumero'
 import { ahoraTrabajo } from '../../lib/sesionTrabajo'
 import { GwInput, GwLookupButton, GwNumber, GwSelect, formatGw } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
@@ -172,7 +173,8 @@ export function AperturasCierresPage() {
     let cancel = false
     async function run() {
       setCargando(true)
-      setMensaje(null)
+      const aviso = tomarAvisoNumero()
+      setMensaje(aviso ? { texto: aviso, error: false } : null)
       setMovs(null)
       if (esNuevo) {
         const t = tiendaPuesto(tiendas)
@@ -383,6 +385,7 @@ export function AperturasCierresPage() {
         recordarTiendaPuesto(caja.tienda_terminal_codigo)
         nav.refrescar()
         setGuardando(false)
+        dejarAvisoNumero(avisoNumero(Number(data), proximo))
         navigate(`/caja/aperturas/${encodeURIComponent(caja.tienda_terminal_codigo)}/${data}`, { replace: true })
         return
       }
@@ -459,6 +462,9 @@ export function AperturasCierresPage() {
     return { arqueo: r3(tot.efectivo_teorico), sobrante: 0, retirado: r3(tot.efectivo_teorico), fondo: 0 }
   }, [caja, modo, arqueo, fondoCierre, tot])
 
+  // En alta (Apertura de Caja), el número que tendrá (lo da de verdad fn_caja_abrir al guardar).
+  const proximo = useProximaAperturaCaja(modo === 'alta', caja?.tienda_terminal_codigo)
+
   if (cargando) return <div className="gw-label p-2">Cargando…</div>
 
   const c = caja
@@ -481,9 +487,9 @@ export function AperturasCierresPage() {
         <Campo label={<><u>N</u>úmero</>}>
           <GwCampoBusqueda
             className={`${I} gw-num`}
-            value={c && modo !== 'alta' ? String(c.ejercicio) : ''}
+            value={c && modo !== 'alta' ? String(c.ejercicio) : modo === 'alta' ? String(proximo ?? '') : ''}
             disabled={modo !== 'consulta'}
-            title="NUMERO — se asigna al abrir la caja"
+            title="NUMERO — en alta, el próximo libre; se confirma al abrir la caja"
             onBuscar={buscarNumero}
             onLista={(texto) =>
               lista.abrir(LISTA_CAJAS, { texto, ancla, onPick: (f) => ir({ t: String(f.tienda_terminal_codigo), n: Number(f.ejercicio) }) })

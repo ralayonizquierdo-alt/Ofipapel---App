@@ -12,6 +12,7 @@ import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/
 import { PedidoBar } from './PedidoBar'
 import { entregarPedido } from './entregar'
 import { decimalesPrecio } from '../../../lib/parametros'
+import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import {
   ARTICULO_VENTA_COLS,
   CLIENTE_VENTA_COLS,
@@ -245,6 +246,8 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
   const [refresco, setRefresco] = useState(0)
 
   const editing = mode !== 'consulta'
+  // En alta, el número que tendrá (se asigna de verdad al guardar).
+  const proximo = useProximoNumero(mode === 'alta', cab?.tienda_terminal_codigo, 'pedido_cliente')
 
   useEffect(() => {
     supabase
@@ -344,7 +347,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
     let cancel = false
     async function run() {
       setCargando(true)
-      setMensaje(null)
+      setMensaje(tomarAvisoNumero())
       setEditLinea(null)
       setSel(0)
       if (esNuevo) {
@@ -718,8 +721,10 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
       }
       setSaving(false)
       cargarClaves()
-      if (mode === 'alta') navigate(`${base}/${encodeURIComponent(cab.tienda_terminal_codigo)}/${numero}`, { replace: true })
-      else {
+      if (mode === 'alta') {
+        dejarAvisoNumero(avisoNumero(numero, proximo))
+        navigate(`${base}/${encodeURIComponent(cab.tienda_terminal_codigo)}/${numero}`, { replace: true })
+      } else {
         const c = { ...cab }
         setOrig({ cab: c, lineas })
         setMode('consulta')
@@ -821,8 +826,8 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
               ))}
             </GwSelect>
           </Campo>
-          <Campo label={<u>N</u>} labelRest="úmero" title="IDPEDIDO — se asigna al guardar">
-            <GwInput readOnly className="gw-num" value={cab?.numero != null ? String(cab.numero) : ''} />
+          <Campo label={<u>N</u>} labelRest="úmero" title="IDPEDIDO — en alta, el próximo libre; se confirma al guardar">
+            <GwInput readOnly className="gw-num" value={String(cab?.numero ?? (mode === 'alta' ? (proximo ?? '') : ''))} />
           </Campo>
           <Campo label="Fecha">
             <GwDate disabled={ro} value={cab?.fecha} onChange={(v) => patch({ fecha: v })} />

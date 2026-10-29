@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { HandCoins } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { avisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { navIndice, useNavRegistro, type NavDir, type NavFiltro } from '../../../components/gw/useNavRegistro'
 import { GwCheck, GwDate, GwInput, GwLookupButton, GwNumber, GwSelect, formatGw } from '../../../components/gw'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
@@ -84,6 +85,8 @@ export function CobroClienteFichaPage() {
 
   const editable = mode !== 'consulta'
   const alta = mode === 'alta'
+  // En alta, el número que tendrá el cobro (se asigna de verdad al guardar).
+  const proximo = useProximoNumero(alta, cobro?.tienda_terminal_codigo, 'pago')
 
   useEffect(() => {
     Promise.all([
@@ -285,7 +288,10 @@ export function CobroClienteFichaPage() {
       cargarClaves()
       setSaving(false)
       const codigo = r.codigos[r.codigos.length - 1]
-      const texto = `Cobrado ${formatGw(r.importe, 2)} €.${r.movimiento != null ? ` Ingreso en caja ${r.tienda}-${r.movimiento}.` : ''} ${r.pendiente > 0.005 ? `Queda pendiente ${formatGw(r.pendiente, 2)} €.` : 'Documento cobrado.'}`
+      // Un cobro que salda un vencimiento ya creado se queda con su número (menor): eso no es que
+      // otro puesto haya cogido el que se enseñaba.
+      const otroPuesto = codigo != null && proximo != null && codigo > proximo ? avisoNumero(codigo, proximo) : null
+      const texto = `${otroPuesto ? `${otroPuesto}. ` : ''}Cobrado ${formatGw(r.importe, 2)} €.${r.movimiento != null ? ` Ingreso en caja ${r.tienda}-${r.movimiento}.` : ''} ${r.pendiente > 0.005 ? `Queda pendiente ${formatGw(r.pendiente, 2)} €.` : 'Documento cobrado.'}`
       if (codigo != null) navigate(`/cobros-clientes/${encodeURIComponent(r.tienda)}/${codigo}`, { replace: true, state: { aviso: texto } })
       else setAviso(texto)
     } catch (e) {
@@ -450,7 +456,12 @@ export function CobroClienteFichaPage() {
                 </GwSelect>
               </Campo>
               <Campo label={<><u>N</u>úmero</>}>
-                <GwInput className={`${I} gw-num`} readOnly value={c.codigo_pago ?? ''} title="CODPAGO — se asigna al guardar" />
+                <GwInput
+                  className={`${I} gw-num`}
+                  readOnly
+                  value={c.codigo_pago ?? (alta ? (proximo ?? '') : '')}
+                  title="CODPAGO — en alta, el próximo libre; se confirma al guardar (si el cobro salda un vencimiento ya creado, queda con el número de ese vencimiento)"
+                />
               </Campo>
               <Campo label="Fecha">
                 <GwDate className={I} value={c.fecha} disabled />
