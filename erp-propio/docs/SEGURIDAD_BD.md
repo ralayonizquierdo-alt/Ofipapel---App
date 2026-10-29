@@ -2,8 +2,9 @@
 
 Proyecto Supabase `sufxvpiwcncnyltrvoun`. Inventario hecho el 28/10/2026 consultando
 `pg_policies`, `pg_proc`, `pg_roles` y los permisos de tablas y funciones en la base real.
-Migraciones: `supabase/migrations/20261028_seguridad_config.sql` (1.ª tanda, §2–§3) y
-`supabase/migrations/20261028_seguridad_funciones.sql` (2.ª tanda, §5–§6).
+Migraciones: `supabase/migrations/20261028_seguridad_config.sql` (1.ª tanda, §2–§3),
+`supabase/migrations/20261028_seguridad_funciones.sql` (2.ª tanda, §5–§6) y
+`supabase/migrations/20261029_seguridad_escrituras.sql` (3.ª tanda, §7–§8).
 
 ## 1. Cómo está montado
 
@@ -11,7 +12,7 @@ Migraciones: `supabase/migrations/20261028_seguridad_config.sql` (1.ª tanda, §
   tiene `FORCE ROW LEVEL SECURITY`.
 - **Sin sesión (`anon`) no se lee ni se escribe nada**: todas las políticas son `to authenticated`.
   `carga_dbf` y `coordinacion_notas` no tienen ninguna política (cerradas para la API).
-- **El punto débil:** casi todas las tablas tienen una única política PERMISSIVE
+- **El punto débil (cerrado para las escrituras en la 3.ª tanda, §7):** casi todas las tablas tenían una única política PERMISSIVE
   `autenticados_acceso_total_<tabla>` (`for all using (true) with check (true)`). Cualquier
   empleado con sesión puede leer y escribir cualquier tabla por la API REST, aunque la interfaz le
   muestre las opciones en gris. Los permisos por grupo (`rol_permiso`, `fn_mis_permisos`) son,
@@ -118,7 +119,9 @@ En navegador (Playwright, servidor local):
 ## 4. Plan siguiente (por prioridad)
 
 Hecho en la 2.ª tanda (ver §5): `fn_puede`, comprobación en las funciones peligrosas,
-`cargar_dbf_lote`, borrado físico de maestros solo administradores. Queda:
+`cargar_dbf_lote`, borrado físico de maestros solo administradores. Hecho en la 3.ª tanda
+(§7): los puntos 2 y 3 (alta, modificación y borrado de todas las tablas de negocio por
+permiso de pantalla). Queda:
 
 1. **Contabilidad** (plan aparte, no tocado): `fn_contab_guardar_asiento`, `fn_contab_renumerar`,
    `fn_contab_anular_asiento`, `fn_contab_conciliar_auto`, `fn_contab_generar` y
@@ -346,3 +349,90 @@ El detalle exacto está en la migración (un `values` por bloque). Resumen:
 | | `pedido_proveedor_linea` | `/pedidos-proveedor`, `/creacion-rapida-pedidos`, `/gestor-pedidos-proveedor`, `/peticiones` |
 | | `factura_proveedor` · `pago_proveedor` | `/facturas-proveedor`, `/pagos-proveedor`, `/gestor-pagos-proveedor` |
 | | `peticion`, `peticion_tramitacion` | `/peticiones`, `/gestor-pedidos-proveedor`, `accion:generar-peticion` |
+| 5 | `venta` | `/tpv`, `/ventas`, `/pedidos`, `/presupuestos`, `/repartos`, `/facturacion`, `/generar-facturas`, `/cobros-clientes/ficha`, `/gestor-cobros-clientes` |
+| | `venta_linea`, `venta_componente` | `/tpv`, `/ventas`, `/pedidos`, `/presupuestos` |
+| | `apertura_cajon` | `/tpv`, `/ventas` |
+| | `cobro_cliente` | `/tpv`, `/ventas`, `/facturacion`, `/cobros-clientes/ficha`, `/gestor-cobros-clientes` |
+| | `movimiento_caja` | `/tpv`, `/ventas`, `/caja/movimientos`, `/caja/entrada`, `/caja/salida`, `/pagos-proveedor`, `/gestor-pagos-proveedor`, `/facturas-proveedor`, `/facturacion`, `/cobros-clientes/ficha`, `/gestor-cobros-clientes` |
+| | `caja_apertura_cierre(_categoria)` | `/caja/aperturas` (Apertura y Cierre redirigen ahí) |
+| | `factura` · `factura_impuesto_tramo` | `/facturacion`, `/generar-facturas` (+ cobros en `factura`) |
+| | `pedido_cliente(_linea/_componente)` | `/pedidos`, `/presupuestos`, `/reparaciones`, `/web/importar-pedidos` |
+| | `reparto(_linea)` · `liquidacion_comision(_documento)` | `/repartos` · `/liquidacion` |
+| | `web_sincronizacion_log` | las 25 opciones del menú Web (la Edge Function `woocommerce-erp` registra con el JWT del usuario; si falla, no tumba la consulta) |
+
+Nota: el 29/10 Luis juntó Proveedores y Acreedores en una sola pantalla (`/proveedores`, commit
+feb2a1e); la ruta `/acreedores` ya no existe, pero se deja en los arrays (el código sigue en
+`permiso`, no estorba).
+
+### Qué queda sin proteger (y por qué)
+
+Todas las tablas de negocio (95, 285 políticas `permiso_*`) quedan cubiertas. Siguen como
+estaban, a propósito:
+- **Contabilidad** (`cuenta_contable`, `extracto_bancario`, `extracto_movimiento`; `apunte`,
+  `asiento`, `asiento_documento` ya eran de solo lectura): plan aparte (§4.1).
+- `parametro`: la lleva otra tanda (alta/modificación ya solo administradores).
+- Configuración y administración: ya protegidas en la 1.ª tanda (§2).
+- `registro_facturacion`, `auditoria`: inmutables (§2). `carga_dbf`, `coordinacion_notas`: sin
+  políticas (cerradas a la API).
+
+## 8. Pruebas de la 3.ª tanda (29/10/2026)
+
+Después de **cada** bloque (1+1b, 2, 3, 4, 5), con el servidor local
+(`VITE_BASE_PATH=/ npx vite --port 5188`):
+
+- **Robot** (`e2e/recorrido.mjs`, 1366×768): `rober` 148–149 pantallas ok, 0 fallos, 0 avisos;
+  `prueba` 30 ok, 0 fallos, 118–119 «sin permiso» (lo esperado para DEPENDIENTE). Igual en los
+  cinco pases.
+- **Flujos de escritura de punta a punta** (Playwright), todos guardados y comprobados en la base:
+  - `prueba` (DEPENDIENTE): venta de TPV en efectivo (ventas 01-29, 31, 33, 36, 38), pedido de
+    cliente → Entregado (pedidos 15, 16, 18, 20, 22 → ventas), reparación con alta y
+    modificación, entrada de caja de 0,01 €, petición con alta y modificación y, desde el
+    bloque 4, **tramitar la petición a pedido a proveedor** (pedidos 17 y siguientes);
+    alta y modificación de un artículo (`ZZTEST-SEGP2`).
+  - `rober` (administrador): pedido a proveedor en el almacén 98 → Actualizado (recepción:
+    stock y costes), cobro desde el Gestor de pagos de clientes de la venta servida, traspaso
+    98 → 01, regularización en el almacén 98, alta y modificación de artículo
+    (`ZZTEST-SEG1`…`SEG5`), de cliente de prueba (`99991`…`99995`) y de acreedor de prueba
+    (`60608`…`60613`).
+  - El stock lo siguen moviendo los triggers ya como DEFINER: la venta de `prueba` descuenta en
+    01 y la recepción/regularización de `rober` cuadran en 98.
+- **Por la API con el JWT de `prueba`**: `POST` a `proveedor`, `familia`, `articulo_plu`,
+  `modificacion_precio`, `traspaso_almacen`, `factura_proveedor`, `pago_proveedor`,
+  `factura_impuesto_tramo`, `liquidacion_comision` → `403 42501` («new row violates
+  row-level security policy "permiso_alta_…"»); `PATCH` a `proveedor`, `familia`, `factura` →
+  `200 []` (0 filas). Sí escribe donde tiene pantalla: `cliente`, `articulo`, `cuenta_bancaria`
+  (pasa la política y se para en el NOT NULL), `pedido_proveedor` (tramitar peticiones).
+- **Matriz completa por SQL**, simulando el JWT (`request.jwt.claims` + `set local role
+  authenticated`) dentro de un subbloque que se deshace siempre (sin DELETE): alta y
+  modificación de cada tabla de los cinco bloques con `prueba` y con `cowork`. `prueba` solo
+  pasa en las tablas de sus pantallas (TPV, ventas, pedidos, reparaciones, caja, repartos,
+  peticiones, artículos, clientes, nº de serie, web estado-pedidos/pendientes); `cowork` pasa
+  en las de `'carga'` (familia, artículo, cliente, movimiento_stock, articulo_almacen_stock…) y
+  no en las demás (técnicos, traspasos…).
+
+### Rendimiento (EXPLAIN ANALYZE, como `prueba`)
+
+La condición sale como **InitPlan, una vez por sentencia** (`Filter: (InitPlan n).col1` en el
+recorrido), nunca por fila:
+
+| Sentencia | Filas | InitPlan (USING / CHECK) | Total |
+|---|---|---|---|
+| `update articulo … where codigo_interno = 'ZZTEST-001'` | 1 | 1,3 ms / 3,2 ms | 5,0 ms |
+| `update articulo` (toda la tabla) | 2.018 | 1,3 ms / 3,5 ms (una vez) | 562 ms (casi todo, el trigger de auditoría) |
+| `update movimiento_stock … where articulo_codigo = 'ZZTEST-001'` | 42 | 1,9 ms / 3,1 ms | 36,6 ms (auditoría 9,8 ms) |
+| `insert into apertura_cajon` (3 filas) | 3 | 1,0 ms | 7,7 ms |
+| `update articulo_plu` (sin permiso) | 0 | — / 1,0 ms | 1,0 ms |
+| `update articulo` como `rober` (admin) | 1 | 0,9 ms / 0,8 ms | 1,8 ms |
+
+Coste añadido: 1–3 ms por sentencia de escritura, independiente del número de filas.
+
+### Pendiente
+
+- Contabilidad (§4.1) y la lectura restringida (§4.4).
+- Una pantalla nueva que escriba en una tabla de negocio **tiene que añadirse a su array**
+  (bloque nuevo con `pg_temp.politica_escritura`, que hace `ALTER POLICY`); si no, a quien no
+  sea administrador le dará `403` (alta) o no guardará (modificación, 0 filas). El robot lo
+  detecta en las altas (respuesta 403 de Supabase), no en las modificaciones.
+- Mover los guardados de documentos (TPV, pedidos, compras) a RPC DEFINER que compruebe el
+  permiso dejaría las tablas en solo lectura y los arrays más cortos (§4.3); no hace falta para
+  la protección actual.

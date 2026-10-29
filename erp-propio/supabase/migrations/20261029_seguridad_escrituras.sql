@@ -11,7 +11,8 @@
 --   vez por sentencia (InitPlan), no una vez por fila.
 -- - Las lecturas NO cambian. No se borra ninguna política (las permisivas siguen; una escritura
 --   tiene que cumplir además todas las restrictivas).
--- - Se aplica en tandas (bloques 1–5) para poder parar a medias. Cada bloque es idempotente:
+-- - Aplicada el 29/10/2026 en tandas (bloques 1, 1b, 2, 3, 4, 5 → migraciones
+--   20261029_seguridad_escrituras_<n>_…), con pruebas tras cada una. Cada bloque es idempotente:
 --   si la política ya existe, se ajusta con ALTER POLICY (así se amplía un array sin DROP).
 -- - NO se toca Contabilidad (cuenta_contable, extracto_*, asientos…): plan aparte. Tampoco las
 --   tablas de configuración ya protegidas en 20261028_seguridad_config.sql, ni `parametro`.

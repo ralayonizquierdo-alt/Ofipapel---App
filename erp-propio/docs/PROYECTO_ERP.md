@@ -380,8 +380,18 @@ integrado en la base de datos:
   marcas, vendedores, bancos, rutas, zonas… es solo de administradores: los
   demás dan de baja; la ficha avisa si no se pudo borrar. Si cambias
   `REDIRECCIONES` en `permisos.ts`, cámbialas también en `fn_puede`.
-  Pendiente: el alta y modificación de las tablas de negocio siguen siendo
-  «autenticado = todo», y Contabilidad (`fn_contab_*`) tiene plan aparte.
+- **Escrituras por permiso de pantalla** (`20261029_seguridad_escrituras.sql`,
+  29/10): en las 95 tablas de negocio (maestros, clientes, artículos, almacén,
+  compras, ventas, caja, facturación, repartos, web) alta, modificación y
+  borrado solo los hace quien tiene permiso en alguna pantalla que
+  legítimamente escribe en esa tabla (`fn_puede_alguno`, políticas
+  restrictivas `permiso_alta/modifica/borra_<tabla>`); administradores
+  siempre, `cowork` en las tablas de la carga. Leer sigue abierto a todo
+  empleado con sesión. **Si una pantalla nueva escribe en una tabla de
+  negocio, hay que añadir su ruta al array de esa tabla** (mapa y cómo
+  ampliarlo en `SEGURIDAD_BD.md` §7); si no, a quien no sea administrador no
+  le guardará. Pendiente: Contabilidad (`fn_contab_*`, `cuenta_contable`,
+  extractos) tiene plan aparte, y limitar la lectura de datos sensibles.
   Inventario, clasificación de funciones, pruebas y plan en
   **`docs/SEGURIDAD_BD.md`**.
 
