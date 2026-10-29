@@ -179,3 +179,59 @@ export const OPERADORES: { op: string; texto: string; tipos: TipoColumna[]; valo
 ]
 
 export const definicionNueva = (fuente: Fuente): DefinicionListado => ({ columnas: [...fuente.porDefecto], filtros: [], agrupar: [], sumar: [], orden: [] })
+
+// Qué fuente propone el botón «Listados» de la barra de título según la pantalla abierta (la
+// ruta más larga que encaje manda). Sin coincidencia, el generador se abre con la primera fuente.
+const FUENTE_POR_RUTA: [string, string][] = [
+  ['/clientes', 'clientes'],
+  ['/tipos-cliente', 'clientes'],
+  ['/listados-clientes', 'clientes'],
+  ['/recalcular-deuda', 'clientes'],
+  ['/vendedores', 'clientes'],
+  ['/zonas-territoriales', 'clientes'],
+  ['/pedidos', 'ventas'],
+  ['/presupuestos', 'ventas'],
+  ['/gestor-pedidos', 'ventas'],
+  ['/gestor-presupuestos', 'ventas'],
+  ['/tpv', 'ventas_lineas'],
+  ['/ventas', 'ventas_lineas'],
+  ['/listados-ventas', 'ventas_lineas'],
+  ['/repartos', 'ventas'],
+  ['/reparaciones', 'ventas'],
+  ['/facturacion', 'facturas'],
+  ['/generar-facturas', 'facturas'],
+  ['/listado-facturas', 'facturas'],
+  ['/listados-facturacion', 'facturas'],
+  ['/gestor-cobros-clientes', 'facturas'],
+  ['/cobros-clientes', 'facturas'],
+  ['/caja', 'caja'],
+  ['/compras', 'compras'],
+  ['/pedidos-proveedor', 'compras'],
+  ['/creacion-rapida-pedidos', 'compras_lineas'],
+  ['/facturas-proveedor', 'compras'],
+  ['/pagos-proveedor', 'compras'],
+  ['/gestor-pagos-proveedor', 'compras'],
+  ['/gestor-pedidos-proveedor', 'compras'],
+  ['/listados-compras', 'compras'],
+  ['/peticiones', 'compras_lineas'],
+  ['/proveedores', 'proveedores'],
+  ['/transportistas', 'proveedores'],
+  ['/articulos', 'articulos'],
+  ['/familias', 'articulos'],
+  ['/marcas', 'articulos'],
+  ['/plantillas-tarifas', 'articulos'],
+  ['/tarifas-oferta', 'articulos'],
+  ['/modificacion-precios', 'articulos'],
+  ['/almacen', 'articulos'],
+  ['/stock', 'stock'],
+  ['/inventario', 'stock'],
+  ['/regularizacion-stock', 'stock'],
+  ['/traspasos', 'stock'],
+  ['/almacenes', 'stock'],
+]
+
+export function fuenteDeRuta(pathname: string): string | null {
+  let mejor: [string, string] | null = null
+  for (const r of FUENTE_POR_RUTA) if ((pathname === r[0] || pathname.startsWith(r[0] + '/')) && (!mejor || r[0].length > mejor[0].length)) mejor = r
+  return mejor?.[1] ?? null
+}

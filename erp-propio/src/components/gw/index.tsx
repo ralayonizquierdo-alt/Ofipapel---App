@@ -42,6 +42,7 @@ export function GwWindow({
   seccion,
   color,
   principal = false,
+  extraTitulo,
 }: {
   title: string
   onClose?: () => void
@@ -58,6 +59,8 @@ export function GwWindow({
    * (se mueve y se cambia de tamaño) y «minimizar» la deja en la barra de título, abajo.
    */
   principal?: boolean
+  /** Botones propios en la barra de título, antes de minimizar / maximizar / cerrar. */
+  extraTitulo?: ReactNode
 }) {
   // Como en Windows: minimizar (solo la barra de título), maximizar / restaurar (doble clic en
   // el título también) y, sin maximizar, cambiar el tamaño desde la esquina de abajo a la derecha.
@@ -104,6 +107,7 @@ export function GwWindow({
       >
         <GwAppIcon size={14} />
         <span className="gw-titulo-texto flex-1 truncate">{title}</span>
+        {extraTitulo}
         <span className="flex gap-0.5">
           <button type="button" title={estado === 'min' ? 'Restaurar' : 'Minimizar'} className={boton} onClick={() => setEstado((e) => (e === 'min' ? (principal ? 'max' : 'normal') : 'min'))}>
             <Minus size={10} />

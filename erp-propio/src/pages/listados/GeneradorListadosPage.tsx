@@ -413,7 +413,7 @@ export function GeneradorListadosPage() {
                       'Nº oper.: escribe el número de un operario para ver solo sus listados.',
                       'Columnas → «Todos los campos de la ficha»: cualquier campo, con buscador.',
                       '⛶ Pantalla: el listado a pantalla completa. Esc o «Cerrar pantalla» para volver.',
-                      'Acceso directo: icono «Listados» de la barra y «Generador de listados» en cada menú Listados.',
+                      'Acceso directo: botón «📋 Listados» en la barra de título de cada pantalla (abre el generador con lo de esa pantalla), icono «Listados» de la barra de accesos y «Generador de listados» en cada menú Listados.',
                       'Compartir: elige qué grupos de empleados ven el listado.',
                       'Cada uno solo ve los datos que su permiso le deja ver.',
                     ],
