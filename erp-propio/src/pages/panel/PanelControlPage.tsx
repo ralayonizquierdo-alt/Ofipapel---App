@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { usePermisos } from '../../lib/PermisosContext'
 import {
   AlertTriangle,
-  ArrowDownRight,
-  ArrowUpRight,
   CheckCircle2,
   ClipboardList,
+  FileText,
+  MessageSquarePlus,
+  ShoppingCart,
   Globe,
   PackageCheck,
-  ReceiptText,
   RefreshCw,
   Store,
   Truck,
@@ -18,7 +18,9 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { BarrasApiladas, BarrasSimples, C, Card, ColumnasComparadas, GraficoHoras, Vacio } from './charts'
-import { PERIODOS, REFRESCO_MS, fmtFecha, fmtNum, hoyCanarias, usePanelData, type PanelData, type Periodo } from './panelData'
+import { PERIODOS, REFRESCO_MS, fmtFecha, fmtNum, hoyCanarias, usePanelData, usePanelDia, type PanelData, type PanelDia, type Periodo } from './panelData'
+import { GwWindow } from '../../components/gw'
+import { GwOperativa } from '../../components/gw/GwOperativa'
 
 // Panel de Control: pantalla que se abre al entrar. Operativo (lo ven todos los empleados):
 // solo número de operaciones y unidades, nunca importes. Ver panelData.ts para el futuro panel
@@ -49,6 +51,9 @@ export function PanelControlPage() {
     return PERIODOS.some((x) => x.value === p) ? (p as Periodo) : 'hoy'
   })
   const { data, cargando, error, actualizado, recargar } = usePanelData(tienda, periodo)
+  const dia = usePanelDia(tienda, actualizado)
+  const [detalle, setDetalle] = useState<Detalle | null>(null)
+  const [ayuda, setAyuda] = useState(false)
   const per = PERIODOS.find((p) => p.value === periodo)!
   const hoy = data?.meta.hoy ?? hoyCanarias()
   const diaSemana = DIAS[new Date(`${hoy}T12:00:00Z`).getUTCDay()]
@@ -109,6 +114,9 @@ export function PanelControlPage() {
           {actualizado ? `Actualizado a las ${actualizado.toLocaleTimeString('es-ES')}` : 'Cargando…'} · se actualiza solo cada{' '}
           {REFRESCO_MS / 60000} min
         </span>
+        <button type="button" className="gw-btn" onClick={() => setAyuda(true)}>
+          Operativa
+        </button>
         <span className="ml-auto text-[12px] font-bold capitalize text-[#1d3a8a]">
           {diaSemana}, {fmtFecha(hoy)}
         </span>
@@ -123,11 +131,39 @@ export function PanelControlPage() {
         </div>
       )}
 
+      {ayuda && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-20" onKeyDown={(e) => e.key === 'Escape' && setAyuda(false)}>
+          <GwWindow title="Panel de Control · Operativa" onClose={() => setAyuda(false)} className="w-[640px] max-w-[95vw]">
+            <GwOperativa
+              bloques={[
+                {
+                  titulo: 'Tarjetas de arriba',
+                  notas: [
+                    'Pedidos, pendientes de preparar, reparto y pedidos web: pulsa para abrir su pantalla.',
+                    'Presupuestos hoy: hechos hoy, cuántos aceptados, pendientes y en seguimiento.',
+                    'Compras hoy: altas del día actualizadas, pendientes de actualizar y abonos.',
+                    'Peticiones hoy: cuántas, por nº de operario.',
+                    'Pulsa Presupuestos, Compras o Peticiones para ver la lista con sus números (pedido, albarán, factura, código de venta…).',
+                  ],
+                },
+                {
+                  titulo: 'Bueno es saber',
+                  notas: [
+                    '«En seguimiento» se marca en la ficha del presupuesto (botón junto a Aceptado).',
+                    'Tienda y periodo de arriba cambian lo de abajo; se actualiza solo cada pocos minutos.',
+                  ],
+                },
+              ]}
+            />
+          </GwWindow>
+        </div>
+      )}
+      {detalle && dia && <DetalleDia que={detalle} dia={dia} abrir={abrir} onClose={() => setDetalle(null)} />}
       {!data ? (
         !error && <div className="flex flex-1 items-center justify-center text-[#6d6d6d]">Cargando panel…</div>
       ) : (
         <div className={`flex flex-col gap-1.5 transition-opacity ${cargando ? 'opacity-60' : ''}`}>
-          <Kpis d={data} per={per} abrir={abrir} />
+          <Kpis d={data} dia={dia} abrir={abrir} verDetalle={setDetalle} />
 
           <div className="grid grid-cols-12 gap-1.5">
             <Card className="col-span-5" title="Actividad de hoy por hora" sub={`${diaSemana} ${fmtFecha(hoy)}`}>
@@ -245,13 +281,21 @@ function Kpi({
   )
 }
 
-function Kpis({ d, per, abrir }: { d: PanelData; per: (typeof PERIODOS)[number]; abrir: Abrir }) {
+type Detalle = 'presupuestos' | 'compras' | 'peticiones'
+
+function Kpis({ d, dia, abrir, verDetalle }: { d: PanelData; dia: PanelDia | null; abrir: Abrir; verDetalle: (q: Detalle) => void }) {
   const ph = d.pedidos_hoy
   const r = d.reparto_hoy
-  const k = d.kpi
-  const delta = k.tickets_ant > 0 ? ((k.tickets - k.tickets_ant) / k.tickets_ant) * 100 : null
+  const pr = dia?.presupuestos
+  const co = dia?.compras
+  const pe = dia?.peticiones
+  const cifra = (txt: string, n: number | undefined, color?: string) => (
+    <span key={txt} className="whitespace-nowrap">
+      {txt} <b style={{ color }} className={color ? '' : 'text-[#111]'}>{n ?? '·'}</b>
+    </span>
+  )
   return (
-    <div className="grid grid-cols-6 gap-1.5">
+    <div className="grid grid-cols-7 gap-1.5">
       <Kpi label="Pedidos nuevos hoy" icon={ClipboardList} valor={fmtNum(ph.total)} onClick={abrir('/gestor-pedidos')}>
         <span className="flex items-center gap-2.5">
           {(
@@ -296,43 +340,113 @@ function Kpis({ d, per, abrir }: { d: PanelData; per: (typeof PERIODOS)[number];
       >
         {r.entregas ? <Medidor e={r.entregadas} p={r.pendientes} n={r.no_entregadas} /> : 'Sin repartos para hoy'}
       </Kpi>
-      <Kpi
-        label="Reparaciones abiertas"
-        icon={Wrench}
-        valor={fmtNum(d.reparaciones.abiertas)}
-        alerta={d.reparaciones.atrasadas > 0}
-        onClick={abrir('/reparaciones')}
-      >
-        {d.reparaciones.atrasadas > 0 ? `${d.reparaciones.atrasadas} atrasadas` : 'Ninguna atrasada'}
-      </Kpi>
-      <Kpi label={`Nuevos pedidos web · ${per.label.toLowerCase()}`} icon={Globe} valor={fmtNum(d.pedidos_web.periodo)} onClick={abrir('/web/estado-pedidos')}>
+      <Kpi label="Nuevos pedidos web · hoy" icon={Globe} valor={fmtNum(d.pedidos_web.hoy)} onClick={abrir('/web/estado-pedidos')}>
         {d.pedidos_web.por_preparar > 0
           ? `${d.pedidos_web.por_preparar} pendientes de preparar`
           : d.pedidos_web.ultimo_fecha
             ? `Último: ${d.pedidos_web.ultimo_fecha === d.meta.hoy ? 'hoy' : fmtFecha(d.pedidos_web.ultimo_fecha)}${d.pedidos_web.ultimo_hora ? ' a las ' + d.pedidos_web.ultimo_hora : ''}`
             : 'Aún no hay pedidos web'}
       </Kpi>
-      <Kpi
-        label={`Tickets · ${per.label.toLowerCase()}`}
-        icon={ReceiptText}
-        valor={
-          <span className="flex items-baseline gap-2">
-            {fmtNum(k.tickets)}
-            {delta !== null && (
-              <span
-                className={`flex items-center text-[12px] font-bold ${delta >= 0 ? 'text-[#006300]' : 'text-[#b02a2a]'}`}
-                title={`Frente a ${per.comparado}: ${fmtNum(k.tickets_ant)} tickets`}
-              >
-                {delta >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                {fmtNum(Math.abs(delta), 0)} %
-              </span>
-            )}
-          </span>
-        }
-        onClick={abrir('/ventas')}
-      >
-        {fmtNum(k.unidades, 2)} {k.unidades === 1 ? 'ud. vendida' : 'uds. vendidas'} · {k.devoluciones} devol. · vs {fmtNum(k.tickets_ant)}
+      <Kpi label="Presupuestos hoy" icon={FileText} valor={pr ? fmtNum(pr.total) : '…'} onClick={() => verDetalle('presupuestos')}>
+        <span className="flex gap-2">
+          {cifra('Acept.', pr?.aceptados, '#127a12')}
+          {cifra('Pend.', pr?.pendientes, '#b45309')}
+          {cifra('Seguim.', pr?.seguimiento, '#1d5fb4')}
+        </span>
       </Kpi>
+      <Kpi
+        label="Compras hoy"
+        icon={ShoppingCart}
+        valor={co ? fmtNum(co.actualizadas + co.pendientes + co.abonos) : '…'}
+        alerta={!!co && co.pendientes > 0}
+        onClick={() => verDetalle('compras')}
+      >
+        <span className="flex gap-2">
+          {cifra('Actualiz.', co?.actualizadas, '#127a12')}
+          {cifra('Pend.', co?.pendientes, '#b45309')}
+          {cifra('Abonos', co?.abonos, '#c42b1c')}
+        </span>
+      </Kpi>
+      <Kpi label="Peticiones hoy" icon={MessageSquarePlus} valor={pe ? fmtNum(pe.total) : '…'} onClick={() => verDetalle('peticiones')}>
+        {pe && pe.por_operario.length ? (
+          <span className="flex gap-2">{pe.por_operario.slice(0, 3).map((x) => cifra(`Op. ${x.operario ?? '?'}`, x.n))}</span>
+        ) : (
+          'Ninguna petición hoy'
+        )}
+      </Kpi>
+    </div>
+  )
+}
+
+/** Ventana con el detalle de una tarjeta del día (números de presupuesto, pedido, albarán…). */
+function DetalleDia({ que, dia, abrir, onClose }: { que: Detalle; dia: PanelDia; abrir: Abrir; onClose: () => void }) {
+  const t =
+    que === 'presupuestos'
+      ? {
+          titulo: 'Presupuestos de hoy',
+          ruta: '/gestor-presupuestos',
+          cols: ['Nº presupuesto', 'Cliente', 'Estado', 'Oper.'],
+          filas: dia.presupuestos.lista.map((x) => [`${x.tienda}-${x.numero}`, x.cliente ?? '', x.estado, x.operario ?? '']),
+        }
+      : que === 'compras'
+        ? {
+            titulo: 'Compras de hoy',
+            ruta: '/gestor-pedidos-proveedor',
+            cols: ['Tipo', 'Nº pedido', 'Albarán', 'Factura', 'Proveedor'],
+            filas: dia.compras.lista.map((x) => [x.tipo, `${x.tienda}-${x.numero}`, x.albaran ?? '', x.factura ?? '', x.proveedor ?? '']),
+          }
+        : {
+            titulo: 'Peticiones de hoy',
+            ruta: '/peticiones',
+            cols: ['Nº petición', 'Oper.', 'Código venta', 'Descripción', 'Cant.', 'Estado'],
+            filas: dia.peticiones.lista.map((x) => [`${x.tienda}-${x.numero}`, x.operario ?? '', x.codigo_venta ?? '', x.descripcion ?? '', fmtNum(x.cantidad, 2), x.estado ?? '']),
+          }
+  const ir = abrir(t.ruta)
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-20" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+      <GwWindow title={t.titulo} onClose={onClose} className="w-[760px] max-w-[95vw]">
+        <div className="flex flex-col gap-1.5 text-[13px]">
+          <div className="max-h-[400px] overflow-y-auto border border-[var(--gw-border)] bg-white">
+            <table className="gw-grid">
+              <thead className="sticky top-0">
+                <tr>
+                  {t.cols.map((c) => (
+                    <th key={c}>{c}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {t.filas.length === 0 && (
+                  <tr>
+                    <td colSpan={t.cols.length} className="text-[#777]">
+                      Nada hoy.
+                    </td>
+                  </tr>
+                )}
+                {t.filas.map((f, i) => (
+                  <tr key={i}>
+                    {f.map((v, j) => (
+                      <td key={j} className={`truncate ${v === 'Abono' || v === 'Pendiente' ? 'font-bold' : ''} ${v === 'Abono' ? 'text-[#c42b1c]' : v === 'Pendiente' ? 'text-[#b45309]' : v === 'Aceptado' || v === 'Actualizada' ? 'text-[#127a12]' : ''}`}>
+                        {v}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-end gap-1.5">
+            {ir && (
+              <button type="button" className="gw-btn" onClick={() => (onClose(), ir())}>
+                Abrir la pantalla
+              </button>
+            )}
+            <button type="button" className="gw-btn" onClick={onClose}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </GwWindow>
     </div>
   )
 }

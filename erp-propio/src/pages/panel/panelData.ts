@@ -173,3 +173,39 @@ export function usePanelData(tienda: string, periodo: Periodo) {
 
   return { data, cargando, error, actualizado, recargar: cargar }
 }
+
+// ---- Tarjetas del día: presupuestos, compras y peticiones (fn_panel_dia) ---------------------
+
+export interface PanelDia {
+  presupuestos: {
+    total: number
+    aceptados: number
+    seguimiento: number
+    pendientes: number
+    lista: { tienda: string; numero: number; cliente: string | null; estado: string; operario: string | null }[]
+  }
+  compras: {
+    actualizadas: number
+    pendientes: number
+    abonos: number
+    lista: { tienda: string; numero: number; proveedor: string | null; albaran: string | null; factura: string | null; abono: boolean; tipo: string }[]
+  }
+  peticiones: {
+    total: number
+    por_operario: { operario: string | null; n: number }[]
+    lista: { tienda: string; numero: number; operario: string | null; codigo_venta: string | null; descripcion: string | null; cantidad: number; estado: string | null }[]
+  }
+}
+
+/** Datos del día para las tarjetas de presupuestos, compras y peticiones; se recargan con `vuelta`. */
+export function usePanelDia(tienda: string, vuelta: unknown): PanelDia | null {
+  const [dia, setDia] = useState<PanelDia | null>(null)
+  useEffect(() => {
+    let vivo = true
+    supabase.rpc('fn_panel_dia', { p_tienda: tienda || null }).then(({ data }) => vivo && data && setDia(data as PanelDia))
+    return () => {
+      vivo = false
+    }
+  }, [tienda, vuelta])
+  return dia
+}

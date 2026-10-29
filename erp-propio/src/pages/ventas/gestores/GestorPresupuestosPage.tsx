@@ -61,6 +61,7 @@ interface PresupuestoRow {
   caducidad: string | null
   dias: number | null
   aceptado: boolean
+  en_seguimiento: boolean
   vendido: boolean
   anulado: boolean
   cliente: string | null
@@ -109,7 +110,7 @@ export function GestorPresupuestosPage() {
     const base = () =>
       supabase
         .from('pedido_cliente')
-        .select('tienda_terminal_codigo, numero, fecha, hora, fecha_fin, aceptado, anulado, venta_numero, cliente_codigo, nombre_cliente, cliente:cliente_codigo(nombre)')
+        .select('tienda_terminal_codigo, numero, fecha, hora, fecha_fin, aceptado, en_seguimiento, anulado, venta_numero, cliente_codigo, nombre_cliente, cliente:cliente_codigo(nombre)')
         .eq('es_presupuesto', true)
         .eq('es_reparacion', false)
     // Supabase corta cada respuesta en 1000 filas: se pide por bloques, con tope y aviso.
@@ -132,6 +133,7 @@ export function GestorPresupuestosPage() {
       caducidad: p.fecha_fin,
       dias: diasHasta(p.fecha_fin),
       aceptado: !!p.aceptado,
+      en_seguimiento: !!p.en_seguimiento,
       vendido: p.venta_numero != null,
       anulado: !!p.anulado,
       cliente: p.cliente_codigo,
@@ -173,6 +175,7 @@ export function GestorPresupuestosPage() {
       { key: 'caducidad', label: 'Caducidad', width: 148, value: (r) => r.caducidad, render: (r) => fechaEs(r.caducidad), title: 'Fin del periodo de validez del presupuesto' },
       { key: 'dias', label: 'Días', width: 70, align: 'right', value: (r) => r.dias, title: 'Días que faltan para la caducidad (negativo: ya caducado)' },
       { key: 'ac', label: 'Ac.', width: 41, value: (r) => siNo(r.aceptado), title: 'Aceptado' },
+      { key: 'sg', label: 'Sg.', width: 41, value: (r) => siNo(r.en_seguimiento), title: 'En seguimiento' },
       { key: 'va', label: 'Va.', width: 41, value: (r) => siNo(r.vendido), title: 'Convertido en venta (deducido; confirmar con Luis)' },
       { key: 'az', label: 'Az', width: 39, value: () => '', title: 'Columna «Az» de GeminisWin: significado por confirmar con Luis' },
       { key: 'an', label: 'An.', width: 41, value: (r) => siNo(r.anulado), title: 'Anulado' },

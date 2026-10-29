@@ -50,6 +50,8 @@ interface Cabecera {
   igic_pie_pct: number | null
   anulado: boolean
   aceptado: boolean
+  /** Presupuesto en seguimiento (se está hablando con el cliente). */
+  en_seguimiento: boolean
   preparado: boolean
   entregado: boolean
   liquidado: number | null
@@ -100,7 +102,7 @@ interface Tienda {
 }
 
 const CAB_COLS =
-  'tienda_terminal_codigo, numero, fecha, hora, web_pedido_id, es_presupuesto, empleado_codigo, cliente_codigo, cliente_sucursal_codigo, nombre_cliente, nif_cliente, vendedor_codigo, fecha_inicio, fecha_fin, almacen_codigo, tarifa_nivel, forma_pago_codigo, tipo_credito, ruta_codigo, descuento_pie_pct, igic_pie_pct, anulado, aceptado, preparado, entregado, liquidado, venta_tienda_codigo, venta_numero, observaciones'
+  'tienda_terminal_codigo, numero, fecha, hora, web_pedido_id, es_presupuesto, empleado_codigo, cliente_codigo, cliente_sucursal_codigo, nombre_cliente, nif_cliente, vendedor_codigo, fecha_inicio, fecha_fin, almacen_codigo, tarifa_nivel, forma_pago_codigo, tipo_credito, ruta_codigo, descuento_pie_pct, igic_pie_pct, anulado, aceptado, en_seguimiento, preparado, entregado, liquidado, venta_tienda_codigo, venta_numero, observaciones'
 
 const NIVELES = ['General', 'MAYOR M-1', 'MAYOR M-2', 'MAYOR M-3', 'Tarifa Dto-4', 'Tarifa Dto-5', 'Tarifa Dto-6']
 
@@ -171,6 +173,7 @@ function vacia(tienda: Tienda | undefined, empleado: string | null, presupuesto:
     igic_pie_pct: 0,
     anulado: false,
     aceptado: false,
+    en_seguimiento: false,
     preparado: false,
     entregado: false,
     liquidado: null,
@@ -1052,6 +1055,16 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
       <div className="flex gap-1.5 border-t border-[var(--gw-border-light)] pt-[3px]">
         <EstadoBtn label="Anulado" on={!!cab?.anulado} disabled={ro} onClick={() => patch({ anulado: !cab?.anulado })} tall />
         <EstadoBtn label="Aceptado" on={!!cab?.aceptado} disabled={ro} onClick={() => patch({ aceptado: !cab?.aceptado })} tall />
+        {cab?.es_presupuesto && (
+          <EstadoBtn
+            label="En seguimiento"
+            on={!!cab?.en_seguimiento}
+            disabled={ro || !!cab?.aceptado}
+            title="Presupuesto en seguimiento: se está hablando con el cliente"
+            onClick={() => patch({ en_seguimiento: !cab?.en_seguimiento })}
+            tall
+          />
+        )}
         <div className="flex w-[180px] flex-col">
           <EstadoBtn label="Preparado" inline on={!!cab?.preparado} disabled={ro} onClick={() => patch({ preparado: !cab?.preparado })} />
           <EstadoBtn
