@@ -266,3 +266,74 @@ Por la API REST con el JWT de cada usuario:
 
 En navegador (Playwright, `VITE_BASE_PATH=/ npx vite --port 5185`): `prueba`, venta de TPV en
 tienda 01, cliente 00001, ZZTEST-001, cobro → **«Venta Nº 21 guardada.»**, sin errores de la API.
+
+## 7. 3.ª tanda: escrituras por permiso de pantalla (29/10/2026)
+
+Migración `supabase/migrations/20261029_seguridad_escrituras.sql`, aplicada en bloques
+(`20261029_seguridad_escrituras_<n>_…` en `supabase_migrations.schema_migrations`).
+
+### Cómo funciona
+
+- `fn_puede_alguno(text[])` (SECURITY DEFINER, STABLE): la regla de `fn_puede` para varios
+  códigos en **una** consulta. Pasan siempre el administrador y las llamadas internas
+  (SQL como `postgres`, `service_role`). El código especial `'carga'` deja pasar además a
+  `cowork` (`fn_es_cowork()`), solo en las tablas que rellenan las cargas de GeminisWin.
+- Por tabla, tres políticas **RESTRICTIVE** nuevas: `permiso_alta_<tabla>` (insert, `with
+  check`), `permiso_modifica_<tabla>` (update, `using` + `with check`) y `permiso_borra_<tabla>`
+  (delete, `using`), todas con `((select public.fn_puede_alguno(array[...])))`. El `select`
+  hace que Postgres la evalúe **una vez por sentencia** (InitPlan), no por fila.
+- No se ha borrado ninguna política: las permisivas siguen; una escritura tiene que cumplir
+  además todas las restrictivas. **Las lecturas no cambian.**
+- Sin permiso: un `insert` da `403 42501` («new row violates row-level security policy
+  "permiso_alta_…"»); un `update`/`delete` no da error, afecta a 0 filas.
+- `fn_actualizar_stock_desde_movimiento` (trigger de `movimiento_stock`) y
+  `fn_lote_movimiento_actualiza` (trigger de `articulo_lote_movimiento`) pasan a SECURITY
+  DEFINER: el saldo se deriva de la fila recién insertada (que ya ha pasado su política), así
+  que no hace falta dar escritura directa en `articulo_almacen_stock` / `articulo_lote` a todas
+  las pantallas que mueven stock.
+- Para ampliar una tabla (pantalla nueva que escribe en ella): repetir
+  `pg_temp.politica_escritura(tabla, array[...])` con el array completo; si la política ya
+  existe hace `ALTER POLICY` (sin DROP). Ejemplo: bloque 1b (Acreedores).
+
+### Cómo se sacó el mapa
+
+1. Todas las escrituras de `src/`: `.from('<tabla>')…insert|update|upsert|delete(` (también en
+   varias líneas) y los genéricos (`useFichaMaestro`, `useFicha` de `ventas/maestros/common.tsx`,
+   `bajaLogica`, `ImportarPage`, `VendedorFichaPage`), y de cada fichero, a qué ruta de
+   `App.tsx` pertenece (incluidos los módulos compartidos: `ventaModel` → TPV/Ventas,
+   `entregar.ts` → Pedidos, `compras.ts` → Pedido a proveedor, `pagosModel` → Pagos y Facturas
+   de proveedor, `peticiones.ts` → Peticiones, Gestor de pedidos a proveedor y la acción
+   «Generar Petición», `lib/woocommerce.ts` → todo el menú Web).
+2. Las funciones SECURITY INVOKER que escriben (respetan RLS) y quién las llama:
+   `fn_caja_abrir/cerrar` (`/caja/aperturas`), `fn_caja_entrada_salida` (`/caja/entrada`,
+   `/caja/salida`), `fn_cobro_*` (cobros y facturación), `fn_facturar_albaranes`,
+   `fn_anular/rectificar_factura_cliente`, `fn_lote_movimiento` (`/almacen/lotes`),
+   `fn_punto_restauracion_*`, `fn_stock_cero_familia_aplicar`, `fn_recalcular_stock_aplicar`,
+   `fn_articulos_*`, `fn_modificacion_articulos_aplicar`, `fn_liquidacion_comisiones_*`,
+   `fn_cliente_recalcular_deuda*`. Su permiso está en el array de cada tabla que tocan.
+3. Las cargas de GeminisWin (`fn_carga_gw_*`) se lanzan por SQL como `postgres` (pasan
+   siempre); `'carga'` cubre además a `cowork` por si las lanza con su sesión.
+4. Comprobado antes de cada bloque que `origin/erp` no traía pantallas nuevas que escriban en
+   esas tablas (`git log HEAD..origin/erp`) y leídas las notas de `coordinacion_notas`.
+
+### Mapa tabla → permisos (cualquiera de ellos; admin siempre)
+
+El detalle exacto está en la migración (un `values` por bloque). Resumen:
+
+| Bloque | Tablas | Permisos |
+|---|---|---|
+| 1 | `familia`, `marca`, `plantilla_tarifa(_nivel)`, `tipo_cliente`, `vendedor(_comision_nivel)`, `repartidor`, `transportista`, `zona_territorial`, `ruta_reparto(_zona/_repartidor)`, `almacen` | su ficha + `carga` |
+| | `tipo_cliente_descuento_familia`, `tecnico(_comision_nivel)`, `repartidor_comision_nivel`, `ruta`, `banco(_sucursal)`, `codigo_postal`, `zona_servicio` | su ficha |
+| | `moneda` / `moneda_cotizacion` | `/monedas`, `/archivo/carga-cotizacion` |
+| | `provincia`, `pais` | solo `carga` (ninguna pantalla los escribe) |
+| | `proveedor` | `/proveedores`, `/acreedores`, `/archivo/importar`, `carga` |
+| | `cliente` | `/clientes`, `/web/clientes`, `/web/clientes-empresa`, `/recalcular-deuda`, `/archivo/importar`, `carga` |
+| | `cliente_sucursal`, `cliente_contacto`, `cliente_descuento_familia`, `tipo_contacto` | `/clientes` |
+| | `cliente_articulo_precio` | `/clientes`, `/modificacion-precios`, `carga` |
+| | `cliente_deuda_recalculo` | `/recalcular-deuda` |
+| | `cuenta_bancaria` | `/clientes`, `/proveedores`, `/acreedores`, `/transportistas`, `/vendedores`, `/tecnicos`, `/repartidores` |
+| 2 | `articulo` | `/articulos`, `/almacen/creacion-rapida`, `/pedidos-proveedor`, `/creacion-rapida-pedidos`, `/gestor-pedidos-proveedor`, `/modificacion-precios`, `/almacen/modificacion-bloque`, `/almacen/eliminacion-articulos`, `/almacen/articulos-en-blanco`, `/archivo/importar`, `carga` |
+| | `articulo_codigo_barras`, `articulo_precio_nivel`, `articulo_proveedor` | `/articulos`, `/almacen/creacion-rapida`, `carga` (+ `/modificacion-precios` en precios; + pedidos a proveedor en `articulo_proveedor`) |
+| | `articulo_tarifa_cantidad(_nivel)` | `/articulos`, `/modificacion-precios`, `/tarifas-oferta` |
+| | resto de hijas de artículo, `color`, `talla` | `/articulos` |
+| | `articulo_plu` · `oferta_tarifa` · `modificacion_precio*` · `modificacion_articulo*` | `/almacen/plus` · `/tarifas-oferta` · `/modificacion-precios` · `/almacen/modificacion-bloque` |
