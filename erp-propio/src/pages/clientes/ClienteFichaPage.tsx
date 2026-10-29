@@ -19,6 +19,8 @@ import { TabAgenda } from './tabs/TabAgenda'
 import { TabObsImg } from './tabs/TabObsImg'
 import { TabConsultas } from './tabs/TabConsultas'
 import { TabWeb } from './tabs/TabWeb'
+import { TabArticulosComprados } from './tabs/TabArticulosComprados'
+import { GwOperativa } from '../../components/gw/GwOperativa'
 
 const TAB_ROWS: GwTabDef[][] = [
   [
@@ -31,12 +33,14 @@ const TAB_ROWS: GwTabDef[][] = [
     { key: 'agenda', label: 'Agenda' },
     { key: 'obs', label: 'Obs. e Img.' },
     { key: 'consultas', label: 'Consultas' },
+    { key: 'comprados', label: 'Art. comprados' },
     { key: 'web', label: 'Web' },
+    { key: 'operativa', label: 'Operativa' },
   ],
 ]
 
 // Pestañas con datos en tablas satélite: necesitan que el cliente ya exista.
-const TABS_SATELITE = new Set(['tarifas', 'bancos', 'sucursales', 'agenda', 'consultas'])
+const TABS_SATELITE = new Set(['tarifas', 'bancos', 'sucursales', 'agenda', 'consultas', 'comprados'])
 
 const hoy = () => new Date().toISOString().slice(0, 10)
 
@@ -292,6 +296,22 @@ export function ClienteFichaPage() {
               {tab === 'obs' && <TabObsImg {...tabProps} />}
               {tab === 'consultas' && aviso(<TabConsultas {...tabProps} />)}
               {tab === 'web' && <TabWeb {...tabProps} />}
+              {tab === 'comprados' && aviso(<TabArticulosComprados {...tabProps} />)}
+              {tab === 'operativa' && (
+                <GwOperativa
+                  bloques={[
+                    {
+                      titulo: 'Artículos comprados',
+                      notas: [
+                        'Todo lo que ha comprado el cliente, un renglón por artículo: unidades en total y el último precio al que se le facturó.',
+                        'Buscar: escribe parte del código, la referencia o la descripción.',
+                        'Ordenar: pulsa el título de una columna (otra vez, al revés).',
+                        'Doble clic en un artículo: abre su ficha.',
+                      ],
+                    },
+                  ]}
+                />
+              )}
             </>
           )}
         </GwTabs>
