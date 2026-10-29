@@ -2612,7 +2612,7 @@ function renderDashboard(){
     <canvas id="cCaja" height="70"></canvas>
   </div>
 
-  ${last.notas?`<div class="alert-card info" style="margin-bottom:20px"><div class="alert-ico">📝</div><div><div class="alert-ttl">Nota del último registro</div><div class="alert-txt">${escapeHtml(last.notas)}</div></div></div>`:''}
+  ${ultimasCargasHtml()}
   `;
 
   document.getElementById('dashContent').innerHTML = html;
@@ -3194,6 +3194,24 @@ function renderDocStatusHtml(){
       <tbody>${rows}</tbody>
     </table>
     <div style="font-size:10px;color:var(--texto2);padding:8px 12px;">≈ estimado a partir del dato más reciente del dataset · Sólo se registra fecha exacta a partir de la próxima importación.</div>
+  </div>`;
+}
+
+// Dashboard: últimas cargas de datos (manuales y automáticas), a partir del registro de importaciones
+function ultimasCargasHtml(){
+  const ult=new Map();
+  [...importLog].filter(e=>e&&e.ts&&e.key).sort((a,b)=>b.ts.localeCompare(a.ts)).forEach(e=>{ if(!ult.has(e.key)) ult.set(e.key,e); });
+  const lista=[...ult.values()].slice(0,8);
+  const cuerpo=lista.length?lista.map(e=>{
+    const f=new Date(e.ts).toLocaleString('es-ES',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    const auto=/^geminis/i.test(e.user||'');
+    const quien=auto?'🤖 Automático (GeminisWin)':'👤 '+escapeHtml(e.user||'—');
+    const arch=String(e.archivos||'').replace(/\s+/g,' ');
+    return `<tr><td style="white-space:nowrap;font-weight:600;text-align:left;">${f}</td><td style="font-family:'Inter',sans-serif;text-align:left;">${escapeHtml(e.tipo||IMPORT_LOG_LABELS[e.key]||e.key)}</td><td style="font-family:'Inter',sans-serif;white-space:nowrap;text-align:left;">${quien}</td><td style="font-family:'Inter',sans-serif;text-align:left;color:var(--texto2);max-width:360px;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(arch)}">${escapeHtml(arch.length>70?arch.slice(0,68)+'…':arch)}</td></tr>`;
+  }).join(''):`<tr><td colspan="4" style="text-align:center;color:var(--texto2);font-family:'Inter',sans-serif;">Aún no hay cargas registradas</td></tr>`;
+  return `<div class="card" style="padding:0;overflow:hidden;margin-bottom:20px;cursor:pointer;" onclick="showView('alertas')" title="Ver el estado de todos los documentos">
+    <div class="sec-title" style="margin:14px 18px 6px;">📥 Últimas cargas de datos</div>
+    <div style="overflow-x:auto;"><table style="margin:0;"><tbody>${cuerpo}</tbody></table></div>
   </div>`;
 }
 
