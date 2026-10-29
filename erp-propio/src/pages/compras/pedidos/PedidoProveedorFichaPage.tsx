@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Binoculars, Check, FilePen, FilePlus2, FileX2, Sheet, Wallet, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { aplicarArticulo, tocarLinea, type LineaEnEdicion } from '../../../lib/lineaEnEdicion'
 import { ahoraTrabajo, fechaTrabajo, tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
@@ -203,6 +204,8 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
 
   const editing = mode !== 'consulta'
   const ro = !editing
+  // En alta, el número que tendrá (se asigna de verdad al guardar).
+  const proximo = useProximoNumero(mode === 'alta', cab?.tienda_terminal_codigo, 'pedido_proveedor')
 
   useEffect(() => {
     supabase
@@ -269,7 +272,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
     let cancel = false
     async function run() {
       setCargando(true)
-      setMensaje(null)
+      setMensaje(tomarAvisoNumero())
       setEditLinea(null)
       setSel(0)
       if (esNuevo) {
@@ -610,8 +613,10 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
       }
       setSaving(false)
       cargarClaves()
-      if (mode === 'alta') navigate(rutaDoc({ t: cab.tienda_terminal_codigo, n: numero as number }), { replace: true })
-      else {
+      if (mode === 'alta') {
+        dejarAvisoNumero(avisoNumero(numero, proximo))
+        navigate(rutaDoc({ t: cab.tienda_terminal_codigo, n: numero as number }), { replace: true })
+      } else {
         setOrig({ cab: { ...cab }, lineas })
         setMode('consulta')
       }
@@ -740,8 +745,8 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
           ))}
         </GwSelect>
       </Campo>
-      <Campo label={<u>N</u>} labelRest="úmero" title="Se asigna al guardar">
-        <GwInput readOnly className="gw-num" value={cab?.numero != null ? String(cab.numero) : ''} />
+      <Campo label={<u>N</u>} labelRest="úmero" title="En alta, el próximo libre; se confirma al guardar">
+        <GwInput readOnly className="gw-num" value={String(cab?.numero ?? (mode === 'alta' ? (proximo ?? '') : ''))} />
       </Campo>
       <Campo label="Fecha y Hora">
         <GwInput readOnly value={fechaHoraEs(cab?.fecha_hora)} />

@@ -3,6 +3,7 @@ import { conTecla, useTeclasFicha } from '../../../components/gw/teclasFicha'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Save, ScanBarcode, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { GwInput, GwLookupButton, GwNumber, GwSelect, formatGw } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { BIG_INPUT, BIG_LABEL, BtnTexto, type ArticuloStock, fechaHora, resolverArticulo, stockDe } from './comun'
@@ -148,7 +149,7 @@ export function RegularizacionStockPage() {
   useEffect(() => {
     let cancel = false
     async function run() {
-      setMensaje(null)
+      setMensaje(tomarAvisoNumero())
       if (esNuevo) {
         if (tiendas.length === 0) return
         setReg(vacia())
@@ -199,6 +200,9 @@ export function RegularizacionStockPage() {
     if (f) irA(f.tienda_terminal_codigo, Number(f.numero))
   }
 
+  // En alta, el número que tendrá (se asigna de verdad al guardar).
+  const proximo = useProximoNumero(modo === 'alta', reg?.tienda, 'regularizacion_stock')
+
   // En alta el stock antiguo es el actual; en consulta, el que había al regularizar.
   const antiguo = modo === 'alta' ? stockActual : Number(reg?.stock_anterior ?? 0)
   const diferencia = (reg?.cantidad ?? 0) - antiguo
@@ -226,6 +230,7 @@ export function RegularizacionStockPage() {
         const numero = await guardarUna({ ...reg, fecha: reg.fecha }, articulo, reg.cantidad)
         cargarClaves()
         setModo('consulta')
+        dejarAvisoNumero(avisoNumero(numero, proximo))
         irA(reg.tienda, numero)
       } else {
         // Modificación: solo nuevo stock, fecha y documento; el stock se corrige por lo que cambie el nuevo stock.
@@ -326,7 +331,7 @@ export function RegularizacionStockPage() {
         </label>
         <label className="flex flex-col">
           <span className={BIG_LABEL}>Número</span>
-          <GwInput className={`${BIG_INPUT} text-right`} readOnly value={r.numero ?? ''} title="Se asigna al guardar" />
+          <GwInput className={`${BIG_INPUT} text-right`} readOnly value={r.numero ?? (modo === 'alta' ? (proximo ?? '') : '')} title="En alta, el próximo libre; se confirma al guardar" />
         </label>
         <label className="flex flex-col">
           <span className={BIG_LABEL}>Fecha y Hora</span>

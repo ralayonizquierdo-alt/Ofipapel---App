@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Save, Undo2, X, ScanBarcode } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { GwCheck, GwInput, GwLookupButton, GwNumber, GwSelect, GwWindow, formatGw } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
@@ -137,7 +138,9 @@ export function TraspasoFichaPage() {
   const codRefs = useRef(new Map<number, HTMLInputElement>())
 
   const editable = modo !== 'consulta'
-  const nombreAlm = (c: string) => almacenes.find((a) => a.codigo === c)?.nombre ?? ''
+  // En alta, el número que tendrá (se asigna de verdad al guardar).
+  const proximo = useProximoNumero(modo === 'alta', cab?.tienda_terminal_codigo, 'traspaso_almacen')
+  const nombreAlm =(c: string) => almacenes.find((a) => a.codigo === c)?.nombre ?? ''
 
   useEffect(() => {
     Promise.all([
@@ -164,7 +167,7 @@ export function TraspasoFichaPage() {
     let cancel = false
     async function run() {
       setCargando(true)
-      setMensaje(null)
+      setMensaje(tomarAvisoNumero())
       setSel(0)
       if (esNuevo) {
         if (tiendas.length === 0) return
@@ -410,6 +413,7 @@ export function TraspasoFichaPage() {
       }
       cargarClaves()
       setModo('consulta')
+      if (modo === 'alta') dejarAvisoNumero(avisoNumero(numero, proximo))
       if (modo === 'alta' || cab.numero !== numero) irA(cab.tienda_terminal_codigo, numero!)
       else {
         const nuevoCab = { ...cab, stock_movido: cab.confirmado }
@@ -494,7 +498,7 @@ export function TraspasoFichaPage() {
               </GwSelect>
             </Campo>
             <Campo label="Número">
-              <GwInput className={`${BIG_INPUT} text-right`} readOnly value={c.numero ?? ''} title="Se asigna al guardar" />
+              <GwInput className={`${BIG_INPUT} text-right`} readOnly value={c.numero ?? (modo === 'alta' ? (proximo ?? '') : '')} title="En alta, el próximo libre; se confirma al guardar" />
             </Campo>
             <Campo label="Fecha y Hora">
               {editable ? (

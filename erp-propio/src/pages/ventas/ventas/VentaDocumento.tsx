@@ -45,6 +45,7 @@ import {
 } from './VentaDialogs'
 import { VentaTicket, type EmpresaTicket } from './VentaTicket'
 import { decimalesPrecio } from '../../../lib/parametros'
+import { avisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { GwAnterior, GwBuscar, GwEliminar, GwImprimir, GwModificar, GwNuevo, GwOrdenar, GwPrimero, GwSalir, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 type Modo = 'consulta' | 'alta' | 'edicion'
@@ -181,6 +182,10 @@ export function VentaDocumento({
   const tiendaActual = tiendas.find((t) => t.codigo === tienda) ?? null
   const almacen = tiendaActual?.almacen_codigo ?? null
   const editable = modo !== 'consulta'
+  // En alta, el número que tendrá la venta (se asigna de verdad al guardar). En el TPV la ficha
+  // sigue en alta tras guardar: `ventasGuardadas` hace que se vuelva a pedir.
+  const [ventasGuardadas, setVentasGuardadas] = useState(0)
+  const proximo = useProximoNumero(modo === 'alta', tienda, 'venta', '', ventasGuardadas)
   const pie = useMemo(() => calcularPie(lineas, cab), [lineas, cab])
   const lineaSel = lineas[sel] ?? null
 
@@ -554,7 +559,9 @@ export function VentaDocumento({
         lineasPrevias: modo === 'edicion' ? (guardadas?.lineas ?? []).filter((l) => l.articulo_codigo || l.descripcion) : null,
         previaAplazada,
       })
-      const texto = aplazar ? `Venta Nº ${numero} aplazada.` : `Venta Nº ${numero} guardada.`
+      const aviso = modo === 'alta' ? avisoNumero(numero, proximo) : null
+      const texto = aviso ? `${aviso}.` : aplazar ? `Venta Nº ${numero} aplazada.` : `Venta Nº ${numero} guardada.`
+      setVentasGuardadas((n) => n + 1)
       if (modoInicial === 'alta' && modo === 'alta') {
         await empezarAlta(tienda)
         setMensaje({ texto, error: false })
@@ -810,9 +817,8 @@ export function VentaDocumento({
               <input
                 className="gw-input !h-[30px] text-right !text-[22px]"
                 readOnly
-                value={cab.numero ?? ''}
-                placeholder={modo === 'alta' ? 'al guardar' : ''}
-                title="El número se asigna al guardar la venta"
+                value={cab.numero ?? (modo === 'alta' ? (proximo ?? '') : '')}
+                title={modo === 'alta' ? 'Próximo número libre; se confirma al guardar la venta' : undefined}
               />
             </Campo>
             <Campo label="Fecha" ancho={148}>

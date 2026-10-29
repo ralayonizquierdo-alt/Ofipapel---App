@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../lib/proximoNumero'
 import { GwDate, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
@@ -114,7 +115,9 @@ export function MovimientoCajaFichaPage() {
   const lista = useListaOrdenada()
 
   const editable = modo !== 'consulta'
-  const manual = mov?.tipo_movimiento === 'USU' || modo === 'alta'
+  // En alta, el número que tendrá el movimiento (se asigna de verdad al guardar).
+  const proximo = useProximoNumero(modo === 'alta', mov?.tienda_terminal_codigo, 'caja')
+  const manual =mov?.tipo_movimiento === 'USU' || modo === 'alta'
   const fp = formas.find((f) => f.codigo === mov?.forma_pago_codigo)
   const tipoFp = fp?.tipo ?? mov?.tipo_forma_pago ?? null
   const tipoCont = tipoFp === 4 ? (fp?.tipo_contado ?? mov?.tipo_contado ?? null) : null
@@ -143,7 +146,7 @@ export function MovimientoCajaFichaPage() {
     let cancel = false
     async function run() {
       setCargando(true)
-      setMensaje(null)
+      setMensaje(tomarAvisoNumero())
       if (esNuevo) {
         const t = tiendaPuesto(tiendas)
         const fpDef = formas.find((f) => f.codigo === 'CON') ?? formas.find((f) => f.tipo === 4)
@@ -286,6 +289,7 @@ export function MovimientoCajaFichaPage() {
         })
         if (error) throw new Error(error.message)
         setGuardando(false)
+        dejarAvisoNumero(avisoNumero(Number(num), proximo))
         ir(mov.tienda_terminal_codigo, Number(num))
         return
       }
@@ -367,9 +371,9 @@ export function MovimientoCajaFichaPage() {
               <Campo label={<><u>N</u>úmero</>}>
                 <GwCampoBusqueda
                   className={`${I} gw-num`}
-                  value={m.numero != null ? String(m.numero) : ''}
+                  value={String(m.numero ?? (modo === 'alta' ? (proximo ?? '') : ''))}
                   disabled={editable}
-                  title="NUMERO — se asigna al guardar"
+                  title="NUMERO — en alta, el próximo libre; se confirma al guardar"
                   onBuscar={buscarNumero}
                   onLista={(texto) =>
                     lista.abrir(LISTA_NUMERO, {

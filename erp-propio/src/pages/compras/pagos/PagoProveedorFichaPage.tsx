@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
+import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { navIndice, useNavRegistro, type NavDir, type NavFiltro } from '../../../components/gw/useNavRegistro'
 
@@ -79,7 +80,9 @@ export function PagoProveedorFichaPage() {
   const [lookup, setLookup] = useState<Lookup>(null)
 
   const editable = mode !== 'consulta'
-  const fp = formas.find((f) => f.codigo === pago?.forma_pago_codigo)
+  // En alta, el número que tendrá el pago (se asigna de verdad al guardar).
+  const proximo = useProximoNumero(mode === 'alta', pago?.tienda_terminal_codigo, 'pago_proveedor')
+  const fp =formas.find((f) => f.codigo === pago?.forma_pago_codigo)
 
   useEffect(() => {
     Promise.all([
@@ -194,7 +197,7 @@ export function PagoProveedorFichaPage() {
     let cancel = false
     async function run() {
       setCargando(true)
-      setMensaje(null)
+      setMensaje(tomarAvisoNumero())
       if (esNuevo) {
         const qs = new URLSearchParams(location.search)
         let p = vacio(tiendaDeTrabajo(tiendas.map((codigo) => ({ codigo }))) || '01')
@@ -261,6 +264,7 @@ export function PagoProveedorFichaPage() {
       const codigo = await guardarPago(pago, fp, empleado, orig)
       cargarClaves()
       setSaving(false)
+      if (mode === 'alta') dejarAvisoNumero(avisoNumero(codigo, proximo))
       navigate(`/pagos-proveedor/${encodeURIComponent(pago.tienda_terminal_codigo)}/${codigo}`, { replace: true })
       if (mode === 'edicion') {
         const { data } = await supabase
@@ -421,7 +425,12 @@ export function PagoProveedorFichaPage() {
                 </GwSelect>
               </Campo>
               <Campo label={<><u>N</u>úmero</>}>
-                <GwInput className={`${I} gw-num`} readOnly value={p.codigo_pago ?? ''} title="CODPAGO — se asigna al guardar" />
+                <GwInput
+                  className={`${I} gw-num`}
+                  readOnly
+                  value={p.codigo_pago ?? (mode === 'alta' ? (proximo ?? '') : '')}
+                  title="CODPAGO — en alta, el próximo libre; se confirma al guardar"
+                />
               </Campo>
               <Campo label="Fecha">
                 <GwDate className={I} value={p.fecha} disabled={!editable} onChange={(v) => patch({ fecha: v })} />
