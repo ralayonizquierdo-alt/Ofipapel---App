@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
-import { Binoculars, ChevronFirst, ChevronLast, Play } from 'lucide-react'
 import { GwInput, formatGw } from '../../../components/gw'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
 import type { ProveedorTabProps } from '../types'
+import { GwAnterior, GwBuscar, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 const LIMITE = 200
 
@@ -73,7 +73,7 @@ export function TabArticulos({ proveedor }: ProveedorTabProps) {
   const idx = rows.findIndex((r) => r.articulo_codigo === sel)
   const mover = (i: number) => rows[i] && setSel(rows[i].articulo_codigo)
   const nb =
-    'flex h-[26px] w-[84px] items-center justify-center border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent'
+    'flex h-[26px] w-[84px] items-center justify-center gw-boton-barra'
 
   return (
     <div className="flex flex-col gap-1" title="Artículos del proveedor (ARTPROV / ARTDPROV)">
@@ -116,19 +116,19 @@ export function TabArticulos({ proveedor }: ProveedorTabProps) {
       <div className="flex items-center gap-3">
         <div className="flex border border-[var(--gw-border)] bg-[var(--gw-face)]">
           <button type="button" className={nb} title="Primero" disabled={!rows.length} onClick={() => mover(0)}>
-            <ChevronFirst size={14} strokeWidth={3} />
+            <GwPrimero />
           </button>
           <button type="button" className={nb} title="Anterior" disabled={idx <= 0} onClick={() => mover(idx - 1)}>
-            <Play size={10} className="rotate-180" fill="currentColor" />
+            <GwAnterior />
           </button>
           <button type="button" className={nb} title="Siguiente" disabled={idx < 0 || idx >= rows.length - 1} onClick={() => mover(idx + 1)}>
-            <Play size={10} fill="currentColor" />
+            <GwSiguiente />
           </button>
           <button type="button" className={nb} title="Último" disabled={!rows.length} onClick={() => mover(rows.length - 1)}>
-            <ChevronLast size={14} strokeWidth={3} />
+            <GwUltimo />
           </button>
           <button type="button" className={nb} title="Buscar" onClick={() => setVerFiltro((v) => !v)}>
-            <Binoculars size={14} />
+            <GwBuscar />
           </button>
         </div>
         {verFiltro && (

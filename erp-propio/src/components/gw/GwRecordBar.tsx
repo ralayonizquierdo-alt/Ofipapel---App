@@ -2,19 +2,20 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { registrarVistaPrevia } from '../../lib/impresion'
 import { conTecla, useTeclasFicha } from './teclasFicha'
 import {
-  ArrowDownAZ,
-  Binoculars,
-  Check,
-  ChevronFirst,
-  ChevronLast,
-  DoorOpen,
-  FilePen,
-  FilePlus2,
-  Play,
-  Printer,
-  Trash2,
-  X,
-} from 'lucide-react'
+  GwAceptar,
+  GwAnterior,
+  GwBuscar,
+  GwCancelar,
+  GwEliminar,
+  GwImprimir,
+  GwModificar,
+  GwNuevo,
+  GwOrdenar,
+  GwPrimero,
+  GwSalir,
+  GwSiguiente,
+  GwUltimo,
+} from './GwIconos'
 
 /**
  * Barra inferior común a todas las fichas de GeminisWin: primero · anterior · siguiente ·
@@ -90,52 +91,52 @@ export function GwRecordBar({
     },
   })
   return (
-    <div ref={raiz} className={`mt-1.5 flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px] ${grande ? 'gw-barra-grande gap-[2px]' : ''}`}>
+    <div ref={raiz} className={`mt-1.5 flex gap-[2px] border border-[var(--gw-border)] bg-[var(--gw-face)] p-[3px] ${grande ? 'gw-barra-grande' : ''}`}>
       <Btn title={conTecla('Primero', 'primero')} onClick={onFirst} disabled={!canNavigate}>
-        <ChevronFirst size={15} strokeWidth={3} />
+        <GwPrimero />
       </Btn>
       <Btn title={conTecla('Anterior', 'anterior')} onClick={onPrev} disabled={!canNavigate}>
-        <Play size={11} className="rotate-180" fill="currentColor" />
+        <GwAnterior />
       </Btn>
       <Btn title={conTecla('Siguiente', 'siguiente')} onClick={onNext} disabled={!canNavigate}>
-        <Play size={11} fill="currentColor" />
+        <GwSiguiente />
       </Btn>
       <Btn title={conTecla('Último', 'ultimo')} onClick={onLast} disabled={!canNavigate}>
-        <ChevronLast size={15} strokeWidth={3} />
+        <GwUltimo />
       </Btn>
       <Btn title="Ordenar" onClick={onSort} disabled={!consulta}>
-        <ArrowDownAZ size={15} />
+        <GwOrdenar />
       </Btn>
       <Btn title={conTecla('Buscar', 'buscar')} onClick={onSearch} disabled={!consulta}>
-        <Binoculars size={15} />
+        <GwBuscar />
       </Btn>
       <Btn title="Imprimir" onClick={onPrint} disabled={!consulta}>
-        <Printer size={15} />
+        <GwImprimir />
       </Btn>
       <Btn title={conTecla('Nuevo', 'nuevo')} onClick={onNew} disabled={!consulta}>
-        <FilePlus2 size={15} />
+        <GwNuevo />
       </Btn>
       {consulta ? (
         <>
           <Btn title={conTecla('Modificar', 'modificar')} onClick={onEdit}>
-            <FilePen size={15} />
+            <GwModificar />
           </Btn>
           <Btn title="Eliminar" onClick={onDelete}>
-            <Trash2 size={15} />
+            <GwEliminar />
           </Btn>
         </>
       ) : (
         <>
           <Btn title={conTecla('Aceptar (guardar)', 'guardar')} onClick={onSave} disabled={saving}>
-            <Check size={16} strokeWidth={3} className="text-[#127a12]" />
+            <GwAceptar />
           </Btn>
           <Btn title={conTecla('Cancelar', 'cancelar')} onClick={onCancel} disabled={saving}>
-            <X size={16} strokeWidth={3} className="text-[#c42b1c]" />
+            <GwCancelar />
           </Btn>
         </>
       )}
       <Btn title={conTecla('Salir', 'salir')} onClick={onExit}>
-        <DoorOpen size={15} />
+        <GwSalir />
       </Btn>
     </div>
   )
@@ -149,7 +150,7 @@ function Btn({ title, onClick, disabled, children }: { title: string; onClick?: 
       data-gw-estado={title}
       onClick={onClick}
       disabled={disabled}
-      className="flex h-[26px] w-[84px] items-center justify-center border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent"
+      className="gw-boton-barra h-[30px] w-[84px]"
     >
       {children}
     </button>

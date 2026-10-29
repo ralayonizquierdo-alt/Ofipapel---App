@@ -223,12 +223,40 @@ tr.gw-encontrada td {
   }
 }
 
+/* Botón de la botonera inferior de las fichas, en relieve como en GeminisWin (Windows clásico):
+   borde claro arriba-izquierda y oscuro abajo-derecha; al pulsarlo se hunde. Iconos: GwIconos.tsx */
+.gw-boton-barra {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gw-face);
+  border: 1px solid;
+  border-color: #fff #404040 #404040 #fff;
+  box-shadow: inset -1px -1px 0 #a0a0a0;
+}
+.gw-boton-barra:hover:not(:disabled) {
+  background: #e5f1fb;
+}
+.gw-boton-barra:active:not(:disabled) {
+  border-color: #404040 #fff #fff #404040;
+  box-shadow: inset 1px 1px 0 #a0a0a0;
+}
+.gw-boton-barra:active:not(:disabled) svg {
+  transform: translate(1px, 1px);
+}
+.gw-boton-barra:disabled {
+  color: #a0a0a0;
+}
+.gw-boton-barra:disabled svg {
+  filter: grayscale(1);
+  opacity: 0.4;
+}
+
 /* Barra de registro con botones altos a todo el ancho (GwRecordBar grande: Caja, Aperturas y Cierres) */
 .gw-barra-grande > button {
   flex: 1 1 0;
   width: auto;
   height: 46px;
-  border: 1px solid var(--gw-border);
 }
 .gw-barra-grande > button svg {
   width: 18px;

@@ -1296,7 +1296,7 @@ function MiniBtn({ title, disabled, onClick, children }: { title: string; disabl
       title={title}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-[34px] flex-1 items-center justify-center gap-1 border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent"
+      className="flex h-[34px] flex-1 items-center justify-center gap-1 gw-boton-barra"
     >
       {children}
     </button>

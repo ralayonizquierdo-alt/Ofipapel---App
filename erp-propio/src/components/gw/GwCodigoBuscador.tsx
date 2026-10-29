@@ -20,6 +20,7 @@ export function GwCodigoBuscador({
   title,
   className = '',
   disabled,
+  eq,
 }: {
   value: string
   onChange: (codigo: string, fila?: Record<string, unknown>) => void
@@ -32,6 +33,8 @@ export function GwCodigoBuscador({
   title?: string
   className?: string
   disabled?: boolean
+  /** Restricciones fijas del buscador «···» (ver GwLookupDialog). */
+  eq?: Record<string, string>
 }) {
   const [abierto, setAbierto] = useState(false)
   return (
@@ -58,6 +61,7 @@ export function GwCodigoBuscador({
           searchColumns={buscarEn}
           orderBy={clave}
           keyColumn={clave}
+          eq={eq}
           onPick={(r) => {
             setAbierto(false)
             onChange(String(r[clave] ?? ''), r)
@@ -78,6 +82,8 @@ export const BUSCADOR_PROVEEDOR = {
     { key: 'nombre', label: 'Nombre' },
   ],
   buscarEn: ['codigo', 'nombre'],
+  // Los acreedores (luz, teléfono…) no venden artículos: no se ofrecen.
+  eq: { tipo: 'proveedor' },
 }
 
 /**

@@ -145,6 +145,8 @@ function App() {
             <Route path="/proveedores" element={<ProveedorFichaPage />} />
             <Route path="/proveedores/lista" element={<ProveedoresListPage />} />
             <Route path="/proveedores/:codigo" element={<ProveedorFichaPage />} />
+            <Route path="/acreedores" element={<ProveedorFichaPage acreedores />} />
+            <Route path="/acreedores/:codigo" element={<ProveedorFichaPage acreedores />} />
             <Route path="/almacenes" element={<AlmacenesPage />} />
             {/* Menú Archivo (maestros calcados de GeminisWin) */}
             <Route path="/tiendas/*" element={<TiendaFichaPage />} />

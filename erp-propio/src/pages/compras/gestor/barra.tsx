@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowDownAZ, Binoculars, ChevronFirst, ChevronLast, DoorOpen, Play, Printer } from 'lucide-react'
 import { BarButton } from '../../ventas/gestores/comun'
 import type { Orden } from '../../ventas/gestores/rejilla'
+import { GwAnterior, GwBuscar, GwImprimir, GwOrdenar, GwPrimero, GwSalir, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 export interface GridCtl {
   sel: number
@@ -31,19 +31,19 @@ export function BarraGestor({
   return (
     <div className="flex flex-none items-center gap-0">
       <BarButton title="Primero" className={ancho} disabled={!grid.n} onClick={() => grid.set(0)}>
-        <ChevronFirst size={18} strokeWidth={3} />
+        <GwPrimero />
       </BarButton>
       <BarButton title="Anterior" className={ancho} disabled={!grid.n} onClick={() => grid.set(Math.max(grid.sel - 1, 0))}>
-        <Play size={12} className="rotate-180" fill="currentColor" />
+        <GwAnterior />
       </BarButton>
       <BarButton title="Siguiente" className={ancho} disabled={!grid.n} onClick={() => grid.set(Math.min(grid.sel + 1, grid.n - 1))}>
-        <Play size={12} fill="currentColor" />
+        <GwSiguiente />
       </BarButton>
       <BarButton title="Último" className={ancho} disabled={!grid.n} onClick={() => grid.set(grid.n - 1)}>
-        <ChevronLast size={18} strokeWidth={3} />
+        <GwUltimo />
       </BarButton>
       <BarButton title="Buscar (Localizar registros)" className={ancho} disabled={!grid.n} onClick={onLocalizar}>
-        <Binoculars size={17} />
+        <GwBuscar />
       </BarButton>
       <BarButton
         title="Ordenar"
@@ -51,16 +51,16 @@ export function BarraGestor({
         disabled={!grid.n}
         onClick={() => grid.setOrd(grid.ord ? { ...grid.ord, asc: !grid.ord.asc } : { key: grid.first, asc: true })}
       >
-        <ArrowDownAZ size={17} />
+        <GwOrdenar />
       </BarButton>
       <BarButton title="Imprimir" className={ancho} onClick={() => window.print()}>
-        <Printer size={17} />
+        <GwImprimir />
       </BarButton>
       {children}
       <span className="ml-auto" />
       {derecha}
       <BarButton title="Salir" className={ancho} onClick={() => navigate('/')}>
-        <DoorOpen size={18} />
+        <GwSalir />
       </BarButton>
     </div>
   )

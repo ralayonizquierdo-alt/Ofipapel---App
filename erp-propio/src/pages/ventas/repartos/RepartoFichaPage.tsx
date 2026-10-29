@@ -1,17 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import {
-  Binoculars,
-  ChevronFirst,
-  ChevronLast,
-  FilePen,
-  FilePlus2,
-  FileX2,
-  ListOrdered,
-  ReceiptText,
-  Play,
-  Truck,
-} from 'lucide-react'
+import { ListOrdered, ReceiptText, Truck } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { todasLasFilas } from '../../../lib/todasLasFilas'
 import { useNexaContexto } from '../../../nexa/contexto'
@@ -20,6 +9,7 @@ import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
 import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
+import { GwAnterior, GwBuscar, GwEliminar, GwModificar, GwNuevo, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 // Ficha de Repartos (Ventas → Repartos en GeminisWin): REPARTOS + REPARLIN.
 // Estados de línea según REPARLIN.ESTADO; los del reparto según REPARTOS.ESTADO.
@@ -301,7 +291,7 @@ function MiniBtn({ title, onClick, disabled, children }: { title: string; onClic
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className="flex h-[40px] w-[99px] items-center justify-center border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent"
+      className="flex h-[40px] w-[99px] items-center justify-center gw-boton-barra"
     >
       {children}
     </button>
@@ -1022,16 +1012,16 @@ export function RepartoFichaPage() {
               <div className="flex gap-3">
                 <div className="flex border border-[var(--gw-border)] bg-[var(--gw-face)]">
                   <MiniBtn title="Primera línea" disabled={!lineasVista.length} onClick={() => setSel(0)}>
-                    <ChevronFirst size={16} strokeWidth={3} />
+                    <GwPrimero />
                   </MiniBtn>
                   <MiniBtn title="Línea anterior" disabled={sel <= 0} onClick={() => setSel((s) => Math.max(0, s - 1))}>
-                    <Play size={11} className="rotate-180" fill="currentColor" />
+                    <GwAnterior />
                   </MiniBtn>
                   <MiniBtn title="Línea siguiente" disabled={sel >= lineasVista.length - 1} onClick={() => setSel((s) => Math.min(lineasVista.length - 1, s + 1))}>
-                    <Play size={11} fill="currentColor" />
+                    <GwSiguiente />
                   </MiniBtn>
                   <MiniBtn title="Última línea" disabled={!lineasVista.length} onClick={() => setSel(lineasVista.length - 1)}>
-                    <ChevronLast size={16} strokeWidth={3} />
+                    <GwUltimo />
                   </MiniBtn>
                   <MiniBtn title="Buscar venta en el reparto" disabled={!lineasVista.length} onClick={() => {
                     const n = prompt('Nº de venta a localizar en el reparto:')
@@ -1040,18 +1030,18 @@ export function RepartoFichaPage() {
                     if (i >= 0) setSel(i)
                     else setError(`La venta ${n} no está en este reparto.`)
                   }}>
-                    <Binoculars size={16} />
+                    <GwBuscar />
                   </MiniBtn>
                 </div>
                 <div className="flex border border-[var(--gw-border)] bg-[var(--gw-face)]">
                   <MiniBtn title="Añadir una venta al reparto" disabled={!editing} onClick={() => setBuscar('venta')}>
-                    <FilePlus2 size={16} />
+                    <GwNuevo />
                   </MiniBtn>
                   <MiniBtn title="Editar la línea actual" disabled={!actual} onClick={() => setSubTab('actual')}>
-                    <FilePen size={16} />
+                    <GwModificar />
                   </MiniBtn>
                   <MiniBtn title="Quitar la venta del reparto" disabled={!editing || !actual} onClick={quitarLinea}>
-                    <FileX2 size={16} className="text-[#c42b1c]" />
+                    <GwEliminar />
                   </MiniBtn>
                 </div>
               </div>

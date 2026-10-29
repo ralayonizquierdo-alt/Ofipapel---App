@@ -1,8 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Binoculars, Check, ChevronFirst, ChevronLast, FilePen, FilePlus2, Play, Trash2, X } from 'lucide-react'
+import { Check, Trash2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwCheck, GwField, GwGroup, GwInput, GwNumber, GwRadio } from '../../../components/gw'
 import type { Articulo, ArticuloUnidadVenta } from '../types'
+import { GwAnterior, GwBuscar, GwModificar, GwNuevo, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 type Unidad = Omit<ArticuloUnidadVenta, 'precios'>
 type Precios = Record<number, number | null>
@@ -37,7 +38,7 @@ function MiniBtn({ title, onClick, disabled, children }: { title: string; onClic
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className="flex h-[22px] w-[66px] items-center justify-center border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent"
+      className="flex h-[22px] w-[66px] items-center justify-center gw-boton-barra"
     >
       {children}
     </button>
@@ -267,19 +268,19 @@ export function TabUnidadesVenta({
               <div className="flex items-center gap-3">
                 <div className="flex border border-[var(--gw-border)]">
                   <MiniBtn title="Primera unidad" disabled={enEdicion || idx === 0} onClick={() => setIdx(0)}>
-                    <ChevronFirst size={13} strokeWidth={3} />
+                    <GwPrimero />
                   </MiniBtn>
                   <MiniBtn title="Anterior" disabled={enEdicion || idx === 0} onClick={() => setIdx(idx - 1)}>
-                    <Play size={9} className="rotate-180" fill="currentColor" />
+                    <GwAnterior />
                   </MiniBtn>
                   <MiniBtn title="Siguiente" disabled={enEdicion || idx >= rows.length - 1} onClick={() => setIdx(idx + 1)}>
-                    <Play size={9} fill="currentColor" />
+                    <GwSiguiente />
                   </MiniBtn>
                   <MiniBtn title="Última unidad" disabled={enEdicion || idx >= rows.length - 1} onClick={() => setIdx(rows.length - 1)}>
-                    <ChevronLast size={13} strokeWidth={3} />
+                    <GwUltimo />
                   </MiniBtn>
                   <MiniBtn title="Nueva unidad de venta" disabled={dis || enEdicion} onClick={() => setEdit({ unidad: unidadVacia(articuloCodigo), precios: {} })}>
-                    <FilePlus2 size={13} />
+                    <GwNuevo />
                   </MiniBtn>
                   {enEdicion ? (
                     <>
@@ -293,7 +294,7 @@ export function TabUnidadesVenta({
                   ) : (
                     <>
                       <MiniBtn title="Modificar unidad" disabled={dis || !actual} onClick={() => actual && setEdit({ unidad: { ...actual }, precios: { ...precios } })}>
-                        <FilePen size={13} />
+                        <GwModificar />
                       </MiniBtn>
                       <MiniBtn title="Borrar unidad" disabled={dis || !actual} onClick={borrar}>
                         <Trash2 size={13} />
@@ -301,7 +302,7 @@ export function TabUnidadesVenta({
                     </>
                   )}
                   <MiniBtn title="Buscar" disabled>
-                    <Binoculars size={13} />
+                    <GwBuscar />
                   </MiniBtn>
                 </div>
                 <span className="text-[12px] text-[#1a4fd0]">Nº de Unidades de Venta: {rows.length}</span>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronFirst, ChevronLast, Binoculars, FilePen, FilePlus2, FileX2, Play, Printer, FolderOpen, X } from 'lucide-react'
+import { FolderOpen, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { todasLasFilas } from '../../lib/todasLasFilas'
 import {
@@ -22,6 +22,7 @@ import { FilasVacias } from '../../components/gw/GwGridParts'
 import { useFichaMaestro } from './useFichaMaestro'
 import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { ImagenConModo, PieEstado } from './piezas'
+import { GwAnterior, GwBuscar, GwEliminar, GwImprimir, GwModificar, GwNuevo, GwPrimero, GwSiguiente, GwUltimo } from '../../components/gw/GwIconos'
 
 interface Familia {
   codigo: string
@@ -318,7 +319,7 @@ export function FamiliaFichaPage() {
                               title="Nueva plantilla de tarifas"
                               onClick={() => f.navigate('/plantillas-tarifas/nuevo')}
                             >
-                              <FilePlus2 size={13} />
+                              <GwNuevo />
                             </button>
                             <button
                               type="button"
@@ -327,10 +328,10 @@ export function FamiliaFichaPage() {
                               disabled={!plantillaCod}
                               onClick={() => plantillaCod && f.navigate(`/plantillas-tarifas/${encodeURIComponent(plantillaCod)}`)}
                             >
-                              <FilePen size={13} />
+                              <GwModificar />
                             </button>
                             <button type="button" className="flex h-[30px] items-center justify-center text-[#a8a8a8]" title="Eliminar plantilla (desde Plantillas de Tarifas)" disabled>
-                              <FileX2 size={13} />
+                              <GwEliminar />
                             </button>
                           </div>
                           <div className="flex flex-col">
@@ -418,7 +419,7 @@ export function FamiliaFichaPage() {
                     <div className="flex">
                       {texto('impresora_etiquetas', 'IMPRESORA: nombre de la impresora de Windows')}
                       <button type="button" className="gw-btn flex-none px-0" style={{ width: 40, height: 22 }} disabled title="Elegir impresora (se configura en el puesto del TPV)">
-                        <Printer size={14} />
+                        <GwImprimir />
                       </button>
                     </div>
                     <span className="gw-label">Informe:</span>
@@ -755,19 +756,19 @@ function ArticulosFamilia({ familia, onAbrir }: { familia: string; onAbrir: (cod
       <div className="flex items-center gap-3">
         <div className="flex border border-[var(--gw-border)] bg-[var(--gw-face)]">
           <button type="button" className={btn} title="Primero" disabled={!hay} onClick={() => setSel(0)}>
-            <ChevronFirst size={13} strokeWidth={3} />
+            <GwPrimero />
           </button>
           <button type="button" className={btn} title="Anterior" disabled={!hay} onClick={() => setSel((s) => Math.max(s - 1, 0))}>
-            <Play size={9} className="rotate-180" fill="currentColor" />
+            <GwAnterior />
           </button>
           <button type="button" className={btn} title="Siguiente" disabled={!hay} onClick={() => setSel((s) => Math.min(s + 1, rows.length - 1))}>
-            <Play size={9} fill="currentColor" />
+            <GwSiguiente />
           </button>
           <button type="button" className={btn} title="Último" disabled={!hay} onClick={() => setSel(rows.length - 1)}>
-            <ChevronLast size={13} strokeWidth={3} />
+            <GwUltimo />
           </button>
           <button type="button" className={`${btn} border-r-0`} title="Buscar" disabled={!hay} onClick={() => setBuscar(true)}>
-            <Binoculars size={13} />
+            <GwBuscar />
           </button>
         </div>
         <button type="button" className="gw-btn" disabled={!rows[sel]} onClick={() => rows[sel] && onAbrir(rows[sel].codigo_interno)}>

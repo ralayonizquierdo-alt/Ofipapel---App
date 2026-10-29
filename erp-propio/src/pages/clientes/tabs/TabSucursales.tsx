@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Binoculars, Check, ChevronFirst, ChevronLast, FilePen, FilePlus2, FileX2, Play, X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwCheck, GwField, GwGroup, GwInput, GwNumber, GwSelect } from '../../../components/gw'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
 import type { ClienteTabProps } from '../types'
+import { GwAnterior, GwBuscar, GwEliminar, GwModificar, GwNuevo, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 interface Sucursal {
   cliente_codigo: string
@@ -357,28 +358,28 @@ export function TabSucursales({ cliente, editing, onChange }: ClienteTabProps) {
         </div>
         <div className="ml-auto flex border border-[var(--gw-border)] bg-[var(--gw-face)]">
           <button type="button" className={nav} title="Primera" disabled={!puedeNavegar} onClick={() => mover(0)}>
-            <ChevronFirst size={13} strokeWidth={3} />
+            <GwPrimero />
           </button>
           <button type="button" className={nav} title="Anterior" disabled={!puedeNavegar} onClick={() => mover(idx - 1)}>
-            <Play size={9} className="rotate-180" fill="currentColor" />
+            <GwAnterior />
           </button>
           <button type="button" className={nav} title="Siguiente" disabled={!puedeNavegar} onClick={() => mover(idx + 1)}>
-            <Play size={9} fill="currentColor" />
+            <GwSiguiente />
           </button>
           <button type="button" className={nav} title="Última" disabled={!puedeNavegar} onClick={() => mover(rows.length - 1)}>
-            <ChevronLast size={13} strokeWidth={3} />
+            <GwUltimo />
           </button>
           <button type="button" className={nav} title="Buscar" disabled={!puedeNavegar} onClick={buscar}>
-            <Binoculars size={13} />
+            <GwBuscar />
           </button>
           <button type="button" className={nav} title="Nueva sucursal" disabled={!editing || !!draft} onClick={nueva}>
-            <FilePlus2 size={13} />
+            <GwNuevo />
           </button>
           <button type="button" className={nav} title="Modificar sucursal" disabled={!editing || !selected || !!draft} onClick={modificar}>
-            <FilePen size={13} />
+            <GwModificar />
           </button>
           <button type="button" className={`${nav} border-r-0`} title="Borrar sucursal" disabled={!editing || !selected || !!draft} onClick={borrar}>
-            <FileX2 size={13} />
+            <GwEliminar />
           </button>
         </div>
         {draft && (

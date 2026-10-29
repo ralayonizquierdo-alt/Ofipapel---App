@@ -154,7 +154,7 @@ export function InventariarAlmacenPage() {
   const editando = modo !== 'consulta'
   const inventariado = cab?.estado === 'inventariado'
   const b =
-    'flex h-[40px] flex-1 items-center justify-center border border-[var(--gw-border-light)] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent'
+    'flex h-[40px] flex-1 items-center justify-center gw-boton-barra'
 
   return (
     <div className="flex h-full items-start justify-center pt-6">

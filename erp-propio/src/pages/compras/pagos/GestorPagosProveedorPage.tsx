@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Binoculars, Check, ChevronFirst, ChevronLast, CircleDollarSign, FileText, Play, Printer, RotateCw, Settings2, X } from 'lucide-react'
+import { Check, CircleDollarSign, FileText, RotateCw, Settings2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { avisoTope, todasLasFilas } from '../../../lib/todasLasFilas'
 import { ejercicioTrabajo } from '../../../lib/sesionTrabajo'
 import { formatGw, GwDate } from '../../../components/gw'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
 import { FORMA_PAGO_COLS, cargarDoc, claseFormaPago, generarPagosDoc, hoyISO, type ClaseFp, type FormaPago } from './pagosModel'
+import { GwAnterior, GwBuscar, GwImprimir, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 // «Gestor de Pagos» de GeminisWin (Compras → Gestor de pagos): cartera de pagos a proveedores —
 // facturas/pedidos de proveedor y sus pagos (PAGOSGST), con vencimientos, pagado y pendiente.
@@ -616,16 +617,16 @@ export function GestorPagosProveedorPage() {
       {/* Botonera */}
       <div className="flex h-[38px] items-stretch gap-[2px] border-t border-[var(--gw-border)] pt-[2px]">
         <Ico title="Primero" onClick={() => irA(0)}>
-          <ChevronFirst size={15} strokeWidth={2.5} />
+          <GwPrimero />
         </Ico>
         <Ico title="Anterior" onClick={() => irA(selIdx - 1)}>
-          <Play size={10} className="rotate-180" fill="currentColor" />
+          <GwAnterior />
         </Ico>
         <Ico title="Siguiente" onClick={() => irA(selIdx + 1)}>
-          <Play size={10} fill="currentColor" />
+          <GwSiguiente />
         </Ico>
         <Ico title="Último" onClick={() => irA(filas.length - 1)}>
-          <ChevronLast size={15} strokeWidth={2.5} />
+          <GwUltimo />
         </Ico>
         <Ico
           title="Buscar"
@@ -634,10 +635,10 @@ export function GestorPagosProveedorPage() {
             if (q !== null) setBusqueda(q.trim() || null)
           }}
         >
-          <Binoculars size={15} className={busqueda ? 'text-[#c42b1c]' : ''} />
+          <GwBuscar />
         </Ico>
         <Ico title="Imprimir" onClick={() => window.print()}>
-          <Printer size={15} />
+          <GwImprimir />
         </Ico>
         <Ico title="Refrescar" onClick={() => cargar()}>
           <RotateCw size={15} className="text-[#127a12]" />

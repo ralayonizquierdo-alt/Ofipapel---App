@@ -5,12 +5,13 @@
 // transacción de solo lectura y con la RLS del usuario). No escribe nada.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useEsAdministrador } from '../archivo/comun'
 import { Mensaje } from './comun'
 import { cargarTablasErp, type TablaErp } from './datos'
+import { GwPrimero, GwUltimo } from '../../components/gw/GwIconos'
 
 const POR_PAGINA = 100
 
@@ -154,7 +155,7 @@ export function ExaminarPage() {
                 {total ? `${(pagina * POR_PAGINA + 1).toLocaleString('es-ES')}-${Math.min(total, (pagina + 1) * POR_PAGINA).toLocaleString('es-ES')} de ${total.toLocaleString('es-ES')}` : '0 filas'}
               </span>
               <button type="button" className={btnNav} title="Primera página" disabled={pagina === 0} onClick={() => setPagina(0)}>
-                <ChevronFirst size={14} />
+                <GwPrimero />
               </button>
               <button type="button" className={btnNav} title="Página anterior" disabled={pagina === 0} onClick={() => setPagina((p) => p - 1)}>
                 <ChevronLeft size={14} />
@@ -163,7 +164,7 @@ export function ExaminarPage() {
                 <ChevronRight size={14} />
               </button>
               <button type="button" className={btnNav} title="Última página" disabled={pagina >= ultima} onClick={() => setPagina(ultima)}>
-                <ChevronLast size={14} />
+                <GwUltimo />
               </button>
             </>
           )}

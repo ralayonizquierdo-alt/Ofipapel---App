@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Binoculars, Check, ChevronFirst, ChevronLast, FolderOpen, Play, X } from 'lucide-react'
+import { Check, FolderOpen, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { todasLasFilas } from '../../../lib/todasLasFilas'
 import { GwField, GwInput, GwRadio, GwTextArea } from '../../../components/gw'
@@ -8,6 +8,7 @@ import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import { FilasVacias, GridMiniBar } from '../../../components/gw/GwGridParts'
 import { useBusquedaFicha } from '../../../components/gw/useBusquedaFicha'
+import { GwAnterior, GwBuscar, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 export const hoy = () => new Date().toISOString().slice(0, 10)
 
@@ -334,23 +335,23 @@ export function GridNavBar({
   onBuscar?: () => void
 }) {
   const b =
-    'flex h-[22px] w-[58px] items-center justify-center border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent'
+    'flex h-[22px] w-[58px] items-center justify-center gw-boton-barra'
   return (
     <div className="flex w-fit border border-[var(--gw-border)] bg-[var(--gw-face)]">
       <button type="button" className={b} title="Primero" disabled={total === 0 || sel <= 0} onClick={() => onSel(0)}>
-        <ChevronFirst size={14} strokeWidth={3} />
+        <GwPrimero />
       </button>
       <button type="button" className={b} title="Anterior" disabled={total === 0 || sel <= 0} onClick={() => onSel(sel - 1)}>
-        <Play size={10} className="rotate-180" fill="currentColor" />
+        <GwAnterior />
       </button>
       <button type="button" className={b} title="Siguiente" disabled={total === 0 || sel >= total - 1} onClick={() => onSel(sel + 1)}>
-        <Play size={10} fill="currentColor" />
+        <GwSiguiente />
       </button>
       <button type="button" className={b} title="Último" disabled={total === 0 || sel >= total - 1} onClick={() => onSel(total - 1)}>
-        <ChevronLast size={14} strokeWidth={3} />
+        <GwUltimo />
       </button>
       <button type="button" className={b} title="Buscar" disabled={total === 0 || !onBuscar} onClick={onBuscar}>
-        <Binoculars size={13} />
+        <GwBuscar />
       </button>
     </div>
   )

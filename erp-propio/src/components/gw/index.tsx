@@ -13,15 +13,20 @@ export function GwWindow({
   onClose,
   children,
   className = '',
+  acreedor = false,
 }: {
   title: string
   onClose?: () => void
   children: ReactNode
   className?: string
+  /** Ficha de Acreedores: barra de título marrón para no confundirla con la de Proveedores. */
+  acreedor?: boolean
 }) {
   return (
     <div className={`flex flex-col border border-[#6f6f6f] bg-[var(--gw-face)] shadow-[2px_2px_6px_rgba(0,0,0,0.35)] ${className}`}>
-      <div className="flex h-[22px] select-none items-center gap-1.5 bg-gradient-to-b from-[#dbe6f4] to-[#c7d6ea] px-1.5 text-[12px]">
+      <div
+        className={`flex h-[22px] select-none items-center gap-1.5 bg-gradient-to-b px-1.5 text-[12px] ${acreedor ? 'from-[#b5703d] to-[#97572b] font-bold text-white' : 'from-[#dbe6f4] to-[#c7d6ea]'}`}
+      >
         <GwAppIcon size={14} />
         <span className="flex-1 truncate">{title}</span>
         <span className="flex gap-0.5">

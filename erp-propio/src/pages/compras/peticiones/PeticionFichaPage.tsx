@@ -660,6 +660,7 @@ export function PeticionFichaPage() {
         <GwLookupDialog<Record<string, unknown>>
           title="Buscar Proveedor"
           table="proveedor"
+          eq={{ tipo: 'proveedor' }}
           columns={[
             { key: 'codigo', label: 'Código', width: 90 },
             { key: 'nombre', label: 'Nombre' },

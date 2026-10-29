@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Binoculars, Check, ChevronFirst, ChevronLast, FilePen, FilePlus2, Play, Trash2, X } from 'lucide-react'
+import { Check, Trash2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwDate, GwNumber, formatGw } from '../../../components/gw'
 import { BUSCADOR_PROVEEDOR, GwCodigoBuscador, useNombres } from '../../../components/gw/GwCodigoBuscador'
 import type { ArticuloProveedor } from '../types'
+import { GwAnterior, GwBuscar, GwModificar, GwNuevo, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 const fecha = (v: string | null) => {
   if (!v) return ' /  /'
@@ -231,16 +232,16 @@ export function TabPreciosProveedor({
         </div>
         <div className="mt-1 flex w-fit border border-[var(--gw-border)]">
           <MiniBtn title="Primero" disabled={!!editing || rows.length === 0} onClick={() => ir(0)}>
-            <ChevronFirst size={14} strokeWidth={3} />
+            <GwPrimero />
           </MiniBtn>
           <MiniBtn title="Anterior" disabled={!!editing || idx <= 0} onClick={() => ir(idx - 1)}>
-            <Play size={10} className="rotate-180" fill="currentColor" />
+            <GwAnterior />
           </MiniBtn>
           <MiniBtn title="Siguiente" disabled={!!editing || idx < 0 || idx >= rows.length - 1} onClick={() => ir(idx + 1)}>
-            <Play size={10} fill="currentColor" />
+            <GwSiguiente />
           </MiniBtn>
           <MiniBtn title="Último" disabled={!!editing || rows.length === 0} onClick={() => ir(rows.length - 1)}>
-            <ChevronLast size={14} strokeWidth={3} />
+            <GwUltimo />
           </MiniBtn>
           <MiniBtn
             title="Buscar proveedor"
@@ -252,7 +253,7 @@ export function TabPreciosProveedor({
               else setError(`El proveedor ${c} no tiene precios para este artículo.`)
             }}
           >
-            <Binoculars size={13} />
+            <GwBuscar />
           </MiniBtn>
           {editing ? (
             <>
@@ -266,7 +267,7 @@ export function TabPreciosProveedor({
           ) : (
             <>
               <MiniBtn title="Nuevo" onClick={startNew}>
-                <FilePlus2 size={13} />
+                <GwNuevo />
               </MiniBtn>
               <MiniBtn
                 title="Modificar"
@@ -278,7 +279,7 @@ export function TabPreciosProveedor({
                   setEditing({ ...selectedRow })
                 }}
               >
-                <FilePen size={13} />
+                <GwModificar />
               </MiniBtn>
               <MiniBtn title="Borrar" disabled={!selectedRow} onClick={deleteSelected}>
                 <Trash2 size={13} />

@@ -55,6 +55,8 @@ export interface Proveedor {
   id_sinli: string | null
   id_fande: string | null
   cuenta_contable_400: string | null
+  /** proveedor = mercancía · acreedor = servicios y gastos (Compras → Acreedores). */
+  tipo: 'proveedor' | 'acreedor'
   cuenta_contable_600: string | null
   cuenta_contable_401: string | null
   cuenta_contable_41150: string | null
@@ -115,6 +117,7 @@ export const emptyProveedor: Omit<Proveedor, 'actualizado_en'> = {
   id_sinli: null,
   id_fande: null,
   cuenta_contable_400: null,
+  tipo: 'proveedor',
   cuenta_contable_600: null,
   cuenta_contable_401: null,
   cuenta_contable_41150: null,
