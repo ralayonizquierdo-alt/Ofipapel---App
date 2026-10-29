@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './lib/AuthContext'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
 import { PanelControlPage } from './pages/panel/PanelControlPage'
+import { GeneradorListadosPage } from './pages/listados/GeneradorListadosPage'
 import { ArticulosListPage } from './pages/articulos/ArticulosListPage'
 import { ArticuloFichaPage } from './pages/articulos/ArticuloFichaPage'
 import { ClienteFichaPage } from './pages/clientes/ClienteFichaPage'
@@ -136,6 +137,7 @@ function App() {
           <Route element={<ProtectedArea />}>
             <Route path="/" element={null} />
             <Route path="/resumen" element={<PanelControlPage />} />
+            <Route path="/listados" element={<GeneradorListadosPage />} />
             <Route path="/articulos" element={<ArticuloFichaPage />} />
             <Route path="/articulos/lista" element={<ArticulosListPage />} />
             <Route path="/articulos/:codigo" element={<ArticuloFichaPage />} />

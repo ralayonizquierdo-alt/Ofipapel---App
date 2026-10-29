@@ -311,6 +311,7 @@ export const MENUS: TopMenu[] = [
     // Calcado de GeminisWin (capturas 05-20 y 05-21). SIN CAPTURA de sus ventanas: Examinar, Copia de
     // Seguridad, Cambio de Fecha (y Hora), Cambio de Tienda y Eliminar Ficheros Temporales (pages/utilidades).
     items: [
+      item('Generador de listados', { to: '/listados', description: 'Cualquier listado del ERP: columnas, filtros, agrupar y sumar; imprimir, PDF y Excel; guardar y compartir' }),
       item('Examinar', { to: '/utilidades/examinar', shortcut: 'F11', description: 'Examina las tablas de la base de datos (solo lectura, administradores)' }),
       item('Copia de Seguridad', {
         children: [
@@ -464,6 +465,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/facturacion', title: 'Facturas Clientes' },
   { prefix: '/generar-facturas', title: 'Generar Facturas' },
   { prefix: '/listado-facturas', title: 'Listado de Facturas' },
+  { prefix: '/listados', title: 'Generador de listados' },
   { prefix: '/registros-verifactu', title: 'Registros de Facturación VeriFactu' },
   { prefix: '/contabilidad/generar', title: 'Generar Asientos Automáticos' },
   { prefix: '/contabilidad/pendientes', title: 'Asientos Pendientes / con Errores' },
