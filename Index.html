@@ -1532,6 +1532,7 @@ function _mergeImportLog(extra){
 }
 function _renderTodosLosRegistros(){
   [[_ILG_ENTRADA,'importLogEntrada'],[_ILG_CAJA,'importLogCaja'],[_ILG_VENTAS,'importLogVentas'],[_ILG_COMPRAS,'importLogCompras']].forEach(([t,id])=>renderImportLog(t,id));
+  refrescarUltimasCargas();
 }
 async function syncImportLogToCloud(){
   if(!supaReady) return;
@@ -1570,28 +1571,36 @@ function logImport(key, archivos, registros){
   if(_ILG_CAJA.includes(key)) renderImportLog(_ILG_CAJA,'importLogCaja');
   if(_ILG_VENTAS.includes(key)) renderImportLog(_ILG_VENTAS,'importLogVentas');
   if(_ILG_COMPRAS.includes(key)) renderImportLog(_ILG_COMPRAS,'importLogCompras');
+  refrescarUltimasCargas();
   syncImportLogToCloud();
 }
 
+// Formato ÚNICO de las cargas de datos (panel de cada sección y tarjeta del Dashboard)
+function etiquetaCarga(e){ return IMPORT_LOG_LABELS[e.key]||e.tipo||e.key; }
+function cabeceraCargasHtml(){
+  const th='text-align:left;padding:5px 8px;font-weight:600;';
+  return '<thead><tr style="color:var(--texto2);border-bottom:1px solid var(--borde);"><th style="'+th+'white-space:nowrap;">Fecha/Hora</th><th style="'+th+'">Usuario</th><th style="'+th+'">Tipo</th><th style="'+th+'">Archivo(s)</th></tr></thead>';
+}
+function filaCargaHtml(e){
+  const f=new Date(e.ts).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const auto=/^geminis/i.test(e.user||'');
+  const quien=auto?'🤖 Automático (GeminisWin)':'👤 '+escapeHtml(e.user||'—');
+  const arch=String(e.archivos||'').replace(/\s+/g,' ');
+  const forzada=e.key==='forzarSubida';
+  const textoArch=forzada?(e.registros!=null?e.registros+' conjuntos de datos':'—'):(arch||'—')+(e.registros!=null?' · '+Number(e.registros).toLocaleString('es-ES')+' registros':'');
+  const c='padding:5px 8px;font-family:\'Inter\',sans-serif;text-align:left;';
+  return '<tr style="border-bottom:1px solid var(--borde);">'+
+    '<td style="'+c+'white-space:nowrap;font-weight:500;">'+f+'</td>'+
+    '<td style="'+c+'white-space:nowrap;">'+quien+'</td>'+
+    '<td style="'+c+'">'+escapeHtml(etiquetaCarga(e))+'</td>'+
+    '<td style="'+c+'color:var(--texto2);word-break:break-word;" title="'+escapeHtml(arch)+'">'+escapeHtml(textoArch)+'</td></tr>';
+}
 function renderImportLog(tipos, containerId){
   const el=document.getElementById(containerId); if(!el) return;
   const tiposSet=new Set(tipos);
   const entries=importLog.filter(e=>tiposSet.has(e.key)).sort((a,b)=>b.ts.localeCompare(a.ts)).slice(0,30);
   if(!entries.length){ el.innerHTML='<div style="color:var(--texto2);font-size:12px;padding:10px 0;text-align:center;">Sin importaciones registradas aún.</div>'; return; }
-  el.innerHTML='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'+
-    '<thead><tr style="color:var(--texto2);border-bottom:1px solid var(--borde);">'+
-    '<th style="text-align:left;padding:5px 8px;font-weight:600;white-space:nowrap;">Fecha/Hora</th>'+
-    '<th style="text-align:left;padding:5px 8px;font-weight:600;">Usuario</th>'+
-    '<th style="text-align:left;padding:5px 8px;font-weight:600;">Tipo</th>'+
-    '<th style="text-align:left;padding:5px 8px;font-weight:600;">Archivo(s)</th>'+
-    '</tr></thead><tbody>'+
-    entries.map(e=>'<tr style="border-bottom:1px solid var(--borde);">'+
-      '<td style="padding:5px 8px;white-space:nowrap;">'+new Date(e.ts).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+'</td>'+
-      '<td style="padding:5px 8px;font-weight:500;">'+escapeHtml(e.user||'—')+'</td>'+
-      '<td style="padding:5px 8px;">'+escapeHtml(e.tipo||IMPORT_LOG_LABELS[e.key]||e.key)+'</td>'+
-      '<td style="padding:5px 8px;color:var(--texto2);word-break:break-all;">'+escapeHtml(e.archivos||'—')+(e.registros!=null?' · '+Number(e.registros).toLocaleString('es-ES')+' registros':'')+'</td>'+
-      '</tr>').join('')+
-    '</tbody></table></div>';
+  el.innerHTML='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'+cabeceraCargasHtml()+'<tbody>'+entries.map(filaCargaHtml).join('')+'</tbody></table></div>';
 }
 
 function stampImport(key, archivos, registros){
@@ -3208,23 +3217,18 @@ function renderDocStatusHtml(){
   </div>`;
 }
 
-// Dashboard: últimas cargas de datos (manuales y automáticas), a partir del registro de importaciones
-function ultimasCargasHtml(){
+// Dashboard: la última carga de cada clase (manuales y automáticas), con el mismo formato que el historial de cada sección
+function _cuerpoUltimasCargas(){
   const ult=new Map();
   [...importLog].filter(e=>e&&e.ts&&e.key).sort((a,b)=>b.ts.localeCompare(a.ts)).forEach(e=>{ if(!ult.has(e.key)) ult.set(e.key,e); });
   const lista=[...ult.values()].slice(0,8);
-  const cuerpo=lista.length?lista.map(e=>{
-    const f=new Date(e.ts).toLocaleString('es-ES',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-    const auto=/^geminis/i.test(e.user||'');
-    const quien=auto?'🤖 Automático (GeminisWin)':'👤 '+escapeHtml(e.user||'—');
-    const arch=String(e.archivos||'').replace(/\s+/g,' ');
-    return `<tr><td style="white-space:nowrap;font-weight:600;text-align:left;">${f}</td><td style="font-family:'Inter',sans-serif;text-align:left;">${escapeHtml(e.tipo||IMPORT_LOG_LABELS[e.key]||e.key)}</td><td style="font-family:'Inter',sans-serif;white-space:nowrap;text-align:left;">${quien}</td><td style="font-family:'Inter',sans-serif;text-align:left;color:var(--texto2);max-width:360px;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(arch)}">${escapeHtml(arch.length>70?arch.slice(0,68)+'…':arch)}</td></tr>`;
-  }).join(''):`<tr><td colspan="4" style="text-align:center;color:var(--texto2);font-family:'Inter',sans-serif;">Aún no hay cargas registradas</td></tr>`;
-  return `<div class="card" style="padding:0;overflow:hidden;margin-bottom:20px;cursor:pointer;" onclick="showView('alertas')" title="Ver el estado de todos los documentos">
-    <div class="sec-title" style="margin:14px 18px 6px;">📥 Últimas cargas de datos</div>
-    <div style="overflow-x:auto;"><table style="margin:0;"><tbody>${cuerpo}</tbody></table></div>
-  </div>`;
+  return '<div class="sec-title" style="margin:14px 18px 6px;">📥 Últimas cargas de datos</div><div style="overflow-x:auto;padding:0 10px 8px;">'+
+    (lista.length?'<table style="width:100%;border-collapse:collapse;font-size:12px;">'+cabeceraCargasHtml()+'<tbody>'+lista.map(filaCargaHtml).join('')+'</tbody></table>':'<div style="color:var(--texto2);font-size:12px;padding:10px 0;text-align:center;">Aún no hay cargas registradas</div>')+'</div>';
 }
+function ultimasCargasHtml(){
+  return `<div id="ultimasCargasCard" class="card" style="padding:0;overflow:hidden;margin-bottom:20px;cursor:pointer;" onclick="showView('alertas')" title="Ver el estado de todos los documentos">${_cuerpoUltimasCargas()}</div>`;
+}
+function refrescarUltimasCargas(){ const el=document.getElementById('ultimasCargasCard'); if(el) el.innerHTML=_cuerpoUltimasCargas(); }
 
 // Alerta compacta para el dashboard (resguardos pendientes del último cierre)
 function alertaResguardosPendientes(){
