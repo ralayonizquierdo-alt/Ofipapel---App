@@ -255,6 +255,11 @@ tr.gw-encontrada td {
 .gw-boton-barra:active:not(:disabled) svg {
   transform: translate(1px, 1px);
 }
+/* Iconos de las botoneras (GwIconos.tsx): en un botón bajo (barras de las rejillas) se encogen
+   para caber, sin deformarse. */
+button .gw-icono {
+  max-height: calc(100% - 4px);
+}
 .gw-boton-barra:disabled {
   color: #a0a0a0;
 }
@@ -270,8 +275,8 @@ tr.gw-encontrada td {
   height: 46px;
 }
 .gw-barra-grande > button svg {
-  width: 18px;
-  height: 18px;
+  width: 28px;
+  height: 28px;
 }
 
 /* Informes de Caja: al imprimir (o «Doc. PDF») sale solo el informe, a todo el ancho. */
