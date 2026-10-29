@@ -214,6 +214,9 @@ export function GwListaOrdenada({
     else if (e.key === 'ArrowUp') mover(-1)
     else if (e.key === 'PageDown') mover(porPagina())
     else if (e.key === 'PageUp') mover(-porPagina())
+    // Ctrl+Inicio / Ctrl+Fin: primera / última fila de lo ya cargado (la lista se carga por tramos).
+    else if (e.key === 'Home' && e.ctrlKey) mover(-filas.length)
+    else if (e.key === 'End' && e.ctrlKey) mover(filas.length)
     else if (e.key === 'Enter') {
       e.preventDefault()
       if (filas[sel]) onPick(filas[sel])

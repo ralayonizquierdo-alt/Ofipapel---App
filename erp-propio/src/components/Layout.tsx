@@ -11,6 +11,11 @@ import { NexaAsistente } from '../nexa/NexaAsistente'
 import { AcercaDeDialog } from './shell/AcercaDeDialog'
 import { EdicionHerramientas, IndicadorVerComo, lanzarEdicion } from './shell/EdicionHerramientas'
 import { SinPermiso, usePermisos } from '../lib/PermisosContext'
+import { comboDeEvento, instalarIntroAvanza, modalAlPulsar, normalizarAtajo } from './gw/teclado'
+
+/** Atajos de menú que no gestiona Layout: los de edición los hace el navegador en el campo;
+ *  Ctrl+F/H/O, EdicionHerramientas; Ctrl+P, GenerarPeticionHost. */
+const ATAJOS_PROPIOS = new Set<string>(['undo', 'redo', 'cut', 'copy', 'paste', 'delete', 'selectAll', 'find', 'replace', 'cambiar-grupo', 'generar-peticion'])
 
 // Ventana principal con el aspecto de GeminisWin: franja de título, barra de menús,
 // barra lateral de accesos rápidos, área MDI gris con la ventana activa y barra de estado.
@@ -117,20 +122,30 @@ export function Layout() {
     else if (i.action) document.execCommand(i.action)
   }
 
+  // Atajos de los menús (columna derecha de cada opción): TODOS los de menus.ts con `to` o
+  // `action`, normalizados («CTRL+F12» = «Ctrl+F12», «Supr» = Delete). Si dos opciones comparten
+  // atajo gana la primera del árbol (Alt+F6 = Gestor de Pedidos, como en GeminisWin). Respetan los
+  // permisos (runMenu → puedeOpcion), no actúan con un diálogo modal abierto ni si la pantalla ya
+  // ha usado la tecla (el TPV se queda F11, Ctrl+F11 y Ctrl+F12). Los de edición los hace el
+  // navegador y Ctrl+F/H/O y Ctrl+P sus propios hosts (ver ATAJOS_PROPIOS).
   useEffect(() => {
+    instalarIntroAvanza()
     const shortcuts = new Map<string, MenuItem>()
     const collect = (entries: MenuEntry[]) => {
       for (const e of entries) {
         if (e === 'sep') continue
-        if (e.shortcut && (e.to || e.action === 'signout' || e.action === 'cycle-window' || esAccionUtilidad(e.action))) shortcuts.set(e.shortcut.toLowerCase(), e)
+        if (e.shortcut && isEnabled(e) && !(e.action && ATAJOS_PROPIOS.has(e.action))) {
+          const k = normalizarAtajo(e.shortcut)
+          if (!shortcuts.has(k)) shortcuts.set(k, e)
+        }
         if (e.children) collect(e.children)
       }
     }
     MENUS.forEach((m) => collect(m.items))
     const onKey = (ev: KeyboardEvent) => {
-      const combo = [ev.ctrlKey && 'ctrl', ev.altKey && 'alt', ev.key.toLowerCase()].filter(Boolean).join('+')
-      const hit = shortcuts.get(combo)
-      if (hit && isEnabled(hit)) {
+      if (ev.defaultPrevented || ev.isComposing || modalAlPulsar(ev)) return
+      const hit = shortcuts.get(comboDeEvento(ev))
+      if (hit) {
         ev.preventDefault()
         runMenu(hit)
       }
@@ -138,6 +153,24 @@ export function Layout() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Barra de estado: al pasar el ratón por un botón con data-gw-estado («Modificar (F2)»), su ayuda.
+  useEffect(() => {
+    const encima = (ev: MouseEvent) => {
+      const el = ev.target instanceof Element ? ev.target.closest<HTMLElement>('[data-gw-estado]') : null
+      if (el) setHint(el.dataset.gwEstado ?? null)
+    }
+    const fuera = (ev: MouseEvent) => {
+      const el = ev.target instanceof Element ? ev.target.closest('[data-gw-estado]') : null
+      if (el && !(ev.relatedTarget instanceof Node && el.contains(ev.relatedTarget))) setHint(null)
+    }
+    document.addEventListener('mouseover', encima)
+    document.addEventListener('mouseout', fuera)
+    return () => {
+      document.removeEventListener('mouseover', encima)
+      document.removeEventListener('mouseout', fuera)
+    }
   }, [])
 
   // Ayuda del campo con el foco en la barra de estado (como GeminisWin): los campos que la

@@ -689,17 +689,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
     setOrig((o) => (o ? { ...o, cab: c } : o))
   }
 
-  // F1 guarda en alta o modificación, como en GeminisWin.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'F1' && editing) {
-        e.preventDefault()
-        guardar()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
+  // F1 guarda, Alt+Retroceso cancela, AvPág/RePág navegan…: las teclas las pone CompraBar (teclasFicha).
 
   const ir = (k?: { t: string; n: number }) => k && navigate(rutaDoc(k))
   const irNav = async (d: NavDir) => {

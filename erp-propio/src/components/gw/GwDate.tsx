@@ -180,6 +180,7 @@ export function GwDate({ value, onChange, disabled, readOnly, className = '', ti
     }
     if (ro || disabled) return
     if (e.ctrlKey || e.metaKey) return // copiar/pegar/cortar, deshacer… los lleva el navegador
+    if (e.altKey && e.key === 'Backspace') return // Alt+Retroceso = Cancelar la ficha (teclasFicha)
     const el = e.currentTarget
     const ini = el.selectionStart ?? 0
     const fin = el.selectionEnd ?? ini
@@ -296,6 +297,7 @@ export function GwDate({ value, onChange, disabled, readOnly, className = '', ti
           cerrarEdicion()
         }}
         onKeyDown={onKeyDown}
+        data-gw-intro="avanza"
         onDoubleClick={abrirCalendario}
         onPaste={(e) => {
           if (ro || disabled) return

@@ -17,7 +17,7 @@ export function Dialogo({
 }) {
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !e.defaultPrevented) onClose() // Esc de un campo (fecha) no cierra el diálogo
     }
     window.addEventListener('keydown', tecla)
     return () => window.removeEventListener('keydown', tecla)

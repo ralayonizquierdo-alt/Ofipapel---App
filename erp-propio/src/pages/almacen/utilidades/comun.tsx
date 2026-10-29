@@ -93,7 +93,8 @@ export async function rpcTodas<T>(fn: string, p: Record<string, unknown>, tope =
 export function useF4(onCerrar: () => void) {
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
-      if (e.key === 'F4' && !e.altKey && !e.ctrlKey) {
+      // Si la tecla ya la ha usado un campo (F4 = calendario en una fecha), no cierra.
+      if (e.key === 'F4' && !e.altKey && !e.ctrlKey && !e.defaultPrevented) {
         e.preventDefault()
         onCerrar()
       }
@@ -354,7 +355,7 @@ export function VisorInforme<T>({
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCerrar()
+      if (e.key === 'Escape' && !e.defaultPrevented) onCerrar()
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)

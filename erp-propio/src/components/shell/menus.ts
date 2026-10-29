@@ -17,6 +17,9 @@ export interface MenuItem {
   description?: string
   children?: MenuEntry[]
   checked?: boolean
+  /** Letra subrayada (Alt+letra / letra con el menú abierto) cuando se conoce la de GeminisWin o
+   *  Windows; si no, la elige `mnemonicos.ts` (primera letra libre de cada palabra). */
+  letra?: string
 }
 
 export type MenuEntry = MenuItem | 'sep'
@@ -73,7 +76,7 @@ export const MENUS: TopMenu[] = [
       item('Deshacer', { action: 'undo', shortcut: 'Ctrl+Z' }),
       item('Rehacer', { action: 'redo', shortcut: 'Ctrl+Y' }),
       'sep',
-      item('Cortar', { action: 'cut', shortcut: 'Ctrl+X' }),
+      item('Cortar', { action: 'cut', shortcut: 'Ctrl+X', letra: 't' }),
       item('Copiar', { action: 'copy', shortcut: 'Ctrl+C' }),
       item('Pegar', { action: 'paste', shortcut: 'Ctrl+V' }),
       item('Borrar', { action: 'delete', shortcut: 'Supr' }),
@@ -153,7 +156,8 @@ export const MENUS: TopMenu[] = [
       item('Entrada en caja', { to: '/caja/entrada', description: 'Entrada de dinero en la caja abierta' }),
       item('Salida de caja', { to: '/caja/salida', description: 'Salida de dinero de la caja abierta' }),
       'sep',
-      // En GeminisWin Apertura de Caja y Gestor de Pedidos muestran los dos Alt+F6; el atajo real va al Gestor.
+      // En GeminisWin Apertura de Caja y Gestor de Pedidos muestran los dos Alt+F6; el atajo real va al Gestor
+      // (Layout: con dos opciones con el mismo atajo, gana la primera del árbol de menús).
       item('Apertura de Caja', { to: '/caja/apertura', shortcut: 'Alt+F6', description: 'Abrir la caja de la tienda/terminal con el fondo inicial' }),
       item('Cierre de Caja', { to: '/caja/cierre', shortcut: 'Ctrl+F6', description: 'Cerrar la caja abierta con el arqueo' }),
       item('Aperturas y Cierres', { to: '/caja/aperturas', description: 'Aperturas y Cierres de Caja' }),

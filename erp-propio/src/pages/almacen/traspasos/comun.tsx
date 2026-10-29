@@ -93,6 +93,7 @@ export function BtnTexto({
     <button
       type="button"
       title={title ?? label}
+      data-gw-estado={title ?? label}
       onClick={onClick}
       disabled={disabled}
       className={`flex flex-col items-center justify-center gap-1 border border-[var(--gw-border-light)] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent ${className}`}

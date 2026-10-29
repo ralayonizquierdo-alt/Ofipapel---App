@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { conTecla, useTeclasFicha } from '../../../components/gw/teclasFicha'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowDownAZ,
@@ -299,23 +300,29 @@ export function RegularizacionStockPage() {
     setModo('consulta')
   }
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (!editable) return
-      if (e.key === 'F1') {
-        e.preventDefault()
-        guardar()
-      } else if (e.key === 'Backspace' && e.altKey) {
-        e.preventDefault()
-        cancelar()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
-
   const r = reg ?? vacia()
   const sinDoc = !reg
+
+  // Teclas comunes de la barra (F1 guardar, Alt+Retroceso cancelar, AvPág/RePág…): teclasFicha.
+  const barra = useRef<HTMLDivElement>(null)
+  useTeclasFicha({
+    mode: modo,
+    canNavigate: !editable && idx >= 0,
+    saving: guardando,
+    raiz: barra,
+    acciones: {
+      primero: () => void navegar('primero'),
+      anterior: idx > 0 ? () => void navegar('anterior') : undefined,
+      siguiente: idx < totalClaves - 1 ? () => void navegar('siguiente') : undefined,
+      ultimo: () => void navegar('ultimo'),
+      buscar: () => setDialogo('buscar'),
+      nuevo: () => navigate('/regularizacion-stock/nuevo'),
+      modificar: sinDoc ? undefined : () => setModo('edicion'),
+      guardar,
+      cancelar,
+      salir: () => navigate('/'),
+    },
+  })
 
   return (
     <div className="mx-auto flex w-[820px] max-w-full flex-col gap-2">
@@ -431,24 +438,24 @@ export function RegularizacionStockPage() {
       {mensaje && <p className="gw-label text-[#c42b1c]">{mensaje}</p>}
       {sinDoc && modo === 'consulta' && <p className="gw-label text-[#1a4fd0]">No hay regularizaciones todavía. Pulsa Agregar para crear la primera.</p>}
 
-      <div className="flex h-[66px] gap-1 border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
+      <div ref={barra} className="flex h-[66px] gap-1 border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
         <div className="grid w-[150px] grid-cols-3 grid-rows-2">
-          <BtnTexto title="Primero" disabled={editable || idx < 0} onClick={() => navegar('primero')}>
+          <BtnTexto title={conTecla('Primero', 'primero')} disabled={editable || idx < 0} onClick={() => navegar('primero')}>
             <ChevronFirst size={16} strokeWidth={3} />
           </BtnTexto>
-          <BtnTexto title="Siguiente" disabled={editable || idx < 0 || idx >= totalClaves - 1} onClick={() => navegar('siguiente')}>
+          <BtnTexto title={conTecla('Siguiente', 'siguiente')} disabled={editable || idx < 0 || idx >= totalClaves - 1} onClick={() => navegar('siguiente')}>
             <Play size={11} fill="currentColor" />
           </BtnTexto>
           <BtnTexto title={ordenDesc ? 'Orden: del más nuevo al más antiguo' : 'Orden: del más antiguo al más nuevo'} disabled={editable} onClick={() => setOrdenDesc((o) => !o)}>
             <ArrowDownAZ size={16} />
           </BtnTexto>
-          <BtnTexto title="Anterior" disabled={editable || idx <= 0} onClick={() => navegar('anterior')}>
+          <BtnTexto title={conTecla('Anterior', 'anterior')} disabled={editable || idx <= 0} onClick={() => navegar('anterior')}>
             <Play size={11} className="rotate-180" fill="currentColor" />
           </BtnTexto>
-          <BtnTexto title="Último" disabled={editable || idx < 0} onClick={() => navegar('ultimo')}>
+          <BtnTexto title={conTecla('Último', 'ultimo')} disabled={editable || idx < 0} onClick={() => navegar('ultimo')}>
             <ChevronLast size={16} strokeWidth={3} />
           </BtnTexto>
-          <BtnTexto title="Buscar" disabled={editable} onClick={() => setDialogo('buscar')}>
+          <BtnTexto title={conTecla('Buscar', 'buscar')} disabled={editable} onClick={() => setDialogo('buscar')}>
             <Binoculars size={16} />
           </BtnTexto>
         </div>
@@ -457,19 +464,19 @@ export function RegularizacionStockPage() {
         </BtnTexto>
         {editable ? (
           <>
-            <BtnTexto className="flex-1" label="Guardar" title="Guardar (F1)" disabled={guardando} onClick={guardar}>
+            <BtnTexto className="flex-1" label="Guardar" title={conTecla('Guardar', 'guardar')} disabled={guardando} onClick={guardar}>
               <Save size={20} />
             </BtnTexto>
-            <BtnTexto className="flex-1" label="Cancelar" title="Cancelar (Alt+Retroceso)" disabled={guardando} onClick={cancelar}>
+            <BtnTexto className="flex-1" label="Cancelar" title={conTecla('Cancelar', 'cancelar')} disabled={guardando} onClick={cancelar}>
               <X size={20} strokeWidth={3} />
             </BtnTexto>
           </>
         ) : (
           <>
-            <BtnTexto className="flex-1" label="Agregar" onClick={() => navigate('/regularizacion-stock/nuevo')}>
+            <BtnTexto className="flex-1" label="Agregar" title={conTecla('Agregar', 'nuevo')} onClick={() => navigate('/regularizacion-stock/nuevo')}>
               <FilePlus2 size={20} />
             </BtnTexto>
-            <BtnTexto className="flex-1" label="Editar" disabled={sinDoc} onClick={() => setModo('edicion')}>
+            <BtnTexto className="flex-1" label="Editar" title={conTecla('Editar', 'modificar')} disabled={sinDoc} onClick={() => setModo('edicion')}>
               <FilePen size={20} />
             </BtnTexto>
             <BtnTexto className="flex-1" label="Eliminar" disabled={sinDoc || guardando} onClick={eliminar}>
@@ -477,7 +484,7 @@ export function RegularizacionStockPage() {
             </BtnTexto>
           </>
         )}
-        <BtnTexto className="flex-1" label="Cerrar" onClick={() => navigate('/')}>
+        <BtnTexto className="flex-1" label="Cerrar" title={conTecla('Cerrar', 'salir')} onClick={() => navigate('/')}>
           <DoorOpen size={20} />
         </BtnTexto>
       </div>
