@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useNavigate, useParams } from 'react-router-dom'
 import { Binoculars, Check, FilePen, FilePlus2, FileX2, PackageSearch, Tag, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { aplicarArticulo, tocado, tocarLinea, type LineaEnEdicion } from '../../../lib/lineaEnEdicion'
 import { fechaTrabajo, horaTrabajo, tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { useAuth } from '../../../lib/AuthContext'
 import { useNexaContexto } from '../../../nexa/contexto'
@@ -224,7 +225,14 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
   const [factura, setFactura] = useState<FacturaInfo | null>(null)
   const [orden, setOrden] = useState<'numero' | 'cliente'>('numero')
   const [sel, setSel] = useState(0)
-  const [editLinea, setEditLinea] = useState<{ idx: number | 'nuevo'; l: Linea } | null>(null)
+  const [editLinea, setEditLinea] = useState<LineaEnEdicion<Linea> | null>(null)
+  // Nº de la última carga de artículo pedida para la línea (una respuesta más antigua no manda)
+  // y la línea tal como está ahora, para ver lo tecleado mientras se cargaba.
+  const cargaArticulo = useRef(0)
+  const editLineaActual = useRef(editLinea)
+  useEffect(() => {
+    editLineaActual.current = editLinea
+  }, [editLinea])
   const [infoLinea, setInfoLinea] = useState<{ cc: string; stk: number; upd: number } | null>(null)
   const [dialogo, setDialogo] = useState<null | 'cliente' | 'empleado' | 'vendedor' | 'articulo' | 'buscar' | 'tarifa'>(null)
   const [preciosNivel, setPreciosNivel] = useState<{ nivel: number; pvp: number }[]>([])
@@ -533,14 +541,31 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
 
   async function codigoLinea(codigo: string) {
     if (!editLinea) return
+    const n = ++cargaArticulo.current
     const a = await buscarArticulo(codigo)
+    if (n !== cargaArticulo.current) return
     if (!a) {
       setMensaje(`No existe ningún artículo con el código ${codigo.trim()}.`)
       return
     }
     setMensaje(null)
-    const l = await lineaDesdeArticulo(a, editLinea.l.cantidad || 1, editLinea.l)
-    setEditLinea((e) => (e ? { ...e, l } : e))
+    await ponerArticulo(a, n)
+  }
+
+  /**
+   * Pone el artículo en la línea en edición sin pisar lo que el usuario ha tecleado mientras se
+   * cargaba (cantidad, precio, dto.…). Si cambió la cantidad y no el precio, el precio se calcula
+   * con la cantidad nueva (las tarifas por cantidad dependen de ella).
+   */
+  async function ponerArticulo(a: ArticuloVenta, n: number) {
+    if (!editLinea) return
+    let l = await lineaDesdeArticulo(a, editLinea.l.cantidad || 1, editLinea.l)
+    const ahora = editLineaActual.current
+    if (n === cargaArticulo.current && ahora && tocado(ahora, 'cantidad') && !tocado(ahora, 'precio') && ahora.l.cantidad > 0 && ahora.l.cantidad !== l.cantidad) {
+      l = await lineaDesdeArticulo(a, ahora.l.cantidad, editLinea.l)
+    }
+    if (n !== cargaArticulo.current) return
+    setEditLinea((e) => aplicarArticulo(e, l))
   }
 
   function nuevaLinea() {
@@ -923,7 +948,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
                   key={i}
                   l={editLinea.l}
                   sub={tot.porLinea[i]?.sub ?? 0}
-                  onChange={(p) => setEditLinea((e) => (e ? { ...e, l: { ...e.l, ...p } } : e))}
+                  onChange={(p) => setEditLinea((e) => tocarLinea(e, p))}
                   onCodigo={codigoLinea}
                   onOk={aceptarLinea}
                   onCancel={() => setEditLinea(null)}
@@ -950,7 +975,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
               <FilaEdicion
                 l={editLinea.l}
                 sub={tot.porLinea[lineas.length]?.sub ?? 0}
-                onChange={(p) => setEditLinea((e) => (e ? { ...e, l: { ...e.l, ...p } } : e))}
+                onChange={(p) => setEditLinea((e) => tocarLinea(e, p))}
                 onCodigo={codigoLinea}
                 onOk={aceptarLinea}
                 onCancel={() => setEditLinea(null)}
@@ -1192,10 +1217,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
           onPick={async (r) => {
             setDialogo(null)
             const { data } = await supabase.from('articulo').select(ARTICULO_VENTA_COLS).eq('codigo_interno', String(r.codigo_interno)).maybeSingle()
-            if (data && editLinea) {
-              const l = await lineaDesdeArticulo(data as ArticuloVenta, editLinea.l.cantidad || 1, editLinea.l)
-              setEditLinea((e) => (e ? { ...e, l } : e))
-            }
+            if (data && editLinea) await ponerArticulo(data as ArticuloVenta, ++cargaArticulo.current)
           }}
         />
       )}
@@ -1348,6 +1370,12 @@ function FilaEdicion({
 }) {
   const [codigo, setCodigo] = useState(l.codigo_venta ?? '')
   useEffect(() => setCodigo(l.codigo_venta ?? ''), [l.codigo_venta])
+  // Código ya enviado a buscar con Intro: al salir del campo no se vuelve a cargar.
+  const enviado = useRef<string | null>(null)
+  const buscar = (c: string) => {
+    enviado.current = c
+    onCodigo(c)
+  }
   const celda = '!h-[21px] !border-0 !px-1 !text-[15px]'
   return (
     <tr className="bg-[#fff8dc]">
@@ -1359,10 +1387,10 @@ function FilaEdicion({
           value={codigo}
           onChange={(e) => setCodigo(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') onCodigo(codigo)
+            if (e.key === 'Enter') buscar(codigo)
             if (e.key === 'Escape') onCancel()
           }}
-          onBlur={() => codigo && codigo !== l.codigo_venta && onCodigo(codigo)}
+          onBlur={() => codigo && codigo !== l.codigo_venta && codigo !== enviado.current && buscar(codigo)}
         />
       </td>
       <td className="!p-0">

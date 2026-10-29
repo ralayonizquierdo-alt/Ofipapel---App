@@ -27,6 +27,7 @@ import { elegirTienda, tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { useAuth } from '../../../lib/AuthContext'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { formatGw } from '../../../components/gw'
+import { seleccionAlPulsar, seleccionAlSoltar, useSeleccionAlEntrar } from '../../../components/gw/seleccionEntrada'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import {
   NIVELES,
@@ -182,6 +183,14 @@ export function VentaDocumento({
   >(null)
   const codRefs = useRef<Map<string, HTMLInputElement>>(new Map())
   const [foco, setFoco] = useState<number | null>(null)
+  // Carga del artículo de cada línea (por su clave): nº de la última carga pedida —una respuesta
+  // más antigua no manda— y campos que el usuario ha tecleado mientras tanto, que la carga no pisa.
+  const cargaLinea = useRef<Map<string, number>>(new Map())
+  const tocadosLinea = useRef<Map<string, Set<keyof LineaVenta>>>(new Map())
+  const lineasActuales = useRef(lineas)
+  useEffect(() => {
+    lineasActuales.current = lineas
+  }, [lineas])
 
   const tiendaActual = tiendas.find((t) => t.codigo === tienda) ?? null
   const almacen = tiendaActual?.almacen_codigo ?? null
@@ -372,6 +381,17 @@ export function VentaDocumento({
     setLineas((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)))
   }
 
+  /** Cambio tecleado en la línea: además de aplicarlo, se apunta para que la carga del artículo no lo pise. */
+  function editarLinea(i: number, patch: Partial<LineaVenta>) {
+    const k = lineas[i]?.key
+    if (k) {
+      const t = tocadosLinea.current.get(k) ?? new Set<keyof LineaVenta>()
+      for (const c of Object.keys(patch) as (keyof LineaVenta)[]) if (c !== 'codigo_venta') t.add(c)
+      tocadosLinea.current.set(k, t)
+    }
+    setLinea(i, patch)
+  }
+
   async function resolverCodigo(i: number, codigo: string) {
     const l = lineas[i]
     if (!l) return
@@ -381,19 +401,45 @@ export function VentaDocumento({
       return
     }
     if (l.articulo_codigo && (c === l.codigo_venta || c === l.articulo_codigo)) return
-    const nueva = await lineaDesdeArticulo({ ...l, codigo_venta: c, tarifa_nivel: l.tarifa_nivel ?? cab.tarifa_nivel }, c, cab.cliente_codigo, almacen)
+    // La línea se sigue por su clave: mientras llega el artículo se pueden añadir o quitar líneas,
+    // o teclear cantidad y precio en esta (lo tecleado desde ahora se conserva).
+    const key = l.key
+    const n = (cargaLinea.current.get(key) ?? 0) + 1
+    cargaLinea.current.set(key, n)
+    tocadosLinea.current.delete(key)
+    const base = { ...l, codigo_venta: c, tarifa_nivel: l.tarifa_nivel ?? cab.tarifa_nivel }
+    let nueva = await lineaDesdeArticulo(base, c, cab.cliente_codigo, almacen)
+    if (cargaLinea.current.get(key) !== n) return
     if (!nueva) {
       setMensaje({ texto: `No existe ningún artículo con el código ${c}. Si es una línea de texto, deja el código vacío.`, error: true })
       return
     }
+    // Cantidad cambiada mientras tanto (y el precio no): el precio va con la cantidad nueva.
+    const ahora = lineasActuales.current.find((x) => x.key === key)
+    const tocados = tocadosLinea.current.get(key)
+    if (ahora && tocados?.has('cantidad') && !tocados.has('precio') && ahora.cantidad !== nueva.cantidad) {
+      nueva = await lineaDesdeArticulo({ ...base, cantidad: ahora.cantidad }, c, cab.cliente_codigo, almacen)
+      if (cargaLinea.current.get(key) !== n || !nueva) return
+    }
+    const art = nueva
+    const quedan = new Set(tocadosLinea.current.get(key) ?? [])
+    tocadosLinea.current.delete(key)
     setMensaje(null)
     setLineas((ls) => {
-      const copia = ls.map((x, idx) => (idx === i ? nueva : x))
+      const idx = ls.findIndex((x) => x.key === key)
+      if (idx < 0) return ls
+      const conservado = Object.fromEntries([...quedan].map((campo) => [campo, ls[idx][campo]])) as Partial<LineaVenta>
+      const puesta: LineaVenta = { ...art, ...conservado }
+      const copia = ls.map((x, j) => (j === idx ? puesta : x))
       // Como en GeminisWin: al completar la última línea se abre otra para seguir tecleando
-      if (i === copia.length - 1) copia.push(lineaVacia(cab.tarifa_nivel))
+      if (idx === copia.length - 1) copia.push(lineaVacia(cab.tarifa_nivel))
       return copia
     })
-    setFoco(i + 1)
+    // Pasa a la línea siguiente solo si el cursor sigue en el código de esta (si ya está en la
+    // cantidad o en otro campo, no se le quita).
+    const activo = document.activeElement
+    const idx = lineasActuales.current.findIndex((x) => x.key === key)
+    if (idx >= 0 && (activo === codRefs.current.get(key) || activo === document.body || activo == null)) setFoco(idx + 1)
   }
 
   function agregarLinea() {
@@ -871,7 +917,7 @@ export function VentaDocumento({
                 activa={i === sel}
                 editable={editable}
                 onSelect={() => setSel(i)}
-                onChange={(p) => setLinea(i, p)}
+                onChange={(p) => editarLinea(i, p)}
                 onCodigo={(c) => resolverCodigo(i, c)}
                 codRef={(el) => {
                   if (el) codRefs.current.set(l.key, el)
@@ -1156,14 +1202,22 @@ function PieNum({
   punto?: boolean
 }) {
   const [txt, setTxt] = useState<string | null>(null)
+  const { campo: campoNum, entrar: entrarNum } = useSeleccionAlEntrar(txt)
   const mostrado = txt ?? (punto ? value.toFixed(decimales) : formatGw(value, decimales))
   return (
     <input
+      ref={campoNum}
       className="gw-input !h-[28px] text-right !text-[20px]"
       style={{ width: ancho }}
       readOnly={!editable}
       value={mostrado}
-      onFocus={() => editable && setTxt(String(value))}
+      onMouseDown={seleccionAlPulsar}
+      onMouseUp={seleccionAlSoltar}
+      onFocus={() => {
+        if (!editable) return
+        entrarNum()
+        setTxt(String(value))
+      }}
       onChange={(e) => setTxt(e.target.value)}
       onBlur={() => {
         if (txt == null) return
@@ -1234,11 +1288,19 @@ function FilaLinea({
 
 function NumCelda({ value, dec, onChange }: { value: number; dec: number; onChange: (v: number) => void }) {
   const [txt, setTxt] = useState<string | null>(null)
+  // Al entrar se selecciona todo: «3» en una cantidad 1 da 3, no 13 (seleccionEntrada.ts).
+  const { campo: campoNum, entrar: entrarNum } = useSeleccionAlEntrar(txt)
   return (
     <input
+      ref={campoNum}
       className="h-[22px] w-full bg-transparent px-0.5 text-right text-[17px] outline-none focus:bg-[#fffbe0]"
       value={txt ?? formatGw(value, dec)}
-      onFocus={() => setTxt(String(value).replace('.', ','))}
+      onMouseDown={seleccionAlPulsar}
+      onMouseUp={seleccionAlSoltar}
+      onFocus={() => {
+        entrarNum()
+        setTxt(String(value).replace('.', ','))
+      }}
       onChange={(e) => setTxt(e.target.value)}
       onBlur={() => {
         if (txt == null) return

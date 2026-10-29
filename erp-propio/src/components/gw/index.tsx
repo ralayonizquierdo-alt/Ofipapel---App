@@ -1,5 +1,6 @@
 import { useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { Minus, Square, X } from 'lucide-react'
+import { seleccionAlPulsar, seleccionAlSoltar, useSeleccionAlEntrar } from './seleccionEntrada'
 
 export { GwDate, type GwDateProps } from './GwDate'
 
@@ -118,14 +119,22 @@ export function GwNumber({
   emptyAsZero?: boolean
 }) {
   const [editing, setEditing] = useState<string | null>(null)
+  // Al entrar se selecciona todo: lo tecleado sustituye al valor (seleccionEntrada.ts).
+  const { campo: campoNum, entrar: entrarNum } = useSeleccionAlEntrar(editing)
   const shown = editing ?? (value == null && emptyAsZero ? formatGw(0, decimals) : formatGw(value, decimals))
   return (
     <input
+      ref={campoNum}
       className={`gw-input gw-num ${className}`}
       disabled={disabled}
       readOnly={!onChange}
       value={shown}
-      onFocus={() => setEditing(value == null ? '' : String(value).replace('.', ','))}
+      onFocus={() => {
+        entrarNum()
+        setEditing(value == null ? '' : String(value).replace('.', ','))
+      }}
+      onMouseDown={seleccionAlPulsar}
+      onMouseUp={seleccionAlSoltar}
       onChange={(e) => setEditing(e.target.value)}
       onBlur={() => {
         if (editing == null) return

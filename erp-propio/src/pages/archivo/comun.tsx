@@ -7,6 +7,7 @@ import { ChevronDown, ChevronUp, FolderOpen } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { GwCheck, GwField, GwGroup, GwInline, GwInput, GwLookupButton, GwRadio, GwSelect, GwTextArea } from '../../components/gw'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
+import { seleccionAlPulsar, seleccionAlSoltar, useSeleccionAlEntrar } from '../../components/gw/seleccionEntrada'
 
 export const hoy = () => new Date().toISOString().slice(0, 10)
 
@@ -471,6 +472,7 @@ export function GwSpin({
   className?: string
 }) {
   const [texto, setTexto] = useState<string | null>(null)
+  const { campo: campoNum, entrar: entrarNum } = useSeleccionAlEntrar(texto)
   const v = value ?? 0
   const mostrar = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: decimales, maximumFractionDigits: decimales })
   const fijar = (n: number) => onChange(Math.min(max, Math.max(min, Math.round(n * 10 ** decimales) / 10 ** decimales)))
@@ -481,7 +483,13 @@ export function GwSpin({
         value={texto ?? mostrar(v)}
         disabled={disabled}
         title={title}
-        onFocus={() => setTexto(String(v).replace('.', ','))}
+        ref={campoNum}
+        onMouseDown={seleccionAlPulsar}
+        onMouseUp={seleccionAlSoltar}
+        onFocus={() => {
+          entrarNum()
+          setTexto(String(v).replace('.', ','))
+        }}
         onChange={(e) => setTexto(e.target.value)}
         onBlur={() => {
           if (texto == null) return

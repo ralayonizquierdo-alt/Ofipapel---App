@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Binoculars, Check, FilePen, FilePlus2, FileX2, Sheet, Wallet, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { aplicarArticulo, tocarLinea, type LineaEnEdicion } from '../../../lib/lineaEnEdicion'
 import { ahoraTrabajo, fechaTrabajo, tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { useAuth } from '../../../lib/AuthContext'
@@ -189,7 +190,9 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
   const [proveedor, setProveedor] = useState<ProveedorInfo | null>(null)
   const [orden, setOrden] = useState<'numero' | 'proveedor'>('numero')
   const [sel, setSel] = useState(0)
-  const [editLinea, setEditLinea] = useState<{ idx: number | 'nuevo'; l: LineaCompra } | null>(null)
+  const [editLinea, setEditLinea] = useState<LineaEnEdicion<LineaCompra> | null>(null)
+  // Nº de la última carga de artículo pedida para la línea: una respuesta más antigua no manda.
+  const cargaArticulo = useRef(0)
   const [stockSel, setStockSel] = useState<number | null>(null)
   const [dialogo, setDialogo] = useState<null | 'proveedor' | 'almacen' | 'transportista' | 'forma_pago' | 'forma_pago_t' | 'articulo' | 'buscar' | 'importar'>(null)
   const [importTexto, setImportTexto] = useState('')
@@ -457,15 +460,18 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
 
   async function codigoLinea(codigo: string) {
     if (!editLinea) return
+    const n = ++cargaArticulo.current
     const art = await resolverCodigo(codigo)
     const l = art ? await lineaDesdeArticulo(art, editLinea.l) : null
+    if (n !== cargaArticulo.current) return
     if (!l) {
       setMensaje(`No existe ningún artículo con el código ${codigo.trim()}.`)
       return
     }
     setMensaje(null)
-    // Las cantidades tecleadas mientras se buscaba el artículo se conservan.
-    setEditLinea((e) => (e ? { ...e, l: { ...l, bultos: e.l.bultos, cajas: e.l.cajas, cantidad: e.l.cantidad, bonificacion: e.l.bonificacion } } : e))
+    // Las cantidades de la línea y lo tecleado mientras se buscaba el artículo (precio, dto.…)
+    // se conservan: la carga del artículo no pisa lo que ha escrito el usuario.
+    setEditLinea((e) => aplicarArticulo(e, l, CANTIDADES_LINEA))
   }
 
   function nuevaLinea() {
@@ -947,7 +953,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
                   key={i}
                   l={editLinea.l}
                   rapida={rapida}
-                  onChange={(p) => setEditLinea((e) => (e ? { ...e, l: { ...e.l, ...p } } : e))}
+                  onChange={(p) => setEditLinea((e) => tocarLinea(e, p))}
                   onCodigo={codigoLinea}
                   onOk={aceptarLinea}
                   onCancel={() => setEditLinea(null)}
@@ -978,7 +984,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
               <FilaEdicion
                 l={editLinea.l}
                 rapida={rapida}
-                onChange={(p) => setEditLinea((e) => (e ? { ...e, l: { ...e.l, ...p } } : e))}
+                onChange={(p) => setEditLinea((e) => tocarLinea(e, p))}
                 onCodigo={codigoLinea}
                 onOk={aceptarLinea}
                 onCancel={() => setEditLinea(null)}
@@ -1271,8 +1277,9 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
           onPick={async (r) => {
             setDialogo(null)
             if (!editLinea) return
+            const n = ++cargaArticulo.current
             const l = await lineaDesdeArticulo(String(r.codigo_interno), editLinea.l)
-            if (l) setEditLinea((e) => (e ? { ...e, l } : e))
+            if (l && n === cargaArticulo.current) setEditLinea((e) => aplicarArticulo(e, l, CANTIDADES_LINEA))
           }}
         />
       )}
@@ -1355,6 +1362,9 @@ function MiniBtn({ title, disabled, onClick, children }: { title: string; disabl
   )
 }
 
+/** Al cambiar de artículo, la línea conserva sus cantidades. */
+const CANTIDADES_LINEA = ['bultos', 'cajas', 'cantidad', 'bonificacion'] as const
+
 function FilaEdicion({
   l,
   rapida,
@@ -1372,6 +1382,12 @@ function FilaEdicion({
 }) {
   const [codigo, setCodigo] = useState(l.codigo_compra ?? '')
   useEffect(() => setCodigo(l.codigo_compra ?? ''), [l.codigo_compra])
+  // Código ya enviado a buscar con Intro: al salir del campo no se vuelve a cargar.
+  const enviado = useRef<string | null>(null)
+  const buscar = (c: string) => {
+    enviado.current = c
+    onCodigo(c)
+  }
   const celda = '!h-[21px] !border-0 !px-1 !text-[15px]'
   // Bultos y cajas calculan la cantidad con las unidades por caja y cajas por bulto del artículo.
   const porCajas = (cajas: number) => (l.unidades_por_caja > 0 ? { cajas, cantidad: cajas * l.unidades_por_caja } : { cajas })
@@ -1387,10 +1403,10 @@ function FilaEdicion({
           value={codigo}
           onChange={(e) => setCodigo(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') onCodigo(codigo)
+            if (e.key === 'Enter') buscar(codigo)
             if (e.key === 'Escape') onCancel()
           }}
-          onBlur={() => codigo && codigo !== l.codigo_compra && onCodigo(codigo)}
+          onBlur={() => codigo && codigo !== l.codigo_compra && codigo !== enviado.current && buscar(codigo)}
         />
       </td>
       <td className="!p-0">
