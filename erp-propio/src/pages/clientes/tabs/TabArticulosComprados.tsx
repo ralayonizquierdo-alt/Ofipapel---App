@@ -24,6 +24,8 @@ interface Fila {
   web: number
   operario: string | null
   reparto: string | null
+  /** Ventas que no son de la web (veces − web). */
+  ventas_oper: number
 }
 
 type Col = keyof Fila
@@ -38,7 +40,7 @@ const COLUMNAS: { key: Col; label: string; ancho?: number; num?: number }[] = [
   { key: 'veces', label: 'Veces', ancho: 60, num: 0 },
   { key: 'web', label: 'Web', ancho: 55, num: 0 },
   { key: 'operario', label: 'Oper', ancho: 70 },
-  { key: 'reparto', label: 'Ventas Oper.', ancho: 200 },
+  { key: 'ventas_oper', label: 'Ventas Oper.', ancho: 95, num: 0 },
   { key: 'importe', label: 'Importe total', ancho: 110, num: 2 },
 ]
 
@@ -59,6 +61,7 @@ export function TabArticulosComprados({ cliente }: ClienteTabProps) {
       setFilas(
         ((data ?? []) as Fila[]).map((f) => ({
           ...f,
+          ventas_oper: Number(f.veces) - Number(f.web),
           unidades: Number(f.unidades),
           importe: Number(f.importe),
           ultimo_precio: f.ultimo_precio == null ? null : Number(f.ultimo_precio),
@@ -141,7 +144,7 @@ export function TabArticulosComprados({ cliente }: ClienteTabProps) {
                 {COLUMNAS.map((c) => {
                   const v = f[c.key]
                   return (
-                    <td key={c.key} className={c.num != null ? 'text-right' : 'truncate'}>
+                    <td key={c.key} className={c.num != null ? 'text-right' : 'truncate'} title={c.key === 'ventas_oper' && f.reparto ? `Por operario: ${f.reparto}` : undefined}>
                       {v == null ? '' : c.key === 'ultima_fecha' ? String(v).split('-').reverse().join('/') : c.num != null ? formatGw(Number(v), c.num) : String(v)}
                     </td>
                   )
