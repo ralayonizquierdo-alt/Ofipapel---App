@@ -44,6 +44,7 @@ export function GeneradorListadosPage() {
   const [agruparPor, setAgruparPor] = useState<'operario' | 'tipo'>('operario')
   const [cerrados, setCerrados] = useState<Set<string>>(new Set())
   const [completa, setCompleta] = useState(false)
+  const [operario, setOperario] = useState('')
 
   // Pantalla completa: Esc la cierra (antes que cualquier otro Esc de la ventana).
   useEffect(() => {
@@ -59,7 +60,27 @@ export function GeneradorListadosPage() {
   }, [completa])
 
   const F = FUENTE_POR_CLAVE[fuente]
-  const col = useCallback((c: string): ColumnaFuente | undefined => F.columnas.find((x) => x.clave === c), [F])
+  // Todos los campos de la ficha: los principales (fuentes.ts) y el resto de la vista, que se
+  // piden a la base de datos (fn_listado_columnas) con su nombre puesto bonito.
+  const [extras, setExtras] = useState<ColumnaFuente[]>([])
+  useEffect(() => {
+    let vivo = true
+    setExtras([])
+    supabase.rpc('fn_listado_columnas', { p_fuente: fuente }).then(({ data }) => {
+      if (!vivo) return
+      const principales = new Set(FUENTE_POR_CLAVE[fuente].columnas.map((c) => c.clave))
+      setExtras(
+        ((data ?? []) as { columna: string; tipo: string }[])
+          .filter((c) => !principales.has(c.columna))
+          .map((c) => ({ clave: c.columna, etiqueta: etiquetaCampo(c.columna), tipo: tipoCampo(c.tipo), dec: c.tipo === 'numeric' ? 2 : 0 })),
+      )
+    })
+    return () => {
+      vivo = false
+    }
+  }, [fuente])
+  const todas = useMemo(() => [...F.columnas, ...extras], [F, extras])
+  const col = useCallback((c: string): ColumnaFuente | undefined => todas.find((x) => x.clave === c), [todas])
 
   const cargarGuardados = useCallback(async () => {
     const { data } = await supabase.from('listado_guardado').select('id, nombre, fuente, definicion, grupos, creado_por').order('nombre')
@@ -215,15 +236,18 @@ export function GeneradorListadosPage() {
   const setD = (p: Partial<DefinicionListado>) => setDef((x) => ({ ...x, ...p }))
   // Guardados agrupados por operario (los míos primero; los de serie, al final) o por tipo.
   const nombreFuente = (c: string) => FUENTE_POR_CLAVE[c]?.titulo ?? c
+  // Filtro por nº de operario (código de empleado de quien lo hizo).
+  const op = operario.trim().toUpperCase()
+  const visibles = op ? guardados.filter((g) => (g.creado_por ?? '').toUpperCase().startsWith(op)) : guardados
   const gruposGuardados: { clave: string; titulo: string; lista: Guardado[] }[] =
     agruparPor === 'tipo'
-      ? FUENTES.map((fu) => ({ clave: fu.clave, titulo: fu.titulo, lista: guardados.filter((g) => g.fuente === fu.clave) })).filter((x) => x.lista.length)
+      ? FUENTES.map((fu) => ({ clave: fu.clave, titulo: fu.titulo, lista: visibles.filter((g) => g.fuente === fu.clave) })).filter((x) => x.lista.length)
       : [
-          { clave: 'yo', titulo: 'Mis listados', lista: guardados.filter((g) => g.creado_por && g.creado_por === yo) },
-          ...[...new Set(guardados.map((g) => g.creado_por).filter((c): c is string => !!c && c !== yo))]
-            .sort((a, b) => (operarios[a] ?? a).localeCompare(operarios[b] ?? b))
-            .map((c) => ({ clave: c, titulo: operarios[c] ?? c, lista: guardados.filter((g) => g.creado_por === c) })),
-          { clave: 'serie', titulo: 'De serie (para todos)', lista: guardados.filter((g) => !g.creado_por) },
+          { clave: 'yo', titulo: `Mis listados${yo ? ` · Nº ${yo}` : ''}`, lista: visibles.filter((g) => g.creado_por && g.creado_por === yo) },
+          ...[...new Set(visibles.map((g) => g.creado_por).filter((c): c is string => !!c && c !== yo))]
+            .sort((a, b) => a.localeCompare(b, 'es', { numeric: true }))
+            .map((c) => ({ clave: c, titulo: `Operario Nº ${c}`, lista: visibles.filter((g) => g.creado_por === c) })),
+          { clave: 'serie', titulo: 'De serie (para todos)', lista: visibles.filter((g) => !g.creado_por) },
         ].filter((x) => x.lista.length)
   const alternarGrupo = (c: string) =>
     setCerrados((x) => {
@@ -239,16 +263,28 @@ export function GeneradorListadosPage() {
       <div className="flex w-[250px] flex-none flex-col border border-[var(--gw-border)] bg-white">
         <div className="flex items-center gap-1 border-b border-[var(--gw-border)] bg-[var(--gw-face)] px-2 py-1">
           <b className="flex-1">Listados guardados</b>
+          <input
+            className="h-[20px] w-[64px] border border-[var(--gw-border)] bg-white px-1 text-[12px]"
+            placeholder="Nº oper."
+            title="Escribe el número de operario para ver solo sus listados"
+            value={operario}
+            onChange={(e) => setOperario(e.target.value)}
+          />
           <select className="h-[20px] border border-[var(--gw-border)] bg-white text-[12px]" value={agruparPor} onChange={(e) => setAgruparPor(e.target.value as 'operario' | 'tipo')} title="Cómo agrupar la lista">
             <option value="operario">Por operario</option>
             <option value="tipo">Por tipo</option>
           </select>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {gruposGuardados.length === 0 && <div className="p-2 text-[13px] text-[#777]">Todavía no hay ninguno: haz uno y pulsa Guardar.</div>}
+          {gruposGuardados.length === 0 && <div className="p-2 text-[13px] text-[#777]">{op ? `El operario ${op} no tiene listados guardados.` : 'Todavía no hay ninguno: haz uno y pulsa Guardar.'}</div>}
           {gruposGuardados.map((gr) => (
             <div key={gr.clave}>
-              <button type="button" className="flex w-full items-center gap-1 bg-[#eef1f5] px-2 py-0.5 text-left text-[13px] font-bold text-[#333]" onClick={() => alternarGrupo(gr.clave)}>
+              <button
+                type="button"
+                className="flex w-full items-center gap-1 bg-[#eef1f5] px-2 py-0.5 text-left text-[13px] font-bold text-[#333]"
+                title={operarios[gr.clave] ?? (gr.clave === 'yo' && yo ? operarios[yo] : undefined)}
+                onClick={() => alternarGrupo(gr.clave)}
+              >
                 <span className="w-[12px]">{cerrados.has(gr.clave) ? '▸' : '▾'}</span>
                 <span className="flex-1 truncate">{gr.titulo}</span>
                 <span className="text-[11px] font-normal text-[#777]">{gr.lista.length}</span>
@@ -262,7 +298,9 @@ export function GeneradorListadosPage() {
                     className={`flex w-full items-baseline gap-1 px-3 py-[3px] text-left ${g.id === id ? 'bg-[#0078d7] text-white' : 'hover:bg-[#e5f1fb]'}`}
                   >
                     <span className="min-w-0 flex-1 truncate">{g.nombre}</span>
-                    {agruparPor === 'operario' && <span className={`flex-none text-[11px] ${g.id === id ? 'text-white/80' : 'text-[#888]'}`}>{nombreFuente(g.fuente)}</span>}
+                    <span className={`flex-none text-[11px] ${g.id === id ? 'text-white/80' : 'text-[#888]'}`}>
+                      {agruparPor === 'operario' ? nombreFuente(g.fuente) : g.creado_por ? `Nº ${g.creado_por}` : 'serie'}
+                    </span>
                   </button>
                 ))}
             </div>
@@ -330,10 +368,10 @@ export function GeneradorListadosPage() {
           onChange={setTab}
         >
           <div className="h-[200px] overflow-y-auto p-2" onKeyDown={(e) => e.key === 'F9' && (e.preventDefault(), ejecutar())}>
-            {tab === 'columnas' && <Columnas fuente={F.columnas} sel={def.columnas} onChange={(c) => setD({ columnas: c })} />}
-            {tab === 'filtros' && <Filtros fuente={F.columnas} filtros={def.filtros} onChange={(f) => setD({ filtros: f })} />}
-            {tab === 'agrupar' && <Agrupar fuente={F.columnas} def={def} onChange={setD} />}
-            {tab === 'orden' && <Orden fuente={F.columnas} def={def} onChange={(o) => setD({ orden: o })} />}
+            {tab === 'columnas' && <Columnas principales={F.columnas} extras={extras} sel={def.columnas} onChange={(c) => setD({ columnas: c })} />}
+            {tab === 'filtros' && <Filtros fuente={todas} filtros={def.filtros} onChange={(f) => setD({ filtros: f })} />}
+            {tab === 'agrupar' && <Agrupar fuente={todas} def={def} onChange={setD} />}
+            {tab === 'orden' && <Orden fuente={todas} def={def} onChange={(o) => setD({ orden: o })} />}
             {tab === 'compartir' && (
               <div className="flex flex-col gap-1">
                 <label className="flex items-center gap-1.5 font-bold">
@@ -371,7 +409,9 @@ export function GeneradorListadosPage() {
                     titulo: 'Bueno es saber',
                     notas: [
                       'Agrupar y sumar: por ejemplo, agrupar por Familia y sumar Base = ventas por familia.',
-                      'Los guardados salen a la izquierda, agrupados por operario (o por tipo); pulsa uno para abrirlo.',
+                      'Los guardados salen a la izquierda, agrupados por nº de operario (o por tipo); pulsa uno para abrirlo.',
+                      'Nº oper.: escribe el número de un operario para ver solo sus listados.',
+                      'Columnas → «Todos los campos de la ficha»: cualquier campo, con buscador.',
                       '⛶ Pantalla: el listado a pantalla completa. Esc o «Cerrar pantalla» para volver.',
                       'Acceso directo: icono «Listados» de la barra y «Generador de listados» en cada menú Listados.',
                       'Compartir: elige qué grupos de empleados ven el listado.',
@@ -454,7 +494,10 @@ export function GeneradorListadosPage() {
   )
 }
 
-function Columnas({ fuente, sel, onChange }: { fuente: ColumnaFuente[]; sel: string[]; onChange: (c: string[]) => void }) {
+function Columnas({ principales, extras, sel, onChange }: { principales: ColumnaFuente[]; extras: ColumnaFuente[]; sel: string[]; onChange: (c: string[]) => void }) {
+  const [buscar, setBuscar] = useState('')
+  const [verTodos, setVerTodos] = useState(false)
+  const fuente = [...principales, ...extras]
   const mover = (i: number, d: number) => {
     const j = i + d
     if (j < 0 || j >= sel.length) return
@@ -462,18 +505,26 @@ function Columnas({ fuente, sel, onChange }: { fuente: ColumnaFuente[]; sel: str
     ;[n[i], n[j]] = [n[j], n[i]]
     onChange(n)
   }
+  const casilla = (c: ColumnaFuente) => (
+    <label key={c.clave} className="flex items-center gap-1.5 truncate" title={c.clave}>
+      <input type="checkbox" checked={sel.includes(c.clave)} onChange={(e) => onChange(e.target.checked ? [...sel, c.clave] : sel.filter((x) => x !== c.clave))} />
+      {c.etiqueta}
+    </label>
+  )
+  const t = buscar.trim().toLowerCase()
+  const encontrados = extras.filter((c) => !t || c.etiqueta.toLowerCase().includes(t) || c.clave.includes(t))
   return (
     <div className="grid grid-cols-2 gap-3">
       <div>
-        <div className="gw-label mb-1">Disponibles (marca para añadir):</div>
-        <div className="grid grid-cols-2 gap-x-3">
-          {fuente.map((c) => (
-            <label key={c.clave} className="flex items-center gap-1.5 truncate">
-              <input type="checkbox" checked={sel.includes(c.clave)} onChange={(e) => onChange(e.target.checked ? [...sel, c.clave] : sel.filter((x) => x !== c.clave))} />
-              {c.etiqueta}
-            </label>
-          ))}
+        <div className="gw-label mb-1">Principales (marca para añadir):</div>
+        <div className="grid grid-cols-2 gap-x-3">{principales.map(casilla)}</div>
+        <div className="mt-2 flex items-center gap-2">
+          <button type="button" className="gw-btn !h-[22px]" onClick={() => setVerTodos((v) => !v)}>
+            {verTodos ? '▾' : '▸'} Todos los campos de la ficha ({extras.length})
+          </button>
+          {verTodos && <GwInput className="w-[200px]" placeholder="buscar campo…" value={buscar} onChange={(e) => setBuscar(e.target.value)} />}
         </div>
+        {verTodos && <div className="mt-1 grid grid-cols-2 gap-x-3">{encontrados.map(casilla)}</div>}
       </div>
       <div>
         <div className="gw-label mb-1">En el listado, en este orden:</div>
@@ -645,4 +696,18 @@ function Orden({ fuente, def, onChange }: { fuente: ColumnaFuente[]; def: Defini
       })}
     </div>
   )
+}
+
+/** Nombre legible de un campo de la base de datos: «fecha_ultima_venta» → «Fecha ultima venta». */
+function etiquetaCampo(c: string) {
+  const t = c.replace(/_codigo$/, '').replace(/_pct$/, ' %').replace(/_/g, ' ').trim()
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+/** Tipo de columna según el tipo de la base de datos. */
+function tipoCampo(t: string): ColumnaFuente['tipo'] {
+  if (['numeric', 'integer', 'bigint', 'smallint', 'double precision', 'real'].includes(t)) return 'num'
+  if (t === 'date' || t.startsWith('timestamp')) return 'fecha'
+  if (t === 'boolean') return 'bool'
+  return 'texto'
 }
