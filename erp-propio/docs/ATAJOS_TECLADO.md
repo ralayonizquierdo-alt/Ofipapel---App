@@ -117,7 +117,8 @@ esté dentro de él; si hay dos fichas montadas (una dentro de otra), manda la d
 | F11 | Grabar como **aplazada** (⚠ fuera del TPV F11 = Examinar) |
 | Ctrl+F11 | Recuperar ventas aplazadas (⚠ fuera del TPV = Reparaciones) |
 | F12 | Stock del artículo de la línea |
-| Ctrl+F12 | Abrir el cajón (⚠ fuera del TPV = abrir el TPV) |
+| F10 | Abrir el cajón (confirmado por Rober, 29/10; aquí F10 no activa la barra de menús) |
+| Ctrl+F12 | Cambiar de empleado (confirmado por Rober, 29/10; ⚠ fuera del TPV = abrir el TPV) |
 | Alt+Retroceso / Esc | Cancelar (Esc pregunta) |
 | AvPág/RePág, Ctrl+Inicio/Fin, F3, F5, Esc | Como en el resto de fichas |
 
@@ -167,7 +168,7 @@ mueven la rejilla sin tocar el ratón.
 |---|---|---|
 | ⚠ | **Alt+F6** está en dos opciones: Ventas → Gestor de Pedidos y Caja → Apertura de Caja. Gana la primera del árbol (Gestor de Pedidos). | Pendiente — **confirmar con Luis** cuál es la buena en GeminisWin y quitar o cambiar la otra en `menus.ts` |
 | ⚠ | F2 = Modificar en las fichas, pero **Imprimir** en el TPV | Se deja: así lo hace GeminisWin en ventas — **confirmar con Luis** |
-| ⚠ | F11, Ctrl+F11 y Ctrl+F12 cambian de significado dentro del TPV (aplazar, aplazadas, cajón) | Intencionado (GeminisWin); la ventana de ventas gana a los atajos de menú |
+| ⚠ | F10, F11, Ctrl+F11 y Ctrl+F12 cambian de significado dentro del TPV (cajón, aplazar, aplazadas, cambiar empleado) | Intencionado (GeminisWin); la ventana de ventas gana a los atajos de menú |
 | ⚠ | Ctrl+P, Ctrl+E, Ctrl+O, Ctrl+F, Ctrl+H, Ctrl+F5 y F10 eran teclas del navegador (imprimir, buscar, recargar…) | El ERP las usa como GeminisWin; imprimir va por el botón Imprimir |
 | ✔ | Atajos escritos de varias formas en `menus.ts` (`CTRL+F12`, `ALT+F6`, `'Alt+F6 '` con espacio) y solo funcionaban algunos | Corregido: se normalizan todos y se rotulan igual |
 | ✔ | Cada ficha tenía su propio manejador (F1 en unas, Alt+Retroceso en otras, nada en la mayoría) | Corregido: `teclasFicha.ts` para todas |
