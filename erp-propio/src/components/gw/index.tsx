@@ -39,6 +39,7 @@ export function GwWindow({
   children,
   className = '',
   movible = true,
+  seccion,
 }: {
   title: string
   onClose?: () => void
@@ -46,10 +47,16 @@ export function GwWindow({
   className?: string
   /** Se arrastra por la barra de título, como en Windows (todas salvo la ventana principal). */
   movible?: boolean
+  /** Sección de la aplicación (clientes, compras…): tiñe la ventana con su color (index.css). */
+  seccion?: string | null
 }) {
   const { estilo, barra } = useArrastre(movible)
   return (
-    <div className={`gw-ventana flex flex-col border border-[#6f6f6f] bg-[var(--gw-face)] shadow-[2px_2px_6px_rgba(0,0,0,0.35)] ${className}`} style={estilo}>
+    <div
+      className={`gw-ventana flex flex-col border border-[#6f6f6f] bg-[var(--gw-face)] shadow-[2px_2px_6px_rgba(0,0,0,0.35)] ${className}`}
+      style={estilo}
+      data-seccion={seccion ?? undefined}
+    >
       <div
         className={`gw-titulo flex h-[22px] select-none items-center gap-1.5 bg-gradient-to-b from-[#dbe6f4] to-[#c7d6ea] px-1.5 text-[12px] ${movible ? 'cursor-move' : ''}`}
         {...barra}

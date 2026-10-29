@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { usePermisos } from '../../lib/PermisosContext'
+import { COLOR_SECCION } from './secciones'
 import {
   Archive,
   Banknote,
@@ -35,16 +36,16 @@ export const QUICK_ITEMS: QuickItem[] = [
   { label: 'Panel', description: 'Panel de Control', icon: LayoutDashboard, color: '#1f4e9c', to: '/resumen' },
   { label: 'Camb. Empl.', description: 'Cambiar Empleado', icon: UserRoundPlus, color: '#2f6fb5', action: 'signout' },
   { label: 'Cerrar Empl.', description: 'Cerrar Empleado', icon: UserRoundX, color: '#c0392b', action: 'signout' },
-  { label: 'Clientes', description: 'Clientes', icon: Users, color: '#b7791f', to: '/clientes' },
-  { label: 'Pedidos', description: 'Pedidos de Clientes', icon: ShoppingBasket, color: '#2f8f2f', to: '/pedidos' },
-  { label: 'Pagos', description: 'Gestor de Pagos de Clientes', icon: HandCoins, color: '#a8742a', to: '/gestor-cobros-clientes' },
-  { label: 'Caja', description: 'Caja', icon: Calculator, color: '#5d6d7e', to: '/caja' },
-  { label: 'Ventas', description: 'TPV / Ventas', icon: Banknote, color: '#3d7f5a', to: '/tpv' },
+  { label: 'Clientes', description: 'Clientes', icon: Users, color: COLOR_SECCION.clientes, to: '/clientes' },
+  { label: 'Pedidos', description: 'Pedidos de Clientes', icon: ShoppingBasket, color: COLOR_SECCION.pedidos, to: '/pedidos' },
+  { label: 'Pagos', description: 'Gestor de Pagos de Clientes', icon: HandCoins, color: COLOR_SECCION.pagos, to: '/gestor-cobros-clientes' },
+  { label: 'Caja', description: 'Caja', icon: Calculator, color: COLOR_SECCION.caja, to: '/caja' },
+  { label: 'Ventas', description: 'TPV / Ventas', icon: Banknote, color: COLOR_SECCION.ventas, to: '/tpv' },
   { label: 'Reparaciones', description: 'Reparaciones', icon: Wrench, color: '#6b4f9e', to: '/reparaciones' },
-  { label: 'Facturación', description: 'Facturas', icon: NotebookText, color: '#c0392b', to: '/facturacion' },
-  { label: 'Compras', description: 'Pedidos a Proveedores', icon: ShoppingCart, color: '#8b4513', to: '/pedidos-proveedor' },
-  { label: 'Artículos', description: 'Artículos', icon: Boxes, color: '#c58a3a', to: '/articulos' },
-  { label: 'Traspasos', description: 'Traspasos entre Almacenes', icon: RefreshCcw, color: '#e08a1e', to: '/traspasos' },
+  { label: 'Facturación', description: 'Facturas', icon: NotebookText, color: COLOR_SECCION.facturacion, to: '/facturacion' },
+  { label: 'Compras', description: 'Pedidos a Proveedores', icon: ShoppingCart, color: COLOR_SECCION.compras, to: '/pedidos-proveedor' },
+  { label: 'Artículos', description: 'Artículos', icon: Boxes, color: COLOR_SECCION.articulos, to: '/articulos' },
+  { label: 'Traspasos', description: 'Traspasos entre Almacenes', icon: RefreshCcw, color: COLOR_SECCION.traspasos, to: '/traspasos' },
   { label: 'Reparar BD', description: 'Reparar Base de Datos', icon: DatabaseZap, color: '#2e7d32' },
   { label: 'Copia', description: 'Copia de Seguridad', icon: Archive, color: '#c99a1b', action: 'hacer-copia' },
   { label: 'Salir', description: 'Salir', icon: LogOut, color: '#1f4e9c', action: 'signout' },

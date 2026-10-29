@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { GwAppIcon, GwWindow } from './gw'
 import { MenuBar } from './shell/MenuBar'
 import { QuickBar, useLadoBarra } from './shell/QuickBar'
+import { seccionDe } from './shell/secciones'
 import { AvisoVersion } from './shell/AvisoVersion'
 import { MENUS, esAccionUtilidad, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
 import { ahoraTrabajo, ejercicioTrabajo, useSesionTrabajo } from '../lib/sesionTrabajo'
@@ -232,6 +233,7 @@ export function Layout() {
             <GwWindow
               title={title}
               movible={false}
+              seccion={seccionDe(pathname)}
               onClose={() => cerrarVentana(false)}
               className="absolute inset-1 z-10 [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-auto"
             >
