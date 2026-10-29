@@ -8,8 +8,10 @@
 //    cerrarla, para que nadie se quede grabando con otra fecha sin darse cuenta. NO se usa para
 //    VeriFactu: la fecha y hora de generación del registro la pone la base de datos
 //    (clock_timestamp()).
-//  · Periodo: Archivo → Seleccionar Periodo. Se recuerda en el navegador; si no se ha elegido,
-//    vale el ejercicio marcado «activo» en la tabla `ejercicio`, y si no hay, el año en curso.
+//  · Periodo: se trabaja siempre en el periodo EN CURSO (ejercicio.activo). Archivo →
+//    Seleccionar Periodo solo abre periodos CERRADOS, para consultarlos (super administradores,
+//    con contraseña); mientras tanto todo es solo consulta (la base de datos tampoco deja grabar
+//    en ellos). Se guarda en sessionStorage: al cerrar la pestaña se vuelve al periodo en curso.
 //
 // Es un almacén externo (useSyncExternalStore): no necesita Provider y se puede leer también
 // fuera de React (modelos de documento como ventaModel o cajaModel).
@@ -20,6 +22,7 @@ export interface EjercicioTrabajo {
   anio: number
   desde: string // AAAA-MM-DD
   hasta: string
+  descripcion?: string | null
 }
 
 interface Estado {
@@ -28,15 +31,16 @@ interface Estado {
   desfaseMs: number
   /** true = Cambio de Fecha (la hora sigue siendo la real); false = Cambio de Fecha y Hora. */
   soloFecha: boolean
-  /** Ejercicio elegido en este puesto (null = el activo de la base de datos). */
-  ejercicio: EjercicioTrabajo | null
+  /** Periodo cerrado que se está consultando (solo consulta); null = el periodo en curso. */
+  consulta: EjercicioTrabajo | null
   /** Ejercicio marcado «activo» en la base de datos (lo carga SesionTrabajoHost al entrar). */
   ejercicioActivo: EjercicioTrabajo | null
 }
 
 const K_TIENDA = 'tpv.tienda'
 const K_FECHA = 'erp.fechaTrabajo'
-const K_EJERCICIO = 'erp.ejercicio'
+const K_EJERCICIO_ANTIGUO = 'erp.ejercicio' // antes: periodo elegido por puesto (ya no se usa)
+const K_CONSULTA = 'erp.periodoConsulta'
 
 /**
  * ¿Es una clave del navegador que «Eliminar Ficheros Temporales» debe respetar? La sesión de
@@ -46,7 +50,7 @@ const K_EJERCICIO = 'erp.ejercicio'
 export function esPreferencia(clave: string): boolean {
   return (
     clave.startsWith('sb-') ||
-    [K_TIENDA, K_EJERCICIO, K_FECHA, 'nexa.voz.v1', 'erp.barraAccesos.lado'].includes(clave) ||
+    [K_TIENDA, K_FECHA, 'nexa.voz.v1', 'erp.barraAccesos.lado'].includes(clave) ||
     clave.startsWith('panel.') ||
     /^gw\..*\.opciones$/.test(clave)
   )
@@ -82,14 +86,15 @@ function estadoInicial(): Estado {
   } catch {
     /* valor estropeado: fecha real */
   }
-  let ejercicio: EjercicioTrabajo | null = null
+  escribir(ls(), K_EJERCICIO_ANTIGUO, null)
+  let consulta: EjercicioTrabajo | null = null
   try {
-    const e = JSON.parse(leer(ls(), K_EJERCICIO) ?? 'null') as EjercicioTrabajo | null
-    if (e && Number.isInteger(e.anio) && e.desde && e.hasta) ejercicio = e
+    const e = JSON.parse(leer(ss(), K_CONSULTA) ?? 'null') as EjercicioTrabajo | null
+    if (e && Number.isInteger(e.anio) && e.desde && e.hasta) consulta = e
   } catch {
-    ejercicio = null
+    consulta = null
   }
-  return { tienda: leer(ls(), K_TIENDA), desfaseMs, soloFecha, ejercicio, ejercicioActivo: null }
+  return { tienda: leer(ls(), K_TIENDA), desfaseMs, soloFecha, consulta, ejercicioActivo: null }
 }
 
 let estado: Estado = estadoInicial()
@@ -142,9 +147,9 @@ export function tiendaDeTrabajo(tiendas: { codigo: string }[]): string {
   return tiendas.find((x) => x.codigo === t)?.codigo ?? tiendas[0]?.codigo ?? ''
 }
 
-/** Ejercicio en vigor en este puesto: el elegido, el activo de la base de datos o el año de la fecha de trabajo. */
+/** Periodo en vigor: el cerrado que se consulta, el periodo en curso o el año de la fecha de trabajo. */
 export function ejercicioTrabajo(): EjercicioTrabajo {
-  if (estado.ejercicio) return estado.ejercicio
+  if (estado.consulta) return estado.consulta
   if (estado.ejercicioActivo) return estado.ejercicioActivo
   const a = ahoraTrabajo().getFullYear()
   return { anio: a, desde: `${a}-01-01`, hasta: `${a}-12-31` }
@@ -196,9 +201,21 @@ function guardarDesfase(ms: number, soloFecha: boolean) {
   cambiar({ desfaseMs, soloFecha })
 }
 
-export function elegirEjercicio(e: EjercicioTrabajo | null) {
-  escribir(ls(), K_EJERCICIO, e ? JSON.stringify(e) : null)
-  cambiar({ ejercicio: e })
+/** ¿Se está consultando un periodo cerrado? (todo es solo consulta). */
+export function soloConsultaPeriodo(): boolean {
+  return estado.consulta != null
+}
+
+/** Entra a consultar un periodo cerrado (la contraseña ya se ha comprobado). */
+export function entrarPeriodoCerrado(e: EjercicioTrabajo) {
+  escribir(ss(), K_CONSULTA, JSON.stringify(e))
+  cambiar({ consulta: e })
+}
+
+/** Vuelve al periodo en curso. */
+export function volverPeriodoEnCurso() {
+  escribir(ss(), K_CONSULTA, null)
+  cambiar({ consulta: null })
 }
 
 export function fijarEjercicioActivo(e: EjercicioTrabajo | null) {

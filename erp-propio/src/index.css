@@ -344,3 +344,23 @@ button .gw-icono {
     break-inside: avoid;
   }
 }
+
+/* Consultando un periodo cerrado (Archivo → Seleccionar Periodo): todo es solo consulta. Se
+   apagan los botones de alta, modificación, borrado y guardado de todas las fichas; la base de
+   datos tampoco deja grabar en ese periodo (fn_bloquear_periodo_cerrado). */
+body.gw-solo-consulta :is(button, [role='button'])[title]:is(
+    [title^='Nuevo'],
+    [title^='Agregar'],
+    [title^='Añadir'],
+    [title^='Modificar'],
+    [title^='Editar'],
+    [title^='Eliminar'],
+    [title^='Borrar'],
+    [title^='Anular'],
+    [title^='Aceptar (guardar)'],
+    [title^='Guardar'],
+    [title^='Actualizado']
+  ) {
+  pointer-events: none;
+  opacity: 0.35;
+}

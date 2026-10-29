@@ -8,7 +8,7 @@ import { QuickBar, useLadoBarra } from './shell/QuickBar'
 import { seccionDe } from './shell/secciones'
 import { AvisoVersion } from './shell/AvisoVersion'
 import { MENUS, esAccionUtilidad, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
-import { ahoraTrabajo, ejercicioTrabajo, useSesionTrabajo } from '../lib/sesionTrabajo'
+import { ahoraTrabajo, ejercicioTrabajo, useSesionTrabajo, volverPeriodoEnCurso } from '../lib/sesionTrabajo'
 import { NexaAsistente } from '../nexa/NexaAsistente'
 import { AcercaDeDialog } from './shell/AcercaDeDialog'
 import { EdicionHerramientas, IndicadorVerComo, lanzarEdicion } from './shell/EdicionHerramientas'
@@ -33,6 +33,10 @@ export function Layout() {
   const { search } = useLocation()
   const [acercaDe, setAcercaDe] = useState(false)
   const sesion = useSesionTrabajo()
+  // Consultando un periodo cerrado: los botones de alta, modificación y borrado se apagan (index.css).
+  useEffect(() => {
+    document.body.classList.toggle('gw-solo-consulta', sesion.consulta != null)
+  }, [sesion.consulta])
 
   // Menú Ventana. El ERP enseña una sola ventana a la vez (la ruta), así que se lleva la lista
   // de ventanas abiertas en la sesión, en el orden en que se abrieron, cada una con la última
@@ -209,10 +213,21 @@ export function Layout() {
       <div className="flex h-[24px] flex-none items-center gap-1.5 bg-white pl-2 pr-[60px] text-[12px]">
         <GwAppIcon size={16} />
         <span className="truncate">
-          Ofipapel ERP, Periodo: Periodo {ejercicioTrabajo().anio} Empresa: {empresa}
+          Ofipapel ERP, Periodo: {ejercicioTrabajo().descripcion ?? `Periodo ${ejercicioTrabajo().anio}`} Empresa: {empresa}
         </span>
       </div>
       <AvisoVersion />
+      {sesion.consulta && (
+        <div className="flex flex-none items-center justify-center gap-3 bg-[#c42b1c] px-2 py-1 text-[13px] font-bold text-white">
+          <span>
+            CONSULTANDO PERIODO CERRADO: {sesion.consulta.descripcion ?? sesion.consulta.anio} ({fechaCorta(sesion.consulta.desde)} – {fechaCorta(sesion.consulta.hasta)}) · SOLO
+            CONSULTA
+          </span>
+          <button type="button" className="gw-btn !h-[22px] font-bold !text-black" onClick={volverPeriodoEnCurso}>
+            Volver al periodo en curso
+          </button>
+        </div>
+      )}
       <MenuBar onRun={runMenu} onHover={setHint} activeWindow={title} windows={ventanas.map((v) => ({ label: v.title, to: v.to }))} />
       <div className={`flex min-h-0 flex-1 ${{ izquierda: 'flex-row', derecha: 'flex-row-reverse', arriba: 'flex-col', abajo: 'flex-col-reverse' }[ladoBarra]}`}>
         <QuickBar
@@ -295,4 +310,10 @@ function StatusBar({ text, email, tienda }: { text: string; email: string; tiend
       </span>
     </div>
   )
+}
+
+/** 'AAAA-MM-DD' → 'DD/MM/AAAA'. */
+function fechaCorta(iso: string) {
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
 }

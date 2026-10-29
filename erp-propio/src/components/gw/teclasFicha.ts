@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react'
+import { soloConsultaPeriodo } from '../../lib/sesionTrabajo'
 import { comboDeEvento, esTextarea, modalAlPulsar, teclaDeHerramienta } from './teclado'
 
 // Teclas de la barra de registro de las fichas y documentos (GwRecordBar, PedidoBar, CompraBar,
@@ -110,6 +111,8 @@ export function useTeclasFicha({
       if (!accion) return
       const fn = acc[accion]
       if (!fn || off[accion]) return
+      // Consultando un periodo cerrado: nada de nuevo, modificar ni guardar.
+      if (soloConsultaPeriodo() && (accion === 'nuevo' || accion === 'modificar' || accion === 'guardar')) return
       if (['primero', 'anterior', 'siguiente', 'ultimo'].includes(accion)) {
         if (!nav) return
         // AvPág/RePág/Inicio/Fin son del control en áreas de texto y desplegables.
