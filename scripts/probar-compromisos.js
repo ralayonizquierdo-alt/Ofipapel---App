@@ -34,6 +34,8 @@ const RAIZ = path.join(__dirname, '..');
 const {
   prometeUnCompromiso,
   compromisoInfo,
+  preguntaPorAlguienDelEquipo,
+  llamaPorSuNombreInfo,
   buildAiSystemPrompt,
 } = require(path.join(RAIZ, 'netlify/functions/whatsapp-agent-config.js'));
 
@@ -140,6 +142,72 @@ comprobar('el prompt también se lo dice a la IA', () => {
 });
 
 // ---------------------------------------------------------------------------
+// LA SEÑAL QUE LLEGA ANTES.
+//
+// Palabras del propietario: «si de entrada me llama Rober es que es alguien
+// conocido». A un asistente de atención al cliente no se le saluda por el
+// nombre de pila del dueño — quien lo hace es un proveedor, un comercial o un
+// amigo, y su conversación no va de precios ni de pedidos.
+// ---------------------------------------------------------------------------
+
+console.log('\n=== Le llaman por su nombre\n');
+
+const llaman = (texto, esperado) =>
+  assert.strictEqual(preguntaPorAlguienDelEquipo(texto), esperado, `"${texto}"`);
+
+comprobar('el saludo real del 29/10', () => {
+  llaman('Buenos días Rober!!', 'Rober');
+});
+
+comprobar('saludando a cualquiera del equipo', () => {
+  llaman('Hola Luis', 'Luis');
+  llaman('Buenas, Miguel', 'Miguel');
+  llaman('Hola, Rober!', 'Rober');
+  llaman('Buenas tardes Mónica', 'Mónica');
+  llaman('Hey David', 'David');
+});
+
+comprobar('preguntando por alguien', () => {
+  llaman('¿Está Rober?', 'Rober');
+  llaman('¿me pasas con Luis?', 'Luis');
+  llaman('Quería hablar con Miguel', 'Miguel');
+  llaman('Rober, te llamo luego', 'Rober');
+});
+
+comprobar('"Roberto" entero, no "Rober" a medias', () => {
+  llaman('Hola Roberto', 'Roberto');
+});
+
+console.log('\n=== Y lo que NO es llamar a nadie\n');
+
+comprobar('un cliente que se llama igual se presenta, no llama', () => {
+  // Lo más fácil de romper: un cliente llamado Luis o Miguel acabaría hablando
+  // con una persona por llamarse como alguien del equipo.
+  llaman('Hola, soy Luis y quería preguntar por unos folios', null);
+  llaman('Buenos días, me llamo Miguel', null);
+  llaman('Aquí David, del taller', null);
+});
+
+comprobar('un nombre que empieza igual no cuenta', () => {
+  llaman('Hola Luisa', null);
+  llaman('Buenas, Davidson', null);
+});
+
+comprobar('un cliente normal no dispara nada', () => {
+  llaman('Buenos días, ¿tenéis folios A4?', null);
+  llaman('Hola', null);
+  llaman('¿A qué hora abrís?', null);
+  llaman('', null);
+  llaman(null, null);
+});
+
+comprobar('se le dice la verdad: esa persona no ve el chat', () => {
+  const es = llamaPorSuNombreInfo('Rober', 'es');
+  assert.ok(/Rober/.test(es) && /no ve este chat/i.test(es), es);
+  assert.ok(/Rober/.test(llamaPorSuNombreInfo('Rober', 'en')), 'en inglés también va el nombre');
+});
+
+// ---------------------------------------------------------------------------
 // El recorrido entero por el webhook: que al cliente NO le llegue la promesa.
 //
 // Detectar la frase no sirve de nada si luego se manda igual. Aquí se le hace
@@ -243,6 +311,17 @@ async function caso(etiqueta, mensajeDelCliente, respuestaDeLaIA, revisar) {
     () => {
       assert.ok(!/lo vendemos/i.test(loDicho()), 'LE PROMETIÓ UNA DECISIÓN COMERCIAL');
       assert.ok(log.some((l) => l.t === 'botones'), 'tenía que ofrecerle una persona');
+    }
+  );
+
+  await caso(
+    'La conversación entera, desde el saludo',
+    'Buenos días Rober!!',
+    'esto no se debería ni llegar a pedir a la IA',
+    () => {
+      assert.ok(/Rober/.test(loDicho()) && /no ve este chat/i.test(loDicho()), loDicho());
+      assert.ok(log.some((l) => l.t === 'botones'), 'tenía que ofrecerle una persona');
+      assert.ok(!/no se deber[íi]a/.test(loDicho()), 'ni llegó a preguntarle a la IA');
     }
   );
 

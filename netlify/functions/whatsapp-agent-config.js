@@ -538,6 +538,60 @@ function isUnverifiedStockClaim(text) {
   return STOCK_SIN_DATOS_PATTERN.test(text || '');
 }
 
+// QUIEN LLAMA A ALGUIEN POR SU NOMBRE YA CONOCE LA CASA.
+//
+// «Buenos días Rober!!» — así empezaba la conversación del 29/10/2026 que
+// acabó con el bot quedando en recibir film negro. Palabras del propietario:
+// «si de entrada me llama Rober es que es alguien conocido».
+//
+// Y tiene razón: a un bot de atención al cliente no se le saluda por el nombre
+// de pila del dueño. Quien lo hace es un proveedor, un comercial, un vecino o
+// un amigo — gente cuya conversación no va de precios ni de pedidos, que es lo
+// único que el bot sabe hacer. Esta señal llega ANTES de que haya nada que
+// corregir, al revés que la red de los compromisos.
+//
+// Los nombres se añaden aquí cuando entre alguien nuevo al equipo.
+const NOMBRES_DEL_EQUIPO = ['rober', 'roberto', 'luis', 'miguel', 'm[óo]nica', 'david'];
+const _NOMBRE = `(?:${NOMBRES_DEL_EQUIPO.join('|')})`;
+const _SALUDO = '(?:hola|buenas|buenos\\s*d[íi]as|buenas\\s*tardes|buenas\\s*noches|hey|qu[ée]\\s+tal|oye|perdona|disculpa)';
+
+// «soy Luis», «me llamo Miguel», «aquí David»: quien escribe se está
+// presentando, no preguntando por nadie. Un cliente que se llame como alguien
+// del equipo no puede acabar en una persona por eso.
+const _SE_PRESENTA = new RegExp(`\\b(soy|me\\s+llamo|aqu[íi]|habla|les\\s+habla)\\s+${_NOMBRE}\\b`, 'i');
+
+const _PREGUNTA_POR_ALGUIEN = [
+  // «Buenos días Rober», «Hola, Luis!»
+  new RegExp(`\\b${_SALUDO}[\\s,!¡.·\\-]*${_NOMBRE}\\b`, 'i'),
+  // «¿está Rober?», «me pasas con Luis», «quería hablar con Miguel»
+  new RegExp(`\\b(est[áa]|se\\s+encuentra|me\\s+pasas\\s+con|p[áa]same\\s+con|hablar\\s+con|preguntar\\s+por)\\s+${_NOMBRE}\\b`, 'i'),
+  // «Rober, …» abriendo el mensaje
+  new RegExp(`^\\s*${_NOMBRE}\\s*[,:!]`, 'i'),
+];
+
+// Devuelve el nombre al que llaman, o null. Se devuelve el nombre para poder
+// decirle la verdad a quien escribe: que esa persona no está en este chat.
+function preguntaPorAlguienDelEquipo(texto) {
+  const t = String(texto || '');
+  if (!t.trim() || _SE_PRESENTA.test(t)) return null;
+  for (const patron of _PREGUNTA_POR_ALGUIEN) {
+    const encontrado = t.match(patron);
+    if (encontrado) {
+      // El \b final importa: sin él, «Roberto» se extrae como «Rober», porque
+      // la alternancia prueba «rober» primero y sin frontera se la queda.
+      const nombre = encontrado[0].match(new RegExp(`${_NOMBRE}\\b`, 'i'))[0].toLowerCase();
+      return nombre.charAt(0).toUpperCase() + nombre.slice(1);
+    }
+  }
+  return null;
+}
+
+function llamaPorSuNombreInfo(nombre, idioma = 'es') {
+  return idioma === 'en'
+    ? `I'm Ofipapel's virtual assistant — ${nombre} doesn't see this chat. `
+    : `Soy el asistente virtual de Ofipapel, y ${nombre} no ve este chat. `;
+}
+
 // LO QUE EL BOT NO PUEDE COMPROMETER.
 //
 // Visto en real el 29/10/2026. Alguien escribió «Buenos días Rober!!» y, acto
@@ -1346,6 +1400,9 @@ module.exports = {
   prometeUnCompromiso,
   compromisoInfo,
   COMPROMISO_INFO,
+  preguntaPorAlguienDelEquipo,
+  llamaPorSuNombreInfo,
+  NOMBRES_DEL_EQUIPO,
   preciosDe,
   preciosSinRespaldo,
   pideLaFotoOtraVez,
