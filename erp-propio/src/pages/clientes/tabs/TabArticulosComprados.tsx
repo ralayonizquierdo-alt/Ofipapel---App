@@ -38,7 +38,7 @@ const COLUMNAS: { key: Col; label: string; ancho?: number; num?: number }[] = [
   { key: 'veces', label: 'Veces', ancho: 60, num: 0 },
   { key: 'web', label: 'Web', ancho: 55, num: 0 },
   { key: 'operario', label: 'Oper', ancho: 70 },
-  { key: 'reparto', label: 'Ventas por web / operario', ancho: 220 },
+  { key: 'reparto', label: 'Ventas Oper.', ancho: 200 },
   { key: 'importe', label: 'Importe total', ancho: 110, num: 2 },
 ]
 

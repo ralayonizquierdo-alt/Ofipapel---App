@@ -40,6 +40,7 @@ export function GeneradorListadosPage() {
   const [mensaje, setMensaje] = useState<{ texto: string; error?: boolean } | null>(null)
   const [ultimaDef, setUltimaDef] = useState<DefinicionListado | null>(null)
   const [operarios, setOperarios] = useState<Record<string, string>>({})
+  const [numeros, setNumeros] = useState<Record<string, string>>({})
   const [yo, setYo] = useState<string | null>(null)
   const [agruparPor, setAgruparPor] = useState<'operario' | 'tipo'>('operario')
   const [cerrados, setCerrados] = useState<Set<string>>(new Set())
@@ -92,8 +93,12 @@ export function GeneradorListadosPage() {
     supabase.rpc('fn_empleado_actual').then(({ data }) => setYo(typeof data === 'string' ? data : null))
     supabase
       .from('empleado')
-      .select('codigo, nombre')
-      .then(({ data }) => setOperarios(Object.fromEntries(((data ?? []) as { codigo: string; nombre: string }[]).map((e) => [e.codigo, e.nombre]))))
+      .select('codigo, nombre, numero_operario')
+      .then(({ data }) => {
+        const l = (data ?? []) as { codigo: string; nombre: string; numero_operario: string | null }[]
+        setOperarios(Object.fromEntries(l.map((e) => [e.codigo, e.nombre])))
+        setNumeros(Object.fromEntries(l.map((e) => [e.codigo, e.numero_operario || e.codigo])))
+      })
     supabase
       .from('rol')
       .select('id, nombre')
@@ -246,15 +251,16 @@ export function GeneradorListadosPage() {
   const nombreFuente = (c: string) => FUENTE_POR_CLAVE[c]?.titulo ?? c
   // Filtro por nº de operario (código de empleado de quien lo hizo).
   const op = operario.trim().toUpperCase()
-  const visibles = op ? guardados.filter((g) => (g.creado_por ?? '').toUpperCase().startsWith(op)) : guardados
+  const num = (c: string | null) => (c ? (numeros[c] ?? c) : '')
+  const visibles = op ? guardados.filter((g) => num(g.creado_por).toUpperCase().startsWith(op) || (g.creado_por ?? '').toUpperCase().startsWith(op)) : guardados
   const gruposGuardados: { clave: string; titulo: string; lista: Guardado[] }[] =
     agruparPor === 'tipo'
       ? FUENTES.map((fu) => ({ clave: fu.clave, titulo: fu.titulo, lista: visibles.filter((g) => g.fuente === fu.clave) })).filter((x) => x.lista.length)
       : [
-          { clave: 'yo', titulo: `Mis listados${yo ? ` · Nº ${yo}` : ''}`, lista: visibles.filter((g) => g.creado_por && g.creado_por === yo) },
+          { clave: 'yo', titulo: `Mis listados${yo ? ` · Nº ${num(yo)}` : ''}`, lista: visibles.filter((g) => g.creado_por && g.creado_por === yo) },
           ...[...new Set(visibles.map((g) => g.creado_por).filter((c): c is string => !!c && c !== yo))]
-            .sort((a, b) => a.localeCompare(b, 'es', { numeric: true }))
-            .map((c) => ({ clave: c, titulo: `Operario Nº ${c}`, lista: visibles.filter((g) => g.creado_por === c) })),
+            .sort((a, b) => num(a).localeCompare(num(b), 'es', { numeric: true }))
+            .map((c) => ({ clave: c, titulo: `Operario Nº ${num(c)}`, lista: visibles.filter((g) => g.creado_por === c) })),
           { clave: 'serie', titulo: 'De serie (para todos)', lista: visibles.filter((g) => !g.creado_por) },
         ].filter((x) => x.lista.length)
   const alternarGrupo = (c: string) =>
@@ -307,7 +313,7 @@ export function GeneradorListadosPage() {
                   >
                     <span className="min-w-0 flex-1 truncate">{g.nombre}</span>
                     <span className={`flex-none text-[11px] ${g.id === id ? 'text-white/80' : 'text-[#888]'}`}>
-                      {agruparPor === 'operario' ? nombreFuente(g.fuente) : g.creado_por ? `Nº ${g.creado_por}` : 'serie'}
+                      {agruparPor === 'operario' ? nombreFuente(g.fuente) : g.creado_por ? `Nº ${num(g.creado_por)}` : 'serie'}
                     </span>
                   </button>
                 ))}

@@ -308,7 +308,7 @@ export function ClienteFichaPage() {
                         'Ordenar: pulsa el título de una columna (otra vez, al revés).',
                         'Web: cuántas de esas compras vinieron de la tienda online.',
                         'Oper: número del operario que hizo la última venta de ese artículo.',
-                        'Ventas por web / operario: de todas las veces, cuántas por la web y cuántas hizo cada operario (por su número).',
+                        'Ventas Oper.: de las ventas que no son de la web, cuántas hizo cada operario (por su nº de operario, p. ej. «410: 15»).',
                         'Botón Listados: abre el Generador de listados con las ventas de este cliente.',
                         'Doble clic en un artículo: abre su ficha.',
                       ],

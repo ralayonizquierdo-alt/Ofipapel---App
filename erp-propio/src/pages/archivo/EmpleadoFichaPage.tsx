@@ -31,6 +31,8 @@ interface Empleado {
   rol_id: number | null
   /** Consulta periodos cerrados y gestiona Archivo → Periodos (solo lo cambia otro super administrador). */
   super_administrador: boolean
+  /** Número de operario que se ve en listados y consultas (GeminisWin: 410…). */
+  numero_operario: string | null
   auth_user_id: string | null
   sugerencia_clave: string | null
   vendedor_codigo: string | null
@@ -62,6 +64,7 @@ const VACIO: Empleado = {
   activo: true,
   rol_id: null,
   super_administrador: false,
+  numero_operario: null,
   auth_user_id: null,
   sugerencia_clave: null,
   vendedor_codigo: null,
@@ -125,9 +128,17 @@ export function EmpleadoFichaPage() {
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="grid grid-cols-[96px_minmax(0,1fr)_180px_205px] gap-x-3">
+      <div className="grid grid-cols-[96px_96px_minmax(0,1fr)_180px_205px] gap-x-3">
         <GwField label="Código">
           <GwCampoBusqueda value={d.codigo} editable={mode === 'alta'} disabled={mode === 'edicion'} title="CODIGO" maxLength={10} onChange={(v) => patch({ codigo: v.toUpperCase() })} {...f.busqueda('codigo')} />
+        </GwField>
+        <GwField label="Nº Operario">
+          <GwInput
+            value={d.numero_operario ?? ''}
+            disabled={!editing}
+            title="Número de operario (el que sale en listados y consultas)"
+            onChange={(e) => patch({ numero_operario: e.target.value.trim() || null })}
+          />
         </GwField>
         <GwField
           label={
