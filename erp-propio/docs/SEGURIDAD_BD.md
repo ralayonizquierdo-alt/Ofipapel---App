@@ -342,3 +342,7 @@ El detalle exacto está en la migración (un `values` por bloque). Resumen:
 | | `traspaso_almacen(_linea)` · `regularizacion_stock` | `/traspasos`, `/regularizacion-stock` · `/regularizacion-stock` |
 | | `inventario(_linea)` · `punto_restauracion_stock(_linea)` | `/inventario`, `/almacen/inventariar` (+ `/almacen/puntos-restauracion`) |
 | | `articulo_lote(_movimiento)` · `articulo_numero_serie` | `/almacen/lotes`, `/almacen/stock-cero-familia` · `/numeros-serie` |
+| 4 | `pedido_proveedor` | `/pedidos-proveedor`, `/creacion-rapida-pedidos`, `/gestor-pedidos-proveedor`, `/peticiones` (tramitar), `/facturas-proveedor`, `/pagos-proveedor`, `/gestor-pagos-proveedor` (estado de pago) |
+| | `pedido_proveedor_linea` | `/pedidos-proveedor`, `/creacion-rapida-pedidos`, `/gestor-pedidos-proveedor`, `/peticiones` |
+| | `factura_proveedor` · `pago_proveedor` | `/facturas-proveedor`, `/pagos-proveedor`, `/gestor-pagos-proveedor` |
+| | `peticion`, `peticion_tramitacion` | `/peticiones`, `/gestor-pedidos-proveedor`, `accion:generar-peticion` |
