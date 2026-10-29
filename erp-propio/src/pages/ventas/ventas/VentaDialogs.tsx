@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Check, KeyRound, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwNumber, GwWindow, formatGw } from '../../../components/gw'
@@ -133,10 +133,23 @@ export function PagoDialog({
   const quedaPendiente = Math.max(r2(pendiente - cobrado), 0)
   const cambio = entregado != null && efectivo != null ? Math.max(r2(entregado - efectivo), 0) : 0
   const excede = cobrado > r2(pendiente) + 0.001
+  const aceptar = useRef<HTMLButtonElement>(null)
+
+  // Intro en Efectivo o Tarjeta pasa al campo siguiente; en Entregado (el último) cobra, como
+  // Aceptar. Se pulsa el botón tras pintar, para que cuente el importe recién tecleado.
+  function teclaCampo(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.altKey || !(e.target instanceof HTMLInputElement)) return
+    const campos = Array.from(e.currentTarget.querySelectorAll('input'))
+    const i = campos.indexOf(e.target)
+    if (i < 0) return
+    e.preventDefault()
+    if (i < campos.length - 1) campos[i + 1].focus()
+    else window.setTimeout(() => aceptar.current?.click(), 0)
+  }
 
   return (
     <Modal title={titulo} onClose={onCancel} width={520}>
-      <div className="flex flex-col gap-2 p-2 text-[18px]">
+      <div className="flex flex-col gap-2 p-2 text-[18px]" onKeyDown={teclaCampo}>
         <div className="flex items-center justify-between">
           <span>Importe a cobrar:</span>
           <span className="text-[30px] font-bold text-[#1a3fd0]">{formatGw(pendiente, 3)} €</span>
@@ -168,7 +181,14 @@ export function PagoDialog({
         </div>
         {excede && <p className="text-[14px] text-[#c42b1c]">Lo cobrado supera el importe: usa «Entregado» para calcular el cambio.</p>}
         <div className="flex justify-end gap-1.5 pt-1">
-          <button type="button" className="gw-btn !h-[34px] !px-6 !text-[16px]" disabled={excede} onClick={() => onOk({ efectivo: efectivo ?? 0, tarjeta: tarjeta ?? 0 })}>
+          <button
+            ref={aceptar}
+            type="button"
+            data-gw-aceptar
+            className="gw-btn !h-[34px] !px-6 !text-[16px]"
+            disabled={excede}
+            onClick={() => onOk({ efectivo: efectivo ?? 0, tarjeta: tarjeta ?? 0 })}
+          >
             <Check size={16} className="text-[#127a12]" /> Aceptar
           </button>
           <button type="button" className="gw-btn !h-[34px] !px-6 !text-[16px]" onClick={onCancel}>

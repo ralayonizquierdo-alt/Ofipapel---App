@@ -127,6 +127,7 @@ esté dentro de él; si hay dos fichas montadas (una dentro de otra), manda la d
 |---|---|---|
 | Intro | Pasa al campo siguiente | Cualquier campo de la ventana que no tenga ya su propia tecla Intro (FoxPro) |
 | Mayús+Intro | Campo anterior | Igual |
+| (al entrar) | Se selecciona todo el número: lo tecleado lo sustituye (antes «2» en una cantidad 1 daba 12). Al salir sin teclear no se cambia el valor | Números (`GwNumber`, celdas y pie del TPV, números de Archivo) — `seleccionEntrada.ts` |
 | Intro | Busca lo escrito | Campos de búsqueda (código de cliente, artículo…) en consulta |
 | Ctrl+Intro / F4 / F2 | Lista ordenada o buscador del campo | Campos con lupa (`GwCampoBusqueda`, `GwCodigoBuscador`, listados) — la ayuda sale en la barra de estado |
 | Esc | Deshace lo escrito en el campo de búsqueda | Igual |
@@ -158,6 +159,7 @@ mueven la rejilla sin tocar el ratón.
 | (cualquier tecla) | Si el diálogo se abrió con un atajo y el foco quedó fuera, pasa al primer campo del diálogo | Todos los diálogos modales |
 | F4 | Cierra la ventana de informe o listado | Listados (`GwListado`), Informes de Caja, Listado de Facturas, utilidades de Almacén — salvo en un campo de fecha, donde abre el calendario |
 | Intro / F3 | Siguiente coincidencia | Encontrar / Reemplazar (Ctrl+F / Ctrl+H) |
+| Intro | En Efectivo / Tarjeta pasa al campo siguiente; en Entregado cobra (Aceptar) | Pagar / Cobrar del TPV (`PagoDialog`) |
 
 ## 7. Incoherencias
 

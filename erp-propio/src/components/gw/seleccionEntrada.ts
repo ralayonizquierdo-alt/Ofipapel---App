@@ -1,36 +1,28 @@
 import { useCallback, useLayoutEffect, useRef, type MouseEvent } from 'react'
 
 /**
- * Selecciona todo el contenido al entrar en un campo numérico (como `SelectOnEntry` de FoxPro).
+ * Selecciona todo el contenido de un campo numérico mientras no se ha tecleado nada en él
+ * (como `SelectOnEntry` de FoxPro): lo que se escribe sustituye al valor.
  *
  * Los números se muestran formateados («1,000») y al entrar pasan a texto en bruto («1»). Ese
  * cambio de valor hace que el navegador pierda la selección que pone al entrar con Tab (o la de
- * Playwright al rellenar), y lo tecleado se añadía detrás: «2» en una cantidad 1 daba 12.
+ * Playwright al rellenar), y lo tecleado se añadía detrás: «2» en una cantidad 1 daba 12. Lo
+ * mismo si el valor cambia con el campo enfocado (llega el precio del artículo): se vuelve a
+ * seleccionar.
  *
- * `editando` es el texto en edición del campo (null fuera de él). Al entrar, llamar a `entrar()`
- * antes de fijarlo; tras pintarse el valor en bruto se selecciona todo. Con `seleccionAlPulsar` /
- * `seleccionAlSoltar` el clic que da el foco tampoco la deshace; un clic con el campo ya
- * enfocado coloca el cursor como siempre.
+ * `sinTeclear` es true con el campo enfocado y aún sin teclear; `valor`, el texto que muestra.
+ * Devuelve el `ref` (de función) del campo. Con `seleccionAlPulsar` / `seleccionAlSoltar` el clic
+ * que da el foco tampoco deshace la selección; un clic con el campo ya enfocado coloca el cursor
+ * como siempre.
  */
-export function useSeleccionAlEntrar(editando: string | null) {
-  const ref = useRef<HTMLInputElement>(null)
-  const pendiente = useRef(false)
+export function useSeleccionAlEntrar(sinTeclear: boolean, valor: string) {
+  const ref = useRef<HTMLInputElement | null>(null)
   useLayoutEffect(() => {
-    if (editando != null && pendiente.current) {
-      pendiente.current = false
-      ref.current?.select()
-    }
-  }, [editando])
-  const campo = useCallback((el: HTMLInputElement | null) => {
+    if (sinTeclear && ref.current && document.activeElement === ref.current) ref.current.select()
+  }, [sinTeclear, valor])
+  return useCallback((el: HTMLInputElement | null) => {
     ref.current = el
   }, [])
-  return {
-    /** Para el `ref` del campo. */
-    campo,
-    entrar: () => {
-      pendiente.current = true
-    },
-  }
 }
 
 // `onMouseDown` / `onMouseUp` del campo: el clic que da el foco no deshace la selección de entrada.

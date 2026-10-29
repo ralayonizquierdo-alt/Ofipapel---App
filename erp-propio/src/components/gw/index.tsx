@@ -118,10 +118,15 @@ export function GwNumber({
   className?: string
   emptyAsZero?: boolean
 }) {
+  // Con el foco se ve el valor en bruto; `editing` es lo tecleado (null si aún no se ha tecleado
+  // nada). Al salir sin teclear no se cambia el valor: si mientras tanto ha llegado otro (el
+  // precio del artículo), no se pisa con el que había al entrar.
+  const [focused, setFocused] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
-  // Al entrar se selecciona todo: lo tecleado sustituye al valor (seleccionEntrada.ts).
-  const { campo: campoNum, entrar: entrarNum } = useSeleccionAlEntrar(editing)
-  const shown = editing ?? (value == null && emptyAsZero ? formatGw(0, decimals) : formatGw(value, decimals))
+  const raw = value == null ? '' : String(value).replace('.', ',')
+  const shown = editing ?? (focused ? raw : value == null && emptyAsZero ? formatGw(0, decimals) : formatGw(value, decimals))
+  // Sin teclear, todo seleccionado: lo que se escribe sustituye al valor (seleccionEntrada.ts).
+  const campoNum = useSeleccionAlEntrar(focused && editing == null, shown)
   return (
     <input
       ref={campoNum}
@@ -129,17 +134,15 @@ export function GwNumber({
       disabled={disabled}
       readOnly={!onChange}
       value={shown}
-      onFocus={() => {
-        entrarNum()
-        setEditing(value == null ? '' : String(value).replace('.', ','))
-      }}
+      onFocus={() => setFocused(true)}
       onMouseDown={seleccionAlPulsar}
       onMouseUp={seleccionAlSoltar}
       onChange={(e) => setEditing(e.target.value)}
       onBlur={() => {
+        setFocused(false)
         if (editing == null) return
-        const raw = editing.trim().replace(/\./g, '').replace(',', '.')
-        const n = raw === '' ? null : Number(raw)
+        const limpio = editing.trim().replace(/\./g, '').replace(',', '.')
+        const n = limpio === '' ? null : Number(limpio)
         setEditing(null)
         if (onChange && (n === null || !Number.isNaN(n))) onChange(n)
       }}

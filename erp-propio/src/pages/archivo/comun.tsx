@@ -471,27 +471,29 @@ export function GwSpin({
   title?: string
   className?: string
 }) {
+  // Con el foco, valor en bruto; `texto` es lo tecleado (null sin teclear: al salir no cambia nada).
+  const [enfocado, setEnfocado] = useState(false)
   const [texto, setTexto] = useState<string | null>(null)
-  const { campo: campoNum, entrar: entrarNum } = useSeleccionAlEntrar(texto)
   const v = value ?? 0
   const mostrar = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: decimales, maximumFractionDigits: decimales })
+  const mostrado = texto ?? (enfocado ? String(v).replace('.', ',') : mostrar(v))
+  // Sin teclear, todo seleccionado: lo que se escribe sustituye al valor (seleccionEntrada.ts).
+  const campoNum = useSeleccionAlEntrar(enfocado && texto == null, mostrado)
   const fijar = (n: number) => onChange(Math.min(max, Math.max(min, Math.round(n * 10 ** decimales) / 10 ** decimales)))
   return (
     <span className={`flex min-w-0 ${className}`}>
       <input
         className="gw-input gw-num min-w-0 flex-1"
-        value={texto ?? mostrar(v)}
+        value={mostrado}
         disabled={disabled}
         title={title}
         ref={campoNum}
         onMouseDown={seleccionAlPulsar}
         onMouseUp={seleccionAlSoltar}
-        onFocus={() => {
-          entrarNum()
-          setTexto(String(v).replace('.', ','))
-        }}
+        onFocus={() => setEnfocado(true)}
         onChange={(e) => setTexto(e.target.value)}
         onBlur={() => {
+          setEnfocado(false)
           if (texto == null) return
           const n = Number(texto.replace(/\./g, '').replace(',', '.'))
           setTexto(null)
@@ -499,8 +501,10 @@ export function GwSpin({
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-          if (e.key === 'ArrowUp') fijar(v + paso)
-          if (e.key === 'ArrowDown') fijar(v - paso)
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            setTexto(null)
+            fijar(v + (e.key === 'ArrowUp' ? paso : -paso))
+          }
         }}
       />
       <span className="flex w-[13px] flex-none flex-col border border-l-0 border-[var(--gw-border)] bg-[var(--gw-face)]">

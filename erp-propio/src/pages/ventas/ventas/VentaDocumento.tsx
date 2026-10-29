@@ -187,6 +187,8 @@ export function VentaDocumento({
   // más antigua no manda— y campos que el usuario ha tecleado mientras tanto, que la carga no pisa.
   const cargaLinea = useRef<Map<string, number>>(new Map())
   const tocadosLinea = useRef<Map<string, Set<keyof LineaVenta>>>(new Map())
+  // Código que se está buscando en cada línea: Intro y la salida del campo no lo buscan dos veces.
+  const buscandoLinea = useRef<Map<string, string>>(new Map())
   const lineasActuales = useRef(lineas)
   useEffect(() => {
     lineasActuales.current = lineas
@@ -404,11 +406,15 @@ export function VentaDocumento({
     // La línea se sigue por su clave: mientras llega el artículo se pueden añadir o quitar líneas,
     // o teclear cantidad y precio en esta (lo tecleado desde ahora se conserva).
     const key = l.key
+    if (buscandoLinea.current.get(key) === c) return
+    buscandoLinea.current.set(key, c)
     const n = (cargaLinea.current.get(key) ?? 0) + 1
     cargaLinea.current.set(key, n)
     tocadosLinea.current.delete(key)
     const base = { ...l, codigo_venta: c, tarifa_nivel: l.tarifa_nivel ?? cab.tarifa_nivel }
-    let nueva = await lineaDesdeArticulo(base, c, cab.cliente_codigo, almacen)
+    let nueva = await lineaDesdeArticulo(base, c, cab.cliente_codigo, almacen).finally(() => {
+      if (cargaLinea.current.get(key) === n) buscandoLinea.current.delete(key)
+    })
     if (cargaLinea.current.get(key) !== n) return
     if (!nueva) {
       setMensaje({ texto: `No existe ningún artículo con el código ${c}. Si es una línea de texto, deja el código vacío.`, error: true })
@@ -1201,9 +1207,11 @@ function PieNum({
   decimales: number
   punto?: boolean
 }) {
+  // Con el foco, valor en bruto; `txt` es lo tecleado (null sin teclear: al salir no cambia nada).
+  const [enfocado, setEnfocado] = useState(false)
   const [txt, setTxt] = useState<string | null>(null)
-  const { campo: campoNum, entrar: entrarNum } = useSeleccionAlEntrar(txt)
-  const mostrado = txt ?? (punto ? value.toFixed(decimales) : formatGw(value, decimales))
+  const mostrado = txt ?? (enfocado ? String(value) : punto ? value.toFixed(decimales) : formatGw(value, decimales))
+  const campoNum = useSeleccionAlEntrar(enfocado && txt == null, mostrado)
   return (
     <input
       ref={campoNum}
@@ -1213,13 +1221,10 @@ function PieNum({
       value={mostrado}
       onMouseDown={seleccionAlPulsar}
       onMouseUp={seleccionAlSoltar}
-      onFocus={() => {
-        if (!editable) return
-        entrarNum()
-        setTxt(String(value))
-      }}
+      onFocus={() => editable && setEnfocado(true)}
       onChange={(e) => setTxt(e.target.value)}
       onBlur={() => {
+        setEnfocado(false)
         if (txt == null) return
         const n = Number(txt.replace(',', '.'))
         setTxt(null)
@@ -1287,22 +1292,24 @@ function FilaLinea({
 }
 
 function NumCelda({ value, dec, onChange }: { value: number; dec: number; onChange: (v: number) => void }) {
+  // Con el foco, valor en bruto; `txt` es lo tecleado. Sin teclear, al salir no se cambia nada
+  // (si mientras tanto llegó el precio del artículo, no se pisa con el de antes).
+  const [enfocado, setEnfocado] = useState(false)
   const [txt, setTxt] = useState<string | null>(null)
-  // Al entrar se selecciona todo: «3» en una cantidad 1 da 3, no 13 (seleccionEntrada.ts).
-  const { campo: campoNum, entrar: entrarNum } = useSeleccionAlEntrar(txt)
+  const mostrado = txt ?? (enfocado ? String(value).replace('.', ',') : formatGw(value, dec))
+  // Sin teclear, todo seleccionado: «3» en una cantidad 1 da 3, no 13 (seleccionEntrada.ts).
+  const campoNum = useSeleccionAlEntrar(enfocado && txt == null, mostrado)
   return (
     <input
       ref={campoNum}
       className="h-[22px] w-full bg-transparent px-0.5 text-right text-[17px] outline-none focus:bg-[#fffbe0]"
-      value={txt ?? formatGw(value, dec)}
+      value={mostrado}
       onMouseDown={seleccionAlPulsar}
       onMouseUp={seleccionAlSoltar}
-      onFocus={() => {
-        entrarNum()
-        setTxt(String(value).replace('.', ','))
-      }}
+      onFocus={() => setEnfocado(true)}
       onChange={(e) => setTxt(e.target.value)}
       onBlur={() => {
+        setEnfocado(false)
         if (txt == null) return
         const n = Number(txt.replace(/\./g, '').replace(',', '.'))
         setTxt(null)
