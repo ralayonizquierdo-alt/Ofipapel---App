@@ -39,6 +39,24 @@ export function GeneradorListadosPage() {
   const [cargando, setCargando] = useState(false)
   const [mensaje, setMensaje] = useState<{ texto: string; error?: boolean } | null>(null)
   const [ultimaDef, setUltimaDef] = useState<DefinicionListado | null>(null)
+  const [operarios, setOperarios] = useState<Record<string, string>>({})
+  const [yo, setYo] = useState<string | null>(null)
+  const [agruparPor, setAgruparPor] = useState<'operario' | 'tipo'>('operario')
+  const [cerrados, setCerrados] = useState<Set<string>>(new Set())
+  const [completa, setCompleta] = useState(false)
+
+  // Pantalla completa: Esc la cierra (antes que cualquier otro Esc de la ventana).
+  useEffect(() => {
+    if (!completa) return
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      e.stopPropagation()
+      setCompleta(false)
+    }
+    window.addEventListener('keydown', tecla, true)
+    return () => window.removeEventListener('keydown', tecla, true)
+  }, [completa])
 
   const F = FUENTE_POR_CLAVE[fuente]
   const col = useCallback((c: string): ColumnaFuente | undefined => F.columnas.find((x) => x.clave === c), [F])
@@ -50,6 +68,11 @@ export function GeneradorListadosPage() {
 
   useEffect(() => {
     cargarGuardados()
+    supabase.rpc('fn_empleado_actual').then(({ data }) => setYo(typeof data === 'string' ? data : null))
+    supabase
+      .from('empleado')
+      .select('codigo, nombre')
+      .then(({ data }) => setOperarios(Object.fromEntries(((data ?? []) as { codigo: string; nombre: string }[]).map((e) => [e.codigo, e.nombre]))))
     supabase
       .from('rol')
       .select('id, nombre')
@@ -67,9 +90,19 @@ export function GeneradorListadosPage() {
     setMensaje(null)
   }, [])
 
-  // ?id=… abre un listado guardado (desde el menú o un enlace).
+  // ?id=… abre un listado guardado (desde el menú o un enlace); ?fuente=… empieza uno nuevo de
+  // esa fuente (accesos desde los menús Listados de cada módulo).
   useEffect(() => {
     const p = Number(params.get('id'))
+    const fu = params.get('fuente')
+    if (!p && fu && FUENTE_POR_CLAVE[fu]) {
+      setFuente(fu)
+      setDef(definicionNueva(FUENTE_POR_CLAVE[fu]))
+      setId(null)
+      setNombre('')
+      setFilas(null)
+      return
+    }
     if (!p) return
     const g = guardados.find((x) => x.id === p)
     if (g) abrir(g)
@@ -180,28 +213,58 @@ export function GeneradorListadosPage() {
   }
 
   const setD = (p: Partial<DefinicionListado>) => setDef((x) => ({ ...x, ...p }))
-  const porFuente = FUENTES.map((fu) => ({ fu, lista: guardados.filter((g) => g.fuente === fu.clave) })).filter((x) => x.lista.length)
+  // Guardados agrupados por operario (los míos primero; los de serie, al final) o por tipo.
+  const nombreFuente = (c: string) => FUENTE_POR_CLAVE[c]?.titulo ?? c
+  const gruposGuardados: { clave: string; titulo: string; lista: Guardado[] }[] =
+    agruparPor === 'tipo'
+      ? FUENTES.map((fu) => ({ clave: fu.clave, titulo: fu.titulo, lista: guardados.filter((g) => g.fuente === fu.clave) })).filter((x) => x.lista.length)
+      : [
+          { clave: 'yo', titulo: 'Mis listados', lista: guardados.filter((g) => g.creado_por && g.creado_por === yo) },
+          ...[...new Set(guardados.map((g) => g.creado_por).filter((c): c is string => !!c && c !== yo))]
+            .sort((a, b) => (operarios[a] ?? a).localeCompare(operarios[b] ?? b))
+            .map((c) => ({ clave: c, titulo: operarios[c] ?? c, lista: guardados.filter((g) => g.creado_por === c) })),
+          { clave: 'serie', titulo: 'De serie (para todos)', lista: guardados.filter((g) => !g.creado_por) },
+        ].filter((x) => x.lista.length)
+  const alternarGrupo = (c: string) =>
+    setCerrados((x) => {
+      const n = new Set(x)
+      if (n.has(c)) n.delete(c)
+      else n.add(c)
+      return n
+    })
 
   return (
     <div className="flex h-full min-h-[600px] gap-1.5 text-[14px]">
       {/* Listados guardados */}
       <div className="flex w-[250px] flex-none flex-col border border-[var(--gw-border)] bg-white">
-        <div className="border-b border-[var(--gw-border)] bg-[var(--gw-face)] px-2 py-1 font-bold">Listados guardados</div>
+        <div className="flex items-center gap-1 border-b border-[var(--gw-border)] bg-[var(--gw-face)] px-2 py-1">
+          <b className="flex-1">Listados guardados</b>
+          <select className="h-[20px] border border-[var(--gw-border)] bg-white text-[12px]" value={agruparPor} onChange={(e) => setAgruparPor(e.target.value as 'operario' | 'tipo')} title="Cómo agrupar la lista">
+            <option value="operario">Por operario</option>
+            <option value="tipo">Por tipo</option>
+          </select>
+        </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {porFuente.length === 0 && <div className="p-2 text-[13px] text-[#777]">Todavía no hay ninguno: haz uno y pulsa Guardar.</div>}
-          {porFuente.map(({ fu, lista }) => (
-            <div key={fu.clave}>
-              <div className="bg-[#f4f4f4] px-2 py-0.5 text-[12px] font-bold text-[#555]">{fu.titulo}</div>
-              {lista.map((g) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() => setParams({ id: String(g.id) })}
-                  className={`block w-full truncate px-3 py-[3px] text-left ${g.id === id ? 'bg-[#0078d7] text-white' : 'hover:bg-[#e5f1fb]'}`}
-                >
-                  {g.nombre}
-                </button>
-              ))}
+          {gruposGuardados.length === 0 && <div className="p-2 text-[13px] text-[#777]">Todavía no hay ninguno: haz uno y pulsa Guardar.</div>}
+          {gruposGuardados.map((gr) => (
+            <div key={gr.clave}>
+              <button type="button" className="flex w-full items-center gap-1 bg-[#eef1f5] px-2 py-0.5 text-left text-[13px] font-bold text-[#333]" onClick={() => alternarGrupo(gr.clave)}>
+                <span className="w-[12px]">{cerrados.has(gr.clave) ? '▸' : '▾'}</span>
+                <span className="flex-1 truncate">{gr.titulo}</span>
+                <span className="text-[11px] font-normal text-[#777]">{gr.lista.length}</span>
+              </button>
+              {!cerrados.has(gr.clave) &&
+                gr.lista.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => setParams({ id: String(g.id) })}
+                    className={`flex w-full items-baseline gap-1 px-3 py-[3px] text-left ${g.id === id ? 'bg-[#0078d7] text-white' : 'hover:bg-[#e5f1fb]'}`}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{g.nombre}</span>
+                    {agruparPor === 'operario' && <span className={`flex-none text-[11px] ${g.id === id ? 'text-white/80' : 'text-[#888]'}`}>{nombreFuente(g.fuente)}</span>}
+                  </button>
+                ))}
             </div>
           ))}
         </div>
@@ -228,6 +291,9 @@ export function GeneradorListadosPage() {
           <span className="flex-1" />
           <button type="button" className="gw-btn h-[30px] px-3 font-bold" disabled={cargando} onClick={ejecutar} title="F9">
             ▶ {cargando ? 'Buscando…' : 'Ver listado'}
+          </button>
+          <button type="button" className="gw-btn h-[30px]" disabled={!filas} onClick={() => setCompleta(true)} title="Ver el listado a pantalla completa">
+            ⛶ Pantalla
           </button>
           <button type="button" className="gw-btn h-[30px]" disabled={!filas?.length} onClick={() => window.print()}>
             🖨️ Imprimir / PDF
@@ -305,7 +371,9 @@ export function GeneradorListadosPage() {
                     titulo: 'Bueno es saber',
                     notas: [
                       'Agrupar y sumar: por ejemplo, agrupar por Familia y sumar Base = ventas por familia.',
-                      'Los guardados salen a la izquierda; pulsa uno para abrirlo.',
+                      'Los guardados salen a la izquierda, agrupados por operario (o por tipo); pulsa uno para abrirlo.',
+                      '⛶ Pantalla: el listado a pantalla completa. Esc o «Cerrar pantalla» para volver.',
+                      'Acceso directo: icono «Listados» de la barra y «Generador de listados» en cada menú Listados.',
                       'Compartir: elige qué grupos de empleados ven el listado.',
                       'Cada uno solo ve los datos que su permiso le deja ver.',
                     ],
@@ -319,7 +387,9 @@ export function GeneradorListadosPage() {
         {mensaje && <div className={`px-2 py-1 ${mensaje.error ? 'bg-[#fdeaea] text-[#a00]' : 'bg-[#eef8ee] text-[#185a18]'}`}>{mensaje.texto}</div>}
 
         {/* Resultado (lo único que sale al imprimir: .informe-impresion) */}
-        <div className="informe-impresion flex min-h-0 flex-1 flex-col border border-[var(--gw-border)] bg-white">
+        <div
+          className={`informe-impresion flex min-h-0 flex-col border border-[var(--gw-border)] bg-white ${completa ? 'fixed inset-0 z-[150] shadow-2xl' : 'flex-1'}`}
+        >
           <div className="flex items-center gap-3 border-b border-[var(--gw-border)] px-2 py-1">
             <b>{nombre || F.titulo}</b>
             <span className="text-[13px] text-[#555]">
@@ -327,6 +397,19 @@ export function GeneradorListadosPage() {
             </span>
             <span className="flex-1" />
             <span className="text-[12px] text-[#777]">{new Date().toLocaleString('es-ES')}</span>
+            {completa && (
+              <span className="flex gap-1 print:hidden">
+                <button type="button" className="gw-btn" onClick={() => window.print()}>
+                  🖨️ Imprimir / PDF
+                </button>
+                <button type="button" className="gw-btn" onClick={excel}>
+                  📊 Excel
+                </button>
+                <button type="button" className="gw-btn font-bold" onClick={() => setCompleta(false)} title="Esc">
+                  ✖ Cerrar pantalla
+                </button>
+              </span>
+            )}
           </div>
           <div className="min-h-[220px] flex-1 overflow-auto">
             {filas && (
