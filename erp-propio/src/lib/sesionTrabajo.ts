@@ -41,12 +41,12 @@ const K_EJERCICIO = 'erp.ejercicio'
 /**
  * ¿Es una clave del navegador que «Eliminar Ficheros Temporales» debe respetar? La sesión de
  * Supabase (sb-…, si no se cerraría la sesión), la tienda, el periodo y la fecha de trabajo, la
- * voz de NEXA y las opciones guardadas de cada puesto (gestores, panel).
+ * voz de NEXA, el lado de la barra de accesos y las opciones guardadas de cada puesto (gestores, panel).
  */
 export function esPreferencia(clave: string): boolean {
   return (
     clave.startsWith('sb-') ||
-    [K_TIENDA, K_EJERCICIO, K_FECHA, 'nexa.voz.v1'].includes(clave) ||
+    [K_TIENDA, K_EJERCICIO, K_FECHA, 'nexa.voz.v1', 'erp.barraAccesos.lado'].includes(clave) ||
     clave.startsWith('panel.') ||
     /^gw\..*\.opciones$/.test(clave)
   )

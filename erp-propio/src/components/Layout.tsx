@@ -4,7 +4,7 @@ import { useAuth } from '../lib/AuthContext'
 import { supabase } from '../lib/supabase'
 import { GwAppIcon, GwWindow } from './gw'
 import { MenuBar } from './shell/MenuBar'
-import { QuickBar } from './shell/QuickBar'
+import { QuickBar, useLadoBarra } from './shell/QuickBar'
 import { AvisoVersion } from './shell/AvisoVersion'
 import { MENUS, esAccionUtilidad, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
 import { ahoraTrabajo, ejercicioTrabajo, useSesionTrabajo } from '../lib/sesionTrabajo'
@@ -28,6 +28,7 @@ export function Layout() {
   const [hint, setHint] = useState<string | null>(null)
   const [ayuda, setAyuda] = useState<string | null>(null)
   const title = windowTitle(pathname)
+  const [ladoBarra, setLadoBarra] = useLadoBarra()
   const { search } = useLocation()
   const [acercaDe, setAcercaDe] = useState(false)
   const sesion = useSesionTrabajo()
@@ -212,8 +213,10 @@ export function Layout() {
       </div>
       <AvisoVersion />
       <MenuBar onRun={runMenu} onHover={setHint} activeWindow={title} windows={ventanas.map((v) => ({ label: v.title, to: v.to }))} />
-      <div className="flex min-h-0 flex-1">
+      <div className={`flex min-h-0 flex-1 ${{ izquierda: 'flex-row', derecha: 'flex-row-reverse', arriba: 'flex-col', abajo: 'flex-col-reverse' }[ladoBarra]}`}>
         <QuickBar
+          lado={ladoBarra}
+          onLado={setLadoBarra}
           onHover={setHint}
           onRun={(q) => {
             if (q.to) navigate(q.to)
@@ -221,7 +224,7 @@ export function Layout() {
             else if (q.action) runMenu({ label: q.label, action: q.action })
           }}
         />
-        <div className="relative min-w-0 flex-1 bg-[var(--gw-mdi)]">
+        <div className="relative min-h-0 min-w-0 flex-1 bg-[var(--gw-mdi)]">
           <Watermark />
           {/* Entrada / Salida en caja: diálogo suelto sobre el escritorio, sin ventana detrás (como GeminisWin). */}
           {dialogoSuelto && contenido}
