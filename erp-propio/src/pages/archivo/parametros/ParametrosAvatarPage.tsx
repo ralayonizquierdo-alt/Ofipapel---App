@@ -20,6 +20,7 @@ import { cargarParametros } from '../../../lib/parametros'
 import { COLORES_DEFECTO, SECCIONES_PARAMETROS, type DefParametro, type SeccionParametros } from '../../../lib/catalogoParametros'
 import type { MapaColores } from '../../../lib/coloresPantallas'
 import { ColoresVista } from './ColoresVista'
+import { GwOperativa } from '../../../components/gw/GwOperativa'
 import { Mensaje } from '../../utilidades/comun'
 import { useEsAdministrador } from '../comun'
 import { AreaAccesos } from './AreaAccesos'
@@ -326,6 +327,7 @@ function AreaParametros({
         <div className="min-h-[360px] overflow-y-auto p-2">
           {pestana.especial === 'contadores' && <ContadoresVista tiendas={tiendas} />}
           {pestana.especial === 'impuestos' && <ImpuestosVista admin={admin} />}
+          {pestana.especial === 'operativa' && pestana.operativa && <GwOperativa bloques={pestana.operativa} />}
           {pestana.especial === 'colores' && (
             <ColoresVista
               valor={(bGen['apariencia.colores'] as MapaColores | undefined) ?? COLORES_DEFECTO}

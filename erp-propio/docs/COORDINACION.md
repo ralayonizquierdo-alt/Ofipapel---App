@@ -22,6 +22,10 @@ lo que escribió otro.
   `todos`). Antes de empezar un encargo, mira las notas sin leer y deja una
   diciendo qué pantalla o módulo vas a tocar; al terminar, otra con lo hecho.
 - No trabajar los dos en la misma pantalla a la vez.
+- **Pestaña «Operativa» (norma de Luis, 29/10/2026):** cada pantalla nueva o que se cambie a
+  petición suya lleva una pestaña «Operativa» con cómo se usa, en pocas líneas (pasos numerados
+  y «Bueno es saber»). Componente común `src/components/gw/GwOperativa.tsx`
+  (`<GwOperativa bloques={[{ titulo, pasos?, notas? }]} />`).
 
 ## Ramas y publicación
 

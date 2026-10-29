@@ -11,6 +11,7 @@
 // ninguna pantalla (la pantalla lo marca con un punto gris).
 
 import { coloresPorDefecto } from './coloresPantallas'
+import type { BloqueOperativa } from '../components/gw/GwOperativa'
 
 export type TipoParametro = 'bool' | 'num' | 'texto' | 'opcion' | 'tienda' | 'almacen' | 'colores'
 
@@ -37,7 +38,9 @@ export interface PestanaParametros {
   titulo: string
   parametros: DefParametro[]
   /** Pestaña que no es una lista de parámetros sino una pantalla propia. */
-  especial?: 'contadores' | 'impuestos' | 'carpetas' | 'colores'
+  especial?: 'contadores' | 'impuestos' | 'carpetas' | 'colores' | 'operativa'
+  /** Contenido de la pestaña «Operativa» (cómo se usa la sección). */
+  operativa?: BloqueOperativa[]
 }
 
 export interface SeccionParametros {
@@ -167,6 +170,32 @@ export const SECCIONES_PARAMETROS: SeccionParametros[] = [
             tipo: 'colores',
             defecto: COLORES_DEFECTO,
             usa: 'Fondo y barra de título de las ventanas',
+          },
+        ],
+      },
+      {
+        clave: 'operativa',
+        titulo: 'Operativa',
+        especial: 'operativa',
+        parametros: [],
+        operativa: [
+          {
+            titulo: 'Poner color a una pantalla',
+            pasos: [
+              'Elige un color en la paleta (queda recuadrado en azul).',
+              'Abre con ▸ el menú donde está la pantalla.',
+              'Pulsa en su casilla «Color».',
+              'Pulsa Aplicar.',
+            ],
+          },
+          {
+            titulo: 'Bueno es saber',
+            notas: [
+              'Quitar un color: la ✖ roja de la fila.',
+              'Un menú con color se lo pasa a todas sus opciones («heredado»), salvo las que tengan uno propio.',
+              '«Ver solo los que tienen color»: enseña solo lo coloreado.',
+              '«Colores de partida»: deshace todo y vuelve a los colores iniciales.',
+            ],
           },
         ],
       },
