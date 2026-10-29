@@ -88,6 +88,16 @@ body{background:url(bg-trebol.png) center/cover fixed;}
   background:linear-gradient(180deg,rgba(13,61,13,0.92) 0%,rgba(26,92,26,0.88) 50%,rgba(25,80,25,0.92) 100%), url(bg-trebol.png) center/cover;
   display:flex;flex-direction:column;z-index:100;
   box-shadow:2px 0 20px rgba(0,0,0,0.18);
+  overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+}
+.sidebar > *{flex-shrink:0;}
+/* Móvil apaisado o ventana baja: menú más compacto (y se desplaza si aun así no cabe) */
+@media(max-height:560px){
+  .sidebar-logo{padding:6px 12px 4px !important;}
+  .sidebar-logo img{height:26px !important;width:auto !important;}
+  .nav-section{padding:8px 12px 2px;}
+  .nav-item{padding:6px 12px;font-size:12px;}
+  .sidebar-footer{padding:8px 14px;}
 }
 .sidebar-logo {
   display:flex;align-items:center;padding:12px 16px 10px;
