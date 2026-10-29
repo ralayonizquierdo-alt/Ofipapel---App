@@ -226,7 +226,7 @@ export function Layout() {
           {pathname !== '/' && !dialogoSuelto && (
             <GwWindow
               title={title}
-              acreedor={pathname === '/acreedores' || pathname.startsWith('/acreedores/')}
+              movible={false}
               onClose={() => cerrarVentana(false)}
               className="absolute inset-1 z-10 [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-auto"
             >

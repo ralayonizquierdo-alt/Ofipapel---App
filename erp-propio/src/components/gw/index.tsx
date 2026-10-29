@@ -1,4 +1,4 @@
-import { useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { useRef, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { Minus, Square, X } from 'lucide-react'
 import { seleccionAlPulsar, seleccionAlSoltar, useSeleccionAlEntrar } from './seleccionEntrada'
 
@@ -13,22 +13,39 @@ export function GwWindow({
   onClose,
   children,
   className = '',
-  acreedor = false,
+  movible = true,
 }: {
   title: string
   onClose?: () => void
   children: ReactNode
   className?: string
-  /** Ficha de Acreedores: barra de título marrón para no confundirla con la de Proveedores. */
-  acreedor?: boolean
+  /** Se arrastra por la barra de título, como en Windows (todas salvo la ventana principal). */
+  movible?: boolean
 }) {
+  const [desplazado, setDesplazado] = useState({ x: 0, y: 0 })
+  const arrastre = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
   return (
-    <div className={`flex flex-col border border-[#6f6f6f] bg-[var(--gw-face)] shadow-[2px_2px_6px_rgba(0,0,0,0.35)] ${className}`}>
+    <div
+      className={`gw-ventana flex flex-col border border-[#6f6f6f] bg-[var(--gw-face)] shadow-[2px_2px_6px_rgba(0,0,0,0.35)] ${className}`}
+      style={movible && (desplazado.x || desplazado.y) ? { translate: `${desplazado.x}px ${desplazado.y}px` } : undefined}
+    >
       <div
-        className={`flex h-[22px] select-none items-center gap-1.5 bg-gradient-to-b px-1.5 text-[12px] ${acreedor ? 'from-[#b5703d] to-[#97572b] font-bold text-white' : 'from-[#dbe6f4] to-[#c7d6ea]'}`}
+        className={`gw-titulo flex h-[22px] select-none items-center gap-1.5 bg-gradient-to-b from-[#dbe6f4] to-[#c7d6ea] px-1.5 text-[12px] ${movible ? 'cursor-move' : ''}`}
+        onPointerDown={(e) => {
+          if (!movible || e.button !== 0 || (e.target as HTMLElement).closest('button')) return
+          arrastre.current = { x: e.clientX, y: e.clientY, ox: desplazado.x, oy: desplazado.y }
+          e.currentTarget.setPointerCapture(e.pointerId)
+        }}
+        onPointerMove={(e) => {
+          const a = arrastre.current
+          if (a) setDesplazado({ x: a.ox + e.clientX - a.x, y: a.oy + e.clientY - a.y })
+        }}
+        onPointerUp={() => {
+          arrastre.current = null
+        }}
       >
         <GwAppIcon size={14} />
-        <span className="flex-1 truncate">{title}</span>
+        <span className="gw-titulo-texto flex-1 truncate">{title}</span>
         <span className="flex gap-0.5">
           <span className="flex h-[16px] w-[22px] items-center justify-center border border-[#9aa8bb] bg-[#e9eef6]">
             <Minus size={10} />

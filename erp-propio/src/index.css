@@ -223,6 +223,17 @@ tr.gw-encontrada td {
   }
 }
 
+/* Ficha de Proveedores mostrando un acreedor: barra de título marrón y «· Acreedor» detrás del
+   título (marca data-acreedor dentro de la ventana, ProveedorFichaPage). */
+.gw-ventana:has([data-acreedor]) > .gw-titulo {
+  background: linear-gradient(#b5703d, #97572b);
+  color: #fff;
+  font-weight: bold;
+}
+.gw-ventana:has([data-acreedor]) > .gw-titulo > .gw-titulo-texto::after {
+  content: ' · ACREEDOR';
+}
+
 /* Botón de la botonera inferior de las fichas, en relieve como en GeminisWin (Windows clásico):
    borde claro arriba-izquierda y oscuro abajo-derecha; al pulsarlo se hunde. Iconos: GwIconos.tsx */
 .gw-boton-barra {

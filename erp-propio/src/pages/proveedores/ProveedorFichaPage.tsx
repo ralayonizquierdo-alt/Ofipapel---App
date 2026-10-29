@@ -52,22 +52,31 @@ async function siguienteCodigo(acreedor: boolean) {
   return acreedor ? String(Math.max(max, 60000) + 1) : String(max + 1).padStart(5, '0')
 }
 
+type Ver = 'todos' | Proveedor['tipo']
+const CLAVE_VER = 'proveedores.ver'
+function verGuardado(): Ver {
+  try {
+    const v = sessionStorage.getItem(CLAVE_VER)
+    return v === 'proveedor' || v === 'acreedor' ? v : 'todos'
+  } catch {
+    return 'todos'
+  }
+}
+
 /**
- * Ficha de Proveedores y, con `acreedores`, la de Acreedores (Compras → Acreedores): misma tabla,
- * columna `tipo`. Cada ficha recorre solo los suyos; si se llega a uno del otro tipo (búsqueda por
- * código, cambio de tipo) se pasa a su ficha.
+ * Ficha de Proveedores y Acreedores en una sola pantalla (misma tabla, columna `tipo`). Un acreedor
+ * (luz, teléfono, alquiler…) se ve en marrón y sin las pestañas de mercancía. «Ver» limita lo que
+ * recorre la barra de abajo y el buscador: todos, solo proveedores o solo acreedores.
  */
-export function ProveedorFichaPage({ acreedores = false }: { acreedores?: boolean }) {
-  const tipo: Proveedor['tipo'] = acreedores ? 'acreedor' : 'proveedor'
-  const base = acreedores ? '/acreedores' : '/proveedores'
-  const palabra = acreedores ? 'acreedor' : 'proveedor'
+export function ProveedorFichaPage() {
+  const base = '/proveedores'
   const { codigo } = useParams<{ codigo: string }>()
   const navigate = useNavigate()
   const isNew = codigo === 'nuevo'
 
   const [mode, setMode] = useState<'consulta' | 'edicion' | 'alta'>(isNew ? 'alta' : 'consulta')
-  const [proveedor, setProveedor] = useState<Proveedor>({ ...emptyProveedor, tipo, actualizado_en: '' })
-  const [draft, setDraft] = useState<Proveedor>({ ...emptyProveedor, tipo, actualizado_en: '' })
+  const [proveedor, setProveedor] = useState<Proveedor>({ ...emptyProveedor, actualizado_en: '' })
+  const [draft, setDraft] = useState<Proveedor>({ ...emptyProveedor, actualizado_en: '' })
   const [loading, setLoading] = useState(true)
   const [vacio, setVacio] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -75,13 +84,31 @@ export function ProveedorFichaPage({ acreedores = false }: { acreedores?: boolea
   const [orden, setOrden] = useState<'codigo' | 'nombre'>('codigo')
   const [buscar, setBuscar] = useState(false)
   const [tab, setTab] = useState('generales')
+  const [ver, setVerEstado] = useState<Ver>(verGuardado)
+  const setVer = async (v: Ver) => {
+    setVerEstado(v)
+    try {
+      sessionStorage.setItem(CLAVE_VER, v)
+    } catch {
+      /* sin almacenamiento: vale para esta visita */
+    }
+    // Si el que se ve no es del tipo elegido, salta al primero de ese tipo.
+    if (v !== 'todos' && proveedor.tipo !== v) {
+      const { data } = await supabase.from('proveedor').select('codigo').eq('tipo', v).order('codigo').limit(1)
+      if (data?.[0]) navigate(`${base}/${encodeURIComponent(data[0].codigo)}`)
+    }
+  }
+  // Ctrl+Intro y búsqueda por el inicio del campo, con el mismo «Ver».
+  const fuenteVer = ver === 'todos' ? 'proveedor' : ver === 'acreedor' ? 'acreedor' : 'proveedor_solo'
+  const RPC_LISTA = 'gw_lista_ordenada_proveedor'
+  const palabra = draft.tipo === 'acreedor' ? 'acreedor' : 'proveedor'
 
   const editing = mode !== 'consulta'
   const consulta = mode === 'consulta'
   const listaOrd = useListaOrdenada()
 
-  // Cada ficha recorre solo los de su tipo.
-  const soloTipo = useCallback<NavFiltro>((q) => q.eq('tipo', tipo), [tipo])
+  // «Ver»: todos, solo proveedores o solo acreedores.
+  const soloTipo = useCallback<NavFiltro>((q) => (ver === 'todos' ? q : q.eq('tipo', ver)), [ver])
   // Anterior/siguiente/primero/último y «Registro X de N» pidiendo al servidor solo el vecino.
   const nav = useNavRegistro<{ codigo: string }>({
     tabla: 'proveedor',
@@ -94,7 +121,7 @@ export function ProveedorFichaPage({ acreedores = false }: { acreedores?: boolea
   useEffect(() => {
     setError(null)
     if (isNew) {
-      const nuevo = { ...emptyProveedor, tipo, fecha_alta: hoy(), actualizado_en: '' }
+      const nuevo: Proveedor = { ...emptyProveedor, tipo: verGuardado() === 'acreedor' ? 'acreedor' : 'proveedor', fecha_alta: hoy(), actualizado_en: '' }
       setProveedor(nuevo)
       setDraft(nuevo)
       setVacio(false)
@@ -104,11 +131,10 @@ export function ProveedorFichaPage({ acreedores = false }: { acreedores?: boolea
     }
     if (!codigo) {
       // Como en GeminisWin, Compras → Proveedores abre directamente la ficha del primer proveedor.
-      supabase
-        .from('proveedor')
-        .select('codigo')
-        .eq('tipo', tipo)
-        .order('codigo')
+      const v = verGuardado()
+      const todos = supabase.from('proveedor').select('codigo')
+      const q = v === 'todos' ? todos : todos.eq('tipo', v)
+      q.order('codigo')
         .limit(1)
         .then(({ data }) => {
           if (data && data[0]) navigate(`${base}/${encodeURIComponent(data[0].codigo)}`, { replace: true })
@@ -128,12 +154,8 @@ export function ProveedorFichaPage({ acreedores = false }: { acreedores?: boolea
       .maybeSingle()
       .then(({ data, error: err }) => {
         if (err || !data) {
-          setError(`No se ha encontrado el ${palabra}.`)
+          setError('No se ha encontrado el proveedor o acreedor.')
           setLoading(false)
-          return
-        }
-        if ((data as Proveedor).tipo !== tipo) {
-          navigate(`${(data as Proveedor).tipo === 'acreedor' ? '/acreedores' : '/proveedores'}/${encodeURIComponent(codigo)}`, { replace: true })
           return
         }
         setProveedor(data as Proveedor)
@@ -142,17 +164,18 @@ export function ProveedorFichaPage({ acreedores = false }: { acreedores?: boolea
         setMode('consulta')
         setLoading(false)
       })
-  }, [codigo, isNew, navigate, tipo, base, palabra])
+  }, [codigo, isNew, navigate])
 
   useEffect(() => {
     if (mode === 'alta' && !draft.codigo) {
       let vivo = true
-      siguienteCodigo(acreedores).then((c) => vivo && setDraft((d) => (d.codigo ? d : { ...d, codigo: c })))
+      const acreedor = draft.tipo === 'acreedor'
+      siguienteCodigo(acreedor).then((c) => vivo && setDraft((d) => (d.codigo || (d.tipo === 'acreedor') !== acreedor ? d : { ...d, codigo: c })))
       return () => {
         vivo = false
       }
     }
-  }, [mode, draft.codigo, acreedores])
+  }, [mode, draft.codigo, draft.tipo])
 
   function patch(p: Partial<Proveedor>) {
     setDraft((d) => ({ ...d, ...p }))
@@ -179,12 +202,7 @@ export function ProveedorFichaPage({ acreedores = false }: { acreedores?: boolea
     }
     if (mode === 'alta') {
       nav.refrescar()
-      navigate(`${payload.tipo === 'acreedor' ? '/acreedores' : '/proveedores'}/${encodeURIComponent(cod)}`, { replace: true })
-      return
-    }
-    if (payload.tipo !== tipo) {
-      // Ha cambiado de Proveedor a Acreedor (o al revés): pasa a la otra ficha.
-      navigate(`${payload.tipo === 'acreedor' ? '/acreedores' : '/proveedores'}/${encodeURIComponent(cod)}`, { replace: true })
+      navigate(`${base}/${encodeURIComponent(cod)}`, { replace: true })
       return
     }
     const { data } = await supabase.from('proveedor').select('*').eq('codigo', cod).maybeSingle()
@@ -225,13 +243,23 @@ export function ProveedorFichaPage({ acreedores = false }: { acreedores?: boolea
     else setError(`No existe el ${palabra} ${t}`)
   }
   const buscarInicio = (campo: string, que: string) => async (t: string) => {
-    const f = await gwBuscarPorInicio('proveedor', campo, t)
+    const f = await gwBuscarPorInicio(fuenteVer, campo, t, RPC_LISTA)
     if (f) goTo(String(f.codigo))
     else setError(`No existe ningún ${palabra} con ${que} que empiece por «${t}»`)
   }
   const listaCampo = (campo: string) =>
     consulta
-      ? (texto: string | null) => listaOrd.abrir(defTercero('proveedor', campo), { texto, ancla: proveedor.codigo, onPick: (f) => goTo(String(f.codigo)) })
+      ? (texto: string | null) =>
+          listaOrd.abrir(
+            {
+              ...defTercero('proveedor', campo),
+              fuente: fuenteVer,
+              rpc: RPC_LISTA,
+              que: ver === 'acreedor' ? 'Acreedores' : ver === 'proveedor' ? 'Proveedores' : 'Proveedores y Acreedores',
+              columnas: [...defTercero('proveedor', campo).columnas, { key: 'tipo', label: 'Tipo', width: 90 }],
+            },
+            { texto, ancla: proveedor.codigo, onPick: (f) => goTo(String(f.codigo)) },
+          )
       : undefined
   const campoBusqueda = (campo: 'nombre' | 'razon_social' | 'nif', title: string, que: string, className?: string) => (
     <GwCampoBusqueda
@@ -284,7 +312,16 @@ export function ProveedorFichaPage({ acreedores = false }: { acreedores?: boolea
           />
         </GwField>
         <GwField label="Tipo">
-          <TipoTercero value={draft.tipo} editable={editing} onChange={(t) => patch({ tipo: t })} />
+          <TipoTercero
+            value={draft.tipo}
+            editable={editing}
+            onChange={(t) => {
+              // En consulta, pulsar Proveedor o Acreedor pasa a recorrer solo esos (como «Ver»);
+              // modificando, cambia el tipo de este registro.
+              if (!editing) return void (t !== draft.tipo && setVer(t))
+              patch(mode === 'alta' && t !== draft.tipo ? { tipo: t, codigo: '' } : { tipo: t })
+            }}
+          />
         </GwField>
         <GwField label="Nombre">
           {campoBusqueda('nombre', 'NOMBRE', 'nombre')}
@@ -297,7 +334,7 @@ export function ProveedorFichaPage({ acreedores = false }: { acreedores?: boolea
       </div>
 
       {(error || (!proveedor.activo && !vacio && mode !== 'alta')) && (
-        <div className="text-[13px] text-[#c42b1c]">{error ?? (acreedores ? 'Acreedor dado de baja.' : 'Proveedor dado de baja.')}</div>
+        <div className="text-[13px] text-[#c42b1c]">{error ?? (proveedor.tipo === 'acreedor' ? 'Acreedor dado de baja.' : 'Proveedor dado de baja.')}</div>
       )}
 
       <div className="mt-1">
@@ -337,21 +374,33 @@ export function ProveedorFichaPage({ acreedores = false }: { acreedores?: boolea
         onCancel={handleCancel}
         onExit={() => navigate('/')}
       />
-      <div className="text-[11px] text-[#444]">
+      {draft.tipo === 'acreedor' && <span data-acreedor hidden />}
+      <div className="flex items-center gap-2 text-[11px] text-[#444]">
+        <label className="flex items-center gap-1" title="Qué recorren la barra de abajo y el buscador">
+          Ver:
+          <select value={ver} disabled={!consulta} onChange={(e) => setVer(e.target.value as Ver)} className="h-[18px] border border-[var(--gw-border)] bg-white text-[11px]">
+            <option value="todos">Todos</option>
+            <option value="proveedor">Solo proveedores</option>
+            <option value="acreedor">Solo acreedores</option>
+          </select>
+        </label>
+        <span>
         Orden: {orden === 'codigo' ? 'por código' : 'por nombre'}
         {textoRegistro(nav)}
         {mode === 'alta' ? ` · Alta de ${palabra}` : mode === 'edicion' ? ' · Modificando' : ''}
+        </span>
       </div>
 
       {listaOrd.dialogo}
       {buscar && (
-        <GwLookupDialog<{ codigo: string; nombre: string; nif: string | null; poblacion: string | null }>
-          title={acreedores ? 'Buscar Acreedor' : 'Buscar Proveedor'}
+        <GwLookupDialog<{ codigo: string; nombre: string; tipo: string; nif: string | null; poblacion: string | null }>
+          title={ver === 'acreedor' ? 'Buscar Acreedor' : ver === 'proveedor' ? 'Buscar Proveedor' : 'Buscar Proveedor o Acreedor'}
           table="proveedor"
-          eq={{ tipo }}
+          eq={ver === 'todos' ? undefined : { tipo: ver }}
           columns={[
             { key: 'codigo', label: 'Código', width: 80 },
             { key: 'nombre', label: 'Nombre' },
+            { key: 'tipo', label: 'Tipo', width: 80 },
             { key: 'nif', label: 'NIF', width: 110 },
             { key: 'poblacion', label: 'Población', width: 140 },
           ]}
@@ -374,10 +423,9 @@ function TipoTercero({ value, editable, onChange }: { value: 'proveedor' | 'acre
   const boton = (t: 'proveedor' | 'acreedor', texto: string, color: string) => (
     <button
       type="button"
-      disabled={!editable}
-      title={editable ? `Marcar como ${texto}` : 'Pulsa Modificar para cambiarlo'}
+      title={editable ? `Marcar como ${texto}` : `Ver solo ${texto === 'Proveedor' ? 'proveedores' : 'acreedores'} (para cambiar el tipo de este, pulsa Modificar)`}
       onClick={() => onChange(t)}
-      className={`h-full px-2.5 text-[12px] ${value === t ? `${color} font-bold text-white` : 'bg-white text-[#555] enabled:hover:bg-[#e5f1fb]'}`}
+      className={`h-full px-2.5 text-[12px] ${value === t ? `${color} font-bold text-white` : 'bg-white text-[#555] hover:bg-[#e5f1fb]'}`}
     >
       {texto}
     </button>
