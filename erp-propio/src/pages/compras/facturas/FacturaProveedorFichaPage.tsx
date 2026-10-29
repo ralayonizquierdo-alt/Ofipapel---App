@@ -5,7 +5,7 @@ import { supabase } from '../../../lib/supabase'
 import { ahoraTrabajo, fechaTrabajo, tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { navIndice, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { useNexaContexto } from '../../../nexa/contexto'
-import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, formatGw } from '../../../components/gw'
+import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { FilasVacias, GridMiniBar } from '../../../components/gw/GwGridParts'
@@ -968,8 +968,7 @@ function AlbaranesPendientesDialog({
   }, [proveedor])
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-24" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
-      <div className="w-[640px] max-w-[95vw] border border-[#6f6f6f] bg-[var(--gw-face)] p-2 shadow-[2px_2px_6px_rgba(0,0,0,0.35)]">
-        <div className="gw-label mb-1">Albaranes recibidos sin facturar del proveedor {proveedor}</div>
+      <GwWindow title={`Albaranes recibidos sin facturar del proveedor ${proveedor}`} onClose={onClose} className="w-[640px] max-w-[95vw]">
         <div className="max-h-[320px] overflow-y-auto border border-[var(--gw-border)] bg-white">
           <table className="gw-grid">
             <thead className="sticky top-0">
@@ -1014,7 +1013,7 @@ function AlbaranesPendientesDialog({
             Cancelar
           </button>
         </div>
-      </div>
+      </GwWindow>
     </div>
   )
 }

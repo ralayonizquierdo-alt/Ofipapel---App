@@ -11,3 +11,15 @@
 [build.environment]
   VITE_BASE_PATH = "/"
   NODE_VERSION = "22"
+
+# version.json siempre fresco: la app lo consulta para avisar de que hay una versión nueva.
+[[headers]]
+  for = "/version.json"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# index.html tampoco se guarda en caché: al pulsar «Actualizar» tiene que llegar el nuevo.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"

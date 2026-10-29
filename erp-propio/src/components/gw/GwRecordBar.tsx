@@ -150,7 +150,7 @@ function Btn({ title, onClick, disabled, children }: { title: string; onClick?: 
       data-gw-estado={title}
       onClick={onClick}
       disabled={disabled}
-      className="gw-boton-barra h-[30px] w-[84px]"
+      className="gw-boton-barra h-[34px] w-[84px]"
     >
       {children}
     </button>

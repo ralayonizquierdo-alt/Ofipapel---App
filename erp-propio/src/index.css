@@ -223,6 +223,22 @@ tr.gw-encontrada td {
   }
 }
 
+/* Color de cada sección (components/shell/secciones.ts): la ventana toma un fondo suave y la
+   barra de título un tono más vivo, a juego con el icono de la barra de accesos. */
+.gw-ventana[data-seccion='clientes'] { --gw-face: #fdf3cf; --sec-t1: #f7e08a; --sec-t2: #efcf5e; }
+.gw-ventana[data-seccion='pedidos'] { --gw-face: #dff3e4; --sec-t1: #b5e3c1; --sec-t2: #93d4a5; }
+.gw-ventana[data-seccion='pagos'] { --gw-face: #ece4f7; --sec-t1: #d2c2ee; --sec-t2: #bba5e4; }
+.gw-ventana[data-seccion='caja'] { --gw-face: #e8e8ee; --sec-t1: #cdcdd8; --sec-t2: #b6b6c6; }
+.gw-ventana[data-seccion='ventas'] { --gw-face: #d6f1f1; --sec-t1: #a6dedd; --sec-t2: #82cfcd; }
+.gw-ventana[data-seccion='facturacion'] { --gw-face: #fbe1dc; --sec-t1: #f4b9ad; --sec-t2: #ee9f8f; }
+.gw-ventana[data-seccion='compras'] { --gw-face: #dfe7f5; --sec-t1: #b9cbea; --sec-t2: #9bb4e0; }
+.gw-ventana[data-seccion='articulos'] { --gw-face: #eaf6d6; --sec-t1: #cfe9a6; --sec-t2: #b9de82; }
+.gw-ventana[data-seccion='traspasos'] { --gw-face: #fde7d2; --sec-t1: #f8c99c; --sec-t2: #f3b276; }
+.gw-ventana[data-seccion] > .gw-titulo {
+  background: linear-gradient(var(--sec-t1), var(--sec-t2));
+  font-weight: bold;
+}
+
 /* Ficha de Proveedores mostrando un acreedor: barra de título marrón y «· Acreedor» detrás del
    título (marca data-acreedor dentro de la ventana, ProveedorFichaPage). */
 .gw-ventana:has([data-acreedor]) > .gw-titulo {
@@ -255,6 +271,11 @@ tr.gw-encontrada td {
 .gw-boton-barra:active:not(:disabled) svg {
   transform: translate(1px, 1px);
 }
+/* Iconos de las botoneras (GwIconos.tsx): en un botón bajo (barras de las rejillas) se encogen
+   para caber, sin deformarse. */
+button .gw-icono {
+  max-height: calc(100% - 4px);
+}
 .gw-boton-barra:disabled {
   color: #a0a0a0;
 }
@@ -270,8 +291,8 @@ tr.gw-encontrada td {
   height: 46px;
 }
 .gw-barra-grande > button svg {
-  width: 18px;
-  height: 18px;
+  width: 28px;
+  height: 28px;
 }
 
 /* Informes de Caja: al imprimir (o «Doc. PDF») sale solo el informe, a todo el ancho. */
