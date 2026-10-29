@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { GwAppIcon, GwWindow } from './gw'
 import { MenuBar } from './shell/MenuBar'
 import { QuickBar } from './shell/QuickBar'
+import { AvisoVersion } from './shell/AvisoVersion'
 import { MENUS, esAccionUtilidad, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
 import { ahoraTrabajo, ejercicioTrabajo, useSesionTrabajo } from '../lib/sesionTrabajo'
 import { NexaAsistente } from '../nexa/NexaAsistente'
@@ -209,6 +210,7 @@ export function Layout() {
           Ofipapel ERP, Periodo: Periodo {ejercicioTrabajo().anio} Empresa: {empresa}
         </span>
       </div>
+      <AvisoVersion />
       <MenuBar onRun={runMenu} onHover={setHint} activeWindow={title} windows={ventanas.map((v) => ({ label: v.title, to: v.to }))} />
       <div className="flex min-h-0 flex-1">
         <QuickBar
