@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { usePermisos } from '../../lib/PermisosContext'
 import { COLOR_SECCION } from './secciones'
+import { useAvisosPresupuestos } from '../../lib/avisosPresupuestos'
 import {
   Archive,
   Banknote,
   Boxes,
   FileSpreadsheet,
   Calculator,
+  ClipboardList,
   DatabaseZap,
   HandCoins,
   LayoutDashboard,
@@ -39,6 +41,8 @@ export const QUICK_ITEMS: QuickItem[] = [
   { label: 'Cerrar Empl.', description: 'Cerrar Empleado', icon: UserRoundX, color: '#c0392b', action: 'signout' },
   { label: 'Clientes', description: 'Clientes', icon: Users, color: COLOR_SECCION.clientes, to: '/clientes' },
   { label: 'Pedidos', description: 'Pedidos de Clientes', icon: ShoppingBasket, color: COLOR_SECCION.pedidos, to: '/pedidos' },
+  // Añadido: Presupuestos, con globo rojo cuando hay seguimientos para hoy (o vencidos) del empleado.
+  { label: 'Presup.', description: 'Presupuestos', icon: ClipboardList, color: COLOR_SECCION.pedidos, to: '/presupuestos' },
   { label: 'Pagos', description: 'Gestor de Pagos de Clientes', icon: HandCoins, color: COLOR_SECCION.pagos, to: '/gestor-cobros-clientes' },
   { label: 'Caja', description: 'Caja', icon: Calculator, color: COLOR_SECCION.caja, to: '/caja' },
   { label: 'Ventas', description: 'TPV / Ventas', icon: Banknote, color: COLOR_SECCION.ventas, to: '/tpv' },
@@ -100,6 +104,7 @@ export function QuickBar({
   onLado: (l: LadoBarra) => void
 }) {
   const { puedeRuta } = usePermisos()
+  const avisos = useAvisosPresupuestos()
   const [destino, setDestino] = useState<LadoBarra | null>(null)
   const horizontal = lado === 'arriba' || lado === 'abajo'
 
@@ -143,21 +148,27 @@ export function QuickBar({
         const enabled = construida && (!q.to || puedeRuta(q.to))
         const motivo = construida ? 'Sin permiso: tu grupo de acceso no tiene esta opción' : 'Aún no disponible en el ERP propio'
         const Icon = q.icon
+        const globo = q.to === '/presupuestos' ? avisos : 0
         return (
           <button
             key={q.label}
             type="button"
             disabled={!enabled}
-            title={enabled ? q.description : motivo}
+            title={enabled ? (globo ? `${q.description} — ${globo} para llamar hoy` : q.description) : motivo}
             onClick={() => onRun(q)}
             onMouseEnter={() => onHover(enabled ? q.description : `${q.description} — ${motivo}`)}
             onMouseLeave={() => onHover(null)}
-            className={`flex flex-none flex-col items-center justify-center gap-[2px] border border-transparent hover:border-[var(--gw-border)] hover:bg-[#e5f1fb] disabled:opacity-45 disabled:hover:border-transparent disabled:hover:bg-transparent ${
+            className={`relative flex flex-none flex-col items-center justify-center gap-[2px] border border-transparent hover:border-[var(--gw-border)] hover:bg-[#e5f1fb] disabled:opacity-45 disabled:hover:border-transparent disabled:hover:bg-transparent ${
               horizontal ? 'w-[72px]' : 'py-[4px]'
             }`}
           >
             <Icon size={30} color={q.color} fill={q.color} fillOpacity={0.16} strokeWidth={2.1} absoluteStrokeWidth />
             <span className="whitespace-nowrap text-[11px] leading-[12px] text-black">{q.label}</span>
+            {globo > 0 && (
+              <span className="absolute right-[6px] top-[1px] flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-white bg-[#d92020] px-[4px] text-[11px] font-bold leading-none text-white shadow">
+                {globo > 99 ? '99+' : globo}
+              </span>
+            )}
           </button>
         )
       })}

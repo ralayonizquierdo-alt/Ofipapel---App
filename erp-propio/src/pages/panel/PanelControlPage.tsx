@@ -18,7 +18,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { BarrasApiladas, BarrasSimples, C, Card, ColumnasComparadas, GraficoHoras, Vacio } from './charts'
-import { PERIODOS, REFRESCO_MS, fmtFecha, fmtNum, hoyCanarias, usePanelData, usePanelDia, type PanelData, type PanelDia, type Periodo } from './panelData'
+import { PERIODOS, REFRESCO_MS, fmtFecha, fmtNum, hoyCanarias, usePanelData, usePanelDia, usePanelFamilias, type FamiliaTop, type PanelData, type PanelDia, type Periodo } from './panelData'
 import { GwWindow } from '../../components/gw'
 import { GwOperativa } from '../../components/gw/GwOperativa'
 
@@ -52,6 +52,7 @@ export function PanelControlPage() {
   })
   const { data, cargando, error, actualizado, recargar } = usePanelData(tienda, periodo)
   const dia = usePanelDia(tienda, actualizado)
+  const familias = usePanelFamilias(tienda, periodo, actualizado)
   const [detalle, setDetalle] = useState<Detalle | null>(null)
   const [ayuda, setAyuda] = useState(false)
   const per = PERIODOS.find((p) => p.value === periodo)!
@@ -152,6 +153,7 @@ export function PanelControlPage() {
                   notas: [
                     '«En seguimiento» se marca en la ficha del presupuesto (botón junto a Aceptado).',
                     'Tienda y periodo de arriba cambian lo de abajo; se actualiza solo cada pocos minutos.',
+                    'Las 20 familias más vendidas: nº de familia, descripción y % sobre lo vendido en el periodo (de más a menos).',
                   ],
                 },
               ]}
@@ -217,6 +219,12 @@ export function PanelControlPage() {
             </Card>
             <Card className="col-span-3" title="Más vendidos" sub={`unidades · ${per.label.toLowerCase()}`}>
               <TopArticulos d={data} abrir={abrir} />
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-12 gap-1.5">
+            <Card className="col-span-12" title="Las 20 familias más vendidas" sub={`nº de familia · % sobre las ventas totales · ${per.label.toLowerCase()}`}>
+              <TopFamilias lista={familias} />
             </Card>
           </div>
 
@@ -617,6 +625,29 @@ function Alertas({ d, abrir }: { d: PanelData; abrir: Abrir }) {
 }
 
 // ---- Listas --------------------------------------------------------------------------------
+
+function TopFamilias({ lista }: { lista: FamiliaTop[] | null }) {
+  if (!lista) return <Vacio texto="Cargando…" />
+  if (!lista.length) return <Vacio texto="Sin ventas en este periodo" />
+  const max = Math.max(...lista.map((f) => f.pct), 1)
+  return (
+    <ol className="grid grid-flow-col grid-cols-2 grid-rows-10 gap-x-6 gap-y-1">
+      {lista.map((f, i) => (
+        <li key={f.codigo || '-'} title={`${f.codigo} · ${f.descripcion ?? ''} · ${fmtNum(f.unidades, 2)} uds.`}>
+          <span className="flex items-baseline gap-1.5">
+            <span className="w-[18px] flex-none text-right text-[11px] text-[#76746e]">{i + 1}</span>
+            <span className="w-[70px] flex-none tabular-nums text-[#1d3a8a]">{f.codigo || '—'}</span>
+            <span className="min-w-0 flex-1 truncate">{f.descripcion ?? ''}</span>
+            <b className="flex-none tabular-nums">{fmtNum(f.pct, 2)} %</b>
+          </span>
+          <span className="ml-[24px] mt-[2px] block h-[6px] bg-[#eef3fb]">
+            <span className="block h-full rounded-r-[3px]" style={{ width: `${(f.pct / max) * 100}%`, background: C.s1 }} />
+          </span>
+        </li>
+      ))}
+    </ol>
+  )
+}
 
 function TopArticulos({ d, abrir }: { d: PanelData; abrir: Abrir }) {
   const lista = d.top_articulos

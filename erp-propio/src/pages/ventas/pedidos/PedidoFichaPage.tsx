@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Binoculars, Check, FilePen, FilePlus2, FileX2, PackageSearch, Tag, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { aplicarArticulo, tocado, tocarLinea, type LineaEnEdicion } from '../../../lib/lineaEnEdicion'
@@ -11,6 +11,7 @@ import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLo
 import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { PedidoBar } from './PedidoBar'
 import { SeguimientoPresupuesto, type EstadoPresupuesto } from './SeguimientoPresupuesto'
+import { RelacionSeguimientos } from './RelacionSeguimientos'
 import { entregarPedido } from './entregar'
 import { decimalesPrecio } from '../../../lib/parametros'
 import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
@@ -261,6 +262,13 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
   const [verTexto, setVerTexto] = useState('')
   const [verAbierto, setVerAbierto] = useState(false)
   const [seguimiento, setSeguimiento] = useState(false)
+  // Relación de seguimientos: botón del bloque Seguimiento, o ?relacion=1 (aviso del móvil/tablet).
+  const [busqueda, setBusqueda] = useSearchParams()
+  const [relacion, setRelacion] = useState(() => presupuestos && busqueda.get('relacion') === '1')
+  const cerrarRelacion = () => {
+    setRelacion(false)
+    if (busqueda.has('relacion')) setBusqueda({}, { replace: true })
+  }
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
       if (e.key === 'F5') {
@@ -1121,6 +1129,8 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
         </div>
       )}
 
+      {relacion && <RelacionSeguimientos onClose={cerrarRelacion} />}
+
       {verAbierto && (
         <GwLookupDialog<Record<string, unknown>>
           title={presupuestos ? 'Ver presupuestos' : 'Ver pedidos'}
@@ -1160,6 +1170,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
           total={tot.total}
           formulario={seguimiento}
           setFormulario={setSeguimiento}
+          onRelacion={() => setRelacion(true)}
           datosPdf={() => ({
             tienda: cab.tienda_terminal_codigo,
             numero: cab.numero as number,

@@ -231,3 +231,27 @@ export function usePanelDia(tienda: string, vuelta: unknown): PanelDia | null {
   }, [tienda, vuelta])
   return dia
 }
+
+export interface FamiliaTop {
+  codigo: string
+  descripcion: string | null
+  unidades: number
+  /** % sobre las ventas totales del periodo (por importe; el panel no enseña euros). */
+  pct: number
+}
+
+/** Las 20 familias más vendidas del periodo (fn_panel_familias); se recargan con `vuelta`. */
+export function usePanelFamilias(tienda: string, periodo: Periodo, vuelta: unknown): FamiliaTop[] | null {
+  const [lista, setLista] = useState<FamiliaTop[] | null>(null)
+  useEffect(() => {
+    let vivo = true
+    const r = rangoPeriodo(periodo, hoyCanarias())
+    supabase.rpc('fn_panel_familias', { p_tienda: tienda || null, p_desde: r.desde, p_hasta: r.hasta }).then(({ data }) => {
+      if (vivo) setLista((data as FamiliaTop[]) ?? [])
+    })
+    return () => {
+      vivo = false
+    }
+  }, [tienda, periodo, vuelta])
+  return lista
+}

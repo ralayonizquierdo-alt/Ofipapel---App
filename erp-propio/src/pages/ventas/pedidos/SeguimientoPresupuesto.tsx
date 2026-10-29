@@ -47,6 +47,7 @@ export function SeguimientoPresupuesto({
   datosPdf,
   formulario,
   setFormulario,
+  onRelacion,
 }: {
   d: DatosSeguimiento
   editando: boolean
@@ -63,6 +64,8 @@ export function SeguimientoPresupuesto({
   /** Formulario SEGUIMIENTO abierto: lo controla la ficha, que pone el botón debajo del Dto. %. */
   formulario: boolean
   setFormulario: (v: boolean) => void
+  /** Abre la relación de todos los seguimientos (por fecha y vendedor). */
+  onRelacion: () => void
 }) {
   const navigate = useNavigate()
   const [empleados, setEmpleados] = useState<{ codigo: string; nombre: string; numero_operario: string | null }[]>([])
@@ -229,6 +232,9 @@ export function SeguimientoPresupuesto({
           {aviso && <span className="max-w-[420px] text-[12px] text-[#185a18]">{aviso}</span>}
         </span>
       )}
+      <button type="button" className="gw-btn font-bold" onClick={onRelacion} title="Todos los presupuestos abiertos, por fecha de contacto y vendedor">
+        📋 Relación de seguimientos
+      </button>
       <button type="button" className="gw-btn" onClick={() => setAyuda((a) => !a)}>
         Operativa
       </button>
@@ -258,6 +264,7 @@ export function SeguimientoPresupuesto({
                   'Por correo: marca «E-mail» y pulsa ✉ Enviar correo: se abre tu correo con el texto hecho y queda apuntado.',
                   'Si lo acepta: Estado «Aceptado» y luego «➜ Pasar a pedido».',
                   'Si no: en SEGUIMIENTO → «Cerrar el presupuesto» con el motivo (queda la fecha y el vendedor).',
+                  '📋 Relación de seguimientos: todos los abiertos por fecha de contacto y vendedor; pulsa uno para abrirlo.',
                 ],
               },
               {
@@ -265,6 +272,7 @@ export function SeguimientoPresupuesto({
                 notas: [
                   'Un presupuesto abierto siempre tiene fecha de próximo contacto: nunca se queda en el limbo.',
                   'Los que toca llamar hoy (y los vencidos, en rojo) salen en el Panel de Control → tarjeta Presupuestos.',
+                  'Globo rojo en el botón «Presup.» de la barra: cuántos te toca llamar hoy (eres el responsable). En el móvil o la tablet sale además un aviso; la primera vez acepta «Permitir notificaciones». Al tocar el aviso se abre la relación.',
                   'Caducado = ya pasó la fecha final del «Periodo de Validez»: «Renovar 30 días» o «Dar por perdido».',
                   'Responsable: el empleado que hace el seguimiento (por defecto, quien lo crea).',
                 ],
