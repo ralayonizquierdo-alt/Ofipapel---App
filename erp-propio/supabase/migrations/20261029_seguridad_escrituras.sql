@@ -81,7 +81,7 @@ alter function public.fn_lote_movimiento_actualiza() security definer;
 create or replace function pg_temp.politica_escritura(p_tabla text, p_codigos text[])
 returns void language plpgsql as $$
 declare
-  v_expr text := format('(select public.fn_puede_alguno(%L::text[]))', p_codigos);
+  v_expr text := format('((select public.fn_puede_alguno(%L::text[])))', p_codigos);
   v_existe boolean;
 begin
   select exists (select 1 from pg_policies where schemaname = 'public' and tablename = p_tabla and policyname = 'permiso_alta_' || p_tabla) into v_existe;
@@ -144,7 +144,7 @@ select pg_temp.politica_escritura(t, c) from (values
 create or replace function pg_temp.politica_escritura(p_tabla text, p_codigos text[])
 returns void language plpgsql as $$
 declare
-  v_expr text := format('(select public.fn_puede_alguno(%L::text[]))', p_codigos);
+  v_expr text := format('((select public.fn_puede_alguno(%L::text[])))', p_codigos);
   v_existe boolean;
 begin
   select exists (select 1 from pg_policies where schemaname = 'public' and tablename = p_tabla and policyname = 'permiso_alta_' || p_tabla) into v_existe;
@@ -194,7 +194,7 @@ select pg_temp.politica_escritura(t, c) from (values
 create or replace function pg_temp.politica_escritura(p_tabla text, p_codigos text[])
 returns void language plpgsql as $$
 declare
-  v_expr text := format('(select public.fn_puede_alguno(%L::text[]))', p_codigos);
+  v_expr text := format('((select public.fn_puede_alguno(%L::text[])))', p_codigos);
   v_existe boolean;
 begin
   select exists (select 1 from pg_policies where schemaname = 'public' and tablename = p_tabla and policyname = 'permiso_alta_' || p_tabla) into v_existe;
@@ -235,7 +235,7 @@ select pg_temp.politica_escritura(t, c) from (values
 create or replace function pg_temp.politica_escritura(p_tabla text, p_codigos text[])
 returns void language plpgsql as $$
 declare
-  v_expr text := format('(select public.fn_puede_alguno(%L::text[]))', p_codigos);
+  v_expr text := format('((select public.fn_puede_alguno(%L::text[])))', p_codigos);
   v_existe boolean;
 begin
   select exists (select 1 from pg_policies where schemaname = 'public' and tablename = p_tabla and policyname = 'permiso_alta_' || p_tabla) into v_existe;
@@ -266,7 +266,7 @@ select pg_temp.politica_escritura(t, c) from (values
 create or replace function pg_temp.politica_escritura(p_tabla text, p_codigos text[])
 returns void language plpgsql as $$
 declare
-  v_expr text := format('(select public.fn_puede_alguno(%L::text[]))', p_codigos);
+  v_expr text := format('((select public.fn_puede_alguno(%L::text[])))', p_codigos);
   v_existe boolean;
 begin
   select exists (select 1 from pg_policies where schemaname = 'public' and tablename = p_tabla and policyname = 'permiso_alta_' || p_tabla) into v_existe;
