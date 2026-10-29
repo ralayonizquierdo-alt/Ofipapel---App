@@ -7,7 +7,6 @@ import { MenuBar } from './shell/MenuBar'
 import { QuickBar, useLadoBarra } from './shell/QuickBar'
 import { COLORES_DEFECTO } from '../lib/catalogoParametros'
 import { colorDePantalla, type MapaColores } from '../lib/coloresPantallas'
-import { fuenteDeRuta } from '../lib/listados/fuentes'
 import { useParametro, valorParametro } from '../lib/parametros'
 import { dentroDeHorario, useMiAcceso } from '../lib/accesoEmpleado'
 import { AvisoVersion } from './shell/AvisoVersion'
@@ -285,21 +284,6 @@ export function Layout() {
               title={title}
               movible={false}
               principal
-              extraTitulo={
-                pathname !== '/listados' ? (
-                  <button
-                    type="button"
-                    title="Generador de listados de esta pantalla"
-                    onClick={() => {
-                      const f = fuenteDeRuta(pathname)
-                      navigate(f ? `/listados?fuente=${f}` : '/listados')
-                    }}
-                    className="mr-1 flex h-[17px] items-center gap-1 border border-[#7a8aa0] bg-white/80 px-1.5 text-[11px] font-normal text-black hover:bg-white"
-                  >
-                    📋 Listados
-                  </button>
-                ) : null
-              }
               color={coloresSeccion ? colorDePantalla(pathname, mapaColores) : null}
               onClose={() => cerrarVentana(false)}
               className="absolute inset-1 z-10 [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-auto"

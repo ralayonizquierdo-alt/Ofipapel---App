@@ -1,6 +1,7 @@
 -- Clientes → Artículos comprados: columnas «Web» (cuántas de esas compras vinieron de la tienda
 -- online: venta de un pedido con web_pedido_id o hecha en el terminal 60 TIENDA WEB) y «Oper»
 -- (operario de la última venta del artículo, la del último precio). Luis, 29/10/2026.
+-- «Reparto»: de esas ventas, cuántas por la web y cuántas por cada operario (nº de operario).
 
 drop function if exists public.fn_cliente_articulos_comprados(text);
 create function public.fn_cliente_articulos_comprados(p_cliente text)
@@ -15,7 +16,8 @@ returns table (
   ultima_fecha date,
   veces integer,
   web integer,
-  operario text
+  operario text,
+  reparto text
 )
 language sql
 stable
@@ -48,7 +50,13 @@ as $$
          u.fecha,
          count(*)::int,
          count(*) filter (where l.es_web)::int,
-         u.operario
+         u.operario,
+         -- Cuántas de esas ventas fueron por la web y cuántas hizo cada operario: «Web 3 · 410: 12 · 411: 7».
+         (select string_agg(x.t, ' · ' order by x.o, x.n desc)
+            from (select 0 as o, count(*) as n, 'Web ' || count(*) as t from l l2 where l2.articulo_codigo = l.articulo_codigo and l2.es_web having count(*) > 0
+                  union all
+                  select 1, count(*), coalesce(l2.operario, '?') || ': ' || count(*) from l l2
+                   where l2.articulo_codigo = l.articulo_codigo and not l2.es_web group by l2.operario) x)
     from l
     join ultima u on u.articulo_codigo = l.articulo_codigo
     left join articulo a on a.codigo_interno = l.articulo_codigo

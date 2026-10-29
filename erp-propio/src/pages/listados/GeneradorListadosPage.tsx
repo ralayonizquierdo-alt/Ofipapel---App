@@ -118,7 +118,15 @@ export function GeneradorListadosPage() {
     const fu = params.get('fuente')
     if (!p && fu && FUENTE_POR_CLAVE[fu]) {
       setFuente(fu)
-      setDef(definicionNueva(FUENTE_POR_CLAVE[fu]))
+      // ?filtro=col:valor (uno o varios): filtros «igual a» ya puestos (p. ej. las ventas de un cliente).
+      const filtros = params
+        .getAll('filtro')
+        .map((x) => {
+          const i = x.indexOf(':')
+          return i > 0 ? { col: x.slice(0, i), op: '=', valor: x.slice(i + 1) } : null
+        })
+        .filter((x): x is { col: string; op: string; valor: string } => x != null)
+      setDef({ ...definicionNueva(FUENTE_POR_CLAVE[fu]), filtros })
       setId(null)
       setNombre('')
       setFilas(null)

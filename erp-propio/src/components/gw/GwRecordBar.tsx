@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { registrarVistaPrevia } from '../../lib/impresion'
+import { BotonListados } from './BotonListados'
 import { conTecla, useTeclasFicha } from './teclasFicha'
 import {
   GwAceptar,
@@ -138,6 +139,8 @@ export function GwRecordBar({
       <Btn title={conTecla('Salir', 'salir')} onClick={onExit}>
         <GwSalir />
       </Btn>
+      {/* Generador de listados de esta pantalla (aparte, con fondo gris). */}
+      <BotonListados className="ml-3" />
     </div>
   )
 }

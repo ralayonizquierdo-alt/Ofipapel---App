@@ -159,3 +159,19 @@ export const GwCancelar = (p: P) => (
     <path d="M5 5l14 14M19 5L5 19" stroke="#e00000" strokeWidth="3.5" shapeRendering="geometricPrecision" />
   </Svg>
 )
+
+export const GwListados = (p: P) => (
+  <Svg {...p}>
+    {/* hoja de listado con columnas y renglones */}
+    <path d="M3 2h14l4 4v16H3z" fill="#fff" />
+    <path d="M3.5 2.5h13l4 4v15h-17z" fill="none" stroke="#000" />
+    <rect x="5" y="6" width="13" height="2" fill="#0000c0" />
+    {[10, 13, 16, 19].map((y) => (
+      <g key={y}>
+        <rect x="5" y={y} width="4" height="1" fill="#404040" />
+        <rect x="10" y={y} width="5" height="1" fill="#808080" />
+        <rect x="16" y={y} width="2" height="1" fill="#008000" />
+      </g>
+    ))}
+  </Svg>
+)

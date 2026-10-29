@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import { GwInput, formatGw } from '../../../components/gw'
 import { supabase } from '../../../lib/supabase'
 import type { ClienteTabProps } from '../types'
+import { BotonListados } from '../../../components/gw/BotonListados'
 
 interface Fila {
   articulo_codigo: string
@@ -22,6 +23,7 @@ interface Fila {
   veces: number
   web: number
   operario: string | null
+  reparto: string | null
 }
 
 type Col = keyof Fila
@@ -36,6 +38,7 @@ const COLUMNAS: { key: Col; label: string; ancho?: number; num?: number }[] = [
   { key: 'veces', label: 'Veces', ancho: 60, num: 0 },
   { key: 'web', label: 'Web', ancho: 55, num: 0 },
   { key: 'operario', label: 'Oper', ancho: 70 },
+  { key: 'reparto', label: 'Ventas por web / operario', ancho: 220 },
   { key: 'importe', label: 'Importe total', ancho: 110, num: 2 },
 ]
 
@@ -87,7 +90,10 @@ export function TabArticulosComprados({ cliente }: ClienteTabProps) {
     <div className="flex flex-col gap-1.5 p-1">
       <div className="flex items-center gap-2">
         <span className="gw-label">Buscar:</span>
-        <GwInput className="w-[320px]" placeholder="código, referencia o descripción" value={filtro} onChange={(e) => setFiltro(e.target.value)} />
+        <div className="w-[735px] max-w-[62%]">
+          <GwInput placeholder="código, referencia o descripción" value={filtro} onChange={(e) => setFiltro(e.target.value)} />
+        </div>
+        <BotonListados fuente="ventas_lineas" filtros={{ cliente: cliente.codigo }} />
         <span className="flex-1" />
         <span className="text-[13px]">
           {vistas.length} artículos · {formatGw(unidades, 2)} unidades · {formatGw(total, 2)} €
