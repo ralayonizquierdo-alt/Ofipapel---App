@@ -268,7 +268,7 @@ export function GwListaOrdenada({
                   <tr
                     key={r._k}
                     data-i={i}
-                    className={i === sel ? 'gw-selected' : r.activo === false ? 'text-[#8a8a8a]' : ''}
+                    className={i === sel ? 'gw-selected' : r.baja === true ? 'font-bold text-[#c42b1c]' : r.activo === false ? 'text-[#8a8a8a]' : ''}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setSel(i)}
                     onDoubleClick={() => onPick(r)}

@@ -27,6 +27,7 @@ export function useFichaMaestro<T extends { codigo: string }>({
   etiquetaCodigo = 'Código',
   etiquetaNombre = 'Descripción',
   rpc,
+  bajasAlFinal,
 }: {
   tabla: string
   base: string
@@ -41,6 +42,8 @@ export function useFichaMaestro<T extends { codigo: string }>({
   etiquetaNombre?: string
   /** RPC de la lista ordenada si la tabla no está en gw_lista_ordenada (p. ej. gw_lista_ordenada_maestros). */
   rpc?: string
+  /** Columna numérica (0 activo / 1 baja) para dejar los de baja al final al recorrer (p. ej. «baja_orden»). */
+  bajasAlFinal?: string
 }) {
   const params = useParams()
   const navigate = useNavigate()
@@ -82,6 +85,7 @@ export function useFichaMaestro<T extends { codigo: string }>({
       supabase
         .from(tabla)
         .select('codigo')
+        .order(bajasAlFinal ?? 'codigo')
         .order('codigo')
         .limit(1)
         .then(({ data }) => {
@@ -120,13 +124,14 @@ export function useFichaMaestro<T extends { codigo: string }>({
   const porNombre = orden === 'nombre' && campoNombre !== 'codigo'
   const nav = useNavRegistro<{ codigo: string }>({
     tabla,
-    orden: porNombre ? [campoNombre, 'codigo'] : ['codigo'],
+    orden: [...(bajasAlFinal ? [bajasAlFinal] : []), ...(porNombre ? [campoNombre, 'codigo'] : ['codigo'])],
     actual:
       sinRegistros || mode === 'alta' || !registro.codigo
         ? null
-        : porNombre
-          ? [String((registro as Record<string, unknown>)[campoNombre] ?? ''), registro.codigo]
-          : [registro.codigo],
+        : [
+            ...(bajasAlFinal ? [Number((registro as Record<string, unknown>)[bajasAlFinal] ?? 0)] : []),
+            ...(porNombre ? [String((registro as Record<string, unknown>)[campoNombre] ?? ''), registro.codigo] : [registro.codigo]),
+          ],
     select: 'codigo',
   })
   /** Posición (0…) del registro actual en el orden, -1 si no se sabe. */

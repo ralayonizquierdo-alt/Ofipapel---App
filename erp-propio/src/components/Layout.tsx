@@ -283,6 +283,7 @@ export function Layout() {
             <GwWindow
               title={title}
               movible={false}
+              principal
               color={coloresSeccion ? colorDePantalla(pathname, mapaColores) : null}
               onClose={() => cerrarVentana(false)}
               className="absolute inset-1 z-10 [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-auto"

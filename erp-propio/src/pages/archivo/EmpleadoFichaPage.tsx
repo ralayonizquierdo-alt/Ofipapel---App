@@ -5,6 +5,7 @@ import { GwCheck, GwDate, GwField, GwGroup, GwInline, GwInput, GwTabs, type GwTa
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
+import { GwOperativa } from '../../components/gw/GwOperativa'
 import { useFichaMaestro } from '../almacen/useFichaMaestro'
 import { PieEstado } from '../almacen/piezas'
 import { BloqueDireccion, CampoEnlace, ObservacionesImagen, PestanaPendiente, hoy, useEsAdministrador, useEsSuperAdministrador } from './comun'
@@ -78,6 +79,7 @@ const TABS: GwTabDef[][] = [
     { key: 'enlaces', label: 'Enlaces' },
     { key: 'bancos', label: 'Bancos' },
     { key: 'obs', label: 'Observaciones e Imagen' },
+    { key: 'operativa', label: 'Operativa' },
   ],
 ]
 
@@ -92,11 +94,13 @@ export function EmpleadoFichaPage() {
     vacio: VACIO,
     campoNombre: 'nombre',
     // auth_user_id lo pone solo la Edge Function empleados-acceso: la ficha no lo manda nunca.
-    sinColumnas: ['actualizado_en', 'auth_user_id'],
+    sinColumnas: ['actualizado_en', 'auth_user_id', 'baja_orden'],
     que: 'el empleado',
     titulo: 'Empleados',
     etiquetaNombre: 'Nombre',
     rpc: 'gw_lista_ordenada_maestros',
+    // Los de baja, siempre al final (y en rojo).
+    bajasAlFinal: 'baja_orden',
   })
   const { draft: d, patch, editing, mode } = f
   const admin = useEsAdministrador()
@@ -106,6 +110,7 @@ export function EmpleadoFichaPage() {
 
   if (f.loading) return <div className="p-4 text-[13px]">Cargando…</div>
   const ro = !editing
+  const deBaja = !f.sinRegistros && mode !== 'alta' && (Boolean(f.registro.fecha_baja) || f.registro.activo === false)
   const txt = (k: keyof Empleado, title: string) => (
     <GwInput value={(d[k] as string | null) ?? ''} disabled={ro} title={title} onChange={(e) => patch({ [k]: e.target.value || null } as Partial<Empleado>)} />
   )
@@ -124,8 +129,16 @@ export function EmpleadoFichaPage() {
         <GwField label="Código">
           <GwCampoBusqueda value={d.codigo} editable={mode === 'alta'} disabled={mode === 'edicion'} title="CODIGO" maxLength={10} onChange={(v) => patch({ codigo: v.toUpperCase() })} {...f.busqueda('codigo')} />
         </GwField>
-        <GwField label="Nombre">
-          <GwCampoBusqueda value={d.nombre} editable={editing} title="NOMBRE" onChange={(v) => patch({ nombre: v })} {...f.busqueda('nombre')} />
+        <GwField
+          label={
+            deBaja ? (
+              <span className="font-bold text-[#c42b1c]">Nombre — DE BAJA{d.fecha_baja ? ` desde ${d.fecha_baja.split('-').reverse().join('/')}` : ''}</span>
+            ) : (
+              'Nombre'
+            )
+          }
+        >
+          <GwCampoBusqueda className={deBaja ? '!font-bold !text-[#c42b1c]' : undefined} value={d.nombre} editable={editing} title="NOMBRE" onChange={(v) => patch({ nombre: v })} {...f.busqueda('nombre')} />
         </GwField>
         <GwField label="Alias">{txt('nombre_corto', 'ALIAS')}</GwField>
         <GwField label="Dni/Nif">{txt('dni', 'DNI')}</GwField>
@@ -171,6 +184,29 @@ export function EmpleadoFichaPage() {
               />
             )}
             {tab === 'enlaces' && <Enlaces d={d} ro={ro} onChange={patch} />}
+            {tab === 'operativa' && (
+              <GwOperativa
+                bloques={[
+                  {
+                    titulo: 'Empleados de baja',
+                    notas: [
+                      'Un empleado con Fecha de Baja sale en rojo, con «DE BAJA» junto al nombre.',
+                      'Siempre van al final: al recorrer con las flechas, en Ctrl+Intro y en el buscador.',
+                      'Dar de baja: botón Eliminar (no se borra, queda la fecha de baja).',
+                    ],
+                  },
+                  {
+                    titulo: 'Ventanas (en todo el programa)',
+                    notas: [
+                      '— Minimizar: la ventana queda solo con su título. Vuelve a pulsarlo para recuperarla.',
+                      '▢ Maximizar / restaurar (o doble clic en el título).',
+                      'Moverla: arrastra la barra de título.',
+                      'Agrandar o achicar: arrastra la esquina de abajo a la derecha.',
+                    ],
+                  },
+                ]}
+              />
+            )}
             {tab === 'bancos' && <PestanaPendiente texto="Bancos del empleado: pendiente. Las cuentas bancarias no se cargan ni se muestran en el ERP." alto={ALTO} />}
             {tab === 'obs' && (
               <ObservacionesImagen nombre="empleado" observaciones={d.observaciones} imagenUrl={d.imagen_url} imagenModo={d.imagen_modo ?? 1} ro={ro} alto={ALTO - 12} onChange={(p) => patch(p)} />
@@ -216,6 +252,8 @@ export function EmpleadoFichaPage() {
           ]}
           searchColumns={['codigo', 'nombre', 'nombre_corto']}
           orderBy={f.orden === 'codigo' ? 'codigo' : 'nombre'}
+          ordenPrevio="baja_orden"
+          filaRoja={(r) => (r as unknown as { baja_orden?: number }).baja_orden === 1}
           keyColumn="codigo"
           onPick={(r) => {
             setBuscar(false)

@@ -23,6 +23,8 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
   onPick,
   onClose,
   eq,
+  ordenPrevio,
+  filaRoja,
 }: {
   title: string
   table: string
@@ -34,6 +36,10 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
   onClose: () => void
   /** Restricciones fijas (columna = valor), p. ej. { tipo: 'proveedor' } para no ofrecer acreedores. */
   eq?: Record<string, string>
+  /** Columna por la que se ordena antes que `orderBy` (p. ej. «baja_orden»: los de baja al final). */
+  ordenPrevio?: string
+  /** Filas que salen en rojo (p. ej. empleados de baja). */
+  filaRoja?: (r: T) => boolean
 }) {
   const [filtro, setFiltro] = useState('')
   const eqClave = JSON.stringify(eq ?? {})
@@ -42,7 +48,10 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
 
   useEffect(() => {
     const t = setTimeout(async () => {
-      let q = supabase.from(table).select(columns.map((c) => c.key).join(', ')).order(orderBy).limit(200)
+      const cols = [...new Set([...columns.map((c) => c.key), ...(ordenPrevio ? [ordenPrevio] : [])])].join(', ')
+      let q = supabase.from(table).select(cols)
+      if (ordenPrevio) q = q.order(ordenPrevio)
+      q = q.order(orderBy).limit(200)
       const f = filtro.trim().replace(/[,%()]/g, ' ')
       if (f) q = q.or(searchColumns.map((c) => `${c}.ilike.%${f}%`).join(','))
       for (const [c, v] of Object.entries(JSON.parse(eqClave) as Record<string, string>)) q = q.eq(c, v)
@@ -51,7 +60,7 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
       setSel(0)
     }, 200)
     return () => clearTimeout(t)
-  }, [filtro, table, orderBy, columns, searchColumns, eqClave])
+  }, [filtro, table, orderBy, columns, searchColumns, eqClave, ordenPrevio])
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-24" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
@@ -96,7 +105,7 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
                 {rows.map((r, i) => (
                   <tr
                     key={String(r[keyColumn])}
-                    className={i === sel ? 'gw-selected' : ''}
+                    className={i === sel ? 'gw-selected' : filaRoja?.(r) ? 'font-bold text-[#c42b1c]' : ''}
                     onClick={() => setSel(i)}
                     onDoubleClick={() => onPick(r)}
                   >

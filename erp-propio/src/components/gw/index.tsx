@@ -1,5 +1,5 @@
 import { useRef, useState, type CSSProperties, type InputHTMLAttributes, type PointerEvent as ReactPointerEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
-import { Minus, Square, X } from 'lucide-react'
+import { Copy, Minus, Square, X } from 'lucide-react'
 import { seleccionAlPulsar, seleccionAlSoltar, useSeleccionAlEntrar } from './seleccionEntrada'
 
 export { GwDate, type GwDateProps } from './GwDate'
@@ -41,6 +41,7 @@ export function GwWindow({
   movible = true,
   seccion,
   color,
+  principal = false,
 }: {
   title: string
   onClose?: () => void
@@ -52,28 +53,64 @@ export function GwWindow({
   seccion?: string | null
   /** Color de la pantalla (Parámetros → Colores de pantallas): fondo y barra de título. */
   color?: { fondo: string; t1: string; t2: string } | null
+  /**
+   * Ventana principal del escritorio (Layout): empieza maximizada; «restaurar» la deja flotando
+   * (se mueve y se cambia de tamaño) y «minimizar» la deja en la barra de título, abajo.
+   */
+  principal?: boolean
 }) {
-  const { estilo, barra } = useArrastre(movible)
+  // Como en Windows: minimizar (solo la barra de título), maximizar / restaurar (doble clic en
+  // el título también) y, sin maximizar, cambiar el tamaño desde la esquina de abajo a la derecha.
+  const [estado, setEstado] = useState<'normal' | 'max' | 'min'>(principal ? 'max' : 'normal')
+  const [tam, setTam] = useState<{ w: number; h: number } | null>(null)
+  const ventana = useRef<HTMLDivElement>(null)
+  const redimension = useRef<{ x: number; y: number; w: number; h: number } | null>(null)
+  const sePuedeMover = estado !== 'max' && (movible || principal)
+  const { estilo, barra } = useArrastre(sePuedeMover)
   const tinte = color ? ({ '--gw-face': color.fondo, '--sec-t1': color.t1, '--sec-t2': color.t2 } as CSSProperties) : undefined
+
+  let disposicion: CSSProperties | undefined
+  let clases = className
+  if (principal) {
+    // La principal llega con «absolute inset-1»: restaurada o minimizada, se coloca a mano.
+    if (estado === 'normal') {
+      clases = className.replace(/\binset-1\b/, '')
+      disposicion = { left: 24, top: 18, width: tam?.w ?? '82%', height: tam?.h ?? '82%' }
+    } else if (estado === 'min') {
+      clases = className.replace(/\binset-1\b/, '')
+      disposicion = { left: 6, bottom: 6, width: 300, height: 'auto' }
+    }
+  } else if (estado === 'max') {
+    disposicion = { position: 'fixed', inset: 8, width: 'auto', height: 'auto', maxWidth: 'none', zIndex: 60 }
+  } else if (estado === 'min') {
+    disposicion = { width: 300, height: 'auto' }
+  } else if (tam) {
+    disposicion = { width: tam.w, height: tam.h, maxWidth: 'none' }
+  }
+
+  const alternarMax = () => setEstado((e) => (e === 'max' ? 'normal' : 'max'))
+  const boton = 'flex h-[16px] w-[22px] items-center justify-center border border-[#9aa8bb] bg-[#e9eef6] hover:bg-white'
   return (
     <div
-      className={`gw-ventana flex flex-col border border-[#6f6f6f] bg-[var(--gw-face)] shadow-[2px_2px_6px_rgba(0,0,0,0.35)] ${className}`}
-      style={tinte || estilo ? { ...tinte, ...estilo } : undefined}
+      ref={ventana}
+      className={`gw-ventana ${principal ? '' : 'relative'} flex flex-col border border-[#6f6f6f] bg-[var(--gw-face)] shadow-[2px_2px_6px_rgba(0,0,0,0.35)] ${clases}`}
+      style={{ ...tinte, ...(estado === 'max' ? undefined : estilo), ...disposicion }}
       data-seccion={color ? 'color' : (seccion ?? undefined)}
     >
       <div
-        className={`gw-titulo flex h-[22px] select-none items-center gap-1.5 bg-gradient-to-b from-[#dbe6f4] to-[#c7d6ea] px-1.5 text-[12px] ${movible ? 'cursor-move' : ''}`}
+        className={`gw-titulo flex h-[22px] flex-none select-none items-center gap-1.5 bg-gradient-to-b from-[#dbe6f4] to-[#c7d6ea] px-1.5 text-[12px] ${sePuedeMover ? 'cursor-move' : ''}`}
         {...barra}
+        onDoubleClick={(e) => !(e.target as HTMLElement).closest('button') && alternarMax()}
       >
         <GwAppIcon size={14} />
         <span className="gw-titulo-texto flex-1 truncate">{title}</span>
         <span className="flex gap-0.5">
-          <span className="flex h-[16px] w-[22px] items-center justify-center border border-[#9aa8bb] bg-[#e9eef6]">
+          <button type="button" title={estado === 'min' ? 'Restaurar' : 'Minimizar'} className={boton} onClick={() => setEstado((e) => (e === 'min' ? (principal ? 'max' : 'normal') : 'min'))}>
             <Minus size={10} />
-          </span>
-          <span className="flex h-[16px] w-[22px] items-center justify-center border border-[#9aa8bb] bg-[#e9eef6]">
-            <Square size={8} />
-          </span>
+          </button>
+          <button type="button" title={estado === 'max' ? 'Restaurar' : 'Maximizar'} className={boton} onClick={alternarMax}>
+            {estado === 'max' ? <Copy size={8} /> : <Square size={8} />}
+          </button>
           <button
             type="button"
             onClick={onClose}
@@ -84,7 +121,27 @@ export function GwWindow({
           </button>
         </span>
       </div>
-      <div className="flex-1 p-1.5">{children}</div>
+      <div className={`flex-1 p-1.5 ${estado === 'min' ? 'hidden' : ''} ${principal || tam || estado === 'max' ? 'min-h-0 overflow-auto' : ''}`}>{children}</div>
+      {estado === 'normal' && (
+        <div
+          title="Arrastra para cambiar el tamaño"
+          className="absolute bottom-0 right-0 z-10 h-[14px] w-[14px] cursor-nwse-resize touch-none bg-[linear-gradient(135deg,transparent_50%,#8a8a8a_50%,#8a8a8a_60%,transparent_60%,transparent_70%,#8a8a8a_70%,#8a8a8a_80%,transparent_80%)]"
+          onPointerDown={(e) => {
+            if (e.button !== 0 || !ventana.current) return
+            e.preventDefault()
+            const r = ventana.current.getBoundingClientRect()
+            redimension.current = { x: e.clientX, y: e.clientY, w: r.width, h: r.height }
+            e.currentTarget.setPointerCapture(e.pointerId)
+          }}
+          onPointerMove={(e) => {
+            const r = redimension.current
+            if (r) setTam({ w: Math.max(260, r.w + e.clientX - r.x), h: Math.max(120, r.h + e.clientY - r.y) })
+          }}
+          onPointerUp={() => {
+            redimension.current = null
+          }}
+        />
+      )}
     </div>
   )
 }
