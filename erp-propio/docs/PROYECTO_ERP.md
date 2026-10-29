@@ -158,7 +158,13 @@ estas piezas, no con controles propios.**
    volúmenes reales (decenas de miles de artículos).
 4. **El número se asigna al guardar**, no al pulsar «Nuevo», con la función
    `fn_siguiente_numero` (contadores por tienda y serie, sin huecos ni
-   duplicados aunque dos personas guarden a la vez).
+   duplicados aunque dos personas guarden a la vez). Al pulsar «Nuevo» la
+   ficha ya **enseña** el próximo número de la tienda/serie (hook
+   `useProximoNumero` de `src/lib/proximoNumero.ts`, que consulta
+   `fn_proximo_numero` sin reservar nada; cancelar no deja huecos). Si al
+   guardar sale otro número porque otro puesto se adelantó, la barra de
+   mensajes lo avisa («Se ha guardado con el nº X (el Y lo usó otro puesto)»).
+   Toda ficha nueva con número debe usar ese hook.
 5. **Borrar es una baja lógica:** el registro se marca como dado de baja y
    desaparece de las listas, pero no se elimina (hay documentos que lo
    referencian).
