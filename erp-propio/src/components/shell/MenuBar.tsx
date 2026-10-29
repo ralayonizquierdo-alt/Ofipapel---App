@@ -133,7 +133,8 @@ export function MenuBar({
       altSolo.current = false
       const { open: o, activa: a } = st.current
       if (o == null && !a) {
-        if (e.key === 'F10' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey && !modalAlPulsar(e)) {
+        // F10 activa la barra salvo en ventanas que lo usan para otra cosa (TPV/Ventas: abrir cajón).
+        if (e.key === 'F10' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey && !modalAlPulsar(e) && !document.querySelector('[data-gw-f10]')) {
           e.preventDefault()
           e.stopImmediatePropagation()
           setActiva(true)

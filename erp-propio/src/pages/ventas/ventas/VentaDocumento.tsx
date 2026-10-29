@@ -148,6 +148,8 @@ export function VentaDocumento({
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [pidiendoEmpleado, setPidiendoEmpleado] = useState(pedirEmpleado)
+  // Ctrl+F12 vuelve a pedir el empleado a mitad de trabajo: cancelar solo cierra el diálogo.
+  const [empleadoPorTecla, setEmpleadoPorTecla] = useState(false)
   const [dialogo, setDialogo] = useState<
     | null
     | { tipo: 'pago'; aplazar: false }
@@ -580,7 +582,7 @@ export function VentaDocumento({
     }
   }
 
-  /** Botón «Cajón» (Ctrl+F12): abre el cajón a mano y lo apunta en el listado de aperturas. */
+  /** Botón «Cajón» (F10, como en GeminisWin): abre el cajón a mano y lo apunta en el listado de aperturas. */
   async function abrirCajon() {
     const aviso = await apuntarAperturaCajon({
       tienda,
@@ -683,9 +685,14 @@ export function VentaDocumento({
     } else if (e.key === 'F11') {
       mia()
       if (editable) prepararGuardado(true)
-    } else if (e.key === 'F12' && e.ctrlKey) {
+    } else if (e.key === 'F10' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
       mia()
       abrirCajon()
+    } else if (e.key === 'F12' && e.ctrlKey) {
+      // Ctrl+F12: cambiar de empleado, como en GeminisWin
+      mia()
+      setEmpleadoPorTecla(true)
+      setPidiendoEmpleado(true)
     } else if (e.key === 'F12' && !e.ctrlKey) {
       mia()
       if (lineaSel?.articulo_codigo) setDialogo({ tipo: 'stock' })
@@ -772,7 +779,8 @@ export function VentaDocumento({
   const consulta = modo === 'consulta'
 
   return (
-    <div className="flex min-w-[1180px] flex-col gap-1 text-[16px]">
+    // data-gw-f10: aquí F10 abre el cajón, no activa la barra de menús
+    <div className="flex min-w-[1180px] flex-col gap-1 text-[16px]" data-gw-f10>
       {/* ---------- Cabecera ---------- */}
       <div className="flex gap-2">
         <div className="flex flex-col gap-1">
@@ -1074,13 +1082,13 @@ export function VentaDocumento({
             <BarBtn label="Deshacer" icon={<Undo2 size={15} />} onClick={deshacer} disabled={guardando} />
           </>
         )}
-        <BarBtn label="Cajón" icon={<Inbox size={15} />} onClick={abrirCajon} disabled={guardando} title="Abrir el cajón (CTRL+F12): queda apuntado en el listado de aperturas de cajón" />
+        <BarBtn label="Cajón" icon={<Inbox size={15} />} onClick={abrirCajon} disabled={guardando} title="Abrir el cajón (F10): queda apuntado en el listado de aperturas de cajón" />
         <BarBtn label="Cerrar" title={conTecla('Cerrar', 'salir')} icon={<GwSalir />} onClick={() => navigate('/')} />
       </div>
       <div className="truncate text-[11px] text-[#333]">
         {editable
-          ? 'ALT+RETROCESO=>Cancelar, F1=>Guardar, F2=>Imprimir, F11=>Aplazar, CTRL+F11=>Aplazadas, F12=>Ver Stock, CTRL+F12=>Abrir Cajón'
-          : 'F2=>Imprimir, CTRL+F11=>Aplazadas, F12=>Ver Stock, CTRL+F12=>Abrir Cajón'}
+          ? 'ALT+RETROCESO=>Cancelar, F1=>Guardar, F2=>Imprimir, F11=>Aplazar, CTRL+F11=>Aplazadas, F12=>Ver Stock, F10=>Abrir Cajón, CTRL+F12=>Cambiar Empleado'
+          : 'F2=>Imprimir, CTRL+F11=>Aplazadas, F12=>Ver Stock, F10=>Abrir Cajón, CTRL+F12=>Cambiar Empleado'}
       </div>
 
       <VentaTicket empresa={empresa} cab={cab} lineas={lineas} pie={pie} verifactu={verifactu} />
@@ -1090,10 +1098,14 @@ export function VentaDocumento({
         <EmpleadoDialog
           empleado={empleado}
           email={session?.user.email ?? null}
-          onOk={() => setPidiendoEmpleado(false)}
+          onOk={() => {
+            setPidiendoEmpleado(false)
+            setEmpleadoPorTecla(false)
+          }}
           onCancel={() => {
             setPidiendoEmpleado(false)
-            navigate('/ventas')
+            if (empleadoPorTecla) setEmpleadoPorTecla(false)
+            else navigate('/ventas')
           }}
           onCambiarEmpleado={cambiarEmpleado}
         />
