@@ -65,6 +65,7 @@ export function GwCampoBusqueda({
         lanzar()
         resto.onBlur?.(e)
       }}
+      data-gw-intro="avanza"
       onKeyDown={(e) => {
         resto.onKeyDown?.(e)
         if (e.defaultPrevented) return

@@ -134,6 +134,8 @@ export function GwNumber({
         setEditing(null)
         if (onChange && (n === null || !Number.isNaN(n))) onChange(n)
       }}
+      // Intro confirma el número y pasa al campo siguiente (teclado.ts: instalarIntroAvanza).
+      data-gw-intro="avanza"
       onKeyDown={(e) => {
         if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
       }}

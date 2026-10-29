@@ -23,6 +23,7 @@ import { FilasVacias } from '../../../components/gw/GwGridParts'
 import { BIG_INPUT, BIG_LABEL, type ArticuloStock, empleadoActual, fechaHora, resolverArticulo, stockDe } from './comun'
 import { GwDateTime } from '../../../components/gw/GwDateTime'
 import { navDir, navIndice, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
+import { useTeclasFicha } from '../../../components/gw/teclasFicha'
 
 // Traspasos de artículos entre almacenes (Almacén → Traspasos en GeminisWin, TRASPCAB/TRASPLIN).
 // A diferencia de GeminisWin, la pantalla abre en consulta y el número se asigna al guardar.
@@ -466,20 +467,25 @@ export function TraspasoFichaPage() {
     }
   }
 
-  // Teclas de GeminisWin: F1 guardar, Alt+Retroceso cancelar.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (!editable) return
-      if (e.key === 'F1') {
-        e.preventDefault()
-        guardar()
-      } else if (e.key === 'Backspace' && e.altKey) {
-        e.preventDefault()
-        cancelar()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+  // Teclas de GeminisWin (F1 guardar, Alt+Retroceso cancelar) y las comunes de la barra: teclasFicha.
+  const barra = useRef<HTMLDivElement>(null)
+  useTeclasFicha({
+    mode: modo,
+    canNavigate: !editable && idx >= 0,
+    saving: guardando,
+    raiz: barra,
+    acciones: {
+      primero: () => void navegar('primero'),
+      anterior: idx > 0 ? () => void navegar('anterior') : undefined,
+      siguiente: idx < totalClaves - 1 ? () => void navegar('siguiente') : undefined,
+      ultimo: () => void navegar('ultimo'),
+      buscar: () => setDialogo('buscar'),
+      nuevo: () => navigate('/traspasos/nuevo'),
+      modificar: cab ? () => setModo('edicion') : undefined,
+      guardar,
+      cancelar,
+      salir: () => navigate('/'),
+    },
   })
 
   if (cargando && !cab) return <div className="gw-label p-2">Cargando…</div>
@@ -700,7 +706,7 @@ export function TraspasoFichaPage() {
       {mensaje && <p className="gw-label text-[#c42b1c]">{mensaje}</p>}
       {sinDoc && modo === 'consulta' && <p className="gw-label text-[#1a4fd0]">No hay traspasos todavía. Pulsa Nuevo para crear el primero.</p>}
 
-      <div className="flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
+      <div ref={barra} className="flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
         <BarBtn title="Ir al primer registro" disabled={editable || idx < 0} onClick={() => navegar('primero')}>
           <ChevronFirst size={17} strokeWidth={3} />
         </BarBtn>

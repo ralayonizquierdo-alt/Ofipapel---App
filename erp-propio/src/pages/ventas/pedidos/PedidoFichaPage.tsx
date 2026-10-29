@@ -752,17 +752,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
     setSaving(false)
   }
 
-  // F1 guarda en alta o modificación, como en GeminisWin.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'F1' && editing) {
-        e.preventDefault()
-        guardar()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
+  // F1 guarda, Alt+Retroceso cancela, AvPág/RePág navegan…: las teclas las pone PedidoBar (teclasFicha).
 
   const ir = async (d: NavDir) => {
     const k = await nav.ir(d)

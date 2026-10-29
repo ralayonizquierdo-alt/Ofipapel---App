@@ -305,6 +305,7 @@ export function GwDateTime({ value, onChange, disabled, readOnly, className = ''
           cerrarEdicion()
         }}
         onKeyDown={onKeyDown}
+        data-gw-intro="avanza"
         onDoubleClick={abrirCalendario}
         onPaste={(e) => {
           if (ro || disabled) return

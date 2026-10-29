@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { GwField, GwGroup, GwInput, formatGw } from '../../components/gw'
+import { filaPorTecla } from '../../components/gw/teclado'
 
 interface Fila {
   codigo: string
@@ -62,13 +63,17 @@ export function ProveedoresListPage() {
   const abrir = (r?: Fila) => r && navigate(`/proveedores/${encodeURIComponent(r.codigo)}`)
 
   function onKey(e: KeyboardEvent) {
-    if (e.key === 'ArrowDown') {
+    // El mismo manejador está en los filtros y en la ventana: solo actúa una vez por tecla.
+    if (e.defaultPrevented) return
+    // Flechas, AvPág/RePág y Ctrl+Inicio/Fin (Inicio/Fin a secas en la rejilla) mueven la fila; Intro la abre.
+    const n = filaPorTecla(e, sel, rows.length, 15)
+    if (n != null) {
       e.preventDefault()
-      setSel((s) => Math.min(s + 1, rows.length - 1))
-    } else if (e.key === 'ArrowUp') {
+      setSel(n)
+    } else if (e.key === 'Enter' && rows[sel]) {
       e.preventDefault()
-      setSel((s) => Math.max(s - 1, 0))
-    } else if (e.key === 'Enter') abrir(rows[sel])
+      abrir(rows[sel])
+    }
   }
 
   useEffect(() => {

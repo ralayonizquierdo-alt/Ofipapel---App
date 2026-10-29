@@ -358,17 +358,7 @@ export function CreacionRapidaArticulosPage() {
     cargar(orig.codigo_interno)
   }
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if (!editable) return
-      if (e.key === 'F1') {
-        e.preventDefault()
-        guardar()
-      }
-    }
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  })
+  // F1 (guardar) y el resto de teclas de la barra las pone GwRecordBar (teclasFicha).
 
   const base = costeBase(art as Articulo)
   const num = (k: keyof Art, d = 3) => (

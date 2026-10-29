@@ -1,4 +1,5 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
+import { filaPorTecla } from '../../../components/gw/teclado'
 
 export interface Col<T> {
   key: string
@@ -71,13 +72,15 @@ export function Rejilla<T>({
       tabIndex={0}
       className="min-h-0 flex-1 overflow-auto border border-[var(--gw-border)] bg-white outline-none"
       onKeyDown={(e) => {
-        if (e.key === 'ArrowDown') {
+        // Flechas, AvPág/RePág, Inicio/Fin mueven la fila; Intro la abre (teclado.ts).
+        const n = filaPorTecla(e, sel, rows.length, 15)
+        if (n != null) {
           e.preventDefault()
-          onSel(Math.min(sel + 1, rows.length - 1))
-        } else if (e.key === 'ArrowUp') {
+          onSel(n)
+        } else if (e.key === 'Enter' && rows[sel]) {
           e.preventDefault()
-          onSel(Math.max(sel - 1, 0))
-        } else if (e.key === 'Enter' && rows[sel]) onOpen?.(rows[sel])
+          onOpen?.(rows[sel])
+        }
       }}
     >
       <table className="border-collapse text-[17px]" style={{ width: ancho, minWidth: '100%', tableLayout: 'fixed' }}>

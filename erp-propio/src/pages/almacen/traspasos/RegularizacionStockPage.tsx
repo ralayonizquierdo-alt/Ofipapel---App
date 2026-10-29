@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTeclasFicha } from '../../../components/gw/teclasFicha'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowDownAZ,
@@ -299,23 +300,29 @@ export function RegularizacionStockPage() {
     setModo('consulta')
   }
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (!editable) return
-      if (e.key === 'F1') {
-        e.preventDefault()
-        guardar()
-      } else if (e.key === 'Backspace' && e.altKey) {
-        e.preventDefault()
-        cancelar()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
-
   const r = reg ?? vacia()
   const sinDoc = !reg
+
+  // Teclas comunes de la barra (F1 guardar, Alt+Retroceso cancelar, AvPág/RePág…): teclasFicha.
+  const barra = useRef<HTMLDivElement>(null)
+  useTeclasFicha({
+    mode: modo,
+    canNavigate: !editable && idx >= 0,
+    saving: guardando,
+    raiz: barra,
+    acciones: {
+      primero: () => void navegar('primero'),
+      anterior: idx > 0 ? () => void navegar('anterior') : undefined,
+      siguiente: idx < totalClaves - 1 ? () => void navegar('siguiente') : undefined,
+      ultimo: () => void navegar('ultimo'),
+      buscar: () => setDialogo('buscar'),
+      nuevo: () => navigate('/regularizacion-stock/nuevo'),
+      modificar: sinDoc ? undefined : () => setModo('edicion'),
+      guardar,
+      cancelar,
+      salir: () => navigate('/'),
+    },
+  })
 
   return (
     <div className="mx-auto flex w-[820px] max-w-full flex-col gap-2">
@@ -431,7 +438,7 @@ export function RegularizacionStockPage() {
       {mensaje && <p className="gw-label text-[#c42b1c]">{mensaje}</p>}
       {sinDoc && modo === 'consulta' && <p className="gw-label text-[#1a4fd0]">No hay regularizaciones todavía. Pulsa Agregar para crear la primera.</p>}
 
-      <div className="flex h-[66px] gap-1 border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
+      <div ref={barra} className="flex h-[66px] gap-1 border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
         <div className="grid w-[150px] grid-cols-3 grid-rows-2">
           <BtnTexto title="Primero" disabled={editable || idx < 0} onClick={() => navegar('primero')}>
             <ChevronFirst size={16} strokeWidth={3} />

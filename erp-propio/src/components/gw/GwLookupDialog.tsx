@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { GwInput, GwWindow } from './index'
+import { filaPorTecla } from './teclado'
 
 export interface GwLookupColumn {
   key: string
@@ -57,9 +58,15 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') setSel((s) => Math.min(s + 1, rows.length - 1))
-              if (e.key === 'ArrowUp') setSel((s) => Math.max(s - 1, 0))
-              if (e.key === 'Enter' && rows[sel]) onPick(rows[sel])
+              // Flechas, AvPág/RePág y Ctrl+Inicio/Fin mueven la fila; Intro = Aceptar.
+              const n = filaPorTecla(e, sel, rows.length, 12)
+              if (n != null) {
+                e.preventDefault()
+                setSel(n)
+              } else if (e.key === 'Enter' && rows[sel]) {
+                e.preventDefault()
+                onPick(rows[sel])
+              }
             }}
           />
           <div className="max-h-[360px] overflow-y-auto border border-[var(--gw-border)]">
