@@ -312,7 +312,16 @@ export function ProveedorFichaPage() {
           />
         </GwField>
         <GwField label="Tipo">
-          <TipoTercero value={draft.tipo} editable={editing} onChange={(t) => patch(mode === 'alta' && t !== draft.tipo ? { tipo: t, codigo: '' } : { tipo: t })} />
+          <TipoTercero
+            value={draft.tipo}
+            editable={editing}
+            onChange={(t) => {
+              // En consulta, pulsar Proveedor o Acreedor pasa a recorrer solo esos (como «Ver»);
+              // modificando, cambia el tipo de este registro.
+              if (!editing) return void (t !== draft.tipo && setVer(t))
+              patch(mode === 'alta' && t !== draft.tipo ? { tipo: t, codigo: '' } : { tipo: t })
+            }}
+          />
         </GwField>
         <GwField label="Nombre">
           {campoBusqueda('nombre', 'NOMBRE', 'nombre')}
@@ -414,10 +423,9 @@ function TipoTercero({ value, editable, onChange }: { value: 'proveedor' | 'acre
   const boton = (t: 'proveedor' | 'acreedor', texto: string, color: string) => (
     <button
       type="button"
-      disabled={!editable}
-      title={editable ? `Marcar como ${texto}` : 'Pulsa Modificar para cambiarlo'}
+      title={editable ? `Marcar como ${texto}` : `Ver solo ${texto === 'Proveedor' ? 'proveedores' : 'acreedores'} (para cambiar el tipo de este, pulsa Modificar)`}
       onClick={() => onChange(t)}
-      className={`h-full px-2.5 text-[12px] ${value === t ? `${color} font-bold text-white` : 'bg-white text-[#555] enabled:hover:bg-[#e5f1fb]'}`}
+      className={`h-full px-2.5 text-[12px] ${value === t ? `${color} font-bold text-white` : 'bg-white text-[#555] hover:bg-[#e5f1fb]'}`}
     >
       {texto}
     </button>
