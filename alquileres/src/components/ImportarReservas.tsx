@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, CalendarRange, Upload } from 'lucide-react
 import { useData } from '../contexts/DataContext'
 import { leeCalendario, type ResultadoCalendario } from '../lib/importarCalendario'
 import { buscaTarifa, calcTotal, tramoPorNoches } from '../lib/priceCalc'
+import { limpiezaDe } from '../lib/limpieza'
 import type { Reservation } from '../types'
 import Modal from './ui/Modal'
 import { num } from '../lib/formato'
@@ -38,7 +39,8 @@ export default function ImportarReservas({ onClose }: { onClose: () => void }) {
   /** Cada reserva del calendario, ya con el precio que le toca por tarifa. */
   const conPrecio = useMemo(() => (previo?.reservas ?? []).map(r => {
     const tarifa = buscaTarifa(prices, r.apartmentId, r.checkIn, r.nights, offerPrices)
-    const limpieza = tarifa ? Number(tarifa.entry.cleaningFee) || 40 : 40
+    // El Arenal va sin limpieza (lib/limpieza.ts).
+    const limpieza = limpiezaDe(r.apartmentId, tarifa ? Number(tarifa.entry.cleaningFee) || 40 : 40)
     return {
       ...r,
       basePrice: tarifa?.base ?? 0,

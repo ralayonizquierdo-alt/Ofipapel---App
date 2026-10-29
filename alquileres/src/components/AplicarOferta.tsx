@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Tag, AlertTriangle } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { buscaTarifa, calcTotal } from '../lib/priceCalc'
+import { limpiezaDe } from '../lib/limpieza'
 import { formatDate, MONTH_NAMES_ES } from '../lib/dateUtils'
 import { num } from '../lib/formato'
 import Modal from './ui/Modal'
@@ -48,7 +49,7 @@ export default function AplicarOferta({ oferta, onClose }: { oferta: OfferPrice;
       // Con la oferta sola: si no cubre ese apartamento, no devuelve nada.
       const t = buscaTarifa(prices, r.apartmentId, r.checkIn, r.nights, [oferta])
       if (!t?.oferta) continue
-      const limpieza = Number(t.entry.cleaningFee) || 0
+      const limpieza = limpiezaDe(r.apartmentId, Number(t.entry.cleaningFee) || 0)
       const total = calcTotal(t.base, limpieza, r.discountPct || 0)
       if (Math.abs(total - r.total) < 0.005) { igual++; continue }
       cambian.push({ r, total, base: t.base, limpieza })

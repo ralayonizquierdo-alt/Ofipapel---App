@@ -6,6 +6,8 @@ import type { Reservation, Apartment, PriceEntry, StayType, Channel, PaymentMeth
 import { formatDate, getNights, today } from '../lib/dateUtils'
 import { calcTotal, buscaTarifa, stayTypeDays, lineasPrecio, TRAMO_LABEL, type Tramo } from '../lib/priceCalc'
 import { ofertaDeReserva, nombreOferta } from '../lib/oferta'
+import { limpiezaDe } from '../lib/limpieza'
+import LimpiezaArenal from '../components/LimpiezaArenal'
 import { EJERCICIO_APP } from '../lib/cuentas'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
@@ -111,6 +113,8 @@ export default function Reservations() {
 
   return (
     <div className="p-6">
+      {/* El Arenal va sin limpieza: si alguna la lleva, se avisa y se quita. */}
+      <LimpiezaArenal />
       <PageHeader
         title="Reservas"
         subtitle={`${filtered.length} reservas · ${suma.noches} noches · ${eur(suma.total)}`
@@ -358,9 +362,10 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   // que puedan quedar desincronizadas.
   const stayType = pactado || !tarifa ? stayTypeManual : tarifa.tramo
   const basePrice = pactado || !tarifa ? basePriceManual : tarifa.base
+  // El Arenal va sin limpieza, venga de donde venga la tarifa (lib/limpieza.ts).
   const cleaningFee = pactado || !tarifa
-    ? cleaningFeeManual
-    : (Number.isFinite(Number(tarifa.entry.cleaningFee)) ? Number(tarifa.entry.cleaningFee) : 40)
+    ? limpiezaDe(aptId, cleaningFeeManual)
+    : limpiezaDe(aptId, Number.isFinite(Number(tarifa.entry.cleaningFee)) ? Number(tarifa.entry.cleaningFee) : 40)
   const total = calcTotal(basePrice, cleaningFee, discountPct)
 
   /** Atajo: rellena la fecha de salida a partir de la de entrada. */
