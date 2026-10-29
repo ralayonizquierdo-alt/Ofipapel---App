@@ -1,4 +1,4 @@
-import { useRef, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { useRef, useState, type InputHTMLAttributes, type PointerEvent as ReactPointerEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { Minus, Square, X } from 'lucide-react'
 import { seleccionAlPulsar, seleccionAlSoltar, useSeleccionAlEntrar } from './seleccionEntrada'
 
@@ -7,6 +7,31 @@ export { GwDate, type GwDateProps } from './GwDate'
 // Piezas de interfaz que replican el aspecto de GeminisWin (Visual FoxPro sobre Windows):
 // ventanas hijas MDI, etiquetas encima del campo, números con coma decimal alineados
 // a la derecha, grupos con marco, pestañas en varias filas y botones «···» de búsqueda.
+
+/**
+ * Ventana que se arrastra por su barra de título, como en Windows: `barra` va en la barra de
+ * título y `estilo` en la ventana (propiedad CSS translate: no usar clases translate-* en ella).
+ */
+export function useArrastre(activo = true) {
+  const [desplazado, setDesplazado] = useState({ x: 0, y: 0 })
+  const arrastre = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
+  const estilo = activo && (desplazado.x || desplazado.y) ? { translate: `${desplazado.x}px ${desplazado.y}px` } : undefined
+  const barra = {
+    onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
+      if (!activo || e.button !== 0 || (e.target as HTMLElement).closest('button, input, select, textarea')) return
+      arrastre.current = { x: e.clientX, y: e.clientY, ox: desplazado.x, oy: desplazado.y }
+      e.currentTarget.setPointerCapture(e.pointerId)
+    },
+    onPointerMove: (e: ReactPointerEvent<HTMLElement>) => {
+      const a = arrastre.current
+      if (a) setDesplazado({ x: a.ox + e.clientX - a.x, y: a.oy + e.clientY - a.y })
+    },
+    onPointerUp: () => {
+      arrastre.current = null
+    },
+  }
+  return { estilo, barra }
+}
 
 export function GwWindow({
   title,
@@ -22,27 +47,12 @@ export function GwWindow({
   /** Se arrastra por la barra de título, como en Windows (todas salvo la ventana principal). */
   movible?: boolean
 }) {
-  const [desplazado, setDesplazado] = useState({ x: 0, y: 0 })
-  const arrastre = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
+  const { estilo, barra } = useArrastre(movible)
   return (
-    <div
-      className={`gw-ventana flex flex-col border border-[#6f6f6f] bg-[var(--gw-face)] shadow-[2px_2px_6px_rgba(0,0,0,0.35)] ${className}`}
-      style={movible && (desplazado.x || desplazado.y) ? { translate: `${desplazado.x}px ${desplazado.y}px` } : undefined}
-    >
+    <div className={`gw-ventana flex flex-col border border-[#6f6f6f] bg-[var(--gw-face)] shadow-[2px_2px_6px_rgba(0,0,0,0.35)] ${className}`} style={estilo}>
       <div
         className={`gw-titulo flex h-[22px] select-none items-center gap-1.5 bg-gradient-to-b from-[#dbe6f4] to-[#c7d6ea] px-1.5 text-[12px] ${movible ? 'cursor-move' : ''}`}
-        onPointerDown={(e) => {
-          if (!movible || e.button !== 0 || (e.target as HTMLElement).closest('button')) return
-          arrastre.current = { x: e.clientX, y: e.clientY, ox: desplazado.x, oy: desplazado.y }
-          e.currentTarget.setPointerCapture(e.pointerId)
-        }}
-        onPointerMove={(e) => {
-          const a = arrastre.current
-          if (a) setDesplazado({ x: a.ox + e.clientX - a.x, y: a.oy + e.clientY - a.y })
-        }}
-        onPointerUp={() => {
-          arrastre.current = null
-        }}
+        {...barra}
       >
         <GwAppIcon size={14} />
         <span className="gw-titulo-texto flex-1 truncate">{title}</span>

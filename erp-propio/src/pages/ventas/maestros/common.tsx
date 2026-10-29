@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Check, FolderOpen, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { todasLasFilas } from '../../../lib/todasLasFilas'
-import { GwField, GwInput, GwRadio, GwTextArea } from '../../../components/gw'
+import { GwField, GwInput, GwRadio, GwTextArea, GwWindow } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import { FilasVacias, GridMiniBar } from '../../../components/gw/GwGridParts'
@@ -524,8 +524,7 @@ export function BuscarEnFilas({
   const encontradas = filas.map((f, i) => ({ ...f, i })).filter((f) => f.texto.toLowerCase().includes(t.trim().toLowerCase()))
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-24" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
-      <div className="w-[480px] max-w-[95vw] border border-[#6f6f6f] bg-[var(--gw-face)] p-2 shadow-lg">
-        <div className="mb-1 text-[13px] font-bold">{titulo}</div>
+      <GwWindow title={titulo} onClose={onClose} className="w-[480px] max-w-[95vw]">
         <GwInput autoFocus value={t} placeholder="Escribe para filtrar…" onChange={(e) => setT(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && encontradas[0] && onPick(encontradas[0].i)} />
         <div className="mt-1 max-h-[260px] overflow-y-auto border border-[var(--gw-border)] bg-white">
           {encontradas.slice(0, 200).map((f) => (
@@ -540,7 +539,7 @@ export function BuscarEnFilas({
             Cancelar
           </button>
         </div>
-      </div>
+      </GwWindow>
     </div>
   )
 }
