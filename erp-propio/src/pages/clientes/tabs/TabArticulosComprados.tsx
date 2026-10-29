@@ -1,5 +1,6 @@
 // Clientes → «Artículos comprados» (Luis, 29/10/2026): lo que ha comprado el cliente, artículo a
-// artículo: código, referencia, descripción, unidades y el último precio al que se le facturó.
+// artículo: código, referencia, descripción, unidades y el último precio al que se le facturó;
+// «Web» = cuántas de esas compras fueron por la tienda online y «Oper» = operario de la última venta.
 // Sale de sus ventas y albaranes no anulados (fn_cliente_articulos_comprados). Se filtra
 // escribiendo y se ordena pulsando el título de cada columna.
 
@@ -19,6 +20,8 @@ interface Fila {
   ultimo_descuento_pct: number | null
   ultima_fecha: string | null
   veces: number
+  web: number
+  operario: string | null
 }
 
 type Col = keyof Fila
@@ -31,6 +34,8 @@ const COLUMNAS: { key: Col; label: string; ancho?: number; num?: number }[] = [
   { key: 'ultimo_descuento_pct', label: 'Dto. %', ancho: 65, num: 2 },
   { key: 'ultima_fecha', label: 'Última venta', ancho: 100 },
   { key: 'veces', label: 'Veces', ancho: 60, num: 0 },
+  { key: 'web', label: 'Web', ancho: 55, num: 0 },
+  { key: 'operario', label: 'Oper', ancho: 70 },
   { key: 'importe', label: 'Importe total', ancho: 110, num: 2 },
 ]
 

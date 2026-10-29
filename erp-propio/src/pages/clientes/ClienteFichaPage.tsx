@@ -306,6 +306,8 @@ export function ClienteFichaPage() {
                         'Todo lo que ha comprado el cliente, un renglón por artículo: unidades en total y el último precio al que se le facturó.',
                         'Buscar: escribe parte del código, la referencia o la descripción.',
                         'Ordenar: pulsa el título de una columna (otra vez, al revés).',
+                        'Web: cuántas de esas compras vinieron de la tienda online.',
+                        'Oper: número del operario que hizo la última venta de ese artículo.',
                         'Doble clic en un artículo: abre su ficha.',
                       ],
                     },
